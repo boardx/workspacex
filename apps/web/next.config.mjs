@@ -311,6 +311,11 @@ export default {
       { source: `${prefix}/pm-designs/:path*`, destination: `${apiOrigin}/pm-designs/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
+      // issue #2664（异步子任务派发）：`subtask-run.controller.ts` 挂了
+      // `POST /internal/subtask-runs`——deep-agent-service 用它回调子任务结果。
+      // 同一个坑的又一次复现：缺了这条，`lint-rewrite-coverage.mjs --strict` 判定
+      // 这条 controller 路由前端够不到（会被 Next 接住返回 404 HTML）。
+      { source: `${prefix}/internal/:path*`, destination: `${apiOrigin}/internal/:path*` },
       // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
       // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
       // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，

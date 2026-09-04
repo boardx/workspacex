@@ -145,6 +145,21 @@ export interface AcceptedHumanMessage {
   readonly createdAt: string;
   readonly agentRunId: string;
   readonly runStatus: "queued";
+  /**
+   * #2693 —— `true` when this call hit `acceptHumanMessage`'s idempotency guard (same
+   * `clientMessageId` as an earlier, already-accepted call for this thread/actor) and
+   * handed back the ALREADY-RUNNING run instead of creating a new one. `false` for a
+   * genuinely fresh accept. Callers that poll a run's progress after this (`agui-bridge.ts`)
+   * need this to tell "brand-new run, nothing reported yet" apart from "an in-flight run a
+   * RETRIED request just reattached to, which may already have steps/deltas an earlier
+   * request already streamed to the client" — see `runAguiBridgeTurn`'s use of this field.
+   *
+   * Optional (not set by `ChatMessageCommandRepository`'s row mapper — the repository has
+   * no notion of "reused", only `acceptHumanMessage` does, which stamps it explicitly on
+   * both return paths before handing the value to a caller) so existing repository
+   * implementations do not need a matching change.
+   */
+  readonly reused?: boolean;
 }
 
 /**
@@ -219,6 +234,12 @@ export interface ChatMessageCommandRepository {
        * 回滚整条消息（消息与挂附件是一个原子动作）。空/缺省 = 不挂附件。
        */
       attachmentIds?: readonly string[];
+      /**
+       * issue #2667 -- 个人设置"每次都先给我看计划"打开时为 `true`，落库到
+       * `agent_runs.disable_task_auto_classify`，供 `execute-run.ts` 建 run 级
+       * `ModelCallInput` 时读出。默认 `false`（接入前逐字节行为）。
+       */
+      disableTaskAutoClassify: boolean;
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
 

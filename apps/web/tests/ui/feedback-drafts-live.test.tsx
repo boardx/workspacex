@@ -36,7 +36,7 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopDraftsScreen } from "@/components/design-loop/drafts-screen";
 import type { FeedbackDraft } from "@/lib/live-feedback";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 type Call = [string, { method?: string; body?: Record<string, unknown> } | undefined];
 const callsTo = (path: string, method: string) =>
@@ -44,6 +44,18 @@ const callsTo = (path: string, method: string) =>
 
 function renderDialog(onClose = () => undefined) {
   render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={onClose} />);
+}
+
+/**
+ * issue #2679 ②——结构化字段/附件区现在只在 review 阶段展示（compose 阶段只有
+ * 「详细说说」+ 语音）。这些用例本身测的是 D1/D3/B1 的请求体形状，不是渐进展示
+ * 本身，所以统一先用一句占位话进 review，再回来正常操作各字段——不改变每条用例
+ * 原本要断言的东西。
+ */
+async function proceedToReview() {
+  fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+  fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+  await screen.findByTestId("feedback-submit");
 }
 
 function mockSubmitOk() {
@@ -58,6 +70,7 @@ describe("① D1：结构化字段随 structured 单独发送", () => {
   it("缺陷：填了期望/实际结果 ⇒ body.structured = { expectedResult, actualResult }，正文不再拼进字段", async () => {
     mockSubmitOk();
     renderDialog();
+    await proceedToReview();
     fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "记住上次的值" } });
     fireEvent.change(screen.getByTestId("feedback-field-actual"), { target: { value: "每次都是空的" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "批准卡不记得预算。" } });
@@ -73,6 +86,7 @@ describe("① D1：结构化字段随 structured 单独发送", () => {
   it("需求：切 kind 后发的是需求那一组键", async () => {
     mockSubmitOk();
     renderDialog();
+    await proceedToReview();
     fireEvent.click(screen.getByTestId("feedback-kind-需求"));
     fireEvent.change(screen.getByTestId("feedback-field-scene"), { target: { value: "找上周那场录音" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "希望能按项目筛选录音" } });
@@ -85,6 +99,7 @@ describe("① D1：结构化字段随 structured 单独发送", () => {
   it("全空（含只有空白）⇒ 不带 structured 键", async () => {
     mockSubmitOk();
     renderDialog();
+    await proceedToReview();
     fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "   " } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "只有正文" } });
     fireEvent.click(screen.getByTestId("feedback-submit"));
@@ -115,8 +130,9 @@ describe("① D1：结构化字段随 structured 单独发送", () => {
 });
 
 describe("② D3：附件类型与上限来自契约", () => {
-  it("accept 与上限文案都从契约派生", () => {
+  it("accept 与上限文案都从契约派生", async () => {
     renderDialog();
+    await proceedToReview();
     const input = screen.getByTestId("feedback-attachment-input") as HTMLInputElement;
     expect(input.accept).toBe(feedbackLoop.FeedbackAttachmentMime.options.join(","));
     expect(input.accept).toContain("application/pdf");
@@ -133,6 +149,7 @@ describe("② D3：附件类型与上限来自契约", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       renderDialog();
+      await proceedToReview();
       const zip = new File([new Uint8Array([1])], "logs.zip", { type: "application/zip" });
       const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "repro.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [zip, pdf] } });
@@ -158,6 +175,7 @@ describe("② D3：附件类型与上限来自契约", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       renderDialog();
+      await proceedToReview();
       const md = new File(["# note"], "note.md", { type: "" });
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [md] } });
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -178,6 +196,7 @@ describe("③ B1：存为草稿走真栈", () => {
       throw new Error(`unexpected ${path}`);
     });
     renderDialog(onClose);
+    await proceedToReview();
     fireEvent.change(screen.getByTestId("feedback-field-actual"), { target: { value: "空的" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "先记一笔" } });
     fireEvent.click(screen.getByTestId("feedback-save-draft"));
@@ -193,6 +212,7 @@ describe("③ B1：存为草稿走真栈", () => {
     const onClose = vi.fn();
     apiRequest.mockRejectedValue(new Error("boom"));
     renderDialog(onClose);
+    await proceedToReview();
     fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "期望" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "还在吗" } });
     fireEvent.click(screen.getByTestId("feedback-save-draft"));

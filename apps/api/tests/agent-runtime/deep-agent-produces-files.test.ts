@@ -232,6 +232,7 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     skillVersionIds: [PPTX_SKILL.versionId],
     modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "deep-agent",
     pendingDecision: null,
+    disableTaskAutoClassify: false,
     ...overrides,
   };
 }

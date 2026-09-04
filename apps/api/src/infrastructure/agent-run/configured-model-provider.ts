@@ -441,6 +441,13 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
    * 决策，不在这次修复范围内。
    *
+   * ⚠ #2700 —— `apps/deep-agent-service` 的 deep-agent 主聊天路径是一套完全独立的
+   * Python/LangGraph 代码（不复用这个 TS adapter），命中同一个根因（`ChatOpenAI` 默认
+   * 非流式 + Qwen3 缺省开 thinking），已在 `deep_agent_service/model.py::build_chat_model`
+   * 用同名环境变量（`KERNEL_MODEL_THINKING_DISABLE_IDS`/`KERNEL_MODEL_BAILIAN_EXTENSIONS`）
+   * 和逐字相同的双维门控独立实现了一份镜像修复——两处判断逻辑改动时必须同步，不能
+   * 只改一处产生行为漂移。
+   *
    * ⚠ **双维门控，都为真才发**（独立复审诊断进一步收紧，见 `thinkingDisableModelIds` /
    * `bailianExtensionsEnabled` 各自头注）：
    *   1. `config.thinkingDisableModelIds.has(input.modelId)` —— **model** 维度："这个

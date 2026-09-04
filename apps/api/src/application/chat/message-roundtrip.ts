@@ -135,6 +135,15 @@ export async function acceptHumanMessage(
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
     /**
+     * issue #2667 -- 个人设置"每次都先给我看计划"打开时为 `true`，随这次 run 一起落库
+     * （`agent_runs.disable_task_auto_classify`），供 `execute-run.ts` 建
+     * `ModelCallInput` 时读出、再由 `deep-agent-model-provider.ts` 透传进
+     * `configurable.disable_task_auto_classify` 给 `deep-agent-service` 的
+     * `TaskClassifierMiddleware` 读（`harness.py` `_run_disables_auto_classify`）。
+     * 缺席/`undefined` = 未覆盖，落库为 `false`，与接入前逐字节相同。
+     */
+    disableTaskAutoClassify?: boolean;
+    /**
      * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
      * 真正新受理时调用一次；幂等命中（同一 clientMessageId 重发）也会调（见下方
@@ -173,7 +182,11 @@ export async function acceptHumanMessage(
     // `status='queued'` 的行，run 已经在跑或已完成时这次 tick 对它是 no-op），所以在
     // 这里也调用它不会有副作用，只会补上原本可能丢失的那一次。
     input.onAccepted?.();
-    return existing;
+    // #2693 -- stamped explicitly here, not by the repository: this `if (existing)` branch
+    // IS the definition of "reused" (`acceptHumanMessage`'s idempotency guard handed back an
+    // already-accepted call's run instead of creating one). See `AcceptedHumanMessage.reused`'s
+    // own doc for why `agui-bridge.ts` needs this.
+    return { ...existing, reused: true };
   }
 
   const agentSnapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
@@ -217,6 +230,7 @@ export async function acceptHumanMessage(
       runId: randomUUID(),
       snapshot,
       attachmentIds,
+      disableTaskAutoClassify: input.disableTaskAutoClassify ?? false,
     });
   } catch (e) {
     // 仓储在事务内因附件不合格回滚——整条消息未写入。转成用例错误交控制器映射 422。
@@ -238,7 +252,9 @@ export async function acceptHumanMessage(
     text: input.text,
   });
 
-  return outcome.accepted;
+  // #2693 -- explicit `false` (not just "field omitted"): a genuinely fresh accept, mirrors
+  // the `reused: true` stamped on the idempotent-hit branch above.
+  return { ...outcome.accepted, reused: false };
 }
 
 /**

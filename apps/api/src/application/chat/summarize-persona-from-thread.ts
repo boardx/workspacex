@@ -29,6 +29,7 @@
  *   `permission-filter.ts` 的 `Guarded` 想避免的形状（判定与使用必须离得足够近，
  *   近到没有空间在中间夹带一个没判过的值）。
  */
+import { chat as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import {
   buildPersonaLanding,
@@ -99,8 +100,13 @@ export interface SummarizePersonaFromThreadInput {
  * G2 assistant 消息的 `author_id`（design-delta chat-persona-roundtrip，confirmed
  * 2026-08-18）。这不是某个已发布 Agent 的回复（`agent_id` 恒 NULL），是 persona
  * 汇总端口自己的产出——一个稳定的端口标识，测试与前端识别用同一份。
+ *
+ * 2026-09-04（issue #2694 修复）—— 常量本体搬到 `@repo/contracts`
+ * （`chat.PERSONA_SUMMARY_AUTHOR_ID`），这里只 re-export：前端要用同一个值判断
+ * "线程是否已落库过画像产物"，而 apps/web 不能 import apps/api，字符串字面量只能有
+ * 一份权威源，契约包是两侧都能读到的唯一交点。
  */
-export const PERSONA_SUMMARY_AUTHOR_ID = "persona-summary";
+export const PERSONA_SUMMARY_AUTHOR_ID = C.PERSONA_SUMMARY_AUTHOR_ID;
 
 export type SummarizePersonaFromThreadResult = LandAsArtifactResult & {
   /** false ⇒ 线程正文里没有找到任何可辨认的画像信息；落地内容是「信息不足」占位。 */

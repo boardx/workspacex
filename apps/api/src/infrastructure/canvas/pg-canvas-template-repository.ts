@@ -41,6 +41,7 @@ import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/t
 import type { VisibilityScope } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
 import { PLATFORM_ORG_ID, isPlatformOwned } from "../../domain/canvas/platform-org";
+import { generateDefaultPromptText } from "../../domain/canvas/builtin-template-config";
 
 interface TemplateSqlRow {
   org_id: string;
@@ -338,7 +339,20 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           title: row.title,
           footer: row.footer,
-          promptText: row.prompt_text,
+          // ⚠ 内置模板的 `prompt_text` 历史上有可能仍是空串（回填脚本未对该 org 跑过，
+          //   或该 org 是在回填之后才建的）。读路径兜底跟 `backfill-canvas-builtin-
+          //   templates.ts` 用同一份 `generateDefaultPromptText`，保证顾问打开编辑器
+          //   永远看到一份可用的默认提示词，而不用等人再手动跑一次回填脚本。
+          //   非内置模板（用户自建）留空是合法状态，不兜底。
+          promptText:
+            row.prompt_text === "" && row.builtin
+              ? generateDefaultPromptText(
+                  row.display_name,
+                  (row.sections as { readonly name: string; readonly type?: "便利贴列表" | "短文本" | "长文本" }[]).map(
+                    (s) => ({ name: s.name, type: s.type === "短文本" ? "短文本" : "便利贴列表" }),
+                  ),
+                )
+              : row.prompt_text,
           layoutSource: row.layout_source,
           size: row.size,
           createdAt: row.created_at.toISOString(),

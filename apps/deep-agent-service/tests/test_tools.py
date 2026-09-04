@@ -303,3 +303,125 @@ def test_choose_execution_option_no_selection_is_a_failure_not_a_silent_pass() -
     result = choose_execution_option.invoke({"requestId": "req-3"})
 
     assert "没有收到用户选择的方案" in result
+
+
+# ── spawn_async_task（issue #2664）──────────────────────────────────────────
+
+SUBTASK_CONFIG = {
+    "configurable": {
+        "subtask_callback_base_url": "http://api.internal:3000",
+        "subtask_callback_key": "test-shared-secret",
+        "org_id": "org-1",
+        "parent_run_id": "run-parent-1",
+    }
+}
+
+
+def test_spawn_async_task_absent_by_default(monkeypatch) -> None:  # noqa: ANN001
+    """灰度关闭时（未设 DEEP_AGENT_ASYNC_SUBTASKS_ENABLED）——build_tools() 的返回值
+    里根本没有这个工具，行为与 #2664 之前逐字节相同（graph.py 无条件转发 build_tools()
+    的整个返回值，见 tools.py 该函数自己的注释）。"""
+    monkeypatch.delenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", raising=False)
+    tools = build_tools(FakeChatModel("unused"))
+    assert "spawn_async_task" not in [t.name for t in tools]
+
+
+def test_spawn_async_task_present_when_enabled(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", "1")
+    tools = build_tools(FakeChatModel("unused"))
+    assert "spawn_async_task" in [t.name for t in tools]
+
+
+def _spawn_tool(monkeypatch) -> object:  # noqa: ANN001
+    monkeypatch.setenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", "1")
+    tools = {t.name: t for t in build_tools(FakeChatModel("unused"))}
+    return tools["spawn_async_task"]
+
+
+class _FakeHttpResponse:
+    def __init__(self, subtask_run_id: str) -> None:
+        self._subtask_run_id = subtask_run_id
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return {"subtaskRunId": self._subtask_run_id, "status": "pending"}
+
+
+def test_spawn_async_task_three_calls_each_return_immediately_without_waiting(monkeypatch) -> None:  # noqa: ANN001
+    """验收标准第一条：一次请求里调用三次，三次都立即拿到「已派发」，不是子任务真正
+    跑完的结果——`httpx.post` 被 fake 成同步返回一个「已入队」响应，证明这个工具的
+    调用点本身不包含任何"等待子任务执行"的逻辑（真实执行发生在 TS 侧队列，见
+    `subtask-run-queue.ts`，不在这个函数体内）。"""
+    calls: list[dict] = []
+
+    def fake_post(url, json, headers, timeout):  # noqa: ANN001
+        calls.append({"url": url, "json": json, "headers": headers, "timeout": timeout})
+        return _FakeHttpResponse(subtask_run_id=f"subtask-{len(calls)}")
+
+    monkeypatch.setattr("deep_agent_service.tools.httpx.post", fake_post)
+    spawn_async_task = _spawn_tool(monkeypatch)
+
+    results = [
+        spawn_async_task.invoke({"description": f"子任务 {i}"}, config=SUBTASK_CONFIG)
+        for i in range(3)
+    ]
+
+    assert len(calls) == 3
+    for i, result in enumerate(results):
+        assert "已派发" in result
+        assert f"subtask-{i + 1}" in result
+        assert calls[i]["url"] == "http://api.internal:3000/internal/subtask-runs"
+        assert calls[i]["json"]["parentRunId"] == "run-parent-1"
+        assert calls[i]["json"]["orgId"] == "org-1"
+        assert calls[i]["json"]["description"] == f"子任务 {i}"
+        assert calls[i]["headers"]["x-deep-agent-internal-key"] == "test-shared-secret"
+
+
+def test_spawn_async_task_without_callback_config_degrades_honestly(monkeypatch) -> None:  # noqa: ANN001
+    """本次运行没有配好回调通路（configurable 缺 subtask_callback_base_url/org_id/
+    parent_run_id 之一）——诚实告知派发失败，不假装已经派发、不发起任何网络调用。"""
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        "deep_agent_service.tools.httpx.post",
+        lambda *a, **k: calls.append({"a": a, "k": k}),  # noqa: ARG005
+    )
+    spawn_async_task = _spawn_tool(monkeypatch)
+
+    result = spawn_async_task.invoke({"description": "任意子任务"}, config={"configurable": {}})
+
+    assert "无法派发" in result
+    assert calls == []
+
+
+def test_spawn_async_task_http_failure_returns_error_text_never_raises(monkeypatch) -> None:  # noqa: ANN001
+    """验收标准第三条的 Python 侧一半：回调本身失败（网络错误/TS 侧拒绝）时，工具返回
+    一段可读的失败说明，不抛异常炸掉主 agent 循环——同 call_skill 的既有纪律。"""
+    def raising_post(*args, **kwargs):  # noqa: ANN001, ARG001
+        raise RuntimeError("simulated connection refused")
+
+    monkeypatch.setattr("deep_agent_service.tools.httpx.post", raising_post)
+    spawn_async_task = _spawn_tool(monkeypatch)
+
+    result = spawn_async_task.invoke({"description": "会失败的子任务"}, config=SUBTASK_CONFIG)
+
+    assert "派发子任务失败" in result
+    assert "RuntimeError" in result
+
+
+def test_spawn_async_task_context_is_forwarded_when_present(monkeypatch) -> None:  # noqa: ANN001
+    calls: list[dict] = []
+
+    def fake_post(url, json, headers, timeout):  # noqa: ANN001
+        calls.append(json)
+        return _FakeHttpResponse(subtask_run_id="subtask-x")
+
+    monkeypatch.setattr("deep_agent_service.tools.httpx.post", fake_post)
+    spawn_async_task = _spawn_tool(monkeypatch)
+
+    spawn_async_task.invoke(
+        {"description": "子任务", "context": "父任务已确认用户想要中文回复"}, config=SUBTASK_CONFIG,
+    )
+
+    assert calls[0]["context"] == "父任务已确认用户想要中文回复"

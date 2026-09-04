@@ -353,6 +353,47 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       expect.stringContaining("attachment image upload failed"),
       expect.objectContaining({ feedbackId: "fb-1", attachmentId: "fbattach-1" }),
     );
+    // ⚠ 不能只落一条日志——管理员看到的是 HTTP 响应,不是值班日志。失败原因必须
+    //   进 `imageUploadWarnings`,前端据此提示"issue 已创建,但图片未能内嵌"。
+    expect(out.imageUploadWarnings).toHaveLength(1);
+    expect(out.imageUploadWarnings[0]).toContain("fbattach-1");
+    expect(out.imageUploadWarnings[0]).toContain("github down");
+  });
+
+  it("有附件且全部上传成功 ⇒ imageUploadWarnings 是空数组,不是「没检查」", async () => {
+    const attachmentRow: FeedbackAttachmentRow = {
+      id: "fbattach-1",
+      orgId: "org-1",
+      uploadedBy: "u-submitter",
+      feedbackId: "fb-1",
+      draftId: null,
+      objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
+      contentType: "image/png",
+      sizeBytes: 3,
+      sha256: "deadbeef",
+      createdAt: "2026-09-03T00:00:00.000Z",
+    };
+    const deps = baseDeps({ attachments: fakeAttachments([attachmentRow]) });
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
+      ...ADMIN,
+    });
+    expect(out.imageUploadWarnings).toEqual([]);
+  });
+
+  it("没有走「转开发」分支(如转「已修复」)⇒ imageUploadWarnings 恒是空数组", async () => {
+    const deps = baseDeps({ repo: fakeRepo(row({ status: "已进入迭代" })) });
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已修复",
+      reason: null,
+      issueDraft: null,
+      ...ADMIN,
+    });
+    expect(out.imageUploadWarnings).toEqual([]);
   });
 
   it("认领失败(另一个并发请求正在办)⇒ 不调 GitHub,抛 FeedbackIssueInProgressError,状态不落库", async () => {

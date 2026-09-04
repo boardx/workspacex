@@ -1353,6 +1353,17 @@ export type OperationName = keyof Operations;
  */
 
 /**
+ * `summarizePersonaFromThread` 落地的 assistant 消息的 `author_id`（`agent_id`
+ * 恒 NULL，见该操作头注「G2 assistant 消息的 author_id」）——单一事实源：后端
+ * 落库时写这个值（`summarize-persona-from-thread.ts`），前端用它从
+ * `listMessages`/`DurableMessage.authorId` 里判断"这条线程后端是否已经落库过一份
+ * 画像产物"（issue #2694 修复：建议 chip 的出现条件从只看本地 session 状态
+ * `personaGeneratedOnce`，改成同时读这份后端已落库的事实），两边不各自维护一份
+ * 字符串字面量。
+ */
+export const PERSONA_SUMMARY_AUTHOR_ID = "persona-summary";
+
+/**
  * 草稿 ASR 的 `asr.error` 原因——`recording.AsrStreamErrorReason` 的一个**真子集**。
  *
  * 刻意不包含 `SESSION_ENDED`／`NO_PROJECT_ROLE`／`CONFIDENTIAL_SCOPE_FORBIDS_EXTERNAL_ASR`：

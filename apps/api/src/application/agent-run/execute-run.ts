@@ -1168,6 +1168,8 @@ async function executeClaimed(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             threadId: run.threadId,
+          // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
+          orgId: String(orgId), runId: run.runId,
           // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
           // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
           // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
@@ -1191,6 +1193,10 @@ async function executeClaimed(
           // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
           // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
           ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
+          // issue #2667：个人设置"每次都先给我看计划"打开时才带上这个键——与
+          // `scriptProtocol` 同一条"缺席即关闭"纪律，见 `ModelCallInput.disableTaskAutoClassify`
+          // 自己的文档。
+          ...(run.disableTaskAutoClassify ? { disableTaskAutoClassify: true as const } : {}),
           // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
           // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
           ...(vision.images.length > 0 ? { images: vision.images } : {}),
@@ -1314,6 +1320,8 @@ async function executeClaimed(
           {
             modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             threadId: run.threadId,
+            // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
+            orgId: String(orgId), runId: run.runId,
             history, skills: toolSkills,
             ...(vision.images.length > 0 ? { images: vision.images } : {}),
           },
@@ -1329,6 +1337,9 @@ async function executeClaimed(
           modelId: run.modelId,
           system,
           user: userText,
+          // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
+          orgId: String(orgId),
+          runId: run.runId,
           history,
           // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
           // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.

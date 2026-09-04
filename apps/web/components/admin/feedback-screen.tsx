@@ -3,10 +3,11 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, ExternalLink, GitPullRequest, Loader2, RefreshCw, Search } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
+import { Toast } from "./panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/files/overlay";
-import { ApiError, apiUrl } from "@/lib/api-client";
+import { ApiError } from "@/lib/api-client";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { listAgents } from "@/lib/agent-definition";
 import { listSkills } from "@/lib/live-skill";
@@ -25,6 +26,7 @@ import {
   type FeedbackKind,
   type FeedbackStatus,
   type FeedbackStatusEvent,
+  type TriageFeedbackOut,
 } from "@/lib/live-feedback";
 import {
   listSystemErrorLogs,
@@ -153,27 +155,20 @@ const ISSUE_DRAFT_STATUS: FeedbackStatus = "已进入迭代";
 const KIND_ISSUE_LABEL: Record<FeedbackKind, string> = { 缺陷: "bug", 需求: "enhancement" };
 
 /**
- * ⚠ 2026-09-04 修复(B-24 复盘):这里之前完全没有引用 `item.attachments`——
- *   FB-5 上传/认领的截图字节确实存进了 object store,但建 issue 弹层预填正文时
- *   压根不知道这条反馈带过图,图片因此从没进过 GitHub issue 正文,不是"推送失败被
- *   静默吞掉",是**从没尝试过**。
- *
- * ⚠ 这里只能贴**链接**,不能贴能被 GitHub 直接内嵌渲染的图片:
- *   `/feedback/attachments/:id`(`download-feedback-attachment.ts`)与反馈正文走
- *   同一条 D3 权限判定,需要组织管理员/提交人身份登录后台才能读到字节——GitHub
- *   服务端渲染 issue 正文时没有这个身份,`![]()` 语法在这里天生渲染不出图,贴了也是
- *   一个在 GitHub 页面上显示"broken image"的死链。所以显式给出一条提示,而不是假装
- *   `![]()` 能工作——那会制造一个新的、更隐蔽的"图片好像带过去了"假象。
+ * ⚠ 2026-09-04 修复:这里之前贴的是「需要登录后台才能打开、GitHub 无法直接内嵌
+ *   渲染,请手动下载后贴图」这句提示——已经不真实了。`triageFeedback`(见
+ *   `apps/api/src/application/feedback/triage-feedback.ts` 头注⑥)在真正调用
+ *   GitHub 建 issue 之前,会把这条反馈已认领的图片附件逐张推到 GitHub 仓库、换回
+ *   一条 `raw.githubusercontent.com` 直链、拼成 `![](直链)` 追加到这里编辑的正文
+ *   末尾——图片是**真的**内嵌显示的,不是一条需要手动下载的死链。这里只需要一句
+ *   简短提示,让管理员知道"确认之后会自动带图",不需要（也不该）自己贴任何链接
+ *   （那会在正文里重复一遍,而且旧文案本身就是误导）。
  */
 function defaultIssueDraft(item: FeedbackItem): FeedbackIssueDraft {
   const detail = item.detail ?? "(正文仅组织管理员与提交人可见,分诊时请补充必要的复现上下文。)";
   const attachments = item.attachments ?? [];
   const attachmentsSection =
-    attachments.length > 0
-      ? `\n\n---\n附件(${attachments.length} 张,需要登录后台「反馈与迭代」以组织管理员或提交人身份才能打开,GitHub 无法直接内嵌渲染,请手动下载后贴图):\n${attachments
-          .map((a, i) => `${i + 1}. ${apiUrl(a.url)}`)
-          .join("\n")}`
-      : "";
+    attachments.length > 0 ? `\n\n---\n（含 ${attachments.length} 张反馈图片，创建 issue 时会自动内嵌）` : "";
   return {
     title: item.title,
     body: `${detail}\n\n---\n来源:后台「反馈与迭代」· 反馈 ID ${item.id}${attachmentsSection}`,
@@ -224,6 +219,15 @@ function sourceOf(item: FeedbackItem, names: TargetNames): { readonly kindLabel:
   return { kindLabel: "Skill", name: item.targetLabel ?? names.skills.get(id) ?? null, id };
 }
 
+/**
+ * `act()` 的 `fn` 参数是 `() => Promise<unknown>`（`voteFeedback` 与 `triageFeedback`
+ * 共用同一个动作壳），所以拿到结果后要先判断这次到底是不是分诊——不是所有 `act`
+ * 调用都有 `imageUploadWarnings` 这个字段（`voteFeedback` 的返回值就没有）。
+ */
+function isTriageOutWithImageWarnings(result: unknown): result is TriageFeedbackOut {
+  return typeof result === "object" && result !== null && "imageUploadWarnings" in result;
+}
+
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
   if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
@@ -252,6 +256,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  /** "转开发"建 issue 成功、但某些图片附件没能内嵌——见 `triageFeedback.out.imageUploadWarnings`。 */
+  const [imageWarningToast, setImageWarningToast] = React.useState<string | null>(null);
   const [names, setNames] = React.useState<TargetNames>({ agents: new Map(), skills: new Map() });
 
   const reload = React.useCallback(async () => {
@@ -302,7 +308,16 @@ export function FeedbackScreen({ state }: { state: UiState }) {
     setBusyId(id);
     setActionError(null);
     try {
-      await fn();
+      const result = await fn();
+      // "转开发"确认之后:issue 已经建出来了(否则会走进上面的 catch),但可能有
+      // 图片没能内嵌——这不是操作失败,只是需要另外提示一句,不能用 `actionError`
+      // 那条"状态未变更"的文案(状态明明变了)。
+      if (isTriageOutWithImageWarnings(result) && result.imageUploadWarnings.length > 0) {
+        const issuePart = result.githubIssueUrl !== null && result.githubIssueUrl !== undefined
+          ? `issue（${result.githubIssueUrl}）`
+          : "issue";
+        setImageWarningToast(`${issuePart}已创建，但以下图片未能内嵌：${result.imageUploadWarnings.join("；")}`);
+      }
       await reload();
     } catch (err) {
       setActionError(describeFailure(err));
@@ -466,6 +481,11 @@ export function FeedbackScreen({ state }: { state: UiState }) {
           </>
         )}
       </div>
+      <Toast
+        message={imageWarningToast}
+        testid="admin-feedback-image-warning-toast"
+        onDismiss={() => setImageWarningToast(null)}
+      />
     </AdminScreen>
   );
 }

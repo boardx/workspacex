@@ -69,5 +69,35 @@ export function describeCopilotkitV2RunError(code: string | null | undefined): s
   if (AGENT_RUN_ERROR_CODES.has(code)) {
     return describeAgentRunError(code as AgentRunError);
   }
-  return TRANSPORT_ERROR_TEXT[code] ?? "这次执行没有成功，请重试或联系管理员";
+  return TRANSPORT_ERROR_TEXT[code] ?? classifyTransportFailureMessage(code) ?? "这次执行没有成功，请重试或联系管理员";
+}
+
+/**
+ * issue #2686 实测复现（等待 399s 后显示通用兜底文案，而不是"这次执行超时了"）——
+ * 根因排查（见 `copilotkit-v2-panel-body.tsx` 的 `onError` 订阅与 `send()` 的
+ * `catch` 分支）：`copilotkit-agui.controller.ts` 的 `RUN_ERROR` 事件在**控制器自己
+ * 判定超时**时会带上稳定码 `AGENT_RUN_TIMEOUT`（走上面的 `TRANSPORT_ERROR_TEXT`，
+ * 显示专属文案）；但承载这条 AG-UI SSE 的连接本身在 run 真正产出终态**之前**就可能
+ * 被中途切断（undici/网关的传输层超时，实测约 300~400s，早于 relay 自己 900s 的轮询
+ * 预算），这种情况下 `@copilotkit/core` 拿到的是一个**原始的、无稳定码的传输异常**
+ * （`error.message` 是英文技术串，例如 `terminated` / `fetch failed` /
+ * `The operation was aborted` / `UND_ERR_HEADERS_TIMEOUT` / `ECONNRESET` 等），
+ * 前端只能把这段 message 当 `code` 去查表——任何原始异常文案都不可能预先登记进
+ * `TRANSPORT_ERROR_TEXT`，于是必然落进通用兜底，用户看不出"是超时"这个可行动信息。
+ *
+ * 这里不是把每一种可能的底层异常串都枚举进一张新表（那张表永远追不上库/运行时的
+ * 版本变化），而是做一次**关键词分类**：只要原始异常文案里出现"超时/中断连接"这一类
+ * 语义特征词，就统一按超时处理，复用 `AGENT_RUN_TIMEOUT` 的既有文案（单一事实源，
+ * 不新开一句措辞）。命中不了任何特征词时返回 `undefined`，调用方继续落到通用兜底
+ * ——不新增"看起来分类了、其实分类错了"的误导。
+ */
+const TRANSPORT_TIMEOUT_MESSAGE_PATTERN =
+  /timeout|timed out|headers timeout|body timeout|aborted|terminated|econnreset|epipe|socket hang up|network error|fetch failed/i;
+
+export function classifyTransportFailureMessage(rawMessage: string | null | undefined): string | undefined {
+  if (typeof rawMessage !== "string" || rawMessage.trim() === "") return undefined;
+  if (TRANSPORT_TIMEOUT_MESSAGE_PATTERN.test(rawMessage)) {
+    return TRANSPORT_ERROR_TEXT.AGENT_RUN_TIMEOUT;
+  }
+  return undefined;
 }

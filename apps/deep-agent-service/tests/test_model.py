@@ -41,3 +41,100 @@ def test_build_chat_model_defaults_model_id_when_unset(monkeypatch: pytest.Monke
     model = build_chat_model()
 
     assert model.model_name == "qwen-plus"
+
+
+# #2700 -- deep-agent 主聊天路径没有关闭 Qwen3 深度思考，非流式调用（这个文件从未把
+# `streaming=True` 传给 `ChatOpenAI`）要等整段隐藏 reasoning 生成完才返回，devapp 实测
+# 简单问答卡 90+ 秒。以下断言直接检查 `ChatOpenAI.extra_body`——这是 `langchain-openai`
+# 合并进底层 HTTP 请求体的字段，与 `configured-model-provider.test.ts` 断言
+# `postCompletions` 请求体是同一层面的证据（"参数确实被传给模型调用"，不是走到网络层）。
+_BAILIAN_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+
+def test_build_chat_model_disables_thinking_for_default_qwen_plus(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.delenv("KERNEL_DEEP_AGENT_MODEL_ID", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_disables_thinking_for_configured_qwen3_model_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_ID", "qwen3.7-plus")
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_does_not_disable_thinking_for_unlisted_model_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """modelId 不在 `KERNEL_MODEL_THINKING_DISABLE_IDS` 允许集合里 ⇒ 完全不带
+    `enable_thinking`——与 `configured-model-provider.ts` 的反证同一纪律：未知能力
+    不裸猜，行为回落到修复前的原始请求体。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_ID", "some-other-model")
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body is None
+
+
+def test_build_chat_model_does_not_disable_thinking_for_non_bailian_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """modelId 在允许集合里，但 `baseUrl` 不是真的百炼端点 ⇒ 不带这个字段——一个
+    复用了 `qwen-plus` 这个名字的非百炼端点不该被发送这个陌生扩展字段。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.delenv("KERNEL_DEEP_AGENT_MODEL_ID", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body is None
+
+
+def test_build_chat_model_respects_explicit_bailian_extensions_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://example.invalid/compatible-mode/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.delenv("KERNEL_DEEP_AGENT_MODEL_ID", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.setenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", "1")
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_respects_explicit_thinking_disable_ids_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_ID", "custom-hybrid-model")
+    monkeypatch.setenv("KERNEL_MODEL_THINKING_DISABLE_IDS", "custom-hybrid-model")
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}

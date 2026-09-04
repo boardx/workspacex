@@ -221,6 +221,13 @@ export interface TriageFeedbackResult {
   readonly status: FeedbackStatus;
   readonly notified: boolean;
   readonly githubIssueUrl: string | null;
+  /**
+   * ⑥ 建 issue 时,这条反馈的哪些图片附件没能内嵌进正文——恒是数组(可能为空),
+   * 不是 `null`/`undefined`:没有走①这条分支(未转开发/幂等重放/已有 issue)时
+   * 天然没有任何图片要传,是"没有警告"而不是"这次没检查"。调用方(后台屏)据此
+   * 决定要不要提示"issue 已创建,但以下图片未能内嵌"——见文件头 ⑥。
+   */
+  readonly imageUploadWarnings: readonly string[];
 }
 
 function statusChangeEmail(input: {
@@ -228,7 +235,11 @@ function statusChangeEmail(input: {
   readonly status: FeedbackStatus;
   readonly reason: string | null;
 }): { readonly subject: string; readonly text: string } {
-  const subject = `你的反馈状态已更新为「${input.status}」`;
+  // ⚠ 2026-09-04 #2682:此前 subject 里只有状态、没有标题——收信人在邮件列表/通知里
+  //   只看得到「你的反馈状态已更新为『已修复』」，同时提交过多条反馈时完全分不清
+  //   说的是哪一条,要点开正文才知道。标题是用户当初自己填的、最直观的识别信息,
+  //   拼进 subject 里让收件箱一栏就能认出来,不必逐封点开对照。
+  const subject = `你的反馈《${input.title}》状态已更新为「${input.status}」`;
   const lines = [
     `你提交的反馈《${input.title}》状态已更新为「${input.status}」。`,
     input.reason !== null ? `处理说明:${input.reason}` : null,
@@ -259,6 +270,7 @@ export async function triageFeedback(
       status: outcome.at,
       notified: false,
       githubIssueUrl: current.githubIssueUrl,
+      imageUploadWarnings: [],
     };
   }
 
@@ -267,6 +279,9 @@ export async function triageFeedback(
   // 到底建没建成)。认领成功后建失败,fail closed 且释放认领——理由见文件头①/⚠。
   let githubIssueUrl = current.githubIssueUrl;
   let githubIssueNumber = current.githubIssueNumber;
+  // ⑥ 恒是数组——没有走进①这条分支就没有任何图片要传,是"没有警告"而不是
+  //   "这次没检查",见 `TriageFeedbackResult.imageUploadWarnings` 头注。
+  let imageUploadWarnings: readonly string[] = [];
   if (outcome.to === "已进入迭代" && input.issueDraft !== null && current.githubIssueUrl === null) {
     const claimed = await deps.repo.claimGithubIssueCreation(input.feedbackId);
     if (!claimed) throw new FeedbackIssueInProgressError();
@@ -275,8 +290,10 @@ export async function triageFeedback(
       //   末尾——见文件头 ⑥ 与 `notification-ports.ts` 里 `GithubIssueImageUploader`
       //   头注(含 2026-09-03 人类决策记录)。**不是** fail closed:图片是"锦上添花",
       //   没有任何一张图片上传成功也不该拦住 issue 本身被建出来(那是①已经保护的、
-      //   更重要的不变量)。
-      const draft = await withAttachmentImages(deps, {
+      //   更重要的不变量)——但每一次失败都要收进 `imageUploadWarnings` 带回前端,
+      //   不能只留一条日志:管理员看到的是"issue 建出来了",没有任何东西会主动
+      //   告诉他"图片其实没跟着过去",这正是本次改动要补的可见性缺口。
+      const { draft, warnings } = await withAttachmentImages(deps, {
         orgId: input.orgId,
         feedbackId: input.feedbackId,
         viewerId: input.actorId,
@@ -284,6 +301,7 @@ export async function triageFeedback(
         submittedBy: current.submittedBy,
         draft: input.issueDraft,
       });
+      imageUploadWarnings = warnings;
       const created = await deps.githubIssues.create(draft);
       githubIssueUrl = created.url;
       githubIssueNumber = created.number;
@@ -343,7 +361,18 @@ export async function triageFeedback(
     );
   }
 
-  return { feedbackId: input.feedbackId, status: outcome.to, notified: notification.notified, githubIssueUrl };
+  return {
+    feedbackId: input.feedbackId,
+    status: outcome.to,
+    notified: notification.notified,
+    githubIssueUrl,
+    imageUploadWarnings,
+  };
+}
+
+/** `catch (e)` 里统一取一句人能看的失败原因——日志与 `imageUploadWarnings` 共用同一句话。 */
+function describeUploadFailure(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 /**
@@ -352,8 +381,11 @@ export async function triageFeedback(
  * `triage-feedback.test.ts` 那条"管理员编辑过的正文是**原样**传给 GitHub"用例
  * 仍然成立的原因:默认 fake 的附件仓储返回空列表,body 不会被这里改动。
  *
- * 单张图片的任何一步失败(读不到字节、GitHub 拒绝)都只跳过那一张、记日志,
- * 不影响其余图片,更不影响 issue 本身被建出来——理由见调用处 ⑥ 的注释。
+ * 单张图片的任何一步失败(读不到字节、GitHub 拒绝)都只跳过那一张,不影响其余
+ * 图片,更不影响 issue 本身被建出来——理由见调用处 ⑥ 的注释。**但每一次跳过
+ * 都要落进返回的 `warnings`**(不是只记一条 `logger.error`):日志只有值班能看,
+ * 而管理员在弹层里看到"issue 已创建"就会以为图片一起带过去了——这正是这次改动
+ * 要补的可见性缺口,`imageUploadWarnings` 让这件事在响应里诚实可见。
  */
 async function withAttachmentImages(
   deps: TriageFeedbackDeps,
@@ -365,7 +397,7 @@ async function withAttachmentImages(
     readonly submittedBy: string;
     readonly draft: GithubIssueDraft;
   },
-): Promise<GithubIssueDraft> {
+): Promise<{ readonly draft: GithubIssueDraft; readonly warnings: readonly string[] }> {
   let rows;
   try {
     rows = await deps.attachments.findByFeedbackIds(input.orgId, [input.feedbackId]);
@@ -375,11 +407,12 @@ async function withAttachmentImages(
       feedbackId: input.feedbackId,
       err: e,
     });
-    return input.draft;
+    return { draft: input.draft, warnings: [`附件列表读取失败,图片未能内嵌(${describeUploadFailure(e)})`] };
   }
-  if (rows.length === 0) return input.draft;
+  if (rows.length === 0) return { draft: input.draft, warnings: [] };
 
   const imageUrls: string[] = [];
+  const warnings: string[] = [];
   for (const row of rows) {
     try {
       if (row.objectKey === null) continue; // 未认领的附件不会出现在这里,防御性判断
@@ -395,10 +428,16 @@ async function withAttachmentImages(
         submittedBy: input.submittedBy,
       });
       const disclosed = discloseDecided(row.objectKey, decision);
-      if (!isDisclosed(disclosed)) continue;
+      if (!isDisclosed(disclosed)) {
+        warnings.push(`附件 ${row.id}:无权限读取,未能内嵌`);
+        continue;
+      }
       const bytes = await deps.objectStore.get(disclosed.payload);
-      if (bytes === null) continue;
-      if (!isGithubImage(row.contentType)) continue; // 非图片附件不推 GitHub，见 ATTACHMENT_EXTENSION 头注
+      if (bytes === null) {
+        warnings.push(`附件 ${row.id}:字节已不在对象存储中,未能内嵌`);
+        continue;
+      }
+      if (!isGithubImage(row.contentType)) continue; // 非图片附件不推 GitHub(不算失败),见 ATTACHMENT_EXTENSION 头注
       const uploaded = await deps.imageUploader.uploadImage({
         path: `feedback-attachments/${row.id}.${ATTACHMENT_EXTENSION[row.contentType]}`,
         content: bytes,
@@ -412,10 +451,14 @@ async function withAttachmentImages(
         attachmentId: row.id,
         err: e,
       });
+      warnings.push(`附件 ${row.id}:推送到 GitHub 失败(${describeUploadFailure(e)})`);
     }
   }
-  if (imageUrls.length === 0) return input.draft;
-  return { ...input.draft, body: `${input.draft.body}\n\n${imageUrls.map((u) => `![](${u})`).join("\n")}` };
+  if (imageUrls.length === 0) return { draft: input.draft, warnings };
+  return {
+    draft: { ...input.draft, body: `${input.draft.body}\n\n${imageUrls.map((u) => `![](${u})`).join("\n")}` },
+    warnings,
+  };
 }
 
 /** `outcome.to` → GitHub issue 该处在什么开关状态。纯函数,方便单测直接断言映射表。 */
