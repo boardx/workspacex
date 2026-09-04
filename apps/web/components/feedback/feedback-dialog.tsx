@@ -334,7 +334,7 @@ export function FeedbackDialog({
         aria-modal="true"
         aria-label="提交反馈"
         data-testid="feedback-dialog"
-        className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+        className="relative flex h-[min(85vh,54rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg"
       >
         <header className="flex items-start justify-between gap-3 border-b border-border p-4 pb-3">
           <div className="min-w-0">
@@ -523,6 +523,7 @@ export function FeedbackDialog({
                         <img
                           src={a.previewUrl}
                           alt=""
+                          loading="lazy"
                           className={cn(
                             "h-16 w-16 rounded-md border border-border-subtle object-cover",
                             a.status === "failed" && "opacity-40",
@@ -680,13 +681,13 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
   }
 
   return (
-    <ul className="flex flex-col gap-1.5 overflow-y-auto p-4" data-testid="feedback-mine-list">
+    <ul className="flex flex-col gap-1 overflow-y-auto p-3" data-testid="feedback-mine-list">
       {state.items.map((item) => (
         <li
           key={item.id}
           data-testid={`feedback-mine-item-${item.id}`}
           className={cn(
-            "flex flex-col gap-1 rounded-md border p-2.5",
+            "flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5",
             item.id === highlightId ? "border-primary bg-ai-tint/30" : "border-border-subtle bg-panel",
           )}
         >
@@ -707,14 +708,21 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
           </div>
           {/* 提交人对自己那条恒可见正文（D3），所以这里 detail 必然非 null；
               仍然写成条件渲染而不是 `item.detail!`——一个断言在契约变化时会静默地
-              变成运行时崩溃，而条件渲染只是少显示一行。 */}
-          {item.detail !== null && (
-            <p className="whitespace-pre-wrap text-11 text-muted-foreground">{item.detail}</p>
+              变成运行时崩溃，而条件渲染只是少显示一行。
+              issue #2637 ②——列表太长、单条太高：正文原来是不限行数的
+              `whitespace-pre-wrap`，一条几百字的反馈能把整个列表撑到只剩一两条可见。
+              这里收成最多两行（`line-clamp-2`），看全文回「提交」标签页自己那条记录，
+              或者本来就在这条反馈的详情里——列表的职责是"扫一眼状态"，不是"重读一遍"。 */}
+          {item.detail !== null && item.detail.trim() !== "" && (
+            <p className="line-clamp-2 text-11 text-muted-foreground" title={item.detail}>{item.detail}</p>
           )}
           {/* 附件与正文同一条 D3 门控（见后端 `list-feedback.ts` 头注）——`attachments`
-              非空必然伴随 `detail` 非空，这里不再重复判一次 detail！==null。 */}
+              非空必然伴随 `detail` 非空，这里不再重复判一次 detail！==null。
+              issue #2637 ②——缩略图默认全加载：`AttachmentThumbnail` 内部已经改成
+              进入视口才发起下载（见其头注），这里只是把尺寸从 48px 降到 36px，
+              配合更矮的行高。 */}
           {item.attachments.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5" data-testid={`feedback-mine-attachments-${item.id}`}>
+            <ul className="flex flex-wrap gap-1" data-testid={`feedback-mine-attachments-${item.id}`}>
               {item.attachments.map((a) => (
                 <li key={a.id}>
                   <AttachmentThumbnail url={a.url} />
@@ -723,7 +731,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
             </ul>
           )}
           {item.statusReason !== null && (
-            <p className="text-11 text-card-foreground" data-testid={`feedback-status-reason-${item.id}`}>
+            <p className="line-clamp-1 text-11 text-card-foreground" title={item.statusReason} data-testid={`feedback-status-reason-${item.id}`}>
               处理说明：{item.statusReason}
             </p>
           )}
@@ -736,12 +744,45 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
 /**
  * 「我提过的」列表里的一张附件缩略图——同 `fetchAvatarObjectUrl` 的既有先例：下载路由
  * 要求 `Authorization` 头，`<img src>` 带不了，所以先 `fetch` 取字节再转 `Blob URL`。
+ *
+ * issue #2637 ②——人类实测反馈"默认图片加载慢"：根因不是图片本身大，是**一次性**：
+ * 列表一渲染，`state.items` 里每一条的每一张附件都立刻各发一个带鉴权的 `fetch`，
+ * 一条有十几条历史反馈、每条带几张图时，这十几个并发下载会互相抢带宽，先看到的
+ * 反而是最下面暂时看不到的那几张图先跑完、上面能看到的反而在排队。这里加一个
+ * `IntersectionObserver`：缩略图卡片先占位（骨架屏），真正滚进视口那一刻才发起
+ * 下载——不在视口里的图片压根不占这次的网络与内存。观察者一旦命中一次就断开
+ * （`once: true` 语义），不需要持续监听一张已经加载完的图。
  */
 function AttachmentThumbnail({ url }: { url: string }) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [inView, setInView] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
+    const node = rootRef.current;
+    if (node === null) return;
+    // 环境没有 IntersectionObserver（极老浏览器/测试环境）——退化为立即加载，
+    // 而不是永远占位不出结果。
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "120px" }, // 提前一点点触发，滚到眼前时图已经在路上，不是刚开始加载。
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (!inView) return;
     let cancelled = false;
     let created: string | null = null;
     fetchFeedbackAttachmentObjectUrl(url)
@@ -760,16 +801,20 @@ function AttachmentThumbnail({ url }: { url: string }) {
       cancelled = true;
       if (created !== null) URL.revokeObjectURL(created);
     };
-  }, [url]);
+  }, [inView, url]);
 
-  if (failed) {
-    return <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border-subtle text-9 text-muted-foreground">?</div>;
-  }
-  if (objectUrl === null) {
-    return <div className="h-12 w-12 animate-pulse rounded-md bg-muted" aria-hidden />;
-  }
-  // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
-  return <img src={objectUrl} alt="" className="h-12 w-12 rounded-md border border-border-subtle object-cover" />;
+  return (
+    <div ref={rootRef} className="h-9 w-9">
+      {failed ? (
+        <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border-subtle text-9 text-muted-foreground">?</div>
+      ) : objectUrl === null ? (
+        <div className="h-9 w-9 animate-pulse rounded-md bg-muted" aria-hidden />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
+        <img src={objectUrl} alt="" loading="lazy" className="h-9 w-9 rounded-md border border-border-subtle object-cover" />
+      )}
+    </div>
+  );
 }
 
 function formatElapsed(totalSeconds: number): string {
@@ -779,10 +824,21 @@ function formatElapsed(totalSeconds: number): string {
 }
 
 /**
- * 录音中的状态行——与 chat composer 的录音行同一套信息与动作（在录 / 多久了 / 多大声 /
- * 取消 / 确认），内嵌在表单文档流里，不是浮层。转录文字本身实时写进上面的「详细说说」。
- * `aria-live` 只挂在状态文案上：计时每秒变，挂在外层会让读屏每秒播报一次。
+ * issue #2637 ④——人类实测反馈"录音中的那条 bar 看着很怪"，要求参考苹果的录音态
+ * （干净、极简：一个跳动的点/波形 + 计时）。原来那条是一整条塞满信息的横条：状态文案
+ * + 计时 + 一整条音量"进度条"（`role="meter"` 那段），进度条的视觉语言天然是"某个
+ * 任务完成了多少"，用在"这是当下多大声"上是错的比喻，看起来像加载条卡住了。
+ *
+ * 改成一颗胶囊：左边一个跟着"是否在真正说话"呼吸的红点（`listening` 时脉冲，
+ * `connecting`/`stopping` 时是中性色的静止点——**不假装还在录**），中间五根竖条
+ * 组成的迷你波形——真实驱动它们高度的仍然是同一个 `level`（`pcm16Level()` 对实采
+ * PCM16 求的 RMS），只是给每根条形按索引分配一点不同的响应曲线（`BAR_RESPONSE`），
+ * 让整体看起来像波形而不是一根条形跟着数字生硬跳动。计时保持等宽数字。
+ * 取消/说完了两个动作从横向按钮组收进胶囊右侧的两个图标按钮，视觉重量降到最低——
+ * 苹果录音态的克制感，主要动作只有"停止"，"取消"退居次要。
  */
+const BAR_RESPONSE = [0.5, 0.8, 1, 0.75, 0.55] as const;
+
 function VoiceRecordingBar({
   listening, connecting, stopping, elapsedSeconds, level, onStop, onCancel,
 }: {
@@ -796,35 +852,72 @@ function VoiceRecordingBar({
 }) {
   return (
     <div
-      className="flex w-full flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-muted/40 px-2.5 py-1.5"
+      className="flex w-full items-center gap-2.5 rounded-full border border-border-subtle bg-muted/40 py-1.5 pl-3 pr-1.5"
       data-testid="feedback-voice-recording"
       role="status"
     >
-      <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", listening ? "animate-pulse bg-destructive" : "bg-muted-foreground")} />
-      <span className="shrink-0 text-11 text-card-foreground" aria-live="polite">
+      <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+        {listening && (
+          <span className="absolute inset-0 animate-ping rounded-full bg-destructive/60" />
+        )}
+        <span className={cn("relative h-2 w-2 rounded-full", listening ? "bg-destructive" : "bg-muted-foreground")} />
+      </span>
+
+      <span className="sr-only" aria-live="polite">
         {connecting ? "正在连接…" : stopping ? "正在停止…" : "正在录音，说的话会实时出现在「详细说说」里"}
       </span>
-      <span className="shrink-0 font-mono text-11 tabular-nums text-muted-foreground" data-testid="feedback-voice-timer">
-        {formatElapsed(elapsedSeconds)}
-      </span>
+
+      {/* 迷你波形：真实 `level`（RMS）驱动，不是装饰性的固定动画。connecting/stopping 时
+          压平成一条静止的最低高度——那两段没有"当下有多大声"这个数据，不该假装有。 */}
       <div
-        className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-muted"
+        className="flex h-4 flex-1 items-center justify-center gap-[3px]"
         role="meter"
         aria-label="音量"
         aria-valuemin={0}
         aria-valuemax={1}
         aria-valuenow={Number(level.toFixed(3))}
       >
-        <div className="h-full rounded-full bg-primary transition-[width] duration-fast" style={{ width: `${Math.round(level * 100)}%` }} />
+        {BAR_RESPONSE.map((factor, i) => {
+          const active = listening ? Math.max(0.15, Math.min(1, level * factor * 2.2)) : 0.15;
+          return (
+            <span
+              key={i}
+              aria-hidden
+              className={cn("w-[3px] rounded-full transition-[height] duration-fast", listening ? "bg-primary" : "bg-muted-foreground/50")}
+              style={{ height: `${Math.round(active * 100)}%` }}
+            />
+          );
+        })}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <Button type="button" size="xs" variant="outline" disabled={stopping} onClick={onCancel} data-testid="feedback-voice-cancel">
-          <X aria-hidden className="h-2.5 w-2.5" />
-          取消
+
+      <span className="shrink-0 font-mono text-11 tabular-nums text-muted-foreground" data-testid="feedback-voice-timer">
+        {connecting ? "…" : stopping ? "…" : formatElapsed(elapsedSeconds)}
+      </span>
+
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          disabled={stopping}
+          onClick={onCancel}
+          aria-label="取消录音"
+          data-testid="feedback-voice-cancel"
+        >
+          <X aria-hidden className="h-3 w-3" />
         </Button>
-        <Button type="button" size="xs" variant="primary" disabled={stopping || connecting} onClick={onStop} data-testid="feedback-voice-stop">
-          <Check aria-hidden className="h-2.5 w-2.5" />
-          说完了
+        <Button
+          type="button"
+          size="icon"
+          variant="primary"
+          className="h-6 w-6 rounded-full"
+          disabled={stopping || connecting}
+          onClick={onStop}
+          aria-label="说完了"
+          data-testid="feedback-voice-stop"
+        >
+          <Check aria-hidden className="h-3 w-3" />
         </Button>
       </div>
     </div>

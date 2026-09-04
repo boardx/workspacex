@@ -104,6 +104,16 @@ function readConfig(): ProviderConfig | null {
 const PROVIDER_UNAVAILABLE = "ASR_PROVIDER_UNAVAILABLE";
 const AUDIO_FORMAT_REJECTED = "AUDIO_FORMAT_REJECTED";
 
+/**
+ * issue #2637 ③ —— 上游对「commit 一个已经空了/太短的缓冲区」的标准应答，只在
+ * `finish()` 收尾阶段出现才判定为良性（见调用处头注）。用词覆盖已实测见过的与
+ * OpenAI-兼容协议惯用的两种措辞（"buffer too small" / "0.00ms of audio"），
+ * 刻意不匹配更宽泛的 "empty"——那个词也会出现在真正的故障消息里，不能靠它兜底。
+ */
+function isBenignEmptyCommitError(message: string): boolean {
+  return /buffer\s*(is\s*)?too\s*small|0(\.0+)?\s*ms\s*of\s*audio/i.test(message);
+}
+
 type ParsedTranscriptEvent =
   | { readonly kind: "partial"; readonly text: string; readonly confidence: null }
   | { readonly kind: "final"; readonly text: string; readonly confidence: number | null };
@@ -253,6 +263,27 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       }
       if (type === "error") {
         const message = JSON.stringify(event.error ?? {});
+        // issue #2637 ③ —— 人类实测反馈：点「说完了」之后经常报"语音服务不可用"。根因：
+        // `turn_detection: server_vad` 开着，短句说完、静音一到，上游**自己**就已经把
+        // 当前缓冲 commit 并转写完了；用户点「说完了」触发的 `finish()` 又显式发了一次
+        // `input_audio_buffer.commit`，这次打在一个已经空了的缓冲区上。上游对空缓冲
+        // commit 的标准应答是一条 `error` 帧（"buffer too small. Expected at least
+        // 100ms of audio, but buffer only has 0.00ms of audio."之类），语义是「没有更多
+        // 新音频可提交」，不是「服务坏了」——但这里此前把它和任何其它 `error` 帧一样
+        // 一律映射成 `ASR_PROVIDER_UNAVAILABLE`，于是用户每次干脆利落地说完一句短话就
+        // 点停止，都会看到一条本不该出现的"语音服务不可用"，即便转写内容已经通过
+        // server VAD 自己的 `completed` 事件正常送达。只在**已经进入收尾**
+        // （`finishRequested`）且错误确实是"空缓冲"这一种良性情况时吞掉它、正常收尾；
+        // 收尾之外、或消息不匹配这个模式的 `error` 帧一律照旧如实上报，不放宽其它故障。
+        if (finishRequested && isBenignEmptyCommitError(message)) {
+          // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
+          // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
+          // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，
+          // 走到那道判断一样会把已经吞掉的错误从后门冒出来，所以必须一并置位。
+          finalSeen = true;
+          if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+          return;
+        }
         const reason = /format|sample.?rate|encoding/i.test(message)
           ? AUDIO_FORMAT_REJECTED
           : PROVIDER_UNAVAILABLE;

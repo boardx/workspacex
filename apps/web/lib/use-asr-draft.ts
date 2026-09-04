@@ -98,6 +98,30 @@ export function appendTranscript(base: string, addition: string): string {
   return /\s$/.test(base) ? `${base}${addition}` : `${base} ${addition}`;
 }
 
+/**
+ * issue #2637 ⑤ —— 人类实测反馈：转录结果里混进很多多余的中文顿号/句号。根因：
+ * `turn_detection: server_vad` 把一段连续的话按静音切成多个"轮次"，上游模型对
+ * **每一轮**单独给出带标点的转写（`conversation.item.input_audio_transcription.completed`），
+ * 而不是对整段话统一断句——于是同一句话被切成几段各自"、"/"。"收尾之后，`appendTranscript`
+ * 原样拼接，读起来就是「早上好。我想说的是、今天…」这种每隔几个字就断一次标点的样子。
+ *
+ * 这里在**每一段转写落地时**清理，而不是等最终整段文本出来再清理一遍——用户是
+ * 边说边看着「详细说说」实时更新的（`onTranscript`），伪影必须在它第一次出现的
+ * 那一刻就被处理掉，不能只在录音结束后才回头改。
+ *
+ *   1. 折叠连续标点为最后一个（模型偶尔对同一处停顿重复给标点，如"。、"→"、"）。
+ *   2. 去掉一段转写**开头**孤立的顿号/逗号——几乎总是上一轮刚结束、这一轮刚起时
+ *      模型对静音的误判，不是说话人真的从标点开始说。
+ *
+ * 不处理段落**中间**的标点（那些多半是模型对真实停顿的合理判断，贸然剥掉会把
+ * "我想说的是，今天" 变成读不断句的病句，比多几个标点更糟）。
+ */
+export function sanitizeAsrSegment(text: string): string {
+  return text
+    .replace(/[、。，,.!！?？;；:：]{2,}/g, (run) => run.slice(-1))
+    .replace(/^[、，,]+/, "");
+}
+
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
@@ -166,13 +190,15 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
 
     void openAsrDraftStream(
       {
-        onPartial: (text) => {
+        onPartial: (rawText) => {
           if (discardRef.current) return;
+          const text = sanitizeAsrSegment(rawText);
           setSegments((s) => ({ ...s, partialText: text }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
-        onFinal: (text) => {
+        onFinal: (rawText) => {
           if (discardRef.current) return;
+          const text = sanitizeAsrSegment(rawText);
           committedRef.current = appendTranscript(committedRef.current, text);
           setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));

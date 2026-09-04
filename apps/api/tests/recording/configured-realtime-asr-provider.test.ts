@@ -209,6 +209,51 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.finals).toEqual(["ok"]);
   });
 
+  it("issue #2637 ③ -- a benign 'buffer too small' error from an explicit commit during finish() does not surface as ASR_PROVIDER_UNAVAILABLE (server_vad already auto-committed and transcribed the turn)", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
+      if (frame.type === "input_audio_buffer.commit") {
+        // Mirrors the real upstream: explicit commit lands on an already-empty buffer
+        // because server_vad committed and transcribed it first.
+        ws.send(JSON.stringify({
+          type: "error",
+          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
+        }));
+      }
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const handlers = recordingHandlers();
+    const session = await provider.open(handlers, AUDIO);
+    await session.finish();
+    expect(handlers.errors).toEqual([]);
+  });
+
+  it("issue #2637 ③ -- the same 'buffer too small' error OUTSIDE of finish() (not caller-initiated) still reports as a real error", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") {
+        ws.send(JSON.stringify({
+          type: "error",
+          error: { message: "Error committing input audio buffer: buffer too small. Expected at least 100ms of audio, but buffer only has 0.00ms of audio." },
+        }));
+        // 与既有的「an explicit `error` frame…」用例同一套写法：真实上游发完 `error`
+        // 帧几乎总是紧跟着关闭连接，这里也让 fake upstream 主动关闭——否则连接会一直
+        // 开着，`afterEach` 里 `wss.close()` 得等所有连接自然断开才回调，白白拖慢
+        // 这条用例（且与本文件其它用例的既有写法不一致）。
+        ws.close();
+      }
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const handlers = recordingHandlers();
+    await provider.open(handlers, AUDIO);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(handlers.errors).toHaveLength(1);
+    expect(handlers.errors[0]?.reason).toBe("ASR_PROVIDER_UNAVAILABLE");
+  });
+
   it("an explicit `error` frame from upstream is reported once, not duplicated by the close that follows it", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") {
