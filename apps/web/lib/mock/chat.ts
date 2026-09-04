@@ -353,6 +353,14 @@ export type ChatMessage =
       text: string;
       tools?: ToolCallLog;
       citations?: CitationView[];
+      /**
+       * issue #2666 —— 这条消息若触发了 `spawn_async_task`（issue #2664）派发的后台
+       * 子任务，这里放它们共同的父 run id；`ai-message.tsx` 据此挂载
+       * `SubtaskRunLivePanel` 轮询 `GET /agent-runs/:runId/subtask-runs`。
+       * 没有触发子任务的消息不设这个字段（不是 `null`——`undefined` 与其余可选字段
+       * 同一惯例，见 `skill`/`thinking`）。
+       */
+      subtaskRunParentId?: string;
     }
   | { id: string; kind: "artifact"; artifact: ArtifactCard }
   | { id: string; kind: "approval"; request: ApprovalRequest }
@@ -394,6 +402,9 @@ export const CHAT_MESSAGES: ChatMessage[] = [
       { index: 1, sourceFullName: "Bundesnetzagentur《Netzanschluss 年报 2025》", anchor: "第 42 页", anchorKind: "page" },
       { index: 2, sourceFullName: "客户访谈 07 · 采购总监", anchor: "Echo 转录，14:12 段", anchorKind: "transcript" },
     ],
+    // issue #2666 演示挂载点：这三条假设分别派给后台子任务并行核实
+    // （对应 `MOCK_SUBTASK_RUNS` 的 parentRunId）。
+    subtaskRunParentId: "run-mock-1",
   },
   {
     id: "m3",

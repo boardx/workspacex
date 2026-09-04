@@ -18,4 +18,8 @@ export const queryKeys = {
      * 短暂显示上一个组织的数字）。 */
     all: (orgId: string | null) => ["adminNavCounts", orgId] as const,
   },
+  /** issue #2666 —— 后台任务面板：某个父 run 下全部子任务 run 的当前状态。 */
+  subtaskRuns: {
+    byParentRun: (parentRunId: string) => ["subtaskRuns", parentRunId] as const,
+  },
 } as const;
