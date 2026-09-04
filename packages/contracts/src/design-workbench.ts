@@ -83,7 +83,7 @@ export type ProjectTemplate = z.infer<typeof ProjectTemplate>;
  * 这三条是产品对「什么算做完」的统一定义，不是每个项目各自填写的自由文本。api 与 web 都读这份
  * 常量，不各写一份（本仓已因「同一事实两处声明」漂移五次）。
  */
-export const DESIGN_PROJECT_DEFAULT_CRITERIA: readonly string[] = [
+export const DESIGN_PROJECT_INITIAL_CRITERIA: readonly string[] = [
   "明确问题与目标范围",
   "给出交互方案与边界情况处理",
   "列出验收标准供工程对齐",
@@ -93,7 +93,7 @@ export const DESIGN_PROJECT_DEFAULT_CRITERIA: readonly string[] = [
  * 画布页标签默认值（R4.4：画布 Tab 下的横向标签条）。新建项目时服务端填入，B5.3 之前
  * 画布内容本身是占位块，标签就是「页」这个概念此刻唯一的载体。
  */
-export const DESIGN_PROJECT_DEFAULT_FRAMES: readonly string[] = ["草稿页 1", "草稿页 2", "草稿页 3"];
+export const DESIGN_PROJECT_INITIAL_FRAMES: readonly string[] = ["草稿页 1", "草稿页 2", "草稿页 3"];
 
 /**
  * 对话面板空状态引导语（R4.4：「无历史时一条默认引导语」）。**展示层文案，不落库**——
@@ -131,8 +131,8 @@ export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
  *   `ownerName` 可为 `null`——同 `InboxItem.reporter` 的 D3 口径写法：调用方拿不到姓名时
  *   （比如 owner 已离开组织）不是错误，是「说不出来」，与「没有 owner」（不存在，本类型没有
  *   这种情况——项目恒有 owner）区分开。
- * ⚠ `criteria` / `frames` 是创建时由服务端按 `DESIGN_PROJECT_DEFAULT_CRITERIA` /
- *   `DESIGN_PROJECT_DEFAULT_FRAMES` 填入的**快照**，不是每次读取都重算的常量引用——
+ * ⚠ `criteria` / `frames` 是创建时由服务端按 `DESIGN_PROJECT_INITIAL_CRITERIA` /
+ *   `DESIGN_PROJECT_INITIAL_FRAMES` 填入的**快照**，不是每次读取都重算的常量引用——
  *   将来若默认文案改版，已创建项目的验收标准不应该跟着变。
  */
 export const DesignProject = z
@@ -183,8 +183,8 @@ export const operations = {
   /**
    * 新建设计项目（首页「新建」弹窗 + B4.4「用 PM 设计工作台深化」共用）。
    *
-   * ⚠ `criteria`/`frames`/`chat` 不接受前端传入：服务端按 `DESIGN_PROJECT_DEFAULT_CRITERIA` /
-   *   `DESIGN_PROJECT_DEFAULT_FRAMES` 填入、`chat` 恒为 `[]`（见文件头【待确认点 2】）。
+   * ⚠ `criteria`/`frames`/`chat` 不接受前端传入：服务端按 `DESIGN_PROJECT_INITIAL_CRITERIA` /
+   *   `DESIGN_PROJECT_INITIAL_FRAMES` 填入、`chat` 恒为 `[]`（见文件头【待确认点 2】）。
    * ⚠ `linkedFeedbackId` 可选：B4.4「深化」时由调用方（`POST /feedback/:id/deepen` 的服务端
    *   实现，不是前端直接传任意 id）传入；首页新建弹窗不传，恒为 `null`。契约层不校验这个 id
    *   指向的反馈是否存在/属于同一组织——那是 B4.3 用例层的职责（含回写 `resolvedByDesignId`）。

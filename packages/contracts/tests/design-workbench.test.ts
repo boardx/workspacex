@@ -1,7 +1,7 @@
 /**
  * `design-workbench` 契约束（UC-17.8 B4.1）——三件事：
  *   1. `DesignProject` 形状正反例：`.strict()` 拒多余键、`ownerName` 可空、`chat` turn 边界。
- *   2. 常量导出：`DESIGN_PROJECT_DEFAULT_CRITERIA` / `DESIGN_PROJECT_DEFAULT_FRAMES` 是三值/三值。
+ *   2. 常量导出：`DESIGN_PROJECT_INITIAL_CRITERIA` / `DESIGN_PROJECT_INITIAL_FRAMES` 是三值/三值。
  *   3. `operations` 的 `in`/`out` 边界：`name` 长度、`inboxCode` 前缀、错误码闭集。
  */
 import { describe, expect, it } from "vitest";
@@ -9,10 +9,10 @@ import * as dw from "../src/design-workbench";
 
 describe("常量", () => {
   it("验收标准固定三条", () => {
-    expect(dw.DESIGN_PROJECT_DEFAULT_CRITERIA).toHaveLength(3);
+    expect(dw.DESIGN_PROJECT_INITIAL_CRITERIA).toHaveLength(3);
   });
   it("画布页默认三页", () => {
-    expect(dw.DESIGN_PROJECT_DEFAULT_FRAMES).toEqual(["草稿页 1", "草稿页 2", "草稿页 3"]);
+    expect(dw.DESIGN_PROJECT_INITIAL_FRAMES).toEqual(["草稿页 1", "草稿页 2", "草稿页 3"]);
   });
   it("引导语与回执非空", () => {
     expect(dw.DESIGN_WORKBENCH_CHAT_INTRO.length).toBeGreaterThan(0);
@@ -25,8 +25,8 @@ const project: dw.DesignProject = {
   name: "反馈导出流程重设计",
   template: "wireframe",
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
-  criteria: [...dw.DESIGN_PROJECT_DEFAULT_CRITERIA],
-  frames: [...dw.DESIGN_PROJECT_DEFAULT_FRAMES],
+  criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
+  frames: [...dw.DESIGN_PROJECT_INITIAL_FRAMES],
   pushed: false,
   pushedAt: null,
   linkedFeedbackId: "fb-1",
