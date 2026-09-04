@@ -86,13 +86,47 @@ export const PLAN_PHASE_LABEL_ZH: Readonly<Record<PlanPhase, string>> = Object.f
   failed: "失败",
 });
 
-/** `PlanGateDecision` —— 确认门判定，服务端纯函数产出，前端只渲染结果（`domain.md` 一·6）。 */
-export const PlanGateReason = z.enum(["no-plan", "single-step", "multi-step", "user-forced"]);
+/**
+ * `TaskRiskClass` —— 任务自动判类结果的三选一（issue #2662「任务自动判类」中间件
+ * 的产出，`TaskClassificationState.task_classification.category` 原样映射，
+ * 命名沿用 Python 侧下划线字面量，不做二次转写——两侧共用同一组字符串常量才是
+ * 单一事实源，改成驼峰只会制造第二份需要对齐的映射表）。
+ *
+ * · `"no_plan"`：一步到位，不需要计划——本枚举存在只为完整表达判类三态，
+ *   `evaluatePlanGate` 收到这个值时退回 `todoCount` 驱动的既有判定（见下）。
+ * · `"multi_step_low_risk"`：多步、无外部副作用，可自动执行、免确认。
+ * · `"multi_step_high_risk"`：多步、有外部副作用（发 issue / PR / 邮件等），
+ *   始终需要人工确认，不受 `todoCount` 影响。
+ */
+export const TaskRiskClass = z.enum(["no_plan", "multi_step_low_risk", "multi_step_high_risk"]);
+export type TaskRiskClass = z.infer<typeof TaskRiskClass>;
+
+/**
+ * `PlanGateDecision` —— 确认门判定，服务端纯函数产出，前端只渲染结果（`domain.md` 一·6）。
+ *
+ * `"multi-step-low-risk"` / `"multi-step-high-risk"` 两个新增值是 issue #2663
+ * 的产物，只在调用方传入 `taskRiskClass` 时才可能出现——旧调用方（不传该字段）
+ * 永远只会拿到原有四值之一，见 `evaluatePlanGate` 头注的向后兼容说明。
+ */
+export const PlanGateReason = z.enum([
+  "no-plan", "single-step", "multi-step", "user-forced",
+  "multi-step-low-risk", "multi-step-high-risk",
+]);
 export type PlanGateReason = z.infer<typeof PlanGateReason>;
 
 export const PlanGateDecision = z.object({
   required: z.boolean(),
   reason: PlanGateReason,
+  /**
+   * `deliverPlan` —— 计划是否仍应可见地交付给用户（用户能看到、能中途叫停，
+   * 只是不需要主动点确认）。只在 `required: false` 且判定来自
+   * `taskRiskClass: "multi_step_low_risk"` 时为 `true`；其余分支不设这个字段
+   * （`undefined`，不是 `false`）——`required: false` 的旧有分支（`"no-plan"` /
+   * `"single-step"`）本来就没有"计划"这回事，不该无中生有一个 `deliverPlan: false`
+   * 去暗示"有计划但选择不交付"（同 `domain.md` 一贯的"没有就不建字段"纪律，
+   * 参照 `errorCode`/`failedStepId` 那套"非适用态不伪造第三态"的做法）。
+   */
+  deliverPlan: z.boolean().optional(),
 }).strict();
 export type PlanGateDecision = z.infer<typeof PlanGateDecision>;
 
@@ -365,6 +399,8 @@ export const planControl = {
     in: z.object({
       todoCount: z.number().int().nonnegative(),
       userForced: z.boolean(),
+      /** 可选（issue #2663）：任务自动判类结果，未传时走原有 `todoCount` 驱动表。 */
+      taskRiskClass: TaskRiskClass.optional(),
     }).strict(),
     out: PlanGateDecision,
     err: [] as const,
@@ -458,9 +494,56 @@ export const planControl = {
  * 判据四的反证（`usecases.md` UC-8 反证节）：简单提问不触发 `write_todos`，
  * `todoCount` 恒为 0 ⇒ `reason: "no-plan"` ⇒ `required: false`——这条路径
  * 不依赖任何阈值，`todoCount >= 2` 这条分界线才是待定项（`domain.md` 三·④）。
+ *
+ * ## `taskRiskClass`（issue #2663「计划确认策略」，扩展点）
+ *
+ * 消费 issue #2662「任务自动判类」中间件的产出（`TaskClassificationState.
+ * task_classification.category`），把"多步任务"从单一强制确认再分一档：
+ * "无外部影响"的多步任务可以自动交付执行、不卡确认，只有"有外部影响"的
+ * 才继续强制。判定优先级（由上到下，第一条命中即返回，`userForced` 永远最高）：
+ *
+ *   1. `userForced` —— 不论 `taskRiskClass` 是什么，用户手动开了任务模式开关
+ *      就始终 `required: true`（向后兼容：这条与改造前逐字相同）。
+ *   2. `taskRiskClass === "multi_step_high_risk"` —— 有外部副作用，始终
+ *      `required: true`，**不受 `todoCount` 影响**（哪怕引擎当前只写了一步
+ *      `todo`，风险等级优先于步数——见验收标准「`todoCount:1` 时仍然
+ *      `required:true`」）。
+ *   3. `taskRiskClass === "multi_step_low_risk"` —— 无外部副作用，
+ *      `required: false`，但 `deliverPlan: true`：计划仍要可见地交付给用户
+ *      （用户能看到、能中途叫停），只是不需要主动点确认——`deliverPlan` 是
+ *      前端 `plan-confirm-gate.tsx`（issue #2665，另开）判断"渲染自动交付+
+ *      可暂停" vs "渲染待确认"两种状态的信号源。
+ *   4. `taskRiskClass === "no_plan"` 或未传该字段 —— 退回原有 `todoCount`
+ *      驱动表，逐字不变（**关键的向后兼容要求**：旧调用方不传新字段时，
+ *      行为必须与改造前完全一致）。
+ *
+ * ## 端到端管道现状（TS↔Python，写在这里给后续 issue 参考）
+ *
+ * 本函数已经能**接收**并正确处理 `taskRiskClass`，但目前**没有任何调用方
+ * 传入它**——`apps/api/src/application/plan-control/get-plan-ledger.ts` 仍是
+ * `evaluatePlanGate({ todoCount: total, userForced: false })`，因为
+ * `task_classification` 目前只存在于 `deep-agent-service` 的 LangGraph
+ * checkpointer state 里（`harness.py` 的 `TaskClassificationState`），还没有
+ * 一条路径把它从 run 输出透传进 `apps/api` 能读到的地方（AG-UI 状态流 /
+ * `agent_runs` 表都还没有对应列）。把这条管道打通——包括要不要持久化、
+ * 以及 `PlanLedgerRepository`/`PlanRunStatusReader` 要不要多读一个字段——
+ * 留给后续 issue，本次改动只做好契约与纯函数这一半。
  */
-export function evaluatePlanGate(input: { todoCount: number; userForced: boolean }): PlanGateDecision {
+export function evaluatePlanGate(input: {
+  todoCount: number;
+  userForced: boolean;
+  taskRiskClass?: TaskRiskClass;
+}): PlanGateDecision {
   if (input.userForced) return { required: true, reason: "user-forced" };
+
+  if (input.taskRiskClass === "multi_step_high_risk") {
+    return { required: true, reason: "multi-step-high-risk" };
+  }
+  if (input.taskRiskClass === "multi_step_low_risk") {
+    return { required: false, reason: "multi-step-low-risk", deliverPlan: true };
+  }
+
+  // `taskRiskClass` 未传或为 `"no_plan"`：原有 `todoCount` 驱动表，逐字不变。
   if (input.todoCount === 0) return { required: false, reason: "no-plan" };
   if (input.todoCount === 1) return { required: false, reason: "single-step" };
   return { required: true, reason: "multi-step" };

@@ -73,9 +73,12 @@ describe("F972 · PlanPhase 六值 + 中文文案单一事实源（domain.md 一
 });
 
 describe("F972 · PlanGateDecision（domain.md 一·6，UC-8 判定表）", () => {
-  it("PlanGateReason 恰好四值", () => {
+  it("PlanGateReason 恰好六值（issue #2663 新增 multi-step-low-risk/high-risk 两档）", () => {
     expect(PlanGateReason.options.sort()).toEqual(
-      ["no-plan", "single-step", "multi-step", "user-forced"].sort(),
+      [
+        "no-plan", "single-step", "multi-step", "user-forced",
+        "multi-step-low-risk", "multi-step-high-risk",
+      ].sort(),
     );
   });
 

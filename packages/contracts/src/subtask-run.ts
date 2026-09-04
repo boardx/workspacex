@@ -3,18 +3,15 @@
  *
  * ## 背景
  *
- * `apps/deep-agent-service` 的 `spawn_async_task` 工具（issue #2664）供主 deep agent
+ * `apps/deep-agent-service` 新增 `spawn_async_task` 工具（issue #2664），供主 deep agent
  * 判断某类子任务可并行处理时调用：**不同步等待**子任务结果，而是把子任务描述转交给
- * TS 侧的独立子任务 run 队列（`apps/api/src/application/agent-run/subtask-run-queue.ts`
- * 的 `executeQueuedSubtaskRuns`）异步执行。
+ * TS 侧既有的 run 队列机制（`apps/api/src/application/agent-run/execute-run.ts` 的
+ * `executeQueuedRuns`/`claimQueued` 同一套"领取→执行→写回"节奏，见
+ * `apps/api/src/application/agent-run/subtask-run-queue.ts`）异步执行。
  *
- * 本文件定义这条"子任务 run"记录的形状——`apps/api`（写入/查询）与 `apps/web`
- * （issue #2666 的后台任务面板 UI）共用同一份状态机，不各自声明一遍
+ * 本文件定义这条"子任务 run"记录的形状——TS 两端（api 与后续 web，见 issue #2666 的 UI
+ * 消费）与 Python 侧（`spawn_async_task` 的返回值形状）共用同一份状态机，不各自声明一遍
  * （AGENTS.md「同一事实不得声明在两处」）。
- *
- * ⚠ issue #2664 对应的 PR（#2675）尚未合并到 main 时，本文件按该 PR diff 里
- * `packages/contracts/src/subtask-run.ts` 的形状原样落地——是同一份契约的两次独立
- * 落笔，不是分叉；#2675 合并时若形状有出入，以先合并的为准，另一侧改成引用它。
  *
  * ## 状态机
  *
@@ -32,7 +29,8 @@ export type SubtaskRunStatus = z.infer<typeof SubtaskRunStatus>;
  * 一条子任务 run 记录。
  *
  * `parentRunId` 关联回派发它的主 agent run（`agent_runs.id`）——issue #2666 的 UI 展示
- * 靠这个字段把子任务结果归拢到发起它的那次主对话下面。
+ * 靠这个字段把子任务结果归拢到发起它的那次主对话下面，本契约束只保证这个字段"存在且
+ * 指向真实父 run"，UI 消费逻辑不在本 issue 范围内。
  *
  * `result`/`error` 互斥：终态为 `completed` 时 `result` 非 null、`error` 为 null；终态为
  * `failed` 时相反；非终态（`pending`/`running`）两者都为 null。
