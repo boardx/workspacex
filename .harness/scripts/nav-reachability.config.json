@@ -56,6 +56,7 @@
       "/itv",
       "/org-admin/preview",
       "/platform-admin",
+      "/platform-admin/design-workbench",
       "/preview/agent-interrupts",
       "/preview/agent-runtime",
       "/preview/plan-control",
