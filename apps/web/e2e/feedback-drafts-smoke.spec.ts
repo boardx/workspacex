@@ -107,7 +107,9 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
     );
     await page.getByTestId("draft-refine-submit").click();
     const submitResponse = await submitted;
-    expect(submitResponse.status(), "提交草稿应该 200").toBe(200);
+    // 201：同 `POST /feedback`，这条路由创建了一行反馈资源（见
+    // `feedback.controller.ts` submitDraft 的 `@HttpCode(HttpStatus.CREATED)`）。
+    expect(submitResponse.status(), "提交草稿应该 201").toBe(201);
     const submitBody = (await submitResponse.json()) as { feedbackId?: string };
     expect(submitBody.feedbackId, "提交应返回真实的 feedbackId").toBeTruthy();
 
