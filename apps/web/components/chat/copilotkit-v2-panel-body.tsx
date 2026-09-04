@@ -56,6 +56,9 @@ import {
   createPersonalThread, listThreadAttachments, summarizePersonaFromThread,
   type ListThreadAttachmentsOut,
 } from "@/lib/live-chat";
+// issue #2694 修复——`PERSONA_SUMMARY_AUTHOR_ID` 是后端/前端共认的单一事实源
+// （见 `packages/contracts/src/chat.ts` 该常量的文件头注），不在这里另写一份字面量。
+import { chat as ChatContract } from "@repo/contracts";
 import { useCopilotKitV2AgentOptions, type CopilotKitV2AgentOptionsState } from "@/lib/copilotkit-v2-agent-options";
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
@@ -81,6 +84,35 @@ const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
+
+/**
+ * issue #2694 修复——「生成用户画像」建议 chip 新增的关闭状态，按线程持久化到
+ * `localStorage`（键含 `threadId`）。关闭是"这次不想再看到它"，与
+ * `personaAlreadyGenerated`（"后端已经落库过一份画像"）是两件独立的事实，
+ * `showPersonaSuggestion` 判据里两者任一为真都该隐藏——见该判据的完整论证。
+ *
+ * 只做本地持久化、不写后端：这条 chip 本身不是任何领域状态，"用户不想再看到一条
+ * 建议"不需要一次服务端往返，与 `personaThreadHasPersistedEvidence` 那类"后端
+ * 事实"不是同一类东西，不应该被同一条纪律要求。
+ */
+const PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX = "chat-persona-suggestion-dismissed:";
+function readPersonaSuggestionDismissed(threadId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId) === "1";
+  } catch {
+    // 隐私模式 / 存储被禁：静默降级为"没关闭过"，不让这个非核心便利功能炸整个面板。
+    return false;
+  }
+}
+function writePersonaSuggestionDismissed(threadId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId, "1");
+  } catch {
+    // 同上——写失败不影响本次会话内已经生效的 state，只是刷新后关闭状态丢失。
+  }
+}
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
@@ -499,6 +531,13 @@ export function CopilotKitV2PanelBody({
   const [hydratedEvidence, setHydratedEvidence] = React.useState<{
     readonly threadId: string;
     readonly hasMessages: boolean;
+    /**
+     * issue #2694 修复——这条线程已落库的消息里有没有一条是
+     * `summarizePersonaFromThread` 产出的画像（`authorId ===
+     * ChatContract.PERSONA_SUMMARY_AUTHOR_ID`）。与 `hasMessages` 同一次
+     * hydration 读出来，不为它单独再读一遍库；见下方 `personaAlreadyGenerated`。
+     */
+    readonly hasPersonaArtifact: boolean;
   } | null>(null);
   /**
    * session-switch task-state-loss fix —— 挂载 hydration 只回读了"已经落库的东西"，
@@ -541,7 +580,11 @@ export function CopilotKitV2PanelBody({
         hydratedRef.current = true;
         registerHydrated(identities);
         // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
-        setHydratedEvidence({ threadId: initialChatThreadId, hasMessages: collected.length > 0 });
+        setHydratedEvidence({
+          threadId: initialChatThreadId,
+          hasMessages: collected.length > 0,
+          hasPersonaArtifact: collected.some((m) => m.authorId === ChatContract.PERSONA_SUMMARY_AUTHOR_ID),
+        });
         // ⚠ 只把框架认识的三个字段喂进去：`rateable` 是本仓自己的投影，
         //   不该混进 AG-UI 消息对象。
         const framed = collected.map((m) => ({ id: m.id, role: m.role, content: m.content }));
@@ -1176,6 +1219,24 @@ export function CopilotKitV2PanelBody({
    * 见下方 `showPersonaSuggestion` 的完整判据与已知局限说明。
    */
   const [personaGeneratedOnce, setPersonaGeneratedOnce] = React.useState(false);
+  /**
+   * issue #2694 修复——「生成用户画像」建议 chip 的关闭状态。惰性初始化直接读一次
+   * `localStorage`（不用 effect 再补一轮，避免"挂载首帧闪现、下一帧才消失"的抖动）；
+   * 线程切换（`initialChatThreadId` 变化）时重新读一次对应线程自己的关闭状态——
+   * 关闭是"针对这一条线程"的，不该跨线程带过去。
+   */
+  const [personaSuggestionDismissed, setPersonaSuggestionDismissed] = React.useState(
+    () => initialChatThreadId !== null && readPersonaSuggestionDismissed(initialChatThreadId),
+  );
+  React.useEffect(() => {
+    setPersonaSuggestionDismissed(
+      initialChatThreadId !== null && readPersonaSuggestionDismissed(initialChatThreadId),
+    );
+  }, [initialChatThreadId]);
+  const dismissPersonaSuggestion = React.useCallback(() => {
+    setPersonaSuggestionDismissed(true);
+    if (initialChatThreadId !== null) writePersonaSuggestionDismissed(initialChatThreadId);
+  }, [initialChatThreadId]);
   const runPersonaSummary = React.useCallback(async () => {
     if (initialChatThreadId === null || personaRunning) return;
     setPersonaRunning(true);
@@ -1509,11 +1570,22 @@ export function CopilotKitV2PanelBody({
    *   `initialChatThreadId` 出现在这个 Set 里，就已经有 ≥1 条落库消息，不需要
    *   （也不该）再触发一次 hydration 去确认同一件事。
    *
-   * ⚠ 已知局限（前端规则判断的选定范围内，如实记录）：`personaGeneratedOnce` 只是
-   *   会话内的本地状态，不查后台这条线程是否已经落过 persona 产物——重新打开一条
-   *   早就生成过画像的线程，这条建议还会再出现一次。要精确识别需要额外查一次
-   *   `listThreadArtifacts` 并识别哪条是 persona 产物（目前产物没有专门的 kind
-   *   标记可用），超出本次改动范围，留给下一轮迭代。
+   * ⚠ 2026-09-04（issue #2694 修复，取代下面这段此前的"已知局限"记录）：
+   *   `personaGeneratedOnce` 仍然只是本次会话内的本地信号（生成成功那一刻立即
+   *   生效，不必等一次额外的服务端往返），但现在**不再是唯一的事实源**——
+   *   `personaAlreadyGenerated`（见下方）额外读一次 hydration 已经拿到的
+   *   `hydratedEvidence.hasPersonaArtifact`：该线程已落库消息里有没有一条
+   *   `authorId === ChatContract.PERSONA_SUMMARY_AUTHOR_ID`。两者是"同一件事的
+   *   两个来源"（本次会话内生成 vs. 更早、也许是上一次打开这条线程时生成），
+   *   任一为真都该隐藏——不是回归上面"不能用 `agent.messages` 当事实源"那条
+   *   纪律：这里读的仍然是 hydration 效果里 `readAllPersistedMessages` 落定的
+   *   持久化结果，不是 client 流式视图。
+   *
+   *   此外新增 `personaSuggestionDismissed`——用户主动点击关闭时置位，按线程持久化
+   *   到 `localStorage`（见文件头 `readPersonaSuggestionDismissed`/
+   *   `writePersonaSuggestionDismissed`），与"是否已生成过"是两件独立的事：
+   *   用户可以在"还没生成过"的线程上主动关闭这条建议（不想现在生成），这条建议
+   *   此后就不再自己冒出来，直到该线程真的生成过一次画像。
    */
   const personaThreadHasPersistedEvidence =
     initialChatThreadId !== null
@@ -1521,8 +1593,14 @@ export function CopilotKitV2PanelBody({
       && hydratedEvidence.threadId === initialChatThreadId
       && hydratedEvidence.hasMessages)
       || resolvedThreadIdsRef.current.has(initialChatThreadId));
+  const personaAlreadyGenerated =
+    personaGeneratedOnce
+    || (hydratedEvidence !== null
+      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.hasPersonaArtifact);
   const showPersonaSuggestion =
-    canGeneratePersona && !archived && personaThreadHasPersistedEvidence && !personaGeneratedOnce;
+    canGeneratePersona && !archived && personaThreadHasPersistedEvidence
+    && !personaAlreadyGenerated && !personaSuggestionDismissed;
   const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
     ? [{
         // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
@@ -1531,6 +1609,10 @@ export function CopilotKitV2PanelBody({
         label: personaRunning ? "生成画像中…" : "生成用户画像",
         disabled: personaRunning,
         onSelect: () => void runPersonaSummary(),
+        // issue #2694 修复——生成中不给关闭入口：点击已经在途的请求半路"关闭"不会
+        // 取消它，反而会让用户误以为按钮消失=请求也没了，与上面 `disabled` 同一条
+        // 纪律（不制造"看起来生效、其实没有"的交互）。
+        onDismiss: personaRunning ? undefined : dismissPersonaSuggestion,
       }]
     : [];
 

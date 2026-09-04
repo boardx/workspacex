@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Wrench, ChevronDown, ChevronUp } from "lucide-react";
+import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
   useSuggestions,
@@ -544,6 +544,15 @@ export interface LocalSuggestionChip {
   readonly label: string;
   readonly onSelect: () => void;
   readonly disabled?: boolean;
+  /**
+   * issue #2694 修复——「关闭/忽略」这条 chip 的入口。`undefined` = 不渲染关闭
+   * 按钮（此前的行为，仍是默认值，调用方不传就不会多一个按钮出来）；调用方按自己
+   * 的规则决定"关闭后要不要再出现"（`copilotkit-v2-panel-body.tsx` 的
+   * `dismissPersonaSuggestion` 会持久化到 `localStorage`），本组件只负责渲染
+   * 按钮、把点击转发出去，不判断"关闭意味着什么"——与 `onSelect` 同一条纪律
+   * （调用方按自己的规则算好，本组件只管渲染）。
+   */
+  readonly onDismiss?: () => void;
 }
 
 export function FollowUpSuggestions({
@@ -582,16 +591,33 @@ export function FollowUpSuggestions({
       aria-busy={isLoading}
     >
       {localSuggestions.map((chip) => (
-        <button
-          key={chip.id}
-          type="button"
-          data-testid={chip.id}
-          disabled={disabled || chip.disabled}
-          className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
-          onClick={chip.onSelect}
-        >
-          {chip.label}
-        </button>
+        // issue #2694 修复——`onDismiss` 存在时多渲染一个关闭按钮。两个按钮
+        // 并列包在一个 `inline-flex` 容器里，**不**把关闭按钮嵌进 `chip.onSelect`
+        // 那个 `<button>` 内部——`<button>` 套 `<button>` 是无效 HTML（浏览器会把
+        // 内层拆出去，点击区域行为不可预期），关闭按钮必须是外层同级的兄弟节点。
+        <span key={chip.id} className="inline-flex items-stretch overflow-hidden rounded-full border border-border">
+          <button
+            type="button"
+            data-testid={chip.id}
+            disabled={disabled || chip.disabled}
+            className="px-3 py-1 text-xs text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            onClick={chip.onSelect}
+          >
+            {chip.label}
+          </button>
+          {chip.onDismiss ? (
+            <button
+              type="button"
+              data-testid={`${chip.id}-dismiss`}
+              aria-label="关闭这条建议"
+              disabled={disabled}
+              className="flex items-center border-l border-border px-1.5 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+              onClick={chip.onDismiss}
+            >
+              <X aria-hidden className="h-3 w-3" />
+            </button>
+          ) : null}
+        </span>
       ))}
       {suggestions.map((s, i) => (
         <button
