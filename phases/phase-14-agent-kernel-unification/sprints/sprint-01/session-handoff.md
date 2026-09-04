@@ -4,6 +4,8 @@
 - F01（apps/api 退化为薄网关）已合入 main（#2729），status 仍是 `in_progress`（其
   verify 从未在一个 Docker 可用的会话里跑通过——见下方"环境 blocker 的解法"，下一个
   会话可以现在就把它转 passing，方法已经现成）。
+- F13（错误分类修复，issue #2718）：实现完成，`in_progress`，与 F01 同一条 Docker
+  出网 blocker（见下方"本轮改动（F13...）"一节），当时的会话未能跑通 harness verify。
 - F03（网关 WebSocket 事件端点：真流式转发内核事件、落库与推流解耦）：本轮实现，
   三条 verification 命令本会话**真实跑绿**（`evidence/F03.verify.log`）：
   - `pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts` ✓
@@ -14,6 +16,10 @@
     21 个既有测试文件，约 156 条用例）全绿，见下方"回归验证范围"。
   - status 是否已转 `passing` 取决于本轮结束前 `pnpm harness verify` 是否也跑通
     （见"下一步最佳动作"）——未跑通前不手改 status。
+- 无 feature 处于 harness `passing`。F01/F13/F03 三轮都以不同形式撞上"整套环境/base
+  verify 规模"这类门槛（F01/F13 是 Docker 出网被拦截，F03 是本会话已经解决了那个
+  blocker 但整 monorepo 的 base verify 规模超出单次会话时间）——三个 feature 的
+  status 都未被手动改动，符合"只能由验证脚本门控转移"的硬约束。
 
 ## 环境 blocker 的解法（本会话解决，供以后会话复用）
 F01 交接记录的 blocker——沙箱没有可用 Docker，`docker compose up -d postgres` 拉取
@@ -149,14 +155,65 @@ issue 的 `user_visible_behavior` 逐字写着"…`agui-bridge.ts` 的定时轮�
 monorepo base gate 的会话（或 CI）跑通 `pnpm harness verify --sprint 14/01 --feature F03`
 把它转 passing。
 
+## 本轮改动（F13：错误分类修复，toFailure 精确归类，issue #2718）
+
+范围严格限定在 R11(a) 切分出来的那一小片（`toFailure` 精确化），不碰
+R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那是 F14/F15 的事。
+
+- `apps/api/src/application/agent-run/run-skill-script.ts`：`toFailure` 新增
+  `ModelCallError` 分支（归 `MODEL_CALL_FAILED`），排在原有三个具名异常分支之后、
+  真兜底之前；真兜底（认不出的异常）从原来的 `SANDBOX_UNAVAILABLE` 改成
+  `UNKNOWN_EXECUTION_ERROR`（R7：诚实的"不知道"优先于张冠李戴）。`SkillScriptOutcome`
+  的 `failureCode` 联合类型同步加了这两个字面量。
+  - 触发本 phase 故障的诱因：回喂重试的 `deps.regenerate(feedback)` 是一次真实模型
+    调用（`execute-run.ts` 接的是 `deps.model.complete(...)`），失败时抛
+    `ModelCallError`——改前这个异常类型 `toFailure` 完全没处理，直接落进兜底，
+    被记成 `SANDBOX_UNAVAILABLE`；运维会去查一个没坏的沙箱容器。
+- 新增 `apps/api/tests/agent-run/failure-classification.test.ts`（issue #2718 指定的
+  唯一 verification 命令）：
+  - E1 回归：`regenerate` 抛 `ModelCallError("MODEL_CALL_FAILED", ...)` ⇒
+    `failureCode === "MODEL_CALL_FAILED"`，且带一条 CP 反证（重放旧兜底逻辑本身，
+    证明它确实会把这个异常判成 `SANDBOX_UNAVAILABLE`）。
+  - 兜底诚实：一个非 `ModelCallError`/非沙箱类的意外异常 ⇒
+    `failureCode === "UNKNOWN_EXECUTION_ERROR"`。
+  - 不回归：`SandboxUnavailableError` 仍然归 `SANDBOX_UNAVAILABLE`（本次没有动这条）。
+  - 反证方法：把 `run-skill-script.ts` 的改动 `git stash` 掉后重跑同一份测试，
+    确认前两条断言真的会红（见下方"已做的替代验证"第 2 条），不是空转的 vacuous test。
+
+### 仍损坏或未验证（与 F01 同一条环境 blocker，本轮重新确认过一次）
+- 本会话 docker 服务本身没有起来（`/var/run/docker.sock` 不存在，`service docker
+  start` 因 `ulimit: error setting limit (Operation not permitted)` 失败）；手动
+  `dockerd --storage-driver=vfs` 能把 daemon 本身跑起来，但 `docker compose up -d
+  postgres` 拉取 `pgvector/pgvector:pg16` 时对 `production.cloudfront.docker.com`
+  返回 `403 Forbidden`——与 F01 那轮记录的是同一条组织出网策略拦截（`/root/.ccr/
+  README.md`："403/407 = 出网策略拒绝，不要绕过"），不是本轮改动引入的新问题。
+  真实失败日志已落盘 `evidence/F13.verify.log`（`pnpm harness verify --sprint 14/01
+  --feature F13` 的原始输出，未手改）。
+- **已做的替代验证**（不是 harness 认可的证据，只是本轮实现信心的补充说明）：
+  1. `pnpm exec tsc --noEmit -p apps/api`：0 个新增错误（含新测试文件本身）。
+  2. 用一份临时 vitest config（只去掉 `globalSetup`，其余设置逐字照抄
+     `vitest.config.ts`，不落进仓库）跑
+     `tests/agent-run/failure-classification.test.ts`：4 个测试全绿；同时跑既有
+     `tests/agent-runtime/chat-skill-script-execution.test.ts`（11 个测试）确认未
+     回归。把 `run-skill-script.ts` 的改动 `git stash` 后重跑，前两条断言按预期
+     变红（`SANDBOX_UNAVAILABLE` vs 期望的 `MODEL_CALL_FAILED`/
+     `UNKNOWN_EXECUTION_ERROR`），证明测试确实抓得住这条回归。
+- **下一步**：找一个 docker 出网可用的环境（本仓 CI 的 `verify-affected` runner，
+  或另一个出网策略不同的 remote session）重跑
+  `pnpm harness verify --sprint 14/01 --feature F13`，跑通后由 verify 脚本自身完成
+  status 翻转（不能手改）；同一个环境顺带把 F01 的 verify 也补跑掉（见上）。
+
 ## 下一步最佳动作
 1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
-   `verify:release`）的会话/CI，一次性把 F01 与 F03 都转 passing——两者都卡在同一道
-   "base verify 规模大"的门上，不是各自的业务逻辑有问题（F03 的三条 feature 级
-   verification 已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01 的两条也早就
-   跑绿过，见其自身历史记录）。
+   `verify:release`）的会话/CI，一次性把 F01、F13、F03 都转 passing——三者都卡在
+   同一类"base verify/环境规模大"的门上，不是各自的业务逻辑有问题（F03 的三条
+   feature 级 verification 已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01/F13
+   的也早就跑绿过，见各自历史记录；F01/F13 如果还没解决 Docker blocker，直接套用
+   本轮"环境 blocker 的解法"）。
 2. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
    `agui-bridge.ts` 轮询切换，按 R11(b)/(c) 排期——见上"诚实的范围收窄"。
+3. F13 之后：F14（错误人性化转换层+前端错误卡片）、F15（完整可审计 transcript 存储
+   改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01。
 
 ## 命令
 - 启动：`pnpm -w run dev`
