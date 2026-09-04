@@ -143,12 +143,18 @@ export function sanitizeAsrSegment(text: string): string {
  * 这种情况下"？"/"！"标的不是"这一轮静音到了"这种噪音，是说话人的语气本身——
  * 剥掉它，"你好吗？"变成"你好吗"，问句读成了陈述句，语义被改写了，比多几个句号
  * 更糟。人类实测反馈原文只提到"很多中文句号"，没提丢失问号/感叹号，所以这里只处理
- * report 里那一类**弱标点**（逗号/顿号/句号/分号/冒号——它们标的只是停顿长短，去掉
- * 前后语义基本不变），"！"/"？"这两个**改变句子语气**的标点一律保留，即便它们出现在
- * 轮次边界上——宁可多留一个可能是伪影的问号，也不平白抹掉一个真的问句。
+ * report 里那一类**弱标点**，"！"/"？"这两个**改变句子语气**的标点一律保留，即便
+ * 它们出现在轮次边界上——宁可多留一个可能是伪影的问号，也不平白抹掉一个真的问句。
+ *
+ * 2026-09-04 review fix 第三轮（PR #2644 reviewer diagnostic）—— "：" / "；" 同样
+ * 划错了范围：冒号引出的是结构（"有三项：" 后面接"第一项…"，冒号标的是"下面是
+ * 一个列表/说明"这个结构关系，不是停顿），分号连接的是两个有真实语义关联的分句——
+ * 都不是"这一轮静音到了"式的噪音，剥掉会丢结构信息，跟"？"/"！"是同一类问题。
+ * 收窄到只剩报告里真正描述的那两类：顿号/逗号（列举、短停顿）与句号（单纯断句，
+ * 两句独立陈述合并只是少一个视觉分隔，不改变任何一句本身的意思）。
  */
 function stripTrailingTurnBoundaryPunctuation(text: string): string {
-  return text.replace(/[、。，,.;；:：]+$/, "");
+  return text.replace(/[、。，,.]+$/, "");
 }
 
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {

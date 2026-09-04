@@ -132,4 +132,14 @@ describe("useAsrDraft — sequential server_vad finals across turns", () => {
     const text = await driveSequentialFinals(["小心！", "下一句"]);
     expect(text).toBe("小心！ 下一句");
   });
+
+  it("2026-09-04 review fix 第三轮 -- does NOT strip a structural colon (introduces a list/explanation) at a turn boundary", async () => {
+    const text = await driveSequentialFinals(["有三项：", "第一项是这个"]);
+    expect(text).toBe("有三项： 第一项是这个");
+  });
+
+  it("2026-09-04 review fix 第三轮 -- does NOT strip a semicolon joining two related clauses at a turn boundary", async () => {
+    const text = await driveSequentialFinals(["还没吃饭；", "有点饿"]);
+    expect(text).toBe("还没吃饭； 有点饿");
+  });
 });
