@@ -4,28 +4,30 @@
 - 仓库根目录: `/home/user/workspacex`
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- F01（apps/api 退化为薄网关）：已合入 main（#2729），status 仍是 `in_progress`——
-  Docker 出网 blocker 那几轮会话（含 F13）都没能跑通它的 `pnpm harness verify`。
-- F13（错误分类修复，issue #2718）：实现完成，`in_progress`，同样卡在 Docker 出网
-  blocker（见下方 2026-09-04 21:39:27 记录），当时的会话未能跑通 harness verify。
-- F03（网关 WebSocket 事件端点）：本会话实现完成，三条 verification 命令本会话真实跑绿
-  （证据 `evidence/F03.verify.log`），细节见下。`pnpm harness verify --sprint 14/01
-  --feature F03` 的 feature 级三条命令跑绿后，进入它自己的整 monorepo "base verify" 门
-  （`turbo run typecheck lint`/`test`），规模超出本会话时间预算，主动终止——不是观察到
-  失败。status 因此仍是 `in_progress`，未手改，详见 `session-handoff.md`。
-- 本会话（F03）**解决**了 F01/F13 两轮都撞上的 Docker 出网环境 blocker：沙箱没有可用
-  的 Docker/组织出网策略拦截 `pgvector/pgvector:pg16` 拉取——本会话改用**本机 apt
-  安装的 PostgreSQL 16**（`postgresql-16`/`postgresql-16-pgvector`）替代
-  docker-compose 起的 Postgres，外加一个仅存在于本会话 PATH 里的 `docker` 命令
-  shim（把 `tests/support/db.ts`/`auth.ts` 里 `docker compose exec postgres
-  pg_isready`/`up -d postgres` 等固定几条子命令翻译成对本机 Postgres 的直接调用），
-  使 `pnpm --filter api exec vitest run` 可以真正跑通，不必修改任何测试基础设施本身。
-  **这个 shim 只存在于本会话临时目录，不是仓库的一部分**——下一个会话若同样缺
-  Docker，需要重新搭一次（步骤：`apt-get install postgresql-16-pgvector` → 把 main
-  集群端口改到 55432 并起服务 → 建 `workspacex` 库 + `CREATE EXTENSION vector` →
-  跑一次 `migrate(migrationConfig())` 让 `0001-kernel-roles.sql` 建好 `app_rw` 等
-  角色 → PATH 前置一个把 `docker compose exec/up` 转译成本机命令的 shim 脚本）。
-  这个解法同样可以用来把 F01、F13 补跑通。
+- F01（apps/api 退化为薄网关）：已合入 main（#2729），status 仍是 `in_progress`
+  （其 verify 未在合入前的会话里跑通，见下方各会话记录）。
+- F03（网关 WebSocket 事件端点）：F03 会话实现完成，三条 verification 命令该会话
+  真实跑绿（证据 `evidence/F03.verify.log`），细节见下。`pnpm harness verify
+  --sprint 14/01 --feature F03` 的 feature 级三条命令跑绿后，进入它自己的整 monorepo
+  "base verify" 门（`turbo run typecheck lint`/`test`），规模超出该会话时间预算，
+  主动终止——不是观察到失败。status 因此仍是 `in_progress`，未手改，详见
+  `session-handoff.md`。
+- F13（错误分类修复，issue #2718）：F13 会话实现完成，同样撞上下方记录的 Docker
+  出网 blocker 未能跑通 harness verify，status 仍是 `in_progress`。
+- F03 会话解决了 F01/F13 记录的环境 blocker：沙箱没有可用的 Docker/组织出网策略拦截
+  `pgvector/pgvector:pg16` 拉取——F03 会话改用**本机 apt 安装的 PostgreSQL 16**
+  （`postgresql-16`/`postgresql-16-pgvector`）替代 docker-compose 起的 Postgres，
+  外加一个仅存在于该会话 PATH 里的 `docker` 命令 shim（把 `tests/support/db.ts`/
+  `auth.ts` 里 `docker compose exec postgres pg_isready`/`up -d postgres` 等固定几条
+  子命令翻译成对本机 Postgres 的直接调用），使 `pnpm --filter api exec vitest run`
+  可以真正跑通，不必修改任何测试基建源码。**这个 shim 只存在于该会话临时目录，
+  不是仓库的一部分**——下一个会话若同样缺 Docker，需要重新搭一次（步骤：
+  `apt-get install postgresql-16-pgvector` → 把 main 集群端口改到 55432 并起
+  服务 → 建 `workspacex` 库 + `CREATE EXTENSION vector` → 跑一次
+  `migrate(migrationConfig())` 让 `0001-kernel-roles.sql` 建好 `app_rw` 等角色 →
+  PATH 前置一个把 `docker compose exec/up` 转译成本机命令的 shim 脚本）。F13 那轮
+  会话没有这个 shim，仍撞在原始 Docker 出网 blocker 上（`pgvector/pgvector:pg16`
+  拉取对 `production.cloudfront.docker.com` 返回 403）。
 
 ## 会话记录
 ### 2026-09-04 20:22:49
@@ -50,6 +52,34 @@
 - 下一步最佳动作: 在能跑 docker 的环境重跑 verify 把 F01 转 passing；之后按
   R11(b) 排 F02。
 
+### 2026-09-04（F03 会话）
+- 本轮目标: 实现 Phase 14 F03（网关 WebSocket 事件端点：真流式转发内核事件、落库与
+  推流解耦）。
+- 已完成: 见上方"当前已验证状态"与 `session-handoff.md` 的完整改动清单——契约层
+  `aguiEventTypeFor` 对齐 AG-UI 原生事件类型，`RunEventBusPort`/`InMemoryRunEventBus`/
+  `WS /agent-runs/:runId/events` 网关，`execute-run.ts`/`writeback.ts` 六类事件在
+  真实执行路径上的发布点，`ModelCallProgressEvent` 补完整（非截断）字段。
+- 环境: 本会话**解决**了 F01 记录的 Docker blocker（本机 apt 装 Postgres 16 +
+  pgvector，PATH shim 转译 `docker compose` 调用），使 `pnpm --filter api exec vitest
+  run` 首次在这一系列会话里真正跑通。
+- 运行过的验证:
+  - 三条 issue 指定的 verification 命令：真实跑绿，见 `evidence/F03.verify.log`。
+  - `pnpm exec tsc --noEmit -p apps/api`、`-p packages/contracts`：0 新增错误。
+  - 针对性回归批（21 个既有文件，约 156 条用例，含真实 Postgres 的 HITL/writeback/
+    streaming 全流程）：全绿。
+  - `packages/contracts` 全量 `vitest run`（26 文件/429 用例）：全绿。
+  - `pnpm --filter api exec vitest run`（不设 `-t` 过滤，跑到超时前约 110+ 个文件）：
+    零失败，覆盖 auth/chat/canvas/capability/skill/kernel/research/asset/plan-control
+    等一大片不相关子系统，作为"没有引入新的失败"的补充证据（未跑满全部 793 个文件，
+    单进程串行跑完整套件的时间超出本会话预算）。
+  - `pnpm harness verify --sprint 14/01 --feature F03`：F03 自己的三条 verification
+    先跑绿，随后进入它自带的整 monorepo "base verify"门（`turbo run typecheck lint`/
+    `test`），本会话主动终止（规模超出时间预算，不是观察到失败）。
+- 已记录证据: `evidence/F03.verify.log`（三条命令的真实通过日志）。
+- 已知风险或未解决问题: F03 尚未 `passing`——需要一个能跑完整 monorepo `pnpm harness
+  verify --sprint 14/01` 的会话/CI；`agui-bridge.ts` 自己的轮询循环本轮未切换（诚实
+  范围收窄，见 session-handoff.md）。
+- 下一步最佳动作: 见 `session-handoff.md`"下一步最佳动作"。
 ### 2026-09-04 21:39:27
 - 本轮目标: 实现 Phase 14 F13（错误分类修复：`toFailure` 精确归类，取消
   `SANDBOX_UNAVAILABLE` 兜底误标，issue #2718）。
@@ -73,32 +103,3 @@
   `pnpm harness verify --sprint 14/01 --feature F13`（F01 同样待补跑）。
 - 下一步最佳动作: 在能跑 docker 的环境依次重跑 F01、F13 的 verify；F13 之后
   F14/F15（错误人性化转换层、transcript 存储改造）可并行开工。
-
-### 2026-09-04（F03 会话）
-- 本轮目标: 实现 Phase 14 F03（网关 WebSocket 事件端点：真流式转发内核事件、落库与
-  推流解耦）。
-- 已完成: 见上方"当前已验证状态"与 `session-handoff.md` 的完整改动清单——契约层
-  `aguiEventTypeFor` 对齐 AG-UI 原生事件类型，`RunEventBusPort`/`InMemoryRunEventBus`/
-  `WS /agent-runs/:runId/events` 网关，`execute-run.ts`/`writeback.ts` 六类事件在
-  真实执行路径上的发布点，`ModelCallProgressEvent` 补完整（非截断）字段。
-- 环境: 本会话**解决**了 F01/F13 都撞上的 Docker blocker（本机 apt 装 Postgres 16 +
-  pgvector，PATH shim 转译 `docker compose` 调用），使 `pnpm --filter api exec vitest
-  run` 首次在这一系列会话里真正跑通。
-- 运行过的验证:
-  - 三条 issue 指定的 verification 命令：真实跑绿，见 `evidence/F03.verify.log`。
-  - `pnpm exec tsc --noEmit -p apps/api`、`-p packages/contracts`：0 新增错误。
-  - 针对性回归批（21 个既有文件，约 156 条用例，含真实 Postgres 的 HITL/writeback/
-    streaming 全流程）：全绿。
-  - `packages/contracts` 全量 `vitest run`（26 文件/429 用例）：全绿。
-  - `pnpm --filter api exec vitest run`（不设 `-t` 过滤，跑到超时前约 110+ 个文件）：
-    零失败，覆盖 auth/chat/canvas/capability/skill/kernel/research/asset/plan-control
-    等一大片不相关子系统，作为"没有引入新的失败"的补充证据（未跑满全部 793 个文件，
-    单进程串行跑完整套件的时间超出本会话预算）。
-  - `pnpm harness verify --sprint 14/01 --feature F03`：F03 自己的三条 verification
-    先跑绿，随后进入它自带的整 monorepo "base verify"门（`turbo run typecheck lint`/
-    `test`），本会话主动终止（规模超出时间预算，不是观察到失败）。
-- 已记录证据: `evidence/F03.verify.log`（三条命令的真实通过日志）。
-- 已知风险或未解决问题: F03 尚未 `passing`——需要一个能跑完整 monorepo `pnpm harness
-  verify --sprint 14/01` 的会话/CI；`agui-bridge.ts` 自己的轮询循环本轮未切换（诚实
-  范围收窄，见 session-handoff.md）。
-- 下一步最佳动作: 见 `session-handoff.md`"下一步最佳动作"。

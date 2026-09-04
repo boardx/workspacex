@@ -4,8 +4,6 @@
 - F01（apps/api 退化为薄网关）已合入 main（#2729），status 仍是 `in_progress`（其
   verify 从未在一个 Docker 可用的会话里跑通过——见下方"环境 blocker 的解法"，下一个
   会话可以现在就把它转 passing，方法已经现成）。
-- F13（错误分类修复，issue #2718）：实现完成，`in_progress`，与 F01 同一条 Docker
-  出网 blocker（见下方"本轮改动（F13...）"一节），当时的会话未能跑通 harness verify。
 - F03（网关 WebSocket 事件端点：真流式转发内核事件、落库与推流解耦）：本轮实现，
   三条 verification 命令本会话**真实跑绿**（`evidence/F03.verify.log`）：
   - `pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts` ✓
@@ -16,10 +14,10 @@
     21 个既有测试文件，约 156 条用例）全绿，见下方"回归验证范围"。
   - status 是否已转 `passing` 取决于本轮结束前 `pnpm harness verify` 是否也跑通
     （见"下一步最佳动作"）——未跑通前不手改 status。
-- 无 feature 处于 harness `passing`。F01/F13/F03 三轮都以不同形式撞上"整套环境/base
-  verify 规模"这类门槛（F01/F13 是 Docker 出网被拦截，F03 是本会话已经解决了那个
-  blocker 但整 monorepo 的 base verify 规模超出单次会话时间）——三个 feature 的
-  status 都未被手动改动，符合"只能由验证脚本门控转移"的硬约束。
+- F13（错误分类修复）实现完成，撞上与 F01 同一条环境 blocker（docker 出网被拦），
+  未能在那轮会话里跑通 `pnpm harness verify`，status 未手改。
+- 无 feature 处于 harness `passing`——F01/F03/F13 三轮都符合"只能由验证脚本门控
+  转移"的硬约束，没有一个绕开门控手改 status。
 
 ## 环境 blocker 的解法（本会话解决，供以后会话复用）
 F01 交接记录的 blocker——沙箱没有可用 Docker，`docker compose up -d postgres` 拉取
@@ -205,11 +203,11 @@ R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那�
 
 ## 下一步最佳动作
 1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
-   `verify:release`）的会话/CI，一次性把 F01、F13、F03 都转 passing——三者都卡在
-   同一类"base verify/环境规模大"的门上，不是各自的业务逻辑有问题（F03 的三条
-   feature 级 verification 已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01/F13
-   的也早就跑绿过，见各自历史记录；F01/F13 如果还没解决 Docker blocker，直接套用
-   本轮"环境 blocker 的解法"）。
+   `verify:release`）的会话/CI，一次性把 F01、F03、F13 都转 passing——三者都卡在
+   同一道"base verify 规模大 / Docker 出网被拦"的门上，不是各自的业务逻辑有问题
+   （F03 的三条 feature 级 verification 已经用真实证据跑绿，见
+   `evidence/F03.verify.log`；F01/F13 的也早就跑绿过，见各自历史记录）；不要在没
+   跑通 verify 的情况下手改 `feature_list.json` 的 status。
 2. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
    `agui-bridge.ts` 轮询切换，按 R11(b)/(c) 排期——见上"诚实的范围收窄"。
 3. F13 之后：F14（错误人性化转换层+前端错误卡片）、F15（完整可审计 transcript 存储
