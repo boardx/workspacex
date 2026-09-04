@@ -521,7 +521,7 @@ describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", ()
   });
 });
 
-describe("issue #2637 ④ —— 录音胶囊状态与无障碍", () => {
+describe("issue #2637 ④ / 2026-09-04 —— 录音状态与 chat composer 同一套组件", () => {
   function stubCaptureSupport() {
     vi.stubGlobal("WebSocket", class {} as unknown as typeof WebSocket);
     vi.stubGlobal("AudioContext", class {} as unknown as typeof AudioContext);
@@ -531,7 +531,11 @@ describe("issue #2637 ④ —— 录音胶囊状态与无障碍", () => {
     });
   }
 
-  it("只在 listening 时红点脉冲、音量条随真实 level 变化；connecting/stopping 不假装还在录", async () => {
+  // 2026-09-04 人类反馈：录音/转录体验要与 chat composer 看齐——本弹层不再自己攒一套
+  // 录音胶囊，而是直接复用 `ComposerVoiceControl`（唯一的麦克风入口，
+  // `chat-task-workbench-composer-mic`）+ `ComposerStatusBar`（底部状态栏，
+  // `feedback-voice-connecting`/`feedback-voice-listening`/`feedback-voice-stop` 等）。
+  it("connecting 不假装在听；listening 音量条随真实 level；停止后进入 stopping/整理中", async () => {
     stubCaptureSupport();
     let handlers: AsrDraftStreamHandlers | null = null;
     // `await Promise.resolve()` before `onFinished()` matters: a synchronous mock would
@@ -550,31 +554,28 @@ describe("issue #2637 ④ —— 录音胶囊状态与无障碍", () => {
     });
     try {
       openDialogFor({ kind: "product" });
-      fireEvent.click(screen.getByTestId("feedback-voice-button"));
+      const mic = screen.getByTestId("chat-task-workbench-composer-mic");
+      fireEvent.click(mic);
 
-      // connecting：`open()` 还没 resolve，还没听到任何声音，胶囊必须存在但不能假装在脉冲。
-      const pill = await screen.findByTestId("feedback-voice-recording");
-      expect(pill.querySelector(".animate-ping")).toBeNull();
-      expect(screen.getByTestId("feedback-voice-stop")).toBeDisabled();
+      // connecting：`open()` 还没 resolve，还没听到任何声音——底部状态栏必须说「正在连接」，
+      // 主按钮此刻是 disabled + aria-busy，不能假装已经在听。
+      await screen.findByTestId("feedback-voice-connecting");
+      expect(mic).toBeDisabled();
+      expect(mic).toHaveAttribute("aria-busy", "true");
 
       await waitFor(() => expect(handlers).not.toBeNull());
       await act(async () => { resolveOpen!({ stop }); await Promise.resolve(); });
       // 模拟真实采到的音量：此刻已进入 listening。
       act(() => { handlers!.onLevel?.(0.6); });
-      await waitFor(() => expect(screen.getByTestId("feedback-voice-stop")).not.toBeDisabled());
+      await screen.findByTestId("feedback-voice-listening");
+      expect(mic).not.toBeDisabled();
+      expect(screen.getByTestId("chat-task-workbench-composer-recording-level")).toHaveAttribute("data-level", "0.600");
 
-      const listeningPill = screen.getByTestId("feedback-voice-recording");
-      expect(listeningPill.querySelector(".animate-ping")).not.toBeNull(); // 呼吸动画只在真正 listening 时出现
-      const meter = screen.getByRole("meter", { name: "音量" });
-      expect(meter.getAttribute("aria-valuenow")).toBe("0.6");
-      // 停止按钮此刻可点（未在 stopping/connecting），取消按钮同理可点。
-      expect(screen.getByTestId("feedback-voice-cancel")).not.toBeDisabled();
-
-      // 点「说完了」进入 stopping：停止按钮必须立刻 disabled，防止用户在等待收尾期间
-      // 又点一次触发第二条 finish() 竞态。`stop()` 的 mock 随后异步 resolve `onFinished`，
-      // 胶囊会整个卸载（回到 idle）——那之后的状态不再是这条用例要断言的"stopping 中"。
+      // 点状态栏的「停止」（`voice.finish`）：`stop()` 的 mock 随后异步 resolve
+      // `onFinished`，进入 stopping（这里合并展示为「AI 整理中」，因为紧接着就要把
+      // 转录交给 `structureFeedbackDraft`）。
       fireEvent.click(screen.getByTestId("feedback-voice-stop"));
-      expect(screen.getByTestId("feedback-voice-stop")).toBeDisabled();
+      await screen.findByTestId("feedback-voice-stopping");
     } finally {
       vi.unstubAllGlobals();
     }
