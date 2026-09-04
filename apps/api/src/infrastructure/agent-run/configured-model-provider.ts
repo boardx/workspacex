@@ -335,6 +335,22 @@ export class ConfiguredModelProvider implements ModelCallPort {
    *
    * 合成一处不是顺手重构：#1611 的根因就是「超时配置只覆盖了一半的层」，而两份逐字
    * 复制的 fetch 调用正是下一次只改一处的温床。两者的差别只有 `stream` 这一个字段。
+   *
+   * ## `enable_thinking: false`（非流式时）—— #2504
+   *
+   * ⚠ 这个部署配的是通义千问（阿里云百炼，`baseUrl`/`apiKey` 见本文件头注）。Qwen3 系
+   * 模型（`qwen-plus`/`qwen3.x-plus` 等，见各调用点的 `modelId` 常量）**缺省开启深度
+   * 思考**：模型在给出最终答案前先生成一段隐藏的 reasoning，而 `complete()` 恒为
+   * `stream: false`（本文件头注「The request shape」），调用方要等整段思考 + 正文都
+   * 生成完才拿到响应——2026-09-02 用户反馈：提交一个信息量较大的 pptx 任务，等了
+   * 300+ 秒后超时（#2504）。pptx skill 的 system prompt 本来就大（#1611 头注提过的
+   * 20KB），思考阶段在这种输入上被进一步拉长，叠加 #1611 已经放宽到的 180s 超时依然
+   * 不够。这里不是"超时还不够长"——继续调大超时只是把用户等待的时间挪个地方，思考
+   * 阶段本身对 pptx/大纲这类结构化生成任务没有必要，显式关闭它而不是继续加长预算。
+   *
+   * 只在 `stream` 为 false 时关：流式路径（`streamEnabled`，默认关闭，见类头注）会把
+   * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
+   * 决策，不在这次修复范围内。
    */
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
@@ -355,6 +371,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream,
           messages: buildMessages(input),
+          ...(stream ? {} : { enable_thinking: false }),
         }),
       });
     } catch (err) {
