@@ -44,10 +44,23 @@ function fillAndSubmit(detail: string) {
   fireEvent.click(screen.getByTestId("feedback-submit"));
 }
 
-/** 提交成功 + 随后「我提过的」的读取，都走同一个 mock。 */
-function mockSubmitThenList(item: Record<string, unknown>) {
-  apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
-    if (opts?.method === "POST") return { feedbackId: "fb-new", status: "待处理" };
+/**
+ * 提交成功 + 随后「我提过的」的读取，都走同一个 mock。
+ *
+ * ⚠ 2026-09-04（issue #2638）：打字提交时 `send()` 会先打一次 `/feedback/structure-draft`
+ *   起 AI 标题，再打 `/feedback` 真正提交——两条都是 POST，必须按 **path** 分流，不能再用
+ *   「是不是 POST」一刀切，否则起标题那次请求会被误当成提交、拿到不含 `title` 的响应形状。
+ *   默认让起标题**失败**（`aiTitleFails: true`）：这样多数既有用例（断言 title 来自
+ *   `deriveFeedbackTitle` 首句）不用逐个改判断，行为等价于"AI 不可用时静默退回派生标题"。
+ */
+function mockSubmitThenList(item: Record<string, unknown>, opts: { aiTitle?: string; aiTitleFails?: boolean } = {}) {
+  const { aiTitleFails = true, aiTitle } = opts;
+  apiRequest.mockImplementation(async (path: string, requestOpts?: { method?: string }) => {
+    if (path === "/feedback/structure-draft") {
+      if (aiTitleFails) throw new Error("structure-draft unavailable");
+      return { kind: "缺陷", title: aiTitle, detail: "整理过的正文" };
+    }
+    if (requestOpts?.method === "POST") return { feedbackId: "fb-new", status: "待处理" };
     return { items: [item] };
   });
 }
@@ -65,8 +78,11 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     openDialogFor({ kind: "product" });
     fillAndSubmit("点了没反应。批准卡点了不动");
 
-    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
-    const [path, opts] = apiRequest.mock.calls[0] as [string, { method: string; body: Record<string, unknown> }];
+    await screen.findByTestId("feedback-just-submitted");
+    // ⚠ 不再是 `mock.calls[0]`——打字提交先打一次 `/feedback/structure-draft` 起 AI 标题
+    //   （见 `mockSubmitThenList` 头注），真正的提交请求按 path 找。
+    const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
+    const [path, opts] = submitCall as [string, { method: string; body: Record<string, unknown> }];
     expect(path).toBe("/feedback");
     expect(opts.method).toBe("POST");
     expect(Object.keys(opts.body).sort()).toEqual(
@@ -81,6 +97,38 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
   });
 
+  it("① 打字提交也会调 AI 起标题（issue #2638）：成功时用 AI 给的标题，不是正文首句", async () => {
+    mockSubmitThenList(mineItem, { aiTitleFails: false, aiTitle: "批准按钮点击后无响应" });
+    openDialogFor({ kind: "product" });
+    fillAndSubmit("点了没反应。批准卡点了不动");
+
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/feedback/structure-draft",
+      expect.objectContaining({ method: "POST" }),
+    ));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/feedback",
+      expect.objectContaining({ method: "POST" }),
+    ));
+    const submitCall = apiRequest.mock.calls.find(([path]) => path === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
+    // 只取 AI 的标题，正文原样是用户自己写的，不被 AI 整理过的版本替换。
+    expect(opts.body.title).toBe("批准按钮点击后无响应");
+    expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
+  });
+
+  it("① 打字提交时 AI 起标题失败——静默退回正文首句，不报错、不挡提交", async () => {
+    mockSubmitThenList(mineItem, { aiTitleFails: true });
+    openDialogFor({ kind: "product" });
+    fillAndSubmit("点了没反应。批准卡点了不动");
+
+    await screen.findByTestId("feedback-just-submitted");
+    const submitCall = apiRequest.mock.calls.find(([path]) => path === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
+    expect(opts.body.title).toBe("点了没反应");
+    expect(screen.queryByTestId("feedback-submit-error")).toBeNull();
+  });
+
   it("② skill 入口发的是 {kind:'skill', skillId}，不是产品级目标", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "skill", skillId: "skill-3" }, "会议纪要");
@@ -88,8 +136,9 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(screen.getByTestId("feedback-dialog-title").textContent).toContain("会议纪要");
 
     fillAndSubmit("输出格式不稳。有时候是表格有时候是段落");
-    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
-    const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    await screen.findByTestId("feedback-just-submitted");
+    const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "skill", skillId: "skill-3" });
   });
 
@@ -97,8 +146,9 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "agent", agentId: "agent-7" }, "调研助手");
     fillAndSubmit("老是漏附件。上传了三个文件只读了一个");
-    await waitFor(() => expect(apiRequest).toHaveBeenCalled());
-    const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    await screen.findByTestId("feedback-just-submitted");
+    const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
+    const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "agent", agentId: "agent-7" });
   });
 
@@ -174,7 +224,10 @@ describe("FB-2 反馈弹层（采集侧）", () => {
  */
 describe("FB-5 网络层失败的可读性与重试", () => {
   it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文", async () => {
-    apiRequest.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    // ⚠ 不用 `mockRejectedValueOnce`——打字提交会先打一次 `/feedback/structure-draft`
+    //   起 AI 标题（被静默吞掉，不影响这条用例），真正要断言的失败发生在随后的
+    //   `/feedback` 提交请求上，两次调用都该拒绝成同一种网络层失败。
+    apiRequest.mockRejectedValue(new TypeError("Failed to fetch"));
     openDialogFor({ kind: "product" });
     fillAndSubmit("点了没反应。批准卡点了不动");
     const err = await screen.findByTestId("feedback-submit-error");
@@ -213,7 +266,8 @@ describe("FB-5 网络层失败的可读性与重试", () => {
 
       fillAndSubmit("带图的反馈。见截图");
       await screen.findByTestId("feedback-just-submitted");
-      const submitCall = apiRequest.mock.calls.find(([, o]) => (o as { method?: string })?.method === "POST");
+      // 按 path 找真正的提交请求——不能再靠"第一条 POST"，起标题那次也是 POST。
+      const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
       expect((submitCall![1] as { body: { attachmentIds?: string[] } }).body.attachmentIds).toEqual(["att-1"]);
     } finally {
       vi.unstubAllGlobals();
