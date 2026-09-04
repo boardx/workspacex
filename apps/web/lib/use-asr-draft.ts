@@ -136,9 +136,19 @@ export function sanitizeAsrSegment(text: string): string {
  * 收尾标点在下一轮到达的那一刻就被去掉。不动段落**中间**的标点（那还是
  * `sanitizeAsrSegment` 的职责），也不动引导性的省略号"…"——那通常是说话人自己停顿，
  * 不是轮次边界的产物。
+ *
+ * 2026-09-04 review fix 第二轮（PR #2644 reviewer diagnostic）—— 第一版把
+ * "！"/"？"也一并剥了：`turn_detection: server_vad` 完全可能真的在一句问句/感叹句
+ * 说完的地方断出一轮（"你好吗？" 后面接"我很好。"就是两句独立、边界真实存在的话），
+ * 这种情况下"？"/"！"标的不是"这一轮静音到了"这种噪音，是说话人的语气本身——
+ * 剥掉它，"你好吗？"变成"你好吗"，问句读成了陈述句，语义被改写了，比多几个句号
+ * 更糟。人类实测反馈原文只提到"很多中文句号"，没提丢失问号/感叹号，所以这里只处理
+ * report 里那一类**弱标点**（逗号/顿号/句号/分号/冒号——它们标的只是停顿长短，去掉
+ * 前后语义基本不变），"！"/"？"这两个**改变句子语气**的标点一律保留，即便它们出现在
+ * 轮次边界上——宁可多留一个可能是伪影的问号，也不平白抹掉一个真的问句。
  */
 function stripTrailingTurnBoundaryPunctuation(text: string): string {
-  return text.replace(/[、。，,.!！?？;；:：]+$/, "");
+  return text.replace(/[、。，,.;；:：]+$/, "");
 }
 
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {

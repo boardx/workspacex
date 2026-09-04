@@ -95,4 +95,41 @@ describe("useAsrDraft — sequential server_vad finals across turns", () => {
     expect(lastCall).toBe("早上好 我想说的是 今天…");
     expect(lastCall.match(/。/g)).toBeNull();
   });
+
+  /** 每个用例都要一条全新的 hook 实例——`committedRef` 是每次 `start()` 各自的状态。 */
+  async function driveSequentialFinals(finals: readonly string[]): Promise<string> {
+    const { openAsrDraftStream } = await import("@/lib/live-asr-draft");
+    let handlers: AsrDraftStreamHandlers | null = null;
+    const handle: AsrDraftStreamHandle = { stop: vi.fn(async () => handlers?.onFinished()) };
+    vi.mocked(openAsrDraftStream).mockImplementation(async (h) => {
+      handlers = h;
+      return handle;
+    });
+    const onTranscript = vi.fn();
+    const { result } = renderHook(() =>
+      useAsrDraft({ onTranscript, getBaseText: () => "", sessionToken: "t" }),
+    );
+    await act(async () => {
+      result.current.start();
+      await Promise.resolve();
+    });
+    act(() => {
+      for (const text of finals) handlers?.onFinal(text);
+    });
+    return onTranscript.mock.calls.at(-1)?.[0] as string;
+  }
+
+  it("2026-09-04 review fix -- does NOT strip a genuine question mark at a real turn boundary (server_vad can legitimately split two independent sentences)", async () => {
+    const text = await driveSequentialFinals(["你好吗？", "我很好。"]);
+    // "？" carries real sentence-type meaning (question vs. statement) -- it must survive
+    // even though it happens to sit at a turn boundary. The trailing "。" on the SECOND
+    // (last, nothing-appended-after-it) segment is untouched by design -- only an earlier
+    // segment's trailing punctuation is a turn-boundary artifact candidate.
+    expect(text).toBe("你好吗？ 我很好。");
+  });
+
+  it("2026-09-04 review fix -- does NOT strip a genuine exclamation mark at a real turn boundary", async () => {
+    const text = await driveSequentialFinals(["小心！", "下一句"]);
+    expect(text).toBe("小心！ 下一句");
+  });
 });
