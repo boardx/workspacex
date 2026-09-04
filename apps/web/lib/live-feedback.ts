@@ -9,7 +9,7 @@
  *   前端能传状态，就等于任何人能把自己的反馈直接标成「已修复」。
  *   所以这个函数的签名里**不存在**那两个参数——不是「传了会被忽略」。
  */
-import { feedbackLoop } from "@repo/contracts";
+import { feedbackLoop, designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, getStoredSessionToken } from "./api-client";
 
@@ -33,6 +33,8 @@ export type ReqStructuredFields = z.infer<typeof feedbackLoop.ReqStructuredField
 export type CommentOnFeedbackGithubIssueOut = z.infer<
   typeof feedbackLoop.operations.commentOnFeedbackGithubIssue.out
 >;
+/** UC-17.8 B4.4——「用 PM 设计工作台深化」。契约在 `design-workbench.ts`（路由挂 `/feedback`，见该文件头注）。 */
+export type DeepenFeedbackOut = z.infer<typeof designWorkbench.operations.deepenFeedback.out>;
 /**
  * "转开发"弹层里管理员编辑之后提交的 GitHub issue 最终文案。
  * ⚠ 类型从契约的 `in.shape.issueDraft` 派生,不是手写——见文件头纪律。
@@ -88,6 +90,19 @@ export async function listFeedback(
  * ⚠ 用服务端回的 `votes` 覆盖本地，**不做乐观 +1**。票数的口径是 `COUNT(*)`；
  *   本地加一在并发下就是错的，而错的那个数字看起来完全正常。
  */
+/**
+ * UC-17.8 B4.4——收件箱条目「用 PM 设计工作台深化」。服务端建（或幂等复用）一个设计项目，
+ * `name`/`problem`/`template` 都是服务端从这条反馈自己填的，调用方只给 `feedbackId`——
+ * 同 `submitFeedback` 的纪律：不接受调用方各自拼一份可能对不上的值。
+ * ⚠ `out.project.id` 才是跳转目标（`/platform-admin/design-workbench/<id>`），
+ *   不是这条反馈的 `feedbackId`——两者是两个不同资源的 id。
+ */
+export async function deepenFeedback(feedbackId: string): Promise<DeepenFeedbackOut> {
+  return apiRequest<DeepenFeedbackOut>(`/feedback/${encodeURIComponent(feedbackId)}/deepen`, {
+    method: "POST",
+  });
+}
+
 export async function voteFeedback(feedbackId: string, voted: boolean): Promise<VoteFeedbackOut> {
   return apiRequest<VoteFeedbackOut>(`/feedback/${encodeURIComponent(feedbackId)}/vote`, {
     method: "POST",

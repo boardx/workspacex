@@ -420,6 +420,9 @@ import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 import { InboxController } from "./interface/controllers/inbox.controller";
+import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
+import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
+import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -853,6 +856,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FeedbackController,
     SystemErrorLogController,
     InboxController,
+    DesignWorkbenchController,
     SystemMailController,
     SystemUptimeController,
     SkillReviewController,
@@ -2173,6 +2177,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: FEEDBACK_DRAFT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgFeedbackDraftRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
+    {
+      provide: DESIGN_PROJECT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
     },
     {

@@ -30,6 +30,10 @@ import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type 
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
 import { PLATFORM_ADMIN_REPOSITORY, type PlatformAdminRepository } from "../../application/system/platform-admin-ports";
+import {
+  DESIGN_PROJECT_REPOSITORY,
+  type DesignProjectRepositoryFactory,
+} from "../../application/design-workbench/project-ports";
 import { isRequestorPlatformOperator } from "../../application/system/platform-operator-check";
 import { getInboxCounts } from "../../application/inbox/get-inbox-counts";
 import { InboxPermissionRevokedError, listInbox } from "../../application/inbox/list-inbox";
@@ -51,7 +55,17 @@ export class InboxController {
     @Inject(ERROR_LOG_PORT) private readonly errorLog: ErrorLogPort,
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
     @Inject(PLATFORM_ADMIN_REPOSITORY) private readonly platformAdmins: PlatformAdminRepository,
+    @Inject(DESIGN_PROJECT_REPOSITORY) private readonly designProjects: DesignProjectRepositoryFactory,
   ) {}
+
+  /** B4.3——设计方案那一半的依赖，全组织可读，不像 `errorLog` 那样需要按请求者身份判断给不给。 */
+  private designDeps(principal: Principal) {
+    return {
+      projects: this.designProjects.forOrg(principal.orgId),
+      orgId: toOrgId(principal.orgId),
+      submitters: this.submitterDirectory,
+    };
+  }
 
   private async viewerRole(principal: Principal) {
     const membership = await this.identity.findOrgMembership(principal.userId, principal.orgId);
@@ -99,6 +113,7 @@ export class InboxController {
             submitters: this.submitterDirectory,
           },
           errorLog: await this.errorLogForRequestor(principal),
+          design: this.designDeps(principal),
         },
         {
           viewerId: principal.userId,
@@ -132,6 +147,7 @@ export class InboxController {
             submitters: this.submitterDirectory,
           },
           errorLog: await this.errorLogForRequestor(principal),
+          design: this.designDeps(principal),
         },
         { viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
       );

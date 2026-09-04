@@ -11,6 +11,9 @@
  *   ⑥ `sources.exception === "withheld"` 时「系统异常」筛选 Chip 禁用并提示「仅平台运维可见」。
  *   ⑦ PM 设计工作台 `pushProject`：项目标记已推送 + `resolvedInbox` 拿到 `D-` 编号
  *      （收件箱本身真栈化后不再由这个 mock store 持有，见 `lib/design-loop-store.tsx` 文件头）。
+ *   ⑧ UC-17.8 B4.4「用 PM 设计工作台深化」：点击后调真栈 `POST /feedback/:id/deepen`，
+ *      跳转带的是服务端返回的**真实** `project.id`（不再是 `design-loop-store.tsx` 本地
+ *      拼出来的 mock id），失败时提示错误且 drawer 不关。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
@@ -394,6 +397,46 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
     expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+  });
+});
+
+describe("UC-17.8 B4.4：收件箱「用 PM 设计工作台深化」调真栈 POST /feedback/:id/deepen", () => {
+  it("点击后调真栈接口，拿到返回的真实 project.id 并关掉 drawer", async () => {
+    const onDeepen = vi.fn();
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem({ stage: "backlog" })], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/feedback/x1/deepen" && opts?.method === "POST") {
+        return { created: true, project: { id: "dp-real-1", name: "标题一", template: "wireframe", problem: "正文一" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
+    await waitFor(() => expect(callsTo("/feedback/x1/deepen", "POST")).toHaveLength(1));
+    // 跳转拿到的是服务端返回的**真实** project.id，不是本地拼出来的 mock id。
+    await waitFor(() => expect(onDeepen).toHaveBeenCalledWith("dp-real-1"));
+    // 深化成功后 drawer 关闭。
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("接口失败时提示错误，drawer 保持打开，不跳转", async () => {
+    const onDeepen = vi.fn();
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem({ stage: "backlog" })], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/feedback/x1/deepen" && opts?.method === "POST") throw new Error("dependency_unavailable");
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
+    await waitFor(() => expect(callsTo("/feedback/x1/deepen", "POST")).toHaveLength(1));
+    expect(onDeepen).not.toHaveBeenCalled();
+    expect(screen.getByTestId("inbox-drawer")).toBeTruthy();
   });
 });
 

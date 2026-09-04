@@ -10,6 +10,7 @@ import type { FeedbackRow, ProductFeedbackRepository } from "../../src/applicati
 import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports/error-log.port";
 import { guard } from "../../src/application/security/permission-filter";
 import { toOrgId } from "../../src/domain/org-id";
+import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
 
 function feedbackRow(over: Partial<FeedbackRow> = {}): FeedbackRow {
   return {
@@ -84,7 +85,11 @@ function fakeErrorLog(items: readonly ErrorLogListItem[]): ErrorLogPort {
   };
 }
 
-function baseDeps(rows: readonly FeedbackRow[], exceptions: readonly ErrorLogListItem[] | undefined): ListInboxDeps {
+function baseDeps(
+  rows: readonly FeedbackRow[],
+  exceptions: readonly ErrorLogListItem[] | undefined,
+  design: FakeDesignProjectRepo = new FakeDesignProjectRepo(),
+): ListInboxDeps {
   return {
     feedback: {
       repo: fakeFeedbackRepo(rows),
@@ -93,6 +98,11 @@ function baseDeps(rows: readonly FeedbackRow[], exceptions: readonly ErrorLogLis
       submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
     },
     errorLog: exceptions === undefined ? undefined : fakeErrorLog(exceptions),
+    design: {
+      projects: design,
+      orgId: toOrgId("org-1"),
+      submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
+    },
   };
 }
 
@@ -257,5 +267,38 @@ describe("listInbox github 派生", () => {
     const deps = baseDeps([], [errorLogItem({ id: "1" })]);
     const out = await listInbox(deps, { ...adminInput, limit: 50 });
     expect(out.items[0]!.github).toBeNull();
+  });
+});
+
+describe("listInbox 接入 design（B4.3）", () => {
+  it("只有 pushed=true 的项目出现，编号按创建顺序 D-n", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "dp-old", pushed: true, createdAt: "2026-09-01T00:00:00.000Z" }));
+    design.seed(designProjectRow({ id: "dp-new", pushed: true, createdAt: "2026-09-02T00:00:00.000Z" }));
+    design.seed(designProjectRow({ id: "dp-draft", pushed: false, createdAt: "2026-09-03T00:00:00.000Z" }));
+
+    const deps = baseDeps([], [], design);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+
+    expect(out.items.map((i) => i.id)).not.toContain("dp-draft");
+    const byId = new Map(out.items.map((i) => [i.id, i.code]));
+    expect(byId.get("dp-old")).toBe("D-1");
+    expect(byId.get("dp-new")).toBe("D-2");
+  });
+
+  it("stage 恒 backlog，kind=design，linkedFeedbackId 透传", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "dp-1", pushed: true, linkedFeedbackId: "fb-3" }));
+    const deps = baseDeps([], [], design);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]).toMatchObject({ kind: "design", stage: "backlog", linkedFeedbackId: "fb-3" });
+  });
+
+  it("`kind` 过滤能单独选出 design", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "dp-1", pushed: true }));
+    const deps = baseDeps([feedbackRow({ id: "fb-1" })], [], design);
+    const out = await listInbox(deps, { ...adminInput, limit: 50, kind: "design" });
+    expect(out.items.map((i) => i.id)).toEqual(["dp-1"]);
   });
 });

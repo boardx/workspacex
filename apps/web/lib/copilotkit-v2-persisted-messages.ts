@@ -20,6 +20,14 @@ export type PersistedMessage = {
   role: "user" | "assistant";
   content: string;
   /**
+   * `chat_messages.author_id`——issue #2694 修复新增投影：「生成用户画像」建议
+   * chip 用它判断这条线程是否已经落库过一份画像产物（`authorId ===
+   * chat.PERSONA_SUMMARY_AUTHOR_ID`，见 `copilotkit-v2-panel-body.tsx` 的
+   * `personaAlreadyGenerated`），不是新开一条读路径——`listMessages` 本来就在
+   * `DurableMessage` 里带这个字段，此前只是没有投影出来。
+   */
+  authorId: string;
+  /**
    * CK-P3（issue #2054）—— 这条消息能不能调 `rateMessage`。
    *
    * 「id 是真实主键」只是服务端三道门里的第一道；第三道
@@ -64,6 +72,7 @@ export async function readAllPersistedMessages(
         id: m.id,
         role: m.authorKind === "human" ? "user" : "assistant",
         content: m.text,
+        authorId: m.authorId,
         rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
       rawForPendingRunLookup.push({

@@ -16,6 +16,18 @@
 | D5 | `DesignLoopProvider` 上提到 AppShell（让「存草稿 / 去工作台」出现在真实入口） | 生产壳层 | 上提，但原型 store 在真栈化时被 API client 取代 |
 | D6 | 系统异常是否恢复「仅平台运维可见」（PDF §9） | 权限模型 | 本轮不做，收件箱按组织管理员视角 |
 | D7 | AI 对话（草稿细化 / 设计对话）接 deep-agent-service 还是先固定回执上线 | 范围与估点 | 先固定回执上线（B2/B4 里的 AI 项后置成独立束） |
+| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | 待人类裁决，见下 |
+
+**D8 详情（2026-09-04，E2E 落地时发现，两处合并成一条）**：`canTriage`（`apps/api/src/domain/feedback/product-feedback.ts`）
+把收件箱访问收紧到 `orgRole === "admin"`；但（a）B3.5 起草时发现 `FeedbackDialog` 若无条件在直接提交后跳
+`/platform-admin/inbox` 会让 chat 内非管理员的 agent/skill 反馈入口用户被导到无权页面（已在 `feedback-
+dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`）；（b）B1.6 E2E 落地时实测确认
+**Sprint 1 已合入 main 的草稿提交导航**（`components/admin/design-loop-screens.tsx`
+`FeedbackDraftsScreen.onSubmitted`）同样无条件跳转，同一根因、真实存在于生产。候选方案：①两处都退回「留在
+原页面 + toast」不跳转；②仅管理员账号看到跳转，非管理员看到「已提交」提示；③放宽 `canTriage`
+使非管理员至少能看到自己提交的那一条（但收件箱是全组织视图，放宽会改变 D2 的可见性口径，牵连更大）。
+`feedback-drafts-smoke.spec.ts` 现按方案「如实断言现状」写（非管理员看到拒绝访问，管理员另起一条用例验证
+数据确实落库），不预判裁决结果。
 
 ### 0.1 Agent 推演立场（2026-09-04，人类要求"推演一个合适的答案"）
 
@@ -76,6 +88,26 @@
   不会真的建 issue，故未对 `doing` 开放该按钮（避免假成功）。8 条单测。
 - 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
   `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
+
+### 0.3 Sprint 3 落地记录
+
+- ✅ B4.1–B4.3（PM 设计工作台真栈化：契约 + `design_projects`/`design_project_chat_messages`
+  迁移 + 六条 API）+ B1.6/B3.8 E2E，2026-09-04，PR #2677。
+- ✅ B4.4（「用 PM 设计工作台深化」真栈）2026-09-04 落地：契约 `deepenFeedback` 挂在
+  `design-workbench.ts`（路由 `POST /feedback/:feedbackId/deepen`——路由命名空间跟着
+  backlog 原文，契约文件跟着输出类型 `DesignProject` 的单一事实源，用例文件按"谁是这次
+  动作的主语"落在 `application/feedback/deepen-feedback.ts`，三处理由不同、互不矛盾，
+  各自的头注写清楚了）。`name`=反馈 `title`、`problem`=反馈 `detail`、`template` 恒
+  `wireframe`，服务端读反馈自己填，不接受调用方拼一份可能对不上的值。**幂等键是
+  `feedbackId`**：新迁移 `20260904160000_uc178_b44_deepen_feedback_uniq.sql` 给
+  `design_projects (org_id, linked_feedback_id)` 加部分唯一索引，仓储用单条
+  `INSERT ... ON CONFLICT ... DO NOTHING` 完成"没有就建、有就复用"，不是应用层先查后插
+  （那两步之间有窗口）。权限：读正文过 D3（`feedback-detail-decision.ts`），看不到正文
+  不能深化（`FEEDBACK_DETAIL_NOT_VISIBLE`）。Web 侧：`inbox-screen.tsx`「用 PM 设计工作台
+  深化」按钮从 `design-loop-store.tsx` 的本地 mock 调用改成 `lib/live-feedback.ts` 的真栈
+  `deepenFeedback`，跳转带的是服务端返回的真实 `project.id`；`workbench-screen.tsx`/
+  `detail-screen.tsx` 仍读那个 mock store（B4.5 才切，不在本次范围）——**已知的、有意的
+  过渡态**：跳转 id 是真的，落地页内容暂时还是 mock。PR：`worker/claude-uc17-8-b4-4-deepen-feedback`。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 

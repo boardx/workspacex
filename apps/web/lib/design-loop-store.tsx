@@ -17,12 +17,15 @@ import * as React from "react";
  * ⚠ Provider 只挂**一处**：`components/shell/app-shell.tsx`（D5）。壳层之外的独立页
  *   （设计详情全屏页）各自挂自己的一份，那是它们不在壳里，不是第二份权威。
  *
- * `deepenFeedback` 的入参（`code`/`title`/`body`）由调用方（真栈收件箱屏）从
- * `InboxItem` 里取，本 store 不再自己保有一份反馈/异常条目去查——那份唯一事实源
- * 现在是 `listInbox`。
+ * ⚠ `deepenFeedback`（这个 store 上的方法）**从 B4.4（2026-09-04）起不再被真栈收件箱屏调用**
+ *   ——`inbox-screen.tsx` 改调 `lib/live-feedback.ts` 的真栈 `deepenFeedback`
+ *   （`POST /feedback/:id/deepen`），拿真实 `project.id` 去跳转。这个方法本身**没删**：
+ *   `detail-screen.tsx`/`workbench-screen.tsx` 仍然读这个 store 的 mock `projects`
+ *   （B4.5 才会把它们也切到真栈,不在本任务范围）,删掉这个方法会让详情页拿到一个
+ *   store 里查不到的 id 时直接找不到项目可渲染。留到 B4.5 一并清理。
  */
 
-export type ProjectTemplate = "mobile" | "ui" | "wireframe";
+export type MockProjectTemplate = "mobile" | "ui" | "wireframe";
 
 export interface ChatTurn {
   readonly role: "user" | "ai";
@@ -32,7 +35,7 @@ export interface ChatTurn {
 export interface Project {
   readonly id: string;
   name: string;
-  template: ProjectTemplate;
+  template: MockProjectTemplate;
   emoji: string;
   owner: string;
   updated: string;
@@ -45,12 +48,12 @@ export interface Project {
   chat: ChatTurn[];
 }
 
-export const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
+export const TEMPLATE_LABEL: Record<MockProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
   wireframe: "线框图",
 };
-export const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
+export const TEMPLATE_EMOJI: Record<MockProjectTemplate, string> = {
   mobile: "📱",
   ui: "🎨",
   wireframe: "🧩",
@@ -110,7 +113,7 @@ interface StoreShape {
 }
 
 export interface DesignLoopApi extends StoreShape {
-  createProject: (input: { name: string; template: ProjectTemplate; problem?: string; linkedFeedback?: string }) => string;
+  createProject: (input: { name: string; template: MockProjectTemplate; problem?: string; linkedFeedback?: string }) => string;
   updateProject: (id: string, patch: Partial<Pick<Project, "name" | "template" | "problem">>) => void;
   deleteProject: (id: string) => void;
   appendProjectChat: (id: string, text: string) => void;

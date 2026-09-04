@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
-import { useDesignLoop } from "@/lib/design-loop-store";
 import {
   getInboxCounts,
   listInbox,
@@ -27,6 +26,7 @@ import {
   triageFeedback,
   listFeedbackStatusEvents,
   getFeedbackGithubIssue,
+  deepenFeedback,
   type FeedbackStatus,
   type FeedbackStatusEvent,
   type FeedbackGithubIssueStatus,
@@ -126,7 +126,6 @@ export function DesignLoopInboxScreen({
   /** 进屏就打开这一条的详情（`?open=<id>`）。 */
   openId?: string | null;
 }) {
-  const store = useDesignLoop();
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
   const [stageFilter, setStageFilter] = React.useState<StageFilter>("all");
@@ -318,6 +317,30 @@ export function DesignLoopInboxScreen({
     }
   };
 
+  /**
+   * UC-17.8 B4.4——「用 PM 设计工作台深化」：`POST /feedback/:id/deepen` 真栈调用（不再是
+   * `design-loop-store.tsx` 的本地 mock）。`deepenFeedback` 幂等（幂等键是 `feedbackId`），
+   * 所以这里不需要先判断「是不是已经深化过」——重复点击也只会命中同一个项目，服务端说了算。
+   * 成功后关掉 drawer、把返回的**真实** `project.id` 交给 `onDeepen`（页面级 `router.push`
+   * 跳详情页，见 `components/admin/design-loop-screens.tsx`）。详情页本身仍读
+   * `design-loop-store.tsx` 的 mock 数据（B4.5，不在本任务范围）——这次调用只保证跳转带的
+   * `id` 是真的，落地页暂时还看不到这条项目的真实内容,是已知的、有意的过渡态。
+   */
+  const deepen = async (item: InboxItem) => {
+    if (item.kind !== "feedback") return;
+    setBusyId(item.id);
+    try {
+      const { project } = await deepenFeedback(item.id);
+      setOpenId(null);
+      onDeepen?.(project.id);
+    } catch (err) {
+      setDragError(`没能深化到 PM 设计工作台（${describeFailure(err)}）`);
+      window.setTimeout(() => setDragError(null), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   // ── 七态：loading / denied / dep-failed 走保留态面板；empty 数据驱动 ──────────
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
@@ -496,11 +519,7 @@ export function DesignLoopInboxScreen({
           onStatus={(s) => void applyTransition(open, s)}
           onArchive={(reason) => void archiveWithReason(open, reason)}
           onCreateIssue={(issueDraft) => void createGithubIssue(open, issueDraft)}
-          onDeepen={() => {
-            const projId = store.deepenFeedback({ code: open.code, title: open.title, body: open.body });
-            setOpenId(null);
-            onDeepen?.(projId);
-          }}
+          onDeepen={() => void deepen(open)}
           onOpenWorkbench={() => onOpenWorkbench?.(open.code)}
         />
       )}

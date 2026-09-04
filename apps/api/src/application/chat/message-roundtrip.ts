@@ -182,7 +182,11 @@ export async function acceptHumanMessage(
     // `status='queued'` 的行，run 已经在跑或已完成时这次 tick 对它是 no-op），所以在
     // 这里也调用它不会有副作用，只会补上原本可能丢失的那一次。
     input.onAccepted?.();
-    return existing;
+    // #2693 -- stamped explicitly here, not by the repository: this `if (existing)` branch
+    // IS the definition of "reused" (`acceptHumanMessage`'s idempotency guard handed back an
+    // already-accepted call's run instead of creating one). See `AcceptedHumanMessage.reused`'s
+    // own doc for why `agui-bridge.ts` needs this.
+    return { ...existing, reused: true };
   }
 
   const agentSnapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
@@ -248,7 +252,9 @@ export async function acceptHumanMessage(
     text: input.text,
   });
 
-  return outcome.accepted;
+  // #2693 -- explicit `false` (not just "field omitted"): a genuinely fresh accept, mirrors
+  // the `reused: true` stamped on the idempotent-hit branch above.
+  return { ...outcome.accepted, reused: false };
 }
 
 /**

@@ -34,7 +34,8 @@
       "/tasks",
       "/admin",
       "/platform-admin",
-      "/preview/agent-kernel"
+      "/preview/agent-kernel",
+      "/platform-admin/design-workbench"
     ]
   },
   "phase-14-agent-kernel-unification": {
