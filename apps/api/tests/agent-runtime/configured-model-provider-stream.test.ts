@@ -67,7 +67,7 @@ function doneFrame(): string {
 
 function provider(): ConfiguredModelProvider {
   return new ConfiguredModelProvider({
-    provider: PROVIDER, baseUrl: base, apiKey: API_KEY, timeoutMs: 5_000, streamEnabled: true, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(),
+    provider: PROVIDER, baseUrl: base, apiKey: API_KEY, timeoutMs: 5_000, streamEnabled: true, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(), bailianExtensionsEnabled: false,
   });
 }
 
@@ -222,7 +222,7 @@ describe("ConfiguredModelProvider.completeStream", () => {
 
   it("未配置 provider：ModelCallError(MODEL_PROVIDER_NOT_CONFIGURED)，与 complete() 同一个失败面", async () => {
     const unconfigured = new ConfiguredModelProvider({
-      provider: "", baseUrl: "", apiKey: "", timeoutMs: 1000, streamEnabled: true, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(),
+      provider: "", baseUrl: "", apiKey: "", timeoutMs: 1000, streamEnabled: true, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(), bailianExtensionsEnabled: false,
     });
     await expect(
       unconfigured.completeStream!(
@@ -235,7 +235,7 @@ describe("ConfiguredModelProvider.completeStream", () => {
   it("streamEnabled=false（默认值）：completeStream 根本不存在，execute-run.ts 的存在性判断会退回 complete() —— " +
     "这是本文件其余用例全都显式传 streamEnabled:true 的原因：默认关闭是刻意的，不是遗漏", () => {
     const off = new ConfiguredModelProvider({
-      provider: PROVIDER, baseUrl: base, apiKey: API_KEY, timeoutMs: 5_000, streamEnabled: false, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(),
+      provider: PROVIDER, baseUrl: base, apiKey: API_KEY, timeoutMs: 5_000, streamEnabled: false, visionModelIds: new Set<string>(), thinkingDisableModelIds: new Set<string>(), bailianExtensionsEnabled: false,
     });
     expect(off.completeStream).toBeUndefined();
   });

@@ -78,8 +78,29 @@ export interface ConfiguredModelProviderConfig {
    * 模型（只能思考、不能关）收到 `enable_thinking: false` 会被拒绝，不是被忽略。
    * 一个 modelId 不在这个集合里 ⇒ 不发这个字段，行为回落到"不管超时"的原始状态——
    * 与 `supportsVision` 同一纪律：只对已确认支持的能力打开，不对未知的裸猜。
+   *
+   * ⚠ **只是 model 维度的能力声明，不是"这个部署配的就是百炼"的证明**——那一半由
+   * `bailianExtensionsEnabled` 单独判定，见其头注。两者都为真才发这个字段（`postCompletions`
+   * 里的门控），这是独立复审诊断（PR #2640）指出的"provider/model 双维能力"要求。
    */
   readonly thinkingDisableModelIds: ReadonlySet<string>;
+  /**
+   * #2504（独立复审诊断收紧）—— 这个部署的 `baseUrl` **是不是**真的指向一个认识
+   * `enable_thinking` 这个百炼专有扩展字段的端点。
+   *
+   * 只有 `thinkingDisableModelIds` 一个维度不够：那只声明了"这个 modelId 支持关闭
+   * thinking"，没有回答"这个部署配的端点是不是百炼"——一个复用本类（通用 OpenAI
+   * 兼容 adapter）但指向别的厂商/自托管端点的部署，即使调用时传的 modelId 字符串
+   * 恰好复用了 `qwen-plus`/`qwen3.7-plus` 这两个名字（例如自建的开源同名模型），也
+   * 不该被发送这个陌生字段。
+   *
+   * 默认值：`baseUrl` 命中 `dashscope.aliyuncs.com`（`bailian-image-provider.ts` /
+   * `bailian-vision-extractor.ts` 用的同一个真实百炼 host）就认为是。命不中时默认为
+   * `false`——不是"大概率也是百炼"的猜测，是诚实地不知道。运维可以用
+   * `KERNEL_MODEL_BAILIAN_EXTENSIONS=1`/`=0` 显式覆盖（例如百炼在私有网络/代理后面，
+   * `baseUrl` 不含这个域名，但确实是百炼）。
+   */
+  readonly bailianExtensionsEnabled: boolean;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -96,15 +117,34 @@ export function readModelProviderConfig(
   // 走 undici，`headersTimeout` 默认 300s 且独立于 `AbortSignal`。现在两处出网都走显式
   // dispatcher（见 `ConfiguredModelProvider#dispatcher`），这个数字才真的说了算。
   const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
+  const baseUrl = (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, "");
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
-    baseUrl: (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, ""),
+    baseUrl,
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
     visionModelIds: readVisionModelIds(env),
     thinkingDisableModelIds: readThinkingDisableModelIds(env),
+    bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
   };
+}
+
+/**
+ * #2504（独立复审诊断收紧）—— `bailianExtensionsEnabled` 的判定逻辑，从 `readModelProviderConfig`
+ * 拆出来单独可测：`KERNEL_MODEL_BAILIAN_EXTENSIONS` 显式覆盖优先（`"1"`/`"0"`），未设置时
+ * 按 `baseUrl` 是否命中真实百炼 host 自动判定。见 `bailianExtensionsEnabled` 头注。
+ */
+export function readBailianExtensionsEnabled(env: NodeJS.ProcessEnv, baseUrl: string): boolean {
+  const override = env.KERNEL_MODEL_BAILIAN_EXTENSIONS;
+  if (override === "1") return true;
+  if (override === "0") return false;
+  return isBailianBaseUrl(baseUrl);
+}
+
+/** `bailian-image-provider.ts` / `bailian-vision-extractor.ts` 用的同一个真实百炼 host。 */
+function isBailianBaseUrl(baseUrl: string): boolean {
+  return baseUrl.includes("dashscope.aliyuncs.com");
 }
 
 /**
@@ -384,13 +424,17 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
    * 决策，不在这次修复范围内。
    *
-   * ⚠ **只对 `config.thinkingDisableModelIds` 里的 modelId 发这个字段**（同一评审
-   * 轮次补的收紧，见 `thinkingDisableModelIds` 头注）——`enable_thinking` 是百炼的
-   * 专有扩展，不是 OpenAI 标准字段：这个类结构上是通用 OpenAI-compatible adapter
-   * （只是这个部署恰好只配了一个 provider），对不认识这个字段的端点，无条件多发一个
-   * 陌生字段有被拒的风险；即使同样是百炼，`thinking-only` 模型收到
-   * `enable_thinking: false` 是被拒绝、不是被忽略。不在集合里的 modelId ⇒ 完全不带
-   * 这个字段，请求体与本次修复之前逐字节相同。
+   * ⚠ **双维门控，都为真才发**（独立复审诊断进一步收紧，见 `thinkingDisableModelIds` /
+   * `bailianExtensionsEnabled` 各自头注）：
+   *   1. `config.thinkingDisableModelIds.has(input.modelId)` —— **model** 维度："这个
+   *      modelId 是已知支持关闭 thinking 的混合模型"；
+   *   2. `config.bailianExtensionsEnabled` —— **endpoint** 维度："这个部署配的 baseUrl
+   *      真的是百炼"，不是复用本类（通用 OpenAI-compatible adapter）指向别的厂商/
+   *      自托管端点、只是恰好也用了同一个 modelId 字符串。
+   * 只判一维不够：只看 modelId，一个复用了 `qwen-plus` 这个名字的非百炼自托管端点也会
+   * 被发送这个陌生字段；只看 endpoint，百炼里的 `thinking-only` 模型（只能思考、不能关）
+   * 收到 `enable_thinking: false` 会被拒绝、不是被忽略。两维都不满足 ⇒ 完全不带这个
+   * 字段，请求体与本次修复之前逐字节相同。
    */
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
@@ -411,7 +455,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream,
           messages: buildMessages(input),
-          ...(!stream && this.config.thinkingDisableModelIds.has(input.modelId)
+          ...(!stream
+            && this.config.bailianExtensionsEnabled
+            && this.config.thinkingDisableModelIds.has(input.modelId)
             ? { enable_thinking: false }
             : {}),
         }),

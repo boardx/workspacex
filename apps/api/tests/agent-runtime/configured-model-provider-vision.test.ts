@@ -41,7 +41,7 @@ async function startStub(): Promise<{ baseUrl: string; bodies: unknown[] }> {
 function provider(baseUrl: string, visionIds: readonly string[]): ConfiguredModelProvider {
   return new ConfiguredModelProvider({
     provider: "dashscope", baseUrl, apiKey: "stub-key", timeoutMs: 5_000,
-    streamEnabled: false, visionModelIds: new Set(visionIds), thinkingDisableModelIds: new Set<string>(),
+    streamEnabled: false, visionModelIds: new Set(visionIds), thinkingDisableModelIds: new Set<string>(), bailianExtensionsEnabled: false,
   });
 }
 
