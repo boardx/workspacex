@@ -97,13 +97,13 @@ function json(body: unknown, status = 200) {
 
 type FetchCall = { readonly method: string; readonly path: string; readonly body: unknown };
 
-function proposal(status: z.infer<typeof interview.DigitalInterviewSkillProposal>["status"] = "proposed") {
+function proposal(status: z.infer<typeof interview.DigitalInterviewSkillProposal>["status"] = "proposed", patch: z.infer<typeof interview.DigitalInterviewSkillPatch> = { topic: "应用后的可验证主题" }) {
   return {
     proposalId: "proposal-f04",
     sourceMessageId: "skill-assistant-f04",
-    targetStep: "topic" as const,
+    targetStep: ("expertIds" in patch ? "experts" : "topic") as "experts" | "topic",
     baseRevisionId: "revision-f04",
-    patch: { topic: "应用后的可验证主题" },
+    patch,
     createdAt: "2026-08-15T00:00:00.000Z",
     status,
     appliedAt: status === "applied_to_draft" || status === "committed" ? "2026-08-15T00:01:00.000Z" : null,
@@ -163,6 +163,9 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/skill/messages")) {
+      const skillProposal = body.currentStep === "experts"
+        ? { ...proposal("proposed", { expertIds: [expertCandidate.expertId, MOCK_DIGITAL_EXPERTS[0]!.expertId] }), baseRevisionId: view.revisionId }
+        : proposal();
       view = {
         ...view,
         version: view.version + 1,
@@ -171,12 +174,13 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
           { messageId: "skill-user-f04", skillThreadId: view.skillThreadId, role: "user", text: body.text, createdAt: "2026-08-15T00:00:00.000Z" },
           { messageId: "skill-assistant-f04", skillThreadId: view.skillThreadId, role: "assistant", text: "我整理了一条建议。", createdAt: "2026-08-15T00:00:01.000Z" },
         ],
-        skillProposals: [proposal()],
+        skillProposals: [skillProposal],
       };
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/proposals/proposal-f04/apply")) {
-      view = { ...view, version: view.version + 1, skillProposals: [proposal("applied_to_draft")] };
+      const currentProposal = view.skillProposals[0]!;
+      view = { ...view, version: view.version + 1, skillProposals: [{ ...currentProposal, status: "applied_to_draft", appliedAt: "2026-08-15T00:01:00.000Z", rejectedAt: null, committedVersionId: null } as z.infer<typeof interview.DigitalInterviewSkillProposal>] };
       return json(view, 201);
     }
     if (method === "POST" && url.pathname.endsWith("/proposals/proposal-f04/reject")) {
@@ -478,6 +482,35 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
       topic: "应用后的可验证主题",
       expectedVersion: 43,
       requestId: expect.any(String),
+    });
+  });
+
+  it("Skill 添加一个用户时在现有专家上增量追加，并提交完整静态专家档案", async () => {
+    const added = MOCK_DIGITAL_EXPERTS[0]!;
+    const transport = installLiveFetch(persistedInterview);
+    render(<DigitalInterviewSetup interviewId={persistedInterview.interviewId} />);
+    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "添加一个用户" } });
+    fireEvent.click(screen.getByTestId("itv-skill-send"));
+    await waitFor(() => expect(transport.requests("POST", "/skill/messages")).toHaveLength(1));
+    expect(transport.requests("POST", "/skill/messages")[0]!.body).toMatchObject({
+      draftContext: {
+        step: "experts",
+        expertIds: [expertCandidate.expertId],
+        availableExperts: expect.arrayContaining([expect.objectContaining({ expertId: added.expertId })]),
+      },
+    });
+    fireEvent.click(await screen.findByTestId("itv-skill-apply"));
+
+    expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
+    expect(await screen.findByText(added.displayName)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-confirm-experts"));
+
+    await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
+    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({
+      expertIds: [expertCandidate.expertId, added.expertId],
+      addedExperts: [expect.objectContaining({ expertId: added.expertId, displayName: added.displayName })],
     });
   });
 

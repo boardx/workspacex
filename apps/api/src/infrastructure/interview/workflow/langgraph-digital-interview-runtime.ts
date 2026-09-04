@@ -166,19 +166,40 @@ interface AuthorizedWorkflow {
   readonly decision: PermissionDecision;
 }
 
-function proposalPatch(
-  text: string,
-  step: z.infer<typeof interview.DigitalInterviewStep>,
-): z.infer<typeof interview.DigitalInterviewSkillPatch> {
+export function normalizeSkillProposalPatch(input: {
+  readonly completionText: string;
+  readonly step: z.infer<typeof interview.DigitalInterviewStep>;
+  readonly requestText: string;
+  readonly currentExpertIds?: readonly string[];
+  readonly availableExpertIds?: readonly string[];
+}): z.infer<typeof interview.DigitalInterviewSkillPatch> {
   try {
-    const parsed = JSON.parse(text) as unknown;
+    const parsed = JSON.parse(input.completionText) as unknown;
+    if (input.step === "experts" && parsed && typeof parsed === "object" && Array.isArray((parsed as { expertIds?: unknown }).expertIds)) {
+      (parsed as { expertIds: unknown[] }).expertIds = Array.from(new Set((parsed as { expertIds: unknown[] }).expertIds));
+    }
     const validated = interview.DigitalInterviewSkillPatch.safeParse(parsed);
     if (validated.success) {
       const matchesStep =
-        (step === "topic" && "topic" in validated.data)
-        || (step === "experts" && "expertIds" in validated.data)
-        || (step === "questions" && "questions" in validated.data)
-        || ((step === "runs" || step === "report") && "instruction" in validated.data);
+        (input.step === "topic" && "topic" in validated.data)
+        || (input.step === "experts" && "expertIds" in validated.data)
+        || (input.step === "questions" && "questions" in validated.data)
+        || ((input.step === "runs" || input.step === "report") && "instruction" in validated.data);
+      if (matchesStep && "expertIds" in validated.data) {
+        const allowed = new Set([...(input.currentExpertIds ?? []), ...(input.availableExpertIds ?? [])]);
+        if (validated.data.expertIds.some((expertId) => !allowed.has(expertId))) {
+          throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+        }
+        const additive = /(?:添加|增加|追加|补充|新增|再加|add|append)/i.test(input.requestText);
+        if (additive && validated.data.expertIds.every((expertId) => input.currentExpertIds?.includes(expertId))) {
+          throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+        }
+        return {
+          expertIds: additive
+            ? Array.from(new Set([...(input.currentExpertIds ?? []), ...validated.data.expertIds]))
+            : validated.data.expertIds,
+        };
+      }
       if (matchesStep) return validated.data;
     }
   } catch {
@@ -328,7 +349,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
       completion = await this.deps.model.complete({
         modelProvider: this.deps.skillModelProvider,
         modelId: this.deps.skillModelId,
-        system: "你是数字专家访谈设计 Skill。只返回符合当前步骤严格 schema 的 JSON patch，不得修改其他步骤。",
+        system: "你是数字专家访谈设计 Skill。只返回当前步骤的严格 JSON patch，不得返回解释文字。专家步骤只允许 {\"expertIds\":[\"id\"]}，ID 必须来自 currentDraft.availableExperts 或 currentDraft.expertIds；用户要求添加、增加或补充时，选择尚未选中的专家，不能删除现有专家。主题步骤只允许 {\"topic\":\"...\"}；问题步骤只允许 {\"questions\":[...]}；访谈或报告步骤只允许 {\"instruction\":\"...\"}。",
         user: JSON.stringify({
           currentStep: input.currentStep,
           confirmedWorkflow: {
@@ -353,7 +374,15 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     const guardedWorkflow = await this.deps.effects.appendSkillMessage({
       ...input,
       assistantText: completion.text,
-      proposalPatch: proposalPatch(completion.text, input.currentStep),
+      proposalPatch: normalizeSkillProposalPatch({
+        completionText: completion.text,
+        step: input.currentStep,
+        requestText: input.text,
+        currentExpertIds: input.draftContext.step === "experts" ? input.draftContext.expertIds : undefined,
+        availableExpertIds: input.draftContext.step === "experts"
+          ? (input.draftContext.availableExperts ?? []).map((expert) => expert.expertId)
+          : undefined,
+      }),
       userMessageId: this.deps.ids.next("itv-skill-message"),
       assistantMessageId: this.deps.ids.next("itv-skill-message"),
       proposalId: this.deps.ids.next("itv-skill-proposal"),

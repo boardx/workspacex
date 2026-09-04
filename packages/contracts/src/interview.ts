@@ -495,7 +495,15 @@ export const DigitalExpertCatalogRow = z.object({
 
 export const DigitalInterviewSkillDraftContext = z.discriminatedUnion("step", [
   z.object({ step: z.literal("topic"), topic: z.string().trim().min(1) }).strict(),
-  z.object({ step: z.literal("experts"), expertIds: DigitalInterviewExpertIds }).strict(),
+  z.object({
+    step: z.literal("experts"),
+    expertIds: DigitalInterviewExpertIds,
+    availableExperts: z.array(z.object({
+      expertId: z.string().min(1),
+      displayName: z.string().min(1),
+      role: z.string().min(1),
+    }).strict()).optional(),
+  }).strict(),
   z.object({ step: z.literal("questions"), questions: DigitalInterviewQuestionList }).strict(),
   z.object({ step: z.literal("runs"), instruction: z.string().trim().min(1) }).strict(),
   z.object({ step: z.literal("report"), instruction: z.string().trim().min(1) }).strict(),
