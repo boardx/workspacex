@@ -35,6 +35,7 @@
  * `repo.updateLifecycle` 返回 `null`，这里抛 `SystemErrorConcurrentUpdateError`，
  * 由调用方（前端）刷新后重试——不是静默按一个已经过期的旧状态覆盖。
  */
+import { randomUUID } from "node:crypto";
 import type { ErrorLogPort, ErrorLogStatus } from "../ports/error-log.port";
 
 export const ALLOWED_SYSTEM_ERROR_TRANSITIONS: Record<ErrorLogStatus, readonly ErrorLogStatus[]> = {
@@ -63,6 +64,12 @@ export interface UpdateSystemErrorLifecycleInput {
   readonly statusReason?: string | null;
   readonly devNote?: string | null;
   readonly tags?: readonly string[];
+  /**
+   * B3.3：真实状态转移时把它记进 `system_error_status_events`。可不传——不传时
+   * 单纯不记流水（状态本身照常写入,见下方 `repo.appendStatusEvent?.()` 调用点），
+   * 不是把整次请求拒掉：流水是审计的加分项,不是这条状态转移生不生效的前提。
+   */
+  readonly actorId?: string;
 }
 
 export interface UpdateSystemErrorLifecycleResult {
@@ -115,6 +122,23 @@ export async function updateSystemErrorLifecycle(
     tags: input.tags,
   });
   if (written === null) throw new SystemErrorConcurrentUpdateError();
+
+  // B3.3：只在这次请求**真的**改了 status 时记一行流水——不改状态的局部编辑
+  // （纯标签/备注）不产生一条"从 X 到 X"的空转移事实。best-effort：不阻塞、
+  // 不重试、失败不影响已经写入的状态本身（同 `markStatusEventNotified` 的纪律,
+  // 见 `application/feedback/ports.ts` 头注同一条理由）。
+  if (changingStatus && input.actorId !== undefined && (input.status as ErrorLogStatus) !== current.status) {
+    void repo
+      .appendStatusEvent?.({
+        id: randomUUID(),
+        errorLogId: input.id,
+        fromStatus: current.status,
+        toStatus: input.status as ErrorLogStatus,
+        reason: nextStatusReason ?? null,
+        actorId: input.actorId,
+      })
+      .catch(() => undefined);
+  }
 
   return { id: input.id, ...written };
 }
