@@ -326,6 +326,30 @@ export const operations = {
   },
 
   /**
+   * `InspectPasswordResetThrottle`（issue #2632）—— 平台超管专用的只读诊断：
+   * `requestPasswordReset` 对这个邮箱当前会不会因为冷却/每日上限而**跳过发信**。
+   *
+   * ⚠ 只有这个端点允许说"这个邮箱没有注册"——调用方已经是白名单超管，不是匿名探测者，
+   * `requestPasswordReset` 的防枚举顾虑（I-1）在这里不适用。
+   */
+  inspectPasswordResetThrottle: {
+    method: "POST", path: "/auth/password-reset/inspect-throttle",
+    in: z.object({ email: z.string().email() }),
+    out: z.object({
+      registered: z.boolean(),
+      /** 过去 24 小时（滚动窗口，不是"今天"）内已发起的次数。 */
+      issuedInLast24h: z.number().int().nonnegative(),
+      dailyCap: z.number().int().positive(),
+      overDailyCap: z.boolean(),
+      lastIssuedAt: z.string().datetime().nullable(),
+      cooldownSeconds: z.number().int().positive(),
+      cooling: z.boolean(),
+      cooldownEndsAt: z.string().datetime().nullable(),
+    }).strict(),
+    err: ["NOT_PLATFORM_SUPERUSER"] as const,
+  },
+
+  /**
    * `ValidateSession` — F18 的 `PrincipalResolverPort` 的**真实实现**。
    *
    * 它现在是 `HeaderPrincipalResolver`（测试注入，生产不可达）。F20 之后

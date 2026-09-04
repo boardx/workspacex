@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { LayoutGrid, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { type Identity } from "@/lib/identity";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
@@ -36,6 +36,13 @@ import { cn } from "@/lib/utils";
  *   这个位置的语义已经从「产品 logo」变成「你当前所在的组织」，继续画 X 会宣称一个
  *   错误的身份；首字与左下角个人头像首字母同一套读法，用户已经会读。
  *   组织名彻底拿不到（极端时序）时才回落 `X`。
+ *
+ * ⚠ 2026-09-03 一度加过 `triggerVariant="grid"`（图标栏左上角强制画黑底 9 宫格图标，
+ *   不管组织有没有真实头像）——2026-09-04 用户直接反馈（issue 2636 号）「左上角组织
+ *   icon 显示错误：应优先用组织已上传的图片，没有则用组织名首字生成默认头像」，
+ *   否掉了那个方向：9 宫格让「切换组织」这件事失去了「这是哪个组织」的视觉线索，
+ *   而这正是本文件最早那版设计签核要解决的问题。已删除 `triggerVariant`，触发器
+ *   回到唯一一种视觉：头像图 / 组织名首字，不再有第二种「宫格图标」皮肤。
  *
  * ## 组织头像的读路径（invite-link-and-reads delta ④ 之后）
  * 首选 `identity.org.avatarUrl`——`resolveIdentity` 的 `Organization` 实体已带 avatarUrl
@@ -109,7 +116,7 @@ function useOrgAvatarUrl(orgId: string, identityAvatarUrl: string | null, adminC
 }
 
 export function OrgMenu({
-  identity, organizations, onSelect, switching, placement = "right", testIdSuffix = "", triggerVariant = "avatar",
+  identity, organizations, onSelect, switching, placement = "right", testIdSuffix = "",
 }: {
   identity: Identity;
   organizations: ReadonlyArray<{ id: string; label: string }>;
@@ -119,14 +126,6 @@ export function OrgMenu({
   placement?: "right" | "below";
   /** 移动端顶栏实例传 "-mobile"，避免与 ≥md 的 rail 实例撞 data-testid */
   testIdSuffix?: string;
-  /**
-   * 2026-09-03 人类直接指令，对照设计参照图——图标栏最上方的触发器改成
-   * 「黑底 9 宫格」样式（`grid`），点击行为**不变**，仍是这一个组织菜单
-   * （沿用组织菜单，Recommended），不是新开一个「应用切换器」入口。
-   * 其余调用点（移动端顶栏实例）不传即保持原「组织头像/首字」样式（`avatar`）——
-   * 这是视觉变体，不是行为变体，两者共用下面全部菜单内容与交互逻辑。
-   */
-  triggerVariant?: "avatar" | "grid";
 }) {
   const session = useOptionalSession();
 
@@ -154,16 +153,10 @@ export function OrgMenu({
             "flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             switching ? "cursor-wait opacity-60" : "hover:scale-105",
-            triggerVariant === "grid"
-              ? "bg-inverse text-inverse-foreground hover:bg-inverse/90"
-              : avatarSrc ? "border border-border bg-card" : "bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90",
+            avatarSrc ? "border border-border bg-card" : "bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90",
           )}
         >
-          {triggerVariant === "grid" ? (
-            // 9 宫格图标——纯视觉变体，见上面 `triggerVariant` 头注：点击行为仍是
-            // 打开这一个组织菜单，不是另一个「应用切换器」。
-            <LayoutGrid aria-hidden className="h-4 w-4" />
-          ) : avatarSrc ? (
+          {avatarSrc ? (
             // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store（鉴权 blob URL），非 Next 静态资源
             <img src={avatarSrc} alt="" data-testid={`org-menu-avatar${testIdSuffix}`} className="h-full w-full object-cover" />
           ) : (

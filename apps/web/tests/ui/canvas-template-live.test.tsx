@@ -838,6 +838,14 @@ describe("2026-08-22 模板管理可用性改进", () => {
     let listCalls = 0;
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/metadata")) {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "swot", displayName: "另一个用户画像", version: 2, status: "draft",
+          builtin: false, visibility: "org-wide", underlyingType: "canvas",
+          tags: [], title: "", footer: "", promptText: "",
+        });
+      }
       if (init?.method === "POST") {
         posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
         return jsonResponse({
@@ -867,7 +875,10 @@ describe("2026-08-22 模板管理可用性改进", () => {
     // 软提示——提交按钮仍然可点。
     expect(within(dialog).getByTestId("tpladmin-mint-submit")).not.toBeDisabled();
     fireEvent.click(within(dialog).getByTestId("tpladmin-mint-submit"));
-    await waitFor(() => expect(posts).toHaveLength(1));
+    // #2634：铸完新版本紧接着一次 `updateTemplateMetadata`，把来源版本的
+    // 标题/页脚/提示词/标签原样带回去——不然新版本落库时这些字段是空串
+    // （见 `template-admin.tsx` `mintVersion` 一节的回归说明）。两次 POST 都发生。
+    await waitFor(() => expect(posts).toHaveLength(2));
     expect(listCalls).toBeGreaterThan(0);
   });
 

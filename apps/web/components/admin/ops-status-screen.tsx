@@ -5,6 +5,7 @@ import { AdminScreen } from "./admin-screen";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { sendTestEmail, type SendTestEmailOut } from "@/lib/live-system-errors";
+import { inspectPasswordResetThrottle, type InspectPasswordResetThrottleOut } from "@/lib/auth";
 import type { UiState } from "@/lib/ui-state";
 
 /**
@@ -15,8 +16,14 @@ import type { UiState } from "@/lib/ui-state";
  * 搬到这里独立成一个入口。它不是"反馈"（没有提交人、没有分诊动作），是运维自查
  * 这个部署本身是否健康的工具，混在反馈收件箱里语义不对。
  *
- * 目前只有「测试邮件」一块内容；以后其他运营自查工具（部署健康、依赖探活……）
- * 按同一模式加进来，不需要再挪一次菜单。
+ * 2026-09-04（issue #2632）新增「忘记密码限流状态」——一次真实支持事故的直接产物：
+ * 两个账号先后反馈"忘记密码收不到邮件"，`requestPasswordReset` 对已注册但正在冷却/
+ * 超过每日上限的邮箱会**无声跳过发信**（这是 I-1 防枚举要求的行为，不是 bug），但
+ * 此前没有任何入口能确认"是不是卡在这里"——包括这次会话在内的每一个人都只能猜，
+ * 直到有人手工查了数据库。这块面板把 `requestPasswordReset` 决定要不要发信之前看的
+ * 那几个数字（是否注册、过去 24 小时发起次数、是否在冷却）直接摆出来，不用再猜。
+ *
+ * 以后其他运营自查工具（部署健康、依赖探活……）按同一模式加进来，不需要再挪一次菜单。
  */
 export function OpsStatusScreen({ state }: { state: UiState }) {
   return (
@@ -33,6 +40,7 @@ export function OpsStatusScreen({ state }: { state: UiState }) {
     >
       <div className="flex flex-col gap-4">
         <TestMailPanel />
+        <PasswordResetThrottlePanel />
       </div>
     </AdminScreen>
   );
@@ -128,6 +136,96 @@ function TestMailPanel() {
               : state.reasonCode === "NO_RECIPIENT"
                 ? "没有收件人：当前账号查不到邮箱，请填一个收件人。"
                 : `没发出去（${state.reasonCode}${state.category !== null ? ` · ${state.category}` : ""}）。`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type ThrottleState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "ready"; email: string; out: InspectPasswordResetThrottleOut }
+  | { kind: "failed"; reasonCode: string };
+
+/**
+ * 「忘记密码限流状态」——见文件头 2026-09-04（issue #2632）一节。只读诊断，
+ * 不提供任何"清除限流"的操作：那是一个需要单独裁决的能力（清冷却还是清每日
+ * 上限？要不要审计记录？），本次事故只要求"能看见"，见用例头注。
+ */
+function PasswordResetThrottlePanel() {
+  const [email, setEmail] = React.useState("");
+  const [state, setState] = React.useState<ThrottleState>({ kind: "idle" });
+
+  const check = async () => {
+    const target = email.trim();
+    if (target === "") return;
+    setState({ kind: "checking" });
+    try {
+      const out = await inspectPasswordResetThrottle(target);
+      setState({ kind: "ready", email: target, out });
+    } catch (err) {
+      setState({ kind: "failed", reasonCode: describeFailure(err) });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-ops-status-reset-throttle">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-13 font-semibold">忘记密码限流状态</h3>
+        <p className="text-11 text-muted-foreground">
+          查一个邮箱当前会不会因为冷却（60 秒）或每日上限而被「忘记密码」无声跳过发信——
+          这是防枚举要求的正常行为，不是发信失败，但此前没有任何地方能确认，只能猜。
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); if (state.kind !== "checking") setState({ kind: "idle" }); }}
+          placeholder="要查的邮箱"
+          aria-label="要查询限流状态的邮箱"
+          type="email"
+          data-testid="admin-ops-status-reset-throttle-email"
+          className="h-8 w-80 max-w-full rounded-md border border-border-subtle bg-card px-2.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <Button size="sm" variant="primary" disabled={state.kind === "checking" || email.trim() === ""} onClick={() => void check()} data-testid="admin-ops-status-reset-throttle-check">
+          {state.kind === "checking" && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
+          查询
+        </Button>
+      </div>
+      {state.kind === "ready" && (
+        <div className="flex flex-col gap-1 text-12 text-card-foreground" data-testid="admin-ops-status-reset-throttle-result">
+          {!state.out.registered ? (
+            <p data-testid="admin-ops-status-reset-throttle-unregistered">
+              <span className="font-medium">{state.email}</span> 在系统里查不到对应账号——「忘记密码」对它走的是「不做任何事、回一句假成功」的防枚举路径，
+              不是发信失败。请确认这是不是对方注册时用的精确邮箱（大小写会被归一化，但 Gmail 的点号 / <code className="font-mono text-11">+标签</code> 变体不会）。
+            </p>
+          ) : (
+            <>
+              <p>
+                过去 24 小时已发起 <span className="font-medium tabular-nums">{state.out.issuedInLast24h}</span>
+                {" / "}
+                <span className="tabular-nums">{state.out.dailyCap}</span> 次
+                {state.out.overDailyCap && <span className="ml-1 font-medium text-destructive">（已到每日上限，新的「忘记密码」请求会被无声跳过，不会真的发信）</span>}
+              </p>
+              <p>
+                最近一次发起：{state.out.lastIssuedAt === null ? "从未" : formatTime(state.out.lastIssuedAt)}
+                {state.out.cooling && state.out.cooldownEndsAt !== null && (
+                  <span className="ml-1 font-medium text-destructive">（还在 {state.out.cooldownSeconds} 秒冷却内，{formatTime(state.out.cooldownEndsAt)} 之后才会再发）</span>
+                )}
+              </p>
+              {!state.out.overDailyCap && !state.out.cooling && (
+                <p className="text-muted-foreground">当前没有被限流——如果这个邮箱仍然收不到邮件，问题在发信通路本身，不在这里。</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {state.kind === "failed" && (
+        <p className="text-12 text-destructive" data-testid="admin-ops-status-reset-throttle-failed">
+          {state.reasonCode === "NOT_PLATFORM_SUPERUSER"
+            ? "这个功能仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。"
+            : `查不到（${state.reasonCode}）。`}
         </p>
       )}
     </div>
