@@ -34,9 +34,10 @@
     一致的实时状态（不要求多端同步 UI 细节，仅要求数据一致，多端 UI 同步细节
     不在本 phase 范围）。
 - **异常流程**：
-  - E1（本 phase 的直接触发 bug）：run 停在非终态（`awaiting_approval` /
-    `awaiting_plan_confirmation` / `awaiting_tool_permission` / `paused`，后三者
-    随 `03-plan-mode-permissions.md`/`04-artifacts-steering.md` 引入）时，前端
+  - E1（本 phase 的直接触发 bug）：run 停在非终态（`awaiting_tool_permission` /
+    `awaiting_plan_confirmation` / `paused`，均随 `03-plan-mode-permissions.md`/
+    `04-artifacts-steering.md` 引入；本 phase 起 `awaiting_tool_permission` 取代
+    现状代码中的旧状态名 `awaiting_approval`，二者统一为同一状态，不并存）时，前端
     必须渲染对应的可交互 UI，绝不能停留在无操作可做的纯 loading 状态。这是本
     phase 的回归验收基线用例。
   - E2：WebSocket 连接异常断开，前端应在有限次数内自动重连，重连成功后无损接续
@@ -58,9 +59,10 @@
   - 前端 `copilotkit-v2-run-restore.ts` 中"20 分钟轮询预算 + gave-up 兜底"逻辑
     被删除，替换为基于 WebSocket 订阅+checkpoint 续接的恢复机制。
   - `apps/web/lib/agent-run.ts` 的 `isTerminalRunStatus` 覆盖全部非终态
-    （`awaiting_approval`/`awaiting_plan_confirmation`/`awaiting_tool_permission`/
-    `paused`），且每个非终态在前端都有对应渲染分支（不是简单地"判断为非终态就
-    继续 loading"）。
+    （`awaiting_tool_permission`/`awaiting_plan_confirmation`/`paused`），且每个
+    非终态在前端都有对应渲染分支，不是简单地"判断为非终态就继续 loading"。
+    现状代码中的 `awaiting_approval` 需重命名/合并为 `awaiting_tool_permission`，
+    不保留两个语义重叠的状态。
 - **不包含**：
   - 多设备同时观看同一 run 的多端 UI 交互同步细节（如一端操作另一端联动）不在
     本需求范围，只保证数据一致可订阅。
@@ -100,5 +102,5 @@
 ## R12 AI Ready 验收线索
 - 可验证：注入已知时间戳的事件，测量端到端延迟 < 500ms；静态检查确认轮询相关
   代码已删除；模拟四种非终态各自的 E2E 测试，断言渲染对应 UI 而非无限 loading；
-  固化本 phase 触发 bug 的回归用例（run 停在 `awaiting_approval`，刷新后 5 秒内
+  固化本 phase 触发 bug 的回归用例（run 停在 `awaiting_tool_permission`，刷新后 5 秒内
   渲染审批 UI）；模拟断连恢复，比对事件序列一致（不丢不重复）。
