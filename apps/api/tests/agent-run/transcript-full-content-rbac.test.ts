@@ -197,7 +197,10 @@ describe("V2（R3'-3）admin 经 getRunTranscript 读到完整明文", () => {
     const runId = randomUUID();
     await seedRun(runId);
     await repo.appendStep(ORG, step({
-      runId, seq: 1, kind: "context_built", inputDigest: "deadbeef",
+      // `input_digest` is CHECK-constrained to a 64-hex-char sha256 shape
+      // (agent_run_steps_input_digest_check) -- a short placeholder like "deadbeef"
+      // fails at the database, not at this test's assertions.
+      runId, seq: 1, kind: "context_built", inputDigest: "deadbeef".repeat(8),
     }));
     await repo.appendStep(ORG, step({
       runId, seq: 2, inputFullContent: SYSTEM_PROMPT, outputFullContent: MODEL_REPLY,
