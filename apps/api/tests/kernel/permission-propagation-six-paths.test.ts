@@ -1141,7 +1141,23 @@ describe("lint-permission-paths: counter-proof", () => {
     // 被强制的前提：`tests/org-admin/platform-members-guard-wiring.test.ts` 断言守卫元数据
     // 确实挂在 `PlatformMemberController` 上，`tests/org-admin/platform-members-real.test.ts`
     // 断言本地组织的成员身份永远不进名册。删那两个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(85);
+    //
+    // ⚠ Raised 85 -> 86 by UC-17.8 B4.3（PM 设计工作台）：新增
+    // `infrastructure/design-workbench/pg-design-project-repository.ts`，命名
+    // `design_projects`/`design_project_chat_messages`/`product_feedback`。豁免方向与
+    // 草稿仓储（84 条目）相反：`design-workbench.ts` 头注【待确认点 1】裁决「组织内全员
+    // 可读，仅 owner 可改/删/推送」——读方法（`get`/`listForOrg`）只按 `org_id` 收窄，
+    // 不带 `owner_id`；改的一侧（`update`/`delete`/`appendChat`/`pushToInbox`）四个写
+    // 方法的 SQL 谓词才带 `owner_id = $n`，读不到即 `NOT_PROJECT_OWNER`。`pushToInbox`
+    // 额外在同一事务里 UPDATE `product_feedback.resolved_by_design_id`（双向关联另一半，
+    // 见迁移 `20260904150000_uc178_design_workbench.sql`），只按 `org_id` 收窄——这一步
+    // 不读正文、只把外键指过去，不经过 `feedback-loop` 束的 D3 判定。被强制的前提：
+    // `tests/design-workbench/project-repository-guard.test.ts` 机械断言（a）四个写方法
+    // 每条 UPDATE/DELETE 都带 `owner_id = $` 与 `org_id = $`；（b）`get`/`listForOrg` 只带
+    // `org_id = $`；（c）INSERT 带 `org_id`；（d）没有 `withoutTenant`；（e）只碰
+    // `design_projects`/`design_project_chat_messages`/`product_feedback` 三张表。删那个
+    // 测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(86);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
