@@ -16,6 +16,18 @@
 | D5 | `DesignLoopProvider` 上提到 AppShell（让「存草稿 / 去工作台」出现在真实入口） | 生产壳层 | 上提，但原型 store 在真栈化时被 API client 取代 |
 | D6 | 系统异常是否恢复「仅平台运维可见」（PDF §9） | 权限模型 | 本轮不做，收件箱按组织管理员视角 |
 | D7 | AI 对话（草稿细化 / 设计对话）接 deep-agent-service 还是先固定回执上线 | 范围与估点 | 先固定回执上线（B2/B4 里的 AI 项后置成独立束） |
+| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | 待人类裁决，见下 |
+
+**D8 详情（2026-09-04，E2E 落地时发现，两处合并成一条）**：`canTriage`（`apps/api/src/domain/feedback/product-feedback.ts`）
+把收件箱访问收紧到 `orgRole === "admin"`；但（a）B3.5 起草时发现 `FeedbackDialog` 若无条件在直接提交后跳
+`/platform-admin/inbox` 会让 chat 内非管理员的 agent/skill 反馈入口用户被导到无权页面（已在 `feedback-
+dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`）；（b）B1.6 E2E 落地时实测确认
+**Sprint 1 已合入 main 的草稿提交导航**（`components/admin/design-loop-screens.tsx`
+`FeedbackDraftsScreen.onSubmitted`）同样无条件跳转，同一根因、真实存在于生产。候选方案：①两处都退回「留在
+原页面 + toast」不跳转；②仅管理员账号看到跳转，非管理员看到「已提交」提示；③放宽 `canTriage`
+使非管理员至少能看到自己提交的那一条（但收件箱是全组织视图，放宽会改变 D2 的可见性口径，牵连更大）。
+`feedback-drafts-smoke.spec.ts` 现按方案「如实断言现状」写（非管理员看到拒绝访问，管理员另起一条用例验证
+数据确实落库），不预判裁决结果。
 
 ### 0.1 Agent 推演立场（2026-09-04，人类要求"推演一个合适的答案"）
 

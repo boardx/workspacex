@@ -1,15 +1,26 @@
 /**
  * UC-17.8 B1.6 —— 反馈草稿端到端：存草稿 → 草稿列表可见 → 「继续完善」首次自动追加
  * AI 澄清问题 → 追加一轮对话（服务端固定回执）→ 提交到收件箱 → 草稿从列表消失 →
- * 该条在 `/platform-admin/inbox` 可见且状态为「待处理」。
+ * 该条最终在收件箱里、状态「待处理」。
  *
- * ## 为什么只用一个身份、一条链路（不像 F48/F49 要证明多种 `FeedbackTarget`）
+ * ## ⚠ CI 实测推翻了本文件原先「不需要跨账号」的假设——现在拆两个身份
  *
- * B1（草稿）这条线本身不判别 `FeedbackTarget` 的三种分支——草稿的存在与「继续完善」
- * 对话轨迹跟提交对象是产品还是 skill/agent 无关，那条判别已经由
- * `feedback-loop-smoke.spec.ts` 覆盖过。这里要证明的是**草稿自己的生命周期**：
- * 存 → 列表 → 编辑对话 → 提交 → 从草稿消失同时出现在收件箱，一条真实链路即可，
- * 不需要再重复四种目标组合。
+ * 原先设想：草稿是 per-user 私有资源，一个身份（`email`，consultant）就能跑完整条链路，
+ * 不需要像 D3 反证那样切管理员。**这个假设是错的**：`canTriage`（`domain/feedback/
+ * product-feedback.ts`）把收件箱访问收紧到 `orgRole === "admin"`；而草稿提交成功后的
+ * 默认导航（`design-loop-screens.tsx` `FeedbackDraftsScreen.onSubmitted` → `/platform-
+ * admin/inbox?open=<feedbackId>`，Sprint 1 既有行为，本文件未改动它）**不看提交人是不
+ * 是管理员就跳**。所以一个非管理员账号存草稿、提交后落地在收件箱页，看到的**如实**是
+ * 「运营收件箱仅平台运营可见」（`data-testid="denied"`），不是收件箱内容——这不是这次
+ * 才引入的新行为，是已合入 main 的既有行为第一次被端到端跑到。
+ *
+ * 这与 `inbox-smoke.spec.ts` 用例①（直接提交自动跳收件箱开 drawer）标 `test.fixme` 是
+ * **同一个根因**：`FeedbackDialog`/草稿提交都会把非管理员导向一个他大概率无权访问的
+ * 后台路由。已在 backlog 待确认清单里把两处合并成一条决策（哪些入口该跳、要不要按角色
+ * 分流），不在本文件里替产品做决定。本文件的断言只如实反映**当前代码的真实行为**：
+ * ① 非管理员提交人被导到收件箱后看到「拒绝访问」提示；② 换管理员身份登录后，
+ * 这条反馈确实在收件箱里、状态「待处理」——证明数据链路是通的，只是前端导航目标
+ * 需要人类拍板。
  *
  * ## 「继续完善」首次自动追加澄清问题——发生在**发送第一条消息之后**，不是打开浮层那一刻
  *
@@ -20,10 +31,11 @@
  * 可见）；发出第一条消息之后，一次 PATCH 换回三轮对话。这里按服务端真实时序断言，不臆造
  * 「打开就有澄清问题」这个前端从未实现过的行为。
  *
- * ## 复用 `fullstack-smoke-fixture.ts` 现成的引导师账号，不新种隔离账号
+ * ## 两个身份怎么串：不跨 test() 传变量，靠 `STAMP` 标题找
  *
- * 草稿是 per-user 私有资源（RLS owner-only），`email`（facilitator）这一个身份已经足够
- * 跑完整条链路，不需要像 D3 反证那样跨账号。
+ * `test.describe.configure({mode:"serial"})` 保留顺序，但不同 `test()` 各有一个全新
+ * `page`（Playwright 默认），所以第二条用例不读第一条的内存变量，靠模块级 `DRAFT_TITLE`
+ * （嵌了 `STAMP`）在收件箱里搜——同 `feedback-loop-smoke.spec.ts` 已验证过的既有手法。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -45,7 +57,7 @@ async function login(page: Page, email: string, password: string): Promise<void>
 test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交到收件箱 → 从列表消失、收件箱可见且待处理", async ({ page }) => {
+  test("① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后如实显示「仅平台运营可见」", async ({ page }) => {
     await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
 
     /* ── 存草稿：图标栏「反馈」入口，填正文，点「存为草稿」 ── */
@@ -113,20 +125,36 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
     const submitBody = (await submitResponse.json()) as { feedbackId?: string };
     expect(submitBody.feedbackId, "提交应返回真实的 feedbackId").toBeTruthy();
 
-    /* ── 草稿从列表消失、自动跳到收件箱并展开这条详情（`onSubmitted` → `/platform-admin/inbox?open=<feedbackId>`） ── */
+    /* ── 提交后自动跳到 `/platform-admin/inbox?open=<feedbackId>`（Sprint 1 既有导航，
+       本文件未改动它）——但提交人是非管理员，`canTriage` 只放行 admin，所以这里如实
+       看到的是拒绝访问提示，不是收件箱内容。见文件头注：这与 inbox-smoke.spec.ts 用例①
+       是同一个待人类裁决的产品决策，不在测试里假装成收件箱可见来迁就旧断言。 ── */
     await expect(page).toHaveURL(/\/platform-admin\/inbox\?open=/);
-    await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
-    const drawer = page.getByTestId("inbox-drawer");
-    await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText(DRAFT_TITLE);
-    // 待处理 = `backlog` 阶段（`INBOX_STAGE_LABEL.backlog === "待处理"`）。
-    await expect(drawer.locator('[data-testid="status-badge-backlog"]')).toBeVisible();
-    await expect(drawer).toContainText("待处理");
+    await expect(page.getByTestId("denied")).toBeVisible();
+    await expect(page.getByTestId("denied")).toContainText("仅平台运营可见");
 
     // 回到草稿列表页确认这条真的从「反馈草稿」里消失了（不是只在收件箱那一侧看得见）。
     await page.goto("/platform-admin/feedback-drafts");
     await expect(page.getByTestId("design-loop-drafts")).toBeVisible();
     const remainingDrafts = page.locator('[data-testid^="draft-card-"]').filter({ hasText: DRAFT_TITLE });
     await expect(remainingDrafts).toHaveCount(0);
+  });
+
+  test("② 管理员：这条反馈确实落在收件箱、状态待处理（证明数据链路是通的）", async ({ page }) => {
+    await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
+    await page.goto("/platform-admin/inbox");
+    await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
+
+    await page.getByTestId("inbox-search").fill(DRAFT_TITLE);
+    const card = page.locator('[data-testid^="inbox-card-"]').filter({ hasText: DRAFT_TITLE });
+    await expect(card).toBeVisible();
+    await card.click();
+
+    const drawer = page.getByTestId("inbox-drawer");
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText(DRAFT_TITLE);
+    // 待处理 = `backlog` 阶段（`INBOX_STAGE_LABEL.backlog === "待处理"`）。
+    await expect(drawer.locator('[data-testid="status-badge-backlog"]')).toBeVisible();
+    await expect(drawer).toContainText("待处理");
   });
 });
