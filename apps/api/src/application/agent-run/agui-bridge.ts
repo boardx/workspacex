@@ -390,12 +390,42 @@ export async function runAguiBridgeTurn(
     disableTaskAutoClassify: input.disableTaskAutoClassify,
     onAccepted: () => deps.executor.kick(input.orgId),
   });
+
+  // #2693 -- `accepted.reused` means this call's `clientMessageId` was a RETRY that
+  // reattached to a run an EARLIER request already started polling (the controller
+  // deliberately reuses `clientMessageId` on retry so `acceptHumanMessage`'s idempotency
+  // guard hands back the same run -- see `copilotkit-agui.controller.ts`'s file head,
+  // issue #2321 round 2). Without this, this fresh `pollAguiRunToOutcome` call would start
+  // its cursors at the defaults (nothing reported yet) and re-announce every `onStep`/
+  // `onDelta` fragment the run already has -- including a still-`in_progress` HITL
+  // interrupt step -- under a BRAND NEW `toolCallId` (`writeToolCallStep` mints one per
+  // call), which is what made "确认一下我的理解，再开始" render two/three times for one
+  // logical interrupt. Snapshotting "what's already there" BEFORE this poll starts is the
+  // exact same fix `resumeAguiBridgeTurn` already applies for the HITL-resume path below
+  // (see that function's own comment on `initialReportedStepCount`/`initialLastSeenDeltaSeq`
+  // for the sibling browser e2e bug this mirrors).
+  let initialReportedStepCount: number | undefined;
+  let initialLastSeenDeltaSeq: number | undefined;
+  if (accepted.reused === true) {
+    const preRetryProjection = await readAgentRun(deps, {
+      userId: input.userId, orgId: input.orgId, runId: accepted.agentRunId,
+    });
+    initialReportedStepCount = preRetryProjection.steps.length;
+    const preRetryDeltas = input.onDelta
+      ? await deps.runs.readModelDeltas(input.orgId, accepted.agentRunId, -1)
+      : [];
+    initialLastSeenDeltaSeq = preRetryDeltas.length > 0
+      ? preRetryDeltas[preRetryDeltas.length - 1]!.seq
+      : -1;
+  }
+
   input.onStarted?.();
 
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId, runId: accepted.agentRunId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
     onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
+    initialReportedStepCount, initialLastSeenDeltaSeq,
   });
 }
 
