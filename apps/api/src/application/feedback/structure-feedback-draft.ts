@@ -28,6 +28,7 @@ import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
 
 export type FeedbackKind = z.infer<typeof feedbackLoop.FeedbackKind>;
+export type FeedbackStructured = z.infer<typeof feedbackLoop.FeedbackStructured>;
 
 /** 同 `ThreadTitleModelConfig` 的既有先例——接口形状声明在这里，唯一实现
  *  （`infrastructure/feedback/feedback-structure-model-config.ts`）由组合根注入。 */
@@ -52,6 +53,8 @@ export interface StructureFeedbackDraftResult {
   readonly kind: FeedbackKind;
   readonly title: string;
   readonly detail: string;
+  /** UC-17.8 B2.4：模型按 kind 拆出的结构化字段；没拆出来/解析不出 ⇒ `null`，正文仍是完整原文。 */
+  readonly structured: FeedbackStructured | null;
 }
 
 /**
@@ -75,7 +78,33 @@ export const STRUCTURE_FEEDBACK_DRAFT_SYSTEM_PROMPT =
   "JSON 对象，不要任何解释性文字、不要 markdown 代码块标记。JSON 形如：" +
   '{"kind":"缺陷或需求二选一","title":"不超过120字的简短标题","detail":"完整的正文，' +
   '保留用户描述的关键信息（复现步骤/期望行为等），可以比原话更有条理，但不要编造原话' +
-  '没有提到的细节"}。kind 字段只能是「缺陷」或「不确定时用需求」两个词之一。';
+  '没有提到的细节","structured":{...}}。kind 字段只能是「缺陷」或「不确定时用需求」两个词之一。' +
+  // UC-17.8 B2.4：按 kind 额外拆出结构化字段。缺字段就省略该键，不要编造；整段拆不出来就给 {}。
+  "structured 字段按 kind 给出：kind 为「缺陷」时形如 " +
+  '{"reproFrequencyEnv":"复现频率·环境，如「每次 · Chrome 128」","expectedResult":"期望结果",' +
+  '"actualResult":"实际结果","reproSteps":"复现步骤，用「1. 2. 3.」编号、每步一行"}；' +
+  "kind 为「需求」时形如 " +
+  '{"useScenario":"使用场景","expectedCapability":"期望能力","priorityScope":"优先级·影响范围，如「P1 · 全部项目」"}。' +
+  "原话里没有提到的字段直接省略该键，不要编造。";
+
+/**
+ * UC-17.8 B2.4：从模型输出里取 `structured`。只认契约 `FeedbackStructured` 能解析的形状，且键集
+ * 必须与 `kind` 匹配（缺陷 ⇒ `BugStructuredFields`，需求 ⇒ `ReqStructuredFields`）——模型把
+ * 需求字段填给缺陷时不"顺手纠正"，直接当没拆出来（`null`）。空对象 `{}` 与没拆出来等价。
+ * 解析失败**不抛**：结构化字段是正文的补充，正文（完整原文）才是这次点击的主产物。
+ */
+export function parseStructuredForKind(kind: FeedbackKind, raw: unknown): FeedbackStructured | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  // 只保留字符串值：模型偶尔会给 null / 数组，契约 `.strict()` 会整段拒掉，先清洗再校验。
+  const cleaned: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === "string" && v.trim() !== "") cleaned[k] = v.trim();
+  }
+  const schema = kind === "缺陷" ? feedbackLoop.BugStructuredFields : feedbackLoop.ReqStructuredFields;
+  const parsed = schema.safeParse(cleaned);
+  if (!parsed.success || Object.keys(parsed.data).length === 0) return null;
+  return parsed.data;
+}
 
 /** 从模型输出里找出第一个 `{...}` 片段——同 `generate-followup-suggestions.ts` 的
  *  既有先例：模型偶尔会在 JSON 前后加解释性文字或代码块标记，不要求整段严格 JSON。 */
@@ -142,5 +171,6 @@ export async function structureFeedbackDraft(
     kind,
     title: clamp(rawTitle, 120),
     detail: clamp(rawDetail, 4000),
+    structured: parseStructuredForKind(kind, obj.structured),
   };
 }

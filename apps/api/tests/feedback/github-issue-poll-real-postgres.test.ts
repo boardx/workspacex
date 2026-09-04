@@ -42,6 +42,7 @@ function draft(over: Partial<NewFeedback> = {}): NewFeedback {
     targetLabel: null,
     title: "对话历史丢了",
     detail: "刷新一下就没了,复现了三次。",
+    structured: null,
     occurredRoute: "/chat",
     appVersion: "2026.09.03",
     ...over,

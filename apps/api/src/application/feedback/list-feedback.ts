@@ -68,7 +68,15 @@ export async function listFeedback(
       submittedBy: row.submittedBy,
     });
     const outcome = discloseDecided(row.detail, decision);
-    return { row, disclosed: isDisclosed(outcome), detail: isDisclosed(outcome) ? outcome.payload : null };
+    // UC-17.8 D1：结构化字段与正文**同一个** decision——不是第二次判定，是同一份判定用在
+    // 同一行的两个载荷上；`detail === null` 的行这里恒 `null`（契约 `FeedbackItem.structured`）。
+    const structuredOutcome = discloseDecided(row.structured, decision);
+    return {
+      row,
+      disclosed: isDisclosed(outcome),
+      detail: isDisclosed(outcome) ? outcome.payload : null,
+      structured: isDisclosed(structuredOutcome) ? structuredOutcome.payload : null,
+    };
   });
 
   // 一次批量查询取回"这批里、正文对本次请求者可见的那些反馈"的附件——见
@@ -93,7 +101,7 @@ export async function listFeedback(
       )
     : new Map();
 
-  return projected.map(({ row, disclosed, detail }) => ({
+  return projected.map(({ row, disclosed, detail, structured }) => ({
     id: row.id,
     kind: row.kind,
     target: row.target,
@@ -101,6 +109,7 @@ export async function listFeedback(
     title: row.title,
     // ⚠ `null` 在契约里恒等于「无权查看」——因为落库的正文非空（迁移里的 CHECK）。
     detail,
+    structured,
     status: row.status,
     statusReason: row.statusReason,
     votes: row.votes,

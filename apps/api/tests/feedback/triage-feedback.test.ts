@@ -34,6 +34,7 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
     // ⚠ `detail` 是 `Guarded<string>`(D3 可见性门控),不是这个用例真正读到的字段——
     //   `triageFeedback` 不看正文,这里只是为了满足 `FeedbackRow` 的完整形状。
     detail: guard({ kind: "feedback", id: "fb-1" }, "反馈正文(本用例不读这个字段)"),
+    structured: guard({ kind: "feedback", id: "fb-1" }, null),
     status: "待处理",
     statusReason: null,
     votes: 0,
@@ -124,6 +125,10 @@ function fakeAttachments(rows: readonly FeedbackAttachmentRow[] = []): TriageFee
     create: vi.fn(async () => {}),
     claimForFeedback: vi.fn(async () => 0),
     findByFeedbackIds: vi.fn(async () => rows),
+    claimForDraft: vi.fn(async () => 0),
+    moveDraftAttachmentsToFeedback: vi.fn(async () => 0),
+    releaseDraftAttachments: vi.fn(async () => 0),
+    findByDraftIds: vi.fn(async () => []),
     findById: vi.fn(async () => {
       throw new Error("not used in this test");
     }),
@@ -293,6 +298,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       orgId: "org-1",
       uploadedBy: "u-submitter",
       feedbackId: "fb-1",
+      draftId: null,
       objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
       contentType: "image/png",
       sizeBytes: 3,
@@ -323,6 +329,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       orgId: "org-1",
       uploadedBy: "u-submitter",
       feedbackId: "fb-1",
+      draftId: null,
       objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
       contentType: "image/png",
       sizeBytes: 3,

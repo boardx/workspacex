@@ -1,5 +1,5 @@
 /**
- * FB-2 / FB-3 —— `feedback-loop` 束的五条路由。
+ * FB-2 / FB-3 —— `feedback-loop` 束的路由（UC-17.8 B1 起含六条草稿路由）。
  *
  * ## 为什么是独立 controller
  *
@@ -33,6 +33,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -40,6 +41,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -108,6 +110,21 @@ import {
   structureFeedbackDraft,
   type FeedbackStructureModelConfig,
 } from "../../application/feedback/structure-feedback-draft";
+import {
+  FEEDBACK_DRAFT_REPOSITORY,
+  type FeedbackDraftRepositoryFactory,
+} from "../../application/feedback/draft-ports";
+import {
+  FeedbackDraftEmptyError,
+  FeedbackDraftNotFoundError,
+  type FeedbackDraftDeps,
+} from "../../application/feedback/drafts/draft-shared";
+import { createFeedbackDraft } from "../../application/feedback/drafts/create-feedback-draft";
+import { listMyFeedbackDrafts } from "../../application/feedback/drafts/list-my-feedback-drafts";
+import { countMyFeedbackDrafts } from "../../application/feedback/drafts/count-my-feedback-drafts";
+import { updateFeedbackDraft } from "../../application/feedback/drafts/update-feedback-draft";
+import { deleteFeedbackDraft } from "../../application/feedback/drafts/delete-feedback-draft";
+import { submitFeedbackDraft } from "../../application/feedback/drafts/submit-feedback-draft";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 import { OBJECT_STORE, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
 import {
@@ -132,12 +149,24 @@ export const LIST_FEEDBACK_SCHEMA = C.operations.listFeedback.in;
 export const COMMENT_ON_FEEDBACK_GITHUB_ISSUE_SCHEMA = C.operations.commentOnFeedbackGithubIssue.in;
 export const UPLOAD_FEEDBACK_ATTACHMENT_SCHEMA = C.operations.uploadFeedbackAttachment.in;
 export const STRUCTURE_FEEDBACK_DRAFT_SCHEMA = C.operations.structureFeedbackDraft.in;
+export const CREATE_FEEDBACK_DRAFT_SCHEMA = C.operations.createFeedbackDraft.in;
+/** 路径参数 `draftId` 不在 body 里再传一次——`.omit()` 保留 `.strict()`，多传即 400（见 lint-body-path-param-leak）。 */
+export const UPDATE_FEEDBACK_DRAFT_SCHEMA = C.operations.updateFeedbackDraft.in.omit({ draftId: true });
+
+/**
+ * multer 层的第一道类型过滤——**从契约派生**（`FeedbackAttachmentMime`），不是第二份白名单。
+ * 它只看浏览器声明的 `Content-Type`，真正的字节校验在用例 `uploadFeedbackAttachment` 里；
+ * 这里提前拒掉是省一次把 8MB 的 zip 读进内存再拒的开销，不是安全边界。
+ */
+const FEEDBACK_ATTACHMENT_MIMES: readonly string[] = C.FeedbackAttachmentMime.options;
 
 type SubmitBody = ReturnType<typeof C.operations.submitFeedback.in.parse>;
 type VoteBody = ReturnType<typeof C.operations.voteFeedback.in.parse>;
 type TriageBody = ReturnType<typeof C.operations.triageFeedback.in.parse>;
 type CommentOnGithubIssueBody = ReturnType<typeof C.operations.commentOnFeedbackGithubIssue.in.parse>;
 type StructureFeedbackDraftBody = ReturnType<typeof C.operations.structureFeedbackDraft.in.parse>;
+type CreateFeedbackDraftBody = ReturnType<typeof C.operations.createFeedbackDraft.in.parse>;
+type UpdateFeedbackDraftBody = ReturnType<typeof UPDATE_FEEDBACK_DRAFT_SCHEMA.parse>;
 
 @Controller()
 export class FeedbackController {
@@ -155,6 +184,7 @@ export class FeedbackController {
     @Inject(MODEL_CALL_PORT) private readonly modelCall: ModelCallPort,
     @Inject(FEEDBACK_STRUCTURE_MODEL_CONFIG) private readonly structureModel: FeedbackStructureModelConfig,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    @Inject(FEEDBACK_DRAFT_REPOSITORY) private readonly drafts: FeedbackDraftRepositoryFactory,
   ) {}
 
   /** 看的人在本组织的角色。null = 不是成员——`decideFeedbackDetailVisibility` 据此整条拒。 */
@@ -196,6 +226,8 @@ export class FeedbackController {
         occurredRoute: body.occurredRoute,
         appVersion: body.appVersion,
         attachmentIds: body.attachmentIds,
+        // UC-17.8 D1：`.optional()` 是契约层的向后兼容；用例层「没传」与「没填」是同一件事。
+        structured: body.structured ?? null,
       },
     );
   }
@@ -413,7 +445,12 @@ export class FeedbackController {
    */
   @HttpCode(HttpStatus.CREATED)
   @Post("/feedback/attachments")
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 8 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+      fileFilter: (_req, file, cb) => cb(null, FEEDBACK_ATTACHMENT_MIMES.includes(file.mimetype)),
+    }),
+  )
   async uploadAttachment(
     @CurrentPrincipal() principal: Principal,
     @UploadedFile() file: { buffer: Buffer; size: number } | undefined,
@@ -535,6 +572,137 @@ export class FeedbackController {
       throw e;
     }
   }
+
+  /* ─────────── UC-17.8 B1 · 反馈草稿（提交人私有）─────────── */
+
+  /**
+   * 六条草稿路由共用的依赖——草稿仓储按组织构造，附件仓储按方法接 orgId（既有的两种形状）。
+   * ⚠ owner 恒从 principal 取；契约 `in` 里没有 ownerId，传不进来。
+   */
+  private draftDeps(principal: Principal): FeedbackDraftDeps {
+    return {
+      drafts: this.drafts.forOrg(principal.orgId),
+      attachments: this.attachments,
+      orgId: toOrgId(principal.orgId),
+    };
+  }
+
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/feedback/drafts")
+  async createDraft(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(CREATE_FEEDBACK_DRAFT_SCHEMA)) body: CreateFeedbackDraftBody,
+  ) {
+    assertPrincipal(principal);
+    return createFeedbackDraft(
+      {
+        ...this.draftDeps(principal),
+        newDraftId: () => randomUUID(),
+        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-draft" }),
+      },
+      {
+        ownerId: principal.userId,
+        kind: body.kind,
+        target: body.target,
+        detail: body.detail,
+        structured: body.structured,
+        occurredRoute: body.occurredRoute,
+        appVersion: body.appVersion,
+        attachmentIds: body.attachmentIds,
+      },
+    );
+  }
+
+  @Get("/feedback/drafts")
+  async listDrafts(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    const items = await listMyFeedbackDrafts(this.draftDeps(principal), { ownerId: principal.userId });
+    return { items };
+  }
+
+  /** ⚠ 声明在 `/feedback/drafts/:draftId` 之前——Nest 按声明顺序匹配，否则 `count` 会被当成一个 draftId。 */
+  @Get("/feedback/drafts/count")
+  async countDrafts(@CurrentPrincipal() principal: Principal) {
+    assertPrincipal(principal);
+    return countMyFeedbackDrafts({ drafts: this.drafts.forOrg(principal.orgId) }, { ownerId: principal.userId });
+  }
+
+  @Patch("/feedback/drafts/:draftId")
+  async updateDraft(
+    @CurrentPrincipal() principal: Principal,
+    @Param("draftId") draftId: string,
+    @Body(new ZodBodyPipe(UPDATE_FEEDBACK_DRAFT_SCHEMA)) body: UpdateFeedbackDraftBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateFeedbackDraft(
+        { ...this.draftDeps(principal), now: () => new Date() },
+        {
+          draftId,
+          ownerId: principal.userId,
+          kind: body.kind,
+          detail: body.detail,
+          structured: body.structured,
+          appendChat: body.appendChat,
+        },
+      );
+    } catch (e) {
+      throw mapDraftError(e) ?? e;
+    }
+  }
+
+  @Delete("/feedback/drafts/:draftId")
+  async deleteDraft(@CurrentPrincipal() principal: Principal, @Param("draftId") draftId: string) {
+    assertPrincipal(principal);
+    try {
+      return await deleteFeedbackDraft(
+        {
+          ...this.draftDeps(principal),
+          log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-draft" }),
+        },
+        { draftId, ownerId: principal.userId },
+      );
+    } catch (e) {
+      throw mapDraftError(e) ?? e;
+    }
+  }
+
+  /** 201：同 `POST /feedback`——这条路由创建了一行反馈资源。 */
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/feedback/drafts/:draftId/submit")
+  async submitDraft(@CurrentPrincipal() principal: Principal, @Param("draftId") draftId: string) {
+    assertPrincipal(principal);
+    try {
+      return await submitFeedbackDraft(
+        {
+          ...this.draftDeps(principal),
+          submit: {
+            repo: this.feedback.forOrg(principal.orgId),
+            newFeedbackId: () => randomUUID(),
+            newEventId: () => randomUUID(),
+            attachments: this.attachments,
+            submitterDirectory: this.submitterDirectory,
+            mail: this.mail,
+            log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-submit" }),
+          },
+        },
+        { draftId, ownerId: principal.userId },
+      );
+    } catch (e) {
+      throw mapDraftError(e) ?? e;
+    }
+  }
+}
+
+/**
+ * 草稿路由共用的错误映射（同 `mapGithubIssueSideEffectError` 的形状与理由）：
+ *   404 `DRAFT_NOT_FOUND` —— 不存在**或不是你的**（草稿私有，同 404 非 403 纪律）。
+ *   422 `DRAFT_EMPTY`     —— 形状合法、与当前内容的关系不合法（同 `TRIAGE_REASON_REQUIRED` 不用 400 的理由）。
+ */
+function mapDraftError(e: unknown): Error | null {
+  if (e instanceof FeedbackDraftNotFoundError) return new NotFoundException({ reasonCode: "DRAFT_NOT_FOUND" });
+  if (e instanceof FeedbackDraftEmptyError) return new UnprocessableEntityException({ reasonCode: "DRAFT_EMPTY" });
+  return null;
 }
 
 /**

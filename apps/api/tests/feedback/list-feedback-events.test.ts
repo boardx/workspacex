@@ -22,6 +22,7 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
     targetLabel: null,
     title: "点了没反应",
     detail: guard({ kind: "feedback", id: "fb-1" }, "反馈正文（本用例不读这个字段）"),
+    structured: guard({ kind: "feedback", id: "fb-1" }, null),
     status: "已进入迭代",
     statusReason: null,
     votes: 0,
