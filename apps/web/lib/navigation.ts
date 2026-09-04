@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks, Globe,
+  MessageSquareWarning, ListChecks, Globe, PencilRuler,
 } from "lucide-react";
 
 /**
@@ -115,6 +115,14 @@ export const NAV_SEGMENTS: NavSegment[] = [
       // 束: canvas —— 2026-08-09 人类裁决：移出一级，见下方「治理 → 后台 children」处的 canvas 条目。
       //   本文件自己的权威注释早已记录矛盾：measured 序列把「原型」摆在 STUDIO 一级，
       //   但同一份原型的设计说明逐字写着「画布从议程进，不占一级」。这次以后者为准。
+      // 束: design-workbench（PM 设计工作台）—— 2026-09-04 人类直接裁决：加入 STUDIO
+      //   一级导航。它和「研究/访谈/问卷」同属「先设计、后接线」的产出型工具，人类希望
+      //   在 Studio 里一步直达，不必绕经「治理 → 平台后台」两跳。href 复用 `ADMIN_NAV`
+      //   （`lib/mock/admin.ts`）里 `design-workbench` 项的现行路由，不新开一条；
+      //   `AdminNav` 里的入口不下线（平台运维仍从后台管理它），STUDIO 这条只是新增的
+      //   第二个入口——不是去重场景（不同受众：Studio 面向单次设计动作，后台面向管理
+      //   全部设计项目列表），因此不适用本文件其余条目「同一事实只留一个入口」的先例。
+      { key: "design-workbench", label: "设计", href: "/platform-admin/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {

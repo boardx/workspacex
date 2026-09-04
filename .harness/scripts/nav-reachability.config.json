@@ -33,7 +33,8 @@
       "/brain",
       "/tasks",
       "/admin",
-      "/platform-admin"
+      "/platform-admin",
+      "/platform-admin/design-workbench"
     ]
   }
 }
