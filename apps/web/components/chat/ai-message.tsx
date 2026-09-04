@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { MarkdownMessage } from "./markdown-message";
 import { MessageEntrance } from "./message-entrance";
+import { SubtaskRunLivePanel } from "./subtask-run-live-panel";
 import {
   TOOL_CALL_STATUS_LABEL,
   type ChatMessage,
@@ -59,6 +60,9 @@ export function AiMessage({ msg }: { msg: AiMessage }) {
 
           {msg.tools && <ToolCalls log={msg.tools} />}
           {msg.citations && msg.citations.length > 0 && <CitationList citations={msg.citations} />}
+          {/* 后台任务面板（UC-8.2 相关，issue #2666）——贴在触发子任务的这条消息上，
+              收起时不影响下方继续输入（自持局部展开态，不劫持 composer 焦点）。 */}
+          <SubtaskRunLivePanel parentRunId={msg.subtaskRunParentId ?? null} />
         </div>
       </article>
     </MessageEntrance>

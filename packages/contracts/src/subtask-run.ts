@@ -57,3 +57,15 @@ export const EnqueueSubtaskRunInput = z.object({
   context: z.string().nullable().optional(),
 });
 export type EnqueueSubtaskRunInput = z.infer<typeof EnqueueSubtaskRunInput>;
+
+/* ── issue #2666：前端查询接口的契约（GET /agent-runs/:runId/subtask-runs）───────
+ *
+ * `apps/deep-agent-service`/`spawn_async_task` 侧没有暴露任何面向浏览器的查询或推送
+ * 通路（读过 #2675 diff 确认：只有内部 `POST /internal/subtask-runs` 回调入口）。
+ * 这里新增一个最小可行的只读查询端点，供前端轮询——不做 WebSocket/SSE，取舍见
+ * `subtask-run.controller.ts` 头注与本 PR 说明。 */
+export const ListSubtaskRunsResult = z.object({
+  parentRunId: z.string(),
+  subtaskRuns: z.array(SubtaskRun),
+});
+export type ListSubtaskRunsResult = z.infer<typeof ListSubtaskRunsResult>;

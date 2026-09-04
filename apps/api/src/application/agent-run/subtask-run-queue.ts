@@ -23,6 +23,14 @@
  * `ModelCallPort` 端口而不是 `executeQueuedRuns` 内联的纪律。生产合成把 `execute` 接到
  * 一次真实模型调用（复用 `ModelCallPort`）；测试用一个纯函数 fake 验证"领取 → 执行 →
  * 写回"这条链路本身，不需要真实模型或数据库。
+ *
+ * ## issue #2666：`get`/`listByParentRun` 供前端查询接口用
+ *
+ * `SubtaskRunStore.listByParentRun` 是本次（#2666）新增——issue #2664 原始范围只要求
+ * `get`（单条读，供测试断言）。前端后台任务面板需要"这个父 run 下所有子任务当前状态"
+ * 一次性列出来，而不是逐条按 id 轮询（父 run 派发了几个子任务、id 是什么，前端事先并
+ * 不知道），所以补一个按 `parentRunId` 查的方法——与 `get` 同一个只读端口，未破坏既有
+ * 接口形状（新增方法，非修改）。
  */
 import type { OrgId } from "../../domain/org-id";
 import type { subtaskRun as SubtaskRunContract } from "@repo/contracts";
@@ -50,6 +58,13 @@ export interface SubtaskRunStore {
   fail(orgId: OrgId, id: string, error: string): Promise<void>;
   /** 按 id 读一条子任务 run；供 issue #2666 的 UI 展示与测试断言用。不存在返回 `null`。 */
   get(orgId: OrgId, id: string): Promise<SubtaskRun | null>;
+  /**
+   * 按父 run id 列出该 run 下的全部子任务 run（issue #2666 查询接口用）——
+   * 顺序为入队顺序（`createdAt` 升序），不存在任何该父 run 的子任务时返回空数组，
+   * 不是 `null`（"这个父 run 没有子任务"与"这个父 run 不存在"是两回事，本方法不判后者，
+   * 调用方靠 `AgentRunStore` 自己的可见性判定来判"父 run 是否存在/可见"）。
+   */
+  listByParentRun(orgId: OrgId, parentRunId: string): Promise<readonly SubtaskRun[]>;
 }
 
 export const SUBTASK_RUN_STORE = Symbol("SubtaskRunStore");

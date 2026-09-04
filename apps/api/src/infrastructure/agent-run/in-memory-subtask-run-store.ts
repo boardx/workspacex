@@ -1,6 +1,7 @@
 /**
  * `SubtaskRunStore` 的进程内存实现——issue #2664 明确允许的"最小可行"通路
- * （issue 原文：「如果现有架构里没有这条通路，你需要新增一个最小可行的」）。
+ * （issue 原文：「如果现有架构里没有这条通路，你需要新增一个最小可行的」），issue #2666
+ * 复用同一份实现补了 `listByParentRun`（见该端口方法自己的文档）。
  *
  * ## 已知取舍（跟着这份 MVP 走，不是意外遗漏）
  *
@@ -67,6 +68,13 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     const row = this.rows.get(id);
     if (!row || row.orgId !== String(orgId)) return null;
     return stripOrg(row);
+  }
+
+  async listByParentRun(orgId: OrgId, parentRunId: string): Promise<readonly SubtaskRun[]> {
+    const rows = [...this.rows.values()]
+      .filter((row) => row.orgId === String(orgId) && row.parentRunId === parentRunId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return rows.map(stripOrg);
   }
 
   private transition(

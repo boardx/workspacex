@@ -57,14 +57,14 @@ export * as agentInterrupts from "./agent-interrupts";
 /* ── TW-P0-3 计划编辑与执行控制（F972）─────────────────────────────── */
 export * as planControl from "./plan-control";
 
-/* ── 异步子任务派发（issue #2664）───────────────────────────────────── */
-export * as subtaskRun from "./subtask-run";
-
 /* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
 export * as board from "./board";
 
 /* ── 系统异常自动捕获（平台超管只读 + 前端上报） ─────────────────────── */
 export * as systemErrorLogs from "./system-error-logs";
+
+/* ── 异步子任务派发（issue #2664）+ 后台任务面板（issue #2666）────────── */
+export * as subtaskRun from "./subtask-run";
 
 /* ── UC-17.8 Sprint 2 · 统一收件箱（反馈 + 系统异常 [+ B4 设计方案] 的只读投影，D2 替换旧三 tab）── */
 export * as inbox from "./inbox";

@@ -837,7 +837,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     BlueprintChangeRequestController,
     RecordingController,
     AgentRunController,
-    // issue #2664 -- deep-agent-service 的 spawn_async_task 回调入口。
+    // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,
     // F977 (plan-control 契约束).
@@ -1395,9 +1395,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     /**
-     * issue #2664 -- 一个进程内单例，跨请求共享同一份队列状态（同 orgId 下"入队"与
-     * "领取"必须看到彼此）。`InMemorySubtaskRunStore` 自己的头注记录了这个 MVP 的
-     * 已知取舍（进程重启丢队列、多副本不共享）。
+     * issue #2664/#2666 -- 一个进程内单例，跨请求共享同一份队列状态（同 orgId 下"入队"
+     * 与"领取"/"查询"必须看到彼此）。`InMemorySubtaskRunStore` 自己的头注记录了这个
+     * MVP 的已知取舍（进程重启丢队列、多副本不共享）。
      */
     {
       provide: SUBTASK_RUN_STORE,
