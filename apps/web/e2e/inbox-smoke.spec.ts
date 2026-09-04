@@ -21,6 +21,7 @@
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 const API = "/__fullstack_api";
 const STAMP = Date.now();
@@ -35,6 +36,27 @@ async function login(page: Page, email: string, password: string): Promise<void>
 
 function findInboxCard(page: Page, title: string): Locator {
   return page.locator('[data-testid^="inbox-card-"]').filter({ hasText: title });
+}
+
+/**
+ * 直连 API 建一条反馈——同 `blueprint-contract-gap-audit.spec.ts` 的规矩：`page.request`
+ * 不会自动带上身份，token 由页面存进 localStorage 里手动取。
+ *
+ * ⚠ 用例②③要的是"收件箱里已经有一条反馈"这个**前置状态**，不是重新验证提交弹层本身
+ * ——那条链路已经被 `feedback-loop-smoke.spec.ts` 和 `feedback-drafts-smoke.spec.ts` ①
+ * 覆盖过。CI 实测：两条用例都走 UI 弹层建种子数据时，与另一个 worker 并发打开同一个
+ * 反馈弹层会撞上 90s 都等不到的 `feedback-kind-*` 点击超时（`fullstack-smoke` 单进程
+ * Next dev server 下两个浏览器实例同时抢 CPU/事件循环）——改直连 API 建种子数据，
+ * 不再驱动这段已经被别处测过的 UI，顺带把这个并发窗口关掉。
+ */
+async function seedFeedback(page: Page, kind: "缺陷" | "需求", title: string, detail: string): Promise<void> {
+  const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token, "登录之后 localStorage 里应有 session token").toBeTruthy();
+  const res = await page.request.post(`${API}/feedback`, {
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    data: { kind, target: { kind: "product" }, title, detail, occurredRoute: null, appVersion: null },
+  });
+  expect(res.status(), "直连建种子反馈应该 201").toBe(201);
 }
 
 test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、不做需理由", () => {
@@ -70,27 +92,12 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
   });
 
   test("② 看板拖拽换状态触发真实 API 迁移，刷新后仍是新状态", async ({ page }) => {
-    // 见 feedback-drafts-smoke.spec.ts 同一处注释：共享单进程 dev server 下 CI 实测的
-    // 点击超时，放宽整条用例的超时（同 feedback-loop-smoke.spec.ts ③④ 先例）。
-    test.setTimeout(90_000);
     const title = `E2E收件箱拖拽_批注同步慢_${STAMP}`;
     // 用第一条用例的账号先真实提交一条反馈作为拖拽对象（不依赖用例①的跳转是否生效——
-    // 这里显式手动导航到收件箱，两条用例互不依赖对方的断言成立与否）。
+    // 这里显式手动导航到收件箱，两条用例互不依赖对方的断言成立与否）。种子数据直连
+    // API 建（见 `seedFeedback` 头注：不重复驱动别处已测过的提交弹层 UI）。
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.getByTestId("rail-feedback").click();
-    await expect(page.getByTestId("feedback-form")).toBeVisible();
-    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
-    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
-    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
-    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
-    await page.getByTestId("feedback-kind-缺陷").click();
-    await page.getByTestId("feedback-detail-input").fill(`${title}。批注写完之后要等好几秒才在别人那边出现。`);
-    const submitted = page.waitForResponse(
-      (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),
-    );
-    await page.getByTestId("feedback-submit").click();
-    expect((await submitted).status()).toBe(201);
-    await page.getByTestId("feedback-dialog-close").click();
+    await seedFeedback(page, "缺陷", title, `${title}。批注写完之后要等好几秒才在别人那边出现。`);
 
     await page.goto("/platform-admin/inbox");
     await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
@@ -125,25 +132,10 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
   });
 
   test("③ 转「不做」需要理由：不填不让确认，填了才能确认，理由随状态一起可见", async ({ page }) => {
-    // 见 feedback-drafts-smoke.spec.ts 同一处注释：共享单进程 dev server 下 CI 实测的
-    // 点击超时，放宽整条用例的超时（同 feedback-loop-smoke.spec.ts ③④ 先例）。
-    test.setTimeout(90_000);
     const title = `E2E收件箱不做_想要暗色主题切换_${STAMP}`;
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.getByTestId("rail-feedback").click();
-    await expect(page.getByTestId("feedback-form")).toBeVisible();
-    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
-    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
-    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
-    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
-    await page.getByTestId("feedback-kind-需求").click();
-    await page.getByTestId("feedback-detail-input").fill(`${title}。晚上用的时候太亮了，想要一个暗色主题。`);
-    const submitted = page.waitForResponse(
-      (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),
-    );
-    await page.getByTestId("feedback-submit").click();
-    expect((await submitted).status()).toBe(201);
-    await page.getByTestId("feedback-dialog-close").click();
+    // 种子数据直连 API 建（见 `seedFeedback` 头注）。
+    await seedFeedback(page, "需求", title, `${title}。晚上用的时候太亮了，想要一个暗色主题。`);
 
     await page.goto("/platform-admin/inbox");
     await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
