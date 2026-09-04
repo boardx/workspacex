@@ -307,6 +307,14 @@ export default {
       { source: `${prefix}/inbox/:path*`, destination: `${apiOrigin}/inbox/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
+      // issue #2666（#2664 subtask-run.controller.ts 的 `POST /internal/subtask-runs`）：
+      // 本 PR（#2678）在 #2664（PR #2675，尚未合并）落地前先原样复刻了一份
+      // `subtask-run.controller.ts`，但没跟着复刻 PR #2675 里配套加的这条 rewrite——
+      // 同一个坑的又一次复现（`lint-rewrite-coverage.mjs --strict` 判定该 controller
+      // 路由前端够不到，会被 Next 接住返回 404 HTML）。PR #2675 合并后两边的
+      // `subtask-run.controller.ts`/这条 rewrite 会合并成一份，不需要再删这里——
+      // 到时候是同一份声明，不是重复。
+      { source: `${prefix}/internal/:path*`, destination: `${apiOrigin}/internal/:path*` },
       // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——
       // 前四次分别是 /capabilities、/canvas/templates、/skills、/agent-runs，
       // 注释都还在上面。缺了这条，`/recording/sessions` 不会失败在网络层，
