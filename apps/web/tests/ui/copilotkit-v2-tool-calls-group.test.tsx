@@ -193,4 +193,43 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(screen.getByTestId("copilotkit-v2-tool-write-todos")).toBeInTheDocument();
     expect(screen.queryByTestId("copilotkit-v2-tool-write-todos-superseded")).not.toBeInTheDocument();
   });
+
+  // 2026-09-04 人类直接反馈（真栈截图：两张内容不同的"制定执行计划"卡片同屏并存，
+  // 都是完整展开态，看不出哪张是最新）—— 真实场景往往是**两条独立消息**各自只调用
+  // 一次 `write_todos`（先给一版计划、下一轮收到反馈后整体重发一版），不是同一条
+  // 消息里连续调用两次。上面 issue #2451 那版去重只看"当前消息自己的 toolCalls"，
+  // 每条消息各自 `toolCalls.length === 1`，直接绕开了去重、两张都原样全展开——
+  // 这正是这张截图里的真实缺陷。这里验证跨消息也能被同一份"全局最新" id 认出来。
+  it("write_todos 分别出现在两条独立消息里：更早那条消息的卡片淡化+贴「计划已更新」，后一条正常展示", () => {
+    const messageA = {
+      id: "msg-a",
+      role: "assistant" as const,
+      content: "第一版计划如下。",
+      toolCalls: [toolCall("call-1", "write_todos", { todos: [{ content: "旧版第一步", status: "pending" }] })],
+    };
+    const messageB = {
+      id: "msg-b",
+      role: "assistant" as const,
+      content: "根据反馈调整后的计划如下。",
+      toolCalls: [toolCall("call-2", "write_todos", { todos: [{ content: "新版第一步", status: "in_progress" }] })],
+    };
+    const allMessages = [messageA, messageB];
+    render(
+      <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <CopilotKitV2ToolRenderers />
+        <V2AssistantMessage message={messageA as any} messages={allMessages as any} isRunning={false} />
+        <V2AssistantMessage message={messageB as any} messages={allMessages as any} isRunning={false} />
+      </CopilotKit>,
+    );
+
+    const cards = screen.getAllByTestId("copilotkit-v2-tool-write-todos");
+    expect(cards).toHaveLength(2);
+
+    const superseded = screen.getAllByTestId("copilotkit-v2-tool-write-todos-superseded");
+    expect(superseded).toHaveLength(1);
+    expect(within(superseded[0]!).getByText("计划已更新")).toBeInTheDocument();
+    expect(within(superseded[0]!).getByText("旧版第一步")).toBeInTheDocument();
+
+    expect(screen.getByText("新版第一步").closest('[data-testid="copilotkit-v2-tool-write-todos-superseded"]')).toBeNull();
+  });
 });
