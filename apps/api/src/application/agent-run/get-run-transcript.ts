@@ -63,7 +63,10 @@ export interface GetRunTranscriptDeps {
   readonly runs: AgentRunStore;
 }
 
-export interface GetRunTranscriptInput {
+/** 用例层输入——比契约 `GetRunTranscriptInput`（只有 wire 上的 `runId`）多出
+ * `callerId`/`orgId` 两个调用方上下文字段，不是同一份 DTO，故不与契约同名
+ * （`lint-contract-source` 只禁止用 `interface` 重述契约本身那份结构）。 */
+export interface GetRunTranscriptUseCaseInput {
   readonly callerId: string;
   readonly orgId: OrgId;
   readonly runId: string;
@@ -80,7 +83,7 @@ function isTranscriptAuditor(role: OrgRole | null): boolean {
 
 export async function getRunTranscript(
   deps: GetRunTranscriptDeps,
-  input: GetRunTranscriptInput,
+  input: GetRunTranscriptUseCaseInput,
 ): Promise<GetRunTranscriptOutput> {
   // 角色检查先于任何存在性判断——见文件头「FORBIDDEN 无条件先查」。
   const membership = await deps.repo.findOrgMembership(input.callerId, input.orgId);
