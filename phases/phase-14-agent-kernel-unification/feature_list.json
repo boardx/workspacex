@@ -278,9 +278,9 @@
         "F13"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f14",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/error-card.test.tsx",
