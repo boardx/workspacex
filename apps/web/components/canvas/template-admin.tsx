@@ -520,20 +520,47 @@ export function TemplateAdmin({
    * 服务端算出 `version = max(该 key 当前版本) + 1`，其余字段来自这次对话框提交的值
    * （预填自来源版本，可编辑）。
    *
+   * ⚠ 2026-09-04 真实回归（#2634，人类实测反馈：「所有画布的提示词都突然缺失了，
+   *   chat 模拟里面的提示词也全部消失了」）：`mintCanvasTemplateVersion` 这条铸新版本
+   *   操作的入参压根没有 `title`/`footer`/`promptText`（装帧走另一条端点），仓储层
+   *   `INSERT` 也不写这三栏，新铸出来的行落库就是迁移
+   *   默认值空串（`prompt_text text NOT NULL DEFAULT ''`）。`template-editor-panel.tsx`
+   *   的 `save()` 铸完新版本会紧接着调 `saveChrome()` 把来源版本的这三栏原样带回去
+   *   （见该文件 `saveChrome` 一节），但本屏「基于此开新版」这条**平行**的铸版路径
+   *   （卡片行按钮 → `CreateDialog` → 这里）从来没做这一步——铸完就 `await load()`，
+   *   新版本的提示词/标题/页脚原地清零。人类点「基于此开新版」再发布，看到的就是
+   *   「提示词突然消失」：不是丢数据，是这条路径从未把它写进去过。
+   *
+   * ⚠ `tags` 同理——`mintCanvasTemplateVersion` 未传 `tags` 时客户端包装默认 `[]`，
+   *   同一条根因的另一个字段，一并在这里补上，不留第二个同形状的坑。
+   *
    * ⚠ 同 `create`：成功后 `await load()` 重读列表，不把新行拼进本地 state。
    */
-  async function mintVersion(sourceKey: string, draft: NewTemplateDraft) {
+  async function mintVersion(source: CanvasTemplate, draft: NewTemplateDraft) {
     setActionError(null);
     setNotice(null);
     const out = await mintCanvasTemplateVersion({
-      key: sourceKey,
+      key: source.key,
       displayName: draft.displayName.trim(),
       underlyingType: draft.underlyingType.trim(),
       sections: draft.sections,
       visibility: draft.visibility,
+      tags: [...(source.tags ?? [])],
+    });
+    // 装帧（标题/页脚/提示词）不在上面这次铸版调用的写入范围内——同
+    // `template-editor-panel.tsx` 的 `saveChrome()`，铸完新版本必须紧接着把来源版本
+    // 的这三栏原样带回去，否则新版本落库时就是空串（见上方 2026-09-04 回归说明）。
+    await updateCanvasTemplateMetadata({
+      key: out.key,
+      version: out.version,
+      displayName: out.displayName,
+      tags: [...(source.tags ?? [])],
+      title: source.title,
+      footer: source.footer,
+      promptText: source.promptText,
     });
     setMinting(null);
-    setNotice(`已基于 v${minting?.version ?? "?"} 新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
+    setNotice(`已基于 v${source.version} 新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
     await load();
   }
 
@@ -919,7 +946,7 @@ export function TemplateAdmin({
         <CreateDialog
           mintFrom={minting}
           onClose={() => setMinting(null)}
-          onSubmit={(draft) => mintVersion(minting.key, draft)}
+          onSubmit={(draft) => mintVersion(minting, draft)}
           existingNames={allRows.filter((t) => t.key !== minting.key).map((t) => t.displayName)}
         />
       )}
