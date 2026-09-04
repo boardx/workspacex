@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { sendTestEmail, type SendTestEmailOut } from "@/lib/live-system-errors";
 import { inspectPasswordResetThrottle, type InspectPasswordResetThrottleOut } from "@/lib/auth";
+import { getServiceUptimeStatus, type GetServiceUptimeStatusOut } from "@/lib/system-uptime";
 import type { UiState } from "@/lib/ui-state";
 
 /**
@@ -24,6 +25,12 @@ import type { UiState } from "@/lib/ui-state";
  * 那几个数字（是否注册、过去 24 小时发起次数、是否在冷却）直接摆出来，不用再猜。
  *
  * 以后其他运营自查工具（部署健康、依赖探活……）按同一模式加进来，不需要再挪一次菜单。
+ *
+ * 2026-09-04（issue #2645）新增「服务可用性」面板——反馈来源：后台「反馈与迭代」，
+ * 反馈 ID `153f6e8f-09a6-4596-95c5-ec5a65638644`。后台定时 worker 每 60 秒 ping 一次
+ * 探活目标（默认 Dev app，见 `apps/api/.../service-uptime-config.ts` 的
+ * `DEV_APP_UPTIME_URL`），这块面板把最近一批探活结果画成红绿 bar，并给出精确到
+ * 小数点后两位的可用性百分比——不是四舍五入到整数，需求原文明确要"确切的百分比"。
  */
 export function OpsStatusScreen({ state }: { state: UiState }) {
   return (
@@ -39,6 +46,7 @@ export function OpsStatusScreen({ state }: { state: UiState }) {
       successMessage="操作已完成"
     >
       <div className="flex flex-col gap-4">
+        <ServiceUptimePanel />
         <TestMailPanel />
         <PasswordResetThrottlePanel />
       </div>
@@ -227,6 +235,84 @@ function PasswordResetThrottlePanel() {
             ? "这个功能仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。"
             : `查不到（${state.reasonCode}）。`}
         </p>
+      )}
+    </div>
+  );
+}
+
+type UptimeState =
+  | { kind: "loading" }
+  | { kind: "ready"; out: GetServiceUptimeStatusOut }
+  | { kind: "failed"; reasonCode: string };
+
+/**
+ * 「服务可用性」——见文件头 2026-09-04（issue #2645）一节。红绿 bar：每一格是一次
+ * 探活（绿=可用/红=中断），从左（旧）到右（新）；下面一行给出精确到小数点后两位的
+ * 可用性百分比。加载一次即可——这是运维自查面板，不需要轮询刷新，人要看最新状态
+ * 刷新一下整个屏即可，同 `PasswordResetThrottlePanel`/`TestMailPanel` 的既有取舍
+ * （都是"点了才查"或"进来查一次"，不常驻轮询）。
+ */
+function ServiceUptimePanel() {
+  const [state, setState] = React.useState<UptimeState>({ kind: "loading" });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setState({ kind: "loading" });
+    getServiceUptimeStatus()
+      .then((out) => { if (!cancelled) setState({ kind: "ready", out }); })
+      .catch((err) => { if (!cancelled) setState({ kind: "failed", reasonCode: describeFailure(err) }); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-ops-status-uptime">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-13 font-semibold">服务可用性</h3>
+        <p className="text-11 text-muted-foreground">
+          后台每 60 秒 ping 一次探活目标（默认 Dev app）——每一格是一次探活，绿色=可用，红色=中断，从左（旧）到右（新）。
+        </p>
+      </div>
+      {state.kind === "loading" && (
+        <p className="flex items-center gap-1.5 text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-loading">
+          <Loader2 aria-hidden className="h-3 w-3 animate-spin" />加载中……
+        </p>
+      )}
+      {state.kind === "failed" && (
+        <p className="text-12 text-destructive" data-testid="admin-ops-status-uptime-failed">
+          {state.reasonCode === "NOT_PLATFORM_SUPERUSER"
+            ? "这个功能仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。"
+            : `查不到（${state.reasonCode}）。`}
+        </p>
+      )}
+      {state.kind === "ready" && !state.out.configured && (
+        <p className="text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-unconfigured">
+          这个部署还没有配置探活目标（<code className="font-mono text-11">DEV_APP_UPTIME_URL</code>），暂时看不到可用性数据。
+        </p>
+      )}
+      {state.kind === "ready" && state.out.configured && state.out.totalChecks === 0 && (
+        <p className="text-12 text-muted-foreground" data-testid="admin-ops-status-uptime-no-data">
+          已配置探活目标，还没有探活记录——稍后刷新再看。
+        </p>
+      )}
+      {state.kind === "ready" && state.out.configured && state.out.totalChecks > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex h-4 w-full gap-px overflow-hidden rounded-sm" data-testid="admin-ops-status-uptime-bar">
+            {state.out.segments.map((seg, i) => (
+              <div
+                key={`${seg.checkedAt}-${i}`}
+                title={`${seg.checkedAt} · ${seg.isUp ? "可用" : "中断"}`}
+                data-testid={`admin-ops-status-uptime-segment-${seg.isUp ? "up" : "down"}`}
+                className={`h-full flex-1 ${seg.isUp ? "bg-success" : "bg-destructive"}`}
+              />
+            ))}
+          </div>
+          <p className="text-12 text-card-foreground" data-testid="admin-ops-status-uptime-percent">
+            可用性 <span className="font-medium tabular-nums">{state.out.availabilityPercent?.toFixed(2)}%</span>
+            <span className="ml-1 text-muted-foreground">
+              （最近 {state.out.totalChecks} 次探活中 {state.out.upChecks} 次可用）
+            </span>
+          </p>
+        </div>
       )}
     </div>
   );
