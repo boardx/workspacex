@@ -14,7 +14,7 @@
  *   ⑥ **没有 Provider 时按钮不渲染**，而不是渲染一个点了没反应的按钮。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api-client", async () => {
@@ -23,9 +23,19 @@ vi.mock("@/lib/api-client", async () => {
 });
 vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
 
+// 2026-09-04 review fix —— issue #2637 ④ 的录音胶囊用例需要自己驱动 `onLevel`/
+// `onFinished` 这些 handler，不能等真实 WebSocket；同 `chat-live-message-panel-mic.test.tsx`
+// 既有写法，只 mock 这一层网络边界，其余（`use-asr-draft.ts` 的状态机、组件本身）都是真的。
+const { openAsrDraftStream } = vi.hoisted(() => ({ openAsrDraftStream: vi.fn() }));
+vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
+  openAsrDraftStream,
+}));
+
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { FeedbackTarget } from "@/lib/live-feedback";
+import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -366,6 +376,160 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
       await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
       const sentForm = (fetchMock.mock.calls[0]?.[1] as RequestInit).body as FormData;
       expect((sentForm.get("file") as File).name).toBe("dropped.png");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+/**
+ * 2026-09-04 review fix（PR #2644 reviewer diagnostic，反复三轮要求的证据缺口）——
+ * 下面三组用例分别锚定 issue #2637 ①②④ 三个此前只有"改动了源码"、没有可执行断言
+ * 的用户可见变化：弹窗尺寸、附件懒加载真的等到进视口才发请求、录音胶囊的状态与
+ * 无障碍属性。全部驱动真实组件，不 mock 掉被测的那一层。
+ */
+describe("issue #2637 ① —— 反馈弹窗放大到预期尺寸", () => {
+  it("对话框容器带 max-w-2xl 与 h-[min(85vh,54rem)]，不再是旧的 512px 小窗", () => {
+    openDialogFor({ kind: "product" });
+    const dialog = screen.getByTestId("feedback-dialog");
+    expect(dialog.className).toContain("max-w-2xl");
+    expect(dialog.className).toContain("h-[min(85vh,54rem)]");
+    // 反证：旧尺寸 class 不该再出现，防止两条 class 同时挂着、样式互相打架却测不出来。
+    expect(dialog.className).not.toContain("max-w-lg");
+  });
+});
+
+describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", () => {
+  /** 可控的 IntersectionObserver 假实现：测试自己决定什么时候"滚进视口"。 */
+  function stubIntersectionObserver() {
+    const instances: {
+      callback: IntersectionObserverCallback;
+      observe: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+    }[] = [];
+    class FakeIntersectionObserver {
+      readonly observe = vi.fn();
+      readonly disconnect = vi.fn();
+      constructor(private readonly callback: IntersectionObserverCallback) {
+        instances.push({ callback, observe: this.observe, disconnect: this.disconnect });
+      }
+    }
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver as unknown as typeof IntersectionObserver);
+    return instances;
+  }
+
+  it("缩略图不在视口时不发起带鉴权的下载；滚进视口后才发起一次并断开观察，反复进出视口不重复请求", async () => {
+    const instances = stubIntersectionObserver();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(["x"]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    // Only stub the two object-URL statics -- replacing the whole `URL` global would also
+    // break `new URL(...)` (used by `apiUrl()` to build the fetch target itself).
+    const createObjectURL = vi.fn(() => "blob:thumb");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    // 2026-09-04 review fix 第四轮 -- 没有存过 session token 时 `Authorization` 头压根不会
+    // 被设置（`getStoredSessionToken()` 返回 null 时代码直接跳过那一行），这里显式存一个，
+    // 让"带鉴权"这个断言真的有东西可断，不是巧合地测了个空头部。
+    window.localStorage.setItem("wsx.sessionToken", "tok-123");
+    try {
+      mockSubmitThenList({
+        ...mineItem,
+        attachments: [{ id: "att-1", url: "/feedback/attachments/att-1", mime: "image/png" }],
+      });
+      openDialogFor({ kind: "product" });
+      fireEvent.click(screen.getByTestId("feedback-tab-mine"));
+      await screen.findByTestId("feedback-mine-attachments-fb-new");
+
+      // 卡片已经渲染（占位骨架），但 `AttachmentThumbnail` 的 IntersectionObserver 还没
+      // 报告命中——此刻绝不该已经发出下载请求，这正是人类反馈"默认全加载"想要修掉的行为。
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const [observed] = instances;
+      expect(observed).toBeTruthy();
+      observed!.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        observed as unknown as IntersectionObserver,
+      );
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+      expect(requestInit.headers.Authorization).toBe("Bearer tok-123");
+      // 命中一次后应当断开观察，不再持续监听。
+      expect(observed!.disconnect).toHaveBeenCalledTimes(1);
+
+      // 反证：即便上游（真实浏览器里不会发生，但这里直接摆出最坏情况）又报一次命中，
+      // `inView` 已经是 true，`setInView(true)` 对同值 state 是 no-op，触发下载的
+      // effect 不会重新跑——"只发一次"不是靠 mock 侥幸没被再调用一次撑起来的。
+      observed!.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        observed as unknown as IntersectionObserver,
+      );
+      await Promise.resolve();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      window.localStorage.removeItem("wsx.sessionToken");
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("issue #2637 ④ —— 录音胶囊状态与无障碍", () => {
+  function stubCaptureSupport() {
+    vi.stubGlobal("WebSocket", class {} as unknown as typeof WebSocket);
+    vi.stubGlobal("AudioContext", class {} as unknown as typeof AudioContext);
+    Object.defineProperty(window.navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn() },
+    });
+  }
+
+  it("只在 listening 时红点脉冲、音量条随真实 level 变化；connecting/stopping 不假装还在录", async () => {
+    stubCaptureSupport();
+    let handlers: AsrDraftStreamHandlers | null = null;
+    // `await Promise.resolve()` before `onFinished()` matters: a synchronous mock would
+    // resolve `finish()` in the same tick as `stop()` is called, collapsing the observable
+    // "stopping" window to nothing (same pitfall documented in
+    // chat-live-message-panel-mic.test.tsx's own `deferredStream()`).
+    const stop = vi.fn(async () => { await Promise.resolve(); handlers?.onFinished(); });
+    // A deferred (test-controlled) promise, not an immediately-resolving async mock: an
+    // immediate resolve races ahead of `findByTestId`'s own polling and the "connecting"
+    // phase becomes unobservable (the exact pitfall `chat-live-message-panel-mic.test.tsx`'s
+    // `deferredStream()` exists to avoid) -- here we resolve it ourselves, on our own schedule.
+    let resolveOpen: ((handle: { stop: typeof stop }) => void) | null = null;
+    openAsrDraftStream.mockImplementation((h: AsrDraftStreamHandlers) => {
+      handlers = h;
+      return new Promise((resolve) => { resolveOpen = resolve; });
+    });
+    try {
+      openDialogFor({ kind: "product" });
+      fireEvent.click(screen.getByTestId("feedback-voice-button"));
+
+      // connecting：`open()` 还没 resolve，还没听到任何声音，胶囊必须存在但不能假装在脉冲。
+      const pill = await screen.findByTestId("feedback-voice-recording");
+      expect(pill.querySelector(".animate-ping")).toBeNull();
+      expect(screen.getByTestId("feedback-voice-stop")).toBeDisabled();
+
+      await waitFor(() => expect(handlers).not.toBeNull());
+      await act(async () => { resolveOpen!({ stop }); await Promise.resolve(); });
+      // 模拟真实采到的音量：此刻已进入 listening。
+      act(() => { handlers!.onLevel?.(0.6); });
+      await waitFor(() => expect(screen.getByTestId("feedback-voice-stop")).not.toBeDisabled());
+
+      const listeningPill = screen.getByTestId("feedback-voice-recording");
+      expect(listeningPill.querySelector(".animate-ping")).not.toBeNull(); // 呼吸动画只在真正 listening 时出现
+      const meter = screen.getByRole("meter", { name: "音量" });
+      expect(meter.getAttribute("aria-valuenow")).toBe("0.6");
+      // 停止按钮此刻可点（未在 stopping/connecting），取消按钮同理可点。
+      expect(screen.getByTestId("feedback-voice-cancel")).not.toBeDisabled();
+
+      // 点「说完了」进入 stopping：停止按钮必须立刻 disabled，防止用户在等待收尾期间
+      // 又点一次触发第二条 finish() 竞态。`stop()` 的 mock 随后异步 resolve `onFinished`，
+      // 胶囊会整个卸载（回到 idle）——那之后的状态不再是这条用例要断言的"stopping 中"。
+      fireEvent.click(screen.getByTestId("feedback-voice-stop"));
+      expect(screen.getByTestId("feedback-voice-stop")).toBeDisabled();
     } finally {
       vi.unstubAllGlobals();
     }

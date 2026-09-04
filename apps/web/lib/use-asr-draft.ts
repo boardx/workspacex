@@ -98,6 +98,65 @@ export function appendTranscript(base: string, addition: string): string {
   return /\s$/.test(base) ? `${base}${addition}` : `${base} ${addition}`;
 }
 
+/**
+ * issue #2637 ⑤ —— 人类实测反馈：转录结果里混进很多多余的中文顿号/句号。根因：
+ * `turn_detection: server_vad` 把一段连续的话按静音切成多个"轮次"，上游模型对
+ * **每一轮**单独给出带标点的转写（`conversation.item.input_audio_transcription.completed`），
+ * 而不是对整段话统一断句——于是同一句话被切成几段各自"、"/"。"收尾之后，`appendTranscript`
+ * 原样拼接，读起来就是「早上好。我想说的是、今天…」这种每隔几个字就断一次标点的样子。
+ *
+ * 这里在**每一段转写落地时**清理，而不是等最终整段文本出来再清理一遍——用户是
+ * 边说边看着「详细说说」实时更新的（`onTranscript`），伪影必须在它第一次出现的
+ * 那一刻就被处理掉，不能只在录音结束后才回头改。
+ *
+ *   1. 折叠连续标点为最后一个（模型偶尔对同一处停顿重复给标点，如"。、"→"、"）。
+ *   2. 去掉一段转写**开头**孤立的顿号/逗号——几乎总是上一轮刚结束、这一轮刚起时
+ *      模型对静音的误判，不是说话人真的从标点开始说。
+ *
+ * 不处理段落**中间**的标点（那些多半是模型对真实停顿的合理判断，贸然剥掉会把
+ * "我想说的是，今天" 变成读不断句的病句，比多几个标点更糟）。
+ */
+export function sanitizeAsrSegment(text: string): string {
+  return text
+    .replace(/[、。，,.!！?？;；:：]{2,}/g, (run) => run.slice(-1))
+    .replace(/^[、，,]+/, "");
+}
+
+/**
+ * 2026-09-04 review fix（PR #2644 reviewer diagnostic）—— `sanitizeAsrSegment` 只清理
+ * **单个** final 段内部的标点，人类实测反馈报的其实是**跨段**的标点：一次连续的话被
+ * server VAD 切成"早上好。"/"我想说的是。"/"今天…"这几个独立 final，每一段自己收尾时
+ * 上游都会补一个句号——这些句号标的是"这一轮 VAD 判定的静音到了"，不是说话人真的在
+ * 那里断句。原来的 `onFinal` 处理器把 `sanitizeAsrSegment` 只套在新到的这一段上，
+ * 前面已经落定的 `committedRef.current` 末尾那个句号原样留着，于是拼起来还是
+ * "早上好。我想说的是。今天…"——句号数量没变，只是从段内变成了段间。
+ *
+ * 修法：在**追加下一段之前**，剥掉已落定文本末尾那个"轮次边界"标点——这样只有真正
+ * 说完整段话、后面再也没有新 final 追加进来的那一个末尾标点会被保留，中间每一轮的
+ * 收尾标点在下一轮到达的那一刻就被去掉。不动段落**中间**的标点（那还是
+ * `sanitizeAsrSegment` 的职责），也不动引导性的省略号"…"——那通常是说话人自己停顿，
+ * 不是轮次边界的产物。
+ *
+ * 2026-09-04 review fix 第二轮（PR #2644 reviewer diagnostic）—— 第一版把
+ * "！"/"？"也一并剥了：`turn_detection: server_vad` 完全可能真的在一句问句/感叹句
+ * 说完的地方断出一轮（"你好吗？" 后面接"我很好。"就是两句独立、边界真实存在的话），
+ * 这种情况下"？"/"！"标的不是"这一轮静音到了"这种噪音，是说话人的语气本身——
+ * 剥掉它，"你好吗？"变成"你好吗"，问句读成了陈述句，语义被改写了，比多几个句号
+ * 更糟。人类实测反馈原文只提到"很多中文句号"，没提丢失问号/感叹号，所以这里只处理
+ * report 里那一类**弱标点**，"！"/"？"这两个**改变句子语气**的标点一律保留，即便
+ * 它们出现在轮次边界上——宁可多留一个可能是伪影的问号，也不平白抹掉一个真的问句。
+ *
+ * 2026-09-04 review fix 第三轮（PR #2644 reviewer diagnostic）—— "：" / "；" 同样
+ * 划错了范围：冒号引出的是结构（"有三项：" 后面接"第一项…"，冒号标的是"下面是
+ * 一个列表/说明"这个结构关系，不是停顿），分号连接的是两个有真实语义关联的分句——
+ * 都不是"这一轮静音到了"式的噪音，剥掉会丢结构信息，跟"？"/"！"是同一类问题。
+ * 收窄到只剩报告里真正描述的那两类：顿号/逗号（列举、短停顿）与句号（单纯断句，
+ * 两句独立陈述合并只是少一个视觉分隔，不改变任何一句本身的意思）。
+ */
+function stripTrailingTurnBoundaryPunctuation(text: string): string {
+  return text.replace(/[、。，,.]+$/, "");
+}
+
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
@@ -166,14 +225,16 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
 
     void openAsrDraftStream(
       {
-        onPartial: (text) => {
+        onPartial: (rawText) => {
           if (discardRef.current) return;
+          const text = sanitizeAsrSegment(rawText);
           setSegments((s) => ({ ...s, partialText: text }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
-        onFinal: (text) => {
+        onFinal: (rawText) => {
           if (discardRef.current) return;
-          committedRef.current = appendTranscript(committedRef.current, text);
+          const text = sanitizeAsrSegment(rawText);
+          committedRef.current = appendTranscript(stripTrailingTurnBoundaryPunctuation(committedRef.current), text);
           setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
