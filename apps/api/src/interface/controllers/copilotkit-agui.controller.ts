@@ -191,6 +191,20 @@ function parseForwardedClientMessageId(value: unknown): string | undefined {
   return UUID_PATTERN.test(trimmed) ? trimmed : undefined;
 }
 
+/**
+ * issue #2667 -- 个人设置"每次都先给我看计划"打开时，前端把
+ * `forwardedProps.disableTaskAutoClassify = true` 带过来，这里只认字面量
+ * `true`（防御性：不是布尔值/是 `false`/缺席都当"未覆盖"，与
+ * `parseForwardedAttachmentIds`/`parseForwardedClientMessageId` 同一条"畸形值当
+ * 没传，不因此拒绝整轮"纪律）。`undefined` 一路透传到
+ * `ModelCallInput.disableTaskAutoClassify`，`deep-agent-model-provider.ts` 只在
+ * 真为 `true` 时才往 `configurable` 里加这个键——见该文件 `script_protocol` 那段
+ * 头注："缺席时这个键不出现"，同一条纪律用在第二个透传字段上。
+ */
+function parseForwardedDisableTaskAutoClassify(value: unknown): boolean | undefined {
+  return value === true ? true : undefined;
+}
+
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
  * only (see file head). `forwardedProps` is the one exception, and only its
@@ -234,6 +248,8 @@ interface AguiRunInput {
     readonly attachmentIds?: unknown;
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
     readonly clientMessageId?: unknown;
+    /** issue #2667 -- see `parseForwardedDisableTaskAutoClassify`'s own doc. */
+    readonly disableTaskAutoClassify?: unknown;
   };
 }
 
@@ -672,6 +688,9 @@ export class CopilotkitAguiController {
     const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
     // issue #2321 round 2 -- see `parseForwardedClientMessageId`'s own doc.
     const requestedClientMessageId = parseForwardedClientMessageId(body.forwardedProps?.clientMessageId);
+    // issue #2667 -- see `parseForwardedDisableTaskAutoClassify`'s own doc.
+    const requestedDisableTaskAutoClassify =
+      parseForwardedDisableTaskAutoClassify(body.forwardedProps?.disableTaskAutoClassify);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -787,6 +806,7 @@ export class CopilotkitAguiController {
           threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
             ? requestedChatThreadId : null,
           attachmentIds: requestedAttachmentIds,
+          disableTaskAutoClassify: requestedDisableTaskAutoClassify,
           onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
           ...sharedCallbacks,
         });

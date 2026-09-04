@@ -58,6 +58,7 @@ from langchain.agents.middleware import (
 )
 from langchain.agents.middleware.types import AgentState
 from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph.config import get_config
 from langgraph.errors import GraphBubbleUp
 from typing_extensions import NotRequired
 
@@ -459,6 +460,48 @@ def _task_auto_classify_enabled() -> bool:
     return (os.environ.get(_TASK_AUTO_CLASSIFY_ENV) or "").strip() == "1"
 
 
+# issue #2667（"保留手动『每次都先计划』开关"）：全局灰度（上面 `_task_auto_classify_enabled`）
+# 决定的是"这个进程要不要挂 `TaskClassifierMiddleware`"，是**构建期**、对所有 run 一视同仁
+# 的开关——`graph.py` 的 `create_deep_agent(...)` 在**模块导入时**跑一次，产出一个进程级
+# 单例 graph（见其头注"one process, one `langgraph.json`, one `create_deep_agent(...)`
+# call at import time"），中间件列表因此没有"按 run 变化"的架构空间：不存在给某一次 run
+# 单独重建一份 middleware 列表、把这个类换掉/摘掉的调用点。
+#
+# 这里要做的是"个人设置：坚持要手动控制的用户可以关掉自动判类，退回手动任务模式"——
+# 一个 per-run（更准确地说 per 用户当前设置）的覆盖，粒度比全局灰度细，但**不需要**
+# 全局灰度那种"类在不在列表里"的构建期机制：`TaskClassifierMiddleware` 已经作为
+# 单例挂在图上（灰度打开时），它的 `before_model`/`wrap_model_call` 每次都是**运行时**
+# 被调用一次，可以在方法体内部读这一次调用自己携带的 `RunnableConfig.configurable`
+# 来决定"这次生效还是不生效"——这不是"挂着当 no-op"（那是 #2662 明确否决的：为了避免
+# 默认关闭时改变图结构才不允许），而是"已经打开的全局开关之下，per-run 再叠一层"，
+# 图结构本身不因为这次 run 要不要用而变化，运行时判断成本可以忽略（一次 dict.get）。
+#
+# `get_config()` 是 langgraph 官方文档收录的"在 graph 节点/中间件运行期读当次
+# `RunnableConfig`"机制（见 `langgraph.runtime.Runtime` 类头注："Accessing config"
+# 一节，明确指向 `get_config()` 作为替代方案）——不需要中间件声明 `context_schema`，
+# 也不改 `ModelRequest`/`AgentState` 的字段形状。`config.configurable` 这条通道本身
+# 早就在用（`deep-agent-model-provider.ts` 已经拿它透传 `org_skills`/`script_protocol`，
+# 见该文件头注），这里只是新增一个键：`disable_task_auto_classify`，前端"每次都先给我看
+# 计划"设置打开时才会出现（缺席 = 未覆盖，与 `script_protocol` 同一条"缺席就按老样子跑"
+# 纪律）。
+_DISABLE_TASK_AUTO_CLASSIFY_CONFIG_KEY = "disable_task_auto_classify"
+
+
+def _run_disables_auto_classify() -> bool:
+    """读这一次 run 的 `configurable.disable_task_auto_classify`——`True` 时即使全局灰度
+    已经打开，本次判类也不生效（回退到纯手动 `TASK_MODE_MARKER` 路径）。不在 runnable
+    执行上下文中调用（理论上不会发生：这个函数只在 `before_model`/`wrap_model_call`
+    内部被调，两者都在 langgraph 的节点执行期间跑）时 `get_config()` 抛
+    `RuntimeError`——防御性地按"没有覆盖"处理，不额外制造第三态，与 `_classify_task_text`
+    对空文本的处理是同一条纪律。"""
+    try:
+        config = get_config()
+    except RuntimeError:
+        return False
+    configurable = config.get("configurable") or {}
+    return bool(configurable.get(_DISABLE_TASK_AUTO_CLASSIFY_CONFIG_KEY, False))
+
+
 def _latest_human_text(messages: list) -> str:
     turn_start = _latest_human_turn_index(messages)
     if turn_start is None:
@@ -482,6 +525,9 @@ def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | No
     `_prepare_forced_request` 完全同源（同一个 issue #2417 教训：只看最新一轮，
     不看整份历史），只是触发信号从"手动 marker"换成"启发式判类结果"。"""
     if not _task_auto_classify_enabled():
+        return None
+
+    if _run_disables_auto_classify():
         return None
 
     turn_start = _latest_human_turn_index(request.messages)
@@ -528,6 +574,8 @@ class TaskClassifierMiddleware(AgentMiddleware):
 
     def _classification_update(self, state: dict) -> dict | None:
         if not _task_auto_classify_enabled():
+            return None
+        if _run_disables_auto_classify():
             return None
         messages = state.get("messages") or []
         category = _classify_task_text(_latest_human_text(messages))

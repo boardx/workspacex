@@ -855,6 +855,22 @@ export class DeepAgentModelProvider implements ModelCallPort {
              *   协议正文的唯一事实源在 `run-script-with-retries.ts`，Python 侧不写副本。
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+            /*
+             * issue #2667 -- 个人设置"每次都先给我看计划"打开时透传给
+             * `deep_agent_service.harness` 的 `TaskClassifierMiddleware`（读法见
+             * `harness.py` `_run_disables_auto_classify`：`get_config()` 读
+             * `configurable.disable_task_auto_classify`）——即使全局灰度
+             * `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 打开，这一次 run 也不参与自动判类，
+             * 回退到纯手动 `TASK_MODE_MARKER` 路径。
+             *
+             * ⚠ 缺席时这个键**不出现**——同 `script_protocol` 一样，远端读不到就完全
+             *   按改动前的方式跑（全局灰度怎么判就怎么判）。`input.disableTaskAutoClassify`
+             *   的唯一事实源是 `ClaimedAgentRun.disableTaskAutoClassify`（落库自
+             *   `agent_runs.disable_task_auto_classify`），本层不重复判断。
+             */
+            ...(input.disableTaskAutoClassify === true
+              ? { disable_task_auto_classify: true }
+              : {}),
           },
         },
       }),

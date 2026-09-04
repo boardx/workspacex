@@ -37,6 +37,7 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     requesterUserId: "user-linke", inputText: "hello", inputAttachments: [], agentId: "agent-1",
     agentVersionId: "agent-version-1", instructions: "be helpful", skillVersionIds: [],
     modelProvider: "test-provider", modelId: "test-model", pendingDecision: null,
+    disableTaskAutoClassify: false,
     ...overrides,
   };
 }

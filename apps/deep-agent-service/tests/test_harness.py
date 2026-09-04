@@ -1108,3 +1108,119 @@ def test_manual_marker_path_unaffected_by_task_classifier_middleware(monkeypatch
     assert captured["tool_choice"] == "write_todos", (
         "手动 marker 命中时必须强制，不受 TaskClassifierMiddleware 灰度开关影响"
     )
+
+
+# issue #2667（"保留手动『每次都先计划』开关"）：全局灰度打开时，per-run
+# `config.configurable.disable_task_auto_classify` 必须能把这一次 run 的自动判类
+# 关掉——覆盖前端"每次都先给我看计划"设置打开、用户坚持要退回手动任务模式这条路径。
+# graph 是进程级单例（见 `harness.py` `_run_disables_auto_classify` 头注），这个覆盖
+# 只能是运行时读 config，不是重新构建 middleware 列表，所以这里用 `get_config()`
+# 的 monkeypatch 模拟"当次 run 携带了这个 configurable 键"，不依赖真的经过一次
+# 完整 graph 调用（同文件里其它用例的一贯做法：直接调中间件方法 + 假 handler）。
+
+
+def _fake_run_config(disable_task_auto_classify: bool | None):
+    return {"configurable": {} if disable_task_auto_classify is None else {
+        "disable_task_auto_classify": disable_task_auto_classify,
+    }}
+
+
+def test_run_level_override_disables_auto_classify_even_when_gate_on(monkeypatch):
+    """验收标准：设置打开（per-run `disable_task_auto_classify=True`）时，即使全局
+    灰度已经打开、消息内容明显是多步任务，也不应该强制 tool_choice——行为与
+    #2662 之前完全一致，只走手动 marker 路径。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+    monkeypatch.setattr(
+        "deep_agent_service.harness.get_config",
+        lambda: _fake_run_config(True),
+    )
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] is None, (
+        "per-run 覆盖打开时，即使全局灰度开着，也不应该被自动判类强制 write_todos"
+    )
+
+    update = TaskClassifierMiddleware().before_model({"messages": messages}, runtime=None)
+    assert update is None, "per-run 覆盖打开时也不应该产出分类结果写入 state"
+
+
+def test_run_level_override_absent_keeps_gate_behavior(monkeypatch):
+    """反向对照：configurable 里完全没有这个键（未透传，等同旧行为）时，全局灰度
+    打开的既有行为不受影响——覆盖是"加一层"，不是默认收紧。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+    monkeypatch.setattr(
+        "deep_agent_service.harness.get_config",
+        lambda: _fake_run_config(None),
+    )
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos", (
+        "没有 per-run 覆盖时，全局灰度打开的既有行为必须逐字保留"
+    )
+
+
+def test_run_level_override_false_keeps_gate_behavior(monkeypatch):
+    """`disable_task_auto_classify=False`（前端设置关闭，显式透传 false 或压根不
+    透传都算"未覆盖"）与缺席等价——不应该意外把它当成"命中了就是关闭"处理。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+    monkeypatch.setattr(
+        "deep_agent_service.harness.get_config",
+        lambda: _fake_run_config(False),
+    )
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos"
+
+
+def test_run_level_override_outside_runnable_context_fails_open(monkeypatch):
+    """防御性兜底：`get_config()` 在 runnable 执行上下文之外被调用会抛
+    `RuntimeError`（真实库行为，未 monkeypatch）——`_run_disables_auto_classify`
+    必须吞掉它、按"没有覆盖"处理，不能让一次判类调用因为这个防御性分支直接崩溃。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+    # 不 monkeypatch get_config——用真实实现，测试进程本身不在任何 runnable 执行
+    # 上下文里，真实会抛 RuntimeError。
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos", (
+        "get_config() 在非 runnable 上下文里抛错时应按未覆盖处理，不应该让判类失效"
+    )
