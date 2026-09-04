@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PlanLedgerView } from "@/lib/plan-control-api";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 
@@ -70,9 +70,17 @@ describe("ChatTaskInspector —— 进度页签以账本为准，不信陈旧的
     api.fetchPlanLedger.mockReset();
   });
 
+  // issue #2695 —— 折叠是新默认（见 chat-task-inspector.tsx），面板不再因为
+  // 有计划/在运行就自动展开，这里的断言要看的是内容，不是可见性策略，所以先
+  // 手点展开，跟本测试组要验证的"哪份数据源生效"正交。
+  function expandInspector() {
+    fireEvent.click(screen.getByTestId("chat-task-workbench-inspector-expand"));
+  }
+
   it("账本显示 1/3 完成时，即使父组件传入「已全部完成」的陈旧 planTodos，页签仍展示账本的 1/3", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledger());
     render(<ChatTaskInspector {...baseProps()} planTodos={STALE_SSE_TODOS} />);
+    expandInspector();
 
     await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1"));
     await waitFor(() =>
@@ -85,6 +93,7 @@ describe("ChatTaskInspector —— 进度页签以账本为准，不信陈旧的
   it("账本还没取到第一帧（还是 null）时，退回父组件传入的 planTodos，不空白闪烁", () => {
     api.fetchPlanLedger.mockReturnValue(new Promise(() => {})); // 永不 resolve，模拟首帧未到
     render(<ChatTaskInspector {...baseProps()} planTodos={STALE_SSE_TODOS} />);
+    expandInspector();
 
     expect(screen.getByTestId("chat-task-workbench-plan-ratio").textContent).toContain("3/3");
   });
@@ -92,6 +101,7 @@ describe("ChatTaskInspector —— 进度页签以账本为准，不信陈旧的
   it("账本为空计划（steps.length===0）时，同样退回 planTodos，不把「preparing」误当作「没有计划」抹掉已有快照", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledger({ steps: [], phase: "preparing", progress: { completed: 0, total: 0, elapsedMs: 0 } }));
     render(<ChatTaskInspector {...baseProps()} planTodos={STALE_SSE_TODOS} />);
+    expandInspector();
 
     await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1"));
     await waitFor(() =>
