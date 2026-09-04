@@ -348,19 +348,23 @@ describe("issue #2637 ① —— 反馈弹窗放大到预期尺寸", () => {
 describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", () => {
   /** 可控的 IntersectionObserver 假实现：测试自己决定什么时候"滚进视口"。 */
   function stubIntersectionObserver() {
-    const instances: { callback: IntersectionObserverCallback; observe: ReturnType<typeof vi.fn> }[] = [];
+    const instances: {
+      callback: IntersectionObserverCallback;
+      observe: ReturnType<typeof vi.fn>;
+      disconnect: ReturnType<typeof vi.fn>;
+    }[] = [];
     class FakeIntersectionObserver {
       readonly observe = vi.fn();
       readonly disconnect = vi.fn();
       constructor(private readonly callback: IntersectionObserverCallback) {
-        instances.push({ callback, observe: this.observe });
+        instances.push({ callback, observe: this.observe, disconnect: this.disconnect });
       }
     }
     vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver as unknown as typeof IntersectionObserver);
     return instances;
   }
 
-  it("缩略图不在视口时不发起带鉴权的下载；滚进视口后才发起，且只发一次", async () => {
+  it("缩略图不在视口时不发起带鉴权的下载；滚进视口后才发起一次并断开观察，反复进出视口不重复请求", async () => {
     const instances = stubIntersectionObserver();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -372,6 +376,10 @@ describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", ()
     const createObjectURL = vi.fn(() => "blob:thumb");
     const revokeObjectURL = vi.fn();
     Object.assign(URL, { createObjectURL, revokeObjectURL });
+    // 2026-09-04 review fix 第四轮 -- 没有存过 session token 时 `Authorization` 头压根不会
+    // 被设置（`getStoredSessionToken()` 返回 null 时代码直接跳过那一行），这里显式存一个，
+    // 让"带鉴权"这个断言真的有东西可断，不是巧合地测了个空头部。
+    window.localStorage.setItem("wsx.sessionToken", "tok-123");
     try {
       mockSubmitThenList({
         ...mineItem,
@@ -393,9 +401,22 @@ describe("issue #2637 ② —— 「我提过的」附件缩略图懒加载", ()
       );
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-      // 命中一次后应当断开观察，不再持续监听——不会因为元素反复进出视口而重复发请求。
+      const [, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+      expect(requestInit.headers.Authorization).toBe("Bearer tok-123");
+      // 命中一次后应当断开观察，不再持续监听。
+      expect(observed!.disconnect).toHaveBeenCalledTimes(1);
+
+      // 反证：即便上游（真实浏览器里不会发生，但这里直接摆出最坏情况）又报一次命中，
+      // `inView` 已经是 true，`setInView(true)` 对同值 state 是 no-op，触发下载的
+      // effect 不会重新跑——"只发一次"不是靠 mock 侥幸没被再调用一次撑起来的。
+      observed!.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        observed as unknown as IntersectionObserver,
+      );
+      await Promise.resolve();
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
+      window.localStorage.removeItem("wsx.sessionToken");
       vi.unstubAllGlobals();
     }
   });
