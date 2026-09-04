@@ -155,3 +155,64 @@ describe("OPS-1 运营状态屏——忘记密码限流状态", () => {
     expect(failed.textContent).toContain("仅平台运维");
   });
 });
+
+/**
+ * 「服务可用性」（issue #2645）——运营状态屏的红绿 bar + 精确可用性百分比，见组件
+ * 文件头 2026-09-04 一节。
+ */
+describe("OPS-1 运营状态屏——服务可用性", () => {
+  it("已配置且有数据：红绿 bar 按数量渲染，百分比精确到小数点后两位", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/system/uptime") {
+        return {
+          service: "dev_app",
+          configured: true,
+          segments: [
+            { checkedAt: "2026-09-04T00:00:00.000Z", isUp: true },
+            { checkedAt: "2026-09-04T00:01:00.000Z", isUp: false },
+            { checkedAt: "2026-09-04T00:02:00.000Z", isUp: true },
+          ],
+          totalChecks: 3,
+          upChecks: 2,
+          availabilityPercent: 66.67,
+        };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    const bar = await screen.findByTestId("admin-ops-status-uptime-bar");
+    expect(screen.getAllByTestId("admin-ops-status-uptime-segment-up")).toHaveLength(2);
+    expect(screen.getAllByTestId("admin-ops-status-uptime-segment-down")).toHaveLength(1);
+    expect(bar.children).toHaveLength(3);
+    const percent = screen.getByTestId("admin-ops-status-uptime-percent");
+    expect(percent.textContent).toContain("66.67%");
+    expect(percent.textContent).toContain("3 次探活中 2 次可用");
+  });
+
+  it("未配置探活目标：明确说明未配置，不是渲染一条空 bar", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/system/uptime") {
+        return { service: "dev_app", configured: false, segments: [], totalChecks: 0, upChecks: 0, availabilityPercent: null };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    const unconfigured = await screen.findByTestId("admin-ops-status-uptime-unconfigured");
+    expect(unconfigured.textContent).toContain("DEV_APP_UPTIME_URL");
+    expect(screen.queryByTestId("admin-ops-status-uptime-bar")).toBeNull();
+  });
+
+  it("非超管：403 渲染成一句身份说明", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/system/uptime") throw new ApiError(403, "NOT_PLATFORM_SUPERUSER", {});
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    const failed = await screen.findByTestId("admin-ops-status-uptime-failed");
+    expect(failed.textContent).toContain("仅平台运维");
+  });
+});

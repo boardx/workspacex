@@ -417,6 +417,13 @@ import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
+// issue #2645：运营状态屏的服务中断时长/可用性可视化。
+import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
+import { SERVICE_UPTIME_PROBE, SERVICE_UPTIME_REPOSITORY, SERVICE_UPTIME_TARGET } from "./application/system/uptime-ports";
+import { HttpServiceUptimeProbe } from "./infrastructure/system/http-service-uptime-probe";
+import { PgServiceUptimeRepository } from "./infrastructure/system/pg-service-uptime-repository";
+import { ConfiguredServiceUptimeTarget, SERVICE_UPTIME_CONFIG, serviceUptimeConfig, type ServiceUptimeConfig } from "./infrastructure/system/service-uptime-config";
+import { ServiceUptimePollWorker } from "./infrastructure/system/service-uptime-poll-worker";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -837,6 +844,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     FeedbackController,
     SystemErrorLogController,
     SystemMailController,
+    SystemUptimeController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -2162,6 +2170,27 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     FeedbackGithubIssuePollWorker,
+    // issue #2645：运营状态屏的服务中断时长/可用性可视化——定时 ping `DEV_APP_UPTIME_URL`，
+    // 写进 `service_uptime_checks`，`SystemUptimeController` 只读折算成红绿 bar。
+    {
+      provide: SERVICE_UPTIME_CONFIG,
+      useFactory: () => serviceUptimeConfig(),
+    },
+    {
+      provide: SERVICE_UPTIME_PROBE,
+      useFactory: () => new HttpServiceUptimeProbe(),
+    },
+    {
+      provide: SERVICE_UPTIME_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgServiceUptimeRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SERVICE_UPTIME_TARGET,
+      useFactory: (config: ServiceUptimeConfig) => new ConfiguredServiceUptimeTarget(config),
+      inject: [SERVICE_UPTIME_CONFIG],
+    },
+    ServiceUptimePollWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),

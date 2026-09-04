@@ -65,3 +65,6 @@ export * as systemErrorLogs from "./system-error-logs";
 
 /* ── 两级成员管理：平台级名册与角色调整（组织级在 org-admin 束）────────── */
 export * as platformMembers from "./platform-members";
+
+/* ── 运营状态屏：服务中断时长与可用性可视化（issue #2645）───────────────── */
+export * as systemUptime from "./system-uptime";
