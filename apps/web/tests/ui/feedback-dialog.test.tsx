@@ -49,9 +49,20 @@ function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   fireEvent.click(screen.getByTestId("open-feedback"));
 }
 
-/** 2026-09-02 起表单只有「详细说说」：标题从正文派生（第一句，截到 120 字）。 */
-function fillAndSubmit(detail: string) {
+/**
+ * issue #2679 ②——表单现在是两段式：compose（只有「详细说说」+ 语音）→ 点「下一步」
+ * 交给 AI 整理 → review（这时才有 kind/标题/结构化字段/附件/提交按钮）。
+ * `proceedToReview` 把 compose→review 这一步封装起来，`fillAndSubmit` 在此基础上
+ * 直接把整段流程走完到「直接提交」——多数既有用例只关心提交请求体，不关心中间那屏。
+ */
+async function proceedToReview() {
+  fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+  await screen.findByTestId("feedback-submit");
+}
+
+async function fillAndSubmit(detail: string) {
   fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: detail } });
+  await proceedToReview();
   fireEvent.click(screen.getByTestId("feedback-submit"));
 }
 
@@ -87,7 +98,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("① 请求体恰好六个字段（结构化字段全空 ⇒ 不带 structured 键），没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
 
     await screen.findByTestId("feedback-just-submitted");
     // ⚠ 不再是 `mock.calls[0]`——打字提交先打一次 `/feedback/structure-draft` 起 AI 标题
@@ -111,7 +122,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("① 打字提交也会调 AI 起标题（issue #2638）：成功时用 AI 给的标题，不是正文首句", async () => {
     mockSubmitThenList(mineItem, { aiTitleFails: false, aiTitle: "批准按钮点击后无响应" });
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
       "/feedback/structure-draft",
@@ -123,15 +134,19 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     ));
     const submitCall = apiRequest.mock.calls.find(([path]) => path === "/feedback");
     const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
-    // 只取 AI 的标题，正文原样是用户自己写的，不被 AI 整理过的版本替换。
+    // issue #2679 ②——AI 整理现在发生在 compose→review 那一步（`proceedToReview`），
+    // 与语音路径同一个用例、同一套语义：kind/title/detail 都换成 AI 整理过的版本，
+    // 用户在 review 阶段还能看着改。所以这里正文也是 AI 给的那版，不再是"只取标题、
+    // 正文原样"的旧语义（那是打字路径在提交前才顺手调一次 AI 的做法，已被 review
+    // 阶段的整理取代）。
     expect(opts.body.title).toBe("批准按钮点击后无响应");
-    expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
+    expect(opts.body.detail).toBe("整理过的正文");
   });
 
   it("① 打字提交时 AI 起标题失败——静默退回正文首句，不报错、不挡提交", async () => {
     mockSubmitThenList(mineItem, { aiTitleFails: true });
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
 
     await screen.findByTestId("feedback-just-submitted");
     const submitCall = apiRequest.mock.calls.find(([path]) => path === "/feedback");
@@ -146,7 +161,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     // 标题里要出现目标，否则用户不知道自己在对谁说话。
     expect(screen.getByTestId("feedback-dialog-title").textContent).toContain("会议纪要");
 
-    fillAndSubmit("输出格式不稳。有时候是表格有时候是段落");
+    await fillAndSubmit("输出格式不稳。有时候是表格有时候是段落");
     await screen.findByTestId("feedback-just-submitted");
     const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
     const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
@@ -156,7 +171,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("② agent 入口发的是 {kind:'agent', agentId}", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "agent", agentId: "agent-7" }, "调研助手");
-    fillAndSubmit("老是漏附件。上传了三个文件只读了一个");
+    await fillAndSubmit("老是漏附件。上传了三个文件只读了一个");
     await screen.findByTestId("feedback-just-submitted");
     const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
     const [, opts] = submitCall as [string, { body: Record<string, unknown> }];
@@ -166,7 +181,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("③ 提交失败时明确说没有保存，且不切标签页", async () => {
     apiRequest.mockRejectedValue(new Error("boom"));
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
 
     const err = await screen.findByTestId("feedback-submit-error");
     expect(err.textContent).toContain("没有被保存");
@@ -177,7 +192,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("④ 成功后切到「我提过的」，并把刚提交的那条标出来", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
 
     expect(await screen.findByTestId("feedback-mine-list")).toBeTruthy();
     expect(screen.getByTestId("feedback-just-submitted")).toBeTruthy();
@@ -194,21 +209,32 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(screen.queryByTestId("feedback-mine-empty")).toBeNull();
   });
 
-  it("⑤ 上下文明写在屏上，不是偷偷带上的", () => {
+  it("⑤ 上下文明写在屏上（review 阶段），不是偷偷带上的", async () => {
     openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "有正文了" } });
+    await proceedToReview();
     const notice = screen.getByTestId("feedback-context-notice");
     expect(notice.textContent).toContain("当前页面");
     expect(notice.textContent).toContain("/chat");
   });
 
-  it("⑤ 正文为空时提交按钮不可点 —— 空反馈进队列等于噪声；没有单独的标题框", () => {
+  it("⑤ compose 阶段正文为空时「下一步」不可点；写了内容才能进 review 看到标题/提交按钮", async () => {
     openDialogFor({ kind: "product" });
+    // issue #2679 ②——compose 阶段只有「详细说说」+ 语音，压根没有标题框、kind 选择、
+    // 结构化字段，也没有直接提交按钮——这些都要进了 review 才出现。
     expect(screen.queryByTestId("feedback-title-input")).toBeNull();
-    const submit = screen.getByTestId("feedback-submit") as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
+    expect(screen.queryByTestId("feedback-submit")).toBeNull();
+    const proceed = screen.getByTestId("feedback-proceed-review") as HTMLButtonElement;
+    expect(proceed.disabled).toBe(true);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "   " } });
-    expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("feedback-proceed-review") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "有正文了" } });
+    expect((screen.getByTestId("feedback-proceed-review") as HTMLButtonElement).disabled).toBe(false);
+
+    await proceedToReview();
+    // review 阶段：标题框出现，且已经被派生标题填好（AI 整理未 mock，静默退回派生规则）；
+    // 提交按钮此刻可点（正文非空、标题非空）。
+    expect(screen.getByTestId("feedback-title-input")).toBeTruthy();
     expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(false);
   });
 
@@ -240,7 +266,7 @@ describe("FB-5 网络层失败的可读性与重试", () => {
     //   `/feedback` 提交请求上，两次调用都该拒绝成同一种网络层失败。
     apiRequest.mockRejectedValue(new TypeError("Failed to fetch"));
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应。批准卡点了不动");
+    await fillAndSubmit("点了没反应。批准卡点了不动");
     const err = await screen.findByTestId("feedback-submit-error");
     expect(err.textContent).toContain("无法连接服务器");
     expect(err.textContent).not.toContain("Failed to fetch");
@@ -261,6 +287,9 @@ describe("FB-5 网络层失败的可读性与重试", () => {
     try {
       mockSubmitThenList({ ...mineItem, attachments: [] });
       openDialogFor({ kind: "product" });
+      // issue #2679 ②——附件区在 review 阶段才存在，先进 review。
+      fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "带图的反馈。见截图" } });
+      await proceedToReview();
       const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "shot.png", { type: "image/png" });
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [file] } });
 
@@ -275,7 +304,7 @@ describe("FB-5 网络层失败的可读性与重试", () => {
       const sentForm = (fetchMock.mock.calls[1]?.[1] as RequestInit).body as FormData;
       expect((sentForm.get("file") as File).name).toBe("shot.png");
 
-      fillAndSubmit("带图的反馈。见截图");
+      fireEvent.click(screen.getByTestId("feedback-submit"));
       await screen.findByTestId("feedback-just-submitted");
       // 按 path 找真正的提交请求——不能再靠"第一条 POST"，起标题那次也是 POST。
       const submitCall = apiRequest.mock.calls.find(([p]) => p === "/feedback");
@@ -292,8 +321,15 @@ describe("FB-5 网络层失败的可读性与重试", () => {
  * 走同一条上传路径。
  */
 describe("FB-5 补：套用模板 / 拖拽上传", () => {
-  it("⑨ 空正文时点「套用模板」——缺陷 kind 填复现步骤/期望结果/实际结果结构", () => {
+  // issue #2679 ②——「套用模板」现在只在 review 阶段才存在（compose 阶段还没有
+  // kind/结构化字段的概念），所以每条用例先用一句占位话进 review，需要测「空正文」
+  // 场景的再在 review 里把正文清空——两件事不冲突：进 review 的门槛是"曾经非空"，
+  // 不是"此刻非空"。
+  it("⑨ 空正文时点「套用模板」——缺陷 kind 填复现步骤/期望结果/实际结果结构", async () => {
     openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+    await proceedToReview();
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "" } });
     fireEvent.click(screen.getByTestId("feedback-template-button"));
     const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
     expect(detail.value).toContain("复现步骤");
@@ -301,8 +337,11 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     expect(detail.value).toContain("实际结果");
   });
 
-  it("⑨ 需求 kind 套用的是需求版模板，不是缺陷版", () => {
+  it("⑨ 需求 kind 套用的是需求版模板，不是缺陷版", async () => {
     openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+    await proceedToReview();
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "" } });
     fireEvent.click(screen.getByTestId("feedback-kind-需求"));
     fireEvent.click(screen.getByTestId("feedback-template-button"));
     const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
@@ -310,21 +349,23 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     expect(detail.value).not.toContain("复现步骤");
   });
 
-  it("⑨ 已经写了内容再点「套用模板」——追加在后面，不覆盖已写的话", () => {
+  it("⑨ 已经写了内容再点「套用模板」——追加在后面，不覆盖已写的话", async () => {
     openDialogFor({ kind: "product" });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "已经写的话" } });
+    await proceedToReview();
     fireEvent.click(screen.getByTestId("feedback-template-button"));
     const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
     expect(detail.value.startsWith("已经写的话")).toBe(true);
     expect(detail.value).toContain("复现步骤");
   });
 
-  it("⑨ 剩余空间放不下完整模板时——拒绝套用、正文原样不动，不插入半截模板", () => {
+  it("⑨ 剩余空间放不下完整模板时——拒绝套用、正文原样不动，不插入半截模板", async () => {
     openDialogFor({ kind: "product" });
     // fireEvent.change 走的是程序化写值（同 setDetail），不受 textarea maxLength 限制，
     // 用来在测试里复现"正文已经很接近 4000 字上限"这个只有程序化写入才够得到的状态。
     const nearLimit = "字".repeat(3990);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: nearLimit } });
+    await proceedToReview();
     const templateButton = screen.getByTestId("feedback-template-button");
     fireEvent.click(templateButton);
     const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
@@ -340,10 +381,11 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     expect(detail.value.length).toBeLessThanOrEqual(4000);
   });
 
-  it("⑨ 套用一次因空间不够被拒绝后，先删点字腾出空间——再点就能成功套用", () => {
+  it("⑨ 套用一次因空间不够被拒绝后，先删点字腾出空间——再点就能成功套用", async () => {
     openDialogFor({ kind: "product" });
     const nearLimit = "字".repeat(3990);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: nearLimit } });
+    await proceedToReview();
     const templateButton = screen.getByTestId("feedback-template-button");
     fireEvent.click(templateButton);
     expect(screen.getByTestId("feedback-template-notice")).toBeTruthy();
@@ -369,6 +411,8 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       openDialogFor({ kind: "product" });
+      fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+      await proceedToReview();
       const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "dropped.png", { type: "image/png" });
       const dropzone = screen.getByTestId("feedback-attachment-dropzone");
       fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
