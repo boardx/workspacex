@@ -2,9 +2,9 @@
 bundle: streaming-transport
 phase: "14"
 covers: [F03, F04, F05]
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-04T19:21:52Z"
 ---
 
 # 契约束 `streaming-transport` 设计签核
