@@ -9,7 +9,7 @@
  *
  * ## 状态码
  *
- *   201  新建（`POST /design-projects` 创建了一行资源）。
+ *   201  新建（`POST /pm-designs` 创建了一行资源）。
  *   200  读 / 改 / 追加对话 / 推送。
  *   403  `NOT_PROJECT_OWNER`——项目对请求者**可见**（全组织可读），只是改不了/删不了/推不了/
  *        发不了消息。⚠ 与 404 分开，同 `FeedbackController` 对 `PERMISSION_REVOKED` 的理由：
@@ -92,7 +92,7 @@ export class DesignWorkbenchController {
   }
 
   @HttpCode(HttpStatus.CREATED)
-  @Post("/design-projects")
+  @Post("/pm-designs")
   async create(
     @CurrentPrincipal() principal: Principal,
     @Body(new ZodBodyPipe(CREATE_PROJECT_SCHEMA)) body: CreateProjectBody,
@@ -114,14 +114,14 @@ export class DesignWorkbenchController {
     }
   }
 
-  @Get("/design-projects")
+  @Get("/pm-designs")
   async list(@CurrentPrincipal() principal: Principal, @Query("q") q: string | undefined) {
     assertPrincipal(principal);
     const items = await listMyProjects(this.deps(principal), { ownerId: principal.userId, q });
     return { items };
   }
 
-  @Patch("/design-projects/:projectId")
+  @Patch("/pm-designs/:projectId")
   async update(
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
@@ -141,7 +141,7 @@ export class DesignWorkbenchController {
     }
   }
 
-  @Post("/design-projects/:projectId/chat")
+  @Post("/pm-designs/:projectId/chat")
   async appendChat(
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
@@ -155,7 +155,7 @@ export class DesignWorkbenchController {
     }
   }
 
-  @Delete("/design-projects/:projectId")
+  @Delete("/pm-designs/:projectId")
   async remove(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
     assertPrincipal(principal);
     try {
@@ -165,7 +165,7 @@ export class DesignWorkbenchController {
     }
   }
 
-  @Post("/design-projects/:projectId/push")
+  @Post("/pm-designs/:projectId/push")
   async push(
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,

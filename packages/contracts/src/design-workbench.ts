@@ -64,7 +64,7 @@
  *     `design_project_chat_messages` 表，但那是存储层拆分，投影仍是 `DesignProject.chat`。
  *   · **画布/原型内容的字段**——PDF 原文「画布仍是占位块」（B5.3 明确 out of scope）；`frames`
  *     只是画布页横向标签条的标签文案，不是画布内容本身。
- *   · **`PUT /design-projects/:id/status`**——`go-live-backlog.md` §B3.1 提过这个假设路径，但
+ *   · **`PUT /pm-designs/:id/status`**——`go-live-backlog.md` §B3.1 提过这个假设路径，但
  *     设计方案没有状态机（`pushed: boolean` 就是它唯一的二态），状态迁移不需要单独接口；
  *     进收件箱后的状态机是 `InboxItem`/`system-error-logs` 那一套四态，属于 B3 契约，不在这里。
  */
@@ -191,7 +191,7 @@ export const operations = {
    */
   createProject: {
     method: "POST",
-    path: "/design-projects",
+    path: "/pm-designs",
     in: z
       .object({
         name: z.string().min(1).max(200),
@@ -213,7 +213,7 @@ export const operations = {
    */
   listMyProjects: {
     method: "GET",
-    path: "/design-projects",
+    path: "/pm-designs",
     in: z.object({ q: z.string().max(200).optional() }).strict(),
     out: z.object({ items: z.array(DesignProject) }).strict(),
     err: ["DEPENDENCY_UNAVAILABLE"] as const,
@@ -228,7 +228,7 @@ export const operations = {
    */
   updateProject: {
     method: "PATCH",
-    path: "/design-projects/:projectId",
+    path: "/pm-designs/:projectId",
     in: z
       .object({
         projectId: z.string(),
@@ -253,7 +253,7 @@ export const operations = {
    */
   appendProjectChat: {
     method: "POST",
-    path: "/design-projects/:projectId/chat",
+    path: "/pm-designs/:projectId/chat",
     in: z.object({ projectId: z.string(), text: z.string().min(1).max(4000) }).strict(),
     out: z.object({ project: DesignProject }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
@@ -262,7 +262,7 @@ export const operations = {
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */
   deleteProject: {
     method: "DELETE",
-    path: "/design-projects/:projectId",
+    path: "/pm-designs/:projectId",
     in: z.object({ projectId: z.string() }).strict(),
     out: z.object({ projectId: z.string() }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
@@ -281,7 +281,7 @@ export const operations = {
    */
   pushToInbox: {
     method: "POST",
-    path: "/design-projects/:projectId/push",
+    path: "/pm-designs/:projectId/push",
     in: z.object({ projectId: z.string(), note: z.string().max(2000).optional() }).strict(),
     out: z
       .object({
