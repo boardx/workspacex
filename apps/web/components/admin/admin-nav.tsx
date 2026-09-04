@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, MessageSquareHeart, Lock, Globe, Settings, Activity } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, UserCog, Mail, MessageSquareHeart, Lock, Globe, Settings, Activity, FileEdit, Inbox, PencilRuler } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
@@ -42,6 +42,10 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   local: Lock,
   // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
   platform: Globe,
+  // UC-17.8 研发闭环三面。
+  "feedback-drafts": FileEdit,
+  inbox: Inbox,
+  "design-workbench": PencilRuler,
 };
 
 /**

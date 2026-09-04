@@ -23,6 +23,8 @@ import { AG_BLUEPRINTS } from "@/lib/mock/asset-governance";
 // ─────────────────────────────────────────────────────────────────────────
 export type AdminModuleKey =
   | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback" | "ops-status"
+  // UC-17.8 研发闭环（反馈→设计→排期）：反馈草稿 / 运营收件箱 / PM 设计工作台
+  | "feedback-drafts" | "inbox" | "design-workbench"
   // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
   // 左栏却只画了四个 —— 人类那句「为什么在管理后台看不到项目蓝本」问的正是这个。
   // ⚠ 键取原型 `AN_META` 的键（`canvasadmin`），**不是**契约码也不是视图码：
@@ -183,6 +185,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 新的菜单叫运营状态」）：从「反馈与迭代 → 系统异常」tab 挪出来，单独一个入口——
       // 它不是"反馈"（没有提交人、没有分诊），是运维自查这个部署本身是否健康的工具。
       { key: "ops-status", label: "运营状态", href: "/platform-admin/ops-status", ucRefs: ["17-gov/uc-17-6"] },
+      // UC-17.8：一条研发流水线的三个面。收件箱是三类来源（反馈/系统异常/设计方案）的统一投影。
+      { key: "feedback-drafts", label: "反馈草稿", href: "/platform-admin/feedback-drafts", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "inbox", label: "运营收件箱", href: "/platform-admin/inbox", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "design-workbench", label: "PM 设计工作台", href: "/platform-admin/design-workbench", ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {
@@ -772,4 +778,9 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // 遍历范围内，`ops-status` 属于「平台」面，在。同「平台成员」项的既有处置
   // （同样没有 mock 数据源）：给一个健康占位值，不抛错。
   "ops-status": () => 0,
+  // UC-17.8：健康占位值（生产左栏走 live-admin-nav-counts，未接的项显示「—」）。
+  // 「反馈草稿」的徽标在生产里是当前用户的草稿数，这里给夹具一个健康数。
+  "feedback-drafts": () => 3,
+  inbox: () => 6,
+  "design-workbench": () => 4,
 };

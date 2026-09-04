@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText } from "lucide-react";
+import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText, PencilRuler } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import {
@@ -17,12 +18,17 @@ import {
   type FeedbackStatus,
   type FeedbackTarget,
 } from "@/lib/live-feedback";
+import { useOptionalDesignLoop } from "@/lib/design-loop-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** 契约 `submitFeedback.in.attachmentIds` 的上限（`.max(4)`）——见 `feedback-loop.ts`。 */
-const MAX_ATTACHMENTS = 4;
+/**
+ * 附件上限。UC-17.8 R4.1 放宽为 **5 个任意文件**（原 4 张图片）。
+ * ⚠ 现有契约 `submitFeedback.in.attachmentIds` 仍是 `.max(4)` 且上传只收图片 MIME——
+ *   真栈化时需同步放宽契约与后端，本轮是 UI 先行，见 ui-preview README 的待确认清单。
+ */
+const MAX_ATTACHMENTS = 5;
 
 /**
  * 把一次失败翻译成人能读的一句话。
@@ -62,6 +68,36 @@ function describeFailure(err: unknown): string {
  */
 
 const KIND_ICON: Record<FeedbackKind, typeof Bug> = { 缺陷: Bug, 需求: Lightbulb };
+
+/**
+ * UC-17.8 R4.1 结构化字段集——随「这是什么」切换。标题仍从正文首句派生（沿用
+ * 2026-09-02「不发明第二个标题字段」的既有决策，见 `deriveFeedbackTitle`）；这里补的是
+ * 缺陷/需求各自的结构化补充项，填了会在提交时并进正文。字段为空则正文原样不动。
+ * ⚠ 缺陷的「复现步骤」= 下方「详细说说」多行域（不再单列一个多行控件）。
+ */
+const KIND_FIELDS: Record<FeedbackKind, { id: string; label: string }[]> = {
+  缺陷: [
+    { id: "freq-env", label: "复现频率 · 环境" },
+    { id: "expected", label: "期望结果" },
+    { id: "actual", label: "实际结果" },
+  ],
+  需求: [
+    { id: "scene", label: "使用场景" },
+    { id: "capability", label: "期望能力" },
+    { id: "priority", label: "优先级 · 影响范围" },
+  ],
+};
+
+/** 把结构化补充字段（非空的）拼进正文前面；全空则返回原正文。 */
+function composeDetail(kind: FeedbackKind, fields: Record<string, string>, freeText: string): string {
+  const parts = KIND_FIELDS[kind]
+    .map((f) => ({ f, v: (fields[f.id] ?? "").trim() }))
+    .filter((x) => x.v !== "")
+    .map((x) => `${x.f.label}：${x.v}`);
+  if (parts.length === 0) return freeText;
+  const head = parts.join("\n");
+  return freeText.trim() === "" ? head : `${head}\n\n${freeText}`;
+}
 
 const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutral"> = {
   待处理: "warning",
@@ -132,6 +168,10 @@ export function FeedbackDialog({
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
   const [detail, setDetail] = React.useState("");
+  /** UC-17.8 R4.1 结构化补充字段（按 kind），提交时并进正文。 */
+  const [fields, setFields] = React.useState<Record<string, string>>({});
+  const designLoop = useOptionalDesignLoop();
+  const [draftSaved, setDraftSaved] = React.useState(false);
   /** AI 整理给出的标题；用户随后改了正文就作废（回到从正文派生），见 `deriveFeedbackTitle`。 */
   const [aiTitle, setAiTitle] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -293,6 +333,19 @@ export function FeedbackDialog({
   // 挡不住 setDetail 之类的程序化写入，见 applyTemplate 头注），提交前有第二道闸。
   const canSubmit = title !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
 
+  const composedDetail = () => composeDetail(kind, fields, detail);
+
+  const saveDraft = () => {
+    if (designLoop === null) return;
+    designLoop.addDraft({
+      type: kind === "缺陷" ? "bug" : "req",
+      title,
+      body: composedDetail().trim(),
+      hasScreenshot: attachments.length > 0,
+    });
+    setDraftSaved(true);
+  };
+
   const send = async () => {
     setBusy(true);
     setError(null);
@@ -324,7 +377,7 @@ export function FeedbackDialog({
         kind,
         target,
         title: finalTitle,
-        detail: detail.trim(),
+        detail: composedDetail().trim(),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
         appVersion,
@@ -333,6 +386,7 @@ export function FeedbackDialog({
       setJustSubmitted(out.feedbackId);
       setAiTitle(null);
       setDetail("");
+      setFields({});
       for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
       setAttachments([]);
       setTab("mine");
@@ -403,6 +457,26 @@ export function FeedbackDialog({
                     </button>
                   );
                 })}
+              </div>
+            </fieldset>
+
+            {/* UC-17.8 R4.1 结构化字段集：随类型切换。填了会在提交时并进正文；留空则不影响。 */}
+            <fieldset className="flex flex-col gap-2" data-testid={kind === "缺陷" ? "feedback-fields-bug" : "feedback-fields-req"}>
+              <legend className="text-11 font-medium text-muted-foreground">
+                {kind === "缺陷" ? "说清楚这个缺陷" : "说清楚这个需求"}
+              </legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {KIND_FIELDS[kind].map((f) => (
+                  <label key={f.id} className="flex flex-col gap-1 text-10 text-muted-foreground">
+                    {f.label}
+                    <input
+                      value={fields[f.id] ?? ""}
+                      onChange={(e) => { setFields((prev) => ({ ...prev, [f.id]: e.target.value })); setDraftSaved(false); }}
+                      data-testid={`feedback-field-${f.id}`}
+                      className="rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </label>
+                ))}
               </div>
             </fieldset>
 
@@ -504,33 +578,37 @@ export function FeedbackDialog({
                 addAttachments(e.dataTransfer.files);
               }}
             >
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  className="hidden"
-                  data-testid="feedback-attachment-input"
-                  onChange={(e) => {
-                    addAttachments(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  disabled={attachments.length >= MAX_ATTACHMENTS}
-                  onClick={() => fileInputRef.current?.click()}
-                  data-testid="feedback-attachment-add"
-                >
-                  <ImagePlus aria-hidden className="h-3.5 w-3.5" />
-                  加图片（{attachments.length}/{MAX_ATTACHMENTS}）
-                </Button>
-                <span className="text-10 text-muted-foreground">或把图片拖拽到这里</span>
-              </div>
+              {/* UC-17.8 R4.1：达到 5 个上限后，整个上传入口**隐藏**（不是置灰）。 */}
+              {attachments.length < MAX_ATTACHMENTS ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="*/*"
+                    multiple
+                    className="hidden"
+                    data-testid="feedback-attachment-input"
+                    onChange={(e) => {
+                      addAttachments(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="feedback-attachment-add"
+                  >
+                    <ImagePlus aria-hidden className="h-3.5 w-3.5" />
+                    加文件（{attachments.length}/{MAX_ATTACHMENTS}）
+                  </Button>
+                  <span className="text-10 text-muted-foreground">或把文件拖拽到这里</span>
+                </div>
+              ) : (
+                <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">已到 5 个上限，删掉一个再加。</p>
+              )}
               {attachments.length > 0 && (
                 <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">
                   {attachments.map((a) => (
@@ -600,18 +678,43 @@ export function FeedbackDialog({
               </p>
             )}
 
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!canSubmit}
-                onClick={() => void send()}
-                data-testid="feedback-submit"
-              >
-                {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                提交
-              </Button>
+            {/* 底部左：更复杂的直接去工作台；右：存草稿 / 直接提交 */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {designLoop !== null ? (
+                <Link
+                  href="/platform-admin/design-workbench"
+                  data-testid="feedback-workbench-link"
+                  className="inline-flex items-center gap-1 text-11 text-primary transition-colors duration-fast hover:underline"
+                >
+                  <PencilRuler aria-hidden className="h-3 w-3" />
+                  更复杂？直接在 PM 设计工作台从头设计
+                </Link>
+              ) : <span />}
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
+                {designLoop !== null && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canSubmit}
+                    onClick={saveDraft}
+                    data-testid="feedback-save-draft"
+                  >
+                    {draftSaved ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
+                    {draftSaved ? "已存草稿" : "存为草稿"}
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={!canSubmit}
+                  onClick={() => void send()}
+                  data-testid="feedback-submit"
+                >
+                  {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+                  直接提交
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
