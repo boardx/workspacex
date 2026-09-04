@@ -138,7 +138,7 @@ import type { TransactionalMailTransport } from "../notifications/transactional-
 import type { ObjectStore } from "../artifact/ports";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import { decideFeedbackDetailVisibility } from "./feedback-detail-decision";
-import type { FeedbackAttachmentRepository } from "./attachment-ports";
+import type { FeedbackAttachmentRepository, FeedbackAttachmentRow } from "./attachment-ports";
 import {
   GithubIssueCreationError,
   type FeedbackSubmitterDirectory,
@@ -149,12 +149,20 @@ import {
 } from "./notification-ports";
 import type { ProductFeedbackRepository } from "./ports";
 
-/** `image/png` → `.png` 等——拼 GitHub 仓库里的文件名要用得到。 */
-const ATTACHMENT_EXTENSION: Record<"image/png" | "image/jpeg" | "image/webp", string> = {
+/**
+ * `image/png` → `.png` 等——拼 GitHub 仓库里的文件名要用得到。
+ * ⚠ UC-17.8 D3 之后附件还可能是 PDF / 文本，但这一步（⑥）推的是**图片**——`![](url)` 只对图片有
+ *   意义，PDF/文本推上去 GitHub 也渲染不出来。不在这张表里的类型直接跳过，不是报错。
+ */
+type GithubImageMime = "image/png" | "image/jpeg" | "image/webp";
+const ATTACHMENT_EXTENSION: Record<GithubImageMime, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
 };
+function isGithubImage(contentType: FeedbackAttachmentRow["contentType"]): contentType is GithubImageMime {
+  return contentType in ATTACHMENT_EXTENSION;
+}
 
 export class FeedbackNotFoundError extends Error {}
 export class FeedbackTriageForbiddenError extends Error {}
@@ -390,9 +398,9 @@ async function withAttachmentImages(
       if (!isDisclosed(disclosed)) continue;
       const bytes = await deps.objectStore.get(disclosed.payload);
       if (bytes === null) continue;
-      const ext = ATTACHMENT_EXTENSION[row.contentType];
+      if (!isGithubImage(row.contentType)) continue; // 非图片附件不推 GitHub，见 ATTACHMENT_EXTENSION 头注
       const uploaded = await deps.imageUploader.uploadImage({
-        path: `feedback-attachments/${row.id}.${ext}`,
+        path: `feedback-attachments/${row.id}.${ATTACHMENT_EXTENSION[row.contentType]}`,
         content: bytes,
         contentType: row.contentType,
       });

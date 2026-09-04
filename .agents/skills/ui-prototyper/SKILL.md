@@ -19,6 +19,10 @@ description: >
 > [uiux-standards.md](.harness/instructions/uiux-standards.md)。
 > 本 skill 只讲「UI 先行」这一步怎么走。
 >
+> 视觉主张与设计计划方法（先出色板/字体/布局线框计划、对照需求剔除通用默认、再写代码）
+> 遵循 [frontend-design](../frontend-design/SKILL.md) skill（来自 anthropics/skills，
+> 2026-09-04 人类指令引入）。设计 token 仍以 `uiux-standards.md` 为单源。
+>
 > ⛔ **签核位置已变（2026-07-30，ADR-023 决策一）**：不再有 phase 级 `ui-signoff.md`
 > ——那三份留档文件改了**没有任何效果**，全仓没有脚本读它。UI 是**束级**
 > `phases/<phase>/contracts/<束>/design-signoff.md` 的第 ① 件，材料写在同目录 `ui.md`。

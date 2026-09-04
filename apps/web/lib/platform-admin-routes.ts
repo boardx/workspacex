@@ -19,6 +19,10 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   members: "platform",
   feedback: "feedback",
   "ops-status": "ops-status",
+  // UC-17.8 研发闭环
+  "feedback-drafts": "feedback-drafts",
+  inbox: "inbox",
+  "design-workbench": "design-workbench",
 };
 
 export const PLATFORM_ADMIN_ROOT = "/platform-admin";

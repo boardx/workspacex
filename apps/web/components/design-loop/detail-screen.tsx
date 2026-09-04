@@ -1,0 +1,277 @@
+"use client";
+import * as React from "react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Smartphone } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { LinkBadge } from "./badges";
+import { useDesignLoop, TEMPLATE_LABEL, type Project } from "@/lib/design-loop-store";
+
+/**
+ * PM 设计详情全屏页（Claude Code 风格深色 IDE）。
+ * 用 `.dark` 强制深色 token 体系（app/globals.css 的 `.dark` 那份），不另立颜色。
+ * 脱离后台三栏骨架：整屏铺满。
+ */
+export function DesignDetailScreen({
+  projectId,
+  onBack,
+  onOpenInbox,
+  onNextDesign,
+}: {
+  projectId: string;
+  onBack?: () => void;
+  onOpenInbox?: () => void;
+  onNextDesign?: () => void;
+}) {
+  const store = useDesignLoop();
+  const project = store.projects.find((p) => p.id === projectId) ?? null;
+  const [tab, setTab] = React.useState<"canvas" | "spec">("canvas");
+  const [frame, setFrame] = React.useState(0);
+  const [text, setText] = React.useState("");
+  const [confirming, setConfirming] = React.useState(false);
+  const [pushedCode, setPushedCode] = React.useState<string | null>(null);
+  const chatRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight });
+  }, [project?.chat.length]);
+
+  if (project === null) {
+    return (
+      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="design-detail-missing">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <p className="text-14 font-medium">找不到这个设计项目</p>
+          <Button variant="outline" size="sm" onClick={onBack}>返回工作台</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pushedCode !== null) {
+    return <PushSuccess project={project} code={pushedCode} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
+  }
+
+  return (
+    <div className="dark flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
+      {/* 顶部条 */}
+      <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <Button variant="ghost" size="sm" onClick={onBack} data-testid="design-detail-back">
+          <ArrowLeft aria-hidden className="h-4 w-4" /> 工作台
+        </Button>
+        <span className="text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
+        {project.linkedFeedback && <LinkBadge text={`源自 ${project.linkedFeedback}`} testid="design-detail-linked" />}
+        <div className="ml-auto">
+          {project.pushed ? (
+            <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
+              <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
+              <Upload aria-hidden className="h-3.5 w-3.5" /> 推送到收件箱
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* 左：对话面板 360px */}
+        <div className="flex w-[360px] shrink-0 flex-col border-r border-border bg-panel">
+          <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
+          <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
+            {project.chat.map((turn, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "max-w-[90%] rounded-card px-2.5 py-1.5 text-12",
+                  turn.role === "user" ? "self-end bg-primary text-primary-foreground" : "self-start bg-card text-card-foreground",
+                )}
+              >
+                {turn.text}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-end gap-2 border-t border-border p-3">
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={2}
+              placeholder="告诉我要改什么，我来更新画布"
+              data-testid="design-detail-input"
+              className="flex-1"
+            />
+            <Button
+              variant="primary"
+              size="icon"
+              disabled={text.trim() === ""}
+              onClick={() => { store.appendProjectChat(project.id, text.trim()); setText(""); }}
+              aria-label="发送"
+              data-testid="design-detail-send"
+            >
+              <Send aria-hidden className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 右：画布 / 说明 两 Tab */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex gap-1 border-b border-border px-4 pt-2">
+            <DetailTab active={tab === "canvas"} onClick={() => setTab("canvas")} testid="design-detail-tab-canvas">原型画布</DetailTab>
+            <DetailTab active={tab === "spec"} onClick={() => setTab("spec")} testid="design-detail-tab-spec">说明与验收标准</DetailTab>
+          </div>
+
+          {tab === "canvas" ? (
+            <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
+              <div className="flex gap-1 border-b border-border px-4 py-2">
+                {project.frames.map((f, i) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setFrame(i)}
+                    data-testid={`design-detail-frame-${i}`}
+                    className={cn(
+                      "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      frame === i ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
+                    )}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <div className="grid flex-1 place-items-center overflow-y-auto bg-background p-6">
+                <PhoneCanvas label={project.frames[frame] ?? ""} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-6" data-testid="design-detail-spec">
+              <section className="mb-6">
+                <h3 className="text-14 font-semibold">问题与目标</h3>
+                <p className="mt-1.5 whitespace-pre-wrap text-13 text-muted-foreground">
+                  {project.problem || "还没填背景。回到左边对话里说清楚要解决的问题，我会补到这里。"}
+                </p>
+                {project.linkedFeedback && (
+                  <p className="mt-2 text-12">
+                    关联反馈：<span className="font-mono">{project.linkedFeedback}</span>
+                  </p>
+                )}
+              </section>
+              <section>
+                <h3 className="text-14 font-semibold">验收标准</h3>
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {project.criteria.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 text-13">
+                      <Check aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 底部状态条 */}
+      <footer className="flex items-center gap-3 border-t border-border bg-panel px-4 py-1.5 text-11 text-muted-foreground" data-testid="design-detail-statusbar">
+        <span>claude-opus-4.6</span>
+        <span>设计系统 WorkspaceX UI</span>
+        <span>{TEMPLATE_LABEL[project.template]}</span>
+        <span className="ml-auto">{project.owner} · 更新于 {new Date(project.updated).toLocaleDateString("zh-CN")}</span>
+      </footer>
+
+      {confirming && (
+        <PushConfirm
+          project={project}
+          onClose={() => setConfirming(false)}
+          onConfirm={(note) => {
+            const code = store.pushProject(project.id, note);
+            setConfirming(false);
+            setPushedCode(code);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DetailTab({ active, onClick, children, testid }: { active: boolean; onClick: () => void; children: React.ReactNode; testid: string }) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      data-testid={testid}
+      className={cn(
+        "rounded-t-control px-3 py-1.5 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active ? "border-b-2 border-primary font-medium text-background-foreground" : "border-b-2 border-transparent text-muted-foreground hover:text-background-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** 居中模拟手机画布：头部 / 主内容区 / 操作区 / 提示信息 占位块。 */
+function PhoneCanvas({ label }: { label: string }) {
+  return (
+    <div className="flex w-[260px] flex-col gap-2 rounded-container border border-border bg-card p-3 shadow-lg" data-testid="design-detail-phone">
+      <div className="mb-1 flex items-center justify-center gap-1 text-10 text-muted-foreground">
+        <Smartphone aria-hidden className="h-3 w-3" /> {label}
+      </div>
+      <div className="h-8 rounded-control bg-panel" aria-hidden />
+      <div className="flex flex-1 flex-col gap-2">
+        <div className="h-20 rounded-control bg-panel" aria-hidden />
+        <div className="h-3 w-3/4 rounded-control bg-panel" aria-hidden />
+        <div className="h-3 w-1/2 rounded-control bg-panel" aria-hidden />
+      </div>
+      <div className="h-9 rounded-control bg-primary/40" aria-hidden />
+      <div className="h-3 w-2/3 rounded-control bg-panel" aria-hidden />
+    </div>
+  );
+}
+
+function PushConfirm({ project, onClose, onConfirm }: { project: Project; onClose: () => void; onConfirm: (note: string) => void }) {
+  const [note, setNote] = React.useState("");
+  return (
+    <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-push-confirm">
+      <div className="absolute inset-0 bg-inverse/50" onClick={onClose} aria-hidden />
+      <div role="dialog" aria-modal="true" aria-label="推送到收件箱" className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 text-card-foreground shadow-lg">
+        <h3 className="text-16 font-semibold">推送「{project.name}」到收件箱</h3>
+        <p className="text-12 text-muted-foreground">
+          推送后会在运营收件箱生成一条「设计方案」条目（待处理），供工程排期。
+          {project.linkedFeedback && ` 来源反馈 ${project.linkedFeedback} 会被标注「已生成」。`}
+        </p>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="push-note" className="text-11 font-medium text-muted-foreground">给工程的说明（可选）</label>
+          <Textarea id="push-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="需要工程特别注意的边界、依赖、验收口径" data-testid="design-push-note" />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
+          <Button variant="primary" size="sm" onClick={() => onConfirm(note)} data-testid="design-push-confirm-submit">确认推送</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: Project; code: string; onOpenInbox?: () => void; onNextDesign?: () => void }) {
+  return (
+    <div className="dark flex h-dvh flex-col items-center justify-center gap-4 bg-background p-16 text-center text-background-foreground" data-testid="design-push-success">
+      <CheckCircle2 aria-hidden className="h-14 w-14 text-success" />
+      <div>
+        <p className="text-20 font-semibold">已推送到收件箱</p>
+        <p className="mt-1 text-13 text-muted-foreground">
+          方案 <span className="font-mono">{code}</span> · {project.name}
+          {project.linkedFeedback && <> · 已与反馈 <span className="font-mono">{project.linkedFeedback}</span> 互相关联</>}
+        </p>
+      </div>
+      <p className="max-w-sm text-12 text-muted-foreground">
+        运营会在收件箱看到这条待处理的设计方案，排期后进入开发。你可以继续设计下一个，或去收件箱确认。
+      </p>
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={onNextDesign} data-testid="design-success-next">继续设计下一个</Button>
+        <Button variant="primary" size="sm" onClick={onOpenInbox} data-testid="design-success-inbox">查看收件箱</Button>
+      </div>
+    </div>
+  );
+}

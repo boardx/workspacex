@@ -6,6 +6,7 @@ import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
 import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { OpsStatusScreen } from "@/components/admin/ops-status-screen";
+import { FeedbackDraftsScreen, DesignLoopInboxAdminScreen, DesignWorkbenchAdminScreen } from "@/components/admin/design-loop-screens";
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
@@ -30,6 +31,9 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   platform: PlatformMembersScreen,
   feedback: FeedbackScreen,
   "ops-status": OpsStatusScreen,
+  "feedback-drafts": FeedbackDraftsScreen,
+  inbox: DesignLoopInboxAdminScreen,
+  "design-workbench": DesignWorkbenchAdminScreen,
 };
 
 export function generateStaticParams() {

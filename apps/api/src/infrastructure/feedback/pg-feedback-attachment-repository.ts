@@ -20,6 +20,7 @@ interface AttachmentDbRow {
   readonly org_id: string;
   readonly uploaded_by: string;
   readonly feedback_id: string | null;
+  readonly draft_id: string | null;
   readonly object_key: string;
   readonly content_type: string;
   readonly size_bytes: string | number;
@@ -33,6 +34,7 @@ function toRow(r: AttachmentDbRow): FeedbackAttachmentRow {
     orgId: r.org_id,
     uploadedBy: r.uploaded_by,
     feedbackId: r.feedback_id,
+    draftId: r.draft_id,
     // 见 `attachment-ports.ts` 头注：只有已认领（挂着 `feedback_id`）的行才有可供
     // `guard()` 挂靠的反馈对象——未认领的行调用方本来就不会读到这一步。
     objectKey: r.feedback_id !== null ? guard({ kind: "feedback", id: r.feedback_id }, r.object_key) : null,
@@ -83,7 +85,7 @@ export class PgFeedbackAttachmentRepository implements FeedbackAttachmentReposit
     if (feedbackIds.length === 0) return [];
     return this.db.withTenant(orgId, async (s: TenantSession) => {
       const { rows } = await s.query<AttachmentDbRow>(
-        `SELECT id, org_id, uploaded_by, feedback_id, object_key, content_type, size_bytes, sha256, created_at
+        `SELECT id, org_id, uploaded_by, feedback_id, draft_id, object_key, content_type, size_bytes, sha256, created_at
            FROM feedback_attachments
           WHERE org_id = $1 AND feedback_id = ANY($2::text[])
           ORDER BY created_at ASC`,
@@ -96,12 +98,78 @@ export class PgFeedbackAttachmentRepository implements FeedbackAttachmentReposit
   async findById(orgId: OrgId, attachmentId: string): Promise<FeedbackAttachmentRow | null> {
     return this.db.withTenant(orgId, async (s: TenantSession) => {
       const { rows } = await s.query<AttachmentDbRow>(
-        `SELECT id, org_id, uploaded_by, feedback_id, object_key, content_type, size_bytes, sha256, created_at
+        `SELECT id, org_id, uploaded_by, feedback_id, draft_id, object_key, content_type, size_bytes, sha256, created_at
            FROM feedback_attachments
           WHERE org_id = $1 AND id = $2`,
         [orgId, attachmentId],
       );
       return rows[0] ? toRow(rows[0]) : null;
+    });
+  }
+
+  /* ─────────── UC-17.8 B1 · 草稿挂靠 ─────────── */
+
+  async claimForDraft(
+    orgId: OrgId,
+    draftId: string,
+    attachmentIds: readonly string[],
+    uploadedBy: string,
+  ): Promise<number> {
+    if (attachmentIds.length === 0) return 0;
+    return this.db.withTenant(orgId, async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE feedback_attachments
+            SET draft_id = $1
+          WHERE org_id = $2 AND uploaded_by = $3 AND feedback_id IS NULL AND draft_id IS NULL
+            AND id = ANY($4::text[])
+          RETURNING id`,
+        [draftId, orgId, uploadedBy, attachmentIds],
+      );
+      return rows.length;
+    });
+  }
+
+  async moveDraftAttachmentsToFeedback(orgId: OrgId, draftId: string, feedbackId: string): Promise<number> {
+    return this.db.withTenant(orgId, async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE feedback_attachments
+            SET feedback_id = $1, draft_id = NULL
+          WHERE org_id = $2 AND draft_id = $3 AND feedback_id IS NULL
+          RETURNING id`,
+        [feedbackId, orgId, draftId],
+      );
+      return rows.length;
+    });
+  }
+
+  async releaseDraftAttachments(orgId: OrgId, draftId: string): Promise<number> {
+    return this.db.withTenant(orgId, async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE feedback_attachments
+            SET draft_id = NULL
+          WHERE org_id = $1 AND draft_id = $2
+          RETURNING id`,
+        [orgId, draftId],
+      );
+      return rows.length;
+    });
+  }
+
+  async findByDraftIds(
+    orgId: OrgId,
+    draftIds: readonly string[],
+    ownerId: string,
+  ): Promise<readonly FeedbackAttachmentRow[]> {
+    if (draftIds.length === 0) return [];
+    return this.db.withTenant(orgId, async (s: TenantSession) => {
+      const { rows } = await s.query<AttachmentDbRow>(
+        `SELECT id, org_id, uploaded_by, feedback_id, draft_id, object_key, content_type, size_bytes, sha256, created_at
+           FROM feedback_attachments
+          WHERE org_id = $1 AND draft_id = ANY($2::text[]) AND uploaded_by = $3
+          ORDER BY created_at ASC`,
+        [orgId, draftIds, ownerId],
+      );
+      return rows.map(toRow);
     });
   }
 }

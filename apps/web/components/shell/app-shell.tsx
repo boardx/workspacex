@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
+import { DesignLoopProvider } from "@/lib/design-loop-store";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
 import { sanitizeReturnTo } from "@/lib/return-to";
 
@@ -187,6 +188,11 @@ function ShellChrome({
    * FB-2：反馈弹层的唯一实例挂在壳层，因为它的三个入口分属三处
    * （图标栏 / <md 顶栏 / chat 里每个 agent·skill 一个按钮），而弹层只该有一个。
    * 见 `components/feedback/feedback-provider.tsx` 头注。
+   *
+   * UC-17.8 D5（2026-09-04）：`DesignLoopProvider`（收件箱/设计工作台的原型 mock store）
+   * 也上提到这里、包在 `FeedbackProvider` 外层——弹层里「去 PM 设计工作台」这条入口靠它
+   * 判可见，此前只有后台三个模块各自挂一份 Provider，chat / 顶栏 / 图标栏打开的弹层看不到
+   * 这个入口。Provider 只挂这一处；`/platform-admin/*` 的屏不再各自再挂。
    */
   /**
    * UIUX-CK-1（人类实测 3 分的第一条实锤，2026-08-23）：左右栏此前固定宽度、
@@ -223,6 +229,7 @@ function ShellChrome({
   }, [rightCollapsed]);
 
   return (
+    <DesignLoopProvider>
     <FeedbackProvider>
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
       <div className="hidden md:flex">
@@ -319,5 +326,6 @@ function ShellChrome({
       </div>
     </div>
     </FeedbackProvider>
+    </DesignLoopProvider>
   );
 }

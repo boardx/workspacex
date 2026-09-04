@@ -460,6 +460,9 @@ import { FEEDBACK_ATTACHMENT_REPOSITORY } from "./application/feedback/attachmen
 import { PgFeedbackAttachmentRepository } from "./infrastructure/feedback/pg-feedback-attachment-repository";
 import { FEEDBACK_STRUCTURE_MODEL_CONFIG } from "./application/feedback/structure-feedback-draft";
 import { readFeedbackStructureModelConfig } from "./infrastructure/feedback/feedback-structure-model-config";
+// UC-17.8 B1：反馈草稿（提交人私有）。见 `application/feedback/draft-ports.ts`。
+import { FEEDBACK_DRAFT_REPOSITORY } from "./application/feedback/draft-ports";
+import { PgFeedbackDraftRepository } from "./infrastructure/feedback/pg-feedback-draft-repository";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -2149,6 +2152,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: FEEDBACK_STRUCTURE_MODEL_CONFIG,
       useFactory: () => readFeedbackStructureModelConfig(),
+    },
+    // UC-17.8 B1：草稿仓储按组织构造（`forOrg`），同 `PRODUCT_FEEDBACK_REPOSITORY` 的理由。
+    {
+      provide: FEEDBACK_DRAFT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgFeedbackDraftRepository(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: TRANSACTIONAL_MAIL_CONFIG,

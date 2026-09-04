@@ -42,6 +42,7 @@ function draft(over: Partial<NewFeedback> = {}): NewFeedback {
     targetLabel: null,
     title: "批准卡不记得上次的 token 预算",
     detail: "每次都要重填，第三次之后就不想用了。",
+    structured: null,
     occurredRoute: "/chat",
     appVersion: "2026.08.15",
     ...over,

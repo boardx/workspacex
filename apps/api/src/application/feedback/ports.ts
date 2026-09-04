@@ -21,6 +21,8 @@ export const PRODUCT_FEEDBACK_REPOSITORY = Symbol("ProductFeedbackRepository");
  */
 export type FeedbackTarget = z.infer<typeof feedbackLoop.FeedbackTarget>;
 export type FeedbackKind = z.infer<typeof feedbackLoop.FeedbackKind>;
+/** UC-17.8 D1：结构化补充字段，形状只在契约里声明一次。 */
+export type FeedbackStructured = z.infer<typeof feedbackLoop.FeedbackStructured>;
 
 export interface NewFeedback {
   readonly id: string;
@@ -30,6 +32,8 @@ export interface NewFeedback {
   readonly targetLabel: string | null;
   readonly title: string;
   readonly detail: string;
+  /** UC-17.8 D1：可不带（`null`）。落 `product_feedback.structured`，只在 INSERT 写。 */
+  readonly structured: FeedbackStructured | null;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
 }
@@ -53,6 +57,11 @@ export interface FeedbackRow {
   readonly targetLabel: string | null;
   readonly title: string;
   readonly detail: Guarded<string>;
+  /**
+   * UC-17.8 D1：与 `detail` 同一条 D3 门控——它是正文的补充，不是标题/票数那类恒可见的
+   * 展示性上下文。同样包成 `Guarded`，让「判了 detail 忘了判 structured」在类型上写不出来。
+   */
+  readonly structured: Guarded<FeedbackStructured | null>;
   readonly status: FeedbackStatus;
   readonly statusReason: string | null;
   readonly votes: number;

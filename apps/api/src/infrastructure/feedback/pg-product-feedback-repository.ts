@@ -30,6 +30,7 @@ import type {
   FeedbackCounts,
   FeedbackRow,
   FeedbackScope,
+  FeedbackStructured,
   FeedbackTarget,
   NewFeedback,
   ProductFeedbackRepository,
@@ -60,6 +61,7 @@ interface FeedbackDbRow {
   readonly target_label: string | null;
   readonly title: string;
   readonly detail: string;
+  readonly structured: unknown;
   readonly status: string;
   readonly status_reason: string | null;
   readonly occurred_route: string | null;
@@ -97,6 +99,9 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
     targetLabel: row.target_label,
     title: row.title,
     detail: guard({ kind: "feedback", id: row.id }, row.detail),
+    // UC-17.8 D1：写入侧经契约 zod 校验后才落库（`.strict()`），读回来只可能是契约形状或 NULL。
+    // 与正文同一个 ref 包起来——同一行、同一条门控。
+    structured: guard({ kind: "feedback", id: row.id }, (row.structured ?? null) as FeedbackStructured | null),
     status: row.status as FeedbackStatus,
     statusReason: row.status_reason,
     // `count(*)` 在 pg 驱动里是 bigint → 字符串。`Number(...)` 而不是 `parseInt`：
@@ -113,7 +118,7 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
 
 const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
-  f.target_label, f.title, f.detail, f.status, f.status_reason,
+  f.target_label, f.title, f.detail, f.structured, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
   f.github_issue_url, f.github_issue_number,
   v.votes,
@@ -139,8 +144,8 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
       await s.query(
         `INSERT INTO product_feedback
            (id, org_id, submitted_by, kind, target_kind, target_agent_id, target_skill_id,
-            target_label, title, detail, status, occurred_route, app_version)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'待处理',$11,$12)`,
+            target_label, title, detail, status, occurred_route, app_version, structured)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'待处理',$11,$12,$13::jsonb)`,
         [
           record.id,
           this.orgId,
@@ -154,6 +159,7 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
           record.detail,
           record.occurredRoute,
           record.appVersion,
+          record.structured === null ? null : JSON.stringify(record.structured),
         ],
       );
     });

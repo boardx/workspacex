@@ -26,6 +26,10 @@ export type FeedbackStatusEvent = z.infer<
   typeof feedbackLoop.operations.listFeedbackStatusEvents.out
 >["events"][number];
 export type GithubIssueLinkedPullRequest = z.infer<typeof feedbackLoop.GithubIssueLinkedPullRequest>;
+/** UC-17.8 D1：结构化补充字段（缺陷 4 项 / 需求 3 项的判别联合）。 */
+export type FeedbackStructured = z.infer<typeof feedbackLoop.FeedbackStructured>;
+export type BugStructuredFields = z.infer<typeof feedbackLoop.BugStructuredFields>;
+export type ReqStructuredFields = z.infer<typeof feedbackLoop.ReqStructuredFields>;
 export type CommentOnFeedbackGithubIssueOut = z.infer<
   typeof feedbackLoop.operations.commentOnFeedbackGithubIssue.out
 >;
@@ -48,8 +52,10 @@ export async function submitFeedback(input: {
   readonly detail: string;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
-  /** FB-5——提交前已经 `uploadFeedbackAttachment` 过的图片 id。缺省/空 = 不带附件。 */
+  /** FB-5——提交前已经 `uploadFeedbackAttachment` 过的附件 id。缺省/空 = 不带附件。 */
   readonly attachmentIds?: readonly string[];
+  /** UC-17.8 D1——按 `kind` 组好的结构化字段。全空 = 不带这个键（同 `attachmentIds`）。 */
+  readonly structured?: FeedbackStructured;
 }): Promise<SubmitFeedbackOut> {
   return apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input });
 }
@@ -159,7 +165,54 @@ export function currentAppVersion(): string | null {
 /* ─────────────────────────── FB-5：图片附件 ─────────────────────────── */
 
 export type FeedbackAttachment = z.infer<typeof feedbackLoop.FeedbackAttachment>;
+export type FeedbackAttachmentMime = z.infer<typeof feedbackLoop.FeedbackAttachmentMime>;
 export type UploadFeedbackAttachmentOut = z.infer<typeof feedbackLoop.operations.uploadFeedbackAttachment.out>;
+
+/**
+ * UC-17.8 D3——附件白名单与上限的**唯一前端出口**，都从契约派生：
+ *   · `FEEDBACK_ATTACHMENT_ACCEPT` 直接喂 `<input accept>`；
+ *   · `FEEDBACK_ATTACHMENT_LIMIT` 是「一条反馈最多几个附件」；
+ *   · `resolveFeedbackAttachmentMime` 是客户端那道预检。
+ * 加一种类型 = 改契约的 `FeedbackAttachmentMime`，这里没有第二份列表。
+ */
+export const FEEDBACK_ATTACHMENT_MIMES = feedbackLoop.FeedbackAttachmentMime.options;
+export const FEEDBACK_ATTACHMENT_ACCEPT = FEEDBACK_ATTACHMENT_MIMES.join(",");
+export const FEEDBACK_ATTACHMENT_LIMIT = feedbackLoop.FEEDBACK_ATTACHMENT_MAX;
+
+/**
+ * 浏览器对 `.md`（有些平台连 `.txt`）给出的 `File.type` 是空串——不是「类型不对」，是
+ * 「浏览器不认识这个扩展名」。这里只在 `type` 为空时按扩展名**猜一次**，猜出来的值仍然
+ * 必须落在契约白名单里；`type` 非空但不在白名单 ⇒ `null`，调用方据此拒收并说明原因。
+ * ⚠ 扩展名表只是「扩展名 → 契约里的哪个值」的索引，不是第二份白名单：任何一个值都
+ *   先经 `FeedbackAttachmentMime.safeParse` 验过才会返回。
+ */
+export function resolveFeedbackAttachmentMime(file: { readonly type: string; readonly name: string }): FeedbackAttachmentMime | null {
+  const declared = file.type.trim().toLowerCase();
+  const candidate = declared !== "" ? declared : guessMimeByExtension(file.name);
+  const parsed = feedbackLoop.FeedbackAttachmentMime.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+function guessMimeByExtension(name: string): string {
+  const ext = name.toLowerCase().split(".").pop() ?? "";
+  const byExt: Record<string, string> = {
+    md: "text/markdown",
+    markdown: "text/markdown",
+    txt: "text/plain",
+    log: "text/plain",
+    pdf: "application/pdf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+  };
+  return byExt[ext] ?? "";
+}
+
+/** 附件是不是图片（决定缩略图用 `<img>` 还是文件类型图标）。 */
+export function isImageAttachmentMime(mime: string): boolean {
+  return mime.startsWith("image/");
+}
 
 /**
  * 图片附件上传走 `multipart/form-data`，同 `live-identity.ts` 的 `uploadOwnAvatar`
@@ -168,8 +221,12 @@ export type UploadFeedbackAttachmentOut = z.infer<typeof feedbackLoop.operations
  * "提交反馈"发生——返回的 `attachmentId` 攒起来，随 `submitFeedback` 一起提交
  * （见该函数与后端用例头注：认领是 best-effort，不阻塞反馈本身）。
  */
-export async function uploadFeedbackAttachment(file: File): Promise<UploadFeedbackAttachmentOut> {
-  const meta = { sizeBytes: file.size, contentType: file.type };
+export async function uploadFeedbackAttachment(
+  file: File,
+  /** UC-17.8 D3：真实类型。缺省取 `file.type`；`.md` 之类浏览器给空串的场景由调用方先经 `resolveFeedbackAttachmentMime` 解出再传。 */
+  contentType: string = file.type,
+): Promise<UploadFeedbackAttachmentOut> {
+  const meta = { sizeBytes: file.size, contentType };
   const form = new FormData();
   form.set("meta", JSON.stringify(meta));
   form.set("file", file, file.name);
@@ -231,4 +288,70 @@ export async function structureFeedbackDraft(transcript: string): Promise<Struct
     method: "POST",
     body: { transcript },
   });
+}
+
+/* ─────────────────────────── UC-17.8 B1：反馈草稿（提交人私有）─────────────────────────── */
+
+export type FeedbackDraft = z.infer<typeof feedbackLoop.FeedbackDraft>;
+export type FeedbackDraftChatTurn = z.infer<typeof feedbackLoop.FeedbackDraftChatTurn>;
+export type CreateFeedbackDraftOut = z.infer<typeof feedbackLoop.operations.createFeedbackDraft.out>;
+export type UpdateFeedbackDraftOut = z.infer<typeof feedbackLoop.operations.updateFeedbackDraft.out>;
+export type DeleteFeedbackDraftOut = z.infer<typeof feedbackLoop.operations.deleteFeedbackDraft.out>;
+export type SubmitFeedbackDraftOut = z.infer<typeof feedbackLoop.operations.submitFeedbackDraft.out>;
+export type MyFeedbackDraftCount = z.infer<typeof feedbackLoop.operations.getMyFeedbackDraftCount.out>;
+/** `updateFeedbackDraft.in` 去掉路径参数后的 patch 形状——类型从契约派生，不手写。 */
+export type FeedbackDraftPatch = Omit<z.infer<typeof feedbackLoop.operations.updateFeedbackDraft.in>, "draftId">;
+
+const DRAFTS_PATH = feedbackLoop.operations.listMyFeedbackDrafts.path;
+const DRAFT_COUNT_PATH = feedbackLoop.operations.getMyFeedbackDraftCount.path;
+
+function draftPath(draftId: string, suffix = ""): string {
+  return `${DRAFTS_PATH}/${encodeURIComponent(draftId)}${suffix}`;
+}
+
+/**
+ * 建草稿。⚠ `structured` / `attachmentIds` 同 `submitFeedback`：没有就**不带键**，
+ * 不传 `undefined`（契约 `.strict()`，一个值为 undefined 的键在 `Object.keys` 上看得出来）。
+ */
+export async function createFeedbackDraft(input: {
+  readonly kind: FeedbackKind;
+  readonly target: FeedbackTarget;
+  readonly detail: string;
+  readonly occurredRoute: string | null;
+  readonly appVersion: string | null;
+  readonly structured?: FeedbackStructured;
+  readonly attachmentIds?: readonly string[];
+}): Promise<CreateFeedbackDraftOut> {
+  return apiRequest<CreateFeedbackDraftOut>(DRAFTS_PATH, { method: "POST", body: input });
+}
+
+/** 我的草稿（服务端按 `updatedAt` 倒序）。没有 scope——草稿没有「全组织」口径。 */
+export async function listMyFeedbackDrafts(): Promise<readonly FeedbackDraft[]> {
+  const out = await apiRequest<{ items: FeedbackDraft[] }>(DRAFTS_PATH);
+  return out.items;
+}
+
+/** 草稿数——导航徽标用（`live-admin-nav-counts.ts`），不拉整个列表。 */
+export async function getMyFeedbackDraftCount(): Promise<number> {
+  const out = await apiRequest<MyFeedbackDraftCount>(DRAFT_COUNT_PATH);
+  return out.count;
+}
+
+/**
+ * 改草稿 / 追加一条对话。`draftId` 只走 URL，**不进 body**（`lint-body-path-param-leak`）。
+ * 返回服务端**整条**草稿：对话是服务端追加的（含它自己补的 AI 回执），前端拿回来整条重渲染，
+ * 不在本地造任何一句 AI 文案。
+ */
+export async function updateFeedbackDraft(draftId: string, patch: FeedbackDraftPatch): Promise<FeedbackDraft> {
+  const out = await apiRequest<UpdateFeedbackDraftOut>(draftPath(draftId), { method: "PATCH", body: patch });
+  return out.draft;
+}
+
+export async function deleteFeedbackDraft(draftId: string): Promise<DeleteFeedbackDraftOut> {
+  return apiRequest<DeleteFeedbackDraftOut>(draftPath(draftId), { method: "DELETE" });
+}
+
+/** 草稿 → 反馈（事务在服务端）。空正文回 `DRAFT_EMPTY`，调用方要把它翻成可行动的提示。 */
+export async function submitFeedbackDraft(draftId: string): Promise<SubmitFeedbackDraftOut> {
+  return apiRequest<SubmitFeedbackDraftOut>(draftPath(draftId, "/submit"), { method: "POST" });
 }

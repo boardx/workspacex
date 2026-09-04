@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listCapabilities } from "./live-capabilities";
+import { getMyFeedbackDraftCount } from "./live-feedback";
 import type { AdminNavCountSource } from "./admin-nav-counts";
 import type { AdminModuleKey } from "./mock/admin";
 import { queryKeys } from "./query-keys";
@@ -41,9 +42,22 @@ const unavailable: AdminNavCountSource = () => {
   throw new Error("count unavailable");
 };
 
-/** 口径明确、且与对应屏幕看同一个列表的两项。 */
-export const LIVE_COUNT_KEYS = ["agent", "skill"] as const;
+/**
+ * 口径明确、且与对应屏幕看同一个列表的项。
+ *   · `agent` / `skill`：`GET /capabilities?kind=…` 的条数（#881）。
+ *   · `feedback-drafts`（UC-17.8 B1）：`GET /feedback/drafts/count`——当前用户自己的草稿数，
+ *     与 `/platform-admin/feedback-drafts` 那一屏列出来的条数是同一个口径（草稿是提交人私有物，
+ *     没有「全组织」口径，所以它不需要 orgId，但同样只在登录后才有意义）。
+ */
+export const LIVE_COUNT_KEYS = ["agent", "skill", "feedback-drafts"] as const;
 export type LiveCountKey = (typeof LIVE_COUNT_KEYS)[number];
+
+/** 每一项各自的取数函数。取不到就抛——上游据此判「—」。 */
+const LIVE_COUNT_FETCHERS: Record<LiveCountKey, (orgId: string) => Promise<number>> = {
+  agent: async (orgId) => (await listCapabilities(orgId, "agent")).length,
+  skill: async (orgId) => (await listCapabilities(orgId, "skill")).length,
+  "feedback-drafts": () => getMyFeedbackDraftCount(),
+};
 
 export type LiveCounts = Partial<Record<LiveCountKey, number>>;
 
@@ -55,8 +69,7 @@ export async function fetchLiveAdminNavCounts(orgId: string): Promise<LiveCounts
   const entries = await Promise.all(
     LIVE_COUNT_KEYS.map(async (key) => {
       try {
-        const rows = await listCapabilities(orgId, key);
-        return [key, rows.length] as const;
+        return [key, await LIVE_COUNT_FETCHERS[key](orgId)] as const;
       } catch {
         // 这一类取不到 ⇒ 不放进结果 ⇒ 下面构造来源时它是 `unavailable` ⇒ 显示「—」
         return [key, undefined] as const;
