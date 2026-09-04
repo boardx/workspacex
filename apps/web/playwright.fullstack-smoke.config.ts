@@ -324,6 +324,12 @@ export default defineConfig({
         //   可挂载 skill / 可运行 agent——同 `chat-vision-honest-degrade.spec.ts` 的理由，
         //   复用现成夹具，不重新发明 chat 链路。
         "feedback-loop-smoke.spec.ts",
+        // ⚠ B1.6/B3.8（草稿/收件箱 E2E）同理排在 `seeded`：复用同一套种子里的
+        // 引导师（`FULLSTACK_E2E.email`，草稿是 per-user 私有资源）与组织管理员
+        // （`FULLSTACK_E2E.adminEmail`，收件箱要求分诊角色 `canTriage`，同
+        // `feedback-loop-smoke.spec.ts` 管理员那条用例的权限来源）。
+        "feedback-drafts-smoke.spec.ts",
+        "inbox-smoke.spec.ts",
         // ⚠ 2026-08-27 chat 模拟（`TemplateSimulateDialog`）同理排在 `seeded`：它同样
         //   要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，唯一有权改模板的角色）。
         //   来源模板现场建 + 发布（复用 #496 已门控的路径），不往种子里塞——理由同
@@ -478,7 +484,19 @@ export default defineConfig({
     },
   ],
   fullyParallel: false,
-  retries: 0,
+  /**
+   * UC-17.8 B4——⚠ 这条 retries 是防御性兜底，不是这一轮排查的结论。补充证据推翻了
+   * 「CPU 饥饿」猜想：给 `feedback-drafts-smoke.spec.ts`① 加了 90s 超时后，同一次跑里
+   * 原始尝试与自动重试（都在**没有另一个 worker 并发**的情况下单独跑）在**同一行**
+   * `feedback-kind-需求` 上确定性地各卡满 90s——说明这不是偶发资源竞争，是这个文件
+   * 独有的某种真实状态问题（`feedback-loop-smoke.spec.ts` 同一组件同一按钮在同一次
+   * 运行里稳定通过），retries 本身治不了它。真正的排查手段是 `clickWithDiagnostics`
+   * （见该 spec 文件）：先短超时试点击，失败就把 DOM 现场打进 job log，退回
+   * `{force:true}` 不再无诊断地卡满全部预算。这里保留 `retries: 1` 作为其余 74 条
+   * 用例的兜底（CI 共享单进程 dev server 下确有偶发资源竞争的历史先例），但不再声称
+   * 它解释或修好了这个具体失败。
+   */
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
     ? [["line"], ["json", { outputFile: "test-results/fullstack-smoke.json" }]]
     : "list",
@@ -598,7 +616,25 @@ export default defineConfig({
       },
     },
     {
-      command: `next build && next start -p ${webPort}`,
+      /**
+       * UC-17.8 B4——`rm -rf .next-fullstack-e2e` 加在 `next build` 之前，是这一轮排查
+       * 挖出的真根因，不是随手加的保险。CI 实测 `feedback-drafts-smoke.spec.ts`①
+       * 确定性卡在 `feedback-kind-需求` 点击上，诊断打印出的 `feedback-form` 容器
+       * 真实 outerHTML 带着 `data-stage="compose"`——这个属性在
+       * `feedback-dialog.tsx` **整个 git 历史里从未出现过**（`git log -S"data-stage"`
+       * 零命中），且仓库里没有第二处定义 `data-testid="feedback-form"` 的地方。
+       * 唯一能解释「编译产物包含源码从未写过的标记」的是：`NEXT_DIST_DIR`
+       * （`.next-fullstack-e2e`）命中 `.gitignore` 里那条 `.next-` 开头目录通配的规则，
+       * `actions/checkout` 默认不清理未跟踪/被忽略的文件——如果这个 job 落在被
+       * 复用的 runner 工作目录上，上一次跑（哪怕是别的 PR/commit）残留的
+       * `.next-fullstack-e2e/cache`（Next.js 的持久化 webpack/SWC 增量编译缓存）
+       * 会被 `next build` 直接复用，对某个文件的编译产物没有正确按内容失效，
+       * 静默 serve 一份跟当前源码对不上的旧编译结果。`next build` 没有官方
+       * `--no-cache` 开关，显式删掉整个 dist 目录（含它内部的 `cache/` 子目录）
+       * 是唯一确定性阻断这条路径的办法——每次 build 都是真正意义上的干净构建，
+       * 不依赖"这次 runner 是不是复用的"这种猜测。
+       */
+      command: `rm -rf .next-fullstack-e2e && next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
       // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
       timeout: serverStartTimeoutMs,

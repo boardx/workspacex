@@ -10,9 +10,12 @@ import type { z } from "zod";
 import { canTriage } from "../../domain/feedback/product-feedback";
 import { listFeedback, type ListFeedbackDeps, type ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
+import { loadOwnerNamesAndProject } from "../design-workbench/project-list-shared";
+import type { DesignProjectDeps } from "../design-workbench/project-shared";
 import {
   buildExceptionInboxItems,
   buildFeedbackInboxItems,
+  buildDesignInboxItems,
   fetchAllExceptions,
   INBOX_EXCEPTION_FETCH_CAP,
 } from "./inbox-projection";
@@ -28,6 +31,8 @@ export type InboxCountsView = {
 export interface GetInboxCountsDeps {
   readonly feedback: ListFeedbackDeps;
   readonly errorLog: ErrorLogPort | undefined;
+  /** 同 `ListInboxDeps.design`——恒必填,见其头注。 */
+  readonly design: DesignProjectDeps;
 }
 
 export type GetInboxCountsInput = Pick<ListFeedbackInput, "viewerId" | "viewerOrgRole" | "viewerTeamId">;
@@ -46,10 +51,13 @@ export async function getInboxCounts(deps: GetInboxCountsDeps, input: GetInboxCo
     viewerTeamId: input.viewerTeamId,
   });
   const exceptionItems = deps.errorLog !== undefined ? await fetchAllExceptions(deps.errorLog) : [];
+  const designRows = await deps.design.projects.listForOrg();
+  const designItems = await loadOwnerNamesAndProject(deps.design, designRows);
 
   const all = [
     ...buildFeedbackInboxItems(feedbackItems).map((i) => i.item),
     ...buildExceptionInboxItems(exceptionItems).map((i) => i.item),
+    ...buildDesignInboxItems(designItems).map((i) => i.item),
   ];
 
   const byStage = { backlog: 0, doing: 0, done: 0, archived: 0 };

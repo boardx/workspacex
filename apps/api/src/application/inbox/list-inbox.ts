@@ -30,9 +30,12 @@ import { inbox as C } from "@repo/contracts";
 import { canTriage } from "../../domain/feedback/product-feedback";
 import { listFeedback, type ListFeedbackDeps, type ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
+import { loadOwnerNamesAndProject } from "../design-workbench/project-list-shared";
+import type { DesignProjectDeps } from "../design-workbench/project-shared";
 import {
   buildFeedbackInboxItems,
   buildExceptionInboxItems,
+  buildDesignInboxItems,
   compareInboxDesc,
   decodeInboxCursor,
   encodeInboxCursor,
@@ -53,6 +56,12 @@ export interface ListInboxDeps {
   /** `undefined` ⟺ 这次请求根本不该查系统异常那一半（不是超管）——见契约文件头
    *  「不报错，只是不含」；调用方（controller）按 `isPlatformOperator` 判定后决定传不传。 */
   readonly errorLog: ErrorLogPort | undefined;
+  /**
+   * B4.3——设计方案那一半。**恒必填**，与 `errorLog` 不同：`design_projects` 的可见性口径
+   * 是「组织内全员可读」（契约 `design-workbench.ts` 头注【待确认点 1】），没有 `errorLog`
+   * 那种"需要平台超管身份才查得动"的第二道门,任何过了 `canTriage` 的请求者都能看这一半。
+   */
+  readonly design: DesignProjectDeps;
 }
 
 export interface ListInboxInput extends Pick<ListFeedbackInput, "viewerId" | "viewerOrgRole" | "viewerTeamId"> {
@@ -84,10 +93,13 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
     viewerTeamId: input.viewerTeamId,
   });
   const exceptionItems = deps.errorLog !== undefined ? await fetchAllExceptions(deps.errorLog) : [];
+  const designRows = await deps.design.projects.listForOrg();
+  const designItems = await loadOwnerNamesAndProject(deps.design, designRows);
 
   let all = [
     ...buildFeedbackInboxItems(feedbackItems),
     ...buildExceptionInboxItems(exceptionItems),
+    ...buildDesignInboxItems(designItems),
   ];
 
   if (input.kind !== undefined) all = all.filter((i) => i.item.kind === input.kind);

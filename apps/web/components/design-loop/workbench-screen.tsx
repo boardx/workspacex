@@ -9,12 +9,12 @@ import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { LinkBadge } from "./badges";
 import {
-  useDesignLoop, TEMPLATE_LABEL, TEMPLATE_EMOJI, type Project, type ProjectTemplate,
+  useDesignLoop, TEMPLATE_LABEL, TEMPLATE_EMOJI, type Project, type MockProjectTemplate,
 } from "@/lib/design-loop-store";
 
-const PROJECT_KIND_ORDER: ProjectTemplate[] = ["mobile", "ui", "wireframe"];
+const PROJECT_KIND_ORDER: MockProjectTemplate[] = ["mobile", "ui", "wireframe"];
 const TEMPLATE_OPTIONS = PROJECT_KIND_ORDER.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
-const TEMPLATE_HINT: Record<ProjectTemplate, string> = {
+const TEMPLATE_HINT: Record<MockProjectTemplate, string> = {
   mobile: "手机为先的交互与布局",
   ui: "高保真界面与视觉稿",
   wireframe: "低保真结构与信息架构",
@@ -29,7 +29,7 @@ export function DesignWorkbenchHome({
 }) {
   const store = useDesignLoop();
   const [query, setQuery] = React.useState("");
-  const [dialog, setDialog] = React.useState<null | { mode: "create"; template: ProjectTemplate } | { mode: "edit"; project: Project }>(null);
+  const [dialog, setDialog] = React.useState<null | { mode: "create"; template: MockProjectTemplate } | { mode: "edit"; project: Project }>(null);
   const [generating, setGenerating] = React.useState<string | null>(null);
 
   if (state === "loading") {
@@ -63,9 +63,9 @@ export function DesignWorkbenchHome({
 
   const projects = store.projects.filter((p) => query.trim() === "" || p.name.toLowerCase().includes(query.trim().toLowerCase()));
 
-  const startCreate = (template: ProjectTemplate) => setDialog({ mode: "create", template });
+  const startCreate = (template: MockProjectTemplate) => setDialog({ mode: "create", template });
 
-  const handleCreate = (input: { name: string; template: ProjectTemplate; problem: string }) => {
+  const handleCreate = (input: { name: string; template: MockProjectTemplate; problem: string }) => {
     setDialog(null);
     setGenerating(input.name);
     window.setTimeout(() => {
@@ -200,14 +200,14 @@ function ProjectCard({ project, onOpen, onEdit, onDelete }: { project: Project; 
 function ProjectDialog({
   initial, editing, onClose, onCreate, onSave,
 }: {
-  initial: { name?: string; template: ProjectTemplate; problem?: string };
+  initial: { name?: string; template: MockProjectTemplate; problem?: string };
   editing: boolean;
   onClose: () => void;
-  onCreate: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
-  onSave: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
+  onCreate: (input: { name: string; template: MockProjectTemplate; problem: string }) => void;
+  onSave: (input: { name: string; template: MockProjectTemplate; problem: string }) => void;
 }) {
   const [name, setName] = React.useState(initial.name ?? "");
-  const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
+  const [template, setTemplate] = React.useState<MockProjectTemplate>(initial.template);
   const [problem, setProblem] = React.useState(initial.problem ?? "");
   const canSubmit = name.trim() !== "";
 
@@ -218,7 +218,7 @@ function ProjectDialog({
         <h3 className="text-16 font-semibold">{editing ? "编辑设计" : "新建设计"}</h3>
         <div className="flex flex-col gap-1">
           <span className="text-11 font-medium text-muted-foreground">类别</span>
-          <Select options={TEMPLATE_OPTIONS} value={template} onValueChange={(v) => setTemplate(v as ProjectTemplate)} data-testid="project-dialog-template" />
+          <Select options={TEMPLATE_OPTIONS} value={template} onValueChange={(v) => setTemplate(v as MockProjectTemplate)} data-testid="project-dialog-template" />
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">名称</label>

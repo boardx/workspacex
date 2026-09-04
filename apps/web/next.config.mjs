@@ -305,6 +305,10 @@ export default {
       // `getInboxCounts`（`/inbox/counts`）——同一个坑的复现，理由同上面 `/feedback` 那条。
       { source: `${prefix}/inbox`, destination: `${apiOrigin}/inbox` },
       { source: `${prefix}/inbox/:path*`, destination: `${apiOrigin}/inbox/:path*` },
+      // UC-17.8 B4.3（PM 设计工作台）：`design-workbench.ts` 挂了裸 `/pm-designs`
+      // 与 `/pm-designs/:projectId` 等——同一个坑的复现，理由同上面 `/inbox` 那条。
+      { source: `${prefix}/pm-designs`, destination: `${apiOrigin}/pm-designs` },
+      { source: `${prefix}/pm-designs/:path*`, destination: `${apiOrigin}/pm-designs/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // issue #2664（异步子任务派发）：`subtask-run.controller.ts` 挂了
