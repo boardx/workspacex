@@ -67,10 +67,15 @@
 - ✅ B3.4（web 切真 API）2026-09-04 落地：`inbox-screen.tsx` 从 mock store 切到
   `listInbox`/`getInboxCounts`；看板拖拽走 `triageFeedback`/`updateSystemErrorLifecycle`
   （乐观更新+回滚，不做需理由不做乐观移动，系统异常禁止拖到已完成）；withheld 时
-  Chip 禁用+提示。GitHub 徽标现查升级为 PR、建 Issue 完整编辑器留 TODO（B3.5）。
-- 待做：B3.5（GitHub 徽标现查升级 + 建 Issue 编辑器接回）、B3.6（旧屏退役+重签，
-  本轮**未做**——旧 `/platform-admin/feedback` 与新 `/platform-admin/inbox` 目前并存）、
-  B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
+  Chip 禁用+提示。
+- ✅ B3.5（GitHub 徽标现查升级 + 建 Issue 编辑器）2026-09-04 落地：drawer 展开时对
+  `kind===feedback` 且已关联 github 的条目现查 `getFeedbackGithubIssue`，按
+  `merged>open>closed` 升级为 PR 徽标（看板/列表卡片仍用列表推断值，不批量现查）；
+  「创建 GitHub Issue」接回真实编辑器（抄 `admin/feedback-screen.tsx` 的
+  `defaultIssueDraft`），仅 `stage===backlog` 时可用——`doing→doing` 是幂等 replay
+  不会真的建 issue，故未对 `doing` 开放该按钮（避免假成功）。8 条单测。
+- 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
+  `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
