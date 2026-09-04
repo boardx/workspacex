@@ -251,6 +251,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     const payload = { expectedVersion: view.version };
     const operation = "generate-report";
     localReportStream.current = true;
+    setActiveStep("report");
     setReportPending(true);
     try {
       const next = await generateDigitalInterviewReportStream(
