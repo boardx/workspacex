@@ -377,13 +377,16 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
   const KEYS = "DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB";
 
   /** 建一对 src/dest，跑投影，返回 dest 的最终内容。 */
-  function project(srcContent: string): { status: number | null; dest: string; stderr: string } {
+  function project(
+    srcContent: string,
+    keys: string = KEYS,
+  ): { status: number | null; dest: string; stderr: string } {
     const temp = tempDir();
     const src = join(temp, "deploy.env");
     const dest = join(temp, "deep-agent.env");
     writeFileSync(src, srcContent);
     writeFileSync(dest, "KERNEL_MODEL_BASE_URL=http://x\n");
-    const r = runLib(`deep_agent_project_capability_env '${src}' '${dest}' ${KEYS}`);
+    const r = runLib(`deep_agent_project_capability_env '${src}' '${dest}' ${keys}`);
     return { status: r.status, dest: readFileSync(dest, "utf8"), stderr: r.stderr };
   }
 
@@ -449,5 +452,24 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
       /^DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,choose_execution_option$/m,
     );
     expect(provisionText).not.toMatch(/^DEEP_AGENT_CHECKPOINT_DB=/m);
+  });
+
+  it("issue #2687：deploy.sh 的白名单调用也带上 DEEP_AGENT_TASK_AUTO_CLASSIFY（#2662）与 DEEP_AGENT_ASYNC_SUBTASKS_ENABLED（#2664）", () => {
+    const deployText = readFileSync(DEPLOY, "utf8");
+    const callIdx = deployText.indexOf("deep_agent_project_capability_env");
+    const runIdx = deployText.indexOf("docker run -d --name workspacex-deep-agent");
+    // 取白名单调用这一段（第一次调用起，到 docker run 之前），只在这一段里断言
+    // 两个新键存在，避免误命中注释里的散在提及。
+    const callBlock = deployText.slice(callIdx, runIdx);
+    expect(callBlock).toContain("DEEP_AGENT_TASK_AUTO_CLASSIFY");
+    expect(callBlock).toContain("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED");
+    // 反证：白名单机制本身与既有三键完全一致——设了就投影，不设就不留行。
+    const r = project(
+      "DEEP_AGENT_TASK_AUTO_CLASSIFY=1\nDEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1\n",
+      "DEEP_AGENT_TASK_AUTO_CLASSIFY DEEP_AGENT_ASYNC_SUBTASKS_ENABLED",
+    );
+    expect(r.status).toBe(0);
+    expect(r.dest).toContain("DEEP_AGENT_TASK_AUTO_CLASSIFY=1");
+    expect(r.dest).toContain("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1");
   });
 });
