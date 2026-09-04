@@ -590,6 +590,11 @@ export function FollowUpSuggestions({
       className="flex flex-wrap gap-2"
       aria-busy={isLoading}
     >
+      {/* issue #2703——两组建议 chip 原来写的是 Tailwind 内建 `text-xs`（12px/16px 行高），
+          不是本仓 `lib/font-scale.ts` 唯一事实源里的 `text-12`（12px/18px 行高）——同样
+          是 12px 字号，行高/字距却跟全仓其余 12px 档位的文字不是同一份视觉，
+          `lint-design.sh` 只扫 `text-<数字>`，扫不到这种内建类名，所以此前没被拦下。
+          改成 `text-12`，与页面其余 12px 文字对齐。 */}
       {localSuggestions.map((chip) => (
         // issue #2694 修复——`onDismiss` 存在时多渲染一个关闭按钮。两个按钮
         // 并列包在一个 `inline-flex` 容器里，**不**把关闭按钮嵌进 `chip.onSelect`
@@ -600,7 +605,7 @@ export function FollowUpSuggestions({
             type="button"
             data-testid={chip.id}
             disabled={disabled || chip.disabled}
-            className="px-3 py-1 text-xs text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            className="px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
             onClick={chip.onSelect}
           >
             {chip.label}
@@ -625,7 +630,7 @@ export function FollowUpSuggestions({
           type="button"
           data-testid={`copilotkit-v2-suggestion-${i}`}
           disabled={disabled || s.isLoading}
-          className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-full border border-border px-3 py-1 text-12 text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           onClick={() => onSelect(s.message)}
         >
           {s.title || s.message}
