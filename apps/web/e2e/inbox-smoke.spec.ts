@@ -69,12 +69,14 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
-    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
-    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
-    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
     await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
-    await page.getByTestId("feedback-kind-需求").click();
+    // #2683 表单渐进展示：compose（只有详细说说+语音）→「下一步」→ review（这时才有
+    // kind/标题/结构化字段/提交）——同 feedback-drafts-smoke.spec.ts①、
+    // feedback-loop-smoke.spec.ts 的既有纪律。
     await page.getByTestId("feedback-detail-input").fill(`${title}。每次导出都要重新选一遍时间范围，历史记录应该能直接复用。`);
+    await page.getByTestId("feedback-proceed-review").click();
+    await expect(page.getByTestId("feedback-kind-需求")).toBeVisible();
+    await page.getByTestId("feedback-kind-需求").click();
 
     const submitted = page.waitForResponse(
       (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),

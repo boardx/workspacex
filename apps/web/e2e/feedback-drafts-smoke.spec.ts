@@ -54,91 +54,28 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await expect(page).toHaveURL(/\/projects$/);
 }
 
-/**
- * 诊断版点击——CI 实测三轮排查（渲染时序/超时预算/并发窗口）都排除后，`feedback-kind-*`
- * 的点击在这一个文件里仍确定性卡满 90s（同一提交原始跑 + retry 两次都卡在同一行），
- * 而 `feedback-loop-smoke.spec.ts` 同一组件、同一按钮在同一次运行里稳定通过——说明
- * 剩下的不是资源问题，是这个文件独有的某种真实状态差异，但看不到 CI 的
- * screenshot/trace（本环境出站网络不通到 actions 产物的 blob 存储）没法肉眼确认。
- * 这里在真正卡死前先做一轮短超时探测 + 打印 DOM 现场到 stdout（job log 能读到），
- * 探测不到问题就退回 `{force:true}` 强制点击——如果这本来就是一次 actionability
- * 误判（元素其实可点，只是稳定性检查被什么东西撞了），强制点击会成功且不掩盖真正的
- * 产品缺陷（后续断言仍然是真实断言，不会因为强制点击就跳过验证）。
- */
-async function clickWithDiagnostics(page: Page, testId: string): Promise<void> {
-  const locator = page.getByTestId(testId);
-  try {
-    await locator.click({ timeout: 15_000 });
-    return;
-  } catch (err) {
-    // 上一轮 CI 实测：诊断回传 `{found:false}`——15s 后目标按钮**根本不在 DOM 里**，
-    // 不是被别的元素挡住/不可见这种 actionability 误判。既然连按钮本体都消失了，
-    // 这次多打几个相邻锚点（弹层容器/标题/URL）判断是「整个弹层被卸载」还是
-    // 「只有这个 fieldset 消失、弹层其余部分还在」，缩小到底是哪一层状态没了。
-    const diag = await page.evaluate((tid) => {
-      const el = document.querySelector(`[data-testid="${tid}"]`);
-      const formEl = document.querySelector('[data-testid="feedback-form"]');
-      const base = {
-        url: window.location.href,
-        dialogFormPresent: formEl !== null,
-        // 上一轮证实 feedback-form 存在但 kind 按钮不在——直接把这个容器里真实渲染了
-        // 什么打出来，不再猜测究竟是哪一层状态没了。
-        dialogFormHtml: formEl?.outerHTML.slice(0, 1500) ?? null,
-        dialogTitlePresent: document.querySelector('[data-testid="feedback-dialog-title"]') !== null,
-        dialogTitleText: document.querySelector('[data-testid="feedback-dialog-title"]')?.textContent ?? null,
-        railFeedbackPresent: document.querySelector('[data-testid="rail-feedback"]') !== null,
-      };
-      if (!el) return { ...base, found: false };
-      const rect = el.getBoundingClientRect();
-      const style = window.getComputedStyle(el);
-      const atPoint = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      return {
-        ...base,
-        found: true,
-        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-        display: style.display,
-        visibility: style.visibility,
-        opacity: style.opacity,
-        pointerEvents: style.pointerEvents,
-        disabled: (el as HTMLButtonElement).disabled ?? null,
-        elementAtPointIsSelf: atPoint === el,
-        elementAtPointTestId: atPoint?.getAttribute("data-testid") ?? null,
-        elementAtPointTag: atPoint?.tagName ?? null,
-      };
-    }, testId);
-    // eslint-disable-next-line no-console -- 诊断信息要落进 CI job log，不是给开发者本地看的调试残留。
-    console.log(`[clickWithDiagnostics] ${testId} 15s 内未能常规点击，DOM 现场：`, JSON.stringify(diag), "原始错误：", String(err));
-    await locator.click({ force: true, timeout: 15_000 });
-  }
-}
-
 test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
   test("① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后如实显示「仅平台运营可见」", async ({ page }) => {
-    // CI 实测排除到这一步：不是渲染时序（已等 dialog-title 落定）、不是总超时预算
-    // （放宽到 90s 仍卡满）、不是并发资源竞争（单独跑、无重试并发也一样）——是
-    // `clickWithDiagnostics` 实测出的一个更具体的事实：15s 后 `feedback-kind-需求`
-    // **根本不在 DOM 里**了。这里加上浏览器侧 console/pageerror 转发，把可能的
-    // React 渲染期异常也落进 job log，帮下一轮定位是谁把它卸载了。
-    test.setTimeout(90_000);
-    page.on("console", (msg) => {
-      if (msg.type() === "error") console.log(`[browser console.error] ${msg.text()}`); // eslint-disable-line no-console -- 诊断需要落进 job log。
-    });
-    page.on("pageerror", (err) => {
-      console.log(`[browser pageerror] ${String(err)}`); // eslint-disable-line no-console -- 诊断需要落进 job log。
-    });
     await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
 
-    /* ── 存草稿：图标栏「反馈」入口，填正文，点「存为草稿」 ── */
+    /* ── 存草稿：图标栏「反馈」入口，先填正文（compose 阶段），点「下一步」进入
+       review 阶段才有 kind/标题/结构化字段/存为草稿——#2683 表单渐进展示改的两段式
+       流程（`feedback-dialog.tsx` `stage: "compose" | "review"`），本文件之前的版本
+       还按旧的单段式（kind 按钮直接在 compose 阶段可点）写，CI 实测三轮排查最后
+       定位到：`harness-verify.yml` 用 `refs/pull/<N>/merge` 跑，main 早已带着这次
+       重构合并，旧断言在 merge-ref 上必然点不到已经不存在的按钮。 ── */
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
-    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
-    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
-    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
     await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
-    await clickWithDiagnostics(page, "feedback-kind-需求");
     await page.getByTestId("feedback-detail-input").fill(DRAFT_DETAIL);
+    await page.getByTestId("feedback-proceed-review").click();
+    // AI 整理（`structureFeedbackDraft`）这个 e2e 环境没配真实模型，稳定失败、
+    // 静默退回 `deriveFeedbackTitle` 兜底——不影响进入 review、也不影响标题最终
+    // 是 DRAFT_DETAIL 的第一句（= DRAFT_TITLE，见下方断言）。
+    await expect(page.getByTestId("feedback-kind-需求")).toBeVisible();
+    await page.getByTestId("feedback-kind-需求").click();
 
     const draftSaved = page.waitForResponse(
       (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback/drafts`),
