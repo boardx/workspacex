@@ -8,7 +8,6 @@ import { RosterPanel, type RosterPanelProps } from "@/components/chat/chat-roste
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
 import {
   INSPECTOR_TABS,
-  isInspectorCollapsed,
   nextInspectorTab,
   type InspectorSignals,
   type InspectorTab,
@@ -157,14 +156,18 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
    * 有内容时**从不生效**，只在信号自然清空的那一刻顺带"看起来生效了"。
    *
    * 改法：把"用户手动展开过"这一个方向的标记，换成一个三态的显式覆盖——
-   * `"expanded"` / `"collapsed"` / `null`（未覆盖，跟随 `isInspectorCollapsed`
-   * 自动判定）。「收起」显式写入 `"collapsed"`，不再指望自动判据"恰好也判折叠"。
+   * `"expanded"` / `"collapsed"` / `null`（未覆盖）。「收起」显式写入
+   * `"collapsed"`，不再指望自动判据"恰好也判折叠"。
    *
-   * ⚠ 覆盖不是一道永久锁：一旦有真正的新内容到达（`nextInspectorTab` 判定的
-   * 跃迁——产物变多/材料变多/运行从停到跑），说明用户大概率想看这条新动态，
-   * 这里清掉 `"collapsed"` 覆盖，交还给自动判据（此时新内容还在，自动判据会
-   * 展开）。这与既有"手动展开过不再自动折叠回去"是同一条纪律的对称版本，见
-   * `isInspectorCollapsed` 自己头注"折叠是没内容的默认值，不是一道锁"。
+   * ⚠ issue #2695（2026-09-04 人类原话「应改为仅手动点击才展开」，覆盖上面
+   * 2026-08-30 那版"新内容到达就清掉收起覆盖"的对称设计）—— 那版设计的本意
+   * 是好的（不让用户错过新动态），但实测效果是：只要有新素材/产物/运行信号
+   * 到达，无论用户是否点过「收起」，面板都会自己弹开，用户体验成了"关不掉的
+   * 面板"。人类的结论很直接：**折叠只能靠自动判据探测"有没有内容"，展开只能
+   * 靠用户手点**——不再有"新内容到达 = 视同用户想展开"这一条自动路径。
+   * 所以这里不再监听信号跃迁去清 `"collapsed"` 覆盖；`nextInspectorTab` 仍然
+   * 正常跑，只是切**未必可见的** `activeTab`，供用户之后手动展开时落在最新
+   * 页签上，本身不触发展开。
    */
   const [override, setOverride] = React.useState<"expanded" | "collapsed" | null>(null);
 
@@ -172,24 +175,19 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   React.useEffect(() => {
     const prev = prevSignalsRef.current;
     prevSignalsRef.current = signals;
-    setActiveTab((current) => {
-      const next = nextInspectorTab(prev, signals, current);
-      if (next !== current) {
-        // 真正的新内容跃迁——收起覆盖不该继续压住它，让自动判据重新接管。
-        setOverride((prevOverride) => (prevOverride === "collapsed" ? null : prevOverride));
-      }
-      return next;
-    });
+    setActiveTab((current) => nextInspectorTab(prev, signals, current));
   }, [signals]);
 
-  const hasPlan = effectivePlanTodos !== null && effectivePlanTodos.length > 0;
-  const hasRunDetails = runPhaseLabel !== null || runElapsedSeconds !== null;
-  const hasRoster = (roster?.roster?.agents.length ?? 0) > 0;
-  const collapsed = override === "expanded"
-    ? false
-    : override === "collapsed"
-      ? true
-      : isInspectorCollapsed(signals, hasPlan, hasRunDetails, hasRoster);
+  /**
+   * issue #2695 —— 折叠态只有"用户手点展开/收起"（`override`）与"默认折叠"
+   * 两条路径，不再有 `isInspectorCollapsed` 驱动的自动展开默认路径：`override`
+   * 为 `null`（用户从没手动操作过）时一律折叠,即便此刻已经有素材/产物/在跑的
+   * run——那也只是把「进度/产物/材料」标出来等用户自己点开看,不是替用户点开。
+   * `isInspectorCollapsed` 本体仍在 `chat-task-inspector-tabs.ts` 里保留、被
+   * 单测钉住,是给未来"折叠时页签角标要不要标红点"一类需求留的信号,不在这里
+   * 驱动展开态。
+   */
+  const collapsed = override !== "expanded";
 
   // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
   const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
