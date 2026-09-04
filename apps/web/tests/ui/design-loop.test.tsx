@@ -23,7 +23,7 @@
  *      两个出口读的是服务端返回的真实 `inboxCode`。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api-client", async () => {
@@ -41,7 +41,7 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
-import { DesignLoopProvider } from "@/lib/design-loop-store";
+import { DesignLoopProvider, useDesignLoop, type Project } from "@/lib/design-loop-store";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
@@ -476,7 +476,7 @@ describe("⑧ PM 设计工作台：pushProject 标记已推送并生成 D- 编�
     act(() => { code = result.current.pushProject("p1"); });
 
     expect(code.startsWith("D-")).toBe(true);
-    const p = result.current.projects.find((x) => x.id === "p1")!;
+    const p = result.current.projects.find((x: Project) => x.id === "p1")!;
     expect(p.pushed).toBe(true);
     expect(p.resolvedInbox).toBe(code);
   });
