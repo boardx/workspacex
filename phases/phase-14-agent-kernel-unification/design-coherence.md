@@ -1,8 +1,8 @@
 ---
 covers_bundles: [kernel-gateway, streaming-transport, plan-permissions, artifacts-steering, error-observability]
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-04T19:21:52Z"
 ---
 
 # Phase 14 阶段一致性复核
