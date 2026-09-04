@@ -71,13 +71,25 @@ async function clickWithDiagnostics(page: Page, testId: string): Promise<void> {
     await locator.click({ timeout: 15_000 });
     return;
   } catch (err) {
+    // 上一轮 CI 实测：诊断回传 `{found:false}`——15s 后目标按钮**根本不在 DOM 里**，
+    // 不是被别的元素挡住/不可见这种 actionability 误判。既然连按钮本体都消失了，
+    // 这次多打几个相邻锚点（弹层容器/标题/URL）判断是「整个弹层被卸载」还是
+    // 「只有这个 fieldset 消失、弹层其余部分还在」，缩小到底是哪一层状态没了。
     const diag = await page.evaluate((tid) => {
       const el = document.querySelector(`[data-testid="${tid}"]`);
-      if (!el) return { found: false };
+      const base = {
+        url: window.location.href,
+        dialogFormPresent: document.querySelector('[data-testid="feedback-form"]') !== null,
+        dialogTitlePresent: document.querySelector('[data-testid="feedback-dialog-title"]') !== null,
+        dialogTitleText: document.querySelector('[data-testid="feedback-dialog-title"]')?.textContent ?? null,
+        railFeedbackPresent: document.querySelector('[data-testid="rail-feedback"]') !== null,
+      };
+      if (!el) return { ...base, found: false };
       const rect = el.getBoundingClientRect();
       const style = window.getComputedStyle(el);
       const atPoint = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
       return {
+        ...base,
         found: true,
         rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
         display: style.display,
@@ -100,12 +112,18 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
   test("① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后如实显示「仅平台运营可见」", async ({ page }) => {
-    // 三轮 CI 实测：点 feedback-kind-* 偶发卡在 30s 默认测试超时里——不是元素不存在
-    // （等 feedback-dialog-title 落定文本之后才点），是 fullstack-smoke 共享单进程
-    // Next dev server，另一个 worker 在跑重负载用例时事件循环被挤占。放宽整条用例的
-    // 超时（同 feedback-loop-smoke.spec.ts ③④ 用例先例），不是给单次动作加超时——
-    // 后者会被测试自身的默认 30s 总超时先掐断，纯属无效。
+    // CI 实测排除到这一步：不是渲染时序（已等 dialog-title 落定）、不是总超时预算
+    // （放宽到 90s 仍卡满）、不是并发资源竞争（单独跑、无重试并发也一样）——是
+    // `clickWithDiagnostics` 实测出的一个更具体的事实：15s 后 `feedback-kind-需求`
+    // **根本不在 DOM 里**了。这里加上浏览器侧 console/pageerror 转发，把可能的
+    // React 渲染期异常也落进 job log，帮下一轮定位是谁把它卸载了。
     test.setTimeout(90_000);
+    page.on("console", (msg) => {
+      if (msg.type() === "error") console.log(`[browser console.error] ${msg.text()}`); // eslint-disable-line no-console -- 诊断需要落进 job log。
+    });
+    page.on("pageerror", (err) => {
+      console.log(`[browser pageerror] ${String(err)}`); // eslint-disable-line no-console -- 诊断需要落进 job log。
+    });
     await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
 
     /* ── 存草稿：图标栏「反馈」入口，填正文，点「存为草稿」 ── */
