@@ -11,32 +11,47 @@ import { inflateSync } from "node:zlib";
  *    ICO 头解析断言帧数与每帧尺寸，而不是信任文件名。
  * 2. 生成的图标内容在画布里不居中（裁切 bbox 计算把透明像素误判成「内容」，导致
  *    padding 基于错误的外框计算）——用最小 PNG 解码器读出 alpha 通道的实际
- *    bounding box，断言左右/上下留白对称（allow 1-2px 取整误差）。
+ *    bounding box，断言左右/上下留白对称（1-2px 取整误差）。
  *
  * 这两个 bug 单靠"目视比对截图"都不会被发现（ICO 帧数目视看不出来；居中偏移在小图标
  * 上人眼也很难分辨），必须用可执行断言钉住，否则同一类回归会再次发生。
+ *
+ * 2026-09-04 二次加固（同一 PR 上的第二轮 review）：居中断言原先按画布尺寸的 12% 给容差，
+ * 和注释里写的「1-2px」名不副实——之前生成的资产本来就已经对称到 ~1px，12% 的容差没有
+ * 拦住任何真实回归，只是看起来在测；改成固定 2px。另外 ICO 解析只读了目录项声明的
+ * 宽高，没有解开每帧内嵌的 PNG 校验它自己的 IHDR 是否真和目录项一致（万一目录项和帧体
+ * 对不上，之前那种"文件名说 48x48、实际只有 16x16"的错法在自身内部也能重现）——现在直接
+ * 复用同一个 PNG 解码器解开每一帧，并把 16/32 两帧的原始字节与独立的
+ * favicon-16x16.png / favicon-32x32.png 做逐字节比对（两者理应是同一份数据）。
  */
 
 const PUBLIC_DIR = join(__dirname, "..", "public");
 
-function readIcoFrames(path: string): Array<{ width: number; height: number; size: number }> {
+interface IcoFrame {
+  width: number;
+  height: number;
+  size: number;
+  data: Buffer;
+}
+
+function readIcoFrames(path: string): IcoFrame[] {
   const buf = readFileSync(path);
   const count = buf.readUInt16LE(4);
-  const frames = [];
+  const frames: IcoFrame[] = [];
   for (let i = 0; i < count; i++) {
     const off = 6 + i * 16;
     const w = buf.readUInt8(off) || 256;
     const h = buf.readUInt8(off + 1) || 256;
     const size = buf.readUInt32LE(off + 8);
-    frames.push({ width: w, height: h, size });
+    const offset = buf.readUInt32LE(off + 12);
+    frames.push({ width: w, height: h, size, data: buf.subarray(offset, offset + size) });
   }
   return frames;
 }
 
 /** 只需支持我们自己生成的这一类 PNG：非隔行、8-bit、RGBA（colorType 6）。 */
-function decodePngRGBA(path: string): { width: number; height: number; alpha: Uint8Array } {
-  const buf = readFileSync(path);
-  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error(`not a PNG: ${path}`);
+function decodePngRGBA(buf: Buffer, label: string): { width: number; height: number; alpha: Uint8Array } {
+  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error(`not a PNG: ${label}`);
   let width = 0;
   let height = 0;
   let bitDepth = 0;
@@ -119,14 +134,36 @@ function alphaBoundingBox(width: number, height: number, alpha: Uint8Array, thre
 }
 
 describe("品牌 favicon 资产完整性", () => {
-  it("favicon.ico / favicon-48x48.ico 各自内嵌 16/32/48 三帧，且每帧真实尺寸与声明一致", () => {
+  it("favicon.ico / favicon-48x48.ico 各自内嵌 16/32/48 三帧，每帧目录尺寸与帧体自身 PNG IHDR 一致", () => {
     for (const name of ["favicon.ico", "favicon-48x48.ico"]) {
       const frames = readIcoFrames(join(PUBLIC_DIR, name));
       const sizes = frames.map((f) => f.width).sort((a, b) => a - b);
       expect(sizes, `${name} 应内嵌 [16,32,48] 三帧，实际 ${JSON.stringify(sizes)}`).toEqual([16, 32, 48]);
       for (const f of frames) {
-        expect(f.width, `${name} 帧应为正方形`).toBe(f.height);
+        expect(f.width, `${name} 目录项应为正方形`).toBe(f.height);
+        // 目录项只是声明；真正决定浏览器渲染尺寸的是帧体自己的 PNG IHDR——两者必须一致，
+        // 否则会重现"文件名/目录说是一个尺寸，解出来是另一个"的同类错法。
+        const decoded = decodePngRGBA(Buffer.from(f.data), `${name}#${f.width}`);
+        expect(decoded.width, `${name} 的 ${f.width}px 目录项，帧体 PNG 实际宽度`).toBe(f.width);
+        expect(decoded.height, `${name} 的 ${f.width}px 目录项，帧体 PNG 实际高度`).toBe(f.height);
       }
+    }
+  });
+
+  it("favicon.ico 的 16/32 两帧与独立的 favicon-16x16.png / favicon-32x32.png 逐字节相同", () => {
+    const frames = readIcoFrames(join(PUBLIC_DIR, "favicon.ico"));
+    const byWidth = new Map(frames.map((f) => [f.width, f]));
+    for (const [size, standaloneName] of [
+      [16, "favicon-16x16.png"],
+      [32, "favicon-32x32.png"],
+    ] as const) {
+      const frame = byWidth.get(size);
+      expect(frame, `favicon.ico 应有 ${size}px 帧`).toBeTruthy();
+      const standalone = readFileSync(join(PUBLIC_DIR, standaloneName));
+      expect(
+        Buffer.compare(frame!.data, standalone),
+        `favicon.ico 的 ${size}px 帧应与 ${standaloneName} 是同一份 PNG 数据`,
+      ).toBe(0);
     }
   });
 
@@ -138,7 +175,7 @@ describe("品牌 favicon 资产完整性", () => {
   ] as const)("%s 尺寸正确，且品牌 X 图形标在画布中居中（留白对称）", (name, expected) => {
     const path = join(PUBLIC_DIR, name);
     expect(existsSync(path), `${path} 应存在`).toBe(true);
-    const { width, height, alpha } = decodePngRGBA(path);
+    const { width, height, alpha } = decodePngRGBA(readFileSync(path), name);
     expect(width).toBe(expected);
     expect(height).toBe(expected);
     const { minX, maxX, minY, maxY } = alphaBoundingBox(width, height, alpha);
@@ -147,8 +184,9 @@ describe("品牌 favicon 资产完整性", () => {
     const rightMargin = width - 1 - maxX;
     const topMargin = minY;
     const bottomMargin = height - 1 - maxY;
-    // 小图标缩放取整会有 1-2px 误差，允许的不对称上限按画布尺寸的 ~12% 给余量。
-    const tolerance = Math.max(2, Math.round(width * 0.12));
+    // 当前生成的资产实测对称到 ~1px；容差固定给 2px 取整余量，不按画布尺寸放大
+    // ——按比例给容差（之前是 12%）在小图标上等于没有断言，拦不住真实的居中回归。
+    const tolerance = 2;
     expect(
       Math.abs(leftMargin - rightMargin),
       `${name} 左右留白应大致对称：left=${leftMargin} right=${rightMargin}`,
