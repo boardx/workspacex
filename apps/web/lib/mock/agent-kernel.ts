@@ -149,7 +149,10 @@ export const MOCK_PERMISSION_REQUEST = {
 };
 
 // ── 05 产出物面板 ──────────────────────────────────────────────────
-export interface ArtifactVersion {
+// 与 packages/contracts/src/artifact.ts 的 ArtifactVersion（phase-00 通用文件版本模型）
+// 字段形状不同（这里是 agent-kernel 产出物专用的 mock 视图），改名避免同名误导——
+// 同名但字段对不上比不同名更误导（contract-design.md §五-3）。
+export interface AgentKernelArtifactVersionPreview {
   readonly version: number;
   readonly label: string;
   readonly createdAt: string;
@@ -159,14 +162,15 @@ export interface ArtifactVersion {
   readonly changeNote: string;
 }
 
-export interface Artifact {
+// 同上，与 artifact.ts 的 Artifact 改名避免误导同名。
+export interface AgentKernelArtifactPreview {
   readonly id: string;
   readonly name: string;
   readonly kind: "pdf" | "docx" | "png";
-  readonly versions: readonly ArtifactVersion[];
+  readonly versions: readonly AgentKernelArtifactVersionPreview[];
 }
 
-export const MOCK_ARTIFACT: Artifact = {
+export const MOCK_ARTIFACT: AgentKernelArtifactPreview = {
   id: "art-q3-summary",
   name: "q3-summary.pdf",
   kind: "pdf",

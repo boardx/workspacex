@@ -16,7 +16,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   MOCK_PLAN_TODOS, MOCK_PROGRESS_STEPS, MOCK_PERMISSION_REQUEST,
   MOCK_ARTIFACT, MOCK_ERROR, RISK_LABEL,
-  type PlanTodo, type TodoRisk, type ProgressStep, type ArtifactVersion,
+  type PlanTodo, type TodoRisk, type ProgressStep,
+  type AgentKernelArtifactVersionPreview,
 } from "@/lib/mock/agent-kernel";
 
 // 共享：风险徽标（L0/L1/L2）——颜色语义固定，L2 用 warning

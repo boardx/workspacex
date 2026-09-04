@@ -74,3 +74,11 @@ export * as platformMembers from "./platform-members";
 
 /* ── 运营状态屏：服务中断时长与可用性可视化（issue #2645）───────────────── */
 export * as systemUptime from "./system-uptime";
+
+/* ── phase-14 契约束（agent-kernel-unification，五束，2026-09-04 建，
+ *   design-signoff.md 全部 status: pending，待人类签核）───────────────── */
+export * as kernelGateway from "./kernel-gateway";
+export * as streamingTransport from "./streaming-transport";
+export * as planPermissions from "./plan-permissions";
+export * as artifactsSteering from "./artifacts-steering";
+export * as errorObservability from "./error-observability";

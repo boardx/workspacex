@@ -68,6 +68,16 @@
     "stage-aggregation": "ui-preview/stage-aggregation",
     "viewer-role": "ui-preview/viewer-role"
   },
+  "phase-14-agent-kernel-unification": {
+    "//": "原始 8 屏由 ui-prototyper 交付在扁平的 ui-preview/ 下（无束间重叠），本轮按能力域把各自的截图复制进四个独占子目录，满足『一束 ↔ 一个独占目录 ∧ 引用集逐张相等』的默认模型（原图不删，留痕）：streaming-transport→02/07/08，plan-permissions→01/03，artifacts-steering→04/05，error-observability→06。kernel-gateway 是纯后端网关重构（R8 明确无 UI），用 reuse_bundle 复用 streaming-transport（同 phase 内已产出材料、独立全绿的束）。",
+    "kernel-gateway": {
+      "reuse_bundle": "streaming-transport"
+    },
+    "streaming-transport": "ui-preview/streaming-transport",
+    "plan-permissions": "ui-preview/plan-permissions",
+    "artifacts-steering": "ui-preview/artifacts-steering",
+    "error-observability": "ui-preview/error-observability"
+  },
   "phase-12-uiux-foundation": {
     "//": "四束 ui.md 都声明『已在本文件补上映射行』，但该 PR（#1857）实际漏提交这段——门控报判定③『未声明』就是这个漏洞。目录尚未由 ui-prototyper 产出，补声明后门控改报判定④『目录不存在/0 张 png』，这是正确的红，同 asset-governance/research 先例。",
     "accessibility-guardrails": "ui-preview/accessibility-guardrails",
