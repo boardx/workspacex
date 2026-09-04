@@ -6,9 +6,10 @@
   本仓至今没有一个会话在 docker 出网可用的环境里把它跑通过；下一个能跑 docker 的
   会话应先补跑 `pnpm harness verify --sprint 14/01 --feature F01`，而不是假设"合入
   main = passing"。
-- 无 feature 处于 harness `passing`。本轮（F13）与上一轮（F01）都撞上同一条环境
-  blocker——见下方"仍损坏或未验证"，两个 feature 的 status 都未被手动改动，符合
-  "只能由验证脚本门控转移"的硬约束。
+- 无 feature 处于 harness `passing`。F13、F01 与本轮（F10）都撞上"Docker 在本会话
+  不可用"这同一大类环境限制（具体故障点不同，见各自小节）——见下方"仍损坏或未
+  验证"，三个 feature 的 status 都未被手动改动，符合"只能由验证脚本门控转移"的
+  硬约束。
 
 ## 本轮改动（F01：apps/api 退化为薄网关）
 - `apps/api/src/application/agent-run/execute-run.ts`：删除 `useLazySkillLoading` 伪循环
@@ -119,12 +120,58 @@ R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那�
   `pnpm harness verify --sprint 14/01 --feature F13`，跑通后由 verify 脚本自身完成
   status 翻转（不能手改）；同一个环境顺带把 F01 的 verify 也补跑掉（见上）。
 
+## 本轮改动（F10：前端产出物面板，issue #2719）
+
+- 新增 `apps/web/tests/agent-kernel/artifacts-panel.test.tsx`：给已在
+  `artifacts-steering` 契约束签核阶段由 ui-prototyper 建成的 `ArtifactsPanel`
+  原型（`components/agent-kernel/agent-kernel-units.tsx`）补回归测试，组件本身
+  未改动——原型已满足 `feature_list.json` 该条 `notes` 逐字列出的全部断言面
+  （空态、`artifact-version-{n}` 存在与 `aria-pressed` 切换、`artifact-view`/
+  `artifact-continue` 存在）。
+- `feature_list.json`：F10 的 `sprint` 由 `null` 改为 `"01"`（经
+  `lib/features.ts` 读写，非手改），使其进入本 sprint 的 `active-features.json`
+  派生视图。
+
+### 范围边界（刻意未做，如实记录）
+
+`apps/api/src/application/artifacts-steering/`（F09）目前只有应用层用例
+（`getArtifact`/`listArtifactVersions`/`continueArtifact`）与 `PgArtifactStore`，
+**没有任何 HTTP 控制器**暴露这些操作；`continueArtifact` 依赖的
+`ArtifactRunLauncher` 端口在 `ports.ts` 里明确写着"只定义端口，不提供生产实现"。
+把 `ArtifactsPanel` 的『查看此版本』/『基于此继续修改』接上真实网络请求，需要先有
+这层 HTTP 暴露面——这不存在于 F10 在 `feature_list.json` 里的权威 `notes`
+断言面内（只要求 UI 交互层面的 testid/状态切换/按钮存在性），也不存在于当前
+F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"顺手扩大范围"
+（AGENTS.md 范围纪律），未做；做法上与同 sprint 的 F14
+（`error-card.test.tsx`，同样只给已建原型补测试、不接后端）保持一致。
+若人类希望把这层接线纳入本 phase，需要在 design-signoff 或后续 feature 拆分里
+显式补一条。
+
+### 仍未验证：docker daemon 在本会话不存在（与 F01/F13 环境 blocker 同类、故障点不同）
+
+- `docker info` 报 `connect: no such file or directory
+  /var/run/docker.sock`——本会话沙箱里 docker daemon 根本没有起来（F01/F13 那两轮
+  是 daemon 起来了但拉镜像被组织出网策略拦截；这一轮更前一步，daemon 本身缺失，
+  如实分列，不归并成同一条故障描述）。
+- `pnpm harness verify --sprint 14/01 --feature F10`：F10 自身 verification 通过；
+  `verify:quick` 的 `turbo run typecheck lint test --affected` 本体 5/5 成功、
+  2834/2834 测试全绿，但收尾的 `[test-isolation] cleanup failed: docker compose
+  down -v exited 1` 让整条命令以 exit 1 结束，从而拒绝把 F10 升为 `passing`——
+  **不是本次改动引入的逻辑缺陷**，失败点在所有测试都已经跑完之后的清理步骤。
+  真实失败日志已落盘 `evidence/F10.verify.log`（未手改）。
+- **下一步**：找一个有可用 Docker daemon 的环境（本仓 CI runner，或另一个 daemon
+  可用的 remote session）重跑 `pnpm harness verify --sprint 14/01 --feature F10`，
+  跑通后由 verify 脚本自身完成 status 翻转（不能手改）；同一个环境可顺带补跑
+  F01/F13 的 verify（它们是出网策略拦截，非 daemon 缺失，两条环境限制不完全相同，
+  但同样需要"docker 可用"这个大前提）。
+
 ## 下一步最佳动作
-- 找到 Docker 出网可用的环境，依次重跑 F01、F13 的
-  `pnpm harness verify --sprint 14/01 --feature <id>` 把两者门控转 passing；不要在
+- 找到 Docker 可用（daemon 起得来 + 出网不受限）的环境，依次重跑 F01、F13、F10 的
+  `pnpm harness verify --sprint 14/01 --feature <id>` 把三者门控转 passing；不要在
   没跑通 verify 的情况下手改 `feature_list.json` 的 status。
-- F13 之后：F14（错误人性化转换层+前端错误卡片）、F15（完整可审计 transcript 存储
-  改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01。
+- F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）、F15（完整可
+  审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01；
+  F11（中途插话后端接口）依赖 F06（尚未开工）。
 
 ## 命令
 - 启动：`pnpm -w run dev`
