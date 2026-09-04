@@ -23,7 +23,7 @@ export type ToolRiskLevel = z.infer<typeof ToolRiskLevel>;
 /* ── 二、计划步骤（可编辑态，Plan Mode 卡片消费）──────────────────────── */
 
 export const PlanStepDraft = z.object({
-  stepId: z.string(),
+  planStepId: z.string(),
   /** 复用 AguiPlanTodo 的正文形状，附加计划编辑所需的 id/风险/依赖。 */
   todo: AguiPlanTodo,
   risk: ToolRiskLevel,
@@ -51,7 +51,7 @@ export type GetPlanOutput = z.infer<typeof GetPlanOutput>;
 
 export const EditPlanStepInput = z.object({
   runId: z.string().min(1),
-  stepId: z.string().min(1),
+  planStepId: z.string().min(1),
   /** 编辑正文；删除走 `deletePlanStep`，不是把 content 置空。 */
   content: z.string().refine((s) => s.trim() !== "", "content 不得为空白"),
 }).strict();
@@ -59,7 +59,7 @@ export type EditPlanStepInput = z.infer<typeof EditPlanStepInput>;
 
 export const DeleteKernelPlanStepInput = z.object({
   runId: z.string().min(1),
-  stepId: z.string().min(1),
+  planStepId: z.string().min(1),
 }).strict();
 export type DeleteKernelPlanStepInput = z.infer<typeof DeleteKernelPlanStepInput>;
 
@@ -132,14 +132,14 @@ export const operations = {
   },
   editPlanStep: {
     method: "PATCH",
-    path: "/agent-runs/:runId/plan/:stepId",
+    path: "/agent-runs/:runId/plan/:planStepId",
     in: EditPlanStepInput,
     out: GetPlanOutput,
     err: ["NOT_VISIBLE", "RUN_NOT_AWAITING_PLAN_CONFIRMATION"] as const,
   },
   deletePlanStep: {
     method: "DELETE",
-    path: "/agent-runs/:runId/plan/:stepId",
+    path: "/agent-runs/:runId/plan/:planStepId",
     in: DeleteKernelPlanStepInput,
     out: GetPlanOutput,
     err: ["NOT_VISIBLE", "RUN_NOT_AWAITING_PLAN_CONFIRMATION", "PLAN_INVALID_AFTER_EDIT"] as const,

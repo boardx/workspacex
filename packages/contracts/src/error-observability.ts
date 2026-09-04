@@ -78,7 +78,7 @@ export const TranscriptDecryptStatus = z.enum(["ok", "unreadable"]);
 export type TranscriptDecryptStatus = z.infer<typeof TranscriptDecryptStatus>;
 
 export const TranscriptStep = z.object({
-  stepId: z.string(),
+  runStepId: z.string(),
   kind: TranscriptStepKind,
   /** 完整 prompt/response 内容（字段级加密存储；E3：密钥不可用时 status=unreadable）。 */
   decryptStatus: TranscriptDecryptStatus,
