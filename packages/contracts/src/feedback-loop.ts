@@ -127,6 +127,10 @@ export const FeedbackError = z.enum([
   "MALWARE_DETECTED",
   /** FB-5：语音转结构化反馈——模型调用/解析失败，转录文字本身仍在输入框里未丢失 */
   "STRUCTURING_FAILED",
+  /** UC-17.8 B1：草稿不存在**或不是你的**（草稿是提交人私有物，同 404 非 403 纪律） */
+  "DRAFT_NOT_FOUND",
+  /** UC-17.8 B1：草稿正文为空时提交——`submitFeedback.in.detail.min(1)` 的语义在草稿提交口同样成立 */
+  "DRAFT_EMPTY",
 ]);
 export type FeedbackError = z.infer<typeof FeedbackError>;
 
@@ -140,14 +144,69 @@ export type FeedbackError = z.infer<typeof FeedbackError>;
  *   不是标题/票数那类恒对全组织可见的展示性上下文）——见 `list-feedback.ts` 的
  *   `ListFeedbackDeps.attachments` 头注。
  */
+/**
+ * UC-17.8 D3（2026-09-04 人类裁决）：附件类型从「三种图片」扩到 **图片 + PDF + 纯文本/Markdown**
+ * （复现日志、截图转 PDF 常见）。⚠ **音视频 / zip 不在其中**——它们的病毒扫描路径与存储成本
+ * 本轮未验证，留给 `design-ai-collab` 束（语音附件）一起做。加类型 = 在这里加一个值并同步
+ * `upload-feedback-attachment.ts` 的 magic-byte 嗅探；不许在任何地方写第二份白名单。
+ */
+export const FeedbackAttachmentMime = z.enum([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+]);
+export type FeedbackAttachmentMime = z.infer<typeof FeedbackAttachmentMime>;
+
+/** UC-17.8 D3：一条反馈最多带几个附件。PDF §5.1「上限 5 个，超过后上传入口自动隐藏」。 */
+export const FEEDBACK_ATTACHMENT_MAX = 5;
+
 export const FeedbackAttachment = z
   .object({
     id: z.string(),
     url: z.string(),
-    mime: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    mime: FeedbackAttachmentMime,
   })
   .strict();
 export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
+
+/**
+ * UC-17.8 D1（2026-09-04 人类裁决）：**结构化补充字段**。
+ *
+ * PDF §5.1 要求缺陷 / 需求各自一组结构化字段。2026-09-02 的裁决「没有独立标题字段，
+ * 标题从正文派生」**继续有效**——这里补的是更丰富的*内容*字段，不是标题框。
+ *
+ * ⚠ 存法是**一列 jsonb**（`product_feedback.structured`），不是每字段一列。理由与 I-F1 并不冲突：
+ *   I-F1 反对的是「什么都能塞的口袋」；这里的形状由本 schema 闭合（`.strict()`），字段集随
+ *   `kind` 定，排查时每个键都有名字。按 `kind` 扩字段 = 在这里加一个键，不是一次迁移。
+ * ⚠ 全部 `.optional()`：用户可以只填正文不填结构化字段（PDF：「用户可以直接填写」），
+ *   一个 `{}` 与不传等价。**正文 `detail` 仍是唯一必填**，它承载 `detail: null ⟺ 无权` 那条语义。
+ * ⚠ 两个对象键集**不相交**，所以 `z.union` 能无歧义地判别，无需再塞一个 `kind` 进去重复上层。
+ */
+export const BugStructuredFields = z
+  .object({
+    /** 复现频率 · 环境（「每次 / 偶发 · Chrome 128 / iOS」） */
+    reproFrequencyEnv: z.string().max(500).optional(),
+    expectedResult: z.string().max(2000).optional(),
+    actualResult: z.string().max(2000).optional(),
+    /** 复现步骤，多行；AI 填充时是「1. 2. 3.」编号步骤 */
+    reproSteps: z.string().max(4000).optional(),
+  })
+  .strict();
+export const ReqStructuredFields = z
+  .object({
+    useScenario: z.string().max(2000).optional(),
+    expectedCapability: z.string().max(2000).optional(),
+    /** 优先级 · 影响范围（「P1 · 全部项目」） */
+    priorityScope: z.string().max(500).optional(),
+  })
+  .strict();
+export const FeedbackStructured = z.union([BugStructuredFields, ReqStructuredFields]);
+export type FeedbackStructured = z.infer<typeof FeedbackStructured>;
+export type BugStructuredFields = z.infer<typeof BugStructuredFields>;
+export type ReqStructuredFields = z.infer<typeof ReqStructuredFields>;
 
 /**
  * GitHub 那边的真实状态——**只在需要时现查，从不落库**。
@@ -200,6 +259,11 @@ export const FeedbackItem = z
      * `ListFeedbackDeps.attachments` 头注。
      */
     attachments: z.array(FeedbackAttachment),
+    /**
+     * UC-17.8 D1——与 `detail` 同一条 D3 门控：`detail === null` 的行这里恒 `null`。
+     * 正文可见时，`null` 表示提交人没填任何结构化字段（它们是正文的补充，不是独立事实）。
+     */
+    structured: FeedbackStructured.nullable(),
     status: FeedbackStatus,
     /** ⚠ 只有 `不做` 必然非 null；其余三态可有可无 */
     statusReason: z.string().nullable(),
@@ -248,6 +312,48 @@ export const FeedbackScope = z.discriminatedUnion("kind", [
 ]);
 export type FeedbackScope = z.infer<typeof FeedbackScope>;
 
+/**
+ * UC-17.8 B1 —— 草稿上的一条对话。`kind` 区分「用户说的」/「AI 回执」/「正文被编辑」三种记录，
+ * 见 `updateFeedbackDraft` 头注（追加不覆盖）。`at` 由服务端给。
+ */
+export const FeedbackDraftChatTurn = z
+  .object({
+    role: z.enum(["user", "ai"]),
+    kind: z.enum(["message", "edit"]),
+    text: z.string().min(1).max(4000),
+    at: z.string(),
+  })
+  .strict();
+export type FeedbackDraftChatTurn = z.infer<typeof FeedbackDraftChatTurn>;
+
+/**
+ * UC-17.8 B1 —— 反馈草稿（提交人私有）。
+ *
+ * ⚠ 与 `FeedbackItem` 是**两个类型**，不是一个带 `isDraft` 布尔的联合：草稿没有状态机、没有票、
+ *   没有 D3 可见性（只有 owner 能读，正文恒可见）、没有 GitHub——把它们合在一起会让每个字段都要
+ *   解释「草稿时这个是什么意思」。
+ * ⚠ `title` 是服务端按与提交口相同的规则从 `detail` 派生的**预览**，空正文时为 `null`。
+ */
+export const FeedbackDraft = z
+  .object({
+    id: z.string(),
+    kind: FeedbackKind,
+    target: FeedbackTarget,
+    title: z.string().nullable(),
+    detail: z.string(),
+    structured: FeedbackStructured.nullable(),
+    attachments: z.array(FeedbackAttachment),
+    chat: z.array(FeedbackDraftChatTurn),
+    /** 「继续完善」浮层首次打开时是否已由服务端追加过 AI 澄清问题（只追加一次） */
+    refineSeeded: z.boolean(),
+    occurredRoute: z.string().nullable(),
+    appVersion: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict();
+export type FeedbackDraft = z.infer<typeof FeedbackDraft>;
+
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
 export const operations = {
@@ -279,7 +385,9 @@ export const operations = {
         detail: z.string().min(1).max(4000),
         occurredRoute: z.string().nullable(),
         appVersion: z.string().nullable(),
-        attachmentIds: z.array(z.string()).max(4).optional(),
+        attachmentIds: z.array(z.string()).max(FEEDBACK_ATTACHMENT_MAX).optional(),
+        /** UC-17.8 D1：结构化补充字段，可不传。见 `FeedbackStructured` 头注 */
+        structured: FeedbackStructured.optional(),
       })
       .strict(),
     out: z
@@ -573,7 +681,7 @@ export const operations = {
     in: z
       .object({
         sizeBytes: z.number().int().positive().max(8 * 1024 * 1024),
-        contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+        contentType: FeedbackAttachmentMime,
       })
       .strict(),
     out: z.object({ attachmentId: z.string(), url: z.string() }).strict(),
@@ -600,8 +708,116 @@ export const operations = {
         kind: FeedbackKind,
         title: z.string(),
         detail: z.string(),
+        /**
+         * UC-17.8 B2.4：模型按 `kind` 拆出的结构化字段；模型没拆出来 / 旧模型配置 ⇒ `null`，
+         * 调用方只填正文。`detail` 仍是完整原文，结构化字段是它的补充。
+         */
+        structured: FeedbackStructured.nullable(),
       })
       .strict(),
     err: ["STRUCTURING_FAILED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /* ─────────── UC-17.8 B1 · 反馈草稿（提交人私有，未进收件箱）─────────── */
+
+  /**
+   * 建一条草稿。**任何组织成员都能用**。草稿是提交人的私有物：只有 owner 能列、改、删、提交。
+   *
+   * ⚠ 草稿**不是**一条反馈：不进 `product_feedback`，不计票、不进分诊队列、不进「我提过的」。
+   *   它只是一个「还没想清楚」的中间态；进收件箱的唯一途径是 `submitFeedbackDraft`。
+   * ⚠ `detail` 允许空——草稿的意义正是「先占个位」；空正文的草稿在 `submitFeedbackDraft` 时被
+   *   `DRAFT_EMPTY` 拒绝，而不是在这里。
+   * ⚠ `attachmentIds` 同 `submitFeedback`：先 `uploadFeedbackAttachment` 拿 id，再挂到草稿上
+   *   （`feedback_attachments.draft_id`），提交时随草稿一起迁给反馈。
+   */
+  createFeedbackDraft: {
+    method: "POST",
+    path: "/feedback/drafts",
+    in: z
+      .object({
+        kind: FeedbackKind,
+        target: FeedbackTarget,
+        detail: z.string().max(4000),
+        structured: FeedbackStructured.optional(),
+        occurredRoute: z.string().nullable(),
+        appVersion: z.string().nullable(),
+        attachmentIds: z.array(z.string()).max(FEEDBACK_ATTACHMENT_MAX).optional(),
+      })
+      .strict(),
+    out: z.object({ draftId: z.string() }).strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 我的草稿列表（按 `updatedAt` 倒序）。⚠ 只有自己的——没有 `scope`，草稿没有「全组织」口径。 */
+  listMyFeedbackDrafts: {
+    method: "GET",
+    path: "/feedback/drafts",
+    in: z.object({}).strict(),
+    out: z.object({ items: z.array(FeedbackDraft) }).strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 草稿数——导航徽标用。同 `getFeedbackCounts` 的分离理由：徽标每次路由都要，不该拉整个列表。 */
+  getMyFeedbackDraftCount: {
+    method: "GET",
+    path: "/feedback/drafts/count",
+    in: z.object({}).strict(),
+    out: z.object({ count: z.number().int().nonnegative() }).strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 改草稿：类型 / 正文 / 结构化字段，以及**追加一条对话**（「继续完善」浮层每发一句都追加）。
+   *
+   * ⚠ 对话是**追加**不是覆盖（PDF §7 已知模拟点：编辑覆盖会丢原始轨迹）：正文编辑追加一条
+   *   `{ role: "user", kind: "edit" }` 的记录，`detail` 才是当前值。
+   * ⚠ 至少要给一个字段；四个都不传是空操作，契约层不拦（`.optional()` 全体），用例层原样返回。
+   */
+  updateFeedbackDraft: {
+    method: "PATCH",
+    path: "/feedback/drafts/:draftId",
+    in: z
+      .object({
+        draftId: z.string(),
+        kind: FeedbackKind.optional(),
+        detail: z.string().max(4000).optional(),
+        structured: FeedbackStructured.nullable().optional(),
+        appendChat: FeedbackDraftChatTurn.omit({ at: true }).optional(),
+      })
+      .strict(),
+    out: z.object({ draft: FeedbackDraft }).strict(),
+    err: ["DRAFT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 删草稿。硬删——草稿没有历史价值；它上面挂的附件回到「未认领」并随清理任务回收。 */
+  deleteFeedbackDraft: {
+    method: "DELETE",
+    path: "/feedback/drafts/:draftId",
+    in: z.object({ draftId: z.string() }).strict(),
+    out: z.object({ draftId: z.string() }).strict(),
+    err: ["DRAFT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 把草稿提交成一条反馈：事务内 **建反馈（同 `submitFeedback` 全部规则）→ 附件改挂到反馈 → 删草稿**。
+   *
+   * ⚠ 标题由**服务端**从正文派生（首行、≤120 字），与前端 `deriveFeedbackTitle` 同一规则——
+   *   草稿提交口没有客户端参与标题，规则不能在两端各写一份，所以服务端这份是权威，
+   *   前端那份只是预览。
+   * ⚠ 对话记录**不进反馈正文**：正文 = `detail` 当前值。对话是提交人与 AI 把边界谈清楚的过程，
+   *   谈清楚的结果应当已经被写回 `detail`/`structured`；把整段对话塞进正文会让分诊的人读一段聊天。
+   */
+  submitFeedbackDraft: {
+    method: "POST",
+    path: "/feedback/drafts/:draftId/submit",
+    in: z.object({ draftId: z.string() }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        /** 恒 `待处理`，同 `submitFeedback` */
+        status: FeedbackStatus,
+      })
+      .strict(),
+    err: ["DRAFT_NOT_FOUND", "DRAFT_EMPTY", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;
