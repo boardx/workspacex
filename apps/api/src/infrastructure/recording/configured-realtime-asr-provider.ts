@@ -219,6 +219,16 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
     let closed = false;
     let finalSeen = false;
+    // 2026-09-04 review fix（PR #2644 reviewer diagnostic）—— `finalSeen` 在每次
+    // `finish()` 开头被重置为 false（见下），只用来判断"这次收尾等待期间有没有等到
+    // final"。但良性空缓冲判定需要回答一个不同的问题：「这条会话里究竟有没有真的
+    // 转写出过东西」——如果从未收到过任何 final（用户录的音短到连 server VAD 自己
+    // 的静音自动 commit 都没触发过），那么 `finish()` 显式 commit 打在空缓冲区上
+    // 报的错就不是"上游已经抢先 commit 过了"，而是"这段录音真的什么都没转出来"，
+    // 不能当成成功收尾静默吞掉——否则界面显示"完成"却没有任何转录文字，用户会以为
+    // 是自己没说话，实际是一个被吞掉的真实失败。`finalSeenEver` 一旦置真就不再重置，
+    // 专门回答这个问题，与 `finalSeen`（每轮 finish 各自的等待状态）分开。
+    let finalSeenEver = false;
     let finishResolve: (() => void) | null = null;
     // #802 —— the actual root cause the wrong protocol fields could hide behind for 7+
     // days undetected: `finish()`/`abort()` are the only CALLER-INITIATED ways this
@@ -254,6 +264,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       }
       if (transcript?.kind === "final") {
         finalSeen = true;
+        finalSeenEver = true;
         handlers.onFinal({
           text: transcript.text,
           confidence: transcript.confidence,
@@ -275,7 +286,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         // server VAD 自己的 `completed` 事件正常送达。只在**已经进入收尾**
         // （`finishRequested`）且错误确实是"空缓冲"这一种良性情况时吞掉它、正常收尾；
         // 收尾之外、或消息不匹配这个模式的 `error` 帧一律照旧如实上报，不放宽其它故障。
-        if (finishRequested && isBenignEmptyCommitError(message)) {
+        // 2026-09-04 review fix —— 额外要求 `finalSeenEver`：只有这条会话此前**真的**
+        // 收到过至少一段 final（证明 server VAD 已经自动 commit 转写过一轮），这次
+        // `finish()` 的显式 commit 打空才是"没有更多新音频可提交"的良性情况。如果
+        // 整条会话从未见过 final，同样的错误消息意味着"这段录音本身就短到没转出
+        // 任何东西"——那是一次真实失败，不能吞。
+        if (finishRequested && isBenignEmptyCommitError(message) && finalSeenEver) {
           // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
           // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
           // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，

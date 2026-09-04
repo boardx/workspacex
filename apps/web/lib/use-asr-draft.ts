@@ -122,6 +122,25 @@ export function sanitizeAsrSegment(text: string): string {
     .replace(/^[、，,]+/, "");
 }
 
+/**
+ * 2026-09-04 review fix（PR #2644 reviewer diagnostic）—— `sanitizeAsrSegment` 只清理
+ * **单个** final 段内部的标点，人类实测反馈报的其实是**跨段**的标点：一次连续的话被
+ * server VAD 切成"早上好。"/"我想说的是。"/"今天…"这几个独立 final，每一段自己收尾时
+ * 上游都会补一个句号——这些句号标的是"这一轮 VAD 判定的静音到了"，不是说话人真的在
+ * 那里断句。原来的 `onFinal` 处理器把 `sanitizeAsrSegment` 只套在新到的这一段上，
+ * 前面已经落定的 `committedRef.current` 末尾那个句号原样留着，于是拼起来还是
+ * "早上好。我想说的是。今天…"——句号数量没变，只是从段内变成了段间。
+ *
+ * 修法：在**追加下一段之前**，剥掉已落定文本末尾那个"轮次边界"标点——这样只有真正
+ * 说完整段话、后面再也没有新 final 追加进来的那一个末尾标点会被保留，中间每一轮的
+ * 收尾标点在下一轮到达的那一刻就被去掉。不动段落**中间**的标点（那还是
+ * `sanitizeAsrSegment` 的职责），也不动引导性的省略号"…"——那通常是说话人自己停顿，
+ * 不是轮次边界的产物。
+ */
+function stripTrailingTurnBoundaryPunctuation(text: string): string {
+  return text.replace(/[、。，,.!！?？;；:：]+$/, "");
+}
+
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
@@ -199,7 +218,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         onFinal: (rawText) => {
           if (discardRef.current) return;
           const text = sanitizeAsrSegment(rawText);
-          committedRef.current = appendTranscript(committedRef.current, text);
+          committedRef.current = appendTranscript(stripTrailingTurnBoundaryPunctuation(committedRef.current), text);
           setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
