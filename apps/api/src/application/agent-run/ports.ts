@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
+import { errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -29,6 +29,31 @@ export type RunLifecycleStatus = z.infer<typeof C.AgentRunStatus>;
 /** #742 Gap 1 -- `"succeeded" | "failed" | "in_progress"`, derived from the contract's own
  * enum (never restated). `in_progress` is only ever produced for `kind: "tool_call"` steps. */
 export type RunStepStatus = z.infer<typeof C.AgentRunStepStatus>;
+/** Phase 14 F15 -- one row of `getRunTranscript`'s output, derived from the
+ * `error-observability` contract bundle (never restated, ADR-020). */
+export type TranscriptStep = z.infer<typeof EO.TranscriptStep>;
+
+/**
+ * Phase 14 F15 (R3'/R6) -- encrypts/decrypts the FULL (non-digest, non-truncated) content a
+ * step's `inputDigest`/`outputDigest` were hashed from. Declared here (not a separate
+ * `domain/agent-run/` port module) to match this bundle's existing convention: every
+ * agent-run port, including the other infrastructure-implemented one (`ModelCallPort`
+ * below), lives in this one file rather than a domain-layer indirection.
+ *
+ * Unlike `credential-vault.ts`'s `CredentialCipher`, this port MUST support `decrypt` --
+ * see `transcript-content-cipher.ts`'s header for why the two are deliberately different
+ * shapes despite sharing an algorithm.
+ */
+export interface TranscriptContentCipher {
+  readonly algorithm: string;
+  encrypt(plaintext: string): string;
+  /**
+   * `null` = cannot be recovered (missing/rotated key, tampered or malformed ciphertext) --
+   * NEVER throws. I-4 requires the caller to turn this into `decryptStatus: "unreadable"`,
+   * not an unhandled exception that would fail the whole transcript read over one bad row.
+   */
+  decrypt(ciphertext: string): string | null;
+}
 
 /**
  * The outcome of claiming one run.
@@ -213,6 +238,23 @@ export interface AppendedRunStep {
    * pre-#742 behaviour: one row, one call, no correlation needed).
    */
   readonly toolCallId: string | null;
+  /**
+   * Phase 14 F15 (R3'/R6) -- the FULL plaintext `inputDigest`/`outputDigest` above were
+   * hashed FROM, when the caller has it in hand. `undefined` (every call site this cut does
+   * not thread it through -- currently `tool_call`, see `execute-run.ts`'s `record()` header
+   * for why full tool-call content is deferred follow-up work) behaves identically to how
+   * this interface behaved before these fields existed: no full-content column is written,
+   * and `getRunTranscript` reports that step honestly as `decryptStatus: "unreadable"` (I-4)
+   * rather than fabricating a value.
+   *
+   * A plaintext string on the wire between `application` and this port is deliberate, not an
+   * oversight: onion layering forbids `execute-run.ts` (application) from importing
+   * `TranscriptContentCipher`'s infrastructure implementation directly (ADR-020) --
+   * encryption happens entirely inside `PgAgentRunRepository.appendStep`, which already
+   * lives in `infrastructure` and may hold the cipher.
+   */
+  readonly inputFullContent?: string | null;
+  readonly outputFullContent?: string | null;
 }
 
 /**
@@ -551,6 +593,23 @@ export interface AgentRunStore {
       readonly expectedVersion: number;
     },
   ): Promise<boolean>;
+
+  /**
+   * Phase 14 F15 -- the audit-only read behind `getRunTranscript` (R3'/R6). `null` = the run
+   * does not exist in this org (RUN_NOT_FOUND; RLS already means "another org's run" and
+   * "no such run" are indistinguishable here, which is fine -- `get-run-transcript.ts`
+   * checks the caller's `admin` role BEFORE calling this, so this is never an existence
+   * oracle for an untrusted caller).
+   *
+   * Unlike `readRun`'s client-facing projection, this does NOT fold `in_progress`/terminal
+   * `tool_call` pairs into one row -- the audit trail is the raw ledger, not the
+   * client-friendly collapsed view. Only `model_call`/`tool_call` kinds are returned (the
+   * other two `agent_run_steps` kinds -- `accepted`/`context_built`/`chat_writeback` --
+   * carry no "prompt/response" content the contract's `TranscriptStepKind` has a slot for);
+   * `plan_change`/`permission_decision` do not appear because no code path produces a step
+   * of either kind yet (Phase 14's plan-mode/permissions bundle is not implemented).
+   */
+  readRunTranscriptSteps(orgId: OrgId, runId: string): Promise<readonly TranscriptStep[] | null>;
 }
 
 /**

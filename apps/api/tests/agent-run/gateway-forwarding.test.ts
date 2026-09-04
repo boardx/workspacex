@@ -74,6 +74,8 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
     readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => [],
     readThreadContextState: async () => null,
     upsertThreadContextState: async () => true,
+    // Phase 14 F15 -- audit-only read this executor-focused fake never exercises.
+    readRunTranscriptSteps: async () => null,
   };
 }
 

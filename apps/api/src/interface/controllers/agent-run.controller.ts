@@ -55,6 +55,9 @@ import {
 import {
   AgentRunContextSnapshotNotVisibleError, readAgentRunContextSnapshot,
 } from "../../application/agent-run/read-run-context-snapshot";
+import {
+  getRunTranscript, RunTranscriptForbiddenError, RunTranscriptNotFoundError,
+} from "../../application/agent-run/get-run-transcript";
 
 @Controller()
 export class AgentRunController {
@@ -237,6 +240,26 @@ export class AgentRunController {
         throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_APPROVAL", status: e.status });
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * Phase 14 F15 -- 审计专用读，读取某次 run 的完整可审计 transcript（R3'/R6）。
+   * 与本文件其余端点不同的错误形状——见 `get-run-transcript.ts` 文件头：FORBIDDEN 不是
+   * 探针防护（本端点调用者本就是可信角色），RUN_NOT_FOUND 只在通过角色检查后才可能出现。
+   */
+  @Get("/agent-runs/:runId/transcript")
+  async transcript(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    try {
+      return await getRunTranscript(
+        { repo: this.repo, runs: this.runs },
+        { callerId: principal.userId, orgId: toOrgId(principal.orgId), runId },
+      );
+    } catch (e) {
+      if (e instanceof RunTranscriptForbiddenError) throw new ForbiddenException("FORBIDDEN");
+      if (e instanceof RunTranscriptNotFoundError) throw new NotFoundException();
       throw e;
     }
   }

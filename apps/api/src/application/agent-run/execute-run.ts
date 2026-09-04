@@ -622,6 +622,15 @@ async function record(
     inputDigest: string | null; outputDigest: string | null; failureCode: RunFailureCode | null;
     toolName?: string | null; toolArgsSummary?: string | null; toolResultSummary?: string | null;
     planningNote?: string | null;
+    /**
+     * Phase 14 F15 (R3'/R6) -- the FULL plaintext `inputDigest`/`outputDigest` were hashed
+     * FROM, for `kind: "model_called"` steps (`system`/`text` -- "模型看到了什么、完整说了
+     * 什么"). Omitted everywhere else in this cut (`tool_call`'s full args/result require
+     * `deep-agent-model-provider.ts` to expose untruncated data -- explicitly deferred
+     * follow-up, not a silently dropped requirement; see `get-run-transcript.ts`'s header).
+     * `AppendedRunStep`'s own doc explains why this is a plain string here, not a cipher call.
+     */
+    inputFullContent?: string | null; outputFullContent?: string | null;
     /** #742 Gap 1 -- explicit status override for the ONE case `failureCode` can't express:
      * an `in_progress` `tool_call` row. Every other caller omits this and keeps the old
      * derivation (`failureCode === null ? "succeeded" : "failed"`). */
@@ -645,6 +654,8 @@ async function record(
     toolResultSummary: input.toolResultSummary ?? null,
     planningNote: input.planningNote ?? null,
     toolCallId: input.toolCallId ?? null,
+    inputFullContent: input.inputFullContent ?? null,
+    outputFullContent: input.outputFullContent ?? null,
   });
 }
 
@@ -1213,6 +1224,9 @@ async function executeClaimed(
         runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
         inputDigest: systemDigest, outputDigest: null, failureCode: null,
         planningNote: `等待人工批准：${completion.interrupted.toolName}`,
+        // Phase 14 F15 -- 模型看到了什么（`system`）。此刻尚未产出完整回复，`outputFullContent`
+        // 留空，与 `outputDigest: null` 同一个事实（无输出可摘）。
+        inputFullContent: system,
       });
       await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
       return;
@@ -1240,6 +1254,9 @@ async function executeClaimed(
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
       inputDigest: systemDigest, outputDigest: null, failureCode: code,
+      // Phase 14 F15 -- 调用失败仍然记录"模型看到了什么"（`system`），供审计排障；
+      // 失败调用没有产出文本，`outputFullContent` 留空，同 `outputDigest: null`。
+      inputFullContent: system,
     });
     /*
      * F159：失败的调用**也记一行**。「失败就没有用量」会让计量流水与 `agent_runs` 的
@@ -1255,6 +1272,10 @@ async function executeClaimed(
   await record(deps, orgId, {
     runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
     inputDigest: systemDigest, outputDigest: sha256(text), failureCode: null,
+    // Phase 14 F15 (R3'-3) -- "模型看到了什么、完整说了什么"：`system` 是发给模型的完整
+    // 上下文，`text` 是模型的完整回复原文，两者字段级加密落库（`appendStep`），供
+    // `getRunTranscript` 审计接口回放。
+    inputFullContent: system, outputFullContent: text,
   });
   await meter(deps, orgId, run, {
     total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,

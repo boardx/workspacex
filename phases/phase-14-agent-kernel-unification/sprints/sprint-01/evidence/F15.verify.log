@@ -1,0 +1,38 @@
+$ pnpm --filter api exec tsc --noEmit -p .   # scoped to agent-run/error-observability/kernel.module/新增文件——干净
+$ pnpm --filter api run lint                  # lint-arch-deps 等 7 项架构体检全绿（含 application 层未导入 infrastructure）
+$ pnpm --filter api exec vitest run tests/agent-run/transcript-full-content-rbac.test.ts
+[exit 1] —— 与本 sprint 已合入 main 的 F13.verify.log 同一个环境限制（非代码问题）：
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: Command failed: docker compose -f .../docker-compose.dev.yml up -d postgres
+ Image pgvector/pgvector:pg16 Pulling
+unknown: failed to copy: httpReadSeeker: failed open: unexpected status from GET request to
+https://production.cloudfront.docker.com/registry-v2/.../data?...: 403 Forbidden
+ ❯ Module.ensureDatabase tests/support/db.ts:38:29
+
+本远程会话的出站网络策略拒绝了 Docker Hub 镜像拉取（`pgvector/pgvector:pg16`），
+`.harness/scripts/with-test-isolation.ts` 同样复现——不是本次改动引入的问题：这条测试
+需要真实 Postgres（RLS/字段级加密/RBAC 都不是内存假件能测对的东西，同仓
+`agent-run-step-collapse-order.test.ts` 的既有取舍），而本会话连不上镜像仓库拉取
+`postgres`/`pgvector` 容器。同 sprint 已合入 main 的 F13.verify.log 记录的是同一个环境
+限制，不是巧合。
+
+已在本会话内做到的最大验证：
+1. `tsc --noEmit`：改动到的全部文件（execute-run.ts / ports.ts / get-run-transcript.ts /
+   pg-agent-run-repository.ts / transcript-content-cipher.ts / agent-run.controller.ts /
+   kernel.module.ts / 新测试文件，以及因接口新增方法而补 stub 的 6 个既有测试假件）
+   零错误。
+2. `pnpm run lint`（含 `lint-arch-deps`）：全绿——`get-run-transcript.ts`（application 层）
+   未导入任何 `infrastructure` 代码，加密只发生在 `PgAgentRunRepository`（infrastructure
+   层），符合 ADR-020 洋葱分层。
+3. 逐行核对 SQL 参数位次（`appendStep` 的 INSERT 从 16 列扩到 18 列）、密文格式
+   （`<iv-hex>.<authTag-hex>.<ciphertext-hex>`，与 `aes-credential-cipher.ts` 同构）、
+   契约字段名（`TranscriptStep` 的 `runStepId`/`kind`/`decryptStatus`/`fullContent`/
+   `createdAt` 与仓储返回值逐一对应，`.strict()` 通过 `tsc`）。
+
+未能在本会话完成、需要 CI 补上的：`transcript-full-content-rbac.test.ts` 的 5 组真实
+Postgres 断言（V1 加密落库、V2 admin 读到明文、V3 RBAC 拒绝且先于存在性判断、V4 密钥
+不匹配时诚实报 unreadable 不崩溃、V5 tool_call 范围诚实标注）从未在任何环境里跑到绿——
+这是本 PR 明确标注、等 CI 验证的缺口，不是隐瞒的"看起来能跑"。
