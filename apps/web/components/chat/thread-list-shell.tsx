@@ -39,7 +39,7 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
  * ⚠ **纯展示，不接任何交互**（人类明确要求）：图标 + 「WorkspaceX」+ 一个装饰性
  *   `▾` 都不可点击，`⌘K` 也只是视觉提示，不是真实快捷键（真实搜索快捷键入口仍是
  *   下面的搜索框本身，这一行不重复造一个）。组织切换已经有唯一入口——图标栏最上方
- *   的 `OrgMenu`（`triggerVariant="grid"`）——这里不做第二个，避免同一功能两处入口。
+ *   的 `OrgMenu`——这里不做第二个，避免同一功能两处入口。
  * ⚠ 图标本身是 2×2 语义色方块（primary/success/warning/ai），不是任意色值：
  *   `lint-design.sh` U5a 只认 token，这里复用与空状态卡片图标同一套 token 家族。
  */

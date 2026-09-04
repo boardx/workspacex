@@ -29,7 +29,10 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-container border border-border bg-popover p-1 text-popover-foreground shadow-md",
+        // 边框用 border-subtle（比 border 更浅一档）——issue 2636 号（2026-09-04 用户
+        // 直接反馈）「弹出菜单边框太厚」：`shadow-md` 已经给出足够的浮起感，
+        // 主 `border` 色叠加上去视觉上偏重，弹层的分隔感交给更轻的边框就够。
+        "z-50 min-w-[10rem] overflow-hidden rounded-container border border-border-subtle bg-popover p-1 text-popover-foreground shadow-md",
         className,
       )}
       {...props}
