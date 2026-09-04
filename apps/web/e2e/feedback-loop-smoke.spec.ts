@@ -95,8 +95,13 @@ async function submitOpenFeedback(
   // 第一句、后面跟原正文，后台列表/「我提过的」里看到的标题就是 `opts.title`。
   await page.getByTestId("feedback-detail-input").fill(`${opts.title}。${opts.detail}`);
 
+  // ⚠ 2026-09-04（issue #2638）起，打字提交前会先打一次 `${API}/feedback/structure-draft`
+  //   起 AI 标题（这个 e2e 环境没有配置真实模型，该调用稳定 503，被前端静默吞掉、
+  //   退回正文首句，不影响提交本身）——`.includes(`${API}/feedback`)` 对它也会匹配，
+  //   于是 `waitForResponse` 可能先抓到这个 503 当成"提交的响应"。改成 `endsWith`
+  //   精确匹配真正的提交端点，`/vote`、`/structure-draft` 都不以 `/feedback` 结尾。
   const submitted = page.waitForResponse(
-    (r) => r.request().method() === "POST" && r.url().includes(`${API}/feedback`) && !r.url().includes("/vote"),
+    (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),
   );
   await page.getByTestId("feedback-submit").click();
   const response = await submitted;
