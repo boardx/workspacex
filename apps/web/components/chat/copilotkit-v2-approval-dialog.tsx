@@ -97,6 +97,23 @@ export const approvalToolParameters = deepAgentHitl.DeepAgentHitlToolArgs;
  * 一致（必须是合法 JSON **对象**，不是数组/原始值）——同一份产品纪律换一层框架
  * 实现，不因为换了 hook 就放松校验。
  */
+/**
+ * issue #2692 —— 审批弹窗的工具名早已从写死的 `send_email` 通用化为
+ * `deepAgentHitl.DEEP_AGENT_HITL_TOOL_NAME`（值是 `call_skill`，见上面
+ * `APPROVAL_TOOL_NAME` 的头注），但本组件的文案当时没跟着改，四处仍硬编码
+ * 「发送邮件」——于是生成 PDF（走 `call_skill` 调用某个 PDF 技能，`args.
+ * skill_stable_name` 不是 `send_email`）时也弹出「等待批准：发送邮件」，
+ * 文案和用户实际在批准的动作对不上。
+ *
+ * 修法：文案从 `args.skill_stable_name`（`DeepAgentHitlToolArgs` 的真实字段，
+ * 见 `@repo/contracts` 的 `deep-agent-hitl.ts`）派生，不再写死某一个技能的名字；
+ * 取不到时退化为通用的「调用技能」而不是猜一个具体动作名。
+ */
+function describeSkillAction(args: Record<string, unknown>): string {
+  const name = args.skill_stable_name;
+  return typeof name === "string" && name.length > 0 ? `调用技能：${name}` : "调用技能";
+}
+
 function parseEditDraft(draft: string): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } {
   try {
     const value: unknown = JSON.parse(draft);
@@ -172,8 +189,8 @@ export function SendEmailApprovalDialog({
    * 播报的一刻：不播报，屏幕阅读器用户根本不知道系统正在等他做决定，主观上就是卡死。
    */
   React.useEffect(() => {
-    if (awaitingDecision) announceToChat("需要你的批准：发送邮件。请在审批对话框中选择批准、编辑或拒绝。");
-  }, [awaitingDecision]);
+    if (awaitingDecision) announceToChat(`需要你的批准：${describeSkillAction(args)}。请在审批对话框中选择批准、编辑或拒绝。`);
+  }, [awaitingDecision, args]);
 
   /**
    * issue #2075（TW-A11Y-5「关闭后焦点归位」）—— 真栈实测：关掉审批弹窗后
@@ -230,7 +247,7 @@ export function SendEmailApprovalDialog({
           onCloseAutoFocus={returnFocusToComposer}
         >
           <DialogHeader>
-            <DialogTitle>等待批准：发送邮件</DialogTitle>
+            <DialogTitle>等待批准：{describeSkillAction(args)}</DialogTitle>
             <DialogDescription>
               {statusLabel === "inProgress" ? "工具调用参数正在流式到达…" : "本轮已裁决，等待 run 收尾。"}
             </DialogDescription>
@@ -268,8 +285,8 @@ export function SendEmailApprovalDialog({
         onCloseAutoFocus={returnFocusToComposer}
       >
         <DialogHeader>
-          <DialogTitle>等待你的批准：发送邮件</DialogTitle>
-          <DialogDescription>批准前可编辑收件人/主题/正文，裁决后由框架恢复这次 run。</DialogDescription>
+          <DialogTitle>等待你的批准：{describeSkillAction(args)}</DialogTitle>
+          <DialogDescription>批准前可编辑下方参数，裁决后由框架恢复这次 run。</DialogDescription>
         </DialogHeader>
         {!editing ? (
           <div className="flex flex-col gap-1">
