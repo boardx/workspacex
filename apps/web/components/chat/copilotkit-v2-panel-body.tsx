@@ -910,13 +910,16 @@ export function CopilotKitV2PanelBody({
           ]} />
       );
     }
-    if (agent.isRunning && !archived) {
-      return (
-        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-agent-busy" icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          title="Agent 正在处理上一条消息" description="语音与发送暂不可用，可以先打字"
-          actions={[{ label: "停止生成", onClick: () => agent.abortRun(), testId: "chat-task-workbench-composer-stop-run" }]} />
-      );
-    }
+    /*
+     * 2026-09-03 人类直接反馈「composer 下面的那行状态是多余的」——`agent.isRunning`
+     * 这一态此前在这里画一整条状态栏（"Agent 正在处理上一条消息" + 「停止生成」）,
+     * 与已经存在的两处提示重复：① 发送按钮本身在运行中会原地换成「停止」方形按钮
+     * （下方 `agent.isRunning` 分支,同一个「停止生成」动作,同一个位置更符合直觉）；
+     * ② 页脚禁用理由行（`sendDisabledReason`）本就把这一态排除在外
+     * （`&& !agent.isRunning`），设计意图正是"运行中不需要再单独喊一遍"。三处一起
+     * 出现是真正的信息重复,不是三种不同的信号——删掉这里，功能（停止生成）原样保留
+     * 在发送按钮位置，不是砍掉能力，只是不再重复说三遍。
+     */
     if (attach.hasUploading && !archived) {
       return (
         <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-uploading" icon={<Loader2 className="h-4 w-4 animate-spin" />}

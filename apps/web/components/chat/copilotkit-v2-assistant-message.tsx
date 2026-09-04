@@ -99,29 +99,49 @@ function V2MarkdownRenderer({
  * 的"没有证据=没有完成"同一条纪律的另一面：也不能让"这条计划以前长什么样"凭空
  * 消失），只把它们视觉上淡化 + 贴一个"计划已更新"徽标，让最新一版自然成为视觉
  * 焦点。除 `write_todos` 外的其它工具调用渲染逻辑完全不变。
+ *
+ * 2026-09-04 人类直接反馈（真栈截图：两张内容不同的"制定执行计划"卡片同屏并存，
+ * 都是完整展开态）——第一版这条去重只在**同一条消息内**多次调用 `write_todos`
+ * 时生效（`hasSupersededWriteTodos` 只数当前 `message.toolCalls`）。真实场景里，
+ * 模型往往是**跨两条独立消息**各自调用一次 `write_todos`（先给一版计划、下一轮
+ * 收到反馈后再整体重发一版），每条消息各自只有一次调用，第一版的 `toolCalls.
+ * length === 1` 分支直接原样渲染、完全绕开了去重逻辑。这里改成把"谁是全局最新
+ * 一次 write_todos"这个判断挪到**整个对话**（`props.messages`）范围，不再局限
+ * 于当前这一条消息——`lastWriteTodosCallId` 现在按 `toolCallId` 比较（跨消息
+ * 唯一），不再按"消息内下标"比较（那个下标离开所在消息就没有意义）。
  */
+function findLastWriteTodosToolCallId(
+  messages: React.ComponentProps<typeof CopilotChatToolCallsView>["messages"],
+): string | null {
+  let lastId: string | null = null;
+  for (const m of messages ?? []) {
+    if (m.role !== "assistant" || !m.toolCalls) continue;
+    for (const call of m.toolCalls) {
+      if (call.function.name === "write_todos") lastId = call.id;
+    }
+  }
+  return lastId;
+}
+
 function WriteTodosDedupedToolCallsView(
-  props: React.ComponentProps<typeof CopilotChatToolCallsView>,
+  props: React.ComponentProps<typeof CopilotChatToolCallsView> & { lastWriteTodosCallId: string | null },
 ): JSX.Element | null {
-  const toolCalls = props.message.toolCalls ?? [];
+  const { lastWriteTodosCallId, ...viewProps } = props;
+  const toolCalls = viewProps.message.toolCalls ?? [];
   const renderToolCall = useRenderToolCall();
-  const lastWriteTodosIndex = toolCalls.reduce(
-    (last, call, i) => (call.function.name === "write_todos" ? i : last),
-    -1,
-  );
   return (
     <>
-      {toolCalls.map((toolCall, i) => {
+      {toolCalls.map((toolCall) => {
         // `.find()`'s predicate isn't a type guard by default, so TS keeps the wider
         // `Message` union even after the `role === "tool"` check — cast to the one
         // variant `useRenderToolCall`'s `toolMessage` param actually accepts (matches
         // the library's own untyped-JS equivalent in `CopilotChatToolCallsView`).
-        const toolMessage = (props.messages ?? []).find(
+        const toolMessage = (viewProps.messages ?? []).find(
           (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-        ) as Extract<NonNullable<typeof props.messages>[number], { role: "tool" }> | undefined;
+        ) as Extract<NonNullable<typeof viewProps.messages>[number], { role: "tool" }> | undefined;
         const rendered = renderToolCall({ toolCall, toolMessage });
         if (rendered === null) return null;
-        if (toolCall.function.name !== "write_todos" || i === lastWriteTodosIndex) {
+        if (toolCall.function.name !== "write_todos" || toolCall.id === lastWriteTodosCallId) {
           return <React.Fragment key={toolCall.id}>{rendered}</React.Fragment>;
         }
         return (
@@ -146,18 +166,37 @@ function V2ToolCallsView(
 ): JSX.Element | null {
   const toolCalls = props.message.toolCalls ?? [];
   const [expanded, setExpanded] = React.useState(true);
-  // issue #2451 —— 这一条消息里 `write_todos` 被调用不止一次时，摊平渲染要换成
-  // 上面那个去重版本；其它情况（含只调用一次 write_todos）完全不变。
-  const hasSupersededWriteTodos =
-    toolCalls.filter((c) => c.function.name === "write_todos").length > 1;
-  const ToolCallsRenderer = hasSupersededWriteTodos ? WriteTodosDedupedToolCallsView : CopilotChatToolCallsView;
+  // 2026-09-04（回指 issue #2451）—— 全局（跨整个对话，不只是这一条消息）唯一一次
+  // "最新的 write_todos 调用"，见上面 `findLastWriteTodosToolCallId` 头注。
+  const lastWriteTodosCallId = React.useMemo(
+    () => findLastWriteTodosToolCallId(props.messages ?? [props.message]),
+    [props.messages, props.message],
+  );
+  // 这一条消息里存在**任意一个**已经被更晚调用取代的 write_todos，就要走去重渲染——
+  // 覆盖"同一条消息内调用多次"（原判据）与"这条消息只调用了一次，但更晚的消息
+  // 又调用了一次"（本轮新覆盖的场景）两种情况。
+  const hasSupersededWriteTodos = toolCalls.some(
+    (c) => c.function.name === "write_todos" && c.id !== lastWriteTodosCallId,
+  );
+  const ToolCallsRenderer = hasSupersededWriteTodos
+    ? (viewProps: React.ComponentProps<typeof CopilotChatToolCallsView>) => (
+      <WriteTodosDedupedToolCallsView {...viewProps} lastWriteTodosCallId={lastWriteTodosCallId} />
+    )
+    : CopilotChatToolCallsView;
   // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
   // 引用的 id 不会在重渲染之间跳变），且天然跨组件实例互不相同（同一屏多条
   // 消息各自的折叠面板不会撞 id）。
   const groupId = React.useId();
 
   if (toolCalls.length === 0) return null;
-  if (toolCalls.length === 1) return <CopilotChatToolCallsView {...props} />;
+  // 单次调用也可能已经被后面一条消息的 write_todos 取代（本轮新覆盖的跨消息场景）——
+  // 这种情况仍要走去重渲染（贴"计划已更新"徽标），只是不需要"工具调用 · N 步"这层
+  // 可折叠外壳（那层壳是给"这条消息本身有一大串调用"用的，与跨消息去重是两件事）。
+  if (toolCalls.length === 1) {
+    return hasSupersededWriteTodos
+      ? <WriteTodosDedupedToolCallsView {...props} lastWriteTodosCallId={lastWriteTodosCallId} />
+      : <CopilotChatToolCallsView {...props} />;
+  }
 
   return (
     <div

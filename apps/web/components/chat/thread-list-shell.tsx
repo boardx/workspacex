@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
-import { ChevronDown, MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
+import { WorkspaceXWordmark } from "@/components/shell/workspacex-logo";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import type { ThreadCard } from "@/lib/live-chat";
@@ -36,26 +37,20 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
  * 宽栏顶部品牌行（2026-09-03 人类直接指令，对照设计参照图）—— 取代
  * `copilotkit-v2-shell.tsx` 原来放在这个位置的 `<ThreadListHeader title="工作" />`。
  *
- * ⚠ **纯展示，不接任何交互**（人类明确要求）：图标 + 「WorkspaceX」+ 一个装饰性
- *   `▾` 都不可点击，`⌘K` 也只是视觉提示，不是真实快捷键（真实搜索快捷键入口仍是
- *   下面的搜索框本身，这一行不重复造一个）。组织切换已经有唯一入口——图标栏最上方
- *   的 `OrgMenu`——这里不做第二个，避免同一功能两处入口。
- * ⚠ 图标本身是 2×2 语义色方块（primary/success/warning/ai），不是任意色值：
- *   `lint-design.sh` U5a 只认 token，这里复用与空状态卡片图标同一套 token 家族。
+ * ⚠ **纯展示，不接任何交互**（人类明确要求）：品牌 wordmark 不可点击、不带下拉箭头
+ *   （2026-09-03 第二轮人类反馈：此前的装饰性 `▾` 被误读成"这里能切换什么"，而这一行
+ *   压根不做任何切换——组织切换已经有唯一入口——图标栏最上方的 `OrgMenu`
+ *   （`triggerVariant="grid"`）——这里不做第二个，删掉这颗容易误导的箭头）。
+ *   `⌘K` 也只是视觉提示，不是真实快捷键（真实搜索快捷键入口仍是下面的搜索框本身，
+ *   这一行不重复造一个）。
+ * ⚠ 品牌图形改用真实 WorkspaceX logo（`WorkspaceXWordmark`，人类提供的官方图供描摹），
+ *   取代此前占位的 2×2 语义色方块——那是"品牌 logo 还没画"时期的临时替身，不是最终
+ *   视觉。
  */
 export function SidebarBrandHeader(): JSX.Element {
   return (
     <div className="flex items-center justify-between gap-2 px-3 pt-3" data-testid="chat-sidebar-brand-header">
-      <div aria-hidden className="flex items-center gap-2 text-card-foreground">
-        <span className="grid h-5 w-5 shrink-0 grid-cols-2 gap-0.5 overflow-hidden rounded-sm">
-          <span className="bg-primary" />
-          <span className="bg-success" />
-          <span className="bg-warning" />
-          <span className="bg-ai" />
-        </span>
-        <span className="text-14 font-semibold">WorkspaceX</span>
-        <ChevronDown aria-hidden className="h-3 w-3 text-muted-foreground" />
-      </div>
+      <WorkspaceXWordmark className="h-4 w-auto" />
       <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
     </div>
   );
