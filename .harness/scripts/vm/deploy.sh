@@ -314,8 +314,13 @@ fi
 # 里怎么写都到不了容器**——devapp 实测 `docker exec ... env | grep '^DEEP_AGENT'` 零命中。
 # 语义与上面 LangSmith 三件套一致：deploy.env 没设就不写行，不留空值假象。
 # 逻辑抽在 deep-agent-lib.sh 由 deep-agent-lib.test.ts 覆盖（含"不设=不写行"反证）。
+# issue #2687：追加 DEEP_AGENT_TASK_AUTO_CLASSIFY（#2662 任务自动判类中间件）与
+# DEEP_AGENT_ASYNC_SUBTASKS_ENABLED（#2664 异步子任务派发）——此前这两个新灰度开关
+# 不在白名单里，deploy.env 里配了也到不了容器。语义与上面三个既有键完全一致：
+# 没设/空值就不投影，不留空值假象；此处只补白名单缺口，不设默认值、不改行为。
 deep_agent_project_capability_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
-  DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB
+  DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB \
+  DEEP_AGENT_TASK_AUTO_CLASSIFY DEEP_AGENT_ASYNC_SUBTASKS_ENABLED
 
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 
