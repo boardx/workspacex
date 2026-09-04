@@ -299,9 +299,9 @@
         "F01"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "remote-f15",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/transcript-full-content-rbac.test.ts"
