@@ -378,6 +378,13 @@ export const AgentRunError = z.enum([
    * is produced; the run fails, visibly, with this code.
    */
   "TOOL_LOOP_LIMIT_EXCEEDED",
+  /**
+   * Phase 14 F01 (`kernel-gateway` 契约束，R4 A1 / I-3) —— 网关在把 run 转发给内核
+   * （`apps/deep-agent-service`）之前做健康检查，检查未过时快速失败，不让请求悬挂
+   * 等超时、也不发起下游调用。区别于 `MODEL_CALL_FAILED`：那是调用已经发起、内核
+   * 或模型本身出错；这是调用**根本没有发起**，因为下发前的探测就已经判定内核不可用。
+   */
+  "KERNEL_UNAVAILABLE",
 ]);
 
 export const AgentRunStep = z.object({

@@ -20,31 +20,22 @@
  * write it back would put a blank assistant message in a human's thread and mark the run
  * succeeded -- a fabricated reply with extra steps.
  *
- * ## #725 shipped, then #741 retired it -- the TS in-process tool loop is gone
+ * ## #725 → #741 → Phase 14 F01: down to one call, in `invoke-kernel.ts`
  *
- * #725 added `executeToolLoop`: a run whose pinned Skills produced a tool definition
- * went through a bounded in-process loop (model asks for a tool → `executeSkillTool` makes
- * a separate, focused `complete()` call → result fed back), gated behind
- * `KERNEL_TOOL_CALLING_ENABLED` (default off, so it never actually ran in production).
- * #740/#741 replace that whole mechanism with a DIFFERENT one: the general assistant's
- * `model_provider` now points at `DeepAgentModelProvider` (`deep-agent-model-provider.ts`),
- * which hands the run's pinned Skills to a REMOTE `deepagents`-based planning loop
- * (`apps/deep-agent-service`) instead of running one in this process. AGENTS.md's own
- * "same fact must not be declared in two places" discipline is why this file does not keep
- * BOTH: a second, dormant "how does the general assistant use tools" implementation sitting
- * next to the live one is exactly the drift that rule exists to prevent, flag or not.
+ * #725 added `executeToolLoop`, a bounded in-process tool-calling loop; #741 retired it in
+ * favour of `DeepAgentModelProvider` handing the run's pinned Skills to a REMOTE
+ * `deepagents`-based planning loop (`apps/deep-agent-service`). The design-delta
+ * `skill-lazy-loading` pseudo-loop that #741 left behind (progressively expanding a Skill
+ * catalog for non-deep-agent, non-streaming runs) is retired by THIS feature, for the same
+ * "same fact must not be declared in two places" reason #741 retired the first one: it was a
+ * second, simplified "how does an Agent get its Skills" implementation living next to the
+ * one deep-agent-service now owns end to end.
  *
- * ## #742 -- the ONE remaining alternative branch, for a provider whose loop lives elsewhere
- *
- * `deps.model.completeWithProgress`'s mere PRESENCE is the opt-in (checked before the plain
- * `complete()`/`completeStream()` branch below), same discipline `completeStream`'s
- * presence already uses to opt a provider into streaming -- this is what
- * `DeepAgentModelProvider` implements instead of the retired #725 loop. Every `tool_call`
- * step this branch records goes through the exact same `record()` helper and the exact
- * same `AppendedRunStep` shape #725's loop used to -- the Chat UI (#730-#734) needs no
- * changes to render it. A provider with NEITHER `completeWithProgress` nor
- * `completeStream` takes the single-call shape #725's own doc comment once called "the
- * exact pre-#725 code path" -- now simply the plain path.
+ * What's left is `invokeKernel` (`invoke-kernel.ts`): ONE call, whichever shape the run's
+ * pinned provider actually offers (`completeWithProgress` > `completeStream` > `complete`,
+ * unchanged priority, extracted rather than deleted). `execute-run.ts` itself no longer
+ * branches on `deps.model`'s shape at all -- R4 E3 (`01-kernel-unification.md`) requires the
+ * three old branches physically gone from this file's own source, not merely unreachable.
  */
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
@@ -66,11 +57,9 @@ import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
+import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
-import {
-  appendSkillFullContent, appendSkillNotMountedNotice, buildSkillCatalogBlock,
-  MAX_READ_SKILL_ROUNDS, tryExtractReadSkillRequest, buildDeepAgentSkillCatalogBlock,
-} from "./skill-catalog";
+import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -476,24 +465,6 @@ export interface ExecuteAgentRunDeps {
    * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
    */
   readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
-  /**
-   * design-delta `skill-lazy-loading` —— 这个部署有没有真的把 `KERNEL_MODEL_STREAM_ENABLED`
-   * 打开（`configured-model-provider.ts` 在合成期读一次的**同一个**旗标，这里只是把它的值
-   * 带过来，不重新读环境变量、不第二次声明这件事——单一事实源仍是那个文件）。
-   *
-   * ⚠ **为什么不能用 `deps.model.completeStream` 是否存在来判断**——这是本 delta 真栈测试
-   * （T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）踩过的一个真实坑:生产接线里
-   * `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream` **恒存在**（对不支持流式
-   * 的叶子 provider 内部退回 `complete()`，见 `routing-model-call-port.ts` 头注），按方法
-   * 存在性判断在真实接线下永远拿到"有"，会让"只在非流式部署生效"这条排除条件形同虚设。
-   *
-   * 缺省 `undefined`（当 `false` 处理）⇒ 与 `KERNEL_MODEL_STREAM_ENABLED` 默认关的行为
-   * 逐字节相同——渐进式加载正常生效。只有显式传 `true`（生产合成
-   * `kernel.module.ts` → `AgentRunExecutor` 按环境变量注入）时，`useLazySkillLoading` 才会
-   * 因为"这个部署真的会流式"而排除渐进式加载——流式 + 渐进式加载如何共存是明确的后续工作
-   * （`contract.md` 附加说明），不是这里假装处理了。
-   */
-  readonly streamingEnabled?: boolean;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -579,26 +550,21 @@ export const VISUALIZATION_GUIDANCE = [
  * 同级、紧随其后：两者都是「除了纯文字，你还可以用某种围栏产出结构化内容」这一类附加指引，
  * canvas 指引依赖 mermaid 指引已经建立的「围栏语法」认知，放在它后面顺理成章。
  *
- * `mode`（design-delta `skill-lazy-loading`，默认 `"full"`）—— `"full"` 是本次改动
- * 之前唯一的行为：每个挂载 skill 的全文直接拼进去，`trial-run-agent.ts`/
- * `quick-digital-interview.ts`（不传这个参数）与 `execute-run.ts` 对 deep-agent
- * provider 的 run，行为与本次改动之前逐字节相同（verification.md V5）。`"catalog"`
- * 只由 `execute-run.ts` 对非 deep-agent 的 run 传入：把每个 skill 的全文换成目录里
- * 一行摘要 + 按需请求协议说明（`skill-catalog.ts`），`skills.length === 0` 时两种
- * 模式的输出完全相同（没有目录可拼）。
+ * `mode`（默认 `"full"`）—— 每个挂载 skill 的全文直接拼进去；`trial-run-agent.ts`/
+ * `quick-digital-interview.ts`（不传这个参数）与非 deep-agent 的 `execute-run.ts` run
+ * 都用这个默认值。`"deep-agent-catalog"`（Phase 14 F01 起唯一的另一种模式，取代了已
+ * 随 `useLazySkillLoading` 一并物理删除的 `"catalog"`）只由 `execute-run.ts` 对
+ * deep-agent 的 run 传入：把每个 skill 的全文换成目录里一行摘要，取全文的说明指向
+ * 远端真实工具 `call_skill`（`buildDeepAgentSkillCatalogBlock` 头注）。
+ * `skills.length === 0` 时两种模式输出完全相同（没有目录可拼）。
  */
 export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
-  mode: "full" | "catalog" | "deep-agent-catalog" = "full",
+  mode: "full" | "deep-agent-catalog" = "full",
 ): string {
-  // #2534：`"deep-agent-catalog"` 只由 `execute-run.ts` 对 deep-agent 的 run 传入——
-  // 目录条目同 `"catalog"`，但取全文的说明指向远端真实工具 `call_skill`，不是
-  // `read_skill` 围栏（见 `buildDeepAgentSkillCatalogBlock` 头注）。0 个 skill 时三种
-  // 模式输出逐字相同。
   const skillParts = skills.length === 0 ? []
-    : mode === "catalog" ? [buildSkillCatalogBlock(skills)]
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
     : skills.map((s) => s.content);
   const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
@@ -708,33 +674,12 @@ async function executeClaimed(
    * 由下面那道**已有的**门赋值，与它给 `system` 追加协议文本用的是同一个条件。
    */
   let scriptProtocol: string | undefined;
-  /*
-   * design-delta `skill-lazy-loading` §1 —— 只对非 deep-agent、非流式部署的 run 走
-   * 目录 + 按需展开:
-   *
-   * ① deep-agent provider 已经有自己的按需执行机制（`call_skill` 真实工具调用，见
-   *   `deep-agent-model-provider.ts` 头注"input.system is still sent... not a
-   *   mistake"那段，`contract.md` §1 明确不碰）。
-   *
-   * ② 流式部署（`deps.streamingEnabled`）排除在外：渐进式加载的中间轮（read_skill
-   *   请求/展开）不该被当作真实增量推给用户，本 delta 不处理这个交互，见
-   *   `deps.streamingEnabled` 自己的头注。
-   *
-   * ⚠ **不**按 `deps.model.completeStream === undefined` 判断②——最初这么写过，被
-   * 这个文件自己的真栈测试（T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）
-   * 当场证伪:生产接线里 `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream`
-   * **恒存在**（`routing-model-call-port.ts` 自己的头注:"ALWAYS defined on the
-   * router itself... dispatch always succeeds"，对不支持流式的叶子 provider 内部退回
-   * `complete()`)。按存在性判断在真实接线下永远拿到"有"，这条排除条件形同虚设——
-   * 本优化在生产里**从未真正按预期排除过流式部署**，也**从未真正对非流式部署生效
-   * 过**（两处判断用的是同一个坏条件），只在内存 fake 单测里（`deps.model` 直接就是
-   * 叶子 port，没有路由包装）看起来对。改成显式的 `deps.streamingEnabled`——由合成
-   * 期（`kernel.module.ts`）按**同一个** `KERNEL_MODEL_STREAM_ENABLED` 环境变量注入,
-   * 不重新探测运行时对象形状。
-   */
+  // Phase 14 F01 -- the design-delta `skill-lazy-loading` pseudo-loop that used to live here
+  // (a catalog-mode system prompt + a `read_skill` round-trip loop for non-deep-agent,
+  // non-streaming runs) is retired: R4 E3 requires it physically gone, not gated off. Every
+  // run now gets `system` built the same way deep-agent runs already did (full Skill bodies,
+  // or a catalog for `isDeepAgentRun` -- see `buildSystemPrompt`'s own doc comment).
   const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
-  const useLazySkillLoading = !isDeepAgentRun && !deps.streamingEnabled
-    && run.skillVersionIds.length > 0;
   try {
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
@@ -776,8 +721,7 @@ async function executeClaimed(
     // `org_skills` 由 `call_skill` 按需取（`buildDeepAgentSkillCatalogBlock` 头注）。
     // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
     // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
-    const systemPromptMode = isDeepAgentRun ? "deep-agent-catalog"
-      : useLazySkillLoading ? "catalog" : "full";
+    const systemPromptMode = isDeepAgentRun ? "deep-agent-catalog" : "full";
     system = buildSystemPrompt(run.instructions, skills, canvasGuidance, systemPromptMode);
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
@@ -1144,218 +1088,144 @@ async function executeClaimed(
   // `ClaimedAgentRun.resumeStepSeqBase`'s own doc for why a hardcoded constant here
   // collides with a run's own earlier (pre-interrupt) steps.
   const seqCursor = { value: stepSeqBase + 2 };
-  try {
-    // #798: `completeWithProgress`'s presence alone used to be the gate, but a router-shaped
-    // port (`RoutingModelCallPort`) exposes that method as soon as ANY registered provider
-    // needs it -- not only for runs pinned to THAT provider. `supportsProgress`, when the
-    // port implements it, narrows the gate to this run's own pinned provider; a port that
-    // doesn't implement `supportsProgress` (every single-provider port and test fake) keeps
-    // the old behaviour exactly, since presence alone was always accurate for those.
-    // Bound so calling it below (unattached from `deps.model.completeWithProgress`'s own
-    // property access) still runs with the right `this` -- `RoutingModelCallPort`'s
-    // implementation calls `this.resolve(...)` internally.
-    const completeWithProgress = deps.model.completeWithProgress?.bind(deps.model);
-    const wantsProgress = completeWithProgress !== undefined
-      && (deps.model.supportsProgress ? deps.model.supportsProgress(run.modelProvider) : true);
-    let progressDeltaSeq = 0;
-    if (wantsProgress && completeWithProgress) {
-      // #742: a provider whose run is a remote, multi-step planning loop (today:
-      // `DeepAgentModelProvider`) reports intermediate steps as they happen -- the ONE
-      // remaining alternative branch now that #741 retired the TS tool loop (see this
-      // file's own header). See `ModelCallPort.completeWithProgress`'s own doc comment
-      // for the contract.
-      const completion = await completeWithProgress(
-        {
-          modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
-            threadId: run.threadId,
-          // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
-          orgId: String(orgId), runId: run.runId,
-          // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
-          // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
-          // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
-          // fail closed），本层不做第二份解析副本。
-          ...(run.pendingDecision === null
-            ? {}
-            : run.pendingDecision.kind === "approve"
-              ? { resume: { decision: "approve" as const } }
-              : {
-                resume: {
-                  decision: "edit" as const,
-                  editedAction: {
-                    name: run.pendingDecision.toolName,
-                    argsJson: run.pendingDecision.editedArgsJson,
-                  },
-                },
-              }),
-          history,
-          // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
-          skills: toolSkills,
-          // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
-          // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
-          ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
-          // issue #2667：个人设置"每次都先给我看计划"打开时才带上这个键——与
-          // `scriptProtocol` 同一条"缺席即关闭"纪律，见 `ModelCallInput.disableTaskAutoClassify`
-          // 自己的文档。
-          ...(run.disableTaskAutoClassify ? { disableTaskAutoClassify: true as const } : {}),
-          // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
-          // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
-          ...(vision.images.length > 0 ? { images: vision.images } : {}),
-          // F976 UC-9 pausePlanRun 的 P-2 落点：远端 run_id 创建成功后立即持久化，
-          // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
-          // 既有先例）——写失败只 log，不影响这轮回复本身。
-          ...(deps.planLedger ? {
-            onRemoteRunStarted: (remoteRunId: string) => {
-              void deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId).catch((e: unknown) => {
-                deps.log("plan-control: failed to persist remote_run_id (pausePlanRun will be unable to cancel this run)", {
-                  runId: run.runId, detail: e instanceof Error ? e.message : "unexpected write failure",
-                });
-              });
-            },
-          } : {}),
-        },
-        async (event) => {
-          const stepStartedAt = deps.clock.now();
-          // #742 Gap 1: `phase` absent/"complete" is the pre-existing behaviour verbatim
-          // (one event, one terminal `succeeded` row). `phase: "in_progress"` is the new
-          // branch -- it ALSO gets its own new row (append-only ledger, see
-          // `AppendedRunStep.toolCallId`'s own doc for why this can't be an UPDATE); the
-          // read side folds the pair back into one card for the same `toolCallId`.
-          const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : "succeeded";
-          await record(deps, orgId, {
-            runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
-            status,
-            inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
-            outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
-            failureCode: null,
-            toolName: event.toolName,
-            toolArgsSummary: event.toolArgsSummary,
-            toolResultSummary: event.toolResultSummary,
-            planningNote: event.planningNote,
-            toolCallId: event.toolCallId ?? null,
-          });
-          seqCursor.value += 1;
-        },
-        // DA-03：token 增量落进与 completeStream 分支完全相同的 delta 账本
-        // （appendModelDelta + 递增 seq），agui-bridge 的逐轮 readModelDeltas
-        // 转发因此对两条通路一视同仁——它不需要知道 token 是谁产的。
-        async (delta) => {
-          if (delta === "") return;
-          const seq = progressDeltaSeq;
-          progressDeltaSeq += 1;
-          await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
-        },
-      );
-      if (completion.interrupted !== undefined) {
-        // DA-07b（rubric D6）：run 停在敏感工具调用前等人裁决。这不是失败也不是完成——
-        // run 落 awaiting_approval + 待批摘要，本轮执行到此为止：不写回、不置终态。
-        // decideAgentRun 是唯一的出口（approve → 重新入队以 resume 续跑；reject → failed）。
-        await record(deps, orgId, {
-          runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
-          inputDigest: systemDigest, outputDigest: null, failureCode: null,
-          planningNote: `等待人工批准：${completion.interrupted.toolName}`,
-        });
-        await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
-        return;
-      }
-      if (completion.text.trim() === "") {
-        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
-      }
-      text = completion.text;
-      reportedTokens = completion.tokens;
-      reportedPrompt = completion.promptTokens;
-      reportedCompletion = completion.completionTokens;
-      // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
-      scriptCandidates = completion.scriptCandidates ?? [];
-    } else if (useLazySkillLoading) {
-      /*
-       * design-delta `skill-lazy-loading` §2.2 —— `system` 此刻是目录模式（见上面
-       * `buildSystemPrompt` 调用点）。循环里每一轮：调一次 `complete()`，若回复里有
-       * `read_skill` 请求且没到轮数上限，把对应 skill 的全文（或"未挂载"提示）追加进
-       * `system` 再问一次；否则把这一轮的回复当最终答案。`system` 在循环里被**重新
-       * 赋值**（不是局部变量）：循环结束后，本函数后面的 `regenerate`（run_script
-       * 失败回喂）与 `record()` 的 `systemDigest` 都还在用同一个变量名，让"这次已经
-       * 展开过的 skill 全文"在脚本重试时依然在场——否则模型改脚本时会"忘记"skill
-       * 指令，比"根本没有渐进式披露"还差。
-       *
-       * ⚠ `useLazySkillLoading` 已经保证 `deps.model.completeStream === undefined`，
-       * 这个分支只会走一次性的 `complete()`，不需要再判断走不走流式。
-       */
-      let rounds = 0;
-      let completion = await deps.model.complete({
-        modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
-        history, skills: toolSkills,
-        ...(vision.images.length > 0 ? { images: vision.images } : {}),
+
+  /*
+   * Phase 14 F01 (`kernel-gateway` 契约束 UC-3，R4 A1 / I-3) —— 下发前健康检查。只对
+   * deep-agent-service 承接的 run 有意义：`checkKernelHealth` 是 `ModelCallPort` 上的
+   * OPTIONAL 能力（见它自己的文档），单次请求/响应式的 provider（chat/deep-research/
+   * bailian-image）没有独立于"这次调用会不会失败"的健康状态，不实现它，
+   * `RoutingModelCallPort.checkKernelHealth` 对它们报 "healthy"（不做检查、照常转发，
+   * 与本次改动之前逐字节相同）。检查未过 ⇒ 不发起下游调用，直接以 KERNEL_UNAVAILABLE
+   * 落终态——I-3 的"快速失败，不让请求悬挂等超时"，不是重试或降级。
+   */
+  if (isDeepAgentRun && deps.model.checkKernelHealth) {
+    const health = await deps.model.checkKernelHealth(run.modelProvider);
+    if (health === "unavailable") {
+      deps.log("agent run kernel health check failed, run not forwarded", {
+        runId: run.runId, modelProvider: run.modelProvider,
       });
-      while (completion.text.trim() !== "" && rounds < MAX_READ_SKILL_ROUNDS) {
-        const requested = tryExtractReadSkillRequest(completion.text);
-        if (requested === null) break;
-        rounds += 1;
-        const target = toolSkills.find((s) => s.stableName === requested);
-        system = target
-          ? appendSkillFullContent(system, target)
-          : appendSkillNotMountedNotice(system, requested);
-        completion = await deps.model.complete({
-          modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
-          history, skills: toolSkills,
-          ...(vision.images.length > 0 ? { images: vision.images } : {}),
-        });
-      }
-      if (completion.text.trim() === "") {
-        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
-      }
-      text = completion.text;
-      reportedTokens = completion.tokens;
-      reportedPrompt = completion.promptTokens;
-      reportedCompletion = completion.completionTokens;
-      scriptCandidates = completion.scriptCandidates ?? [];
-    } else {
-      // #654 阶段2a: when the configured port supports streaming, use it and persist each
-      // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
-      // the run's success/failure is still decided by the SAME accumulated-text checks
-      // below, exactly as the non-streaming path decides it. A port without `completeStream`
-      // falls back to the one-shot `complete()`, unchanged from before this delta.
-      let deltaSeq = 0;
-      const completion = deps.model.completeStream
-        ? await deps.model.completeStream(
-          {
-            modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
-            threadId: run.threadId,
-            // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
-            orgId: String(orgId), runId: run.runId,
-            history, skills: toolSkills,
-            ...(vision.images.length > 0 ? { images: vision.images } : {}),
-          },
-          async (delta) => {
-            if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
-            const seq = deltaSeq;
-            deltaSeq += 1;
-            await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
-          },
-        )
-        : await deps.model.complete({
-          modelProvider: run.modelProvider,
-          modelId: run.modelId,
-          system,
-          user: userText,
-          // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
-          orgId: String(orgId),
-          runId: run.runId,
-          history,
-          // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
-          // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.
-          skills: toolSkills,
-          ...(vision.images.length > 0 ? { images: vision.images } : {}),
-        });
-      if (completion.text.trim() === "") {
-        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
-      }
-      text = completion.text;
-      reportedTokens = completion.tokens;
-      reportedPrompt = completion.promptTokens;
-      reportedCompletion = completion.completionTokens;
-      // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
-      scriptCandidates = completion.scriptCandidates ?? [];
+      await record(deps, orgId, {
+        runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
+        inputDigest: systemDigest, outputDigest: null, failureCode: "KERNEL_UNAVAILABLE",
+      });
+      await deps.runs.failRun(orgId, run.runId, "KERNEL_UNAVAILABLE");
+      return;
     }
+  }
+
+  // DA-03：token 增量落进同一个 delta 账本（appendModelDelta + 递增 seq）无论走哪种
+  // provider 形状——agui-bridge 的逐轮 readModelDeltas 转发因此对它们一视同仁，不需要
+  // 知道 token 是谁产的。一个共享计数器是安全的：`invokeKernel` 只会走三种形状中的一种
+  // （`ModelCallPort` 自己的文档已经说明它们互斥），onDelta 因此每次调用最多被这一条
+  // 路径使用。
+  let deltaSeq = 0;
+  try {
+    // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
+    // shape `deps.model` actually offers for this run's pinned provider; every field below
+    // is a superset of what the retired branches used to build separately (deep-agent-only
+    // fields like `resume`/`scriptProtocol`/`onRemoteRunStarted` are simply ignored by
+    // providers that don't read them, same tolerance `skills`/`orgId`/`runId` already had
+    // for every provider before this feature).
+    const completion = await invokeKernel(
+      deps.model,
+      {
+        modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+        threadId: run.threadId,
+        // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
+        orgId: String(orgId), runId: run.runId,
+        // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
+        // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
+        // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
+        // fail closed），本层不做第二份解析副本。
+        ...(run.pendingDecision === null
+          ? {}
+          : run.pendingDecision.kind === "approve"
+            ? { resume: { decision: "approve" as const } }
+            : {
+              resume: {
+                decision: "edit" as const,
+                editedAction: {
+                  name: run.pendingDecision.toolName,
+                  argsJson: run.pendingDecision.editedArgsJson,
+                },
+              },
+            }),
+        history,
+        // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
+        skills: toolSkills,
+        // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
+        // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
+        ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
+        // issue #2667：个人设置"每次都先给我看计划"打开时才带上这个键——与
+        // `scriptProtocol` 同一条"缺席即关闭"纪律，见 `ModelCallInput.disableTaskAutoClassify`
+        // 自己的文档。
+        ...(run.disableTaskAutoClassify ? { disableTaskAutoClassify: true as const } : {}),
+        // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
+        // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
+        ...(vision.images.length > 0 ? { images: vision.images } : {}),
+        // F976 UC-9 pausePlanRun 的 P-2 落点：远端 run_id 创建成功后立即持久化，
+        // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
+        // 既有先例）——写失败只 log，不影响这轮回复本身。
+        ...(deps.planLedger ? {
+          onRemoteRunStarted: (remoteRunId: string) => {
+            void deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId).catch((e: unknown) => {
+              deps.log("plan-control: failed to persist remote_run_id (pausePlanRun will be unable to cancel this run)", {
+                runId: run.runId, detail: e instanceof Error ? e.message : "unexpected write failure",
+              });
+            });
+          },
+        } : {}),
+      },
+      async (event) => {
+        const stepStartedAt = deps.clock.now();
+        // #742 Gap 1: `phase` absent/"complete" is the pre-existing behaviour verbatim
+        // (one event, one terminal `succeeded` row). `phase: "in_progress"` is the new
+        // branch -- it ALSO gets its own new row (append-only ledger, see
+        // `AppendedRunStep.toolCallId`'s own doc for why this can't be an UPDATE); the
+        // read side folds the pair back into one card for the same `toolCallId`.
+        const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : "succeeded";
+        await record(deps, orgId, {
+          runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
+          status,
+          inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
+          outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
+          failureCode: null,
+          toolName: event.toolName,
+          toolArgsSummary: event.toolArgsSummary,
+          toolResultSummary: event.toolResultSummary,
+          planningNote: event.planningNote,
+          toolCallId: event.toolCallId ?? null,
+        });
+        seqCursor.value += 1;
+      },
+      async (delta) => {
+        if (delta === "") return;
+        const seq = deltaSeq;
+        deltaSeq += 1;
+        await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
+      },
+    );
+    if (completion.interrupted !== undefined) {
+      // DA-07b（rubric D6）：run 停在敏感工具调用前等人裁决。这不是失败也不是完成——
+      // run 落 awaiting_approval + 待批摘要，本轮执行到此为止：不写回、不置终态。
+      // decideAgentRun 是唯一的出口（approve → 重新入队以 resume 续跑；reject → failed）。
+      await record(deps, orgId, {
+        runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
+        inputDigest: systemDigest, outputDigest: null, failureCode: null,
+        planningNote: `等待人工批准：${completion.interrupted.toolName}`,
+      });
+      await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
+      return;
+    }
+    if (completion.text.trim() === "") {
+      throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
+    }
+    text = completion.text;
+    reportedTokens = completion.tokens;
+    reportedPrompt = completion.promptTokens;
+    reportedCompletion = completion.completionTokens;
+    // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
+    scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
     // The provider's own words live here and stop here. `detail` never reaches a response;

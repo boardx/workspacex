@@ -45,6 +45,9 @@ const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
   MODEL_CALL_FAILED: "模型这次没能返回可用结果",
   CHAT_WRITEBACK_FAILED: "回复已生成，但写入对话失败",
   TOOL_LOOP_LIMIT_EXCEEDED: "工具调用次数超出上限，模型未能给出最终答案",
+  // Phase 14 F01（kernel-gateway 契约束 R4 A1）：网关下发前健康检查未过，请求根本
+  // 没有发出去——与 MODEL_CALL_FAILED（调用已发起、内核/模型出错）是不同的事实。
+  KERNEL_UNAVAILABLE: "服务暂时不可用，请稍后重试",
 };
 
 /** 终态错误码 → 人读文案。`code` 为 `null`（读不到具体原因）时给一句诚实的兜底。 */
