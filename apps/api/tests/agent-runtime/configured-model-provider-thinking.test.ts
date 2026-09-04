@@ -193,4 +193,24 @@ describe("#2504 readBailianExtensionsEnabled —— endpoint 维度的判定逻�
       "https://my-self-hosted-vllm.internal/v1",
     )).toBe(true);
   });
+
+  // 第三轮独立复审诊断：子串匹配（`baseUrl.includes("dashscope.aliyuncs.com")`）会被
+  // 伪造子域或藏在 path/query 里的同一段字符串骗过，必须严格按 URL.hostname 判定。
+  it("伪造子域（真实字符串出现在攻击者控制的子域里）⇒ false，不是子串匹配意义上的『命中』", () => {
+    expect(readBailianExtensionsEnabled({}, "https://dashscope.aliyuncs.com.attacker.example/v1")).toBe(false);
+  });
+
+  it("字符串藏在 path/query 而不是 host 里 ⇒ false", () => {
+    expect(readBailianExtensionsEnabled({}, "https://evil.example/dashscope.aliyuncs.com")).toBe(false);
+    expect(readBailianExtensionsEnabled({}, "https://evil.example/v1?upstream=dashscope.aliyuncs.com")).toBe(false);
+  });
+
+  it("baseUrl 不是合法 URL（解析失败）⇒ fail closed 为 false，不是抛异常或裸猜", () => {
+    expect(readBailianExtensionsEnabled({}, "not a url at all")).toBe(false);
+    expect(readBailianExtensionsEnabled({}, "dashscope.aliyuncs.com")).toBe(false); // 缺 scheme，URL() 解析失败
+  });
+
+  it("带 www. 前缀的真实百炼 host 仍判 true（生产环境两种写法都可能出现）", () => {
+    expect(readBailianExtensionsEnabled({}, "https://www.dashscope.aliyuncs.com/compatible-mode/v1")).toBe(true);
+  });
 });

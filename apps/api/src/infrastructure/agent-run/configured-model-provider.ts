@@ -142,9 +142,26 @@ export function readBailianExtensionsEnabled(env: NodeJS.ProcessEnv, baseUrl: st
   return isBailianBaseUrl(baseUrl);
 }
 
-/** `bailian-image-provider.ts` / `bailian-vision-extractor.ts` 用的同一个真实百炼 host。 */
+/**
+ * `bailian-image-provider.ts` / `bailian-vision-extractor.ts` 用的同一个真实百炼 host——
+ * 严格按 `URL.hostname` 判定，不是子串匹配。
+ *
+ * ⚠ 第三轮独立复审诊断指出：`baseUrl.includes("dashscope.aliyuncs.com")` 是子串匹配，
+ * 对 `https://dashscope.aliyuncs.com.attacker.example/v1`（伪造子域）、
+ * `https://evil.example/dashscope.aliyuncs.com`（字符串藏在 path 里）这类 URL 会误判为
+ * 真的百炼——这正是子串匹配当 host 校验用时的经典坑，与"字符串里含某个词"和"域名真的是
+ * 那个域"是两件事同源。改成解析出 `hostname` 再判等值（含 `www.` 前缀，真实生产环境两种
+ * 写法都可能出现），解析失败（`baseUrl` 不是合法 URL）fail closed 为 false——与整个文件
+ * 「未知能力不裸猜」的纪律一致，不是"看起来像就当真的"。
+ */
 function isBailianBaseUrl(baseUrl: string): boolean {
-  return baseUrl.includes("dashscope.aliyuncs.com");
+  let hostname: string;
+  try {
+    hostname = new URL(baseUrl).hostname;
+  } catch {
+    return false;
+  }
+  return hostname === "dashscope.aliyuncs.com" || hostname === "www.dashscope.aliyuncs.com";
 }
 
 /**
