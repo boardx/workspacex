@@ -51,7 +51,7 @@
       ],
       "points": 5,
       "status": "in_progress",
-      "sprint": null,
+      "sprint": "01",
       "owner": "remote-f03",
       "capability": "CAP-API",
       "verification": [

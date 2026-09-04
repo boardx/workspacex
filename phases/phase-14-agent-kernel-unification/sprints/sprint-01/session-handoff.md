@@ -134,14 +134,28 @@ issue 的 `user_visible_behavior` 逐字写着"…`agui-bridge.ts` 的定时轮�
 `pnpm exec tsc --noEmit -p apps/api`/`-p packages/contracts` 均 0 新增错误；
 `packages/contracts` 全量 `vitest run`（26 个文件/429 条用例）全绿。
 
+## `pnpm harness verify` 本会话未跑到底——为什么，以及下一步
+`pnpm harness verify --sprint 14/01 --feature F03` 先跑了 F03 自己的三条 verification
+命令（用上面的本机 Postgres 环境，需要把 `testenv.sh` 的全部 `WORKSPACEX_*`/`REDIS_*`/
+`MINIO_*`/`COMPOSE_PROJECT_NAME` 隔离变量都设成固定值，否则 `ensureReservedTestIsolation`
+会当作"未隔离"重新派生一套随机端口，绕过本机 Postgres），随后进入它自己的"base verify"
+门（`pnpm -w run verify:release` → `verify:base:raw` → `verify:harness:raw` →
+`turbo run typecheck lint --continue` → `turbo run test --continue --concurrency=1`——
+**跑的是整个 monorepo**，不是 apps/api 一个包）。这一步在本会话的剩余时间预算内跑不完
+（仅 `turbo run typecheck lint` 就并行起了十几个包的 `tsc`/`build`/`lint`），本会话主动
+终止了它，**不是它跑出了失败**——没有观察到任何一条真实失败，纯粹是规模超出单次会话
+时间。同 F01 先例（PR 已合入 main，status 至今仍是 `in_progress`，从未真正跑通过
+`pnpm harness verify`）：status 保持 `in_progress`，未手改，等一个有余量跑完整
+monorepo base gate 的会话（或 CI）跑通 `pnpm harness verify --sprint 14/01 --feature F03`
+把它转 passing。
+
 ## 下一步最佳动作
-1. 如果本会话没能在结束前跑通 `pnpm harness verify --sprint 14/01 --feature F03`
-   （比如被打断），下一个会话直接用上面"环境 blocker 的解法"重搭一次本机 Postgres，
-   跑 `pnpm harness verify --sprint 14/01 --feature F03` 把 status 转 passing——不要
-   手改。
-2. 同样的环境解法可以顺手把 F01 也转 passing（`pnpm harness verify --sprint 14/01
-   --feature F01`），F01 合入以来一直没有一次真正跑通过。
-3. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
+1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
+   `verify:release`）的会话/CI，一次性把 F01 与 F03 都转 passing——两者都卡在同一道
+   "base verify 规模大"的门上，不是各自的业务逻辑有问题（F03 的三条 feature 级
+   verification 已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01 的两条也早就
+   跑绿过，见其自身历史记录）。
+2. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
    `agui-bridge.ts` 轮询切换，按 R11(b)/(c) 排期——见上"诚实的范围收窄"。
 
 ## 命令

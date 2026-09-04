@@ -2,38 +2,38 @@
 
  RUN  v2.1.9 /home/user/workspacex/apps/api
 
-[db-isolation] db=workspacex capacity=100 current=7 required=32
- ✓ tests/agent-run/ws-event-forwarding.test.ts (6 tests) 69ms
+[db-isolation] db=workspacex capacity=100 current=6 required=32
+ ✓ tests/agent-run/ws-event-forwarding.test.ts (6 tests) 46ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  22:29:02
-   Duration  1.55s (transform 804ms, setup 0ms, collect 1.06s, tests 69ms, environment 0ms, prepare 50ms)
+   Start at  22:41:57
+   Duration  1.41s (transform 705ms, setup 0ms, collect 949ms, tests 46ms, environment 0ms, prepare 53ms)
 
-[db-isolation] db=workspacex peak_connections=3
+[db-isolation] db=workspacex peak_connections=1
 
 == pnpm --filter api exec vitest run tests/agent-run/ws-latency-and-no-polling.test.ts ==
 
  RUN  v2.1.9 /home/user/workspacex/apps/api
 
-[db-isolation] db=workspacex capacity=100 current=7 required=32
- ✓ tests/agent-run/ws-latency-and-no-polling.test.ts (4 tests) 23ms
+[db-isolation] db=workspacex capacity=100 current=6 required=32
+ ✓ tests/agent-run/ws-latency-and-no-polling.test.ts (4 tests) 34ms
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  22:29:05
-   Duration  1.51s (transform 798ms, setup 0ms, collect 1.02s, tests 23ms, environment 0ms, prepare 46ms)
+   Start at  22:41:59
+   Duration  1.42s (transform 721ms, setup 0ms, collect 943ms, tests 34ms, environment 0ms, prepare 56ms)
 
-[db-isolation] db=workspacex peak_connections=2
+[db-isolation] db=workspacex peak_connections=1
 
 == pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/agui-event-schema.test.ts ==
 
  RUN  v2.1.9 /home/user/workspacex/packages/contracts
 
- ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 6ms
+ ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 5ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  22:29:07
-   Duration  383ms (transform 62ms, setup 0ms, collect 109ms, tests 6ms, environment 0ms, prepare 54ms)
+   Start at  22:42:01
+   Duration  339ms (transform 69ms, setup 0ms, collect 98ms, tests 5ms, environment 0ms, prepare 56ms)
 
