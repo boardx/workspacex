@@ -514,6 +514,24 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
   });
 
+  it("流程推进后仍可在任意历史步骤使用 Skill，响应不会把页面跳回服务端最新步骤", async () => {
+    const advanced = { ...persistedInterview, currentStep: "runs" as const, status: "running" as const };
+    const transport = installLiveFetch(advanced);
+    render(<DigitalInterviewSetup interviewId={advanced.interviewId} />);
+    await screen.findByTestId("itv-expert-runs");
+
+    fireEvent.click(screen.getByTestId("itv-workflow-step-2"));
+    expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("itv-skill-input"), { target: { value: "添加一个用户" } });
+    fireEvent.click(screen.getByTestId("itv-skill-send"));
+
+    await waitFor(() => expect(transport.requests("POST", "/skill/messages")).toHaveLength(1));
+    expect(transport.requests("POST", "/skill/messages")[0]!.body).toMatchObject({ currentStep: "experts" });
+    expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId("itv-skill-apply"));
+    expect(await screen.findByTestId("itv-expert-step")).toBeInTheDocument();
+  });
+
   it("dirty navigation can be cancelled or discarded without persisting the buffer", async () => {
     const transport = installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);

@@ -110,6 +110,7 @@ function buffersFrom(view: DigitalInterviewWorkflowView): LiveBuffers {
 export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly initialView: DigitalInterviewWorkflowView }) {
   const router = useRouter();
   const [view, setView] = React.useState(initialView);
+  const [activeStep, setActiveStep] = React.useState<DigitalInterviewStep>(initialView.currentStep);
   const [buffers, setBuffers] = React.useState<LiveBuffers>(() => buffersFrom(initialView));
   const [dirty, setDirty] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -171,6 +172,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   function replaceAfterConfirmation(next: DigitalInterviewWorkflowView, operation: string) {
     requestIds.current.delete(operation);
     setView(next);
+    setActiveStep(next.currentStep);
     setBuffers(buffersFrom(next));
     setDirty(false);
     setError("");
@@ -198,7 +200,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   function navigate(next: PendingNavigation) {
-    if (next?.step) setView((current) => ({ ...current, currentStep: next.step! }));
+    if (next?.step) setActiveStep(next.step);
     if (next?.href) router.push(next.href);
   }
 
@@ -262,7 +264,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   async function sendSkillMessage(text: string) {
-    const payload = { currentStep: view.currentStep, text, draftContext: skillDraftContext(view.currentStep, buffers, view.name, view.expertCandidates), expectedVersion: view.version };
+    const payload = { currentStep: activeStep, text, draftContext: skillDraftContext(activeStep, buffers, view.name, view.expertCandidates), expectedVersion: view.version };
     const operation = "append-skill-message";
     try {
       const next = await appendDigitalInterviewSkillMessage({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
@@ -296,7 +298,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     } catch (cause) { showError(cause); return false; }
   }
 
-  const active = view.currentStep;
+  const active = activeStep;
   return <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
     <PersistentInterviewSkillAssistant view={view} currentStep={active} onSend={sendSkillMessage} onApply={applyProposal} onReject={rejectProposal} />
     <main className="min-w-0 flex-1 overflow-y-auto bg-background p-6 lg:p-10"><div className="mx-auto max-w-5xl">
@@ -310,7 +312,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
         {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => void generateReport()} />}
         {active === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
-          setView((current) => ({ ...current, currentStep: "runs" }));
+          setActiveStep("runs");
           window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
         }} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
           : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}

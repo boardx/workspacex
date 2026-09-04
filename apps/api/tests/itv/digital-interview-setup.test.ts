@@ -91,6 +91,10 @@ beforeAll(async () => {
       const context = JSON.parse(body.messages.at(-1)?.content ?? "{}") as {
         currentStep?: string;
         operation?: string;
+        currentDraft?: {
+          expertIds?: string[];
+          availableExperts?: Array<{ expertId: string }>;
+        };
         experts?: Array<{
           expertId: string; occupation: string; goals: string[]; painPoints: string[]; typicalAdvice: string;
         }>;
@@ -113,7 +117,9 @@ beforeAll(async () => {
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
         : context.currentStep === "experts"
-          ? { expertIds: [EXPERT] }
+          ? { expertIds: [context.currentDraft?.availableExperts?.find(
+            (expert) => !context.currentDraft?.expertIds?.includes(expert.expertId),
+          )?.expertId ?? context.currentDraft?.expertIds?.[0] ?? EXPERT] }
           : context.currentStep === "questions"
             ? { questions: [] }
             : { instruction: "建议聚焦最终否决权" };
@@ -362,31 +368,50 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(questions.status).toBe(201);
     expect(await questions.json()).toMatchObject({ currentStep: "runs", questions: generatedQuestions, version: 4 });
 
+    const earlierStepMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        currentStep: "experts", text: "在现有专家基础上再补充一位",
+        draftContext: {
+          step: "experts",
+          expertIds: selectedExpertIds,
+          availableExperts: expertView.expertCandidates.map(({ expertId, displayName, role }) => ({ expertId, displayName, role })),
+        },
+        expectedVersion: 4, requestId: "skill-earlier-step-f04",
+      }),
+    });
+    expect(earlierStepMessage.status).toBe(201);
+    expect(await earlierStepMessage.json()).toMatchObject({
+      currentStep: "runs",
+      version: 5,
+      skillProposals: [expect.objectContaining({ targetStep: "experts", status: "proposed" })],
+    });
+
     const message = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({
         currentStep: "runs", text: "请聚焦最终否决权",
         draftContext: { step: "runs", instruction: "按已确认问题开始执行" },
-        expectedVersion: 4, requestId: "skill-message-f04",
+        expectedVersion: 5, requestId: "skill-message-f04",
       }),
     });
     expect(message.status).toBe(201);
     const messageView = await message.json() as DigitalInterviewResponse;
-    expect(messageView).toMatchObject({ version: 5 });
-    expect(messageView.skillMessages.map((item) => item.role)).toEqual(["user", "assistant"]);
-    expect(messageView.skillProposals).toEqual([
+    expect(messageView).toMatchObject({ version: 6 });
+    expect(messageView.skillMessages.map((item) => item.role)).toEqual(["user", "assistant", "user", "assistant"]);
+    expect(messageView.skillProposals).toEqual(expect.arrayContaining([
       expect.objectContaining({ status: "proposed", patch: { instruction: "建议聚焦最终否决权" } }),
-    ]);
+    ]));
 
-    const proposalId = messageView.skillProposals[0]!.proposalId;
+    const proposalId = messageView.skillProposals.find((item) => "instruction" in item.patch)!.proposalId;
     const applied = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/proposals/${proposalId}/apply`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ expectedVersion: 5, requestId: "skill-apply-f04" }),
+      body: JSON.stringify({ expectedVersion: 6, requestId: "skill-apply-f04" }),
     });
     expect(applied.status).toBe(201);
     expect(await applied.json()).toMatchObject({
-      version: 6,
-      skillProposals: [expect.objectContaining({ proposalId, status: "applied_to_draft" })],
+      version: 7,
+      skillProposals: expect.arrayContaining([expect.objectContaining({ proposalId, status: "applied_to_draft" })]),
     });
 
     const secondMessage = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/messages`, {
@@ -394,20 +419,20 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       body: JSON.stringify({
         currentStep: "runs", text: "这条建议请保留审计后拒绝",
         draftContext: { step: "runs", instruction: "按已确认问题开始执行" },
-        expectedVersion: 6, requestId: "skill-message-reject-f04",
+        expectedVersion: 7, requestId: "skill-message-reject-f04",
       }),
     });
     expect(secondMessage.status).toBe(201);
     const secondMessageView = await secondMessage.json() as DigitalInterviewResponse;
-    expect(secondMessageView.version).toBe(7);
+    expect(secondMessageView.version).toBe(8);
     const rejectedProposalId = secondMessageView.skillProposals.find((proposal) => proposal.status === "proposed")!.proposalId;
     const rejected = await fetch(`${base}/interviews/digital/${created.interviewId}/skill/proposals/${rejectedProposalId}/reject`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ expectedVersion: 7, requestId: "skill-reject-f04" }),
+      body: JSON.stringify({ expectedVersion: 8, requestId: "skill-reject-f04" }),
     });
     expect(rejected.status).toBe(201);
     expect(await rejected.json()).toMatchObject({
-      version: 8,
+      version: 9,
       skillProposals: expect.arrayContaining([
         expect.objectContaining({ proposalId: rejectedProposalId, status: "rejected" }),
       ]),
@@ -418,10 +443,14 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(restored.status).toBe(200);
     const restoredView = await restored.json() as DigitalInterviewResponse;
     expect(restoredView).toMatchObject({
-      version: 8,
+      version: 9,
       selectedExpertIds,
       questions: generatedQuestions,
-      skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
+      skillMessages: [
+        { role: "user" }, { role: "assistant" },
+        { role: "user" }, { role: "assistant" },
+        { role: "user" }, { role: "assistant" },
+      ],
       skillProposals: expect.arrayContaining([
         expect.objectContaining({ proposalId, status: "applied_to_draft" }),
         expect.objectContaining({ proposalId: rejectedProposalId, status: "rejected" }),
