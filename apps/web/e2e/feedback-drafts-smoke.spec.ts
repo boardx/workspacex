@@ -77,9 +77,13 @@ async function clickWithDiagnostics(page: Page, testId: string): Promise<void> {
     // 「只有这个 fieldset 消失、弹层其余部分还在」，缩小到底是哪一层状态没了。
     const diag = await page.evaluate((tid) => {
       const el = document.querySelector(`[data-testid="${tid}"]`);
+      const formEl = document.querySelector('[data-testid="feedback-form"]');
       const base = {
         url: window.location.href,
-        dialogFormPresent: document.querySelector('[data-testid="feedback-form"]') !== null,
+        dialogFormPresent: formEl !== null,
+        // 上一轮证实 feedback-form 存在但 kind 按钮不在——直接把这个容器里真实渲染了
+        // 什么打出来，不再猜测究竟是哪一层状态没了。
+        dialogFormHtml: formEl?.outerHTML.slice(0, 1500) ?? null,
         dialogTitlePresent: document.querySelector('[data-testid="feedback-dialog-title"]') !== null,
         dialogTitleText: document.querySelector('[data-testid="feedback-dialog-title"]')?.textContent ?? null,
         railFeedbackPresent: document.querySelector('[data-testid="rail-feedback"]') !== null,
