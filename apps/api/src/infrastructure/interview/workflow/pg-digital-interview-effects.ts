@@ -1145,7 +1145,6 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
       if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       const workflowBefore = await this.requireWorkflow(session, input.orgId, input.interviewId);
-      if (workflowBefore.currentStep !== input.currentStep) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_STEP_INVALID");
       const ordinal = await session.query<{ next: string }>(
         `SELECT (COALESCE(max(ordinal),0)+1)::text AS next
            FROM digital_interview_skill_messages WHERE org_id=$1 AND skill_thread_id=$2`,
