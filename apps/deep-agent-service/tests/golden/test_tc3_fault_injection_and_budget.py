@@ -27,7 +27,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
 
-from _scripted import ScriptedChatModel, ai_tool_call, tool_call_names
+from _scripted import ScriptedChatModel, ai_tool_call, grader_always_satisfied_response, tool_call_names
 
 # ToolRetryMiddleware(max_retries=2) = 1 次首发 + 2 次重试 = 同一个工具调用最多 3 次尝试。
 # rubric 的「连续失败 3 次」就钉在这个数上：三次尝试全败，错误如实回给模型，模型改道。
@@ -54,7 +54,16 @@ def _fault_tools(ledger: dict):  # noqa: ANN202
 def _router(messages, bound_tools):  # noqa: ANN001, ANN201
     """剧本：先打 flaky_probe（会连续失败），拿到错误后改道 stable_probe，
     然后**永远**接着调 stable_probe——这就是「会循环的任务」，靠引擎的预算熔断收场，
-    不靠剧本自己停。"""
+    不靠剧本自己停。
+
+    Phase 14 F02（R6）起 `RubricMiddleware` 的默认清单播种无条件生效（见
+    `grader_always_satisfied_response` 头注：本测试要看的是预算熔断本身的收尾
+    形状，不是退出前自检——那件由 `test_tc3_precompletion_checklist_forces_a_revision`
+    专门覆盖），所以对 grader 调用固定判"合格"放行，不让它跳回主链再吃一轮预算、
+    把终稿形状搅浑。
+    """
+    if bound_tools == ["GraderResponse"]:
+        return grader_always_satisfied_response()
     already = tool_call_names(messages)
     if "flaky_probe" not in already:
         return ai_tool_call("flaky_probe", {"query": "q"}, "tc3-flaky-1")
@@ -63,14 +72,14 @@ def _router(messages, bound_tools):  # noqa: ANN001, ANN201
 
 
 @pytest.fixture
-def tc3(monkeypatch):  # noqa: ANN001, ANN201
+def tc3():  # noqa: ANN201
     from deepagents import create_deep_agent
 
     from deep_agent_service.harness import build_middleware
 
-    # 退出前自检在这一条里关掉：本测试要看的是预算熔断的收尾形状，
-    # 让 grader 参与进来会把「终稿是什么」这件事搅浑（各测各的，见下一个测试）。
-    monkeypatch.delenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", raising=False)
+    # Phase 14 F02（R6）起退出前自检无条件生效，不能再靠环境变量关掉——`_router`
+    # 自己对 GraderResponse 调用固定判"合格"放行（见 `_router` 头注），达到同样的
+    # 效果："本测试要看预算熔断的收尾形状，不让 grader 把终稿形状搅浑"。
     ledger: dict = {}
     model = ScriptedChatModel(router=_router)
     graph = create_deep_agent(
@@ -87,9 +96,16 @@ def test_tc3_fault_injection_then_loop_hits_budget_with_notice(tc3, evidence):  
     graph, ledger = tc3
     # recursion_limit 给得远高于预算——如果引擎的熔断没生效，这条会以
     # GraphRecursionError 炸出来（「跑飞了」），而不是悄悄地绿。
+    #
+    # Phase 14 F02（R6）：`TaskClassifierMiddleware` 无条件挂载后，`build_middleware()`
+    # 每一轮循环多走一个 `before_model` 节点（见 harness.py `build_middleware()` 挂载
+    # 那一行上方的注释），图形状变了、不是熔断逻辑变了——同一份 25 次模型调用预算现在
+    # 要吃掉更多 recursion 步数，200 已经不够远高于预算（实测卡在 23 轮左右撞
+    # GraphRecursionError，达不到 RUN_MODEL_CALL_LIMIT=25 就先撞了外层步数上限）。
+    # 抬到 1000，继续保持"远高于预算"的安全边际。
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "反复探测直到拿到完整答案"}]},
-        {"recursion_limit": 200},
+        {"recursion_limit": 1000},
     )
 
     # D7①：同一个工具调用真的被重试了 3 次（副作用计数，不是文本匹配）。
@@ -122,7 +138,7 @@ def test_tc3_fault_injection_then_loop_hits_budget_with_notice(tc3, evidence):  
             "model_call_budget": RUN_MODEL_CALL_LIMIT,
             "ai_turns": len(ai_turns),
             "budget_notice": notice[-1][:500],
-            "recursion_limit_used": 200,
+            "recursion_limit_used": 1000,
         },
     )
 
@@ -177,24 +193,21 @@ def _checklist_router(grader_verdicts: list[str]):  # noqa: ANN202
     return router
 
 
-def _checklist_graph(monkeypatch, *, enabled: bool):  # noqa: ANN001, ANN202
+def _checklist_graph():  # noqa: ANN202
     from deepagents import create_deep_agent
 
     from deep_agent_service.harness import build_middleware
 
-    if enabled:
-        monkeypatch.setenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", "1")
-    else:
-        monkeypatch.delenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", raising=False)
     router = _checklist_router(["needs_revision", "satisfied"])
     model = ScriptedChatModel(router=router)
     graph = create_deep_agent(model=model, middleware=build_middleware(model))
     return graph, router
 
 
-def test_tc3_precompletion_checklist_forces_a_revision(monkeypatch, evidence):  # noqa: ANN001, ANN201
-    """D7 退出前自检：本来要收尾的那一刻被拦下，带着差距说明跳回模型返工一轮。"""
-    graph, router = _checklist_graph(monkeypatch, enabled=True)
+def test_tc3_precompletion_checklist_forces_a_revision(evidence):  # noqa: ANN201
+    """D7 退出前自检：本来要收尾的那一刻被拦下，带着差距说明跳回模型返工一轮。
+    Phase 14 F02（R6）起默认清单的播种无条件生效，不再是灰度开关。"""
+    graph, router = _checklist_graph()
     result = graph.invoke(
         {"messages": [{"role": "user", "content": "给我一个可执行的建议"}]},
         {"recursion_limit": 40},
@@ -226,16 +239,3 @@ def test_tc3_precompletion_checklist_forces_a_revision(monkeypatch, evidence):  
     )
 
 
-def test_tc3_counterproof_checklist_off_lets_bad_answer_stand(monkeypatch):  # noqa: ANN001, ANN201
-    """反证：灰度开关不开时，同一个剧本的**不合格答复直接成为终稿**，grader 一次都不跑。
-
-    这条同时是双轨纪律的证据（新能力默认关闭，行为与接线前逐字相同），也是上面那条
-    绿灯的对照——没有它，「返工发生了」和「剧本本来就会说两句」分不开。
-    """
-    graph, router = _checklist_graph(monkeypatch, enabled=False)
-    result = graph.invoke(
-        {"messages": [{"role": "user", "content": "给我一个可执行的建议"}]},
-        {"recursion_limit": 40},
-    )
-    assert router.grader_calls == [], f"未开灰度时 grader 绝不能被调用，实际 {router.grader_calls}"
-    assert str(getattr(result["messages"][-1], "content", "")) == "我接下来打算查一下资料。"

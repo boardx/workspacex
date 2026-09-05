@@ -11,9 +11,9 @@ tool names and their initial-call arg shapes (`ConfirmIntentArgs` / `FillParamsA
 Same architectural shape as `call_skill` (issue #2017's own conclusion): `interrupt_on`
 (`harness.py::build_interrupt_on`) is only a "should this tool name pause before running"
 switch -- the model can only call tools that are REALLY registered in the `tools` list
-handed to `create_deep_agent`. Registering these three names in `DEEP_AGENT_HITL_TOOLS`
-without a matching `@tool` here would keep the cards permanently unreachable, exactly the
-gap #2252 was filed to close.
+handed to `create_deep_agent`. Listing these three names in
+`harness.py::DEFAULT_HITL_TOOL_NAMES` without a matching `@tool` here would keep the cards
+permanently unreachable, exactly the gap #2252 was filed to close.
 
 ### Why every parameter below is `| None` (not the contract's required shape)
 
@@ -93,7 +93,6 @@ own doc comment describes ("Never throws").
 from __future__ import annotations
 
 import logging
-import os
 from typing import Callable, TypedDict
 
 import httpx
@@ -372,18 +371,16 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
             "不需要等待它完成，请继续处理对话的其它部分。"
         )
 
-    tools: list[Callable[..., str]] = [
+    # Phase 14 F02（R6）：`spawn_async_task` 此前由 `DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1`
+    # 这个灰度开关控制是否注册进主图的工具清单（#2664）——`graph.py` 把
+    # `build_tools(_model)` 的返回值**整体**、无条件地传给
+    # `create_deep_agent(tools=...)`（不像 `build_subagents` 那样按名字挑选转发），
+    # 验证稳定后按 R6 要求默认开启且开关本身移除，现在无条件注册。
+    return [
         list_org_skills,
         call_skill,
         confirm_task_intent,
         fill_run_params,
         choose_execution_option,
+        spawn_async_task,
     ]
-    # #2664（灰度，S1=B 纪律）：`DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1` 才把 `spawn_async_task`
-    # 注册进主图的工具清单——`graph.py` 把 `build_tools(_model)` 的返回值**整体**、
-    # 无条件地传给 `create_deep_agent(tools=...)`（不像 `build_subagents` 那样按名字挑选
-    # 转发），所以新增一个工具函数本身就会成为模型可见、可调用的能力，必须在这里显式收口，
-    # 不能只靠"没人调用它"这种概率性的默认关闭。未设时返回值与 #2664 之前逐字节相同。
-    if (os.environ.get("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED") or "").strip() == "1":
-        tools.append(spawn_async_task)
-    return tools
