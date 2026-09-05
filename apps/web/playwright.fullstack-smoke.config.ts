@@ -197,6 +197,8 @@ const asrProviderEnv = {
  * 界面上 `chat-live-agent-run-status` 显示 failed，绝不会冒出一条编造的回复。
  */
 const modelProviderEnv = {
+  KERNEL_GUIDED_SEARCH_URL: `http://127.0.0.1:${modelProviderPort}/search`,
+  TAVILY_API_KEY: "fullstack-research-loopback-not-a-secret",
   KERNEL_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
   KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
   // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
@@ -267,6 +269,7 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "guided-research-runtime.spec.ts",
         // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
         "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",

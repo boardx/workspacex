@@ -1,4 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { ModelGuidedResearchCheckpointGenerator } from "../../src/application/research/model-guided-checkpoint-generator";
+import { DeterministicGuidedResearchCheckpointGenerator } from "../../src/domain/research/guided-research-checkpoint-generator";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { research as C } from "@repo/contracts";
 import { addOrgMember, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
@@ -29,6 +31,10 @@ beforeAll(async () => {
 afterAll(async () => { await app?.close(); await resetOrgs(ORG); });
 
 beforeEach(async () => {
+  // This suite isolates checkpoint persistence; real model generation is verified separately.
+  const fixtureGenerator = new DeterministicGuidedResearchCheckpointGenerator();
+  vi.spyOn(ModelGuidedResearchCheckpointGenerator.prototype, "generateDirections").mockImplementation((brief) => fixtureGenerator.generateDirections(brief));
+  vi.spyOn(ModelGuidedResearchCheckpointGenerator.prototype, "generateOutline").mockImplementation((directions) => fixtureGenerator.generateOutline(directions));
   await resetOrgs(ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f169" });
   await addOrgMember(ORG, OWNER, "consultant", fixture.teams.energy!);

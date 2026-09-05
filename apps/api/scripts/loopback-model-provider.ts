@@ -45,6 +45,7 @@
  * `loopback-deep-agent-provider.ts` 用两次状态轮询让真实轮询循环真的转一圈
  * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
+import { guidedResearchReply } from "./loopback-guided-research";
 import { createServer } from "node:http";
 import {
   FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
@@ -413,6 +414,12 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify({ status: "ok" }));
     return;
   }
+  if (req.method === "GET" && req.url === "/research-evidence") {
+    res.writeHead(200, { "content-type": "text/plain" }); res.end("Controlled research E2E evidence: storage projects must follow grid connection rules."); return;
+  }
+  if (req.method === "POST" && req.url === "/search") {
+    void readBody(req).then(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ results: [{ title: "Research E2E policy evidence", url: `http://127.0.0.1:${port}/research-evidence`, content: "Storage projects must follow grid connection rules.", raw_content: "Storage projects must follow grid connection rules." }] })); }); return;
+  }
   if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
     res.writeHead(404).end();
     return;
@@ -451,13 +458,15 @@ const server = createServer((req, res) => {
     // "回复出自被显式选中的 provider（`agentReplyPrefix`）/ 回显真实收到的 userText"
     // 这两条既有纪律对带脚本的回复同样成立。试跑场景（`execute-trial-run.ts`）只看
     // 围栏，前面多一行回显不影响它。
-    const fullText = isTrialRunRequest(parsed.messages)
+    const researchSystem = parsed.messages?.find((message) => message.role === "system")?.content;
+    const researchReply = guidedResearchReply(typeof researchSystem === "string" ? researchSystem : "", echoed);
+    const fullText = researchReply ?? (isTrialRunRequest(parsed.messages)
       ? `${chatEcho}\n\n${trialRunScriptReply(echoed)}`
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
       : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)
-      : chatEcho;
+      : chatEcho);
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;
