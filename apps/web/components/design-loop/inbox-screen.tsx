@@ -329,11 +329,11 @@ export function DesignLoopInboxScreen({
 
   /**
    * UC-17.8 B4.4——「用 PM 设计工作台深化」：`POST /feedback/:id/deepen` 真栈调用（不再是
-   * `design-loop-store.tsx` 的本地 mock）。`deepenFeedback` 幂等（幂等键是 `feedbackId`），
+   * 原型 mock store 的本地 mock）。`deepenFeedback` 幂等（幂等键是 `feedbackId`），
    * 所以这里不需要先判断「是不是已经深化过」——重复点击也只会命中同一个项目，服务端说了算。
    * 成功后关掉 drawer、把返回的**真实** `project.id` 交给 `onDeepen`（页面级 `router.push`
    * 跳详情页，见 `components/admin/design-loop-screens.tsx`）。详情页本身仍读
-   * `design-loop-store.tsx` 的 mock 数据（B4.5，不在本任务范围）——这次调用只保证跳转带的
+   * 原型 mock store 的 mock 数据（B4.5，不在本任务范围）——这次调用只保证跳转带的
    * `id` 是真的，落地页暂时还看不到这条项目的真实内容,是已知的、有意的过渡态。
    */
   const deepen = async (item: InboxItem) => {

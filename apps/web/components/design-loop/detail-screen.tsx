@@ -38,7 +38,7 @@ type Load =
  * 用 `.dark` 强制深色 token 体系（app/globals.css 的 `.dark` 那份），不另立颜色。
  * 脱离后台三栏骨架：整屏铺满。
  *
- * UC-17.8 B4.5 —— **真栈**（契约 `designWorkbench`）。切自 `lib/design-loop-store.tsx`
+ * UC-17.8 B4.5 —— **真栈**（契约 `designWorkbench`）。切自原型 mock store（已于 B6.1 删除）
  * 的本地 mock。
  *
  * ## 这一屏刻意的几个设计取舍
