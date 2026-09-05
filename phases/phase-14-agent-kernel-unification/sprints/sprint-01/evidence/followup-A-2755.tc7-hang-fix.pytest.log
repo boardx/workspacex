@@ -1,0 +1,88 @@
+# #2755 后续 — TC-7 黄金测试在 CI 挂死（PR #2762 合入时 pytest job 被 20 分钟超时杀掉）的复现、根因与修复证据
+# 环境：本沙箱 4 核（与 ubuntu-latest 同 → langgraph 同步执行器线程池 CPU+4 = 8 worker）；本地 Postgres 16，
+#       DEEP_AGENT_TEST_POSTGRES_URL 与 CI 同形；CPython 3.12.11（CI 是 3.12.3）与 3.11.15 各跑一遍。
+
+## 1. 复现（修复前的 main c062b01，CPython 3.12，tests/golden 单进程，faulthandler_timeout=60）
+# 命令：.venv312/bin/python -m pytest tests/golden -v -x -o faulthandler_timeout=60
+tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py::test_scripted_provider_rejects_tool_choice_is_importable PASSED [ 71%]
+tests/golden/test_tc7_interjection_replan.py::test_interjection_in_configurable_is_injected_and_forces_write_todos_sync PASSED [ 76%]
+tests/golden/test_tc7_interjection_replan.py::test_interjection_in_configurable_is_injected_and_forces_write_todos_async PASSED [ 80%]
+tests/golden/test_tc7_interjection_replan.py::test_interjection_arrives_on_hitl_resume_and_lands_after_the_tool_result PASSED [ 85%]
+tests/golden/test_tc7_interjection_replan.py::test_same_interjection_id_is_not_injected_twice_on_the_same_thread Timeout (0:01:00)!
+Thread 0x00007f2c437fe6c0 (most recent call first):
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/threading.py", line 355 in wait
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/concurrent/futures/_base.py", line 451 in result
+  File "/home/user/workspacex/apps/deep-agent-service/.venv312/lib/python3.12/site-packages/langgraph/pregel/_loop.py", line 1543 in _checkpointer_put_after_previous
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 59 in run
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/concurrent/futures/thread.py", line 93 in _worker
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/threading.py", line 1012 in run
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/threading.py", line 1075 in _bootstrap_inner
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/threading.py", line 1032 in _bootstrap
+
+# … 共 7 个 worker 停在 _loop.py:1543 prev.result()，1 个停在 _loop.py:1540 concurrent.futures.wait(futs)，主线程：
+112:  File "/home/user/workspacex/apps/deep-agent-service/.venv312/lib/python3.12/site-packages/langgraph/pregel/_executor.py", line 107 in __exit__
+116:  File "/home/user/workspacex/apps/deep-agent-service/.venv312/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3913 in invoke
+117:  File "/home/user/workspacex/apps/deep-agent-service/tests/golden/test_tc7_interjection_replan.py", line 250 in test_same_interjection_id_is_not_injected_twice_on_the_same_thread
+
+## 2. 修复前 TC-7 文件单跑 3 次（3.12）：1 次挂死，落在不同测试上；TC-2 / TC-4 各 3 次 0 挂
+test_tc7_interjection_replan run1: 6 passed, 1 warning in 2.96s
+test_tc2_sensitive_skill_hitl run1: 2 passed, 1 warning in 2.07s
+test_tc4_long_context_recall run1: 2 passed, 1 warning in 3.20s
+test_tc7_interjection_replan run2: 6 passed, 1 warning in 2.48s
+test_tc2_sensitive_skill_hitl run2: 2 passed, 1 warning in 2.18s
+test_tc4_long_context_recall run2: 2 passed, 1 warning in 3.05s
+test_tc7_interjection_replan run3: ..Timeout (0:00:25)!
+test_tc2_sensitive_skill_hitl run3: 2 passed, 1 warning in 2.21s
+test_tc4_long_context_recall run3: 2 passed, 1 warning in 3.18s
+
+## 3. pytest-timeout 看守：修复前的 TC-7（复制为探针文件）在 -o timeout=30 下第 2 次即挂死 → 30 s 内被 thread 方式 dump 全栈并 os._exit(1)
+..+++++++++++++++++++++++++++++++++++ Timeout ++++++++++++++++++++++++++++++++++++
+~~~~~~~~~~~~~~ Stack of ThreadPoolExecutor-5_7 (140571091908288) ~~~~~~~~~~~~~~~
+  File "/root/.local/share/uv/python/cpython-3.12.11-linux-x86_64-gnu/lib/python3.12/threading.py", line 1032, in _bootstrap
+# 栈里 _checkpointer_put_after_previous 出现次数：8
+    waiter.acquire()
++++++++++++++++++++++++++++++++++++ Timeout ++++++++++++++++++++++++++++++++++++
+
+## 4. 修复后 TC-7（durability="sync"）单跑 10 次（3.12）
+run1: 6 passed, 1 warning in 2.61s
+run2: 6 passed, 1 warning in 2.50s
+run3: 6 passed, 1 warning in 2.48s
+run4: 6 passed, 1 warning in 2.42s
+run5: 6 passed, 1 warning in 2.46s
+run6: 6 passed, 1 warning in 2.36s
+run7: 6 passed, 1 warning in 2.46s
+run8: 6 passed, 1 warning in 2.36s
+run9: 6 passed, 1 warning in 2.43s
+run10: 6 passed, 1 warning in 2.48s
+
+## 5. 全量 pytest（CI 同一条命令：uv run --extra dev pytest tests -v）
+# CPython 3.12：
+platform linux -- Python 3.12.11, pytest-9.1.1, pluggy-1.6.0 -- /home/user/workspacex/apps/deep-agent-service/.venv312/bin/python
+cachedir: .pytest_cache
+rootdir: /home/user/workspacex/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, anyio-4.14.2, timeout-2.4.0
+timeout: 120.0s
+27:tests/golden/test_tc7_interjection_replan.py::test_interjection_in_configurable_is_injected_and_forces_write_todos_sync PASSED [ 13%]
+28:tests/golden/test_tc7_interjection_replan.py::test_interjection_in_configurable_is_injected_and_forces_write_todos_async PASSED [ 14%]
+29:tests/golden/test_tc7_interjection_replan.py::test_interjection_arrives_on_hitl_resume_and_lands_after_the_tool_result PASSED [ 15%]
+30:tests/golden/test_tc7_interjection_replan.py::test_same_interjection_id_is_not_injected_twice_on_the_same_thread PASSED [ 16%]
+31:tests/golden/test_tc7_interjection_replan.py::test_counterproof_without_interjection_key_nothing_changes PASSED [ 16%]
+32:tests/golden/test_tc7_interjection_replan.py::test_counterproof_malformed_interjection_is_ignored_not_fatal PASSED [ 17%]
+================== 118 passed, 1 warning in 233.84s (0:03:53) ==================
+# CPython 3.11：
+Installed 1 package in 1ms
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0 -- /home/user/workspacex/apps/deep-agent-service/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/user/workspacex/apps/deep-agent-service
+configfile: pyproject.toml
+================== 118 passed, 1 warning in 247.61s (0:04:07) ==================
+
+## 6. timeout=120 的余量：最慢三条测试（sleep 型，本地 3.12 与 CI run 33943349356 时长一致）
+============================= slowest 12 durations =============================
+73.49s call     tests/test_harness.py::test_tool_retry_recovers_transient_failure
+71.39s call     tests/test_harness.py::test_model_call_budget_ends_run_with_notice
+69.55s call     tests/test_harness.py::test_tool_call_limit_injects_correction
+1.07s call     tests/test_model.py::test_build_chat_model_uses_configured_model_id
+# CI（run 33943349356, 3.12.3）：test_model_call_budget 69 s / test_tool_call_limit 73 s / test_tool_retry 75 s

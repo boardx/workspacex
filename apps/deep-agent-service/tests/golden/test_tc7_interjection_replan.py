@@ -97,6 +97,34 @@ def _build_graph(model: ScriptedChatModel, *, tools=None, hitl: bool = False):  
     return create_deep_agent(model=model, tools=tools or [], middleware=build_middleware(model), **kwargs)
 
 
+def _invoke(graph, payload, config):  # noqa: ANN001, ANN201
+    """本文件所有**同步** `graph.invoke()` 都走这里：`durability="sync"`。
+
+    2026-09-05 事故（PR #2762 合入时 CI `pytest` job 挂死到 20 分钟超时，issue #2755）：
+    根因不在 `InterjectionMiddleware`，在 langgraph 1.2.11 同步执行器的一个死锁——
+    `durability="async"`（默认）时每一步的 checkpoint `put` 都丢进同一个
+    `ThreadPoolExecutor`（CPU+4 = CI 4 核上 8 个 worker）后台链式执行：第 N 次 put 先
+    `wait` 它开跑那一刻已提交的所有 delta-write future，再 `wait` 第 N-1 次 put。假模型
+    零延迟，主线程出步子比 worker 写 checkpoint 快，队列里就堆成
+    `[put N, writes N+1, put N+1, writes N+2, …]`：put N 开跑时把 writes N+7 也纳入等待，
+    而 writes N+7 排在 put N+1…N+7 之后——那 7 个各占一个 worker 等 put N，8 个 worker
+    全部在等，writes N+7 永远拿不到线程。faulthandler 实测栈：7 个线程停在
+    `_loop.py::_checkpointer_put_after_previous` 的 `prev.result()`，1 个停在
+    `concurrent.futures.wait(futs)`，主线程在 `BackgroundExecutor.__exit__` 等全部 future。
+
+    为什么只有本文件撞上：这是时序竞争，CPython 3.12（CI）比 3.11 更容易触发；
+    本地 3.12 单跑本文件 3 次中 1 次挂死（随机落在不同测试上），TC-2/TC-4 各 3 次 0 挂。
+    本文件每条测试都用 `MemorySaver` + 同步 invoke，暴露面最大。
+
+    `durability="sync"` 让主线程每一步都等当次 put 落地后再出下一步——任何时刻最多
+    一次 put 在飞，线程池不可能被 put 占满，死锁在结构上不可能发生。它只改
+    checkpoint 何时落盘，不改中间件的任何行为，本文件的断言一条不动。
+    异步路径（`asyncio.run(graph.ainvoke(...))`）用的是 asyncio task，不经过这个有界线程池，
+    保持生产（`langgraph dev`）的默认口径不变。
+    """
+    return graph.invoke(payload, config, durability="sync")
+
+
 def _main_agent_tool_choices(model: ScriptedChatModel) -> list:
     """主 agent 链上每次模型调用的 tool_choice——排除 `RubricMiddleware` 的 grader 调用
     （它绑 `GraderResponse` 结构化输出、自带 tool_choice="any"，与本文件要观测的
@@ -139,7 +167,8 @@ def test_interjection_in_configurable_is_injected_and_forces_write_todos_sync(ev
     model = ScriptedChatModel(router=_plain_router)
     graph = _build_graph(model)
 
-    result = graph.invoke(
+    result = _invoke(
+        graph,
         {"messages": [{"role": "user", "content": "帮我做一份季度回顾"}]},
         _config("tc7-sync", _interjection()),
     )
@@ -203,12 +232,13 @@ def test_interjection_arrives_on_hitl_resume_and_lands_after_the_tool_result(evi
 
     model = ScriptedChatModel(router=router)
     graph = _build_graph(model, tools=[call_skill], hitl=True)
-    first = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, _config("tc7-hitl-resume"))
+    first = _invoke(graph, {"messages": [{"role": "user", "content": "go"}]}, _config("tc7-hitl-resume"))
     assert "__interrupt__" in first, "前置条件：run 先停在 HITL interrupt"
     assert executed == [], "批准前工具绝不能执行"
     assert _interjection_messages(first["messages"]) == [], "第一次 run 的 config 没带插话，不该有注入"
 
-    resumed = graph.invoke(
+    resumed = _invoke(
+        graph,
         Command(resume={"decisions": [{"type": "approve"}]}),
         _config("tc7-hitl-resume", _interjection(classification="direction_change")),
     )
@@ -247,8 +277,8 @@ def test_same_interjection_id_is_not_injected_twice_on_the_same_thread():
     graph = _build_graph(model)
     config = _config("tc7-dedupe", _interjection())
 
-    graph.invoke({"messages": [{"role": "user", "content": "第一轮"}]}, config)
-    second = graph.invoke({"messages": [{"role": "user", "content": "第二轮，普通追问"}]}, config)
+    _invoke(graph, {"messages": [{"role": "user", "content": "第一轮"}]}, config)
+    second = _invoke(graph, {"messages": [{"role": "user", "content": "第二轮，普通追问"}]}, config)
 
     assert len(_interjection_messages(second["messages"])) == 1, "同一 interjectionId 只能注入一次"
     choices = [c["bound_tool_choice"] for c in model.calls]
@@ -261,7 +291,8 @@ def test_counterproof_without_interjection_key_nothing_changes():
     model = ScriptedChatModel(router=_plain_router)
     graph = _build_graph(model)
 
-    result = graph.invoke(
+    result = _invoke(
+        graph,
         {"messages": [{"role": "user", "content": "帮我做一份季度回顾"}]},
         _config("tc7-no-key"),
     )
@@ -280,7 +311,8 @@ def test_counterproof_malformed_interjection_is_ignored_not_fatal():
     ):
         model = ScriptedChatModel(router=_plain_router)
         graph = _build_graph(model)
-        result = graph.invoke(
+        result = _invoke(
+            graph,
             {"messages": [{"role": "user", "content": "hi"}]},
             _config(f"tc7-bad-{abs(hash(str(bad)))}", bad),
         )
