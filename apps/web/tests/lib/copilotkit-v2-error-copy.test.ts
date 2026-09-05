@@ -34,6 +34,16 @@ describe("describeCopilotkitV2RunError", () => {
     expect(describeCopilotkitV2RunError(rawMessage)).toBe("这次执行超时了，还没有等到结果");
   });
 
+  // issue #2786 实测场景：浏览器原生 fetch() 网络失败文案（三大浏览器各不相同），
+  // 之前的正则只覆盖了 Node/undici 侧文案，漏判这三种，落进了通用兜底。
+  it.each([
+    ["Chrome/Edge", "Failed to fetch"],
+    ["Firefox", "NetworkError when attempting to fetch resource."],
+    ["Safari", "Load failed"],
+  ])("把浏览器原生 fetch 失败文案分类成超时文案（%s: %s）", (_browser, rawMessage) => {
+    expect(describeCopilotkitV2RunError(rawMessage)).toBe("这次执行超时了，还没有等到结果");
+  });
+
   it("与超时/中断无关的陌生原始 message 仍落通用兜底（不误判）", () => {
     expect(describeCopilotkitV2RunError("SomeVendorSpecificWeirdError: 0x80")).toBe(
       "这次执行没有成功，请重试或联系管理员",
