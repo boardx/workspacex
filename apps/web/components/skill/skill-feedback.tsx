@@ -14,8 +14,8 @@ import type { SkillView } from "@/lib/mock/skill";
  * ## 这块屏之前是什么，为什么不再是
  *
  * 它曾经用 `FEEDBACK_AGGS` / `FEEDBACK_LOOP` / `PROPOSAL_DIFF` 三个 mock 常量，
- * 画「改进建议 + 闭环度量 + 提案 diff」——而后台的 `admin/feedback-screen.tsx`
- * 用另外三个 mock 常量画**同一件事**。
+ * 画「改进建议 + 闭环度量 + 提案 diff」——而后台的旧 `admin/feedback-screen.tsx`
+ * （B3.6 已删除，功能并入 `/platform-admin/inbox`）用另外三个 mock 常量画**同一件事**。
  * 「同一事实声明在两处」的界面版：两块屏迟早会不一致，且不一致时没有任何东西会报。
  *
  * 人类裁决（`docs/proposals/PROP-FEEDBACK-LOOP-E2E-001.md` §4 D1）：

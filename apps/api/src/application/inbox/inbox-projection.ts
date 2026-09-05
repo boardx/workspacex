@@ -18,17 +18,27 @@ const EXCEPTION_FETCH_PAGE = 200;
  * 拉全部（受 `INBOX_EXCEPTION_FETCH_CAP` 约束）系统异常行，供 `listInbox` 与
  * `getInboxCounts` 共用——两个用例都需要"参与排序/计数的完整窗口"，不是各自
  * 分页一次。
+ *
+ * `capHit`（UC-17.8 B6.4）：拉满上限时源头还有更多行 —— 这正是 `list-inbox.ts` 文件头
+ * 「已知取舍」里那条"每次请求重新拉两个源再排序"的取舍**开始撒谎**的时刻（超出上限的
+ * 异常不在收件箱里，且没有任何界面提示）。值班要能从日志里看到它，而不是等有人发现
+ * 「E-2001 去哪了」。判定放在这里而不是调用方：只有这个循环知道自己是因为上限还是因为
+ * `hasMore=false` 停下来的。
  */
-export async function fetchAllExceptions(errorLog: ErrorLogPort): Promise<readonly ErrorLogListItem[]> {
+export async function fetchAllExceptions(
+  errorLog: ErrorLogPort,
+): Promise<{ readonly items: readonly ErrorLogListItem[]; readonly capHit: boolean }> {
   const items: ErrorLogListItem[] = [];
   let beforeId: string | null = null;
+  let hasMore = false;
   for (let i = 0; i < INBOX_EXCEPTION_FETCH_CAP / EXCEPTION_FETCH_PAGE; i += 1) {
     const page = await errorLog.list({ limit: EXCEPTION_FETCH_PAGE, beforeId });
     items.push(...page.items);
-    if (!page.hasMore || page.items.length === 0) break;
+    hasMore = page.hasMore && page.items.length > 0;
+    if (!hasMore) break;
     beforeId = page.items[page.items.length - 1]?.id ?? null;
   }
-  return items;
+  return { items, capHit: hasMore };
 }
 
 export type InboxItemView = z.infer<typeof C.InboxItem>;

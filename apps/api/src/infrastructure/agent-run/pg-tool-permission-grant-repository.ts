@@ -51,4 +51,14 @@ export class PgToolPermissionGrantRepository implements ToolPermissionGrantStore
       );
     });
   }
+
+  /** Phase 14 F11（R4 E3）—— 见端口自己的文档："本 run 内都允许"整体失效，不逐工具名撤销。 */
+  async revokeAllForRun(orgId: OrgId, runId: string): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `DELETE FROM tool_permission_grants WHERE org_id = $1 AND scope = 'run' AND run_id = $2`,
+        [orgId, runId],
+      );
+    });
+  }
 }

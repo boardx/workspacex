@@ -2,7 +2,7 @@
  * UC-17.8 B4.3 —— 六个设计项目用例的正反例，全部用内存 fake（同
  * `tests/feedback/draft-lifecycle.test.ts` 的写法），不碰真实数据库。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createProject } from "../../src/application/design-workbench/create-project";
 import { listMyProjects } from "../../src/application/design-workbench/list-my-projects";
 import { updateProject } from "../../src/application/design-workbench/update-project";
@@ -39,6 +39,38 @@ function deps(projects: FakeDesignProjectRepo = new FakeDesignProjectRepo()): De
       displayNamesForUserIds: async (ids) => new Map(ids.map((id) => [id, `名字-${id}`])),
     },
   };
+}
+
+/**
+ * B6.3：`pushToInbox` 发「已生成设计方案」邮件用的三个可选依赖一起注入——`mail` 记下每封信，
+ * `logger` 记下每条日志，`emails` 是 userId → 邮箱（不在表里 ⇒ `null`，即"账号已不在"）。
+ */
+function notifyingDeps(
+  projects: FakeDesignProjectRepo,
+  emails: Record<string, string>,
+  opts: { readonly sendFails?: boolean } = {},
+) {
+  const sent: { to: string; subject: string; text: string }[] = [];
+  const logs: { msg: string; fields: Record<string, unknown> }[] = [];
+  const d: DesignProjectDeps = {
+    ...deps(projects),
+    submitters: {
+      emailForUserId: async (userId) => emails[userId] ?? null,
+      displayNamesForUserIds: async (ids) => new Map(ids.map((id) => [id, `名字-${id}`])),
+    },
+    mail: {
+      send: async (m) => {
+        if (opts.sendFails === true) throw new Error("smtp down");
+        sent.push(m);
+        return {};
+      },
+    },
+    logger: {
+      info: (msg, fields) => void logs.push({ msg, fields }),
+      error: (msg, fields) => void logs.push({ msg, fields }),
+    },
+  };
+  return { deps: d, sent, logs };
 }
 
 describe("createProject", () => {
@@ -255,6 +287,75 @@ describe("pushToInbox", () => {
     expect(oldSecond.inboxCode).toBe("D-1");
   });
 
+  // ---- B6.3：「反馈已生成设计方案」通知 ----
+
+  it("B6.3：有 linkedFeedbackId 且首次回写 ⇒ 给来源反馈提交人发一封带 D-n 编号的邮件", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", name: "登录页改版", linkedFeedbackId: "fb-1" }));
+    repo.seedFeedback("fb-1", { submittedBy: "u-reporter", title: "点了没反应" });
+    const n = notifyingDeps(repo, { "u-reporter": "reporter@example.com" });
+
+    const out = await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm" });
+
+    expect(n.sent).toHaveLength(1);
+    expect(n.sent[0]?.to).toBe("reporter@example.com");
+    expect(n.sent[0]?.subject).toContain(out.inboxCode);
+    expect(n.sent[0]?.subject).toContain("点了没反应");
+    expect(n.sent[0]?.text).toContain("登录页改版");
+    expect(out.project.pushed).toBe(true);
+  });
+
+  it("B6.3：linkedFeedbackId 为空 ⇒ 不发邮件", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", linkedFeedbackId: null }));
+    const n = notifyingDeps(repo, { "u-reporter": "reporter@example.com" });
+    await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm" });
+    expect(n.sent).toEqual([]);
+  });
+
+  it("B6.3：重复推送（upsert）⇒ 只在外键首次指向本项目时通知一次，不发第二封", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", linkedFeedbackId: "fb-1" }));
+    repo.seedFeedback("fb-1", { submittedBy: "u-reporter", title: "点了没反应" });
+    const n = notifyingDeps(repo, { "u-reporter": "reporter@example.com" });
+
+    await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm", note: "第一次" });
+    await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm", note: "第二次，改了说明" });
+
+    expect(n.sent).toHaveLength(1);
+    expect((await repo.get("dp-1"))?.pushNote).toBe("第二次，改了说明");
+  });
+
+  it("B6.3：提交人账号已不在（无邮箱）⇒ 不发、记 info 日志、推送照常成功", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", linkedFeedbackId: "fb-1" }));
+    repo.seedFeedback("fb-1", { submittedBy: "u-gone", title: "点了没反应" });
+    const n = notifyingDeps(repo, {});
+    const out = await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm" });
+    expect(out.project.pushed).toBe(true);
+    expect(n.sent).toEqual([]);
+    expect(n.logs.some((l) => l.msg.includes("no resolvable email") && l.fields.feedbackId === "fb-1")).toBe(true);
+  });
+
+  it("B6.3：邮件发送失败 ⇒ 推送不受影响（不抛），记 error 日志", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", linkedFeedbackId: "fb-1" }));
+    repo.seedFeedback("fb-1", { submittedBy: "u-reporter", title: "点了没反应" });
+    const n = notifyingDeps(repo, { "u-reporter": "reporter@example.com" }, { sendFails: true });
+    const out = await pushToInbox(n.deps, { projectId: "dp-1", ownerId: "u-pm" });
+    expect(out.project.pushed).toBe(true);
+    expect(repo.resolvedFeedbackIds).toEqual(["fb-1"]);
+    expect(n.logs.some((l) => l.msg.includes("notification failed") && l.fields.projectId === "dp-1")).toBe(true);
+  });
+
+  it("B6.3：未注入 mail/logger（既有调用方形状）⇒ 不发、不抛", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-pm", linkedFeedbackId: "fb-1" }));
+    const out = await pushToInbox(deps(repo), { projectId: "dp-1", ownerId: "u-pm" });
+    expect(out.project.pushed).toBe(true);
+    expect(repo.resolvedFeedbackIds).toEqual(["fb-1"]);
+  });
+
   it("非 owner ⇒ DesignProjectNotOwnerError", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
@@ -267,5 +368,63 @@ describe("pushToInbox", () => {
     await expect(
       pushToInbox(deps(), { projectId: "dp-missing", ownerId: "u-1" }),
     ).rejects.toBeInstanceOf(DesignProjectNotFoundError);
+  });
+});
+
+/* ── UC-17.8 B6.4 可观测性：推送事务一条结构化日志（fake logger 断言字段存在） ── */
+describe("pushToInbox 可观测性（B6.4）", () => {
+  function fields(logger: { info: ReturnType<typeof vi.fn> }, nth = 0): Record<string, unknown> {
+    const [msg, f] = logger.info.mock.calls[nth] as [string, Record<string, unknown>];
+    expect(msg).toBe("design-workbench: pushToInbox");
+    return f;
+  }
+
+  it("首次推送：projectId / ownerId / resolvedFeedback / repeatPush=false / inboxCode / 耗时 / traceId", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", linkedFeedbackId: "fb-1" }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+
+    await pushToInbox({ ...deps(repo), logger, traceId: "trace-push" }, { projectId: "dp-1", ownerId: "u-1", note: "给工程看看" });
+
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    const f = fields(logger);
+    expect(f).toMatchObject({
+      traceId: "trace-push",
+      orgId: "org-1",
+      projectId: "dp-1",
+      ownerId: "u-1",
+      repeatPush: false,
+      linkedFeedback: true,
+      resolvedFeedback: true,
+      notePresent: true,
+      inboxCode: "D-1",
+    });
+    expect(typeof f.transactionMs).toBe("number");
+    expect(typeof f.durationMs).toBe("number");
+    // 不记 note 正文 / 项目名
+    expect(JSON.stringify(f)).not.toContain("给工程看看");
+  });
+
+  it("重复推送（upsert 命中）⇒ repeatPush=true；无来源反馈 ⇒ linkedFeedback=false、resolvedFeedback=false", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", linkedFeedbackId: null }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const d = { ...deps(repo), logger };
+
+    await pushToInbox(d, { projectId: "dp-1", ownerId: "u-1" });
+    await pushToInbox(d, { projectId: "dp-1", ownerId: "u-1", note: "第二次" });
+
+    expect(fields(logger, 0)).toMatchObject({ repeatPush: false, linkedFeedback: false, resolvedFeedback: false, notePresent: false });
+    expect(fields(logger, 1)).toMatchObject({ repeatPush: true, notePresent: true, inboxCode: "D-1" });
+  });
+
+  it("非 owner / 不存在 ⇒ 抛错且不记 info（失败路径由 AllExceptionsFilter 按 traceId 记）", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+    await expect(pushToInbox({ ...deps(repo), logger }, { projectId: "dp-1", ownerId: "u-2" })).rejects.toBeInstanceOf(
+      DesignProjectNotOwnerError,
+    );
+    expect(logger.info).not.toHaveBeenCalled();
   });
 });

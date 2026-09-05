@@ -1,0 +1,48 @@
+$ pnpm --filter api exec vitest run tests/agent-run/interjection-handling.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+[db-isolation] db=wsx_01eb81134ed73951d214 capacity=100 current=6 required=32
+ ✓ tests/agent-run/interjection-handling.test.ts (6 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  14:12:21
+   Duration  2.10s (transform 271ms, setup 0ms, collect 351ms, tests 4ms, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_01eb81134ed73951d214 peak_connections=1
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=4acb9ea95da677ed403e181f78dfcfbaa13ef666（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_01eb81134ed73951d214 inner_db=wsx_01eb81134ed73951d214 outer_compose=wsx-01eb81134ed73951d214 inner_compose=wsx-01eb81134ed73951d214 status=matched
+[stack-admission] load1=5.51 cores=10 perCore=0.55 running=0/2
+[test-isolation] id=run-mtnzjfs5-ce411e59-01eb81134ed7 db=wsx_01eb81134ed73951d214 compose=wsx-01eb81134ed73951d214 pg=21219 redis=26219
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    112ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：0s
+  清理：0s
+  总计：1s
+
+[harness-verify v1 sha256=94fae3dbd74a66b73d50567b3e3048082eace70b34e7d12232c2d1140e950760 commit=4acb9ea95da677ed403e181f78dfcfbaa13ef666 at=2026-09-05T06:12:25.252Z]

@@ -5,10 +5,10 @@ phase: "03"
 #   （phase-03 此前没有 contracts/ 目录，本文件与该束同时建立）。
 #   **新增束必须同时加进这里并重做复核**——否则新束的 feature 会靠一份从没看过它们的
 #   复核解锁开工（ADR-023 背景 1 的原样复现）。
-covers_bundles: [feedback-loop, design-workbench]
+covers_bundles: [design-ai-collab, design-workbench, feedback-loop]
 status: confirmed
 confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」）"
-confirmed_at: "2026-08-15T23:47:59Z"
+confirmed_at: "2026-09-05T02:47:59Z"
 ---
 
 # phase-03 阶段一致性复核

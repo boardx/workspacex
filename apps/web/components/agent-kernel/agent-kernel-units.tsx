@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  Check, X, ChevronDown, ChevronRight, FileText, Play, Pause, Send,
+  Check, X, ChevronDown, ChevronRight, FileText, Play, Pause,
   ShieldAlert, History, RefreshCw, AlertTriangle, Loader2, Wifi, ShieldCheck,
   Trash2, GripVertical, CircleDot, Circle, CircleCheck,
 } from "lucide-react";
@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -20,6 +19,8 @@ import {
   type AgentKernelArtifactVersionPreview,
 } from "@/lib/mock/agent-kernel";
 import type { AgentKernelRunStatus } from "@/lib/agent-kernel-stream";
+import type { InterjectFn } from "@/lib/agent-kernel-interject";
+import { InterjectionComposer } from "./interjection-composer";
 
 // 共享：风险徽标（L0/L1/L2）——颜色语义固定，L2 用 warning
 function RiskBadge({ risk }: { risk: TodoRisk }) {
@@ -304,61 +305,9 @@ export function ToolPermissionCard() {
 }
 
 // ══ 04 中途插话入口 ═════════════════════════════════════════════════
-export function InterjectionComposer() {
-  const [value, setValue] = React.useState("");
-  const [acked, setAcked] = React.useState<string | null>(null);
-
-  const send = () => {
-    if (!value.trim()) return;
-    setAcked(value.trim());
-    setValue("");
-    window.setTimeout(() => setAcked(null), 4000);
-  };
-
-  return (
-    <div data-testid="interjection-composer" className="flex max-w-xl flex-col gap-2">
-      <div className="flex items-center gap-2 rounded-card border border-border bg-card p-2 text-11 text-muted-foreground">
-        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-primary" />
-        agent 正在执行第 4 步。你可以随时插一句话调整方向，不会打断当前这步。
-      </div>
-
-      {acked && (
-        <div
-          role="status"
-          data-testid="interjection-ack"
-          className="flex items-center gap-1.5 rounded-card border border-border bg-background p-2 text-12 text-background-foreground transition-opacity duration-slow"
-        >
-          <Check aria-hidden className="h-3.5 w-3.5 text-success" />
-          已收到「{acked.length > 24 ? acked.slice(0, 24) + "…" : acked}」，会在下一步之前纳入考虑。
-        </div>
-      )}
-
-      <div className="flex items-end gap-2">
-        <div className="flex flex-1 flex-col gap-1">
-          <Label htmlFor="interject-input" className="sr-only">给正在执行的 agent 插话</Label>
-          <Textarea
-            id="interject-input"
-            data-testid="interjection-input"
-            placeholder="例如：第二页标题改成「华北下滑归因分析」"
-            value={value}
-            rows={2}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
-            }}
-          />
-        </div>
-        <Button
-          variant="primary" data-testid="interjection-send"
-          disabled={!value.trim()} onClick={send}
-        >
-          <Send aria-hidden className="h-4 w-4" /> 插话
-        </Button>
-      </div>
-      <p className="text-10 text-muted-foreground">⌘/Ctrl + Enter 发送 · 运行中输入框保持可交互（非 disabled）</p>
-    </div>
-  );
-}
+// issue #2756 起搬到 `interjection-composer.tsx`（该文件头注说明原因：/chat 路由闭包禁 mock，
+// 而本文件整体引了 `@/lib/mock/agent-kernel`）。这里原样再导出，既有 import 路径不变。
+export { InterjectionComposer, type InterjectionComposerProps } from "./interjection-composer";
 
 // ══ 05 产出物面板 ═══════════════════════════════════════════════════
 export function ArtifactsPanel({ empty = false }: { empty?: boolean }) {
@@ -646,14 +595,29 @@ export function agentKernelNonTerminalBranch(
 }
 
 export function AgentKernelNonTerminalView({
-  status, pausedBy = null,
-}: { readonly status: AgentKernelRunStatus; readonly pausedBy?: "user" | "system" | null }) {
+  status, pausedBy = null, runId = null, interject,
+}: {
+  readonly status: AgentKernelRunStatus;
+  readonly pausedBy?: "user" | "system" | null;
+  /** Phase 14 F12：有 `runId` 时 `running` 分支下方的插话入口走真实接口。 */
+  readonly runId?: string | null;
+  readonly interject?: InterjectFn;
+}) {
   switch (agentKernelNonTerminalBranch(status, pausedBy)) {
     case "plan-confirmation": return <PlanConfirmationCard />;
     case "tool-permission": return <ToolPermissionCard />;
     case "paused-user": return <PausedState variant="user" />;
     case "paused-system": return <PausedState variant="system" />;
-    case "progress": return <ProgressStream />;
+    case "progress":
+      // F12（R8）：插话入口与进度流并列，是进度流之下的兄弟节点，不是替换它——
+      // 发送插话前后进度流都留在原地（"不打断当前展示的执行进度流"）。
+      // `queued` 还没开始执行，契约只对 `running` 开放插话，所以此时不渲染入口。
+      return (
+        <div className="flex flex-col gap-3">
+          <ProgressStream />
+          {status === "running" && <InterjectionComposer runId={runId} status={status} interject={interject} />}
+        </div>
+      );
     default: return null;
   }
 }

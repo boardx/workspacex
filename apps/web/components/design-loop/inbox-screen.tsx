@@ -2,10 +2,12 @@
 import * as React from "react";
 import {
   LayoutList, Columns3, Search, X, Sparkles, Play, Check, Undo2, Ban, ShieldAlert, PlugZap, Loader2, Lock, Github,
+  MoreHorizontal, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
@@ -35,6 +37,7 @@ import {
 import { updateSystemErrorLifecycle, type SystemErrorStatus } from "@/lib/live-system-errors";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
+import { useDialogFocus } from "./use-dialog-focus";
 
 /**
  * UC-17.8 B3.4 —— 运营收件箱，**真栈**（契约 `inbox`：`listInbox` / `getInboxCounts`）。
@@ -76,6 +79,15 @@ import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
  *     进行中"两步走会连带多发一封状态变更邮件，属于臆造副作用）。因此「创建 GitHub
  *     Issue」编辑器只在 `item.stage === "backlog"` 时出现；`doing` 态下 `github === null`
  *     的反馈仍能通过「退回待处理」把自己先挪回 backlog，再从 backlog 建 issue。
+ *   · **拖拽的每一条合法迁移都有键盘可达的等价操作（B6.5 无障碍复核）**：拖拽只是
+ *     "分诊台快速挪列"，不是唯一入口。drawer 操作区按 `item.stage` × `item.kind` 展开的按钮
+ *     集合，恰好覆盖两个源状态机（`product-feedback.ts` 的 `ALLOWED_TRANSITIONS`、
+ *     `system-error-logs.ts` 头注）里每一条从当前列出去的边：
+ *       backlog → doing（开始处理）/ archived（不做…）；doing → done（标记已修复，仅反馈）
+ *       / backlog（退回待处理）/ archived（不做…）；done|archived → backlog（重新打开）。
+ *     拖拽能做而按钮没有的边（如 done → doing）在服务端本来就是 `ILLEGAL_TRANSITION`，
+ *     拖过去只会回滚——所以按钮集**不是**拖拽的子集，是合法边的全集。
+ *     `tests/ui/design-loop.test.tsx` ⑪ 逐格断言这张表，改状态机请同步。
  */
 
 type KindFilter = "all" | InboxKind;
@@ -84,6 +96,12 @@ type StageFilter = "all" | InboxStage;
 const KIND_FILTERS: readonly KindFilter[] = ["all", ...INBOX_KIND_OPTIONS];
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_LIMIT = 50;
+/** B3.7——关联跳转后目标卡片/行的高亮持续时长。 */
+const HIGHLIGHT_MS = 1800;
+const LINK_NOTICE_MS = 4000;
+
+/** B3.7——关联跳转回调：`targetId` 是契约 `InboxItem.id`，`label` 只用于提示文案。 */
+type NavigateLink = (targetId: string, label: string) => void;
 
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
@@ -119,15 +137,29 @@ export function DesignLoopInboxScreen({
   onDeepen,
   onOpenWorkbench,
   openId: initialOpenId = null,
+  onOpenLinked,
 }: {
   state?: UiState;
   onDeepen?: (projectId: string) => void;
   onOpenWorkbench?: (inboxCode: string) => void;
   /** 进屏就打开这一条的详情（`?open=<id>`）。 */
   openId?: string | null;
+  /**
+   * B3.7——点关联标在屏内跳到目标条目**之后**回调（目标 = 契约 `InboxItem.id`）。
+   * 屏本身不碰路由；生产落点用它把 `?open=<id>` 同步进 URL，取材页不传。
+   */
+  onOpenLinked?: (targetId: string) => void;
 }) {
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
+  /**
+   * issue #2752 ①——系统自动生成的 `exception` 数量可能特别多，「全部」默认视图不该
+   * 被它淹没。`kindFilter === "all"` 时本地滤掉 `kind === "exception"`（不影响服务端
+   * 请求：仍然一次拉全量,只是显示层收窄），入口不消失——点「系统异常」chip 单独筛选，
+   * 或打开这个开关，两者都还能看见。`kindFilter !== "all"`（含显式选中「系统异常」）
+   * 不受这个开关影响,用户已经明确要看某一类。
+   */
+  const [showExceptionsInAll, setShowExceptionsInAll] = React.useState(false);
   const [stageFilter, setStageFilter] = React.useState<StageFilter>("all");
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
@@ -140,6 +172,19 @@ export function DesignLoopInboxScreen({
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState<string | null>(null);
   const [dragError, setDragError] = React.useState<string | null>(null);
+  /** B3.7——刚被关联标跳到的条目 id，短暂高亮后自清（看板卡片/列表行都认它）。 */
+  const [highlightId, setHighlightId] = React.useState<string | null>(null);
+  /** B3.7——关联目标不在已加载列表里时的提示（不静默失败）。 */
+  const [linkNotice, setLinkNotice] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (highlightId === null) return;
+    // jsdom 没有 scrollIntoView；真实浏览器里把目标滚进视口，高亮才看得见。
+    const el = document.querySelector<HTMLElement>(`[data-highlighted="true"]`);
+    if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
+    const t = window.setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => window.clearTimeout(t);
+  }, [highlightId]);
 
   // 搜索防抖：输入停 300ms 才真正触发请求。
   React.useEffect(() => {
@@ -204,15 +249,40 @@ export function DesignLoopInboxScreen({
   const items = load.kind === "ready" ? load.items : [];
   const sources = load.kind === "ready" ? load.sources : null;
   const exceptionWithheld = sources?.exception === "withheld" || counts?.sources.exception === "withheld";
+  const hidingExceptions = kindFilter === "all" && !showExceptionsInAll;
+  const visibleItems = hidingExceptions ? items.filter((i) => i.kind !== "exception") : items;
 
-  const filtered = items.filter(
+  const filtered = visibleItems.filter(
     (i) => stageFilter === "all" || i.stage === stageFilter,
   );
+  // drawer 按 id 查找仍然在完整 `items` 里找——已经打开的一条不该因为开关状态变化而消失。
   const open = items.find((i) => i.id === openId) ?? null;
 
   const flashSaved = (msg: string) => {
     setSaved(msg);
     window.setTimeout(() => setSaved(null), 2400);
+  };
+
+  /**
+   * B3.7——点关联标（「已生成方案」/「源自反馈」）跳到目标条目并高亮。两端都在这一屏
+   * （`resolvedByDesignId` = 设计条目的 `id`，`linkedFeedbackId` = 反馈条目的 `id`），
+   * 所以是屏内换 drawer + 高亮，不换路由；URL 的 `?open=` 由 `onOpenLinked` 在外面同步。
+   * 目标被客户端 `stage` 子筛选挡住时把子筛选放宽到「全部」（它是纯本地过滤，放宽不发请求）；
+   * 目标不在已加载的 `items` 里（被服务端 `kind`/`q` 筛掉或还在下一页）时**老实提示**，
+   * 不静默、也不偷偷改服务端筛选去重新请求。
+   */
+  const navigateToLinked: NavigateLink = (targetId, label) => {
+    const target = items.find((i) => i.id === targetId);
+    if (target === undefined) {
+      setLinkNotice(`关联的${label}不在当前列表里——可能被类型筛选、搜索挡住或还没加载到；清掉筛选或「加载更多」后再试。`);
+      window.setTimeout(() => setLinkNotice(null), LINK_NOTICE_MS);
+      return;
+    }
+    if (stageFilter !== "all" && target.stage !== stageFilter) setStageFilter("all");
+    setOpenDeclineOnOpen(false);
+    setOpenId(targetId);
+    setHighlightId(targetId);
+    onOpenLinked?.(targetId);
   };
 
   const replaceItem = (id: string, patch: Partial<InboxItem>) =>
@@ -345,7 +415,7 @@ export function DesignLoopInboxScreen({
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
       <div className="p-6" data-testid="loading">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {INBOX_STAGE_ORDER.map((s) => (
             <div key={s} className="flex flex-col gap-2 rounded-card bg-panel p-3">
               <div className="h-4 w-16 animate-pulse rounded-control bg-muted" />
@@ -399,6 +469,11 @@ export function DesignLoopInboxScreen({
           {dragError}
         </div>
       )}
+      {linkNotice !== null && (
+        <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-link-target-missing" role="status">
+          {linkNotice}
+        </div>
+      )}
       {/* 工具条：视图切换 + 类型 chip + 搜索 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-0.5 rounded-control border border-border p-0.5">
@@ -438,6 +513,25 @@ export function DesignLoopInboxScreen({
               系统异常仅平台运维可见
             </span>
           )}
+          {/* issue #2752 ①——「全部」视图默认滤掉系统异常，这个开关是唯一的显式切回入口。
+              只在 kindFilter === "all" 时有意义：单独选中「系统异常」chip 已经是另一种「切换查看」。 */}
+          {kindFilter === "all" && exceptionWithheld !== true && (
+            <button
+              type="button"
+              aria-pressed={showExceptionsInAll}
+              onClick={() => setShowExceptionsInAll((v) => !v)}
+              data-testid="inbox-toggle-show-exceptions"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-control border px-2.5 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                showExceptionsInAll
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-card-foreground hover:bg-muted",
+              )}
+            >
+              <Eye aria-hidden className="h-3 w-3" />
+              {showExceptionsInAll ? "「全部」已包含系统异常" : "在「全部」中显示系统异常"}
+            </button>
+          )}
         </div>
         <div className="relative ml-auto">
           <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -458,15 +552,41 @@ export function DesignLoopInboxScreen({
             {kindFilter !== "all" || query !== "" ? "没有符合当前筛选的条目。" : "用户提交反馈、系统告警或推送设计方案后，都会汇总到这里。"}
           </p>
         </div>
+      ) : visibleItems.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty-hidden-exceptions">
+          <p className="text-14 font-medium">当前只有系统异常，已默认隐藏</p>
+          <button
+            type="button"
+            className="text-12 text-primary underline underline-offset-2"
+            onClick={() => setShowExceptionsInAll(true)}
+            data-testid="inbox-empty-show-exceptions"
+          >
+            显示系统异常
+          </button>
+        </div>
       ) : view === "board" ? (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="grid flex-1 grid-cols-4 gap-3 overflow-y-auto p-4" data-testid="inbox-board">
+          {/* B6.5 无障碍：拖拽的键盘替代说明（视觉隐藏）。每张卡片 aria-describedby 指到它——
+              拖拽本身没有键盘等价操作，等价操作是「打开详情 → 操作按钮」，得告诉读屏用户去哪。 */}
+          <p id="inbox-drag-hint" className="sr-only">
+            拖动卡片到另一列可以改变状态。键盘用户：按 Enter 或空格打开详情，详情里的操作按钮提供同样的状态迁移。
+          </p>
+          {/* B6.5 响应式（U8）：md 以下四列横向可滚（列容器自己 overflow-x-auto，页面不横向溢出），
+              md 及以上四列并排——375 下四列并排每列只剩 ~75px，编号/类型/徽标全挤成竖条，不算"能看"。
+              这里的横向滚动是写出来的设计（data-allow-x-scroll），不是从 computed style 猜的放行。 */}
+          <div
+            className="flex flex-1 gap-3 overflow-x-auto overflow-y-auto p-4 md:grid md:grid-cols-4"
+            data-testid="inbox-board"
+            data-allow-x-scroll="看板四列在 md 以下横向滚动是设计，不是内容被裁"
+          >
             {INBOX_STAGE_ORDER.map((col) => {
               const colItems = filtered.filter((i) => i.stage === col);
-              const colCount = counts === null ? colItems.length : counts.byStage[col];
+              const colCount = counts === null || hidingExceptions ? colItems.length : counts.byStage[col];
               return (
                 <div
                   key={col}
+                  role="group"
+                  aria-label={`${INBOX_STAGE_LABEL[col]}，${colCount} 条`}
                   data-testid={`inbox-column-${col}`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -481,7 +601,7 @@ export function DesignLoopInboxScreen({
                     if (item) void applyTransition(item, col);
                   }}
                   className={cn(
-                    "flex min-h-32 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast",
+                    "flex min-h-32 w-64 shrink-0 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast md:w-auto",
                     dragOver === col && "border-primary bg-ai-tint/30",
                   )}
                 >
@@ -490,7 +610,15 @@ export function DesignLoopInboxScreen({
                     <span className="text-11 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
                   </div>
                   {colItems.map((item) => (
-                    <BoardCard key={item.id} item={item} busy={busyId === item.id} onOpen={() => setOpenId(item.id)} />
+                    <BoardCard
+                      key={item.id}
+                      item={item}
+                      busy={busyId === item.id}
+                      highlighted={highlightId === item.id}
+                      onOpen={() => setOpenId(item.id)}
+                      onNavigateLink={navigateToLinked}
+                      onQuickAction={(target) => void applyTransition(item, target)}
+                    />
                   ))}
                 </div>
               );
@@ -504,6 +632,10 @@ export function DesignLoopInboxScreen({
           stageFilter={stageFilter}
           onStageFilter={setStageFilter}
           onOpen={setOpenId}
+          highlightId={highlightId}
+          onNavigateLink={navigateToLinked}
+          busyId={busyId}
+          onQuickAction={(item, target) => void applyTransition(item, target)}
           nextCursor={load.kind === "ready" ? load.nextCursor : null}
           loadingMore={loadingMore}
           onLoadMore={() => void loadMore()}
@@ -512,7 +644,9 @@ export function DesignLoopInboxScreen({
 
       {open !== null && (
         <InboxDrawer
+          key={open.id} // B3.7：关联跳转换条目时整体重挂，不把上一条的理由/草稿状态带过去
           item={open}
+          onNavigateLink={navigateToLinked}
           busy={busyId === open.id}
           openDecline={openDeclineOnOpen}
           onClose={() => { setOpenId(null); setOpenDeclineOnOpen(false); }}
@@ -562,23 +696,117 @@ function KindLabel({ item }: { item: InboxItem }) {
   return <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{text}</span>;
 }
 
-function CardMeta({ item }: { item: InboxItem }) {
+/** 关联标：反馈 → 「已生成方案」（目标 = 设计条目 id），设计 → 「源自反馈」（目标 = 反馈 id）。 */
+function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigateLink: NavigateLink }) {
   return (
     <>
-      {item.resolvedByDesignId !== null && <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} />}
-      {item.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} />}
+      {item.resolvedByDesignId !== null && (
+        <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} onClick={() => onNavigateLink(item.resolvedByDesignId!, "设计方案")} />
+      )}
+      {item.linkedFeedbackId !== null && (
+        <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} onClick={() => onNavigateLink(item.linkedFeedbackId!, "反馈")} />
+      )}
     </>
   );
 }
 
-function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onOpen: () => void }) {
+/** B3.7 高亮态：卡片/行共用，用 `ring-primary` token，不硬编码颜色。 */
+const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";
+
+/**
+ * issue #2752 ③——hover 卡片/行时缺一个不用先点开详情就能做的操作动作（比如关闭）。
+ * 复用 `applyTransition`（footer 按钮同一套逻辑，含「不做」落点到 drawer 理由表单、
+ * 系统异常没有「已完成」这条边会被拒绝的规则），这里只挑"当前状态能一键做"的几条
+ * 摆进菜单，不重造第二套状态机判断。`item.kind === "design"` 没有对应源操作，不渲染。
+ */
+function QuickActionMenu({
+  item, busy, onQuickAction, testidPrefix,
+}: {
+  item: InboxItem;
+  busy: boolean;
+  onQuickAction: (target: InboxStage) => void;
+  testidPrefix: string;
+}) {
+  if (item.kind === "design") return null;
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="更多操作"
+          disabled={busy}
+          data-testid={`${testidPrefix}-menu-${item.code}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </MenuTrigger>
+      <MenuContent align="end" onClick={(e) => e.stopPropagation()} data-testid={`${testidPrefix}-menu-content-${item.code}`}>
+        {item.stage === "backlog" && (
+          <MenuItem onSelect={() => onQuickAction("doing")} data-testid={`${testidPrefix}-menu-start-${item.code}`}>
+            开始处理
+          </MenuItem>
+        )}
+        {item.stage === "doing" && item.kind === "feedback" && (
+          <MenuItem onSelect={() => onQuickAction("done")} data-testid={`${testidPrefix}-menu-done-${item.code}`}>
+            标记已修复
+          </MenuItem>
+        )}
+        {item.stage === "doing" && (
+          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-back-${item.code}`}>
+            退回待处理
+          </MenuItem>
+        )}
+        {(item.stage === "done" || item.stage === "archived") && (
+          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-reopen-${item.code}`}>
+            重新打开
+          </MenuItem>
+        )}
+        {(item.stage === "backlog" || item.stage === "doing") && (
+          <>
+            <MenuSeparator />
+            <MenuItem
+              onSelect={() => onQuickAction("archived")}
+              data-testid={`${testidPrefix}-menu-close-${item.code}`}
+              className="text-destructive focus:text-destructive"
+            >
+              关闭（不做）…
+            </MenuItem>
+          </>
+        )}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+function BoardCard({
+  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction,
+}: {
+  item: InboxItem;
+  busy: boolean;
+  highlighted: boolean;
+  onOpen: () => void;
+  onNavigateLink: NavigateLink;
+  onQuickAction: (target: InboxStage) => void;
+}) {
+  /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
+   *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
+  const [grabbed, setGrabbed] = React.useState(false);
   return (
     <div
       draggable={!busy}
-      onDragStart={(e) => e.dataTransfer.setData("text/plain", item.id)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", item.id);
+        setGrabbed(true);
+      }}
+      onDragEnd={() => setGrabbed(false)}
       onClick={onOpen}
       role="button"
       tabIndex={0}
+      aria-label={`${item.code} ${item.title}`}
+      aria-describedby="inbox-drag-hint"
+      aria-grabbed={busy ? undefined : grabbed}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -586,19 +814,24 @@ function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onO
         }
       }}
       data-testid={`inbox-card-${item.code}`}
+      data-highlighted={highlighted ? "true" : undefined}
       className={cn(
-        "flex flex-col gap-1.5 rounded-card border border-border-subtle bg-card p-2.5 transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative flex flex-col gap-1.5 rounded-card border border-border-subtle bg-card p-2.5 transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         busy ? "cursor-wait opacity-60" : "cursor-grab active:cursor-grabbing",
+        highlighted && HIGHLIGHT_CLASS,
       )}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="absolute right-1.5 top-1.5 invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+        <QuickActionMenu item={item} busy={busy} onQuickAction={onQuickAction} testidPrefix="inbox-card" />
+      </div>
+      <div className="flex items-center gap-1.5 pr-5">
         <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
         <KindLabel item={item} />
         {item.severe && <SevereBadge />}
       </div>
       <p className="line-clamp-2 text-12 font-medium">{item.title}</p>
       <div className="flex flex-wrap items-center gap-1">
-        <CardMeta item={item} />
+        <CardMeta item={item} onNavigateLink={onNavigateLink} />
         {item.github !== null && <GithubBadge {...item.github} />}
       </div>
     </div>
@@ -606,12 +839,16 @@ function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onO
 }
 
 function ListView({
-  items, stageFilter, onStageFilter, onOpen, nextCursor, loadingMore, onLoadMore,
+  items, stageFilter, onStageFilter, onOpen, highlightId, onNavigateLink, busyId, onQuickAction, nextCursor, loadingMore, onLoadMore,
 }: {
   items: InboxItem[];
   stageFilter: StageFilter;
   onStageFilter: (s: StageFilter) => void;
   onOpen: (id: string) => void;
+  highlightId: string | null;
+  onNavigateLink: NavigateLink;
+  busyId: string | null;
+  onQuickAction: (item: InboxItem, target: InboxStage) => void;
   nextCursor: string | null;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -639,8 +876,9 @@ function ListView({
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-12">
+      {/* B6.5（U8）：五列表格在 375 下横向可滚是设计（宽表格），不让单元格挤成一字一行。 */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto" data-allow-x-scroll="列表视图的五列宽表格在窄视口横向滚动是设计">
+        <table className="w-full min-w-[36rem] text-12">
           <thead className="sticky top-0 bg-card">
             <tr className="border-b border-border text-left text-11 text-muted-foreground">
               <th className="px-4 py-2 font-medium">状态</th>
@@ -648,6 +886,7 @@ function ListView({
               <th className="px-4 py-2 font-medium">类型</th>
               <th className="px-4 py-2 font-medium">GitHub</th>
               <th className="px-4 py-2 font-medium">数量 / 时间</th>
+              <th className="px-4 py-2 font-medium" aria-label="操作" />
             </tr>
           </thead>
           <tbody>
@@ -656,7 +895,11 @@ function ListView({
                 key={item.id}
                 onClick={() => onOpen(item.id)}
                 data-testid={`inbox-row-${item.code}`}
-                className="cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted"
+                data-highlighted={highlightId === item.id ? "true" : undefined}
+                className={cn(
+                  "group cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted",
+                  highlightId === item.id && cn(HIGHLIGHT_CLASS, "ring-inset bg-ai-tint/30"),
+                )}
               >
                 <td className="px-4 py-2"><StatusBadge stage={item.stage} /></td>
                 <td className="px-4 py-2">
@@ -664,7 +907,7 @@ function ListView({
                     <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
                     <span className="font-medium">{item.title}</span>
                     {item.severe && <SevereBadge />}
-                    <CardMeta item={item} />
+                    <CardMeta item={item} onNavigateLink={onNavigateLink} />
                   </div>
                 </td>
                 <td className="px-4 py-2"><KindLabel item={item} /></td>
@@ -673,6 +916,16 @@ function ListView({
                   {item.kind === "exception" && item.exception !== null
                     ? `${item.exception.count} 次${item.exception.affectedUsers !== null ? ` · ${item.exception.affectedUsers} 人` : ""}`
                     : new Date(item.createdAt).toLocaleDateString("zh-CN")}
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <div className="inline-flex invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+                    <QuickActionMenu
+                      item={item}
+                      busy={busyId === item.id}
+                      onQuickAction={(target) => onQuickAction(item, target)}
+                      testidPrefix="inbox-row"
+                    />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -687,13 +940,13 @@ function ListView({
   );
 }
 
-/** 缺陷/需求 → issue 标签，同 `admin/feedback-screen.tsx` 的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
+/** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
 const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
 
 /**
- * 建 issue 编辑器的初值——照抄 `admin/feedback-screen.tsx` 的 `defaultIssueDraft`，
- * 只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影本轮没有这个字段，
- * 不编一份假的附件区块）。
+ * 建 issue 编辑器的初值——照抄旧 `admin/feedback-screen.tsx`（B3.6 已删除）的
+ * `defaultIssueDraft`，只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影
+ * 本轮没有这个字段，不编一份假的附件区块）。
  */
 function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
   const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
@@ -703,6 +956,13 @@ function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
     labels: ["user-feedback", ...(item.feedbackKind !== null ? [INBOX_KIND_ISSUE_LABEL[item.feedbackKind]] : [])],
   };
 }
+
+/**
+ * issue #2752 ②——系统异常转「不做」每次都要手填理由，量一大就是重复劳动。反馈类
+ * 保持空白（每条反馈的「不做」理由都该是具体的、针对这条反馈的），只给系统异常
+ * 一个可编辑的默认模板，省下"每次现想怎么写"这一步，不是不让改。
+ */
+const DEFAULT_EXCEPTION_DECLINE_REASON = "系统自动生成的异常，评估后判定为已知噪音或不影响用户的低优先级问题，本轮不做单独处理。";
 
 /**
  * drawer 现查回来的 GitHub 状态换算成要展示的徽标——契约头注的派生规则（`inbox.ts`
@@ -730,10 +990,12 @@ type GithubCheck =
 
 /** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
 function InboxDrawer({
-  item, busy, openDecline, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench,
+  item, busy, openDecline, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
 }: {
   item: InboxItem;
   busy: boolean;
+  /** B3.7——drawer 里的关联标点击后换成目标条目的 drawer。 */
+  onNavigateLink: NavigateLink;
   /** 从看板拖到「不做」列打开：直接展开理由表单，不用再点一次「不做…」。 */
   openDecline: boolean;
   onClose: () => void;
@@ -745,7 +1007,7 @@ function InboxDrawer({
   onOpenWorkbench: () => void;
 }) {
   const [declining, setDeclining] = React.useState(openDecline);
-  const [reason, setReason] = React.useState("");
+  const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
   const canConfirm = reason.trim() !== "";
   const canDeepen = item.kind === "feedback" && (item.stage === "backlog" || item.stage === "doing") && item.resolvedByDesignId === null;
   /** B3.5——见文件头：只对 `backlog` 态开放，`doing → doing` 是幂等重放，不会建 issue。 */
@@ -790,15 +1052,22 @@ function InboxDrawer({
   const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
   const [labelsText, setLabelsText] = React.useState("");
 
+  /** B6.5：打开时焦点进 drawer、Esc 关闭、关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
+  const panelRef = React.useRef<HTMLElement>(null);
+  useDialogFocus(panelRef, onClose);
+
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={onClose} aria-hidden data-testid="inbox-drawer-scrim" />
+      {/* 宽度：28rem 上限 + max-w-full ⇒ 375 下自然全宽（U8，不另写断点）。 */}
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`${item.code} ${item.title}`}
         data-testid="inbox-drawer"
-        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[28rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-lg"
+        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[28rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <header className="flex items-start justify-between gap-2 border-b border-border p-4">
           <div className="min-w-0">
@@ -849,7 +1118,7 @@ function InboxDrawer({
           </dl>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <CardMeta item={item} />
+            <CardMeta item={item} onNavigateLink={onNavigateLink} />
             {item.github !== null && (
               githubCheck.kind === "loading" ? (
                 <span className="h-4 w-24 animate-pulse rounded-control bg-muted" data-testid="inbox-drawer-github-loading" />
@@ -963,7 +1232,16 @@ function InboxDrawer({
                 <p className="text-10 text-muted-foreground" data-testid="err-reason">不做必须写清理由，否则无法确认。</p>
               )}
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setDeclining(false); setReason(""); }}>取消</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDeclining(false);
+                    setReason(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
+                  }}
+                >
+                  取消
+                </Button>
                 <Button
                   variant="destructive"
                   size="sm"

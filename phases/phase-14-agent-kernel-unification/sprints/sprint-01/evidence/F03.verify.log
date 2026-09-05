@@ -1,39 +1,78 @@
-== pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts ==
+$ pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts
+[exit 0]
 
- RUN  v2.1.9 /home/user/workspacex/apps/api
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
 
-[db-isolation] db=workspacex capacity=100 current=6 required=32
- ✓ tests/agent-run/ws-event-forwarding.test.ts (6 tests) 46ms
+[db-isolation] db=wsx_a26fc86da28953f0c74c capacity=100 current=6 required=32
+ ✓ tests/agent-run/ws-event-forwarding.test.ts (6 tests) 16ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  22:41:57
-   Duration  1.41s (transform 705ms, setup 0ms, collect 949ms, tests 46ms, environment 0ms, prepare 53ms)
+   Start at  14:04:56
+   Duration  2.09s (transform 241ms, setup 0ms, collect 317ms, tests 16ms, environment 0ms, prepare 20ms)
 
-[db-isolation] db=workspacex peak_connections=1
+[db-isolation] db=wsx_a26fc86da28953f0c74c peak_connections=1
 
-== pnpm --filter api exec vitest run tests/agent-run/ws-latency-and-no-polling.test.ts ==
 
- RUN  v2.1.9 /home/user/workspacex/apps/api
+$ pnpm --filter api exec vitest run tests/agent-run/ws-latency-and-no-polling.test.ts
+[exit 0]
 
-[db-isolation] db=workspacex capacity=100 current=6 required=32
- ✓ tests/agent-run/ws-latency-and-no-polling.test.ts (4 tests) 34ms
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
+
+[db-isolation] db=wsx_a26fc86da28953f0c74c capacity=100 current=6 required=32
+ ✓ tests/agent-run/ws-latency-and-no-polling.test.ts (4 tests) 11ms
 
  Test Files  1 passed (1)
       Tests  4 passed (4)
-   Start at  22:41:59
-   Duration  1.42s (transform 721ms, setup 0ms, collect 943ms, tests 34ms, environment 0ms, prepare 56ms)
+   Start at  14:04:58
+   Duration  642ms (transform 229ms, setup 0ms, collect 298ms, tests 11ms, environment 0ms, prepare 20ms)
 
-[db-isolation] db=workspacex peak_connections=1
+[db-isolation] db=wsx_a26fc86da28953f0c74c peak_connections=1
 
-== pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/agui-event-schema.test.ts ==
 
- RUN  v2.1.9 /home/user/workspacex/packages/contracts
+$ pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/agui-event-schema.test.ts
+[exit 0]
 
- ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 5ms
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/packages/contracts
+
+ ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 3ms
 
  Test Files  1 passed (1)
       Tests  6 passed (6)
-   Start at  22:42:01
-   Duration  339ms (transform 69ms, setup 0ms, collect 98ms, tests 5ms, environment 0ms, prepare 56ms)
+   Start at  14:05:03
+   Duration  246ms (transform 31ms, setup 0ms, collect 39ms, tests 3ms, environment 0ms, prepare 43ms)
 
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=4acb9ea95da677ed403e181f78dfcfbaa13ef666（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_a26fc86da28953f0c74c inner_db=wsx_a26fc86da28953f0c74c outer_compose=wsx-a26fc86da28953f0c74c inner_compose=wsx-a26fc86da28953f0c74c status=matched
+[stack-admission] load1=2.32 cores=10 perCore=0.23 running=0/2
+[test-isolation] id=run-mtnzadjg-963a2d64-a26fc86da289 db=wsx_a26fc86da28953f0c74c compose=wsx-a26fc86da28953f0c74c pg=24797 redis=29797
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    116ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：0s
+  清理：0s
+  总计：1s
+
+[harness-verify v1 sha256=02ce1deb0d07ea0e8dd71c23daa0edb0f1352891fd4d880439d492a00100f2c4 commit=4acb9ea95da677ed403e181f78dfcfbaa13ef666 at=2026-09-05T06:05:04.753Z]

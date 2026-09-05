@@ -2,15 +2,25 @@
 
 > ## 自检（可机械核对）
 >
-> **本文件引用 9 张截图，目录下实际 9 张。N == M，无死链、无多列、无遗漏。**
+> **本文件引用 6 张截图，目录下实际 6 张。N == M，无死链、无多列、无遗漏。**
 >
 > 这一行由 `.harness/scripts/lint-ui-material.mjs` 双向对账（引用集合 == 实存集合），
 > 不是一句自述——写错了会红。
 
+⚠ **B3.6（2026-09-04，旧屏退役）**：原「屏 D · 后台两列屏与分诊」一节（3 张图，
+文件名前缀 `fb-admin-two-columns-{light,dark}` 与 `fb-admin-decline-reason-light`）已删除——
+它拍的是 `components/admin/feedback-screen.tsx`，该文件已随旧屏退役删除，
+`/platform-admin/feedback` 现在 301 到 `/platform-admin/inbox`。「后台两列屏与分诊」
+这件签核材料现由 `inbox-unified` 范畴的 `/platform-admin/inbox`
+（`design-loop/inbox-screen.tsx`）承接，理由与该屏的截图见
+`.harness/instructions`（backlog uc-17-8 D2：新屏是三类来源统一投影，严格超集于旧屏）；
+本束今天只保留屏 A/B/C 三块——「提交」这一半的签核材料不受影响。详见本目录
+`design-signoff.md` 的「B3.6 重开」一节。
+
 ## 这些图是怎么来的（重要）
 
 由 `apps/web/scripts/shot-feedback-loop.mjs` 从取材页 `/preview/feedback-loop` 拍摄，
-**渲染的是生产同一份组件**（`FeedbackDialog` / `FeedbackButton` / `FeedbackScreen`），
+**渲染的是生产同一份组件**（`FeedbackDialog` / `FeedbackButton`），
 数据由脚本 `page.route()` 拦截 feedback 路由提供。
 
 ⚠ 所以图与生产的差别**只有数据，没有代码**。
@@ -66,25 +76,34 @@ D2 已裁：**图标栏常驻图标**，不是顶栏下拉里的一项。
 ⚠ 未产出：深色态的「我提过的」。它与屏 B 深色态共用同一个弹层外壳与同一套 token，
 本轮只拍浅色；要补的话是同一个脚本加一行。
 
-## 屏 D · 后台两列屏与分诊（UC-F4 / FB-3）
+## 屏 D · 后台两列屏与分诊——B3.6 已退役，见上方头注
 
-- ![后台两列 · 浅色](../../ui-preview/feedback-loop/fb-admin-two-columns-light.png)
-- ![后台两列 · 深色](../../ui-preview/feedback-loop/fb-admin-two-columns-dark.png)
-- ![转「不做」要先写理由](../../ui-preview/feedback-loop/fb-admin-decline-reason-light.png)
+原「屏 D」（3 张截图，UC-F4 / FB-3）拍的是旧 `feedback-screen.tsx`；2026-09-04
+（B3.6，backlog uc-17-8）该屏与其截图一并删除。当时这里登记过的七处要点，
+现由 `/platform-admin/inbox`（`design-loop/inbox-screen.tsx`）承接，对应关系：
 
-要看的七处：
-0. 右上角**卡片 / 列表**切换（2026-08-15 人类原话：「卡片也可以切换为列表，
-   需要有这个切换的功能」）。⚠ **一个开关管两列**——两列是同一种 entity 的两个分组，
-   各自一个开关会长出「左列卡片、右列列表」这种没人想要的状态；
-1. 状态分布条（四个分状态之和恒等于总数——一次查询派生的直接后果）；
-2. 左列「软件反馈」/ 右列「Agent / Skill 反馈」，右列的条目带目标徽标；
-3. 每条上的分诊按钮**只有当前状态出得去的那几条边**
-   （「已修复」那条只有「转待处理」，因为 `已修复 → 不做` 不是一条边）；
-4. 无权查看正文的那条显示「正文仅组织管理员与提交人可见」——**不是**「暂无内容」；
-5. 转「不做」先展开理由输入框，理由为空时确认按钮禁用；
-6. 屏底那句话：聚合改进建议那一块**还没接地**，因此不展示任何聚合数字——
-   不是数字为零。
+| 旧屏（已删除） | 新屏 `inbox-screen.tsx` |
+|---|---|
+| 0. 右上角卡片/列表切换 | `inbox-view-board` / `inbox-view-list` 两态切换，语义相同 |
+| 1. 状态分布条 | 看板视图四列各自计数（`inbox-column-count-{stage}`） |
+| 2. 左列软件反馈/右列 Agent·Skill 反馈 | 三类来源（反馈/系统异常/设计方案）统一投影为一份列表，类型 chip 筛选（`inbox-kind-{f}`）取代左右分列 |
+| 3. 分诊按钮只出当前状态出得去的边 | 同一不变量，`inbox-action-*` 按 `stage` 条件渲染 |
+| 4. 无权正文显示权限说明 | `inbox-drawer-body-withheld`，同一条 D3 规则 |
+| 5. 转「不做」先要理由，为空禁用 | `inbox-action-decline` → `inbox-decline-reason` / `inbox-decline-confirm`，同一条不变量 |
+| 6. 聚合改进建议未接地，不展示聚合数字 | 该结构性事实未变，`inbox-screen.tsx` 同样不展示 |
+
+⚠ **不是逐像素复刻**：新屏没有独立的「投票」入口——`inbox-screen.tsx` 的 drawer
+只把票数当只读元信息展示（`FeedbackItem.votes`），不提供 `voteFeedback` 的界面
+入口；也没有按来源（产品/Agent/Skill）单独筛选的 chip，只有类型 chip。
+这两点差异记在这里，不在 `coverage.md` 里造一条新的"缺口"——它们是**设计选择**
+（三类来源统一投影后，"来源"已经是 drawer 元信息的一部分，不再需要单独筛选层），
+不是遗漏；若后续需要恢复，走 `inbox-unified` 范畴自己的契约签核，不回填这份
+已退役的 `ui.md`。
+
+新屏的截图材料不在本目录——它属于 `inbox-unified` 范畴（backlog uc-17-8 B3），
+该范畴今天还没有独立的 `contracts/<bundle>/` 目录（尚待走 ADR-023 的契约签核流程），
+所以这里只做**文字交叉引用**，不重复声明"已覆盖"，也不越权替它建一份材料。
 
 ⚠ 已删除：`[打开迭代看板]` / `[导出]`。UC-17.6 A1/A2 逐字「按钮存在，
 但点击后无目标屏（原型待补）」——留一个点了会出现「实现者自己设计的看板」的按钮，
-比没有按钮更糟，它会被当成已确认的设计继续长。
+比没有按钮更糟，它会被当成已确认的设计继续长。新屏同样没有这两个按钮。

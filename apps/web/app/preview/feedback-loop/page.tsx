@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
-import { FeedbackScreen } from "@/components/admin/feedback-screen";
 
 /**
  * `feedback-loop` 束的签核第 ① 件（UI）取材页。
@@ -17,9 +16,14 @@ import { FeedbackScreen } from "@/components/admin/feedback-screen";
  *
  * ## ⚠ 它渲染的是**真组件**，不是复刻
  *
- * `FeedbackDialog` / `FeedbackButton` / `FeedbackScreen` 都是生产同一份实现。
+ * `FeedbackDialog` / `FeedbackButton` 都是生产同一份实现。
  * 本页只提供**场景**（哪个 tab、哪个目标），数据由 `page.route()` 在截图时
  * 拦截 feedback 路由提供——所以截出来的屏与生产的差别只有数据，没有代码。
+ *
+ * ⚠ B3.6（2026-09-04）：此前还有一个 `scene=admin` 渲染 `FeedbackScreen`
+ *   （旧的后台两列反馈屏）——该屏已随旧屏退役删除，这个场景一并移除。
+ *   「后台两列屏」这件签核材料现由 `/platform-admin/inbox`（`inbox-screen.tsx`）承接，
+ *   见 `design-signoff.md` 的「B3.6 重开」一节。
  *
  * 复刻一遍界面来拍照是本仓最不该犯的错：签核签的是照片，上线的是另一份代码。
  *
@@ -48,14 +52,6 @@ function PreviewBody() {
           />
         </div>
       </FeedbackProvider>
-    );
-  }
-
-  if (scene === "admin") {
-    return (
-      <div data-testid="feedback-loop-preview" className="min-h-dvh bg-card">
-        <FeedbackScreen state="default" />
-      </div>
     );
   }
 

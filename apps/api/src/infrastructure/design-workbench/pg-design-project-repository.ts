@@ -289,16 +289,20 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       const row = rows[0];
       if (row === undefined) return null;
 
-      let resolvedFeedback = false;
+      let resolvedFeedback: PushToInboxResult["resolvedFeedback"] = null;
       if (row.linked_feedback_id !== null) {
-        const { rows: fbRows } = await s.query<{ id: string }>(
+        // `IS DISTINCT FROM`：外键已经指向本项目（重复推送）时不再命中，于是 `resolvedFeedback`
+        // 回 `null`——这是 B6.3「同一条反馈只通知一次」的去重依据（见端口头注），不另加
+        // 一张"已通知"表。RETURNING 带上 `submitted_by`/`title`，发信要用。
+        const { rows: fbRows } = await s.query<{ id: string; submitted_by: string; title: string }>(
           `UPDATE product_feedback
               SET resolved_by_design_id = $3
-            WHERE org_id = $1 AND id = $2
-            RETURNING id`,
+            WHERE org_id = $1 AND id = $2 AND resolved_by_design_id IS DISTINCT FROM $3
+            RETURNING id, submitted_by, title`,
           [this.orgId, row.linked_feedback_id, projectId],
         );
-        resolvedFeedback = fbRows.length > 0;
+        const fb = fbRows[0];
+        if (fb !== undefined) resolvedFeedback = { id: fb.id, submittedBy: fb.submitted_by, title: fb.title };
       }
 
       const chat = await this.chatFor(s, row.id);

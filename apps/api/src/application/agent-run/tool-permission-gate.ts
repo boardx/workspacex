@@ -26,12 +26,20 @@
  * `grants` 端口是**可选**依赖：缺省（未注入）时 `hasGrant` 恒为 false，行为与本
  * feature 之前逐字节相同——每次 L2 中断都进 `awaiting_tool_permission`，同既有测试
  * （`gateway-forwarding.test.ts` 等）的默认预期一致，这也是它们不需要跟着改的原因。
+ *
+ * ## Phase 14 F11（R4 E3）—— 计算 `authorized` 之前先看一眼是否有待处理插话
+ *
+ * 内核发来中断，说明被挡下的这次调用**尚未执行**（中断在执行前拦截），所以这里插话
+ * 检查点不会打断任何"正在进行中"的调用（I-5）。若插话判定为方向性改变，
+ * `checkPendingInterjection` 会先撤销本 run 的 run 级授权——这必须发生在下面
+ * `hasGrant` 查询之前，`authorized` 才能正确反映"旧授权已经因为任务性质变了而失效"。
  */
 import type { OrgId } from "../../domain/org-id";
 import { classifyToolRisk } from "../../domain/agent-run/tool-risk-tier";
 import type { ExecuteAgentRunDeps } from "./execute-run";
 import { record } from "./record-run-step";
 import { publishStatusChange } from "./execute-run-events";
+import { checkPendingInterjection } from "./interjection-handling";
 
 export interface InterruptedToolCall {
   readonly toolName: string;
@@ -50,6 +58,10 @@ export async function handleInterruptedToolCall(
   interrupted: InterruptedToolCall,
   ledger: { readonly seq: number; readonly modelStartedAt: string; readonly systemDigest: string; readonly system: string },
 ): Promise<{ readonly autoApproved: boolean }> {
+  // Phase 14 F11：先消费待处理插话（若有），必要时撤销 run 级授权——见本文件头注。
+  const seqCursor = { value: ledger.seq };
+  await checkPendingInterjection(deps, orgId, runId, seqCursor);
+
   const risk = classifyToolRisk(interrupted.toolName);
   const authorized = risk !== "L2"
     || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, interrupted.toolName) ?? false);
@@ -58,7 +70,7 @@ export async function handleInterruptedToolCall(
     // R4 A2：已授权同类操作不再触发确认，直接执行——但完整信息仍然进账本（I-3），
     // 不是静默跳过留痕。
     await record(deps, orgId, {
-      runId, seq: ledger.seq, kind: "model_called", startedAt: ledger.modelStartedAt,
+      runId, seq: seqCursor.value, kind: "model_called", startedAt: ledger.modelStartedAt,
       inputDigest: ledger.systemDigest, outputDigest: null, failureCode: null,
       planningNote: `已授权同类操作，自动放行：${interrupted.toolName}`,
       inputFullContent: ledger.system,
@@ -69,7 +81,7 @@ export async function handleInterruptedToolCall(
 
   // I-1：L2 且未授权，没有例外——停进 awaiting_tool_permission 等人四选一裁决。
   await record(deps, orgId, {
-    runId, seq: ledger.seq, kind: "model_called", startedAt: ledger.modelStartedAt,
+    runId, seq: seqCursor.value, kind: "model_called", startedAt: ledger.modelStartedAt,
     inputDigest: ledger.systemDigest, outputDigest: null, failureCode: null,
     planningNote: `等待人工批准：${interrupted.toolName}`,
     // Phase 14 F15 -- 模型看到了什么（`system`）。此刻尚未产出完整回复，`outputFullContent`

@@ -21,6 +21,9 @@
  *      「找不到这个设计项目」；发消息调真实 `appendProjectChat`，用服务端整体返回的
  *      `chat`（用户消息 + 固定回执两条）覆盖本地；推送调真实 `pushToInbox`，成功页
  *      两个出口读的是服务端返回的真实 `inboxCode`。
+ *   ⑪ UC-17.8 B3.7：收件箱关联标（「已生成方案」/「源自反馈」）可点击——同屏换 drawer
+ *      到目标条目、目标卡片/行短暂 `data-highlighted`、生产落点把 `?open=<id>` 写进 URL；
+ *      目标不在已加载列表里时老实提示而不是静默。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -30,7 +33,11 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
 });
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
   openAsrDraftStream: vi.fn(),
@@ -39,6 +46,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
+import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
@@ -200,6 +208,8 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
   it("系统异常：拖到已完成列不发请求（该边不存在）", async () => {
     mockInbox([exceptionItem()]);
     render(<DesignLoopInboxScreen state="default" />);
+    // issue #2752 ①——「全部」视图默认隐藏系统异常，测试显式打开开关切回可见。
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-done"), { dataTransfer: { getData: () => "e1" } });
     expect(screen.getByTestId("inbox-drag-error")).toBeTruthy();
@@ -211,6 +221,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
   it("系统异常：拖到进行中列 ⇒ PUT /system/error-logs/:id(已转入开发)", async () => {
     mockInbox([exceptionItem()]);
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "e1" } });
     await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
@@ -331,6 +342,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
       throw new Error("不该被调用");
     });
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
@@ -398,10 +410,179 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
       throw new Error("不该被调用");
     });
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
     expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+  });
+});
+
+/* ─────────────────────────── B3.7：关联标可点击跳转并高亮 ─────────────────────────── */
+
+/** 反馈 B-1（已生成方案 → 设计 d1）与设计 D-1（源自反馈 → x1）互相指向，两端都在同一屏。 */
+function designItem(over: Partial<InboxItem> = {}): InboxItem {
+  return {
+    id: "d1", kind: "design", code: "D-1", title: "方案一", body: null,
+    structured: null, feedbackKind: null, sourceStatus: "已推送", stage: "backlog",
+    statusReason: null, severe: false, votes: 0, reporter: "我",
+    createdAt: "2026-09-02T00:00:00.000Z", github: null, linkedFeedbackId: "x1",
+    resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    ...over,
+  };
+}
+const linkedPair = () => [feedbackItem({ resolvedByDesignId: "d1" }), designItem()];
+
+describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
+  it("看板：drawer 里点「已生成方案」→ drawer 换成设计条目、目标卡片高亮、回调拿到目标 id；再点「源自反馈」跳回", async () => {
+    mockInbox(linkedPair());
+    const onOpenLinked = vi.fn();
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    const drawer = screen.getByTestId("inbox-drawer");
+    expect(drawer).toHaveTextContent("标题一");
+
+    fireEvent.click(within(drawer).getByTestId("link-generated-B-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
+    expect(screen.getByTestId("inbox-card-D-1")).toHaveAttribute("data-highlighted", "true");
+    expect(screen.getByTestId("inbox-card-B-1")).not.toHaveAttribute("data-highlighted");
+    expect(onOpenLinked).toHaveBeenCalledWith("d1");
+
+    fireEvent.click(within(screen.getByTestId("inbox-drawer")).getByTestId("link-from-D-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("标题一"));
+    expect(screen.getByTestId("inbox-card-B-1")).toHaveAttribute("data-highlighted", "true");
+    expect(onOpenLinked).toHaveBeenLastCalledWith("x1");
+  });
+
+  it("列表：行内点「源自反馈」→ 目标行高亮、drawer 是目标条目（徽标点击不冒泡成打开本行）", async () => {
+    mockInbox(linkedPair());
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    const row = screen.getByTestId("inbox-row-D-1");
+    fireEvent.click(within(row).getByTestId("link-from-D-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("标题一"));
+    expect(screen.getByTestId("inbox-drawer")).not.toHaveTextContent("方案一");
+    expect(screen.getByTestId("inbox-row-B-1")).toHaveAttribute("data-highlighted", "true");
+  });
+
+  it("目标不在当前已加载列表里：老实提示，不开 drawer、不回调", async () => {
+    mockInbox([feedbackItem({ resolvedByDesignId: "ghost" })]);
+    const onOpenLinked = vi.fn();
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />);
+    const card = await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(within(card).getByTestId("link-generated-B-1"));
+    expect(await screen.findByTestId("inbox-link-target-missing")).toBeInTheDocument();
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+    expect(onOpenLinked).not.toHaveBeenCalled();
+  });
+
+  it("生产落点 DesignLoopInboxAdminScreen：跳转后 URL 带 ?open=<目标 id>", async () => {
+    mockInbox(linkedPair());
+    render(<DesignLoopInboxAdminScreen state="default" />);
+    const card = await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(within(card).getByTestId("link-generated-B-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
+    expect(new URL(window.location.href).searchParams.get("open")).toBe("d1");
+  });
+});
+
+/* ─────────────────────────── issue #2752：默认隐藏系统异常 + 处理默认方案 + hover 操作 ─────────────────────────── */
+
+describe("issue #2752 ①：「全部」视图默认隐藏系统异常，可切换查看", () => {
+  it("混合列表里，默认『全部』视图不渲染系统异常卡片；点开关后出现", async () => {
+    mockInbox([feedbackItem(), exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    expect(screen.queryByTestId("inbox-card-E-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("inbox-toggle-show-exceptions"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+
+  it("单独点『系统异常』筛选 chip 不受开关影响，照常可见", async () => {
+    mockInbox([exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-kind-exception"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+
+  it("全部条目都是系统异常时，展示专门的隐藏态提示，点『显示系统异常』切回", async () => {
+    mockInbox([exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    expect(await screen.findByTestId("empty-hidden-exceptions")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-empty-show-exceptions"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+});
+
+describe("issue #2752 ②：系统异常的「不做」理由预填默认模板", () => {
+  it("系统异常展开不做表单时理由框非空、可直接确认；反馈类仍是空白", async () => {
+    mockInbox([exceptionItem()], { exception: "included" });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-decline"));
+    const textarea = screen.getByTestId("inbox-decline-reason") as HTMLTextAreaElement;
+    expect(textarea.value.trim()).not.toBe("");
+    expect(screen.queryByTestId("err-reason")).toBeNull();
+    expect((screen.getByTestId("inbox-decline-confirm") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("反馈类展开不做表单时理由框仍是空白，需要手填", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-decline"));
+    const textarea = screen.getByTestId("inbox-decline-reason") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+  });
+});
+
+describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
+  it("看板卡片：待处理态菜单能一键『开始处理』，不用先点开详情", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-card-menu-start-B-1"));
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
+    expect(callsTo("/feedback/x1/status", "PUT")[0]![1]!.body!.status).toBe("已进入迭代");
+    // 菜单动作不应该顺带把 drawer 打开。
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("看板卡片：『关闭（不做）…』菜单项落点到 drawer 理由表单，不直接发请求", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-card-menu-close-B-1"));
+    expect(await screen.findByTestId("inbox-decline-form")).toBeTruthy();
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
+  });
+
+  it("设计方案卡片不渲染快捷菜单（没有对应源操作）", async () => {
+    mockInbox([
+      {
+        id: "d1", kind: "design", code: "D-1", title: "方案一", body: "方案正文",
+        structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
+        statusReason: null, severe: false, votes: 0, reporter: null,
+        createdAt: "2026-09-01T00:00:00.000Z", github: null, linkedFeedbackId: null,
+        resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+      },
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-D-1");
+    expect(screen.queryByTestId("inbox-card-menu-D-1")).toBeNull();
+  });
+
+  it("列表视图：行菜单同样能一键『开始处理』", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-view-list"));
+    fireEvent.pointerDown(await screen.findByTestId("inbox-row-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-row-menu-start-B-1"));
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
   });
 });
 
@@ -608,5 +789,91 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-push-success").textContent).toContain("D-7");
     fireEvent.click(screen.getByTestId("design-success-inbox"));
     expect(onOpenInbox).toHaveBeenCalled();
+  });
+});
+
+/* ─────────────── ⑪ UC-17.8 B6.5：无障碍——拖拽的键盘替代 + 焦点管理 ─────────────── */
+
+describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () => {
+  it("卡片：aria-label=编号+标题、aria-describedby 指向键盘替代说明、拖起时 aria-grabbed；列容器 role=group 带列名与数量", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    const card = await screen.findByTestId("inbox-card-B-1");
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card.getAttribute("tabindex")).toBe("0");
+    expect(card.getAttribute("aria-label")).toBe("B-1 标题一");
+    expect(card.getAttribute("aria-describedby")).toBe("inbox-drag-hint");
+    expect(document.getElementById("inbox-drag-hint")!.textContent).toContain("Enter");
+    expect(card.getAttribute("aria-grabbed")).toBe("false");
+    fireEvent.dragStart(card, { dataTransfer: { setData: () => undefined } });
+    expect(card.getAttribute("aria-grabbed")).toBe("true");
+    fireEvent.dragEnd(card);
+    expect(card.getAttribute("aria-grabbed")).toBe("false");
+    const col = screen.getByTestId("inbox-column-backlog");
+    expect(col.getAttribute("role")).toBe("group");
+    expect(col.getAttribute("aria-label")).toBe("待处理，1 条");
+    // 窄视口下四列横向滚动是显式声明的设计（U8 断言据此放行），不是从 computed style 猜的。
+    expect(screen.getByTestId("inbox-board").hasAttribute("data-allow-x-scroll")).toBe(true);
+  });
+
+  /**
+   * 拖拽能做的每一条**合法**迁移，drawer 里都必须有一个按钮做同样的事（键盘用户没有拖拽）。
+   * 这张表 = 两个源状态机从每一列出去的全部边（`product-feedback.ts` `ALLOWED_TRANSITIONS`、
+   * `system-error-logs.ts` 头注；系统异常没有 `done` 列），见 `inbox-screen.tsx` 文件头。
+   * 断言的是**恰好等于**：少一个按钮 = 某条边键盘不可达；多一个按钮 = 一条服务端会拒绝的假边。
+   */
+  const TRANSITION_BUTTON = /^inbox-action-(start|done|back|reopen|decline)$/;
+  const LEGAL_EDGES: { kind: "feedback" | "exception"; stage: InboxItem["stage"]; buttons: string[] }[] = [
+    { kind: "feedback", stage: "backlog", buttons: ["inbox-action-start", "inbox-action-decline"] },
+    { kind: "feedback", stage: "doing", buttons: ["inbox-action-done", "inbox-action-back", "inbox-action-decline"] },
+    { kind: "feedback", stage: "done", buttons: ["inbox-action-reopen"] },
+    { kind: "feedback", stage: "archived", buttons: ["inbox-action-reopen"] },
+    { kind: "exception", stage: "backlog", buttons: ["inbox-action-start", "inbox-action-decline"] },
+    { kind: "exception", stage: "doing", buttons: ["inbox-action-back", "inbox-action-decline"] },
+    { kind: "exception", stage: "archived", buttons: ["inbox-action-reopen"] },
+  ];
+  for (const edge of LEGAL_EDGES) {
+    it(`${edge.kind} @ ${edge.stage}：键盘（Enter）打开 drawer 后，状态迁移按钮恰好是 ${edge.buttons.join(" / ")}`, async () => {
+      const item = edge.kind === "feedback" ? feedbackItem({ stage: edge.stage }) : exceptionItem({ stage: edge.stage });
+      mockInbox([item]);
+      render(<DesignLoopInboxScreen state="default" />);
+      // issue #2752 ①——「全部」视图默认隐藏系统异常，测试显式打开开关切回可见。
+      if (edge.kind === "exception") fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+      const card = await screen.findByTestId(`inbox-card-${item.code}`);
+      fireEvent.keyDown(card, { key: "Enter" });
+      const drawer = await screen.findByTestId("inbox-drawer");
+      const present = Array.from(drawer.querySelectorAll<HTMLElement>("[data-testid^='inbox-action-']"))
+        .map((b) => b.getAttribute("data-testid")!)
+        .filter((t) => TRANSITION_BUTTON.test(t))
+        .sort();
+      expect(present).toEqual([...edge.buttons].sort());
+      for (const t of edge.buttons) expect((within(drawer).getByTestId(t) as HTMLButtonElement).disabled).toBe(false);
+    });
+  }
+
+  it("焦点管理：Enter 打开 drawer 后焦点进 drawer；Esc 关闭；关闭后焦点回到触发卡片", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    const card = await screen.findByTestId("inbox-card-B-1");
+    card.focus();
+    expect(document.activeElement).toBe(card);
+    fireEvent.keyDown(card, { key: "Enter" });
+    const drawer = await screen.findByTestId("inbox-drawer");
+    expect(drawer.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("inbox-drawer")).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId("inbox-card-B-1"));
+  });
+
+  it("焦点管理：drawer 的关闭按钮关闭后同样把焦点还给触发卡片（不是落回 body）", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    const card = await screen.findByTestId("inbox-card-B-1");
+    card.focus();
+    fireEvent.keyDown(card, { key: " " });
+    await screen.findByTestId("inbox-drawer");
+    fireEvent.click(screen.getByTestId("inbox-drawer-close"));
+    await waitFor(() => expect(screen.queryByTestId("inbox-drawer")).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId("inbox-card-B-1"));
   });
 });

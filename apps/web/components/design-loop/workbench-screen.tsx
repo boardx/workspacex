@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
+import { useDialogFocus } from "./use-dialog-focus";
 import {
   createProject as apiCreateProject,
   deleteProject as apiDeleteProject,
@@ -104,7 +105,7 @@ export function DesignWorkbenchHome({
 
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
-      <div className="grid grid-cols-3 gap-3 p-6" data-testid="loading">
+      <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="loading">
         {[0, 1, 2, 3, 4, 5].map((n) => (
           <div key={n} className="h-32 animate-pulse rounded-card bg-muted" />
         ))}
@@ -214,8 +215,8 @@ export function DesignWorkbenchHome({
         </div>
       )}
 
-      {/* 三张模板入口 */}
-      <div className="grid grid-cols-3 gap-3 px-6 py-4">
+      {/* 三张模板入口。B6.5（U8）：sm 以下单列堆叠——375 下三列并排每张只剩 ~100px，提示语一字一行。 */}
+      <div className="grid grid-cols-1 gap-3 px-6 py-4 sm:grid-cols-3">
         {PROJECT_TEMPLATE_OPTIONS.map((t) => (
           <button
             key={t}
@@ -232,7 +233,7 @@ export function DesignWorkbenchHome({
       </div>
 
       {/* 我的设计项目 */}
-      <div className="flex items-center justify-between px-6 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-2">
         <h2 className="text-14 font-semibold">我的设计项目</h2>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -251,7 +252,7 @@ export function DesignWorkbenchHome({
           <p className="text-12 text-muted-foreground">从上面挑一个模板开始，或在收件箱把一条反馈「用 PM 设计工作台深化」。</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3 p-6" data-testid="workbench-grid">
+        <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="workbench-grid">
           {items.map((p) => (
             <ProjectCard
               key={p.id}
@@ -336,10 +337,14 @@ function ProjectDialog({
   const [problem, setProblem] = React.useState(initial.problem ?? "");
   const canSubmit = name.trim() !== "" && !busy;
 
+  /** B6.5：焦点进弹窗 / Esc 关闭 / 关闭后焦点回到「新建设计」或模板卡（见 `use-dialog-focus.ts`）。 */
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useDialogFocus(panelRef, onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="project-dialog">
       <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
-      <div role="dialog" aria-modal="true" aria-label={editing ? "编辑设计" : "新建设计"} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg">
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editing ? "编辑设计" : "新建设计"} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <h3 className="text-16 font-semibold">{editing ? "编辑设计" : "新建设计"}</h3>
         <div className="flex flex-col gap-1">
           <span className="text-11 font-medium text-muted-foreground">类别</span>

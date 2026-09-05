@@ -645,6 +645,20 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /** Phase 14 F11 -- see `AgentRunStore.findRequesterUserId`'s own doc. Same join `claimQueued`
+   * uses to derive `ClaimedAgentRun.requesterUserId` (`m.author_id` off the triggering message). */
+  findRequesterUserId(orgId: OrgId, runId: string): Promise<string | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ author_id: string }>(
+        `SELECT m.author_id
+           FROM agent_runs r JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
+          WHERE r.org_id=$1 AND r.id=$2`,
+        [orgId, runId],
+      );
+      return result.rows[0]?.author_id ?? null;
+    });
+  }
+
   /** DA-19g -- see `AgentRunStore.findAwaitingToolPermissionRunId`'s own doc for why the AG-UI
    * bridge needs this lookup at all (its resume request carries a thread id, not a run id). */
   findAwaitingToolPermissionRunId(orgId: OrgId, threadId: string): Promise<string | null> {
