@@ -1,8 +1,10 @@
+import { runtimeFixture } from "../guided-runtime-fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 
-const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
+const { getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
+  getResearchRuntime: vi.fn(),
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
   getGuidedResearchSession: vi.fn(),
@@ -11,6 +13,7 @@ const { listGuidedResearchSessions, createGuidedResearchSession, getGuidedResear
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
+  getResearchRuntime,
   listGuidedResearchSessions,
   createGuidedResearchSession,
   getGuidedResearchSession,
@@ -51,6 +54,7 @@ beforeEach(() => {
   listGuidedResearchSessions.mockReset();
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
+  getResearchRuntime.mockReset();
   finishGuidedResearchCollection.mockReset();
   completeGuidedResearchSession.mockReset();
   listGuidedResearchSessions.mockResolvedValue({ items: [] });
@@ -163,9 +167,10 @@ describe("F168 guided research home live data", () => {
       reportId: null, createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T09:00:00.000Z",
     });
 
+    getResearchRuntime.mockResolvedValueOnce(runtimeFixture("research", "grs-recover"));
     render(<GuidedResearchFlow step="search" sessionId="grs-recover" />);
 
-    await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("grs-recover"));
+    await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledWith("grs-recover"));
     expect(await screen.findByTestId("research-flow-search")).toBeInTheDocument();
   });
 
