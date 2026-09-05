@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { InterjectionComposer } from "@/components/agent-kernel/agent-kernel-units";
+import { InterjectionComposer } from "@/components/agent-kernel/interjection-composer";
 import { interjectAgentRun, type InterjectFn } from "@/lib/agent-kernel-interject";
 import type { AgentKernelRunStatus } from "@/lib/agent-kernel-stream";
 
