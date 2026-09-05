@@ -863,13 +863,36 @@ export class DeepAgentModelProvider implements ModelCallPort {
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
           command: { resume: { decisions: [decision] } },
-          // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
-          // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
-          // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
-          // ⚠ 缺席时整个 `config` 键都不出现，resume 请求体与本 feature 之前逐字节相同。
-          ...(input.interjection === undefined ? {} : {
-            config: { configurable: { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection } },
-          }),
+          // issue #2768 -- a resume is the SAME run's next model call, and `call_skill`'s
+          // ONLY source of "which skills are pinned to this run" is `configurable.org_skills`
+          // (`tools.py`'s `_read_org_skills`, read fresh from THIS request's config -- it is
+          // NOT carried over from the run's first, pre-interrupt request). Before this fix,
+          // resume sent no `org_skills` at all (see `createRun`'s NEW-run branch below,
+          // which always sends it): the very call that was interrupted specifically so a
+          // human could approve `call_skill` would, once approved, immediately execute
+          // `call_skill` against an EMPTY skill table and answer "未知技能" -- the model then
+          // reports success anyway (its own words, not a tool result), and no script/file is
+          // ever produced. Reproduced against a real `langgraph dev` kernel: identical resume
+          // requests, differing only in this `config` key, produce the real skill's script
+          // block vs. "未知技能「pdf-create」" (see PR body for the two capture files).
+          // `script_protocol`/`disable_task_auto_classify` mirror the SAME two "resume is the
+          // next model call" facts the NEW-run branch already sends; `org_skills` is the one
+          // this bug was about, `disableTaskAutoClassify` is included for the same reason
+          // (a resumed call is still subject to the run's own per-run override).
+          config: {
+            configurable: {
+              org_skills: toWireSkills(input.skills),
+              ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+              ...(input.disableTaskAutoClassify === true ? { disable_task_auto_classify: true } : {}),
+              // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
+              // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
+              // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
+              // ⚠ 缺席时这个键不出现，其余键（`org_skills` 等）逐字不受影响。
+              ...(input.interjection === undefined ? {} : {
+                [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection,
+              }),
+            },
+          },
         }),
       });
       const body = (await response.json()) as { run_id?: string };
