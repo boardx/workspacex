@@ -113,11 +113,14 @@ const adminInput: Omit<ListInboxInput, "limit"> = {
 };
 
 describe("listInbox 权限", () => {
-  it("非分诊角色（consultant）⇒ InboxPermissionRevokedError", async () => {
-    const deps = baseDeps([feedbackRow()], []);
-    await expect(
-      listInbox(deps, { ...adminInput, viewerOrgRole: "consultant", limit: 50 }),
-    ).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+  it("非管理员成员（consultant）能打开：看得到别人的标题/票数，正文按 D3 为 null（D8 ③）", async () => {
+    const deps = baseDeps([feedbackRow({ id: "fb-1", submittedBy: "u-other" }), feedbackRow({ id: "fb-2", submittedBy: "u-me" })], undefined);
+    const out = await listInbox(deps, { viewerId: "u-me", viewerOrgRole: "consultant", viewerTeamId: null, limit: 50 });
+    const byId = new Map(out.items.map((i) => [i.id, i]));
+    expect(byId.get("fb-1")?.title).toBe("点了没反应");
+    expect(byId.get("fb-1")?.body).toBeNull();
+    expect(byId.get("fb-2")?.body).toBe("正文");
+    expect(out.sources.exception).toBe("withheld");
   });
 
   it("不是本组织成员（null）⇒ InboxPermissionRevokedError", async () => {

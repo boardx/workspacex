@@ -10,9 +10,10 @@
  *
  * ## 鉴权分两层，跟契约头注一致
  *
- *   1. **整条收件箱**要求调用方是本组织的分诊角色（`canTriage`）——同
- *      `FeedbackController.counts` 的纪律，见 `listInbox`/`getInboxCounts` 用例
- *      抛的 `InboxPermissionRevokedError`。
+ *   1. **整条收件箱**只要求调用方是本组织成员（D8 ③，2026-09-05 人类裁决）——
+ *      不是本组织成员时 `listInbox`/`getInboxCounts` 用例抛 `InboxPermissionRevokedError`
+ *      ⇒ 403。正文按 D3 逐行判（非管理员、非提交人 ⇒ `body: null`），分诊动作仍走
+ *      `triageFeedback` 自己的 `canTriage`。
  *   2. **系统异常那一半**单独判——不是超管就不查那一半（`sources.exception:
  *      "withheld"`），不是把整条请求拒掉。判法**逐行复用**
  *      `isRequestorPlatformOperator`（与 `PlatformOperatorGuard` 同一个域函数 +

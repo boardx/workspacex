@@ -89,9 +89,11 @@ function deps(
 const admin = { viewerId: "u-admin", viewerOrgRole: "admin" as const, viewerTeamId: null };
 
 describe("getInboxCounts 权限", () => {
-  it("非分诊角色 ⇒ InboxPermissionRevokedError", async () => {
+  it("非管理员成员（consultant）能取计数（D8 ③）；不是本组织成员 ⇒ InboxPermissionRevokedError", async () => {
+    const out = await getInboxCounts(deps([feedbackRow()], []), { ...admin, viewerOrgRole: "consultant" });
+    expect(out.byKind.feedback).toBe(1);
     await expect(
-      getInboxCounts(deps([], []), { ...admin, viewerOrgRole: "consultant" }),
+      getInboxCounts(deps([], []), { ...admin, viewerOrgRole: null }),
     ).rejects.toBeInstanceOf(InboxPermissionRevokedError);
   });
 });
