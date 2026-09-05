@@ -1008,6 +1008,59 @@ def test_classify_task_text_empty_text_is_no_plan():
     assert _classify_task_text("   ") == TASK_CATEGORY_NO_PLAN
 
 
+# issue #2786：逗号/顿号并列两个动作（无显式连接词、不满 20 字）的判类盲区。
+# 真实复现原话（devapp 实测截图）18 字、不含 `_MULTI_STEP_CONNECTORS` 任何一个
+# 连接词，此前恒判 `no_plan`，账本全程为空，`PlanPhaseIndicator` 因此按设计
+# 正确渲染成"什么都不显示"——根因见 issue #2786 评论 5552330409。
+
+
+def test_classify_task_text_multi_step_low_risk_for_enumerated_short_request():
+    """真实复现用例：必须命中多步（低风险，两个动作都不涉及外部副作用）。"""
+    assert (
+        _classify_task_text("生成一个 pdf，总结你可以做的事情")
+        == TASK_CATEGORY_MULTI_STEP_LOW_RISK
+    )
+    assert _classify_task_text("写一份周报、发给王总") == TASK_CATEGORY_MULTI_STEP_LOW_RISK
+
+
+def test_classify_task_text_multi_step_high_risk_for_enumerated_request_with_external_impact():
+    """逗号并列的两个动作里，第二个动作命中外部影响关键词（发邮件）时同样要
+    升级为高风险，与连接词路径的类别 2 vs 3 判据保持一致。"""
+    assert (
+        _classify_task_text("整理一下会议纪要，发送邮件通知大家")
+        == TASK_CATEGORY_MULTI_STEP_HIGH_RISK
+    )
+
+
+def test_classify_task_text_enumeration_marker_without_verb_on_both_sides_is_no_plan():
+    """真负例：逗号只是语气停顿或问候语，不是两个动作并列——分隔符只有一侧
+    （或两侧都没有）动词命中时不应误判成多步，这是新增信号本身的边界，不是
+    对已有判据的回归。"""
+    assert (
+        _classify_task_text("这份文档，我觉得写得还不错") == TASK_CATEGORY_NO_PLAN
+    ), "只有后半句有动词，不算两个动作并列"
+    assert _classify_task_text("你好，最近怎么样") == TASK_CATEGORY_NO_PLAN, (
+        "两侧都没有动词，只是问候语"
+    )
+
+
+def test_classify_task_text_short_single_action_with_connector_still_no_plan():
+    """回归护栏（issue #2786 评论 5552330409 明确点名的反例）：单动作长句里
+    带了连接词字符（"然后""再"）但不满 20 字阈值时，仍然不能被新增的逗号信号
+    绕过——这句话本身没有逗号/顿号，新信号不应对它生效。"""
+    assert (
+        _classify_task_text("我把这份文档发给王总看看然后再讨论")
+        == TASK_CATEGORY_NO_PLAN
+    )
+
+
+def test_classify_task_text_greeting_and_weather_summary_not_falsely_forced():
+    """真负例：单动作的短请求（问候/单一总结）不应因为新信号而被误判——新信号
+    要求逗号/顿号两侧都有动词，这两句都没有逗号，压根不会进入新信号的判断。"""
+    assert _classify_task_text("你好") == TASK_CATEGORY_NO_PLAN
+    assert _classify_task_text("总结一下今天天气") == TASK_CATEGORY_NO_PLAN
+
+
 def test_task_classifier_middleware_wired_into_build_middleware_unconditionally():
     """接线看守：`TaskClassifierMiddleware` 必须真实出现在 `build_middleware()`
     返回列表里，不能只是定义了类却忘记挂（同 D1 基线的教训）。Phase 14 F02（R6）
@@ -1062,6 +1115,29 @@ def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_a
     )
     assert captured["tool_choice"] == "write_todos", (
         f"异步入口也必须强制；实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_task_classifier_middleware_forces_write_todos_for_issue_2786_repro_message():
+    """issue #2786 端到端反证：devapp 实测原话（"生成一个 pdf，总结你可以做的
+    事情"，18 字、不含任何 `_MULTI_STEP_CONNECTORS` 连接词，此前恒判 `no_plan`）
+    现在必须被自动判类强制 `write_todos`，账本才会有内容、`PlanPhaseIndicator`
+    才有东西可渲染（组件本身早已接进 `/chat`，见该 issue 评论 5552330409——
+    这条只补判类这一半）。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [HumanMessage(content="生成一个 pdf，总结你可以做的事情")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos", (
+        "issue #2786 复现原话必须被判类命中，不再落进连接词/长度判据的盲区；"
+        f"实际 tool_choice={captured.get('tool_choice')!r}"
     )
 
 
