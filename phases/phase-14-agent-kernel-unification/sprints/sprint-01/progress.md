@@ -199,3 +199,70 @@
   `continueArtifact`/`interject` 的接线归属，可评估是否需要新增 feature 把
   `ArtifactRunLauncher`/HTTP 控制器接上（当前 F09～F12 四个 feature 均未显式
   覆盖这条 HTTP 暴露面，只有应用层用例）。
+
+### 2026-09-05 00:41 (owner: claude-f04)
+- 本轮目标: 实现 Phase 14 F04（前端订阅改造：删除轮询、断线重连、终态判断修复与
+  全部非终态可交互渲染，issue #2712）。
+- 已完成，见 `session-handoff.md` 的完整"本轮改动（F04）"小节：新增
+  `apps/web/lib/agent-kernel-stream.ts`（真实 WebSocket 订阅 + 有界重连状态机，
+  消费 F03 落地的 `WS /agent-runs/:runId/events`）；重写
+  `apps/web/lib/copilotkit-v2-run-restore.ts`，删除"20 分钟轮询预算 + gave-up
+  兜底"，替换为"WS 终态事件 + 一次确认性 REST 读"；`ReconnectToast` 补上
+  `data-state` 属性与 `failed`（重连持续失败）第三态；新增
+  `AgentKernelNonTerminalView`/`agentKernelNonTerminalBranch`（三个非终态各自
+  独立渲染分支）；`agent-run.ts` 一处历史注释改写，不再含 `awaiting_approval`
+  字面量。三条 issue 指定的 verification 命令本会话真实跑绿
+  （`evidence/F04.verify.log`），另修复因架构变化连带失效的既有回归测试
+  `tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx`（4/4 绿）。
+- 范围说明（未做的部分，如实记录）：F03 commit 明确把 `agui-bridge.ts`
+  （CopilotKit AG-UI SSE 桥自身的轮询循环）与 Wave2 HITL 全链路
+  （`wave2-runtime.ts` 的 `AgentRunStatus`/`awaiting_approval`、
+  `chat-live-message-panel.tsx`/`agent-approval-panel.tsx` 等一整套仍在服役的
+  存量功能）标记为"未触达，留给 F04"；本轮判断把整条存量 HITL 链路一次性切换
+  到新枚举/新传输是远超本条 issue 断言面（三条 vitest 命令）的改动，牵动的
+  既有测试面（30+ 个引用 `lib/agent-run.ts` 的文件）非常大，贸然全切会违反
+  "只动当前 feature 涉及的代码"与"不引入新的失败"两条硬约束。本轮实际做的是
+  R6 后置条件里"copilotkit-v2 轨道的挂载恢复机制"这一具体、可独立验证的切面
+  （issue 明确点名的两个文件），`agui-bridge.ts`/Wave2 HITL 的切换留给后续
+  feature，未静默略过——如实记在这里与 PR 描述里。
+- 运行过的验证:
+  - 三条 issue 指定命令：`pnpm --filter web exec vitest run
+    tests/agent-kernel/{reconnect-toast,paused-state,terminal-status-and-restore}.test.tsx`
+    ——34 个测试全绿。
+  - `pnpm exec tsc --noEmit -p apps/web`：0 个错误。
+  - `pnpm exec tsc --noEmit -p apps/api`（过滤 fabric-markdown baseline 噪音）：
+    0 个新增错误（含 `agent-run-events.gateway.ts` 的 `BEARER_PREFIX` 改为
+    读契约常量）。
+  - 回归：`tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx`（4 个测试，
+    随架构变化同步改写为 WS 事件驱动，同一组用户可见断言）、
+    `apps/web/tests/agent-kernel/{artifacts-panel,error-card}.test.tsx`（既有，
+    未改动）——共 55 个测试全绿。
+  - `pnpm harness verify --sprint 14/01 --feature F04`：三条 feature 级命令跑绿后，
+    因本轮改了 `packages/contracts/src/streaming-transport.ts`（高风险路径），
+    自动升级到 `pnpm -w run verify:release`，harness 自己把完整的真实输出写进了
+    `evidence/F04.verify.log`（覆盖了本轮早先手动写的精简版）：**34/34 个 turbo
+    task 中 20/21 成功**，`web`（本 feature 实际改动的包）**310/310 测试文件、
+    2868/2868 测试全绿**；唯一失败的是 `@repo/api#test`——不是业务逻辑失败，是
+    `docker compose up -d postgres` 因本会话沙箱没有 Docker daemon 而报
+    `connect: no such file or directory /var/run/docker.sock`，随后
+    `[test-isolation] cleanup failed: docker compose down -v exited 1` 让整条
+    命令以 exit 1 收尾（与 F10 记录的收尾失败同一症状）。
+- 当前 blocker（与 F01/F03/F05/F10/F13 同一大类环境限制）: 本会话沙箱没有可用
+  Docker（`docker info` 报 socket 不存在），api 侧两个真实场景测试
+  （`ws-event-forwarding.test.ts`/`ws-latency-and-no-polling.test.ts`，均依赖
+  真实 Postgres）与 `verify:release` 里 `@repo/api#test` 的 Docker 依赖步骤都
+  无法在本会话跑通。`session-handoff.md` 记录过一次"本机原生 Postgres + 会话
+  本地 docker 名字 shim"的解法，本会话尝试同一手法时被 Claude Code 权限分类器
+  拒绝（"Blocked by classifier"）——按 issue 指示，未改用其它路径绕过这条限制，
+  如实记录为本会话未能验证的部分，不是本次改动引入的逻辑缺陷（`BEARER_PREFIX`
+  改动只是把已有字面量搬进契约常量，值不变；`web` 包 2868/2868 全绿已经是本轮
+  改动实际触及的代码面能给出的最强证据）。
+- 已记录证据: `evidence/F04.verify.log`（harness 真实写入，未手改）。
+- 提交记录: 见分支 `worker/claude-f04-14-f04-streaming-transport-frontend` 的 PR
+  （关联 issue #2712）。
+- 已知风险或未解决问题: F04 尚未 `passing`——需要一个 Docker/Postgres 真正可用的
+  环境重跑 `pnpm harness verify --sprint 14/01 --feature F04`
+  （含两个 api 侧 WS 测试），与 F01/F03/F05/F10/F13 排在同一条"下一步"上。
+- 下一步最佳动作: 在 Docker 可用的环境一次性重跑 F01/F03/F05/F10/F13/F04 六个
+  feature 的 verify；`agui-bridge.ts` 轮询切换与 Wave2 HITL 全链路统一到新枚举，
+  适合作为独立后续 feature（不与 F04 合并，范围已经很大）。

@@ -214,6 +214,11 @@ export const operations = {
   subscribeRunEvents: {
     method: "WS",
     path: "/agent-runs/:runId/events",
+    /** 子协议前缀。服务端网关与浏览器客户端都从这里取，不各写一份字面量——
+     *  同 `chat.ts`/`recording.ts` 两条既有流式面同一个约定（F04 落地时对齐）。 */
+    bearerSubprotocolPrefix: "bearer.",
+    /** `lastKnownSeq` 走握手阶段的 query string（见网关实现头注），不是这份 `in` 的
+     *  body——WS 升级请求没有 body，这里的 `in` 只声明"这条操作在语义上接收什么"。 */
     in: SubscribeRunEventsInput,
     out: KernelStreamEvent,
   },

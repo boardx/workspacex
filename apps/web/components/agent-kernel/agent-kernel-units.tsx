@@ -19,6 +19,7 @@ import {
   type PlanTodo, type TodoRisk, type ProgressStep,
   type AgentKernelArtifactVersionPreview,
 } from "@/lib/mock/agent-kernel";
+import type { AgentKernelRunStatus } from "@/lib/agent-kernel-stream";
 
 // 共享：风险徽标（L0/L1/L2）——颜色语义固定，L2 用 warning
 function RiskBadge({ risk }: { risk: TodoRisk }) {
@@ -507,33 +508,59 @@ export function ErrorCard() {
 }
 
 // ══ 07 断线重连提示 ═════════════════════════════════════════════════
-export function ReconnectToast({ phase = "restored" }: { phase?: "reconnecting" | "restored" }) {
+/**
+ * Phase 14 F04 —— `state` 直接对齐契约 `streaming-transport.ts` 的 `ReconnectState`
+ * （`reconnecting`/`restored`/`failed`），驱动它的是真实的
+ * `lib/agent-kernel-stream.ts`（`useAgentKernelRunStream`）。`data-state` 属性把这个值
+ * 原样落到 DOM 上——`contracts/streaming-transport/ui.md` 的 data-testid 表逐字要求它，
+ * 不是仅靠文案区分三态。
+ *
+ * `failed`（重连持续失败）是签核材料 ui.md 第四节标注的缺口：复用本组件的第三个
+ * `data-state`，不是独立组件——design-signoff.md 复核项①给出的两个选项里更小的那个
+ * （没有新增 data-testid/新组件，只是同一个提示多一种视觉基调），如实记在这里供人类
+ * 复核；如需改成独立组件，改动只在这一个函数内。
+ */
+export function ReconnectToast({ state = "restored" }: { state?: "reconnecting" | "restored" | "failed" }) {
   return (
     <div className="flex max-w-xl flex-col gap-3">
       {/* 上层是继续在跑的进度流，提示浮在其上，轻量、不阻断 */}
       <div className="rounded-card border border-border bg-card p-3 text-12 text-muted-foreground">
         执行进度流（示意）——重连提示出现时进度流不被遮挡、不需要用户操作。
       </div>
-      {phase === "reconnecting" ? (
+      {state === "reconnecting" && (
         <div
           role="status"
           data-testid="reconnect-toast"
+          data-state="reconnecting"
           className="flex items-center gap-2 self-start rounded-pill border border-border bg-background/80 px-3 py-1.5 text-12 text-muted-foreground shadow-md backdrop-blur-md"
         >
           <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-warning" />
           连接中断，正在重连…
         </div>
-      ) : (
+      )}
+      {state === "restored" && (
         <div
           role="status"
           data-testid="reconnect-toast"
+          data-state="restored"
           className="flex items-center gap-2 self-start rounded-pill border border-border bg-background/80 px-3 py-1.5 text-12 text-background-foreground shadow-md backdrop-blur-md transition-opacity duration-slow"
         >
           <Wifi aria-hidden className="h-3.5 w-3.5 text-success" />
           连接已恢复，继续显示实时进度
         </div>
       )}
-      <p className="text-10 text-muted-foreground">提示自动出现/消失，无需用户操作（02-streaming R8）。重连持续失败时改为「连接中断，请手动刷新」的可操作提示。</p>
+      {state === "failed" && (
+        <div
+          role="alert"
+          data-testid="reconnect-toast"
+          data-state="failed"
+          className="flex items-center gap-2 self-start rounded-pill border border-destructive/40 bg-background/80 px-3 py-1.5 text-12 text-destructive shadow-md backdrop-blur-md"
+        >
+          <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
+          连接中断，请手动刷新
+        </div>
+      )}
+      <p className="text-10 text-muted-foreground">重连中/已恢复两态自动出现/消失，无需用户操作（02-streaming R8）；重连持续失败（`failed`）需要用户手动刷新，不再自动重试。</p>
     </div>
   );
 }
@@ -590,4 +617,43 @@ export function PausedState({ variant = "user" }: { variant?: "user" | "system" 
       </CardContent>
     </Card>
   );
+}
+
+// ══ 09 非终态 → 渲染分支（Phase 14 F04，R6 后置条件）═══════════════════
+/**
+ * 每个非终态各有专属分支，绝不塌缩成"判断为非终态就继续 loading"（domain.md
+ * `isTerminalRunStatus` 覆盖三非终态那条不变量的另一半——覆盖只是判断，这里是真的
+ * 渲染出对应可交互 UI）。终态（`succeeded`/`failed`/`cancelled`）不在这张表里：
+ * 那是调用方另行渲染最终结果/`ErrorCard` 的职责，不是"非终态渲染分支"这件事的范围。
+ */
+export type AgentKernelNonTerminalBranch =
+  | "plan-confirmation" | "tool-permission" | "paused-user" | "paused-system" | "progress";
+
+export function agentKernelNonTerminalBranch(
+  status: AgentKernelRunStatus,
+  pausedBy?: "user" | "system" | null,
+): AgentKernelNonTerminalBranch | null {
+  switch (status) {
+    case "awaiting_plan_confirmation": return "plan-confirmation";
+    case "awaiting_tool_permission": return "tool-permission";
+    // R4 E4：`pausedBy` 区分主动/保护性暂停，决定是否提供直接恢复入口——
+    // 未知/缺失时保守地当系统保护性处理（不提供一个也许不该出现的恢复按钮）。
+    case "paused": return pausedBy === "user" ? "paused-user" : "paused-system";
+    case "queued":
+    case "running": return "progress";
+    default: return null;
+  }
+}
+
+export function AgentKernelNonTerminalView({
+  status, pausedBy = null,
+}: { readonly status: AgentKernelRunStatus; readonly pausedBy?: "user" | "system" | null }) {
+  switch (agentKernelNonTerminalBranch(status, pausedBy)) {
+    case "plan-confirmation": return <PlanConfirmationCard />;
+    case "tool-permission": return <ToolPermissionCard />;
+    case "paused-user": return <PausedState variant="user" />;
+    case "paused-system": return <PausedState variant="system" />;
+    case "progress": return <ProgressStream />;
+    default: return null;
+  }
 }
