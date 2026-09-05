@@ -22,7 +22,7 @@ import { classifyInterjection } from "../../src/application/agent-run/interjecti
 import {
   DEEP_AGENT_PROVIDER_NAME,
   type AgentRunStore, type AppendedRunStep, type ClaimedAgentRun, type ClaimOutcome,
-  type ModelCallPort, type PinnedSkillContent, type RunLocator, type RunProjection,
+  type ModelCallInput, type ModelCallPort, type PinnedSkillContent, type RunLocator, type RunProjection,
   type ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import type { Guarded } from "../../src/application/security/permission-filter";
@@ -40,12 +40,16 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
   };
 }
 
-function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
+function fakeStore(run: ClaimedAgentRun, laterClaims: readonly ClaimedAgentRun[] = []): AgentRunStore & {
   readonly steps: AppendedRunStep[];
   readonly markAwaitingCalls: number;
   readonly approveCalls: number;
 } {
   const state = { steps: [] as AppendedRunStep[], markAwaitingCalls: 0, approveCalls: 0 };
+  // #2755：第一次 claim 给 `run`，之后按顺序给 `laterClaims`（模拟 HITL 之后 requeue 再被
+  // 认领的 resume 续跑——`executeClaimed` 会被第二次调用、构造第二个 ModelCallInput），
+  // 用完给空数组。
+  const claims = [run, ...laterClaims];
   const unused = (name: string) => async (): Promise<never> => {
     throw new Error(`fakeStore.${name} not expected to be called by this test`);
   };
@@ -53,7 +57,10 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
     get steps() { return state.steps; },
     get markAwaitingCalls() { return state.markAwaitingCalls; },
     get approveCalls() { return state.approveCalls; },
-    claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
+    claimQueued: async (): Promise<readonly ClaimOutcome[]> => {
+      const next = claims.shift();
+      return next === undefined ? [] : [{ kind: "executable", run: next }];
+    },
     reclaimStaleRunning: unused("reclaimStaleRunning"),
     readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => [],
     appendStep: async (_orgId, step: AppendedRunStep) => { state.steps.push(step); },
@@ -228,5 +235,103 @@ describe("Phase 14 F11 -- E3：方向性改变使本 run 内的 L2 授权范围�
     expect(store.approveCalls).toBe(1);
     expect(store.markAwaitingCalls).toBe(0);
     expect(await grants.hasGrant(ORG, run.runId, "call_skill")).toBe(true);
+  });
+});
+
+describe("Phase 14 后续 A（#2755）-- 插话回灌内核：下一次 ModelCallInput 携带该插话，且同一插话只投递一次", () => {
+  const RECEIVED_AT = "2026-09-05T00:00:00.000Z";
+
+  it("interrupt 检查点消费的插话 ⇒ 自动放行后的 resume 调用带上 `interjection`（形状 = 契约 KernelInterjection）；再下一次 resume 不带", async () => {
+    const run = baseRun();
+    const approvedResume: ClaimedAgentRun = { ...run, pendingDecision: { kind: "approve" } };
+    // 三次认领：① 新 run → 内核中断在 call_skill；② 自动放行后的 resume；③ 再一次 resume（对照：不再带）。
+    const store = fakeStore(run, [approvedResume, approvedResume]);
+    const grants = createInMemoryToolPermissionGrantStore();
+    await grants.grantForRun(ORG, run.runId, "call_skill");
+    const interjections = createInMemoryInterjectionStore();
+    await interjections.submit(ORG, run.runId, { interjectionId: "itj-k1", text: "字体再小一号", receivedAt: RECEIVED_AT });
+
+    const inputs: ModelCallInput[] = [];
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async (input) => {
+        inputs.push(input);
+        // 第一次：中断等授权（interrupt 检查点在这里消费插话）；之后的 resume：直接答完。
+        return inputs.length === 1
+          ? { text: "", interrupted: { toolName: "call_skill", argsSummary: "{}" } }
+          : { text: "完成。" };
+      },
+    };
+    const d = deps(store, model, { toolPermissionGrants: grants, interjections });
+
+    await executeQueuedRuns(d, { orgId: ORG }); // ① 中断 → 局部调整不撤销授权 → 自动放行 requeue
+    expect(store.approveCalls).toBe(1);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).not.toHaveProperty("interjection"); // 第一次调用时插话还没被消费
+
+    await executeQueuedRuns(d, { orgId: ORG }); // ② resume 续跑：下一次 ModelCallInput
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]!.resume).toEqual({ decision: "approve" });
+    expect(inputs[1]!.interjection).toEqual({
+      interjectionId: "itj-k1", text: "字体再小一号", classification: "adjustment", receivedAt: RECEIVED_AT,
+    });
+
+    await executeQueuedRuns(d, { orgId: ORG }); // ③ 再一次 resume：同一插话不再投递
+    expect(inputs).toHaveLength(3);
+    expect(inputs[2]).not.toHaveProperty("interjection");
+    expect(await interjections.takeStagedForKernel(ORG, run.runId)).toBeNull();
+  });
+
+  it("onProgress 终态检查点消费的插话 ⇒ 同一次内核调用随后中断时，resume 也带上它（classification 透传 direction_change）", async () => {
+    const run = baseRun();
+    const store = fakeStore(run, [{ ...run, pendingDecision: { kind: "approve" } }]);
+    const interjections = createInMemoryInterjectionStore();
+    await interjections.submit(ORG, run.runId, {
+      interjectionId: "itj-k2", text: "算了，换个方向，直接生成 PPT", receivedAt: RECEIVED_AT,
+    });
+
+    const inputs: ModelCallInput[] = [];
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async (input, onProgress) => {
+        inputs.push(input);
+        if (inputs.length > 1) return { text: "完成。" };
+        await onProgress({ toolName: "read_file", toolArgsSummary: "{}", toolResultSummary: "内容", planningNote: null });
+        // read_file 是 L1，直接放行 requeue（不需要授权）。
+        return { text: "", interrupted: { toolName: "read_file", argsSummary: "{}" } };
+      },
+    };
+    const d = deps(store, model, { interjections });
+
+    await executeQueuedRuns(d, { orgId: ORG });
+    await executeQueuedRuns(d, { orgId: ORG });
+    expect(inputs).toHaveLength(2);
+    expect(inputs[1]!.interjection).toEqual({
+      interjectionId: "itj-k2", text: "算了，换个方向，直接生成 PPT", classification: "direction_change", receivedAt: RECEIVED_AT,
+    });
+  });
+
+  it("内核收到之前又来一条并被消费 ⇒ 后者覆盖前者（R7：单槽，不排队）", async () => {
+    const interjections = createInMemoryInterjectionStore();
+    await interjections.stageForKernel(ORG, "run-x", { interjectionId: "a", text: "A", classification: "adjustment", receivedAt: RECEIVED_AT });
+    await interjections.stageForKernel(ORG, "run-x", { interjectionId: "b", text: "B", classification: "adjustment", receivedAt: RECEIVED_AT });
+    expect((await interjections.takeStagedForKernel(ORG, "run-x"))?.interjectionId).toBe("b");
+    expect(await interjections.takeStagedForKernel(ORG, "run-x")).toBeNull();
+  });
+
+  it("没有插话 / 未注入 interjections 端口 ⇒ ModelCallInput 上 `interjection` 这个键根本不出现", async () => {
+    const run = baseRun();
+    const inputs: ModelCallInput[] = [];
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async (input) => { inputs.push(input); return { text: "完成。" }; },
+    };
+    await executeQueuedRuns(deps(fakeStore(run), model), { orgId: ORG });
+    await executeQueuedRuns(deps(fakeStore(run), model, { interjections: createInMemoryInterjectionStore() }), { orgId: ORG });
+    expect(inputs).toHaveLength(2);
+    for (const input of inputs) expect(Object.keys(input)).not.toContain("interjection");
   });
 });

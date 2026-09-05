@@ -1171,3 +1171,71 @@ def test_run_level_override_outside_runnable_context_fails_open(monkeypatch):
     assert captured["tool_choice"] == "write_todos", (
         "get_config() 在非 runnable 上下文里抛错时应按未覆盖处理，不应该让判类失效"
     )
+
+
+# ── Phase 14 后续 A（#2755）：InterjectionMiddleware 的判断窗口（直接构造 ModelRequest）──
+#
+# 真图路径（注入 + 强制 + HITL resume + 去重 + 反证）在 `tests/golden/test_tc7_interjection_replan.py`；
+# 这里只覆盖 `_prepare_replan_request` 的判断窗口本身，与上面 PlanFirst 的两条多轮反证同一手法。
+
+
+def _interjection_request(messages):  # noqa: ANN001, ANN201
+    return _model_request(messages)
+
+
+def _captured_tool_choice(messages) -> object:  # noqa: ANN001
+    from langchain_core.messages import AIMessage
+
+    from deep_agent_service.harness import InterjectionMiddleware
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    InterjectionMiddleware().wrap_model_call(_interjection_request(messages), handler)
+    return captured.get("tool_choice")
+
+
+def test_interjection_replan_forced_only_while_latest_human_is_the_interjection():
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from deep_agent_service.harness import _interjection_human_message
+
+    raw = {"interjectionId": "itj-9", "text": "换成 PPT", "classification": "direction_change", "receivedAt": "t"}
+    injected = _interjection_human_message(raw)
+    assert injected.id == "interjection:itj-9"
+    assert injected.additional_kwargs["interjection"] == raw
+
+    # ① 最新人类消息是插话、其后还没调 write_todos ⇒ 强制。
+    assert _captured_tool_choice([HumanMessage(content="go"), AIMessage(content="ok"), injected]) == "write_todos"
+    # ② 插话之后已经调过 write_todos ⇒ 不再强制。
+    assert _captured_tool_choice([
+        injected,
+        AIMessage(content="", tool_calls=[{"id": "1", "name": "write_todos", "args": {"todos": []}}]),
+    ]) is None
+    # ③ 插话之后又来了一条普通人类消息 ⇒ 判断窗口只看最新一轮，不强制。
+    assert _captured_tool_choice([injected, AIMessage(content="ok"), HumanMessage(content="顺便问一下")]) is None
+    # ④ 普通人类消息（不是插话）⇒ 不强制。
+    assert _captured_tool_choice([HumanMessage(content="go")]) is None
+
+
+def test_interjection_replan_not_forced_when_write_todos_not_mounted():
+    from langchain.agents.middleware import ModelRequest
+    from langchain_core.messages import AIMessage
+
+    from deep_agent_service.harness import InterjectionMiddleware, _interjection_human_message
+
+    injected = _interjection_human_message(
+        {"interjectionId": "itj-10", "text": "x", "classification": "adjustment", "receivedAt": "t"}
+    )
+    request = ModelRequest(model=_fake_model(), messages=[injected], tools=[], state={"messages": [injected]})
+    captured: dict = {}
+
+    def handler(r):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = r.tool_choice
+        return AIMessage(content="stub")
+
+    InterjectionMiddleware().wrap_model_call(request, handler)
+    assert captured["tool_choice"] is None, "write_todos 未挂载时不强行指向不存在的工具"

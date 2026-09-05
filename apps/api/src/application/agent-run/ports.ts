@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
+import { artifactsSteering as AS, errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -802,6 +802,20 @@ export interface ModelCallImage {
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
+  /**
+   * Phase 14 后续 A（#2755，`artifacts-steering` R3'/R12）：上一次内核调用的检查点
+   * （`checkPendingInterjection`）消费到、尚未投递给内核的那条插话——随**这一次**
+   * 调用回灌内核，让它据此真正重规划，而不是只在账本 `planningNote` 里留痕。
+   *
+   * OPTIONAL，且只有 deep-agent provider 读它（投影到 LangGraph
+   * `config.configurable[KERNEL_INTERJECTION_CONFIGURABLE_KEY]`，`harness.py` 的
+   * `InterjectionMiddleware` 接住）；其余 provider 与 `resume`/`scriptProtocol` 一样
+   * 忽略。缺席 = 没有待投递的插话，请求逐字节不变（T2 锁）。
+   *
+   * 同一条插话只投递一次：`execute-run.ts` 构造这个字段时原子取出
+   * （`InterjectionStore.takeStagedForKernel`），第二次 resume 不会再带。
+   */
+  readonly interjection?: z.infer<typeof AS.KernelInterjection>;
   /**
    * DA-04（#1749，rubric D4）：本次调用所属的 Chat thread id。OPTIONAL——绝大多数
    * provider 不关心它；`DeepAgentModelProvider` 用它把远端 LangGraph thread 与

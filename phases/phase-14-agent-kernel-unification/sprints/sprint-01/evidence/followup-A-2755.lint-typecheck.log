@@ -1,0 +1,24 @@
+# #2755 — lint / typecheck / contracts vitest
+## node .harness/scripts/lint-contract-source.mjs
+✅ lint-contract-source: generated files match the contract, no hand-written copies (527 contract types)
+scanned-dirs=apps/web/lib,apps/api/src
+## pnpm -w run lint:body-path-param-leak
+
+✓ [body-path-param-leak] 173 个文件，body 里没有未豁免的路径参数泄漏（4 条已知合法冗余在棘轮名单里）
+## apps/api pnpm run lint
+✅ lint-error-leak: 87 files in the interface layer, no error detail reaches a response
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+✅ lint-no-builtin-capabilities: no built-in capability list in product code
+✅ lint-design-facet-single-source: the definition table has one source
+✅ design-facet catalog is in sync with the definition table
+✅ agenda tier catalog is in sync with the definition table
+✅ lint-skill-context-api-only: 67 个文件，skill 取数只经 Context API（I-25）
+✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+✅ lint-arch-deps: 1197 files, all dependencies point inward
+## apps/api tsc --noEmit（唯一剩余报错是 packages/fabric-markdown 既有 baseline）
+non-baseline errors: 0
+## packages/contracts tsc --noEmit
+exit 0
+## packages/contracts vitest
+ Test Files  28 passed (28)
+      Tests  439 passed (439)

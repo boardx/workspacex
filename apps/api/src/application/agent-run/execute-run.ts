@@ -70,7 +70,7 @@ import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from 
 import { record } from "./record-run-step";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
-import { checkPendingInterjection } from "./interjection-handling";
+import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
 
 /**
@@ -1155,6 +1155,8 @@ async function executeClaimed(
         // `scriptProtocol` 同一条"缺席即关闭"纪律，见 `ModelCallInput.disableTaskAutoClassify`
         // 自己的文档。
         ...(run.disableTaskAutoClassify ? { disableTaskAutoClassify: true as const } : {}),
+        // Phase 14 后续 A（#2755）：上一次检查点消费到的插话随这次调用回灌内核，见 `interjection-handling.ts`。
+        ...(await takeInterjectionForKernel(deps, orgId, run.runId)),
         // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
         // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
         ...(vision.images.length > 0 ? { images: vision.images } : {}),
