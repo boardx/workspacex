@@ -131,7 +131,8 @@ export function buildFeedbackInboxItems(rows: readonly FeedbackItemView[]): Inbo
       createdAt: row.createdAt,
       github: deriveGithubRef(row),
       linkedFeedbackId: null,
-      resolvedByDesignId: null,
+      // UC-17.8 B4——真读列，见契约 `FeedbackItem.resolvedByDesignId` 头注。
+      resolvedByDesignId: row.resolvedByDesignId,
       exception: null,
       submittedByMe: row.submittedByMe,
       votedByMe: row.votedByMe,

@@ -124,8 +124,6 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
   （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
   （`tests/ui/design-loop.test.tsx` ⑨⑩）。
-- 待做：B4.7（E2E，另有并行会话在推进，分支
-  `worker/claude-uc17-8-b4-7-workbench-e2e`，不在本条范围）。
 - ✅ B4.6（设计详情取材页与截图更新 + 该束 `ui.md`）2026-09-04 落地：`design-workbench`
   此前**没有** `contracts/design-workbench/` 目录（B4.1–B4.5 全部实现落地，但契约束的
   `design-signoff.md`/`ui.md` 从没建过）——本条一并把两个文件建出来（`design-signoff.md`
@@ -145,6 +143,21 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `drafts-*`/`inbox-*` 混目录——那些属于另外的契约束）；`ui-material-map.json` 补
   `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
   PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
+- ✅ B4.7（E2E：新建 → 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」）2026-09-04
+  落地：新增 `apps/web/e2e/design-workbench-smoke.spec.ts`，两条串行用例，都用
+  `FULLSTACK_E2E.adminEmail`（收件箱/深化按钮要求 `canTriage`，同 `inbox-smoke.spec.ts`
+  纪律）。①工作台自己的「新建设计」弹层（backlog 原文点名的主入口）：新建 → 详情页
+  （画布/说明两个 tab + 对话面板都渲染）→ 推送 → 确认真实 `POST .../pm-designs/:id/push`
+  返回 200/201 且带真实 `D-\d+` 编号 → 收件箱里出现同名 `kind=design` 卡片。②从反馈
+  「用 PM 设计工作台深化」（`inbox-screen.tsx`，B4.4/B4.5 真栈）→ 同样的详情/推送/收件箱
+  三段 → 额外断言「原反馈标已生成」：原反馈卡片上出现 `link-generated-<code>`「已生成
+  方案」标（`CardMeta`，`item.resolvedByDesignId !== null`），drawer 里「查看方案」
+  （`inbox-action-open-design`）可见，刷新页面后标记仍在——证明双向关联是服务端
+  持久化的，不是本地乐观值。反馈种子直连 API 建（`page.request.post`，同
+  `inbox-smoke.spec.ts` 的 `seedFeedback` 头注，不重复驱动已测过的提交弹层 UI）。
+  已加入 `playwright.fullstack-smoke.config.ts` 的 `seeded` project `testMatch`。
+  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。B4.6（取材页/截图）另行并行推进，不在
+  本条范围。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
