@@ -222,6 +222,27 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   → 重做阶段一致性复核并补 `covers_bundles` → `git mv` 进 `contracts/`（一次动作，README 写了步骤）。
   两束 `design-signoff.md` 如实写"补签"（同 `design-workbench` 束），`covers` 用 B1.x / B3.x
   backlog 编号（同 B4.x 先例），与既有两束无重叠（doctor 的 covers 重叠检查已验证）。
+- ✅ B6.3（通知：收件箱状态变化沿用 `status_event_notification`；新增「反馈已生成设计方案」
+  事件类型）2026-09-05 落地。**核实结果**：收件箱看板拖拽走的 `PUT /feedback/:id/status`
+  （`triageFeedback`）**已经**在每次真实状态迁移后 best-effort 给提交人发「状态已更新」邮件并
+  回填事件行 `notified`/`email_subject`/`email_text`，"沿用"这半句不需要新代码；系统异常
+  那一半（`updateSystemErrorLifecycle`）只写 `system_error_status_events` 流水、**没有**任何
+  邮件通知——系统异常没有"提交人"这个角色，记为已知缺口、不在本条扩范围。**新事件**：
+  `product_feedback_status_events` 装不下"已生成 D-X"（列 CHECK 四态、契约 `FeedbackStatus`
+  闭集，B4.3 头注已解释），所以"事件类型"落在**通知层**：新文件
+  `application/feedback/feedback-notification-templates.ts` 单源声明
+  `FEEDBACK_NOTIFICATION_KINDS = ["status_changed", "design_generated"]` 与两个模板，
+  `triage-feedback.ts` 的私有 `statusChangeEmail` 搬进去（subject/text 逐字不变），
+  `push-to-inbox.ts` 在仓储回报 `resolvedFeedback !== null` 时给来源反馈提交人发
+  「你的反馈《…》已生成设计方案 D-n」。**去重口径**：仓储 `UPDATE product_feedback` 谓词加
+  `resolved_by_design_id IS DISTINCT FROM $3`、RETURNING `submitted_by`/`title`——外键首次指向本
+  项目才非空，重复推送（upsert 刷新 `pushed_at`/`push_note`）回 `null` ⇒ 不发第二封；不另建
+  "已通知"表（同一事实不声明两处）。邮件失败/提交人无邮箱 = best-effort，只记日志
+  （`traceId: design-push-notify`），推送事务已提交、不受影响，同 `notifySubmitter` 纪律。
+  `DesignProjectDeps` 新增可选 `mail`/`logger`（controller 注入，缺任一即不发）；契约
+  `pushToInbox.out` 与 `feedback-loop.ts` 状态枚举均未动，不改 web。单测：
+  `tests/design-workbench/project-lifecycle.test.ts` 新增 6 例（首次推送通知一次且收件人/编号
+  正确、无 linked 不发、重复推送不重复发、无邮箱记 info、发送失败记 error 不抛、未注入不发）。
 - ✅ B6.1（删除原型 `lib/design-loop-store.tsx` 与取材页 localStorage seed）2026-09-05 落地：
   B1.4/B3.4/B4.5 之后三屏全部真栈，store 里剩下的 `projects`/`pushProject`/`deepenFeedback`
   等方法已无生产调用方——整个文件删除（`grep -rn design-loop-store apps/web` 归零，仅剩
