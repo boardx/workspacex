@@ -114,23 +114,39 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     // `draggable={!busy}` + `onDragStart` 用 `dataTransfer.setData`，列容器 `onDragOver`/
     // `onDrop` 读 `dataTransfer.getData`）——标准 HTML5 拖放，Playwright 的 `dragTo` 用真实
     // 鼠标事件驱动浏览器原生 DnD，直接能用，不需要退回手动 dispatchEvent(dragstart/…/drop) 序列。
+    //
+    // ⚠ 2026-09-05 起「转入开发」与建 GitHub issue 绑定（见 `inbox-screen.tsx` 头注）：这条
+    //   反馈还没有 issue，拖进「进行中」不直接乐观挪列 / 发请求，而是打开 drawer 的 issue
+    //   确认表单——同 `feedback-loop-smoke.spec.ts` 的顺序纪律，这里提交那份表单才是真正
+    //   触发 `triageFeedback` 的动作。`fullstack-smoke` 环境故意不配 `GITHUB_ISSUE_TOKEN`，
+    //   建 issue fail closed，如实拿到 503、状态留在「待处理」——这正是要断言的真实行为，
+    //   不是把这条用例改弱。
+    await card.dragTo(doingColumn);
+    const drawer = page.getByTestId("inbox-drawer");
+    await expect(drawer).toBeVisible();
+    const issueSubmit = drawer.getByTestId("inbox-issue-submit");
+    await expect(issueSubmit).toBeVisible();
+    const hasGithubToken = Boolean(process.env.GITHUB_ISSUE_TOKEN);
     const triaged = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
     );
-    await card.dragTo(doingColumn);
+    await issueSubmit.click();
     const triagedResponse = await triaged;
-    expect(triagedResponse.status(), "拖拽应触发 triageFeedback 200").toBe(200);
-
-    // 乐观更新已经把卡片挪到「进行中」列——先确认这一步，再刷新页面确认落库不是本地乐观值。
-    await expect(doingColumn.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toBeVisible();
-    await expect(backlogColumn.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toHaveCount(0);
+    expect(triagedResponse.status()).toBe(hasGithubToken ? 200 : 503);
+    await page.getByTestId("inbox-drawer-close").click();
 
     await page.reload();
     await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
     const doingColumnAfterReload = page.getByTestId("inbox-column-doing");
     const backlogColumnAfterReload = page.getByTestId("inbox-column-backlog");
-    await expect(doingColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toBeVisible();
-    await expect(backlogColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toHaveCount(0);
+    if (hasGithubToken) {
+      await expect(doingColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toBeVisible();
+      await expect(backlogColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toHaveCount(0);
+    } else {
+      // 建 issue 失败 ⇒ fail closed，状态如实留在「待处理」（未配 token 的本环境预期分支）。
+      await expect(backlogColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toBeVisible();
+      await expect(doingColumnAfterReload.locator('[data-testid^="inbox-card-"]').filter({ hasText: title })).toHaveCount(0);
+    }
   });
 
   test("③ 转「不做」需要理由：不填不让确认，填了才能确认，理由随状态一起可见", async ({ page }) => {
