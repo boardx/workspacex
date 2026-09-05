@@ -124,8 +124,23 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
   （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
   （`tests/ui/design-loop.test.tsx` ⑨⑩）。
-- 待做：B4.7（E2E，另有并行会话在推进，分支
-  `worker/claude-uc17-8-b4-7-workbench-e2e`，不在本条范围）。
+- ✅ B4.7（E2E：新建 → 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」）2026-09-04
+  落地：新增 `apps/web/e2e/design-workbench-smoke.spec.ts`，两条串行用例，都用
+  `FULLSTACK_E2E.adminEmail`（收件箱/深化按钮要求 `canTriage`，同 `inbox-smoke.spec.ts`
+  纪律）。①工作台自己的「新建设计」弹层（backlog 原文点名的主入口）：新建 → 详情页
+  （画布/说明两个 tab + 对话面板都渲染）→ 推送 → 确认真实 `POST .../pm-designs/:id/push`
+  返回 200/201 且带真实 `D-\d+` 编号 → 收件箱里出现同名 `kind=design` 卡片。②从反馈
+  「用 PM 设计工作台深化」（`inbox-screen.tsx`，B4.4/B4.5 真栈）→ 同样的详情/推送/收件箱
+  三段 → 额外断言「原反馈标已生成」：原反馈卡片上出现 `link-generated-<code>`「已生成
+  方案」标（`CardMeta`，`item.resolvedByDesignId !== null`），drawer 里「查看方案」
+  （`inbox-action-open-design`）可见，刷新页面后标记仍在——证明双向关联是服务端
+  持久化的，不是本地乐观值。反馈种子直连 API 建（`page.request.post`，同
+  `inbox-smoke.spec.ts` 的 `seedFeedback` 头注，不重复驱动已测过的提交弹层 UI）。
+  已加入 `playwright.fullstack-smoke.config.ts` 的 `seeded` project `testMatch`。
+  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。后续修了两处：后端读侧把 `resolvedByDesignId` 真正从
+  `product_feedback.resolved_by_design_id` 投影出来（契约 `FeedbackItem` 此前根本没有这个字段）；
+  用例②改按详情页 URL 里的项目 id 找卡片（`listMyProjects` 是 `created_at ASC`，`.first()`
+  拿到的是最老的项目，推错了项目）。
 - ✅ B4.6（设计详情取材页与截图更新 + 该束 `ui.md`）2026-09-04 落地：`design-workbench`
   此前**没有** `contracts/design-workbench/` 目录（B4.1–B4.5 全部实现落地，但契约束的
   `design-signoff.md`/`ui.md` 从没建过）——本条一并把两个文件建出来（`design-signoff.md`
@@ -169,6 +184,19 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `pushToInbox.out` 与 `feedback-loop.ts` 状态枚举均未动，不改 web。单测：
   `tests/design-workbench/project-lifecycle.test.ts` 新增 6 例（首次推送通知一次且收件人/编号
   正确、无 linked 不发、重复推送不重复发、无邮箱记 info、发送失败记 error 不抛、未注入不发）。
+- ✅ B6.1（删除原型 `lib/design-loop-store.tsx` 与取材页 localStorage seed）2026-09-05 落地：
+  B1.4/B3.4/B4.5 之后三屏全部真栈，store 里剩下的 `projects`/`pushProject`/`deepenFeedback`
+  等方法已无生产调用方——整个文件删除（`grep -rn design-loop-store apps/web` 归零，仅剩
+  历史注释里"已删除"的说明）。`AppShell` 不再挂 `DesignLoopProvider`（D5 上提的那一层随之
+  拆掉）；反馈弹层「去 PM 设计工作台」入口原本靠 Provider 在场判可见，改成**恒可见的纯路由
+  跳转** `/platform-admin/design-workbench`。取材页 `/preview/feedback-design-loop` 删掉
+  `seed`/Provider，`workbench-empty` 空态与其它四屏一样由 `shot-feedback-design-loop.mjs`
+  的 `page.route` 拦截回空 `items` 得到（`routeDesignWorkbench({ empty })` B4.6 已就位）
+  ——与 `feedback-loop` 束同范式。单测 `design-loop.test.tsx` 删去测 mock store 的
+  「⑧ pushProject 标记已推送并生成 D- 编号」整块（`renderHook(useDesignLoop)`），其余用例
+  去掉 `DesignLoopProvider` 包裹。UI 像素未变，**截图不重拍**（`lint-ui-material` 双向对账
+  仍绿）。README 第 9 条 / `design-workbench/ui.md` 相应改写。
+  PR：`worker/claude-uc17-8-b6-1-delete-prototype-store`（Refs #2659，承接 #2727）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 

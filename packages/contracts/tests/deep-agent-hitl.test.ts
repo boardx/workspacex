@@ -33,6 +33,18 @@ function readPy(path: string): string {
   return src;
 }
 
+/** 剥掉 Python `#` 行注释与三引号 docstring、bash `#` 行注释，只留下真代码用来做
+ * "这个符号已经不存在了"的扫描——移除掉的符号名字本身作为历史沿革仍然合法地出现
+ * 在讲述"这是什么、为什么被移除"的注释/docstring 里（同
+ * `execute-run-thin-gateway.test.ts` 的既有先例），剥注释是为了不被这类合法的
+ * 历史文档误伤。够用即可，不处理字符串字面量里恰好含注释起始符的边界情况。 */
+function stripComments(source: string): string {
+  return source
+    .replace(/"""[\s\S]*?"""/g, "")
+    .replace(/'''[\s\S]*?'''/g, "")
+    .replace(/#[^\n]*/g, "");
+}
+
 describe("issue #2017 HITL 工具名单一事实源", () => {
   it("契约里的工具名，在 tools.py 里真的是一个 @tool 函数", () => {
     const src = readPy(TOOLS_PY);
@@ -66,41 +78,25 @@ describe("issue #2017 HITL 工具名单一事实源", () => {
     expect(DEEP_AGENT_HITL_TOOL_NAME).not.toBe("send_email");
   });
 
-  it("deploy.env 该写的逐字值，正是 harness.py 逗号分隔解析得回来的东西", () => {
-    // `build_interrupt_on` 读 DEEP_AGENT_HITL_TOOLS，按逗号切、每项 strip。
-    // 这里模拟它的解析，断言我们给运维的那个值解析回来就是契约里的工具名集合。
-    const parsed = DEEP_AGENT_HITL_TOOLS_ENV_VALUE.split(",")
-      .map((t) => t.trim())
-      .filter((t) => t !== "");
-    expect(parsed).toEqual([DEEP_AGENT_HITL_TOOL_NAME]);
-
-    // 并且 harness.py 确实是读这个 env 键——键名漂了这里也要红。
-    expect(readPy(HARNESS_PY)).toContain("DEEP_AGENT_HITL_TOOLS");
+  it("Phase 14 F02（R6）：契约里的工具名，逐字出现在 harness.py 固定的 DEFAULT_HITL_TOOL_NAMES 清单里", () => {
+    // `DEEP_AGENT_HITL_TOOLS` 这个环境变量开关已移除（验证稳定后默认开启且开关本身
+    // 移除）——`build_interrupt_on` 不再按逗号解析环境变量，而是无条件返回
+    // `DEFAULT_HITL_TOOL_NAMES` 这份固定清单。这里断言契约里的工具名确实是其中之一，
+    // 键名漂了/被移出清单这里都要红。
+    const src = readPy(HARNESS_PY);
+    expect(stripComments(src), "harness.py 的真代码里不应再读这个已移除的环境变量").not.toContain("DEEP_AGENT_HITL_TOOLS");
+    const match = /DEFAULT_HITL_TOOL_NAMES:\s*tuple\[str, \.\.\.\]\s*=\s*\(([\s\S]*?)\)/.exec(src);
+    expect(match, "harness.py 里找不到 DEFAULT_HITL_TOOL_NAMES 的定义").not.toBeNull();
+    expect(match?.[1] ?? "").toContain(`"${DEEP_AGENT_HITL_TOOL_NAME}"`);
   });
 
-  it("deploy.env 模板（provision.sh）里那一行，以契约给的值开头（F212 起追加了 agent-interrupts 的工具名）", () => {
-    // bash 没法 import TS，所以 provision.sh 里那一行是契约在部署侧的**投影**。
-    // 凡投影就会漂，所以这条门控直接读那个 .sh 断言逐字一致。
-    //
-    // F212（agent-interrupts 束）起，这一行不再是本契约的单一事实源——它是
-    // `deep-agent-hitl.ts` 与 `agent-interrupts.ts` 两个文件各自工具名的并集
-    // （design-signoff.md §四表 + §六 决策⑤）。本测试只断言"本契约那一段没漂"，
-    // 完整并集断言见 `packages/contracts/tests/agent-interrupts.test.ts`。
-    const sh = readPy(PROVISION_SH);
-    const line = sh
-      .split("\n")
-      .find((l) => l.startsWith("DEEP_AGENT_HITL_TOOLS="));
-    expect(line, "provision.sh 里没有生效的 DEEP_AGENT_HITL_TOOLS= 行（被注释掉了？）").toBeDefined();
-    expect(line?.startsWith(`DEEP_AGENT_HITL_TOOLS=${DEEP_AGENT_HITL_TOOLS_ENV_VALUE},`)).toBe(true);
-  });
-
-  it("该键在 deploy.sh 的容器 env 投影白名单里——否则写了也到不了引擎", () => {
-    // issue #2076/#2077 实测：deep-agent 容器读的是 deploy.sh 当场重写的
-    // deep-agent.env，白名单外的键无论 deploy.env 里怎么写都到不了容器进程。
-    // 「配置文件里有这一行 ≠ 进程真的读到了它」——这条门控守的就是那个断层。
+  it("provision.sh / deploy.sh 的真代码里不再出现 DEEP_AGENT_HITL_TOOLS 这个已移除的开关符号", () => {
+    // Phase 14 F02（R6）：这个开关本身已从代码库移除，不再作为部署投影项存在——
+    // 固定工具清单改由 harness.py 的 DEFAULT_HITL_TOOL_NAMES 常量承担（见上一条）。
+    // 剥注释再断言：符号名字作为历史沿革仍合法出现在解释"为什么移除"的注释里。
+    expect(stripComments(readPy(PROVISION_SH))).not.toContain("DEEP_AGENT_HITL_TOOLS");
     const deploySh = readPy(resolve(HERE, "../../../.harness/scripts/vm/deploy.sh"));
-    const call = /deep_agent_project_capability_env[^\n]*\n[^\n]*/.exec(deploySh)?.[0] ?? "";
-    expect(call).toContain("DEEP_AGENT_HITL_TOOLS");
+    expect(stripComments(deploySh)).not.toContain("DEEP_AGENT_HITL_TOOLS");
   });
 
   it("args 上限足够容纳会被 JSON.parse 的真实长参数", () => {

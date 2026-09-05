@@ -71,6 +71,7 @@ interface FeedbackDbRow {
   readonly voted_by_me: boolean;
   readonly github_issue_url: string | null;
   readonly github_issue_number: number | null;
+  readonly resolved_by_design_id: string | null;
 }
 
 /**
@@ -113,6 +114,7 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
     createdAt: new Date(row.created_at).toISOString(),
     githubIssueUrl: row.github_issue_url,
     githubIssueNumber: row.github_issue_number,
+    resolvedByDesignId: row.resolved_by_design_id,
   };
 }
 
@@ -120,7 +122,7 @@ const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
   f.target_label, f.title, f.detail, f.structured, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
-  f.github_issue_url, f.github_issue_number,
+  f.github_issue_url, f.github_issue_number, f.resolved_by_design_id,
   v.votes,
   EXISTS (
     SELECT 1 FROM product_feedback_votes mine

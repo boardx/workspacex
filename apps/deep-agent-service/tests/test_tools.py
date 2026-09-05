@@ -317,23 +317,16 @@ SUBTASK_CONFIG = {
 }
 
 
-def test_spawn_async_task_absent_by_default(monkeypatch) -> None:  # noqa: ANN001
-    """灰度关闭时（未设 DEEP_AGENT_ASYNC_SUBTASKS_ENABLED）——build_tools() 的返回值
-    里根本没有这个工具，行为与 #2664 之前逐字节相同（graph.py 无条件转发 build_tools()
+def test_spawn_async_task_present_by_default() -> None:
+    """Phase 14 F02（R6）：此前由 `DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1` 这个灰度
+    开关控制是否出现在 `build_tools()` 的返回值里（#2664），验证稳定后按 R6 要求
+    默认开启且开关本身移除——现在无条件出现（graph.py 无条件转发 build_tools()
     的整个返回值，见 tools.py 该函数自己的注释）。"""
-    monkeypatch.delenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", raising=False)
-    tools = build_tools(FakeChatModel("unused"))
-    assert "spawn_async_task" not in [t.name for t in tools]
-
-
-def test_spawn_async_task_present_when_enabled(monkeypatch) -> None:  # noqa: ANN001
-    monkeypatch.setenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", "1")
     tools = build_tools(FakeChatModel("unused"))
     assert "spawn_async_task" in [t.name for t in tools]
 
 
-def _spawn_tool(monkeypatch) -> object:  # noqa: ANN001
-    monkeypatch.setenv("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED", "1")
+def _spawn_tool(monkeypatch) -> object:  # noqa: ANN001, ARG001 -- 保留签名，调用方仍传入夹具
     tools = {t.name: t for t in build_tools(FakeChatModel("unused"))}
     return tools["spawn_async_task"]
 
