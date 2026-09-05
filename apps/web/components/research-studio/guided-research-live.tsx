@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { ApiError } from "@/lib/api-client";
 import { research as C } from "@repo/contracts";
 import { ArrowLeft, Loader2, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,10 @@ function ProposalPreview({ draft }: { draft: Draft }) {
   return <p>建议保留 {draft.value.filter((item) => item.decision === "accepted").length} 个来源、排除 {draft.value.filter((item) => item.decision === "excluded").length} 个来源。</p>;
 }
 const errors: Record<string, string> = {
-  RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，请刷新后再试。",
+  RESEARCH_GRAPH_VERSION_CONFLICT: "研究内容已更新，本次操作未提交。请核对最新进度后继续。",
+  RESEARCH_WORKFLOW_UNAVAILABLE: "模型服务暂时不可用，请稍后重试；持续失败请联系管理员检查模型配置。",
+  RESEARCH_NODE_MISMATCH: "研究步骤已变化，请查看最新进度后继续。",
+  RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
   RESEARCH_WORKFLOW_BUSY: "研究正在处理中，请稍候。",
   RESEARCH_SEARCH_NOT_CONFIGURED: "检索服务尚未配置，请联系管理员。",
   RESEARCH_SEARCH_EMPTY: "检索服务未返回来源，请调整研究计划后重试。",
@@ -42,6 +46,17 @@ const errors: Record<string, string> = {
   RESEARCH_NODE_STATE_INVALID: "模型返回的内容不符合本步骤要求，请重试。",
   RESEARCH_MODEL_GENERATION_REQUIRED: "请先使用模型生成本步骤内容，再确认。",
 };
+function requestError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "登录已过期，请重新登录后继续。";
+    if (error.status === 403) return "你暂时没有访问此研究的权限，请联系研究负责人。";
+    if (error.status === 404) return "研究会话不存在或已不可访问，请返回研究首页。";
+    if (error.reasonCode && errors[error.reasonCode]) return errors[error.reasonCode]!;
+    if (error.status === 409) return "研究状态发生冲突，请核对最新进度后继续。";
+  }
+  return "暂时无法连接研究服务，请检查网络后重试。";
+}
+type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
 export function GuidedResearchLive({ sessionId, onBack, initialNode }: { sessionId: string; onBack: () => void; initialNode?: Command["node"] }) {
   const [state, setState] = React.useState<Runtime | null>(null);
   const [node, setNode] = React.useState<Command["node"]>("brief");
@@ -49,6 +64,10 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   const [message, setMessage] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = React.useState(0);
+  const [recovery, setRecovery] = React.useState<Recovery | null>(null);
+  const recoveryRef = React.useRef<Recovery | null>(null);
+  function updateRecovery(value: Recovery | null) { recoveryRef.current = value; setRecovery(value); }
   const snapshotRef = React.useRef<Runtime | null>(null);
   const responseEpoch = React.useRef(0);
   const commandVersion = React.useRef(0);
@@ -61,16 +80,17 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   React.useEffect(() => {
     let active = true;
     responseEpoch.current += 1; snapshotRef.current = null;
-    setState(null); setMessage(""); setError(null); setPending(false);
+    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); updateRecovery(null);
     getResearchRuntime(sessionId).then((next) => {
       if (!active) return;
       const target = initialNode && next.availableNodes.includes(initialNode) ? initialNode : next.currentNode;
       snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
-    }).catch(() => { if (active) setError("研究会话恢复失败，请重试。"); });
+    }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
     return () => { active = false; };
-  }, [sessionId, initialNode]);
+  }, [sessionId, initialNode, loadAttempt]);
+  const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   React.useEffect(() => {
-    if (!state?.busy && !pending) return;
+    if (!pending && (!state?.busy || expired)) return;
     let active = true;
     const minimumVersion = pending ? commandVersion.current : 0;
     const timer = window.setInterval(() => {
@@ -80,13 +100,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         if (!active || epoch !== responseEpoch.current || ticket < pollAccepted.current || next.version < minimumVersion || (current && (next.version < current.version || (next.version === current.version && !current.busy && next.busy)))) return;
         pollAccepted.current = ticket; snapshotRef.current = next;
         setState(next);
-        setDraft(draftOf(next, nodeRef.current));
+        if (!recoveryRef.current) setDraft(draftOf(next, nodeRef.current));
       }).catch(() => { /* The command response or next polling attempt resolves a transient network failure. */ });
     }, 2000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [pending, state?.busy, sessionId]);
-  const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
-  const busy = pending || Boolean(state?.busy && !expired);
+  }, [pending, state?.busy, expired, sessionId]);
+  const processing = pending || Boolean(state?.busy && !expired);
+  const busy = processing || Boolean(recovery);
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
     if (!state || busy) return;
     responseEpoch.current += 1; commandVersion.current = state.version + 1; setPending(true); setError(null);
@@ -100,11 +120,32 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       setNode(target); setDraft(draftOf(next, target));
       if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
       if (action === "message" && !next.errorCode) setMessage("");
-    } catch {
+    } catch (cause) {
       if (sessionRef.current !== sessionId) return;
-      setError("请求未完成，正在读取已保存的研究进度。请检查最新状态后重试。");
-      try { const received = await getResearchRuntime(sessionId); if (sessionRef.current === sessionId) { const latest = newestSnapshot(received, snapshotRef.current); responseEpoch.current += 1; snapshotRef.current = latest; setState(latest); setDraft(draftOf(latest, node)); } } catch { /* Keep the last confirmed snapshot visible. */ }
+      // Capture the submitted editor before a recovery read or polling can replace it.
+      const localDraft = draft && JSON.stringify(draft) !== JSON.stringify(draftOf(state, node)) ? draft : null;
+      updateRecovery({ draft: localDraft, node, synchronized: false });
+      if (localDraft) setDraft(localDraft);
+      setError(requestError(cause));
+      await recoverProgress(sessionId);
     } finally { if (sessionRef.current === sessionId) setPending(false); }
+  }
+  async function recoverProgress(targetSession: string) {
+    try {
+      const received = await getResearchRuntime(targetSession);
+      if (sessionRef.current !== targetSession) return;
+      const latest = newestSnapshot(received, snapshotRef.current);
+      responseEpoch.current += 1; snapshotRef.current = latest; setState(latest);
+      const previous = recoveryRef.current;
+      if (previous) updateRecovery({ ...previous, synchronized: true });
+    } catch { /* Keep the editor and the explicit recovery action until a read succeeds. */ }
+  }
+  function finishRecovery(keepLocal: boolean) {
+    if (!state || !recovery?.synchronized || processing) return;
+    const target = keepLocal ? recovery.node : state.currentNode;
+    if (!state.availableNodes.includes(target)) return;
+    setNode(target); setDraft(keepLocal ? recovery.draft : draftOf(state, target));
+    updateRecovery(null); setError(null);
   }
   function navigate(next: Command["node"]) { if (state && !busy) { setNode(next); setDraft(draftOf(state, next)); setError(null); } }
   function downloadReport() {
@@ -118,13 +159,24 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "research-report.md"; anchor.click(); URL.revokeObjectURL(url);
   }
   const validDraft = Boolean(draft && C.GuidedResearchRuntimeDraft.safeParse(draft).success);
-  if (!state || state.sessionId !== sessionId) return <div role="status" className="p-4">{error ?? "正在恢复研究会话…"}<Button variant="ghost" onClick={onBack}>返回研究首页</Button></div>;
+  if (!state || state.sessionId !== sessionId) return <div role="status" className="p-4">{error ?? "正在恢复研究会话…"}{error && <Button variant="outline" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>重试加载</Button>}<Button variant="ghost" onClick={onBack}>返回研究首页</Button></div>;
+  const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
   const proposal = state.proposal?.draft.node === node ? state.proposal : null;
   return <div className="max-w-none space-y-4" data-layout="signed-desktop" data-testid={`research-flow-${node === "research" ? "search" : node}`}>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]" data-testid="research-progress-shell" data-layout="right-aligned-progress"><div className="hidden lg:block" aria-hidden /><div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3" data-testid="research-flow-progress">
       <Button variant="ghost" onClick={onBack}><ArrowLeft className="size-4" aria-hidden />返回</Button>
       {steps.map((step, index) => <Button key={step} variant={step === node ? "primary" : "ghost"} disabled={busy || !state.availableNodes.includes(step)} aria-current={step === node ? "step" : undefined} onClick={() => navigate(step)}>{index + 1}. {labels[step]}</Button>)}
     </div></div>
+    {recovery && <Card><CardContent className="space-y-3 p-4" data-testid="research-recovery">
+      <p role="status" className="text-12">{recovery.synchronized ? "已读取最新研究进度。请核对后继续，系统不会自动重复提交。" : "尚未确认最新研究进度，请先重新连接。"}{recovery.draft && " 你的未提交草稿已保留在当前页面。"}</p>
+      {recovery.draft && <details className="text-12"><summary>查看保留的草稿</summary><ProposalPreview draft={recovery.draft} /></details>}
+      {latestRecoveryDraft && <details className="text-12"><summary>查看服务端最新内容</summary><ProposalPreview draft={latestRecoveryDraft} /></details>}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={pending} onClick={() => void recoverProgress(sessionId)}>重新读取进度</Button>
+        <Button disabled={!recovery.synchronized || processing} onClick={() => finishRecovery(false)}>使用最新进度</Button>
+        {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>继续编辑保留的草稿</Button>}
+      </div>
+    </CardContent></Card>}
     {(error || state.errorCode) && <p role="alert" className="rounded-md border border-destructive p-3 text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
     {state.legacyCheckpoint && <details className="rounded-lg border border-border bg-card p-3 text-12"><summary>已保留旧版研究记录；当前及后续步骤需要重新使用模型处理</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
@@ -140,7 +192,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}{state.completed && node === "report" ? " · 已完成" : ""}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "生成研究计划" : "使用模型生成"}</Button></div>
         {state.currentNode !== node && <p className="text-12 text-muted-foreground">保存或应用此步骤的修改会使后续研究结果失效，需要重新确认和生成。</p>}
-        {busy && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
+        {processing && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {draft?.node === "directions" && <div className="space-y-3" data-testid="research-directions"><Button variant="outline" disabled={busy || draft.value.length >= 20} onClick={() => setDraft({ ...draft, value: [...draft.value, { id: crypto.randomUUID(), title: "新研究方向", description: "补充研究重点", enabled: true, order: draft.value.length }] })}>添加研究方向</Button>{draft.value.map((item, index) => <Card key={item.id}><CardContent className="space-y-2 p-4"><label className="flex gap-2 text-12"><input type="checkbox" checked={item.enabled} disabled={busy} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, enabled: event.target.checked } : entry) })} />纳入研究</label><Input aria-label="研究方向" disabled={busy} value={item.title} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, title: event.target.value } : entry) })} /><Textarea aria-label="方向说明" disabled={busy} value={item.description} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, description: event.target.value } : entry) })} /><Button variant="ghost" disabled={busy || draft.value.length <= 1} onClick={() => setDraft({ ...draft, value: draft.value.filter((entry) => entry.id !== item.id) })}>删除方向</Button></CardContent></Card>)}</div>}
         {draft?.node === "outline" && <div className="space-y-3" data-testid="research-outline"><Button variant="outline" disabled={busy || draft.value.length >= 30} onClick={() => setDraft({ ...draft, value: [...draft.value, { id: crypto.randomUUID(), title: "新章节", questions: ["需要回答什么问题？"], enabled: true, order: draft.value.length }] })}>添加章节</Button>{draft.value.map((item, index) => <Card key={item.id}><CardContent className="space-y-2 p-4"><label className="flex gap-2 text-12"><input type="checkbox" checked={item.enabled} disabled={busy} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, enabled: event.target.checked } : entry) })} />纳入报告</label><Input aria-label="章节标题" disabled={busy} value={item.title} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, title: event.target.value } : entry) })} /><Textarea aria-label="章节研究问题（每行一个）" disabled={busy} value={item.questions.join("\n")} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, questions: event.target.value.split("\n") } : entry) })} /><Button variant="ghost" disabled={busy || draft.value.length <= 1} onClick={() => setDraft({ ...draft, value: draft.value.filter((entry) => entry.id !== item.id) })}>删除章节</Button></CardContent></Card>)}</div>}

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ApiError } from "@/lib/api-client";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 import { executeResearchRuntime, getResearchRuntime, type GuidedResearchRuntime } from "@/lib/guided-research-api";
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
@@ -84,4 +85,76 @@ describe("live research workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "save", draft: { node: "research", value: [{ id: "src1", decision: "accepted" }] } })));
   });
+});
+
+describe("research request recovery", () => {
+  it("retries initial loading without leaving the session", async () => {
+    vi.mocked(getResearchRuntime).mockRejectedValueOnce(new Error("offline"));
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "重试加载" }));
+    expect(await screen.findByDisplayValue("Storage")).toBeInTheDocument();
+    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+  });
+  it("preserves the editor on conflict and lets the user resume against the latest version", async () => {
+    const latest = { ...initial, version: 9, brief: { ...initial.brief, topic: "Collaborator topic" } };
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(latest);
+    vi.mocked(executeResearchRuntime).mockRejectedValueOnce(new ApiError(409, "RESEARCH_GRAPH_VERSION_CONFLICT", {}))
+      .mockResolvedValueOnce({ ...latest, version: 10 });
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    fireEvent.change(await screen.findByDisplayValue("Storage"), { target: { value: "My unsaved topic" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    const resume = await screen.findByRole("button", { name: "继续编辑保留的草稿" });
+    await waitFor(() => expect(resume).toBeEnabled());
+    expect(screen.getByDisplayValue("My unsaved topic")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "使用模型生成" })).toBeDisabled();
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    fireEvent.click(resume);
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ expectedVersion: 9, draft: { node: "brief", value: { ...initial.brief, topic: "My unsaved topic" } } })));
+  });
+  it("requires a successful recovery read before submitting again, and can adopt the server draft", async () => {
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ...initial, version: 9, brief: { ...initial.brief, topic: "Server topic" } });
+    vi.mocked(executeResearchRuntime).mockRejectedValue(new Error("offline"));
+    render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    fireEvent.change(await screen.findByDisplayValue("Storage"), { target: { value: "Local topic" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    await screen.findByTestId("research-recovery");
+    await waitFor(() => expect(screen.getByRole("button", { name: "重新读取进度" })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "使用最新进度" })).toBeDisabled();
+    expect(screen.getByDisplayValue("Local topic")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新读取进度" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "使用最新进度" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "使用最新进度" }));
+    expect(screen.getByDisplayValue("Server topic")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-recovery")).not.toBeInTheDocument();
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  });
+  it("does not leak a failed request or retained draft into a different session", async () => {
+    let reject!: (reason: unknown) => void;
+    vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
+    const view = render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
+    fireEvent.change(await screen.findByDisplayValue("Storage"), { target: { value: "Old private draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
+    vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, sessionId: "other-session", brief: { ...initial.brief, topic: "Other research" } });
+    view.rerender(<GuidedResearchLive sessionId="other-session" onBack={vi.fn()} />);
+    await screen.findByDisplayValue("Other research");
+    await act(async () => { reject(new Error("late failure")); });
+    expect(screen.queryByTestId("research-recovery")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Old private draft")).not.toBeInTheDocument();
+  });
+});
+
+it("keeps recovered edits when an abandoned execution lease has expired", async () => {
+  const expired = { ...initial, version: 9, busy: true, leaseUntil: "2020-01-01T00:00:00.000Z" };
+  vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(expired);
+  vi.mocked(executeResearchRuntime).mockRejectedValue(new ApiError(409, "RESEARCH_GRAPH_VERSION_CONFLICT", {}));
+  vi.useFakeTimers();
+  await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
+  fireEvent.change(screen.getByDisplayValue("Storage"), { target: { value: "Keep this draft" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "保存草稿" })); });
+  fireEvent.click(screen.getByRole("button", { name: "继续编辑保留的草稿" }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  expect(screen.getByDisplayValue("Keep this draft")).toBeInTheDocument();
+  expect(getResearchRuntime).toHaveBeenCalledTimes(2);
 });
