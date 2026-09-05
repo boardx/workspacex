@@ -67,6 +67,7 @@ import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
+import { record } from "./record-run-step";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -616,41 +617,6 @@ async function meter(
       detail: e instanceof Error ? e.message : "unexpected metering failure",
     });
   }
-}
-
-/** The one place a step becomes durable, so no path can record half of one. */
-async function record(
-  deps: ExecuteAgentRunDeps,
-  orgId: OrgId,
-  input: {
-    runId: string; seq: number; kind: RunStepKind; startedAt: string;
-    inputDigest: string | null; outputDigest: string | null; failureCode: RunFailureCode | null;
-    toolName?: string | null; toolArgsSummary?: string | null; toolResultSummary?: string | null;
-    planningNote?: string | null;
-    /** #742 Gap 1 -- explicit status override for the ONE case `failureCode` can't express:
-     * an `in_progress` `tool_call` row. Every other caller omits this and keeps the old
-     * derivation (`failureCode === null ? "succeeded" : "failed"`). */
-    status?: RunStepStatus;
-    /** #742 Gap 1 -- `tool_call` steps only, see `AppendedRunStep.toolCallId`'s own doc. */
-    toolCallId?: string | null;
-  },
-): Promise<void> {
-  await deps.runs.appendStep(orgId, {
-    runId: input.runId,
-    seq: input.seq,
-    kind: input.kind,
-    status: input.status ?? (input.failureCode === null ? "succeeded" : "failed"),
-    startedAt: input.startedAt,
-    endedAt: deps.clock.now(),
-    inputDigest: input.inputDigest,
-    outputDigest: input.outputDigest,
-    failureCode: input.failureCode,
-    toolName: input.toolName ?? null,
-    toolArgsSummary: input.toolArgsSummary ?? null,
-    toolResultSummary: input.toolResultSummary ?? null,
-    planningNote: input.planningNote ?? null,
-    toolCallId: input.toolCallId ?? null,
-  });
 }
 
 async function executeClaimed(
@@ -1228,6 +1194,9 @@ async function executeClaimed(
         runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
         inputDigest: systemDigest, outputDigest: null, failureCode: null,
         planningNote: `等待人工批准：${completion.interrupted.toolName}`,
+        // Phase 14 F15 -- 模型看到了什么（`system`）。此刻尚未产出完整回复，`outputFullContent`
+        // 留空，与 `outputDigest: null` 同一个事实（无输出可摘）。
+        inputFullContent: system,
       });
       await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
       // Phase 14 F03 -- WS wire uses the NEW enum name (I-5); the OLD `awaiting_approval`
@@ -1258,6 +1227,9 @@ async function executeClaimed(
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
       inputDigest: systemDigest, outputDigest: null, failureCode: code,
+      // Phase 14 F15 -- 调用失败仍然记录"模型看到了什么"（`system`），供审计排障；
+      // 失败调用没有产出文本，`outputFullContent` 留空，同 `outputDigest: null`。
+      inputFullContent: system,
     });
     /*
      * F159：失败的调用**也记一行**。「失败就没有用量」会让计量流水与 `agent_runs` 的
@@ -1274,6 +1246,10 @@ async function executeClaimed(
   await record(deps, orgId, {
     runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
     inputDigest: systemDigest, outputDigest: sha256(text), failureCode: null,
+    // Phase 14 F15 (R3'-3) -- "模型看到了什么、完整说了什么"：`system` 是发给模型的完整
+    // 上下文，`text` 是模型的完整回复原文，两者字段级加密落库（`appendStep`），供
+    // `getRunTranscript` 审计接口回放。
+    inputFullContent: system, outputFullContent: text,
   });
   await meter(deps, orgId, run, {
     total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,
