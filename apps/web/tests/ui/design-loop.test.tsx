@@ -432,7 +432,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
   it("看板：drawer 里点「已生成方案」→ drawer 换成设计条目、目标卡片高亮、回调拿到目标 id；再点「源自反馈」跳回", async () => {
     mockInbox(linkedPair());
     const onOpenLinked = vi.fn();
-    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />);
     fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
     const drawer = screen.getByTestId("inbox-drawer");
     expect(drawer).toHaveTextContent("标题一");
@@ -451,7 +451,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
 
   it("列表：行内点「源自反馈」→ 目标行高亮、drawer 是目标条目（徽标点击不冒泡成打开本行）", async () => {
     mockInbox(linkedPair());
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-view-list"));
     const row = screen.getByTestId("inbox-row-D-1");
@@ -464,7 +464,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
   it("目标不在当前已加载列表里：老实提示，不开 drawer、不回调", async () => {
     mockInbox([feedbackItem({ resolvedByDesignId: "ghost" })]);
     const onOpenLinked = vi.fn();
-    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />);
     const card = await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(within(card).getByTestId("link-generated-B-1"));
     expect(await screen.findByTestId("inbox-link-target-missing")).toBeInTheDocument();
@@ -474,7 +474,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
 
   it("生产落点 DesignLoopInboxAdminScreen：跳转后 URL 带 ?open=<目标 id>", async () => {
     mockInbox(linkedPair());
-    render(<DesignLoopInboxAdminScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxAdminScreen state="default" />);
     const card = await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(within(card).getByTestId("link-generated-B-1"));
     await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
