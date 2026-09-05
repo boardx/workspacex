@@ -72,6 +72,8 @@ export interface ListInboxDeps extends InboxObservabilityDeps {
 
 export interface ListInboxInput extends Pick<ListFeedbackInput, "viewerId" | "viewerOrgRole" | "viewerTeamId"> {
   readonly kind?: z.infer<typeof C.InboxKind>;
+  /** 契约 `excludeKind`：「全部」视图排除系统异常，服务端过滤（分页之前） */
+  readonly excludeKind?: z.infer<typeof C.InboxKind>;
   readonly stage?: z.infer<typeof C.InboxStage>;
   readonly q?: string;
   readonly limit: number;
@@ -103,6 +105,7 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
   ];
 
   if (input.kind !== undefined) all = all.filter((i) => i.item.kind === input.kind);
+  if (input.excludeKind !== undefined) all = all.filter((i) => i.item.kind !== input.excludeKind);
   if (input.stage !== undefined) all = all.filter((i) => i.item.stage === input.stage);
   if (input.q !== undefined && input.q.trim() !== "") {
     const q = input.q.trim().toLowerCase();
@@ -130,6 +133,7 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
     hasNextCursor: nextCursor !== null,
     cursorPresent: input.cursor !== undefined,
     kind: input.kind ?? null,
+    excludeKind: input.excludeKind ?? null,
     stage: input.stage ?? null,
     qPresent: input.q !== undefined && input.q.trim() !== "",
     limit: input.limit,

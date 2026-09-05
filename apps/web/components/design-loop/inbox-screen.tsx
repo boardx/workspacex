@@ -153,13 +153,16 @@ export function DesignLoopInboxScreen({
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
   /**
-   * issue #2752 ①——系统自动生成的 `exception` 数量可能特别多，「全部」默认视图不该
-   * 被它淹没。`kindFilter === "all"` 时本地滤掉 `kind === "exception"`（不影响服务端
-   * 请求：仍然一次拉全量,只是显示层收窄），入口不消失——点「系统异常」chip 单独筛选，
-   * 或打开这个开关，两者都还能看见。`kindFilter !== "all"`（含显式选中「系统异常」）
-   * 不受这个开关影响,用户已经明确要看某一类。
+   * issue #2752 ① + 2026-09-05 人类指令——三类的关系：**反馈 = 需求 + 缺陷**（用户提交），
+   * **系统异常**是系统自动提交的，**「全部」= 反馈 + 设计方案，不含系统异常**。
+   * 默认视图要把所有需求 / 缺陷都显示出来，所以「全部」时把 `excludeKind: "exception"`
+   * 传给**服务端**（契约 `listInbox.in.excludeKind`），不是拿一页回来再本地滤——分页后
+   * 本地滤只会把 50 条里的 49 条异常丢掉、只剩 1 条反馈（截图实证）。入口不消失——点
+   * 「系统异常」chip 单独筛选，或打开这个开关把异常并进「全部」。`kindFilter !== "all"`
+   * （含显式选中「系统异常」）不受这个开关影响,用户已经明确要看某一类。
    */
   const [showExceptionsInAll, setShowExceptionsInAll] = React.useState(false);
+  const hidingExceptions = kindFilter === "all" && !showExceptionsInAll;
   const [stageFilter, setStageFilter] = React.useState<StageFilter>("all");
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
@@ -197,6 +200,7 @@ export function DesignLoopInboxScreen({
     try {
       const out = await listInbox({
         kind: kindFilter === "all" ? undefined : kindFilter,
+        excludeKind: hidingExceptions ? "exception" : undefined,
         q: query === "" ? undefined : query,
         limit: PAGE_LIMIT,
       });
@@ -204,7 +208,7 @@ export function DesignLoopInboxScreen({
     } catch (err) {
       setLoad({ kind: "failed", reason: describeFailure(err) });
     }
-  }, [kindFilter, query]);
+  }, [kindFilter, hidingExceptions, query]);
 
   const reloadCounts = React.useCallback(async () => {
     try {
@@ -230,6 +234,7 @@ export function DesignLoopInboxScreen({
     try {
       const out = await listInbox({
         kind: kindFilter === "all" ? undefined : kindFilter,
+        excludeKind: hidingExceptions ? "exception" : undefined,
         q: query === "" ? undefined : query,
         limit: PAGE_LIMIT,
         cursor: load.nextCursor,
@@ -249,8 +254,12 @@ export function DesignLoopInboxScreen({
   const items = load.kind === "ready" ? load.items : [];
   const sources = load.kind === "ready" ? load.sources : null;
   const exceptionWithheld = sources?.exception === "withheld" || counts?.sources.exception === "withheld";
-  const hidingExceptions = kindFilter === "all" && !showExceptionsInAll;
+  // 服务端已按 `excludeKind` 排除，这里再滤一次只是兜底（旧后端 / mock 不认该参数时不漏）。
   const visibleItems = hidingExceptions ? items.filter((i) => i.kind !== "exception") : items;
+  /** 「全部」= 反馈 + 设计方案；隐藏系统异常时徽标数也不含异常，否则 167 vs 1 张卡对不上。 */
+  const allCount = counts === null ? null : hidingExceptions ? counts.total - counts.byKind.exception : counts.total;
+  /** 列表为空但后端有系统异常 ⇒ 是「被默认隐藏」，不是「收件箱是空的」。 */
+  const onlyExceptionsHidden = hidingExceptions && query === "" && (counts?.byKind.exception ?? 0) > 0;
 
   const filtered = visibleItems.filter(
     (i) => stageFilter === "all" || i.stage === stageFilter,
@@ -483,7 +492,7 @@ export function DesignLoopInboxScreen({
         <div className="flex flex-wrap items-center gap-1" role="group" aria-label="类型筛选">
           {KIND_FILTERS.map((f) => {
             const disabled = f === "exception" && exceptionWithheld === true;
-            const count = counts === null ? null : f === "all" ? counts.total : counts.byKind[f];
+            const count = f === "all" ? allCount : counts === null ? null : counts.byKind[f];
             return (
               <span key={f} className="relative inline-flex" title={disabled ? "仅平台运维可见" : undefined}>
                 <button
@@ -545,11 +554,11 @@ export function DesignLoopInboxScreen({
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {items.length === 0 && !onlyExceptionsHidden ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty">
           <p className="text-14 font-medium">收件箱是空的</p>
           <p className="text-12 text-muted-foreground">
-            {kindFilter !== "all" || query !== "" ? "没有符合当前筛选的条目。" : "用户提交反馈、系统告警或推送设计方案后，都会汇总到这里。"}
+            {kindFilter !== "all" || query !== "" ? "没有符合当前筛选的条目。" : "用户提交需求 / 缺陷反馈或推送设计方案后，都会汇总到这里；系统异常单独查看。"}
           </p>
         </div>
       ) : visibleItems.length === 0 ? (

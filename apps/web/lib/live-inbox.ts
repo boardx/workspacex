@@ -34,7 +34,7 @@ export const INBOX_STAGE_LABEL: Record<InboxStage, string> = {
 /** kind → 显示名，含全部/系统异常/设计方案闭集，供筛选 Chip 用。 */
 export const INBOX_KIND_OPTIONS = inbox.InboxKind.options;
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
-  feedback: "反馈",
+  feedback: "反馈（需求 / 缺陷）",
   exception: "系统异常",
   design: "设计方案",
 };
@@ -43,6 +43,7 @@ export { stageOf, INBOX_EXCEPTION_SEVERE_COUNT_THRESHOLD } from "@repo/contracts
 
 export async function listInbox(input?: {
   readonly kind?: InboxKind;
+  readonly excludeKind?: InboxKind;
   readonly stage?: InboxStage;
   readonly q?: string;
   readonly limit?: number;
@@ -51,6 +52,7 @@ export async function listInbox(input?: {
   return apiRequest<ListInboxOut>(inbox.operations.listInbox.path, {
     query: {
       kind: input?.kind,
+      excludeKind: input?.excludeKind,
       stage: input?.stage,
       q: input?.q !== undefined && input.q.trim() !== "" ? input.q.trim() : undefined,
       limit: input?.limit !== undefined ? String(input.limit) : undefined,
