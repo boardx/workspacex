@@ -27,6 +27,7 @@ import {
   FollowUpSuggestions,
   type LocalSuggestionChip,
 } from "@/components/chat/copilotkit-v2-assistant-message";
+import { V2UserMessage } from "@/components/chat/copilotkit-v2-user-message";
 import {
   CopilotKitV2MessageActionsProvider,
   type AssistantMessageLandingValue,
@@ -1699,7 +1700,12 @@ export function CopilotKitV2PanelBody({
 
                     issue #2052（CK-P7）—— 「落地为产物」是同一个操作条上的第四件，
                     经同一份 context 下发（`landing`），不另包一层 provider / 不另换一次
-                    slot：两层包装会渲染出两个气泡外壳。 */}
+                    slot：两层包装会渲染出两个气泡外壳。
+
+                    issue #2787 —— `userMessage` 同理换成 `V2UserMessage`（内部仍渲染
+                    框架的 `CopilotChatUserMessage`，只换 `messageRenderer` 子 slot）：
+                    此前一直是框架默认实现，正文字号依赖已被清空的框架自带 CSS，回落
+                    到浏览器默认字号，见 `copilotkit-v2-user-message.tsx` 文件头注。 */}
                 <CopilotKitV2MessageActionsProvider value={messageActionsContextValue}>
                   {/* issue #2070 —— threadId 读的是 `chatThreadIdRef.current`（真实
                       `chat_threads.id`，见 DA-19a 一节；ref 而非 state，读的是渲染那
@@ -1714,6 +1720,7 @@ export function CopilotKitV2PanelBody({
                         messages={agent.messages}
                         isRunning={agent.isRunning}
                         assistantMessage={V2AssistantMessage}
+                        userMessage={V2UserMessage}
                       />
                     </ProducedFilesCtx.Provider>
                   </ArtifactLandingCtx.Provider>
