@@ -36,8 +36,10 @@
 
 ## 4. 可见性：两道门，分别归属两个束
 
-1. **整条收件箱**：`canTriage(viewerOrgRole)`（组织分诊角色），否则 `PERMISSION_REVOKED`——
-   同 `FeedbackController.counts` 的纪律。
+1. **整条收件箱**：**本组织任何成员**可读；只对「不是本组织成员」`PERMISSION_REVOKED`
+   （D8 ③，2026-09-05 人类裁决——B3.2 曾收紧到 `canTriage`，B3.6 替换旧屏后那道门把已签核的
+   D3「标题+票数全组织可见」收回去了，非管理员提交后被导到 403）。分诊/投票/深化各自的
+   契约操作各自判权限（`triageFeedback` 仍 `canTriage`），本束不替它们放行。
 2. **系统异常那一半**：请求者必须是平台超管（`isRequestorPlatformOperator`）。不是超管
    ⇒ **不报错，只是不含**：`sources.exception: "withheld"`，`byKind.exception = 0`。
    `withheld` = 那一半根本没被查询，不是查了为空。
@@ -75,7 +77,7 @@
 
 ## 8. 跨束交叉点（给阶段一致性复核用）
 
-- **`feedback-loop`**：D2 = 替换旧三 tab 屏，B3.6 未做前两屏并存；`triageFeedback` 的
+- **`feedback-loop`**：D2 = 替换旧三 tab 屏，B3.6（#2714）已退役旧屏并 301，该束需重签；`triageFeedback` 的
   `issueDraft` 编辑器被本束复用；D3 门控原样透传。
 - **`system-error-logs`（phase-14 `error-observability`）**：B3.3 给它加了状态事件表；
   本束不为系统异常发明「已修复」。

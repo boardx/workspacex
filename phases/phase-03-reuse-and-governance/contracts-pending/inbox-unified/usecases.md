@@ -4,9 +4,9 @@
 > 规范来源：R4.3 + `uc-17-8-go-live-backlog.md` §B3 + `packages/contracts/src/inbox.ts` 文件头。
 > 验收线索编号用 `V`（同本仓其余束），`coverage.md` 以它们为行键。
 
-## UC-B3-1 · 分诊角色打开收件箱（看板 / 列表）
+## UC-B3-1 · 组织成员打开收件箱（看板 / 列表）
 
-**主角**：本组织的分诊角色成员（`canTriage`）。
+**主角**：本组织任何成员（D8 ③：读路径对全组织放开；分诊动作仍由 `triageFeedback` 的 `canTriage` 把守）。
 
 1. 进 `/platform-admin/inbox`，默认看板视图，四列 = `InboxStage` 顺序（待处理 → 进行中 →
    已完成 → 不做）。
@@ -15,7 +15,7 @@
 3. 列表视图同一份数据、同一套过滤，多「数量/时间」列。
 4. 滚到底「加载更多」用服务端 `nextCursor`。
 
-**V1**：非分诊角色 / 非本组织成员 ⇒ `PERMISSION_REVOKED`，屏显示无权限态。
+**V1**：非本组织成员 ⇒ `PERMISSION_REVOKED`，屏显示无权限态；本组织非管理员能看标题+票数、看不到别人的正文（D3 逐行判，`body: null`）。
 **V2**：排序 `createdAt` 倒序、同刻按 `kind` + `id`；`cursor` 翻页不重复不遗漏。
 **V3**：`q` 只搜标题与编号，不搜正文。
 

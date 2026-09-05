@@ -17,7 +17,7 @@
 
 | V | 一句话 | API 操作 | 前端消费点 | 状态 |
 |---|---|---|---|---|
-| V1 | 非分诊角色 ⇒ `PERMISSION_REVOKED` | `listInbox` / `getInboxCounts` `err` | `denied` | ✅ `list-inbox.test.ts` 权限 ×2 |
+| V1 | 非本组织成员 ⇒ `PERMISSION_REVOKED`；成员可读、正文按 D3 | `listInbox` / `getInboxCounts` `err`；`InboxItem.body` nullable | `denied` / `inbox-drawer-body-withheld` | ✅ `list-inbox.test.ts` 权限 + B3.6 e2e「D3 反证」 |
 | V2 | 倒序归并 + keyset cursor 不重不漏 | `listInbox.in.cursor` / `out.nextCursor` | `inbox-load-more` | ✅ `list-inbox.test.ts` 分页 |
 | V3 | `q` 只搜标题与编号 | `listInbox.in.q` | `inbox-search` | ✅ `list-inbox.test.ts` 过滤 ×2 |
 | V4 | 条数一次给全、不受过滤影响 | `getInboxCounts` | `inbox-column-count-{stage}` / `inbox-kind-{kind}` | ✅ `get-inbox-counts.test.ts` |

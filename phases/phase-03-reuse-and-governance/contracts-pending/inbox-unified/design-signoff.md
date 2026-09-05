@@ -61,9 +61,12 @@ R4.3 写的是原型（GitHub 随机编号、`severe` 由标签派生），契�
 
 ## 签核前请人类确认的三件（契约/backlog 里已标「待确认」或「取舍」，不是新提案）
 
-1. **D2 = 替换**已裁（2026-09-04），但 B3.6（旧 `/platform-admin/feedback` 退役 + 301 +
-   `feedback-loop` 束重签）**尚未做**，两屏目前并存——同一状态机两处投影。签本束是否以
-   B3.6 完成为前提？
+1. **D2 = 替换**已裁（2026-09-04），B3.6（旧 `/platform-admin/feedback` 退役 + 301 到
+   `/platform-admin/inbox`，`feedback-loop` 束 `ui.md`/`coverage.md` 随之改写）已于 2026-09-05
+   合入 main（PR #2714）——`feedback-loop` 束按 ADR-023 需要**重签**，与本束签核是同一批材料。
+   另：**D8 ③（2026-09-05 人类原话「A」）**——收件箱读路径放宽到本组织任何成员，`canTriage`
+   只守分诊动作；契约 `inbox.ts` 头注「谁能打开收件箱」已改，本束材料按此写。请确认这两处
+   一起签。
 2. **`severe` 口径**：需求原文「次数阈值**或** level=error」；`error_logs` 没有 `level` 列，
    契约只取次数（`INBOX_EXCEPTION_SEVERE_COUNT_THRESHOLD = 10`），反馈恒 `false`（反馈今天
    没有标签）。是否接受。
