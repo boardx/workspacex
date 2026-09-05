@@ -128,6 +128,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - 编码规范 → `.harness/instructions/coding-standards.md`
 - UIUX 规范 → `.harness/instructions/uiux-standards.md`
 - 端到端验证标准 → `.harness/instructions/testing-standards.md`
+- **真实模型 e2e（86 个 spec 全跑在回环模型上，真实模型链路的那一条另加 lane）** → `.harness/instructions/real-model-e2e.md`（issue #2802；devapp 手动触发 `real-model-chat-evidence` workflow，本地 `pnpm run e2e:real-model-smoke`）
 - **开发模式（预设账号/角色，agent 跳过登录直接测）** → `.harness/instructions/dev-mode-testing.md`
 - **静态痕迹 ≠ 动态事实（一天栽四次的复盘 + 该读什么信号）** → `.harness/instructions/static-trace-vs-live-fact.md`
 - **统一衡量标准 CLR（"还差多少到 10 分"的唯一答案 + 所有 agent 的取活口）** → `.harness/instructions/core-loop-readiness-standard.md`（issue #814；`pnpm harness readiness`）

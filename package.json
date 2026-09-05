@@ -29,6 +29,8 @@
     "verify:chat-task-workbench:raw": "pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-task-workbench",
     "verify:self-service-profile": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:self-service-profile:raw",
     "verify:self-service-profile:raw": "pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts",
+    "e2e:real-model-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash scripts/real-model-smoke.sh",
+    "e2e:real-model-smoke:raw": "pnpm --filter web exec playwright test --config playwright.real-model-smoke.config.ts --project=real-model-pdf",
     "shots:chat-main": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-main:raw",
     "shots:chat-behavior": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:chat-behavior:raw",
     "shots:chat-behavior:raw": "pnpm --filter web exec playwright test --config playwright.chat-behavior.config.ts",

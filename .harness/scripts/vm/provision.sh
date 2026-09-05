@@ -271,6 +271,19 @@ ${PUBLIC_DOMAIN} {
 	handle /recording/realtime-asr/sessions/*/captures/*/stream {
 		reverse_proxy 127.0.0.1:${APP_API_PORT}
 	}
+	# issue #2795 —— 同一类事故的第四条面：Phase 14 F03/F04 加的
+	# WS /agent-runs/:runId/events（`agent-run-events.gateway.ts`，
+	# `streaming-transport.ts` 的 `operations.subscribeRunEvents`，
+	# `apps/web/lib/agent-kernel-stream.ts` 用它订阅在途 run 的实时状态/插话入口）
+	# 上线时没有把这条路由补进本文件——devapp 真实浏览器复现：Console 里
+	# "WebSocket connection to '<URL>' failed: WebSocket is closed before the
+	# connection is established"，与上面三条 2026-08-08/2026-08-14 事故的诊断
+	# 签名逐字一致，根因同一个模式：这条面同样不走 /api 前缀
+	# （apiWebSocketUrl() 直连 API 源），落进下面兜底 handle 打到 Next.js，
+	# Upgrade 请求在那断了。补齐这一条，不能指望 /api/* 或兜底 handle 顺带盖住。
+	handle /agent-runs/*/events {
+		reverse_proxy 127.0.0.1:${APP_API_PORT}
+	}
 	# 门控自检面绝不能从公网可达——deploy.sh 自己的冒烟会验这一条（反向断言：
 	# 它绿代表暴露了不该暴露的东西）。这里在 Caddy 层再挡一次，双重防线。
 	handle /kernel/probe/* {
