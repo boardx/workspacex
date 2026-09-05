@@ -267,6 +267,40 @@
   feature 的 verify；`agui-bridge.ts` 轮询切换与 Wave2 HITL 全链路统一到新枚举，
   适合作为独立后续 feature（不与 F04 合并，范围已经很大）。
 
+## 2026-09-05 — F11（中途插话后端接口 + 内核插话处理，owner sonnet5-2720）
+- F06（依赖）已合入 main，F11 开工。实现完成：`POST /agent-runs/:runId/interject`
+  端点（`interject-run.ts` + `agent-run.controller.ts`）、插话暂存端口
+  （`interjection-store.ts`，domain.md"非持久聚合根"，进程内单例）、内核侧消费
+  （`interjection-handling.ts`：`classifyInterjection` 启发式 + `checkPendingInterjection`
+  两个检查点——`execute-run.ts` 的 `onProgress` 回调、`tool-permission-gate.ts` 的
+  `handleInterruptedToolCall`）、E3（`ToolPermissionGrantStore.revokeAllForRun`，
+  方向性改变整体撤销本 run 内授权）。`execute-run.ts` 自身只新增 8 行（遵守
+  `execute-run-thin-gateway.test.ts` 的行数上限——改动后 1374 行，同一条 gotcha
+  已知约束）。
+- 当前 blocker（与 F01/F03/F04/F05/F06/F10/F13 同一大类环境限制）: 本会话沙箱没有
+  可用 Docker daemon，`apps/api` vitest 全局 setup 无条件要求真 Postgres 才能起
+  test runner——即便新测试 `tests/agent-run/interjection-handling.test.ts` 全是
+  纯内存 fake，也过不了这道 global setup。`pnpm harness verify --phase 14
+  --feature F11` 因此报同一条已知失败模式，不是断言失败。
+- 独立验证（弥补无法直接跑 vitest 的缺口，细节见 `evidence/F11.verify.log`）：
+  `tsc --noEmit` 全绿（除 `fabric-markdown` 既有 baseline 噪音）；`lint-arch-deps`/
+  `lint-error-leak`/`lint-naming-single-source`/`lint-permission-paths`/
+  `lint-no-builtin-capabilities`/`lint-skill-context-api-only`/
+  `lint-body-path-param-leak`/`lint-contract-source` 全绿；`execute-run-thin-
+  gateway.test.ts` 的三条静态断言用等价 node 脚本手动复核全过；一份独立 `tsx`
+  脚本（`evidence/F11.manual-check.ts`，未纳入 `apps/api/tests/`）用与
+  `interjection-handling.test.ts` 逐字相同的纯内存 fake 跑通全部 13 项断言
+  （`evidence/F11.manual-check.output.log`：`ALL OK`）。
+- 已记录证据: `evidence/F11.verify.log`、`evidence/F11.docker-blocker.log`、
+  `evidence/F11.manual-check.ts`、`evidence/F11.manual-check.output.log`。
+- 已知风险或未解决问题: F11 尚未 `passing`——需要一个 Docker/Postgres 真正可用的
+  环境重跑 `pnpm harness verify --phase 14 --feature F11`，与 F01/F03/F04/F05/F06/
+  F10/F13 排在同一条"下一步"上。跨语言真正回灌插话文本进远端 LangGraph 图的通道
+  （`kernel-gateway` 束 `proxyToolExecution` 职责）不在本 feature 范围内，见
+  `evidence/F11.verify.log`"已知的、有意保留的范围边界"一节。
+- 下一步最佳动作: 在 Docker 可用的环境一次性重跑 F01/F03/F04/F05/F06/F10/F11/F13
+  的 verify。
+
 ## 2026-09-05 F02（deep-agent-service 能力开关默认开启并移除开关本身，issue #2709）
 - 实现完成，issue 指定的验证命令真实跑绿：
   `pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts`

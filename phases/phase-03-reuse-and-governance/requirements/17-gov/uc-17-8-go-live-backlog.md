@@ -16,7 +16,7 @@
 | D5 | `DesignLoopProvider` 上提到 AppShell（让「存草稿 / 去工作台」出现在真实入口） | 生产壳层 | 上提，但原型 store 在真栈化时被 API client 取代 |
 | D6 | 系统异常是否恢复「仅平台运维可见」（PDF §9） | 权限模型 | 本轮不做，收件箱按组织管理员视角 |
 | D7 | AI 对话（草稿细化 / 设计对话）接 deep-agent-service 还是先固定回执上线 | 范围与估点 | 先固定回执上线（B2/B4 里的 AI 项后置成独立束） |
-| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | 待人类裁决，见下 |
+| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | **已裁决（2026-09-05，方案 ③）**：收件箱读路径对本组织任何成员放开，正文仍按 D3；B3.6 落地 |
 
 **D8 详情（2026-09-04，E2E 落地时发现，两处合并成一条）**：`canTriage`（`apps/api/src/domain/feedback/product-feedback.ts`）
 把收件箱访问收紧到 `orgRole === "admin"`；但（a）B3.5 起草时发现 `FeedbackDialog` 若无条件在直接提交后跳
@@ -28,6 +28,14 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
 使非管理员至少能看到自己提交的那一条（但收件箱是全组织视图，放宽会改变 D2 的可见性口径，牵连更大）。
 `feedback-drafts-smoke.spec.ts` 现按方案「如实断言现状」写（非管理员看到拒绝访问，管理员另起一条用例验证
 数据确实落库），不预判裁决结果。
+
+**D8 裁决落地（2026-09-05，人类原话「A」= 放宽读路径）**：B3.6 的 e2e「D3 反证：非管理员看得到标题看不到别人的正文」
+在 CI 稳定红——旧三 tab 屏下线后，非管理员连收件箱都打不开，等于把已签核的 D3「标题+票数全组织可见」收回去了。
+人类在三个方案里选 ③：`listInbox`/`getInboxCounts` 只挡「不是本组织成员」，正文/结构化字段仍逐行走 D3，
+系统异常那一半仍只对平台超管，分诊/投票/深化各自的契约操作各自判权限（`canTriage` 本身不动）。单源在契约
+`packages/contracts/src/inbox.ts` 头注「谁能打开收件箱」。方案 ①/② 的"导航要不要按角色分流"随之不再需要——
+非管理员被导到收件箱现在看到的是自己那条的 drawer；`inbox-smoke.spec.ts` 用例① 的 `fixme` 是另一条冲突
+（R4.1 自动跳转 vs 已签核 UC-F1「弹层切到我提过的」），不在本裁决范围。
 
 ### 0.1 Agent 推演立场（2026-09-04，人类要求"推演一个合适的答案"）
 
@@ -86,8 +94,24 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   「创建 GitHub Issue」接回真实编辑器（抄 `admin/feedback-screen.tsx` 的
   `defaultIssueDraft`），仅 `stage===backlog` 时可用——`doing→doing` 是幂等 replay
   不会真的建 issue，故未对 `doing` 开放该按钮（避免假成功）。8 条单测。
-- 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
-  `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
+- ✅ B3.6（旧屏退役）2026-09-04 落地（人类会话原话「同意，B3.6 直接做」授权开工，
+  由 agent 代转录）：删除 `components/admin/feedback-screen.tsx` 及其 3 张签核截图
+  （`fb-admin-two-columns-{light,dark}.png` / `fb-admin-decline-reason-light.png`）；
+  `/platform-admin/feedback`（`app/platform-admin/[module]/page.tsx` 的 `REDIRECTS`）
+  与 `/admin/feedback`（`app/admin/[module]/page.tsx`，改直接指向新落点，不经两跳）
+  均 301 到 `/platform-admin/inbox`；`AdminModuleKey`/`ADMIN_NAV`/`PLATFORM_ADMIN_ROUTES`
+  的 `feedback` 项一并移除（不留一个只会 404 或被重定向吞掉的死键）；删除
+  `tests/ui/admin-feedback-live.test.tsx`、`admin-feedback-transitions-match-domain.test.ts`
+  （两者只测旧屏，其转移交接/状态迁移的行为已由 `tests/ui/design-loop.test.tsx` 覆盖新屏）；
+  `tests/ui/admin-scope-split.test.tsx`/`ops-status-screen.test.tsx` 的 `feedback` 键引用改指
+  同组仍存在的 `ops-status`；`e2e/feedback-loop-smoke.spec.ts` 的两条后台处置用例改打
+  `/platform-admin/inbox`（`inbox-*` 系列 testid），提交侧 ①②③④四条用例不变；
+  `feedback-loop` 束 `ui.md`（引用截图 9→6 张）/`coverage.md`（V7/V10/V11 前端消费点改指
+  `inbox-*`，V8/V9 投票入口未随新屏保留，如实降级为 ⚠ 已知限制而非隐藏）已更新；
+  `scripts/shot-feedback-loop.mjs` 不再拍「后台两列屏」这三张图；`design-signoff.md`
+  新增「B3.6 重开」一节，`status` 字段本身**未改**（ADR-023：agent 不许碰，留给人类
+  确认新的 UI 材料后再决定是否需要重签）。
+  待做：B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
 ### 0.3 Sprint 3 落地记录
 
@@ -160,6 +184,21 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `drafts-*`/`inbox-*` 混目录——那些属于另外的契约束）；`ui-material-map.json` 补
   `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
   PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
+- ✅ B4.7（E2E：新建 → 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」）2026-09-04
+  落地：新增 `apps/web/e2e/design-workbench-smoke.spec.ts`，两条串行用例，都用
+  `FULLSTACK_E2E.adminEmail`（收件箱/深化按钮要求 `canTriage`，同 `inbox-smoke.spec.ts`
+  纪律）。①工作台自己的「新建设计」弹层（backlog 原文点名的主入口）：新建 → 详情页
+  （画布/说明两个 tab + 对话面板都渲染）→ 推送 → 确认真实 `POST .../pm-designs/:id/push`
+  返回 200/201 且带真实 `D-\d+` 编号 → 收件箱里出现同名 `kind=design` 卡片。②从反馈
+  「用 PM 设计工作台深化」（`inbox-screen.tsx`，B4.4/B4.5 真栈）→ 同样的详情/推送/收件箱
+  三段 → 额外断言「原反馈标已生成」：原反馈卡片上出现 `link-generated-<code>`「已生成
+  方案」标（`CardMeta`，`item.resolvedByDesignId !== null`），drawer 里「查看方案」
+  （`inbox-action-open-design`）可见，刷新页面后标记仍在——证明双向关联是服务端
+  持久化的，不是本地乐观值。反馈种子直连 API 建（`page.request.post`，同
+  `inbox-smoke.spec.ts` 的 `seedFeedback` 头注，不重复驱动已测过的提交弹层 UI）。
+  已加入 `playwright.fullstack-smoke.config.ts` 的 `seeded` project `testMatch`。
+  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。B4.6（取材页/截图）另行并行推进，不在
+  本条范围。
 
 ### 0.4 Sprint 4 落地记录
 
@@ -184,6 +223,47 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `scripts/lib/design-loop-fixtures.mjs` 与截图脚本共用（单一事实源），spec 挂进
   `playwright.fullstack-smoke.config.ts` 无依赖 project `design-loop-responsive`（同
   `axe-keyboard-focus`）。修前 375 下「继续完善」浮层与详情页两处红，修后 30/30 绿。
+- ✅ B3.7（关联标可点击跳转并高亮）2026-09-05 落地：`badges.tsx` 的 `LinkBadge` 给了
+  `onClick` 就渲染成真按钮（焦点环、`stopPropagation` 不冒泡成「打开本卡片」），没给仍是
+  只读标（取材页）。`inbox-screen.tsx` 新增 `navigateToLinked`：「已生成方案」目标 =
+  `resolvedByDesignId`（= 设计条目 `id`），「源自反馈」目标 = `linkedFeedbackId`（= 反馈条目
+  `id`），两端都在同一屏，所以是**屏内换 drawer**（`setOpenId` + drawer 按 `key={id}` 重挂）
+  + 目标卡片/行短暂 `data-highlighted="true"`（`ring-primary` token，1.8s 自清，看板/列表
+  两种视图都认），不换路由、不新增契约操作。目标被客户端 `stage` 子筛选挡住时放宽到
+  「全部」（纯本地过滤）；目标不在已加载 `items` 里（服务端 `kind`/`q` 筛掉或还在下一页）
+  时**老实提示** `inbox-link-target-missing`，不静默、不偷偷改服务端筛选。URL：屏本身不碰
+  路由，新增 `onOpenLinked` 回调，生产落点 `design-loop-screens.tsx` 用
+  `history.replaceState` 写 `?open=<id>`（Next 14.1+ 与 `useSearchParams` 同步，不走
+  `router.replace` 的 RSC 往返、不重置滚动）。4 条新增单测（`design-loop.test.tsx` ⑪：
+  看板往返跳转 + 高亮 + 回调、列表行不冒泡、目标缺失提示、生产落点 URL），
+  反证：去掉 `stopPropagation` 后 3 条转红。E2E：#2726 合入后在
+  `design-workbench-smoke.spec.ts` ② 末尾补了「反馈 drawer 里点『已生成方案』→ drawer
+  换成设计条目（按 `inbox-card-<D-code>` 找）+ 目标卡片 `data-highlighted` + URL `?open=<projectId>`」，
+  在 CI `fullstack-smoke` 跑真栈。PR：`worker/claude-uc17-8-b3-7-clickable-relation-badges`。
+
+### 0.4 Sprint 4 落地记录
+
+- ✅ B6.3（通知：收件箱状态变化沿用 `status_event_notification`；新增「反馈已生成设计方案」
+  事件类型）2026-09-05 落地。**核实结果**：收件箱看板拖拽走的 `PUT /feedback/:id/status`
+  （`triageFeedback`）**已经**在每次真实状态迁移后 best-effort 给提交人发「状态已更新」邮件并
+  回填事件行 `notified`/`email_subject`/`email_text`，"沿用"这半句不需要新代码；系统异常
+  那一半（`updateSystemErrorLifecycle`）只写 `system_error_status_events` 流水、**没有**任何
+  邮件通知——系统异常没有"提交人"这个角色，记为已知缺口、不在本条扩范围。**新事件**：
+  `product_feedback_status_events` 装不下"已生成 D-X"（列 CHECK 四态、契约 `FeedbackStatus`
+  闭集，B4.3 头注已解释），所以"事件类型"落在**通知层**：新文件
+  `application/feedback/feedback-notification-templates.ts` 单源声明
+  `FEEDBACK_NOTIFICATION_KINDS = ["status_changed", "design_generated"]` 与两个模板，
+  `triage-feedback.ts` 的私有 `statusChangeEmail` 搬进去（subject/text 逐字不变），
+  `push-to-inbox.ts` 在仓储回报 `resolvedFeedback !== null` 时给来源反馈提交人发
+  「你的反馈《…》已生成设计方案 D-n」。**去重口径**：仓储 `UPDATE product_feedback` 谓词加
+  `resolved_by_design_id IS DISTINCT FROM $3`、RETURNING `submitted_by`/`title`——外键首次指向本
+  项目才非空，重复推送（upsert 刷新 `pushed_at`/`push_note`）回 `null` ⇒ 不发第二封；不另建
+  "已通知"表（同一事实不声明两处）。邮件失败/提交人无邮箱 = best-effort，只记日志
+  （`traceId: design-push-notify`），推送事务已提交、不受影响，同 `notifySubmitter` 纪律。
+  `DesignProjectDeps` 新增可选 `mail`/`logger`（controller 注入，缺任一即不发）；契约
+  `pushToInbox.out` 与 `feedback-loop.ts` 状态枚举均未动，不改 web。单测：
+  `tests/design-workbench/project-lifecycle.test.ts` 新增 6 例（首次推送通知一次且收件人/编号
+  正确、无 linked 不发、重复推送不重复发、无邮箱记 info、发送失败记 error 不抛、未注入不发）。
 - ✅ B6.1（删除原型 `lib/design-loop-store.tsx` 与取材页 localStorage seed）2026-09-05 落地：
   B1.4/B3.4/B4.5 之后三屏全部真栈，store 里剩下的 `projects`/`pushProject`/`deepenFeedback`
   等方法已无生产调用方——整个文件删除（`grep -rn design-loop-store apps/web` 归零，仅剩
@@ -275,7 +355,7 @@ design-workbench       PM 设计工作台：Project 实体 + 推送 → 收件�
 | B6.3 | 通知：收件箱状态变化沿用现有 `status_event_notification`（邮件）；新增「反馈已生成设计方案」事件类型 | 1 | B4.3 |
 | B6.4 | 可观测性：收件箱聚合查询与推送事务的日志/指标（`observability.md`）；`doctor` 对新束的 passing 证据链 | 1 | B3.2 |
 | B6.5 | 无障碍与响应式复核：看板拖拽的键盘替代（用操作按钮兜底已在原型）、375/768/1280 三档不横向溢出（U8） | 1 | B3.4 |
-| B6.6 | 数据保留：草稿 30 天未动自动清理（与 UC-17.3 数据保留对齐，需人类确认期限） | 1 | B1.2 |
+| B6.6 | ~~数据保留：草稿 30 天未动自动清理~~ **不做（2026-09-05 人类裁决：「b6.6 不需要自动清理」）**——草稿是提交人私有资源，保留到本人删除或提交为止；若将来 UC-17.3 数据保留策略要求统一期限，再作为新条目重开 | — | — |
 
 ## 3. 估点汇总与建议顺序
 

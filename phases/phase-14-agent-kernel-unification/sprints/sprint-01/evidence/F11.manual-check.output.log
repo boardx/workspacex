@@ -1,0 +1,15 @@
+ok: adjustment classification
+ok: direction_change classification
+ok: no interjection step recorded while a tool call is still in_progress
+ok: exactly one interjection step recorded
+ok: interjection step sits strictly between the two tool_call steps
+ok: no interjection side effects when port not configured
+ok: direction_change forces awaiting_tool_permission
+ok: direction_change: no auto-approve
+ok: run-scoped grant revoked
+ok: interjection consumed before the authorization check
+ok: adjustment: still auto-approved
+ok: adjustment: no awaiting_tool_permission
+ok: adjustment: grant untouched
+
+ALL OK

@@ -640,6 +640,10 @@ to_unforced_retry_not_run_failure_{sync,async}`）用的消息文本恰好同时
    适合拆成一个独立的后续 feature，不与 F04 合并——范围已经很大，且需要人类先
    对 `domain.md`"待人类在签核时确认"一节的新旧并存窗口期拍板。
 4. F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）、F15（完整可
+   审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01。
+5. F06 已合入 main，F11（中途插话后端接口 + 内核插话处理）已实现完成，同一条
+   Docker 环境 blocker 未能本会话跑通 verify，见 `progress.md` 2026-09-05 记录与
+   `evidence/F11.verify.log`。
    审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）本轮已
    实现且指定验证命令跑绿，见上"本轮改动（F02）"——`DEEP_AGENT_CHECKPOINT_DB` 那
    一项留了记录在案的例外，需要真实 Postgres 基础设施 + 部署验证环境的后续会话

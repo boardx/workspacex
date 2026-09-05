@@ -32,12 +32,16 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  *   `feedback` 与 `platform` **不再在这里落地**——它们管的是整个平台而不是当前组织，
  *   已迁到平台后台 `/platform-admin/*`（见 `app/platform-admin/[module]/page.tsx`）。
  *   旧路由同样保留重定向，不留死链。
+ * ⚠ 2026-09-04（B3.6，旧屏退役）：`feedback` 的重定向目标从 `/platform-admin/feedback`
+ *   改成 `/platform-admin/inbox`——旧的「反馈与迭代」后台两列屏（`feedback-screen.tsx`）
+ *   已删除，`/platform-admin/feedback` 本身也变成一条重定向（见该 page.tsx），这里直接
+ *   指向最终落点，不经过两跳重定向。
  */
 const REDIRECTS: Partial<Record<string, string>> = {
   blueprint: "/tpl/list",
   skill: "/skill?screen=catalog",
   canvasadmin: "/canvas/template-admin",
-  feedback: "/platform-admin/feedback",
+  feedback: "/platform-admin/inbox",
   platform: "/platform-admin/members",
   // 2026-09-02 第二次裁决：AI 能力归平台后台（`lib/mock/admin.ts` AI 能力组注）。
   agent: "/platform-admin/agent",

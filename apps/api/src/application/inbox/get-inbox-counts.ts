@@ -7,7 +7,6 @@
  */
 import { inbox as C } from "@repo/contracts";
 import type { z } from "zod";
-import { canTriage } from "../../domain/feedback/product-feedback";
 import { listFeedback, type ListFeedbackDeps, type ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
 import { loadOwnerNamesAndProject } from "../design-workbench/project-list-shared";
@@ -40,7 +39,8 @@ export type GetInboxCountsInput = Pick<ListFeedbackInput, "viewerId" | "viewerOr
 export { InboxPermissionRevokedError, INBOX_EXCEPTION_FETCH_CAP };
 
 export async function getInboxCounts(deps: GetInboxCountsDeps, input: GetInboxCountsInput): Promise<InboxCountsView> {
-  if (!canTriage(input.viewerOrgRole)) throw new InboxPermissionRevokedError();
+  // 同 `listInbox`：只挡非本组织成员（D8 ③），计数口径见契约 `getInboxCounts` 头注。
+  if (input.viewerOrgRole === null) throw new InboxPermissionRevokedError();
 
   const sources: InboxCountsView["sources"] = { exception: deps.errorLog !== undefined ? "included" : "withheld" };
 
