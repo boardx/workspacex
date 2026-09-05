@@ -1162,7 +1162,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // `infrastructure/agent-run/pg-agent-run-attempt-repository.ts` 的 ALLOWLIST 条目
     // （`recordAttempt()`/`listForMessage()`，理由见该条目自身注释），漏掉了这里的上限
     // 同步——补上。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(87);
+    // ⚠ Raised 87 -> 88 by F06（plan-permissions 契约束 R5/R7/R8）：新增
+    // `pg-tool-permission-grant-repository.ts` 的 ALLOWLIST 条目——三档授权存储表
+    // `tool_permission_grants` 无 `ObjectRef` 可挂，三个方法都不回传行内容，判权在
+    // 用例层（`decide-tool-permission.ts`），豁免理由见该条目自身注释。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(88);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

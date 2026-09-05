@@ -315,7 +315,7 @@ export const Citation = z.object({
  * ⚠ 五个取值**全部有真实数据源**，没有一个是画出来给人看的：
  *   · `not-started` ⇐ 该线程一条消息都没有（devapp 实测 58 条线程里 36 条如此）
  *   · `running` ⇐ 最近一次 `agent_runs.status ∈ {queued, running, writeback_pending}`
- *   · `awaiting-approval` ⇐ 最近一次 run `status = awaiting_approval`（HITL 停在人这里）
+ *   · `awaiting-approval` ⇐ 最近一次 run `status = awaiting_tool_permission`（HITL 停在人这里）
  *   · `failed` ⇐ 最近一次 run `status = failed`
  *   · `done` ⇐ 最近一次 run `status = succeeded`；或有消息但一次 run 都没有
  *

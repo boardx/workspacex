@@ -14,7 +14,7 @@
  * `send_email` 在 `apps/deep-agent-service` 全树 grep 零命中——它从来只是替身自己的剧本。
  * 前两处对齐、第三处对不上，于是「替身绿、真实引擎红」，而且是**静默**红：名字对不上时
  * CopilotKit 的 `useHumanInTheLoop` 不认领这次工具调用，把它渲染成普通工具卡，`respond`
- * 恒为 `undefined`，三个决策按钮永远不出现，run 停在 `awaiting_approval` 无人能裁决。
+ * 恒为 `undefined`，三个决策按钮永远不出现，run 停在 `awaiting_tool_permission` 无人能裁决。
  * 这正是 `DEEP_AGENT_HITL_TOOLS` 此前**故意不敢打开**的原因：打开比不打开更糟。
  *
  * 本仓已五次因「同一事实声明在两处」而漂移（见本包 `index.ts` 头注与 ADR-020）。这是

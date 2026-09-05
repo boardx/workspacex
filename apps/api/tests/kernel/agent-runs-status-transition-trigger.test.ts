@@ -7,12 +7,13 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 /**
  * issue #1787 -- 既有红：`agent_runs_enforce_status_transition` 是孤儿函数。
  *
- * DA-07b（#1776，20260822120000_da07b_hitl_awaiting_approval.sql）的迁移注释说它"整体重建"
+ * DA-07b（#1776，20260822120000_da07b_hitl_awaiting_approval.sql——迁移文件本身是不可变历史，
+ * 文件名不随 F06 的状态改名而改）的迁移注释说它"整体重建"
  * 了与 20260805190000_i519 同名的触发器函数，并新增两条边
- * （running→awaiting_approval、awaiting_approval→queued）。但它实际写的函数名
+ * （running→awaiting_tool_permission、awaiting_tool_permission→queued）。但它实际写的函数名
  * （`agent_runs_enforce_status_transition`）与真正绑定在 `agent_runs_transition_trg` 上的
  * 函数名（`wave2_agent_run_transition`）不同——`CREATE OR REPLACE FUNCTION` 按名字匹配，
- * 改名等于新建了一个从未被任何触发器调用的孤儿函数，旧函数体（不认识 awaiting_approval）
+ * 改名等于新建了一个从未被任何触发器调用的孤儿函数，旧函数体（不认识 awaiting_tool_permission）
  * 继续生效。
  *
  * `deep-agent-hitl.test.ts` 只 mock 掉了仓储层，从未对真实触发器发起过一次真实 UPDATE，
@@ -63,11 +64,11 @@ async function seedRun(id: string, status: string): Promise<string> {
 }
 
 describe("agent_runs_transition_trg -- the trigger actually bound, not merely a function with the right name", () => {
-  it("running -> awaiting_approval is allowed by the REAL trigger (the engine's interrupt)", async () => {
+  it("running -> awaiting_tool_permission is allowed by the REAL trigger (the engine's interrupt)", async () => {
     const id = await seedRun("run-i1787-a", "running");
     await asApp(ORG, (c) =>
       c.query(
-        `UPDATE agent_runs SET status = 'awaiting_approval', pending_tool_name = 't' WHERE id = $1`,
+        `UPDATE agent_runs SET status = 'awaiting_tool_permission', pending_tool_name = 't' WHERE id = $1`,
         [id],
       ),
     );
@@ -75,11 +76,11 @@ describe("agent_runs_transition_trg -- the trigger actually bound, not merely a 
       const r = await c.query<{ status: string }>(`SELECT status FROM agent_runs WHERE id = $1`, [id]);
       return r.rows[0]!.status;
     });
-    expect(status).toBe("awaiting_approval");
+    expect(status).toBe("awaiting_tool_permission");
   });
 
-  it("awaiting_approval -> queued is allowed by the REAL trigger (human approved, re-enqueue)", async () => {
-    const id = await seedRun("run-i1787-b", "awaiting_approval");
+  it("awaiting_tool_permission -> queued is allowed by the REAL trigger (human approved, re-enqueue)", async () => {
+    const id = await seedRun("run-i1787-b", "awaiting_tool_permission");
     await asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status = 'queued' WHERE id = $1`, [id]));
     const status = await asApp(ORG, async (c) => {
       const r = await c.query<{ status: string }>(`SELECT status FROM agent_runs WHERE id = $1`, [id]);
@@ -88,8 +89,8 @@ describe("agent_runs_transition_trg -- the trigger actually bound, not merely a 
     expect(status).toBe("queued");
   });
 
-  it("awaiting_approval -> failed is still allowed (human rejected)", async () => {
-    const id = await seedRun("run-i1787-c", "awaiting_approval");
+  it("awaiting_tool_permission -> failed is still allowed (human rejected)", async () => {
+    const id = await seedRun("run-i1787-c", "awaiting_tool_permission");
     await asApp(ORG, (c) =>
       c.query(`UPDATE agent_runs SET status = 'failed', error_code = 'HITL_REJECTED' WHERE id = $1`, [id]),
     );
@@ -100,17 +101,17 @@ describe("agent_runs_transition_trg -- the trigger actually bound, not merely a 
     expect(status).toBe("failed");
   });
 
-  it("counter-proof: queued -> awaiting_approval is still refused -- the migration says this edge is deliberately absent", async () => {
+  it("counter-proof: queued -> awaiting_tool_permission is still refused -- the migration says this edge is deliberately absent", async () => {
     const id = await seedRun("run-i1787-d", "queued");
     await expect(
-      asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status = 'awaiting_approval' WHERE id = $1`, [id])),
-    ).rejects.toThrow(/may not move from queued to awaiting_approval/);
+      asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status = 'awaiting_tool_permission' WHERE id = $1`, [id])),
+    ).rejects.toThrow(/may not move from queued to awaiting_tool_permission/);
   });
 
-  it("counter-proof: a terminal run still cannot be reopened into awaiting_approval either", async () => {
+  it("counter-proof: a terminal run still cannot be reopened into awaiting_tool_permission either", async () => {
     const id = await seedRun("run-i1787-e", "succeeded");
     await expect(
-      asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status = 'awaiting_approval' WHERE id = $1`, [id])),
+      asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status = 'awaiting_tool_permission' WHERE id = $1`, [id])),
     ).rejects.toThrow(/is terminal in succeeded/);
   });
 

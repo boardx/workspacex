@@ -8,7 +8,7 @@
  * `apps/api/src/application/agent-run/decide-agent-run.ts` 已经是 `call_skill` 与
  * 本束三种新中断**共用**的裁决出口，且已经承担了 `NOT_VISIBLE`（`AgentRunNotVisibleError`）
  * /`NO_WRITE_ROLE`（`AgentRunRetryForbiddenError`）/"当前不在待批态"
- * （`AgentRunNotAwaitingApprovalError`）三类判定——但用的是那条通路**自己的**错误类型，
+ * （`AgentRunNotAwaitingToolPermissionError`）三类判定——但用的是那条通路**自己的**错误类型，
  * 不是本束契约里的字符串码（两者语义相邻但字面不同，逐字改名会影响 `call_skill` 既有
  * 行为，不在本 issue 单方面做）。
  *

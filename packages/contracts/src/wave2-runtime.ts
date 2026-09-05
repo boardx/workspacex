@@ -271,12 +271,20 @@ export const AgentStarterImportResult = z.object({
 export const AgentRunStatus = z.enum([
   "queued", "running", "writeback_pending", "succeeded", "failed",
   /**
-   * DA-07b（#1749，rubric D6 人在环）：run 停在敏感工具调用前，等人裁决。
-   * 不是终态——approve 回 running 继续，reject 落 failed("HITL_REJECTED")。
+   * DA-07b（#1749，rubric D6 人在环）起家，Phase 14 F06 起并入 `plan-permissions`
+   * 契约束：run 停在一个未被授权的 L2（不可逆/高风险）工具调用前，等人四选一裁决
+   * （仅本次/本次run内/以后都允许/拒绝，见 `packages/contracts/src/plan-permissions.ts`
+   * 的 `ToolPermissionDecisionKind`）。不是终态——批准（三档中任一）回 `running` 继续；
+   * 拒绝**也**回 `running` 继续（内核据此调整后续计划，不直接判定整个 run 失败，
+   * R3 步骤 6），只有内核自己判定确实走不下去时才会落 `failed`。
    * 把「等待人」记成 failed 是账本撒谎（等待 ≠ 失败），所以是一等状态。
    * 与 DB CHECK/触发器的同步同本枚举其余值：pg_constraint 集合相等测试看守。
+   *
+   * ⚠ 旧名 `awaiting_approval`（DA-07b 原名）已废弃且不得在代码库中以任何形式复活——
+   * 见 `requirements/03-plan-mode-permissions.md` R8："避免状态机出现两个含义重叠的
+   * 分支"。`tests/wave2-runtime/awaiting-tool-permission-status.test.ts` 机械看守。
    */
-  "awaiting_approval",
+  "awaiting_tool_permission",
 ]);
 
 /**
@@ -435,7 +443,7 @@ export const AgentRunView = z.object({
   steps: z.array(AgentRunStep),
   createdAt: z.string(),
   /**
-   * DA-07b：status === "awaiting_approval" 时，等待裁决的工具调用摘要——
+   * DA-07b：status === "awaiting_tool_permission" 时，等待裁决的工具调用摘要——
    * 前端审批条靠它显示「要批的是什么」。其余状态恒为 null。
    * optional：老客户端/老快照缺字段不炸（向后兼容）。
    */
@@ -465,8 +473,8 @@ export const operations = {
    * paragraph.
    */
   /**
-   * DA-07c（#1749，rubric D6）：awaiting_approval 的人裁决入口。
-   * 409（AGENT_RUN_NOT_AWAITING_APPROVAL）= 竞态输了：run 已被别人裁决或已终态，
+   * DA-07c（#1749，rubric D6）：awaiting_tool_permission 的人裁决入口。
+   * 409（AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION）= 竞态输了：run 已被别人裁决或已终态，
    * 客户端展示真实状态，不假装自己的决定生效。
    *
    * UX-9 D4：三态裁决——新增 "edit"（人在线改参数后放行）。`editedArgs` 是改后的

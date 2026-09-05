@@ -12,10 +12,12 @@
  * 签核束的契约面，废止它是实现阶段的删除工作，不在本轮签核材料的翻译范围内）。
  *
  * ⚠ **`AgentKernelRunStatus` 是新枚举，不是 `wave2-runtime.ts` 的 `AgentRunStatus`
- * 的别名或扩展**——旧枚举的 `awaiting_approval` 按 R6/00-overview「已澄清的设计
- * 决策」被 `awaiting_tool_permission`（本束的 `plan-permissions` 束的一部分状态迁移）
- * 取代，二者不并存。刻意换名字避免"同一个符号名两处声明不同值"这个本仓最高发的
- * 漂移模式。
+ * 的别名或扩展**——即使 Phase 14 F06 起两边都用 `awaiting_tool_permission` 这个名字
+ * （F06 把 `wave2-runtime.ts` 那边的旧名 `awaiting_approval` 也迁到了同一个字面量，
+ * 见该文件 `AgentRunStatus` 自己的文档），这仍然是**两个独立声明的枚举**，不是同一个
+ * 符号——`AgentRunStatus` 没有 `awaiting_plan_confirmation`/`paused`/`cancelled`，
+ * `AgentKernelRunStatus` 也没有 `writeback_pending`，二者描述的是两套不同阶段的
+ * run 生命周期模型，只是恰好在"等人对工具调用表态"这一点上用了同一个词汇。
  *
  * ## 事件模型对齐 AG-UI（00-overview 全局约束 + R7）
  *
@@ -34,7 +36,9 @@ export const AgentKernelRunStatus = z.enum([
   "running",
   /** 03 plan-permissions 束引入：等待用户确认/编辑计划。 */
   "awaiting_plan_confirmation",
-  /** 03 plan-permissions 束引入，取代旧 awaiting_approval（二者不并存）。 */
+  /** 03 plan-permissions 束引入。Phase 14 F06 起 `wave2-runtime.ts` 的旧
+   * `AgentRunStatus` 也迁到了这个名字（原名 `awaiting_approval`），但那是独立的
+   * 一份声明，不是同一个符号（见本文件头注）。 */
   "awaiting_tool_permission",
   /** R4 E4：用户主动暂停，或系统保护性暂停（见 `pausedBy`）。 */
   "paused",

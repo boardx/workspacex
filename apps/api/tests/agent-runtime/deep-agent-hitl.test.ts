@@ -188,16 +188,16 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
     return { mod, deps, calls, kicked: () => kicked };
   }
 
-  it("approve：awaiting_approval → requeue + kick", async () => {
-    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval" });
+  it("approve：awaiting_tool_permission → requeue + kick", async () => {
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_tool_permission" });
     const out = await mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "approve" });
     expect(calls).toEqual(["requeue"]);
     expect(kicked()).toBe(1);
     expect(out.status).toBe("queued");
   });
 
-  it("edit：awaiting_approval → editAndRequeue（带序列化的改后参数）+ kick，approve 通路零调用", async () => {
-    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval" });
+  it("edit：awaiting_tool_permission → editAndRequeue（带序列化的改后参数）+ kick，approve 通路零调用", async () => {
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_tool_permission" });
     const out = await mod.decideAgentRun(deps, {
       userId: "u1", orgId: "o1" as never, runId: "r1",
       decision: "edit", editedArgs: { skill: "safe", dry_run: true },
@@ -207,13 +207,13 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
     expect(out.status).toBe("queued");
   });
 
-  it("edit 竞态输了 → 抛 NotAwaitingApproval，绝不覆盖账本", async () => {
-    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval", approveWins: false });
+  it("edit 竞态输了 → 抛 NotAwaitingToolPermission，绝不覆盖账本", async () => {
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_tool_permission", approveWins: false });
     await expect(
       mod.decideAgentRun(deps, {
         userId: "u1", orgId: "o1" as never, runId: "r1", decision: "edit", editedArgs: {},
       }),
-    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
     expect(calls).toEqual(["edit-requeue:{}"]);
     expect(kicked()).toBe(0);
   });
@@ -224,23 +224,23 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
       mod.decideAgentRun(deps, {
         userId: "u1", orgId: "o1" as never, runId: "r1", decision: "edit", editedArgs: { a: 1 },
       }),
-    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
     expect(calls).toEqual([]);
   });
 
   it("reject：failRun(HITL_REJECTED)，不 kick", async () => {
-    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval", errorAfter: "HITL_REJECTED" });
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_tool_permission", errorAfter: "HITL_REJECTED" });
     const out = await mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject" });
     expect(calls).toEqual(["fail:HITL_REJECTED"]);
     expect(kicked()).toBe(0);
     expect(out.error).toBe("HITL_REJECTED");
   });
 
-  it("approve 竞态输了 → 抛 NotAwaitingApproval，绝不覆盖账本", async () => {
-    const { mod, deps, calls } = await makeDeps({ status: "awaiting_approval", approveWins: false });
+  it("approve 竞态输了 → 抛 NotAwaitingToolPermission，绝不覆盖账本", async () => {
+    const { mod, deps, calls } = await makeDeps({ status: "awaiting_tool_permission", approveWins: false });
     await expect(
       mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "approve" }),
-    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
     expect(calls).toEqual(["requeue"]);
   });
 
@@ -248,14 +248,14 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
     const { mod, deps } = await makeDeps({ status: "succeeded", errorAfter: null });
     await expect(
       mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject" }),
-    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
   });
 
   it("run 还在 running 时 reject → 冲突且 failRun 零调用——decision 端点不是 kill 开关", async () => {
     const { mod, deps, calls } = await makeDeps({ status: "running" });
     await expect(
       mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject" }),
-    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingToolPermissionError);
     expect(calls).toEqual([]);
   });
 });

@@ -42,7 +42,7 @@ export interface GetPlanLedgerOutput {
 const ACTIVE_RUN_STATUSES = new Set(["running"]);
 // ⚠ `RunStatusForPhase` 只有 "idle"|"running"|"succeeded"|"failed"|"interrupted" 五值
 // （`PgPlanLedgerRepository.toRunStatusForPhase` 把 DB 的 queued/writeback_pending/
-// awaiting_approval 都折进 "running"）。`activeRunId` 只在这一档非空——"idle"/"succeeded"/
+// awaiting_tool_permission 都折进 "running"）。`activeRunId` 只在这一档非空——"idle"/"succeeded"/
 // "failed" 都不是「当前有一个正在跑或等待推进的 run」。
 
 export async function getPlanLedger(

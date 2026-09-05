@@ -37,7 +37,7 @@ export interface OrphanedConstraintRow {
 export interface PlanRunSnapshot {
   readonly runId: string;
   readonly status: RunStatusForPhase;
-  /** DA-07b `awaiting_approval` 期间非空；映射 `derivePlanPhase` 的 `pendingToolCalls`。 */
+  /** DA-07b `awaiting_tool_permission` 期间非空；映射 `derivePlanPhase` 的 `pendingToolCalls`。 */
   readonly pendingToolName: string | null;
   readonly createdAt: string;
   /** F975 UC-7 `confirmPlan`：续跑用哪个 agent，取自「产出这份计划的那次 run」用的 agent。 */
