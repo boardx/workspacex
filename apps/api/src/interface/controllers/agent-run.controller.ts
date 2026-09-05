@@ -58,6 +58,9 @@ import {
 import {
   getRunTranscript, RunTranscriptForbiddenError, RunTranscriptNotFoundError,
 } from "../../application/agent-run/get-run-transcript";
+import { AgentRunNotRunningError, interjectAgentRun } from "../../application/agent-run/interject-run";
+import { INTERJECTION_STORE, type InterjectionStore } from "../../application/agent-run/interjection-store";
+import { CLOCK, type Clock } from "../../application/auth/ports";
 
 @Controller()
 export class AgentRunController {
@@ -68,6 +71,8 @@ export class AgentRunController {
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(AGENT_RUN_CONTEXT_SNAPSHOT) private readonly snapshots: AgentRunContextSnapshotPort,
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
+    @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   @Get("/agent-runs/:runId")
@@ -238,6 +243,37 @@ export class AgentRunController {
       if (e instanceof AgentRunRetryForbiddenError) throw new ForbiddenException("AGENT_RUN_DECISION_FORBIDDEN");
       if (e instanceof AgentRunNotAwaitingToolPermissionError) {
         throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION", status: e.status });
+      }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * Phase 14 F11（`artifacts-steering` 契约束 UC-4）—— run 处于 running 时插话。
+   * 404/409 语义同本文件其余端点：不可见 = 404（I-3，不确认存在性；R5"不是发起者"
+   * 也折进这一支，见 `interject-run.ts` 头注），状态不对 = 409。
+   */
+  @Post("/agent-runs/:runId/interject")
+  @HttpCode(200)
+  async interject(
+    @CurrentPrincipal() principal: Principal,
+    @Param("runId") runId: string,
+    @Body() body: { text?: unknown },
+  ) {
+    assertPrincipal(principal);
+    if (typeof body?.text !== "string" || body.text.trim() === "") {
+      throw new BadRequestException("text (a non-blank string) is required");
+    }
+    try {
+      return await interjectAgentRun(
+        { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, interjections: this.interjections, clock: this.clock },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), runId, text: body.text },
+      );
+    } catch (e) {
+      if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (e instanceof AgentRunNotRunningError) {
+        throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_RUNNING", status: e.status });
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;

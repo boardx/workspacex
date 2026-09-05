@@ -334,6 +334,8 @@ import {
 } from "./application/agent-run/ports";
 import type { RunEventBusPort } from "./application/agent-run/run-event-bus";
 import { InMemoryRunEventBus } from "./infrastructure/agent-run/in-memory-run-event-bus";
+// Phase 14 F11 (`artifacts-steering` 契约束 R3') -- 中途插话暂存端口，见其自己的文档。
+import { createInMemoryInterjectionStore, INTERJECTION_STORE } from "./application/agent-run/interjection-store";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { transcriptContentCipherFromEnv } from "./infrastructure/agent-run/transcript-content-cipher";
 import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
@@ -2134,6 +2136,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // yet (submitter data-scope grants; a durable security-audit table). Neither fails open
     // -- see the reasoning in `infrastructure/skill/skill-gate-adapters.ts`.
     { provide: SKILL_SUBMITTER_GRANTS, useFactory: () => new FailClosedSubmitterGrants() },
+    // Phase 14 F11 -- `InterjectionStore` 自己的文档："非持久聚合根"，进程内单例即可，
+    // 不需要一张表（同 `SKILL_SUBMITTER_GRANTS` 上面这条既有先例：不是每个端口都要有
+    // 一个 Pg 实现）。`AgentRunController`（插话提交）与未来的执行器消费点共享同一个
+    // 实例——单例 `useFactory`（无 `inject`）是 Nest 里让二者看到同一份内存状态的写法。
+    { provide: INTERJECTION_STORE, useFactory: () => createInMemoryInterjectionStore() },
     // #467: same factory shape and same reason as SKILL_CONTRACT_REPOSITORY above --
     // a thread mount store that is not bound to a tenant must not be constructible.
     {
