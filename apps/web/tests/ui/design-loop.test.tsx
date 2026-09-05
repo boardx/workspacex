@@ -499,6 +499,44 @@ describe("issue #2752 ①：「全部」视图默认隐藏系统异常，可切�
     expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
   });
 
+  it("『全部』= 反馈（需求/缺陷）+ 设计方案：请求带 excludeKind=exception 让服务端过滤；开关打开后不带", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    const first = callsTo("/inbox")[0]![1] as { query?: Record<string, string | undefined> };
+    expect(first.query?.excludeKind).toBe("exception");
+    expect(first.query?.kind).toBeUndefined();
+    fireEvent.click(screen.getByTestId("inbox-toggle-show-exceptions"));
+    await waitFor(() => expect(callsTo("/inbox").length).toBeGreaterThanOrEqual(2));
+    const last = callsTo("/inbox").at(-1)![1] as { query?: Record<string, string | undefined> };
+    expect(last.query?.excludeKind).toBeUndefined();
+  });
+
+  it("『全部』徽标数不含系统异常；打开开关后才是 total", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/inbox") return { items: [feedbackItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return { ...baseCounts, byKind: { feedback: 33, exception: 134, design: 0 }, total: 167 };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    await waitFor(() => expect(screen.getByTestId("inbox-kind-all").textContent).toContain("33"));
+    expect(screen.getByTestId("inbox-kind-all").textContent).not.toContain("167");
+    fireEvent.click(screen.getByTestId("inbox-toggle-show-exceptions"));
+    await waitFor(() => expect(screen.getByTestId("inbox-kind-all").textContent).toContain("167"));
+  });
+
+  it("服务端已排除后列表为空、但 counts 里有系统异常 ⇒ 展示隐藏态而不是『收件箱是空的』", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/inbox") return { items: [], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return { ...baseCounts, byKind: { feedback: 0, exception: 5, design: 0 }, total: 5 };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    expect(await screen.findByTestId("empty-hidden-exceptions")).toBeTruthy();
+    expect(screen.queryByTestId("empty")).toBeNull();
+  });
+
   it("单独点『系统异常』筛选 chip 不受开关影响，照常可见", async () => {
     mockInbox([exceptionItem()]);
     render(<DesignLoopInboxScreen state="default" />);

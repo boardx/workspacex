@@ -90,6 +90,7 @@ export class InboxController {
     @Req() req: unknown,
     @CurrentPrincipal() principal: Principal,
     @Query("kind") kind: string | undefined,
+    @Query("excludeKind") excludeKind: string | undefined,
     @Query("stage") stage: string | undefined,
     @Query("q") q: string | undefined,
     @Query("limit") limitParam: string | undefined,
@@ -99,6 +100,7 @@ export class InboxController {
     const parsedLimit = limitParam === undefined ? undefined : Number(limitParam);
     const parsed = LIST_INBOX_SCHEMA.safeParse({
       kind,
+      excludeKind,
       stage,
       q,
       limit: parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
@@ -127,6 +129,7 @@ export class InboxController {
           viewerOrgRole: orgRole,
           viewerTeamId: teamId,
           kind: parsed.data.kind,
+          excludeKind: parsed.data.excludeKind,
           stage: parsed.data.stage,
           q: parsed.data.q,
           limit: parsed.data.limit ?? C.INBOX_LIST_DEFAULT_LIMIT,

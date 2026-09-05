@@ -189,6 +189,19 @@ describe("listInbox 过滤", () => {
     expect(out.items.map((i) => i.kind)).toEqual(["exception"]);
   });
 
+  it("`excludeKind: exception`（「全部」视图）⇒ 反馈 + 设计方案都在，系统异常一条不含，且在分页之前过滤", async () => {
+    const rows = Array.from({ length: 3 }, (_, i) => feedbackRow({ id: `fb-${i}`, createdAt: `2026-09-01T0${i}:00:00.000Z` }));
+    const errors = Array.from({ length: 10 }, (_, i) => errorLogItem({ id: `${i}`, createdAt: `2026-09-02T0${i}:00:00.000Z` }));
+    const deps = baseDeps(rows, errors);
+    // limit=2：不带 excludeKind 时第一页全是更新的系统异常；带上后第一页就是反馈。
+    const out = await listInbox(deps, { ...adminInput, limit: 2, excludeKind: "exception" });
+    expect(out.items.map((i) => i.kind)).toEqual(["feedback", "feedback"]);
+    expect(out.nextCursor).not.toBeNull();
+    const page2 = await listInbox(deps, { ...adminInput, limit: 2, excludeKind: "exception", cursor: out.nextCursor! });
+    expect(page2.items.map((i) => i.id)).toEqual(["fb-0"]);
+    expect(page2.nextCursor).toBeNull();
+  });
+
   it("`stage` 过滤：`stageOf` 派生，不落库", async () => {
     const done = feedbackRow({ id: "fb-done", status: "已修复" });
     const backlog = feedbackRow({ id: "fb-backlog", status: "待处理" });

@@ -309,6 +309,10 @@ export const operations = {
    * ⚠ `q` 匹配 `title` 与 `code`（「B-12」能搜到），**不搜正文**——正文受 D3 门控，按无权看的内容
    *   过滤会把「有没有」这件事泄露出去。
    * ⚠ `kind` / `stage` 都是单选（R4.3：Chip 互斥单选）；不传 = 全部。
+   * ⚠ `excludeKind`（2026-09-05 人类指令）：「全部」视图 = 反馈（需求 + 缺陷）+ 设计方案，**不含**
+   *   系统自动提交的异常。这是**服务端**过滤，不是前端拿一页再滤——分页之后前端滤只会把
+   *   一页 50 条里的 49 条异常丢掉、只剩 1 条反馈，用户看到的"全部"就是空的。与 `kind` 同传时
+   *   先按 `kind` 选、再排除；两者相同 ⇒ 结果为空，不是错误。
    * ⚠ `in` 里没有 `orgId`：收件箱是后台屏，org 从 principal 的当前组织取（与 `listSystemErrorLogs`
    *   同一形状），传一个客户端说了算的 orgId 只会多一条要核对的输入。
    */
@@ -318,6 +322,8 @@ export const operations = {
     in: z
       .object({
         kind: InboxKind.optional(),
+        /** 排除某一类（「全部」视图传 `exception`），见头注 */
+        excludeKind: InboxKind.optional(),
         stage: InboxStage.optional(),
         q: z.string().max(200).optional(),
         /** 默认 `INBOX_LIST_DEFAULT_LIMIT`（50），最大 `INBOX_LIST_MAX_LIMIT`（200） */
