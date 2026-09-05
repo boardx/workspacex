@@ -582,7 +582,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
 describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () => {
   it("卡片：aria-label=编号+标题、aria-describedby 指向键盘替代说明、拖起时 aria-grabbed；列容器 role=group 带列名与数量", async () => {
     mockInbox([feedbackItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     const card = await screen.findByTestId("inbox-card-B-1");
     expect(card.getAttribute("role")).toBe("button");
     expect(card.getAttribute("tabindex")).toBe("0");
@@ -621,7 +621,7 @@ describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () =
     it(`${edge.kind} @ ${edge.stage}：键盘（Enter）打开 drawer 后，状态迁移按钮恰好是 ${edge.buttons.join(" / ")}`, async () => {
       const item = edge.kind === "feedback" ? feedbackItem({ stage: edge.stage }) : exceptionItem({ stage: edge.stage });
       mockInbox([item]);
-      render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+      render(<DesignLoopInboxScreen state="default" />);
       const card = await screen.findByTestId(`inbox-card-${item.code}`);
       fireEvent.keyDown(card, { key: "Enter" });
       const drawer = await screen.findByTestId("inbox-drawer");
@@ -636,7 +636,7 @@ describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () =
 
   it("焦点管理：Enter 打开 drawer 后焦点进 drawer；Esc 关闭；关闭后焦点回到触发卡片", async () => {
     mockInbox([feedbackItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     const card = await screen.findByTestId("inbox-card-B-1");
     card.focus();
     expect(document.activeElement).toBe(card);
@@ -650,7 +650,7 @@ describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () =
 
   it("焦点管理：drawer 的关闭按钮关闭后同样把焦点还给触发卡片（不是落回 body）", async () => {
     mockInbox([feedbackItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     const card = await screen.findByTestId("inbox-card-B-1");
     card.focus();
     fireEvent.keyDown(card, { key: " " });
