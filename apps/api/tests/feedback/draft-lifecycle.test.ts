@@ -12,7 +12,7 @@ import { REFINE_ACK, REFINE_SEED_QUESTION, updateFeedbackDraft } from "../../src
 import { deleteFeedbackDraft } from "../../src/application/feedback/drafts/delete-feedback-draft";
 import { submitFeedbackDraft } from "../../src/application/feedback/drafts/submit-feedback-draft";
 import { FeedbackDraftEmptyError, FeedbackDraftNotFoundError } from "../../src/application/feedback/drafts/draft-shared";
-import { FakeAttachmentRepo, FakeDraftRepo, fakeFeedbackRepo } from "./draft-fakes";
+import { FakeAttachmentRepo, FakeDraftRefiner, FakeDraftRepo, fakeFeedbackRepo } from "./draft-fakes";
 
 const ORG = toOrgId("org-1");
 const ME = "u-me";
@@ -25,8 +25,9 @@ function world() {
   const base = { drafts, attachments, orgId: ORG };
   const createDeps = { ...base, newDraftId: () => `d-${++n}` };
   const clock = { t: 0 };
-  const updateDeps = { ...base, now: () => new Date(Date.UTC(2026, 8, 4, 12, 0, ++clock.t)) };
-  return { drafts, attachments, base, createDeps, updateDeps };
+  const refine = new FakeDraftRefiner();
+  const updateDeps = { ...base, now: () => new Date(Date.UTC(2026, 8, 4, 12, 0, ++clock.t)), refine };
+  return { drafts, attachments, base, createDeps, updateDeps, refine };
 }
 
 describe("UC-17.8 B1 草稿闭环", () => {
@@ -75,15 +76,15 @@ describe("UC-17.8 B1 草稿闭环", () => {
     expect(r.draft.structured).toBeNull();
   });
 
-  it("追加对话：首次 seed 一条固定 AI 澄清问题（只一次），用户消息之后追加固定回执", async () => {
+  it("追加对话（模型退路）：首次 seed 一条固定 AI 澄清问题（只一次），用户消息之后追加固定回执，都标 source=fallback", async () => {
     const w = world();
     await createFeedbackDraft(w.createDeps, { ownerId: ME, kind: "缺陷", target: { kind: "product" }, detail: "v1", occurredRoute: null, appVersion: null });
     let r = await updateFeedbackDraft(w.updateDeps, { draftId: "d-1", ownerId: ME, appendChat: { role: "user", kind: "message", text: "只影响导出" } });
     expect(r.draft.refineSeeded).toBe(true);
-    expect(r.draft.chat.map((c) => [c.role, c.kind, c.text])).toEqual([
-      ["ai", "message", REFINE_SEED_QUESTION],
-      ["user", "message", "只影响导出"],
-      ["ai", "message", REFINE_ACK],
+    expect(r.draft.chat.map((c) => [c.role, c.kind, c.text, c.source])).toEqual([
+      ["ai", "message", REFINE_SEED_QUESTION, "fallback"],
+      ["user", "message", "只影响导出", undefined],
+      ["ai", "message", REFINE_ACK, "fallback"],
     ]);
     r = await updateFeedbackDraft(w.updateDeps, { draftId: "d-1", ownerId: ME, appendChat: { role: "user", kind: "message", text: "P1" } });
     const texts = r.draft.chat.map((c) => c.text);
@@ -91,6 +92,39 @@ describe("UC-17.8 B1 草稿闭环", () => {
     expect(texts.slice(-2)).toEqual(["P1", REFINE_ACK]);
     // `at` 由服务端给，客户端的 appendChat 里没有它
     expect(r.draft.chat.every((c) => typeof c.at === "string" && c.at.endsWith("Z"))).toBe(true);
+    // 第二轮不再 seed：端口只被问了 reply
+    expect(w.refine.calls.map((c) => c.what)).toEqual(["seed", "reply", "reply"]);
+  });
+
+  it("B5.1 追加对话（模型在）：澄清问题与回复用模型给的话，标 source=model；端口看到的是 kind/字段/正文/完整历史", async () => {
+    const w = world();
+    await createFeedbackDraft(w.createDeps, {
+      ownerId: ME, kind: "需求", target: { kind: "product" }, detail: "想要批量导出",
+      structured: { useScenario: "月底汇总" }, occurredRoute: null, appVersion: null,
+    });
+    w.refine.answers = {
+      seed: { text: "批量导出是导整个项目，还是勾选的几条？", source: "model" },
+      reply: { text: "明白，只导勾选的。优先级呢？", source: "model" },
+    };
+    const r = await updateFeedbackDraft(w.updateDeps, {
+      draftId: "d-1", ownerId: ME, kind: "需求", detail: "想要批量导出（勾选）",
+      appendChat: { role: "user", kind: "message", text: "勾选的几条" },
+    });
+    expect(r.draft.chat.map((c) => [c.role, c.kind, c.text, c.source])).toEqual([
+      ["user", "edit", "想要批量导出（勾选）", undefined],
+      ["ai", "message", "批量导出是导整个项目，还是勾选的几条？", "model"],
+      ["user", "message", "勾选的几条", undefined],
+      ["ai", "message", "明白，只导勾选的。优先级呢？", "model"],
+    ]);
+    const [seed, reply] = w.refine.calls;
+    // 模型看到的是本次调用生效后的草稿（改后的正文），以及已有的结构化字段
+    expect(seed).toMatchObject({ what: "seed", ctx: { kind: "需求", detail: "想要批量导出（勾选）", structured: { useScenario: "月底汇总" } } });
+    // reply 时历史里已经有 seed 问题与用户这句
+    expect(reply?.ctx.chat.map((c) => [c.role, c.text])).toEqual([
+      ["user", "想要批量导出（勾选）"],
+      ["ai", "批量导出是导整个项目，还是勾选的几条？"],
+      ["user", "勾选的几条"],
+    ]);
   });
 
   it("改/删/提交别人的草稿 ⇒ DRAFT_NOT_FOUND（同 404 非 403）", async () => {
@@ -99,7 +133,7 @@ describe("UC-17.8 B1 草稿闭环", () => {
     await expect(updateFeedbackDraft(w.updateDeps, { draftId: "d-1", ownerId: OTHER, detail: "x" })).rejects.toBeInstanceOf(FeedbackDraftNotFoundError);
     await expect(deleteFeedbackDraft(w.base, { draftId: "d-1", ownerId: OTHER })).rejects.toBeInstanceOf(FeedbackDraftNotFoundError);
     const fb = fakeFeedbackRepo();
-    await expect(submitFeedbackDraft({ ...w.base, submit: { repo: fb.repo, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } }, { draftId: "d-1", ownerId: OTHER }))
+    await expect(submitFeedbackDraft({ ...w.base, refine: w.refine, submit: { repo: fb.repo, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } }, { draftId: "d-1", ownerId: OTHER }))
       .rejects.toBeInstanceOf(FeedbackDraftNotFoundError);
     expect(w.drafts.rows.size).toBe(1);
   });
@@ -108,7 +142,7 @@ describe("UC-17.8 B1 草稿闭环", () => {
     const w = world();
     await createFeedbackDraft(w.createDeps, { ownerId: ME, kind: "缺陷", target: { kind: "product" }, detail: " \n ", occurredRoute: null, appVersion: null });
     const fb = fakeFeedbackRepo();
-    await expect(submitFeedbackDraft({ ...w.base, submit: { repo: fb.repo, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } }, { draftId: "d-1", ownerId: ME }))
+    await expect(submitFeedbackDraft({ ...w.base, refine: w.refine, submit: { repo: fb.repo, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } }, { draftId: "d-1", ownerId: ME }))
       .rejects.toBeInstanceOf(FeedbackDraftEmptyError);
     expect(fb.inserted).toEqual([]);
     expect(w.drafts.rows.has("d-1")).toBe(true);
@@ -126,10 +160,12 @@ describe("UC-17.8 B1 草稿闭环", () => {
     await updateFeedbackDraft(w.updateDeps, { draftId: "d-1", ownerId: ME, appendChat: { role: "user", kind: "message", text: "对话不进正文" } });
     const fb = fakeFeedbackRepo();
     const out = await submitFeedbackDraft(
-      { ...w.base, submit: { repo: fb.repo, attachments: w.attachments, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } },
+      { ...w.base, refine: w.refine, submit: { repo: fb.repo, attachments: w.attachments, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } },
       { draftId: "d-1", ownerId: ME },
     );
-    expect(out).toEqual({ feedbackId: "fb-1", status: "待处理" });
+    // 有对话 ⇒ 调了摘要；端口退路 ⇒ 结构化字段原样、如实标 fallback
+    expect(out).toEqual({ feedbackId: "fb-1", status: "待处理", chatSummary: "fallback" });
+    expect(w.refine.calls.at(-1)?.what).toBe("summarize");
     expect(fb.inserted).toEqual([{
       id: "fb-1", submittedBy: ME, kind: "缺陷", target: { kind: "skill", skillId: "s-1" }, targetLabel: null,
       title: "导出 PDF 会卡住", detail: "导出 PDF 会卡住！每次都这样\n第二行",
@@ -140,6 +176,39 @@ describe("UC-17.8 B1 草稿闭环", () => {
     expect(w.attachments.rows.get("a-1")).toMatchObject({ feedbackId: "fb-1", draftId: null });
     expect(w.attachments.rows.get("a-2")).toMatchObject({ feedbackId: "fb-1", draftId: null });
     expect(await listMyFeedbackDrafts(w.base, { ownerId: ME })).toEqual([]);
+  });
+
+  it("B5.1 提交：模型把对话摘要成结构化字段 ⇒ 随反馈落库、chatSummary=model；没有对话 ⇒ 不调模型、chatSummary=null", async () => {
+    const w = world();
+    await createFeedbackDraft(w.createDeps, {
+      ownerId: ME, kind: "缺陷", target: { kind: "product" }, detail: "导出卡住", structured: { reproSteps: "1. 点导出" },
+      occurredRoute: null, appVersion: null,
+    });
+    await updateFeedbackDraft(w.updateDeps, { draftId: "d-1", ownerId: ME, appendChat: { role: "user", kind: "message", text: "每次都卡，Chrome" } });
+    w.refine.answers.summarize = { structured: { reproSteps: "1. 点导出", reproFrequencyEnv: "每次 · Chrome" }, source: "model" };
+    let fb = fakeFeedbackRepo();
+    let out = await submitFeedbackDraft(
+      { ...w.base, refine: w.refine, submit: { repo: fb.repo, attachments: w.attachments, newFeedbackId: () => "fb-1", newEventId: () => "ev-1" } },
+      { draftId: "d-1", ownerId: ME },
+    );
+    expect(out.chatSummary).toBe("model");
+    expect(fb.inserted[0]).toMatchObject({ structured: { reproSteps: "1. 点导出", reproFrequencyEnv: "每次 · Chrome" } });
+    // 摘要端口看到的是完整对话与已有字段
+    const sum = w.refine.calls.find((c) => c.what === "summarize");
+    expect(sum?.ctx).toMatchObject({ kind: "缺陷", structured: { reproSteps: "1. 点导出" } });
+    expect(sum?.ctx.chat.some((c) => c.text === "每次都卡，Chrome")).toBe(true);
+
+    // 只有 edit 记录、没有对话 ⇒ 不摘要
+    await createFeedbackDraft(w.createDeps, { ownerId: ME, kind: "缺陷", target: { kind: "product" }, detail: "v1", occurredRoute: null, appVersion: null });
+    await updateFeedbackDraft(w.updateDeps, { draftId: "d-2", ownerId: ME, detail: "v2" });
+    const before = w.refine.calls.length;
+    fb = fakeFeedbackRepo();
+    out = await submitFeedbackDraft(
+      { ...w.base, refine: w.refine, submit: { repo: fb.repo, attachments: w.attachments, newFeedbackId: () => "fb-2", newEventId: () => "ev-2" } },
+      { draftId: "d-2", ownerId: ME },
+    );
+    expect(out.chatSummary).toBeNull();
+    expect(w.refine.calls.length).toBe(before);
   });
 
   it("删除：附件回到未认领，草稿消失", async () => {

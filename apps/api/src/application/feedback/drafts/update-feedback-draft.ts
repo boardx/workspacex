@@ -7,9 +7,17 @@
  *     正文与旧值相同时不追加（一次无变化的保存不是一次编辑）。空正文不追加（契约
  *     `text.min(1)`——一条空的 edit 记录没有信息量，而正文本身允许清空）。
  *   · `appendChat` ⇒ 直接追加，`at` 服务端给。
- *   · **seed 只一次**：首次 `appendChat` 且 `refineSeeded === false` 时，服务端先追加一条固定的
- *     AI 澄清问题（`REFINE_SEED_QUESTION`），再追加用户消息，并把 `refineSeeded` 置 true。
- *   · **固定回执**（D7：不接模型）：每条用户消息之后追加 `REFINE_ACK`。
+ *   · **seed 只一次**：首次 `appendChat` 且 `refineSeeded === false` 时，服务端先追加一条 AI 澄清
+ *     问题，再追加用户消息，并把 `refineSeeded` 置 true。
+ *   · 每条用户消息之后追加一条 AI 回复。
+ *
+ * ## UC-17.8 B5.1：澄清问题与回复由模型生成，退路是 D7 固定回执
+ *
+ * D7 上线时（2026-09-02）这两条 AI 记录是固定文案 `REFINE_SEED_QUESTION`/`REFINE_ACK`。
+ * B5.1 起由 `deps.refine`（`DraftRefineModel`，唯一实现 `ModelDraftRefiner`）按 `kind` +
+ * 已有结构化字段 + 正文 + 完整对话历史生成；模型不可用时端口自己退回固定文案并标
+ * `source: "fallback"`，本用例**不区分**这两种情况——它只负责把端口给的话追加进去。
+ * 固定文案的单一事实源搬到了 `draft-refine-model.ts`，这里只是转发导出（既有 import 路径不变）。
  *
  * ⚠ 四个字段都不传 ⇒ 空操作，原样返回（契约头注逐字）。
  * ⚠ 所有追加算好之后**一条** UPDATE 整体写回 `chat`——不是逐条 append 三次。
@@ -18,13 +26,14 @@ import type { FeedbackDraftChatTurn } from "../draft-ports";
 import type { FeedbackKind, FeedbackStructured } from "../ports";
 import { FeedbackDraftNotFoundError, loadDraftView, type FeedbackDraftDeps, type FeedbackDraftView } from "./draft-shared";
 
-/** D7 固定文案——单一事实源，前端不复述。 */
-export const REFINE_SEED_QUESTION =
-  "这个需求/问题的边界在哪：只影响当前场景，还是所有相关入口都要一起改？优先级怎么排？";
-export const REFINE_ACK = "已记录，还有想补充的吗？";
+import type { DraftRefineModel } from "./draft-refine-model";
+
+export { REFINE_ACK, REFINE_SEED_QUESTION } from "./draft-refine-model";
 
 export interface UpdateFeedbackDraftDeps extends FeedbackDraftDeps {
   readonly now: () => Date;
+  /** B5.1：澄清问题/回复的来源（模型或退路），见 `draft-refine-model.ts`。 */
+  readonly refine: DraftRefineModel;
 }
 
 export interface UpdateFeedbackDraftInput {
@@ -55,13 +64,22 @@ export async function updateFeedbackDraft(
     chat.push({ role: "user", kind: "edit", text: input.detail, at });
   }
   if (input.appendChat !== undefined) {
+    // 模型看到的是**本次调用生效后**的草稿：类型/正文/字段若同一次调用里改了，按改后的算。
+    const ctx = {
+      kind: input.kind ?? current.kind,
+      detail: input.detail ?? current.detail,
+      structured: input.structured !== undefined ? input.structured : current.structured,
+      chat,
+    };
     if (!current.refineSeeded) {
-      chat.push({ role: "ai", kind: "message", text: REFINE_SEED_QUESTION, at });
+      const seed = await deps.refine.seedQuestion(ctx);
+      chat.push({ role: "ai", kind: "message", text: seed.text, at, source: seed.source });
       refineSeeded = true;
     }
     chat.push({ ...input.appendChat, at });
     if (input.appendChat.role === "user") {
-      chat.push({ role: "ai", kind: "message", text: REFINE_ACK, at });
+      const reply = await deps.refine.reply(ctx);
+      chat.push({ role: "ai", kind: "message", text: reply.text, at, source: reply.source });
     }
   }
 

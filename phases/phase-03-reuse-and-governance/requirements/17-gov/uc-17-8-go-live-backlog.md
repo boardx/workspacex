@@ -202,6 +202,30 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
 
 ### 0.4 Sprint 4 落地记录
 
+- ✅ B5.1（草稿「继续完善」对话接模型 + 提交时对话摘要成结构化字段）2026-09-05 落地：
+  新建契约束 **`design-ai-collab`**（`contracts/design-ai-collab/` 五件材料齐，
+  `design-signoff.md` `status: pending`、`covers: [B5.1, B5.2]`，等人类签核；
+  `design-coherence.md` §2.6 交叉约束草稿，frontmatter 未动——ADR-023 归人类）。
+  契约：新文件 `packages/contracts/src/design-ai-collab.ts` 只声明两束共用的
+  `AiReplySource`（`model`/`fallback`）；`feedback-loop.ts` 的 `FeedbackDraftChatTurn` 加
+  `source?`（AI 记录）、`appendChat` 输入不接受它、`submitFeedbackDraft.out` 加 `chatSummary`。
+  实现走 `structureFeedbackDraft` 那条链（同一个 `ModelCallPort` + 同一份
+  `FEEDBACK_STRUCTURE_MODEL_CONFIG` + `parseStructuredForKind` 同一套解析），**不走**
+  agent-run（理由见该束 `domain.md` §3：对话历史单一事实源在 `drafts.chat[]`，远端 thread
+  是第二份副本）：`application/feedback/drafts/draft-refine-model.ts`（端口 `DraftRefineModel`
+  + 唯一实现 `ModelDraftRefiner`：首次澄清问题 / 每轮回复 / 提交时摘要，30s/30s/60s 超时，
+  失败**不抛**、退回 D7 固定文案并标 `source: "fallback"`；固定文案的单一事实源搬到这里，
+  `update-feedback-draft.ts` 转发导出）。Web：`drafts-screen.tsx` 浮层 AI 气泡按
+  `source === "fallback"` 挂「固定回执」标识（`draft-refine-turn-fallback`），布局不变。
+  单测：`tests/feedback/draft-refine-model.test.ts`（fake port：prompt 含 kind/字段/正文/
+  按序历史、不传 threadId；失败/空输出退路；摘要按 kind 严格解析、覆盖同名保留其余、
+  别 kind 键丢弃）+ `draft-lifecycle.test.ts` 三条新/改（`FakeDraftRefiner`）+
+  `tests/ui/feedback-drafts-live.test.tsx` 一条。截图：本束不新增屏，`ui-preview/
+  design-ai-collab/` 按 phase-10 先例复制两张既有图（`drafts-refine-light` /
+  `detail-canvas-dark`），`ui-material-map.json` 补一行。
+  PR：`worker/claude-uc17-8-b5-1-draft-refine-ai`。
+- 待做：B5.2（设计详情对话接模型 + 写回 `problem/criteria/frames`），分支
+  `worker/claude-uc17-8-b5-2-design-chat-ai`（从 B5.1 分支切出）。B5.3 不做（out of scope）。
 - ✅ B6.5（无障碍与响应式复核）2026-09-05 落地：
   **键盘替代**——看板拖拽的每一条合法迁移都有 drawer 操作按钮做同一件事：按 `stage × kind`
   逐格核对两个源状态机（`product-feedback.ts` `ALLOWED_TRANSITIONS`、`system-error-logs.ts`
