@@ -15,7 +15,10 @@
  * 不认识的工具默认最保守，而不是默认放行——放行才是需要理由的那一侧。
  */
 
-export type ToolRiskLevel = "L0" | "L1" | "L2";
+import type { z } from "zod";
+import type { planPermissions as PP } from "@repo/contracts";
+
+export type ToolRiskLevel = z.infer<typeof PP.ToolRiskLevel>;
 
 /**
  * L0：只读、无副作用。`list_org_skills`（deep-agent-service 内置的技能枚举工具）与
