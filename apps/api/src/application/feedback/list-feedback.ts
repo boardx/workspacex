@@ -121,6 +121,8 @@ export async function listFeedback(
     createdAt: row.createdAt,
     githubIssueUrl: row.githubIssueUrl,
     githubIssueNumber: row.githubIssueNumber,
+    // UC-17.8 B4——不走 D3 门控，见契约 `FeedbackItem.resolvedByDesignId` 头注。
+    resolvedByDesignId: row.resolvedByDesignId,
     attachments: attachmentsByFeedbackId.get(row.id) ?? [],
   }));
 }
