@@ -90,9 +90,22 @@ export function describeCopilotkitV2RunError(code: string | null | undefined): s
  * 语义特征词，就统一按超时处理，复用 `AGENT_RUN_TIMEOUT` 的既有文案（单一事实源，
  * 不新开一句措辞）。命中不了任何特征词时返回 `undefined`，调用方继续落到通用兜底
  * ——不新增"看起来分类了、其实分类错了"的误导。
+ *
+ * ## issue #2786 补的三个真实浏览器 fetch() 失败文案（2026-09-05）
+ *
+ * 上面这版正则精确覆盖了 Node/undici 侧的错误文案（`ECONNRESET`/`fetch failed`/
+ * `UND_ERR_HEADERS_TIMEOUT`），但 `copilotkit.runAgent()` 的 `catch`/`onError`
+ * 路径（`copilotkit-v2-panel-body.tsx`）实际收到的 `error.message` 也可能是**浏览器
+ * 原生**抛出的 `TypeError` 文案——三大浏览器各不相同，且都没被上面的词表命中：
+ *   - Chrome/Edge: `Failed to fetch`（词序与已收录的 `fetch failed` 相反）
+ *   - Firefox:     `NetworkError when attempting to fetch resource.`（`NetworkError`
+ *                  是一个驼峰单词，中间没有空格，匹配不到 `network error` 要求的空格）
+ *   - Safari:      `Load failed`（词表里完全没有这个词）
+ * 三者都是"这次执行没有成功，请重试或联系管理员"通用兜底文案，而不是"还在等待结果"
+ * 的专属文案——同一类传输层失败，因为浏览器不同就走了两条不同的用户体验。
  */
 const TRANSPORT_TIMEOUT_MESSAGE_PATTERN =
-  /timeout|timed out|headers timeout|body timeout|aborted|terminated|econnreset|epipe|socket hang up|network error|fetch failed/i;
+  /timeout|timed out|headers timeout|body timeout|aborted|terminated|econnreset|epipe|socket hang up|network ?error|fetch failed|failed to fetch|load failed/i;
 
 export function classifyTransportFailureMessage(rawMessage: string | null | undefined): string | undefined {
   if (typeof rawMessage !== "string" || rawMessage.trim() === "") return undefined;
