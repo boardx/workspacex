@@ -4,8 +4,9 @@
  * 类型走 `z.infer`——不重新声明字段名（`lint-contract-source` 要求）。
  *
  * ⚠ 这条接口只对"平台超管"放行（见契约文件头），一个非超管账号调用会收到 403
- *   `NOT_PLATFORM_SUPERUSER`——`FeedbackScreen` 据此把这块区域渲染成"仅平台运维
- *   可见"的提示，而不是当成整块屏的失败态。
+ *   `NOT_PLATFORM_SUPERUSER`——消费方据此把这块区域渲染成"仅平台运维可见"的提示，
+ *   而不是当成整块屏的失败态（B3.6 前是 `FeedbackScreen` 的系统异常 tab，已随旧屏
+ *   退役删除；现在是 `inbox-screen.tsx` 的系统异常来源投影）。
  */
 import { systemErrorLogs } from "@repo/contracts";
 import type { z } from "zod";

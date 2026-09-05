@@ -16,6 +16,17 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
   /** 测试断言用：`pushToInbox` 时是否真的回写了反馈的 `resolved_by_design_id`。 */
   readonly resolvedFeedbackIds: string[] = [];
+  /**
+   * 同真实仓储 `resolved_by_design_id IS DISTINCT FROM $3`：记住哪条反馈已经被哪个项目
+   * 回写过，重复推送回 `resolvedFeedback: null`（B6.3 通知去重的依据）。
+   */
+  private readonly resolvedBy = new Map<string, string>();
+  /** `seedFeedback` 放进来的提交人/标题；没 seed 的 id 按固定规则合成（只看 id 的既有用例不用改）。 */
+  private readonly feedback = new Map<string, { submittedBy: string; title: string }>();
+
+  seedFeedback(feedbackId: string, fb: { submittedBy: string; title: string }): void {
+    this.feedback.set(feedbackId, fb);
+  }
   private tick = 0;
 
   private stamp(): string {
@@ -107,10 +118,15 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
-    let resolvedFeedback = false;
-    if (r.linkedFeedbackId !== null) {
-      resolvedFeedback = true;
+    let resolvedFeedback: PushToInboxResult["resolvedFeedback"] = null;
+    if (r.linkedFeedbackId !== null && this.resolvedBy.get(r.linkedFeedbackId) !== projectId) {
+      this.resolvedBy.set(r.linkedFeedbackId, projectId);
       this.resolvedFeedbackIds.push(r.linkedFeedbackId);
+      const fb = this.feedback.get(r.linkedFeedbackId) ?? {
+        submittedBy: `submitter-of-${r.linkedFeedbackId}`,
+        title: `反馈 ${r.linkedFeedbackId}`,
+      };
+      resolvedFeedback = { id: r.linkedFeedbackId, ...fb };
     }
     return { project: next, resolvedFeedback };
   }

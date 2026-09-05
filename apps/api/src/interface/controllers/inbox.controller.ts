@@ -10,15 +10,16 @@
  *
  * ## 鉴权分两层，跟契约头注一致
  *
- *   1. **整条收件箱**要求调用方是本组织的分诊角色（`canTriage`）——同
- *      `FeedbackController.counts` 的纪律，见 `listInbox`/`getInboxCounts` 用例
- *      抛的 `InboxPermissionRevokedError`。
+ *   1. **整条收件箱**只要求调用方是本组织成员（D8 ③，2026-09-05 人类裁决）——
+ *      不是本组织成员时 `listInbox`/`getInboxCounts` 用例抛 `InboxPermissionRevokedError`
+ *      ⇒ 403。正文按 D3 逐行判（非管理员、非提交人 ⇒ `body: null`），分诊动作仍走
+ *      `triageFeedback` 自己的 `canTriage`。
  *   2. **系统异常那一半**单独判——不是超管就不查那一半（`sources.exception:
  *      "withheld"`），不是把整条请求拒掉。判法**逐行复用**
  *      `isRequestorPlatformOperator`（与 `PlatformOperatorGuard` 同一个域函数 +
  *      同两个仓储，见该文件头注）。
  */
-import { BadRequestException, Controller, ForbiddenException, Get, Inject, Query } from "@nestjs/common";
+import { BadRequestException, Controller, ForbiddenException, Get, Inject, Query, Req } from "@nestjs/common";
 import { inbox as C } from "@repo/contracts";
 import { PRODUCT_FEEDBACK_REPOSITORY, type ProductFeedbackRepositoryFactory } from "../../application/feedback/ports";
 import {
@@ -28,6 +29,8 @@ import {
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
 import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository } from "../../application/identity/ports";
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { traceIdOf } from "../middleware/trace";
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "../../application/auth/ports";
 import { PLATFORM_ADMIN_REPOSITORY, type PlatformAdminRepository } from "../../application/system/platform-admin-ports";
 import {
@@ -56,6 +59,7 @@ export class InboxController {
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
     @Inject(PLATFORM_ADMIN_REPOSITORY) private readonly platformAdmins: PlatformAdminRepository,
     @Inject(DESIGN_PROJECT_REPOSITORY) private readonly designProjects: DesignProjectRepositoryFactory,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   /** B4.3——设计方案那一半的依赖，全组织可读，不像 `errorLog` 那样需要按请求者身份判断给不给。 */
@@ -83,6 +87,7 @@ export class InboxController {
 
   @Get("/inbox")
   async list(
+    @Req() req: unknown,
     @CurrentPrincipal() principal: Principal,
     @Query("kind") kind: string | undefined,
     @Query("stage") stage: string | undefined,
@@ -114,6 +119,8 @@ export class InboxController {
           },
           errorLog: await this.errorLogForRequestor(principal),
           design: this.designDeps(principal),
+          logger: this.logger,
+          traceId: traceIdOf(req),
         },
         {
           viewerId: principal.userId,
@@ -133,7 +140,7 @@ export class InboxController {
   }
 
   @Get("/inbox/counts")
-  async counts(@CurrentPrincipal() principal: Principal) {
+  async counts(@Req() req: unknown, @CurrentPrincipal() principal: Principal) {
     assertPrincipal(principal);
     const { orgRole, teamId } = await this.viewerRole(principal);
     try {
@@ -148,6 +155,8 @@ export class InboxController {
           },
           errorLog: await this.errorLogForRequestor(principal),
           design: this.designDeps(principal),
+          logger: this.logger,
+          traceId: traceIdOf(req),
         },
         { viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
       );

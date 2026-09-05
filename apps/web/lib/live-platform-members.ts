@@ -8,7 +8,7 @@
  *   （grant/revokePlatformAdmin）**只对平台超管**放行——都会用同一个 403
  *   `NOT_PLATFORM_SUPERUSER` 表达"不够格"，但够格的门槛不同，见契约文件头。
  *   `PlatformMembersScreen` 据此把整块屏渲染成「仅平台运维可见」的说明，而不是当成
- *   失败态（同 `feedback-screen.tsx` 系统异常区的处置）。
+ *   失败态（同旧 `feedback-screen.tsx` 系统异常区的处置——该文件已随 B3.6 旧屏退役删除）。
  */
 import { identity, platformMembers } from "@repo/contracts";
 import type { z } from "zod";

@@ -18,9 +18,20 @@
 「前端消费点」列填**已建成界面**里的真实 `data-testid`（已在仓库中核实）。
 
 已建成并可引用的三处：
-`/admin/feedback`（`components/admin/feedback-screen.tsx`）·
+`/platform-admin/inbox`（`components/design-loop/inbox-screen.tsx`，
+`inbox-*` 系列 testid）·
 反馈弹层（`components/feedback/feedback-dialog.tsx`，由图标栏 / 顶栏 / chat 三处触发）·
 `/chat`（`chat-live-message-panel.tsx` 消息头 · `chat-skill-mount-panel.tsx` 挂载 chip）。
+
+⚠ **B3.6（2026-09-04，旧屏退役）**：下表 V7/V8/V10/V11 原来的「前端消费点」列填的是
+`admin-feedback-*`（旧 `components/admin/feedback-screen.tsx` 的 testid 前缀）——该文件
+已删除，这些 testid 已随之从仓库消失。下表已把这几行改成新屏 `inbox-*` 的 testid；
+**V8/V9（投票）例外**——`inbox-screen.tsx` 的 drawer 只把票数当只读元信息展示，没有
+`voteFeedback` 的界面入口（见 `ui.md` 屏 D 一节），所以 V8/V9 的「前端消费点」列改填
+「无（API 仍在，界面入口已退役）」，状态从 ✅ 降级为 ⚠，登记为已知限制，不是隐藏
+掉一条曾经覆盖的线索。`inbox-unified` 范畴今天还没有独立的 `coverage.md`（该范畴的
+契约束尚待走 ADR-023 签核），本文件先把这条事实记在这里，避免"同一 UC 覆盖两处
+声明不一致"。
 
 ---
 
@@ -34,21 +45,24 @@
 | V4 | 目标传真实 id 不是显示名 | `FeedbackTarget`（判别联合） | `chat-agent-feedback` / `chat-skill-feedback-{skillId}` | ✅ |
 | V5 | skill 目标不带版本 | `FeedbackTarget` 的 `skill` 分支只有 `skillId` | 同上 | ✅ |
 | V6 | 文字反馈不进满意度 | **结构性**：本束五条操作没有任何一条读写 `message_ratings` | —（API 层验收：`product-feedback-persistence.test.ts` 只触本束三张表） | ✅ |
-| V7 | 标题+票数全组织可见，正文仅管理员与提交人 | `FeedbackItem.detail: nullable`；`decideFeedbackDetailVisibility` + `discloseDecided` | `admin-feedback-detail-withheld-{id}` | ✅ |
-| V8 | 票数 `COUNT(*)`、幂等、可撤 | `voteFeedback` | `admin-feedback-vote-{id}` | ✅ |
-| V9 | 提交人可投自己那条 | `voteFeedback`（无自投禁止） | 同上 | ✅ |
-| V10 | 状态机四态；`已修复 → 不做` 不是边 | `triageFeedback` → `ILLEGAL_TRANSITION`（422） | `admin-feedback-to-{status}-{id}`（只出得去的边才有按钮） | ✅ |
-| V11 | 状态变更 append-only 留痕 | `triageFeedback` 落 `product_feedback_status_events` | **未建**：流水本身尚无查看界面 | ⚠ **缺口 1** |
+| V7 | 标题+票数全组织可见，正文仅管理员与提交人 | `FeedbackItem.detail: nullable`；`decideFeedbackDetailVisibility` + `discloseDecided` | `inbox-drawer-body-withheld`（B3.6 前是 `admin-feedback-detail-withheld-{id}`） | ✅ |
+| V8 | 票数 `COUNT(*)`、幂等、可撤 | `voteFeedback` | 无（界面入口已随 B3.6 旧屏退役，API 仍在） | ⚠ **见 B3.6 注** |
+| V9 | 提交人可投自己那条 | `voteFeedback`（无自投禁止） | 同上 | ⚠ **见 B3.6 注** |
+| V10 | 状态机四态；`已修复 → 不做` 不是边 | `triageFeedback` → `ILLEGAL_TRANSITION`（422） | `inbox-action-{start,done,back,reopen,decline}`（只出得去的边才有按钮，B3.6 前是 `admin-feedback-to-{status}-{id}`） | ✅ |
+| V11 | 状态变更 append-only 留痕 | `triageFeedback` 落 `product_feedback_status_events` | `inbox-drawer-timeline`（B3.6 前尚无查看界面，见下方「缺口 1」历史；`inbox-screen.tsx` 已把它补上） | ✅ |
 | V12 | 本体除状态两列外不可改 | **结构性**：本束没有任何「编辑反馈」操作 | —（API 层验收：`fb2_product_feedback_immutable_columns` 触发器） | ✅ |
 
-### 缺口 1 · 状态流水没有查看界面
+### 缺口 1（历史）· 状态流水没有查看界面 —— B3.6 起已由 `inbox-unified` 界面补上
 
-留痕已经在写（`product_feedback_status_events`，append-only，
-`product-feedback-persistence.test.ts` ④ 两层各验一次），但**没有任何屏能把它显示出来**。
+留痕一直在写（`product_feedback_status_events`，append-only，
+`product-feedback-persistence.test.ts` ④ 两层各验一次）。这条缺口在旧
+`feedback-screen.tsx` 时代是真实的：那块屏没有任何地方显示它，只能直连库查。
 
-⚠ 这是**记在案的缺口，不是已覆盖**。今天它的价值是「事后可查」（直连库或后续做导出），
-不是「界面上看得到」。补它需要一条 `listFeedbackStatusEvents` 操作——那是新增契约，
-要人类重新签，所以不在本束第一版里偷偷加。
+⚠ **2026-09-04（B3.6，旧屏退役）起不再是缺口**：接它的操作一直是本束已有的
+`listFeedbackStatusEvents`（不是新增契约，此前只是没有界面消费它）；替代旧屏的
+`/platform-admin/inbox`（`inbox-screen.tsx`「时间线」区块，`inbox-drawer-timeline`）
+已经在消费这条操作。上面 V11 因此从 ⚠ 改判 ✅。这一段作为历史记录保留，不删——
+如实记录"这条缺口曾经存在、什么时候、被什么补上"比事后抹掉更诚实。
 
 ---
 

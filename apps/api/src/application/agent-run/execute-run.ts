@@ -70,6 +70,8 @@ import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from 
 import { record } from "./record-run-step";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
+import { checkPendingInterjection } from "./interjection-handling";
+import type { InterjectionStore } from "./interjection-store";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -480,6 +482,11 @@ export interface ExecuteAgentRunDeps {
    * 相同——每次 L2 中断都进 `awaiting_tool_permission`，既有测试不需要跟着改。
    */
   readonly toolPermissionGrants?: ToolPermissionGrantStore;
+  /**
+   * Phase 14 F11 —— 中途插话暂存端口。可选，同 `toolPermissionGrants` 既有先例：
+   * 缺省不注入 ⇒ `checkPendingInterjection` 恒为 no-op，行为与本 feature 之前逐字节相同。
+   */
+  readonly interjections?: InterjectionStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -1189,6 +1196,8 @@ async function executeClaimed(
         // Phase 14 F03 -- forward this SAME progress event onto the WS bus, fire-and-forget,
         // NOT gated on the `record()` ledger write above (I-3). See `execute-run-events.ts`.
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
+        // Phase 14 F11 -- 一次工具调用的终态之后、下一次之前：见 `interjection-handling.ts`。
+        if (status === "succeeded") await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
       async (delta) => {
         if (delta === "") return;

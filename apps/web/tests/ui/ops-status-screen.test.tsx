@@ -2,9 +2,9 @@
  * OPS-1 —— 平台后台「运营状态」屏。
  *
  * 2026-09-03 人类反馈：「测试邮件的功能不要放在系统异常下面，放到平台后台的一个
- * 新的菜单叫运营状态」——`TestMailPanel` 从 `feedback-screen.tsx` 挪到这里，这个文件
- * 是那组用例（成功/失败/非超管）搬家后的落点，原用例见 `admin-feedback-live.test.tsx`
- * 头注编号⑥历史（现已移除测试邮件相关的两条）。
+ * 新的菜单叫运营状态」——`TestMailPanel` 从旧 `feedback-screen.tsx` 挪到这里，这个文件
+ * 是那组用例（成功/失败/非超管）搬家后的落点。原用例曾在 `admin-feedback-live.test.tsx`
+ * 头注编号⑥；那个文件已随 B3.6 旧屏退役一并删除（测试邮件相关的两条早在搬家时移除）。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";

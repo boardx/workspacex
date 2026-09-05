@@ -1,7 +1,9 @@
 {
   "//": "契约束复用既有 zod 契约文件的唯一事实源。仅登记真正共享同一领域契约的跨阶段扩展；普通束无需出现。",
   "phase-03-reuse-and-governance": {
-    "user-research-studio": "interview"
+    "//": "UC-17.8 B6.2：inbox-unified 的第 ③ 件是 packages/contracts/src/inbox.ts（束名≠文件名）；feedback-drafts 的六条 *FeedbackDraft* 操作挂在 feedback-loop.ts（B1.1 backlog 原文如此，不另起文件）。两束目录落地前这两行不生效、也不报错——lint 只核对磁盘上真实存在的束。",
+    "inbox-unified": "inbox",
+    "feedback-drafts": "feedback-loop"
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "interview"

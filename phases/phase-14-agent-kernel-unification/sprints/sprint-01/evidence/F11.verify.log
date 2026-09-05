@@ -1,0 +1,134 @@
+Phase 14 F11 — 中途插话后端接口 + 内核插话处理
+=================================================
+sonnet5-2720, 2026-09-05
+
+## 环境阻塞（诚实记录，不绕开）——与本 phase 其他 session 遇到的同一个已知问题（见 F06）
+
+本会话的容器没有可用的 Docker daemon（`/var/run/docker.sock` 不存在）。`apps/api` 的
+vitest 套件（`vitest.config.ts` 的 `globalSetup: tests/support/db-global-setup.ts`）
+**无条件**要求一个真实、隔离的 Postgres 实例才能起 test runner——即便是纯内存 fake、
+不碰数据库的用例（本 feature 的 `tests/agent-run/interjection-handling.test.ts` 全部
+如此）也过不了这道 global setup，因为它在第一个用例跑之前就已经在 setup 阶段失败。
+`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- <cmd>`（官方推荐跑法）会
+尝试 `docker compose up -d postgres` 起一个隔离库，同样因 Docker daemon 缺失而失败。
+完整报错见 `F11.docker-blocker.log`。用同一份 `risk-tiering-and-states.test.ts`
+（F06 既有、无关本次改动）验证过：这不是本 feature 引入的新问题，是这台容器的既有
+环境限制——同一命令对那份文件跑，摔在完全相同的 `docker compose up -d postgres`
+一行上。
+
+`pnpm harness verify --phase 14 --feature F11` 因此报：
+```
+✗ 失败: pnpm --filter api exec vitest run tests/agent-run/interjection-handling.test.ts
+```
+命令本身跑起来了，卡在 vitest 自己的 global setup，不是断言失败；不能据此把 feature
+标 passing（AGENTS.md：状态只能由 `harness verify` 门控转移），status 保持
+`in_progress`，留给下一个有可用 Docker（或已预置隔离库）环境的 session/CI 补跑
+这条命令、确认转绿。
+
+## 对 `interjection-handling.test.ts` 做过的独立验证（弥补无法直接跑 vitest 的缺口）
+
+1. `pnpm --filter api run typecheck`（`tsc --noEmit`）：本 feature 新增/改动的全部
+   源文件与测试文件类型检查通过。唯一剩余报错来自 `packages/fabric-markdown`
+   （DOM lib 相关的既有基线错误）——用 `git stash` 复现过：改动前的 `main` 上跑
+   同一条命令，报出完全相同的一批错误，与本 feature 无关，不是本次改动引入。
+2. `node .harness/scripts/lint-arch-deps.mjs apps/api/src`：1195 个文件，依赖方向
+   全部正确（洋葱分层未被破坏）。
+3. `apps/api` 其余 lint 全绿：`lint-error-leak`（87 文件，接口层不泄漏错误详情）、
+   `lint-naming-single-source`、`lint-permission-paths`（本 feature 未新增任何直接
+   查询租户表的代码，新方法 `findRequesterUserId`/`revokeAllForRun` 复用既有
+   `withTenant` 守卫）、`lint-no-builtin-capabilities`、`lint-skill-context-api-only`。
+4. `node .harness/scripts/lint-body-path-param-leak.mjs`：172 个文件，无未豁免的
+   路径参数泄漏（新端点 `interject()` 的 body 不重复 `runId`）。
+5. `node .harness/scripts/lint-contract-source.mjs`：525 个契约类型，本 feature 用
+   到的 `InterjectInput`/`InterjectOutput` 均通过 `import type { artifactsSteering as
+   AS } from "@repo/contracts"` 直接引用，没有手写第二份镜像声明（AGENTS.md 已知
+   gotcha ①：任何镜像 `packages/contracts/src/*.ts` 形状的类型必须走 `z.infer`/
+   直接引用，不得重新声明——已按此执行）。
+6. `execute-run-thin-gateway.test.ts` 的三条静态断言（无 DB 依赖，用一段等价的
+   node 脚本手动复核，见下）：
+   - `executeToolLoop`/`useLazySkillLoading`/渐进式披露符号均不存在于真代码。
+   - `deps.model.completeStream(...)`/`completeWithProgress(...)` 直接分支调用不存在，
+     `invokeKernel(` 调用点数 = 1。
+   - 行数：改动后 1374 行（< 1493 的历史基线，且 ≤ 1393 的"显著下降"门槛）——本
+     feature 严格遵守 AGENTS.md 已知 gotcha ②：新增的插话消费+分类逻辑全部落在
+     独立文件 `interjection-handling.ts`（同 `tool-permission-gate.ts`/
+     `execute-run-events.ts`/`record-run-step.ts` 的既有抽离先例），`execute-run.ts`
+     自身只新增 8 行（2 行 import + 5 行可选字段声明 + 1 行调用点）。
+7. 用一份独立的 `tsx` 脚本（存档在 `F11.manual-check.ts`，未纳入 `apps/api/tests/`，
+   只是本地验证手段——不经过 vitest 的 global setup）直接 import
+   `executeQueuedRuns`/`classifyInterjection`/`createInMemoryInterjectionStore`/
+   `createInMemoryToolPermissionGrantStore`，用与 `interjection-handling.test.ts`
+   逐字相同的纯内存 fake，逐条跑通了该测试文件里的全部断言（见 `F11.manual-check.
+   output.log`）：
+   - `classifyInterjection`：局部调整 vs 方向性改变两类样本分类正确。
+   - 插话在"下一次工具调用之间"被消费：`phase:"in_progress"` 期间插话尚未被
+     消费（不打断进行中的调用，I-5）；该次调用终态事件之后才消费，且产生的
+     `model_called` 账本记录（`planningNote` 带原文插话文本）seq 严格落在
+     触发它的那次 `tool_call` 之后、再下一次 `tool_call` 之前（R12："下一步执行
+     路径需体现新指令"）。
+   - 未注入 `deps.interjections`（可选依赖缺省）：行为与本 feature之前逐字节相同，
+     不多出任何记录（回归安全网）。
+   - E3：方向性改变的插话 ⇒ 撤销本 run 内已授权的 `call_skill`（`revokeAllForRun`）
+     ⇒ 下一次同类 L2 中断重新进 `awaiting_tool_permission`（`markAwaitingCalls===1`,
+     `approveCalls===0`），且插话消费的 seq 早于授权判定那一步（撤销必须赶在
+     `hasGrant` 查询之前生效）。
+   - 对照组：局部调整的插话 ⇒ 不撤销授权 ⇒ 仍按 R4 A2 自动放行——证明不是每条
+     插话都无差别清空授权，只有判定为方向性改变时才失效（E3 的精确范围）。
+   脚本输出：`ALL OK`（13 项全过，见 `F11.manual-check.output.log`）。
+
+## 实现内容
+
+- `POST /agent-runs/:runId/interject`（`agent-run.controller.ts`）——真实可达的
+  HTTP 端点，`interjectAgentRun`（`interject-run.ts`）唯一应用层实现：
+  - 可见性纪律沿用 `continueArtifact`/`decideAgentRun`（locator →
+    `resolveVisibility` → `discloseDecided`/`isDisclosed`）。
+  - R5 在可见性之上再收窄一层——只有 run 的发起者能插话：新增
+    `AgentRunStore.findRequesterUserId`（可选方法，`PgAgentRunRepository` 真实实现，
+    join `chat_messages.author_id`，同 `ClaimedAgentRun.requesterUserId` 的既有事实
+    来源），不是发起者 ⇒ 同一个 `NOT_VISIBLE`（契约 err 表没有第三个码）。
+  - 状态先验：只接受 `running`；其余状态（`awaiting_tool_permission`/终态）一律
+    `RUN_NOT_RUNNING`——`usecases.md` UC-4 标注的"待人类签核时确认"已由
+    `design-signoff.md`（status: confirmed，2026-09-04）确认为"拒绝"这一个答案，
+    不排队、不转换成其它交互。
+- `InterjectionStore`（`interjection-store.ts`）——中途插话的暂存端口，
+  domain.md 明写"非持久聚合根"：单槽（同 run 的新插话覆盖旧的未消费插话，不排队）、
+  纯内存参考实现（也是生产环境当前唯一实现），DI 注册为进程内单例
+  （`kernel.module.ts` 的 `INTERJECTION_STORE` provider），`AgentRunController`
+  与执行器侧的消费点共享同一份内存状态。
+- 内核侧消费（`interjection-handling.ts`，同 `tool-permission-gate.ts` 的既有抽离
+  先例，`execute-run.ts` 只增一行调用）：
+  - `classifyInterjection`——简单确定性关键词启发式（信号词命中 ⇒ `direction_change`，
+    否则 `adjustment`）；A2/E3 明写"识别策略属于内核实现细节，不规定算法"，本函数
+    是可替换实现，不是唯一权威。
+  - `checkPendingInterjection`——两个检查点各调用一次：`execute-run.ts` 的
+    `onProgress` 回调（一次工具调用终态事件之后）、`tool-permission-gate.ts` 的
+    `handleInterruptedToolCall`（计算 `authorized` 之前）。两处都在"调用尚未开始
+    或已经结束"的边界上，从不落在"调用进行中"的区间——I-5 由构造保证，不是运行时
+    判断。
+  - E3：`ToolPermissionGrantStore` 新增 `revokeAllForRun`（in-memory 参考实现 +
+    `PgToolPermissionGrantRepository` 生产实现，`DELETE ... WHERE scope='run' AND
+    run_id=$2`，复用 F06 已建的 `tool_permission_grants` 表，无需新迁移）——方向性
+    改变时整体撤销本 run 内的"都允许"授权，不逐工具名撤销（任务性质变了，旧授权
+    是在旧性质下给出的）；组织级"以后都允许"不受影响（R5：与本 run 上下文无关）。
+  - `plan_update` 事件：刻意不在这里发一个编造的事件——`usecases.md`"跨束委托"
+    一节明写插话触发的重新规划、是否需要重新走计划确认由内核判断，不在本束（因此
+    不在本函数）约束；真正的 `plan_update` 在内核据此重新调用 `write_todos` 时，
+    经既有的 `forwardToolCallProgress` 路径自然产生，同一份"宁可没有也不编造"的
+    反空转纪律（`execute-run-events.ts` 自己的既有先例），不重复发明第二条产生路径。
+
+## 已知的、有意保留的范围边界（诚实声明，不是回避）
+
+- 插话文本目前只以账本 `planningNote` 的形式体现"网关侧确实看到了它、并注入为
+  最高优先级上下文的证据"，尚未有一条把它真正回灌进远端 `deepagents`/LangGraph
+  图（Python 侧、`kernel-gateway` 束 `proxyToolExecution` 的职责，R10 依赖）当前
+  这一轮对话上下文的通道——`ModelCallPort`/`ModelCallInput` 今天没有承载"运行期
+  中途追加一条用户级指令"的字段，新增这样一个字段、并在 `DeepAgentModelProvider`/
+  `deep-agent-service` 侧接住它，是一块独立、更大的跨语言改动，本 feature（backend-
+  only、契约标注"内核判断"）判断不在这一刀的范围内。这与 F06 evidence 里"未新建
+  REST 路由留给下一 feature"是同一种范围纪律：先把可验证的那一半做实、做出证据，
+  不为了看起来"更完整"而去啃一块契约本身都还没定义清楚的跨语言接口。
+- `INTERJECTION_STORE` 的生产实现是进程内单例（同 domain.md"非持久聚合根"的字面
+  设计），多副本部署下不跨进程共享——同 F06 `ToolPermissionGrantStore` 当时甚至
+  完全没有接入 `AgentRunExecutor`（本 feature 更进一步，两处消费点都已真实接线，
+  只是尚未做成跨进程持久化），后续若需要跨进程一致性，换成 Redis/Postgres 实现
+  即可，端口形状不必变。
