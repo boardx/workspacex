@@ -129,6 +129,17 @@ async function submitOpenFeedback(
 async function gotoInboxViaRedirect(page: Page): Promise<void> {
   await page.goto("/platform-admin/feedback");
   await expect(page).toHaveURL(/\/platform-admin\/inbox$/);
+  await ensureListView(page);
+}
+
+/**
+ * 看板/列表视图是组件内 `useState("board")`，**不持久化**——`page.reload()` 之后回到看板，
+ * `inbox-row-*` 行根本不存在。每次刷新后都要再切一次列表，否则 `findInboxRow` 永远找不到
+ * （B3.6 重写这两条用例时漏了这一步；此前 D3 用例先红、serial 模式把后面的用例跳过，所以
+ * 直到 D8 ③ 放宽收件箱读路径让 D3 用例转绿，这一步才第一次真的跑到）。
+ */
+async function ensureListView(page: Page): Promise<void> {
+  await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
   const listToggle = page.getByTestId("inbox-view-list");
   if (await listToggle.isVisible()) await listToggle.click();
 }
@@ -272,6 +283,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await bugDrawer.getByTestId("inbox-action-start").click();
     expect((await started).status()).toBe(200);
     await page.reload();
+    await ensureListView(page);
     await expect(findInboxRow(page, TITLES.productBug)).toContainText(TITLES.productBug);
 
     /* ── 建 GitHub issue 是 fail closed 的（见 `triage-feedback.ts` 头注①）：
@@ -309,6 +321,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     const declinedBody = (await declinedResponse.json()) as { status?: string };
     expect(declinedBody.status).toBe("不做");
     await page.reload();
+    await ensureListView(page);
     const agentDrawerAfterReload = await openInboxRow(page, findInboxRow(page, TITLES.agentReq));
     await expect(agentDrawerAfterReload).toContainText(declineReason);
   });
