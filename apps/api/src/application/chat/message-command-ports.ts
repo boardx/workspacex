@@ -234,12 +234,6 @@ export interface ChatMessageCommandRepository {
        * 回滚整条消息（消息与挂附件是一个原子动作）。空/缺省 = 不挂附件。
        */
       attachmentIds?: readonly string[];
-      /**
-       * issue #2667 -- 个人设置"每次都先给我看计划"打开时为 `true`，落库到
-       * `agent_runs.disable_task_auto_classify`，供 `execute-run.ts` 建 run 级
-       * `ModelCallInput` 时读出。默认 `false`（接入前逐字节行为）。
-       */
-      disableTaskAutoClassify: boolean;
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
 

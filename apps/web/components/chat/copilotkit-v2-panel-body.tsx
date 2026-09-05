@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
-import { applyTaskModePrefix } from "@/lib/copilotkit-v2-task-mode";
-import { useAlwaysPlanFirstSetting } from "@/lib/chat-always-plan-first-setting";
 import {
   useAgent,
   useCopilotKit,
@@ -12,7 +10,7 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Sparkles, Square } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -125,7 +123,6 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
-  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -174,13 +171,6 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
-  /**
-   * PROP-CHAT-UIUX-ITER-002 V3 —— 「任务模式」是否开启，上报给外壳的右栏 Inspector
-   * 「运行详情」页签展示一条「当前模式」，与 composer 上真实的 `taskMode` state
-   * 保持同一份事实源（不新建第二份状态）。同 `onRunStateChange` 等既有回调一样，
-   * 各自一个 effect、依赖数组精确到值。
-   */
-  onTaskModeChange?: (taskMode: boolean) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -222,23 +212,12 @@ export function CopilotKitV2PanelBody({
    * `/技能`/`@Agent` 两个快捷入口用它读光标位置 + 插入后把焦点还给输入框。
    */
   const composerInputRef = React.useRef<HTMLTextAreaElement | null>(null);
-  /**
-   * issue #2130（TW-P0-5②）—— 「任务模式」开关，真实影响发出的正文（见下方
-   * `send()` 的 `taskMode` 分支），不是一个点了没有观察差异的假开关。
-   * ⚠ 默认**关闭**——不是判据要求默认关，是工程纪律：本仓一大批既有 e2e
-   * （`chat-read.spec.ts` 等，走同一个 loopback 回显上游）断言的是"发出的正文
-   * 逐字等于用户输入"，默认打开会让**所有**这些既有用例静默改变行为。新增的
-   * 是一个用户需要主动选择的能力，不是悄悄改变已验证过的默认路径。
-   */
-  const [taskMode, setTaskMode] = React.useState(false);
-  /**
-   * issue #2667 —— 个人设置"每次都先给我看计划"：默认关闭（默认体验是
-   * deep-agent-service 侧的自动判类，见 `chat-always-plan-first-setting.ts` 头注）。
-   * 打开时随每次发送透传 `disable_task_auto_classify: true`（下面 `send()` 的
-   * `forwardedProps`），让这一轮 run 的自动判类不生效，完全依赖上面的手动
-   * `taskMode` 开关决定要不要先出计划——与自动判类接入前的行为逐字一致。
-   */
-  const { alwaysPlanFirst, toggleAlwaysPlanFirst } = useAlwaysPlanFirstSetting();
+  /* issue #2770 —— 这里曾有「任务模式」（issue #2130，开启时给正文拼一句"请先给出
+     计划"前缀）与「每次都先计划」（issue #2667，透传 `disableTaskAutoClassify` 关掉
+     自动判类）两个手动开关。Phase 14 F02（#2739）把内核的 `TaskClassifierMiddleware`
+     改成无条件挂载：一句话是闲聊还是任务、任务要不要先出计划，由内核自己判，F07 的
+     计划确认卡按既有流程出现。两个开关都是"人替内核决定要不要先规划"的灰度期残留，
+     连同状态、发送时的正文前缀与 `forwardedProps` 透传一并删除；正文逐字等于用户输入。 */
   /* issue #2132（2026-08-27 续，bug #5）—— 此前这里持有一个 `chat-capability-picker`
      互斥槽的 setter，给 composer 里一个"只开、不渲染"的快捷按钮用（真正的
      `CapabilityPicker` 当时还渲染在页面最上面）。现在 `CapabilityPicker` 本体
@@ -1045,11 +1024,6 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
-  // PROP-CHAT-UIUX-ITER-002 V3 —— 同上面三个既有回调同一条纪律：独立 effect，
-  // 依赖数组精确到 taskMode 本身。
-  React.useEffect(() => {
-    onTaskModeChange?.(taskMode);
-  }, [taskMode, onTaskModeChange]);
 
   /**
    * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
@@ -1126,13 +1100,8 @@ export function CopilotKitV2PanelBody({
 
   const send = React.useCallback(
     async (override?: string, opts?: { readonly clientMessageId?: string }) => {
-      const rawText = (override ?? inputDraft).trim();
-      if (rawText === "" || agent.isRunning) return;
-      // issue #2130（TW-P0-5②）—— 任务模式开启时真的改变发出的正文（见 `taskMode`
-      // state 声明处的头注：默认关闭，不影响任何既有 e2e）。issue #2417——拼接必须
-      // 幂等，`rawText` 已经以这句前缀开头时不能再拼一遍（`applyTaskModePrefix`
-      // 头注有真实复现场景）。
-      const text = applyTaskModePrefix(rawText, taskMode);
+      const text = (override ?? inputDraft).trim();
+      if (text === "" || agent.isRunning) return;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -1167,13 +1136,9 @@ export function CopilotKitV2PanelBody({
         // callback's own `opts` doc + `lastSentRef`'s head comment for why).
         const forwardedProps: {
           chatThreadId?: string; attachmentIds?: readonly string[]; clientMessageId: string;
-          disableTaskAutoClassify?: boolean;
         } = { clientMessageId };
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
-        // issue #2667 —— 缺席 = 未覆盖（与 `script_protocol` 的既有透传纪律一致，
-        // 见 `deep-agent-model-provider.ts` 头注），只在设置打开时才带上这个键。
-        if (alwaysPlanFirst) forwardedProps.disableTaskAutoClassify = true;
         await copilotkit.runAgent({ agent, forwardedProps });
         if (attachmentIds.length > 0) attach.clear();
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
@@ -1188,7 +1153,7 @@ export function CopilotKitV2PanelBody({
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
-    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent, taskMode, alwaysPlanFirst],
+    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],
   );
 
   /**
@@ -2167,37 +2132,10 @@ export function CopilotKitV2PanelBody({
                     <PenLine aria-hidden className="h-4 w-4" />
                   </ComposerIconButton>
                 </span>
-                {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（开启时正文前加一句
-                    要求先给计划再等确认的指令），不是纯装饰。开启态反色实心。 */}
-                <ComposerIconButton
-                  label="任务模式"
-                  title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行（点击关闭）" : "任务模式：先计划，确认后执行（点击开启）"}
-                  data-testid="chat-task-workbench-composer-task-mode"
-                  pressed={taskMode}
-                  disabled={archived}
-                  onClick={() => setTaskMode((v) => !v)}
-                >
-                  <Sparkles aria-hidden className="h-4 w-4" />
-                </ComposerIconButton>
-                {/* issue #2667 —— 个人设置"每次都先给我看计划"：关掉自动判类，回退到
-                    上面的手动任务模式路径。默认关闭（自动判类是默认体验），持久化在
-                    本机（`chat-always-plan-first-setting.ts`），不是本轮调用参数。 */}
-                <ComposerIconButton
-                  label="每次都先计划"
-                  title={
-                    alwaysPlanFirst
-                      ? "每次都先给我看计划：已开启，自动判类不生效，只按手动任务模式先出计划（点击关闭）"
-                      : "每次都先给我看计划：已关闭，Agent 会自动判断要不要先出计划（点击开启，回退到手动任务模式）"
-                  }
-                  data-testid="chat-task-workbench-composer-always-plan-first"
-                  pressed={alwaysPlanFirst}
-                  disabled={archived}
-                  onClick={toggleAlwaysPlanFirst}
-                >
-                  <ListChecks aria-hidden className="h-4 w-4" />
-                </ComposerIconButton>
+                {/* issue #2770 —— 此处曾有 ✦「任务模式」与 ☑「每次都先计划」两颗开关，
+                    见上方 state 区的头注：要不要先计划现在由内核自动判，不再要用户选。 */}
                 {/* 2026-09-03（对照设计参照图收拢）—— 「能力：自动匹配」从卡片上方
-                    独立一行并入工具行左组，与材料/技能/任务模式同一排。此前
+                    独立一行并入工具行左组，与材料/技能同一排。此前
                     2026-09-02 的位置（卡片上方右对齐）是人类交付状态预览稿的像素级
                     要求；本次调整是另一轮直接人类指令，覆盖那次取舍，不是随手改动。
                     锚点与行为不变：`chat-task-workbench-composer-mention-agent` 外层

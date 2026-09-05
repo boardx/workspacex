@@ -26,7 +26,7 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-1", requesterUserId: "user-1",
     inputText: "hello", inputAttachments: [], agentId: "agent-1", agentVersionId: "agent-version-1",
     instructions: "be helpful", skillVersionIds: [], modelProvider: "test-provider",
-    modelId: "test-model", pendingDecision: null, disableTaskAutoClassify: false,
+    modelId: "test-model", pendingDecision: null,
     ...overrides,
   };
 }

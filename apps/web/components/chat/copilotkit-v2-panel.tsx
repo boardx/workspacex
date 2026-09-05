@@ -289,7 +289,6 @@ export function CopilotKitV2Panel({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
-  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -341,11 +340,6 @@ export function CopilotKitV2Panel({
     readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
-  /**
-   * PROP-CHAT-UIUX-ITER-002 V3 —— 见 `CopilotKitV2PanelBody` 同名 prop 的注释：
-   * composer「任务模式」开关的真实状态，透传给外壳供右栏「运行详情」展示。
-   */
-  onTaskModeChange?: (taskMode: boolean) => void;
   /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
@@ -435,7 +429,6 @@ export function CopilotKitV2Panel({
           onPlanTodosChange={onPlanTodosChange}
           onRunStateChange={onRunStateChange}
           onPendingMaterialsChange={onPendingMaterialsChange}
-          onTaskModeChange={onTaskModeChange}
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}

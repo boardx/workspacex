@@ -121,15 +121,6 @@ export interface ClaimedAgentRun {
   readonly modelProvider: string;
   readonly modelId: string;
   /**
-   * issue #2667 -- "保留手动『每次都先计划』开关"。个人设置"每次都先给我看计划"
-   * 打开时为 `true`，随本次 run 落库（`agent_runs.disable_task_auto_classify`）。
-   * `executeClaimed` 建 `ModelCallInput` 时原样转发（`ModelCallInput.disableTaskAutoClassify`），
-   * `deep-agent-model-provider.ts` 只在为 `true` 时才把
-   * `configurable.disable_task_auto_classify` 这个键加进去（缺席 = 未覆盖，同
-   * `script_protocol` 的既有透传纪律）。默认 `false`，与接入前逐字节相同。
-   */
-  readonly disableTaskAutoClassify: boolean;
-  /**
    * DA-07b：非 null = 这是一次人裁决后的续跑——execute-run 据此让 provider 走
    * resume（command.resume）而不是把用户输入重发一遍。普通新 run 恒为 null。
    *
@@ -933,17 +924,6 @@ export interface ModelCallInput {
    *   `images` 逐字同一条纪律：接受但忽略一个用不上的输入，不是静默丢弃。
    */
   readonly scriptProtocol?: string;
-  /**
-   * issue #2667 -- "保留手动『每次都先计划』开关"。原样转发
-   * `ClaimedAgentRun.disableTaskAutoClassify`，只有 `DeepAgentModelProvider` 关心它：
-   * 为 `true` 时把 `configurable.disable_task_auto_classify` 加进发给
-   * `deep-agent-service` 的请求，覆盖全局灰度打开时 `TaskClassifierMiddleware`
-   * 对**这一次** run 的自动判类（`harness.py` `_run_disables_auto_classify`）。
-   * ⚠ 可选，且**缺席/`false` 都视为未覆盖**——与 `scriptProtocol` 同一条透传纪律：
-   *   不填 ⇒ 远端行为与接入前逐字节相同。一个不理解这个字段的 provider 忽略它是
-   *   允许的形态。
-   */
-  readonly disableTaskAutoClassify?: boolean;
 }
 
 /**
