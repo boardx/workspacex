@@ -137,9 +137,9 @@
         "F06"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "claude-f07",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/plan-confirmation-card.test.tsx"
