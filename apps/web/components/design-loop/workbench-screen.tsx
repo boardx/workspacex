@@ -22,7 +22,7 @@ import {
 /**
  * UC-17.8 B4.5 —— PM 设计工作台首页，**真栈**（契约 `designWorkbench`：
  * `listMyProjects`/`createProject`/`updateProject`/`deleteProject`）。切自
- * `lib/design-loop-store.tsx` 的本地 mock，同 `inbox-screen.tsx`（B3.4）的成例。
+ * 原型 mock store（已于 B6.1 删除）的本地 mock，同 `inbox-screen.tsx`（B3.4）的成例。
  *
  * ## 这一屏刻意的几个设计取舍
  *
