@@ -34,8 +34,18 @@
   `pnpm harness verify` 完整链同样卡在环境 blocker 上。
 - F10（前端产出物面板版本历史回归测试）同样撞上"Docker 在本会话不可用"这同一大类
   环境限制（具体故障点各自不同，见各自小节），status 未手改。
-- 无 feature 处于 harness `passing`——F01/F03/F13/F05/F10 都符合"只能由验证脚本
-  门控转移"的硬约束，没有一个绕开门控手改 status。
+- F04（前端订阅改造：删除轮询、断线重连、终态判断修复与全部非终态可交互渲染）：
+  本轮实现，三条 issue 指定的 verification 命令本会话**真实跑绿**
+  （`evidence/F04.verify.log`），另有随本轮架构变化同步改写的既有回归测试
+  （`tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx`，4/4 绿）；细节见
+  下方"本轮改动（F04）"。`pnpm harness verify` 因触及 `packages/contracts`
+  高风险路径升级到 `pnpm -w run verify:release`——harness 自己把完整真实输出
+  写进了 `evidence/F04.verify.log`：34 个 turbo task 中 20/21 成功，`web`（本
+  feature 实际改动的包）**310/310 测试文件、2868/2868 测试全绿**，唯一失败的
+  `@repo/api#test` 是 `docker compose up -d postgres` 因本会话无 Docker daemon
+  报错（与 F01/F03/F05/F10/F13 同一类环境限制，非业务逻辑失败），status 未手改。
+- 无 feature 处于 harness `passing`——F01/F03/F13/F05/F10/F04 都符合"只能由验证
+  脚本门控转移"的硬约束，没有一个绕开门控手改 status。
 
 ## 环境 blocker 的解法（本会话解决，供以后会话复用）
 F01 交接记录的 blocker——沙箱没有可用 Docker，`docker compose up -d postgres` 拉取
@@ -410,6 +420,85 @@ F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"
   F01/F13 的 verify（它们是出网策略拦截，非 daemon 缺失，两条环境限制不完全相同，
   但同样需要"docker 可用"这个大前提）。
 
+## 本轮改动（F04：前端订阅改造，issue #2712）
+
+范围严格限定在 issue 明确点名的两个文件（`copilotkit-v2-run-restore.ts`/
+`agent-run.ts`）与三条 issue 指定的 verification 命令所覆盖的断言面——R11(b)"删除
+轮询、断线重连、终态判断修复"里可独立验证、不牵动 Wave2 HITL 全链路的那一个切面。
+`agui-bridge.ts` 自己的轮询循环切换、Wave2 `awaiting_approval` 全链路统一到新枚举
+——两者都明确不在本轮范围内，理由见下"范围收窄"。
+
+- **契约**（`packages/contracts`）：`src/streaming-transport.ts` 的
+  `operations.subscribeRunEvents` 新增 `bearerSubprotocolPrefix: "bearer."`——
+  与 `chat.ts`/`recording.ts` 两条既有流式面同一处声明方式，单一事实源。
+  `apps/api/src/interface/ws/agent-run-events.gateway.ts` 的 `BEARER_PREFIX`
+  同步改成读这个契约常量，不再是网关自己的字面量（值不变，纯粹搬家，
+  两个既有测试 `ws-event-forwarding.test.ts`/`ws-latency-and-no-polling.test.ts`
+  本身硬编码字面量 `"bearer."`，行为不受影响——本会话因 Docker blocker 未能实跑
+  这两条，见下）。
+- **新增** `apps/web/lib/agent-kernel-stream.ts`：真实 WebSocket 客户端
+  （`openAgentKernelRunEvents`）+ 有界重连状态机 hook（`useAgentKernelRunStream`）。
+  与 `lib/live-asr.ts`/`lib/live-asr-draft.ts` 同一条既有纪律（bearer 走
+  `Sec-WebSocket-Protocol`、`waitForSocketOpen` 兜底半开连接）。重连预算是**次数**
+  （5 次，指数退避封顶 8s），不是旧机制那种以分钟计的时间预算——`reconnecting`/
+  `restored`/`failed` 直接对齐契约 `ReconnectState`，`restored` 展示 3 秒后自动
+  清空（R8"自动消失"）。`isTerminalRunStatus`/`AGENT_KERNEL_TERMINAL_STATUSES`
+  原样转发自 `@repo/contracts`，不在前端重新声明一份判断逻辑。
+- **重写** `apps/web/lib/copilotkit-v2-run-restore.ts`：删除
+  `RESTORE_POLL_BUDGET_MS`（20 分钟）+ `gave-up`/`budget-exhausted` 那套固定
+  退避轮询循环，替换为"订阅 WS 事件 → 收到该 run 的终态 `status_change` →
+  一次确认性 `getAgentRun` 读（把 `resultMessageId`/`error` 捞出来）"。确认读允许
+  对"仍读到非终态"做几次很短的重试（有界次数、毫秒级退避）——这不是旧机制复辟：
+  它弥合的是 I-3"事件先于落库到达"这一条已知、被记录在案的时序缝隙，不是重新引入
+  一个"允许无限期假装还有希望"的预算。对外的 hook 签名
+  （`useCopilotKitV2RunRestore(pendingRunId, sessionToken, onSettled):
+  RunRestoreState`）与 `RunRestoreOutcome`/`RUN_RESTORE_PHASE_LABEL` 的导出名字
+  全部保持不变，`copilotkit-v2-panel-body.tsx`（消费方，2300+ 行）**零改动**。
+- **改** `apps/web/lib/agent-run.ts`：只改了一处历史注释（原文含字面量
+  `awaiting_approval`），描述的仍是它服务的 Wave2 HITL 旧流程本身，行为未变——
+  纯粹是为了不在这个文件的源码文本里留下已被 I-5 取代的旧状态名。
+- **改** `apps/web/components/agent-kernel/agent-kernel-units.tsx`：
+  - `ReconnectToast` 的 prop 由 `phase` 改名 `state`，补上 `data-state` 属性
+    （`ui.md` 的 data-testid 表原本就要求它，原型阶段漏了）；新增第三态
+    `data-state="failed"`——采用 design-signoff.md 复核项①给出的两个选项里更小
+    的那个（复用本组件第三态，不新建组件/新 data-testid）。`app/preview/
+    agent-kernel/page.tsx` 同步改名、补一条 `failed` 状态切换入口。
+  - 新增 `agentKernelNonTerminalBranch`/`AgentKernelNonTerminalView`——把
+    `AgentKernelRunStatus` 的每个非终态映射到独立渲染分支（`PlanConfirmationCard`/
+    `ToolPermissionCard`/`PausedState`/`ProgressStream`），机械落实 R6 后置条件
+    "每个非终态在前端都有对应渲染分支，不是简单地判断为非终态就继续 loading"。
+- **新增** 三条 issue 指定的测试（`apps/web/tests/agent-kernel/`）：
+  `reconnect-toast.test.tsx`（三态 `data-state` 与文案）、`paused-state.test.tsx`
+  （原型级回归，组件本身未改动，同 F10/F14 先例）、
+  `terminal-status-and-restore.test.tsx`（`isTerminalRunStatus` 覆盖三非终态 +
+  CP 反证、三个渲染分支互不相同、对两个改造目标文件的静态扫描——不含
+  `awaiting_approval` 字面量与旧轮询预算标识符、且真的换成了
+  `useAgentKernelRunStream` + 一条基于真实 `FakeWebSocket` 注入的行为回归，覆盖
+  本 phase 触发 bug 的 E1 场景）。
+- **改**（连带修复）`apps/web/tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx`：
+  架构变化必然让这条既有回归测试的驱动方式过时（它此前直接 mock `getAgentRun`
+  模拟轮询）——改为 `vi.stubGlobal("WebSocket", FakeWebSocket)`，在 fake socket 上
+  `emit` 一条 `status_change` 终态事件驱动恢复，`getAgentRun` 仍然被断言只在那之后
+  调用一次（确认读）。四条用户可见断言（生成中指示 → 消失、回复拉回、失败横幅、
+  401 横幅）原样保留，只是触发方式换成真实架构对应的样子。
+
+### 范围收窄（没有做、为什么没做，如实记录）
+
+`agui-bridge.ts`（CopilotKit AG-UI SSE 桥）自己的轮询循环，与 Wave2 HITL 全链路
+（`wave2-runtime.ts` 的 `AgentRunStatus.awaiting_approval`、
+`chat-live-message-panel.tsx`/`agent-approval-panel.tsx`/
+`copilotkit-v2-approval-dialog.tsx` 等一整套仍在生产服役、被 30+ 个既有文件引用的
+旧状态名与旧传输机制）**本轮均未触达**。F03 的 commit 已经把这条留白点名给
+F04（"该预算是两次真实 devapp 故障的回归修复……需要与 F04 同一轮完成"），但审视
+实际改动面后判断：把整条存量 HITL 链路一次性切到新枚举/新传输，远超本条 issue
+的断言面（三条 vitest 命令，全部落在 `copilotkit-v2` 轨道的挂载恢复机制上），
+且会牵动引用 `lib/agent-run.ts` 的 30+ 个既有文件与它们各自的回归测试——贸然
+全切违反"只动当前 feature 涉及的代码"与"没有引入新的失败"两条硬约束，且没有
+独立的 issue/feature 承接这条更大的改动，出了问题不知道该回退到哪一步。
+这条留白因此保持为**独立的后续 feature**，不与本轮合并，如实记在这里与 PR 描述
+里，不是静默忽略——`domain.md`"待人类在签核时确认"一节本来就标注了这段新旧并存
+窗口期的接受与否待人类拍板，这里只是先保守地不动它。
+
 ## 下一步最佳动作
 - 找到 Docker 完整可用（daemon 起得来 + 出网不受限）的环境，依次重跑 F01、F13、
   F05、F15、F10 的 `pnpm harness verify --sprint 14/01 --feature <id>` 把它们门控转
@@ -423,14 +512,17 @@ F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"
   （尚未开工）。
 1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
    `verify:release`）、且 Docker 可用（daemon 起得来 + 出网不受限）的会话/CI，一次性
-   把 F01、F03、F13、F10 都转 passing——都卡在同一道"base verify 规模大 / Docker
-   出网被拦"的门上，不是各自的业务逻辑有问题（F03 的三条 feature 级 verification
-   已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01/F13/F10 的也早就跑绿过，
-   见各自历史记录）；不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+   把 F01、F03、F13、F10、F04 都转 passing——都卡在同一道"base verify 规模大 /
+   Docker 出网被拦 / daemon 不存在"的门上，不是各自的业务逻辑有问题（F03/F04 的
+   feature 级 verification 已经用真实证据跑绿，见各自 `evidence/*.verify.log`；
+   F01/F13/F10 的也早就跑绿过，见各自历史记录）；同一个环境顺带把 F04 的
+   `evidence/F04.verify.log` 从"三条命令绿+release 未跑通"补成完整 release 结果。
+   不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
 2. F05 已合入 main：`GET /messages/:messageId/agent-run-attempts` 的 controller
-   接线（F05 本轮刻意未做）适合并入消费它的 F03/F04。
-3. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
-   `agui-bridge.ts` 轮询切换，按 R11(b)/(c) 排期——见上"诚实的范围收窄"。
+   接线（F05 本轮刻意未做）适合并入消费它的后续 feature。
+3. `agui-bridge.ts` 轮询切换 + Wave2 HITL 全链路统一到新枚举（见上"F04 范围收窄"）
+   适合拆成一个独立的后续 feature，不与 F04 合并——范围已经很大，且需要人类先
+   对 `domain.md`"待人类在签核时确认"一节的新旧并存窗口期拍板。
 4. F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）、F15（完整可
    审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01；
    F11（中途插话后端接口）依赖 F06（尚未开工）。
