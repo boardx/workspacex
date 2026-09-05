@@ -828,7 +828,20 @@ export const GuidedResearchSession = z.object({
   updatedAt: z.string(),
 }).strict();
 
-// Durable five-step research. Provider output never supplies source identifiers or URLs.
+// Provider wire schemas are shared contracts too; API adapters consume these by reference.
+export const GuidedResearchPlanModelOutput = z.object({
+  tasks: z.array(z.object({ sectionId: z.string(), query: z.string().trim().min(1).max(1000) }).strict()).min(1).max(60),
+}).strict();
+export const GuidedResearchConversationModelOutput = z.object({
+  assistantMessage: z.string().min(1).max(10000), value: z.unknown(),
+  action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional(),
+}).strict();
+// External search responses can contain additional provider metadata; only these fields are consumed.
+export const GuidedResearchSearchProviderResponse = z.object({ results: z.array(z.object({
+  title: z.string().min(1), url: z.string().url(), content: z.string(), raw_content: z.string().nullable().optional(),
+})) });
+
+// Durable five-step research. The model never creates source identifiers or URLs.
 export const GuidedResearchSource = z.object({
   id: z.string().min(1), taskId: z.string().min(1), title: z.string().min(1),
   url: z.string().url().refine((url) => /^https?:\/\//.test(url)),

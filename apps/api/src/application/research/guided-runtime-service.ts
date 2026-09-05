@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { research as C } from "@repo/contracts";
-import { z } from "zod";
+import type { z } from "zod";
 import type { ModelCallPort } from "../agent-run/ports";
 import type { GuidedResearchSession } from "./guided-session-ports";
 import { guidedModelConfig } from "./guided-model-config";
@@ -121,9 +121,8 @@ export class GuidedRuntimeService {
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
   private async plan(state: ResearchRuntime, persist: () => Promise<void>) {
-    const schema = z.object({ tasks: z.array(z.object({ sectionId: z.string(), query: z.string().trim().min(1).max(1000) }).strict()).min(1).max(60) }).strict();
     const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"tasks":[{"sectionId":existingOutlineId,"query":string}]}. Cover every enabled section, use at most 60 queries.', this.context(state), persist);
-    const result = schema.safeParse(raw);
+    const result = C.GuidedResearchPlanModelOutput.safeParse(raw);
     const ids = state.outline.filter((item) => item.enabled).map((item) => item.id);
     if (!result.success || result.data.tasks.some((task) => !ids.includes(task.sectionId)) || ids.some((id) => !result.data.tasks.some((task) => task.sectionId === id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     invalidate(state, "research");
@@ -175,7 +174,7 @@ export class GuidedRuntimeService {
       state.messages.push({ id: randomUUID(), node, role: "user", text: command.message, createdAt: new Date().toISOString() });
       await persist();
       const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context.`, { ...this.context(state), targetNode: node, draft: command.draft, instruction: command.message }, persist);
-      const result = z.object({ assistantMessage: z.string().min(1).max(10000), value: z.unknown(), action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional() }).strict().safeParse(raw);
+      const result = C.GuidedResearchConversationModelOutput.safeParse(raw);
       if (!result.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: result.data.value });
       if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
