@@ -69,15 +69,29 @@ import asyncio
 
 from langchain_core.messages import AIMessage
 
-from _scripted import ScriptedChatModel, ScriptedProviderRejectsToolChoice, tool_call_names
+from _scripted import (
+    ScriptedChatModel,
+    ScriptedProviderRejectsToolChoice,
+    grader_always_satisfied_response,
+    tool_call_names,
+)
 from deep_agent_service.harness import TASK_MODE_MARKER, build_middleware
 
 UNCOOPERATIVE_ANSWER = "第一步：整理素材。第二步：起草初稿。第三步：润色定稿。"
 
 
-def _uncooperative_router(messages, bound_tools):  # noqa: ANN001, ANN201, ARG001
+def _uncooperative_router(messages, bound_tools):  # noqa: ANN001, ANN201
     """无论收到什么消息都只想用纯文字回答——复现 issue #2220 实测到的真实故障模式：
-    模型从不主动调用 write_todos，即使提示词已经要求"先给计划再执行"。"""
+    模型从不主动调用 write_todos，即使提示词已经要求"先给计划再执行"。
+
+    Phase 14 F02（R6）起 `RubricMiddleware` 的默认清单播种无条件生效（见
+    `grader_always_satisfied_response` 头注）：这个"不合作"假模型如果对
+    `GraderResponse` 绑定也一样只吐纯文字，grader 解析不到判词会判"未通过"、
+    反复跳回模型返工，与本文件要验证的"确定性强制"是两件不相关的事，所以固定
+    判"合格"放行。
+    """
+    if bound_tools == ["GraderResponse"]:
+        return grader_always_satisfied_response()
     return AIMessage(content=UNCOOPERATIVE_ANSWER)
 
 
@@ -223,11 +237,23 @@ def test_counterproof_without_write_todos_tool_mounted_never_forces_missing_tool
 
 
 def _assert_provider_reject_degrades_not_fails(model: ScriptedChatModel, result: dict) -> None:  # noqa: ANN201
-    """同步/异步两条 provider-reject 反证共用的断言体——避免两份容易漂移的验收标准。"""
-    assert model.calls[0]["bound_tool_choice"] == "write_todos"
-    assert len(model.calls) >= 2, "provider 拒绝具名 tool_choice 后中间件必须退回不强制重试一次"
-    assert model.calls[1]["bound_tool_choice"] is None, (
-        "降级重试必须不再强制 tool_choice，否则会撞上同一个 provider 拒绝、无限失败"
+    """同步/异步两条 provider-reject 反证共用的断言体——避免两份容易漂移的验收标准。
+
+    Phase 14 F02（R6）起 `TaskClassifierMiddleware` 无条件挂载，这条用例的消息文本
+    （含"再"这个连接词，触发它自己的启发式判类）同时命中手动 marker
+    （`PlanFirstToolChoiceMiddleware`）与自动判类两条独立的强制路径——两者各自
+    捕获 provider 拒绝、各自退回不强制重试，calls[1] 因此不再保证一定是不强制的
+    那一次（可能是 TaskClassifier 的第二次强制尝试），真正不变的保证是"最终会
+    收敛到不强制、且 run 正常收尾"，不是"恰好第二次调用就是不强制"。
+    """
+    # `RubricMiddleware` 收尾前会再发起一次绑 `GraderResponse` 的判词调用（Phase 14
+    # F02 起无条件生效），那次调用与本条要验证的"主链强制→拒绝→退回不强制"是完全
+    # 独立的另一件事，排除掉再看主链自己最终收敛到了哪个 tool_choice。
+    main_chain_calls = [c for c in model.calls if c["bound_tools"] != ["GraderResponse"]]
+    assert main_chain_calls[0]["bound_tool_choice"] == "write_todos"
+    assert len(main_chain_calls) >= 2, "provider 拒绝具名 tool_choice 后中间件必须退回不强制重试一次"
+    assert main_chain_calls[-1]["bound_tool_choice"] is None, (
+        "降级重试最终必须收敛到不强制 tool_choice，否则会撞上同一个 provider 拒绝、无限失败"
     )
     final_texts = [str(getattr(m, "content", "")) for m in result["messages"]]
     assert any(UNCOOPERATIVE_ANSWER in t for t in final_texts), (
@@ -246,7 +272,10 @@ def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_ru
     `ScriptedChatModel(reject_forced_tool_choice=True)` 如实模拟"provider 拒绝
     具名 tool_choice"这个契约（见 `_scripted.py` 头注）——第一次模型调用被中间件
     钉成 `tool_choice="write_todos"`，假模型对此直接抛异常；中间件捕获后退回不
-    强制、原样重试，第二次调用 `bound_tool_choice` 必须是 `None`，且 `graph.invoke`
+    强制、原样重试，最终一次调用的 `bound_tool_choice` 必须是 `None`（Phase 14
+    F02 起 `TaskClassifierMiddleware` 也无条件参与，可能各自独立触发一轮"强制
+    →拒绝→重试"，所以不钉死是第几次调用，只钉死最终收敛到不强制，见
+    `_assert_provider_reject_degrades_not_fails` 头注），且 `graph.invoke`
     整体正常返回（不抛出、不是空 messages）。
     """
     model = ScriptedChatModel(router=_uncooperative_router, reject_forced_tool_choice=True)

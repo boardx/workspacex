@@ -20,13 +20,15 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import AIMessage
 
-from _scripted import ScriptedChatModel, ai_tool_call, tool_call_names
+from _scripted import ScriptedChatModel, ai_tool_call, grader_always_satisfied_response, tool_call_names
 
 SUBAGENT_TYPE = "org-skill-researcher"
 
 
 def _router(messages, bound_tools):  # noqa: ANN001, ANN201
     """按「谁在问 + 已经走到哪一步」路由，不吃线性剧本（理由见 conftest 模块注释）。"""
+    if bound_tools == ["GraderResponse"]:
+        return grader_always_satisfied_response()
     # 子代理：绑着组织技能工具但没有 task（子代理不再往下派活）。
     if "list_org_skills" in bound_tools and "task" not in bound_tools:
         already = tool_call_names(messages)
@@ -83,14 +85,14 @@ def _router(messages, bound_tools):  # noqa: ANN001, ANN201
 
 
 @pytest.fixture
-def tc1_graph(monkeypatch):  # noqa: ANN001, ANN201
+def tc1_graph():  # noqa: ANN201
     from deepagents import create_deep_agent
 
     from deep_agent_service.harness import build_middleware, build_subagents
     from deep_agent_service.tools import build_tools
 
-    # D5 的灰度开关——不开就没有具名子代理，`task` 只剩内建 general-purpose。
-    monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "1")
+    # D5：`build_subagents()` 无条件返回具名子代理清单（Phase 14 F02 起不再是灰度
+    # 开关），`task` 因此有真实可委托对象，不只是内建 general-purpose。
     model = ScriptedChatModel(router=_router)
     graph = create_deep_agent(
         model=model,

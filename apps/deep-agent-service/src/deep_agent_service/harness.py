@@ -154,14 +154,12 @@ class _DefaultCompletionChecklistMiddleware(AgentMiddleware):
 def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """D7 退出前自检的两件（顺序有意义，见上面的挂载顺序说明）。
 
-    灰度（S1=B 纪律）：`RubricMiddleware` **无条件**挂——没有 rubric 时它逐字 no-op，
-    挂上等于零行为变更，同时让任何调用方传 `rubric` 就能用上这条能力。
-    而「每次退出都跑一遍默认清单」会给每次收尾多加一次 grader 模型调用（成本与延迟
-    都真实变化），所以默认清单的播种由 `DEEP_AGENT_PRECOMPLETION_CHECKLIST=1` 打开；
-    未设时行为与接线前逐字相同。
+    Phase 14 F02（R6）：此前默认清单的播种由 `DEEP_AGENT_PRECOMPLETION_CHECKLIST=1`
+    这个灰度开关打开，验证稳定后按 R6 要求默认开启且开关本身移除——现在
+    `_DefaultCompletionChecklistMiddleware()` 与 `RubricMiddleware`（后者本来就
+    无条件挂，没有 rubric 时逐字 no-op）一样无条件挂载，退出前自检对所有 run 生效。
     """
-    enabled = (os.environ.get("DEEP_AGENT_PRECOMPLETION_CHECKLIST") or "").strip() == "1"
-    seed: list[AgentMiddleware] = [_DefaultCompletionChecklistMiddleware()] if enabled else []
+    seed: list[AgentMiddleware] = [_DefaultCompletionChecklistMiddleware()]
     # max_iterations 显式钉死不吃库默认（库默认 3）——同 Summarization trigger/keep
     # 的纪律：升级时默认值漂移不得悄悄改变我们的重试预算。2 = 最多返工一次。
     return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
@@ -392,20 +390,14 @@ class PlanFirstToolChoiceMiddleware(AgentMiddleware):
 # 可能触发强制——某一轮同时命中两者时，两个中间件都会把 `tool_choice` 钉成
 # `"write_todos"`，结果等价（钉同一个工具），不会互相冲突。
 #
-# 灰度（S1=B 纪律，同 build_subagents/build_interrupt_on 的既有模式）：
-# `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才启用，且**整个类都不进入 `build_middleware()`
-# 返回的列表**（不是"进了列表但内部判断为 no-op"）——见 `build_middleware()` 里
-# 挂载这个类那一行上方的详细注释：这个中间件实现了 `before_model`，
-# `langchain.agents.factory` 会因此在图上新增一个每轮循环都要走的节点，属于
-# "挂上就改变图形状/预算消耗"的类别，不能像 `RubricMiddleware`（只用
-# before_agent/after_agent，只在 run 开始/结束各走一次）那样无条件挂着让内部
-# 判断走 no-op；必须让整个类的存在与否本身就是灰度开关。默认未设 → 不挂 →
-# 图结构、预算消耗与接线前逐字相同。
+# Phase 14 F02（R6）：此前灰度（S1=B 纪律，同 build_subagents/build_interrupt_on
+# 的既有模式）要求 `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才启用、且整个类才进入
+# `build_middleware()` 返回的列表——验证稳定后按 R6 要求默认开启且开关本身移除，
+# `TaskClassifierMiddleware` 现在无条件进入 `build_middleware()` 的列表（见该函数），
+# 每轮循环都会新增这个节点，是这条能力生效的固定代价，不再是可关闭的灰度。
 TASK_CATEGORY_NO_PLAN = "no_plan"
 TASK_CATEGORY_MULTI_STEP_LOW_RISK = "multi_step_low_risk"
 TASK_CATEGORY_MULTI_STEP_HIGH_RISK = "multi_step_high_risk"
-
-_TASK_AUTO_CLASSIFY_ENV = "DEEP_AGENT_TASK_AUTO_CLASSIFY"
 
 # 类别 1 vs 2/3 的初筛：多步任务的两个廉价信号。
 # · 连接词/枚举词——"并且""然后""再""接着""同时""分别""各自"这类词，出现在句子里
@@ -456,25 +448,20 @@ def _classify_task_text(text: str) -> str:
     return TASK_CATEGORY_MULTI_STEP_HIGH_RISK if has_external_impact else TASK_CATEGORY_MULTI_STEP_LOW_RISK
 
 
-def _task_auto_classify_enabled() -> bool:
-    return (os.environ.get(_TASK_AUTO_CLASSIFY_ENV) or "").strip() == "1"
-
-
-# issue #2667（"保留手动『每次都先计划』开关"）：全局灰度（上面 `_task_auto_classify_enabled`）
-# 决定的是"这个进程要不要挂 `TaskClassifierMiddleware`"，是**构建期**、对所有 run 一视同仁
-# 的开关——`graph.py` 的 `create_deep_agent(...)` 在**模块导入时**跑一次，产出一个进程级
-# 单例 graph（见其头注"one process, one `langgraph.json`, one `create_deep_agent(...)`
-# call at import time"），中间件列表因此没有"按 run 变化"的架构空间：不存在给某一次 run
-# 单独重建一份 middleware 列表、把这个类换掉/摘掉的调用点。
+# issue #2667（"保留手动『每次都先计划』开关"）：`TaskClassifierMiddleware` 现在
+# 无条件挂在图上（Phase 14 F02 起不再有全局灰度那种"类在不在列表里"的构建期开关，
+# 见上方模块注释）——`graph.py` 的 `create_deep_agent(...)` 在**模块导入时**跑一次，
+# 产出一个进程级单例 graph（见其头注"one process, one `langgraph.json`, one
+# `create_deep_agent(...)` call at import time"），中间件列表因此没有"按 run 变化"
+# 的架构空间：不存在给某一次 run 单独重建一份 middleware 列表、把这个类换掉/摘掉的
+# 调用点。
 #
 # 这里要做的是"个人设置：坚持要手动控制的用户可以关掉自动判类，退回手动任务模式"——
-# 一个 per-run（更准确地说 per 用户当前设置）的覆盖，粒度比全局灰度细，但**不需要**
-# 全局灰度那种"类在不在列表里"的构建期机制：`TaskClassifierMiddleware` 已经作为
-# 单例挂在图上（灰度打开时），它的 `before_model`/`wrap_model_call` 每次都是**运行时**
-# 被调用一次，可以在方法体内部读这一次调用自己携带的 `RunnableConfig.configurable`
-# 来决定"这次生效还是不生效"——这不是"挂着当 no-op"（那是 #2662 明确否决的：为了避免
-# 默认关闭时改变图结构才不允许），而是"已经打开的全局开关之下，per-run 再叠一层"，
-# 图结构本身不因为这次 run 要不要用而变化，运行时判断成本可以忽略（一次 dict.get）。
+# 一个 per-run（更准确地说 per 用户当前设置）的覆盖，粒度比"整个类在不在列表里"更细：
+# `TaskClassifierMiddleware` 已经作为单例挂在图上，它的 `before_model`/
+# `wrap_model_call` 每次都是**运行时**被调用一次，可以在方法体内部读这一次调用自己
+# 携带的 `RunnableConfig.configurable` 来决定"这次生效还是不生效"——图结构本身不
+# 因为这次 run 要不要用而变化，运行时判断成本可以忽略（一次 dict.get）。
 #
 # `get_config()` 是 langgraph 官方文档收录的"在 graph 节点/中间件运行期读当次
 # `RunnableConfig`"机制（见 `langgraph.runtime.Runtime` 类头注："Accessing config"
@@ -515,18 +502,15 @@ class TaskClassificationState(AgentState):
 
     task_classification: NotRequired[dict]
     """最近一次判类结果：`{"category": <三选一常量>, "source": "heuristic"}`。
-    未产生过判类（灰度关闭/尚未跑过 before_model）时不存在该键，不是空字典——
+    未产生过判类（per-run 覆盖关闭/尚未跑过 before_model）时不存在该键，不是空字典——
     调用方用 `.get("task_classification")` 判"有没有分类结果"这件事本身。"""
 
 
 def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | None:
-    """判类灰度关闭 / 命中"一步到位" / write_todos 未挂载 / 本轮已调用过 → 不强制，
-    返回 `None`。判类逻辑与"这一轮判断窗口收窄到最新人类消息"的纪律与
-    `_prepare_forced_request` 完全同源（同一个 issue #2417 教训：只看最新一轮，
-    不看整份历史），只是触发信号从"手动 marker"换成"启发式判类结果"。"""
-    if not _task_auto_classify_enabled():
-        return None
-
+    """本轮判类被 per-run 覆盖关闭 / 命中"一步到位" / write_todos 未挂载 / 本轮已
+    调用过 → 不强制，返回 `None`。判类逻辑与"这一轮判断窗口收窄到最新人类消息"的
+    纪律与 `_prepare_forced_request` 完全同源（同一个 issue #2417 教训：只看最新
+    一轮，不看整份历史），只是触发信号从"手动 marker"换成"启发式判类结果"。"""
     if _run_disables_auto_classify():
         return None
 
@@ -573,8 +557,6 @@ class TaskClassifierMiddleware(AgentMiddleware):
     state_schema = TaskClassificationState
 
     def _classification_update(self, state: dict) -> dict | None:
-        if not _task_auto_classify_enabled():
-            return None
         if _run_disables_auto_classify():
             return None
         messages = state.get("messages") or []
@@ -640,22 +622,18 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
         # 它依赖 write_todos 工具已经挂载，逻辑上属于"规划工具本身"这一组，不是与
         # 限流/摘要同级的关注点。
         PlanFirstToolChoiceMiddleware(),
-        # DA-13（#2662）：同组的第二个"规划工具"关注点，但**有条件**挂载——不同于
+        # DA-13（#2662）：同组的第二个"规划工具"关注点——不同于
         # `PlanFirstToolChoiceMiddleware`（只有 `wrap_model_call`，组合进"model"节点
         # 内部、不新增图节点），`TaskClassifierMiddleware` 还实现了 `before_model`/
         # `abefore_model`（把判类结果写进可观测的图状态）；`langchain.agents.factory`
         # 按"类是否覆写了 before_model"**静态**决定要不要在图上新增一个
         # `TaskClassifierMiddleware.before_model` 节点并接入每一轮循环的入口边
         # （`middleware_w_before_model`/`loop_entry_node`，非运行期条件）——挂上这个
-        # 类本身就会让每次模型调用循环多走一步，不是"未设环境变量就零行为变更"的
-        # 无条件安全挂载（同实测：接了它后 TC-3 的死循环-熔断场景以未变的
-        # `recursion_limit=200` 撞 `GraphRecursionError`，是图形状变了、不是熔断逻辑
-        # 变了）。S1=B 纪律因此落在"要不要把这个类放进返回列表"这一步，
-        # 与 `build_subagents`/`build_interrupt_on` 同一种手法：未设
-        # `DEEP_AGENT_TASK_AUTO_CLASSIFY` 时整个类都不出现在列表里，图结构与接线前
-        # 逐字相同；只有灰度打开时才接入，多出的一个循环节点是这条能力真正生效的
-        # 代价，不是可以省掉的开销（同 Summarization trigger/keep 那条注释的纪律）。
-        *([TaskClassifierMiddleware()] if _task_auto_classify_enabled() else []),
+        # 类本身就会让每次模型调用循环多走一步。Phase 14 F02（R6）起不再是灰度开关：
+        # 此前 `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才让这个类进入返回列表，验证稳定后
+        # 按 R6 要求默认开启且开关本身移除，多出的这一个循环节点是这条能力生效的
+        # 固定代价，不是可以省掉的开销（同 Summarization trigger/keep 那条注释的纪律）。
+        TaskClassifierMiddleware(),
         SummarizationMiddleware(
             model=model,
             trigger=("tokens", 60000),
@@ -685,27 +663,39 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     ]
 
 
-def build_interrupt_on() -> dict[str, bool] | None:
+# Phase 14 F02（R6）：此前由 `DEEP_AGENT_HITL_TOOLS`（逗号分隔的工具名列表，
+# deploy.env 侧投影，见 packages/contracts/src/deep-agent-hitl.ts）配置，验证稳定
+# 后按 R6 要求默认开启且开关本身移除——四个会中断待人批的工具名改为固定清单，
+# 逐字等于此前生产 deploy.env 的值（provision.sh 曾经的
+# `DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,
+# choose_execution_option`）：`call_skill`（唯一真正执行技能、有副作用语义的工具，
+# 见 deep-agent-hitl.ts 头注）与 #2252 新增的三个具名虚拟工具
+# （confirm_task_intent/fill_run_params/choose_execution_option）。
+DEFAULT_HITL_TOOL_NAMES: tuple[str, ...] = (
+    "call_skill",
+    "confirm_task_intent",
+    "fill_run_params",
+    "choose_execution_option",
+)
+
+
+def build_interrupt_on() -> dict[str, bool]:
     """DA-07（#1749，rubric D6 人在环）：敏感工具调用前暂停待人批。
 
-    `DEEP_AGENT_HITL_TOOLS`：逗号分隔的工具名列表（如 "call_skill"）。列出的工具
-    在每次调用前触发 langgraph interrupt——run 停住、状态落 checkpointer，等外部用
+    `DEFAULT_HITL_TOOL_NAMES` 列出的工具在每次调用前触发 langgraph interrupt——
+    run 停住、状态落 checkpointer，等外部用
     `Command(resume={"decisions": [{"type": "approve"|...}]})` 裁决后继续
     （0.7.6 的 HumanInTheLoopMiddleware 实测契约，四种决策类型）。
 
-    默认未设 = 完全关闭 = 行为与 DA-07 之前逐字相同（S1=B 双轨纪律：新能力
-    必须先以灰度开关存在）。⚠ 中断依赖 checkpointer——平台托管环境由平台提供；
-    自托管必须同时设 DEEP_AGENT_CHECKPOINT_DB，否则 interrupt 无处落地，
-    langgraph 会在运行时报错，这是正确的 fail-closed 而不是我们要吞的错。
+    Phase 14 F02 起无条件返回这份清单，不再由环境变量开关。⚠ 中断依赖
+    checkpointer——平台托管环境由平台提供；自托管必须显式配置 Postgres
+    checkpointer（见 `build_checkpointer`），否则 interrupt 无处落地，langgraph
+    会在运行时报错，这是正确的 fail-closed 而不是我们要吞的错。
     """
-    raw = (os.environ.get("DEEP_AGENT_HITL_TOOLS") or "").strip()
-    if raw == "":
-        return None
-    tools = [t.strip() for t in raw.split(",") if t.strip() != ""]
-    return {t: True for t in tools} if tools else None
+    return {name: True for name in DEFAULT_HITL_TOOL_NAMES}
 
 
-def build_subagents(model: BaseChatModel) -> list[dict] | None:
+def build_subagents(model: BaseChatModel) -> list[dict]:
     """DA-05（#1838，rubric D5 子代理委托）：具名子代理清单，让 task 工具有真实用途。
 
     基线实测（2026-08-23）：SubAgentMiddleware 是 create_deep_agent 默认自带的，
@@ -715,10 +705,9 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
 
     ⚠（#2252）`build_tools(model)` 现在还返回三个具名 HITL 虚拟工具
     （`confirm_task_intent`/`fill_run_params`/`choose_execution_option`）以及
-    `spawn_async_task`（#2664，灰度关闭时不出现，见 `build_tools` 自己的注释）——
-    那几个不是子代理该有的能力，所以每个子代理都按名字显式挑选自己要用的工具，不是
-    把 `build_tools()` 的返回值整体转发。新增/改名工具名单需要跟着改这里的过滤集合，
-    不会因为忘记而静默混进子代理。
+    `spawn_async_task`（#2664）——那几个不是子代理该有的能力，所以每个子代理都按
+    名字显式挑选自己要用的工具，不是把 `build_tools()` 的返回值整体转发。
+    新增/改名工具名单需要跟着改这里的过滤集合，不会因为忘记而静默混进子代理。
 
     deepagents 0.7.6 实测契约（inspect，不是猜的）：
     - SubAgent 是 TypedDict：必填 name/description/system_prompt（⚠ 是
@@ -735,13 +724,10 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
     通用任务执行）两类，与既有 `org-skill-researcher` 并列——`org-skill-researcher`
     仍是原样保留的具名调研子代理（措辞与工具集不变），不是被这两个新类型取代。
 
-    灰度（S1=B 纪律）：`DEEP_AGENT_SUBAGENTS_ENABLED=1` 才启用，与之前逐字相同的
-    同一个开关——本次改动只扩展这个开关打开之后返回的清单内容，不新增第二个开关。
-    默认未设 → 返回 None → create_deep_agent 收到 None 与参数默认值逐字一致，行为
-    与之前完全相同。
+    Phase 14 F02（R6）：此前由 `DEEP_AGENT_SUBAGENTS_ENABLED=1` 这个灰度开关控制，
+    验证稳定后按 R6 要求默认开启且开关本身移除——本函数现在无条件返回下面这份
+    子代理清单。
     """
-    if (os.environ.get("DEEP_AGENT_SUBAGENTS_ENABLED") or "").strip() != "1":
-        return None
     # 延迟导入与 tools.py 的依赖，避免 harness 模块在无关路径上加载它。
     from deep_agent_service.tools import build_tools
 

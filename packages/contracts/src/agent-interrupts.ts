@@ -239,17 +239,18 @@ export const AGENT_INTERRUPTS_TOOL_NAME_LIST: readonly string[] = [
 ];
 
 /**
- * `DEEP_AGENT_HITL_TOOLS` 环境变量应含的、本束贡献的那一段（design-signoff §四表：
- * 拼装点需要 `deep-agent-hitl.ts` 与本文件「各取工具名再 `.join(",")`」）。
- * 调用方（`provision.sh` 静态值、任何未来的动态拼装点）应该是
- * `[DEEP_AGENT_HITL_TOOL_NAME, ...AGENT_INTERRUPTS_TOOL_NAME_LIST].join(",")`，
- * 这里只导出本束的那一半，不 import `deep-agent-hitl.ts`
- * （design-signoff §六 决策④：两个文件各自是各自工具名的唯一事实源，不互相 import
- * 造出一个隐藏的耦合面；由消费方在自己的层做拼接）。
+ * 本束贡献给 `harness.py` 固定 HITL 工具清单的那一段（design-signoff §四表：
+ * 拼装点是 `deep-agent-hitl.ts` 与本文件「各取工具名再 `.join(",")`」）。
+ * `[DEEP_AGENT_HITL_TOOL_NAME, ...AGENT_INTERRUPTS_TOOL_NAME_LIST]` 就是
+ * `harness.py` 的 `DEFAULT_HITL_TOOL_NAMES` 应有的完整清单，这里只导出本束的
+ * 那一半，不 import `deep-agent-hitl.ts`（design-signoff §六 决策④：两个文件
+ * 各自是各自工具名的唯一事实源，不互相 import 造出一个隐藏的耦合面；由消费方
+ * 在自己的层做拼接）。
  *
- * #2252 之前，该值被写进部署投影只是**安全的空转**（`interrupt_on` 字典本身不校验
- * 键是否对应已注册工具，Python `@tool` 落地前这三个名字永远不会被模型调用）——#2252
- * 已经把 Python 侧 `@tool` 补上（见文件头一节），这条投影现在是**真正生效**的配置，
- * 不再只是占位。
+ * Phase 14 F02（R6）之前，这段值经由 `DEEP_AGENT_HITL_TOOLS` 环境变量投影进
+ * 部署配置；该开关已验证稳定、按 R6 要求默认开启且开关本身移除——现在
+ * `harness.py` 直接把这份并集硬编码进 `DEFAULT_HITL_TOOL_NAMES`，不再有
+ * 环境变量这一层，本常量改由跨语言门控测试
+ * （`cross-lang-tool-parity.test.ts`）断言这份并集与 Python 常量一致。
  */
 export const AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE = AGENT_INTERRUPTS_TOOL_NAME_LIST.join(",");
