@@ -1,7 +1,7 @@
 ---
 status: confirmed
 confirmed_by: "usamshen"
-confirmed_at: "2026-09-05T09:00:10Z"
+confirmed_at: "2026-09-05T08:00:00Z"
 bundle: design-ai-collab
 scope: uc-17-8-ai-collab
 covers: [B5.1, B5.2]
