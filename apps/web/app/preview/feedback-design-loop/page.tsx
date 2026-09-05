@@ -22,12 +22,18 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  *   `/inbox`、`/inbox/counts`，数据由 `scripts/shot-feedback-design-loop.mjs` 的
  *   `page.route` 拦截提供。
  * ⚠ 工作台/详情场景（UC-17.8 B4.5 真栈化后）**也不再 seed**：两屏改打
- *   `designWorkbench` 契约的 `/pm-designs*`，取材页这块的 `page.route` 拦截尚未补
- *   （backlog B4.6，独立后续），本页暂时仍挂 `DesignLoopProvider` 只是因为收件箱场景
- *   还读它的 `deepenFeedback` mock（`inbox-screen.tsx`，B4.4 才切真栈，不在本次范围）。
- *   `seed.projects` 从 B4.5 起对工作台/详情两屏不再有任何效果。
+ *   `designWorkbench` 契约的 `/pm-designs*`，数据由
+ *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（UC-17.8 B4.6 补齐，
+ *   同草稿/收件箱两块在 B1/B3.4 走过的同一条路）。本页仍挂 `DesignLoopProvider` 只是因为
+ *   收件箱场景还读它的 `deepenFeedback` mock（`inbox-screen.tsx`，B4.4 才切真栈，不在本次
+ *   范围）。`seed.projects` 从 B4.5 起对工作台/详情两屏不再有任何效果。
+ * ⚠ 工作台首页的 `loading`/`denied`/`dep-failed` 三态由 `?state=` 直接驱动组件的展示分支
+ *   （不发真实请求，见 `workbench-screen.tsx`）；详情页**没有** `state` prop，它的
+ *   loading/dep-failed 由截图脚本让 `/pm-designs` 挂起/报错来产生真实的过渡（`?state=`
+ *   在这两种场景下改用来挑选 `projectId`：`missing` → 一个不存在的 id）。
  *
- * scene 见下方 switch；state 走 `?state=`（七态）。
+ * scene 见下方 switch；state 走 `?state=`（七态，workbench 语义见上，detail 语义见
+ * `DetailByFirstProject`）。
  */
 export default function FeedbackDesignLoopPreview() {
   return (
@@ -90,9 +96,13 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
     );
   }
 
-  if (scene === "detail" || scene === "detail-spec") {
-    // 详情用第一个项目做样本；本组件自带 dark 全屏。
-    return <DetailByFirstProject preselectSpec={scene === "detail-spec"} />;
+  if (scene.startsWith("detail")) {
+    // 详情用第一个项目做样本；本组件自带 dark 全屏。scene=detail-missing 时改用一个不存在的
+    // id，用来拍「找不到这个设计项目」态（真实查找失败，不是摆一张静态图）——不能靠 `?state=`
+    // 表达，`resolvePreviewState` 只认七态白名单，非法值静默落回 `default`（`ui-state.ts`）。
+    // `detail-loading`/`detail-depfailed` 两个场景名同理不改 id，是让截图脚本挂起/拒绝
+    // `/pm-designs` 来产生这两态。
+    return <DetailByFirstProject projectId={scene === "detail-missing" ? "proj-does-not-exist" : "proj-empty-states"} />;
   }
 
   if (scene.startsWith("workbench")) {
@@ -110,13 +120,6 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
   return <p className="p-6 text-13 text-muted-foreground">未知场景：{scene}</p>;
 }
 
-function DetailByFirstProject({ preselectSpec }: { preselectSpec: boolean }) {
-  const [ready, setReady] = React.useState<string | null>(null);
-  // store 通过 context 已经有种子，取第一个项目 id。用 DOM 无法拿，改用一个已知种子 id。
-  React.useEffect(() => {
-    setReady("proj-empty-states");
-  }, []);
-  void preselectSpec;
-  if (ready === null) return null;
-  return <DesignDetailScreen projectId={ready} onBack={() => undefined} onOpenInbox={() => undefined} onNextDesign={() => undefined} />;
+function DetailByFirstProject({ projectId }: { projectId: string }) {
+  return <DesignDetailScreen projectId={projectId} onBack={() => undefined} onOpenInbox={() => undefined} onNextDesign={() => undefined} />;
 }
