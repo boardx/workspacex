@@ -2,10 +2,12 @@
 import * as React from "react";
 import {
   LayoutList, Columns3, Search, X, Sparkles, Play, Check, Undo2, Ban, ShieldAlert, PlugZap, Loader2, Lock, Github,
+  MoreHorizontal, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import { ApiError } from "@/lib/api-client";
@@ -150,6 +152,14 @@ export function DesignLoopInboxScreen({
 }) {
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
+  /**
+   * issue #2752 ①——系统自动生成的 `exception` 数量可能特别多，「全部」默认视图不该
+   * 被它淹没。`kindFilter === "all"` 时本地滤掉 `kind === "exception"`（不影响服务端
+   * 请求：仍然一次拉全量,只是显示层收窄），入口不消失——点「系统异常」chip 单独筛选，
+   * 或打开这个开关，两者都还能看见。`kindFilter !== "all"`（含显式选中「系统异常」）
+   * 不受这个开关影响,用户已经明确要看某一类。
+   */
+  const [showExceptionsInAll, setShowExceptionsInAll] = React.useState(false);
   const [stageFilter, setStageFilter] = React.useState<StageFilter>("all");
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
@@ -239,10 +249,13 @@ export function DesignLoopInboxScreen({
   const items = load.kind === "ready" ? load.items : [];
   const sources = load.kind === "ready" ? load.sources : null;
   const exceptionWithheld = sources?.exception === "withheld" || counts?.sources.exception === "withheld";
+  const hidingExceptions = kindFilter === "all" && !showExceptionsInAll;
+  const visibleItems = hidingExceptions ? items.filter((i) => i.kind !== "exception") : items;
 
-  const filtered = items.filter(
+  const filtered = visibleItems.filter(
     (i) => stageFilter === "all" || i.stage === stageFilter,
   );
+  // drawer 按 id 查找仍然在完整 `items` 里找——已经打开的一条不该因为开关状态变化而消失。
   const open = items.find((i) => i.id === openId) ?? null;
 
   const flashSaved = (msg: string) => {
@@ -500,6 +513,25 @@ export function DesignLoopInboxScreen({
               系统异常仅平台运维可见
             </span>
           )}
+          {/* issue #2752 ①——「全部」视图默认滤掉系统异常，这个开关是唯一的显式切回入口。
+              只在 kindFilter === "all" 时有意义：单独选中「系统异常」chip 已经是另一种「切换查看」。 */}
+          {kindFilter === "all" && exceptionWithheld !== true && (
+            <button
+              type="button"
+              aria-pressed={showExceptionsInAll}
+              onClick={() => setShowExceptionsInAll((v) => !v)}
+              data-testid="inbox-toggle-show-exceptions"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-control border px-2.5 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                showExceptionsInAll
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-card-foreground hover:bg-muted",
+              )}
+            >
+              <Eye aria-hidden className="h-3 w-3" />
+              {showExceptionsInAll ? "「全部」已包含系统异常" : "在「全部」中显示系统异常"}
+            </button>
+          )}
         </div>
         <div className="relative ml-auto">
           <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -520,6 +552,18 @@ export function DesignLoopInboxScreen({
             {kindFilter !== "all" || query !== "" ? "没有符合当前筛选的条目。" : "用户提交反馈、系统告警或推送设计方案后，都会汇总到这里。"}
           </p>
         </div>
+      ) : visibleItems.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty-hidden-exceptions">
+          <p className="text-14 font-medium">当前只有系统异常，已默认隐藏</p>
+          <button
+            type="button"
+            className="text-12 text-primary underline underline-offset-2"
+            onClick={() => setShowExceptionsInAll(true)}
+            data-testid="inbox-empty-show-exceptions"
+          >
+            显示系统异常
+          </button>
+        </div>
       ) : view === "board" ? (
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* B6.5 无障碍：拖拽的键盘替代说明（视觉隐藏）。每张卡片 aria-describedby 指到它——
@@ -537,7 +581,7 @@ export function DesignLoopInboxScreen({
           >
             {INBOX_STAGE_ORDER.map((col) => {
               const colItems = filtered.filter((i) => i.stage === col);
-              const colCount = counts === null ? colItems.length : counts.byStage[col];
+              const colCount = counts === null || hidingExceptions ? colItems.length : counts.byStage[col];
               return (
                 <div
                   key={col}
@@ -573,6 +617,7 @@ export function DesignLoopInboxScreen({
                       highlighted={highlightId === item.id}
                       onOpen={() => setOpenId(item.id)}
                       onNavigateLink={navigateToLinked}
+                      onQuickAction={(target) => void applyTransition(item, target)}
                     />
                   ))}
                 </div>
@@ -589,6 +634,8 @@ export function DesignLoopInboxScreen({
           onOpen={setOpenId}
           highlightId={highlightId}
           onNavigateLink={navigateToLinked}
+          busyId={busyId}
+          onQuickAction={(item, target) => void applyTransition(item, target)}
           nextCursor={load.kind === "ready" ? load.nextCursor : null}
           loadingMore={loadingMore}
           onLoadMore={() => void loadMore()}
@@ -666,9 +713,83 @@ function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigateLink: N
 /** B3.7 高亮态：卡片/行共用，用 `ring-primary` token，不硬编码颜色。 */
 const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";
 
+/**
+ * issue #2752 ③——hover 卡片/行时缺一个不用先点开详情就能做的操作动作（比如关闭）。
+ * 复用 `applyTransition`（footer 按钮同一套逻辑，含「不做」落点到 drawer 理由表单、
+ * 系统异常没有「已完成」这条边会被拒绝的规则），这里只挑"当前状态能一键做"的几条
+ * 摆进菜单，不重造第二套状态机判断。`item.kind === "design"` 没有对应源操作，不渲染。
+ */
+function QuickActionMenu({
+  item, busy, onQuickAction, testidPrefix,
+}: {
+  item: InboxItem;
+  busy: boolean;
+  onQuickAction: (target: InboxStage) => void;
+  testidPrefix: string;
+}) {
+  if (item.kind === "design") return null;
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="更多操作"
+          disabled={busy}
+          data-testid={`${testidPrefix}-menu-${item.code}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </MenuTrigger>
+      <MenuContent align="end" onClick={(e) => e.stopPropagation()} data-testid={`${testidPrefix}-menu-content-${item.code}`}>
+        {item.stage === "backlog" && (
+          <MenuItem onSelect={() => onQuickAction("doing")} data-testid={`${testidPrefix}-menu-start-${item.code}`}>
+            开始处理
+          </MenuItem>
+        )}
+        {item.stage === "doing" && item.kind === "feedback" && (
+          <MenuItem onSelect={() => onQuickAction("done")} data-testid={`${testidPrefix}-menu-done-${item.code}`}>
+            标记已修复
+          </MenuItem>
+        )}
+        {item.stage === "doing" && (
+          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-back-${item.code}`}>
+            退回待处理
+          </MenuItem>
+        )}
+        {(item.stage === "done" || item.stage === "archived") && (
+          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-reopen-${item.code}`}>
+            重新打开
+          </MenuItem>
+        )}
+        {(item.stage === "backlog" || item.stage === "doing") && (
+          <>
+            <MenuSeparator />
+            <MenuItem
+              onSelect={() => onQuickAction("archived")}
+              data-testid={`${testidPrefix}-menu-close-${item.code}`}
+              className="text-destructive focus:text-destructive"
+            >
+              关闭（不做）…
+            </MenuItem>
+          </>
+        )}
+      </MenuContent>
+    </Menu>
+  );
+}
+
 function BoardCard({
-  item, busy, highlighted, onOpen, onNavigateLink,
-}: { item: InboxItem; busy: boolean; highlighted: boolean; onOpen: () => void; onNavigateLink: NavigateLink }) {
+  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction,
+}: {
+  item: InboxItem;
+  busy: boolean;
+  highlighted: boolean;
+  onOpen: () => void;
+  onNavigateLink: NavigateLink;
+  onQuickAction: (target: InboxStage) => void;
+}) {
   /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
    *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
   const [grabbed, setGrabbed] = React.useState(false);
@@ -695,12 +816,15 @@ function BoardCard({
       data-testid={`inbox-card-${item.code}`}
       data-highlighted={highlighted ? "true" : undefined}
       className={cn(
-        "flex flex-col gap-1.5 rounded-card border border-border-subtle bg-card p-2.5 transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group relative flex flex-col gap-1.5 rounded-card border border-border-subtle bg-card p-2.5 transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         busy ? "cursor-wait opacity-60" : "cursor-grab active:cursor-grabbing",
         highlighted && HIGHLIGHT_CLASS,
       )}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="absolute right-1.5 top-1.5 invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+        <QuickActionMenu item={item} busy={busy} onQuickAction={onQuickAction} testidPrefix="inbox-card" />
+      </div>
+      <div className="flex items-center gap-1.5 pr-5">
         <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
         <KindLabel item={item} />
         {item.severe && <SevereBadge />}
@@ -715,7 +839,7 @@ function BoardCard({
 }
 
 function ListView({
-  items, stageFilter, onStageFilter, onOpen, highlightId, onNavigateLink, nextCursor, loadingMore, onLoadMore,
+  items, stageFilter, onStageFilter, onOpen, highlightId, onNavigateLink, busyId, onQuickAction, nextCursor, loadingMore, onLoadMore,
 }: {
   items: InboxItem[];
   stageFilter: StageFilter;
@@ -723,6 +847,8 @@ function ListView({
   onOpen: (id: string) => void;
   highlightId: string | null;
   onNavigateLink: NavigateLink;
+  busyId: string | null;
+  onQuickAction: (item: InboxItem, target: InboxStage) => void;
   nextCursor: string | null;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -760,6 +886,7 @@ function ListView({
               <th className="px-4 py-2 font-medium">类型</th>
               <th className="px-4 py-2 font-medium">GitHub</th>
               <th className="px-4 py-2 font-medium">数量 / 时间</th>
+              <th className="px-4 py-2 font-medium" aria-label="操作" />
             </tr>
           </thead>
           <tbody>
@@ -770,7 +897,7 @@ function ListView({
                 data-testid={`inbox-row-${item.code}`}
                 data-highlighted={highlightId === item.id ? "true" : undefined}
                 className={cn(
-                  "cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted",
+                  "group cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted",
                   highlightId === item.id && cn(HIGHLIGHT_CLASS, "ring-inset bg-ai-tint/30"),
                 )}
               >
@@ -789,6 +916,16 @@ function ListView({
                   {item.kind === "exception" && item.exception !== null
                     ? `${item.exception.count} 次${item.exception.affectedUsers !== null ? ` · ${item.exception.affectedUsers} 人` : ""}`
                     : new Date(item.createdAt).toLocaleDateString("zh-CN")}
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <div className="inline-flex invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+                    <QuickActionMenu
+                      item={item}
+                      busy={busyId === item.id}
+                      onQuickAction={(target) => onQuickAction(item, target)}
+                      testidPrefix="inbox-row"
+                    />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -819,6 +956,13 @@ function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
     labels: ["user-feedback", ...(item.feedbackKind !== null ? [INBOX_KIND_ISSUE_LABEL[item.feedbackKind]] : [])],
   };
 }
+
+/**
+ * issue #2752 ②——系统异常转「不做」每次都要手填理由，量一大就是重复劳动。反馈类
+ * 保持空白（每条反馈的「不做」理由都该是具体的、针对这条反馈的），只给系统异常
+ * 一个可编辑的默认模板，省下"每次现想怎么写"这一步，不是不让改。
+ */
+const DEFAULT_EXCEPTION_DECLINE_REASON = "系统自动生成的异常，评估后判定为已知噪音或不影响用户的低优先级问题，本轮不做单独处理。";
 
 /**
  * drawer 现查回来的 GitHub 状态换算成要展示的徽标——契约头注的派生规则（`inbox.ts`
@@ -863,7 +1007,7 @@ function InboxDrawer({
   onOpenWorkbench: () => void;
 }) {
   const [declining, setDeclining] = React.useState(openDecline);
-  const [reason, setReason] = React.useState("");
+  const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
   const canConfirm = reason.trim() !== "";
   const canDeepen = item.kind === "feedback" && (item.stage === "backlog" || item.stage === "doing") && item.resolvedByDesignId === null;
   /** B3.5——见文件头：只对 `backlog` 态开放，`doing → doing` 是幂等重放，不会建 issue。 */
@@ -1088,7 +1232,16 @@ function InboxDrawer({
                 <p className="text-10 text-muted-foreground" data-testid="err-reason">不做必须写清理由，否则无法确认。</p>
               )}
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setDeclining(false); setReason(""); }}>取消</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDeclining(false);
+                    setReason(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
+                  }}
+                >
+                  取消
+                </Button>
                 <Button
                   variant="destructive"
                   size="sm"

@@ -25,6 +25,13 @@ function fakeExec(pages: Record<string, Page | "fail">) {
 }
 
 describe("fetchClosingPrs 翻页协议", () => {
+  it("查询串用单引号交给 bash——双引号会把 $o/$r/$n 展开成空串，gh 报 Expected VAR_SIGN（2026-09-05 实测）", () => {
+    const { exec, seen } = fakeExec({ "": { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } });
+    fetchClosingPrs("acme/x", 7, exec);
+    const gql = seen.find((c) => c.includes("api graphql"))!;
+    expect(gql).toMatch(/-f query='query\(\$o:String!/);
+    expect(gql).not.toMatch(/-f query="/);
+  });
   it("三页翻到底：第一页不带 after，后续用上一页的 endCursor，节点按序拼起来", () => {
     const { exec, seen } = fakeExec({
       "": { nodes: [node(1), node(2)], pageInfo: { hasNextPage: true, endCursor: "C1" } },

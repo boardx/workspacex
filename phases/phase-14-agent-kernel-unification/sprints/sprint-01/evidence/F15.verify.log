@@ -1,38 +1,51 @@
-$ pnpm --filter api exec tsc --noEmit -p .   # scoped to agent-run/error-observability/kernel.module/新增文件——干净
-$ pnpm --filter api run lint                  # lint-arch-deps 等 7 项架构体检全绿（含 application 层未导入 infrastructure）
 $ pnpm --filter api exec vitest run tests/agent-run/transcript-full-content-rbac.test.ts
-[exit 1] —— 与本 sprint 已合入 main 的 F13.verify.log 同一个环境限制（非代码问题）：
+[exit 0]
 
- RUN  v2.1.9 /home/user/workspacex/apps/api
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/apps/api
 
-⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
-Error: Command failed: docker compose -f .../docker-compose.dev.yml up -d postgres
- Image pgvector/pgvector:pg16 Pulling
-unknown: failed to copy: httpReadSeeker: failed open: unexpected status from GET request to
-https://production.cloudfront.docker.com/registry-v2/.../data?...: 403 Forbidden
- ❯ Module.ensureDatabase tests/support/db.ts:38:29
+[db-isolation] db=wsx_01eb81134ed73951d214 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"17a17638-0384-4c21-885e-86846e2ba557","detail":{"name":"ForbiddenException","message":"FORBIDDEN","stack":"ForbiddenException: FORBIDDEN\n    at AgentRunController.transcript (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/agent-run.controller.ts:297:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"387c7a06-4afe-4445-8033-3c6cddfd69df","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AgentRunController.transcript (/Users/shenyanbin/Documents/workspacex/apps/api/src/interface/controllers/agent-run.controller.ts:298:58)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-run/transcript-full-content-rbac.test.ts (13 tests) 5669ms
 
-本远程会话的出站网络策略拒绝了 Docker Hub 镜像拉取（`pgvector/pgvector:pg16`），
-`.harness/scripts/with-test-isolation.ts` 同样复现——不是本次改动引入的问题：这条测试
-需要真实 Postgres（RLS/字段级加密/RBAC 都不是内存假件能测对的东西，同仓
-`agent-run-step-collapse-order.test.ts` 的既有取舍），而本会话连不上镜像仓库拉取
-`postgres`/`pgvector` 容器。同 sprint 已合入 main 的 F13.verify.log 记录的是同一个环境
-限制，不是巧合。
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  14:12:25
+   Duration  7.77s (transform 1.44s, setup 0ms, collect 325ms, tests 5.67s, environment 0ms, prepare 20ms)
 
-已在本会话内做到的最大验证：
-1. `tsc --noEmit`：改动到的全部文件（execute-run.ts / ports.ts / get-run-transcript.ts /
-   pg-agent-run-repository.ts / transcript-content-cipher.ts / agent-run.controller.ts /
-   kernel.module.ts / 新测试文件，以及因接口新增方法而补 stub 的 6 个既有测试假件）
-   零错误。
-2. `pnpm run lint`（含 `lint-arch-deps`）：全绿——`get-run-transcript.ts`（application 层）
-   未导入任何 `infrastructure` 代码，加密只发生在 `PgAgentRunRepository`（infrastructure
-   层），符合 ADR-020 洋葱分层。
-3. 逐行核对 SQL 参数位次（`appendStep` 的 INSERT 从 16 列扩到 18 列）、密文格式
-   （`<iv-hex>.<authTag-hex>.<ciphertext-hex>`，与 `aes-credential-cipher.ts` 同构）、
-   契约字段名（`TranscriptStep` 的 `runStepId`/`kind`/`decryptStatus`/`fullContent`/
-   `createdAt` 与仓储返回值逐一对应，`.strict()` 通过 `tsc`）。
+[db-isolation] db=wsx_01eb81134ed73951d214 peak_connections=4
 
-未能在本会话完成、需要 CI 补上的：`transcript-full-content-rbac.test.ts` 的 5 组真实
-Postgres 断言（V1 加密落库、V2 admin 读到明文、V3 RBAC 拒绝且先于存在性判断、V4 密钥
-不匹配时诚实报 unreadable 不崩溃、V5 tool_call 范围诚实标注）从未在任何环境里跑到绿——
-这是本 PR 明确标注、等 CI 验证的缺口，不是隐瞒的"看起来能跑"。
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=4acb9ea95da677ed403e181f78dfcfbaa13ef666（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_01eb81134ed73951d214 inner_db=wsx_01eb81134ed73951d214 outer_compose=wsx-01eb81134ed73951d214 inner_compose=wsx-01eb81134ed73951d214 status=matched
+[stack-admission] load1=6.33 cores=10 perCore=0.63 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtnzjfs5-ce411e59-01eb81134ed7 db=wsx_01eb81134ed73951d214 compose=wsx-01eb81134ed73951d214 pg=21219 redis=26219
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    122ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：0s
+  清理：0s
+  总计：1s
+
+[harness-verify v1 sha256=6a51fd2f8d0a4e9cb50848316cc949deb7c6ce5f8e215875b344b75bc8502da4 commit=4acb9ea95da677ed403e181f78dfcfbaa13ef666 at=2026-09-05T06:12:34.944Z]

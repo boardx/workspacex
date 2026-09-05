@@ -4,7 +4,7 @@ import { ApiError } from "./api-client";
 import { getAgentRun, isTerminalRunStatus as isTerminalWave2RunStatus, type AgentRunView } from "./agent-run";
 import {
   useAgentKernelRunStream, isTerminalRunStatus,
-  type KernelStreamEvent, type ReconnectState,
+  type AgentKernelRunStatus, type KernelStreamEvent, type ReconnectState,
 } from "./agent-kernel-stream";
 
 /**
@@ -38,6 +38,15 @@ export interface RunRestoreState {
   readonly isRestoring: boolean;
   /** 断线重连提示状态（R4 E2）。`null` = 至今未曾断线，不需要展示任何提示。 */
   readonly reconnectState: ReconnectState | null;
+  /**
+   * issue #2756 —— 正在核实的那个 run 的真实 `agent_runs.id`（核实结束后为 `null`），
+   * 以及这条订阅上最近一次 `status_change` 带来的状态（还没收到任何状态事件时为
+   * `null`，不编一个默认值）。`/chat` 宿主的插话入口（`chat-host-interjection-run.ts`）
+   * 用它们在「切回来的在途 run」上开放插话——同一条 socket、同一份事件，不为插话
+   * 再开第二条订阅。
+   */
+  readonly runId: string | null;
+  readonly status: AgentKernelRunStatus | null;
 }
 
 /** `isRestoring` 为真时展示的阶段文案——单一事实源，调用方不要另写一份措辞。 */
@@ -73,6 +82,7 @@ export function useCopilotKitV2RunRestore(
   const onSettledRef = React.useRef(onSettled);
   onSettledRef.current = onSettled;
   const [isRestoring, setIsRestoring] = React.useState(pendingRunId !== null);
+  const [status, setStatus] = React.useState<AgentKernelRunStatus | null>(null);
   const settledRef = React.useRef(false);
   const sessionTokenRef = React.useRef(sessionToken);
   sessionTokenRef.current = sessionToken;
@@ -80,6 +90,7 @@ export function useCopilotKitV2RunRestore(
   React.useEffect(() => {
     settledRef.current = false;
     setIsRestoring(pendingRunId !== null);
+    setStatus(null);
   }, [pendingRunId]);
 
   const confirmTerminal = React.useCallback(async (runId: string) => {
@@ -112,6 +123,9 @@ export function useCopilotKitV2RunRestore(
   const handleEvent = React.useCallback((event: KernelStreamEvent) => {
     if (settledRef.current) return;
     if (event.type !== "status_change") return;
+    // issue #2756 —— 非终态的状态变化同样如实带出去（`running` ↔ `awaiting_*`/`paused`），
+    // 插话入口只对 `running` 开放；终态一到即置 `null`，下面随即结束核实。
+    setStatus(isTerminalRunStatus(event.status) ? null : event.status);
     if (!isTerminalRunStatus(event.status)) return;
     settledRef.current = true;
     void confirmTerminal(event.runId);
@@ -131,5 +145,11 @@ export function useCopilotKitV2RunRestore(
     onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
   }, [stream.reconnectState, pendingRunId]);
 
-  return { isRestoring, reconnectState: settledRef.current ? null : stream.reconnectState };
+  const active = pendingRunId !== null && !settledRef.current;
+  return {
+    isRestoring,
+    reconnectState: active ? stream.reconnectState : null,
+    runId: active ? pendingRunId : null,
+    status: active ? status : null,
+  };
 }
