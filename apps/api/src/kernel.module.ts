@@ -335,6 +335,7 @@ import {
 import type { RunEventBusPort } from "./application/agent-run/run-event-bus";
 import { InMemoryRunEventBus } from "./infrastructure/agent-run/in-memory-run-event-bus";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import { transcriptContentCipherFromEnv } from "./infrastructure/agent-run/transcript-content-cipher";
 import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
 import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-run-context-snapshot";
@@ -1397,7 +1398,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // **唯一**已配置 provider 的模型调用、以及受理后触发执行的执行器。
     {
       provide: AGENT_RUN_STORE,
-      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db),
+      // Phase 14 F15 -- `transcriptContentCipherFromEnv()` returns `null` when
+      // `AGENT_RUN_TRANSCRIPT_KEY` is unconfigured; `PgAgentRunRepository` degrades
+      // gracefully in that case rather than failing every agent run (see that class's own
+      // constructor doc and `transcript-content-cipher.ts`'s header).
+      useFactory: (db: DatabasePort) => new PgAgentRunRepository(db, transcriptContentCipherFromEnv()),
       inject: [DATABASE_PORT],
     },
     /**

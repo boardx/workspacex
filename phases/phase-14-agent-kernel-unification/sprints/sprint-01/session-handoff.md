@@ -1,6 +1,21 @@
 # 会话交接 — Sprint 14/01
 
 ## 当前已验证
+- F01 的 PR（#2729）已合入 `main`（见 `git log`），但 `feature_list.json` 里 F01 的
+  status 仍是 `in_progress`——这一行的翻转只能由 `pnpm harness verify` 门控完成，
+  本仓至今没有一个会话在 docker 出网可用的环境里把它跑通过；下一个能跑 docker 的
+  会话应先补跑 `pnpm harness verify --sprint 14/01 --feature F01`，而不是假设"合入
+  main = passing"。
+- F13 的 PR（#2730）同样已合入 `main`，同一条环境 blocker（见下方"仍损坏或未验证"）
+  拦住了 verify，status 未手动改动。
+- F05（放开"一条用户消息只能对应一个 run"约束）已合入 main：feature 自己的
+  verification 命令用真实 Postgres 跑通（8/8，见下方"本轮改动（F05）"）。
+- F10（前端产出物面板版本历史回归测试）同样撞上"Docker 在本会话不可用"这同一大类
+  环境限制（具体故障点各自不同，见各自小节），status 未手改。
+- 无 feature 处于 harness `passing`。F13、F01、F05、F15、F10 都撞上"Docker 在对应
+  会话不可用"这同一大类环境限制（具体故障点各自不同，见各自小节）——见下方"仍损坏
+  或未验证"，几个 feature 的 status 都未被手动改动，符合"只能由验证脚本门控转移"
+  的硬约束。
 - F01（apps/api 退化为薄网关）、F13（错误分类修复）已合入 main（#2729/#2730），
   status 仍是 `in_progress`（verify 从未在一个 Docker 可用的会话里跑通过——见下方
   "环境 blocker 的解法"）。
@@ -281,6 +296,75 @@ R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那�
   `pnpm harness verify --sprint 14/01 --feature F13`，跑通后由 verify 脚本自身完成
   status 翻转（不能手改）；同一个环境顺带把 F01 的 verify 也补跑掉（见上）。
 
+## 本轮改动（F15：完整可审计 transcript 存储改造，issue #2723）
+
+范围严格限定在 R11(c)：`agent_run_steps` 完整内容 + 字段级加密 + RBAC 审计接口。
+只依赖 F01（已合入 main），不碰 F14（人性化转换层/前端卡片，仍 `not_started`）。
+
+- `apps/api/migrations/20260905110000_f15_transcript_full_content.sql`（新）：
+  `agent_run_steps` 加两个可空列 `input_full_content_enc`/`output_full_content_enc`
+  （密文），幂等 `IF NOT EXISTS`，append-only 账本不回填历史行。
+- `apps/api/src/infrastructure/agent-run/transcript-content-cipher.ts`（新）：
+  `AesGcmTranscriptContentCipher`（AES-256-GCM，与 `aes-credential-cipher.ts` 同构
+  密文布局），但**带 decrypt**——与 credential cipher"刻意不可逆"的设计相反，因为
+  审计接口的存在意义就是让授权角色读回明文（R3'-3）。`decrypt` 永不抛异常，任何
+  失败（钥匙不对/密文被篡改/格式不对）一律返回 `null`（I-4/E3）。
+  `transcriptContentCipherFromEnv()`（读 `AGENT_RUN_TRANSCRIPT_KEY`）未配置时返回
+  `null` 而非抛错——与 `credentialCipherFromEnv()` 的"缺 key 启动失败"故意不同，
+  见该文件头注。
+- `apps/api/src/application/agent-run/ports.ts`：新增 `TranscriptContentCipher` 端口、
+  `TranscriptStep` 类型（`z.infer` 自契约，不复述）、`AppendedRunStep` 新增可选的
+  `inputFullContent`/`outputFullContent`（明文，加密只在 infrastructure 层做，
+  onion 分层要求 application 层不得直接碰 cipher）、`AgentRunStore` 新增
+  `readRunTranscriptSteps`。
+- `apps/api/src/infrastructure/agent-run/pg-agent-run-repository.ts`：构造函数新增
+  可选 `cipher` 参数（默认 `null`，所有既有调用点 `new PgAgentRunRepository(db)`
+  不受影响）；`appendStep` 的 INSERT 从 16 列扩到 18 列，加密写入两个新列；新增
+  `readRunTranscriptSteps`（不复用 `readRun` 的折叠投影——审计要的是原始账本，
+  只返回 `model_called`/`tool_call` 两种 kind；两列都为 NULL 或任一列解密失败都
+  诚实报 `decryptStatus: "unreadable"`）。
+- `apps/api/src/application/agent-run/execute-run.ts`：`record()` helper 新增可选
+  `inputFullContent`/`outputFullContent`；三处 `model_called` 记录点（等待批准/
+  失败/成功）透传 `system`（完整 prompt）与 `text`（完整回复，仅成功时有）。
+  `tool_call`/`context_built` 未改动——前者是明确的后续工作，后者不在契约四类
+  kind 之内。
+- `apps/api/src/application/agent-run/get-run-transcript.ts`（新）：`getRunTranscript`
+  用例。RBAC 映射"运维/开发"→仅 `admin`（照抄 `admin-audit-read.ts` 的
+  `isAuditReader` 先例，同样排除 `compliance`）；FORBIDDEN 判定**先于**任何存在性
+  判断，防止把这条端点当 runId 探针。
+- `apps/api/src/interface/controllers/agent-run.controller.ts`：新增
+  `GET /agent-runs/:runId/transcript`。
+- `apps/api/src/kernel.module.ts`：`AGENT_RUN_STORE` 工厂改传
+  `transcriptContentCipherFromEnv()`。
+- 因 `AgentRunStore` 新增必需方法，补 6 个既有测试文件里手搓的假件
+  （`readRunTranscriptSteps: async () => null`）：`gateway-forwarding.test.ts`、
+  `attachment-notice-in-context.test.ts`、`deep-agent-produces-files.test.ts`、
+  `execute-run-progress.test.ts`、`execute-run-streaming.test.ts`、
+  `vision-image-input.test.ts`。
+- 新增 `apps/api/tests/agent-run/transcript-full-content-rbac.test.ts`（issue #2723
+  指定的唯一 verification 命令）：V1 加密落库非明文、V2 admin 读到完整明文（HTTP +
+  直调两条路径）、V3 RBAC 拒绝且先于存在性判断（含"把判权改回放行 compliance"的
+  CP 反证）、V4 密钥不匹配/未配置时诚实 unreadable 不崩溃、V5 tool_call 范围诚实
+  标注——每条正向断言配一条 `*-CP` 反证。
+
+### 仍损坏或未验证（与 F01/F13 同一条环境 blocker）
+- 同上文 F01/F13 记录的 Docker 出网限制：`docker compose up -d postgres` 拉取
+  `pgvector/pgvector:pg16` 对 `production.cloudfront.docker.com` 返回
+  `403 Forbidden`。本轮额外确认：`.harness/scripts/with-test-isolation.ts` 走的
+  也是同一条 `docker compose up`，同样被拦——不是"忘了用隔离脚本"的问题。
+  真实失败日志已落盘 `evidence/F15.verify.log`。
+- **已做的替代验证**（不是 harness 认可的证据，写在这里供 CI/下一个会话核对）：
+  1. `pnpm --filter api exec tsc --noEmit -p .`：本轮改动到的文件 0 个新增错误
+     （已排除 baseline 就存在的 `fabric-markdown` DOM 类型噪音）。
+  2. `pnpm --filter api run lint`：7 项架构体检全绿，含 `lint-arch-deps`——确认
+     `get-run-transcript.ts`（application 层）没有导入 `transcript-content-cipher.ts`
+     （infrastructure 层），加密只发生在 `PgAgentRunRepository` 内部。
+  3. 逐行核对：`appendStep` INSERT 的 18 个参数位次与列名一一对应；密文格式
+     `<iv-hex>.<authTag-hex>.<ciphertext-hex>` 与既有 `aes-credential-cipher.ts`
+     同构；契约 `TranscriptStep`（`.strict()`）的 5 个字段名与仓储返回值逐一对应。
+  4. 测试文件本身**从未在任何环境跑到绿**——这是本节明确承认的缺口，不是"看起来
+     能跑"。CI 若发现测试逻辑本身有问题，需要在本 PR 上修，而不是绕过或删测试。
+
 ## 本轮改动（F10：前端产出物面板，issue #2719）
 
 - 新增 `apps/web/tests/agent-kernel/artifacts-panel.test.tsx`：给已在
@@ -327,6 +411,16 @@ F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"
   但同样需要"docker 可用"这个大前提）。
 
 ## 下一步最佳动作
+- 找到 Docker 完整可用（daemon 起得来 + 出网不受限）的环境，依次重跑 F01、F13、
+  F05、F15、F10 的 `pnpm harness verify --sprint 14/01 --feature <id>` 把它们门控转
+  passing；不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+- F05 之后：`GET /messages/:messageId/agent-run-attempts` 的 controller 接线（本轮
+  刻意未做，见上）适合并入消费它的 F03/F04。
+- F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）可并行；F15
+  已实现完成待 CI 验证，其 `tool_call` 完整内容捕获（依赖
+  `deep-agent-model-provider.ts` 暴露未截断参数/结果）是已标注的后续工作；F02
+  （灰度开关默认开启+移除开关本身）依赖 F01；F11（中途插话后端接口）依赖 F06
+  （尚未开工）。
 1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
    `verify:release`）、且 Docker 可用（daemon 起得来 + 出网不受限）的会话/CI，一次性
    把 F01、F03、F13、F10 都转 passing——都卡在同一道"base verify 规模大 / Docker
@@ -343,5 +437,5 @@ F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"
 
 ## 命令
 - 启动：`pnpm -w run dev`
-- 验证：`pnpm harness verify --sprint 14/01`
+- 验证：`pnpm harness verify --phase 14`
 - 调试：`pnpm exec tsc --noEmit -p apps/api`（过滤 `fabric-markdown` 的已知 baseline 噪音）
