@@ -368,13 +368,21 @@ describe("DA-10 —— LangSmith 三件套投影（deploy.sh 4h 步的片段语�
 /**
  * issue #2076 —— 引擎能力开关的 env 投影。
  *
+ * Phase 14 F02（R6）：`DEEP_AGENT_SUBAGENTS_ENABLED` / `DEEP_AGENT_HITL_TOOLS` /
+ * `DEEP_AGENT_TASK_AUTO_CLASSIFY` / `DEEP_AGENT_ASYNC_SUBTASKS_ENABLED` 四个键
+ * 已从 harness.py/tools.py 移除（验证稳定后默认开启且开关本身移除），deploy.sh
+ * 的白名单调用与 provision.sh 模板也随之摘掉这四行——下面用 `DEEP_AGENT_CHECKPOINT_DB`
+ * （唯一留在白名单里、不属于本次移除范围的键，见 provision.sh 该键旁的说明）验证
+ * `deep_agent_project_capability_env` 这个通用投影机制本身依然工作，另加一个合成
+ * key 验证"设了就投影、不设就一行都不写"对任意 key 都成立，不只是对这一个键。
+ *
  * 反证纪律（本仓已九次「全绿但空转」）：这里的核心用例不是"设了就写行"，而是
  * **不设就一行都不写**，以及 **deploy.sh 真的调了这个函数**——后者是这条 issue 的
  * 实际根因形态（函数写好了但没人调 = devapp 上 `docker exec ... env | grep '^DEEP_AGENT'`
  * 依旧零命中，与修之前逐字相同）。
  */
 describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076）", () => {
-  const KEYS = "DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB";
+  const KEYS = "DEEP_AGENT_CHECKPOINT_DB DEEP_AGENT_SYNTHETIC_TEST_KEY";
 
   /** 建一对 src/dest，跑投影，返回 dest 的最终内容。 */
   function project(
@@ -390,17 +398,15 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
     return { status: r.status, dest: readFileSync(dest, "utf8"), stderr: r.stderr };
   }
 
-  it("三个键都设了 → 三行都投影，值逐字保留", () => {
+  it("两个键都设了 → 两行都投影，值逐字保留", () => {
     const r = project(
-      "DEEP_AGENT_SUBAGENTS_ENABLED=1\n"
-      + "DEEP_AGENT_HITL_TOOLS=call_skill, execute\n"
-      + "DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db?sslmode=require\n",
+      "DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db?sslmode=require\n"
+      + "DEEP_AGENT_SYNTHETIC_TEST_KEY=call_skill, execute\n",
     );
     expect(r.status).toBe(0);
-    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
-    expect(r.dest).toContain("DEEP_AGENT_HITL_TOOLS=call_skill, execute");
     // 值里带 `=` 和 `?` 不能被截断——read_env_value 只剥前缀。
     expect(r.dest).toContain("DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db?sslmode=require");
+    expect(r.dest).toContain("DEEP_AGENT_SYNTHETIC_TEST_KEY=call_skill, execute");
   });
 
   it("反证：一个都不设 → dest 逐字不变（不留 `KEY=` 的空值假象）", () => {
@@ -412,64 +418,51 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
   });
 
   it("反证：设了 key 但值为空 → 同样不写行（空串投进去只会让人误以为开关配过了）", () => {
-    const r = project("DEEP_AGENT_HITL_TOOLS=\nDEEP_AGENT_SUBAGENTS_ENABLED=1\n");
+    const r = project("DEEP_AGENT_SYNTHETIC_TEST_KEY=\nDEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db\n");
     expect(r.status).toBe(0);
-    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
-    expect(r.dest).not.toContain("DEEP_AGENT_HITL_TOOLS");
+    expect(r.dest).toContain("DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db");
+    expect(r.dest).not.toContain("DEEP_AGENT_SYNTHETIC_TEST_KEY");
   });
 
   it("部分设置 → 只投影设了的那些，且在 stderr 报告投影了哪些（部署日志可对账）", () => {
-    const r = project("DEEP_AGENT_SUBAGENTS_ENABLED=1\n");
+    const r = project("DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db\n");
     expect(r.status).toBe(0);
-    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
-    expect(r.dest).not.toContain("DEEP_AGENT_CHECKPOINT_DB");
-    expect(r.stderr).toContain("DEEP_AGENT_SUBAGENTS_ENABLED");
+    expect(r.dest).toContain("DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db");
+    expect(r.dest).not.toContain("DEEP_AGENT_SYNTHETIC_TEST_KEY");
+    expect(r.stderr).toContain("DEEP_AGENT_CHECKPOINT_DB");
   });
 
   it("反证（本 issue 的实际根因形态）：deploy.sh 真的调用了它，且在 docker run 之前", () => {
     const deployText = readFileSync(DEPLOY, "utf8");
     const callIdx = deployText.indexOf("deep_agent_project_capability_env");
     expect(callIdx, "deploy.sh 没调这个函数 = 开关依旧到不了容器").toBeGreaterThan(-1);
-    for (const key of KEYS.split(" ")) expect(deployText).toContain(key);
+    expect(deployText).toContain("DEEP_AGENT_CHECKPOINT_DB");
     // 必须在容器起来之前投影完——写在 docker run 之后等于这一轮部署不生效。
     const runIdx = deployText.indexOf("docker run -d --name workspacex-deep-agent");
     expect(runIdx).toBeGreaterThan(-1);
     expect(callIdx).toBeLessThan(runIdx);
   });
 
-  it("provision.sh 模板里 DEEP_AGENT_SUBAGENTS_ENABLED / DEEP_AGENT_HITL_TOOLS 是**未注释**的真实行", () => {
-    const provisionText = readFileSync(PROVISION, "utf8");
-    expect(provisionText).toMatch(/^DEEP_AGENT_SUBAGENTS_ENABLED=1$/m);
-    // issue #2017 —— 此前 DEEP_AGENT_HITL_TOOLS 也刻意留空，理由是前端审批对话框
-    // 写死注册在假工具名上、名字对不上打开比不打开更糟；#2017 已把前端与 loopback
-    // 替身都改成从 @repo/contracts 的 deep-agent-hitl.ts 取同一份真实工具名，
-    // 前提消除，这一行随之从"刻意留白"转正为模板默认值（见 provision.sh 本行上方
-    // 的完整取证注释）。DEEP_AGENT_CHECKPOINT_DB 的留白理由不受影响，仍保持注释态。
-    // F212（#2154）把 agent-interrupts 束的三个具名虚拟工具名并进这个投影点——
-    // provision.sh 模板值随契约实现同步扩容，否则这条断言会先于真实契约漂移
-    // （正是本条测试在 #2172 上第一次红的原因）。
-    expect(provisionText).toMatch(
-      /^DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,choose_execution_option$/m,
-    );
+  it("Phase 14 F02（R6）：provision.sh / deploy.sh 白名单的真代码里已不存在 subagents/hitl-tools/task-auto-classify/async-subtasks 四个已移除的键", () => {
+    // 剥掉 `#` 行注释再断言：这四个符号名字作为历史沿革仍然合法地出现在解释
+    // "为什么被移除"的注释里（本文件头注同一条纪律），剥注释是为了不被这类合法的
+    // 历史文档误伤。够用即可，不处理字符串字面量里恰好含 `#` 的边界情况。
+    const stripShComments = (s: string) => s.replace(/#[^\n]*/g, "");
+    const provisionText = stripShComments(readFileSync(PROVISION, "utf8"));
+    const deployText = stripShComments(readFileSync(DEPLOY, "utf8"));
+    const removedFlagNames = [
+      "DEEP_AGENT_SUBAGENTS_ENABLED",
+      "DEEP_AGENT_HITL_TOOLS",
+      "DEEP_AGENT_TASK_AUTO_CLASSIFY",
+      "DEEP_AGENT_ASYNC_SUBTASKS_ENABLED",
+    ];
+    for (const name of removedFlagNames) {
+      expect(provisionText, `provision.sh 真代码里不应再出现已移除的开关符号 ${name}`).not.toContain(name);
+      expect(deployText, `deploy.sh 真代码里不应再出现已移除的开关符号 ${name}`).not.toContain(name);
+    }
+    // DEEP_AGENT_CHECKPOINT_DB 不在这次移除范围内，留白理由不变（见 provision.sh
+    // 该键旁的说明），继续保持注释态。
     expect(provisionText).not.toMatch(/^DEEP_AGENT_CHECKPOINT_DB=/m);
-  });
-
-  it("issue #2687：deploy.sh 的白名单调用也带上 DEEP_AGENT_TASK_AUTO_CLASSIFY（#2662）与 DEEP_AGENT_ASYNC_SUBTASKS_ENABLED（#2664）", () => {
-    const deployText = readFileSync(DEPLOY, "utf8");
-    const callIdx = deployText.indexOf("deep_agent_project_capability_env");
-    const runIdx = deployText.indexOf("docker run -d --name workspacex-deep-agent");
-    // 取白名单调用这一段（第一次调用起，到 docker run 之前），只在这一段里断言
-    // 两个新键存在，避免误命中注释里的散在提及。
-    const callBlock = deployText.slice(callIdx, runIdx);
-    expect(callBlock).toContain("DEEP_AGENT_TASK_AUTO_CLASSIFY");
-    expect(callBlock).toContain("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED");
-    // 反证：白名单机制本身与既有三键完全一致——设了就投影，不设就不留行。
-    const r = project(
-      "DEEP_AGENT_TASK_AUTO_CLASSIFY=1\nDEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1\n",
-      "DEEP_AGENT_TASK_AUTO_CLASSIFY DEEP_AGENT_ASYNC_SUBTASKS_ENABLED",
-    );
-    expect(r.status).toBe(0);
-    expect(r.dest).toContain("DEEP_AGENT_TASK_AUTO_CLASSIFY=1");
-    expect(r.dest).toContain("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1");
+    expect(deployText).toContain("DEEP_AGENT_CHECKPOINT_DB");
   });
 });

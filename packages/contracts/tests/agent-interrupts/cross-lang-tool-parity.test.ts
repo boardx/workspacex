@@ -50,6 +50,17 @@ function readSrc(path: string): string {
   return src;
 }
 
+/** 剥掉 Python `#` 行注释与三引号 docstring、bash `#` 行注释，只留下真代码用来做
+ * "这个符号已经不存在了"的扫描——移除掉的符号名字本身作为历史沿革仍然合法地出现
+ * 在讲述"这是什么、为什么被移除"的注释/docstring 里，剥注释是为了不被这类合法的
+ * 历史文档误伤。够用即可，不处理字符串字面量里恰好含注释起始符的边界情况。 */
+function stripComments(source: string): string {
+  return source
+    .replace(/"""[\s\S]*?"""/g, "")
+    .replace(/'''[\s\S]*?'''/g, "")
+    .replace(/#[^\n]*/g, "");
+}
+
 function pyParamNames(src: string, name: string): string[] {
   const match = new RegExp(`def\\s+${name}\\s*\\(([\\s\\S]*?)\\)\\s*->`).exec(src);
   expect(match, `解析不出 ${name} 的签名`).not.toBeNull();
@@ -93,22 +104,30 @@ describe("#2252 跨语言签名门控：Python @tool 参数 = 契约 Args 字段
   }
 });
 
-describe("环境变量投影链条（AI-5）——惰性安全，不校验 Python 侧是否已注册", () => {
-  it("harness.py 确实是读 DEEP_AGENT_HITL_TOOLS 这个键（按逗号分隔）", () => {
-    expect(readSrc(HARNESS_PY)).toContain("DEEP_AGENT_HITL_TOOLS");
+describe("固定 HITL 工具清单（Phase 14 F02，R6）——不再是环境变量投影，是 harness.py 的常量", () => {
+  // Phase 14 F02（R6）：`DEEP_AGENT_HITL_TOOLS` 这个灰度开关已从 harness.py 移除，
+  // 验证稳定后按 R6 要求默认开启且开关本身移除——原本"provision.sh 那一行 =
+  // deep-agent-hitl 契约值 + 本束三个工具名的并集，逗号拼接"这条投影链条，现在改为
+  // harness.py 的 `DEFAULT_HITL_TOOL_NAMES` 常量硬编码同一份并集，这里断言的是
+  // 那个常量确实包含两侧契约各自贡献的工具名，不再依赖环境变量/部署脚本。
+  it("harness.py 的真代码里不再读 DEEP_AGENT_HITL_TOOLS 这个环境变量", () => {
+    expect(stripComments(readSrc(HARNESS_PY))).not.toContain("DEEP_AGENT_HITL_TOOLS");
   });
 
-  it("provision.sh 那一行 = deep-agent-hitl 契约值 + 本束三个工具名的并集，逗号拼接", () => {
-    const sh = readSrc(PROVISION_SH);
-    const line = sh.split("\n").find((l) => l.startsWith("DEEP_AGENT_HITL_TOOLS="));
-    expect(line, "provision.sh 里没有生效的 DEEP_AGENT_HITL_TOOLS= 行").toBeDefined();
-    const expected = [DEEP_AGENT_HITL_TOOLS_ENV_VALUE, AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE].join(",");
-    expect(line).toBe(`DEEP_AGENT_HITL_TOOLS=${expected}`);
+  it("harness.py 的 DEFAULT_HITL_TOOL_NAMES = deep-agent-hitl 契约值 + 本束三个工具名的并集", () => {
+    const src = readSrc(HARNESS_PY);
+    const match = /DEFAULT_HITL_TOOL_NAMES:\s*tuple\[str, \.\.\.\]\s*=\s*\(([\s\S]*?)\)/.exec(src);
+    expect(match, "harness.py 里找不到 DEFAULT_HITL_TOOL_NAMES 的定义").not.toBeNull();
+    const pyNames = (match?.[1] ?? "")
+      .split(",")
+      .map((s) => s.trim().replace(/^"|"$/g, ""))
+      .filter((s) => s !== "");
+    const expected = [DEEP_AGENT_HITL_TOOLS_ENV_VALUE, AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE].join(",").split(",");
+    expect(pyNames).toEqual(expected);
   });
 
-  it("deploy.sh 的容器 env 投影白名单里已经有 DEEP_AGENT_HITL_TOOLS 这个键（无需新增，只是值变化）", () => {
-    const deploySh = readSrc(DEPLOY_SH);
-    const call = /deep_agent_project_capability_env[^\n]*\n[^\n]*/.exec(deploySh)?.[0] ?? "";
-    expect(call).toContain("DEEP_AGENT_HITL_TOOLS");
+  it("provision.sh / deploy.sh 的真代码里不再出现 DEEP_AGENT_HITL_TOOLS 这个已移除的开关符号", () => {
+    expect(stripComments(readSrc(PROVISION_SH))).not.toContain("DEEP_AGENT_HITL_TOOLS");
+    expect(stripComments(readSrc(DEPLOY_SH))).not.toContain("DEEP_AGENT_HITL_TOOLS");
   });
 });

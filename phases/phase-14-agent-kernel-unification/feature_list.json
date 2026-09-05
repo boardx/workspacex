@@ -30,9 +30,9 @@
         "F01"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "remote-f02",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts"

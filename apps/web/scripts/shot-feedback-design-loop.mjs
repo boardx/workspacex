@@ -1,10 +1,11 @@
 // 截图生成器 —— UC-17.8 研发闭环（反馈 → 设计 → 排期）。签核第 ① 件（UI）材料。
-// 取材页 /preview/feedback-design-loop（渲染真组件 + 固定 seed，不写 localStorage）。
+// 取材页 /preview/feedback-design-loop（渲染真组件；UC-17.8 B6.1 起页面自身不持有任何数据、
+// 不写 localStorage——五屏的数据全部由本脚本 `page.route()` 拦截提供）。
 // 草稿（UC-17.8 B1 真栈）：由本脚本 `page.route()` 拦 `/feedback/drafts*` 提供固定数据——
 // 同 shot-feedback-loop.mjs 的范式，不再 seed localStorage 草稿。
 // 收件箱（UC-17.8 B3.4 真栈）：同样由 `page.route()` 拦 `/inbox`、`/inbox/counts`、
 // `/feedback/:id/status`、`/feedback/:id/events`、`/system/error-logs/:id` 提供固定数据/回执——
-// `DesignLoopProvider` 不再持有收件箱 mock，屏幕自己打这几条真实契约路径。
+// 屏幕自己打这几条真实契约路径（原型 mock store 已于 B6.1 删除）。
 // 浅/深两态都拍；每屏至少默认/空/校验失败/成功，外加看板拖放悬停、drawer、生成中过渡、推送成功页。
 // 设计工作台（UC-17.8 B4.6）：`workbench-*`/`detail-*` 这 16 张不落进 OUT，改落进
 // `<OUT 的上级>/design-workbench/`——它们是契约束 `design-workbench` 自己的 ui.md 材料，
@@ -206,8 +207,9 @@ async function routeInbox(page, { empty }) {
  * `packages/contracts/src/design-workbench.ts` 的 `DesignProject`（`.strict()`）。
  *
  * ⚠ B4.5 起 `workbench-screen.tsx`/`detail-screen.tsx` 打真实 `/pm-designs*`，取材页不再
- *   靠 `DesignLoopProvider` 的本地 seed 出这两屏的数据——同草稿/收件箱两块在 B1/B3.4 走过的
- *   同一条路：由本脚本 `page.route()` 拦截提供固定夹具，不连真库（同一台机器随时能截出同一张图）。
+ *   靠原型 mock store 的本地 seed 出这两屏的数据（该 store 与取材页的 seed 已于 B6.1 一并删除）
+ *   ——同草稿/收件箱两块在 B1/B3.4 走过的同一条路：由本脚本 `page.route()` 拦截提供固定夹具，
+ *   不连真库（同一台机器随时能截出同一张图）。
  */
 const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
 const DESIGN_PROJECTS = [
