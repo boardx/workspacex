@@ -5,7 +5,7 @@
  * 根因：同一个 in-flight run 被两条独立渲染路径同时展示成两个 `<li>`：
  * - `chat-run-process-area`（挂 AgentPlanPanel/AgentApprovalPanel/AgentToolChain）
  *   在 `runObservation.view` 非 null 且未被终态消息接管时渲染；steps 为空、
- *   非 awaiting_approval、非 failed 时，AgentPlanPanel/AgentApprovalPanel 都
+ *   非 awaiting_tool_permission、非 failed 时，AgentPlanPanel/AgentApprovalPanel 都
  *   返回 null，唯一内容是 AgentToolChain 在 running=true 时给出的摘要
  *   「…正在执行…」（`agent-tool-chain.tsx` 的 `toolChainSummaryText`）。
  * - `chat-message-row-thinking`（`awaitingReply`）同时为 true，显示
@@ -188,9 +188,9 @@ describe("ChatLiveMessagePanel — 不重复渲染同一个 run 的进度块（i
     expect(screen.getByTestId("chat-run-process-area")).toBeInTheDocument();
   });
 
-  it("awaiting_approval 时过程区渲染（承载审批卡片）", async () => {
+  it("awaiting_tool_permission 时过程区渲染（承载审批卡片）", async () => {
     getAgentRun.mockResolvedValue(agentRunView({
-      status: "awaiting_approval",
+      status: "awaiting_tool_permission",
       steps: [step("tool_call", { toolName: "call_skill" })],
       pendingApproval: { toolName: "call_skill", argsSummary: "{}" },
     }));

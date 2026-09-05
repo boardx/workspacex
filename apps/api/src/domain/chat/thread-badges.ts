@@ -163,7 +163,7 @@ export function toContractBadges(state: ThreadBadgeState): MessageBadge[] {
  *                            这不是「已完成」，把它显示成已完成就是撒谎）
  *   · 有消息、没有 run     ⇒ `done`（消息已落地，没有在跑的东西）
  *   · 最近 run `queued` / `running` / `writeback_pending` ⇒ `running`
- *   · 最近 run `awaiting_approval` ⇒ `awaiting-approval`
+ *   · 最近 run `awaiting_tool_permission` ⇒ `awaiting-approval`
  *   · 最近 run `failed`    ⇒ `failed`
  *   · 最近 run `succeeded` ⇒ `done`
  *
@@ -183,7 +183,7 @@ export function threadCardStatus(input: {
     case "running":
     case "writeback_pending":
       return "running";
-    case "awaiting_approval":
+    case "awaiting_tool_permission":
       return "awaiting-approval";
     case "failed":
       return "failed";

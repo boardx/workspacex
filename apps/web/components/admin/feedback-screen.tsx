@@ -1,11 +1,12 @@
 "use client";
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, ExternalLink, GitPullRequest, Loader2, RefreshCw, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, GitPullRequest, Loader2, MoreHorizontal, RefreshCw, Search } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { Toast } from "./panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Modal } from "@/components/files/overlay";
 import { ApiError } from "@/lib/api-client";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -107,16 +108,20 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
   已进入迭代: "ai",
   已修复: "primary",
   不做: "neutral",
+  已归档: "neutral",
 };
 
-const STATUS_ORDER: readonly FeedbackStatus[] = ["待处理", "已进入迭代", "已修复", "不做"];
+const STATUS_ORDER: readonly FeedbackStatus[] = ["待处理", "已进入迭代", "已修复", "不做", "已归档"];
 
 /**
  * 状态的**显示名**按类型换——纯展示，不是第二份状态枚举（见文件头）。
+ *
+ * 「已归档」两个 kind 统一叫「已归档」，不像其它三态那样按 kind 换名字——它表达
+ * 的是"收起来"这个动作本身，不是分诊结论，缺陷/需求没有分别叫法的必要（issue #2681）。
  */
 const STATUS_LABEL: Record<FeedbackKind, Record<FeedbackStatus, string>> = {
-  缺陷: { 待处理: "待处理", 已进入迭代: "已进入迭代", 已修复: "已修复", 不做: "不做" },
-  需求: { 待处理: "待评估", 已进入迭代: "已排期", 已修复: "已上线", 不做: "不做" },
+  缺陷: { 待处理: "待处理", 已进入迭代: "已进入迭代", 已修复: "已修复", 不做: "不做", 已归档: "已归档" },
+  需求: { 待处理: "待评估", 已进入迭代: "已排期", 已修复: "已上线", 不做: "不做", 已归档: "已归档" },
 };
 
 /** 详情面板的主按钮：当前状态"向前"的那条边与它在这一页上的叫法。 */
@@ -141,8 +146,24 @@ const ID_PREFIX: Record<FeedbackKind, string> = { 缺陷: "B", 需求: "R" };
 export const NEXT_STATUSES: Record<FeedbackStatus, readonly FeedbackStatus[]> = {
   待处理: ["已进入迭代", "不做"],
   已进入迭代: ["已修复", "待处理", "不做"],
-  已修复: ["待处理"],
-  不做: ["待处理"],
+  已修复: ["待处理", "已归档"],
+  不做: ["待处理", "已归档"],
+  已归档: ["待处理"],
+};
+
+/**
+ * 行内 hover 菜单能**一键直达**的转移——只包含不需要额外输入（理由/issue 草稿）的边。
+ * `不做`（要填理由）与「进入迭代」（要过 issue 草稿弹层）从这张表里去掉：菜单点了
+ * 这两项也做不完整个操作，与其在行内塞一份表单，不如让它们退回"选中这一行、去
+ * 详情面板操作"这条已有的路径——两条路径分工清楚，不必为了"行内也能填理由"
+ * 多维护一份表单状态。
+ */
+const ROW_MENU_DIRECT_STATUSES: Record<FeedbackStatus, readonly FeedbackStatus[]> = {
+  待处理: [],
+  已进入迭代: ["待处理"],
+  已修复: ["待处理", "已归档"],
+  不做: ["待处理", "已归档"],
+  已归档: ["待处理"],
 };
 
 /**
@@ -456,6 +477,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
                   busyId={busyId}
                   onSelect={setSelectedId}
                   onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
+                  onQuickTriage={(f, next) => void act(() => triageFeedback(f.id, next, null, null), f.id)}
                 />
                 {/* 右：详情 */}
                 <aside className="border-t border-border lg:border-l lg:border-t-0" data-testid="admin-feedback-detail-pane">
@@ -557,7 +579,7 @@ function StatusChip({
 }
 
 function FeedbackTable({
-  kind, items, displayIds, names, selectedId, busyId, onSelect, onVote,
+  kind, items, displayIds, names, selectedId, busyId, onSelect, onVote, onQuickTriage,
 }: {
   kind: FeedbackKind;
   items: readonly FeedbackItem[];
@@ -567,6 +589,7 @@ function FeedbackTable({
   busyId: string | null;
   onSelect: (id: string) => void;
   onVote: (item: FeedbackItem) => void;
+  onQuickTriage: (item: FeedbackItem, next: FeedbackStatus) => void;
 }) {
   return (
     <div className="min-w-0" data-testid={`admin-feedback-list-${kind}`}>
@@ -578,12 +601,13 @@ function FeedbackTable({
             <th className="w-32 px-3 py-2.5 text-left font-normal">来源</th>
             <th className="w-14 px-3 py-2.5 text-right font-normal">赞同</th>
             <th className="w-28 px-4 py-2.5 text-right font-normal">提交时间</th>
+            <th className="w-9 px-2 py-2.5 text-right font-normal"><span className="sr-only">操作</span></th>
           </tr>
         </thead>
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={5} className="px-6 py-8 text-center text-12 text-muted-foreground" data-testid={`admin-feedback-list-${kind}-empty`}>
+              <td colSpan={6} className="px-6 py-8 text-center text-12 text-muted-foreground" data-testid={`admin-feedback-list-${kind}-empty`}>
                 这个筛选下没有反馈。
               </td>
             </tr>
@@ -606,7 +630,7 @@ function FeedbackTable({
                   }}
                   data-testid={`admin-feedback-item-${item.id}`}
                   className={cn(
-                    "cursor-pointer border-t border-border-subtle align-top transition-colors duration-fast",
+                    "group cursor-pointer border-t border-border-subtle align-top transition-colors duration-fast",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                     selected ? "bg-accent/40" : "hover:bg-muted/50",
                   )}
@@ -660,6 +684,15 @@ function FeedbackTable({
                   <td className="whitespace-nowrap px-4 py-3.5 text-right text-12 text-muted-foreground tabular-nums">
                     {formatTime(item.createdAt)}
                   </td>
+                  <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <FeedbackRowMenu
+                      item={item}
+                      kind={kind}
+                      busy={busyId === item.id}
+                      onSelect={onSelect}
+                      onQuickTriage={onQuickTriage}
+                    />
+                  </td>
                 </tr>
               );
             })
@@ -667,6 +700,71 @@ function FeedbackTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * 行内 hover 操作菜单（issue #2681：「鼠标 hovercard 的时候可以有一个功能菜单」）。
+ *
+ * 平时透明、只在整行 hover/focus-within 时浮出（同 `thread-list-shell.tsx` 的
+ * chat 列表卡片三点菜单——`text-transparent` → `group-hover:` 恢复颜色，不用
+ * `opacity-*`/`visibility:hidden`，读屏软件与键盘 Tab 全程摸得到这个按钮，见那份
+ * 文件里逐条论证过的理由，这里不重复）。
+ *
+ * 菜单项只列 `ROW_MENU_DIRECT_STATUSES`——一键无需额外输入就能完成的转移；
+ * 需要理由/issue 草稿的转移（"不做"、进「已进入迭代」）不在这里，选中这一行、
+ * 到右侧详情面板走完整表单（见 `NEXT_STATUSES` 旁边的注释）。
+ */
+function FeedbackRowMenu({
+  item, kind, busy, onSelect, onQuickTriage,
+}: {
+  item: FeedbackItem;
+  kind: FeedbackKind;
+  busy: boolean;
+  onSelect: (id: string) => void;
+  onQuickTriage: (item: FeedbackItem, next: FeedbackStatus) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const directTargets = ROW_MENU_DIRECT_STATUSES[item.status];
+
+  return (
+    <Menu open={open} onOpenChange={setOpen}>
+      <MenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="更多操作"
+          disabled={busy}
+          data-testid={`admin-feedback-row-menu-${item.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "rounded-md p-1.5 transition-colors duration-fast hover:bg-panel-alt hover:text-card-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
+            open ? "text-muted-foreground" : "text-transparent group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+          )}
+        >
+          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </MenuTrigger>
+      <MenuContent align="end" sideOffset={4} data-testid={`admin-feedback-row-menu-list-${item.id}`} className="min-w-32 py-1">
+        <MenuItem
+          data-testid={`admin-feedback-row-menu-item-${item.id}-open-detail`}
+          onSelect={(e) => { e.preventDefault(); onSelect(item.id); }}
+        >
+          查看详情
+        </MenuItem>
+        {directTargets.length > 0 && <MenuSeparator />}
+        {directTargets.map((next) => (
+          <MenuItem
+            key={next}
+            disabled={busy}
+            data-testid={`admin-feedback-row-menu-item-${item.id}-${next}`}
+            onSelect={(e) => { e.preventDefault(); onQuickTriage(item, next); }}
+          >
+            {next === "待处理" ? `退回${STATUS_LABEL[kind].待处理}` : STATUS_LABEL[kind][next]}
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
   );
 }
 
@@ -692,6 +790,7 @@ function FeedbackDetailPanel({
   const forward = FORWARD_ACTION[item.kind][item.status] ?? null;
   const canDecline = NEXT_STATUSES[item.status].includes("不做");
   const canReopen = item.status !== "待处理" && NEXT_STATUSES[item.status].includes("待处理");
+  const canArchive = NEXT_STATUSES[item.status].includes("已归档");
 
   return (
     <div className="flex flex-col gap-5 p-6" role="region" aria-label="反馈详情" data-testid={`admin-feedback-detail-${item.id}`}>
@@ -878,6 +977,11 @@ function FeedbackDetailPanel({
           {canReopen && (
             <Button variant="ghost" disabled={busy} onClick={() => onTriage("待处理", null)} data-testid={`admin-feedback-to-待处理-${item.id}`}>
               退回{STATUS_LABEL[item.kind].待处理}
+            </Button>
+          )}
+          {canArchive && (
+            <Button variant="outline" disabled={busy} onClick={() => onTriage("已归档", null)} data-testid={`admin-feedback-to-已归档-${item.id}`}>
+              归档
             </Button>
           )}
         </div>

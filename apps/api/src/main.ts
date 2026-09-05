@@ -12,9 +12,12 @@ import { traceMiddleware } from "./interface/middleware/trace";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
+import { attachAgentRunEventsGateway, checkRunVisibleViaReadAgentRun } from "./interface/ws/agent-run-events.gateway";
 import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
-import { IDENTITY_REPOSITORY } from "./application/identity/ports";
+import { IDENTITY_REPOSITORY, DECISION_ID_FACTORY } from "./application/identity/ports";
+import { CHAT_REPOSITORY } from "./application/chat/ports";
+import { AGENT_RUN_STORE, RUN_EVENT_BUS } from "./application/agent-run/ports";
 import {
   RECORDING_ID_GENERATOR,
   RECORDING_UNIT_OF_WORK,
@@ -133,6 +136,20 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
     provider: app.get(ASR_PROVIDER),
     usage: app.get(ASR_USAGE_METER),
     ids: app.get(RECORDING_ID_GENERATOR),
+  });
+  // Phase 14 F03 (`streaming-transport` 契约束 UC-1) -- `WS /agent-runs/:runId/events`。
+  // 与上面三条既有流式面共用同一个 HTTP server 的 `upgrade` 事件，同一个
+  // `PRINCIPAL_RESOLVER_PORT`；`RUN_EVENT_BUS` 是与 `AGENT_RUN_EXECUTOR`（publish 侧）
+  // 共享的同一个单例（见 `kernel.module.ts` 该 provider 的注册注释）。
+  attachAgentRunEventsGateway(app.getHttpServer(), {
+    principals: app.get(PRINCIPAL_RESOLVER_PORT),
+    checkRunVisible: checkRunVisibleViaReadAgentRun({
+      repo: app.get(IDENTITY_REPOSITORY),
+      ids: app.get(DECISION_ID_FACTORY),
+      chat: app.get(CHAT_REPOSITORY),
+      runs: app.get(AGENT_RUN_STORE),
+    }),
+    events: app.get(RUN_EVENT_BUS),
   });
 }
 

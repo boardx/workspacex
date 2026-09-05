@@ -1157,7 +1157,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // `org_id = $`；（c）INSERT 带 `org_id`；（d）没有 `withoutTenant`；（e）只碰
     // `design_projects`/`design_project_chat_messages`/`product_feedback` 三张表。删那个
     // 测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(86);
+    //
+    // ⚠ Raised 86 -> 87 by F05（streaming-transport 契约束 R4 E4）：新增
+    // `infrastructure/agent-run/pg-agent-run-attempt-repository.ts` 的 ALLOWLIST 条目
+    // （`recordAttempt()`/`listForMessage()`，理由见该条目自身注释），漏掉了这里的上限
+    // 同步——补上。
+    // ⚠ Raised 87 -> 88 by F06（plan-permissions 契约束 R5/R7/R8）：新增
+    // `pg-tool-permission-grant-repository.ts` 的 ALLOWLIST 条目——三档授权存储表
+    // `tool_permission_grants` 无 `ObjectRef` 可挂，三个方法都不回传行内容，判权在
+    // 用例层（`decide-tool-permission.ts`），豁免理由见该条目自身注释。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(88);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

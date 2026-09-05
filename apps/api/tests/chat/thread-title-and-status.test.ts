@@ -107,7 +107,7 @@ describe("threadCardStatus —— 线程卡状态（#2094）", () => {
     ["queued", "running"],
     ["running", "running"],
     ["writeback_pending", "running"],
-    ["awaiting_approval", "awaiting-approval"],
+    ["awaiting_tool_permission", "awaiting-approval"],
     ["failed", "failed"],
     ["succeeded", "done"],
   ] as const)("最近 run %s ⇒ %s", (runStatus, expected) => {

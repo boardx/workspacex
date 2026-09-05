@@ -112,6 +112,7 @@ export interface FeedbackCounts {
   readonly 已进入迭代: number;
   readonly 已修复: number;
   readonly 不做: number;
+  readonly 已归档: number;
 }
 
 export interface ProductFeedbackRepository {

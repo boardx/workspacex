@@ -73,7 +73,7 @@ const AGENT_BARE = "agent-i1652-bare";
 const AGENT_BARE_V1 = "agent-version-i1652-bare-v1";
 const SKILL = "skill-i1652-pptx";
 const SKILL_V1 = "skill-version-i1652-pptx-v1";
-/** design-delta `skill-lazy-loading` T6 用——第二个 skill，证明"挂两个才有目录可言"。 */
+/** Phase 14 F01 起未被任何 it() 使用（原 T6 渐进式加载真栈门控已随 `useLazySkillLoading` 一并物理删除）；保留夹具本身无害，未来若需要"多 skill 挂载"场景可复用。 */
 const SKILL_B = "skill-i1652-lazy-b";
 const SKILL_B_V1 = "skill-version-i1652-lazy-b-v1";
 const SKILL_B_CONTENT = "# 第二个 skill\n\nSKILL_B_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT：这是第二个 skill 的正文，只有请求过全文才应该出现在 system 里。";
@@ -165,7 +165,7 @@ async function seedSkillVersion(): Promise<void> {
   });
 }
 
-/** design-delta `skill-lazy-loading` T6 用——第二个 skill，与 `SKILL`/`SKILL_V1` 同一形状。 */
+/** Phase 14 F01 起未被任何 it() 使用，理由同 `SKILL_B` 声明处的注释。 */
 async function seedSecondSkillVersion(): Promise<void> {
   await asApp(ORG, async (c) => {
     await c.query(
@@ -287,15 +287,6 @@ async function readBackBytes(objectKey: string): Promise<Buffer> {
   const bytes = await app.get<ObjectStore>(OBJECT_STORE).get(objectKey);
   expect(bytes, `object store has nothing at ${objectKey}`).not.toBeNull();
   return Buffer.from(bytes!);
-}
-
-/** design-delta `skill-lazy-loading` T6 用——第 N 次模型调用的 system 消息正文。 */
-function capturedSystem(callIndex: number): string {
-  const call = modelCalls[callIndex];
-  expect(call, `expected at least ${String(callIndex + 1)} captured model calls, got ${String(modelCalls.length)}`).toBeDefined();
-  const system = call!.body.messages?.find((m) => m.role === "system")?.content;
-  expect(system, "captured call had no system message").toBeDefined();
-  return system!;
 }
 
 /** 一段用例期间沙箱被真正调用了几次（计数是累积的，只有增量才有意义）。 */
@@ -580,111 +571,4 @@ describe("T5 回喂重试循环真的在重试", () => {
     expect(file.name).toBe("Retry_Deck.pptx");
     expect(inspectPptx(await readBackBytes(file.objectKey)).slideCount).toBe(3);
   }, 120_000);
-});
-
-/* ═══════════════════════════════ T6 ═══════════════════════════════ */
-
-/**
- * design-delta `skill-lazy-loading` —— 渐进式加载的**真栈**门控（V7 的自动化部分）。
- *
- * 与 T1-T5 同一套真实数据库/HTTP/沙箱/对象存储，只多挂一个 skill（`SKILL_B`）——
- * 单挂一个 skill 时目录和"直接给全文"在行为上没有区别（`skill-lazy-loading.test.ts`
- * 的 §2.4 已经用内存 fake 覆盖过这条），这里要证明的是"两个都挂着，只请求其中一个"
- * 这条只有多 skill 场景才暴露的行为，且要走真实 `ConfiguredModelProvider` 的
- * HTTP JSON 序列化（不是内存里的 `ModelCallInput` 对象），确认 `system` 字段真的
- * 原样过了 HTTP 这一趟。
- */
-describe("T6 渐进式加载：两个 skill 都挂着，只请求其中一个 ⇒ 全文只展开那一个", () => {
-  it("第一轮 system 只有目录（两个 skill 的全文都不在），请求 SKILL_B 后第二轮才含它的全文，且 pptx skill 仍只在目录里", async () => {
-    await mountSkillOnThread(SKILL, SKILL_V1);
-    await mountSkillOnThread(SKILL_B, SKILL_B_V1);
-    replyQueue(
-      // 第 1 轮：模型判断需要 SKILL_B 的全文才能回答，请求它。
-      "```read_skill\nskill-i1652-lazy-b\n```",
-      // 第 2 轮：拿到全文后给出最终答案（不涉及脚本执行，只测目录/展开机制本身）。
-      "好的，已经读到第二个 skill 的说明，这次不需要生成文件。",
-    );
-
-    const runId = await postMessage("这个 skill 能帮我做什么？");
-    await tick();
-
-    // ① 第 1 轮：两个 skill 都只在目录里，谁的全文都不在。
-    const firstSystem = capturedSystem(0);
-    expect(firstSystem).toContain(SKILL);
-    expect(firstSystem).toContain(SKILL_B);
-    expect(firstSystem).not.toContain("SKILL_B_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
-    expect(firstSystem).toContain("read_skill");
-
-    // ② 第 2 轮：请求过的 SKILL_B 全文展开了，没请求过的 pptx skill 仍然只在目录里。
-    const secondSystem = capturedSystem(1);
-    expect(secondSystem).toContain("SKILL_B_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
-    expect(secondSystem).toContain(SKILL); // 目录条目还在
-    expect(modelCalls).toHaveLength(2);
-
-    // ③ run 正常收尾——渐进式加载多了一次往返，不代表 run 本身有任何异常。
-    const run = await readRunRow(runId);
-    expect(run.status).toBe("succeeded");
-    const [assistant] = await readAssistantBody(runId);
-    expect(assistant!.body).toBe("好的，已经读到第二个 skill 的说明，这次不需要生成文件。");
-  }, 120_000);
-
-  it("同一条链路：请求全文之后模型正常写出 run_script，脚本真的执行、真的产出 pptx（渐进式加载不影响执行本身）", async () => {
-    await mountSkillOnThread(SKILL, SKILL_V1);
-    await mountSkillOnThread(SKILL_B, SKILL_B_V1);
-    replyQueue(
-      // 第 1 轮：先请求 pptx skill 的全文。
-      "```read_skill\nskill-i1652-pptx\n```",
-      // 第 2 轮：拿到全文后，正常写出可执行块（与 T1 同一形状）。
-      replyWithScript({ fileName: "Lazy_Loaded_Deck.pptx", slides: ["渐进式加载", "先目录后全文"] }),
-    );
-
-    const runId = await postMessage("帮我做一份关于渐进式加载的 deck");
-    await tick();
-
-    // 第 1 轮拿到的是目录：能看到 read_skill 协议说明，且另一个 skill（SKILL_B）
-    // 的独有句子不在——这一句才是有效的目录/全文判据，`SKILL`（pptx）自己的
-    // `SKILL.md` 短到"摘要==全文"（`seedSkillVersion` 写死的正文只有一句话，
-    // `deriveSkillSummary` 摘不出比全文更短的首段），拿它做"不含全文"的反面判据
-    // 天然测不出区别——不是product bug，是这份夹具内容太短，找 SKILL_B 断言。
-    expect(capturedSystem(0)).toContain("read_skill");
-    expect(capturedSystem(0)).not.toContain("SKILL_B_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
-    // 第 2 轮：请求过的是 pptx skill（`skill-i1652-pptx`），它的正文这才第一次
-    // 以"跟随请求"的形态出现——用请求发生后 system 是否变长来判定，而不是内容
-    // 本身（本来就短，变了也未必看得出来）。
-    expect(capturedSystem(1).length).toBeGreaterThan(capturedSystem(0).length);
-
-    // 执行本身与 T1 逐字节同一形状——渐进式加载只改了"什么时候给全文"，不改
-    // "全文给了之后脚本怎么执行"。
-    const run = await readRunRow(runId);
-    expect(run.status).toBe("succeeded");
-    expect(run.model_output_files).toHaveLength(1);
-    const file = run.model_output_files[0]!;
-    expect(file.name).toBe("Lazy_Loaded_Deck.pptx");
-    const bytes = await readBackBytes(file.objectKey);
-    const deck = inspectPptx(bytes);
-    expect(deck.slideCount).toBe(2);
-    expect(deck.textRuns.join("|")).toContain("先目录后全文");
-  }, 120_000);
-
-  /**
-   * **T6-CP 反证**：钉死"目录/全文真的不同"这条断言本身有牙——如果 `buildSkillCatalogBlock`
-   * 悄悄退化成直接塞全文，上面①的断言会红。这里独立于真栈，直接对着两个 skill 的
-   * 真实 `content`（从数据库读回来的，不是测试里手写的字符串）跑一遍纯函数级反证。
-   */
-  it("T6-CP：目录摘要函数本身不会把独有句子带进目录——对真实读回的 SKILL.md 正文验证", async () => {
-    const { buildSkillCatalogBlock } = await import("../../src/application/agent-run/skill-catalog");
-    const rows = await asApp(ORG, (c) => c.query<{ stable_name: string; content: Buffer }>(
-      `SELECT sk.stable_name, f.content
-         FROM skill_version_files f
-         JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
-         JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
-        WHERE f.org_id=$1 AND f.path='SKILL.md' AND v.id = ANY($2::text[])`,
-      [ORG, [SKILL_V1, SKILL_B_V1]],
-    ));
-    const skills = rows.rows.map((r) => ({ stableName: r.stable_name, content: r.content.toString("utf8") }));
-    const catalog = buildSkillCatalogBlock(skills);
-    expect(catalog).toContain(SKILL);
-    expect(catalog).toContain(SKILL_B);
-    expect(catalog).not.toContain("SKILL_B_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
-  });
 });

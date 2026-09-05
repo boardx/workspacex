@@ -1,0 +1,51 @@
+=== $ pnpm --filter api exec vitest run tests/agent-run/artifact-versioning.test.ts ===
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+[db-isolation] db=workspacex capacity=100 current=6 required=32
+ ✓ tests/agent-run/artifact-versioning.test.ts (2 tests) 646ms
+   ✓ Phase 14 F09 -- Artifact 版本化：连续两次 continue 后版本历史正确递增 > R3 步骤1/5, I-1: 每个版本都能追溯到产生它的 run/step，版本号按序递增 332ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  22:09:13
+   Duration  2.29s (transform 877ms, setup 0ms, collect 1.15s, tests 646ms, environment 0ms, prepare 78ms)
+
+[db-isolation] db=workspacex peak_connections=4
+
+=== $ pnpm --filter api exec vitest run tests/agent-run/artifact-continue-version-context.test.ts ===
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+[db-isolation] db=workspacex capacity=100 current=6 required=32
+ ✓ tests/agent-run/artifact-continue-version-context.test.ts (3 tests) 784ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:09:17
+   Duration  2.38s (transform 858ms, setup 0ms, collect 1.14s, tests 784ms, environment 0ms, prepare 55ms)
+
+[db-isolation] db=workspacex peak_connections=4
+
+=== 环境说明 ===
+本会话（remote 沙箱）无 dockerd 运行、且组织出网策略拦截 Docker Hub 镜像拉取
+（`pgvector/pgvector:pg16` 对 production.cloudfront.docker.com 返回 403），与
+F01 (evidence/F01.verify.log) 记录的环境限制同源。为了真实跑通上面两条 issue 指定的
+verification 命令（而不是绕过/伪造），本会话：
+  1. 用 apt 装了 postgresql-16 + postgresql-16-pgvector + redis-server（均来自
+     Ubuntu 官方源，不经 Docker），起在 docker-compose.dev.yml 本会给的同样端口
+     （55432 / 56379）与凭据（postgres_dev 等）上；
+  2. 用一个不在仓库内、只临时加进 PATH 的 `docker` shim 脚本，把测试基建
+     （`tests/support/db.ts` / `tests/support/auth.ts`）原本发给
+     `docker compose ... exec postgres|redis ...` 的探活/建库调用改发给上面这两个
+     真实本地服务，其余 docker 子命令原样透传给真 docker；没有修改仓库内任何测试
+     基建文件。
+上面两条命令的输出是这样跑通后的真实结果，不是内存 fake、也不是手改。
+另外跑过 `pnpm --filter api exec tsc --noEmit -p .`（0 个非 baseline 新增错误）、
+`pnpm --filter api run lint`（0 违规，含 lint-arch-deps / lint-naming-single-source）、
+以及 `tests/agent-run/` + `tests/agent-runtime/` 全目录（408 用例通过，另 5 个失败点
+在起 redis 前就是环境阻塞，起 redis 后复跑全部转绿——与本次改动无关的既有 docker 依赖）。
+未跑全仓 `pnpm harness verify` 的 `verify:release` 管道：那条管道会拉起
+apps/web/deep-agent-service 等其余包的完整 typecheck/lint/test，耗时与范围远超本
+feature 改动，且 minio 等其余依赖服务在本沙箱仍不可用；本 feature 的证据锚定在
+issue 指定的两条命令 + 上述回归面（tsc/lint/agent-run 全套），未使用全量管道。

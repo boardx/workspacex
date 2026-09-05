@@ -459,12 +459,14 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
         iterating: string | number;
         fixed: string | number;
         declined: string | number;
+        archived: string | number;
       }>(
         `SELECT count(*) AS total,
                 count(*) FILTER (WHERE status = '待处理')     AS pending,
                 count(*) FILTER (WHERE status = '已进入迭代') AS iterating,
                 count(*) FILTER (WHERE status = '已修复')     AS fixed,
-                count(*) FILTER (WHERE status = '不做')       AS declined
+                count(*) FILTER (WHERE status = '不做')       AS declined,
+                count(*) FILTER (WHERE status = '已归档')     AS archived
            FROM product_feedback WHERE org_id = $1`,
         [this.orgId],
       );
@@ -475,6 +477,7 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
         已进入迭代: Number(row?.iterating ?? 0),
         已修复: Number(row?.fixed ?? 0),
         不做: Number(row?.declined ?? 0),
+        已归档: Number(row?.archived ?? 0),
       };
     });
   }

@@ -50,7 +50,7 @@ const TRANSPORT_ERROR_TEXT: Record<string, string> = {
   RESULT_UNREADABLE: "回复已生成，但暂时读取不到内容",
   AUTHZ_UNAVAILABLE: "权限校验服务暂时不可用，请稍后重试",
   NO_PENDING_APPROVAL: "没有待处理的审批请求",
-  AGENT_RUN_NOT_AWAITING_APPROVAL: "这次执行当前不处于等待审批状态",
+  AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION: "这次执行当前不处于等待审批状态",
   INTERNAL_ERROR: "系统内部出了点问题",
   COPILOTKIT_RUNTIME_RUN_FAILED: "这次请求没有成功，请重试",
   // chat-parity-attachments (issue #2022)

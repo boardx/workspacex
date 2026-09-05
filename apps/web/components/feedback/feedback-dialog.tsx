@@ -98,6 +98,7 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
   已进入迭代: "ai",
   已修复: "primary",
   不做: "neutral",
+  已归档: "neutral",
 };
 
 const TITLE_MAX = 120;

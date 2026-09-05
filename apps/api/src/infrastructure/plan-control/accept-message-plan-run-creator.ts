@@ -163,7 +163,7 @@ export class AcceptMessagePlanRunCreator implements PlanRunCreator {
         }
         reportedStepCount = projection.steps.length;
         if (projection.status === "succeeded" || projection.status === "failed"
-          || projection.status === "awaiting_approval") return;
+          || projection.status === "awaiting_tool_permission") return;
         await new Promise((resolve) => setTimeout(resolve, DEFAULT_RUN_POLL_INTERVAL_MS));
       }
       // Poll budget exhausted -- the run itself keeps executing server-side (nothing here

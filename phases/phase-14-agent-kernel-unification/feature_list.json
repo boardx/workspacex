@@ -9,9 +9,9 @@
       "spec_ref": "01-kernel-unification.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f01",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/gateway-forwarding.test.ts",
@@ -26,7 +26,9 @@
       "title": "deep-agent-service 能力开关默认开启并移除开关本身",
       "user_visible_behavior": "subagents / async-subtasks / task-auto-classify / precompletion-checklist / hitl-tools / checkpoint-db 六项能力在默认部署下即生效，且这些 feature flag 本身已从代码库移除，不再作为长期配置项存在，无用户可感知的行为倒退。",
       "spec_ref": "01-kernel-unification.md#R6",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 2,
       "status": "not_started",
       "sprint": null,
@@ -44,11 +46,13 @@
       "title": "网关 WebSocket 事件端点：真流式转发内核事件、落库与推流解耦",
       "user_visible_behavior": "内核产生的 token_delta/tool_call_start/tool_call_end/plan_update/status_change/checkpoint_saved 事件即时经网关 WebSocket 推送给前端，端到端延迟 < 500ms；账本落库为 fire-and-forget 旁路，不再是前端获取状态的路径；wave2-runtime.ts 的轮询契约与 agui-bridge.ts 的定时轮询实现已删除。",
       "spec_ref": "02-streaming-transport.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f03",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts",
@@ -64,11 +68,13 @@
       "title": "前端订阅改造：删除轮询、断线重连、终态判断修复与全部非终态可交互渲染",
       "user_visible_behavior": "用户提交任务后无论是否刷新/断线重连都能实时看到执行进度；run 停在任一非终态（awaiting_tool_permission/awaiting_plan_confirmation/paused）时前端渲染对应可交互 UI 而非无操作的纯 loading；连接中断时出现轻量『正在重连…』提示、恢复后自动显示『连接已恢复』并自动消失；重连持续失败时提示『连接中断，请手动刷新』。固化触发 bug 回归：run 停在 awaiting_tool_permission，刷新后 5 秒内渲染审批 UI。",
       "spec_ref": "02-streaming-transport.md#R6",
-      "depends_on": ["F03"],
+      "depends_on": [
+        "F03"
+      ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f04",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/reconnect-toast.test.tsx",
@@ -84,11 +90,13 @@
       "title": "放开『一条用户消息只能对应一个 run』约束，支持一个逻辑 run 多次续跑",
       "user_visible_behavior": "用户一条消息触发的任务在断线后可从 checkpoint 恢复并多次续跑，多次续跑记录仍映射到同一条用户消息，不因旧唯一性约束而无法表达。",
       "spec_ref": "02-streaming-transport.md#R4",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "remote-f05",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/message-multi-run.test.ts"
@@ -102,11 +110,14 @@
       "title": "后端状态机 + 工具风险分级 + 三档授权存储",
       "user_visible_behavior": "非平凡任务第一个可见状态是 awaiting_plan_confirmation；L0 只读自动执行不打断，L1 可撤销副作用自动执行但事件带完整 diff，L2 未授权时进入 awaiting_tool_permission；四档决策（仅本次/本run内/以后都允许/拒绝）在网关侧持久化并按范围生效，『以后都允许』跨 run 持久化生效，拒绝后内核据此调整计划而非直接失败；代码库不再存在 awaiting_approval 独立分支。",
       "spec_ref": "03-plan-mode-permissions.md#R5",
-      "depends_on": ["F03", "F05"],
+      "depends_on": [
+        "F03",
+        "F05"
+      ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "sonnet5-f06",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts",
@@ -122,7 +133,9 @@
       "title": "前端计划确认卡片：结构化 todo 可编辑/删除后确认执行",
       "user_visible_behavior": "run 处于 awaiting_plan_confirmation 时前端渲染计划确认卡片，展示结构化 todo 列表（带 L0/L1/L2 风险徽标），用户可编辑或删除某步；删除了被依赖的前置步骤时给出提示且禁用确认；确认后卡片显示『计划已确认，agent 开始执行』并把修订版 plan 写回内核；点取消则终止任务。",
       "spec_ref": "03-plan-mode-permissions.md#R8",
-      "depends_on": ["F06"],
+      "depends_on": [
+        "F06"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -140,11 +153,13 @@
       "title": "前端工具权限确认弹层：四档授权决策",
       "user_visible_behavior": "run 处于 awaiting_tool_permission 时前端渲染权限确认弹层，展示 agent 想做什么（intent）、为什么（rationale）、完整未截断命令（command）与影响范围；用户四选一：仅本次允许 / 本 run 内都允许 / 以后都允许 / 拒绝，选后显示对应结果说明。",
       "spec_ref": "03-plan-mode-permissions.md#R8",
-      "depends_on": ["F06"],
+      "depends_on": [
+        "F06"
+      ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f08",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/tool-permission-card.test.tsx"
@@ -158,11 +173,13 @@
       "title": "Artifact 领域模型 + 版本化 API",
       "user_visible_behavior": "agent 产出文件类结果时网关创建独立 Artifact 实体（id/version/producedByRunId/producedByStepId），而非仅作聊天附件；POST /artifacts/:id/continue 携带指定版本内容作为上下文触发新 run，完成后同一 Artifact version 递增、旧版本保留可查看；每个版本可追溯到产生它的 run/step；生成失败不创建空/损坏版本。",
       "spec_ref": "04-artifacts-steering.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "remote-f09",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/artifact-versioning.test.ts",
@@ -177,11 +194,13 @@
       "title": "前端产出物面板：版本历史查看与基于某版本继续修改",
       "user_visible_behavior": "侧栏 artifacts 面板展示当前产出物的版本历史缩略图，无产出物时显示空态；用户可在版本历史中切换查看任一版本，可『查看此版本』或『基于此继续修改』发起迭代。",
       "spec_ref": "04-artifacts-steering.md#R8",
-      "depends_on": ["F09"],
+      "depends_on": [
+        "F09"
+      ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/artifacts-panel.test.tsx"
@@ -195,7 +214,9 @@
       "title": "中途插话后端接口 + 内核插话处理",
       "user_visible_behavior": "run 处于 running 时 POST /agent-runs/:id/interject 携带指令文本，内核在下一次工具调用之间注入为最高优先级上下文并据此判断是否重新规划；插话不打断正在执行的当次工具调用；方向性改变时触发新 plan_update（是否重新确认由内核判断）；若插话使已批准的 L2 授权范围产生歧义则重新走授权。",
       "spec_ref": "04-artifacts-steering.md#R3",
-      "depends_on": ["F06"],
+      "depends_on": [
+        "F06"
+      ],
       "points": 3,
       "status": "not_started",
       "sprint": null,
@@ -213,7 +234,9 @@
       "title": "前端中途插话交互：运行中可交互输入框 + 即时已收到反馈",
       "user_visible_behavior": "run 处于 running 时插话输入框保持可交互（非 disabled），用户发送插话后 1 秒内显示『已收到』确认反馈，不打断当前展示的执行进度流；支持 Cmd/Ctrl+Enter 发送。",
       "spec_ref": "04-artifacts-steering.md#R8",
-      "depends_on": ["F11"],
+      "depends_on": [
+        "F11"
+      ],
       "points": 2,
       "status": "not_started",
       "sprint": null,
@@ -231,11 +254,13 @@
       "title": "错误分类修复：toFailure 精确归类，取消 SANDBOX_UNAVAILABLE 兜底误标",
       "user_visible_behavior": "任务失败时错误按真实类型准确归类——模型调用失败归模型类错误码、沙箱不可用/超时归沙箱类，不再把任何未识别异常统一归为 SANDBOX_UNAVAILABLE；固化本 phase 触发 bug 回归：注入 ModelCallError(MODEL_CALL_FAILED) 断言分类不再误标为沙箱错误。",
       "spec_ref": "05-error-observability.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f13",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/failure-classification.test.ts"
@@ -249,11 +274,13 @@
       "title": "错误人性化转换层 + 前端错误状态卡片",
       "user_visible_behavior": "任务失败时前端错误卡片主展示区只显示人性化 message 与可点击的 suggestedAction 按钮（至少覆盖重试/简化任务重试/联系支持），原始错误码/堆栈放入默认收起的『查看详情』折叠区，主展示区绝不出现未转换的技术错误码/堆栈；每种 failureCode 都有 suggestedAction 映射（契约测试遍历无遗漏）。",
       "spec_ref": "05-error-observability.md#R8",
-      "depends_on": ["F13"],
+      "depends_on": [
+        "F13"
+      ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f14",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/error-card.test.tsx",
@@ -268,11 +295,13 @@
       "title": "完整可审计 transcript 存储改造：完整内容 + 字段级加密 + RBAC 审计接口",
       "user_visible_behavior": "每次 run 的每个执行步骤（模型调用/工具调用/计划变化/权限确认）写入 agent_run_steps 账本，存储完整 prompt/response 内容（非 digest+截断摘要）并字段级加密；有权限的运维/开发角色可通过审计接口读取完整 transcript，无权限角色被正确拒绝；密钥不可用时明确报告『内容不可读』而非静默空值或崩溃。",
       "spec_ref": "05-error-observability.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "remote-f15",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/transcript-full-content-rbac.test.ts"

@@ -52,6 +52,10 @@ const productBugWithAttachments = {
     { id: "fbattach-1", url: "/feedback/attachments/fbattach-1", mime: "image/png" as const },
   ],
 };
+const fixedBug = {
+  ...base, id: "fb-fixed", kind: "缺陷" as const, target: { kind: "product" }, title: "已经修好的问题",
+  detail: "早前的一个缺陷", status: "已修复" as const,
+};
 
 type Handler = (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => unknown;
 
@@ -259,6 +263,69 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     // 已进入迭代 出得去的边里有「退回待处理」，没有转到自己的按钮。
     expect(screen.queryByTestId("admin-feedback-to-已进入迭代-fb-s")).toBeNull();
     expect(screen.getByTestId("admin-feedback-to-待处理-fb-s")).toBeTruthy();
+  });
+
+  it("④ issue #2681：「已修复」能归档，归档后状态变「已归档」", async () => {
+    let status: "已修复" | "已归档" = "已修复";
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      const method = opts?.method ?? "GET";
+      if (path === "/feedback" && method === "GET") return { items: [{ ...fixedBug, status }] };
+      if (path.endsWith("/status") && method === "PUT") {
+        status = "已归档";
+        return { feedbackId: fixedBug.id, status: "已归档", notified: false, githubIssueUrl: null, imageUploadWarnings: [] };
+      }
+      if (path.endsWith("/events")) return { events: [] };
+      if (path.includes("/agents")) return [];
+      if (path.includes("/skills")) return { items: [] };
+      if (path === "/system/error-logs") return { items: [], hasMore: false };
+      return {};
+    });
+    render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId(`admin-feedback-item-${fixedBug.id}`));
+    const archiveBtn = await screen.findByTestId(`admin-feedback-to-已归档-${fixedBug.id}`);
+    expect(archiveBtn.textContent).toBe("归档");
+    fireEvent.click(archiveBtn);
+    await waitFor(() => {
+      expect((putCalls()[0]![1] as { body: Record<string, unknown> }).body).toMatchObject({ status: "已归档", reason: null });
+    });
+    await waitFor(() => expect(screen.getByTestId(`admin-feedback-status-${fixedBug.id}`).textContent).toBe("已归档"));
+    // 已归档能退回待处理。
+    expect(screen.getByTestId(`admin-feedback-to-待处理-${fixedBug.id}`)).toBeTruthy();
+  });
+
+  it("④ issue #2681：待处理的反馈没有归档按钮 —— 只有已修复/不做这两个终态能归档", async () => {
+    mockApi([productBug]);
+    render(<FeedbackScreen state="default" />);
+    await screen.findByTestId(`admin-feedback-detail-${productBug.id}`);
+    expect(screen.queryByTestId(`admin-feedback-to-已归档-${productBug.id}`)).toBeNull();
+  });
+
+  it("④ issue #2681：行内 hover 菜单能一键执行不需要额外输入的转移（已修复 → 归档）", async () => {
+    let status: "已修复" | "已归档" = "已修复";
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      const method = opts?.method ?? "GET";
+      if (path === "/feedback" && method === "GET") return { items: [{ ...fixedBug, status }] };
+      if (path.endsWith("/status") && method === "PUT") {
+        status = "已归档";
+        return { feedbackId: fixedBug.id, status: "已归档", notified: false, githubIssueUrl: null, imageUploadWarnings: [] };
+      }
+      if (path.endsWith("/events")) return { events: [] };
+      if (path.includes("/agents")) return [];
+      if (path.includes("/skills")) return { items: [] };
+      if (path === "/system/error-logs") return { items: [], hasMore: false };
+      return {};
+    });
+    render(<FeedbackScreen state="default" />);
+    const trigger = await screen.findByTestId(`admin-feedback-row-menu-${fixedBug.id}`);
+    // Radix DropdownMenuTrigger 靠 pointerdown 开菜单（fireEvent.click 在 jsdom 下不触发，
+    // 同 `thread-card-button.test.tsx` 对同一个 Menu 组件的既有用法）。
+    fireEvent.pointerDown(trigger, { button: 0 });
+    const menuItem = await screen.findByTestId(`admin-feedback-row-menu-item-${fixedBug.id}-已归档`);
+    fireEvent.click(menuItem);
+    await waitFor(() => {
+      expect((putCalls()[0]![1] as { body: Record<string, unknown> }).body).toMatchObject({ status: "已归档", reason: null });
+    });
+    await waitFor(() => expect(screen.getByTestId(`admin-feedback-status-${fixedBug.id}`).textContent).toBe("已归档"));
   });
 
   it("④ 缺陷「进入迭代」/ 需求「排期」都先展开可编辑的 issue 草稿，不立即发请求", async () => {

@@ -12,6 +12,7 @@
  * nobody registered here fails `MODEL_PROVIDER_NOT_CONFIGURED`, it does not fall through
  * to whichever port happens to be first.
  */
+import type { kernelGateway as KG } from "@repo/contracts";
 import {
   ModelCallError, type ModelCallInput, type ModelCallPort, type ModelCallProgressEvent,
 } from "../../application/agent-run/ports";
@@ -103,6 +104,23 @@ export class RoutingModelCallPort implements ModelCallPort {
     const port = this.resolve(input.modelProvider);
     if (port.completeStream) return port.completeStream(input, onDelta);
     return port.complete(input);
+  }
+
+  /**
+   * Phase 14 F01 -- per-run capability delegation, same shape as `supportsProgress`/
+   * `supportsVision` above: the router itself has no health of its own, only whichever
+   * port the run's PINNED provider resolves to does. A resolved port without
+   * `checkKernelHealth` (today: every provider except `DeepAgentModelProvider`) has no
+   * "kernel" concept to report on, so this reports "healthy" for it -- `execute-run.ts`'s
+   * gate is meant to stop ONLY runs actually bound for an unavailable remote kernel, not
+   * every run indiscriminately. An unregistered `modelProvider` also reports "healthy":
+   * `complete`/`completeStream`/`completeWithProgress` are what surface
+   * `MODEL_PROVIDER_NOT_CONFIGURED` for that case, this method is not a second place to
+   * pre-empt it.
+   */
+  async checkKernelHealth(modelProvider: string): Promise<KG.KernelHealthStatus> {
+    const port = this.ports.get(modelProvider);
+    return port?.checkKernelHealth ? port.checkKernelHealth(modelProvider) : "healthy";
   }
 
   private resolve(modelProvider: string): ModelCallPort {

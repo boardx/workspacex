@@ -30,6 +30,7 @@ import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
   PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunOutputFile,
   RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
+  TranscriptContentCipher, TranscriptStep,
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
@@ -119,7 +120,19 @@ function attachmentsAggSql(msgIdExpr: string): string {
 }
 
 export class PgAgentRunRepository implements AgentRunStore {
-  constructor(private readonly db: DatabasePort) {}
+  /**
+   * Phase 14 F15 -- `cipher` is optional and defaults to `null` so every existing call site
+   * (`new PgAgentRunRepository(db)`, across `kernel.module.ts` and ~10 test files) keeps
+   * compiling and behaving byte-for-byte as before. `null` means "no transcript key
+   * configured": `appendStep` then writes no full-content columns (behaves exactly as it did
+   * before this feature) and `readRunTranscriptSteps` reports every step as
+   * `decryptStatus: "unreadable"` -- see `transcript-content-cipher.ts`'s header for why
+   * that degradation is deliberate rather than a startup failure.
+   */
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly cipher: TranscriptContentCipher | null = null,
+  ) {}
 
   claimQueued(orgId: OrgId, limit: number): Promise<readonly ClaimOutcome[]> {
     return this.db.withTenant(orgId, async (s) => {
@@ -202,7 +215,9 @@ export class PgAgentRunRepository implements AgentRunStore {
                 toolName: row.pending_tool_name ?? "unknown",
                 editedArgsJson: row.pending_edited_args ?? "null",
               }
-              : null,
+              : row.pending_decision === "deny"
+                ? { kind: "deny" as const }
+                : null,
           // DA-07b resume 续号（本次修复，见 `ClaimedAgentRun.resumeStepSeqBase` 文档）：
           // 只在真的是一次 resume 时才带上——新 run 的 `max_step_seq` 恒为 1（只有
           // acceptance 写的那一行），与"未定义时退回旧硬编码 1"完全等价，这里仍然只在
@@ -264,6 +279,17 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      // Phase 14 F15 -- encrypt the FULL content here, in infrastructure, never upstream:
+      // `execute-run.ts` (application) may not import the cipher directly (ADR-020), so it
+      // hands over plaintext on `AppendedRunStep.inputFullContent`/`outputFullContent` and
+      // this is the one place it gets sealed. `this.cipher === null` (no key configured) or
+      // the field left `undefined`/`null` (this cut has not threaded it through for this
+      // step's kind yet) both fall through to storing NULL -- an honest "no full content for
+      // this row", never a fabricated value. See `transcript-content-cipher.ts`'s header.
+      const inputFullContentEnc = step.inputFullContent == null
+        ? null : (this.cipher?.encrypt(step.inputFullContent) ?? null);
+      const outputFullContentEnc = step.outputFullContent == null
+        ? null : (this.cipher?.encrypt(step.outputFullContent) ?? null);
       // #742 Gap 1: still a plain INSERT, never an UPDATE -- `agent_run_steps` stays
       // append-only (grants + trigger unchanged by this feature). An `in_progress` row and
       // the terminal row that later reports the SAME tool call are two separate rows that
@@ -272,12 +298,14 @@ export class PgAgentRunRepository implements AgentRunStore {
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,
             input_digest,output_digest,failure_code,
-            tool_name,tool_args_summary,tool_result_summary,planning_note,tool_call_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15,$16)`,
+            tool_name,tool_args_summary,tool_result_summary,planning_note,tool_call_id,
+            input_full_content_enc,output_full_content_enc)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15,$16,
+                 $17,$18)`,
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
           step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode,
           step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote,
-          step.toolCallId],
+          step.toolCallId, inputFullContentEnc, outputFullContentEnc],
       );
     });
   }
@@ -359,7 +387,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async markAwaitingApproval(
+  async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
     pending: { readonly toolName: string; readonly argsSummary: string | null },
   ): Promise<void> {
@@ -368,7 +396,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
       await s.query(
         `UPDATE agent_runs
-            SET status='awaiting_approval', pending_tool_name=$3, pending_args_summary=$4
+            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4
           WHERE org_id=$1 AND id=$2 AND status='running'`,
         [orgId, runId, pending.toolName, pending.argsSummary],
       );
@@ -382,7 +410,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const updated = await s.query(
         `UPDATE agent_runs
             SET status='queued', pending_decision='approve'
-          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
           RETURNING id`,
         [orgId, runId],
       );
@@ -397,9 +425,25 @@ export class PgAgentRunRepository implements AgentRunStore {
       const updated = await s.query(
         `UPDATE agent_runs
             SET status='queued', pending_decision='edit', pending_edited_args=$3
-          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
           RETURNING id`,
         [orgId, runId, editedArgsJson],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
+  async denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 与 approveAndRequeue 同一条边、同一套竞态语义——拒绝也重新入队而不是直接
+      // failRun：execute-run 据此让 provider 发 resume:{decision:"reject"}，内核收到
+      // 拒绝结果后自己调整后续计划，不是判定整个 run 失败（R3 步骤 6）。
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='deny'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+          RETURNING id`,
+        [orgId, runId],
       );
       return updated.rows.length > 0;
     });
@@ -601,13 +645,13 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  /** DA-19g -- see `AgentRunStore.findAwaitingApprovalRunId`'s own doc for why the AG-UI
+  /** DA-19g -- see `AgentRunStore.findAwaitingToolPermissionRunId`'s own doc for why the AG-UI
    * bridge needs this lookup at all (its resume request carries a thread id, not a run id). */
-  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null> {
+  findAwaitingToolPermissionRunId(orgId: OrgId, threadId: string): Promise<string | null> {
     return this.db.withTenant(orgId, async (s) => {
       const result = await s.query<{ id: string }>(
         `SELECT id FROM agent_runs
-          WHERE org_id=$1 AND thread_id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND thread_id=$2 AND status='awaiting_tool_permission'
           ORDER BY created_at DESC LIMIT 1`,
         [orgId, threadId],
       );
@@ -836,6 +880,68 @@ export class PgAgentRunRepository implements AgentRunStore {
         ],
       );
       return result.rows.length > 0;
+    });
+  }
+
+  /**
+   * Phase 14 F15 -- see `AgentRunStore.readRunTranscriptSteps`'s own doc for the contract
+   * this implements (RUN_NOT_FOUND via `null`, raw ungrouped ledger, kind scope).
+   */
+  async readRunTranscriptSteps(orgId: OrgId, runId: string): Promise<readonly TranscriptStep[] | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      // Existence check is separate from the steps query on purpose: a run that exists but
+      // has not reached `model_called`/`tool_call` yet (still `queued`/building context)
+      // must come back as an EMPTY transcript, not RUN_NOT_FOUND -- those are different
+      // facts ("nothing to show yet" vs. "no such run") and `getRunTranscript` needs to
+      // tell them apart.
+      const run = await s.query<{ id: string }>(
+        `SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2`,
+        [orgId, runId],
+      );
+      if (run.rows.length === 0) return null;
+
+      const steps = await s.query<{
+        id: string; kind: string; ended_at: Date;
+        input_full_content_enc: string | null; output_full_content_enc: string | null;
+      }>(
+        `SELECT id, kind, ended_at, input_full_content_enc, output_full_content_enc
+           FROM agent_run_steps
+          WHERE org_id=$1 AND run_id=$2 AND kind IN ('model_called','tool_call')
+          ORDER BY seq`,
+        [orgId, runId],
+      );
+      return steps.rows.map((row): TranscriptStep => {
+        const kind: TranscriptStep["kind"] = row.kind === "model_called" ? "model_call" : "tool_call";
+        const createdAt = row.ended_at.toISOString();
+        // I-4: `fullContent` is null iff `decryptStatus === "unreadable"`. A row with BOTH
+        // columns NULL never had full content captured (this cut's `tool_call` scope gap, or
+        // a pre-F15 historical row) -- there is no third contract state for "never
+        // recorded" distinct from "cannot decrypt", so this is the honest mapping: we
+        // cannot show it either way. See `AgentRunStore.readRunTranscriptSteps`'s doc and
+        // this repository's own header note in `appendStep`.
+        if (row.input_full_content_enc === null && row.output_full_content_enc === null) {
+          return { runStepId: row.id, kind, decryptStatus: "unreadable", fullContent: null, createdAt };
+        }
+        const decryptedInput = row.input_full_content_enc === null
+          ? null : this.cipher?.decrypt(row.input_full_content_enc) ?? null;
+        const decryptedOutput = row.output_full_content_enc === null
+          ? null : this.cipher?.decrypt(row.output_full_content_enc) ?? null;
+        // A column that WAS stored but failed to come back (wrong/rotated/missing key,
+        // tampered ciphertext -- E3) makes the whole step unreadable. I-4 forbids a
+        // half-lit `fullContent` that silently drops just the side that failed.
+        const inputFailed = row.input_full_content_enc !== null && decryptedInput === null;
+        const outputFailed = row.output_full_content_enc !== null && decryptedOutput === null;
+        if (inputFailed || outputFailed) {
+          return { runStepId: row.id, kind, decryptStatus: "unreadable", fullContent: null, createdAt };
+        }
+        return {
+          runStepId: row.id,
+          kind,
+          decryptStatus: "ok",
+          fullContent: JSON.stringify({ input: decryptedInput, output: decryptedOutput }),
+          createdAt,
+        };
+      });
     });
   }
 }

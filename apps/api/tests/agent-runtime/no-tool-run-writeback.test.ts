@@ -423,17 +423,14 @@ describe("executing a queued run", () => {
     const system = call.body.messages!.find((m) => m.role === "system")!.content;
     expect(system).toContain("You are the pinned v1 agent.");
     /*
-     * design-delta `skill-lazy-loading`: this run is pinned to a non-deep-agent provider
-     * with 2 Skills mounted, so `execute-run.ts` now builds the system prompt in catalog
-     * mode -- the literal Skill body ("# Skill A") is deliberately NOT pasted in anymore
-     * (that is the whole point of the delta), only a one-line summary per Skill, in a
-     * `- <stableName>: <summary>` catalog entry. Order is still meaningful and still
-     * checked here -- just via the catalog's stable-name order, not the raw heading text.
+     * Phase 14 F01: the design-delta `skill-lazy-loading` catalog mode this test used to
+     * exercise for non-deep-agent runs is retired (R4 E3 -- `useLazySkillLoading` physically
+     * deleted). `buildSystemPrompt`'s only modes left are `"full"` (every provider except
+     * deep-agent) and `"deep-agent-catalog"`; this run is pinned to a non-deep-agent
+     * provider, so its Skills are pasted in full again, snapshot order preserved.
      */
-    expect(system.indexOf(SKILL_A)).toBeGreaterThan(-1);
-    expect(system.indexOf(SKILL_B)).toBeGreaterThan(system.indexOf(SKILL_A));
-    expect(system).not.toContain("# Skill A");
-    expect(system).not.toContain("# Skill B");
+    expect(system.indexOf("# Skill A")).toBeGreaterThan(-1);
+    expect(system.indexOf("# Skill B")).toBeGreaterThan(system.indexOf("# Skill A"));
     expect(call.body.messages!.find((m) => m.role === "user")!.content)
       .toBe("Ordered context please");
   });

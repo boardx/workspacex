@@ -63,7 +63,7 @@
  *   用户要把这个 .pptx 留成项目产物，仍然走既有的显式落地操作。
  */
 import type { ObjectStore } from "../artifact/ports";
-import type { RunOutputFile } from "./ports";
+import { ModelCallError, type RunOutputFile } from "./ports";
 import {
   MAX_SCRIPT_ATTEMPTS,
   ScriptFailedAfterRetriesError,
@@ -112,7 +112,16 @@ export type SkillScriptOutcome =
     readonly kind: "failed";
     readonly text: string;
     readonly files: readonly [];
-    readonly failureCode: "SANDBOX_UNAVAILABLE" | "SANDBOX_TIMEOUT" | "SCRIPT_FAILED_AFTER_RETRIES";
+    readonly failureCode:
+      | "SANDBOX_UNAVAILABLE"
+      | "SANDBOX_TIMEOUT"
+      | "SCRIPT_FAILED_AFTER_RETRIES"
+      /** #2718 F13：回喂重试时 `regenerate` 触发的模型调用本身失败（与"脚本写错了"
+       *  或"沙箱挂了"是两件事，运维该去查的地方也不同——见 `toFailure` 的分支）。 */
+      | "MODEL_CALL_FAILED"
+      /** 诚实的兜底：分类器认不出这个异常属于以上哪一类时用这个,不得借用一个具体但
+       *  错误的分类顶替（R7，`requirements/05-error-observability.md`）。 */
+      | "UNKNOWN_EXECUTION_ERROR";
     readonly stderr: string;
   };
 
@@ -213,7 +222,12 @@ export async function maybeRunSkillScript(
 }
 
 function toFailure(e: unknown): {
-  readonly failureCode: "SANDBOX_UNAVAILABLE" | "SANDBOX_TIMEOUT" | "SCRIPT_FAILED_AFTER_RETRIES";
+  readonly failureCode:
+    | "SANDBOX_UNAVAILABLE"
+    | "SANDBOX_TIMEOUT"
+    | "SCRIPT_FAILED_AFTER_RETRIES"
+    | "MODEL_CALL_FAILED"
+    | "UNKNOWN_EXECUTION_ERROR";
   readonly stderr: string;
 } {
   if (e instanceof SandboxUnavailableError) {
@@ -226,9 +240,22 @@ function toFailure(e: unknown): {
     // ⚠ 原样带回，不加工（#660）。
     return { failureCode: "SCRIPT_FAILED_AFTER_RETRIES", stderr: e.lastStderr };
   }
-  // 兜底也如实报——一个意外异常确实是"这条执行链上出了没预料到的问题"。
+  /*
+   * #2718 F13 —— 回喂重试的 `deps.regenerate(feedback)` 是一次真正的模型调用
+   * （见 `execute-run.ts` 接线：`deps.model.complete(...)`），失败时抛的是
+   * `ModelCallError`，不是沙箱端口的异常。改前这里落进下面的兜底，被诚实地跑
+   * 起来的一次模型故障就此被记成 `SANDBOX_UNAVAILABLE`——运维会去查一个没坏的
+   * 沙箱容器，而真正出问题的模型调用无人知晓（本 phase 触发 bug 的诱因之一）。
+   * ⚠ 分支必须排在下面的兜底之前：`ModelCallError` 同样是"意外到达这里的异常"，
+   *   顺序反了就会先被兜底吃掉。
+   */
+  if (e instanceof ModelCallError) {
+    return { failureCode: "MODEL_CALL_FAILED", stderr: e.detail };
+  }
+  // 真正的兜底：分类器认不出这个异常属于以上哪一类。R7——宁可诚实地说"不知道"，
+  // 也不能张冠李戴地扣一个具体但错误的分类（这条纪律本身就是本次修复的诱因）。
   return {
-    failureCode: "SANDBOX_UNAVAILABLE",
+    failureCode: "UNKNOWN_EXECUTION_ERROR",
     stderr: e instanceof Error ? `${e.name}: ${e.message}` : "unexpected script execution failure",
   };
 }

@@ -107,16 +107,39 @@ function secretKeysInResponses(
 const PLAINTEXT_READER_RE =
   /^\s*(?:export\s+)?(?:async\s+)?(?:function|const|let|interface|type|class)\s+\w*(?:unseal|decrypt|plaintext|revealCredential)\w*\b|^\s*(?:unseal|decrypt|plaintext|revealCredential)\w*\s*\(/i;
 
+/**
+ * Files exempt from the plaintext-reader scan BY PATH, not by softening the name pattern.
+ *
+ * This describe block's invariant (I-6) is about the MODEL CREDENTIAL vault specifically --
+ * `sealCredential`/`CredentialCipher` above, one-way by design (the vault header: "the test
+ * must not be able to demonstrate a decryption it claims does not exist"). Phase 14 F15
+ * (`error-observability` contract bundle, design-signoff 覆盖 F13/F14/F15) adds a SEPARATE,
+ * intentionally-reversible cipher for a different secret class -- full agent-run transcript
+ * content, decrypted only for an `admin`-gated audit read (`get-run-transcript.ts`'s
+ * `getRunTranscript`, RBAC checked before any existence check). Naming that capability
+ * `decrypt` is the honest name for what it does; matching it here would conflate two
+ * unrelated invariants under one regex. The exemption is by exact path, not a loosened
+ * pattern, so a plaintext reader added anywhere else under `src/` -- model credential or
+ * not -- still fails this test.
+ */
+const PLAINTEXT_READER_PATH_EXEMPT = new Set([
+  "infrastructure/agent-run/transcript-content-cipher.ts",
+  "infrastructure/agent-run/pg-agent-run-repository.ts",
+  "application/agent-run/ports.ts",
+]);
+
 function plaintextReaders(root: string): string[] {
   const hits: string[] = [];
   for (const file of walkFiles(root)) {
+    const relPath = relative(root, file);
+    if (PLAINTEXT_READER_PATH_EXEMPT.has(relPath)) continue;
     readFileSync(file, "utf8")
       .split("\n")
       .forEach((line, i) => {
         // A comment explaining why there is no decrypt is documentation of the rule, not a
         // violation of it -- the same exemption every other gate in this repo makes.
         if (/^\s*(\*|\/\/|\/\*)/.test(line)) return;
-        if (PLAINTEXT_READER_RE.test(line)) hits.push(`${relative(root, file)}:${i + 1}`);
+        if (PLAINTEXT_READER_RE.test(line)) hits.push(`${relPath}:${i + 1}`);
       });
   }
   return hits;
