@@ -297,6 +297,13 @@ export const FeedbackItem = z
      */
     githubIssueUrl: z.string().nullable(),
     githubIssueNumber: z.number().int().positive().nullable(),
+    /**
+     * UC-17.8 B4——这条反馈被哪个 PM 设计方案解决了（`pushToInbox` 时回写，见迁移
+     * `20260904150000_uc178_design_workbench.sql` 头注）。**不走 D3 门控**：同
+     * `title`/`votes` 一样是恒对全组织可见的展示性事实（"已生成方案"这件事本身，
+     * 不是方案内容），不是正文的一部分。
+     */
+    resolvedByDesignId: z.string().nullable(),
   })
   .strict();
 export type FeedbackItem = z.infer<typeof FeedbackItem>;

@@ -2,7 +2,6 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { resolvePreviewState } from "@/lib/ui-state";
-import { DesignLoopProvider } from "@/lib/design-loop-store";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopDraftsScreen } from "@/components/design-loop/drafts-screen";
@@ -13,9 +12,10 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 /**
  * UC-17.8 研发闭环（反馈 → 设计 → 排期）签核第 ① 件（UI）取材页。
  *
- * ⚠ 渲染的是**真组件**（`FeedbackDialog` / 收件箱 / 草稿 / 工作台 / 详情），本页只提供
- *   场景与一份**固定 seed**（不写 localStorage，保证每台机器截出同一张图）。它不在导航里，
- *   是取材工具，不是产品的一块屏（同 `/preview/feedback-loop` 的既有处置）。
+ * ⚠ 渲染的是**真组件**（`FeedbackDialog` / 收件箱 / 草稿 / 工作台 / 详情），本页只负责
+ *   按 `?scene=` 摆场景、按 `?state=` 传展示态——**不持有任何数据、不写 localStorage**
+ *   （UC-17.8 B6.1 起原型 mock store 与本页的 seed 一并删除）。它不在导航里，是取材工具，
+ *   不是产品的一块屏（同 `/preview/feedback-loop` 的既有处置）。
  * ⚠ 草稿场景（UC-17.8 B1 真栈化后）**不再 seed**：草稿屏自己打 `/feedback/drafts*`，数据由
  *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（同 `shot-feedback-loop.mjs`）。
  * ⚠ 收件箱场景（UC-17.8 B3.4 真栈化后）**同样不再 seed**：收件箱屏自己打
@@ -24,9 +24,9 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  * ⚠ 工作台/详情场景（UC-17.8 B4.5 真栈化后）**也不再 seed**：两屏改打
  *   `designWorkbench` 契约的 `/pm-designs*`，数据由
  *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（UC-17.8 B4.6 补齐，
- *   同草稿/收件箱两块在 B1/B3.4 走过的同一条路）。本页仍挂 `DesignLoopProvider` 只是因为
- *   收件箱场景还读它的 `deepenFeedback` mock（`inbox-screen.tsx`，B4.4 才切真栈，不在本次
- *   范围）。`seed.projects` 从 B4.5 起对工作台/详情两屏不再有任何效果。
+ *   同草稿/收件箱两块在 B1/B3.4 走过的同一条路）。`workbench-empty` 场景的空态同样由
+ *   `routeDesignWorkbench({ empty: true })` 让 `/pm-designs` 回空 `items` 得到——五屏的
+ *   数据全部走同一条 `page.route` 范式，与 `feedback-loop` 束一致。
  * ⚠ 工作台首页的 `loading`/`denied`/`dep-failed` 三态由 `?state=` 直接驱动组件的展示分支
  *   （不发真实请求，见 `workbench-screen.tsx`）；详情页**没有** `state` prop，它的
  *   loading/dep-failed 由截图脚本让 `/pm-designs` 挂起/报错来产生真实的过渡（`?state=`
@@ -48,22 +48,17 @@ function PreviewBody() {
   const scene = sp?.get("scene") ?? "inbox-board";
   const state = resolvePreviewState(sp?.get("state") ?? undefined);
 
-  // 固定 seed（seed 存在即不持久化），空态场景注入空集合。收件箱不再是这份 seed 的一部分
-  // （B3.4 真栈化）——`inbox-empty` 场景改由 `page.route` 拦 `/inbox` 回空 `items`。
-  const emptyInbox = scene === "inbox-empty";
-  const emptyProjects = scene === "workbench-empty";
-  const seed = emptyProjects ? { projects: [] } : {};
-
-  const shownState = emptyInbox || emptyProjects ? "empty" : state;
+  // 空态场景的数据由截图脚本的 `page.route` 回空 `items` 得到（数据驱动）；这里只把展示态
+  // 对齐成 `empty`，让依赖 `state` prop 的分支（工作台首页）与真实空数据一致。
+  const emptyScene = scene === "inbox-empty" || scene === "workbench-empty";
+  const shownState = emptyScene ? "empty" : state;
 
   return (
-    <DesignLoopProvider seed={seed}>
-      <FeedbackProvider>
-        <div data-testid="feedback-design-loop-preview" className="min-h-dvh bg-card">
-          <Scene scene={scene} state={shownState} />
-        </div>
-      </FeedbackProvider>
-    </DesignLoopProvider>
+    <FeedbackProvider>
+      <div data-testid="feedback-design-loop-preview" className="min-h-dvh bg-card">
+        <Scene scene={scene} state={shownState} />
+      </div>
+    </FeedbackProvider>
   );
 }
 

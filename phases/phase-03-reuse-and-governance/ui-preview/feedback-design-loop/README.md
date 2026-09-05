@@ -15,7 +15,7 @@
 | PM 设计工作台首页 + 新建弹窗 + 生成中过渡 | R4.4 | `components/design-loop/workbench-screen.tsx` | `workbench-*` |
 | 设计详情全屏深色页 + 推送确认 + 推送成功页 | R4.4 | `components/design-loop/detail-screen.tsx` | `detail-*` |
 
-跨页共享状态：`apps/web/lib/design-loop-store.tsx`（React context + localStorage，命名标注为原型 mock）。
+跨页共享状态：~~`apps/web/lib/design-loop-store.tsx`~~（原型期的 React context + localStorage mock；UC-17.8 B6.1（2026-09-05）已删除——五屏全部真栈化，取材页数据由 `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供）。
 平台后台落点：`/platform-admin/{feedback-drafts,inbox,design-workbench}` +
 详情 `/platform-admin/design-workbench/<id>`（全屏，脱离三栏骨架）。
 
@@ -55,9 +55,10 @@
    禁止 `disabled:opacity-*`。我用 Button 的 `disabled:bg-disabled` token 表达禁用。**按规范单源处理。**
 7. **收件箱列表「数量/时间」列**：系统异常显示「N 次 · M 人」，其余显示日期——UC 只说列名，具体口径我定的。
 8. **详情深色 IDE**：用 `.dark` 强制现有深色 token 体系（不另立颜色），全屏脱离 AppShell。
-9. **存草稿 / 工作台链接的可见条件**（2026-09-04 D5 已裁决并落地）：`DesignLoopProvider`
-   已上提到 `AppShell`；「存为草稿」走真 API（`createFeedbackDraft`），不再依赖 Provider；
-   「去 PM 设计工作台」链接仍依赖 mock store（B4 真栈化前）。
+9. **存草稿 / 工作台链接的可见条件**（2026-09-04 D5 裁决；2026-09-05 B6.1 收口）：
+   「存为草稿」走真 API（`createFeedbackDraft`）；「去 PM 设计工作台」链接是**纯路由跳转**
+   （`/platform-admin/design-workbench`）、恒可见——原型 mock store 及其 Provider 已随 B6.1
+   整个删除，`AppShell` 不再挂任何原型 Provider。
 
 ## R8 / R4 线索之间的矛盾与我的处理
 

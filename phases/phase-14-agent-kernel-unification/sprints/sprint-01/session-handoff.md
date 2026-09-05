@@ -505,6 +505,87 @@ F04（"该预算是两次真实 devapp 故障的回归修复……需要与 F04 
 里，不是静默忽略——`domain.md`"待人类在签核时确认"一节本来就标注了这段新旧并存
 窗口期的接受与否待人类拍板，这里只是先保守地不动它。
 
+## 本轮改动（F02）
+- **范围**：`deep-agent-service` 六项能力开关（subagents / async-subtasks /
+  task-auto-classify / precompletion-checklist / hitl-tools / checkpoint-db）
+  默认开启并移除开关本身（R6 后置条件）。issue 指定的验证命令
+  `pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts`
+  真实跑绿（18/18），见 `evidence/F02.verify.log`。
+- **实现**（`apps/deep-agent-service/src/deep_agent_service/harness.py`/`tools.py`）：
+  - `build_subagents`/`build_interrupt_on`/`build_precompletion_middleware`/
+    `build_tools`（`spawn_async_task`）/`build_middleware`（`TaskClassifierMiddleware`）
+    五处的 `os.environ.get(...)` 条件分支物理删除，能力路径无条件可达。
+  - `build_interrupt_on` 的固定工具清单改成新常量 `DEFAULT_HITL_TOOL_NAMES`
+    （`call_skill`/`confirm_task_intent`/`fill_run_params`/`choose_execution_option`，
+    逐字等于此前生产 `provision.sh` 的 `DEEP_AGENT_HITL_TOOLS` 值），
+    `packages/contracts` 两处跨语言门控测试（`deep-agent-hitl.test.ts`/
+    `cross-lang-tool-parity.test.ts`）改为断言这个 Python 常量而不是环境变量投影链。
+  - `.harness/scripts/vm/{provision.sh,deploy.sh}`：四个已移除的键（subagents/
+    hitl-tools/task-auto-classify/async-subtasks）从模板与白名单调用里摘掉；
+    `deep-agent-lib.test.ts` 同步改用 `DEEP_AGENT_CHECKPOINT_DB` + 一个合成 key
+    验证投影机制本身的通用性（不再需要那四个具体键名）。
+- **回归验证范围**：`apps/deep-agent-service` 全量 pytest（110 个用例，含五个
+  黄金压测场景 TC-1~TC-6，`DEEP_AGENT_TEST_POSTGRES_URL`/
+  `GUIDED_RESEARCH_TEST_POSTGRES_URL` 指向本会话自建的本机 Postgres）全绿——
+  这轮改动牵动的不只是 F02 自己的验证命令：`TaskClassifierMiddleware`/
+  `RubricMiddleware` 播种从"灰度开关关闭时不接线"变成"无条件接线"，改变了
+  `build_middleware()` 建出的图形状，TC-1/TC-2/TC-3/TC-4/TC-6 五个黄金场景与
+  `test_harness.py` 的多个既有反证测试因此需要同步修——细节见下方"诚实的范围
+  收窄"，全部已实测修复，不是留白。
+- **本机 Postgres 搭建**：沙箱同样没有 Docker daemon（同 F01/F03/F05/F10/F13/F15
+  记录的那类环境限制），复用 F01 交接记录的"环境 blocker 的解法"跑通了
+  `apps/api` 的 vitest DB 隔离前置（`postgresql-16-pgvector` + 端口改 `55432` +
+  `docker` shim 拦截 `tests/support/{db,auth}.ts` 的 compose 调用），另外为
+  `deep-agent-service` 的 pytest 套件单独建了 `deep_agent_test`/
+  `guided_research_test` 两个库并跑通 `DEEP_AGENT_TEST_POSTGRES_URL`/
+  `GUIDED_RESEARCH_TEST_POSTGRES_URL` 依赖的用例（此前这些用例在无 DSN 时只是
+  `pytest.fail`，不是本轮改动引入的新失败，但本轮顺手把它们的真实覆盖也跑绿了）。
+
+### 诚实的范围收窄（1）：`RubricMiddleware`/`TaskClassifierMiddleware` 无条件挂载后，
+### 黄金测试的假模型路由必须认识 `GraderResponse` 调用
+`RubricMiddleware` 收尾前会用同一个假模型再发起一次绑 `GraderResponse` 结构化
+输出的判词调用（`after_agent`）——此前这只在手动打开 `DEEP_AGENT_PRECOMPLETION_
+CHECKLIST` 的场景（`test_tc3_precompletion_checklist_forces_a_revision`）才会
+发生，各 TC 场景自己的路由函数完全没考虑过这次调用。无条件挂载后，TC-1/TC-2/
+TC-4/TC-6 的路由函数如果不认识 `bound_tools == ["GraderResponse"]`，会返回一个
+不含 `GraderResponse` 工具调用的响应，grader 解析不到判词、判"未通过"跳回模型
+返工——这不是"多返工一轮"那么轻，实测是**真实死循环**（TC-1 一度在
+`recursion_limit=60` 撞 `GraphRecursionError` 之前先吃满了机器内存，独立跑
+`timeout 90` 都杀不掉进程要 `kill -9`）。修法：`_scripted.py` 新增共享 helper
+`grader_always_satisfied_response()`，各 TC 文件的路由函数在最前面加一句
+`if bound_tools == ["GraderResponse"]: return grader_always_satisfied_response()`
+固定判"合格"放行——各场景要看的都不是退出前自检本身（那件由
+`test_tc3_precompletion_checklist_forces_a_revision` 专门覆盖）。同时 TC-3 的
+`recursion_limit` 从 200 抬到 1000：`TaskClassifierMiddleware` 无条件挂载给每轮
+循环多加一个 `before_model` 节点，同一份 25 次模型调用预算现在要吃掉更多
+recursion 步数，200 已经不够"远高于预算"的安全边际（实测卡在 23 轮左右）。
+
+### 诚实的范围收窄（2）：`TaskClassifierMiddleware` 与 `PlanFirstToolChoiceMiddleware`
+### 现在会独立地同时触发同一种"强制 tool_choice"效果
+TC-6 的 provider-拒绝反证（`test_provider_rejecting_forced_tool_choice_degrades_
+to_unforced_retry_not_run_failure_{sync,async}`）用的消息文本恰好同时命中手动
+`TASK_MODE_MARKER` 与 `TaskClassifierMiddleware` 自己的启发式判类（连接词"再"）
+——两个中间件现在都无条件挂载，各自独立捕获 provider 拒绝、各自退回不强制重试，
+原本"第二次调用就是不强制"的断言不再稳定成立（可能是另一个中间件的第二次强制
+尝试）。修法：断言收紧为"排除 grader 调用后，主链最终收敛到不强制 tool_choice"，
+不钉死具体是第几次调用——这是两个独立强制机制现在真实并存的行为，不是 bug，断言
+应该描述这件事本身，不是描述某一次实现巧合下的调用序号。
+- **诚实的范围收窄（3）：`DEEP_AGENT_CHECKPOINT_DB` 未被这次移除**——R6/
+  `packages/contracts/src/kernel-gateway.ts` 的 `DEEP_AGENT_REMOVED_FLAG_NAMES`
+  点名六个符号，本轮只移除了五个。`DEEP_AGENT_CHECKPOINT_DB` 在代码里不是一个
+  "能力开关"（未设=能力关闭），而是部署拓扑参数：本部署（`langgraph dev`，见
+  `Dockerfile` 末行）由平台自带 checkpointer，`build_checkpointer()` 返回 `None`
+  是**正确行为**；只有自托管场景才需要显式 Postgres DSN。把这一项也强改成
+  "无条件生效"，唯一诚实的做法是让它在缺 DSN 时 fail-closed（不再允许 `None`
+  分支）——但本仓当前唯一部署的拓扑就是"缺 DSN"这条路径，本会话没有可验证生产
+  部署的手段（同一类 Docker/网络环境限制），贸然改成 fail-closed 有下一次部署
+  直接让平台托管容器起不来的真实风险，且需要真实把 Postgres 基础设施接进
+  `deep-agent-service`（R10"复用现有数据库"）这样的运维协调，不是一次代码改动
+  能独立完成、独立验证的事。`apps/api/tests/agent-run/deep-agent-flags-removed.test.ts`
+  因此把这一项作为**记录在案的例外**单独测试（断言符号仍存在 + 断言 harness.py
+  自己的注释里写明了原因），不是静默漏掉；`kernel-gateway.ts` 的
+  `DEEP_AGENT_REMOVED_FLAG_NAMES` 六项列表本身未改动（人类已签核的契约，不擅自
+  收窄），留给后续拿到真实 Postgres 基础设施 + 部署验证环境的会话接手评估。
 ## 本轮改动（F08：前端工具权限确认弹层，issue #2716）
 
 - 新增 `apps/web/tests/agent-kernel/tool-permission-card.test.tsx`：给已在
@@ -563,6 +644,10 @@ F04（"该预算是两次真实 devapp 故障的回归修复……需要与 F04 
 5. F06 已合入 main，F11（中途插话后端接口 + 内核插话处理）已实现完成，同一条
    Docker 环境 blocker 未能本会话跑通 verify，见 `progress.md` 2026-09-05 记录与
    `evidence/F11.verify.log`。
+   审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）本轮已
+   实现且指定验证命令跑绿，见上"本轮改动（F02）"——`DEEP_AGENT_CHECKPOINT_DB` 那
+   一项留了记录在案的例外，需要真实 Postgres 基础设施 + 部署验证环境的后续会话
+   接手；F11（中途插话后端接口）依赖 F06（尚未开工）。
 
 ## 命令
 - 启动：`pnpm -w run dev`
