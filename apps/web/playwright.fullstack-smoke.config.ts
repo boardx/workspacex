@@ -485,6 +485,17 @@ export default defineConfig({
       name: "axe-keyboard-focus",
       testMatch: ["axe-keyboard-focus.spec.ts"],
     },
+    {
+      /**
+       * UC-17.8 B6.5 —— 研发闭环四屏（草稿 / 收件箱 / PM 设计工作台 / 设计详情）在
+       * 375 / 768 / 1280 三档视口不横向溢出（uiux-standards U8）。目标页
+       * `/preview/feedback-design-loop` 是取材页，数据全由 spec 内 `page.route()` 夹具提供
+       * （与截图脚本共用 `scripts/lib/design-loop-fixtures.mjs`），不读 DB、不需要登录态——
+       * 同 `axe-keyboard-focus`：独立成一个不带 dependencies 的 project，只复用起好的 web 服务器。
+       */
+      name: "design-loop-responsive",
+      testMatch: ["design-loop-responsive.spec.ts"],
+    },
   ],
   fullyParallel: false,
   /**
