@@ -36,9 +36,9 @@ describe("live research workspace", () => {
       .mockImplementationOnce(() => new Promise((resolve) => { newer = resolve; }));
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
-    expect(screen.getByDisplayValue("Storage")).toBeInTheDocument();
+    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
-    await act(async () => { newer({ ...busy, brief: { ...initial.brief, topic: "Newer progress" } }); });
+    await act(async () => { newer({ ...busy, busy: false, brief: { ...initial.brief, topic: "Newer progress" } }); });
     expect(screen.getByDisplayValue("Newer progress")).toBeInTheDocument();
     await act(async () => { older(busy); });
     expect(screen.getByDisplayValue("Newer progress")).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("live research workspace", () => {
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
     fireEvent.click(screen.getByRole("button", { name: "使用模型生成" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    expect(screen.getByDisplayValue("Collaborator update")).toBeInTheDocument();
+    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     await act(async () => { finish({ ...initial, version: 8, brief: { ...initial.brief, topic: "Older command" } }); });
     expect(screen.getByDisplayValue("Collaborator update")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Older command")).not.toBeInTheDocument();

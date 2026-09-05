@@ -41,7 +41,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" onStepChange={navigate} />);
     await screen.findByDisplayValue("储能研究");
     expect(screen.getByText(/后续研究结果失效/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "2. 研究方向" }));
+    fireEvent.click(screen.getByRole("button", { name: /2\. 研究方向/ }));
     expect(screen.getByDisplayValue("政策方向")).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
   });
@@ -103,8 +103,9 @@ describe("guided research session routing and lifecycle", () => {
     const state = runtimeFixture("brief"); state.busy = true; state.leaseUntil = new Date(Date.now()+60000).toISOString();
     vi.mocked(getResearchRuntime).mockResolvedValue(state);
     render(<GuidedResearchFlow step="brief" sessionId="grs-live" />);
-    expect(await screen.findByDisplayValue("储能研究")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "使用模型生成" })).toBeDisabled();
+    expect(await screen.findByTestId("research-step-loading")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "使用模型生成" })).not.toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("returns to the sessionless home from a persisted report", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
