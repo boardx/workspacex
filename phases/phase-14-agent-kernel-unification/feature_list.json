@@ -238,9 +238,9 @@
         "F11"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "fable-f12",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/interjection-composer.test.tsx"
