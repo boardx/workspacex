@@ -35,6 +35,7 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
     createdAt: "2026-09-02T00:00:00.000Z",
     githubIssueUrl: "https://github.com/boardx/workspacex/issues/9",
     githubIssueNumber: 9,
+    resolvedByDesignId: null,
     ...over,
   };
 }
