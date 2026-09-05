@@ -157,9 +157,9 @@
         "F06"
       ],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f08",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/tool-permission-card.test.tsx"

@@ -46,6 +46,12 @@
   报错（与 F01/F03/F05/F10/F13 同一类环境限制，非业务逻辑失败），status 未手改。
 - 无 feature 处于 harness `passing`——F01/F03/F13/F05/F10/F04 都符合"只能由验证
   脚本门控转移"的硬约束，没有一个绕开门控手改 status。
+- F08（前端工具权限确认弹层：四档授权决策，issue #2716，依赖 F06）：本轮实现，
+  唯一 verification 命令本会话真实跑绿（`evidence/F08.verify.log`）；组件本身
+  是已建原型（同 F04/F10/F14 先例，只补测试）。`pnpm harness verify` 撞上与
+  F10/F04 同一条环境限制（本会话沙箱无 Docker daemon，`verify:quick` 收尾的
+  `docker compose down -v` 清理步骤以 exit 1 结束，拖累整条命令，但 turbo 报告
+  的 `web` 包 2876/2876 测试全绿），status 未手改，见下方"本轮改动（F08）"。
 
 ## 环境 blocker 的解法（本会话解决，供以后会话复用）
 F01 交接记录的 blocker——沙箱没有可用 Docker，`docker compose up -d postgres` 拉取
@@ -499,10 +505,39 @@ F04（"该预算是两次真实 devapp 故障的回归修复……需要与 F04 
 里，不是静默忽略——`domain.md`"待人类在签核时确认"一节本来就标注了这段新旧并存
 窗口期的接受与否待人类拍板，这里只是先保守地不动它。
 
+## 本轮改动（F08：前端工具权限确认弹层，issue #2716）
+
+- 新增 `apps/web/tests/agent-kernel/tool-permission-card.test.tsx`：给已在
+  `plan-permissions` 契约束签核阶段由 ui-prototyper 建成的 `ToolPermissionCard`
+  原型（`components/agent-kernel/agent-kernel-units.tsx`）补回归测试，组件本身
+  未改动——原型已满足 `feature_list.json` 该条 `notes` 逐字列出的全部断言面
+  （`tool-permission-card`/`perm-intent`/`perm-rationale`/`perm-command` 完整
+  展示，四按钮 `perm-once`/`perm-run`/`perm-always`/`perm-deny` 各自产生对应
+  `saved` 文案）。
+- `feature_list.json`：F08 的 `sprint` 由 `null` 改为 `"01"`（经
+  `lib/features.ts` 读写，非手改），使其进入本 sprint 的 `active-features.json`
+  派生视图。
+
+### 仍未验证：docker daemon 在本会话不存在（与 F10/F04 同一条环境 blocker）
+
+- `docker ps` 报 `connect: no such file or directory /var/run/docker.sock`——
+  本会话沙箱没有 Docker daemon。
+- `pnpm harness verify --sprint 14/01 --feature F08`：F08 自身 verification
+  通过；`verify:quick` 的 `turbo run typecheck lint test --affected` 本体
+  5/5 成功、`Test Files 311 passed (311)` / `Tests 2876 passed (2876)`，但收尾的
+  `[test-isolation] cleanup failed: docker compose down -v exited 1` 让整条命令
+  以 exit 1 结束，从而拒绝把 F08 升为 `passing`——不是本次改动引入的逻辑缺陷，
+  失败点在所有测试都已经跑完之后的清理步骤。真实失败日志已落盘
+  `evidence/F08.verify.log`（未手改），摘要见 `evidence/F08.docker-blocker.log`。
+- **下一步**：找一个有可用 Docker daemon 的环境重跑
+  `pnpm harness verify --sprint 14/01 --feature F08`，跑通后由 verify 脚本自身
+  完成 status 翻转（不能手改）。
+
 ## 下一步最佳动作
 - 找到 Docker 完整可用（daemon 起得来 + 出网不受限）的环境，依次重跑 F01、F13、
-  F05、F15、F10 的 `pnpm harness verify --sprint 14/01 --feature <id>` 把它们门控转
-  passing；不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+  F05、F15、F10、F08 的 `pnpm harness verify --sprint 14/01 --feature <id>`
+  把它们门控转 passing；不要在没跑通 verify 的情况下手改 `feature_list.json`
+  的 status。
 - F05 之后：`GET /messages/:messageId/agent-run-attempts` 的 controller 接线（本轮
   刻意未做，见上）适合并入消费它的 F03/F04。
 - F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）可并行；F15
