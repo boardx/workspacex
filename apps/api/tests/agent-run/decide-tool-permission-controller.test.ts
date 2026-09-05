@@ -93,27 +93,38 @@ describe("decideToolPermissionCall 转发与错误码映射", () => {
     expect(executor.kick).toHaveBeenCalledWith("o1");
   });
 
+  // ⚠ 这三个错误类必须在 makeController 的 vi.resetModules() 之后才 import——否则拿到的是
+  // reset 前的旧模块实例，与 controller 内部（reset 后）transitively import 的类不是同一个
+  // 引用，instanceof 恒 false，捕获块直接把裸错误往外抛（实测：CI 上真的这样红过一次）。
+  // 用会延迟到 makeController 建好之后才执行的 throwing 闭包，让 import 落在同一次
+  // resetModules 之后，取到的类与 controller 用的类是同一个模块实例。
   it("AgentRunNotVisibleError → 404", async () => {
-    const { AgentRunNotVisibleError } = await import("../../src/application/agent-run/read-run");
-    const { c } = await makeController(async () => { throw new AgentRunNotVisibleError(); });
+    const { c } = await makeController(async () => {
+      const { AgentRunNotVisibleError } = await import("../../src/application/agent-run/read-run");
+      throw new AgentRunNotVisibleError();
+    });
     await expect(
       c.decideToolPermissionCall(principal, "r1", "c1", { decision: "deny" }),
     ).rejects.toMatchObject({ status: 404 });
   });
 
   it("AgentRunRetryForbiddenError（observer/归档）→ 403", async () => {
-    const { AgentRunRetryForbiddenError } = await import("../../src/application/agent-run/retry-run");
-    const { c } = await makeController(async () => { throw new AgentRunRetryForbiddenError(); });
+    const { c } = await makeController(async () => {
+      const { AgentRunRetryForbiddenError } = await import("../../src/application/agent-run/retry-run");
+      throw new AgentRunRetryForbiddenError();
+    });
     await expect(
       c.decideToolPermissionCall(principal, "r1", "c1", { decision: "deny" }),
     ).rejects.toMatchObject({ status: 403 });
   });
 
   it("RunNotAwaitingToolPermissionError（状态不对/竞态）→ 409", async () => {
-    const { RunNotAwaitingToolPermissionError } = await import(
-      "../../src/application/agent-run/decide-tool-permission"
-    );
-    const { c } = await makeController(async () => { throw new RunNotAwaitingToolPermissionError("running"); });
+    const { c } = await makeController(async () => {
+      const { RunNotAwaitingToolPermissionError } = await import(
+        "../../src/application/agent-run/decide-tool-permission"
+      );
+      throw new RunNotAwaitingToolPermissionError("running");
+    });
     await expect(
       c.decideToolPermissionCall(principal, "r1", "c1", { decision: "deny" }),
     ).rejects.toMatchObject({ status: 409, response: { reasonCode: "RUN_NOT_AWAITING_TOOL_PERMISSION" } });
