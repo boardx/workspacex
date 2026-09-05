@@ -77,15 +77,40 @@ function ReadOnlyResolved({ testid, title, note }: { testid: string; title: stri
   );
 }
 
+/**
+ * issue #2779 —— 与 `copilotkit-v2-approval-dialog.tsx` 的 `liveSeenApprovalToolCallIds`
+ * 同一条纪律（那份文件的头注有完整复现记录，这里不重复）：`useHumanInTheLoop` 的
+ * `render` 对线程历史里**任何一条**待批工具调用消息都会调用一遍，不区分"这是本次
+ * 会话刚发生的交互"还是"翻出一条早就结束的裁决"。这三张卡片是行内只读文案（不像
+ * `SendEmailApprovalDialog` 那样弹全屏模态框挡住 composer），后果没那么严重，但同一
+ * 个假象仍然成立：用户重新打开一条早就跑完的线程，看到"确认一下我的理解，再开始"
+ * 配一句"已裁决，等待 run 收尾"——这句话字面意思是"还在等"，而真实情况是这个 run
+ * 可能几天前就已经收尾（成功或失败），这句话对翻旧账的场景是**假的**、误导性的。
+ *
+ * 修法与 approval-dialog 那份完全同构：只有这个 `toolCallId` 在本标签页会话里被
+ * 观察到过未决态（`inProgress`/`executing`），`complete` 分支才渲染这张"已裁决，
+ * 等待 run 收尾"卡片；否则（=从未在本标签页观察到未决态，只可能是翻线程历史）
+ * 直接不渲染，不给一句可能早就过期的"等待中"文案。
+ */
+const liveSeenInterruptToolCallIds = new Set<string>();
+
+/** 三张卡片共用：在 `render` 里先记一次"是否观察到未决态"，再判断这次
+ *  `"complete"` 渲染是不是翻旧账。纯函数，不是 Hook，`render` 三处都能直接调用。 */
+function isStaleHistoricInterruptReplay(toolCallId: string, status: string): boolean {
+  if (status !== "complete") liveSeenInterruptToolCallIds.add(toolCallId);
+  return status === "complete" && !liveSeenInterruptToolCallIds.has(toolCallId);
+}
+
 export function CopilotKitV2AgentInterrupts(): null {
   useHumanInTheLoop<agentInterrupts.ConfirmIntentArgs>(
     {
       name: agentInterrupts.AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent,
       description: "执行前复述对任务的理解与假设，等待用户确认或修改假设",
       parameters: agentInterrupts.ConfirmIntentArgs,
-      render: ({ status, args, respond }) => {
+      render: ({ toolCallId, status, args, respond }) => {
         if (status !== "executing" || respond === undefined) {
           const state: UiState = status === "inProgress" ? "loading" : "default";
+          if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
           return status === "complete" ? (
             <ReadOnlyResolved
               testid="agent-interrupt-confirm-intent"
@@ -119,8 +144,9 @@ export function CopilotKitV2AgentInterrupts(): null {
       name: agentInterrupts.AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams,
       description: "开始前请人补全/确认 AI 猜测的运行参数",
       parameters: agentInterrupts.FillParamsArgs,
-      render: ({ status, args, respond }) => {
+      render: ({ toolCallId, status, args, respond }) => {
         if (status !== "executing" || respond === undefined) {
+          if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
           return status === "complete" ? (
             <ReadOnlyResolved
               testid="agent-interrupt-fill-params"
@@ -153,8 +179,9 @@ export function CopilotKitV2AgentInterrupts(): null {
       name: agentInterrupts.AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption,
       description: "展示 2-3 条推进方案，等待用户选择其中一条或都不选",
       parameters: agentInterrupts.ChooseOptionArgs,
-      render: ({ status, args, respond }) => {
+      render: ({ toolCallId, status, args, respond }) => {
         if (status !== "executing" || respond === undefined) {
+          if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
           return status === "complete" ? (
             <ReadOnlyResolved
               testid="agent-interrupt-choose-option"

@@ -127,6 +127,34 @@ function parseEditDraft(draft: string): { ok: true; value: Record<string, unknow
 }
 
 /**
+ * issue #2779 —— 一个工具调用只要曾经被**这个浏览器标签页**观察到处于
+ * `"inProgress"`/`"executing"`（真的在等这一次会话里的人裁决），就记进这个
+ * 模块级 Set；`"complete"` 分支据此区分"我刚在这次会话里裁决完"与"这是翻旧账——
+ * 线程历史里某条早就处理过的审批，只是这次重新加载/切换线程时被当成一条全新消息
+ * 重新渲染了一遍"。
+ *
+ * 真实复现（本 issue 排查过程中 `copilotkit-v2-hitl.spec.ts` 三条用例连续跑时
+ * 意外抓到，截图见 issue #2779 评论）：`useHumanInTheLoop` 的 `render` 对**线程
+ * 历史里任何一条**待批工具调用消息都会调用，不区分"这是本次会话刚发生的交互"还是
+ * "翻出一条早就结束的审批"——而这个模态框（`Dialog`）只要 `awaitingDecision` 为
+ * false 就无条件弹出一个 `open={!dismissed}` 的遮罩层，`dismissed` 是纯本地
+ * `useState`，每次组件重新挂载（页面刷新、切换线程、甚至同一浏览器 tab 内新开一次
+ * `/chat`）都会重置为 `false`。结果是：任何线程只要曾经出现过一次 `call_skill`
+ * 审批（不管是不是早就批准完成），**每次重新打开这条线程都会弹出一个盖住全屏
+ * composer 的模态框**，用户必须先点"关闭"才能继续用这条线程——这正是反馈里
+ * "确认 UI"表现得像卡住/挡路的直接复现，且比反馈截图那张 `confirm_task_intent`
+ * 内联卡片更严重（那张是行内只读文案，这个是全屏 `Dialog` 遮罩，物理挡住输入框）。
+ *
+ * 修法：只有这个 `toolCallId` 在本标签页会话里被观察到过未决态（记进这个
+ * `Set`），`"complete"` 分支才弹模态框（=用户刚在这个标签页里做完决定，弹一下
+ * 让他知道"提交了，等 run 收尾"是合理的连续性 UX）；否则（=从未在这个标签页里
+ * 观察到未决态，只可能是翻线程历史翻出来的旧记录）直接不渲染，不弹遮罩。用
+ * 模块级而非组件级状态：这个判断需要跨这个具体工具调用可能经历的多次组件
+ * 挂载/卸载存活，普通 `useState`/`useRef` 做不到。
+ */
+const liveSeenApprovalToolCallIds = new Set<string>();
+
+/**
  * `useHumanInTheLoop` 的 `render` —— 三态齐全（`inProgress`/`executing`/
  * `complete`），`respond` 只在 `"executing"` 下非 `undefined`（human-in-the-loop.md
  * "Common Mistakes" 明确警告：把它 widen 成 `any` 会静默 no-op，按钮点了但 Promise
@@ -134,11 +162,15 @@ function parseEditDraft(draft: string): { ok: true; value: Record<string, unknow
  * 闭包外传出去，物理上排除了"在错误状态下调用它"的可能。
  */
 export function SendEmailApprovalDialog({
+  toolCallId,
   statusLabel,
   awaitingDecision,
   args,
   respond,
 }: {
+  /** AG-UI 工具调用 id，每个中断唯一——用于区分"这次会话里刚发生的交互"与
+   *  "翻旧账"，见上面 `liveSeenApprovalToolCallIds` 的头注。 */
+  toolCallId: string;
   /** 只读文案 + `data-hitl-status` 探针用的原始状态字符串（`"inProgress"` /
    *  `"executing"` / `"complete"`，直接取自 `ToolCallStatus` 枚举的字符串值，
    *  不重新声明一份易漂移的联合类型）。 */
@@ -150,6 +182,20 @@ export function SendEmailApprovalDialog({
   args: Record<string, unknown>;
   respond?: (result: unknown) => void;
 }): JSX.Element | null {
+  // issue #2779 —— 渲染期间同步记录（不是 effect）：下面"是否翻旧账"的判断就
+  // 发生在本次渲染里，必须在判断之前落好这次观察，不能等到 commit 之后的 effect
+  // 才写入（否则同一次渲染读到的还是写入前的旧值）。纯 Set 写入，不触发任何
+  // 重渲染，读写都是幂等的，在渲染期间做是安全的（React StrictMode 下同一次
+  // 渲染可能被调用两次，`Set.add` 天然幂等，不受影响）。
+  //
+  // ⚠ 这条记录与下面"翻旧账 ⇒ 不渲染"的判断都必须放在这里、所有 Hook 调用**之前**
+  // 吗？不能——React Hooks 规则要求同一个组件实例每次渲染调用的 Hook 数量/顺序
+  // 恒定，这里若在任何 `React.useState` 之前 `return null`，"翻旧账"渲染会调用
+  // 0 个 Hook、正常渲染会调用一整串 Hook，直接违反规则。所以记录动作本身（纯
+  // 数据写入，不是 Hook）放在最前面，但真正的 `return null` 挪到下面
+  // `!awaitingDecision` 分支里、所有 Hook 都已经无条件调用完之后。
+  if (statusLabel !== "complete") liveSeenApprovalToolCallIds.add(toolCallId);
+  const isStaleHistoricReplay = statusLabel === "complete" && !liveSeenApprovalToolCallIds.has(toolCallId);
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
 
@@ -233,6 +279,11 @@ export function SendEmailApprovalDialog({
     close();
     requestAnimationFrame(() => requestAnimationFrame(focusComposer));
   }, [close, focusComposer]);
+
+  // issue #2779 —— 翻旧账：这个 toolCallId 从未在本标签页被观察到未决态，只是
+  // 线程历史被重新渲染了一遍。所有 Hook 已经在上面无条件调用完毕，这里可以安全
+  // 提前 return（不再是"某些渲染多调用 Hook、某些渲染少调用"的问题）。
+  if (isStaleHistoricReplay) return null;
 
   if (!awaitingDecision || respond === undefined) {
     return (

@@ -875,15 +875,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // ever produced. Reproduced against a real `langgraph dev` kernel: identical resume
           // requests, differing only in this `config` key, produce the real skill's script
           // block vs. "未知技能「pdf-create」" (see PR body for the two capture files).
-          // `script_protocol`/`disable_task_auto_classify` mirror the SAME two "resume is the
-          // next model call" facts the NEW-run branch already sends; `org_skills` is the one
-          // this bug was about, `disableTaskAutoClassify` is included for the same reason
-          // (a resumed call is still subject to the run's own per-run override).
+          // `script_protocol` mirrors the SAME "resume is the next model call" fact the
+          // NEW-run branch already sends; `org_skills` is the one this bug was about.
+          // ⚠ 2026-09-05（#2776 遗留清理，与本 issue #2779 无关）：`ModelCallInput.
+          // disableTaskAutoClassify`/`ClaimedAgentRun.disableTaskAutoClassify` 已随
+          // "总是先计划"手动开关一起删除（composer: remove manual 任务模式/总是先计划
+          // toggles，#2770/#2776），这里之前留了一条悬空引用（`input.disableTaskAutoClassify`
+          // 在删除后已经不是 `ModelCallInput` 上的字段），main 上 `pnpm turbo run typecheck
+          // --filter=@repo/api` 因此是红的——顺手清掉，不是本 PR 的功能改动。
           config: {
             configurable: {
               org_skills: toWireSkills(input.skills),
               ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
-              ...(input.disableTaskAutoClassify === true ? { disable_task_auto_classify: true } : {}),
               // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
               // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
               // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。

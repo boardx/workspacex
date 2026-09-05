@@ -316,6 +316,14 @@ export function CopilotKitV2PanelBody({
             ? (errorContext as { runtimeErrorCode?: unknown }).runtimeErrorCode
             : undefined;
         const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
+        // issue #2779 —— 这条横幅此前把原始 code/message 完全吞掉：一旦
+        // `describeCopilotkitV2RunError` 落进未登记兜底文案（"这次执行没有成功，
+        // 请重试或联系管理员"），排障的人连"到底是哪个 code"都无从查起——这正是
+        // 反馈复现时唯一能确认的现象（HITL 确认卡片提交后卡在"已裁决，等待 run
+        // 收尾"，随后出现这句通用兜底）。这里只补一条 `console.error`，不改用户
+        // 可见文案（裸 code/message 仍然不是人话，不该印到界面上）——下次同样的
+        // 兜底文案出现时，浏览器控制台能看到真实 code_，不用再靠截图猜。
+        console.error("[copilotkit-v2] agent run failed", { code: code_, context: errorContext });
         setError(describeCopilotkitV2RunError(code_));
         // issue #2451 —— 见上面这个 state 的头注：让计划面板立刻抢一次 refetch。
         setPlanLedgerRefetchTick((tick) => tick + 1);
@@ -973,8 +981,9 @@ export function CopilotKitV2PanelBody({
     name: APPROVAL_TOOL_NAME,
     description: "在真正执行这个技能之前，请人确认参数",
     parameters: approvalToolParameters,
-    render: ({ status, args, respond }) => (
+    render: ({ toolCallId, status, args, respond }) => (
       <SendEmailApprovalDialog
+        toolCallId={toolCallId}
         statusLabel={status}
         awaitingDecision={respond !== undefined}
         args={args}
@@ -1150,6 +1159,10 @@ export function CopilotKitV2PanelBody({
         // message（往往是英文技术细节，同样不是人话）。这条分支现在只兜"`runAgent()`
         // 自己抛出 JS 异常"这种更边缘的情况——常规的 `RUN_ERROR` 事件已经被上面的
         // `onError` 订阅接住，不会再走到这里。
+        // issue #2779 —— 同上面 `onError` 订阅那条注释：只补诊断日志，不改用户可见
+        // 文案。这条分支此前把 `e` 完全丢弃，落进通用兜底文案时排障者连原始异常
+        // 是什么都看不到。
+        console.error("[copilotkit-v2] runAgent() threw", e);
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
