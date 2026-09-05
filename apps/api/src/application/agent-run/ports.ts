@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { wave2Runtime as C } from "@repo/contracts";
+import { errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -29,6 +29,31 @@ export type RunLifecycleStatus = z.infer<typeof C.AgentRunStatus>;
 /** #742 Gap 1 -- `"succeeded" | "failed" | "in_progress"`, derived from the contract's own
  * enum (never restated). `in_progress` is only ever produced for `kind: "tool_call"` steps. */
 export type RunStepStatus = z.infer<typeof C.AgentRunStepStatus>;
+/** Phase 14 F15 -- one row of `getRunTranscript`'s output, derived from the
+ * `error-observability` contract bundle (never restated, ADR-020). */
+export type TranscriptStep = z.infer<typeof EO.TranscriptStep>;
+
+/**
+ * Phase 14 F15 (R3'/R6) -- encrypts/decrypts the FULL (non-digest, non-truncated) content a
+ * step's `inputDigest`/`outputDigest` were hashed from. Declared here (not a separate
+ * `domain/agent-run/` port module) to match this bundle's existing convention: every
+ * agent-run port, including the other infrastructure-implemented one (`ModelCallPort`
+ * below), lives in this one file rather than a domain-layer indirection.
+ *
+ * Unlike `credential-vault.ts`'s `CredentialCipher`, this port MUST support `decrypt` --
+ * see `transcript-content-cipher.ts`'s header for why the two are deliberately different
+ * shapes despite sharing an algorithm.
+ */
+export interface TranscriptContentCipher {
+  readonly algorithm: string;
+  encrypt(plaintext: string): string;
+  /**
+   * `null` = cannot be recovered (missing/rotated key, tampered or malformed ciphertext) --
+   * NEVER throws. I-4 requires the caller to turn this into `decryptStatus: "unreadable"`,
+   * not an unhandled exception that would fail the whole transcript read over one bad row.
+   */
+  decrypt(ciphertext: string): string | null;
+}
 
 /**
  * The outcome of claiming one run.
@@ -112,10 +137,16 @@ export interface ClaimedAgentRun {
    * 不可表示）：toolName 沿用停住时的待批工具（pending_tool_name，edit 不许换工具，
    * 见 contracts），editedArgsJson 是人改后的完整参数对象的 JSON 文本——由 provider
    * 解析并校验，坏 JSON 走 ModelCallError fail closed，不静默降级成 approve。
+   *
+   * Phase 14 F06：`deny` 是 `decideToolPermission` UC-6 四选一里"拒绝"的落点——
+   * 与 `approve`/`edit` 走同一条 `awaiting_tool_permission → queued` 边，`execute-run.ts`
+   * 据此让 provider 以 `resume:{decision:"reject"}` 续跑，内核收到拒绝结果后自己调整
+   * 后续计划继续执行（R3 步骤 6），不是直接判定整个 run 失败。
    */
   readonly pendingDecision:
     | { readonly kind: "approve" }
     | { readonly kind: "edit"; readonly toolName: string; readonly editedArgsJson: string }
+    | { readonly kind: "deny" }
     | null;
   /**
    * DA-07b resume 续号（HITL edit 端到端从未生效的根因修复，2026-08-24）。
@@ -123,7 +154,7 @@ export interface ClaimedAgentRun {
    * `executeClaimed` 给每一步一个固定的账本 seq（accepted=1 在 acceptance 事务里写；
    * context_built=2；tool_call/model_called 从 3 起累加）——这个假设只在"一个 run 从
    * `queued` 到终态只被 `executeClaimed` 处理一次"时成立。DA-07b 打破了它：一个停在
-   * `awaiting_approval` 的 run 已经写过 accepted/context_built/tool_call(in_progress)/
+   * `awaiting_tool_permission` 的 run 已经写过 accepted/context_built/tool_call(in_progress)/
    * model_called(等待批准) 四行，人裁决后重新入队，`executeClaimed` 会被**第二次**调用
    * 续跑同一个 run——如果它仍从硬编码的 2/3 起步，`context_built` 那一行会撞上第一次
    * 执行时已经写在 seq=2 的行，`agent_run_steps_seq_uniq` 唯一约束直接拒绝这次 INSERT。
@@ -213,6 +244,23 @@ export interface AppendedRunStep {
    * pre-#742 behaviour: one row, one call, no correlation needed).
    */
   readonly toolCallId: string | null;
+  /**
+   * Phase 14 F15 (R3'/R6) -- the FULL plaintext `inputDigest`/`outputDigest` above were
+   * hashed FROM, when the caller has it in hand. `undefined` (every call site this cut does
+   * not thread it through -- currently `tool_call`, see `execute-run.ts`'s `record()` header
+   * for why full tool-call content is deferred follow-up work) behaves identically to how
+   * this interface behaved before these fields existed: no full-content column is written,
+   * and `getRunTranscript` reports that step honestly as `decryptStatus: "unreadable"` (I-4)
+   * rather than fabricating a value.
+   *
+   * A plaintext string on the wire between `application` and this port is deliberate, not an
+   * oversight: onion layering forbids `execute-run.ts` (application) from importing
+   * `TranscriptContentCipher`'s infrastructure implementation directly (ADR-020) --
+   * encryption happens entirely inside `PgAgentRunRepository.appendStep`, which already
+   * lives in `infrastructure` and may hold the cipher.
+   */
+  readonly inputFullContent?: string | null;
+  readonly outputFullContent?: string | null;
 }
 
 /**
@@ -263,7 +311,7 @@ export interface RunProjection {
    */
   readonly steps: readonly Omit<AppendedRunStep, "runId" | "seq" | "toolCallId">[];
   readonly createdAt: string;
-  /** DA-07b：等待裁决的工具摘要；非 awaiting_approval 时为 null。
+  /** DA-07b：等待裁决的工具摘要；非 awaiting_tool_permission 时为 null。
    * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
    * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
    * 的 .strict() 拒绝——29 个既有测试当场教的。） */
@@ -371,28 +419,43 @@ export interface AgentRunStore {
   failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void>;
 
   /**
-   * DA-07b：running → awaiting_approval，同时落等待裁决的工具摘要。
+   * DA-07b：running → awaiting_tool_permission，同时落等待裁决的工具摘要。
    * 触发器只放行 running 起跳——在其他状态上调用会被 DB 拒绝，这是对的。
    */
-  markAwaitingApproval(
+  markAwaitingToolPermission(
     orgId: OrgId, runId: string,
     pending: { readonly toolName: string; readonly argsSummary: string | null },
   ): Promise<void>;
 
   /**
-   * DA-07b：awaiting_approval → running（人批准），并记 pending_decision='approve'
+   * DA-07b：awaiting_tool_permission → running（人批准），并记 pending_decision='approve'
    * 供 executor 重新领 run 时让 provider 走 resume。返回 false = run 不在
-   * awaiting_approval（并发裁决/已终态），调用方按冲突处理，不重试。
+   * awaiting_tool_permission（并发裁决/已终态），调用方按冲突处理，不重试。
    */
   approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
 
   /**
-   * UX-9 D4：awaiting_approval → queued（人改参数后放行），记 pending_decision='edit'
+   * UX-9 D4：awaiting_tool_permission → queued（人改参数后放行），记 pending_decision='edit'
    * 且把改后的完整参数对象（JSON 文本）落 pending_edited_args——executor 重新领 run
    * 时 provider 据此发 EditDecision resume。返回语义与 approveAndRequeue 完全一致：
    * false = 输了竞态，调用方按冲突处理，不重试不覆盖。
    */
   editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean>;
+
+  /**
+   * Phase 14 F06（`plan-permissions` UC-6 `decideToolPermission`，decision `"deny"`）：
+   * awaiting_tool_permission → queued（人拒绝，但内核据此调整计划继续跑，不是直接
+   * 判定整个 run 失败，R3 步骤 6），记 pending_decision='deny'——executor 重新领 run
+   * 时 provider 据此发 `resume:{decision:"reject"}`（引擎侧 HumanInTheLoopMiddleware
+   * 早已支持的原生拒绝语义）。返回语义与 approveAndRequeue 一致：false = 输了竞态，
+   * 调用方按冲突处理，不重试不覆盖。
+   *
+   * ⚠ 与旧 DA-07b 单工具审批弹层的 `decideAgentRun({decision:"reject"})` 是两条不同的
+   * 出口：那条走 `failRun("HITL_REJECTED")`，服务的是尚未迁移到本契约束的
+   * CopilotKit `useHumanInTheLoop` 三键弹层（F07/F08 迁移前维持原状，见该函数文件头）。
+   * 本方法只服务新的四选一工具权限确认弹层。
+   */
+  denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
 
   /**
    * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
@@ -412,7 +475,7 @@ export interface AgentRunStore {
    * 应该花的时间（`DeepAgentModelProvider` 自己的 `KERNEL_DEEP_AGENT_TIMEOUT_MS`
    * 默认 5 分钟）——太短会误杀正常运行中的慢 run。
    *
-   * 只处理 `running`：`writeback_pending`/`awaiting_approval` 已经各自有名副其实的
+   * 只处理 `running`：`writeback_pending`/`awaiting_tool_permission` 已经各自有名副其实的
    * 恢复路径（前者见上、后者等的是人的裁决，本身就该长期挂起），不该被这个函数一起
    * 扫进去当"卡住"处理。
    *
@@ -503,7 +566,7 @@ export interface AgentRunStore {
    * on", so the bridge can hand it straight to the SAME `decideAgentRun` the REST route uses,
    * not a second decision-making implementation.
    *
-   * A thread can have at most one `awaiting_approval` run at a time (the agent loop is
+   * A thread can have at most one `awaiting_tool_permission` run at a time (the agent loop is
    * strictly sequential -- a run halts entirely on interrupt, see `execute-run.ts`'s
    * `completion.interrupted` branch), so this never has an actual "which one" ambiguity to
    * resolve; the `ORDER BY ... LIMIT 1` is defensive tidiness, not a real tie-break. `null`
@@ -511,7 +574,7 @@ export interface AgentRunStore {
    * since the client's last observation, or simply a stale/duplicate follow-up) -- the caller
    * treats both the same way: there is nothing left to resume.
    */
-  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null>;
+  findAwaitingToolPermissionRunId(orgId: OrgId, threadId: string): Promise<string | null>;
 
   readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null>;
 
@@ -551,6 +614,23 @@ export interface AgentRunStore {
       readonly expectedVersion: number;
     },
   ): Promise<boolean>;
+
+  /**
+   * Phase 14 F15 -- the audit-only read behind `getRunTranscript` (R3'/R6). `null` = the run
+   * does not exist in this org (RUN_NOT_FOUND; RLS already means "another org's run" and
+   * "no such run" are indistinguishable here, which is fine -- `get-run-transcript.ts`
+   * checks the caller's `admin` role BEFORE calling this, so this is never an existence
+   * oracle for an untrusted caller).
+   *
+   * Unlike `readRun`'s client-facing projection, this does NOT fold `in_progress`/terminal
+   * `tool_call` pairs into one row -- the audit trail is the raw ledger, not the
+   * client-friendly collapsed view. Only `model_call`/`tool_call` kinds are returned (the
+   * other two `agent_run_steps` kinds -- `accepted`/`context_built`/`chat_writeback` --
+   * carry no "prompt/response" content the contract's `TranscriptStepKind` has a slot for);
+   * `plan_change`/`permission_decision` do not appear because no code path produces a step
+   * of either kind yet (Phase 14's plan-mode/permissions bundle is not implemented).
+   */
+  readRunTranscriptSteps(orgId: OrgId, runId: string): Promise<readonly TranscriptStep[] | null>;
 }
 
 /**
@@ -647,6 +727,23 @@ export interface ModelCallProgressEvent {
    */
   readonly phase?: "in_progress" | "complete";
   readonly toolCallId?: string | null;
+  /**
+   * Phase 14 F03 (`streaming-transport` 契约束, R6 后置条件) -- `ToolCallStartEvent.args`/
+   * `ToolCallEndEvent.result` on the new WS event bus must carry the **完整**入参/结果，
+   * 不是截断摘要 -- `toolArgsSummary`/`toolResultSummary` above are already truncated
+   * (`summarizeProgressText`'s 500-char default, or 4000 for a short allow-list) for
+   * on-ledger VISIBILITY, so they cannot serve that requirement. These two optional fields
+   * carry the untruncated values a provider already has in hand before it summarizes --
+   * `DeepAgentModelProvider` populates them from the real `tool_calls[].args` object and the
+   * raw `ToolMessage.content` (see `extractToolCallEvents`'s own doc). Optional and
+   * additive: a provider that doesn't populate them (every provider that predates this
+   * feature, and any future one that doesn't bother) simply produces a WS event whose
+   * `args`/`result` fall back to `{}`/`null` at the `execute-run.ts` call site -- never a
+   * thrown error, never a behaviour change to the LEDGER (`toolArgsSummary`/
+   * `toolResultSummary` are untouched by this addition).
+   */
+  readonly toolArgsFull?: unknown;
+  readonly toolResultFull?: unknown;
 }
 
 /**
@@ -713,9 +810,20 @@ export interface ModelCallInput {
    * 非对象/坏 JSON 抛 ModelCallError（fail closed），绝不静默降级为 approve。
    * 引擎侧实测形状（deepagents 0.7.6 / langchain HumanInTheLoopMiddleware）：
    * {type:"edit", edited_action:{name:str, args:dict}}。
+   *
+   * Phase 14 F06（`plan-permissions` 契约束 UC-6 `decideToolPermission`，R3 步骤 6）：
+   * `reject` 变体——四选一中的"拒绝"不是把 run 判死（那是旧 DA-07b 单工具审批弹层
+   * 的行为，仍由 `decideAgentRun` 的 `decision: "reject"` 走 `failRun`，本变体不碰
+   * 那条路径），而是把拒绝结果喂回内核，让它据此调整后续计划继续跑。引擎侧同一份
+   * `HumanInTheLoopMiddleware._process_decision` 早就支持 `{type:"reject"}`——见
+   * `apps/deep-agent-service/tests/test_harness.py`
+   * `test_hitl_resume_reject_tool_not_executed`：拒绝的工具绝不真实执行，且 run
+   * 优雅收尾到下一轮回答，不是挂死或裸异常。`decideToolPermission` 的 `deny` 决策
+   * 就落在这个变体上（见 `decide-tool-permission.ts`）。
    */
   readonly resume?:
     | { readonly decision: "approve" }
+    | { readonly decision: "reject" }
     | { readonly decision: "edit"; readonly editedAction: { readonly name: string; readonly argsJson: string } };
   /**
    * F976 (`plan-control` 契约束, UC-9 `pausePlanRun`) —— P-2 探针的落点。OPTIONAL,
@@ -980,6 +1088,23 @@ export interface ModelCallPort {
    * 模型有视觉输入，一次 run 绑定的是**具体模型**，能力是模型的属性不是厂商的属性。
    */
   supportsVision?(modelProvider: string, modelId: string): boolean;
+
+  /**
+   * Phase 14 F01 (`kernel-gateway` 契约束 UC-3 `checkKernelHealth`，R4 A1 / I-3) --
+   * OPTIONAL 下发前健康检查：一个 port 若把 run 转发给一个真正独立、可能不可用的远端
+   * 执行内核（今天只有 `DeepAgentModelProvider` → `apps/deep-agent-service`），实现这个
+   * 方法；单次请求/响应式的 provider（`ConfiguredModelProvider`/`DeepResearchModelProvider`/
+   * `BailianImageProvider`）没有独立于"这次调用本身会不会失败"的健康状态，不实现它。
+   *
+   * ⚠ 缺席 ⇒ execute-run.ts 不做这次检查，直接转发（与本次改动之前逐字节相同）——
+   * 与 `supportsProgress`"存在即代表能力"同一条纪律，不是 `supportsVision` 那种
+   * fail-closed：没有"内核"概念的 provider 本来就不该被这道门拦住。
+   *
+   * `modelProvider` 参数让 `RoutingModelCallPort` 能按 run 实际 pin 的 provider 转发到
+   * 正确的下游 port，同 `supportsProgress(modelProvider)`/`supportsVision(modelProvider,
+   * modelId)` 的既有形状——一个只服务单一 provider 的叶子 port 可以忽略这个参数。
+   */
+  checkKernelHealth?(modelProvider: string): Promise<KG.KernelHealthStatus>;
 }
 
 export interface AgentRunClock {
@@ -1050,3 +1175,8 @@ export const AGENT_RUN_STORE = Symbol("AgentRunStore");
 export const MODEL_CALL_PORT = Symbol("ModelCallPort");
 export const AGENT_RUN_EXECUTOR = Symbol("AgentRunExecutor");
 export const TOKEN_USAGE_METER = Symbol("TokenUsageMeter");
+/** Phase 14 F03 -- DI token for the singleton `RunEventBusPort` (`run-event-bus.ts`). One
+ * instance shared by `AGENT_RUN_EXECUTOR` (publish side) and the WS gateway
+ * (`interface/ws/agent-run-events.gateway.ts`, subscribe side) -- see that port's own doc
+ * for why they must be the SAME in-process instance. */
+export const RUN_EVENT_BUS = Symbol("RunEventBusPort");

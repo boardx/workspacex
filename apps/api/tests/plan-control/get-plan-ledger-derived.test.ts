@@ -190,22 +190,22 @@ describe("I-7：phase/gate 是派生值，由账本内容 + run 状态唯一决�
 });
 
 describe("XC-59 反证：agent-interrupts 三个新工具名不得触发 phase='approving'", () => {
-  it("awaiting_approval + pending_tool_name='call_skill'：phase='approving'（白名单命中）", async () => {
+  it("awaiting_tool_permission + pending_tool_name='call_skill'：phase='approving'（白名单命中）", async () => {
     await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
       { content: "第一步", status: "in_progress" }, { content: "第二步", status: "pending" },
     ] });
-    await insertRun("awaiting_approval", "call_skill");
+    await insertRun("awaiting_tool_permission", "call_skill");
     const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
     expect(out.phase).toBe("approving");
   });
 
   it.each(["confirm_task_intent", "fill_run_params", "choose_execution_option"])(
-    "awaiting_approval + pending_tool_name=%s（agent-interrupts 新工具）：phase 不是 'approving'",
+    "awaiting_tool_permission + pending_tool_name=%s（agent-interrupts 新工具）：phase 不是 'approving'",
     async (toolName) => {
       await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
         { content: "第一步", status: "in_progress" }, { content: "第二步", status: "pending" },
       ] });
-      await insertRun("awaiting_approval", toolName);
+      await insertRun("awaiting_tool_permission", toolName);
       const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
       expect(out.phase).not.toBe("approving");
       expect(out.phase).toBe("executing");

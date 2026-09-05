@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks, Globe, PencilRuler,
+  MessageSquareWarning, ListChecks, Globe, Cpu, PencilRuler,
 } from "lucide-react";
 
 /**
@@ -244,6 +244,18 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   判可达用；接线落地后改指向 `/chat`。
           // ucRefs 如实留空：同上，判据单一事实源是 TW-P0-3（acceptance 卡），不是 requirements/。
           { key: "plan-control", label: "计划面板预览", href: "/preview/plan-control", icon: ListChecks, ucRefs: [], isPrototype: true },
+          // 束: kernel-gateway / streaming-transport / plan-permissions / artifacts-steering /
+          //   error-observability（phase-14 agent-kernel-unification 五束，2026-09-04 建）。
+          // ⚠ 本轮只出①②③⑤五件签核材料（design-signoff.md 全部 status: pending），未接
+          //   实现——真实落地后这五个能力分别并入 /chat 的既有运行时区域，不是独立页面。
+          //   `/preview/agent-kernel` 是签核用的静态原型屏（`ui-prototyper` 交付，
+          //   `phases/phase-14-agent-kernel-unification/ui-preview/` 下 8 张截图），供
+          //   lint-nav-reachability 判可达用；接线落地后这一行应改指向 /chat，非遗漏。
+          //   kernel-gateway 束本身无新增界面（纯后端网关重构），ui.md 用 reuse_bundle
+          //   复用 streaming-transport 的材料声明，但仍需要一条可达路由——同样指向本预览页。
+          // ucRefs 如实留空：本 phase 判据单一事实源是 requirements/*.md 的 R12，不是
+          // UC 文档编号体系，编一个假引用比留空更糟。
+          { key: "agent-kernel", label: "Agent 内核预览", href: "/preview/agent-kernel", icon: Cpu, ucRefs: [], isPrototype: true },
           // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）
           // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局

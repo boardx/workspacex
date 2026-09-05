@@ -89,6 +89,7 @@ import {
   AGENT_INTERRUPTS_ARGS_MAX_CHARS,
 } from "@repo/contracts/agent-interrupts";
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
+import type { kernelGateway as KG } from "@repo/contracts";
 
 import type {
   ModelCallCompletion,
@@ -308,7 +309,13 @@ function extractToolCallEvents(
   messages: readonly ThreadMessage[],
   emittedIds: ToolCallEmittedIds,
 ): readonly { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] {
-  const pending = new Map<string, { readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null }>();
+  const pending = new Map<string, {
+    readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null;
+    /** Phase 14 F03 -- the real, untruncated args object, carried through to the "complete"
+     * event so `ToolCallStartEvent.args`/the WS bus can have full fidelity (`ports.ts`'s own
+     * doc on `ModelCallProgressEvent.toolArgsFull`). */
+    readonly argsFull: unknown;
+  }>();
   const found: { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] = [];
 
   for (const message of messages) {
@@ -345,7 +352,7 @@ function extractToolCallEvents(
         const argsSummary = call.args === undefined
           ? null
           : summarizeProgressText(JSON.stringify(call.args), maxChars);
-        pending.set(id, { name, argsSummary, planningNote });
+        pending.set(id, { name, argsSummary, planningNote, argsFull: call.args });
         // #742 Gap 1: report "announced, not yet answered" exactly once per id.
         if (!emittedIds.inProgress.has(id)) {
           found.push({
@@ -353,7 +360,7 @@ function extractToolCallEvents(
             phase: "in_progress",
             event: {
               toolName: name, toolArgsSummary: argsSummary, toolResultSummary: null,
-              planningNote, phase: "in_progress", toolCallId: id,
+              planningNote, phase: "in_progress", toolCallId: id, toolArgsFull: call.args,
             },
           });
         }
@@ -374,6 +381,7 @@ function extractToolCallEvents(
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
           phase: "complete", toolCallId: id,
+          toolArgsFull: call.argsFull, toolResultFull: message.content,
         },
       });
       pending.delete(id);
@@ -430,6 +438,36 @@ export class DeepAgentModelProvider implements ModelCallPort {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
     return this.readCompletion(baseUrl, threadId);
+  }
+
+  /**
+   * Phase 14 F01 (`kernel-gateway` 契约束 UC-3，R4 A1 / I-3) -- 下发前健康检查,
+   * `execute-run.ts` 在真正转发 run 之前调用。不配置地址（同 `startRun` 的既有判据）
+   * 是 "unavailable"；探测本身不失败,只报告状态（`kernel-gateway.ts` 的 `err: 无`）。
+   *
+   * ⚠ 判据是**连得上**，不是**这条路径答"healthy"**：R4 A1 描述的故障是
+   * 「服务未启动/网络故障」——传输层的不可达（连接被拒绝/超时/DNS 失败），不是
+   * 「这个具体路径没有实现」。一个真正在运行、只是没长出 `/healthz` 这条路由的进程
+   * （本仓大量测试用极简 `http.createServer` 直接内联替身 deep-agent-service,只认
+   * `/threads` 系列几条路径，其它一律 404——不是每个测试作者都知道要补一条健康检查
+   * 路由）仍然是"这个内核活着"，用 HTTP 状态码去判定会把"没实现这条路由"误判成
+   * "服务不可用"，让一个原本会成功的 run 在下发前就被挡下。`fetch` 本身抛出
+   * （连接被拒绝/DNS 失败/超时）才是唯一的 "unavailable" 判据；拿到任何 HTTP
+   * 响应（即使是 404）都说明传输层是通的，报 "healthy"。
+   *
+   * `/healthz` 路径仍然按本仓约定探测（`health.controller.ts`、
+   * `loopback-deep-agent-provider.ts`/`loopback-model-provider.ts` 都实现它）——真实
+   * `apps/deep-agent-service` 部署预期也会长出这条路由，只是**探测判据不依赖它答
+   * 2xx**，这样即使真部署这条路由暂时挂了（而进程本身没死），也不会被这道门误伤。
+   */
+  async checkKernelHealth(): Promise<KG.KernelHealthStatus> {
+    if (this.config.baseUrl === "") return "unavailable";
+    try {
+      await fetch(`${this.config.baseUrl}/healthz`, { method: "GET" });
+      return "healthy";
+    } catch {
+      return "unavailable";
+    }
   }
 
   /**

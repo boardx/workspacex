@@ -45,6 +45,9 @@ const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
   MODEL_CALL_FAILED: "模型这次没能返回可用结果",
   CHAT_WRITEBACK_FAILED: "回复已生成，但写入对话失败",
   TOOL_LOOP_LIMIT_EXCEEDED: "工具调用次数超出上限，模型未能给出最终答案",
+  // Phase 14 F01（kernel-gateway 契约束 R4 A1）：网关下发前健康检查未过，请求根本
+  // 没有发出去——与 MODEL_CALL_FAILED（调用已发起、内核/模型出错）是不同的事实。
+  KERNEL_UNAVAILABLE: "服务暂时不可用，请稍后重试",
 };
 
 /** 终态错误码 → 人读文案。`code` 为 `null`（读不到具体原因）时给一句诚实的兜底。 */
@@ -106,7 +109,13 @@ export async function retryAgentRun(
 }
 
 /**
- * DA-07c（rubric D6）：对 awaiting_approval 的 run 提交人裁决。
+ * DA-07c（rubric D6）：对等待人工批准（HITL 停在 Wave2 `agent_runs.status` 的对应
+ * 枚举值——Phase 14 F06 起是 `awaiting_tool_permission`，见 `wave2-runtime.ts`）的
+ * run 提交人裁决。Phase 14 streaming-transport 契约束
+ * （`packages/contracts/src/streaming-transport.ts` 文件头）另起了新枚举名
+ * `AgentKernelRunStatus`，避免与这条历史 Wave2 HITL 流程的状态名在同一文件里
+ * 产生"同一符号两处声明不同值"的歧义（domain.md I-5）——这里描述的仍是本函数
+ * 服务的旧流程本身，未改动行为。
  * 只把服务端结果原样交出去；409 会从 apiRequest 以错误抛出——调用方据此
  * 重读 run 展示真实状态，不在客户端假装决定生效（与 getAgentRun 同一条纪律）。
  *

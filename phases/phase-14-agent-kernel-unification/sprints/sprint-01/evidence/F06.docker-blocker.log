@@ -1,0 +1,50 @@
+[stack-admission] load1=5.31 cores=4 perCore=1.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtnp3bzq-898c236e-5ea1e1d3e9ea db=wsx_5ea1e1d3e9ea0626c9b5 compose=wsx-5ea1e1d3e9ea0626c9b5 pg=22411 redis=27411
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+
+ Test Files  no tests
+      Tests  no tests
+   Start at  01:19:26
+   Duration  324ms (transform 101ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms)
+
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: Command failed: docker compose -f /home/user/workspacex/apps/api//docker-compose.dev.yml -p wsx-5ea1e1d3e9ea0626c9b5 up -d postgres
+unable to get image 'pgvector/pgvector:pg16': failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no such file or directory
+
+ ❯ genericNodeError node:internal/errors:983:15
+ ❯ wrappedFn node:internal/errors:537:14
+ ❯ checkExecSyncError node:child_process:916:11
+ ❯ Proxy.execFileSync node:child_process:952:15
+ ❯ Module.ensureDatabase tests/support/db.ts:38:29
+     36|  * as an error.
+     37|  *
+     38|  * Assigned rather than overwritten: lib.sh sets PGDATABASE explicitly…
+       |                             ^
+     39|  * and that setting has to win.
+     40|  */
+ ❯ Object.databaseGlobalSetup [as setup] tests/support/db-global-setup.ts:11:25
+ ❯ WorkspaceProject.initializeGlobalSetup ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:9926:53
+ ❯ Vitest.initializeGlobalSetup ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10794:7
+ ❯ ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10816:7
+ ❯ Vitest.runFiles ../../node_modules/.pnpm/vitest@2.1.9_@edge-runtime+vm@3.2.0_@types+node@22.20.1_jsdom@30.0.1_canvas@3.2.3__terser@5.50.0/node_modules/vitest/dist/chunks/cli-api.DqsSTaIi.js:10840:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { status: 1, signal: null, output: [ null, Buffer[], Buffer[ 117, 110, 97, 98, 108, 101, 32, 116, 111, 32, 103, 101, 116, 32, 105, 109, 97, 103, 101, 32, 39, 112, 103, 118, 101, 99, 116, 111, 114, 47, 112, 103, 118, 101, 99, 116, 111, 114, 58, 112, 103, 49, 54, 39, 58, 32, 102, 97, 105, 108, 101, 100, 32, 116, 111, 32, 99, 111, 110, 110, 101, 99, 116, 32, 116, 111, 32, 116, 104, 101, 32, 100, 111, 99, 107, 101, 114, 32, 65, 80, 73, 32, 97, 116, 32, 117, 110, 105, 120, 58, 47, 47, 47, 118, 97, 114, 47, 114, 117, 110, 47, 100, 111, 99, 107, 101, 114, 46, 115, 111, 99, 107, 59, 32, 99, 104, 101, 99, 107, 32, 105, 102, 32, 116, 104, 101, 32, 112, 97, 116, 104, 32, 105, 115, 32, 99, 111, 114, 114, 101, 99, 116, 32, 97, 110, 100, 32, 105, 102, 32, 116, 104, 101, 32, 100, 97, 101, 109, 111, 110, 32, 105, 115, 32, 114, 117, 110, 110, 105, 110, 103, 58, 32, 100, 105, 97, 108, 32, 117, 110, 105, 120, 32, 47, 118, 97, 114, 47, 114, 117, 110, 47, 100, 111, 99, 107, 101, 114, 46, 115, 111, 99, 107, 58, 32, 99, 111, 110, 110, 101, 99, 116, 58, 32, 110, 111, 32, 115, 117, 99, 104, 32, 102, 105, 108, 101, 32, 111, 114, 32, 100, 105, 114, 101, 99, 116, 111, 114, 121, 10 ] ], pid: 18170, stdout: Buffer[], stderr: Buffer[ 117, 110, 97, 98, 108, 101, 32, 116, 111, 32, 103, 101, 116, 32, 105, 109, 97, 103, 101, 32, 39, 112, 103, 118, 101, 99, 116, 111, 114, 47, 112, 103, 118, 101, 99, 116, 111, 114, 58, 112, 103, 49, 54, 39, 58, 32, 102, 97, 105, 108, 101, 100, 32, 116, 111, 32, 99, 111, 110, 110, 101, 99, 116, 32, 116, 111, 32, 116, 104, 101, 32, 100, 111, 99, 107, 101, 114, 32, 65, 80, 73, 32, 97, 116, 32, 117, 110, 105, 120, 58, 47, 47, 47, 118, 97, 114, 47, 114, 117, 110, 47, 100, 111, 99, 107, 101, 114, 46, 115, 111, 99, 107, 59, 32, 99, 104, 101, 99, 107, 32, 105, 102, 32, 116, 104, 101, 32, 112, 97, 116, 104, 32, 105, 115, 32, 99, 111, 114, 114, 101, 99, 116, 32, 97, 110, 100, 32, 105, 102, 32, 116, 104, 101, 32, 100, 97, 101, 109, 111, 110, 32, 105, 115, 32, 114, 117, 110, 110, 105, 110, 103, 58, 32, 100, 105, 97, 108, 32, 117, 110, 105, 120, 32, 47, 118, 97, 114, 47, 114, 117, 110, 47, 100, 111, 99, 107, 101, 114, 46, 115, 111, 99, 107, 58, 32, 99, 111, 110, 110, 101, 99, 116, 58, 32, 110, 111, 32, 115, 117, 99, 104, 32, 102, 105, 108, 101, 32, 111, 114, 32, 100, 105, 114, 101, 99, 116, 111, 114, 121, 10 ] }
+
+
+
+undefined
+/home/user/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-run/risk-tiering-and-states.test.ts
+[timing] pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：2s
+[test-isolation] cleanup failed: docker compose down -v exited 1

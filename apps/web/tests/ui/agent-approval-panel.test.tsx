@@ -20,7 +20,7 @@ function view(over: Partial<AgentRunView> = {}): AgentRunView {
   return {
     runId: "r1", threadId: "t1", inputMessageId: "m1", agentId: "a1",
     agentVersionId: "v1", skillVersionIds: [], modelProvider: "deep-agent",
-    modelId: "x", status: "awaiting_approval", error: null, resultMessageId: null,
+    modelId: "x", status: "awaiting_tool_permission", error: null, resultMessageId: null,
     steps: [], createdAt: "2026-08-22T00:00:00Z",
     pendingApproval: { toolName: "call_skill", argsSummary: '{"skill":"risky"}' },
     ...over,
@@ -28,7 +28,7 @@ function view(over: Partial<AgentRunView> = {}): AgentRunView {
 }
 
 describe("AgentApprovalPanel", () => {
-  it("awaiting_approval + pendingApproval → 渲染工具名、参数、两钮", () => {
+  it("awaiting_tool_permission + pendingApproval → 渲染工具名、参数、两钮", () => {
     render(<AgentApprovalPanel view={view()} />);
     const panel = screen.getByTestId("agent-approval-panel");
     expect(panel.getAttribute("data-pending-tool")).toBe("call_skill");
@@ -37,7 +37,7 @@ describe("AgentApprovalPanel", () => {
     expect(screen.getByTestId("agent-approval-reject")).toBeTruthy();
   });
 
-  it("非 awaiting_approval → 渲染为空（不是空壳卡片）", () => {
+  it("非 awaiting_tool_permission → 渲染为空（不是空壳卡片）", () => {
     const { container } = render(<AgentApprovalPanel view={view({ status: "running" })} />);
     expect(container.innerHTML).toBe("");
   });
@@ -66,11 +66,11 @@ describe("AgentApprovalPanel", () => {
   });
 
   it("409 竞态 → 错误如实可见，绝不假装决定生效", async () => {
-    decideMock.mockRejectedValueOnce(new Error("AGENT_RUN_NOT_AWAITING_APPROVAL"));
+    decideMock.mockRejectedValueOnce(new Error("AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION"));
     render(<AgentApprovalPanel view={view()} />);
     fireEvent.click(screen.getByTestId("agent-approval-approve"));
     await waitFor(() =>
-      expect(screen.getByTestId("agent-approval-error").textContent).toContain("AGENT_RUN_NOT_AWAITING_APPROVAL"),
+      expect(screen.getByTestId("agent-approval-error").textContent).toContain("AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION"),
     );
   });
 

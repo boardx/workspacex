@@ -47,6 +47,32 @@
  * or the routed provider does not support it -- see `ports.ts`'s own `completeStream` doc),
  * zero deltas are ever forwarded and this function's behaviour is byte-for-byte 阶段1b's:
  * the caller falls back to relaying `outcome.text` as one chunk, exactly as before.
+ *
+ * ## Phase 14 F03 -- this file's polling loop is UNCHANGED, on purpose, for now
+ *
+ * `run-event-bus.ts`/`execute-run-events.ts` added a real, in-process, event-driven WS
+ * transport (`interface/ws/agent-run-events.gateway.ts`) that `execute-run.ts` now
+ * publishes onto for every run. This file's OWN relay (`pollAguiRunToOutcome` below) could
+ * in principle subscribe to that SAME bus instead of sleeping and re-polling
+ * `readAgentRun`/`readModelDeltas` -- they run in the same process, so it is mechanically
+ * possible. It deliberately does NOT do that in this feature:
+ *
+ *   1. This loop's poll budget (`poll-budget.ts`) is itself a hard-won regression fix for
+ *      two REAL 2026-08-29 devapp incidents (see that file's own head and
+ *      `tests/agent-runtime/poll-budget-covers-deep-agent-timeout.test.ts`) -- replacing
+ *      the mechanism risks reopening either one without the same regression coverage in
+ *      place for the new shape.
+ *   2. R9 requires a ONE-TIME cutover ("一次性切换,不保留旧轮询兼容层"), not a dual-path
+ *      transport -- rewiring this file alone, before the frontend it serves
+ *      (`copilotkit-agui.controller.ts`'s CopilotKit AG-UI SSE bridge, a DIFFERENT wire
+ *      protocol than the new WS endpoint) is ready to consume it, would leave production
+ *      running an unfinished half-migration rather than either the old or the new shape
+ *      cleanly.
+ *
+ * So: `wave2-runtime.ts`'s `operations` head comment (the CONTRACT'S claim that this
+ * transport is "polling-only, no push variant") has been corrected -- a real push
+ * transport now exists. This file's OWN mechanism has not yet been cut over to it; that is
+ * tracked as follow-up work, not silently done here.
  */
 import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository, DecisionIdFactory } from "../../application/identity/ports";
@@ -66,7 +92,7 @@ import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
 import { DEFAULT_RUN_POLL_INTERVAL_MS, DEFAULT_RUN_MAX_POLLS } from "./poll-budget";
 import type { AguiRunPhase } from "@repo/contracts/agui-state-events";
 import {
-  decideAgentRun, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps,
+  decideAgentRun, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps,
 } from "./decide-agent-run";
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 // 2026-08-27：`acceptHumanMessage` 的自动命名叠加模型摘要，见 `generate-thread-title.ts`
@@ -77,7 +103,7 @@ import type { GenerateThreadTitleDeps } from "../chat/generate-thread-title";
 export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
-  TitleInvalidError, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps };
+  TitleInvalidError, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps };
 
 /** The run reached a terminal status but has neither text nor a stable failure code. */
 export class AguiBridgeResultUnreadableError extends Error {}
@@ -177,7 +203,7 @@ export interface AguiBridgeInput {
    * describes for deltas, because there is only ONE read.
    *
    * DA-19g -- the second argument is `true` only for a step reported in the SAME poll
-   * iteration where the run's overall status is `"awaiting_approval"` -- i.e., only for
+   * iteration where the run's overall status is `"awaiting_tool_permission"` -- i.e., only for
    * the ONE `"in_progress"` step that IS the pending interrupt, never for an ordinary
    * multi-step tool call's own "announced, still executing" progress frame (a run in
    * plain `"running"` status can ALSO report `"in_progress"` steps -- #742 Gap 1's
@@ -224,7 +250,7 @@ export type AguiBridgeOutcome =
   | { readonly kind: "failed"; readonly threadId: string; readonly runId: string; readonly error: string }
   | { readonly kind: "timeout"; readonly threadId: string; readonly runId: string }
   /**
-   * DA-19g -- the run halted on a real interrupt (DA-07b's `awaiting_approval`), not a
+   * DA-19g -- the run halted on a real interrupt (DA-07b's `awaiting_tool_permission`), not a
    * timeout and not a failure. `onStep` already delivered the pending `tool_call` step
    * (status `"in_progress"`) to the caller in THIS SAME poll iteration (`onStep` fires
    * before the terminal-status branches below, same ordering discipline as `succeeded`/
@@ -234,11 +260,11 @@ export type AguiBridgeOutcome =
    * second channel, and this file's own discipline elsewhere (`onDelta`/`onStep`) is "one
    * fact, one channel".
    */
-  | { readonly kind: "awaiting_approval"; readonly threadId: string; readonly runId: string };
+  | { readonly kind: "awaiting_tool_permission"; readonly threadId: string; readonly runId: string };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** The run reached `awaiting_approval` again immediately after a resume without ever
+/** The run reached `awaiting_tool_permission` again immediately after a resume without ever
  * making it back to `running` from this bridge's point of view. Not expected on the happy
  * path (a resumed run either completes or hits a NEW interrupt further down its own logic),
  * but a second interrupt on the very next tool call is a legitimate agent behaviour, not a
@@ -247,7 +273,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 /** Shared polling tail of both `runAguiBridgeTurn` (fresh turn) and `resumeAguiBridgeTurn`
  * (HITL resume, DA-19g) -- everything AFTER a run genuinely exists and is executing. Kept
  * as one function so the two entry points cannot drift on poll cadence, delta/step
- * ordering, or the `awaiting_approval`/`succeeded`/`failed`/`timeout` outcome mapping. */
+ * ordering, or the `awaiting_tool_permission`/`succeeded`/`failed`/`timeout` outcome mapping. */
 async function pollAguiRunToOutcome(
   deps: AguiBridgeDeps,
   input: {
@@ -321,10 +347,10 @@ async function pollAguiRunToOutcome(
     }
     if (input.onStep) {
       // DA-19g -- `true` only when THIS iteration's run status is genuinely
-      // `"awaiting_approval"` -- see `AguiBridgeInput.onStep`'s own doc for why
+      // `"awaiting_tool_permission"` -- see `AguiBridgeInput.onStep`'s own doc for why
       // `step.status === "in_progress"` alone conflates a real interrupt with an ordinary
       // multi-step tool call's own "announced, still executing" progress frame.
-      const isPendingApproval = projection.status === "awaiting_approval";
+      const isPendingApproval = projection.status === "awaiting_tool_permission";
       for (const step of projection.steps.slice(reportedStepCount)) {
         if (step.kind === "tool_call") input.onStep(step, isPendingApproval);
       }
@@ -352,9 +378,9 @@ async function pollAguiRunToOutcome(
     // file's own `onStep` doc used to describe as "never designed to cover this": a run
     // parked on a human decision is not progress that should keep being polled for, and it
     // is definitely not a timeout.
-    if (projection.status === "awaiting_approval") {
+    if (projection.status === "awaiting_tool_permission") {
       await flushRemainingDeltas();
-      return { kind: "awaiting_approval", threadId, runId };
+      return { kind: "awaiting_tool_permission", threadId, runId };
     }
     await sleep(pollIntervalMs);
   }
@@ -429,17 +455,17 @@ export async function runAguiBridgeTurn(
   });
 }
 
-/** The run this Chat thread is currently paused on is not `awaiting_approval` any more --
+/** The run this Chat thread is currently paused on is not `awaiting_tool_permission` any more --
  * either it never was (a stray/duplicate resume call), or someone else already resolved it
  * (double-click, a second browser tab, a retried request). Either way there is nothing left
- * to resume, and this is NOT the same fact as `AgentRunNotAwaitingApprovalError` (that one
+ * to resume, and this is NOT the same fact as `AgentRunNotAwaitingToolPermissionError` (that one
  * fires once a specific run id is already in hand and its state changed out from under a
  * `decideAgentRun` call already in flight -- this one fires before a run id was even found). */
-export class NoAwaitingApprovalRunError extends Error {}
+export class NoAwaitingToolPermissionRunError extends Error {}
 
 /**
  * DA-19g -- resumes a run the AG-UI/CopilotRuntime bridge previously reported as
- * `awaiting_approval` (`AguiBridgeOutcome.kind === "awaiting_approval"`), driven by
+ * `awaiting_tool_permission` (`AguiBridgeOutcome.kind === "awaiting_tool_permission"`), driven by
  * CopilotKit's `useHumanInTheLoop` `respond()` follow-up `runAgent` call. See
  * `copilotkit-agui.controller.ts`'s file head for the full wire-level story of why that
  * follow-up carries a Chat thread id (`forwardedProps.chatThreadId`) and a decision-shaped
@@ -471,12 +497,12 @@ export async function resumeAguiBridgeTurn(
     readonly maxPolls?: number;
   },
 ): Promise<AguiBridgeOutcome> {
-  const runId = await deps.runs.findAwaitingApprovalRunId(input.orgId, input.threadId);
-  if (runId === null) throw new NoAwaitingApprovalRunError();
+  const runId = await deps.runs.findAwaitingToolPermissionRunId(input.orgId, input.threadId);
+  if (runId === null) throw new NoAwaitingToolPermissionRunError();
 
   // DA-19g -- snapshot "what has already been reported" BEFORE `decideAgentRun` requeues
   // and kicks the run, so `pollAguiRunToOutcome` below starts its cursors from HERE, not
-  // from the run's true beginning. A run parked on `awaiting_approval` already has the
+  // from the run's true beginning. A run parked on `awaiting_tool_permission` already has the
   // pending tool_call step (and every delta up to the interrupt) durable -- those were
   // already streamed to the client during the turn that hit the interrupt (see
   // `pollAguiRunToOutcome`'s own doc on `initialLastSeenDeltaSeq`/`initialReportedStepCount`

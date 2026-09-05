@@ -20,8 +20,12 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（同 `shot-feedback-loop.mjs`）。
  * ⚠ 收件箱场景（UC-17.8 B3.4 真栈化后）**同样不再 seed**：收件箱屏自己打
  *   `/inbox`、`/inbox/counts`，数据由 `scripts/shot-feedback-design-loop.mjs` 的
- *   `page.route` 拦截提供——`DesignLoopProvider` 的 `seed` 现在只剩 `projects`（PM 设计
- *   工作台，B4 前仍是原型）。
+ *   `page.route` 拦截提供。
+ * ⚠ 工作台/详情场景（UC-17.8 B4.5 真栈化后）**也不再 seed**：两屏改打
+ *   `designWorkbench` 契约的 `/pm-designs*`，取材页这块的 `page.route` 拦截尚未补
+ *   （backlog B4.6，独立后续），本页暂时仍挂 `DesignLoopProvider` 只是因为收件箱场景
+ *   还读它的 `deepenFeedback` mock（`inbox-screen.tsx`，B4.4 才切真栈，不在本次范围）。
+ *   `seed.projects` 从 B4.5 起对工作台/详情两屏不再有任何效果。
  *
  * scene 见下方 switch；state 走 `?state=`（七态）。
  */

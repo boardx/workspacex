@@ -273,22 +273,26 @@ describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progr
       {
         toolName: "list_org_skills", toolArgsSummary: "{}",
         toolResultSummary: null, planningNote: "我先看看有哪些技能可用",
-        phase: "in_progress", toolCallId: "call-1",
+        phase: "in_progress", toolCallId: "call-1", toolArgsFull: {},
       },
       {
         toolName: "list_org_skills", toolArgsSummary: "{}",
         toolResultSummary: "- diagram-maker：画图技能", planningNote: "我先看看有哪些技能可用",
         phase: "complete", toolCallId: "call-1",
+        toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能",
       },
       {
         toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
         toolResultSummary: null, planningNote: "调用画图技能",
         phase: "in_progress", toolCallId: "call-2",
+        toolArgsFull: { skill_stable_name: "diagram-maker", task: "画架构图" },
       },
       {
         toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
         toolResultSummary: "已生成架构图。", planningNote: "调用画图技能",
         phase: "complete", toolCallId: "call-2",
+        toolArgsFull: { skill_stable_name: "diagram-maker", task: "画架构图" },
+        toolResultFull: "已生成架构图。",
       },
     ]);
   });
@@ -317,7 +321,7 @@ describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progr
     expect(events).toEqual([
       {
         toolName: "call_skill", toolArgsSummary: "{}", toolResultSummary: null,
-        planningNote: null, phase: "in_progress", toolCallId: "call-orphan",
+        planningNote: null, phase: "in_progress", toolCallId: "call-orphan", toolArgsFull: {},
       },
     ]);
     expect(result.text).toBe("算了，直接回答你。");

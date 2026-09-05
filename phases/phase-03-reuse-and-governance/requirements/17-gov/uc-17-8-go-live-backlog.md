@@ -132,6 +132,23 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `deepenFeedback`，跳转带的是服务端返回的真实 `project.id`；`workbench-screen.tsx`/
   `detail-screen.tsx` 仍读那个 mock store（B4.5 才切，不在本次范围）——**已知的、有意的
   过渡态**：跳转 id 是真的，落地页内容暂时还是 mock。PR：`worker/claude-uc17-8-b4-4-deepen-feedback`。
+- ✅ B4.5（Web：`workbench-screen`/`detail-screen` 切 API）2026-09-04 落地：新增
+  `lib/live-design-workbench.ts`（薄封装 `designWorkbench` 契约六条操作，同
+  `live-inbox.ts`/`live-feedback.ts` 成例）；两屏从 `lib/design-loop-store.tsx` 的本地
+  mock 切到真实 `listMyProjects`/`createProject`/`updateProject`/`deleteProject`/
+  `appendProjectChat`/`pushToInbox`，loading/empty/dep-failed 走 `UiState`。
+  「生成中过渡」不再是固定 1.1s 的 `setTimeout`，改成等待 `createProject` 真实返回才
+  导航，失败退回弹窗提示。设计详情页没有单条 `getProject` 契约操作（读操作对全组织
+  放开，见契约文件头【待确认点 1】），复用 `listMyProjects()` 后按 `id` 客户端查找，
+  不为此新开一条路由。对话面板发消息改成真实 `appendProjectChat` 往返，用服务端
+  一次返回的 `chat`（用户消息 + 固定回执两条）整体覆盖本地，不本地拼接乐观消息。
+  推送成功页两个出口（「查看收件箱」/「继续设计下一个」）读的是 `pushToInbox`
+  返回的真实 `inboxCode`，不再是本地 mock 生成的编号。设计详情页脱离 `AppShell`
+  独立路由，不再需要挂 `DesignLoopProvider`（`app/platform-admin/design-workbench/
+  [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
+  （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
+  （`tests/ui/design-loop.test.tsx` ⑨⑩）。
+- 待做：B4.6（详情页取材页与截图更新）、B4.7（E2E）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 

@@ -44,6 +44,7 @@ import type { ObjectStore } from "../../application/artifact/ports";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
+import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
@@ -111,13 +112,6 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      */
     private readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader,
     /**
-     * design-delta `skill-lazy-loading`。可选，与上面每一个同一条既有理由：既有构造点
-     * 不必都改，生产合成注入这个部署实际的 `KERNEL_MODEL_STREAM_ENABLED` 值。缺省
-     * `undefined`（当 `false` 处理）⇒ 渐进式加载正常生效，与该 delta 的默认行为
-     * 逐字节相同。见 `execute-run.ts` `ExecuteAgentRunDeps.streamingEnabled` 的完整文档。
-     */
-    private readonly streamingEnabled?: boolean,
-    /**
      * 2026-08-30 —— `reclaimStaleRunning` 的"卡够久"阈值（见 `ports.ts` 该方法的完整
      * 取证）。可选，默认 `DEFAULT_STALE_RUNNING_THRESHOLD_MS`（20 分钟，与 `readAgentRun`
      * 那一路共享同一个值，唯一事实源在 `ports.ts`）：比 `DeepAgentModelProvider` 自己的
@@ -127,6 +121,14 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 进程本身消失、连自己的超时都没机会跑的那种情况。
      */
     private readonly staleRunningThresholdMs: number = DEFAULT_STALE_RUNNING_THRESHOLD_MS,
+    /**
+     * Phase 14 F03 (`streaming-transport` 契约束)。可选，与上面每一个同一条既有理由：
+     * 既有构造点（这个类现有的全部测试）不必都改，生产合成（`kernel.module.ts`）必定
+     * 注入同一个 `RUN_EVENT_BUS` 单例（同时也是 WS 网关订阅的那一个实例，见
+     * `run-event-bus.ts` 头注）。不注入 ⇒ 这次执行不会有任何事件出现在 WS 订阅者面前，
+     * 但落库行为与本次改动之前逐字节相同。
+     */
+    private readonly events?: RunEventBusPort,
   ) {}
 
   /**
@@ -167,9 +169,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
       planLedger: this.planLedger,
-      streamingEnabled: this.streamingEnabled,
+      events: this.events,
     }, { orgId });
-    await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
+    await writeBackPendingRuns(
+      { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
+      { orgId },
+    );
     return executed;
   }
 

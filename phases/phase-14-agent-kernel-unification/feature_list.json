@@ -1,0 +1,313 @@
+{
+  "phase": "14",
+  "features": [
+    {
+      "id": "F01",
+      "area": "kernel-unification",
+      "title": "apps/api 退化为薄网关：转发 run 到内核、旁路写账本、删除自有执行分支",
+      "user_visible_behavior": "用户发起一个真实 agent 任务（如生成 PDF）时，请求全程经 apps/api 网关鉴权后转发到 deep-agent-service 执行并正确回传结果；apps/api 侧不再存在任何独立的规划/工具循环实现，execute-run.ts 只做转发+鉴权+账本旁路写入，行数相对改造前显著下降。",
+      "spec_ref": "01-kernel-unification.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f01",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/gateway-forwarding.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-run/execute-run-thin-gateway.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(a)：网关转发+账本旁路+旧分支删除，需先于 F02。依据等级：[原型]无 UI（R8 明确纯后端），验证锚在 API 层。gateway-forwarding 断言一次真实 run 全链路经网关转发到内核并回传；execute-run-thin-gateway 静态断言 execute-run.ts 不再 import/定义 executeToolLoop / useLazySkillLoading 伪循环 / 纯 complete() 单次调用三条分支（R4 E3 物理删除），并断言行数显著下降。全 phase 后端基座，排最前。"
+    },
+    {
+      "id": "F02",
+      "area": "kernel-unification",
+      "title": "deep-agent-service 能力开关默认开启并移除开关本身",
+      "user_visible_behavior": "subagents / async-subtasks / task-auto-classify / precompletion-checklist / hitl-tools / checkpoint-db 六项能力在默认部署下即生效，且这些 feature flag 本身已从代码库移除，不再作为长期配置项存在，无用户可感知的行为倒退。",
+      "spec_ref": "01-kernel-unification.md#R6",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(b)：灰度开关默认开启并移除。依据等级：[原型]无 UI。测试遍历 R6 列出的六个开关符号，断言配置中不再存在该开关且能力路径默认启用。"
+    },
+    {
+      "id": "F03",
+      "area": "streaming-transport",
+      "title": "网关 WebSocket 事件端点：真流式转发内核事件、落库与推流解耦",
+      "user_visible_behavior": "内核产生的 token_delta/tool_call_start/tool_call_end/plan_update/status_change/checkpoint_saved 事件即时经网关 WebSocket 推送给前端，端到端延迟 < 500ms；账本落库为 fire-and-forget 旁路，不再是前端获取状态的路径；wave2-runtime.ts 的轮询契约与 agui-bridge.ts 的定时轮询实现已删除。",
+      "spec_ref": "02-streaming-transport.md#R3",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f03",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-run/ws-latency-and-no-polling.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/agui-event-schema.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(a)：WS 端点+事件转发+落库解耦，先于 F04。依据等级：[原型]。ws-event-forwarding 断言六类事件按序无损转发；ws-latency-and-no-polling 注入带时间戳事件测端到端<500ms 且静态断言轮询代码（readModelDeltas/readAgentRun/§5 轮询契约）已删除；contracts 断言新事件 schema 直接对齐 AG-UI 原生事件类型（全局约束：不自造平行格式）。"
+    },
+    {
+      "id": "F04",
+      "area": "streaming-transport",
+      "title": "前端订阅改造：删除轮询、断线重连、终态判断修复与全部非终态可交互渲染",
+      "user_visible_behavior": "用户提交任务后无论是否刷新/断线重连都能实时看到执行进度；run 停在任一非终态（awaiting_tool_permission/awaiting_plan_confirmation/paused）时前端渲染对应可交互 UI 而非无操作的纯 loading；连接中断时出现轻量『正在重连…』提示、恢复后自动显示『连接已恢复』并自动消失；重连持续失败时提示『连接中断，请手动刷新』。固化触发 bug 回归：run 停在 awaiting_tool_permission，刷新后 5 秒内渲染审批 UI。",
+      "spec_ref": "02-streaming-transport.md#R6",
+      "depends_on": [
+        "F03"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f04",
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/reconnect-toast.test.tsx",
+        "pnpm --filter web exec vitest run tests/agent-kernel/paused-state.test.tsx",
+        "pnpm --filter web exec vitest run tests/agent-kernel/terminal-status-and-restore.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11(b)：前端订阅改造。依据等级：[原型]（UI 先行已产出 reconnect-toast / paused-user / paused-system 单元）。reconnect-toast 断言 data-testid=reconnect-toast 的重连中/已恢复两态；paused-state 断言 data-testid=paused-user（含 paused-resume）与 paused-system（含 paused-system-notify/contact，保护性暂停不提供直接恢复）；terminal-status-and-restore 断言 isTerminalRunStatus 覆盖三非终态、每个非终态有渲染分支、且不再存在 awaiting_approval 与 20 分钟轮询预算/gave-up 兜底。paused 界面状态在此收敛，不为每个 UC 单独做。"
+    },
+    {
+      "id": "F05",
+      "area": "streaming-transport",
+      "title": "放开『一条用户消息只能对应一个 run』约束，支持一个逻辑 run 多次续跑",
+      "user_visible_behavior": "用户一条消息触发的任务在断线后可从 checkpoint 恢复并多次续跑，多次续跑记录仍映射到同一条用户消息，不因旧唯一性约束而无法表达。",
+      "spec_ref": "02-streaming-transport.md#R4",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": null,
+      "owner": "remote-f05",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/message-multi-run.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(c)：数据模型变更（R4 E4），可与 F03 并行。依据等级：[原型]无 UI。断言同一 messageId 可关联多条续跑 run 记录且续跑从 checkpoint 接续。"
+    },
+    {
+      "id": "F06",
+      "area": "plan-mode-permissions",
+      "title": "后端状态机 + 工具风险分级 + 三档授权存储",
+      "user_visible_behavior": "非平凡任务第一个可见状态是 awaiting_plan_confirmation；L0 只读自动执行不打断，L1 可撤销副作用自动执行但事件带完整 diff，L2 未授权时进入 awaiting_tool_permission；四档决策（仅本次/本run内/以后都允许/拒绝）在网关侧持久化并按范围生效，『以后都允许』跨 run 持久化生效，拒绝后内核据此调整计划而非直接失败；代码库不再存在 awaiting_approval 独立分支。",
+      "spec_ref": "03-plan-mode-permissions.md#R5",
+      "depends_on": [
+        "F03",
+        "F05"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": null,
+      "owner": "sonnet5-f06",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-run/permission-grant-scopes.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/awaiting-tool-permission-status.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(a)：后端状态机+权限分级+授权存储，先于 F07/F08。依据等级：[原型]。risk-tiering-and-states 断言 L0/L1/L2 行为与状态归属、纯只读任务全程不出现 awaiting_tool_permission、bash_exec 未授权必进入确认态且拒绝后不继续；permission-grant-scopes 分别验单次/本run/以后三档生效范围（以后需跨 run 持久化）；contracts 断言 AgentRunStatus 含 awaiting_plan_confirmation/awaiting_tool_permission 且无 awaiting_approval。覆盖 00-overview 三档权限与状态统一裁决。"
+    },
+    {
+      "id": "F07",
+      "area": "plan-mode-permissions",
+      "title": "前端计划确认卡片：结构化 todo 可编辑/删除后确认执行",
+      "user_visible_behavior": "run 处于 awaiting_plan_confirmation 时前端渲染计划确认卡片，展示结构化 todo 列表（带 L0/L1/L2 风险徽标），用户可编辑或删除某步；删除了被依赖的前置步骤时给出提示且禁用确认；确认后卡片显示『计划已确认，agent 开始执行』并把修订版 plan 写回内核；点取消则终止任务。",
+      "spec_ref": "03-plan-mode-permissions.md#R8",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/plan-confirmation-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11(b)：前端计划确认卡片。依据等级：[原型]（UI 先行已产出）。断言 data-testid=plan-confirmation-card，编辑 plan-todo-input-t1、删除 plan-todo-delete-t1、删前置后出现 err-plan 且 plan-confirm 禁用、确认后出现 plan-confirmed/saved、plan-cancel 存在。"
+    },
+    {
+      "id": "F08",
+      "area": "plan-mode-permissions",
+      "title": "前端工具权限确认弹层：四档授权决策",
+      "user_visible_behavior": "run 处于 awaiting_tool_permission 时前端渲染权限确认弹层，展示 agent 想做什么（intent）、为什么（rationale）、完整未截断命令（command）与影响范围；用户四选一：仅本次允许 / 本 run 内都允许 / 以后都允许 / 拒绝，选后显示对应结果说明。",
+      "spec_ref": "03-plan-mode-permissions.md#R8",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f08",
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/tool-permission-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11(c)：前端工具权限确认弹层。依据等级：[原型]（UI 先行已产出）。断言 data-testid=tool-permission-card，展示 perm-intent/perm-rationale/perm-command（命令完整未截断），四按钮 perm-once/perm-run/perm-always/perm-deny 各自点击后 data-testid=saved 文案对应。"
+    },
+    {
+      "id": "F09",
+      "area": "artifacts-steering",
+      "title": "Artifact 领域模型 + 版本化 API",
+      "user_visible_behavior": "agent 产出文件类结果时网关创建独立 Artifact 实体（id/version/producedByRunId/producedByStepId），而非仅作聊天附件；POST /artifacts/:id/continue 携带指定版本内容作为上下文触发新 run，完成后同一 Artifact version 递增、旧版本保留可查看；每个版本可追溯到产生它的 run/step；生成失败不创建空/损坏版本。",
+      "spec_ref": "04-artifacts-steering.md#R3",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": null,
+      "owner": "remote-f09",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/artifact-versioning.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-run/artifact-continue-version-context.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(a)：Artifact 模型+API，可与 F11 并行。依据等级：[原型]无独立 UI。artifact-versioning 断言连续两次 continue 后版本历史递增且各版本可追溯 run/step、失败尝试不计入；artifact-continue-version-context 断言 continue 用的是明确指定版本内容作上下文（R4 E2）。"
+    },
+    {
+      "id": "F10",
+      "area": "artifacts-steering",
+      "title": "前端产出物面板：版本历史查看与基于某版本继续修改",
+      "user_visible_behavior": "侧栏 artifacts 面板展示当前产出物的版本历史缩略图，无产出物时显示空态；用户可在版本历史中切换查看任一版本，可『查看此版本』或『基于此继续修改』发起迭代。",
+      "spec_ref": "04-artifacts-steering.md#R8",
+      "depends_on": [
+        "F09"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote",
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/artifacts-panel.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11(b)：前端 artifacts 面板。依据等级：[原型]（UI 先行已产出，含空态）。断言 data-testid=artifacts-panel，版本切换 artifact-version-1/2/3（aria-pressed 切换）、artifact-view/artifact-continue 存在、空态 empty。"
+    },
+    {
+      "id": "F11",
+      "area": "artifacts-steering",
+      "title": "中途插话后端接口 + 内核插话处理",
+      "user_visible_behavior": "run 处于 running 时 POST /agent-runs/:id/interject 携带指令文本，内核在下一次工具调用之间注入为最高优先级上下文并据此判断是否重新规划；插话不打断正在执行的当次工具调用；方向性改变时触发新 plan_update（是否重新确认由内核判断）；若插话使已批准的 L2 授权范围产生歧义则重新走授权。",
+      "spec_ref": "04-artifacts-steering.md#R3",
+      "depends_on": [
+        "F06"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/interjection-handling.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(c)：插话后端+内核处理，依赖 F06（重规划/重授权）。依据等级：[原型]无独立 UI。断言插话注入后下一步执行路径体现新指令、不打断当次工具调用（R4 E1）、L2 授权歧义时重新授权（R4 E3）。"
+    },
+    {
+      "id": "F12",
+      "area": "artifacts-steering",
+      "title": "前端中途插话交互：运行中可交互输入框 + 即时已收到反馈",
+      "user_visible_behavior": "run 处于 running 时插话输入框保持可交互（非 disabled），用户发送插话后 1 秒内显示『已收到』确认反馈，不打断当前展示的执行进度流；支持 Cmd/Ctrl+Enter 发送。",
+      "spec_ref": "04-artifacts-steering.md#R8",
+      "depends_on": [
+        "F11"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/interjection-composer.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "R11(d)：前端插话交互。依据等级：[原型]（UI 先行已产出）。断言 data-testid=interjection-composer，interjection-input 非 disabled、interjection-send 发送后出现 interjection-ack。"
+    },
+    {
+      "id": "F13",
+      "area": "error-observability",
+      "title": "错误分类修复：toFailure 精确归类，取消 SANDBOX_UNAVAILABLE 兜底误标",
+      "user_visible_behavior": "任务失败时错误按真实类型准确归类——模型调用失败归模型类错误码、沙箱不可用/超时归沙箱类，不再把任何未识别异常统一归为 SANDBOX_UNAVAILABLE；固化本 phase 触发 bug 回归：注入 ModelCallError(MODEL_CALL_FAILED) 断言分类不再误标为沙箱错误。",
+      "spec_ref": "05-error-observability.md#R3",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f13",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/failure-classification.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(a)：错误分类修复，最先做（直接修复本次故障诱因）。依据等级：[原型]无 UI。断言 toFailure 兜底不再统一归 SANDBOX_UNAVAILABLE、模型故障归模型类错误码（R4 E1 回归）。"
+    },
+    {
+      "id": "F14",
+      "area": "error-observability",
+      "title": "错误人性化转换层 + 前端错误状态卡片",
+      "user_visible_behavior": "任务失败时前端错误卡片主展示区只显示人性化 message 与可点击的 suggestedAction 按钮（至少覆盖重试/简化任务重试/联系支持），原始错误码/堆栈放入默认收起的『查看详情』折叠区，主展示区绝不出现未转换的技术错误码/堆栈；每种 failureCode 都有 suggestedAction 映射（契约测试遍历无遗漏）。",
+      "spec_ref": "05-error-observability.md#R8",
+      "depends_on": [
+        "F13"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "remote-f14",
+      "capability": "CAP-WEB",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/agent-kernel/error-card.test.tsx",
+        "pnpm --filter api exec vitest run tests/agent-run/failure-code-suggested-action-map.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(b)：人性化转换层+错误卡片。依据等级：[原型]（UI 先行已产出）。error-card 断言 data-testid=error-card，error-message 可见、error-action-retry/simplify/contact 三按钮、技术细节仅在 error-detail-toggle 展开后的 error-detail 折叠区可见；failure-code-suggested-action-map 遍历所有已定义 failureCode 断言均有 suggestedAction 映射（R4 E2）。"
+    },
+    {
+      "id": "F15",
+      "area": "error-observability",
+      "title": "完整可审计 transcript 存储改造：完整内容 + 字段级加密 + RBAC 审计接口",
+      "user_visible_behavior": "每次 run 的每个执行步骤（模型调用/工具调用/计划变化/权限确认）写入 agent_run_steps 账本，存储完整 prompt/response 内容（非 digest+截断摘要）并字段级加密；有权限的运维/开发角色可通过审计接口读取完整 transcript，无权限角色被正确拒绝；密钥不可用时明确报告『内容不可读』而非静默空值或崩溃。",
+      "spec_ref": "05-error-observability.md#R3",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": null,
+      "owner": "remote-f15",
+      "capability": "CAP-API",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-run/transcript-full-content-rbac.test.ts"
+      ],
+      "evidence": "",
+      "notes": "R11(c)：transcript 存储改造，可与 F14 并行。依据等级：[设计]——R9 明确字段级加密方案是『需人类明确签字确认』的数据合规决策点，签核前不可据此开工；notes 标出依据不足。断言完整内容写入+字段级加密、有权限角色可读全文、无权限角色被拒（R5）、密钥不可用时报『内容不可读』（R4 E3）。"
+    }
+  ]
+}

@@ -2,11 +2,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText, PencilRuler } from "lucide-react";
+import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, ImagePlus, FileText, PencilRuler, Maximize2, Minimize2, AlertTriangle, Pause } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
+import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
+import { ComposerVoiceControl, formatElapsed } from "@/components/chat/chat-composer-voice-control";
+import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import {
   FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_ATTACHMENT_LIMIT,
@@ -96,6 +98,7 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
   已进入迭代: "ai",
   已修复: "primary",
   不做: "neutral",
+  已归档: "neutral",
 };
 
 const TITLE_MAX = 120;
@@ -168,6 +171,10 @@ export function FeedbackDialog({
   const pathname = usePathname();
   const router = useRouter();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
+  /** 弹层默认是一个居中的卡片，内容多（review 阶段的字段 + 附件 + 语音）时容易顶到 85vh 上限
+   * 反复滚动，看起来"挤"。加一个全屏切换：用户自己决定要不要把弹层撑满视口，
+   * 不是默认就全屏（大多数反馈很短，居中卡片够用，默认全屏反而显得突兀）。 */
+  const [fullscreen, setFullscreen] = React.useState(false);
   /**
    * issue #2679 ②——渐进式展示：一开始只有「详细说说」一个框 + 语音输入，不把
    * 「这是什么／复现频率／期望结果／实际结果／复现步骤」等字段一次性摊开。用户写完
@@ -200,8 +207,6 @@ export function FeedbackDialog({
   // 小字里、停止后才去整理，整理慢或失败时屏上就是空的。
   const [structuring, setStructuring] = React.useState(false);
   const [structureError, setStructureError] = React.useState<string | null>(null);
-  const wasRecordingRef = React.useRef(false);
-  const discardedRef = React.useRef(false);
   const detailRef = React.useRef("");
   detailRef.current = detail;
 
@@ -227,20 +232,29 @@ export function FeedbackDialog({
     sessionToken: getStoredSessionToken() ?? "",
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
+  /**
+   * 2026-09-04 人类反馈：这里的录音/转录体验要与 chat composer 看齐——不是重新发明
+   * 一套（此前的 `VoiceRecordingBar` 是自己攒的一颗胶囊，视觉与状态机都是本文件独有的
+   * 一份）。composer 那套「分段胶囊按钮 + 底部状态栏」（暂停/继续/静音提示/转录后
+   * 可撤销）已经在 `use-composer-voice-session.ts` / `chat-composer-voice-control.tsx` /
+   * `chat-composer-status-bar.tsx` 里落成可复用的 hook + 组件，这里直接复用同一份，
+   * 而不是维护第二套「录音怎么显示」的规则——同一件事只该有一处实现。
+   */
+  const voice = useComposerVoiceSession(speech, {
+    setDraft: (text) => setDetail(text),
+    getDraft: () => detailRef.current,
+  });
 
-  // 录音真正结束（回到 idle，且此前确实录过）——这一刻才把整段转录交给
-  // `structureFeedbackDraft` 整理。不是每次 partial 更新都调，那样会打爆这条元任务接口。
+  // 录音真正「完成」（`voice.phase` 落到 `done`——composer 语义下的「转录后编辑」态，
+  // 用户点了「说完了/停止」而不是「暂停」或「丢弃」）——这一刻才把整段转录交给
+  // `structureFeedbackDraft` 整理。不是每次 partial 更新都调，那样会打爆这条元任务接口；
+  // 也不是每次「暂停」都调——暂停之后用户可能还要继续说，此时结构化字段还没到齐。
+  const prevVoicePhaseRef = React.useRef(voice.phase);
   React.useEffect(() => {
-    // ⚠ 只有真的**录上了**（到过 listening）才算一段录音；连接阶段就失败（ASR 没配 /
-    //   麦克风被拒）不是"说完了"，不该拿框里已有的文字去整理——本地实测这会在语音报错
-    //   之后再多冒一条"没能整理"的错。
-    if (speech.listening) wasRecordingRef.current = true;
-    if (speech.listening || speech.connecting || speech.stopping) return;
-    if (!wasRecordingRef.current) return;
-    wasRecordingRef.current = false;
-    if (speech.status === "error" || speech.status === "denied") return;
-    // 「取消」= 丢弃这段转录（composer 的 TW-P0-5⑥ 语义），不整理。
-    if (discardedRef.current) { discardedRef.current = false; return; }
+    const prev = prevVoicePhaseRef.current;
+    prevVoicePhaseRef.current = voice.phase;
+    if (prev === voice.phase) return;
+    if (voice.phase !== "done") return;
     const transcript = detailRef.current.trim();
     if (transcript === "") return;
     setStructuring(true);
@@ -267,8 +281,88 @@ export function FeedbackDialog({
         setStructuring(false);
         setStage("review");
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，正文只在触发那一刻读一次快照（ref）。
-  }, [speech.listening, speech.connecting, speech.stopping]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 `voice.phase` 落到 done 的边沿触发，正文只在触发那一刻读一次快照（ref）。
+  }, [voice.phase]);
+
+  /**
+   * 录音状态栏——与 chat composer 同一份文案/操作模式（`copilotkit-v2-panel-body.tsx`
+   * 的 `composerStatusBar` 计算），只是砍掉本弹层用不到的两态（`stopping` 这里合并进
+   * "整理中" 展示、`agent.isRunning`/附件上传中那两条属于 chat 场景不适用）。
+   * `done` 态本弹层不需要单独一条状态栏——「已转录」之后紧接着就是 `structuring`
+   * 把它整理进 review 阶段的字段，用户看到的是字段本身，不是再多一条「已转录 N 字」。
+   */
+  const voiceStatusBar: React.ReactNode = (() => {
+    const chars = voice.transcribedChars;
+    if (voice.phase === "connecting") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="feedback-voice-connecting" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="正在连接语音识别" description="请稍候，正在申请麦克风并建立连接"
+          actions={[{ label: "取消", onClick: voice.discard, testId: "feedback-voice-cancel" }]} />
+      );
+    }
+    if (voice.phase === "listening" && voice.silenceHint) {
+      return (
+        <ComposerStatusBar tone="warning" testId="feedback-voice-listening" icon={<AlertTriangle className="h-4 w-4" />}
+          title={`${voice.silentSeconds} 秒未听到声音`}
+          description={`请靠近麦克风，或换一个设备${voice.autoPause ? ` · 静音 ${SILENCE_AUTO_PAUSE_AFTER_SECONDS} 秒后自动暂停` : ""}`}
+          actions={[
+            { label: "换麦克风", onClick: voice.requestDeviceMenu, testId: "feedback-voice-switch-device" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
+          ]} />
+      );
+    }
+    if (voice.phase === "listening") {
+      return (
+        <ComposerStatusBar tone="destructive" testId="feedback-voice-listening"
+          icon={<span className="h-2 w-2 animate-pulse rounded-pill bg-destructive" />}
+          title={`正在听 ${formatElapsed(voice.totalSeconds)}`}
+          description={`文字实时写入「详细说说」 · 已 ${chars} 字 · 说完点「停止」`}
+          actions={[
+            { label: "暂停", onClick: voice.pause, testId: "feedback-voice-pause" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "feedback-voice-stop" },
+          ]} />
+      );
+    }
+    if (voice.phase === "stopping" || structuring) {
+      return (
+        <ComposerStatusBar tone="neutral" testId="feedback-voice-stopping" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title={voice.phase === "stopping" ? "正在停止" : "AI 整理中…"}
+          description={voice.phase === "stopping" ? "等待最后一段转录落定" : undefined} />
+      );
+    }
+    if (voice.phase === "paused") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="feedback-voice-paused" icon={<Pause className="h-4 w-4" />}
+          title={`已暂停 ${formatElapsed(voice.totalSeconds)}`}
+          description={`已转录 ${chars} 字 · 继续录音会接在后面`}
+          actions={[
+            { label: "丢弃", onClick: voice.discard, testId: "feedback-voice-cancel" },
+            { label: "继续", onClick: voice.start, testId: "feedback-voice-resume" },
+            { label: "完成", onClick: voice.finish, variant: "solid", testId: "feedback-voice-finish" },
+          ]} />
+      );
+    }
+    if (voice.phase === "error") {
+      const denied = speech.status === "denied";
+      const unsupported = speech.status === "unsupported";
+      const actions: ComposerStatusAction[] = [];
+      if (denied) {
+        actions.push({
+          label: "查看如何开启",
+          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
+          testId: "feedback-voice-permission-help",
+        });
+      }
+      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "feedback-voice-retry" });
+      return (
+        <ComposerStatusBar tone="warning" testId="feedback-voice-error" icon={<AlertTriangle className="h-4 w-4" />}
+          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
+          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
+          actions={actions} />
+      );
+    }
+    return null;
+  })();
 
   // 弹层关闭/卸载时释放本地预览的 object URL，不留内存泄漏。
   React.useEffect(() => {
@@ -493,14 +587,21 @@ export function FeedbackDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="feedback-dialog-backdrop">
+    <div
+      className={cn("fixed inset-0 z-50 flex items-center justify-center", fullscreen ? "p-0" : "p-4")}
+      data-testid="feedback-dialog-backdrop"
+    >
       <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
         aria-label="提交反馈"
         data-testid="feedback-dialog"
-        className="relative flex h-[min(85vh,54rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+        data-fullscreen={fullscreen}
+        className={cn(
+          "relative flex w-full flex-col overflow-hidden border-border bg-card shadow-lg",
+          fullscreen ? "h-full max-w-none rounded-none border-0" : "h-[min(85vh,54rem)] max-w-2xl rounded-lg border",
+        )}
       >
         <header className="flex items-start justify-between gap-3 border-b border-border p-4 pb-3">
           <div className="min-w-0">
@@ -511,9 +612,20 @@ export function FeedbackDialog({
               提了会有人看：每条反馈都有状态与去向，在「我提过的」里跟进。
             </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭" data-testid="feedback-dialog-close">
-            <X aria-hidden className="h-4 w-4" />
-          </Button>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFullscreen((v) => !v)}
+              aria-label={fullscreen ? "退出全屏" : "全屏"}
+              data-testid="feedback-dialog-fullscreen-toggle"
+            >
+              {fullscreen ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Maximize2 aria-hidden className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭" data-testid="feedback-dialog-close">
+              <X aria-hidden className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
 
         <div className="flex gap-1 border-b border-border px-4 pt-2" role="tablist">
@@ -659,45 +771,36 @@ export function FeedbackDialog({
               )}
             </div>
 
-            {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。
-                issue #2679 ①——麦克风设备选择：录音未开始时，主按钮旁再放一个极简的设备选择器
-                （复用 chat composer 的 `MicDevicePicker`），不把设备选择塞进主按钮本身——
-                主按钮只做一件事（开始说话），设备是次要、偶尔才用的选项，分开放才叫「简化」。 */}
+            {/* FB-5——语音输入：**复用 chat composer 同一套组件**（分段胶囊按钮 + 底部状态栏），
+                不再是本文件自己攒的一份，见上方 `voice` hook 头注。 */}
             <div className="flex flex-col gap-1.5">
-              {speech.connecting || speech.listening || speech.stopping ? (
-                <VoiceRecordingBar
-                  listening={speech.listening}
-                  connecting={speech.connecting}
-                  stopping={speech.stopping}
-                  elapsedSeconds={speech.elapsedSeconds}
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-11 text-muted-foreground">
+                  说一段话，边说边转成文字，说完 AI 帮你整理成标题、复现步骤这些字段。
+                </p>
+                <ComposerVoiceControl
+                  status={speech.status}
+                  phase={voice.phase}
+                  elapsedSeconds={voice.totalSeconds}
                   level={speech.level}
-                  onStop={speech.stop}
-                  onCancel={() => { discardedRef.current = true; speech.cancel(); }}
+                  disabled={structuring}
+                  onStart={voice.start}
+                  onStop={voice.finish}
+                  onResume={voice.start}
+                  // 本弹层不像 chat composer 那样必须先有一条会话线程才谈得上"录音"——
+                  // 未登录时点开始，`useAsrDraft` 自然会在真正连接时报出鉴权失败
+                  // （同它此前的既有行为），这里不重复加一道前置拦截。
+                  onRequireSession={() => true}
+                  devices={micDevices.devices}
+                  selectedDeviceId={micDevices.selectedDeviceId}
+                  onSelectDevice={micDevices.select}
+                  autoPause={voice.autoPause}
+                  onAutoPauseChange={voice.setAutoPause}
+                  deviceMenuRequest={voice.deviceMenuRequest}
                 />
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    data-testid="feedback-voice-button"
-                    disabled={structuring}
-                    onClick={() => speech.start()}
-                  >
-                    {structuring ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Mic aria-hidden className="h-3.5 w-3.5" />}
-                    {structuring ? "AI 整理中…" : "说一段话，边说边转成文字，说完 AI 帮你整理"}
-                  </Button>
-                  <MicDevicePicker
-                    devices={micDevices.devices}
-                    selectedDeviceId={micDevices.selectedDeviceId}
-                    disabled={structuring}
-                    onSelect={micDevices.select}
-                  />
-                </div>
-              )}
-              {speech.error !== null && (
-                <p className="text-11 text-destructive" data-testid="feedback-voice-error">{speech.error}</p>
+              </div>
+              {voiceStatusBar !== null && (
+                <div className="overflow-hidden rounded-md">{voiceStatusBar}</div>
               )}
               {structureError !== null && (
                 <p className="text-11 text-destructive" data-testid="feedback-structure-error">
@@ -972,10 +1075,10 @@ function TabButton({
       onClick={onClick}
       data-testid={testid}
       className={cn(
-        "rounded-t-md px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "-mb-px rounded-t-md border-b-2 px-3 py-1.5 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "border-b-2 border-primary font-medium text-card-foreground"
-          : "border-b-2 border-transparent text-muted-foreground hover:text-card-foreground",
+          ? "border-primary font-medium text-card-foreground"
+          : "border-transparent text-muted-foreground hover:text-card-foreground",
       )}
     >
       {children}
@@ -1191,109 +1294,3 @@ function AttachmentThumbnail({ url }: { url: string }) {
   );
 }
 
-function formatElapsed(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-/**
- * issue #2637 ④——人类实测反馈"录音中的那条 bar 看着很怪"，要求参考苹果的录音态
- * （干净、极简：一个跳动的点/波形 + 计时）。原来那条是一整条塞满信息的横条：状态文案
- * + 计时 + 一整条音量"进度条"（`role="meter"` 那段），进度条的视觉语言天然是"某个
- * 任务完成了多少"，用在"这是当下多大声"上是错的比喻，看起来像加载条卡住了。
- *
- * 改成一颗胶囊：左边一个跟着"是否在真正说话"呼吸的红点（`listening` 时脉冲，
- * `connecting`/`stopping` 时是中性色的静止点——**不假装还在录**），中间五根竖条
- * 组成的迷你波形——真实驱动它们高度的仍然是同一个 `level`（`pcm16Level()` 对实采
- * PCM16 求的 RMS），只是给每根条形按索引分配一点不同的响应曲线（`BAR_RESPONSE`），
- * 让整体看起来像波形而不是一根条形跟着数字生硬跳动。计时保持等宽数字。
- * 取消/说完了两个动作从横向按钮组收进胶囊右侧的两个图标按钮，视觉重量降到最低——
- * 苹果录音态的克制感，主要动作只有"停止"，"取消"退居次要。
- */
-const BAR_RESPONSE = [0.5, 0.8, 1, 0.75, 0.55] as const;
-
-function VoiceRecordingBar({
-  listening, connecting, stopping, elapsedSeconds, level, onStop, onCancel,
-}: {
-  listening: boolean;
-  connecting: boolean;
-  stopping: boolean;
-  elapsedSeconds: number;
-  level: number;
-  onStop: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div
-      className="flex w-full items-center gap-2.5 rounded-full border border-border-subtle bg-muted/40 py-1.5 pl-3 pr-1.5"
-      data-testid="feedback-voice-recording"
-      role="status"
-    >
-      <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-        {listening && (
-          <span className="absolute inset-0 animate-ping rounded-full bg-destructive/60" />
-        )}
-        <span className={cn("relative h-2 w-2 rounded-full", listening ? "bg-destructive" : "bg-muted-foreground")} />
-      </span>
-
-      <span className="sr-only" aria-live="polite">
-        {connecting ? "正在连接…" : stopping ? "正在停止…" : "正在录音，说的话会实时出现在「详细说说」里"}
-      </span>
-
-      {/* 迷你波形：真实 `level`（RMS）驱动，不是装饰性的固定动画。connecting/stopping 时
-          压平成一条静止的最低高度——那两段没有"当下有多大声"这个数据，不该假装有。 */}
-      <div
-        className="flex h-4 flex-1 items-center justify-center gap-1"
-        role="meter"
-        aria-label="音量"
-        aria-valuemin={0}
-        aria-valuemax={1}
-        aria-valuenow={Number(level.toFixed(3))}
-      >
-        {BAR_RESPONSE.map((factor, i) => {
-          const active = listening ? Math.max(0.15, Math.min(1, level * factor * 2.2)) : 0.15;
-          return (
-            <span
-              key={i}
-              aria-hidden
-              className={cn("w-[3px] rounded-full transition-[height] duration-fast", listening ? "bg-primary" : "bg-muted-foreground/50")}
-              style={{ height: `${Math.round(active * 100)}%` }}
-            />
-          );
-        })}
-      </div>
-
-      <span className="shrink-0 font-mono text-11 tabular-nums text-muted-foreground" data-testid="feedback-voice-timer">
-        {connecting ? "…" : stopping ? "…" : formatElapsed(elapsedSeconds)}
-      </span>
-
-      <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="h-6 w-6"
-          disabled={stopping}
-          onClick={onCancel}
-          aria-label="取消录音"
-          data-testid="feedback-voice-cancel"
-        >
-          <X aria-hidden className="h-3 w-3" />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="primary"
-          className="h-6 w-6 rounded-full"
-          disabled={stopping || connecting}
-          onClick={onStop}
-          aria-label="说完了"
-          data-testid="feedback-voice-stop"
-        >
-          <Check aria-hidden className="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  );
-}

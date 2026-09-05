@@ -63,8 +63,9 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore {
     readModelDeltas: async (): Promise<readonly RunDelta[]> => [],
     storeOutputAwaitingWriteback: async () => {},
     failRun: async (_o, _r, _c: RunFailureCode) => {},
-    async markAwaitingApproval() { throw new Error('unexpected markAwaitingApproval in this test'); },
+    async markAwaitingToolPermission() { throw new Error('unexpected markAwaitingToolPermission in this test'); },
     async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
+    async denyAndRequeue() { throw new Error('unexpected denyAndRequeue in this test'); return false; },
     async editAndRequeue() { throw new Error('unexpected editAndRequeue in this test'); return false; },
     claimWritebackPending: unused("claimWritebackPending"),
     commitWriteback: unused("commitWriteback"),
@@ -72,11 +73,13 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore {
     reopenForWritebackRetry: unused("reopenForWritebackRetry"),
     appendWritebackFailure: unused("appendWritebackFailure"),
     findLocator: async (): Promise<RunLocator | null> => null,
-    findAwaitingApprovalRunId: async (): Promise<string | null> => null,
+    findAwaitingToolPermissionRunId: async (): Promise<string | null> => null,
     readRun: async (): Promise<Guarded<RunProjection> | null> => null,
     readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => [],
     readThreadContextState: async () => null,
     upsertThreadContextState: async () => true,
+    // Phase 14 F15 -- audit-only read this executor-focused fake never exercises.
+    readRunTranscriptSteps: async () => null,
   };
 }
 

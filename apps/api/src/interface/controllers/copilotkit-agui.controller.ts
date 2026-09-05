@@ -117,11 +117,11 @@ import {
   THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
 } from "../../application/chat/generate-thread-title";
 import {
-  runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingApprovalRunError,
+  runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingToolPermissionRunError,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
-  TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingApprovalError,
+  TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingToolPermissionError,
   type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
 import {
@@ -332,7 +332,7 @@ function lastUserText(input: AguiRunInput): string | null {
  *
  * This is why `resumeAguiBridgeTurn` does not need the message's `toolCallId` for
  * correlation (see `AguiRunInput`'s own doc): a Chat thread has at most one
- * `awaiting_approval` run at a time (`findAwaitingApprovalRunId`'s own doc), so "the last
+ * `awaiting_tool_permission` run at a time (`findAwaitingToolPermissionRunId`'s own doc), so "the last
  * message is a tool result" is already enough to know WHICH run this resumes, once
  * `forwardedProps.chatThreadId` says WHICH thread.
  */
@@ -416,7 +416,7 @@ function writeToolCallStep(
   write({ type: EventType.TOOL_CALL_END, toolCallId });
 
   // DA-19g -- ONLY the step that IS the pending HITL interrupt (DA-07b's
-  // `awaiting_approval`, `isPendingApproval` -- see `agui-bridge.ts`'s `onStep` doc for why
+  // `awaiting_tool_permission`, `isPendingApproval` -- see `agui-bridge.ts`'s `onStep` doc for why
   // `step.status === "in_progress"` alone is not enough signal: an ORDINARY multi-step tool
   // call also reports an `"in_progress"` announcement frame while the run is still plain
   // `"running"`, #742 Gap 1's semantics apply to every tool call, not only ones that pause
@@ -500,11 +500,11 @@ export class CopilotkitAguiController {
    * resume today) looks itself up by the SAME `clientThreadId` the wire already carries.
    *
    * ⚠ Known scope limitation, stated plainly: this is single-process, in-memory state. A
-   * process restart between a run entering `awaiting_approval` and the human deciding loses
+   * process restart between a run entering `awaiting_tool_permission` and the human deciding loses
    * the correlation (the run itself is still safely parked in Postgres -- `agent_runs.
-   * status='awaiting_approval'` -- only the "which client threadId maps to it" fact is
+   * status='awaiting_tool_permission'` -- only the "which client threadId maps to it" fact is
    * lost, and the resume falls back to `forwardedProps.chatThreadId` if present, else
-   * `NoAwaitingApprovalRunError`, an honest failure, not silent data loss). Multi-instance
+   * `NoAwaitingToolPermissionRunError`, an honest failure, not silent data loss). Multi-instance
    * deployment has the same gap. Fixing this for real (persisting the correlation, or
    * deriving it without one) is out of this task's scope -- registered as a follow-up, not
    * silently left unstated.
@@ -705,7 +705,7 @@ export class CopilotkitAguiController {
     try {
       // DA-19g -- both branches share the SAME `onStarted`/`onDelta`/`onStep` wire
       // translation; only how the underlying run is reached differs (fresh turn vs.
-      // resuming one already parked on `awaiting_approval`, see `agui-bridge.ts`'s doc on
+      // resuming one already parked on `awaiting_tool_permission`, see `agui-bridge.ts`'s doc on
       // `runAguiBridgeTurn` vs. `resumeAguiBridgeTurn`).
       const sharedCallbacks = {
         // Fires once the run genuinely exists/resumes -- see `agui-bridge.ts`'s own doc for
@@ -788,7 +788,7 @@ export class CopilotkitAguiController {
           // Resume ALWAYS needs a real Chat thread id -- there is no "create one" fallback
           // here the way a fresh turn has (`resolveThreadId`'s `null` branch): a resume
           // with nowhere to look up the paused run is not a request this bridge can invent
-          // an answer to. `findAwaitingApprovalRunId` throws `NoAwaitingApprovalRunError`
+          // an answer to. `findAwaitingToolPermissionRunId` throws `NoAwaitingToolPermissionRunError`
           // on an empty string exactly like it would on any other thread with no pending
           // run, so this is deliberately NOT special-cased into its own error code.
           threadId: resumeChatThreadId ?? "",
@@ -835,7 +835,7 @@ export class CopilotkitAguiController {
         //   `agui-bridge-sse.test.ts` 的逐条序列断言当场抓到。放在这里，「气泡已完整之后、
         //   这一轮结束之前」这条不变量对两条路径都成立。
         //
-        // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_approval` 没有一条已落库的
+        // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_tool_permission` 没有一条已落库的
         //   assistant 消息可指——发一个指向不存在的行的 id，比不发更糟。
         //   完整理由见 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`。
         //
@@ -851,7 +851,7 @@ export class CopilotkitAguiController {
         // use case rather than the deepagents engine's own ephemeral `values.files`).
         // AFTER the chat_message_id echo (a consumer resolving "which real message do these
         // files belong to" needs that id already on the wire) and, like it, ONLY on the
-        // `succeeded` branch -- `failed`/`awaiting_approval` never reach `commitWriteback`,
+        // `succeeded` branch -- `failed`/`awaiting_tool_permission` never reach `commitWriteback`,
         // so there is no result message any attachment could be filed under.
         //
         // `/copilotkit/agui` only ever creates personal threads (`projectId: null`, see
@@ -868,7 +868,7 @@ export class CopilotkitAguiController {
       } else if (outcome.kind === "failed") {
         if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error });
-      } else if (outcome.kind === "awaiting_approval") {
+      } else if (outcome.kind === "awaiting_tool_permission") {
         // DA-19g -- NOT an error. `onStep` above already wrote the dangling
         // TOOL_CALL_START/ARGS/END triplet for the pending tool call (no RESULT, see
         // `writeToolCallStep`'s own doc) -- ending the run normally here, exactly like a
@@ -905,18 +905,18 @@ export class CopilotkitAguiController {
         write({ type: EventType.RUN_ERROR, message: "RESULT_UNREADABLE", code: "RESULT_UNREADABLE" });
       } else if (e instanceof AuthzUnavailableError) {
         write({ type: EventType.RUN_ERROR, message: "AUTHZ_UNAVAILABLE", code: "AUTHZ_UNAVAILABLE" });
-      } else if (e instanceof NoAwaitingApprovalRunError) {
+      } else if (e instanceof NoAwaitingToolPermissionRunError) {
         // DA-19g -- see that error class's own doc: nothing left to resume (already
         // decided elsewhere, or a stray/duplicate follow-up). Honest, stable code -- not
         // folded into INTERNAL_ERROR, and not silently treated as a no-op success.
         write({ type: EventType.RUN_ERROR, message: "NO_PENDING_APPROVAL", code: "NO_PENDING_APPROVAL" });
-      } else if (e instanceof AgentRunNotAwaitingApprovalError) {
-        // DA-19g -- `decideAgentRun` found a run id but it raced out of `awaiting_approval`
-        // between `findAwaitingApprovalRunId` and the decision itself (concurrent decision,
+      } else if (e instanceof AgentRunNotAwaitingToolPermissionError) {
+        // DA-19g -- `decideAgentRun` found a run id but it raced out of `awaiting_tool_permission`
+        // between `findAwaitingToolPermissionRunId` and the decision itself (concurrent decision,
         // already terminal, …) -- same "as-real" conflict the REST route already reports.
         write({
-          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_APPROVAL",
-          code: "AGENT_RUN_NOT_AWAITING_APPROVAL",
+          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
+          code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
         });
       } else {
         write({ type: EventType.RUN_ERROR, message: "INTERNAL_ERROR", code: "INTERNAL_ERROR" });

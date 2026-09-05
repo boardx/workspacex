@@ -95,7 +95,7 @@ const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
  * UX-9 D4 前端接入取证（gap 清单第 3 条）—— 对这句触发词，第一次到达状态阈值时回
  * `status: "interrupted"` 而不是 `"success"`：`DeepAgentModelProvider.completeWithProgress`
  * 见到 `"interrupted"` 会去读 state 找待批工具调用（`readPendingApproval`），run 落
- * `awaiting_approval` ——这是让真实 HITL 链路（DA-07b/DA-07c）在确定性替身下也能被
+ * `awaiting_tool_permission` ——这是让真实 HITL 链路（DA-07b/DA-07c）在确定性替身下也能被
  * 端到端取证的唯一入口，不是在前端伪造一个「正等待批准」的卡片。
  *
  * resume 之后（`createRun` 收到 `command.resume`）本进程记下裁决（approve/edit/reject

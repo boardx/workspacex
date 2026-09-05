@@ -119,7 +119,7 @@ const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) 
  */
 const MERGED_SECOND_LEVEL_KEYS = new Set<string>([
   "templates", "skills", "agent-runtime", "asset-governance", "canvas", "org-admin",
-  "agent-interrupts", "plan-control",
+  "agent-interrupts", "plan-control", "agent-kernel",
 ]);
 
 export function AdminNav({
