@@ -447,8 +447,22 @@ export const AgentRunView = z.object({
 
 export const operations = {
   /**
-   * Wave 2's run transport is polling (§5). Clients use bounded backoff and stop at a
-   * terminal status. There is no SSE variant in this slice.
+   * Wave 2's run transport was polling-only (§5): bounded backoff, stop at a terminal
+   * status, no push variant. That is no longer the whole picture.
+   *
+   * Phase 14 F03 (`streaming-transport` 契约束) added a real push transport --
+   * `streamingTransport.operations.subscribeRunEvents`, `WS /agent-runs/:runId/events` --
+   * that forwards `KernelStreamEvent`s the moment `execute-run.ts` produces them, decoupled
+   * from this endpoint's own ledger reads (see that file's own header for I-1/I-3/I-4).
+   * `getAgentRun` below is UNCHANGED and still valid for a one-shot read (initial load
+   * before a client opens the WS connection, a server-side check, a client that has no WS
+   * support) -- it is simply no longer the ONLY way to observe a run's progress, and no
+   * caller has to fall back to bounded-backoff polling to get near-real-time updates
+   * anymore. `apps/api/src/application/agent-run/agui-bridge.ts`'s own internal relay
+   * (the CopilotKit AG-UI bridge, a DIFFERENT wire protocol than this WS endpoint) still
+   * polls this contract's read path as of this comment -- migrating IT onto the new event
+   * bus is tracked separately (see that file's own header), not silently implied by this
+   * paragraph.
    */
   /**
    * DA-07c（#1749，rubric D6）：awaiting_approval 的人裁决入口。

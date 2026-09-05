@@ -119,6 +119,69 @@ export const KernelStreamEvent = z.discriminatedUnion("type", [
 ]);
 export type KernelStreamEvent = z.infer<typeof KernelStreamEvent>;
 
+/*
+ * ── 二·五、对齐 AG-UI 原生事件类型（R7："直接对齐...不自造平行格式"）────────
+ *
+ * `aguiEventTypeFor` 是这句话的机械落点：六类事件里的每一个具体值，都能指到
+ * `@ag-ui/core`（本仓 `apps/web`/`apps/api` 已经在用的同一个包、同一个版本）的一个
+ * **真实存在**的 `EventType` 成员，而不是本文件自己发明的字符串。`tests/wave2-runtime/
+ * agui-event-schema.test.ts` 逐一构造六类事件的样例，断言这里返回的每一个值都出现在
+ * 真实安装的 `EventType` 枚举里——不是抄一份值相同但两处声明的镜像。
+ *
+ * 映射并不是"六个都塞进 CUSTOM"——那样才是自造平行格式的做法。凡是 AG-UI 已经有
+ * 原生一等公民概念的地方（增量文本、工具调用起止、run 的成功/失败终态、todo 快照）
+ * 都用那个原生类型；只有 AG-UI 协议本身没有对应概念的地方（`awaiting_tool_permission`/
+ * `paused` 这类本仓特有的非终态、以及 `checkpoint_saved` 这个 AG-UI 完全没有的概念）
+ * 才落到 `CUSTOM`——而 `CUSTOM {name,value}` 本身就是 AG-UI 协议原生声明的扩展轴
+ * （见 `agui-state-events.ts` 文件头："两轴并用,不 fork 协议"），不是本仓另起的东西。
+ *
+ * `plan_update` 对齐 `STATE_SNAPSHOT` 而不是 `STATE_DELTA`：`AguiTodosSnapshot` 每次都是
+ * **完整**快照（不是增量 patch），且 `apps/web/lib/agui-plan-todos.ts` 已经在用
+ * `STATE_SNAPSHOT { snapshot: { todos } }` 消费 `write_todos` 的既有事件——延续同一个
+ * 事实源，不是另创一套。
+ *
+ * `succeeded`/`cancelled` 都对齐 `RUN_FINISHED`：AG-UI 协议没有独立的 "cancelled" 生命
+ * 周期事件，`RUN_FINISHED` 是两者共同的"这个 run 的执行结束了"信号，区别（是否真的
+ * 产出了结果）由 `KernelStreamEvent` 自身的 `status` 字段承载，不需要 wire 层再分叉。
+ */
+import type { EventType as AguiEventType } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
+
+export function aguiEventTypeFor(event: KernelStreamEvent): AguiEventType {
+  switch (event.type) {
+    case "token_delta":
+      return EventType.TEXT_MESSAGE_CONTENT;
+    case "tool_call_start":
+      return EventType.TOOL_CALL_START;
+    case "tool_call_end":
+      return EventType.TOOL_CALL_END;
+    case "plan_update":
+      return EventType.STATE_SNAPSHOT;
+    case "checkpoint_saved":
+      // AG-UI 协议没有"checkpoint"这个原生概念——CUSTOM 是协议自己声明的扩展轴
+      // （见上方文件头注释），不是本文件自造的平行格式。
+      return EventType.CUSTOM;
+    case "status_change":
+      switch (event.status) {
+        case "running":
+          // `running` 在本仓可以从 `paused`/`awaiting_*` 多次重新进入，而 AG-UI 的
+          // `RUN_STARTED` 语义上是"一次 run 生命周期只发生一次"的开端事件（且要求
+          // `threadId`，本事件的窄 payload 里没有这个字段）——用它会把一个可重复
+          // 发生的信号误建模成只发生一次的信号，因此归 `CUSTOM`。
+          return EventType.CUSTOM;
+        case "succeeded":
+        case "cancelled":
+          return EventType.RUN_FINISHED;
+        case "failed":
+          return EventType.RUN_ERROR;
+        default:
+          // queued / awaiting_plan_confirmation / awaiting_tool_permission / paused ——
+          // AG-UI 协议没有对应的原生非终态概念，落 CUSTOM（协议自身的扩展轴）。
+          return EventType.CUSTOM;
+      }
+  }
+}
+
 /* ── 三、订阅与断线重连（R3 步骤 4，R4 E2）────────────────────────────── */
 
 export const SubscribeRunEventsInput = z.object({
