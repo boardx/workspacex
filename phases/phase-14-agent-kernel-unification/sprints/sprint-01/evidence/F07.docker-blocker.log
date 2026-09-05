@@ -1,0 +1,30 @@
+F07 —— 与 F06/F10 同一个环境阻塞，不是本 feature 引入的新问题。
+
+`pnpm harness verify --phase 14 --feature F07` 的 feature 级验证命令
+（`pnpm --filter web exec vitest run tests/agent-kernel/plan-confirmation-card.test.tsx`）
+本身 8/8 通过，退出码 0。
+
+随后 `verify` 照规则跑基础验证 `pnpm -w run verify:quick`：`turbo run typecheck lint
+test --affected` 三项全部真实通过（web:typecheck / web:lint / web:test 均 0 失败，
+web:test 311 个文件、2876 个用例全绿），但 `with-test-isolation.ts` 收尾阶段调用
+`docker compose down -v` 清理测试栈时失败——
+
+    [test-isolation] cleanup failed: docker compose down -v exited 1
+
+根因：本沙箱环境没有 Docker daemon（`docker info` 报
+`failed to connect to the docker API at unix:///var/run/docker.sock: ... no such
+file or directory`），`with-test-isolation.ts` 把"清理失败"和"命令本身失败"合并成
+同一个非零退出码返回给调用方（`cleanupError ? 1 : 0`），于是尽管所有真实检查都
+通过，`verify:quick` 仍以退出码 1 收尾，`harness verify` 因此拒绝把 F07 升为
+passing。
+
+这与 `F06.docker-blocker.log` 记录的是同一类环境限制（该处是"起测试栈"失败，
+这里是"关测试栈"失败，两端都卡在同一个不存在的 docker socket），`F10.verify.log`
+也有相同尾巴。如实记录，不通过 `WORKSPACEX_KEEP_TEST_STACK=1` 之类的开关绕过
+docker 调用本身去换一个"看起来绿"的退出码——那样会掩盖这条清理路径在有 docker
+的机器上到底工作与否，不是修复。
+
+结论：F07 的自身验证（组件行为断言）已通过并有独立证据
+（`F07.verify.log` 前半段）；`verify:quick` 因本沙箱无 Docker 而无法在本地跑绿，
+留给有 Docker 的环境（CI）验证该收尾路径。feature 状态保持 in_progress，
+不在本沙箱强行标记为 passing。

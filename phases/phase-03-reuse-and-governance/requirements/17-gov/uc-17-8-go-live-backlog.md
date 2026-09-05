@@ -124,6 +124,25 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
   （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
   （`tests/ui/design-loop.test.tsx` ⑨⑩）。
+- ✅ B4.6（设计详情取材页与截图更新 + 该束 `ui.md`）2026-09-04 落地：`design-workbench`
+  此前**没有** `contracts/design-workbench/` 目录（B4.1–B4.5 全部实现落地，但契约束的
+  `design-signoff.md`/`ui.md` 从没建过）——本条一并把两个文件建出来（`design-signoff.md`
+  `status: pending`，等待人类签核，ADR-023 下 agent 不改这个字段）。截图脚本
+  `apps/web/scripts/shot-feedback-design-loop.mjs` 新增 `routeDesignWorkbench()`：B4.5 把
+  `workbench-screen.tsx`/`detail-screen.tsx` 切到真实 `/pm-designs*` 之后，取材页原来的
+  8 张 `workbench-*`/`detail-*` 截图在没有真实后端时已经拍不出来（真实请求会挂起/失败）
+  ——这条 `page.route()` 拦截同 `feedback-loop`/`inbox-unified` 两束各自真栈化时补过的
+  同一件事。全部 16 张重拍（8 张既有 + 8 张新态）：工作台首页新增
+  `loading`/`denied`/`dep-failed` 三态（`?state=` 直接驱动展示分支，不发真实请求）+
+  `generating` 一态（截图脚本让 `createProject` 故意晚 2s 才 `fulfill`，在真实等待期间
+  截下这一帧，不是摆拍）；详情页新增 `loading`（`/pm-designs` 挂起不 `fulfill`）/
+  `dep-failed`（回 503）/`missing`（id 查不到，走 `scene=detail-missing` 而非 `?state=`——
+  `resolvePreviewState` 只认七态白名单，非法值会静默落回 `default`）三态，均为真实请求
+  结果分支，不是 UI 层摆出来的。16 张截图落进新目录 `ui-preview/design-workbench/`（脚本
+  按文件名前缀 `workbench-`/`detail-` 自动分流，不与同一份脚本产出的 `dialog-*`/
+  `drafts-*`/`inbox-*` 混目录——那些属于另外的契约束）；`ui-material-map.json` 补
+  `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
+  PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
 - ✅ B4.7（E2E：新建 → 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」）2026-09-04
   落地：新增 `apps/web/e2e/design-workbench-smoke.spec.ts`，两条串行用例，都用
   `FULLSTACK_E2E.adminEmail`（收件箱/深化按钮要求 `canTriage`，同 `inbox-smoke.spec.ts`
@@ -137,8 +156,7 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   持久化的，不是本地乐观值。反馈种子直连 API 建（`page.request.post`，同
   `inbox-smoke.spec.ts` 的 `seedFeedback` 头注，不重复驱动已测过的提交弹层 UI）。
   已加入 `playwright.fullstack-smoke.config.ts` 的 `seeded` project `testMatch`。
-  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。B4.6（取材页/截图）另行并行推进，不在
-  本条范围。
+  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
