@@ -57,8 +57,6 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
       attachmentIds?: readonly string[];
-      /** issue #2667 -- see `ChatMessageCommandRepository.accept`'s own doc. */
-      disableTaskAutoClassify: boolean;
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -82,11 +80,11 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       await s.query(
         `INSERT INTO agent_runs
            (id,org_id,thread_id,input_message_id,agent_id,agent_version_id,skill_version_ids,
-            model_provider,model_id,status,disable_task_auto_classify)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued',$10)`,
+            model_provider,model_id,status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,'queued')`,
         [input.runId, orgId, input.threadId, input.messageId, input.snapshot.agentId,
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
-          input.snapshot.modelProvider, input.snapshot.modelId, input.disableTaskAutoClassify],
+          input.snapshot.modelProvider, input.snapshot.modelId],
       );
       // #414 delta §5: `accepted` is the run's first append-only step, and acceptance is
       // where it happens -- inside this same transaction. Writing it later, when the

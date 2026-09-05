@@ -37,8 +37,6 @@ interface ClaimRow {
   id: string; thread_id: string; project_id: string; input_message_id: string;
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
   skill_version_ids: unknown; model_provider: string; model_id: string;
-  /** issue #2667 -- see `ClaimedAgentRun.disableTaskAutoClassify`'s own doc. */
-  disable_task_auto_classify: boolean;
   pending_decision?: string | null;
   pending_tool_name?: string | null;
   pending_edited_args?: string | null;
@@ -148,8 +146,7 @@ export class PgAgentRunRepository implements AgentRunStore {
                FOR UPDATE SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
-                  r.skill_version_ids, r.model_provider, r.model_id,
-                  r.disable_task_auto_classify, r.pending_decision,
+                  r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
                   r.pending_tool_name, r.pending_edited_args`,
         [orgId, limit],
       );
@@ -201,9 +198,6 @@ export class PgAgentRunRepository implements AgentRunStore {
           skillVersionIds: toStringArray(row.skill_version_ids),
           modelProvider: row.model_provider,
           modelId: row.model_id,
-          // issue #2667 -- per-run 覆盖，见 `ClaimedAgentRun.disableTaskAutoClassify`
-          // 的头注。列有 NOT NULL DEFAULT false，读回恒是布尔值，不需要额外兜底。
-          disableTaskAutoClassify: row.disable_task_auto_classify,
           // UX-9 D4：edit 的降级路径也 fail closed——'edit' 行缺 pending_edited_args
           // 只能来自数据损坏（editAndRequeue 单语句同写两列），editedArgsJson 传
           // "null" 让 provider 的对象校验去报 ModelCallError，绝不静默当 approve。

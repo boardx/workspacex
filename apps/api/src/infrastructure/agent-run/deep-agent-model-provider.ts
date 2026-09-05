@@ -924,21 +924,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
             /*
-             * issue #2667 -- 个人设置"每次都先给我看计划"打开时透传给
-             * `deep_agent_service.harness` 的 `TaskClassifierMiddleware`（读法见
-             * `harness.py` `_run_disables_auto_classify`：`get_config()` 读
-             * `configurable.disable_task_auto_classify`）——即使全局灰度
-             * `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 打开，这一次 run 也不参与自动判类，
-             * 回退到纯手动 `TASK_MODE_MARKER` 路径。
-             *
-             * ⚠ 缺席时这个键**不出现**——同 `script_protocol` 一样，远端读不到就完全
-             *   按改动前的方式跑（全局灰度怎么判就怎么判）。`input.disableTaskAutoClassify`
-             *   的唯一事实源是 `ClaimedAgentRun.disableTaskAutoClassify`（落库自
-             *   `agent_runs.disable_task_auto_classify`），本层不重复判断。
+             * issue #2770 —— 这里曾按 issue #2667 透传 `disable_task_auto_classify`
+             * （前端「每次都先计划」开关关掉这一次 run 的自动判类）。该开关连同它在
+             * web → api 的整条来源已删：`TaskClassifierMiddleware` 无条件挂载（Phase 14
+             * F02），要不要先计划由内核判。远端 `harness.py` 仍防御性地读这个键（缺席 =
+             * 未覆盖，只剩 golden 测试当 seam 用），本层不再产生它。
              */
-            ...(input.disableTaskAutoClassify === true
-              ? { disable_task_auto_classify: true }
-              : {}),
             /*
              * Phase 14 后续 A（#2755）：待投递内核的插话（形状 = 契约 `KernelInterjection`，
              * 键名 = 契约 `KERNEL_INTERJECTION_CONFIGURABLE_KEY`，两侧 parity 测试机械比对）。
