@@ -4,10 +4,12 @@ import { ResearchStudioApp } from "@/components/research-studio/research-studio-
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { mockIdentity } from "@/lib/identity";
 import ResearchPage from "@/app/research/page";
+import { runtimeFixture } from "../guided-runtime-fixture";
 import type { ReactElement } from "react";
-import { GUIDED_RESEARCH_BRIEF, type GuidedResearchStep } from "@/lib/mock/guided-research";
+import { type GuidedResearchStep } from "@/lib/mock/guided-research";
 
 const api = vi.hoisted(() => ({
+  getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn(),
   listGuidedResearchSessions: vi.fn(), createGuidedResearchSession: vi.fn(), getGuidedResearchSession: vi.fn(),
   generateResearchDirections: vi.fn(), confirmResearchDirections: vi.fn(), generateResearchOutline: vi.fn(), confirmResearchOutline: vi.fn(),
 }));
@@ -23,24 +25,7 @@ vi.mock("next/navigation", () => ({
 const identity = mockIdentity("org-yuanyang", null);
 
 function sessionAt(step: Exclude<GuidedResearchStep, "home" | "brief">) {
-  const resumeStage = step === "search" ? "researching" : step;
-  const direction = { id: "d1", title: "市场规模", description: "测算市场规模", enabled: true, order: 0 };
-  const outline = { id: "o1", title: "执行摘要", questions: ["关键判断是什么？"], enabled: true, order: 0 };
-  return {
-    sessionId: "grs-visual", title: GUIDED_RESEARCH_BRIEF.topic, tags: [], brief: GUIDED_RESEARCH_BRIEF,
-    briefVersion: 1, briefConfirmedAt: "2026-08-13T00:00:00.000Z",
-    directions: {
-      candidateVersion: 1, confirmedVersion: step === "directions" ? null : 1,
-      versions: [{ version: 1, items: [direction], createdAt: "2026-08-13T00:01:00.000Z", confirmedAt: step === "directions" ? null : "2026-08-13T00:02:00.000Z" }],
-    },
-    outline: step === "directions" ? { candidateVersion: null, confirmedVersion: null, versions: [] } : {
-      candidateVersion: 1, confirmedVersion: step === "outline" ? null : 1,
-      versions: [{ version: 1, items: [outline], createdAt: "2026-08-13T00:03:00.000Z", confirmedAt: step === "outline" ? null : "2026-08-13T00:04:00.000Z" }],
-    },
-    stage: resumeStage, resumeStage, status: "active", progress: step === "report" ? 90 : 60,
-    sourceCount: 0, reportId: step === "report" ? "report-visual" : null,
-    createdAt: "2026-08-13T00:00:00.000Z", updatedAt: "2026-08-13T00:04:00.000Z",
-  };
+  return runtimeFixture(step === "search" ? "research" : step, "grs-visual");
 }
 
 beforeEach(() => {
@@ -91,7 +76,7 @@ describe("F180 signed guided-research visual contract", () => {
   });
 
   it("renders the signed progress strip and desktop flow shell", async () => {
-    api.getGuidedResearchSession.mockResolvedValue(sessionAt("search"));
+    api.getResearchRuntime.mockResolvedValue(sessionAt("search"));
     render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
 
     const progress = await screen.findByTestId("research-flow-progress");
@@ -109,7 +94,7 @@ describe("F180 signed guided-research visual contract", () => {
 
   it("keeps a one-third contextual Skill workspace with one main editor on guided steps", async () => {
     for (const step of ["brief", "directions", "outline", "search"] as const) {
-      if (step !== "brief") api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt(step));
+      if (step !== "brief") api.getResearchRuntime.mockResolvedValueOnce(sessionAt(step));
       const view = render(
         <ResearchStudioApp
           identity={identity}
@@ -136,7 +121,7 @@ describe("F180 signed guided-research visual contract", () => {
   });
 
   it("keeps the research Skill assistant beside the final report", async () => {
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
 
     await screen.findByTestId("research-flow-report");
@@ -145,41 +130,43 @@ describe("F180 signed guided-research visual contract", () => {
     expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
-  it("keeps future checkpoints disabled and labels every demo output", async () => {
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("directions"));
+  it("keeps future checkpoints disabled and renders only persisted evidence", async () => {
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("directions"));
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
     for (const futureStep of ["报告大纲", "资料研究", "研究报告"]) {
-      expect(screen.getByRole("button", { name: futureStep })).toBeDisabled();
+      expect(screen.getByRole("button", { name: new RegExp(futureStep) })).toBeDisabled();
     }
     directions.unmount();
 
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("search"));
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("search"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(search.container).toHaveTextContent("演示检索结果，不代表真实 Web Search");
+    expect(search.container).not.toHaveTextContent("演示检索结果");
+    expect(screen.getByRole("link", { name: "Official policy" })).toHaveAttribute("href", "https://example.org/policy");
     search.unmount();
 
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
     const report = render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-report");
-    expect(report.container).toHaveTextContent("演示报告，不作为真实研究结论");
+    expect(report.container).not.toHaveTextContent("演示报告");
+    expect(screen.getByTestId("research-report")).toHaveTextContent("有来源支持的结论");
   });
 
   it("keeps the signed search and report information hierarchy", async () => {
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("search"));
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("search"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(screen.getByRole("heading", { name: "正在检索与交叉验证" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "研究检索进度" })).toBeInTheDocument();
     expect(screen.getByTestId("research-search-summary")).toContainElement(screen.getByTestId("research-current-query"));
 
     search.unmount();
-    api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    api.getResearchRuntime.mockResolvedValueOnce(sessionAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-report");
     const report = screen.getByTestId("research-report");
     expect(report).toHaveAttribute("data-layout", "full-width-report");
     expect(screen.getByRole("heading", { name: "目录" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "欧洲储能市场进入策略研究报告" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "政策研究报告" })).toBeInTheDocument();
   });
 });

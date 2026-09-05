@@ -1,3 +1,5 @@
+import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
+import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
 import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
@@ -18,6 +20,11 @@ import {
   GuidedResearchWorkflowError,
   type GuidedResearchWorkflowService,
 } from "../../application/research/guided-workflow-service";
+import {
+  GUIDED_RESEARCH_SKILL,
+  GuidedResearchSkillError,
+  type GuidedResearchSkill,
+} from "../../application/research/guided-research-skill";
 
 @Controller()
 export class GuidedResearchController {
@@ -27,7 +34,53 @@ export class GuidedResearchController {
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(GUIDED_RESEARCH_CHECKPOINT_GENERATOR) private readonly generator: GuidedResearchCheckpointGenerator,
     @Inject(GUIDED_RESEARCH_WORKFLOW_SERVICE) private readonly workflow: GuidedResearchWorkflowService,
+    @Inject(GUIDED_RESEARCH_SKILL) private readonly skill: GuidedResearchSkill,
+    @Inject(GUIDED_RUNTIME_SERVICE) private readonly runtime: GuidedRuntimeService,
   ) {}
+
+  @Get(C.operations.getGuidedResearchRuntime.path)
+  async getRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+    assertPrincipal(principal);
+    const session = await this.current(principal, sessionId);
+    try { return await this.runtime.get({ orgId: principal.orgId, userId: principal.userId, sessionId }, session); }
+    catch (error) { this.runtimeError(error); }
+  }
+
+  @Post(C.operations.executeGuidedResearchRuntime.path)
+  async executeRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    const session = await this.current(principal, sessionId);
+    try { return await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data); }
+    catch (error) { this.runtimeError(error); }
+  }
+
+  private runtimeError(error: unknown): never {
+    if (error instanceof ResearchRuntimeError) {
+      if (error.reasonCode === "RESEARCH_NOT_FOUND") throw new NotFoundException({ reasonCode: error.reasonCode });
+      throw new ConflictException({ reasonCode: error.reasonCode });
+    }
+    throw error;
+  }
+
+  @Post(C.operations.runGuidedResearchSkillTurn.path)
+  async runSkillTurn(@CurrentPrincipal() principal: Principal, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.operations.runGuidedResearchSkillTurn.in.safeParse(raw);
+    if (!input.success) throw new BadRequestException();
+    try {
+      return await this.skill.turn(input.data);
+    } catch (error) {
+      if (error instanceof GuidedResearchSkillError) {
+        if (error.reasonCode === "RESEARCH_WORKFLOW_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: error.reasonCode });
+        }
+        throw new BadRequestException({ reasonCode: error.reasonCode });
+      }
+      throw error;
+    }
+  }
 
   private disclose(row: GuardedGuidedResearchSession, viewerUserId: string) {
     const disclosed = discloseDecided(row.item, decideGuidedResearchVisibility({

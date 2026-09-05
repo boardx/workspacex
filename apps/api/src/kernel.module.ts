@@ -1,3 +1,8 @@
+import { ModelGuidedResearchCheckpointGenerator } from "./application/research/model-guided-checkpoint-generator";
+import { GUIDED_RUNTIME_STORE, GUIDED_SEARCH_PORT, GUIDED_RUNTIME_SERVICE, type GuidedRuntimeStore, type GuidedSearchPort } from "./application/research/guided-runtime-ports";
+import { GuidedRuntimeService } from "./application/research/guided-runtime-service";
+import { PgGuidedRuntimeStore } from "./infrastructure/research/pg-guided-runtime-store";
+import { TavilyGuidedSearch } from "./infrastructure/research/tavily-guided-search";
 /**
  * Composition root -- deliberately NOT part of any layer.
  *
@@ -247,8 +252,9 @@ import {
   ModelGuidedResearchOutlineGenerator,
   type GuidedResearchOutlineGenerator,
 } from "./application/research/guided-outline-generator";
+import { GUIDED_RESEARCH_SKILL, ModelGuidedResearchSkill } from "./application/research/guided-research-skill";
 import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
-import { DeterministicGuidedResearchCheckpointGenerator, GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
+import { GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
 import {
   DIGITAL_INTERVIEW_EFFECTS,
@@ -1761,6 +1767,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: () => new HeuristicCandidateInsightGenerator(),
       inject: [],
     },
+    { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
+    { provide: GUIDED_SEARCH_PORT, useFactory: () => new TavilyGuidedSearch() },
+    { provide: GUIDED_RUNTIME_SERVICE,
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => new GuidedRuntimeService(store, model, search),
+      inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
@@ -1795,8 +1806,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [MODEL_CALL_PORT],
     },
     {
+      provide: GUIDED_RESEARCH_SKILL,
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchSkill(model),
+      inject: [MODEL_CALL_PORT],
+    },
+    {
       provide: GUIDED_RESEARCH_CHECKPOINT_GENERATOR,
-      useFactory: () => new DeterministicGuidedResearchCheckpointGenerator(),
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchCheckpointGenerator(model),
+      inject: [MODEL_CALL_PORT],
     },
     // F86 (#356)：consent-token 真实持久化，替换 in-memory 版本。
     {

@@ -1,0 +1,42 @@
+import { test, expect } from "@playwright/test";
+import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+test("research persists all five model-backed steps through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
+  test.setTimeout(120000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await page.goto("/research");
+  await page.getByTestId("research-create").click();
+  await page.getByTestId("research-create-name").fill("研究全链路验证");
+  await page.getByTestId("research-create-submit").click();
+  await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
+  await page.getByTestId("research-confirm-brief").click();
+  await page.getByRole("button", { name: "使用模型生成", exact: true }).click();
+  await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
+  await page.getByLabel("研究对话").fill("请检查主题范围");
+  await page.getByRole("button", { name: "发送研究消息" }).click();
+  await page.getByRole("button", { name: "应用建议" }).click();
+  await page.reload();
+  await expect(page.getByTestId("research-skill-messages")).toContainText("请检查主题范围");
+  await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  for (const expectedTitle of ["研究方向", "报告大纲"]) {
+    await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "使用模型生成", exact: true }).click();
+    await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "开始真实检索" }).click();
+  await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toBeVisible();
+  await page.getByLabel("来源处理 Research E2E policy evidence").selectOption("accepted");
+  await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  await page.getByRole("button", { name: "使用模型生成", exact: true }).click();
+  await expect(page.getByTestId("research-report")).toContainText("并网政策报告");
+  await page.reload();
+  await expect(page.getByTestId("research-report")).toContainText("并网政策报告");
+  await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toHaveAttribute("href", /\/research-evidence$/);
+  await page.getByRole("button", { name: "完成研究", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
+});

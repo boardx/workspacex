@@ -1,14 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { MessageCircle, Send, Undo2 } from "lucide-react";
+import { Loader2, MessageCircle, Send, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { runGuidedResearchSkillTurn, type GuidedResearchSkillDraft } from "@/lib/guided-research-api";
 import {
   applyResearchSkillSuggestion,
   cloneResearchEditableSnapshot,
   loadResearchSkillState,
   saveResearchSkillState,
-  suggestionForResearchPrompt,
   type ResearchEditableSnapshot,
   type ResearchEditableSnapshotInput,
   type ResearchSkillState,
@@ -36,6 +36,8 @@ export function GuidedResearchSkillAssistant({
   onSnapshotChange: (snapshot: ResearchEditableSnapshot) => void;
 }) {
   const [input, setInput] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [sendError, setSendError] = React.useState(false);
   const [skillState, setSkillState] = React.useState<ResearchSkillState>(() => loadResearchSkillState(sessionKey, step));
 
   React.useEffect(() => {
@@ -47,21 +49,71 @@ export function GuidedResearchSkillAssistant({
     saveResearchSkillState(sessionKey, next);
   }
 
-  function send(text = input) {
+  function apiDraft(): GuidedResearchSkillDraft {
+    if (snapshot.step === "brief") return { node: "brief", value: { ...snapshot.value } };
+    if (snapshot.step === "directions") return { node: "directions", value: snapshot.value.map((item) => ({ ...item })) };
+    if (snapshot.step === "outline") return { node: "outline", value: snapshot.value.map((item) => ({ ...item, questions: [...item.questions] })) };
+    if (snapshot.step === "search") {
+      const acceptedSourceIds = Object.entries(snapshot.value.sourceDecisions).flatMap(([id, decision]) => decision === "accepted" ? [id] : []);
+      const excludedSourceIds = Object.entries(snapshot.value.sourceDecisions).flatMap(([id, decision]) => decision === "excluded" ? [id] : []);
+      return { node: "research", value: { acceptedSourceIds, excludedSourceIds } };
+    }
+    return { node: "report", value: { reportSummary: snapshot.value.reportSummary } };
+  }
+
+  async function send(text = input) {
     const prompt = text.trim();
-    if (!prompt) return;
-    const suggestion = suggestionForResearchPrompt(prompt, snapshot);
-    const messageCount = skillState.messages.length;
-    persist({
-      ...skillState,
-      messages: [
-        ...skillState.messages,
-        { id: `message-${messageCount + 1}`, role: "user", text: prompt },
-        { id: `message-${messageCount + 2}`, role: "skill", text: suggestion.text },
-      ],
-      pendingSuggestion: suggestion,
-    });
+    if (!prompt || sending) return;
+    setSending(true);
+    setSendError(false);
     setInput("");
+    try {
+      const response = await runGuidedResearchSkillTurn({
+        requestId: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `skill-${Date.now()}`,
+        message: prompt,
+        draft: apiDraft(),
+      });
+      const proposal = response.proposal;
+      const suggestion = proposal.node === "brief"
+        ? { step: "brief" as const, prompt, text: response.assistantMessage, value: proposal.value }
+        : proposal.node === "directions"
+          ? { step: "directions" as const, prompt, text: response.assistantMessage, value: proposal.value }
+          : proposal.node === "outline"
+            ? { step: "outline" as const, prompt, text: response.assistantMessage, value: proposal.value }
+            : proposal.node === "research" && snapshot.step === "search"
+              ? {
+                step: "search" as const,
+                prompt,
+                text: response.assistantMessage,
+                value: {
+                  ...snapshot.value,
+                  completedTaskIds: [...snapshot.value.completedTaskIds],
+                  sourceDecisions: Object.fromEntries([
+                    ...proposal.value.acceptedSourceIds.map((id) => [id, "accepted"] as const),
+                    ...proposal.value.excludedSourceIds.map((id) => [id, "excluded"] as const),
+                  ]),
+                },
+              }
+              : proposal.node === "report" && snapshot.step === "report"
+                ? { step: "report" as const, prompt, text: response.assistantMessage, value: proposal.value }
+                : null;
+      if (!suggestion) throw new Error("skill proposal targeted another step");
+      const messageCount = skillState.messages.length;
+      persist({
+        ...skillState,
+        messages: [
+          ...skillState.messages,
+          { id: `message-${messageCount + 1}`, role: "user", text: prompt },
+          { id: `message-${messageCount + 2}`, role: "skill", text: response.assistantMessage },
+        ],
+        pendingSuggestion: suggestion,
+      });
+    } catch {
+      setSendError(true);
+      setInput(prompt);
+    } finally {
+      setSending(false);
+    }
   }
 
   function apply() {
@@ -98,11 +150,12 @@ export function GuidedResearchSkillAssistant({
       <p className="mt-2 text-12 leading-5 text-muted-foreground">通过对话优化当前步骤；建议只有点击应用后才会修改内容。</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {QUICK_PROMPTS[step].map((prompt) => (
-          <button key={prompt} type="button" onClick={() => send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-foreground">
+          <button key={prompt} type="button" disabled={sending} onClick={() => void send(prompt)} className="rounded-full border border-border px-3 py-1 text-12 text-muted-foreground transition-colors hover:text-foreground disabled:bg-disabled disabled:text-disabled-foreground">
             {prompt}
           </button>
         ))}
       </div>
+      {sendError && <p className="mt-2 text-11 text-destructive" role="alert">模型暂时不可用，内容没有被 Mock 替代。请重试。</p>}
       <div data-testid="research-skill-messages" className="mt-4 min-h-32 flex-1 space-y-3 overflow-y-auto pr-1">
         {skillState.messages.map((message) => (
           <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-12 text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-12 leading-5 text-foreground"}>
@@ -123,13 +176,13 @@ export function GuidedResearchSkillAssistant({
           data-testid="research-skill-input"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter") send(); }}
+          onKeyDown={(event) => { if (event.key === "Enter") void send(); }}
           placeholder="和 Skill 讨论如何优化…"
           className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
         />
-        <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim()} onClick={() => send()}><Send aria-hidden className="size-4" /></Button>
+        <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim() || sending} onClick={() => void send()}>{sending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : <Send aria-hidden className="size-4" />}</Button>
       </div>
-      <p className="mt-3 text-11 text-muted-foreground">演示 Skill · 不作为真实研究证据</p>
+      <p className="mt-3 text-11 text-muted-foreground">由 qwen3.7-plus 生成建议；应用前不会修改研究内容。</p>
     </section>
   );
 }

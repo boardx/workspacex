@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { GuidedResearchLive } from "./guided-research-live";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle, Download,
   Clock3, FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
@@ -188,20 +189,6 @@ export function GuidedResearchFlow({
     setRestoreFailed(false);
     setSessionSnapshot(null);
     setWorkflowSnapshot(null);
-    if (!sessionId) return;
-    let active = true;
-    Promise.all([getGuidedResearchSession(sessionId), restoreWorkflow(sessionId)])
-      .then(([session, workflow]) => {
-        if (!active) return;
-        const requestedStep = step === "home" ? stageToStep(session.resumeStage) : step;
-        const allowedStep = clampGuidedResearchStep(requestedStep, session);
-        setRestoredStep(allowedStep);
-        setActiveSessionId(session.sessionId);
-        setSessionSnapshot(session);
-        setWorkflowSnapshot(workflow);
-      })
-      .catch(() => { if (active) setRestoreFailed(true); });
-    return () => { active = false; };
   }, [sessionId, step]);
 
   const navigate = (next: GuidedResearchStep, sessionId?: string) => {
@@ -215,6 +202,9 @@ export function GuidedResearchFlow({
   const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === sessionId;
   const restoringSession = Boolean(sessionId) && !hasCurrentSessionSnapshot && !restoreFailed;
   const restorationBlocked = restoringSession || restoreFailed;
+
+  const runtimeSessionId = sessionId ?? activeSessionId;
+  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <GuidedResearchLive sessionId={runtimeSessionId} initialNode={step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} />;
 
   return (
     <div

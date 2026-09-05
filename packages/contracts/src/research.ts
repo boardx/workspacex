@@ -722,6 +722,36 @@ export const GuidedResearchSkillProjection = z.object({
   proposalStatus: z.enum(["none", "proposed", "applied_to_draft", "rejected", "committed", "stale"]),
 }).strict();
 
+/**
+ * The conversational research assistant accepts the complete draft for the
+ * step the user is looking at.  Keeping the draft in the request makes a turn
+ * stateless and, importantly, prevents the model from inventing a second copy
+ * of the workflow state.
+ */
+export const GuidedResearchSkillDraft = z.discriminatedUnion("node", [
+  z.object({ node: z.literal("brief"), value: GuidedResearchBrief }).strict(),
+  z.object({ node: z.literal("directions"), value: z.array(GuidedResearchDirection) }).strict(),
+  z.object({ node: z.literal("outline"), value: z.array(GuidedResearchOutlineSection) }).strict(),
+  z.object({
+    node: z.literal("research"),
+    value: z.object({
+      acceptedSourceIds: z.array(z.string()),
+      excludedSourceIds: z.array(z.string()),
+    }).strict(),
+  }).strict(),
+  z.object({
+    node: z.literal("report"),
+    value: z.object({ reportSummary: z.string().max(20_000) }).strict(),
+  }).strict(),
+]);
+
+export const GuidedResearchSkillTurnResponse = z.object({
+  assistantMessage: z.string().trim().min(1).max(10_000),
+  proposal: GuidedResearchSkillDraft,
+  modelId: z.literal("qwen3.7-plus"),
+  modelInvocationId: z.string().min(1),
+}).strict();
+
 const GuidedResearchNodeSummaries = z.object({
   brief: GuidedResearchNodeMeta,
   directions: GuidedResearchNodeMeta,
@@ -768,6 +798,13 @@ const guidedWorkflowErrors = [
   "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
   "RESEARCH_CONTENT_REFERENCE_INVALID",
   "RESEARCH_TASK_NOT_RETRYABLE",
+  "RESEARCH_WORKFLOW_BUSY",
+  "RESEARCH_MODEL_GENERATION_REQUIRED",
+  "RESEARCH_TASKS_INCOMPLETE",
+  "RESEARCH_SOURCES_REQUIRED",
+  "RESEARCH_SEARCH_NOT_CONFIGURED",
+  "RESEARCH_SEARCH_UNAVAILABLE",
+  "RESEARCH_SEARCH_PARTIAL_FAILURE",
 ] as const;
 
 export const GuidedResearchSession = z.object({
@@ -791,7 +828,73 @@ export const GuidedResearchSession = z.object({
   updatedAt: z.string(),
 }).strict();
 
+// Durable five-step research. Provider output never supplies source identifiers or URLs.
+export const GuidedResearchSource = z.object({
+  id: z.string().min(1), taskId: z.string().min(1), title: z.string().min(1),
+  url: z.string().url().refine((url) => /^https?:\/\//.test(url)),
+  content: z.string().min(1).max(30000), retrievedAt: z.string(),
+  decision: z.enum(["pending", "accepted", "excluded"]),
+}).strict();
+export const GuidedResearchTask = z.object({
+  id: z.string().min(1), sectionId: z.string().min(1), query: z.string().trim().min(1).max(1000),
+  status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
+  errorCode: z.string().nullable(),
+}).strict();
+export const GuidedResearchReport = z.object({
+  title: z.string().trim().min(1).max(200), summary: z.string().trim().min(1).max(10000),
+  sections: z.array(z.object({
+    sectionId: z.string().min(1), body: z.string().trim().min(1).max(20000),
+    sourceIds: z.array(z.string().min(1)).min(1),
+  }).strict()).min(1).max(30),
+}).strict();
+export const GuidedResearchRuntimeDraft = z.discriminatedUnion("node", [
+  z.object({ node: z.literal("brief"), value: GuidedResearchBrief }).strict(),
+  z.object({ node: z.literal("directions"), value: z.array(GuidedResearchDirection).min(1).max(20).refine((items) => items.some((item) => item.enabled) && new Set(items.map((item) => item.id)).size === items.length) }).strict(),
+  z.object({ node: z.literal("outline"), value: z.array(GuidedResearchOutlineSection).min(1).max(30).refine((items) => items.some((item) => item.enabled) && new Set(items.map((item) => item.id)).size === items.length) }).strict(),
+  z.object({ node: z.literal("research"), value: z.array(z.object({ id: z.string(), decision: z.enum(["pending", "accepted", "excluded"]) }).strict()) }).strict(),
+  z.object({ node: z.literal("report"), value: GuidedResearchReport }).strict(),
+]);
+export const GuidedResearchRuntime = z.object({
+  sessionId: z.string(), version: z.number().int().nonnegative(), revision: z.number().int().positive(),
+  currentNode: ResearchNode, availableNodes: z.array(ResearchNode),
+  brief: GuidedResearchBrief, directions: z.array(GuidedResearchDirection), outline: z.array(GuidedResearchOutlineSection),
+  tasks: z.array(GuidedResearchTask), sources: z.array(GuidedResearchSource), report: GuidedResearchReport.nullable(),
+  legacyCheckpoint: GuidedResearchSession.nullable().optional(),
+  completed: z.boolean(), busy: z.boolean(), leaseUntil: z.string().nullable(), errorCode: z.string().nullable(),
+  generatedNodes: z.array(ResearchNode),
+  messages: z.array(z.object({ id: z.string(), node: ResearchNode, role: z.enum(["user", "assistant"]), text: z.string(), createdAt: z.string() }).strict()),
+  proposal: z.object({ id: z.string(), version: z.number().int(), draft: GuidedResearchRuntimeDraft, action: z.enum(["save", "generate", "start", "retry", "confirm", "complete"]).optional() }).strict().nullable(),
+  modelCalls: z.array(z.object({ id: z.string(), node: ResearchNode, modelId: z.string(), status: z.enum(["succeeded", "failed"]), createdAt: z.string() }).strict()),
+}).strict();
+export const GuidedResearchRuntimeCommand = z.object({
+  sessionId: z.string().min(1), node: ResearchNode,
+  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply"]),
+  requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
+  draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
+  proposalId: z.string().min(1).optional(),
+}).strict().refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node");
+
 export const operations = {
+  getGuidedResearchRuntime: {
+    method: "GET", path: "/research/guided-sessions/:sessionId/runtime",
+    in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchRuntime,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+  },
+  executeGuidedResearchRuntime: {
+    method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands",
+    in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntime, err: guidedWorkflowErrors,
+  },
+  runGuidedResearchSkillTurn: {
+    method: "POST",
+    path: "/research/guided-skill/turns",
+    in: z.object({
+      requestId: z.string().trim().min(1).max(200),
+      message: z.string().trim().min(1).max(10_000),
+      draft: GuidedResearchSkillDraft,
+    }).strict(),
+    out: GuidedResearchSkillTurnResponse,
+    err: ["RESEARCH_WORKFLOW_UNAVAILABLE", "RESEARCH_NODE_STATE_INVALID"] as const,
+  },
   getGuidedResearchWorkflow: {
     method: "GET",
     path: "/research/guided-sessions/:sessionId/workflow",

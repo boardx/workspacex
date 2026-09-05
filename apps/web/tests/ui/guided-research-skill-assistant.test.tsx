@@ -5,6 +5,24 @@ import { GuidedResearchSkillAssistant } from "@/components/research-studio/guide
 import { GuidedResearchStepLayout } from "@/components/research-studio/guided-research-step-layout";
 import { cloneResearchEditableSnapshot, saveResearchSkillState, suggestionForResearchPrompt } from "@/lib/guided-research-skill-state";
 
+vi.mock("@/lib/guided-research-api", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/guided-research-api")>();
+  return {
+    ...original,
+    runGuidedResearchSkillTurn: vi.fn(async ({ requestId, message, draft }) => ({
+      assistantMessage: `模型建议：${message}`,
+      proposal: draft.node === "directions"
+        ? {
+          node: "directions",
+          value: [...draft.value, { id: "d2", title: message, description: "模型生成的研究方向", enabled: true, order: draft.value.length }],
+        }
+        : draft,
+      modelId: "qwen3.7-plus",
+      modelInvocationId: `${requestId}:qwen3.7-plus`,
+    })),
+  };
+});
+
 const directionSnapshot = {
   step: "directions",
   value: [{ id: "d1", title: "市场", description: "规模", enabled: true, order: 0 }],
@@ -13,7 +31,7 @@ const directionSnapshot = {
 describe("guided research skill assistant", () => {
   beforeEach(() => localStorage.clear());
 
-  it("only changes the editor after explicit application and restores it on undo", () => {
+  it("only changes the editor after explicit application and restores it on undo", async () => {
     const onSnapshotChange = vi.fn();
     render(
       <GuidedResearchSkillAssistant
@@ -27,14 +45,14 @@ describe("guided research skill assistant", () => {
     expect(screen.getByTestId("research-skill-assistant")).toHaveTextContent("研究 Skill 助手");
     fireEvent.click(screen.getByRole("button", { name: "补充研究方向" }));
     expect(onSnapshotChange).not.toHaveBeenCalled();
-    expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
+    expect(await screen.findByTestId("research-skill-suggestion")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "应用建议" }));
     expect(onSnapshotChange).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "撤销上次应用" }));
     expect(onSnapshotChange).toHaveBeenLastCalledWith(directionSnapshot);
   });
 
-  it("sends non-empty input with Enter and disables empty sends", () => {
+  it("sends non-empty input with Enter and disables empty sends", async () => {
     render(
       <GuidedResearchSkillAssistant
         step="directions"
@@ -49,9 +67,9 @@ describe("guided research skill assistant", () => {
     expect(send).toBeDisabled();
     fireEvent.change(input, { target: { value: "补充研究方向" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
+    expect(await screen.findByTestId("research-skill-suggestion")).toBeInTheDocument();
     expect(input).toHaveValue("");
-    expect(screen.getByText("演示 Skill · 不作为真实研究证据")).toBeInTheDocument();
+    expect(screen.getByText("由 qwen3.7-plus 生成建议；应用前不会修改研究内容。")).toBeInTheDocument();
   });
 
   it("does not render or apply another step's saved suggestion or undo", () => {
@@ -116,7 +134,7 @@ describe("guided research skill assistant", () => {
     expect(screen.getByTestId("research-skill-composer")).toBeInTheDocument();
   });
 
-  it("keeps the assistant interactive when local storage writes fail", () => {
+  it("keeps the assistant interactive when local storage writes fail", async () => {
     const onSnapshotChange = vi.fn();
     const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("storage disabled", "SecurityError");
@@ -131,7 +149,7 @@ describe("guided research skill assistant", () => {
     );
 
     expect(() => fireEvent.click(screen.getByRole("button", { name: "补充研究方向" }))).not.toThrow();
-    expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
+    expect(await screen.findByTestId("research-skill-suggestion")).toBeInTheDocument();
     expect(() => fireEvent.click(screen.getByRole("button", { name: "应用建议" }))).not.toThrow();
     expect(onSnapshotChange).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "撤销上次应用" })).toBeInTheDocument();

@@ -8,6 +8,17 @@ export type GuidedResearchNodeCommand = z.infer<typeof research.GuidedResearchNo
 export type GuidedResearchDirection = z.infer<typeof research.GuidedResearchDirection>;
 export type GuidedResearchOutlineSection = z.infer<typeof research.GuidedResearchOutlineSection>;
 export type CreateGuidedResearchSessionInput = z.infer<typeof research.operations.createGuidedResearchSession.in>;
+export type GuidedResearchSkillDraft = z.infer<typeof research.GuidedResearchSkillDraft>;
+export type GuidedResearchSkillTurnResponse = z.infer<typeof research.GuidedResearchSkillTurnResponse>;
+
+export async function runGuidedResearchSkillTurn(input: z.infer<typeof research.operations.runGuidedResearchSkillTurn.in>): Promise<GuidedResearchSkillTurnResponse> {
+  const validated = research.operations.runGuidedResearchSkillTurn.in.parse(input);
+  const raw = await apiRequest<unknown>(research.operations.runGuidedResearchSkillTurn.path, {
+    method: research.operations.runGuidedResearchSkillTurn.method,
+    body: validated,
+  });
+  return research.operations.runGuidedResearchSkillTurn.out.parse(raw);
+}
 
 export async function listGuidedResearchSessions(): Promise<{ items: GuidedResearchSession[] }> {
   const raw = await apiRequest<unknown>(research.operations.listGuidedResearchSessions.path);
@@ -92,3 +103,15 @@ export const finishGuidedResearchCollection = (
 ) => checkpointRequest(research.operations.finishGuidedResearchCollection, sessionId, input);
 export const completeGuidedResearchSession = (sessionId: string) =>
   checkpointRequest(research.operations.completeGuidedResearchSession, sessionId, {});
+
+export type GuidedResearchRuntime = z.infer<typeof research.GuidedResearchRuntime>;
+export type GuidedResearchRuntimeCommand = z.infer<typeof research.GuidedResearchRuntimeCommand>;
+export type GuidedResearchRuntimeDraft = z.infer<typeof research.GuidedResearchRuntimeDraft>;
+export async function getResearchRuntime(sessionId: string): Promise<GuidedResearchRuntime> {
+  const op = research.operations.getGuidedResearchRuntime;
+  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method }));
+}
+export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand): Promise<GuidedResearchRuntime> {
+  const op = research.operations.executeGuidedResearchRuntime;
+  return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body: input }));
+}
