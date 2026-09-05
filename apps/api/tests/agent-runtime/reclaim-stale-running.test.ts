@@ -105,10 +105,10 @@ describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states 
     expect(after.errorCode).toBeNull();
   });
 
-  it("queued/writeback_pending/awaiting_approval/succeeded/failed rows are never touched -- only running", async () => {
+  it("queued/writeback_pending/awaiting_tool_permission/succeeded/failed rows are never touched -- only running", async () => {
     const queued = await seedRun("run-reclaim-queued", "queued", null);
     const writeback = await seedRun("run-reclaim-writeback", "writeback_pending", "30 minutes");
-    const approval = await seedRun("run-reclaim-approval", "awaiting_approval", "30 minutes");
+    const approval = await seedRun("run-reclaim-approval", "awaiting_tool_permission", "30 minutes");
     const succeeded = await seedRun("run-reclaim-succeeded", "succeeded", "30 minutes");
     const failed = await seedRun("run-reclaim-failed", "failed", "30 minutes");
 
@@ -116,7 +116,7 @@ describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states 
     expect(reclaimed).toBe(0);
 
     for (const [id, expectedStatus] of [
-      [queued, "queued"], [writeback, "writeback_pending"], [approval, "awaiting_approval"],
+      [queued, "queued"], [writeback, "writeback_pending"], [approval, "awaiting_tool_permission"],
       [succeeded, "succeeded"], [failed, "failed"],
     ] as const) {
       const after = await readRun(id);

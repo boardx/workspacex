@@ -115,9 +115,9 @@
         "F05"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "sonnet5-f06",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts",

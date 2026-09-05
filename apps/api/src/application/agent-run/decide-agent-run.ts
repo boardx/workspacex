@@ -1,11 +1,11 @@
 /**
- * decideAgentRun（DA-07b，#1749，rubric D6）—— awaiting_approval 的唯一出口。
+ * decideAgentRun（DA-07b，#1749，rubric D6）—— awaiting_tool_permission 的唯一出口。
  *
  * run 停在敏感工具调用前（interrupt_on，见 deep-agent-service 的 harness.py），
  * 人在这里裁决：
  *   approve → run 重新入队（queued + pending_decision='approve'），executor 领走后
  *             execute-run 让 provider 以 command.resume 续跑既有远端 run，不重发输入。
- *   edit    → （UX-9 D4）人在线改参数后放行：与 approve 走同一条 awaiting_approval →
+ *   edit    → （UX-9 D4）人在线改参数后放行：与 approve 走同一条 awaiting_tool_permission →
  *             queued 边，另把改后的完整参数对象落 pending_edited_args；resume 时
  *             provider 发 EditDecision（工具名沿用待批工具，不许换工具，见 contracts）。
  *   reject  → run 落 failed("HITL_REJECTED")。拒绝是终态：用户明确说了不，
@@ -22,9 +22,9 @@ import { AgentRunNotVisibleError } from "./read-run";
 import { AgentRunRetryForbiddenError } from "./retry-run";
 import type { AgentRunStore, RunProjection } from "./ports";
 
-export class AgentRunNotAwaitingApprovalError extends Error {
+export class AgentRunNotAwaitingToolPermissionError extends Error {
   constructor(readonly status: string) {
-    super(`run is in "${status}", not awaiting_approval`);
+    super(`run is in "${status}", not awaiting_tool_permission`);
   }
 }
 
@@ -57,7 +57,7 @@ export async function decideAgentRun(
   if (outcome.actor.projectRole === "observer") throw new AgentRunRetryForbiddenError();
   if (outcome.thread.archived) throw new AgentRunRetryForbiddenError();
 
-  // 先验状态：不在 awaiting_approval 的 run 一律冲突——否则 reject 分支会把一个
+  // 先验状态：不在 awaiting_tool_permission 的 run 一律冲突——否则 reject 分支会把一个
   // 正在 running 的 run 任意杀掉（decision 端点变成 kill 开关，谁都没授权过这件事）。
   // 这里的读与下面的条件 UPDATE 之间仍有竞态窗口，由 UPDATE 的 WHERE 状态条件兜底；
   // 本检查挡的是「压根不该发起」的调用，不是并发正确性的最后一道。
@@ -65,8 +65,8 @@ export async function decideAgentRun(
   if (before === null) throw new AgentRunNotVisibleError();
   const beforeDisclosed = discloseDecided(before, outcome.base);
   if (!isDisclosed(beforeDisclosed)) throw new AgentRunNotVisibleError();
-  if (beforeDisclosed.payload.status !== "awaiting_approval") {
-    throw new AgentRunNotAwaitingApprovalError(beforeDisclosed.payload.status);
+  if (beforeDisclosed.payload.status !== "awaiting_tool_permission") {
+    throw new AgentRunNotAwaitingToolPermissionError(beforeDisclosed.payload.status);
   }
 
   if (input.decision === "reject") {
@@ -81,7 +81,7 @@ export async function decideAgentRun(
     if (!requeued) {
       const guarded = await deps.runs.readRun(input.orgId, input.runId);
       const status = guarded === null ? "unknown" : "conflict";
-      throw new AgentRunNotAwaitingApprovalError(status);
+      throw new AgentRunNotAwaitingToolPermissionError(status);
     }
     deps.kick(input.orgId);
   }
@@ -92,7 +92,7 @@ export async function decideAgentRun(
   if (!isDisclosed(disclosed)) throw new AgentRunNotVisibleError();
   if (input.decision === "reject" && disclosed.payload.error !== "HITL_REJECTED") {
     // reject 输了竞态（run 已终态成别的结果）——如实报冲突，不假装拒绝生效。
-    throw new AgentRunNotAwaitingApprovalError(disclosed.payload.status);
+    throw new AgentRunNotAwaitingToolPermissionError(disclosed.payload.status);
   }
   return disclosed.payload;
 }

@@ -18,6 +18,6 @@
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |
 | 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
-| 14 | agent-kernel-unification | not_started | 6 | 9 | 0 | 0 |
+| 14 | agent-kernel-unification | not_started | 5 | 10 | 0 | 0 |
 
-_最近聚合:2026-09-05T00:58:24.380Z_
+_最近聚合:2026-09-05T01:34:25.875Z_

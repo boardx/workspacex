@@ -206,7 +206,7 @@ export type AgentInterruptError = z.infer<typeof AgentInterruptError>;
 
 /* ── 七、实体（domain.md 四节）────────────────────────────────────────
  * `InterruptRequest` 不是新表——它是 `agent_run_steps` 一条
- * `status = "awaiting_approval"` 行的投影（不变量 I-9），本文件只声明这份投影的形状，
+ * `status = "awaiting_tool_permission"` 行的投影（不变量 I-9），本文件只声明这份投影的形状，
  * 不建议独立持久化。 */
 
 export const InterruptRequest = z.object({

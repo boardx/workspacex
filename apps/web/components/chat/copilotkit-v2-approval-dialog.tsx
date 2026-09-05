@@ -50,7 +50,7 @@ import {
  * 借以判定"这个工具调用还在等人"的信号（`TOOL_CALL_END` 之后一段时间内没有配对结果）
  * 因此从未成立，客户端把它当已完成处理，`status` 直接落 `"complete"`，从未经过
  * `"executing"`：`respond` 全程 `undefined`，approve/编辑/reject 三个按钮永远不会
- * 渲染；run 自己的**整体**状态仍卡在 `awaiting_approval`，`runAguiBridgeTurn` 的
+ * 渲染；run 自己的**整体**状态仍卡在 `awaiting_tool_permission`，`runAguiBridgeTurn` 的
  * 轮询循环只认 `"succeeded"`/`"failed"` 两个终态分支，最终耗尽 `maxPolls`（~30s）以
  * `RUN_ERROR`/`AGENT_RUN_TIMEOUT` 收场——也没有任何入口能把 `respond()` 之后框架
  * 发起的 follow-up `runAgent` 请求路由回同一个被打断的 run 去恢复它。
@@ -59,7 +59,7 @@ import {
  * 步骤只发 `STEP_STARTED`→`TOOL_CALL_START/ARGS/END`，不再提前发 `RESULT`/
  * `STEP_FINISHED`——`useHumanInTheLoop` 的"等待"信号成立，`respond` 真的落在
  * `"executing"`。`runAguiBridgeTurn`（`apps/api/src/application/agent-run/
- * agui-bridge.ts`）认识 `awaiting_approval` 这个中间态，以真实的 `RUN_FINISHED`
+ * agui-bridge.ts`）认识 `awaiting_tool_permission` 这个中间态，以真实的 `RUN_FINISHED`
  * （不是超时/错误）结束这一轮，与一次真正的 AG-UI 前端工具调用同一个协议约定。新增
  * 的 `resumeAguiBridgeTurn` + `copilotkit-agui.controller.ts` 的
  * `isHitlResumeRequest`/`parseHitlDecision` 把 `respond()` 之后的 follow-up
@@ -84,7 +84,7 @@ import {
  * 的 `writeToolCallStep`，`toolCallName: step.toolName`，不改名不过滤），于是
  * 名字对不上 ⇒ `useHumanInTheLoop` 不认领这次调用 ⇒ 渲染成普通工具卡、
  * `respond` 恒 `undefined` ⇒ 三个决策按钮永远不出现 ⇒ run 停在
- * `awaiting_approval` 无人能裁决。这就是 `DEEP_AGENT_HITL_TOOLS` 此前不敢打开的原因。
+ * `awaiting_tool_permission` 无人能裁决。这就是 `DEEP_AGENT_HITL_TOOLS` 此前不敢打开的原因。
  *
  * 修法**不是**把写死的错名字换成写死的对名字（那是下一次漂移的种子），而是让前端、
  * e2e 替身、部署开关三处全部从契约派生。改名字请改契约文件，不要改这里。
