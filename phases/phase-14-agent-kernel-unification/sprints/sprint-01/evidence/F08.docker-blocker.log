@@ -1,0 +1,29 @@
+F08 — 已知环境边界（Docker 在本环境不可用）
+
+`pnpm harness verify --sprint 14/01 --feature F08` 的完整输出见同目录
+`F08.verify.log`。摘要如下，供不想通读 1796 行原始日志的人快速核对：
+
+1. feature 自身的 verification 命令：
+   `pnpm --filter web exec vitest run tests/agent-kernel/tool-permission-card.test.tsx`
+   —— exit 0，8/8 通过。
+
+2. 风险分档后触发的基础验证 `pnpm -w run verify:quick`
+   （`turbo run typecheck lint test --affected`，命中 web + 少量 packages）：
+   - web:typecheck / web:lint / web:test 全部通过——
+     `Test Files 311 passed (311)` / `Tests 2876 passed (2876)`，
+     其中含本 feature 新增的 `tests/agent-kernel/tool-permission-card.test.tsx`。
+   - `Tasks: 5 successful, 5 total` —— turbo 派发的 5 个任务全部成功。
+   - 唯一的非零退出来自 harness 自己的隔离清理步骤：
+     `[test-isolation] cleanup failed: docker compose down -v exited 1`。
+     本环境没有 Docker daemon（`docker ps` 报
+     `dial unix /var/run/docker.sock: connect: no such file or directory`），
+     `with-test-isolation.ts` 在命令本身成功的情况下仍把清理失败视为整体退出码 1
+     （见 `.harness/scripts/with-test-isolation.ts` 第 144/154 行：
+     `return cleanupError ? 1 : 0`）。
+
+3. 结论：本 feature 涉及的真实检查（typecheck/lint/单测，含新增测试）已经
+   全部跑通；卡住机械门控的只是这台环境缺 Docker daemon 导致的清理步骤失败，
+   与 F06 记录的边界（`F06.docker-blocker.log`）同一根因，不是本 feature 代码
+   引入的新问题。如实记录，不绕开门控自行标 passing——`status` 保持
+   `in_progress`，等有 Docker 的环境重跑 `pnpm harness verify --sprint 14/01
+   --feature F08` 完成机械转移。
