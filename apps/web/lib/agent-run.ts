@@ -109,7 +109,7 @@ export async function retryAgentRun(
 }
 
 /**
- * DA-07c（rubric D6）：对 awaiting_approval 的 run 提交人裁决。
+ * DA-07c（rubric D6）：对 awaiting_tool_permission 的 run 提交人裁决。
  * 只把服务端结果原样交出去；409 会从 apiRequest 以错误抛出——调用方据此
  * 重读 run 展示真实状态，不在客户端假装决定生效（与 getAgentRun 同一条纪律）。
  *

@@ -215,7 +215,9 @@ export class PgAgentRunRepository implements AgentRunStore {
                 toolName: row.pending_tool_name ?? "unknown",
                 editedArgsJson: row.pending_edited_args ?? "null",
               }
-              : null,
+              : row.pending_decision === "deny"
+                ? { kind: "deny" as const }
+                : null,
           // DA-07b resume 续号（本次修复，见 `ClaimedAgentRun.resumeStepSeqBase` 文档）：
           // 只在真的是一次 resume 时才带上——新 run 的 `max_step_seq` 恒为 1（只有
           // acceptance 写的那一行），与"未定义时退回旧硬编码 1"完全等价，这里仍然只在
@@ -385,7 +387,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async markAwaitingApproval(
+  async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
     pending: { readonly toolName: string; readonly argsSummary: string | null },
   ): Promise<void> {
@@ -394,7 +396,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
       await s.query(
         `UPDATE agent_runs
-            SET status='awaiting_approval', pending_tool_name=$3, pending_args_summary=$4
+            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4
           WHERE org_id=$1 AND id=$2 AND status='running'`,
         [orgId, runId, pending.toolName, pending.argsSummary],
       );
@@ -408,7 +410,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const updated = await s.query(
         `UPDATE agent_runs
             SET status='queued', pending_decision='approve'
-          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
           RETURNING id`,
         [orgId, runId],
       );
@@ -423,9 +425,25 @@ export class PgAgentRunRepository implements AgentRunStore {
       const updated = await s.query(
         `UPDATE agent_runs
             SET status='queued', pending_decision='edit', pending_edited_args=$3
-          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
           RETURNING id`,
         [orgId, runId, editedArgsJson],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
+  async denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 与 approveAndRequeue 同一条边、同一套竞态语义——拒绝也重新入队而不是直接
+      // failRun：execute-run 据此让 provider 发 resume:{decision:"reject"}，内核收到
+      // 拒绝结果后自己调整后续计划，不是判定整个 run 失败（R3 步骤 6）。
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='deny'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+          RETURNING id`,
+        [orgId, runId],
       );
       return updated.rows.length > 0;
     });
@@ -627,13 +645,13 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  /** DA-19g -- see `AgentRunStore.findAwaitingApprovalRunId`'s own doc for why the AG-UI
+  /** DA-19g -- see `AgentRunStore.findAwaitingToolPermissionRunId`'s own doc for why the AG-UI
    * bridge needs this lookup at all (its resume request carries a thread id, not a run id). */
-  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null> {
+  findAwaitingToolPermissionRunId(orgId: OrgId, threadId: string): Promise<string | null> {
     return this.db.withTenant(orgId, async (s) => {
       const result = await s.query<{ id: string }>(
         `SELECT id FROM agent_runs
-          WHERE org_id=$1 AND thread_id=$2 AND status='awaiting_approval'
+          WHERE org_id=$1 AND thread_id=$2 AND status='awaiting_tool_permission'
           ORDER BY created_at DESC LIMIT 1`,
         [orgId, threadId],
       );

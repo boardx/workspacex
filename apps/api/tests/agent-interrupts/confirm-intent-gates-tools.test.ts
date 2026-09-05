@@ -11,14 +11,14 @@
  * ## I-1 反证怎么落地成可判定断言——如实说明与 usecases.md 原文的一处适配
  *
  * `usecases.md` UC-1 反证节原文断言点写的是「`agent_run_steps` 表里，
- * `toolName = "confirm_task_intent"` 且 `status = "awaiting_approval"` 的行之后，
- * 同一 `runId` 不存在 `createdAt` 更晚、且 `status != "awaiting_approval"` 的工具
+ * `toolName = "confirm_task_intent"` 且 `status = "awaiting_tool_permission"` 的行之后，
+ * 同一 `runId` 不存在 `createdAt` 更晚、且 `status != "awaiting_tool_permission"` 的工具
  * 调用行」——**实测**（`apps/api/migrations/20260805110000_wave2_agent_run_execution.sql`
  * 的 `agent_run_steps.status` CHECK 约束）：`agent_run_steps` 表的 `status` 只允许
- * `'succeeded' | 'failed'`，从不写 `'awaiting_approval'`；待批状态实际落在
+ * `'succeeded' | 'failed'`，从不写 `'awaiting_tool_permission'`；待批状态实际落在
  * `agent_runs.status`（+`pending_tool_name`），`agent_run_steps` 是"已执行步骤"的
  * 追加日志（`INSERT`-only，从不 `UPDATE`）。这与 `domain.md`「`InterruptRequest` 不是
- * 新表，是 `agent_run_steps` 一条 `status=awaiting_approval` 行的投影」的表述在**具体
+ * 新表，是 `agent_run_steps` 一条 `status=awaiting_tool_permission` 行的投影」的表述在**具体
  * 落库位置**上不一致（投影语义仍然成立——`AgentRunView.pendingApproval` 就是这条
  * 投影，只是物理落在 `agent_runs` 行而非 `agent_run_steps` 行）。
  *
@@ -30,7 +30,7 @@
  *      `in_progress` 行，不存在同一 `toolName` 的 `succeeded`/`failed` 终态行，也不存在
  *      任何其它工具的 `tool_call` 行**（"未确认不往下走" = 没有第二个工具调用、也没有
  *      这次调用本身的终态）。
- *   1. `agent_runs.status = 'awaiting_approval' AND pending_tool_name = 'confirm_task_intent'`
+ *   1. `agent_runs.status = 'awaiting_tool_permission' AND pending_tool_name = 'confirm_task_intent'`
  *      成立期间，`agent_run_steps` 里 `tool_call` 行恰好一条（`confirm_task_intent`，
  *      `in_progress`），不存在任何终态（`succeeded`/`failed`）的 `tool_call` 行。
  *   2. resume（approve 或 edit）之后，`agent_run_steps` 才出现第二条同 `toolName` 的
@@ -298,7 +298,7 @@ describe("F213 confirm_task_intent —— I-1 反证：未确认前不执行任�
     await tick();
 
     const awaiting = await readRun(agentRunId);
-    expect(awaiting.status).toBe("awaiting_approval");
+    expect(awaiting.status).toBe("awaiting_tool_permission");
     expect(awaiting.pendingApproval?.toolName).toBe(TOOL_NAME);
 
     // I-1 正向断言：未确认前，只有「已宣布、还没结果」的一条 in_progress 行——没有
@@ -342,7 +342,7 @@ describe("F213 confirm_task_intent —— I-1 反证：未确认前不执行任�
     await tick();
 
     const awaiting = await readRun(agentRunId);
-    expect(awaiting.status).toBe("awaiting_approval");
+    expect(awaiting.status).toBe("awaiting_tool_permission");
 
     // I-1 正向断言（edit 分支同样成立）。
     expect(await readPersistedToolCallSteps(agentRunId)).toEqual([

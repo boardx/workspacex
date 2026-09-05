@@ -19,13 +19,13 @@ import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
  * 语义：`copilotkit-agui.controller.ts` 的 `writeToolCallStep` 把一个还没被裁决的
  * `"in_progress"` 步骤当成已成功处理，立刻补发一个空 `TOOL_CALL_RESULT`——
  * `useHumanInTheLoop` 借以判定"还在等人"的信号从未成立，`respond` 全程 `undefined`，
- * `SendEmailApprovalDialog` 只能渲染只读分支，且 run 整体在 `awaiting_approval` 卡到
+ * `SendEmailApprovalDialog` 只能渲染只读分支，且 run 整体在 `awaiting_tool_permission` 卡到
  * `runAguiBridgeTurn` 的 `maxPolls`（~30s）耗尽，以 `RUN_ERROR AGENT_RUN_TIMEOUT`
  * 收场。
  *
  * 那正是 DA-19g HITL 审批语义任务要修的 bug 本身——`writeToolCallStep` 现在对
  * `"in_progress"` 步骤只发 `STEP_STARTED`→`TOOL_CALL_START/ARGS/END`，不再提前发
- * `RESULT`/`STEP_FINISHED`；`runAguiBridgeTurn` 认识 `awaiting_approval` 这个中间态，
+ * `RESULT`/`STEP_FINISHED`；`runAguiBridgeTurn` 认识 `awaiting_tool_permission` 这个中间态，
  * 不再把它当"还在跑"继续轮询到超时，而是让这一轮 SSE 以真实的 `RUN_FINISHED`
  * （不是 `RUN_ERROR`）收场，与一次真正的 AG-UI 前端工具调用同一个协议约定；
  * `resumeAguiBridgeTurn`（新增）把 `useHumanInTheLoop` 的 `respond()` 之后框架发起
@@ -72,7 +72,7 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
  * 对"输入为空"单独给一条禁用理由（"请先输入任务目标"）——这是 TW-P0-5④ 刻意加的、
  * 独立于 `agent.isRunning` 的合法禁用态，不是本文件要覆盖的行为。
  *
- * 三条测试真正要证明的是"resume 之后 run 不再卡在 `awaiting_approval`（`agent.isRunning`
+ * 三条测试真正要证明的是"resume 之后 run 不再卡在 `awaiting_tool_permission`（`agent.isRunning`
  * 不再让按钮卡死）"，不是"composer 恰好非空所以按钮恰好可点"——这三条测试从未在断言
  * 这一步往输入框里填过字，`toBeEnabled()` 断言的其实是一个从未被它们自己满足过的前提。
  * 直接读 `title`（`sendDisabledReason` 的镜像，见 `copilotkit-v2-panel.tsx`
@@ -168,7 +168,7 @@ test("DA-19g approve：三个交互按钮真的渲染，点击「批准并继续
   await expect(page.getByTestId("copilotkit-v2-hitl-dialog")).toHaveCount(0);
 
   // ── 反证②：run 真的继续执行完成，最终答案里能看到「已按原参数执行」——不是卡在
-  // `awaiting_approval` 直到 30s 超时收场（旧行为：`RUN_ERROR AGENT_RUN_TIMEOUT`） ──
+  // `awaiting_tool_permission` 直到 30s 超时收场（旧行为：`RUN_ERROR AGENT_RUN_TIMEOUT`） ──
   // `agent.isRunning` (this button's `disabled`) already flips back to `false` the moment
   // TURN ONE's `RUN_FINISHED` lands, BEFORE the human decides anything -- see
   // `copilotkit-v2-hitl.spec.ts`'s reject test for the full explanation. Waiting on the

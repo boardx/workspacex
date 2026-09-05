@@ -68,6 +68,8 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
 import { record } from "./record-run-step";
+import { handleInterruptedToolCall } from "./tool-permission-gate";
+import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -471,6 +473,13 @@ export interface ExecuteAgentRunDeps {
   /** Phase 14 F03 -- WS event bus (`execute-run-events.ts`). 可选，同 `usage`/`files` 既有
    * 理由：不注入 ⇒ 落库逐字节不变，只是没有 WS 订阅者能看到进展（I-3 的推流旁路）。 */
   readonly events?: RunEventBusPort;
+  /**
+   * Phase 14 F06（`plan-permissions` 契约束 R5）—— 三档授权存储（`tool-permission-
+   * grants.ts`）。**可选**，与本接口其余字段同一条既有先例：缺省不注入 ⇒
+   * `tool-permission-gate.ts` 的 `hasGrant` 恒为 false，行为与本 feature 之前逐字节
+   * 相同——每次 L2 中断都进 `awaiting_tool_permission`，既有测试不需要跟着改。
+   */
+  readonly toolPermissionGrants?: ToolPermissionGrantStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -1111,20 +1120,24 @@ async function executeClaimed(
         // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
         // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
         // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
-        // fail closed），本层不做第二份解析副本。
+        // fail closed），本层不做第二份解析副本。Phase 14 F06：deny 变体让 provider
+        // 发 resume:{decision:"reject"}——引擎侧 HumanInTheLoopMiddleware 原生支持的
+        // 拒绝语义，收到后自己调整后续计划继续跑，不是让这次调用直接失败。
         ...(run.pendingDecision === null
           ? {}
           : run.pendingDecision.kind === "approve"
             ? { resume: { decision: "approve" as const } }
-            : {
-              resume: {
-                decision: "edit" as const,
-                editedAction: {
-                  name: run.pendingDecision.toolName,
-                  argsJson: run.pendingDecision.editedArgsJson,
+            : run.pendingDecision.kind === "deny"
+              ? { resume: { decision: "reject" as const } }
+              : {
+                resume: {
+                  decision: "edit" as const,
+                  editedAction: {
+                    name: run.pendingDecision.toolName,
+                    argsJson: run.pendingDecision.editedArgsJson,
+                  },
                 },
-              },
-            }),
+              }),
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
@@ -1187,21 +1200,12 @@ async function executeClaimed(
       },
     );
     if (completion.interrupted !== undefined) {
-      // DA-07b（rubric D6）：run 停在敏感工具调用前等人裁决。这不是失败也不是完成——
-      // run 落 awaiting_approval + 待批摘要，本轮执行到此为止：不写回、不置终态。
-      // decideAgentRun 是唯一的出口（approve → 重新入队以 resume 续跑；reject → failed）。
-      await record(deps, orgId, {
-        runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
-        inputDigest: systemDigest, outputDigest: null, failureCode: null,
-        planningNote: `等待人工批准：${completion.interrupted.toolName}`,
-        // Phase 14 F15 -- 模型看到了什么（`system`）。此刻尚未产出完整回复，`outputFullContent`
-        // 留空，与 `outputDigest: null` 同一个事实（无输出可摘）。
-        inputFullContent: system,
+      // Phase 14 F06 -- 分级+授权判断与两条落点（自动放行续跑 / 停进
+      // awaiting_tool_permission 等人裁决）都在 `tool-permission-gate.ts`，这里只是
+      // 一次调用（同 `execute-run-events.ts`/`record-run-step.ts` 的既有抽离理由）。
+      await handleInterruptedToolCall(deps, orgId, run.runId, completion.interrupted, {
+        seq: seqCursor.value, modelStartedAt, systemDigest, system,
       });
-      await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
-      // Phase 14 F03 -- WS wire uses the NEW enum name (I-5); the OLD `awaiting_approval`
-      // DB status above is `plan-permissions` 契约束's concern, per `domain.md`.
-      publishStatusChange(deps, orgId, run.runId, "awaiting_tool_permission");
       return;
     }
     if (completion.text.trim() === "") {

@@ -137,10 +137,16 @@ export interface ClaimedAgentRun {
    * 不可表示）：toolName 沿用停住时的待批工具（pending_tool_name，edit 不许换工具，
    * 见 contracts），editedArgsJson 是人改后的完整参数对象的 JSON 文本——由 provider
    * 解析并校验，坏 JSON 走 ModelCallError fail closed，不静默降级成 approve。
+   *
+   * Phase 14 F06：`deny` 是 `decideToolPermission` UC-6 四选一里"拒绝"的落点——
+   * 与 `approve`/`edit` 走同一条 `awaiting_tool_permission → queued` 边，`execute-run.ts`
+   * 据此让 provider 以 `resume:{decision:"reject"}` 续跑，内核收到拒绝结果后自己调整
+   * 后续计划继续执行（R3 步骤 6），不是直接判定整个 run 失败。
    */
   readonly pendingDecision:
     | { readonly kind: "approve" }
     | { readonly kind: "edit"; readonly toolName: string; readonly editedArgsJson: string }
+    | { readonly kind: "deny" }
     | null;
   /**
    * DA-07b resume 续号（HITL edit 端到端从未生效的根因修复，2026-08-24）。
@@ -148,7 +154,7 @@ export interface ClaimedAgentRun {
    * `executeClaimed` 给每一步一个固定的账本 seq（accepted=1 在 acceptance 事务里写；
    * context_built=2；tool_call/model_called 从 3 起累加）——这个假设只在"一个 run 从
    * `queued` 到终态只被 `executeClaimed` 处理一次"时成立。DA-07b 打破了它：一个停在
-   * `awaiting_approval` 的 run 已经写过 accepted/context_built/tool_call(in_progress)/
+   * `awaiting_tool_permission` 的 run 已经写过 accepted/context_built/tool_call(in_progress)/
    * model_called(等待批准) 四行，人裁决后重新入队，`executeClaimed` 会被**第二次**调用
    * 续跑同一个 run——如果它仍从硬编码的 2/3 起步，`context_built` 那一行会撞上第一次
    * 执行时已经写在 seq=2 的行，`agent_run_steps_seq_uniq` 唯一约束直接拒绝这次 INSERT。
@@ -305,7 +311,7 @@ export interface RunProjection {
    */
   readonly steps: readonly Omit<AppendedRunStep, "runId" | "seq" | "toolCallId">[];
   readonly createdAt: string;
-  /** DA-07b：等待裁决的工具摘要；非 awaiting_approval 时为 null。
+  /** DA-07b：等待裁决的工具摘要；非 awaiting_tool_permission 时为 null。
    * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
    * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
    * 的 .strict() 拒绝——29 个既有测试当场教的。） */
@@ -413,28 +419,43 @@ export interface AgentRunStore {
   failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void>;
 
   /**
-   * DA-07b：running → awaiting_approval，同时落等待裁决的工具摘要。
+   * DA-07b：running → awaiting_tool_permission，同时落等待裁决的工具摘要。
    * 触发器只放行 running 起跳——在其他状态上调用会被 DB 拒绝，这是对的。
    */
-  markAwaitingApproval(
+  markAwaitingToolPermission(
     orgId: OrgId, runId: string,
     pending: { readonly toolName: string; readonly argsSummary: string | null },
   ): Promise<void>;
 
   /**
-   * DA-07b：awaiting_approval → running（人批准），并记 pending_decision='approve'
+   * DA-07b：awaiting_tool_permission → running（人批准），并记 pending_decision='approve'
    * 供 executor 重新领 run 时让 provider 走 resume。返回 false = run 不在
-   * awaiting_approval（并发裁决/已终态），调用方按冲突处理，不重试。
+   * awaiting_tool_permission（并发裁决/已终态），调用方按冲突处理，不重试。
    */
   approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
 
   /**
-   * UX-9 D4：awaiting_approval → queued（人改参数后放行），记 pending_decision='edit'
+   * UX-9 D4：awaiting_tool_permission → queued（人改参数后放行），记 pending_decision='edit'
    * 且把改后的完整参数对象（JSON 文本）落 pending_edited_args——executor 重新领 run
    * 时 provider 据此发 EditDecision resume。返回语义与 approveAndRequeue 完全一致：
    * false = 输了竞态，调用方按冲突处理，不重试不覆盖。
    */
   editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean>;
+
+  /**
+   * Phase 14 F06（`plan-permissions` UC-6 `decideToolPermission`，decision `"deny"`）：
+   * awaiting_tool_permission → queued（人拒绝，但内核据此调整计划继续跑，不是直接
+   * 判定整个 run 失败，R3 步骤 6），记 pending_decision='deny'——executor 重新领 run
+   * 时 provider 据此发 `resume:{decision:"reject"}`（引擎侧 HumanInTheLoopMiddleware
+   * 早已支持的原生拒绝语义）。返回语义与 approveAndRequeue 一致：false = 输了竞态，
+   * 调用方按冲突处理，不重试不覆盖。
+   *
+   * ⚠ 与旧 DA-07b 单工具审批弹层的 `decideAgentRun({decision:"reject"})` 是两条不同的
+   * 出口：那条走 `failRun("HITL_REJECTED")`，服务的是尚未迁移到本契约束的
+   * CopilotKit `useHumanInTheLoop` 三键弹层（F07/F08 迁移前维持原状，见该函数文件头）。
+   * 本方法只服务新的四选一工具权限确认弹层。
+   */
+  denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
 
   /**
    * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
@@ -454,7 +475,7 @@ export interface AgentRunStore {
    * 应该花的时间（`DeepAgentModelProvider` 自己的 `KERNEL_DEEP_AGENT_TIMEOUT_MS`
    * 默认 5 分钟）——太短会误杀正常运行中的慢 run。
    *
-   * 只处理 `running`：`writeback_pending`/`awaiting_approval` 已经各自有名副其实的
+   * 只处理 `running`：`writeback_pending`/`awaiting_tool_permission` 已经各自有名副其实的
    * 恢复路径（前者见上、后者等的是人的裁决，本身就该长期挂起），不该被这个函数一起
    * 扫进去当"卡住"处理。
    *
@@ -545,7 +566,7 @@ export interface AgentRunStore {
    * on", so the bridge can hand it straight to the SAME `decideAgentRun` the REST route uses,
    * not a second decision-making implementation.
    *
-   * A thread can have at most one `awaiting_approval` run at a time (the agent loop is
+   * A thread can have at most one `awaiting_tool_permission` run at a time (the agent loop is
    * strictly sequential -- a run halts entirely on interrupt, see `execute-run.ts`'s
    * `completion.interrupted` branch), so this never has an actual "which one" ambiguity to
    * resolve; the `ORDER BY ... LIMIT 1` is defensive tidiness, not a real tie-break. `null`
@@ -553,7 +574,7 @@ export interface AgentRunStore {
    * since the client's last observation, or simply a stale/duplicate follow-up) -- the caller
    * treats both the same way: there is nothing left to resume.
    */
-  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null>;
+  findAwaitingToolPermissionRunId(orgId: OrgId, threadId: string): Promise<string | null>;
 
   readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null>;
 
@@ -789,9 +810,20 @@ export interface ModelCallInput {
    * 非对象/坏 JSON 抛 ModelCallError（fail closed），绝不静默降级为 approve。
    * 引擎侧实测形状（deepagents 0.7.6 / langchain HumanInTheLoopMiddleware）：
    * {type:"edit", edited_action:{name:str, args:dict}}。
+   *
+   * Phase 14 F06（`plan-permissions` 契约束 UC-6 `decideToolPermission`，R3 步骤 6）：
+   * `reject` 变体——四选一中的"拒绝"不是把 run 判死（那是旧 DA-07b 单工具审批弹层
+   * 的行为，仍由 `decideAgentRun` 的 `decision: "reject"` 走 `failRun`，本变体不碰
+   * 那条路径），而是把拒绝结果喂回内核，让它据此调整后续计划继续跑。引擎侧同一份
+   * `HumanInTheLoopMiddleware._process_decision` 早就支持 `{type:"reject"}`——见
+   * `apps/deep-agent-service/tests/test_harness.py`
+   * `test_hitl_resume_reject_tool_not_executed`：拒绝的工具绝不真实执行，且 run
+   * 优雅收尾到下一轮回答，不是挂死或裸异常。`decideToolPermission` 的 `deny` 决策
+   * 就落在这个变体上（见 `decide-tool-permission.ts`）。
    */
   readonly resume?:
     | { readonly decision: "approve" }
+    | { readonly decision: "reject" }
     | { readonly decision: "edit"; readonly editedAction: { readonly name: string; readonly argsJson: string } };
   /**
    * F976 (`plan-control` 契约束, UC-9 `pausePlanRun`) —— P-2 探针的落点。OPTIONAL,

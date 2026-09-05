@@ -283,7 +283,7 @@ export const RUN_STATUS_TEXT: Record<AgentRunStatus, string> = {
   queued: "已排队，等待执行",
   running: "正在执行",
   writeback_pending: "已产出，正在写回对话",
-  awaiting_approval: "等待你的批准（见上方审批卡）",
+  awaiting_tool_permission: "等待你的批准（见上方审批卡）",
   succeeded: "执行完成，回复已写入对话",
   failed: "执行失败",
 };

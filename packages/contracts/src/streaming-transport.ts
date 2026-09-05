@@ -12,7 +12,7 @@
  * 签核束的契约面，废止它是实现阶段的删除工作，不在本轮签核材料的翻译范围内）。
  *
  * ⚠ **`AgentKernelRunStatus` 是新枚举，不是 `wave2-runtime.ts` 的 `AgentRunStatus`
- * 的别名或扩展**——旧枚举的 `awaiting_approval` 按 R6/00-overview「已澄清的设计
+ * 的别名或扩展**——旧枚举的 `awaiting_tool_permission` 按 R6/00-overview「已澄清的设计
  * 决策」被 `awaiting_tool_permission`（本束的 `plan-permissions` 束的一部分状态迁移）
  * 取代，二者不并存。刻意换名字避免"同一个符号名两处声明不同值"这个本仓最高发的
  * 漂移模式。
@@ -34,7 +34,7 @@ export const AgentKernelRunStatus = z.enum([
   "running",
   /** 03 plan-permissions 束引入：等待用户确认/编辑计划。 */
   "awaiting_plan_confirmation",
-  /** 03 plan-permissions 束引入，取代旧 awaiting_approval（二者不并存）。 */
+  /** 03 plan-permissions 束引入，取代旧 awaiting_tool_permission（二者不并存）。 */
   "awaiting_tool_permission",
   /** R4 E4：用户主动暂停，或系统保护性暂停（见 `pausedBy`）。 */
   "paused",

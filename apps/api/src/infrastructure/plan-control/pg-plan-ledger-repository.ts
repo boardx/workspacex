@@ -44,13 +44,13 @@ function toLedgerRow(r: LedgerRow): PlanLedgerRow {
   };
 }
 
-/** `agent_runs.status` (DB enum, six values incl. DA-07b's `awaiting_approval`) → contract's `RunStatusForPhase`. */
+/** `agent_runs.status` (DB enum, six values incl. DA-07b's `awaiting_tool_permission`) → contract's `RunStatusForPhase`. */
 function toRunStatusForPhase(dbStatus: string): PlanRunSnapshot["status"] {
   switch (dbStatus) {
     case "queued":
     case "running":
     case "writeback_pending":
-    case "awaiting_approval":
+    case "awaiting_tool_permission":
       return "running";
     case "succeeded":
       return "succeeded";
@@ -205,7 +205,7 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
       return {
         runId: row.id,
         status: toRunStatusForPhase(row.status),
-        pendingToolName: row.status === "awaiting_approval" ? row.pending_tool_name : null,
+        pendingToolName: row.status === "awaiting_tool_permission" ? row.pending_tool_name : null,
         createdAt: row.created_at.toISOString(),
         agentId: row.agent_id,
         remoteRunId: row.remote_run_id,

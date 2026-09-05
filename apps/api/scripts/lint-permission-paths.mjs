@@ -401,6 +401,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/design-workbench/pg-design-project-repository.ts",
     "UC-17.8 B4.3 设计项目：与 `pg-feedback-draft-repository.ts` 同一形态,但披露规则相反——`design-workbench.ts` 头注【待确认点 1】裁决「组织内全员可读」,`design_projects`/`design_project_chat_messages` 背后没有 ACL 对象、也没有 D3 那种「detail 对谁可见」的多方判定,这两张表的每一行内容本来就该对整个组织放行,不存在需要 `discloseDecided` 去挡的第二层门——套一个恒真的 `Guarded<T>` 只会让 linter 满意,不会多保护任何东西。真正需要判定的是相反方向:「谁能**改**」,由 `update`/`delete`/`appendChat`/`pushToInbox` 四个写方法的 SQL 谓词 `owner_id = $n` 表达(读不到就是读不到,用例翻成 `NOT_PROJECT_OWNER`;`get`/`listForOrg` 两个读方法只按 `org_id` 收窄,不带 `owner_id`——这是刻意的,不是漏了)。`pushToInbox` 额外在同一事务里 UPDATE `product_feedback.resolved_by_design_id`——同样只按 `org_id` 收窄,因为这一步不是读它的正文,只是把外键指过去(双向关联的另一半,见迁移 `20260904150000_uc178_design_workbench.sql` 头注),不经过 `feedback-loop` 束的 D3 判定,也不该经过——那条判定是给「谁能看正文」用的,这里既不读也不露正文。⚠ 豁免不是一句声明:tests/design-workbench/project-repository-guard.test.ts 解析该文件,断言① 四个写方法的每条 UPDATE/DELETE 都带 `owner_id = $` 与 `org_id = $`;② `get`/`listForOrg` 只带 `org_id = $`(不要求 owner,这是与草稿仓储相反的断言);③ INSERT 带 `org_id`;④ 没有 `withoutTenant`;⑤ 只碰 `design_projects`/`design_project_chat_messages`/`product_feedback` 三张表。**那个测试若被删除,本条目必须跟着删。**",
   ],
+  [
+    "src/infrastructure/agent-run/pg-tool-permission-grant-repository.ts",
+    "Phase 14 F06（`plan-permissions` 契约束 R5，`StandingToolGrant`）：`tool_permission_grants` 背后没有 `ObjectRef` 能表达的 ACL 对象（不是 Artifact/Segment/Capability/Project/Organization/Interview 的任何一种）——它是授权元数据（哪个组织/run 对哪个工具名给过哪一档许可），不是要披露给某个请求方看的租户内容。三个方法没有一个把行内容交还给调用方：`grantForRun`/`grantStanding` 是纯 INSERT（`Promise<void>`）；`hasGrant` 折成一个布尔（`SELECT EXISTS(...)`），从不选出 `granted_by_user_id`/`granted_at` 这类内容列。真正的裁决在上一层：`decide-tool-permission.ts` 先跑 `resolveVisibility` + observer/归档线程判定，只有通过之后才会调用这三个方法之一——同 F119/F124 系列条目的既有次序（先裁决、后落库），不是第二道无人把关的门。⚠ 豁免仅在（a）本文件只出现 `tool_permission_grants` 这一张租户表，（b）从不调用 `withoutTenant`，（c）`hasGrant` 唯一的 SELECT 是 `EXISTS(...)`、从不选出 `granted_by_user_id`/`granted_at` 时有效：tests/agent-run/tool-permission-grant-repo-guard.test.ts 逐条断言。该测试若被删除，本条目必须一并删除。",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */

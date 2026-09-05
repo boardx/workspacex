@@ -32,7 +32,7 @@
  * 也就是提问的人已经能看见这个 run 了。
  */
 import {
-  AgentRunNotAwaitingApprovalError,
+  AgentRunNotAwaitingToolPermissionError,
   decideAgentRun,
 } from "../../application/agent-run/decide-agent-run";
 import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
@@ -195,7 +195,7 @@ export class AgentRunController {
    * 200 而不是 202：返回的是重开后的 run 投影，客户端照 §5 继续轮询到终态。
    */
   /**
-   * DA-07b（rubric D6）：awaiting_approval 的人裁决入口。
+   * DA-07b（rubric D6）：awaiting_tool_permission 的人裁决入口。
    * body.decision: "approve" | "edit" | "reject"。404/403/409/503 语义与 retries 同一套：
    * 不可见 = 404（I-3：不确认存在性）、observer/归档 = 403、状态不对 = 409。
    *
@@ -236,8 +236,8 @@ export class AgentRunController {
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
       if (e instanceof AgentRunRetryForbiddenError) throw new ForbiddenException("AGENT_RUN_DECISION_FORBIDDEN");
-      if (e instanceof AgentRunNotAwaitingApprovalError) {
-        throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_APPROVAL", status: e.status });
+      if (e instanceof AgentRunNotAwaitingToolPermissionError) {
+        throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION", status: e.status });
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;

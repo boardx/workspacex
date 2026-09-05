@@ -287,7 +287,7 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
     await tick();
 
     const awaiting = await readRun(agentRunId);
-    expect(awaiting.status).toBe("awaiting_approval");
+    expect(awaiting.status).toBe("awaiting_tool_permission");
     expect(awaiting.pendingApproval?.toolName).toBe(APPROVAL_TOOL_NAME);
 
     const decideResponse = await decide(agentRunId, { decision: "edit", editedArgs: EDITED_ARGS });

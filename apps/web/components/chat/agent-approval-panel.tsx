@@ -8,7 +8,7 @@ import { decideAgentRun, type AgentRunView } from "@/lib/agent-run";
  * agent-approval-panel（DA-07c，#1749，rubric D6 人在环的前端半边；UX-9 D4 补 edit
  * 分支，gap 清单第 3 条）—— 活体生产组件。
  *
- * run 停在 awaiting_approval（引擎 interrupt_on，DA-07；传输链 DA-07b）时渲染：
+ * run 停在 awaiting_tool_permission（引擎 interrupt_on，DA-07；传输链 DA-07b）时渲染：
  * 待批工具名 + 参数（默认只读摘要，点「编辑参数」切换成可编辑 JSON 文本域）+
  * 批准/编辑并批准/拒绝三钮。裁决走 POST /agent-runs/:runId/decision，之后
  * **不在本地预测结果**——既有的 run 轮询是唯一权威状态源（approve/edit 后 run 回
@@ -48,7 +48,7 @@ export function AgentApprovalPanel({
     setEditing(true);
   };
 
-  if (view.status !== "awaiting_approval" || pending == null) return null;
+  if (view.status !== "awaiting_tool_permission" || pending == null) return null;
 
   const parsedDraft = ((): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } => {
     try {

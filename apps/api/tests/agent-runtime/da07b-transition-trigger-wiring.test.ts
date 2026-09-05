@@ -2,13 +2,13 @@
  * DA-07b 触发器接线的 real-db 反证（backend-gates 2026-08-22 红灯的复盘产物）。
  *
  * 那次红暴露了一个链条：20260822120000 用新名字建了触发器函数，但触发器仍指旧函数
- * ——awaiting_approval 的两条新边在 DB 层从未生效；而删除逃生口守卫的 %force% 扫描
+ * ——awaiting_tool_permission 的两条新边在 DB 层从未生效；而删除逃生口守卫的 %force% 扫描
  * 恰好命中孤儿函数名里的 en"force"，把 main 拦红。守卫误伤了名字，救了语义。
  *
  * 本文件把三件事钉死在真库上（不是 mock）：
  *   ① 孤儿函数已删（守卫不再红，且不许再回来）
- *   ② running → awaiting_approval 真的被触发器放行
- *   ③ awaiting_approval → running 之类未登记的边仍被拒（放行不是放开）
+ *   ② running → awaiting_tool_permission 真的被触发器放行
+ *   ③ awaiting_tool_permission → running 之类未登记的边仍被拒（放行不是放开）
  */
 import { describe, expect, it, beforeAll } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -71,27 +71,27 @@ describe("DA-07b 状态迁移触发器接线（real db）", () => {
     expect(rows).toContain("wave2_agent_run_transition()");
   });
 
-  it("② running → awaiting_approval 被放行（这就是那次接线 bug 会拦死的边）", async () => {
+  it("② running → awaiting_tool_permission 被放行（这就是那次接线 bug 会拦死的边）", async () => {
     const runId = await insertRun("running");
-    await expect(setStatus(runId, "awaiting_approval")).resolves.not.toThrow();
+    await expect(setStatus(runId, "awaiting_tool_permission")).resolves.not.toThrow();
   });
 
-  it("awaiting_approval → queued 被放行（人批准重新入队）", async () => {
+  it("awaiting_tool_permission → queued 被放行（人批准重新入队）", async () => {
     const runId = await insertRun("running");
-    await setStatus(runId, "awaiting_approval");
+    await setStatus(runId, "awaiting_tool_permission");
     await expect(setStatus(runId, "queued")).resolves.not.toThrow();
   });
 
-  it("③ queued → awaiting_approval 仍被拒——中断只可能发生在执行中，放行不是放开", async () => {
+  it("③ queued → awaiting_tool_permission 仍被拒——中断只可能发生在执行中，放行不是放开", async () => {
     const runId = await insertRun("queued");
-    await expect(setStatus(runId, "awaiting_approval")).rejects.toThrow(/may not move/);
+    await expect(setStatus(runId, "awaiting_tool_permission")).rejects.toThrow(/may not move/);
   });
 });
 
 describe("UX-9 D4 存储面（real db）：pending_decision 三态与 pending_edited_args", () => {
-  it("awaiting_approval → queued + pending_decision='edit' + 改后参数：一条 UPDATE 全过", async () => {
+  it("awaiting_tool_permission → queued + pending_decision='edit' + 改后参数：一条 UPDATE 全过", async () => {
     const runId = await insertRun("running");
-    await setStatus(runId, "awaiting_approval");
+    await setStatus(runId, "awaiting_tool_permission");
     await expect(
       asApp(ORG, (c) =>
         c.query(
@@ -111,7 +111,7 @@ describe("UX-9 D4 存储面（real db）：pending_decision 三态与 pending_ed
 
   it("CHECK 只放行 approve/edit——'respond' 之类没接的决策在 DB 层就被拒", async () => {
     const runId = await insertRun("running");
-    await setStatus(runId, "awaiting_approval");
+    await setStatus(runId, "awaiting_tool_permission");
     await expect(
       asApp(ORG, (c) =>
         c.query(`UPDATE agent_runs SET status='queued', pending_decision='respond' WHERE id=$1`, [runId]),

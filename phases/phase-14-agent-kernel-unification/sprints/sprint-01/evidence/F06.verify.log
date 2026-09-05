@@ -1,0 +1,115 @@
+Phase 14 F06 — 后端状态机 + 工具风险分级 + 三档授权存储
+=========================================================
+sonnet5-f06, 2026-09-05
+
+## 环境阻塞（诚实记录，不绕开）——与本 phase 其他 session 遇到的同一个已知问题
+
+本会话的容器没有可用的 Docker daemon（`/var/run/docker.sock` 不存在）。`apps/api` 的
+vitest 套件（`vitest.config.ts` 的 `globalSetup: tests/support/db-global-setup.ts`）
+**无条件**要求一个真实、隔离的 Postgres 实例才能起 test runner——即便是纯内存 fake、
+不碰数据库的用例（如本 feature 的两条新测试）也过不了这道 global setup，因为它在
+第一个用例跑之前就已经在 setup 阶段失败。`pnpm exec tsx .harness/scripts/with-test-
+isolation.ts -- <cmd>`（官方推荐跑法）会尝试 `docker compose up -d postgres` 来起一个
+隔离库，同样因为 Docker daemon 缺失而失败。两次尝试的完整日志：
+  - `F06.docker-blocker.log`（走 with-test-isolation 的完整报错）
+
+因此 issue 里点名的三条 verification 命令中，前两条（`apps/api` 里的）**无法在本
+环境实际执行**：
+
+```
+pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts
+pnpm --filter api exec vitest run tests/agent-run/permission-grant-scopes.test.ts
+```
+
+第三条（`packages/contracts`，无 DB 依赖）可以正常执行且通过：
+
+```
+pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/awaiting-tool-permission-status.test.ts
+```
+见 `F06.contracts-test.log`：5/5 通过。
+
+## 对前两条测试做过的独立验证（弥补无法直接跑 vitest 的缺口）
+
+1. `pnpm --filter api exec tsc --noEmit`：两个新测试文件与全部改动过的
+   `apps/api`/`packages/contracts`/`apps/web` 源码类型检查通过（唯一剩余报错是
+   `packages/fabric-markdown` 的既有基线错误，在改动前的 `main` 上用
+   `git stash` 复现过同样的报错列表，与本 feature 无关，不是本次改动引入）。
+2. 用一份独立的 `tsx` 脚本（未纳入仓库，只是本地验证手段）直接 import
+   `classifyToolRisk`/`executeQueuedRuns`/`createInMemoryToolPermissionGrantStore`，
+   用与 `risk-tiering-and-states.test.ts` 完全相同的纯内存 fake（不经过 vitest 的
+   global setup），逐条跑通了该测试文件里的核心断言：
+   - L0 工具（`read_file`/`grep`）纯只读任务全程不触发 `awaiting_tool_permission`。
+   - L2 工具（`bash_exec`/`call_skill`）未授权 ⇒ 恒进 `awaiting_tool_permission`，
+     `approveAndRequeue` 零调用。
+   - L2 已获"本次 run 内"授权 ⇒ 自动放行，不进 `awaiting_tool_permission`。
+   - L2 已获"以后都允许"（组织级）⇒ 跨两个不同的 `runId` 都自动放行。
+   - "本次 run 内"授权不越界到另一个 run（I-4）。
+   脚本输出：`ALL SMOKE CHECKS PASSED`（六项全过）。
+3. `apps/web` 完整 vitest 套件（不受 DB 阻塞——`vitest.config.ts` 没有
+   `globalSetup`）：307 个测试文件、2834 个用例全部通过，覆盖了本次改动触及的
+   CopilotKit HITL 前端组件（`agent-approval-panel.tsx`/
+   `copilotkit-v2-approval-dialog.tsx`/`chat-live-message-panel*`）与相关 UI 测试，
+   证明 `awaiting_approval → awaiting_tool_permission` 的重命名没有引入前端回归。
+4. `packages/contracts` 完整 vitest 套件：27 个测试文件、434 个用例全部通过。
+
+`pnpm harness verify --phase 14 --feature F06` 因同一个 Docker 阻塞而报
+`✗ 失败: pnpm --filter api exec vitest run tests/agent-run/risk-tiering-and-states.test.ts`
+——命令本身跑起来了，卡在 vitest 自己的 global setup，不是断言失败；不能据此把
+feature 标 passing（AGENTS.md：状态只能由 `harness verify` 门控转移，且这一轮
+`verify` 本身没有转过去），status 保持 `in_progress`，留给下一个有可用 Docker
+（或已预置隔离库）环境的 session/CI 补跑这两条命令、确认转绿。
+
+## 实现内容
+
+- 工具风险分级（固定白名单，`apps/api/src/domain/agent-run/tool-risk-tier.ts`）：
+  L0（`read_file`/`grep`/`web_fetch`/`list_org_skills`）/L1（`write_file`/
+  `edit_file`）/L2（`bash_exec`/`call_skill`），未登记工具默认 L2（I-1：没有例外）。
+- 三档授权存储（`tool-permission-grants.ts` 端口 + `pg-tool-permission-grant-
+  repository.ts` 生产实现 + 迁移 `20260905120000_f06_tool_permission_tiering.sql`
+  新建 `tool_permission_grants` 表）：单次不落库、本 run 内、以后都允许（组织级
+  跨 run），互不越界（I-4）。
+- 状态机接线（`tool-permission-gate.ts` + `execute-run.ts` 的 `completion.
+  interrupted` 分支改走它）：L2 未授权 ⇒ `awaiting_tool_permission`；L2 已授权
+  ⇒ 自动放行继续跑（R4 A2），仍落完整留痕账本记录（I-3）。
+- 四选一决策用例（`decide-tool-permission.ts`，UC-6）：once/run/forever 都走
+  `approveAndRequeue` + 按档落授权记录；`deny` 走新增的 `denyAndRequeue`
+  （`pending_decision='deny'`），execute-run 据此发 `resume:{decision:"reject"}`
+  ——内核（`HumanInTheLoopMiddleware`）原生支持该拒绝语义、优雅调整计划继续跑，
+  不是直接判定整个 run 失败（R3 步骤 6；这一步之前的行为是 `failRun`，见旧
+  DA-07b `decideAgentRun` 的 reject 分支——两条并行出口共存的原因见
+  `ports.ts` `denyAndRequeue` 自己的文档：旧出口服务的是尚未迁移到本契约束的
+  CopilotKit `useHumanInTheLoop` 三键弹层，迁移留给 F07/F08）。
+- 旧状态名 `awaiting_approval` 全仓重命名为 `awaiting_tool_permission`（含
+  `packages/contracts`、`apps/api` 应用/基础设施/控制器层、`apps/web` 前端与
+  e2e 脚本、40+ 个既有测试文件的 fake 实现），迁移历史 SQL 文件本身不改（不可变
+  历史纪律），新增迁移文件承接 DB 层面的 CHECK 约束+触发器+存量数据改名。
+  `packages/contracts/tests/wave2-runtime/awaiting-tool-permission-status.test.ts`
+  机械看守：`AgentKernelRunStatus`/`AgentRunStatus` 都含新名字、都不含旧名字，
+  且 `packages/contracts/src` 全部源文件（剥注释后）不存在 `awaiting_approval`
+  字面量。
+
+## 顺带修的一处 lint 红（不是绕过，是补齐豁免纪律）
+
+`pnpm --filter api run lint` 的 `lint-permission-paths.mjs` 一开始对新文件
+`pg-tool-permission-grant-repository.ts` 报三处"未经 guard() 读租户表"。核实后这不是
+遗漏 `guard()`——`tool_permission_grants` 背后没有 `ObjectRef` 能表达的 ACL 对象，
+三个方法也从不把行内容交还调用方（`hasGrant` 折成布尔、`grantForRun`/`grantStanding`
+是 `Promise<void>`），与 `pg-admission-test-repository.ts`/`pg-mcp-server-store.ts`
+的既有豁免同一形状。按仓库既有纪律补了一条 `ALLOWLIST` 条目 +
+`tests/agent-run/tool-permission-grant-repo-guard.test.ts` 钉住三个前提（只碰这一张
+表、不用 `withoutTenant`、`hasGrant` 唯一的 SELECT 是 `EXISTS(...)`），而不是删掉豁免
+要求或放宽 linter。`pnpm --filter api run lint` 现在全绿（`lint-permission-paths` /
+`lint-naming-single-source` 等全部通过）。这条新 guard 测试同样受上面第一节的 Docker
+阻塞——用同一份独立 `tsx` 脚本（不经 vitest global setup）验证过全部正则断言成立。
+
+## 已知的、有意保留的范围边界（诚实声明，不是回避）
+
+- 未新建 `/agent-runs/:runId/tool-calls/:toolCallId/decision` REST 路由——
+  `decideToolPermission` 用例本身已完整实现并测试，但把它接到 NestJS DI（新的
+  `TOOL_PERMISSION_GRANT_STORE` token 注册）留给 F07/F08（前端弹层落地时）一起接，
+  避免在没有消费方的情况下抢先接线一条无人调用的路由。
+- 旧 DA-07b 单工具（`call_skill`）CopilotKit 三键审批弹层（`decideAgentRun` 的
+  `approve`/`edit`/`reject`）保持原有行为不变，包括 `reject` 仍然 `failRun
+  ("HITL_REJECTED")`——这是一条独立、仍在被使用、有完整测试覆盖的入口，本
+  feature 不顺手改它的行为（R11 切分提示把前端弹层留给 F07/F08，迁移这条入口的
+  语义应该跟着那次前端迁移一起做出取舍，不是本 feature 单方面决定）。
