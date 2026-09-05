@@ -1095,8 +1095,8 @@
       "priority": 2,
       "area": "gov",
       "capability": "CAP-API",
-      "title": "后台「反馈与迭代」真栈化：两列真实数据 + 真实分诊 + 状态分布一次查询派生",
-      "user_visible_behavior": "/admin/feedback 不再是示例数据：顶部一条状态分布（总数与四个状态，四个分状态之和恒等于总数），左列「软件反馈」（对产品提的）、右列「Agent / Skill 反馈」（在对话里对某个 agent/skill 提的），零反馈时是空态而不是示例条目。组织管理员能就地分诊：按钮只出现当前状态出得去的那几条边，转「不做」必须先写理由，改完刷新后状态是新的。读取失败时屏上说的是「数据没有丢，只是这次没取到」而不是空列表。`[打开迭代看板]`/`[导出]` 两个点了没有目标屏的按钮已删除。",
+      "title": "【B3.6 已退役】后台「反馈与迭代」两列真栈屏——功能并入 inbox-unified 束",
+      "user_visible_behavior": "2026-09-04（B3.6，backlog uc-17-8 D2「替换，不并存：新屏是严格超集」，人类会话原话「同意，B3.6 直接做」授权）：本 feature 描述的旧两列屏 `components/admin/feedback-screen.tsx` 已删除，`/platform-admin/feedback` 现在 301 到 `/platform-admin/inbox`（`components/design-loop/inbox-screen.tsx`）。原描述的行为（状态分布、左右两列、就地分诊、转「不做」必填理由、失败态文案、已删除的两个死按钮）由 inbox-unified 束的等价功能承接，见 `contracts/feedback-loop/ui.md`「屏 D」一节的新旧屏对应表与 `design-signoff.md`「B3.6 重开」一节。本 feature 因此不再可能以原描述的形态验证，status 保持 not_started（此前也从未 passing）——不建它对应的新 feature 条目，因为 inbox-unified 相关行为已经在 B3.1–B3.5 的 feature 条目里验证过。",
       "spec_ref": "contracts/feedback-loop/usecases.md#UC-F4",
       "depends_on": [
         "p3:F48"
@@ -1106,13 +1106,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/admin-feedback-live.test.tsx",
-        "pnpm --filter web exec vitest run tests/ui/admin-feedback-transitions-match-domain.test.ts",
-        "node apps/web/scripts/lint-no-backend-badge.mjs",
-        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded -g \"反馈端到端\""
+        "node apps/web/scripts/lint-no-backend-badge.mjs"
       ],
       "evidence": "",
-      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-3。同 F48，签核未完成前不得标 passing。\n\n⚠ D1（人类 2026-08-15）：后台屏是唯一入口，`components/skill/skill-feedback.tsx` 已降级为指向它的链接——两块画同一件事的 mock 屏收敛成一处，同 F160 对「组织成员」屏的处置。\n\n⚠ 右列**不是**「从消息级评价聚合出来的改进建议」。那需要 skills.listSuggestions 的落库面（今天零实现），屏内有一句话如实说它还没接地，不用 mock 顶替。\n\n⚠ 后台屏那张分诊转移表是 domain 状态机的第二份副本，由 tests/ui/admin-feedback-transitions-match-domain.test.ts 逐条对账（解析源码文本，因为 apps/web 不依赖 apps/api）。没有那条对账就不许留第二份副本。\n\n⚠ 左栏计数 ADMIN_NAV_COUNT_SOURCES.feedback 现在抛错让它显示「—」：待处理数只能异步查，同步计数源给不出，而一个永远不动的 mock 数字摆在真数据旁边是最难发现的一种谎。\n\n⚠ 2026-08-19 补：真实浏览器端到端 apps/web/e2e/feedback-loop-smoke.spec.ts（人类原话「做一个端到端的测试，在前端提交的不同种类的反馈，在后台要可以看」）——五条串行用例覆盖三种 FeedbackTarget 分支（产品/skill/agent）× 两种 FeedbackKind、两种提交人角色，含 D3 可见性反证（非管理员看得到标题看不到别人正文）与管理员投票/分诊/带理由拒绝三连。实测 5 passed（37s），已加进 verification。"
+      "notes": "【B3.6 退役记录，2026-09-04】原 notes（FB-3，旧两列屏）见 git 历史。旧屏 `components/admin/feedback-screen.tsx` 与其测试 `tests/ui/admin-feedback-live.test.tsx` / `admin-feedback-transitions-match-domain.test.ts` 已删除——前者的行为覆盖已并入 `tests/ui/design-loop.test.tsx`（inbox-screen 的等价用例：状态迁移、转不做必填理由、withheld 提示、GitHub issue 编辑器）。原 verification 里的 `feedback-loop-smoke.spec.ts -g \"反馈端到端\"` 用例仍然存在且更新为打 `/platform-admin/inbox`，但那条 e2e 挂在 F49 依赖链上游的 F48（提交侧）而不是本 feature，本 feature 不再声称拥有它。本 feature 保持 not_started：它描述的具体实现已经被替换，不满足\"行为真实可见、端到端可复现\"这条完成定义的第 1 条（描述的屏已不存在），也没有必要另开一个新 id 去重复 B3.1–B3.5 已经验证过的东西。"
     }
   ]
 }

@@ -23,8 +23,8 @@ import type { UiState } from "@/lib/ui-state";
  * 两边改角色落的是同一列、走的是同一条「最后一名 admin」判定，只有授权面不同。
  *
  * ⚠ 两条接口都只对平台超管放行。403 `NOT_PLATFORM_SUPERUSER` **不是**失败态——它是
- *   「你不是这个身份」的正常结果，渲染成一句说明而不是重试按钮（同 `feedback-screen.tsx`
- *   系统异常区的处置）。
+ *   「你不是这个身份」的正常结果，渲染成一句说明而不是重试按钮（同旧 `feedback-screen.tsx`
+ *   系统异常区的处置——该文件已随 B3.6 旧屏退役删除，处置模式沿用到这里）。
  *
  * lint-no-backend-badge:backed-by-children —— 本屏的真实请求都在本文件内
  * （`listPlatformMembers` / `setPlatformMemberOrgRole`，`lib/live-platform-members.ts`）。

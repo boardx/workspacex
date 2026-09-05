@@ -25,6 +25,14 @@ export interface ToolPermissionGrantStore {
   grantStanding(
     orgId: OrgId, toolName: string, grantedByUserId: string,
   ): Promise<void>;
+
+  /**
+   * Phase 14 F11（`artifacts-steering` 契约束 R4 E3）—— 插话导致方向性改变时，本 run
+   * 内此前"都允许"的授权范围产生歧义，整体撤销（不是逐工具名撤销：任务性质变了，
+   * 旧授权是在旧性质下给出的，不应该有任何一个工具名继续沿用）。不影响"以后都允许"
+   * （组织级、与本 run 上下文无关，R5）。撤销一个从未被授权过的 run 是无操作，不报错。
+   */
+  revokeAllForRun(orgId: OrgId, runId: string): Promise<void>;
 }
 
 /**
@@ -45,6 +53,12 @@ export function createInMemoryToolPermissionGrantStore(): ToolPermissionGrantSto
     },
     async grantStanding(orgId, toolName) {
       standing.add(`${orgId}:${toolName}`);
+    },
+    async revokeAllForRun(orgId, runId) {
+      const prefix = `${orgId}:${runId}:`;
+      for (const key of perRun) {
+        if (key.startsWith(prefix)) perRun.delete(key);
+      }
     },
   };
 }

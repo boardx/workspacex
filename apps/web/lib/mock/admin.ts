@@ -22,7 +22,10 @@ import { AG_BLUEPRINTS } from "@/lib/mock/asset-governance";
 // 模块导航（左栏两组）
 // ─────────────────────────────────────────────────────────────────────────
 export type AdminModuleKey =
-  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback" | "ops-status"
+  // ⚠ B3.6（2026-09-04）：`feedback` 已从这个联合类型移除——旧的「反馈与迭代」后台
+  //   两列屏（`feedback-screen.tsx`）已删除，`/platform-admin/feedback` 改成 301 到
+  //   `/platform-admin/inbox`（新屏是严格超集，见 backlog uc-17-8 D2）。
+  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "ops-status"
   // UC-17.8 研发闭环（反馈→设计→排期）：反馈草稿 / 运营收件箱 / PM 设计工作台
   | "feedback-drafts" | "inbox" | "design-workbench"
   // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
@@ -180,7 +183,12 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     group: "运营",
     scope: "platform",
     items: [
-      { key: "feedback", label: "反馈与迭代", href: "/platform-admin/feedback", ucRefs: ["17-gov/uc-17-6"] },
+      // B3.6（2026-09-04，旧屏退役）：本项此前指向 `/platform-admin/feedback`（旧的
+      // 「反馈与迭代」后台两列屏，`feedback-screen.tsx`）——已删除，不再在左栏出现。
+      // 该路由现在是一条 301：`/platform-admin/feedback` → `/platform-admin/inbox`
+      // （下面「运营收件箱」项）。理由（backlog uc-17-8 D2）：「运营收件箱」是三类
+      // 来源（反馈/系统异常/设计方案）的统一投影，严格超集于旧屏能做的事——两个入口
+      // 画同一件事，只留一个。
       // 2026-09-03（人类反馈：「测试邮件的功能不要放在系统异常下面，放到平台后台的一个
       // 新的菜单叫运营状态」）：从「反馈与迭代 → 系统异常」tab 挪出来，单独一个入口——
       // 它不是"反馈"（没有提交人、没有分诊），是运维自查这个部署本身是否健康的工具。
@@ -590,7 +598,6 @@ export const SW_FEEDBACK: SwFeedback[] = [
   { id: "fb-4", title: "画布导出 Markdown 后希望保留便签颜色分区", status: "pending", votes: 5, detail: "与「坐标不写回」规则需要协调", target: undefined },
   { id: "fb-5", title: "后台模型列表希望支持按单价排序", status: "pending", votes: 4, detail: "18 台模型时排序诉求明显", target: undefined },
 ];
-export const SW_FEEDBACK_SUMMARY = { total: 23, pending: 5 } as const;
 
 export interface AgentFeedback {
   id: string;
@@ -722,7 +729,7 @@ export const AGENT_TRIAL_OUTPUT = {
  * 记过的「同一事实两处」（AGENTS.md 已有五次前科）。
  *
  * ⚠ `local` 恒为 1 —— 不是占位符，是 F16 已裁的产品事实：本地组织恒为单人。
- * ⚠ `overview`/`feedback` 取的是「待处理」而不是「全部」，因为对总览/反馈入口
+ * ⚠ `overview` 取的是「待处理」而不是「全部」，因为对总览入口
  *   有意义的数字是「还有多少事要看」，不是历史条目总数；`members` 与六种资产
  *   一样取清单长度，因为成员配额页就是要看「有多少人」。
  *   这条选择本 feature 不锁死——分组/口径细节待 Q-11，门控只锁「取不到显示—、
@@ -737,21 +744,6 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   blueprint: () => AG_BLUEPRINTS.length,
   overview: () => OVERVIEW_ANOMALIES.length,
   members: () => MEMBERS.length,
-  /*
-   * FB-3 注（2026-08-15）：反馈屏已接真实后端，而这个表**不是**生产里左栏计数的来源——
-   * #881 起 `AdminNav` 的缺省来源是 `live-admin-nav-counts.ts`，那里只有 `agent`/`skill`
-   * 两项口径明确，`feedback` 落在「其余一律『—』」里。所以生产左栏的反馈计数**已经是「—」**，
-   * 不是这个 mock 数字。
-   *
-   * ⚠ 本条一度被改成 `throw`（想让它显示「—」），那是**改错了地方**：本表今天的职责是
-   *   `admin-nav-count-unavailable.test.tsx` 里的 `HEALTHY` 夹具——一个「全都健康」的
-   *   来源集合，用来验「健康路径下不出现『—』」。让夹具里有一项恒抛错，等于把那条断言
-   *   变成永远不可能成立。改回原值，并把这段话留下，免得下一个人重犯。
-   *
-   * 真要让左栏显示反馈的待处理数，改的是 `live-admin-nav-counts.ts`（加一条
-   * `GET /feedback/counts`），不是这里。
-   */
-  feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
   // issue #2615：原来单一的「组织管理」（团队/成员/邀请/组织资料四标签页）已拆平为
   // 三个独立项。它们各自是一个屏而不是一份可数清单——没有一个有意义的「条目数」

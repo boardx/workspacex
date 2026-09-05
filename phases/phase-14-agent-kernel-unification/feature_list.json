@@ -218,9 +218,9 @@
         "F06"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": null,
-      "owner": null,
+      "owner": "sonnet5-2720",
       "capability": "CAP-API",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-run/interjection-handling.test.ts"
