@@ -33,7 +33,7 @@ describe("guided research session routing and lifecycle", () => {
     vi.mocked(getResearchRuntime).mockRejectedValueOnce(new Error("not found"));
     view.rerender(<GuidedResearchFlow step="brief" sessionId="unavailable" />);
     expect(screen.queryByDisplayValue("储能研究")).not.toBeInTheDocument();
-    expect(await screen.findByText("研究会话恢复失败，请重试。")).toBeInTheDocument();
+    expect(await screen.findByText("暂时无法连接研究服务，请检查网络后重试。")).toBeInTheDocument();
   });
   it("supports historical nodes and switches in place without document navigation", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue(runtimeFixture("report"));
