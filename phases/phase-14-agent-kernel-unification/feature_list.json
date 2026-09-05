@@ -238,14 +238,14 @@
         "F11"
       ],
       "points": 2,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "fable-f12",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/interjection-composer.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F12.verify.log @ 2026-09-05T04:21:12.213Z",
       "notes": "R11(d)：前端插话交互。依据等级：[原型]（UI 先行已产出）。断言 data-testid=interjection-composer，interjection-input 非 disabled、interjection-send 发送后出现 interjection-ack。"
     },
     {

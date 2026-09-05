@@ -614,6 +614,26 @@ to_unforced_retry_not_run_failure_{sync,async}`）用的消息文本恰好同时
   `pnpm harness verify --sprint 14/01 --feature F08`，跑通后由 verify 脚本自身
   完成 status 翻转（不能手改）。
 
+## 本轮改动（F12：前端中途插话交互，issue #2721）
+- 状态：`passing`（`pnpm harness verify --sprint 14/01 --feature F12` 门控翻转，证据
+  `evidence/F12.verify.log`）。这是本 sprint 第一个由 harness 门控真实翻成 passing 的
+  feature——不是因为环境变好了，而是：本 feature 只改 `apps/web`，`verify:quick` 的
+  `turbo --affected` 没有拉起任何 `apps/api` 测试（不需要 Postgres），唯一挡路的是收尾
+  `docker compose down -v`（沙箱无 Docker daemon 时必 exit 1），而 `with-test-isolation.ts`
+  自带 `WORKSPACEX_KEEP_TEST_STACK=1` 跳过它。**这条逃生口对"改动只在 web、没起过栈"
+  的 feature 是诚实的 no-op；对需要 api 测试的 feature 不适用**（栈根本起不来，测试会
+  真实失败，不会被这个开关掩盖）。第一次没加开关的完整失败日志留在
+  `evidence/F12.docker-cleanup-blocker.log`。
+- 代码：`apps/web/lib/agent-kernel-interject.ts`（新）、
+  `apps/web/components/agent-kernel/agent-kernel-units.tsx`（`InterjectionComposer` 真实化 +
+  `AgentKernelNonTerminalView` running 分支并列渲染入口）、
+  `apps/web/tests/agent-kernel/interjection-composer.test.tsx`（新，24 条）。
+- 接线边界（如实）：`AgentKernelNonTerminalView` 至今仍只被预览页/测试引用，`/chat` 宿主
+  把真实 `runId` 传进来是 chat 束宿主屏的活，不在 F12 范围。组件已按真实 props 设计，
+  宿主接入时只需传 `runId`（与 `useAgentKernelRunStream` 同一个）。
+- 签核材料漂移：`contracts/artifacts-steering/ui.md` 第二节 data-testid 前缀
+  `agent-kernel-` 与权威 `feature_list.json` 不一致，取权威；见 progress.md 同节。
+
 ## 下一步最佳动作
 - 找到 Docker 完整可用（daemon 起得来 + 出网不受限）的环境，依次重跑 F01、F13、
   F05、F15、F10、F08 的 `pnpm harness verify --sprint 14/01 --feature <id>`
