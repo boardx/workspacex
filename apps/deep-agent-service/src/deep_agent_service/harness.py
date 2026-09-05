@@ -411,6 +411,45 @@ TASK_CATEGORY_MULTI_STEP_HIGH_RISK = "multi_step_high_risk"
 _MULTI_STEP_CONNECTORS = ("并且", "然后", "接着", "同时", "分别", "各自", "并", "再")
 _MULTI_STEP_MIN_CHARS = 20
 
+# issue #2786（"生成一个 pdf，总结你可以做的事情"，18 字，无连接词）：上面这条
+# "长 且 含连接词"的判据对这句话双双落空——中文里用逗号/顿号并列两个动作
+# （"生成 X，总结 Y"）比用"然后/并且"这类显式连接词更常见，尤其是短句。这类
+# 表达完全落在原判据的盲区里，需要一条独立的第二信号，而不是简单调低长度阈值
+# （调低阈值会让"你好，在吗"这类问候语也变长句判类的候选，风险更大）。
+#
+# 新信号：逗号/顿号分隔的文本，分隔符**两侧**各自都命中动作动词表——两侧都有
+# 动词，才说明这确实是两个不同的动作串在一句话里，不是"一个长句子中间插了个
+# 逗号做语气停顿"（比如"这份周报，我觉得写得还不错"只有后半句有动词，不算
+# 多步；"你好，最近怎么样"两侧都没有动词，同样不算）。不叠加长度阈值——两个
+# 明确的动作已经是足够强的信号，短句"发个邮件，提醒一下"本来就短，硬套 20 字
+# 阈值只会让这条新信号形同虚设。
+_MULTI_STEP_ENUMERATION_MARKERS = ("，", "、")
+_ACTION_VERBS = (
+    "生成", "总结", "汇总", "创建", "新建", "写", "撰写", "查找", "搜索", "查询",
+    "分析", "整理", "翻译", "合并", "发送", "发", "删除", "上传", "下载", "对比",
+    "调研", "检查", "修改", "更新", "设计", "开发", "测试", "部署", "发布", "复制",
+    "转换", "提取", "统计", "绘制", "画", "计算", "回复", "回答", "解释", "说明",
+    "介绍", "提醒", "整合", "导出", "导入", "打包", "校对", "润色", "拆分", "归纳",
+)
+
+
+def _has_enumerated_multi_action(text: str) -> bool:
+    """逗号/顿号并列的两个动作是否两侧都各自带动词（见上方模块注释）。只看
+    第一个命中的分隔符两侧——前两段都有动词已经足以确认"至少两个动作被串起来"
+    这件事，不需要处理任意多段的情况。"""
+    for marker in _MULTI_STEP_ENUMERATION_MARKERS:
+        if marker not in text:
+            continue
+        head, _, tail = text.partition(marker)
+        if not head.strip() or not tail.strip():
+            continue
+        if any(verb in head for verb in _ACTION_VERBS) and any(
+            verb in tail for verb in _ACTION_VERBS
+        ):
+            return True
+    return False
+
+
 # 类别 2 vs 3：是否提到有外部副作用的动作。关键词表直接取验收标准里点名的例子
 # （"发issue""创建PR""发邮件""删除"）并补齐同义表达——命中任何一个即判为"有外部
 # 影响"（类别 3），需要人工确认；否则判为"无外部影响"（类别 2），可自动执行。
@@ -438,9 +477,10 @@ def _classify_task_text(text: str) -> str:
     if not stripped:
         return TASK_CATEGORY_NO_PLAN
 
-    is_multi_step = len(stripped) >= _MULTI_STEP_MIN_CHARS and any(
-        connector in stripped for connector in _MULTI_STEP_CONNECTORS
-    )
+    is_multi_step = (
+        len(stripped) >= _MULTI_STEP_MIN_CHARS
+        and any(connector in stripped for connector in _MULTI_STEP_CONNECTORS)
+    ) or _has_enumerated_multi_action(stripped)
     if not is_multi_step:
         return TASK_CATEGORY_NO_PLAN
 
