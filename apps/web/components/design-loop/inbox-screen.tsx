@@ -1816,7 +1816,7 @@ function ExceptionDevPanel({
               aria-label={`移除标签 ${t}`}
               disabled={busy}
               onClick={() => onSave({ tags: tags.filter((x) => x !== t) })}
-              className="rounded-control text-muted-foreground hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              className="rounded-control text-muted-foreground transition-colors hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
               data-testid={`inbox-drawer-tag-remove-${t}`}
             >
               <X aria-hidden className="h-3 w-3" />
