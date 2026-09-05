@@ -21,6 +21,8 @@ import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
+import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
+import { ChatHostInterjection } from "@/components/chat/chat-host-interjection";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
@@ -1023,6 +1025,11 @@ export function CopilotKitV2PanelBody({
   // 还没写回，正在核实"这段窗口——两者是"这条线程当前是否该显示生成中"这同一件事的
   // 两个真实来源，or 起来才是完整答案，不是二选一。
   const runIsRunning = agent.isRunning || runRestore.isRestoring;
+  // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
+  const interjectionRun = useChatHostInterjectionRun({
+    agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
+    restore: { runId: runRestore.runId, status: runRestore.status },
+  });
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
@@ -1832,6 +1839,11 @@ export function CopilotKitV2PanelBody({
                 </span>
               ) : null}
             </div>
+          ) : null}
+          {/* issue #2756 —— 中途插话入口（F12 `InterjectionComposer`）：running 态才渲染，
+              挂在进度指示下方作兄弟节点，见 `chat-host-interjection.tsx` 头注。 */}
+          {!historyLoading ? (
+            <ChatHostInterjection runId={interjectionRun.runId} status={interjectionRun.status} sessionToken={sessionToken} />
           ) : null}
         </div>
         </div>
