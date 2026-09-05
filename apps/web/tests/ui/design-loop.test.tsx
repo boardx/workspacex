@@ -601,3 +601,87 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(onOpenInbox).toHaveBeenCalled();
   });
 });
+
+/* ─────────────── ⑪ UC-17.8 B6.5：无障碍——拖拽的键盘替代 + 焦点管理 ─────────────── */
+
+describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () => {
+  it("卡片：aria-label=编号+标题、aria-describedby 指向键盘替代说明、拖起时 aria-grabbed；列容器 role=group 带列名与数量", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    const card = await screen.findByTestId("inbox-card-B-1");
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card.getAttribute("tabindex")).toBe("0");
+    expect(card.getAttribute("aria-label")).toBe("B-1 标题一");
+    expect(card.getAttribute("aria-describedby")).toBe("inbox-drag-hint");
+    expect(document.getElementById("inbox-drag-hint")!.textContent).toContain("Enter");
+    expect(card.getAttribute("aria-grabbed")).toBe("false");
+    fireEvent.dragStart(card, { dataTransfer: { setData: () => undefined } });
+    expect(card.getAttribute("aria-grabbed")).toBe("true");
+    fireEvent.dragEnd(card);
+    expect(card.getAttribute("aria-grabbed")).toBe("false");
+    const col = screen.getByTestId("inbox-column-backlog");
+    expect(col.getAttribute("role")).toBe("group");
+    expect(col.getAttribute("aria-label")).toBe("待处理，1 条");
+    // 窄视口下四列横向滚动是显式声明的设计（U8 断言据此放行），不是从 computed style 猜的。
+    expect(screen.getByTestId("inbox-board").hasAttribute("data-allow-x-scroll")).toBe(true);
+  });
+
+  /**
+   * 拖拽能做的每一条**合法**迁移，drawer 里都必须有一个按钮做同样的事（键盘用户没有拖拽）。
+   * 这张表 = 两个源状态机从每一列出去的全部边（`product-feedback.ts` `ALLOWED_TRANSITIONS`、
+   * `system-error-logs.ts` 头注；系统异常没有 `done` 列），见 `inbox-screen.tsx` 文件头。
+   * 断言的是**恰好等于**：少一个按钮 = 某条边键盘不可达；多一个按钮 = 一条服务端会拒绝的假边。
+   */
+  const TRANSITION_BUTTON = /^inbox-action-(start|done|back|reopen|decline)$/;
+  const LEGAL_EDGES: { kind: "feedback" | "exception"; stage: InboxItem["stage"]; buttons: string[] }[] = [
+    { kind: "feedback", stage: "backlog", buttons: ["inbox-action-start", "inbox-action-decline"] },
+    { kind: "feedback", stage: "doing", buttons: ["inbox-action-done", "inbox-action-back", "inbox-action-decline"] },
+    { kind: "feedback", stage: "done", buttons: ["inbox-action-reopen"] },
+    { kind: "feedback", stage: "archived", buttons: ["inbox-action-reopen"] },
+    { kind: "exception", stage: "backlog", buttons: ["inbox-action-start", "inbox-action-decline"] },
+    { kind: "exception", stage: "doing", buttons: ["inbox-action-back", "inbox-action-decline"] },
+    { kind: "exception", stage: "archived", buttons: ["inbox-action-reopen"] },
+  ];
+  for (const edge of LEGAL_EDGES) {
+    it(`${edge.kind} @ ${edge.stage}：键盘（Enter）打开 drawer 后，状态迁移按钮恰好是 ${edge.buttons.join(" / ")}`, async () => {
+      const item = edge.kind === "feedback" ? feedbackItem({ stage: edge.stage }) : exceptionItem({ stage: edge.stage });
+      mockInbox([item]);
+      render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+      const card = await screen.findByTestId(`inbox-card-${item.code}`);
+      fireEvent.keyDown(card, { key: "Enter" });
+      const drawer = await screen.findByTestId("inbox-drawer");
+      const present = Array.from(drawer.querySelectorAll<HTMLElement>("[data-testid^='inbox-action-']"))
+        .map((b) => b.getAttribute("data-testid")!)
+        .filter((t) => TRANSITION_BUTTON.test(t))
+        .sort();
+      expect(present).toEqual([...edge.buttons].sort());
+      for (const t of edge.buttons) expect((within(drawer).getByTestId(t) as HTMLButtonElement).disabled).toBe(false);
+    });
+  }
+
+  it("焦点管理：Enter 打开 drawer 后焦点进 drawer；Esc 关闭；关闭后焦点回到触发卡片", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    const card = await screen.findByTestId("inbox-card-B-1");
+    card.focus();
+    expect(document.activeElement).toBe(card);
+    fireEvent.keyDown(card, { key: "Enter" });
+    const drawer = await screen.findByTestId("inbox-drawer");
+    expect(drawer.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("inbox-drawer")).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId("inbox-card-B-1"));
+  });
+
+  it("焦点管理：drawer 的关闭按钮关闭后同样把焦点还给触发卡片（不是落回 body）", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    const card = await screen.findByTestId("inbox-card-B-1");
+    card.focus();
+    fireEvent.keyDown(card, { key: " " });
+    await screen.findByTestId("inbox-drawer");
+    fireEvent.click(screen.getByTestId("inbox-drawer-close"));
+    await waitFor(() => expect(screen.queryByTestId("inbox-drawer")).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId("inbox-card-B-1"));
+  });
+});

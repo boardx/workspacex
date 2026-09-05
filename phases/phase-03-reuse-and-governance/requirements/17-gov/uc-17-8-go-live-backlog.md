@@ -146,6 +146,30 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
   PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
 
+### 0.4 Sprint 4 落地记录
+
+- ✅ B6.5（无障碍与响应式复核）2026-09-05 落地：
+  **键盘替代**——看板拖拽的每一条合法迁移都有 drawer 操作按钮做同一件事：按 `stage × kind`
+  逐格核对两个源状态机（`product-feedback.ts` `ALLOWED_TRANSITIONS`、`system-error-logs.ts`
+  头注），按钮集 = 合法边全集（backlog→doing/archived；doing→done[仅反馈]/backlog/archived；
+  done|archived→backlog），拖拽能试而按钮没有的边（如 done→doing）服务端本就 `ILLEGAL_TRANSITION`。
+  卡片补 `aria-label`（编号+标题）、`aria-describedby` 指向 sr-only 的键盘替代说明、拖起时
+  `aria-grabbed`；列容器 `role="group"` 带列名与数量。**焦点管理**新增
+  `components/design-loop/use-dialog-focus.ts`（打开焦点进面板 / Esc 关闭 / 关闭后焦点回到触发
+  元素，不做 Tab 陷阱——理由见文件头），挂在收件箱 drawer、草稿编辑 drawer、「继续完善」浮层、
+  工作台新建/编辑弹窗。**响应式（U8）**：看板 md 以下四列横向可滚（列容器 `overflow-x-auto` +
+  `data-allow-x-scroll` 显式声明，页面不横向溢出）、列表视图宽表格同法；工作台三张模板与项目
+  网格 `1/sm:2/lg:3` 列；草稿「继续完善」浮层与设计详情页 md 以下由左右两栏改为上下堆叠
+  （详情页对话面板限高 40dvh 自身滚动、画布占余下——不折叠成抽屉，对话是这屏唯一修改入口；
+  不并排缩窄，360+260px 在 375 下装不下，实测溢出 90px）；drawer 靠 `max-w-full` 在 375
+  自然全宽。md 及以上布局不变，1360 截图像素未动（未重拍）。**验证**：
+  `tests/ui/design-loop.test.tsx` ⑪ 10 条（aria 属性、7 格迁移按钮表恰好相等、Enter 开/Esc 关/
+  焦点归位）；新 `e2e/design-loop-responsive.spec.ts`（四屏 + drawer/浮层共 10 景 × 三档 = 30
+  条 `scrollWidth` 断言，取材页 + `page.route` 夹具、不需要后端），夹具抽成
+  `scripts/lib/design-loop-fixtures.mjs` 与截图脚本共用（单一事实源），spec 挂进
+  `playwright.fullstack-smoke.config.ts` 无依赖 project `design-loop-responsive`（同
+  `axe-keyboard-focus`）。修前 375 下「继续完善」浮层与详情页两处红，修后 30/30 绿。
+
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
 ```
