@@ -35,16 +35,16 @@
       "/admin",
       "/platform-admin",
       "/preview/agent-kernel",
-      "/platform-admin/design-workbench"
+      "/studio/design-workbench"
     ]
   },
   "phase-03-reuse-and-governance": {
-    "//": "UC-17.8 B6.2。四束里只有 design-workbench 有一级导航直达（2026-09-04 人类裁决进 STUDIO）；feedback-loop / inbox-unified / feedback-drafts 三束的现行屏都挂在平台后台二级（lib/mock/admin.ts 的 AdminNav，/platform-admin/{feedback,inbox,feedback-drafts}），navigation.ts 里的入口是「平台后台」/platform-admin（1 跳）——同 //3 「断言束的入口在导航里即可」的先例，束路由写入口而不是二级屏。是否给收件箱/草稿加一级导航是 IA 裁决，不在门控里替人类决定。",
+    "//": "UC-17.8 B6.2。四束里只有 design-workbench 有一级导航直达（2026-09-04 人类裁决进 STUDIO）；feedback-loop / inbox-unified / feedback-drafts 三束的现行屏都挂在平台后台二级（lib/mock/admin.ts 的 AdminNav，/platform-admin/{feedback,inbox,feedback-drafts}），navigation.ts 里的入口是「平台后台」/platform-admin（1 跳）——同 //3 「断言束的入口在导航里即可」的先例，束路由写入口而不是二级屏。是否给收件箱/草稿加一级导航是 IA 裁决，不在门控里替人类决定。⚠ 2026-09-05（人类直接反馈）：design-workbench 的 STUDIO 一级入口改指向独立路由 /studio/design-workbench（不带平台后台的 AdminNav 宽侧栏）——两个受众不同的入口不该共用同一套 chrome；`/platform-admin/design-workbench`（后台面，AdminNav 全屏）本身不下线，仍是 `ADMIN_NAV` 的落点，只是不再是 STUDIO 一级导航指向的那个 URL。",
     "bundleRoutes": {
       "feedback-loop": "/platform-admin",
       "inbox-unified": "/platform-admin",
       "feedback-drafts": "/platform-admin",
-      "design-workbench": "/platform-admin/design-workbench"
+      "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
       "/admin",
@@ -86,7 +86,6 @@
       "/itv",
       "/org-admin/preview",
       "/platform-admin",
-      "/platform-admin/design-workbench",
       "/preview/agent-interrupts",
       "/preview/agent-runtime",
       "/preview/plan-control",
@@ -95,6 +94,7 @@
       "/rec",
       "/research",
       "/skill",
+      "/studio/design-workbench",
       "/studio/survey",
       "/tasks",
       "/tpl"
