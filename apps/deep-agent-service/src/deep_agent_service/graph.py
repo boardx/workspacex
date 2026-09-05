@@ -14,6 +14,21 @@ same way `deep-research-model-provider.ts`'s `ASSISTANT_ID = "Deep Researcher"` 
 no known parent package`——改成绝对导入（`from deep_agent_service.model import ...`）
 后验证通过。以此为准：这个模块内部的导入必须用绝对路径，不能用相对路径，即使
 `deep_agent_service` 本身是通过 `pip install -e .` 装好的包。
+
+issue #2793 补：上面那次验证记录的"先 list_org_skills 再 call_skill"是**当时观察到的
+一种真实路径**，不是这个模块要求模型必须走的唯一路径——`SYSTEM_PROMPT` 从未把
+list_org_skills 写成强制的第一步（原文一直是"可以用……看看"，不是"必须先……"）。
+#2793 的 devapp 实测（"生成一个 pdf，总结你可以做的事情"）暴露了一个更具体的问题：
+即便模型自己的推理文本已经写明"任务明确，我直接调用 PDF 生成技能"，它仍然先打了一次
+list_org_skills——这次调用查不到任何新信息，因为 #2534 起 `execute-run.ts`/
+`deep-agent-model-provider.ts` 已经把同一份技能目录（名字 + 一行摘要，
+`buildDeepAgentSkillCatalogBlock`）作为额外的 system 消息随请求带过去了，
+`list_org_skills` 返回的是**同一份**清单的另一次转述。#2786 已经把 devapp 网关的连接
+上限钉在约 300-400 秒，一次纯粹重复的工具调用不是免费的。`SYSTEM_PROMPT` 里明确了
+"目录已经在上下文里、且清楚指向唯一技能时不必再 list"这条规则，但这仍然是提示词层面
+的引导而不是确定性保证——模型是否遵从、遵从到什么程度，只有真实模型的实测能回答
+（`tests/golden/` 目录的假模型证明不了这件事，见该目录 README 的"三件贯穿全目录的
+边界"第一条）。
 """
 from __future__ import annotations
 
@@ -32,8 +47,13 @@ from deep_agent_service.tracing import build_tracing_callbacks
 
 SYSTEM_PROMPT = (
     "你是本组织的通用助手（由 deepagents 驱动，系统预置）。收到任务后先想清楚要不要调用"
-    "已挂载的技能、调用哪一个，可以用 list_org_skills 看看有哪些技能可用，再用 call_skill"
-    "把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。"
+    "已挂载的技能、调用哪一个：如果本轮对话里已经有一条系统消息列出了这次运行可用的技能"
+    "目录（技能名 + 一行摘要，`buildDeepAgentSkillCatalogBlock` 拼的那段），且目录里已经"
+    "清楚包含你需要的这个技能、任务本身也没有在多个技能之间取舍的歧义，直接调用 call_skill"
+    "执行即可，不需要再调用 list_org_skills 重新确认同一份名单——那只是多打一轮拿不到新"
+    "信息的工具调用。只有在看不到这份目录（例如没有挂载任何技能，或目录信息不足以判断该"
+    "用哪一个）时，才先调用 list_org_skills 看看有哪些技能可用。不论走哪条路，最终都要用"
+    "call_skill 把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。"
     "\n\n"
     # #2220（方向 A）：任务模式开关会在用户消息正文前拼上 TASK_MODE_MARKER 这句固定
     # 文案（见 apps/web/lib/copilotkit-v2-task-mode.ts）。实测发现真实模型收到这句话后
