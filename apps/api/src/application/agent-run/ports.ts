@@ -557,6 +557,17 @@ export interface AgentRunStore {
   findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null>;
 
   /**
+   * Phase 14 F11（`artifacts-steering` 契约束 R5）—— `interjectAgentRun` 判定"调用者是否
+   * 是该 run 的发起者"要用的那个人的 id（同 `ClaimedAgentRun.requesterUserId` 的既有事实：
+   * 触发这次 run 的那条人类消息的作者）。`null` = run 不存在。
+   *
+   * **可选**：既有的众多 `AgentRunStore` fake 不需要跟着改（同 `readRunTranscriptSteps`
+   * 之外，本接口目前唯一的可选方法）——缺省时 `interjectAgentRun` 拿到 `undefined`，
+   * fail closed 视同"确认不了发起者"而拒绝，不是静默放行。
+   */
+  findRequesterUserId?(orgId: OrgId, runId: string): Promise<string | null>;
+
+  /**
    * DA-19g -- the AG-UI/CopilotRuntime bridge's HITL resume entry point (`copilotkit-agui.
    * controller.ts`'s `bridge()`) receives CopilotKit's follow-up `runAgent` request as a
    * brand-new top-level POST with NO run id on it (`respond()`'s synthesized tool-result

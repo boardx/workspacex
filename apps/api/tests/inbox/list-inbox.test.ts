@@ -3,8 +3,8 @@
  * 非超管 withheld。全部用 fake 端口（同 `tests/feedback/triage-feedback.test.ts` 的写法），
  * 不碰真实数据库。
  */
-import { describe, expect, it } from "vitest";
-import { listInbox, InboxPermissionRevokedError } from "../../src/application/inbox/list-inbox";
+import { describe, expect, it, vi } from "vitest";
+import { listInbox, InboxPermissionRevokedError, INBOX_EXCEPTION_FETCH_CAP } from "../../src/application/inbox/list-inbox";
 import type { ListInboxDeps, ListInboxInput } from "../../src/application/inbox/list-inbox";
 import type { FeedbackRow, ProductFeedbackRepository } from "../../src/application/feedback/ports";
 import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports/error-log.port";
@@ -114,11 +114,14 @@ const adminInput: Omit<ListInboxInput, "limit"> = {
 };
 
 describe("listInbox 权限", () => {
-  it("非分诊角色（consultant）⇒ InboxPermissionRevokedError", async () => {
-    const deps = baseDeps([feedbackRow()], []);
-    await expect(
-      listInbox(deps, { ...adminInput, viewerOrgRole: "consultant", limit: 50 }),
-    ).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+  it("非管理员成员（consultant）能打开：看得到别人的标题/票数，正文按 D3 为 null（D8 ③）", async () => {
+    const deps = baseDeps([feedbackRow({ id: "fb-1", submittedBy: "u-other" }), feedbackRow({ id: "fb-2", submittedBy: "u-me" })], undefined);
+    const out = await listInbox(deps, { viewerId: "u-me", viewerOrgRole: "consultant", viewerTeamId: null, limit: 50 });
+    const byId = new Map(out.items.map((i) => [i.id, i]));
+    expect(byId.get("fb-1")?.title).toBe("点了没反应");
+    expect(byId.get("fb-1")?.body).toBeNull();
+    expect(byId.get("fb-2")?.body).toBe("正文");
+    expect(out.sources.exception).toBe("withheld");
   });
 
   it("不是本组织成员（null）⇒ InboxPermissionRevokedError", async () => {
@@ -301,5 +304,95 @@ describe("listInbox 接入 design（B4.3）", () => {
     const deps = baseDeps([feedbackRow({ id: "fb-1" })], [], design);
     const out = await listInbox(deps, { ...adminInput, limit: 50, kind: "design" });
     expect(out.items.map((i) => i.id)).toEqual(["dp-1"]);
+  });
+});
+
+/* ── UC-17.8 B6.4 可观测性：每次聚合一条结构化日志（fake logger 断言字段存在，不断言具体数值） ── */
+describe("listInbox 可观测性（B6.4）", () => {
+  function loggedFields(logger: { info: ReturnType<typeof vi.fn> }): Record<string, unknown> {
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    const [msg, fields] = logger.info.mock.calls[0] as [string, Record<string, unknown>];
+    expect(msg).toBe("inbox: listInbox aggregation");
+    return fields;
+  }
+
+  it("三源行数 / 各源耗时 / 是否撞 cap / 返回条数 / 下一页 / traceId 都在同一条 info 里", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", pushed: true, pushedAt: "2026-09-02T00:00:00.000Z" }));
+    design.seed(designProjectRow({ id: "dp-2", ownerId: "u-1", pushed: false }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const deps = { ...baseDeps([feedbackRow({ id: "fb-1" }), feedbackRow({ id: "fb-2" })], [errorLogItem()], design), logger, traceId: "trace-req-1" };
+
+    const out = await listInbox(deps, { ...adminInput, limit: 2, q: "  " });
+
+    const f = loggedFields(logger);
+    expect(f).toMatchObject({
+      traceId: "trace-req-1",
+      op: "listInbox",
+      orgId: "org-1",
+      feedbackRows: 2,
+      exceptionRows: 1,
+      designRows: 2,
+      exceptionSource: "included",
+      exceptionCapHit: false,
+      exceptionFetchCap: INBOX_EXCEPTION_FETCH_CAP,
+      returned: 2,
+      matched: 4,
+      hasNextCursor: true,
+      cursorPresent: false,
+      kind: null,
+      stage: null,
+      qPresent: false,
+      limit: 2,
+    });
+    for (const k of ["feedbackMs", "exceptionMs", "designMs", "durationMs"]) {
+      expect(typeof f[k], k).toBe("number");
+      expect(f[k] as number).toBeGreaterThanOrEqual(0);
+    }
+    expect(out.nextCursor).not.toBeNull();
+  });
+
+  it("非超管（errorLog 未注入）⇒ exceptionSource=withheld、exceptionRows=0，且不撞 cap", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    await listInbox({ ...baseDeps([feedbackRow()], undefined), logger }, { ...adminInput, limit: 50 });
+    expect(loggedFields(logger)).toMatchObject({
+      exceptionSource: "withheld",
+      exceptionRows: 0,
+      exceptionCapHit: false,
+      traceId: "inbox-aggregate",
+    });
+  });
+
+  it("系统异常源拉满 INBOX_EXCEPTION_FETCH_CAP 且源头还有更多 ⇒ exceptionCapHit=true（取舍边界被碰到的时刻可见）", async () => {
+    let seq = 0;
+    const endless: ErrorLogPort = {
+      ...fakeErrorLog([]),
+      list: async ({ limit }) => ({
+        items: Array.from({ length: limit }, () => errorLogItem({ id: String(++seq) })),
+        hasMore: true,
+      }),
+    };
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const deps: ListInboxDeps = { ...baseDeps([], []), errorLog: endless, logger };
+
+    await listInbox(deps, { ...adminInput, limit: 10 });
+
+    expect(loggedFields(logger)).toMatchObject({ exceptionCapHit: true, exceptionRows: INBOX_EXCEPTION_FETCH_CAP });
+  });
+
+  it("日志不含反馈正文 / 标题 / 提交人 / 搜索词原文（只有 qPresent 布尔）", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const deps = { ...baseDeps([feedbackRow({ title: "点了没反应" })], []), logger };
+    await listInbox(deps, { ...adminInput, limit: 50, q: "点了" });
+    const serialized = JSON.stringify(loggedFields(logger));
+    expect(serialized).not.toContain("正文");
+    expect(serialized).not.toContain("点了");
+    expect(serialized).not.toContain("u-submitter");
+    expect(loggedFields(logger)).toMatchObject({ qPresent: true });
+  });
+
+  it("logger 未注入（单测 / 无值班场景）⇒ 不抛、行为不变", async () => {
+    const out = await listInbox(baseDeps([feedbackRow()], []), { ...adminInput, limit: 50 });
+    expect(out.items).toHaveLength(1);
   });
 });

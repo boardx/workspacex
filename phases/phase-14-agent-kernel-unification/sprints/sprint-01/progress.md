@@ -267,6 +267,40 @@
   feature 的 verify；`agui-bridge.ts` 轮询切换与 Wave2 HITL 全链路统一到新枚举，
   适合作为独立后续 feature（不与 F04 合并，范围已经很大）。
 
+## 2026-09-05 — F11（中途插话后端接口 + 内核插话处理，owner sonnet5-2720）
+- F06（依赖）已合入 main，F11 开工。实现完成：`POST /agent-runs/:runId/interject`
+  端点（`interject-run.ts` + `agent-run.controller.ts`）、插话暂存端口
+  （`interjection-store.ts`，domain.md"非持久聚合根"，进程内单例）、内核侧消费
+  （`interjection-handling.ts`：`classifyInterjection` 启发式 + `checkPendingInterjection`
+  两个检查点——`execute-run.ts` 的 `onProgress` 回调、`tool-permission-gate.ts` 的
+  `handleInterruptedToolCall`）、E3（`ToolPermissionGrantStore.revokeAllForRun`，
+  方向性改变整体撤销本 run 内授权）。`execute-run.ts` 自身只新增 8 行（遵守
+  `execute-run-thin-gateway.test.ts` 的行数上限——改动后 1374 行，同一条 gotcha
+  已知约束）。
+- 当前 blocker（与 F01/F03/F04/F05/F06/F10/F13 同一大类环境限制）: 本会话沙箱没有
+  可用 Docker daemon，`apps/api` vitest 全局 setup 无条件要求真 Postgres 才能起
+  test runner——即便新测试 `tests/agent-run/interjection-handling.test.ts` 全是
+  纯内存 fake，也过不了这道 global setup。`pnpm harness verify --phase 14
+  --feature F11` 因此报同一条已知失败模式，不是断言失败。
+- 独立验证（弥补无法直接跑 vitest 的缺口，细节见 `evidence/F11.verify.log`）：
+  `tsc --noEmit` 全绿（除 `fabric-markdown` 既有 baseline 噪音）；`lint-arch-deps`/
+  `lint-error-leak`/`lint-naming-single-source`/`lint-permission-paths`/
+  `lint-no-builtin-capabilities`/`lint-skill-context-api-only`/
+  `lint-body-path-param-leak`/`lint-contract-source` 全绿；`execute-run-thin-
+  gateway.test.ts` 的三条静态断言用等价 node 脚本手动复核全过；一份独立 `tsx`
+  脚本（`evidence/F11.manual-check.ts`，未纳入 `apps/api/tests/`）用与
+  `interjection-handling.test.ts` 逐字相同的纯内存 fake 跑通全部 13 项断言
+  （`evidence/F11.manual-check.output.log`：`ALL OK`）。
+- 已记录证据: `evidence/F11.verify.log`、`evidence/F11.docker-blocker.log`、
+  `evidence/F11.manual-check.ts`、`evidence/F11.manual-check.output.log`。
+- 已知风险或未解决问题: F11 尚未 `passing`——需要一个 Docker/Postgres 真正可用的
+  环境重跑 `pnpm harness verify --phase 14 --feature F11`，与 F01/F03/F04/F05/F06/
+  F10/F13 排在同一条"下一步"上。跨语言真正回灌插话文本进远端 LangGraph 图的通道
+  （`kernel-gateway` 束 `proxyToolExecution` 职责）不在本 feature 范围内，见
+  `evidence/F11.verify.log`"已知的、有意保留的范围边界"一节。
+- 下一步最佳动作: 在 Docker 可用的环境一次性重跑 F01/F03/F04/F05/F06/F10/F11/F13
+  的 verify。
+
 ## 2026-09-05 F02（deep-agent-service 能力开关默认开启并移除开关本身，issue #2709）
 - 实现完成，issue 指定的验证命令真实跑绿：
   `pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts`
@@ -351,3 +385,48 @@
   F10/F13 排在同一条"下一步"上）。
 - 下一步最佳动作: 在有 Docker daemon 的环境重跑本 feature 的 verify 把状态转
   `passing`。
+
+### 2026-09-05 04:2x (owner: fable-f12)
+- 功能: F12 前端中途插话交互：运行中可交互输入框 + 即时已收到反馈（issue #2721，
+  `artifacts-steering` 契约束 UC-4 / R3' / R8 / R9，依赖 F11 PR #2742 的
+  `POST /agent-runs/:runId/interject`）。
+- 已完成:
+  - 新增 `apps/web/lib/agent-kernel-interject.ts`：契约 `artifactsSteering.operations.
+    interject` 的前端薄封装，`InterjectInput`/`InterjectOutput`/`InterjectError` 全部
+    `z.infer` 派生（`lint-contract-source` 门控）；路径取契约 `path` 替换 `:runId`，
+    body 只有 `text`（`lint-body-path-param-leak`）；`classifyInterjectFailure` 是
+    HTTP 404/409+`AGENT_RUN_NOT_RUNNING` → 契约 `NOT_VISIBLE`/`RUN_NOT_RUNNING` 的唯一
+    映射点，每个枚举值对应一条用户文案。
+  - `InterjectionComposer`（`agent-kernel-units.tsx`）由纯 mock 原型改为真实组件：
+    `runId`/`status`/`interject` props；有 `runId` 走真实接口，无 `runId`（预览页
+    `/preview/agent-kernel?unit=04-interjection`）保留原本地回显；`running` 态输入框
+    非 disabled（非 running 态 disabled 作对照）；发送中只锁发送键、输入框仍可交互；
+    「已收到」以响应 `receivedAt` 为数据来源（`data-received-at`），4 秒后自动消失；
+    失败 `interjection-error` 显示文案并保留输入文本；Cmd/Ctrl+Enter 发送。
+  - `AgentKernelNonTerminalView` `progress` 分支：`running` 时在 `ProgressStream`
+    下方并列渲染插话入口（不替换进度流）；`queued` 不渲染入口（契约只对 running 开放）。
+  - 新增 `apps/web/tests/agent-kernel/interjection-composer.test.tsx`（24 条，feature
+    verification 命令）：可交互性 + 对照组、1000ms 上限内出现 ack、Cmd/Ctrl+Enter 与裸
+    Enter 对照、进度流在发送前后步数不变、两种契约失败码呈现、`interjectPath`/method/
+    body 逐字对齐契约、组件→真实 `interjectAgentRun`→fetch 替身端到端。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/agent-kernel/interjection-composer.test.tsx`：24/24 绿。
+  - `pnpm --filter web exec vitest run tests/agent-kernel`：8 文件 91/91 绿（无回归）。
+  - `pnpm --filter web run typecheck` 0 错；`pnpm --filter web run lint`（next lint +
+    `lint-design.sh`）全绿；`node .harness/scripts/lint-contract-source.mjs` 全绿；
+    `pnpm -w run lint:body-path-param-leak` 全绿。
+  - `pnpm harness verify --sprint 14/01 --feature F12`：第一次 feature 命令与
+    `verify:quick`（turbo 5/5，web 313 文件 / 2907 测试全绿）都通过，但收尾
+    `[test-isolation] cleanup failed: docker compose down -v exited 1`（本沙箱无 Docker
+    daemon，同 F08/F10/F04 记录的环境限制）把整条命令拖成 exit 1，证据留存
+    `evidence/F12.docker-cleanup-blocker.log`。第二次用 harness 自带的
+    `WORKSPACEX_KEEP_TEST_STACK=1`（`with-test-isolation.ts` 的官方逃生口：跳过一个
+    从未起过的 compose 栈的 teardown，等价于 no-op）重跑，`✓ 门控通过 -> F12 = passing`。
+- 已记录证据: `evidence/F12.verify.log`（harness 落盘，含签名行）、
+  `evidence/F12.docker-cleanup-blocker.log`（第一次的真实失败日志，未手改）。
+- 提交记录: 分支 `worker/fable-14-f12-interjection-frontend`，PR 关联 issue #2721。
+- 已知风险或未解决问题: `contracts/artifacts-steering/ui.md` 第二节写的 data-testid
+  （`agent-kernel-interjection-input`/`-ack`）与 `feature_list.json`、issue、已建原型用的
+  `interjection-input`/`interjection-ack` 不一致；按"功能清单是权威"取后者，未双挂两套 id，
+  `ui.md` 那一行留给签核材料维护者改齐（本 PR 不越界改签核文档）。
+- 下一步最佳动作: 等 F11（PR #2742）合入 main → `git merge origin/main` → 开 PR → 盯到绿。

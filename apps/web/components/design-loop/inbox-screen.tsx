@@ -84,6 +84,12 @@ type StageFilter = "all" | InboxStage;
 const KIND_FILTERS: readonly KindFilter[] = ["all", ...INBOX_KIND_OPTIONS];
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_LIMIT = 50;
+/** B3.7——关联跳转后目标卡片/行的高亮持续时长。 */
+const HIGHLIGHT_MS = 1800;
+const LINK_NOTICE_MS = 4000;
+
+/** B3.7——关联跳转回调：`targetId` 是契约 `InboxItem.id`，`label` 只用于提示文案。 */
+type NavigateLink = (targetId: string, label: string) => void;
 
 function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
@@ -119,12 +125,18 @@ export function DesignLoopInboxScreen({
   onDeepen,
   onOpenWorkbench,
   openId: initialOpenId = null,
+  onOpenLinked,
 }: {
   state?: UiState;
   onDeepen?: (projectId: string) => void;
   onOpenWorkbench?: (inboxCode: string) => void;
   /** 进屏就打开这一条的详情（`?open=<id>`）。 */
   openId?: string | null;
+  /**
+   * B3.7——点关联标在屏内跳到目标条目**之后**回调（目标 = 契约 `InboxItem.id`）。
+   * 屏本身不碰路由；生产落点用它把 `?open=<id>` 同步进 URL，取材页不传。
+   */
+  onOpenLinked?: (targetId: string) => void;
 }) {
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
@@ -140,6 +152,19 @@ export function DesignLoopInboxScreen({
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState<string | null>(null);
   const [dragError, setDragError] = React.useState<string | null>(null);
+  /** B3.7——刚被关联标跳到的条目 id，短暂高亮后自清（看板卡片/列表行都认它）。 */
+  const [highlightId, setHighlightId] = React.useState<string | null>(null);
+  /** B3.7——关联目标不在已加载列表里时的提示（不静默失败）。 */
+  const [linkNotice, setLinkNotice] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (highlightId === null) return;
+    // jsdom 没有 scrollIntoView；真实浏览器里把目标滚进视口，高亮才看得见。
+    const el = document.querySelector<HTMLElement>(`[data-highlighted="true"]`);
+    if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
+    const t = window.setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => window.clearTimeout(t);
+  }, [highlightId]);
 
   // 搜索防抖：输入停 300ms 才真正触发请求。
   React.useEffect(() => {
@@ -213,6 +238,28 @@ export function DesignLoopInboxScreen({
   const flashSaved = (msg: string) => {
     setSaved(msg);
     window.setTimeout(() => setSaved(null), 2400);
+  };
+
+  /**
+   * B3.7——点关联标（「已生成方案」/「源自反馈」）跳到目标条目并高亮。两端都在这一屏
+   * （`resolvedByDesignId` = 设计条目的 `id`，`linkedFeedbackId` = 反馈条目的 `id`），
+   * 所以是屏内换 drawer + 高亮，不换路由；URL 的 `?open=` 由 `onOpenLinked` 在外面同步。
+   * 目标被客户端 `stage` 子筛选挡住时把子筛选放宽到「全部」（它是纯本地过滤，放宽不发请求）；
+   * 目标不在已加载的 `items` 里（被服务端 `kind`/`q` 筛掉或还在下一页）时**老实提示**，
+   * 不静默、也不偷偷改服务端筛选去重新请求。
+   */
+  const navigateToLinked: NavigateLink = (targetId, label) => {
+    const target = items.find((i) => i.id === targetId);
+    if (target === undefined) {
+      setLinkNotice(`关联的${label}不在当前列表里——可能被类型筛选、搜索挡住或还没加载到；清掉筛选或「加载更多」后再试。`);
+      window.setTimeout(() => setLinkNotice(null), LINK_NOTICE_MS);
+      return;
+    }
+    if (stageFilter !== "all" && target.stage !== stageFilter) setStageFilter("all");
+    setOpenDeclineOnOpen(false);
+    setOpenId(targetId);
+    setHighlightId(targetId);
+    onOpenLinked?.(targetId);
   };
 
   const replaceItem = (id: string, patch: Partial<InboxItem>) =>
@@ -399,6 +446,11 @@ export function DesignLoopInboxScreen({
           {dragError}
         </div>
       )}
+      {linkNotice !== null && (
+        <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-link-target-missing" role="status">
+          {linkNotice}
+        </div>
+      )}
       {/* 工具条：视图切换 + 类型 chip + 搜索 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-0.5 rounded-control border border-border p-0.5">
@@ -490,7 +542,14 @@ export function DesignLoopInboxScreen({
                     <span className="text-11 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
                   </div>
                   {colItems.map((item) => (
-                    <BoardCard key={item.id} item={item} busy={busyId === item.id} onOpen={() => setOpenId(item.id)} />
+                    <BoardCard
+                      key={item.id}
+                      item={item}
+                      busy={busyId === item.id}
+                      highlighted={highlightId === item.id}
+                      onOpen={() => setOpenId(item.id)}
+                      onNavigateLink={navigateToLinked}
+                    />
                   ))}
                 </div>
               );
@@ -504,6 +563,8 @@ export function DesignLoopInboxScreen({
           stageFilter={stageFilter}
           onStageFilter={setStageFilter}
           onOpen={setOpenId}
+          highlightId={highlightId}
+          onNavigateLink={navigateToLinked}
           nextCursor={load.kind === "ready" ? load.nextCursor : null}
           loadingMore={loadingMore}
           onLoadMore={() => void loadMore()}
@@ -512,7 +573,9 @@ export function DesignLoopInboxScreen({
 
       {open !== null && (
         <InboxDrawer
+          key={open.id} // B3.7：关联跳转换条目时整体重挂，不把上一条的理由/草稿状态带过去
           item={open}
+          onNavigateLink={navigateToLinked}
           busy={busyId === open.id}
           openDecline={openDeclineOnOpen}
           onClose={() => { setOpenId(null); setOpenDeclineOnOpen(false); }}
@@ -562,16 +625,26 @@ function KindLabel({ item }: { item: InboxItem }) {
   return <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{text}</span>;
 }
 
-function CardMeta({ item }: { item: InboxItem }) {
+/** 关联标：反馈 → 「已生成方案」（目标 = 设计条目 id），设计 → 「源自反馈」（目标 = 反馈 id）。 */
+function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigateLink: NavigateLink }) {
   return (
     <>
-      {item.resolvedByDesignId !== null && <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} />}
-      {item.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} />}
+      {item.resolvedByDesignId !== null && (
+        <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} onClick={() => onNavigateLink(item.resolvedByDesignId!, "设计方案")} />
+      )}
+      {item.linkedFeedbackId !== null && (
+        <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} onClick={() => onNavigateLink(item.linkedFeedbackId!, "反馈")} />
+      )}
     </>
   );
 }
 
-function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onOpen: () => void }) {
+/** B3.7 高亮态：卡片/行共用，用 `ring-primary` token，不硬编码颜色。 */
+const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";
+
+function BoardCard({
+  item, busy, highlighted, onOpen, onNavigateLink,
+}: { item: InboxItem; busy: boolean; highlighted: boolean; onOpen: () => void; onNavigateLink: NavigateLink }) {
   return (
     <div
       draggable={!busy}
@@ -586,9 +659,11 @@ function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onO
         }
       }}
       data-testid={`inbox-card-${item.code}`}
+      data-highlighted={highlighted ? "true" : undefined}
       className={cn(
         "flex flex-col gap-1.5 rounded-card border border-border-subtle bg-card p-2.5 transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         busy ? "cursor-wait opacity-60" : "cursor-grab active:cursor-grabbing",
+        highlighted && HIGHLIGHT_CLASS,
       )}
     >
       <div className="flex items-center gap-1.5">
@@ -598,7 +673,7 @@ function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onO
       </div>
       <p className="line-clamp-2 text-12 font-medium">{item.title}</p>
       <div className="flex flex-wrap items-center gap-1">
-        <CardMeta item={item} />
+        <CardMeta item={item} onNavigateLink={onNavigateLink} />
         {item.github !== null && <GithubBadge {...item.github} />}
       </div>
     </div>
@@ -606,12 +681,14 @@ function BoardCard({ item, busy, onOpen }: { item: InboxItem; busy: boolean; onO
 }
 
 function ListView({
-  items, stageFilter, onStageFilter, onOpen, nextCursor, loadingMore, onLoadMore,
+  items, stageFilter, onStageFilter, onOpen, highlightId, onNavigateLink, nextCursor, loadingMore, onLoadMore,
 }: {
   items: InboxItem[];
   stageFilter: StageFilter;
   onStageFilter: (s: StageFilter) => void;
   onOpen: (id: string) => void;
+  highlightId: string | null;
+  onNavigateLink: NavigateLink;
   nextCursor: string | null;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -656,7 +733,11 @@ function ListView({
                 key={item.id}
                 onClick={() => onOpen(item.id)}
                 data-testid={`inbox-row-${item.code}`}
-                className="cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted"
+                data-highlighted={highlightId === item.id ? "true" : undefined}
+                className={cn(
+                  "cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted",
+                  highlightId === item.id && cn(HIGHLIGHT_CLASS, "ring-inset bg-ai-tint/30"),
+                )}
               >
                 <td className="px-4 py-2"><StatusBadge stage={item.stage} /></td>
                 <td className="px-4 py-2">
@@ -664,7 +745,7 @@ function ListView({
                     <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
                     <span className="font-medium">{item.title}</span>
                     {item.severe && <SevereBadge />}
-                    <CardMeta item={item} />
+                    <CardMeta item={item} onNavigateLink={onNavigateLink} />
                   </div>
                 </td>
                 <td className="px-4 py-2"><KindLabel item={item} /></td>
@@ -687,13 +768,13 @@ function ListView({
   );
 }
 
-/** 缺陷/需求 → issue 标签，同 `admin/feedback-screen.tsx` 的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
+/** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
 const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
 
 /**
- * 建 issue 编辑器的初值——照抄 `admin/feedback-screen.tsx` 的 `defaultIssueDraft`，
- * 只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影本轮没有这个字段，
- * 不编一份假的附件区块）。
+ * 建 issue 编辑器的初值——照抄旧 `admin/feedback-screen.tsx`（B3.6 已删除）的
+ * `defaultIssueDraft`，只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影
+ * 本轮没有这个字段，不编一份假的附件区块）。
  */
 function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
   const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
@@ -730,10 +811,12 @@ type GithubCheck =
 
 /** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
 function InboxDrawer({
-  item, busy, openDecline, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench,
+  item, busy, openDecline, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
 }: {
   item: InboxItem;
   busy: boolean;
+  /** B3.7——drawer 里的关联标点击后换成目标条目的 drawer。 */
+  onNavigateLink: NavigateLink;
   /** 从看板拖到「不做」列打开：直接展开理由表单，不用再点一次「不做…」。 */
   openDecline: boolean;
   onClose: () => void;
@@ -849,7 +932,7 @@ function InboxDrawer({
           </dl>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <CardMeta item={item} />
+            <CardMeta item={item} onNavigateLink={onNavigateLink} />
             {item.github !== null && (
               githubCheck.kind === "loading" ? (
                 <span className="h-4 w-24 animate-pulse rounded-control bg-muted" data-testid="inbox-drawer-github-loading" />

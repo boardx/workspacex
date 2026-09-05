@@ -31,6 +31,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { designWorkbench as C } from "@repo/contracts";
@@ -41,6 +42,8 @@ import { updateProject } from "../../application/design-workbench/update-project
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
 import { deleteProject } from "../../application/design-workbench/delete-project";
 import { pushToInbox } from "../../application/design-workbench/push-to-inbox";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "../../application/notifications/transactional-mail-ports";
 import {
   DESIGN_PROJECT_REPOSITORY,
   type DesignProjectRepositoryFactory,
@@ -52,6 +55,7 @@ import {
   type DesignProjectDeps,
 } from "../../application/design-workbench/project-shared";
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
+import { traceIdOf } from "../middleware/trace";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -81,6 +85,9 @@ export class DesignWorkbenchController {
   constructor(
     @Inject(DESIGN_PROJECT_REPOSITORY) private readonly projects: DesignProjectRepositoryFactory,
     @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
+    // B6.3：`pushToInbox` 的「已生成设计方案」邮件——同 `feedback.controller.ts` 分诊邮件用的两个端口。
+    @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   private deps(principal: Principal): DesignProjectDeps {
@@ -88,6 +95,8 @@ export class DesignWorkbenchController {
       projects: this.projects.forOrg(principal.orgId),
       orgId: toOrgId(principal.orgId),
       submitters: this.submitterDirectory,
+      mail: this.mail,
+      logger: this.logger,
     };
   }
 
@@ -167,13 +176,18 @@ export class DesignWorkbenchController {
 
   @Post("/pm-designs/:projectId/push")
   async push(
+    @Req() req: unknown,
     @CurrentPrincipal() principal: Principal,
     @Param("projectId") projectId: string,
     @Body(new ZodBodyPipe(PUSH_TO_INBOX_SCHEMA)) body: PushToInboxBody,
   ) {
     assertPrincipal(principal);
     try {
-      return await pushToInbox(this.deps(principal), { projectId, ownerId: principal.userId, note: body.note });
+      // B6.4：只有推送事务记日志（见 push-to-inbox.ts 文件头），logger/traceId 只在这一条路由上挂。
+      return await pushToInbox(
+        { ...this.deps(principal), logger: this.logger, traceId: traceIdOf(req) },
+        { projectId, ownerId: principal.userId, note: body.note },
+      );
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

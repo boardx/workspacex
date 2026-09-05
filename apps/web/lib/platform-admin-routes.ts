@@ -9,6 +9,10 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  *
  * ⚠ 路由段是**路径段**而不是模块键：`members` → 模块 `platform`——键名沿用旧的
  *   `admin-nav-platform` testid 与计数来源，不为改路由重命名一整串锚点。
+ *
+ * ⚠ B3.6（2026-09-04，旧屏退役）：`feedback` 段**不在这张表里**——它不再对应任何屏，
+ *   已经在 `app/platform-admin/[module]/page.tsx` 的 `REDIRECTS` 里 301 到 `inbox`
+ *   段，在这张「段 → 屏模块键」的表判定之前就分流掉了。
  */
 export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   // AI 能力（2026-09-02 第二次裁决：AI 能力归平台后台）
@@ -17,7 +21,6 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   mcp: "mcp",
   // 平台 / 运营
   members: "platform",
-  feedback: "feedback",
   "ops-status": "ops-status",
   // UC-17.8 研发闭环
   "feedback-drafts": "feedback-drafts",

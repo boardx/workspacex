@@ -7,6 +7,8 @@
  */
 import type { designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
+import type { TransactionalMailTransport } from "../notifications/transactional-mail-ports";
+import type { LoggerPort } from "../ports/logger.port";
 import type { FeedbackSubmitterDirectory } from "../feedback/notification-ports";
 import type { OrgId } from "../../domain/org-id";
 import type { DesignProjectRepository, DesignProjectRow } from "./project-ports";
@@ -24,6 +26,18 @@ export interface DesignProjectDeps {
   readonly projects: DesignProjectRepository;
   readonly orgId: OrgId;
   readonly submitters?: FeedbackSubmitterDirectory;
+  /**
+   * B6.3：`pushToInbox` 给来源反馈提交人发「已生成设计方案」邮件用。**可选**——只有推送这
+   * 一条用例需要，controller 注入；单测按需注入 fake 断言"发了/没发"。`mail`/`logger`/
+   * `submitters` 三者缺任一即不发（没有 logger 就没法按纪律记"best-effort 失败"，宁可不发）。
+   *
+   * B6.4 可观测性：`logger` 同时用于 `pushToInbox` 事务成功后那条结构化 `info`；`traceId`
+   * 由 controller 透传 `traceIdOf(req)`，让它与 `AllExceptionsFilter` 记的错误按同一个 id 关联。
+   * 放在共用 deps 上是为了六条用例不各自长出一个 `logger` 字段。
+   */
+  readonly mail?: TransactionalMailTransport;
+  readonly logger?: LoggerPort;
+  readonly traceId?: string;
 }
 
 export function projectDesignProject(row: DesignProjectRow, ownerName: string | null): DesignProjectView {

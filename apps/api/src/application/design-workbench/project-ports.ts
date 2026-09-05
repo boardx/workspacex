@@ -61,11 +61,28 @@ export interface DesignProjectPatch {
   readonly problem?: string;
 }
 
+/**
+ * `pushToInbox` 本次**首次**回写 `resolved_by_design_id` 的那条来源反馈——用例层据此给提交人
+ * 发「已生成设计方案」邮件（B6.3），所以带上发信要用的两个字段，不让用例层再回头用
+ * `ProductFeedbackRepository.findById`（那条读要过 D3 可见性判定，而这里只是"给提交人发信"，
+ * 不该被"推送者能不能看正文"这道门卡住）。
+ */
+export interface ResolvedFeedbackRef {
+  readonly id: string;
+  readonly submittedBy: string;
+  readonly title: string;
+}
+
 /** `pushToInbox` 的落库结果——见 `DesignProjectRepository.pushToInbox` 头注的事务边界。 */
 export interface PushToInboxResult {
   readonly project: DesignProjectRow;
-  /** 本次调用是否真的回写了来源反馈的 `resolved_by_design_id`（`linkedFeedbackId` 非空时）。 */
-  readonly resolvedFeedback: boolean;
+  /**
+   * 本次调用**真的把** `resolved_by_design_id` 从别的值（含 NULL）写成本项目的那条反馈；
+   * `linkedFeedbackId` 为空、反馈行不在本组织、或**上一次推送已经写过**（幂等重放）⇒ `null`。
+   * 后一条是 B6.3 的通知去重依据：同一条反馈只在外键首次指向它时通知一次，重复推送
+   * 只刷新 `pushed_at`/`push_note`，不再发第二封邮件。
+   */
+  readonly resolvedFeedback: ResolvedFeedbackRef | null;
 }
 
 /** `createOrGetByLinkedFeedback` 的落库结果——`created` 区分这次是不是真的插入了新行。 */
@@ -108,7 +125,9 @@ export interface DesignProjectRepository {
    *      指向本项目——这正是文件头「两个方向的写在同一次调用里完成」的落地位置：不存在跨事务
    *      窗口能让①成功②失败（或反过来）从而让两个外键漂移。反馈行不存在/不属于本组织时②静默
    *      跳过（`linked_feedback_id` 允许指向一条后来被清理的反馈，不阻塞推送本身），
-   *      `resolvedFeedback` 如实回报这一步有没有真的发生。
+   *      `resolvedFeedback` 如实回报这一步有没有真的发生——且**只在外键值真的变了**时非空
+   *      （SQL 谓词 `resolved_by_design_id IS DISTINCT FROM <本项目>`），重复推送回 `null`，
+   *      见 `PushToInboxResult.resolvedFeedback` 头注。
    * 不存在/不是 owner ⇒ `null`。
    */
   pushToInbox(projectId: string, ownerId: string, note: string | undefined): Promise<PushToInboxResult | null>;
