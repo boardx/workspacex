@@ -24,7 +24,7 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import AIMessage
 
-from _scripted import ScriptedChatModel, ai_tool_call, tool_call_names
+from _scripted import ScriptedChatModel, ai_tool_call, grader_always_satisfied_response, tool_call_names
 
 PROPOSED_SKILL = "market-scan"
 HUMAN_EDITED_SKILL = "risk-review"
@@ -38,6 +38,8 @@ def _make_router(focused_calls: list[str]):  # noqa: ANN202
     比只看消息文本硬。"""
 
     def router(messages, bound_tools):  # noqa: ANN001, ANN202
+        if bound_tools == ["GraderResponse"]:
+            return grader_always_satisfied_response()
         if not bound_tools:
             system = " ".join(str(getattr(m, "content", "")) for m in messages)
             identity = "风险复核" if "风险复核" in system else "市场扫描"
@@ -57,15 +59,15 @@ def _make_router(focused_calls: list[str]):  # noqa: ANN202
 
 
 @pytest.fixture
-def tc2(monkeypatch):  # noqa: ANN001, ANN201
+def tc2():  # noqa: ANN201
     from langgraph.checkpoint.memory import MemorySaver
 
     from deepagents import create_deep_agent
     from deep_agent_service.harness import build_interrupt_on, build_middleware
     from deep_agent_service.tools import build_tools
 
-    # 生产口径：中断名单由这个环境变量声明，`build_interrupt_on()` 是唯一读它的地方。
-    monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", "call_skill")
+    # 生产口径：`build_interrupt_on()` 无条件返回固定四工具清单（Phase 14 F02 起不再
+    # 由环境变量声明），`call_skill` 是其中之一。
     focused_calls: list[str] = []
     model = ScriptedChatModel(router=_make_router(focused_calls))
     graph = create_deep_agent(
@@ -132,7 +134,7 @@ def test_tc2_sensitive_skill_interrupt_then_edit_and_approve(tc2, org_skills_con
             "scenario": "敏感技能中断 → 修改参数后放行",
             "dimensions": ["D6", "D2"],
             "not_covered_here": ["前端 HITL 交互（CopilotKit 新轨道，issue #2017）"],
-            "hitl_tools_env": "DEEP_AGENT_HITL_TOOLS=call_skill",
+            "hitl_tools": "call_skill（DEFAULT_HITL_TOOL_NAMES 固定清单之一，Phase 14 F02 起不再由环境变量声明）",
             "model_proposed_skill": PROPOSED_SKILL,
             "human_edited_skill": HUMAN_EDITED_SKILL,
             "skill_executions_observed": focused_calls,
@@ -142,18 +144,29 @@ def test_tc2_sensitive_skill_interrupt_then_edit_and_approve(tc2, org_skills_con
     )
 
 
-def test_tc2_counterproof_without_hitl_env_skill_runs_unattended(monkeypatch, org_skills_config):  # noqa: ANN001, ANN201
-    """反证（本仓九次「全绿但空转」的纪律）：不设 `DEEP_AGENT_HITL_TOOLS` 时，
-    同一个剧本会一路跑到底、技能直接执行——上面那条绿灯因此确实是中断机制带来的，
-    不是剧本本身跑不动造成的假象。"""
+def test_tc2_counterproof_tool_not_in_default_hitl_list_runs_unattended(org_skills_config):  # noqa: ANN201
+    """反证（本仓九次「全绿但空转」的纪律）：Phase 14 F02（R6）起 `DEEP_AGENT_HITL_TOOLS`
+    这个灰度开关已移除，`build_interrupt_on()` 无条件返回固定四工具清单——上面那条
+    绿灯不能再靠"设/不设环境变量"反证是中断机制生效而不是剧本跑不动的假象，改用
+    "同一个中断机制下，没被列入固定清单的工具不会被拦"这条反证：`list_org_skills`
+    是只读枚举、不在 `DEFAULT_HITL_TOOL_NAMES` 里，剧本走它而不是 `call_skill` 时
+    必须无人值守直接执行到底。"""
     from deepagents import create_deep_agent
 
-    from deep_agent_service.harness import build_interrupt_on, build_middleware
+    from deep_agent_service.harness import DEFAULT_HITL_TOOL_NAMES, build_interrupt_on, build_middleware
     from deep_agent_service.tools import build_tools
 
-    monkeypatch.delenv("DEEP_AGENT_HITL_TOOLS", raising=False)
-    focused_calls: list[str] = []
-    model = ScriptedChatModel(router=_make_router(focused_calls))
+    assert "list_org_skills" not in DEFAULT_HITL_TOOL_NAMES, "本反证要求这个工具确实不在固定清单里"
+
+    def router(messages, bound_tools):  # noqa: ANN001, ANN202
+        if bound_tools == ["GraderResponse"]:
+            return grader_always_satisfied_response()
+        already = tool_call_names(messages)
+        if "list_org_skills" not in already:
+            return ai_tool_call("list_org_skills", {}, "tc2-counter-1")
+        return AIMessage(content="技能清单已汇总。")
+
+    model = ScriptedChatModel(router=router)
     graph = create_deep_agent(
         model=model,
         tools=build_tools(model),
@@ -161,9 +174,8 @@ def test_tc2_counterproof_without_hitl_env_skill_runs_unattended(monkeypatch, or
         interrupt_on=build_interrupt_on(),
     )
     result = graph.invoke(
-        {"messages": [{"role": "user", "content": "帮我评估本季度方案"}]}, org_skills_config
+        {"messages": [{"role": "user", "content": "有哪些技能可用？"}]}, org_skills_config
     )
-    assert "__interrupt__" not in result
-    assert focused_calls == ["市场扫描"], (
-        f"无中断名单时技能应当无人值守地直接执行，实际 {focused_calls}"
+    assert "__interrupt__" not in result, (
+        "list_org_skills 不在固定 HITL 清单里，应当无人值守地直接执行到底"
     )

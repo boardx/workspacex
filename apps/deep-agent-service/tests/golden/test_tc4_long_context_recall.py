@@ -30,7 +30,7 @@ import re
 import pytest
 from langchain_core.messages import AIMessage
 
-from _scripted import ScriptedChatModel
+from _scripted import ScriptedChatModel, grader_always_satisfied_response
 
 ROUNDS = 30
 SECRET_FACT = "事实：阿尔法项目的季度预算是 730 万元。"
@@ -48,6 +48,8 @@ def _summary_prompt(messages) -> bool:  # noqa: ANN001
 
 def _make_router(seen: dict):  # noqa: ANN202
     def router(messages, bound_tools):  # noqa: ANN001, ANN202
+        if bound_tools == ["GraderResponse"]:
+            return grader_always_satisfied_response()
         # ① 摘要器链：机械摘要——把所有「事实：」句子原样抄进摘要（理由见模块注释）。
         if _summary_prompt(messages):
             seen["summaries"] = seen.get("summaries", 0) + 1
@@ -76,14 +78,15 @@ def _make_router(seen: dict):  # noqa: ANN202
 
 
 @pytest.fixture
-def tc4(monkeypatch):  # noqa: ANN001, ANN201
+def tc4():  # noqa: ANN201
     from langgraph.checkpoint.memory import MemorySaver
 
     from deepagents import create_deep_agent
     from deep_agent_service.harness import build_middleware
 
-    # 退出前自检与本条无关，关掉——省掉每轮一次 grader 调用带来的噪音。
-    monkeypatch.delenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", raising=False)
+    # 退出前自检与本条无关：Phase 14 F02（R6）起无条件生效，不能再关掉——路由函数
+    # 对 GraderResponse 调用固定判"合格"放行（见 `_make_router`），省掉每轮一次
+    # grader 调用带来的噪音，效果与此前关掉灰度开关相同。
     seen: dict = {}
     model = ScriptedChatModel(router=_make_router(seen))
     graph = create_deep_agent(model=model, middleware=build_middleware(model), checkpointer=MemorySaver())

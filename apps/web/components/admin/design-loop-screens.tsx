@@ -10,9 +10,9 @@ import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 /**
  * UC-17.8 研发闭环 —— 平台后台三个模块的生产落点包装。
  *
- * ⚠ 这里**不再**挂 `DesignLoopProvider` / `FeedbackProvider`（D5，2026-09-04）：两者都由
- *   `components/shell/app-shell.tsx` 挂一次，三块屏在 `AppShell` 里渲染，直接消费。
- *   收件箱与设计工作台仍读 mock store（B3/B4 下个 sprint 真栈化）；草稿屏已接真栈（B1）。
+ * ⚠ 这里**不挂** `FeedbackProvider`（D5，2026-09-04）：由 `components/shell/app-shell.tsx`
+ *   挂一次，三块屏在 `AppShell` 里渲染，直接消费。原型 mock store 的 Provider 已随
+ *   UC-17.8 B6.1（2026-09-05）整个删除——三块屏（草稿 B1 / 收件箱 B3.4 / 工作台 B4.5）都是真栈。
  */
 
 export function FeedbackDraftsScreen({ state }: { state: UiState }) {

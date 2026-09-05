@@ -30,7 +30,6 @@ import {
   type FeedbackTarget,
 } from "@/lib/live-feedback";
 import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured";
-import { useOptionalDesignLoop } from "@/lib/design-loop-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/files/overlay";
@@ -191,7 +190,6 @@ export function FeedbackDialog({
   const [title, setTitle] = React.useState("");
   /** UC-17.8 D1 结构化补充字段，键 = 契约字段名（`STRUCTURED_FIELDS`）。 */
   const [fields, setFields] = React.useState<Record<string, string>>({});
-  const designLoop = useOptionalDesignLoop();
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [draftBusy, setDraftBusy] = React.useState(false);
   const [draftError, setDraftError] = React.useState<string | null>(null);
@@ -990,18 +988,18 @@ export function FeedbackDialog({
               </p>
             )}
 
-            {/* 底部左：更复杂的直接去工作台；右：存草稿 / 直接提交 */}
+            {/* 底部左：更复杂的直接去工作台；右：存草稿 / 直接提交。
+                UC-17.8 B6.1：「去 PM 设计工作台」是纯路由跳转——工作台 B4.5 起真栈化，
+                原型 mock store（曾用 Provider 是否在场判这条入口可见）已删，链接恒可见。 */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              {designLoop !== null ? (
-                <Link
-                  href="/platform-admin/design-workbench"
-                  data-testid="feedback-workbench-link"
-                  className="inline-flex items-center gap-1 text-11 text-primary transition-colors duration-fast hover:underline"
-                >
-                  <PencilRuler aria-hidden className="h-3 w-3" />
-                  更复杂？直接在 PM 设计工作台从头设计
-                </Link>
-              ) : <span />}
+              <Link
+                href="/platform-admin/design-workbench"
+                data-testid="feedback-workbench-link"
+                className="inline-flex items-center gap-1 text-11 text-primary transition-colors duration-fast hover:underline"
+              >
+                <PencilRuler aria-hidden className="h-3 w-3" />
+                更复杂？直接在 PM 设计工作台从头设计
+              </Link>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
                 {/* UC-17.8 B1：存草稿是真栈（不依赖 mock Provider）。草稿允许空正文（契约

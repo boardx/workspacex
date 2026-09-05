@@ -162,38 +162,20 @@ KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:2025
 # 逐 token 渲染；任何流路失败自动回退轮询（S1=B 双轨）。关掉即回到纯轮询。
 KERNEL_DEEP_AGENT_STREAM_ENABLED=1
 # ── deep-agent 引擎能力开关（issue #2076）────────────────────────────────────
-# 这三个键由 deploy.sh 第 4h 步投影进 /opt/workspacex/deep-agent.env 给容器
-# （deep_agent_project_capability_env）。⚠ 只写在这里不够也不多余：容器读的是
-# deep-agent.env，不是本文件；没设/空值 = 不投影 = 引擎侧行为与开关存在前逐字相同。
+# Phase 14 F02（R6）：subagents / async-subtasks / task-auto-classify /
+# precompletion-checklist / hitl-tools 五项能力此前由 DEEP_AGENT_SUBAGENTS_ENABLED /
+# DEEP_AGENT_ASYNC_SUBTASKS_ENABLED / DEEP_AGENT_TASK_AUTO_CLASSIFY /
+# DEEP_AGENT_PRECOMPLETION_CHECKLIST / DEEP_AGENT_HITL_TOOLS 这五个键在此投影
+# 进 /opt/workspacex/deep-agent.env（deploy.sh 第 4h 步，
+# deep_agent_project_capability_env）控制，验证稳定后按 R6 要求默认开启且开关本身
+# 从代码库移除——harness.py/tools.py 不再读这五个环境变量，能力无条件生效，这里
+# 不再需要投影任何值。HITL 会拦截的固定工具名清单（`call_skill` +
+# `confirm_task_intent`/`fill_run_params`/`choose_execution_option`）改为
+# `harness.py` 的 `DEFAULT_HITL_TOOL_NAMES` 常量，不再是可配置的部署项。
 #
-# DA-05（#1838，rubric D5 子代理委派）：1 = 注册具名子代理 org-skill-researcher，
-# 主模型的 task 工具从此有真实可委托对象（harness.py build_subagents）。委托发生时
-# 前端经既有链路渲染出一张 task 工具卡（桥不按工具名过滤），用户能看见"它把活分出去了"。
-DEEP_AGENT_SUBAGENTS_ENABLED=1
-# DA-07（#1749，rubric D6 人在环）：逗号分隔的**引擎真实工具名**，列出的工具每次调用前
-# interrupt 等人裁决（harness.py build_interrupt_on）。
-#
-# issue #2017 之前这里**故意留空**，理由是前端审批对话框写死注册在 "send_email" 上
-# （那名字来自 loopback 替身，真实引擎从不发它），名字对不上 ⇒ 审批按钮不渲染 ⇒
-# run 停在 awaiting_approval 没人能裁决，打开比不打开更糟。
-#
-# 该前提**已消除**：前端与替身现在都从 @repo/contracts 的 deep-agent-hitl.ts 取工具名
-# （DEEP_AGENT_HITL_TOOL_NAME），下面这个值就是该契约的 DEEP_AGENT_HITL_TOOLS_ENV_VALUE。
-# ⚠ 这一行是那份契约在 bash 侧的投影，bash 没法 import TS ⇒ 由
-# packages/contracts/tests/deep-agent-hitl.test.ts 直接读**本文件**断言两者逐字一致，
-# 改了这里而没改契约（或反之）测试会红。别手改成别的值。
-#
-# F212（agent-interrupts 契约束，design-signoff.md §四表 + §六 决策⑤）：三个新虚拟
-# 工具名（confirm_task_intent/fill_run_params/choose_execution_option，
-# @repo/contracts 的 agent-interrupts.ts）追加进来。⚠ **惰性安全，不是提前启用功能**：
-# `HumanInTheLoopMiddleware`（langchain 0.7.6 实测，`human_in_the_loop.py:429`）只在
-# 真实工具调用发生时按名字查 interrupt_on 字典，不会在初始化时校验键是否对应已注册
-# 工具——这三个名字在 `apps/deep-agent-service` 的 `tools.py` 落地对应 `@tool` 函数前，
-# 模型永远无法调用它们，因而这三个键永远不会被触发（AI-4b：Python 侧 `@tool` 实现是
-# 独立于本轮的后续 feature，不在这次变更范围内）。
-# packages/contracts/tests/agent-interrupts.test.ts 断言这一行 = `call_skill` +
-# 本束三个工具名逗号拼接，同 deep-agent-hitl.test.ts 同一门控纪律。
-DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,choose_execution_option
+# DEEP_AGENT_CHECKPOINT_DB 不在这次移除范围内——它不是"能力开关"，而是部署拓扑
+# 参数（自托管需要显式 Postgres DSN；本部署走 langgraph dev，由它提供
+# checkpointer，见下方说明），R6 六个符号里这一个留待后续单独评估。
 # DA-04（rubric D4 持久化/时间旅行）：Postgres DSN，显式启用 PostgresSaver
 # （harness.py build_checkpointer）。⚠ 保持留空，理由不变：容器跑的是 langgraph dev
 # （见 apps/deep-agent-service/Dockerfile 末行），平台自带持久化层，自带 checkpointer

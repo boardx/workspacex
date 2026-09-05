@@ -97,16 +97,15 @@ export type DeepAgentHitlToolArgs = z.infer<typeof DeepAgentHitlToolArgs>;
 export const DEEP_AGENT_HITL_ARGS_MAX_CHARS = 4000;
 
 /**
- * deploy.env 里 `DEEP_AGENT_HITL_TOOLS` 应有的**逐字**值。
+ * 这个工具名在 `harness.py` 固定的 `DEFAULT_HITL_TOOL_NAMES` 清单里贡献的那一项。
  *
- * 现在只有一个工具，所以就是它本身；将来若增加，这里改成 `[a, b].join(",")`，
- * `harness.py` 的 `build_interrupt_on` 按逗号分隔解析（并 strip 每一项）。
- *
- * ⚠ 光在 deploy.env 里写这一行**不等于引擎读到了**：deep-agent 容器读的是 deploy.sh
- * 当场重写的 `/opt/workspacex/deep-agent.env`。该键已在 PR #2077 的投影白名单里
- * （`deploy.sh` 的 `deep_agent_project_capability_env` 调用），所以现在写了会被带过去；
- * 但**还必须同时设 `DEEP_AGENT_CHECKPOINT_DB`**——`build_interrupt_on` 的 docstring 已
- * 写明中断依赖 checkpointer，自托管没有 DSN 时 langgraph 会在运行时报错（这是正确的
- * fail-closed，不是要吞的错）。两个键都在同一份投影白名单里。
+ * Phase 14 F02（R6）之前，这里曾是 deploy.env 里 `DEEP_AGENT_HITL_TOOLS` 应有的
+ * **逐字**值，由 `deploy.sh` 的 `deep_agent_project_capability_env` 投影进容器、
+ * `harness.py` 的 `build_interrupt_on` 按逗号分隔解析。该开关已验证稳定，按 R6
+ * 要求默认开启且开关本身移除——`build_interrupt_on` 现在无条件返回
+ * `DEFAULT_HITL_TOOL_NAMES` 这份固定清单（不再读任何环境变量），本常量与
+ * `agent-interrupts.ts` 的 `AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE` 仍然是两个文件
+ * 各自工具名的单一事实源，只是消费方从"部署脚本拼接环境变量"变成"跨语言门控测试
+ * 断言 Python 常量包含这个值"（见 `deep-agent-hitl.test.ts`）。
  */
 export const DEEP_AGENT_HITL_TOOLS_ENV_VALUE = DEEP_AGENT_HITL_TOOL_NAME;

@@ -14,7 +14,7 @@
 同一份组件**（`DesignWorkbenchHome` / `DesignDetailScreen`），数据由脚本 `page.route()`
 拦截 `designWorkbench` 契约的 `/pm-designs*` 提供——同 `feedback-loop` 束 `ui.md` 的范式。
 
-⚠ **UC-17.8 B4.6 补的正是这条拦截**：B4.5 把这两屏从 `lib/design-loop-store.tsx` 的本地
+⚠ **UC-17.8 B4.6 补的正是这条拦截**：B4.5 把这两屏从原型 mock store（`lib/design-loop-store.tsx`，已于 B6.1 删除）的本地
 mock 切到真实 `/pm-designs*` 之后，取材页在没有真实后端可打的环境下，`workbench-*`/
 `detail-*` 这 16 张原来是没法生成的（`listMyProjects()` 会挂起或直接网络失败）——`ui.md`
 这次和拦截是同一次动作补上的，同 `feedback-loop` 束 `ui.md` 第 36 行那条纪律一样：
