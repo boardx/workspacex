@@ -1,0 +1,120 @@
+# real-model-chat-evidence —— 在 devapp 上用**真实模型**跑通「生成一个 pdf，总结你可以
+# 做的事情」这条反复失败的用例，并把证据打成一个远程分析者能独立读懂的包（issue #2802）。
+#
+# ## 它要补的洞
+#
+# 全仓 86 个全栈 e2e spec 都跑在确定性回环模型上，真实模型链路**零自动化覆盖**。
+# #2786 / #2793 / #2795 全部发生在 CI 全绿的提交上，最后靠人类手动打开 DevTools 截图
+# 才拿到第一份真实报错。这条 workflow 把那次人工动作变成一次 `workflow_dispatch`：
+# 远程协调员（没有 Docker、没有模型凭据、只有云端容器）从此可以自己触发一次真实模型
+# 验证并读到证据，不再需要人肉搬运截图。
+#
+# ## 只手动触发，不挂任何 push 钩子
+#
+# 与 `live-evidence.yml` 同一条理由：真实模型一次 run 要花钱、且不确定，不适合每次
+# push 都跑。这里连 `schedule` 都没有——什么时候值得花这一次，由人/协调员决定。
+#
+# ## 它对这台活着的机器做什么（只读 + 有限写入，与 live-evidence.sh 同一条边界）
+#
+#   写：在 `$REAL_MODEL_E2E_EMAIL` 那个**已有账号**下开一条**新的** chat 线程、发一条
+#       消息、跑一次真实 run，并下载这次 run 产出的 PDF。写入面止于此：一条新线程
+#       与它自己的产物。
+#   读：`journalctl -u workspacex-api/-web`、`docker logs workspacex-deep-agent`、
+#       `/opt/workspacex/deploy.env` 里**三个开关 key 的值**（带 KEY 的一律打码）、
+#       `git log -1`、`systemctl is-active`。
+#   不做：不重启任何服务、不改 deploy.env、不跑迁移、不 build 前端、不装系统包、
+#       不写 /opt/workspacex 下任何文件、不触碰其它账号的线程/组织/文件。
+#
+# ## 凭据
+#
+# **不新增任何 GitHub secret，凭据一步都不离开这台机器。** 脚本只读这台机器上已有的
+# `/opt/workspacex/real-model-e2e.env`（0600），里面两行：一个已有账号的邮箱与口令。
+# 文件不在 ⇒ preflight 逐个点名后红退，不发明第二条凭据路径。
+#
+# ## 证据在哪
+#
+# artifact 名 `real-model-chat-evidence`，内容见 `apps/web/e2e/support/real-model-evidence.ts`：
+# 逐条断言结论 / 浏览器控制台与页面异常 / 失败与超时的网络请求 / SSE 与 WS 的连接生命周期
+# 带时刻 / thread id 与 agent run id / 后端日志节选 / 截图与 Playwright trace。
+# 判决同时打进 job log（`01-verdict.txt` 的同一份内容），读 `get_job_logs` 就能拿到结论，
+# 不必先下载 artifact。写盘的每一个字符串都过 `scrubSecrets`。
+name: real-model-chat-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "发给 /chat 的那句话（默认就是反复失败的那一句）"
+        required: false
+        default: "生成一个 pdf，总结你可以做的事情"
+      run_timeout_ms:
+        description: "单次 run 的等待上限（毫秒）。默认 900000 = 15 分钟；网关 300–400s 天花板本身是被测对象，别调小"
+        required: false
+        default: "900000"
+
+# 同一时刻只允许一轮：两个真实模型 run 抢同一台机器，既烧钱又让证据互相污染。
+concurrency:
+  group: real-model-chat-evidence
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 45
+    env:
+      REAL_MODEL_E2E_PROMPT: ${{ inputs.prompt }}
+      REAL_MODEL_E2E_RUN_TIMEOUT_MS: ${{ inputs.run_timeout_ms }}
+      REAL_MODEL_E2E_EVIDENCE_DIR: ${{ github.workspace }}/apps/web/test-results/real-model-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # 只装 chromium，**不带 `--with-deps`**：那一步要 apt（root），而本 workflow 的
+      # 边界是「不装系统包」。系统依赖缺失会在这里显式红，不会伪装成用例失败。
+      - run: pnpm --filter web exec playwright install chromium
+
+      - name: preflight —— 解析这台机器上已有的凭据与目标站点
+        run: bash .harness/scripts/vm/real-model-chat-evidence.sh preflight
+
+      # 真实模型跑这一步。`continue-on-error` 是刻意的：**红了也要把证据传上去**——
+      # 这条通道存在的全部意义就是产出证据，失败那次的证据比成功那次更值钱。
+      # job 的红绿由最后一步按这一步的 outcome 复判，不会被吞掉。
+      - name: 真实模型 PDF 用例（与本地 lane 同一份 spec）
+        id: spec
+        continue-on-error: true
+        run: |
+          set -a
+          . "${RUNNER_TEMP}/real-model-e2e.env"
+          set +a
+          pnpm run e2e:real-model-smoke:raw
+
+      - name: 收后端日志与部署指纹（只读）
+        if: always()
+        run: bash .harness/scripts/vm/real-model-chat-evidence.sh collect
+
+      - name: 判决打进 job log
+        if: always()
+        run: bash .harness/scripts/vm/real-model-chat-evidence.sh summarize
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-model-chat-evidence
+          path: apps/web/test-results/real-model-evidence
+          retention-days: 30
+          if-no-files-found: warn
+
+      # 本轮 env 文件带口令，job 结束前删掉——runner 是复用的，别把它留在 _temp 里。
+      - name: 清掉本轮 env 文件
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/real-model-e2e.env"
+
+      - name: 复判（spec 红 ⇒ job 红）
+        if: always() && steps.spec.outcome == 'failure'
+        run: |
+          echo "真实模型用例未通过——逐条结论见上方判决与 artifact real-model-chat-evidence"
+          exit 1
