@@ -74,6 +74,20 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
   节点数），不能只信任 resolve/reject 语义；上线前必须用真实文件走一遍真实浏览器
   截图，mock 测试只能保证「UI 分支选对了」，保证不了「渲染器本身没有半成品失败」
   （出处：PR #1997，跟进 #1980）。
+- 2026-09-05：deep-agent 流式（`KERNEL_DEEP_AGENT_STREAM_ENABLED=1`）打开时，`copilotkit-
+  agui.controller.ts` 会把模型同一段文本经**两条独立通道**各发一遍——`onDelta` 逐 token
+  流进主答案气泡，`writeToolCallStep` 又把同一段 `AIMessage.content`（即
+  `deep-agent-model-provider.ts` 的 `extractToolCallEvents` 存的 `planningNote`）当"可见
+  规划步骤"另起一个新气泡再发一遍——两个 `messageId` 不同、内容逐字相同，devapp 实测
+  就是同一句助手文案出现两遍。教训：**任何"把内部账本字段渲染成用户可见文案"的逻辑，
+  加之前先问一句"这份内容是否已经从另一条通道（流式/已有气泡）出去过"**——存在的判据
+  必须是结构信号（这轮是否已经开始流式，即 `sawAnyDelta`），不能靠比较两段文本是否
+  相同去事后去重（那只是把同一个 bug 从"看得见"改造成"看不见但仍然多花一次
+  token/延迟"）。也说明"流式关闭"与"流式开启"两条路径要各自有专门测试覆盖同一个渲染
+  分支——`agui-bridge-tool-call-events.test.ts`（流式关闭）与 `deep-agent-stream.test.ts`
+  （只测 `ModelCallPort` 层，不测控制器渲染）分别覆盖了两半，但"流式开启 + 工具调用带
+  planningNote"这个组合此前从未被同一条测试同时打开过（出处：issue #2768/#2778，
+  PR #2780；回归见 `agui-bridge-planning-note-dedup.test.ts`）。
 <空着开始。格式：`- YYYY-MM-DD：一句话结论（出处：PR/issue/postmortem 链接）`>
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）

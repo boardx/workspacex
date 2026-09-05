@@ -863,13 +863,36 @@ export class DeepAgentModelProvider implements ModelCallPort {
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
           command: { resume: { decisions: [decision] } },
-          // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
-          // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
-          // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
-          // ⚠ 缺席时整个 `config` 键都不出现，resume 请求体与本 feature 之前逐字节相同。
-          ...(input.interjection === undefined ? {} : {
-            config: { configurable: { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection } },
-          }),
+          // issue #2768 -- a resume is the SAME run's next model call, and `call_skill`'s
+          // ONLY source of "which skills are pinned to this run" is `configurable.org_skills`
+          // (`tools.py`'s `_read_org_skills`, read fresh from THIS request's config -- it is
+          // NOT carried over from the run's first, pre-interrupt request). Before this fix,
+          // resume sent no `org_skills` at all (see `createRun`'s NEW-run branch below,
+          // which always sends it): the very call that was interrupted specifically so a
+          // human could approve `call_skill` would, once approved, immediately execute
+          // `call_skill` against an EMPTY skill table and answer "未知技能" -- the model then
+          // reports success anyway (its own words, not a tool result), and no script/file is
+          // ever produced. Reproduced against a real `langgraph dev` kernel: identical resume
+          // requests, differing only in this `config` key, produce the real skill's script
+          // block vs. "未知技能「pdf-create」" (see PR body for the two capture files).
+          // `script_protocol`/`disable_task_auto_classify` mirror the SAME two "resume is the
+          // next model call" facts the NEW-run branch already sends; `org_skills` is the one
+          // this bug was about, `disableTaskAutoClassify` is included for the same reason
+          // (a resumed call is still subject to the run's own per-run override).
+          config: {
+            configurable: {
+              org_skills: toWireSkills(input.skills),
+              ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+              ...(input.disableTaskAutoClassify === true ? { disable_task_auto_classify: true } : {}),
+              // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
+              // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
+              // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
+              // ⚠ 缺席时这个键不出现，其余键（`org_skills` 等）逐字不受影响。
+              ...(input.interjection === undefined ? {} : {
+                [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection,
+              }),
+            },
+          },
         }),
       });
       const body = (await response.json()) as { run_id?: string };
@@ -924,21 +947,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
             /*
-             * issue #2667 -- 个人设置"每次都先给我看计划"打开时透传给
-             * `deep_agent_service.harness` 的 `TaskClassifierMiddleware`（读法见
-             * `harness.py` `_run_disables_auto_classify`：`get_config()` 读
-             * `configurable.disable_task_auto_classify`）——即使全局灰度
-             * `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 打开，这一次 run 也不参与自动判类，
-             * 回退到纯手动 `TASK_MODE_MARKER` 路径。
-             *
-             * ⚠ 缺席时这个键**不出现**——同 `script_protocol` 一样，远端读不到就完全
-             *   按改动前的方式跑（全局灰度怎么判就怎么判）。`input.disableTaskAutoClassify`
-             *   的唯一事实源是 `ClaimedAgentRun.disableTaskAutoClassify`（落库自
-             *   `agent_runs.disable_task_auto_classify`），本层不重复判断。
+             * issue #2770 —— 这里曾按 issue #2667 透传 `disable_task_auto_classify`
+             * （前端「每次都先计划」开关关掉这一次 run 的自动判类）。该开关连同它在
+             * web → api 的整条来源已删：`TaskClassifierMiddleware` 无条件挂载（Phase 14
+             * F02），要不要先计划由内核判。远端 `harness.py` 仍防御性地读这个键（缺席 =
+             * 未覆盖，只剩 golden 测试当 seam 用），本层不再产生它。
              */
-            ...(input.disableTaskAutoClassify === true
-              ? { disable_task_auto_classify: true }
-              : {}),
             /*
              * Phase 14 后续 A（#2755）：待投递内核的插话（形状 = 契约 `KernelInterjection`，
              * 键名 = 契约 `KERNEL_INTERJECTION_CONFIGURABLE_KEY`，两侧 parity 测试机械比对）。

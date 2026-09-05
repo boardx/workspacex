@@ -40,16 +40,42 @@ const GITHUB_STATE_LABEL: Record<InboxGithubRef["state"], string> = {
   closed: "Closed",
 };
 
-export function GithubBadge({ number, state, kind }: InboxGithubRef) {
+/**
+ * 2026-09-05（人类要求「issue / PR 都必须有链接可以点击打开」）：徽标本身就是一个新开标签页的
+ * 外链（`href = url`，`rel="noopener noreferrer"`）。它总是嵌在「整张卡片 / 整行本身就是打开
+ * 按钮」里，所以 click / keydown 都 `stopPropagation`——同 `LinkBadge` 的理由，不拦的话点一下
+ * 会先打开 drawer 再跳 GitHub。`url` 为空字符串（理论上契约不允许，防御性）时退回只读文本。
+ */
+export function GithubBadge({ number, state, kind, url }: InboxGithubRef) {
   const label = kind === "pr" ? "PR" : "Issue";
-  return (
-    <span
-      className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium", GITHUB_TONE[state])}
-      data-testid={`github-badge-${state}`}
-    >
+  const className = cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium", GITHUB_TONE[state]);
+  const content = (
+    <>
       <Github aria-hidden className="h-3 w-3" />
       {label} #{number} · {GITHUB_STATE_LABEL[state]}
-    </span>
+    </>
+  );
+  if (url === "") {
+    return (
+      <span className={className} data-testid={`github-badge-${state}`}>
+        {content}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`在 GitHub 打开 ${label} #${number}`}
+      className={cn(className, "underline-offset-2 transition-colors duration-fast hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+      data-testid={`github-badge-${state}`}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {content}
+      <ArrowUpRight aria-hidden className="h-3 w-3" />
+    </a>
   );
 }
 

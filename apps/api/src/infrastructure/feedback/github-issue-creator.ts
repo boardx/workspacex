@@ -22,6 +22,7 @@ import {
   GithubIssueCreationError,
   type CreatedGithubIssue,
   type CreatedGithubIssueComment,
+  type GithubIssueComment,
   type GithubIssueCreator,
   type GithubIssueDraft,
   type GithubIssueImageUpload,
@@ -106,6 +107,14 @@ interface GithubIssueGetResponse {
  * GitHub 内部 PR 也是 issue 的一种；带 `pull_request` 子对象就说明它是 PR，不是
  * 另一个反过来提到本 issue 的 issue。
  */
+interface GithubIssueCommentResponse {
+  id?: unknown;
+  html_url?: unknown;
+  body?: unknown;
+  created_at?: unknown;
+  user?: { login?: unknown } | null;
+}
+
 interface GithubTimelineEventResponse {
   readonly event?: unknown;
   readonly source?: {
@@ -336,6 +345,42 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
       if (typeof parsed.html_url !== "string") throw new GithubIssueApiError("addComment", response.status);
       return { url: parsed.html_url };
     }, () => new GithubIssueApiError("addComment", null));
+  }
+
+  /**
+   * 读 issue 下的评论。`per_page=100` 不翻页——同 `fetchLinkedPullRequests` 的已知限制，
+   * 如实登记：100+ 条评论时表现是"漏掉更晚的"，不是报错。形状不合法的条目跳过，不让
+   * 一条脏数据拖垮整个列表。
+   */
+  async listComments(issueNumber: number): Promise<readonly GithubIssueComment[]> {
+    if (!this.config.token) throw new GithubIssueApiError("listComments", null);
+    return this.withTimeout(async (signal) => {
+      let response: Response;
+      try {
+        response = await this.request(`${this.issueUrl(issueNumber)}/comments?per_page=100`, {
+          method: "GET",
+          signal,
+          headers: this.headers(),
+        });
+      } catch {
+        throw new GithubIssueApiError("listComments", null);
+      }
+      if (!response.ok) throw new GithubIssueApiError("listComments", response.status);
+      const parsed = (await response.json().catch(() => null)) as readonly GithubIssueCommentResponse[] | null;
+      if (!Array.isArray(parsed)) throw new GithubIssueApiError("listComments", response.status);
+      const out: GithubIssueComment[] = [];
+      for (const c of parsed) {
+        if (typeof c.id !== "number" || typeof c.html_url !== "string" || typeof c.created_at !== "string") continue;
+        out.push({
+          id: c.id,
+          url: c.html_url,
+          author: typeof c.user?.login === "string" ? c.user.login : null,
+          body: typeof c.body === "string" ? c.body : "",
+          createdAt: c.created_at,
+        });
+      }
+      return out;
+    }, () => new GithubIssueApiError("listComments", null));
   }
 
   /**

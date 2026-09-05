@@ -27,6 +27,8 @@
 | V8 | 时间线 / GitHub 现查 / 建 Issue 复用 | `listFeedbackStatusEvents` / `getFeedbackGithubIssue` / `triageFeedback.issueDraft` | `inbox-drawer-timeline` / `inbox-drawer-github-loading` / `inbox-issue-form` | ✅ B3.5 8 条单测 |
 | V9 | 深化 → 设计方案，双向关联 | `deepenFeedback`（`design-workbench.ts`） / `InboxItem.linkedFeedbackId` / `.resolvedByDesignId` | `inbox-action-deepen` / `inbox-action-open-design` | ✅ `list-inbox.test.ts` 接入 design |
 | V10 | 关联标可点击跳转并高亮 | —（前端路由 `?open=<id>`，无新 API） | `inbox-drawer`（B3.7） | ⏳ B3.7 并行会话中 |
+| V11 | 转入开发 ⇔ 建 issue（确认表单整合全部字段 + 附件清单 + 上传警告） | `triageFeedback.issueDraft` / `.out.imageUploadWarnings` / `InboxItem.attachments` | `inbox-action-start` / `inbox-issue-form` / `inbox-issue-attachments` / `inbox-attachment-upload-warning` | ✅ `design-loop.test.tsx` ⑤⑨、2752③；`triage-feedback.test.ts` PDF 用例 |
+| V12 | 徽标外链 / issue 评论区 / 2 分钟静默刷新自动挪列 | `listFeedbackGithubIssueComments` / `commentOnFeedbackGithubIssue` / `listInbox` 定时重拉 | `github-badge-*`(`<a>`) / `inbox-github-comments*` / `INBOX_REFRESH_MS` | ✅ `design-loop.test.tsx` 2026-09-05 三组；`list-feedback-github-issue-comments.test.ts`；`github-issue-creator.test.ts` listComments |
 
 ## 二、API → UC（反向：有没有多余的接口）
 
@@ -35,8 +37,9 @@
 | `listInbox` | V1 V2 V3 V5 V9 | 必需 |
 | `getInboxCounts` | V4 V5 | 必需 |
 
-**没有多余的操作。** 本束只有两条只读操作；V6–V8 要求的写操作全部是 `feedback-loop.ts` /
-`system-error-logs.ts` / `design-workbench.ts` 的既有操作，本束复用而不重开入口。
+**没有多余的操作。** 本束只有两条只读操作；V6–V8、V11–V12 要求的写操作全部是 `feedback-loop.ts` /
+`system-error-logs.ts` / `design-workbench.ts` 的操作（V12 新增的 `listFeedbackGithubIssueComments` 也落在
+`feedback-loop.ts`，与既有 `commentOnFeedbackGithubIssue` 成对），本束复用而不重开入口。
 
 ## 三、门控命令（B3.8 E2E）
 

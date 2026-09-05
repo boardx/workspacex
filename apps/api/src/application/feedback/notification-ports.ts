@@ -47,6 +47,9 @@ export interface CreatedGithubIssueComment {
   readonly url: string;
 }
 
+/** `listComments` 读回来的一条评论。**从契约派生**（ADR-020）——见契约 `GithubIssueComment` 头注。 */
+export type GithubIssueComment = z.infer<typeof feedbackLoop.GithubIssueComment>;
+
 /**
  * 建一个 GitHub issue，以及"转开发"之后管理员在后台反馈屏上会用到的三个操作：
  * 跟着分诊状态同步开关、现查状态与关联 PR、发一条评论。
@@ -68,6 +71,11 @@ export interface GithubIssueCreator {
   setState(issueNumber: number, target: GithubIssueStateTarget): Promise<void>;
   getStatus(issueNumber: number): Promise<GithubIssueStatus>;
   addComment(issueNumber: number, body: string): Promise<CreatedGithubIssueComment>;
+  /**
+   * 2026-09-05——读这个 issue 下的全部评论（`per_page=100` 不翻页，同 `getStatus` 的 timeline
+   * 纪律）。给收件箱 drawer 的评论区用，与 `addComment` 是一对（读 / 写）。
+   */
+  listComments(issueNumber: number): Promise<readonly GithubIssueComment[]>;
 }
 
 export const GITHUB_ISSUE_CREATOR = Symbol("GithubIssueCreator");
@@ -101,7 +109,12 @@ export interface GithubIssueImageUpload {
   /** 仓库内的相对路径,如 `feedback-attachments/fbattach-xxx.png`。 */
   readonly path: string;
   readonly content: Uint8Array;
-  readonly contentType: "image/png" | "image/jpeg" | "image/webp";
+  /**
+   * 2026-09-05 起不再只限图片——人类要求「转入开发时附件文件必须上传（如果有的话）」，
+   * PDF / 文本附件也推进同一个附件分支，issue 正文里以链接（而不是 `![]()`）引用。
+   * 接口名沿用 `uploadImage`（调用方/测试都认它），不为一次语义扩展改一圈名字。
+   */
+  readonly contentType: z.infer<typeof feedbackLoop.FeedbackAttachmentMime>;
 }
 
 export interface UploadedGithubIssueImage {
@@ -132,7 +145,10 @@ export class GithubIssueCreationError extends Error {
  * `triageFeedback` 的 `instanceof GithubIssueCreationError` 误吞不该吞的错误类型。
  */
 export class GithubIssueApiError extends Error {
-  constructor(readonly op: "setState" | "getStatus" | "addComment" | "uploadImage", readonly status: number | null) {
+  constructor(
+    readonly op: "setState" | "getStatus" | "addComment" | "listComments" | "uploadImage",
+    readonly status: number | null,
+  ) {
     super(status === null ? `github issue ${op} failed` : `github issue ${op} failed (http ${status})`);
     this.name = "GithubIssueApiError";
   }

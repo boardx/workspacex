@@ -82,13 +82,6 @@ export interface ChatTaskInspectorProps {
    *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
   readonly runStartedAt: number | null;
   /**
-   * PROP-CHAT-UIUX-ITER-002 V3 —— composer「任务模式」开关的真实状态（`false` =
-   * 问答模式，`true` = 先计划后执行），透传自 `copilotkit-v2-panel-body.tsx` 的
-   * `taskMode` state（同一份事实源，不新建）。可选：旧轨道两屏没有任务模式概念，
-   * 不传时「运行详情」页签就不显示这一行，而不是显示一个编造的默认值。
-   */
-  readonly taskMode?: boolean;
-  /**
    * 2026-08-29 Claude Design 重设计稿——CK-P7 本会话编制从左栏搬进这里的「编制」
    * 页签（人类明确要求左栏拿掉「本线程的 AI 团队」卡片；同一份能力换个入口，
    * 不是撤掉。见 `copilotkit-v2-shell.tsx` 对应改动的头注）。整个 prop 可选：
@@ -111,7 +104,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
-    planTodos, isRunning, runPhaseLabel, runStartedAt, taskMode, roster,
+    planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
   } = props;
 
   /** ⚠ 计时器只在真的有一轮在跑时才起（同 `copilotkit-v2-run-progress.ts` 的纪律）：
@@ -329,7 +322,6 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
-              taskMode={taskMode}
             />
           )}
         </div>
@@ -393,33 +385,29 @@ function ProgressTab({
  * 「运行详情」页签 —— 技术信息的收纳处（验收卡 TW-P0-2③：模型名 / middleware /
  * LangGraph 节点这类词不出现在主界面，收进这里）。
  *
- * ⚠ 本轮只放**当前真实拿得到**的几样：线程 id、当前阶段、已耗时、当前模式。
+ * ⚠ 本轮只放**当前真实拿得到**的几样：线程 id、当前阶段、已耗时。
  * 模型 id、middleware 链、LangGraph 节点在 v2 的 AG-UI 事件流里**没有真实数据源**
  * （`lib/copilotkit-v2-run-progress.ts` 文件头已逐维核实过一次同样的边界），
  * 不为了把这一页填满而编造。
  *
- * PROP-CHAT-UIUX-ITER-002 V3 —— 新增「当前模式」行：读的是 composer 上真实的
- * `taskMode` state（透传自 `copilotkit-v2-panel-body.tsx`），不是新状态。
- * `taskMode === undefined`（调用方没传，旧轨道两屏没有任务模式概念）时不显示这
- * 一行，而不是显示一句编造的默认值——同本组件其余行"没有真实数据就不放"的纪律。
+ * issue #2770 —— 此前还有一行「当前模式」（PROP-CHAT-UIUX-ITER-002 V3），读的是
+ * composer「任务模式」开关的 state；该开关已删（要不要先计划由内核自动判，见
+ * `copilotkit-v2-panel-body.tsx` 同 issue 头注），这一行随之删除，不改成一句编造的
+ * 固定文案——同本组件其余行"没有真实数据就不放"的纪律。
  */
 function RunDetailsTab({
-  threadId, isRunning, runPhaseLabel, runElapsedSeconds, taskMode,
+  threadId, isRunning, runPhaseLabel, runElapsedSeconds,
 }: {
   threadId: string | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
   runElapsedSeconds: number | null;
-  taskMode?: boolean;
 }) {
   const rows: readonly (readonly [string, string])[] = [
     ["对话标识", threadId ?? "尚未创建"],
     ["运行状态", isRunning ? "运行中" : "空闲"],
     ["当前阶段", runPhaseLabel ?? "—"],
     ["本轮已用", runElapsedSeconds !== null ? `${runElapsedSeconds} 秒` : "—"],
-    ...(taskMode === undefined
-      ? []
-      : [["当前模式", taskMode ? "任务模式（先计划后执行）" : "问答模式（直接回答）"] as const]),
   ];
   return (
     <dl className="flex flex-col gap-1.5 p-3 text-11" data-testid="chat-task-workbench-inspector-run-details">

@@ -122,8 +122,8 @@ export type InterjectionClassification = z.infer<typeof InterjectionClassificati
  * 机械比对两侧）。
  *
  * 这不是 HTTP 操作的 in/out（不进 `operations`）——它走的是 kernel-gateway 束
- * `forwardRun` 已有的 per-run configurable 通道（同 `org_skills`/`script_protocol`/
- * `disable_task_auto_classify`），是那条通道上新增的一个键。
+ * `forwardRun` 已有的 per-run configurable 通道（同 `org_skills`/`script_protocol`），
+ * 是那条通道上新增的一个键。
  */
 export const KernelInterjection = z.object({
   interjectionId: z.string().min(1),

@@ -156,9 +156,11 @@
 
 **判据**：
 1. 第一行：多行任务输入（`textarea`，不是单行 `input`）。
-2. 工具行（2026-09-02 人类交付的状态预览稿，像素级实施）：左＝材料 / 技能 / 任务模式
-   三颗 32px 圆形图标按钮（悬停显示名称；任务模式开启态反色实心）；「选择能力」
-   移出输入区，放在卡片上方右对齐；右＝一个分段语音胶囊承载全部语音状态
+2. 工具行（2026-09-02 人类交付的状态预览稿，像素级实施）：左＝材料 / 技能
+   两颗 32px 圆形图标按钮（悬停显示名称）+「能力：自动匹配」选择器（2026-09-03 并入
+   同一排）；**不得**再有「任务模式」/「总是先计划」手动开关（#2770，2026-09-05 人类
+   反馈：要不要先计划由内核 `TaskClassifierMiddleware` 自动判，Phase 14 F02）；
+   右＝一个分段语音胶囊承载全部语音状态
    （语音 → 连接中 → 停止 + 音量条 + 计时 → 继续 → 出错「重试」），设备列表与
    静音自动暂停开关收进它右侧的小箭头菜单；32px 圆形发送，Agent 处理中变为「停止生成」。
    转录实时流入输入框：已确认深色、识别中浅灰带光标。输入框里的 `/` 命令照旧。
@@ -180,8 +182,9 @@
 
 **用例**：`chat-task-workbench-composer.spec.ts`
 **锚点**：`chat-task-workbench-composer`、`...-composer-input`、
-`chat-attachment-input` / `chat-skill-mount` / `...-composer-task-mode`（三颗圆形按钮）、
-`chat-task-workbench-capability-picker`（卡片上方）、
+`chat-attachment-input` / `chat-skill-mount`（两颗圆形按钮）、
+`chat-task-workbench-capability-picker`（同排）；`...-composer-task-mode` /
+`...-composer-always-plan-first` 必须**不存在**（#2770）、
 `...-composer-mic`（唯一）、`...-composer-mic-devices`（小箭头）/ `...-mic-devices-listbox` /
 `...-mic-silence-autopause`、状态栏 `chat-mic-{connecting|listening|stopping|error}` /
 `...-composer-{paused|transcribed|agent-busy|uploading}`、

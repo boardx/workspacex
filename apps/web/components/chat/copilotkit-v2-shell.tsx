@@ -977,15 +977,6 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     readonly startedAt: number | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
-  /**
-   * PROP-CHAT-UIUX-ITER-002 V3 —— composer「任务模式」开关的真实状态，同上面三个
-   * 既有回调（`onPlanTodosChange`/`onRunStateChange`/`onPendingMaterialsChange`）
-   * 一样由面板向外壳上报，喂给右栏 Inspector「运行详情」页签一条「当前模式」。
-   * 反馈原文点 5（Mode/Skill/Tool/Task 心智模型混乱）——composer 上「任务模式」
-   * 已经有 title/aria-label 说明文案（issue #2130），这里补的是"运行详情里也看得到
-   * 当前用的是哪个模式"，不是新造一个模式概念。
-   */
-  const [taskMode, setTaskMode] = React.useState(false);
 
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
 
@@ -1175,7 +1166,6 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           onPlanTodosChange={setPlanTodos}
           onRunStateChange={setRunState}
           onPendingMaterialsChange={setPendingMaterialsCount}
-          onTaskModeChange={setTaskMode}
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canGeneratePersona={canGeneratePersona}
@@ -1205,7 +1195,6 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
         runStartedAt={runState.startedAt}
-        taskMode={taskMode}
         /* 2026-08-29——CK-P7 编制搬进右栏「编制」页签（见上面移除左栏 `RosterPanel`
            那处的头注）。只在选中了一条线程时传，未选中时整个 prop 是 `undefined`，
            `ChatTaskInspector` 因此完全不渲染这个页签——与此前"未选中线程时左栏

@@ -18,7 +18,8 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openFreshThread } from "./cha
  * 语音按钮的**二级菜单**，即 composer 顶层只留一个麦克风语义入口。
  *
  * ## 2026-09-02 composer 重设计（人类交付的状态预览稿；本 spec 随之改法，判据不变）
- * 工具行左 = 材料 / 技能 / 任务模式三颗 32px 圆形图标按钮；「选择能力」移出输入区到卡片上方；
+ * 工具行左 = 材料 / 技能两颗 32px 圆形图标按钮 + 「能力：自动匹配」选择器（issue #2770：
+ * 原第三颗「任务模式」与「每次都先计划」两个手动开关已删，要不要先计划由内核自动判）；
  * 右 = 一个分段语音胶囊承载全部语音状态（语音 → 连接中 → 停止+音量条+计时 → 继续），
  * 设备列表与静音自动暂停开关收进它右侧的小箭头菜单；卡片底部一条状态栏按状态区分
  * 语气与操作；「请先输入任务目标」只在用户试图发送（空输入按 Enter）时出现在页脚。
@@ -67,14 +68,21 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
     gapMessage("TW-P0-5①", "copilotkit-v2-input", "任务输入不是多行 textarea"),
   ).toBe("textarea");
 
-  // 材料 / 技能 / 任务模式是工具行的三颗圆形图标按钮；「选择能力」在卡片上方（移出输入区）。
+  // 材料 / 技能是工具行的两颗圆形图标按钮，「能力：自动匹配」选择器与之同排。
   for (const [suffix, what] of [
     ["attach", "附件/材料入口"],
     ["mention-agent", "选择能力入口"],
     ["mention-skill", "/技能 入口"],
-    ["task-mode", "任务模式切换"],
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 缺少${what}`, 15_000);
+  }
+  // issue #2770 —— 「任务模式」「每次都先计划」两个手动开关不得再出现：要不要先计划
+  // 由内核 `TaskClassifierMiddleware` 自动判（Phase 14 F02），不是用户点开关。
+  for (const removed of ["task-mode", "always-plan-first"] as const) {
+    await expect(
+      page.getByTestId(`chat-task-workbench-composer-${removed}`),
+      `【回归 TW-P0-5②】chat-task-workbench-composer-${removed} 不应再出现：手动先计划开关已删（#2770），见 ${ACCEPTANCE_DOC}`,
+    ).toHaveCount(0);
   }
 });
 

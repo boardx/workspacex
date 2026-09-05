@@ -468,9 +468,14 @@ def _classify_task_text(text: str) -> str:
 # 一节，明确指向 `get_config()` 作为替代方案）——不需要中间件声明 `context_schema`，
 # 也不改 `ModelRequest`/`AgentState` 的字段形状。`config.configurable` 这条通道本身
 # 早就在用（`deep-agent-model-provider.ts` 已经拿它透传 `org_skills`/`script_protocol`，
-# 见该文件头注），这里只是新增一个键：`disable_task_auto_classify`，前端"每次都先给我看
-# 计划"设置打开时才会出现（缺席 = 未覆盖，与 `script_protocol` 同一条"缺席就按老样子跑"
+# 见该文件头注），这里只是新增一个键：`disable_task_auto_classify`，此前由前端"每次都先给我看
+# 计划"设置打开时带出（缺席 = 未覆盖，与 `script_protocol` 同一条"缺席就按老样子跑"
 # 纪律）。
+#
+# issue #2770（2026-09-05）：那个前端开关连同 web → api 整条透传来源已删（要不要先计划
+# 由本中间件自动判，不再要用户选），TS 网关不再产生这个键。这里的读法保留为防御性
+# 兼容 + golden 测试的 seam（`test_tc7_interjection_replan.py` 用它关掉判类以隔离被测
+# 路径）；生产流量里它恒缺席，行为即"自动判类始终生效"。
 _DISABLE_TASK_AUTO_CLASSIFY_CONFIG_KEY = "disable_task_auto_classify"
 
 

@@ -36,7 +36,6 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     inputText: "帮我画一张架构图", inputAttachments: [], agentId: "agent-1", agentVersionId: "agent-version-1",
     instructions: "你是通用助手", skillVersionIds: [SKILL.versionId],
     modelProvider: "deep-agent-fake", modelId: "deep-agent", pendingDecision: null,
-    disableTaskAutoClassify: false,
     ...overrides,
   };
 }
