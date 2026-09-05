@@ -35,6 +35,14 @@ import {
   AgentRunNotAwaitingToolPermissionError,
   decideAgentRun,
 } from "../../application/agent-run/decide-agent-run";
+import { planPermissions } from "@repo/contracts";
+import {
+  RunNotAwaitingToolPermissionError,
+  decideToolPermission,
+} from "../../application/agent-run/decide-tool-permission";
+import {
+  TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore,
+} from "../../application/agent-run/tool-permission-grants";
 import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
 import type { Response } from "express";
 import { CurrentPrincipal } from "../current-principal.decorator";
@@ -73,6 +81,7 @@ export class AgentRunController {
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
     @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(TOOL_PERMISSION_GRANT_STORE) private readonly toolPermissionGrants: ToolPermissionGrantStore,
   ) {}
 
   @Get("/agent-runs/:runId")
@@ -243,6 +252,59 @@ export class AgentRunController {
       if (e instanceof AgentRunRetryForbiddenError) throw new ForbiddenException("AGENT_RUN_DECISION_FORBIDDEN");
       if (e instanceof AgentRunNotAwaitingToolPermissionError) {
         throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION", status: e.status });
+      }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * Phase 14 F06（`plan-permissions` 契约束 UC-6 `decideToolPermission`，issue #2774）——
+   * 四选一工具权限决策：仅本次 / 本次 run 内都允许 / 以后都允许 / 拒绝。
+   *
+   * ⚠ 这条路由此前不存在——应用层 `decide-tool-permission.ts` 与前端 F08 的
+   * `ToolPermissionCard` 都在 2026-09-05 之前只被测试直接调用/渲染过，从没有一条真实
+   * HTTP 路径把两者接起来（同 `plan-control.controller.ts` 文件头记录的那类缺口：
+   * 「后端能力已完整」的假设与「只有读面/只有应用层」的实测之间的落差）。issue #2774
+   * 补的正是这一环，不改 `decide-tool-permission.ts` 已测过的任何一行判定逻辑。
+   *
+   * 与上面 `decide()`（旧 DA-07b `/decision`）是两条并行出口，同一份可见性/竞态语义
+   * （见 `decide-tool-permission.ts` 文件头）——404/409 沿用同一套 I-3 纪律；403 复用
+   * `AgentRunRetryForbiddenError`（`decide-tool-permission.ts` 对 observer/归档线程抛的
+   * 同一个类，与 retries/decision 端点同一条既有先例），沿用一个更贴切的 reasonCode，
+   * 而不是照抄 `AGENT_RUN_DECISION_FORBIDDEN`（那是旧端点自己的字面量）。
+   */
+  @Post("/agent-runs/:runId/tool-calls/:toolCallId/decision")
+  @HttpCode(200)
+  async decideToolPermissionCall(
+    @CurrentPrincipal() principal: Principal,
+    @Param("runId") runId: string,
+    @Param("toolCallId") toolCallId: string,
+    @Body() body: { decision?: unknown },
+  ) {
+    assertPrincipal(principal);
+    const parsedDecision = planPermissions.ToolPermissionDecisionKind.safeParse(body?.decision);
+    if (!parsedDecision.success) {
+      throw new BadRequestException("decision must be \"once\", \"run\", \"forever\" or \"deny\"");
+    }
+    try {
+      return await decideToolPermission(
+        {
+          repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+          grants: this.toolPermissionGrants, kick: (orgId) => this.executor.kick(orgId),
+        },
+        {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), runId,
+          toolCallId, decision: parsedDecision.data,
+        },
+      );
+    } catch (e) {
+      if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (e instanceof AgentRunRetryForbiddenError) {
+        throw new ForbiddenException("AGENT_RUN_TOOL_PERMISSION_DECISION_FORBIDDEN");
+      }
+      if (e instanceof RunNotAwaitingToolPermissionError) {
+        throw new ConflictException({ reasonCode: "RUN_NOT_AWAITING_TOOL_PERMISSION", status: e.status });
       }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;

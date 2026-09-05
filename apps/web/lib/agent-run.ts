@@ -20,7 +20,7 @@
  * `resultMessageId` 全部以服务端为准；读不到就报错，**不返回一个假的 "succeeded"**，
  * 也不在客户端编造回复文本。助手回复始终来自 `listMessages` 的持久行。
  */
-import { wave2Runtime } from "@repo/contracts";
+import { wave2Runtime, planPermissions } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -155,6 +155,37 @@ export async function decideAgentRun(
       body: decision === "edit" ? { decision, editedArgs } : { decision },
       sessionToken,
     },
+  );
+}
+
+/**
+ * issue #2774 —— Phase 14 F06 `plan-permissions` 契约束 UC-6 `decideToolPermission`
+ * 的客户端薄封装，四选一：仅本次 / 本次 run 内都允许 / 以后都允许 / 拒绝。
+ *
+ * 与上面 `decideAgentRun`（DA-07b 旧三键弹层：approve/edit/reject）是两条**并行**出口，
+ * 服务两套不同的前端 UI（旧 `SendEmailApprovalDialog` vs 新 `ToolPermissionCard`），
+ * 迁移期共存——见 `decide-tool-permission.ts`（apps/api）文件头。这里同 `decideAgentRun`
+ * 一条既有纪律：只把服务端结果原样交出去，409（`RUN_NOT_AWAITING_TOOL_PERMISSION`）
+ * 会从 `apiRequest` 以错误抛出，调用方据此重读 run 展示真实状态，不在客户端假装
+ * 决定生效。
+ *
+ * `toolCallId`：后端 `decide-tool-permission.ts` 自己的文档承认这个字段目前只在错误
+ * 信息里回显、不参与判定（本仓执行内核每次只可能有一个待批工具调用停在
+ * `awaiting_tool_permission`）——调用方（`chat-host-tool-permission-run.ts`）传入的是
+ * `pendingApproval.toolName`，不是一个真正的服务端调用追踪 id，如实标注不是本函数
+ * 发明的语义。
+ */
+export async function decideToolPermission(
+  runId: string,
+  toolCallId: string,
+  decision: z.infer<typeof planPermissions.ToolPermissionDecisionKind>,
+  sessionToken?: string,
+): Promise<{ readonly runId: string; readonly toolCallId: string }> {
+  return apiRequest<{ readonly runId: string; readonly toolCallId: string }>(
+    planPermissions.operations.decideToolPermission.path
+      .replace(":runId", encodeURIComponent(runId))
+      .replace(":toolCallId", encodeURIComponent(toolCallId)),
+    { method: "POST", body: { decision }, sessionToken },
   );
 }
 

@@ -45,6 +45,7 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "../../applicatio
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
+import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
@@ -129,6 +130,15 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 但落库行为与本次改动之前逐字节相同。
      */
     private readonly events?: RunEventBusPort,
+    /**
+     * Phase 14 F06 (`plan-permissions` 契约束 R5)。可选，与上面每一个同一条既有理由：
+     * 既有构造点不必都改，生产合成（`kernel.module.ts`）必定注入。不注入 ⇒
+     * `handleInterruptedToolCall` 的 `hasGrant` 恒 `false`（见该文件头注），每次 L2 调用
+     * 都进 `awaiting_tool_permission` 等人裁决——与本参数加入之前逐字节相同，只是现在
+     * "以后都允许"/"本次 run 内都允许" 落的那条授权记录（issue #2774 新接的
+     * `decideToolPermission` HTTP 路由写入）终于会被这里读到，不再是写了也没人查的死数据。
+     */
+    private readonly toolPermissionGrants?: ToolPermissionGrantStore,
   ) {}
 
   /**
@@ -170,6 +180,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       sandbox: this.sandbox, objects: this.objects,
       planLedger: this.planLedger,
       events: this.events,
+      toolPermissionGrants: this.toolPermissionGrants,
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },

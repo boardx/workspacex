@@ -10,6 +10,15 @@
  */
 import type { OrgId } from "../../domain/org-id";
 
+/**
+ * issue #2774 —— 这个端口此前只在测试里手工 `new`（见 `permission-grant-scopes.test.ts`
+ * 直接 `import` 应用层函数），DI 容器里从未有对应 token/provider：`agent-run.controller.ts`
+ * 也从未挂过 `decideToolPermission` 的 HTTP 路由，`ToolPermissionCard`（F08）从未接过真实
+ * 数据。三处凑在一起才是「四选一裁决弹层」真正可用的完整链路——本 token 是补上 DI 绑定
+ * 那一环（见 `kernel.module.ts` 的 provider 注册 + `agent-run.controller.ts` 的新路由）。
+ */
+export const TOOL_PERMISSION_GRANT_STORE = Symbol("ToolPermissionGrantStore");
+
 export interface ToolPermissionGrantStore {
   /**
    * 该次 L2 工具调用是否已被授权——命中"以后都允许"（组织级）或"本次 run 内都允许"

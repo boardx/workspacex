@@ -160,6 +160,14 @@ import {
   type PlanLedgerRepository, type PlanRunStatusReader,
 } from "./application/plan-control/ports";
 import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
+// Phase 14 F06 (`plan-permissions` 契约束) -- 端口与生产实现早就写好（`PgToolPermissionGrantRepository`
+// 迁移 `20260905120000_f06_tool_permission_tiering.sql`），从未绑进容器：`decideToolPermission`
+// 因此从没有一条 HTTP 路由能调用它。issue #2774：接 `/chat` 的四选一工具权限卡时发现
+// 同 F975/F976 那条先例一模一样的缺口（见上面那段 import 的注记）。
+import {
+  TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore,
+} from "./application/agent-run/tool-permission-grants";
+import { PgToolPermissionGrantRepository } from "./infrastructure/agent-run/pg-tool-permission-grant-repository";
 // F975/F976 (plan-control 契约束) —— UC-7/UC-9/UC-10/UC-13 的两个横切端口。两个 infra 实现
 // （AcceptMessagePlanRunCreator / DeepAgentEngineRunController）在合入时就已写好，只是从未
 // 被绑进这个容器——issue（本 PR 描述）：接线 copilotkit-v2-panel 时发现除 UC-1 外的全部
@@ -954,6 +962,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgPlanLedgerRepository(db),
       inject: [DATABASE_PORT],
     },
+    // Phase 14 F06 (`plan-permissions` 契约束 R5) -- 见上面 import 处的注记：生产合成
+    // 此前从未绑定这个 token，`agent-run.controller.ts` 的新 `decideToolPermission` 路由
+    // （issue #2774）与 `tool-permission-gate.ts` 的读侧 `hasGrant`（可选依赖，见该文件
+    // 头注）都消费同一个实例。
+    {
+      provide: TOOL_PERMISSION_GRANT_STORE,
+      useFactory: (db: DatabasePort) => new PgToolPermissionGrantRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F02/F06 (board 契约束) -- F01 shipped these ports with no infra binding
     // ("纯 API/状态机断言，不锚 UI"); this is the first controller wiring them up.
     { provide: TASK_REPOSITORY, useClass: PgTaskRepository },
@@ -1585,7 +1602,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
-        events: RunEventBusPort,
+        events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1621,11 +1638,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // Phase 14 F03 -- 与 WS 网关（`main.ts` `attachStreamingSurfaces`）共享的同一个
           // `RUN_EVENT_BUS` 单例，见该 provider 自己的注册注释。
           events,
+          // Phase 14 F06 (`plan-permissions` 契约束 R5) -- 与新 `decideToolPermission`
+          // HTTP 路由（issue #2774，`agent-run.controller.ts`）共享的同一个
+          // `TOOL_PERMISSION_GRANT_STORE` 实例：那条路由写入的"本次 run 内/以后都允许"
+          // 授权记录，由这里读出来供 `hasGrant` 自动放行同类调用（见该字段自己的文档）。
+          toolPermissionGrants,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
-        SKILL_SANDBOX_PORT, RUN_EVENT_BUS,
+        SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道

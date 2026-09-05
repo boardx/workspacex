@@ -118,47 +118,39 @@ test("TW-A11Y-4：Agent 状态 / 工具完成 / 审批请求有 live region 播�
   expect((await announcer.innerText()).trim().length, "播报内容不能为空").toBeGreaterThan(0);
 });
 
-test("TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处", async ({ page }) => {
+/**
+ * issue #2774（2026-09-05）—— 审批弹窗（`SendEmailApprovalDialog`，Radix 模态 Dialog）
+ * 已退役，换成非模态的 `ToolPermissionCard`（不挂 overlay、不吃焦点）。原判据①"焦点
+ * 锁定"是模态 Dialog 专属的可达性要求（防止键盘用户误触背后内容）——非模态卡片本身
+ * 没有"背后内容"这个概念，与文本/进度指示等其它常驻卡片一样，Tab 可以自由经过它，
+ * 不需要锁定。这条不是被削弱，是描述对象换了之后不再适用；原判据②③"操作后焦点
+ * 回到 composer"改由裁决动作（不再有 Escape 可关闭的模态）触发，同一条纪律原样保留
+ * （见 `chat-host-tool-permission.tsx` 头注 TW-A11Y-5 一节）。
+ */
+test("TW-A11Y-5：工具权限卡裁决后，焦点返回 composer", async ({ page }) => {
   await openFreshThread(page);
   const composer = page.getByTestId("copilotkit-v2-input");
   await composer.fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  const dialog = page.getByTestId("copilotkit-v2-hitl-dialog");
-  await expect(dialog).toBeVisible({ timeout: 120_000 });
+  const card = page.getByTestId("tool-permission-card");
+  await expect(card).toBeVisible({ timeout: 120_000 });
 
-  // ① 焦点锁定：连按 Tab 若干次，焦点必须始终落在弹窗内。
-  for (let i = 0; i < 12; i += 1) {
-    await page.keyboard.press("Tab");
-    const insideDialog = await page.evaluate(() => {
-      const active = document.activeElement;
-      const dlg = document.querySelector('[data-testid="copilotkit-v2-hitl-dialog"]');
-      return Boolean(active && dlg && dlg.contains(active));
-    });
-    expect(
-      insideDialog,
-      [
-        `【差距 TW-A11Y-5】第 ${i + 1} 次 Tab 后焦点逃出了审批弹窗——没有焦点锁定。`,
-        "键盘用户会在弹窗背后的界面里迷路，且可能在看不见的地方触发操作。",
-        `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,
-      ].join("\n"),
-    ).toBe(true);
-  }
+  await page.getByTestId("perm-once").click();
 
-  // ② Esc 关闭 + ③ 焦点返回触发它的地方。
-  await page.keyboard.press("Escape");
-  await expect(dialog, "TW-A11Y-5：Esc 没能关闭审批弹窗").toHaveCount(0, { timeout: 10_000 });
+  // 裁决提交成功后卡片随 run 状态离开 `awaiting_tool_permission` 收起，焦点交回 composer。
+  await expect(card, "TW-A11Y-5：裁决后工具权限卡没有收起").toHaveCount(0, { timeout: 30_000 });
   const focusReturned = await page.evaluate(
     () => document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName ?? "",
   );
   expect(
     focusReturned,
     [
-      "【差距 TW-A11Y-5】弹窗关闭后焦点没有回到原处（落在了 " + focusReturned + "）。",
+      "【差距 TW-A11Y-5】裁决后焦点没有回到 composer（落在了 " + focusReturned + "）。",
       "键盘用户会被弹回文档开头，丢失上下文。",
       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,
     ].join("\n"),
-  ).toMatch(/copilotkit-v2-(input|send)/);
+  ).toBe("copilotkit-v2-input");
 });
 
 test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）", async ({ page }) => {

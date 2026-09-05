@@ -115,12 +115,11 @@ export default defineConfig({
    * 同一条真登录，唯一区别是断言目标换成 `useConfigureSuggestions`/`useSuggestions`
    * 接线是否走了同一条 `/api/copilotkit/` 连接）。不需要新的进程或新的环境变量。
    *
-   * DA-19g（issue #1996）—— 新增 `copilotkit-v2-hitl-dialog-dismiss.spec.ts` 同样由
-   * 本 config 接住（同一条 `/chat` 路由、同一条真登录、复用既有的
-   * `deepAgentApprovalTrigger` 触发词）。断言目标是 `SendEmailApprovalDialog` 终态
-   * 弹窗关闭后模态遮罩真的从 DOM 移除、发送按钮点击后真的发出新请求——回归
-   * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 判据 #10 记录的模态遮罩
-   * 永久锁死界面的 bug。不需要新的进程或新的环境变量。
+   * DA-19g（issue #1996）—— `copilotkit-v2-hitl-dialog-dismiss.spec.ts` 曾同样由本
+   * config 接住，断言 `SendEmailApprovalDialog` 终态弹窗关闭后模态遮罩真的从 DOM 移除。
+   * issue #2774（2026-09-05）退役了 `SendEmailApprovalDialog` 本身（换成非模态的
+   * `ToolPermissionCard`，不再有 Radix Dialog/遮罩可残留）——该测试断言的模态专属行为
+   * 不再有对应组件，随组件一并删除，不再出现在下面的 testMatch 里。
    *
    * DA-19g（另一条同名 backlog，评分循环第 1 轮第 5 项缺口——两者是同一简写号意外
    * 撞车，互不相关，见 `copilotkit-v2-panel.tsx` 同名段落头注）—— 新增
@@ -231,7 +230,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
     },
     {
       /**

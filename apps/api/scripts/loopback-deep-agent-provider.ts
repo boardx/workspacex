@@ -102,6 +102,13 @@ const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
  * 三态之一），下一次状态轮询直接答 `success`，`state` 端点据裁决类型拼出不同的工具
  * 结果与终稿正文——`edit` 时终稿里能看到编辑后的参数值，供截图肉眼核对「提交的确实
  * 是编辑后的值」而不是原样通过。
+ *
+ * issue #2774（Phase 14 F06 起）—— `reject` 这一态此前"永远不会被观察到"（见 `/status`
+ * 端点那条注记的历史版本）：旧 `decide-agent-run.ts` 的 reject 分支直接 `failRun`，
+ * 从不向 provider 发 resume。新 `decide-tool-permission.ts` 的 `deny` 决策走的是
+ * `denyAndRequeue`（R3 步骤 6：拒绝后内核据此调整计划继续跑，不是直接判 run 失败）——
+ * 这条边第一次真的会把 `decision:"reject"` 送到这里，`state` 端点因此补了一条独立
+ * 分支：不再谎称"已执行技能"，如实回一句"已跳过该技能调用"。
  */
 const APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER;
 /**
@@ -394,9 +401,10 @@ const server = createServer((req, res) => {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
-    // ⚠ reject 在这里**永远不会**被观察到：`decide-agent-run.ts` 对 reject 直接
-    // `failRun("HITL_REJECTED")`，从不向 provider 发 resume——服务端就是唯一权威，
-    // 本替身没有、也不该有 reject 分支（写一个够不到的分支是「同一事实两处声明」）。
+    // issue #2774 起 reject 确实会到达这里（`decide-tool-permission.ts` 的 `deny` 走
+    // `denyAndRequeue` + provider resume，见文件头注）——但落的仍是 `success`，不是
+    // `error`：R3 步骤 6 是"内核据此调整计划继续跑"，不是"run 失败"，`state` 端点的
+    // 独立 reject 分支负责给出与"批准"不同的正文，不是这里的状态码。
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
     const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
     sendJson(res, 200, { status });
@@ -539,6 +547,25 @@ const server = createServer((req, res) => {
             messages: [
               { type: "human", content: record.userText },
               pendingApprovalAi,
+            ],
+          },
+        });
+        return;
+      }
+      // issue #2774 —— `reject`（新 `decideToolPermission` 的 `deny` 决策）独立分支：
+      // 如实说"跳过了这次调用"，不是把它塞进下面 approve/edit 共用的"已执行技能"文案
+      // 里（那会谎称一个被拒绝的调用还是执行了）。原始工具调用参数原样保留展示
+      // （R3 步骤 6 的既有纪律：拒绝不清空上下文，内核据此调整计划）。
+      if (record.decision.type === "reject") {
+        const toolResultText = "用户拒绝执行该技能，本次调用被跳过。";
+        const finalReplyText = "已按你的选择跳过这个技能调用，改为直接说明这部分无法完成。";
+        sendJson(res, 200, {
+          values: {
+            messages: [
+              { type: "human", content: record.userText },
+              pendingApprovalAi,
+              { type: "tool", tool_call_id: approvalCallId, content: toolResultText },
+              { type: "ai", content: finalReplyText },
             ],
           },
         });

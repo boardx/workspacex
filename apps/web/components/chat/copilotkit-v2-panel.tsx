@@ -120,15 +120,19 @@ import { CopilotKitV2PanelBody } from "@/components/chat/copilotkit-v2-panel-bod
  * 两个工具的进行中/完成态换成贴合各自数据形状的定制卡片，其余工具走框架内置默认卡片。
  * 完整设计取舍（三态映射、协议本身不携带失败布尔信号的诚实记录）见该文件头注。
  *
- * ── DA-19d 人在环（issue #1987，backlog DA-19d，框架版 Gap 3）─────────────────
+ * ── DA-19d 人在环（issue #1987，backlog DA-19d，框架版 Gap 3）—— 2026-09-05 起已退役 ──
  *
- * `useHumanInTheLoop`（下方"DA-19d 人在环接线"一节）的 `render` 渲染件
- * `SendEmailApprovalDialog`、`APPROVAL_TOOL_NAME`/`approvalToolParameters` 两个
- * 工具标识、以及完整的设计取舍记录（HITL 语义为什么曾经卡在 DA-19g 修复前的后端
- * 缺口、`resumeAguiBridgeTurn` 如何把裁决路由回被打断的 run）现在都在
- * `copilotkit-v2-approval-dialog.tsx`（2026-08-30 文件规模拆分搬出，逐字节未改
- * 行为）——该组件只消费 props、不闭包依赖本文件的状态，是天然可独立的一块。
- * 本文件只保留接线（下方 `useHumanInTheLoop({ name: APPROVAL_TOOL_NAME, ... })`）。
+ * ⚠ **本节描述的机制已被 issue #2774 退役，如实保留仅供history**：`useHumanInTheLoop`
+ * 只注册了一个工具名（`APPROVAL_TOOL_NAME` = `call_skill`），且"能不能裁决"依赖
+ * CopilotKit AG-UI 逐工具调用的 `respond()` 桥接语义（`copilotkit-v2-approval-
+ * dialog.tsx`，DA-19g 修过一次这条桥的时序 bug）——2026-09-05 devapp 实测又撞见同一类
+ * 症状（只读分支、`respond` 未定义、没有任何按钮能裁决）。issue #2774 改走一条不依赖
+ * AG-UI 逐工具调用桥接的路径：`ChatHostToolPermission`（`chat-host-tool-permission.tsx`，
+ * 挂在 `copilotkit-v2-panel-body.tsx`）直接观察 F06 的 `awaiting_tool_permission` 状态
+ * + REST `decideToolPermission`（`plan-permissions` 契约 UC-6），覆盖任何被
+ * `classifyToolRisk` 标为 L2 的工具，不只是 `call_skill`。`copilotkit-v2-approval-
+ * dialog.tsx`（`SendEmailApprovalDialog`/`APPROVAL_TOOL_NAME`/`approvalToolParameters`）
+ * 与其 `useHumanInTheLoop` 挂载点已一并删除，全仓不再有引用。
  *
  * ── chat-parity-attachments（issue #2022，差距清单第 2 项，阻断级）────────────────
  *

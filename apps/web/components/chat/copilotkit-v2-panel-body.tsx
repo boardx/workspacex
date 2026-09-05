@@ -7,7 +7,6 @@ import { useAlwaysPlanFirstSetting } from "@/lib/chat-always-plan-first-setting"
 import {
   useAgent,
   useCopilotKit,
-  useHumanInTheLoop,
   UseAgentUpdate,
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
@@ -23,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
 import { ChatHostInterjection } from "@/components/chat/chat-host-interjection";
+import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permission";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
@@ -70,11 +70,6 @@ import {
 } from "@/components/chat/chat-composer-attachments";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
-import {
-  SendEmailApprovalDialog,
-  APPROVAL_TOOL_NAME,
-  approvalToolParameters,
-} from "@/components/chat/copilotkit-v2-approval-dialog";
 
 /** PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段的显示顺序与文案，唯一事实源。 */
 const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
@@ -984,24 +979,10 @@ export function CopilotKitV2PanelBody({
   })();
 
 
-  // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
-  // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
-  // 不传 `agentId` 时 hook 默认绑定 provider 唯一的 `"default"` agent
-  // （agent-access.md "Duplicate tool name across hooks" 一节：多 agent 场景才需要
-  // 显式 `agentId` 隔离，本面板只有一个 agent）。
-  useHumanInTheLoop({
-    name: APPROVAL_TOOL_NAME,
-    description: "在真正执行这个技能之前，请人确认参数",
-    parameters: approvalToolParameters,
-    render: ({ status, args, respond }) => (
-      <SendEmailApprovalDialog
-        statusLabel={status}
-        awaitingDecision={respond !== undefined}
-        args={args}
-        respond={respond}
-      />
-    ),
-  });
+  // issue #2774 —— 旧 DA-19d `useHumanInTheLoop({name: APPROVAL_TOOL_NAME, ...})` 接线
+  // 已退役（见 `copilotkit-v2-panel.tsx` 该节头注：只认 `call_skill` 一个工具名，且依赖
+  // CopilotKit AG-UI 逐工具调用桥接才能裁决）。四选一工具权限卡的挂载点见下方
+  // `ChatHostToolPermission`，与插话入口共用同一条 `interjectionRun` 订阅。
 
   /**
    * CK-P4（issue #2054）—— run 进度：已耗时 / 阶段文案 / 45s longrun 提示。
@@ -1655,8 +1636,8 @@ export function CopilotKitV2PanelBody({
         <CopilotKitV2ToolRenderers />
         {/* issue #2179 —— F212/F213 三张 HITL 中断卡接入真实聊天渲染树。挂载位置/
             理由见该文件头注：与 `CopilotKitV2ToolRenderers` 同一条"渲染 null、
-            仅用于登记 hook"纪律，不需要跟下面的 `useHumanInTheLoop`（send_email）
-            挤进同一个组件。 */}
+            仅用于登记 hook"纪律，不需要跟下方 `ChatHostToolPermission`（issue #2774，
+            工具权限四选一卡，走 REST 而非 `useHumanInTheLoop`）挤进同一个组件。 */}
         <CopilotKitV2AgentInterrupts />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
@@ -1844,6 +1825,13 @@ export function CopilotKitV2PanelBody({
               挂在进度指示下方作兄弟节点，见 `chat-host-interjection.tsx` 头注。 */}
           {!historyLoading ? (
             <ChatHostInterjection runId={interjectionRun.runId} status={interjectionRun.status} sessionToken={sessionToken} />
+          ) : null}
+          {/* issue #2774 —— 工具权限四选一卡（F08 `ToolPermissionCard`），退役旧
+              `useHumanInTheLoop`/`SendEmailApprovalDialog`。与上面插话入口共用同一条
+              `interjectionRun` 订阅（同一个 runId/status，不再开第二条），只在
+              `awaiting_tool_permission` 时自己渲染，见 `chat-host-tool-permission.tsx`。 */}
+          {!historyLoading ? (
+            <ChatHostToolPermission runId={interjectionRun.runId} status={interjectionRun.status} sessionToken={sessionToken} />
           ) : null}
         </div>
         </div>

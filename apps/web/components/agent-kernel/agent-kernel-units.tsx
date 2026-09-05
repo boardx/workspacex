@@ -1,8 +1,8 @@
 "use client";
 import * as React from "react";
 import {
-  Check, X, ChevronDown, ChevronRight, FileText, Play, Pause,
-  ShieldAlert, History, RefreshCw, AlertTriangle, Loader2, Wifi, ShieldCheck,
+  Check, ChevronDown, ChevronRight, FileText, Play, Pause,
+  ShieldAlert, History, RefreshCw, AlertTriangle, Loader2, Wifi,
   Trash2, GripVertical, CircleDot, Circle, CircleCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ import {
 import type { AgentKernelRunStatus } from "@/lib/agent-kernel-stream";
 import type { InterjectFn } from "@/lib/agent-kernel-interject";
 import { InterjectionComposer } from "./interjection-composer";
+import { ToolPermissionCard } from "./tool-permission-card";
 
 // 共享：风险徽标（L0/L1/L2）——颜色语义固定，L2 用 warning
 function RiskBadge({ risk }: { risk: TodoRisk }) {
@@ -236,73 +237,15 @@ export function ProgressStream() {
 }
 
 // ══ 03 工具权限确认弹层 ═════════════════════════════════════════════
-export function ToolPermissionCard() {
-  const req = MOCK_PERMISSION_REQUEST;
-  const [decision, setDecision] = React.useState<null | "once" | "run" | "always" | "deny">(null);
-
-  return (
-    <Card data-testid="tool-permission-card" className="max-w-lg border-warning/40 shadow-lg">
-      <CardHeader className="gap-1">
-        <div className="flex items-center gap-2">
-          <ShieldAlert aria-hidden className="h-4 w-4 text-warning" />
-          <CardTitle className="text-14">agent 请求执行一个高风险操作</CardTitle>
-          <RiskBadge risk={req.risk} />
-        </div>
-        <CardDescription className="text-12">
-          这类操作不可逆或会外发，未经你同意不会执行。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">想做什么</span>
-          <p data-testid="perm-intent" className="text-13 text-background-foreground">{req.intent}</p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">为什么</span>
-          <p data-testid="perm-rationale" className="text-13 text-background-foreground">{req.rationale}</p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">具体命令（完整，未截断）</span>
-          <pre data-testid="perm-command" className="overflow-x-auto rounded-control bg-muted p-2 text-11">
-            <code className="font-mono">{req.command}</code>
-          </pre>
-        </div>
-        <div className="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground">
-          <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>影响范围：{req.affects}</span>
-        </div>
-
-        {decision && (
-          <p
-            role="status"
-            data-testid="saved"
-            className="text-12 text-success transition-opacity duration-slow"
-          >
-            {decision === "once" && "已允许本次执行，agent 继续。"}
-            {decision === "run" && "本次 run 内同类操作将不再打断你。"}
-            {decision === "always" && "已记为长期允许，本组织同类操作以后不再询问（可在下次弹出时改选拒绝以撤销）。"}
-            {decision === "deny" && "已拒绝。agent 会据此调整后续计划，而不是直接失败。"}
-          </p>
-        )}
-
-        <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap">
-          <Button variant="outline" data-testid="perm-once" onClick={() => setDecision("once")}>
-            <Check aria-hidden className="h-4 w-4" /> 仅本次允许
-          </Button>
-          <Button variant="outline" data-testid="perm-run" onClick={() => setDecision("run")}>
-            本 run 内都允许
-          </Button>
-          <Button variant="outline" data-testid="perm-always" onClick={() => setDecision("always")}>
-            以后都允许
-          </Button>
-          <Button variant="destructive" data-testid="perm-deny" onClick={() => setDecision("deny")}>
-            <X aria-hidden className="h-4 w-4" /> 拒绝
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// issue #2774 起搬到 `tool-permission-card.tsx`（该文件头注说明原因：/chat 路由闭包禁
+// mock，而本文件整体引了 `@/lib/mock/agent-kernel`）。这里原样再导出，既有 import
+// 路径不变；`request` 从此是必填 prop，本文件内部（`AgentKernelNonTerminalView` 的
+// switch，下方）与 `app/preview/agent-kernel/page.tsx` 的两个既有零参数调用点已相应
+// 改为显式传 `MOCK_PERMISSION_REQUEST`，行为逐字节未变。
+export {
+  ToolPermissionCard, type ToolPermissionCardRequest,
+  type ToolPermissionCardDecision, type ToolPermissionDecisionKind,
+} from "./tool-permission-card";
 
 // ══ 04 中途插话入口 ═════════════════════════════════════════════════
 // issue #2756 起搬到 `interjection-composer.tsx`（该文件头注说明原因：/chat 路由闭包禁 mock，
@@ -605,7 +548,10 @@ export function AgentKernelNonTerminalView({
 }) {
   switch (agentKernelNonTerminalBranch(status, pausedBy)) {
     case "plan-confirmation": return <PlanConfirmationCard />;
-    case "tool-permission": return <ToolPermissionCard />;
+    // `risk: "L2"` 重新收窄：`MOCK_PERMISSION_REQUEST.risk` 声明为 `TodoRisk`（宽联合，
+    // 供 `RiskBadge` 等通用消费方使用），而 `ToolPermissionCardRequest.risk` 是契约本身
+    // 的 `z.literal("L2")`——本卡只服务 L2，不是四档 risk，收窄不是伪造数据。
+    case "tool-permission": return <ToolPermissionCard request={{ ...MOCK_PERMISSION_REQUEST, risk: "L2" }} />;
     case "paused-user": return <PausedState variant="user" />;
     case "paused-system": return <PausedState variant="system" />;
     case "progress":

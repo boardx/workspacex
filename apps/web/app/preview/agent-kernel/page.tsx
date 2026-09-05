@@ -1,7 +1,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { AGENT_KERNEL_UNITS, type AgentKernelUnit } from "@/lib/mock/agent-kernel";
+import { AGENT_KERNEL_UNITS, MOCK_PERMISSION_REQUEST, type AgentKernelUnit } from "@/lib/mock/agent-kernel";
 import {
   PlanConfirmationCard, ProgressStream, ToolPermissionCard, InterjectionComposer,
   ArtifactsPanel, ErrorCard, ReconnectToast, PausedState,
@@ -29,7 +29,9 @@ function renderUnit(unit: AgentKernelUnit, state: string | undefined) {
   switch (unit) {
     case "01-plan-confirmation": return <PlanConfirmationCard />;
     case "02-progress-stream": return <ProgressStream />;
-    case "03-tool-permission": return <ToolPermissionCard />;
+    // `risk: "L2"` 收窄同 `agent-kernel-units.tsx` 那一处的注记：`ToolPermissionCardRequest`
+    // 的 `risk` 是契约字面量 `"L2"`，不是 mock 用的宽联合 `TodoRisk`。
+    case "03-tool-permission": return <ToolPermissionCard request={{ ...MOCK_PERMISSION_REQUEST, risk: "L2" }} />;
     case "04-interjection": return <InterjectionComposer />;
     case "05-artifacts": return <ArtifactsPanel empty={state === "empty"} />;
     case "06-error-card": return <ErrorCard />;
