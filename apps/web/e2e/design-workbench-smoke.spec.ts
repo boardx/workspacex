@@ -221,5 +221,21 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-loop-inbox")).toBeVisible();
     const feedbackCardAfterReload = findInboxCard(page, feedbackTitle);
     await expect(feedbackCardAfterReload.locator('[data-testid^="link-generated-"]')).toBeVisible();
+
+    /* ── B3.7：关联标可点击——反馈 drawer 里点「已生成方案」→ drawer 换成设计条目 + 目标卡片高亮 + URL 带 ?open ── */
+    await feedbackCardAfterReload.click();
+    const drawerBeforeJump = page.getByTestId("inbox-drawer");
+    await expect(drawerBeforeJump).toContainText(feedbackTitle);
+    await drawerBeforeJump.locator('[data-testid^="link-generated-"]').click();
+    // 高亮只持续约 1.8s，先断它（紧跟点击），再断 drawer / URL。
+    await expect(page.getByTestId(`inbox-card-${inboxCode}`)).toHaveAttribute("data-highlighted", "true");
+    const designDrawer = page.getByTestId("inbox-drawer");
+    await expect(designDrawer).toContainText(projectName);
+    await expect(designDrawer).not.toContainText(feedbackTitle);
+    // 目标 = 设计条目，其 `id` 就是 `design_projects.id`（详情页 URL 里那个）；URL 同步成 `?open=<id>`。
+    await expect(page).toHaveURL(new RegExp(`[?&]open=${encodeURIComponent(projectId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    // 反向：设计 drawer 里点「源自反馈」跳回原反馈。
+    await designDrawer.locator('[data-testid^="link-from-"]').click();
+    await expect(page.getByTestId("inbox-drawer")).toContainText(feedbackTitle);
   });
 });
