@@ -159,6 +159,26 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。B4.6（取材页/截图）另行并行推进，不在
   本条范围。
 
+### 0.4 Sprint 4 落地记录
+
+- ✅ B3.7（关联标可点击跳转并高亮）2026-09-05 落地：`badges.tsx` 的 `LinkBadge` 给了
+  `onClick` 就渲染成真按钮（焦点环、`stopPropagation` 不冒泡成「打开本卡片」），没给仍是
+  只读标（取材页）。`inbox-screen.tsx` 新增 `navigateToLinked`：「已生成方案」目标 =
+  `resolvedByDesignId`（= 设计条目 `id`），「源自反馈」目标 = `linkedFeedbackId`（= 反馈条目
+  `id`），两端都在同一屏，所以是**屏内换 drawer**（`setOpenId` + drawer 按 `key={id}` 重挂）
+  + 目标卡片/行短暂 `data-highlighted="true"`（`ring-primary` token，1.8s 自清，看板/列表
+  两种视图都认），不换路由、不新增契约操作。目标被客户端 `stage` 子筛选挡住时放宽到
+  「全部」（纯本地过滤）；目标不在已加载 `items` 里（服务端 `kind`/`q` 筛掉或还在下一页）
+  时**老实提示** `inbox-link-target-missing`，不静默、不偷偷改服务端筛选。URL：屏本身不碰
+  路由，新增 `onOpenLinked` 回调，生产落点 `design-loop-screens.tsx` 用
+  `history.replaceState` 写 `?open=<id>`（Next 14.1+ 与 `useSearchParams` 同步，不走
+  `router.replace` 的 RSC 往返、不重置滚动）。4 条新增单测（`design-loop.test.tsx` ⑪：
+  看板往返跳转 + 高亮 + 回调、列表行不冒泡、目标缺失提示、生产落点 URL），
+  反证：去掉 `stopPropagation` 后 3 条转红。E2E（`design-workbench-smoke.spec.ts` ②
+  末尾加「点徽标跳到设计条目 drawer」）**未加**——B4.7 的 PR #2726 开工时还没合入，
+  本分支只是 merge 了它的读侧投影修正（`resolvedByDesignId` 真读列）作为前置；等 #2726
+  合入后由后续条目补。PR：`worker/claude-uc17-8-b3-7-clickable-relation-badges`。
+
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
 ```

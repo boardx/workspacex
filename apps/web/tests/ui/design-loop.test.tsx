@@ -21,6 +21,9 @@
  *      「找不到这个设计项目」；发消息调真实 `appendProjectChat`，用服务端整体返回的
  *      `chat`（用户消息 + 固定回执两条）覆盖本地；推送调真实 `pushToInbox`，成功页
  *      两个出口读的是服务端返回的真实 `inboxCode`。
+ *   ⑪ UC-17.8 B3.7：收件箱关联标（「已生成方案」/「源自反馈」）可点击——同屏换 drawer
+ *      到目标条目、目标卡片/行短暂 `data-highlighted`、生产落点把 `?open=<id>` 写进 URL；
+ *      目标不在已加载列表里时老实提示而不是静默。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
@@ -30,7 +33,11 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
 });
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
   openAsrDraftStream: vi.fn(),
@@ -39,6 +46,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
+import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import { DesignLoopProvider, useDesignLoop, type Project } from "@/lib/design-loop-store";
@@ -407,6 +415,75 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
     expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+  });
+});
+
+/* ─────────────────────────── B3.7：关联标可点击跳转并高亮 ─────────────────────────── */
+
+/** 反馈 B-1（已生成方案 → 设计 d1）与设计 D-1（源自反馈 → x1）互相指向，两端都在同一屏。 */
+function designItem(over: Partial<InboxItem> = {}): InboxItem {
+  return {
+    id: "d1", kind: "design", code: "D-1", title: "方案一", body: null,
+    structured: null, feedbackKind: null, sourceStatus: "已推送", stage: "backlog",
+    statusReason: null, severe: false, votes: 0, reporter: "我",
+    createdAt: "2026-09-02T00:00:00.000Z", github: null, linkedFeedbackId: "x1",
+    resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    ...over,
+  };
+}
+const linkedPair = () => [feedbackItem({ resolvedByDesignId: "d1" }), designItem()];
+
+describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
+  it("看板：drawer 里点「已生成方案」→ drawer 换成设计条目、目标卡片高亮、回调拿到目标 id；再点「源自反馈」跳回", async () => {
+    mockInbox(linkedPair());
+    const onOpenLinked = vi.fn();
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />, { wrapper: wrap() });
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    const drawer = screen.getByTestId("inbox-drawer");
+    expect(drawer).toHaveTextContent("标题一");
+
+    fireEvent.click(within(drawer).getByTestId("link-generated-B-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
+    expect(screen.getByTestId("inbox-card-D-1")).toHaveAttribute("data-highlighted", "true");
+    expect(screen.getByTestId("inbox-card-B-1")).not.toHaveAttribute("data-highlighted");
+    expect(onOpenLinked).toHaveBeenCalledWith("d1");
+
+    fireEvent.click(within(screen.getByTestId("inbox-drawer")).getByTestId("link-from-D-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("标题一"));
+    expect(screen.getByTestId("inbox-card-B-1")).toHaveAttribute("data-highlighted", "true");
+    expect(onOpenLinked).toHaveBeenLastCalledWith("x1");
+  });
+
+  it("列表：行内点「源自反馈」→ 目标行高亮、drawer 是目标条目（徽标点击不冒泡成打开本行）", async () => {
+    mockInbox(linkedPair());
+    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    const row = screen.getByTestId("inbox-row-D-1");
+    fireEvent.click(within(row).getByTestId("link-from-D-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("标题一"));
+    expect(screen.getByTestId("inbox-drawer")).not.toHaveTextContent("方案一");
+    expect(screen.getByTestId("inbox-row-B-1")).toHaveAttribute("data-highlighted", "true");
+  });
+
+  it("目标不在当前已加载列表里：老实提示，不开 drawer、不回调", async () => {
+    mockInbox([feedbackItem({ resolvedByDesignId: "ghost" })]);
+    const onOpenLinked = vi.fn();
+    render(<DesignLoopInboxScreen state="default" onOpenLinked={onOpenLinked} />, { wrapper: wrap() });
+    const card = await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(within(card).getByTestId("link-generated-B-1"));
+    expect(await screen.findByTestId("inbox-link-target-missing")).toBeInTheDocument();
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+    expect(onOpenLinked).not.toHaveBeenCalled();
+  });
+
+  it("生产落点 DesignLoopInboxAdminScreen：跳转后 URL 带 ?open=<目标 id>", async () => {
+    mockInbox(linkedPair());
+    render(<DesignLoopInboxAdminScreen state="default" />, { wrapper: wrap() });
+    const card = await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(within(card).getByTestId("link-generated-B-1"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
+    expect(new URL(window.location.href).searchParams.get("open")).toBe("d1");
   });
 });
 

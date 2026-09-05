@@ -53,16 +53,43 @@ export function GithubBadge({ number, state, kind }: InboxGithubRef) {
   );
 }
 
-/** 反馈 ↔ 设计方案关联标（源自 / 已生成）。只读文本标记。 */
-export function LinkBadge({ text, testid }: { text: string; testid: string }) {
+const LINK_BADGE_CLASS = "inline-flex items-center gap-0.5 rounded-control bg-ai-tint px-1.5 py-0.5 text-10 font-medium text-ai-tint-foreground";
+
+/**
+ * 反馈 ↔ 设计方案关联标（源自 / 已生成）。
+ *
+ * UC-17.8 B3.7：给了 `onClick` 就渲染成真按钮（可键盘触达、有焦点环），点击跳到关联条目；
+ * 没给则退回只读文本标记（取材页/无导航上下文）。按钮内部把 click / keydown 都
+ * `stopPropagation`——它总是嵌在「整张卡片 / 整行本身就是打开按钮」里，不拦的话一次点击
+ * 会先打开自己再被关联导航覆盖，多一次 drawer 闪动。
+ */
+export function LinkBadge({ text, testid, onClick }: { text: string; testid: string; onClick?: () => void }) {
+  if (onClick === undefined) {
+    return (
+      <span className={LINK_BADGE_CLASS} data-testid={testid}>
+        <ArrowUpRight aria-hidden className="h-3 w-3" />
+        {text}
+      </span>
+    );
+  }
   return (
-    <span
-      className="inline-flex items-center gap-0.5 rounded-control bg-ai-tint px-1.5 py-0.5 text-10 font-medium text-ai-tint-foreground"
+    <button
+      type="button"
+      className={cn(
+        LINK_BADGE_CLASS,
+        "transition-colors duration-fast hover:bg-ai hover:text-ai-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
+      title="跳到关联条目并高亮"
       data-testid={testid}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
     >
       <ArrowUpRight aria-hidden className="h-3 w-3" />
       {text}
-    </span>
+    </button>
   );
 }
 

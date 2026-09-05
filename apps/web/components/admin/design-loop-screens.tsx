@@ -45,6 +45,13 @@ function InboxInner({ state }: { state: UiState }) {
       openId={sp?.get("open") ?? null}
       onDeepen={(projectId) => router.push(`/platform-admin/design-workbench/${projectId}`)}
       onOpenWorkbench={() => router.push("/platform-admin/design-workbench")}
+      onOpenLinked={(targetId) => {
+        // B3.7：关联跳转只换 drawer，不换页；`?open=<id>` 走 replaceState（Next 14.1+ 与
+        // `useSearchParams` 同步），不用 `router.replace` 多打一次 RSC 往返、也不重置滚动。
+        const url = new URL(window.location.href);
+        url.searchParams.set("open", targetId);
+        window.history.replaceState(window.history.state, "", url);
+      }}
     />
   );
 }
