@@ -1,5 +1,7 @@
 ---
-status: pending
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-05T09:30:00Z"
 bundle: design-workbench
 scope: pm-design-workbench
 covers: [B4.1, B4.2, B4.3, B4.4, B4.5, B4.6]
