@@ -231,7 +231,11 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId(`inbox-card-${inboxCode}`)).toHaveAttribute("data-highlighted", "true");
     const designDrawer = page.getByTestId("inbox-drawer");
     await expect(designDrawer).toContainText(projectName);
-    await expect(designDrawer).not.toContainText(feedbackTitle);
+    // 「换成了设计条目」的判据：aria-label 以 D- 编号开头 + 有「源自反馈」标、没有「已生成方案」标。
+    // ⚠ 不能断 `not.toContainText(feedbackTitle)`：深化出的设计 body = 反馈正文，正文以反馈标题开头。
+    await expect(designDrawer).toHaveAttribute("aria-label", new RegExp(`^${inboxCode} `));
+    await expect(designDrawer.locator('[data-testid^="link-from-"]')).toBeVisible();
+    await expect(designDrawer.locator('[data-testid^="link-generated-"]')).toHaveCount(0);
     // 目标 = 设计条目，其 `id` 就是 `design_projects.id`（详情页 URL 里那个）；URL 同步成 `?open=<id>`。
     await expect(page).toHaveURL(new RegExp(`[?&]open=${encodeURIComponent(projectId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
     // 反向：设计 drawer 里点「源自反馈」跳回原反馈。
