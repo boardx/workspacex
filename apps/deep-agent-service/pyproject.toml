@@ -24,7 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0.0"]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-timeout>=2.4",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -35,3 +38,14 @@ packages = ["src/deep_agent_service"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# 2026-09-05（PR #2762 合入时 `pytest` job 挂死 20 分钟，见 issue #2755 评论）：
+# 单个测试的硬上限。本仓的测试都是进程内假模型（秒级），真 Postgres 的两条也在
+# 一分钟内；超过 120 s 只可能是挂死，不是慢——挂死必须当场红、带全线程栈，
+# 不能让 workflow 的 timeout-minutes 替它收尸（那样既没有栈也没有哪条测试的信息）。
+#
+# timeout_method = "thread"（不是默认的 signal）：实测那次挂死是 langgraph 后台
+# checkpoint 写线程池的死锁（8 个 worker 互相等）。signal 方式只在主线程抛异常，
+# 解释器退出时 concurrent.futures 的 atexit 还会 join 那些死锁的 worker——进程照样
+# 挂到 20 分钟。thread 方式先 dump 全部线程栈再 os._exit(1)，保证一定结束。
+timeout = 120
+timeout_method = "thread"
