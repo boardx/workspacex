@@ -1,7 +1,7 @@
 ---
 status: confirmed
 confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」，指的是当时唯一挡着的两道门：本束签核 + 阶段一致性复核）"
-confirmed_at: "2026-09-05T03:47:59Z"
+confirmed_at: "2026-09-05T04:47:59Z"
 bundle: feedback-loop
 scope: feedback-capture-and-triage
 covers: [FB-2, FB-3]
