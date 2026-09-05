@@ -45,6 +45,8 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       pushed: false,
       pushedAt: null,
       pushNote: null,
+      githubIssueUrl: null,
+      githubIssueNumber: null,
       chat: [],
       createdAt: at,
       updatedAt: at,
@@ -130,6 +132,47 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     }
     return { project: next, resolvedFeedback };
   }
+
+  /* ── 2026-09-05「转开发」：建 issue 的认领/回填三件套 ────────────────────────── */
+
+  /** 测试断言用：认领被调用了几次、`releaseGithubIssueClaim` 被调用了几次。 */
+  readonly claimCalls: string[] = [];
+  readonly releaseCalls: string[] = [];
+  /** 置为 true 时下一次认领失败——模拟并发对手已经抢到（真实实现里是 UPDATE 没命中）。 */
+  claimUnavailable = false;
+  private readonly claimed = new Set<string>();
+
+  async claimGithubIssueCreation(projectId: string, ownerId: string): Promise<boolean> {
+    this.claimCalls.push(projectId);
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return false;
+    if (row.githubIssueUrl !== null) return false;
+    if (this.claimUnavailable || this.claimed.has(projectId)) return false;
+    this.claimed.add(projectId);
+    return true;
+  }
+
+  async releaseGithubIssueClaim(projectId: string, _ownerId: string): Promise<void> {
+    this.releaseCalls.push(projectId);
+    this.claimed.delete(projectId);
+  }
+
+  async setGithubIssue(
+    projectId: string,
+    ownerId: string,
+    issue: { readonly url: string; readonly number: number },
+  ): Promise<DesignProjectRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined || row.ownerId !== ownerId) return null;
+    const next: DesignProjectRow = {
+      ...row,
+      githubIssueUrl: issue.url,
+      githubIssueNumber: issue.number,
+      updatedAt: this.stamp(),
+    };
+    this.rows.set(projectId, next);
+    return next;
+  }
 }
 
 export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignProjectRow {
@@ -145,6 +188,8 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     pushedAt: null,
     pushNote: null,
     linkedFeedbackId: null,
+    githubIssueUrl: null,
+    githubIssueNumber: null,
     chat: [],
     createdAt: "2026-09-04T00:00:00.000Z",
     updatedAt: "2026-09-04T00:00:00.000Z",

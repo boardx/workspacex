@@ -51,6 +51,8 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     pushed: row.pushed,
     pushedAt: row.pushedAt,
     linkedFeedbackId: row.linkedFeedbackId,
+    githubIssueUrl: row.githubIssueUrl,
+    githubIssueNumber: row.githubIssueNumber,
     chat: [...row.chat],
     ownerId: row.ownerId,
     ownerName,

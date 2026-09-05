@@ -39,6 +39,13 @@ export interface DesignProjectRow {
   readonly pushNote: string | null;
   readonly linkedFeedbackId: string | null;
   readonly chat: readonly DesignProjectChatTurn[];
+  /**
+   * 2026-09-05「转开发」——这个方案对应的 GitHub issue。同生同灭（见契约
+   * `DesignProject.githubIssueUrl` 头注）。**没有** issue 开关状态：设计方案不落
+   * `dev_status` 列，理由见迁移 `20260905180000_design_project_github_issue.sql`。
+   */
+  readonly githubIssueUrl: string | null;
+  readonly githubIssueNumber: number | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -138,6 +145,35 @@ export interface DesignProjectRepository {
    * 不存在/不是 owner ⇒ `null`。
    */
   pushToInbox(projectId: string, ownerId: string, note: string | undefined): Promise<PushToInboxResult | null>;
+
+  /**
+   * 2026-09-05「转开发」——认领"由我来给这个方案建 issue"的权利。
+   *
+   * 与 `ProductFeedbackRepository.claimGithubIssueCreation` **完全同一套语义**（那份
+   * 迁移头注 `20260831010000_fb2_feedback_github_issue_claim.sql` 是这把锁的权威说明，
+   * 包含它不解决的那种竞态）：把 `github_issue_claimed_at` 从 `NULL`（或够旧的旧值）
+   * 原子地改成"现在"，`RETURNING` 到行的人才有权调 GitHub。
+   *
+   * 返回 `false` = 没抢到（别人正在办，或刚办完）。仅 owner；不是 owner 一律 `false`
+   * ——调用方在这之前已经用 `get()` 判过 owner 并抛过 `NOT_PROJECT_OWNER`，这里的
+   * owner 谓词是防"判过之后 owner 变了"的第二道，不是错误来源。
+   */
+  claimGithubIssueCreation(projectId: string, ownerId: string): Promise<boolean>;
+  /**
+   * 建失败时释放认领，让下一次重试能立刻重新抢到（不必等过期）。
+   *
+   * ⚠ 带 `ownerId` 不是多余的：`design_projects` 上**每一条** UPDATE 都必须同时按
+   *   `owner_id` 与 `org_id` 收窄——这是 `lint-permission-paths` 对本仓储的豁免前提，
+   *   由 `tests/design-workbench/project-repository-guard.test.ts` 逐条扫 SQL 字面量守着。
+   *   反馈那侧的同名方法只按 id+org 收窄，是因为 `product_feedback` 没有这条不变量。
+   */
+  releaseGithubIssueClaim(projectId: string, ownerId: string): Promise<void>;
+  /** 建成功后回填 url/number。返回回填之后的行；不存在/不是 owner ⇒ `null`。 */
+  setGithubIssue(
+    projectId: string,
+    ownerId: string,
+    issue: { readonly url: string; readonly number: number },
+  ): Promise<DesignProjectRow | null>;
 }
 
 export interface DesignProjectRepositoryFactory {

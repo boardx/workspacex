@@ -126,7 +126,7 @@ function exceptionItem(over: Partial<InboxItem> = {}): InboxItem {
     structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
     statusReason: null, severe: false, votes: 0, reporter: null,
     createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
-    resolvedByDesignId: null, exception: { location: "svc", count: 3, affectedUsers: 1 },
+    resolvedByDesignId: null, exception: { location: "svc", count: 3, affectedUsers: 1, devNote: null, tags: [] },
     submittedByMe: false, votedByMe: false,
     ...over,
   };
@@ -840,7 +840,8 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], pushed: false, pushedAt: null,
-    linkedFeedbackId: null, chat: [], ownerId: "u1", ownerName: "我",
+    linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
+    chat: [], ownerId: "u1", ownerName: "我",
     createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
     ...over,
   };
@@ -1123,5 +1124,195 @@ describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () =
     fireEvent.click(screen.getByTestId("inbox-drawer-close"));
     await waitFor(() => expect(screen.queryByTestId("inbox-drawer")).toBeNull());
     expect(document.activeElement).toBe(screen.getByTestId("inbox-card-B-1"));
+  });
+});
+
+describe("⑫ 2026-09-05：系统异常 drawer 的开发备注 / 标签", () => {
+  it("异常 drawer 显示开发备注块与已有标签；反馈 drawer 没有这一块", async () => {
+    mockInbox([exceptionItem({ exception: { location: "svc", count: 3, affectedUsers: 1, devNote: "转给 @a", tags: ["auth"] } })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    await screen.findByTestId("inbox-drawer-exception-dev");
+    expect((screen.getByTestId("inbox-drawer-devnote-input") as HTMLTextAreaElement).value).toBe("转给 @a");
+    expect(screen.getByTestId("inbox-drawer-tag-auth")).toBeTruthy();
+  });
+
+  it("反馈 drawer 不渲染开发备注块（这两个字段不泛化到别的来源）", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    await screen.findByTestId("inbox-drawer");
+    expect(screen.queryByTestId("inbox-drawer-exception-dev")).toBeNull();
+  });
+
+  it("保存备注 ⇒ PUT /system/error-logs/:id 只带 devNote，不带 status/statusReason", async () => {
+    mockInbox([exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    const ta = await screen.findByTestId("inbox-drawer-devnote-input");
+    fireEvent.change(ta, { target: { value: "回调拿不到 code" } });
+    fireEvent.click(screen.getByTestId("inbox-drawer-devnote-save"));
+    await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
+    const body = callsTo("/system/error-logs/e1", "PUT")[0]![1]!.body!;
+    expect(body.devNote).toBe("回调拿不到 code");
+    // 契约的 REASON_REQUIRES_STATUS：只改备注的请求绝不能顺带带上这两个键。
+    expect("status" in body).toBe(false);
+    expect("statusReason" in body).toBe(false);
+  });
+
+  it("备注没有改动时保存按钮禁用（不产生一次无意义的写）", async () => {
+    mockInbox([exceptionItem({ exception: { location: "svc", count: 1, affectedUsers: null, devNote: "已有备注", tags: [] } })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    const save = (await screen.findByTestId("inbox-drawer-devnote-save")) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByTestId("inbox-drawer-devnote-input"), { target: { value: "改了" } });
+    expect((screen.getByTestId("inbox-drawer-devnote-save") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("清空备注 ⇒ 提交 null（不是空字符串）", async () => {
+    mockInbox([exceptionItem({ exception: { location: "svc", count: 1, affectedUsers: null, devNote: "旧的", tags: [] } })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    fireEvent.change(await screen.findByTestId("inbox-drawer-devnote-input"), { target: { value: "   " } });
+    fireEvent.click(screen.getByTestId("inbox-drawer-devnote-save"));
+    await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
+    expect(callsTo("/system/error-logs/e1", "PUT")[0]![1]!.body!.devNote).toBeNull();
+  });
+
+  it("加标签走回车 ⇒ 提交合并后的整个 tags 数组；重复标签不产生请求", async () => {
+    mockInbox([exceptionItem({ exception: { location: "svc", count: 1, affectedUsers: null, devNote: null, tags: ["auth"] } })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    const input = await screen.findByTestId("inbox-drawer-tag-input");
+    fireEvent.change(input, { target: { value: "P1" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
+    expect(callsTo("/system/error-logs/e1", "PUT")[0]![1]!.body!.tags).toEqual(["auth", "P1"]);
+
+    // 重复标签：不再发第二次请求。
+    fireEvent.change(input, { target: { value: "auth" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1);
+  });
+
+  it("移除标签 ⇒ 提交去掉那一个之后的数组", async () => {
+    mockInbox([exceptionItem({ exception: { location: "svc", count: 1, affectedUsers: null, devNote: null, tags: ["auth", "P1"] } })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    fireEvent.click(await screen.findByTestId("inbox-drawer-tag-remove-auth"));
+    await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
+    expect(callsTo("/system/error-logs/e1", "PUT")[0]![1]!.body!.tags).toEqual(["P1"]);
+  });
+});
+
+describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建 GitHub Issue", () => {
+  it("没有 issue 的设计条目 ⇒ drawer 有「转入开发」按钮（此前 design 条目没有任何操作）", async () => {
+    mockInbox([designItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    await screen.findByTestId("inbox-drawer");
+    expect(screen.getByTestId("inbox-action-design-handoff")).toBeTruthy();
+    expect(screen.queryByTestId("inbox-design-handed-off")).toBeNull();
+  });
+
+  it("点「转入开发」展开 issue 编辑器；设计方案不显示附件清单块（它没有附件这个概念）", async () => {
+    mockInbox([designItem({ body: "要重做导出流程" })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
+    await screen.findByTestId("inbox-issue-form");
+    expect((screen.getByTestId("inbox-issue-title") as HTMLInputElement).value).toBe("方案一");
+    expect((screen.getByTestId("inbox-issue-body") as HTMLTextAreaElement).value).toContain("要重做导出流程");
+    expect(screen.queryByTestId("inbox-issue-attachments")).toBeNull();
+  });
+
+  it("确认后调 POST /pm-designs/:id/github-issue（不是反馈那条 triageFeedback）", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/inbox") return { items: [designItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
+        return {
+          project: {
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [],
+            pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
+            githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
+            chat: [], ownerId: "u1", ownerName: "我",
+            createdAt: "2026-09-02T00:00:00.000Z", updatedAt: "2026-09-05T00:00:00.000Z",
+          },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
+    fireEvent.click(await screen.findByTestId("inbox-issue-submit"));
+    await waitFor(() => expect(callsTo("/pm-designs/d1/github-issue", "POST")).toHaveLength(1));
+    // 绝不能走反馈那条：那会把一个设计方案当成反馈去转状态。
+    expect(callsTo("/feedback/d1/status", "PUT")).toHaveLength(0);
+    const body = callsTo("/pm-designs/d1/github-issue", "POST")[0]![1]!.body!;
+    expect((body.draft as { title: string }).title).toBe("方案一");
+  });
+
+  it("成功后卡片进「进行中」列并挂上 issue 徽标（stage 由有没有 issue 派生）", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [designItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
+        return {
+          project: {
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [],
+            pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
+            githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
+            chat: [], ownerId: "u1", ownerName: "我",
+            createdAt: "2026-09-02T00:00:00.000Z", updatedAt: "2026-09-05T00:00:00.000Z",
+          },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
+    fireEvent.click(await screen.findByTestId("inbox-issue-submit"));
+    await waitFor(() => expect(screen.getByTestId("inbox-column-count-doing").textContent).toBe("1"));
+    expect(within(screen.getByTestId("inbox-column-doing")).getByTestId("inbox-card-D-1")).toBeTruthy();
+  });
+
+  it("已经有 issue 的设计条目 ⇒ 不再显示「转入开发」，改为提示已转开发", async () => {
+    mockInbox([
+      designItem({
+        stage: "doing",
+        sourceStatus: "已转开发",
+        github: { kind: "issue", number: 77, url: "https://github.com/o/r/issues/77", state: "open" },
+      }),
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    await screen.findByTestId("inbox-drawer");
+    expect(screen.queryByTestId("inbox-action-design-handoff")).toBeNull();
+    expect(screen.getByTestId("inbox-design-handed-off")).toBeTruthy();
+  });
+
+  it("建失败 ⇒ 显示错误、卡片留在原列（这条操作没改过状态，无需回滚）", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [designItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") throw new Error("github down");
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-D-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-design-handoff"));
+    fireEvent.click(await screen.findByTestId("inbox-issue-submit"));
+    await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
+    expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
   });
 });

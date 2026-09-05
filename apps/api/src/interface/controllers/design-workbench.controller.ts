@@ -33,6 +33,8 @@ import {
   Query,
   Req,
   UnprocessableEntityException,
+  ConflictException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { designWorkbench as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
@@ -42,6 +44,14 @@ import { updateProject } from "../../application/design-workbench/update-project
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
 import { deleteProject } from "../../application/design-workbench/delete-project";
 import { pushToInbox } from "../../application/design-workbench/push-to-inbox";
+import {
+  createDesignGithubIssue,
+  DesignIssueAlreadyExistsError,
+  DesignIssueCreationFailedError,
+  DesignIssueInProgressError,
+  DesignProjectNotPushedError,
+} from "../../application/design-workbench/create-design-github-issue";
+import { GITHUB_ISSUE_CREATOR, type GithubIssueCreator } from "../../application/feedback/notification-ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "../../application/notifications/transactional-mail-ports";
 import {
@@ -72,6 +82,8 @@ export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
 export const UPDATE_PROJECT_SCHEMA = C.operations.updateProject.in.omit({ projectId: true });
 export const APPEND_PROJECT_CHAT_SCHEMA = C.operations.appendProjectChat.in.omit({ projectId: true });
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
+export const CREATE_DESIGN_GITHUB_ISSUE_SCHEMA = C.operations.createDesignGithubIssue.in.omit({ projectId: true });
+type CreateDesignGithubIssueBody = ReturnType<typeof CREATE_DESIGN_GITHUB_ISSUE_SCHEMA.parse>;
 
 type CreateProjectBody = ReturnType<typeof CREATE_PROJECT_SCHEMA.parse>;
 type UpdateProjectBody = ReturnType<typeof UPDATE_PROJECT_SCHEMA.parse>;
@@ -83,6 +95,18 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignProjectNotFoundError) return new NotFoundException({ reasonCode: "PROJECT_NOT_FOUND" });
   if (e instanceof DesignProjectNotOwnerError) return new ForbiddenException({ reasonCode: "NOT_PROJECT_OWNER" });
   if (e instanceof DesignProjectNameRequiredError) return new UnprocessableEntityException({ reasonCode: "NAME_REQUIRED" });
+  // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
+  //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：
+  //     输入形状没问题，是这个方案还不到能转开发的时候。
+  //   · 已有 issue / 并发认领 = 资源当前状态与请求冲突 ⇒ 409（同 feedback 那侧的
+  //     `FeedbackIssueInProgressError` 映射）。
+  //   · GitHub 建失败 = 下游不可用 ⇒ 503，与 `DEPENDENCY_UNAVAILABLE` 同一类。
+  if (e instanceof DesignProjectNotPushedError) return new ConflictException({ reasonCode: "PROJECT_NOT_PUSHED" });
+  if (e instanceof DesignIssueAlreadyExistsError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_ALREADY_EXISTS" });
+  if (e instanceof DesignIssueInProgressError) return new ConflictException({ reasonCode: "DESIGN_ISSUE_IN_PROGRESS" });
+  if (e instanceof DesignIssueCreationFailedError) {
+    return new ServiceUnavailableException({ reasonCode: "DESIGN_ISSUE_CREATION_FAILED" });
+  }
   return null;
 }
 
@@ -98,6 +122,8 @@ export class DesignWorkbenchController {
     @Inject(MODEL_CALL_PORT) private readonly modelCall: ModelCallPort,
     @Inject(FEEDBACK_STRUCTURE_MODEL_CONFIG) private readonly chatModel: FeedbackStructureModelConfig,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    // 2026-09-05「转开发」——与 `feedback.controller.ts` 建 issue 用的是同一个端口实现，不另配。
+    @Inject(GITHUB_ISSUE_CREATOR) private readonly githubIssues: GithubIssueCreator,
   ) {}
 
   private designChat(): ModelDesignChatReplier {
@@ -208,6 +234,23 @@ export class DesignWorkbenchController {
       return await pushToInbox(
         { ...this.deps(principal), logger: this.logger, traceId: traceIdOf(req) },
         { projectId, ownerId: principal.userId, note: body.note },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/github-issue")
+  async createGithubIssue(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(CREATE_DESIGN_GITHUB_ISSUE_SCHEMA)) body: CreateDesignGithubIssueBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await createDesignGithubIssue(
+        { ...this.deps(principal), logger: this.logger, githubIssues: this.githubIssues },
+        { projectId, ownerId: principal.userId, draft: body.draft },
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;

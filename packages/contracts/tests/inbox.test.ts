@@ -37,13 +37,24 @@ describe("stageOf -- 源状态到 stage 的唯一映射", () => {
     expect(stages).not.toContain("done");
   });
 
-  it("design 本轮没有源状态：任何值都抛错，而不是返回默认列", () => {
+  it("design 没有源状态：任何值都抛错，而不是返回默认列（2026-09-05「转开发」之后依然如此）", () => {
     expect(() => inbox.stageOf("design", "待处理")).toThrow(/no mapping/);
+    expect(() => inbox.stageOf("design", "已推送")).toThrow(/no mapping/);
   });
 
   it("串了源的状态值抛错（feedback 没有 已转入开发；exception 没有 已修复）", () => {
     expect(() => inbox.stageOf("feedback", "已转入开发")).toThrow();
     expect(() => inbox.stageOf("exception", "已修复")).toThrow();
+  });
+
+  it("designStageOf：没有 issue ⇒ backlog，有 issue ⇒ doing", () => {
+    expect(inbox.designStageOf({ githubIssueNumber: null })).toBe("backlog");
+    expect(inbox.designStageOf({ githubIssueNumber: 42 })).toBe("doing");
+  });
+
+  it("designStageOf 只产出 backlog / doing——done 与 archived 需要今天不存在的输入（见头注）", () => {
+    const produced = new Set([null, 1, 999].map((n) => inbox.designStageOf({ githubIssueNumber: n })));
+    expect([...produced].sort()).toEqual(["backlog", "doing"]);
   });
 
   it("stage 枚举顺序即看板列顺序", () => {
@@ -94,7 +105,7 @@ const exceptionItem: inbox.InboxItem = {
   attachments: [],
   linkedFeedbackId: null,
   resolvedByDesignId: null,
-  exception: { location: "/auth/callback", count: 12, affectedUsers: null },
+  exception: { location: "/auth/callback", count: 12, affectedUsers: null, devNote: null, tags: [] },
   submittedByMe: false,
   votedByMe: false,
 };
@@ -105,6 +116,13 @@ describe("InboxItem -- 正例", () => {
   });
   it("系统异常条目", () => {
     expect(inbox.InboxItem.safeParse(exceptionItem).success).toBe(true);
+  });
+  it("系统异常：devNote 有值、tags 非空仍合法（2026-09-05 补投影）", () => {
+    const r = inbox.InboxItem.safeParse({
+      ...exceptionItem,
+      exception: { ...exceptionItem.exception, devNote: "转给 @a：登录回调拿不到 code", tags: ["auth", "P1"] },
+    });
+    expect(r.success).toBe(true);
   });
   it("D3 无权看正文：body / structured / reporter 同时为 null 仍合法", () => {
     expect(
@@ -152,6 +170,15 @@ describe("InboxItem -- 反例", () => {
     expect(
       inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, level: "error" } })
         .success,
+    ).toBe(false);
+  });
+  it("exception.tags 必须是数组、devNote 必须显式给出（未打标签是 []，不是省略/null）", () => {
+    const { devNote: _d, ...noDevNote } = exceptionItem.exception!;
+    expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noDevNote }).success).toBe(false);
+    const { tags: _t, ...noTags } = exceptionItem.exception!;
+    expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noTags }).success).toBe(false);
+    expect(
+      inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, tags: null } }).success,
     ).toBe(false);
   });
   it("votes 不许为负；github.number 必须为正整数", () => {

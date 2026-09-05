@@ -17,6 +17,8 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
     pushed: true,
     pushedAt: "2026-09-04T00:00:00.000Z",
     linkedFeedbackId: null,
+    githubIssueUrl: null,
+    githubIssueNumber: null,
     chat: [],
     ownerId: "u-1",
     ownerName: "张三",
@@ -63,5 +65,42 @@ describe("buildDesignInboxItems", () => {
     expect(byId.get("dp-1")).toBe("D-1");
     expect(byId.get("dp-2")).toBe("D-2");
     expect(byId.get("dp-3")).toBeUndefined();
+  });
+});
+
+describe("buildDesignInboxItems -- 2026-09-05「转开发」：stage 与 github 由有没有 issue 派生", () => {
+  it("没有 issue ⇒ stage=backlog、github=null、sourceStatus=已推送", () => {
+    const out = buildDesignInboxItems([designView()]);
+    expect(out[0]!.item.stage).toBe("backlog");
+    expect(out[0]!.item.github).toBeNull();
+    expect(out[0]!.item.sourceStatus).toBe("已推送");
+  });
+
+  it("有 issue ⇒ stage=doing、github 是那张 issue、sourceStatus=已转开发", () => {
+    const out = buildDesignInboxItems([
+      designView({ githubIssueUrl: "https://github.com/o/r/issues/77", githubIssueNumber: 77 }),
+    ]);
+    expect(out[0]!.item.stage).toBe("doing");
+    expect(out[0]!.item.github).toEqual({
+      kind: "issue",
+      number: 77,
+      url: "https://github.com/o/r/issues/77",
+      // 恒 open——没有对账来源能说它关没关，见契约 InboxGithubRef 头注那条已登记缺口。
+      state: "open",
+    });
+    expect(out[0]!.item.sourceStatus).toBe("已转开发");
+  });
+
+  it("url/number 只有一半（不该发生，但形状要挡住）⇒ 徽标、stage、sourceStatus 三者一致地当作没有 issue", () => {
+    for (const half of [
+      { githubIssueUrl: "https://x/1", githubIssueNumber: null },
+      { githubIssueUrl: null, githubIssueNumber: 5 },
+    ]) {
+      const out = buildDesignInboxItems([designView(half)]);
+      expect(out[0]!.item.github).toBeNull();
+      // 看板上绝不能出现「已转开发但没有票」的卡片——三处读同一个判断。
+      expect(out[0]!.item.stage).toBe("backlog");
+      expect(out[0]!.item.sourceStatus).toBe("已推送");
+    }
   });
 });

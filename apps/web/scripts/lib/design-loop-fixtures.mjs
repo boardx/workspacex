@@ -115,7 +115,11 @@ export const INBOX_ITEMS = [
     structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
     statusReason: null, severe: true, votes: 0, reporter: null, createdAt: "2026-09-03T05:00:00.000Z",
     github: null, linkedFeedbackId: null, resolvedByDesignId: null,
-    exception: { location: "asr-gateway / ws", count: 47, affectedUsers: 12 }, submittedByMe: false, votedByMe: false,
+    // `devNote`/`tags` 是契约 `InboxExceptionMeta` 的必填位（2026-09-05 补投影）。
+    // ⚠ 这份夹具是 `.mjs`，不过 tsc——漏掉这两个键不会有类型报错，而是让 drawer 里
+    //   `tags.map` 在 undefined 上炸。加字段时这里要跟着改。
+    exception: { location: "asr-gateway / ws", count: 47, affectedUsers: 12, devNote: null, tags: ["asr", "P1"] },
+    submittedByMe: false, votedByMe: false,
   },
 ];
 

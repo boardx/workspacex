@@ -34,6 +34,8 @@ interface ProjectDbRow {
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
   readonly linked_feedback_id: string | null;
+  readonly github_issue_url: string | null;
+  readonly github_issue_number: number | null;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
 }
@@ -74,6 +76,8 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
     linkedFeedbackId: row.linked_feedback_id,
+    githubIssueUrl: row.github_issue_url,
+    githubIssueNumber: row.github_issue_number,
     chat: toChat(chat),
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
@@ -82,7 +86,8 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
 
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames,
-  pushed, pushed_at, push_note, linked_feedback_id, created_at, updated_at`;
+  pushed, pushed_at, push_note, linked_feedback_id,
+  github_issue_url, github_issue_number, created_at, updated_at`;
 
 class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   constructor(
@@ -307,6 +312,66 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
 
       const chat = await this.chatFor(s, row.id);
       return { project: toRow(row, chat), resolvedFeedback };
+    });
+  }
+
+  /**
+   * 多旧算"过期"：5 分钟。**逐字同** `pg-product-feedback-repository.ts` 的
+   * `CLAIM_STALE_AFTER_SQL`（那里的头注解释了这个数字怎么来的：盖住一次真实 GitHub REST
+   * 调用的最长耗时，又不长到让崩溃后的重试等太久）。两处是同一把锁的两个落点，
+   * 不是两个各自拍脑袋的常量——将来要调，两处一起调。
+   */
+  private static readonly CLAIM_STALE_AFTER_SQL = `now() - interval '5 minutes'`;
+
+  async claimGithubIssueCreation(projectId: string, ownerId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // 原子性来源同反馈那侧：Postgres 对同一行的并发 UPDATE 互斥，只有一个能把
+      // `github_issue_claimed_at` 从满足 WHERE 的旧值改成 now()，另一个 RETURNING 空集。
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE design_projects
+            SET github_issue_claimed_at = now()
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3
+            AND github_issue_url IS NULL
+            AND (github_issue_claimed_at IS NULL
+                 OR github_issue_claimed_at < ${ScopedPgDesignProjectRepository.CLAIM_STALE_AFTER_SQL})
+          RETURNING id`,
+        [this.orgId, ownerId, projectId],
+      );
+      return rows.length > 0;
+    });
+  }
+
+  async releaseGithubIssueClaim(projectId: string, ownerId: string): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // owner 谓词同本文件其它每一条 UPDATE——见 `project-repository-guard.test.ts` 守的那条不变量。
+      await s.query(
+        `UPDATE design_projects SET github_issue_claimed_at = NULL
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3`,
+        [this.orgId, ownerId, projectId],
+      );
+    });
+  }
+
+  async setGithubIssue(
+    projectId: string,
+    ownerId: string,
+    issue: { readonly url: string; readonly number: number },
+  ): Promise<DesignProjectRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // owner 谓词同 `update`/`delete`/`pushToInbox` 的纪律：每一条改 design_projects 的
+      // 语句自己带，不依赖调用方先查过。
+      const { rows } = await s.query<ProjectDbRow>(
+        `UPDATE design_projects
+            SET github_issue_url    = $4,
+                github_issue_number = $5,
+                updated_at          = now()
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3
+          RETURNING ${SELECT_COLUMNS}`,
+        [this.orgId, ownerId, projectId, issue.url, issue.number],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      return toRow(row, await this.chatFor(s, row.id));
     });
   }
 }
