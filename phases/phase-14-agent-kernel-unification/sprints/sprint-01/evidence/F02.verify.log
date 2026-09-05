@@ -1,0 +1,14 @@
+== pnpm --filter api exec vitest run tests/agent-run/deep-agent-flags-removed.test.ts ==
+
+ RUN  v2.1.9 /tmp/wt-f02/apps/api
+
+[db-isolation] db=workspacex capacity=100 current=6 required=32
+ ✓ tests/agent-run/deep-agent-flags-removed.test.ts (18 tests) 20ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  02:20:58
+   Duration  1.26s (transform 661ms, setup 0ms, collect 816ms, tests 20ms, environment 0ms, prepare 51ms)
+
+[db-isolation] db=workspacex peak_connections=1
+EXIT_CODE=0

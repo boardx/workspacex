@@ -206,6 +206,19 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `tests/ui/design-loop.test.tsx` 1 新 1 改；`permission-propagation-six-paths.test.ts`
   （真 PG）过迁移。PR：`worker/claude-uc17-8-b5-2-design-chat-ai`。
 - B5.3 不做（PDF 明确 out of scope，仅登记）。
+- ✅ B6.1（删除原型 `lib/design-loop-store.tsx` 与取材页 localStorage seed）2026-09-05 落地：
+  B1.4/B3.4/B4.5 之后三屏全部真栈，store 里剩下的 `projects`/`pushProject`/`deepenFeedback`
+  等方法已无生产调用方——整个文件删除（`grep -rn design-loop-store apps/web` 归零，仅剩
+  历史注释里"已删除"的说明）。`AppShell` 不再挂 `DesignLoopProvider`（D5 上提的那一层随之
+  拆掉）；反馈弹层「去 PM 设计工作台」入口原本靠 Provider 在场判可见，改成**恒可见的纯路由
+  跳转** `/platform-admin/design-workbench`。取材页 `/preview/feedback-design-loop` 删掉
+  `seed`/Provider，`workbench-empty` 空态与其它四屏一样由 `shot-feedback-design-loop.mjs`
+  的 `page.route` 拦截回空 `items` 得到（`routeDesignWorkbench({ empty })` B4.6 已就位）
+  ——与 `feedback-loop` 束同范式。单测 `design-loop.test.tsx` 删去测 mock store 的
+  「⑧ pushProject 标记已推送并生成 D- 编号」整块（`renderHook(useDesignLoop)`），其余用例
+  去掉 `DesignLoopProvider` 包裹。UI 像素未变，**截图不重拍**（`lint-ui-material` 双向对账
+  仍绿）。README 第 9 条 / `design-workbench/ui.md` 相应改写。
+  PR：`worker/claude-uc17-8-b6-1-delete-prototype-store`（Refs #2659，承接 #2727）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
@@ -284,7 +297,7 @@ design-workbench       PM 设计工作台：Project 实体 + 推送 → 收件�
 | B6.3 | 通知：收件箱状态变化沿用现有 `status_event_notification`（邮件）；新增「反馈已生成设计方案」事件类型 | 1 | B4.3 |
 | B6.4 | 可观测性：收件箱聚合查询与推送事务的日志/指标（`observability.md`）；`doctor` 对新束的 passing 证据链 | 1 | B3.2 |
 | B6.5 | 无障碍与响应式复核：看板拖拽的键盘替代（用操作按钮兜底已在原型）、375/768/1280 三档不横向溢出（U8） | 1 | B3.4 |
-| B6.6 | 数据保留：草稿 30 天未动自动清理（与 UC-17.3 数据保留对齐，需人类确认期限） | 1 | B1.2 |
+| B6.6 | ~~数据保留：草稿 30 天未动自动清理~~ **不做（2026-09-05 人类裁决：「b6.6 不需要自动清理」）**——草稿是提交人私有资源，保留到本人删除或提交为止；若将来 UC-17.3 数据保留策略要求统一期限，再作为新条目重开 | — | — |
 
 ## 3. 估点汇总与建议顺序
 

@@ -112,6 +112,30 @@ def ai_tool_call(name: str, args: dict[str, Any], call_id: str) -> AIMessage:
     return AIMessage(content="", tool_calls=[{"id": call_id, "name": name, "args": args}])
 
 
+def grader_always_satisfied_response(call_id: str = "grader-satisfied-1") -> AIMessage:
+    """Phase 14 F02（R6）起 `RubricMiddleware` 的默认清单播种无条件生效（不再是
+    可关闭的灰度）——`create_deep_agent(middleware=build_middleware(...))` 建出的
+    每一张图，收尾前都会用同一个假模型再发起一次绑 `GraderResponse` 的判词调用
+    （`RubricMiddleware.after_agent`）。各 TC 场景的路由函数如果不认识这次调用
+    （`bound_tools == ["GraderResponse"]`），会落进各自面向主链/子代理的分支，
+    返回一个不含 `GraderResponse` 工具调用的响应——grader 解析不到判词，
+    `RubricMiddleware` 判"未通过"跳回模型返工，而路由函数在有 grader 调用的上下文
+    里给不出一个会被判"合格"的答复，这就是一个新的死循环，实测会一路撞到
+    `GraphRecursionError`（或更糟：非常大的 `recursion_limit` 下把机器内存吃光）。
+
+    各 TC 场景要看的都不是"退出前自检"这件事本身（那件由
+    `test_tc3_precompletion_checklist_forces_a_revision` 专门覆盖），所以统一在
+    这里提供一个固定判"合格"放行的响应，路由函数只需要在自己的分支最前面加一句
+    `if bound_tools == ["GraderResponse"]: return grader_always_satisfied_response()`。
+    """
+    args = {
+        "result": "satisfied",
+        "explanation": "本场景不评审内容质量，直接放行，不让退出前自检干扰要观测的维度",
+        "criteria": [{"name": "N/A", "passed": True}],
+    }
+    return AIMessage(content="", tool_calls=[{"id": call_id, "name": "GraderResponse", "args": args}])
+
+
 class ScriptedProviderRejectsToolChoice(RuntimeError):
     """`ScriptedChatModel(reject_forced_tool_choice=True)` 抛出的假异常（issue #2417）。
 

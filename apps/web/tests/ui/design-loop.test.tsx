@@ -9,10 +9,10 @@
  *   ⑤ 看板卡片拖到另一列触发真实迁移调用（反馈 → `PUT /feedback/:id/status`，
  *      系统异常 → `PUT /system/error-logs/:id`）；系统异常拖进「已完成」列**不发请求**。
  *   ⑥ `sources.exception === "withheld"` 时「系统异常」筛选 Chip 禁用并提示「仅平台运维可见」。
- *   ⑦ PM 设计工作台 `pushProject`：项目标记已推送 + `resolvedInbox` 拿到 `D-` 编号
- *      （收件箱本身真栈化后不再由这个 mock store 持有，见 `lib/design-loop-store.tsx` 文件头）。
+ *   ⑦ （原 mock store 的 `pushProject` 用例已随 UC-17.8 B6.1 删除原型 store 一起删去；
+ *      推送的真栈断言见 ⑩。）
  *   ⑧ UC-17.8 B4.4「用 PM 设计工作台深化」：点击后调真栈 `POST /feedback/:id/deepen`，
- *      跳转带的是服务端返回的**真实** `project.id`（不再是 `design-loop-store.tsx` 本地
+ *      跳转带的是服务端返回的**真实** `project.id`（不再是已删除的原型 store 本地
  *      拼出来的 mock id），失败时提示错误且 drawer 不关。
  *   ⑨ UC-17.8 B4.5：PM 设计工作台首页 —— loading/empty/dep-failed 三态；「新建」的
  *      生成中过渡等待真实 `createProject` 返回才导航（不是固定超时）；删除调真实
@@ -23,7 +23,7 @@
  *      两个出口读的是服务端返回的真实 `inboxCode`。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api-client", async () => {
@@ -41,15 +41,10 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
-import { DesignLoopProvider, useDesignLoop, type Project } from "@/lib/design-loop-store";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-
-function wrap() {
-  return ({ children }: { children: React.ReactNode }) => <DesignLoopProvider seed={{}}>{children}</DesignLoopProvider>;
-}
 
 type Call = [string, { method?: string; body?: Record<string, unknown>; query?: Record<string, string | undefined> } | undefined];
 const callsTo = (path: string, method = "GET") =>
@@ -147,7 +142,7 @@ describe("③ 收件箱三态", () => {
       if (path === "/inbox") return new Promise((r) => { resolve = r; });
       return Promise.resolve({ ...baseCounts, byStage: { backlog: 0, doing: 0, done: 0, archived: 0 }, byKind: { feedback: 0, exception: 0, design: 0 }, total: 0 });
     });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     expect(screen.getByTestId("loading")).toBeTruthy();
     resolve({ items: [], nextCursor: null, sources: { exception: "included" } });
     expect(await screen.findByTestId("empty")).toBeTruthy();
@@ -158,7 +153,7 @@ describe("③ 收件箱三态", () => {
       if (path === "/inbox") return Promise.reject(new Error("offline"));
       return Promise.resolve(baseCounts);
     });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     expect(await screen.findByTestId("dep-failed")).toBeTruthy();
     mockInbox([feedbackItem()]);
     fireEvent.click(screen.getByTestId("inbox-retry"));
@@ -169,7 +164,7 @@ describe("③ 收件箱三态", () => {
 describe("④ 转不做：理由为空禁用，填了才能确认且调真实迁移", () => {
   it("展开理由后确认按钮禁用；填理由后可确认，触发 PUT /feedback/:id/status 带 reason", async () => {
     mockInbox([feedbackItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-decline"));
@@ -189,7 +184,7 @@ describe("④ 转不做：理由为空禁用，填了才能确认且调真实迁
 describe("⑤ 看板拖放触发真实状态迁移", () => {
   it("反馈：拖到进行中列 ⇒ 乐观挪列 + PUT /feedback/:id/status(已进入迭代)", async () => {
     mockInbox([feedbackItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "x1" } });
@@ -204,7 +199,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
 
   it("系统异常：拖到已完成列不发请求（该边不存在）", async () => {
     mockInbox([exceptionItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-done"), { dataTransfer: { getData: () => "e1" } });
     expect(screen.getByTestId("inbox-drag-error")).toBeTruthy();
@@ -215,7 +210,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
 
   it("系统异常：拖到进行中列 ⇒ PUT /system/error-logs/:id(已转入开发)", async () => {
     mockInbox([exceptionItem()]);
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "e1" } });
     await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
@@ -230,7 +225,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
       if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") throw new Error("network down");
       throw new Error(`unexpected ${path}`);
     });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "x1" } });
     await waitFor(() => expect(screen.getByTestId("inbox-drag-error")).toBeTruthy());
@@ -243,7 +238,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
 describe("⑥ 系统异常 withheld：Chip 禁用并提示仅平台运维可见", () => {
   it("sources.exception === withheld ⇒ 系统异常 Chip 禁用、旁边有提示，点它不生效", async () => {
     mockInbox([feedbackItem()], { exception: "withheld" });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     const chip = await screen.findByTestId("inbox-kind-exception");
     expect((chip as HTMLButtonElement).disabled).toBe(true);
@@ -288,7 +283,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
       ],
       linkedPullRequestsAvailable: true,
     }));
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     await waitFor(() => expect(callsTo("/feedback/x1/github-issue")).toHaveLength(1));
@@ -310,7 +305,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
       linkedPullRequests: [],
       linkedPullRequestsAvailable: true,
     }));
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     expect(await screen.findByTestId("github-badge-closed")).toBeTruthy();
@@ -321,7 +316,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
       github: { kind: "issue", number: 10, url: "https://github.com/x/y/issues/10", state: "open" },
     });
     mockInboxWithGithub([item], () => { throw new Error("rate limited"); });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     await screen.findByTestId("inbox-drawer-github-check-failed");
@@ -335,7 +330,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
     mockInboxWithGithub([exceptionItem()], () => {
       throw new Error("不该被调用");
     });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
@@ -356,7 +351,7 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
       linkedPullRequests: [],
       linkedPullRequestsAvailable: true,
     }));
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-create-issue"));
@@ -376,7 +371,7 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
       feedbackId: "x2", url: "u", number: 1, state: "open", stateReason: null,
       linkedPullRequests: [], linkedPullRequestsAvailable: true,
     }));
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-2");
     fireEvent.click(screen.getByTestId("inbox-card-B-2"));
     await screen.findByTestId("inbox-drawer");
@@ -391,7 +386,7 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
         linkedPullRequests: [], linkedPullRequestsAvailable: true,
       }),
     );
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     await screen.findByTestId("inbox-drawer");
@@ -402,7 +397,7 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
     mockInboxWithGithub([exceptionItem()], () => {
       throw new Error("不该被调用");
     });
-    render(<DesignLoopInboxScreen state="default" />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
@@ -433,7 +428,7 @@ describe("UC-17.8 B4.4：收件箱「用 PM 设计工作台深化」调真栈 PO
       }
       throw new Error(`unexpected ${path}`);
     });
-    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
@@ -452,33 +447,13 @@ describe("UC-17.8 B4.4：收件箱「用 PM 设计工作台深化」调真栈 PO
       if (path === "/feedback/x1/deepen" && opts?.method === "POST") throw new Error("dependency_unavailable");
       throw new Error(`unexpected ${path}`);
     });
-    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
     fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
     await waitFor(() => expect(callsTo("/feedback/x1/deepen", "POST")).toHaveLength(1));
     expect(onDeepen).not.toHaveBeenCalled();
     expect(screen.getByTestId("inbox-drawer")).toBeTruthy();
-  });
-});
-
-describe("⑧ PM 设计工作台：pushProject 标记已推送并生成 D- 编号", () => {
-  it("pushProject 后：项目 pushed=true，resolvedInbox 是 D- 开头的编号", () => {
-    const project: Project = {
-      id: "p1", name: "深化 B-3", template: "wireframe", emoji: "🧩", owner: "我", updated: "2026-09-01T00:00:00.000Z",
-      pushed: false, linkedFeedback: "B-3", problem: "问题", criteria: ["a"], frames: ["草稿页 1"], chat: [],
-    };
-    const { result } = renderHook(() => useDesignLoop(), {
-      wrapper: ({ children }) => <DesignLoopProvider seed={{ projects: [project] }}>{children}</DesignLoopProvider>,
-    });
-
-    let code = "";
-    act(() => { code = result.current.pushProject("p1"); });
-
-    expect(code.startsWith("D-")).toBe(true);
-    const p = result.current.projects.find((x: Project) => x.id === "p1")!;
-    expect(p.pushed).toBe(true);
-    expect(p.resolvedInbox).toBe(code);
   });
 });
 
