@@ -17,14 +17,28 @@
  * 真正执行，只是被内核挡在执行前）。两个检查点都不落在"一次调用正在执行中"的区间内，
  * 插话因此从不会打断一次已经开始的工具调用，只影响它结束之后的下一步。
  *
- * ## "最高优先级上下文"体现在哪：下一条 execution step
+ * ## "最高优先级上下文"体现在哪：账本一行 + 回灌内核（#2755）
  *
  * 本函数消费到一条待处理插话时，落一条 `model_called` 账本记录（复用
  * `handleInterruptedToolCall` 自己已经在用的"非真实模型调用、只带 planningNote 的
- * 账本行"写法），`planningNote` 原文带上插话文本——这就是 R12 要求的"插话后下一步执行
- * 路径需体现新指令"在这一层能诚实断言的形状：跨进程真正把文本喂回远端 LangGraph 图
- * 是 kernel-gateway 束 `proxyToolExecution` 的职责（R10 依赖），本函数只负责"网关侧
- * 确实看到了它、并把它记进了这个 run 唯一的事实来源"。
+ * 账本行"写法），`planningNote` 原文带上插话文本——这是"网关侧确实看到了它、并把它
+ * 记进了这个 run 唯一的事实来源"的证据。
+ *
+ * Phase 14 后续 A（#2755）补上 F11 如实记录的那道边界：消费后的插话同时落进
+ * `InterjectionStore.stageForKernel`，等同一个 run 的**下一次** `ModelCallInput`
+ * 把它带给内核（`takeInterjectionForKernel`，`execute-run.ts` 构造输入时调用一次）；
+ * deep-agent provider 把它投影到 LangGraph `configurable.interjection`，`harness.py`
+ * 的 `InterjectionMiddleware` 以最高优先级 human 消息注入图、并把下一次模型调用钉成
+ * `write_todos` 重规划——R12"下一步执行路径体现新指令"从此在内核层成立，不只在账本层。
+ *
+ * ⚠ "下一次 ModelCallInput"是哪一次，如实写清楚：`executeClaimed` 对一个 run 一次只发
+ * 一次内核调用，同一个 run 再有一次 `ModelCallInput` 只会是 HITL 中断之后的 resume
+ * 续跑（自动放行 `approveAndRequeue`，或人四选一后重新入队）。两个检查点里，
+ * `handleInterruptedToolCall` 那个天然紧接着一次 resume；`onProgress` 终态事件那个
+ * 只有当同一次内核调用随后停在 interrupt 时才会有下一次输入。一个 run 若在检查点
+ * 之后一路跑到终态、中间没有任何停顿，这条插话到不了内核——要做到"任意时刻打进正在
+ * 跑的图"需要 LangGraph multitask `interrupt`（会丢掉进行中那一步，违反 I-5）或
+ * Python 侧回调轮询（另一块独立改动），都不在本 feature 范围。
  *
  * ## E3：方向性改变 ⇒ 本 run 内的 L2 授权范围整体失效
  *
@@ -49,8 +63,11 @@
  * 解析纪律、同一条"宁可没有也不编造"的反空转规则）。本函数不重复发明第二条
  * `plan_update` 产生路径。
  */
+import type { artifactsSteering as AS } from "@repo/contracts";
+import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { ExecuteAgentRunDeps } from "./execute-run";
+import type { ModelCallInput } from "./ports";
 import { record } from "./record-run-step";
 
 /**
@@ -62,7 +79,8 @@ const DIRECTION_CHANGE_SIGNAL_WORDS = [
   "改变方向", "先别管刚才", "忘了刚才", "另外做",
 ] as const;
 
-export type InterjectionClassification = "adjustment" | "direction_change";
+/** 取值的唯一事实源在契约（Python 侧 `harness.py` 读同一组值，parity 测试机械比对）。 */
+export type InterjectionClassification = z.infer<typeof AS.InterjectionClassification>;
 
 export function classifyInterjection(text: string): InterjectionClassification {
   const trimmed = text.trim();
@@ -71,11 +89,8 @@ export function classifyInterjection(text: string): InterjectionClassification {
     : "adjustment";
 }
 
-export interface AppliedInterjection {
-  readonly interjectionId: string;
-  readonly text: string;
-  readonly classification: InterjectionClassification;
-}
+/** 一条已消费的插话——形状就是投递内核的线上形状（契约 `KernelInterjection`），不另起一份。 */
+export type AppliedInterjection = z.infer<typeof AS.KernelInterjection>;
 
 /**
  * 一次"下一次工具调用之间"检查点。没有待处理插话 ⇒ `null`，调用方不做任何事——绝大多数
@@ -108,5 +123,25 @@ export async function checkPendingInterjection(
   });
   seqCursor.value += 1;
 
-  return { interjectionId: pending.interjectionId, text: pending.text, classification };
+  const applied: AppliedInterjection = {
+    interjectionId: pending.interjectionId, text: pending.text, classification, receivedAt: pending.receivedAt,
+  };
+  // #2755：等下一次 ModelCallInput 带给内核（见文件头注"回灌内核"一节）。
+  await deps.interjections.stageForKernel(orgId, runId, applied);
+  return applied;
+}
+
+/**
+ * Phase 14 后续 A（#2755）：构造下一次 `ModelCallInput` 时调用**一次**——原子取出该 run
+ * 待投递内核的插话，作为可展开的输入片段返回。没有 ⇒ 空对象，展开后 `interjection`
+ * 这个键**根本不出现**（不是 `undefined` 值），请求逐字节与本 feature 之前相同。
+ */
+export async function takeInterjectionForKernel(
+  deps: ExecuteAgentRunDeps,
+  orgId: OrgId,
+  runId: string,
+): Promise<Pick<ModelCallInput, "interjection"> | Record<never, never>> {
+  if (!deps.interjections) return {};
+  const staged = await deps.interjections.takeStagedForKernel(orgId, runId);
+  return staged === null ? {} : { interjection: staged };
 }

@@ -610,6 +610,172 @@ class TaskClassifierMiddleware(AgentMiddleware):
             return await handler(request)
 
 
+# ── Phase 14 后续 A（#2755，`artifacts-steering` R3'/R12）：中途插话回灌内核 ──────
+#
+# F11（PR #2742）把 `POST /agent-runs/:runId/interject` 做到了网关侧：插话在"下一次
+# 工具调用之间"被消费、写账本、方向性改变时撤销 L2 授权——但如实记录了一道边界：
+# 插话文本没有真正回到这张图，内核不会据此重规划。本节把这道边界关掉。
+#
+# 通道：与 `disable_task_auto_classify` 完全同一条——TS 网关（`deep-agent-model-provider.ts`）
+# 把待投递的插话放进 `config.configurable[_INTERJECTION_CONFIG_KEY]`，形状是契约
+# `KernelInterjection`（`packages/contracts/src/artifacts-steering.ts`）；键名、字段名、
+# 分类枚举三者的唯一事实源都在那份契约里，下面三个常量只是 Python 侧的**读法**，
+# `packages/contracts/tests/artifacts-steering/cross-lang-interjection-parity.test.ts`
+# 机械比对它们与契约逐字一致——改任何一侧不改另一侧，那条测试会红。
+#
+# 两件事，分别落在中间件的两组钩子上：
+# 1. `before_model`/`abefore_model`：读到插话且本线程还没注入过（按固定 message id
+#    去重——同一条插话只进图一次，TS 侧也只投递一次，双保险）⇒ 以 `HumanMessage`
+#    追加进 `messages`。用 human 消息而不是改 system prompt：它就是用户在这个时点
+#    说的话，落在 transcript 里的位置（紧接着刚结束的那次工具调用之后）本身就是
+#    "最高优先级上下文"的形状——模型接下来看到的最新一条人类消息就是它。
+# 2. `wrap_model_call`/`awrap_model_call`：最新一条人类消息是插话、且其后还没调过
+#    `write_todos` ⇒ 把这次 `tool_choice` 钉成 `write_todos`——与
+#    `PlanFirstToolChoiceMiddleware` 同一条"确定性强制而非提示词软约束"的纪律与同一份
+#    "最新一轮判断窗口"（issue #2417 教训）。重规划由此经**既有** `write_todos` 路径
+#    产生 `plan_update`（`copilotkit-agui.controller.ts` 读工具调用），不伪造事件。
+#    局部调整与方向性改变都强制一次：待办清单就是计划，任何一条追加指令都该让
+#    计划的剩余步骤如实反映它；分类只影响注入文本的标签，让模型知道网关怎么判的。
+#
+# 同步/异步四个钩子都实现（issue #2417：只实现同步版会让 `langgraph dev` 的异步
+# runtime 在业务逻辑之前直接 `NotImplementedError`，生产 100% 请求失败）。
+_INTERJECTION_CONFIG_KEY = "interjection"
+_INTERJECTION_FIELDS: tuple[str, ...] = ("interjectionId", "text", "classification", "receivedAt")
+_INTERJECTION_CLASSIFICATIONS: tuple[str, ...] = ("adjustment", "direction_change")
+_INTERJECTION_MESSAGE_ID_PREFIX = "interjection:"
+_INTERJECTION_LABELS = {"adjustment": "局部调整", "direction_change": "方向性改变"}
+
+
+def _run_interjection() -> dict | None:
+    """读这一次 run 的 `configurable.interjection`；缺席/形状不对 ⇒ `None`（按"没有插话"
+    处理，warning 让坏形状可观测，不让一条坏输入把整轮判死）。`get_config()` 不在
+    runnable 上下文时的 `RuntimeError` 与 `_run_disables_auto_classify` 同一条防御纪律。"""
+    try:
+        config = get_config()
+    except RuntimeError:
+        return None
+    raw = (config.get("configurable") or {}).get(_INTERJECTION_CONFIG_KEY)
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or any(not isinstance(raw.get(f), str) for f in _INTERJECTION_FIELDS):
+        _logger.warning("configurable.%s 形状不符合契约 KernelInterjection，忽略：%r", _INTERJECTION_CONFIG_KEY, raw)
+        return None
+    if raw["classification"] not in _INTERJECTION_CLASSIFICATIONS:
+        _logger.warning("configurable.%s.classification 不在契约枚举内，忽略：%r", _INTERJECTION_CONFIG_KEY, raw)
+        return None
+    if not raw["text"].strip():
+        return None
+    return raw
+
+
+def _interjection_message_id(interjection_id: str) -> str:
+    return f"{_INTERJECTION_MESSAGE_ID_PREFIX}{interjection_id}"
+
+
+def _is_interjection_message(message: object) -> bool:
+    return getattr(message, "type", None) == "human" and str(getattr(message, "id", "") or "").startswith(
+        _INTERJECTION_MESSAGE_ID_PREFIX
+    )
+
+
+def _interjection_already_injected(messages: list, interjection_id: str) -> bool:
+    wanted = _interjection_message_id(interjection_id)
+    return any(getattr(m, "id", None) == wanted for m in messages)
+
+
+def _interjection_human_message(raw: dict):  # noqa: ANN202
+    from langchain_core.messages import HumanMessage
+
+    label = _INTERJECTION_LABELS[raw["classification"]]
+    content = (
+        f"【用户中途插话·{label}】{raw['text']}\n"
+        "（这是运行中追加的最高优先级指令：先用 write_todos 按它更新剩余计划，再按更新后的计划继续执行；"
+        "不要重做已经完成且不受影响的步骤。）"
+    )
+    return HumanMessage(
+        content=content,
+        id=_interjection_message_id(raw["interjectionId"]),
+        additional_kwargs={_INTERJECTION_CONFIG_KEY: dict(raw)},
+    )
+
+
+def _prepare_replan_request(request: ModelRequest) -> ModelRequest | None:
+    """最新一条人类消息是插话、`write_todos` 已挂载、且插话之后还没调过 `write_todos`
+    ⇒ 返回钉成 `tool_choice="write_todos"` 的 request；否则 `None`（不强制）。判断
+    窗口与 `_prepare_forced_request` 同源：只看最新一轮，不看整份历史。"""
+    turn_start = _latest_human_turn_index(request.messages)
+    if turn_start is None or not _is_interjection_message(request.messages[turn_start]):
+        return None
+    if "write_todos" not in _tool_names(request.tools):
+        _logger.warning(
+            "收到中途插话但 write_todos 工具未挂载，无法确定性强制重规划"
+            "（build_middleware() 是否误删了 TodoListMiddleware？）——已退回不强制。"
+        )
+        return None
+    if _write_todos_already_called(request.messages[turn_start + 1 :]):
+        return None
+    return request.override(tool_choice="write_todos")
+
+
+class InterjectionMiddleware(AgentMiddleware):
+    """Phase 14 后续 A（#2755）：接住 TS 网关投递的中途插话，注入图并强制重规划
+    （见上方模块注释）。同步/异步四个钩子都实现（issue #2417 教训）。"""
+
+    def _injection_update(self, state: dict) -> dict | None:
+        raw = _run_interjection()
+        if raw is None:
+            return None
+        if _interjection_already_injected(state.get("messages") or [], raw["interjectionId"]):
+            return None
+        return {"messages": [_interjection_human_message(raw)]}
+
+    def before_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._injection_update(state)
+
+    async def abefore_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._injection_update(state)
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        forced_request = _prepare_replan_request(request)
+        if forced_request is None:
+            return handler(request)
+        try:
+            return handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 同 PlanFirstToolChoiceMiddleware 的纪律
+            _logger.warning(
+                "插话重规划强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return handler(request)
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        forced_request = _prepare_replan_request(request)
+        if forced_request is None:
+            return await handler(request)
+        try:
+            return await handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 同 PlanFirstToolChoiceMiddleware 的纪律
+            _logger.warning(
+                "插话重规划强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return await handler(request)
+
+
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -618,6 +784,10 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """
     return [
         TodoListMiddleware(),
+        # Phase 14 后续 A（#2755）：紧跟规划工具之后、两个"钉 write_todos"的中间件之前——
+        # 它的 before_model 要先把插话追加进 messages，后面 TaskClassifier 的判类与
+        # 本类自己的 wrap_model_call 才会把"最新一条人类消息"看成这条插话。
+        InterjectionMiddleware(),
         # DA-11（#2220 方案 B，重做见 issue #2417）：紧跟在 TodoListMiddleware 之后——
         # 它依赖 write_todos 工具已经挂载，逻辑上属于"规划工具本身"这一组，不是与
         # 限流/摘要同级的关注点。

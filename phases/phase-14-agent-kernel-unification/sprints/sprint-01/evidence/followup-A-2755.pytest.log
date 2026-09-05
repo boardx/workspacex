@@ -1,0 +1,8 @@
+# #2755 — apps/deep-agent-service pytest（uv 环境真跑）
+# 命令：uv run pytest tests/golden/test_tc7_interjection_replan.py tests/test_harness.py -q
+...........................................................              [100%]
+=============================== warnings summary ===============================
+tests/golden/test_tc7_interjection_replan.py::test_interjection_in_configurable_is_injected_and_forces_write_todos_sync
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+59 passed, 1 warning in 332.99s (0:05:32)
