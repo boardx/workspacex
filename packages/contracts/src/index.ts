@@ -72,6 +72,9 @@ export * as inbox from "./inbox";
 /* ── UC-17.8 Sprint 3 · PM 设计工作台（Project 实体 + 推送到收件箱 + 双向关联地基）───────── */
 export * as designWorkbench from "./design-workbench";
 
+/* ── UC-17.8 Sprint 4 · AI 协作（B5：两束共用的「模型/退路」词汇，不新增路由）───────────── */
+export * as designAiCollab from "./design-ai-collab";
+
 /* ── 两级成员管理：平台级名册与角色调整（组织级在 org-admin 束）────────── */
 export * as platformMembers from "./platform-members";
 

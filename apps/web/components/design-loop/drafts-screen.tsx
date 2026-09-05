@@ -32,6 +32,8 @@ import { FeedbackStructuredView } from "@/components/feedback/feedback-structure
  * 发送 = `updateFeedbackDraft({ appendChat: { role: "user", kind: "message", text } })`，
  * 然后用服务端回的**整条** `draft.chat` 重渲染。首次澄清问题与回执都由服务端追加
  * （契约 `refineSeeded`），前端不再本地 seed——原型期那份 `REFINE_SEED`/`REFINE_ACK` 已删。
+ * UC-17.8 B5.1：AI 记录带 `source`（`designAiCollab.AiReplySource`）——`fallback` 时在气泡里
+ * 挂一个「固定回执」小标识，布局不变；文案仍全部来自服务端。
  *
  * ## `DRAFT_EMPTY` 要翻成可行动的话
  *
@@ -473,6 +475,12 @@ function RefineOverlay({
                 )}
               >
                 {turn.kind === "edit" ? `（改了正文）${turn.text}` : turn.text}
+                {/* B5.1：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
+                {turn.role === "ai" && turn.source === "fallback" && (
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="draft-refine-turn-fallback">
+                    固定回执
+                  </span>
+                )}
               </div>
             ))}
           </div>

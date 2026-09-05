@@ -25,27 +25,52 @@
  *   · 对话记录**不进正文**（契约头注逐字）。
  *   · `attachmentIds` **不传**给 `submitFeedback`——附件已经挂在草稿上，由 ② 整体迁移；
  *     再传一次会让 `claimForFeedback` 去认领一批 `draft_id IS NOT NULL` 的行，恒 0，只会多一行日志。
+ *
+ * ## UC-17.8 B5.1：提交时模型把对话摘要成结构化字段（步骤 ⓪，在 ① 之前）
+ *
+ *   · 草稿上有 `kind: "message"` 的对话记录 ⇒ `deps.refine.summarize` 把整段对话摘要成
+ *     `structured`（按 `kind` 严格解析，摘出来的覆盖同名字段、没摘出来的保留原值），随反馈落库；
+ *     端口退路（模型不可用/不可解析）⇒ 原样用草稿上的 `structured`，`chatSummary: "fallback"`。
+ *   · 没有对话记录 ⇒ 不调模型，`chatSummary: null`（`edit` 记录只是正文轨迹，不是对话）。
+ *   · 这一步**只读**草稿、不写回草稿——草稿马上要删（③），写回只会多一次没人读的 UPDATE。
+ *   · 放在 ① 之前而不是之后：反馈一旦落库就进了收件箱，分诊的人看到的第一版就该是摘要后的。
  */
 import { deriveFeedbackTitle } from "../../../domain/feedback/derive-feedback-title";
 import { submitFeedback, type SubmitFeedbackDeps, type SubmitFeedbackResult } from "../submit-feedback";
+import type { AiReplySource, DraftRefineModel } from "./draft-refine-model";
 import { FeedbackDraftEmptyError, FeedbackDraftNotFoundError, type FeedbackDraftDeps } from "./draft-shared";
 
 export interface SubmitFeedbackDraftDeps extends FeedbackDraftDeps {
   /** 完整的 `submitFeedback` 依赖——邮件 / 事件 / 日志全部沿用，这里不复制任何一条。 */
   readonly submit: SubmitFeedbackDeps;
+  /** B5.1：提交时把对话摘要成结构化字段的端口，见 `draft-refine-model.ts`。 */
+  readonly refine: DraftRefineModel;
+}
+
+export interface SubmitFeedbackDraftResult extends SubmitFeedbackResult {
+  /** 契约 `submitFeedbackDraft.out.chatSummary`：`null` = 没有对话可摘要，没调模型。 */
+  readonly chatSummary: AiReplySource | null;
 }
 
 export async function submitFeedbackDraft(
   deps: SubmitFeedbackDraftDeps,
   input: { readonly draftId: string; readonly ownerId: string },
-): Promise<SubmitFeedbackResult> {
+): Promise<SubmitFeedbackDraftResult> {
   const draft = await deps.drafts.get(input.draftId, input.ownerId);
   if (draft === null) throw new FeedbackDraftNotFoundError();
   const detail = draft.detail.trim();
   const title = deriveFeedbackTitle(detail);
   if (detail === "" || title === null) throw new FeedbackDraftEmptyError();
 
-  const result = await submitFeedback(deps.submit, {
+  let structured = draft.structured;
+  let chatSummary: AiReplySource | null = null;
+  if (draft.chat.some((t) => t.kind === "message")) {
+    const summary = await deps.refine.summarize({ kind: draft.kind, detail: draft.detail, structured: draft.structured, chat: draft.chat });
+    structured = summary.structured;
+    chatSummary = summary.source;
+  }
+
+  const submitted = await submitFeedback(deps.submit, {
     submittedBy: input.ownerId,
     orgId: deps.orgId,
     kind: draft.kind,
@@ -53,10 +78,11 @@ export async function submitFeedbackDraft(
     targetLabel: null,
     title,
     detail,
-    structured: draft.structured,
+    structured,
     occurredRoute: draft.occurredRoute,
     appVersion: draft.appVersion,
   });
+  const result: SubmitFeedbackDraftResult = { ...submitted, chatSummary };
 
   const log = deps.submit.log;
   try {

@@ -6,6 +6,14 @@ import { vi } from "vitest";
 import type { FeedbackAttachmentRepository, FeedbackAttachmentRow } from "../../src/application/feedback/attachment-ports";
 import type { FeedbackDraftRepository, FeedbackDraftRow, NewFeedbackDraft } from "../../src/application/feedback/draft-ports";
 import type { NewFeedback, ProductFeedbackRepository, StatusEvent } from "../../src/application/feedback/ports";
+import {
+  REFINE_ACK,
+  REFINE_SEED_QUESTION,
+  type AiReply,
+  type DraftRefineContext,
+  type DraftRefineModel,
+  type DraftSummary,
+} from "../../src/application/feedback/drafts/draft-refine-model";
 
 export class FakeDraftRepo implements FeedbackDraftRepository {
   readonly rows = new Map<string, FeedbackDraftRow>();
@@ -116,4 +124,25 @@ export function fakeFeedbackRepo() {
     markStatusEventNotified: vi.fn(async () => {}),
   } as unknown as ProductFeedbackRepository;
   return { repo, inserted, events };
+}
+
+/**
+ * B5.1：`DraftRefineModel` 的内存 fake——默认退回 D7 固定文案（`source: "fallback"`），
+ * 记录每次调用看到的上下文；测试可以换掉 `answers` 让它"像模型一样"说话。
+ */
+export class FakeDraftRefiner implements DraftRefineModel {
+  readonly calls: { readonly what: "seed" | "reply" | "summarize"; readonly ctx: DraftRefineContext }[] = [];
+  answers: { seed?: AiReply; reply?: AiReply; summarize?: DraftSummary } = {};
+  async seedQuestion(ctx: DraftRefineContext): Promise<AiReply> {
+    this.calls.push({ what: "seed", ctx: { ...ctx, chat: [...ctx.chat] } });
+    return this.answers.seed ?? { text: REFINE_SEED_QUESTION, source: "fallback" };
+  }
+  async reply(ctx: DraftRefineContext): Promise<AiReply> {
+    this.calls.push({ what: "reply", ctx: { ...ctx, chat: [...ctx.chat] } });
+    return this.answers.reply ?? { text: REFINE_ACK, source: "fallback" };
+  }
+  async summarize(ctx: DraftRefineContext): Promise<DraftSummary> {
+    this.calls.push({ what: "summarize", ctx: { ...ctx, chat: [...ctx.chat] } });
+    return this.answers.summarize ?? { structured: ctx.structured, source: "fallback" };
+  }
 }

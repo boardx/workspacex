@@ -40,7 +40,9 @@
   "phase-03-reuse-and-governance": {
     "user-research-studio": "ui-preview/user-research-studio",
     "feedback-loop": "ui-preview/feedback-loop",
-    "design-workbench": "ui-preview/design-workbench"
+    "design-workbench": "ui-preview/design-workbench",
+    "//design-ai-collab": "UC-17.8 B5（2026-09-05 建）：本束不新增屏，只改两块既有对话面板的数据流（草稿「继续完善」浮层 / 设计详情左栏）。两屏分属两个不同的束目录（drafts-refine 在未登记的取材目录 feedback-design-loop/，detail-* 在 design-workbench/），reuse_bundle 只能指向一个束且要求集合完全相等，故按 phase-10 的先例把这两张**复制**（不是链接）进独占目录各持一份；原图不删。",
+    "design-ai-collab": "ui-preview/design-ai-collab"
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "ui-preview/digital-expert-interview"

@@ -292,6 +292,21 @@ describe("⑤ B1：继续完善用服务端返回的 chat 重渲染", () => {
     expect(screen.getAllByTestId("draft-refine-turn-ai-message")).toHaveLength(1);
   });
 
+  it("B5.1：source=fallback 的 AI 记录挂「固定回执」标识，source=model / 用户记录不挂", async () => {
+    const serverChat = [
+      { role: "ai", kind: "message", text: "固定的那句", at: "2026-09-05T00:00:00.000Z", source: "fallback" },
+      { role: "user", kind: "message", text: "我的话", at: "2026-09-05T00:00:01.000Z" },
+      { role: "ai", kind: "message", text: "模型的那句", at: "2026-09-05T00:00:02.000Z", source: "model" },
+    ] as const;
+    apiRequest.mockImplementation(async () => ({ items: [draft({ chat: [...serverChat], refineSeeded: true })] }));
+    render(<DesignLoopDraftsScreen />);
+    await screen.findByTestId("draft-card-d1");
+    fireEvent.click(screen.getByTestId("draft-refine-d1"));
+    expect(screen.getAllByTestId("draft-refine-turn-fallback")).toHaveLength(1);
+    expect(screen.getAllByTestId("draft-refine-turn-ai-message")).toHaveLength(2);
+    expect(screen.getByTestId("draft-refine-chat").textContent).toContain("固定回执");
+  });
+
   it("「准备好，提交到收件箱」⇒ POST …/submit，成功后移出列表并把反馈 id 交给 onSubmitted", async () => {
     const onSubmitted = vi.fn();
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {

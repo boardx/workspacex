@@ -87,6 +87,21 @@ phase-03 今天磁盘上**只有一个束**：`feedback-loop`（2026-08-15 建�
 2. **X-F7**：设计项目「组织内全员可读」是否是想要的口径，还是应该收窄成类似 D3 的
    提交人/owner 可见模型？
 
+## 2.6 `design-ai-collab` 束的交叉约束草稿（待人类确认，未计入 frontmatter）
+
+⚠ **本节是草稿，不是复核结果**——同 §2.5 的处置：`covers_bundles`/`status` 归人类，agent 不改。
+UC-17.8 B5.1 在 `contracts/` 下新建了 `design-ai-collab` 目录（五件材料齐，`design-signoff.md`
+`status: pending`），doctor 会如实报「一致性复核没覆盖这些束：design-ai-collab」。
+**人类确认无异议后，把 `covers_bundles` 补上 `design-ai-collab` 并按本文件已有形态更新
+`status`/`confirmed_by`/`confirmed_at`。**
+
+| 编号 | 交叉点 | 对面是谁 | 现状 |
+|---|---|---|---|
+| X-F9 | `AiReplySource`（模型 / 退路）是 `feedback-loop` 与 `design-workbench` 两束的 `chat[]` 都要用的词汇 | 两束 | ✅ **只声明一次**：住在 `packages/contracts/src/design-ai-collab.ts`，两束 `import`；两束的固定回执文案仍各自留在原处（`draft-refine-model.ts` / `DESIGN_WORKBENCH_CHAT_REPLY`），本束不复制 |
+| X-F10 | D7「先固定回执上线」（§2.5 X-F8）与本束「模型生成、失败退回固定回执」的关系 | `feedback-loop` + `design-workbench` + backlog D7 | ✅ 不冲突：D7 裁的是**上线顺序**（先固定，AI 后置成独立束），本束就是那个后置束；固定回执从「唯一路径」降为「退路」，两束契约头注已同步改口 |
+| X-F11 | 退路策略与 `feedback-loop` 的 `structureFeedbackDraft`（失败**抛** 503）不一致 | `feedback-loop`（已签核） | ⚠ **待人类确认**：是有意的差别——那里整理就是点击的唯一目的；这里用户的话已落库、AI 没回好不该让操作失败。理由见本束 `domain.md` §4；若人类要求统一为"失败即 503"，B5 两处都要改 |
+| X-F12 | B5.2 写回 `problem/criteria/frames` 与 `design-workbench` 已签材料「`criteria`/`frames` 不接受前端传入、`updateProject` 不改它们」 | `design-workbench`（pending） | ⚠ **待人类确认**：写回是**服务端**按模型输出、经 `DesignChatWriteback` 严格解析后做的，前端仍不能传这三个字段——不违反那条口径，但那条口径的措辞（「B5.3 之前它们本来就不允许用户编辑」）要在 `design-workbench` 契约头注里改成「用户不能直接编辑，可经对话由模型写回」，B5.2 PR 负责改口 |
+
 ## 3. 仍然没做的（`status: confirmed` **不覆盖**这些）
 
 - **47 条无束 feature 未复核**（见第 0 节第 2 点）。本次复核只看了 `feedback-loop`

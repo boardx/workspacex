@@ -130,6 +130,7 @@ import { countMyFeedbackDrafts } from "../../application/feedback/drafts/count-m
 import { updateFeedbackDraft } from "../../application/feedback/drafts/update-feedback-draft";
 import { deleteFeedbackDraft } from "../../application/feedback/drafts/delete-feedback-draft";
 import { submitFeedbackDraft } from "../../application/feedback/drafts/submit-feedback-draft";
+import { ModelDraftRefiner } from "../../application/feedback/drafts/draft-refine-model";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 import { OBJECT_STORE, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
 import {
@@ -622,6 +623,18 @@ export class FeedbackController {
    * 六条草稿路由共用的依赖——草稿仓储按组织构造，附件仓储按方法接 orgId（既有的两种形状）。
    * ⚠ owner 恒从 principal 取；契约 `in` 里没有 ownerId，传不进来。
    */
+  /**
+   * UC-17.8 B5.1：「继续完善」对话与提交时摘要用的模型端口——同 `structureDraft` 那条路由的
+   * 同一个 `ModelCallPort` + 同一份 `FEEDBACK_STRUCTURE_MODEL_CONFIG`，不另配一套模型。
+   */
+  private draftRefiner(): ModelDraftRefiner {
+    return new ModelDraftRefiner({
+      model: this.modelCall,
+      structureModel: this.structureModel,
+      log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-draft-refine" }),
+    });
+  }
+
   private draftDeps(principal: Principal): FeedbackDraftDeps {
     return {
       drafts: this.drafts.forOrg(principal.orgId),
@@ -679,7 +692,7 @@ export class FeedbackController {
     assertPrincipal(principal);
     try {
       return await updateFeedbackDraft(
-        { ...this.draftDeps(principal), now: () => new Date() },
+        { ...this.draftDeps(principal), now: () => new Date(), refine: this.draftRefiner() },
         {
           draftId,
           ownerId: principal.userId,
@@ -719,6 +732,7 @@ export class FeedbackController {
       return await submitFeedbackDraft(
         {
           ...this.draftDeps(principal),
+          refine: this.draftRefiner(),
           submit: {
             repo: this.feedback.forOrg(principal.orgId),
             newFeedbackId: () => randomUUID(),

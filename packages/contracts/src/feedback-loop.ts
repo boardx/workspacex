@@ -47,6 +47,7 @@
  *   · **`skillVersionId`**——见 `FeedbackTarget` 的注释。
  */
 import { z } from "zod";
+import { AiReplySource } from "./design-ai-collab";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
 
@@ -321,6 +322,10 @@ export type FeedbackScope = z.infer<typeof FeedbackScope>;
 /**
  * UC-17.8 B1 —— 草稿上的一条对话。`kind` 区分「用户说的」/「AI 回执」/「正文被编辑」三种记录，
  * 见 `updateFeedbackDraft` 头注（追加不覆盖）。`at` 由服务端给。
+ *
+ * UC-17.8 B5.1：`role: "ai"` 的记录带 `source`——这句是模型生成的（`model`）还是模型不可用时
+ * 退回的固定回执（`fallback`）。语义与为什么必须如实标记见 `design-ai-collab.ts` 头注。
+ * `user` 记录与 B5.1 之前写入的旧记录没有这个键；`appendChat` 的输入不接受它（服务端给）。
  */
 export const FeedbackDraftChatTurn = z
   .object({
@@ -328,6 +333,7 @@ export const FeedbackDraftChatTurn = z
     kind: z.enum(["message", "edit"]),
     text: z.string().min(1).max(4000),
     at: z.string(),
+    source: AiReplySource.optional(),
   })
   .strict();
 export type FeedbackDraftChatTurn = z.infer<typeof FeedbackDraftChatTurn>;
@@ -786,6 +792,12 @@ export const operations = {
    * ⚠ 对话是**追加**不是覆盖（PDF §7 已知模拟点：编辑覆盖会丢原始轨迹）：正文编辑追加一条
    *   `{ role: "user", kind: "edit" }` 的记录，`detail` 才是当前值。
    * ⚠ 至少要给一个字段；四个都不传是空操作，契约层不拦（`.optional()` 全体），用例层原样返回。
+   * ⚠ UC-17.8 B5.1：`appendChat` 一条用户消息进来，服务端在同一次调用里追加 AI 回复——首次
+   *   （`refineSeeded === false`）先追加一条按 `kind` + 已有结构化字段生成的澄清问题，再追加
+   *   用户消息，再追加针对这句的回复；每条 AI 记录带 `source`（模型 / 退路，见
+   *   `design-ai-collab.ts`）。模型不可用时退回 `REFINE_SEED_QUESTION`/`REFINE_ACK` 固定文案
+   *   （`application/feedback/drafts/update-feedback-draft.ts` 单一事实源），**不**让这次
+   *   追加失败——用户那句话必须落库。
    */
   updateFeedbackDraft: {
     method: "PATCH",
@@ -796,7 +808,7 @@ export const operations = {
         kind: FeedbackKind.optional(),
         detail: z.string().max(4000).optional(),
         structured: FeedbackStructured.nullable().optional(),
-        appendChat: FeedbackDraftChatTurn.omit({ at: true }).optional(),
+        appendChat: FeedbackDraftChatTurn.omit({ at: true, source: true }).optional(),
       })
       .strict(),
     out: z.object({ draft: FeedbackDraft }).strict(),
@@ -820,6 +832,11 @@ export const operations = {
    *   前端那份只是预览。
    * ⚠ 对话记录**不进反馈正文**：正文 = `detail` 当前值。对话是提交人与 AI 把边界谈清楚的过程，
    *   谈清楚的结果应当已经被写回 `detail`/`structured`；把整段对话塞进正文会让分诊的人读一段聊天。
+   * ⚠ UC-17.8 B5.1：「写回」这一步由服务端在提交时做——草稿上有 `kind: "message"` 的对话记录时，
+   *   模型把整段对话摘要成 `structured`（按 `kind` 严格解析，同 `structureFeedbackDraft` 的
+   *   `parseStructuredForKind`），解析出来的字段**覆盖**草稿上的同名字段、没解析出来的保留原值。
+   *   模型不可用/输出不可解析 ⇒ 原样提交草稿上已有的 `structured`，`chatSummary: "fallback"`
+   *   如实标记；没有对话记录 ⇒ 不调模型，`chatSummary: null`。
    */
   submitFeedbackDraft: {
     method: "POST",
@@ -830,6 +847,8 @@ export const operations = {
         feedbackId: z.string(),
         /** 恒 `待处理`，同 `submitFeedback` */
         status: FeedbackStatus,
+        /** B5.1：对话摘要成结构化字段这一步的来源；`null` = 没有对话可摘要，没调模型 */
+        chatSummary: AiReplySource.nullable(),
       })
       .strict(),
     err: ["DRAFT_NOT_FOUND", "DRAFT_EMPTY", "DEPENDENCY_UNAVAILABLE"] as const,
