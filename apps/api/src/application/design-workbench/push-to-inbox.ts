@@ -36,6 +36,27 @@
  * 状态事件表形状不支持"非状态转移"的事件类型，要支持需要改那张表（加一个不受 CHECK 约束的
  * `event_type` 维度，或者新建一张更通用的事件表），两者都超出 B4.3（只改 `design-workbench`
  * 束）的范围，也超出本任务"不改 feedback-loop 契约"的边界——留给后续束处理。
+ *
+ * ## 「反馈已生成设计方案」通知（UC-17.8 B6.3）——落在通知层，不落事件表
+ *
+ * 上一节说清了状态事件表装不下这个事件；B6.3 要的"新增事件类型"因此落在**通知层**：
+ * 事件种类 `design_generated` 与文案单源声明在
+ * `application/feedback/feedback-notification-templates.ts`（与分诊「状态已更新」邮件同一张表），
+ * 这里只负责"什么时候发、发给谁"：
+ *   · **什么时候**：仓储 `pushToInbox` 回报 `resolvedFeedback !== null`——即本次事务**首次**把来源
+ *     反馈的 `resolved_by_design_id` 指向本项目（SQL 谓词 `IS DISTINCT FROM`，见端口头注）。
+ *     重复推送（upsert 只刷新 `pushed_at`/`push_note`）回 `null` ⇒ **不再通知**：提交人关心的
+ *     是"我的反馈有了方案"这件事发生过一次，不是 PM 每改一次推送说明都收一封。去重依据就是
+ *     那个外键有没有变，不另建"已通知"表——那会是同一事实的第二份副本。
+ *   · **发给谁**：来源反馈的 `submittedBy`（仓储 RETURNING 带回，不再回头 `findById`——那条读过
+ *     D3 可见性判定，而"给提交人发信"不该被"推送者能不能看正文"这道门卡住），经
+ *     `FeedbackSubmitterDirectory.emailForUserId` 解成地址；账号已不存在 ⇒ info 日志跳过。
+ *   · **失败怎么办**：best-effort，与 `triage-feedback.ts` 的 `notifySubmitter` 同一条纪律——
+ *     推送事务在这一步之前已经提交，邮件失败只记 error 日志（带 `feedbackId`/`projectId`），
+ *     **绝不**抛到调用方、**绝不**让推送"看起来失败"。没有事件行可回填 `notified`，所以这里也
+ *     没有 `notified` 返回值；契约 `pushToInbox.out` 不动。
+ *   · **依赖可选**：`mail`/`logger`/`submitters` 任一缺席即不发（controller 三者都注入；单测按需
+ *     注入 fake 断言"发了/没发"）。
  */
 import {
   DesignProjectNotFoundError,
@@ -45,6 +66,8 @@ import {
   type DesignProjectView,
 } from "./project-shared";
 import { ownerNamesFor } from "./project-shared";
+import { designGeneratedEmail } from "../feedback/feedback-notification-templates";
+import type { ResolvedFeedbackRef } from "./project-ports";
 
 export async function pushToInbox(
   deps: DesignProjectDeps,
@@ -66,9 +89,34 @@ export async function pushToInbox(
   const index = allPushed.findIndex((r) => r.id === result.project.id);
   const inboxCode = `D-${index >= 0 ? index + 1 : allPushed.length}`;
 
+  if (result.resolvedFeedback !== null) {
+    await notifyFeedbackSubmitter(deps, result.resolvedFeedback, { projectId: result.project.id, designName: result.project.name, inboxCode });
+  }
+
   const names = await ownerNamesFor(deps, [result.project.ownerId]);
   return {
     project: projectDesignProject(result.project, names.get(result.project.ownerId) ?? null),
     inboxCode,
   };
+}
+
+/** 见文件头「反馈已生成设计方案」一节：best-effort，吞掉但不静默。 */
+async function notifyFeedbackSubmitter(
+  deps: DesignProjectDeps,
+  feedback: ResolvedFeedbackRef,
+  design: { readonly projectId: string; readonly designName: string; readonly inboxCode: string },
+): Promise<void> {
+  if (deps.mail === undefined || deps.logger === undefined || deps.submitters === undefined) return;
+  const fields = { traceId: "design-push-notify", feedbackId: feedback.id, projectId: design.projectId };
+  try {
+    const email = await deps.submitters.emailForUserId(feedback.submittedBy);
+    if (email === null) {
+      deps.logger.info("design push: feedback submitter has no resolvable email, skipping notification", fields);
+      return;
+    }
+    const { subject, text } = designGeneratedEmail({ title: feedback.title, inboxCode: design.inboxCode, designName: design.designName });
+    await deps.mail.send({ to: email, subject, text });
+  } catch (e) {
+    deps.logger.error("design push: design-generated notification failed (best-effort, push already committed)", { ...fields, err: e });
+  }
 }
