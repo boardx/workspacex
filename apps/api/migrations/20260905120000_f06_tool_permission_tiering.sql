@@ -14,22 +14,24 @@
 -- `20260823100000` 已应用，原地改内容对已应用环境无效，见 `20260822130000` 头注同一条
 -- 纪律）——这里是新的 ALTER/CREATE OR REPLACE，覆盖到当前生效状态。
 --
--- 顺序很重要：先迁移存量数据，再收紧 CHECK 约束，否则任何一行仍是旧值就会被新
--- CHECK 直接拒绝。
---
--- ⚠ 2026-09-05 devapp 实际部署撞红（backend-gates deploy job，F06 合入后连续 7 次）：
--- `AgentRun … may not move from awaiting_approval to awaiting_tool_permission`。这条
--- UPDATE 会触发 `agent_runs_transition_trg`，而此刻生效的还是 DA-07b 那版触发器函数——
--- 它只认 running→awaiting_approval / awaiting_approval→queued 两条边，不认"同一状态
--- 换名"。CI 的门控库是空库、没有一行处于 awaiting_approval，所以从没暴露；线上库里
--- 有一条真实等待批准的 run 就足以让整个迁移回滚、部署卡死在 F04。
--- 改名不是状态迁移，不该经过状态机：迁移期间把这张表的转移触发器关掉，改完立即打开。
--- 同一事务内，失败则整体回滚，不会留下"触发器被关着"的半成品。
+-- 顺序很重要，三步缺一不可（2026-09-05 devapp 部署两次撞红才校准出来的顺序）：
+--   ① 先 DROP 旧 CHECK——DA-07b 那版 `agent_runs_status_check` 只认 `awaiting_approval`，
+--      不认新名字；带着它跑 UPDATE，任何一行改名都会被
+--      `violates check constraint "agent_runs_status_check"` 拒绝。
+--   ② 再改存量数据，且关掉转移触发器——此刻生效的还是 DA-07b 那版触发器函数，只认
+--      running→awaiting_approval / awaiting_approval→queued 两条边，不认"同一状态换名"
+--      （`AgentRun … may not move from awaiting_approval to awaiting_tool_permission`）。
+--      改名不是状态迁移，不该经过状态机；改完立即打开。
+--   ③ 最后 ADD 新 CHECK——此时没有任何一行仍是旧值，收紧不会误伤。
+-- CI 的门控库是空库、没有一行处于 awaiting_approval，UPDATE 影响 0 行，①② 的两种失败
+-- 都从没暴露；线上库里有一条真实等待批准的 run 就足以让整个迁移回滚、部署卡死在 F04。
+-- 三步同一事务内，失败则整体回滚，不会留下"触发器被关着 / CHECK 被丢了"的半成品。
+ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check;
+
 ALTER TABLE agent_runs DISABLE TRIGGER agent_runs_transition_trg;
 UPDATE agent_runs SET status = 'awaiting_tool_permission' WHERE status = 'awaiting_approval';
 ALTER TABLE agent_runs ENABLE TRIGGER agent_runs_transition_trg;
 
-ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check;
 ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check CHECK (
   status IN ('queued','running','writeback_pending','succeeded','failed','awaiting_tool_permission')
 );
