@@ -889,12 +889,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // `script_protocol` mirrors the SAME "resume is the next model call" fact the
           // NEW-run branch already sends; `org_skills` is the one this bug was about.
           //
-          // issue #2770 -- `disable_task_auto_classify`（前端「每次都先计划」开关）曾经
-          // 也在这里透传，同 NEW-run 分支当时的做法。该开关连同它在 web → api 的整条
-          // 来源已删（`TaskClassifierMiddleware` 无条件挂载，Phase 14 F02，要不要先计划
-          // 由内核判），`ModelCallInput.disableTaskAutoClassify` 这个字段本身已从
-          // `ports.ts` 移除——本行原样保留会引用一个不存在的字段，编译不过。与 NEW-run
-          // 分支同一条既有先例对齐，直接不再转发这个键，不需要另建理由。
+          // ⚠ 2026-09-05（#2776 遗留清理，与本 issue #2779 无关）：`ModelCallInput.
+          // disableTaskAutoClassify`/`ClaimedAgentRun.disableTaskAutoClassify` 已随
+          // "总是先计划"手动开关一起删除（composer: remove manual 任务模式/总是先计划
+          // toggles，#2770/#2776），这里之前留了一条悬空引用（`input.disableTaskAutoClassify`
+          // 在删除后已经不是 `ModelCallInput` 上的字段），main 上 `pnpm turbo run typecheck
+          // --filter=@repo/api` 因此是红的——顺手清掉，不是本 PR 的功能改动。
           config: {
             configurable: {
               org_skills: toWireSkills(input.skills),
