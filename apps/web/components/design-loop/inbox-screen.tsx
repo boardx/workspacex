@@ -35,6 +35,7 @@ import {
 import { updateSystemErrorLifecycle, type SystemErrorStatus } from "@/lib/live-system-errors";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
+import { useDialogFocus } from "./use-dialog-focus";
 
 /**
  * UC-17.8 B3.4 —— 运营收件箱，**真栈**（契约 `inbox`：`listInbox` / `getInboxCounts`）。
@@ -76,6 +77,15 @@ import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
  *     进行中"两步走会连带多发一封状态变更邮件，属于臆造副作用）。因此「创建 GitHub
  *     Issue」编辑器只在 `item.stage === "backlog"` 时出现；`doing` 态下 `github === null`
  *     的反馈仍能通过「退回待处理」把自己先挪回 backlog，再从 backlog 建 issue。
+ *   · **拖拽的每一条合法迁移都有键盘可达的等价操作（B6.5 无障碍复核）**：拖拽只是
+ *     "分诊台快速挪列"，不是唯一入口。drawer 操作区按 `item.stage` × `item.kind` 展开的按钮
+ *     集合，恰好覆盖两个源状态机（`product-feedback.ts` 的 `ALLOWED_TRANSITIONS`、
+ *     `system-error-logs.ts` 头注）里每一条从当前列出去的边：
+ *       backlog → doing（开始处理）/ archived（不做…）；doing → done（标记已修复，仅反馈）
+ *       / backlog（退回待处理）/ archived（不做…）；done|archived → backlog（重新打开）。
+ *     拖拽能做而按钮没有的边（如 done → doing）在服务端本来就是 `ILLEGAL_TRANSITION`，
+ *     拖过去只会回滚——所以按钮集**不是**拖拽的子集，是合法边的全集。
+ *     `tests/ui/design-loop.test.tsx` ⑪ 逐格断言这张表，改状态机请同步。
  */
 
 type KindFilter = "all" | InboxKind;
@@ -392,7 +402,7 @@ export function DesignLoopInboxScreen({
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
       <div className="p-6" data-testid="loading">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {INBOX_STAGE_ORDER.map((s) => (
             <div key={s} className="flex flex-col gap-2 rounded-card bg-panel p-3">
               <div className="h-4 w-16 animate-pulse rounded-control bg-muted" />
@@ -512,13 +522,27 @@ export function DesignLoopInboxScreen({
         </div>
       ) : view === "board" ? (
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="grid flex-1 grid-cols-4 gap-3 overflow-y-auto p-4" data-testid="inbox-board">
+          {/* B6.5 无障碍：拖拽的键盘替代说明（视觉隐藏）。每张卡片 aria-describedby 指到它——
+              拖拽本身没有键盘等价操作，等价操作是「打开详情 → 操作按钮」，得告诉读屏用户去哪。 */}
+          <p id="inbox-drag-hint" className="sr-only">
+            拖动卡片到另一列可以改变状态。键盘用户：按 Enter 或空格打开详情，详情里的操作按钮提供同样的状态迁移。
+          </p>
+          {/* B6.5 响应式（U8）：md 以下四列横向可滚（列容器自己 overflow-x-auto，页面不横向溢出），
+              md 及以上四列并排——375 下四列并排每列只剩 ~75px，编号/类型/徽标全挤成竖条，不算"能看"。
+              这里的横向滚动是写出来的设计（data-allow-x-scroll），不是从 computed style 猜的放行。 */}
+          <div
+            className="flex flex-1 gap-3 overflow-x-auto overflow-y-auto p-4 md:grid md:grid-cols-4"
+            data-testid="inbox-board"
+            data-allow-x-scroll="看板四列在 md 以下横向滚动是设计，不是内容被裁"
+          >
             {INBOX_STAGE_ORDER.map((col) => {
               const colItems = filtered.filter((i) => i.stage === col);
               const colCount = counts === null ? colItems.length : counts.byStage[col];
               return (
                 <div
                   key={col}
+                  role="group"
+                  aria-label={`${INBOX_STAGE_LABEL[col]}，${colCount} 条`}
                   data-testid={`inbox-column-${col}`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -533,7 +557,7 @@ export function DesignLoopInboxScreen({
                     if (item) void applyTransition(item, col);
                   }}
                   className={cn(
-                    "flex min-h-32 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast",
+                    "flex min-h-32 w-64 shrink-0 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast md:w-auto",
                     dragOver === col && "border-primary bg-ai-tint/30",
                   )}
                 >
@@ -645,13 +669,23 @@ const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-backgroun
 function BoardCard({
   item, busy, highlighted, onOpen, onNavigateLink,
 }: { item: InboxItem; busy: boolean; highlighted: boolean; onOpen: () => void; onNavigateLink: NavigateLink }) {
+  /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
+   *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
+  const [grabbed, setGrabbed] = React.useState(false);
   return (
     <div
       draggable={!busy}
-      onDragStart={(e) => e.dataTransfer.setData("text/plain", item.id)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/plain", item.id);
+        setGrabbed(true);
+      }}
+      onDragEnd={() => setGrabbed(false)}
       onClick={onOpen}
       role="button"
       tabIndex={0}
+      aria-label={`${item.code} ${item.title}`}
+      aria-describedby="inbox-drag-hint"
+      aria-grabbed={busy ? undefined : grabbed}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -716,8 +750,9 @@ function ListView({
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-12">
+      {/* B6.5（U8）：五列表格在 375 下横向可滚是设计（宽表格），不让单元格挤成一字一行。 */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto" data-allow-x-scroll="列表视图的五列宽表格在窄视口横向滚动是设计">
+        <table className="w-full min-w-[36rem] text-12">
           <thead className="sticky top-0 bg-card">
             <tr className="border-b border-border text-left text-11 text-muted-foreground">
               <th className="px-4 py-2 font-medium">状态</th>
@@ -873,15 +908,22 @@ function InboxDrawer({
   const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
   const [labelsText, setLabelsText] = React.useState("");
 
+  /** B6.5：打开时焦点进 drawer、Esc 关闭、关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
+  const panelRef = React.useRef<HTMLElement>(null);
+  useDialogFocus(panelRef, onClose);
+
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={onClose} aria-hidden data-testid="inbox-drawer-scrim" />
+      {/* 宽度：28rem 上限 + max-w-full ⇒ 375 下自然全宽（U8，不另写断点）。 */}
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`${item.code} ${item.title}`}
         data-testid="inbox-drawer"
-        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[28rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-lg"
+        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[28rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <header className="flex items-start justify-between gap-2 border-b border-border p-4">
           <div className="min-w-0">

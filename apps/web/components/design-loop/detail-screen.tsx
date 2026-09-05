@@ -188,7 +188,7 @@ export function DesignDetailScreen({
         <Button variant="ghost" size="sm" onClick={onBack} data-testid="design-detail-back">
           <ArrowLeft aria-hidden className="h-4 w-4" /> 工作台
         </Button>
-        <span className="text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
+        <span className="min-w-0 truncate text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto">
           {project.pushed ? (
@@ -203,9 +203,12 @@ export function DesignDetailScreen({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        {/* 左：对话面板 360px */}
-        <div className="flex w-[360px] shrink-0 flex-col border-r border-border bg-panel">
+      {/* B6.5（U8）：md 以下两栏改为上下堆叠——对话面板在上、限高 40dvh 自身滚动，画布/说明占剩余高度。
+          取舍：不折叠成抽屉（对话是这一屏唯一的修改入口，藏起来等于把功能藏起来）；不并排缩窄
+          （360px 对话 + 260px 手机画布在 375/768 下装不下，实测 375 文档溢出 90px）。md 及以上不变。 */}
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
+        <div className="flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel md:max-h-none md:w-[360px] md:border-b-0 md:border-r">
           <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
             {project.chat.length === 0 && (

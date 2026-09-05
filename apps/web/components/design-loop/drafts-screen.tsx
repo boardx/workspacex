@@ -17,6 +17,7 @@ import {
   type FeedbackKind,
 } from "@/lib/live-feedback";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
+import { useDialogFocus } from "./use-dialog-focus";
 
 /**
  * UC-17.8 B1 —— 反馈草稿屏（真栈：`feedback-loop` 契约的六条 `*FeedbackDraft*` 操作）。
@@ -163,7 +164,7 @@ export function DesignLoopDraftsScreen({
 
   return (
     <div className="flex h-full flex-col" data-testid="design-loop-drafts">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
           <h1 className="text-16 font-semibold">反馈草稿</h1>
           <p className="text-11 text-muted-foreground">先存下来，想清楚边界后再提交到收件箱。草稿只有你自己看得到。</p>
@@ -303,6 +304,9 @@ function EditDrawer({
   const [detail, setDetail] = React.useState(draft.detail);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /** B6.5：焦点进 drawer / Esc 关闭 / 关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
+  const panelRef = React.useRef<HTMLElement>(null);
+  useDialogFocus(panelRef, onClose);
 
   /** 只发**改了**的字段（契约四个都 optional）；什么都没改就不打空请求，直接算保存成功。 */
   const save = async (): Promise<boolean> => {
@@ -326,12 +330,15 @@ function EditDrawer({
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={onClose} aria-hidden />
+      {/* 宽度：26rem 上限 + max-w-full ⇒ 375 下自然全宽（U8）。 */}
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="编辑草稿"
         data-testid="draft-edit-drawer"
-        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[26rem] max-w-full flex-col border-l border-border bg-card shadow-lg"
+        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[26rem] max-w-full flex-col border-l border-border bg-card shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <header className="flex items-center justify-between border-b border-border p-4">
           <h3 className="text-14 font-semibold">编辑草稿</h3>
@@ -409,6 +416,9 @@ function RefineOverlay({
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  /** B6.5：焦点进浮层 / Esc 关闭 / 关闭后焦点回到触发按钮（见 `use-dialog-focus.ts`）。 */
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useDialogFocus(panelRef, onClose);
 
   React.useEffect(() => {
     const node = scrollRef.current;
@@ -435,9 +445,18 @@ function RefineOverlay({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="draft-refine-overlay">
       <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
-      <div className="relative flex h-[min(680px,88vh)] w-full max-w-4xl overflow-hidden rounded-card border border-border bg-card shadow-lg">
+      {/* B6.5（U8）：md 以下左右两栏改为上下堆叠——375 下 2/5 宽的原文栏只剩 ~130px，结构化字段的
+          dd 被压到 0 宽（实测被三档溢出断言抓到）。原文栏限高 38% 自身滚动，对话栏占剩余高度。 */}
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="继续完善草稿"
+        className="relative flex h-[min(680px,88vh)] w-full max-w-4xl flex-col overflow-hidden rounded-card border border-border bg-card shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row"
+      >
         {/* 左：草稿原文 */}
-        <div className="flex w-2/5 flex-col gap-3 overflow-y-auto border-r border-border bg-panel p-4">
+        <div className="flex max-h-[38%] shrink-0 flex-col gap-3 overflow-y-auto border-b border-border bg-panel p-4 md:max-h-none md:w-2/5 md:border-b-0 md:border-r">
           <div className="flex items-center gap-1.5">
             <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{draft.kind}</span>
             <h3 className="text-14 font-semibold">{draft.title ?? "（未命名草稿）"}</h3>
@@ -451,7 +470,7 @@ function RefineOverlay({
           )}
         </div>
         {/* 右：设计协作对话——每一句都是服务端 `draft.chat` 里的，前端不造 AI 文案 */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-border p-3">
             <h4 className="text-13 font-medium">设计协作</h4>
             <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭" data-testid="draft-refine-close">
