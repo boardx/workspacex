@@ -207,6 +207,21 @@ describe("#448 post-restart readiness", () => {
     expect(helper).not.toContain("personal_asr_probe");
   });
 
+  it("issue #2795 -- routes the agent-run events WebSocket in the Caddyfile, same as the other three WS surfaces", () => {
+    const provision = readFileSync(PROVISION, "utf8");
+    // 与 asr-draft/asr-stream/realtime-asr 三条既有 WS 面同一份签名：不走 /api
+    // 前缀、必须在 /agent-runs/*/events 兜底之前单独开一条 handle，否则请求落进
+    // 最后的兜底 handle 打到 Next.js，Upgrade 请求在那断了（本文件其它三条 WS
+    // handle 头注已经记录过同一个根因）。
+    const catchAllIndex = provision.indexOf("handle {\n\t\treverse_proxy 127.0.0.1:${APP_WEB_PORT}");
+    const agentRunsIndex = provision.indexOf("handle /agent-runs/*/events {");
+    expect(agentRunsIndex).toBeGreaterThan(-1);
+    expect(catchAllIndex).toBeGreaterThan(-1);
+    expect(agentRunsIndex).toBeLessThan(catchAllIndex);
+    const block = provision.slice(agentRunsIndex, provision.indexOf("}", agentRunsIndex) + 1);
+    expect(block).toContain("reverse_proxy 127.0.0.1:${APP_API_PORT}");
+  });
+
   it("accepts only an exact nonce-bound root smoke/exit contract", () => {
     const nonce = "0123456789abcdef0123456789abcdef";
     const exact = `protocol=workspacex-deploy/v1\nnonce=${nonce}\nstage=smoke\nexit=7`;
