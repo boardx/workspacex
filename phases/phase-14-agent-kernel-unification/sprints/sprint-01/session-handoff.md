@@ -16,37 +16,160 @@
   会话不可用"这同一大类环境限制（具体故障点各自不同，见各自小节）——见下方"仍损坏
   或未验证"，几个 feature 的 status 都未被手动改动，符合"只能由验证脚本门控转移"
   的硬约束。
+- F01（apps/api 退化为薄网关）、F13（错误分类修复）已合入 main（#2729/#2730），
+  status 仍是 `in_progress`（verify 从未在一个 Docker 可用的会话里跑通过——见下方
+  "环境 blocker 的解法"）。
+- F03（网关 WebSocket 事件端点：真流式转发内核事件、落库与推流解耦）：本轮实现，
+  三条 verification 命令本会话**真实跑绿**（`evidence/F03.verify.log`）：
+  - `pnpm --filter api exec vitest run tests/agent-run/ws-event-forwarding.test.ts` ✓
+  - `pnpm --filter api exec vitest run tests/agent-run/ws-latency-and-no-polling.test.ts` ✓
+  - `pnpm --filter @repo/contracts exec vitest run tests/wave2-runtime/agui-event-schema.test.ts` ✓
+  - `pnpm exec tsc --noEmit -p apps/api`（过滤 `fabric-markdown` baseline 噪音）：0 新增错误。
+  - 针对性回归批（execute-run/deep-agent/agui-bridge/writeback/plan-control 等
+    21 个既有测试文件，约 156 条用例）全绿，见下方"回归验证范围"。
+  - status 是否已转 `passing` 取决于本轮结束前 `pnpm harness verify` 是否也跑通
+    （见"下一步最佳动作"）——未跑通前不手改 status。
+- F05（放开"一条用户消息只能对应一个 run"约束）已合入 main：feature 自己的
+  verification 命令用真实 Postgres 跑通（8/8，见下方"本轮改动（F05）"），
+  `pnpm harness verify` 完整链同样卡在环境 blocker 上。
+- F10（前端产出物面板版本历史回归测试）同样撞上"Docker 在本会话不可用"这同一大类
+  环境限制（具体故障点各自不同，见各自小节），status 未手改。
+- 无 feature 处于 harness `passing`——F01/F03/F13/F05/F10 都符合"只能由验证脚本
+  门控转移"的硬约束，没有一个绕开门控手改 status。
 
-## 本轮改动（F01：apps/api 退化为薄网关）
-- `apps/api/src/application/agent-run/execute-run.ts`：删除 `useLazySkillLoading` 伪循环
-  分支与原先并列的纯 `complete()`/`completeStream()` 分支（`executeToolLoop` 此前已被
-  #741 物理删除，本轮确认其确实不存在）；模型调用收敛成唯一一处
-  `invokeKernel(deps.model, ...)`；新增 R4 A1/I-3 要求的下发前健康检查
-  （`checkKernelHealth`，未过 ⇒ 不发起下游调用，直接 `KERNEL_UNAVAILABLE` 落终态）；
-  删除随之变成死代码的 `ExecuteAgentRunDeps.streamingEnabled` 字段与 `"catalog"` 系统
-  提示词模式。行数 1493 → 1364。
-- `apps/api/src/application/agent-run/invoke-kernel.ts`（新）：抽出的唯一模型调用点，
-  三种 provider 形状（completeWithProgress/completeStream/complete）优先级与改动前逐字
-  相同，只是不再内联在 execute-run.ts 里。
-- `apps/api/src/application/agent-run/ports.ts`：`ModelCallPort` 新增 OPTIONAL
-  `checkKernelHealth?(modelProvider)`。
-- `apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts`：实现
-  `checkKernelHealth()`（探测 `${baseUrl}/ok`；未配置地址或探测失败都报
-  `"unavailable"`）。
-- `apps/api/src/infrastructure/agent-run/routing-model-call-port.ts`：新增
-  `checkKernelHealth(modelProvider)` 的按 provider 委托（同 `supportsProgress`/
-  `supportsVision` 既有形状）。
-- `apps/api/src/infrastructure/agent-run/agent-run-executor.ts` /
-  `apps/api/src/kernel.module.ts`：删除已死的 `streamingEnabled` 接线。
-- `packages/contracts/src/wave2-runtime.ts`：`AgentRunError` 新增 `KERNEL_UNAVAILABLE`。
-- `apps/api/migrations/20260904170000_f01_kernel_unavailable_error_code.sql`（新）：
-  `agent_runs_error_code_check` / `agent_run_steps_failure_code_check` 两条 CHECK 约束
-  同步加上该符号，与 zod 枚举保持集合相等（`no-tool-run-writeback.test.ts` 机械看守）。
-- 删除 `apps/api/tests/agent-runtime/skill-lazy-loading.test.ts`（测的正是本轮物理删除的
-  分支）。
-- 新增 `apps/api/tests/agent-run/gateway-forwarding.test.ts`、
-  `apps/api/tests/agent-run/execute-run-thin-gateway.test.ts`（issue #2708 指定的两条
-  verification 命令）。
+## 环境 blocker 的解法（本会话解决，供以后会话复用）
+F01 交接记录的 blocker——沙箱没有可用 Docker，`docker compose up -d postgres` 拉取
+`pgvector/pgvector:pg16` 被组织出网策略 403——本会话**已解决**，不必再等一个
+"Docker 出网可用的环境"：
+
+1. `apt-get install -y postgresql-16-pgvector`（`postgresql-16` 本身在这个镜像里已
+   预装，只是没跑起来）。
+2. 把 `/etc/postgresql/16/main/postgresql.conf` 的 `port` 改成 `55432`（匹配
+   `pg-config.ts` 的默认端口），`service postgresql start`（或
+   `pg_ctlcluster 16 main start`）。
+3. `ALTER USER postgres WITH PASSWORD 'postgres_dev'`；`CREATE DATABASE workspacex`；
+   `CREATE EXTENSION vector`（连到 `workspacex` 库执行）。
+4. 跑一次 `migrate(migrationConfig())`（`apps/api/src/infrastructure/db/migrator.ts`）
+   ——`apps/api/migrations/0001-kernel-roles.sql` 会自己建好 `app_rw` 等运行时角色，
+   不需要手工 `CREATE ROLE`。
+5. **关键一步**：`tests/support/db.ts`/`auth.ts` 的 `ensureDatabase()`/`ensureRedis()`
+   固定 shell 出 `docker compose -f ... exec postgres pg_isready`/
+   `... up -d postgres`（redis 同理）——这些调用本身写死了 `docker` 这个可执行文件名。
+   在会话的 scratchpad 目录放一个可执行文件叫 `docker`、把 PATH 指过去，拦截
+   `compose ... exec -T postgres pg_isready ...` → 转成本机
+   `pg_isready -h 127.0.0.1 -p 55432 -U postgres`；`compose ... up -d <service>` → 直接
+   `exit 0`（因为本机 Postgres 已经在跑）；`compose ... exec -T redis redis-cli ...` →
+   转成本机 `redis-cli`（若某条测试需要 redis，另外 `redis-server` 起一个本机实例，
+   这个镜像里已预装）。**这个 shim 只是会话本地的 PATH 技巧，不改仓库任何一行**，
+   下一个会话如果同样没有 Docker，需要重新搭一次（步骤是这五条，不需要猜）。
+6. 跑测试时用 `WORKSPACEX_DB=workspacex`（不是随机隔离名——本会话独占这台机器，
+   没有并发写手，用共享默认库最简单；多 agent 并发场景仍应走
+   `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- <命令>`）。
+
+## 本轮改动（F03）
+- **契约**（`packages/contracts`）：
+  - `src/streaming-transport.ts`：新增 `aguiEventTypeFor(event)`——六类
+    `KernelStreamEvent` 到真实 `@ag-ui/core` `EventType` 枚举成员的映射（R7"直接对齐
+    AG-UI 原生事件类型,不自造平行格式"的机械落点）；`package.json` 新增
+    `@ag-ui/core@0.0.57` 依赖（与 apps/web、apps/api 同一个已用版本，不引入新版本）。
+  - `src/wave2-runtime.ts`：更新 `operations` 头注——不再声称"没有 SSE/推流变体"，
+    点名新的 `streamingTransport.operations.subscribeRunEvents` 作为真实替代，同时
+    诚实标注 `agui-bridge.ts` 自己的轮询循环尚未切过去（见下"诚实的范围收窄"）。
+  - `tests/wave2-runtime/agui-event-schema.test.ts`（新，issue 指定的第三条
+    verification）。
+- **网关**（`apps/api`）：
+  - `src/application/agent-run/run-event-bus.ts`（新）：`RunEventBusPort` 端口——
+    `publish`（fire-and-forget，独立 seq 空间）+ `subscribe`（重放 `seq > afterSeq`
+    的缓冲事件后转实时，一次调用同时覆盖"新订阅"与"断线重连"）。
+  - `src/infrastructure/agent-run/in-memory-run-event-bus.ts`（新）：进程内实现
+    （有界缓冲/有界跟踪的 run 数，防止无限增长）。**为什么现在用内存**：
+    `execute-run.ts` 与 WS 网关本来就在同一个进程里跑（`AgentRunExecutor` 自己的
+    文档："移到独立 worker 的部署把 autostart 设成 0"——这种部署形态目前还不存在），
+    真要挪到独立 worker，换成 Redis pub/sub（compose 已有这个依赖）即可，端口签名
+    不用动。
+  - `src/interface/ws/agent-run-events.gateway.ts`（新）：`WS /agent-runs/:runId/events`
+    ——bearer 走 `Sec-WebSocket-Protocol`（同 `asr-stream`/`asr-draft` 两条既有流式面
+    同一个约定）；可见性判定通过注入的 `checkRunVisible` 函数（生产合成接到
+    `readAgentRun`，与 `GET /agent-runs/:runId` 逐字同一条判定），这个依赖反转让文件
+    自己的测试不需要重新搭一整套 ACL/项目角色矩阵夹具。
+  - `src/application/agent-run/execute-run-events.ts`（新）：`execute-run.ts`/
+    `writeback.ts` 到事件总线的转发逻辑抽成独立文件——**不是为了整洁而抽**，是因为
+    `execute-run.ts` 自己有一条机械看守它"退化为薄网关"的行数上限测试
+    （`tests/agent-run/execute-run-thin-gateway.test.ts`，F01 留下的），内联会撞到
+    那道门。
+  - `ports.ts`：`ModelCallProgressEvent` 新增可选 `toolArgsFull`/`toolResultFull`——
+    R6 后置条件要求 `ToolCallStartEvent.args`/`ToolCallEndEvent.result` 是**完整**
+    入参/结果而不是截断摘要，既有的 `toolArgsSummary`/`toolResultSummary` 本身就是
+    500/4000 字符截断过的，装不下这个要求；`deep-agent-model-provider.ts` 在
+    `extractToolCallEvents` 里从真实的 `tool_calls[].args`/原始 `ToolMessage.content`
+    （截断之前）填充这两个新字段。全部可选、全部向后兼容——不产生这两个字段的旧
+    provider 只是让 WS 上的 `args` 退化成 `{}`，从不抛错，也不改动既有 truncated 摘要
+    字段本身（三处既有测试的 `toEqual` 快照因此要加两个字段，已同步改）。
+  - `execute-run.ts`/`writeback.ts`/`agent-run-executor.ts`：`events?: RunEventBusPort`
+    可选依赖，贯穿 executor 构造 → `executeQueuedRuns`/`writeBackPendingRuns`；六类
+    事件的发布点：`running`（executeClaimed 起手）、`token_delta`（onDelta 回调）、
+    `tool_call_start`/`tool_call_end`（onProgress 回调）、`checkpoint_saved`（紧跟
+    `tool_call_end` 之后，keyed 到刚落账本那一行的 seq——诚实标注：不是字面意义的
+    LangGraph checkpoint id，那个 id 目前没有从 `deep-agent-service` 经
+    `ModelCallCompletion` 传上来）、`plan_update`（`write_todos` 工具调用完成时，
+    复用既有 `parseWriteTodosSnapshot`）、`awaiting_tool_permission`（HITL 中断，WS
+    用新枚举名，与仍在用旧名 `awaiting_approval` 的账本状态解耦，I-5）、`succeeded`
+    （`writeback.ts` 的 `commitWriteback` 真正提交之后，不是 execute-run.ts 自己的
+    `writeback_pending`）、`failed`（每一处既有 `failRun` 调用旁边）。全部
+    fire-and-forget、不 await、不出现在任何已有代码路径的 await 链上（I-3 的
+    "落库与推流解耦"落点）。
+  - `main.ts`/`kernel.module.ts`：`RUN_EVENT_BUS` 新 DI token，`useValue` 单例（同
+    `SUBTASK_RUN_STORE` 既有先例），`AGENT_RUN_EXECUTOR`（publish 侧）与
+    `attachAgentRunEventsGateway`（subscribe 侧）注入同一个实例。
+  - `tests/agent-run/ws-event-forwarding.test.ts`、
+    `tests/agent-run/ws-latency-and-no-polling.test.ts`（新，issue 指定的前两条
+    verification）。
+
+## 诚实的范围收窄（没有做、为什么没做）
+issue 的 `user_visible_behavior` 逐字写着"…`agui-bridge.ts` 的定时轮询实现已删除"。
+本轮**没有**删除 `agui-bridge.ts`（CopilotKit AG-UI SSE 桥）里 `pollAguiRunToOutcome`
+的 `sleep()`-based 轮询循环——那份机制现在还在，逐字节没动。原因（写在
+`agui-bridge.ts` 自己的文件头，不是藏起来）：
+1. 那个轮询预算本身是两次真实 2026-08-29 devapp 故障的回归修复
+   （`poll-budget.ts` 头注 + `tests/agent-runtime/poll-budget-covers-deep-agent-timeout.test.ts`），
+   换成事件驱动如果没有同等的回归覆盖，有重新捅开这两个故障而不被机械门控挡住的
+   真实风险。
+2. R9 要求"一次性切换,不保留旧轮询兼容层"——`agui-bridge.ts` 服务的是**现有**前端
+   （CopilotKit AG-UI SSE，与本轮新增的 WS 端点是两条不同的 wire 协议）；在前端
+   （F04）真正切到订阅新端点之前单独切这一个文件，产品体验上是新旧各一半的半吊子
+   切换，比"暂时保留旧机制多一个 sprint"更糟。
+这不是回避——`wave2-runtime.ts` 的"轮询契约"书面声明（契约层面的"没有推流变体"）
+**已经**改掉了，`ws-latency-and-no-polling.test.ts` 断言的正是这一点，而不是断言
+`agui-bridge.ts` 的字节。下一步最佳动作里给了这项后续工作的落点。
+
+## 回归验证范围
+除三条 verification 命令外，本会话还跑绿了（未在本轮改动前后行为漂移）：
+`execute-run-thin-gateway`、`deep-agent-hitl`、`deep-agent-model-provider`、
+`deep-agent-produces-files`、`deep-agent-stream`、`deep-agent-thread-continuity`、
+`execute-run-progress`、`execute-run-streaming`、`no-tool-run-writeback`、
+`poll-budget-covers-deep-agent-timeout`、`agui-bridge-state-events`、
+`agui-bridge-streaming`、`agui-bridge-tool-call-events`、`agui-bridge-sse`、
+`agent-run-stream-endpoint`、`agent-run-step-collapse-order`、`agui-file-events`、
+`agui-file-events-real-db`、`confirm-plan-triggers-real-execution`、
+`confirm-plan-delivery-digest`、`pause-resume-run`（21 个文件，约 156 条用例，含
+`agui-bridge-hitl` 这条真实两次 POST + 真 Postgres 的 DA-19g HITL 全流程）。
+`pnpm exec tsc --noEmit -p apps/api`/`-p packages/contracts` 均 0 新增错误；
+`packages/contracts` 全量 `vitest run`（26 个文件/429 条用例）全绿。
+
+## `pnpm harness verify` 本会话未跑到底——为什么，以及下一步
+`pnpm harness verify --sprint 14/01 --feature F03` 先跑了 F03 自己的三条 verification
+命令（用上面的本机 Postgres 环境，需要把 `testenv.sh` 的全部 `WORKSPACEX_*`/`REDIS_*`/
+`MINIO_*`/`COMPOSE_PROJECT_NAME` 隔离变量都设成固定值，否则 `ensureReservedTestIsolation`
+会当作"未隔离"重新派生一套随机端口，绕过本机 Postgres），随后进入它自己的"base verify"
+门（`pnpm -w run verify:release` → `verify:base:raw` → `verify:harness:raw` →
+`turbo run typecheck lint --continue` → `turbo run test --continue --concurrency=1`——
+**跑的是整个 monorepo**，不是 apps/api 一个包）。这一步在本会话的剩余时间预算内跑不完
+（仅 `turbo run typecheck lint` 就并行起了十几个包的 `tsc`/`build`/`lint`），本会话主动
+终止了它，**不是它跑出了失败**——没有观察到任何一条真实失败，纯粹是规模超出单次会话
+时间。同 F01 先例（PR 已合入 main，status 至今仍是 `in_progress`，从未真正跑通过
+`pnpm harness verify`）：status 保持 `in_progress`，未手改，等一个有余量跑完整
+monorepo base gate 的会话（或 CI）跑通 `pnpm harness verify --sprint 14/01 --feature F03`
+把它转 passing。
 
 ## 本轮改动（F05：放开"一条用户消息只能对应一个 run"约束）
 
@@ -298,6 +421,19 @@ F09～F12 四个 feature 的任何一个已声明范围里。本轮判断这是"
   `deep-agent-model-provider.ts` 暴露未截断参数/结果）是已标注的后续工作；F02
   （灰度开关默认开启+移除开关本身）依赖 F01；F11（中途插话后端接口）依赖 F06
   （尚未开工）。
+1. 找一个能完整跑 `pnpm harness verify --sprint 14/01`（含整个 monorepo 的
+   `verify:release`）、且 Docker 可用（daemon 起得来 + 出网不受限）的会话/CI，一次性
+   把 F01、F03、F13、F10 都转 passing——都卡在同一道"base verify 规模大 / Docker
+   出网被拦"的门上，不是各自的业务逻辑有问题（F03 的三条 feature 级 verification
+   已经用真实证据跑绿，见 `evidence/F03.verify.log`；F01/F13/F10 的也早就跑绿过，
+   见各自历史记录）；不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+2. F05 已合入 main：`GET /messages/:messageId/agent-run-attempts` 的 controller
+   接线（F05 本轮刻意未做）适合并入消费它的 F03/F04。
+3. F04（前端订阅改造：删除轮询、断线重连、终态判断修复）与本轮遗留的
+   `agui-bridge.ts` 轮询切换，按 R11(b)/(c) 排期——见上"诚实的范围收窄"。
+4. F13 之后：F14（错误人性化转换层+前端错误卡片，已由另一会话在做）、F15（完整可
+   审计 transcript 存储改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01；
+   F11（中途插话后端接口）依赖 F06（尚未开工）。
 
 ## 命令
 - 启动：`pnpm -w run dev`

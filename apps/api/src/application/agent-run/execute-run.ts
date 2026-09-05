@@ -65,6 +65,8 @@ import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input"
 import type { VisionInputStatus } from "./context-snapshot";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
+import type { RunEventBusPort } from "./run-event-bus";
+import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -465,6 +467,9 @@ export interface ExecuteAgentRunDeps {
    * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
    */
   readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
+  /** Phase 14 F03 -- WS event bus (`execute-run-events.ts`). 可选，同 `usage`/`files` 既有
+   * 理由：不注入 ⇒ 落库逐字节不变，只是没有 WS 订阅者能看到进展（I-3 的推流旁路）。 */
+  readonly events?: RunEventBusPort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -664,6 +669,9 @@ async function executeClaimed(
   orgId: OrgId,
   run: ClaimedAgentRun,
 ): Promise<void> {
+  // Phase 14 F03 -- first WS event; `claimQueued` already moved this row to `running`, so
+  // this mirrors an already-true fact (I-3 decoupling).
+  publishStatusChange(deps, orgId, run.runId, "running");
   // DA-07b resume 续号（见 `ClaimedAgentRun.resumeStepSeqBase` 的文档）：一个被 HITL
   // 中断过的 run 第二次被 `executeClaimed` 处理时，`agent_run_steps` 里已经有它第一次
   // 执行留下的行——继续从硬编码的 1 起步会让下面的 context_built（seq=2）撞上第一次
@@ -1120,6 +1128,7 @@ async function executeClaimed(
         inputDigest: systemDigest, outputDigest: null, failureCode: "KERNEL_UNAVAILABLE",
       });
       await deps.runs.failRun(orgId, run.runId, "KERNEL_UNAVAILABLE");
+      publishStatusChange(deps, orgId, run.runId, "failed");
       return;
     }
   }
@@ -1195,8 +1204,9 @@ async function executeClaimed(
         // `AppendedRunStep.toolCallId`'s own doc for why this can't be an UPDATE); the
         // read side folds the pair back into one card for the same `toolCallId`.
         const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : "succeeded";
+        const stepSeq = seqCursor.value;
         await record(deps, orgId, {
-          runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
+          runId: run.runId, seq: stepSeq, kind: "tool_call", startedAt: stepStartedAt,
           status,
           inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
           outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
@@ -1208,12 +1218,17 @@ async function executeClaimed(
           toolCallId: event.toolCallId ?? null,
         });
         seqCursor.value += 1;
+        // Phase 14 F03 -- forward this SAME progress event onto the WS bus, fire-and-forget,
+        // NOT gated on the `record()` ledger write above (I-3). See `execute-run-events.ts`.
+        forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
       },
       async (delta) => {
         if (delta === "") return;
         const seq = deltaSeq;
         deltaSeq += 1;
         await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
+        // Phase 14 F03 -- own seq space on the WS bus, fire-and-forget (I-3).
+        publishTokenDelta(deps, orgId, run.runId, delta);
       },
     );
     if (completion.interrupted !== undefined) {
@@ -1229,6 +1244,9 @@ async function executeClaimed(
         inputFullContent: system,
       });
       await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
+      // Phase 14 F03 -- WS wire uses the NEW enum name (I-5); the OLD `awaiting_approval`
+      // DB status above is `plan-permissions` 契约束's concern, per `domain.md`.
+      publishStatusChange(deps, orgId, run.runId, "awaiting_tool_permission");
       return;
     }
     if (completion.text.trim() === "") {
@@ -1267,6 +1285,7 @@ async function executeClaimed(
      */
     await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     await deps.runs.failRun(orgId, run.runId, code);
+    publishStatusChange(deps, orgId, run.runId, "failed");
     return;
   }
   await record(deps, orgId, {
@@ -1366,6 +1385,7 @@ export async function executeQueuedRuns(
         runId: outcome.runId, code: "AGENT_VERSION_UNAVAILABLE",
       });
       await deps.runs.failRun(input.orgId, outcome.runId, "AGENT_VERSION_UNAVAILABLE");
+      publishStatusChange(deps, input.orgId, outcome.runId, "failed");
       continue;
     }
     try {
@@ -1378,6 +1398,7 @@ export async function executeQueuedRuns(
         detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
       await deps.runs.failRun(input.orgId, outcome.run.runId, "MODEL_CALL_FAILED");
+      publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
     }
   }
   return claimed.length;

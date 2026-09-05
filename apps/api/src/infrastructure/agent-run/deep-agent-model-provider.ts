@@ -309,7 +309,13 @@ function extractToolCallEvents(
   messages: readonly ThreadMessage[],
   emittedIds: ToolCallEmittedIds,
 ): readonly { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] {
-  const pending = new Map<string, { readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null }>();
+  const pending = new Map<string, {
+    readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null;
+    /** Phase 14 F03 -- the real, untruncated args object, carried through to the "complete"
+     * event so `ToolCallStartEvent.args`/the WS bus can have full fidelity (`ports.ts`'s own
+     * doc on `ModelCallProgressEvent.toolArgsFull`). */
+    readonly argsFull: unknown;
+  }>();
   const found: { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] = [];
 
   for (const message of messages) {
@@ -346,7 +352,7 @@ function extractToolCallEvents(
         const argsSummary = call.args === undefined
           ? null
           : summarizeProgressText(JSON.stringify(call.args), maxChars);
-        pending.set(id, { name, argsSummary, planningNote });
+        pending.set(id, { name, argsSummary, planningNote, argsFull: call.args });
         // #742 Gap 1: report "announced, not yet answered" exactly once per id.
         if (!emittedIds.inProgress.has(id)) {
           found.push({
@@ -354,7 +360,7 @@ function extractToolCallEvents(
             phase: "in_progress",
             event: {
               toolName: name, toolArgsSummary: argsSummary, toolResultSummary: null,
-              planningNote, phase: "in_progress", toolCallId: id,
+              planningNote, phase: "in_progress", toolCallId: id, toolArgsFull: call.args,
             },
           });
         }
@@ -375,6 +381,7 @@ function extractToolCallEvents(
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
           phase: "complete", toolCallId: id,
+          toolArgsFull: call.argsFull, toolResultFull: message.content,
         },
       });
       pending.delete(id);

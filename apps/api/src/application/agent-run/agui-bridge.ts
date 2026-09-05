@@ -47,6 +47,32 @@
  * or the routed provider does not support it -- see `ports.ts`'s own `completeStream` doc),
  * zero deltas are ever forwarded and this function's behaviour is byte-for-byte 阶段1b's:
  * the caller falls back to relaying `outcome.text` as one chunk, exactly as before.
+ *
+ * ## Phase 14 F03 -- this file's polling loop is UNCHANGED, on purpose, for now
+ *
+ * `run-event-bus.ts`/`execute-run-events.ts` added a real, in-process, event-driven WS
+ * transport (`interface/ws/agent-run-events.gateway.ts`) that `execute-run.ts` now
+ * publishes onto for every run. This file's OWN relay (`pollAguiRunToOutcome` below) could
+ * in principle subscribe to that SAME bus instead of sleeping and re-polling
+ * `readAgentRun`/`readModelDeltas` -- they run in the same process, so it is mechanically
+ * possible. It deliberately does NOT do that in this feature:
+ *
+ *   1. This loop's poll budget (`poll-budget.ts`) is itself a hard-won regression fix for
+ *      two REAL 2026-08-29 devapp incidents (see that file's own head and
+ *      `tests/agent-runtime/poll-budget-covers-deep-agent-timeout.test.ts`) -- replacing
+ *      the mechanism risks reopening either one without the same regression coverage in
+ *      place for the new shape.
+ *   2. R9 requires a ONE-TIME cutover ("一次性切换,不保留旧轮询兼容层"), not a dual-path
+ *      transport -- rewiring this file alone, before the frontend it serves
+ *      (`copilotkit-agui.controller.ts`'s CopilotKit AG-UI SSE bridge, a DIFFERENT wire
+ *      protocol than the new WS endpoint) is ready to consume it, would leave production
+ *      running an unfinished half-migration rather than either the old or the new shape
+ *      cleanly.
+ *
+ * So: `wave2-runtime.ts`'s `operations` head comment (the CONTRACT'S claim that this
+ * transport is "polling-only, no push variant") has been corrected -- a real push
+ * transport now exists. This file's OWN mechanism has not yet been cut over to it; that is
+ * tracked as follow-up work, not silently done here.
  */
 import type { OrgId } from "../../domain/org-id";
 import type { IdentityRepository, DecisionIdFactory } from "../../application/identity/ports";

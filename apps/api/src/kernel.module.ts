@@ -329,9 +329,11 @@ import { ChatController } from "./interface/controllers/chat.controller";
 // #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
 // 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
 import {
-  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT, TOKEN_USAGE_METER,
+  AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT, RUN_EVENT_BUS, TOKEN_USAGE_METER,
   type AgentRunExecutorPort, type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
+import type { RunEventBusPort } from "./application/agent-run/run-event-bus";
+import { InMemoryRunEventBus } from "./infrastructure/agent-run/in-memory-run-event-bus";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { transcriptContentCipherFromEnv } from "./infrastructure/agent-run/transcript-content-cipher";
 import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
@@ -1404,6 +1406,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT],
     },
     /**
+     * Phase 14 F03 (`streaming-transport` 契约束) -- 一个进程内单例，`AGENT_RUN_EXECUTOR`
+     * （publish 侧）与 `interface/ws/agent-run-events.gateway.ts`（subscribe 侧，见
+     * `main.ts` 的 `attachStreamingSurfaces`）必须共享同一个实例，否则一侧发布的事件
+     * 另一侧永远看不到。与 `SUBTASK_RUN_STORE` 同一条既有先例（`useValue`，同一份已知
+     * 取舍：进程重启丢缓冲、多副本不共享，见 `run-event-bus.ts` 头注"为什么现在用内存"）。
+     */
+    {
+      provide: RUN_EVENT_BUS,
+      useValue: new InMemoryRunEventBus(),
+    },
+    /**
      * issue #2664/#2666 -- 一个进程内单例，跨请求共享同一份队列状态（同 orgId 下"入队"
      * 与"领取"/"查询"必须看到彼此）。`InMemorySubtaskRunStore` 自己的头注记录了这个
      * MVP 的已知取舍（进程重启丢队列、多副本不共享）。
@@ -1570,6 +1583,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
+        events: RunEventBusPort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1602,11 +1616,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
             const raw = Number(process.env.KERNEL_AGENT_RUN_STALE_RUNNING_MS);
             return Number.isFinite(raw) && raw > 0 ? raw : undefined;
           })(),
+          // Phase 14 F03 -- 与 WS 网关（`main.ts` `attachStreamingSurfaces`）共享的同一个
+          // `RUN_EVENT_BUS` 单例，见该 provider 自己的注册注释。
+          events,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
-        SKILL_SANDBOX_PORT,
+        SKILL_SANDBOX_PORT, RUN_EVENT_BUS,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
