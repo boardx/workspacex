@@ -36,6 +36,14 @@
  * 状态事件表形状不支持"非状态转移"的事件类型，要支持需要改那张表（加一个不受 CHECK 约束的
  * `event_type` 维度，或者新建一张更通用的事件表），两者都超出 B4.3（只改 `design-workbench`
  * 束）的范围，也超出本任务"不改 feedback-loop 契约"的边界——留给后续束处理。
+ *
+ * ## 这次事务是**可观测的**（UC-17.8 B6.4）
+ *
+ * 成功时记一条结构化 `info`（`deps.logger` 可选，见 `DesignProjectDeps`）：`projectId` /
+ * `ownerId` / 是否回写了反馈（仓储返回的 `resolvedFeedback`，与 `linkedFeedbackId` 非空但
+ * 反馈行已不在的情形区分开）/ 是否重复推送（upsert 命中：推送前 `pushed` 已为 true）/
+ * `inboxCode` / 耗时。**不记** `note` 正文与项目名。失败路径不在这里记——异常一路抛到
+ * `AllExceptionsFilter`，那里按同一个 `traceId` 落 `error_logs`。
  */
 import {
   DesignProjectNotFoundError,
@@ -50,12 +58,14 @@ export async function pushToInbox(
   deps: DesignProjectDeps,
   input: { readonly projectId: string; readonly ownerId: string; readonly note?: string },
 ): Promise<{ readonly project: DesignProjectView; readonly inboxCode: string }> {
+  const startedAt = Date.now();
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
 
   const result = await deps.projects.pushToInbox(input.projectId, input.ownerId, input.note);
   if (result === null) throw new DesignProjectNotOwnerError();
+  const pushedAt = Date.now();
 
   // `D-n`：同前缀（B/R/E 的既有先例）内按创建顺序赋号——只在已推送的行里算，
   // 同 `inbox-projection.ts` 的 `assignCodes`，这里不重新实现一份，只是本用例的返回值
@@ -67,6 +77,21 @@ export async function pushToInbox(
   const inboxCode = `D-${index >= 0 ? index + 1 : allPushed.length}`;
 
   const names = await ownerNamesFor(deps, [result.project.ownerId]);
+
+  deps.logger?.info("design-workbench: pushToInbox", {
+    traceId: deps.traceId ?? "design-workbench-push",
+    orgId: deps.orgId,
+    projectId: result.project.id,
+    ownerId: input.ownerId,
+    repeatPush: current.pushed,
+    linkedFeedback: current.linkedFeedbackId !== null,
+    resolvedFeedback: result.resolvedFeedback,
+    notePresent: input.note !== undefined,
+    inboxCode,
+    transactionMs: pushedAt - startedAt,
+    durationMs: Date.now() - startedAt,
+  });
+
   return {
     project: projectDesignProject(result.project, names.get(result.project.ownerId) ?? null),
     inboxCode,

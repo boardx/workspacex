@@ -38,6 +38,36 @@
       "/platform-admin/design-workbench"
     ]
   },
+  "phase-03-reuse-and-governance": {
+    "//": "UC-17.8 B6.2。四束里只有 design-workbench 有一级导航直达（2026-09-04 人类裁决进 STUDIO）；feedback-loop / inbox-unified / feedback-drafts 三束的现行屏都挂在平台后台二级（lib/mock/admin.ts 的 AdminNav，/platform-admin/{feedback,inbox,feedback-drafts}），navigation.ts 里的入口是「平台后台」/platform-admin（1 跳）——同 //3 「断言束的入口在导航里即可」的先例，束路由写入口而不是二级屏。是否给收件箱/草稿加一级导航是 IA 裁决，不在门控里替人类决定。",
+    "bundleRoutes": {
+      "feedback-loop": "/platform-admin",
+      "inbox-unified": "/platform-admin",
+      "feedback-drafts": "/platform-admin",
+      "design-workbench": "/platform-admin/design-workbench"
+    },
+    "allowRoutes": [
+      "/admin",
+      "/asset-governance",
+      "/brain",
+      "/canvas",
+      "/chat",
+      "/itv",
+      "/org-admin/preview",
+      "/preview/agent-interrupts",
+      "/preview/agent-kernel",
+      "/preview/agent-runtime",
+      "/preview/plan-control",
+      "/projects",
+      "/projects/demo/files",
+      "/rec",
+      "/research",
+      "/skill",
+      "/studio/survey",
+      "/tasks",
+      "/tpl"
+    ]
+  },
   "phase-14-agent-kernel-unification": {
     "//": "五束目前只有一个签核用静态原型屏 /preview/agent-kernel（ui-prototyper 交付），落地实现后五束各自并入 /chat 既有运行时区域——届时这五行应逐个改指向 /chat，本条注释不是遗漏。",
     "bundleRoutes": {

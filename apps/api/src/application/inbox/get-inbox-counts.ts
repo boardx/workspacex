@@ -8,18 +8,17 @@
 import { inbox as C } from "@repo/contracts";
 import type { z } from "zod";
 import { canTriage } from "../../domain/feedback/product-feedback";
-import { listFeedback, type ListFeedbackDeps, type ListFeedbackInput } from "../feedback/list-feedback";
+import type { ListFeedbackDeps, ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
-import { loadOwnerNamesAndProject } from "../design-workbench/project-list-shared";
 import type { DesignProjectDeps } from "../design-workbench/project-shared";
 import {
   buildExceptionInboxItems,
   buildFeedbackInboxItems,
   buildDesignInboxItems,
-  fetchAllExceptions,
   INBOX_EXCEPTION_FETCH_CAP,
 } from "./inbox-projection";
 import { InboxPermissionRevokedError } from "./list-inbox";
+import { aggregateInboxSources, logInboxAggregation, type InboxObservabilityDeps } from "./aggregate-inbox-sources";
 
 export type InboxCountsView = {
   readonly byStage: { readonly backlog: number; readonly doing: number; readonly done: number; readonly archived: number };
@@ -28,7 +27,7 @@ export type InboxCountsView = {
   readonly sources: z.infer<typeof C.InboxSources>;
 };
 
-export interface GetInboxCountsDeps {
+export interface GetInboxCountsDeps extends InboxObservabilityDeps {
   readonly feedback: ListFeedbackDeps;
   readonly errorLog: ErrorLogPort | undefined;
   /** 同 `ListInboxDeps.design`——恒必填,见其头注。 */
@@ -42,17 +41,8 @@ export { InboxPermissionRevokedError, INBOX_EXCEPTION_FETCH_CAP };
 export async function getInboxCounts(deps: GetInboxCountsDeps, input: GetInboxCountsInput): Promise<InboxCountsView> {
   if (!canTriage(input.viewerOrgRole)) throw new InboxPermissionRevokedError();
 
-  const sources: InboxCountsView["sources"] = { exception: deps.errorLog !== undefined ? "included" : "withheld" };
-
-  const feedbackItems = await listFeedback(deps.feedback, {
-    scope: { kind: "org" },
-    viewerId: input.viewerId,
-    viewerOrgRole: input.viewerOrgRole,
-    viewerTeamId: input.viewerTeamId,
-  });
-  const exceptionItems = deps.errorLog !== undefined ? await fetchAllExceptions(deps.errorLog) : [];
-  const designRows = await deps.design.projects.listForOrg();
-  const designItems = await loadOwnerNamesAndProject(deps.design, designRows);
+  const startedAt = Date.now();
+  const { feedbackItems, exceptionItems, designItems, sources, stats } = await aggregateInboxSources(deps, input);
 
   const all = [
     ...buildFeedbackInboxItems(feedbackItems).map((i) => i.item),
@@ -66,6 +56,8 @@ export async function getInboxCounts(deps: GetInboxCountsDeps, input: GetInboxCo
     byStage[item.stage] += 1;
     byKind[item.kind] += 1;
   }
+
+  logInboxAggregation(deps, "getInboxCounts", deps.design.orgId, stats, startedAt, { total: all.length });
 
   return { byStage, byKind, total: all.length, sources };
 }

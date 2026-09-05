@@ -8,6 +8,7 @@
 import type { designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
 import type { FeedbackSubmitterDirectory } from "../feedback/notification-ports";
+import type { LoggerPort } from "../ports/logger.port";
 import type { OrgId } from "../../domain/org-id";
 import type { DesignProjectRepository, DesignProjectRow } from "./project-ports";
 
@@ -24,6 +25,13 @@ export interface DesignProjectDeps {
   readonly projects: DesignProjectRepository;
   readonly orgId: OrgId;
   readonly submitters?: FeedbackSubmitterDirectory;
+  /**
+   * UC-17.8 B6.4 可观测性——**可选**：单测用 fake 仓储不需要；controller 注入 `LOGGER_PORT`
+   * 并透传 `traceIdOf(req)`。今天只有 `pushToInbox`（事务：标记 pushed + 回写反馈）记日志，
+   * 放在共用 deps 上是为了六条用例不各自长出一个 `logger` 字段。
+   */
+  readonly logger?: LoggerPort;
+  readonly traceId?: string;
 }
 
 export function projectDesignProject(row: DesignProjectRow, ownerName: string | null): DesignProjectView {

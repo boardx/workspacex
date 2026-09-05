@@ -146,6 +146,44 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
   PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
 
+### 0.4 Sprint 4 落地记录
+
+- ✅ B6.4（可观测性）2026-09-05 落地：`application/inbox/aggregate-inbox-sources.ts` 把
+  `listInbox`/`getInboxCounts` 各自复制的"拉反馈 → 拉系统异常（受 cap）→ 拉设计项目"抽成
+  一处，每次聚合记一条结构化 `info`（`traceId` 透传自 `traceIdOf(req)`；三源行数、各源耗时、
+  `exceptionCapHit`、`exceptionSource` withheld/included、返回条数、是否有下一页、`qPresent`
+  布尔——**不记**正文/标题/提交人/搜索词原文，D3 门控不能被日志旁路）。`fetchAllExceptions`
+  改返回 `{ items, capHit }`：`list-inbox.ts` 文件头那条"每次请求重新拉两源"的已知取舍，
+  从此在撞 `INBOX_EXCEPTION_FETCH_CAP` 的那一刻值班可见（此前超出上限的异常静默不在收件箱）。
+  `pushToInbox` 事务成功后记一条 `info`（`projectId`/`ownerId`/`resolvedFeedback`/
+  `repeatPush`（upsert 命中）/`linkedFeedback`/`notePresent`/`inboxCode`/事务耗时；不记
+  `note` 正文与项目名；失败路径不在这里记——异常一路抛到 `AllExceptionsFilter` 按同一
+  `traceId` 落 `error_logs`）。`logger`/`traceId` 在 `ListInboxDeps`/`GetInboxCountsDeps`/
+  `DesignProjectDeps` 上**都是可选**，单测 fake 端口不需要；两个 controller 注入 `LOGGER_PORT`。
+  本仓没有独立 metrics 端口（`ports/` 只有 `LoggerPort`），"指标"按 `observability.md`
+  落成结构化日志字段，不引新依赖。10 条新增单测（fake logger 断言字段存在 + 断言敏感内容
+  不在日志里）。`doctor --phase 03 --strict` 在 main 上 0 FAIL——三束相关的签核链 / evidence /
+  派生视图没有可机械修的红；`design-workbench` 束 `status: pending` 等人类签核（不改）。
+- ✅ B6.2（映射）2026-09-05 落地：`ui-material-map.json` phase-03 加 `inbox-unified` /
+  `feedback-drafts` 两行（`shared_dir: ui-preview/feedback-design-loop`——同一份
+  `shot-feedback-design-loop.mjs` 产出 `inbox-*`/`drafts-*`/`dialog-*`，同 phase-10 的共用目录
+  先例），删掉此前 #2556 随手带入的幽灵行 `user-research-studio`（束目录与截图目录都不存在）；
+  `third-artifact-map.json` 加 `inbox-unified → inbox`、`feedback-drafts → feedback-loop`
+  （六条 `*FeedbackDraft*` 操作按 B1.1 原文挂在 `feedback-loop.ts`）；
+  `nav-reachability.config.json` 新增 phase-03 段（四束：`design-workbench` 一级直达；
+  `feedback-loop`/`inbox-unified`/`feedback-drafts` 三束现行屏挂平台后台二级，入口
+  `/platform-admin`，同配置 `//3`「断言束的入口在导航里即可」先例；要不要给收件箱/草稿加
+  一级导航是 IA 裁决，不在门控里替人类定）。三道 lint 全绿。
+  **两束的五件材料已写好但没搬进 `contracts/`**：`contracts/` 下每多一个束目录，
+  `auditSignoff` 就要求 `design-coherence.md` 的 `covers_bundles` 覆盖它，否则
+  `doctor --strict` FAIL（CI 红）——而 `covers_bundles` 归人类所有，agent 不得改
+  （ADR-023「不要只改 covers_bundles」）。材料放在 `contracts-pending/{inbox-unified,feedback-drafts}/`
+  （该目录不被任何门控读取，见其 README），本地临时放进 `contracts/` 验证过：三道 lint 绿、
+  `doctor --strict` 只剩「一致性复核没覆盖这两束」一条红。**待人类**：读两束 `design-signoff.md`
+  → 重做阶段一致性复核并补 `covers_bundles` → `git mv` 进 `contracts/`（一次动作，README 写了步骤）。
+  两束 `design-signoff.md` 如实写"补签"（同 `design-workbench` 束），`covers` 用 B1.x / B3.x
+  backlog 编号（同 B4.x 先例），与既有两束无重叠（doctor 的 covers 重叠检查已验证）。
+
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
 ```
