@@ -1,5 +1,7 @@
 ---
-status: pending
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-05T09:30:00Z"
 bundle: feedback-drafts
 scope: feedback-drafts-private-staging
 covers: [B1.1, B1.2, B1.3, B1.4, B1.5, B1.6, B1.7]
