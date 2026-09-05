@@ -59,3 +59,50 @@ describe("reportClientError -- truncated fields never exceed the contract's max"
     expect(() => reportClientError(new Error("boom"))).not.toThrow();
   });
 });
+
+// issue #2797 -- chat/agent-run capture points (`copilotkit-v2-panel-body.tsx`'s `onError`
+// subscription and `send()`'s `catch`) pass a `ClientErrorReportContext` as the second
+// argument; the two pre-existing capture points (`app/global-error.tsx`,
+// `installGlobalErrorReporting()`) don't know about a run and omit it entirely.
+describe("reportClientError -- optional agent-run context (issue #2797)", () => {
+  it("omitted context is sent as null on every new field -- backward compatible with callers that don't know about a run", async () => {
+    reportClientError(new Error("boom"));
+    await Promise.resolve();
+
+    const [, opts] = apiRequest.mock.calls.at(-1) as [string, { body: Record<string, unknown> }];
+    expect(opts.body.runId).toBeNull();
+    expect(opts.body.threadId).toBeNull();
+    expect(opts.body.phase).toBeNull();
+    expect(opts.body.errorType).toBeNull();
+  });
+
+  it("a present context is forwarded verbatim when within bounds", async () => {
+    reportClientError(new Error("boom"), {
+      runId: "run-1", threadId: "thread-1", phase: "acting", errorType: "MODEL_CALL_FAILED",
+    });
+    await Promise.resolve();
+
+    const [, opts] = apiRequest.mock.calls.at(-1) as [
+      string,
+      { body: { runId: string | null; threadId: string | null; phase: string | null; errorType: string | null } },
+    ];
+    expect(opts.body.runId).toBe("run-1");
+    expect(opts.body.threadId).toBe("thread-1");
+    expect(opts.body.phase).toBe("acting");
+    expect(opts.body.errorType).toBe("MODEL_CALL_FAILED");
+  });
+
+  it("an oversized runId is truncated to at most the contract's max (200), suffix included", async () => {
+    reportClientError(new Error("boom"), { runId: "r".repeat(300) });
+    await Promise.resolve();
+
+    const [, opts] = apiRequest.mock.calls.at(-1) as [string, { body: { runId: string | null } }];
+    expect(opts.body.runId).not.toBeNull();
+    expect((opts.body.runId as string).length).toBeLessThanOrEqual(200);
+  });
+
+  it("reporting with a context never throws, even if apiRequest rejects", () => {
+    apiRequest.mockRejectedValueOnce(new Error("network down"));
+    expect(() => reportClientError(new Error("boom"), { runId: "run-1" })).not.toThrow();
+  });
+});

@@ -14,6 +14,7 @@ import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Papercli
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
+import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { cn } from "@/lib/utils";
@@ -199,6 +200,16 @@ export function CopilotKitV2PanelBody({
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   /**
+   * issue #2797 -- `onError` 订阅（下面）与 `send()` 的 `catch` 分支各自上报一次异常
+   * 时，需要"这一刻真实的 runId/threadId/phase"，而不是订阅建立那一刻（`useEffect`
+   * 依赖数组只有 `[copilotkit, threadId]`,只在挂载时跑一次）闭包住的旧值。用一个
+   * ref 而不是把这三个值塞进依赖数组重新订阅——`ref.current` 由下面另一个不带依赖
+   * 数组的 effect 每次渲染后刷新,读的时候永远是最新一次渲染的值,订阅本身不用重建。
+   */
+  const runReportContextRef = React.useRef<{
+    runId: string | null; threadId: string | null; phase: RunStage | null;
+  }>({ runId: null, threadId: null, phase: null });
+  /**
    * issue #2451 —— 计划面板（`CopilotKitV2PlanControl`）3 秒轮询 `getPlanLedger`，
    * 与下面 `onError` 订阅（"模型这次没能返回可用结果"横幅）是两条独立异步信号源：
    * `RUN_ERROR` 事件几乎瞬时触发，但计划面板要等 DB 里 `agent_runs.status` 真正写成
@@ -326,6 +337,11 @@ export function CopilotKitV2PanelBody({
         // 兜底文案出现时，浏览器控制台能看到真实 code_，不用再靠截图猜。
         console.error("[copilotkit-v2] agent run failed", { code: code_, context: errorContext });
         setError(describeCopilotkitV2RunError(code_));
+        // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
+        // runId/时间范围查询,不必再等用户手动截图 DevTools。fire-and-forget,失败
+        // 静默降级(见 `report-client-error.ts` 文件头),绝不在这条路径上新增一个
+        // 用户可见的失败分支。
+        reportClientError(runError, { errorType: code_, ...runReportContextRef.current });
         // issue #2451 —— 见上面这个 state 的头注：让计划面板立刻抢一次 refetch。
         setPlanLedgerRefetchTick((tick) => tick + 1);
       },
@@ -999,6 +1015,16 @@ export function CopilotKitV2PanelBody({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
     restore: { runId: runRestore.runId, status: runRestore.status },
   });
+  // issue #2797 -- 见 `runReportContextRef` 声明处头注：每次渲染后刷新,供上面
+  // `onError` 订阅 / `send()` 的 `catch` 读到的是当前这一轮真实的 runId/threadId/
+  // phase,不是订阅建立那一刻闭包住的旧值。不带依赖数组——就是要在每次渲染后跑。
+  React.useEffect(() => {
+    runReportContextRef.current = {
+      runId: interjectionRun.runId,
+      threadId: resolvedChatThreadId ?? chatThreadIdRef.current,
+      phase: runProgress.stage,
+    };
+  });
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
@@ -1144,6 +1170,8 @@ export function CopilotKitV2PanelBody({
         // 是什么都看不到。
         console.error("[copilotkit-v2] runAgent() threw", e);
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
+        // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。
+        reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
       }
     },
     [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],

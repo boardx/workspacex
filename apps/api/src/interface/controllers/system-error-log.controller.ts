@@ -139,6 +139,12 @@ export class SystemErrorLogController {
           url: body.url ?? undefined,
           userAgent: body.userAgent ?? undefined,
           appVersion: body.appVersion ?? undefined,
+          // issue #2797 -- chat/agent-run 报错的关联字段,不存在时(旧调用点/无在途 run)
+          // 保持 `undefined`,不写一个占位 `null` 进 detail。
+          runId: body.runId ?? undefined,
+          threadId: body.threadId ?? undefined,
+          phase: body.phase ?? undefined,
+          errorType: body.errorType ?? undefined,
         },
       })
       .catch((err) => this.logger.error("client error report: record failed", { traceId, err }));

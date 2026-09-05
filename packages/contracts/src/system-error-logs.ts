@@ -148,6 +148,13 @@ export const operations = {
    *   `lib/report-client-error.ts` 的截断常量与这里逐字对应，不是两份可能漂移的数字。
    *   数值对齐服务端 `redactErrorDetail` 的 `MAX_FIELD_LEN`/`MAX_STACK_LEN`：
    *   `stack` 给到 8000（栈是最长的合法字段），其余给到各自量级合理的上限。
+   *
+   * ⚠ `runId`/`threadId`/`phase`/`errorType` 是 issue #2797 补的四个可选字段——devapp
+   *   本周排查（#2786/#2790/#2795）反复靠人工截图 DevTools 才能拿到 chat/agent-run
+   *   报错，起因是这条上报口此前只收「一段孤立文本」，没有任何能把它和"哪一次
+   *   run"对起来的字段。四个全部 `.optional().nullable()`——向后兼容
+   *   `installGlobalErrorReporting()` 那条既有调用点（页面级 `window.onerror`，
+   *   压根不知道自己是不是在一次 agent run 里），不强迫每个调用方都要凑出这四个值。
    */
   reportClientError: {
     method: "POST",
@@ -160,6 +167,16 @@ export const operations = {
         url: z.string().max(2000).nullable(),
         userAgent: z.string().max(500).nullable(),
         appVersion: z.string().max(100).nullable(),
+        /** 这次异常所属的 agent run 真实 id（`agent_runs.id`）——没有在途 run 时为 `null`。 */
+        runId: z.string().max(200).nullable().optional(),
+        /** 这次异常所属的 chat 线程 id——新对话第一轮尚未拿到线程 id 时为 `null`。 */
+        threadId: z.string().max(200).nullable().optional(),
+        /** 出错那一刻的宏观运行阶段（`preparing`/`acting`/`replying`,见
+         *  `copilotkit-v2-run-progress.ts` 的 `RunStage`)——没有真实阶段信号时为 `null`,
+         *  不编造一个"transport_failure"之类没有对应事件的值。 */
+        phase: z.string().max(100).nullable().optional(),
+        /** 稳定错误码/异常类型（如 `MODEL_CALL_FAILED`/`runAgent_exception`),供按类型聚合。 */
+        errorType: z.string().max(200).nullable().optional(),
       })
       .strict(),
     out: z.object({ traceId: z.string() }).strict(),

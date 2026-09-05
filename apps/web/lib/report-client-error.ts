@@ -8,8 +8,13 @@
  *      边界，接住渲染期抛出的异常（React 组件树内）。
  *   2. `installGlobalErrorReporting()`——`window.onerror` / `unhandledrejection`，
  *      接住边界之外的异常：事件回调里的同步抛出、未 catch 的 Promise 拒绝。
+ *   3. `copilotkit-v2-panel-body.tsx` 的 `copilotkit.subscribe({ onError })` 订阅与
+ *      `send()` 的 `catch` 分支（issue #2797）——chat/agent-run 失败此前只有
+ *      `console.error` 诊断日志（PR #2783），排查全靠人工截图 DevTools。这条路径
+ *      额外带上 `runId`/`threadId`/`phase`/`errorType`（见 `ClientErrorReportContext`），
+ *      前两条路径没有"属于哪一次 run"这个上下文,四个字段都省略。
  *
- * 两条路径最终都调用本文件的 `reportClientError`，不是各写一份 `fetch`——
+ * 三条路径最终都调用本文件的 `reportClientError`，不是各写一份 `fetch`——
  * 上报的字段形状、截断规则只在这里定义一次。
  *
  * ## 为什么上报**从不**抛出、**从不**阻塞调用方
@@ -38,6 +43,11 @@ const MAX_STACK_LEN = 8000;
 const MAX_URL_LEN = 2000;
 const MAX_USER_AGENT_LEN = 500;
 const MAX_APP_VERSION_LEN = 100;
+// issue #2797 -- chat/agent-run 关联字段,逐字对应契约新增的四个 `.max()`。
+const MAX_RUN_ID_LEN = 200;
+const MAX_THREAD_ID_LEN = 200;
+const MAX_PHASE_LEN = 100;
+const MAX_ERROR_TYPE_LEN = 200;
 
 const TRUNCATED_SUFFIX = "…[TRUNCATED]";
 
@@ -76,10 +86,28 @@ function normaliseError(err: unknown): ClientErrorReport {
 }
 
 /**
+ * issue #2797 -- chat/agent-run 报错的关联上下文,四个字段全部可选。调用方（本次是
+ * `copilotkit-v2-panel-body.tsx` 的 `onError` 订阅与 `send()` 的 `catch` 分支）传它们
+ * 各自当下能拿到的真实值；不知道就整体省略（不是"两条既有捕获路径都要多学一套 API"，
+ * 是同一个 `reportClientError` 多接受一个可选的第二参数）。字段形状逐字对应契约
+ * `system-error-logs.ts` 里 `reportClientError.in` 新增的那四个 `.optional().nullable()`。
+ */
+export interface ClientErrorReportContext {
+  /** 出错时所属 agent run 的真实 `agent_runs.id`；没有在途 run 时省略或传 `null`。 */
+  readonly runId?: string | null;
+  /** 出错时所属 chat 线程 id；新对话第一轮尚未有线程 id 时省略或传 `null`。 */
+  readonly threadId?: string | null;
+  /** 出错那一刻的宏观运行阶段（如 `RunStage`）;没有真实阶段信号时省略或传 `null`。 */
+  readonly phase?: string | null;
+  /** 稳定错误码/异常类型（如 `MODEL_CALL_FAILED`/`runAgent_exception`）。 */
+  readonly errorType?: string | null;
+}
+
+/**
  * 上报一次前端异常。**永不抛出**（见文件头）——调用方不需要、也不应该 `await` 它
  * 的失败分支，`void reportClientError(err)` 是唯一正确的调用形态。
  */
-export function reportClientError(err: unknown): void {
+export function reportClientError(err: unknown, context?: ClientErrorReportContext): void {
   const report = normaliseError(err);
   void apiRequest("/system/client-error-reports", {
     method: "POST",
@@ -89,6 +117,10 @@ export function reportClientError(err: unknown): void {
       url: truncateNullable(report.url, MAX_URL_LEN),
       userAgent: truncateNullable(typeof navigator === "undefined" ? null : navigator.userAgent, MAX_USER_AGENT_LEN),
       appVersion: truncateNullable(process.env.NEXT_PUBLIC_APP_VERSION ?? null, MAX_APP_VERSION_LEN),
+      runId: truncateNullable(context?.runId ?? null, MAX_RUN_ID_LEN),
+      threadId: truncateNullable(context?.threadId ?? null, MAX_THREAD_ID_LEN),
+      phase: truncateNullable(context?.phase ?? null, MAX_PHASE_LEN),
+      errorType: truncateNullable(context?.errorType ?? null, MAX_ERROR_TYPE_LEN),
     },
   }).catch(() => undefined);
 }
