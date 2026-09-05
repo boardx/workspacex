@@ -300,3 +300,45 @@
   `evidence/F11.verify.log`"已知的、有意保留的范围边界"一节。
 - 下一步最佳动作: 在 Docker 可用的环境一次性重跑 F01/F03/F04/F05/F06/F10/F11/F13
   的 verify。
+### 2026-09-05 02:4x (owner: claude-f08)
+- 本轮目标: 实现 Phase 14 F08（前端工具权限确认弹层：四档授权决策，issue #2716）。
+  依赖 F06（后端状态机+工具风险分级+三档授权存储）已合入 main。
+- 已完成: 新增 `apps/web/tests/agent-kernel/tool-permission-card.test.tsx`，固化
+  `ToolPermissionCard`（`agent-kernel-units.tsx`，ui-prototyper 已在 `plan-permissions`
+  契约束签核阶段建成的原型组件，`ui-preview/plan-permissions/
+  03-tool-permission-card.png`）的 user_visible_behavior：`data-testid=
+  tool-permission-card` 渲染、展示 `perm-intent`/`perm-rationale`/`perm-command`
+  （完整未截断命令，I-3）；四个决策按钮 `perm-once`/`perm-run`/`perm-always`/
+  `perm-deny` 各自点击后 `data-testid=saved` 显示对应结果说明文案；拒绝后原始
+  意图/理由/命令仍保留展示（agent 据此调整计划，不清空上下文）。组件本身无需
+  改动（原型已满足全部断言面），只补测试门控——与同 sprint F04/F10/F14 同一
+  先例（只给已建原型补回归测试）。同时把 F08 的 `sprint` 字段由 `null` 改为
+  `"01"`（经 `lib/features.ts` 的 `loadFeatureList`/`saveFeatureList` 读写），
+  使其纳入本 sprint 的 `active-features.json` 派生视图。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/agent-kernel/tool-permission-card.test.tsx`：
+    8 个测试全绿。
+  - `pnpm exec tsc --noEmit -p apps/web`：0 个错误。
+  - `pnpm exec eslint apps/web/tests/agent-kernel/tool-permission-card.test.tsx`：
+    0 个错误。
+  - `node .harness/scripts/lint-contract-source.mjs`：✅ 全绿（本轮未新增任何
+    镜像契约形状的类型，未触发该门）。
+  - `pnpm harness verify --sprint 14/01 --feature F08`：F08 自身 verification
+    命令通过；后置的 `verify:quick` 基础验证里 `turbo run typecheck lint test
+    --affected` 本身 5/5 成功、`Test Files 311 passed (311)` /
+    `Tests 2876 passed (2876)`（含本 feature 新增测试），但收尾阶段
+    `[test-isolation] cleanup failed: docker compose down -v exited 1` 导致整条
+    命令以 exit 1 结束，从而拒绝把 F08 升为 `passing`——与 F10/F04 记录的同一条
+    环境限制（本会话沙箱无 Docker daemon，`docker ps` 报 socket 不存在），不是
+    本次改动引入的逻辑缺陷。
+- 已记录证据: `evidence/F08.verify.log`（真实失败日志，未手改，含
+  `Test Files 311 passed (311)` / `Tests 2876 passed (2876)` 与随后的
+  `docker compose down -v exited 1`）、`evidence/F08.docker-blocker.log`
+  （摘要说明，同 F06 先例）。
+- 提交记录: 见分支 `worker/claude-f08-14-f08-tool-permission-dialog` 的 PR
+  （关联 issue #2716）。
+- 已知风险或未解决问题: F08 尚未 `passing`——需要一个有 Docker daemon 的环境
+  重跑 `pnpm harness verify --sprint 14/01 --feature F08`（与 F01/F03/F04/F05/
+  F10/F13 排在同一条"下一步"上）。
+- 下一步最佳动作: 在有 Docker daemon 的环境重跑本 feature 的 verify 把状态转
+  `passing`。
