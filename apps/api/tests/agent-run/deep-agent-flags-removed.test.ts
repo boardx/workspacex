@@ -128,7 +128,11 @@ describe("Phase 14 F02（R6）—— deep-agent-service 五项能力开关已从
 
   it("hitl-tools（DA-07）：`build_interrupt_on` 无条件返回固定四工具清单，返回类型不再是可选的 None", () => {
     const code = stripPyComments(readSrc(HARNESS_PY));
-    expect(code).toMatch(/def build_interrupt_on\(\) -> dict\[str, bool\]:/);
+    // issue #2767 -- 返回类型从 `dict[str, bool]` 加宽到 `dict[str, bool | InterruptOnConfig]`：
+    // `call_skill` 现在覆盖成带 `when` 谓词的 `InterruptOnConfig`（按目标 skill 的风险等级
+    // 决定是否 interrupt），其余三个具名虚拟工具仍是裸 `True`。本条锁的是"无条件返回、
+    // 不是 Optional"这件事，不是"值类型必须是纯 bool"——加宽值类型不违反这条锁的本意。
+    expect(code).toMatch(/def build_interrupt_on\(\) -> dict\[str, bool \| InterruptOnConfig\]:/);
     expect(code).toMatch(/DEFAULT_HITL_TOOL_NAMES/);
     expect(code).toMatch(/"call_skill"/);
     expect(code).toMatch(/"confirm_task_intent"/);

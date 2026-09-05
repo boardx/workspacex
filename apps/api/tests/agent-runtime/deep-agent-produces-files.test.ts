@@ -402,7 +402,11 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
         config: { configurable: Record<string, unknown> };
         input: { messages: { role: string; content: string }[] };
       };
-      expect(Object.keys(body.config.configurable).sort()).toEqual(["org_skills", "script_protocol"]);
+      // issue #2767 -- 挂了 skill（哪怕只有一个、且是缺省 L1）之后 `hitl_skill_names`
+      // 也一并出现（值是空数组：没有 L2 skill 需要拦；缺省 stableName "pptx" 未声明
+      // `risk_level` frontmatter ⇒ `SKILL_RISK_DEFAULT_LEVEL` L1）。挂了 skill 就该
+      // 投影真实计算结果，不是"挂了 skill 也不算"。
+      expect(Object.keys(body.config.configurable).sort()).toEqual(["hitl_skill_names", "org_skills", "script_protocol"]);
       expect(body.input.messages.find((m) => m.role === "system")?.content).toContain("run_script");
     } finally {
       await deepAgent.close();
@@ -423,7 +427,10 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       // count, not a regression.
       expect(store.output).toEqual({ text: FINAL_PROSE_REPLY, finalStepSeq: 5, files: [] });
       const body = deepAgent.createRunBodies[0] as { config: { configurable: Record<string, unknown> } };
-      expect(Object.keys(body.config.configurable)).toEqual(["org_skills"]);
+      // issue #2767 -- 同上一条用例：挂了 skill（缺省 L1）⇒ `hitl_skill_names` 一并
+      // 出现（空数组）。`script_protocol` 这一条本身不受影响，仍然按 `withSandbox`
+      // 决定出不出现——这条用例本来就是在验证"不送协议"，不是"不送 hitl 名单"。
+      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "hitl_skill_names"]);
     } finally {
       await deepAgent.close();
     }

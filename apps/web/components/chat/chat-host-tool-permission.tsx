@@ -4,11 +4,16 @@ import * as React from "react";
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { deepAgentHitl } from "@repo/contracts";
 import { announceToChat } from "@/components/chat/chat-live-announcer";
+// issue #2767 -- 从 `./tool-permission-card` 直接导入（不含 mock 缺省的版本），不是
+// `agent-kernel-units.tsx` 那个薄包装：那个文件顶部整体 `import` 了
+// `@/lib/mock/agent-kernel`（`tests/session/chat-dead-mock-cluster.test.ts` #462
+// 机械禁止 `/chat` 路由闭包出现任何指向 `lib/mock/**` 的边，见 `tool-permission-
+// card.tsx` 头注的完整说明）。
 import {
   ToolPermissionCard,
   type ToolPermissionCardDecision,
   type ToolPermissionCardRequest,
-} from "@/components/agent-kernel/agent-kernel-units";
+} from "@/components/agent-kernel/tool-permission-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 /**
