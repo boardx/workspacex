@@ -23,8 +23,8 @@
 | 产出物面板 · 空态 | `agent-kernel-artifacts-panel-empty` | 该线程尚无任何 Artifact |
 | 产出物面板 · 版本列表 | `agent-kernel-artifacts-panel`（含逐条 `-version-{n}`） | 至少 1 个版本 |
 | 「基于此版本继续修改」 | `agent-kernel-artifact-continue` | 用户点击某版本的继续修改动作 |
-| 插话输入框 | `agent-kernel-interjection-input`，`disabled={false}` when `running` | run 处于 `running`（R6 后置条件，可直接断言的 UI 状态） |
-| 「已收到」反馈 | `agent-kernel-interjection-ack` | 发送后 1 秒内出现（R3' 步骤 5、R9） |
+| 插话输入框 | `interjection-input`，`disabled={false}` when `running` | run 处于 `running`（R6 后置条件，可直接断言的 UI 状态） |
+| 「已收到」反馈 | `interjection-ack` | 发送后 1 秒内出现（R3' 步骤 5、R9） |
 
 ## 三、已产出（截图）
 
