@@ -16,7 +16,18 @@
 --
 -- 顺序很重要：先迁移存量数据，再收紧 CHECK 约束，否则任何一行仍是旧值就会被新
 -- CHECK 直接拒绝。
+--
+-- ⚠ 2026-09-05 devapp 实际部署撞红（backend-gates deploy job，F06 合入后连续 7 次）：
+-- `AgentRun … may not move from awaiting_approval to awaiting_tool_permission`。这条
+-- UPDATE 会触发 `agent_runs_transition_trg`，而此刻生效的还是 DA-07b 那版触发器函数——
+-- 它只认 running→awaiting_approval / awaiting_approval→queued 两条边，不认"同一状态
+-- 换名"。CI 的门控库是空库、没有一行处于 awaiting_approval，所以从没暴露；线上库里
+-- 有一条真实等待批准的 run 就足以让整个迁移回滚、部署卡死在 F04。
+-- 改名不是状态迁移，不该经过状态机：迁移期间把这张表的转移触发器关掉，改完立即打开。
+-- 同一事务内，失败则整体回滚，不会留下"触发器被关着"的半成品。
+ALTER TABLE agent_runs DISABLE TRIGGER agent_runs_transition_trg;
 UPDATE agent_runs SET status = 'awaiting_tool_permission' WHERE status = 'awaiting_approval';
+ALTER TABLE agent_runs ENABLE TRIGGER agent_runs_transition_trg;
 
 ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check;
 ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check CHECK (
