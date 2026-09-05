@@ -37,6 +37,7 @@ import {
   type FeedbackIssueDraft,
   type GithubIssueComment,
 } from "@/lib/live-feedback";
+import { createDesignGithubIssue } from "@/lib/live-design-workbench";
 import { STRUCTURED_FIELDS } from "@/components/feedback/feedback-structured";
 import { updateSystemErrorLifecycle, type SystemErrorStatus } from "@/lib/live-system-errors";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
@@ -412,6 +413,11 @@ export function DesignLoopInboxScreen({
    * 契约也没有另一条允许携带 `issueDraft` 的边）。
    */
   const createGithubIssue = async (item: InboxItem, issueDraft: FeedbackIssueDraft) => {
+    // 2026-09-05「转开发」——设计方案走自己的那条操作（`POST /pm-designs/:id/github-issue`）。
+    // 它与反馈那条**不是同一件事**：反馈是"转状态顺便建 issue"（issue 是 `triageFeedback`
+    // 的副作用），方案是"建 issue 本身就是这次操作"（方案没有状态机，stage 由有没有 issue
+    // 派生，见契约 `designStageOf`）。共用同一个编辑器 UI，落到两条不同的后端操作上。
+    if (item.kind === "design") return await createDesignIssue(item, issueDraft);
     if (item.kind !== "feedback") return;
     const prevStage = item.stage;
     setBusyId(item.id);
@@ -437,6 +443,36 @@ export function DesignLoopInboxScreen({
       } catch {
         /* best-effort：徽标补不上就留白，drawer 展开时的现查还会再试 */
       }
+    } catch (err) {
+      setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）`);
+      window.setTimeout(() => setDragError(null), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /**
+   * 2026-09-05「转开发」——设计方案建 issue。
+   *
+   * 与反馈那条的差别（除了调用的操作不同）：
+   *   · stage 不是"我们决定转成 doing"，而是**服务端返回的项目已经有了 issue** 这一事实的
+   *     派生结果（`designStageOf`）。所以乐观更新直接把 `github` 和 `stage` 一起落，
+   *     不需要像反馈那样先转状态、再单独现查一次徽标——这条操作的返回值里就带着项目。
+   *   · 失败不需要回滚 stage：这次操作根本没改过状态，失败前后 stage 都是 `backlog`。
+   */
+  const createDesignIssue = async (item: InboxItem, issueDraft: FeedbackIssueDraft) => {
+    const prevStage = item.stage;
+    setBusyId(item.id);
+    try {
+      const out = await createDesignGithubIssue(item.id, issueDraft);
+      const number = out.project.githubIssueNumber;
+      const url = out.project.githubIssueUrl;
+      if (number !== null && url !== null) {
+        replaceItem(item.id, { stage: "doing", github: { kind: "issue", number, url, state: "open" } });
+        bumpStageCount(prevStage, "doing");
+      }
+      setOpenIssueFormOnOpen(false);
+      flashSaved("已创建 GitHub Issue，方案已转入开发");
     } catch (err) {
       setDragError(`没能创建 GitHub Issue（${describeFailure(err)}）`);
       window.setTimeout(() => setDragError(null), 3000);
@@ -1127,6 +1163,37 @@ export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
 }
 
 /**
+ * 2026-09-05「转开发」——设计方案的 issue 草稿。
+ *
+ * 与 `buildInboxIssueDraft`（反馈那侧）分开写而不是加分支：两者的正文骨架**没有一行是共享的**
+ * ——反馈那份讲的是"谁报的、多少人投票、怎么复现"，方案这份讲的是"要做成什么样、验收标准是
+ * 什么、源自哪条反馈"。硬塞进一个函数会变成一串 `item.kind === ...` 的三元表达式，
+ * 两边的措辞都会被对方拖住。
+ *
+ * ⚠ 能放进来的只有**收件箱条目身上有的字段**：`criteria`/`frames` 住在 `DesignProject` 上，
+ *   收件箱投影没有带它们（契约 `InboxItem` 的"仅某类"字段表里 design 那几行是"—"）。
+ *   正文里因此写了一句"验收标准见方案详情页"并附上回链，而不是编造几条读不到的验收标准。
+ */
+export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
+  const B = "**";
+  const bold = (t: string) => `${B}${t}${B}`;
+  const lines: string[] = [];
+  lines.push(item.body ?? "（这个方案没有填写背景说明。）", "");
+  lines.push("### 方案信息");
+  lines.push(`- ${bold("编号")}：${item.code}`);
+  lines.push(`- ${bold("负责人")}：${item.reporter ?? "（不可见）"}`);
+  lines.push(`- ${bold("创建时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
+  if (item.linkedFeedbackId !== null) lines.push(`- ${bold("源自反馈")}：${item.linkedFeedbackId}`);
+  const inboxUrl =
+    typeof window !== "undefined" && window.location !== undefined
+      ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
+      : null;
+  lines.push("", "验收标准与原型画布页见方案详情页（下方链接）。");
+  lines.push("", "---", `来源：PM 设计工作台 · 方案 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
+  return { title: item.title, body: lines.join("\n"), labels: ["design-handoff"] };
+}
+
+/**
  * issue #2752 ②——系统异常转「不做」每次都要手填理由，量一大就是重复劳动。反馈类
  * 保持空白（每条反馈的「不做」理由都该是具体的、针对这条反馈的），只给系统异常
  * 一个可编辑的默认模板，省下"每次现想怎么写"这一步，不是不让改。
@@ -1228,7 +1295,7 @@ function InboxDrawer({
   );
   const [labelsText, setLabelsText] = React.useState(() => (issueDraft === null ? "" : issueDraft.labels.join(", ")));
   const openIssueDraftForm = () => {
-    const draft = buildInboxIssueDraft(item);
+    const draft = item.kind === "design" ? buildDesignIssueDraft(item) : buildInboxIssueDraft(item);
     setIssueDraft(draft);
     setLabelsText(draft.labels.join(", "));
   };
@@ -1475,6 +1542,8 @@ function InboxDrawer({
               <p className="text-11 font-medium text-muted-foreground">
                 转入开发会同时在 boardx/workspacex 建一个 GitHub issue，请确认内容后提交（可编辑）：
               </p>
+              {/* 附件清单只对反馈有意义：设计方案没有附件这个概念（`design_projects` 没有附件表）。 */}
+              {item.kind !== "design" && (
               <div className="rounded-card border border-border-subtle bg-panel p-2 text-11" data-testid="inbox-issue-attachments">
                 <p className="flex items-center gap-1 font-medium text-muted-foreground">
                   <Paperclip aria-hidden className="h-3 w-3" />
@@ -1492,6 +1561,7 @@ function InboxDrawer({
                   </ul>
                 )}
               </div>
+              )}
               <label className="flex flex-col gap-1">
                 <span className="text-10 text-muted-foreground">标题</span>
                 <input
@@ -1578,7 +1648,30 @@ function InboxDrawer({
                 </Button>
               </div>
             </div>
-          ) : item.kind === "design" ? null : (
+          ) : item.kind === "design" ? (
+            <div className="flex flex-wrap gap-2">
+              {item.github === null ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={openIssueDraftForm}
+                  data-testid="inbox-action-design-handoff"
+                >
+                  <Github aria-hidden className="h-3.5 w-3.5" /> 转入开发（建 GitHub Issue）
+                </Button>
+              ) : (
+                <p className="text-11 text-muted-foreground" data-testid="inbox-design-handed-off">
+                  已转入开发，见上方 issue 徽标。
+                </p>
+              )}
+              {/* ⚠ 文案如实：`onOpenWorkbench` 落到 `/platform-admin/design-workbench`（工作台首页），
+                  不带方案 id——写"打开方案详情"会承诺一个这个回调今天做不到的跳转。 */}
+              <Button variant="outline" size="sm" onClick={onOpenWorkbench} data-testid="inbox-action-open-design-self">
+                去设计工作台
+              </Button>
+            </div>
+          ) : (
             <div className="flex flex-wrap gap-2">
               {item.stage === "backlog" && (
                 <Button

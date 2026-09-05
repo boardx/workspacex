@@ -108,8 +108,11 @@ export type InboxStage = z.infer<typeof InboxStage>;
 /**
  * 源状态 → stage 的**唯一实现**。api（聚合查询）与 web（乐观更新时算目标列）都只调它。
  *
- * ⚠ `design` 本轮没有源状态枚举，传进来一律抛错——这是「B4 还没到」的显式信号，
- *   不是返回一个默认列把没定义的东西糊过去。
+ * ⚠ `design` 传进来一律抛错，且这**不会**因为 2026-09-05 的「设计方案转开发」而改变：
+ *   设计方案至今没有源状态枚举（刻意不落 `dev_status` 列，见迁移
+ *   `20260905180000_design_project_github_issue.sql` 头注）。它的 stage 由
+ *   `designStageOf` 从「有没有 issue」派生——那是另一条输入，不是这张映射表的一行。
+ *   把它塞进这里会需要伪造一个不存在的 `status` 字符串。
  * ⚠ 不用 `Record<string, InboxStage>` 查表：那会让 `stageOf("feedback", "已转入开发")` 在
  *   编译期通过。重载让「哪个 kind 配哪套状态」在类型层就成立。
  */
@@ -142,6 +145,25 @@ export function stageOf(kind: InboxKind, status: string): InboxStage {
     }
   }
   throw new Error(`stageOf: no mapping for kind=${kind} status=${status}`);
+}
+
+/**
+ * 设计方案 → stage 的**唯一实现**（2026-09-05）。
+ *
+ * 设计方案没有源状态列，它的开发状态**就是**那张 GitHub issue 是否存在：
+ *   · 没有 issue ⇒ `backlog`（已推送到收件箱，等着被转开发）
+ *   · 有   issue ⇒ `doing`（已交给开发）
+ *
+ * ⚠ **没有 `done`**。判"做完了"需要知道那张 issue 关没关，而今天没有任何东西会去查
+ *   （对账 poller 只扫 `product_feedback`，见 `InboxGithubRef` 头注里那条已登记缺口）。
+ *   与其让方案在 issue 关闭后仍显示 `doing`、却在这里写一个查不到依据的 `done` 分支，
+ *   不如让缺口停在看得见的地方：`doing` 是真的（issue 建出来了），`done` 需要的那个
+ *   输入还不存在。
+ * ⚠ 也**没有** `archived`：设计方案没有"不做"这条边（`inbox-screen.tsx` 对 design 条目
+ *   不提供转不做的操作），要有得先决定"删方案还是留一个墓碑"，那是产品决策不是派生规则。
+ */
+export function designStageOf(input: { readonly githubIssueNumber: number | null }): InboxStage {
+  return input.githubIssueNumber === null ? "backlog" : "doing";
 }
 
 /**
@@ -185,7 +207,15 @@ export type InboxError = z.infer<typeof InboxError>;
  *     （`draft` 由 GitHub PR 的 draft 标记给出，现查结果里今天没有这个位——`getFeedbackGithubIssue`
  *     的 `GithubIssueLinkedPullRequestState` 是三值；`draft` 留在这里的枚举里是为了 B3.5 补那一位时
  *     不改本形状）。issue 真实开关也以现查为准覆盖列表里的推断值。
- *   · **系统异常 / 设计方案**：本轮恒 `null`（系统异常「转开发」没有建 issue 的动作）。
+ *   · **系统异常**：恒 `null`（系统异常「转开发」没有建 issue 的动作）。
+ *   · **设计方案**（2026-09-05 起）：`githubIssueUrl === null` ⇒ `null`。否则
+ *     `{ kind: "issue", number, url, state: "open" }`。
+ *     ⚠ `state` **恒 `open`**，这是一个如实标注的近似值，不是查出来的：设计方案没有
+ *       本地状态机（迁移 `20260905180000` 头注解释了为什么不加 `dev_status` 列），
+ *       而唯一会去 GitHub 现查开关状态的 poller（`FeedbackGithubIssuePollWorker`）
+ *       今天只扫 `product_feedback`（`pg-feedback-github-issue-scanner.ts` 的 SQL 函数
+ *       硬编那张表）。给设计方案补一个对账来源是**已登记的缺口**，不是被这次改动
+ *       悄悄解决掉的东西——在那之前，一张已经关掉的设计 issue 在收件箱里仍显示 `open`。
  */
 export const InboxGithubRef = z
   .object({

@@ -33,6 +33,9 @@ export type AppendProjectChatOut = z.infer<typeof designWorkbench.operations.app
 export type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
 export type DeleteProjectOut = z.infer<typeof designWorkbench.operations.deleteProject.out>;
 export type PushToInboxOut = z.infer<typeof designWorkbench.operations.pushToInbox.out>;
+export type CreateDesignGithubIssueOut = z.infer<typeof designWorkbench.operations.createDesignGithubIssue.out>;
+/** 建 issue 的草稿形状——与 `triageFeedback` 的 `issueDraft` 逐字相同，见契约头注。 */
+export type DesignIssueDraft = z.infer<typeof designWorkbench.operations.createDesignGithubIssue.in>["draft"];
 
 /** 首页三类模板入口的闭集顺序——同契约 `ProjectTemplate` 枚举顺序，供下拉框/网格复用。 */
 export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
@@ -87,5 +90,19 @@ export async function pushToInbox(projectId: string, note?: string): Promise<Pus
   return apiRequest<PushToInboxOut>(
     designWorkbench.operations.pushToInbox.path.replace(":projectId", encodeURIComponent(projectId)),
     { method: "POST", body: { note: note !== undefined && note.trim() !== "" ? note.trim() : undefined } },
+  );
+}
+
+/**
+ * 2026-09-05「转开发」——把一个已推送的设计方案变成一张 GitHub issue。
+ * 不幂等：已经有 issue 时服务端回 409 `DESIGN_ISSUE_ALREADY_EXISTS`（见契约头注）。
+ */
+export async function createDesignGithubIssue(
+  projectId: string,
+  draft: DesignIssueDraft,
+): Promise<CreateDesignGithubIssueOut> {
+  return apiRequest<CreateDesignGithubIssueOut>(
+    designWorkbench.operations.createDesignGithubIssue.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: { draft } },
   );
 }

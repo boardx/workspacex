@@ -154,6 +154,17 @@ export const DesignProject = z
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
     linkedFeedbackId: z.string().nullable(),
+    /**
+     * 2026-09-05「转开发」——这个方案对应的 GitHub issue。两个字段**同生同灭**
+     * （要么都非空，要么都为 `null`），由 `createDesignGithubIssue` 一次写入。
+     *
+     * ⚠ 这里**没有** issue 的开关状态（`open`/`closed`）。设计方案不落 `dev_status`
+     *   列——那会与 GitHub 上那张 issue 的真实状态构成第二份事实源（见迁移
+     *   `20260905180000_design_project_github_issue.sql` 头注「为什么不顺手加一个
+     *   dev_status 列」）。收件箱据「有没有 issue」派生 stage，见 `inbox.ts`。
+     */
+    githubIssueUrl: z.string().nullable(),
+    githubIssueNumber: z.number().int().positive().nullable(),
     chat: z.array(DesignProjectChatTurn),
     ownerId: z.string(),
     /** 见上方可见性口径注释 */
@@ -191,6 +202,23 @@ export const DesignWorkbenchError = z.enum([
    * `PERMISSION_REVOKED` 同一语义，这里不复用那个枚举（跨文件枚举会让"闭集在哪"分裂成两处）。
    */
   "FEEDBACK_DETAIL_NOT_VISIBLE",
+  /**
+   * 2026-09-05「转开发」——这个方案还没有推送到收件箱。转开发是**运维动作**，
+   * 前提是这个方案已经作为收件箱条目存在；给一个还在草台上的私人方案建 issue
+   * 会让 GitHub 上出现一张收件箱里找不到对应条目的票。
+   */
+  "PROJECT_NOT_PUSHED",
+  /**
+   * 2026-09-05——这个方案已经有 issue 了。**不是** upsert：`pushToInbox` 能 upsert
+   * 是因为它写的是自己这张表的两列；建 issue 是一次不可回滚的外部副作用，
+   * 「重复调用返回已有的那张」与「再建一张」都不对——前者悄悄吞掉一次明确的用户意图，
+   * 后者让一个方案挂两张票。所以显式报错，让调用方看到已有的那张。
+   */
+  "DESIGN_ISSUE_ALREADY_EXISTS",
+  /** 2026-09-05——另一个并发请求正在给这个方案建 issue（乐观锁未抢到，见迁移头注）。 */
+  "DESIGN_ISSUE_IN_PROGRESS",
+  /** 2026-09-05——GitHub 那一侧建失败（超时/鉴权/限流）。fail closed：库里不会留下半个 issue。 */
+  "DESIGN_ISSUE_CREATION_FAILED",
 ]);
 export type DesignWorkbenchError = z.infer<typeof DesignWorkbenchError>;
 
@@ -352,5 +380,73 @@ export const operations = {
       })
       .strict(),
     err: ["FEEDBACK_NOT_FOUND", "FEEDBACK_DETAIL_NOT_VISIBLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 2026-09-05「转开发」——把一个已推送的设计方案变成一张 GitHub issue。
+   *
+   * ## 这一条补的是「原型 → 开发」那一段
+   *
+   * 在它之前，设计方案推送到收件箱之后就没有下一步了：`inbox.ts` 的 `InboxGithubRef`
+   * 头注写着「设计方案：本轮恒 `null`」，收件箱 drawer 对 `kind === "design"` 的条目
+   * 不给任何操作。方案能被看见，但交不出去。这条操作是那一步。
+   *
+   * ## 形状照抄 `triageFeedback` 的 `issueDraft`，不发明第二套
+   *
+   * `draft` 的三个字段（`title`/`body`/`labels`）与 `feedbackLoop.operations.
+   * triageFeedback.in.issueDraft` **逐字相同**，语义也相同：服务端按方案内容拼一份
+   * 建议正文交给前端，人类在弹层里改完再提交，用例层原样使用、不用方案原文覆盖它
+   * （否则"可编辑"是空话——同那条操作头注的原话）。
+   *
+   * ⚠ **不复用 `feedback-loop.ts` 的那个 zod 对象**：两个契约文件互不 import 是本仓既有
+   *   边界（`design-ai-collab.ts` 才是两束共享词汇的所在地）。形状相同但归属不同，
+   *   一方将来要加字段时不应该被另一方绑住。
+   *
+   * ## 权限：owner，同 `pushToInbox`
+   *
+   * 不是「组织管理员」：设计方案的可见性口径是"组织内全员可读，仅 owner 可改/删/推送"
+   * （文件头【待确认点 1】），转开发是写侧动作，跟着写侧的口径走。
+   *
+   * ## 前置：必须已推送（`PROJECT_NOT_PUSHED`）
+   *
+   * 见该错误码的说明。这条前置让「GitHub 上的每一张设计票都能在收件箱里找到对应条目」
+   * 成为一条结构性保证，而不是靠调用方自觉。
+   *
+   * ## 不幂等，重复调用报错
+   *
+   * 见 `DESIGN_ISSUE_ALREADY_EXISTS`。并发由 `github_issue_claimed_at` 乐观锁挡住
+   * （`DESIGN_ISSUE_IN_PROGRESS`），失败释放认领、fail closed，全部照抄
+   * `product_feedback` 那一套已经过二轮独立审查的形状。
+   */
+  createDesignGithubIssue: {
+    method: "POST",
+    path: "/pm-designs/:projectId/github-issue",
+    in: z
+      .object({
+        projectId: z.string(),
+        draft: z
+          .object({
+            title: z.string().min(1),
+            body: z.string(),
+            labels: z.array(z.string()),
+          })
+          .strict(),
+      })
+      .strict(),
+    out: z
+      .object({
+        /** 回填之后的整个项目（`githubIssueUrl`/`githubIssueNumber` 已非空） */
+        project: DesignProject,
+      })
+      .strict(),
+    err: [
+      "PROJECT_NOT_FOUND",
+      "NOT_PROJECT_OWNER",
+      "PROJECT_NOT_PUSHED",
+      "DESIGN_ISSUE_ALREADY_EXISTS",
+      "DESIGN_ISSUE_IN_PROGRESS",
+      "DESIGN_ISSUE_CREATION_FAILED",
+      "DEPENDENCY_UNAVAILABLE",
+    ] as const,
   },
 } as const;

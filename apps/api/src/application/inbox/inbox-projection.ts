@@ -219,11 +219,10 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
  * （调用方必须先过滤，见 `list-inbox.ts`/`get-inbox-counts.ts`：未推送的项目不是收件箱条目，
  * 契约 `pushToInbox` 才是唯一的"生成收件箱条目"入口）。
  *
- * ⚠ `stage` 恒 `backlog`——backlog.md B4.3 逐字「生成收件箱条目（`kind=design`,
- *   `status=backlog`）」：设计方案没有自己的状态机（`pushed: boolean` 是它唯一的二态,见
- *   契约 `pushToInbox` 头注最后一条),`stageOf` 因此对 `design` kind 永远抛错（见 `inbox.ts`
- *   `stageOf` 头注），这里不调用它,直接给固定值——这不是绕过映射表,是"design 这个来源
- *   压根没有源状态可映射"的诚实表达。
+ * ⚠ `stage` 由 `designStageOf` 从「有没有 GitHub issue」派生（2026-09-05「转开发」之前
+ *   这里是硬编的 `backlog`）：设计方案仍然没有源状态列，`stageOf` 对 `design` kind 依旧
+ *   永远抛错——派生的输入是 issue 而不是某个 `status` 字符串，所以它是契约里另一个函数
+ *   （`designStageOf`），不是这张映射表的一行。规则与「为什么没有 done」见那个函数头注。
  * ⚠ `sourceStatus`（drawer 状态标签的原始文案）给一个人类可读的常量 `"已推送"`——这批项目
  *   进入这个函数前已经全部按 `pushed === true` 过滤过,不存在"未推送但出现在这里"的行。
  * ⚠ `body`：契约 `InboxItem` 的"仅某类"字段表里 design 这一行是"—"（未定的),这里选
@@ -235,6 +234,16 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
   const codes = assignCodes(pushed, "D");
 
   return pushed.map((row) => {
+    // 「有没有 issue」判一次，`github` / `stage` / `sourceStatus` 三处都读它——
+    // 两列同生同灭（契约 `DesignProject.githubIssueUrl` 头注），但只有在这里合成一个值，
+    // 才能保证万一出现半状态（只有 url 或只有 number）时三者不会各说各话：
+    // 徽标为 null 而 stage 却说 `doing`，看板上就会出现一张「已转开发但没有票」的卡片。
+    // `state` 恒 `open`——如实标注的近似值，理由见契约 `InboxGithubRef` 头注设计方案那一条
+    // （没有对账来源能告诉我们这张 issue 关没关）。
+    const issue: z.infer<typeof C.InboxGithubRef> | null =
+      row.githubIssueUrl === null || row.githubIssueNumber === null
+        ? null
+        : { kind: "issue", number: row.githubIssueNumber, url: row.githubIssueUrl, state: "open" };
     const item: InboxItemView = {
       id: row.id,
       kind: "design",
@@ -243,14 +252,14 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       body: row.problem.trim() !== "" ? row.problem : null,
       structured: null,
       feedbackKind: null,
-      sourceStatus: "已推送",
-      stage: "backlog",
+      sourceStatus: issue === null ? "已推送" : "已转开发",
+      stage: C.designStageOf({ githubIssueNumber: issue === null ? null : issue.number }),
       statusReason: null,
       severe: false,
       votes: 0,
       reporter: row.ownerName,
       createdAt: row.createdAt,
-      github: null,
+      github: issue,
       attachments: [],
       linkedFeedbackId: row.linkedFeedbackId,
       resolvedByDesignId: null,

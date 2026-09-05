@@ -37,13 +37,24 @@ describe("stageOf -- 源状态到 stage 的唯一映射", () => {
     expect(stages).not.toContain("done");
   });
 
-  it("design 本轮没有源状态：任何值都抛错，而不是返回默认列", () => {
+  it("design 没有源状态：任何值都抛错，而不是返回默认列（2026-09-05「转开发」之后依然如此）", () => {
     expect(() => inbox.stageOf("design", "待处理")).toThrow(/no mapping/);
+    expect(() => inbox.stageOf("design", "已推送")).toThrow(/no mapping/);
   });
 
   it("串了源的状态值抛错（feedback 没有 已转入开发；exception 没有 已修复）", () => {
     expect(() => inbox.stageOf("feedback", "已转入开发")).toThrow();
     expect(() => inbox.stageOf("exception", "已修复")).toThrow();
+  });
+
+  it("designStageOf：没有 issue ⇒ backlog，有 issue ⇒ doing", () => {
+    expect(inbox.designStageOf({ githubIssueNumber: null })).toBe("backlog");
+    expect(inbox.designStageOf({ githubIssueNumber: 42 })).toBe("doing");
+  });
+
+  it("designStageOf 只产出 backlog / doing——done 与 archived 需要今天不存在的输入（见头注）", () => {
+    const produced = new Set([null, 1, 999].map((n) => inbox.designStageOf({ githubIssueNumber: n })));
+    expect([...produced].sort()).toEqual(["backlog", "doing"]);
   });
 
   it("stage 枚举顺序即看板列顺序", () => {
@@ -162,9 +173,9 @@ describe("InboxItem -- 反例", () => {
     ).toBe(false);
   });
   it("exception.tags 必须是数组、devNote 必须显式给出（未打标签是 []，不是省略/null）", () => {
-    const { devNote: _d, ...noDevNote } = exceptionItem.exception;
+    const { devNote: _d, ...noDevNote } = exceptionItem.exception!;
     expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noDevNote }).success).toBe(false);
-    const { tags: _t, ...noTags } = exceptionItem.exception;
+    const { tags: _t, ...noTags } = exceptionItem.exception!;
     expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noTags }).success).toBe(false);
     expect(
       inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, tags: null } }).success,
