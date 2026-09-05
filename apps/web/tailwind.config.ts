@@ -76,22 +76,28 @@ const config: Config = {
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         /**
-         * issue #2769 —— /chat run 进度卡的 X 图形标动效（`components/chat/run-progress-x-mark.tsx`
-         * 头注有形态来源与约束）。方案 A `x-breathe`：整标呼吸（缩放 + 透明度，透明度只做
-         * 过渡动画不表达状态，不触 U1.2）；方案 B `x-turn`：整标慢速自转。二选一挂在同一个
-         * `<svg>` 上，各自只有这一段 keyframes；`prefers-reduced-motion` 由调用处的
-         * `motion-reduce:animate-none` 降级为静态。
+         * issue #2785 —— /chat run 进度卡的蝴蝶图形动效（`components/chat/
+         * run-progress-butterfly.tsx` 头注有形态来源与约束；顶替 issue #2769 的
+         * X 图形标 `x-breathe`/`x-turn`，同一个接线点）。方案 A `butterfly-flap`：
+         * 整枚图形沿水平 `scaleX` 收放（翅膀开合），配一点透明度起伏（过渡动画不
+         * 表达状态，不触 U1.2）；方案 B `butterfly-drift`：整枚图形上下浮动 + 轻微
+         * 旋转（模拟飞行时忽高忽低）。二选一挂在同一个 `<svg>` 上，各自只有这一段
+         * keyframes；`prefers-reduced-motion` 由调用处的 `motion-reduce:animate-none`
+         * 降级为静态。
          */
-        "x-breathe": {
-          "0%, 100%": { transform: "scale(1)", opacity: "1" },
-          "50%": { transform: "scale(0.7)", opacity: "0.45" },
+        "butterfly-flap": {
+          "0%, 100%": { transform: "scaleX(1)", opacity: "1" },
+          "50%": { transform: "scaleX(0.5)", opacity: "0.85" },
         },
-        "x-turn": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
+        "butterfly-drift": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
+          "50%": { transform: "translateY(-0.125rem) rotate(-6deg)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 160ms ease-out",
-        "x-breathe": "x-breathe 1.6s ease-in-out infinite",
-        "x-turn": "x-turn 2.4s ease-in-out infinite",
+        "butterfly-flap": "butterfly-flap 1.1s ease-in-out infinite",
+        "butterfly-drift": "butterfly-drift 1.8s ease-in-out infinite",
       },
       /**
        * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见

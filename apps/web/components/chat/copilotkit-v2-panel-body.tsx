@@ -43,7 +43,7 @@ import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { RunProgressXMark } from "@/components/chat/run-progress-x-mark";
+import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
@@ -1774,9 +1774,9 @@ export function CopilotKitV2PanelBody({
                 className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
                 data-testid="copilotkit-v2-thinking"
               >
-                {/* issue #2769 —— 通用 spinner 换成 X 图形标的呼吸动画（形态与约束见
-                    `run-progress-x-mark.tsx` 头注）；阶段行、文案、计时一个字没动。 */}
-                <RunProgressXMark />
+                {/* issue #2785 —— X 图形标换成蝴蝶主题动画（形态与约束见
+                    `run-progress-butterfly.tsx` 头注）；阶段行、文案、计时一个字没动。 */}
+                <RunProgressButterfly />
                 <span data-testid="copilotkit-v2-thinking-phase">
                   {runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")}
                 </span>
