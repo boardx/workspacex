@@ -208,6 +208,8 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
   it("系统异常：拖到已完成列不发请求（该边不存在）", async () => {
     mockInbox([exceptionItem()]);
     render(<DesignLoopInboxScreen state="default" />);
+    // issue #2752 ①——「全部」视图默认隐藏系统异常，测试显式打开开关切回可见。
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-done"), { dataTransfer: { getData: () => "e1" } });
     expect(screen.getByTestId("inbox-drag-error")).toBeTruthy();
@@ -219,6 +221,7 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
   it("系统异常：拖到进行中列 ⇒ PUT /system/error-logs/:id(已转入开发)", async () => {
     mockInbox([exceptionItem()]);
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "e1" } });
     await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
@@ -339,6 +342,7 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
       throw new Error("不该被调用");
     });
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
@@ -406,6 +410,7 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
       throw new Error("不该被调用");
     });
     render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
     await screen.findByTestId("inbox-drawer");
@@ -479,6 +484,105 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
     fireEvent.click(within(card).getByTestId("link-generated-B-1"));
     await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
     expect(new URL(window.location.href).searchParams.get("open")).toBe("d1");
+  });
+});
+
+/* ─────────────────────────── issue #2752：默认隐藏系统异常 + 处理默认方案 + hover 操作 ─────────────────────────── */
+
+describe("issue #2752 ①：「全部」视图默认隐藏系统异常，可切换查看", () => {
+  it("混合列表里，默认『全部』视图不渲染系统异常卡片；点开关后出现", async () => {
+    mockInbox([feedbackItem(), exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    expect(screen.queryByTestId("inbox-card-E-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("inbox-toggle-show-exceptions"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+
+  it("单独点『系统异常』筛选 chip 不受开关影响，照常可见", async () => {
+    mockInbox([exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-kind-exception"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+
+  it("全部条目都是系统异常时，展示专门的隐藏态提示，点『显示系统异常』切回", async () => {
+    mockInbox([exceptionItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    expect(await screen.findByTestId("empty-hidden-exceptions")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-empty-show-exceptions"));
+    expect(await screen.findByTestId("inbox-card-E-1")).toBeTruthy();
+  });
+});
+
+describe("issue #2752 ②：系统异常的「不做」理由预填默认模板", () => {
+  it("系统异常展开不做表单时理由框非空、可直接确认；反馈类仍是空白", async () => {
+    mockInbox([exceptionItem()], { exception: "included" });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    fireEvent.click(await screen.findByTestId("inbox-card-E-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-decline"));
+    const textarea = screen.getByTestId("inbox-decline-reason") as HTMLTextAreaElement;
+    expect(textarea.value.trim()).not.toBe("");
+    expect(screen.queryByTestId("err-reason")).toBeNull();
+    expect((screen.getByTestId("inbox-decline-confirm") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("反馈类展开不做表单时理由框仍是空白，需要手填", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-decline"));
+    const textarea = screen.getByTestId("inbox-decline-reason") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+  });
+});
+
+describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
+  it("看板卡片：待处理态菜单能一键『开始处理』，不用先点开详情", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-card-menu-start-B-1"));
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
+    expect(callsTo("/feedback/x1/status", "PUT")[0]![1]!.body!.status).toBe("已进入迭代");
+    // 菜单动作不应该顺带把 drawer 打开。
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("看板卡片：『关闭（不做）…』菜单项落点到 drawer 理由表单，不直接发请求", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-card-menu-close-B-1"));
+    expect(await screen.findByTestId("inbox-decline-form")).toBeTruthy();
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
+  });
+
+  it("设计方案卡片不渲染快捷菜单（没有对应源操作）", async () => {
+    mockInbox([
+      {
+        id: "d1", kind: "design", code: "D-1", title: "方案一", body: "方案正文",
+        structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
+        statusReason: null, severe: false, votes: 0, reporter: null,
+        createdAt: "2026-09-01T00:00:00.000Z", github: null, linkedFeedbackId: null,
+        resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+      },
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-D-1");
+    expect(screen.queryByTestId("inbox-card-menu-D-1")).toBeNull();
+  });
+
+  it("列表视图：行菜单同样能一键『开始处理』", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-view-list"));
+    fireEvent.pointerDown(await screen.findByTestId("inbox-row-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-row-menu-start-B-1"));
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
   });
 });
 
@@ -699,6 +803,8 @@ describe("⑪ B6.5 无障碍：看板拖拽的键盘替代 + 焦点管理", () =
       const item = edge.kind === "feedback" ? feedbackItem({ stage: edge.stage }) : exceptionItem({ stage: edge.stage });
       mockInbox([item]);
       render(<DesignLoopInboxScreen state="default" />);
+      // issue #2752 ①——「全部」视图默认隐藏系统异常，测试显式打开开关切回可见。
+      if (edge.kind === "exception") fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
       const card = await screen.findByTestId(`inbox-card-${item.code}`);
       fireEvent.keyDown(card, { key: "Enter" });
       const drawer = await screen.findByTestId("inbox-drawer");

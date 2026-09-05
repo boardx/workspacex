@@ -117,12 +117,15 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   但同一份原型的设计说明逐字写着「画布从议程进，不占一级」。这次以后者为准。
       // 束: design-workbench（PM 设计工作台）—— 2026-09-04 人类直接裁决：加入 STUDIO
       //   一级导航。它和「研究/访谈/问卷」同属「先设计、后接线」的产出型工具，人类希望
-      //   在 Studio 里一步直达，不必绕经「治理 → 平台后台」两跳。href 复用 `ADMIN_NAV`
-      //   （`lib/mock/admin.ts`）里 `design-workbench` 项的现行路由，不新开一条；
-      //   `AdminNav` 里的入口不下线（平台运维仍从后台管理它），STUDIO 这条只是新增的
-      //   第二个入口——不是去重场景（不同受众：Studio 面向单次设计动作，后台面向管理
-      //   全部设计项目列表），因此不适用本文件其余条目「同一事实只留一个入口」的先例。
-      { key: "design-workbench", label: "设计", href: "/platform-admin/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"] },
+      //   在 Studio 里一步直达，不必绕经「治理 → 平台后台」两跳。
+      //   ⚠ 2026-09-05 人类直接反馈（截图实测）：选中这一项时不该带出平台后台的
+      //   `AdminNav` 宽侧栏——Studio 面向单次设计动作，后台面向管理全部设计项目列表，
+      //   两者受众不同、不该共用同一套 chrome。href 改指向**独立路由** `/studio/design-workbench`
+      //   （`app/studio/design-workbench/page.tsx`，不套 `AdminNav`，复用同一个真栈组件
+      //   `DesignWorkbenchHome`）；`AdminNav` 里 `/platform-admin/design-workbench`
+      //   本身不下线，平台运维仍从后台管理它——STUDIO 这条是新增的独立入口，不是去重场景，
+      //   因此不适用本文件其余条目「同一事实只留一个入口」的先例。
+      { key: "design-workbench", label: "设计", href: "/studio/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {

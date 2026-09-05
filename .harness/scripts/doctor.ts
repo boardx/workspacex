@@ -499,7 +499,9 @@ export function fetchClosingPrs(
       `query($o:String!,$r:String!,$n:Int!${cursor === null ? "" : ",$c:String!"}){repository(owner:$o,name:$r){issue(number:$n){` +
       `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid} pageInfo{hasNextPage endCursor}}}}}`;
     const r = exec(
-      `gh api graphql -f query=${JSON.stringify(query)} -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}` +
+      // 查询串必须用**单引号**交给 bash：双引号会把 `$o/$r/$n` 展开成空串，gh 收到 `query(:String!…)`
+      // 直接 400（Expected VAR_SIGN），fetch 恒回 null → --strict 下每个 passing feature 都红（2026-09-05 实测）。
+      `gh api graphql -f query='${query}' -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}` +
         (cursor === null ? "" : ` -f c=${JSON.stringify(cursor)}`),
     );
     if (r.code !== 0) return null;
