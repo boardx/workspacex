@@ -565,9 +565,10 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
           project: project({
             chat: [
               { role: "user", text: "加个筛选", at: "2026-09-04T00:00:00.000Z" },
-              { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z" },
+              { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z", source: "fallback" },
             ],
           }),
+          reply: { source: "fallback", applied: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -578,8 +579,41 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.click(screen.getByTestId("design-detail-send"));
     await waitFor(() => expect(within(screen.getByTestId("design-detail-chat")).getByText("加个筛选")).toBeTruthy());
     expect(within(screen.getByTestId("design-detail-chat")).getByText(/更新原型画布/)).toBeTruthy();
+    // B5.2：退路如实标「固定回执」，没写回就没有「已更新」
+    expect(screen.getAllByTestId("design-detail-turn-fallback")).toHaveLength(1);
+    expect(screen.queryByTestId("design-detail-chat-applied")).toBeNull();
     // 发送成功后输入框清空。
     expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("B5.2 发消息：模型写回 criteria/frames ⇒ 右侧随返回的 project 更新，最后一条 AI 气泡下显示「已更新：…」，不挂固定回执标识", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return {
+          project: project({
+            criteria: ["导出成功率 ≥ 99%"],
+            frames: ["首页", "导出页"],
+            chat: [
+              { role: "user", text: "把成功率写进验收标准", at: "2026-09-04T00:00:00.000Z" },
+              { role: "ai", text: "加上了，画布也分成两页。", at: "2026-09-04T00:00:01.000Z", source: "model" },
+            ],
+          }),
+          reply: { source: "model", applied: ["criteria", "frames"] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "把成功率写进验收标准" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    const applied = await screen.findByTestId("design-detail-chat-applied");
+    expect(applied.textContent).toContain("验收标准");
+    expect(applied.textContent).toContain("画布页");
+    expect(applied.textContent).not.toContain("背景");
+    expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
+    expect(screen.getByTestId("design-detail-frame-1").textContent).toContain("导出页");
   });
 
   it("推送：调真实 pushToInbox，成功页两个出口读服务端返回的真实 inboxCode", async () => {

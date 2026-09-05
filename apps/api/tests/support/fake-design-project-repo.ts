@@ -68,6 +68,8 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       ...(patch.name !== undefined ? { name: patch.name } : {}),
       ...(patch.template !== undefined ? { template: patch.template } : {}),
       ...(patch.problem !== undefined ? { problem: patch.problem } : {}),
+      ...(patch.criteria !== undefined ? { criteria: [...patch.criteria] } : {}),
+      ...(patch.frames !== undefined ? { frames: [...patch.frames] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);

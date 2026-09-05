@@ -38,3 +38,39 @@ import { z } from "zod";
  */
 export const AiReplySource = z.enum(["model", "fallback"]);
 export type AiReplySource = z.infer<typeof AiReplySource>;
+
+/**
+ * B5.2：设计详情对话的回复**可写回**的项目字段。闭集三值——`problem`（背景）、`criteria`
+ * （验收标准）、`frames`（画布页标签文案；画布内容本身仍是占位块，B5.3 out of scope）。
+ * `name`/`template` 不在里面：那两个是 owner 在弹窗里定的身份信息，不该被一句对话改掉。
+ */
+export const DesignWritebackField = z.enum(["problem", "criteria", "frames"]);
+export type DesignWritebackField = z.infer<typeof DesignWritebackField>;
+
+/**
+ * B5.2：模型建议写回的形状——服务端只认能通过这份 `.strict()` 解析的字段，逐字段判：
+ * 某个字段不合法 ⇒ 只丢那个字段，其余合法字段照写（`applied` 如实列出真的写了哪些）。
+ * 边界与 `DesignProject` 同源：`problem` ≤ 4000；数组每项非空 ≤ 200、至少 1 项、至多 20 项
+ * （空数组会把验收标准/画布页清空——一句对话不该有这个权力）。
+ */
+export const DesignChatWriteback = z
+  .object({
+    problem: z.string().min(1).max(4000).optional(),
+    criteria: z.array(z.string().min(1).max(200)).min(1).max(20).optional(),
+    frames: z.array(z.string().min(1).max(200)).min(1).max(20).optional(),
+  })
+  .strict();
+export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;
+
+/**
+ * B5.2：`appendProjectChat.out.reply`——这一轮 AI 回复的来源 + 真的写回了哪些字段。
+ * 与其把「建议」返回给用户再点一次确认，这里选**直接写回 + 如实回报**：理由见
+ * `design-workbench.ts` `appendProjectChat` 头注。
+ */
+export const DesignChatReply = z
+  .object({
+    source: AiReplySource,
+    applied: z.array(DesignWritebackField),
+  })
+  .strict();
+export type DesignChatReply = z.infer<typeof DesignChatReply>;

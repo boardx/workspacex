@@ -12,8 +12,16 @@ import {
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
   type DesignProject,
+  type DesignWritebackField,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
+
+/** B5.2：`reply.applied` 的展示文案——键集合来自契约枚举，不另抄一份。 */
+const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
+  problem: "背景",
+  criteria: "验收标准",
+  frames: "画布页",
+};
 
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
   mobile: "移动端设计",
@@ -47,7 +55,10 @@ type Load =
  *     见 `lib/live-design-workbench.ts` 文件头。找不到这条 id（已删除/属于另一组织）时
  *     渲染既有的「找不到这个设计项目」态，不是把它当网络失败处理。
  *   · **对话面板发消息是真实 `appendProjectChat` 往返**：发送后用服务端返回的
- *     `project.chat`（用户消息 + 固定回执两条一起写入，见契约 D7）整体替换本地 `chat`，
+ *     `project.chat`（用户消息 + AI 回复两条一起写入；UC-17.8 B5.2 起回复由模型生成、
+ *     模型不可用时退回固定回执并标 `source: "fallback"`）整体替换本地 `chat`，
+ *     `reply.applied` 非空时在最后一条 AI 气泡下显示「已更新：…」（模型写回了 `problem`/
+ *     `criteria`/`frames`，右侧说明页/画布标签随返回的 `project` 一起变），
  *     不本地拼接乐观消息——服务端在同一次调用里原子写两条，本地拼接容易和它对不上
  *     （比如失败重试会拼出重复的用户消息）。发送中禁用输入框，失败恢复文本框内容
  *     以便重试，不清空用户刚打的字。
@@ -72,6 +83,8 @@ export function DesignDetailScreen({
   const [text, setText] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
+  /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
+  const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
@@ -142,8 +155,9 @@ export function DesignDetailScreen({
     setSending(true);
     setChatError(null);
     try {
-      const { project: updated } = await apiAppendProjectChat(project.id, value);
+      const { project: updated, reply } = await apiAppendProjectChat(project.id, value);
       setLoad({ kind: "ready", project: updated });
+      setLastApplied(reply.applied);
       setText("");
     } catch (err) {
       setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
@@ -202,12 +216,25 @@ export function DesignDetailScreen({
             {project.chat.map((turn, i) => (
               <div
                 key={i}
+                data-testid={`design-detail-turn-${turn.role}`}
                 className={cn(
                   "max-w-[90%] rounded-card px-2.5 py-1.5 text-12",
                   turn.role === "user" ? "self-end bg-primary text-primary-foreground" : "self-start bg-card text-card-foreground",
                 )}
               >
                 {turn.text}
+                {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
+                {turn.role === "ai" && turn.source === "fallback" && (
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-fallback">
+                    固定回执
+                  </span>
+                )}
+                {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
+                {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (
+                  <div className="mt-1 text-10 text-muted-foreground" data-testid="design-detail-chat-applied">
+                    已更新：{lastApplied.map((f) => WRITEBACK_LABEL[f]).join(" / ")}
+                  </div>
+                )}
               </div>
             ))}
           </div>

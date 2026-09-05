@@ -18,6 +18,17 @@ import {
 import { toOrgId } from "../../src/domain/org-id";
 import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
 import { designWorkbench as C } from "@repo/contracts";
+import type { DesignChatContext, DesignChatModel, DesignChatReplyResult } from "../../src/application/design-workbench/design-chat-model";
+
+/** B5.2：`DesignChatModel` 的内存 fake——默认退回固定回执（fallback），记录看到的上下文。 */
+class FakeDesignChat implements DesignChatModel {
+  readonly calls: DesignChatContext[] = [];
+  answer: DesignChatReplyResult = { text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} };
+  async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
+    this.calls.push({ ...ctx, chat: [...ctx.chat] });
+    return this.answer;
+  }
+}
 
 function deps(projects: FakeDesignProjectRepo = new FakeDesignProjectRepo()): DesignProjectDeps {
   return {
@@ -115,22 +126,56 @@ describe("updateProject", () => {
 });
 
 describe("appendProjectChat", () => {
-  it("一次调用追加用户消息 + 固定回执两条", async () => {
+  it("模型退路：一次调用追加用户消息 + 固定回执两条，AI 记录标 source=fallback，不写回", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const ai = new FakeDesignChat();
 
-    const out = await appendProjectChat(deps(repo), { projectId: "dp-1", ownerId: "u-1", text: "改一下颜色" });
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "改一下颜色" });
     expect(out.project.chat).toHaveLength(2);
     expect(out.project.chat[0]).toMatchObject({ role: "user", text: "改一下颜色" });
-    expect(out.project.chat[1]).toMatchObject({ role: "ai", text: C.DESIGN_WORKBENCH_CHAT_REPLY });
+    expect(out.project.chat[0]).not.toHaveProperty("source");
+    expect(out.project.chat[1]).toMatchObject({ role: "ai", text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback" });
+    expect(out.reply).toEqual({ source: "fallback", applied: [] });
   });
 
-  it("非 owner ⇒ DesignProjectNotOwnerError", async () => {
+  it("B5.2 模型在：回复来自模型；合法 writeback 直接写回 problem/criteria/frames，applied 如实；返回的是写回后的项目", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "导出改版", problem: "旧背景" }));
+    await appendProjectChat({ ...deps(repo), ai: new FakeDesignChat() }, { projectId: "dp-1", ownerId: "u-1", text: "第一句" });
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "好，验收标准加了导出成功率一条。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"], problem: "新背景" } };
+
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "把导出成功率写进验收标准" });
+    expect(out.reply).toEqual({ source: "model", applied: ["problem", "criteria"] });
+    expect(out.project.problem).toBe("新背景");
+    expect(out.project.criteria).toEqual(["导出成功率 ≥ 99%"]);
+    expect(out.project.frames).toEqual(designProjectRow({ id: "x", ownerId: "u-1" }).frames); // 没写回的不动
+    expect(out.project.chat.at(-1)).toMatchObject({ role: "ai", text: "好，验收标准加了导出成功率一条。", source: "model" });
+    // 模型看到的是本项目五个字段 + 本项目完整历史（含这次用户消息在末尾）
+    const ctx = ai.calls[0];
+    expect(ctx).toMatchObject({ name: "导出改版", problem: "旧背景" });
+    expect(ctx?.chat.map((c) => c.text)).toEqual(["第一句", C.DESIGN_WORKBENCH_CHAT_REPLY, "把导出成功率写进验收标准"]);
+  });
+
+  it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1" }));
+    await appendProjectChat({ ...deps(repo), ai: new FakeDesignChat() }, { projectId: "dp-2", ownerId: "u-1", text: "dp-2 的话" });
+    const ai = new FakeDesignChat();
+    await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "dp-1 的话" });
+    expect(ai.calls[0]?.chat.map((c) => c.text)).toEqual(["dp-1 的话"]);
+  });
+
+  it("非 owner ⇒ DesignProjectNotOwnerError，且不调模型", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const ai = new FakeDesignChat();
     await expect(
-      appendProjectChat(deps(repo), { projectId: "dp-1", ownerId: "u-2", text: "x" }),
+      appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-2", text: "x" }),
     ).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    expect(ai.calls).toHaveLength(0);
   });
 });
 

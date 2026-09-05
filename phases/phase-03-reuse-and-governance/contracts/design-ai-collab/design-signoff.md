@@ -18,8 +18,8 @@ covers: [B5.1, B5.2]
 
 ## ⚠ 实现先行、等人类签核——如实写在这里
 
-同 `feedback-loop` / `design-workbench` 两束的先例：B5.1（PR 见 backlog §0.4）与 B5.2
-的实现与本目录的五件材料在**同一个 PR 里**一起交付，`status` 保持 `pending`，
+同 `feedback-loop` / `design-workbench` 两束的先例：B5.1 / B5.2（两个 PR，见 backlog §0.4）
+的实现与本目录的五件材料一起交付，`status` 保持 `pending`，
 由人类签核后才允许把 B5.x 标 `passing`。ADR-023 的顺序（先签后做）在这一束上再次被打破——
 原因是 D7 裁决（2026-09-02）把 AI 项后置成本束时，两块对话面板的固定回执版本已经上线，
 本束改的是**同两块面板的数据流**，材料对着已跑起来的代码写，比对着尚未存在的代码写更真。
@@ -40,7 +40,8 @@ covers: [B5.1, B5.2]
 
 布局、`data-testid`、七态全部不变；**变的只有气泡里的文字**。两处各新增一个小标识：
 AI 记录 `source: "fallback"` 时显示「固定回执」（B5.1 `draft-refine-turn-fallback`；
-B5.2 见 PR 二），B5.2 回复写回了字段时在气泡下方显示「已更新：验收标准 / 背景 / 画布页」。
+B5.2 `design-detail-turn-fallback`），B5.2 回复写回了字段时在最后一条 AI 气泡下显示
+「已更新：验收标准 / 背景 / 画布页」（`design-detail-chat-applied`）。
 截图沿用两个既有束的材料（复制进本束独占目录，见 [ui.md](./ui.md) 头注），**没有为
 新标识重拍**——标识是一行 10px 的 token 化文字，不改变屏的判断；签核时若认为需要看到
 它，`⚠ 未产出` 条目在 `ui.md` 里点名。

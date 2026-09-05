@@ -52,6 +52,13 @@ import {
   type DesignProjectDeps,
 } from "../../application/design-workbench/project-shared";
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
+import {
+  FEEDBACK_STRUCTURE_MODEL_CONFIG,
+  type FeedbackStructureModelConfig,
+} from "../../application/feedback/structure-feedback-draft";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { ModelDesignChatReplier } from "../../application/design-workbench/design-chat-model";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -81,7 +88,20 @@ export class DesignWorkbenchController {
   constructor(
     @Inject(DESIGN_PROJECT_REPOSITORY) private readonly projects: DesignProjectRepositoryFactory,
     @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
+    // UC-17.8 B5.2：对话回复用的模型端口——同 `feedback.controller.ts` 草稿那条链的同一个
+    // `ModelCallPort` + 同一份 `FEEDBACK_STRUCTURE_MODEL_CONFIG`，不另配。
+    @Inject(MODEL_CALL_PORT) private readonly modelCall: ModelCallPort,
+    @Inject(FEEDBACK_STRUCTURE_MODEL_CONFIG) private readonly chatModel: FeedbackStructureModelConfig,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
+
+  private designChat(): ModelDesignChatReplier {
+    return new ModelDesignChatReplier({
+      model: this.modelCall,
+      chatModel: this.chatModel,
+      log: (message, detail) => this.logger.info(message, { ...detail, traceId: "design-workbench-chat" }),
+    });
+  }
 
   private deps(principal: Principal): DesignProjectDeps {
     return {
@@ -149,7 +169,10 @@ export class DesignWorkbenchController {
   ) {
     assertPrincipal(principal);
     try {
-      return await appendProjectChat(this.deps(principal), { projectId, ownerId: principal.userId, text: body.text });
+      return await appendProjectChat(
+        { ...this.deps(principal), ai: this.designChat() },
+        { projectId, ownerId: principal.userId, text: body.text },
+      );
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }
