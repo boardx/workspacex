@@ -2,7 +2,7 @@
  * UC-17.8 B4.3 —— 六个设计项目用例的正反例，全部用内存 fake（同
  * `tests/feedback/draft-lifecycle.test.ts` 的写法），不碰真实数据库。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createProject } from "../../src/application/design-workbench/create-project";
 import { listMyProjects } from "../../src/application/design-workbench/list-my-projects";
 import { updateProject } from "../../src/application/design-workbench/update-project";
@@ -323,5 +323,63 @@ describe("pushToInbox", () => {
     await expect(
       pushToInbox(deps(), { projectId: "dp-missing", ownerId: "u-1" }),
     ).rejects.toBeInstanceOf(DesignProjectNotFoundError);
+  });
+});
+
+/* ── UC-17.8 B6.4 可观测性：推送事务一条结构化日志（fake logger 断言字段存在） ── */
+describe("pushToInbox 可观测性（B6.4）", () => {
+  function fields(logger: { info: ReturnType<typeof vi.fn> }, nth = 0): Record<string, unknown> {
+    const [msg, f] = logger.info.mock.calls[nth] as [string, Record<string, unknown>];
+    expect(msg).toBe("design-workbench: pushToInbox");
+    return f;
+  }
+
+  it("首次推送：projectId / ownerId / resolvedFeedback / repeatPush=false / inboxCode / 耗时 / traceId", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", linkedFeedbackId: "fb-1" }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+
+    await pushToInbox({ ...deps(repo), logger, traceId: "trace-push" }, { projectId: "dp-1", ownerId: "u-1", note: "给工程看看" });
+
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    const f = fields(logger);
+    expect(f).toMatchObject({
+      traceId: "trace-push",
+      orgId: "org-1",
+      projectId: "dp-1",
+      ownerId: "u-1",
+      repeatPush: false,
+      linkedFeedback: true,
+      resolvedFeedback: true,
+      notePresent: true,
+      inboxCode: "D-1",
+    });
+    expect(typeof f.transactionMs).toBe("number");
+    expect(typeof f.durationMs).toBe("number");
+    // 不记 note 正文 / 项目名
+    expect(JSON.stringify(f)).not.toContain("给工程看看");
+  });
+
+  it("重复推送（upsert 命中）⇒ repeatPush=true；无来源反馈 ⇒ linkedFeedback=false、resolvedFeedback=false", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", linkedFeedbackId: null }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const d = { ...deps(repo), logger };
+
+    await pushToInbox(d, { projectId: "dp-1", ownerId: "u-1" });
+    await pushToInbox(d, { projectId: "dp-1", ownerId: "u-1", note: "第二次" });
+
+    expect(fields(logger, 0)).toMatchObject({ repeatPush: false, linkedFeedback: false, resolvedFeedback: false, notePresent: false });
+    expect(fields(logger, 1)).toMatchObject({ repeatPush: true, notePresent: true, inboxCode: "D-1" });
+  });
+
+  it("非 owner / 不存在 ⇒ 抛错且不记 info（失败路径由 AllExceptionsFilter 按 traceId 记）", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));
+    const logger = { info: vi.fn(), error: vi.fn() };
+    await expect(pushToInbox({ ...deps(repo), logger }, { projectId: "dp-1", ownerId: "u-2" })).rejects.toBeInstanceOf(
+      DesignProjectNotOwnerError,
+    );
+    expect(logger.info).not.toHaveBeenCalled();
   });
 });

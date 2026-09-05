@@ -2,7 +2,7 @@
  * UC-17.8 B3.2 —— `getInboxCounts`：一次查询出 byStage/byKind/total，不受过滤影响，
  * 同一份 `sources` 规则。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getInboxCounts } from "../../src/application/inbox/get-inbox-counts";
 import type { GetInboxCountsDeps } from "../../src/application/inbox/get-inbox-counts";
 import { InboxPermissionRevokedError } from "../../src/application/inbox/list-inbox";
@@ -144,5 +144,32 @@ describe("getInboxCounts 非超管 withheld", () => {
     const out = await getInboxCounts(deps([], [errorLogItem()]), admin);
     expect(out.sources.exception).toBe("included");
     expect(out.byKind.exception).toBe(1);
+  });
+});
+
+/* ── UC-17.8 B6.4 可观测性：与 listInbox 同一份聚合日志，只多 total ── */
+describe("getInboxCounts 可观测性（B6.4）", () => {
+  it("一条 info：op=getInboxCounts，三源行数 + 各源耗时 + withheld + total", async () => {
+    const logger = { info: vi.fn(), error: vi.fn() };
+    const out = await getInboxCounts(
+      { ...deps([feedbackRow({ id: "fb-1" })], undefined), logger, traceId: "trace-counts" },
+      { viewerId: "u-admin", viewerOrgRole: "admin", viewerTeamId: null },
+    );
+    expect(logger.info).toHaveBeenCalledTimes(1);
+    const [msg, fields] = logger.info.mock.calls[0] as [string, Record<string, unknown>];
+    expect(msg).toBe("inbox: getInboxCounts aggregation");
+    expect(fields).toMatchObject({
+      traceId: "trace-counts",
+      op: "getInboxCounts",
+      orgId: "org-1",
+      feedbackRows: 1,
+      exceptionRows: 0,
+      designRows: 0,
+      exceptionSource: "withheld",
+      exceptionCapHit: false,
+      total: out.total,
+    });
+    for (const k of ["feedbackMs", "exceptionMs", "designMs", "durationMs"]) expect(typeof fields[k], k).toBe("number");
+    expect(JSON.stringify(fields)).not.toContain("正文");
   });
 });

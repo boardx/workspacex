@@ -24,12 +24,19 @@
  * `INBOX_EXCEPTION_FETCH_CAP` 安全上限（见下）防止请求无界变慢。这与
  * `error_logs` 现有的分页设计（30 天留存、量级本来有界）相称；反馈一侧的
  * `listFeedback` 本来就不分页（"一周几十条"，见其文件头），这里原样复用。
+ *
+ * ## 这条取舍是**可观测的**（UC-17.8 B6.4）
+ *
+ * 上面那段"已知取舍"写下来的那天是真的，但它什么时候开始不成立（`error_logs` 量级涨到
+ * 撞 `INBOX_EXCEPTION_FETCH_CAP`、三源之一变慢）没有任何东西会报。三源拉取抽到
+ * `aggregate-inbox-sources.ts`，每次调用记一条结构化日志：各源行数、各源耗时、是否撞
+ * cap、`sources.exception` 是否 withheld、本次返回条数、有没有下一页——值班按 `msg` 筛
+ * 就能看到取舍的边界被碰到的时刻。日志不带正文/邮箱/搜索词原文（理由见那份文件头）。
  */
 import type { z } from "zod";
 import { inbox as C } from "@repo/contracts";
-import { listFeedback, type ListFeedbackDeps, type ListFeedbackInput } from "../feedback/list-feedback";
+import type { ListFeedbackDeps, ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
-import { loadOwnerNamesAndProject } from "../design-workbench/project-list-shared";
 import type { DesignProjectDeps } from "../design-workbench/project-shared";
 import {
   buildFeedbackInboxItems,
@@ -38,10 +45,10 @@ import {
   compareInboxDesc,
   decodeInboxCursor,
   encodeInboxCursor,
-  fetchAllExceptions,
   INBOX_EXCEPTION_FETCH_CAP,
   type InboxSortKey,
 } from "./inbox-projection";
+import { aggregateInboxSources, logInboxAggregation, type InboxObservabilityDeps } from "./aggregate-inbox-sources";
 
 export type InboxItemView = z.infer<typeof C.InboxItem>;
 export type InboxSourcesView = z.infer<typeof C.InboxSources>;
@@ -50,7 +57,7 @@ export { INBOX_EXCEPTION_FETCH_CAP };
 
 export class InboxPermissionRevokedError extends Error {}
 
-export interface ListInboxDeps {
+export interface ListInboxDeps extends InboxObservabilityDeps {
   readonly feedback: ListFeedbackDeps;
   /** `undefined` ⟺ 这次请求根本不该查系统异常那一半（不是超管）——见契约文件头
    *  「不报错，只是不含」；调用方（controller）按 `isPlatformOperator` 判定后决定传不传。 */
@@ -86,17 +93,8 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
   // `triageFeedback` 自己的 `canTriage` 把守，这里不复制那条规则。
   if (input.viewerOrgRole === null) throw new InboxPermissionRevokedError();
 
-  const sources: InboxSourcesView = { exception: deps.errorLog !== undefined ? "included" : "withheld" };
-
-  const feedbackItems = await listFeedback(deps.feedback, {
-    scope: { kind: "org" },
-    viewerId: input.viewerId,
-    viewerOrgRole: input.viewerOrgRole,
-    viewerTeamId: input.viewerTeamId,
-  });
-  const exceptionItems = deps.errorLog !== undefined ? await fetchAllExceptions(deps.errorLog) : [];
-  const designRows = await deps.design.projects.listForOrg();
-  const designItems = await loadOwnerNamesAndProject(deps.design, designRows);
+  const startedAt = Date.now();
+  const { feedbackItems, exceptionItems, designItems, sources, stats } = await aggregateInboxSources(deps, input);
 
   let all = [
     ...buildFeedbackInboxItems(feedbackItems),
@@ -125,6 +123,17 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
   const nextCursor = page.length === input.limit && windowed.length > input.limit
     ? encodeInboxCursor(page[page.length - 1]!.key)
     : null;
+
+  logInboxAggregation(deps, "listInbox", deps.design.orgId, stats, startedAt, {
+    returned: page.length,
+    matched: all.length,
+    hasNextCursor: nextCursor !== null,
+    cursorPresent: input.cursor !== undefined,
+    kind: input.kind ?? null,
+    stage: input.stage ?? null,
+    qPresent: input.q !== undefined && input.q.trim() !== "",
+    limit: input.limit,
+  });
 
   return { items: page.map((i) => i.item), nextCursor, sources };
 }

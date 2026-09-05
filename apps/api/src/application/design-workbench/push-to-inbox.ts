@@ -57,6 +57,15 @@
  *     没有 `notified` 返回值；契约 `pushToInbox.out` 不动。
  *   · **依赖可选**：`mail`/`logger`/`submitters` 任一缺席即不发（controller 三者都注入；单测按需
  *     注入 fake 断言"发了/没发"）。
+ *
+ * ## 这次事务是**可观测的**（UC-17.8 B6.4）
+ *
+ * 成功时记一条结构化 `info`（`deps.logger` 可选，见 `DesignProjectDeps`）：`projectId` /
+ * `ownerId` / 是否回写了反馈（仓储返回的 `resolvedFeedback`，与 `linkedFeedbackId` 非空但
+ * 反馈行已不在的情形区分开）/ 是否重复推送（upsert 命中：推送前 `pushed` 已为 true）/
+ * `inboxCode` / 耗时。`resolvedFeedback` 是布尔（仓储 B6.3 起回的引用对象里的标题/提交人不进日志）。
+ * **不记** `note` 正文与项目名。失败路径不在这里记——异常一路抛到
+ * `AllExceptionsFilter`，那里按同一个 `traceId` 落 `error_logs`。
  */
 import {
   DesignProjectNotFoundError,
@@ -73,12 +82,14 @@ export async function pushToInbox(
   deps: DesignProjectDeps,
   input: { readonly projectId: string; readonly ownerId: string; readonly note?: string },
 ): Promise<{ readonly project: DesignProjectView; readonly inboxCode: string }> {
+  const startedAt = Date.now();
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
 
   const result = await deps.projects.pushToInbox(input.projectId, input.ownerId, input.note);
   if (result === null) throw new DesignProjectNotOwnerError();
+  const pushedAt = Date.now();
 
   // `D-n`：同前缀（B/R/E 的既有先例）内按创建顺序赋号——只在已推送的行里算，
   // 同 `inbox-projection.ts` 的 `assignCodes`，这里不重新实现一份，只是本用例的返回值
@@ -94,6 +105,22 @@ export async function pushToInbox(
   }
 
   const names = await ownerNamesFor(deps, [result.project.ownerId]);
+
+  deps.logger?.info("design-workbench: pushToInbox", {
+    traceId: deps.traceId ?? "design-workbench-push",
+    orgId: deps.orgId,
+    projectId: result.project.id,
+    ownerId: input.ownerId,
+    repeatPush: current.pushed,
+    linkedFeedback: current.linkedFeedbackId !== null,
+    // B6.3 起仓储回的是 `{ id, submittedBy, title } | null`——日志只记"有没有首次回写"，不记标题/提交人。
+    resolvedFeedback: result.resolvedFeedback !== null,
+    notePresent: input.note !== undefined,
+    inboxCode,
+    transactionMs: pushedAt - startedAt,
+    durationMs: Date.now() - startedAt,
+  });
+
   return {
     project: projectDesignProject(result.project, names.get(result.project.ownerId) ?? null),
     inboxCode,
