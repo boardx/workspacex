@@ -72,7 +72,10 @@ describe("#2755 TS 侧投影用的是契约常量，不是手写字符串", () =
   it("deep-agent-model-provider.ts 从契约导入 KERNEL_INTERJECTION_CONFIGURABLE_KEY 并用它当键", () => {
     const provider = readSrc(PROVIDER_TS);
     expect(provider).toMatch(/import\s*\{\s*KERNEL_INTERJECTION_CONFIGURABLE_KEY\s*\}\s*from\s*"@repo\/contracts\/artifacts-steering"/);
-    // 两个分支（resume / 新建 run）都用计算属性名 `[KERNEL_INTERJECTION_CONFIGURABLE_KEY]`。
+    // 两个分支（resume / 新建 run）都用计算属性名 `[KERNEL_INTERJECTION_CONFIGURABLE_KEY]`
+    // ——issue #2768（PR #2777）把 resume 分支也改成显式 `config.configurable` 对象字面量
+    // （不再是"缺席就不带这个键"的整体门），issue #2767 在同一个对象字面量里追加
+    // `hitl_skill_names`，两次改动都没有改变这个键本身的写法。
     const uses = provider.match(/\[KERNEL_INTERJECTION_CONFIGURABLE_KEY\]:\s*input\.interjection/g) ?? [];
     expect(uses).toHaveLength(2);
     // 没有人把键名再手写一遍（注释里的 `configurable.interjection` 是文档，不是代码——

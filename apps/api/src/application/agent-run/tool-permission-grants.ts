@@ -10,6 +10,11 @@
  */
 import type { OrgId } from "../../domain/org-id";
 
+/** DI token -- issue #2767: `decideToolPermission`'s controller wiring (AG-UI resume
+ *  path) needs to inject the SAME store `AgentRunExecutor` uses for `hasGrant`, not a
+ *  second instance. */
+export const TOOL_PERMISSION_GRANT_STORE = Symbol("ToolPermissionGrantStore");
+
 export interface ToolPermissionGrantStore {
   /**
    * 该次 L2 工具调用是否已被授权——命中"以后都允许"（组织级）或"本次 run 内都允许"

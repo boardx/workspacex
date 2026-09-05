@@ -5,7 +5,6 @@ import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
 import {
   useAgent,
   useCopilotKit,
-  useHumanInTheLoop,
   UseAgentUpdate,
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
@@ -69,11 +68,12 @@ import {
 } from "@/components/chat/chat-composer-attachments";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
-import {
-  SendEmailApprovalDialog,
-  APPROVAL_TOOL_NAME,
-  approvalToolParameters,
-} from "@/components/chat/copilotkit-v2-approval-dialog";
+// issue #2767 -- 接入 F08 的 ToolPermissionCard，退役 `copilotkit-v2-approval-dialog.tsx`
+// 的 `SendEmailApprovalDialog`（该组件的非交互分支曾经对"根本没停下来等人"的调用也弹
+// 一个只读对话框，正是 devapp 实测报告的形态之一，见 `chat-host-tool-permission.tsx`
+// 文件头的完整取证）。同 `CopilotKitV2AgentInterrupts` 的既有先例——独立文件、`return
+// null`、直接挂进 JSX，不在这个已经很大的文件里再叠一段 `useHumanInTheLoop` 内联注册。
+import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permission";
 
 /** PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段的显示顺序与文案，唯一事实源。 */
 const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
@@ -971,27 +971,6 @@ export function CopilotKitV2PanelBody({
     return null;
   })();
 
-
-  // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
-  // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
-  // 不传 `agentId` 时 hook 默认绑定 provider 唯一的 `"default"` agent
-  // （agent-access.md "Duplicate tool name across hooks" 一节：多 agent 场景才需要
-  // 显式 `agentId` 隔离，本面板只有一个 agent）。
-  useHumanInTheLoop({
-    name: APPROVAL_TOOL_NAME,
-    description: "在真正执行这个技能之前，请人确认参数",
-    parameters: approvalToolParameters,
-    render: ({ toolCallId, status, args, respond }) => (
-      <SendEmailApprovalDialog
-        toolCallId={toolCallId}
-        statusLabel={status}
-        awaitingDecision={respond !== undefined}
-        args={args}
-        respond={respond}
-      />
-    ),
-  });
-
   /**
    * CK-P4（issue #2054）—— run 进度：已耗时 / 阶段文案 / 45s longrun 提示。
    * 逐维「v2 侧真的拿得到什么」的核实结论写在 `lib/copilotkit-v2-run-progress.ts`
@@ -1634,9 +1613,13 @@ export function CopilotKitV2PanelBody({
         <CopilotKitV2ToolRenderers />
         {/* issue #2179 —— F212/F213 三张 HITL 中断卡接入真实聊天渲染树。挂载位置/
             理由见该文件头注：与 `CopilotKitV2ToolRenderers` 同一条"渲染 null、
-            仅用于登记 hook"纪律，不需要跟下面的 `useHumanInTheLoop`（send_email）
-            挤进同一个组件。 */}
+            仅用于登记 hook"纪律，不需要跟 `call_skill` 的审批卡挤进同一个组件。 */}
         <CopilotKitV2AgentInterrupts />
+        {/* issue #2767 —— F08 ToolPermissionCard 接入，退役旧 `SendEmailApprovalDialog`
+            （`copilotkit-v2-approval-dialog.tsx`）。同上一行同一条纪律：独立文件、
+            渲染 null、仅用于登记 `useHumanInTheLoop(call_skill)` hook，见
+            `chat-host-tool-permission.tsx` 文件头的完整取证。 */}
+        <ChatHostToolPermission />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}

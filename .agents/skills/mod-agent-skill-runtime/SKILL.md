@@ -55,6 +55,21 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-05：把 `call_skill` 一刀切记成 L2 是把"调用 skill 这个动作"当成了风险
+  单位，真正的风险单位是**被调用的那个 skill**——分级判断要接住"目标是谁"，不能
+  只看"用了哪个工具"（`bash_exec`/三个具名虚拟工具确实是"工具本身即风险"，但
+  `call_skill` 是"工具是通用的，风险在参数指向的目标"，两种工具的分级哲学不一样，
+  别用同一套心智套所有工具）。修法：风险等级从"固定白名单"改成"按 skill 自身声明
+  查表"，网关算完再把结论（本次 run 里哪些 skill 是 L2）投影给内核的
+  `HumanInTheLoopMiddleware`——`InterruptOnConfig` 支持 per-call 的 `when` 谓词
+  （langchain 1.3.15 实测），键缺席时谓词要 fail-closed 成"照旧每次都问"，不能
+  假设"新键一定存在"（出处：issue #2767）。
+- 2026-09-05：`decide-tool-permission.ts`（F06 四选一）写完之后，从来没有任何
+  controller/路由真正调用过它，`PgToolPermissionGrantRepository` 也从没被注入
+  `AgentRunExecutor`——"业务逻辑写完 = 能用"是假的，DI 图上一个节点没连，整条能力
+  在生产里就是死码。加新用例后随手 `grep -rn <用例名> apps/api/src/interface` 确认
+  真的有路由消费它，比事后靠人类实测发现"这功能从来没跑起来过"便宜得多（出处：
+  issue #2767，`decideToolPermission`/`resumeAguiBridgeTurnToolPermission`）。
 - 2026-09-05：`DeepAgentModelProvider.createRun` 的 resume 分支（HITL 批准后续跑）此前只转发
   `command.resume`，从不转发 `config.configurable.org_skills`/`script_protocol`——而
   `call_skill` 的技能来源是**这次请求自己的** `configurable.org_skills`（`tools.py` 的

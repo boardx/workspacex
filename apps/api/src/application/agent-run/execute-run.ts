@@ -69,6 +69,7 @@ import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
 import { record } from "./record-run-step";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
+import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
@@ -660,6 +661,13 @@ async function executeClaimed(
   // needs the structured list, not just the flattened text already baked into `system`.
   let toolSkills: readonly PinnedSkillContent[] = [];
   /**
+   * issue #2767 —— 本次 run 挂载集合里每个 skill 的风险等级，供中断处理（`tool-
+   * permission-gate.ts`）与内核投影（下面的 `hitlSkillNames`）共用一份计算结果，
+   * 不重复解析两次 frontmatter。空数组是合法初值——`readPinnedSkills` 抛错时
+   * （见下面 `SKILL_VERSION_UNAVAILABLE`）这次 run 根本不会走到中断处理。
+   */
+  let skillRisks: readonly SkillRiskEntry[] = [];
+  /**
    * #1747 —— 这轮要不要把脚本执行协议作为结构化输入送给 provider。`undefined` = 不送。
    * 由下面那道**已有的**门赋值，与它给 `system` 追加协议文本用的是同一个条件。
    */
@@ -685,6 +693,8 @@ async function executeClaimed(
     // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
     // service now (#740), not as a second branch here.
     toolSkills = skills;
+    // issue #2767 -- 本次 run 挂载集合的风险等级，供中断处理与内核投影共用一份。
+    skillRisks = resolveSkillRiskLevels(skills);
     // #2534：此前这里还有一段 `readPlatformSkills`（#2515）把平台 skill 在执行期
     // 并进 `toolSkills`——与 #2519 的快照默认加载是同一件事的第二份实现，且绕过了
     // "agent 钉了 skill 就只用钉的"。现在"这次 run 用哪些 skill"只由快照
@@ -1148,6 +1158,13 @@ async function executeClaimed(
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
+        // issue #2767 -- 只有 deep-agent run 会真的经过 `call_skill`/interrupt_on，
+        // 非 deep-agent run 不填这个字段。`toolSkills.length === 0`（没挂任何
+        // skill）时同样不填——键缺席在内核侧是"每次都问"的保守默认（fail-closed，
+        // 与本 feature之前逐字相同，T2 锁：`deep-agent-produces-files.test.ts`）；
+        // 只要挂了至少一个 skill，就该投影真实计算结果（哪怕是空数组——"挂的全是
+        // L0/L1，一个都不用问"本身就是一个真实、该被投影的结论，不是"没算"）。
+        ...(isDeepAgentRun && toolSkills.length > 0 ? { hitlSkillNames: selectL2SkillNames(skillRisks) } : {}),
         // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
         // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
         ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
@@ -1212,7 +1229,7 @@ async function executeClaimed(
       // 一次调用（同 `execute-run-events.ts`/`record-run-step.ts` 的既有抽离理由）。
       await handleInterruptedToolCall(deps, orgId, run.runId, completion.interrupted, {
         seq: seqCursor.value, modelStartedAt, systemDigest, system,
-      });
+      }, skillRisks);
       return;
     }
     if (completion.text.trim() === "") {

@@ -91,6 +91,7 @@ import {
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 import type { kernelGateway as KG } from "@repo/contracts";
 import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
+import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "@repo/contracts/plan-permissions";
 
 import type {
   ModelCallCompletion,
@@ -801,7 +802,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 找不到时如实返回占位名（"unknown"），绝不编参数。 */
   private async readPendingApproval(
     baseUrl: string, threadId: string,
-  ): Promise<{ toolName: string; argsSummary: string | null }> {
+  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null }> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
     const answered = new Set<string>();
@@ -815,9 +816,19 @@ export class DeepAgentModelProvider implements ModelCallPort {
         const id = typeof call.id === "string" ? call.id : null;
         const name = typeof call.name === "string" ? call.name : null;
         if (id === null || name === null || answered.has(id)) continue;
+        // issue #2767 -- 直接从原始 args 对象读 `skill_stable_name`，不是从下面
+        // `argsSummary`（可能被截断的摘要文本）反解析。非 call_skill 的中断
+        // （三个具名虚拟工具）没有这个字段，`skillStableName` 保持 undefined。
+        const args = call.args;
+        const skillStableName = name === DEEP_AGENT_HITL_TOOL_NAME
+          && typeof args === "object" && args !== null && !Array.isArray(args)
+          && typeof (args as Record<string, unknown>).skill_stable_name === "string"
+          ? (args as Record<string, unknown>).skill_stable_name as string
+          : undefined;
         return {
           toolName: name,
           argsSummary: call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args), 4000),
+          ...(skillStableName === undefined ? {} : { skillStableName }),
         };
       }
     }
@@ -877,6 +888,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // block vs. "未知技能「pdf-create」" (see PR body for the two capture files).
           // `script_protocol` mirrors the SAME "resume is the next model call" fact the
           // NEW-run branch already sends; `org_skills` is the one this bug was about.
+          //
           // ⚠ 2026-09-05（#2776 遗留清理，与本 issue #2779 无关）：`ModelCallInput.
           // disableTaskAutoClassify`/`ClaimedAgentRun.disableTaskAutoClassify` 已随
           // "总是先计划"手动开关一起删除（composer: remove manual 任务模式/总是先计划
@@ -893,6 +905,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
               // ⚠ 缺席时这个键不出现，其余键（`org_skills` 等）逐字不受影响。
               ...(input.interjection === undefined ? {} : {
                 [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection,
+              }),
+              // issue #2767 -- resume 同样是这个 run 的"下一次内核调用"，`hitl_skill_names`
+              // 必须跟着投影，否则 resume 之后内核对 `call_skill` 又会退回"每次都
+              // interrupt"的 fail-closed 默认——L2 skill 经编辑/裁决后继续跑还用得上它。
+              // ⚠ 缺席时这个键不出现，同上面 `interjection` 的既有纪律。
+              ...(input.hitlSkillNames === undefined ? {} : {
+                [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames,
               }),
             },
           },
@@ -966,6 +985,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
             ...(input.interjection === undefined
               ? {}
               : { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection }),
+            /*
+             * issue #2767 —— 本次 run 挂载集合里等级为 L2 的 skill 名单，键名 = 契约
+             * `KERNEL_HITL_SKILLS_CONFIGURABLE_KEY`。`harness.py` 的
+             * `_call_skill_requires_hitl` 谓词读它决定要不要为这次 `call_skill`
+             * interrupt——键缺席时内核 fail-closed 成"每次都停"，所以这里**只有
+             * `execute-run.ts` 真算出了这个列表才投影**，不是无条件传空数组（空数组
+             * 与"没有 L2 skill"同义，但"没算过"与"算出来是空"是两件不同的事，前者
+             * 缺席更诚实）。
+             */
+            ...(input.hitlSkillNames === undefined
+              ? {}
+              : { [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames }),
             /*
              * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
              * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥

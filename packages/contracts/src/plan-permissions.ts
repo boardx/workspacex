@@ -120,6 +120,49 @@ export const StandingToolGrant = z.object({
 }).strict();
 export type StandingToolGrant = z.infer<typeof StandingToolGrant>;
 
+/* ── 三之二、`call_skill` 的风险按目标 skill 判定（#2767）──────────────── */
+
+/**
+ * #2767（devapp 实测：调用平台 skill `pdf-create` 弹「等待批准」）—— 把 `call_skill`
+ * 整体记成 L2 是把"调用 skill 这个动作"当成了风险单位；真正的风险单位是**被调用的那个
+ * skill**。本节只声明"skill 怎样宣告自己的等级"与"网关怎样把结论告诉内核"，等级枚举
+ * 本身仍是上面那一份 `ToolRiskLevel`（R5 表的三档语义，不另起第二份）。
+ *
+ * skill 的等级来源（网关 `apps/api` 的 `domain/agent-run/skill-risk-level.ts` 按此顺序判）：
+ * 1. 平台官方目录里的四个文档 skill（pptx/docx/xlsx/pdf-create）：目录规格里声明 `L0`——
+ *    它们只在不出网的沙箱里生成一个文件给用户下载；
+ * 2. `SKILL.md` YAML frontmatter 里的 `risk_level:`（本常量 `SKILL_RISK_FRONTMATTER_KEY`），
+ *    值必须是 `ToolRiskLevel` 之一，写错/不认识的值按"未声明"处理；
+ * 3. 都没有 ⇒ `SKILL_RISK_DEFAULT_LEVEL`。
+ *
+ * 缺省档为什么是 L1 而不是 L2：未声明的第三方 skill 今天的执行面与平台 skill 相同
+ * （一次独立子模型调用 + 不出网沙箱），按 R5 表 L1 = "默认自动执行，事件带完整入参"
+ * （I-3）。真有外发能力（发邮件、外部系统写入）的 skill 应显式声明 `risk_level: L2`。
+ * ⚠ 想要"未声明就先问一次"的保守策略，把这个常量改成 `"L2"` 即可（未授权的 L2 走
+ * `awaiting_tool_permission`，用户选「本 run 内都允许」后不再问）——一行改动，不需要
+ * 改任何判定逻辑。
+ */
+export const SKILL_RISK_FRONTMATTER_KEY = "risk_level";
+export const SKILL_RISK_DEFAULT_LEVEL: ToolRiskLevel = "L1";
+
+/**
+ * LangGraph `config.configurable` 里承载「本次 run 里哪些 skill 的 `call_skill` 需要在执行前
+ * interrupt」名单的键名——TS 网关（`deep-agent-model-provider.ts`）写、Python `harness.py`
+ * 的 `build_interrupt_on` 谓词读，唯一事实源在这里（同 `KERNEL_INTERJECTION_CONFIGURABLE_KEY`
+ * 的投影方式；`tests/plan-permissions/cross-lang-skill-hitl-parity.test.ts` 机械比对两侧）。
+ *
+ * 语义：
+ * - 键**缺席** ⇒ 内核对每一次 `call_skill` 都 interrupt（与本 feature 之前逐字相同，
+ *   fail-closed——老网关/没挂 skill 的 run 不会因为内核升级而少一次确认）；
+ * - 键存在 ⇒ 只有 `skill_stable_name` 在名单内的调用才 interrupt；名单可以为空数组
+ *   （本次挂载的 skill 全是 L0/L1）。
+ * 名单 = 本次 run 挂载集合里等级为 L2 的 skill 的 stableName；不在挂载集合里的名字
+ * 内核本来就执行不了（`call_skill` 回「未知技能」文本），不需要出现在名单里。
+ */
+export const KERNEL_HITL_SKILLS_CONFIGURABLE_KEY = "hitl_skill_names";
+export const KernelHitlSkillNames = z.array(z.string().min(1));
+export type KernelHitlSkillNames = z.infer<typeof KernelHitlSkillNames>;
+
 /* ── 四、操作 ──────────────────────────────────────────────────────────── */
 
 export const operations = {

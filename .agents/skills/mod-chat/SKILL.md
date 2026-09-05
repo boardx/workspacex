@@ -53,6 +53,19 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-05：`useHumanInTheLoop({name})` 的 `render` 回调本身不能直接用 hooks——
+  CopilotKit 把它当渲染函数调用，不保证是稳定的组件树位置；要用状态/effect（焦点
+  管理、a11y 播报）就把内容拆进一个真正的具名子组件（`render: (props) => <Foo
+  {...props} />`），`SendEmailApprovalDialog`/`ToolPermissionDialog`（`chat-host-
+  tool-permission.tsx`）都是这个形状。另外：`useHumanInTheLoop` 的注册本身也不需要
+  内联写在大文件里——独立成一个 `return null` 的小组件（`CopilotKitV2AgentInterrupts`
+  先例，本次加了 `ChatHostToolPermission`），`<Foo />` 挂进 JSX 即可，效果与内联调用
+  完全一样（出处：issue #2767，退役 `copilotkit-v2-approval-dialog.tsx`）。
+- 2026-09-05：一个 HITL 弹窗的"非交互分支"（`inProgress`/`complete` 态）如果也渲染
+  点什么（哪怕是只读文案），就有可能对"根本没有真的停下来等人"的调用弹出东西——
+  这正是 devapp 人类实测报告"调用 pdf-create 弹了审批"的直接前端症状之一。新弹窗
+  的原则改成非 `"executing"` 态一律 `return null`，不给"这个状态要不要也弹点什么"
+  这类判断留生长空间（出处：issue #2767）。
 - 2026-09-02：「最简单的消息也要等很久」的根因不在模型，在发消息链路上**串行**挂了一次
   每条消息都跑的起标题模型调用（`acceptHumanMessage` → `generateThreadTitle`，最多 3 秒，
   且在 `executor.kick` 之前）——结果只对首条消息有用，其余全被 `WHERE title = $默认名` 丢掉。

@@ -52,6 +52,10 @@ import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
 import {
   DOCX_CREATE_SKILL_MD, PDF_CREATE_SKILL_MD, PPTX_CREATE_SKILL_MD, XLSX_CREATE_SKILL_MD,
 } from "../../../scripts/office-docs-skill-content";
+// issue #2767 -- id/stableName/displayName 三个规格字段的唯一事实源下沉到 domain
+// 层（`skill-risk-level.ts` 判定 `call_skill` 风险要用到 riskLevel，domain 不得
+// import infrastructure）。这里反过来 import 它，只补上正文，不重复声明四个名字。
+import { PLATFORM_SKILL_CATALOG } from "../../domain/skill/platform-skill-catalog";
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -105,14 +109,24 @@ interface OfficialSkillSpec {
   readonly content: string;
 }
 
-/** 四个官方 skill 的定义——唯一事实源。id 写死，幂等靠"同一个 id 第二次
- *  `ON CONFLICT DO NOTHING`"。 */
-export const OFFICIAL_SKILLS: readonly OfficialSkillSpec[] = [
-  { skillId: "skill-platform-pptx-create", stableName: "pptx-create", displayName: "演示文稿生成", content: PPTX_CREATE_SKILL_MD },
-  { skillId: "skill-platform-docx-create", stableName: "docx-create", displayName: "Word 文档生成", content: DOCX_CREATE_SKILL_MD },
-  { skillId: "skill-platform-xlsx-create", stableName: "xlsx-create", displayName: "Excel 表格生成", content: XLSX_CREATE_SKILL_MD },
-  { skillId: "skill-platform-pdf-create", stableName: "pdf-create", displayName: "PDF 文档生成", content: PDF_CREATE_SKILL_MD },
-];
+/** 四个官方 skill 的正文，按 stableName 索引——id/stableName/displayName 三个
+ *  规格字段的唯一事实源已下沉到 `PLATFORM_SKILL_CATALOG`（domain 层），这里只补
+ *  正文，逐字节拼出与改动前完全相同的 `OFFICIAL_SKILLS`。 */
+const CONTENT_BY_STABLE_NAME: Readonly<Record<string, string>> = {
+  "pptx-create": PPTX_CREATE_SKILL_MD,
+  "docx-create": DOCX_CREATE_SKILL_MD,
+  "xlsx-create": XLSX_CREATE_SKILL_MD,
+  "pdf-create": PDF_CREATE_SKILL_MD,
+};
+
+/** 四个官方 skill 的定义——唯一事实源（规格部分见 `PLATFORM_SKILL_CATALOG`）。
+ *  id 写死，幂等靠"同一个 id 第二次 `ON CONFLICT DO NOTHING`"。 */
+export const OFFICIAL_SKILLS: readonly OfficialSkillSpec[] = PLATFORM_SKILL_CATALOG.map((spec) => ({
+  skillId: spec.skillId,
+  stableName: spec.stableName,
+  displayName: spec.displayName,
+  content: CONTENT_BY_STABLE_NAME[spec.stableName]!,
+}));
 
 export interface PlatformSkillsBackfillReport {
   readonly created: readonly string[];

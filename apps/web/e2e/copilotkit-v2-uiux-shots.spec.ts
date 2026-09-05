@@ -116,18 +116,17 @@ test("错误横幅：真实失败链路下的视觉层级截图", async ({ page 
   await page.screenshot({ path: resolve(OUT, "error-banner.png"), fullPage: true });
 });
 
-test("HITL 审批弹窗：等待裁决态截图", async ({ page }) => {
+test("工具权限确认弹层：等待裁决态截图（issue #2767 起为 F08 ToolPermissionCard 四选一）", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  const dialog = page.getByTestId("copilotkit-v2-hitl-dialog");
+  const dialog = page.getByTestId("chat-tool-permission-dialog");
   await expect(dialog).toBeVisible({ timeout: 60_000 });
-  await expect
-    .poll(async () => await dialog.getAttribute("data-hitl-status"), { timeout: 60_000 })
-    .toBe("executing");
+  // 四个决策按钮都渲染出来才算真的到了"等待裁决"这一态，不是流式组装中途的截图。
+  await expect(page.getByTestId("perm-deny")).toBeVisible({ timeout: 60_000 });
   await page.screenshot({ path: resolve(OUT, "hitl-dialog.png"), fullPage: true });
   // 收尾：拒绝，让 run 干净结束，不留挂起的审批。
-  await page.getByTestId("copilotkit-v2-hitl-reject").click();
+  await page.getByTestId("perm-deny").click();
 });

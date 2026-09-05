@@ -13,7 +13,7 @@
  * （只给已建原型补测试）。
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ToolPermissionCard } from "@/components/agent-kernel/agent-kernel-units";
 import { MOCK_PERMISSION_REQUEST } from "@/lib/mock/agent-kernel";
 
@@ -62,5 +62,49 @@ describe("ToolPermissionCard 四档决策：仅本次 / 本 run 内 / 以后都�
     expect(screen.getByTestId("saved")).toHaveTextContent("已拒绝");
     expect(screen.getByTestId("perm-intent")).toHaveTextContent(MOCK_PERMISSION_REQUEST.intent);
     expect(screen.getByTestId("perm-command")).toHaveTextContent(MOCK_PERMISSION_REQUEST.command);
+  });
+
+  it("影响范围有独立锚点 perm-affects（issue #2767，TW-P0-6② 记录过的差距）", () => {
+    render(<ToolPermissionCard />);
+    expect(screen.getByTestId("perm-affects")).toHaveTextContent(MOCK_PERMISSION_REQUEST.affects);
+  });
+});
+
+describe("issue #2767 -- ToolPermissionCard 受控化：/chat 宿主接线所需的 request/decided/onDecide", () => {
+  const REQUEST = {
+    risk: "L2" as const,
+    intent: "调用技能：pdf-create",
+    rationale: "这个技能被判定为高风险操作，需要你确认后才会执行。",
+    command: JSON.stringify({ skill_stable_name: "pdf-create", task: "生成 PDF" }, null, 2),
+    affects: "具体影响范围由该技能自行决定；批准前不会执行任何操作。",
+  };
+
+  it("传入 request 时展示真实数据，不是 mock", () => {
+    render(<ToolPermissionCard request={REQUEST} />);
+    expect(screen.getByTestId("perm-intent")).toHaveTextContent(REQUEST.intent);
+    expect(screen.getByTestId("perm-command")).toHaveTextContent("pdf-create");
+  });
+
+  it("点击决策按钮时调用 onDecide 而不是自己管理内部 state（宿主受控）", () => {
+    const onDecide = vi.fn();
+    render(<ToolPermissionCard request={REQUEST} decided={null} onDecide={onDecide} />);
+    fireEvent.click(screen.getByTestId("perm-once"));
+    expect(onDecide).toHaveBeenCalledTimes(1);
+    expect(onDecide).toHaveBeenCalledWith("once");
+    // 受控态：`decided` 仍是 null（宿主还没重渲染），组件自己不应该冒出 "saved" 文案。
+    expect(screen.queryByTestId("saved")).not.toBeInTheDocument();
+  });
+
+  it("onDecide 里 always 按钮同样传 \"always\"（契约层面的 forever 由宿主自己翻译，不是组件的职责）", () => {
+    const onDecide = vi.fn();
+    render(<ToolPermissionCard request={REQUEST} decided={null} onDecide={onDecide} />);
+    fireEvent.click(screen.getByTestId("perm-always"));
+    expect(onDecide).toHaveBeenCalledTimes(1);
+    expect(onDecide).toHaveBeenCalledWith("always");
+  });
+
+  it("decided 非 null 时按受控值展示收尾文案，即使用户还没点过按钮", () => {
+    render(<ToolPermissionCard request={REQUEST} decided="run" />);
+    expect(screen.getByTestId("saved")).toHaveTextContent("本次 run 内同类操作将不再打断你");
   });
 });

@@ -45,6 +45,7 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "../../applicatio
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
+import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
@@ -129,6 +130,18 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 但落库行为与本次改动之前逐字节相同。
      */
     private readonly events?: RunEventBusPort,
+    /**
+     * issue #2767 —— F06 三档工具权限授权存储（`StandingToolGrant`，
+     * `packages/contracts/src/plan-permissions.ts`）。**此前从未被注入到这里**：
+     * `decide-tool-permission.ts` 落的"本次 run 内都允许 / 以后都允许"授权记录
+     * 因此从未被生产的中断判定读到过——`tool-permission-gate.ts` 的 `hasGrant`
+     * 因为这个可选依赖缺省 `undefined` 而恒为 `false`，每次 L2 工具调用都停下来
+     * 问，即使用户刚刚选过"以后都允许"。可选，与上面每一个同一条既有理由：既有
+     * 构造点（这个类现有的全部测试）不必都改，生产合成（`kernel.module.ts`）必定
+     * 注入 `PgToolPermissionGrantRepository`。不注入 ⇒ 行为与本次改动之前逐字节
+     * 相同（恒问，同既有测试默认预期一致）。
+     */
+    private readonly toolPermissionGrants?: ToolPermissionGrantStore,
   ) {}
 
   /**
@@ -170,6 +183,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       sandbox: this.sandbox, objects: this.objects,
       planLedger: this.planLedger,
       events: this.events,
+      toolPermissionGrants: this.toolPermissionGrants,
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },

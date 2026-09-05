@@ -40,7 +40,11 @@ export const AGENT_KERNEL_UNITS: readonly AgentKernelUnitMeta[] = [
 ];
 
 // ── 01 计划确认卡片 ────────────────────────────────────────────────
-export type TodoRisk = "L0" | "L1" | "L2";
+// issue #2767 -- 单一事实源搬到 `lib/agent-kernel-risk.ts`（见该文件头注），本名字
+// 原样重新导出（且本文件内部的类型标注也要用到它，所以额外正常导入一次），既有
+// import 路径与既定行为不变。
+import type { ToolRiskLevel as TodoRisk } from "@/lib/agent-kernel-risk";
+export type { ToolRiskLevel as TodoRisk } from "@/lib/agent-kernel-risk";
 
 export interface PlanTodo {
   readonly id: string;
@@ -60,11 +64,10 @@ export const MOCK_PLAN_TODOS: readonly PlanTodo[] = [
   { id: "t6", content: "把报告上传到组织共享盘 /shared/finance/", risk: "L2", dependsOn: "t4" },
 ];
 
-export const RISK_LABEL: Record<TodoRisk, { text: string; hint: string }> = {
-  L0: { text: "只读", hint: "无副作用，自动执行" },
-  L1: { text: "可撤销", hint: "写/改文件，有版本历史可回滚，自动执行但带 diff" },
-  L2: { text: "高风险", hint: "不可逆或外发，执行前需你确认" },
-};
+// issue #2767 -- 单一事实源搬到 `lib/agent-kernel-risk.ts`（原因见该文件头注：
+// `/chat` 宿主要复用同一份风险文案，但不能经过这个 mock 文件）。原样重新导出，
+// 既有 import 路径与既定行为不变。
+export { RISK_LABEL } from "@/lib/agent-kernel-risk";
 
 // ── 02 执行进度流 ──────────────────────────────────────────────────
 export type StepStatus = "done" | "running" | "queued" | "error";

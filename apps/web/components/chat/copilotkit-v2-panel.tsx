@@ -120,15 +120,18 @@ import { CopilotKitV2PanelBody } from "@/components/chat/copilotkit-v2-panel-bod
  * 两个工具的进行中/完成态换成贴合各自数据形状的定制卡片，其余工具走框架内置默认卡片。
  * 完整设计取舍（三态映射、协议本身不携带失败布尔信号的诚实记录）见该文件头注。
  *
- * ── DA-19d 人在环（issue #1987，backlog DA-19d，框架版 Gap 3）─────────────────
+ * ── DA-19d 人在环（issue #1987，backlog DA-19d，框架版 Gap 3；2026-09 起见下方 issue #2767）─
  *
- * `useHumanInTheLoop`（下方"DA-19d 人在环接线"一节）的 `render` 渲染件
- * `SendEmailApprovalDialog`、`APPROVAL_TOOL_NAME`/`approvalToolParameters` 两个
- * 工具标识、以及完整的设计取舍记录（HITL 语义为什么曾经卡在 DA-19g 修复前的后端
- * 缺口、`resumeAguiBridgeTurn` 如何把裁决路由回被打断的 run）现在都在
- * `copilotkit-v2-approval-dialog.tsx`（2026-08-30 文件规模拆分搬出，逐字节未改
- * 行为）——该组件只消费 props、不闭包依赖本文件的状态，是天然可独立的一块。
- * 本文件只保留接线（下方 `useHumanInTheLoop({ name: APPROVAL_TOOL_NAME, ... })`）。
+ * `useHumanInTheLoop` 的 `call_skill` 注册曾经在 `copilotkit-v2-approval-dialog.tsx`
+ * 的 `SendEmailApprovalDialog`（`APPROVAL_TOOL_NAME`/`approvalToolParameters`，
+ * 2026-08-30 文件规模拆分搬出）——HITL 语义为什么曾经卡在 DA-19g 修复前的后端缺口、
+ * `resumeAguiBridgeTurn` 如何把裁决路由回被打断的 run，完整记录仍在该组件的 git 历史
+ * 里（issue #2017/#1996/#2075 一系列 a11y 修复）。issue #2767（devapp 实测：调用平台
+ * skill 不该弹审批）把它整个退役：F08 签核的四选一 `ToolPermissionCard` 取代了它，
+ * 接线搬到独立文件 `chat-host-tool-permission.tsx`（`ChatHostToolPermission`，同
+ * `CopilotKitV2AgentInterrupts` 的既有先例，`copilotkit-v2-panel-body.tsx` 里
+ * `<ChatHostToolPermission />` 一行挂载），本文件（`copilotkit-v2-panel.tsx`）从未
+ * 直接持有这段接线，不受影响。
  *
  * ── chat-parity-attachments（issue #2022，差距清单第 2 项，阻断级）────────────────
  *

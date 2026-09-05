@@ -613,16 +613,74 @@ def test_hitl_resume_edit_uses_edited_args(monkeypatch):
 
 def test_hitl_on_by_default_with_fixed_tool_set():
     """Phase 14 F02（R6）：`DEEP_AGENT_HITL_TOOLS` 这个灰度开关已移除，
-    `build_interrupt_on()` 现在无条件返回固定的四工具清单，不再受环境变量影响。"""
+    `build_interrupt_on()` 现在无条件返回固定的四工具清单，不再受环境变量影响。
+
+    issue #2767：`call_skill` 这一项从 2026-09 起不再是裸 `True`——它按目标 skill
+    的风险等级决定要不要 interrupt（见 `_call_skill_requires_hitl`），所以这里只
+    断言另外三个具名虚拟工具仍是无条件 `True`，`call_skill` 单独断言其形状（下面
+    `test_call_skill_interrupt_on_is_conditional_by_skill` 断言其真实行为）。"""
     from deep_agent_service.harness import DEFAULT_HITL_TOOL_NAMES, build_interrupt_on
 
-    assert build_interrupt_on() == {name: True for name in DEFAULT_HITL_TOOL_NAMES}
+    result = build_interrupt_on()
     assert DEFAULT_HITL_TOOL_NAMES == (
         "call_skill",
         "confirm_task_intent",
         "fill_run_params",
         "choose_execution_option",
     )
+    for name in DEFAULT_HITL_TOOL_NAMES:
+        if name == "call_skill":
+            continue
+        assert result[name] is True, f"{name} 应仍是无条件 True"
+    assert result["call_skill"] is not True, "call_skill 应已改为带 when 谓词的 InterruptOnConfig"
+    assert callable(result["call_skill"]["when"])
+    assert result["call_skill"]["allowed_decisions"] == ["approve", "edit", "reject", "respond"], (
+        "allowed_decisions 必须与库对 `True` 的默认展开逐字相同，只是要素显式写出——"
+        "否则四选一裁决的可用决策集会在这一项工具上悄悄收窄"
+    )
+
+
+def test_call_skill_interrupt_on_is_conditional_by_skill():
+    """issue #2767 —— `_call_skill_requires_hitl` 三种输入形状的真实行为，直接调用
+    这个谓词（不需要真编译图）：
+    - `configurable` 缺 `hitl_skill_names` 键 ⇒ True（fail-closed，老网关/未投影
+      时行为与本 feature 之前逐字相同）；
+    - 键存在且目标 skill 在名单内 ⇒ True；
+    - 键存在但目标 skill 不在名单内（含名单为空数组）⇒ False——真正被放行的分支。
+    """
+    from langgraph.prebuilt.tool_node import ToolCallRequest
+
+    from deep_agent_service.harness import _call_skill_requires_hitl
+
+    def request(skill_stable_name: str | None) -> ToolCallRequest:
+        args = {} if skill_stable_name is None else {"skill_stable_name": skill_stable_name}
+        return ToolCallRequest(
+            tool_call={"id": "c1", "name": "call_skill", "args": args, "type": "tool_call"},
+            tool=None,
+            state={"messages": []},
+            runtime=None,
+        )
+
+    import deep_agent_service.harness as harness_module
+
+    def call(configurable: dict, skill_stable_name: str | None) -> bool:
+        original = harness_module.get_config
+        harness_module.get_config = lambda: {"configurable": configurable}
+        try:
+            return harness_module._call_skill_requires_hitl(request(skill_stable_name))
+        finally:
+            harness_module.get_config = original
+
+    assert call({}, "pdf-create") is True, "键缺席必须 fail-closed 成 True"
+    assert call({"hitl_skill_names": ["send-report"]}, "pdf-create") is False, (
+        "目标 skill 不在名单内必须放行（False）——这正是 pdf-create 不再弹审批的机制"
+    )
+    assert call({"hitl_skill_names": []}, "pdf-create") is False, "空名单同样是『没有 L2 skill』"
+    assert call({"hitl_skill_names": ["pdf-create"]}, "pdf-create") is True, "目标 skill 在名单内必须仍然 interrupt"
+    assert call({"hitl_skill_names": ["pdf-create"]}, None) is False, (
+        "拿不到 skill_stable_name（理论上不该发生）按『不在名单』处理，不猜测放行为 True"
+    )
+    assert call({"hitl_skill_names": "not-a-list"}, "pdf-create") is True, "形状不对按最保守处理"
 
 
 # ── DA-08（rubric D8②）：大工具结果驱逐到虚拟文件系统的活体反证 ──
