@@ -135,15 +135,6 @@ export async function acceptHumanMessage(
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
     /**
-     * issue #2667 -- 个人设置"每次都先给我看计划"打开时为 `true`，随这次 run 一起落库
-     * （`agent_runs.disable_task_auto_classify`），供 `execute-run.ts` 建
-     * `ModelCallInput` 时读出、再由 `deep-agent-model-provider.ts` 透传进
-     * `configurable.disable_task_auto_classify` 给 `deep-agent-service` 的
-     * `TaskClassifierMiddleware` 读（`harness.py` `_run_disables_auto_classify`）。
-     * 缺席/`undefined` = 未覆盖，落库为 `false`，与接入前逐字节相同。
-     */
-    disableTaskAutoClassify?: boolean;
-    /**
      * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
      * 真正新受理时调用一次；幂等命中（同一 clientMessageId 重发）也会调（见下方
@@ -230,7 +221,6 @@ export async function acceptHumanMessage(
       runId: randomUUID(),
       snapshot,
       attachmentIds,
-      disableTaskAutoClassify: input.disableTaskAutoClassify ?? false,
     });
   } catch (e) {
     // 仓储在事务内因附件不合格回滚——整条消息未写入。转成用例错误交控制器映射 422。

@@ -1166,10 +1166,6 @@ async function executeClaimed(
         // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
         // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
         ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
-        // issue #2667：个人设置"每次都先给我看计划"打开时才带上这个键——与
-        // `scriptProtocol` 同一条"缺席即关闭"纪律，见 `ModelCallInput.disableTaskAutoClassify`
-        // 自己的文档。
-        ...(run.disableTaskAutoClassify ? { disableTaskAutoClassify: true as const } : {}),
         // Phase 14 后续 A（#2755）：上一次检查点消费到的插话随这次调用回灌内核，见 `interjection-handling.ts`。
         ...(await takeInterjectionForKernel(deps, orgId, run.runId)),
         // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段

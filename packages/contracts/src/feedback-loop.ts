@@ -237,6 +237,19 @@ export const GithubIssueLinkedPullRequest = z
   .strict();
 export type GithubIssueLinkedPullRequest = z.infer<typeof GithubIssueLinkedPullRequest>;
 
+/** GitHub issue 下的一条评论（`listFeedbackGithubIssueComments` 的元素）——只在现查结果里出现，从不落库。 */
+export const GithubIssueComment = z
+  .object({
+    id: z.number().int().positive(),
+    url: z.string(),
+    /** GitHub login；取不到（账号已删除等）为 `null` */
+    author: z.string().nullable(),
+    body: z.string(),
+    createdAt: z.string(),
+  })
+  .strict();
+export type GithubIssueComment = z.infer<typeof GithubIssueComment>;
+
 /* ─────────────────────── 投影（读模型）─────────────────────── */
 
 /**
@@ -687,6 +700,31 @@ export const operations = {
       "COMMENT_BODY_REQUIRED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * 2026-09-05（运营收件箱 GitHub 联动）——读这条反馈挂着的 GitHub issue 下的**全部评论**，
+   * 给收件箱 drawer 的评论区用：管理员在收件箱里就能看到开发那边在 issue 上写了什么，
+   * 不用再切到 GitHub 页面。与 `commentOnFeedbackGithubIssue` 是一对（读 / 写）。
+   *
+   * ⚠ 同 `getFeedbackGithubIssue`：**不落库、每次现查**（评论的事实源只有 GitHub 一处），
+   *   只在管理员真的展开一条反馈的详情时调，不随列表批量拉。
+   * ⚠ `per_page=100` 不翻页——同 `getFeedbackGithubIssue` 的 timeline 纪律：一条反馈
+   *   issue 下 100+ 条评论是极端情况，真遇到时表现是"漏掉更早的"，不是报错。
+   * ⚠ `author` 是 GitHub login（评论人的 GitHub 身份），**不是**本系统用户；通过
+   *   `commentOnFeedbackGithubIssue` 发出去的评论作者是配置的 PAT 所属账号。
+   */
+  listFeedbackGithubIssueComments: {
+    method: "GET",
+    path: "/feedback/:feedbackId/github-issue/comments",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        comments: z.array(GithubIssueComment),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED", "NO_GITHUB_ISSUE", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /**

@@ -45,7 +45,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
-import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
+import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
@@ -114,7 +114,7 @@ function feedbackItem(over: Partial<InboxItem> = {}): InboxItem {
     id: "x1", kind: "feedback", code: "B-1", title: "标题一", body: "正文一",
     structured: null, feedbackKind: "缺陷", sourceStatus: "待处理", stage: "backlog",
     statusReason: null, severe: false, votes: 1, reporter: "谁",
-    createdAt: "2026-09-01T00:00:00.000Z", github: null, linkedFeedbackId: null,
+    createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
     resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
     ...over,
   };
@@ -125,7 +125,7 @@ function exceptionItem(over: Partial<InboxItem> = {}): InboxItem {
     id: "e1", kind: "exception", code: "E-1", title: "异常一", body: "异常正文",
     structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
     statusReason: null, severe: false, votes: 0, reporter: null,
-    createdAt: "2026-09-01T00:00:00.000Z", github: null, linkedFeedbackId: null,
+    createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
     resolvedByDesignId: null, exception: { location: "svc", count: 3, affectedUsers: 1 },
     submittedByMe: false, votedByMe: false,
     ...over,
@@ -138,6 +138,7 @@ function mockInbox(items: InboxItem[], sources: { exception: "included" | "withh
     if (path === "/inbox/counts") return { ...baseCounts, sources };
     if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") return { status: opts.body?.status };
     if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
+    if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: [] };
     if (/^\/system\/error-logs\/[^/]+$/.test(path) && opts?.method === "PUT") return { status: opts.body?.status };
     throw new Error(`unexpected ${path}`);
   });
@@ -190,8 +191,19 @@ describe("④ 转不做：理由为空禁用，填了才能确认且调真实迁
 });
 
 describe("⑤ 看板拖放触发真实状态迁移", () => {
-  it("反馈：拖到进行中列 ⇒ 乐观挪列 + PUT /feedback/:id/status(已进入迭代)", async () => {
+  it("反馈（尚无 issue）：拖到进行中列 ⇒ 不发请求，落到 drawer 的 issue 确认表单（转入开发与建 issue 绑定）", async () => {
     mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.drop(screen.getByTestId("inbox-column-doing"), { dataTransfer: { getData: () => "x1" } });
+    expect(await screen.findByTestId("inbox-issue-form")).toBeTruthy();
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
+    // 没有乐观挪列：确认之前状态不变。
+    expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
+  });
+
+  it("反馈（已有 issue）：拖到进行中列 ⇒ 乐观挪列 + PUT /feedback/:id/status(已进入迭代)", async () => {
+    mockInbox([feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })]);
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
@@ -231,7 +243,13 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
 
   it("失败时回滚：卡片仍在原列", async () => {
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
-      if (path === "/inbox") return { items: [feedbackItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox") {
+        return {
+          items: [feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })],
+          nextCursor: null,
+          sources: { exception: "included" },
+        };
+      }
       if (path === "/inbox/counts") return baseCounts;
       if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") throw new Error("network down");
       throw new Error(`unexpected ${path}`);
@@ -268,8 +286,9 @@ function mockInboxWithGithub(
   apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
     if (path === "/inbox") return { items, nextCursor: null, sources: { exception: "included" } };
     if (path === "/inbox/counts") return baseCounts;
-    if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") return { status: opts.body?.status, notified: true };
+    if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") return { status: opts.body?.status, notified: true, imageUploadWarnings: [] };
     if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
+    if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: [] };
     const ghMatch = /^\/feedback\/([^/]+)\/github-issue$/.exec(path);
     if (ghMatch) return githubIssueHandler(ghMatch[1]!);
     throw new Error(`unexpected ${path}`);
@@ -352,33 +371,70 @@ describe("⑧ GitHub 徽标 drawer 展开现查升级", () => {
   });
 });
 
-describe("⑨ 建 GitHub Issue 编辑器", () => {
-  it("待处理且未关联 github：点「创建 GitHub Issue」打开编辑器，提交调用 triageFeedback(已进入迭代, null, issueDraft)", async () => {
-    mockInboxWithGithub([feedbackItem()], () => ({
-      feedbackId: "x1",
-      url: "https://github.com/x/y/issues/30",
-      number: 30,
-      state: "open",
-      stateReason: null,
-      linkedPullRequests: [],
-      linkedPullRequestsAvailable: true,
-    }));
+describe("⑨ 转入开发 ⇔ 建 GitHub Issue（2026-09-05：不再有独立的「创建 GitHub Issue」按钮）", () => {
+  it("待处理且未关联 github：「转入开发」打开整合全部字段的 issue 确认表单，提交调用 triageFeedback(已进入迭代, null, issueDraft)", async () => {
+    mockInboxWithGithub(
+      [feedbackItem({
+        structured: { reproSteps: "1. 打开\n2. 点导出", expectedResult: "导出成功" },
+        attachments: [{ id: "fbattach-1", url: "/feedback/attachments/fbattach-1", mime: "application/pdf" }],
+      })],
+      () => ({
+        feedbackId: "x1",
+        url: "https://github.com/x/y/issues/30",
+        number: 30,
+        state: "open",
+        stateReason: null,
+        linkedPullRequests: [],
+        linkedPullRequestsAvailable: true,
+      }),
+    );
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
-    fireEvent.click(await screen.findByTestId("inbox-action-create-issue"));
+    expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
     expect((screen.getByTestId("inbox-issue-title") as HTMLInputElement).value).toBe("标题一");
+    const body = (screen.getByTestId("inbox-issue-body") as HTMLTextAreaElement).value;
+    // 正文整合：原文 / 结构化字段 / 编号 / 类型 / 提交人 / 票数 / 附件清单 / 来源 id。
+    for (const frag of ["正文一", "复现步骤", "1. 打开", "期望结果", "导出成功", "B-1", "缺陷", "谁", "票数", "附件（1 个", "fbattach-1", "反馈 ID x1"]) {
+      expect(body).toContain(frag);
+    }
+    // 表单里列出将随 issue 上传的附件。
+    expect(screen.getByTestId("inbox-issue-attachments").textContent).toContain("1 个附件");
+    expect(screen.getByTestId("inbox-issue-attachment-fbattach-1")).toBeTruthy();
     fireEvent.change(screen.getByTestId("inbox-issue-title"), { target: { value: "改过的标题" } });
     fireEvent.click(screen.getByTestId("inbox-issue-submit"));
     await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
     const [, opts] = callsTo("/feedback/x1/status", "PUT")[0]!;
     expect(opts!.body!.status).toBe("已进入迭代");
     expect(opts!.body!.reason).toBeNull();
-    expect((opts!.body!.issueDraft as { title: string }).title).toBe("改过的标题");
+    const draft = opts!.body!.issueDraft as { title: string; labels: string[] };
+    expect(draft.title).toBe("改过的标题");
+    expect(draft.labels).toEqual(["user-feedback", "bug"]);
     await waitFor(() => expect(screen.getByTestId("inbox-column-count-doing").textContent).toBe("1"));
   });
 
-  it("已进入迭代态（doing）不提供「创建 GitHub Issue」——doing → doing 是幂等重放，不会真的建 issue", async () => {
+  it("服务端回 imageUploadWarnings ⇒ 展示持续的附件上传警告，不吞", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/inbox") return { items: [feedbackItem()], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
+      if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: [] };
+      if (/^\/feedback\/[^/]+\/github-issue$/.test(path)) throw new Error("not yet");
+      if (/^\/feedback\/[^/]+\/status$/.test(path) && opts?.method === "PUT") {
+        return { feedbackId: "x1", status: "已进入迭代", notified: true, githubIssueUrl: "u", imageUploadWarnings: ["附件 fbattach-9:推送到 GitHub 失败(403)"] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
+    fireEvent.click(screen.getByTestId("inbox-issue-submit"));
+    const warn = await screen.findByTestId("inbox-attachment-upload-warning");
+    expect(warn.textContent).toContain("fbattach-9");
+  });
+
+  it("已进入迭代态（doing）没有「转入开发」入口——doing → doing 是幂等重放，不会真的建 issue", async () => {
     mockInboxWithGithub([feedbackItem({ id: "x2", code: "B-2", stage: "doing", sourceStatus: "已进入迭代" })], () => ({
       feedbackId: "x2", url: "u", number: 1, state: "open", stateReason: null,
       linkedPullRequests: [], linkedPullRequestsAvailable: true,
@@ -387,25 +443,28 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
     await screen.findByTestId("inbox-card-B-2");
     fireEvent.click(screen.getByTestId("inbox-card-B-2"));
     await screen.findByTestId("inbox-drawer");
-    expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+    expect(screen.queryByTestId("inbox-action-start")).toBeNull();
+    expect(screen.queryByTestId("inbox-issue-form")).toBeNull();
   });
 
-  it("已关联 github 的反馈不显示「创建 GitHub Issue」", async () => {
+  it("已关联 github 的待处理反馈：「开始处理」直接迁移，不再弹 issue 表单", async () => {
     mockInboxWithGithub(
       [feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })],
       () => ({
-        feedbackId: "x1", url: "u", number: 5, state: "open", stateReason: null,
+        feedbackId: "x1", url: "https://github.com/x/y/issues/5", number: 5, state: "open", stateReason: null,
         linkedPullRequests: [], linkedPullRequestsAvailable: true,
       }),
     );
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(screen.getByTestId("inbox-card-B-1"));
-    await screen.findByTestId("inbox-drawer");
-    expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
+    expect(screen.queryByTestId("inbox-issue-form")).toBeNull();
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
+    expect((callsTo("/feedback/x1/status", "PUT")[0]![1]!.body!.issueDraft)).toBeNull();
   });
 
-  it("设计方案/系统异常不显示「创建 GitHub Issue」", async () => {
+  it("系统异常：「开始处理」直接迁移（没有建 issue 的源操作）", async () => {
     mockInboxWithGithub([exceptionItem()], () => {
       throw new Error("不该被调用");
     });
@@ -413,8 +472,149 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
     fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
     await screen.findByTestId("inbox-card-E-1");
     fireEvent.click(screen.getByTestId("inbox-card-E-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-start"));
+    expect(screen.queryByTestId("inbox-issue-form")).toBeNull();
+    await waitFor(() => expect(callsTo("/system/error-logs/e1", "PUT")).toHaveLength(1));
+  });
+});
+
+describe("2026-09-05：GitHub 徽标是可点击的外链", () => {
+  it("卡片上的 Issue 徽标是 <a target=_blank href=url>，点它不会顺带打开 drawer", async () => {
+    mockInboxWithGithub(
+      [feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })],
+      () => { throw new Error("卡片不现查"); },
+    );
+    render(<DesignLoopInboxScreen state="default" />);
+    const badge = await screen.findByTestId("github-badge-open");
+    expect(badge.tagName).toBe("A");
+    expect(badge.getAttribute("href")).toBe("https://github.com/x/y/issues/5");
+    expect(badge.getAttribute("target")).toBe("_blank");
+    expect(badge.getAttribute("rel")).toContain("noopener");
+    fireEvent.click(badge);
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("drawer：升级成 PR 徽标后，issue 本体与每条关联 PR 都各有一枚可点的徽标", async () => {
+    mockInboxWithGithub(
+      [feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })],
+      () => ({
+        feedbackId: "x1", url: "https://github.com/x/y/issues/5", number: 5, state: "closed", stateReason: "completed",
+        linkedPullRequests: [
+          { number: 21, url: "https://github.com/x/y/pull/21", title: "fix", state: "merged" },
+          { number: 22, url: "https://github.com/x/y/pull/22", title: "follow-up", state: "open" },
+        ],
+        linkedPullRequestsAvailable: true,
+      }),
+    );
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    const area = await screen.findByTestId("inbox-drawer-github");
+    await waitFor(() => expect(within(area).getByTestId("github-badge-merged")).toBeTruthy());
+    const hrefs = Array.from(area.querySelectorAll("a")).map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining([
+      "https://github.com/x/y/pull/21",
+      "https://github.com/x/y/pull/22",
+      "https://github.com/x/y/issues/5",
+    ]));
+  });
+});
+
+describe("2026-09-05：drawer 里看 / 发 GitHub issue 评论", () => {
+  function mockWithComments(initial: unknown[]) {
+    const store = [...initial];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/inbox") {
+        return {
+          items: [feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })],
+          nextCursor: null,
+          sources: { exception: "included" },
+        };
+      }
+      if (path === "/inbox/counts") return baseCounts;
+      if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
+      if (/^\/feedback\/[^/]+\/github-issue$/.test(path)) {
+        return { feedbackId: "x1", url: "https://github.com/x/y/issues/5", number: 5, state: "open", stateReason: null, linkedPullRequests: [], linkedPullRequestsAvailable: true };
+      }
+      if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path) && opts?.method === "POST") {
+        store.push({ id: 99, url: "https://github.com/x/y/issues/5#issuecomment-99", author: "ops-bot", body: opts.body?.body, createdAt: "2026-09-05T03:00:00Z" });
+        return { feedbackId: "x1", commentUrl: "https://github.com/x/y/issues/5#issuecomment-99" };
+      }
+      if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: store };
+      throw new Error(`unexpected ${path}`);
+    });
+  }
+
+  it("打开 drawer 拉评论列表并渲染作者/正文；没有 issue 的条目不渲染评论区", async () => {
+    mockWithComments([{ id: 7, url: "https://github.com/x/y/issues/5#issuecomment-7", author: "dev-a", body: "已定位到原因", createdAt: "2026-09-05T01:00:00Z" }]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    const list = await screen.findByTestId("inbox-github-comments-list");
+    expect(within(list).getByTestId("inbox-github-comment-7").textContent).toContain("dev-a");
+    expect(within(list).getByTestId("inbox-github-comment-7").textContent).toContain("已定位到原因");
+  });
+
+  it("没有 issue 的反馈：不渲染评论区、不调评论接口", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
     await screen.findByTestId("inbox-drawer");
-    expect(screen.queryByTestId("inbox-action-create-issue")).toBeNull();
+    expect(screen.queryByTestId("inbox-github-comments")).toBeNull();
+    expect(callsTo("/feedback/x1/github-issue/comments")).toHaveLength(0);
+  });
+
+  it("发评论：空白禁用；填了 ⇒ POST /feedback/:id/github-issue/comments，成功后清空输入并重拉列表", async () => {
+    mockWithComments([]);
+    render(<DesignLoopInboxScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+    await screen.findByTestId("inbox-github-comments-list");
+    const submit = screen.getByTestId("inbox-github-comment-submit") as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(screen.getByTestId("inbox-github-comment-input"), { target: { value: "  " } });
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(screen.getByTestId("inbox-github-comment-input"), { target: { value: "请补充复现视频" } });
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    await waitFor(() => expect(callsTo("/feedback/x1/github-issue/comments", "POST")).toHaveLength(1));
+    expect(callsTo("/feedback/x1/github-issue/comments", "POST")[0]![1]!.body!.body).toBe("请补充复现视频");
+    await waitFor(() => expect(screen.getByTestId("inbox-github-comment-99").textContent).toContain("请补充复现视频"));
+    expect((screen.getByTestId("inbox-github-comment-input") as HTMLTextAreaElement).value).toBe("");
+  });
+});
+
+describe("2026-09-05：每 2 分钟静默刷新——服务端轮询把 issue 关闭的反馈转已修复后，这里自动挪到「已完成」", () => {
+  it("到点重拉 /inbox + /inbox/counts，按 id 原地合并，卡片挪列且已打开的 drawer 不被关掉", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let round = 0;
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/inbox") {
+          round += 1;
+          const status = round === 1 ? "待处理" : "已修复";
+          const stage = round === 1 ? "backlog" : "done";
+          return {
+            items: [feedbackItem({ sourceStatus: status, stage, github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: round === 1 ? "open" : "closed" } })],
+            nextCursor: null,
+            sources: { exception: "included" },
+          };
+        }
+        if (path === "/inbox/counts") return baseCounts;
+        if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
+        if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: [] };
+        if (/^\/feedback\/[^/]+\/github-issue$/.test(path)) throw new Error("offline");
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignLoopInboxScreen state="default" />);
+      fireEvent.click(await screen.findByTestId("inbox-card-B-1"));
+      await screen.findByTestId("inbox-drawer");
+      expect(within(screen.getByTestId("inbox-column-backlog")).getByTestId("inbox-card-B-1")).toBeTruthy();
+      await act(async () => { await vi.advanceTimersByTimeAsync(INBOX_REFRESH_MS + 50); });
+      await waitFor(() => expect(within(screen.getByTestId("inbox-column-done")).getByTestId("inbox-card-B-1")).toBeTruthy());
+      expect(callsTo("/inbox").length).toBeGreaterThanOrEqual(2);
+      // drawer 仍然开着（静默刷新不把 load 打回 loading），且状态标签已是「已完成」。
+      expect(within(screen.getByTestId("inbox-drawer")).getByTestId("status-badge-done")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -426,7 +626,7 @@ function designItem(over: Partial<InboxItem> = {}): InboxItem {
     id: "d1", kind: "design", code: "D-1", title: "方案一", body: null,
     structured: null, feedbackKind: null, sourceStatus: "已推送", stage: "backlog",
     statusReason: null, severe: false, votes: 0, reporter: "我",
-    createdAt: "2026-09-02T00:00:00.000Z", github: null, linkedFeedbackId: "x1",
+    createdAt: "2026-09-02T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: "x1",
     resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
     ...over,
   };
@@ -577,8 +777,8 @@ describe("issue #2752 ②：系统异常的「不做」理由预填默认模板"
 });
 
 describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
-  it("看板卡片：待处理态菜单能一键『开始处理』，不用先点开详情", async () => {
-    mockInbox([feedbackItem()]);
+  it("看板卡片：待处理态菜单『开始处理』——已有 issue 的反馈一键迁移、不开 drawer", async () => {
+    mockInbox([feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })]);
     render(<DesignLoopInboxScreen state="default" />);
     await screen.findByTestId("inbox-card-B-1");
     fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
@@ -587,6 +787,16 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
     expect(callsTo("/feedback/x1/status", "PUT")[0]![1]!.body!.status).toBe("已进入迭代");
     // 菜单动作不应该顺带把 drawer 打开。
     expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("看板卡片：待处理态菜单『开始处理』——尚无 issue 的反馈落到 drawer 的 issue 确认表单，不直接发请求（2026-09-05）", async () => {
+    mockInbox([feedbackItem()]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    fireEvent.click(await screen.findByTestId("inbox-card-menu-start-B-1"));
+    expect(await screen.findByTestId("inbox-issue-form")).toBeTruthy();
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
   });
 
   it("看板卡片：『关闭（不做）…』菜单项落点到 drawer 理由表单，不直接发请求", async () => {
@@ -605,7 +815,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
         id: "d1", kind: "design", code: "D-1", title: "方案一", body: "方案正文",
         structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
         statusReason: null, severe: false, votes: 0, reporter: null,
-        createdAt: "2026-09-01T00:00:00.000Z", github: null, linkedFeedbackId: null,
+        createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
         resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
       },
     ]);
@@ -615,7 +825,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
   });
 
   it("列表视图：行菜单同样能一键『开始处理』", async () => {
-    mockInbox([feedbackItem()]);
+    mockInbox([feedbackItem({ github: { kind: "issue", number: 5, url: "https://github.com/x/y/issues/5", state: "open" } })]);
     render(<DesignLoopInboxScreen state="default" />);
     fireEvent.click(await screen.findByTestId("inbox-view-list"));
     fireEvent.pointerDown(await screen.findByTestId("inbox-row-menu-B-1"), { button: 0 });

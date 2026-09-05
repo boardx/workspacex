@@ -75,8 +75,24 @@ const config: Config = {
       minWidth: { rail: "76px" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        /**
+         * issue #2769 —— /chat run 进度卡的 X 图形标动效（`components/chat/run-progress-x-mark.tsx`
+         * 头注有形态来源与约束）。方案 A `x-breathe`：整标呼吸（缩放 + 透明度，透明度只做
+         * 过渡动画不表达状态，不触 U1.2）；方案 B `x-turn`：整标慢速自转。二选一挂在同一个
+         * `<svg>` 上，各自只有这一段 keyframes；`prefers-reduced-motion` 由调用处的
+         * `motion-reduce:animate-none` 降级为静态。
+         */
+        "x-breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(0.7)", opacity: "0.45" },
+        },
+        "x-turn": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
       },
-      animation: { "fade-in": "fade-in 160ms ease-out" },
+      animation: {
+        "fade-in": "fade-in 160ms ease-out",
+        "x-breathe": "x-breathe 1.6s ease-in-out infinite",
+        "x-turn": "x-turn 2.4s ease-in-out infinite",
+      },
       /**
        * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见
        * contracts/motion-microinteraction/domain.md）。三档 fast/base/slow 是

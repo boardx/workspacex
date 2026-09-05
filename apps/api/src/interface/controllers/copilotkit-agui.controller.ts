@@ -197,20 +197,6 @@ function parseForwardedClientMessageId(value: unknown): string | undefined {
   return UUID_PATTERN.test(trimmed) ? trimmed : undefined;
 }
 
-/**
- * issue #2667 -- 个人设置"每次都先给我看计划"打开时，前端把
- * `forwardedProps.disableTaskAutoClassify = true` 带过来，这里只认字面量
- * `true`（防御性：不是布尔值/是 `false`/缺席都当"未覆盖"，与
- * `parseForwardedAttachmentIds`/`parseForwardedClientMessageId` 同一条"畸形值当
- * 没传，不因此拒绝整轮"纪律）。`undefined` 一路透传到
- * `ModelCallInput.disableTaskAutoClassify`，`deep-agent-model-provider.ts` 只在
- * 真为 `true` 时才往 `configurable` 里加这个键——见该文件 `script_protocol` 那段
- * 头注："缺席时这个键不出现"，同一条纪律用在第二个透传字段上。
- */
-function parseForwardedDisableTaskAutoClassify(value: unknown): boolean | undefined {
-  return value === true ? true : undefined;
-}
-
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
  * only (see file head). `forwardedProps` is the one exception, and only its
@@ -254,8 +240,6 @@ interface AguiRunInput {
     readonly attachmentIds?: unknown;
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
     readonly clientMessageId?: unknown;
-    /** issue #2667 -- see `parseForwardedDisableTaskAutoClassify`'s own doc. */
-    readonly disableTaskAutoClassify?: unknown;
   };
 }
 
@@ -400,10 +384,11 @@ function parseHitlDecision(
  * `agui-bridge.ts`'s own doc on `onStep`) becomes this fixed AG-UI event sequence:
  *
  *   STEP_STARTED(stepName)
- *   → [ a small assistant text bubble carrying `planningNote`, IF the model said one --
- *       chat-ux-acceptance-criteria.md item 2 ("可见的规划步骤") wants the model's OWN
- *       words visible as readable text, not only encoded into a tool-call event a client
- *       without custom rendering would silently drop ]
+ *   → [ a small assistant text bubble carrying `planningNote`, IF the model said one AND
+ *       it has not already gone out over the delta-stream channel (see `alreadyStreamed`
+ *       below) -- chat-ux-acceptance-criteria.md item 2 ("可见的规划步骤") wants the
+ *       model's OWN words visible as readable text, not only encoded into a tool-call
+ *       event a client without custom rendering would silently drop ]
  *   → TOOL_CALL_START → TOOL_CALL_ARGS (only if there IS an args summary; the schema's
  *       `delta` is a required string, so this is skipped rather than sent as `""` when the
  *       step never captured one) → TOOL_CALL_END
@@ -415,9 +400,28 @@ function parseHitlDecision(
  * `toolCallId`/planning-note `messageId` are minted fresh per step -- nothing downstream
  * (this app's own persisted `chat_messages`/`agent_run_steps`) is looked up over these
  * ids, same discipline the file head already documents for the main answer's `messageId`.
+ *
+ * ## issue #2768/#2778 -- `alreadyStreamed` (why a SECOND bubble is a real duplication bug)
+ *
+ * `step.planningNote` is `extractToolCallEvents`'s (`deep-agent-model-provider.ts`) copy of
+ * the SAME `AIMessage.content` the model produced right before this tool call -- and when
+ * `KERNEL_DEEP_AGENT_STREAM_ENABLED=1` (devapp's own config), that EXACT text was already
+ * delivered, token by token, over `onDelta` into the turn's one running answer bubble
+ * (`bridge()`'s own `messageId`) BEFORE this step is even recorded. Writing it again here as
+ * a SECOND bubble is not "regionalization" of the same content into two channels for
+ * robustness -- a real devapp capture showed two `TEXT_MESSAGE_*` bubbles, different
+ * `messageId`s, byte-identical text (see #2768's evidence comment). `alreadyStreamed` is a
+ * STRUCTURAL signal (has this turn's delta channel already opened its answer bubble at all,
+ * i.e. `sawAnyDelta` at the caller) -- never a text comparison between the two bubbles'
+ * content (forbidden by #2768's own instructions: no frontend-or-otherwise text-based
+ * dedup). When it is `false` (streaming disabled, or this provider never streamed a delta
+ * for whatever reason), the planning-note bubble is the ONLY place the model's own words
+ * would ever surface -- exactly the #789/chat-ux-acceptance-criteria.md item 2 case this
+ * function was built for -- so it is written exactly as before.
  */
 function writeToolCallStep(
   write: (event: AguiEvent) => void, step: RunStepPublic, isPendingApproval: boolean,
+  alreadyStreamed: boolean,
   // F973 (UC-2 `ingestEnginePlanSnapshot`) -- fired at the SAME判定点 as `STATE_SNAPSHOT`
   // below, not a second trigger path (`usecases.md` UC-2 requires exactly this). Optional
   // and fire-and-forget from this function's point of view: the caller (`bridge()`) owns
@@ -427,7 +431,7 @@ function writeToolCallStep(
   const stepName = step.toolName ?? "未知工具";
   write({ type: EventType.STEP_STARTED, stepName });
 
-  if (step.planningNote !== null && step.planningNote.trim() !== "") {
+  if (!alreadyStreamed && step.planningNote !== null && step.planningNote.trim() !== "") {
     const planningMessageId = randomUUID();
     write({ type: EventType.TEXT_MESSAGE_START, messageId: planningMessageId, role: "assistant" });
     write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: planningMessageId, delta: step.planningNote });
@@ -725,9 +729,6 @@ export class CopilotkitAguiController {
     const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
     // issue #2321 round 2 -- see `parseForwardedClientMessageId`'s own doc.
     const requestedClientMessageId = parseForwardedClientMessageId(body.forwardedProps?.clientMessageId);
-    // issue #2667 -- see `parseForwardedDisableTaskAutoClassify`'s own doc.
-    const requestedDisableTaskAutoClassify =
-      parseForwardedDisableTaskAutoClassify(body.forwardedProps?.disableTaskAutoClassify);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -782,7 +783,7 @@ export class CopilotkitAguiController {
           write({ type: EventType.CUSTOM, name: AGUI_RUN_PHASE_EVENT_NAME, value: { phase } });
         },
         onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
-          write, step, isPendingApproval,
+          write, step, isPendingApproval, sawAnyDelta,
           (todos) => {
             // F973 UC-2 -- `resolvedThreadId` is set by `onThreadResolved`, which fires
             // BEFORE `onStarted`/any `onStep` in this same turn (see that field's own doc
@@ -855,7 +856,6 @@ export class CopilotkitAguiController {
           threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
             ? requestedChatThreadId : null,
           attachmentIds: requestedAttachmentIds,
-          disableTaskAutoClassify: requestedDisableTaskAutoClassify,
           onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
           ...sharedCallbacks,
         });

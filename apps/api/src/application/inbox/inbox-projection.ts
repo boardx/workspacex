@@ -140,6 +140,8 @@ export function buildFeedbackInboxItems(rows: readonly FeedbackItemView[]): Inbo
       reporter: row.submitterName,
       createdAt: row.createdAt,
       github: deriveGithubRef(row),
+      // 与 `body` 同一条 D3 门控——`listFeedback` 已经对无权行投影成 `[]`，这里原样透传。
+      attachments: row.attachments,
       linkedFeedbackId: null,
       // UC-17.8 B4——真读列，见契约 `FeedbackItem.resolvedByDesignId` 头注。
       resolvedByDesignId: row.resolvedByDesignId,
@@ -192,6 +194,7 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
       reporter: null,
       createdAt: row.createdAt,
       github: null,
+      attachments: [],
       linkedFeedbackId: null,
       resolvedByDesignId: null,
       exception: { location: deriveExceptionLocation(row.detail), count, affectedUsers: null },
@@ -239,6 +242,7 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       reporter: row.ownerName,
       createdAt: row.createdAt,
       github: null,
+      attachments: [],
       linkedFeedbackId: row.linkedFeedbackId,
       resolvedByDesignId: null,
       exception: null,

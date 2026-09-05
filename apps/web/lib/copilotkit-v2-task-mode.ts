@@ -23,11 +23,22 @@
  * 修法：`rawText` 已经以这句前缀开头时不再重复拼接一遍——覆盖"用户手动输入前缀 +
  * 开关也拼接"这个真实复现场景（`copilotkit-v2-task-mode.test.ts` 锁死）。
  *
- * ⚠ 这句中文文案曾经与 `deep_agent_service.harness` 的 `TASK_MODE_MARKER` 有一份
- * 跨语言机械一致性看守（PR #2410 引入），但那个常量随 #2410 一起被 PR #2423 回滚——
- * 目前 `graph.py` 的 `SYSTEM_PROMPT` 里这句提示词是独立字面量，没有对应的 Python
- * 侧单一事实源。这不是本次改动引入的状态，是回滚后的现状；若未来 deep-agent-service
- * 侧重新引入需要读这句文案的逻辑，两处都要改，且应该恢复一份机械一致性看守。
+ * ⚠ 这句中文文案与 `deep_agent_service.harness` 的 `TASK_MODE_MARKER` 有一份跨语言
+ * 机械一致性看守——`apps/deep-agent-service/tests/test_harness.py` 的
+ * `test_task_mode_marker_matches_web_panel_literal` 直接读这个文件的源码文本，断言
+ * 它包含 `TASK_MODE_MARKER` 的字面量。`PlanFirstToolChoiceMiddleware`（手动 marker
+ * 强制 `write_todos`，issue #2220 方案 B / #2417）与 `graph.py` 的 `SYSTEM_PROMPT`
+ * 都靠这个常量识别"任务模式"，且这两者都不在 #2770 的范围内（那个 issue 只删了
+ * composer 上的手动开关与 F02 之后多余的 `disableTaskAutoClassify` 自动判类覆盖，
+ * 没有要求连带删除更早的 #2220/#2417 手动 marker 强制机制）。
+ *
+ * ⚠⚠ issue #2770（2026-09-05）：composer 上的 ✦「任务模式」按钮与它对
+ * `applyTaskModePrefix` 的唯一调用点（`copilotkit-v2-panel-body.tsx` 的 `send()`）
+ * 已删——本文件在 web 侧**没有调用方**了。**不要**因为"没有调用方"把这个文件当死
+ * 代码删掉：上面那道 pytest 机械门控会因为文件缺失直接报错（而不是静默漂移），这正
+ * 是它的设计意图（本文件曾在 2026-09-05 被误删一次，CI 的 `pytest` job 当场报红，
+ * 见 PR #2776 讨论）。`TASK_MODE_PREFIX` 现在的角色是纯粹的跨语言单一事实源常量，
+ * 不需要 web 侧有真实调用方才算"活的"。
  */
 export const TASK_MODE_PREFIX = "请先给出计划，经确认后再执行：";
 

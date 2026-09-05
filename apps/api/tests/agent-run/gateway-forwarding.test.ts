@@ -28,7 +28,6 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     inputText: "生成一个 PDF", inputAttachments: [], agentId: "agent-1", agentVersionId: "agent-version-1",
     instructions: "你是通用助手", skillVersionIds: [],
     modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "deep-agent", pendingDecision: null,
-    disableTaskAutoClassify: false,
     ...overrides,
   };
 }

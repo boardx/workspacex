@@ -869,26 +869,52 @@ export class DeepAgentModelProvider implements ModelCallPort {
       } else {
         decision = { type: input.resume.decision };
       }
-      // issue #2767 -- resume 同样是这个 run 的"下一次内核调用"（同插话回灌的既有
-      // 先例），`hitl_skill_names` 必须跟着投影，否则 resume 之后内核对
-      // `call_skill` 又会退回"每次都 interrupt"的 fail-closed 默认——L2 skill 的
-      // 编辑/审批循环还需要它，但 L0/L1 skill 走到 resume（理论上不会，因为它们
-      // 本来就不 interrupt）也不该因为漏投影而意外多问一次。
-      const resumeConfigurable: Record<string, unknown> = {};
-      if (input.interjection !== undefined) resumeConfigurable[KERNEL_INTERJECTION_CONFIGURABLE_KEY] = input.interjection;
-      if (input.hitlSkillNames !== undefined) resumeConfigurable[KERNEL_HITL_SKILLS_CONFIGURABLE_KEY] = input.hitlSkillNames;
       const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
         method: "POST",
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
           command: { resume: { decisions: [decision] } },
-          // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
-          // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
-          // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
-          // ⚠ 缺席时整个 `config` 键都不出现，resume 请求体与本 feature 之前逐字节相同。
-          ...(Object.keys(resumeConfigurable).length === 0 ? {} : {
-            config: { configurable: resumeConfigurable },
-          }),
+          // issue #2768 -- a resume is the SAME run's next model call, and `call_skill`'s
+          // ONLY source of "which skills are pinned to this run" is `configurable.org_skills`
+          // (`tools.py`'s `_read_org_skills`, read fresh from THIS request's config -- it is
+          // NOT carried over from the run's first, pre-interrupt request). Before this fix,
+          // resume sent no `org_skills` at all (see `createRun`'s NEW-run branch below,
+          // which always sends it): the very call that was interrupted specifically so a
+          // human could approve `call_skill` would, once approved, immediately execute
+          // `call_skill` against an EMPTY skill table and answer "未知技能" -- the model then
+          // reports success anyway (its own words, not a tool result), and no script/file is
+          // ever produced. Reproduced against a real `langgraph dev` kernel: identical resume
+          // requests, differing only in this `config` key, produce the real skill's script
+          // block vs. "未知技能「pdf-create」" (see PR body for the two capture files).
+          // `script_protocol` mirrors the SAME "resume is the next model call" fact the
+          // NEW-run branch already sends; `org_skills` is the one this bug was about.
+          //
+          // issue #2770 -- `disable_task_auto_classify`（前端「每次都先计划」开关）曾经
+          // 也在这里透传，同 NEW-run 分支当时的做法。该开关连同它在 web → api 的整条
+          // 来源已删（`TaskClassifierMiddleware` 无条件挂载，Phase 14 F02，要不要先计划
+          // 由内核判），`ModelCallInput.disableTaskAutoClassify` 这个字段本身已从
+          // `ports.ts` 移除——本行原样保留会引用一个不存在的字段，编译不过。与 NEW-run
+          // 分支同一条既有先例对齐，直接不再转发这个键，不需要另建理由。
+          config: {
+            configurable: {
+              org_skills: toWireSkills(input.skills),
+              ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+              // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
+              // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
+              // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
+              // ⚠ 缺席时这个键不出现，其余键（`org_skills` 等）逐字不受影响。
+              ...(input.interjection === undefined ? {} : {
+                [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection,
+              }),
+              // issue #2767 -- resume 同样是这个 run 的"下一次内核调用"，`hitl_skill_names`
+              // 必须跟着投影，否则 resume 之后内核对 `call_skill` 又会退回"每次都
+              // interrupt"的 fail-closed 默认——L2 skill 经编辑/裁决后继续跑还用得上它。
+              // ⚠ 缺席时这个键不出现，同上面 `interjection` 的既有纪律。
+              ...(input.hitlSkillNames === undefined ? {} : {
+                [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames,
+              }),
+            },
+          },
         }),
       });
       const body = (await response.json()) as { run_id?: string };
@@ -943,21 +969,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
             /*
-             * issue #2667 -- 个人设置"每次都先给我看计划"打开时透传给
-             * `deep_agent_service.harness` 的 `TaskClassifierMiddleware`（读法见
-             * `harness.py` `_run_disables_auto_classify`：`get_config()` 读
-             * `configurable.disable_task_auto_classify`）——即使全局灰度
-             * `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 打开，这一次 run 也不参与自动判类，
-             * 回退到纯手动 `TASK_MODE_MARKER` 路径。
-             *
-             * ⚠ 缺席时这个键**不出现**——同 `script_protocol` 一样，远端读不到就完全
-             *   按改动前的方式跑（全局灰度怎么判就怎么判）。`input.disableTaskAutoClassify`
-             *   的唯一事实源是 `ClaimedAgentRun.disableTaskAutoClassify`（落库自
-             *   `agent_runs.disable_task_auto_classify`），本层不重复判断。
+             * issue #2770 —— 这里曾按 issue #2667 透传 `disable_task_auto_classify`
+             * （前端「每次都先计划」开关关掉这一次 run 的自动判类）。该开关连同它在
+             * web → api 的整条来源已删：`TaskClassifierMiddleware` 无条件挂载（Phase 14
+             * F02），要不要先计划由内核判。远端 `harness.py` 仍防御性地读这个键（缺席 =
+             * 未覆盖，只剩 golden 测试当 seam 用），本层不再产生它。
              */
-            ...(input.disableTaskAutoClassify === true
-              ? { disable_task_auto_classify: true }
-              : {}),
             /*
              * Phase 14 后续 A（#2755）：待投递内核的插话（形状 = 契约 `KernelInterjection`，
              * 键名 = 契约 `KERNEL_INTERJECTION_CONFIGURABLE_KEY`，两侧 parity 测试机械比对）。

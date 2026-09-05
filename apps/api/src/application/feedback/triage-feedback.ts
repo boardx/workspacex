@@ -153,17 +153,20 @@ import { statusChangeEmail } from "./feedback-notification-templates";
 
 /**
  * `image/png` → `.png` 等——拼 GitHub 仓库里的文件名要用得到。
- * ⚠ UC-17.8 D3 之后附件还可能是 PDF / 文本，但这一步（⑥）推的是**图片**——`![](url)` 只对图片有
- *   意义，PDF/文本推上去 GitHub 也渲染不出来。不在这张表里的类型直接跳过，不是报错。
+ * ⚠ 2026-09-05 起**所有**附件类型都推 GitHub（人类要求：转入开发时文件必须上传，如果有的话）——
+ *   图片以 `![](url)` 内嵌，PDF / 文本以 `[附件 n](url)` 链接列出。此前只推图片、其余
+ *   静默跳过，管理员在 issue 里看不到那份 PDF，也没有任何提示告诉他"没带过去"。
  */
-type GithubImageMime = "image/png" | "image/jpeg" | "image/webp";
-const ATTACHMENT_EXTENSION: Record<GithubImageMime, string> = {
+const ATTACHMENT_EXTENSION: Record<FeedbackAttachmentRow["contentType"], string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
+  "application/pdf": "pdf",
+  "text/plain": "txt",
+  "text/markdown": "md",
 };
-function isGithubImage(contentType: FeedbackAttachmentRow["contentType"]): contentType is GithubImageMime {
-  return contentType in ATTACHMENT_EXTENSION;
+function isGithubImage(contentType: FeedbackAttachmentRow["contentType"]): boolean {
+  return contentType.startsWith("image/");
 }
 
 export class FeedbackNotFoundError extends Error {}
@@ -398,6 +401,7 @@ async function withAttachmentImages(
   if (rows.length === 0) return { draft: input.draft, warnings: [] };
 
   const imageUrls: string[] = [];
+  const fileLinks: string[] = [];
   const warnings: string[] = [];
   for (const row of rows) {
     try {
@@ -423,13 +427,13 @@ async function withAttachmentImages(
         warnings.push(`附件 ${row.id}:字节已不在对象存储中,未能内嵌`);
         continue;
       }
-      if (!isGithubImage(row.contentType)) continue; // 非图片附件不推 GitHub(不算失败),见 ATTACHMENT_EXTENSION 头注
       const uploaded = await deps.imageUploader.uploadImage({
         path: `feedback-attachments/${row.id}.${ATTACHMENT_EXTENSION[row.contentType]}`,
         content: bytes,
         contentType: row.contentType,
       });
-      imageUrls.push(uploaded.url);
+      if (isGithubImage(row.contentType)) imageUrls.push(uploaded.url);
+      else fileLinks.push(`- [附件 ${row.id}.${ATTACHMENT_EXTENSION[row.contentType]}](${uploaded.url})`);
     } catch (e) {
       deps.logger.error("feedback triage: attachment image upload failed (best-effort, issue creation continues)", {
         traceId: "feedback-triage-attachment-image",
@@ -440,9 +444,12 @@ async function withAttachmentImages(
       warnings.push(`附件 ${row.id}:推送到 GitHub 失败(${describeUploadFailure(e)})`);
     }
   }
-  if (imageUrls.length === 0) return { draft: input.draft, warnings };
+  if (imageUrls.length === 0 && fileLinks.length === 0) return { draft: input.draft, warnings };
+  const blocks: string[] = [];
+  if (imageUrls.length > 0) blocks.push(imageUrls.map((u) => `![](${u})`).join("\n"));
+  if (fileLinks.length > 0) blocks.push(`**附件文件**\n${fileLinks.join("\n")}`);
   return {
-    draft: { ...input.draft, body: `${input.draft.body}\n\n${imageUrls.map((u) => `![](${u})`).join("\n")}` },
+    draft: { ...input.draft, body: `${input.draft.body}\n\n${blocks.join("\n\n")}` },
     warnings,
   };
 }

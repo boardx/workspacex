@@ -59,11 +59,11 @@ describe("#2767 TS 侧投影用的是契约常量，不是手写字符串", () =
     expect(provider).toMatch(
       /import\s*\{\s*KERNEL_HITL_SKILLS_CONFIGURABLE_KEY\s*\}\s*from\s*"@repo\/contracts\/plan-permissions"/,
     );
-    // 新建 run 与 resume 两条分支都要用计算属性名投影，否则 resume 之后内核又会退回
-    // "每次都问"的 fail-closed 默认（见 provider 该处头注）。
+    // 新建 run 与 resume 两条分支都要用计算属性名投影（同一份对象字面量写法，issue
+    // #2768/PR #2777 把 resume 分支也改成显式 `config.configurable` 对象字面量），
+    // 否则 resume 之后内核又会退回"每次都问"的 fail-closed 默认（见 provider 该处头注）。
     const uses = provider.match(/\[KERNEL_HITL_SKILLS_CONFIGURABLE_KEY\]:\s*input\.hitlSkillNames/g) ?? [];
-    expect(uses.length, "新建 run 分支必须投影 hitlSkillNames").toBeGreaterThanOrEqual(1);
-    expect(provider).toMatch(/resumeConfigurable\[KERNEL_HITL_SKILLS_CONFIGURABLE_KEY\]\s*=\s*input\.hitlSkillNames/);
+    expect(uses, "新建 run 与 resume 两条分支都必须投影 hitlSkillNames").toHaveLength(2);
     // 没有人把键名再手写一遍。
     expect(provider).not.toMatch(/^\s*hitl_skill_names:\s*input\.hitlSkillNames/m);
   });

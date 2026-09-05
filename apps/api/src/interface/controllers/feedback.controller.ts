@@ -92,6 +92,10 @@ import {
   commentOnFeedbackGithubIssue,
 } from "../../application/feedback/comment-on-feedback-github-issue";
 import {
+  FeedbackGithubCommentsQueryFailedError,
+  listFeedbackGithubIssueComments,
+} from "../../application/feedback/list-feedback-github-issue-comments";
+import {
   FEEDBACK_ATTACHMENT_REPOSITORY,
   type FeedbackAttachmentRepository,
 } from "../../application/feedback/attachment-ports";
@@ -454,6 +458,24 @@ export class FeedbackController {
   }
 
   /**
+   * 读这条反馈挂着的 GitHub issue 下的全部评论（收件箱 drawer 评论区）。见用例
+   * `list-feedback-github-issue-comments.ts` 头注:不落库、每次现查。
+   */
+  @Get("/feedback/:feedbackId/github-issue/comments")
+  async githubIssueComments(@CurrentPrincipal() principal: Principal, @Param("feedbackId") feedbackId: string) {
+    assertPrincipal(principal);
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      return await listFeedbackGithubIssueComments(
+        { repo: this.feedback.forOrg(principal.orgId), githubIssues: this.githubIssues },
+        { feedbackId, actorId: principal.userId, actorOrgRole: orgRole },
+      );
+    } catch (e) {
+      throw mapGithubIssueSideEffectError(e) ?? e;
+    }
+  }
+
+  /**
    * 管理员手动往这条反馈挂着的 GitHub issue 下面发一条评论。见用例
    * `comment-on-feedback-github-issue.ts` 头注:不是状态转移的副作用。
    */
@@ -776,7 +798,11 @@ function mapGithubIssueSideEffectError(e: unknown): Error | null {
   if (e instanceof FeedbackTriageForbiddenError) return new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
   if (e instanceof FeedbackNotFoundError) return new NotFoundException({ reasonCode: "FEEDBACK_NOT_FOUND" });
   if (e instanceof FeedbackNoGithubIssueError) return new NotFoundException({ reasonCode: "NO_GITHUB_ISSUE" });
-  if (e instanceof FeedbackGithubIssueQueryFailedError || e instanceof FeedbackGithubCommentFailedError) {
+  if (
+    e instanceof FeedbackGithubIssueQueryFailedError ||
+    e instanceof FeedbackGithubCommentFailedError ||
+    e instanceof FeedbackGithubCommentsQueryFailedError
+  ) {
     return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
   }
   return null;
