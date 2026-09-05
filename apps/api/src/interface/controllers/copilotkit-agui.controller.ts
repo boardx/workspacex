@@ -505,6 +505,64 @@ function writeToolCallStep(
   }
 }
 
+/**
+ * issue #2795 -- devapp real-browser evidence: a PDF-generation turn (the slowest, most
+ * silent flow in this app -- see `poll-budget.ts`'s own history of that exact repro case
+ * needing its budget raised three times, up to 900s) died mid-run with `[CopilotKit] Error
+ * (agent_run_error_event): Error: terminated` -- undici's (Node's built-in `fetch`) own
+ * error text for a connection whose socket was torn down while a response body was still
+ * being read, NOT a message this codebase's own error-code union ever produces (compare the
+ * `RUN_ERROR` codes in the `catch` block below, all human-readable constants like
+ * `AGENT_RUN_TIMEOUT`/`THREAD_NOT_VISIBLE`). This bridge only ever writes a byte to `response`
+ * from inside `sharedCallbacks` below -- `onStarted` once, `onDelta` only when the routed
+ * provider streams tokens (the file head's own "阶段1b's exact fallback" note: the DEFAULT
+ * deployment emits zero deltas), `onStep`/`onPhase` only when the model produces a tool call.
+ * A turn whose "thinking" is one long silent model call (up to `KERNEL_DEEP_AGENT_TIMEOUT_MS`,
+ * 300s) followed by a silent sandboxed script run (`run-skill-script.ts`,
+ * `CHAT_SCRIPT_TIMEOUT_MS` × `MAX_SCRIPT_ATTEMPTS` = up to 360s more) can therefore hold this
+ * HTTP response open for MINUTES without writing a single byte -- and undici's own default
+ * `fetch()` (used by Next.js's server-side `route.ts` relay, and by any other Node-side hop
+ * in front of this endpoint) times out an idle response body after 300s by default, tearing
+ * the socket down with exactly this "terminated" wording, which `createCopilotRuntimeHandler`
+ * then forwards to the browser verbatim as `agent_run_error_event`.
+ *
+ * The standard SSE fix -- and the one applied here -- is a periodic comment line (`:`-prefixed,
+ * per the SSE spec) so no hop between here and the browser ever sees this connection go idle
+ * long enough to trip ITS OWN default timeout, whatever that hop turns out to be (undici's
+ * bodyTimeout, a reverse proxy's read timeout, anything else): fixing the actual mechanism
+ * would mean chasing down and overriding a timeout on every hop this bridge does not own;
+ * writing a few extra bytes every `AGUI_SSE_HEARTBEAT_INTERVAL_MS` sidesteps needing to know
+ * which hop it is, or whether it changes later.
+ *
+ * ⚠ Verified SAFE against a real `@ag-ui/client` parser, not assumed: `HttpAgent`'s frame
+ * decoder (traced in that package's `dist/index.mjs`, not guessed) splits the stream on
+ * `\n\n`, collects only the lines that `startsWith("data:")` within each block, and does
+ * NOTHING (no event, no error) when that collection is empty -- a `: heartbeat\n\n` block
+ * contributes no `data:` line, so it is a pure no-op on the wire, never a phantom event.
+ */
+export const AGUI_SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+
+/**
+ * Starts writing an SSE comment line every `intervalMs` and returns a `stop()` that clears it.
+ * A tiny, dependency-free seam (a plain `write` callback, not `Response` itself) so the
+ * scheduling behaviour -- and only that -- can be unit-tested with fake timers, without
+ * standing up the real Nest app/DB this controller's other tests need (`agui-bridge-sse.test.ts`'s
+ * own file head explains why those are real-socket, real-Postgres integration tests, not a
+ * place to also pin down a 15-second-interval timing detail).
+ */
+export function startAguiSseHeartbeat(
+  write: () => void,
+  intervalMs: number = AGUI_SSE_HEARTBEAT_INTERVAL_MS,
+): () => void {
+  const timer = setInterval(write, intervalMs);
+  // Node keeps the event loop alive for a pending timer by default -- `unref()` so a heartbeat
+  // that somehow outlives its `stop()` call (a bug in the caller's cleanup) can never itself
+  // become a reason the process won't exit, same defensive posture as any other background
+  // interval in this codebase.
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
 @Controller()
 export class CopilotkitAguiController {
   /**
@@ -713,6 +771,11 @@ export class CopilotkitAguiController {
     const write = (event: AguiEvent): void => {
       response.write(`data: ${JSON.stringify(event)}\n\n`);
     };
+    // issue #2795 -- see `startAguiSseHeartbeat`'s own doc: keeps this connection from ever
+    // going idle long enough for an intermediate hop's default timeout (undici's `fetch`
+    // bodyTimeout chief among them) to tear it down mid-run. Stopped in `finally` below on
+    // every exit path, including the one that re-throws after writing `INTERNAL_ERROR`.
+    const stopHeartbeat = startAguiSseHeartbeat(() => response.write(": heartbeat\n\n"));
 
     // Client-facing correlation ids -- see file head "threadId / runId" section. `HttpAgent`
     // always sends both; the fallback only covers a hand-rolled test/curl client.
@@ -980,6 +1043,11 @@ export class CopilotkitAguiController {
         response.end();
         throw e;
       }
+    } finally {
+      // issue #2795 -- every exit path from the try/catch above, including the re-thrown
+      // `INTERNAL_ERROR` one, must stop this -- an interval left running past a finished
+      // request writes heartbeat bytes into a response nobody reads.
+      stopHeartbeat();
     }
     response.end();
   }
