@@ -3,13 +3,12 @@ import {
   ACCEPTANCE_DOC,
   CHAT_READ_E2E,
   expectAnchor,
-  gapMessage,
   openFreshThread,
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
 
 /**
- * issue #2068 —— **TW-P0-6 审批卡片（三态决策）**（判据见 `${ACCEPTANCE_DOC}`）。
+ * issue #2068 —— **TW-P0-6 审批卡片（四选一决策）**（判据见 `${ACCEPTANCE_DOC}`）。
  *
  * 人类 2026-08-26 审计原话：
  * > DeepAgents 原生支持 approve / edit / reject 三种决策，界面必须三种都有，不许只做
@@ -17,94 +16,73 @@ import {
  * > 参数或变更 diff / 风险等级 / 三个按钮。读操作可静默；写入、删除、发送、支付、
  * > 发布必须按风险分级。
  *
- * ## ⚠ 与审计原文的一处**分歧**（如实记录，不粉饰也不隐瞒）
- * 审计推测界面「只做了一个确认」。2026-08-26 代码级勘探**不成立**：
- * `copilotkit-v2-panel.tsx:421-544` 的 HITL 弹窗已有
- * `copilotkit-v2-hitl-approve` / `-start-edit` / `-reject` 三个按钮，
- * edit 态另有 `-edit-textarea` / `-edit-submit` / `-edit-cancel`。
- * 所以本条**不是零分项**。真实缺口在另外两处，本 spec 逐条钉住：
- *   (a) 五项披露（想做什么/为什么/影响面/diff/风险等级）——当前只有裸参数
- *       `copilotkit-v2-hitl-args`，没有意图、理由、影响面、风险等级；
- *   (b) **风险分级**——当前是「配了 `DEEP_AGENT_HITL_TOOLS` 就一律弹」的开关，
- *       不是按写入/删除/发送/支付/发布分级，读操作也没有静默通道。
+ * ## 2026-09-05 更新（issue #2767）—— 两个差距都已收口，判据换成真实实现
  *
- * ## 边界（不重复声明）
- * 「引擎侧三态是否真的打通」属于 `deepagent-capability-rubric.md` **D6**，本 spec 不评。
- * 本条只评**界面披露与风险分级**。
+ * 这份文件的上一版记录了两个真实差距：(a) 审批弹窗只有裸参数，没有意图/理由/影响面/
+ * 风险等级；(b) 风险分级是"配了 `DEEP_AGENT_HITL_TOOLS` 就一律弹"的开关，不按操作
+ * 本身分级。issue #2767（devapp 实测：调用 `pdf-create` 不该弹审批）把两者一并修掉：
+ * - `call_skill` 的风险按目标 skill 判定（平台官方 skill L0、frontmatter 声明、
+ *   缺省 L1），只有真正的 L2 才弹——这正是(b)要的"按操作本身分级"，不是工具名开关；
+ * - F08 签核的 `ToolPermissionCard`（`components/agent-kernel/agent-kernel-units.tsx`）
+ *   接入 `/chat`，披露"想做什么/为什么/影响范围/完整参数/风险等级"五项，且是
+ *   **四选一**（仅本次/本 run 内/以后都允许/拒绝，契约 `ToolPermissionDecisionKind`）
+ *   而不是原审计要求的三态——四选一是更细的粒度，覆盖三态要求的同时多了"记住"这一档。
+ *
+ * 「引擎侧四选一是否真的打通」（F06 `decideToolPermission` 的状态机与授权持久化）
+ * 属于后端反证，见 `apps/api/tests/agent-run/{risk-tiering-and-states,permission-
+ * grant-scopes}.test.ts`；本 spec 只评**界面披露与风险分级**这两件事在真栈里的真实
+ * 行为。
  */
 
 test.setTimeout(240_000);
 
-test("TW-P0-6①：审批界面三态按钮齐（approve / edit / reject）—— 已知当前达标，防回归", async ({ page }) => {
+test("TW-P0-6①：审批界面四选一按钮齐（仅本次 / 本 run 内 / 以后都允许 / 拒绝）", async ({ page }) => {
   await openFreshThread(page);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  /*
-   * ⚠ `copilotkit-v2-hitl-dialog` 这个 testid 在 `copilotkit-v2-panel.tsx` 上挂在
-   * **两个不同的 DialogContent** 上：`:421` 是终态/状态变体（不带任何决策按钮），
-   * `:455` 才是决策变体（approve / start-edit / reject 三个按钮都在这里）。
-   *
-   * 首轮实测本条以「缺少 approve」收场——弹窗确实出现了，但出现的是 `:421` 那个
-   * **终态**变体。当时差点据此写下「三态按钮不存在」，那会是一句错话：
-   * 按钮就在 `:455`，是我锚错了变体。这正是「同一个 testid 标两处」的代价。
-   *
-   * 因此这里按**决策语义**取弹窗（含 approve 按钮的那一个），并把终态变体单独
-   * 断言出来——若只等到终态变体，说明这一轮压根没停下来等人批，是另一个问题
-   * （run 直接跑完/失败），失败信息要说清是哪一种，不许含糊成「按钮缺失」。
-   */
-  const decisionDialog = page
-    .getByTestId("copilotkit-v2-hitl-dialog")
-    .filter({ has: page.getByTestId("copilotkit-v2-hitl-approve") });
-
+  const dialog = page.getByTestId("chat-tool-permission-dialog");
   await expect(
-    decisionDialog,
-    [
-      "TW-P0-6①：没有等到**决策**态审批弹窗。",
-      "若终态变体（copilotkit-v2-hitl-dialog @ panel:421）出现了而决策变体没有，",
-      "说明这一轮没有真的停下来等人批准，属于 HITL 未触发，不是按钮缺失。",
-    ].join("\n"),
+    dialog,
+    "TW-P0-6①：没有等到工具权限确认弹层——这一轮没有真的停下来等人批准（HITL 未触发），不是按钮缺失。",
   ).toBeVisible({ timeout: 120_000 });
 
-  // 三态都必须在。只做一个「确认」按判据封顶 0.3——这条断言就是那道门。
-  await expect(page.getByTestId("copilotkit-v2-hitl-approve"), "缺少 approve").toBeVisible();
-  await expect(page.getByTestId("copilotkit-v2-hitl-start-edit"), "缺少 edit（在线修改参数后放行）").toBeVisible();
-  await expect(page.getByTestId("copilotkit-v2-hitl-reject"), "缺少 reject").toBeVisible();
+  // 四档都必须在——三态审计判据的超集，只做一个「确认」按判据封顶 0.3——这条断言就是那道门。
+  await expect(page.getByTestId("perm-once"), "缺少「仅本次允许」").toBeVisible();
+  await expect(page.getByTestId("perm-run"), "缺少「本 run 内都允许」").toBeVisible();
+  await expect(page.getByTestId("perm-always"), "缺少「以后都允许」").toBeVisible();
+  await expect(page.getByTestId("perm-deny"), "缺少「拒绝」").toBeVisible();
+
+  // 收尾：拒绝，让 run 干净结束，不留挂起的审批（后续测试用例互不干扰）。
+  await page.getByTestId("perm-deny").click();
 });
 
-test("TW-P0-6②：审批卡披露五项（想做什么 / 为什么 / 影响面 / diff / 风险等级）", async ({ page }) => {
+test("TW-P0-6②：审批卡披露五项（想做什么 / 为什么 / 影响面 / 完整参数 / 风险等级）", async ({ page }) => {
   await openFreshThread(page);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-hitl-dialog")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("chat-tool-permission-dialog")).toBeVisible({ timeout: 120_000 });
 
   const card = await expectAnchor(
     page,
-    "chat-task-workbench-approval-card",
+    "tool-permission-card",
     "TW-P0-6②",
-    "审批弹窗不是结构化审批卡（当前只有裸参数 copilotkit-v2-hitl-args，无意图/理由/影响面/风险）",
+    "审批弹窗不是结构化审批卡",
     20_000,
   );
 
-  for (const [suffix, what] of [
-    ["intent", "Agent 想做什么"],
-    ["rationale", "为什么要做"],
-    ["impact", "影响哪些文件记录或外部对象"],
-    ["diff", "参数或变更 diff"],
-    ["risk", "风险等级"],
-  ] as const) {
-    const testId = `chat-task-workbench-approval-facet-${suffix}`;
-    await expect(
-      card.getByTestId(testId),
-      gapMessage("TW-P0-6②", testId, `审批卡未披露「${what}」`),
-    ).toBeVisible({ timeout: 10_000 });
-  }
+  await expect(card.getByTestId("perm-intent"), "审批卡未披露「Agent 想做什么」").toBeVisible({ timeout: 10_000 });
+  await expect(card.getByTestId("perm-rationale"), "审批卡未披露「为什么要做」").toBeVisible({ timeout: 10_000 });
+  await expect(card.getByTestId("perm-affects"), "审批卡未披露「影响哪些文件记录或外部对象」").toBeVisible({ timeout: 10_000 });
+  // I-3：完整参数（不是摘要）承载"变更 diff"这一项——call_skill 没有文件级 diff，
+  // 完整参数就是这次调用唯一的、未截断的"变更内容"。
+  await expect(card.getByTestId("perm-command"), "审批卡未披露完整参数").toBeVisible({ timeout: 10_000 });
 
-  // 风险等级必须是可判定的枚举，不是一句形容词——否则「按风险分级」无法机械成立。
-  await expect(
-    card,
-    gapMessage("TW-P0-6②", "chat-task-workbench-approval-card", "风险等级不是可判定的枚举 data-risk"),
-  ).toHaveAttribute("data-risk", /^(low|medium|high|critical)$/);
+  // 风险等级必须是可判定的枚举，不是一句形容词——只有 L2 会走到这张卡（L0/L1 由
+  // `domain/agent-run/skill-risk-level.ts` 在网关侧直接放行，根本不会 interrupt）。
+  await expect(card.getByTestId("risk-L2"), "审批卡未披露可判定的风险等级").toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId("perm-deny").click();
 });
 
 test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证面）", async ({ page }) => {
@@ -115,7 +93,7 @@ test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证�
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
   await expect(
-    page.getByTestId("copilotkit-v2-hitl-dialog"),
+    page.getByTestId("chat-tool-permission-dialog"),
     [
       "【差距 TW-P0-6③】一次纯读操作也弹了审批卡。",
       "审计原话：读操作可静默；写入、删除、发送、支付、发布必须按风险分级。",
@@ -133,3 +111,15 @@ test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证�
     30_000,
   );
 });
+
+/**
+ * issue #2767 的核心修复（平台官方 skill 是 L0、不再弹审批）需要一条真正挂载了
+ * `pdf-create` 的线程才能忠实复现——本文件既有的 loopback 触发词固定走
+ * `skill_stable_name: "quarterly-report"`（一个从未真实挂载的技能，见
+ * `copilotkit-v2-hitl.spec.ts` 头注：fail-closed 判 L2 是这条既有触发词继续生效的
+ * 原因），凑一条新触发词+挂载流程超出本文件"审批卡披露与分级"的既定范围，容易做出
+ * 一个看似过了、实则没验证到真实挂载路径的假绿。这条回归改在
+ * `apps/api/tests/agent-run/risk-tiering-and-states.test.ts`（issue #2767 新增的
+ * describe 块）用真实 `PinnedSkillContent` 直接验证：pdf-create 中断 ⇒ 不进
+ * `awaiting_tool_permission`；devapp 人类实测截图作为端到端的补充证据。
+ */

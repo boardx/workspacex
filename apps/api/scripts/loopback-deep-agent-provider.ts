@@ -394,9 +394,11 @@ const server = createServer((req, res) => {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
-    // ⚠ reject 在这里**永远不会**被观察到：`decide-agent-run.ts` 对 reject 直接
-    // `failRun("HITL_REJECTED")`，从不向 provider 发 resume——服务端就是唯一权威，
-    // 本替身没有、也不该有 reject 分支（写一个够不到的分支是「同一事实两处声明」）。
+    // issue #2767 -- 这条状态轮询分支本身与裁决类型无关（走到这里说明 `record.decision`
+    // 已非 null，`/threads/:id/runs/:runId/state` 那条分支才区分 approve/edit/reject 的
+    // 内容），旧注释"reject 永远不会被观察到"只对旧 `decideAgentRun` 的 reject 成立
+    // （那条直接 `failRun`，从不 resume）——F06 的 `deny`（`decideToolPermission`）会把
+    // run 收回 `queued` 再 resume，真的会走到这里，见下方 state 分支的处理。
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
     const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
     sendJson(res, 200, { status });
@@ -547,12 +549,20 @@ const server = createServer((req, res) => {
       const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
         ? record.decision.editedArgs
         : originalArgs;
-      // 文案跟着工具语义走：现在待批的是 `call_skill`（执行一个技能），不是发邮件。
-      const toolResultText = `已执行技能（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：`
-        + JSON.stringify(usedArgs);
-      const finalReplyText = record.decision.type === "edit"
-        ? `已按你编辑后的参数执行：${JSON.stringify(usedArgs)}`
-        : `已按原参数执行：${JSON.stringify(usedArgs)}`;
+      // issue #2767 -- F06 的 `deny`（`decideToolPermission`）与旧 `decideAgentRun` 的
+      // `reject` 现在共用同一条 `resume:{decision:"reject"}` wire 形状（`execute-run.ts`
+      // 的 `pendingDecision.kind === "deny"` 分支），且真的会走到这里——旧注释"reject 在
+      // 这里永远不会被观察到"只对旧 `decideAgentRun` 的 reject 成立（那条直接
+      // `failRun`，从不 resume）；F06 的 deny 会把 run 收回 `queued` 再 resume，本替身
+      // 因此必须诚实回应"没有执行"，不能沿用 approve/edit 那句"已执行技能"。
+      const toolResultText = record.decision.type === "reject"
+        ? "用户拒绝了这次技能调用，未执行。"
+        : `已执行技能（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：` + JSON.stringify(usedArgs);
+      const finalReplyText = record.decision.type === "reject"
+        ? "已按你的选择跳过这次技能调用，不会执行。"
+        : record.decision.type === "edit"
+          ? `已按你编辑后的参数执行：${JSON.stringify(usedArgs)}`
+          : `已按原参数执行：${JSON.stringify(usedArgs)}`;
       sendJson(res, 200, {
         values: {
           messages: [

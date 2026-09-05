@@ -94,6 +94,9 @@ import type { AguiRunPhase } from "@repo/contracts/agui-state-events";
 import {
   decideAgentRun, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps,
 } from "./decide-agent-run";
+// issue #2767 -- F06 四选一决策，见 `resumeAguiBridgeTurnToolPermission` 自己的文档。
+import { decideToolPermission, type DecideToolPermissionDeps } from "./decide-tool-permission";
+import type { ToolPermissionDecisionKind } from "@repo/contracts/plan-permissions";
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 // 2026-08-27：`acceptHumanMessage` 的自动命名叠加模型摘要，见 `generate-thread-title.ts`
 // 头注。这条轨道（AG-UI bridge）与 REST 轨道（`chat.controller.ts`）共用同一份
@@ -531,6 +534,67 @@ export async function resumeAguiBridgeTurn(
   // `onStarted`, which fires right as a run begins, this fires right as one resumes. A
   // rejected run is already `failed` by the time this poll loop's first iteration reads it;
   // it costs one extra `readAgentRun` round trip to discover that, not a real wait.
+  input.onStarted?.();
+
+  return pollAguiRunToOutcome(deps, {
+    userId: input.userId, orgId: input.orgId, threadId: input.threadId, runId,
+    pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
+    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
+    initialReportedStepCount, initialLastSeenDeltaSeq,
+  });
+}
+
+/**
+ * issue #2767 -- 同 `resumeAguiBridgeTurn` 的整体结构（找 runId → 快照已报告到哪里 →
+ * 裁决 → 轮询到终态），但裁决走 F06 的 `decideToolPermission`（四选一：once/run/
+ * forever/deny）而不是旧 DA-07b 的 `decideAgentRun`（approve/edit/reject）——两者是
+ * `decide-tool-permission.ts` 自己文档说的"迁移期共存的两条并行出口"，`deny` 与旧
+ * `reject` 的终态语义不同（`deny` 让 run 回到 `queued`、内核收到拒绝结果后自己调整
+ * 计划继续跑，不是直接 `failRun`，见 R3 步骤 6），所以不能把两条路径合成一条。
+ *
+ * `call_skill` 的 `ToolPermissionCard`（`components/chat/chat-host-tool-permission.tsx`）
+ * `respond()` 这四个字面量时落在这条函数上，见 `copilotkit-agui.controller.ts`
+ * `parseHitlDecision` 自己的文档。三个具名虚拟工具（`confirm_task_intent`/
+ * `fill_run_params`/`choose_execution_option`）仍然用 `respond("approved")`/编辑对象，
+ * 继续走上面的 `resumeAguiBridgeTurn`，不受影响。
+ */
+export async function resumeAguiBridgeTurnToolPermission(
+  deps: AguiBridgeDeps & DecideToolPermissionDeps,
+  input: {
+    readonly userId: string;
+    readonly orgId: OrgId;
+    readonly threadId: string;
+    readonly decision: ToolPermissionDecisionKind;
+    /** `decideToolPermission` 收下这个字段但不参与判定（同一个 run 同一时刻只可能有
+     *  一个待批工具调用，见该函数自己的文档）——这里传 AG-UI 消息里带的
+     *  `toolCallId`（拿不到就传空串），只为了错误信息里能回显真实值。 */
+    readonly toolCallId: string;
+    readonly onStarted?: () => void;
+    readonly onDelta?: (delta: string) => void;
+    readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+    readonly onPhase?: (phase: AguiRunPhase) => void;
+    readonly pollIntervalMs?: number;
+    readonly maxPolls?: number;
+  },
+): Promise<AguiBridgeOutcome> {
+  const runId = await deps.runs.findAwaitingToolPermissionRunId(input.orgId, input.threadId);
+  if (runId === null) throw new NoAwaitingToolPermissionRunError();
+
+  // 同 `resumeAguiBridgeTurn` 的既有纪律：裁决之前先快照"已经报告到哪里"，
+  // `decideToolPermission` 内部的 `kick` 可能让执行器立刻产生新内容。
+  const preDecisionProjection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
+  const preDecisionDeltas = input.onDelta
+    ? await deps.runs.readModelDeltas(input.orgId, runId, -1)
+    : [];
+  const initialReportedStepCount = preDecisionProjection.steps.length;
+  const initialLastSeenDeltaSeq = preDecisionDeltas.length > 0
+    ? preDecisionDeltas[preDecisionDeltas.length - 1]!.seq
+    : -1;
+
+  await decideToolPermission(deps, {
+    userId: input.userId, orgId: input.orgId, runId,
+    toolCallId: input.toolCallId, decision: input.decision,
+  });
   input.onStarted?.();
 
   return pollAguiRunToOutcome(deps, {

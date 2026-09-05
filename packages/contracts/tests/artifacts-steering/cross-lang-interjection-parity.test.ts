@@ -72,11 +72,16 @@ describe("#2755 TS 侧投影用的是契约常量，不是手写字符串", () =
   it("deep-agent-model-provider.ts 从契约导入 KERNEL_INTERJECTION_CONFIGURABLE_KEY 并用它当键", () => {
     const provider = readSrc(PROVIDER_TS);
     expect(provider).toMatch(/import\s*\{\s*KERNEL_INTERJECTION_CONFIGURABLE_KEY\s*\}\s*from\s*"@repo\/contracts\/artifacts-steering"/);
-    // 两个分支（resume / 新建 run）都用计算属性名 `[KERNEL_INTERJECTION_CONFIGURABLE_KEY]`。
-    const uses = provider.match(/\[KERNEL_INTERJECTION_CONFIGURABLE_KEY\]:\s*input\.interjection/g) ?? [];
-    expect(uses).toHaveLength(2);
+    // 新建 run 分支用计算属性名 `[KERNEL_INTERJECTION_CONFIGURABLE_KEY]:`；resume 分支
+    // 自 issue #2767 起要跟 `hitl_skill_names` 合并进同一个 `configurable` 对象，改成了
+    // 先建一个 `resumeConfigurable` 再按键赋值（`resumeConfigurable[...] = ...`）——
+    // 两种写法都是"从契约常量算出键名，不是手写字符串"，各自出现一次，合计两次。
+    const literalUses = provider.match(/\[KERNEL_INTERJECTION_CONFIGURABLE_KEY\]:\s*input\.interjection/g) ?? [];
+    const assignmentUses = provider.match(/resumeConfigurable\[KERNEL_INTERJECTION_CONFIGURABLE_KEY\]\s*=\s*input\.interjection/g) ?? [];
+    expect(literalUses).toHaveLength(1);
+    expect(assignmentUses).toHaveLength(1);
     // 没有人把键名再手写一遍（注释里的 `configurable.interjection` 是文档，不是代码——
-    // 这里只查对象字面量键的形态）。
+    // 这里只查对象字面量键/赋值键的形态）。
     expect(provider).not.toMatch(/^\s*interjection:\s*input\.interjection/m);
   });
 });

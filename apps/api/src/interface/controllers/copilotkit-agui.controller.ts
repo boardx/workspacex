@@ -117,13 +117,19 @@ import {
   THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
 } from "../../application/chat/generate-thread-title";
 import {
-  runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingToolPermissionRunError,
+  runAguiBridgeTurn, resumeAguiBridgeTurn, resumeAguiBridgeTurnToolPermission,
+  NoAwaitingToolPermissionRunError,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
   AgentRunNotVisibleError,
   TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingToolPermissionError,
   type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
+// issue #2767 -- F06 四选一决策（once/run/forever/deny）的类型 + 存储端口，
+// `call_skill` 的 `ToolPermissionCard` resume 走这条，见 `parseHitlDecision` 自己的文档。
+import type { ToolPermissionDecisionKind } from "@repo/contracts/plan-permissions";
+import { TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
+import { RunNotAwaitingToolPermissionError } from "../../application/agent-run/decide-tool-permission";
 import {
   parseWriteTodosSnapshot,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
@@ -341,30 +347,50 @@ function isHitlResumeRequest(input: AguiRunInput): boolean {
   return messages.length > 0 && messages[messages.length - 1]?.role === "tool";
 }
 
-/** The decision-shaped payload a "tool" role message about the ONE tool this bridge ever
- * asks the frontend to execute (the HITL tool named by `@repo/contracts`'s
- * `DEEP_AGENT_HITL_TOOL_NAME`, rendered by `SendEmailApprovalDialog`) can carry is
- * limited to what `SendEmailApprovalDialog`'s three actions call `respond(...)` with
- * (`copilotkit-v2-panel.tsx`): the literal strings `"approved"`/`"denied"`, or a JSON object
- * (the edited args, already validated client-side by `parseEditDraft`). Anything else is
- * neither -- a malformed/unexpected payload this bridge has never produced and should not
- * guess at (fail closed, same discipline `EditDecision`'s own JSON parsing on the deep-agent
- * provider side already uses for edited args -- see `decide-agent-run.ts` file head). */
+/** The decision-shaped payload a "tool" role message about a HITL tool call can carry.
+ *
+ * Two families share the same `{role:"tool", toolCallId, content}` resume shape and the
+ * same `isHitlResumeRequest` detection (a Chat thread has at most one
+ * `awaiting_tool_permission` run at a time, so there is never an ambiguity about WHICH
+ * pending call a resume answers):
+ *
+ * - The three named virtual tools (`confirm_task_intent`/`fill_run_params`/
+ *   `choose_execution_option`, `copilotkit-v2-agent-interrupts.tsx`) still `respond("approved")`
+ *   or an edited-args object -- unchanged, routed to the existing `decideAgentRun` 3-way
+ *   (approve/reject/edit) via `resumeAguiBridgeTurn`.
+ * - issue #2767 -- `call_skill`'s `ToolPermissionCard` (`components/chat/chat-host-tool-
+ *   permission.tsx`) `respond()`s one of the four F06 literals
+ *   (`ToolPermissionDecisionKind`: once/run/forever/deny), routed to `decideToolPermission`
+ *   via `resumeAguiBridgeTurnToolPermission` -- a DIFFERENT decision surface with different
+ *   semantics for "no": F06's `deny` requeues and lets the kernel adjust its plan (R3 步骤
+ *   6), it does not hard-fail the run the way the old `reject` does. The former
+ *   `SendEmailApprovalDialog` (`"approved"`/`"denied"`/edit) is retired for `call_skill`
+ *   along with this change -- the literal strings never collide (`"once"`/`"run"`/
+ *   `"forever"`/`"deny"` are distinct from `"approved"`/`"denied"`).
+ *
+ * Anything else is neither -- a malformed/unexpected payload this bridge has never produced
+ * and should not guess at (fail closed, same discipline `EditDecision`'s own JSON parsing on
+ * the deep-agent provider side already uses for edited args -- see `decide-agent-run.ts`
+ * file head). */
 function parseHitlDecision(
   content: string,
 ):
   | { readonly kind: "approve" | "reject" }
   | { readonly kind: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> }
+  | { readonly kind: "toolPermission"; readonly decision: ToolPermissionDecisionKind }
   | null {
   if (content === "approved") return { kind: "approve" };
   if (content === "denied") return { kind: "reject" };
+  if (content === "once" || content === "run" || content === "forever" || content === "deny") {
+    return { kind: "toolPermission", decision: content };
+  }
   try {
     const parsed: unknown = JSON.parse(content);
     if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
       return { kind: "edit", editedArgs: parsed as Readonly<Record<string, unknown>> };
     }
   } catch {
-    // Falls through to `null` below -- not valid JSON, not one of the two literal strings.
+    // Falls through to `null` below -- not valid JSON, not one of the recognized literals.
   }
   return null;
 }
@@ -536,6 +562,9 @@ export class CopilotkitAguiController {
     @Inject(PLAN_LEDGER_REPOSITORY) private readonly planLedger: PlanLedgerRepository,
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(THREAD_TITLE_MODEL_CONFIG) private readonly titleModel: ThreadTitleModelConfig,
+    // issue #2767 -- F06 三档授权存储，`resumeAguiBridgeTurnToolPermission` 转发给
+    // `decideToolPermission` 落 once/forever 两档的授权记录。
+    @Inject(TOOL_PERMISSION_GRANT_STORE) private readonly toolPermissionGrants: ToolPermissionGrantStore,
   ) {}
 
   /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
@@ -555,6 +584,9 @@ export class CopilotkitAguiController {
       // `agent-run.controller.ts`'s REST decision route already injects it as.
       kick: (orgId: OrgId) => this.executor.kick(orgId),
       model: this.model, titleModel: this.titleModel, log: this.log,
+      // issue #2767 -- `DecideToolPermissionDeps.grants`，`resumeAguiBridgeTurnToolPermission`
+      // 用它落 once/forever 两档授权记录。
+      grants: this.toolPermissionGrants,
     };
   }
 
@@ -643,8 +675,13 @@ export class CopilotkitAguiController {
     const resumeRequest = isHitlResumeRequest(body);
     let decision: NonNullable<ReturnType<typeof parseHitlDecision>> | null = null;
     let text: string | null = null;
+    // issue #2767 -- 供 `resumeAguiBridgeTurnToolPermission` 回显用（`decideToolPermission`
+    // 不参与判定，见该函数自己的文档），`lastMessage` 只在这个 if 块里有意义，故提到
+    // 外层作用域保存。
+    let resumeToolCallId: string | undefined;
     if (resumeRequest) {
       const lastMessage = body.messages?.[body.messages.length - 1];
+      resumeToolCallId = lastMessage?.toolCallId;
       decision = parseHitlDecision(lastMessage?.content ?? "");
       if (decision === null) {
         throw new UnprocessableEntityException("HITL_DECISION_INVALID");
@@ -782,19 +819,31 @@ export class CopilotkitAguiController {
       if (resumeRequest && resumeChatThreadId !== undefined) {
         resolvedThreadId = resumeChatThreadId;
       }
+      // issue #2767 -- decision!.kind === "toolPermission" 时（`call_skill` 的
+      // `ToolPermissionCard` 四选一），走 F06 的 `decideToolPermission` 而不是旧
+      // DA-07b 的 `decideAgentRun`；三个具名虚拟工具的 approve/edit/reject 不受影响。
+      const resumeDecision = decision!; // non-null: validated above, `resumeRequest` implies it.
       const outcome = resumeRequest
-        ? await resumeAguiBridgeTurn(this.deps, {
-          userId: principal.userId, orgId: toOrgId(principal.orgId),
-          // Resume ALWAYS needs a real Chat thread id -- there is no "create one" fallback
-          // here the way a fresh turn has (`resolveThreadId`'s `null` branch): a resume
-          // with nowhere to look up the paused run is not a request this bridge can invent
-          // an answer to. `findAwaitingToolPermissionRunId` throws `NoAwaitingToolPermissionRunError`
-          // on an empty string exactly like it would on any other thread with no pending
-          // run, so this is deliberately NOT special-cased into its own error code.
-          threadId: resumeChatThreadId ?? "",
-          decision: decision!, // non-null: validated above, `resumeRequest` implies it.
-          ...sharedCallbacks,
-        })
+        ? (resumeDecision.kind === "toolPermission"
+          ? await resumeAguiBridgeTurnToolPermission(this.deps, {
+            userId: principal.userId, orgId: toOrgId(principal.orgId),
+            threadId: resumeChatThreadId ?? "",
+            decision: resumeDecision.decision,
+            toolCallId: resumeToolCallId ?? "",
+            ...sharedCallbacks,
+          })
+          : await resumeAguiBridgeTurn(this.deps, {
+            userId: principal.userId, orgId: toOrgId(principal.orgId),
+            // Resume ALWAYS needs a real Chat thread id -- there is no "create one" fallback
+            // here the way a fresh turn has (`resolveThreadId`'s `null` branch): a resume
+            // with nowhere to look up the paused run is not a request this bridge can invent
+            // an answer to. `findAwaitingToolPermissionRunId` throws `NoAwaitingToolPermissionRunError`
+            // on an empty string exactly like it would on any other thread with no pending
+            // run, so this is deliberately NOT special-cased into its own error code.
+            threadId: resumeChatThreadId ?? "",
+            decision: resumeDecision,
+            ...sharedCallbacks,
+          }))
         : await runAguiBridgeTurn(this.deps, {
           userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text: text!,
           // issue #2321 round 2 -- reuse the caller's stable id when it sent one (a retry
@@ -914,6 +963,14 @@ export class CopilotkitAguiController {
         // DA-19g -- `decideAgentRun` found a run id but it raced out of `awaiting_tool_permission`
         // between `findAwaitingToolPermissionRunId` and the decision itself (concurrent decision,
         // already terminal, …) -- same "as-real" conflict the REST route already reports.
+        write({
+          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
+          code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
+        });
+      } else if (e instanceof RunNotAwaitingToolPermissionError) {
+        // issue #2767 -- 同上一支的同一种竞态，但来自 F06 的 `decideToolPermission`
+        // （`resumeAguiBridgeTurnToolPermission`），不是旧 `decideAgentRun`。同一份
+        // "as-real" 冲突叙述，换一个稳定错误码，避免两条并行出口的错误信息互相混淆。
         write({
           type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
           code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",

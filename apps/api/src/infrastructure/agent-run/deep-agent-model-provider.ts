@@ -91,6 +91,7 @@ import {
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 import type { kernelGateway as KG } from "@repo/contracts";
 import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
+import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "@repo/contracts/plan-permissions";
 
 import type {
   ModelCallCompletion,
@@ -801,7 +802,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 找不到时如实返回占位名（"unknown"），绝不编参数。 */
   private async readPendingApproval(
     baseUrl: string, threadId: string,
-  ): Promise<{ toolName: string; argsSummary: string | null }> {
+  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null }> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
     const answered = new Set<string>();
@@ -815,9 +816,19 @@ export class DeepAgentModelProvider implements ModelCallPort {
         const id = typeof call.id === "string" ? call.id : null;
         const name = typeof call.name === "string" ? call.name : null;
         if (id === null || name === null || answered.has(id)) continue;
+        // issue #2767 -- 直接从原始 args 对象读 `skill_stable_name`，不是从下面
+        // `argsSummary`（可能被截断的摘要文本）反解析。非 call_skill 的中断
+        // （三个具名虚拟工具）没有这个字段，`skillStableName` 保持 undefined。
+        const args = call.args;
+        const skillStableName = name === DEEP_AGENT_HITL_TOOL_NAME
+          && typeof args === "object" && args !== null && !Array.isArray(args)
+          && typeof (args as Record<string, unknown>).skill_stable_name === "string"
+          ? (args as Record<string, unknown>).skill_stable_name as string
+          : undefined;
         return {
           toolName: name,
           argsSummary: call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args), 4000),
+          ...(skillStableName === undefined ? {} : { skillStableName }),
         };
       }
     }
@@ -858,6 +869,14 @@ export class DeepAgentModelProvider implements ModelCallPort {
       } else {
         decision = { type: input.resume.decision };
       }
+      // issue #2767 -- resume 同样是这个 run 的"下一次内核调用"（同插话回灌的既有
+      // 先例），`hitl_skill_names` 必须跟着投影，否则 resume 之后内核对
+      // `call_skill` 又会退回"每次都 interrupt"的 fail-closed 默认——L2 skill 的
+      // 编辑/审批循环还需要它，但 L0/L1 skill 走到 resume（理论上不会，因为它们
+      // 本来就不 interrupt）也不该因为漏投影而意外多问一次。
+      const resumeConfigurable: Record<string, unknown> = {};
+      if (input.interjection !== undefined) resumeConfigurable[KERNEL_INTERJECTION_CONFIGURABLE_KEY] = input.interjection;
+      if (input.hitlSkillNames !== undefined) resumeConfigurable[KERNEL_HITL_SKILLS_CONFIGURABLE_KEY] = input.hitlSkillNames;
       const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
         method: "POST",
         body: JSON.stringify({
@@ -867,8 +886,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
           // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
           // ⚠ 缺席时整个 `config` 键都不出现，resume 请求体与本 feature 之前逐字节相同。
-          ...(input.interjection === undefined ? {} : {
-            config: { configurable: { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection } },
+          ...(Object.keys(resumeConfigurable).length === 0 ? {} : {
+            config: { configurable: resumeConfigurable },
           }),
         }),
       });
@@ -949,6 +968,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
             ...(input.interjection === undefined
               ? {}
               : { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection }),
+            /*
+             * issue #2767 —— 本次 run 挂载集合里等级为 L2 的 skill 名单，键名 = 契约
+             * `KERNEL_HITL_SKILLS_CONFIGURABLE_KEY`。`harness.py` 的
+             * `_call_skill_requires_hitl` 谓词读它决定要不要为这次 `call_skill`
+             * interrupt——键缺席时内核 fail-closed 成"每次都停"，所以这里**只有
+             * `execute-run.ts` 真算出了这个列表才投影**，不是无条件传空数组（空数组
+             * 与"没有 L2 skill"同义，但"没算过"与"算出来是空"是两件不同的事，前者
+             * 缺席更诚实）。
+             */
+            ...(input.hitlSkillNames === undefined
+              ? {}
+              : { [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames }),
             /*
              * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
              * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥

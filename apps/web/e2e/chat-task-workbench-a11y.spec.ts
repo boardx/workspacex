@@ -124,7 +124,7 @@ test("TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处", a
   await composer.fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  const dialog = page.getByTestId("copilotkit-v2-hitl-dialog");
+  const dialog = page.getByTestId("chat-tool-permission-dialog");
   await expect(dialog).toBeVisible({ timeout: 120_000 });
 
   // ① 焦点锁定：连按 Tab 若干次，焦点必须始终落在弹窗内。
@@ -132,7 +132,7 @@ test("TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处", a
     await page.keyboard.press("Tab");
     const insideDialog = await page.evaluate(() => {
       const active = document.activeElement;
-      const dlg = document.querySelector('[data-testid="copilotkit-v2-hitl-dialog"]');
+      const dlg = document.querySelector('[data-testid="chat-tool-permission-dialog"]');
       return Boolean(active && dlg && dlg.contains(active));
     });
     expect(

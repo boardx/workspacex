@@ -236,9 +236,47 @@ export function ProgressStream() {
 }
 
 // ══ 03 工具权限确认弹层 ═════════════════════════════════════════════
-export function ToolPermissionCard() {
-  const req = MOCK_PERMISSION_REQUEST;
-  const [decision, setDecision] = React.useState<null | "once" | "run" | "always" | "deny">(null);
+
+/** issue #2767 —— `ToolPermissionCard` 受控化所需的请求形状。字段与
+ *  `lib/mock/agent-kernel.ts` 的 `MOCK_PERMISSION_REQUEST` 逐字一致，供
+ *  `/chat` 宿主（`components/chat/chat-host-tool-permission.tsx`）从真实
+ *  `call_skill` 的 `{skill_stable_name, task}` 参数派生出同一形状传入。 */
+export interface ToolPermissionCardRequest {
+  readonly risk: TodoRisk;
+  readonly intent: string;
+  readonly rationale: string;
+  readonly command: string;
+  readonly affects: string;
+}
+
+/** 四选一决策的字面量——data-testid 用 `perm-always` 承载 `forever`
+ *  语义（文案层命名，不是新枚举），契约 `ToolPermissionDecisionKind`
+ *  才是这四档在网络上真正传输的名字（once/run/forever/deny）。 */
+export type ToolPermissionCardDecision = "once" | "run" | "always" | "deny";
+
+export function ToolPermissionCard({
+  request,
+  decided,
+  onDecide,
+}: {
+  /** 缺省回退到 mock（`/preview/agent-kernel` 签核阶段与既有单测的既定行为，
+   *  一字不改）。 */
+  readonly request?: ToolPermissionCardRequest;
+  /** issue #2767 —— 受控态：宿主已经拿到真实裁决结果时传入，卡片据此显示收尾
+   *  文案，不再自己管理内部 state。缺省（`undefined`）时组件退回内部 state
+   *  自管理（既有 mock/单测行为）。 */
+  readonly decided?: ToolPermissionCardDecision | null;
+  /** issue #2767 —— 用户点击某个决策按钮时的回调，供宿主把它翻译成真实的
+   *  `respond(...)` 调用。缺省时按钮只更新组件内部展示态（既有行为）。 */
+  readonly onDecide?: (decision: ToolPermissionCardDecision) => void;
+} = {}) {
+  const req = request ?? MOCK_PERMISSION_REQUEST;
+  const [localDecision, setLocalDecision] = React.useState<ToolPermissionCardDecision | null>(null);
+  const decision = decided !== undefined ? decided : localDecision;
+  const handleDecide = (next: ToolPermissionCardDecision): void => {
+    if (onDecide) onDecide(next);
+    else setLocalDecision(next);
+  };
 
   return (
     <Card data-testid="tool-permission-card" className="max-w-lg border-warning/40 shadow-lg">
@@ -269,7 +307,10 @@ export function ToolPermissionCard() {
         </div>
         <div className="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground">
           <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>影响范围：{req.affects}</span>
+          {/* issue #2767 -- 补一个独立 testid：`chat-task-workbench-approval.spec.ts`
+              TW-P0-6② 记录过"审批弹窗没有披露影响面"这个差距，这行内容本来就有，只是
+              此前没有可寻址的锚点。 */}
+          <span data-testid="perm-affects">影响范围：{req.affects}</span>
         </div>
 
         {decision && (
@@ -286,16 +327,16 @@ export function ToolPermissionCard() {
         )}
 
         <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap">
-          <Button variant="outline" data-testid="perm-once" onClick={() => setDecision("once")}>
+          <Button variant="outline" data-testid="perm-once" onClick={() => handleDecide("once")}>
             <Check aria-hidden className="h-4 w-4" /> 仅本次允许
           </Button>
-          <Button variant="outline" data-testid="perm-run" onClick={() => setDecision("run")}>
+          <Button variant="outline" data-testid="perm-run" onClick={() => handleDecide("run")}>
             本 run 内都允许
           </Button>
-          <Button variant="outline" data-testid="perm-always" onClick={() => setDecision("always")}>
+          <Button variant="outline" data-testid="perm-always" onClick={() => handleDecide("always")}>
             以后都允许
           </Button>
-          <Button variant="destructive" data-testid="perm-deny" onClick={() => setDecision("deny")}>
+          <Button variant="destructive" data-testid="perm-deny" onClick={() => handleDecide("deny")}>
             <X aria-hidden className="h-4 w-4" /> 拒绝
           </Button>
         </div>

@@ -898,6 +898,21 @@ export interface ModelCallInput {
    */
   readonly skills?: readonly PinnedSkillContent[];
   /**
+   * issue #2767 —— 本次 run 挂载集合里，等级为 L2 的 skill 的 stableName 名单
+   * （`domain/agent-run/skill-risk-level.ts` 的 `selectL2SkillNames`）。只有
+   * `DeepAgentModelProvider` 关心它：投影到 LangGraph
+   * `config.configurable[KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]`，`harness.py` 的
+   * `_call_skill_requires_hitl` 谓词读它决定这次 `call_skill` 要不要 interrupt。
+   *
+   * ⚠ 与 `skills` 同一条"缺席/不理解都是允许形态"的纪律，但语义更进一步：这里的
+   * **缺席**在内核侧不是"关闭这项能力"，而是"内核对 `call_skill` 保持每次都
+   * interrupt 的保守默认"（`build_interrupt_on` 的 `when` 谓词 fail-closed）——
+   * 老网关/未升级的调用方不会因为这个字段不存在而意外让高风险 skill 免检。
+   * `execute-run.ts` 只在 `isDeepAgentRun` 时才计算并填充，非 deep-agent run 永远
+   * 不带这个字段（`call_skill` 只在 deep-agent 图里存在）。
+   */
+  readonly hitlSkillNames?: readonly string[];
+  /**
    * P2（#1561）—— 本轮真的要让模型**看到像素**的图片。
    *
    * **必须是可选的**，理由与上面 `history` / `skills` 逐字同一条，不是新纪律：缺席表示
@@ -983,7 +998,18 @@ export interface ModelCallCompletion {
    * 此时没有终稿，text 为空串；调用方必须先查本字段再判空文本——顺序反了会把
    * 「等待批准」误判成「provider 没回内容」。
    */
-  readonly interrupted?: { readonly toolName: string; readonly argsSummary: string | null };
+  readonly interrupted?: {
+    readonly toolName: string;
+    readonly argsSummary: string | null;
+    /**
+     * issue #2767 —— `toolName === "call_skill"` 时，待批调用的原始
+     * `skill_stable_name` 参数（直接从 tool_call 的 `args` 对象读出，不是从
+     * `argsSummary` 反解析）。`tool-permission-gate.ts` 用它在本次 run 挂载集合的
+     * `SkillRiskEntry[]` 里查目标 skill 的等级。非 `call_skill` 的中断（三个具名
+     * 虚拟工具）恒为 `undefined`。
+     */
+    readonly skillStableName?: string | null;
+  };
   readonly text: string;
   readonly tokens?: number;
   readonly promptTokens?: number;

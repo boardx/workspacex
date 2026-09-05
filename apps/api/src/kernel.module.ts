@@ -345,6 +345,8 @@ import { PgRunImageInput } from "./infrastructure/agent-run/pg-run-image-input";
 import { PgToolTraceContext } from "./infrastructure/agent-run/pg-tool-trace-context";
 import { createCanvasTemplateGuidancePort } from "./application/agent-run/canvas-template-guidance";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
+import { PgToolPermissionGrantRepository } from "./infrastructure/agent-run/pg-tool-permission-grant-repository";
+import { TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore } from "./application/agent-run/tool-permission-grants";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
 } from "./infrastructure/agent-run/configured-model-provider";
@@ -1585,7 +1587,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
-        events: RunEventBusPort,
+        events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1621,11 +1623,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // Phase 14 F03 -- 与 WS 网关（`main.ts` `attachStreamingSurfaces`）共享的同一个
           // `RUN_EVENT_BUS` 单例，见该 provider 自己的注册注释。
           events,
+          // issue #2767 -- F06 三档授权存储此前从未注入到这里（见 `AgentRunExecutor`
+          // 构造函数该参数自己的完整取证）。与 `CopilotkitAguiController` 共用
+          // `TOOL_PERMISSION_GRANT_STORE` 这同一个单例，不各自新开一份。
+          toolPermissionGrants,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
-        SKILL_SANDBOX_PORT, RUN_EVENT_BUS,
+        SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
@@ -1633,6 +1639,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: TOKEN_USAGE_METER,
       useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // issue #2767 -- F06 三档授权存储的单一实例，`AgentRunExecutor`（执行循环的
+    // `hasGrant` 查询）与 `CopilotkitAguiController`（`decideToolPermission` 的
+    // once/forever 写入）共用同一个，不各自 `new` 一份。
+    {
+      provide: TOOL_PERMISSION_GRANT_STORE,
+      useFactory: (db: DatabasePort) => new PgToolPermissionGrantRepository(db),
       inject: [DATABASE_PORT],
     },
     // F115. 独立的仓储实现，不塞进 PgChatRepository——预设/下发/实例是三张新表，

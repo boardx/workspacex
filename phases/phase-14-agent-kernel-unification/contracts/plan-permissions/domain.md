@@ -14,6 +14,15 @@ L2 不可逆/高风险 bash_exec、外部系统写入                  默认需
 
 分级规则本身固定，不支持组织自定义（R6 不包含）。
 
+> ⚠ **2026-09-05（issue #2767，design-delta，见 `design-signoff.md` 第三节）**：
+> `call_skill` 不再是固定挂在 L2 表里的一个工具名——它的等级现在按**目标 skill**
+> 判定（平台官方目录 L0 / frontmatter 声明 / 缺省 L1）。上表"L2 不可逆/高风险"
+> 一栏描述的仍是分级语义本身（三档固定，不支持组织自定义），`call_skill` 何时落
+> 在哪一档已下沉到 `packages/contracts/src/plan-permissions.ts` 的
+> `SKILL_RISK_DEFAULT_LEVEL`/`SKILL_RISK_FRONTMATTER_KEY` 与
+> `apps/api/src/domain/agent-run/skill-risk-level.ts`，不在本文件重复维护第二份
+> 判定表——这正是本仓"同一事实不得声明在两处"的纪律。
+
 ### `PlanStepDraft`（计划步骤，可编辑态）
 
 ```

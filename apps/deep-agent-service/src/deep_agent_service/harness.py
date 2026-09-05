@@ -48,6 +48,7 @@ from typing import Awaitable, Callable
 
 from langchain.agents.middleware import (
     AgentMiddleware,
+    InterruptOnConfig,
     ModelCallLimitMiddleware,
     ModelRequest,
     ModelResponse,
@@ -60,6 +61,7 @@ from langchain.agents.middleware.types import AgentState
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
 from langgraph.errors import GraphBubbleUp
+from langgraph.prebuilt.tool_node import ToolCallRequest
 from typing_extensions import NotRequired
 
 from deepagents import FilesystemMiddleware, RubricMiddleware
@@ -848,8 +850,59 @@ DEFAULT_HITL_TOOL_NAMES: tuple[str, ...] = (
     "choose_execution_option",
 )
 
+# issue #2767 —— `call_skill` 不再对每一次调用无条件 interrupt：devapp 实测，让
+# 通用助手「生成一个 pdf」会弹「等待批准：调用技能：pdf-create」，人类明确判定这是
+# 错的——生成一份 PDF 不该需要任何批准。风险单位是**被调用的那个 skill**，不是
+# "调用 skill"这个动作本身：网关（`apps/api` 的 `domain/agent-run/skill-risk-
+# level.ts`）按平台目录/`SKILL.md` frontmatter 判定每个挂载 skill 的等级，把其中
+# L2 的 stableName 列表投影进这里读的 `configurable.hitl_skill_names`
+# （键名单一事实源见契约 `KERNEL_HITL_SKILLS_CONFIGURABLE_KEY`，
+# `packages/contracts/src/plan-permissions.ts`）。
+#
+# 键名字面量只在这一处 Python 常量里出现；`packages/contracts/tests/plan-
+# permissions/cross-lang-skill-hitl-parity.test.ts` 读本文件源文本机械比对，改
+# 一侧不改另一侧会红（同 `_INTERJECTION_CONFIG_KEY` 那条既有跨语言门控的手法）。
+_HITL_SKILLS_CONFIG_KEY = "hitl_skill_names"
 
-def build_interrupt_on() -> dict[str, bool]:
+
+def _call_skill_requires_hitl(request: ToolCallRequest) -> bool:
+    """`call_skill` 的 `InterruptOnConfig.when` 谓词——`HumanInTheLoopMiddleware`
+    每次都会调它，返回 `False` 时这次调用直接放行、绝不触发 interrupt。
+
+    - 读不到 `RunnableConfig`（不在 runnable 上下文里，理论上不会发生在真实图
+      执行期间）⇒ `True`：宁可多问一次，也不要在异常上下文里默默放行一个高风险
+      判定跳过（fail-closed，同 `_run_disables_auto_classify` 的既有纪律）。
+    - `configurable.hitl_skill_names` **缺席** ⇒ `True`：老网关/没投影这个键的
+      调用方看到的行为必须与本 feature 之前逐字相同——每次 `call_skill` 都停。
+    - 键存在但形状不是"字符串数组" ⇒ `True`：同上，坏形状按"没有名单"最保守处理，
+      不静默放行。
+    - 键存在且是数组 ⇒ 只有这次调用的 `skill_stable_name` 落在名单内才 `True`；
+      参数缺失/不是字符串（理论上不该发生，`call_skill` 的签名要求它）同样按
+      "不在名单"处理，不猜。
+    """
+    try:
+        config = get_config()
+    except RuntimeError:
+        return True
+    configurable = config.get("configurable") or {}
+    if _HITL_SKILLS_CONFIG_KEY not in configurable:
+        return True
+    raw = configurable.get(_HITL_SKILLS_CONFIG_KEY)
+    if not isinstance(raw, list) or any(not isinstance(name, str) for name in raw):
+        _logger.warning(
+            "configurable.%s 形状不符合契约 KernelHitlSkillNames（字符串数组），"
+            "按最保守的『没有名单』处理：%r",
+            _HITL_SKILLS_CONFIG_KEY,
+            raw,
+        )
+        return True
+    allowed = set(raw)
+    args = request.tool_call.get("args") or {}
+    stable_name = args.get("skill_stable_name") if isinstance(args, dict) else None
+    return isinstance(stable_name, str) and stable_name in allowed
+
+
+def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     """DA-07（#1749，rubric D6 人在环）：敏感工具调用前暂停待人批。
 
     `DEFAULT_HITL_TOOL_NAMES` 列出的工具在每次调用前触发 langgraph interrupt——
@@ -861,8 +914,21 @@ def build_interrupt_on() -> dict[str, bool]:
     checkpointer——平台托管环境由平台提供；自托管必须显式配置 Postgres
     checkpointer（见 `build_checkpointer`），否则 interrupt 无处落地，langgraph
     会在运行时报错，这是正确的 fail-closed 而不是我们要吞的错。
+
+    issue #2767：`call_skill` 单独覆盖成带 `when` 谓词的 `InterruptOnConfig`——
+    是否 interrupt 由 `_call_skill_requires_hitl` 按目标 skill 的风险等级决定，
+    而不是像另外三个具名虚拟工具那样对每次调用都无条件触发。`allowed_decisions`
+    逐字等于 `tool_config is True` 时库自己的默认展开（`human_in_the_loop.py`
+    `__init__` 那段解析逻辑），只是显式写出来——因为一旦提供了 `InterruptOnConfig`
+    就不再落到那条默认分支，必须自己声明，否则会在建图时被当成"没给
+    `allowed_decisions`"直接拒绝。
     """
-    return {name: True for name in DEFAULT_HITL_TOOL_NAMES}
+    result: dict[str, bool | InterruptOnConfig] = {name: True for name in DEFAULT_HITL_TOOL_NAMES}
+    result["call_skill"] = InterruptOnConfig(
+        allowed_decisions=["approve", "edit", "reject", "respond"],
+        when=_call_skill_requires_hitl,
+    )
+    return result
 
 
 def build_subagents(model: BaseChatModel) -> list[dict]:

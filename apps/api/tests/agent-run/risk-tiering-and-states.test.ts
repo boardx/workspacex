@@ -41,7 +41,13 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
   };
 }
 
-function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
+function fakeStore(
+  run: ClaimedAgentRun,
+  /** issue #2767 -- 本次 run 挂载集合，供 `readPinnedSkills` 原样返回，让
+   *  `resolveSkillRiskLevels` 有真实内容可判定。默认空数组，行为与本 feature
+   *  之前逐字相同。 */
+  pinnedSkills: readonly PinnedSkillContent[] = [],
+): AgentRunStore & {
   readonly steps: AppendedRunStep[];
   readonly statusHistory: string[];
   readonly markAwaitingCalls: number;
@@ -66,7 +72,7 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore & {
     get denyCalls() { return state.denyCalls; },
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
     reclaimStaleRunning: unused("reclaimStaleRunning"),
-    readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => [],
+    readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => pinnedSkills,
     appendStep: async (_orgId, step: AppendedRunStep) => { state.steps.push(step); },
     appendModelDelta: async () => {},
     readModelDeltas: async () => [],
@@ -268,6 +274,126 @@ describe("Phase 14 F06 -- L2 已授权（run/forever）：R4 A2 不再触发确�
     await executeQueuedRuns(deps(store, model, grants), { orgId: ORG });
 
     // 没有命中——不同 run，仍然要停下来等人裁决。
+    expect(store.markAwaitingCalls).toBe(1);
+    expect(store.approveCalls).toBe(0);
+  });
+});
+
+describe("issue #2767 -- call_skill 的风险按目标 skill 判定，不再整体 L2", () => {
+  function pdfCreateSkill(): PinnedSkillContent {
+    return { versionId: "v-pdf-create", content: "# PDF 文档生成（pdf-create）\n\n生成一份文档。", stableName: "pdf-create", name: "PDF 文档生成" };
+  }
+  function l2FrontmatterSkill(): PinnedSkillContent {
+    return {
+      versionId: "v-send-report", stableName: "send-report", name: "发送报告",
+      content: "---\nname: send-report\nrisk_level: L2\n---\n\n把报告发到外部邮箱。",
+    };
+  }
+  function undeclaredThirdPartySkill(): PinnedSkillContent {
+    return { versionId: "v-market-scan", stableName: "market-scan", name: "市场扫描", content: "你是市场扫描分析师。" };
+  }
+
+  it("平台官方 skill（pdf-create，L0）中断 ⇒ 不进 awaiting_tool_permission，自动放行", async () => {
+    const skill = pdfCreateSkill();
+    const run = baseRun({ skillVersionIds: [skill.versionId] });
+    const store = fakeStore(run, [skill]);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async () => ({
+        text: "",
+        interrupted: {
+          toolName: "call_skill",
+          argsSummary: JSON.stringify({ skill_stable_name: "pdf-create", task: "生成 PDF" }),
+          skillStableName: "pdf-create",
+        },
+      }),
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.markAwaitingCalls).toBe(0);
+    expect(store.approveCalls).toBe(1);
+    expect(store.statusHistory).not.toContain("awaiting_tool_permission");
+    const autoStep = store.steps.find((s) => s.planningNote?.includes("自动放行"));
+    expect(autoStep?.planningNote).toContain("call_skill");
+  });
+
+  it("未声明 risk_level 的第三方 skill（缺省 L1）中断 ⇒ 同样自动放行", async () => {
+    const skill = undeclaredThirdPartySkill();
+    const run = baseRun({ skillVersionIds: [skill.versionId] });
+    const store = fakeStore(run, [skill]);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async () => ({
+        text: "",
+        interrupted: { toolName: "call_skill", argsSummary: "{}", skillStableName: "market-scan" },
+      }),
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.markAwaitingCalls).toBe(0);
+    expect(store.approveCalls).toBe(1);
+  });
+
+  it("SKILL.md frontmatter 显式声明 risk_level: L2 ⇒ 仍进 awaiting_tool_permission", async () => {
+    const skill = l2FrontmatterSkill();
+    const run = baseRun({ skillVersionIds: [skill.versionId] });
+    const store = fakeStore(run, [skill]);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async () => ({
+        text: "",
+        interrupted: {
+          toolName: "call_skill",
+          argsSummary: JSON.stringify({ skill_stable_name: "send-report" }),
+          skillStableName: "send-report",
+        },
+      }),
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.markAwaitingCalls).toBe(1);
+    expect(store.approveCalls).toBe(0);
+  });
+
+  it("fail-closed：目标 skill 不在本次挂载集合里（理论上不该发生）⇒ 仍进 awaiting_tool_permission，不默认放行", async () => {
+    const skill = pdfCreateSkill();
+    const run = baseRun({ skillVersionIds: [skill.versionId] });
+    const store = fakeStore(run, [skill]);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async () => ({
+        text: "",
+        interrupted: { toolName: "call_skill", argsSummary: "{}", skillStableName: "not-mounted-anywhere" },
+      }),
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.markAwaitingCalls).toBe(1);
+    expect(store.approveCalls).toBe(0);
+  });
+
+  it("fail-closed：中断缺 skillStableName（理论上不该发生）⇒ 仍进 awaiting_tool_permission", async () => {
+    const skill = pdfCreateSkill();
+    const run = baseRun({ skillVersionIds: [skill.versionId] });
+    const store = fakeStore(run, [skill]);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("must not be called"); },
+      checkKernelHealth: async () => "healthy",
+      completeWithProgress: async () => ({
+        text: "", interrupted: { toolName: "call_skill", argsSummary: "{}" },
+      }),
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
     expect(store.markAwaitingCalls).toBe(1);
     expect(store.approveCalls).toBe(0);
   });
