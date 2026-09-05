@@ -1,0 +1,22 @@
+# #2755 — apps/api vitest（同一份测试文件、同一份 vitest，仅去掉需要真 Postgres 的 globalSetup；本沙箱无 Docker daemon）
+# 配置：root=apps/api, include=tests/**/*.test.ts, env PGDATABASE/MODEL_CREDENTIAL_KEY 同 vitest.config.ts
+# 全目录 tests/agent-run + tests/agent-runtime 也跑过：FAIL 的文件全部是 beforeAll 起 docker compose postgres 失败（failed to connect to the docker API），与本改动无关；下面只归档新增/直接受影响的纯内存文件。
+
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (16 tests) 253ms
+ ✓ tests/agent-run/interjection-handling.test.ts (10 tests) 20ms
+ ✓ tests/agent-runtime/deep-agent-hitl.test.ts (16 tests) 924ms
+   ✓ UX-9 D4 契约（decideAgentRun.in 的 superRefine 与控制器同一条规则） > edit 必带 editedArgs，approve/reject 禁带 415ms
+ ✓ tests/agent-runtime/deep-agent-produces-files.test.ts (11 tests) 532ms
+   ✓ T1 端到端：deep-agent + 挂 pptx skill ⇒ 真的产出合法 .pptx > 脚本从 call_skill 的工具结果里被抠出来、真的执行、产物字节是合法 OOXML 352ms
+ ✓ tests/agent-run/risk-tiering-and-states.test.ts (11 tests) 12ms
+ ✓ tests/agent-run/deep-agent-interjection-projection.test.ts (3 tests) 92ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 6ms
+
+ Test Files  7 passed (7)
+      Tests  73 passed (73)
+   Start at  06:39:05
+   Duration  2.80s (transform 1.72s, setup 0ms, collect 3.95s, tests 1.84s, environment 1ms, prepare 515ms)
+

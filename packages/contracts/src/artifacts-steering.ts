@@ -103,6 +103,43 @@ export const InterjectOutput = z.object({
 }).strict();
 export type InterjectOutput = z.infer<typeof InterjectOutput>;
 
+/* ── 二′、插话回灌内核（Phase 14 后续 A，#2755）───────────────────────── */
+
+/**
+ * 网关侧对一条插话的判定（R7：插话默认是对当前任务的调整；E3：方向性改变要重新走
+ * L2 授权确认）。判定算法属于内核实现细节、不在契约里规定（A2/E3）——契约只固定
+ * 两个取值，供 TS 网关（`interjection-handling.ts`）与 Python 内核（`harness.py`）
+ * 共用同一份枚举，不各写一份。
+ */
+export const InterjectionClassification = z.enum(["adjustment", "direction_change"]);
+export type InterjectionClassification = z.infer<typeof InterjectionClassification>;
+
+/**
+ * 一条已被网关检查点消费、待投递给内核的插话——`ModelCallInput.interjection` 的形状，
+ * 也是投影到 LangGraph `config.configurable[KERNEL_INTERJECTION_CONFIGURABLE_KEY]`
+ * 的**线上形状**（字段名逐字跨语言：Python 侧 `harness.py` 按同一组键名读，
+ * `packages/contracts/tests/artifacts-steering/cross-lang-interjection-parity.test.ts`
+ * 机械比对两侧）。
+ *
+ * 这不是 HTTP 操作的 in/out（不进 `operations`）——它走的是 kernel-gateway 束
+ * `forwardRun` 已有的 per-run configurable 通道（同 `org_skills`/`script_protocol`/
+ * `disable_task_auto_classify`），是那条通道上新增的一个键。
+ */
+export const KernelInterjection = z.object({
+  interjectionId: z.string().min(1),
+  text: z.string().refine((s) => s.trim() !== "", "text 不得为空白"),
+  classification: InterjectionClassification,
+  /** 同 `InterjectOutput.receivedAt`：服务端收到插话的时刻。 */
+  receivedAt: z.string(),
+}).strict();
+export type KernelInterjection = z.infer<typeof KernelInterjection>;
+
+/**
+ * LangGraph `config.configurable` 里承载 `KernelInterjection` 的键名——TS provider
+ * 写、Python `harness.py` 读，唯一事实源在这里。
+ */
+export const KERNEL_INTERJECTION_CONFIGURABLE_KEY = "interjection";
+
 /* ── 三、操作 ──────────────────────────────────────────────────────────── */
 
 export const operations = {

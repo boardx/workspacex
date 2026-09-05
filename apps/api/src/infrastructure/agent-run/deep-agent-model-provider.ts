@@ -90,6 +90,7 @@ import {
 } from "@repo/contracts/agent-interrupts";
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 import type { kernelGateway as KG } from "@repo/contracts";
+import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
 
 import type {
   ModelCallCompletion,
@@ -862,6 +863,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
           command: { resume: { decisions: [decision] } },
+          // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
+          // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
+          // 在恢复后的下一次模型调用前读 `configurable.interjection` 注入并重规划。
+          // ⚠ 缺席时整个 `config` 键都不出现，resume 请求体与本 feature 之前逐字节相同。
+          ...(input.interjection === undefined ? {} : {
+            config: { configurable: { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection } },
+          }),
         }),
       });
       const body = (await response.json()) as { run_id?: string };
@@ -931,6 +939,16 @@ export class DeepAgentModelProvider implements ModelCallPort {
             ...(input.disableTaskAutoClassify === true
               ? { disable_task_auto_classify: true }
               : {}),
+            /*
+             * Phase 14 后续 A（#2755）：待投递内核的插话（形状 = 契约 `KernelInterjection`，
+             * 键名 = 契约 `KERNEL_INTERJECTION_CONFIGURABLE_KEY`，两侧 parity 测试机械比对）。
+             * 新建 run 这条分支实际很少带它（插话只在 run 已经在跑之后才会有，见
+             * `interjection-handling.ts` 头注），但 provider 不该知道这条时序——字段在就投影。
+             * ⚠ 缺席时这个键**不出现**（T2 锁：`deep-agent-produces-files.test.ts`）。
+             */
+            ...(input.interjection === undefined
+              ? {}
+              : { [KERNEL_INTERJECTION_CONFIGURABLE_KEY]: input.interjection }),
             /*
              * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
              * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥

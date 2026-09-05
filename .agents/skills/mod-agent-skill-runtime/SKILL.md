@@ -55,7 +55,8 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
-<空着开始。格式：`- YYYY-MM-DD：一句话结论（出处：PR/issue/postmortem 链接）`>
+- 2026-09-05：给 deep-agent 内核"运行期"传一条新指令，只有一条现成通道——同一个 run 的**下一次** `ModelCallInput`（HITL 之后的 resume 续跑），投影到 LangGraph `config.configurable` 由 harness.py 中间件在 `before_model` 注入；`executeClaimed` 一次只发一次内核调用，run 不停顿就没有"下一次"，别假设网关侧消费=内核已收到（出处：issue #2755，F11 PR #2742 的范围边界）。
+- 2026-09-05：`build_middleware()` 全栈跑假模型时，`TaskClassifierMiddleware` 会自己把多步任务钉成 `write_todos`、`RubricMiddleware` 的 grader 调用自带 `tool_choice="any"`——断言"某个中间件强制了 tool_choice"前先用 `disable_task_auto_classify` 隔离、并按 `bound_tools` 排除 grader 调用，否则正向与反证都在测别人（出处：`tests/golden/test_tc7_interjection_replan.py`，#2755）。
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 
