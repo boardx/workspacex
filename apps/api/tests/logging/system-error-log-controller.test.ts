@@ -205,4 +205,60 @@ describe("SystemErrorLogController -- POST /system/client-error-reports", () => 
       }),
     ).resolves.toEqual({ traceId: "trace-client-2" });
   });
+
+  // issue #2797 -- chat/agent-run capture points additionally send runId/threadId/phase/
+  // errorType so a real incident (e.g. a real `MODEL_CALL_FAILED` run) can be pulled back
+  // out by runId, not just by scrolling a message string.
+  it("issue #2797 -- agent-run context fields (runId/threadId/phase/errorType) flow into detail when present", async () => {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    const out = await controller.report({ traceId: "trace-client-3" }, {
+      message: "agent run failed",
+      stack: null,
+      url: "/chat",
+      userAgent: "test-agent",
+      appVersion: "2026.09.05",
+      runId: "run-1",
+      threadId: "thread-1",
+      phase: "acting",
+      errorType: "MODEL_CALL_FAILED",
+    });
+
+    expect(out).toEqual({ traceId: "trace-client-3" });
+    await Promise.resolve();
+    expect(record).toHaveBeenCalledWith({
+      traceId: "trace-client-3",
+      msg: "client error: agent run failed",
+      detail: {
+        message: "agent run failed",
+        stack: undefined,
+        url: "/chat",
+        userAgent: "test-agent",
+        appVersion: "2026.09.05",
+        runId: "run-1",
+        threadId: "thread-1",
+        phase: "acting",
+        errorType: "MODEL_CALL_FAILED",
+      },
+    });
+  });
+
+  it("issue #2797 -- omitted agent-run context fields don't appear as literal nulls in detail (a caller that never learns about runId shouldn't manufacture one)", async () => {
+    const record = vi.fn().mockResolvedValue(undefined);
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    await controller.report({ traceId: "trace-client-4" }, {
+      message: "boom", stack: null, url: null, userAgent: null, appVersion: null,
+    });
+    await Promise.resolve();
+
+    const [{ detail }] = record.mock.calls.at(-1) as [{ detail: Record<string, unknown> }];
+    expect(detail.runId).toBeUndefined();
+    expect(detail.threadId).toBeUndefined();
+    expect(detail.phase).toBeUndefined();
+    expect(detail.errorType).toBeUndefined();
+  });
 });

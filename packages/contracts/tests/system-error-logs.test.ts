@@ -58,3 +58,45 @@ describe("reportClientError.in -- field length bounds", () => {
     expect(schema.safeParse({ ...valid, message: "" }).success).toBe(false);
   });
 });
+
+// issue #2797 -- runId/threadId/phase/errorType, all optional+nullable so the two
+// pre-existing capture points (which don't know about a run) keep validating unchanged.
+describe("reportClientError.in -- agent-run context fields (issue #2797)", () => {
+  it("all four are optional -- a payload without them still validates (backward compatible)", () => {
+    expect(schema.safeParse(valid).success).toBe(true);
+  });
+
+  it("all four accept null explicitly", () => {
+    expect(
+      schema.safeParse({ ...valid, runId: null, threadId: null, phase: null, errorType: null }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a request at exactly the max length for every new field", () => {
+    expect(
+      schema.safeParse({
+        ...valid,
+        runId: "r".repeat(200),
+        threadId: "t".repeat(200),
+        phase: "p".repeat(100),
+        errorType: "e".repeat(200),
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects runId over 200 chars", () => {
+    expect(schema.safeParse({ ...valid, runId: "r".repeat(201) }).success).toBe(false);
+  });
+
+  it("rejects threadId over 200 chars", () => {
+    expect(schema.safeParse({ ...valid, threadId: "t".repeat(201) }).success).toBe(false);
+  });
+
+  it("rejects phase over 100 chars", () => {
+    expect(schema.safeParse({ ...valid, phase: "p".repeat(101) }).success).toBe(false);
+  });
+
+  it("rejects errorType over 200 chars", () => {
+    expect(schema.safeParse({ ...valid, errorType: "e".repeat(201) }).success).toBe(false);
+  });
+});
