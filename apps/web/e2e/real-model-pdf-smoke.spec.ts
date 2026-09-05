@@ -73,7 +73,10 @@ function normalizeBubble(text: string): string {
  */
 let evidence: RealModelEvidence | null = null;
 
-test.afterEach(async (_fixtures, testInfo) => {
+// eslint-disable-next-line no-empty-pattern -- Playwright 强制第一个参数必须是对象解构
+// 形态（不解构任何 fixture 也要写成 `{}`），否则 config 解析期直接报
+// "First argument must use the object destructuring pattern"，整份文件一条用例都跑不了。
+test.afterEach(async ({}, testInfo) => {
   if (evidence === null) return;
   if (testInfo.status !== testInfo.expectedStatus && testInfo.error !== undefined) {
     evidence.record(
