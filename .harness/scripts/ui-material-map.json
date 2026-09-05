@@ -39,7 +39,8 @@
   },
   "phase-03-reuse-and-governance": {
     "user-research-studio": "ui-preview/user-research-studio",
-    "feedback-loop": "ui-preview/feedback-loop"
+    "feedback-loop": "ui-preview/feedback-loop",
+    "design-workbench": "ui-preview/design-workbench"
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "ui-preview/digital-expert-interview"
