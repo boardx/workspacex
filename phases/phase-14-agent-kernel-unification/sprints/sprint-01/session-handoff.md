@@ -24,8 +24,11 @@
   （`evidence/F04.verify.log`），另有随本轮架构变化同步改写的既有回归测试
   （`tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx`，4/4 绿）；细节见
   下方"本轮改动（F04）"。`pnpm harness verify` 因触及 `packages/contracts`
-  高风险路径升级到 `pnpm -w run verify:release`，撞上同一类 Docker/Postgres
-  环境限制，status 未手改。
+  高风险路径升级到 `pnpm -w run verify:release`——harness 自己把完整真实输出
+  写进了 `evidence/F04.verify.log`：34 个 turbo task 中 20/21 成功，`web`（本
+  feature 实际改动的包）**310/310 测试文件、2868/2868 测试全绿**，唯一失败的
+  `@repo/api#test` 是 `docker compose up -d postgres` 因本会话无 Docker daemon
+  报错（与 F01/F03/F05/F10/F13 同一类环境限制，非业务逻辑失败），status 未手改。
 - 无 feature 处于 harness `passing`——F01/F03/F13/F05/F10/F04 都符合"只能由验证
   脚本门控转移"的硬约束，没有一个绕开门控手改 status。
 

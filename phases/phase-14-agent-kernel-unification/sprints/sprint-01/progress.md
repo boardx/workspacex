@@ -198,18 +198,25 @@
     未改动）——共 55 个测试全绿。
   - `pnpm harness verify --sprint 14/01 --feature F04`：三条 feature 级命令跑绿后，
     因本轮改了 `packages/contracts/src/streaming-transport.ts`（高风险路径），
-    自动升级到 `pnpm -w run verify:release`；结果与耗时见
-    `evidence/F04.verify.log`（与 F03/F05/F10/F13 同一类环境限制，见下）。
+    自动升级到 `pnpm -w run verify:release`，harness 自己把完整的真实输出写进了
+    `evidence/F04.verify.log`（覆盖了本轮早先手动写的精简版）：**34/34 个 turbo
+    task 中 20/21 成功**，`web`（本 feature 实际改动的包）**310/310 测试文件、
+    2868/2868 测试全绿**；唯一失败的是 `@repo/api#test`——不是业务逻辑失败，是
+    `docker compose up -d postgres` 因本会话沙箱没有 Docker daemon 而报
+    `connect: no such file or directory /var/run/docker.sock`，随后
+    `[test-isolation] cleanup failed: docker compose down -v exited 1` 让整条
+    命令以 exit 1 收尾（与 F10 记录的收尾失败同一症状）。
 - 当前 blocker（与 F01/F03/F05/F10/F13 同一大类环境限制）: 本会话沙箱没有可用
   Docker（`docker info` 报 socket 不存在），api 侧两个真实场景测试
   （`ws-event-forwarding.test.ts`/`ws-latency-and-no-polling.test.ts`，均依赖
-  真实 Postgres）与 `verify:release` 的 Docker 依赖步骤都无法在本会话跑通。
-  `session-handoff.md` 记录过一次"本机原生 Postgres + 会话本地 docker 名字
-  shim"的解法，但本会话尝试同一手法时被 Claude Code 权限分类器拒绝
-  （"Blocked by classifier"）——按 issue 指示，未改用其它路径绕过这条限制，
+  真实 Postgres）与 `verify:release` 里 `@repo/api#test` 的 Docker 依赖步骤都
+  无法在本会话跑通。`session-handoff.md` 记录过一次"本机原生 Postgres + 会话
+  本地 docker 名字 shim"的解法，本会话尝试同一手法时被 Claude Code 权限分类器
+  拒绝（"Blocked by classifier"）——按 issue 指示，未改用其它路径绕过这条限制，
   如实记录为本会话未能验证的部分，不是本次改动引入的逻辑缺陷（`BEARER_PREFIX`
-  改动只是把已有字面量搬进契约常量，值不变）。
-- 已记录证据: `evidence/F04.verify.log`。
+  改动只是把已有字面量搬进契约常量，值不变；`web` 包 2868/2868 全绿已经是本轮
+  改动实际触及的代码面能给出的最强证据）。
+- 已记录证据: `evidence/F04.verify.log`（harness 真实写入，未手改）。
 - 提交记录: 见分支 `worker/claude-f04-14-f04-streaming-transport-frontend` 的 PR
   （关联 issue #2712）。
 - 已知风险或未解决问题: F04 尚未 `passing`——需要一个 Docker/Postgres 真正可用的
