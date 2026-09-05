@@ -160,12 +160,21 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     await expect(page.getByTestId("design-detail-tab-canvas")).toBeVisible();
     await expect(page.getByTestId("design-detail-canvas")).toBeVisible();
 
+    // 深化产生的项目 id 就在详情页 URL 里——下面按 id 找卡片，不按位置。
+    // ⚠ 曾经用 `[data-testid^="project-card-"]`.first()：`listMyProjects` 是
+    //   `ORDER BY created_at ASC`，first() 拿到的是**最老**的项目（用例①刚建的那个，
+    //   或上一次重跑留下的），于是改名+推送的是一个没有 `linkedFeedbackId` 的项目，
+    //   原反馈的 `resolvedByDesignId` 自然永远是 null——CI 上稳定红，后端链路
+    //   （deepen → pushToInbox 回写 → listFeedback → 投影）在真 Postgres 上逐步验证过是通的。
+    const projectId = decodeURIComponent(page.url().split("/design-workbench/")[1]!.split(/[?#]/)[0]!);
+    expect(projectId, "详情页 URL 应带项目 id").not.toBe("");
+
     // 深化产生的项目名不是我们随便起的（服务端按反馈内容生成），改名以便下面用固定标题找卡片。
     await page.getByTestId("design-detail-back").click();
     await expect(page.getByTestId("design-workbench")).toBeVisible();
-    const projectCard = page.locator('[data-testid^="project-card-"]').first();
+    const projectCard = page.getByTestId(`project-card-${projectId}`);
     await expect(projectCard).toBeVisible();
-    await projectCard.getByRole("button", { name: "编辑项目" }).click();
+    await page.getByTestId(`project-edit-${projectId}`).click();
     const editDialog = page.getByTestId("project-dialog");
     await expect(editDialog).toBeVisible();
     await page.getByTestId("project-dialog-name").fill(projectName);
@@ -177,8 +186,9 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     expect(renamedResponse.status(), "改名应该 200").toBe(200);
     await expect(editDialog).toHaveCount(0);
 
-    const renamedCard = page.locator('[data-testid^="project-open-"]').filter({ hasText: projectName });
+    const renamedCard = page.getByTestId(`project-open-${projectId}`);
     await expect(renamedCard).toBeVisible();
+    await expect(renamedCard).toContainText(projectName);
     await renamedCard.click();
     await expect(page.getByTestId("design-detail")).toBeVisible();
 
