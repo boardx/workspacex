@@ -5,7 +5,7 @@ phase: "03"
 #   （phase-03 此前没有 contracts/ 目录，本文件与该束同时建立）。
 #   **新增束必须同时加进这里并重做复核**——否则新束的 feature 会靠一份从没看过它们的
 #   复核解锁开工（ADR-023 背景 1 的原样复现）。
-covers_bundles: [feedback-loop]
+covers_bundles: [feedback-loop, design-workbench]
 status: confirmed
 confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」）"
 confirmed_at: "2026-08-15T23:47:59Z"
@@ -61,6 +61,31 @@ phase-03 今天磁盘上**只有一个束**：`feedback-loop`（2026-08-15 建�
 ⚠ 这条判据有边界，写下来免得以后被当成通例：**它只在「被降级的屏没有真实后端」时成立**。
    哪天 `listSuggestions` 落了地，那块聚合区要加**回** `/admin/feedback`（见 §3），
    届时动的是 `skills` 束真实存在的行为，就必须那个束重签。
+
+## 2.5 `design-workbench` 束的交叉约束草稿（待人类确认，未计入 frontmatter）
+
+⚠ **本节是草稿，不是复核结果**——`covers_bundles`/`status` 仍然只是 `[feedback-loop]` /
+`confirmed`（2026-08-15 那次），本节不改变这一点，agent 也不会去改（ADR-023：这两个字段
+归人类）。UC-17.8 B4.6 在 `contracts/` 下新建了 `design-workbench` 目录（`ui.md` +
+`coverage.md` + `design-signoff.md`，后者 `status: pending`），`pnpm harness doctor` 因此
+正确地报了一条 FAIL：「一致性复核没覆盖这些束：design-workbench」——这是本仓自己的门控在
+如实工作，不是本 PR 引入的 bug。本节把交叉点先列出来，方便人类确认时不用从零看起；
+**人类确认无异议后，把 `covers_bundles` 改成 `[design-workbench, feedback-loop]`，
+`status`/`confirmed_by`/`confirmed_at` 按本文件已有的形态更新**，doctor 这条 FAIL 才会消。
+
+| 编号 | 交叉点 | 对面是谁 | 现状 |
+|---|---|---|---|
+| X-F6 | 设计项目推送到收件箱后生成 `kind=design` 条目，且回写来源反馈的 `resolved_by_design_id` | 本 phase 内 `feedback-loop`（`product_feedback` 表）与尚无契约束的收件箱聚合（`packages/contracts/src/inbox.ts`，backlog 里叫 `inbox-unified`，暂未建 `contracts/` 目录） | ⚠ **待人类确认**：双向外键 + 唯一约束在 B4.2 迁移里已经加了（`design_projects.linked_feedback_id` / `product_feedback.resolved_by_design_id`），`design-workbench` 契约文件头注写清楚了「只加一对外键，不存两份」——但 `inbox-unified` 那侧至今没有自己的契约束目录，这条交叉约束事实上只有 `design-workbench` 一侧签了字 |
+| X-F7 | 设计项目可见性口径「组织内全员可读，仅 owner 可改/删/推送」与 `feedback-loop` 的 D3「正文仅提交人与超管可见」不是同一套规则 | `feedback-loop`（已签核） | ✅ **不冲突**：两束描述的是不同实体（`FeedbackItem.detail` vs `DesignProject`），契约文件头【待确认点 1】已经写明为什么选了更宽的口径，不是抄错 D3。**待人类确认这条差异是否是他想要的**（同 X-F1 的处置方式：写清楚、请人确认，不擅自统一） |
+| X-F8 | `DESIGN_WORKBENCH_CHAT_REPLY` 固定回执（D7：先固定，不接真模型）与 `feedback-loop` 束同样选择固定回执的 D7 裁决是**同一条人类裁决的两处落地**，不是各自决定 | `feedback-loop`（已签核）+ `go-live-backlog.md` §0 D7 | ✅ 一致：两束都遵照同一条 2026-09-02 人类裁决「先固定回执上线」，没有分叉 |
+
+### 待人类确认的两件（X-F6 / X-F7，其余已核对一致）
+
+1. **X-F6**：`inbox-unified` 没有独立契约束目录，这条双向关联事实上是「`design-workbench`
+   单方面签字」——是否要求 `inbox-unified` 也补一份契约束目录再一起复核，还是接受现状
+   （契约测试已覆盖双向关联，只是没有对应的签核文档）？
+2. **X-F7**：设计项目「组织内全员可读」是否是想要的口径，还是应该收窄成类似 D3 的
+   提交人/owner 可见模型？
 
 ## 3. 仍然没做的（`status: confirmed` **不覆盖**这些）
 

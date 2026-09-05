@@ -6,14 +6,20 @@
 // `/feedback/:id/status`、`/feedback/:id/events`、`/system/error-logs/:id` 提供固定数据/回执——
 // `DesignLoopProvider` 不再持有收件箱 mock，屏幕自己打这几条真实契约路径。
 // 浅/深两态都拍；每屏至少默认/空/校验失败/成功，外加看板拖放悬停、drawer、生成中过渡、推送成功页。
+// 设计工作台（UC-17.8 B4.6）：`workbench-*`/`detail-*` 这 16 张不落进 OUT，改落进
+// `<OUT 的上级>/design-workbench/`——它们是契约束 `design-workbench` 自己的 ui.md 材料，
+// 有自己的目录（`ui-material-map.json` 一束一目录），不与本脚本其余场景的目录混在一起。
 // 用法：BASE=http://localhost:3187 OUT=/abs/path node scripts/shot-feedback-design-loop.mjs
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const BASE = process.env.BASE ?? "http://localhost:3187";
 const OUT = process.env.OUT;
 if (!OUT) throw new Error("OUT env required");
 mkdirSync(OUT, { recursive: true });
+const DESIGN_WORKBENCH_OUT = join(dirname(OUT), "design-workbench");
+const outDirFor = (file) => (file.startsWith("workbench-") || file.startsWith("detail-") ? DESIGN_WORKBENCH_OUT : OUT);
 
 const ROOT = '[data-testid="feedback-design-loop-preview"]';
 
@@ -195,6 +201,110 @@ async function routeInbox(page, { empty }) {
   });
 }
 
+/**
+ * 固定的设计工作台取材数据（UC-17.8 B4.6）——形状对齐
+ * `packages/contracts/src/design-workbench.ts` 的 `DesignProject`（`.strict()`）。
+ *
+ * ⚠ B4.5 起 `workbench-screen.tsx`/`detail-screen.tsx` 打真实 `/pm-designs*`，取材页不再
+ *   靠 `DesignLoopProvider` 的本地 seed 出这两屏的数据——同草稿/收件箱两块在 B1/B3.4 走过的
+ *   同一条路：由本脚本 `page.route()` 拦截提供固定夹具，不连真库（同一台机器随时能截出同一张图）。
+ */
+const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
+const DESIGN_PROJECTS = [
+  {
+    id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
+    problem: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。",
+    criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"],
+    pushed: false, pushedAt: null, linkedFeedbackId: "in-b1",
+    chat: [
+      { role: "user", text: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。", at: "2026-09-03T02:00:00.000Z" },
+      { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: "2026-09-03T02:00:05.000Z" },
+    ],
+    ownerId: "u-pm-1", ownerName: "苏木 · PM",
+    createdAt: "2026-09-03T02:00:00.000Z", updatedAt: "2026-09-03T02:05:00.000Z",
+  },
+  {
+    id: "proj-mobile-invite", name: "移动端批量邀请", template: "mobile",
+    problem: "", criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"],
+    pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
+    ownerId: "u-pm-1", ownerName: "苏木 · PM",
+    createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
+  },
+];
+
+/**
+ * 拦 `/pm-designs*`：列表 / 建 / 改 / 删 / 追加对话 / 推送。
+ * `slow`：`listMyProjects` 故意挂起不 resolve，用于截「加载中」骨架屏（真实请求在飞）。
+ */
+async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false } = {}) {
+  const json = (route, body, status = 200) =>
+    route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({ ...p, chat: [...p.chat] }));
+
+  await page.route((url) => new URL(url).pathname === "/pm-designs", async (route) => {
+    const req = route.request();
+    if (req.method() === "GET") {
+      if (slow) return; // 故意不 fulfill：截图时页面停在 loading 态。
+      if (failList) return json(route, { reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503);
+      return json(route, { items: projects });
+    }
+    if (req.method() === "POST") {
+      const body = req.postDataJSON() ?? {};
+      if (!body.name || String(body.name).trim() === "") return json(route, { reasonCode: "NAME_REQUIRED" }, 400);
+      // 截「正在把…整理成设计稿」的生成中过渡（workbench-generating）：故意晚 2s 才 fulfill，
+      // 给 playwright 留出时间在真实等待期间截图——不是摆一张固定图，`createProject` 真的还没返回。
+      if (body.name === "移动端登录页重设计") await new Promise((r) => setTimeout(r, 2000));
+      const project = {
+        id: "proj-new", name: body.name, template: body.template ?? "mobile",
+        problem: body.problem ?? "", criteria: DESIGN_PROJECTS[0].criteria, frames: DESIGN_PROJECTS[0].frames,
+        pushed: false, pushedAt: null, linkedFeedbackId: body.linkedFeedbackId ?? null, chat: [],
+        ownerId: "u-pm-1", ownerName: "苏木 · PM",
+        createdAt: NOW, updatedAt: NOW,
+      };
+      return json(route, { project }, 201);
+    }
+    return json(route, {}, 405);
+  });
+
+  await page.route((url) => /^\/pm-designs\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const req = route.request();
+    const id = decodeURIComponent(new URL(req.url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (req.method() === "PATCH") {
+      if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+      const body = req.postDataJSON() ?? {};
+      Object.assign(project, body, { updatedAt: NOW });
+      return json(route, { project });
+    }
+    if (req.method() === "DELETE") {
+      if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+      return json(route, { projectId: id });
+    }
+    return json(route, {}, 405);
+  });
+
+  await page.route((url) => /^\/pm-designs\/[^/]+\/chat$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    const body = route.request().postDataJSON() ?? {};
+    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW }];
+    project.updatedAt = NOW;
+    return json(route, { project });
+  });
+
+  await page.route((url) => /^\/pm-designs\/[^/]+\/push$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    project.pushed = true;
+    project.pushedAt = NOW;
+    return json(route, { project, inboxCode: "D-3" });
+  });
+}
+
 /** [file, scene, state, theme, prepare, viewport] */
 const SHOTS = [
   // 快速反馈弹窗
@@ -226,11 +336,20 @@ const SHOTS = [
   ["workbench-empty-light.png", "workbench-empty", "empty", "light", null],
   ["workbench-new-dialog-light.png", "workbench", "default", "light", openNewDesign],
   ["workbench-new-invalid-light.png", "workbench", "default", "light", openNewDesignEmpty],
+  // 新增（UC-17.8 B4.6，B4.5 切真栈后才有的三态 + 一个真实等待过渡）
+  ["workbench-loading-light.png", "workbench", "loading", "light", null],
+  ["workbench-denied-light.png", "workbench", "denied", "light", null],
+  ["workbench-depfailed-light.png", "workbench", "dep-failed", "light", null],
+  ["workbench-generating-light.png", "workbench", "default", "light", createSlow],
   // 设计详情全屏（深色 IDE）
   ["detail-canvas-dark.png", "detail", "default", "dark", null],
   ["detail-spec-dark.png", "detail", "default", "dark", openSpec],
   ["detail-push-confirm-dark.png", "detail", "default", "dark", openPushConfirm],
   ["detail-push-success-dark.png", "detail", "default", "dark", doPush],
+  // 新增（UC-17.8 B4.6，B4.5 切真栈后才有的两态）
+  ["detail-loading-dark.png", "detail-loading", "default", "dark", null],
+  ["detail-depfailed-dark.png", "detail-depfailed", "default", "dark", null],
+  ["detail-missing-dark.png", "detail-missing", "default", "dark", null],
 ];
 
 async function clickReq(page) { await click(page, '[data-testid="feedback-kind-需求"]'); }
@@ -266,6 +385,12 @@ async function openNewDesignEmpty(page) {
   await page.fill('[data-testid="project-dialog-name"]', "abc");
   await page.fill('[data-testid="project-dialog-name"]', "");
 }
+async function createSlow(page) {
+  await clickUntil(page, '[data-testid="workbench-new"]', '[data-testid="project-dialog"]');
+  await page.fill('[data-testid="project-dialog-name"]', "移动端登录页重设计");
+  await click(page, '[data-testid="project-dialog-submit"]');
+  await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
+}
 async function openSpec(page) { await clickUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
 async function openPushConfirm(page) { await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }
 async function doPush(page) {
@@ -296,17 +421,27 @@ async function gotoReady(page, url, tries = 40) {
   throw new Error(`场景加载失败：${url}`);
 }
 
+// 可选 SHOTS_FILTER：正则，只跑文件名匹配的条目（调试/重跑单个屏用，默认跑全部）。
+const filterRe = process.env.SHOTS_FILTER ? new RegExp(process.env.SHOTS_FILTER) : null;
+const shotsToRun = filterRe ? SHOTS.filter(([file]) => filterRe.test(file)) : SHOTS;
+
+mkdirSync(DESIGN_WORKBENCH_OUT, { recursive: true });
 const browser = await chromium.launch(process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {});
-for (const [file, scene, state, theme, prepare] of SHOTS) {
+for (const [file, scene, state, theme, prepare] of shotsToRun) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, colorScheme: theme, deviceScaleFactor: 2 });
   const page = await context.newPage();
   await routeDrafts(page, { empty: scene === "drafts-empty" });
   await routeInbox(page, { empty: scene === "inbox-empty" });
+  await routeDesignWorkbench(page, {
+    empty: scene === "workbench-empty",
+    slow: scene === "detail-loading",
+    failList: scene === "detail-depfailed",
+  });
   await gotoReady(page, `/preview/feedback-design-loop?scene=${scene}&state=${state}`);
   await page.waitForTimeout(500);
   if (prepare) await prepare(page);
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/${file}` });
+  await page.screenshot({ path: `${outDirFor(file)}/${file}` });
   console.log(`✓ ${file}`);
   await context.close();
 }
