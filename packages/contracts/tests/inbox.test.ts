@@ -94,7 +94,7 @@ const exceptionItem: inbox.InboxItem = {
   attachments: [],
   linkedFeedbackId: null,
   resolvedByDesignId: null,
-  exception: { location: "/auth/callback", count: 12, affectedUsers: null },
+  exception: { location: "/auth/callback", count: 12, affectedUsers: null, devNote: null, tags: [] },
   submittedByMe: false,
   votedByMe: false,
 };
@@ -105,6 +105,13 @@ describe("InboxItem -- 正例", () => {
   });
   it("系统异常条目", () => {
     expect(inbox.InboxItem.safeParse(exceptionItem).success).toBe(true);
+  });
+  it("系统异常：devNote 有值、tags 非空仍合法（2026-09-05 补投影）", () => {
+    const r = inbox.InboxItem.safeParse({
+      ...exceptionItem,
+      exception: { ...exceptionItem.exception, devNote: "转给 @a：登录回调拿不到 code", tags: ["auth", "P1"] },
+    });
+    expect(r.success).toBe(true);
   });
   it("D3 无权看正文：body / structured / reporter 同时为 null 仍合法", () => {
     expect(
@@ -152,6 +159,15 @@ describe("InboxItem -- 反例", () => {
     expect(
       inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, level: "error" } })
         .success,
+    ).toBe(false);
+  });
+  it("exception.tags 必须是数组、devNote 必须显式给出（未打标签是 []，不是省略/null）", () => {
+    const { devNote: _d, ...noDevNote } = exceptionItem.exception;
+    expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noDevNote }).success).toBe(false);
+    const { tags: _t, ...noTags } = exceptionItem.exception;
+    expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noTags }).success).toBe(false);
+    expect(
+      inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, tags: null } }).success,
     ).toBe(false);
   });
   it("votes 不许为负；github.number 必须为正整数", () => {

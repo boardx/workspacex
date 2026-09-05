@@ -198,18 +198,37 @@ export const InboxGithubRef = z
 export type InboxGithubRef = z.infer<typeof InboxGithubRef>;
 
 /**
- * 系统异常特有的元信息（R4.3 drawer：位置 / 次数 / 影响用户）。
+ * 系统异常特有的元信息（R4.3 drawer：位置 / 次数 / 影响用户 / 开发备注 / 标签）。
  *
  *   · `location`：发生位置——前端上报的 `url`，或后端异常的请求路径；取不到为 `null`。
  *   · `count`：同一条 `msg` 在 `error_logs` 里的出现次数（含本条），`>= 1`。`severe` 的依据。
  *   · `affectedUsers`：受影响的不同用户数。⚠ `error_logs` 今天**没有用户列**（很多异常发生在
  *     租户上下文确定之前），所以本轮恒 `null`——`null` = 「源说不出来」，**不是** 0。
+ *   · `devNote` / `tags`：见下方「2026-09-05 补投影」。
+ *
+ * ## 2026-09-05 补投影：`devNote` / `tags`
+ *
+ * 这两个字段**不是本次新造的能力**——`system-error-logs.ts` 的 `SystemErrorLogItem`
+ * 早就有它们，`updateSystemErrorLifecycle` 也早就能写（`devNote` 独立于状态可随时编辑、
+ * `tags` 供筛选）。缺的是**收件箱这条读路径**：`buildExceptionInboxItems` 把源行的这两个
+ * 字段丢了，于是收件箱 drawer 里看不到、也无从编辑，「转入开发」只剩一个状态标签，
+ * 拿不到任何"转给谁、要怎么修"的上下文。补上投影 = 让已经存在的写能力在唯一的运维入口
+ * 上可见可改，**没有**新增任何源能力，也**没有**第二份事实源（写仍然只走
+ * `updateSystemErrorLifecycle` 那一条 `PUT /system/error-logs/:id`）。
+ *
+ * ⚠ 只有 `kind === "exception"` 的条目有这两个字段（`InboxExceptionMeta` 整体就只挂在
+ *   异常上）。反馈的等价物是 GitHub issue 正文与评论区，设计方案今天没有等价物——
+ *   不要把这两个字段泛化到另外两类上，那会让"同一个词在三种来源下含义不同"。
  */
 export const InboxExceptionMeta = z
   .object({
     location: z.string().nullable(),
     count: z.number().int().positive(),
     affectedUsers: z.number().int().nonnegative().nullable(),
+    /** 「转开发」时人类填的说明（转给谁 / 怎么复现 / 已知线索）。未填为 `null`。 */
+    devNote: z.string().nullable(),
+    /** 自由文本标签，供筛选与搜索。未打标签为 `[]`（**不是** `null`）。 */
+    tags: z.array(z.string()),
   })
   .strict();
 export type InboxExceptionMeta = z.infer<typeof InboxExceptionMeta>;

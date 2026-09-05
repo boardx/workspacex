@@ -245,6 +245,26 @@ describe("listInbox 非超管 withheld", () => {
   });
 });
 
+describe("listInbox 系统异常 devNote / tags 投影（2026-09-05 补）", () => {
+  it("源行的 devNote / tags 原样出现在 exception 元信息里", async () => {
+    const deps = baseDeps([], [errorLogItem({ id: "1", devNote: "转给 @a：回调拿不到 code", tags: ["auth", "P1"] })]);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.exception).toMatchObject({ devNote: "转给 @a：回调拿不到 code", tags: ["auth", "P1"] });
+  });
+
+  it("源行没填 ⇒ devNote 为 null、tags 为 []（不是 null，见契约头注）", async () => {
+    const deps = baseDeps([], [errorLogItem({ id: "1" })]);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.exception).toMatchObject({ devNote: null, tags: [] });
+  });
+
+  it("反馈条目不带 exception 元信息（这两个字段不泛化到别的来源）", async () => {
+    const deps = baseDeps([feedbackRow({ id: "fb-1" })], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.exception).toBeNull();
+  });
+});
+
 describe("listInbox severe 阈值", () => {
   it("同一 msg 出现次数达到阈值 ⇒ severe=true，未达到 ⇒ false", async () => {
     const many = Array.from({ length: 10 }, (_, i) => errorLogItem({ id: `${i + 1}`, msg: "重复异常" }));

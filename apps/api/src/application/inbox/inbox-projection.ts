@@ -197,7 +197,16 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
       attachments: [],
       linkedFeedbackId: null,
       resolvedByDesignId: null,
-      exception: { location: deriveExceptionLocation(row.detail), count, affectedUsers: null },
+      // `devNote`/`tags` 原样透传源行（见契约 `InboxExceptionMeta` 头注「2026-09-05 补投影」）：
+      // 写路径仍然只有 `updateSystemErrorLifecycle` 一条，这里只是把源上早就存在、
+      // 此前被这个投影丢掉的两个字段送到唯一的运维入口上。
+      exception: {
+        location: deriveExceptionLocation(row.detail),
+        count,
+        affectedUsers: null,
+        devNote: row.devNote,
+        tags: [...row.tags],
+      },
       submittedByMe: false,
       votedByMe: false,
     };

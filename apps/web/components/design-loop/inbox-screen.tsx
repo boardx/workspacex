@@ -468,6 +468,41 @@ export function DesignLoopInboxScreen({
   };
 
   /**
+   * 2026-09-05——系统异常的「开发备注 / 标签」保存。
+   *
+   * 写路径**复用**已经存在的 `updateSystemErrorLifecycle`（`PUT /system/error-logs/:id`），
+   * 不新增操作：契约头注写明「`status` 省略 = 不改状态，只改 `devNote`/`tags`」，这正是
+   * 这里要的那一种调用。⚠ 一定不能顺手带上 `statusReason`——契约的 `REASON_REQUIRES_STATUS`
+   * 会拒（理由只属于「不做」那一个状态，见 `update-system-error-lifecycle.ts` 头注①），
+   * 而且这个入口本来也不是改状态的地方。
+   *
+   * 乐观更新同 `applyTransition`：先落本地，失败回滚成调用前的值（不是回滚成 `null`——
+   * 那会把用户上一次已经保存成功的备注抹掉）。
+   */
+  const saveExceptionDev = async (item: InboxItem, patch: { devNote?: string | null; tags?: readonly string[] }) => {
+    if (item.kind !== "exception" || item.exception === null) return;
+    const before = { devNote: item.exception.devNote, tags: item.exception.tags };
+    setBusyId(item.id);
+    try {
+      await updateSystemErrorLifecycle(item.id, patch);
+      replaceItem(item.id, {
+        exception: {
+          ...item.exception,
+          devNote: patch.devNote !== undefined ? patch.devNote : before.devNote,
+          tags: patch.tags !== undefined ? [...patch.tags] : before.tags,
+        },
+      });
+      flashSaved(patch.tags !== undefined ? "标签已保存" : "开发备注已保存");
+    } catch (err) {
+      replaceItem(item.id, { exception: { ...item.exception, ...before } });
+      setDragError(`没能保存（${describeFailure(err)}）`);
+      window.setTimeout(() => setDragError(null), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /**
    * UC-17.8 B4.4——「用 PM 设计工作台深化」：`POST /feedback/:id/deepen` 真栈调用（不再是
    * 原型 mock store 的本地 mock）。`deepenFeedback` 幂等（幂等键是 `feedbackId`），
    * 所以这里不需要先判断「是不是已经深化过」——重复点击也只会命中同一个项目，服务端说了算。
@@ -741,6 +776,7 @@ export function DesignLoopInboxScreen({
           onCreateIssue={(issueDraft) => void createGithubIssue(open, issueDraft)}
           onDeepen={() => void deepen(open)}
           onOpenWorkbench={() => onOpenWorkbench?.(open.code)}
+          onSaveExceptionDev={(patch) => void saveExceptionDev(open, patch)}
         />
       )}
     </div>
@@ -1124,6 +1160,7 @@ type GithubCheck =
 /** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
 function InboxDrawer({
   item, busy, openDecline, openIssueForm, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
+  onSaveExceptionDev,
 }: {
   item: InboxItem;
   busy: boolean;
@@ -1140,6 +1177,8 @@ function InboxDrawer({
   onCreateIssue: (issueDraft: FeedbackIssueDraft) => void;
   onDeepen: () => void;
   onOpenWorkbench: () => void;
+  /** 2026-09-05——系统异常的开发备注/标签保存（只对 `kind === "exception"` 有意义）。 */
+  onSaveExceptionDev: (patch: { devNote?: string | null; tags?: readonly string[] }) => void;
 }) {
   const [declining, setDeclining] = React.useState(openDecline);
   const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
@@ -1334,6 +1373,18 @@ function InboxDrawer({
               <p className="text-10 font-medium text-muted-foreground">不做的理由</p>
               <p className="mt-0.5 text-12">{item.statusReason}</p>
             </div>
+          )}
+
+          {/* 2026-09-05——系统异常的开发备注与标签（见契约 `InboxExceptionMeta` 头注）。
+              异常没有提交人、没有 issue、没有时间线，「转入开发」此前只留下一个状态标签，
+              看不出转给谁、要怎么修；这一块是异常这条线上唯一能承载那份上下文的地方。 */}
+          {item.kind === "exception" && item.exception !== null && (
+            <ExceptionDevPanel
+              devNote={item.exception.devNote}
+              tags={item.exception.tags}
+              busy={busy}
+              onSave={onSaveExceptionDev}
+            />
           )}
 
           {/* 时间线：仅反馈有对应源操作（见文件头），系统异常今天没有等价接口。 */}
@@ -1586,6 +1637,115 @@ function Meta({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-card-foreground">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * 系统异常的「开发备注 / 标签」编辑块（2026-09-05）。
+ *
+ * ## 为什么是两个独立的保存动作而不是一个「保存」按钮
+ *
+ * 备注是长文本（写完再存），标签是逐个增删（每次操作就是一次完整意图）。合成一个提交
+ * 按钮会让"删掉一个标签"这种明确动作停在未保存态，看起来已经删了、刷新又回来——
+ * 这类"界面说成了、服务端没有"的假象是本仓反复栽过的坑。两者各自调用一次
+ * `updateSystemErrorLifecycle`（契约允许只带 `devNote` 或只带 `tags` 的局部更新）。
+ *
+ * ## 备注只在改动后才允许保存
+ *
+ * `dirty` 为假时按钮禁用——避免把一次没有改动的点击变成一次真实写入（`updated_at` 会动，
+ * 时间线上看起来像"有人改过"，实际没有）。
+ */
+function ExceptionDevPanel({
+  devNote, tags, busy, onSave,
+}: {
+  devNote: string | null;
+  tags: readonly string[];
+  busy: boolean;
+  onSave: (patch: { devNote?: string | null; tags?: readonly string[] }) => void;
+}) {
+  const [draft, setDraft] = React.useState(devNote ?? "");
+  const [tagDraft, setTagDraft] = React.useState("");
+  // 服务端回写（乐观更新落地或回滚）之后，把编辑框拉回权威值——除非用户正在编辑。
+  const [touched, setTouched] = React.useState(false);
+  React.useEffect(() => {
+    if (!touched) setDraft(devNote ?? "");
+  }, [devNote, touched]);
+
+  const trimmed = draft.trim();
+  const dirty = trimmed !== (devNote ?? "").trim();
+
+  const addTag = () => {
+    const t = tagDraft.trim();
+    // 重复标签直接忽略：标签是集合语义，两个同名标签没有任何额外含义。
+    if (t === "" || tags.includes(t)) { setTagDraft(""); return; }
+    onSave({ tags: [...tags, t] });
+    setTagDraft("");
+  };
+
+  return (
+    <div className="rounded-card border border-border-subtle bg-panel p-2.5" data-testid="inbox-drawer-exception-dev">
+      <p className="text-10 font-medium text-muted-foreground">开发备注</p>
+      <Textarea
+        value={draft}
+        onChange={(e) => { setTouched(true); setDraft(e.target.value); }}
+        rows={3}
+        placeholder="转给谁 / 怎么复现 / 已知线索"
+        aria-label="开发备注"
+        disabled={busy}
+        className="mt-1 text-12"
+        data-testid="inbox-drawer-devnote-input"
+      />
+      <div className="mt-1.5 flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || !dirty}
+          onClick={() => { setTouched(false); onSave({ devNote: trimmed === "" ? null : trimmed }); }}
+          data-testid="inbox-drawer-devnote-save"
+        >
+          保存备注
+        </Button>
+      </div>
+
+      <p className="mt-3 text-10 font-medium text-muted-foreground">标签</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1" data-testid="inbox-drawer-tags">
+        {tags.length === 0 && <span className="text-11 text-muted-foreground">还没有标签</span>}
+        {tags.map((t) => (
+          <span
+            key={t}
+            className="inline-flex items-center gap-0.5 rounded-control border border-border bg-card px-1.5 py-0.5 text-10"
+            data-testid={`inbox-drawer-tag-${t}`}
+          >
+            {t}
+            <button
+              type="button"
+              aria-label={`移除标签 ${t}`}
+              disabled={busy}
+              onClick={() => onSave({ tags: tags.filter((x) => x !== t) })}
+              className="rounded-control text-muted-foreground hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              data-testid={`inbox-drawer-tag-remove-${t}`}
+            >
+              <X aria-hidden className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-1.5 flex gap-1.5">
+        <Input
+          value={tagDraft}
+          onChange={(e) => setTagDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+          placeholder="加标签后回车"
+          aria-label="新标签"
+          disabled={busy}
+          className="h-7 text-12"
+          data-testid="inbox-drawer-tag-input"
+        />
+        <Button size="sm" variant="outline" disabled={busy || tagDraft.trim() === ""} onClick={addTag} data-testid="inbox-drawer-tag-add">
+          添加
+        </Button>
+      </div>
     </div>
   );
 }
