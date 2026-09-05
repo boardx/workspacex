@@ -54,11 +54,18 @@ export interface NewDesignProject {
   readonly linkedFeedbackId: string | null;
 }
 
-/** `updateProject`：只带要改的字段——同新建弹窗字段集，不碰 `criteria`/`frames`/`chat`。 */
+/**
+ * 只带要改的字段。`updateProject` 用前三个（同新建弹窗字段集）；`criteria`/`frames` 是
+ * UC-17.8 B5.2 `appendProjectChat` 的模型写回专用——用户没有直接编辑它们的入口（契约
+ * `updateProject.in` 不收这两个字段），用例层只在 `DesignChatWriteback` 严格解析通过后才填。
+ * 不碰 `chat`（那走 `appendChat`）。
+ */
 export interface DesignProjectPatch {
   readonly name?: string;
   readonly template?: ProjectTemplate;
   readonly problem?: string;
+  readonly criteria?: readonly string[];
+  readonly frames?: readonly string[];
 }
 
 /**

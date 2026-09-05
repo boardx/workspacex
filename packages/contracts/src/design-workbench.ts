@@ -69,6 +69,7 @@
  *     进收件箱后的状态机是 `InboxItem`/`system-error-logs` 那一套四态，属于 B3 契约，不在这里。
  */
 import { z } from "zod";
+import { AiReplySource, DesignChatReply } from "./design-ai-collab";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -104,8 +105,9 @@ export const DESIGN_WORKBENCH_CHAT_INTRO =
   "把你想解决的问题说清楚，我会顺着它更新右边的原型画布和验收标准。可以先从「谁在什么场景下会用到」讲起。";
 
 /**
- * 「继续完善」发送后的固定回执（D7：先固定回执，不接真模型，见 `go-live-backlog.md` D7 裁决）。
- * 同 `feedback-loop.ts` 的纪律，回执在这里只声明一次。
+ * 对话面板发送后的固定回执。D7（2026-09-02）上线时它是唯一路径；**UC-17.8 B5.2 起它是模型
+ * 不可用/超时/输出为空时的退路**（`DesignProjectChatTurn.source: "fallback"`，见
+ * `design-ai-collab.ts` 头注）。同 `feedback-loop.ts` 的纪律，回执文案在这里只声明一次。
  */
 export const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
 
@@ -120,6 +122,8 @@ export const DesignProjectChatTurn = z
     role: z.enum(["user", "ai"]),
     text: z.string().min(1).max(4000),
     at: z.string(),
+    /** B5.2：`role: "ai"` 的记录带来源（模型 / 退路）；`user` 记录与 B5.2 之前的旧记录没有 */
+    source: AiReplySource.optional(),
   })
   .strict();
 export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
@@ -134,6 +138,8 @@ export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
  * ⚠ `criteria` / `frames` 是创建时由服务端按 `DESIGN_PROJECT_INITIAL_CRITERIA` /
  *   `DESIGN_PROJECT_INITIAL_FRAMES` 填入的**快照**，不是每次读取都重算的常量引用——
  *   将来若默认文案改版，已创建项目的验收标准不应该跟着变。
+ *   UC-17.8 B5.2 起，`problem`/`criteria`/`frames` 可由 `appendProjectChat` 里的模型回复
+ *   **经服务端**写回（`DesignChatWriteback` 严格解析）；用户仍不能直接编辑 `criteria`/`frames`。
  */
 export const DesignProject = z
   .object({
@@ -234,7 +240,7 @@ export const operations = {
    * 编辑项目（R4.4「编辑」弹窗：只改名称/模板/背景，同新建弹窗字段集）。
    *
    * ⚠ 不改 `criteria`/`frames`/`chat`——那些走详情页各自的操作（本轮 `criteria`/`frames`
-   *   还没有独立的改动操作，因为 B5.3 之前它们本来就不允许用户编辑；对话走 `appendProjectChat`）。
+   *   没有独立的用户编辑操作：用户不能直接改它们，B5.2 起只能经对话由模型写回，见 `appendProjectChat`）。
    * ⚠ 仅 owner：非 owner 调用 → `NOT_PROJECT_OWNER`。
    */
   updateProject: {
@@ -255,18 +261,27 @@ export const operations = {
   /**
    * 追加一条对话（详情页左侧「设计协作」面板发送）。
    *
-   * ⚠ D7：固定回执，不接真模型（见文件头「推送幂等」上方 D7 引用）。服务端在同一次调用里
-   *   追加两条：`{role:"user", text}` 与 `{role:"ai", text: DESIGN_WORKBENCH_CHAT_REPLY}`。
+   * ⚠ UC-17.8 B5.2：回复由模型按**本项目**上下文（`name/template/problem/criteria/frames` +
+   *   本项目完整 `chat`——每项目独立 thread，thread 身份即 `projectId`）生成。服务端在同一次
+   *   调用里追加两条：`{role:"user", text}` 与 `{role:"ai", text, source}`。模型不可用/超时/
+   *   输出为空 ⇒ 退回 `DESIGN_WORKBENCH_CHAT_REPLY`、`source: "fallback"`，**不**让这次追加失败。
+   * ⚠ **写回选的是「直接写回 + 返回 `applied`」，不是「返回建议等用户确认」**：模型输出里
+   *   通过 `DesignChatWriteback` 严格解析的 `problem`/`criteria`/`frames` 由服务端直接写进项目
+   *   （走与 `updateProject` 同一条 owner 谓词），`reply.applied` 如实列出写了哪些，返回的
+   *   `project` 已是写回后的。理由：R4.4 原文「我会顺着它更新右边的原型画布和验收标准」——
+   *   对话面板的产品语义就是「说一句、右边跟着变」；多一次确认弹窗会把它变成表单。写回
+   *   前的值仍在 `chat` 历史里可追溯（用户那句 + 模型那句），owner 不满意再说一句即可改回。
+   *   `frames` 只是画布页标签文案，画布内容仍是占位块（B5.3 out of scope）。
    * ⚠ 首次引导语**不**在这里插入——见文件头【待确认点 2】，它是展示层，`chat` 为空时前端
    *   本地渲染 `DESIGN_WORKBENCH_CHAT_INTRO`，不经过这个接口。
    * ⚠ 仅 owner 可发送：设计协作是该项目 owner 的工作区，不是任意组织成员都能往里写消息
-   *   （同「仅 owner 可改」的口径——见文件头【待确认点 1】）。
+   *   （同「仅 owner 可改」的口径——见文件头【待确认点 1】）。非 owner 不调模型、不写回。
    */
   appendProjectChat: {
     method: "POST",
     path: "/pm-designs/:projectId/chat",
     in: z.object({ projectId: z.string(), text: z.string().min(1).max(4000) }).strict(),
-    out: z.object({ project: DesignProject }).strict(),
+    out: z.object({ project: DesignProject, reply: DesignChatReply }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 

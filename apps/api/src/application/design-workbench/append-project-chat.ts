@@ -1,12 +1,26 @@
 /**
- * `appendProjectChat`（UC-17.8 B4.3）—— 详情页左侧「设计协作」面板发送。仅 owner。
+ * `appendProjectChat`（UC-17.8 B4.3 → B5.2）—— 详情页左侧「设计协作」面板发送。仅 owner。
  *
- * ⚠ D7：固定回执，不接真模型（同 `feedback-loop` 草稿"继续完善"的纪律）。服务端在同一次
- *   调用里追加两条：`{role:"user", text}` 与 `{role:"ai", text: DESIGN_WORKBENCH_CHAT_REPLY}`
- *   ——契约 `appendProjectChat` 头注逐字。
+ * ## B5.2：模型回复 + 写回 `problem/criteria/frames`
+ *
+ *   ① owner 校验（非 owner 不调模型、不写任何东西——契约头注逐字）。
+ *   ② `deps.ai.reply`（`DesignChatModel`，唯一实现 `ModelDesignChatReplier`）按**本项目**五个字段
+ *      + 本项目完整 `chat`（含这次用户消息）生成回复与可选写回；模型失败时端口自己退回
+ *      `DESIGN_WORKBENCH_CHAT_REPLY` 并标 `source: "fallback"`，本用例不区分。
+ *   ③ 写回非空 ⇒ `projects.update`（与 `updateProject` 同一条 owner 谓词）；`applied` 只列真的写了的。
+ *   ④ `projects.appendChat` 原子追加 `[user, ai(source)]` 两条，返回写回后的完整行。
+ *
+ * ## 事务边界（诚实版，同 `submit-feedback-draft.ts` 的写法）
+ *
+ * ③ 与 ④ 是两次独立的仓储调用。顺序选「先写回、后追加」：④ 失败 ⇒ 字段已更新、这轮对话没落
+ * 库，用户看到 503 重发一次即可（重发时模型看到的是已更新的字段，不会重复写回同一改动）；
+ * 反过来「先追加、后写回」失败 ⇒ 对话里已经写着「已更新验收标准」而字段没变——那是对用户撒谎。
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
-import { designWorkbench } from "@repo/contracts";
+import type { z } from "zod";
+import type { designAiCollab } from "@repo/contracts";
+import type { DesignChatModel } from "./design-chat-model";
+import type { DesignProjectPatch } from "./project-ports";
 import {
   DesignProjectNotFoundError,
   DesignProjectNotOwnerError,
@@ -16,20 +30,50 @@ import {
 } from "./project-shared";
 import { ownerNamesFor } from "./project-shared";
 
+type DesignChatReply = z.infer<typeof designAiCollab.DesignChatReply>;
+type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
+
+export interface AppendProjectChatDeps extends DesignProjectDeps {
+  readonly ai: DesignChatModel;
+}
+
 export async function appendProjectChat(
-  deps: DesignProjectDeps,
+  deps: AppendProjectChatDeps,
   input: { readonly projectId: string; readonly ownerId: string; readonly text: string },
-): Promise<{ readonly project: DesignProjectView }> {
+): Promise<{ readonly project: DesignProjectView; readonly reply: DesignChatReply }> {
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
 
+  const ai = await deps.ai.reply({
+    name: current.name,
+    template: current.template,
+    problem: current.problem,
+    criteria: current.criteria,
+    frames: current.frames,
+    chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
+  });
+
+  const patch: DesignProjectPatch = {
+    ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
+    ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
+    ...(ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
+  };
+  const applied = Object.keys(patch) as DesignWritebackField[];
+  if (applied.length > 0) {
+    const written = await deps.projects.update(input.projectId, input.ownerId, patch);
+    if (written === null) throw new DesignProjectNotOwnerError();
+  }
+
   const updated = await deps.projects.appendChat(input.projectId, input.ownerId, [
     { role: "user", text: input.text },
-    { role: "ai", text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY },
+    { role: "ai", text: ai.text, source: ai.source },
   ]);
   if (updated === null) throw new DesignProjectNotOwnerError();
 
   const names = await ownerNamesFor(deps, [updated.ownerId]);
-  return { project: projectDesignProject(updated, names.get(updated.ownerId) ?? null) };
+  return {
+    project: projectDesignProject(updated, names.get(updated.ownerId) ?? null),
+    reply: { source: ai.source, applied },
+  };
 }

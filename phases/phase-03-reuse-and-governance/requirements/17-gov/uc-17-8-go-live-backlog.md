@@ -224,8 +224,27 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   design-ai-collab/` 按 phase-10 先例复制两张既有图（`drafts-refine-light` /
   `detail-canvas-dark`），`ui-material-map.json` 补一行。
   PR：`worker/claude-uc17-8-b5-1-draft-refine-ai`。
-- 待做：B5.2（设计详情对话接模型 + 写回 `problem/criteria/frames`），分支
-  `worker/claude-uc17-8-b5-2-design-chat-ai`（从 B5.1 分支切出）。B5.3 不做（out of scope）。
+- ✅ B5.2（设计详情左侧对话接模型 + 回复写回 `problem/criteria/frames`）2026-09-05 落地
+  （分支从 B5.1 切出，PR 依赖 B5.1 的 PR）：契约 `design-ai-collab.ts` 增 `DesignWritebackField`
+  / `DesignChatWriteback` / `DesignChatReply`；`design-workbench.ts` 的 `DesignProjectChatTurn`
+  加 `source?`，`appendProjectChat.out` 加 `reply: { source, applied }`，头注改口（固定回执
+  降为退路；`criteria`/`frames`「用户不能直接编辑，可经对话由模型写回」；写回选**直接写回 +
+  返回 `applied`**而非返回建议等确认，理由写在该操作头注）。迁移
+  `20260905130000_uc178_b52_design_chat_source.sql`（`design_project_chat_messages.source`
+  可空 CHECK 闭集，不回填旧记录）。`application/design-workbench/design-chat-model.ts`
+  （端口 `DesignChatModel` + `ModelDesignChatReplier`：同 B5.1 那条 `ModelCallPort` 链，
+  不传 `threadId`；输出 JSON `{reply, writeback}`，`writeback` 逐字段过契约、非法字段只丢
+  该字段；失败退回 `DESIGN_WORKBENCH_CHAT_REPLY` 标 fallback）；`append-project-chat.ts`
+  先写回（`projects.update` 同 owner 谓词，`DesignProjectPatch` 加 `criteria`/`frames`）再
+  原子追加两条，返回写回后的 `project` + `reply`。「每项目独立 thread」= 只喂本项目
+  `chat[]`，thread 身份即 project id。Web：`detail-screen.tsx` 消费 `reply.applied`（最后一条
+  AI 气泡下「已更新：…」，`design-detail-chat-applied`）+ 「固定回执」标识
+  （`design-detail-turn-fallback`）；右侧说明页/画布标签随返回的 `project` 一起变。单测：
+  `tests/design-workbench/design-chat-model.test.ts`（新，4 条）、`project-lifecycle.test.ts`
+  （4 条新/改，含「只看到本项目历史」「非 owner 不调模型」）、
+  `tests/ui/design-loop.test.tsx` 1 新 1 改；`permission-propagation-six-paths.test.ts`
+  （真 PG）过迁移。PR：`worker/claude-uc17-8-b5-2-design-chat-ai`。
+- B5.3 不做（PDF 明确 out of scope，仅登记）。
 - ✅ B6.5（无障碍与响应式复核）2026-09-05 落地：
   **键盘替代**——看板拖拽的每一条合法迁移都有 drawer 操作按钮做同一件事：按 `stage × kind`
   逐格核对两个源状态机（`product-feedback.ts` `ALLOWED_TRANSITIONS`、`system-error-logs.ts`
@@ -264,8 +283,6 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `design-workbench-smoke.spec.ts` ② 末尾补了「反馈 drawer 里点『已生成方案』→ drawer
   换成设计条目（按 `inbox-card-<D-code>` 找）+ 目标卡片 `data-highlighted` + URL `?open=<projectId>`」，
   在 CI `fullstack-smoke` 跑真栈。PR：`worker/claude-uc17-8-b3-7-clickable-relation-badges`。
-
-### 0.4 Sprint 4 落地记录
 
 - ✅ B6.4（可观测性）2026-09-05 落地：`application/inbox/aggregate-inbox-sources.ts` 把
   `listInbox`/`getInboxCounts` 各自复制的"拉反馈 → 拉系统异常（受 cap）→ 拉设计项目"抽成

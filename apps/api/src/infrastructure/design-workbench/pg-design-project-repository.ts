@@ -42,6 +42,8 @@ interface ChatDbRow {
   readonly role: string;
   readonly text: string;
   readonly created_at: Date | string;
+  /** B5.2：`model` / `fallback` / NULL（user 记录与旧记录）——迁移 `20260905130000_uc178_b52_design_chat_source.sql` */
+  readonly source: string | null;
 }
 
 function toStringArray(raw: unknown): readonly string[] {
@@ -54,6 +56,8 @@ function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {
     role: r.role === "ai" ? "ai" : "user",
     text: r.text,
     at: new Date(r.created_at).toISOString(),
+    // 「无」≠「模型说的」：NULL 就不带键（契约 `.optional()`），不猜默认值。
+    ...(r.source === "model" || r.source === "fallback" ? { source: r.source } : {}),
   }));
 }
 
@@ -88,7 +92,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
 
   private async chatFor(s: TenantSession, projectId: string): Promise<readonly ChatDbRow[]> {
     const { rows } = await s.query<ChatDbRow>(
-      `SELECT role, text, created_at
+      `SELECT role, text, created_at, source
          FROM design_project_chat_messages
         WHERE org_id = $1 AND project_id = $2
         ORDER BY created_at ASC, id ASC`,
@@ -198,10 +202,16 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
             SET name       = COALESCE($4, name),
                 template   = COALESCE($5, template),
                 problem    = COALESCE($6, problem),
+                criteria   = COALESCE($7::jsonb, criteria),
+                frames     = COALESCE($8::jsonb, frames),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
-        [this.orgId, ownerId, projectId, patch.name ?? null, patch.template ?? null, patch.problem ?? null],
+        [
+          this.orgId, ownerId, projectId, patch.name ?? null, patch.template ?? null, patch.problem ?? null,
+          patch.criteria === undefined ? null : JSON.stringify(patch.criteria),
+          patch.frames === undefined ? null : JSON.stringify(patch.frames),
+        ],
       );
       const row = rows[0];
       if (row === undefined) return null;
@@ -224,9 +234,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
 
       for (const turn of turns) {
         await s.query(
-          `INSERT INTO design_project_chat_messages (id, org_id, project_id, role, text)
-           VALUES ($1,$2,$3,$4,$5)`,
-          [`${projectId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, this.orgId, projectId, turn.role, turn.text],
+          `INSERT INTO design_project_chat_messages (id, org_id, project_id, role, text, source)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [`${projectId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, this.orgId, projectId, turn.role, turn.text, turn.source ?? null],
         );
       }
       // ⚠ owner_id 再收窄一次——虽然上面那条 SELECT 已经确认过 owner,但这条 UPDATE 是独立语句,
