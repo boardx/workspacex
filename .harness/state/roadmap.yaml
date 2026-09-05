@@ -101,6 +101,6 @@ phases:
     slug: agent-kernel-unification
     name: agent-kernel-unification
     goal: "统一 agent-run 双内核为单一执行引擎（LangGraph/deep-agent-service），实现真流式传输、Plan Mode、分级权限、产出物版本化等 Claude Code 级别的通用 Agent 能力"
-    status: not_started
+    status: in_progress
     depends_on: []
     has_ui: true
