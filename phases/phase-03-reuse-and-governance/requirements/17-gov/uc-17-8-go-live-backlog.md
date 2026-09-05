@@ -16,7 +16,7 @@
 | D5 | `DesignLoopProvider` 上提到 AppShell（让「存草稿 / 去工作台」出现在真实入口） | 生产壳层 | 上提，但原型 store 在真栈化时被 API client 取代 |
 | D6 | 系统异常是否恢复「仅平台运维可见」（PDF §9） | 权限模型 | 本轮不做，收件箱按组织管理员视角 |
 | D7 | AI 对话（草稿细化 / 设计对话）接 deep-agent-service 还是先固定回执上线 | 范围与估点 | 先固定回执上线（B2/B4 里的 AI 项后置成独立束） |
-| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | 待人类裁决，见下 |
+| D8 | **非管理员提交后被导向 `/platform-admin/inbox` 看到「拒绝访问」**——两处独立发现同一根因，见下方说明 | `FeedbackDialog` 直接提交 + 草稿提交（`FeedbackDraftsScreen.onSubmitted`）两处导航；`canTriage` 权限模型 | **已裁决（2026-09-05，方案 ③）**：收件箱读路径对本组织任何成员放开，正文仍按 D3；B3.6 落地 |
 
 **D8 详情（2026-09-04，E2E 落地时发现，两处合并成一条）**：`canTriage`（`apps/api/src/domain/feedback/product-feedback.ts`）
 把收件箱访问收紧到 `orgRole === "admin"`；但（a）B3.5 起草时发现 `FeedbackDialog` 若无条件在直接提交后跳
@@ -28,6 +28,14 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
 使非管理员至少能看到自己提交的那一条（但收件箱是全组织视图，放宽会改变 D2 的可见性口径，牵连更大）。
 `feedback-drafts-smoke.spec.ts` 现按方案「如实断言现状」写（非管理员看到拒绝访问，管理员另起一条用例验证
 数据确实落库），不预判裁决结果。
+
+**D8 裁决落地（2026-09-05，人类原话「A」= 放宽读路径）**：B3.6 的 e2e「D3 反证：非管理员看得到标题看不到别人的正文」
+在 CI 稳定红——旧三 tab 屏下线后，非管理员连收件箱都打不开，等于把已签核的 D3「标题+票数全组织可见」收回去了。
+人类在三个方案里选 ③：`listInbox`/`getInboxCounts` 只挡「不是本组织成员」，正文/结构化字段仍逐行走 D3，
+系统异常那一半仍只对平台超管，分诊/投票/深化各自的契约操作各自判权限（`canTriage` 本身不动）。单源在契约
+`packages/contracts/src/inbox.ts` 头注「谁能打开收件箱」。方案 ①/② 的"导航要不要按角色分流"随之不再需要——
+非管理员被导到收件箱现在看到的是自己那条的 drawer；`inbox-smoke.spec.ts` 用例① 的 `fixme` 是另一条冲突
+（R4.1 自动跳转 vs 已签核 UC-F1「弹层切到我提过的」），不在本裁决范围。
 
 ### 0.1 Agent 推演立场（2026-09-04，人类要求"推演一个合适的答案"）
 
@@ -86,8 +94,24 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   「创建 GitHub Issue」接回真实编辑器（抄 `admin/feedback-screen.tsx` 的
   `defaultIssueDraft`），仅 `stage===backlog` 时可用——`doing→doing` 是幂等 replay
   不会真的建 issue，故未对 `doing` 开放该按钮（避免假成功）。8 条单测。
-- 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
-  `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
+- ✅ B3.6（旧屏退役）2026-09-04 落地（人类会话原话「同意，B3.6 直接做」授权开工，
+  由 agent 代转录）：删除 `components/admin/feedback-screen.tsx` 及其 3 张签核截图
+  （`fb-admin-two-columns-{light,dark}.png` / `fb-admin-decline-reason-light.png`）；
+  `/platform-admin/feedback`（`app/platform-admin/[module]/page.tsx` 的 `REDIRECTS`）
+  与 `/admin/feedback`（`app/admin/[module]/page.tsx`，改直接指向新落点，不经两跳）
+  均 301 到 `/platform-admin/inbox`；`AdminModuleKey`/`ADMIN_NAV`/`PLATFORM_ADMIN_ROUTES`
+  的 `feedback` 项一并移除（不留一个只会 404 或被重定向吞掉的死键）；删除
+  `tests/ui/admin-feedback-live.test.tsx`、`admin-feedback-transitions-match-domain.test.ts`
+  （两者只测旧屏，其转移交接/状态迁移的行为已由 `tests/ui/design-loop.test.tsx` 覆盖新屏）；
+  `tests/ui/admin-scope-split.test.tsx`/`ops-status-screen.test.tsx` 的 `feedback` 键引用改指
+  同组仍存在的 `ops-status`；`e2e/feedback-loop-smoke.spec.ts` 的两条后台处置用例改打
+  `/platform-admin/inbox`（`inbox-*` 系列 testid），提交侧 ①②③④四条用例不变；
+  `feedback-loop` 束 `ui.md`（引用截图 9→6 张）/`coverage.md`（V7/V10/V11 前端消费点改指
+  `inbox-*`，V8/V9 投票入口未随新屏保留，如实降级为 ⚠ 已知限制而非隐藏）已更新；
+  `scripts/shot-feedback-loop.mjs` 不再拍「后台两列屏」这三张图；`design-signoff.md`
+  新增「B3.6 重开」一节，`status` 字段本身**未改**（ADR-023：agent 不许碰，留给人类
+  确认新的 UI 材料后再决定是否需要重签）。
+  待做：B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
 ### 0.3 Sprint 3 落地记录
 

@@ -73,7 +73,9 @@ describe("§2 每一组归属且只归属一个面，两面都非空", () => {
   });
 
   it("AI 能力 / 运营 / 平台三组在平台面；「组织」组在组织面（2026-09-02 第二次裁决：AI 能力归平台）", () => {
-    expect(ADMIN_MODULE_SCOPE.feedback).toBe("platform");
+    // B3.6（2026-09-04）：「运营」组原来的 feedback 项（旧后台两列反馈屏）已随旧屏
+    // 退役删除，用同一组里仍然存在的 ops-status 项断言这一条不变量。
+    expect(ADMIN_MODULE_SCOPE["ops-status"]).toBe("platform");
     expect(ADMIN_MODULE_SCOPE.platform).toBe("platform");
     for (const key of ["agent", "skill", "model", "mcp", "canvasadmin", "blueprint"] as const) {
       expect(ADMIN_MODULE_SCOPE[key]).toBe("platform");
@@ -106,9 +108,9 @@ describe("§3 AdminNav 按面渲染：入口只在一面出现", () => {
     });
   }
 
-  it("不传 scope 时按 active 所属面推断：active=feedback ⇒ 平台面标题", async () => {
+  it("不传 scope 时按 active 所属面推断：active=ops-status ⇒ 平台面标题", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
-    render(<AdminNav active="feedback" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
+    render(<AdminNav active="ops-status" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
     expect(screen.getByTestId("admin-nav-title").textContent).toBe("平台后台");
     expect(screen.queryByTestId(ADMIN_NAV_TESTID.overview)).toBeNull();
   });
@@ -140,11 +142,11 @@ describe("§4 平台面每一项都有路由落点", () => {
 });
 
 describe("§5 反证", () => {
-  it("R-1 把「运营」组误归回组织面 ⇒ 组织面会画出 feedback（与 §3 的判定相反）", () => {
+  it("R-1 把「运营」组误归回组织面 ⇒ 组织面会画出 ops-status（与 §3 的判定相反）", () => {
     const tampered = ADMIN_NAV.map((g) => (g.group === "运营" ? { ...g, scope: "org" as const } : g));
     const orgKeys = tampered.filter((g) => g.scope === "org").flatMap((g) => g.items.map((i) => i.key));
-    expect(orgKeys).toContain("feedback");
+    expect(orgKeys).toContain("ops-status");
     // 真实数据里没有
-    expect(adminNavForScope("org").flatMap((g) => g.items.map((i) => i.key))).not.toContain("feedback");
+    expect(adminNavForScope("org").flatMap((g) => g.items.map((i) => i.key))).not.toContain("ops-status");
   });
 });

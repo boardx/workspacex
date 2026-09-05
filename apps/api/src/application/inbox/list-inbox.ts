@@ -35,7 +35,6 @@
  */
 import type { z } from "zod";
 import { inbox as C } from "@repo/contracts";
-import { canTriage } from "../../domain/feedback/product-feedback";
 import type { ListFeedbackDeps, ListFeedbackInput } from "../feedback/list-feedback";
 import type { ErrorLogPort } from "../ports/error-log.port";
 import type { DesignProjectDeps } from "../design-workbench/project-shared";
@@ -86,10 +85,13 @@ export interface ListInboxResult {
 }
 
 export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Promise<ListInboxResult> {
-  // 收件箱是分诊面板的替代——同 `FeedbackController.counts` 的权限纪律：
-  // 只有本组织的分诊角色能打开它（见 contracts/inbox.ts 顶部「覆盖」小节，
-  // 这是替换 `/platform-admin/feedback` 三 tab 的屏，不是每个成员都能看的列表）。
-  if (!canTriage(input.viewerOrgRole)) throw new InboxPermissionRevokedError();
+  // 谁能打开收件箱：**本组织任何成员**（D8 ③，2026-09-05 人类裁决「A」，见契约
+  // `inbox.ts` 头注「谁能打开收件箱」）。B3.2 起这里曾收紧到 `canTriage`（仅管理员），
+  // B3.6 让收件箱替换旧三 tab 屏后，那道门等于把已签核的 D3「标题+票数全组织可见」
+  // 收回去了——非管理员连标题都看不到。现在只挡「不是本组织成员」；正文/结构化字段
+  // 仍逐行走 `listFeedback` 里的 D3 判定（非提交人 ⇒ `body: null`），分诊动作仍由
+  // `triageFeedback` 自己的 `canTriage` 把守，这里不复制那条规则。
+  if (input.viewerOrgRole === null) throw new InboxPermissionRevokedError();
 
   const startedAt = Date.now();
   const { feedbackItems, exceptionItems, designItems, sources, stats } = await aggregateInboxSources(deps, input);

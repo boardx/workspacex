@@ -1,6 +1,13 @@
-// 截图生成器 —— `feedback-loop` 束（FB-2 采集 + FB-3 后台真栈化）。
+// 截图生成器 —— `feedback-loop` 束（FB-2 采集）。
 // ADR-023 签核第 ① 件（UI）材料。取材页 /preview/feedback-loop，**渲染的是真组件**；
 // 数据由本脚本 page.route() 拦截 `**/feedback**` 提供——截出来的屏与生产只差数据，不差代码。
+//
+// ⚠ B3.6（2026-09-04，旧屏退役）：本脚本**不再拍「后台两列屏」**——`feedback-screen.tsx`
+//   已删除，`/platform-admin/feedback` 301 到 `/platform-admin/inbox`。那三张图
+//   （`fb-admin-two-columns-{light,dark}.png` / `fb-admin-decline-reason-light.png`）
+//   已从产出目录移除；本束「③ 后台两列屏」这件签核材料由 `inbox-unified` 范畴的
+//   `/platform-admin/inbox`（`design-loop/inbox-screen.tsx`）承接，见 `ui.md` 头注与
+//   `design-signoff.md` 的「B3.6 重开」一节。
 //
 // 浅色/深色两态都拍：uiux-standards 要求两态都可读，只拍一态等于只验了一半。
 // 用法：BASE=http://localhost:3132 OUT=/abs/path node scripts/shot-feedback-loop.mjs
@@ -56,21 +63,10 @@ const SHOTS = [
   ["fb-dialog-submit-product-dark.png", "dialog-product", "dark", null],
   ["fb-dialog-submit-skill-light.png", "dialog-skill", "light", null],
   ["fb-dialog-mine-light.png", "dialog-product", "light", openMineTab],
-  ["fb-admin-two-columns-light.png", "admin", "light", null],
-  ["fb-admin-two-columns-dark.png", "admin", "dark", null],
-  ["fb-admin-decline-reason-light.png", "admin", "light", openDeclineReason],
 ];
 
 async function openMineTab(page) {
   await clickUntil(page, '[data-testid="feedback-tab-mine"]', '[data-testid="feedback-mine-list"]');
-}
-
-async function openDeclineReason(page) {
-  await clickUntil(
-    page,
-    '[data-testid="admin-feedback-to-不做-fb-1"]',
-    '[data-testid="admin-feedback-decline-fb-1"]',
-  );
 }
 
 /**
@@ -90,18 +86,16 @@ async function clickUntil(page, selector, expect, tries = 25) {
  * 每个场景**必须出现**的内容锚点。
  *
  * ⚠ 只等 `ROOT` 是不够的，这不是保险起见——第一次跑就栽了：dev server 冷启动那一轮，
- *   `ROOT` 早就 attached，而屏上还是「正在读取反馈…」，于是 `fb-admin-two-columns-*.png`
- *   拍成了两张**加载态**。截图脚本静默拍到加载态是最坏的一种失败：它不报错，
- *   而产出的签核材料看起来像是这块屏坏了。
+ *   `ROOT` 早就 attached，而屏上还是「正在读取反馈…」，于是截图拍成了加载态。
+ *   截图脚本静默拍到加载态是最坏的一种失败：它不报错，而产出的签核材料看起来像是
+ *   这块屏坏了。
  *
- * ⚠ 锚点选**内容**而不是容器：`admin-feedback-counts` 这类外壳在加载态也在，
- *   等它等于没等。要等的是「数据到了才会出现」的那个节点。
+ * ⚠ 锚点选**内容**而不是容器：等它等于没等。要等的是「数据到了才会出现」的那个节点。
  */
 const READY_ANCHOR = {
   entries: '[data-testid="rail-feedback"]',
   "dialog-product": '[data-testid="feedback-form"]',
   "dialog-skill": '[data-testid="feedback-form"]',
-  admin: '[data-testid="admin-feedback-sw-cards"]',
 };
 
 async function gotoUntilReady(page, url, scene, tries = 60) {
@@ -122,7 +116,7 @@ async function gotoUntilReady(page, url, scene, tries = 60) {
 const browser = await chromium.launch();
 for (const [file, scene, theme, prepare] of SHOTS) {
   const context = await browser.newContext({
-    viewport: { width: scene === "admin" ? 1280 : 900, height: 900 },
+    viewport: { width: 900, height: 900 },
     colorScheme: theme,
     deviceScaleFactor: 2,
   });
@@ -152,7 +146,7 @@ for (const [file, scene, theme, prepare] of SHOTS) {
   await gotoUntilReady(page, `/preview/feedback-loop?scene=${scene}`, scene);
   if (prepare) await prepare(page);
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/${file}`, fullPage: scene === "admin" });
+  await page.screenshot({ path: `${OUT}/${file}` });
   console.log(`✓ ${file}`);
   await context.close();
 }
