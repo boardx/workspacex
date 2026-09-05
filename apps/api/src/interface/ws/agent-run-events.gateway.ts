@@ -47,12 +47,12 @@ export type RunVisibility = "visible" | "not_visible" | "unavailable";
 
 const PATH_RE = /^\/agent-runs\/([^/?]+)\/events(?:\?|$)/;
 /**
- * 与 `asr-draft.gateway.ts`/`asr-stream.gateway.ts` 同一个前缀字面量、同一种鉴权机制。
- * `streaming-transport.ts` 的签核材料未声明它，是因为 usecases.md UC-1 明确把握手层的
- * 具体协议留给实现（"WebSocket 订阅本身不返回传统 HTTP 错误码"）——这里延续本仓既有
- * 两条流式面已经用过的约定，不新造第三种。
+ * 与 `asr-draft.gateway.ts`/`asr-stream.gateway.ts` 同一种鉴权机制。Phase 14 F04 起
+ * 这个前缀字面量本身搬进了契约（`streaming-transport.ts` 的
+ * `operations.subscribeRunEvents.bearerSubprotocolPrefix`，同 `chat.ts`/`recording.ts`
+ * 两条既有流式面同一处声明方式），网关与浏览器客户端从同一个符号取值，不再各写一份。
  */
-const BEARER_PREFIX = "bearer.";
+const BEARER_PREFIX = ST.operations.subscribeRunEvents.bearerSubprotocolPrefix;
 
 export interface AgentRunEventsGatewayDeps {
   readonly principals: PrincipalResolverPort;

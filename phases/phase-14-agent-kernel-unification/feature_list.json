@@ -72,9 +72,9 @@
         "F03"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "claude-f04",
       "capability": "CAP-WEB",
       "verification": [
         "pnpm --filter web exec vitest run tests/agent-kernel/reconnect-toast.test.tsx",

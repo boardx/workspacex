@@ -33,7 +33,7 @@ function renderUnit(unit: AgentKernelUnit, state: string | undefined) {
     case "04-interjection": return <InterjectionComposer />;
     case "05-artifacts": return <ArtifactsPanel empty={state === "empty"} />;
     case "06-error-card": return <ErrorCard />;
-    case "07-reconnect": return <ReconnectToast phase={state === "reconnecting" ? "reconnecting" : "restored"} />;
+    case "07-reconnect": return <ReconnectToast state={state === "reconnecting" || state === "failed" ? state : "restored"} />;
     case "08-paused": return <PausedState variant={state === "system" ? "system" : "user"} />;
   }
 }
@@ -108,6 +108,7 @@ function StateLinks({ unit, activeState }: { unit: AgentKernelUnit; activeState?
     "07-reconnect": [
       { key: undefined, label: "已恢复" },
       { key: "reconnecting", label: "重连中" },
+      { key: "failed", label: "重连失败" },
     ],
     "08-paused": [
       { key: undefined, label: "用户主动暂停" },

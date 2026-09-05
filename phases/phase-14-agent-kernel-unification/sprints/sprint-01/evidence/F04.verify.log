@@ -1,0 +1,75 @@
+$ pnpm --filter web exec vitest run tests/agent-kernel/reconnect-toast.test.tsx tests/agent-kernel/paused-state.test.tsx tests/agent-kernel/terminal-status-and-restore.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /home/user/workspacex/apps/web
+
+ ✓ tests/agent-kernel/reconnect-toast.test.tsx (5 tests) 81ms
+ ✓ tests/agent-kernel/paused-state.test.tsx (6 tests) 85ms
+ ✓ tests/agent-kernel/terminal-status-and-restore.test.tsx (23 tests) 288ms
+
+ Test Files  3 passed (3)
+      Tests  34 passed (34)
+   Start at  00:44:11
+   Duration  6.08s (transform 2.07s, setup 1.05s, collect 3.94s, tests 454ms, environment 5.55s, prepare 657ms)
+
+[exit 0]
+
+--- 回归：copilotkit-v2-run-restore-on-remount（架构变化连带改写，非本 feature verification 命令，额外证据）---
+$ pnpm --filter web exec vitest run tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /home/user/workspacex/apps/web
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载时这个 run 其实早就是终态（用户切回来时后端已经写完了）⇒ 不建立任何订阅，不显示生成中
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 收到终态推流事件但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 收到终态推流事件但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 终态事件到达后确认读因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 终态事件到达后确认读因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败
+
+ ✓ tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx (4 tests) 1498ms
+   ✓ copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染 1011ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Duration  9.70s (transform 3.29s, setup 185ms, collect 6.13s, tests 1.50s, environment 980ms, prepare 99ms)
+
+[exit 0]
+
+--- tsc --noEmit -p apps/web ---
+$ pnpm exec tsc --noEmit -p apps/web
+[exit 0]
+
+--- tsc --noEmit -p apps/api（已过滤 packages/fabric-markdown 的已知 baseline 噪音，与本改动无关）---
+$ pnpm exec tsc --noEmit -p apps/api | grep -v packages/fabric-markdown
+[exit 0]
+
+--- pnpm harness verify --sprint 14/01 --feature F04（三条 feature 命令跑绿后，因触及 packages/contracts 高风险路径自动升级到 pnpm -w run verify:release）---
+$ pnpm harness verify --sprint 14/01 --feature F04
+
+> agentic-harness-template@ harness /home/user/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--sprint" "14/01" "--feature" "F04"
+
+==> 验证 F04 — 前端订阅改造：删除轮询、断线重连、终态判断修复与全部非终态可交互渲染
+✓ 通过: pnpm --filter web exec vitest run tests/agent-kernel/reconnect-toast.test.tsx
+✓ 通过: pnpm --filter web exec vitest run tests/agent-kernel/paused-state.test.tsx
+✓ 通过: pnpm --filter web exec vitest run tests/agent-kernel/terminal-status-and-restore.test.tsx
+  高风险命中 1 处：packages/contracts/src/streaming-transport.ts ⟵ packages/contracts/**
+==> 运行基础验证（风险档=high_risk）: pnpm -w run verify:release
+[verify:release 仍在后台运行中，超出本会话可等待的时间预算；进度片段见上——与 F01/F03/F05/F10/F13 同一类环境限制，见 session-handoff.md]

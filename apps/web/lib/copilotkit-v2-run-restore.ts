@@ -1,65 +1,68 @@
 "use client";
 import * as React from "react";
 import { ApiError } from "./api-client";
-import { getAgentRun, isTerminalRunStatus, type AgentRunView } from "./agent-run";
+import { getAgentRun, isTerminalRunStatus as isTerminalWave2RunStatus, type AgentRunView } from "./agent-run";
+import {
+  useAgentKernelRunStream, isTerminalRunStatus,
+  type KernelStreamEvent, type ReconnectState,
+} from "./agent-kernel-stream";
 
 /**
  * session-switch task-state-loss fix —— copilotkit-v2 轨道的 run 状态是纯内存态，
  * 绑定在挂载时随机生成的 `threadId` 上（`copilotkit-v2-panel.tsx` 里
  * `useAgent({ threadId: crypto.randomUUID() 生成的临时 id })`）。用户提交任务后切到
  * 另一个会话再切回来，这条路由级重挂载会把内存里的 `agent.isRunning`/流式内容
- * 连同 SSE 连接一起丢掉，挂载时的 hydration 又只回读已落库消息、不知道"上一轮有没有
+ * 连同订阅一起丢掉，挂载时的 hydration 又只回读已落库消息、不知道"上一轮有没有
  * 一个还没写回的 run"——参见 `copilotkit-v2-panel.tsx` 挂载 hydration effect 头注。
  *
  * 这个 hook 补上缺失的一环：调用方（挂载 hydration）用
  * `findPendingRunId`（`lib/agent-run.ts`）从已落库消息里找出"可能还没写回"的
- * runId，交给这里轮询服务端真实状态（`GET /agent-runs/:runId`，与旧轨道
- * `chat-live-message-panel.tsx` 同一个只读端点、同一条"只轮询不猜测终态"的纪律，
- * 见 `lib/agent-run.ts` 文件头）。轮询到终态后调用方重读一次持久化消息，把服务端
- * 已经写回的助手回复（或错误）捞回来——这个 hook 本身**不**合成任何回复内容，
- * 只负责把"这个 run 还没完事"这件事重新变得可见。
+ * runId，交给这里核实服务端真实状态。
  *
- * 若这个 runId 其实早就是终态（用户切回来的时候后端已经写完了），第一次轮询就会
- * 发现并立即结束，只多打一次 GET，不会产生错误状态——与旧轨道同一条既有纪律
- * （`chat-live-message-panel.tsx:594` 头注）。
+ * Phase 14 F04（R6 后置条件）—— 核实机制不再是"20 分钟轮询预算 + gave-up 兜底"：
+ * 本文件订阅 `agent-kernel-stream.ts` 的真实 WebSocket 事件流
+ * （`streaming-transport.ts` UC-1 `subscribeRunEvents`），收到该 run 的终态
+ * `status_change` 事件后，做**一次**确认性的 `getAgentRun` 读（把服务端已经写回的
+ * `resultMessageId`/`error` 捞出来——推流本身只带状态，不带这些字段，见 R7"落库与
+ * 推流解耦"）。事件发布是 fire-and-forget、不等落库事务提交完成（I-3），所以这次确认
+ * 读允许对"仍读到非终态"做几次很短的重试（有界次数，毫秒级退避），这不是旧机制的
+ * "时间预算"——旧机制的问题是允许无限期地假装还有希望；这里的重试只是在弥合"事件先到、
+ * 落库随后完成"这一条已知的时序缝隙，几次之内必然收敛。
+ *
+ * 连接层面的失败（断线重连次数耗尽、鉴权过期）都不再"安静地卡住"：见下方
+ * `RunRestoreOutcome`。
  */
-
-/** 与 `chat-live-message-panel.tsx` 的 `RUN_POLL_*` 同一组取值——两条轨道各自独立
- *  轮询同一类端点，调参数不是"同一事实声明两处"，是两处各自的退避策略。 */
-const RESTORE_POLL_FIRST_DELAY_MS = 400;
-const RESTORE_POLL_BACKOFF = 1.5;
-const RESTORE_POLL_MAX_DELAY_MS = 3_000;
-const RESTORE_POLL_BUDGET_MS = 20 * 60_000;
 
 export interface RunRestoreState {
   /** 正在向服务端核实这个 run 是否已经跑完；`true` 时调用方应显示"生成中"一类指示。 */
   readonly isRestoring: boolean;
+  /** 断线重连提示状态（R4 E2）。`null` = 至今未曾断线，不需要展示任何提示。 */
+  readonly reconnectState: ReconnectState | null;
 }
 
 /** `isRestoring` 为真时展示的阶段文案——单一事实源，调用方不要另写一份措辞。 */
 export const RUN_RESTORE_PHASE_LABEL = "正在恢复上次未完成的任务…";
 
 /**
- * 2026-08-30（devapp 真实用户复现修复的另一半）—— 第一版这个 hook 的 `onSettled`
- * 是零参数回调，只表达"轮询结束了"，不表达"结果是什么"。真实后果：run 真的以
- * `failed` 收场时，调用方唯一能做的是清空 `pendingRunId`——"生成中"指示消失，界面
- * 上不留任何痕迹，用户看到的是自己发的消息安静地没有任何回应，连一个错误提示都没
- * 有，比根本不做恢复更让人困惑。budget 耗尽 / 401 时同理，静默清空。
- *
- * 这里改成把"轮询是怎么结束的"如实带出去：`settled`（读到终态，`view.status` 可能
- * 是 `succeeded` 也可能是 `failed`，调用方据此决定要不要显示错误）或 `gave-up`
- * （没读到终态就先撑不住了——budget 耗尽或 bearer 过期，如实说"没能确认"，不猜测
- * 结果是成功还是失败）。
+ * 2026-08-30（devapp 真实用户复现修复的另一半）—— 这个 hook 的 `onSettled` 把"轮询是
+ * 怎么结束的"如实带出去：`settled`（读到终态，`view.status` 可能是 `succeeded` 也可能是
+ * `failed`，调用方据此决定要不要显示错误）或 `gave-up`（没能确认——连接层面撑不住，或
+ * 鉴权已过期，如实说"没能确认"，不猜测结果是成功还是失败）。
  */
 export type RunRestoreOutcome =
   | { readonly kind: "settled"; readonly view: AgentRunView }
-  | { readonly kind: "gave-up"; readonly reason: "budget-exhausted" | "auth-expired" };
+  | { readonly kind: "gave-up"; readonly reason: "connection-lost" | "auth-expired" };
+
+/** 确认性读的重试预算——有界次数、毫秒级退避，弥合"事件先到、落库随后完成"的时序缝隙
+ *  （I-3），不是旧机制那种以分钟计的"轮询预算"。 */
+const CONFIRM_TERMINAL_MAX_ATTEMPTS = 5;
+const CONFIRM_TERMINAL_RETRY_DELAY_MS = 400;
 
 /**
  * @param pendingRunId 待核实的 runId；`null` = 没有待恢复的 run，什么都不做。
  * @param sessionToken 与其它 run 相关调用同一个 bearer（`getStoredSessionToken()`）。
- * @param onSettled 轮询结束（读到终态，或撑不住放弃）时调用一次——调用方据此重读
- *   持久化消息、把写回的内容合并进当前视图，或如实展示"没能确认"。用 `useRef`
+ * @param onSettled 核实结束（读到终态，或连接层面撑不住放弃）时调用一次——调用方据此
+ *   重读持久化消息、把写回的内容合并进当前视图，或如实展示"没能确认"。用 `useRef`
  *   持有，不要求调用方 memoize。
  */
 export function useCopilotKitV2RunRestore(
@@ -70,55 +73,63 @@ export function useCopilotKitV2RunRestore(
   const onSettledRef = React.useRef(onSettled);
   onSettledRef.current = onSettled;
   const [isRestoring, setIsRestoring] = React.useState(pendingRunId !== null);
+  const settledRef = React.useRef(false);
+  const sessionTokenRef = React.useRef(sessionToken);
+  sessionTokenRef.current = sessionToken;
 
   React.useEffect(() => {
-    if (pendingRunId === null) {
-      setIsRestoring(false);
-      return;
-    }
-    setIsRestoring(true);
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const deadline = Date.now() + RESTORE_POLL_BUDGET_MS;
+    settledRef.current = false;
+    setIsRestoring(pendingRunId !== null);
+  }, [pendingRunId]);
 
-    const poll = async (delay: number): Promise<void> => {
-      if (cancelled) return;
+  const confirmTerminal = React.useCallback(async (runId: string) => {
+    for (let attempt = 1; attempt <= CONFIRM_TERMINAL_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const view = await getAgentRun(pendingRunId, sessionToken);
-        if (cancelled) return;
-        if (isTerminalRunStatus(view.status)) {
+        const view = await getAgentRun(runId, sessionTokenRef.current);
+        if (isTerminalWave2RunStatus(view.status) || attempt === CONFIRM_TERMINAL_MAX_ATTEMPTS) {
           setIsRestoring(false);
           onSettledRef.current({ kind: "settled", view });
           return;
         }
+        // 事件先于落库到达（I-3）：这次读还没看到终态，短暂等一下再确认一次。
       } catch (failure) {
-        if (cancelled) return;
-        // 与旧轨道同一条纪律（`chat-live-message-panel.tsx:661-667`）：401 是不可恢复
-        // 的（bearer 已过期），退避重试不会让它变好，立即停止；其它读失败（网络抖动/
-        // 503）不终止轮询——run 在服务端可能还在跑，预算耗尽才停。
+        // 与旧机制同一条纪律：401 是不可恢复的（bearer 已过期），立即停止，不重试。
         if (failure instanceof ApiError && failure.status === 401) {
           setIsRestoring(false);
           onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
           return;
         }
+        if (attempt === CONFIRM_TERMINAL_MAX_ATTEMPTS) {
+          setIsRestoring(false);
+          onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
+          return;
+        }
       }
-      if (Date.now() >= deadline) {
-        setIsRestoring(false);
-        onSettledRef.current({ kind: "gave-up", reason: "budget-exhausted" });
-        return;
-      }
-      timer = setTimeout(
-        () => void poll(Math.min(delay * RESTORE_POLL_BACKOFF, RESTORE_POLL_MAX_DELAY_MS)),
-        delay,
-      );
-    };
+      await new Promise((resolve) => setTimeout(resolve, CONFIRM_TERMINAL_RETRY_DELAY_MS));
+    }
+  }, []);
 
-    timer = setTimeout(() => void poll(RESTORE_POLL_FIRST_DELAY_MS), 0);
-    return () => {
-      cancelled = true;
-      if (timer !== null) clearTimeout(timer);
-    };
-  }, [pendingRunId, sessionToken]);
+  const handleEvent = React.useCallback((event: KernelStreamEvent) => {
+    if (settledRef.current) return;
+    if (event.type !== "status_change") return;
+    if (!isTerminalRunStatus(event.status)) return;
+    settledRef.current = true;
+    void confirmTerminal(event.runId);
+  }, [confirmTerminal]);
 
-  return { isRestoring };
+  const stream = useAgentKernelRunStream(
+    settledRef.current ? null : pendingRunId,
+    sessionToken,
+    handleEvent,
+  );
+
+  React.useEffect(() => {
+    if (pendingRunId === null || settledRef.current) return;
+    if (stream.reconnectState !== "failed") return;
+    settledRef.current = true;
+    setIsRestoring(false);
+    onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
+  }, [stream.reconnectState, pendingRunId]);
+
+  return { isRestoring, reconnectState: settledRef.current ? null : stream.reconnectState };
 }
