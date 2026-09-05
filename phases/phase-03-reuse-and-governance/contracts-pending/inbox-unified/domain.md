@@ -65,6 +65,8 @@
 - `github`：反馈按**存下来的** `githubIssueUrl/Number` + `sourceStatus` 推 issue 开关
   （`已修复/不做/已归档 ⇒ closed`），列表**不打 GitHub**；drawer 展开后前端现查
   `getFeedbackGithubIssue` 升级为 PR 徽标（`merged > open > closed`）。系统异常/设计方案恒 `null`。
+- `attachments`（2026-09-05）：反馈按 `listFeedback` 已做过 D3 门控的附件列表原样透传（`body === null ⇒ []`）；
+  系统异常/设计方案恒 `[]`。用途只有一个：转入开发的 issue 确认表单让管理员看见哪些文件会随 issue 上传。
 
 ## 7. 与 R4.3 原文的偏离（契约落地时改过口径的地方）
 

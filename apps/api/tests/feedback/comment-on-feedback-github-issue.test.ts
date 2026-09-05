@@ -61,6 +61,7 @@ function baseDeps(over: Partial<CommentOnFeedbackGithubIssueDeps> = {}): Comment
       setState: vi.fn(),
       getStatus: vi.fn(),
       addComment: vi.fn(async () => ({ url: "https://github.com/boardx/workspacex/issues/9#issuecomment-1" })),
+      listComments: vi.fn(async () => []),
     },
     ...over,
   };
@@ -122,6 +123,7 @@ describe("commentOnFeedbackGithubIssue", () => {
         addComment: vi.fn(async () => {
           throw new GithubIssueApiError("addComment", 500);
         }),
+        listComments: vi.fn(async () => []),
       },
     });
     await expect(

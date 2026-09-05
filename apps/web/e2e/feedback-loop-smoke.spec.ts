@@ -280,12 +280,11 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
      * 这个 `fullstack-smoke` 环境**故意不配** `GITHUB_ISSUE_TOKEN`，所以这一步如实
      * 拿到 503；配了 token 的环境走另一条分支。两条分支都断言"界面如实反映了刚刚
      * 发生的事"。
-     * ⚠ 顺序：先建 issue、再「开始处理」——新收件箱的「创建 GitHub Issue」编辑器只在
-     *   `stage === "backlog"` 时出现（`inbox-screen.tsx` 头注：建 issue 本身就是"确认进入
-     *   迭代"的动作），条目一旦到了「进行中」这个入口就没了。旧屏允许任何状态建 issue，
-     *   B3.6 重写时沿用了旧顺序，直到 D8 ③ 让本用例第一次真的跑到这里才暴露。 ── */
+     * ⚠ 2026-09-05 起「转入开发」与建 issue 绑定（见 `inbox-screen.tsx` 头注）：尚无
+     *   issue 的反馈点「开始处理」直接落到 issue 确认表单，不再有独立的「创建 GitHub
+     *   Issue」按钮/顺序问题——一次点击 + 一次提交就是完整的"转开发"动作。 ── */
     const hasGithubToken = Boolean(process.env.GITHUB_ISSUE_TOKEN);
-    await bugDrawer.getByTestId("inbox-action-create-issue").click();
+    await bugDrawer.getByTestId("inbox-action-start").click();
     const issueSubmit = bugDrawer.getByTestId("inbox-issue-submit");
     await expect(issueSubmit).toBeVisible();
     const triaged = page.waitForResponse(
@@ -295,19 +294,9 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     const triagedResponse = await triaged;
     expect(triagedResponse.status()).toBe(hasGithubToken ? 200 : 503);
 
-    /* ── 分诊：「开始处理」把状态挪到「进行中」——真实 PUT，刷新页面确认是持久化的。
-     *   没配 token 时上一步 503、状态仍是待处理，drawer 里还开着 issue 编辑器：关掉 drawer
-     *   重新打开这一行，回到动作栏。配了 token 时上一步已经把它推进「进行中」，
-     *   「开始处理」按钮不再出现，直接跳过这一步只验证行还在。 ── */
+    /* ── 没配 token 时上一步 503，状态仍留在「待处理」、issue 表单还开着；配了 token
+     *   时上一步已经把它推进「进行中」。两条分支都只需要确认这一行还在、状态如实。 ── */
     await page.getByTestId("inbox-drawer-close").click();
-    const bugDrawerAgain = await openInboxRow(page, findInboxRow(page, TITLES.productBug));
-    if (!hasGithubToken) {
-      const started = page.waitForResponse(
-        (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`) && r.url().endsWith("/status"),
-      );
-      await bugDrawerAgain.getByTestId("inbox-action-start").click();
-      expect((await started).status()).toBe(200);
-    }
     await page.reload();
     await ensureListView(page);
     await expect(findInboxRow(page, TITLES.productBug)).toContainText(TITLES.productBug);

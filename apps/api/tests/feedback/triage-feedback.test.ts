@@ -112,6 +112,7 @@ function fakeGithubIssues(
     addComment: vi.fn(async () => {
       throw new Error("not used in this test");
     }),
+    listComments: vi.fn(async () => []),
     ...over,
   };
 }
@@ -322,6 +323,38 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       body: "管理员写的正文\n\n![](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png)",
       labels: [],
     });
+  });
+
+  it("2026-09-05：PDF / 文本附件也推 GitHub，issue 正文以链接列出（不是 `![]()`，也不再静默跳过）", async () => {
+    const pdfRow: FeedbackAttachmentRow = {
+      id: "fbattach-2",
+      orgId: "org-1",
+      uploadedBy: "u-submitter",
+      feedbackId: "fb-1",
+      draftId: null,
+      objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-2"),
+      contentType: "application/pdf",
+      sizeBytes: 3,
+      sha256: "deadbeef",
+      createdAt: "2026-09-03T00:00:00.000Z",
+    };
+    const deps = baseDeps({ attachments: fakeAttachments([pdfRow]) });
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
+      ...ADMIN,
+    });
+    expect(deps.imageUploader.uploadImage).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "feedback-attachments/fbattach-2.pdf", contentType: "application/pdf" }),
+    );
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({
+      title: "t",
+      body: "管理员写的正文\n\n**附件文件**\n- [附件 fbattach-2.pdf](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-2.pdf)",
+      labels: [],
+    });
+    expect(out.imageUploadWarnings).toEqual([]);
   });
 
   it("图片上传失败 ⇒ 不拦住 issue 本身被建出来(best-effort,不是 fail closed)", async () => {
