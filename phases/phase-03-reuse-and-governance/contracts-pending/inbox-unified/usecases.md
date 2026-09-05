@@ -43,9 +43,27 @@
 
 ## UC-B3-5 · drawer：时间线、GitHub 徽标、建 Issue
 
-**V8**：drawer 时间线读 `listFeedbackStatusEvents`；GitHub 徽标 drawer 展开时现查
-`getFeedbackGithubIssue` 升级为 PR（`merged > open > closed`），卡片仍用列表推断值；
-「创建 GitHub Issue」复用 `triageFeedback` 的 `issueDraft`，仅 `stage === backlog` 可用。
+**V8**：drawer 时间线读 `listFeedbackStatusEvents`（每步带「已邮件通知提交人」标记）；GitHub 徽标
+drawer 展开时现查 `getFeedbackGithubIssue` 升级为 PR（`merged > open > closed`），卡片仍用列表推断值；
+建 issue 复用 `triageFeedback` 的 `issueDraft`，仅 `stage === backlog` 可用。
+
+## UC-B3-8 · 转入开发 ⇔ 建 GitHub Issue；徽标可点；评论区；自动挪列（2026-09-05 人类指令）
+
+1. 反馈条目**尚无 issue** 时，任何一条 `backlog → doing` 入口（drawer「转入开发」、卡片/行快捷菜单
+   「开始处理」、看板拖进「进行中」）都不直接发请求，落到 drawer 的 **issue 确认表单**；确认后一次
+   `triageFeedback(id, "已进入迭代", null, issueDraft)` 同时改状态 + 建 issue。已有 issue 的反馈、
+   系统异常仍直接迁移。
+2. 表单草稿**整合反馈全部字段**（编号/类型/正文/结构化字段/提交人/时间/票数/附件清单/回链），并
+   列出 `InboxItem.attachments`——服务端把**所有**附件（图片内嵌、PDF/文本链接）推到 GitHub；推不上去
+   的以 `triageFeedback.out.imageUploadWarnings` 回来，屏上持续警告 `inbox-attachment-upload-warning`。
+3. Issue / PR 徽标（卡片、列表、drawer）都是 `<a target="_blank">` 外链；drawer 里 issue 本体与每条
+   关联 PR 各一枚。
+4. drawer 评论区：`listFeedbackGithubIssueComments` 现查 + `commentOnFeedbackGithubIssue` 提交。
+5. 屏每 `INBOX_REFRESH_MS`（2 分钟，同服务端 `FeedbackGithubIssuePollWorker`）静默重拉列表与计数——
+   服务端轮询把 issue 已关闭的反馈转「已修复/不做」并发邮件后，条目自动挪到「已完成」，drawer 不闪关。
+
+**V11**：尚无 issue 的反馈转入开发必经确认表单，确认前不发任何请求；`issueDraft.body` 含结构化字段与附件清单。
+**V12**：徽标 `href === url`；评论列表/提交调对应接口；2 分钟后卡片跟随服务端状态挪列。
 
 ## UC-B3-6 · 从反馈「深化」出设计方案，关联标可点
 

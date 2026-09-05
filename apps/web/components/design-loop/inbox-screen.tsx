@@ -2,7 +2,7 @@
 import * as React from "react";
 import {
   LayoutList, Columns3, Search, X, Sparkles, Play, Check, Undo2, Ban, ShieldAlert, PlugZap, Loader2, Lock, Github,
-  MoreHorizontal, Eye,
+  MoreHorizontal, Eye, Paperclip, MessageSquare, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +28,16 @@ import {
   triageFeedback,
   listFeedbackStatusEvents,
   getFeedbackGithubIssue,
+  listFeedbackGithubIssueComments,
+  commentOnFeedbackGithubIssue,
   deepenFeedback,
   type FeedbackStatus,
   type FeedbackStatusEvent,
   type FeedbackGithubIssueStatus,
   type FeedbackIssueDraft,
+  type GithubIssueComment,
 } from "@/lib/live-feedback";
+import { STRUCTURED_FIELDS } from "@/components/feedback/feedback-structured";
 import { updateSystemErrorLifecycle, type SystemErrorStatus } from "@/lib/live-system-errors";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
@@ -68,17 +72,29 @@ import { useDialogFocus } from "./use-dialog-focus";
  *     失败态处理风格）。看板/列表卡片**不现查**（`CardMeta`/`BoardCard`/`ListView`
  *     仍直接渲染 `item.github`）——同 feedback-loop 纪律，只有单条展开才值得为它
  *     多打一次外部 API。
- *   · **建 GitHub Issue 编辑器（B3.5）只挂在 `backlog → doing` 这一条边上**：契约
- *     `triageFeedback` 里 `issueDraft` 只在 `status === "已进入迭代"` 时被使用；而
- *     用例的"幂等重放（目标状态 = 当前状态）既不落库也不写事件"这条规则意味着
- *     `doing → doing`（目标状态与当前状态相同）根本不会触发"状态真的变了"这个前提，
- *     建 issue 的副作用挂在 `outcome.kind === "changed"` 之后，不会被这次调用触发——
- *     从 `doing` 态点「创建 GitHub Issue」发一个 `已进入迭代 → 已进入迭代` 的请求会
- *     静默成功但**不建 issue**，是一个看起来成功实则什么都没发生的假象。契约没有
- *     另一条允许携带 `issueDraft` 的边，所以这里**不发明**（比如"先退回待处理再转
- *     进行中"两步走会连带多发一封状态变更邮件，属于臆造副作用）。因此「创建 GitHub
- *     Issue」编辑器只在 `item.stage === "backlog"` 时出现；`doing` 态下 `github === null`
- *     的反馈仍能通过「退回待处理」把自己先挪回 backlog，再从 backlog 建 issue。
+ *   · **「转入开发」与建 GitHub Issue 绑定（2026-09-05 人类指令，取代 B3.5 的独立「创建 GitHub
+ *     Issue」按钮）**：反馈类条目只要还没有 issue（`github === null`），任何一条 `backlog → doing`
+ *     的入口——drawer「开始处理」、卡片/行快捷菜单「开始处理」、看板拖进「进行中」列——都**不直接
+ *     发请求**，而是落到 drawer 的 issue 确认表单（同「不做」必须先落到理由表单的做法）；管理员
+ *     确认后一次调用 `triageFeedback(id, "已进入迭代", null, issueDraft)` 同时改状态 + 建 issue。
+ *     已经挂着 issue 的反馈、以及系统异常（没有建 issue 的源操作）仍是直接迁移。契约层没有
+ *     第二条允许携带 `issueDraft` 的边（`doing → doing` 是幂等重放不建 issue），所以表单只在
+ *     `backlog` 态出现——这条约束没变，只是入口从"另一个按钮"收敛成"转入开发本身"。
+ *   · **issue 草稿整合反馈全部字段**（`buildInboxIssueDraft`）：编号 / 类型 / 正文 / 结构化字段
+ *     （复用 `STRUCTURED_FIELDS` 这张唯一字段表）/ 提交人 / 提交时间 / 票数 / 附件清单 / 回到收件箱
+ *     的链接；表单里同时列出**会随 issue 上传**的附件（`item.attachments`），服务端
+ *     `triageFeedback` 把它们推到 GitHub（图片内嵌、其它文件链接），推不上去的会以
+ *     `imageUploadWarnings` 回来——这里**不吞**，展示成一条持续的警告，管理员据此知道 issue 建了
+ *     但哪份文件没跟过去。
+ *   · **GitHub 徽标可点击**（`badges.tsx` `GithubBadge` 是 `<a target="_blank">`）：卡片 / 列表 /
+ *     drawer 里的 Issue / PR 徽标都直接打开 GitHub；drawer 现查回来的每一条关联 PR 也各渲染一枚
+ *     可点的 PR 徽标，不只显示优先级最高的那一条。
+ *   · **issue 评论区**（drawer，仅挂着 issue 的反馈）：`listFeedbackGithubIssueComments` 现查 +
+ *     `commentOnFeedbackGithubIssue` 提交，提交成功后重新拉一次列表。
+ *   · **每 2 分钟静默刷新**（`INBOX_REFRESH_MS`，与服务端 `FeedbackGithubIssuePollWorker` 的轮询
+ *     周期同一个数）：服务端轮询发现 issue 关闭后把反馈转「已修复」/「不做」并发邮件，这里定时
+ *     重拉列表 + 计数，条目自动挪到「已完成」，不用手动刷新。**静默** = 不把 `load` 打回
+ *     `loading`（那会让已打开的 drawer 闪关），按 id 原地合并首页结果、新条目插到前面。
  *   · **拖拽的每一条合法迁移都有键盘可达的等价操作（B6.5 无障碍复核）**：拖拽只是
  *     "分诊台快速挪列"，不是唯一入口。drawer 操作区按 `item.stage` × `item.kind` 展开的按钮
  *     集合，恰好覆盖两个源状态机（`product-feedback.ts` 的 `ALLOWED_TRANSITIONS`、
@@ -99,6 +115,10 @@ const PAGE_LIMIT = 50;
 /** B3.7——关联跳转后目标卡片/行的高亮持续时长。 */
 const HIGHLIGHT_MS = 1800;
 const LINK_NOTICE_MS = 4000;
+/** 与服务端 `FEEDBACK_GITHUB_ISSUE_POLL_INTERVAL_MS` 同一个周期（2 分钟）：issue 关闭 → 服务端转状态 → 这里下一轮刷到。 */
+export const INBOX_REFRESH_MS = 2 * 60 * 1000;
+/** 附件上传警告是"issue 建了但文件没带过去"这种要人处理的事，比一般提示停留更久。 */
+const WARNING_NOTICE_MS = 12000;
 
 /** B3.7——关联跳转回调：`targetId` 是契约 `InboxItem.id`，`label` 只用于提示文案。 */
 type NavigateLink = (targetId: string, label: string) => void;
@@ -168,6 +188,10 @@ export function DesignLoopInboxScreen({
   const [counts, setCounts] = React.useState<GetInboxCountsOut | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(initialOpenId);
   const [openDeclineOnOpen, setOpenDeclineOnOpen] = React.useState(false);
+  /** 2026-09-05——从「开始处理」/拖进「进行中」进来的反馈（尚无 issue）：直接展开 issue 确认表单。 */
+  const [openIssueFormOnOpen, setOpenIssueFormOnOpen] = React.useState(false);
+  /** 建 issue 后服务端回来的附件上传警告（`imageUploadWarnings`），持续展示，不吞。 */
+  const [warning, setWarning] = React.useState<string | null>(null);
   const [dragOver, setDragOver] = React.useState<InboxStage | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState<string | null>(null);
@@ -223,6 +247,36 @@ export function DesignLoopInboxScreen({
     if (state !== "default") return;
     void reloadCounts();
   }, [reloadCounts, state]);
+
+  /**
+   * 静默刷新（见文件头）：按 id 原地合并首页结果——已加载的条目更新字段（状态/徽标），首页里
+   * 新出现的条目插到最前面；不清空 `items`、不动 `nextCursor`（已经翻过的页留在原地）。
+   */
+  const refreshSilently = React.useCallback(async () => {
+    try {
+      const [out, nextCounts] = await Promise.all([
+        listInbox({ kind: kindFilter === "all" ? undefined : kindFilter, q: query === "" ? undefined : query, limit: PAGE_LIMIT }),
+        getInboxCounts().catch(() => null),
+      ]);
+      setLoad((prev) => {
+        if (prev.kind !== "ready") return prev;
+        const fresh = new Map(out.items.map((i) => [i.id, i] as const));
+        const merged = prev.items.map((i) => fresh.get(i.id) ?? i);
+        const known = new Set(prev.items.map((i) => i.id));
+        const added = out.items.filter((i) => !known.has(i.id));
+        return { ...prev, items: [...added, ...merged], sources: out.sources };
+      });
+      if (nextCounts !== null) setCounts(nextCounts);
+    } catch {
+      /* 定时刷新是锦上添花：这一轮失败就等下一轮，不打断用户正在做的事 */
+    }
+  }, [kindFilter, query]);
+
+  React.useEffect(() => {
+    if (state !== "default") return;
+    const t = window.setInterval(() => void refreshSilently(), INBOX_REFRESH_MS);
+    return () => window.clearInterval(t);
+  }, [refreshSilently, state]);
 
   const loadMore = async () => {
     if (load.kind !== "ready" || load.nextCursor === null || loadingMore) return;
@@ -280,6 +334,7 @@ export function DesignLoopInboxScreen({
     }
     if (stageFilter !== "all" && target.stage !== stageFilter) setStageFilter("all");
     setOpenDeclineOnOpen(false);
+    setOpenIssueFormOnOpen(false);
     setOpenId(targetId);
     setHighlightId(targetId);
     onOpenLinked?.(targetId);
@@ -308,7 +363,16 @@ export function DesignLoopInboxScreen({
     if (targetStage === "archived") {
       // 「不做」必须有理由——不在这里乐观迁移，改开 drawer 的理由表单。
       setOpenId(item.id);
+      setOpenIssueFormOnOpen(false);
       setOpenDeclineOnOpen(true);
+      return;
+    }
+    if (item.kind === "feedback" && targetStage === "doing" && item.stage === "backlog" && item.github === null) {
+      // 2026-09-05——「转入开发」与建 GitHub issue 绑定（见文件头）：不直接发请求，
+      // 落到 drawer 的 issue 确认表单，管理员确认后一次完成"改状态 + 建 issue"。
+      setOpenId(item.id);
+      setOpenDeclineOnOpen(false);
+      setOpenIssueFormOnOpen(true);
       return;
     }
     const status = item.kind === "feedback" ? feedbackStatusForStage(targetStage) : exceptionStatusForStage(targetStage);
@@ -343,10 +407,17 @@ export function DesignLoopInboxScreen({
     const prevStage = item.stage;
     setBusyId(item.id);
     try {
-      await triageFeedback(item.id, "已进入迭代", null, issueDraft);
+      const out = await triageFeedback(item.id, "已进入迭代", null, issueDraft);
       replaceItem(item.id, { stage: "doing" });
       bumpStageCount(prevStage, "doing");
+      setOpenIssueFormOnOpen(false);
       flashSaved("已创建 GitHub Issue 并进入迭代");
+      // 2026-09-05——附件没带过去不能只留在服务端日志里（见文件头）：持续展示，管理员据此补救。
+      const uploadWarnings = out.imageUploadWarnings ?? [];
+      if (uploadWarnings.length > 0) {
+        setWarning(`issue 已创建，但以下附件未能上传到 GitHub：${uploadWarnings.join("；")}`);
+        window.setTimeout(() => setWarning(null), WARNING_NOTICE_MS);
+      }
       // github 字段（issue 号/链接）由服务端生成，本地乐观更新算不出来——单独现查这一条
       // 补上（不是整屏 `reload()`：那会把 drawer 依赖的 `items` 短暂清空，闪一下把
       // 刚打开的详情关掉）。这次现查失败不影响状态已经转移的事实，只是badge 暂时留白，
@@ -472,6 +543,11 @@ export function DesignLoopInboxScreen({
       {linkNotice !== null && (
         <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-link-target-missing" role="status">
           {linkNotice}
+        </div>
+      )}
+      {warning !== null && (
+        <div className="mx-4 mt-3 rounded-card bg-warning px-3 py-1.5 text-12 text-warning-foreground" data-testid="inbox-attachment-upload-warning" role="alert">
+          {warning}
         </div>
       )}
       {/* 工具条：视图切换 + 类型 chip + 搜索 */}
@@ -649,7 +725,8 @@ export function DesignLoopInboxScreen({
           onNavigateLink={navigateToLinked}
           busy={busyId === open.id}
           openDecline={openDeclineOnOpen}
-          onClose={() => { setOpenId(null); setOpenDeclineOnOpen(false); }}
+          openIssueForm={openIssueFormOnOpen}
+          onClose={() => { setOpenId(null); setOpenDeclineOnOpen(false); setOpenIssueFormOnOpen(false); }}
           onStatus={(s) => void applyTransition(open, s)}
           onArchive={(reason) => void archiveWithReason(open, reason)}
           onCreateIssue={(issueDraft) => void createGithubIssue(open, issueDraft)}
@@ -943,16 +1020,63 @@ function ListView({
 /** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
 const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
 
+/** 附件 MIME → 人能看的类型名（表单附件清单 + issue 正文附件清单共用）。 */
+const ATTACHMENT_MIME_LABEL: Record<string, string> = {
+  "image/png": "PNG 图片",
+  "image/jpeg": "JPEG 图片",
+  "image/webp": "WebP 图片",
+  "application/pdf": "PDF",
+  "text/plain": "文本",
+  "text/markdown": "Markdown",
+};
+function attachmentLabel(mime: string): string {
+  return ATTACHMENT_MIME_LABEL[mime] ?? mime;
+}
+
 /**
- * 建 issue 编辑器的初值——照抄旧 `admin/feedback-screen.tsx`（B3.6 已删除）的
- * `defaultIssueDraft`，只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影
- * 本轮没有这个字段，不编一份假的附件区块）。
+ * 2026-09-05——issue 草稿**整合反馈的全部字段**（人类指令「提交的内容要整合 issues 的所有字段」）：
+ * 编号 / 类型 / 正文 / 结构化字段 / 提交人 / 提交时间 / 票数 / 附件清单 / 回到收件箱的链接。
+ * 结构化字段的「哪几项、叫什么」复用 `STRUCTURED_FIELDS`（唯一字段表），不在这里再抄一份。
+ * 附件在这里只列**清单**（数量 / 类型 / 附件 id）——真正的文件由服务端 `triageFeedback` 推到
+ * GitHub 并把图片 `![]()` / 文件链接追加到正文末尾，这里不编造一个前端拿不到的公开 URL。
+ * `inboxUrl`：当前页面 `?open=<id>`，让 issue 里的人能一键回到这条反馈；SSR/测试没有 `window` 时省略。
  */
-function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
+export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
+  // GitHub 正文是 Markdown，这里的加粗是给 GitHub 渲染的，不是 JSX 文案（lint-design 的 MD 规则只盯 JSX）。
+  const B = "**";
+  const bold = (t: string) => `${B}${t}${B}`;
+  const lines: string[] = [];
   const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
+  lines.push(detail.trim(), "");
+  if (item.feedbackKind !== null && item.structured != null) {
+    const rows = STRUCTURED_FIELDS[item.feedbackKind]
+      .map((f) => ({ f, v: (item.structured as Record<string, string | undefined>)[f.key] }))
+      .filter((x): x is { f: (typeof STRUCTURED_FIELDS)[typeof item.feedbackKind][number]; v: string } => typeof x.v === "string" && x.v.trim() !== "");
+    if (rows.length > 0) {
+      lines.push("### 结构化信息");
+      for (const { f, v } of rows) lines.push(f.multiline ? `${bold(f.label)}\n${v.trim()}\n` : `- ${bold(f.label)}：${v.trim()}`);
+      lines.push("");
+    }
+  }
+  lines.push("### 反馈信息");
+  lines.push(`- ${bold("编号")}：${item.code}`);
+  lines.push(`- ${bold("类型")}：${item.feedbackKind ?? INBOX_KIND_LABEL[item.kind]}`);
+  lines.push(`- ${bold("提交人")}：${item.reporter ?? "（不可见）"}`);
+  lines.push(`- ${bold("提交时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
+  lines.push(`- ${bold("票数")}：${item.votes}`);
+  lines.push(`- ${bold("当前状态")}：${item.sourceStatus}`);
+  if (item.attachments.length > 0) {
+    lines.push("", `### 附件（${item.attachments.length} 个，随 issue 上传）`);
+    for (const a of item.attachments) lines.push(`- ${attachmentLabel(a.mime)} · ${a.id}`);
+  }
+  const inboxUrl =
+    typeof window !== "undefined" && window.location !== undefined
+      ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
+      : null;
+  lines.push("", "---", `来源：运营收件箱 · 反馈 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
   return {
     title: item.title,
-    body: `${detail}\n\n---\n来源：运营收件箱 · 反馈 ID ${item.id}`,
+    body: lines.join("\n"),
     labels: ["user-feedback", ...(item.feedbackKind !== null ? [INBOX_KIND_ISSUE_LABEL[item.feedbackKind]] : [])],
   };
 }
@@ -990,7 +1114,7 @@ type GithubCheck =
 
 /** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
 function InboxDrawer({
-  item, busy, openDecline, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
+  item, busy, openDecline, openIssueForm, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
 }: {
   item: InboxItem;
   busy: boolean;
@@ -998,6 +1122,8 @@ function InboxDrawer({
   onNavigateLink: NavigateLink;
   /** 从看板拖到「不做」列打开：直接展开理由表单，不用再点一次「不做…」。 */
   openDecline: boolean;
+  /** 2026-09-05——从「开始处理」/拖进「进行中」进来的、尚无 issue 的反馈：直接展开 issue 确认表单。 */
+  openIssueForm: boolean;
   onClose: () => void;
   onStatus: (s: InboxStage) => void;
   onArchive: (reason: string) => void;
@@ -1010,8 +1136,8 @@ function InboxDrawer({
   const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
   const canConfirm = reason.trim() !== "";
   const canDeepen = item.kind === "feedback" && (item.stage === "backlog" || item.stage === "doing") && item.resolvedByDesignId === null;
-  /** B3.5——见文件头：只对 `backlog` 态开放，`doing → doing` 是幂等重放，不会建 issue。 */
-  const canCreateIssue = item.kind === "feedback" && item.stage === "backlog" && item.github === null;
+  /** 见文件头：转入开发要先建 issue，只对 `backlog` 且尚无 issue 的反馈成立（`doing → doing` 不会建 issue）。 */
+  const needsIssueBeforeDoing = item.kind === "feedback" && item.stage === "backlog" && item.github === null;
 
   const [events, setEvents] = React.useState<
     { kind: "loading" } | { kind: "ready"; items: readonly FeedbackStatusEvent[] } | { kind: "failed" } | { kind: "n/a" }
@@ -1049,8 +1175,59 @@ function InboxDrawer({
   const displayedGithub: InboxGithubRef | null =
     item.github === null ? null : githubCheck.kind === "ready" ? upgradeGithubBadge(githubCheck.status) : item.github;
 
-  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
-  const [labelsText, setLabelsText] = React.useState("");
+  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(() =>
+    openIssueForm && needsIssueBeforeDoing ? buildInboxIssueDraft(item) : null,
+  );
+  const [labelsText, setLabelsText] = React.useState(() => (issueDraft === null ? "" : issueDraft.labels.join(", ")));
+  const openIssueDraftForm = () => {
+    const draft = buildInboxIssueDraft(item);
+    setIssueDraft(draft);
+    setLabelsText(draft.labels.join(", "));
+  };
+
+  /** 评论区（见文件头）：仅挂着 issue 的反馈；`n/a` 时整块不渲染。 */
+  const [comments, setComments] = React.useState<
+    { kind: "n/a" } | { kind: "loading" } | { kind: "ready"; items: readonly GithubIssueComment[] } | { kind: "failed" }
+  >(githubPresent ? { kind: "loading" } : { kind: "n/a" });
+  const [commentBody, setCommentBody] = React.useState("");
+  const [commentBusy, setCommentBusy] = React.useState(false);
+  const [commentError, setCommentError] = React.useState<string | null>(null);
+  const loadComments = React.useCallback(async () => {
+    setComments({ kind: "loading" });
+    try {
+      const rows = await listFeedbackGithubIssueComments(item.id);
+      setComments({ kind: "ready", items: rows });
+    } catch {
+      setComments({ kind: "failed" });
+    }
+  }, [item.id]);
+  React.useEffect(() => {
+    if (!githubPresent) {
+      setComments({ kind: "n/a" });
+      return;
+    }
+    let cancelled = false;
+    setComments({ kind: "loading" });
+    void listFeedbackGithubIssueComments(item.id)
+      .then((rows) => { if (!cancelled) setComments({ kind: "ready", items: rows }); })
+      .catch(() => { if (!cancelled) setComments({ kind: "failed" }); });
+    return () => { cancelled = true; };
+  }, [item.id, githubPresent]);
+  const submitComment = async () => {
+    const body = commentBody.trim();
+    if (body === "") return;
+    setCommentBusy(true);
+    setCommentError(null);
+    try {
+      await commentOnFeedbackGithubIssue(item.id, body);
+      setCommentBody("");
+      await loadComments();
+    } catch (err) {
+      setCommentError(`评论没发出去（${describeFailure(err)}）`);
+    } finally {
+      setCommentBusy(false);
+    }
+  };
 
   /** B6.5：打开时焦点进 drawer、Esc 关闭、关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
   const panelRef = React.useRef<HTMLElement>(null);
@@ -1117,13 +1294,23 @@ function InboxDrawer({
             )}
           </dl>
 
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5" data-testid="inbox-drawer-github">
             <CardMeta item={item} onNavigateLink={onNavigateLink} />
             {item.github !== null && (
               githubCheck.kind === "loading" ? (
                 <span className="h-4 w-24 animate-pulse rounded-control bg-muted" data-testid="inbox-drawer-github-loading" />
               ) : (
-                displayedGithub !== null && <GithubBadge {...displayedGithub} />
+                <>
+                  {displayedGithub !== null && <GithubBadge {...displayedGithub} />}
+                  {/* 徽标升级成 PR 后 issue 本体也要能点开；每条关联 PR 各一枚可点的徽标（见文件头）。 */}
+                  {githubCheck.kind === "ready" && displayedGithub?.kind === "pr" && (
+                    <GithubBadge kind="issue" number={githubCheck.status.number} url={githubCheck.status.url} state={githubCheck.status.state} />
+                  )}
+                  {githubCheck.kind === "ready" &&
+                    githubCheck.status.linkedPullRequests
+                      .filter((pr) => !(displayedGithub?.kind === "pr" && displayedGithub.number === pr.number))
+                      .map((pr) => <GithubBadge key={pr.number} kind="pr" number={pr.number} url={pr.url} state={pr.state} />)}
+                </>
               )
             )}
             {githubCheck.kind === "failed" && (
@@ -1153,10 +1340,70 @@ function InboxDrawer({
                     <li key={i} className="text-11">
                       <span className="text-card-foreground">{e.toStatus}</span>
                       <span className="ml-1.5 text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("zh-CN")}</span>
+                      {e.notified && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 text-muted-foreground" title={e.emailSubject ?? undefined} data-testid="inbox-drawer-timeline-notified">
+                          <Mail aria-hidden className="h-3 w-3" /> 已邮件通知提交人
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ol>
               )}
+            </div>
+          )}
+
+          {/* issue 评论区（见文件头）：看得到开发那边在 issue 上写了什么，也能直接回。 */}
+          {comments.kind !== "n/a" && (
+            <div data-testid="inbox-github-comments">
+              <p className="mb-1.5 flex items-center gap-1 text-10 font-medium text-muted-foreground">
+                <MessageSquare aria-hidden className="h-3 w-3" /> GitHub Issue 评论
+              </p>
+              {comments.kind === "loading" && <p className="text-11 text-muted-foreground">读取中…</p>}
+              {comments.kind === "failed" && (
+                <p className="text-11 text-muted-foreground" data-testid="inbox-github-comments-failed">
+                  评论没读到。<button type="button" className="underline underline-offset-2" onClick={() => void loadComments()}>重试</button>
+                </p>
+              )}
+              {comments.kind === "ready" && (
+                <ol className="flex flex-col gap-2" data-testid="inbox-github-comments-list">
+                  {comments.items.length === 0 && <li className="text-11 text-muted-foreground">issue 下还没有评论。</li>}
+                  {comments.items.map((c) => (
+                    <li key={c.id} className="rounded-card border border-border-subtle bg-panel p-2" data-testid={`inbox-github-comment-${c.id}`}>
+                      <div className="flex items-center justify-between gap-2 text-10 text-muted-foreground">
+                        <span>{c.author ?? "（未知账号）"}</span>
+                        <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline">
+                          {new Date(c.createdAt).toLocaleString("zh-CN")}
+                        </a>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-12 text-card-foreground">{c.body}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <div className="mt-2 flex flex-col gap-1.5">
+                <Textarea
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  rows={2}
+                  maxLength={4000}
+                  placeholder="在 GitHub issue 下发一条评论…"
+                  aria-label="GitHub issue 评论"
+                  data-testid="inbox-github-comment-input"
+                />
+                {commentError !== null && <p className="text-10 text-destructive" data-testid="inbox-github-comment-error">{commentError}</p>}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={commentBusy || commentBody.trim() === ""}
+                    onClick={() => void submitComment()}
+                    data-testid="inbox-github-comment-submit"
+                  >
+                    {commentBusy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+                    发评论
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1166,8 +1413,25 @@ function InboxDrawer({
           {issueDraft !== null ? (
             <div className="flex flex-col gap-1.5" data-testid="inbox-issue-form">
               <p className="text-11 font-medium text-muted-foreground">
-                进入迭代会在 boardx/workspacex 建一个 GitHub issue，提交前可以编辑：
+                转入开发会同时在 boardx/workspacex 建一个 GitHub issue，请确认内容后提交（可编辑）：
               </p>
+              <div className="rounded-card border border-border-subtle bg-panel p-2 text-11" data-testid="inbox-issue-attachments">
+                <p className="flex items-center gap-1 font-medium text-muted-foreground">
+                  <Paperclip aria-hidden className="h-3 w-3" />
+                  {item.attachments.length === 0
+                    ? "这条反馈没有附件。"
+                    : `${item.attachments.length} 个附件将随 issue 上传到 GitHub：`}
+                </p>
+                {item.attachments.length > 0 && (
+                  <ul className="mt-1 flex flex-col gap-0.5 text-muted-foreground">
+                    {item.attachments.map((a) => (
+                      <li key={a.id} className="font-mono text-10" data-testid={`inbox-issue-attachment-${a.id}`}>
+                        {attachmentLabel(a.mime)} · {a.id}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <label className="flex flex-col gap-1">
                 <span className="text-10 text-muted-foreground">标题</span>
                 <input
@@ -1211,7 +1475,7 @@ function InboxDrawer({
                   data-testid="inbox-issue-submit"
                 >
                   {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  确认进入迭代，创建 issue
+                  确认转入开发，创建 issue
                 </Button>
               </div>
             </div>
@@ -1257,8 +1521,15 @@ function InboxDrawer({
           ) : item.kind === "design" ? null : (
             <div className="flex flex-wrap gap-2">
               {item.stage === "backlog" && (
-                <Button variant="primary" size="sm" disabled={busy} onClick={() => onStatus("doing")} data-testid="inbox-action-start">
-                  <Play aria-hidden className="h-3.5 w-3.5" /> 开始处理
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => (needsIssueBeforeDoing ? openIssueDraftForm() : onStatus("doing"))}
+                  data-testid="inbox-action-start"
+                >
+                  {needsIssueBeforeDoing ? <Github aria-hidden className="h-3.5 w-3.5" /> : <Play aria-hidden className="h-3.5 w-3.5" />}
+                  {needsIssueBeforeDoing ? "转入开发（建 GitHub Issue）" : "开始处理"}
                 </Button>
               )}
               {item.stage === "doing" && (
@@ -1276,21 +1547,6 @@ function InboxDrawer({
               {(item.stage === "done" || item.stage === "archived") && (
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onStatus("backlog")} data-testid="inbox-action-reopen">
                   <Undo2 aria-hidden className="h-3.5 w-3.5" /> 重新打开
-                </Button>
-              )}
-              {canCreateIssue && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    const draft = defaultInboxIssueDraft(item);
-                    setIssueDraft(draft);
-                    setLabelsText(draft.labels.join(", "));
-                  }}
-                  data-testid="inbox-action-create-issue"
-                >
-                  <Github aria-hidden className="h-3.5 w-3.5" /> 创建 GitHub Issue
                 </Button>
               )}
               {canDeepen && (

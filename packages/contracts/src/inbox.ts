@@ -86,7 +86,7 @@
  *     恒 `false` 是诚实的，把票数或 `kind === "缺陷"` 硬当「严重」是编一个口径。
  */
 import { z } from "zod";
-import { FeedbackKind, FeedbackStatus, FeedbackStructured } from "./feedback-loop";
+import { FeedbackAttachment, FeedbackKind, FeedbackStatus, FeedbackStructured } from "./feedback-loop";
 import { SystemErrorStatus } from "./system-error-logs";
 
 /* ─────────────────────────── 枚举 ─────────────────────────── */
@@ -237,6 +237,7 @@ export type InboxExceptionMeta = z.infer<typeof InboxExceptionMeta>;
  *   | `votes`           | `COUNT(*)`（I-F2）               | `0`                         | `0`          |
  *   | `reporter`        | `submitterName`（D3 门控）       | `null`                      | —            |
  *   | `github`          | 见 `InboxGithubRef`              | `null`                      | `null`       |
+ *   | `attachments`     | `FeedbackAttachment[]`（D3 门控） | `[]`                        | `[]`         |
  *   | `exception`       | `null`                           | `InboxExceptionMeta`        | `null`       |
  *   | `votedByMe`       | 真值                             | `false`                     | `false`      |
  *   | `submittedByMe`   | 真值                             | `false`                     | —            |
@@ -269,6 +270,12 @@ export const InboxItem = z
     reporter: z.string().nullable(),
     createdAt: z.string(),
     github: InboxGithubRef.nullable(),
+    /**
+     * 仅反馈：附件（与 `body` 同一条 D3 门控——`body === null` ⇒ 恒 `[]`；非反馈恒 `[]`）。
+     * 2026-09-05 加：「转入开发」的 issue 确认表单要让管理员**看见**哪些文件会随 issue 上传，
+     * 不再是"看不见的附件区块"。形状直接复用 feedback-loop 的 `FeedbackAttachment`。
+     */
+    attachments: z.array(FeedbackAttachment),
     /** B4：设计方案「源自 B-3」——指向那条反馈的 `id`。本轮恒 `null` */
     linkedFeedbackId: z.string().nullable(),
     /** B4：反馈「已生成 D-2」——指向那条设计方案的 `id`。本轮恒 `null` */

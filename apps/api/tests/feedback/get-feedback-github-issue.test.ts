@@ -70,6 +70,7 @@ function baseDeps(over: Partial<GetFeedbackGithubIssueDeps> = {}): GetFeedbackGi
       setState: vi.fn(),
       getStatus: vi.fn(async () => STATUS),
       addComment: vi.fn(),
+      listComments: vi.fn(async () => []),
     },
     ...over,
   };
@@ -125,6 +126,7 @@ describe("getFeedbackGithubIssue", () => {
           throw new GithubIssueApiError("getStatus", 500);
         }),
         addComment: vi.fn(),
+        listComments: vi.fn(async () => []),
       },
     });
     await expect(

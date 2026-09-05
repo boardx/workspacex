@@ -105,6 +105,48 @@ describe("FetchGithubIssueCreator", () => {
     expect(called).toBe(false);
   });
 
+  describe("listComments(2026-09-05 收件箱评论区)", () => {
+    it("GET /issues/:n/comments?per_page=100，把 GitHub 形状换成契约形状，脏条目跳过", async () => {
+      let capturedUrl: string | undefined;
+      let capturedInit: RequestInit | undefined;
+      const fakeFetch = (async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedInit = init;
+        return jsonResponse(
+          [
+            { id: 11, html_url: "https://github.com/boardx/workspacex/issues/9#issuecomment-11", body: "看到了", created_at: "2026-09-05T01:00:00Z", user: { login: "dev-a" } },
+            { id: 12, html_url: "https://github.com/boardx/workspacex/issues/9#issuecomment-12", body: null, created_at: "2026-09-05T02:00:00Z", user: null },
+            { html_url: "no id" },
+          ],
+          200,
+        );
+      }) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      const out = await creator.listComments(9);
+      expect(capturedUrl).toBe("https://api.github.com/repos/boardx/workspacex/issues/9/comments?per_page=100");
+      expect(capturedInit?.method).toBe("GET");
+      expect(out).toEqual([
+        { id: 11, url: "https://github.com/boardx/workspacex/issues/9#issuecomment-11", author: "dev-a", body: "看到了", createdAt: "2026-09-05T01:00:00Z" },
+        { id: 12, url: "https://github.com/boardx/workspacex/issues/9#issuecomment-12", author: null, body: "", createdAt: "2026-09-05T02:00:00Z" },
+      ]);
+    });
+
+    it("非 2xx ⇒ GithubIssueApiError(listComments, status)", async () => {
+      const fakeFetch = (async () => jsonResponse({ message: "rate limited" }, 403)) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      const err = await creator.listComments(9).catch((e) => e as GithubIssueApiError);
+      expect(err).toBeInstanceOf(GithubIssueApiError);
+      expect((err as GithubIssueApiError).op).toBe("listComments");
+      expect((err as GithubIssueApiError).status).toBe(403);
+    });
+
+    it("响应不是数组 ⇒ 视为无效响应抛错，不回一个空列表假装没评论", async () => {
+      const fakeFetch = (async () => jsonResponse({ message: "weird" }, 200)) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      await expect(creator.listComments(9)).rejects.toBeInstanceOf(GithubIssueApiError);
+    });
+  });
+
   describe("uploadImage(⑥ 反馈附件图片推给 GitHub，2026-09-03 人类两轮决策：真上传 + 不碰 main)", () => {
     /**
      * 统一的路由 fake——`uploadImage` 现在最多打四类端点(建孤儿分支的 `git/ref` /

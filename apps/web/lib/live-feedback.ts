@@ -33,6 +33,8 @@ export type ReqStructuredFields = z.infer<typeof feedbackLoop.ReqStructuredField
 export type CommentOnFeedbackGithubIssueOut = z.infer<
   typeof feedbackLoop.operations.commentOnFeedbackGithubIssue.out
 >;
+/** GitHub issue 下的一条评论（现查结果，不落库）——见契约 `GithubIssueComment` 头注。 */
+export type GithubIssueComment = z.infer<typeof feedbackLoop.GithubIssueComment>;
 /** UC-17.8 B4.4——「用 PM 设计工作台深化」。契约在 `design-workbench.ts`（路由挂 `/feedback`，见该文件头注）。 */
 export type DeepenFeedbackOut = z.infer<typeof designWorkbench.operations.deepenFeedback.out>;
 /**
@@ -164,6 +166,18 @@ export async function commentOnFeedbackGithubIssue(
     `/feedback/${encodeURIComponent(feedbackId)}/github-issue/comments`,
     { method: "POST", body: { feedbackId, body } },
   );
+}
+
+/**
+ * 读这条反馈挂着的 GitHub issue 下的全部评论（收件箱 drawer 评论区）。每次调用都是一次
+ * 真实的 GitHub API 往返，只在管理员展开一条反馈的详情时调，不随列表批量拉。
+ * 见契约 `listFeedbackGithubIssueComments` 头注。
+ */
+export async function listFeedbackGithubIssueComments(feedbackId: string): Promise<readonly GithubIssueComment[]> {
+  const { comments } = await apiRequest<{ comments: readonly GithubIssueComment[] }>(
+    `/feedback/${encodeURIComponent(feedbackId)}/github-issue/comments`,
+  );
+  return comments;
 }
 
 /**

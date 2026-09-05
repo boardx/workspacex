@@ -97,6 +97,7 @@ function baseDeps(over: Partial<ReconcileClosedGithubIssuesDeps> = {}): Reconcil
       setState: vi.fn(async () => {}),
       getStatus: vi.fn(async () => ({ state: "closed" as const, stateReason: "completed" as const, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
       addComment: vi.fn(async () => { throw new Error("not used in this test"); }),
+      listComments: vi.fn(async () => []),
     },
     submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com"), displayNamesForUserIds: vi.fn(async () => new Map()) },
     mail: { send: vi.fn(async () => ({})) },
@@ -134,6 +135,7 @@ describe("reconcileClosedGithubIssues", () => {
         setState: vi.fn(),
         getStatus: vi.fn(async () => ({ state: "closed" as const, stateReason: "not_planned" as const, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
         addComment: vi.fn(),
+        listComments: vi.fn(async () => []),
       },
     });
     const result = await reconcileClosedGithubIssues(deps);
@@ -155,6 +157,7 @@ describe("reconcileClosedGithubIssues", () => {
         setState: vi.fn(),
         getStatus: vi.fn(async () => ({ state: "closed" as const, stateReason: null, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
         addComment: vi.fn(),
+        listComments: vi.fn(async () => []),
       },
     });
     const result = await reconcileClosedGithubIssues(deps);
@@ -169,6 +172,7 @@ describe("reconcileClosedGithubIssues", () => {
         setState: vi.fn(),
         getStatus: vi.fn(async () => ({ state: "open" as const, stateReason: null, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
         addComment: vi.fn(),
+        listComments: vi.fn(async () => []),
       },
     });
     const result = await reconcileClosedGithubIssues(deps);
@@ -227,6 +231,7 @@ describe("reconcileClosedGithubIssues", () => {
           return { state: "closed" as const, stateReason: "completed" as const, linkedPullRequests: [], linkedPullRequestsAvailable: true };
         }),
         addComment: vi.fn(),
+        listComments: vi.fn(async () => []),
       },
     });
     const result = await reconcileClosedGithubIssues(deps);
