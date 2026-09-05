@@ -55,6 +55,18 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-05：`DeepAgentModelProvider.createRun` 的 resume 分支（HITL 批准后续跑）此前只转发
+  `command.resume`，从不转发 `config.configurable.org_skills`/`script_protocol`——而
+  `call_skill` 的技能来源是**这次请求自己的** `configurable.org_skills`（`tools.py` 的
+  `_read_org_skills`，逐请求读取，不跨请求继承）。教训：**resume 是同一个 run 的"下一次"
+  `ModelCallInput`，不是"上一次请求的延续"**——凡是执行工具调用需要读取的 per-run 数据
+  （`org_skills`/`script_protocol`/`disable_task_auto_classify`），resume 分支必须与
+  fresh-run 分支转发同一套，不能假设内核会记得上一次请求带过什么。这条 bug 活到 devapp
+  才被发现，因为所有假 kernel 替身（loopback double）里 `call_skill` 的模拟从不真的依赖
+  `org_skills` 内容作答，直接对真实 `langgraph dev` + `deepagents` 抓包对比两个只差
+  这一个键的 resume 请求才看出差异（出处：issue #2768，PR #2777；回归测试见
+  `deep-agent-resume-forwards-skills.test.ts`，用一个真实依赖 `org_skills` 内容才答对的
+  假 kernel，不是硬编码"总是成功"）。
 - 2026-09-05：给 deep-agent 内核"运行期"传一条新指令，只有一条现成通道——同一个 run 的**下一次** `ModelCallInput`（HITL 之后的 resume 续跑），投影到 LangGraph `config.configurable` 由 harness.py 中间件在 `before_model` 注入；`executeClaimed` 一次只发一次内核调用，run 不停顿就没有"下一次"，别假设网关侧消费=内核已收到（出处：issue #2755，F11 PR #2742 的范围边界）。
 - 2026-09-05：`build_middleware()` 全栈跑假模型时，`TaskClassifierMiddleware` 会自己把多步任务钉成 `write_todos`、`RubricMiddleware` 的 grader 调用自带 `tool_choice="any"`——断言"某个中间件强制了 tool_choice"前先用 `disable_task_auto_classify` 隔离、并按 `bound_tools` 排除 grader 调用，否则正向与反证都在测别人（出处：`tests/golden/test_tc7_interjection_replan.py`，#2755）。
 
