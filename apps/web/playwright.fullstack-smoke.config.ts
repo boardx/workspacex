@@ -330,6 +330,9 @@ export default defineConfig({
         // `feedback-loop-smoke.spec.ts` 管理员那条用例的权限来源）。
         "feedback-drafts-smoke.spec.ts",
         "inbox-smoke.spec.ts",
+        // ⚠ B4.7（设计工作台端到端）同理排在 `seeded`：它同样要用种子里的组织管理员
+        //   （`FULLSTACK_E2E.adminEmail`，收件箱/深化按钮要求 `canTriage`）。
+        "design-workbench-smoke.spec.ts",
         // ⚠ 2026-08-27 chat 模拟（`TemplateSimulateDialog`）同理排在 `seeded`：它同样
         //   要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，唯一有权改模板的角色）。
         //   来源模板现场建 + 发布（复用 #496 已门控的路径），不往种子里塞——理由同
