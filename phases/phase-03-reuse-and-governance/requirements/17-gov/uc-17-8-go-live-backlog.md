@@ -184,6 +184,41 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   `drafts-*`/`inbox-*` 混目录——那些属于另外的契约束）；`ui-material-map.json` 补
   `design-workbench` 一行；`lint-ui-material` 全仓 41 束双向对账绿（857 张）。
   PR：`worker/claude-uc17-8-b4-6-workbench-screenshots`。
+- ✅ B4.7（E2E：新建 → 详情 → 推送 → 收件箱出现设计方案 + 原反馈标「已生成」）2026-09-04
+  落地：新增 `apps/web/e2e/design-workbench-smoke.spec.ts`，两条串行用例，都用
+  `FULLSTACK_E2E.adminEmail`（收件箱/深化按钮要求 `canTriage`，同 `inbox-smoke.spec.ts`
+  纪律）。①工作台自己的「新建设计」弹层（backlog 原文点名的主入口）：新建 → 详情页
+  （画布/说明两个 tab + 对话面板都渲染）→ 推送 → 确认真实 `POST .../pm-designs/:id/push`
+  返回 200/201 且带真实 `D-\d+` 编号 → 收件箱里出现同名 `kind=design` 卡片。②从反馈
+  「用 PM 设计工作台深化」（`inbox-screen.tsx`，B4.4/B4.5 真栈）→ 同样的详情/推送/收件箱
+  三段 → 额外断言「原反馈标已生成」：原反馈卡片上出现 `link-generated-<code>`「已生成
+  方案」标（`CardMeta`，`item.resolvedByDesignId !== null`），drawer 里「查看方案」
+  （`inbox-action-open-design`）可见，刷新页面后标记仍在——证明双向关联是服务端
+  持久化的，不是本地乐观值。反馈种子直连 API 建（`page.request.post`，同
+  `inbox-smoke.spec.ts` 的 `seedFeedback` 头注，不重复驱动已测过的提交弹层 UI）。
+  已加入 `playwright.fullstack-smoke.config.ts` 的 `seeded` project `testMatch`。
+  PR：`worker/claude-uc17-8-b4-7-workbench-e2e`。B4.6（取材页/截图）另行并行推进，不在
+  本条范围。
+
+### 0.4 Sprint 4 落地记录
+
+- ✅ B3.7（关联标可点击跳转并高亮）2026-09-05 落地：`badges.tsx` 的 `LinkBadge` 给了
+  `onClick` 就渲染成真按钮（焦点环、`stopPropagation` 不冒泡成「打开本卡片」），没给仍是
+  只读标（取材页）。`inbox-screen.tsx` 新增 `navigateToLinked`：「已生成方案」目标 =
+  `resolvedByDesignId`（= 设计条目 `id`），「源自反馈」目标 = `linkedFeedbackId`（= 反馈条目
+  `id`），两端都在同一屏，所以是**屏内换 drawer**（`setOpenId` + drawer 按 `key={id}` 重挂）
+  + 目标卡片/行短暂 `data-highlighted="true"`（`ring-primary` token，1.8s 自清，看板/列表
+  两种视图都认），不换路由、不新增契约操作。目标被客户端 `stage` 子筛选挡住时放宽到
+  「全部」（纯本地过滤）；目标不在已加载 `items` 里（服务端 `kind`/`q` 筛掉或还在下一页）
+  时**老实提示** `inbox-link-target-missing`，不静默、不偷偷改服务端筛选。URL：屏本身不碰
+  路由，新增 `onOpenLinked` 回调，生产落点 `design-loop-screens.tsx` 用
+  `history.replaceState` 写 `?open=<id>`（Next 14.1+ 与 `useSearchParams` 同步，不走
+  `router.replace` 的 RSC 往返、不重置滚动）。4 条新增单测（`design-loop.test.tsx` ⑪：
+  看板往返跳转 + 高亮 + 回调、列表行不冒泡、目标缺失提示、生产落点 URL），
+  反证：去掉 `stopPropagation` 后 3 条转红。E2E：#2726 合入后在
+  `design-workbench-smoke.spec.ts` ② 末尾补了「反馈 drawer 里点『已生成方案』→ drawer
+  换成设计条目（按 `inbox-card-<D-code>` 找）+ 目标卡片 `data-highlighted` + URL `?open=<projectId>`」，
+  在 CI `fullstack-smoke` 跑真栈。PR：`worker/claude-uc17-8-b3-7-clickable-relation-badges`。
 
 ### 0.4 Sprint 4 落地记录
 
