@@ -36,15 +36,20 @@ export function PrototypeBoard({
   onSelect: ((id: string | null) => void) | null;
 }) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: GAP, y: GAP / 2, k: 1 });
   const drag = React.useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
 
   const fit = React.useCallback(() => {
     const el = viewportRef.current;
     if (el === null) return;
-    const contentW = frames.length * BOARD_W + Math.max(0, frames.length - 1) * GAP;
-    const k = clamp(Math.min((el.clientWidth - GAP * 2) / contentW, (el.clientHeight - GAP) / BOARD_H, 1));
-    setView({ x: Math.max(GAP, (el.clientWidth - contentW * k) / 2), y: Math.max(GAP / 2, (el.clientHeight - BOARD_H * k) / 2), k });
+    // 用真实渲染尺寸（offsetWidth/Height 不受 transform 影响）；拿不到（jsdom）再按设备尺寸估。
+    const stage = stageRef.current;
+    const contentW = stage !== null && stage.offsetWidth > 0 ? stage.offsetWidth : frames.length * BOARD_W + Math.max(0, frames.length - 1) * GAP;
+    const contentH = stage !== null && stage.offsetHeight > 0 ? stage.offsetHeight : BOARD_H;
+    // 「适应」允许低于手动缩放下限：20 页的画板本来就得缩到 25% 以下才装得下，但不小于 5%、不放大超过 1。
+    const k = Math.max(0.05, Math.min((el.clientWidth - GAP * 2) / contentW, (el.clientHeight - GAP) / contentH, 1));
+    setView({ x: Math.max(GAP, (el.clientWidth - contentW * k) / 2), y: Math.max(GAP / 2, (el.clientHeight - contentH * k) / 2), k });
   }, [frames.length]);
 
   // 首次与页数变化时适应一次；jsdom 里 clientWidth 为 0，fit 会把 k 夹到 MIN——测试不依赖具体值。
@@ -72,9 +77,10 @@ export function PrototypeBoard({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest("[data-node-id],[data-board-title]") !== null) return; // 点节点/标题不是拖画板
+    // 点节点 / 画板标题 / 缩放工具条（任何可交互控件）都不是拖画板——否则 pointer capture 会吃掉按钮的 click。
+    if ((e.target as HTMLElement).closest("[data-node-id],[data-board-title],[data-board-controls],button,a,input,select,textarea") !== null) return;
     drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); // jsdom 没有这个方法；浏览器里有
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -92,7 +98,7 @@ export function PrototypeBoard({
   return (
     <div
       ref={viewportRef}
-      className="relative h-full w-full overflow-hidden bg-background [background-image:radial-gradient(hsl(var(--border))_1px,transparent_1px)] [background-size:24px_24px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      className="relative h-full w-full touch-none overflow-hidden bg-background [background-image:radial-gradient(hsl(var(--border))_1px,transparent_1px)] [background-size:24px_24px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       data-testid="design-detail-board"
       data-allow-x-scroll="画板需平移缩放；transform 由 pointer/wheel 驱动"
       tabIndex={0}
@@ -105,6 +111,7 @@ export function PrototypeBoard({
       onClick={(e) => { if (e.target === e.currentTarget) onSelect?.(null); }}
     >
       <div
+        ref={stageRef}
         className="absolute left-0 top-0 flex origin-top-left items-start"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, gap: GAP }}
         data-testid="design-detail-board-stage"
@@ -133,7 +140,7 @@ export function PrototypeBoard({
           </div>
         ))}
       </div>
-      <div className="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-card border border-border bg-card p-0.5 text-11 shadow-lg" data-testid="design-detail-board-zoom">
+      <div className="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-card border border-border bg-card p-0.5 text-11 shadow-lg" data-testid="design-detail-board-zoom" data-board-controls>
         <button type="button" aria-label="缩小" onClick={() => zoomAt(1 / STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-out"><Minus aria-hidden className="h-3.5 w-3.5" /></button>
         <span className="min-w-10 text-center font-mono text-10 text-muted-foreground" data-testid="design-detail-zoom-level">{Math.round(view.k * 100)}%</span>
         <button type="button" aria-label="放大" onClick={() => zoomAt(STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-in"><Plus aria-hidden className="h-3.5 w-3.5" /></button>

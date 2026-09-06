@@ -1319,6 +1319,18 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     const before = screen.getByTestId("design-detail-board-stage").style.transform;
     fireEvent.wheel(board, { deltaY: 40, deltaX: 0 });
     expect(screen.getByTestId("design-detail-board-stage").style.transform).not.toBe(before);
+    // 缩放工具条上按下指针不会触发画板拖拽（Codex：pointer capture 会吃掉按钮 click）
+    const beforeDrag = screen.getByTestId("design-detail-board-stage").style.transform;
+    fireEvent.pointerDown(screen.getByTestId("design-detail-zoom-in"), { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(board, { clientX: 60, clientY: 60 });
+    fireEvent.pointerUp(board);
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).toBe(beforeDrag);
+    // 空白处拖拽会平移
+    fireEvent.pointerDown(board, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(board, { clientX: 60, clientY: 60 });
+    fireEvent.pointerUp(board);
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).not.toBe(beforeDrag);
+    expect(board.className).toContain("touch-none");
     // 点画板里的节点 ⇒ 选中 + 聚焦那页
     fireEvent.click(screen.getByTestId("design-detail-board-frame-2").querySelector('[data-node-id="t-三"]') as HTMLElement);
     expect(screen.getByTestId("design-detail-focus").textContent).toContain("关于");
