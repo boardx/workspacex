@@ -141,6 +141,10 @@ describe("迭代 6 原语扩充", () => {
     expect(dp.PrototypeNode.safeParse({ type: "bottomnav", props: { items: ["只有一项"] } }).success).toBe(false);
     expect(dp.PrototypeNode.safeParse({ type: "progress", props: { value: 120 } }).success).toBe(false);
     expect(dp.PrototypeNode.safeParse({ type: "grid", props: { columns: 4 }, children: [] }).success).toBe(false);
+    // active 必须指向真实存在的项（Codex）
+    expect(dp.PrototypeNode.safeParse({ type: "bottomnav", props: { items: ["a", "b"], active: 2 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "tabs", props: { items: ["a"], active: 1 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "tabs", props: { items: ["a"], active: 0 } }).success).toBe(true);
     // patch 能进 grid
     const withIds = dp.ensurePrototypeIds([page]);
     const gridId = (withIds[0] as { children: readonly dp.PrototypeNode[] }).children[1]!.id!;

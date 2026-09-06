@@ -88,10 +88,14 @@ const InputProps = z.object({
 const ImageProps = z.object({ alt: Label, ratio: z.enum(["square", "video", "wide", "portrait"]).optional() }).strict();
 const ListProps = z.object({ items: Items, leading: z.enum(["none", "dot", "check", "avatar"]).optional() }).strict();
 const SpacerProps = z.object({ size: Scale.optional() }).strict();
-const TabsProps = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
+/** `active` 必须指向 `items` 里真实存在的一项（Codex：越界会渲染成「没有选中项」）。 */
+const indexWithin = <T extends { items: readonly string[]; active?: number }>(p: T): boolean => p.active === undefined || p.active < p.items.length;
+const TabsPropsBase = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
+const TabsProps = TabsPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
 const AvatarProps = z.object({ name: Label }).strict();
-const BottomNavProps = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const BottomNavPropsBase = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const BottomNavProps = BottomNavPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
 const CheckboxProps = z.object({ label: Label, checked: z.boolean().optional() }).strict();
 const ChipProps = z.object({ label: Label, selected: z.boolean().optional() }).strict();
@@ -207,7 +211,9 @@ export type DesignPrototypeWriteback = z.infer<typeof DesignPrototypeWriteback>;
 /** 每种原语的 props schema——属性面板元数据的机械门控用它对账（契约测试逐类型比 shape 键）。 */
 export const PROTOTYPE_PROPS_SCHEMAS = {
   stack: StackProps, card: CardProps, navbar: NavbarProps, text: TextProps, button: ButtonProps, input: InputProps,
-  image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsProps, badge: BadgeProps, avatar: AvatarProps,
+  image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsPropsBase, badge: BadgeProps, avatar: AvatarProps,
+  bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
+  stat: StatProps, hero: HeroProps, grid: GridProps,
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
 export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
@@ -247,6 +253,14 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
   badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
   avatar: [F("name", "名字", "text")],
+  bottomnav: [F("items", "项（一行一项，2–6）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  switch: [F("label", "文案", "text"), F("on", "打开", "bool")],
+  checkbox: [F("label", "文案", "text"), F("checked", "已选", "bool")],
+  chip: [F("label", "文案", "text"), F("selected", "选中", "bool")],
+  progress: [F("value", "进度（0–100）", "number"), F("label", "说明", "text")],
+  stat: [F("label", "指标名", "text"), F("value", "数值", "text"), F("delta", "变化", "text"), F("tone", "色调", "enum", StatProps.shape.tone.unwrap().options)],
+  hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
+  grid: [F("columns", "列数（2 或 3）", "number"), F("gap", "间距", "enum", SCALE_OPTIONS)],
 };
 
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */

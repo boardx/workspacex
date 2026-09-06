@@ -381,7 +381,8 @@ export function DesignDetailScreen({
                 </button>
               </div>
               <div className="flex min-h-0 flex-1">
-                <div className={cn("relative flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-y-auto p-6")}>
+                {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
+                <div className={cn("relative flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
                   {preview !== null && (
                     <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动

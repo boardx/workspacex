@@ -73,10 +73,11 @@ export const DEVICE_SIZE: Record<PrototypeDevice, { readonly w: number; readonly
   tablet: { w: 440, h: 560 },
   desktop: { w: 720, h: 480 },
 };
-const DEVICE: Record<PrototypeDevice, { frame: string; Icon: typeof Smartphone; label: string }> = {
-  phone: { frame: "h-[560px] w-[300px]", Icon: Smartphone, label: "手机" },
-  tablet: { frame: "h-[560px] w-[440px]", Icon: Tablet, label: "平板" },
-  desktop: { frame: "h-[480px] w-[720px]", Icon: Monitor, label: "桌面" },
+/** 图标与名字；尺寸只在 `DEVICE_SIZE` 一处（Codex：不再有 Tailwind 类那第二份数字），渲染用 inline style。 */
+const DEVICE: Record<PrototypeDevice, { Icon: typeof Smartphone; label: string }> = {
+  phone: { Icon: Smartphone, label: "手机" },
+  tablet: { Icon: Tablet, label: "平板" },
+  desktop: { Icon: Monitor, label: "桌面" },
 };
 /** 项目模板 → 设备：mobile 手机；ui 桌面；wireframe 平板（线框图常在中等宽度上推敲结构）。 */
 export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevice {
@@ -288,10 +289,11 @@ export function PrototypeCanvas({
   /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。主题跟随页面 `.dark`——globals.css 没有独立的 `.light` 类，不另造第二份 token。 */
   device?: PrototypeDevice;
 }) {
-  const { frame: frameCls, Icon } = DEVICE[device];
+  const { Icon } = DEVICE[device];
+  const size = DEVICE_SIZE[device];
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect }}>
-    <div className={cn("flex flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg", frameCls)} data-testid="design-detail-phone" data-device={device}>
+    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device}>
       <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
         <Icon aria-hidden className="h-3 w-3" /> {label}
       </div>
