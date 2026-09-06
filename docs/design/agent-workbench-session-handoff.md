@@ -14,3 +14,5 @@
 - 04:20 后继续：主分支合入 `69d3f574a`，215 项完整迁移强制重放通过（`/private/tmp/wsx-2867-migration-replay-main.log`）；录音修复 `59425199f`、反馈修复 `b0b776692` 已提交。根正在运行回环 core-loop，独立数据库 `wsx_workbench_2867_core_1`，API 32169 / Web 47169，日志 `/private/tmp/wsx-2867-core-loop-local.log`；结束后核实结果及进程释放。
 
 - 04:40 更新：核心完整依赖链在 `fa444df27` 测试 + `b0b776692` 生产构建下 14/14 通过（`/private/tmp/wsx-2867-core-loop-local3.log`）。四组全栈首轮 9/12 通过，反馈管理列表403导致1失败2未运行；`37687f5e2` 已修为线程可见roster，5反馈+2timeline+tsc/lint通过。当前重新构建运行四组全栈，日志 `/private/tmp/wsx-2867-fullstack-local2.log`，数据库 `wsx_workbench_2867_fullstack_2`，端口保持32169/47169。Mermaid `5270a0a0f`，下一次最迟05:08更新。
+
+- 04:52 更新：`37687f5e2`全新生产构建后的四组全栈12/12通过，日志 `/private/tmp/wsx-2867-fullstack-local2.log`；本轮宿主服务全部退出（32169/47169及四个provider端口均无监听）。最新CI `56fe68aca` 的TC5强杀恢复竞态修复为`e86b61e8a`：默认async checkpoint先由独立图状态读确认再kill，本地独立库 `wsx_workbench_2867_checkpoint_1` 连续三次3/3通过。最终日志 `/private/tmp/wsx-2867-checkpoint-test4.log`；未修改生产durability或工具幂等保证。
