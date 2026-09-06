@@ -22,7 +22,7 @@ but has no governed production tools/call. Neither is a fully delivered capabili
 Use existing `.venv` in apps/deep-agent-service and uv.lock; do not resolve newer
 Deep Agents casually. The service Dockerfile now consumes the lock. Native sandbox
 initialization checks an exact 0.7.6 upstream grep template patch; package upgrades need
-explicit review and the sync/async real grep tests. File methods reuse upstream semantics; T002 is currently adapting bounded image-read transport after reproducing the 64KiB response truncation.
+explicit review and the sync/async real grep tests. File methods reuse upstream semantics; T002 image transport correction 8b7fe404b uses official bounded capture, 46 real sandbox regressions passed, independent review found no blocker. Read adds capture/cleanup executions; async waiting cancellation does not kill the worker thread.
 
 Always use `apps/skill-sandbox/docker-compose.sessions.yml` for native sessions. It has
 mandatory seccomp isolation and init-based child reaping; a plain container or the
@@ -53,7 +53,7 @@ cleanup. All containers/volumes used in this turn were removed; no DB stack rema
 
 `./init.sh` quick path passed with normal git-hook write permissions. Normal pre-push
 ran 13 affected typecheck/lint tasks successfully at 749969d77. Full PR CI was started
-on that head and exposed non-replayable migrations. Fix e4b8e9b34 passed local 202-migration empty-build/forced-replay and 13 pre-push tasks, then was pushed. Inspect new-head live checks rather than assuming local green means CI green.
+on that head and exposed non-replayable migrations. Fix e4b8e9b34 passed local 202-migration empty-build/forced-replay and 13 pre-push tasks, then was pushed. On e4b8e9b34 CI gates-runtime, full compile, pytest and core-loop subsequently passed. T042 correction dd1079503 decouples the subtask stale threshold from peer main-run leases; 73 targeted tests plus 7 real-DB counterexamples passed. Inspect final-head live checks rather than assuming local green means CI green.
 The initial issue progress comment is
 https://github.com/boardx/workspacex/issues/2864#issuecomment-5561173526 .
 

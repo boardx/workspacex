@@ -14,13 +14,13 @@ flowchart TD
   E3 --> E4
   E4 --> Scope[WX-T010 仅文本委派已验证；扩展文件授权待做]:::active
   E3 --> FileTests[T001–T008 官方文件行为证据：f9b1ca28a]:::verified
-  FileTests --> ImageRead[WX-T002 大图读取：已复现64KiB截断，修复中]:::active
+  FileTests --> ImageRead[WX-T002 有界图像传输：8b7fe404b，46项回归通过]:::verified
   ImageRead --> FileJoin[附件原件及标准编号trace待接入]
   E4 --> NativeJoin[可信factory生产接线与联合验收]
   E4 --> Version[WX-E008 固定包版本兼容]
   E3 --> E6[W04 native产物适配与取消原语]
   E4 --> E6
-  E2 --> T42[WX-T042 文本子任务队列增量：06d1e5cce]:::verified
+  E2 --> T42[WX-T042 文本子任务与独立回收期限：dd1079503]:::verified
   Peer[peer S2–S10：统一事件与主任务控制、插话审批、工作台与成果UI]:::peer
   E6 -.接入统一契约.-> Peer
   T42 --> T42Join[WX-T042 父取消、产物及公共事件待接入]
@@ -85,4 +85,6 @@ W12可信身份组件已提交1f2735a71，API21项及契约20项测试通过；�
 
 生产factory、公共trace和联合验收单独保持灰色；T010扩展授权与E008仍待完成，不把组件结果扩展为完整用户链路已交付。正常pre-push的13项受影响typecheck/lint已通过，init.sh快速路径也通过；全仓CI及最终整合以汇总PR实际结果为准。
 
-汇总 [Draft PR #2869](https://github.com/boardx/workspacex/pull/2869) 已创建。CI发现新增迁移不可重放，修复 e4b8e9b34 已完成本地空库建立与强制重放验证；新一轮CI结果待核对。WX-T002真实图像测试为1通过、1失败：小图进入模型image block，大于64KiB的PNG触发官方读取JSON截断，正在适配有界结果传输，尚未标绿。
+汇总 [Draft PR #2869](https://github.com/boardx/workspacex/pull/2869) 已创建。CI发现新增迁移不可重放，修复 e4b8e9b34 已完成本地空库建立与强制重放验证；新一轮CI结果待核对。WX-T002初始图像测试为1通过、1失败；修复8b7fe404b复用官方capture有界传输，46项真实沙箱回归通过，独立review无阻断。绿色仅表示PNG字节进入脚本模型的image block及错误路径，不包含生产附件接线或真实模型视觉验收。
+
+CI补充修复dd1079503：子任务回收期限独立于peer主run期限，真实DB模拟主run两分钟期限仍完成子任务；七项反证通过。四类旧契约断言更新，五文件73项回归通过。GitHub Skill导入仍待下一轮CI定位：trace明确IMPORT_FETCH_FAILED，上游非200，尚无具体status证据。
