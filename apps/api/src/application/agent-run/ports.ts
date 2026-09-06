@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { artifactsSteering as AS, errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
+import { standardCapabilities as SC, artifactsSteering as AS, errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -164,6 +164,8 @@ export interface ClaimedAgentRun {
 }
 
 export interface PinnedSkillContent {
+  /** Trusted immutable files; absent only for legacy callers. Never model-authored. */
+  readonly package?: z.infer<typeof SC.TrustedSkillPackage>;
   readonly versionId: string;
   readonly content: string;
   /**

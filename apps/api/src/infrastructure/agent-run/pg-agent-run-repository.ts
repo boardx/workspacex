@@ -21,7 +21,8 @@
  * column on `agent_runs` would be a second copy of one fact, and this repository has drifted
  * that way five times before.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { standardCapabilities as SC } from "@repo/contracts";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
@@ -247,27 +248,49 @@ export class PgAgentRunRepository implements AgentRunStore {
       // retrieved 0") the moment it actually tries to use it -- contract.md §4③ calls
       // this out by name as the easiest spot to forget.
       const result = await s.query<{
-        version_id: string; content: Buffer; stable_name: string; name: string;
+        version_id: string; skill_id: string; content: Buffer; stable_name: string; name: string;
+        path: string; media_type: string; digest: string;
       }>(
-        `SELECT f.version_id, f.content, sk.stable_name, sk.name
+        `SELECT f.version_id, f.content, sk.id AS skill_id, sk.stable_name, sk.name,
+                f.path, f.media_type, f.digest
            FROM skill_version_files f
            JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
            JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
           WHERE (f.org_id=$1 OR f.org_id=$3) AND f.version_id = ANY($2::text[])
-            AND f.path='SKILL.md' AND v.published`,
+            AND v.published
+          ORDER BY f.version_id, f.path`,
         [orgId, versionIds, PLATFORM_ORG_ID],
       );
-      const byVersion = new Map(
-        result.rows.map((row) => [
-          row.version_id,
-          { content: row.content.toString("utf8"), stableName: row.stable_name, name: row.name },
-        ]),
-      );
+      const rowsByVersion = new Map<string, typeof result.rows>();
+      for (const row of result.rows) {
+        const rows = rowsByVersion.get(row.version_id) ?? [];
+        rows.push(row);
+        rowsByVersion.set(row.version_id, rows);
+      }
+      const byVersion = new Map<string, PinnedSkillContent>();
+      for (const [versionId, rows] of rowsByVersion) {
+        const entry = rows.find((row) => row.path === "SKILL.md");
+        if (!entry) continue;
+        const files = rows.map((row) => {
+          // bytea is encoded directly: assets may be binary, never UTF-8 roundtripped.
+          if (createHash("sha256").update(row.content).digest("hex") !== row.digest) {
+            throw new Error(`Skill package integrity mismatch: ${versionId}/${row.path}`);
+          }
+          return { path: row.path, contentBase64: row.content.toString("base64"),
+            mediaType: row.media_type, digest: row.digest };
+        });
+        const skillPackage = SC.TrustedSkillPackage.parse({ skillId: entry.skill_id, versionId, files });
+        byVersion.set(versionId, {
+          versionId, stableName: entry.stable_name, name: entry.name,
+          content: new TextDecoder("utf-8", { fatal: true }).decode(entry.content),
+          package: skillPackage,
+        });
+      }
       // In the ORDER THE SNAPSHOT PINNED, and missing entries are omitted rather than
       // substituted -- the caller compares lengths and fails the run.
       return versionIds
         .filter((id) => byVersion.has(id))
-        .map((id) => ({ versionId: id, ...byVersion.get(id)! }));
+        .map((id) => byVersion.get(id)!);
     });
   }
 

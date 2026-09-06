@@ -428,13 +428,14 @@ function collectScriptCandidates(messages: readonly ThreadMessage[]): readonly s
  * type). Keep the two in sync by hand; there is no shared schema across the language
  * boundary yet -- a follow-up worth having once this path is verified end-to-end. */
 interface WireOrgSkill {
+  readonly package?: PinnedSkillContent["package"];
   readonly stable_name: string;
   readonly name: string;
   readonly content: string;
 }
 
 function toWireSkills(skills: readonly PinnedSkillContent[] | undefined): readonly WireOrgSkill[] {
-  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content }));
+  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content, ...(s.package ? { package: s.package } : {}) }));
 }
 
 /** messages-tuple 里算"模型输出"的 chunk 类型；见 `tryStreamRun` 内对应注释。 */
