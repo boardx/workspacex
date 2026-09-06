@@ -23,7 +23,7 @@
 | [detail-prototype-suggestions-dark.png](../../ui-preview/design-prototype/detail-prototype-suggestions-dark.png) | 迭代 9：发送一句后 | 最后一条 AI 气泡下的「下一步建议」chips（`reply.suggestions`，≤ 3 条），点一下即发；发下一句时清掉 |
 | [detail-prototype-export-dark.png](../../ui-preview/design-prototype/detail-prototype-export-dark.png) | 迭代 8：顶栏「导出」菜单 | 设计文档 (.md) / 原型规格 (.json) / 当前页 PNG（html2canvas 抓当前页那块屏）/ 复制 JSON 规格；说明页新增「各页交互说明」一节（模型随整页写回的 `notes`） |
 | [detail-prototype-page3-dark.png](../../ui-preview/design-prototype/detail-prototype-page3-dark.png) | 迭代 6：第三页「用量」 | 八种新原语一屏：hero 头图（标题/副标题/CTA）、grid 2 列里的 stat 指标卡、progress、row 里的 chip、switch、checkbox、页底 bottomnav（当前项高亮）。设备尺寸由模板派生（mobile 手机 300 / wireframe 平板 440 / ui 桌面 720），画板「适应」按设备算 |
-| [detail-prototype-inspector-dark.png](../../ui-preview/design-prototype/detail-prototype-inspector-dark.png) | 迭代 5：选中「停止」按钮后的右栏属性面板 | 面包屑路径、按类型的字段（文案 / 样式 / 通栏）、「应用」只在有改动时可点、「删除」（根节点没有）；提交是一条 `setProps` patch，走与模型同一条重验路径；400 的 detail 原样显示 |
+| [detail-prototype-inspector-dark.png](../../ui-preview/design-prototype/detail-prototype-inspector-dark.png) | 迭代 5：选中「停止」按钮、把文案改成「停止生成」但尚未应用的草稿态 | 面包屑路径、按类型的字段（文案 / 样式 / 通栏）、「应用」只在有改动时可点、「删除」（根节点没有）；提交是一条 `setProps` patch，走与模型同一条重验路径；400 的 detail 原样显示 |
 | [detail-prototype-history-dark.png](../../ui-preview/design-prototype/detail-prototype-history-dark.png) | 迭代 3：点「历史」打开版本面板，再点 v1 | 右侧一栏列出每一版（序号 / 来源 模型·手改·恢复 / 时间 / 一句话摘要）；点一版进预览：画布左上横幅「正在预览 v1，画布未改动」+ 退出预览，页标签切成那一版的；预览态画布不可点选；owner 见「恢复到这一版」 |
 | [detail-prototype-generating-dark.png](../../ui-preview/design-prototype/detail-prototype-generating-dark.png) | 发送后等待模型（真实等待，夹具晚 3s 才回） | 迭代 7：对话面板底部按已等待时长给阶段文案 + 秒数 + 「取消」；输入框与发送键禁用；失败后错误条带「重试」 |
 

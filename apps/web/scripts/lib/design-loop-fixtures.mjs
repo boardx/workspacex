@@ -227,7 +227,7 @@ export const DESIGN_PROJECTS = [
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
   },
-  // UC-17.8 B5.3：已由模型整页生成原型的项目——`prototype` 两页组件树，与 `frames` 同长。
+  // UC-17.8 B5.3：已由模型整页生成原型的项目——`prototype` 三页组件树，与 `frames` 同长。
   // 用于 `detail-prototype-*` 截图（契约束 `design-prototype` 的 ui.md 材料）。
   {
     id: "proj-chat-ui", name: "对话助手移动端", template: "mobile",
@@ -238,7 +238,7 @@ export const DESIGN_PROJECTS = [
     frameNotes: [
       "首屏即可发消息；生成中「发送」变「停止」，点停止保留已生成的部分；空态显示三条示例问题。",
       "按最近更新排序；搜索匹配标题与首条消息；左滑删除，删除前二次确认。",
-      "",
+      "本月用量与配额进度一屏可见；超额前给出提醒；底部导航停在「用量」。",
     ],
     prototype: withIds([
       {
@@ -298,7 +298,7 @@ export const DESIGN_PROJECTS = [
     githubIssueUrl: null, githubIssueNumber: null,
     chat: [
       { role: "user", text: "给我设计一个 chat 的 UI，模拟 chatgpt", at: "2026-09-06T02:00:00.000Z" },
-      { role: "ai", text: "画好了两页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
+      { role: "ai", text: "画好了三页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表，「用量」是本月配额与进度。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
     ],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
@@ -378,26 +378,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
   // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
   const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
     { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
-  ]);
-  await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
-    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
-    const project = projects.find((p) => p.id === id);
-    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
-    return json(route, { items: versionsOf(project).map(({ prototype: _p, ...rest }) => rest) });
-  });
-  await page.route((url) => /^\/pm-designs\/[^/]+\/versions\/[^/]+$/.test(new URL(url).pathname), (route) => {
-    const [, , id, , versionId] = new URL(route.request().url()).pathname.split("/").map(decodeURIComponent);
-    const project = projects.find((p) => p.id === id);
-    const version = project && versionsOf(project).find((v) => v.id === versionId);
-    if (!version) return json(route, { reasonCode: "VERSION_NOT_FOUND" }, 404);
-    return json(route, { version });
-  });
-
-  // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
-  const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
-    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
   ]);
   await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);

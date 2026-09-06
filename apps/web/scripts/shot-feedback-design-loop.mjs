@@ -154,6 +154,9 @@ async function openExport(page) { await clickUntil(page, '[data-testid="design-d
 async function selectNodeInspector(page) {
   await selectNode(page);
   await page.waitForSelector('[data-testid="design-inspector"]', { timeout: 4000 });
+  // 与 focus 那张的区别：这里把文案改成未应用的草稿态，「应用」按钮由灰转亮。
+  await page.fill('[data-testid="design-inspector-label"]', "停止生成");
+  await page.waitForSelector('[data-testid="design-inspector-apply"]:not([disabled])', { timeout: 4000 });
 }
 async function selectNode(page) {
   await singleView(page);
