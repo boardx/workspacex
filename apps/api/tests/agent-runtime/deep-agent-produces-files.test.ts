@@ -125,6 +125,14 @@ async function startDeepAgentFake(options: DeepAgentFakeOptions): Promise<DeepAg
       });
       return;
     }
+    // Skill facts require a stream even when text delta streaming is disabled.
+    // This legacy-script fixture emits no Skill facts; its end frame is terminal.
+    if (req.method === "GET" && /^\/threads\/[^/]+\/runs\/[^/]+\/stream$/.test(url)) {
+      polls.set("run-1", 1);
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end((options.toolResult === null ? "" : "event: updates\ndata: {\"tools\":{}}\n\n") + "event: end\ndata: {}\n\n");
+      return;
+    }
     if (req.method === "GET" && /^\/threads\/[^/]+\/runs\/[^/]+$/.test(url)) {
       // 先 pending 再 success：让真实的轮询循环真的转一圈，而不是首次即终态。
       const seen = (polls.get("run-1") ?? 0) + 1;
@@ -134,7 +142,7 @@ async function startDeepAgentFake(options: DeepAgentFakeOptions): Promise<DeepAg
     }
     if (req.method === "GET" && /^\/threads\/[^/]+\/state$/.test(url)) {
       const messages: Record<string, unknown>[] = [{ type: "human", content: "帮我做一份季度回顾的 deck" }];
-      if (options.toolResult !== null) {
+      if (options.toolResult !== null && createRunBodies.length > 0) {
         messages.push({
           type: "ai",
           content: "我先把任务交给 pptx 技能。",

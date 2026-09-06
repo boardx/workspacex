@@ -1,0 +1,22 @@
+[stack-admission] load1=3.67 cores=10 perCore=0.37 running=0/2
+[test-isolation] id=run-mtq7v02n-2792b47f-ba00df57cee8 db=wsx_ba00df57cee8d5bdd8e7 compose=wsx-ba00df57cee8d5bdd8e7 pg=24351 redis=29351 sandbox=54351
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_ba00df57cee8d5bdd8e7 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts (14 tests) 131ms
+ ✓ tests/agent-runtime/workbench-skill-activity.test.ts (9 tests) 93ms
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+   Start at  03:40:22
+   Duration  2.62s (transform 281ms, setup 0ms, collect 432ms, tests 224ms, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_ba00df57cee8d5bdd8e7 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/workbench-skill-activity.test.ts tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

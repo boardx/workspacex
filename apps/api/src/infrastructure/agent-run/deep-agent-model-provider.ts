@@ -588,13 +588,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // legitimately needs to pass through both phases without either suppressing the other.
     const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
-    if (this.config.streamEnabled === true && (onDelta !== undefined || input.onSkillActivity !== undefined)) {
-      // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
-      // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
-      // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
+    if (input.onSkillActivity !== undefined || (this.config.streamEnabled === true && onDelta !== undefined)) {
+      // Text-only delivery may fall back to polling. Required Skill journal facts
+      // must use a valid stream and cannot silently downgrade or resubmit the run.
       const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
         async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, input.onSkillActivity);
+        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity);
       if (streamed) {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
@@ -614,8 +613,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
           throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
         }
-        // 流断了但 run 还没终态：落回轮询等待，不重复提交。
+        // Text deltas may fall back to polling; required Skill facts cannot.
       }
+      if (input.onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
     }
 
     const emitNewEvents = async (): Promise<void> =>
@@ -726,18 +726,30 @@ export class DeepAgentModelProvider implements ModelCallPort {
     onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     emitted: ToolCallEmittedIds,
+    deadline: number,
     onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
   ): Promise<boolean> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
+    try {
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/threads/${threadId}/runs/${runId}/stream`, {
         method: "GET",
         headers: { accept: "text/event-stream" },
+        signal: controller.signal,
       });
     } catch {
       return false;
     }
-    if (!response.ok || response.body === null) return false;
+    if (!response.ok || response.body === null) {
+      await response.body?.cancel();
+      return false;
+    }
+    if (onSkillActivity && !response.headers.get("content-type")?.toLowerCase().startsWith("text/event-stream")) {
+      await response.body.cancel();
+      return false;
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -786,12 +798,14 @@ export class DeepAgentModelProvider implements ModelCallPort {
           try {
             parsed = JSON.parse(dataLines.join(""));
           } catch {
+            if (onSkillActivity) throw new ProgressDeliveryError(new Error("skill_activity_stream_invalid"));
             continue;
           }
           if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
             try {
               const event = SkillActivityStream.parse(parsed);
-              await onSkillActivity?.(event.fact);
+              if (!onSkillActivity) throw new Error("skill_activity_writer_unavailable");
+              await onSkillActivity(event.fact);
             } catch (error) { throw new ProgressDeliveryError(error); }
             continue;
           }
@@ -840,14 +854,17 @@ export class DeepAgentModelProvider implements ModelCallPort {
           }
         }
       }
+      if (onSkillActivity && buffer.trim()) throw new ProgressDeliveryError(new Error("skill_activity_stream_incomplete"));
       return true;
     } catch (error) {
       if (error instanceof ProgressDeliveryError) throw error.original;
+      if (onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
       // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
       return true;
     } finally {
       reader.releaseLock();
     }
+    } finally { clearTimeout(timer); }
   }
 
   /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create

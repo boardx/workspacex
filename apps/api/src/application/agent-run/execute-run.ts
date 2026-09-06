@@ -61,6 +61,7 @@ import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
+import { createSkillActivityWriter } from "./skill-activity-writer";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
@@ -1139,9 +1140,7 @@ async function executeClaimed(
         orgId: String(orgId), runId: run.runId,
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
         executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
-        onSkillActivity: async (fact) => {
-          await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "skill_activity", attemptId: executionAttemptId, fact });
-        },
+        onSkillActivity: createSkillActivityWriter(deps.runs, orgId, run.runId, executionAttemptId),
         // Resume the existing checkpoint after a decision; never resend user input.
         // The provider validates edited args and forwards rejection to native HITL.
         ...(run.pendingDecision === null
