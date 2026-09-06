@@ -59,29 +59,47 @@ RUN npm install --omit=dev --no-package-lock \
 # ---------- 中文（CJK）字体：PDF 里画中文的唯一办法 ----------
 #
 # pdf-lib 的 StandardFonts 是 PDF 标准 14 字体，编码是 WinAnsi —— 只有拉丁字符。
-# 用它 drawText('中文') 不是"画得难看"，是**直接抛错/画出乱码**。要画中文只有一条
-# 路：嵌入一份真的带中文字形的字体文件（`@pdf-lib/fontkit` + `embedFont(bytes)`）。
+# 用它 drawText('中文') 不是"画得难看"，是直接抛错。要画中文只有一条路：嵌入一份
+# 真的带中文字形的字体（`@pdf-lib/fontkit` + `embedFont(bytes)`）。
 #
-# ⚠ 字体必须**预装进镜像**，理由与 npm 包完全相同：容器 `network: none`，运行时
-#   下不动任何东西。脚本里写 fetch 字体只会失败一次再报错。
+# ⚠ 字体必须**预装进镜像**，理由与 npm 包完全相同：容器 `network: none`，运行时下不动
+#   任何东西。脚本里写 fetch 字体只会失败一次再报错。
 #
-# 选 fonts-droid-fallback（Apache-2.0）而不是 fonts-noto-cjk，理由是**单一 TTF**：
-#   - Noto CJK / 文泉驿 / 文鼎 在 Debian 里都是 `.ttc`（TrueType Collection，多个
-#     字面装在一个文件里）。fontkit 解析 ttc 得到的是 collection 对象，pdf-lib 的
-#     `embedFont()` 不接受它——脚本会以一句难懂的解析错误失败。
-#   - DroidSansFallbackFull.ttf 是单字面 TTF，4MB，覆盖简繁中文 + 日文 + 韩文，
-#     `embedFont(..., { subset: true })` 之后只把用到的字形写进 PDF（实测一页
-#     中英混排的 PDF 只有 2.4KB）。
+# ## 为什么是"构建期裁字体 + 运行期整份嵌入"，而不是运行期 subset:true
 #
-# ⚠ 路径写**真实文件**那一个。`/usr/share/fonts/truetype/droid/` 下这份是真文件
-#   （dpkg 装的另一份 `/usr/share/fonts-droid-fallback/truetype/DroidSansFallback.ttf`
-#   是精简版），而 Node 权限模型按真实路径判定、不递归解析软链（见
-#   src/execute-script.ts 头注），所以不能随手指一个软链路径。
+# 2026-09-06 实测（三种字体，逐个渲染确认，不是从文档推的）：
+#   · DroidSansFallback + subset:true → 内嵌字体损坏（把 FontFile2 掏出来重新解析，
+#     用到的字形 getGlyph 抛 "Trying to access beyond buffer length"），渲染是方框；
+#     而且这份字体**根本没有拉丁字形**（'m'/'A'/'1'/'%' 的 glyphId 全是 0），
+#     任何带数字或英文的中文文档都会画出方框。
+#   · Noto Sans CJK SC（CFF）+ subset:true → 渲染成 `! " # $%&…` 的乱码。
+#   · 同一份 Noto，改成**不子集化**整份嵌入 → 中文/数字/拉丁/全角标点全部正确。
+# ⇒ pdf-lib 的**运行期子集器**在 TrueType 与 CFF 两条路上都不可靠，这不是选型问题。
+#   子集化因此挪到**构建期**用 fontTools 做一次（确定性、可验证），运行期整份嵌入。
+#
+# ⚠ 别"顺手"把 SKILL.md 或测试里的 `subset: true` 加回来：它产出的 PDF **打开是方框**，
+#   而"每个字形编号 != 0"这类判据抓不到（子集化会把字形重编号成 1,2,3…）。
+#   tests/produces-real-cjk-pdf.test.ts 有一条反证专门锁这件事。
+#
+# ## 字符集取到 U+4E00–U+9FFF 全部（不是 GB2312）
+#
+# 实测裁出来的体积：GB2312(6763 字) 1.4MB / CJK 统一表意文字全区 4.9MB / 再加扩展 A 6.6MB。
+# 取中间那档：GB2312 漏掉的生僻字（人名里的淼、喆…）会**静默变方框**——那正是本次要修的病，
+# 省 3.5MB 不值得把它留着。纯英文文档不该背这 4.9MB，SKILL.md 因此要求：正文全是拉丁字符
+# 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-droid-fallback \
+ && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 \
+ && mkdir -p /usr/share/fonts/workspacex \
+ && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))" \
+ && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))" \
+ && pyftsubset /tmp/noto-sc-full.otf --text-file=/tmp/charset.txt \
+      --output-file=/usr/share/fonts/workspacex/NotoSansSC-Common.otf \
+      --layout-features='' --no-hinting --desubroutinize --drop-tables+=DSIG \
+ && rm -f /tmp/noto-sc-full.otf /tmp/charset.txt \
+ && apt-get purge -y fonts-noto-cjk fonttools \
+ && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/* \
- # 自检：字体真的在那儿、且真的能被 fontkit 嵌进 PDF，构建期就证明，不留到运行时。
- && node -e "const fs=require('fs');const b=fs.readFileSync('/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf');if(b.length<1e6)throw new Error('CJK font too small: '+b.length);console.log('CJK font preinstalled OK', b.length)"
+ && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
 
 COPY --from=build /build/dist ./dist
 
@@ -91,7 +109,7 @@ USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。
 ENV SKILL_SANDBOX_MODULES_DIR=/opt/sandbox/node_modules \
-    SKILL_SANDBOX_CJK_FONT=/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf \
+    SKILL_SANDBOX_CJK_FONT=/usr/share/fonts/workspacex/NotoSansSC-Common.otf \
     SKILL_SANDBOX_PORT=8790 \
     TMPDIR=/tmp
 

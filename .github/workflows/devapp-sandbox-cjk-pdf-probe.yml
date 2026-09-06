@@ -2,26 +2,27 @@
 #
 # ## 它补的洞
 #
-# 「中文 PDF 能不能生成」这条链有三层:①沙箱镜像里有没有 CJK 字体与 fontkit ②沙箱能不能
-# 真的画出带中文字形的 PDF ③模型会不会照 SKILL.md 写出那段脚本。第 ③ 层要真实模型 +
+# 「中文 PDF 能不能生成」这条链有三层:①沙箱镜像里有没有字体与 fontkit ②沙箱能不能
+# 真的画出**可读**的中文 PDF ③模型会不会照 SKILL.md 写出那段脚本。第 ③ 层要真实模型 +
 # 登录账号,走 `real-model-chat-evidence.yml`(需要机器上的 `/opt/workspacex/real-model-e2e.env`)。
 # 本工作流只测 ① ②,**不需要任何凭据**,因此任何时候都能跑一次拿到硬证据。
 #
-# 为什么值得单独有:2026-09-06 事故里,「main 上代码是对的」与「那台机器上能不能出中文 PDF」
-# 之间隔着两个静默失效的环节(镜像不重建、root 副本不更新)。这条通道把后者变成一次
-# 点击就能得到的动态事实——而不是从 git log 推断。
+# ## ⚠ 判据:不是"字形编号 != 0"
+#
+# 本文件的第一版就是那么写的,结果放行了一份**打开全是方框**的 PDF(2026-09-06 实测):
+# `subset: true` 会把字形重新编号成 1,2,3…,编号非零恒真,与那些字形里到底有没有轮廓
+# 无关。现在的判据两条,都在沙箱里就地验:
+#   ① 源字体对样本(中文 + 数字 + 拉丁 + 全角标点 + 生僻字)每个字符都有非零字形;
+#   ② 把产出 PDF 里的内嵌字体**掏出来重新解析**,页面上画的每个字形都要取得到且轮廓非空。
+# 与 apps/skill-sandbox/tests/produces-real-cjk-pdf.test.ts 同一条判据,区别是那边测
+# 镜像构建产物、这边测**线上正在跑的那个容器**。
 #
 # ## 它对这台机器做什么
 #
-#   写:在沙箱容器的 **tmpfs 工作目录**里生成一份 PDF(那是每次执行都会被清掉的临时目录),
+#   写:在沙箱容器的 tmpfs 工作目录里生成一份 PDF(每次执行都会被清掉的临时目录),
 #      并把它拷进本次 job 的 artifact。
 #   读:沙箱 `POST /run` 的返回。
 #   不做:不重启任何服务、不改配置、不碰数据库、不写 /opt/workspacex 下任何文件。
-#
-# ⚠ 断言用**字形编号**,不是"文件大小 > 0":Identity-H 下 `Tj` 操作数是字形编号,编号 0
-#   是 .notdef——也就是用户看到的那个方框。判据必须是"每个汉字都有真字形",否则一份
-#   画满方框的 PDF 也会算通过(与 apps/skill-sandbox/tests/produces-real-cjk-pdf.test.ts
-#   同一条判据,那边测镜像构建产物,这边测**线上正在跑的那个容器**)。
 name: devapp-sandbox-cjk-pdf-probe
 
 on:
@@ -38,41 +39,95 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 这个沙箱容器是什么时候起来的、镜像是哪一份
+      - name: 这个沙箱容器是什么时候起来的、字体是哪一份
         shell: bash
         run: |
           docker inspect --format 'container={{.Id}} started={{.State.StartedAt}} image={{.Image}}' \
             workspacex-skill-sandbox-1
           docker exec workspacex-skill-sandbox-1 node -e "
             const fs = require('fs');
+            const fontkit = require('@pdf-lib/fontkit');
             const p = process.env.SKILL_SANDBOX_CJK_FONT;
             console.log('SKILL_SANDBOX_CJK_FONT=' + p);
-            console.log('font bytes=' + (p ? fs.statSync(p).size : 'n/a'));
-            console.log('fontkit=' + require.resolve('@pdf-lib/fontkit'));
+            const bytes = fs.readFileSync(p);
+            console.log('font MB=' + (bytes.length / 1048576).toFixed(1));
+            console.log('postscriptName=' + fontkit.create(bytes).postscriptName);
           "
 
-      - name: 向跑着的沙箱要一份中文 PDF
+      - name: 向跑着的沙箱要一份中文 PDF，并在沙箱里就地验它可读
         shell: bash
         run: |
           set -euo pipefail
-          # 脚本经 base64 传入,避免多层 shell 引号把中文或换行改形（与既有容器测试同一手法）。
+          # 脚本经 base64 传入，避免多层 shell 引号把中文或换行改形（与既有容器测试同一手法）。
           SCRIPT_B64=$(base64 -w0 <<'SCRIPT'
-          const { PDFDocument } = require('pdf-lib');
+          const { PDFDocument, PDFDict, PDFName, PDFRawStream } = require('pdf-lib');
           const fontkit = require('@pdf-lib/fontkit');
           const fs = require('fs');
+          const zlib = require('zlib');
+
+          const SAMPLE = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆';
+
           (async () => {
             const fontPath = process.env.SKILL_SANDBOX_CJK_FONT;
             if (!fontPath) throw new Error('SKILL_SANDBOX_CJK_FONT not set');
+            const fontBytes = fs.readFileSync(fontPath);
+
+            // ① 源字体覆盖
+            const probe = fontkit.create(fontBytes);
+            const missing = [...new Set(SAMPLE)]
+              .filter((ch) => ch !== ' ' && (probe.glyphsForString(ch)[0] || {}).id === 0);
+            if (missing.length) throw new Error('字体缺这些字符的字形（会画成方框）: ' + missing.join(''));
+
             const doc = await PDFDocument.create();
             doc.registerFontkit(fontkit);
-            const font = await doc.embedFont(fs.readFileSync(fontPath), { subset: true });
+            // ⚠ 不传 subset —— pdf-lib 的运行期子集器产出打开是方框的 PDF（见 SKILL.md）。
+            const font = await doc.embedFont(fontBytes);
             const page = doc.addPage([595, 842]);
-            const title = '季度经营回顾';
-            page.drawText(title, { x: 50, y: 780, size: 24, font });
-            page.drawText('营收同比增长 18%（中英文混排 mixed English）', { x: 50, y: 745, size: 12, font });
-            fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/cjk-probe.pdf', await doc.save());
-            console.log('CJK_GLYPHS:' + font.encodeText(title).toString());
-          })().catch((e) => { console.error(e.stack); process.exit(1); });
+            page.drawText(SAMPLE, { x: 40, y: 780, size: 18, font });
+            page.drawText('本季度营收 1,284 万元，同比增长 18%（含 Acme Corp. 合作）。', { x: 40, y: 745, size: 12, font });
+            const out = await doc.save();
+            fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/cjk-probe.pdf', out);
+
+            // ② 把内嵌字体掏出来重新解析，页面上画的每个字形都要取得到且轮廓非空
+            const codesHex = font.encodeText(SAMPLE.replace(/\s/g, '')).toString().slice(1, -1);
+            const codes = [];
+            for (let i = 0; i < codesHex.length; i += 4) codes.push(parseInt(codesHex.slice(i, i + 4), 16));
+
+            const loaded = await PDFDocument.load(out);
+            let embedded = null;
+            for (const [, obj] of loaded.context.enumerateIndirectObjects()) {
+              if (!(obj instanceof PDFDict)) continue;
+              for (const key of obj.keys()) {
+                if (!String(key).startsWith('/FontFile')) continue;
+                const stream = loaded.context.lookup(obj.get(PDFName.of(String(key).slice(1))));
+                if (!(stream instanceof PDFRawStream)) continue;
+                let raw = Buffer.from(stream.getContents());
+                if (String(stream.dict.get(PDFName.of('Filter')) || '').includes('FlateDecode')) {
+                  try { raw = zlib.inflateSync(raw); } catch (e) { /* 已是明文 */ }
+                }
+                embedded = raw;
+              }
+            }
+            if (!embedded) throw new Error('PDF 里没有内嵌字体 —— 换台机器打开就是方框');
+
+            let sub;
+            try {
+              sub = fontkit.create(embedded);
+            } catch (e) {
+              throw new Error('内嵌字体解析不了（正是 subset:true 的坏法）: ' + e.message);
+            }
+            const broken = [...new Set(codes)].filter((id) => {
+              try {
+                const g = sub.getGlyph(id);
+                return !g || !g.path || g.path.commands.length === 0;
+              } catch (e) {
+                return true;
+              }
+            });
+            if (broken.length) throw new Error('这些字形在内嵌字体里取不到/无轮廓（会是方框）: ' + broken.join(','));
+
+            console.log('CJK_PDF_OK bytes=' + out.length + ' glyphs=' + codes.length + ' font=' + sub.postscriptName);
+          })().catch((e) => { console.error(e.message); process.exit(1); });
           SCRIPT
           )
 
@@ -96,23 +151,14 @@ jobs:
             const fs = require("fs");
             const r = JSON.parse(fs.readFileSync("/tmp/sandbox-run.json", "utf8"));
             console.log("exitCode=" + r.exitCode);
-            console.log("stdout=" + r.stdout.trim());
+            if (r.stdout.trim()) console.log(r.stdout.trim());
             if (r.stderr.trim()) console.log("stderr=" + r.stderr.trim());
-            if (r.exitCode !== 0) { console.error("✗ 沙箱执行失败"); process.exit(1); }
-
-            const hex = /CJK_GLYPHS:<([0-9A-Fa-f]+)>/.exec(r.stdout);
-            if (!hex) { console.error("✗ 脚本没报出字形编号"); process.exit(1); }
-            const ids = [];
-            for (let i = 0; i < hex[1].length; i += 4) ids.push(parseInt(hex[1].slice(i, i + 4), 16));
-            console.log("glyph ids=" + ids.join(","));
-            // 编号 0 = .notdef = 用户看到的方框。有一个就算失败。
-            if (ids.some((id) => id === 0)) { console.error("✗ 有汉字落到 .notdef（方框）"); process.exit(1); }
-            if (ids.length !== 6) { console.error("✗ 字形数与标题字数对不上"); process.exit(1); }
-
+            if (r.exitCode !== 0) { console.error("✗ 线上沙箱画不出可读的中文 PDF"); process.exit(1); }
+            if (!/CJK_PDF_OK/.test(r.stdout)) { console.error("✗ 沙箱没报出通过标记"); process.exit(1); }
             const file = r.files.find((f) => f.name === "cjk-probe.pdf");
             if (!file) { console.error("✗ 没有产出文件"); process.exit(1); }
             fs.writeFileSync("/tmp/cjk-probe.pdf", Buffer.from(file.contentBase64, "base64"));
-            console.log("✅ 线上沙箱产出中文 PDF：" + file.sizeBytes + " 字节，每个汉字都有真字形");
+            console.log("✅ 线上沙箱产出可读的中文 PDF：" + file.sizeBytes + " 字节");
           '
 
       - uses: actions/upload-artifact@v4
