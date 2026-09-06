@@ -219,6 +219,17 @@ function chatThreadIdOf(events: readonly ParsedSseEvent[]): string {
   return custom!.value as string;
 }
 
+async function permissionRequestIdOf(events: readonly ParsedSseEvent[]): Promise<string> {
+  const event = events.find((e) => e.type === EventType.CUSTOM && e.name === "execution_event");
+  const runId = (event?.value as { runId?: string } | undefined)?.runId;
+  expect(runId).toBeTruthy();
+  const response = await fetch(`${BASE}/agent-runs/${runId}`, { headers: principal(ACTOR, ORG) });
+  expect(response.status).toBe(200);
+  const body = await response.json() as { pendingApproval: { permissionRequestId: string } };
+  expect(body.pendingApproval.permissionRequestId).toBeTruthy();
+  return body.pendingApproval.permissionRequestId;
+}
+
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
@@ -263,7 +274,10 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     // "active" -- see `writeToolCallStep`'s own doc); it is only the tool-call-result half
     // that stays dangling.
     expect(types).not.toContain(EventType.TOOL_CALL_RESULT);
-    expect(types).toContain(EventType.STEP_FINISHED);
+    // Journal relays may omit step envelopes; if opened, every step must still close.
+    expect(types.filter((type) => type === EventType.STEP_FINISHED)).toHaveLength(
+      types.filter((type) => type === EventType.STEP_STARTED).length,
+    );
     // Not a timeout/error -- a genuine "yielded control" finish, exactly like a real
     // frontend-tool call.
     expect(types).not.toContain(EventType.RUN_ERROR);
@@ -273,6 +287,17 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     expect(toolStart?.toolCallName).toBe(APPROVAL_TOOL_NAME);
     const toolArgs = first.events.find((e) => e.type === EventType.TOOL_CALL_ARGS);
     expect(JSON.parse(toolArgs?.delta as string)).toMatchObject({ to: "ops@example.test" });
+  }, 30_000);
+
+  it("identity-less resume cannot approve a newly persisted request", async () => {
+    const first = await postAgui({ threadId: randomUUID(), runId: randomUUID(),
+      messages: [{ id: randomUUID(), role: "user", content: TRIGGER_TEXT }] });
+    const count = deepAgent.runBodies.length;
+    const resumed = await postAgui({ threadId: randomUUID(), runId: randomUUID(),
+      forwardedProps: { chatThreadId: chatThreadIdOf(first.events) },
+      messages: [{ role: "tool", toolCallId: first.events.find((e) => e.type === EventType.TOOL_CALL_START)?.toolCallId, content: "approved" }] });
+    expect(resumed.events.find((e) => e.type === EventType.RUN_ERROR)?.code).toBe("AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION");
+    expect(deepAgent.runBodies).toHaveLength(count);
   }, 30_000);
 
   it("approve：resume 请求把 run 续跑到 succeeded，上游收到 decision=approve 与原始参数", async () => {
@@ -285,7 +310,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     const resumed = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId },
+      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "approved" },
@@ -313,8 +338,10 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     // already delivered to the client during the FIRST turn's response.
     expect(resumed.events.filter((e) => e.type === EventType.STEP_STARTED
       && (e as unknown as { stepName?: string }).stepName === APPROVAL_TOOL_NAME)).toHaveLength(0);
+    // The resumed attempt may report its actual tool execution under a new identity;
+    // the already delivered event from the original attempt must never be replayed.
     expect(resumed.events.filter((e) => e.type === EventType.TOOL_CALL_START
-      && (e as unknown as { toolCallName?: string }).toolCallName === APPROVAL_TOOL_NAME)).toHaveLength(0);
+      && e.toolCallId === toolCallId)).toHaveLength(0);
   }, 30_000);
 
   it("edit：resume 请求携带编辑后的对象，上游收到的 edited_action.args 与提交对象逐字段相等", async () => {
@@ -327,7 +354,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     const resumed = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId },
+      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: JSON.stringify(EDITED_ARGS) },
@@ -364,7 +391,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     const resumed = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId },
+      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "denied" },
@@ -390,7 +417,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId },
+      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "approved" },
@@ -399,7 +426,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     const secondResume = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId },
+      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "approved" },

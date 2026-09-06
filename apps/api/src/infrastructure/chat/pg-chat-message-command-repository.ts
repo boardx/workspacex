@@ -1,3 +1,5 @@
+import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
+import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
@@ -57,6 +59,8 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
       attachmentIds?: readonly string[];
+      artifactContinuation?: ArtifactContinuationContext;
+      queuedMessageId?: string;
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -68,6 +72,17 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         return replay.text === input.text && replay.requestedAgentId === input.selectedAgentId
           ? { kind: "replay", accepted: replay }
           : { kind: "conflict" };
+      }
+      // Serialize queue consumption with every normal acceptance on this thread.
+      await s.query(`SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE`, [orgId,input.threadId]);
+      if (input.queuedMessageId) {
+        const ready = await s.query(`SELECT q.id FROM thread_message_queue q
+          WHERE q.org_id=$1 AND q.thread_id=$2 AND q.id=$3::uuid AND q.actor_id=$4
+            AND q.id=$5::uuid AND q.body=$6 AND q.agent_id=$7 AND q.status='pending'
+            AND NOT EXISTS (SELECT 1 FROM thread_message_queue older WHERE older.org_id=q.org_id AND older.thread_id=q.thread_id AND older.status='pending' AND older.sequence<q.sequence)
+            AND NOT EXISTS (SELECT 1 FROM agent_runs r WHERE r.org_id=q.org_id AND r.thread_id=q.thread_id AND r.status NOT IN ('succeeded','failed','cancelled'))
+          FOR UPDATE OF q`, [orgId,input.threadId,input.queuedMessageId,input.actorId,input.clientMessageId,input.text,input.selectedAgentId]);
+        if (!ready.rows.length) throw new QueuedMessageNotReadyError();
       }
       const inserted = await s.query<{ created_at: Date }>(
         `INSERT INTO chat_messages
@@ -86,6 +101,19 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
           input.snapshot.modelProvider, input.snapshot.modelId],
       );
+      if (input.queuedMessageId) {
+        await s.query(`UPDATE thread_message_queue SET status='dispatched',run_id=$3
+          WHERE org_id=$1 AND id=$2::uuid AND status='pending'`, [orgId,input.queuedMessageId,input.runId]);
+      }
+      if (input.artifactContinuation) {
+        const ctx = input.artifactContinuation;
+        const linked = await s.query<{ run_id: string }>(`INSERT INTO agent_run_artifact_context(org_id,run_id,artifact_id,based_on_version)
+          SELECT $1,$2,a.id,$4 FROM agent_artifacts a JOIN agent_artifact_versions v
+            ON v.org_id=a.org_id AND v.artifact_id=a.id AND v.version=$4
+          WHERE a.org_id=$1 AND a.id=$3 AND a.thread_id=$5 RETURNING run_id`,
+        [orgId,input.runId,ctx.artifactId,ctx.basedOnVersion,input.threadId]);
+        if (linked.rows.length !== 1) throw new Error("ARTIFACT_VERSION_NOT_FOUND");
+      }
       // #414 delta §5: `accepted` is the run's first append-only step, and acceptance is
       // where it happens -- inside this same transaction. Writing it later, when the
       // executor claims the run, would leave a queued run showing an empty step list and

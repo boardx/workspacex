@@ -50,6 +50,7 @@ export async function continueArtifact(
     threadId: locator.threadId,
     artifactId: input.artifactId,
     instruction: input.instruction,
+    clientRequestId: input.clientRequestId,
     basedOnVersion: disclosedVersion.payload,
   });
 

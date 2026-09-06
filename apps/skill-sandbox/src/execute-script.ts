@@ -30,6 +30,7 @@
  * 事件循环回调会跑，靠 JS 内部的定时器自省是不可能的。所以超时判定放在**父进程**，
  * 到点 `SIGKILL`（不是 SIGTERM——死循环不会响应可捕获信号）。
  */
+import { parseInputFiles, type SandboxInputFile } from "./input-files.js";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -59,6 +60,7 @@ export interface ExecuteScriptResult {
 }
 
 export interface ExecuteScriptOptions {
+  readonly inputFiles?: readonly SandboxInputFile[];
   readonly script: string;
   readonly timeoutMs: number;
   /** 测试注入；生产用 `process.execPath`。 */
@@ -100,10 +102,16 @@ export async function executeScript(options: ExecuteScriptOptions): Promise<Exec
    * 正因如此更要在这里解决,而不是等哪天有人在 mac 上看到一片空 stdout 去怀疑
    * 自己的脚本。
    */
+  const inputFiles = parseInputFiles(options.inputFiles);
   const root = await realpath(await mkdtemp(join(tmpdir(), "skill-sandbox-")));
   const workdir = join(root, "work");
   const outdir = join(workdir, "out");
   await mkdir(outdir, { recursive: true });
+  const inputdir = join(workdir, "input");
+  await mkdir(inputdir);
+  for (const file of inputFiles) {
+    await writeFile(join(inputdir, file.name), Buffer.from(file.contentBase64, "base64"), { mode: 0o444 });
+  }
 
   /**
    * CommonJS,不是 ESM。两个理由:
@@ -168,6 +176,7 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
     // 干净环境：不把宿主进程的 env（可能含凭据）泄进被执行的脚本里。
     env: {
       SKILL_SANDBOX_OUT_DIR: paths.outdir,
+      SKILL_SANDBOX_INPUT_DIR: join(paths.workdir, "input"),
       // 字体路径没配时**不要**塞一个空字符串进去：脚本里 `if (process.env.X)` 的
       // 判断要能如实反映"这套环境到底有没有中文字体"，空串会让它以为有。
       ...(options.cjkFontPath ? { SKILL_SANDBOX_CJK_FONT: options.cjkFontPath } : {}),

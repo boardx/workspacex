@@ -1,18 +1,5 @@
-/**
- * 2026-08-30（devapp 真栈复现，`reclaim-stale-running.test.ts` 那次修复留的洞的另一半）
- * —— `AgentRunStore.reclaimStaleRunning`（ports.ts 该方法的文档有完整取证）第一版只在
- * `AgentRunExecutor.tick()`（下一条消息触发的 kick）里跑。用户提交一条任务后**只刷新
- * 页面、不再发第二条消息**——前端 `useCopilotKitV2RunRestore`/旧轨道的轮询都是纯读
- * `GET /agent-runs/:runId`——永远等不到下一次 kick，卡住的行因此永远等不到被捞回的
- * 那一刻。人类在真实 devapp 上复现：提交任务后刷新，界面永远停在"正在恢复上次未完成
- * 的任务…"。
- *
- * `read-run.ts` 的 `readAgentRun` 现在也在读到 `status==='running'` 时调用同一个方法——
- * 这里直接对真实 HTTP + 真实 Postgres 复刻这条真实用户路径：POST 一条消息（`autostart`
- * 关掉，run 停在 `queued`，不会自己跑完），手工把它推进到"已经被 claim 走、卡了很久"
- * 的 `running` 状态（模拟处理它的进程在模型调用返回之前就消失），然后单纯 GET 一次
- * ——不发第二条消息——断言这一次读就让它自愈。
- */
+/** GET remains read-only: an expired heartbeat is not evidence that the remote
+ * operation failed. The scheduled, fenced recovery reader reconciles it separately. */
 import { randomUUID, createHash } from "node:crypto";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -143,8 +130,8 @@ beforeEach(async () => {
   await addPublishedAgentVersion();
 });
 
-describe("GET /agent-runs/:runId -- 只刷新、不发第二条消息，也能让卡住的 running 自愈", () => {
-  it("一条卡了很久的 running run：单纯 GET 一次（没有第二条消息）就让它自愈成 failed", async () => {
+describe("GET /agent-runs/:runId -- reads do not cancel or fail an unverified remote run", () => {
+  it("an old running run remains running on GET until remote reconciliation proves its state", async () => {
     const { status: postStatus, agentRunId } = await postMessage("生成一个 pdf 来展示设计思维发展的历史，一页 pdf");
     expect(postStatus).toBe(202);
 
@@ -153,13 +140,13 @@ describe("GET /agent-runs/:runId -- 只刷新、不发第二条消息，也能�
     // 真实用户的复现步骤就是这一步：只刷新页面（= 只 GET 一次），不发第二条消息。
     const { status, body } = await getRun(agentRunId);
     expect(status).toBe(200);
-    expect(body).toMatchObject({ status: "failed", error: "MODEL_CALL_FAILED" });
+    expect(body).toMatchObject({ status: "running", error: null });
 
     const row = await asApp(ORG, (c) =>
       c.query<{ status: string; error_code: string | null }>(
         "SELECT status, error_code FROM agent_runs WHERE id=$1", [agentRunId],
       ));
-    expect(row.rows[0]).toMatchObject({ status: "failed", error_code: "MODEL_CALL_FAILED" });
+    expect(row.rows[0]).toMatchObject({ status: "running", error_code: null });
   }, 30_000);
 
   it("一条刚起步的 running run：单纯 GET 不会误杀它——它可能只是还在正常跑", async () => {

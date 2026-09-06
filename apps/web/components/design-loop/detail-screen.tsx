@@ -1,11 +1,13 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Smartphone, Loader2, PlugZap } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
+import { PrototypeCanvas } from "./prototype-canvas";
+import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
 import {
   appendProjectChat as apiAppendProjectChat,
   listMyProjects,
@@ -21,6 +23,7 @@ const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
   problem: "背景",
   criteria: "验收标准",
   frames: "画布页",
+  prototype: "原型画布",
 };
 
 const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
@@ -33,6 +36,25 @@ function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
   if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
   return String(err);
+}
+
+/**
+ * B5.3：导出设计文档——纯客户端拼 Markdown（`lib/design-doc-markdown.ts`）后触发下载。
+ * 不走服务端：文档的全部素材已经在 `DesignProject` 里，多一个接口只是多一份可漂移的副本。
+ * jsdom 没有 `URL.createObjectURL`，测试里 mock 它；生产浏览器真下载。
+ */
+function exportDoc(project: DesignProject): void {
+  const now = new Date();
+  const blob = new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = designDocFileName(project, now);
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 type Load =
@@ -190,7 +212,10 @@ export function DesignDetailScreen({
         </Button>
         <span className="min-w-0 truncate text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => exportDoc(project)} data-testid="design-detail-export-doc" title="导出为 Markdown 设计文档">
+            <FileDown aria-hidden className="h-3.5 w-3.5" /> 导出设计文档
+          </Button>
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -241,6 +266,11 @@ export function DesignDetailScreen({
               </div>
             ))}
           </div>
+          {sending && (
+            <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
+              <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> 正在生成，画布会整页重绘，可能需要一分钟……
+            </div>
+          )}
           {chatError !== null && (
             <div className="mx-3 mb-1 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
               {chatError}
@@ -295,7 +325,7 @@ export function DesignDetailScreen({
                 ))}
               </div>
               <div className="grid flex-1 place-items-center overflow-y-auto bg-background p-6">
-                <PhoneCanvas label={project.frames[frame] ?? ""} />
+                <PrototypeCanvas label={project.frames[frame] ?? ""} root={project.prototype[frame] ?? null} />
               </div>
             </div>
           ) : (
@@ -363,25 +393,6 @@ function DetailTab({ active, onClick, children, testid }: { active: boolean; onC
     >
       {children}
     </button>
-  );
-}
-
-/** 居中模拟手机画布：头部 / 主内容区 / 操作区 / 提示信息 占位块。 */
-function PhoneCanvas({ label }: { label: string }) {
-  return (
-    <div className="flex w-[260px] flex-col gap-2 rounded-container border border-border bg-card p-3 shadow-lg" data-testid="design-detail-phone">
-      <div className="mb-1 flex items-center justify-center gap-1 text-10 text-muted-foreground">
-        <Smartphone aria-hidden className="h-3 w-3" /> {label}
-      </div>
-      <div className="h-8 rounded-control bg-panel" aria-hidden />
-      <div className="flex flex-1 flex-col gap-2">
-        <div className="h-20 rounded-control bg-panel" aria-hidden />
-        <div className="h-3 w-3/4 rounded-control bg-panel" aria-hidden />
-        <div className="h-3 w-1/2 rounded-control bg-panel" aria-hidden />
-      </div>
-      <div className="h-9 rounded-control bg-primary/40" aria-hidden />
-      <div className="h-3 w-2/3 rounded-control bg-panel" aria-hidden />
-    </div>
   );
 }
 

@@ -27,6 +27,7 @@ export type PersistedMessage = {
    * `DurableMessage` 里带这个字段，此前只是没有投影出来。
    */
   authorId: string;
+  agentRunId?: string | null;
   /**
    * CK-P3（issue #2054）—— 这条消息能不能调 `rateMessage`。
    *
@@ -65,7 +66,8 @@ export async function readAllPersistedMessages(
     replyToMessageId: string | null;
   }[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < 50; page += 1) {
+  const seenCursors = new Set<string>();
+  for (;;) {
     const result = await listMessages(threadId, { cursor, limit: 100 }, bearer);
     for (const m of result.messages) {
       collected.push({
@@ -73,6 +75,7 @@ export async function readAllPersistedMessages(
         role: m.authorKind === "human" ? "user" : "assistant",
         content: m.text,
         authorId: m.authorId,
+        agentRunId: m.agentRunId,
         rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
       rawForPendingRunLookup.push({
@@ -83,6 +86,8 @@ export async function readAllPersistedMessages(
       });
     }
     if (result.nextCursor === null) break;
+    if (seenCursors.has(result.nextCursor)) throw new Error("Message history returned a repeated cursor");
+    seenCursors.add(result.nextCursor);
     cursor = result.nextCursor;
   }
   return { messages: collected, pendingRunId: findPendingRunId(rawForPendingRunLookup) };

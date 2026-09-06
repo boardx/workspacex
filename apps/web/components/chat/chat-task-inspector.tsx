@@ -14,6 +14,19 @@ import {
 } from "@/lib/chat-task-inspector-tabs";
 import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
+
+const mobileQuery = "(max-width: 767px)";
+function subscribeViewport(notify: () => void): () => void {
+  const query = window.matchMedia?.(mobileQuery);
+  query?.addEventListener("change", notify);
+  return () => query?.removeEventListener("change", notify);
+}
+function mobileSnapshot(): boolean {
+  return window.matchMedia?.(mobileQuery).matches ?? false;
+}
+function desktopSnapshot(): boolean { return false; }
 
 /**
  * issue #2068（TW-P0-4）—— 右栏动态 Inspector。
@@ -62,6 +75,9 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 export interface ChatTaskInspectorProps {
   readonly hasSelection: boolean;
   readonly threadId: string | null;
+  readonly projectId?: string | null;
+  readonly canEditArtifacts?: boolean;
+  readonly onRunStarted?: (runId: string) => void;
   readonly artifacts: ListThreadArtifactsOut | null;
   readonly materials: ListThreadAttachmentsOut | null;
   readonly loading: boolean;
@@ -78,6 +94,7 @@ export interface ChatTaskInspectorProps {
   readonly isRunning: boolean;
   /** 当前阶段文案（`copilotkit-v2-run-progress.ts`），无可翻译事件时为 null。 */
   readonly runPhaseLabel: string | null;
+  readonly recoveryDiagnostic?: string | null;
   /** `RUN_STARTED` 时刻（epoch ms）；秒数在本组件内派生——见 panel 侧同名 prop 的注释：
    *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
   readonly runStartedAt: number | null;
@@ -101,6 +118,7 @@ const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }>
 };
 
 export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
+  const mobile = React.useSyncExternalStore(subscribeViewport, mobileSnapshot, desktopSnapshot);
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
@@ -131,7 +149,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   // queued/tick 续跑两条通路下都跟得上真实进度的数据源（文件头注）。账本一旦
   // 有步骤（`ledger.steps.length > 0`），一律以它为准，不再信 `planTodos`：
   // 后者只在实时桥通路上更新，续跑通路下会停在陈旧值，正是本 issue 的症状。
-  const { ledger: planLedger } = usePlanLedgerPolling(threadId);
+  const { ledger: planLedger } = usePlanLedgerPolling(threadId, props.projectId);
   const ledgerTodos: readonly PlanTodo[] | null = planLedger !== null && planLedger.steps.length > 0
     ? planLedger.steps.map((s) => ({ content: s.content, status: s.status }))
     : null;
@@ -193,11 +211,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     setOverride("expanded");
   }, []);
 
-  return (
+  const inspector = (
     <aside
       className={cn(
-        "hidden shrink-0 flex-col border-l border-border bg-card md:flex",
-        collapsed ? "w-10" : "w-72",
+        "flex shrink-0 flex-col border-l border-border bg-card",
+        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : "w-72",
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
@@ -306,6 +324,15 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               uploadCtl={null}
             />
           ) : activeTab === "artifacts" ? (
+            <>
+            {threadId && <AgentArtifactVersionsPanel
+              key={threadId}
+              threadId={threadId}
+              projectId={props.projectId}
+              canEdit={props.canEditArtifacts ?? false}
+              refreshKey={`${isRunning}:${artifactsCount}`}
+              onRunStarted={props.onRunStarted}
+            />}
             <ChatArtifactsPanel
               hasSelection={hasSelection}
               artifacts={artifacts}
@@ -314,6 +341,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               onRetry={onRetry}
               onOpen={onOpenArtifact}
             />
+            </>
           ) : activeTab === "roster" && roster !== undefined ? (
             <RosterPanel {...roster} />
           ) : (
@@ -322,11 +350,35 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
+              recoveryDiagnostic={props.recoveryDiagnostic}
             />
           )}
         </div>
       )}
     </aside>
+  );
+  if (!mobile) return inspector;
+  return (
+    <Dialog open={!collapsed} onOpenChange={(open) => setOverride(open ? "expanded" : "collapsed")}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          data-testid="chat-task-workbench-mobile-open"
+          aria-label="打开任务进度与成果"
+          className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-container text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <PanelRightOpen aria-hidden className="h-4 w-4" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className="left-auto right-0 top-0 h-dvh max-h-dvh w-[min(92vw,24rem)] max-w-none translate-x-0 translate-y-0 gap-0 rounded-none p-0"
+      >
+        <DialogTitle className="sr-only">任务进度与成果</DialogTitle>
+        {inspector}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -396,18 +448,20 @@ function ProgressTab({
  * 固定文案——同本组件其余行"没有真实数据就不放"的纪律。
  */
 function RunDetailsTab({
-  threadId, isRunning, runPhaseLabel, runElapsedSeconds,
+  threadId, isRunning, runPhaseLabel, runElapsedSeconds, recoveryDiagnostic,
 }: {
   threadId: string | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
   runElapsedSeconds: number | null;
+  recoveryDiagnostic?: string | null;
 }) {
   const rows: readonly (readonly [string, string])[] = [
     ["对话标识", threadId ?? "尚未创建"],
     ["运行状态", isRunning ? "运行中" : "空闲"],
     ["当前阶段", runPhaseLabel ?? "—"],
     ["本轮已用", runElapsedSeconds !== null ? `${runElapsedSeconds} 秒` : "—"],
+    ...(recoveryDiagnostic ? [["恢复状态", recoveryDiagnostic] as const] : []),
   ];
   return (
     <dl className="flex flex-col gap-1.5 p-3 text-11" data-testid="chat-task-workbench-inspector-run-details">

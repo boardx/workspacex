@@ -1,0 +1,55 @@
+# 契约束 `design-prototype` — 支撑材料：领域模型
+
+> 覆盖 feature：**B5.3**（权威是 `design-signoff.md` frontmatter `covers:`）。
+
+## 1. 实体：本束不新增实体，给 `DesignProject` 加一个字段
+
+| 实体（所属束） | 本束加的字段 | 类型 |
+|---|---|---|
+| 设计项目 `DesignProject`（`design-workbench`） | `prototype` | `PrototypeNode[]`，`prototype[i]` 是 `frames[i]` 那一页的树 |
+
+值对象（声明在 `packages/contracts/src/design-prototype.ts`，只此一份）：
+
+- **`PrototypeNode`**：递归组件树。容器 `stack`/`card` 有 `children`；其余 11 种是叶子。
+  每种类型的 `props` 都是 `.strict()` 对象——模型编造的属性进不了库。
+- **`PrototypeScreen`**：`{frame, root}`，模型写回的单位（一页一个对象）。
+- **`DesignPrototypeWriteback`**：`PrototypeScreen[]`，1–20 页，给出即整体替换。
+
+## 2. 不变量（能写成断言的）
+
+- **I-8 位置对应。** `prototype.length ∈ {0, frames.length}`；`prototype[i]` 属于 `frames[i]`。
+  契约 `DesignProject.superRefine` + 仓储 `update` 的 CASE（只改 `frames` ⇒ `prototype := []`）
+  + 读出时 `toPrototype` 长度不等 ⇒ 按「还没生成」处理。三处都守，任一处漏了另两处兜底。
+- **I-9 整页原子。** `prototype` 写回时 `frames`（标签）与 `prototype`（树）在**同一条** UPDATE
+  里更新；不存在「标签是新的、树是旧的」中间态。`applied` 同时列 `frames` 与 `prototype`。
+- **I-10 字段级拒绝。** 任一页超限（深度 > 8 / 节点 > 300）或有非法节点 ⇒ **整个** `prototype`
+  字段不写（`parseWriteback` 逐字段判，粒度是字段不是页）；`problem`/`criteria` 照写。
+  半套原型比没有更糟——页数对不上 I-8 也守不住。
+- **I-11 只能经模型写回。** 前端没有任何写 `prototype` 的入口（`createProject`/`updateProject`
+  的 `in` 都不收它），新建恒为 `[]`。用户改画布的唯一动作是再说一句话。
+- **I-12 原语说明单源。** `DESIGN_CHAT_SYSTEM_PROMPT` 拼 `PROTOTYPE_SCHEMA_GUIDE`，不另抄；
+  契约测试断言闭集里每个类型名都出现在说明里。
+
+- **I-13 节点 id 项目内唯一、落库必有。**（迭代 1）`ensurePrototypeIds` 在每次写回前补齐缺失 id、
+  保留已有；`prototypeIdsUnique` 是落库不变量。迭代 1 之前的存量树在读出时按遍历序确定性补 id。
+- **I-14 patch 整批原子、结果重验。**（迭代 1）`applyPrototypePatch` 顺序执行，每步结果重新过
+  `PrototypeNode` 契约与整页上限；任一步失败整批不生效、`applied` 不含 `prototype`。没有原型时 patch 拒。
+  `prototype`（整页）与 `patch` 同时给出以 `prototype` 为准。
+
+## 3. 取舍
+
+| 问题 | 选 | 不选 | 为什么 |
+|---|---|---|---|
+| 画布载体 | 结构化组件树 | 单文件 HTML | 人类 2026-09-06 决定。树可校验、用真实 token 渲染、不需要 iframe 沙箱；增量修改在树上是节点级替换 |
+| 本轮范围 | 整页重生成 | 节点级 patch | 人类决定「先整页、后增量」。现在给节点加 `id` 只会是没有生产者的字段 |
+| 标签与树 | `frames` 不动，`prototype` 按位置对应 | 把标签塞进树 / 用树派生标签 | 标签是 B4 起的既有事实源；派生会造第二份副本 |
+| 导出设计文档 | 客户端纯函数拼 Markdown 下载 | 服务端接口 | 素材全在 `DesignProject`；树的原始 JSON 由实体承载，文档里是缩进大纲不是 dump |
+| 超时 | 90s | 保持 30s | 多页 JSON 输出，实测 30s 不够；失败仍退固定回执 |
+| 存量数据 | 默认 `[]`，不回填 | 迁移时生成 | 生成要调模型，迁移里调模型是把不可重放的东西放进 DDL |
+
+## 4. 迭代路线（2026-09-06 人类指令：连续迭代到接近 Claude Design）
+
+- ✅ 迭代 1：节点 `id` + `PrototypePatchOp`（setProps / replace / insert / remove），模型可局部改。
+- 画布选中态 + 「就改这一块」的对话上下文；
+- 版本回退（现在每次整页替换，旧树只在对话历史里能追溯，不能一键回滚）；
+- 流式生成 / 取消。

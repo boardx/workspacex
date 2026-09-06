@@ -123,6 +123,21 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
     await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull());
   });
 
+  // issue #2857（2026-09-06 devapp 人类实测）—— 消息区可以滚过底部进入整屏空白。
+  // 根因：滚动容器自己不是定位元素，内容里任何 `position:absolute` 的后代（真栈实测
+  // 抓到的是运行中插话表单的 `sr-only` <Label>）以容器**外面**那层 `relative` 包装为
+  // 包含块，落在内容底部的静态位置——那个位置在滚动容器之外、可视区之下，于是撑大了
+  // 外层 `main`（`overflow-y-auto`）的可滚动高度：滚轮在消息区滚到头后接着把整列
+  // 往上推，露出一整屏 `main` 的底色。滚动容器自己成为定位上下文，绝对定位后代就被
+  // 收进它的 scrollable overflow，外层再也量不到它。
+  it("滚动容器自身是定位上下文（issue #2857：绝对定位后代不得撑大外层 main）", async () => {
+    mount();
+    const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    expect(container.classList.contains("relative")).toBe(true);
+    // 反证同一条事实的另一面：容器外那层包装仍然是 FAB 的定位层（既有 #2096 契约不变）。
+    expect(container.parentElement?.classList.contains("relative")).toBe(true);
+  });
+
   // 2026-09-02 人类实测："滚到底部的那个箭头的逻辑是错误的"——两条回归钉子。
   it("按钮不在滚动容器内部（否则会跟着内容一起滚走，停在某条消息中间）", async () => {
     mount();

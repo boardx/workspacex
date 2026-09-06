@@ -20,6 +20,9 @@ import type { OrgId } from "../../domain/org-id";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "./ports";
 
 export interface GetPlanLedgerOutput {
+  readonly pausedAt: string | null;
+  readonly pauseRequestedAt: string | null;
+  readonly cancelRequestedAt: string | null;
   readonly revision: number;
   readonly engineEpoch: number;
   readonly origin: PlanOrigin;
@@ -60,7 +63,7 @@ export async function getPlanLedger(
   const total = steps.length;
   const completed = steps.filter((s) => s.status === "completed").length;
 
-  const runStatus = run?.status ?? "idle";
+  const runStatus = run?.pausedAt ? "interrupted" : run?.status ?? "idle";
   const activeRunId = run !== null && ACTIVE_RUN_STATUSES.has(runStatus) ? run.runId : null;
   const elapsedMs = run !== null && activeRunId !== null
     ? Math.max(0, Date.now() - new Date(run.createdAt).getTime())
@@ -99,6 +102,9 @@ export async function getPlanLedger(
     : null;
 
   return {
+    pausedAt: run?.pausedAt ?? null,
+    pauseRequestedAt: run?.pauseRequestedAt ?? null,
+    cancelRequestedAt: run?.cancelRequestedAt ?? null,
     revision: ledger?.revision ?? 0,
     engineEpoch: ledger?.engineEpoch ?? 0,
     origin: ledger?.origin ?? "engine",
@@ -112,7 +118,7 @@ export async function getPlanLedger(
     progress: { completed, total, elapsedMs },
     pendingApplyAtNextRun,
     activeRunId,
-    errorCode: run?.errorCode ?? null,
+    errorCode: run?.pausedAt ? null : run?.errorCode ?? null,
     failedStepId,
   };
 }

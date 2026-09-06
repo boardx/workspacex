@@ -28,6 +28,10 @@ export interface PlanRunCreatorOutput {
 }
 
 export interface PlanRunCreator {
+  /** Resume the paused logical run from its checkpoint, without adding a human message. */
+  resumeCheckpoint?(input: { readonly orgId: OrgId; readonly threadId: string;
+    readonly actorId: string; readonly runId: string }): Promise<PlanRunCreatorOutput>;
+
   /**
    * Starts the next turn on this thread (I-10's "下一轮 run" for UC-7 `confirmPlan`; the
    * same mechanism F976 reuses, with different wording, for UC-13/UC-10). Throws on any

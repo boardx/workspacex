@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { toOrgId } from "../../src/domain/org-id";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { addChatThread, addChatMessage } from "../support/chat-db";
@@ -6,21 +7,8 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
 
-/**
- * 2026-08-30（devapp 真实用户复现：切回一条会话，右栏永远停在「正在恢复上次未完成的
- * 任务…」，前端 `useCopilotKitV2RunRestore` 轮询 `GET /agent-runs/:runId` 到 20 分钟
- * 预算耗尽也等不到终态）——根因排到后端：`agent_runs` 的 `running` 是唯一一个没有任何
- * "下一条消息自动捞回"路径的中间态。`claimQueued` 只认领 `status='queued'`，一条已经
- * 被 claim 走、状态翻成 `running` 的行，如果处理它的进程在模型调用返回之前就消失
- * （容器重启/OOM/挂起的网络调用），永远没有第二次机会被碰到——`queued`（下一条消息的
- * kick 重新捞）与 `writeback_pending`（`writeBackPendingRuns` 无条件重试）都明写了
- * 各自的自愈路径，唯独 `running` 没有。见 `ports.ts` `AgentRunStore.reclaimStaleRunning`
- * 与 `agent-run-executor.ts` `tick()` 的完整取证。
- *
- * 这里直接对真实 Postgres 发 INSERT/UPDATE，只信真实实现与真实触发器的回答——同
- * `agent-runs-status-transition-trigger.test.ts` 那份既有纪律，不 mock 仓储层。
- */
-
+/** Expired local heartbeats authorize only a fenced read of the original remote
+ * operation. They never prove remote failure or authorize replaying tools. */
 const ORG = toOrgId("org-reclaim-stale-running");
 const PROJECT = "proj-reclaim-stale-running";
 const THREAD = "thread-reclaim-stale-running";
@@ -28,12 +16,15 @@ const ACTOR = "u-reclaim-stale-running-actor";
 
 let db: PgDatabase;
 let repo: PgAgentRunRepository;
+const reconcileExistingRun=vi.fn();
+let recovery:PgRunRecovery;
 
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
   repo = new PgAgentRunRepository(db);
+  recovery=new PgRunRecovery(db,repo,{reconcileExistingRun});
 });
 
 afterAll(async () => {
@@ -42,6 +33,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  reconcileExistingRun.mockReset().mockResolvedValue({kind:"failed",diagnostic:"remote_error"});
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", null);
@@ -60,7 +52,7 @@ async function seedRun(
   id: string, status: string, startedAgo: string | null,
 ): Promise<string> {
   const inputMessageId = `${id}-input`;
-  const errorCode = status === "failed" ? "MODEL_CALL_FAILED" : null;
+  const errorCode = status === "failed" ? "RUN_INTERRUPTED" : null;
   await addChatMessage({ orgId: ORG, id: inputMessageId, threadId: THREAD, body: "hi", authorId: ACTOR });
   await asApp(ORG, (c) =>
     c.query(
@@ -69,9 +61,10 @@ async function seedRun(
           skill_version_ids, model_provider, model_id, status, started_at, error_code)
        VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb,$7,$8,$9,
                ${startedAgo === null ? "NULL" : `now() - interval '${startedAgo}'`}, $10)`,
-      [id, ORG, THREAD, inputMessageId, "agent-reclaim", "agent-version-reclaim", "test-provider", "test-model", status, errorCode],
+      [id, ORG, THREAD, inputMessageId, "agent-reclaim", "agent-version-reclaim", "deep-agent", "test-model", status, errorCode],
     ),
   );
+  await asApp(ORG,c=>c.query("UPDATE agent_runs SET remote_run_id=$2 WHERE id=$1",[id,`remote-${id}`]));
   return id;
 }
 
@@ -86,19 +79,20 @@ async function readRun(id: string): Promise<{ status: string; errorCode: string 
   });
 }
 
-describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states already closed", () => {
-  it("a running run started long ago is reclaimed to failed(MODEL_CALL_FAILED)", async () => {
+describe("Expired lease reconciliation preserves running and terminal state boundaries", () => {
+  it("an expired local run becomes failed only after the original remote confirms failure", async () => {
     const id = await seedRun("run-reclaim-old", "running", "30 minutes");
-    const reclaimed = await repo.reclaimStaleRunning(ORG, 20 * 60_000);
+    const reclaimed = await recovery.tick(ORG);
     expect(reclaimed).toBe(1);
     const after = await readRun(id);
     expect(after.status).toBe("failed");
-    expect(after.errorCode).toBe("MODEL_CALL_FAILED");
+    expect(after.errorCode).toBe("RUN_INTERRUPTED");
+    expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,`remote-${id}`,id);
   });
 
   it("a running run started moments ago is left alone -- a healthy in-flight run must not be reclaimed", async () => {
     const id = await seedRun("run-reclaim-fresh", "running", "10 seconds");
-    const reclaimed = await repo.reclaimStaleRunning(ORG, 20 * 60_000);
+    const reclaimed = await recovery.tick(ORG);
     expect(reclaimed).toBe(0);
     const after = await readRun(id);
     expect(after.status).toBe("running");
@@ -111,13 +105,15 @@ describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states 
     const approval = await seedRun("run-reclaim-approval", "awaiting_tool_permission", "30 minutes");
     const succeeded = await seedRun("run-reclaim-succeeded", "succeeded", "30 minutes");
     const failed = await seedRun("run-reclaim-failed", "failed", "30 minutes");
+    const paused = await seedRun("run-reclaim-paused", "paused", "30 minutes");
+    const cancelled = await seedRun("run-reclaim-cancelled", "cancelled", "30 minutes");
 
-    const reclaimed = await repo.reclaimStaleRunning(ORG, 20 * 60_000);
+    const reclaimed = await recovery.tick(ORG);
     expect(reclaimed).toBe(0);
 
     for (const [id, expectedStatus] of [
       [queued, "queued"], [writeback, "writeback_pending"], [approval, "awaiting_tool_permission"],
-      [succeeded, "succeeded"], [failed, "failed"],
+      [succeeded, "succeeded"], [failed, "failed"], [paused,"paused"], [cancelled,"cancelled"],
     ] as const) {
       const after = await readRun(id);
       expect(after.status, `${id} must be untouched`).toBe(expectedStatus);
@@ -126,8 +122,72 @@ describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states 
 
   it("a run already reclaimed does not get reclaimed a second time (idempotent, no double-log noise)", async () => {
     const id = await seedRun("run-reclaim-twice", "running", "30 minutes");
-    expect(await repo.reclaimStaleRunning(ORG, 20 * 60_000)).toBe(1);
-    expect(await repo.reclaimStaleRunning(ORG, 20 * 60_000)).toBe(0);
+    expect(await recovery.tick(ORG)).toBe(1);
+    expect(await recovery.tick(ORG)).toBe(0);
     expect((await readRun(id)).status).toBe("failed");
+  });
+});
+
+
+describe("issue #2860 —— 心跳与幽灵 run 回收", () => {
+  it("started_at 很久但心跳新鲜的 running 不会被回收（慢 run 一直在心跳）", async () => {
+    const id = await seedRun("run-heartbeat-alive", "running", "30 minutes");
+    await repo.heartbeatRun(ORG, id);
+    expect(await recovery.tick(ORG)).toBe(0);
+    expect((await readRun(id)).status).toBe("running");
+  });
+
+  it("心跳只写 running 的行：已终态的行心跳是 no-op", async () => {
+    const id = await seedRun("run-heartbeat-done", "succeeded", "1 minute");
+    await repo.heartbeatRun(ORG, id);
+    const row = await asApp(ORG, (c) => c.query<{ heartbeat_at: string | null }>(`SELECT heartbeat_at FROM agent_runs WHERE id=$1`, [id]));
+    expect(row.rows[0]?.heartbeat_at).toBeNull();
+  });
+
+  it("sweep discovers expired runs but only tenant-scoped remote reconciliation can settle them", async () => {
+    const { sweepOrphanedRuns } = await import("../../src/infrastructure/agent-run/sweep-orphaned-runs");
+    const dead = await seedRun("run-sweep-dead", "running", "5 minutes");
+    const alive = await seedRun("run-sweep-alive", "running", "5 minutes");
+    await repo.heartbeatRun(ORG, alive);
+    const logs: string[] = [];
+    const orphaned = await sweepOrphanedRuns(db, { olderThanMs: 2 * 60_000, log: (m) => void logs.push(m), reconcile:async orgId=>recovery.tick(toOrgId(orgId)) });
+    const tenantOrphans = orphaned.filter((run) => run.orgId === ORG);
+    expect(tenantOrphans.map((r) => r.id)).toEqual([dead]);
+    expect(tenantOrphans[0]).toMatchObject({ orgId: ORG, threadId: THREAD, remoteRunId: `remote-${dead}` });
+    expect((await readRun(dead))).toEqual({ status: "failed", errorCode: "RUN_INTERRUPTED" });
+    expect((await readRun(alive)).status).toBe("running");
+    expect(logs).toContain("orphaned agent runs reclaimed");
+    // 幂等：第二次什么都不收。
+    expect((await sweepOrphanedRuns(db, { olderThanMs: 2 * 60_000 })).filter((run) => run.orgId === ORG)).toEqual([]);
+  });
+});
+
+describe("uncertain recovery never submits a second operation",()=>{
+  it("keeps an unreachable remote run visible and does not retry before lease expiry",async()=>{
+    const id=await seedRun("run-offline","running","30 minutes");
+    reconcileExistingRun.mockResolvedValue({kind:"uncertain",diagnostic:"remote_reconcile_unavailable"});
+    expect(await recovery.tick(ORG)).toBe(1);
+    expect(await recovery.tick(ORG)).toBe(0);
+    expect(reconcileExistingRun).toHaveBeenCalledTimes(1);
+    expect((await readRun(id)).status).toBe("running");
+    expect(await repo.reclaimStaleRunning(ORG,1)).toBe(0);
+    expect((await readRun(id)).status).toBe("running");
+  });
+  it("continues observing a healthy remote operation after local lease loss",async()=>{
+    const id=await seedRun("run-remote-still-live","running","30 minutes");
+    reconcileExistingRun.mockResolvedValue({kind:"running"});
+    expect(await recovery.tick(ORG)).toBe(1);expect((await readRun(id))).toEqual({status:"running",errorCode:null});
+    expect(await recovery.tick(ORG)).toBe(0);expect(reconcileExistingRun).toHaveBeenCalledTimes(1);
+  });
+  it("never calls a remote when the submission id is missing",async()=>{
+    const id=await seedRun("run-no-remote-id","running","30 minutes");
+    await asApp(ORG,c=>c.query("UPDATE agent_runs SET remote_run_id=NULL WHERE id=$1",[id]));
+    expect(await recovery.tick(ORG)).toBe(1);expect(reconcileExistingRun).not.toHaveBeenCalled();
+    expect((await readRun(id)).status).toBe("running");
+  });
+  it("cannot claim another organization's expired work",async()=>{
+    const id=await seedRun("run-tenant-boundary","running","30 minutes");
+    expect(await recovery.tick(toOrgId("org-unrelated-recovery"))).toBe(0);
+    expect(reconcileExistingRun).not.toHaveBeenCalled();expect((await readRun(id)).status).toBe("running");
   });
 });

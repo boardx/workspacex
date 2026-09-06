@@ -254,3 +254,11 @@ export const AGENT_INTERRUPTS_TOOL_NAME_LIST: readonly string[] = [
  * （`cross-lang-tool-parity.test.ts`）断言这份并集与 Python 常量一致。
  */
 export const AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE = AGENT_INTERRUPTS_TOOL_NAME_LIST.join(",");
+
+/** Explicit user-facing form payload only; arbitrary tool arguments never enter this projection. */
+export const RestorableInterrupt = z.discriminatedUnion("toolName", [
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent), args: ConfirmIntentArgs }),
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams), args: FillParamsArgs }),
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption), args: ChooseOptionArgs }),
+]);
+export type RestorableInterrupt = z.infer<typeof RestorableInterrupt>;

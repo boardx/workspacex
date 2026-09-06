@@ -17,7 +17,11 @@ import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 import { IDENTITY_REPOSITORY, DECISION_ID_FACTORY } from "./application/identity/ports";
 import { CHAT_REPOSITORY } from "./application/chat/ports";
-import { AGENT_RUN_STORE, RUN_EVENT_BUS } from "./application/agent-run/ports";
+import { AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, RUN_EVENT_BUS } from "./application/agent-run/ports";
+import { RUN_RECOVERY } from "./application/agent-run/run-recovery";
+import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
+import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { toOrgId } from "./domain/org-id";
 import {
   RECORDING_ID_GENERATOR,
   RECORDING_UNIT_OF_WORK,
@@ -28,6 +32,10 @@ import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/record
 import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
+import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
+
+/** issue #2860 —— 幽灵 run 周期回收间隔；阈值本身在 `DEFAULT_STALE_RUNNING_THRESHOLD_MS`。 */
+const ORPHANED_RUN_SWEEP_INTERVAL_MS = 60_000;
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -203,4 +211,22 @@ if (isProcessEntry()) {
   if (!swept.ok) {
     console.error("error_logs retention sweep failed (will retry on next boot or write cadence):", swept.error);
   }
+  // issue #2860 —— 幽灵 run 回收：启动时一次（上一个进程死时正在跑的 run 此刻心跳已停），
+  // 之后每分钟一次（本进程活着但某个 run 的执行链意外断掉——理论上 executeQueuedRuns 的
+  // finally 会兜住，这一层是保险）。见 `sweep-orphaned-runs.ts` 头注。
+  const sweepOrphans = async (): Promise<void> => {
+    try {
+      await sweepOrphanedRuns(app.get(DATABASE_PORT), {
+        log: (msg, detail) => console.warn(msg, detail ?? ""),
+        reconcile: async (orgId) => {
+          await app.get<PgRunRecovery>(RUN_RECOVERY).tick(toOrgId(orgId));
+          await app.get<AgentRunExecutor>(AGENT_RUN_EXECUTOR).tick(toOrgId(orgId));
+        },
+      });
+    } catch (e) {
+      console.error("orphaned agent run sweep failed:", e);
+    }
+  };
+  await sweepOrphans();
+  setInterval(() => void sweepOrphans(), ORPHANED_RUN_SWEEP_INTERVAL_MS).unref();
 }

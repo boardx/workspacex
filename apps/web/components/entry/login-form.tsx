@@ -42,6 +42,9 @@ const RESET_RETRY_COPY = "重置服务暂时不可用，请稍后重试";
 
 export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   const session = useSession();
+  // SSR controls must not accept edits before React can preserve their values.
+  const [hydrated, setHydrated] = React.useState(false);
+  React.useEffect(() => setHydrated(true), []);
   const [showPwd, setShowPwd] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [email, setEmail] = React.useState(state === "invalid" ? LOGIN_BRAND.sampleEmail : "");
@@ -151,6 +154,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           placeholder={LOGIN_BRAND.sampleEmail}
           value={email}
           onChange={(e) => setEmail(e.currentTarget.value)}
+          disabled={!hydrated || submitting}
           data-testid="login-email"
         />
       </div>
@@ -174,6 +178,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             className="pr-14"
+            disabled={!hydrated || submitting}
             data-testid="login-password"
           />
           <button
@@ -193,8 +198,9 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
         variant="primary"
         size="lg"
         data-testid="login-submit"
-        disabled={submitting}
+        disabled={!hydrated || submitting}
         onClick={async () => {
+          if (!hydrated || submitting) return;
           setSubmitting(true);
           setLoginError(null);
           try {

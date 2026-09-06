@@ -40,6 +40,9 @@ import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } 
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
   return {
+    cancelRequestedAt: null,
+    pausedAt: null,
+    pauseRequestedAt: null,
     revision: 3,
     engineEpoch: 1,
     origin: "engine",
@@ -76,7 +79,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       ledgerWithSteps({ steps: [], phase: "preparing", gate: { required: false, reason: "no-plan" } }),
     );
     render(<CopilotKitV2PlanControl threadId="t-1" />);
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1"));
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1", undefined));
     expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
   });
 
@@ -98,7 +101,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     await waitFor(() => expect(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeTruthy());
     fireEvent.click(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID));
 
-    await waitFor(() => expect(api.confirmPlan).toHaveBeenCalledWith("t-3", { basedOnRevision: 3 }));
+    await waitFor(() => expect(api.confirmPlan).toHaveBeenCalledWith("t-3", { basedOnRevision: 3 }, undefined));
   });
 
   it("点击「编辑计划」切到编辑态，拖拽把手键盘调序真的调用 reorderPlanStep 带正确 planStepId/toIndex/basedOnRevision", async () => {
@@ -115,7 +118,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     fireEvent.keyDown(handles[0]!, { key: "ArrowDown", altKey: true });
 
     await waitFor(() =>
-      expect(api.reorderPlanStep).toHaveBeenCalledWith("t-4", { basedOnRevision: 3, planStepId: "s1", toIndex: 1 }),
+      expect(api.reorderPlanStep).toHaveBeenCalledWith("t-4", { basedOnRevision: 3, planStepId: "s1", toIndex: 1 }, undefined),
     );
   });
 
@@ -133,7 +136,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     fireEvent.click(deleteButtons[0]!);
 
     await waitFor(() =>
-      expect(api.deletePlanStep).toHaveBeenCalledWith("t-5", { basedOnRevision: 3, planStepId: "s1" }),
+      expect(api.deletePlanStep).toHaveBeenCalledWith("t-5", { basedOnRevision: 3, planStepId: "s1" }, undefined),
     );
   });
 
@@ -153,7 +156,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
 
     const pauseBtn = await screen.findByTestId("chat-task-workbench-run-pause");
     fireEvent.click(pauseBtn);
-    await waitFor(() => expect(api.pausePlanRun).toHaveBeenCalledWith("t-6"));
+    await waitFor(() => expect(api.pausePlanRun).toHaveBeenCalledWith("t-6", undefined));
   });
 
   it("phase='failed' 渲染失败恢复，点击「重试该步」真的调用 retryPlanStep 带服务端算出的 failedStepId", async () => {
@@ -172,7 +175,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
 
     const retryBtn = await screen.findByTestId("chat-task-workbench-failure-retry-step");
     fireEvent.click(retryBtn);
-    await waitFor(() => expect(api.retryPlanStep).toHaveBeenCalledWith("t-7", { planStepId: "s2" }));
+    await waitFor(() => expect(api.retryPlanStep).toHaveBeenCalledWith("t-7", { planStepId: "s2" }, undefined));
   });
 
   // issue #2451 —— failedStepId 是服务端真实信号，不是前端"第一个未完成的步骤"猜测：

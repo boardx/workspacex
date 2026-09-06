@@ -60,7 +60,7 @@ UC: 发一句设计协作消息
    （每项目独立：只喂本项目历史，thread 身份即 project id）。
 2. 模型输出 `{ reply, writeback?: { problem?, criteria?, frames? } }`；`writeback` 经
    `DesignChatWriteback` 严格解析，合法字段**直接写回**项目（owner 谓词 UPDATE），
-   `applied` 列出真的写了哪些；`frames` 只是画布页标签文案，画布仍是占位块。
+   `applied` 列出真的写了哪些；`frames` 是画布页标签文案，画布内容由 B5.3（`design-prototype` 束）的 `prototype` 写回承载。
 3. 追加 `[user, ai(source)]` 两条；返回写回后的完整 `project`。
 
 **验收线索**

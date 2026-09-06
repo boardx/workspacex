@@ -1,3 +1,5 @@
+import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * Ports for the minimal no-tool AgentRun (Wave 2 delta §5, #414).
  *
@@ -65,7 +67,7 @@ export interface TranscriptContentCipher {
  */
 export type ClaimOutcome =
   | { readonly kind: "executable"; readonly run: ClaimedAgentRun }
-  | { readonly kind: "unresolvable"; readonly runId: string };
+  | { readonly kind: "unresolvable"; readonly runId: string; readonly leaseEpoch?: number };
 
 /**
  * V9-b 前置 A（#970）—— 一条消息挂着的附件**元数据**（文件名 + MIME，不含内容）。
@@ -89,6 +91,9 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  readonly permissionRequestId?: string;
+  readonly leaseEpoch?: number;
+  readonly checkpointResume?: boolean;
   readonly runId: string;
   readonly threadId: string;
   /**
@@ -202,7 +207,13 @@ export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
  * （运维需要调参时不必改代码）；`readAgentRun` 这一路读的是这个常量本身，不接 env——
  * 一个只读请求的判定不应该因为部署环境不同而答案不同。
  */
-export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
+export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 2 * 60_000;
+/**
+ * issue #2860 —— 执行器在 run 进行中写 `heartbeat_at` 的间隔。回收阈值（上面 2 分钟）
+ * 是它的 8 倍：一次心跳写库失败/一次 GC 停顿都不会把活 run 判死；进程真没了，2 分钟内
+ * 收敛（此前是 20 分钟，且只在被动触发时）。
+ */
+export const RUN_HEARTBEAT_INTERVAL_MS = 15_000;
 
 export interface AppendedRunStep {
   readonly runId: string;
@@ -267,6 +278,8 @@ export interface AppendedRunStep {
  * an ADDITIONAL, purely observational trail, never a second source of truth for whether
  * the call succeeded.
  */
+export interface ModelDeltaMetadata { readonly messageId?: string; }
+
 export interface AppendedRunDelta {
   readonly runId: string;
   readonly seq: number;
@@ -282,6 +295,8 @@ export interface RunDelta {
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
+  readonly recoveryDiagnostic?: string | null;
+  readonly cancelRequestedAt?: string | null;
   readonly runId: string;
   readonly threadId: string;
   readonly inputMessageId: string;
@@ -308,7 +323,7 @@ export interface RunProjection {
    * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
    * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
    * 的 .strict() 拒绝——29 个既有测试当场教的。） */
-  readonly pendingApproval: { readonly toolName: string; readonly argsSummary: string | null } | null;
+  readonly pendingApproval: { readonly permissionRequestId?: string | null; readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null } | null;
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */
@@ -355,6 +370,14 @@ export interface PendingWriteback {
 }
 
 export interface AgentRunStore {
+  requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
+  cancelAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
+  pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<void>;
+  isPausedAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
+  resumeCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
+  appendExecutionEvent?(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void>;
+  readLegacyExecutionEvents?(orgId: OrgId, runId: string): Promise<readonly ExecutionEvent[]>;
+  readExecutionEvents?(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]>;
   /**
    * Atomically move up to `limit` of this tenant's `queued` runs to `running` and return
    * their snapshots. The claim IS the exactly-once guarantee: two concurrent executors
@@ -417,7 +440,7 @@ export interface AgentRunStore {
    */
   markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
   ): Promise<void>;
 
   /**
@@ -425,7 +448,9 @@ export interface AgentRunStore {
    * 供 executor 重新领 run 时让 provider 走 resume。返回 false = run 不在
    * awaiting_tool_permission（并发裁决/已终态），调用方按冲突处理，不重试。
    */
-  approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
+  decidePermissionRequest?(orgId: OrgId, runId: string, permissionRequestId: string,
+    decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean>;
+  approveAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean>;
 
   /**
    * UX-9 D4：awaiting_tool_permission → queued（人改参数后放行），记 pending_decision='edit'
@@ -448,7 +473,7 @@ export interface AgentRunStore {
    * CopilotKit `useHumanInTheLoop` 三键弹层（F07/F08 迁移前维持原状，见该函数文件头）。
    * 本方法只服务新的四选一工具权限确认弹层。
    */
-  denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
+  denyAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean>;
 
   /**
    * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
@@ -482,6 +507,12 @@ export interface AgentRunStore {
    * 不是两次独立发明"多久算卡住"。
    */
   reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number>;
+  /**
+   * issue #2860 —— run 进行中的心跳（`agent_runs.heartbeat_at = now()`），只对仍是
+   * `running` 的行生效。**可选**：既有测试的内存假仓与不关心心跳的路径不必实现，
+   * 缺席 ⇒ 不心跳，回收判据退回 `started_at`（与本次改动前逐字相同）。
+   */
+  heartbeatRun?(orgId: OrgId, runId: string): Promise<void>;
 
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;
@@ -710,6 +741,8 @@ export interface ThreadHistoryMessage {
  * their own, proof `DeepAgentModelProvider` will populate them correctly.
  */
 export interface ModelCallProgressEvent {
+  /** Structured ToolMessage status; never inferred from prose. */
+  readonly ok?: boolean;
   readonly toolName: string;
   readonly toolArgsSummary: string | null;
   readonly toolResultSummary: string | null;
@@ -795,6 +828,13 @@ export interface ModelCallImage {
 export interface ModelCallInput {
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
+  readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
+  readonly checkpointResume?: boolean;
+  readonly liveInterjections?: boolean;
+  /** Trusted executor identity, never sourced from model tool arguments. */
+  readonly executionAttemptId?: string;
+  readonly executionLeaseEpoch?: number;
+  readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
   /**
@@ -853,7 +893,7 @@ export interface ModelCallInput {
    * `pausePlanRun` 需要它来调用 `POST /threads/:id/runs/:run_id/cancel`。
    * 不注入 ⇒ 行为逐字节不变（回调不存在，不调用）。
    */
-  readonly onRemoteRunStarted?: (remoteRunId: string) => void;
+  readonly onRemoteRunStarted?: (remoteRunId: string) => void | Promise<void>;
   /**
    * issue #2664 -- 本次调用所属的 org id 与已 claim 的 `agent_runs` 行 id。OPTIONAL，
    * 同 `threadId` 一条既有先例：只有 `DeepAgentModelProvider` 关心它，别的 provider
@@ -979,14 +1019,20 @@ export class ModelCallError extends Error {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  readonly cancelled?: boolean;
+  readonly paused?: boolean;
+  readonly finalMessageId?: string;
   /**
    * DA-07b：非 undefined = 远端 run 停在敏感工具调用前等人裁决（interrupt_on）。
    * 此时没有终稿，text 为空串；调用方必须先查本字段再判空文本——顺序反了会把
    * 「等待批准」误判成「provider 没回内容」。
    */
   readonly interrupted?: {
+    readonly toolCallId?: string;
+    readonly toolArgsDigest?: string;
     readonly toolName: string;
     readonly argsSummary: string | null;
+    readonly interrupt?: RestorableInterrupt | null;
     /**
      * issue #2767 —— `toolName === "call_skill"` 时，待批调用的原始
      * `skill_stable_name` 参数（直接从 tool_call 的 `args` 对象读出，不是从
@@ -1018,6 +1064,7 @@ export interface ModelCallCompletion {
 }
 
 export interface ModelCallPort {
+  supportsLiveInterjections?(modelProvider: string): boolean;
   /**
    * Perform the single model call for a pinned provider/model.
    *
@@ -1052,7 +1099,7 @@ export interface ModelCallPort {
    */
   completeStream?(
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<ModelCallCompletion>;
 
   /**
@@ -1087,7 +1134,7 @@ export interface ModelCallPort {
      * 执行的两种观察，拆成两个方法会诱导两次调用。不传时 provider 行为必须与
      * 加此参数之前逐字一致（S1=B 双轨纪律在端口层的镜像）。
      */
-    onDelta?: (delta: string) => Promise<void>,
+    onDelta?: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     /* ⚠ 返回 `ModelCallCompletion`（#1747）：它在原来的 `{text,tokens,...}` 之上多带
        `files`——deep-agent 走 `call_skill` 产出的脚本，其执行产物要经这里回到
        `execute-run.ts` 落 ObjectStore。与上面的 `onDelta` 是两件独立的事，同时保留。 */

@@ -1,3 +1,4 @@
+import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
 /**
  * `RoutingModelCallPort` -- lets more than one `ModelCallPort` coexist without loosening
  * `ConfiguredModelProvider`'s "no fallback, structurally" invariant (see that file's own
@@ -50,10 +51,14 @@ export class RoutingModelCallPort implements ModelCallPort {
   // 把 execute-run 传来的第三参 onDelta 静默吞掉——token 流在生产/取证环境全断，
   // 而所有 provider 层单测都直连 provider、绕过本路由层，全绿。
   // 「链路上每一层都要有一个测试逼它转发完整签名」，见本文件配套测试。
+  supportsLiveInterjections(modelProvider: string): boolean {
+    return this.ports.get(modelProvider)?.supportsLiveInterjections?.(modelProvider) ?? false;
+  }
+
   async completeWithProgress(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-    onDelta?: (delta: string) => Promise<void>,
+    onDelta?: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }> {
     const port = this.resolve(input.modelProvider);
     if (!port.completeWithProgress) {
@@ -99,7 +104,7 @@ export class RoutingModelCallPort implements ModelCallPort {
    */
   async completeStream(
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }> {
     const port = this.resolve(input.modelProvider);
     if (port.completeStream) return port.completeStream(input, onDelta);

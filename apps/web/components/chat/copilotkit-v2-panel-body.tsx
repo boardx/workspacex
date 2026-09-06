@@ -1,12 +1,27 @@
 "use client";
+import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
+import { useSession } from "@/components/session/session-provider";
 
 import * as React from "react";
-import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
+import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
+import { restoreFinalMessages } from "@/lib/chat-workbench/restore-final-messages";
+import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
+import { QueuedMessagesPanel } from "@/components/chat/workbench/queued-messages-panel";
+import { useThreadMessageQueue } from "@/lib/chat-workbench/use-thread-message-queue";
+import { useDispatchedQueueMessages } from "@/lib/chat-workbench/use-dispatched-queue-messages";
+import { QueueNextTurnAction } from "@/components/chat/workbench/queue-next-turn-action";
+import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
+import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
+import { ChildCancellationNotice, latestCancelledRun } from "@/components/chat/workbench/child-cancellation-notice";
+import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
+import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
+import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
+import { useTemplateRecommendations, readTemplateSuggestionDismissed } from "@/lib/chat-workbench/use-template-recommendations";
+import { useTimelineScroll } from "@/lib/chat-workbench/use-timeline-scroll";
 import {
   useAgent,
   useCopilotKit,
   UseAgentUpdate,
-  CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, Paperclip, Pause, PenLine, Square } from "lucide-react";
@@ -20,10 +35,7 @@ import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-r
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
-import {
-  classifyInterjectFailure, interjectAgentRun, INTERJECT_FAILURE_COPY, INTERJECT_UNKNOWN_FAILURE_COPY,
-} from "@/lib/agent-kernel-interject";
-import { resolveRunningReplyRoute, runningReplyAckCopy, queuedReplyCopy } from "@/lib/chat-composer-running-reply";
+import { queuedReplyCopy } from "@/lib/chat-composer-running-reply";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
@@ -56,10 +68,9 @@ import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
-import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { getStoredSessionToken } from "@/lib/api-client";
 import {
-  createPersonalThread, listThreadAttachments, recommendCanvasTemplates,
-  summarizePersonaFromThread,
+  createPersonalThread, listThreadAttachments,
   type ListThreadAttachmentsOut,
 } from "@/lib/live-chat";
 // issue #2694 修复——`PERSONA_SUMMARY_AUTHOR_ID` 是后端/前端共认的单一事实源
@@ -85,48 +96,10 @@ import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permiss
 const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
 
-/**
- * issue #2694 修复——画布模板建议 chip 的关闭状态，按 **(线程, 模板 key)** 持久化到
- * `localStorage`。关闭是"这次不想再看到它"，与"后端已经产出过这个模板"是两件独立的
- * 事实（服务端 `recommendCanvasTemplates` 已经把画过的模板从推荐里剔掉了，这里管的是
- * 另一半：还没画、但用户现在不想画）。
- *
- * 只做本地持久化、不写后端：这条 chip 本身不是任何领域状态，"用户不想再看到一条
- * 建议"不需要一次服务端往返，与"这条线程后端落库了什么"那类事实不是同一类东西，
- * 不应该被同一条纪律要求。
- *
- * ⚠ `persona` 用的仍然是 issue #2694 时代那个**不带模板 key 的旧键名**（issue #2825
- *   把这条 chip 从写死的一条泛化成整排推荐时保留的）——换一个新键名不会报错，只会让
- *   所有此前主动关掉过「生成用户画像」的人在升级后又看到它一次。那是一次没有任何
- *   好处的静默回归，而兼容它的成本就是下面这一个三目。
- */
-const PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX = "chat-persona-suggestion-dismissed:";
-const TEMPLATE_SUGGESTION_DISMISSED_KEY_PREFIX = "chat-template-suggestion-dismissed:";
-function templateSuggestionDismissKey(threadId: string, templateKey: string): string {
-  return templateKey === "persona"
-    ? PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId
-    : `${TEMPLATE_SUGGESTION_DISMISSED_KEY_PREFIX}${threadId}:${templateKey}`;
-}
-function readTemplateSuggestionDismissed(threadId: string, templateKey: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(templateSuggestionDismissKey(threadId, templateKey)) === "1";
-  } catch {
-    // 隐私模式 / 存储被禁：静默降级为"没关闭过"，不让这个非核心便利功能炸整个面板。
-    return false;
-  }
-}
-function writeTemplateSuggestionDismissed(threadId: string, templateKey: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(templateSuggestionDismissKey(threadId, templateKey), "1");
-  } catch {
-    // 同上——写失败不影响本次会话内已经生效的 state，只是刷新后关闭状态丢失。
-  }
-}
-
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
+  observedRunId = null,
+  projectId = null,
   onThreadResolved,
   onMessageSent,
   onArtifactLanded,
@@ -135,6 +108,8 @@ export function CopilotKitV2PanelBody({
   onPendingMaterialsChange,
   threadAttachments = null,
   archived = false,
+  canWrite = true,
+  canDecide = true,
   canGeneratePersona = false,
   orgId = null,
   actingAgentId = null,
@@ -144,6 +119,8 @@ export function CopilotKitV2PanelBody({
   onSelectAgent,
 }: {
   chatThreadId?: string | null;
+  observedRunId?: string | null;
+  projectId?: string | null;
   /** CK-P3（#2054）—— 当前发送 agent 的真实 id，供逐条消息的「对 agent 提反馈」归因；
    *  用户未选择（走服务端配置的默认 agent）时为 `null`，此时不画反馈入口。 */
   actingAgentId?: string | null;
@@ -178,13 +155,15 @@ export function CopilotKitV2PanelBody({
      *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
      *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
      *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
-    readonly startedAt: number | null;
+    readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   archived?: boolean;
+  canWrite?: boolean;
+  canDecide?: boolean;
   /** issue #2053（CK-P6）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   canGeneratePersona?: boolean;
   /**
@@ -205,15 +184,16 @@ export function CopilotKitV2PanelBody({
     threadId,
     updates: [UseAgentUpdate.OnMessagesChanged, UseAgentUpdate.OnRunStatusChanged],
   });
-  const [inputDraft, setInputDraft] = React.useState("");
+  const runTrace = useRunTrace(agent, initialChatThreadId);
+  const hydrateRunTrace = runTrace.hydrate;
+  const acceptedRunEpoch = runTrace.acceptedRunEpoch;
+  const draftSession = useSession().session;
+  const composerDraft = useComposerDraft({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId ?? null, projectId, threadId: initialChatThreadId });
+  const { text: inputDraft, setText: setInputDraft, clear: clearComposerDraft } = composerDraft;
+  const sendFailedRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
-  /**
-   * issue #2797 -- `onError` 订阅（下面）与 `send()` 的 `catch` 分支各自上报一次异常
-   * 时，需要"这一刻真实的 runId/threadId/phase"，而不是订阅建立那一刻（`useEffect`
-   * 依赖数组只有 `[copilotkit, threadId]`,只在挂载时跑一次）闭包住的旧值。用一个
-   * ref 而不是把这三个值塞进依赖数组重新订阅——`ref.current` 由下面另一个不带依赖
-   * 数组的 effect 每次渲染后刷新,读的时候永远是最新一次渲染的值,订阅本身不用重建。
-   */
+  const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
+  // Keep the latest run context for stable framework error subscriptions.
   const runReportContextRef = React.useRef<{
     runId: string | null; threadId: string | null; phase: RunStage | null;
   }>({ runId: null, threadId: null, phase: null });
@@ -270,7 +250,7 @@ export function CopilotKitV2PanelBody({
     if (skillMention === null) return;
     setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
     setMention(null);
-  }, [skillMention]);
+  }, [skillMention, setInputDraft]);
 
   /**
    * issue #2046（CK-P2）—— `@` 候选与插入，语义平移旧 composer：候选是本线程
@@ -344,6 +324,7 @@ export function CopilotKitV2PanelBody({
         // 可见文案（裸 code/message 仍然不是人话，不该印到界面上）——下次同样的
         // 兜底文案出现时，浏览器控制台能看到真实 code_，不用再靠截图猜。
         console.error("[copilotkit-v2] agent run failed", { code: code_, context: errorContext });
+        sendFailedRef.current = true;
         setError(describeCopilotkitV2RunError(code_));
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
         // runId/时间范围查询,不必再等用户手动截图 DevTools。fire-and-forget,失败
@@ -586,6 +567,7 @@ export function CopilotKitV2PanelBody({
         // 只有一份写法），不在这里复制第二遍循环。
         const { messages: collected, pendingRunId: detectedPendingRunId } =
           await readAllPersistedMessages(initialChatThreadId, bearer);
+        void hydrateRunTrace(collected, bearer).catch(() => setError("执行过程暂时无法恢复，请刷新重试。"));
         // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
         // 写回且带 `agentRunId`（服务端第三道归因门，见
         // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
@@ -637,7 +619,7 @@ export function CopilotKitV2PanelBody({
             collected.filter((m) => m.role === "assistant").map((m) => m.id),
           );
           if (assistantMessageIds.size > 0) {
-            const attachments = await listThreadAttachments(initialChatThreadId, null, bearer);
+            const attachments = await listThreadAttachments(initialChatThreadId, projectId, bearer);
             if (!cancelled) {
               const rehydrated = attachments.items
                 .filter((item) => assistantMessageIds.has(item.messageId))
@@ -674,37 +656,23 @@ export function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles]);
+  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId]);
 
-  /**
-   * session-switch task-state-loss fix —— 上面 hydration 找到的 `pendingRunId`
-   * 在这里核实真实服务端状态（轮询 `GET /agent-runs/:runId`，与旧轨道同一个端点/
-   * 同一条只读纪律，见 `useCopilotKitV2RunRestore` 文件头）。核实到终态后重读一遍
-   * 持久化消息，把服务端已经写回的助手回复（用户切走期间真实生成完的那条）合并进
-   * `agent.messages`——合并按 id 去重、只追加，不整体覆盖，与上面 hydration 效果
-   * 同一条纪律（覆盖会杀掉这期间用户可能发出的新消息）。
-   *
-   * 2026-08-30（devapp 真实用户复现：切回会话后"正在恢复上次未完成的任务…"卡住不动，
-   * 看不出任何结果——见 `useCopilotKitV2RunRestore` 文件头对 `RunRestoreOutcome`
-   * 的完整取证）—— 第一版这里不管 `onSettled` 是因为什么结束，一律安静清空
-   * `pendingRunId`：run 真的以 `failed` 收场、或轮询自己撑不住放弃（20 分钟预算耗尽/
-   * bearer 过期）时，用户看到的是"生成中"指示消失、自己发的消息没有任何回应、
-   * 也没有任何错误提示——比根本不做恢复还让人困惑。现在按 `outcome.kind` 分流：
-   * `settled` 且 `view.status === "failed"` 时把服务端错误码经既有
-   * `describeCopilotkitV2RunError` 译成人话显示（与 `send()` 失败路径同一条错误展示
-   * 通道，不新开一条）；`gave-up` 时如实说"没能确认"，不冒充成功也不冒充失败——
-   * budget 耗尽时 run 在服务端可能还在跑，冒充失败是撒谎。
-   */
+  // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
     if (outcome.kind === "gave-up") {
       setError(
         outcome.reason === "auth-expired"
           ? "登录状态可能已过期，无法核实上一条任务的执行状态，请重新登录后刷新页面。"
-          : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
+          : outcome.reason === "stalled"
+            // issue #2860：服务端超过回收窗口仍非终态——如实说"没进展"，不冒充失败。
+            ? "上一条任务已超过 3 分钟没有任何进展（可能因服务重启中断），请重新发送一次。"
+            : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
       );
       setPendingRunId(null);
       return;
     }
+    setRecoveryDiagnostic(outcome.view.recoveryDiagnostic ?? null);
     if (outcome.view.status === "failed") {
       setError(describeCopilotkitV2RunError(outcome.view.error));
     }
@@ -746,6 +714,31 @@ export function CopilotKitV2PanelBody({
     getStoredSessionToken() ?? undefined,
     handleRunRestored,
   );
+
+  const bindTraceMessages = runTrace.bindMessages;
+  const restoreJournalResult = React.useCallback(async (runId: string): Promise<boolean> => {
+    if (agent.isRunning) return false;
+    const restoringThread = chatThreadIdRef.current;
+    if (!restoringThread) return false;
+    const { messages } = await readAllPersistedMessages(restoringThread, getStoredSessionToken() ?? undefined);
+    if (chatThreadIdRef.current !== restoringThread) return true;
+    const terminal = [...(runTrace.events[runId] ?? [])].reverse().find((event) => event.kind === "status");
+    if (!messages.some((message) => message.role === "assistant" && message.agentRunId === runId))
+      return terminal?.kind === "status" && (terminal.status === "failed" || terminal.status === "cancelled");
+    const restored = messages.filter((message) => message.role === "assistant" && message.agentRunId === runId);
+    registerHydrated(restored.map((message) => ({ id: message.id, rateable: message.rateable })));
+    bindTraceMessages(messages);
+    if (restored.length) {
+      agent.setMessages(restoreFinalMessages(agent.messages, runTrace.events[runId] ?? [], restored, messageIdentity.resolvePersisted));
+    }
+    onMessageSent?.();
+    return true;
+  }, [agent, messageIdentity, registerHydrated, bindTraceMessages, onMessageSent, runTrace.events]);
+  React.useEffect(() => { if (observedRunId) setPendingRunId(observedRunId); }, [observedRunId]);
+  const serverQueue = useThreadMessageQueue(resolvedChatThreadId, selectedAgentId, getStoredSessionToken());
+  const queuedRunIds = useDispatchedQueueMessages(agent, serverQueue.items, resolvedChatThreadId, getStoredSessionToken(), registerHydrated, bindTraceMessages);
+  useRunTraceTail({ observedRunId, observedRunIds: [...queuedRunIds, ...(runRestore.runId ? [runRestore.runId] : [])], threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
+    events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult });
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -802,21 +795,12 @@ export function CopilotKitV2PanelBody({
    * （读 URL 线程的 `chat_message_attachments`）也永远看不到它们。
    * 只有全新对话（`initialChatThreadId === null`）才保留原来的挂载即建逻辑。
    */
-  /**
-   * 2026-09-02（issue #2520）—— 上面两段头注里的"挂载后立即真建一条附件专用线程"
-   * 已经撤掉：人类本地实测每打开一次裸 `/chat`，列表里就多一条空的「新对话」（前一次
-   * 预建的那条永远没被用上）。改成**按需**：`useChatAttachments` 的 `resolveThreadId`
-   * 只在第一次真的有文件要上传时才被调用，那一刻才 `createPersonalThread`；同一段
-   * 对话里只建一次（memo 住 in-flight 的 promise，并发拖入多个文件也只建一条），失败
-   * 则下一次上传重新尝试。📎 按钮的可用性因此只取决于"已登录"，不再等预建完成——
-   * 头注里"两段式交互"的顾虑本来就不成立：文件对话框是同步打开的，上传本来就在
-   * 选完文件之后异步发生，线程在那一刻建完全来得及。
-   */
+  // Create one scope-correct thread lazily for attachments or the first project message.
   const [createdAttachmentThreadId, setCreatedAttachmentThreadId] = React.useState<string | null>(null);
   const attachmentThreadPromiseRef = React.useRef<Promise<string> | null>(null);
   const resolveAttachmentThreadId = React.useCallback((): Promise<string> => {
     if (attachmentThreadPromiseRef.current === null) {
-      attachmentThreadPromiseRef.current = createPersonalThread(null)
+      attachmentThreadPromiseRef.current = createWorkbenchThread(projectId)
         .then((created) => {
           setCreatedAttachmentThreadId(created.threadId);
           return created.threadId;
@@ -827,10 +811,11 @@ export function CopilotKitV2PanelBody({
         });
     }
     return attachmentThreadPromiseRef.current;
-  }, []);
+  }, [projectId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
+    canWrite: canWrite && !archived,
     bearer: sessionToken ?? undefined,
     resolveThreadId: initialChatThreadId === null ? resolveAttachmentThreadId : undefined,
   });
@@ -879,7 +864,7 @@ export function CopilotKitV2PanelBody({
   const voiceOpts = React.useMemo(() => ({
     setDraft: (text: string) => setInputDraft(text),
     getDraft: () => inputDraftRef.current,
-  }), []);
+  }), [setInputDraft]);
   const voice = useComposerVoiceSession(speech, voiceOpts);
   // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
   React.useEffect(() => {
@@ -1017,12 +1002,20 @@ export function CopilotKitV2PanelBody({
   // 连接上有一轮 run 时为真；`runRestore.isRestoring` 覆盖"挂载时发现上一轮 run 可能
   // 还没写回，正在核实"这段窗口——两者是"这条线程当前是否该显示生成中"这同一件事的
   // 两个真实来源，or 起来才是完整答案，不是二选一。
-  const runIsRunning = agent.isRunning || runRestore.isRestoring;
+  const activeTrace = Object.entries(runTrace.events).filter(([, events]) => {
+    const status = [...events].reverse().find((event) => event.kind === "status");
+    return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
+  }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
+  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
   // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
-  const interjectionRun = useChatHostInterjectionRun({
+  const connectedInterjectionRun = useChatHostInterjectionRun({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
     restore: { runId: runRestore.runId, status: runRestore.status },
   });
+  const traceStatus = activeTrace?.[1].slice().reverse().find((event) => event.kind === "status");
+  const interjectionRun = activeTrace && traceStatus?.kind === "status"
+    ? { runId: activeTrace[0], status: traceStatus.status }
+    : connectedInterjectionRun;
   // issue #2797 -- 见 `runReportContextRef` 声明处头注：每次渲染后刷新,供上面
   // `onError` 订阅 / `send()` 的 `catch` 读到的是当前这一轮真实的 runId/threadId/
   // phase,不是订阅建立那一刻闭包住的旧值。不带依赖数组——就是要在每次渲染后跑。
@@ -1033,15 +1026,17 @@ export function CopilotKitV2PanelBody({
       phase: runProgress.stage,
     };
   });
+  const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? latestCancelledRun(runTrace.events), sessionToken);
+  React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
     onRunStateChange?.({
       isRunning: runIsRunning,
       phaseLabel: runPhaseLabel,
-      startedAt: runStartedAt,
+      startedAt: runStartedAt, recoveryDiagnostic,
     });
-  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange]);
+  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange, recoveryDiagnostic]);
   const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
   const pendingMaterialsCount = attach.uploadedIds.length;
   React.useEffect(() => {
@@ -1068,34 +1063,7 @@ export function CopilotKitV2PanelBody({
     return () => { cancelled = true; };
   }, [initialChatThreadId, sessionToken]);
 
-  /**
-   * issue #2068（第二件，人类 2026-08-26 实测原话）—— 「正在思考…」与「正在生成
-   * 回复……」两处 loading 同屏，两处都不要，换成**在 AI 回复应该出现的位置**的一个。
-   *
-   * ## 这个 loading 主要覆盖的不是「正文在生成」，是**工具阶段**
-   *
-   * 另一条线用真引擎原始 SSE 逐帧回放，拿到 14.44s 一轮的分项时间线：
-   * `+0.00~5.84s` 模型第 1 轮 53 个空 content chunk（在流工具调用参数，无正文）→
-   * `+5.86s` / `+9.97s` 两批工具落地 → `+12.30s` **第一个正文 token** →
-   * `+14.41s` 最后一个正文 token。**工具阶段占前 85%，正文只占最后 2.1 秒。**
-   *
-   * 所以这里显示的不是一个转圈：那 12.3 秒里 agent 在做具体的事（写计划、列技能），
-   * 是**有内容可展示**的。合并后的这一条同时承载：
-   *   ① 阶段文案（`onToolCallStartEvent` 翻译出的"正在…"，真实工具事件驱动）；
-   *   ② 已用秒数（`RUN_STARTED` 起算——"会动"本身就是"没卡死"的证据，
-   *      #2064 那条裁决**没有被取消**，只是搬了位置、并进了这一条）；
-   *   ③ 45s longrun 提示；
-   *   ④ **当前在计划的第几步**（`STATE_SNAPSHOT{todos}`）——这是工具阶段真正
-   *      回答"它在干嘛"的那一维，右栏「进度」页签是它的完整版。
-   *
-   * ## 与右栏计划面板的关系（不是两个各转各的）
-   *
-   * 同一份 `planTodos`，两处**不同粒度**：气泡里是**一行**「第 2/4 步 · 对比竞品」，
-   * 眼睛不用离开正在读的位置；右栏是**全量**步骤清单，要看全貌时才看。不是复制——
-   * 复制的话两处会在同一帧显示不同的步数（本仓"同一事实两处"翻过五次车）。
-   * 数据只有一份、派生规则只有 `currentPlanStep` 这一个纯函数。
-   */
-
+  // Execution details now live in TaskTimeline; the status announcer only announces transitions.
   /**
    * issue #2075（TW-A11Y-4）—— agent 状态变化播报。视觉用户看得到运行状态条在动
    * （`copilotkit-v2-running-indicator` / `copilotkit-v2-thinking`），屏幕阅读器用户
@@ -1124,11 +1092,13 @@ export function CopilotKitV2PanelBody({
   const send = React.useCallback(
     async (override?: string, opts?: { readonly clientMessageId?: string }) => {
       const text = (override ?? inputDraft).trim();
-      if (text === "" || runIsRunning) return;
+      if (!canWrite || archived || text === "" || runIsRunning) return false;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
-      if (attach.hasUploading) return;
+      if (attach.hasUploading) return false;
+      const acceptedBefore = acceptedRunEpoch.current;
+      sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
       setInputDraft("");
       // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
@@ -1141,7 +1111,7 @@ export function CopilotKitV2PanelBody({
       // ⚠ 存的是**已发出**的那句，不是 composer 里的当前草稿：用户看到失败横幅时
       //   很可能已经在输入框里敲别的了，重试要重发失败的那一句。
       lastSentRef.current = { text, attachmentIds: attach.uploadedIds, clientMessageId };
-      agent.addMessage({ id: clientMessageId, role: "user", content: text });
+      if (!agent.messages.some((message) => message.id === clientMessageId)) agent.addMessage({ id: clientMessageId, role: "user", content: text });
       // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
       // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
       const attachmentIds = attach.uploadedIds;
@@ -1149,8 +1119,9 @@ export function CopilotKitV2PanelBody({
       // attachmentIds 归属），所以本轮一旦带了附件，chatThreadId 就必须是
       // `attachmentThreadId`——即便这是 turn 1（DA-19g 原本"turn 1 不传"的前提是
       // "还没有任何真实线程"，本轮已经因为附件而有了）。没有附件的路径完全不变。
-      const chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
+      let chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
       try {
+        if (!chatThreadId && projectId) chatThreadId = await resolveAttachmentThreadId();
         // DA-19g -- echo the resolved Chat thread id back on every turn AFTER the first
         // (see the `chatThreadIdRef` block above for why this is the fix, not a new
         // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour, UNLESS
@@ -1167,6 +1138,7 @@ export function CopilotKitV2PanelBody({
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
         // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
         onMessageSent?.();
+        return acceptedRunEpoch.current > acceptedBefore || !sendFailedRef.current;
       } catch (e) {
         // DA-19g -- 与上面 `copilotkit.subscribe({ onError })` 走同一份文案映射
         // （`copilotkit-v2-error-copy.ts`），不在这条分支单独拼一句可能带原始异常
@@ -1180,338 +1152,26 @@ export function CopilotKitV2PanelBody({
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
         // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。
         reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
+        return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent],
+    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
   );
 
-  /**
-   * ── 画布模板推荐 chip（issue #2825，泛化自 #2053 CK-P6 的「生成用户画像」）──────
-   *
-   * ## 这一段替换掉了什么
-   *
-   * 此前这里是一条**写死的常量 chip**：19 个内置 + 组织自建画布模板里只有 `persona`
-   * 一个进得了建议行，文案永远相同，后台 template-admin 里新建/改名/停用模板对它
-   * 毫无影响（人类 2026-09-06 原话：「可否变为一个动态的、更具上下文来推荐可视化
-   * 模板的地方，而不只是用户画像，比如上面是用户画像，就可以推荐用户旅程图、
-   * 同理心地图等，主要渲染我们在后台定义好的画布模板」）。
-   *
-   * 现在「推荐哪几个模板」由服务端 `recommendCanvasTemplates` 算：判据是①这条线程
-   * 已经画过哪些 canvas 围栏、②后台已发布模板各自配的 `recommendAfter`。**本文件
-   * 不复制其中任何一条规则**——它只负责渲染与点击后的动作分派，这正是上一版的教训
-   * （规则写在前端 ⇒ 后台改了模板，chat 照旧）。
-   *
-   * ## 前端仍然自己判的两件事，以及为什么它们不该下沉到服务端
-   *
-   * · `personaThreadHasPersistedEvidence`——"这条线程后端已经确认落库过至少一条
-   *   消息"。它决定的是**要不要发起这次请求**：线程 id 刚 resolve、消息还没落库时
-   *   请求回来必然是空列表，白跑一趟。判据与两个事实源的完整论证见下方定义。
-   * · `dismissedTemplateKeys`——用户主动关掉的那些。纯本地偏好，不写后端（见文件头
-   *   `readTemplateSuggestionDismissed` 的说明）。
-   *
-   * ## `persona` 是唯一的动作特例，且是刻意保留的
-   *
-   * 其余模板点击 = 发一条普通用户消息（`items[].prompt`，服务端拼好的），由
-   * `buildCanvasTemplateGuidance`（issue #1493）已经注入 system prompt 的那段
-   * canvas 指引带模型产出围栏——**不需要任何新端点**。而 `persona` 走的是既有的
-   * `summarizePersonaFromThread`（POST 专用端点，产出 mindmap 消息 + 一份 draft
-   * Artifact，已由 design-delta chat-persona-roundtrip 人类签核）。两者产物不同，
-   * 把 persona 也改成发消息会**悄悄取消**那份已签核的 Artifact 落地行为。
-   */
-  const [templateRecommendations, setTemplateRecommendations] = React.useState<
-    readonly { readonly key: string; readonly displayName: string; readonly prompt: string }[]
-  >([]);
+  // Template recommendations retain the existing persisted-evidence and permission gates.
   const personaThreadHasPersistedEvidence =
     initialChatThreadId !== null
     && ((hydratedEvidence !== null
       && hydratedEvidence.threadId === initialChatThreadId
       && hydratedEvidence.hasMessages)
       || resolvedThreadIdsRef.current.has(initialChatThreadId));
-  /**
-   * 取一次推荐。**只在这三种时刻**跑，不做轮询：
-   *   ① 线程确认有落库消息之后（挂载 / 本轮新建线程 resolve 完）；
-   *   ② 一次 run 跑完（`agent.isRunning` 落回 false）——模型可能刚产出一份画布，
-   *     推荐清单要跟着变（画完旅程图，就不该继续推荐旅程图）；
-   *   ③ persona 汇总成功之后（它不是一次 agent run，`isRunning` 不会动）。
-   *
-   * 失败静默吞掉：建议行是锦上添花，一次 404/网络抖动不该在聊天面板上多一条红字
-   * （服务端同一条纪律——模板库读不到时返回空 `items` 而不是报错）。
-   */
-  const refreshTemplateRecommendations = React.useCallback(async (threadId: string) => {
-    try {
-      const bearer = getStoredSessionToken() ?? undefined;
-      // `projectId` 恒传 `null`：v2 外壳管的全是个人线程，与本文件其余 chat 读调用
-      //  （`getThread`/`landAsArtifact`）同一个既有约定，见 `copilotkit-v2-shell.tsx`。
-      const out = await recommendCanvasTemplates(threadId, null, bearer);
-      setTemplateRecommendations(out.items);
-    } catch {
-      setTemplateRecommendations([]);
-    }
-  }, []);
-  React.useEffect(() => {
-    if (initialChatThreadId === null || archived || !personaThreadHasPersistedEvidence) {
-      setTemplateRecommendations([]);
-      return;
-    }
-    if (agent.isRunning) return; // 跑完再取——run 途中的答案下一秒就过期了。
-    void refreshTemplateRecommendations(initialChatThreadId);
-  }, [
-    initialChatThreadId, archived, personaThreadHasPersistedEvidence,
-    agent.isRunning, refreshTemplateRecommendations,
-  ]);
-
-  /**
-   * ── issue #2053 CK-P6「生成用户画像」（差距表 #6）────────────────────────────
-   *
-   * 平移旧轨道 `chat-live-message-panel.tsx` 的 `runPersonaSummary`：一次
-   * `POST /chat/threads/:threadId/persona-summary`，扫全线程产出画像，产物以一条
-   * assistant 消息（```mermaid mindmap 围栏）落回线程，走既有
-   * `MarkdownMessage → ChatDiagramFabric` 通道渲染。
-   *
-   * ## 与旧轨道**唯一**的实现差异，以及为什么必须有这个差异
-   *
-   * 旧轨道的 `messages` 本身就是 `listMessages` 读回来的持久化消息，取
-   * `messages[messages.length - 1].id` 当锚点天然就是 `chat_messages.id`。
-   * 本轨道的 `agent.messages` 是 **AG-UI 流式消息**——它里面的 id 只有"挂载时从
-   * 后端灌回的历史"那一段等于 `chat_messages.id`，本次会话里新流进来的那些是
-   * CopilotKit/AG-UI 自己生成的、后端**不认识**的 id（本文件头注早就记录过这是两个
-   * 独立命名空间）。直接拿 `agent.messages` 末条的 id 去调，在"刚发完一条消息就点
-   * 生成画像"这条最常见的路径上必然拿到一个后端查不到的锚点——那正是本仓反复禁止的
-   * 「点了才报错的假按钮」。所以这里点击时**现读一次**持久化消息
-   * （`readAllPersistedMessages`），锚点取其最后一条。
-   *
-   * 结果回显同理：用契约回给的 `out.resultMessageId` 去那份持久化读回里定位那条
-   * assistant 消息，**只追加这一条**到 `agent.messages`，不整体覆盖——覆盖会杀掉
-   * 在途 run 已经流进来的内容（与上面历史灌回那段是同一条纪律）。
-   *
-   * 失败**原样回显 reasonCode**，不糊一句「生成失败」（旧轨道同款；契约 err 有三档：
-   * NOT_VISIBLE / NO_WRITE_ROLE / STORAGE_UNAVAILABLE，用户对它们的处置完全不同）。
-   */
-  const [personaRunning, setPersonaRunning] = React.useState(false);
-  const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
-  /**
-   * 2026-08-30 重设计：「生成用户画像」从恒定不变的独立按钮，改成建议行里按上下文
-   * 出现/消失的一条（人类原话「他应该是动态的建议的行为，不能是固定的」）。
-   * `personaGeneratedOnce` 是「本次会话是否已经成功生成过一次」的本地信号——
-   * 见下方 `showPersonaSuggestion` 的完整判据与已知局限说明。
-   */
-  const [personaGeneratedOnce, setPersonaGeneratedOnce] = React.useState(false);
-  /**
-   * issue #2694 修复（issue #2825 泛化）——建议 chip 的关闭状态，按模板 key 分别记。
-   * `dismissedTemplateKeys` 只是本次渲染要用的**内存投影**，权威在 `localStorage`
-   * （见文件头 `readTemplateSuggestionDismissed`）：关闭是"针对这一条线程的这一个
-   * 模板"，线程切换时整份丢弃、按新线程重读。
-   */
-  const [dismissedTemplateKeys, setDismissedTemplateKeys] = React.useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  React.useEffect(() => {
-    // 线程切换：关闭状态不跨线程带过去。清空即可——下面 `visibleSuggestions` 每次
-    // 都对当次推荐列表现读一次 `localStorage`，不需要在这里预先把整个键空间扫一遍
-    // （也扫不了：推荐了哪几个模板要等服务端回来才知道）。
-    setDismissedTemplateKeys(new Set());
-  }, [initialChatThreadId]);
-  const dismissTemplateSuggestion = React.useCallback((templateKey: string) => {
-    setDismissedTemplateKeys((prev) => new Set([...prev, templateKey]));
-    if (initialChatThreadId !== null) writeTemplateSuggestionDismissed(initialChatThreadId, templateKey);
-  }, [initialChatThreadId]);
-  const runPersonaSummary = React.useCallback(async () => {
-    if (initialChatThreadId === null || personaRunning) return;
-    setPersonaRunning(true);
-    setPersonaFailure(null);
-    try {
-      const bearer = getStoredSessionToken() ?? undefined;
-      const { messages: persisted } = await readAllPersistedMessages(initialChatThreadId, bearer);
-      const anchor = persisted[persisted.length - 1];
-      if (anchor === undefined) {
-        setPersonaFailure("这条对话还没有已落库的消息，无法生成画像。");
-        return;
-      }
-      const out = await summarizePersonaFromThread(initialChatThreadId, anchor.id, bearer);
-      const { messages: after } = await readAllPersistedMessages(initialChatThreadId, bearer);
-      const result = after.find((m) => m.id === out.resultMessageId);
-      if (result === undefined) {
-        // 服务端说写了、读回却没有——不假装成功，也不假装失败：如实说清楚现状与出路。
-        setPersonaFailure("画像已生成，但没能立刻读回那条消息。刷新页面即可看到。");
-        return;
-      }
-      if (!agent.messages.some((m) => m.id === result.id)) {
-        agent.setMessages([...agent.messages, result]);
-      }
-      // 成功之后这条建议就该从建议行里消失——不然用户会看到同一条"生成用户画像"
-      // 一直挂在已经生成过的对话下面，重新点一次除了多花一次模型调用什么也不会
-      // 变（`buildPersonaLanding` 是幂等的全量重扫，不是增量）。
-      setPersonaGeneratedOnce(true);
-      // issue #2825——画像不是一次 agent run（`agent.isRunning` 不会动），所以取推荐
-      // 的那个 effect 不会自己重跑；这里显式再取一次：画完画像，推荐行应该立刻换成
-      // 「用户旅程图 / 同理心地图」这些下一步，而不是等下一次对话才更新。
-      void refreshTemplateRecommendations(initialChatThreadId);
-      // 画像同时落了一件产物（`out.artifactId`）——通知外壳刷新右栏「产物」栏，
-      // 与 `send()` 里 run settle 后那次是同一个通道、同一个理由。
-      onMessageSent?.();
-    } catch (failure) {
-      setPersonaFailure(
-        failure instanceof ApiError
-          ? `生成用户画像失败：${failure.reasonCode ?? `HTTP ${failure.status}`}`
-          : failure instanceof Error
-            ? `生成用户画像失败：${failure.message}`
-            : "生成用户画像失败。",
-      );
-    } finally {
-      setPersonaRunning(false);
-    }
-  }, [agent, initialChatThreadId, onMessageSent, personaRunning, refreshTemplateRecommendations]);
-
-  /**
-   * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
-   * 后也没有回到底部的入口，只能手动拖滚动条。做法对齐 Slack/Discord/ChatGPT 的常见
-   * 约定（`CopilotChatView.ScrollView` 库内置的 `pin-to-bottom` 语义同款做法，本仓
-   * 选自己写而不是接那个组件——见下方"为什么不用库自带 ScrollView"）：贴底时新消息
-   * 自动跟随；一旦往上翻离开底部，自动跟随停止，改为在消息区右下角浮现"↓回到最新"
-   * 按钮；键盘 `Cmd/Ctrl+End` 随时可跳回底部，与输入框里普通 `End`（移到行尾）不冲突
-   * （只认组合键）。
-   *
-   * ## 为什么不直接接库自带的 `CopilotChatView.ScrollView`
-   *
-   * 它确实自带同款语义（`autoScroll="pin-to-bottom"` + `scrollToBottomButton` slot），
-   * 但它的测量假设（`inputContainerHeight`/`feather`）是围绕"composer 本身也在
-   * ScrollView 内"设计的，本面板 composer 在这个滚动容器**外面**自绘（下方错误横幅、
-   * composer 区块都在 `overflow-y-auto` 容器之外）——接入前没有把握它的内部布局假设
-   * 不会跟 #2039 三轮 UIUX 迭代过的布局打架。手写这套（滚动位置判定 + 条件贴底 +
-   * 悬浮按钮）改动可预期，不依赖库的内部测量逻辑。
-   */
-  const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const [isAtBottom, setIsAtBottom] = React.useState(true);
-  /**
-   * 2026-09-02 人类实测反馈："滚到底部的那个箭头的逻辑是错误的"。两处根因：
-   *
-   * ① 按钮此前是滚动容器（`overflow-y-auto`）自己的 `absolute` 子节点。绝对定位的
-   *    后代仍然属于滚动容器的**可滚动内容**——`bottom-3` 只是相对容器*初始*那一屏
-   *    的 padding box 定位，用户往上翻一屏之后，按钮跟着内容一起滚走：要么消失，
-   *    要么停在某条消息中间（截图里它正压在气泡正中）。修法：按钮搬到滚动容器
-   *    **外面**，与它并列在一个 `relative` 包装层里，才真正钉在可视区底部。
-   *
-   * ② 程序化滚动（点按钮/新消息自动跟随，`behavior:"smooth"`）会在动画途中连续
-   *    触发 `scroll` 事件，中间位置离底部还远，`handleMessagesScroll` 把 `isAtBottom`
-   *    翻回 `false`——按钮刚点掉又冒出来；流式增量时更糟：每个 delta 都起一次平滑
-   *    滚动，动画途中的 `scroll` 事件把"贴底"判成"用户往上翻了"，自动跟随就此
-   *    停止，用户明明没动过滚轮却看到箭头浮现、回复自己滚出视野。修法：
-   *    `programmaticScrollRef` 标记"这次滚动是我们发起的"，动画途中的 `scroll`
-   *    事件不把 `isAtBottom` 翻成 false，直到真的抵达底部（或用户以滚轮/触摸/键盘
-   *    介入——那才是"用户往上翻"的证据）才解除；自动跟随改用 `auto`（瞬时），
-   *    Slack/Discord 的贴底跟随本来就是瞬时的，平滑只留给用户主动点按钮那一次。
-   *
-   * ③ 内容在没有新消息的情况下长高（图表/画布进入视口后惰性渲染、图片加载），
-   *    不会触发 `scroll` 事件也不会改变 `agent.messages`：贴底态下用 `ResizeObserver`
-   *    盯住内容包装层，长高就补一次瞬时贴底，保持"贴底"这个承诺。
-   */
-  const messagesContentRef = React.useRef<HTMLDivElement | null>(null);
-  const programmaticScrollRef = React.useRef(false);
-  const programmaticScrollTimerRef = React.useRef<number | null>(null);
-
-  /**
-   * PR #2530 review（exact-SHA reviewer 第 1 条）—— 这个标记不能只靠"抵达底部的
-   * `scroll` 事件"或"滚轮/触摸/键盘"来解除：`auto` 滚动在位置没变时根本不发
-   * `scroll` 事件，用户拖滚动条滑块（pointer）也不是 wheel/touch。标记一旦卡住，
-   * 后面用户真实往上翻的 `scroll` 会被当成"程序化途中"吞掉——按钮不出现、内容
-   * 长高还把人拉回底部。所以解除条件是四个里**任一**：抵达底部的 `scroll`、
-   * `scrollend`（支持的浏览器）、pointer/滚轮/触摸/键盘介入、以及一个有界超时
-   * （平滑滚动动画不会超过这个时长；`auto` 立即完成）。`setProgrammaticScroll`
-   * 是唯一的置位入口，置位同时起表；`clearProgrammaticScroll` 是唯一的解除入口。
-   */
-  const PROGRAMMATIC_SCROLL_MAX_MS = 1_000;
-  const clearProgrammaticScroll = React.useCallback(() => {
-    programmaticScrollRef.current = false;
-    if (programmaticScrollTimerRef.current !== null) {
-      window.clearTimeout(programmaticScrollTimerRef.current);
-      programmaticScrollTimerRef.current = null;
-    }
-  }, []);
-  const setProgrammaticScroll = React.useCallback(() => {
-    if (programmaticScrollTimerRef.current !== null) window.clearTimeout(programmaticScrollTimerRef.current);
-    programmaticScrollRef.current = true;
-    programmaticScrollTimerRef.current = window.setTimeout(clearProgrammaticScroll, PROGRAMMATIC_SCROLL_MAX_MS);
-  }, [clearProgrammaticScroll]);
-  React.useEffect(() => clearProgrammaticScroll, [clearProgrammaticScroll]);
-
-  const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
-    const el = messagesContainerRef.current;
-    // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
-    // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
-    if (el === null || typeof el.scrollTo !== "function") return;
-    setProgrammaticScroll();
-    el.scrollTo({ top: el.scrollHeight, behavior });
-    setIsAtBottom(true);
-  }, [setProgrammaticScroll]);
-
-  const prefersReducedMotion = React.useCallback((): boolean => {
-    // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
-    return typeof window !== "undefined" && typeof window.matchMedia === "function"
-      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }, []);
-
-  const handleMessagesScroll = React.useCallback(() => {
-    const el = messagesContainerRef.current;
-    if (el === null) return;
-    const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
-    if (programmaticScrollRef.current) {
-      // 我们自己发起的滚动还在路上：中间位置不算"用户离开了底部"。抵达即解除标记。
-      if (nearBottom) clearProgrammaticScroll();
-      return;
-    }
-    setIsAtBottom(nearBottom);
-  }, [clearProgrammaticScroll]);
-
-  // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
-  // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
-  const handleUserScrollIntent = React.useCallback(() => {
-    clearProgrammaticScroll();
-  }, [clearProgrammaticScroll]);
-
-  // `scrollend`（Chrome 114+/Firefox 109+；Safari 尚无）：平滑滚动真正结束的权威信号。
-  // 不支持的浏览器由上面的有界超时兜底。React 还没有 `onScrollEnd` prop，手动挂。
-  React.useEffect(() => {
-    const el = messagesContainerRef.current;
-    if (el === null) return;
-    el.addEventListener("scrollend", clearProgrammaticScroll);
-    return () => el.removeEventListener("scrollend", clearProgrammaticScroll);
-  }, [clearProgrammaticScroll]);
-
-  // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
-  // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
-  React.useEffect(() => {
-    if (!isAtBottom) return;
-    const el = messagesContainerRef.current;
-    if (el === null || typeof el.scrollTo !== "function") return;
-    setProgrammaticScroll();
-    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
-  }, [agent.messages, isAtBottom, setProgrammaticScroll]);
-
-  // 见上方 ③：贴底态下内容长高（惰性渲染的图表、加载完的图片）也要跟住。
-  React.useEffect(() => {
-    if (!isAtBottom) return;
-    const content = messagesContentRef.current;
-    const el = messagesContainerRef.current;
-    if (content === null || el === null || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (typeof el.scrollTo !== "function") return;
-      setProgrammaticScroll();
-      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  const { templateRecommendations, personaGeneratedOnce, personaRunning, personaFailure,
+    dismissedTemplateKeys, dismissTemplateSuggestion, runPersonaSummary } = useTemplateRecommendations({
+      agent, initialChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
     });
-    ro.observe(content);
-    return () => ro.disconnect();
-  }, [isAtBottom, setProgrammaticScroll]);
 
-  // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
-  React.useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key !== "End" || !(e.metaKey || e.ctrlKey)) return;
-      e.preventDefault();
-      scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth");
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [scrollMessagesToBottom, prefersReducedMotion]);
+  const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
+    handleUserScrollIntent, scrollMessagesToBottom, prefersReducedMotion } = useTimelineScroll(agent.messages);
 
   /**
    * issue #2096（真实 devapp 实测：打字/滚动时消息区画布内容闪烁）—— 根因：两个
@@ -1533,9 +1193,9 @@ export function CopilotKitV2PanelBody({
   // 自己的既有纪律）：只有当它恰好在别的原因引发的渲染之间真的变了，下面这个 memo
   // 才应该重建对象；lint 规则不认识"读 ref 当依赖是有意为之"这个既有模式，下一行禁用。
   const artifactLandingContextValue = React.useMemo(
-    () => ({ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
+    () => ({ projectId, threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chatThreadIdRef.current, sessionToken],
+    [chatThreadIdRef.current, sessionToken, projectId],
   );
 
   /**
@@ -1575,7 +1235,7 @@ export function CopilotKitV2PanelBody({
   // 2026-09-06 人类直接反馈：「agent 还在生成时也要能回复 A/B」——`agent.isRunning` 不再是
   // 禁用理由；运行中的正文走 `sendWhileRunning`（插话 / 排队，见
   // `lib/chat-composer-running-reply.ts` 文件头），发送键只在**输入框为空**时才是「停止」。
-  const sendDisabledReason: string | null = archived
+  const sendDisabledReason: string | null = !canWrite ? "当前对话只读或写权限尚未确认" : archived
     ? "该对话已归档，不能再发送消息"
     : attach.hasUploading
       ? "附件正在上传，请等待上传完成后再发送"
@@ -1584,58 +1244,13 @@ export function CopilotKitV2PanelBody({
         : null;
   const sendDisabled = sendDisabledReason !== null;
 
-  /**
-   * run 进行中的回复。两条路（判据在 `resolveRunningReplyRoute`）：
-   * - `interject`：真实 runId 已知且内核 `running` ⇒ `POST /agent-runs/:runId/interject`，
-   *   成功后正文以一条本地 user 消息回显在线程里（与正常发送同一个 `agent.addMessage`
-   *   入口，用户看到的是"我说了 B"，不是"agent 说了 B"），页脚给一句 ack；失败则文案
-   *   进 `error` 横幅、正文留在输入框供重发（与 `InterjectionComposer` 同一套错误映射）。
-   * - `queue`：拿不到可插话的 run ⇒ 正文离开输入框进 `queuedReply`，页脚如实说明
-   *   「本轮结束后自动发送」；下面的 effect 在 `agent.isRunning` 翻假时用正常 `send` 发出。
-   * ⚠ 插话**不落库为 chat 消息**（后端 `interject-run.ts` 只写内核账本），刷新后这条
-   *   本地回显会消失——这是后端插话链路今天的边界，不在本次前端改动里补。
-   */
-  const [queuedReply, setQueuedReply] = React.useState<string | null>(null);
-  const [runningReplyAck, setRunningReplyAck] = React.useState<string | null>(null);
-  const [interjectPending, setInterjectPending] = React.useState(false);
-  const sendWhileRunning = React.useCallback(async () => {
-    const text = inputDraft.trim();
-    if (text === "" || interjectPending) return;
-    setError(null);
-    const route = resolveRunningReplyRoute({ runId: interjectionRun.runId, status: interjectionRun.status });
-    if (route === "queue") {
-      setQueuedReply(text);
-      setInputDraft("");
-      setMention(null);
-      return;
-    }
-    setInterjectPending(true);
-    try {
-      await interjectAgentRun({ runId: interjectionRun.runId!, text }, { sessionToken });
-      agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
-      setInputDraft("");
-      setMention(null);
-      setRunningReplyAck(runningReplyAckCopy(text));
-    } catch (e) {
-      const code = classifyInterjectFailure(e);
-      setError(code ? INTERJECT_FAILURE_COPY[code] : INTERJECT_UNKNOWN_FAILURE_COPY);
-    } finally {
-      setInterjectPending(false);
-    }
-  }, [inputDraft, interjectPending, interjectionRun.runId, interjectionRun.status, sessionToken, agent]);
-  React.useEffect(() => {
-    if (runIsRunning || queuedReply === null) return;
-    setQueuedReply(null);
-    void send(queuedReply);
-  }, [runIsRunning, queuedReply, send]);
-  React.useEffect(() => {
-    if (!agent.isRunning) setRunningReplyAck(null);
-  }, [agent.isRunning]);
-  React.useEffect(() => {
-    if (runningReplyAck === null) return;
-    const t = window.setTimeout(() => setRunningReplyAck(null), 4_000);
-    return () => window.clearTimeout(t);
-  }, [runningReplyAck]);
+  // Running deliveries are serialized by useRunningReply.
+  const clearRunningDraft = React.useCallback((revision?: number) => { clearComposerDraft(revision); setMention(null); }, [clearComposerDraft]);
+  const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
+    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
+    draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
+    clearDraft: clearRunningDraft, setError,
+  });
 
   /*
     2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：
@@ -1649,7 +1264,7 @@ export function CopilotKitV2PanelBody({
   */
   // issue #2520 —— 附件线程改为第一次上传时按需建（见上面 `resolveAttachmentThreadId`），
   // 📎 不再等预建完成，只看是否登录（未登录上传本来就要鉴权）。
-  const attachDisabled = archived || agent.isRunning || sessionToken === null;
+  const attachDisabled = !canWrite || archived || agent.isRunning || sessionToken === null;
   const [attachOpen, setAttachOpen] = React.useState(false);
   React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
   const [emptySendHint, setEmptySendHint] = React.useState(false);
@@ -1663,30 +1278,7 @@ export function CopilotKitV2PanelBody({
     if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
   }, []);
 
-  /**
-   * 渲染成 chip。`persona` 那条沿用它作为独立按钮时代就有的 testid
-   * （`chat-persona-summary-trigger`）——既有单测与真栈 e2e 都认这个锚点，改名
-   * 会让那些证据全部超时，而"叫什么名字"本来就不是这次要改的东西（见
-   * `LocalSuggestionChip.id` 的文件头注）。其余模板用 `chat-template-suggestion-<key>`。
-   *
-   * `canGeneratePersona`（服务端 `artifact.land` 能力位）**只挡 persona 那一条**：
-   * 没有它，那条 POST 必 403，属于本仓明令禁止的"假按钮"。其余 chip 只是发一条
-   * 普通消息，与产物落地权限无关——用同一道门挡住它们会凭空少掉一批本来能用的建议。
-   */
-  /**
-   * persona 的「已经生成过」有两个来源，任一为真都该隐藏（issue #2694 的既有论证）：
-   *   · `personaGeneratedOnce`——本次会话内刚生成完那一刻立即生效，不必等一次
-   *     额外的服务端往返；
-   *   · `hydratedEvidence.hasPersonaArtifact`——hydration 读回的持久化事实（该线程
-   *     已落库消息里有一条 `authorId === PERSONA_SUMMARY_AUTHOR_ID`），对应"更早、
-   *     也许是上一次打开这条线程时生成过"。
-   *
-   * ⚠ 服务端 `recommendCanvasTemplates` **也**已经把画过的模板剔掉了（它认同一个
-   *   `PERSONA_SUMMARY_AUTHOR_ID`，见那个用例的 `drawnKeys`），这里不是重复的第二
-   *   道门：推荐是**取一次就缓存在 state 里**的，从取回到 hydration 落定、到用户
-   *   点完生成之间都有窗口，这两个本地信号补的正是那些窗口，判据仍然是同一份持久化
-   *   事实，不是另起一套判定。
-   */
+  // Recommendations reuse persisted persona evidence and local dismissal preferences.
   const personaAlreadyGenerated =
     personaGeneratedOnce
     || (hydratedEvidence !== null
@@ -1728,7 +1320,7 @@ export function CopilotKitV2PanelBody({
           拖拽落区覆盖整个左栏（消息列表 + composer），与旧轨道 `ChatFullSurfaceDropOverlay`
           同一套挂法（`chat-read-screen.tsx`）。 */}
       {/* issue #2053（CK-P8）—— 归档线程不接受拖拽上传：落区与提示都不挂，
-          与旧轨道 `chat-live-message-panel.tsx` 的 `{...(archived ? {} : attach.dragHandlers)}`
+          与旧轨道 `chat-live-message-panel.tsx` 的 `{...(!canWrite || archived ? {} : attach.dragHandlers)}`
           逐字同套。留着落区而在提交时报错，才是骗人的那一种。 */}
       {/* issue #2075（TW-P2-1）—— 阅读宽度约束提到**整条中央列**上。
           此前 `max-w-3xl` 只包着消息列表内部，composer / 追问 chips / 附件区 / 运行状态条
@@ -1746,8 +1338,8 @@ export function CopilotKitV2PanelBody({
           文字/控件的容器上（消息内容 `messagesContentRef` 与下方 composer 分组），
           滚动容器夹在满宽的外层列与被收窄的内容之间，滚动条自然贴到窗口边界，
           与 ChatGPT/Claude.ai 同款布局一致。 */}
-      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
-        {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
+      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(!canWrite || archived ? {} : attach.dragHandlers)}>
+        {!canWrite || archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
             常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
             才把节点插进 DOM，读屏软件多半一句都不会念（这是 live region 最经典的坑）。 */}
@@ -1798,7 +1390,17 @@ export function CopilotKitV2PanelBody({
           onKeyDown={handleUserScrollIntent}
           onPointerDown={handleUserScrollIntent}
           className={cn(
-            "flex-1 overflow-y-auto p-3",
+            // issue #2857（2026-09-06 devapp 人类实测「消息区能滚过底部进入整屏空白」）——
+            // `relative` 是修法本身，不是装饰。真栈复现（`chat-task-workbench-scroll-
+            // overshoot.spec.ts`）：落定态量不出空白；运行中，内容里出现的绝对定位后代
+            // （抓到的是插话表单的 `sr-only` <Label>，`position:absolute`）以本容器
+            // **外面**那层 `relative` 包装（FAB 的定位层，#2096）为包含块，被摆到内容
+            // 底部的静态位置——在本容器可视区之下、又不算本容器的 scrollable overflow，
+            // 于是撑大的是外层 `main`（AppShell 的 `overflow-y-auto`）：滚轮在消息区
+            // 滚到头后接着推整列，composer 被推上去，露出整屏底色；线程越长空白越多屏。
+            // 本容器自己成为定位上下文后，绝对定位后代被收进它自己的滚动内容里，外层
+            // 再也量不到。FAB 是本容器的兄弟，不受影响（它仍以外层包装为定位层）。
+            "relative flex-1 overflow-y-auto p-3",
             // 2026-09-03 人类反馈（真栈截图）「今天想完成什么这个 section 不需要
             // 灰色背景」—— 空态这一支不再画 `bg-background`（应用画布色，与外层
             // 白底的 composer 卡片并排时会显得像一块灰底方块），改为透明、直接
@@ -1866,7 +1468,10 @@ export function CopilotKitV2PanelBody({
                       打字/滚动都强制重渲染全部消息（含画布）。 */}
                   <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
-                      <CopilotChatMessageView
+                      {activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? <RestoredRunApproval canWrite={canDecide} key={`${activeTrace[0]}:${traceStatus.seq}`} runId={activeTrace[0]} bearer={sessionToken ?? undefined} /> : null}
+                      <TaskTimeline
+                        events={runTrace.events}
+                        messageRuns={runTrace.messageRuns}
                         messages={agent.messages}
                         isRunning={agent.isRunning}
                         assistantMessage={V2AssistantMessage}
@@ -1954,7 +1559,7 @@ export function CopilotKitV2PanelBody({
             `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
             刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
         <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
-        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
+        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -2025,7 +1630,7 @@ export function CopilotKitV2PanelBody({
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
-        {archived ? null : <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />}
+        {archived ? null : <ChatAttachmentList ctl={attach} canRetry={canWrite} disabled={agent.isRunning} />}
         {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
             换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
             `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
@@ -2175,7 +1780,7 @@ export function CopilotKitV2PanelBody({
                   "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
-                disabled={archived}
+                disabled={!canWrite || archived}
                 placeholder={
                   archived
                     ? "该对话已归档，不能再发送消息"
@@ -2241,7 +1846,7 @@ export function CopilotKitV2PanelBody({
                       sessionToken === null ? "login" : initialChatThreadId === null ? "no-thread" : undefined
                     }
                     aria-haspopup="listbox"
-                    disabled={archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
+                    disabled={!canWrite || archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
                     badge={skillTrigger.mountedCount}
                     onClick={() => setSkillOpenRequest((n) => n + 1)}
                   >
@@ -2262,7 +1867,7 @@ export function CopilotKitV2PanelBody({
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
                     selectedAgentId={selectedAgentId}
                     onSelect={(agentId) => onSelectAgent(agentId)}
-                    disabled={agentOptions.status !== "ready" || archived}
+                    disabled={!canWrite || agentOptions.status !== "ready" || archived}
                   />
                 </span>
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
@@ -2287,7 +1892,7 @@ export function CopilotKitV2PanelBody({
                   phase={voice.phase}
                   elapsedSeconds={voice.totalSeconds}
                   level={speech.level}
-                  disabled={archived || agent.isRunning}
+                  disabled={!canWrite || archived || agent.isRunning}
                   onStart={voice.start}
                   onStop={voice.finish}
                   onResume={voice.start}
@@ -2305,7 +1910,8 @@ export function CopilotKitV2PanelBody({
                   onAutoPauseChange={voice.setAutoPause}
                   deviceMenuRequest={voice.deviceMenuRequest}
                 />
-                {agent.isRunning && !archived && inputDraft.trim() === "" ? (
+                <QueueNextTurnAction visible={runIsRunning && inputDraft.trim().length > 0} disabled={sendDisabled || interjectPending} onQueue={() => void sendWhileRunning({ forceQueue: true })} />
+                {(runIsRunning || cancellation.requested) && canWrite && !archived && inputDraft.trim() === "" ? (
                   /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
                      `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。
                      2026-09-06：只在输入框为空时是「停止」——一旦用户敲了字，它就是「发送」
@@ -2314,12 +1920,13 @@ export function CopilotKitV2PanelBody({
                     type="button"
                     data-testid="copilotkit-v2-send"
                     data-send-state="running"
-                    aria-label="停止生成"
-                    title="停止生成"
-                    onClick={() => agent.abortRun()}
+                    aria-label={cancellation.requested ? "停止中" : "停止生成"}
+                    title={cancellation.requested ? "等待服务端确认停止" : "停止生成"}
+                    onClick={() => void cancellation.cancel()}
+                    disabled={cancellation.requested || !cancellation.canCancel}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border bg-panel-alt text-card-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Square aria-hidden className="h-3 w-3 fill-current" />
+                    {cancellation.requested ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Square aria-hidden className="h-3 w-3 fill-current" />}
                   </button>
                 ) : (
                   <Button
@@ -2341,15 +1948,14 @@ export function CopilotKitV2PanelBody({
             </div>
           </div>
           {composerStatusBar}
+          <ChildCancellationNotice text={cancellation.childNotice} />
+          <QueuedMessagesPanel {...serverQueue} canWrite={canWrite} />
         </div>
-        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。
-            2026-09-03 人类反馈「最底下那行字上面留空太多了」—— 卡片内部工具行下方本来就有
-            `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
-            肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
-          {queuedReply !== null && runIsRunning ? (
+          {queuedReply !== null ? (
             <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
-              <span className="truncate">{queuedReplyCopy(queuedReply)}</span>
+              <span className="truncate">{queuedFailed ? "本地待发内容已保留，请重试发送" : queuedReplyCopy(queuedReply)}</span>
+              {queuedFailed ? <button type="button" onClick={retryQueuedReply}>重试</button> : null}
               <button
                 type="button"
                 className="shrink-0 underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline"
@@ -2390,18 +1996,3 @@ export function CopilotKitV2PanelBody({
     </div>
   );
 }
-
-/**
- * `PersistedMessage`/`readAllPersistedMessages` 现在都在
- * `lib/copilotkit-v2-persisted-messages.ts`（2026-08-30 文件规模拆分搬出，逐字节
- * 未改行为）——`readAllPersistedMessages` 是一个纯模块函数，不闭包依赖
- * `CopilotKitV2PanelBody` 的任何内部状态，天然可独立成文件。
- */
-
-/**
- * V2MarkdownRenderer / ArtifactLandingCtx / V2AssistantMessageImpl / V2AssistantMessage /
- * FollowUpSuggestions 现在都在 copilotkit-v2-assistant-message.tsx（2026-08-30 文件
- * 规模拆分搬出，逐字节未改行为）——它们只消费 props 与自己的 context，不闭包依赖
- * CopilotKitV2PanelBody 的任何内部状态，天然可独立成文件。ArtifactLandingCtx.Provider
- * 仍在下方 JSX 里（那部分状态在这一层），只是 Context 对象本身与消费它的组件搬走了。
- */

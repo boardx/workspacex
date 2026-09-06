@@ -200,7 +200,7 @@ export const DESIGN_PROJECTS = [
     id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
     problem: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。",
     criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
     pushed: false, pushedAt: null, linkedFeedbackId: "in-b1",
     chat: [
       { role: "user", text: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。", at: "2026-09-03T02:00:00.000Z" },
@@ -212,10 +212,62 @@ export const DESIGN_PROJECTS = [
   {
     id: "proj-mobile-invite", name: "移动端批量邀请", template: "mobile",
     problem: "", criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
     pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
+  },
+  // UC-17.8 B5.3：已由模型整页生成原型的项目——`prototype` 两页组件树，与 `frames` 同长。
+  // 用于 `detail-prototype-*` 截图（契约束 `design-prototype` 的 ui.md 材料）。
+  {
+    id: "proj-chat-ui", name: "对话助手移动端", template: "mobile",
+    problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
+    criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
+    frames: ["聊天", "历史会话"],
+    prototype: [
+      {
+        type: "stack", props: { direction: "column", gap: "sm" },
+        children: [
+          { type: "navbar", props: { title: "对话助手", left: "☰", right: "新对话" } },
+          {
+            type: "stack", props: { fill: true, gap: "sm", padding: "sm" },
+            children: [
+              { type: "stack", props: { direction: "row", gap: "sm", align: "end" }, children: [{ type: "card", children: [{ type: "text", props: { content: "帮我把这段退款政策改成客户能看懂的话。" } }] }] },
+              { type: "stack", props: { direction: "row", gap: "sm" }, children: [
+                { type: "avatar", props: { name: "AI" } },
+                { type: "card", children: [
+                  { type: "text", props: { content: "好的。简版：7 天内未使用可全额退款；已使用按剩余天数按比例退。" } },
+                  { type: "badge", props: { label: "正在生成…", tone: "info" } },
+                ] },
+              ] },
+            ],
+          },
+          { type: "stack", props: { direction: "row", gap: "sm", align: "end", padding: "sm" }, children: [
+            { type: "input", props: { placeholder: "发送消息", multiline: true } },
+            { type: "button", props: { label: "停止", variant: "danger" } },
+          ] },
+        ],
+      },
+      {
+        type: "stack", props: { direction: "column", gap: "sm" },
+        children: [
+          { type: "navbar", props: { title: "历史会话", left: "返回", right: "编辑" } },
+          { type: "input", props: { placeholder: "搜索会话" } },
+          { type: "tabs", props: { items: ["全部", "已收藏"], active: 0 } },
+          { type: "list", props: { items: ["退款政策改写", "周报润色", "英文邮件翻译", "面试题整理"], leading: "dot" } },
+          { type: "spacer", props: { size: "lg" } },
+          { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
+        ],
+      },
+    ],
+    pushed: false, pushedAt: null, linkedFeedbackId: null,
+    githubIssueUrl: null, githubIssueNumber: null,
+    chat: [
+      { role: "user", text: "给我设计一个 chat 的 UI，模拟 chatgpt", at: "2026-09-06T02:00:00.000Z" },
+      { role: "ai", text: "画好了两页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
+    ],
+    ownerId: "u-pm-1", ownerName: "苏木 · PM",
+    createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
   },
 ];
 
@@ -270,14 +322,16 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     return json(route, {}, 405);
   });
 
-  await page.route((url) => /^\/pm-designs\/[^/]+\/chat$/.test(new URL(url).pathname), (route) => {
+  await page.route((url) => /^\/pm-designs\/[^/]+\/chat$/.test(new URL(url).pathname), async (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
     const project = projects.find((p) => p.id === id);
     if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
     const body = route.request().postDataJSON() ?? {};
-    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW }];
+    // B5.3 截「正在生成」过渡：这句故意晚 3s 才 fulfill（真实等待，不是摆图），同 createProject 的做法。
+    if (String(body.text ?? "").includes("附件")) await new Promise((r) => setTimeout(r, 3000));
+    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW, source: "fallback" }];
     project.updatedAt = NOW;
-    return json(route, { project });
+    return json(route, { project, reply: { source: "fallback", applied: [] } });
   });
 
   await page.route((url) => /^\/pm-designs\/[^/]+\/push$/.test(new URL(url).pathname), (route) => {

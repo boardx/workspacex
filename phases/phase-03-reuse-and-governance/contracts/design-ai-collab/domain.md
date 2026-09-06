@@ -30,7 +30,7 @@
   键（`.strict()`），摘出的覆盖同名、未摘的保留原值；退路 ⇒ `structured` 与草稿上一致。
 - **I-6 写回形状受契约约束。** B5.2 模型建议的 `problem/criteria/frames` 必须通过
   `DesignChatWriteback` 严格解析才落库；任一字段不合法 ⇒ 该字段不写，`applied` 不含它。
-  `frames` 仍只是画布页标签文案（B5.3 out of scope），画布内容不受本束影响。
+  `frames` 是画布页标签文案；画布内容（`prototype`）的写回规则见 `design-prototype` 束（B5.3，2026-09-06 起）。
 - **I-7 owner 谓词不变。** 写回 `problem/criteria/frames` 走与 `updateProject` 同一条
   `owner_id = $n` 谓词的 UPDATE；非 owner 发消息仍是 `NOT_PROJECT_OWNER`。
 

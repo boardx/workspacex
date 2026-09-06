@@ -11,13 +11,14 @@
  * 这里的类型直接复用它，不重复定义）。
  */
 import type { artifactsSteering as AS } from "@repo/contracts";
+import type { MessageFacts } from "../../domain/chat/thread-visibility";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 
 /** Ids only —— 够用来问可见性问题，不够用来回答它（同 `agent-run/ports.ts` 的 `RunLocator`）。 */
 export interface ArtifactLocator {
   readonly threadId: string;
-  readonly projectId: string;
+  readonly projectId: string | null;
 }
 
 /** 创建 Artifact 首个版本所需的输入（R3 步骤 1：工具调用产出文件 ⇒ 建 Artifact，而非聊天附件）。 */
@@ -51,6 +52,9 @@ export interface AppendArtifactVersionInput {
  * 具体实现（`PgArtifactStore`）额外有数据库层面的 append-only 触发器兜底。
  */
 export interface ArtifactStore {
+  /** Source input and output facts, including pinned base ancestry; absent means deny observers. */
+  sourceMessageFacts?(orgId: OrgId, artifactId: string, version: number): Promise<readonly MessageFacts[]>;
+  listByThread?(orgId: OrgId, threadId: string): Promise<readonly string[]>;
   /** 首次创建 Artifact（version=1）。`id` 由调用方生成（见 `ArtifactClock.newArtifactId`）。 */
   createArtifact(orgId: OrgId, input: CreateArtifactInput): Promise<AS.ArtifactRecord>;
 
@@ -103,6 +107,7 @@ export interface ArtifactRunLauncher {
       readonly threadId: string;
       readonly artifactId: string;
       readonly instruction: string;
+      readonly clientRequestId?: string;
       readonly basedOnVersion: AS.ArtifactVersionInfo;
     },
   ): Promise<{ readonly runId: string }>;

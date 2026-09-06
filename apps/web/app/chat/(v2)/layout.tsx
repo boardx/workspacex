@@ -29,14 +29,8 @@ import { CopilotKitV2Providers } from "../copilotkit-v2/copilotkit-v2-providers"
  * 与 AppShell 一样跨线程切换保持实例；`children`（两个 page.tsx）只剩下"让这条
  * URL 存在"的作用，渲染为空。
  *
- * ## 为什么带 `?projectId=`/`?thread=` 的深链不会被套进这层 AppShell 两次
- *
- * 那两个分支渲染的 `ChatReadScreen`/`PersonalChatScreen` 各自已经自带一个
- * `<AppShell>`——如果它们也被收进这个路由组，就会被套两层 AppShell。真正的解法是
- * 在 `next.config.mjs` 的 `rewrites().beforeFiles` 里，在请求到达这层路由**之前**
- * 就把带这两个 query key 的 `/chat` 请求整个改写到 `/chat/legacy`（该文件头注有完整
- * 说明）——这样 `(v2)/page.tsx` 自己不再需要判断 query string，也就不存在双重
- * AppShell 的问题；本 layout 因此可以放心对组内两个 page 无条件包一层 AppShell。
+ * Project query links now use this same shell, with scope resolved by ShellRoute.
+ * Legacy URLs redirect here and preserve their project/thread query parameters.
  */
 export default function ChatV2Layout({ children }: { children: React.ReactNode }): JSX.Element {
   return (

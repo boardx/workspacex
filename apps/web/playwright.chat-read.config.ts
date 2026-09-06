@@ -3,6 +3,7 @@
 // 的 `e2e-full` job 跑（不是新 job，是既有 job 里的一步：单自建 runner 是硬瓶颈）。
 // 「不存在这种没人跑的 spec」本身也已成为机械门控：.harness/scripts/lint-spec-gate-coverage.mjs。
 import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
 import { CHAT_READ_E2E } from "./e2e/chat-read-fixture";
 
 // 端口不再写死 3211/3198。写死的端口在 CI 上是 #468 那类偶发红（EADDRINUSE）的来源，
@@ -247,7 +248,7 @@ export default defineConfig({
        * 随 `verify:chat-read`（`e2e-full` 阻塞路径）一起跑。
        */
       name: "chat-task-workbench",
-      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy)\.spec\.ts$/,
+      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy|scroll-overshoot)\.spec\.ts$/,
     },
   ],
   fullyParallel: false,
@@ -441,7 +442,11 @@ export default defineConfig({
     },
     {
       command: [
-        "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
+        // Local coordinated runs may reuse healthy infrastructure. Never restart a
+        // shared stack; a failed readiness probe must fail the test setup instead.
+        process.env.WORKSPACEX_REUSE_INFRA === "1"
+          ? "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" exec -T postgres pg_isready -h 127.0.0.1 -U postgres"
+          : "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
         "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" exec -T postgres createdb -U postgres \"$WORKSPACEX_DB\"",
         "pnpm --filter @repo/api migrate",
         "pnpm --filter @repo/api exec tsx scripts/seed-chat-read-e2e.ts",
@@ -577,6 +582,10 @@ export default defineConfig({
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,
+      env: {
+        ...process.env,
+        NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve(__dirname, "e2e/support/google-fonts-mock.cjs"),
+      },
     },
   ],
 });
