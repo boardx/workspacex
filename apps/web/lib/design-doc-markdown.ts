@@ -6,7 +6,10 @@
  * 原型部分是组件树的**缩进大纲**，不是 JSON dump：给工程/评审看的是结构与文案，
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
+import { designPrototype } from "@repo/contracts";
 import type { DesignProject, PrototypeNode } from "./live-design-workbench";
+
+const { isPrototypeContainer } = designPrototype;
 
 const TEMPLATE_LABEL: Record<DesignProject["template"], string> = { mobile: "移动端设计", ui: "UI 原型", wireframe: "线框图" };
 
@@ -26,12 +29,20 @@ export function describeNode(n: PrototypeNode): string {
     case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
     case "badge": return `标记「${n.props.label}」`;
     case "avatar": return `头像：${n.props.name}`;
+    case "bottomnav": return `底部导航：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
+    case "switch": return `开关「${n.props.label}」${n.props.on === true ? "（开）" : "（关）"}`;
+    case "checkbox": return `复选「${n.props.label}」${n.props.checked === true ? "（已选）" : ""}`;
+    case "chip": return `筛选「${n.props.label}」${n.props.selected === true ? "（选中）" : ""}`;
+    case "progress": return `进度 ${n.props.value}%${n.props.label !== undefined ? `：${n.props.label}` : ""}`;
+    case "stat": return `指标「${n.props.label}」= ${n.props.value}${n.props.delta !== undefined ? `（${n.props.delta}）` : ""}`;
+    case "hero": return `头图「${n.props.title}」${n.props.subtitle !== undefined ? `：${n.props.subtitle}` : ""}${n.props.cta !== undefined ? `，按钮「${n.props.cta}」` : ""}`;
+    case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }
 
 export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] = []): string[] {
   out.push(`${"  ".repeat(depth)}- ${describeNode(root)}`);
-  if (root.type === "stack" || root.type === "card") for (const c of root.children) outlinePrototype(c, depth + 1, out);
+  if (isPrototypeContainer(root)) for (const c of root.children) outlinePrototype(c, depth + 1, out);
   return out;
 }
 
@@ -52,7 +63,11 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
     lines.push(`还没有生成原型。页面划分：${project.frames.join("、") || "（无）"}`);
   } else {
     for (const [i, root] of project.prototype.entries()) {
-      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "", ...outlinePrototype(root), "");
+      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "");
+      // 迭代 8：每页交互说明先于结构大纲——工程先读「这页做什么」再看「里面有什么」。
+      const note = (project.frameNotes[i] ?? "").trim();
+      if (note !== "") lines.push(`> ${note.replace(/\n+/g, " ")}`, "");
+      lines.push(...outlinePrototype(root), "");
     }
   }
   const aiTurns = project.chat.filter((t) => t.role === "user").length;
@@ -66,8 +81,29 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
   return lines.join("\n");
 }
 
-/** 文件名：项目名去掉路径不安全字符 + 日期。 */
+/**
+ * 文件名：项目名里只保留 ASCII 字母数字与 `-_`，其余（含中文）去掉，+ 日期。
+ * 迭代 10 e2e 实测：Chromium 对 `download` 属性里的非 ASCII 名会退回默认的「download」，中文名等于没名。
+ * 中文项目名 ⇒ `design-<日期>`；文件内容里项目名仍是原文。
+ */
 export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
-  const safe = project.name.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "design";
+  const safe = project.name.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "design";
   return `${safe}-${now.toISOString().slice(0, 10)}.md`;
+}
+
+/**
+ * 迭代 8：原型规格 JSON——给工程/别的工具吃的机器可读版本：页标签、每页交互说明、组件树（带 id）。
+ * 不含对话与验收（那些在设计文档里）；`version` 是这份格式的版本号，不是项目版本。
+ */
+export function buildPrototypeSpecJson(project: DesignProject): string {
+  const screens = project.frames.map((frame, i) => ({
+    frame,
+    notes: project.frameNotes[i] ?? "",
+    root: project.prototype[i] ?? null,
+  }));
+  return JSON.stringify({ version: 1, project: { id: project.id, name: project.name, template: project.template }, screens }, null, 2);
+}
+
+export function prototypeSpecFileName(project: DesignProject, now: Date = new Date()): string {
+  return designDocFileName(project, now).replace(/\.md$/, ".prototype.json");
 }

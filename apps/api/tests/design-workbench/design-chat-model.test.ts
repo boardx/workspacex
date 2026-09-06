@@ -7,6 +7,7 @@ import { ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
   ModelDesignChatReplier,
+  parseSuggestions,
   parseWriteback,
   type DesignChatContext,
 } from "../../src/application/design-workbench/design-chat-model";
@@ -38,7 +39,7 @@ describe("B5.2 ModelDesignChatReplier", () => {
       ({ text: '{"reply":"加上了。","writeback":{"criteria":["导出成功率 ≥ 99%"],"frames":[],"name":"改名"}}' }),
     );
     const out = await r.reply(CTX);
-    expect(out).toEqual({ text: "加上了。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"] } }); // 空数组丢弃；name 不是可写回字段
+    expect(out).toEqual({ text: "加上了。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"] }, suggestions: [] }); // 空数组丢弃；name 不是可写回字段
     const input = model.complete.mock.calls[0]?.[0];
     expect(input).toMatchObject({ modelProvider: "p", modelId: "m", system: DESIGN_CHAT_SYSTEM_PROMPT });
     expect(input).not.toHaveProperty("threadId");
@@ -48,19 +49,81 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(input?.user.indexOf("用户：先聊聊")).toBeLessThan(input?.user.indexOf("用户：把成功率") ?? -1);
   });
 
+  it("迭代 7 修复轮：首轮 prototype 不合法 ⇒ 带原话理由再问一次；修复轮合法 ⇒ 用它；修复轮也失败 ⇒ 保留首轮合法字段与回复", async () => {
+    const bad = '{"reply":"画好了。","writeback":{"criteria":["c1"],"prototype":[{"frame":"聊天","root":{"type":"iframe"}}]}}';
+    const good = '{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":{"type":"text","props":{"content":"hi"}}}]}}';
+    let n = 0;
+    const ok = replier(async () => ({ text: (n += 1) === 1 ? bad : good }));
+    const out = await ok.r.reply(CTX);
+    expect(ok.model.complete).toHaveBeenCalledTimes(2);
+    const repairPrompt = ok.model.complete.mock.calls[1]?.[0]?.user ?? "";
+    expect(repairPrompt).toContain("没通过契约校验");
+    expect(repairPrompt).toContain("prototype");
+    expect(out.text).toBe("画好了。"); // 回复文字沿用首轮
+    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: { type: "text", props: { content: "hi" } } }] });
+
+    let m = 0;
+    const stillBad = replier(async () => { m += 1; if (m === 1) return { text: bad }; throw new Error("boom"); });
+    const out2 = await stillBad.r.reply(CTX);
+    expect(stillBad.model.complete).toHaveBeenCalledTimes(2);
+    expect(out2).toEqual({ text: "画好了。", source: "model", writeback: { criteria: ["c1"] }, suggestions: [] });
+
+    // 修复轮 prototype 仍不合法但夹带合法 criteria ⇒ 不采纳修复轮的任何字段，首轮 criteria 保留（Codex P1）
+    let q = 0;
+    const partial = replier(async () => ({ text: (q += 1) === 1 ? bad : '{"reply":"x","writeback":{"criteria":["被覆盖的"],"prototype":[{"frame":"f","root":{"type":"iframe"}}]}}' }));
+    const out3 = await partial.r.reply(CTX);
+    expect(out3.writeback).toEqual({ criteria: ["c1"] });
+    // 只有文字字段被拒 ⇒ 不发修复轮
+    const textOnly = replier(async () => ({ text: '{"reply":"x","writeback":{"criteria":[]}}' }));
+    await textOnly.r.reply(CTX);
+    expect(textOnly.model.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("迭代 7 纠偏只按「类型.键」转数字：stat.value 字符串保留；patch 节点超深 ⇒ 字段拒不 500", () => {
+    const out = parseWriteback({ prototype: [{ frame: "p", root: { type: "stat", props: { label: "对话数", value: "1284" } } }] });
+    expect(out.prototype?.[0]?.root).toEqual({ type: "stat", props: { label: "对话数", value: "1284" } });
+    let n: unknown = { type: "divider" };
+    for (let i = 0; i < 5000; i += 1) n = { type: "stack", children: [n] };
+    expect(parseWriteback({ criteria: ["a"], patch: [{ op: "replace", id: "n1", node: n }] })).toEqual({ criteria: ["a"] });
+  });
+
+  it("迭代 7 纠偏：type 大小写 / 容器漏 children / 数字字符串 / divider 带 props 在过契约前被修正", () => {
+    const out = parseWriteback({ prototype: [{ frame: "p", root: { type: "Stack", children: [
+      { type: "grid", props: { columns: "2" } },
+      { type: "divider", props: {} },
+      { type: "progress", props: { value: "68" } },
+      { type: "text", props: { content: "x" }, children: [] },
+    ] } }] });
+    expect(out.prototype?.[0]?.root).toEqual({ type: "stack", children: [
+      { type: "grid", props: { columns: 2 }, children: [] },
+      { type: "divider" },
+      { type: "progress", props: { value: 68 } },
+      { type: "text", props: { content: "x" } },
+    ] });
+  });
+
+  it("迭代 9 suggestions：逐条过契约、最多 3 条、trim；prompt 含设计原则与 few-shot", async () => {
+    const r = replier(async () => ({ text: JSON.stringify({ reply: "好。", suggestions: [" 加筛选 ", "x".repeat(50), "设计详情页", "第四条", 42] }) }));
+    const out = await r.r.reply(CTX);
+    expect(out.suggestions).toEqual(["加筛选", "设计详情页", "第四条"]);
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("设计原则");
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("示例 2");
+    expect(parseSuggestions("nope")).toEqual([]);
+  });
+
   it("模型抛错 / 空输出 ⇒ 固定回执 + fallback + 空 writeback，不抛", async () => {
     const failing = replier(async () => { throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "none"); });
-    expect(await failing.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} });
+    expect(await failing.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] });
     expect(failing.log).toHaveBeenCalled();
     const empty = replier(async () => ({ text: " " }));
-    expect(await empty.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} });
+    expect(await empty.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] });
   });
 
   it("输出不是 JSON ⇒ 整段当回复（source=model），不写回；JSON 无 reply ⇒ 文字退路但 writeback 仍生效", async () => {
     const plain = replier(async () => ({ text: "我觉得可以先把导出拆成两步。" }));
-    expect(await plain.r.reply(CTX)).toEqual({ text: "我觉得可以先把导出拆成两步。", source: "model", writeback: {} });
+    expect(await plain.r.reply(CTX)).toEqual({ text: "我觉得可以先把导出拆成两步。", source: "model", writeback: {}, suggestions: [] });
     const noReply = replier(async () => ({ text: '{"writeback":{"problem":"新背景"}}' }));
-    expect(await noReply.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: { problem: "新背景" } });
+    expect(await noReply.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: { problem: "新背景" }, suggestions: [] });
   });
 
   it("B5.3 prototype 写回：合法整页树保留；一页超限 ⇒ 整个 prototype 字段丢、其余字段照写；prompt 含当前原型与原语说明", async () => {

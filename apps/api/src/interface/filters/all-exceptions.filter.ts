@@ -26,6 +26,8 @@ import {
   auth,
   canvas,
   chat,
+  designPrototype,
+  designWorkbench,
   chatFileUpload,
   files,
   identity,
@@ -498,7 +500,32 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * 所以这里把它接进闭集。仍然是闭集：枚举外的任意字符串照旧到不了客户端。
    */
   const platformMembersError = platformMembers.PlatformMembersError.safeParse(raw);
-  return platformMembersError.success ? { reasonCode: platformMembersError.data } : {};
+  if (platformMembersError.success) return { reasonCode: platformMembersError.data };
+
+  /**
+   * UC-17.8 B5.3 迭代 5：`designWorkbench.DesignWorkbenchError`——PM 设计工作台的闭集。之前它一直没登记，
+   * `NOT_PROJECT_OWNER` / `VERSION_NOT_FOUND` / `PROTOTYPE_PATCH_REJECTED` 到客户端都是光秃秃的
+   * `forbidden` / `not_found` / `bad_request`——属性面板要靠 `PROTOTYPE_PATCH_REJECTED` 才能把
+   * 结构化的 `patchReason` 接上（见 `prototypePatchRejectionOf`）。仍是闭集：枚举外的字符串到不了客户端。
+   */
+  const designWorkbenchError = designWorkbench.DesignWorkbenchError.safeParse(raw);
+  return designWorkbenchError.success ? { reasonCode: designWorkbenchError.data } : {};
+}
+
+/**
+ * 迭代 5：`PROTOTYPE_PATCH_REJECTED` 的结构化明细——`patchReason` 是契约闭集
+ * `designPrototype.PrototypePatchRejectReason`，`nodeId` 是调用方刚刚自己点名的节点 id（它已经在自己的
+ * 画布上，不泄露任何它不能命名的资源）。自由文本的 message 不过这里，只进日志。
+ */
+function prototypePatchRejectionOf(exception: HttpException): { patchReason?: string; nodeId?: string } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { reasonCode?: unknown; patchReason?: unknown; nodeId?: unknown };
+  if (raw.reasonCode !== "PROTOTYPE_PATCH_REJECTED") return {};
+  const reason = designPrototype.PrototypePatchRejectReason.safeParse(raw.patchReason);
+  if (!reason.success) return {};
+  const nodeId = designPrototype.PrototypeNodeId.safeParse(raw.nodeId);
+  return nodeId.success ? { patchReason: reason.data, nodeId: nodeId.data } : { patchReason: reason.data };
 }
 
 function researchConflictDetailOf(exception: HttpException): { latestProjection?: unknown } {
@@ -574,6 +601,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...permissionReasonOf(exception),
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),
+        ...prototypePatchRejectionOf(exception),
       });
       return;
     }

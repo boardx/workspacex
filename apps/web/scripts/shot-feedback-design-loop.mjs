@@ -77,11 +77,22 @@ const SHOTS = [
   ["detail-depfailed-dark.png", "detail-depfailed", "default", "dark", null],
   ["detail-missing-dark.png", "detail-missing", "default", "dark", null],
   // 新增（UC-17.8 B5.3，原型画布从占位块变成模型生成的组件树）
+  // 迭代 4 起默认是画板视图：detail-prototype-dark 拍画板；单页类的三张先切到单页
   ["detail-prototype-dark.png", "detail-prototype", "default", "dark", null],
   ["detail-prototype-page2-dark.png", "detail-prototype", "default", "dark", openSecondFrame],
   ["detail-prototype-generating-dark.png", "detail-prototype", "default", "dark", sendSlow],
+  ["detail-prototype-single-dark.png", "detail-prototype", "default", "dark", singleView],
   // 迭代 2：点选画布节点 ⇒ 描边 + 对话面板上方的焦点 chip
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
+  // 迭代 6：第三页「用量」——新原语一屏
+  ["detail-prototype-page3-dark.png", "detail-prototype", "default", "dark", openThirdFrame],
+  // 迭代 9：空项目的起手模板；发送后 AI 回复下的建议 chips
+  ["detail-prototype-starters-dark.png", "detail-prototype-empty", "default", "dark", null],
+  ["detail-prototype-suggestions-dark.png", "detail-prototype", "default", "dark", sendAndWait],
+  // 迭代 8：导出菜单打开
+  ["detail-prototype-export-dark.png", "detail-prototype", "default", "dark", openExport],
+  // 迭代 5：选中节点后的属性面板（与 focus 同一动作，右栏多出字段）
+  ["detail-prototype-inspector-dark.png", "detail-prototype", "default", "dark", selectNodeInspector],
   // 迭代 3：打开版本历史并预览 v1
   ["detail-prototype-history-dark.png", "detail-prototype", "default", "dark", openHistoryPreview],
 ];
@@ -125,20 +136,43 @@ async function createSlow(page) {
   await click(page, '[data-testid="project-dialog-submit"]');
   await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
 }
-async function openSecondFrame(page) { await clickUntil(page, '[data-testid="design-detail-frame-1"]', '[data-testid="design-detail-phone-tree"]'); }
+async function singleView(page) { await clickUntil(page, '[data-testid="design-detail-view-single"]', '[data-testid="design-detail-phone-tree"]'); await page.waitForTimeout(200); }
+async function openThirdFrame(page) { await singleView(page); await click(page, '[data-testid="design-detail-frame-2"]'); }
+async function openSecondFrame(page) { await singleView(page); await click(page, '[data-testid="design-detail-frame-1"]'); }
 async function openHistoryPreview(page) {
+  await singleView(page);
   await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
   await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
 }
+async function sendAndWait(page) {
+  await singleView(page);
+  await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
+  await click(page, '[data-testid="design-detail-send"]');
+  await page.waitForSelector('[data-testid="design-detail-suggestions"]', { timeout: 8000 });
+}
+async function openExport(page) { await clickUntil(page, '[data-testid="design-detail-export"]', '[data-testid="design-detail-export-menu"]'); }
+async function selectNodeInspector(page) {
+  await selectNode(page);
+  await page.waitForSelector('[data-testid="design-inspector"]', { timeout: 4000 });
+  // 与 focus 那张的区别：这里把文案改成未应用的草稿态，「应用」按钮由灰转亮。
+  await page.fill('[data-testid="design-inspector-label"]', "停止生成");
+  await page.waitForSelector('[data-testid="design-inspector-apply"]:not([disabled])', { timeout: 4000 });
+}
 async function selectNode(page) {
-  await page.waitForSelector('[data-testid="design-detail-phone-tree"]');
+  await singleView(page);
   await page.locator('[data-proto="button"]').first().click();
   await page.waitForSelector('[data-testid="design-detail-focus"]', { timeout: 4000 });
 }
 async function sendSlow(page) {
+  await singleView(page);
   await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
   await click(page, '[data-testid="design-detail-send"]');
   await page.waitForSelector('[data-testid="design-detail-generating"]', { timeout: 4000 });
+  // 等到计时器真的走过一秒再拍：恒为 0s 的静态图无法自证计时器在动（rev-uiux 复评登记项）。
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="design-detail-elapsed"]');
+    return el !== null && /[1-9]\d*s/.test(el.textContent ?? "");
+  }, { timeout: 4000 });
 }
 async function openSpec(page) { await clickUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
 async function openPushConfirm(page) { await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }

@@ -498,6 +498,16 @@ export default defineConfig({
       name: "design-loop-responsive",
       testMatch: ["design-loop-responsive.spec.ts"],
     },
+    {
+      /**
+       * UC-17.8 B5.3 迭代 10 —— 原型画布四条主链路（起手模板→生成中→建议 chips /
+       * 画板缩放平移聚焦 / 点选节点 + 属性面板 setProps / 版本历史预览 + 导出下载）。
+       * 与 `design-loop-responsive` 同一取材页与同一份 `page.route()` 夹具，故同样
+       * 独立成不带 dependencies 的 project，只复用起好的 web 服务器。
+       */
+      name: "design-prototype-loop",
+      testMatch: ["design-prototype-loop.spec.ts"],
+    },
   ],
   fullyParallel: false,
   /**

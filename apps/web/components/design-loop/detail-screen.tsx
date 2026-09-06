@@ -1,19 +1,22 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X, History } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
-import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
+import { PrototypeBoard } from "./prototype-board";
+import { PrototypeInspector } from "./prototype-inspector";
+import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
+  DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
   prototypeNodeLabel,
   type DesignProject,
@@ -40,25 +43,6 @@ function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
   if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
   return String(err);
-}
-
-/**
- * B5.3：导出设计文档——纯客户端拼 Markdown（`lib/design-doc-markdown.ts`）后触发下载。
- * 不走服务端：文档的全部素材已经在 `DesignProject` 里，多一个接口只是多一份可漂移的副本。
- * jsdom 没有 `URL.createObjectURL`，测试里 mock 它；生产浏览器真下载。
- */
-function exportDoc(project: DesignProject): void {
-  const now = new Date();
-  const blob = new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = designDocFileName(project, now);
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 type Load =
@@ -109,12 +93,20 @@ export function DesignDetailScreen({
   const [text, setText] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
+  /** 迭代 7：进行中的请求（可取消）、已等待秒数、上一句失败时留下的原文（供「重试」）。 */
+  const abortRef = React.useRef<AbortController | null>(null);
+  const [elapsed, setElapsed] = React.useState(0);
+  const [retryText, setRetryText] = React.useState<string | null>(null);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
+  /** 迭代 9：最近一轮模型给的下一步建议（`reply.suggestions`），挂在最后一条 AI 气泡下，点一下即发。 */
+  const [suggestions, setSuggestions] = React.useState<readonly string[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
+  const [viewMode, setViewMode] = React.useState<"board" | "single">("board");
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
@@ -185,26 +177,44 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async () => {
-    const value = text.trim();
+  const send = async (override?: string) => {
+    const value = (override ?? text).trim();
     if (value === "") return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setSending(true);
     setChatError(null);
+    setRetryText(null);
+    setSuggestions([]);
+    setElapsed(0);
+    const started = Date.now();
+    const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
     try {
-      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined);
+      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
+      setSuggestions(reply.suggestions);
       // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
       if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
     } catch (err) {
-      setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
-      window.setTimeout(() => setChatError(null), 3000);
+      if (controller.signal.aborted) {
+        // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
+        // 下次读取会看到它；这里不假装它一定没发生。
+        setText(value);
+      } else {
+        setText(value);
+        setRetryText(value);
+        setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
+      }
     } finally {
+      window.clearInterval(tick);
+      abortRef.current = null;
       setSending(false);
     }
   };
+  const cancel = () => abortRef.current?.abort();
 
   const confirmPush = async (note: string) => {
     setPushBusy(true);
@@ -230,9 +240,8 @@ export function DesignDetailScreen({
         <span className="min-w-0 truncate text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => exportDoc(project)} data-testid="design-detail-export-doc" title="导出为 Markdown 设计文档">
-            <FileDown aria-hidden className="h-3.5 w-3.5" /> 导出设计文档
-          </Button>
+          {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
+          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -254,8 +263,20 @@ export function DesignDetailScreen({
           <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
             {project.chat.length === 0 && (
-              <div className="max-w-[90%] self-start rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">
-                {DESIGN_WORKBENCH_CHAT_INTRO}
+              <div className="flex max-w-[90%] flex-col gap-2 self-start">
+                <div className="rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">{DESIGN_WORKBENCH_CHAT_INTRO}</div>
+                {/* 迭代 9：空项目起手模板——三条现成的第一句话，点一下即发（契约常量，不落库） */}
+                {project.prototype.length === 0 && (
+                  <div className="flex flex-wrap gap-1.5" data-testid="design-detail-starters">
+                    {DESIGN_WORKBENCH_STARTERS.map((s) => (
+                      <button key={s.label} type="button" onClick={() => void send(s.prompt)} disabled={sending}
+                        className="rounded-full border border-border px-2.5 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+                        data-testid={`design-detail-starter-${s.label}`}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {project.chat.map((turn, i) => (
@@ -282,15 +303,37 @@ export function DesignDetailScreen({
                 )}
               </div>
             ))}
+            {/* 迭代 9：下一步建议 chips——只跟最后一条 AI 气泡，发下一句时清掉 */}
+            {suggestions.length > 0 && !sending && (
+              <div className="flex max-w-[90%] flex-wrap gap-1.5 self-start" data-testid="design-detail-suggestions">
+                {suggestions.map((s) => (
+                  <button key={s} type="button" onClick={() => void send(s)}
+                    className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-11 text-primary transition-colors duration-fast hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    data-testid="design-detail-suggestion">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {sending && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
-              <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> 正在生成，画布会整页重绘，可能需要一分钟……
+              <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+              <span className="truncate">
+                {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
+                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "快好了，最长 90 秒…"}
+                <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
+              </span>
+              <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
             </div>
           )}
           {chatError !== null && (
-            <div className="mx-3 mb-1 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
-              {chatError}
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
+              <span className="min-w-0 flex-1 truncate">{chatError}</span>
+              {retryText !== null && (
+                <button type="button" onClick={() => void send(retryText)} className="shrink-0 rounded-control border border-destructive-foreground/40 px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-destructive-foreground/10" data-testid="design-detail-retry">重试</button>
+              )}
+              <button type="button" onClick={() => { setChatError(null); setRetryText(null); }} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-destructive-foreground/10"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
@@ -353,43 +396,83 @@ export function DesignDetailScreen({
                     {f}
                   </button>
                 ))}
+                <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
+                  <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <LayoutGrid aria-hidden className="h-3 w-3" /> 画板
+                  </button>
+                  <button type="button" onClick={() => setViewMode("single")} aria-pressed={viewMode === "single"} data-testid="design-detail-view-single" title="单页：只看当前页"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "single" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <Smartphone aria-hidden className="h-3 w-3" /> 单页
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
                   aria-pressed={historyOpen}
                   data-testid="design-detail-history-toggle"
                   className={cn(
-                    "ml-auto inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     historyOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                   )}
                 >
                   <History aria-hidden className="h-3 w-3" /> 历史
                 </button>
               </div>
-              <div className="flex min-h-0 flex-1">
-                <div className="relative grid flex-1 place-items-center overflow-y-auto bg-background p-6">
+              <div className="relative flex min-h-0 flex-1">
+                {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
+                <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
                   {preview !== null && (
-                    <div className="absolute left-4 top-4 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
+                    <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
                       <Button variant="ghost" size="sm" onClick={() => setPreview(null)} data-testid="design-detail-preview-exit">退出预览</Button>
                     </div>
                   )}
-                  <PrototypeCanvas
-                    label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
-                    root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
-                    selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
-                    onSelect={preview === null ? setSelectedId : null}
-                  />
+                  {viewMode === "board" ? (
+                    <PrototypeBoard
+                      frames={(preview ?? project).frames}
+                      prototype={(preview ?? project).prototype}
+                      activeFrame={Math.min(frame, (preview ?? project).frames.length - 1)}
+                      onFocusFrame={setFrame}
+                      selectedId={preview === null && focus !== null ? selectedId : null}
+                      onSelect={preview === null ? setSelectedId : null}
+                      device={deviceOf(project.template)}
+                    />
+                  ) : (
+                    <PrototypeCanvas
+                      label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
+                      root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
+                      selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
+                      onSelect={preview === null ? setSelectedId : null}
+                      device={deviceOf(project.template)}
+                      frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
+                    />
+                  )}
                 </div>
-                {historyOpen && (
-                  <PrototypeHistoryPanel
-                    projectId={project.id}
-                    revision={project.updatedAt}
-                    isOwner
-                    previewId={preview?.id ?? null}
-                    onPreview={setPreview}
-                    onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
-                  />
+                {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
+                {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
+                {(historyOpen || (focus !== null && preview === null)) && (
+                  <div className="absolute inset-y-0 right-0 z-10 flex w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:max-w-none md:bg-card/40" data-testid="design-detail-side">
+                    {focus !== null && preview === null && (
+                      <PrototypeInspector
+                        projectId={project.id}
+                        node={focus.path[focus.path.length - 1]!}
+                        path={focus.path}
+                        onSaved={(p) => setLoad({ kind: "ready", project: p })}
+                        onDeleted={(p) => { setLoad({ kind: "ready", project: p }); setSelectedId(null); }}
+                      />
+                    )}
+                    {historyOpen && (
+                      <PrototypeHistoryPanel
+                        projectId={project.id}
+                        revision={project.updatedAt}
+                        isOwner
+                        previewId={preview?.id ?? null}
+                        onPreview={setPreview}
+                        onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -417,6 +500,24 @@ export function DesignDetailScreen({
                   ))}
                 </ul>
               </section>
+              {/* 迭代 8：每页交互说明（模型随整页写回给出；没有就不显示这一节） */}
+              {project.frameNotes.some((n) => n.trim() !== "") && (
+                <section className="mt-6" data-testid="design-detail-notes">
+                  <h3 className="text-14 font-semibold">各页交互说明</h3>
+                  <ol className="mt-1.5 flex flex-col gap-2">
+                    {project.frames.map((f, i) => {
+                      const note = (project.frameNotes[i] ?? "").trim();
+                      if (note === "") return null;
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-13" data-testid={`design-detail-note-${i}`}>
+                          <MessageSquareText aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span><span className="font-medium">{f}</span>：<span className="text-muted-foreground">{note}</span></span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
             </div>
           )}
         </div>

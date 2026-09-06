@@ -44,6 +44,8 @@ export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
 
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */
 export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT_INTRO;
+/** 迭代 9：空项目起手模板（契约常量，展示层）。 */
+export const DESIGN_WORKBENCH_STARTERS = designWorkbench.DESIGN_WORKBENCH_STARTERS;
 export const DESIGN_WORKBENCH_CHAT_REPLY = designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY;
 
 export async function createProject(input: {
@@ -74,10 +76,10 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string, signal?: AbortSignal): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) } },
+    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) }, signal },
   );
 }
 /* ── 迭代 3：原型版本历史 ── */
@@ -98,6 +100,15 @@ export async function getPrototypeVersion(projectId: string, versionId: string):
 }
 export async function restorePrototypeVersion(projectId: string, versionId: string): Promise<RestorePrototypeVersionOut> {
   return apiRequest<RestorePrototypeVersionOut>(versionPath(designWorkbench.operations.restorePrototypeVersion.path, projectId, versionId), { method: "POST", body: {} });
+}
+
+/* ── 迭代 5：人直接改画布 ── */
+export type PrototypePatchOp = z.infer<typeof designPrototype.PrototypePatchOp>;
+export type PatchPrototypeOut = z.infer<typeof designWorkbench.operations.patchPrototype.out>;
+export async function patchPrototype(projectId: string, ops: readonly PrototypePatchOp[], summary?: string): Promise<PatchPrototypeOut> {
+  return apiRequest<PatchPrototypeOut>(versionPath(designWorkbench.operations.patchPrototype.path, projectId), {
+    method: "POST", body: { ops, ...(summary !== undefined ? { summary } : {}) },
+  });
 }
 
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */

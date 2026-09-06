@@ -29,6 +29,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
+// 迭代 8：PNG 导出的 html2canvas 在 jsdom 里跑不了——用 vi.hoisted 定义的 mock（vi.mock 工厂会被提升到 import 之前）。
+type FakeCanvas = { toBlob: (cb: (b: Blob | null) => void, type?: string) => void };
+const { html2canvasMock } = vi.hoisted(() => ({ html2canvasMock: vi.fn<(el: HTMLElement, opts?: unknown) => Promise<FakeCanvas>>() }));
+vi.mock("html2canvas", () => ({ default: html2canvasMock }));
 vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
@@ -48,6 +52,7 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
+import { ApiError } from "@/lib/api-client";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -943,7 +948,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
-    criteria: ["a"], frames: ["草稿页 1"], prototype: [], pushed: false, pushedAt: null,
+    criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
     chat: [], ownerId: "u1", ownerName: "我",
     createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
@@ -1077,7 +1082,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z", source: "fallback" },
             ],
           }),
-          reply: { source: "fallback", applied: [] },
+          reply: { source: "fallback", applied: [], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1108,7 +1113,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "加上了，画布也分成两页。", at: "2026-09-04T00:00:01.000Z", source: "model" },
             ],
           }),
-          reply: { source: "model", applied: ["criteria", "frames"] },
+          reply: { source: "model", applied: ["criteria", "frames"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1147,7 +1152,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "画好了两页。", at: "2026-09-06T00:00:01.000Z", source: "model" },
             ],
           }),
-          reply: { source: "model", applied: ["frames", "prototype"] },
+          reply: { source: "model", applied: ["frames", "prototype"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1158,6 +1163,8 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "给我设计一个 chat 的 UI，模拟 chatgpt" } });
     fireEvent.click(screen.getByTestId("design-detail-send"));
     expect(await screen.findByTestId("design-detail-generating")).toBeTruthy();
+    await screen.findAllByTestId("design-detail-phone-tree");
+    fireEvent.click(screen.getByTestId("design-detail-view-single")); // 迭代 4 起默认是画板视图（多页并排），这条断言看单页
     const tree = await screen.findByTestId("design-detail-phone-tree");
     expect(screen.queryByTestId("design-detail-phone-placeholder")).toBeNull();
     expect(tree.textContent).toContain("ChatGPT");
@@ -1189,7 +1196,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
             { role: "user", text: "删掉它", at: "2026-09-06T00:00:00.000Z" },
             { role: "ai", text: "删了。", at: "2026-09-06T00:00:01.000Z", source: "model" },
           ] }),
-          reply: { source: "model", applied: ["prototype"] },
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1230,7 +1237,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
       if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
       if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
-        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"] } };
+        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"], suggestions: [] } };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -1253,14 +1260,14 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       calls.push(`${opts?.method ?? "GET"} ${path}`);
       if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [now] })] };
       if (path === "/pm-designs/p1/versions") return { items: [
-        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
-        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], createdAt: "2026-09-06T02:00:00.000Z" },
-        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z" },
+        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], notes: [], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
+        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], notes: [], createdAt: "2026-09-06T02:00:00.000Z" },
+        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T01:00:00.000Z" },
       ] };
-      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
+      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
       if (path === "/pm-designs/p1/versions/v1/restore" && opts?.method === "POST") {
         restored = true;
-        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], createdAt: "2026-09-06T03:00:00.000Z" } };
+        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T03:00:00.000Z" } };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -1289,6 +1296,254 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull();
   });
 
+  it("迭代 4 画板视图：默认所有页并排；点标题聚焦该页；−/＋/1:1 改缩放；Ctrl+滚轮缩放、滚轮平移；单页/画板可切换", async () => {
+    const t = (c: string) => ({ type: "text" as const, id: `t-${c}`, props: { content: c } });
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天", "设置", "关于"], prototype: [t("一"), t("二"), t("三")] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const board = screen.getByTestId("design-detail-board");
+    expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(3);
+    expect(screen.getByTestId("design-detail-board-frame-2").textContent).toContain("三");
+    // 聚焦第 2 页 ⇒ 标签条同步
+    fireEvent.click(within(screen.getByTestId("design-detail-board-frame-1")).getByRole("button", { name: /设置/ }));
+    expect(screen.getByTestId("design-detail-frame-1").className).toContain("bg-card");
+    // 缩放按钮
+    const level = () => screen.getByTestId("design-detail-zoom-level").textContent;
+    fireEvent.click(screen.getByTestId("design-detail-zoom-reset"));
+    expect(level()).toBe("100%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    expect(level()).toBe("120%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-out"));
+    expect(level()).toBe("100%");
+    // Ctrl+滚轮缩放；普通滚轮平移
+    fireEvent.wheel(board, { deltaY: -100, ctrlKey: true });
+    expect(level()).toBe("120%");
+    const before = screen.getByTestId("design-detail-board-stage").style.transform;
+    fireEvent.wheel(board, { deltaY: 40, deltaX: 0 });
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).not.toBe(before);
+    // 缩放工具条上按下指针不会触发画板拖拽（Codex：pointer capture 会吃掉按钮 click）
+    const beforeDrag = screen.getByTestId("design-detail-board-stage").style.transform;
+    fireEvent.pointerDown(screen.getByTestId("design-detail-zoom-in"), { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(board, { clientX: 60, clientY: 60 });
+    fireEvent.pointerUp(board);
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).toBe(beforeDrag);
+    // 空白处拖拽会平移
+    fireEvent.pointerDown(board, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(board, { clientX: 60, clientY: 60 });
+    fireEvent.pointerUp(board);
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).not.toBe(beforeDrag);
+    expect(board.className).toContain("touch-none");
+    // 点画板里的节点 ⇒ 选中 + 聚焦那页
+    fireEvent.click(screen.getByTestId("design-detail-board-frame-2").querySelector('[data-node-id="t-三"]') as HTMLElement);
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("关于");
+    // 切单页
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    expect(screen.queryByTestId("design-detail-board")).toBeNull();
+    expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(1);
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("三");
+  });
+
+  it("迭代 5 属性面板：选中节点 ⇒ 右栏出现字段；改文案+样式后「应用」只发改动键的 setProps；返回的 project 替换；删除发 remove；服务端 400 的 detail 原样显示", async () => {
+    const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+    const posted: unknown[] = [];
+    let fail = false;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        posted.push(opts.body);
+        if (fail) throw new ApiError(400, "PROTOTYPE_PATCH_REJECTED", { reasonCode: "PROTOTYPE_PATCH_REJECTED", patchReason: "UNKNOWN_NODE", nodeId: "n2" });
+        const body = opts.body as { ops: { op: string }[] };
+        if (body.ops[0]?.op === "remove") return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [] }] }) };
+        return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [{ type: "button", id: "n2", props: { label: "停止", variant: "danger" } }] }] }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    const inspector = await screen.findByTestId("design-inspector");
+    expect(inspector.textContent).toContain("按钮「发送」");
+    expect((screen.getByTestId("design-inspector-apply") as HTMLButtonElement).disabled).toBe(true); // 没改不能应用
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    fireEvent.change(screen.getByTestId("design-inspector-variant"), { target: { value: "danger" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toEqual({ ops: [{ op: "setProps", id: "n2", props: { label: "停止", variant: "danger" } }], summary: "改了按钮「发送」" });
+    // 清掉可选属性 ⇒ 发 null（不是被 JSON 丢掉的 undefined）
+    await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("按钮「停止」"));
+    fireEvent.change(screen.getByTestId("design-inspector-variant"), { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect((posted[1] as { ops: unknown[] }).ops).toEqual([{ op: "setProps", id: "n2", props: { variant: null } }]);
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("停止"));
+    expect(screen.getByTestId("design-inspector").textContent).toContain("按钮「停止」"); // 选中保持，面板随新树刷新
+    // 失败：detail 原样显示
+    fail = true;
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "x" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    expect((await screen.findByTestId("design-inspector-error")).textContent).toContain("这个节点已经不存在了");
+    fail = false;
+    // 删除
+    fireEvent.click(screen.getByTestId("design-inspector-remove"));
+    await waitFor(() => expect(posted).toHaveLength(4));
+    expect(posted[3]).toEqual({ ops: [{ op: "remove", id: "n2" }], summary: "删掉了按钮「停止」" });
+    await waitFor(() => expect(screen.queryByTestId("design-inspector")).toBeNull());
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).not.toContain("停止");
+  });
+
+  it("迭代 6：新原语渲染（hero/grid/stat/progress/chip/switch/checkbox/bottomnav）；设备尺寸由模板派生", async () => {
+    const page = { type: "stack" as const, id: "r", children: [
+      { type: "hero" as const, id: "h", props: { title: "本月用量", cta: "升级套餐" } },
+      { type: "grid" as const, id: "g", props: { columns: 3 as const }, children: [{ type: "stat" as const, id: "s", props: { label: "对话数", value: "1,284", delta: "+12%", tone: "success" as const } }] },
+      { type: "progress" as const, id: "p", props: { value: 68, label: "配额" } },
+      { type: "chip" as const, id: "c", props: { label: "本周", selected: true } },
+      { type: "switch" as const, id: "w", props: { label: "提醒", on: true } },
+      { type: "checkbox" as const, id: "k", props: { label: "含测试", checked: true } },
+      { type: "bottomnav" as const, id: "b", props: { items: ["聊天", "用量"], active: 1 } },
+    ] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ template: "ui", frames: ["用量"], prototype: [page] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const tree = screen.getByTestId("design-detail-phone-tree");
+    for (const t of ["本月用量", "升级套餐", "对话数", "1,284", "+12%", "配额", "68%", "本周", "提醒", "含测试", "聊天", "用量"]) expect(tree.textContent).toContain(t);
+    expect(tree.querySelector('[data-proto="grid"]')?.className).toContain("grid-cols-3");
+    expect(tree.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("68");
+    expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("desktop"); // template ui ⇒ 桌面
+    // 属性面板认识新类型
+    fireEvent.click(tree.querySelector('[data-node-id="s"]') as HTMLElement);
+    expect(screen.getByTestId("design-inspector").textContent).toContain("指标「对话数」");
+    expect(screen.getByTestId("design-inspector-delta")).toBeTruthy();
+  });
+
+  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let mode: "hang" | "fail" | "ok" = "hang";
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown; signal?: AbortSignal }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        if (mode === "hang") {
+          return new Promise((_resolve, reject) => {
+            opts.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          });
+        }
+        if (mode === "fail") throw new TypeError("Failed to fetch");
+        return { project: project({ chat: [{ role: "user", text: "画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "好", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: [], suggestions: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "画" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-generating");
+      await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+      expect(screen.getByTestId("design-detail-elapsed").textContent).toBe("5s");
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("生成页面结构");
+      fireEvent.click(screen.getByTestId("design-detail-cancel"));
+      await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
+      expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();
+      expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("画");
+      // 失败 ⇒ 重试
+      mode = "fail";
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-chat-error");
+      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("无法连接服务器");
+      mode = "ok";
+      fireEvent.click(screen.getByTestId("design-detail-retry"));
+      await waitFor(() => expect(posted).toHaveLength(3));
+      expect(posted[2]).toEqual({ text: "画" });
+      await waitFor(() => expect(screen.queryByTestId("design-detail-chat-error")).toBeNull());
+      expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("迭代 8 导出菜单：JSON 规格下载含页/说明/树；复制 JSON 进剪贴板；PNG 走 html2canvas 抓当前页；说明页显示各页交互说明", async () => {
+    const create = vi.fn(() => "blob:x");
+    Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    // afterEach 会 reset 所有 mock 的实现，所以在本用例里给
+    html2canvasMock.mockImplementation(async () => ({ toBlob: (cb) => cb(new Blob(["png"], { type: "image/png" })) }));
+    const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天", "设置"], prototype: [tree, tree], frameNotes: ["首屏即可发消息", ""] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    fireEvent.click(screen.getByTestId("design-detail-export-json"));
+    expect(click).toHaveBeenCalledTimes(1);
+    const blob = (create.mock.calls[0] as unknown as [Blob])[0];
+    const spec = JSON.parse(await blob.text()) as { version: number; screens: { frame: string; notes: string; root: unknown }[] };
+    expect(spec.version).toBe(1);
+    expect(spec.screens.map((s) => [s.frame, s.notes])).toEqual([["聊天", "首屏即可发消息"], ["设置", ""]]);
+    expect(spec.screens[0]?.root).toEqual(tree);
+    // 复制
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    fireEvent.click(screen.getByTestId("design-detail-export-copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(String(writeText.mock.calls[0]?.[0])).toContain("首屏即可发消息");
+    expect((await screen.findByTestId("design-detail-export-copy")).textContent).toContain("已复制");
+    // PNG：html2canvas 被 mock，抓的是 data-frame-index=当前页 的那块屏
+    fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+    fireEvent.click(screen.getByTestId("design-detail-export-png"));
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
+    expect((html2canvasMock.mock.calls[0] as unknown as [HTMLElement])[0].getAttribute("data-frame-index")).toBe("1");
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    // 说明页
+    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    expect(screen.getByTestId("design-detail-notes").textContent).toContain("首屏即可发消息");
+    expect(screen.queryByTestId("design-detail-note-1")).toBeNull(); // 空说明的页不列
+    click.mockRestore();
+  });
+
+  it("迭代 9 起手模板与建议 chips：空项目显示三条起手，点一下即发；AI 回复后显示 suggestions，点一下即发，下一句发出时清掉", async () => {
+    const posted: string[] = [];
+    let n = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text: string } }) => {
+      if (path === "/pm-designs") return { items: [project({ chat: [] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body?.text ?? "");
+        n += 1;
+        return {
+          project: project({ prototype: [{ type: "text", id: "n1", props: { content: "x" } }], chat: [{ role: "user", text: opts.body?.text ?? "", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: `第 ${n} 轮`, at: "2026-09-06T00:00:01.000Z", source: "model" }] }),
+          reply: { source: "model", applied: ["frames", "prototype"], suggestions: n === 1 ? ["加一个筛选", "设计详情页"] : [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const starters = screen.getByTestId("design-detail-starters");
+    expect(starters.querySelectorAll("button")).toHaveLength(3);
+    fireEvent.click(screen.getByTestId("design-detail-starter-对话助手"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toContain("ChatGPT");
+    const chips = await screen.findByTestId("design-detail-suggestions");
+    expect(chips.textContent).toContain("加一个筛选");
+    expect(screen.queryByTestId("design-detail-starters")).toBeNull(); // 有对话后不再显示起手
+    fireEvent.click(within(chips).getByText("设计详情页"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]).toBe("设计详情页");
+    await waitFor(() => expect(screen.queryByTestId("design-detail-suggestions")).toBeNull()); // 第二轮没给建议
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();
@@ -1301,6 +1556,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
     fireEvent.click(screen.getByTestId("design-detail-export-doc"));
     expect(click).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
@@ -1310,7 +1566,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(md).toContain("## 验收标准");
     expect(md).toContain("### 页 1：聊天");
     expect(md).toContain("文本：你好");
-    expect(revoke).toHaveBeenCalledWith("blob:doc");
+    await waitFor(() => expect(revoke).toHaveBeenCalledWith("blob:doc"), { timeout: 2000 }); // 迭代 10：revoke 延后 1s
     click.mockRestore();
   });
 
@@ -1533,7 +1789,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [], frameNotes: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",
@@ -1561,7 +1817,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [], frameNotes: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",

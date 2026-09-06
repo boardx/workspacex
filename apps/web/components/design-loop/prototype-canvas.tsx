@@ -9,7 +9,7 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
-import { Check, Circle, ImageIcon, Smartphone } from "lucide-react";
+import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeNode } from "@/lib/live-design-workbench";
 
@@ -65,6 +65,24 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
   warning: "bg-warning/20 text-warning",
   danger: "bg-destructive/20 text-destructive",
 };
+const NAV_ICONS = [Home, Search, Bell, User, Settings] as const;
+/** 迭代 6：设备尺寸——由项目模板派生（mobile → 手机，ui → 桌面，wireframe → 平板）；画布内同一套原语按宽度自适应。 */
+export type PrototypeDevice = "phone" | "tablet" | "desktop";
+export const DEVICE_SIZE: Record<PrototypeDevice, { readonly w: number; readonly h: number }> = {
+  phone: { w: 300, h: 560 },
+  tablet: { w: 440, h: 560 },
+  desktop: { w: 720, h: 480 },
+};
+/** 图标与名字；尺寸只在 `DEVICE_SIZE` 一处（Codex：不再有 Tailwind 类那第二份数字），渲染用 inline style。 */
+const DEVICE: Record<PrototypeDevice, { Icon: typeof Smartphone; label: string }> = {
+  phone: { Icon: Smartphone, label: "手机" },
+  tablet: { Icon: Tablet, label: "平板" },
+  desktop: { Icon: Monitor, label: "桌面" },
+};
+/** 项目模板 → 设备：mobile 手机；ui 桌面；wireframe 平板（线框图常在中等宽度上推敲结构）。 */
+export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevice {
+  return template === "mobile" ? "phone" : template === "ui" ? "desktop" : "tablet";
+}
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
 function Node({ node }: { node: PrototypeNode }): React.ReactElement {
@@ -182,18 +200,104 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
           {node.props.name.slice(0, 1)}
         </span>
       );
+    /* ── 迭代 6 扩充 ── */
+    case "grid": {
+      const p = node.props ?? {};
+      return (
+        <div className={cn("grid w-full", p.columns === 3 ? "grid-cols-3" : "grid-cols-2", GAP[p.gap ?? "sm"])} data-proto="grid" {...tap}>
+          {node.children.map((c, i) => <Node key={i} node={c} />)}
+        </div>
+      );
+    }
+    case "bottomnav": {
+      const active = node.props.active ?? 0;
+      return (
+        <nav className="mt-auto flex w-full shrink-0 items-stretch border-t border-border pt-1" data-proto="bottomnav" {...tap}>
+          {node.props.items.map((item, i) => {
+            const Icon = NAV_ICONS[i % NAV_ICONS.length]!;
+            return (
+              <span key={i} className={cn("flex flex-1 flex-col items-center gap-0.5 py-1 text-10", i === active ? "text-primary" : "text-muted-foreground")}>
+                <Icon aria-hidden className="h-4 w-4" />
+                <span className="truncate">{item}</span>
+              </span>
+            );
+          })}
+        </nav>
+      );
+    }
+    case "switch": {
+      const on = node.props.on === true;
+      return (
+        <div className="flex w-full items-center justify-between py-1 text-12" data-proto="switch" {...tap}>
+          <span className="truncate">{node.props.label}</span>
+          <span className={cn("relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-panel")} aria-hidden>
+            <span className={cn("absolute h-4 w-4 rounded-full bg-background shadow", on ? "right-0.5" : "left-0.5")} />
+          </span>
+        </div>
+      );
+    }
+    case "checkbox":
+      return (
+        <div className="flex w-full items-center gap-2 py-1 text-12" data-proto="checkbox" {...tap}>
+          {node.props.checked === true ? <CheckSquare aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <Square aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
+          <span className="truncate">{node.props.label}</span>
+        </div>
+      );
+    case "chip":
+      return (
+        <span className={cn("inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-11", node.props.selected === true ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground")} data-proto="chip" {...tap}>
+          {node.props.label}
+        </span>
+      );
+    case "progress":
+      return (
+        <div className="flex w-full flex-col gap-1" data-proto="progress" {...tap}>
+          {node.props.label !== undefined && (
+            <span className="flex justify-between text-10 text-muted-foreground"><span>{node.props.label}</span><span>{Math.round(node.props.value)}%</span></span>
+          )}
+          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-panel" role="progressbar" aria-valuenow={node.props.value} aria-valuemin={0} aria-valuemax={100}>
+            <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, node.props.value))}%` }} />
+          </span>
+        </div>
+      );
+    case "stat":
+      return (
+        <div className="flex min-w-0 flex-col gap-0.5 rounded-card border border-border bg-panel p-2" data-proto="stat" {...tap}>
+          <span className="truncate text-10 text-muted-foreground">{node.props.label}</span>
+          <span className="truncate text-16 font-semibold">{node.props.value}</span>
+          {node.props.delta !== undefined && (
+            <span className={cn("truncate text-10", node.props.tone === "success" ? "text-success" : node.props.tone === "danger" ? "text-destructive" : "text-muted-foreground")}>{node.props.delta}</span>
+          )}
+        </div>
+      );
+    case "hero":
+      return (
+        <div className="flex w-full flex-col gap-1.5 rounded-card bg-primary/10 p-3" data-proto="hero" {...tap}>
+          <span className="text-16 font-semibold leading-tight">{node.props.title}</span>
+          {node.props.subtitle !== undefined && <span className="text-11 text-muted-foreground">{node.props.subtitle}</span>}
+          {node.props.cta !== undefined && <span className="mt-1 inline-flex h-8 w-fit items-center rounded-control bg-primary px-3 text-12 font-medium text-primary-foreground">{node.props.cta}</span>}
+        </div>
+      );
   }
 }
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null,
-}: { label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null }) {
+  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex,
+}: {
+  label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
+  frameIndex?: number;
+  /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。主题跟随页面 `.dark`——globals.css 没有独立的 `.light` 类，不另造第二份 token。 */
+  device?: PrototypeDevice;
+}) {
+  const { Icon } = DEVICE[device];
+  const size = DEVICE_SIZE[device];
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect }}>
-    <div className="flex h-[560px] w-[300px] flex-col rounded-container border border-border bg-card shadow-lg" data-testid="design-detail-phone">
+    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex}>
       <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
-        <Smartphone aria-hidden className="h-3 w-3" /> {label}
+        <Icon aria-hidden className="h-3 w-3" /> {label}
       </div>
       {root === null ? (
         <div className="flex flex-1 flex-col gap-2 p-3" data-testid="design-detail-phone-placeholder">

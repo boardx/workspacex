@@ -37,6 +37,8 @@ export interface DesignProjectRow {
   readonly frames: readonly string[];
   /** B5.3：按位置对应 `frames[i]` 的组件树；`[]` = 还没生成（契约 `DesignProject.prototype` 不变量）。 */
   readonly prototype: readonly PrototypeNode[];
+  /** 迭代 8：每页交互说明，与 `frames` 同长或空。 */
+  readonly frameNotes: readonly string[];
   readonly pushed: boolean;
   readonly pushedAt: string | null;
   readonly pushNote: string | null;
@@ -62,6 +64,7 @@ export interface PrototypeVersionRow {
   readonly summary: string;
   readonly frames: readonly string[];
   readonly prototype: readonly PrototypeNode[];
+  readonly notes: readonly string[];
   readonly createdAt: string;
 }
 
@@ -81,6 +84,7 @@ export interface NewDesignProject {
   readonly frames: readonly string[];
   /** 新建恒为 `[]`——树只由模型经对话写回。 */
   readonly prototype: readonly PrototypeNode[];
+  readonly frameNotes: readonly string[];
   readonly linkedFeedbackId: string | null;
 }
 
@@ -101,6 +105,8 @@ export interface DesignProjectPatch {
    * 只给 `frames` 不给 `prototype` ⇒ 仓储把 `prototype` 清成 `[]`（标签变了，旧树不再对应）。
    */
   readonly prototype?: readonly PrototypeNode[];
+  /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
+  readonly frameNotes?: readonly string[];
 }
 
 /**

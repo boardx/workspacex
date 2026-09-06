@@ -210,7 +210,7 @@ export const DESIGN_PROJECTS = [
     id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
     problem: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。",
     criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [], frameNotes: [],
     pushed: false, pushedAt: null, linkedFeedbackId: "in-b1",
     chat: [
       { role: "user", text: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。", at: "2026-09-03T02:00:00.000Z" },
@@ -222,18 +222,24 @@ export const DESIGN_PROJECTS = [
   {
     id: "proj-mobile-invite", name: "移动端批量邀请", template: "mobile",
     problem: "", criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [], frameNotes: [],
     pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
   },
-  // UC-17.8 B5.3：已由模型整页生成原型的项目——`prototype` 两页组件树，与 `frames` 同长。
+  // UC-17.8 B5.3：已由模型整页生成原型的项目——`prototype` 三页组件树，与 `frames` 同长。
   // 用于 `detail-prototype-*` 截图（契约束 `design-prototype` 的 ui.md 材料）。
   {
     id: "proj-chat-ui", name: "对话助手移动端", template: "mobile",
     problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
     criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
-    frames: ["聊天", "历史会话"],
+    frames: ["聊天", "历史会话", "用量"],
+    // 迭代 8：每页交互说明（模型随整页写回给出）
+    frameNotes: [
+      "首屏即可发消息；生成中「发送」变「停止」，点停止保留已生成的部分；空态显示三条示例问题。",
+      "按最近更新排序；搜索匹配标题与首条消息；左滑删除，删除前二次确认。",
+      "本月用量与配额进度一屏可见；超额前给出提醒；底部导航停在「用量」。",
+    ],
     prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
@@ -269,17 +275,61 @@ export const DESIGN_PROJECTS = [
           { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
         ],
       },
+      // 迭代 6：新原语一页——hero / grid+stat / progress / chip / switch / checkbox / bottomnav
+      {
+        type: "stack", props: { direction: "column", gap: "sm", padding: "sm" },
+        children: [
+          { type: "hero", props: { title: "本月用量", subtitle: "已用 68%，按当前速度月底前够用。", cta: "升级套餐" } },
+          { type: "grid", props: { columns: 2, gap: "sm" }, children: [
+            { type: "stat", props: { label: "对话数", value: "1,284", delta: "+12% 环比", tone: "success" } },
+            { type: "stat", props: { label: "平均响应", value: "2.4s", delta: "-0.3s", tone: "success" } },
+          ] },
+          { type: "progress", props: { value: 68, label: "配额" } },
+          { type: "stack", props: { direction: "row", gap: "sm" }, children: [
+            { type: "chip", props: { label: "本周", selected: true } }, { type: "chip", props: { label: "本月" } }, { type: "chip", props: { label: "全部" } },
+          ] },
+          { type: "switch", props: { label: "用量提醒", on: true } },
+          { type: "checkbox", props: { label: "包含测试对话", checked: false } },
+          { type: "bottomnav", props: { items: ["聊天", "历史", "用量", "我的"], active: 2 } },
+        ],
+      },
     ]),
     pushed: false, pushedAt: null, linkedFeedbackId: null,
     githubIssueUrl: null, githubIssueNumber: null,
     chat: [
       { role: "user", text: "给我设计一个 chat 的 UI，模拟 chatgpt", at: "2026-09-06T02:00:00.000Z" },
-      { role: "ai", text: "画好了两页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
+      { role: "ai", text: "画好了三页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表，「用量」是本月配额与进度。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
     ],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
   },
 ];
+
+/** v1 视图：把 v2 相对 v1 的两处改动倒回去（「停止」→「发送」、去掉"正在生成"标记）。 */
+function asV1(screens) {
+  const walk = (n) => ({
+    ...n,
+    ...(n.id === "n14" ? { props: { ...n.props, label: "发送", variant: "primary" } } : {}),
+    ...(n.children ? { children: n.children.filter((c) => c.id !== "n11").map(walk) } : {}),
+  });
+  return (screens ?? []).map(walk);
+}
+
+/** 在整份 prototype（每页一棵树）里按 id 找节点。夹具自用，不是契约实现的第二份副本。 */
+function findFixtureNode(screens, nodeId) {
+  const walk = (n) => (n.id === nodeId ? n : (n.children ?? []).reduce((hit, c) => hit ?? walk(c), null));
+  return (screens ?? []).reduce((hit, s) => hit ?? walk(s), null);
+}
+
+/** 把若干 insert 施加到 prototype 上（只支持 insert，够夹具用；重复施加是幂等的）。 */
+function applyFixturePatch(screens, inserts) {
+  for (const { nodeId, index, node } of inserts) {
+    const parent = findFixtureNode(screens, nodeId);
+    if (!parent || findFixtureNode(screens, node.id)) continue;
+    parent.children = [...(parent.children ?? [])];
+    parent.children.splice(index, 0, node);
+  }
+}
 
 /**
  * 拦 `/pm-designs*`：列表 / 建 / 改 / 删 / 追加对话 / 推送。
@@ -288,7 +338,17 @@ export const DESIGN_PROJECTS = [
 export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false } = {}) {
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({ ...p, chat: [...p.chat] }));
+  // ⚠ `prototype` 必须深拷贝：chat/patch 两条路都会**改这棵树**，浅拷贝会把改动写回模块级
+  //   `DESIGN_PROJECTS`，让同一个 Node 进程里后拍的每一张图都带上前一张的改动（rev-uiux
+  //   三评 D4 判 0 的根因：v1 预览画布上出现了比当前版本还多的控件）。
+  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({
+    ...p, chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
+  }));
+  // 版本日志是 append-only 的快照，写入那一刻拍下当时的树——不从活树事后倒推。
+  const versions = new Map(projects.map((p) => [p.id, p.id !== "proj-chat-ui" ? [] : [
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: asV1(p.prototype) },
+    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: structuredClone(p.prototype) },
+  ]]));
 
   await page.route((url) => new URL(url).pathname === "/pm-designs", async (route) => {
     const req = route.request();
@@ -339,16 +399,40 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const body = route.request().postDataJSON() ?? {};
     // B5.3 截「正在生成」过渡：这句故意晚 3s 才 fulfill（真实等待，不是摆图），同 createProject 的做法。
     if (String(body.text ?? "").includes("附件")) await new Promise((r) => setTimeout(r, 3000));
-    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW, source: "fallback" }];
+    // 增量修改这条路径必须**真的改画布**：回复说"加好了"而画布上没有，是屏上肉眼可见的矛盾
+    // （rev-uiux 复评 D2/D10 判 0 的根因就是这里原先回 `applied: []` 只写字不动树）。
+    applyFixturePatch(project.prototype, [
+      { nodeId: "n12", index: 0, node: { id: "n90", type: "button", props: { label: "＋", variant: "ghost" } } },
+      { nodeId: "n9", index: 2, node: { id: "n91", type: "button", props: { label: "复制", variant: "ghost" } } },
+    ]);
+    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区左侧加了附件按钮，AI 回复下方加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
     project.updatedAt = NOW;
-    return json(route, { project, reply: { source: "fallback", applied: [] } });
+    (versions.get(project.id) ?? []).push({
+      id: `${project.id}-v${(versions.get(project.id)?.length ?? 0) + 1}`, seq: (versions.get(project.id)?.length ?? 0) + 1,
+      source: "model", summary: "输入区加了附件按钮，AI 回复下方加了复制。", frames: project.frames,
+      notes: project.frameNotes, createdAt: NOW, prototype: structuredClone(project.prototype),
+    });
+    // suggestions 是"下一步"，不能是刚做完的那两件——否则助手说"加好了"，紧跟着建议"去加一下"。
+    return json(route, { project, reply: { source: "model", applied: ["prototype"], suggestions: ["把发送键做成图标", "给历史会话加分组", "设计设置页"] } });
   });
 
-  // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
-  const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
-    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
-  ]);
+  // 迭代 5：人直接改画布——夹具按 nodeId 真的把 setProps 合进树里（不是回显）。
+  await page.route((url) => /^\/pm-designs\/[^/]+\/prototype\/patch$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    for (const op of route.request().postDataJSON()?.ops ?? []) {
+      const node = op.nodeId ? findFixtureNode(project.prototype, op.nodeId) : null;
+      if (node && op.op === "setProps") {
+        node.props = { ...node.props, ...op.props };
+        for (const [k, v] of Object.entries(op.props ?? {})) if (v === null) delete node.props[k];
+      }
+    }
+    project.updatedAt = NOW;
+    return json(route, { project });
+  });
+  // 迭代 3：版本历史——读上面的 append-only 快照日志，最新的排在前面。
+  const versionsOf = (p) => [...(versions.get(p.id) ?? [])].reverse();
   await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
     const project = projects.find((p) => p.id === id);

@@ -41,6 +41,8 @@ export const PROTOTYPE_MAX_SCREENS = 20;
 /** 原语闭集。新增类型要同时改 `apps/web/components/design-loop/prototype-canvas.tsx` 的渲染表——那边用 `Record<PrototypeNodeType, …>` 穷举，漏了编译不过。 */
 export const PrototypeNodeType = z.enum([
   "stack", "card", "navbar", "text", "button", "input", "image", "list", "divider", "spacer", "tabs", "badge", "avatar",
+  // 迭代 6 扩充：底部导航 / 开关 / 复选 / 筛选 chip / 进度 / 指标 / hero 头图 / 网格容器
+  "bottomnav", "switch", "checkbox", "chip", "progress", "stat", "hero", "grid",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -86,9 +88,21 @@ const InputProps = z.object({
 const ImageProps = z.object({ alt: Label, ratio: z.enum(["square", "video", "wide", "portrait"]).optional() }).strict();
 const ListProps = z.object({ items: Items, leading: z.enum(["none", "dot", "check", "avatar"]).optional() }).strict();
 const SpacerProps = z.object({ size: Scale.optional() }).strict();
-const TabsProps = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
+/** `active` 必须指向 `items` 里真实存在的一项（Codex：越界会渲染成「没有选中项」）。 */
+const indexWithin = <T extends { items: readonly string[]; active?: number }>(p: T): boolean => p.active === undefined || p.active < p.items.length;
+const TabsPropsBase = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
+const TabsProps = TabsPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
 const AvatarProps = z.object({ name: Label }).strict();
+const BottomNavPropsBase = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const BottomNavProps = BottomNavPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
+const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
+const CheckboxProps = z.object({ label: Label, checked: z.boolean().optional() }).strict();
+const ChipProps = z.object({ label: Label, selected: z.boolean().optional() }).strict();
+const ProgressProps = z.object({ value: z.number().min(0).max(100), label: Label.optional() }).strict();
+const StatProps = z.object({ label: Label, value: Label, delta: Label.optional(), tone: z.enum(["neutral", "success", "danger"]).optional() }).strict();
+const HeroProps = z.object({ title: Label, subtitle: z.string().max(400).optional(), cta: Label.optional() }).strict();
+const GridProps = z.object({ columns: z.union([z.literal(2), z.literal(3)]).optional(), gap: Scale.optional() }).strict();
 
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
@@ -103,12 +117,27 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("tabs"), props: TabsProps }).strict(),
   z.object({ id: Id, type: z.literal("badge"), props: BadgeProps }).strict(),
   z.object({ id: Id, type: z.literal("avatar"), props: AvatarProps }).strict(),
+  z.object({ id: Id, type: z.literal("bottomnav"), props: BottomNavProps }).strict(),
+  z.object({ id: Id, type: z.literal("switch"), props: SwitchProps }).strict(),
+  z.object({ id: Id, type: z.literal("checkbox"), props: CheckboxProps }).strict(),
+  z.object({ id: Id, type: z.literal("chip"), props: ChipProps }).strict(),
+  z.object({ id: Id, type: z.literal("progress"), props: ProgressProps }).strict(),
+  z.object({ id: Id, type: z.literal("stat"), props: StatProps }).strict(),
+  z.object({ id: Id, type: z.literal("hero"), props: HeroProps }).strict(),
 ]);
 
 export type PrototypeNode =
   | z.infer<typeof Leaf>
   | { readonly id?: PrototypeNodeId; readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
-  | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] };
+  | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "grid"; readonly props?: z.infer<typeof GridProps>; readonly children: readonly PrototypeNode[] };
+
+/** 容器类型闭集（有 `children`）。所有遍历只认它，加容器只改这里 + `PrototypeNode` 的 union。 */
+export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid"] as const;
+export type PrototypeContainer = Extract<PrototypeNode, { children: readonly PrototypeNode[] }>;
+export function isPrototypeContainer(n: PrototypeNode): n is PrototypeContainer {
+  return (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(n.type);
+}
 
 /**
  * 递归节点。容器（`stack`/`card`）必有 `children`（可空数组），叶子没有。
@@ -119,6 +148,7 @@ export const PrototypeNode: z.ZodType<PrototypeNode> = z.lazy(() =>
     Leaf,
     z.object({ id: Id, type: z.literal("stack"), props: StackProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("grid"), props: GridProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
   ]),
 );
 
@@ -129,7 +159,7 @@ export function measurePrototype(root: PrototypeNode): { readonly nodes: number;
   const walk = (n: PrototypeNode, d: number): void => {
     nodes += 1;
     if (d > depth) depth = d;
-    if (n.type === "stack" || n.type === "card") for (const c of n.children) walk(c, d + 1);
+    if (isPrototypeContainer(n)) for (const c of n.children) walk(c, d + 1);
   };
   walk(root, 1);
   return { nodes, depth };
@@ -166,8 +196,14 @@ export function withinPrototypeLimits(root: PrototypeNode): boolean {
 }
 
 /** 模型写回用的一页：页标签 + 这一页的树。服务端拆成 `frames[i]` / `prototype[i]`。 */
+export const PROTOTYPE_NOTES_MAX = 600;
 export const PrototypeScreen = z
-  .object({ frame: Label, root: PrototypeNode })
+  .object({
+    frame: Label,
+    root: PrototypeNode,
+    /** 迭代 8：这一页的交互说明（做什么 / 主要交互 / 状态与边界），进设计文档与说明页；可省略。 */
+    notes: z.string().max(PROTOTYPE_NOTES_MAX).optional(),
+  })
   .strict()
   .refine((s) => withinPrototypeLimits(s.root), { message: `prototype screen exceeds ${PROTOTYPE_MAX_NODES} nodes or depth ${PROTOTYPE_MAX_DEPTH}` });
 export type PrototypeScreen = z.infer<typeof PrototypeScreen>;
@@ -176,6 +212,63 @@ export type PrototypeScreen = z.infer<typeof PrototypeScreen>;
 export const DesignPrototypeWriteback = z.array(PrototypeScreen).min(1).max(PROTOTYPE_MAX_SCREENS);
 export type DesignPrototypeWriteback = z.infer<typeof DesignPrototypeWriteback>;
 
+/* ─────────────────────────── 迭代 5：属性面板的字段元数据（单源） ─────────────────────────── */
+
+/** 每种原语的 props schema——属性面板元数据的机械门控用它对账（契约测试逐类型比 shape 键）。 */
+export const PROTOTYPE_PROPS_SCHEMAS = {
+  stack: StackProps, card: CardProps, navbar: NavbarProps, text: TextProps, button: ButtonProps, input: InputProps,
+  image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsPropsBase, badge: BadgeProps, avatar: AvatarProps,
+  bottomnav: BottomNavPropsBase, switch: SwitchProps, checkbox: CheckboxProps, chip: ChipProps, progress: ProgressProps,
+  stat: StatProps, hero: HeroProps, grid: GridProps,
+} as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
+
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
+export interface PrototypeField {
+  readonly key: string;
+  readonly label: string;
+  readonly kind: PrototypeFieldKind;
+  /** `kind === "enum"` 时的闭集；由对应 `z.enum` 的 `options` 派生，不手抄。 */
+  readonly options?: readonly string[];
+}
+
+const SCALE_OPTIONS = Scale.options;
+const F = (key: string, label: string, kind: PrototypeFieldKind, options?: readonly string[]): PrototypeField => ({ key, label, kind, ...(options !== undefined ? { options } : {}) });
+
+/**
+ * 属性面板字段表：**每个类型的 key 集合 == 对应 `*Props` 的 shape 键集合**（契约测试锁定），枚举 options 直接
+ * 取自 zod `.options`。加/改属性只改 schema 与这里，前端不再另抄一份（Codex P1：第二份事实源）。
+ */
+export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField[]> = {
+  stack: [
+    F("direction", "方向", "enum", StackProps.shape.direction.unwrap().options),
+    F("gap", "间距", "enum", SCALE_OPTIONS), F("padding", "内边距", "enum", SCALE_OPTIONS),
+    F("align", "对齐", "enum", StackProps.shape.align.unwrap().options), F("fill", "填满剩余空间", "bool"),
+  ],
+  card: [F("title", "标题", "text")],
+  navbar: [F("title", "标题", "text"), F("left", "左侧", "text"), F("right", "右侧", "text")],
+  text: [
+    F("content", "文案", "multiline"), F("variant", "样式", "enum", TextProps.shape.variant.unwrap().options),
+    F("muted", "弱化", "bool"), F("align", "对齐", "enum", TextProps.shape.align.unwrap().options),
+  ],
+  button: [F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options), F("full", "通栏", "bool")],
+  input: [F("placeholder", "占位文字", "text"), F("label", "标签", "text"), F("value", "已填内容", "text"), F("multiline", "多行", "bool")],
+  image: [F("alt", "说明", "text"), F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options)],
+  list: [F("items", "条目（一行一项）", "lines"), F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options)],
+  divider: [],
+  spacer: [F("size", "高度", "enum", SCALE_OPTIONS)],
+  tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
+  avatar: [F("name", "名字", "text")],
+  bottomnav: [F("items", "项（一行一项，2–6）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  switch: [F("label", "文案", "text"), F("on", "打开", "bool")],
+  checkbox: [F("label", "文案", "text"), F("checked", "已选", "bool")],
+  chip: [F("label", "文案", "text"), F("selected", "选中", "bool")],
+  progress: [F("value", "进度（0–100）", "number"), F("label", "说明", "text")],
+  stat: [F("label", "指标名", "text"), F("value", "数值", "text"), F("delta", "变化", "text"), F("tone", "色调", "enum", StatProps.shape.tone.unwrap().options)],
+  hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
+  grid: [F("columns", "列数（2 或 3）", "number"), F("gap", "间距", "enum", SCALE_OPTIONS)],
+};
+
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
 
 export const PROTOTYPE_MAX_PATCH_OPS = 50;
@@ -183,7 +276,7 @@ export const PROTOTYPE_MAX_PATCH_OPS = 50;
 /**
  * 四种 patch 操作，全部按节点 id 寻址（id 在项目内唯一，所以不带页）：
  *   · `replace`  用 `node` 整体替换 `id` 那棵子树（可以换类型）；新子树里没 id 的节点由服务端补。
- *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）。
+ *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）；键值 `null` = 删该键。
  *   · `insert`   把 `node` 插进容器 `parentId` 的 `children[index]`（缺省追加到末尾）。
  *   · `remove`   删掉 `id` 那棵子树。根节点不可删（一页至少有根）。
  * 语义是**顺序**执行：后一条能看到前一条的结果；任一条失败 ⇒ 整批不生效（字段级拒绝，同 I-10）。
@@ -191,6 +284,7 @@ export const PROTOTYPE_MAX_PATCH_OPS = 50;
 export const PrototypePatchOp = z.discriminatedUnion("op", [
   /** `node.id` 若给出会被忽略——替换后的根沿用被替换节点的 id（稳定身份）。 */
   z.object({ op: z.literal("replace"), id: PrototypeNodeId, node: PrototypeNode }).strict(),
+  /** `props` 里某键为 `null` ⇒ 删掉该键（可选属性回到默认）。 */
   z.object({ op: z.literal("setProps"), id: PrototypeNodeId, props: z.record(z.unknown()) }).strict(),
   z.object({ op: z.literal("insert"), parentId: PrototypeNodeId, index: z.number().int().min(0).optional(), node: PrototypeNode }).strict(),
   z.object({ op: z.literal("remove"), id: PrototypeNodeId }).strict(),
@@ -201,7 +295,7 @@ export type DesignPrototypePatch = z.infer<typeof DesignPrototypePatch>;
 
 function collectIds(root: PrototypeNode, out: Set<string>): void {
   if (root.id !== undefined) out.add(root.id);
-  if (root.type === "stack" || root.type === "card") for (const c of root.children) collectIds(c, out);
+  if (isPrototypeContainer(root)) for (const c of root.children) collectIds(c, out);
 }
 
 /**
@@ -229,7 +323,7 @@ export function ensurePrototypeIds(prototype: readonly PrototypeNode[]): readonl
       id = nextId();
     }
     seen.add(id);
-    if (n.type === "stack" || n.type === "card") {
+    if (isPrototypeContainer(n)) {
       const children = n.children.map(fill);
       return { ...n, id, children };
     }
@@ -248,14 +342,23 @@ export function prototypeIdsUnique(prototype: readonly PrototypeNode[]): boolean
       if (seen.has(n.id)) dup = true;
       seen.add(n.id);
     }
-    if (n.type === "stack" || n.type === "card") for (const c of n.children) walk(c);
+    if (isPrototypeContainer(n)) for (const c of n.children) walk(c);
   };
   for (const r of prototype) walk(r);
   return !dup;
 }
 
+/**
+ * patch 被拒的**闭集**原因——它会经 HTTP 回到前端（`PROTOTYPE_PATCH_REJECTED` + `patchReason`），
+ * 全局异常过滤器只放行闭集里的值，自由文本的 message 只进日志（`all-exceptions.filter.ts` 的纪律）。
+ */
+export const PrototypePatchRejectReason = z.enum([
+  "UNKNOWN_NODE", "DUPLICATE_ID", "ROOT_REMOVE", "NOT_CONTAINER", "INVALID_NODE", "LIMITS", "NO_PROTOTYPE",
+]);
+export type PrototypePatchRejectReason = z.infer<typeof PrototypePatchRejectReason>;
+
 export class PrototypePatchError extends Error {
-  constructor(readonly opIndex: number, message: string) {
+  constructor(readonly opIndex: number, readonly reason: PrototypePatchRejectReason, message: string, readonly nodeId?: string) {
     super(`patch op #${opIndex}: ${message}`);
     this.name = "PrototypePatchError";
   }
@@ -273,9 +376,15 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
     const visit = (n: PrototypeNode): PrototypeNode | null => {
       if (op.op === "setProps" && n.id === op.id) {
         hit += 1;
-        const merged = { ...n, props: { ...(("props" in n ? n.props : undefined) ?? {}), ...op.props } };
+        // `null` = 删掉这个键（可选属性回到默认）；JSON 里 undefined 会被丢掉，所以删除必须有显式表示。
+        const props: Record<string, unknown> = { ...(("props" in n ? n.props : undefined) ?? {}) };
+        for (const [k, v] of Object.entries(op.props)) {
+          if (v === null) delete props[k];
+          else props[k] = v;
+        }
+        const merged = { ...n, props };
         const parsed = PrototypeNode.safeParse(merged);
-        if (!parsed.success) throw new PrototypePatchError(i, `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`);
+        if (!parsed.success) throw new PrototypePatchError(i, "INVALID_NODE", `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`, op.id);
         return parsed.data;
       }
       if (op.op === "replace" && n.id === op.id) {
@@ -288,7 +397,7 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
         hit += 1;
         return null;
       }
-      if (n.type === "stack" || n.type === "card") {
+      if (isPrototypeContainer(n)) {
         let children: PrototypeNode[] = [];
         for (const c of n.children) {
           const r = visit(c);
@@ -301,24 +410,24 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
         }
         return { ...n, children };
       }
-      if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, `${op.parentId} is a ${n.type}, not a container`);
+      if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, "NOT_CONTAINER", `${op.parentId} is a ${n.type}, not a container`, op.parentId);
       return n;
     };
     const next: PrototypeNode[] = [];
     for (const root of current) {
       const r = visit(root);
-      if (r === null) throw new PrototypePatchError(i, `cannot remove page root ${root.id ?? ""}`);
+      if (r === null) throw new PrototypePatchError(i, "ROOT_REMOVE", `cannot remove page root ${root.id ?? ""}`, root.id);
       next.push(r);
     }
     const target = op.op === "insert" ? op.parentId : op.id;
-    if (hit === 0) throw new PrototypePatchError(i, `no node with id ${target}`);
-    if (hit > 1) throw new PrototypePatchError(i, `id ${target} is not unique`);
+    if (hit === 0) throw new PrototypePatchError(i, "UNKNOWN_NODE", `no node with id ${target}`, target);
+    if (hit > 1) throw new PrototypePatchError(i, "DUPLICATE_ID", `id ${target} is not unique`, target);
     current = ensurePrototypeIds(next);
   });
   for (const [k, root] of current.entries()) {
-    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, `page ${k + 1} exceeds limits after patch`);
+    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
   }
-  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "ids not unique after patch");
+  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
   return current;
 }
 
@@ -333,7 +442,7 @@ export function findPrototypeNodePath(
   const walk = (n: PrototypeNode, trail: PrototypeNode[]): PrototypeNode[] | null => {
     const here = [...trail, n];
     if (n.id === id) return here;
-    if (n.type === "stack" || n.type === "card") {
+    if (isPrototypeContainer(n)) {
       for (const c of n.children) {
         const r = walk(c, here);
         if (r !== null) return r;
@@ -364,7 +473,52 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "stack": return n.props?.direction === "row" ? "横向布局" : "纵向布局";
     case "divider": return "分隔线";
     case "spacer": return "留白";
+    case "bottomnav": return `底部导航（${n.props.items.join("/")}）`;
+    case "switch": return `开关「${n.props.label}」`;
+    case "checkbox": return `复选「${n.props.label}」`;
+    case "chip": return `筛选「${n.props.label}」`;
+    case "progress": return `进度 ${n.props.value}%`;
+    case "stat": return `指标「${n.props.label}」`;
+    case "hero": return `头图「${n.props.title}」`;
+    case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
+}
+
+/* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
+
+/** 只有这些「类型.键」是数字：`stat.value` / `input.value` 是字符串，全局按键名转会把合法节点转坏（Codex P1）。 */
+const NUMERIC_PROPS: Record<string, readonly string[]> = { progress: ["value"], tabs: ["active"], bottomnav: ["active"], grid: ["columns"] };
+
+/**
+ * 在过契约**之前**对模型给的原始树做几种机械纠偏——都是「意思对了、格式差一点」的错，
+ * 让契约拒掉再让模型重来一轮太贵：
+ *   · `type` 大小写/首尾空白；
+ *   · 容器（stack/card/grid）漏了 `children` ⇒ 补 `[]`；叶子多了 `children` ⇒ 删；
+ *   · `divider` 带了空 `props` ⇒ 删；
+ *   · `value` / `active` / `columns` 写成数字字符串 ⇒ 转数字。
+ * **不**删未知 props 键、**不**猜缺失的必填项——那些是真错，交给契约与修复轮。
+ * 输入不是对象 ⇒ 原样返回；迭代式处理，深度由调用方先用 `rawPrototypeDepth` 挡。
+ */
+export function coercePrototypeRaw(raw: unknown): unknown {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const n = { ...(raw as Record<string, unknown>) };
+  if (typeof n.type === "string") n.type = n.type.trim().toLowerCase();
+  const isContainer = (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(String(n.type));
+  if (isContainer) {
+    n.children = Array.isArray(n.children) ? n.children.map(coercePrototypeRaw) : [];
+  } else if ("children" in n) {
+    delete n.children;
+  }
+  if (n.type === "divider" && "props" in n) delete n.props;
+  if (n.props !== null && typeof n.props === "object" && !Array.isArray(n.props)) {
+    const props = { ...(n.props as Record<string, unknown>) };
+    for (const k of NUMERIC_PROPS[String(n.type)] ?? []) {
+      const v = props[k];
+      if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) props[k] = Number(v);
+    }
+    n.props = props;
+  }
+  return n;
 }
 
 /** 给模型看的 patch 说明——同 `PROTOTYPE_SCHEMA_GUIDE`，只此一份。 */
@@ -379,10 +533,14 @@ export const PROTOTYPE_PATCH_GUIDE =
  * 与上面各 `*Props` 同步维护；契约测试 `design-prototype.test.ts` 检查每个类型名都出现在这段文字里。
  */
 export const PROTOTYPE_SCHEMA_GUIDE =
-  "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card 有 children）。类型与 props：" +
+  "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
   "card{title?}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align?}；" +
   "button{label, variant:primary|secondary|ghost|danger, full?}；input{placeholder?, label?, value?, multiline?}；" +
   "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
-  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}。" +
-  `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。`;
+  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}；" +
+  "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
+  "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
+  "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
+  `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
+  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。`;

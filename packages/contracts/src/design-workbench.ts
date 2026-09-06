@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { PrototypeNode, PrototypeNodeId } from "./design-prototype";
+import { DesignPrototypePatch, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -104,6 +104,16 @@ export const DESIGN_PROJECT_INITIAL_FRAMES: readonly string[] = ["草稿页 1", 
  */
 export const DESIGN_WORKBENCH_CHAT_INTRO =
   "把你想解决的问题说清楚，我会顺着它更新右边的原型画布和验收标准。可以先从「谁在什么场景下会用到」讲起。";
+
+/**
+ * 迭代 9：空项目的起手模板——三条现成的第一句话，点一下即发。展示层文案，不落库；
+ * 与引导语同源在这里声明一次（api/web 共用），不在前端另写一份。
+ */
+export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; readonly prompt: string }[] = [
+  { label: "对话助手", prompt: "给我设计一个像 ChatGPT 的对话助手：会话列表、消息流、输入区（发送/停止）、空态与加载态。" },
+  { label: "数据看板", prompt: "设计一个运营数据看板：顶部 3 个核心指标，中间趋势区，底部可筛选的明细列表，带空态。" },
+  { label: "表单流程", prompt: "设计一个三步表单流程：填写信息 → 确认 → 完成，每步有校验错误态和返回上一步。" },
+];
 
 /**
  * 对话面板发送后的固定回执。D7（2026-09-02）上线时它是唯一路径；**UC-17.8 B5.2 起它是模型
@@ -154,6 +164,8 @@ export const DesignProject = z
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
     prototype: z.array(PrototypeNode),
+    /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
+    frameNotes: z.array(z.string()),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
@@ -181,6 +193,9 @@ export const DesignProject = z
     if (p.prototype.length !== 0 && p.prototype.length !== p.frames.length) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "prototype must be empty or one tree per frame", path: ["prototype"] });
     }
+    if (p.frameNotes.length !== 0 && p.frameNotes.length !== p.frames.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "frameNotes must be empty or one note per frame", path: ["frameNotes"] });
+    }
   });
 export type DesignProject = z.infer<typeof DesignProject>;
 
@@ -202,6 +217,8 @@ export const DesignWorkbenchError = z.enum([
   "DEPENDENCY_UNAVAILABLE",
   /** 迭代 3：原型版本不存在（或不属于该项目） */
   "VERSION_NOT_FOUND",
+  /** 迭代 5：人直接改画布的 patch 没通过（未知 id / 删根 / 结果不合法 / 还没有原型）——`detail` 说明哪一条 */
+  "PROTOTYPE_PATCH_REJECTED",
   /**
    * B4.4「用 PM 设计工作台深化」——源反馈不存在或不在本组织。
    * 同 `feedback-loop.ts` 的 `FEEDBACK_NOT_FOUND` 纪律：404 非 403，不泄露存在性。
@@ -248,6 +265,8 @@ export const PrototypeVersionSummary = z
     /** 一句话：模型那轮回复的前 120 字 / 「恢复自 v3」/ 人改的说明。可空字符串。 */
     summary: z.string().max(200),
     frames: z.array(z.string()),
+    /** 迭代 8：那一版的每页交互说明（与 frames 同长或空）。 */
+    notes: z.array(z.string()),
     createdAt: z.string(),
   })
   .strict();
@@ -380,6 +399,20 @@ export const operations = {
     in: z.object({ projectId: z.string(), versionId: z.string() }).strict(),
     out: z.object({ project: DesignProject, version: PrototypeVersionSummary }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "VERSION_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 迭代 5：人在画布上**直接改**——选中节点后在属性面板改文案/属性，或删掉它。仅 owner。
+   * 走与模型写回完全同一条路：`applyPrototypePatch` 顺序执行、每步重验、整批原子；成功记一条
+   * `source: "user"` 的版本（`summary` 由前端给一句，如「改了按钮「发送」的文案」）。
+   * 这条路径的存在改写了 I-11「只经模型写回」——现在是「只经契约 patch 写回（模型或人），永远重验」。
+   */
+  patchPrototype: {
+    method: "POST",
+    path: "/pm-designs/:projectId/prototype/patch",
+    in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */

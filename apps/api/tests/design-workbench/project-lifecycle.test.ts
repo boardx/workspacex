@@ -14,6 +14,7 @@ import {
   restorePrototypeVersion,
 } from "../../src/application/design-workbench/prototype-versions";
 import { deleteProject } from "../../src/application/design-workbench/delete-project";
+import { PrototypePatchRejectedError, patchPrototype } from "../../src/application/design-workbench/patch-prototype";
 import { pushToInbox } from "../../src/application/design-workbench/push-to-inbox";
 import {
   DesignProjectNameRequiredError,
@@ -29,7 +30,7 @@ import type { DesignChatContext, DesignChatModel, DesignChatReplyResult } from "
 /** B5.2：`DesignChatModel` 的内存 fake——默认退回固定回执（fallback），记录看到的上下文。 */
 class FakeDesignChat implements DesignChatModel {
   readonly calls: DesignChatContext[] = [];
-  answer: DesignChatReplyResult = { text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} };
+  answer: DesignChatReplyResult = { text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} , suggestions: [] };
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
     this.calls.push({ ...ctx, chat: [...ctx.chat] });
     return this.answer;
@@ -174,7 +175,7 @@ describe("appendProjectChat", () => {
     expect(out.project.chat[0]).toMatchObject({ role: "user", text: "改一下颜色" });
     expect(out.project.chat[0]).not.toHaveProperty("source");
     expect(out.project.chat[1]).toMatchObject({ role: "ai", text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback" });
-    expect(out.reply).toEqual({ source: "fallback", applied: [] });
+    expect(out.reply).toEqual({ source: "fallback", applied: [], suggestions: [] });
   });
 
   it("B5.2 模型在：回复来自模型；合法 writeback 直接写回 problem/criteria/frames，applied 如实；返回的是写回后的项目", async () => {
@@ -182,10 +183,10 @@ describe("appendProjectChat", () => {
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "导出改版", problem: "旧背景" }));
     await appendProjectChat({ ...deps(repo), ai: new FakeDesignChat() }, { projectId: "dp-1", ownerId: "u-1", text: "第一句" });
     const ai = new FakeDesignChat();
-    ai.answer = { text: "好，验收标准加了导出成功率一条。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"], problem: "新背景" } };
+    ai.answer = { text: "好，验收标准加了导出成功率一条。", source: "model", writeback: { criteria: ["导出成功率 ≥ 99%"], problem: "新背景" } , suggestions: [] };
 
     const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "把导出成功率写进验收标准" });
-    expect(out.reply).toEqual({ source: "model", applied: ["problem", "criteria"] });
+    expect(out.reply).toEqual({ source: "model", applied: ["problem", "criteria"], suggestions: [] });
     expect(out.project.problem).toBe("新背景");
     expect(out.project.criteria).toEqual(["导出成功率 ≥ 99%"]);
     expect(out.project.frames).toEqual(designProjectRow({ id: "x", ownerId: "u-1" }).frames); // 没写回的不动
@@ -201,15 +202,15 @@ describe("appendProjectChat", () => {
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
     const tree = { type: "stack" as const, children: [{ type: "text" as const, props: { content: "hi" } }] };
     const ai = new FakeDesignChat();
-    ai.answer = { text: "画好了。", source: "model", writeback: { frames: ["被忽略"], prototype: [{ frame: "聊天", root: tree }, { frame: "设置", root: { type: "divider" } }] } };
+    ai.answer = { text: "画好了。", source: "model", writeback: { frames: ["被忽略"], prototype: [{ frame: "聊天", root: tree }, { frame: "设置", root: { type: "divider" } }] } , suggestions: [] };
     const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天 UI" });
-    expect(out.reply).toEqual({ source: "model", applied: ["frames", "prototype"] });
+    expect(out.reply).toEqual({ source: "model", applied: ["frames", "prototype"], suggestions: [] });
     expect(out.project.frames).toEqual(["聊天", "设置"]);
     expect(out.project.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }])); // 迭代 1：落库补 id
     expect(ai.calls[0]?.prototype).toEqual([]);
 
     const relabel = new FakeDesignChat();
-    relabel.answer = { text: "改名了。", source: "model", writeback: { frames: ["首页", "设置"] } };
+    relabel.answer = { text: "改名了。", source: "model", writeback: { frames: ["首页", "设置"] } , suggestions: [] };
     const out2 = await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "第一页叫首页" });
     expect(out2.reply.applied).toEqual(["frames"]);
     expect(out2.project.frames).toEqual(["首页", "设置"]);
@@ -222,12 +223,12 @@ describe("appendProjectChat", () => {
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
     // 没原型 ⇒ patch 无处可打
     const early = new FakeDesignChat();
-    early.answer = { text: "改了。", source: "model", writeback: { patch: [{ op: "remove", id: "n1" }], criteria: ["c"] } };
+    early.answer = { text: "改了。", source: "model", writeback: { patch: [{ op: "remove", id: "n1" }], criteria: ["c"] } , suggestions: [] };
     const out0 = await appendProjectChat({ ...deps(repo), ai: early }, { projectId: "dp-1", ownerId: "u-1", text: "删掉" });
     expect(out0.reply.applied).toEqual(["criteria"]);
     // 整页写回：模型没写 id ⇒ 落库时补齐
     const whole = new FakeDesignChat();
-    whole.answer = { text: "画好了。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "hi" } }, { type: "button", props: { label: "发送" } }] } }] } };
+    whole.answer = { text: "画好了。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "hi" } }, { type: "button", props: { label: "发送" } }] } }] } , suggestions: [] };
     const out1 = await appendProjectChat({ ...deps(repo), ai: whole }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天" });
     const root = out1.project.prototype[0];
     expect(root).toMatchObject({ id: "n1", type: "stack" });
@@ -235,7 +236,7 @@ describe("appendProjectChat", () => {
     expect(root.children.map((c) => c.id)).toEqual(["n2", "n3"]);
     // patch：按 id 改
     const p = new FakeDesignChat();
-    p.answer = { text: "按钮改成停止。", source: "model", writeback: { patch: [{ op: "setProps", id: "n3", props: { label: "停止", variant: "danger" } }] } };
+    p.answer = { text: "按钮改成停止。", source: "model", writeback: { patch: [{ op: "setProps", id: "n3", props: { label: "停止", variant: "danger" } }] } , suggestions: [] };
     const out2 = await appendProjectChat({ ...deps(repo), ai: p }, { projectId: "dp-1", ownerId: "u-1", text: "按钮改成停止" });
     expect(out2.reply.applied).toEqual(["prototype"]);
     const r2 = out2.project.prototype[0];
@@ -245,7 +246,7 @@ describe("appendProjectChat", () => {
     expect(p.calls[0]?.prototype[0]).toMatchObject({ id: "n1" }); // 模型看到的是带 id 的树
     // 非法 patch（未知 id）⇒ prototype 不动，problem 照写
     const bad = new FakeDesignChat();
-    bad.answer = { text: "x", source: "model", writeback: { patch: [{ op: "remove", id: "zzz" }], problem: "新背景" } };
+    bad.answer = { text: "x", source: "model", writeback: { patch: [{ op: "remove", id: "zzz" }], problem: "新背景" } , suggestions: [] };
     const out3 = await appendProjectChat({ ...deps(repo), ai: bad }, { projectId: "dp-1", ownerId: "u-1", text: "删" });
     expect(out3.reply.applied).toEqual(["problem"]);
     expect(out3.project.prototype).toEqual(out2.project.prototype);
@@ -268,13 +269,13 @@ describe("appendProjectChat", () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
     const whole = new FakeDesignChat();
-    whole.answer = { text: "画好了，两页。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "v1" } }] } }] } };
+    whole.answer = { text: "画好了，两页。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "v1" } }] }, notes: " 首屏可发消息 " }] } , suggestions: [] };
     await appendProjectChat({ ...deps(repo), ai: whole }, { projectId: "dp-1", ownerId: "u-1", text: "画" });
     const p = new FakeDesignChat();
-    p.answer = { text: "改了文案。", source: "model", writeback: { patch: [{ op: "setProps", id: "n2", props: { content: "v2" } }] } };
+    p.answer = { text: "改了文案。", source: "model", writeback: { patch: [{ op: "setProps", id: "n2", props: { content: "v2" } }] } , suggestions: [] };
     await appendProjectChat({ ...deps(repo), ai: p }, { projectId: "dp-1", ownerId: "u-1", text: "改" });
     const relabel = new FakeDesignChat();
-    relabel.answer = { text: "改名。", source: "model", writeback: { frames: ["首页"] } };
+    relabel.answer = { text: "改名。", source: "model", writeback: { frames: ["首页"] } , suggestions: [] };
     await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "改名" });
 
     const { items } = await listPrototypeVersions(deps(repo), { projectId: "dp-1" });
@@ -283,6 +284,7 @@ describe("appendProjectChat", () => {
     const v1 = await getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: items[1]!.id });
     expect(v1.version.prototype[0]).toMatchObject({ type: "stack", children: [{ props: { content: "v1" } }] });
     expect(v1.version.frames).toEqual(["聊天"]);
+    expect(v1.version.notes).toEqual(["首屏可发消息"]); // 迭代 8：notes 随整页写回落库并进版本（trim）
 
     // 当前项目：标签被改成「首页」、树被清空
     expect((await repo.get("dp-1"))?.prototype).toEqual([]);
@@ -290,11 +292,27 @@ describe("appendProjectChat", () => {
     expect(restored.project.frames).toEqual(["聊天"]);
     expect(restored.project.prototype[0]).toMatchObject({ children: [{ props: { content: "v1" } }] });
     expect(restored.version).toMatchObject({ seq: 3, source: "restore", summary: "恢复自 v1" });
+    expect(restored.project.frameNotes).toEqual(v1.version.notes); // 迭代 8：说明随版本恢复
     expect((await listPrototypeVersions(deps(repo), { projectId: "dp-1" })).items).toHaveLength(3);
 
     await expect(restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-2", versionId: items[1]!.id })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
     await expect(getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: "nope" })).rejects.toBeInstanceOf(PrototypeVersionNotFoundError);
     await expect(listPrototypeVersions(deps(repo), { projectId: "nope" })).rejects.toBeInstanceOf(DesignProjectNotFoundError);
+  });
+
+  it("迭代 5 patchPrototype：owner 直接改 ⇒ 同一条 applyPrototypePatch、记 user 版本；未知 id ⇒ PROTOTYPE_PATCH_REJECTED 带 detail；没原型 ⇒ 拒；非 owner ⇒ 403", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["页"], prototype: [{ id: "n1", type: "stack", children: [{ id: "n2", type: "button", props: { label: "发送" } }] }] }));
+    const out = await patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-1", ops: [{ op: "setProps", id: "n2", props: { label: "停止" } }], summary: "改了按钮" });
+    const root = out.project.prototype[0];
+    if (root?.type !== "stack") throw new Error("root");
+    expect(root.children[0]).toMatchObject({ id: "n2", props: { label: "停止" } });
+    expect(repo.versions.map((v) => [v.source, v.summary])).toEqual([["user", "改了按钮"]]);
+    await expect(patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-1", ops: [{ op: "remove", id: "zzz" }] })).rejects.toMatchObject({ reason: "UNKNOWN_NODE", nodeId: "zzz" });
+    await expect(patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-2", ops: [{ op: "remove", id: "n2" }] })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1" }));
+    await expect(patchPrototype(deps(repo), { projectId: "dp-2", ownerId: "u-1", ops: [{ op: "remove", id: "n2" }] })).rejects.toMatchObject({ reason: "NO_PROTOTYPE" });
+    expect(new PrototypePatchRejectedError("LIMITS", "x")).toBeInstanceOf(Error);
   });
 
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {

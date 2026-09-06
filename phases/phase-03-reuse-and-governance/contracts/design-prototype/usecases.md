@@ -40,6 +40,20 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 
 - **V18**（迭代 3）：每次 `prototype` 被写回（整页 / patch）追加一条版本快照（来源 model，摘要 = 那轮回复前 120 字）；只改标签不记。列表倒序不带树、单条带树；预览不写库；恢复 = 写回旧版 frames+prototype 并再追加一条 `restore` 版本；非 owner 不能恢复；版本不存在 ⇒ `VERSION_NOT_FOUND`。
 
+- **V19**（迭代 4）：默认画板视图，全部页并排；滚轮平移、Ctrl/⌘+滚轮以指针为中心缩放、空白拖拽、键盘 −/＝/0、右下角按钮与「适应」；点标题/节点聚焦该页；「单页」视图只看当前页；预览态在两种视图下都生效。纯前端，无契约变化。
+
+- **V20**（迭代 5）：owner 选中节点后在属性面板改文案/属性 ⇒ `POST …/prototype/patch { ops:[setProps], summary }`；删除 ⇒ `remove`；服务端 `applyPrototypePatch` 重验、与 UPDATE 同一事务记 `source: user` 版本；未知 id / 删根 / 结果不合法 / 没原型 ⇒ 400 `PROTOTYPE_PATCH_REJECTED` + 闭集 `patchReason`（`PrototypePatchRejectReason`）+ `nodeId`，前端按闭集给人话；非 owner ⇒ 403。属性面板字段表 `PROTOTYPE_FIELDS` 来自契约（测试锁定与各 `*Props` shape 键集合相等）；清空可选属性发 `null`（setProps 里 null = 删键）。
+
+- **V21**（迭代 6）：原语闭集 13 → 21（bottomnav / switch / checkbox / chip / progress / stat / hero / grid），契约、渲染表、属性面板、设计文档大纲、给模型的说明五处同步（契约测试锁定闭集数量与说明覆盖）；设备尺寸由模板派生并写进 prompt（手机 300 / 平板 440 / 桌面 720）。主题**不做**：globals.css 没有独立 `.light` 类，画布跟随页面 `.dark`，不另造第二份 token。
+
+- **V22**（迭代 7）：首轮 `prototype`/`patch` 被契约拒 ⇒ 服务端带**原话理由**再问模型一轮（45s），合法则用修复轮结果、否则保留首轮合法字段与回复；过契约前先做机械纠偏（type 大小写 / 容器漏 children / 数字字符串 / divider 带 props）；前端生成中显示已等待秒数 + 按时长给的阶段文案 + 「取消」（AbortController，草稿保留、不算错误）；失败错误条带「重试」重发同一句。
+
+- **V23**（迭代 8）：模型整页写回时每页可带 `notes`（≤ 600 字交互说明）⇒ `DesignProject.frameNotes`（与 frames 同长或空，只改标签清空，随版本快照/恢复）；说明页「各页交互说明」；导出菜单：设计文档（每页说明先于大纲）/ 原型规格 JSON（`{version:1, project, screens[{frame, notes, root}]}`）/ 当前页 PNG / 复制 JSON。
+
+- **V24**（迭代 9）：system prompt 加设计原则（单主操作 / 手机页结构 / 层级靠 variant / 非理想态进 notes / 文案动词 / 分页）与两条 few-shot（整页 / patch）；`reply.suggestions`（≤ 3 条、每条 ≤ 40 字，逐条过契约，退路 `[]`）在最后一条 AI 气泡下成 chips；空项目显示三条起手模板（契约常量）。
+
+- **V25**（迭代 10）：主链路 e2e（`apps/web/e2e/design-prototype-loop.spec.ts`，真浏览器 + 夹具）四条：起手 → 发送 → 生成中（秒数/取消）→ 建议 chips；画板并排/缩放/Ctrl+滚轮/拖拽/聚焦/切单页；点选（含键盘 Enter）→ 属性面板 → 应用发 setProps；历史预览 + 导出 JSON 下载 + 复制到剪贴板。`design-loop-responsive.spec.ts` 增两个原型场景 × 三档视口无横向溢出。保真评分卡见 `fidelity-rubric.md`（合格门槛 ≥ 9，由 rev-uiux 打分）。
+
 **失败模式（穷举，B5.2 的表继续适用，这里只列本束新增）**
 | 情况 | 用户可见结果 | 标记 |
 |---|---|---|
@@ -48,3 +62,6 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 | 库里 `prototype` 长度 ≠ `frames`（契约演进后旧数据） | 读出按「还没生成」，画布占位块 | — |
 | 模型超时（90s） | 固定回执，画布不变 | `source: "fallback"` |
 | `patch` 任一条失败 / 还没有原型 | 画布不变；其余字段照写；记日志 | `applied` 不含 `prototype` |
+| 人直接改的 patch 失败（迭代 5） | 属性面板红字显示服务端 detail；画布不变 | 400 `PROTOTYPE_PATCH_REJECTED` |
+| 用户点「取消」（迭代 7） | 草稿留在输入框，无错误条；⚠ 服务端那次调用可能仍完成并落库，下次读取会看到 | — |
+| 修复轮也失败（迭代 7） | 首轮合法字段照写、回复照显示；画布按首轮结果 | 日志 `repair round failed` |

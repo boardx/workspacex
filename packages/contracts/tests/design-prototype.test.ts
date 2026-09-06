@@ -78,7 +78,7 @@ describe("rawPrototypeDepth（解析前迭代探测）", () => {
 
 describe("DesignProject.prototype 不变量", () => {
   const base = {
-    id: "dp-1", name: "n", template: "ui" as const, problem: "", criteria: [], pushed: false, pushedAt: null,
+    id: "dp-1", name: "n", template: "ui" as const, problem: "", criteria: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null, chat: [], ownerId: "u", ownerName: null,
     createdAt: "2026-09-06T00:00:00.000Z", updatedAt: "2026-09-06T00:00:00.000Z",
   };
@@ -86,6 +86,86 @@ describe("DesignProject.prototype 不变量", () => {
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [] }).success).toBe(true);
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [chatScreen, chatScreen] }).success).toBe(true);
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [chatScreen] }).success).toBe(false);
+    // 迭代 8：frameNotes 同样按位置对应
+    expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [], frameNotes: ["x"] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [], frameNotes: ["x", ""] }).success).toBe(true);
+    expect(dp.PrototypeScreen.safeParse({ frame: "f", root: chatScreen, notes: "首屏即可发消息" }).success).toBe(true);
+    expect(dp.PrototypeScreen.safeParse({ frame: "f", root: chatScreen, notes: "x".repeat(dp.PROTOTYPE_NOTES_MAX + 1) }).success).toBe(false);
+  });
+});
+
+describe("迭代 5 属性面板元数据（单源门控）", () => {
+  it("每种类型：PROTOTYPE_FIELDS 的 key 集合 == 对应 *Props 的 shape 键集合；枚举 options 与 zod 一致", () => {
+    for (const type of dp.PrototypeNodeType.options) {
+      const schema = dp.PROTOTYPE_PROPS_SCHEMAS[type];
+      const keys = schema === null ? [] : Object.keys(schema.shape).sort();
+      expect([type, dp.PROTOTYPE_FIELDS[type].map((f) => f.key).sort()]).toEqual([type, keys]);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) {
+        if (f.kind !== "enum" || schema === null) continue;
+        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly string[] } } | undefined;
+        const opts = z?.unwrap?.().options;
+        if (opts !== undefined) expect([type, f.key, f.options]).toEqual([type, f.key, opts]);
+      }
+    }
+  });
+  it("setProps 里 null = 删键；拒绝原因是闭集且带 nodeId", () => {
+    const base = dp.ensurePrototypeIds([{ type: "stack", children: [{ type: "button", props: { label: "x", variant: "danger" } }] }]);
+    const out = dp.applyPrototypePatch(base, [{ op: "setProps", id: "n2", props: { variant: null } }]);
+    expect((out[0] as { children: readonly dp.PrototypeNode[] }).children[0]).toEqual({ id: "n2", type: "button", props: { label: "x" } });
+    try {
+      dp.applyPrototypePatch(base, [{ op: "remove", id: "zzz" }]);
+      throw new Error("should throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(dp.PrototypePatchError);
+      expect(e).toMatchObject({ reason: "UNKNOWN_NODE", nodeId: "zzz" });
+      expect(dp.PrototypePatchRejectReason.safeParse((e as dp.PrototypePatchError).reason).success).toBe(true);
+    }
+  });
+});
+
+describe("迭代 7 coercePrototypeRaw", () => {
+  it("只修机械格式错，不猜缺失必填、不删未知键；非对象原样返回", () => {
+    expect(dp.coercePrototypeRaw({ type: " CARD ", props: { title: "t", bogus: 1 } })).toEqual({ type: "card", props: { title: "t", bogus: 1 }, children: [] });
+    expect(dp.coercePrototypeRaw({ type: "tabs", props: { items: ["a"], active: "1" } })).toEqual({ type: "tabs", props: { items: ["a"], active: 1 } });
+    expect(dp.coercePrototypeRaw({ type: "input", props: { value: "123" } })).toEqual({ type: "input", props: { value: "123" } }); // 字符串型 value 不动
+    expect(dp.coercePrototypeRaw({ type: "button" })).toEqual({ type: "button" }); // 缺 props 不补
+    expect(dp.coercePrototypeRaw("x")).toBe("x");
+    expect(dp.coercePrototypeRaw(null)).toBe(null);
+  });
+});
+
+describe("迭代 6 原语扩充", () => {
+  it("八种新原语正例；grid 是容器；闭集 21 种；bottomnav 2–6 项", () => {
+    const page: dp.PrototypeNode = {
+      type: "stack", children: [
+        { type: "hero", props: { title: "本月用量", subtitle: "已用 68%", cta: "升级" } },
+        { type: "grid", props: { columns: 2 }, children: [
+          { type: "stat", props: { label: "对话数", value: "1,284", delta: "+12%", tone: "success" } },
+          { type: "progress", props: { value: 68, label: "配额" } },
+        ] },
+        { type: "chip", props: { label: "本周", selected: true } },
+        { type: "switch", props: { label: "提醒", on: true } },
+        { type: "checkbox", props: { label: "含测试" } },
+        { type: "bottomnav", props: { items: ["聊天", "用量"], active: 1 } },
+      ],
+    };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.PrototypeNodeType.options).toHaveLength(21);
+    expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
+    expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
+    expect(dp.PrototypeNode.safeParse({ type: "bottomnav", props: { items: ["只有一项"] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "progress", props: { value: 120 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "grid", props: { columns: 4 }, children: [] }).success).toBe(false);
+    // active 必须指向真实存在的项（Codex）
+    expect(dp.PrototypeNode.safeParse({ type: "bottomnav", props: { items: ["a", "b"], active: 2 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "tabs", props: { items: ["a"], active: 1 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "tabs", props: { items: ["a"], active: 0 } }).success).toBe(true);
+    // patch 能进 grid
+    const withIds = dp.ensurePrototypeIds([page]);
+    const gridId = (withIds[0] as { children: readonly dp.PrototypeNode[] }).children[1]!.id!;
+    const out = dp.applyPrototypePatch(withIds, [{ op: "insert", parentId: gridId, node: { type: "stat", props: { label: "新", value: "1" } } }]);
+    expect(dp.measurePrototype(out[0]!).nodes).toBe(10);
   });
 });
 
