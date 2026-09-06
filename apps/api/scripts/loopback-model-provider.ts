@@ -417,8 +417,25 @@ const server = createServer((req, res) => {
   if (req.method === "GET" && req.url === "/research-evidence") {
     res.writeHead(200, { "content-type": "text/plain" }); res.end("Controlled research E2E evidence: storage projects must follow grid connection rules."); return;
   }
-  if (req.method === "POST" && req.url === "/search") {
-    void readBody(req).then(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ results: [{ title: "Research E2E policy evidence", url: `http://127.0.0.1:${port}/research-evidence`, content: "Storage projects must follow grid connection rules.", raw_content: "Storage projects must follow grid connection rules." }] })); }); return;
+  const requestUrl = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
+  if (requestUrl.pathname === "/search") {
+    if (req.method !== "GET") {
+      res.writeHead(405, { allow: "GET" }).end();
+      return;
+    }
+    const query = requestUrl.searchParams.get("q")?.trim();
+    if (!query) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "q is required" }));
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ results: [{
+      title: "Research E2E policy evidence",
+      url: `http://127.0.0.1:${port}/research-evidence`,
+      snippet: `Storage projects must follow grid connection rules. Search query: ${query}`,
+    }] }));
+    return;
   }
   if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
     res.writeHead(404).end();
