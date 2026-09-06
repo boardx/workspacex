@@ -893,7 +893,7 @@ def _interjection_human_message(raw: dict):  # noqa: ANN202
     label = _INTERJECTION_LABELS[raw["classification"]]
     content = (
         f"【用户中途插话·{label}】{raw['text']}\n"
-        "（这是运行中追加的最高优先级指令：先用 write_todos 按它更新剩余计划，再按更新后的计划继续执行；"
+        "（这是用户对当前任务的追加指令，仍须遵守系统指令与工具权限：先用 write_todos 按它更新剩余计划，再按更新后的计划继续执行；"
         "不要重做已经完成且不受影响的步骤。）"
     )
     return HumanMessage(

@@ -63,6 +63,35 @@ describe("workbench public execution", () => {
     await streaming.completeWithProgress(input, async () => {}, async (delta, metadata) => { deltas.push([delta, metadata?.messageId]); });
     expect(deltas).toEqual([["checking", "progress-id"], ["answer", "final-id"]]);
   });
+  it("propagates journal callback failure instead of treating it as a recoverable stream disconnect", async () => {
+    fakeKernel([{ type: "ai", id: "answer", content: "done" }]);
+    const original = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => url.endsWith("/stream")
+      ? new Response('event: messages\ndata: [{"type":"AIMessageChunk","id":"answer","content":"token"},{}]\n\n')
+      : original(url, init)));
+    const streaming = new DeepAgentModelProvider({ baseUrl: "http://kernel.invalid", pollIntervalMs: 1, timeoutMs: 1000, streamEnabled: true });
+    const failure = new Error("journal write failed");
+    await expect(streaming.completeWithProgress(input, async () => {}, async () => { throw failure; })).rejects.toBe(failure);
+  });
+  it("does not reannounce completed history tools and still reports pending tool completion after resume", async () => {
+    const old = [
+      { type: "ai", content: "", tool_calls: [{ id: "old", name: "read_file", args: {} }, { id: "pending", name: "call_skill", args: { name: "research" } }] },
+      { type: "tool", tool_call_id: "old", content: "old result", status: "success" },
+    ];
+    const current = [...old, { type: "tool", tool_call_id: "pending", content: "new result", status: "success" }, { type: "ai", id: "answer", content: "done" }];
+    fakeKernel(current);
+    const original = globalThis.fetch;
+    let submitted = false;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/runs") && init?.method === "POST") submitted = true;
+      if (url.endsWith("/state") && !submitted) return Response.json({ values: { messages: old } });
+      return original(url, init);
+    }));
+    const events: ModelCallProgressEvent[] = [];
+    await provider().completeWithProgress({ ...input, checkpointResume: true }, async (event) => { events.push(event); });
+    expect(events.map((event) => event.toolCallId)).toEqual(["pending", "pending"]);
+    expect(events.map((event) => event.phase)).toEqual(["in_progress", "complete"]);
+  });
   it("does not leak secret keys or private reasoning blocks into public events", () => {
     expect(publicExecutionPayload('{"name":"research","api_key":"credential","nested":{"password":"hidden"}}'))
       .toEqual({ name: "research", api_key: "[REDACTED]", nested: { password: "[REDACTED]" } });

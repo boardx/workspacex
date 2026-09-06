@@ -192,6 +192,11 @@ interface WireToolCallRequest {
   readonly args?: unknown;
 }
 
+/** Delivery failure is not a transport reconnect: the durable observer must fail closed. */
+class ProgressDeliveryError extends Error {
+  constructor(readonly original: unknown) { super("execution event delivery failed"); }
+}
+
 interface ThreadMessage {
   readonly id?: string;
   readonly status?: unknown;
@@ -507,16 +512,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     onDelta?: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<ModelCallCompletion> {
-    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs, completedToolIds } = await this.startRun(input);
     // #742 Gap 1: two sets, not one -- see `ToolCallEmittedIds`'s own doc for why a call
     // legitimately needs to pass through both phases without either suppressing the other.
-    const emitted: ToolCallEmittedIds = { inProgress: new Set<string>(), complete: new Set<string>() };
+    const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
     if (this.config.streamEnabled === true && onDelta !== undefined) {
       // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
       // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
       // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
-      const streamed = await this.tryStreamRun(baseUrl, threadId, runId, onDelta, onProgress, emitted);
+      const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
+        async (delta, metadata) => { try { await onDelta(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
+        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted);
       if (streamed) {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
@@ -751,7 +758,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
         }
       }
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof ProgressDeliveryError) throw error.original;
       // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
       return true;
     } finally {
@@ -762,7 +770,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create
    * the thread and run, and hand back everything the poll loop needs. */
   private async startRun(input: ModelCallInput): Promise<{
-    readonly baseUrl: string; readonly threadId: string; readonly runId: string;
+    readonly baseUrl: string; readonly threadId: string; readonly runId: string; readonly completedToolIds: readonly string[];
     readonly deadline: number; readonly pollIntervalMs: number; readonly timeoutMs: number;
   }> {
     const { baseUrl, timeoutMs, pollIntervalMs } = this.config;
@@ -784,8 +792,14 @@ export class DeepAgentModelProvider implements ModelCallPort {
     const threadId = input.threadId === undefined || input.threadId === ""
       ? await this.createThread(baseUrl)
       : await this.ensureThread(baseUrl, input.threadId);
+    // Snapshot BEFORE submitting the new run: a post-submit read can already include
+    // this attempt's newly completed tool, incorrectly suppressing its real event.
+    const prior = input.threadId || input.resume || input.checkpointResume
+      ? (await this.readState(baseUrl, threadId)).values?.messages ?? [] : [];
+    const completedToolIds = prior.flatMap((message) => message.type === "tool" && typeof message.tool_call_id === "string"
+      ? [message.tool_call_id] : []);
     const runId = await this.createRun(baseUrl, threadId, input);
-    return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs };
+    return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs, completedToolIds };
   }
 
   /**
