@@ -127,6 +127,31 @@ export function measurePrototype(root: PrototypeNode): { readonly nodes: number;
   return { nodes, depth };
 }
 
+/**
+ * **解析前**的迭代深度探测——对还没过契约的原始值（`unknown`）算 `children` 嵌套深度，
+ * 不递归、不信任形状。理由：`PrototypeNode` 是递归 zod schema，一条几千层的 `stack` 链会在
+ * `safeParse` 里把调用栈打爆（`RangeError`），而 `PrototypeScreen.refine` 的深度上限要等递归
+ * 解析**完成**才有机会判——顺序反了。所以调用方（`parseWriteback`）先用这个函数把超深的原始值
+ * 挡在递归解析之前，把「栈溢出的异常」变成「这个字段不合法」。
+ * 返回值是「探测到的深度」，超过 `limit` 就提前停止（不需要真的数到底）。
+ */
+export function rawPrototypeDepth(raw: unknown, limit: number = PROTOTYPE_MAX_DEPTH + 1): number {
+  let frontier: unknown[] = [raw];
+  let depth = 0;
+  while (frontier.length > 0 && depth < limit) {
+    depth += 1;
+    const next: unknown[] = [];
+    for (const n of frontier) {
+      if (n !== null && typeof n === "object" && !Array.isArray(n)) {
+        const children = (n as { children?: unknown }).children;
+        if (Array.isArray(children)) for (const c of children) next.push(c);
+      }
+    }
+    frontier = next;
+  }
+  return depth;
+}
+
 export function withinPrototypeLimits(root: PrototypeNode): boolean {
   const m = measurePrototype(root);
   return m.nodes <= PROTOTYPE_MAX_NODES && m.depth <= PROTOTYPE_MAX_DEPTH;

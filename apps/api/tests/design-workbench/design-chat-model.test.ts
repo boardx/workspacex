@@ -76,6 +76,14 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(parseWriteback({ criteria: ["a"], prototype: [screen, bad] })).toEqual({ criteria: ["a"] });
   });
 
+  it("B5.3 几千层嵌套的 prototype：不打爆调用栈，只丢 prototype 字段，其余照写", () => {
+    let n: unknown = { type: "divider" };
+    for (let i = 0; i < 5000; i += 1) n = { type: "stack", children: [n] };
+    const log = vi.fn();
+    expect(parseWriteback({ criteria: ["a"], prototype: [{ frame: "x", root: n }] }, log)).toEqual({ criteria: ["a"] });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("rejected"), expect.objectContaining({ field: "prototype", reason: "depth" }));
+  });
+
   it("parseWriteback：逐字段过契约——非法字段丢、合法保留；非对象 ⇒ {}", () => {
     expect(parseWriteback({ problem: "", criteria: ["a"], frames: "x" })).toEqual({ criteria: ["a"] });
     expect(parseWriteback({ criteria: new Array(21).fill("a") })).toEqual({});

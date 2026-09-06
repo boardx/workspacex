@@ -64,6 +64,18 @@ describe("PrototypeScreen 上限", () => {
   });
 });
 
+describe("rawPrototypeDepth（解析前迭代探测）", () => {
+  it("正常树给出真实深度；几千层嵌套不递归、到上限即停", () => {
+    expect(dp.rawPrototypeDepth(chatScreen)).toBe(4);
+    expect(dp.rawPrototypeDepth({ type: "divider" })).toBe(1);
+    expect(dp.rawPrototypeDepth(null)).toBe(1);
+    let n: unknown = { type: "divider" };
+    for (let i = 0; i < 5000; i += 1) n = { type: "stack", children: [n] };
+    expect(dp.rawPrototypeDepth(n)).toBe(dp.PROTOTYPE_MAX_DEPTH + 1);
+    expect(dp.rawPrototypeDepth(n, 100)).toBe(100);
+  });
+});
+
 describe("DesignProject.prototype 不变量", () => {
   const base = {
     id: "dp-1", name: "n", template: "ui" as const, problem: "", criteria: [], pushed: false, pushedAt: null,

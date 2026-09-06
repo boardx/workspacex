@@ -97,11 +97,29 @@ export function parseWriteback(raw: unknown, log?: (message: string, detail: Rec
   for (const field of designAiCollab.DesignWritebackField.options) {
     const value = (raw as Record<string, unknown>)[field];
     if (value === undefined) continue;
-    const parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: value });
+    // B5.3：`prototype` 是递归 schema，几千层嵌套会在 safeParse 里打爆调用栈，而契约的深度上限
+    // 在递归解析之后才判——先用迭代探测把超深的原始值挡在外面（契约 `rawPrototypeDepth` 头注）。
+    if (field === "prototype" && Array.isArray(value) && value.some((s) => rawScreenTooDeep(s))) {
+      log?.("design chat: writeback field rejected by contract, skipped", { field, reason: "depth" });
+      continue;
+    }
+    let parsed: ReturnType<typeof designAiCollab.DesignChatWriteback.safeParse>;
+    try {
+      parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: value });
+    } catch (e) {
+      // 兜底：解析本身抛（而不是返回 success:false）也只丢这个字段，不让整次对话 500。
+      log?.("design chat: writeback field parse threw, skipped", { field, detail: e instanceof Error ? e.message : "unknown" });
+      continue;
+    }
     if (parsed.success) out[field] = parsed.data[field];
     else log?.("design chat: writeback field rejected by contract, skipped", { field });
   }
   return out as DesignChatWriteback;
+}
+
+function rawScreenTooDeep(screen: unknown): boolean {
+  const root = screen !== null && typeof screen === "object" ? (screen as { root?: unknown }).root : undefined;
+  return designPrototype.rawPrototypeDepth(root) > designPrototype.PROTOTYPE_MAX_DEPTH;
 }
 
 export class ModelDesignChatReplier implements DesignChatModel {
