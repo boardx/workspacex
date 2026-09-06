@@ -40,10 +40,15 @@ export type SubtaskRunStatus = SubtaskRunContract.SubtaskRunStatus;
 export type EnqueueSubtaskRunInput = SubtaskRunContract.EnqueueSubtaskRunInput;
 
 /**
- * 子任务 run 的持久化端口——`InMemorySubtaskRunStore`（生产 MVP，见该类头注）与测试用的
- * 纯内存 fake 都实现这个接口；未来换成 Postgres 支撑的实现时，这个接口的形状不变。
+ * 子任务 run 的持久化端口——生产使用 `PgSubtaskRunStore`，测试可用
+ * `InMemorySubtaskRunStore`。公开队列方法形状保持不变。
  */
+export type CancelSubtaskOutcome =
+  | { kind: "cancelled"; subtaskRun: SubtaskRun & { status: "cancelled" } }
+  | { kind: "not_found" | SubtaskRunContract.CancelSubtaskRunFailure };
+
 export interface SubtaskRunStore {
+  cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome>;
   /** 入队一条新的子任务 run，初始状态 `pending`。 */
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun>;
   /**
@@ -67,7 +72,14 @@ export interface SubtaskRunStore {
   listByParentRun(orgId: OrgId, parentRunId: string): Promise<readonly SubtaskRun[]>;
 }
 
+export class SubtaskIdempotencyConflictError extends Error {}
+
 export const SUBTASK_RUN_STORE = Symbol("SubtaskRunStore");
+export const SUBTASK_RUN_EXECUTOR = Symbol("SubtaskRunExecutor");
+export interface SubtaskRunExecutorPort {
+  tick(orgId: OrgId): Promise<number>;
+  kick(orgId: OrgId): void;
+}
 
 export interface ExecuteQueuedSubtaskRunsDeps {
   readonly store: SubtaskRunStore;
@@ -104,3 +116,6 @@ export async function executeQueuedSubtaskRuns(
   }
   return claimed.length;
 }
+
+/** Derived text-task recovery deadline; independent from peer main-run leases. */
+export const SUBTASK_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;

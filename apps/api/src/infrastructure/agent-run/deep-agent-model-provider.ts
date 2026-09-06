@@ -91,6 +91,7 @@ import {
 } from "@repo/contracts/agent-interrupts";
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 import type { kernelGateway as KG } from "@repo/contracts";
+import { standardCapabilities as SC } from "@repo/contracts";
 import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
 import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "@repo/contracts/plan-permissions";
 
@@ -428,13 +429,14 @@ function collectScriptCandidates(messages: readonly ThreadMessage[]): readonly s
  * type). Keep the two in sync by hand; there is no shared schema across the language
  * boundary yet -- a follow-up worth having once this path is verified end-to-end. */
 interface WireOrgSkill {
+  readonly package?: PinnedSkillContent["package"];
   readonly stable_name: string;
   readonly name: string;
   readonly content: string;
 }
 
 function toWireSkills(skills: readonly PinnedSkillContent[] | undefined): readonly WireOrgSkill[] {
-  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content }));
+  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content, ...(s.package ? { package: s.package } : {}) }));
 }
 
 /** messages-tuple 里算"模型输出"的 chunk 类型；见 `tryStreamRun` 内对应注释。 */
@@ -444,6 +446,23 @@ function isAiMessageChunkType(type: unknown): boolean {
 
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
+
+  private memoryConfig(input: ModelCallInput): Record<string, unknown> {
+    if (input.executionMode === "text-only" || input.trustedMemoryScope === undefined) return {};
+    const scope = SC.TrustedMemoryScope.parse(input.trustedMemoryScope);
+    if (!input.orgId || scope.orgId !== input.orgId) throw new Error("memory_scope_tenant_mismatch");
+    return { [SC.MEMORY_SCOPE_CONFIG_KEY]: scope };
+  }
+
+  private subtaskConfig(input: ModelCallInput): Record<string, string> {
+    if (!this.config.subtaskCallbackBaseUrl || input.executionMode === "text-only") return {};
+    return {
+      subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
+      subtask_callback_key: this.config.subtaskCallbackKey ?? "",
+      ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
+      ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
+    };
+  }
 
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
@@ -916,6 +935,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
           config: {
             configurable: {
               org_skills: toWireSkills(input.skills),
+              ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
+              ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
               ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
               // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
               // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
@@ -986,6 +1008,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         config: {
           configurable: {
             org_skills: toWireSkills(input.skills),
+            ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
             /*
              * #1747 —— 脚本执行协议原样转发给远端。
              *
@@ -1040,12 +1063,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
              * 破坏了 T2 锁的"没挂 skill 时 configurable 逐字不变"（`deep-agent-produces-
              * files.test.ts`，2026-09-04 CI 抓到）。
              */
-            ...((this.config.subtaskCallbackBaseUrl ?? "") === "" ? {} : {
-              subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
-              subtask_callback_key: this.config.subtaskCallbackKey ?? "",
-              ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
-              ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
-            }),
+            ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
           },
         },
       }),

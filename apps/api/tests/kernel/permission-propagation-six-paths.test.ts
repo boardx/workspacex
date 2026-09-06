@@ -1170,12 +1170,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-inbox-order-repository.ts` 的 ALLOWLIST 条目——`inbox_item_order` 一行只有
     // 「这个组织的这个 (kind,item_id) 排第几」这一个整数，不携带任何 D3 门控过的正文，
     // 豁免理由与前提见该条目自身注释，配套 `tests/inbox/inbox-order-repo-guard.test.ts`。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(89);
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(91);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
       "utf8",
     );
+    // WX-T042: only these two trusted tenant-system boundaries were added.
+    for (const path of ["infrastructure/agent-run/pg-subtask-run-store.ts", "infrastructure/agent-run/subtask-run-executor.ts"]) {
+      expect(src).toContain(path);
+    }
+    expect(src).toContain("subtask-permission-boundary");
+
     const block = /const ALLOWLIST = new Map\(\[([\s\S]*?)\n\]\);/.exec(src)?.[1] ?? "";
     const reasons = [...block.matchAll(/"((?:[^"\\]|\\.){40,})",\n\s*\],/g)].map((m) => m[1]!);
     const entries = [...block.matchAll(/\[\n\s*"src\//g)].length;

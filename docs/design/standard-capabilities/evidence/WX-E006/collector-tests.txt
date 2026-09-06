@@ -1,0 +1,22 @@
+[stack-admission] load1=2.34 cores=10 perCore=0.23 running=0/2
+[test-isolation] id=run-mtq62bh6-842160c6-49b4dbcb3d9b db=wsx_49b4dbcb3d9b8413925d compose=wsx-49b4dbcb3d9b8413925d pg=24515 redis=29515 sandbox=54515
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_49b4dbcb3d9b8413925d capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/deep-agent-produces-files.test.ts (11 tests) 232ms
+ ✓ tests/agent-runtime/collect-native-outputs.test.ts (15 tests) 86ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  02:50:04
+   Duration  2.64s (transform 356ms, setup 0ms, collect 483ms, tests 319ms, environment 0ms, prepare 42ms)
+
+[db-isolation] db=wsx_49b4dbcb3d9b8413925d peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/collect-native-outputs.test.ts tests/agent-runtime/deep-agent-produces-files.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

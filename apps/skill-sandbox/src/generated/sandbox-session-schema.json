@@ -1,0 +1,296 @@
+{
+  "limits": {
+    "maxFiles": 256,
+    "maxDirectoryEntries": 4096,
+    "maxFileBytes": 8388608,
+    "maxSkillsBytes": 16777216,
+    "maxCommandBytes": 65536,
+    "maxOutputBytes": 65536,
+    "maxSessions": 16,
+    "maxExecutionsPerSession": 128,
+    "defaultTtlMs": 900000,
+    "maxTtlMs": 3600000,
+    "defaultTimeoutMs": 120000,
+    "maxTimeoutMs": 300000,
+    "maxRequestBytes": 25165824
+  },
+  "endpoints": {
+    "create": "POST /sessions",
+    "write": "POST /sessions/:sessionId/files",
+    "read": "GET /sessions/:sessionId/files?path=...",
+    "list": "GET /sessions/:sessionId/entries?path=...",
+    "execute": "POST /sessions/:sessionId/executions",
+    "cancel": "POST /sessions/:sessionId/executions/:executionId/cancel",
+    "destroy": "DELETE /sessions/:sessionId"
+  },
+  "schemas": {
+    "create": {
+      "type": "object",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "contentBase64": {
+                "type": "string",
+                "maxLength": 11184812
+              }
+            },
+            "required": [
+              "path",
+              "contentBase64"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 256,
+          "default": []
+        },
+        "ttlMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "created": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "expiresAt": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sessionId",
+        "token",
+        "expiresAt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "write": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "contentBase64": {
+          "type": "string",
+          "maxLength": 11184812
+        }
+      },
+      "required": [
+        "path",
+        "contentBase64"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "written": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "sizeBytes"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "read": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "file": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "contentBase64": {
+          "type": "string",
+          "maxLength": 11184812
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "contentBase64",
+        "sizeBytes"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "entries": {
+      "type": "object",
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "isDirectory": {
+                "type": "boolean"
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "path",
+              "isDirectory",
+              "sizeBytes"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execute": {
+      "type": "object",
+      "properties": {
+        "executionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        }
+      },
+      "required": [
+        "executionId",
+        "command"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "executionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "exitCode": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "timedOut": {
+          "type": "boolean"
+        },
+        "cancelled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "executionId",
+        "exitCode",
+        "output",
+        "truncated",
+        "timedOut",
+        "cancelled"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "cancelled": {
+      "type": "object",
+      "properties": {
+        "cancelled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cancelled"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "deleted": {
+      "type": "object",
+      "properties": {
+        "deleted": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

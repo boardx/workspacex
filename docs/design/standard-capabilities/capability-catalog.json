@@ -1,0 +1,2245 @@
+{
+  "document_kind": "design-input",
+  "review_version": "1.1",
+  "issue": 2864,
+  "review_baseline": "fd9c6fb79af42abb250563456c14274e55236595",
+  "implementation_baseline": "11d1c9e417b45fa7900779e862248482d8a96946",
+  "runtime_authority": false,
+  "counts": {
+    "A": 14,
+    "C": 30,
+    "B": 31
+  },
+  "work_packages": [
+    {
+      "id": "W01",
+      "name": "现有契约、权限、交互及验收映射",
+      "capabilities": [
+        "WX-E001",
+        "WX-E002",
+        "WX-E007",
+        "WX-T011",
+        "WX-T012",
+        "WX-T013",
+        "WX-T040"
+      ]
+    },
+    {
+      "id": "W02",
+      "name": "原生文件 Backend 与附件桥",
+      "capabilities": [
+        "WX-E003",
+        "WX-T001",
+        "WX-T002",
+        "WX-T003",
+        "WX-T004",
+        "WX-T005",
+        "WX-T006",
+        "WX-T007",
+        "WX-T008",
+        "WX-T018"
+      ]
+    },
+    {
+      "id": "W03",
+      "name": "完整技能包挂载、子代理作用域和版本切换",
+      "capabilities": [
+        "WX-E004",
+        "WX-E008",
+        "WX-T009",
+        "WX-T010"
+      ]
+    },
+    {
+      "id": "W04",
+      "name": "原生产物事件与取消传播",
+      "capabilities": [
+        "WX-E006",
+        "WX-T020",
+        "WX-T021",
+        "WX-T041"
+      ]
+    },
+    {
+      "id": "W05",
+      "name": "已有 MCP 治理上的执行桥",
+      "capabilities": [
+        "WX-E005"
+      ]
+    },
+    {
+      "id": "W06",
+      "name": "联网工具及官方研究技能",
+      "capabilities": [
+        "WX-T014",
+        "WX-T015",
+        "WX-S002"
+      ]
+    },
+    {
+      "id": "W07",
+      "name": "知识和项目工具映射及写作技能",
+      "capabilities": [
+        "WX-T016",
+        "WX-T017",
+        "WX-T027",
+        "WX-T028",
+        "WX-S001",
+        "WX-S008",
+        "WX-S011",
+        "WX-S014"
+      ]
+    },
+    {
+      "id": "W08",
+      "name": "统一文档解析与理解",
+      "capabilities": [
+        "WX-T019",
+        "WX-S018"
+      ]
+    },
+    {
+      "id": "W09",
+      "name": "四类现有 Office 技能迁移与差量",
+      "capabilities": [
+        "WX-S003",
+        "WX-S004",
+        "WX-S005",
+        "WX-S006"
+      ]
+    },
+    {
+      "id": "W10",
+      "name": "Playwright MCP 及网页产物验证",
+      "capabilities": [
+        "WX-T022",
+        "WX-T023",
+        "WX-T024",
+        "WX-T025",
+        "WX-T026",
+        "WX-S013"
+      ]
+    },
+    {
+      "id": "W11",
+      "name": "现有画布工具映射与技能",
+      "capabilities": [
+        "WX-T029",
+        "WX-T030",
+        "WX-S012"
+      ]
+    },
+    {
+      "id": "W12",
+      "name": "个人长期记忆",
+      "capabilities": [
+        "WX-T031",
+        "WX-T032",
+        "WX-T033"
+      ]
+    },
+    {
+      "id": "W13",
+      "name": "单一调度提供者",
+      "capabilities": [
+        "WX-E009",
+        "WX-T034",
+        "WX-T035",
+        "WX-T036"
+      ]
+    },
+    {
+      "id": "W14",
+      "name": "现有媒体接线与转录/纪要/视觉工作流",
+      "capabilities": [
+        "WX-T037",
+        "WX-T038",
+        "WX-S009",
+        "WX-S016",
+        "WX-S017"
+      ]
+    },
+    {
+      "id": "W15",
+      "name": "现有技能草稿能力的 Agent 接口",
+      "capabilities": [
+        "WX-T039",
+        "WX-S015"
+      ]
+    },
+    {
+      "id": "W16",
+      "name": "现有后台任务的持久化与恢复",
+      "capabilities": [
+        "WX-T042"
+      ]
+    },
+    {
+      "id": "W17",
+      "name": "只读 SQL Toolkit 接入",
+      "capabilities": [
+        "WX-T043",
+        "WX-T044",
+        "WX-T045",
+        "WX-T046"
+      ]
+    },
+    {
+      "id": "W18",
+      "name": "共享数据分析与图表工作流",
+      "capabilities": [
+        "WX-S007",
+        "WX-S020"
+      ]
+    },
+    {
+      "id": "W19",
+      "name": "现有研究资料上的规划与综合技能",
+      "capabilities": [
+        "WX-S010",
+        "WX-S019"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "WX-E001",
+      "kind": "enabler",
+      "canonical_name": "runtime-baseline",
+      "display_name": "运行时版本基线与原生能力探针",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "LC",
+        "SKILLS"
+      ],
+      "remove_from_development": "删新 runtime-lock 权威文件、重复版本管理",
+      "remaining_delta": "复用 uv.lock/pyproject；现有测试加实际能力快照，作为验收产物。",
+      "dependencies": [],
+      "input_summary": "现有锁文件、契约与验证路径",
+      "output_summary": "实际证据与既有路径映射，不建立新的运行权威",
+      "acceptance_criteria": [
+        "基于 uv.lock 导出实际安装版本与工具参数；不能将测试模型探针声明为真实提供者验收。"
+      ]
+    },
+    {
+      "id": "WX-E002",
+      "kind": "enabler",
+      "canonical_name": "capability-contracts",
+      "display_name": "能力注册字段、鉴权与事件单源",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "WX",
+        "DYNAMIC"
+      ],
+      "remove_from_development": "删新权限引擎、第二套事件/错误枚举",
+      "remaining_delta": "扩展现有 contracts 的标准编号/来源映射，接原生事件，验证真实工具集。",
+      "dependencies": [
+        "WX-E001"
+      ],
+      "input_summary": "本任务目录；现有 contracts、L0/L1/L2 policy、身份上下文",
+      "output_summary": "生成的 registry schema / Python投影 / OpenAPI / alias表 / 权限与事件映射",
+      "acceptance_criteria": [
+        "伪造 org/user 参数不改变身份；组织A与B互不可读写。",
+        "注册表与模型实际可用 tool set 的差异使 CI 失败；旧别名映射唯一。"
+      ]
+    },
+    {
+      "id": "WX-E003",
+      "kind": "enabler",
+      "canonical_name": "sandbox-backend",
+      "display_name": "接入原生 Backend 的隔离执行与文件桥",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "BACKEND",
+        "WX"
+      ],
+      "remove_from_development": "删重新建设 Node 沙箱、对象存储",
+      "remaining_delta": "补官方 Backend 的会话文件、Python、恢复及取消；T001–008 复用上游实现。",
+      "dependencies": [
+        "WX-E001",
+        "WX-E002"
+      ],
+      "input_summary": "可信 run context、runtime image profile、workspace snapshot",
+      "output_summary": "run-scoped BackendProtocol / SandboxBackend + 文件快照引用",
+      "acceptance_criteria": [
+        "用官方 write_file→execute→read_file 真实产生文件并可恢复；第二用户无法访问。",
+        "命令超时可停止进程树；无网镜像不能出网；技能路径写入与路径穿越被拒。"
+      ]
+    },
+    {
+      "id": "WX-E004",
+      "kind": "enabler",
+      "canonical_name": "skill-package-mount",
+      "display_name": "不可变完整技能包挂载与原生渐进加载",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W03",
+      "source_refs": [
+        "SKILLS",
+        "WX"
+      ],
+      "remove_from_development": "删技能数据库、导入器、版本与 pin 重建",
+      "remaining_delta": "现有 skill_version_files 全包物化，接官方 skills/渐进读取；保留现有版本与治理。",
+      "dependencies": [
+        "WX-E002",
+        "WX-E003"
+      ],
+      "input_summary": "授权后的 skill_version_ids、内容 hash、全包文件",
+      "output_summary": "只读 skills目录 + 目录摘要 + run 固定版本manifest",
+      "acceptance_criteria": [
+        "含 SKILL.md→references→scripts→assets 的fixture在真实run全部被访问，脚本确实执行。",
+        "发布新版本不改变运行中与已固定版本；跨组织、坏hash、缺文件均失败。"
+      ]
+    },
+    {
+      "id": "WX-E005",
+      "kind": "enabler",
+      "canonical_name": "mcp-execution",
+      "display_name": "MCP 从发现目录到真实执行",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W05",
+      "source_refs": [
+        "MCP",
+        "DYNAMIC",
+        "WX"
+      ],
+      "remove_from_development": "删重新开发 MCP 发现、凭据和治理",
+      "remaining_delta": "补 tools/call、LangChain adapter、动态工具实际分派和取消。",
+      "dependencies": [
+        "WX-E001",
+        "WX-E002"
+      ],
+      "input_summary": "已批准server、用户凭据引用、schema摘要、allowlist",
+      "output_summary": "经授权的 LangChain tools + 真实调用/错误/取消事件",
+      "acceptance_criteria": [
+        "真实测试 MCP 返回可观察副作用；另一次拒绝授权不触发 server。",
+        "A/B 两个并发run不同凭据，工具同名无串用；断连、取消、schema变化均有结果。"
+      ]
+    },
+    {
+      "id": "WX-E006",
+      "kind": "enabler",
+      "canonical_name": "run-artifact-events",
+      "display_name": "Run / HITL / 文件交付端到端一致性",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W04",
+      "source_refs": [
+        "HITL",
+        "MEMORY",
+        "WX"
+      ],
+      "remove_from_development": "删 AG-UI、SSE、HITL、文件面板重建",
+      "remaining_delta": "补 native execute 的产物与失败映射，并验证恢复及取消。",
+      "dependencies": [
+        "WX-E002",
+        "WX-E003"
+      ],
+      "input_summary": "LangGraph事件、checkpoint、工具结果、artifact版本",
+      "output_summary": "AG-UI步骤/中断/产物卡片/可恢复run状态",
+      "acceptance_criteria": [
+        "执行后上传故障：UI显示交付失败，不显示成功下载；重试不重复文件版本。",
+        "重启后批准待决动作只执行一次；重复resume、过期授权和并发取消均有可复现结果。"
+      ]
+    },
+    {
+      "id": "WX-E007",
+      "kind": "enabler",
+      "canonical_name": "acceptance-runner",
+      "display_name": "逐能力验收驱动与证据生成",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删除拟建 verify-standard-capability.ts 通用验收框架",
+      "remaining_delta": "复用 harness verify、pytest、Vitest、Playwright 和已有证据目录；每能力引用实际适用命令。",
+      "dependencies": [
+        "WX-E001",
+        "WX-E002"
+      ],
+      "input_summary": "现有锁文件、契约与验证路径",
+      "output_summary": "实际证据与既有路径映射，不建立新的运行权威",
+      "acceptance_criteria": [
+        "每能力映射实际适用的既有命令，缺失场景另补；无测试或只有静态文件时不能报告通过。"
+      ]
+    },
+    {
+      "id": "WX-E008",
+      "kind": "enabler",
+      "canonical_name": "migration-router",
+      "display_name": "版本迁移、旧别名与灰度路由",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W03",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删独立长期 migration-router 服务",
+      "remaining_delta": "作为 E003/E004 的版本切换、旧 run 排空/兼容与回滚步骤；不重复维护注册表。",
+      "dependencies": [
+        "WX-E004",
+        "WX-E006",
+        "WX-E007"
+      ],
+      "input_summary": "旧 skill/tool ID、alias表、catalog version、灰度配置",
+      "output_summary": "实际证据与既有路径映射，不建立新的运行权威",
+      "acceptance_criteria": [
+        "四办公旧ID仍可发现并定位到正确映射；旧run重启可恢复。",
+        "灰度关闭后新run回旧路径；之前已产生的对象与外部动作不重放。"
+      ]
+    },
+    {
+      "id": "WX-T001",
+      "kind": "tool",
+      "canonical_name": "ls",
+      "display_name": "查看工作区文件",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "path:string",
+      "output_summary": "entries[path,type,size]",
+      "acceptance_criteria": [
+        "目录有中英文文件时返回完整名称；不存在路径与无权限路径不泄露其他run。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T002",
+      "kind": "tool",
+      "canonical_name": "read_file",
+      "display_name": "读取文件与视觉检查",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "file_path:string, offset?:int, limit?:int",
+      "output_summary": "content blocks / range / truncation",
+      "acceptance_criteria": [
+        "分页读取固定行区间正确；读取截图有图像内容块；越界路径被拒。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T003",
+      "kind": "tool",
+      "canonical_name": "write_file",
+      "display_name": "新建或写入工作文件",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "file_path:string, content:string",
+      "output_summary": "path / outcome",
+      "acceptance_criteria": [
+        "写入UTF-8文件再读回hash相同；只读技能包写入失败。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T004",
+      "kind": "tool",
+      "canonical_name": "edit_file",
+      "display_name": "精确修改工作文件",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "file_path:string, old_string:string, new_string:string, replace_all?:bool",
+      "output_summary": "outcome",
+      "acceptance_criteria": [
+        "匹配成功只改目标片段；不匹配或歧义不应静默修改错误位置。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T005",
+      "kind": "tool",
+      "canonical_name": "glob",
+      "display_name": "按文件名查找",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "pattern:string, path?:string",
+      "output_summary": "paths[]",
+      "acceptance_criteria": [
+        "嵌套中英文文件匹配符合pattern；跨workspace不出现。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T006",
+      "kind": "tool",
+      "canonical_name": "grep",
+      "display_name": "按内容搜索",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "pattern:string, path?:string, glob?:string",
+      "output_summary": "matches[]",
+      "acceptance_criteria": [
+        "fixture关键词命中与未命中正确；大结果明确截断。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T007",
+      "kind": "tool",
+      "canonical_name": "delete",
+      "display_name": "删除临时工作文件",
+      "priority": "P1",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "path:string",
+      "output_summary": "outcome",
+      "acceptance_criteria": [
+        "删除后ls不见；技能、附件原件和其他run路径删除均失败。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T008",
+      "kind": "tool",
+      "canonical_name": "execute",
+      "display_name": "在隔离环境执行计算与转换",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删同名文件/执行工具的独立实现",
+      "remaining_delta": "本地锁定版真实编译图已暴露此工具；真实工作区、隔离及执行能力统一由 E003 完成，仍需行为验收。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "command:string（原生schema）",
+      "output_summary": "exit_code/stdout/stderr/output_refs",
+      "acceptance_criteria": [
+        "运行数据计算脚本得到预期数值和文件；非零、超时、取消、禁网均可复现。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T009",
+      "kind": "tool",
+      "canonical_name": "write_todos",
+      "display_name": "展示多步任务计划",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W03",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删计划工具和计划 UI 新实现",
+      "remaining_delta": "TodoListMiddleware 已启用；复用现有工具与计划投影测试，补编号映射。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "todos:[content,status]（原生schema）",
+      "output_summary": "updated state",
+      "acceptance_criteria": [
+        "调用后UI计划状态更新；纯文字列步骤不算调用；恢复后状态保留。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T010",
+      "kind": "tool",
+      "canonical_name": "task",
+      "display_name": "委派独立子任务",
+      "priority": "P1",
+      "review_class": "A",
+      "implementation_work_package": "W03",
+      "source_refs": [
+        "LC"
+      ],
+      "remove_from_development": "删子代理执行引擎",
+      "remaining_delta": "原生 task 已有；技能授权集合与文件可见范围的差量归 E004/E003。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E004",
+        "WX-E006"
+      ],
+      "input_summary": "description:string, subagent_type:string（原生schema）",
+      "output_summary": "result",
+      "acceptance_criteria": [
+        "两个独立子任务返回可验证结果；子Agent不能使用父Agent未授予工具或读取另一租户。",
+        "工具trace记录本编号与上游真实实现符号；不能以同名自研函数冒充复用。"
+      ]
+    },
+    {
+      "id": "WX-T011",
+      "kind": "tool",
+      "canonical_name": "confirm_task_intent",
+      "display_name": "确认任务理解",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "HITL",
+        "WX"
+      ],
+      "remove_from_development": "删三类 HITL 重做",
+      "remaining_delta": "只取消共享契约 assumptions 至少两条的强制要求，补针对性回归。",
+      "dependencies": [
+        "WX-E002",
+        "WX-E006"
+      ],
+      "input_summary": "requestId:string, understanding:string, assumptions:[text]",
+      "output_summary": "confirmed assumptions / rejected",
+      "acceptance_criteria": [
+        "用户修改一个假设后按修改结果继续；拒绝后无后续副作用。",
+        "刷新/重启后待决请求仍在，非请求所属用户不能代答。"
+      ]
+    },
+    {
+      "id": "WX-T012",
+      "kind": "tool",
+      "canonical_name": "fill_run_params",
+      "display_name": "补齐任务参数",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "HITL",
+        "WX"
+      ],
+      "remove_from_development": "删泛型交互表单重写；删原规格擅自加入的日期控件需求",
+      "remaining_delta": "复用参数确认/编辑/恢复；若以后要求日期类型，应单列契约变更，不能声称现在已支持。",
+      "dependencies": [
+        "WX-E002",
+        "WX-E006"
+      ],
+      "input_summary": "requestId:string, fields:[name,type,required,knownValue?,suggestion?]",
+      "output_summary": "validated values / cancelled",
+      "acceptance_criteria": [
+        "缺少必要参数时显示现有交互；编辑、拒绝和恢复传递用户真实值；不擅自新增日期类型能力。"
+      ]
+    },
+    {
+      "id": "WX-T013",
+      "kind": "tool",
+      "canonical_name": "choose_execution_option",
+      "display_name": "选择执行方案",
+      "priority": "P0",
+      "review_class": "A",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "HITL",
+        "WX"
+      ],
+      "remove_from_development": "删选项交互、选项 ID guard 重写",
+      "remaining_delta": "复用现有 UI、非法/过期/并发 guard 与拒绝路径，迁移时回归。",
+      "dependencies": [
+        "WX-E002",
+        "WX-E006"
+      ],
+      "input_summary": "requestId:string, options:[id,label,tradeoffs]",
+      "output_summary": "selectedOptionId / cancelled",
+      "acceptance_criteria": [
+        "选择B只走B；旧版本选项ID或重复提交不触发第二次执行。",
+        "刷新/重启后待决请求仍在，非请求所属用户不能代答。"
+      ]
+    },
+    {
+      "id": "WX-T014",
+      "kind": "tool",
+      "canonical_name": "web_search",
+      "display_name": "搜索公开网络",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W06",
+      "source_refs": [
+        "TAVILY"
+      ],
+      "remove_from_development": "删搜索/抓取引擎开发",
+      "remaining_delta": "一次配置 LangChain Tavily 集成；分别验证搜索和正文提取。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "query:string, domains?:string[], timeRange?:object, limit?:int",
+      "output_summary": "results:[sourceId,url,title,snippet,retrievedAt], truncated:boolean",
+      "acceptance_criteria": [
+        "实时查询返回可打开的来源；服务超时显示失败而非空结果。",
+        "中文/英文问题都返回结构化来源；配额不足不编造搜索结果。"
+      ]
+    },
+    {
+      "id": "WX-T015",
+      "kind": "tool",
+      "canonical_name": "fetch_url",
+      "display_name": "读取公开网页正文",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W06",
+      "source_refs": [
+        "TAVILY"
+      ],
+      "remove_from_development": "删搜索/抓取引擎开发",
+      "remaining_delta": "一次配置 LangChain Tavily 集成；分别验证搜索和正文提取。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "url:string",
+      "output_summary": "sourceId,url,resolvedUrl,title,text,contentHash,retrievedAt,truncated",
+      "acceptance_criteria": [
+        "从搜索结果读取原文可追溯同一URL；超长内容明确截断。",
+        "localhost、metadata地址、危险重定向被阻断；受限网页不返回虚构正文。"
+      ]
+    },
+    {
+      "id": "WX-T016",
+      "kind": "tool",
+      "canonical_name": "wx_knowledge_search",
+      "display_name": "搜索有权限的组织知识",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "query:string, projectId?:string, filters?:object, cursor?:string",
+      "output_summary": "items:[sourceId,versionId,title,excerpt,citationAnchor], cursor?",
+      "acceptance_criteria": [
+        "已授权资料可找到且引用定位正确；撤回资料不被回答引用。",
+        "A/B租户及项目成员反证无交叉内容；检索故障与零命中区分。"
+      ]
+    },
+    {
+      "id": "WX-T017",
+      "kind": "tool",
+      "canonical_name": "wx_knowledge_read",
+      "display_name": "读取知识原文与引用片段",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-T016"
+      ],
+      "input_summary": "sourceId:string, versionId:string, locator?:object",
+      "output_summary": "content, sourceVersion, citationAnchor, accessibleAt",
+      "acceptance_criteria": [
+        "检索后权限被撤销，原文读取失败；旧snapshot不绕过撤销。",
+        "返回片段与存储正文一致，页码或segment能回到用户可见来源。"
+      ]
+    },
+    {
+      "id": "WX-T018",
+      "kind": "tool",
+      "canonical_name": "wx_attachment_mount",
+      "display_name": "把用户附件装入工作区",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W02",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删附件权限与上传系统重建",
+      "remaining_delta": "将已授权附件物化到 E003 只读路径，复用撤销和来源身份。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E002"
+      ],
+      "input_summary": "attachmentId:string, versionId?:string",
+      "output_summary": "workspacePath, fileId, versionId, mime, sizeBytes, sha256",
+      "acceptance_criteria": [
+        "上传中文文件后可由read_file/解析器访问同一字节；hash匹配。",
+        "伪造其他用户附件ID失败；重试装载不复制成多个不同输入。"
+      ]
+    },
+    {
+      "id": "WX-T019",
+      "kind": "tool",
+      "canonical_name": "wx_document_parse",
+      "display_name": "解析PDF和Office内容",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W08",
+      "source_refs": [
+        "DOCLING"
+      ],
+      "remove_from_development": "删各格式独立解析服务",
+      "remaining_delta": "一次接入 Docling，统一权限输入、定位引用和损坏文件错误。",
+      "dependencies": [
+        "WX-T018",
+        "WX-E003"
+      ],
+      "input_summary": "workspacePath:string, outputMode:markdown|chunks, ocr:boolean",
+      "output_summary": "textPath, structuredPath, pages?, tables?, warnings[], sourceHash",
+      "acceptance_criteria": [
+        "多页中英文PDF及含表格Office fixture提取与基准一致；有内容定位。",
+        "扫描件有OCR结果与质量提示；密码文件无密码时报错；解析不能出网。"
+      ]
+    },
+    {
+      "id": "WX-T020",
+      "kind": "tool",
+      "canonical_name": "wx_artifact_publish",
+      "display_name": "发布已生成的文件产物",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W04",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删对象存储和产物版本系统重建",
+      "remaining_delta": "将原生 workspace 输出接现有 putOnce/产物交付，确认文件真实完成。",
+      "dependencies": [
+        "WX-E003",
+        "WX-E006"
+      ],
+      "input_summary": "workspacePath:string, title:string, mediaType:string, sourceRefs?:string[], targetProjectId?:string, idempotencyKey:string",
+      "output_summary": "artifactId,versionId,sha256,previewRef,status:ready",
+      "acceptance_criteria": [
+        "真实文件发布后UI可预览且DB/对象hash一致。",
+        "上传故障、无文件、MIME不符均不返回ready；重试只建一个版本。"
+      ]
+    },
+    {
+      "id": "WX-T021",
+      "kind": "tool",
+      "canonical_name": "wx_artifact_download",
+      "display_name": "获取本人可用的下载入口",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W04",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删下载 URL/一次性兑换服务重建",
+      "remaining_delta": "复用现有受主体约束的下载业务；只补原生结果入口和字段映射。",
+      "dependencies": [
+        "WX-T020"
+      ],
+      "input_summary": "artifactId:string, versionId:string, purpose:string",
+      "output_summary": "downloadRef,expiresAt,artifactVersion",
+      "acceptance_criteria": [
+        "本人可下载且内容hash一致；第二用户拿同链接不能读取。",
+        "过期/重复兑换失败，与不存在对象的错误边界符合现有协议。"
+      ]
+    },
+    {
+      "id": "WX-T022",
+      "kind": "tool",
+      "canonical_name": "browser_navigate",
+      "display_name": "打开网页",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "PLAYWRIGHT"
+      ],
+      "remove_from_development": "删浏览器操作工具逐项实现",
+      "remaining_delta": "一次接入 Playwright MCP profile；逐操作保留验收编号。",
+      "dependencies": [
+        "WX-E005",
+        "WX-E006"
+      ],
+      "input_summary": "url:string",
+      "output_summary": "page/context reference",
+      "acceptance_criteria": [
+        "打开测试站点正确；内网地址和跨run context引用被拒。",
+        "上游tool call与UI证据同时落盘；并发用户浏览器cookies/storage隔离。"
+      ]
+    },
+    {
+      "id": "WX-T023",
+      "kind": "tool",
+      "canonical_name": "browser_snapshot",
+      "display_name": "读取网页结构",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "PLAYWRIGHT"
+      ],
+      "remove_from_development": "删浏览器操作工具逐项实现",
+      "remaining_delta": "一次接入 Playwright MCP profile；逐操作保留验收编号。",
+      "dependencies": [
+        "WX-E005",
+        "WX-E006",
+        "WX-T022"
+      ],
+      "input_summary": "pageRef:string",
+      "output_summary": "accessibility snapshot, element refs",
+      "acceptance_criteria": [
+        "读取表单字段及按钮；过期元素引用不误操作。",
+        "上游tool call与UI证据同时落盘；并发用户浏览器cookies/storage隔离。"
+      ]
+    },
+    {
+      "id": "WX-T024",
+      "kind": "tool",
+      "canonical_name": "browser_click",
+      "display_name": "点击页面元素",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "PLAYWRIGHT"
+      ],
+      "remove_from_development": "删浏览器操作工具逐项实现",
+      "remaining_delta": "一次接入 Playwright MCP profile；逐操作保留验收编号。",
+      "dependencies": [
+        "WX-E005",
+        "WX-E006",
+        "WX-T022"
+      ],
+      "input_summary": "pageRef:string, elementRef:string",
+      "output_summary": "outcome + updated page reference",
+      "acceptance_criteria": [
+        "已授权提交只产生一次动作；拒绝后无点击；页面跳转后旧ref失效。",
+        "上游tool call与UI证据同时落盘；并发用户浏览器cookies/storage隔离。"
+      ]
+    },
+    {
+      "id": "WX-T025",
+      "kind": "tool",
+      "canonical_name": "browser_fill_form",
+      "display_name": "填写网页表单",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "PLAYWRIGHT"
+      ],
+      "remove_from_development": "删浏览器操作工具逐项实现",
+      "remaining_delta": "一次接入 Playwright MCP profile；逐操作保留验收编号。",
+      "dependencies": [
+        "WX-E005",
+        "WX-E006",
+        "WX-T022"
+      ],
+      "input_summary": "pageRef:string, fields:[ref,value]",
+      "output_summary": "filled fields / failure",
+      "acceptance_criteria": [
+        "填写多字段后页面值正确；拒绝时不填；错误ref不能写到其他字段。",
+        "上游tool call与UI证据同时落盘；并发用户浏览器cookies/storage隔离。"
+      ]
+    },
+    {
+      "id": "WX-T026",
+      "kind": "tool",
+      "canonical_name": "browser_take_screenshot",
+      "display_name": "保存页面截图",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "PLAYWRIGHT"
+      ],
+      "remove_from_development": "删浏览器操作工具逐项实现",
+      "remaining_delta": "一次接入 Playwright MCP profile；逐操作保留验收编号。",
+      "dependencies": [
+        "WX-E005",
+        "WX-E006",
+        "WX-T022"
+      ],
+      "input_summary": "pageRef:string, fullPage?:boolean",
+      "output_summary": "workspacePath,mime,dimensions",
+      "acceptance_criteria": [
+        "截图实际可读且范围正确；截图路径不含其他run数据。",
+        "上游tool call与UI证据同时落盘；并发用户浏览器cookies/storage隔离。"
+      ]
+    },
+    {
+      "id": "WX-T027",
+      "kind": "tool",
+      "canonical_name": "wx_project_list",
+      "display_name": "查找自己的项目",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "query?:string,cursor?:string",
+      "output_summary": "projects:[projectId,name,kind,status],cursor?",
+      "acceptance_criteria": [
+        "用户能找到自己的项目；无权项目不暴露名称或存在性。",
+        "依赖失败不伪装空列表。"
+      ]
+    },
+    {
+      "id": "WX-T028",
+      "kind": "tool",
+      "canonical_name": "wx_project_read",
+      "display_name": "读取项目状态",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-T027"
+      ],
+      "input_summary": "projectId:string",
+      "output_summary": "overview（沿用现有契约）, observedAt, sourceRefs",
+      "acceptance_criteria": [
+        "工作坊/其他项目类型各跑fixture，返回和原API一致。",
+        "项目权限撤销后拒绝读取；报告能追溯源字段。"
+      ]
+    },
+    {
+      "id": "WX-T029",
+      "kind": "tool",
+      "canonical_name": "wx_canvas_read",
+      "display_name": "读取可编辑画布",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W11",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "canvasId:string",
+      "output_summary": "source, revision, supportedOperations, objectRefs",
+      "acceptance_criteria": [
+        "读取后可定位现有对象并得revision；跨项目拒绝。",
+        "导出再导入保留fixture对象ID和关系。"
+      ]
+    },
+    {
+      "id": "WX-T030",
+      "kind": "tool",
+      "canonical_name": "wx_canvas_update",
+      "display_name": "修改画布内容",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W11",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删既有知识、项目或画布领域逻辑重建",
+      "remaining_delta": "只接可信身份、参数、既有领域 API 和原生结果；共享 adapter 按领域所有权实施。",
+      "dependencies": [
+        "WX-T029",
+        "WX-E006"
+      ],
+      "input_summary": "canvasId:string,expectedRevision:string,changes:现有契约,idempotencyKey:string",
+      "output_summary": "newRevision,changedObjects,artifactRef?",
+      "acceptance_criteria": [
+        "指定便签修改后真实画布可见且对象ID不变。",
+        "revision过期冲突，不覆盖别人更改；拒绝授权不写入。"
+      ]
+    },
+    {
+      "id": "WX-T031",
+      "kind": "tool",
+      "canonical_name": "wx_memory_search",
+      "display_name": "读取个人长期偏好",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W12",
+      "source_refs": [
+        "MEMORY"
+      ],
+      "remove_from_development": "删另建记忆引擎的做法；没有已完成闭环可直接扣除",
+      "remaining_delta": "共同实现 LangGraph Store 的个人 namespace、读写删及授权生命周期。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "query?:string,cursor?:string",
+      "output_summary": "items:[memoryId,text,revision,sourceRef,updatedAt]",
+      "acceptance_criteria": [
+        "另一次会话能读到已保存偏好；其他用户不可见。",
+        "删除后检索与新run上下文都不再注入。"
+      ]
+    },
+    {
+      "id": "WX-T032",
+      "kind": "tool",
+      "canonical_name": "wx_memory_write",
+      "display_name": "保存用户明确要求记住的信息",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W12",
+      "source_refs": [
+        "MEMORY"
+      ],
+      "remove_from_development": "删另建记忆引擎的做法；没有已完成闭环可直接扣除",
+      "remaining_delta": "共同实现 LangGraph Store 的个人 namespace、读写删及授权生命周期。",
+      "dependencies": [
+        "WX-T031"
+      ],
+      "input_summary": "text:string,sourceMessageId:string,memoryId?:string,expectedRevision?:string,idempotencyKey:string",
+      "output_summary": "memoryId,revision",
+      "acceptance_criteria": [
+        "用户说“记住我偏好中文”后跨会话生效；重复请求只建一项。",
+        "模型自造source或其他用户source被拒；冲突不会静默覆盖。"
+      ]
+    },
+    {
+      "id": "WX-T033",
+      "kind": "tool",
+      "canonical_name": "wx_memory_delete",
+      "display_name": "忘记一条个人记忆",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W12",
+      "source_refs": [
+        "MEMORY"
+      ],
+      "remove_from_development": "删另建记忆引擎的做法；没有已完成闭环可直接扣除",
+      "remaining_delta": "共同实现 LangGraph Store 的个人 namespace、读写删及授权生命周期。",
+      "dependencies": [
+        "WX-T031"
+      ],
+      "input_summary": "memoryId:string,expectedRevision:string",
+      "output_summary": "deleted:boolean",
+      "acceptance_criteria": [
+        "删除后新会话不再使用该偏好；并发重复删除幂等。",
+        "不能删除其他用户记忆；旧revision返回冲突。"
+      ]
+    },
+    {
+      "id": "WX-E009",
+      "kind": "enabler",
+      "canonical_name": "scheduled-run-adapter",
+      "display_name": "定时触发LangGraph Run",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W13",
+      "source_refs": [
+        "CRON",
+        "PGBOSS"
+      ],
+      "remove_from_development": "删同时开发两套 cron provider 的可能性",
+      "remaining_delta": "探测实际部署后只选择一个持久调度提供者；定时能力仍属于范围。",
+      "dependencies": [
+        "WX-E006"
+      ],
+      "input_summary": "deployment mode、schedule payload、授权策略",
+      "output_summary": "单一schedule存储权威与run触发器",
+      "acceptance_criteria": [
+        "重启仍触发到期任务；两个worker不生成重复逻辑run。",
+        "取消后无后续触发；时区/DST/错过执行策略有fixture。"
+      ]
+    },
+    {
+      "id": "WX-T034",
+      "kind": "tool",
+      "canonical_name": "wx_schedule_create",
+      "display_name": "安排定时任务",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W13",
+      "source_refs": [
+        "CRON",
+        "PGBOSS"
+      ],
+      "remove_from_development": "删每个调度操作各建服务",
+      "remaining_delta": "合用 E009 单一调度提供者，分别验收创建/读取/取消。",
+      "dependencies": [
+        "WX-E009"
+      ],
+      "input_summary": "instruction:string,timezone:IANA,trigger:once|cron,scheduleSpec:object,idempotencyKey:string",
+      "output_summary": "scheduleId,nextRunAt,summary",
+      "acceptance_criteria": [
+        "创建后列表有记录；到时运行同一LangGraph入口；无效时区被拒。",
+        "所有变化在产品可见并可审计；授权撤销后下一次运行失败且通知本人。"
+      ]
+    },
+    {
+      "id": "WX-T035",
+      "kind": "tool",
+      "canonical_name": "wx_schedule_list",
+      "display_name": "查看我的定时任务",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W13",
+      "source_refs": [
+        "CRON",
+        "PGBOSS"
+      ],
+      "remove_from_development": "删每个调度操作各建服务",
+      "remaining_delta": "合用 E009 单一调度提供者，分别验收创建/读取/取消。",
+      "dependencies": [
+        "WX-E009"
+      ],
+      "input_summary": "cursor?:string",
+      "output_summary": "schedules:[id,summary,nextRunAt,status],cursor?",
+      "acceptance_criteria": [
+        "本人任务与nextRunAt正确；其他用户不可见。",
+        "所有变化在产品可见并可审计；授权撤销后下一次运行失败且通知本人。"
+      ]
+    },
+    {
+      "id": "WX-T036",
+      "kind": "tool",
+      "canonical_name": "wx_schedule_cancel",
+      "display_name": "取消定时任务",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W13",
+      "source_refs": [
+        "CRON",
+        "PGBOSS"
+      ],
+      "remove_from_development": "删每个调度操作各建服务",
+      "remaining_delta": "合用 E009 单一调度提供者，分别验收创建/读取/取消。",
+      "dependencies": [
+        "WX-E009"
+      ],
+      "input_summary": "scheduleId:string,expectedRevision?:string",
+      "output_summary": "cancelled:boolean",
+      "acceptance_criteria": [
+        "取消后不会产生新run；重复取消幂等；正在运行的任务不被错误称已停止。",
+        "所有变化在产品可见并可审计；授权撤销后下一次运行失败且通知本人。"
+      ]
+    },
+    {
+      "id": "WX-T037",
+      "kind": "tool",
+      "canonical_name": "wx_audio_transcribe",
+      "display_name": "转录用户录音",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W14",
+      "source_refs": [
+        "WHISPER",
+        "WX"
+      ],
+      "remove_from_development": "删 ASR 引擎、录音权限和存储重建",
+      "remaining_delta": "保留任意授权音频文件到现有 ASR 的适配与文件输出；离线 Whisper 非首版必选。",
+      "dependencies": [
+        "WX-T018",
+        "WX-E006"
+      ],
+      "input_summary": "attachmentId:string,language?:string,diarization?:boolean",
+      "output_summary": "transcriptId,segments:[id,startMs,endMs,text,speaker?],warnings",
+      "acceptance_criteria": [
+        "中英文录音返回有时间范围的片段；无法识别片段明确标注。",
+        "无录音权限不能转录；说话人未知不猜；重试不产生重复transcript。"
+      ]
+    },
+    {
+      "id": "WX-T038",
+      "kind": "tool",
+      "canonical_name": "wx_image_generate",
+      "display_name": "生成或编辑图片",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W14",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删图像生成引擎/提供者重建",
+      "remaining_delta": "BailianImageProvider 已在 DI 中，复用现有图片 Agent 路径；补标准工具/产物及编辑输入差距。",
+      "dependencies": [
+        "WX-T020",
+        "WX-E002"
+      ],
+      "input_summary": "prompt:string,referenceAttachmentIds?:string[],sizeProfile:string,idempotencyKey:string",
+      "output_summary": "artifactId,versionId,modelRef",
+      "acceptance_criteria": [
+        "真实生成图片可打开，产物记录模型与请求；错误不回虚假链接。",
+        "无权参考图被拒；供应商不支持编辑时明确报错。"
+      ]
+    },
+    {
+      "id": "WX-T039",
+      "kind": "tool",
+      "canonical_name": "wx_skill_create_draft",
+      "display_name": "保存用户自己的技能草稿",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W15",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删技能草稿、版本、审核和编辑器重建",
+      "remaining_delta": "补 Agent 多文件草稿入口、全包保存和平台权限边界。",
+      "dependencies": [
+        "WX-E004",
+        "WX-E002"
+      ],
+      "input_summary": "name:string,description:string,files:workspace paths[],inputSchema:object,outputSchema:object,idempotencyKey:string",
+      "output_summary": "skillId,versionId,status:draft,validationReport",
+      "acceptance_criteria": [
+        "保存多文件草稿后可读取同一版本且hash一致。",
+        "路径穿越/未声明依赖失败；普通用户不能写平台skill或绕过审核启用。"
+      ]
+    },
+    {
+      "id": "WX-T040",
+      "kind": "tool",
+      "canonical_name": "wx_run_status",
+      "display_name": "查看任务执行状态",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W01",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删 run 状态接口与鉴权重写",
+      "remaining_delta": "保留 Agent 与用户双入口：复用 readAgentRun 和现有 UI，补薄 wx_run_status adapter，不重建状态事实源。",
+      "dependencies": [
+        "WX-E006"
+      ],
+      "input_summary": "runId:string",
+      "output_summary": "status,steps,waitingRequest?,artifactRefs,observedAt",
+      "acceptance_criteria": [
+        "刷新后状态与后台一致；等待审批与执行中可区分。",
+        "无权run不返回步骤或文件。"
+      ]
+    },
+    {
+      "id": "WX-T041",
+      "kind": "tool",
+      "canonical_name": "wx_run_cancel",
+      "display_name": "停止正在执行的任务",
+      "priority": "P0",
+      "review_class": "C",
+      "implementation_work_package": "W04",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删已有暂停接口重写；不能删除真正取消工作",
+      "remaining_delta": "pause/interrupt 不等于 terminal cancelled；补进程树、子任务级联与恢复一致性。",
+      "dependencies": [
+        "WX-E006",
+        "WX-T040"
+      ],
+      "input_summary": "runId:string,reason?:string,idempotencyKey:string",
+      "output_summary": "cancellationRequested:boolean,finalStatus?",
+      "acceptance_criteria": [
+        "停止长脚本后进程树结束，状态最终cancelled；重复停止幂等。",
+        "停止其他用户run失败；完成与取消竞争有确定终态。"
+      ]
+    },
+    {
+      "id": "WX-T042",
+      "kind": "tool",
+      "canonical_name": "spawn_async_task",
+      "display_name": "后台执行独立任务",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W16",
+      "source_refs": [
+        "WX"
+      ],
+      "remove_from_development": "删 spawn 工具、队列 UI 与第二套异步执行引擎",
+      "remaining_delta": "当前实际 DI 是 InMemorySubtaskRunStore；补持久化、幂等、版本权限快照和恢复。",
+      "dependencies": [
+        "WX-E004",
+        "WX-E006",
+        "WX-T040",
+        "WX-T041"
+      ],
+      "input_summary": "description:string,contextRefs?:string[],idempotencyKey:string",
+      "output_summary": "childRunId,status:queued",
+      "acceptance_criteria": [
+        "主界面关闭后子run继续并可查询；返回真实产物。",
+        "重试派发只建一个子run；父run取消策略可复现且不会遗留沙箱。"
+      ]
+    },
+    {
+      "id": "WX-T043",
+      "kind": "tool",
+      "canonical_name": "sql_db_list_tables",
+      "display_name": "发现已授权数据表",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W17",
+      "source_refs": [
+        "SQL"
+      ],
+      "remove_from_development": "删 SQL 工具实现与错误的 MCP 硬依赖",
+      "remaining_delta": "一次接 LangChain SQL Toolkit 与只读连接；四工具只配置/授权/验证，直接集成无须 MCP。",
+      "dependencies": [
+        "WX-E002"
+      ],
+      "input_summary": "原生schema（连接由可信context选择）",
+      "output_summary": "table names",
+      "acceptance_criteria": [
+        "列表仅含授权视图；不同用户的连接与表范围隔离。",
+        "连接凭据不可进入模型或trace；失败与空数据分开。"
+      ]
+    },
+    {
+      "id": "WX-T044",
+      "kind": "tool",
+      "canonical_name": "sql_db_schema",
+      "display_name": "读取数据字段说明",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W17",
+      "source_refs": [
+        "SQL"
+      ],
+      "remove_from_development": "删 SQL 工具实现与错误的 MCP 硬依赖",
+      "remaining_delta": "一次接 LangChain SQL Toolkit 与只读连接；四工具只配置/授权/验证，直接集成无须 MCP。",
+      "dependencies": [
+        "WX-E002",
+        "WX-T043"
+      ],
+      "input_summary": "table_names:string（原生schema）",
+      "output_summary": "schema/context",
+      "acceptance_criteria": [
+        "可见表schema正确；指定无权表失败；样例行符合策略。",
+        "连接凭据不可进入模型或trace；失败与空数据分开。"
+      ]
+    },
+    {
+      "id": "WX-T045",
+      "kind": "tool",
+      "canonical_name": "sql_db_query_checker",
+      "display_name": "检查分析查询",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W17",
+      "source_refs": [
+        "SQL"
+      ],
+      "remove_from_development": "删 SQL 工具实现与错误的 MCP 硬依赖",
+      "remaining_delta": "一次接 LangChain SQL Toolkit 与只读连接；四工具只配置/授权/验证，直接集成无须 MCP。",
+      "dependencies": [
+        "WX-E002",
+        "WX-T043"
+      ],
+      "input_summary": "query:string（原生schema）",
+      "output_summary": "checked query / warnings",
+      "acceptance_criteria": [
+        "错误查询得到可理解修改；只有检查不触发数据库写/查询。",
+        "连接凭据不可进入模型或trace；失败与空数据分开。"
+      ]
+    },
+    {
+      "id": "WX-T046",
+      "kind": "tool",
+      "canonical_name": "sql_db_query",
+      "display_name": "查询授权只读数据",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W17",
+      "source_refs": [
+        "SQL"
+      ],
+      "remove_from_development": "删 SQL 工具实现与错误的 MCP 硬依赖",
+      "remaining_delta": "一次接 LangChain SQL Toolkit 与只读连接；四工具只配置/授权/验证，直接集成无须 MCP。",
+      "dependencies": [
+        "WX-E002",
+        "WX-T043"
+      ],
+      "input_summary": "query:string（原生schema）",
+      "output_summary": "bounded rows / query metadata",
+      "acceptance_criteria": [
+        "SELECT结果正确；UPDATE/DDL及越权视图被数据库拒绝；超时可终止。",
+        "连接凭据不可进入模型或trace；失败与空数据分开。"
+      ]
+    },
+    {
+      "id": "WX-S001",
+      "kind": "skill",
+      "canonical_name": "knowledge-grounded-answer",
+      "display_name": "组织知识问答",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "NOTION"
+      ],
+      "remove_from_development": "删新 RAG/问答引擎",
+      "remaining_delta": "上游包改用现有知识工具，补引用与冲突处理。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T016",
+        "WX-T017"
+      ],
+      "input_summary": "问题、授权知识范围、引用要求",
+      "output_summary": "回答、来源段落、证据不足说明",
+      "acceptance_criteria": [
+        "撤销一篇文档后无法再次引用；无结果时明确未知；引用可点开且与结论相符。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S002",
+      "kind": "skill",
+      "canonical_name": "web-research",
+      "display_name": "联网深度研究",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W06",
+      "source_refs": [
+        "RESEARCH"
+      ],
+      "remove_from_development": "删第二研究引擎/检查点/调度器",
+      "remaining_delta": "官方研究包、共享搜索工具、预算与来源验证。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T003",
+        "WX-T002",
+        "WX-T010",
+        "WX-T014",
+        "WX-T015",
+        "WX-T020"
+      ],
+      "input_summary": "研究问题、时间范围、预算、交付格式",
+      "output_summary": "研究计划、来源记录、带引用报告",
+      "acceptance_criteria": [
+        "冲突来源被保留；搜索故障不编造来源；报告引用实际读取内容；达到预算后给出明确研究边界。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S003",
+      "kind": "skill",
+      "canonical_name": "document-authoring",
+      "display_name": "Word 文档创建与有限编辑",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W09",
+      "source_refs": [
+        "DOCSKILL",
+        "DOCXEDIT"
+      ],
+      "remove_from_development": "删Word 创建器重写",
+      "remaining_delta": "保留现有 Node 创建；全包迁移、渲染 QA，有限编辑属于尚未完成的差量。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T008",
+        "WX-T020",
+        "WX-T021"
+      ],
+      "input_summary": "文档要求、可选原文件、样式约束",
+      "output_summary": "可下载 docx、渲染预览、变更摘要",
+      "acceptance_criteria": [
+        "中英文、多页表格与页眉渲染无裁切；修改指定段落后无关段落保持；不支持的对象明确列出。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S004",
+      "kind": "skill",
+      "canonical_name": "spreadsheet-authoring",
+      "display_name": "表格创建与有限编辑",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W09",
+      "source_refs": [
+        "EXCEL"
+      ],
+      "remove_from_development": "删Excel 创建器及第二计算引擎",
+      "remaining_delta": "保留 ExcelJS；补有限编辑与重算状态，不强制所有场景部署 LibreOffice。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "需求、数据、可选 xlsx、目标单元格",
+      "output_summary": "xlsx、检查结果、变更范围",
+      "acceptance_criteria": [
+        "修改 fixture 指定单元格，其他表不变；公式引用及数值样例正确；超大文件受资源上限约束。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S005",
+      "kind": "skill",
+      "canonical_name": "presentation-authoring",
+      "display_name": "演示文稿创建与有限编辑",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W09",
+      "source_refs": [
+        "PPTX",
+        "PPTXEDIT"
+      ],
+      "remove_from_development": "删PPT 创建器重写",
+      "remaining_delta": "保留 PptxGenJS；有限编辑和逐页 QA 仍需接入，不承诺任意复杂文件无损。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "主题、受众、资料、可选 pptx",
+      "output_summary": "pptx、页面预览、变更摘要",
+      "acceptance_criteria": [
+        "中文换行、字体和图片无溢出；已有文件文本替换可复现；未知对象不静默丢失。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S006",
+      "kind": "skill",
+      "canonical_name": "pdf-processing",
+      "display_name": "PDF 创建与结构处理",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W09",
+      "source_refs": [
+        "PDFSKILL",
+        "PDFLIB"
+      ],
+      "remove_from_development": "删PDF 创建器、正文编辑和安全涂黑引擎",
+      "remaining_delta": "保留现有 PDF 创建；解析、页级/表单操作和渲染是差量。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T019",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "内容或 PDF、页范围、表单操作",
+      "output_summary": "PDF、预览、抽取结果或处理摘要",
+      "acceptance_criteria": [
+        "中英文可提取且视觉正常；页序正确；表单值保存后重开有效；禁止把覆盖矩形宣称为安全脱敏。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S007",
+      "kind": "skill",
+      "canonical_name": "data-analysis",
+      "display_name": "数据分析",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W18",
+      "source_refs": [
+        "ANALYZE"
+      ],
+      "remove_from_development": "删独立分析 Agent 服务、强制 notebook/数据仓库",
+      "remaining_delta": "导入分析包，与 S020 共用输入、计算依赖与输出。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "文件或授权查询结果、分析问题",
+      "output_summary": "可复现分析、代码、结论、局限",
+      "acceptance_criteria": [
+        "已知答案数据集结果吻合；缺失值策略可追溯；相关性不写成因果；脚本重跑得到一致结果。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S008",
+      "kind": "skill",
+      "canonical_name": "meeting-preparation",
+      "display_name": "会议准备",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "MEETING"
+      ],
+      "remove_from_development": "删会议资料库、Notion 专用连接、邀请发送",
+      "remaining_delta": "复用知识/项目读取，适配会议准备模板。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T016",
+        "WX-T017",
+        "WX-T028"
+      ],
+      "input_summary": "会议目的、参会人、项目范围",
+      "output_summary": "背景摘要、议程、问题清单",
+      "acceptance_criteria": [
+        "无资料时列待补充项；议程与目标对应；人员与项目事实有出处。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S009",
+      "kind": "skill",
+      "canonical_name": "meeting-minutes",
+      "display_name": "会议纪要",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W14",
+      "source_refs": [
+        "MINUTES"
+      ],
+      "remove_from_development": "删第二 ASR、自动发送或自动建任务",
+      "remaining_delta": "复用转录，增加纪要模板与来源定位；长会议增强不伪装已完成。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T037",
+        "WX-T017",
+        "WX-T020"
+      ],
+      "input_summary": "不超过60分钟的内部会议转录、可选议程",
+      "output_summary": "摘要、决策、行动项、证据定位",
+      "acceptance_criteria": [
+        "决策与行动项能定位原句或时间；不把建议当决定；未知责任人不猜测。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S010",
+      "kind": "skill",
+      "canonical_name": "interview-synthesis",
+      "display_name": "访谈与反馈综合",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W19",
+      "source_refs": [
+        "SYNTHESIS"
+      ],
+      "remove_from_development": "删第二研究资料库和转录引擎",
+      "remaining_delta": "复用 Studio/Research，适配综合包、引文和参与者去重。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T017",
+        "WX-T037"
+      ],
+      "input_summary": "授权访谈、研究问题、样本说明",
+      "output_summary": "主题、反例、引文、参与者计数",
+      "acceptance_criteria": [
+        "重复转录不重复计数；反对证据保留；每主题有来源；缺少人口统计资料不推断属性。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S011",
+      "kind": "skill",
+      "canonical_name": "internal-communications",
+      "display_name": "组织沟通文稿",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "COMMS"
+      ],
+      "remove_from_development": "删发送服务、独立写作后台",
+      "remaining_delta": "只适配沟通模板和现有资料读取。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T016",
+        "WX-T017",
+        "WX-T020"
+      ],
+      "input_summary": "受众、沟通目的、可信事实、语气",
+      "output_summary": "公告、更新、FAQ 草稿",
+      "acceptance_criteria": [
+        "没有编造日期指标；保密资料不超出当前权限；草稿无外部发送副作用。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S012",
+      "kind": "skill",
+      "canonical_name": "diagram-and-canvas",
+      "display_name": "图表与协作画布",
+      "priority": "P1",
+      "review_class": "C",
+      "implementation_work_package": "W11",
+      "source_refs": [
+        "MERMAID",
+        "WX"
+      ],
+      "remove_from_development": "删第二 Fabric/Mermaid 引擎",
+      "remaining_delta": "薄工作流调用已有画布工具，遵守对象身份与版本冲突。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T029",
+        "WX-T030",
+        "WX-T020"
+      ],
+      "input_summary": "图意、可选画布及版本",
+      "output_summary": "Mermaid、画布变更或导出",
+      "acceptance_criteria": [
+        "往返转换保留已有支持对象身份；并发冲突明确返回；无权限写入被拒。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S013",
+      "kind": "skill",
+      "canonical_name": "web-artifact",
+      "display_name": "交互式网页产物",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W10",
+      "source_refs": [
+        "WEB"
+      ],
+      "remove_from_development": "删建站平台和生产部署服务",
+      "remaining_delta": "上游技能接共享沙箱、浏览器和产物交付。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T008",
+        "WX-T020",
+        "WX-T022",
+        "WX-T023",
+        "WX-T024",
+        "WX-T026"
+      ],
+      "input_summary": "交互需求、数据、展示约束",
+      "output_summary": "隔离预览网页、源文件、测试记录",
+      "acceptance_criteria": [
+        "主要按钮和空状态可操作；移动视口无横向溢出；未授权网络请求被阻止。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S014",
+      "kind": "skill",
+      "canonical_name": "project-status-report",
+      "display_name": "项目进展报告",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W07",
+      "source_refs": [
+        "COMMS",
+        "WX"
+      ],
+      "remove_from_development": "删新项目事实库、预算和指标数据模型",
+      "remaining_delta": "根据现有 overview 和授权资料生成报告，缺字段明确未知。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T027",
+        "WX-T028",
+        "WX-T016",
+        "WX-T020"
+      ],
+      "input_summary": "项目、报告周期、受众",
+      "output_summary": "有证据的状态报告与缺口",
+      "acceptance_criteria": [
+        "与 API fixture 字段一致；未实现的 blueprint 不写成可用；每个关键指标有证据或标未知。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S015",
+      "kind": "skill",
+      "canonical_name": "skill-authoring",
+      "display_name": "个人技能草稿制作",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W15",
+      "source_refs": [
+        "CREATOR"
+      ],
+      "remove_from_development": "删第二技能注册/版本/审核/编辑系统",
+      "remaining_delta": "skill-creator 内容生成接现有草稿和全包存储。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T039",
+        "WX-T008"
+      ],
+      "input_summary": "用户工作流程、示例、限制",
+      "output_summary": "完整技能草稿包、正反例验证报告",
+      "acceptance_criteria": [
+        "新技能在隔离 fixture 中触发正确；缺脚本被发现；草稿保存不等于发布；工具权限不可被提示词提升。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S016",
+      "kind": "skill",
+      "canonical_name": "audio-transcription",
+      "display_name": "音频转录工作流",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W14",
+      "source_refs": [
+        "TRANSCRIBE"
+      ],
+      "remove_from_development": "删ASR 重建、默认离线 Whisper 与身份识别",
+      "remaining_delta": "适配现有转录工具；音频文件入口差量仍需验证。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T037",
+        "WX-T020"
+      ],
+      "input_summary": "音频、语言提示、输出格式",
+      "output_summary": "带时间定位的转录与置信限制",
+      "acceptance_criteria": [
+        "静音和损坏文件明确处理；时间范围正确；用户提供身份前不臆造说话人姓名。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S017",
+      "kind": "skill",
+      "canonical_name": "visual-content",
+      "display_name": "视觉内容制作",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W14",
+      "source_refs": [
+        "CANVASDESIGN"
+      ],
+      "remove_from_development": "删专用图像生成引擎",
+      "remaining_delta": "canvas-design 与共享执行/产物；生成式提供者按实际需要使用。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "视觉目标、尺寸、文案、素材",
+      "output_summary": "图片或静态 PDF、设计说明",
+      "acceptance_criteria": [
+        "尺寸与文案准确；中文字体可见；产物可下载；第三方素材来源记录。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S018",
+      "kind": "skill",
+      "canonical_name": "document-understanding",
+      "display_name": "文档理解与结构提取",
+      "priority": "P0",
+      "review_class": "B",
+      "implementation_work_package": "W08",
+      "source_refs": [
+        "DOCLINGSKILL",
+        "DOCLING"
+      ],
+      "remove_from_development": "删每技能各自解析附件",
+      "remaining_delta": "统一 Docling 接入，保留文档定位与抽取质量验收。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T018",
+        "WX-T019"
+      ],
+      "input_summary": "文档、问题或提取 schema",
+      "output_summary": "结构内容、页面或单元格引用、失败片段",
+      "acceptance_criteria": [
+        "跨页表格与扫描页 fixture 有定位；未识别内容不编造；权限失效后不可读取缓存。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S019",
+      "kind": "skill",
+      "canonical_name": "user-research-planning",
+      "display_name": "用户研究规划",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W19",
+      "source_refs": [
+        "USERRESEARCH"
+      ],
+      "remove_from_development": "删新研究规划引擎/会话",
+      "remaining_delta": "复用现有 guided research 基础，适配方法包和提纲。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T016",
+        "WX-T020"
+      ],
+      "input_summary": "研究目标、目标用户、约束",
+      "output_summary": "研究计划、招募条件、访谈提纲",
+      "acceptance_criteria": [
+        "每个问题映射研究目标；敏感问题有必要性说明；没有伪造受访者或发现。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    },
+    {
+      "id": "WX-S020",
+      "kind": "skill",
+      "canonical_name": "data-visualization",
+      "display_name": "数据可视化",
+      "priority": "P1",
+      "review_class": "B",
+      "implementation_work_package": "W18",
+      "source_refs": [
+        "VIZ"
+      ],
+      "remove_from_development": "删独立图表执行引擎、重复数据接入",
+      "remaining_delta": "与 S007 共用计算，单独保留图型选择和结果准确性验收。",
+      "dependencies": [
+        "WX-E004",
+        "WX-T008",
+        "WX-T020"
+      ],
+      "input_summary": "数据、比较问题、输出类型",
+      "output_summary": "图表、数据说明、可复现脚本",
+      "acceptance_criteria": [
+        "图表数字与输入一致；颜色和标签可辨；缺失值不伪装为零；静态导出可读。",
+        "通过 G-SKILL；仅承诺文件产物的场景要求实际打开和校验文件。"
+      ]
+    }
+  ],
+  "sources": {
+    "LC": [
+      "Deep Agents Python 原生工具",
+      "https://docs.langchain.com/oss/python/deepagents/tools",
+      "MIT（核心仓库）；各附加包单独核验"
+    ],
+    "BACKEND": [
+      "Deep Agents Backends",
+      "https://docs.langchain.com/oss/python/deepagents/backends",
+      "MIT（核心仓库）"
+    ],
+    "SKILLS": [
+      "Deep Agents Skills",
+      "https://docs.langchain.com/oss/python/deepagents/skills",
+      "MIT（核心仓库）"
+    ],
+    "DYNAMIC": [
+      "LangChain 动态工具注册",
+      "https://docs.langchain.com/oss/python/langchain/agents",
+      "官方文档；复用对应开源包"
+    ],
+    "HITL": [
+      "Deep Agents Human-in-the-loop",
+      "https://docs.langchain.com/oss/python/deepagents/human-in-the-loop",
+      "MIT（核心仓库）"
+    ],
+    "MEMORY": [
+      "LangGraph Persistence / Store",
+      "https://docs.langchain.com/oss/python/langgraph/persistence",
+      "MIT（核心仓库）"
+    ],
+    "MCP": [
+      "LangChain MCP",
+      "https://docs.langchain.com/oss/python/langchain/mcp",
+      "适配包许可按锁定版本核验"
+    ],
+    "TAVILY": [
+      "LangChain Tavily 集成",
+      "https://github.com/tavily-ai/langchain-tavily",
+      "客户端与服务条款分开；发布前保留锁定版 LICENSE"
+    ],
+    "DOCLING": [
+      "LangChain DoclingLoader",
+      "https://docs.langchain.com/oss/python/integrations/document_loaders/docling",
+      "Docling 代码 MIT；模型及各依赖单独核验"
+    ],
+    "DOCSKILL": [
+      "OpenAI doc 固定历史包",
+      "https://github.com/openai/skills/tree/dc48aff8208131776c9937326002bd60cf572ab6/skills/.curated/doc",
+      "Apache-2.0；历史快照由本项目维护"
+    ],
+    "PDFSKILL": [
+      "OpenAI pdf",
+      "https://github.com/openai/skills/tree/main/skills/.curated/pdf",
+      "Apache-2.0；仓库 deprecated，导入须冻结 SHA"
+    ],
+    "NOTION": [
+      "Notion research-documentation（收录于 OpenAI 仓库）",
+      "https://github.com/openai/skills/tree/main/skills/.curated/notion-research-documentation",
+      "MIT，作者 Notion；冻结 SHA"
+    ],
+    "MEETING": [
+      "Notion meeting-intelligence",
+      "https://github.com/openai/skills/tree/main/skills/.curated/notion-meeting-intelligence",
+      "MIT，作者 Notion；会议准备，不是录音纪要"
+    ],
+    "RESEARCH": [
+      "LangChain 官方 web-research Skill",
+      "https://github.com/langchain-ai/deepagents/blob/main/libs/code/examples/skills/web-research/SKILL.md",
+      "MIT；来自官方示例，不是默认自动装载"
+    ],
+    "COMMS": [
+      "Anthropic internal-comms",
+      "https://github.com/anthropics/skills/tree/main/skills/internal-comms",
+      "Apache-2.0，单项 LICENSE 已核对"
+    ],
+    "WEB": [
+      "Anthropic web-artifacts-builder",
+      "https://github.com/anthropics/skills/tree/main/skills/web-artifacts-builder",
+      "Apache-2.0，单项 LICENSE 已核对"
+    ],
+    "CREATOR": [
+      "Anthropic skill-creator",
+      "https://github.com/anthropics/skills/tree/main/skills/skill-creator",
+      "Apache-2.0，单项 LICENSE 已核对"
+    ],
+    "TRANSCRIBE": [
+      "OpenAI transcribe",
+      "https://github.com/openai/skills/tree/main/skills/.curated/transcribe",
+      "Apache-2.0；原脚本依赖付费 API，不是离线引擎"
+    ],
+    "NOTEBOOK": [
+      "OpenAI jupyter-notebook",
+      "https://github.com/openai/skills/tree/main/skills/.curated/jupyter-notebook",
+      "Apache-2.0；原包仅 notebook 工作流"
+    ],
+    "PLAYWRIGHT": [
+      "Microsoft Playwright MCP",
+      "https://github.com/microsoft/playwright-mcp",
+      "Apache-2.0；浏览器二进制依赖单独锁定"
+    ],
+    "EXCEL": [
+      "ExcelJS",
+      "https://github.com/exceljs/exceljs",
+      "MIT"
+    ],
+    "PPTX": [
+      "PptxGenJS",
+      "https://github.com/gitbrent/PptxGenJS",
+      "MIT；创建工具，不能直接导入编辑"
+    ],
+    "PPTXEDIT": [
+      "python-pptx",
+      "https://github.com/scanny/python-pptx",
+      "MIT；复杂文件保真度须实测"
+    ],
+    "DOCXEDIT": [
+      "python-docx",
+      "https://github.com/python-openxml/python-docx",
+      "MIT"
+    ],
+    "PDFLIB": [
+      "pdf-lib",
+      "https://github.com/Hopding/pdf-lib",
+      "MIT；不支持普通正文语义编辑"
+    ],
+    "MERMAID": [
+      "Mermaid",
+      "https://github.com/mermaid-js/mermaid",
+      "MIT"
+    ],
+    "CRON": [
+      "LangGraph Deployment Cron",
+      "https://docs.langchain.com/langsmith/cron-jobs",
+      "部署功能/服务条款，不等同 OSS 库默认能力"
+    ],
+    "PGBOSS": [
+      "pg-boss",
+      "https://github.com/timgit/pg-boss",
+      "MIT；仅调度触发，Agent 编排仍是 LangGraph"
+    ],
+    "WHISPER": [
+      "OpenAI Whisper",
+      "https://github.com/openai/whisper",
+      "MIT（代码与模型）；FFmpeg 等另核验"
+    ],
+    "WX": [
+      "WorkspaceX 当前源码基线",
+      "apps/deep-agent-service/src/deep_agent_service/graph.py",
+      "现有项目代码；沿用仓库权利与发布政策"
+    ],
+    "SQL": [
+      "LangChain SQLDatabaseToolkit",
+      "https://docs.langchain.com/oss/python/integrations/tools/sql_database",
+      "LangChain集成包；数据库许可/权限独立"
+    ],
+    "ANALYZE": [
+      "Anthropic knowledge-work-plugins / 数据分析",
+      "https://github.com/anthropics/knowledge-work-plugins/tree/main/data/skills/analyze",
+      "Apache-2.0（仓库根许可；导入时冻结版本并核验包内附件）"
+    ],
+    "VIZ": [
+      "Anthropic knowledge-work-plugins / 数据可视化",
+      "https://github.com/anthropics/knowledge-work-plugins/tree/main/data/skills/create-viz",
+      "Apache-2.0（仓库根许可；导入时冻结版本并核验包内附件）"
+    ],
+    "SYNTHESIS": [
+      "Anthropic knowledge-work-plugins / 研究综合",
+      "https://github.com/anthropics/knowledge-work-plugins/tree/main/design/skills/research-synthesis",
+      "Apache-2.0（仓库根许可；导入时冻结版本并核验包内附件）"
+    ],
+    "USERRESEARCH": [
+      "Anthropic knowledge-work-plugins / 用户研究规划",
+      "https://github.com/anthropics/knowledge-work-plugins/tree/main/design/skills/user-research",
+      "Apache-2.0（仓库根许可；导入时冻结版本并核验包内附件）"
+    ],
+    "MINUTES": [
+      "GitHub meeting-minutes",
+      "https://github.com/github/awesome-copilot/tree/main/skills/meeting-minutes",
+      "MIT；示例适用范围为不超过60分钟的内部会议"
+    ],
+    "CANVASDESIGN": [
+      "Anthropic canvas-design",
+      "https://github.com/anthropics/skills/tree/main/skills/canvas-design",
+      "Apache-2.0；静态视觉设计，不等于 WorkspaceX Canvas 数据操作"
+    ],
+    "DOCLINGSKILL": [
+      "Docling 官方 Skill",
+      "https://github.com/docling-project/docling/blob/main/docling/.agents/skills/docling/SKILL.md",
+      "MIT；模型许可另核验"
+    ]
+  }
+}

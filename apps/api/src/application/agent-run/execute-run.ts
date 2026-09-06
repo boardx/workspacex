@@ -1135,6 +1135,7 @@ async function executeClaimed(
         threadId: run.threadId,
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
+        trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
         // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
         // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
         // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，

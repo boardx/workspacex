@@ -17,6 +17,7 @@ export const SUBTASK_RUN_STATUS_LABEL: Record<SubtaskRunStatus, string> = {
   running: "进行中",
   completed: "已完成",
   failed: "出错",
+  cancelled: "已取消",
 };
 
 /** 角标/状态点色调：进行中=ai（正在工作）、已完成=primary、出错=danger、排队=neutral */
@@ -27,6 +28,7 @@ export const SUBTASK_RUN_STATUS_TONE: Record<
   running: "ai",
   completed: "primary",
   failed: "danger",
+  cancelled: "neutral",
 };
 
 /** 未到终态（`pending`/`running`）视为"还在后台跑"，供角标计数与轮询是否继续用。 */

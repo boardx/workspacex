@@ -797,6 +797,19 @@ def _looping_graph(n_tool_rounds: int, tool_fn=None):
 
     class ScriptedModel(GenericFakeChatModel):
         def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            names = [t.get("function", {}).get("name", t.get("name"))
+                     if isinstance(t, dict) else getattr(t, "name", getattr(t, "__name__", None))
+                     for t in tools]
+            if names == ["GraderResponse"]:
+                # The rubric grader is a separate agent, not another main-loop
+                # turn. Sharing gen() consumed spin calls and then fed it infinite
+                # plain text, which can never satisfy ToolStrategy output.
+                from deepagents.middleware.rubric import GraderResponse
+                verdict = GraderResponse(result="satisfied", explanation="Budget/retry fixture; content grading is tested separately.")
+                response = AIMessage(content="", tool_calls=[{
+                    "id": "fixture-grade", "name": "GraderResponse", "args": verdict.model_dump(),
+                }])
+                return ScriptedModel(messages=itertools.repeat(response))
             return self
 
     def gen():
@@ -1515,3 +1528,16 @@ def test_current_turn_rubric_skips_grading_for_tool_free_turns_option_a():
     with_tool = [HumanMessage("q", id="wsx-turn:r:user"), AIMessage("calling"), ToolMessage("r", tool_call_id="c"), AIMessage("done")]
     prep = rubric._prepare_evaluation({"rubric": "清单", "messages": with_tool}, _Runtime())
     assert prep is not None and prep[1] == 0
+
+
+def test_confirm_intent_empty_assumptions_still_requires_approval(monkeypatch):
+    from langgraph.types import Command
+    graph = _named_tool_graph(monkeypatch, "confirm_task_intent", {
+        "requestId": "zero", "understanding": "整理报告", "assumptions": [],
+    })
+    config = {"configurable": {"thread_id": "confirm-zero"}}
+    paused = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in paused
+    result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
+    assert any("用户已确认对任务的理解：整理报告" in str(m.content)
+               for m in result.get("messages", []))

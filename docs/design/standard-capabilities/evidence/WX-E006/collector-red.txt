@@ -1,0 +1,33 @@
+[stack-admission] load1=3.39 cores=10 perCore=0.34 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq60g7h-90581444-3fbcd4432446 db=wsx_3fbcd4432446798dadf3 compose=wsx-3fbcd4432446798dadf3 pg=24715 redis=29715 sandbox=54715
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_3fbcd4432446798dadf3 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/collect-native-outputs.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/collect-native-outputs.test.ts [ tests/agent-runtime/collect-native-outputs.test.ts ]
+Error: Failed to load url ../../src/application/agent-run/collect-native-outputs (resolved id: ../../src/application/agent-run/collect-native-outputs) in /private/tmp/workspacex-standard-capabilities/apps/api/tests/agent-runtime/collect-native-outputs.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:48:37
+   Duration  1.90s (transform 41ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 25ms)
+
+[db-isolation] db=wsx_3fbcd4432446798dadf3 peak_connections=1
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/collect-native-outputs.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/collect-native-outputs.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：3s

@@ -137,6 +137,9 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
         return result.tools.map(
           (tool): DiscoveredTool => ({
             name: tool.name,
+            ...(tool.description === undefined ? {} : { description: tool.description }),
+            inputSchema: tool.inputSchema,
+            ...(tool.outputSchema === undefined ? {} : { outputSchema: tool.outputSchema }),
             signature: signatureOf(tool),
             sideEffect: sideEffectOf(tool),
           }),

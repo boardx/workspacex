@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { artifactsSteering as AS, errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
+import { standardCapabilities as SC, artifactsSteering as AS, errorObservability as EO, kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -164,6 +164,8 @@ export interface ClaimedAgentRun {
 }
 
 export interface PinnedSkillContent {
+  /** Trusted immutable files; absent only for legacy callers. Never model-authored. */
+  readonly package?: z.infer<typeof SC.TrustedSkillPackage>;
   readonly versionId: string;
   readonly content: string;
   /**
@@ -803,6 +805,8 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
+  readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly modelProvider: string;
   readonly modelId: string;
   /**
@@ -872,6 +876,8 @@ export interface ModelCallInput {
    * `DEEP_AGENT_SUBAGENTS_ENABLED` 未开启时的旧行为一致（工具即使被注册也没有可用的
    * 派发目标——见 `deep_agent_service/tools.py::spawn_async_task` 自己的降级说明）。
    */
+  /** Trusted requester identity only; absent means no personal memory capability. */
+  readonly trustedMemoryScope?: z.infer<typeof SC.TrustedMemoryScope>;
   readonly orgId?: string;
   readonly runId?: string;
   readonly system: string;

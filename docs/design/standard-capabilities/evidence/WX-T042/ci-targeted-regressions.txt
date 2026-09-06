@@ -1,0 +1,31 @@
+[stack-admission] load1=4.20 cores=10 perCore=0.42 running=0/2
+[test-isolation] id=run-mtq5hhxf-7c505795-6b9201bba48f db=wsx_6b9201bba48f286b2e76 compose=wsx-6b9201bba48f286b2e76 pg=20811 redis=25811 sandbox=50811
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_6b9201bba48f286b2e76 capacity=100 current=6 required=32
+ ✓ tests/kernel/permission-propagation-six-paths.test.ts (29 tests) 6087ms
+   ✓ lint-permission-paths: counter-proof > scans the real source tree and derives a real table list (not the exit code) 447ms
+   ✓ lint-permission-paths: counter-proof > the allowlist stays short, and every entry carries a real argument 318ms
+ ✓ tests/agent-runtime/deep-agent-produces-files.test.ts (11 tests) 271ms
+{"level":"error","msg":"http exception","traceId":"b9ae4ab6-47e7-47a9-95c5-9fed7ddd391d","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:118:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"42cf34a7-3af1-497e-bcba-71b30d310302","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:142:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c37584d4-fe4e-45bf-854d-b9e0f677945d","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:138:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (7 tests) 3098ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 2639ms
+ ✓ tests/agent-run/deep-agent-flags-removed.test.ts (18 tests) 10ms
+ ✓ tests/mcp/new-tool-defaults-closed.test.ts (8 tests) 3ms
+
+ Test Files  5 passed (5)
+      Tests  73 passed (73)
+   Start at  02:33:53
+   Duration  12.92s (transform 1.60s, setup 0ms, collect 988ms, tests 9.47s, environment 0ms, prepare 135ms)
+
+[db-isolation] db=wsx_6b9201bba48f286b2e76 peak_connections=9
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/deep-agent-produces-files.test.ts tests/mcp/new-tool-defaults-closed.test.ts tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-run/deep-agent-flags-removed.test.ts tests/kernel/permission-propagation-six-paths.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：1s
+  总计：14s

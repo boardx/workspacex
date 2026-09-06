@@ -17,12 +17,12 @@
  *
  * `pending`（已入队，尚未被领取）→ `running`（已被 `claimQueued` 领取，正在执行）
  * → `completed`（执行成功，`result` 非空）| `failed`（执行失败，`error` 非空，不影响
- * 同批次其它子任务）。四态之外没有第五态；不可逆——`completed`/`failed` 是终态。
+ * 同批次其它子任务）。`pending` 另可原子转为 `cancelled`；所有终态不可逆。
  */
 import { z } from "zod";
 
 /** 子任务 run 的状态机，见本文件头注。 */
-export const SubtaskRunStatus = z.enum(["pending", "running", "completed", "failed"]);
+export const SubtaskRunStatus = z.enum(["pending", "running", "completed", "failed", "cancelled"]);
 export type SubtaskRunStatus = z.infer<typeof SubtaskRunStatus>;
 
 /**
@@ -33,7 +33,7 @@ export type SubtaskRunStatus = z.infer<typeof SubtaskRunStatus>;
  * 指向真实父 run"，UI 消费逻辑不在本 issue 范围内。
  *
  * `result`/`error` 互斥：终态为 `completed` 时 `result` 非 null、`error` 为 null；终态为
- * `failed` 时相反；非终态（`pending`/`running`）两者都为 null。
+ * `failed` 时相反；`pending`/`running`/`cancelled` 两者都为 null。
  */
 export const SubtaskRun = z.object({
   id: z.string(),
@@ -52,6 +52,8 @@ export type SubtaskRun = z.infer<typeof SubtaskRun>;
 
 /** `spawn_async_task` 一次调用 ⇒ 一次入队请求的输入形状。 */
 export const EnqueueSubtaskRunInput = z.object({
+  /** Stable tool-call identity; absent preserves legacy new-task semantics. */
+  idempotencyKey: z.string().min(1).max(256).optional(),
   parentRunId: z.string(),
   description: z.string().min(1),
   context: z.string().nullable().optional(),
@@ -69,3 +71,10 @@ export const ListSubtaskRunsResult = z.object({
   subtaskRuns: z.array(SubtaskRun),
 });
 export type ListSubtaskRunsResult = z.infer<typeof ListSubtaskRunsResult>;
+
+/** Pending-only cancellation; running execution is not interrupted. */
+export const CancelSubtaskRunResult = z.object({ subtaskRun: SubtaskRun.extend({ status: z.literal("cancelled") }) });
+export type CancelSubtaskRunResult = z.infer<typeof CancelSubtaskRunResult>;
+
+export const CancelSubtaskRunFailure = z.enum(["cancellation_not_supported_for_running", "terminal_conflict"]);
+export type CancelSubtaskRunFailure = z.infer<typeof CancelSubtaskRunFailure>;

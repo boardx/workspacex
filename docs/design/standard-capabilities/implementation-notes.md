@@ -1,0 +1,51 @@
+# 实施记录
+
+此文件记录本批次证据与交接，不保存第二份 feature passing 状态。
+
+## 启动
+
+- 跟踪：#2864；分支 `codex/standard-capabilities`。
+- Review 基线：`fd9c6fb79af42abb250563456c14274e55236595`。
+- 实施基线：快进最新主线至 `11d1c9e417b45fa7900779e862248482d8a96946`，纳入 18 个近期提交。
+- worktree 初始化：`./init.sh` 快速路径成功；首次受网络沙箱 DNS 限制失败，允许联网后成功。快速健康检查不等于全仓测试。
+- Review 阶段的 51 条测试在旧基线上通过；此处不把它们算作新实施基线的验证结果。
+- 已创建需求与契约复用材料并开始实现；未部署生产。
+
+## 已提交的准备工作与首批验证
+
+- `2e973a92f`：需求基线、75 项剪裁目录、19 包契约复用图与用户汇总 PR 授权，已推送 origin。
+- `5825e1cea`：修复独立 Review 指出的 G-SKILL 悬空引用，公共验收 Profile 在 README 唯一定义。
+- WX-E001：新 worktree 自有 Python 锁定环境完成安装；现有 graph/tools/harness 测试 **95 条通过**；实际编译图导出 **16 个工具 schema**。详见 [证据说明](evidence/WX-E001/README.md)。真实模型/Backend/生产验收未执行，不把此记录当全规格 passing。
+
+## 本批次执行授权
+
+用户于 2026-09-07 明确指示：“我要你暂时扮演模块的agent，不需要agentid，开始开发。”本批次按临时模块 Agent 执行，跳过身份注册、租约与 tick 的身份前置；不冒用其他身份，不修改 registry 或声称持有租约。
+
+沿用用户已授权的独立 worktree、逐任务 commit、单个汇总 PR，暂不合入 main。此授权不替代实际测试、独立 review 或完成证据，也不改写历史签核状态。
+
+## 工作台 peer 分工更新
+
+用户提供 Agent 工作台 peer 计划，要求不重复开发。已存档输入并建立 [分工边界](peer-boundaries.md)，该文件是本批次跨会话责任单源。主 run 事件、控制、恢复、插话、审批及工作台/成果 UI 转为 peer 依赖；本批次只做能力实现、底层原语与薄适配。已通知本批次各执行/review agent 收窄范围。
+
+已提交 `65327d7b1`（E002）、`ac597acc5`（T011）、`7dcd2feaa`（E004 API），正常 pre-push 的 13 项受影响 typecheck/lint 通过后推送。`f26b931e1` 修复既有预算测试假模型；后续整组 Python 回归 143 passed，退出 0，13.78 秒。测试使用假模型，不代表真实模型或生产验收。
+
+## 首批工作顺序
+
+最新已提交增量：`06d1e5cce`（WX-T042，27 条 API 回归通过，另有 Python selector/工具注入验证）与 `b12638bd8`（WX-E003，真实隔离容器 HTTP 验证、23 条服务测试、22 条共享契约测试和 TypeScript 检查通过；Python adapter 26 条通过）。详见各编号 evidence。WX-E004 原生图构造正在独立实现，不修改 peer 主 run 生命周期。
+
+1. E001：在新基线上复用已有测试并导出实际原生工具参数/版本证据，不新增 runtime lock。
+2. E007：逐编号映射已有验收，明确缺失真实场景，不建设新的测试框架。
+3. E002/E003/E004：依次收敛可信上下文、文件 Backend、完整技能包的实际接口差量。
+4. 依赖满足后并行推进其余领域接入；每项单独 commit，Review 和 E2E 持续跟进。
+
+## 完成边界
+
+W12可信身份组件1f2735a71：真实execute-run调用者派生org/user，provider fresh/resume投影，跨org拒绝，text-only不投影。API21项、契约20项通过，独立review无阻断；没有长期记忆持久化或工具消费者的完成声明。最后init.sh快速路径通过（默认沙箱不能写共享Git hooks，正常权限重跑后通过）；不是全仓测试证据。
+
+本轮追加提交：E005 schema/授权53658daf1（38测试）；E001容器锁a2e6de1c0（真实构建、实际版本匹配）；E003进程回收751b16b34（160次执行，零僵尸累积）；T006精确上游兼容c448d3028；E007真实文件验收f9b1ca28a。各证据保留初始失败与修正后结果，详见WX-T001-T008。正常pre-push的13项受影响typecheck/lint通过，已推送至a2e6de1c0。运行时/公共事件/生产接线尚待完成。
+
+后续增量：`b287fb9a7` 修复 T042 权限 lint 的精确例外及边界门控；`ebe8afe29` 提交 E004 原生 Skills 图，独立 review 的默认子代理继承及缺省审批两个阻断均修复，35 项测试包含真实隔离执行/HITL。T001–T008 真实行为测试发现锁定上游路径型 grep 模板引号缺陷，单独修复中；不因此宣布整包通过。正常 push 曾被 API permission lint 拒绝，修复后仍需重跑完整 pre-push。
+
+75 项未全部实现或验收，工作台公共能力另由 peer 交付；汇总 Draft PR [#2869](https://github.com/boardx/workspacex/pull/2869) 已创建，不合入 main。未提交任务与局部验证边界分别记录在各 evidence 目录。
+
+CI迁移重放失败已修复并提交 `e4b8e9b34`，真实本地202项迁移空库建立及强制重放通过，schema/RLS摘要不变；正常pre-push13项通过并已推送，PR新head检查尚待结果。

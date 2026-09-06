@@ -131,6 +131,7 @@ describe("executeQueuedRuns —— 附件元数据折进模型上下文（#970 �
 
     expect(n).toBe(1);
     expect(captured).not.toBeNull();
+    expect(captured!.trustedMemoryScope).toEqual({ orgId: String(ORG), userId: run.requesterUserId });
     // 模型真正收到的 user 里带了附件名 + 类型——不再是矢口否认。
     expect(captured!.user).toContain("简历.pdf");
     expect(captured!.user).toContain("application/pdf");

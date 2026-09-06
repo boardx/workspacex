@@ -342,6 +342,11 @@ class _FakeHttpResponse:
         return {"subtaskRunId": self._subtask_run_id, "status": "pending"}
 
 
+def _invoke_spawn(spawn, args, config=SUBTASK_CONFIG, call_id="call-test"):
+    return spawn.invoke({"name": "spawn_async_task", "args": args,
+                         "id": call_id, "type": "tool_call"}, config=config).content
+
+
 def test_spawn_async_task_three_calls_each_return_immediately_without_waiting(monkeypatch) -> None:  # noqa: ANN001
     """验收标准第一条：一次请求里调用三次，三次都立即拿到「已派发」，不是子任务真正
     跑完的结果——`httpx.post` 被 fake 成同步返回一个「已入队」响应，证明这个工具的
@@ -357,7 +362,7 @@ def test_spawn_async_task_three_calls_each_return_immediately_without_waiting(mo
     spawn_async_task = _spawn_tool(monkeypatch)
 
     results = [
-        spawn_async_task.invoke({"description": f"子任务 {i}"}, config=SUBTASK_CONFIG)
+        _invoke_spawn(spawn_async_task, {"description": f"子任务 {i}"}, call_id=f"call-{i}")
         for i in range(3)
     ]
 
@@ -369,6 +374,7 @@ def test_spawn_async_task_three_calls_each_return_immediately_without_waiting(mo
         assert calls[i]["json"]["parentRunId"] == "run-parent-1"
         assert calls[i]["json"]["orgId"] == "org-1"
         assert calls[i]["json"]["description"] == f"子任务 {i}"
+        assert calls[i]["json"]["idempotencyKey"] == f"call-{i}"
         assert calls[i]["headers"]["x-deep-agent-internal-key"] == "test-shared-secret"
 
 
@@ -382,7 +388,7 @@ def test_spawn_async_task_without_callback_config_degrades_honestly(monkeypatch)
     )
     spawn_async_task = _spawn_tool(monkeypatch)
 
-    result = spawn_async_task.invoke({"description": "任意子任务"}, config={"configurable": {}})
+    result = _invoke_spawn(spawn_async_task, {"description": "任意子任务"}, config={"configurable": {}})
 
     assert "无法派发" in result
     assert calls == []
@@ -397,7 +403,7 @@ def test_spawn_async_task_http_failure_returns_error_text_never_raises(monkeypat
     monkeypatch.setattr("deep_agent_service.tools.httpx.post", raising_post)
     spawn_async_task = _spawn_tool(monkeypatch)
 
-    result = spawn_async_task.invoke({"description": "会失败的子任务"}, config=SUBTASK_CONFIG)
+    result = _invoke_spawn(spawn_async_task, {"description": "会失败的子任务"})
 
     assert "派发子任务失败" in result
     assert "RuntimeError" in result
@@ -413,11 +419,29 @@ def test_spawn_async_task_context_is_forwarded_when_present(monkeypatch) -> None
     monkeypatch.setattr("deep_agent_service.tools.httpx.post", fake_post)
     spawn_async_task = _spawn_tool(monkeypatch)
 
-    spawn_async_task.invoke(
+    _invoke_spawn(spawn_async_task,
         {"description": "子任务", "context": "父任务已确认用户想要中文回复"}, config=SUBTASK_CONFIG,
     )
 
     assert calls[0]["context"] == "父任务已确认用户想要中文回复"
+
+
+def test_spawn_replay_uses_injected_identity_not_model_argument(monkeypatch):
+    calls = []
+    monkeypatch.setattr("deep_agent_service.tools.httpx.post", lambda *a, **k:
+                        (calls.append(k["json"]) or _FakeHttpResponse("stable-subtask")))
+    spawn = _spawn_tool(monkeypatch)
+    assert "tool_call_id" not in spawn.tool_call_schema.model_json_schema()["properties"]
+    for _ in range(2):
+        _invoke_spawn(spawn, {"description": "same", "tool_call_id": "model-forged"}, call_id="trusted-call")
+    assert [call["idempotencyKey"] for call in calls] == ["trusted-call", "trusted-call"]
+
+
+def test_spawn_missing_result_id_does_not_claim_dispatch(monkeypatch):
+    monkeypatch.setattr("deep_agent_service.tools.httpx.post", lambda *a, **k: _FakeHttpResponse(None))
+    result = _invoke_spawn(_spawn_tool(monkeypatch), {"description": "same"})
+    assert "已派发" not in result
+    assert "派发子任务失败" in result
 
 
 def test_hitl_tools_accept_json_string_arrays_issue_2842():
@@ -441,3 +465,12 @@ def test_hitl_tools_accept_json_string_arrays_issue_2842():
         "requestId": "r", "options": '[{"optionId": "o1", "title": "快"}]', "selectedOptionId": "o1",
     })
     assert "「快」" in out
+
+
+def test_confirm_intent_zero_and_one_real_assumptions():
+    tool = _tool("confirm_task_intent")
+    for assumptions in ([], ["使用用户给定资料"]):
+        result = tool.invoke({"understanding": "整理报告", "assumptions": assumptions})
+        assert "用户已确认对任务的理解：整理报告" in result
+        result = tool.invoke({"assumptions": assumptions})
+        assert "用户修改了假设" in result

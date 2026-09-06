@@ -67,6 +67,7 @@ from typing_extensions import NotRequired
 
 from deepagents import FilesystemMiddleware, RubricMiddleware
 from deepagents.middleware.rubric import RubricState
+from deepagents.backends.protocol import BackendProtocol
 
 # DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
 # 正文只留文件引用（实测行为：ToolMessage 被替换为
@@ -980,7 +981,7 @@ class InterjectionMiddleware(AgentMiddleware):
             return await handler(request)
 
 
-def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
+def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = None) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
     trigger/keep 显式固定而不是吃库默认——升级 deepagents/langchain 时默认值
@@ -1030,7 +1031,7 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
         ),
         # by-name override（0.7 机制）：同名实例替换 create_deep_agent 内建的默认
         # FilesystemMiddleware，不是叠第二份——文件工具仍只有一套。
-        FilesystemMiddleware(tool_token_limit_before_evict=tool_result_evict_tokens()),
+        FilesystemMiddleware(backend=backend, tool_token_limit_before_evict=tool_result_evict_tokens()),
         ToolCallLimitMiddleware(run_limit=RUN_TOOL_CALL_LIMIT, exit_behavior="continue"),
         ModelCallLimitMiddleware(run_limit=RUN_MODEL_CALL_LIMIT, exit_behavior="end"),
         ToolRetryMiddleware(max_retries=2),

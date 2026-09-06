@@ -46,7 +46,7 @@ const preinstalledModulesDir = process.env.SKILL_SANDBOX_MODULES_DIR;
  */
 const cjkFontPath = process.env.SKILL_SANDBOX_CJK_FONT;
 
-const server = createSandboxServer({ preinstalledModulesDir, cjkFontPath });
+const server = createSandboxServer({ preinstalledModulesDir, cjkFontPath, sessionsOnly: process.env.SKILL_SANDBOX_SESSIONS_ONLY === "1" });
 
 if (socketPath !== undefined && socketPath !== "") {
   // 重启时清掉上一次留下的 socket 文件,否则 EADDRINUSE。

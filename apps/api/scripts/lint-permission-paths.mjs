@@ -31,6 +31,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -52,7 +53,19 @@ const FILTER_MODULE = "application/security/permission-filter";
  *   两者都是「这个文件没出现在改动列表里」。同一个仓的 `verify-rls.sh` ratchet 正是
  *   因为这种不可分辨静默失效过三次（F31 也为此在那边留过同样一句）。
  */
+const SUBTASK_BOUNDARIES = new Set([
+  "src/infrastructure/agent-run/pg-subtask-run-store.ts",
+  "src/infrastructure/agent-run/subtask-run-executor.ts",
+]);
 const ALLOWLIST = new Map([
+  [
+    "src/infrastructure/agent-run/pg-subtask-run-store.ts",
+    "WX-T042: mixed system queue and parent-authorized disclosure port. Claims have no requester; get/list are reachable only after authorizeSubtaskParent uses the existing Chat resolveVisibility decision. RLS plus explicit org scope and composite parent/org FK protect storage. This exception is mechanically bounded by checkSubtaskPermissionBoundary below (exact tables, tenant transactions and controller authorization ordering), mutation tests in scripts/tests/subtask-permission-boundary.test.mjs, and private-owner/intruder real HTTP evidence in tests/agent-runtime/subtask-run-store-real-db.test.ts. Removing those protections invalidates this entry.",
+  ],
+  [
+    "src/infrastructure/agent-run/subtask-run-executor.ts",
+    "WX-T042: system execution reads the claimed job's fixed parent model and version instructions, not a user read endpoint. There is no requester whose decision could legitimately be fabricated here. checkSubtaskPermissionBoundary locks the two tables, pinned same-org join, tenant transaction, text-only mode and no inherited remote thread. User results remain behind the parent-authorized controller; real HTTP private-parent and cross-org tests cover disclosure. This exact-file exception is invalid if those boundaries or its mutation tests disappear.",
+  ],
   [
     "src/infrastructure/skill/pg-skill-trial-run-store.ts",
     "F962 试跑转异步：`Guarded<T>` 保护的是**披露** —— 让人无法在没有权限判定的情况下把租户内容交给请求方。`skill_trial_runs` 背后**没有 ACL 对象**：一次试跑不是 Artifact / Segment / Capability，没有可以据以判定的 scope。它的披露规则只有一条 —— 只有提交者本人能读自己那一行 —— 而这条规则由 SQL 谓词 `actor_id = $3` 表达，读不到就是读不到（controller 翻成裸 404）。⚠ 为了过这个 linter 而给它编一个 `ObjectRef` 种类会**更糟**：那等于断言存在一套并不存在的权限模型，下一个人会照着去接 ACL 然后发现接不上。⚠ 与 `pg-registration-repository.ts` 同一形态，豁免不是留成一句声明：`tests/skill/trial-run-store-reads-are-actor-scoped.test.ts` 解析该文件，断言每条面向请求方的读都带 `actor_id`（唯一例外是系统侧 `FOR UPDATE SKIP LOCKED` 认领 —— 它没有请求方，行是交给执行器的），且没有 DELETE 路径。**那个测试若被删除，本条目必须跟着删。**",
@@ -460,8 +473,17 @@ for (const root of ROOTS) {
   for (const file of walk(abs)) {
     scanned++;
     const rel = relative(API, file);
-    if (ALLOWLIST.has(rel)) continue;
     const body = readFileSync(file, "utf8");
+    if (SUBTASK_BOUNDARIES.has(rel)) {
+      for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
+        if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }
+      }
+      const boundaryErrors = checkSubtaskPermissionBoundary(rel, body,
+        readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
+        readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
+      for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+    }
+    if (ALLOWLIST.has(rel)) continue;
     const guarded = body.includes(FILTER_MODULE);
     const inInfra = rel.includes("/infrastructure/") || rel.startsWith("infrastructure/");
 

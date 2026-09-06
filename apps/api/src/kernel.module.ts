@@ -369,8 +369,9 @@ import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-c
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
-import { SUBTASK_RUN_STORE } from "./application/agent-run/subtask-run-queue";
-import { InMemorySubtaskRunStore } from "./infrastructure/agent-run/in-memory-subtask-run-store";
+import { SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR } from "./application/agent-run/subtask-run-queue";
+import { PgSubtaskRunStore } from "./infrastructure/agent-run/pg-subtask-run-store";
+import { SubtaskRunExecutor } from "./infrastructure/agent-run/subtask-run-executor";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { PlanControlController } from "./interface/controllers/plan-control.controller";
 import { BoardController } from "./interface/controllers/board.controller";
@@ -1428,14 +1429,25 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: RUN_EVENT_BUS,
       useValue: new InMemoryRunEventBus(),
     },
-    /**
-     * issue #2664/#2666 -- 一个进程内单例，跨请求共享同一份队列状态（同 orgId 下"入队"
-     * 与"领取"/"查询"必须看到彼此）。`InMemorySubtaskRunStore` 自己的头注记录了这个
-     * MVP 的已知取舍（进程重启丢队列、多副本不共享）。
-     */
+    /** WX-T042: one durable tenant queue shared across processes and restarts. */
     {
       provide: SUBTASK_RUN_STORE,
-      useValue: new InMemorySubtaskRunStore(),
+      useFactory: (db: DatabasePort) => new PgSubtaskRunStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SUBTASK_RUN_EXECUTOR,
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort) => {
+        const configured = readModelProviderConfig();
+        const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
+        // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
+        if (![DEEP_AGENT_PROVIDER_NAME, DEEP_RESEARCH_PROVIDER_NAME, BAILIAN_IMAGE_PROVIDER_NAME].includes(configured.provider)) {
+          deadlines.set(configured.provider, configured.timeoutMs);
+        }
+        return new SubtaskRunExecutor(store, db, model, logger,
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines);
+      },
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供

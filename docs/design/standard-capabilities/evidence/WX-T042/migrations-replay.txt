@@ -1,0 +1,26 @@
+[stack-admission] load1=2.38 cores=10 perCore=0.24 running=0/2
+[test-isolation] id=run-mtq568in-6ced0a98-17a95e4fdc1e db=wsx_17a95e4fdc1ecf5b30aa compose=wsx-17a95e4fdc1ecf5b30aa pg=20695 redis=25695 sandbox=50695
+
+> @repo/api@0.0.0 migrate:check /private/tmp/workspacex-standard-capabilities/apps/api
+> ./scripts/verify-migrations.sh
+
+ Network wsx-17a95e4fdc1ecf5b30aa_default Creating 
+ Network wsx-17a95e4fdc1ecf5b30aa_default Created 
+ Container wsx-17a95e4fdc1ecf5b30aa-postgres-1 Creating 
+ Container wsx-17a95e4fdc1ecf5b30aa-postgres-1 Created 
+ Container wsx-17a95e4fdc1ecf5b30aa-postgres-1 Starting 
+ Container wsx-17a95e4fdc1ecf5b30aa-postgres-1 Started 
+NOTICE:  database "wsx_17a95e4fdc1ecf5b30aa" does not exist, skipping
+  applied 202 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /private/tmp/workspacex-standard-capabilities/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+[timing] pnpm --filter @repo/api migrate:check
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：10s

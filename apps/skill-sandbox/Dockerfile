@@ -18,13 +18,13 @@
 FROM node:22-slim AS build
 WORKDIR /build
 COPY package.json ./
-COPY src ./src
 # ⚠ 刻意**不**拷 tsconfig.json：仓库里那份 `extends` 的是 monorepo 根配置，
 #   镜像里没有它，用它编译会 `error TS5083: Cannot read file '/tsconfig.json'`。
 #   为了编译一个三文件的服务把整个 monorepo 拷进镜像不值得，所以这里全部用
 #   命令行旗标表达，与 apps/skill-sandbox/tsconfig.json 的对应项保持一致。
-RUN npm install --no-save typescript@5 @types/node \
- && npx tsc src/*.ts \
+RUN npm install --no-save typescript@5 @types/node
+COPY src ./src
+RUN npx tsc src/*.ts src/session/*.ts \
       --types node --module NodeNext --moduleResolution NodeNext \
       --target ES2022 --strict --skipLibCheck \
       --outDir dist
@@ -88,7 +88,7 @@ RUN npm install --omit=dev --no-package-lock \
 # 省 3.5MB 不值得把它留着。纯英文文档不该背这 4.9MB，SKILL.md 因此要求：正文全是拉丁字符
 # 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 \
+ && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap \
  && mkdir -p /usr/share/fonts/workspacex \
  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))" \
  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))" \
@@ -101,10 +101,15 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
 
+COPY security/generate-seccomp.py ./security/generate-seccomp.py
+RUN python3 security/generate-seccomp.py
+
 COPY --from=build /build/dist ./dist
+COPY src/generated ./dist/generated
 
 # 非 root（node 镜像自带 uid/gid 1000 的 `node` 用户）。
 # 应用目录保持 root 所有、对 node 只读 —— 服务不需要写自己的代码目录。
+RUN mkdir -p /run/sessions && chown node:node /run/sessions
 USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。
