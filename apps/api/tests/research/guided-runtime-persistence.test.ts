@@ -32,11 +32,13 @@ let searchCalls: number;
 let proposedAction: "save" | "start" | "confirm" | "complete";
 let releaseModel: (() => void) | undefined;
 let blockModel: boolean;
+let failModelNode: string | undefined;
 const model: ModelCallPort = { complete: async (input) => {
   if (blockModel) { blockModel = false; await new Promise<void>((resolve) => { releaseModel = resolve; }); }
   const context = JSON.parse(input.user);
   const node = input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;
   calls.push(node);
+  if (node === failModelNode) throw new Error("model unavailable");
   seenBriefs.push(context.brief);
   let value: unknown = brief;
   if (node === "directions") value = [{ id: "d1", title: "Policy", description: "Grid rules", enabled: true, order: 0 }];
@@ -63,13 +65,13 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; searchCalls = 0; blockModel = false; proposedAction = "save"; releaseModel = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; searchCalls = 0; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
   return state;
 }
-async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("generate"); expect(state.errorCode).toBeNull(); await run("confirm"); } }
+async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
   it("imports old checkpoints without erasing their drafts or completed record", () => {
     const date = new Date().toISOString();
@@ -108,14 +110,57 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect((await service.get(actor, session)).version).toBe(second.state.version);
   });
   it("calls a model for every step, persists sources and reports, and recovers in another service instance", async () => {
-    await reachResearch(); await run("start");
+    await reachResearch();
     expect(state.tasks[0]?.status).toBe("succeeded");
     const sourceId = state.sources[0]!.id;
-    await run("save", { draft: { node: "research", value: [{ id: sourceId, decision: "accepted" }] } });
-    await run("complete"); await run("generate"); await run("complete");
-    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(new Set(calls)).toEqual(new Set(C.ResearchNode.options));
+    await run("complete", { draft: { node: "research", value: [{ id: sourceId, decision: "accepted" }] } });
+    const reviewed = { ...state.report!, summary: "Reviewed evidence summary" };
+    await run("complete", { draft: { node: "report", value: reviewed } });
+    expect(state.report).toEqual(reviewed);
+    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual(C.ResearchNode.options);
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
+  });
+  it("reconfirms a historical edited draft and regenerates downstream results", async () => {
+    await reachResearch();
+    const edited = { ...brief, topic: "Revised scope" };
+    await run("confirm", { node: "brief", draft: { node: "brief", value: edited } });
+    expect(state.errorCode).toBeNull(); expect(state.currentNode).toBe("directions");
+    expect(seenBriefs.at(-1)).toEqual(edited);
+    expect(state.outline).toEqual([]); expect(state.sources).toEqual([]); expect(state.tasks).toEqual([]);
+    expect(state.generatedNodes).toEqual(["brief", "directions"]);
+    await run("confirm", { node: "brief" });
+    expect(state.errorCode).toBe("RESEARCH_NODE_MISMATCH");
+  });
+  it("persists the next step before generation and retries a failed model without reconfirming", async () => {
+    failModelNode = "directions";
+    const command: RuntimeCommand = { sessionId: actor.sessionId, node: "brief", action: "confirm", expectedVersion: state.version, requestId: randomUUID() };
+    state = await service.execute(actor, session, command);
+    expect(state.currentNode).toBe("directions"); expect(state.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
+    expect((await service.get(actor, session)).currentNode).toBe("directions");
+    await service.execute(actor, session, command);
+    expect(calls).toEqual(["brief", "directions"]);
+    failModelNode = undefined; await run("retry");
+    expect(state.currentNode).toBe("directions"); expect(state.errorCode).toBeNull();
+    expect(calls).toEqual(["brief", "directions", "directions"]);
+  });
+  it("exposes the destination loading state while the confirmation model request is pending", async () => {
+    await run("generate"); blockModel = true;
+    const pending = run("confirm");
+    await expect.poll(() => Boolean(releaseModel)).toBe(true);
+    try {
+      const loading = await service.get(actor, session);
+      expect(loading.currentNode).toBe("directions"); expect(loading.busy).toBe(true);
+      expect(loading.availableNodes).toEqual(["brief", "directions"]);
+    } finally { releaseModel!(); await pending; }
+    expect(state.currentNode).toBe("directions"); expect(state.busy).toBe(false);
+  });
+  it("does not confirm research without completed searches and explicitly accepted sources", async () => {
+    await reachResearch();
+    await run("complete"); expect(state.errorCode).toBe("RESEARCH_SOURCES_REQUIRED");
+    expect(state.currentNode).toBe("research"); expect(calls).not.toContain("report");
+    await run("generate");
+    await run("complete"); expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
   });
   it("persists model messages and rejects stale proposals", async () => {
     await run("message", { message: "Narrow the brief" });
@@ -127,9 +172,9 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect((await service.get(actor, session)).messages).toHaveLength(2);
   });
   it("proposes real research through conversation but executes only after approval", async () => {
-    await reachResearch(); proposedAction = "start";
+    await reachResearch(); await run("generate"); searchCalls = 0; proposedAction = "start";
     await run("message", { message: "Start researching this outline" });
-    expect(state.proposal?.action).toBe("start"); expect(searchCalls).toBe(0); expect(state.tasks).toEqual([]);
+    expect(state.proposal?.action).toBe("start"); expect(searchCalls).toBe(0); expect(state.tasks[0]?.status).toBe("pending");
     await run("apply", { proposalId: state.proposal!.id });
     expect(state.errorCode).toBeNull(); expect(searchCalls).toBe(1); expect(state.tasks[0]?.status).toBe("succeeded");
   });
@@ -151,7 +196,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect((await service.get(actor, session)).messages).toHaveLength(12);
   });
   it("persists failed searches and retries without fabricating sources", async () => {
-    await reachResearch(); failSearch = true; await run("start");
+    failSearch = true; await run("confirm"); await run("confirm"); await run("confirm");
     expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE"); expect(state.sources).toEqual([]); expect(state.tasks[0]?.status).toBe("failed");
     failSearch = false; await run("retry"); expect(state.errorCode).toBeNull(); expect(state.tasks[0]?.attempts).toBe(2); expect(searchCalls).toBe(2);
   });
@@ -160,7 +205,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await run("save", { draft: { node: "research", value: [{ id: "foreign", decision: "accepted" }] } });
     expect(state.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID");
     await run("save", { draft: { node: "research", value: [{ id: state.sources[0]!.id, decision: "accepted" }] } });
-    await run("complete"); badCitation = true; await run("generate");
+    badCitation = true; await run("complete");
     expect(state.errorCode).toBe("RESEARCH_CONTENT_REFERENCE_INVALID"); expect(state.report).toBeNull();
     expect(C.GuidedResearchRuntimeCommand.safeParse({ sessionId: actor.sessionId, node: "brief", action: "save", requestId: "cross", expectedVersion: 0, draft: { node: "report", value: {} } }).success).toBe(false);
   });
@@ -168,13 +213,15 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await expect(service.get({ ...actor, userId: "not-a-collaborator" }, session)).rejects.toMatchObject({ reasonCode: "RESEARCH_NOT_FOUND" });
     expect(calls).toEqual([]);
     blockModel = true;
-    const command: RuntimeCommand = { sessionId: actor.sessionId, node: "brief", action: "generate", requestId: randomUUID(), expectedVersion: state.version };
+    const command: RuntimeCommand = { sessionId: actor.sessionId, node: "brief", action: "confirm", requestId: randomUUID(), expectedVersion: state.version };
     const first = service.execute(actor, session, command);
     await expect.poll(() => Boolean(releaseModel)).toBe(true);
     await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_WORKFLOW_BUSY" });
     releaseModel!(); state = await first;
     const replay = await service.execute(actor, session, command);
-    expect(replay.version).toBe(state.version); expect(calls).toHaveLength(1);
+    expect(replay.version).toBe(state.version); expect(calls).toEqual(["brief", "directions"]);
+    await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
+    expect(calls).toEqual(["brief", "directions"]);
     await expect(service.execute(actor, session, { ...command, message: "different input" })).rejects.toMatchObject({ reasonCode: "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH" });
   });
 });

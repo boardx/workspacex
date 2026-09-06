@@ -8,33 +8,28 @@ vi.mock("@/lib/guided-research-api", () => ({ executeResearchRuntime: vi.fn(), g
 beforeEach(() => vi.resetAllMocks());
 describe("confirm and generate the next research step", () => {
   it.each([
-    ["brief", "directions", "generate"], ["directions", "outline", "generate"],
-    ["outline", "research", "start"], ["research", "report", "generate"],
-  ] as const)("%s immediately shows %s loading and waits for generated content", async (from, to, action) => {
+    ["brief", "directions"], ["directions", "outline"],
+    ["outline", "research"], ["research", "report"],
+  ] as const)("%s immediately shows %s loading and waits for generated content", async (from, to) => {
     const before = runtimeFixture(from);
-    const confirmed = { ...runtimeFixture(to), version: 5 };
-    const generated = { ...confirmed, version: 6 };
+    const generated = { ...runtimeFixture(to), version: 5 };
     let confirm!: (state: GuidedResearchRuntime) => void;
-    let generate!: (state: GuidedResearchRuntime) => void;
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
-    vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }))
-      .mockImplementationOnce(() => new Promise(resolve => { generate = resolve; }));
+    vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { confirm = resolve; }));
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
-    await act(async () => { confirm(confirmed); });
-    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ node: to, action, expectedVersion: 5 }));
-    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
-    await act(async () => { generate(generated); });
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node: from, action: from === "research" ? "complete" : "confirm" }));
+    await act(async () => { confirm(generated); });
     expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
     expect(screen.getByTestId(`research-flow-${to === "research" ? "search" : to}`)).toBeInTheDocument();
-    expect(executeResearchRuntime).toHaveBeenCalledTimes(2);
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
   });
   it("keeps a failed confirmation on its original step without generating", async () => {
     const before = runtimeFixture("brief");
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...before, version: 5, errorCode: "RESEARCH_MODEL_GENERATION_REQUIRED" });
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...before, version: 5, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
     await waitFor(() => expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument());
@@ -44,16 +39,15 @@ describe("confirm and generate the next research step", () => {
   it("stays on the next step after a model failure and retries only generation", async () => {
     const before = runtimeFixture("brief"), after = { ...runtimeFixture("directions"), version: 5 };
     vi.mocked(getResearchRuntime).mockResolvedValue(before);
-    vi.mocked(executeResearchRuntime).mockResolvedValueOnce(after)
-      .mockResolvedValueOnce({ ...after, version: 6, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" })
+    vi.mocked(executeResearchRuntime).mockResolvedValueOnce({ ...after, version: 5, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE" })
       .mockResolvedValueOnce({ ...after, version: 7 });
     render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
     await screen.findByRole("alert");
     expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "使用模型生成" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(3));
-    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ node: "directions", action: "generate", expectedVersion: 6 }));
+    fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(2));
+    expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ node: "directions", action: "generate", expectedVersion: 5 }));
   });
   it("does not start generation if the user switched sessions during confirmation", async () => {
     let confirm!: (state: GuidedResearchRuntime) => void;
@@ -106,12 +100,49 @@ it("restores the next step without a redundant conflict panel when there is no l
   const before = runtimeFixture("brief");
   const next = { ...runtimeFixture("directions"), version: 5 };
   vi.mocked(getResearchRuntime).mockResolvedValueOnce(before).mockResolvedValue(next);
-  vi.mocked(executeResearchRuntime).mockResolvedValueOnce(next).mockRejectedValueOnce(new Error("disconnected"));
+  vi.mocked(executeResearchRuntime).mockRejectedValueOnce(new Error("disconnected"));
   render(<GuidedResearchLive sessionId={before.sessionId} onBack={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
   await waitFor(() => expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument());
   expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
   expect(screen.queryByTestId("research-recovery")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "使用模型生成" })).toBeEnabled();
-  expect(executeResearchRuntime).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("button", { name: "重新生成本步骤" })).toBeEnabled();
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+});
+
+it.each(["brief", "directions", "outline"] as const)("reconfirms an available historical %s without requiring manual generation", async (node) => {
+  const current = { ...runtimeFixture("research"), generatedNodes: [] };
+  vi.mocked(getResearchRuntime).mockResolvedValue(current);
+  let finish!: (value: GuidedResearchRuntime) => void;
+  vi.mocked(executeResearchRuntime).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  render(<GuidedResearchLive sessionId={current.sessionId} initialNode={node} onBack={vi.fn()} />);
+  const confirm = await screen.findByRole("button", { name: "确认并继续" });
+  expect(confirm).toBeEnabled();
+  fireEvent.click(confirm);
+  expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
+  expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ node, action: "confirm", draft: expect.objectContaining({ node }) }));
+  await act(async () => { finish(runtimeFixture(node === "brief" ? "directions" : node === "directions" ? "outline" : "research")); });
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+});
+
+it("does not display a research error while viewing an earlier step", async () => {
+  vi.mocked(getResearchRuntime).mockResolvedValue({ ...runtimeFixture("research"), errorCode: "RESEARCH_SEARCH_PARTIAL_FAILURE" });
+  render(<GuidedResearchLive sessionId={runtimeFixture("research").sessionId} initialNode="brief" onBack={vi.fn()} />);
+  await screen.findByDisplayValue("储能研究");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("follows a restored active confirmation when polling advances to the next step", async () => {
+  const running = { ...runtimeFixture("brief"), busy: true, leaseUntil: "2099-01-01T00:00:00.000Z" };
+  const finished = { ...runtimeFixture("directions"), version: running.version };
+  vi.mocked(getResearchRuntime).mockResolvedValueOnce(running).mockResolvedValue(finished);
+  vi.useFakeTimers();
+  try {
+    await act(async () => { render(<GuidedResearchLive sessionId={running.sessionId} onBack={vi.fn()} />); });
+    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByTestId("research-flow-directions")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
 });

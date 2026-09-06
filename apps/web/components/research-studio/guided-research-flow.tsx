@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { GuidedResearchLive } from "./guided-research-live";
+import { ResearchLoading, ResearchProgress } from "./guided-research-presentation";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle, Download,
   Clock3, FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
@@ -17,6 +18,8 @@ import { CreateGuidedResearchDialog, type GuidedResearchCreateDraft } from "./cr
 import { cn } from "@/lib/utils";
 import {
   createGuidedResearchSession,
+  getResearchRuntime,
+  executeResearchRuntime,
   confirmResearchBrief,
   confirmResearchDirections,
   confirmResearchOutline,
@@ -180,18 +183,21 @@ export function GuidedResearchFlow({
 }) {
   const [restoredStep, setRestoredStep] = React.useState(() => clampSessionlessStep(step, sessionId));
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
+  const [entryPending, setEntryPending] = React.useState(false);
   const [restoreFailed, setRestoreFailed] = React.useState(false);
   const [sessionSnapshot, setSessionSnapshot] = React.useState<GuidedResearchSession | null>(null);
   const [workflowSnapshot, setWorkflowSnapshot] = React.useState<GuidedResearchWorkflowProjection | null>(null);
   React.useEffect(() => {
     setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);
+    setEntryPending(false);
     setRestoreFailed(false);
     setSessionSnapshot(null);
     setWorkflowSnapshot(null);
   }, [sessionId, step]);
 
   const navigate = (next: GuidedResearchStep, sessionId?: string) => {
+    setEntryPending(false);
     const targetSessionId = next === "home" ? undefined : sessionId ?? activeSessionId;
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
@@ -204,7 +210,7 @@ export function GuidedResearchFlow({
   const restorationBlocked = restoringSession || restoreFailed;
 
   const runtimeSessionId = sessionId ?? activeSessionId;
-  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <GuidedResearchLive sessionId={runtimeSessionId} initialNode={step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} />;
+  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <GuidedResearchLive sessionId={runtimeSessionId} initialNode={!sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} />;
 
   return (
     <div
@@ -218,7 +224,7 @@ export function GuidedResearchFlow({
         <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-12 text-destructive" data-testid="research-session-restore-error">研究会话恢复失败，请返回首页后重试。</p>
       ) : (
         <>
-          {restoredStep !== "home" && (
+          {entryPending ? <ResearchProgress node="directions" availableNodes={["brief", "directions"]} busy completed={false} onNavigate={() => undefined} onBack={() => navigate("home")} /> : restoredStep !== "home" && (
             <div
               className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
               data-testid="research-progress-shell"
@@ -229,7 +235,7 @@ export function GuidedResearchFlow({
             </div>
           )}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
-          {restoredStep === "brief" && <BriefScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "brief" && <BriefScreen onPending={setEntryPending} sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
           {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
@@ -411,7 +417,8 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate }: {
+function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate, onPending }: {
+  onPending: (pending: boolean) => void;
   sessionId?: string;
   session: GuidedResearchSession | null;
   workflow: GuidedResearchWorkflowProjection | null;
@@ -420,6 +427,8 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
   onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
+  const active = React.useRef(true);
+  React.useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const [createDraft] = React.useState<GuidedResearchCreateDraft>(() => {
     try {
       const stored = window.sessionStorage.getItem(CREATE_DRAFT_KEY);
@@ -440,7 +449,9 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
     if (session) setBrief({ ...session.brief });
   }, [session]);
   const confirm = async () => {
+    if (submitting) return;
     setSubmitting(true);
+    onPending(true);
     setSubmitFailed(false);
     try {
       if (sessionId && session) {
@@ -464,15 +475,38 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
       }
       const pending = pendingCreateIdempotencyKey({ ...createDraft, brief });
       const createdSession = await createGuidedResearchSession({ ...createDraft, tags: [...createDraft.tags], idempotencyKey: pending.key, collaboratorUserIds: [], brief });
+      if (!active.current) return;
+      // Once creation has returned an id, recovery belongs to that session. Never
+      // create or replay a model command merely because its response was lost.
+      let runtime;
+      try {
+        runtime = await getResearchRuntime(createdSession.sessionId);
+        if (!active.current) return;
+        if (runtime.version === 0 && runtime.currentNode === "brief" && !runtime.busy && !runtime.legacyCheckpoint) {
+          runtime = await executeResearchRuntime({
+            sessionId: createdSession.sessionId, node: "brief", action: "confirm",
+            requestId: requestId("brief-confirm"), expectedVersion: runtime.version,
+            draft: { node: "brief", value: brief },
+          });
+        }
+      } catch {
+        if (!active.current) return;
+        try { runtime = await getResearchRuntime(createdSession.sessionId); } catch { /* Live offers read-only recovery. */ }
+      }
+      if (!active.current) return;
       window.localStorage.removeItem(pending.storageKey);
       window.sessionStorage.removeItem(CREATE_DRAFT_KEY);
       clearResearchSkillState("pending-brief");
       onSession(createdSession);
-      onNavigate("directions", createdSession.sessionId);
+      const node = runtime?.currentNode;
+      onNavigate(node === "research" ? "search" : node ?? "brief", createdSession.sessionId);
     } catch {
-      setSubmitFailed(true);
+      if (active.current) setSubmitFailed(true);
     } finally {
-      setSubmitting(false);
+      if (active.current) {
+        setSubmitting(false);
+        onPending(false);
+      }
     }
   };
   return (
@@ -489,7 +523,7 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
         />
       }
     >
-      <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
+      {submitting ? <ResearchLoading node="directions" /> : <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
       <PageHeading eyebrow="Step 1 · Research brief" title="确认研究主题与范围" description="先把问题边界说清楚。后续生成的研究方向、大纲和检索词都会以这份 brief 为准。" />
       {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
@@ -503,7 +537,7 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
         </CardContent></Card>
         <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><Target className="h-4 w-4" aria-hidden />本次研究将回答</CardTitle></CardHeader><CardContent className="space-y-3 text-11 leading-relaxed text-muted-foreground"><p>哪些欧洲市场同时具备增长、政策与并网确定性？</p><p>适合以自建、合资还是渠道合作进入？</p><p>未来 90 天最优先验证哪些假设？</p><div className="rounded-md border border-border bg-muted p-3 text-10">可在下一步逐条修改或删除 AI 建议的研究方向。</div></CardContent></Card>
       </div>
-      </div>
+      </div>}
     </GuidedResearchStepLayout>
   );
 }
