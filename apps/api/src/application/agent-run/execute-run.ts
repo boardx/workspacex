@@ -45,6 +45,7 @@ import type {
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
+import { withRunHeartbeat } from "./run-heartbeat";
 import type { ModelCallImage } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
@@ -1372,7 +1373,8 @@ export async function executeQueuedRuns(
       continue;
     }
     try {
-      await executeClaimed(deps, input.orgId, outcome.run);
+      // issue #2860：心跳见 `run-heartbeat.ts`。
+      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run));
     } catch (e) {
       // A defect in this file, not a provider failure. Still recorded, still terminal:
       // leaving the run stuck in `running` forever is the one outcome nobody can act on.

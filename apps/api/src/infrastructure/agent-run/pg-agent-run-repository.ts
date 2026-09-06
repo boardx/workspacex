@@ -361,13 +361,23 @@ export class PgAgentRunRepository implements AgentRunStore {
   async reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number> {
     return this.db.withTenant(orgId, async (s) => {
       const reclaimed = await s.query(
-        `UPDATE agent_runs SET status='failed', error_code='MODEL_CALL_FAILED', ended_at=now()
+        `UPDATE agent_runs SET status='failed', error_code='RUN_INTERRUPTED', ended_at=now()
           WHERE org_id=$1 AND status='running'
-            AND started_at < now() - ($2 || ' milliseconds')::interval
+            AND coalesce(heartbeat_at, started_at) < now() - ($2 || ' milliseconds')::interval
         RETURNING id`,
         [orgId, olderThanMs],
       );
       return reclaimed.rows.length;
+    });
+  }
+
+  /** issue #2860 —— 见 `AgentRunStore.heartbeatRun`；只对仍在 `running` 的行写。 */
+  async heartbeatRun(orgId: OrgId, runId: string): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `UPDATE agent_runs SET heartbeat_at=now() WHERE org_id=$1 AND id=$2 AND status='running'`,
+        [orgId, runId],
+      );
     });
   }
 

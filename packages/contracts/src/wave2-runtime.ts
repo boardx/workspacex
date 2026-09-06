@@ -393,6 +393,12 @@ export const AgentRunError = z.enum([
    * 或模型本身出错；这是调用**根本没有发起**，因为下发前的探测就已经判定内核不可用。
    */
   "KERNEL_UNAVAILABLE",
+  /**
+   * issue #2860 —— 执行这个 run 的 API 进程没了（部署/重启/崩溃），心跳停止后由
+   * 回收器判定的终态。区别于 `MODEL_CALL_FAILED`（调用本身出错）：调用可能根本没
+   * 出错，只是没有人再等它的结果。用户看到的应是"因服务重启中断，请重新发送"。
+   */
+  "RUN_INTERRUPTED",
 ]);
 
 export const AgentRunStep = z.object({

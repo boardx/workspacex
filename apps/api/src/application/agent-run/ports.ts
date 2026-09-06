@@ -200,7 +200,13 @@ export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
  * （运维需要调参时不必改代码）；`readAgentRun` 这一路读的是这个常量本身，不接 env——
  * 一个只读请求的判定不应该因为部署环境不同而答案不同。
  */
-export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
+export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 2 * 60_000;
+/**
+ * issue #2860 —— 执行器在 run 进行中写 `heartbeat_at` 的间隔。回收阈值（上面 2 分钟）
+ * 是它的 8 倍：一次心跳写库失败/一次 GC 停顿都不会把活 run 判死；进程真没了，2 分钟内
+ * 收敛（此前是 20 分钟，且只在被动触发时）。
+ */
+export const RUN_HEARTBEAT_INTERVAL_MS = 15_000;
 
 export interface AppendedRunStep {
   readonly runId: string;
@@ -480,6 +486,12 @@ export interface AgentRunStore {
    * 不是两次独立发明"多久算卡住"。
    */
   reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number>;
+  /**
+   * issue #2860 —— run 进行中的心跳（`agent_runs.heartbeat_at = now()`），只对仍是
+   * `running` 的行生效。**可选**：既有测试的内存假仓与不关心心跳的路径不必实现，
+   * 缺席 ⇒ 不心跳，回收判据退回 `started_at`（与本次改动前逐字相同）。
+   */
+  heartbeatRun?(orgId: OrgId, runId: string): Promise<void>;
 
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;

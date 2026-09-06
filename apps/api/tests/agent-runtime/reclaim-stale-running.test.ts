@@ -60,7 +60,7 @@ async function seedRun(
   id: string, status: string, startedAgo: string | null,
 ): Promise<string> {
   const inputMessageId = `${id}-input`;
-  const errorCode = status === "failed" ? "MODEL_CALL_FAILED" : null;
+  const errorCode = status === "failed" ? "RUN_INTERRUPTED" : null;
   await addChatMessage({ orgId: ORG, id: inputMessageId, threadId: THREAD, body: "hi", authorId: ACTOR });
   await asApp(ORG, (c) =>
     c.query(
@@ -87,13 +87,13 @@ async function readRun(id: string): Promise<{ status: string; errorCode: string 
 }
 
 describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states already closed", () => {
-  it("a running run started long ago is reclaimed to failed(MODEL_CALL_FAILED)", async () => {
+  it("a running run started long ago is reclaimed to failed(RUN_INTERRUPTED)", async () => {
     const id = await seedRun("run-reclaim-old", "running", "30 minutes");
     const reclaimed = await repo.reclaimStaleRunning(ORG, 20 * 60_000);
     expect(reclaimed).toBe(1);
     const after = await readRun(id);
     expect(after.status).toBe("failed");
-    expect(after.errorCode).toBe("MODEL_CALL_FAILED");
+    expect(after.errorCode).toBe("RUN_INTERRUPTED");
   });
 
   it("a running run started moments ago is left alone -- a healthy in-flight run must not be reclaimed", async () => {
@@ -129,5 +129,38 @@ describe("AgentRunStore.reclaimStaleRunning -- the one gap the other two states 
     expect(await repo.reclaimStaleRunning(ORG, 20 * 60_000)).toBe(1);
     expect(await repo.reclaimStaleRunning(ORG, 20 * 60_000)).toBe(0);
     expect((await readRun(id)).status).toBe("failed");
+  });
+});
+
+
+describe("issue #2860 —— 心跳与幽灵 run 回收", () => {
+  it("started_at 很久但心跳新鲜的 running 不会被回收（慢 run 一直在心跳）", async () => {
+    const id = await seedRun("run-heartbeat-alive", "running", "30 minutes");
+    await repo.heartbeatRun(ORG, id);
+    expect(await repo.reclaimStaleRunning(ORG, 20 * 60_000)).toBe(0);
+    expect((await readRun(id)).status).toBe("running");
+  });
+
+  it("心跳只写 running 的行：已终态的行心跳是 no-op", async () => {
+    const id = await seedRun("run-heartbeat-done", "succeeded", "1 minute");
+    await repo.heartbeatRun(ORG, id);
+    const row = await asApp(ORG, (c) => c.query<{ heartbeat_at: string | null }>(`SELECT heartbeat_at FROM agent_runs WHERE id=$1`, [id]));
+    expect(row.rows[0]?.heartbeat_at).toBeNull();
+  });
+
+  it("sweepOrphanedRuns：跨租户（withoutTenant）把心跳停了超阈值的 running 收敛成 failed(RUN_INTERRUPTED)，新鲜心跳的留下", async () => {
+    const { sweepOrphanedRuns } = await import("../../src/infrastructure/agent-run/sweep-orphaned-runs");
+    const dead = await seedRun("run-sweep-dead", "running", "5 minutes");
+    const alive = await seedRun("run-sweep-alive", "running", "5 minutes");
+    await repo.heartbeatRun(ORG, alive);
+    const logs: string[] = [];
+    const orphaned = await sweepOrphanedRuns(db, { olderThanMs: 2 * 60_000, log: (m) => void logs.push(m) });
+    expect(orphaned.map((r) => r.id)).toEqual([dead]);
+    expect(orphaned[0]).toMatchObject({ orgId: ORG, threadId: THREAD, remoteRunId: null });
+    expect((await readRun(dead))).toEqual({ status: "failed", errorCode: "RUN_INTERRUPTED" });
+    expect((await readRun(alive)).status).toBe("running");
+    expect(logs).toContain("orphaned agent runs reclaimed");
+    // 幂等：第二次什么都不收。
+    expect(await sweepOrphanedRuns(db, { olderThanMs: 2 * 60_000 })).toEqual([]);
   });
 });

@@ -153,13 +153,13 @@ describe("GET /agent-runs/:runId -- 只刷新、不发第二条消息，也能�
     // 真实用户的复现步骤就是这一步：只刷新页面（= 只 GET 一次），不发第二条消息。
     const { status, body } = await getRun(agentRunId);
     expect(status).toBe(200);
-    expect(body).toMatchObject({ status: "failed", error: "MODEL_CALL_FAILED" });
+    expect(body).toMatchObject({ status: "failed", error: "RUN_INTERRUPTED" });
 
     const row = await asApp(ORG, (c) =>
       c.query<{ status: string; error_code: string | null }>(
         "SELECT status, error_code FROM agent_runs WHERE id=$1", [agentRunId],
       ));
-    expect(row.rows[0]).toMatchObject({ status: "failed", error_code: "MODEL_CALL_FAILED" });
+    expect(row.rows[0]).toMatchObject({ status: "failed", error_code: "RUN_INTERRUPTED" });
   }, 30_000);
 
   it("一条刚起步的 running run：单纯 GET 不会误杀它——它可能只是还在正常跑", async () => {
