@@ -121,7 +121,43 @@ export async function runScriptWithRetries(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const raw = await deps.generateScript(feedback);
-    const script = extractScript(raw);
+
+    /*
+     * ── 2026-09-06 实测事故：这一轮没有脚本块，不等于"这次执行失败了" ──
+     *
+     * 症状（devapp，通用助手，用户要一份中文 PDF）：用户看到的失败原因是
+     * `model reply contained no fenced script block; reply was: 我已经把…整理成了一份 PDF…`，
+     * 也就是一句**关于回复格式的内部抱怨**，而第 1 次尝试真正拿到的沙箱 stderr
+     * 不见了。两个独立的缺陷叠在一起：
+     *
+     * ① 缺块直接终止：`extractScript` 抛的是终态错误，循环当场结束。可模型漏写围栏
+     *    是**可纠正**的——回喂里明确要求"只回一个 run_script 块"通常一次就好。以前
+     *    它连一次纠正的机会都没有。
+     * ② 真因被覆盖：那个终态错误的 `lastStderr` 是这句格式抱怨，而不是 `history`
+     *    里已经记下的、上一次**真实**的沙箱 stderr。#660 / #1611 记过两次的同一条
+     *    纪律（失败必须带回真因）在这条缝里失效了——真因照样消失，只是换了个姿势。
+     *
+     * ⇒ 缺块按"这一次尝试失败了"处理：记进 history、给一条纠正性回喂、继续下一次。
+     *   重试用尽时抛出的仍然是 `history` 里**最后一次真实沙箱 stderr**（见循环之后），
+     *   格式抱怨只在从头到尾一个脚本都没跑过时才是真因本身。
+     */
+    const extracted = tryExtractScript(raw);
+    if (extracted === null) {
+      history.push({ attempt, exitCode: null, stderr: noScriptBlockMessage(raw) });
+      deps.log?.("skill trial run reply contained no script block", {
+        attempt,
+        replyExcerpt: excerpt(raw),
+      });
+      feedback = [
+        "Your reply contained no runnable script block, so nothing was executed.",
+        "",
+        "Do not describe the file or claim it was produced — it was not.",
+        `Reply with exactly one ${SCRIPT_FENCE_OPEN} block containing the complete Node.js script,`,
+        "and nothing else.",
+      ].join("\n");
+      continue;
+    }
+    const script = extracted;
 
     // ⚠ 沙箱不可达时**立刻**抛出，不消耗重试次数：重试只对"脚本写错了"有意义，
     //   对"服务挂了"重试三次只会让一次运维故障被报成 SCRIPT_FAILED_AFTER_RETRIES。
@@ -156,7 +192,15 @@ export async function runScriptWithRetries(
     ].join("\n");
   }
 
-  const last = history[history.length - 1]!;
+  /*
+   * ⚠ 报**最后一次真的跑起来过**的失败，而不是简单地取 history 的最后一条。
+   *
+   * 最后一次尝试很可能是"模型这轮没给脚本块"（上面那段的 ① ②）——把它当真因报出去，
+   * 就是用一句关于回复格式的内部抱怨盖掉沙箱返回的真实 stderr。只有从头到尾一个
+   * 脚本都没被执行过时，"没有脚本块"才**是**真因本身。
+   */
+  const executed = history.filter((record) => record.exitCode !== null);
+  const last = (executed.length > 0 ? executed[executed.length - 1] : history[history.length - 1])!;
   throw new ScriptFailedAfterRetriesError(maxAttempts, last.stderr, last.exitCode);
 }
 
@@ -170,11 +214,12 @@ export async function runScriptWithRetries(
 export function extractScript(reply: string): string {
   const fenced = SCRIPT_FENCE_RE.exec(reply);
   if (fenced?.[1] !== undefined && fenced[1].trim() !== "") return fenced[1];
-  throw new ScriptFailedAfterRetriesError(
-    1,
-    `model reply contained no fenced script block; reply was:\n${excerpt(reply)}`,
-    null,
-  );
+  throw new ScriptFailedAfterRetriesError(1, noScriptBlockMessage(reply), null);
+}
+
+/** 「这轮回复里没有脚本块」的唯一文案——循环里与 `extractScript` 共用，不写两份。 */
+function noScriptBlockMessage(reply: string): string {
+  return `model reply contained no fenced script block; reply was:\n${excerpt(reply)}`;
 }
 
 /**

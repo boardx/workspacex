@@ -121,7 +121,17 @@ sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
   SANDBOX_UID="$SANDBOX_UID" \
   SANDBOX_GID="$SANDBOX_GID" \
-  docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d
+#
+# WARN **`--build` 不是可选项**（2026-09-06 实测事故）。compose 对带 `build:` 的服务只在
+#   **镜像不存在时**才构建；镜像已存在时 `up -d` 直接复用它，源码改了也不管。
+#   本机最小复现（busybox + 一行 `RUN echo v1 > /ver`）：改成 v2 后 `up -d` 读到的
+#   仍是 **v1**，加 `--build` 才变 v2。
+#   后果不是"慢一版"：`apps/skill-sandbox` 的镜像自 2026-08-21 首次部署起就冻在那一版，
+#   之后所有改动（预装库、CJK 字体……）从未上过 devapp。症状在用户那儿长这样——API 是新的、
+#   按新 SKILL.md 教模型 `require('@pdf-lib/fontkit')`，沙箱是旧的、根本没这个包，
+#   于是"生成中文 PDF"必然失败，而 main 上代码明明是对的。这正是 AGENTS.md
+#   「静态痕迹 != 动态事实」：git log 说改动在 main 上，说明不了跑着的容器是哪一版。
+  docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d --build
 until docker exec workspacex-postgres-1 pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
 
 # 沙箱就绪：socket 文件真的出现，且属主是 API 将要用的那个用户。
@@ -156,6 +166,27 @@ if ! sudo -u "$RUN_AS" curl -sf --max-time 10 --unix-socket "$SANDBOX_SOCKET_PAT
   exit 1
 fi
 echo "  沙箱就绪：$SANDBOX_SOCKET_PATH（uid=$SANDBOX_UID，healthz 已应答）"
+
+# WARN healthz 应答只证明"有一个沙箱在跑"，不证明它是当前源码构建的那一版——上面那条
+#   `--build` 事故里，坏掉的沙箱 healthz 一直是 200。这里对跑着的容器取一次动态事实：
+#   镜像里该有的预装依赖与 CJK 字体真的在不在。缺了就红退，而不是等用户在 chat 里
+#   拿到一句 MODULE_NOT_FOUND 才发现部署链没把镜像换掉。
+for probe in \
+  "require.resolve('pptxgenjs')" \
+  "require.resolve('docx')" \
+  "require.resolve('exceljs')" \
+  "require.resolve('pdf-lib')" \
+  "require.resolve('@pdf-lib/fontkit')" \
+  "require('fs').statSync(process.env.SKILL_SANDBOX_CJK_FONT)"
+do
+  if ! docker exec workspacex-skill-sandbox-1 node -e "$probe" >/dev/null 2>&1; then
+    echo "✗ 跑着的沙箱容器缺少 [$probe] —— 镜像不是当前源码构建的那一版"
+    echo "  （compose 只在镜像不存在时才 build；本步已带 --build，若仍失败请查构建日志）"
+    docker logs --tail 40 workspacex-skill-sandbox-1 2>&1 || true
+    exit 1
+  fi
+done
+echo "  沙箱镜像自检通过：四个预装库 + CJK 字体都在跑着的容器里"
 
 step "4. 迁移 —— 先于部署，且幂等"
 # 幂等在别处已被证明：migrate:check 会无视版本表强制重放每个文件再比对 schema 摘要。
