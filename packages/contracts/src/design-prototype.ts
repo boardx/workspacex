@@ -44,6 +44,14 @@ export const PrototypeNodeType = z.enum([
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
+/**
+ * 迭代 1（增量修改）：节点 id。可选——模型整页给出时可以不写，服务端 `ensurePrototypeIds` 补齐；
+ * 一旦落库每个节点都有、且在**整个项目**内唯一（跨页），patch 用它寻址，不需要再说是哪一页。
+ */
+export const PrototypeNodeId = z.string().regex(/^[A-Za-z0-9_-]{1,32}$/);
+export type PrototypeNodeId = z.infer<typeof PrototypeNodeId>;
+const Id = PrototypeNodeId.optional();
+
 const Scale = z.enum(["none", "sm", "md", "lg"]);
 const Label = z.string().min(1).max(200);
 const Items = z.array(Label).min(1).max(30);
@@ -84,23 +92,23 @@ const AvatarProps = z.object({ name: Label }).strict();
 
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("navbar"), props: NavbarProps }).strict(),
-  z.object({ type: z.literal("text"), props: TextProps }).strict(),
-  z.object({ type: z.literal("button"), props: ButtonProps }).strict(),
-  z.object({ type: z.literal("input"), props: InputProps }).strict(),
-  z.object({ type: z.literal("image"), props: ImageProps }).strict(),
-  z.object({ type: z.literal("list"), props: ListProps }).strict(),
-  z.object({ type: z.literal("divider") }).strict(),
-  z.object({ type: z.literal("spacer"), props: SpacerProps.optional() }).strict(),
-  z.object({ type: z.literal("tabs"), props: TabsProps }).strict(),
-  z.object({ type: z.literal("badge"), props: BadgeProps }).strict(),
-  z.object({ type: z.literal("avatar"), props: AvatarProps }).strict(),
+  z.object({ id: Id, type: z.literal("navbar"), props: NavbarProps }).strict(),
+  z.object({ id: Id, type: z.literal("text"), props: TextProps }).strict(),
+  z.object({ id: Id, type: z.literal("button"), props: ButtonProps }).strict(),
+  z.object({ id: Id, type: z.literal("input"), props: InputProps }).strict(),
+  z.object({ id: Id, type: z.literal("image"), props: ImageProps }).strict(),
+  z.object({ id: Id, type: z.literal("list"), props: ListProps }).strict(),
+  z.object({ id: Id, type: z.literal("divider") }).strict(),
+  z.object({ id: Id, type: z.literal("spacer"), props: SpacerProps.optional() }).strict(),
+  z.object({ id: Id, type: z.literal("tabs"), props: TabsProps }).strict(),
+  z.object({ id: Id, type: z.literal("badge"), props: BadgeProps }).strict(),
+  z.object({ id: Id, type: z.literal("avatar"), props: AvatarProps }).strict(),
 ]);
 
 export type PrototypeNode =
   | z.infer<typeof Leaf>
-  | { readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
-  | { readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] };
+  | { readonly id?: PrototypeNodeId; readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] };
 
 /**
  * 递归节点。容器（`stack`/`card`）必有 `children`（可空数组），叶子没有。
@@ -109,8 +117,8 @@ export type PrototypeNode =
 export const PrototypeNode: z.ZodType<PrototypeNode> = z.lazy(() =>
   z.union([
     Leaf,
-    z.object({ type: z.literal("stack"), props: StackProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
-    z.object({ type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("stack"), props: StackProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
   ]),
 );
 
@@ -167,6 +175,148 @@ export type PrototypeScreen = z.infer<typeof PrototypeScreen>;
 /** 整页重生成：给出即整体替换全部页面。 */
 export const DesignPrototypeWriteback = z.array(PrototypeScreen).min(1).max(PROTOTYPE_MAX_SCREENS);
 export type DesignPrototypeWriteback = z.infer<typeof DesignPrototypeWriteback>;
+
+/* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
+
+export const PROTOTYPE_MAX_PATCH_OPS = 50;
+
+/**
+ * 四种 patch 操作，全部按节点 id 寻址（id 在项目内唯一，所以不带页）：
+ *   · `replace`  用 `node` 整体替换 `id` 那棵子树（可以换类型）；新子树里没 id 的节点由服务端补。
+ *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）。
+ *   · `insert`   把 `node` 插进容器 `parentId` 的 `children[index]`（缺省追加到末尾）。
+ *   · `remove`   删掉 `id` 那棵子树。根节点不可删（一页至少有根）。
+ * 语义是**顺序**执行：后一条能看到前一条的结果；任一条失败 ⇒ 整批不生效（字段级拒绝，同 I-10）。
+ */
+export const PrototypePatchOp = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("replace"), id: PrototypeNodeId, node: PrototypeNode }).strict(),
+  z.object({ op: z.literal("setProps"), id: PrototypeNodeId, props: z.record(z.unknown()) }).strict(),
+  z.object({ op: z.literal("insert"), parentId: PrototypeNodeId, index: z.number().int().min(0).optional(), node: PrototypeNode }).strict(),
+  z.object({ op: z.literal("remove"), id: PrototypeNodeId }).strict(),
+]);
+export type PrototypePatchOp = z.infer<typeof PrototypePatchOp>;
+export const DesignPrototypePatch = z.array(PrototypePatchOp).min(1).max(PROTOTYPE_MAX_PATCH_OPS);
+export type DesignPrototypePatch = z.infer<typeof DesignPrototypePatch>;
+
+function collectIds(root: PrototypeNode, out: Set<string>): void {
+  if (root.id !== undefined) out.add(root.id);
+  if (root.type === "stack" || root.type === "card") for (const c of root.children) collectIds(c, out);
+}
+
+/**
+ * 给没有 id 的节点补 id，已有的保留；生成的 id 在整个 `prototype` 内唯一（`n1`、`n2`……跳过已占用的）。
+ * 幂等：全部有 id 时原样返回（引用相等）。落库前必跑一次，这样模型下一轮看到的每个节点都可寻址。
+ */
+export function ensurePrototypeIds(prototype: readonly PrototypeNode[]): readonly PrototypeNode[] {
+  const used = new Set<string>();
+  for (const r of prototype) collectIds(r, used);
+  let counter = 0;
+  const nextId = (): string => {
+    do counter += 1; while (used.has(`n${counter}`));
+    const id = `n${counter}`;
+    used.add(id);
+    return id;
+  };
+  let changed = false;
+  const fill = (n: PrototypeNode): PrototypeNode => {
+    const id = n.id ?? (changed = true, nextId());
+    if (n.type === "stack" || n.type === "card") {
+      const children = n.children.map(fill);
+      return { ...n, id, children };
+    }
+    return n.id === undefined ? { ...n, id } : n;
+  };
+  const out = prototype.map(fill);
+  return changed ? out : prototype;
+}
+
+/** 项目内 id 是否唯一（`ensurePrototypeIds` 之后的落库不变量）。 */
+export function prototypeIdsUnique(prototype: readonly PrototypeNode[]): boolean {
+  const seen = new Set<string>();
+  let dup = false;
+  const walk = (n: PrototypeNode): void => {
+    if (n.id !== undefined) {
+      if (seen.has(n.id)) dup = true;
+      seen.add(n.id);
+    }
+    if (n.type === "stack" || n.type === "card") for (const c of n.children) walk(c);
+  };
+  for (const r of prototype) walk(r);
+  return !dup;
+}
+
+export class PrototypePatchError extends Error {
+  constructor(readonly opIndex: number, message: string) {
+    super(`patch op #${opIndex}: ${message}`);
+    this.name = "PrototypePatchError";
+  }
+}
+
+/**
+ * 顺序应用一批 patch，返回**新的** `prototype`（不改入参）。每一步的结果都重新过 `PrototypeNode`
+ * 契约与整页上限；任何一步不合法抛 `PrototypePatchError`（调用方据此整批拒绝）。
+ * 结果里新增的节点由 `ensurePrototypeIds` 补 id。
+ */
+export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: readonly PrototypePatchOp[]): readonly PrototypeNode[] {
+  let current: readonly PrototypeNode[] = prototype;
+  ops.forEach((op, i) => {
+    let hit = 0;
+    const visit = (n: PrototypeNode): PrototypeNode | null => {
+      if (op.op === "setProps" && n.id === op.id) {
+        hit += 1;
+        const merged = { ...n, props: { ...(("props" in n ? n.props : undefined) ?? {}), ...op.props } };
+        const parsed = PrototypeNode.safeParse(merged);
+        if (!parsed.success) throw new PrototypePatchError(i, `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`);
+        return parsed.data;
+      }
+      if (op.op === "replace" && n.id === op.id) {
+        hit += 1;
+        return { ...op.node, id: op.node.id ?? n.id };
+      }
+      if (op.op === "remove" && n.id === op.id) {
+        hit += 1;
+        return null;
+      }
+      if (n.type === "stack" || n.type === "card") {
+        let children: PrototypeNode[] = [];
+        for (const c of n.children) {
+          const r = visit(c);
+          if (r !== null) children.push(r);
+        }
+        if (op.op === "insert" && n.id === op.parentId) {
+          hit += 1;
+          const at = op.index === undefined ? children.length : Math.min(op.index, children.length);
+          children = [...children.slice(0, at), op.node, ...children.slice(at)];
+        }
+        return { ...n, children };
+      }
+      if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, `${op.parentId} is a ${n.type}, not a container`);
+      return n;
+    };
+    const next: PrototypeNode[] = [];
+    for (const root of current) {
+      const r = visit(root);
+      if (r === null) throw new PrototypePatchError(i, `cannot remove page root ${root.id ?? ""}`);
+      next.push(r);
+    }
+    const target = op.op === "insert" ? op.parentId : op.id;
+    if (hit === 0) throw new PrototypePatchError(i, `no node with id ${target}`);
+    if (hit > 1) throw new PrototypePatchError(i, `id ${target} is not unique`);
+    current = ensurePrototypeIds(next);
+  });
+  for (const [k, root] of current.entries()) {
+    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, `page ${k + 1} exceeds limits after patch`);
+  }
+  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "ids not unique after patch");
+  return current;
+}
+
+/** 给模型看的 patch 说明——同 `PROTOTYPE_SCHEMA_GUIDE`，只此一份。 */
+export const PROTOTYPE_PATCH_GUIDE =
+  "局部修改用 writeback.patch（数组，按顺序执行，≤ " + PROTOTYPE_MAX_PATCH_OPS + " 条），按节点 id 寻址（当前原型里每个节点都有 id）：" +
+  '{"op":"setProps","id":"n3","props":{...只给要改的键}}；{"op":"replace","id":"n3","node":{完整节点}}；' +
+  '{"op":"insert","parentId":"n1","index":0,"node":{...}}（index 缺省追加末尾）；{"op":"remove","id":"n7"}。' +
+  "只改一处文案/加一个按钮/删一块 ⇒ 用 patch；新页面、整页重排、用户要求重画 ⇒ 用 prototype 整页给出。二者不要同时给。";
 
 /**
  * 给模型看的原语说明——**唯一**一份，`DESIGN_CHAT_SYSTEM_PROMPT` 拼它，不另抄。

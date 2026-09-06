@@ -94,3 +94,62 @@ describe("PROTOTYPE_SCHEMA_GUIDE", () => {
     for (const t of dp.PrototypeNodeType.options) expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(t);
   });
 });
+
+/* ─────────────── 迭代 1：节点 id + patch ─────────────── */
+
+describe("ensurePrototypeIds", () => {
+  it("补齐缺失 id、保留已有、跨页唯一、幂等", () => {
+    const page1: dp.PrototypeNode = { type: "stack", children: [{ id: "n2", type: "divider" }, { type: "divider" }] };
+    const page2: dp.PrototypeNode = { type: "stack", id: "hero", children: [{ type: "text", props: { content: "x" } }] };
+    const out = dp.ensurePrototypeIds([page1, page2]);
+    expect(dp.prototypeIdsUnique(out)).toBe(true);
+    const ids: string[] = [];
+    const walk = (n: dp.PrototypeNode) => { ids.push(n.id ?? "?"); if (n.type === "stack" || n.type === "card") n.children.forEach(walk); };
+    out.forEach(walk);
+    expect(ids).toEqual(["n1", "n2", "n3", "hero", "n4"]); // n2 已占用被跳过
+    expect(dp.ensurePrototypeIds(out)).toBe(out); // 幂等：引用相等
+  });
+});
+
+describe("applyPrototypePatch", () => {
+  const base = dp.ensurePrototypeIds([
+    { type: "stack", children: [
+      { type: "navbar", props: { title: "首页" } },
+      { type: "stack", children: [{ type: "text", props: { content: "hi" } }] },
+      { type: "button", props: { label: "发送" } },
+    ] },
+  ]);
+  // ids: n1(stack) n2(navbar) n3(stack) n4(text) n5(button)
+
+  it("setProps 浅合并；replace 换子树并保留 id；insert 按 index；remove 删子树；新节点补 id", () => {
+    const out = dp.applyPrototypePatch(base, [
+      { op: "setProps", id: "n5", props: { variant: "danger" } },
+      { op: "replace", id: "n4", node: { type: "text", props: { content: "hello" } } },
+      { op: "insert", parentId: "n3", index: 0, node: { type: "badge", props: { label: "新" } } },
+      { op: "remove", id: "n2" },
+    ]);
+    const root = out[0]!;
+    if (root.type !== "stack") throw new Error("root");
+    expect(root.children.map((c) => c.id)).toEqual(["n3", "n5"]);
+    expect(root.children[1]).toMatchObject({ type: "button", props: { label: "发送", variant: "danger" } });
+    const inner = root.children[0]!;
+    if (inner.type !== "stack") throw new Error("inner");
+    expect(inner.children.map((c) => [c.type, c.id])).toEqual([["badge", "n6"], ["text", "n4"]]);
+    expect(inner.children[1]).toMatchObject({ props: { content: "hello" } });
+    expect(base[0]).toBe(base[0]); // 入参未改
+    expect(dp.prototypeIdsUnique(out)).toBe(true);
+  });
+
+  it("失败整批抛：未知 id / 删根 / 往叶子里 insert / setProps 造出非法节点", () => {
+    expect(() => dp.applyPrototypePatch(base, [{ op: "remove", id: "nope" }])).toThrow(dp.PrototypePatchError);
+    expect(() => dp.applyPrototypePatch(base, [{ op: "remove", id: "n1" }])).toThrow(/page root/);
+    expect(() => dp.applyPrototypePatch(base, [{ op: "insert", parentId: "n5", node: { type: "divider" } }])).toThrow(/not a container/);
+    expect(() => dp.applyPrototypePatch(base, [{ op: "setProps", id: "n5", props: { variant: "neon" } }])).toThrow(/invalid node/);
+  });
+
+  it("契约：patch 数组 1–50 条；PATCH_GUIDE 提到四种 op", () => {
+    expect(dp.DesignPrototypePatch.safeParse([]).success).toBe(false);
+    expect(ac.DesignChatWriteback.safeParse({ patch: [{ op: "remove", id: "n2" }] }).success).toBe(true);
+    for (const op of ["setProps", "replace", "insert", "remove"]) expect(dp.PROTOTYPE_PATCH_GUIDE).toContain(op);
+  });
+});
