@@ -5,15 +5,16 @@
 ```mermaid
 flowchart TD
   A[核对现有实现与75项目录]:::verified --> B[19个共享工作包：逐编号保留验收]
-  B --> E1[WX-E001 锁定环境基线：95测试与16工具schema]:::verified
+  B --> E1[WX-E001 本地及容器锁定依赖：a2e6de1c0]:::verified
   E1 --> E2[WX-E002 共享包契约：65327d7b1]:::verified
   E2 --> T11[WX-T011 真实假设确认：ac597acc5]:::verified
   E2 --> E4API[WX-E004 API完整包传输：7dcd2feaa]:::verified
-  E2 --> E3[WX-E003 会话沙箱与官方Backend：b12638bd8]:::verified
+  E2 --> E3[WX-E003 隔离沙箱及160次回收验证：751b16b34]:::verified
   E4API --> E4[WX-E004 原生Skills图：ebe8afe29]:::verified
   E3 --> E4
   E4 --> Scope[WX-T010 仅文本委派已验证；扩展文件授权待做]:::active
-  E3 --> FileTests[T001–T008 官方文件行为：grep兼容修复中]:::active
+  E3 --> FileTests[T001–T008 官方文件行为证据：f9b1ca28a]:::verified
+  FileTests --> FileJoin[附件原件、图像读取及标准编号trace待接入]
   E4 --> NativeJoin[可信factory生产接线与联合验收]
   E4 --> Version[WX-E008 固定包版本兼容]
   E3 --> E6[W04 native产物适配与取消原语]
@@ -23,7 +24,8 @@ flowchart TD
   E6 -.接入统一契约.-> Peer
   T42 --> T42Join[WX-T042 父取消、产物及公共事件待接入]
   T42Join -.复用统一控制契约.-> Peer
-  E2 --> MCP[WX-E005 完整schema及变更授权：实现验证中]:::active
+  E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
+  MCPSchema --> MCP[WX-E005 可信执行桥：接线设计中]:::active
   MCP --> Browser[W10 浏览器交互与网页产物]
   E4 --> Research[W06 搜索与研究工作流]
   E4 --> Context[W07 项目上下文、检索与写作]
@@ -43,6 +45,7 @@ flowchart TD
   T42Join --> Gate
   Scope --> Gate
   FileTests --> Gate
+  FileJoin --> Gate
   NativeJoin --> Gate
   Version --> Gate
   Browser --> Gate
@@ -72,4 +75,6 @@ W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。WX
 
 原始 75 项编号、场景、重要程度和验收范围见 `capability-catalog.json`；本图没有删除灰色任务，也不以已有提交数量换算总体完成百分比。
 
-当前执行顺序：E004 原生 Skills 图已独立 review 并提交，35 项验证包括真实脚本产物、审批前后行为、未知结果不重试和仅文本子代理。下一步修复 T006 上游模板缺陷、完成文件行为验收及 E005 schema 发现/持久化增量。生产 factory 和联合验收单独保持灰色；T010 扩展授权与 E008 仍待完成，不把 E004 局部结果扩展为整个 W03 已完成。
+当前执行顺序：E004 原生 Skills 图已独立 review 并提交；E005 完整schema增量38项测试通过。T006 上游模板兼容修复已提交 c448d3028；文件/Skills/兼容组合49个用例已有分次通过证据（46项通过后修正3个测试字段，再3项通过），并非一次49项全绿。基础Python回归173通过、4个显式集成跳过；这些集成另有真实沙箱证据。E003另外完成160次执行、零僵尸累积验证。
+
+下一步是E005可信执行桥及原生factory接线。生产factory、公共trace和联合验收单独保持灰色；T010扩展授权与E008仍待完成，不把组件结果扩展为完整用户链路已交付。正常pre-push的13项受影响typecheck/lint已通过，分支已推送到a2e6de1c0，后续提交继续推送。
