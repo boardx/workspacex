@@ -38,7 +38,7 @@ flowchart TB
   subgraph ENGINE["内核与运行控制工作线"]
     S5["S5 进行中：停止 / 暂停 / 恢复\ncommit c170a1594 / 63e57162f"]:::active
     S6["S6 待验收：本轮插话与排队\ncommit 1db6a178f / c0acfa889"]:::verify
-    S7["S7 进行中：持久审批身份\ncommit 78543a6b2 / fe7edbd5c\n精确 once 绑定增量未提交"]:::active
+    S7["S7 待验收：持久审批身份\ncommit 577961624 / fe7edbd5c\n精确 once 绑定 · PG通过"]:::verify
     S5 --> S6 --> S7
   end
 
@@ -58,7 +58,7 @@ flowchart TB
   S4 -.成果事件接入.-> S10
   S7 -.交互接入.-> S9
 
-  S9 --> S11["S11 验收中：前端单测 95通过\n旧浏览器批次 5通过 / 5失败\n被测 commit b5ba84636（实现 c0acfa889）\n登录时序 / 最终回复修复中"]:::verify
+  S9 --> S11["S11 验收中：前端单测 95通过\n浏览器复验 commit 35b880453\n旧批次5/5失败保留 · 新批次运行中"]:::verify
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11

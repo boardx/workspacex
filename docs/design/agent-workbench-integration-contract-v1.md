@@ -10,7 +10,8 @@
 |---|---|---|
 | 公共 Skill 事实、真实调用身份、去重与投影 | `c11d77f57` | `@repo/contracts/skill-activity`：`SkillActivityFact`、`SkillActivityStream`；`@repo/contracts/execution-journal`：`ExecutionEvent`、`ExecutionEventInput` |
 | 停止后不启动新工具或脚本重试 | `c170a1594` | Python `run_control._values`；API `maybeRunSkillScript` 的 `cancelAtCheckpoint` |
-| 父取消与工具执行检查接点 | `78543a6b2` | `ParentRunControl`、`ChildRunCanceller`、`ToolExecutionAuthority`；单次审批精确绑定仍待后续提交 |
+| 父取消与工具执行检查接点 | `78543a6b2` | `ParentRunControl`、`ChildRunCanceller`、`ToolExecutionAuthority` |
+| 单次审批精确绑定与参数身份 | `577961624` | `ToolExecutionCheckInput` 新增 permissionRequestId/toolCallId/toolArgs；迁移 `20260907021000_tool_approval_execution_identity.sql` |
 | 子取消确认展示 | `6420a3681` | GET/POST 的 `childCancellation`，独立提示与退避读取 |
 | 主运行恢复与 fencing | `1db6a178f` | `run-lease.ts`、`PgRunRecovery`、同线程串行领取 |
 
@@ -89,11 +90,15 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 }
 ```
 
-`call_skill` 还须提供 skillStableName。Python 从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
+`call_skill` 必须提供实际 `toolArgs` 对象，其中 `skill_stable_name` 是风险与挂载身份的唯一来源；可选 `skillStableName` 若提供必须一致。Python 从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch，以及恢复审批时的 permission_request_id；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
 
 输出为 allowed:true 或 allowed:false + reason（run_unavailable、cancel_requested、lease_lost、attempt_stale、skill_not_mounted、approval_required）。服务同时核对真实 run 状态、取消标记、epoch/有效期和真实 context_built 对应 attempt；租约只是其中一个条件。风险和 L2 grant 复用 `classifyToolCallRisk`、固定 `readPinnedSkills` 及 `ToolPermissionGrantStore`。
 
-**当前版本限制**：L0/L1 与已有持续 grant 路径可用；78543a6b2 对新原生路径的“仅本次”审批保守返回 approval_required，不能冒用为已接通。精确 permissionRequestId + ToolCall + 参数 hash 的单次消费绑定正在补齐，完成后在本表登记新提交。旧 HITL resume 路径继续保留。
+单次批准使用 `577961624`：请求增加 `permissionRequestId`、实际 `toolCallId`、完整 `toolArgs`。permissionRequestId 从可信 callback 的 permission_request_id 取，call ID 与参数来自本次真正准备 dispatch 的调用，不从 UI 摘要或模型自称的“已批准”推断。
+
+服务端按递归键排序 JSON 计算 SHA256，无需 Python 自行生成摘要。已有 agent_runs 行保存待批原始调用 ID 与参数 hash（不保存新一份敏感原始参数）；markAwaiting 清除上次审批消费身份。首次校验在行锁内绑定当前合法 attempt；相同 request/call/args/attempt 重查幂等放行，改任一身份拒绝。edit 比较已裁决的新参数；deny 不能被长期 grant 覆盖。只匹配同名工具不足以放行。
+
+应用迁移后新产生的待批记录才有完整身份；历史缺少实际 call/hash 的记录不猜测补授权。旧 HITL resume 路径保留。peer 的真正工具执行去重仍需按实际 call 处理，重复检查成功不表示允许重复产生副作用。
 
 该检查只授权当前 dispatch 边界，不是可长期复用的许可，也不替代工具自己的文件、SQL、MCP 等资源 ACL。peer 应紧邻执行调用；不能检查一次后永久缓存 allowed。实际 ToolCall 执行幂等及远端停止确认仍由工具/子任务 owner 提供。
 
@@ -106,3 +111,5 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 - 尚未联合验收真实 SkillsMiddleware 事实来源、native 文件 bytes/hash、pending 子任务原子取消、running 远端停止确认及迟到结果。测试替身和局部通过不替代这些证据。
 
 - 父取消与权限接点：PG 3 项通过（真实 context attempt、过期 epoch、跨租户、首次取消身份）；后端目标 22 项通过；子取消 UI 7 项通过。仍不等于 peer adapter 联合验收。
+
+- 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。所有生产代码当前合并最新 main 后冻结于 `35b880453`，浏览器复验正在执行。
