@@ -1,7 +1,7 @@
 ---
 status: confirmed
 confirmed_by: "usamshen"
-confirmed_at: "2026-09-06T17:00:00Z"
+confirmed_at: "2026-09-06T16:45:00Z"
 bundle: design-prototype
 scope: uc-17-8-prototype-canvas
 covers: [B5.3]
