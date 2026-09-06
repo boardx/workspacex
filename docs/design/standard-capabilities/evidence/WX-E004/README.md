@@ -46,3 +46,7 @@ types and consequences. No error references the E004 API implementation or tests
 This is a recorded unresolved typecheck limit, not a passing typecheck claim.
 
 `git diff --check` passed for the modified tracked E004 API/test files.
+
+## Native graph incremental evidence
+
+The opt-in Python capability graph and real isolated skill execution are documented in [native-graph.md](./native-graph.md). Existing API evidence and its typecheck limitation above remain unchanged.
