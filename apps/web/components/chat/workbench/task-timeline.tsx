@@ -4,7 +4,7 @@ import { CopilotChatMessageView, CopilotChatAssistantMessage, useRenderToolCall 
 import { progressMessageIds, type TraceStore, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-message";
 import { RunTracePanel } from "./run-trace-panel";
-import { RunTraceCoveredContext } from "@/lib/chat-workbench/trace-context";
+import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
 
 function ExecutionTool({ entry }: { entry: TraceEntry }): React.ReactNode {
   const render = useRenderToolCall();
@@ -13,7 +13,7 @@ function ExecutionTool({ entry }: { entry: TraceEntry }): React.ReactNode {
     toolMessage: entry.result === undefined ? undefined : { id: `${entry.id}:result`, role: "tool", toolCallId: entry.id, content: typeof entry.result === "string" ? entry.result : JSON.stringify(entry.result) ?? "" },
   });
 }
-const renderExecutionTool = (entry: TraceEntry) => <ExecutionTool entry={entry} />;
+const renderExecutionTool = (entry: TraceEntry) => isDecisionTool(entry.kind === "skill" ? "call_skill" : entry.text) ? null : <ExecutionTool entry={entry} />;
 type TraceContext = { events: TraceStore; messageRuns: Readonly<Record<string, string>>; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void };
 const TraceContext = React.createContext<TraceContext>({ events: {}, messageRuns: {} });
 function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantMessage>): JSX.Element {
@@ -23,7 +23,7 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   const first = props.messages?.find((message) => message.role === "assistant" && messageRuns[message.id] === runId);
   return <>
     {runId && trace?.length && first?.id === props.message.id ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
-    <RunTraceCoveredContext.Provider value={Boolean(trace?.length)}>{trace && progressMessageIds(trace).has(props.message.id) ? null : <V2AssistantMessage {...props} />}</RunTraceCoveredContext.Provider>
+    <RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={trace && progressMessageIds(trace).has(props.message.id) ? { ...props.message, content: "" } : props.message} /></RunTraceCoveredContext.Provider>
   </>;
 }
 const TraceAssistantSlot = Object.assign(TraceAssistant, CopilotChatAssistantMessage);

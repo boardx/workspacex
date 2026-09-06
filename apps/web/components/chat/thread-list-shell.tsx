@@ -149,6 +149,7 @@ const THREAD_STATUS_LABEL: Record<ThreadCard["status"], string> = {
   "awaiting-approval": "等待你确认",
   failed: "未能完成",
   paused: "已暂停",
+  cancelled: "已停止",
   done: "已完成",
 };
 

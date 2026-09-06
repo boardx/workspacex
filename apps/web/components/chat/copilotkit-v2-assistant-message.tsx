@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RunTraceCoveredContext } from "@/lib/chat-workbench/trace-context";
+import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -141,7 +141,11 @@ function V2ToolCallsView(
   props: React.ComponentProps<typeof CopilotChatToolCallsView>,
 ): JSX.Element | null {
   const covered = React.useContext(RunTraceCoveredContext);
-  const toolCalls = props.message.toolCalls ?? [];
+  const allToolCalls = props.message.toolCalls ?? [];
+  const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name));
+  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name));
+  const decisions = decisionCalls.length ? <CopilotChatToolCallsView {...props} message={{ ...props.message, toolCalls: decisionCalls }} /> : null;
+  const traceProps = { ...props, message: { ...props.message, toolCalls } };
   const [expanded, setExpanded] = React.useState(false);
   // 2026-09-04（回指 issue #2451）—— 全局（跨整个对话，不只是这一条消息）唯一一次
   // "最新的 write_todos 调用"，见上面 `findLastWriteTodosToolCallId` 头注。
@@ -165,8 +169,10 @@ function V2ToolCallsView(
   // 消息各自的折叠面板不会撞 id）。
   const groupId = React.useId();
 
-  if (toolCalls.length === 0 || covered) return null;
+  if (toolCalls.length === 0 || covered) return decisions;
   return (
+    <>
+    {decisions}
     <div
       className="flex flex-col rounded-lg border border-border-subtle bg-muted/30"
       data-testid="copilotkit-v2-tool-calls-group"
@@ -200,9 +206,10 @@ function V2ToolCallsView(
         className="flex max-h-64 flex-col gap-1.5 overflow-y-auto border-t border-border-subtle p-2"
         data-testid="copilotkit-v2-tool-calls-group-body"
       >
-        <ToolCallsRenderer {...props} />
+        <ToolCallsRenderer {...traceProps} />
       </div>
     </div>
+    </>
   );
 }
 

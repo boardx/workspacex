@@ -38,6 +38,7 @@ function ledger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
     activeRunId: "run-1",
     pausedAt: null,
     pauseRequestedAt: null,
+    cancelRequestedAt: null,
     errorCode: null,
     failedStepId: null,
     ...overrides,

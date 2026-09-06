@@ -284,6 +284,7 @@ export const RUN_STATUS_TEXT: Record<AgentRunStatus, string> = {
   running: "正在执行",
   writeback_pending: "已产出，正在写回对话",
   paused: "已暂停",
+  cancelled: "已停止",
   awaiting_tool_permission: "等待你的批准（见上方审批卡）",
   succeeded: "执行完成，回复已写入对话",
   failed: "执行失败",

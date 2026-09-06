@@ -1,5 +1,5 @@
 import * as React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { RunTracePanel } from "@/components/chat/workbench/run-trace-panel";
@@ -21,4 +21,17 @@ describe("run trace disclosure", () => {
     fireEvent.click(screen.getByText("Tool · search"));
     expect(screen.getByText("done")).toBeVisible();
   });
+  it("shows a status-only disclosure and uses durable pause timestamps without a running spinner", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T00:00:20Z"));
+    const statusEvents: ExecutionEvent[] = [
+      { ...base, seq: 0, kind: "status", status: "running" },
+      { ...base, seq: 1, emittedAt: "2026-09-07T00:00:04Z", kind: "status", status: "paused" },
+    ];
+    const { container } = render(<RunTracePanel runId="run-1" events={statusEvents} running />);
+    expect(screen.getByTestId("run-trace-toggle")).toHaveTextContent("已暂停 · 历时 00:04");
+    expect(container.querySelector(".animate-spin")).toBeNull();
+    vi.useRealTimers();
+  });
+
 });

@@ -3,6 +3,8 @@
 import * as React from "react";
 import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
+import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
+import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
 import { useTemplateRecommendations, readTemplateSuggestionDismissed } from "@/lib/chat-workbench/use-template-recommendations";
 import { useTimelineScroll } from "@/lib/chat-workbench/use-timeline-scroll";
@@ -641,25 +643,7 @@ export function CopilotKitV2PanelBody({
     };
   }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace]);
 
-  /**
-   * session-switch task-state-loss fix —— 上面 hydration 找到的 `pendingRunId`
-   * 在这里核实真实服务端状态（轮询 `GET /agent-runs/:runId`，与旧轨道同一个端点/
-   * 同一条只读纪律，见 `useCopilotKitV2RunRestore` 文件头）。核实到终态后重读一遍
-   * 持久化消息，把服务端已经写回的助手回复（用户切走期间真实生成完的那条）合并进
-   * `agent.messages`——合并按 id 去重、只追加，不整体覆盖，与上面 hydration 效果
-   * 同一条纪律（覆盖会杀掉这期间用户可能发出的新消息）。
-   *
-   * 2026-08-30（devapp 真实用户复现：切回会话后"正在恢复上次未完成的任务…"卡住不动，
-   * 看不出任何结果——见 `useCopilotKitV2RunRestore` 文件头对 `RunRestoreOutcome`
-   * 的完整取证）—— 第一版这里不管 `onSettled` 是因为什么结束，一律安静清空
-   * `pendingRunId`：run 真的以 `failed` 收场、或轮询自己撑不住放弃（20 分钟预算耗尽/
-   * bearer 过期）时，用户看到的是"生成中"指示消失、自己发的消息没有任何回应、
-   * 也没有任何错误提示——比根本不做恢复还让人困惑。现在按 `outcome.kind` 分流：
-   * `settled` 且 `view.status === "failed"` 时把服务端错误码经既有
-   * `describeCopilotkitV2RunError` 译成人话显示（与 `send()` 失败路径同一条错误展示
-   * 通道，不新开一条）；`gave-up` 时如实说"没能确认"，不冒充成功也不冒充失败——
-   * budget 耗尽时 run 在服务端可能还在跑，冒充失败是撒谎。
-   */
+  // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
     if (outcome.kind === "gave-up") {
       setError(
@@ -714,6 +698,30 @@ export function CopilotKitV2PanelBody({
     getStoredSessionToken() ?? undefined,
     handleRunRestored,
   );
+
+  const bindTraceMessages = runTrace.bindMessages;
+  const restoreJournalResult = React.useCallback(async (runId: string): Promise<boolean> => {
+    if (agent.isRunning) return false;
+    const restoringThread = chatThreadIdRef.current;
+    if (!restoringThread) return false;
+    const { messages } = await readAllPersistedMessages(restoringThread, getStoredSessionToken() ?? undefined);
+    if (chatThreadIdRef.current !== restoringThread) return true;
+    const terminal = [...(runTrace.events[runId] ?? [])].reverse().find((event) => event.kind === "status");
+    if (!messages.some((message) => message.role === "assistant" && message.agentRunId === runId))
+      return terminal?.kind === "status" && (terminal.status === "failed" || terminal.status === "cancelled");
+    const known = new Set(agent.messages.flatMap((message) => [message.id, messageIdentity.resolvePersisted(message.id)]));
+    const restored = messages.filter((message) => message.role === "assistant" && message.agentRunId === runId && !known.has(message.id));
+    registerHydrated(restored.map((message) => ({ id: message.id, rateable: message.rateable })));
+    bindTraceMessages(messages);
+    if (restored.length) {
+      const finalIds = new Set((runTrace.events[runId] ?? []).filter((event) => event.kind === "final_message").map((event) => event.messageId));
+      agent.setMessages([...agent.messages.filter((message) => !finalIds.has(message.id)), ...restored.map((message) => ({ id: message.id, role: message.role, content: message.content }))]);
+    }
+    onMessageSent?.();
+    return true;
+  }, [agent, messageIdentity, registerHydrated, bindTraceMessages, onMessageSent, runTrace.events]);
+  useRunTraceTail({ threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
+    events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult });
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -1001,6 +1009,12 @@ export function CopilotKitV2PanelBody({
       phase: runProgress.stage,
     };
   });
+  const activeTrace = Object.entries(runTrace.events).filter(([, events]) => {
+    const status = [...events].reverse().find((event) => event.kind === "status");
+    return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
+  }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
+  const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? null, sessionToken);
+  React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
@@ -1880,7 +1894,7 @@ export function CopilotKitV2PanelBody({
                   onAutoPauseChange={voice.setAutoPause}
                   deviceMenuRequest={voice.deviceMenuRequest}
                 />
-                {agent.isRunning && !archived && inputDraft.trim() === "" ? (
+                {(runIsRunning || cancellation.requested) && !archived && inputDraft.trim() === "" ? (
                   /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
                      `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。
                      2026-09-06：只在输入框为空时是「停止」——一旦用户敲了字，它就是「发送」
@@ -1889,12 +1903,13 @@ export function CopilotKitV2PanelBody({
                     type="button"
                     data-testid="copilotkit-v2-send"
                     data-send-state="running"
-                    aria-label="停止生成"
-                    title="停止生成"
-                    onClick={() => agent.abortRun()}
+                    aria-label={cancellation.requested ? "停止中" : "停止生成"}
+                    title={cancellation.requested ? "等待服务端确认停止" : "停止生成"}
+                    onClick={() => void cancellation.cancel()}
+                    disabled={cancellation.requested || !cancellation.canCancel}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border bg-panel-alt text-card-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Square aria-hidden className="h-3 w-3 fill-current" />
+                    {cancellation.requested ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Square aria-hidden className="h-3 w-3 fill-current" />}
                   </button>
                 ) : (
                   <Button
