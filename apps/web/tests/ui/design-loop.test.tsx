@@ -1170,6 +1170,51 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.queryByTestId("design-detail-generating")).toBeNull();
   });
 
+  it("迭代 2 选中态：点画布节点 ⇒ 焦点 chip 显示标签与路径；发送带 focusNodeId；点 × 清除；节点消失后 chip 自动消失", async () => {
+    const tree = {
+      type: "stack" as const, id: "n1",
+      children: [
+        { type: "navbar" as const, id: "n2", props: { title: "首页" } },
+        { type: "button" as const, id: "n3", props: { label: "发送" } },
+      ],
+    };
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        // 模型把按钮删了 ⇒ 返回的树里没有 n3
+        return {
+          project: project({ frames: ["聊天"], prototype: [{ ...tree, children: [tree.children[0]!] }], chat: [
+            { role: "user", text: "删掉它", at: "2026-09-06T00:00:00.000Z" },
+            { role: "ai", text: "删了。", at: "2026-09-06T00:00:01.000Z", source: "model" },
+          ] }),
+          reply: { source: "model", applied: ["prototype"] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    const btn = screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n3"]') as HTMLElement;
+    fireEvent.click(btn);
+    const chip = screen.getByTestId("design-detail-focus");
+    expect(chip.textContent).toContain("按钮「发送」");
+    expect(chip.textContent).toContain("纵向布局");
+    expect(btn.getAttribute("data-selected")).toBe("true");
+    expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).placeholder).toContain("这个节点");
+    // 清除再选回
+    fireEvent.click(screen.getByTestId("design-detail-focus-clear"));
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    fireEvent.click(btn);
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "删掉它" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toEqual({ text: "删掉它", focusNodeId: "n3" });
+    await waitFor(() => expect(screen.queryByTestId("design-detail-focus")).toBeNull()); // n3 没了 ⇒ chip 消失
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();

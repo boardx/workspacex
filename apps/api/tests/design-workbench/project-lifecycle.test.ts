@@ -245,6 +245,19 @@ describe("appendProjectChat", () => {
     expect(out3.project.prototype).toEqual(out2.project.prototype);
   });
 
+  it("迭代 2 focusNodeId：找得到 ⇒ 模型上下文带 focus（页、路径、节点）；找不到 ⇒ 不带", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["聊天"], prototype: [
+      { id: "n1", type: "stack", children: [{ id: "n2", type: "button", props: { label: "发送" } }] },
+    ] }));
+    const ai = new FakeDesignChat();
+    await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "改成红色", focusNodeId: "n2" });
+    expect(ai.calls[0]?.focus).toEqual({ id: "n2", frame: "聊天", path: ["纵向布局", "按钮「发送」"], node: { id: "n2", type: "button", props: { label: "发送" } } });
+    const ai2 = new FakeDesignChat();
+    await appendProjectChat({ ...deps(repo), ai: ai2 }, { projectId: "dp-1", ownerId: "u-1", text: "x", focusNodeId: "gone" });
+    expect(ai2.calls[0]?.focus).toBeUndefined();
+  });
+
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));

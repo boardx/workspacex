@@ -35,7 +35,10 @@ export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteb
 export const DESIGN_CHAT_REPLY_TIMEOUT_MS = 90_000;
 
 /** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
-export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat">;
+export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat"> & {
+  /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
+  readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
+};
 
 export interface DesignChatReplyResult {
   readonly text: string;
@@ -77,8 +80,14 @@ function describeProject(ctx: DesignChatContext): string {
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
     `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
-    "对话记录（按时间顺序，最后一条是用户刚说的）：",
   ];
+  if (ctx.focus !== undefined) {
+    lines.push(
+      `用户当前在画布上选中了节点 id=${ctx.focus.id}（页「${ctx.focus.frame}」，路径：${ctx.focus.path.join(" > ")}）：${JSON.stringify(ctx.focus.node)}。` +
+        "这句话优先针对这个节点，用 patch 改它（setProps/replace/insert 到它/remove 它），除非用户明显在说别的。",
+    );
+  }
+  lines.push("对话记录（按时间顺序，最后一条是用户刚说的）：");
   if (ctx.chat.length === 0) lines.push("（还没有对话）");
   for (const t of ctx.chat) lines.push(`${t.role === "user" ? "用户" : "助手"}：${t.text}`);
   return lines.join("\n");

@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { PrototypeNode } from "./design-prototype";
+import { PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -317,7 +317,14 @@ export const operations = {
   appendProjectChat: {
     method: "POST",
     path: "/pm-designs/:projectId/chat",
-    in: z.object({ projectId: z.string(), text: z.string().min(1).max(4000) }).strict(),
+    in: z
+      .object({
+        projectId: z.string(),
+        text: z.string().min(1).max(4000),
+        /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
+        focusNodeId: PrototypeNodeId.optional(),
+      })
+      .strict(),
     out: z.object({ project: DesignProject, reply: DesignChatReply }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
   },

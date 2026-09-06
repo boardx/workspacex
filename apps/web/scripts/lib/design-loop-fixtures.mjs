@@ -195,6 +195,16 @@ export async function routeInbox(page, { empty }) {
  *   同一条路：由本脚本 `page.route()` 拦截提供固定夹具，不连真库（同一台机器随时能截出同一张图）。
  */
 const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
+/**
+ * 迭代 2：真栈里节点 id 由服务端 `ensurePrototypeIds` 落库时补齐（契约 design-prototype.ts）；本夹具是
+ * 前端 mock，没有服务端那一步，所以这里按同一规则（遍历序 n1、n2…）补上——选中态要靠 id 寻址。
+ */
+function withIds(roots) {
+  let k = 0;
+  const fill = (n) => ({ ...n, id: n.id ?? `n${(k += 1)}`, ...(Array.isArray(n.children) ? { children: n.children.map(fill) } : {}) });
+  return roots.map(fill);
+}
+
 export const DESIGN_PROJECTS = [
   {
     id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
@@ -224,7 +234,7 @@ export const DESIGN_PROJECTS = [
     problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
     criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
     frames: ["聊天", "历史会话"],
-    prototype: [
+    prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
         children: [
@@ -259,7 +269,7 @@ export const DESIGN_PROJECTS = [
           { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
         ],
       },
-    ],
+    ]),
     pushed: false, pushedAt: null, linkedFeedbackId: null,
     githubIssueUrl: null, githubIssueNumber: null,
     chat: [

@@ -74,12 +74,15 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text } },
+    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) } },
   );
 }
+/** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
+export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
+export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;
 
 export async function deleteProject(projectId: string): Promise<DeleteProjectOut> {
   return apiRequest<DeleteProjectOut>(
