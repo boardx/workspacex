@@ -23,6 +23,7 @@ import { addChatThread, addChatMessage } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
@@ -182,7 +183,10 @@ describe("F154 L2 —— thread_context_state 真实持久 + run 时直读（真
     const lastId = await seedTurns(30, 1);
     await enqueueRun(lastId, "run-v2-first");
     const firstCalls: ModelCallInput[] = [];
-    await executeQueuedRuns(deps(firstCalls), { orgId: toOrgId(ORG) });
+    const firstDeps = deps(firstCalls);
+    await executeQueuedRuns(firstDeps, { orgId: toOrgId(ORG) });
+    // A second run shares this thread only after the first reaches a terminal state.
+    expect(await writeBackPendingRuns(firstDeps, { orgId: toOrgId(ORG) })).toBe(1);
 
     const stateAfterFirst = await readContextState();
     expect(stateAfterFirst).not.toBeNull();

@@ -23,6 +23,7 @@ import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-ident
 import { PgCanvasTemplateRepository } from "../../src/infrastructure/canvas/pg-canvas-template-repository";
 import { UuidDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { createCanvasTemplateGuidancePort } from "../../src/application/agent-run/canvas-template-guidance";
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
@@ -123,7 +124,10 @@ async function askAndRun(
   await addChatMessage({ orgId: ORG, id: qid, threadId, body: question, authorId: ACTOR });
   await enqueueRun(threadId, qid, runId);
   const calls: ModelCallInput[] = [];
-  await executeQueuedRuns(deps(calls, withCanvas), { orgId: toOrgId(ORG) });
+  const runtimeDeps = deps(calls, withCanvas);
+  await executeQueuedRuns(runtimeDeps, { orgId: toOrgId(ORG) });
+  // Finish writeback so the next run on this thread can be claimed.
+  expect(await writeBackPendingRuns(runtimeDeps, { orgId: toOrgId(ORG) })).toBe(1);
   const call = calls.at(-1);
   expect(call).toBeDefined();
   return { system: call!.system };

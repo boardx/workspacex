@@ -63,7 +63,9 @@ describe("durable workbench input", () => {
     await queue.submit(org, "queue-run-a", pending("one"));
     expect(await queue.pollForKernel(toOrgId(OTHER), "queue-run-a", ["one"])).toEqual([]);
     expect(await queue.pollForKernel(org, "queue-run-b", ["one"])).toEqual([]);
-    await queue.submit(toOrgId(OTHER), "queue-run-a", pending("attack"));
+    await expect(queue.submit(toOrgId(OTHER), "queue-run-a", pending("attack")))
+      .rejects.toMatchObject({ status: "not_running" });
+    expect(await queue.pollForKernel(toOrgId(OTHER), "queue-run-other", [])).toEqual([]);
     expect((await queue.pollForKernel(org, "queue-run-a", [])).map(v => v.interjectionId)).toEqual(["one"]);
   });
 
