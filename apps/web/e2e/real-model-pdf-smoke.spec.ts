@@ -183,11 +183,11 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
       errorSeenText = normalizeBubble(await errorBanner.innerText().catch(() => "<读不到正文>"));
     }
     if (observedRunId === null) {
-      // issue #2756 的插话框把在途 run 的**真实 runId**挂成 `data-run-id`——这是
-      // 浏览器侧唯一够得到的真实 run 标识（v2 面板本身不往 DOM 里写 runId）。
+      // 在途 run 的**真实 runId**挂在进度卡 `copilotkit-v2-running-indicator` 的 `data-run-id`
+      // 上（原挂在 issue #2756 的插话框上，该框已撤）——浏览器侧唯一够得到的真实 run 标识。
       // ⚠ 先数节点再取属性：`getAttribute` 对不存在的节点会**等满 actionTimeout**，
       //   那会让这条 2 秒一轮的采样循环变成 60 秒一轮，前面几件转瞬即逝的事就都错过了。
-      const interjection = page.getByTestId("chat-host-interjection");
+      const interjection = page.getByTestId("copilotkit-v2-running-indicator");
       if (await interjection.count() > 0) {
         observedRunId = await interjection.first().getAttribute("data-run-id").catch(() => null);
       }

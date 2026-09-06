@@ -226,9 +226,14 @@ function ShellChrome({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rightCollapsed]);
 
+  // 2026-09-06 人类实测（/chat）：整个界面被一路滚到底、屏幕滚成空白。`overflow-hidden`
+  // 只是不画滚动条，`focus()` / `scrollIntoView()` 仍会把这个容器的 `scrollTop` 推上去
+  // （子树里任何一处 min-h-0 缺失让内容高过 h-dvh 就会触发）。`overflow-clip` 是规范里
+  // 「根本不是滚动容器」的那一档，程序化滚动也推不动它——壳的滚动只发生在各栏自己的
+  // `overflow-y-auto` 里。
   return (
     <FeedbackProvider>
-    <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
+    <div data-testid="app-shell" className="flex h-dvh w-full overflow-clip bg-background">
       <div className="hidden md:flex">
         <IconRail
           identity={identity}
