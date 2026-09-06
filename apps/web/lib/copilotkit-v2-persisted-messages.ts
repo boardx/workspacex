@@ -27,6 +27,7 @@ export type PersistedMessage = {
    * `DurableMessage` 里带这个字段，此前只是没有投影出来。
    */
   authorId: string;
+  agentRunId?: string | null;
   /**
    * CK-P3（issue #2054）—— 这条消息能不能调 `rateMessage`。
    *
@@ -73,6 +74,7 @@ export async function readAllPersistedMessages(
         role: m.authorKind === "human" ? "user" : "assistant",
         content: m.text,
         authorId: m.authorId,
+        agentRunId: m.agentRunId,
         rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
       rawForPendingRunLookup.push({

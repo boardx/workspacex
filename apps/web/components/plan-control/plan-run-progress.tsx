@@ -31,6 +31,7 @@ export interface PlanRunProgressProps {
   readonly stepTotal: number;
   readonly elapsedMs: number;
   readonly isPaused: boolean;
+  readonly isPauseRequested?: boolean;
   readonly onPause?: () => void;
   readonly onResume?: () => void;
   /**
@@ -49,7 +50,7 @@ export interface PlanRunProgressProps {
 export function PlanRunProgress(
   {
     currentStepLabel, stepIndex, stepTotal, elapsedMs, isPaused, onPause, onResume,
-    hasRecentError = false,
+    hasRecentError = false, isPauseRequested = false,
   }: PlanRunProgressProps,
 ): React.JSX.Element {
   return (
@@ -68,10 +69,10 @@ export function PlanRunProgress(
             </Button>
           ) : (
             <Button
-              size="sm" variant="outline" className="ml-auto" disabled={hasRecentError}
+              size="sm" variant="outline" className="ml-auto" disabled={hasRecentError || isPauseRequested}
               data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}
             >
-              <Pause aria-hidden className="h-3.5 w-3.5" /> 暂停
+              <Pause aria-hidden className="h-3.5 w-3.5" /> {isPauseRequested ? "暂停中…" : "暂停"}
             </Button>
           )}
         </div>

@@ -40,6 +40,8 @@ import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } 
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
   return {
+    pausedAt: null,
+    pauseRequestedAt: null,
     revision: 3,
     engineEpoch: 1,
     origin: "engine",

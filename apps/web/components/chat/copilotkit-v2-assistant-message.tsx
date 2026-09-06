@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { RunTraceCoveredContext } from "@/lib/chat-workbench/trace-context";
 import { Wrench, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   useConfigureSuggestions,
@@ -57,33 +58,8 @@ function V2MarkdownRenderer({
   return <MarkdownMessage text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
 }
 
-/**
- * 2026-08-30 人类实测反馈——「展示的 tools 的调用历史应该简化放在一个统一的 panel，
- * 可以缩放，目前的 uiux 不对」。此前 `copilotkit-v2-tool-renderers.tsx` 给每个工具
- * 调用（`list_org_skills`/`ls`/`glob`×N/`write_file`……）各注册一张独立的 Card，
- * 通用助手一轮跑下来常常是七八次探测性调用（找字体、列目录），逐张卡片纵向堆叠，
- * 把真正的回复挤到几屏之下——用户等的是"文件生成了没有"，不是逐条工具调用记录。
- *
- * `CopilotChatAssistantMessage` 恰好留了一个我们此前没用过的 slot——`toolCallsView`
- * （框架自带 `CopilotChatToolCallsView` 的替换点，读 `message.toolCalls` 逐条分派给
- * 已注册的 per-tool 渲染器，见框架源码 `CopilotChatToolCallsView.tsx`）。这里不重写
- * 分派逻辑（那是 `copilotkit-v2-tool-renderers.tsx` 里 `useRenderTool`/
- * `useDefaultRenderTool` 已经做的事，各工具卡片本身不变），只是把框架默认"直接摊平
- * 渲染"的位置，换成一个折叠面板——收起时只显示一行"工具调用 · N 步"，展开后原样
- * 渲染每张已有卡片，容器给 `max-h` + 内部滚动（"可以缩放"里"可滚动查看全部"这半句
- * 落地的方式；真正的窗口缩放交给浏览器自身，这里不做拖拽 resize，那是本仓目前没有
- * 先例的一整套新交互，本次不追加）。
- *
- * ⚠ 只有 1 次工具调用时不折叠——直接展开渲染：折叠一次调用没有信息密度上的收益，
- *   只会让用户多点一次。
- *
- * ⚠ 默认**展开**，不是默认收起：`copilotkit-v2-tool-rendering.spec.ts` 等既有 e2e
- *   在发消息后直接断言某张工具卡片 `toBeVisible()`，不会先去点开一个折叠面板——
- *   默认收起会让这些断言在"这一轮恰好不止一次工具调用"时全部落空（元素根本没
- *   渲染，不是被 CSS 藏起来）。收起是**用户自己按需要点**的动作，不是本次改动
- *   替用户做的默认判断；真正解决的是"逐张卡片散落一地"——现在至少收进同一个
- *   容器，视觉上是一组，不是不相关的 N 个浮动卡片。
- */
+/** Legacy messages without a durable run trace still use the registered tool renderers,
+ * inside a default-collapsed disclosure (including a single call). */
 /**
  * issue #2451 —— 真实截图抓到的问题：一轮回复里模型调用了不止一次 `write_todos`
  * （改主意/纠正上一版计划），每次调用各自独立注册渲染（`useRenderTool` 按
@@ -164,8 +140,9 @@ function WriteTodosDedupedToolCallsView(
 function V2ToolCallsView(
   props: React.ComponentProps<typeof CopilotChatToolCallsView>,
 ): JSX.Element | null {
+  const covered = React.useContext(RunTraceCoveredContext);
   const toolCalls = props.message.toolCalls ?? [];
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   // 2026-09-04（回指 issue #2451）—— 全局（跨整个对话，不只是这一条消息）唯一一次
   // "最新的 write_todos 调用"，见上面 `findLastWriteTodosToolCallId` 头注。
   const lastWriteTodosCallId = React.useMemo(
@@ -188,16 +165,7 @@ function V2ToolCallsView(
   // 消息各自的折叠面板不会撞 id）。
   const groupId = React.useId();
 
-  if (toolCalls.length === 0) return null;
-  // 单次调用也可能已经被后面一条消息的 write_todos 取代（本轮新覆盖的跨消息场景）——
-  // 这种情况仍要走去重渲染（贴"计划已更新"徽标），只是不需要"工具调用 · N 步"这层
-  // 可折叠外壳（那层壳是给"这条消息本身有一大串调用"用的，与跨消息去重是两件事）。
-  if (toolCalls.length === 1) {
-    return hasSupersededWriteTodos
-      ? <WriteTodosDedupedToolCallsView {...props} lastWriteTodosCallId={lastWriteTodosCallId} />
-      : <CopilotChatToolCallsView {...props} />;
-  }
-
+  if (toolCalls.length === 0 || covered) return null;
   return (
     <div
       className="flex flex-col rounded-lg border border-border-subtle bg-muted/30"
