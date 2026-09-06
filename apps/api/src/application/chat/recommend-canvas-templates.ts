@@ -1,6 +1,7 @@
 /**
  * `recommendCanvasTemplates` —— chat 建议行里那排**画布模板推荐**的服务端
- * （issue #2825，契约面见 `packages/contracts/src/chat.ts` 同名操作，设计增量待补签）。
+ * （issue #2825，契约面见 `packages/contracts/src/chat.ts` 同名操作——设计增量，
+ * 2026-09-06 已人类签核）。
  *
  * ## 这个文件自己只做取数与判权，判定全在纯函数里
  *
