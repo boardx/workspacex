@@ -69,13 +69,32 @@ from deepagents.middleware.rubric import RubricState
 
 # DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
 # 正文只留文件引用（实测行为：ToolMessage 被替换为
-# "saved in the filesystem at this path: /large_tool_results/<call_id>"，
-# 完整内容落 state files——2026-08-23 进程内实测，见 test_harness.py 的反证）。
+# "Tool result too large, ... saved in the filesystem at this path:
+# /large_tool_results/<call_id>" + 一段截断预览，完整内容落 state files——
+# 2026-08-23 进程内实测，见 test_harness.py 的反证；apps/api 侧对同一形状的描述见
+# `deep-agent-model-provider.ts` 的 `ThreadStateFileData` 与 `agui-file-events.ts` 头注，
+# apps/web 侧的识别在 `lib/tool-result-eviction.ts`）。
 #
-# 1000 token ≈ 4KB 文本，对齐 rubric v2 的量化口径（人类改进意见第 4 条）。
+# 默认 8000 token ≈ 32KB 文本。此前钉 1000（≈4KB，rubric v2 量化口径）——2026-09-06
+# devapp 实测：`task` 子代理稍长一点的汇报就被驱逐，用户在 /chat 工具卡里看到的是
+# 一段给模型看的英文搬运占位而不是结果，模型还要再花一次 read_file 往返把它读回来；
+# 阈值本身太低比"上下文省一点"更伤。可由 `KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS`
+# 覆盖（正整数；非法值回落默认），部署/测试要把它压小时不必改代码。
 # deepagents 默认 20000（≈80KB）——不显式固定就是吃库默认，升级时默认值漂移会
 # 悄悄改变我们的上下文策略，与 Summarization trigger/keep 同一条纪律。
-TOOL_RESULT_EVICT_TOKENS = 1000
+TOOL_RESULT_EVICT_TOKENS = 8000
+TOOL_RESULT_EVICT_TOKENS_ENV = "KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS"
+
+
+def tool_result_evict_tokens() -> int:
+    """驱逐阈值：`KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS` 覆盖，否则 `TOOL_RESULT_EVICT_TOKENS`。
+
+    在 `build_middleware` 调用时读取（不是 import 时），测试用 monkeypatch 设 env 即可生效。
+    """
+    raw = (os.environ.get(TOOL_RESULT_EVICT_TOKENS_ENV) or "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    return TOOL_RESULT_EVICT_TOKENS
 
 # DA-07d（#1749，rubric D7 三件套）：死循环纠偏 + 预算熔断 + 失败重试。全部用
 # langchain 原生 middleware，参数显式钉死不吃库默认（同 Summarization 的纪律）。
@@ -870,7 +889,7 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
         ),
         # by-name override（0.7 机制）：同名实例替换 create_deep_agent 内建的默认
         # FilesystemMiddleware，不是叠第二份——文件工具仍只有一套。
-        FilesystemMiddleware(tool_token_limit_before_evict=TOOL_RESULT_EVICT_TOKENS),
+        FilesystemMiddleware(tool_token_limit_before_evict=tool_result_evict_tokens()),
         ToolCallLimitMiddleware(run_limit=RUN_TOOL_CALL_LIMIT, exit_behavior="continue"),
         ModelCallLimitMiddleware(run_limit=RUN_MODEL_CALL_LIMIT, exit_behavior="end"),
         ToolRetryMiddleware(max_retries=2),
