@@ -22,6 +22,7 @@
  *   `SANDBOX_UNAVAILABLE`(运维要去看服务)与 `SCRIPT_FAILED_AFTER_RETRIES`
  *   (模型写的脚本一直修不对),而 contract §6.2 明确要求这两件事不能合并。
  */
+import { parseInputFiles, MAX_INPUT_FILE_BYTES, type SandboxInputFile } from "./input-files.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { executeScript } from "./execute-script.js";
 
@@ -30,7 +31,7 @@ export const MAX_TIMEOUT_MS = 300_000;
 export const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** 请求体上限——脚本是模型写的,不该有兆级的。 */
-const MAX_REQUEST_BYTES = 1024 * 1024;
+const MAX_REQUEST_BYTES = Math.ceil(MAX_INPUT_FILE_BYTES * 4 / 3) + 1024 * 1024;
 
 export interface SandboxServerOptions {
   readonly preinstalledModulesDir?: string;
@@ -91,18 +92,22 @@ async function handle(
     return;
   }
 
-  const body = parsed as { script?: unknown; timeoutMs?: unknown };
+  const body = parsed as { script?: unknown; timeoutMs?: unknown; inputFiles?: unknown };
   if (typeof body.script !== "string" || body.script === "") {
     send(res, 400, { error: "script must be a non-empty string" });
     return;
   }
 
+  let inputFiles: readonly SandboxInputFile[];
+  try { inputFiles = parseInputFiles(body.inputFiles); }
+  catch { send(res, 400, { error: "invalid sandbox input files" }); return; }
   const requested = typeof body.timeoutMs === "number" ? body.timeoutMs : DEFAULT_TIMEOUT_MS;
   // 调用方只能收紧,不能放宽——否则一个 timeoutMs: 1e9 就把 wall-clock 硬超时废掉了。
   const timeoutMs = Math.max(1, Math.min(Math.floor(requested), MAX_TIMEOUT_MS));
 
   const result = await executeScript({
     script: body.script,
+    inputFiles,
     timeoutMs,
     nodeBinary: options.nodeBinary,
     preinstalledModulesDir: options.preinstalledModulesDir,

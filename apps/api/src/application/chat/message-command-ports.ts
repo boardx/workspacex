@@ -1,3 +1,4 @@
+import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 
@@ -234,6 +235,7 @@ export interface ChatMessageCommandRepository {
        * 回滚整条消息（消息与挂附件是一个原子动作）。空/缺省 = 不挂附件。
        */
       attachmentIds?: readonly string[];
+      artifactContinuation?: ArtifactContinuationContext;
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
 

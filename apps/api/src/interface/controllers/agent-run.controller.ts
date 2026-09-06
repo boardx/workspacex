@@ -1,3 +1,5 @@
+import { cancelAgentRun, RunCancellationConflictError, RunCancellationUnavailableError } from "../../application/agent-run/cancel-run";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 /**
  * `GET /agent-runs/:runId` -- Wave 2's run transport (delta §5).
  *
@@ -73,7 +75,26 @@ export class AgentRunController {
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
     @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(MODEL_CALL_PORT) private readonly model?: ModelCallPort,
   ) {}
+
+  @Post("/agent-runs/:runId/cancel")
+  @HttpCode(202)
+  async cancel(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    try {
+      return await cancelAgentRun({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+        model: this.model, liveQueue: Boolean(this.interjections.pollForKernel) },
+        { orgId: toOrgId(principal.orgId), userId: principal.userId, runId });
+    } catch (error) {
+      if (error instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (error instanceof AgentRunRetryForbiddenError) throw new ForbiddenException();
+      if (error instanceof RunCancellationConflictError) throw new ConflictException("run_not_cancellable");
+      if (error instanceof RunCancellationUnavailableError) throw new ServiceUnavailableException("safe_cancel_unavailable");
+      if (error instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw error;
+    }
+  }
 
   @Get("/agent-runs/:runId/execution-events")
   async executionEvents(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
@@ -185,6 +206,8 @@ export class AgentRunController {
       });
       if (outcome.kind === "succeeded") {
         write({ type: "final", status: "succeeded", resultMessageId: outcome.resultMessageId });
+      } else if (outcome.kind === "paused" || outcome.kind === "cancelled") {
+        write({ type: "final", status: outcome.kind });
       } else if (outcome.kind === "failed") {
         write({ type: "final", status: "failed", error: outcome.error });
       } else {

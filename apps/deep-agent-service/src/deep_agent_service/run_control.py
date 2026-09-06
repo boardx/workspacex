@@ -42,6 +42,9 @@ def _values(response: httpx.Response, pause_at_boundary: bool) -> list[dict]:
     values = body.get("interjections")
     if not isinstance(values, list) or len(values) > 100:
         raise ValueError("invalid run control callback response")
+    if pause_at_boundary and body.get("cancelRequested") is True:
+        from langgraph.types import interrupt
+        interrupt({"kind": "user_cancel"})
     if pause_at_boundary and body.get("pauseRequested") is True:
         from langgraph.types import interrupt
         # Dynamic interrupt is checkpointed by LangGraph. The gateway marks paused

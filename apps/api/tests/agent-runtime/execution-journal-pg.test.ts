@@ -84,6 +84,46 @@ describe("durable execution journal", () => {
     expect(events.map((event) => event.attemptId)).toEqual(["attempt-1", "attempt-2"]);
     expect(events.map((event) => event.seq)).toEqual([0, 1]);
   });
+  it("journals early failures atomically even without any model callback", async () => {
+    await repo.failRun(toOrgId(ORG), RUN, "MODEL_CALL_FAILED");
+    const events = await repo.readExecutionEvents(toOrgId(ORG), RUN, -1);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ kind: "status", status: "failed", attemptId: `${RUN}:1` });
+  });
+  it("journals watchdog failures and does not fabricate a successful pause after settlement", async () => {
+    await asApp(ORG, (client) => client.query("UPDATE agent_runs SET started_at=now()-interval '1 hour' WHERE id=$1", [RUN]));
+    expect(await repo.reclaimStaleRunning(toOrgId(ORG), 1)).toBe(1);
+    await repo.pauseAtCheckpoint(toOrgId(ORG), RUN);
+    const events = await repo.readExecutionEvents(toOrgId(ORG), RUN, -1);
+    expect(events.map((event) => event.kind === "status" ? event.status : event.kind)).toEqual(["failed"]);
+  });
+  it("rolls back status events when an illegal state transition is rejected", async () => {
+    await expect(asApp(ORG, (client) => client.query("UPDATE agent_runs SET status='succeeded' WHERE id=$1", [RUN]))).rejects.toThrow();
+    expect(await repo.readExecutionEvents(toOrgId(ORG), RUN, -1)).toEqual([]);
+  });
+  it("keeps cancellation pending while work runs, then confirms at a boundary and cannot reopen", async () => {
+    expect(await repo.cancelAtCheckpoint(toOrgId(ORG), RUN)).toBe(false);
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancel_requested");
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancel_requested");
+    expect(await repo.readExecutionEvents(toOrgId(ORG), RUN, -1)).toEqual([]);
+    expect(await repo.cancelAtCheckpoint(toOrgId(ORG), RUN)).toBe(true);
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancelled");
+    expect(await repo.resumeCheckpoint(toOrgId(ORG), RUN)).toBe(false);
+    await repo.failRun(toOrgId(ORG), RUN, "MODEL_CALL_FAILED");
+    const events = await repo.readExecutionEvents(toOrgId(ORG), RUN, -1);
+    expect(events.map((event) => event.kind === "status" ? event.status : event.kind)).toEqual(["cancelled"]);
+  });
+  it("settles a late accepted cancellation atomically before writeback and rejects requests after that boundary", async () => {
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancel_requested");
+    await repo.storeOutputAwaitingWriteback(toOrgId(ORG), RUN, { text: "done", finalStepSeq: 1 });
+    const cancelled = await asApp(ORG, (client) => client.query("SELECT status FROM agent_runs WHERE id=$1", [RUN]));
+    expect(cancelled.rows[0].status).toBe("cancelled");
+    expect((await repo.readExecutionEvents(toOrgId(ORG), RUN, -1)).at(-1)).toMatchObject({ kind: "status", status: "cancelled" });
+  });
+  it("rejects cancellation after the writeback transaction boundary", async () => {
+    await repo.storeOutputAwaitingWriteback(toOrgId(ORG), RUN, { text: "done", finalStepSeq: 1 });
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe(null);
+  });
   it("only resumes a settled pause once and atomically clears its request marker", async () => {
     expect(await repo.resumeCheckpoint(toOrgId(ORG), RUN)).toBe(false);
     await repo.pauseAtCheckpoint(toOrgId(ORG), RUN);

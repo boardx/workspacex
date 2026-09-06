@@ -193,9 +193,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; status: string; pending_tool_name: string | null; created_at: Date; agent_id: string;
-        remote_run_id: string | null; paused_at: Date | null; error_code: string | null; model_provider: string; pause_requested_at: Date | null;
+        remote_run_id: string | null; paused_at: Date | null; error_code: string | null; model_provider: string; pause_requested_at: Date | null; cancel_requested_at: Date | null;
       }>(
-        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at, error_code, model_provider, pause_requested_at
+        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at, error_code, model_provider, pause_requested_at, cancel_requested_at
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -208,6 +208,7 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         runId: row.id,
         modelProvider: row.model_provider,
         pauseRequestedAt: row.pause_requested_at?.toISOString() ?? null,
+        cancelRequestedAt: row.cancel_requested_at?.toISOString() ?? null,
         status: toRunStatusForPhase(row.status),
         pendingToolName: row.status === "awaiting_tool_permission" ? row.pending_tool_name : null,
         createdAt: row.created_at.toISOString(),

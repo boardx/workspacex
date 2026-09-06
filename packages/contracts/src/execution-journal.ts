@@ -4,7 +4,7 @@ import { z } from "zod";
 export const AGUI_EXECUTION_EVENT_NAME = "execution_event" as const;
 const base = { attemptId: z.string().optional(), runId: z.string().min(1), seq: z.number().int().nonnegative(), emittedAt: z.string() };
 export const ExecutionEvent = z.discriminatedUnion("kind", [
-  z.object({ ...base, kind: z.literal("status"), status: z.enum(["running", "succeeded", "failed", "paused", "awaiting_tool_permission"]) }),
+  z.object({ ...base, kind: z.literal("status"), status: z.enum(["running", "succeeded", "failed", "paused", "cancelled", "awaiting_tool_permission"]) }),
   z.object({ ...base, kind: z.literal("final_message"), messageId: z.string().min(1) }),
   z.object({ ...base, kind: z.literal("text_delta"), messageId: z.string().min(1), delta: z.string() }),
   z.object({ ...base, kind: z.literal("tool_start"), toolCallId: z.string().min(1), toolName: z.string(), args: z.unknown() }),

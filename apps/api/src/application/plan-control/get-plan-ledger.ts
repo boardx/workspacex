@@ -22,6 +22,7 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "./ports";
 export interface GetPlanLedgerOutput {
   readonly pausedAt: string | null;
   readonly pauseRequestedAt: string | null;
+  readonly cancelRequestedAt: string | null;
   readonly revision: number;
   readonly engineEpoch: number;
   readonly origin: PlanOrigin;
@@ -103,6 +104,7 @@ export async function getPlanLedger(
   return {
     pausedAt: run?.pausedAt ?? null,
     pauseRequestedAt: run?.pauseRequestedAt ?? null,
+    cancelRequestedAt: run?.cancelRequestedAt ?? null,
     revision: ledger?.revision ?? 0,
     engineEpoch: ledger?.engineEpoch ?? 0,
     origin: ledger?.origin ?? "engine",

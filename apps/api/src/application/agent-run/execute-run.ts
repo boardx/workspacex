@@ -1,3 +1,4 @@
+import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
 import { publicExecutionPayload } from "./public-execution-payload";
 /**
  * `executeAgentRun` -- the Wave 2 §5 slice, and nothing else.
@@ -400,6 +401,7 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  readonly artifactContinuations?: ArtifactContinuationReader;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
   /**
@@ -1014,7 +1016,8 @@ async function executeClaimed(
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
   // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
   history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
-  let userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+  const artifactContinuation = await deps.artifactContinuations?.prepare(orgId, run.runId);
+  let userText = withAttachmentNotice(run.inputText, run.inputAttachments) + (artifactContinuation ? `\n\n${artifactContinuation.instruction}` : "");
 
   /*
    * P2（#1561）—— 图像通道：把本轮触发消息挂的图片按可见性规则取出、定界，交给支持视觉的
@@ -1119,7 +1122,6 @@ async function executeClaimed(
   let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
-  await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "status", status: "running", attemptId: executionAttemptId });
   try {
     // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
     // shape `deps.model` actually offers for this run's pinned provider; every field below
@@ -1220,14 +1222,16 @@ async function executeClaimed(
         publishTokenDelta(deps, orgId, run.runId, delta);
       },
     );
+    if (completion.cancelled) {
+      if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");
+      await deps.runs.cancelAtCheckpoint(orgId, run.runId); return;
+    }
     if (completion.paused) {
       if (!deps.runs.pauseAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "pause persistence unavailable");
-      await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "status", status: "paused", attemptId: executionAttemptId });
       await deps.runs.pauseAtCheckpoint(orgId, run.runId);
       return;
     }
     if (completion.interrupted !== undefined) {
-      await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "status", status: "awaiting_tool_permission", attemptId: executionAttemptId });
       await handleInterruptedToolCall(deps, orgId, run.runId, completion.interrupted, {
         seq: seqCursor.value, modelStartedAt, systemDigest, system,
       }, skillRisks);
@@ -1271,7 +1275,6 @@ async function executeClaimed(
     await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     await deps.runs.failRun(orgId, run.runId, code);
     publishStatusChange(deps, orgId, run.runId, "failed");
-    await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "status", status: "failed", attemptId: executionAttemptId });
     return;
   }
   await record(deps, orgId, {
@@ -1301,15 +1304,13 @@ async function executeClaimed(
    *   run 的终态错误码不进响应正文（本文件的既有纪律）。
    */
   let outputFiles: readonly ProducedFile[] = [];
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   {
     const scripted = await maybeRunSkillScript(
       {
         sandbox: deps.sandbox,
         objects: deps.objects,
         log: deps.log,
-        // 回喂：把上一次的真实 exitCode/stderr 作为一条 user 消息再问一次。
-        // 用**同一个** system（含 skill 正文与执行协议）与同一段 history，
-        // 否则第二次生成的脚本会在一个与第一次不同的上下文里写出来。
         regenerate: async (feedback) => {
           const retry = await deps.model.complete({
             modelProvider: run.modelProvider,
@@ -1336,15 +1337,14 @@ async function executeClaimed(
           return retryCandidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
         },
       },
-      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates },
+      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
     );
     text = scripted.text;
     outputFiles = scripted.files;
   }
 
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   /* ── hand off to #413 ── */
-  // `writeback_pending`, not `succeeded`. §6: the run may only become succeeded after the
-  // Chat writeback transaction commits, and that transaction is not in this slice.
   await deps.runs.storeOutputAwaitingWriteback(
     orgId, run.runId,
     // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。

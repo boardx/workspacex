@@ -324,6 +324,7 @@ export const Citation = z.object({
  *   裸枚举词直接印上界面已被验收卡 `TW-COPY-1` 黑名单挡住（本仓 #728 栽过一次）。
  */
 export const ThreadCardStatus = z.enum([
+  "cancelled",
   "paused",
   "not-started",
   "running",

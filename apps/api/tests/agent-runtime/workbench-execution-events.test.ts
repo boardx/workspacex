@@ -47,6 +47,10 @@ describe("workbench public execution", () => {
     const result = await provider().completeWithProgress(input, async () => {});
     expect(result).toEqual({ text: "", paused: true });
   });
+  it("confirms a real cancellation interrupt separately from pause", async () => {
+    fakeKernel([], { task: [{ value: { kind: "user_cancel" } }] });
+    expect(await provider().completeWithProgress(input, async () => {})).toEqual({ text: "", cancelled: true });
+  });
   it("streams public text with message identities while rejecting human and reasoning chunks", async () => {
     fakeKernel([{ type: "ai", id: "final-id", content: "answer" }]);
     const original = globalThis.fetch;

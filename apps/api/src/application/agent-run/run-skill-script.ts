@@ -1,3 +1,4 @@
+import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
  * `maybeRunSkillScript` —— 把**已经在试跑那条链上跑通的**沙箱执行接到 chat（#1624）。
  *
@@ -140,6 +141,7 @@ export interface MaybeRunSkillScriptDeps {
 }
 
 export interface MaybeRunSkillScriptInput {
+  readonly inputFiles?: readonly SandboxInputFile[];
   readonly runId: string;
   /** 本次 run 钉住的 skill 版本数。0 ⇒ 不执行。 */
   readonly pinnedSkillCount: number;
@@ -183,6 +185,7 @@ export async function maybeRunSkillScript(
       sandbox,
       timeoutMs: deps.timeoutMs ?? CHAT_SCRIPT_TIMEOUT_MS,
       maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
+      inputFiles: input.inputFiles,
       log: deps.log,
       // 第 1 次复用已有回复（feedback === null），之后才真的再调模型。
       generateScript: async (feedback) => (feedback === null ? scriptSource : deps.regenerate(feedback)),

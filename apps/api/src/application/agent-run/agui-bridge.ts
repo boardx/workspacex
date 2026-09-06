@@ -239,7 +239,7 @@ export interface RunStepPublic {
 }
 
 export type AguiBridgeOutcome =
-  | { readonly kind: "paused"; readonly threadId: string; readonly runId: string }
+  | { readonly kind: "paused" | "cancelled"; readonly threadId: string; readonly runId: string }
   | {
     readonly kind: "succeeded";
     readonly threadId: string;
@@ -390,9 +390,9 @@ async function pollAguiRunToOutcome(
       if (message === undefined) throw new AguiBridgeResultUnreadableError();
       return { kind: "succeeded", threadId, runId, messageId: message.id, text: message.text };
     }
-    if (projection.status === "paused") {
+    if (projection.status === "paused" || projection.status === "cancelled") {
       await flushExecutionEvents();
-      return { kind: "paused", threadId, runId };
+      return { kind: projection.status, threadId, runId };
     }
     if (projection.status === "failed") {
       await flushRemainingDeltas();

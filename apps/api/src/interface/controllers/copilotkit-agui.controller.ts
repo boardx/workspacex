@@ -980,18 +980,19 @@ export class CopilotkitAguiController {
         // `succeeded` branch -- `failed`/`awaiting_tool_permission` never reach `commitWriteback`,
         // so there is no result message any attachment could be filed under.
         //
-        // `/copilotkit/agui` only ever creates personal threads (`projectId: null`, see
-        // `agui-bridge.ts`'s file head "op:create, projectId:null") -- this bridge has no
-        // project-scoped variant, so this is not a narrowed special case of a wider one.
+        // Existing project threads use the same bridge. Resolve scope from the
+        // accepted run, never from a client-supplied project or a personal default.
+        const outputLocator = await this.runs.findLocator(toOrgId(principal.orgId), outcome.runId);
+        if (!outputLocator) throw new Error("completed run scope unavailable");
         const producedFiles = await listThreadAttachments(
           { repo: this.repo, ids: this.ids, chat: this.chat, attachments: this.attachments },
-          { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId: null, threadId: outcome.threadId },
+          { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId: outputLocator.projectId, threadId: outcome.threadId },
         );
         for (const value of buildFileCreatedEvents(producedFiles.items, outcome.messageId)) {
           write({ type: EventType.CUSTOM, name: AGUI_FILE_EVENT_NAME.FILE_CREATED, value });
         }
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
-      } else if (outcome.kind === "paused") {
+      } else if (outcome.kind === "paused" || outcome.kind === "cancelled") {
         closeExecutionMessage();
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else if (outcome.kind === "failed") {

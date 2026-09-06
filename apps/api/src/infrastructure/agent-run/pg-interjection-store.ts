@@ -21,6 +21,13 @@ export class PgInterjectionStore implements InterjectionStore {
     });
   }
 
+  async isCancelRequested(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ requested: boolean }>("SELECT cancel_requested_at IS NOT NULL AS requested FROM agent_runs WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      return rows[0]?.requested ?? false;
+    });
+  }
+
   async isPauseRequested(orgId: OrgId, runId: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       const result = await s.query<{ requested: boolean }>(`SELECT pause_requested_at IS NOT NULL AS requested

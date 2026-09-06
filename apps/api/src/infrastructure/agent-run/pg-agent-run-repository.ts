@@ -1,3 +1,4 @@
+import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * PostgreSQL implementation of the #414 run store.
@@ -45,6 +46,7 @@ interface ClaimRow {
 }
 
 interface RunRow {
+  cancel_requested_at?: Date | null;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
   model_provider: string; model_id: string; status: string; error_code: string | null;
@@ -307,6 +309,28 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  async requestCancellation(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ status: string }>("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      const status = rows[0]?.status;
+      if (status === "cancelled") return "cancelled";
+      if (status === "running") {
+        await s.query("UPDATE agent_runs SET cancel_requested_at=COALESCE(cancel_requested_at,now()) WHERE org_id=$1 AND id=$2", [orgId, runId]);
+        return "cancel_requested";
+      }
+      if (status !== "queued" && status !== "paused" && status !== "awaiting_tool_permission") return null;
+      await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now(),cancel_requested_at=now() WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      return "cancelled";
+    });
+  }
+
+  async cancelAtCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now() WHERE org_id=$1 AND id=$2 AND status='running' AND cancel_requested_at IS NOT NULL RETURNING id", [orgId, runId]);
+      return rows.length === 1;
+    });
+  }
+
   async pauseAtCheckpoint(orgId: OrgId, runId: string): Promise<void> {
     await this.db.withTenant(orgId, async (session) => {
       await session.query(`UPDATE agent_runs SET status='paused', error_code=NULL, paused_at=now(), ended_at=NULL
@@ -395,8 +419,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       // terminal step, not the pre-#725 assumption that it is always `3`.
       await s.query(
         `UPDATE agent_runs
-            SET status='writeback_pending', model_output=$3, model_called_seq=$4,
-                model_output_files=$5::jsonb
+            SET status=CASE WHEN cancel_requested_at IS NOT NULL THEN 'cancelled' ELSE 'writeback_pending' END,
+                ended_at=CASE WHEN cancel_requested_at IS NOT NULL THEN now() ELSE ended_at END,
+                model_output=$3, model_called_seq=$4, model_output_files=$5::jsonb
           WHERE org_id=$1 AND id=$2 AND status='running'`,
         // #1624：没有产物时写入 `'[]'` —— 与该列的 DEFAULT 完全一致，所以没有沙箱端口
         // 的部署里这条 UPDATE 的结果与本次改动之前逐字节相同。
@@ -438,7 +463,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
         `UPDATE agent_runs SET status='failed', error_code=$3, ended_at=now()
-          WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed')`,
+          WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed','cancelled')`,
         [orgId, runId, code],
       );
     });
@@ -621,6 +646,8 @@ export class PgAgentRunRepository implements AgentRunStore {
         );
       }
 
+      await registerRunArtifacts(s, { orgId, runId: input.runId, threadId: input.threadId, messageId, files: input.files ?? [] });
+
       // Guarded on the current status so the loser of a race is a no-op rather than an
       // illegal `succeeded -> succeeded` write against the transition trigger.
       await s.query(
@@ -628,9 +655,6 @@ export class PgAgentRunRepository implements AgentRunStore {
           WHERE org_id=$1 AND id=$2 AND status='writeback_pending'`,
         [orgId, input.runId],
       );
-      await s.query(`INSERT INTO agent_execution_events (org_id,run_id,seq,payload)
-        SELECT $1,$2,COALESCE(MAX(seq)+1,0),' {"kind":"status","status":"succeeded"}'::jsonb
-        FROM agent_execution_events WHERE org_id=$1 AND run_id=$2`, [orgId, input.runId]);
       return { messageId };
     });
   }
@@ -738,7 +762,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.created_at, reply.id AS result_message_id,
+                r.status, r.error_code, r.created_at, r.cancel_requested_at, reply.id AS result_message_id,
                 r.pending_tool_name, r.pending_args_summary
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
@@ -799,6 +823,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       modelProvider: found.row.model_provider,
       modelId: found.row.model_id,
       status: found.row.status as RunLifecycleStatus,
+      cancelRequestedAt: found.row.cancel_requested_at?.toISOString() ?? null,
       error: found.row.error_code as RunFailureCode | null,
       resultMessageId: found.row.result_message_id,
       steps: found.steps.map((step) => ({

@@ -859,12 +859,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
     const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}`, { method: "GET" });
     if (response.ok) {
       const body = await response.json() as { interrupts?: unknown };
-      const hasUserPause = (value: unknown): boolean => {
+      const hasControl = (value: unknown, kind: string): boolean => {
         if (!value || typeof value !== "object") return false;
-        if ((value as { kind?: unknown }).kind === "user_pause") return true;
-        return Object.values(value).some(hasUserPause);
+        if ((value as { kind?: unknown }).kind === kind) return true;
+        return Object.values(value).some((item) => hasControl(item, kind));
       };
-      if (hasUserPause(body.interrupts)) return { text: "", paused: true };
+      if (hasControl(body.interrupts, "user_cancel")) return { text: "", cancelled: true };
+      if (hasControl(body.interrupts, "user_pause")) return { text: "", paused: true };
     }
     return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
   }

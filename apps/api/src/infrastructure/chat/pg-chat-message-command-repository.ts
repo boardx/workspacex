@@ -1,3 +1,4 @@
+import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
@@ -57,6 +58,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       projectId: string | null; threadId: string; actorId: string; clientMessageId: string; text: string;
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
       attachmentIds?: readonly string[];
+      artifactContinuation?: ArtifactContinuationContext;
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -86,6 +88,15 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
           input.snapshot.modelProvider, input.snapshot.modelId],
       );
+      if (input.artifactContinuation) {
+        const ctx = input.artifactContinuation;
+        const linked = await s.query<{ run_id: string }>(`INSERT INTO agent_run_artifact_context(org_id,run_id,artifact_id,based_on_version)
+          SELECT $1,$2,a.id,$4 FROM agent_artifacts a JOIN agent_artifact_versions v
+            ON v.org_id=a.org_id AND v.artifact_id=a.id AND v.version=$4
+          WHERE a.org_id=$1 AND a.id=$3 AND a.thread_id=$5 RETURNING run_id`,
+        [orgId,input.runId,ctx.artifactId,ctx.basedOnVersion,input.threadId]);
+        if (linked.rows.length !== 1) throw new Error("ARTIFACT_VERSION_NOT_FOUND");
+      }
       // #414 delta §5: `accepted` is the run's first append-only step, and acceptance is
       // where it happens -- inside this same transaction. Writing it later, when the
       // executor claims the run, would leave a queued run showing an empty step list and

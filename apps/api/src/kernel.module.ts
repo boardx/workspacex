@@ -341,7 +341,7 @@ import {
 import type { RunEventBusPort } from "./application/agent-run/run-event-bus";
 import { InMemoryRunEventBus } from "./infrastructure/agent-run/in-memory-run-event-bus";
 // Phase 14 F11 (`artifacts-steering` 契约束 R3') -- 中途插话暂存端口，见其自己的文档。
-import { INTERJECTION_STORE } from "./application/agent-run/interjection-store";
+import { INTERJECTION_STORE, type InterjectionStore } from "./application/agent-run/interjection-store";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { transcriptContentCipherFromEnv } from "./infrastructure/agent-run/transcript-content-cipher";
 import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
@@ -367,6 +367,12 @@ import {
 } from "./infrastructure/agent-run/bailian-image-provider";
 import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-call-port";
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { ARTIFACT_CONTINUATION_READER, type ArtifactContinuationReader } from "./application/artifacts-steering/artifact-execution";
+import { ARTIFACT_STORE, ARTIFACT_RUN_LAUNCHER } from "./application/artifacts-steering/ports";
+import { PgArtifactStore } from "./infrastructure/artifacts-steering/pg-artifact-store";
+import { PgArtifactContinuationReader } from "./infrastructure/artifacts-steering/pg-artifact-continuation-reader";
+import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-steering/accept-message-artifact-run-launcher";
+import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
@@ -858,6 +864,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    AgentArtifactController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,
@@ -1008,6 +1015,42 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
         MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT,
       ],
+    },
+    {
+      provide: ARTIFACT_RUN_LAUNCHER,
+      useFactory: (
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
+        commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort,
+        runs: PlanLedgerRepository & PlanRunStatusReader, agentRunStore: AgentRunStore,
+        model: ModelCallPort, titleModel: ThreadTitleModelConfig, logger: LoggerPort, db: DatabasePort,
+      ) => new AcceptMessageArtifactRunLauncher({
+        db,
+        repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
+        model, titleModel,
+        // 同 ChatController.log 的既有先例（server-side only 适配器）。
+        log: (message: string, detail: Record<string, unknown>) => {
+          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+        },
+      }),
+      inject: [
+        IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
+        CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+        ENABLED_SKILL_VERSION_READER,
+        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, DATABASE_PORT,
+      ],
+    },
+    {
+      provide: ARTIFACT_STORE,
+      useFactory: (db: DatabasePort) => new PgArtifactStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ARTIFACT_CONTINUATION_READER,
+      useFactory: (db: DatabasePort, objects: ObjectStore) => new PgArtifactContinuationReader(db, objects),
+      inject: [DATABASE_PORT, OBJECT_STORE],
     },
     {
       provide: ENGINE_RUN_CONTROLLER,
@@ -1599,6 +1642,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
+        interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1637,12 +1681,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // issue #2767 -- F06 三档授权存储此前从未注入到这里（见 `AgentRunExecutor`
           // 构造函数该参数自己的完整取证）。与 `CopilotkitAguiController` 共用
           // `TOOL_PERMISSION_GRANT_STORE` 这同一个单例，不各自新开一份。
-          toolPermissionGrants,
+          toolPermissionGrants, interjections, artifactContinuations,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
+        INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道

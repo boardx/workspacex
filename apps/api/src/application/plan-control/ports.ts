@@ -37,6 +37,7 @@ export interface OrphanedConstraintRow {
 export interface PlanRunSnapshot {
   readonly modelProvider?: string;
   readonly pauseRequestedAt?: string | null;
+  readonly cancelRequestedAt?: string | null;
   readonly runId: string;
   readonly status: RunStatusForPhase;
   /** DA-07b `awaiting_tool_permission` 期间非空；映射 `derivePlanPhase` 的 `pendingToolCalls`。 */

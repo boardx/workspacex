@@ -26,6 +26,7 @@ export interface PendingInterjection {
 }
 
 export interface InterjectionStore {
+  isCancelRequested?(orgId: OrgId, runId: string): Promise<boolean>;
   /** Request a pause at the next model boundary; never interrupt a running tool. */
   requestPause?(orgId: OrgId, runId: string): Promise<boolean>;
   isPauseRequested?(orgId: OrgId, runId: string): Promise<boolean>;

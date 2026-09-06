@@ -37,6 +37,6 @@ export class RunInterjectionController {
     if (interjections.some((value) => value.classification === "direction_change")) {
       await this.grants.revokeAllForRun(orgId, runId);
     }
-    return InterjectionPollOutput.parse({ interjections, pauseRequested: await this.queue.isPauseRequested?.(orgId, runId) ?? false });
+    return InterjectionPollOutput.parse({ interjections, cancelRequested: await this.queue.isCancelRequested?.(orgId, runId) ?? false, pauseRequested: await this.queue.isPauseRequested?.(orgId, runId) ?? false });
   }
 }

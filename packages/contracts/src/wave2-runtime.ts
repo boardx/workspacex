@@ -269,7 +269,7 @@ export const AgentStarterImportResult = z.object({
 /* ═══════════════ §5 · minimal no-tool AgentRun (#414) ═══════════════ */
 
 export const AgentRunStatus = z.enum([
-  "queued", "running", "writeback_pending", "succeeded", "failed", "paused",
+  "queued", "running", "writeback_pending", "succeeded", "failed", "paused", "cancelled",
   /**
    * DA-07b（#1749，rubric D6 人在环）起家，Phase 14 F06 起并入 `plan-permissions`
    * 契约束：run 停在一个未被授权的 L2（不可逆/高风险）工具调用前，等人四选一裁决
@@ -433,6 +433,7 @@ export const AgentRunStep = z.object({
 }).strict();
 
 export const AgentRunView = z.object({
+  cancelRequestedAt: z.string().nullable().optional(),
   runId: z.string(),
   threadId: z.string(),
   inputMessageId: z.string(),

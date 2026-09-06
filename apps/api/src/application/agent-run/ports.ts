@@ -290,6 +290,7 @@ export interface RunDelta {
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
+  readonly cancelRequestedAt?: string | null;
   readonly runId: string;
   readonly threadId: string;
   readonly inputMessageId: string;
@@ -363,6 +364,8 @@ export interface PendingWriteback {
 }
 
 export interface AgentRunStore {
+  requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
+  cancelAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<void>;
   isPausedAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   resumeCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
@@ -998,6 +1001,7 @@ export class ModelCallError extends Error {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  readonly cancelled?: boolean;
   readonly paused?: boolean;
   readonly finalMessageId?: string;
   /**
