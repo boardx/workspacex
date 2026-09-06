@@ -138,3 +138,31 @@ def test_build_chat_model_respects_explicit_thinking_disable_ids_override(
     model = build_chat_model()
 
     assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_disables_thinking_for_qwen3_8_max_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-09-06：devapp 实际部署的 `qwen3.8-max`（混合思考、默认开）必须在默认集合里，
+    否则 thinking 一直开着、task 子代理每一步都慢一截。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_ID", "qwen3.8-max")
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}
+
+
+def test_default_thinking_disable_ids_match_typescript_side() -> None:
+    """两份不能互相 import 的默认值（本文件头注「判断逻辑必须与 configured-model-provider.ts
+    保持一致」）——机械比对，而不是靠注释互相承诺。"""
+    from pathlib import Path
+    from deep_agent_service.model import _DEFAULT_THINKING_DISABLE_MODEL_IDS
+
+    ts = Path(__file__).resolve().parents[3] / "apps/api/src/infrastructure/agent-run/configured-model-provider.ts"
+    src = ts.read_text(encoding="utf-8")
+    needle = f'env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "{_DEFAULT_THINKING_DISABLE_MODEL_IDS}"'
+    assert needle in src, f"TS 侧默认值与 Python 不一致，期望片段：{needle}"
