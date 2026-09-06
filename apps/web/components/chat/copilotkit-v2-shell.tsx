@@ -63,25 +63,10 @@ import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilitie
  * 流式回复不受影响；下次真正刷新页面时，浏览器按这个新地址重新加载，`[threadId]/
  * page.tsx` 才会用这个真实 id 挂载并从服务端回读历史。
  *
- * ## issue #2053 CK-P5「会话录音归档」为什么**没有**挂在这里（如实登记，不是漏做）
+ * ## 项目线程录音归档
  *
- * 差距表 #8 要求把旧壳的 `ChatRecordingPanel`（`chat-live-recording-*` 锚点，走
- * `POST /recording/sessions`）平移到 composer 上方。读契约与路由后确认**今天做不了**，
- * 两条互相独立的硬事实：
- *   1. `packages/contracts/src/recording.ts` 的 `startRecording.in.projectId` 是
- *      `z.string()`——**非空**，且 err 含 `NO_PROJECT_ROLE`，服务端
- *      `RecordingController.requireProjectRole` 按项目角色判权。
- *   2. 本外壳的线程**全部**是个人线程（`createWorkbenchThread(projectId)` 建，
- *      `listPersonalThreads` 列，`thread.projectId === null`）；带 `?projectId=` 的
- *      项目内对话在 `/chat` 上至今仍路由到旧屏 `ChatReadScreen`（见
- *      `app/chat/page.tsx` 头注：项目上下文是差距表第 1 项未收敛的另一半）。
- * 两条合起来：v2 轨道上**不存在**任何一条能合法开始录音的线程。在这里挂一个
- * 恒不满足渲染条件的面板，等于往仓库里放一段永远跑不到的代码；挂一个不判条件的
- * 按钮，等于放一枚必然 400/`NO_PROJECT_ROLE` 的假按钮——两种都违反本仓纪律。
- * 解锁需要二选一，且都要人类签核，不在本 issue 擅自决定：
- *   (a) v2 轨道接入项目线程（差距表 #1 的剩余半边），录音随项目上下文自然可用；
- *   (b) 放宽 `startRecording` 契约让个人线程可录（授权矩阵与保留期在"无项目"时
- *       按什么判据解析，是一个需要重新签核的设计问题，不是改个 `.nullable()`）。
+ * 项目线程已统一进入此壳；body 的 ProjectRecordingPanel 复用既有持久录音链路。
+ * 个人线程缺少项目授权矩阵/保留期上下文，因此不提供该入口。
  *
  * ## issue #2053 CK-P8 的读侧接通了，写侧的缺口一并登记
  *

@@ -92,11 +92,13 @@ export function ChatRecordingPanel({
   projectId,
   userId,
   bearer,
+  canRecord = true,
 }: {
   threadId: string;
   projectId: string;
   userId: string;
   bearer: string;
+  canRecord?: boolean;
 }) {
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -104,6 +106,21 @@ export function ChatRecordingPanel({
   const [partial, setPartial] = React.useState("");
   const [segments, setSegments] = React.useState<readonly TranscriptSegment[]>([]);
   const streamRef = React.useRef<AsrStreamHandle | null>(null);
+  const canRecordRef = React.useRef(canRecord);
+  canRecordRef.current = canRecord;
+  const lifetime = React.useRef({ active: true, sessionId: null as string | null });
+  React.useEffect(() => {
+    const owner = { active: true, sessionId: null as string | null };
+    lifetime.current = owner;
+    return () => {
+      owner.active = false;
+      const stream = streamRef.current; streamRef.current = null;
+      // Release this panel's microphone even when navigation removes the stop button.
+      void Promise.resolve(stream?.stop()).catch(() => undefined).finally(() => {
+        if (owner.sessionId) void endThreadRecording(owner.sessionId, bearer).catch(() => undefined);
+      });
+    };
+  }, [bearer, threadId]);
   /**
    * issue #2285（D10 前半 ④）—— 「转录中」行内卡的计时。存的是**开始时刻**，
    * 不是一个每秒自增的计数器：计数器在标签页被浏览器节流后台化时会漂移，
@@ -159,14 +176,18 @@ export function ChatRecordingPanel({
     const remembered = readRememberedSession(threadId);
     setSessionId(remembered);
     if (remembered === null) return;
+    let cancelled = false;
     void readTranscript(remembered, bearer)
-      .then((out) => setSegments(out.segments))
+      .then((out) => { if (!cancelled) setSegments(out.segments); })
       // 读不回来不是「没有转录」，如实说。静默吞掉会让一次真实的读失败
       // 长得跟「这场录音什么都没录到」一模一样。
-      .catch(() => setFailure("无法读取本会话此前的转录。请重试或联系管理员。"));
+      .catch(() => { if (!cancelled) setFailure("无法读取本会话此前的转录。请重试或联系管理员。"); });
+    return () => { cancelled = true; };
   }, [bearer, threadId]);
 
   const start = React.useCallback(async () => {
+    if (!canRecord) return;
+    const owner = lifetime.current;
     setPhase("starting");
     setFailure(null);
     setSegments([]);
@@ -181,6 +202,14 @@ export function ChatRecordingPanel({
       setFailure(describeStartFailure(e));
       return;
     }
+    owner.sessionId = started.sessionId;
+    const release = async () => {
+      const id = owner.sessionId;
+      owner.sessionId = null;
+      try { if (id) await endThreadRecording(id, bearer); }
+      finally { if (owner.active) setPhase("idle"); }
+    };
+    if (!owner.active || !canRecordRef.current) { await release(); return; }
     setSessionId(started.sessionId);
     rememberSession(threadId, started.sessionId);
     const trackId = started.tracks[0]?.trackId;
@@ -219,8 +248,9 @@ export function ChatRecordingPanel({
       return;
     }
 
+    if (!owner.active || !canRecordRef.current) { await release(); return; }
     try {
-      streamRef.current = await openAsrStream(started.sessionId, trackId, anchorMessageId, {
+      const openedStream = await openAsrStream(started.sessionId, trackId, anchorMessageId, {
         onPartial: (text) => setPartial(text),
         onFinal: () => { setPartial(""); },
         onError: (reason) => {
@@ -230,6 +260,11 @@ export function ChatRecordingPanel({
         },
         onFinished: () => setPartial(""),
       }, { sessionToken: bearer });
+      if (!owner.active || !canRecordRef.current) {
+        try { await openedStream.stop(); } finally { await release(); }
+        return;
+      }
+      streamRef.current = openedStream;
       setPhase("recording");
       setRecordingStartedAt(Date.now());
     } catch (e) {
@@ -241,7 +276,7 @@ export function ChatRecordingPanel({
           : "无法连接转写服务。请确认你仍处于登录状态后重试。",
       );
     }
-  }, [bearer, projectId, threadId, userId]);
+  }, [bearer, canRecord, projectId, threadId, userId]);
 
   const stop = React.useCallback(async () => {
     setPhase("stopping");
@@ -250,6 +285,7 @@ export function ChatRecordingPanel({
       streamRef.current = null;
       if (sessionId !== null) {
         await endThreadRecording(sessionId, bearer);
+        lifetime.current.sessionId = null;
         await refresh(sessionId);
       }
     } catch (e) {
@@ -264,6 +300,10 @@ export function ChatRecordingPanel({
     setTranscriptExpanded(false);
     setPhase(failedRef.current ? "failed" : "idle");
   }, [bearer, refresh, sessionId]);
+
+  React.useEffect(() => {
+    if (!canRecord && streamRef.current) void stop();
+  }, [canRecord, stop]);
 
   const busy = phase === "starting" || phase === "stopping";
 
@@ -339,7 +379,7 @@ export function ChatRecordingPanel({
             size="xs"
             variant="outline"
             data-testid={TESTID.start}
-            disabled={busy}
+            disabled={busy || !canRecord}
             onClick={() => void start()}
           >
             开始录音
