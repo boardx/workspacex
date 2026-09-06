@@ -17,8 +17,8 @@ export async function registerRunArtifacts(s: TenantSession, input: {
   const primary = context ? (files.length === 1 ? files[0] : files.find(file => file.name === context.name)) : undefined;
   if (context && !primary) throw new Error("artifact continuation did not produce an unambiguous revised file");
   if (!files.length) return;
-  const stepId = (await s.query<{ id: string }>(`SELECT id FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq DESC LIMIT 1`, [orgId,runId])).rows[0]?.id;
-  if (!stepId) throw new Error("artifact output has no producing run step");
+  const producingRunStepId = (await s.query<{ id: string }>(`SELECT id FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq DESC LIMIT 1`, [orgId,runId])).rows[0]?.id;
+  if (!producingRunStepId) throw new Error("artifact output has no producing run step");
   for (const file of files) {
     const attachment = (await s.query<{ id: string }>(`SELECT id FROM chat_message_attachments
       WHERE org_id=$1 AND thread_id=$2 AND message_id=$3 AND storage_ref=$4 ORDER BY created_at,id LIMIT 1`,
@@ -38,7 +38,7 @@ export async function registerRunArtifacts(s: TenantSession, input: {
       change_note,storage_key,size_bytes,attachment_id,based_on_version)
       SELECT $1,$2,$3,$4,$5,$6,m.body,$7,$8,$9,$10 FROM agent_runs r
       JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id WHERE r.org_id=$2 AND r.id=$5`,
-    [`${artifactId}-v${version}`,orgId,artifactId,version,runId,stepId,file.objectKey,file.sizeBytes,attachment.id,
+    [`${artifactId}-v${version}`,orgId,artifactId,version,runId,producingRunStepId,file.objectKey,file.sizeBytes,attachment.id,
       context && file === primary ? context.based_on_version : null]);
   }
 }
