@@ -5,6 +5,9 @@ adapter neither creates sessions nor adds file tools or an isolation boundary.
 """
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import inspect
 import base64
 import binascii
 import json
@@ -12,13 +15,17 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
-from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
+from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse, ReadResult
+import deepagents.backends.sandbox as upstream
 from deepagents.backends.sandbox import BaseSandbox
 
 from .upstream_compat import ensure_sandbox_compat
 
 
 LIMITS = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())["limits"]
+
+
+_READ_CAPTURE_BYTES = 1024 * 1024
 
 
 class SandboxTransportError(RuntimeError):
@@ -98,6 +105,36 @@ class HttpSessionSandbox(BaseSandbox):
         except httpx.HTTPError:
             raise SandboxTransportError("Sandbox transport unavailable; execution outcome unknown") from None
 
+    def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+        # Pin private upstream reader/capture helpers; dependency upgrades require review.
+        if hashlib.sha256(inspect.getsource(upstream).encode()).hexdigest() != "13c228a22bfd1cf84e9cd1f2f8e4813e710a9fb405de19e189a2f42a3cfe60b6":
+            raise SandboxTransportError("Upstream read helpers changed; review native image regressions before upgrading")
+        capture = f"/workspace/.native-read-{uuid4().hex}.json"
+        backend = _ReadCaptureSandbox(self._session_id, self._token, self._client)
+        try:
+            result = backend.execute_with_offload(upstream._build_read_cmd(file_path, offset, limit), capture,
+                                                 max_inline_bytes=8192, max_capture_bytes=_READ_CAPTURE_BYTES)
+            if result.response.exit_code != 0 or result.response.truncated:
+                return ReadResult(error="Sandbox read capture failed or was truncated")
+            output = result.response.output
+            if result.offloaded:
+                downloaded = self.download_files([capture])[0]
+                if downloaded.error or downloaded.content is None or len(downloaded.content) > _READ_CAPTURE_BYTES:
+                    return ReadResult(error="Sandbox read capture download failed or exceeded limit")
+                try:
+                    output = downloaded.content.decode("utf-8")
+                except UnicodeDecodeError:
+                    return ReadResult(error="Sandbox read capture was not UTF-8 JSON")
+            return upstream._parse_read_output(output, file_path)
+        finally:
+            # Generated hexadecimal path only, never interpolate a caller path into cleanup.
+            cleaned = self.execute(f"rm -f -- {capture} {capture}.ec")
+            if cleaned.exit_code != 0 or cleaned.truncated:
+                raise SandboxTransportError("Sandbox read capture cleanup failed")
+
+    async def aread(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+        return await asyncio.to_thread(self.read, file_path, offset, limit)
+
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         results = []
         for path, content in files:
@@ -134,3 +171,8 @@ class HttpSessionSandbox(BaseSandbox):
             except (httpx.HTTPError, SandboxTransportError, KeyError, ValueError, TypeError, binascii.Error):
                 results.append(FileDownloadResponse(path=path, error="sandbox_download_failed"))
         return results
+
+
+class _ReadCaptureSandbox(HttpSessionSandbox):
+    """Enable official capture only for read transport, not model execute tools."""
+    enable_capture_offload = True

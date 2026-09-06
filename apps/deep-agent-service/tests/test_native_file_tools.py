@@ -29,7 +29,8 @@ def test_t002_read_exact_line_window():
         assert result.file_data['content'] == '第二行\nthird'
         assert (result.start_line, result.end_line, result.next_offset) == (2, 3, 3)
         assert adapter.read('/run/sessions/skill-sandbox.sock').error
-        assert type(adapter).read is BaseSandbox.read
+        # Read transport uses official capture + reader/parser to avoid stdout truncation.
+        assert type(adapter).read is not BaseSandbox.read
 
 
 def test_t003_utf8_roundtrip_and_readonly_skill():

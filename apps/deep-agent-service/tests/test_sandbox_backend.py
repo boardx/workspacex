@@ -76,7 +76,7 @@ def test_official_helpers_use_transport():
             return httpx.Response(200, json={"path": body["path"], "sizeBytes": len(base64.b64decode(body["contentBase64"]))})
         return result(request, output="")
     backend = sandbox(handle)
-    for name in ("read", "write", "edit", "grep", "glob", "ls", "delete"):
+    for name in ("write", "edit", "grep", "glob", "ls", "delete"):
         assert getattr(HttpSessionSandbox, name) is getattr(BaseSandbox, name)
     assert backend.write("/workspace/file", "hello").error is None
     assert calls[0][0].endswith("/executions") and calls[1][0].endswith("/files")
@@ -84,7 +84,7 @@ def test_official_helpers_use_transport():
     backend.grep("hello", "/workspace")
     backend.glob("*.txt", "/workspace")
     assert all(path.endswith("/executions") for path, _ in calls[2:])
-    assert len(calls[2:]) == 3
+    assert len(calls[2:]) == 4
     assert all(body["command"] for _, body in calls[2:])
 
 @pytest.mark.parametrize("timeout", [0, -1, 301, True, 1.5])
