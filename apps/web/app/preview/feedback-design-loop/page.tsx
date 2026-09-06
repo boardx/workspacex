@@ -98,7 +98,8 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
     // `detail-loading`/`detail-depfailed` 两个场景名同理不改 id，是让截图脚本挂起/拒绝
     // `/pm-designs` 来产生这两态。
     // B5.3：`detail-prototype` 用已生成原型的样本项目（夹具 `proj-chat-ui`）拍组件树画布。
-    const id = scene === "detail-missing" ? "proj-does-not-exist" : scene === "detail-prototype" ? "proj-chat-ui" : "proj-empty-states";
+    // 迭代 9：`detail-prototype-empty` 用没有任何对话与原型的项目拍起手模板。
+    const id = scene === "detail-missing" ? "proj-does-not-exist" : scene === "detail-prototype" ? "proj-chat-ui" : scene === "detail-prototype-empty" ? "proj-mobile-invite" : "proj-empty-states";
     return <DetailByFirstProject projectId={id} />;
   }
 

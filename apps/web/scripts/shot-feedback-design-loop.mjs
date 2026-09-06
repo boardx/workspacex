@@ -86,6 +86,9 @@ const SHOTS = [
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
   // 迭代 6：第三页「用量」——新原语一屏
   ["detail-prototype-page3-dark.png", "detail-prototype", "default", "dark", openThirdFrame],
+  // 迭代 9：空项目的起手模板；发送后 AI 回复下的建议 chips
+  ["detail-prototype-starters-dark.png", "detail-prototype-empty", "default", "dark", null],
+  ["detail-prototype-suggestions-dark.png", "detail-prototype", "default", "dark", sendAndWait],
   // 迭代 8：导出菜单打开
   ["detail-prototype-export-dark.png", "detail-prototype", "default", "dark", openExport],
   // 迭代 5：选中节点后的属性面板（与 focus 同一动作，右栏多出字段）
@@ -140,6 +143,12 @@ async function openHistoryPreview(page) {
   await singleView(page);
   await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
   await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
+}
+async function sendAndWait(page) {
+  await singleView(page);
+  await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
+  await click(page, '[data-testid="design-detail-send"]');
+  await page.waitForSelector('[data-testid="design-detail-suggestions"]', { timeout: 8000 });
 }
 async function openExport(page) { await clickUntil(page, '[data-testid="design-detail-export"]', '[data-testid="design-detail-export-menu"]'); }
 async function selectNodeInspector(page) {

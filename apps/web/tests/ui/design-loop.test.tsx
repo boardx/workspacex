@@ -1082,7 +1082,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z", source: "fallback" },
             ],
           }),
-          reply: { source: "fallback", applied: [] },
+          reply: { source: "fallback", applied: [], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1113,7 +1113,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "加上了，画布也分成两页。", at: "2026-09-04T00:00:01.000Z", source: "model" },
             ],
           }),
-          reply: { source: "model", applied: ["criteria", "frames"] },
+          reply: { source: "model", applied: ["criteria", "frames"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1152,7 +1152,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "画好了两页。", at: "2026-09-06T00:00:01.000Z", source: "model" },
             ],
           }),
-          reply: { source: "model", applied: ["frames", "prototype"] },
+          reply: { source: "model", applied: ["frames", "prototype"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1196,7 +1196,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
             { role: "user", text: "删掉它", at: "2026-09-06T00:00:00.000Z" },
             { role: "ai", text: "删了。", at: "2026-09-06T00:00:01.000Z", source: "model" },
           ] }),
-          reply: { source: "model", applied: ["prototype"] },
+          reply: { source: "model", applied: ["prototype"], suggestions: [] },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1237,7 +1237,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
       if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
       if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
-        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"] } };
+        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"], suggestions: [] } };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -1437,7 +1437,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
           });
         }
         if (mode === "fail") throw new TypeError("Failed to fetch");
-        return { project: project({ chat: [{ role: "user", text: "画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "好", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: [] } };
+        return { project: project({ chat: [{ role: "user", text: "画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "好", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: [], suggestions: [] } };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -1511,6 +1511,37 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-detail-notes").textContent).toContain("首屏即可发消息");
     expect(screen.queryByTestId("design-detail-note-1")).toBeNull(); // 空说明的页不列
     click.mockRestore();
+  });
+
+  it("迭代 9 起手模板与建议 chips：空项目显示三条起手，点一下即发；AI 回复后显示 suggestions，点一下即发，下一句发出时清掉", async () => {
+    const posted: string[] = [];
+    let n = 0;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { text: string } }) => {
+      if (path === "/pm-designs") return { items: [project({ chat: [] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body?.text ?? "");
+        n += 1;
+        return {
+          project: project({ prototype: [{ type: "text", id: "n1", props: { content: "x" } }], chat: [{ role: "user", text: opts.body?.text ?? "", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: `第 ${n} 轮`, at: "2026-09-06T00:00:01.000Z", source: "model" }] }),
+          reply: { source: "model", applied: ["frames", "prototype"], suggestions: n === 1 ? ["加一个筛选", "设计详情页"] : [] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const starters = screen.getByTestId("design-detail-starters");
+    expect(starters.querySelectorAll("button")).toHaveLength(3);
+    fireEvent.click(screen.getByTestId("design-detail-starter-对话助手"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toContain("ChatGPT");
+    const chips = await screen.findByTestId("design-detail-suggestions");
+    expect(chips.textContent).toContain("加一个筛选");
+    expect(screen.queryByTestId("design-detail-starters")).toBeNull(); // 有对话后不再显示起手
+    fireEvent.click(within(chips).getByText("设计详情页"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]).toBe("设计详情页");
+    await waitFor(() => expect(screen.queryByTestId("design-detail-suggestions")).toBeNull()); // 第二轮没给建议
   });
 
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {

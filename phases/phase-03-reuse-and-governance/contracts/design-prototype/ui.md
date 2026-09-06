@@ -2,7 +2,7 @@
 
 > ## 自检（可机械核对）
 >
-> **本文件引用 9 张截图，目录下实际 9 张。N == M，无死链、无多列、无遗漏。**
+> **本文件引用 11 张截图，目录下实际 11 张。N == M，无死链、无多列、无遗漏。**
 >
 > 这一行由 `.harness/scripts/lint-ui-material.mjs` 双向对账（引用集合 == 实存集合）。
 
@@ -19,6 +19,8 @@
 | [detail-prototype-single-dark.png](../../ui-preview/design-prototype/detail-prototype-single-dark.png) | 单页视图第一页「聊天」 | 占位块变成渲染的组件树：导航栏、消息流（`fill` 撑满、用户气泡右对齐、AI 头像 + 卡片 + 「正在生成」badge）、底部输入区（输入框吃满剩余宽度 + 危险色「停止」）；顶栏新增「导出设计文档」 |
 | [detail-prototype-page2-dark.png](../../ui-preview/design-prototype/detail-prototype-page2-dark.png) | 切到第二页「历史会话」 | 位置对应（I-8）：标签条切页 ⇒ 画布换树；搜索框、tabs、dot 列表、留白、通栏主按钮 |
 | [detail-prototype-focus-dark.png](../../ui-preview/design-prototype/detail-prototype-focus-dark.png) | 迭代 2：点选画布上的「停止」按钮 | 节点描边高亮；对话面板上方出现焦点 chip「针对：按钮「停止」（聊天 › 纵向布局 › 横向布局）」，可 × 清除；输入框占位改为「要怎么改这个节点？」；发送时请求带 `focusNodeId`，模型优先用 patch 改它 |
+| [detail-prototype-starters-dark.png](../../ui-preview/design-prototype/detail-prototype-starters-dark.png) | 迭代 9：空项目（没对话、没原型） | 引导语下三条起手模板「对话助手 / 数据看板 / 表单流程」，点一下即发预设的第一句（契约常量 `DESIGN_WORKBENCH_STARTERS`，不落库） |
+| [detail-prototype-suggestions-dark.png](../../ui-preview/design-prototype/detail-prototype-suggestions-dark.png) | 迭代 9：发送一句后 | 最后一条 AI 气泡下的「下一步建议」chips（`reply.suggestions`，≤ 3 条），点一下即发；发下一句时清掉 |
 | [detail-prototype-export-dark.png](../../ui-preview/design-prototype/detail-prototype-export-dark.png) | 迭代 8：顶栏「导出」菜单 | 设计文档 (.md) / 原型规格 (.json) / 当前页 PNG（html2canvas 抓当前页那块屏）/ 复制 JSON 规格；说明页新增「各页交互说明」一节（模型随整页写回的 `notes`） |
 | [detail-prototype-page3-dark.png](../../ui-preview/design-prototype/detail-prototype-page3-dark.png) | 迭代 6：第三页「用量」 | 八种新原语一屏：hero 头图（标题/副标题/CTA）、grid 2 列里的 stat 指标卡、progress、row 里的 chip、switch、checkbox、页底 bottomnav（当前项高亮）。设备尺寸由模板派生（mobile 手机 300 / wireframe 平板 440 / ui 桌面 720），画板「适应」按设备算 |
 | [detail-prototype-inspector-dark.png](../../ui-preview/design-prototype/detail-prototype-inspector-dark.png) | 迭代 5：选中「停止」按钮后的右栏属性面板 | 面包屑路径、按类型的字段（文案 / 样式 / 通栏）、「应用」只在有改动时可点、「删除」（根节点没有）；提交是一条 `setProps` patch，走与模型同一条重验路径；400 的 detail 原样显示 |

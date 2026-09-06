@@ -486,7 +486,8 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
 
 /* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
 
-const NUMERIC_KEYS = new Set(["value", "active", "columns"]);
+/** 只有这些「类型.键」是数字：`stat.value` / `input.value` 是字符串，全局按键名转会把合法节点转坏（Codex P1）。 */
+const NUMERIC_PROPS: Record<string, readonly string[]> = { progress: ["value"], tabs: ["active"], bottomnav: ["active"], grid: ["columns"] };
 
 /**
  * 在过契约**之前**对模型给的原始树做几种机械纠偏——都是「意思对了、格式差一点」的错，
@@ -511,7 +512,7 @@ export function coercePrototypeRaw(raw: unknown): unknown {
   if (n.type === "divider" && "props" in n) delete n.props;
   if (n.props !== null && typeof n.props === "object" && !Array.isArray(n.props)) {
     const props = { ...(n.props as Record<string, unknown>) };
-    for (const k of NUMERIC_KEYS) {
+    for (const k of NUMERIC_PROPS[String(n.type)] ?? []) {
       const v = props[k];
       if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) props[k] = Number(v);
     }

@@ -363,9 +363,9 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const body = route.request().postDataJSON() ?? {};
     // B5.3 截「正在生成」过渡：这句故意晚 3s 才 fulfill（真实等待，不是摆图），同 createProject 的做法。
     if (String(body.text ?? "").includes("附件")) await new Promise((r) => setTimeout(r, 3000));
-    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW, source: "fallback" }];
+    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区右侧加了附件按钮，AI 回复右上角加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
     project.updatedAt = NOW;
-    return json(route, { project, reply: { source: "fallback", applied: [] } });
+    return json(route, { project, reply: { source: "model", applied: [], suggestions: ["输入区加附件按钮", "给 AI 回复加复制", "设计设置页"] } });
   });
 
   // 迭代 5：人直接改画布——夹具只回显（不真的算 patch；截图不需要）

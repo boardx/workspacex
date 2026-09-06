@@ -44,6 +44,8 @@ export const PROJECT_TEMPLATE_OPTIONS = designWorkbench.ProjectTemplate.options;
 
 /** 空状态引导语 / 固定回执——展示层文案，不落库（见契约文件头【待确认点 2】）。 */
 export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT_INTRO;
+/** 迭代 9：空项目起手模板（契约常量，展示层）。 */
+export const DESIGN_WORKBENCH_STARTERS = designWorkbench.DESIGN_WORKBENCH_STARTERS;
 export const DESIGN_WORKBENCH_CHAT_REPLY = designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY;
 
 export async function createProject(input: {

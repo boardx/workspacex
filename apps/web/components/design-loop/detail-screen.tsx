@@ -16,6 +16,7 @@ import {
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
+  DESIGN_WORKBENCH_STARTERS,
   findPrototypeNodePath,
   prototypeNodeLabel,
   type DesignProject,
@@ -98,6 +99,8 @@ export function DesignDetailScreen({
   const [retryText, setRetryText] = React.useState<string | null>(null);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
+  /** 迭代 9：最近一轮模型给的下一步建议（`reply.suggestions`），挂在最后一条 AI 气泡下，点一下即发。 */
+  const [suggestions, setSuggestions] = React.useState<readonly string[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
@@ -182,6 +185,7 @@ export function DesignDetailScreen({
     setSending(true);
     setChatError(null);
     setRetryText(null);
+    setSuggestions([]);
     setElapsed(0);
     const started = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
@@ -189,6 +193,7 @@ export function DesignDetailScreen({
       const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
+      setSuggestions(reply.suggestions);
       // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
       if (reply.applied.includes("frames")) setSelectedId(null);
@@ -258,8 +263,20 @@ export function DesignDetailScreen({
           <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
             {project.chat.length === 0 && (
-              <div className="max-w-[90%] self-start rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">
-                {DESIGN_WORKBENCH_CHAT_INTRO}
+              <div className="flex max-w-[90%] flex-col gap-2 self-start">
+                <div className="rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">{DESIGN_WORKBENCH_CHAT_INTRO}</div>
+                {/* 迭代 9：空项目起手模板——三条现成的第一句话，点一下即发（契约常量，不落库） */}
+                {project.prototype.length === 0 && (
+                  <div className="flex flex-wrap gap-1.5" data-testid="design-detail-starters">
+                    {DESIGN_WORKBENCH_STARTERS.map((s) => (
+                      <button key={s.label} type="button" onClick={() => void send(s.prompt)} disabled={sending}
+                        className="rounded-full border border-border px-2.5 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+                        data-testid={`design-detail-starter-${s.label}`}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {project.chat.map((turn, i) => (
@@ -286,6 +303,18 @@ export function DesignDetailScreen({
                 )}
               </div>
             ))}
+            {/* 迭代 9：下一步建议 chips——只跟最后一条 AI 气泡，发下一句时清掉 */}
+            {suggestions.length > 0 && !sending && (
+              <div className="flex max-w-[90%] flex-wrap gap-1.5 self-start" data-testid="design-detail-suggestions">
+                {suggestions.map((s) => (
+                  <button key={s} type="button" onClick={() => void send(s)}
+                    className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-11 text-primary transition-colors duration-fast hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    data-testid="design-detail-suggestion">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {sending && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">

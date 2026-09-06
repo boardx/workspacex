@@ -50,6 +50,8 @@ export interface DesignChatReplyResult {
   readonly source: AiReplySource;
   /** 逐字段解析后**合法**的写回；没有 ⇒ `{}`。 */
   readonly writeback: DesignChatWriteback;
+  /** 迭代 9：模型给的下一步建议（已过契约：≤ 3 条、每条 ≤ 40 字；退路 ⇒ `[]`）。 */
+  readonly suggestions: readonly string[];
 }
 
 export interface DesignChatModel {
@@ -62,11 +64,26 @@ export interface ModelDesignChatReplierDeps {
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
 
+/** 迭代 9：设计原则——写给模型的、可核对的约束，不是空话。 */
+export const DESIGN_PRINCIPLES =
+  " 设计原则（每次生成/修改都要遵守）：①每页只有一个主操作（primary 按钮），其余用 secondary/ghost；" +
+  "②手机页从上到下：navbar → 内容 → 底部操作/bottomnav，内容区用 fill 的 stack 撑满；③层级靠 text.variant（title/subtitle/body/caption），不靠堆 spacer；" +
+  "④列表 ≥ 3 项才用 list，否则用 card；⑤每页至少考虑一种非理想态（空态/加载/错误）并在 notes 里说明；" +
+  "⑥文案用用户会说的话，按钮是动词；⑦别一次塞超过 5 个功能块，超了就分页。";
+
+/** 迭代 9：一个极短的 few-shot——让模型看见「整页」与「patch」各长什么样，而不只是读规则。 */
+export const DESIGN_FEW_SHOT =
+  ' 示例 1（还没有原型，用户说「做一个待办 App」）→ {"reply":"先画了首页：顶部标题，中间待办列表，底部新增按钮。","suggestions":["加一个完成筛选","设计新增待办页"],' +
+  '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"我的待办"}},' +
+  '{"type":"stack","props":{"fill":true},"children":[{"type":"list","props":{"items":["买牛奶","写周报","订机票"],"leading":"check"}}]},{"type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
+  '"notes":"首页列出未完成待办；空态显示「还没有待办」和新增按钮。"}]}}。' +
+  ' 示例 2（已有原型，节点 n5 是按钮「新增待办」，用户说「按钮改成加号图标风格的文案」）→ {"reply":"改成了「＋ 新增」。","suggestions":["把按钮固定在底部"],"writeback":{"patch":[{"op":"setProps","id":"n5","props":{"label":"＋ 新增"}}]}}。';
+
 export const DESIGN_CHAT_SYSTEM_PROMPT =
   "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +
   "问题背景、验收标准、以及原型画布。你的任务是顺着用户说的话把设计推进一步：先用一两句话回应，必要时更新项目字段。" +
   "只输出一个 JSON 对象，不要解释、不要 markdown 代码块标记，形如 " +
-  '{"reply":"给用户看的回复，中文，不超过 200 字","writeback":{"problem":"改写后的问题背景（可选）",' +
+  '{"reply":"给用户看的回复，中文，不超过 200 字","suggestions":["最多 3 条下一步建议，每条 ≤ 20 字，用户点一下就会当作下一句话发给你"],"writeback":{"problem":"改写后的问题背景（可选）",' +
   '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
   '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
   "还没有原型（当前原型为空数组）、用户首次描述要做的产品、要求新增页面、或要求整页重画/重排时，给 prototype：" +
@@ -76,6 +93,7 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
+  DESIGN_PRINCIPLES + DESIGN_FEW_SHOT +
   "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";
 
 function describeProject(ctx: DesignChatContext): string {
@@ -137,6 +155,12 @@ export function parseWritebackDetailed(
       continue;
     }
     // 迭代 7：过契约前先做机械纠偏（type 大小写 / 容器漏 children / 数字字符串…），见契约 `coercePrototypeRaw`。
+    // patch 里的 replace/insert 节点同样先挡深度——纠偏是递归的，不能在 try 之外被打爆（Codex P2）。
+    if (field === "patch" && Array.isArray(value) && value.some((op) => op !== null && typeof op === "object" && "node" in (op as object) && designPrototype.rawPrototypeDepth((op as { node?: unknown }).node) > designPrototype.PROTOTYPE_MAX_DEPTH)) {
+      log?.("design chat: writeback field rejected by contract, skipped", { field, reason: "depth" });
+      rejected.push({ field, reason: `某条 patch 的节点嵌套深度超过 ${designPrototype.PROTOTYPE_MAX_DEPTH}` });
+      continue;
+    }
     const coerced = field === "prototype" && Array.isArray(value)
       ? value.map((s) => (s !== null && typeof s === "object" && !Array.isArray(s) ? { ...(s as Record<string, unknown>), root: designPrototype.coercePrototypeRaw((s as { root?: unknown }).root) } : s))
       : field === "patch" && Array.isArray(value)
@@ -160,6 +184,18 @@ export function parseWritebackDetailed(
     }
   }
   return { writeback: out as DesignChatWriteback, rejected };
+}
+
+/** 迭代 9：建议逐条过契约（非字符串 / 超长丢弃），最多 3 条。 */
+export function parseSuggestions(raw: unknown): readonly string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const s of raw) {
+    const parsed = designAiCollab.DesignChatSuggestion.safeParse(typeof s === "string" ? s.trim() : s);
+    if (parsed.success) out.push(parsed.data);
+    if (out.length >= designAiCollab.DESIGN_CHAT_MAX_SUGGESTIONS) break;
+  }
+  return out;
 }
 
 function rawScreenTooDeep(screen: unknown): boolean {
@@ -206,7 +242,11 @@ export class ModelDesignChatReplier implements DesignChatModel {
       const obj = extractJsonObject(text) as Record<string, unknown>;
       const { writeback, rejected: still } = parseWritebackDetailed(obj.writeback, this.deps.log);
       this.deps.log("design chat: repair round finished", { stillRejected: still.map((r) => r.field) });
-      return writeback;
+      // 只把**这次要修的字段**里修好的那些拿回去；其余字段不用修复轮的（首轮已合法的不被覆盖）。修的一个都没成 ⇒ null。
+      const wanted = new Set(rejected.map((r) => r.field));
+      const repaired: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(writeback)) if (wanted.has(k) && v !== undefined) repaired[k] = v;
+      return Object.keys(repaired).length === 0 ? null : (repaired as DesignChatWriteback);
     } catch (e) {
       this.deps.log("design chat: repair round failed, keeping first-round result", { detail: e instanceof Error ? e.message : "unknown" });
       return null;
@@ -214,7 +254,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
   }
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} };
+    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] };
     let text: string;
     try {
       text = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
@@ -236,7 +276,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       raw = extractJsonObject(text);
     } catch {
       this.deps.log("design chat: model output was not JSON, using it verbatim without writeback", {});
-      return { text: text.trim().slice(0, 4000), source: "model", writeback: {} };
+      return { text: text.trim().slice(0, 4000), source: "model", writeback: {}, suggestions: [] };
     }
     const obj = raw as Record<string, unknown>;
     const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
@@ -250,10 +290,11 @@ export class ModelDesignChatReplier implements DesignChatModel {
         writeback = { ...writeback, ...repaired };
       }
     }
+    const suggestions = parseSuggestions(obj.suggestions);
     if (reply === "") {
       // JSON 里没有可用的 reply：写回仍可能有效，但给用户看的那句退回固定回执并如实标记。
-      return { text: fallback.text, source: "fallback", writeback };
+      return { text: fallback.text, source: "fallback", writeback, suggestions };
     }
-    return { text: reply.slice(0, 4000), source: "model", writeback };
+    return { text: reply.slice(0, 4000), source: "model", writeback, suggestions };
   }
 }

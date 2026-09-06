@@ -106,6 +106,16 @@ export const DESIGN_WORKBENCH_CHAT_INTRO =
   "把你想解决的问题说清楚，我会顺着它更新右边的原型画布和验收标准。可以先从「谁在什么场景下会用到」讲起。";
 
 /**
+ * 迭代 9：空项目的起手模板——三条现成的第一句话，点一下即发。展示层文案，不落库；
+ * 与引导语同源在这里声明一次（api/web 共用），不在前端另写一份。
+ */
+export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; readonly prompt: string }[] = [
+  { label: "对话助手", prompt: "给我设计一个像 ChatGPT 的对话助手：会话列表、消息流、输入区（发送/停止）、空态与加载态。" },
+  { label: "数据看板", prompt: "设计一个运营数据看板：顶部 3 个核心指标，中间趋势区，底部可筛选的明细列表，带空态。" },
+  { label: "表单流程", prompt: "设计一个三步表单流程：填写信息 → 确认 → 完成，每步有校验错误态和返回上一步。" },
+];
+
+/**
  * 对话面板发送后的固定回执。D7（2026-09-02）上线时它是唯一路径；**UC-17.8 B5.2 起它是模型
  * 不可用/超时/输出为空时的退路**（`DesignProjectChatTurn.source: "fallback"`，见
  * `design-ai-collab.ts` 头注）。同 `feedback-loop.ts` 的纪律，回执文案在这里只声明一次。

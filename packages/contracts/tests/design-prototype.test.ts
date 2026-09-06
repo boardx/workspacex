@@ -127,6 +127,7 @@ describe("迭代 7 coercePrototypeRaw", () => {
   it("只修机械格式错，不猜缺失必填、不删未知键；非对象原样返回", () => {
     expect(dp.coercePrototypeRaw({ type: " CARD ", props: { title: "t", bogus: 1 } })).toEqual({ type: "card", props: { title: "t", bogus: 1 }, children: [] });
     expect(dp.coercePrototypeRaw({ type: "tabs", props: { items: ["a"], active: "1" } })).toEqual({ type: "tabs", props: { items: ["a"], active: 1 } });
+    expect(dp.coercePrototypeRaw({ type: "input", props: { value: "123" } })).toEqual({ type: "input", props: { value: "123" } }); // 字符串型 value 不动
     expect(dp.coercePrototypeRaw({ type: "button" })).toEqual({ type: "button" }); // 缺 props 不补
     expect(dp.coercePrototypeRaw("x")).toBe("x");
     expect(dp.coercePrototypeRaw(null)).toBe(null);
