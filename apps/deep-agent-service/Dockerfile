@@ -1,5 +1,5 @@
 # deep-agent-service (#739) -- same shape as the existing open_deep_research deployment
-# (`python:3.11-slim`, `pip install -e .`, `langgraph dev`). See #738's investigation for
+# (`python:3.11-slim`, `langgraph dev`). See #738's investigation for
 # why this is a standalone service rather than a chat-completion-shaped provider.
 #
 # ⚠ #738 core current, NOT this PR's invention: `.harness/scripts/vm/deploy.sh` does not
@@ -8,13 +8,17 @@
 # so a human can build and run it the same way; it is NOT wired into `deploy.sh`'s automated
 # path, and this PR does not claim it is.
 FROM python:3.11-slim
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY pyproject.toml langgraph.json ./
+COPY pyproject.toml uv.lock langgraph.json ./
 COPY src ./src
 
-RUN pip install --no-cache-dir -e .
+# Native adapters validate the tested upstream version. Use the same lock as CI
+# and local verification instead of resolving a newer dependency at image build.
+RUN uv sync --frozen --no-dev --no-cache --python /usr/local/bin/python
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Required at container-start time (see `src/deep_agent_service/model.py`'s own doc
 # comment): KERNEL_MODEL_BASE_URL, KERNEL_MODEL_API_KEY (same values as apps/api's copies,
