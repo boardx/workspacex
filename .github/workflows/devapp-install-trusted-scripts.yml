@@ -1,0 +1,76 @@
+# 把 devapp 上那三份 **root 拥有的部署脚本副本** 更新成 origin/main 当前的版本。
+#
+# 为什么需要手动触发这一步：workflow 的 deploy job 跑的是
+# `sudo /usr/local/bin/workspacex-deploy`（root 拥有的副本，仓库里那份不可信），
+# 而那份副本此前**只有人以 root 跑 provision.sh 才会更新**。2026-09-06 实测事故：
+# deploy.sh 的修复合入 main、CI 全绿、deploy job success，机器上跑的却仍是旧副本。
+# #2833 把这条缝变成了会红的门，本工作流是那道门的**修复动作**——不必再 ssh 上去。
+#
+# ⚠⚠ 这是一条**提权面**，不是一次普通的 CI 步骤：装进 /usr/local/bin 的脚本会被 root
+#     执行。安全性靠三件事一起成立，缺一条它就退化成「任何一个分支都能拿到 root」：
+#       ① sudoers 白名单钉死一条**无参**命令（provision.sh 第 8 步）；
+#       ② 那条命令只从 **origin/main 的 git 对象**取内容，不读工作区（runner 能改
+#          工作区，改不了 origin/main——那要过 PR review 与合并）；
+#       ③ 装完打印每份的 sha256 与 origin/main 的 SHA，留在本工作流日志里可追。
+#
+# ⚠ 只有 `workflow_dispatch`：**不要**给它加 push / schedule 触发。人的一次显式动作是
+#   这条提权面的最后一道闸——自动触发会把它变成"代码合进 main 就自动获得 root 执行"。
+#
+# 建议（仓库设置里做，代码里管不到）：给 `devapp-trusted-scripts` 这个 environment 配
+# required reviewers，这样每次运行都要有人在 GitHub 上点一次同意。
+name: devapp-install-trusted-scripts
+
+on:
+  workflow_dispatch:
+
+# 同一时刻只允许一次，避免两次运行交叉写同一批文件。
+concurrency:
+  group: workspacex-install-trusted-scripts
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    environment: devapp-trusted-scripts
+    timeout-minutes: 10
+    steps:
+      - name: 更新前的 sha256（留底，便于对比"到底换没换"）
+        shell: bash
+        run: |
+          for f in /usr/local/bin/workspacex-deploy \
+                   /usr/local/lib/workspacex-deploy-readiness.sh \
+                   /usr/local/lib/workspacex-deep-agent-lib.sh; do
+            printf '%s ' "$f"
+            sha256sum "$f" 2>/dev/null | cut -d' ' -f1 || echo "(不存在)"
+          done
+
+      - name: 从 origin/main 安装 root 拥有的副本
+        shell: bash
+        # ⚠ 无参调用——sudoers 白名单就是按这一条无参命令写的（见 provision.sh 第 8 步）。
+        #   这里加任何参数都会被 sudo 拒绝，那是刻意的，不是配置漏了。
+        run: sudo -n /usr/local/bin/workspacex-install-trusted-scripts
+
+      - name: 复核：装好的副本与 origin/main 一致
+        shell: bash
+        # 上一步自己打印了 sha256，但那是它自报的。这里从 origin/main 独立算一遍再比——
+        # 一个只会说"我成功了"的步骤，正是这次事故里那种"绿但没生效"的形态。
+        run: |
+          cd /opt/workspacex/app
+          git fetch --quiet origin main
+          fail=0
+          check() {
+            local repo_path=$1 installed=$2
+            local want have
+            want=$(git show "origin/main:${repo_path}" | sha256sum | cut -d' ' -f1)
+            have=$(sha256sum "$installed" | cut -d' ' -f1)
+            if [ "$want" != "$have" ]; then
+              echo "✗ ${installed} 与 origin/main 的 ${repo_path} 不一致"
+              fail=1
+            else
+              echo "✓ ${installed}  ${have}"
+            fi
+          }
+          check .harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy
+          check .harness/scripts/vm/deploy-readiness.sh /usr/local/lib/workspacex-deploy-readiness.sh
+          check .harness/scripts/vm/deep-agent-lib.sh /usr/local/lib/workspacex-deep-agent-lib.sh
+          exit $fail

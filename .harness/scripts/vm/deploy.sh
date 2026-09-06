@@ -112,7 +112,25 @@ if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
 fi
 
 step "3. 依赖服务（具名卷；项目名与门控栈分开，端口也分开）"
-# ⚠ `sudo` 默认 `env_reset`（本机 /etc/sudoers:9 实测确认）——父 shell 里 `export` 的
+#
+# WARN **`--build` 不是可选项**（2026-09-06 实测事故）。compose 对带 `build:` 的服务只在
+#   **镜像不存在时**才构建；镜像已存在时 `up -d` 直接复用它，源码改了也不管。
+#   本机最小复现（busybox + 一行 `RUN echo v1 > /ver`）：改成 v2 后 `up -d` 读到的
+#   仍是 v1，加 `--build` 才变 v2。
+#   后果不是"慢一版"：`apps/skill-sandbox` 的镜像自 2026-08-21 首次部署起就冻在那一版，
+#   之后所有改动（预装库、CJK 字体……）从未上过 devapp。症状在用户那儿长这样——API 是新的、
+#   按新 SKILL.md 教模型 `require('@pdf-lib/fontkit')`，沙箱是旧的、根本没这个包，
+#   于是"生成中文 PDF"必然失败，而 main 上代码明明是对的。这正是 AGENTS.md
+#   「静态痕迹 != 动态事实」：git log 说改动在 main 上，说明不了跑着的容器是哪一版。
+#
+# WARN **下面这条命令是一个整体，中间不许插注释行。** 2026-09-06 实测：在 `\` 续行
+#   之间插了一段注释，shell 于是把命令在那里截断——`env` 拿不到任何命令、退化成"打印
+#   当前环境"，把 `SUDO_COMMAND=...`（含 deploy.env 全部密钥）原样打进 CI 日志；紧随
+#   其后的 `docker compose` 变成一条独立命令、以 root 而不是 $RUN_AS 跑。两件事都没有
+#   任何报错。要加说明就写在这一段的**上面**（就像这几行），别写进续行里。
+#   门控：deploy-image-freshness.test.ts 的「续行中不许插注释」那条。
+#
+# WARN `sudo` 默认 `env_reset`（本机 /etc/sudoers:9 实测确认）——父 shell 里 `export` 的
 #   变量**到不了**这一行。SANDBOX_* 必须像 ENV_FILE 的变量一样**显式列在 `env` 后面**。
 #   2026-08-21 devapp 首次部署实测：只 export 不显式传 ⇒ compose 报
 #   `required variable SANDBOX_SOCKET_DIR is missing a value` 并 fail-closed 停下
@@ -121,16 +139,6 @@ sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
   SANDBOX_UID="$SANDBOX_UID" \
   SANDBOX_GID="$SANDBOX_GID" \
-#
-# WARN **`--build` 不是可选项**（2026-09-06 实测事故）。compose 对带 `build:` 的服务只在
-#   **镜像不存在时**才构建；镜像已存在时 `up -d` 直接复用它，源码改了也不管。
-#   本机最小复现（busybox + 一行 `RUN echo v1 > /ver`）：改成 v2 后 `up -d` 读到的
-#   仍是 **v1**，加 `--build` 才变 v2。
-#   后果不是"慢一版"：`apps/skill-sandbox` 的镜像自 2026-08-21 首次部署起就冻在那一版，
-#   之后所有改动（预装库、CJK 字体……）从未上过 devapp。症状在用户那儿长这样——API 是新的、
-#   按新 SKILL.md 教模型 `require('@pdf-lib/fontkit')`，沙箱是旧的、根本没这个包，
-#   于是"生成中文 PDF"必然失败，而 main 上代码明明是对的。这正是 AGENTS.md
-#   「静态痕迹 != 动态事实」：git log 说改动在 main 上，说明不了跑着的容器是哪一版。
   docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d --build
 until docker exec workspacex-postgres-1 pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
 
@@ -207,6 +215,21 @@ source <(grep -v '^#' "$ENV_FILE")
 docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
   -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
 echo "  app_rw 密码已对齐"
+
+# WARN 先点名检查，再用。`set -u` 下直接用一个缺失的键，报的是
+#   `deploy.sh: line NNN: DIAG_DB_PASSWORD: unbound variable`——一句不说明该怎么修的话。
+#   2026-09-06 实测：devapp 的 deploy.env 是在这个键被引入之前生成的，provision.sh 的
+#   生成块又只在文件不存在时跑，于是这台机器上它永远缺失（provision.sh 已同步补上
+#   按键补齐的逻辑）。这里把它变成一句能照着做的错误。
+for required_key in APP_DB_PASSWORD DIAG_DB_PASSWORD; do
+  if ! grep -q "^${required_key}=" "$ENV_FILE"; then
+    echo "✗ ${ENV_FILE} 缺 ${required_key}"
+    echo "  这台机器的 deploy.env 早于该键被引入。在目标机器上以 root 重跑一次 provision.sh"
+    echo "  （幂等，只补缺失的键，不动已有的值）："
+    echo "    PUBLIC_DOMAIN=<域名> DEPLOY_KEY_PATH=<部署密钥> ${APP_DIR}/.harness/scripts/vm/provision.sh"
+    exit 1
+  fi
+done
 
 step "4b-ii. app_diag_ro 密码对齐 deploy.env（system-error-logs 只读凭据）"
 # 同 4b 逐字同理：migrations/20260902012105 首次 CREATE ROLE app_diag_ro 时写死了
