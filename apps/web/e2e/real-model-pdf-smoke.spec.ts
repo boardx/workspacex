@@ -268,6 +268,42 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   /* ── ⑦ 真的产出了 PDF（不是模型嘴上说要生成）──────────────────────────
         判据是**字节**：把气泡下面那张下载卡的 blob 拉下来看魔数。`%PDF-` 之外的
         任何东西（包括一个 0 字节的占位、一个错误 JSON）都判失败。 */
+  if (REAL_MODEL_SMOKE.expectKind === "canvas") {
+    /* ── ⑥' 画布模式（issue #2852）：判「画布真的渲染出来了」而不是产出文件 ──────
+          `chat-canvas-fabric` 的 `data-ready="true"` 是 fabric 真正画完的信号
+          （`chat-canvas-guidance-render.spec.ts` 用的同一个锚点），`chat-canvas-error`
+          是围栏解析/模板查找失败的信号——两者同时看，缺一条都不算画布可用。 */
+    const fences = page.getByTestId("chat-canvas-fabric");
+    const fenceCount = await fences.count();
+    let readyCount = 0;
+    const fenceMeta: { ready: string | null; templateSource: string | null; lang: string | null }[] = [];
+    for (let i = 0; i < fenceCount; i += 1) {
+      const fence = fences.nth(i);
+      const ready = await fence.getAttribute("data-ready").catch(() => null);
+      fenceMeta.push({
+        ready,
+        templateSource: await fence.getAttribute("data-template-source").catch(() => null),
+        lang: await fence.getAttribute("data-fence-lang").catch(() => null),
+      });
+      if (ready === "true") readyCount += 1;
+    }
+    const canvasErrors = await page.getByTestId("chat-canvas-error").count();
+    evidence.writeJson("41-canvas-fences.json", fenceMeta);
+    evidence.setContext("expectKind", REAL_MODEL_SMOKE.expectKindRaw);
+    evidence.record(
+      "⑥ 真的渲染出了工作坊画布（chat-canvas-fabric data-ready=true，且无 chat-canvas-error）",
+      readyCount > 0 && canvasErrors === 0,
+      `画布围栏 ${fenceCount} 个，其中渲染完成 ${readyCount} 个；画布错误 ${canvasErrors} 条`
+        + (fenceMeta.length > 0 ? `；首个：${JSON.stringify(fenceMeta[0])}` : ""),
+    );
+    /* ── ⑥'' #2836 的验收线：单个画布 30 秒内出来。elapsedMs 是"发出 → composer 回到
+          非 running"的整轮耗时，比"画布可见"更晚，作为上限更严格而不是更宽。 */
+    evidence.record(
+      "⑥+ 画布一轮在 30 秒内完成（issue #2836 验收线；整轮耗时，比画布可见更严）",
+      elapsedMs <= 30_000,
+      `整轮 ${Math.round(elapsedMs / 1000)}s`,
+    );
+  } else {
   const producedCards = page.getByTestId("chat-produced-file-inline-card");
   const cardCount = await producedCards.count();
   const cardTexts: string[] = [];
@@ -327,6 +363,7 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
     }
   }
   evidence.record(`⑥ 真的产出了一个 ${EXPECT_EXT.toUpperCase()} 产物（按字节判，不按模型措辞判）`, pdfOk, pdfDetail);
+  }
 
   /* ── ⑧ 连接全程没被掐断（#2795）────────────────────────────────────────
         两条独立证据：CDP 侧 AG-UI 流没有 loadingFailed；浏览器控制台没有传输层

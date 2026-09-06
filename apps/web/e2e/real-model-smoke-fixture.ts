@@ -68,6 +68,15 @@ export const REAL_MODEL_SMOKE = {
    * 所以这里只取 zip 魔数可打印的前两字节——它已经足够把「真的 OOXML」与占位空壳、
    * 错误 JSON、纯文本区分开，何况长度下限（>1000 字节）是另一条独立判据。
    */
+  /**
+   * issue #2852 —— 断言 ⑥ 判什么产物：`file`（默认，下面 expectExt/expectMagic 那套字节判）
+   * 或 `canvas`（消息里出现渲染完成的工作坊画布围栏 `chat-canvas-fabric[data-ready=true]`，
+   * 且没有 `chat-canvas-error`）。给 #2836（画布 300 秒→≤30 秒）在 devapp 上取证用：
+   * 那台机器没有 dev-mode 预设账号，这条 lane 是唯一现成的真实账号通道。
+   * 非法值按 `file` 处理并在证据包 context 里如实记原值，不静默改语义。
+   */
+  expectKind: (env("REAL_MODEL_E2E_EXPECT_KIND") === "canvas" ? "canvas" : "file") as "file" | "canvas",
+  expectKindRaw: env("REAL_MODEL_E2E_EXPECT_KIND") ?? "file",
   expectExt: env("REAL_MODEL_E2E_EXPECT_EXT") ?? "pdf",
   expectMagic: env("REAL_MODEL_E2E_EXPECT_MAGIC") ?? "%PDF-",
   /**
