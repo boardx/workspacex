@@ -210,6 +210,12 @@ export default defineConfig({
    * 不许改成 `test.skip` 来「让 CI 变绿」——skip 掉的差距等于不存在，那正是这批
    * 用例要消灭的失效模式。收敛路径是实现能力，不是删断言。
    *
+   * issue #2825 —— 新增 `copilotkit-v2-run-restore-after-switch.spec.ts`（提交任务→切走
+   * →切回，run 事件流不可用时恢复仍要靠权威读收尾）同样由本 config 接住：同一条真登录、
+   * 同一个 deep-agent loopback 替身（复用既有 `LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER`
+   * 让那一轮 run 真的跑一段时间），不需要新的进程或新的环境变量。已加进下面
+   * `chat-read` project 的 testMatch 白名单。
+   *
    * ⚠ 上面那条警告在这里再说一遍：**这条 testMatch 白名单是手写的**，新 spec 不加
    * 进这个正则就是「写了但没人跑」（#512 同一个失效模式），本次 11 个逐个加过。
    *
@@ -231,7 +237,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
     },
     {
       /**

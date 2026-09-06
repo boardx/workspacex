@@ -31,6 +31,27 @@ import {
  *
  * 连接层面的失败（断线重连次数耗尽、鉴权过期）都不再"安静地卡住"：见下方
  * `RunRestoreOutcome`。
+ *
+ * ## issue #2825（2026-09-06 devapp 真实用户复现）—— 事件流不是"这个 run 现在是什么
+ * 状态"的完整来源，只是"从现在起还会发生什么"
+ *
+ * 复现：提交任务 → 切到别的会话 → 过一会儿切回来。这一路"正在恢复上次未完成的任务…"
+ * 一直转，最后落到 `gave-up` 的"长时间未能确认…请稍后刷新页面查看"，而实际上那条
+ * 助手回复早就写回落库了——刷新一下就能看见。
+ *
+ * 根因：上面那套机制**只**在收到一条终态 `status_change` 时才结束核实。而用户切走的
+ * 那段时间里 run 已经跑完了：订阅建立时它已是终态，**未来不会再有任何事件**。事件流
+ * 的重放缓冲区（`InMemoryRunEventBus`）只在同一个 API 进程活着、且这个 run 还没被
+ * `MAX_TRACKED_RUNS` 挤出去时才补得上那条历史事件——进程重启过、跑了别的两千个 run、
+ * 或将来换成多进程部署，重放就是空的，于是这里永远等不到那条事件。这不是连接问题，
+ * 重连再多次也没用。
+ *
+ * 修法：**订阅之前先向服务端问一次"它现在是什么状态"**（`getAgentRun`，与确认性读
+ * 同一个端点、同一条只读纪律）。已经是终态 ⇒ 立刻 `settled` 收尾，事件流根本不需要
+ * 参与；仍是非终态 ⇒ 才交给事件流等后续变化。同理，连接层面撑不住准备放弃时，也先
+ * 补一次这样的读——run 在这期间跑完是常态，"没能确认"应当是真的没能确认，而不是
+ * "我只肯听事件流"。这**不是**把旧轮询搬回来：读的次数是有界且与时间无关的
+ * （开始一次、放弃前一次、终态事件后的确认读若干次），没有任何"时间预算"。
  */
 
 export interface RunRestoreState {
@@ -120,6 +141,54 @@ export function useCopilotKitV2RunRestore(
     }
   }, []);
 
+  /**
+   * issue #2825 —— 放弃之前的最后一次权威读：读到终态就如实 `settled`（用户切走期间
+   * run 跑完是常态），读不到才是真的"没能确认"。
+   */
+  const settleWithFinalRead = React.useCallback(async (runId: string) => {
+    try {
+      const view = await getAgentRun(runId, sessionTokenRef.current);
+      if (isTerminalWave2RunStatus(view.status)) {
+        setIsRestoring(false);
+        onSettledRef.current({ kind: "settled", view });
+        return;
+      }
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 401) {
+        setIsRestoring(false);
+        onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
+        return;
+      }
+    }
+    setIsRestoring(false);
+    onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
+  }, []);
+
+  /**
+   * issue #2825 —— 订阅之前先问一次"它现在是什么状态"。见文件头注：run 在用户切走
+   * 期间跑完时，事件流未来不会再有任何事件，只等事件就是等一个永远不来的东西。
+   * 读到非终态（真的还在跑）或读失败，都交给事件流继续，不在这里编造结果。
+   */
+  React.useEffect(() => {
+    if (pendingRunId === null) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
+        if (cancelled || settledRef.current) return;
+        if (!isTerminalWave2RunStatus(view.status)) return;
+        settledRef.current = true;
+        setIsRestoring(false);
+        onSettledRef.current({ kind: "settled", view });
+      } catch {
+        // 读不到就交给事件流继续等，不在这里编造结果（与本文件其余部分同一条纪律）。
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingRunId]);
+
   const handleEvent = React.useCallback((event: KernelStreamEvent) => {
     if (settledRef.current) return;
     if (event.type !== "status_change") return;
@@ -141,9 +210,8 @@ export function useCopilotKitV2RunRestore(
     if (pendingRunId === null || settledRef.current) return;
     if (stream.reconnectState !== "failed") return;
     settledRef.current = true;
-    setIsRestoring(false);
-    onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
-  }, [stream.reconnectState, pendingRunId]);
+    void settleWithFinalRead(pendingRunId);
+  }, [stream.reconnectState, pendingRunId, settleWithFinalRead]);
 
   const active = pendingRunId !== null && !settledRef.current;
   return {

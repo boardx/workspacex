@@ -187,12 +187,18 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
   });
 
   it("本 phase 触发 bug 的回归用例：run 停在 awaiting_tool_permission，收到该状态事件后立即确认（非终态，仍在恢复中，不安静卡死也不误判成功）", async () => {
+    // issue #2825 起，订阅之前先做一次权威读；这里它如实读到非终态（run 真的还停着），
+    // 于是恢复交给事件流继续。
+    getAgentRun.mockResolvedValue({
+      runId: "run-1", threadId: "thr-1", status: "running", error: null, resultMessageId: null,
+    });
     const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
     const onSettled = vi.fn();
     const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
 
     expect(result.current.isRestoring).toBe(true);
     await waitFor(() => expect(sockets.length).toBe(1));
+    await waitFor(() => expect(getAgentRun).toHaveBeenCalledTimes(1));
 
     act(() => {
       sockets[0]!.emit({
@@ -201,11 +207,67 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
       });
     });
 
-    // 非终态事件不触发确认读、不误判完成——仍在如实展示"恢复中"。
-    expect(getAgentRun).not.toHaveBeenCalled();
+    // 非终态事件不触发额外的确认读、不误判完成——仍在如实展示"恢复中"。
+    expect(getAgentRun).toHaveBeenCalledTimes(1);
     expect(result.current.isRestoring).toBe(true);
     expect(onSettled).not.toHaveBeenCalled();
   });
+
+  /* ── issue #2825：切走期间 run 已经跑完 ⇒ 未来不会再有任何事件 ────────── */
+
+  it("issue #2825 回归：订阅建立时 run 已是终态（切走期间跑完，事件流未来不会再有事件）⇒ 权威读立刻 settled，不再永远等一条不会来的事件", async () => {
+    getAgentRun.mockResolvedValue({
+      runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-2",
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    // 一个事件都不发（复刻真实场景：重放缓冲区里没有这个 run 的历史事件）。
+    await waitFor(() => expect(onSettled).toHaveBeenCalledWith({
+      kind: "settled",
+      view: { runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-2" },
+    }));
+    await waitFor(() => expect(result.current.isRestoring).toBe(false));
+  });
+
+  it("issue #2825 CP 反证：上一条不是恒真——服务端如实说还在 running 时，同样不发事件，它必须仍然停在恢复中、不冒充完成", async () => {
+    getAgentRun.mockResolvedValue({
+      runId: "run-1", threadId: "thr-1", status: "running", error: null, resultMessageId: null,
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    await waitFor(() => expect(getAgentRun).toHaveBeenCalledTimes(1));
+    expect(onSettled).not.toHaveBeenCalled();
+    expect(result.current.isRestoring).toBe(true);
+  });
+
+  it("issue #2825：连接层面撑不住准备放弃前，先补一次权威读——读到终态就如实 settled，不再谎称『没能确认』", async () => {
+    getAgentRun
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValue({
+        runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-9",
+      });
+    // 把重连预算耗光：每条连接一建立就被对端断开（不是我方主动关闭）。
+    vi.stubGlobal("WebSocket", class extends FakeWebSocket {
+      constructor(url: string, protocols: string[]) {
+        super(url, protocols);
+        sockets.push(this);
+        queueMicrotask(() => { this.open(); this.close(); });
+      }
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled(), { timeout: 30_000 });
+    expect(onSettled).toHaveBeenCalledWith({
+      kind: "settled",
+      view: { runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-9" },
+    });
+  }, 40_000);
 
   it("收到终态 status_change 事件 ⇒ 做一次确认性 REST 读，读到终态后回调 settled（不是继续轮询）", async () => {
     getAgentRun.mockResolvedValue({
