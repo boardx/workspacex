@@ -8,37 +8,37 @@
 
 ```mermaid
 flowchart TB
-  P["已完成：实施计划与流式过程规格"]:::done
+  P["已完成：实施计划与流式过程规格\ncommit c52bb169d"]:::done
 
   subgraph BASE["已有实现：复用并回归，不重复开发"]
-    R1["CopilotKit / AG-UI 接入\n工具渲染与部分流式"]:::reuse
-    R2["计划 / 问题卡 / 四档审批\n已有停止适配与恢复基础"]:::reuse
-    R3["附件 / ASR / Agent / Skill\n文件产出 / 预览 / 版本基础"]:::reuse
-    R4["运行账本 / 文本增量\nChat 单测与 E2E"]:::reuse
+    R1["CopilotKit / AG-UI 接入\n工具渲染与部分流式\n基线 8639579e0"]:::reuse
+    R2["计划 / 问题卡 / 四档审批\n已有停止适配与恢复基础\n基线 8639579e0"]:::reuse
+    R3["附件 / ASR / Agent / Skill\n文件产出 / 预览 / 版本基础\n基线 8639579e0"]:::reuse
+    R4["运行账本 / 文本增量\nChat 单测与 E2E\n基线 8639579e0"]:::reuse
   end
 
   P --> S0["S0 进行中：最新 main 8639579e0\ninit 通过 · 复用现有环境"]:::active
-  S0 --> S1["S1 待执行：真实组件原型\nUI / 用例 / API 签核"]:::pending
-  S1 --> S2["S2 进行中：统一身份与事件契约\n固定前后端开发边界"]:::active
+  S0 --> S1["S1 进行中：真实组件已实现\ncommit da63ec882 · 设计未代签"]:::active
+  S1 --> S2["S2 进行中：统一身份与事件契约\ncommit dc1c69c33 · 审批增量未提交"]:::active
 
   subgraph FE["前端工作线"]
-    S8["S8 进行中：执行时间线\n默认折叠 · Thinking 摘要 / Tool / Skill"]:::active
-    S9["S9 待整合：输入器与任务导航\n跨会话状态提醒"]:::pending
-    S10["S10 待整合：成果工作区\n预览 / 版本 / 继续修改"]:::pending
+    S8["S8 进行中：执行时间线\ncommit fb78a425a / 1b49ddfe4\n流式回放 E2E 1通过 · 增量未提交"]:::active
+    S9["S9 进行中：输入器与任务导航\ncommit fb78a425a · 项目接线未提交"]:::active
+    S10["S10 进行中：成果工作区\ncommit bdbbbba20 / 67685a563\n权限增量未提交 · PG 5通过"]:::active
     S8 --> S9
     S8 --> S10
   end
 
   subgraph API["API / 数据工作线"]
-    S3["S3 进行中：持久事件与命令\n队列 / 快照 / 回放"]:::active
-    S4["S4 进行中：真实流式事件\nThinking 通道 / 工具状态 / AG-UI 桥"]:::active
+    S3["S3 进行中：持久事件与命令\ncommit dc1c69c33 / 2fee0acd1"]:::active
+    S4["S4 进行中：真实流式事件\ncommit dc1c69c33 / be15506c8\nSkill 新来源待 peer 接口"]:::active
     S3 --> S4
   end
 
   subgraph ENGINE["内核与运行控制工作线"]
-    S5["S5 进行中：停止 / 暂停 / 恢复\n服务端确认与 checkpoint"]:::active
-    S6["S6 进行中：本轮插话与排队\n安全边界应用及 ACK"]:::active
-    S7["S7 待整合：计划与审批\n可恢复的问题和决定"]:::pending
+    S5["S5 进行中：停止 / 暂停 / 恢复\ncommit 702daabf7 / bdbbbba20"]:::active
+    S6["S6 进行中：本轮插话与排队\ncommit 2fee0acd1 / 8243e6a49"]:::active
+    S7["S7 进行中：持久审批身份\n基线 1b49ddfe4 · 本轮增量未提交\nAGUI / HITL 回归 8通过"]:::active
     S5 --> S6 --> S7
   end
 
@@ -58,11 +58,11 @@ flowchart TB
   S4 -.成果事件接入.-> S10
   S7 -.交互接入.-> S9
 
-  S9 --> S11["S11 待验收：全链路集成\n真实模型 / 故障恢复 / 独立 Review"]:::pending
+  S9 --> S11["S11 验收中：部分数据库 / 浏览器通过\n测试基于 67685a563 + 未提交增量\n完整联合链待验证"]:::verify
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
-  S11 --> S12["S12 待发布：一次切换\n旧入口迁移 / 清理 / 上线复核"]:::pending
+  S11 --> S12["S12 进行中：项目 scope 已接线\n未提交 · 入口验收中 · 最终单 PR"]:::active
 
   classDef reuse fill:#f1f5f9,stroke:#64748b,color:#0f172a;
   classDef pending fill:#ffffff,stroke:#94a3b8,color:#334155;
@@ -87,6 +87,8 @@ flowchart TB
 
 | 日期 | 节点 | 变化与证据 | 下一动作 | 实测 Token |
 |---|---|---|---|---|
+| 2026-09-07 | S7 / S10–S12 | 成果版本提交 67685a563；成果 UI 8/8、冲突控制器 1/1；项目 scope 接线完成待联合验收；独立 review 发现私有消息/成果权限缺口，正在修复；浏览器流式回放验收仍运行 | 完成问答恢复、权限修复、peer Skill 来源对齐及联合验收 | 未采集 |
+| 2026-09-07 | S2–S9 | 核心提交 dc1c69c33 / fb78a425a / be15506c8；API 默认 tsc 通过；journal+FIFO PG 7/7、计划控制 PG 12/12、Python 6/6；前端核心与真实框架组件 8 测通过。E2E 仍在执行，尚未通过 | 补 REST 恢复 tail、后台终态、真实停止；成果版本接线 | 未采集 |
 | 2026-09-07 | S0 / S2–S6 / S8 | issue #2867；独立 worktree 基于最新 main 8639579e0；init 退出 0；三路并行开工；当前容器可用 | 完成事件契约与实现，根协调者统一 E2E | 未采集 |
 | 2026-09-07 | P / 全图 | 完成计划和进度图初始化；依据本文现状盘点及用户截图要求；尚无实施 PR | S0 复核基线与环境，随后 S1 原型和契约 | 未采集 |
 
@@ -96,7 +98,9 @@ flowchart TB
 
 保留 CopilotKit + AG-UI + NestJS 网关 + Python Deep Agents / LangGraph。重构 WorkspaceX 的任务体验、运行控制与状态投影，最终将个人及项目聊天收敛到同一套工作台组件。
 
-“一次做完”定义为：一个完整升级项目、统一验收、一次对用户切换；工程内部按依赖提交多个可审查 PR，不用一个巨型 PR。所有本计划中的必需能力在切换前交付，不把取消、插话、恢复等核心行为推到下一轮。
+“一次做完”定义为：一个完整升级项目、统一验收、一次对用户切换；依用户 2026-09-07 最新指令，在独立 worktree 按完成单元 commit，最终汇总一个 PR。所有本计划中的必需能力在切换前交付，不把取消、插话、恢复等核心行为推到下一轮。
+
+标准 Skills/Tools 的实现由另一 peer 负责，交叉职责遵循[分工边界](agent-workbench-peer-boundary-2026-09-07.md)。此处仅链接边界，不另维护一份能力责任清单。每半小时核对实际证据并更新上方同一份 Mermaid 图；局部通过不代表联合验收。
 
 目标是让用户能够：给出目标 → 看到真实行动 → 随时补充或纠正 → 必要时作决定 → 查看成果 → 围绕成果继续工作。视觉采用任务导航、工作时间线、成果工作区三部分。WorkspaceX 服务于研究、文档、项目与画布，无须为了模仿编码工具而给普通用户暴露终端、Git 或内部模型推理。
 
