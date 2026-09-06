@@ -3,6 +3,18 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { parentCancelRequestId, type ParentCancellationReader } from "../../application/agent-run/parent-run-control";
 import type { ToolAuthorityReader, ToolAuthoritySnapshot, ExecutionAuthorityContext } from "../../application/agent-run/tool-execution-authority";
+/** A new call ID cannot turn the same explicitly rejected arguments into consent.
+ * A distinct call with distinct arguments may still use an existing scoped grant. */
+export function matchesDeniedTool(input: ExecutionAuthorityContext, pending: {
+  pending_decision: string | null; pending_tool_call_id: string | null;
+  pending_tool_name: string | null; pending_tool_args_digest: string | null;
+}): boolean {
+  if (!["deny", "reject"].includes(pending.pending_decision ?? "")) return false;
+  if (input.toolCallId && input.toolCallId === pending.pending_tool_call_id) return true;
+  if (input.toolName !== pending.pending_tool_name) return false;
+  const digest = toolArgumentsDigest(input.toolArgs);
+  return !input.toolCallId || !digest || !pending.pending_tool_args_digest || digest === pending.pending_tool_args_digest;
+}
 export class PgParentRunControlReader implements ParentCancellationReader, ToolAuthorityReader {
   constructor(private readonly db: DatabasePort) {}
   async readCancellation(orgId: OrgId, parentRunId: string) {
@@ -27,7 +39,7 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
       const row = rows[0];
       return check(row ? { active: row.active, cancelRequested: row.cancel_requested, leaseValid: row.lease_valid,
         attemptId: row.attempt_id, skillVersionIds: row.skill_version_ids,
-        explicitlyDenied: Boolean(input.toolCallId && input.toolCallId === row.pending_tool_call_id && ["deny", "reject"].includes(row.pending_decision ?? "")),
+        explicitlyDenied: matchesDeniedTool(input, row),
         authorizeOnce: async () => {
           if (!input.permissionRequestId || !input.toolCallId || input.toolArgs === undefined
             || row.pending_permission_request_id !== input.permissionRequestId || row.pending_tool_call_id !== input.toolCallId

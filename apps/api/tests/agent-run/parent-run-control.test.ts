@@ -76,3 +76,15 @@ it("edited approval accepts only the explicitly edited arguments", async () => {
   expect(await reader.withSnapshot(exact, async s => s?.authorizeOnce?.())).toBe(false);
   expect(await reader.withSnapshot({...exact, toolArgs: {target: "new"}}, async s => s?.authorizeOnce?.())).toBe(true);
 });
+it("explicit denial beats existing grant even when call identity is omitted or changed",async()=>{
+  const { ToolExecutionAuthority }=await import("../../src/application/agent-run/tool-execution-authority");
+  const { createInMemoryToolPermissionGrantStore }=await import("../../src/application/agent-run/tool-permission-grants");
+  const { toolArgumentsDigest }=await import("../../src/application/agent-run/tool-arguments-digest");
+  await asApp(ORG,c=>c.query("UPDATE agent_runs SET pending_decision='deny',pending_tool_name='external_write',pending_tool_call_id='denied',pending_tool_args_digest=$2 WHERE org_id=$1 AND id='parent'",[ORG,toolArgumentsDigest({target:"rejected"})]));
+  const grants=createInMemoryToolPermissionGrantStore();await grants.grantForRun(org,"parent","external_write");
+  const authority=new ToolExecutionAuthority(reader,{readPinnedSkills:async()=>[]},grants);
+  const request={...check,toolName:"external_write",toolArgs:{target:"rejected"}};
+  expect(await authority.check(request)).toEqual({allowed:false,reason:"approval_required"});
+  expect(await authority.check({...request,toolCallId:"new-id"})).toEqual({allowed:false,reason:"approval_required"});
+  expect(await authority.check({...request,toolCallId:"new-id",toolArgs:{target:"different"}})).toEqual({allowed:true});
+});
