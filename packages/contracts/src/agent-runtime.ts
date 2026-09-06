@@ -659,6 +659,10 @@ export const McpServerRow = z
 /** MCP 工具。⚠ 全名恒为 `mcp:<服务器>.<工具>`（I-20），与内建 `graph.` / `brain.` 命名空间可区分 */
 export const McpTool = z
   .object({
+    description: z.string().optional(),
+    /** Missing inputSchema means legacy catalog metadata, never execution-ready. */
+    inputSchema: z.record(z.unknown()).optional(),
+    outputSchema: z.record(z.unknown()).optional(),
     fullName: z.string(),
     serverId: z.string(),
     signature: z.string(),

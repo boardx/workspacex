@@ -64,7 +64,7 @@ describe("F130 ⑶ · sideEffect 变化 ⇒ 重新发现当场收紧 authScope",
       {
         toolFullName: "mcp:crm.query_contact",
         fromAuthScope: "全体成员",
-        toAuthScope: "需人工确认每次",
+        toAuthScope: "未开放",
         newSideEffect: "对外发送",
       },
     ]);

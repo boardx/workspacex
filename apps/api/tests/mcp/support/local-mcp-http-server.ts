@@ -40,10 +40,12 @@ function registerTestTools(mcp: McpServer): void {
     {
       description: "只读查询联系人",
       inputSchema: { company: z.string().optional() },
+      outputSchema: { result: z.string() },
       annotations: { readOnlyHint: true },
     },
     async ({ company }) => ({
       content: [{ type: "text", text: `queried ${company ?? "all"}` }],
+      structuredContent: { result: `queried ${company ?? "all"}` },
     }),
   );
 
