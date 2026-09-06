@@ -79,7 +79,6 @@ import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
-import { ChatHostInterjection } from "@/components/chat/chat-host-interjection";
 
 const THREAD_ID = "thr-2756";
 const RUN_ID = "run-1";
@@ -162,64 +161,78 @@ beforeEach(() => {
 
 /* ── ① 宿主：真实 CopilotKitV2Panel + 在途 run（恢复路径）────────────────── */
 
-describe("/chat 宿主 · 在途 run 为 running ⇒ 插话入口可用（issue #2756）", () => {
-  it("网关推来 status_change(running) 后出现 interjection-input 且非 disabled；发送走真实 runId，1 秒内出现 interjection-ack", async () => {
+/**
+ * 2026-09-06 人类实测 5 处 UI 问题后，消息流里的 `ChatHostInterjection` 已撤：插话统一
+ * 走底部主 composer（`copilotkit-v2-input` + `copilotkit-v2-send`，`sendWhileRunning`）。
+ * 宿主契约因此改写为：running ⇒ 主 composer 发送走真实 `interjectAgentRun`、页脚 1 秒内出
+ * ack、进度卡 `data-run-id` 是真实 runId；非 running ⇒ 正文排队（不发注定被 409 拒掉的插话）。
+ */
+describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插话（issue #2756，2026-09-06 收敛）", () => {
+  it("status_change(running) 后：进度卡 data-run-id 为真实 runId，主 composer 发送走 interjectAgentRun，1 秒内页脚出 ack", async () => {
     mountHost();
 
-    await screen.findByTestId("copilotkit-v2-running-indicator");
-    // 还没收到任何状态事件：宿主不编一个默认 `running`，入口不在。
+    const indicator = await screen.findByTestId("copilotkit-v2-running-indicator");
+    // 消息流里不再有第二个输入框（两个 loading / 两个输入框的根因）。
     expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-host-interjection")).not.toBeInTheDocument();
 
     await waitFor(() => expect(sockets.length).toBe(1));
     act(() => sockets[0]!.emit(statusChange("running")));
+    await waitFor(() => expect(indicator.getAttribute("data-run-id")).toBe(RUN_ID));
 
-    const input = await screen.findByTestId("interjection-input");
+    const input = screen.getByTestId("copilotkit-v2-input");
     expect(input).not.toBeDisabled();
-    // 入口挂在真实进度指示下方，作兄弟节点——进度指示没有被替换掉。
-    expect(screen.getByTestId("copilotkit-v2-running-indicator")).toBeInTheDocument();
-    expect(screen.getByTestId("chat-host-interjection").getAttribute("data-run-id")).toBe(RUN_ID);
-
+    expect(input).toHaveAttribute("placeholder", "随时补充要求，agent 会在下一步前纳入");
     fireEvent.change(input, { target: { value: "先别写结论，把数据表补全" } });
-    fireEvent.click(screen.getByTestId("interjection-send"));
+    fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
 
     // R9：1 秒内出现「已收到」——上限显式写死 1000ms。
-    const ack = await screen.findByTestId("interjection-ack", {}, { timeout: 1000 });
-    expect(ack.getAttribute("data-received-at")).toBe(RECEIVED_AT);
+    const ack = await screen.findByTestId("chat-task-workbench-composer-running-reply-ack", {}, { timeout: 1000 });
+    expect(ack).toHaveTextContent("已收到「先别写结论，把数据表补全」");
     expect(interjectAgentRun).toHaveBeenCalledTimes(1);
     const [calledInput, calledOpts] = interjectAgentRun.mock.calls[0]!;
     expect(calledInput).toEqual({ runId: RUN_ID, text: "先别写结论，把数据表补全" });
     expect(calledOpts).toMatchObject({ sessionToken: "b" });
 
-    // 进度指示仍在：插话没有打断当前展示的进度流。
+    // 进度指示仍在、且仍是唯一的 loading：插话没有打断当前展示的进度流。
     expect(screen.getByTestId("copilotkit-v2-running-indicator")).toBeInTheDocument();
-    // 「一条 socket」：宿主没有为插话入口再开第二条订阅。
+    expect(document.querySelectorAll(".animate-spin")).toHaveLength(0);
+    // 「一条 socket」：宿主没有为插话再开第二条订阅。
     expect(sockets.length).toBe(1);
   });
 
-  it("对照组：status_change(awaiting_tool_permission) ⇒ 不渲染入口；回到 running 又出现", async () => {
+  it("恢复路径（agent.isRunning 为假、runRestore.isRestoring 为真）：Enter 与点击同一条路，走插话而不是开第二轮 run", async () => {
+    mountHost();
+    await waitFor(() => expect(sockets.length).toBe(1));
+    act(() => sockets[0]!.emit(statusChange("running")));
+    const indicator = await screen.findByTestId("copilotkit-v2-running-indicator");
+    await waitFor(() => expect(indicator.getAttribute("data-run-id")).toBe(RUN_ID));
+
+    const input = screen.getByTestId("copilotkit-v2-input");
+    fireEvent.change(input, { target: { value: "回 B" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(interjectAgentRun).toHaveBeenCalledTimes(1));
+    expect(interjectAgentRun.mock.calls[0]![0]).toEqual({ runId: RUN_ID, text: "回 B" });
+    await screen.findByTestId("chat-task-workbench-composer-running-reply-ack", {}, { timeout: 1000 });
+  });
+
+  it("对照组：status_change(awaiting_tool_permission) ⇒ 正文排队而不是插话；回到 running 才插话", async () => {
     mountHost();
     await waitFor(() => expect(sockets.length).toBe(1));
 
     act(() => sockets[0]!.emit(statusChange("awaiting_tool_permission", 1)));
     await screen.findByTestId("copilotkit-v2-running-indicator");
-    expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("chat-host-interjection")).not.toBeInTheDocument();
+    const input = screen.getByTestId("copilotkit-v2-input");
+    fireEvent.change(input, { target: { value: "补一张图" } });
+    fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
+    await screen.findByTestId("chat-task-workbench-composer-queued-reply");
+    expect(interjectAgentRun).not.toHaveBeenCalled();
 
     act(() => sockets[0]!.emit(statusChange("running", 2)));
-    await screen.findByTestId("interjection-input");
-
-    act(() => sockets[0]!.emit(statusChange("paused", 3)));
-    await waitFor(() => expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument());
-  });
-
-  it("终态 status_change(succeeded) ⇒ 入口收起（不留一个点了必 409 的输入框）", async () => {
-    mountHost();
-    await waitFor(() => expect(sockets.length).toBe(1));
-    act(() => sockets[0]!.emit(statusChange("running", 1)));
-    await screen.findByTestId("interjection-input");
-
-    act(() => sockets[0]!.emit(statusChange("succeeded", 2)));
-    await waitFor(() => expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument());
+    fireEvent.change(input, { target: { value: "再补一张" } });
+    fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
+    await waitFor(() => expect(interjectAgentRun).toHaveBeenCalledTimes(1));
+    expect(interjectAgentRun.mock.calls[0]![0]).toEqual({ runId: RUN_ID, text: "再补一张" });
   });
 });
 
@@ -309,28 +322,3 @@ describe("useChatHostInterjectionRun · 在途路径：RUN_STARTED 后解析真�
   });
 });
 
-/* ── ③ 宿主组件本身：只在 running 渲染，interject 带 bearer ──────────────── */
-
-describe("ChatHostInterjection · 只在 running 渲染", () => {
-  it.each([
-    ["runId 为 null", null, "running"],
-    ["status 为 null", RUN_ID, null],
-    ["queued", RUN_ID, "queued"],
-    ["awaiting_plan_confirmation", RUN_ID, "awaiting_plan_confirmation"],
-    ["paused", RUN_ID, "paused"],
-  ] as const)("%s ⇒ 不渲染", (_label, runId, status) => {
-    render(<ChatHostInterjection runId={runId} status={status} sessionToken="b" />);
-    expect(screen.queryByTestId("chat-host-interjection")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("interjection-input")).not.toBeInTheDocument();
-  });
-
-  it("running ⇒ 渲染 InterjectionComposer，data-testid 原样（interjection-input / interjection-ack）", async () => {
-    render(<ChatHostInterjection runId={RUN_ID} status="running" sessionToken="b" />);
-    const input = screen.getByTestId("interjection-input");
-    expect(input).not.toBeDisabled();
-    fireEvent.change(input, { target: { value: "改用表格" } });
-    fireEvent.click(screen.getByTestId("interjection-send"));
-    await screen.findByTestId("interjection-ack", {}, { timeout: 1000 });
-    expect(interjectAgentRun).toHaveBeenCalledWith({ runId: RUN_ID, text: "改用表格" }, { sessionToken: "b" });
-  });
-});

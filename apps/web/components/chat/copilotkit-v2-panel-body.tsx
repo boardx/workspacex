@@ -20,7 +20,6 @@ import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-r
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
-import { ChatHostInterjection } from "@/components/chat/chat-host-interjection";
 import {
   classifyInterjectFailure, interjectAgentRun, INTERJECT_FAILURE_COPY, INTERJECT_UNKNOWN_FAILURE_COPY,
 } from "@/lib/agent-kernel-interject";
@@ -1125,7 +1124,7 @@ export function CopilotKitV2PanelBody({
   const send = React.useCallback(
     async (override?: string, opts?: { readonly clientMessageId?: string }) => {
       const text = (override ?? inputDraft).trim();
-      if (text === "" || agent.isRunning) return;
+      if (text === "" || runIsRunning) return;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -1183,7 +1182,7 @@ export function CopilotKitV2PanelBody({
         reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
       }
     },
-    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],
+    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent],
   );
 
   /**
@@ -1625,10 +1624,10 @@ export function CopilotKitV2PanelBody({
     }
   }, [inputDraft, interjectPending, interjectionRun.runId, interjectionRun.status, sessionToken, agent]);
   React.useEffect(() => {
-    if (agent.isRunning || queuedReply === null) return;
+    if (runIsRunning || queuedReply === null) return;
     setQueuedReply(null);
     void send(queuedReply);
-  }, [agent.isRunning, queuedReply, send]);
+  }, [runIsRunning, queuedReply, send]);
   React.useEffect(() => {
     if (!agent.isRunning) setRunningReplyAck(null);
   }, [agent.isRunning]);
@@ -1904,6 +1903,7 @@ export function CopilotKitV2PanelBody({
           {!historyLoading && (agent.isRunning || runRestore.isRestoring) ? (
             <RunProgressCard
               className="mt-3"
+              runId={interjectionRun.runId}
               stage={runProgress.stage}
               phaseLabel={
                 runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")
@@ -1913,11 +1913,10 @@ export function CopilotKitV2PanelBody({
               planStep={planStep}
             />
           ) : null}
-          {/* issue #2756 —— 中途插话入口（F12 `InterjectionComposer`）：running 态才渲染，
-              挂在进度指示下方作兄弟节点，见 `chat-host-interjection.tsx` 头注。 */}
-          {!historyLoading ? (
-            <ChatHostInterjection runId={interjectionRun.runId} status={interjectionRun.status} sessionToken={sessionToken} />
-          ) : null}
+          {/* issue #2756 的 `ChatHostInterjection` 已于本轮撤下（2026-09-06 人类实测 5 处 UI 问题）：
+              消息流里再嵌一个输入框与底部主 composer 功能重复（主 composer 运行中已走
+              `sendWhileRunning` 插话）、两个 loading 同时转、内部约束文案外露。插话统一收敛到
+              主 composer；在途 run 的真实 runId 改挂在进度卡的 `data-run-id` 上供 e2e 读取。 */}
         </div>
         </div>
           {/* issue #2096 —— 此前按钮曾挂在从消息区一路延伸到 composer 的最外层包装里，
@@ -2177,7 +2176,13 @@ export function CopilotKitV2PanelBody({
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={archived}
-                placeholder={archived ? "该对话已归档，不能再发送消息" : "输入任务目标，Shift+Enter 换行，Enter 发送"}
+                placeholder={
+                  archived
+                    ? "该对话已归档，不能再发送消息"
+                    : runIsRunning
+                      ? "随时补充要求，agent 会在下一步前纳入"
+                      : "输入任务目标，Shift+Enter 换行，Enter 发送"
+                }
                 value={inputDraft}
                 onChange={(e) => {
                   setInputDraft(e.target.value);
@@ -2195,7 +2200,7 @@ export function CopilotKitV2PanelBody({
                     e.preventDefault();
                     // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
                     if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
-                    if (agent.isRunning) { void sendWhileRunning(); return; }
+                    if (runIsRunning) { void sendWhileRunning(); return; }
                     void send();
                   }
                 }}
@@ -2327,7 +2332,7 @@ export function CopilotKitV2PanelBody({
                     disabled={sendDisabled || interjectPending}
                     title={sendDisabledReason ?? "发送"}
                     aria-label="发送"
-                    onClick={() => void (agent.isRunning ? sendWhileRunning() : send())}
+                    onClick={() => void (runIsRunning ? sendWhileRunning() : send())}
                   >
                     <ArrowUp aria-hidden className="h-4 w-4" />
                   </Button>
@@ -2342,7 +2347,7 @@ export function CopilotKitV2PanelBody({
             `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
             肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
-          {queuedReply !== null && agent.isRunning ? (
+          {queuedReply !== null && runIsRunning ? (
             <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
               <span className="truncate">{queuedReplyCopy(queuedReply)}</span>
               <button

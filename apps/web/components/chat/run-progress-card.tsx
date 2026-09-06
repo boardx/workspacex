@@ -53,6 +53,8 @@ export interface RunProgressCardProps {
   planStep: { readonly index: number; readonly total: number; readonly content: string } | null;
   /** 仅供截图 harness 比对候选动效；生产默认走组件默认值。 */
   motion?: RunProgressButterflyMotion;
+  /** 在途 run 的真实 `agent_runs.id`；挂成 `data-run-id` 供 e2e 读取（原挂在插话框上，插话框已撤）。 */
+  runId?: string | null;
   className?: string;
 }
 
@@ -63,11 +65,13 @@ export function RunProgressCard({
   isLongRun,
   planStep,
   motion,
+  runId,
   className,
 }: RunProgressCardProps): JSX.Element {
   return (
     <div
       data-testid="copilotkit-v2-running-indicator"
+      data-run-id={runId ?? undefined}
       role="status"
       aria-live="polite"
       className={cn(

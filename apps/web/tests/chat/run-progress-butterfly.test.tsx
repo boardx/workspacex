@@ -4,7 +4,7 @@
  *     上下两对翅膀），动画类只挂在它身上；keyframes 只在 `tailwind.config.ts` 定义一处
  *     （不在 globals.css 再抄一份——同一事实不得声明在两处）。
  *   · reduced-motion 降级静态：`motion-reduce:animate-none` 与 `animate-butterfly-*` 同在。
- *   · 颜色/尺寸走 token：`fill="currentColor"` + `text-ai`，`h-7 w-7`；不出现色值字面量。
+ *   · 颜色/尺寸走 token：`fill="currentColor"` + `text-success`（2026-09-06 换色，原 `text-ai`），`h-7 w-7`；不出现色值字面量。
  *   · 面板 body 的进度卡：`RunProgressXMark`（issue #2769 的 X 图形标）不再出现，
  *     `RunProgressButterfly` 顶上；阶段文案 / 计时 testid 一个没动
  *     （`copilotkit-v2-thinking-phase` / `-elapsed` / `-stage` 都还在——这三处 testid
@@ -69,11 +69,12 @@ describe("RunProgressButterfly（issue #2785）", () => {
     expect(mark).not.toHaveClass("animate-butterfly-fly");
   });
 
-  it("颜色与尺寸走 token：currentColor + text-ai + h-7 w-7（issue #2837 放大），无色值字面量", () => {
+  it("颜色与尺寸走 token：currentColor + text-success + h-7 w-7（issue #2837 放大），无色值字面量", () => {
     render(<RunProgressButterfly />);
     const mark = screen.getByTestId("copilotkit-v2-thinking-mark");
     expect(mark).toHaveAttribute("fill", "currentColor");
-    expect(mark).toHaveClass("text-ai", "h-7", "w-7");
+    expect(mark).toHaveClass("text-success", "h-7", "w-7");
+    expect(mark).not.toHaveClass("text-ai");
     expect(mark).not.toHaveClass("h-3", "w-3");
     expect(mark.outerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(/);
   });
