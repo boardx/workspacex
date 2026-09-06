@@ -394,6 +394,25 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     return json(route, { version });
   });
 
+  // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
+  const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
+    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
+  ]);
+  await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    return json(route, { items: versionsOf(project).map(({ prototype: _p, ...rest }) => rest) });
+  });
+  await page.route((url) => /^\/pm-designs\/[^/]+\/versions\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const [, , id, , versionId] = new URL(route.request().url()).pathname.split("/").map(decodeURIComponent);
+    const project = projects.find((p) => p.id === id);
+    const version = project && versionsOf(project).find((v) => v.id === versionId);
+    if (!version) return json(route, { reasonCode: "VERSION_NOT_FOUND" }, 404);
+    return json(route, { version });
+  });
+
   await page.route((url) => /^\/pm-designs\/[^/]+\/push$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
     const project = projects.find((p) => p.id === id);
