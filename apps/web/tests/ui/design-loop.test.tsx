@@ -1170,6 +1170,125 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.queryByTestId("design-detail-generating")).toBeNull();
   });
 
+  it("迭代 2 选中态：点画布节点 ⇒ 焦点 chip 显示标签与路径；发送带 focusNodeId；点 × 清除；节点消失后 chip 自动消失", async () => {
+    const tree = {
+      type: "stack" as const, id: "n1",
+      children: [
+        { type: "navbar" as const, id: "n2", props: { title: "首页" } },
+        { type: "button" as const, id: "n3", props: { label: "发送" } },
+      ],
+    };
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        // 模型把按钮删了 ⇒ 返回的树里没有 n3
+        return {
+          project: project({ frames: ["聊天"], prototype: [{ ...tree, children: [tree.children[0]!] }], chat: [
+            { role: "user", text: "删掉它", at: "2026-09-06T00:00:00.000Z" },
+            { role: "ai", text: "删了。", at: "2026-09-06T00:00:01.000Z", source: "model" },
+          ] }),
+          reply: { source: "model", applied: ["prototype"] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    const btn = screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n3"]') as HTMLElement;
+    fireEvent.click(btn);
+    const chip = screen.getByTestId("design-detail-focus");
+    expect(chip.textContent).toContain("按钮「发送」");
+    expect(chip.textContent).toContain("纵向布局");
+    expect(btn.getAttribute("data-selected")).toBe("true");
+    expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).placeholder).toContain("这个节点");
+    // 清除再选回
+    fireEvent.click(screen.getByTestId("design-detail-focus-clear"));
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    fireEvent.click(btn);
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "删掉它" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toEqual({ text: "删掉它", focusNodeId: "n3" });
+    await waitFor(() => expect(screen.queryByTestId("design-detail-focus")).toBeNull()); // n3 没了 ⇒ chip 消失
+    // 键盘可选：Tab 到节点、Enter 选中、Space 取消
+    const nav = screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement;
+    expect(nav.getAttribute("role")).toBe("button");
+    expect(nav.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(nav, { key: "Enter" });
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("导航栏「首页」");
+    expect(nav.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyDown(nav, { key: " " });
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+  });
+
+  it("迭代 2 整页重生成后选中清空：applied 含 frames ⇒ 即使新树里有同名 id 也不沿用（Codex P1）", async () => {
+    const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+    const regenerated = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "全新的 n2" } }] };
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("按钮「发送」");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "重画" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("全新的 n2"));
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+  });
+
+  it("迭代 3 版本历史：打开面板拉列表；点一版 ⇒ 预览横幅 + 画布显示旧树、不可点选；恢复 ⇒ POST、项目整体替换、退出预览、列表刷新", async () => {
+    const now = { type: "text" as const, id: "n1", props: { content: "现在的" } };
+    const old = { type: "text" as const, id: "n1", props: { content: "旧的" } };
+    const calls: string[] = [];
+    let restored = false;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      calls.push(`${opts?.method ?? "GET"} ${path}`);
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [now] })] };
+      if (path === "/pm-designs/p1/versions") return { items: [
+        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
+        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], createdAt: "2026-09-06T02:00:00.000Z" },
+        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z" },
+      ] };
+      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
+      if (path === "/pm-designs/p1/versions/v1/restore" && opts?.method === "POST") {
+        restored = true;
+        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], createdAt: "2026-09-06T03:00:00.000Z" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("现在的");
+    fireEvent.click(screen.getByTestId("design-detail-history-toggle"));
+    await screen.findByTestId("design-history-item-2");
+    expect(screen.getByTestId("design-history-item-1").textContent).toContain("第一版");
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    await screen.findByTestId("design-detail-preview-banner");
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("旧的");
+    expect(screen.getByTestId("design-detail-frame-0").textContent).toBe("旧页名");
+    // 预览态不可点选
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n1"]') as HTMLElement);
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    fireEvent.click(screen.getByTestId("design-history-restore-1"));
+    await waitFor(() => expect(calls).toContain("POST /pm-designs/p1/versions/v1/restore"));
+    await waitFor(() => expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull());
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("旧的");
+    await screen.findByTestId("design-history-item-3");
+    // 退出预览按钮 / 再点同一版取消预览
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    await screen.findByTestId("design-detail-preview-banner");
+    fireEvent.click(screen.getByTestId("design-detail-preview-exit"));
+    expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull();
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();

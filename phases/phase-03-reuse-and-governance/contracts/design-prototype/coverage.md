@@ -13,6 +13,8 @@
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |
+| V18 | 版本历史（迭代 3） | `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` | `design-detail-history-toggle` / `design-history-*` / `design-detail-preview-banner` | ✅ |
+| V17 | 画布选中态 + focusNodeId（迭代 2） | `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | `design-detail-focus` / `design-detail-focus-clear` / `[data-node-id]` | ✅ |
 | V16 | patch 局部改（迭代 1） | `DesignChatWriteback.patch` / `applyPrototypePatch` / `ensurePrototypeIds` | `design-detail-phone-tree` / `design-detail-chat-applied` | ✅ |
 
 ## 二、API → UC
@@ -24,8 +26,10 @@
 | `DesignProject.prototype`（+ `superRefine`） | V10 V11 V12 |
 | `DesignChatWriteback.prototype` / `DesignWritebackField = "prototype"` | V10 V13 |
 | `PrototypeNodeId` / `PrototypePatchOp` / `DesignPrototypePatch` / `PROTOTYPE_PATCH_GUIDE` | V16 |
+| `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | V17 |
+| `PrototypeVersion(Summary)` / `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` / `VERSION_NOT_FOUND` | V18 |
 
-没有任何契约面找不到 UC；没有任何 V 找不到契约面。本束**不新增路由**。
+没有任何契约面找不到 UC；没有任何 V 找不到契约面。迭代 3 起本束新增三条路由（版本历史），都挂在 `/pm-designs/:projectId/versions` 下。
 
 ## 三、验证命令（本 PR 已跑绿）
 

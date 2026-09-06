@@ -74,12 +74,35 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text } },
+    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) } },
   );
 }
+/* ── 迭代 3：原型版本历史 ── */
+export type PrototypeVersionSummary = z.infer<typeof designWorkbench.PrototypeVersionSummary>;
+export type PrototypeVersion = z.infer<typeof designWorkbench.PrototypeVersion>;
+export type ListPrototypeVersionsOut = z.infer<typeof designWorkbench.operations.listPrototypeVersions.out>;
+export type GetPrototypeVersionOut = z.infer<typeof designWorkbench.operations.getPrototypeVersion.out>;
+export type RestorePrototypeVersionOut = z.infer<typeof designWorkbench.operations.restorePrototypeVersion.out>;
+
+const versionPath = (tpl: string, projectId: string, versionId?: string): string =>
+  tpl.replace(":projectId", encodeURIComponent(projectId)).replace(":versionId", encodeURIComponent(versionId ?? ""));
+
+export async function listPrototypeVersions(projectId: string): Promise<ListPrototypeVersionsOut> {
+  return apiRequest<ListPrototypeVersionsOut>(versionPath(designWorkbench.operations.listPrototypeVersions.path, projectId));
+}
+export async function getPrototypeVersion(projectId: string, versionId: string): Promise<GetPrototypeVersionOut> {
+  return apiRequest<GetPrototypeVersionOut>(versionPath(designWorkbench.operations.getPrototypeVersion.path, projectId, versionId));
+}
+export async function restorePrototypeVersion(projectId: string, versionId: string): Promise<RestorePrototypeVersionOut> {
+  return apiRequest<RestorePrototypeVersionOut>(versionPath(designWorkbench.operations.restorePrototypeVersion.path, projectId, versionId), { method: "POST", body: {} });
+}
+
+/** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
+export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
+export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;
 
 export async function deleteProject(projectId: string): Promise<DeleteProjectOut> {
   return apiRequest<DeleteProjectOut>(

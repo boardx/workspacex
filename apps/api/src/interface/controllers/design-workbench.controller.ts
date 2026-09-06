@@ -42,6 +42,12 @@ import { createProject } from "../../application/design-workbench/create-project
 import { listMyProjects } from "../../application/design-workbench/list-my-projects";
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
+import {
+  PrototypeVersionNotFoundError,
+  getPrototypeVersion,
+  listPrototypeVersions,
+  restorePrototypeVersion,
+} from "../../application/design-workbench/prototype-versions";
 import { deleteProject } from "../../application/design-workbench/delete-project";
 import { pushToInbox } from "../../application/design-workbench/push-to-inbox";
 import {
@@ -94,6 +100,7 @@ type PushToInboxBody = ReturnType<typeof PUSH_TO_INBOX_SCHEMA.parse>;
 function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignProjectNotFoundError) return new NotFoundException({ reasonCode: "PROJECT_NOT_FOUND" });
   if (e instanceof DesignProjectNotOwnerError) return new ForbiddenException({ reasonCode: "NOT_PROJECT_OWNER" });
+  if (e instanceof PrototypeVersionNotFoundError) return new NotFoundException({ reasonCode: "VERSION_NOT_FOUND" });
   if (e instanceof DesignProjectNameRequiredError) return new UnprocessableEntityException({ reasonCode: "NAME_REQUIRED" });
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
   //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：
@@ -204,8 +211,40 @@ export class DesignWorkbenchController {
     try {
       return await appendProjectChat(
         { ...this.deps(principal), ai: this.designChat() },
-        { projectId, ownerId: principal.userId, text: body.text },
+        { projectId, ownerId: principal.userId, text: body.text, ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}) },
       );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 迭代 3：原型版本历史 ── */
+
+  @Get("/pm-designs/:projectId/versions")
+  async listVersions(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    try {
+      return await listPrototypeVersions(this.deps(principal), { projectId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Get("/pm-designs/:projectId/versions/:versionId")
+  async getVersion(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Param("versionId") versionId: string) {
+    assertPrincipal(principal);
+    try {
+      return await getPrototypeVersion(this.deps(principal), { projectId, versionId });
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Post("/pm-designs/:projectId/versions/:versionId/restore")
+  async restoreVersion(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string, @Param("versionId") versionId: string) {
+    assertPrincipal(principal);
+    try {
+      return await restorePrototypeVersion(this.deps(principal), { projectId, ownerId: principal.userId, versionId });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

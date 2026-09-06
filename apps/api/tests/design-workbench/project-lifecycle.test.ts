@@ -7,6 +7,12 @@ import { createProject } from "../../src/application/design-workbench/create-pro
 import { listMyProjects } from "../../src/application/design-workbench/list-my-projects";
 import { updateProject } from "../../src/application/design-workbench/update-project";
 import { appendProjectChat } from "../../src/application/design-workbench/append-project-chat";
+import {
+  PrototypeVersionNotFoundError,
+  getPrototypeVersion,
+  listPrototypeVersions,
+  restorePrototypeVersion,
+} from "../../src/application/design-workbench/prototype-versions";
 import { deleteProject } from "../../src/application/design-workbench/delete-project";
 import { pushToInbox } from "../../src/application/design-workbench/push-to-inbox";
 import {
@@ -243,6 +249,52 @@ describe("appendProjectChat", () => {
     const out3 = await appendProjectChat({ ...deps(repo), ai: bad }, { projectId: "dp-1", ownerId: "u-1", text: "删" });
     expect(out3.reply.applied).toEqual(["problem"]);
     expect(out3.project.prototype).toEqual(out2.project.prototype);
+  });
+
+  it("迭代 2 focusNodeId：找得到 ⇒ 模型上下文带 focus（页、路径、节点）；找不到 ⇒ 不带", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["聊天"], prototype: [
+      { id: "n1", type: "stack", children: [{ id: "n2", type: "button", props: { label: "发送" } }] },
+    ] }));
+    const ai = new FakeDesignChat();
+    await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "改成红色", focusNodeId: "n2" });
+    expect(ai.calls[0]?.focus).toEqual({ id: "n2", frame: "聊天", path: ["纵向布局", "按钮「发送」"], node: { id: "n2", type: "button", props: { label: "发送" } } });
+    const ai2 = new FakeDesignChat();
+    await appendProjectChat({ ...deps(repo), ai: ai2 }, { projectId: "dp-1", ownerId: "u-1", text: "x", focusNodeId: "gone" });
+    expect(ai2.calls[0]?.focus).toBeUndefined();
+  });
+
+  it("迭代 3 版本历史：prototype 写回（整页/patch）各记一版、只改标签不记；列表倒序不带树；单条带树；恢复写回旧版并再追加 restore 一版；非 owner 不能恢复；未知版本 404", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
+    const whole = new FakeDesignChat();
+    whole.answer = { text: "画好了，两页。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "v1" } }] } }] } };
+    await appendProjectChat({ ...deps(repo), ai: whole }, { projectId: "dp-1", ownerId: "u-1", text: "画" });
+    const p = new FakeDesignChat();
+    p.answer = { text: "改了文案。", source: "model", writeback: { patch: [{ op: "setProps", id: "n2", props: { content: "v2" } }] } };
+    await appendProjectChat({ ...deps(repo), ai: p }, { projectId: "dp-1", ownerId: "u-1", text: "改" });
+    const relabel = new FakeDesignChat();
+    relabel.answer = { text: "改名。", source: "model", writeback: { frames: ["首页"] } };
+    await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "改名" });
+
+    const { items } = await listPrototypeVersions(deps(repo), { projectId: "dp-1" });
+    expect(items.map((v) => [v.seq, v.source, v.summary])).toEqual([[2, "model", "改了文案。"], [1, "model", "画好了，两页。"]]);
+    expect(items[0]).not.toHaveProperty("prototype");
+    const v1 = await getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: items[1]!.id });
+    expect(v1.version.prototype[0]).toMatchObject({ type: "stack", children: [{ props: { content: "v1" } }] });
+    expect(v1.version.frames).toEqual(["聊天"]);
+
+    // 当前项目：标签被改成「首页」、树被清空
+    expect((await repo.get("dp-1"))?.prototype).toEqual([]);
+    const restored = await restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-1", versionId: items[1]!.id });
+    expect(restored.project.frames).toEqual(["聊天"]);
+    expect(restored.project.prototype[0]).toMatchObject({ children: [{ props: { content: "v1" } }] });
+    expect(restored.version).toMatchObject({ seq: 3, source: "restore", summary: "恢复自 v1" });
+    expect((await listPrototypeVersions(deps(repo), { projectId: "dp-1" })).items).toHaveLength(3);
+
+    await expect(restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-2", versionId: items[1]!.id })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    await expect(getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: "nope" })).rejects.toBeInstanceOf(PrototypeVersionNotFoundError);
+    await expect(listPrototypeVersions(deps(repo), { projectId: "nope" })).rejects.toBeInstanceOf(DesignProjectNotFoundError);
   });
 
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {

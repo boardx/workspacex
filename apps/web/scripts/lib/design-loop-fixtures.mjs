@@ -195,6 +195,16 @@ export async function routeInbox(page, { empty }) {
  *   同一条路：由本脚本 `page.route()` 拦截提供固定夹具，不连真库（同一台机器随时能截出同一张图）。
  */
 const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
+/**
+ * 迭代 2：真栈里节点 id 由服务端 `ensurePrototypeIds` 落库时补齐（契约 design-prototype.ts）；本夹具是
+ * 前端 mock，没有服务端那一步，所以这里按同一规则（遍历序 n1、n2…）补上——选中态要靠 id 寻址。
+ */
+function withIds(roots) {
+  let k = 0;
+  const fill = (n) => ({ ...n, id: n.id ?? `n${(k += 1)}`, ...(Array.isArray(n.children) ? { children: n.children.map(fill) } : {}) });
+  return roots.map(fill);
+}
+
 export const DESIGN_PROJECTS = [
   {
     id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
@@ -224,7 +234,7 @@ export const DESIGN_PROJECTS = [
     problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
     criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
     frames: ["聊天", "历史会话"],
-    prototype: [
+    prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
         children: [
@@ -259,7 +269,7 @@ export const DESIGN_PROJECTS = [
           { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
         ],
       },
-    ],
+    ]),
     pushed: false, pushedAt: null, linkedFeedbackId: null,
     githubIssueUrl: null, githubIssueNumber: null,
     chat: [
@@ -332,6 +342,25 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: NOW, source: "fallback" }];
     project.updatedAt = NOW;
     return json(route, { project, reply: { source: "fallback", applied: [] } });
+  });
+
+  // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
+  const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
+    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
+  ]);
+  await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    return json(route, { items: versionsOf(project).map(({ prototype: _p, ...rest }) => rest) });
+  });
+  await page.route((url) => /^\/pm-designs\/[^/]+\/versions\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const [, , id, , versionId] = new URL(route.request().url()).pathname.split("/").map(decodeURIComponent);
+    const project = projects.find((p) => p.id === id);
+    const version = project && versionsOf(project).find((v) => v.id === versionId);
+    if (!version) return json(route, { reasonCode: "VERSION_NOT_FOUND" }, 404);
+    return json(route, { version });
   });
 
   await page.route((url) => /^\/pm-designs\/[^/]+\/push$/.test(new URL(url).pathname), (route) => {

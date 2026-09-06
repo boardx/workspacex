@@ -322,6 +322,51 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
   return current;
 }
 
+/**
+ * 迭代 2：按 id 找节点，返回从页根到它的路径（含自身）与页序号；找不到 ⇒ null。
+ * 画布选中态（面包屑）与模型上下文（「用户选中了 …」）共用，不各写一份遍历。
+ */
+export function findPrototypeNodePath(
+  prototype: readonly PrototypeNode[],
+  id: PrototypeNodeId,
+): { readonly frameIndex: number; readonly path: readonly PrototypeNode[] } | null {
+  const walk = (n: PrototypeNode, trail: PrototypeNode[]): PrototypeNode[] | null => {
+    const here = [...trail, n];
+    if (n.id === id) return here;
+    if (n.type === "stack" || n.type === "card") {
+      for (const c of n.children) {
+        const r = walk(c, here);
+        if (r !== null) return r;
+      }
+    }
+    return null;
+  };
+  for (const [frameIndex, root] of prototype.entries()) {
+    const path = walk(root, []);
+    if (path !== null) return { frameIndex, path };
+  }
+  return null;
+}
+
+/** 一个节点的短标签（面包屑 / 焦点 chip / 给模型的描述），与设计文档的 `describeNode` 分工：这里只要一眼认出。 */
+export function prototypeNodeLabel(n: PrototypeNode): string {
+  switch (n.type) {
+    case "text": return `文本「${n.props.content.slice(0, 20)}」`;
+    case "button": return `按钮「${n.props.label}」`;
+    case "navbar": return `导航栏「${n.props.title}」`;
+    case "card": return n.props?.title !== undefined ? `卡片「${n.props.title}」` : "卡片";
+    case "input": return `输入框「${n.props.label ?? n.props.placeholder ?? ""}」`;
+    case "badge": return `标记「${n.props.label}」`;
+    case "image": return `图片「${n.props.alt}」`;
+    case "list": return `列表（${n.props.items.length} 项）`;
+    case "tabs": return `标签页（${n.props.items.join("/")}）`;
+    case "avatar": return `头像「${n.props.name}」`;
+    case "stack": return n.props?.direction === "row" ? "横向布局" : "纵向布局";
+    case "divider": return "分隔线";
+    case "spacer": return "留白";
+  }
+}
+
 /** 给模型看的 patch 说明——同 `PROTOTYPE_SCHEMA_GUIDE`，只此一份。 */
 export const PROTOTYPE_PATCH_GUIDE =
   "局部修改用 writeback.patch（数组，按顺序执行，≤ " + PROTOTYPE_MAX_PATCH_OPS + " 条），按节点 id 寻址（当前原型里每个节点都有 id）：" +

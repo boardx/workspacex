@@ -36,6 +36,12 @@
   `PrototypeNode` 契约与整页上限；任一步失败整批不生效、`applied` 不含 `prototype`。没有原型时 patch 拒。
   `prototype`（整页）与 `patch` 同时给出以 `prototype` 为准。
 
+- **I-15 焦点只是提示，不是权限。**（迭代 2）`focusNodeId` 只影响模型看到的上下文；服务端不校验模型
+  的 patch 是否真的落在焦点节点上，也不因 id 失效而拒绝请求（找不到 ⇒ 当没选）。
+
+- **I-16 版本只追加。**（迭代 3）`design_project_prototype_versions` 有 append-only 触发器；「恢复」是把旧版
+  内容写回项目再追加一条 `restore` 版本，任何时刻列表都是完整的时间线。版本只在 `prototype` 真的变了时产生。
+
 ## 3. 取舍
 
 | 问题 | 选 | 不选 | 为什么 |
@@ -50,6 +56,6 @@
 ## 4. 迭代路线（2026-09-06 人类指令：连续迭代到接近 Claude Design）
 
 - ✅ 迭代 1：节点 `id` + `PrototypePatchOp`（setProps / replace / insert / remove），模型可局部改。
-- 画布选中态 + 「就改这一块」的对话上下文；
-- 版本回退（现在每次整页替换，旧树只在对话历史里能追溯，不能一键回滚）；
+- ✅ 迭代 2：画布选中态 + `focusNodeId`——「就改这一块」的对话上下文。
+- ✅ 迭代 3：版本历史（append-only 快照；预览 / 恢复；恢复也是一版）。
 - 流式生成 / 取消。

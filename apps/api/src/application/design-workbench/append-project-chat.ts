@@ -47,9 +47,18 @@ export interface AppendProjectChatDeps extends DesignProjectDeps {
   readonly ai: DesignChatModel;
 }
 
+/** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
+function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly designPrototype.PrototypeNode[] }, id: string | undefined) {
+  if (id === undefined) return {};
+  const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
+  if (hit === null) return {};
+  const node = hit.path[hit.path.length - 1]!;
+  return { focus: { id, frame: row.frames[hit.frameIndex] ?? "", path: hit.path.map(designPrototype.prototypeNodeLabel), node } };
+}
+
 export async function appendProjectChat(
   deps: AppendProjectChatDeps,
-  input: { readonly projectId: string; readonly ownerId: string; readonly text: string },
+  input: { readonly projectId: string; readonly ownerId: string; readonly text: string; readonly focusNodeId?: string },
 ): Promise<{ readonly project: DesignProjectView; readonly reply: DesignChatReply }> {
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
@@ -62,6 +71,7 @@ export async function appendProjectChat(
     criteria: current.criteria,
     frames: current.frames,
     prototype: current.prototype,
+    ...focusFor(current, input.focusNodeId),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 
@@ -88,7 +98,9 @@ export async function appendProjectChat(
   };
   const applied = Object.keys(patch) as DesignWritebackField[];
   if (applied.length > 0) {
-    const written = await deps.projects.update(input.projectId, input.ownerId, patch);
+    // 迭代 3：原型真的变了（整页 / patch）⇒ 与 UPDATE 同一事务追加一条版本快照。只改标签（树被清空）不记——那不是一版原型。
+    const version = patch.prototype !== undefined ? { source: "model" as const, summary: ai.text.replace(/\s+/g, " ").trim().slice(0, 120) } : undefined;
+    const written = await deps.projects.update(input.projectId, input.ownerId, patch, version);
     if (written === null) throw new DesignProjectNotOwnerError();
   }
 
