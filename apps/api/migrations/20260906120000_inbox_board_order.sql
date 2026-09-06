@@ -47,3 +47,6 @@ CREATE POLICY inbox_item_order_tenant ON inbox_item_order
   WITH CHECK (org_id = current_setting('app.current_org', true));
 
 GRANT SELECT, INSERT, UPDATE ON inbox_item_order TO app_rw;
+
+-- 组织冻结策略（合规冻结时禁写），与其余租户表一致。
+SELECT kernel_apply_org_freeze_policies();
