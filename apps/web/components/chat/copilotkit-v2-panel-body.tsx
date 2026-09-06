@@ -12,6 +12,7 @@ import { useDispatchedQueueMessages } from "@/lib/chat-workbench/use-dispatched-
 import { QueueNextTurnAction } from "@/components/chat/workbench/queue-next-turn-action";
 import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
+import { ChildCancellationNotice, latestCancelledRun } from "@/components/chat/workbench/child-cancellation-notice";
 import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
 import { useRunTraceTail } from "@/lib/chat-workbench/use-run-trace-tail";
 import { useRunTrace } from "@/lib/chat-workbench/use-run-trace";
@@ -1025,7 +1026,7 @@ export function CopilotKitV2PanelBody({
       phase: runProgress.stage,
     };
   });
-  const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? null, sessionToken);
+  const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? latestCancelledRun(runTrace.events), sessionToken);
   React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
@@ -1947,6 +1948,7 @@ export function CopilotKitV2PanelBody({
             </div>
           </div>
           {composerStatusBar}
+          <ChildCancellationNotice text={cancellation.childNotice} />
           <QueuedMessagesPanel {...serverQueue} canWrite={canWrite} />
         </div>
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">

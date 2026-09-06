@@ -32,3 +32,49 @@ describe("server cancellation", () => {
     expect(result.current.requested).toBe(true);
   });
 });
+
+describe("child cancellation facts", () => {
+  it("continues bounded-backoff reads after parent cancellation and clears notice only on confirmation", async () => {
+    vi.useFakeTimers();
+    calls.read.mockResolvedValue({ status: "cancelled", cancelRequestedAt: "now", childCancellation: { kind: "pending", runningChildIds: ["child"] } });
+    const hook = renderHook(() => useRunCancellation("parent", "token"));
+    await act(async () => {});
+    expect(hook.result.current.requested).toBe(false);
+    expect(hook.result.current.childNotice).toBe("父任务已停止，子任务仍待停止确认。");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    expect(calls.read).toHaveBeenCalledTimes(2);
+    calls.read.mockRejectedValueOnce(new Error("offline"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(hook.result.current.childNotice).toContain("仍待停止确认");
+    calls.read.mockResolvedValue({ status: "cancelled", cancelRequestedAt: "now", childCancellation: { kind: "confirmed" } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+    expect(hook.result.current.childNotice).toBeNull();
+    const count = calls.read.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(calls.read).toHaveBeenCalledTimes(count);
+  });
+  it("hides the old task immediately and aborts pending reads on navigation/unmount", async () => {
+    vi.useFakeTimers();
+    calls.read.mockResolvedValue({ status: "cancelled", cancelRequestedAt: "now", childCancellation: { kind: "pending", runningChildIds: ["child"] } });
+    const hook = renderHook(({ run }) => useRunCancellation(run, "token"), { initialProps: { run: "old" as string | null } });
+    await act(async () => {});
+    expect(hook.result.current.childNotice).not.toBeNull();
+    hook.rerender({ run: null });
+    expect(hook.result.current.childNotice).toBeNull();
+    const count = calls.read.mock.calls.length;
+    expect(calls.read.mock.calls[0]?.[2].aborted).toBe(true);
+    hook.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(calls.read).toHaveBeenCalledTimes(count);
+  });
+  it("projects unavailable without falsely keeping the parent running, and ignores not_requested", async () => {
+    calls.read.mockResolvedValue({ status: "cancelled", cancelRequestedAt: "now", childCancellation: { kind: "unavailable" } });
+    const hook = renderHook(({ run }) => useRunCancellation(run, "token"), { initialProps: { run: "old" } });
+    await waitFor(() => expect(hook.result.current.childNotice).toBe("子任务停止状态未确认。"));
+    expect(hook.result.current.requested).toBe(false);
+    calls.read.mockResolvedValue({ status: "running", childCancellation: { kind: "not_requested" } });
+    hook.rerender({ run: "new" });
+    await act(async () => {});
+    expect(hook.result.current.childNotice).toBeNull();
+  });
+});
