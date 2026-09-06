@@ -62,3 +62,7 @@ Real Python integration uses the explicit WX_NATIVE_SANDBOX_CONTAINER fixture; w
 it, tests skip deliberately. Retain raw failures plus correction output. In particular,
 the 49-case live set passed 46 then a corrected three-case rerun; do not rewrite this
 history as one 49-passed invocation. Production real-model/combined UI acceptance remains.
+
+## Latest peer-facing increment
+
+352a506ba provides POST /agent-runs/:runId/subtask-runs/:id/cancel, shared CancelSubtaskRunResult/Failure and SubtaskRunStore.cancel. Pending-only, atomic/idempotent; running is explicit409, parent cascade and late enqueue admission remain unimplemented. 23 realDB/HTTP tests plus API/Web typecheck passed and independent review found no blocker. Forward peer-integration-request.md for stable journal writer and execution authorization integration. Native output collector16961012d and UDS producerff22a9e5a have component evidence (26+9 tests) but no production selector/writeback integration. d5f15ec15 CI was classified green by the canonical helper; later commits must run their own CI.
