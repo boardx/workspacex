@@ -730,6 +730,7 @@ function designItem(over: Partial<InboxItem> = {}): InboxItem {
     statusReason: null, severe: false, votes: 0, reporter: "我",
     createdAt: "2026-09-02T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: "x1",
     resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    boardOrder: 0,
     ...over,
   };
 }
@@ -919,6 +920,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
         statusReason: null, severe: false, votes: 0, reporter: null,
         createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
         resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+        boardOrder: 0,
       },
     ]);
     render(<DesignLoopInboxScreen state="default" />);

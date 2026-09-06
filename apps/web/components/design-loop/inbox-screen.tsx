@@ -1098,7 +1098,7 @@ function BoardCard({
           disabled={busy || !canMoveUp}
           data-testid={`inbox-card-move-up-${item.code}`}
           onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronUp aria-hidden className="h-3.5 w-3.5" />
         </button>
@@ -1108,7 +1108,7 @@ function BoardCard({
           disabled={busy || !canMoveDown}
           data-testid={`inbox-card-move-down-${item.code}`}
           onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronDown aria-hidden className="h-3.5 w-3.5" />
         </button>
