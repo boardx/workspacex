@@ -100,7 +100,10 @@ const MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
  */
 export type ProducedFile = RunOutputFile;
 
+class ScriptCancelledAtBoundary extends Error {}
+
 export type SkillScriptOutcome =
+  | { readonly kind: "cancelled"; readonly text: string; readonly files: readonly [] }
   /** 判据不成立 ⇒ 一次都没碰沙箱。`text` 恒为传进来的 `reply` 本身。 */
   | { readonly kind: "not_attempted"; readonly text: string; readonly files: readonly [] }
   | {
@@ -130,6 +133,7 @@ export type SkillScriptOutcome =
 export interface MaybeRunSkillScriptDeps {
   /** 缺省 ⇒ 整条路径不存在（T2 的不回归保证）。 */
   readonly sandbox?: SkillSandboxPort;
+  readonly cancelAtCheckpoint?: () => Promise<boolean>;
   /** 同上：没有落字节的地方，产出的文件无处可去，不如根本不执行。 */
   readonly objects?: ObjectStore;
   /** 失败回喂时重新问模型要一版脚本。第 1 次**不**走这里（复用已有回复）。 */
@@ -181,15 +185,21 @@ export async function maybeRunSkillScript(
   const sandbox = deps.sandbox;
   const objects = deps.objects;
 
+  const checkCancellation = async () => {
+    if (await deps.cancelAtCheckpoint?.()) throw new ScriptCancelledAtBoundary();
+  };
   try {
     const loop = await runScriptWithRetries({
-      sandbox,
+      sandbox: { run: async (request) => { await checkCancellation(); return sandbox.run(request); } },
       timeoutMs: deps.timeoutMs ?? CHAT_SCRIPT_TIMEOUT_MS,
       maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
       inputFiles: input.inputFiles,
       log: deps.log,
       // 第 1 次复用已有回复（feedback === null），之后才真的再调模型。
-      generateScript: async (feedback) => (feedback === null ? scriptSource : deps.regenerate(feedback)),
+      generateScript: async (feedback) => {
+        await checkCancellation();
+        return feedback === null ? scriptSource : deps.regenerate(feedback);
+      },
     });
 
     const files: ProducedFile[] = [];
@@ -212,6 +222,7 @@ export async function maybeRunSkillScript(
 
     return { kind: "succeeded", text: renderSuccess(input.reply, files), files, attempts: loop.attempts };
   } catch (e) {
+    if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: input.reply, files: [] };
     const failure = toFailure(e);
     deps.log("chat run skill script execution failed", {
       runId: input.runId, code: failure.failureCode, stderrExcerpt: failure.stderr.slice(0, 500),

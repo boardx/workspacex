@@ -1305,6 +1305,7 @@ async function executeClaimed(
     const scripted = await maybeRunSkillScript(
       {
         sandbox: deps.sandbox,
+        cancelAtCheckpoint: () => deps.runs.cancelAtCheckpoint?.(orgId, run.runId) ?? Promise.resolve(false),
         objects: deps.objects,
         log: deps.log,
         regenerate: async (feedback) => {
@@ -1335,6 +1336,7 @@ async function executeClaimed(
       },
       { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
     );
+    if (scripted.kind === "cancelled") return;
     text = scripted.text;
     outputFiles = scripted.files;
   }

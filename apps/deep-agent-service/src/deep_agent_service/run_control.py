@@ -42,7 +42,9 @@ def _values(response: httpx.Response, pause_at_boundary: bool) -> list[dict]:
     values = body.get("interjections")
     if not isinstance(values, list) or len(values) > 100:
         raise ValueError("invalid run control callback response")
-    if pause_at_boundary and body.get("cancelRequested") is True:
+    # Cancellation also interrupts after_model before pending tools start. Unlike
+    # steering, interrupt preserves the AI tool calls without inserting a message.
+    if body.get("cancelRequested") is True:
         from langgraph.types import interrupt
         interrupt({"kind": "user_cancel"})
     if pause_at_boundary and body.get("pauseRequested") is True:
