@@ -1,3 +1,4 @@
+import { assertCurrentRunLease } from "./run-lease";
 import type { ModelDeltaMetadata } from "./ports";
 /**
  * Phase 14 F01 (`kernel-gateway` 契约束 UC-1 `forwardRun`) -- the ONE place `execute-run.ts`
@@ -34,6 +35,7 @@ export async function invokeKernel(
   onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
 ): Promise<ModelCallCompletion> {
+  await assertCurrentRunLease();
   // `supportsProgress`, when the port implements it (today: only `RoutingModelCallPort`),
   // narrows the gate to the run's OWN pinned provider -- see that method's doc comment for
   // why a router-shaped port must not take this branch for a provider that only streams

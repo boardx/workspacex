@@ -18,6 +18,15 @@ import type { OrgId } from "../../domain/org-id";
 import type { AgentRunClock, ModelCallProgressEvent } from "./ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { parseWriteTodosSnapshot } from "@repo/contracts/agui-state-events";
+import type { PlanLedgerRepository } from "../plan-control/ports";
+import { ingestEnginePlanSnapshot } from "../plan-control/ingest-engine-plan-snapshot";
+
+/** The executor awaits this write; transports only project the persisted plan. */
+export async function persistToolPlan(repo: PlanLedgerRepository | undefined, orgId: OrgId, threadId: string, event: ModelCallProgressEvent): Promise<void> {
+  if (!repo || event.phase === "in_progress" || event.ok === false || event.toolName !== "write_todos") return;
+  const snapshot = parseWriteTodosSnapshot(event.toolArgsSummary ?? "");
+  if (snapshot) await ingestEnginePlanSnapshot(repo, { orgId, threadId, todos: snapshot.todos });
+}
 
 export interface ForwardsToEventBus {
   readonly clock: AgentRunClock;

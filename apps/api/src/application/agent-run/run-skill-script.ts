@@ -1,3 +1,4 @@
+import { assertCurrentRunLease } from "./run-lease";
 import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
  * `maybeRunSkillScript` —— 把**已经在试跑那条链上跑通的**沙箱执行接到 chat（#1624）。
@@ -200,6 +201,7 @@ export async function maybeRunSkillScript(
       const dot = file.name.lastIndexOf(".");
       const mime = (dot === -1 ? undefined : MIME_BY_EXTENSION[file.name.slice(dot).toLowerCase()])
         ?? "application/octet-stream";
+      await assertCurrentRunLease();
       await objects.putOnce(key, bytes, mime);
       files.push({ name: file.name, mime, sizeBytes: bytes.length, objectKey: key });
     }

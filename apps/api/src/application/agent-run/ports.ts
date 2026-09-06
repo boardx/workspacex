@@ -67,7 +67,7 @@ export interface TranscriptContentCipher {
  */
 export type ClaimOutcome =
   | { readonly kind: "executable"; readonly run: ClaimedAgentRun }
-  | { readonly kind: "unresolvable"; readonly runId: string };
+  | { readonly kind: "unresolvable"; readonly runId: string; readonly leaseEpoch?: number };
 
 /**
  * V9-b 前置 A（#970）—— 一条消息挂着的附件**元数据**（文件名 + MIME，不含内容）。
@@ -91,6 +91,7 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  readonly leaseEpoch?: number;
   readonly checkpointResume?: boolean;
   readonly runId: string;
   readonly threadId: string;
@@ -291,6 +292,7 @@ export interface RunDelta {
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
+  readonly recoveryDiagnostic?: string | null;
   readonly cancelRequestedAt?: string | null;
   readonly runId: string;
   readonly threadId: string;
@@ -371,6 +373,7 @@ export interface AgentRunStore {
   isPausedAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   resumeCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   appendExecutionEvent?(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void>;
+  readLegacyExecutionEvents?(orgId: OrgId, runId: string): Promise<readonly ExecutionEvent[]>;
   readExecutionEvents?(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]>;
   /**
    * Atomically move up to `limit` of this tenant's `queued` runs to `running` and return
@@ -880,7 +883,7 @@ export interface ModelCallInput {
    * `pausePlanRun` 需要它来调用 `POST /threads/:id/runs/:run_id/cancel`。
    * 不注入 ⇒ 行为逐字节不变（回调不存在，不调用）。
    */
-  readonly onRemoteRunStarted?: (remoteRunId: string) => void;
+  readonly onRemoteRunStarted?: (remoteRunId: string) => void | Promise<void>;
   /**
    * issue #2664 -- 本次调用所属的 org id 与已 claim 的 `agent_runs` 行 id。OPTIONAL，
    * 同 `threadId` 一条既有先例：只有 `DeepAgentModelProvider` 关心它，别的 provider

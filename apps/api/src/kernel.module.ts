@@ -374,6 +374,8 @@ import { PgArtifactContinuationReader } from "./infrastructure/artifacts-steerin
 import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-steering/accept-message-artifact-run-launcher";
 import { THREAD_MESSAGE_QUEUE, ThreadMessageQueue } from "./infrastructure/chat-queue/thread-message-queue";
 import { ThreadMessageQueueController } from "./interface/controllers/thread-message-queue.controller";
+import { RUN_RECOVERY } from "./application/agent-run/run-recovery";
+import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
 import type { DefaultAgentResolver } from "./application/chat/message-command-ports";
 import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
@@ -1071,6 +1073,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
         MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, DATABASE_PORT, DEFAULT_AGENT_RESOLVER,
       ],
+    },
+    {
+      provide: RUN_RECOVERY,
+      useFactory: (db: DatabasePort, runs: AgentRunStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig())),
+      inject: [DATABASE_PORT, AGENT_RUN_STORE],
     },
     {
       provide: ARTIFACT_STORE,

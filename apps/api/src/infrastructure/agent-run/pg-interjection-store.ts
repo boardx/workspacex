@@ -1,3 +1,5 @@
+import type { PublicInterjection } from "@repo/contracts/interjection-status";
+import { AgentRunNotRunningError } from "../../application/agent-run/interject-run";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import type { InterjectionStore, PendingInterjection, StagedKernelInterjection } from "../../application/agent-run/interjection-store";
@@ -12,6 +14,14 @@ function project(row: Row): StagedKernelInterjection {
 /** Production queue: at-least-once delivery, checkpoint-message-id deduplication. */
 export class PgInterjectionStore implements InterjectionStore {
   constructor(private readonly db: DatabasePort) {}
+
+  async listPublic(orgId:OrgId,runId:string):Promise<readonly PublicInterjection[]> {
+    return this.db.withTenant(orgId,async s=>(await s.query<{interjection_id:string;text:string;status:PublicInterjection["status"];received_at:Date;applied_at:Date|null}>(
+      `SELECT i.interjection_id,i.text,i.received_at,i.applied_at,
+        CASE WHEN i.status='applied' THEN 'applied' WHEN r.status IN('succeeded','failed','cancelled') THEN 'not_applied' ELSE 'received' END AS status
+       FROM agent_run_interjections i JOIN agent_runs r ON r.org_id=i.org_id AND r.id=i.run_id
+       WHERE i.org_id=$1 AND i.run_id=$2 ORDER BY i.sequence`,[orgId,runId])).rows.map(row=>({interjectionId:row.interjection_id,text:row.text,status:row.status,receivedAt:row.received_at.toISOString(),appliedAt:row.applied_at?.toISOString()??null})));
+  }
 
   async requestPause(orgId: OrgId, runId: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
@@ -38,6 +48,8 @@ export class PgInterjectionStore implements InterjectionStore {
 
   async submit(orgId: OrgId, runId: string, value: PendingInterjection): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      const active=await s.query(`SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 AND status='running' FOR UPDATE`,[orgId,runId]);
+      if(!active.rows.length) throw new AgentRunNotRunningError("not_running");
       await s.query(`INSERT INTO agent_run_interjections(org_id,run_id,interjection_id,text,received_at)
         SELECT $1,$2,$3,$4,$5 WHERE EXISTS (SELECT 1 FROM agent_runs WHERE org_id=$1 AND id=$2)
         ON CONFLICT (org_id,run_id,interjection_id) DO NOTHING`,

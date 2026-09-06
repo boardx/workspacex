@@ -119,6 +119,13 @@ export class AgentRunController {
     }
   }
 
+  @Get("/agent-runs/:runId/interjections")
+  async interjectionStatus(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    await this.run(principal,runId);
+    return {items:await this.interjections.listPublic?.(toOrgId(principal.orgId),runId) ?? []};
+  }
+
   @Get("/agent-runs/:runId/execution-events")
   async executionEvents(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
     @Query("afterSeq") afterSeqRaw?: string) {
@@ -128,7 +135,8 @@ export class AgentRunController {
     // Same visibility gate as the normal run endpoint; no cross-thread existence oracle.
     await this.run(principal, runId);
     const events = await this.runs.readExecutionEvents?.(toOrgId(principal.orgId), runId, afterSeq) ?? [];
-    return { events, nextSeq: events.at(-1)?.seq ?? null };
+    const legacyEvents = afterSeq === -1 && events.length === 0 ? await this.runs.readLegacyExecutionEvents?.(toOrgId(principal.orgId),runId) ?? [] : [];
+    return { events, legacyEvents, nextSeq: events.at(-1)?.seq ?? null };
   }
 
   @Get("/agent-runs/:runId")

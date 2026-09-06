@@ -1,6 +1,12 @@
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
+import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
+import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { withRunLease, RunLeaseLostError } from "../../src/application/agent-run/run-lease";
 import { randomUUID } from "node:crypto";
 import { PgChatMessageCommandRepository } from "../../src/infrastructure/chat/pg-chat-message-command-repository";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DatabasePort } from "../../src/application/ports/database.port";
 import type { ObjectStore } from "../../src/application/artifact/ports";
 import { PgArtifactStore } from "../../src/infrastructure/artifacts-steering/pg-artifact-store";
@@ -54,6 +60,40 @@ beforeEach(async()=>{
 
 describe("artifact continuation over existing attachments",()=>{
   const artifactId="agent-artifact-source-run-attachment";
+  it("takes one expired lease and reconciles completion without a new remote run",async()=>{
+    await asApp(ORG,c=>c.query("UPDATE agent_runs SET lease_epoch=1,lease_expires_at=now()-interval '1 second',remote_run_id='existing-remote' WHERE org_id=$1 AND id='source-run'",[ORG]));
+    const actual=new PgDatabase(appConfig());
+    const reconcileExistingRun=vi.fn().mockResolvedValue({kind:"success",completion:{text:"Recovered actual response",finalMessageId:"recovered-ai"}});
+    try{
+      const journal=new PgAgentRunRepository(actual);
+      await journal.appendExecutionEvent(org,"source-run",{kind:"text_delta",attemptId:"source-run:1",messageId:"source-run:1:recovered-ai",delta:"Recovered act"});
+      const recovery=new PgRunRecovery(actual,new PgAgentRunRepository(actual),{reconcileExistingRun});
+      expect(await recovery.tick(org)).toBe(1);expect(await recovery.tick(org)).toBe(0);
+      expect(reconcileExistingRun).toHaveBeenCalledTimes(1);expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,"existing-remote","source-run");
+      const saved=await asApp(ORG,c=>c.query("SELECT status,model_output,lease_epoch FROM agent_runs WHERE id='source-run'"));
+      expect(saved.rows[0]).toMatchObject({status:"writeback_pending",model_output:"Recovered actual response",lease_epoch:2});
+      const log=vi.fn();
+      await writeBackPendingRuns({runs:new PgAgentRunRepository(actual),clock:{now:()=>new Date().toISOString(),newStepId:()=>randomUUID()},log},{orgId:org});
+      const final=await asApp(ORG,c=>c.query("SELECT r.status,m.body FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.agent_run_id=r.id WHERE r.id='source-run'"));
+      expect(log).not.toHaveBeenCalled();expect(final.rows).toEqual([{status:"succeeded",body:"Recovered actual response"}]);
+      const finalEvents=(await journal.readExecutionEvents(org,"source-run",-1)).filter(event=>event.kind==="final_message");
+      expect(finalEvents).toHaveLength(1);expect(finalEvents[0]).toMatchObject({attemptId:"source-run:1",messageId:"source-run:1:recovered-ai"});
+      await writeBackPendingRuns({runs:new PgAgentRunRepository(actual),clock:{now:()=>new Date().toISOString(),newStepId:()=>randomUUID()},log},{orgId:org});
+      expect(reconcileExistingRun).toHaveBeenCalledTimes(1);
+    }finally{await actual.close();}
+  });
+  it("fences old leases across all DB mutations while preserving nested transactions",async()=>{
+    await asApp(ORG,c=>c.query("UPDATE agent_runs SET lease_epoch=2,lease_expires_at=now()+interval '2 minutes' WHERE org_id=$1 AND id='source-run'",[ORG]));
+    const actual=new PgDatabase(appConfig());
+    try{
+      await expect(withRunLease({orgId:org,runId:"source-run",epoch:1,verify:async()=>{}},()=>actual.withTenant(org,s=>s.query("UPDATE agent_runs SET status='failed' WHERE id='source-run'")))).rejects.toBeInstanceOf(RunLeaseLostError);
+      await withRunLease({orgId:org,runId:"source-run",epoch:2,verify:async()=>{}},()=>actual.withTenant(org,first=>actual.withTenant(org,async second=>{
+        expect(first).toBe(second);await second.query("UPDATE agent_runs SET recovery_diagnostic='lease checked' WHERE org_id=$1 AND id='source-run'",[ORG]);
+      })));
+      const current=await asApp(ORG,c=>c.query("SELECT status,recovery_diagnostic FROM agent_runs WHERE id='source-run'"));
+      expect(current.rows[0]).toMatchObject({status:"running",recovery_diagnostic:"lease checked"});
+    }finally{await actual.close();}
+  });
   it("reads source privacy facts through pinned version ancestry",async()=>{
     await asApp(ORG,c=>c.query("UPDATE chat_messages SET visibility_scope='private',raw_transcript=true WHERE org_id=$1 AND id='source-run-input'",[ORG]));
     await run("descendant-run");

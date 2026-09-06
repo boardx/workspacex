@@ -1,3 +1,4 @@
+import { RunLeaseLostError } from "./run-lease";
 import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
 import { publicExecutionPayload } from "./public-execution-payload";
 /**
@@ -69,7 +70,7 @@ import type { VisionInputStatus } from "./context-snapshot";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
-import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
+import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
 import { record } from "./record-run-step";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
 import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
@@ -1181,13 +1182,7 @@ async function executeClaimed(
         // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
         // 既有先例）——写失败只 log，不影响这轮回复本身。
         ...(deps.planLedger ? {
-          onRemoteRunStarted: (remoteRunId: string) => {
-            void deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId).catch((e: unknown) => {
-              deps.log("plan-control: failed to persist remote_run_id (pausePlanRun will be unable to cancel this run)", {
-                runId: run.runId, detail: e instanceof Error ? e.message : "unexpected write failure",
-              });
-            });
-          },
+          onRemoteRunStarted: (remoteRunId: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId),
         } : {}),
       },
       async (event) => {
@@ -1207,6 +1202,7 @@ async function executeClaimed(
           toolCallId: event.toolCallId ?? null,
         });
         seqCursor.value += 1;
+        await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
           ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary) }
@@ -1370,21 +1366,22 @@ export async function executeQueuedRuns(
       deps.log("agent run snapshot no longer resolvable", {
         runId: outcome.runId, code: "AGENT_VERSION_UNAVAILABLE",
       });
-      await deps.runs.failRun(input.orgId, outcome.runId, "AGENT_VERSION_UNAVAILABLE");
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.runId,()=>deps.runs.failRun(input.orgId,outcome.runId,"AGENT_VERSION_UNAVAILABLE"),outcome.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.runId, "failed");
       continue;
     }
     try {
       // issue #2860：心跳见 `run-heartbeat.ts`。
-      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run));
+      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run), outcome.run.leaseEpoch);
     } catch (e) {
+      if(e instanceof RunLeaseLostError)continue;
       // A defect in this file, not a provider failure. Still recorded, still terminal:
       // leaving the run stuck in `running` forever is the one outcome nobody can act on.
       deps.log("agent run executor defect", {
         runId: outcome.run.runId,
         detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
-      await deps.runs.failRun(input.orgId, outcome.run.runId, "MODEL_CALL_FAILED");
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED"),outcome.run.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
     }
   }

@@ -1,3 +1,4 @@
+import { PgInterjectionStore } from "../../src/infrastructure/agent-run/pg-interjection-store";
 import { randomUUID } from "node:crypto";
 import { PgChatMessageCommandRepository } from "../../src/infrastructure/chat/pg-chat-message-command-repository";
 import { QueuedMessageNotReadyError, type PublishedAgentSnapshot } from "../../src/application/chat/message-command-ports";
@@ -9,6 +10,7 @@ import { addChatThread, addChatMessage } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
+import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
 import { toOrgId } from "../../src/domain/org-id";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
@@ -63,6 +65,38 @@ afterAll(async () => {
 });
 
 describe("durable execution journal", () => {
+  it("serializes concurrent claimers by thread while allowing independent threads to execute",async()=>{
+    const org=toOrgId(ORG);await repo.failRun(org,RUN,"RUN_INTERRUPTED");
+    const otherThread=`${THREAD}-independent`;
+    await addChatThread({orgId:ORG,id:otherThread,projectId:PROJECT,visibilityScope:"plenary",createdBy:ACTOR});
+    const commands=new PgChatMessageCommandRepository(db);
+    for(const [index,threadId] of [THREAD,THREAD,otherThread].entries()) await commands.accept(org,{
+      projectId:PROJECT,threadId,actorId:ACTOR,clientMessageId:randomUUID(),text:`normal ${index}`,selectedAgentId:"agent-i654",messageId:`claim-message-${index}`,runId:`claim-run-${index}`,
+      snapshot:{agentId:"agent-i654",agentVersionId:"agent-version-i654",skillVersionIds:[],modelProvider:"test-provider",modelId:"test-model"} as unknown as PublishedAgentSnapshot});
+    const claimed=await Promise.all([repo.claimQueued(org,10),new PgAgentRunRepository(db).claimQueued(org,10)]);
+    expect(claimed.flat()).toHaveLength(2);
+    const state=(await asApp(ORG,c=>c.query(`SELECT id,status FROM agent_runs WHERE org_id=$1 AND id LIKE 'claim-run-%' ORDER BY id`,[ORG]))).rows;
+    expect(state).toEqual([{id:"claim-run-0",status:"running"},{id:"claim-run-1",status:"queued"},{id:"claim-run-2",status:"running"}]);
+    await repo.pauseAtCheckpoint(org,"claim-run-0");
+    await repo.failRun(org,"claim-run-2","RUN_INTERRUPTED");
+    expect(await repo.claimQueued(org,10)).toHaveLength(0);
+    await repo.requestCancellation(org,"claim-run-0");
+    expect(await repo.claimQueued(org,10)).toHaveLength(1);
+    expect((await asApp(ORG,c=>c.query(`SELECT status FROM agent_runs WHERE id='claim-run-1'`))).rows[0].status).toBe("running");
+  });
+  it("replays received/applied and terminal unapplied interjections from the authoritative FIFO",async()=>{
+    const store=new PgInterjectionStore(db);const org=toOrgId(ORG);
+    await store.submit(org,RUN,{interjectionId:"a",text:"adjust A",receivedAt:"2026-09-07T00:00:00.000Z"});
+    await store.pollForKernel(org,RUN,[]);
+    await store.pollForKernel(org,RUN,["a"]);
+    await store.submit(org,RUN,{interjectionId:"b",text:"adjust B",receivedAt:"2026-09-07T00:00:01.000Z"});
+    await repo.failRun(org,RUN,"RUN_INTERRUPTED");
+    expect((await store.listPublic(org,RUN)).map(item=>[item.interjectionId,item.status])).toEqual([["a","applied"],["b","not_applied"]]);
+    const events=(await repo.readExecutionEvents(org,RUN,-1)).filter(event=>event.kind==="interjection");
+    expect(events.map(event=>[event.interjectionId,event.status])).toEqual([["a","received"],["a","applied"],["b","received"],["b","not_applied"]]);
+    await expect(store.submit(org,RUN,{interjectionId:"c",text:"too late",receivedAt:new Date().toISOString()})).rejects.toThrow();
+    expect(await store.listPublic(toOrgId(OTHER_ORG),RUN)).toEqual([]);
+  });
   it("atomically dispatches the FIFO head once and leaves later messages waiting across repository instances", async () => {
     const orgId=toOrgId(ORG);
     const ids=[randomUUID(),randomUUID(),randomUUID()];
@@ -135,9 +169,10 @@ describe("durable execution journal", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ kind: "status", status: "failed", attemptId: `${RUN}:1` });
   });
-  it("journals watchdog failures and does not fabricate a successful pause after settlement", async () => {
-    await asApp(ORG, (client) => client.query("UPDATE agent_runs SET started_at=now()-interval '1 hour' WHERE id=$1", [RUN]));
-    expect(await repo.reclaimStaleRunning(toOrgId(ORG), 1)).toBe(1);
+  it("journals confirmed remote failures and does not fabricate a successful pause after settlement", async () => {
+    await asApp(ORG, (client) => client.query("UPDATE agent_runs SET started_at=now()-interval '1 hour', lease_expires_at=now()-interval '1 minute', model_provider='deep-agent', remote_run_id='remote-failed' WHERE id=$1", [RUN]));
+    const recovery = new PgRunRecovery(db, repo, { reconcileExistingRun: async () => ({ kind: "failed", diagnostic: "远端执行失败" }) });
+    expect(await recovery.tick(toOrgId(ORG))).toBe(1);
     await repo.pauseAtCheckpoint(toOrgId(ORG), RUN);
     const events = await repo.readExecutionEvents(toOrgId(ORG), RUN, -1);
     expect(events.map((event) => event.kind === "status" ? event.status : event.kind)).toEqual(["failed"]);

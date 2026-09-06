@@ -72,6 +72,7 @@ let remoteRunId = "";
 let statusCallCount = 0;
 /** 每条测试各自设定：这条续跑 run 的终态 messages（loopback 服务器 GET state 的返回）。 */
 let finalMessages: unknown[] = [];
+let remoteStarted = false;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -88,7 +89,7 @@ async function startLanggraphServer(): Promise<void> {
     if (req.method === "POST" && runsMatch) {
       const chunks: Buffer[] = [];
       req.on("data", (c: Buffer) => chunks.push(c));
-      req.on("end", () => respond(res, 200, { run_id: remoteRunId }));
+      req.on("end", () => { remoteStarted = true; respond(res, 200, { run_id: remoteRunId }); });
       return;
     }
     if (req.method === "GET" && url === `/threads/${remoteThreadId}/runs/${remoteRunId}`) {
@@ -97,7 +98,7 @@ async function startLanggraphServer(): Promise<void> {
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${remoteThreadId}/state`) {
-      return respond(res, 200, { values: { messages: finalMessages } });
+      return respond(res, 200, { values: { messages: remoteStarted ? finalMessages : [] } });
     }
     respond(res, 404, { error: "not_found" });
   });
@@ -184,6 +185,7 @@ beforeEach(async () => {
   remoteRunId = `remote-run-${randomUUID()}`;
   statusCallCount = 0;
   finalMessages = [];
+  remoteStarted = false;
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", null);

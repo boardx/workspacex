@@ -17,7 +17,11 @@ import { ASR_PROVIDER } from "./application/recording/asr-ports";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 import { IDENTITY_REPOSITORY, DECISION_ID_FACTORY } from "./application/identity/ports";
 import { CHAT_REPOSITORY } from "./application/chat/ports";
-import { AGENT_RUN_STORE, RUN_EVENT_BUS } from "./application/agent-run/ports";
+import { AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, RUN_EVENT_BUS } from "./application/agent-run/ports";
+import { RUN_RECOVERY } from "./application/agent-run/run-recovery";
+import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
+import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
+import { toOrgId } from "./domain/org-id";
 import {
   RECORDING_ID_GENERATOR,
   RECORDING_UNIT_OF_WORK,
@@ -212,7 +216,13 @@ if (isProcessEntry()) {
   // finally 会兜住，这一层是保险）。见 `sweep-orphaned-runs.ts` 头注。
   const sweepOrphans = async (): Promise<void> => {
     try {
-      await sweepOrphanedRuns(app.get(DATABASE_PORT), { log: (msg, detail) => console.warn(msg, detail ?? "") });
+      await sweepOrphanedRuns(app.get(DATABASE_PORT), {
+        log: (msg, detail) => console.warn(msg, detail ?? ""),
+        reconcile: async (orgId) => {
+          await app.get<PgRunRecovery>(RUN_RECOVERY).tick(toOrgId(orgId));
+          await app.get<AgentRunExecutor>(AGENT_RUN_EXECUTOR).tick(toOrgId(orgId));
+        },
+      });
     } catch (e) {
       console.error("orphaned agent run sweep failed:", e);
     }

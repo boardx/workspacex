@@ -1,3 +1,4 @@
+import type { PublicInterjection } from "@repo/contracts/interjection-status";
 /**
  * Phase 14 F11（`artifacts-steering` 契约束 R3'，domain.md `Interjection`）—— 中途插话的
  * 暂存端口。domain.md 把 `Interjection` 明确定为"非持久聚合根，事件驱动"：它只需要在
@@ -26,6 +27,7 @@ export interface PendingInterjection {
 }
 
 export interface InterjectionStore {
+  listPublic?(orgId: OrgId, runId: string): Promise<readonly PublicInterjection[]>;
   isCancelRequested?(orgId: OrgId, runId: string): Promise<boolean>;
   /** Request a pause at the next model boundary; never interrupt a running tool. */
   requestPause?(orgId: OrgId, runId: string): Promise<boolean>;

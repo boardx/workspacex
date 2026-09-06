@@ -1,3 +1,5 @@
+import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
+import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
@@ -37,6 +39,7 @@ import type {
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  lease_epoch?: number;
   checkpoint_resume?: boolean;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
@@ -47,6 +50,7 @@ interface ClaimRow {
 }
 
 interface RunRow {
+  recovery_diagnostic?: string | null;
   cancel_requested_at?: Date | null;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
@@ -141,21 +145,33 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   claimQueued(orgId: OrgId, limit: number): Promise<readonly ClaimOutcome[]> {
     return this.db.withTenant(orgId, async (s) => {
+      // Acceptance and dispatch use this same row lock. Different workers may claim
+      // different threads, but never two executions from one thread at the same time.
+      const threads = await s.query<{id:string}>(
+        `SELECT t.id FROM chat_threads t WHERE t.org_id=$1
+          AND EXISTS (SELECT 1 FROM agent_runs q WHERE q.org_id=t.org_id AND q.thread_id=t.id AND q.status='queued')
+          AND NOT EXISTS (SELECT 1 FROM agent_runs active WHERE active.org_id=t.org_id AND active.thread_id=t.id
+            AND active.status NOT IN ('queued','succeeded','failed','cancelled'))
+          ORDER BY t.id LIMIT $2 FOR UPDATE OF t SKIP LOCKED`, [orgId,limit]);
+      if (!threads.rows.length) return [];
       const claimed = await s.query<ClaimRow>(
         `UPDATE agent_runs r
-            SET status='running', started_at=now()
+            SET status='running', started_at=now(), heartbeat_at=now(), lease_epoch=lease_epoch+1, lease_expires_at=now()+($3::bigint * interval '1 millisecond')
           WHERE r.org_id=$1
             AND r.id IN (
-              SELECT id FROM agent_runs
-               WHERE org_id=$1 AND status='queued'
-               ORDER BY created_at, id
-               LIMIT $2
-               FOR UPDATE SKIP LOCKED
+              SELECT head.id FROM agent_runs head
+               WHERE head.org_id=$1 AND head.thread_id=ANY($2::text[]) AND head.status='queued'
+                 AND head.id=(SELECT q.id FROM agent_runs q WHERE q.org_id=head.org_id
+                   AND q.thread_id=head.thread_id AND q.status='queued' ORDER BY q.created_at,q.id LIMIT 1)
+                 AND NOT EXISTS (SELECT 1 FROM agent_runs active WHERE active.org_id=head.org_id
+                   AND active.thread_id=head.thread_id AND active.status NOT IN ('queued','succeeded','failed','cancelled'))
+               ORDER BY head.created_at,head.id
+               FOR UPDATE OF head SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
                   r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
-                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume`,
-        [orgId, limit],
+                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch`,
+        [orgId, threads.rows.map(thread=>thread.id), DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
       if (claimed.rows.length === 0) return [];
       // The claim's RETURNING cannot join, so the immutable trimmings (the thread's
@@ -186,11 +202,12 @@ export class PgAgentRunRepository implements AgentRunStore {
         // readable has nothing to execute. It is REPORTED, not skipped: the claim above
         // already moved it out of `queued`, so skipping would strand it in `running`.
         if (extra === undefined) {
-          runs.push({ kind: "unresolvable", runId: row.id });
+          runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch:row.lease_epoch });
           continue;
         }
         runs.push({ kind: "executable", run: {
           runId: row.id,
+          leaseEpoch: row.lease_epoch,
           threadId: row.thread_id,
           projectId: extra.project_id,
           inputMessageId: row.input_message_id,
@@ -374,6 +391,18 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  async readLegacyExecutionEvents(orgId:OrgId,runId:string):Promise<readonly ExecutionEvent[]> {
+    return this.db.withTenant(orgId,async s=>{
+      const run=(await s.query<{status:string;ended_at:Date|null}>(`SELECT status,ended_at FROM agent_runs r WHERE org_id=$1 AND id=$2
+        AND NOT EXISTS(SELECT 1 FROM agent_execution_events e WHERE e.org_id=r.org_id AND e.run_id=r.id)`,[orgId,runId])).rows[0];
+      if(!run) return [];
+      const steps=(await s.query<StepRow & {seq:number}>(`SELECT * FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq`,[orgId,runId])).rows;
+      const deltas=(await s.query<{seq:number;text:string;created_at:Date}>(`SELECT seq,text,created_at FROM agent_run_deltas WHERE org_id=$1 AND run_id=$2 ORDER BY seq`,[orgId,runId])).rows;
+      const terminal=(run.status==="succeeded" || run.status==="failed" || run.status==="cancelled") && run.ended_at ? {status:run.status as "succeeded"|"failed"|"cancelled",endedAt:run.ended_at.toISOString()} : undefined;
+      return legacyExecutionEvents(runId,steps.map(row=>({seq:row.seq,kind:row.kind,status:row.status,startedAt:row.started_at.toISOString(),endedAt:row.ended_at.toISOString(),toolCallId:row.tool_call_id,toolName:row.tool_name,args:row.tool_args_summary,result:row.tool_result_summary})),deltas.map(row=>({seq:row.seq,text:row.text,createdAt:row.created_at.toISOString()})),terminal);
+    });
+  }
+
   async readExecutionEvents(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]> {
     return this.db.withTenant(orgId, async (session) => {
       const { rows } = await session.query<{ seq: number; payload: Record<string, unknown>; created_at: Date }>(
@@ -439,25 +468,17 @@ export class PgAgentRunRepository implements AgentRunStore {
    * 不会误伤这期间刚好写回完成、状态已经翻走的行（`WHERE status='running'` 是原子判据，
    * 不是先 SELECT 再 UPDATE 的两步竞态）。复用 `failRun` 同一条 SQL 形状，不新起一套。
    */
-  async reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number> {
-    return this.db.withTenant(orgId, async (s) => {
-      const reclaimed = await s.query(
-        `UPDATE agent_runs SET status='failed', error_code='RUN_INTERRUPTED', ended_at=now()
-          WHERE org_id=$1 AND status='running'
-            AND coalesce(heartbeat_at, started_at) < now() - ($2 || ' milliseconds')::interval
-        RETURNING id`,
-        [orgId, olderThanMs],
-      );
-      return reclaimed.rows.length;
-    });
+  async reclaimStaleRunning(_orgId: OrgId, _olderThanMs: number): Promise<number> {
+    // Expired execution is reconciled by PgRunRecovery, never killed or replayed here.
+    return 0;
   }
 
   /** issue #2860 —— 见 `AgentRunStore.heartbeatRun`；只对仍在 `running` 的行写。 */
   async heartbeatRun(orgId: OrgId, runId: string): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
-        `UPDATE agent_runs SET heartbeat_at=now() WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId],
+        `UPDATE agent_runs SET heartbeat_at=now(),lease_expires_at=now()+($3::bigint * interval '1 millisecond') WHERE org_id=$1 AND id=$2 AND status='running'`,
+        [orgId, runId, DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
     });
   }
@@ -795,7 +816,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.created_at, r.cancel_requested_at, reply.id AS result_message_id,
+                r.status, r.error_code, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
                 r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
@@ -857,6 +878,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       modelId: found.row.model_id,
       status: found.row.status as RunLifecycleStatus,
       cancelRequestedAt: found.row.cancel_requested_at?.toISOString() ?? null,
+      recoveryDiagnostic: found.row.recovery_diagnostic ?? null,
       error: found.row.error_code as RunFailureCode | null,
       resultMessageId: found.row.result_message_id,
       steps: found.steps.map((step) => ({

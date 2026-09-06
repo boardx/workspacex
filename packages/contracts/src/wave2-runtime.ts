@@ -434,6 +434,7 @@ export const AgentRunStep = z.object({
 }).strict();
 
 export const AgentRunView = z.object({
+  recoveryDiagnostic: z.string().max(256).nullable().optional(),
   cancelRequestedAt: z.string().nullable().optional(),
   runId: z.string(),
   threadId: z.string(),

@@ -1,3 +1,5 @@
+import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
+import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
 import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
@@ -455,6 +457,48 @@ function isAiMessageChunkType(type: unknown): boolean {
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
+  /** Recovery never calls startRun/createRun. Only an explicitly run-associated
+   * checkpoint may supply completion; a thread's newer state is not this run's result. */
+  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string):Promise<ReconciledRemoteRun>{
+    const baseUrl=this.config.baseUrl,threadId=deriveRemoteThreadId(chatThreadId);
+    const signal=AbortSignal.timeout(Math.min(this.config.timeoutMs,15000));
+    try{
+      const response=await fetch(`${baseUrl}/threads/${threadId}/runs/${encodeURIComponent(remoteRunId)}`,{signal});
+      if(!response.ok)return {kind:"uncertain",diagnostic:`remote_run_http_${response.status}`};
+      const run=await response.json() as {run_id?:string;status?:string;thread_id?:string};
+      if(run.run_id&&run.run_id!==remoteRunId||run.thread_id&&run.thread_id!==threadId)return {kind:"uncertain",diagnostic:"remote_run_identity_mismatch"};
+      if(run.status==="pending"||run.status==="running")return {kind:"running"};
+      if(run.status==="error"||run.status==="timeout")return {kind:"failed",diagnostic:`remote_${run.status}`};
+      if(run.status!=="success"&&run.status!=="interrupted")return {kind:"uncertain",diagnostic:"remote_status_unknown"};
+      const stateResponse=await fetch(`${baseUrl}/threads/${threadId}/state`,{signal});
+      if(!stateResponse.ok)return {kind:"uncertain",diagnostic:"checkpoint_unavailable"};
+      const state=await stateResponse.json() as ThreadStateResponse & {metadata?:{run_id?:string;langgraph_run_id?:string}};
+      if(state.metadata?.run_id!==remoteRunId&&state.metadata?.langgraph_run_id!==remoteRunId)return {kind:"uncertain",diagnostic:"checkpoint_run_identity_unverified"};
+      // A dynamic interrupt is not equivalent to successful completion. The normal
+      // explicit user-resume path remains authoritative until checkpoint decoding is verified.
+      const hasControl=(value:unknown,kind:string):boolean=>!!value&&typeof value==="object"&&((value as {kind?:unknown}).kind===kind||Object.values(value).some(item=>hasControl(item,kind)));
+      const checkpoint=state as {tasks?:{interrupts?:unknown}[];interrupts?:unknown};
+      const interrupts=[checkpoint.interrupts,...(checkpoint.tasks??[]).map(task=>task.interrupts)];
+      if(hasControl(interrupts,"user_cancel"))return {kind:"cancelled"};
+      if(hasControl(interrupts,"user_pause"))return {kind:"paused"};
+      const pending=this.pendingApprovalFromState(state);
+      if(run.status==="interrupted"||(state as {next?:unknown[]}).next?.length){
+        return pending.toolName!=="unknown"?{kind:"approval",...pending}:{kind:"uncertain",diagnostic:"interrupted_checkpoint_requires_review"};
+      }
+      if(pending.toolName!=="unknown")return {kind:"uncertain",diagnostic:"checkpoint_has_unfinished_tool"};
+      const allMessages=state.values?.messages??[];
+      const boundary=logicalRunId?allMessages.findIndex(message=>message.id===turnMessageId(logicalRunId,"user")):-1;
+      if(logicalRunId&&boundary<0)return {kind:"uncertain",diagnostic:"checkpoint_turn_boundary_unverified"};
+      const messages=boundary<0?allMessages:allMessages.slice(boundary+1);
+      const text=readFinalReply(messages);
+      if(!text.trim())return {kind:"uncertain",diagnostic:"checkpoint_has_no_final_reply"};
+      const scriptCandidates=collectScriptCandidates(messages);
+      if(scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
+      const finalMessage=[...messages].reverse().find(message=>message.type==="ai"&&typeof message.content==="string"&&message.content.trim()!=="");
+      return {kind:"success",completion:{text,...(finalMessage?.id?{finalMessageId:finalMessage.id}:{})}};
+    }catch{return {kind:"uncertain",diagnostic:"remote_reconcile_unavailable"};}
+  }
+
   supportsLiveInterjections(): boolean {
     return Boolean(this.config.subtaskCallbackBaseUrl && this.config.subtaskCallbackKey);
   }
@@ -825,6 +869,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 伪装成「记性差」。
    */
   private async ensureThread(baseUrl: string, chatThreadId: string): Promise<string> {
+    await assertCurrentRunLease();
     const remoteThreadId = deriveRemoteThreadId(chatThreadId);
     const response = await fetchWithTransportErrors(`${baseUrl}/threads`, {
       method: "POST",
@@ -879,7 +924,10 @@ export class DeepAgentModelProvider implements ModelCallPort {
   private async readPendingApproval(
     baseUrl: string, threadId: string,
   ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null; interrupt?: RestorableInterrupt }> {
-    const state = await this.readState(baseUrl, threadId);
+    return this.pendingApprovalFromState(await this.readState(baseUrl, threadId));
+  }
+
+  private pendingApprovalFromState(state:ThreadStateResponse){
     const messages = state.values?.messages ?? [];
     const answered = new Set<string>();
     for (const m of messages) {
@@ -914,6 +962,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   private async createThread(baseUrl: string): Promise<string> {
+    await assertCurrentRunLease();
     const response = await fetchWithTransportErrors(`${baseUrl}/threads`, { method: "POST", body: "{}" });
     const body = (await response.json()) as { thread_id?: string };
     if (!response.ok || !body.thread_id) {
@@ -923,6 +972,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   private async createRun(baseUrl: string, threadId: string, input: ModelCallInput): Promise<string> {
+    await assertCurrentRunLease();
     // DA-07b：resume 模式——向停在 interrupt 的既有 run 提交裁决，绝不重发用户输入
     // （重发会让引擎把同一条消息处理两遍）。resume 形状 {"decisions":[...]} 是 0.7.6
     // HumanInTheLoopMiddleware 的实测契约（裸列表 TypeError，见 deep-agent-service
@@ -1000,7 +1050,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
-      input.onRemoteRunStarted?.(body.run_id);
+      await input.onRemoteRunStarted?.(body.run_id);
       return body.run_id;
     }
 
@@ -1116,7 +1166,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
-    input.onRemoteRunStarted?.(body.run_id);
+    await input.onRemoteRunStarted?.(body.run_id);
     return body.run_id;
   }
 

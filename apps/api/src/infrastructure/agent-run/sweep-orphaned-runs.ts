@@ -1,6 +1,5 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
-import { deriveRemoteThreadId, readDeepAgentProviderConfig } from "./deep-agent-model-provider";
 
 /**
  * issue #2860 —— 幽灵 run 回收器（跨租户、进程级）。
@@ -27,7 +26,7 @@ export interface OrphanedRun {
 
 export async function sweepOrphanedRuns(
   db: DatabasePort,
-  options: { readonly olderThanMs?: number; readonly log?: (msg: string, detail?: Record<string, unknown>) => void } = {},
+  options: { readonly reconcile?: (orgId: string) => Promise<unknown>; readonly olderThanMs?: number; readonly log?: (msg: string, detail?: Record<string, unknown>) => void } = {},
 ): Promise<readonly OrphanedRun[]> {
   const olderThanMs = options.olderThanMs ?? DEFAULT_STALE_RUNNING_THRESHOLD_MS;
   // 直接 `UPDATE agent_runs` 在 FORCE RLS 下影响 0 行（20260903130000 那次 worker 的同款坑，
@@ -39,24 +38,7 @@ export async function sweepOrphanedRuns(
   const orphaned = rows.rows.map((r) => ({ id: r.id, orgId: r.org_id, threadId: r.thread_id, remoteRunId: r.remote_run_id }));
   if (orphaned.length > 0) {
     options.log?.("orphaned agent runs reclaimed", { count: orphaned.length, runIds: orphaned.map((r) => r.id) });
-    await cancelRemoteRuns(orphaned, options.log);
+    for(const orgId of new Set(orphaned.map(run=>run.orgId))) await options.reconcile?.(orgId);
   }
   return orphaned;
-}
-
-async function cancelRemoteRuns(
-  runs: readonly OrphanedRun[],
-  log?: (msg: string, detail?: Record<string, unknown>) => void,
-): Promise<void> {
-  const { baseUrl } = readDeepAgentProviderConfig();
-  if (baseUrl === "") return;
-  await Promise.all(runs.filter((r) => r.remoteRunId !== null).map(async (r) => {
-    const url = `${baseUrl}/threads/${deriveRemoteThreadId(r.threadId)}/runs/${r.remoteRunId}/cancel?action=interrupt`;
-    try {
-      const response = await fetch(url, { method: "POST" });
-      if (!response.ok) log?.("orphaned run remote cancel non-2xx", { runId: r.id, status: response.status });
-    } catch (e) {
-      log?.("orphaned run remote cancel failed", { runId: r.id, detail: e instanceof Error ? e.message : "unknown" });
-    }
-  }));
 }
