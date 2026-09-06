@@ -1,10 +1,11 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
+const VM_DIR = resolve(import.meta.dirname);
 const HELPER = resolve(import.meta.dirname, "deploy-readiness.sh");
 const GATE = resolve(import.meta.dirname, "deploy-gate.sh");
 const DEPLOY = resolve(import.meta.dirname, "deploy.sh");
@@ -80,6 +81,18 @@ esac
 `);
   chmodSync(sudo, 0o755);
 
+  /*
+   * 2026-09-06：`deploy-gate.sh` 新增了一道前置门——把活交给 `/usr/local/bin/workspacex-deploy`
+   * 之前，先逐字节确认那份**装好的副本**就是仓库当前这一份（事故：改了 deploy.sh 合入 main，
+   * 而机器上跑的仍是旧副本，部署照样绿）。这些用例测的是那道门**之后**的行为，所以夹具要
+   * 提供一份"与仓库一致"的副本，否则每条都会红在前置门上而不是它各自要测的东西。
+   * 前置门本身的正反证在 `deploy-trusted-copy-drift.test.ts`。
+   */
+  const trustedBin = join(temp, "workspacex-deploy");
+  copyFileSync(join(VM_DIR, "deploy.sh"), trustedBin);
+  copyFileSync(join(VM_DIR, "deploy-readiness.sh"), join(temp, "workspacex-deploy-readiness.sh"));
+  copyFileSync(join(VM_DIR, "deep-agent-lib.sh"), join(temp, "workspacex-deep-agent-lib.sh"));
+
   return { temp, counterFile, commandLog };
 }
 
@@ -95,6 +108,9 @@ function runGate(
       ...process.env,
       PATH: `${files.temp}:${process.env.PATH ?? ""}`,
       FAKE_ROOT_DEPLOY_MODE: rootMode,
+      // 见 fixture() 里那段注释：让前置门看到一份与仓库一致的"装好的副本"。
+      TRUSTED_DEPLOY_BIN: join(files.temp, "workspacex-deploy"),
+      TRUSTED_LIB_DIR: files.temp,
       APP_API_PORT: "3200",
       APP_WEB_PORT: "3100",
       PUBLIC_DOMAIN: "example.test",
