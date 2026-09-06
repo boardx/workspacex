@@ -143,7 +143,7 @@ describe("迭代 6 原语扩充", () => {
     expect(dp.PrototypeNode.safeParse({ type: "grid", props: { columns: 4 }, children: [] }).success).toBe(false);
     // patch 能进 grid
     const withIds = dp.ensurePrototypeIds([page]);
-    const gridId = (withIds[0] as { children: dp.PrototypeNode[] }).children[1]!.id!;
+    const gridId = (withIds[0] as { children: readonly dp.PrototypeNode[] }).children[1]!.id!;
     const out = dp.applyPrototypePatch(withIds, [{ op: "insert", parentId: gridId, node: { type: "stat", props: { label: "新", value: "1" } } }]);
     expect(dp.measurePrototype(out[0]!).nodes).toBe(10);
   });
