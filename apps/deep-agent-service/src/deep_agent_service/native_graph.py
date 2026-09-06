@@ -25,6 +25,7 @@ from .harness import build_middleware
 from .native_skill_activity import NativeSkillActivity, SkillActivityError
 from .sandbox_backend import HttpSessionSandbox, SandboxTransportError
 from .skill_packages import package_mount_files
+from .native_tool_identity import verify_native_tool_identities
 
 
 class _BoundSkillsState(SkillsState):
@@ -127,7 +128,7 @@ def create_native_graph(
                 )
             item.retry_on = retry_known_failure
     activity = NativeSkillActivity(pinned_skills)
-    return create_deep_agent(
+    graph = create_deep_agent(
         model=model, tools=tools, system_prompt=system_prompt, backend=backend,
         skills=["/skills/"],
         # Explicit compiled override prevents automatic parent tool/backend/skill
@@ -138,3 +139,6 @@ def create_native_graph(
         middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, authority_middleware],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )
+
+    verify_native_tool_identities(graph)
+    return graph

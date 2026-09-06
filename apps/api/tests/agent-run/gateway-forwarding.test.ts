@@ -19,6 +19,7 @@ import {
   type RunLocator, type RunProjection, type ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import type { Guarded } from "../../src/application/security/permission-filter";
+import type { ExecutionEventInput } from "@repo/contracts/execution-journal";
 
 const ORG = toOrgId("org-f01-gateway-forwarding");
 
@@ -89,6 +90,36 @@ function deps(runs: AgentRunStore, model: ModelCallPort): ExecuteAgentRunDeps {
 }
 
 describe("Phase 14 F01 -- 网关转发到内核（gateway → kernel forwarding）", () => {
+  it.each([false, true])("attributes file-tool journal events only in a trusted native invocation (%s)", async native => {
+    const store = fakeStore(baseRun({ leaseEpoch: 1 }));
+    const events: ExecutionEventInput[] = [];
+    store.appendExecutionEvent = async (_org, _run, event) => { events.push(event); };
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("progress provider expected"); },
+      completeWithProgress: async (_input, progress) => {
+        const event = { toolName: "read_file", toolCallId: "read-1", toolArgsSummary: '{"file_path":"/workspace/report.txt"}', planningNote: null, toolResultSummary: null };
+        await progress({ ...event, phase: "in_progress" });
+        await progress({ ...event, phase: "complete", toolResultSummary: "report", ok: true });
+        return { text: "read completed" };
+      },
+    };
+    const options = deps(store, model);
+    if (native) {
+      Object.assign(options, {
+        nativeSessions: { provision: async () => ({ bindingId: "11111111-1111-4111-8111-111111111111", profile: "native-v1", policy: "native-v1" }), resolve: async () => { throw new Error("unused"); }, release: async () => {}, releaseForRun: async () => {} },
+        nativeOutputs: { listFiles: async () => [] },
+        planLedger: { getLatest: async () => null, recordRemoteRunId: async () => {} },
+      });
+    }
+    await executeQueuedRuns(options, { orgId: ORG });
+    expect(store.failedWith).toBeNull();
+    const tools = events.filter(e => e.kind === "tool_start" || e.kind === "tool_end");
+    expect(tools).toHaveLength(2);
+    for (const event of tools) {
+      if (native) expect(event).toMatchObject({ capability: { id: "WX-T002", source: { revision: "0.7.6" } } });
+      else expect(event).not.toHaveProperty("capability");
+    }
+  });
   it("一次真实 run 全链路经网关鉴权后转发到内核（completeWithProgress）并正确回传结果", async () => {
     const run = baseRun();
     const store = fakeStore(run);

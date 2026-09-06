@@ -42,6 +42,7 @@ import { publicExecutionPayload } from "./public-execution-payload";
  * branches on `deps.model`'s shape at all -- R4 E3 (`01-kernel-unification.md`) requires the
  * three old branches physically gone from this file's own source, not merely unreachable.
  */
+import { nativeToolProvenance } from "@repo/contracts/native-tool-identities";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -1183,8 +1184,8 @@ async function executeClaimed(
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
-          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
-          : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
+          : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
         if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
       async (delta, metadata) => {

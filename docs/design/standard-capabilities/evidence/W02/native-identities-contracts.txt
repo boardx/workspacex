@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/native-tool-identities.test.ts (3 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  04:52:02
+   Duration  248ms (transform 62ms, setup 0ms, collect 65ms, tests 6ms, environment 0ms, prepare 42ms)
+

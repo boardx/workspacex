@@ -1,0 +1,98 @@
+[
+  {
+    "id": "WX-T001",
+    "kind": "tool",
+    "canonicalName": "ls",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_ls_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T002",
+    "kind": "tool",
+    "canonicalName": "read_file",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_read_file_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T003",
+    "kind": "tool",
+    "canonicalName": "write_file",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_write_file_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T004",
+    "kind": "tool",
+    "canonicalName": "edit_file",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_edit_file_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T005",
+    "kind": "tool",
+    "canonicalName": "glob",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_glob_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T006",
+    "kind": "tool",
+    "canonicalName": "grep",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_grep_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T007",
+    "kind": "tool",
+    "canonicalName": "delete",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_delete_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "WX-T008",
+    "kind": "tool",
+    "canonicalName": "execute",
+    "specVersion": "1.0.0",
+    "source": {
+      "kind": "langchain-native",
+      "locator": "deepagents.middleware.filesystem:FilesystemMiddleware._create_execute_tool",
+      "revision": "0.7.6",
+      "license": "MIT"
+    }
+  }
+]
