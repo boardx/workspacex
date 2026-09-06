@@ -14,17 +14,17 @@ const initial: GuidedResearchRuntime = {
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(structuredClone(initial)); });
 afterEach(() => vi.useRealTimers());
 describe("live research workspace", () => {
-  it("restores server drafts and requires model generation before confirmation", async () => {
+  it("restores server drafts and lets confirmation perform required generation", async () => {
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     expect(await screen.findByDisplayValue("Storage")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "确认并继续" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "确认并继续" })).toBeEnabled();
     expect(screen.queryByText("演示来源")).not.toBeInTheDocument();
   });
   it("includes current editor changes when asking the model to generate", async () => {
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8 });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     fireEvent.change(await screen.findByDisplayValue("Storage"), { target: { value: "Updated scope" } });
-    fireEvent.click(screen.getByRole("button", { name: "使用模型生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", draft: { node: "brief", value: { ...initial.brief, topic: "Updated scope" } } })));
   });
   it("ignores a slower old poll even when both snapshots share the command version", async () => {
@@ -50,7 +50,7 @@ describe("live research workspace", () => {
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(initial).mockResolvedValue(newer);
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
-    fireEvent.click(screen.getByRole("button", { name: "使用模型生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
     await act(async () => { finish({ ...initial, version: 8, brief: { ...initial.brief, topic: "Older command" } }); });
@@ -106,7 +106,7 @@ describe("research request recovery", () => {
     const resume = await screen.findByRole("button", { name: "继续编辑保留的草稿" });
     await waitFor(() => expect(resume).toBeEnabled());
     expect(screen.getByDisplayValue("My unsaved topic")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "使用模型生成" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "重新生成本步骤" })).toBeDisabled();
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     fireEvent.click(resume);
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));

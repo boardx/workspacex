@@ -151,6 +151,7 @@ export class GuidedRuntimeService {
   }
   private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: () => Promise<void>) {
     const { node, action } = command;
+    if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       applyDraft(state, command.draft); return;
@@ -188,19 +189,24 @@ export class GuidedRuntimeService {
     }
     if ((action === "start" || action === "retry") && node === "research") { await this.executeSearch(state, persist); return; }
     if (action === "confirm" || action === "complete") {
-      if (node !== state.currentNode) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
-      if (!state.generatedNodes.includes(node)) throw new ResearchRuntimeError("RESEARCH_MODEL_GENERATION_REQUIRED");
+      if (node !== state.currentNode && !command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
       if (command.draft) applyDraft(state, command.draft);
-      if (node === "research") {
+      if (node === "research" || node === "report") {
         if (!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded")) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
         if (!state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
       }
+      if (node !== "research" && !state.generatedNodes.includes(node)) await this.generate(state, node, persist);
       if (node === "report") {
         if (!state.report) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
         validateRuntimeDraft(state, { node: "report", value: state.report }); state.completed = true; return;
       }
       const next = nodes[nodes.indexOf(node) + 1]!;
-      state.currentNode = next; state.availableNodes = nodes.slice(0, nodes.indexOf(next) + 1); return;
+      state.currentNode = next; state.availableNodes = nodes.slice(0, nodes.indexOf(next) + 1);
+      // Persist the destination before external work so refresh and failures stay on that step.
+      await persist();
+      if (next === "research") await this.executeSearch(state, persist);
+      else await this.generate(state, next, persist);
+      return;
     }
     throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
   }

@@ -43,7 +43,7 @@ const errors: Record<string, string> = {
   RESEARCH_TASKS_INCOMPLETE: "请先完成检索任务，失败任务可重试。",
   RESEARCH_CONTENT_REFERENCE_INVALID: "生成内容引用了不可用的来源，已拒绝应用。请重新生成。",
   RESEARCH_NODE_STATE_INVALID: "模型返回的内容不符合本步骤要求，请重试。",
-  RESEARCH_MODEL_GENERATION_REQUIRED: "请先使用模型生成本步骤内容，再确认。",
+  RESEARCH_MODEL_GENERATION_REQUIRED: "本步骤尚未完成模型处理，请重试。",
 };
 function requestError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -102,7 +102,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         if (!active || epoch !== responseEpoch.current || ticket < pollAccepted.current || next.version < minimumVersion || (current && (next.version < current.version || (next.version === current.version && !current.busy && next.busy)))) return;
         pollAccepted.current = ticket; snapshotRef.current = next;
         setState(next);
-        if (!recoveryRef.current) setDraft(draftOf(next, nodeRef.current));
+        if (!recoveryRef.current) {
+          // A restored server-owned command can advance after this page mounts.
+          // Follow that operation, while leaving idle historical browsing alone.
+          const target = !pending && current?.busy ? next.currentNode : nodeRef.current;
+          if (target !== nodeRef.current) setNode(target);
+          setDraft(draftOf(next, target));
+        }
       }).catch(() => { /* The command response or next polling attempt resolves a transient network failure. */ });
     }, 2000);
     return () => { active = false; window.clearInterval(timer); };
@@ -114,28 +120,19 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     const generation = sessionGeneration.current;
     const isCurrent = () => sessionRef.current === sessionId && sessionGeneration.current === generation;
     const approvedAction = action === "apply" ? state.proposal?.action : action;
-    const following = (approvedAction === "confirm" || approvedAction === "complete") && node === state.currentNode && node !== "report" ? steps[steps.indexOf(node) + 1] : undefined;
-    let requestNode = node;
-    let recoveryState = state;
-    let recoveryDraft = draft;
+    const following = (approvedAction === "confirm" || approvedAction === "complete") && node !== "report" ? steps[steps.indexOf(node) + 1] : undefined;
+    const requestNode = node;
+    const recoveryState = state;
+    const recoveryDraft = draft;
     if (following) setLoadingNode(following);
     else if (["generate", "start", "retry"].includes(approvedAction ?? action)) setLoadingNode(node);
     responseEpoch.current += 1; commandVersion.current = state.version + 1; setPending(true); setError(null);
     try {
-      let received = await executeResearchRuntime({ sessionId, node, action, requestId: crypto.randomUUID(), expectedVersion: state.version, ...extra });
+      const received = await executeResearchRuntime({ sessionId, node, action, requestId: crypto.randomUUID(), expectedVersion: state.version, ...extra });
       if (!isCurrent()) return;
-      let next = newestSnapshot(received, snapshotRef.current);
-      // Only chain from our own successful confirmation. A collaborator's newer
-      // snapshot must never authorize generation on their behalf.
-      if (following && next === received && !next.errorCode && !next.busy && next.currentNode === following && !next.completed) {
-        responseEpoch.current += 1; snapshotRef.current = next; setState(next);
-        setNode(following); setDraft(draftOf(next, following));
-        requestNode = following; recoveryState = next; recoveryDraft = null;
-        commandVersion.current = next.version + 1;
-        received = await executeResearchRuntime({ sessionId, node: following, action: following === "research" ? "start" : "generate", requestId: crypto.randomUUID(), expectedVersion: next.version });
-        if (!isCurrent()) return;
-        next = newestSnapshot(received, snapshotRef.current);
-      }
+      // Confirmation and following generation share a durable server request.
+      // Never dispatch a second command from a response or a recovered snapshot.
+      const next = newestSnapshot(received, snapshotRef.current);
       responseEpoch.current += 1; snapshotRef.current = next;
       setState(next);
       const target = next !== received || action === "confirm" || action === "complete" || action === "apply" ? next.currentNode : requestNode;
@@ -196,7 +193,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     <ResearchProgress node={loadingNode ?? node} availableNodes={state.availableNodes} busy={busy} completed={state.completed} onNavigate={navigate} onBack={onBack} />
     <GuidedResearchStepLayout assistant={<section className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-card p-5 shadow-sm" data-testid="research-skill-assistant">
       <h2 className="font-semibold">研究 Skill 助手</h2>
-      <p className="mt-2 text-12 text-muted-foreground">与助手讨论当前步骤，应用建议后确认进入下一步。</p>
+      <p className="mt-2 text-12 text-muted-foreground">与助手讨论当前步骤；确认后自动生成下一步内容。</p>
       <div className="my-4 min-h-32 flex-1 space-y-3 overflow-y-auto" data-testid="research-skill-messages">
         {state.messages.map((item) => <div key={item.id} className="rounded-md bg-muted p-3 text-12"><span className="font-medium">{item.role === "user" ? "你" : "Skill"} · {labels[item.node]}</span><p className="mt-1 whitespace-pre-wrap">{item.text}</p></div>)}
         {proposal && <div className="rounded-md border border-primary p-3 text-12" data-testid="research-skill-suggestion"><p>已生成「{labels[node]}」建议，应用前可以查看内容。</p><div className="my-2 max-h-48 overflow-auto"><ProposalPreview draft={proposal.draft} /></div><Button disabled={busy || proposal.version !== state.version} onClick={() => void run("apply", { proposalId: proposal.id })}>{{ save: "应用建议", generate: "批准生成", start: "批准开始检索", retry: "批准重试", confirm: "批准确认并继续", complete: "批准完成当前步骤" }[proposal.action ?? "save"]}</Button></div>}
@@ -214,12 +211,12 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {recovery.draft && <Button variant="outline" disabled={!recovery.synchronized || processing || !state.availableNodes.includes(recovery.node)} onClick={() => finishRecovery(true)}>继续编辑保留的草稿</Button>}
       </div>
     </div></details>}
-    {(error || state.errorCode) && <p role="alert" className="rounded-md border border-destructive p-3 text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
+    {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="rounded-md border border-destructive p-3 text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
     {state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
         {loadingNode || (!pending && state.busy && !expired && !recovery) ? <ResearchLoading node={loadingNode ?? node} /> : <>
-        <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}{state.completed && node === "report" ? " · 已完成" : ""}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "生成研究计划" : "使用模型生成"}</Button></div>
-        {state.currentNode !== node && <p className="text-12 text-muted-foreground">保存或应用此步骤的修改会使后续研究结果失效，需要重新确认和生成。</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}{state.completed && node === "report" ? " · 已完成" : ""}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "重新生成研究计划" : "重新生成本步骤"}</Button></div>
+        {state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {processing && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
         {draft?.node === "directions" && <div className="space-y-3" data-testid="research-directions"><Button variant="outline" disabled={busy || draft.value.length >= 20} onClick={() => setDraft({ ...draft, value: [...draft.value, { id: crypto.randomUUID(), title: "新研究方向", description: "补充研究重点", enabled: true, order: draft.value.length }] })}>添加研究方向</Button>{draft.value.map((item, index) => <Card key={item.id}><CardContent className="space-y-2 p-4"><label className="flex gap-2 text-12"><input type="checkbox" checked={item.enabled} disabled={busy} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, enabled: event.target.checked } : entry) })} />纳入研究</label><Input aria-label="研究方向" disabled={busy} value={item.title} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, title: event.target.value } : entry) })} /><Textarea aria-label="方向说明" disabled={busy} value={item.description} onChange={(event) => setDraft({ ...draft, value: draft.value.map((entry, i) => i === index ? { ...entry, description: event.target.value } : entry) })} /><Button variant="ghost" disabled={busy || draft.value.length <= 1} onClick={() => setDraft({ ...draft, value: draft.value.filter((entry) => entry.id !== item.id) })}>删除方向</Button></CardContent></Card>)}</div>}
@@ -232,7 +229,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           {state.sources.map((source) => <Card key={source.id}><CardContent className="space-y-2 p-4 text-12"><a className="text-primary underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a><p className="line-clamp-4 whitespace-pre-wrap text-muted-foreground">{source.content}</p><label>来源处理 <select aria-label={`来源处理 ${source.title}`} className="rounded-md border border-border bg-background p-2" disabled={busy} value={draft?.node === "research" ? draft.value.find((item) => item.id === source.id)?.decision ?? source.decision : source.decision} onChange={(event) => { const decision = event.target.value as "pending" | "accepted" | "excluded"; if (draft?.node === "research") setDraft({ ...draft, value: draft.value.map((item) => item.id === source.id ? { ...item, decision } : item) }); }}><option value="pending">待处理</option><option value="accepted">保留</option><option value="excluded">排除</option></select></label></CardContent></Card>)}
         </>}
         {node === "report" && state.report && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><nav aria-label="报告目录" className="rounded-lg border border-border p-4"><h2 className="font-semibold">目录</h2><ul className="mt-2 space-y-1 text-12">{state.report.sections.map((section, index) => <li key={section.sectionId}><a className="text-primary underline" href={`#research-report-section-${index}`}>{state.outline.find((item) => item.id === section.sectionId)?.title}</a></li>)}</ul></nav><h2 className="text-20 font-semibold">{state.report.title}</h2><p className="whitespace-pre-wrap text-12 leading-relaxed">{state.report.summary}</p>{state.report.sections.map((section, index) => <Card id={`research-report-section-${index}`} key={section.sectionId}><CardContent className="space-y-3 p-4"><h3 className="font-semibold">{state.outline.find((item) => item.id === section.sectionId)?.title}</h3><p className="whitespace-pre-wrap text-12 leading-relaxed">{section.body}</p><ul className="space-y-1 text-12">{section.sourceIds.map((id) => { const source = state.sources.find((item) => item.id === id); return source ? <li key={id}><a className="text-primary underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li> : null; })}</ul></CardContent></Card>)}<Button variant="outline" onClick={downloadReport}>下载报告（Markdown）</Button></div>}
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || !validDraft || node === "report"} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || !validDraft || !state.generatedNodes.includes(node) || state.currentNode !== node || state.completed} onClick={() => void run(node === "report" || node === "research" ? "complete" : "confirm", draft ? { draft } : {})}>{node === "report" ? "完成研究" : "确认并继续"}</Button></div>
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || !validDraft || node === "report"} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || !validDraft || (state.completed && node === "report")} onClick={() => void run(node === "report" || node === "research" ? "complete" : "confirm", draft ? { draft } : {})}>{node === "report" ? "完成研究" : "确认并继续"}</Button></div>
         </>}
       </div>
     </GuidedResearchStepLayout>

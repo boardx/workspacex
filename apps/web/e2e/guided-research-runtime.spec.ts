@@ -12,26 +12,25 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByTestId("research-create-name").fill("研究全链路验证");
   await page.getByTestId("research-create-submit").click();
   await page.getByTestId("research-brief-goal").fill("核对储能并网政策");
-  await page.getByTestId("research-confirm-brief").click();
-  await page.getByRole("button", { name: "使用模型生成", exact: true }).click();
-  await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
-  await page.getByLabel("研究对话").fill("请检查主题范围");
-  await page.getByRole("button", { name: "发送研究消息" }).click();
-  await page.getByRole("button", { name: "应用建议" }).click();
-  await page.reload();
-  await expect(page.getByTestId("research-skill-messages")).toContainText("请检查主题范围");
   let releaseGeneration!: () => void;
   const generationGate = new Promise<void>((resolve) => { releaseGeneration = resolve; });
   await page.route("**/runtime/commands", async (route) => {
     const command = route.request().postDataJSON();
-    if (command.node === "directions" && command.action === "generate") await generationGate;
+    if (command.node === "brief" && command.action === "confirm") await generationGate;
     await route.continue();
   });
-  await page.getByRole("button", { name: "确认并继续", exact: true }).click();
+  await page.getByTestId("research-confirm-brief").click();
   try {
     await expect(page.getByTestId("research-step-loading")).toBeVisible();
+    await expect(page.getByRole("button", { name: "2. 研究方向" })).toHaveAttribute("aria-current", "step");
     await page.screenshot({ path: testInfo.outputPath("research-next-step-loading.png"), fullPage: true });
   } finally { releaseGeneration(); }
+  await expect(page.getByRole("heading", { name: "研究方向", exact: true })).toBeVisible();
+  await page.getByLabel("研究对话").fill("请检查研究方向");
+  await page.getByRole("button", { name: "发送研究消息" }).click();
+  await page.getByRole("button", { name: "应用建议" }).click();
+  await page.reload();
+  await expect(page.getByTestId("research-skill-messages")).toContainText("请检查研究方向");
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();

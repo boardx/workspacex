@@ -1,9 +1,10 @@
 import { runtimeFixture } from "../guided-runtime-fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 
-const { getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
+const { executeResearchRuntime, getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSession, getGuidedResearchSession, finishGuidedResearchCollection, completeGuidedResearchSession } = vi.hoisted(() => ({
+  executeResearchRuntime: vi.fn(),
   getResearchRuntime: vi.fn(),
   listGuidedResearchSessions: vi.fn(),
   createGuidedResearchSession: vi.fn(),
@@ -13,8 +14,8 @@ const { getResearchRuntime, listGuidedResearchSessions, createGuidedResearchSess
 }));
 
 vi.mock("@/lib/guided-research-api", () => ({
-  getResearchRuntime,
-  listGuidedResearchSessions,
+  executeResearchRuntime,
+  getResearchRuntime,  listGuidedResearchSessions,
   createGuidedResearchSession,
   getGuidedResearchSession,
   finishGuidedResearchCollection,
@@ -55,6 +56,9 @@ beforeEach(() => {
   createGuidedResearchSession.mockReset();
   getGuidedResearchSession.mockReset();
   getResearchRuntime.mockReset();
+  executeResearchRuntime.mockReset();
+  getResearchRuntime.mockImplementation(async (sessionId: string) => ({ ...runtimeFixture("brief", sessionId), version: 0 }));
+  executeResearchRuntime.mockImplementation(async ({ sessionId }: { sessionId: string }) => runtimeFixture("directions", sessionId));
   finishGuidedResearchCollection.mockReset();
   completeGuidedResearchSession.mockReset();
   listGuidedResearchSessions.mockResolvedValue({ items: [] });
@@ -157,6 +161,80 @@ describe("F168 guided research home live data", () => {
       brief: expect.objectContaining({ topic: "新的研究主题" }),
     }));
     await waitFor(() => expect(onStepChange).toHaveBeenCalledWith("directions", "grs-new"));
+  });
+
+  it("confirms the initial brief once and keeps the next step loading until the model response", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-entry"));
+    let resolve!: (value: ReturnType<typeof runtimeFixture>) => void;
+    executeResearchRuntime.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const navigate = vi.fn();
+    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    fireEvent.change(screen.getByTestId("research-brief-goal"), { target: { value: "核对具体政策" } });
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    expect(screen.getByTestId("research-step-loading")).toHaveTextContent("正在生成研究方向");
+    expect(screen.getByRole("button", { name: "2. 研究方向" })).toHaveAttribute("aria-current", "step");
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
+    expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: "grs-entry", node: "brief", action: "confirm", expectedVersion: 0,
+      draft: { node: "brief", value: expect.objectContaining({ goal: "核对具体政策" }) },
+    }));
+    expect(navigate).not.toHaveBeenCalled();
+    resolve(runtimeFixture("directions", "grs-entry"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-entry"));
+  });
+
+  it("opens the progressed session from an idempotent create replay without another confirmation", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-existing"));
+    getResearchRuntime.mockResolvedValueOnce(runtimeFixture("research", "grs-existing"));
+    const navigate = vi.fn();
+    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("search", "grs-existing"));
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+
+  it("recovers a lost model response by reading the created session without replay", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-lost"));
+    getResearchRuntime.mockResolvedValueOnce({ ...runtimeFixture("brief", "grs-lost"), version: 0 })
+      .mockResolvedValueOnce({ ...runtimeFixture("directions", "grs-lost"), errorCode: "RESEARCH_MODEL_UNAVAILABLE" });
+    executeResearchRuntime.mockRejectedValueOnce(new Error("response lost"));
+    const navigate = vi.fn();
+    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("directions", "grs-lost"));
+    expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the created session reachable if both runtime reads fail", async () => {
+    createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-offline"));
+    getResearchRuntime.mockRejectedValue(new Error("offline"));
+    const navigate = vi.fn();
+    render(<GuidedResearchFlow step="brief" onStepChange={navigate} />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("brief", "grs-offline"));
+    expect(createGuidedResearchSession).toHaveBeenCalledTimes(1);
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
+
+  it.each(["create", "confirm"] as const)("ignores a delayed %s after leaving the entry screen", async (phase) => {
+    let resolve!: (value: unknown) => void;
+    const pending = new Promise((done) => { resolve = done; });
+    if (phase === "create") createGuidedResearchSession.mockReturnValueOnce(pending);
+    else {
+      createGuidedResearchSession.mockResolvedValueOnce(createdSession("grs-abandoned"));
+      executeResearchRuntime.mockReturnValueOnce(pending);
+    }
+    render(<GuidedResearchFlow step="brief" />);
+    fireEvent.click(screen.getByTestId("research-confirm-brief"));
+    if (phase === "confirm") await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("research-flow-back"));
+    expect(await screen.findByTestId("research-flow-home")).toBeInTheDocument();
+    await act(async () => { resolve(phase === "create" ? createdSession("grs-abandoned") : runtimeFixture("directions", "grs-abandoned")); });
+    await waitFor(() => expect(screen.getByTestId("research-flow-home")).toBeInTheDocument());
+    expect(executeResearchRuntime).toHaveBeenCalledTimes(phase === "create" ? 0 : 1);
+    expect(Object.keys(window.localStorage).some((key) => key.startsWith("wsx.guidedResearch.createIdempotencyKey."))).toBe(true);
   });
 
   it("uses the session URL to restore the server-authored stage", async () => {
