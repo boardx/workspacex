@@ -113,6 +113,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const subtaskEnqueue = subtaskRun.EnqueueSubtaskRunFailure.safeParse(raw);
+  if (subtaskEnqueue.success) return { reasonCode: subtaskEnqueue.data };
   const subtaskCancellation = subtaskRun.CancelSubtaskRunFailure.safeParse(raw);
   if (subtaskCancellation.success) return { reasonCode: subtaskCancellation.data };
   const permission = identity.PermissionReason.safeParse(raw);

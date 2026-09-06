@@ -119,3 +119,7 @@ export async function executeQueuedSubtaskRuns(
 
 /** Derived text-task recovery deadline; independent from peer main-run leases. */
 export const SUBTASK_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
+
+export class SubtaskParentCancelledError extends Error {
+  constructor() { super("subtask_parent_cancelled"); }
+}

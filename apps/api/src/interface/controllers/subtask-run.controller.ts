@@ -40,7 +40,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import { toOrgId } from "../../domain/org-id";
 import { subtaskRun as SubtaskRunContract } from "@repo/contracts";
-import { SubtaskIdempotencyConflictError, SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR, type SubtaskRunExecutorPort, type SubtaskRunStore } from "../../application/agent-run/subtask-run-queue";
+import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError, SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR, type SubtaskRunExecutorPort, type SubtaskRunStore } from "../../application/agent-run/subtask-run-queue";
 
 import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository } from "../../application/identity/ports";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
@@ -96,6 +96,7 @@ export class SubtaskRunController {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
     const run = await this.store.enqueue(toOrgId(orgIdRaw), parsed.data).catch((error: unknown) => {
+      if (error instanceof SubtaskParentCancelledError) throw new ConflictException({ reasonCode: SubtaskRunContract.EnqueueSubtaskRunFailure.enum.SUBTASK_PARENT_CANCELLED });
       if (error instanceof SubtaskIdempotencyConflictError) throw new ConflictException("SUBTASK_IDEMPOTENCY_CONFLICT");
       throw error;
     });
@@ -158,6 +159,9 @@ export class SubtaskRunController {
       description: existing.description,
       context: existing.context,
       idempotencyKey: `retry:${existing.id}`,
+    }).catch((error: unknown) => {
+      if (error instanceof SubtaskParentCancelledError) throw new ConflictException({ reasonCode: SubtaskRunContract.EnqueueSubtaskRunFailure.enum.SUBTASK_PARENT_CANCELLED });
+      throw error;
     });
     this.executor?.kick(orgId);
     return { subtaskRunId: run.id, status: run.status };

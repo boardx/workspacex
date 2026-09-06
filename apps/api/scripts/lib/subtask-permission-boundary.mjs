@@ -4,7 +4,7 @@ import ts from "typescript";
 export function checkSubtaskPermissionBoundary(path, source, controller, authorization) {
   const errors = [];
   const executor = path.endsWith("subtask-run-executor.ts");
-  const allowed = new Set(executor ? ["agent_runs", "agent_versions"] : ["subtask_runs"]);
+  const allowed = new Set(executor ? ["agent_runs", "agent_versions"] : ["subtask_runs", "agent_runs"]);
   const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const refs = /\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi;
   let statements = 0;
@@ -23,6 +23,14 @@ export function checkSubtaskPermissionBoundary(path, source, controller, authori
             errors.push("SQL lacks explicit tenant predicate");
           }
           if (/\bINSERT\s+INTO\b/i.test(sql.text) && !/\borg_id\b/.test(sql.text)) errors.push("INSERT lacks tenant column");
+          if (!executor && /\b(?:UPDATE|INTO)\s+agent_runs\b/i.test(sql.text)) {
+            errors.push("child store must not write parent lifecycle");
+          }
+          if (!executor && /\bFROM\s+agent_runs\b/i.test(sql.text)
+            && (!/\bSELECT (?:id,)?cancel_requested_at FROM agent_runs/i.test(sql.text)
+              || !/\bid\s*(?:=\s*\$2|IN\s*\()/i.test(sql.text))) {
+            errors.push("parent read must only inspect scoped cancellation identity");
+          }
           if (executor && !/v\.id\s*=\s*r\.agent_version_id\s+AND\s+v\.org_id\s*=\s*r\.org_id/i.test(sql.text)) {
             errors.push("parent version join must be pinned and tenant-matched");
           }

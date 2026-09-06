@@ -78,3 +78,6 @@ export type CancelSubtaskRunResult = z.infer<typeof CancelSubtaskRunResult>;
 
 export const CancelSubtaskRunFailure = z.enum(["cancellation_not_supported_for_running", "terminal_conflict"]);
 export type CancelSubtaskRunFailure = z.infer<typeof CancelSubtaskRunFailure>;
+
+/** Expected refusal when a late callback targets an already cancelled parent. */
+export const EnqueueSubtaskRunFailure = z.enum(["SUBTASK_PARENT_CANCELLED"]);

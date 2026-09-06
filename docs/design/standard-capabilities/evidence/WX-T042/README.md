@@ -150,3 +150,47 @@ their own stacks. Permission-path lint passes (`ci-permission-lint.txt`), diff c
 The exception regression names the two reviewed T042 files and requires their structural
 boundary helper in addition to the revised limit of 91. The flag regression continues
 to require unconditional TaskClassifierMiddleware and rejects conditional spread.
+
+## Peer v1 parent cancellation adapter
+
+PgChildRunCanceller is bound to CHILD_RUN_CANCELLER and delegates to the same tenant
+subtask store. cancelChildren validates the durable parent's cancel_requested_at-derived
+requestId under a parent row lock, changes only pending children to cancelled and reports
+running IDs as pending. readCancellation only selects; even remaining pending children
+prevent confirmed. Missing parent, foreign org or forged request returns unavailable.
+No peer main-run cancellation/lease state is changed by this adapter.
+
+Enqueue now locks the same parent before insertion and refuses cancelled parents. Claim
+locks candidate parents in stable ID order with SKIP LOCKED before claiming their child
+rows; cancelled parents' pending work is cancelled instead of dispatched. No parent
+lookup is performed after a pending-child row lock, avoiding opposite parent/child lock
+order with propagation. Existing running work is not advertised as remotely aborted.
+
+Test-first missing-adapter failure is recorded in parent-cancel-red.txt. Final command:
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-runtime/subtask-run-queue.test.ts
+node --test apps/api/scripts/tests/subtask-permission-boundary.test.mjs
+```
+
+20/20 API tests and 8/8 boundary tests pass. DB tests hold an uncommitted parent cancel
+update while starting a late enqueue and attempting claim: claim returns no children,
+commit makes enqueue reject, and a later claim cancels pending work. Tests also check
+request identity, cross-org denial, read leaving pending unchanged, pending-to-cancelled,
+running-to-pending confirmation and actual completion-to-confirmed. Wrapper cleaned its
+stack. No running cancellation/remote-stop confirmation is claimed.
+
+Permission exception count stays 91: the new adapter contains no SQL. Existing store
+exception permits only narrowly scoped agent_runs cancellation identity reads, with
+mutation counterproof against reading parent content or scanning unrestricted parents.
+Full repository permission lint currently reports unrelated newly merged peer paths;
+this component's precise boundary tests pass. No broad allowance was added.
+
+Final follow-up: authenticated late callbacks and human retries now map only the typed
+SubtaskParentCancelledError to HTTP 409. The shared EnqueueSubtaskRunFailure enum supplies
+the sole allowed sanitized reason SUBTASK_PARENT_CANCELLED. Other errors are not broadly
+mapped. A real HTTP callback holding the internal shared key after durable cancellation
+receives 409 with that reason and produces no additional model request. Production Nest
+DI is asserted to resolve PgChildRunCanceller. Final same two-file command passes 20/20;
+raw log parent-cancel-final.txt. The wrapper cleaned its stack. Boundary tests also
+explicitly reject writing parent lifecycle columns from the child store.

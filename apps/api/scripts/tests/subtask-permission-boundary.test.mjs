@@ -31,7 +31,7 @@ test("counterproof: unpinned or cross-org parent version join fails", () => {
 });
 test("counterproof: missing parent authorization before list or retry fails", () => {
   for (const write of [false,true]) {
-    const changed = controller.replace(`await this.authorizeParent(principal,runId,${write});`,"");
+    const changed = controller.replaceAll(`await this.authorizeParent(principal,runId,${write});`,"");
     assert.notEqual(inspect(storePath,store,changed).length,0);
   }
 });
@@ -42,4 +42,9 @@ test("counterproof: allowing denied visibility or bypassing the shared decision 
 test("counterproof: tools or parent remote thread reuse are not permitted", () => {
   assert.notEqual(inspect(executorPath,executor.replace('executionMode: "text-only"','executionMode: "native"')).length,0);
   assert.notEqual(inspect(executorPath,executor.replace("history: []","threadId: run.parentRunId, history: []")).length,0);
+});
+test("parent cancellation exception cannot read private content or scan all parents", () => {
+  assert.notEqual(inspect(storePath,store.replace("SELECT cancel_requested_at FROM agent_runs", "UPDATE agent_runs SET cancel_requested_at=NULL")).length,0);
+  assert.notEqual(inspect(storePath,store.replaceAll("SELECT cancel_requested_at FROM agent_runs","SELECT instructions FROM agent_runs")).length,0);
+  assert.notEqual(inspect(storePath,store.replaceAll("AND id=$2 FOR UPDATE", "FOR UPDATE")).length,0);
 });

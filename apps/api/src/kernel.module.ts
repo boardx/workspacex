@@ -1,3 +1,4 @@
+import { PgChildRunCanceller } from "./infrastructure/agent-run/pg-child-run-canceller";
 import { PARENT_RUN_CONTROL, ParentRunControl, CHILD_RUN_CANCELLER, type ChildRunCanceller } from "./application/agent-run/parent-run-control";
 import { TOOL_EXECUTION_AUTHORITY, ToolExecutionAuthority } from "./application/agent-run/tool-execution-authority";
 import { PgParentRunControlReader } from "./infrastructure/agent-run/pg-parent-run-control";
@@ -1752,6 +1753,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // issue #2767 -- F06 三档授权存储的单一实例，`AgentRunExecutor`（执行循环的
     // `hasGrant` 查询）与 `CopilotkitAguiController`（`decideToolPermission` 的
     // once/forever 写入）共用同一个，不各自 `new` 一份。
+    {
+      provide: CHILD_RUN_CANCELLER,
+      useFactory: (db: DatabasePort) => new PgChildRunCanceller(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: PARENT_RUN_CONTROL,
       useFactory: (db: DatabasePort, children?: ChildRunCanceller) => new ParentRunControl(new PgParentRunControlReader(db), children),

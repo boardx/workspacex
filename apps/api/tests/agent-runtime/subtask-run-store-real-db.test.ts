@@ -156,6 +156,9 @@ describe("WX-T042 durable queue", () => {
       const body = await response.json() as { subtaskRunId: string };
       const durable = app.get<PgSubtaskRunStore>(SUBTASK_RUN_STORE);
       expect(durable).toBeInstanceOf(PgSubtaskRunStore);
+      const { CHILD_RUN_CANCELLER } = await import("../../src/application/agent-run/parent-run-control");
+      const { PgChildRunCanceller } = await import("../../src/infrastructure/agent-run/pg-child-run-canceller");
+      expect(app.get(CHILD_RUN_CANCELLER)).toBeInstanceOf(PgChildRunCanceller);
       await expect.poll(async () => (await durable.get(org,body.subtaskRunId))?.status).toBe("completed");
       expect((await durable.get(org,body.subtaskRunId))?.result).toBe("HTTP model completed");
       expect(requests).toHaveLength(1);
@@ -178,6 +181,16 @@ describe("WX-T042 durable queue", () => {
       expect(retryBody.subtaskRunId).not.toBe(failed.id);
       await expect.poll(async () => (await durable.get(org,retryBody.subtaskRunId))?.status).toBe("completed");
       expect(requests).toHaveLength(2);
+      await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2",[org,parent]));
+      const late = await fetch(`http://127.0.0.1:${port}/internal/subtask-runs`, {
+        method:"POST",headers:{"content-type":"application/json","x-deep-agent-internal-key":"t042-http-key"},
+        body:JSON.stringify({orgId:org,parentRunId:parent,description:"late authenticated callback"}),
+      });
+      expect(late.status).toBe(409);
+      expect(await late.json()).toMatchObject({reasonCode:"SUBTASK_PARENT_CANCELLED"});
+      expect(requests).toHaveLength(2);
+      // Restore only this fixture before the independent adapter scenarios below.
+      await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2",[org,parent]));
     } finally {
       await app?.close();
       await new Promise<void>(resolve => server.close(() => resolve()));
@@ -185,4 +198,46 @@ describe("WX-T042 durable queue", () => {
     }
   });
 
+});
+
+describe("parent cancellation handshake", () => {
+  it("serializes enqueue and claim behind the durable parent cancellation lock", async () => {
+    const scope=toOrgId(`org-race-${randomUUID()}`), id=`race-${randomUUID()}`;
+    await seed(scope,id);
+    const store=new PgSubtaskRunStore(db);
+    const pending=await store.enqueue(scope,{parentRunId:id,description:"pending before cancel"});
+    let queued: Promise<unknown> | undefined;
+    await asApp(scope,async c=>{
+      await c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2",[scope,id]);
+      queued=store.enqueue(scope,{parentRunId:id,description:"late during transaction"}).catch(error=>error);
+      // claim uses SKIP LOCKED parent: it cannot acquire a child behind the cancellation.
+      expect(await store.claimQueued(scope,10)).toEqual([]);
+    });
+    expect(await queued).toBeInstanceOf(Error);
+    expect(String(await queued)).toContain("subtask_parent_cancelled");
+    expect(await store.claimQueued(scope,10)).toEqual([]);
+    expect((await store.get(scope,pending.id))?.status).toBe("cancelled");
+  });
+  it("uses durable parent identity, rejects late work and reads without mutation", async () => {
+    const { PgChildRunCanceller } = await import("../../src/infrastructure/agent-run/pg-child-run-canceller");
+    const { parentCancelRequestId } = await import("../../src/application/agent-run/parent-run-control");
+    const store = new PgSubtaskRunStore(db);
+    const child = await store.enqueue(org,{parentRunId:parent,description:"cancel pending"});
+    const running = await store.enqueue(org,{parentRunId:parent,description:"already running"});
+    await asApp(org,c=>c.query("UPDATE subtask_runs SET status='running' WHERE org_id=$1 AND id=$2",[org,running.id]));
+    const stamp = new Date().toISOString();
+    await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=$3 WHERE org_id=$1 AND id=$2",[org,parent,stamp]));
+    const input={orgId:org,parentRunId:parent,requestId:parentCancelRequestId(org,parent,stamp)};
+    const adapter=new PgChildRunCanceller(db);
+    expect(await adapter.readCancellation(input)).toEqual({kind:"pending",runningChildIds:[running.id]});
+    expect((await store.get(org,child.id))?.status).toBe("pending");
+    expect(await adapter.cancelChildren({...input,requestId:"forged"})).toEqual({kind:"unavailable"});
+    expect(await adapter.cancelChildren({...input,orgId:other})).toEqual({kind:"unavailable"});
+    expect(await adapter.cancelChildren(input)).toEqual({kind:"pending",runningChildIds:[running.id]});
+    expect((await store.get(org,child.id))?.status).toBe("cancelled");
+    await expect(store.enqueue(org,{parentRunId:parent,description:"late"})).rejects.toThrow("subtask_parent_cancelled");
+    expect(await store.claimQueued(org,10)).toEqual([]);
+    await store.complete(org,running.id,"actual completion");
+    expect(await adapter.readCancellation(input)).toEqual({kind:"confirmed"});
+  });
 });

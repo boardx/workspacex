@@ -1,8 +1,9 @@
+import { parentCancelRequestId, type ParentCancellation, type ChildCancellationResult } from "../../application/agent-run/parent-run-control";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
-import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
+import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
 import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome } from "../../application/agent-run/subtask-run-queue";
 
 type Row = { id: string; parent_run_id: string; description: string; context: string | null;
@@ -19,6 +20,10 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
 
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun> {
     return this.db.withTenant(orgId, async (s) => {
+      const parent = await s.query<{ cancel_requested_at: Date | null }>(
+        "SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId,input.parentRunId]);
+      if (!parent.rows[0]) throw new Error("subtask_parent_unavailable");
+      if (parent.rows[0].cancel_requested_at !== null) throw new SubtaskParentCancelledError();
       const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id,parent_run_id,description,context,idempotency_key)
         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING *`,
         [randomUUID(), orgId, input.parentRunId, input.description, input.context ?? null,input.idempotencyKey ?? null]);
@@ -50,11 +55,44 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
     return this.db.withTenant(orgId, async (s) => {
       await s.query(`UPDATE subtask_runs SET status='failed', error='subtask_execution_lost_after_restart_or_timeout',
         updated_at=now() WHERE org_id=$1 AND status='running' AND updated_at < now() - ($2 * interval '1 millisecond')`, [orgId, this.staleMs]);
-      const r = await s.query<Row>(`UPDATE subtask_runs SET status='running', updated_at=now()
-        WHERE id IN (SELECT id FROM subtask_runs WHERE org_id=$1 AND status='pending'
-          ORDER BY created_at,id LIMIT $2 FOR UPDATE SKIP LOCKED) RETURNING *`,
-      [orgId, Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0]);
-      return r.rows.map(decode).sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      const maximum = Number.isFinite(limit) ? Math.max(0,Math.floor(limit)) : 0;
+      const parents = await s.query<{ id: string; cancel_requested_at: Date | null }>(
+        `SELECT id,cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id IN
+          (SELECT parent_run_id FROM subtask_runs WHERE org_id=$1 AND status='pending')
+         ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED`, [orgId,maximum]);
+      const claimed: SubtaskRun[] = [];
+      for (const parent of parents.rows) {
+        if (parent.cancel_requested_at !== null) {
+          await s.query("UPDATE subtask_runs SET status='cancelled',updated_at=now() WHERE org_id=$1 AND parent_run_id=$2 AND status='pending'", [orgId,parent.id]);
+          continue;
+        }
+        const r = await s.query<Row>(`UPDATE subtask_runs SET status='running',updated_at=now()
+          WHERE org_id=$1 AND id IN (SELECT id FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND status='pending'
+          ORDER BY created_at,id LIMIT $3 FOR UPDATE SKIP LOCKED) RETURNING *`, [orgId,parent.id,maximum-claimed.length]);
+        claimed.push(...r.rows.map(decode));
+        if (claimed.length >= maximum) break;
+      }
+      return claimed.sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    });
+  }
+
+  cancelChildren(input: ParentCancellation): Promise<ChildCancellationResult> {
+    return this.cancellation(input,true);
+  }
+  readCancellation(input: ParentCancellation): Promise<ChildCancellationResult> {
+    return this.cancellation(input,false);
+  }
+  private cancellation(input: ParentCancellation, mutate: boolean): Promise<ChildCancellationResult> {
+    const orgId = input.orgId;
+    return this.db.withTenant(orgId, async s => {
+      const parent = mutate
+        ? await s.query<{ cancel_requested_at: Date | null }>("SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE",[orgId,input.parentRunId])
+        : await s.query<{ cancel_requested_at: Date | null }>("SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2",[orgId,input.parentRunId]);
+      const stamp=parent.rows[0]?.cancel_requested_at;
+      if (!stamp || parentCancelRequestId(orgId,input.parentRunId,stamp)!==input.requestId) return {kind:"unavailable"};
+      if (mutate) await s.query("UPDATE subtask_runs SET status='cancelled',updated_at=now() WHERE org_id=$1 AND parent_run_id=$2 AND status='pending'",[orgId,input.parentRunId]);
+      const active=await s.query<{id:string;status:string}>("SELECT id,status FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND status IN ('pending','running') ORDER BY id",[orgId,input.parentRunId]);
+      return active.rows.length ? {kind:"pending",runningChildIds:active.rows.filter(row=>row.status==='running').map(row=>row.id)} : {kind:"confirmed"};
     });
   }
 
