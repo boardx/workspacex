@@ -933,11 +933,40 @@ class InterjectionMiddleware(AgentMiddleware):
             return None
         return {"messages": [_interjection_human_message(raw)]}
 
+    def _live_update(self, state: dict, values: list[dict]) -> dict | None:
+        updates = list((self._injection_update(state) or {}).get("messages", []))
+        seen = {getattr(m, "id", None) for m in (state.get("messages") or []) + updates}
+        for raw in values:
+            if (not isinstance(raw, dict)
+                    or any(not isinstance(raw.get(f), str) for f in _INTERJECTION_FIELDS)
+                    or raw["classification"] not in _INTERJECTION_CLASSIFICATIONS
+                    or not raw["text"].strip()):
+                raise ValueError("invalid kernel interjection delivery")
+            message_id = _interjection_message_id(raw["interjectionId"])
+            if message_id not in seen:
+                updates.append(_interjection_human_message(raw))
+                seen.add(message_id)
+        return {"messages": updates} if updates else None
+
     def before_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
-        return self._injection_update(state)
+        from deep_agent_service.run_control import poll_interjections
+        return self._live_update(state, poll_interjections(state, pause_at_boundary=True))
 
     async def abefore_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
-        return self._injection_update(state)
+        from deep_agent_service.run_control import apoll_interjections
+        return self._live_update(state, await apoll_interjections(state, pause_at_boundary=True))
+
+    def after_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        from deep_agent_service.run_control import poll_interjections
+        # At this boundary the preceding before_model messages are in graph state.
+        # Newly queued deliveries are retained for the next before_model boundary.
+        poll_interjections(state)
+        return None
+
+    async def aafter_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        from deep_agent_service.run_control import apoll_interjections
+        await apoll_interjections(state)
+        return None
 
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
