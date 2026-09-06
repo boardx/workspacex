@@ -1124,7 +1124,7 @@ export function CopilotKitV2PanelBody({
   const send = React.useCallback(
     async (override?: string, opts?: { readonly clientMessageId?: string }) => {
       const text = (override ?? inputDraft).trim();
-      if (text === "" || agent.isRunning) return;
+      if (text === "" || runIsRunning) return;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -1182,7 +1182,7 @@ export function CopilotKitV2PanelBody({
         reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
       }
     },
-    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],
+    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent],
   );
 
   /**
@@ -2200,7 +2200,7 @@ export function CopilotKitV2PanelBody({
                     e.preventDefault();
                     // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
                     if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
-                    if (agent.isRunning) { void sendWhileRunning(); return; }
+                    if (runIsRunning) { void sendWhileRunning(); return; }
                     void send();
                   }
                 }}

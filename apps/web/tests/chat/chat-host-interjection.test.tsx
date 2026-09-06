@@ -201,6 +201,21 @@ describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插�
     expect(sockets.length).toBe(1);
   });
 
+  it("恢复路径（agent.isRunning 为假、runRestore.isRestoring 为真）：Enter 与点击同一条路，走插话而不是开第二轮 run", async () => {
+    mountHost();
+    await waitFor(() => expect(sockets.length).toBe(1));
+    act(() => sockets[0]!.emit(statusChange("running")));
+    const indicator = await screen.findByTestId("copilotkit-v2-running-indicator");
+    await waitFor(() => expect(indicator.getAttribute("data-run-id")).toBe(RUN_ID));
+
+    const input = screen.getByTestId("copilotkit-v2-input");
+    fireEvent.change(input, { target: { value: "回 B" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(interjectAgentRun).toHaveBeenCalledTimes(1));
+    expect(interjectAgentRun.mock.calls[0]![0]).toEqual({ runId: RUN_ID, text: "回 B" });
+    await screen.findByTestId("chat-task-workbench-composer-running-reply-ack", {}, { timeout: 1000 });
+  });
+
   it("对照组：status_change(awaiting_tool_permission) ⇒ 正文排队而不是插话；回到 running 才插话", async () => {
     mountHost();
     await waitFor(() => expect(sockets.length).toBe(1));
