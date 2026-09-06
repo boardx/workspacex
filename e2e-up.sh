@@ -24,11 +24,30 @@ real_model_require_isolation
 # 正是 #2802 的整条 issue。
 real_model_require_credentials "dashscope 真实模型" DASHSCOPE_API_KEY DASHSCOPE_BASE_URL DASHSCOPE_MODEL
 
-SB="${SKILL_SANDBOX_PORT:-8793}"
+# 技能沙箱端口由隔离外壳派生（`lib/test-isolation.ts` 的 50_000 段），和 pg/redis/api/web
+# 同一套 probe-and-bind 待遇。**刻意不留 `:-8793` 兜底**：兜底会让"没经过隔离外壳"这件事
+# 以并行会话随机撞端口的形态延迟爆炸，而不是当场说清楚。
+SB="$SKILL_SANDBOX_PORT"
 docker compose -f apps/api/docker-compose.dev.yml -p "$COMPOSE_PROJECT_NAME" up -d --wait postgres redis minio
 SKILL_SANDBOX_PORT=$SB pnpm --filter @repo/skill-sandbox exec tsx src/main.ts > /tmp/e2e-sandbox.log 2>&1 &
 echo $! > /tmp/e2e-sandbox.pid
-sleep 5
+# 沙箱**必须真的在监听**才算起来了。原来这里只 `sleep 5` 就往下走：沙箱以 EADDRINUSE
+# 秒死时栈照常"就绪"，技能调用要到很久以后才以别的形态失败（真实模型 lane 上表现为
+# 「模型答不出文件」，看起来像产品缺陷）。宁可在这里红，也不要把它推到下游。
+SANDBOX_READY=0
+for _ in $(seq 1 30); do
+  # 沙箱没有 /healthz（它的 HTTP 面只有执行端点），所以判据是**真的能建立 TCP 连接**
+  # ——那正是 "listening" 的定义，比解析 stdout 更难骗。
+  if (exec 3<>/dev/tcp/127.0.0.1/"${SB}") 2>/dev/null; then exec 3<&- 3>&-; SANDBOX_READY=1; break; fi
+  if ! kill -0 "$(cat /tmp/e2e-sandbox.pid)" 2>/dev/null; then break; fi
+  sleep 1
+done
+if [ "$SANDBOX_READY" != "1" ]; then
+  echo "✗ 技能沙箱没能在 127.0.0.1:${SB} 起来——日志末尾：" >&2
+  tail -20 /tmp/e2e-sandbox.log >&2 || true
+  exit 1
+fi
+echo "技能沙箱就绪：127.0.0.1:${SB}"
 pnpm --filter web exec tsx e2e/dump-fixture-env.ts > /tmp/e2e-fixture.sh
 source /tmp/e2e-fixture.sh
 export FULLSTACK_E2E_AGENT_MODEL_PROVIDER=dashscope

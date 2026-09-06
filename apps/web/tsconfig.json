@@ -42,7 +42,8 @@
     ".next-chat-read-e2e/types/**/*.ts",
     ".next-fullstack-e2e/types/**/*.ts",
     ".next-self-service-profile-e2e/types/**/*.ts",
-    ".next-lc/types/**/*.ts"
+    ".next-lc/types/**/*.ts",
+    ".next-real-model-e2e/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

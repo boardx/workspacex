@@ -67,6 +67,16 @@ function normalizeBubble(text: string): string {
 }
 
 /**
+ * 断言 ⑥ 的期望产物类型。默认 PDF —— 不配这两个环境变量时，两条 lane 的行为与
+ * 本次改动之前**逐字节相同**。配上就能让同一份 spec 覆盖平台技能目录里的另外三个
+ * 官方 skill（pptx/docx/xlsx-create），不必分叉第二份 spec。
+ */
+const EXPECT_EXT = REAL_MODEL_SMOKE.expectExt;
+const EXPECT_MAGIC = REAL_MODEL_SMOKE.expectMagic;
+/** 扩展名匹配按字面量转义，避免把 `.` 当成通配。 */
+const EXPECT_NAME_RE = new RegExp(`\\.${EXPECT_EXT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`, "i");
+
+/**
  * 本轮的证据采集器。放模块级是为了让下面那个 `afterEach` 兜底够得到它：
  * 用例在走到 `finish()` 之前抛错（比如登录就没过去、composer 一直不 ready）时，
  * 证据包**仍然要落盘**——一条以"什么都没留下"收场的取证通道是自相矛盾的。
@@ -126,13 +136,19 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   const send = page.getByTestId("copilotkit-v2-send");
   // `data-send-state` 是 composer 自己声明给 e2e 的判据（见 copilotkit-v2-panel-body.tsx），
   // 不去读 title/aria 文案——那些会随文案改动漂移。
+  //
+  // ⚠ 必须**先填字再等 ready**：`sendDisabled` 的四条理由里有一条就是"输入为空"
+  //   （`inputDraft.trim() === ""` ⇒ EMPTY_INPUT_REASON，issue #2130 要求的产品行为）。
+  //   本行原来在 fill 之前 poll `ready`，那是在等一个空输入永远到不了的状态——
+  //   2026-09-06 本 lane 第一次真跑就卡在这里 120s 红退（#2805 合入时无 Docker/无凭据，
+  //   这条路径从没被执行过）。填字之后再判 ready，判的才是"composer 真的可发送"。
+  await composer.fill(REAL_MODEL_SMOKE.prompt);
   await expect
     .poll(() => send.getAttribute("data-send-state"), { timeout: 120_000, intervals: [500, 1_000, 2_000] })
     .toBe("ready");
   evidence.record("① 真实 /chat 可用（composer 就绪）", true, `baseURL=${REAL_MODEL_SMOKE.baseUrl}`);
 
   /* ── ② 发出那一句 ────────────────────────────────────────────────────── */
-  await composer.fill(REAL_MODEL_SMOKE.prompt);
   const sentAt = Date.now();
   await send.click();
 
@@ -260,13 +276,13 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
     const card = producedCards.nth(i);
     const text = normalizeBubble(await card.innerText().catch(() => ""));
     cardTexts.push(text);
-    if (pdfCard === null && /\.pdf(\s|$)/i.test(text)) pdfCard = card;
+    if (pdfCard === null && EXPECT_NAME_RE.test(text)) pdfCard = card;
   }
   evidence.writeJson("41-produced-files.json", cardTexts);
 
   let pdfDetail = cardCount === 0
     ? "这条 run 一个产出文件卡都没有（chat-produced-file-inline-card 数量为 0）"
-    : `有 ${cardCount} 张产出卡，但没有一张的文件名以 .pdf 结尾：${cardTexts.join(" | ")}`;
+    : `有 ${cardCount} 张产出卡，但没有一张的文件名以 .${EXPECT_EXT} 结尾：${cardTexts.join(" | ")}`;
   let pdfOk = false;
   if (pdfCard !== null) {
     const failedBadge = await pdfCard.getByTestId("chat-produced-file-inline-failed").count();
@@ -298,18 +314,19 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
       }, { url: href, cap: CAP_BYTES })
         .catch((error: unknown) => ({ length: 0, head: `<取字节失败：${String(error)}>`, base64: "" }));
       // 判据：PDF 魔数 + 一个不可能是占位空壳的长度。两条都真才算"真的产出了"。
-      pdfOk = probe.head === "%PDF-" && probe.length > 1_000;
-      pdfDetail = `产出文件字节数=${probe.length}，前 5 字节=「${probe.head}」（合格的 PDF 必须是 %PDF-）`;
+      pdfOk = probe.head.startsWith(EXPECT_MAGIC) && probe.length > 1_000;
+      pdfDetail = `产出文件字节数=${probe.length}，前 ${EXPECT_MAGIC.length} 字节=`
+        + `「${probe.head.slice(0, EXPECT_MAGIC.length)}」（合格的 ${EXPECT_EXT.toUpperCase()} 必须是 ${EXPECT_MAGIC}）`;
       if (probe.base64 !== "") {
-        evidence.writeBinary("91-produced.pdf", Uint8Array.from(atob(probe.base64), (c) => c.charCodeAt(0)));
+        evidence.writeBinary(`91-produced.${EXPECT_EXT}`, Uint8Array.from(atob(probe.base64), (c) => c.charCodeAt(0)));
         if (probe.length > CAP_BYTES) {
-          pdfDetail += `；⚠ 证据包里的 91-produced.pdf 只截了前 ${CAP_BYTES} 字节（原文件更大），`
+          pdfDetail += `；⚠ 证据包里的 91-produced.${EXPECT_EXT} 只截了前 ${CAP_BYTES} 字节（原文件更大），`
             + `字节数与魔数的判定用的是完整响应，不是这份截断副本`;
         }
       }
     }
   }
-  evidence.record("⑥ 真的产出了一个 PDF 产物（按字节判，不按模型措辞判）", pdfOk, pdfDetail);
+  evidence.record(`⑥ 真的产出了一个 ${EXPECT_EXT.toUpperCase()} 产物（按字节判，不按模型措辞判）`, pdfOk, pdfDetail);
 
   /* ── ⑧ 连接全程没被掐断（#2795）────────────────────────────────────────
         两条独立证据：CDP 侧 AG-UI 流没有 loadingFailed；浏览器控制台没有传输层

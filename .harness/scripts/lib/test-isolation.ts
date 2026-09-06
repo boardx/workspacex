@@ -18,6 +18,7 @@ export interface TestIsolationEnv extends Record<string, string> {
   MINIO_CONSOLE_PORT: string;
   WORKSPACEX_API_PORT: string;
   WORKSPACEX_WEB_PORT: string;
+  SKILL_SANDBOX_PORT: string;
   COMPOSE_PROJECT_NAME: string;
   WORKSPACEX_DB_CONNECTION_BUDGET: string;
 }
@@ -35,6 +36,7 @@ const ISOLATION_ENV_KEYS = [
   "MINIO_CONSOLE_PORT",
   "WORKSPACEX_API_PORT",
   "WORKSPACEX_WEB_PORT",
+  "SKILL_SANDBOX_PORT",
   "COMPOSE_PROJECT_NAME",
   "WORKSPACEX_DB_CONNECTION_BUDGET",
 ] as const;
@@ -142,6 +144,11 @@ export function deriveTestIsolation(options: Required<IsolationOptions>): TestIs
     MINIO_CONSOLE_PORT: portFrom(hash, 35_000),
     WORKSPACEX_API_PORT: portFrom(hash, 40_000),
     WORKSPACEX_WEB_PORT: portFrom(hash, 45_000),
+    // 技能沙箱。2026-09-06 之前它**不在**这张表里：`e2e-up.sh` 硬编码 8793，于是
+    // 两个并行会话的沙箱必然撞端口，后起的那个以 EADDRINUSE 直接死掉——而 e2e-up.sh
+    // 不检查它起没起来，栈照常"就绪"。真实模型 lane 第一次真跑就栽在这里：沙箱没起
+    // 来，模型于是答不出文件，断言"真的产出 PDF"红成一个看起来像产品缺陷的样子。
+    SKILL_SANDBOX_PORT: portFrom(hash, 50_000),
     COMPOSE_PROJECT_NAME: `wsx-${resource}`,
     // Four Vitest workers, each allowed a five-connection application pool, plus
     // migrations/fixtures/monitoring headroom. The global setup enforces this budget.
@@ -191,6 +198,7 @@ const PORT_KEYS = [
   "MINIO_CONSOLE_PORT",
   "WORKSPACEX_API_PORT",
   "WORKSPACEX_WEB_PORT",
+  "SKILL_SANDBOX_PORT",
 ] as const;
 
 type PortKey = (typeof PORT_KEYS)[number];
@@ -202,6 +210,7 @@ const PORT_BASE: Record<PortKey, number> = {
   MINIO_CONSOLE_PORT: 35_000,
   WORKSPACEX_API_PORT: 40_000,
   WORKSPACEX_WEB_PORT: 45_000,
+  SKILL_SANDBOX_PORT: 50_000,
 };
 
 function listenOn(port: number): Promise<ReturnType<typeof createServer> | null> {

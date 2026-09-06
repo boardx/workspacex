@@ -71,6 +71,7 @@ real_model_require_vars() {
 real_model_require_isolation() {
   real_model_require_vars "test-isolation" \
     COMPOSE_PROJECT_NAME WORKSPACEX_API_PORT WORKSPACEX_WEB_PORT WORKSPACEX_DB \
+    SKILL_SANDBOX_PORT \
     || {
       echo "  ⇒ 这几个由隔离外壳派生（端口/库名/compose 项目名），不该手填。请这样调用：" >&2
       echo "     pnpm run e2e:real-model-smoke" >&2
