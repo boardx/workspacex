@@ -29,6 +29,23 @@ RUN npx tsc src/*.ts src/session/*.ts \
       --target ES2022 --strict --skipLibCheck \
       --outDir dist
 
+# W18: resolve only hash-locked wheels at build time, never inside a session.
+FROM python:3.11-slim AS analysis
+COPY analysis/requirements.lock /tmp/analysis-requirements.lock
+RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes \
+      --target /analysis -r /tmp/analysis-requirements.lock \
+ && pip download --only-binary=:all: --require-hashes --no-deps \
+      --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64 \
+      --python-version 311 --implementation cp --abi cp311 \
+      --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock
+
+# Matplotlib's searchable PDF output needs a real TrueType font, not the Office CFF font.
+FROM analysis AS analysis-font
+ADD --checksum=sha256:990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf /tmp/noto-analysis-source.ttf
+COPY analysis/prepare-font.py /tmp/prepare-font.py
+RUN PYTHONPATH=/analysis python /tmp/prepare-font.py /tmp/noto-analysis-source.ttf /font/AnalysisSans.ttf
+COPY analysis/font-LICENSE /font/LICENSE
+
 # ---------- 运行阶段 ----------
 FROM node:22-slim
 
@@ -112,6 +129,12 @@ RUN apt-get update \
 # only its installed immutable assets under the existing read-only /usr mount.
 COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
 RUN python3 scripts/materialize-office-config.py
+
+# Debian Python searches this directory; /usr is already read-only in native sessions.
+COPY --from=analysis /analysis /usr/local/lib/python3.11/dist-packages
+COPY --from=analysis-font /font /usr/share/fonts/workspacex/analysis
+COPY analysis/requirements.lock ./analysis/requirements.lock
+RUN OPENBLAS_NUM_THREADS=1 python3 -c "import numpy, pandas, matplotlib, seaborn, openpyxl; print('offline analysis dependencies available')"
 
 COPY security/generate-seccomp.py ./security/generate-seccomp.py
 RUN python3 security/generate-seccomp.py
