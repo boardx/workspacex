@@ -312,7 +312,11 @@ describe("V4（I-4/E3）密钥不可用/不匹配时诚实报告 unreadable，�
   it("V4-CP 反证：直接调用 cipher.decrypt 面对篡改过的密文，证明它返回 null 而不是抛异常（这是上面两条测试成立的前提）", () => {
     const cipher = new AesGcmTranscriptContentCipher("some-key");
     const sealed = cipher.encrypt("secret");
-    const tampered = sealed.slice(0, -2) + "ff"; // 篡改密文尾部（authTag 校验会失败）
+    // 篡改密文尾部（authTag 校验会失败）。⚠ 不能固定写 "ff"：IV 随机 ⇒ 密文尾字节随机，
+    // 约 1/256 的运行里尾部本来就是 "ff"，"篡改"后与原文逐字相同，decrypt 如实返回
+    // "secret"——CI 上真实红过一次（PR #2809 gates-test (2)），20000 次本地采样复现 76 次。
+    const tail = sealed.slice(-2);
+    const tampered = sealed.slice(0, -2) + (tail === "ff" ? "00" : "ff");
     expect(() => cipher.decrypt(tampered)).not.toThrow();
     expect(cipher.decrypt(tampered)).toBeNull();
     expect(cipher.decrypt("not-even-the-right-shape")).toBeNull();
