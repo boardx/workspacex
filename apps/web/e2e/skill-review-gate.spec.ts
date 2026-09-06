@@ -1,3 +1,4 @@
+import { createNamedWorkbenchThread } from "./support/workbench-journey";
 /**
  * #552 —— 「**用户自己造出来的 skill，用户自己用得了**」的真实浏览器门控。
  *
@@ -291,11 +292,8 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
 
     /* 建一条自己的线程，不蹭别的用例留下的那条。 */
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    await page.getByTestId("chat-thread-create").click();
     const title = `#552 挂自建 skill ${Date.now()}`;
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
-    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
 
     // 新线程什么都没挂 —— 先钉住真实空态，否则「挂上了」可能一直就是真的。
     await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
@@ -313,7 +311,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
 
     /* 刷新后仍挂着 = 它在库里。 */
     await page.reload();
-    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
     await expect(page.getByTestId(`chat-skill-mounted-${approved!.skillId}`)).toBeVisible();
 
     /* ── 🔴 反证 C：草稿状态的那个挂不上 ── */
@@ -339,7 +337,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
 
     // 被拒的东西没有混进挂载列表 —— 失败态不许留下半条记录。
     await page.reload();
-    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
     await expect(page.getByTestId(`chat-skill-mounted-${draftOnly!.skillId}`)).toHaveCount(0);
     await expect(page.getByTestId(`chat-skill-mounted-${approved!.skillId}`)).toBeVisible();
   });

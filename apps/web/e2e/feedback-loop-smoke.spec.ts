@@ -1,3 +1,5 @@
+import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
+import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
 /**
  * PROP-FEEDBACK-LOOP-E2E-001 FB-2/FB-3（F48/F49）—— 真实浏览器端到端：
  * **不同种类的反馈从前端提交 → 后台真的看得见**。
@@ -187,11 +189,8 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     test.setTimeout(300_000);
     await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    await page.getByTestId("chat-thread-create").click();
     const threadTitle = `反馈端到端 ${STAMP}`;
-    await page.getByTestId("chat-thread-title-input").fill(threadTitle);
-    await page.getByTestId("chat-thread-title-submit").click();
-    await expect(page.getByTestId("chat-read-thread-list").getByText(threadTitle)).toBeVisible();
+    await createNamedWorkbenchThread(page, threadTitle, FULLSTACK_E2E.projectId);
 
     /* ── ③ Skill 级 · 缺陷 —— 会话内挂载态 chip 上 ── */
     const skillId = FULLSTACK_E2E.mountableSkillId;
@@ -217,26 +216,19 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     });
 
     /* ── ④ Agent 级 · 需求 —— 一条真实的 AI 回复上 ── */
+    await openWorkbenchRoster(page);
     await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
     const marker = `FEEDBACK_E2E_${STAMP}`;
-    await page.getByTestId("chat-agent-select").click();
-    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
-    await page.getByTestId("chat-message-input").fill(marker);
-    await page.getByTestId("chat-message-submit").click();
-
-    const runStatus = page.getByTestId("chat-live-agent-run-status");
-    await expect(runStatus).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
-
-    // AI 消息行：hover 才会显形反馈按钮（同 chat-message-copy 的 group-hover 规则，
-    // chat-read.spec.ts 已验证过这个交互模式）。
-    const aiRow = page.getByTestId("chat-message-row").filter({ hasText: FULLSTACK_E2E.agentReplyPrefix });
-    await expect(aiRow).toBeVisible();
-    await aiRow.hover();
-    await aiRow.getByTestId("chat-agent-feedback").click();
+    await selectWorkbenchAgent(page, FULLSTACK_E2E.agentId);
+    await page.getByTestId("copilotkit-v2-input").fill(marker);
+    await submitWorkbenchRun(page);
+    const feedback = page.getByTestId("copilotkit-v2-messages").getByTestId("chat-agent-feedback");
+    await expect(feedback).toHaveCount(1);
+    await feedback.click();
     await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.agentDisplayName);
     await submitOpenFeedback(page, {
       kind: "需求",
