@@ -1,0 +1,62 @@
+.....................................FF.......F..                        [100%]
+=================================== FAILURES ===================================
+_______________ test_real_upstream_path_glob_grep_and_cap[False] _______________
+
+asynchronous = False
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    def test_real_upstream_path_glob_grep_and_cap(asynchronous):
+        with real_native_session([]) as (adapter, _):
+            assert adapter.write('/workspace/嵌套/notes.txt', 'needle.*\nneedle.*\nneedle.*\nother').error is None
+            if asynchronous:
+                result = asyncio.run(adapter.agrep('needle.*', '/workspace', glob='**/*.txt', max_count=2))
+            else:
+                result = adapter.grep('needle.*', '/workspace', glob='**/*.txt', max_count=2)
+            assert result.error is None and result.truncated
+>           assert [match['line'] for match in result.matches] == [1, 2]
+                    ^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'line_number'
+
+tests/test_upstream_compat.py:66: KeyError
+_______________ test_real_upstream_path_glob_grep_and_cap[True] ________________
+
+asynchronous = True
+
+    @pytest.mark.parametrize("asynchronous", [False, True])
+    def test_real_upstream_path_glob_grep_and_cap(asynchronous):
+        with real_native_session([]) as (adapter, _):
+            assert adapter.write('/workspace/嵌套/notes.txt', 'needle.*\nneedle.*\nneedle.*\nother').error is None
+            if asynchronous:
+                result = asyncio.run(adapter.agrep('needle.*', '/workspace', glob='**/*.txt', max_count=2))
+            else:
+                result = adapter.grep('needle.*', '/workspace', glob='**/*.txt', max_count=2)
+            assert result.error is None and result.truncated
+>           assert [match['line'] for match in result.matches] == [1, 2]
+                    ^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'line_number'
+
+tests/test_upstream_compat.py:66: KeyError
+___________________ test_t006_literal_grep_and_explicit_cap ____________________
+
+    def test_t006_literal_grep_and_explicit_cap():
+        with real_native_session() as (adapter, _):
+            assert adapter.write('/workspace/搜索/notes.txt', 'needle.*\nneedle.*\nneedle.*\nother').error is None
+            found = adapter.grep('needle.*', '/workspace', glob='**/*.txt', max_count=2)
+            assert found.error is None and found.truncated
+            assert len(found.matches) == 2
+>           assert [match['line_number'] for match in found.matches] == [1, 2]
+                    ^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'line_number'
+
+tests/test_native_file_tools.py:78: KeyError
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_upstream_compat.py::test_real_upstream_path_glob_grep_and_cap[False]
+FAILED tests/test_upstream_compat.py::test_real_upstream_path_glob_grep_and_cap[True]
+FAILED tests/test_native_file_tools.py::test_t006_literal_grep_and_explicit_cap
+3 failed, 46 passed, 1 warning in 104.94s (0:01:44)
