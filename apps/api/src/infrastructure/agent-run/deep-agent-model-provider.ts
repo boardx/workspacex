@@ -1,3 +1,4 @@
+import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
 import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
 import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
@@ -513,6 +514,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
+    if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
     return this.readCompletion(baseUrl, threadId);
@@ -563,13 +565,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // legitimately needs to pass through both phases without either suppressing the other.
     const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
-    if (this.config.streamEnabled === true && onDelta !== undefined) {
+    if (this.config.streamEnabled === true && (onDelta !== undefined || input.onSkillActivity !== undefined)) {
       // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
       // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
       // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
       const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
-        async (delta, metadata) => { try { await onDelta(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted);
+        async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
+        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, input.onSkillActivity);
       if (streamed) {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
@@ -701,6 +703,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     emitted: ToolCallEmittedIds,
+    onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
   ): Promise<boolean> {
     let response: Response;
     try {
@@ -760,6 +763,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
           try {
             parsed = JSON.parse(dataLines.join(""));
           } catch {
+            continue;
+          }
+          if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
+            try {
+              const event = SkillActivityStream.parse(parsed);
+              await onSkillActivity?.(event.fact);
+            } catch (error) { throw new ProgressDeliveryError(error); }
             continue;
           }
           if (Array.isArray(parsed)) {
@@ -1001,6 +1011,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         method: "POST",
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
+          stream_mode: ["messages-tuple", "updates", "custom"],
           command: { resume: { decisions: [decision] } },
           // issue #2768 -- a resume is the SAME run's next model call, and `call_skill`'s
           // ONLY source of "which skills are pinned to this run" is `configurable.org_skills`
@@ -1092,7 +1103,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         // 加上 "updates" 后，`tryStreamRun` 新增对象形状（{node_name: patch}）的分支：
         // 见到 "tools" 节点的 patch 就立刻触发一次 `emitNewToolEvents`——复用既有的
         // state 读 + `extractToolCallEvents` 配对逻辑，不新建第二套记账路径。
-        stream_mode: ["messages-tuple", "updates"],
+        stream_mode: ["messages-tuple", "updates", "custom"],
         ...(input.checkpointResume ? { command: { resume: true } } : { input: { messages } }),
         config: {
           configurable: {

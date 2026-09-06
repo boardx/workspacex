@@ -1,12 +1,16 @@
 "use client";
 import * as React from "react";
-import { ChevronRight, Loader2, Check, AlertCircle, Wrench, Sparkles } from "lucide-react";
+import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 
 function detail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
 }
+const skillStageLabels: Record<string, string> = {
+  metadata_discovered: "发现技能元数据", body_read: "读取技能正文",
+  execution_started: "技能执行中", execution_succeeded: "技能执行成功", execution_failed: "技能执行失败",
+};
 /** A disclosure never changes the lifetime of the event subscription. */
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
@@ -39,7 +43,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {active ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : null}
-      <span>{failed ? `${label} · 有失败步骤` : label} · 历时 {elapsed} · 工具 {tools} 次 · 技能 {skills} 次</span>
+      <span>{failed ? `${label} · 有失败步骤` : label} · 历时 {elapsed} · 工具 {tools} 次 · 技能活动 {skills} 项</span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
@@ -50,12 +54,13 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
                   {entry.kind === "skill" ? <Sparkles aria-hidden className="h-3.5 w-3.5" /> : <Wrench aria-hidden className="h-3.5 w-3.5" />}
-                  <span>{entry.kind === "skill" ? "Skill" : "Tool"} · {entry.text}</span>
-                  {entry.status === "running" ? <Loader2 aria-label={running ? "执行中" : "未收到完成状态"} className={running ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check aria-label="完成" className="h-3 w-3" />}
+                  <span>{entry.activityStage ? skillStageLabels[entry.activityStage] : entry.kind === "skill" ? "Skill 工具调用" : "Tool"} · {entry.text}</span>
+                  {entry.status === "observed" ? <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 aria-label={running ? "执行中" : "未收到完成状态"} className={running ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
               </summary>
               <div className="space-y-2 pl-4">
-                {renderTool?.(entry)}
+                {entry.activityStage ? null : renderTool?.(entry)}
+                {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
                 {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}
                 {entry.result !== undefined ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
               </div>

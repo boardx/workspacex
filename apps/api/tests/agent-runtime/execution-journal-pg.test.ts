@@ -65,6 +65,15 @@ afterAll(async () => {
 });
 
 describe("durable execution journal", () => {
+  it("deduplicates concurrent skill facts across attempts and rejects conflicting identity",async()=>{
+    const fact={contractVersion:1 as const,factId:"stable-fact",skillId:"skill",skillStableName:"slides",skillVersion:"v1",packageDigest:"a".repeat(64),stage:"metadata_discovered" as const};
+    await Promise.all(Array.from({length:8},(_,i)=>repo.appendExecutionEvent(toOrgId(ORG),RUN,{kind:"skill_activity",attemptId:`attempt${i}`,fact})));
+    const events=await repo.readExecutionEvents(toOrgId(ORG),RUN,-1);
+    expect(events.filter(e=>e.kind==="skill_activity")).toHaveLength(1);
+    await expect(repo.appendExecutionEvent(toOrgId(ORG),RUN,{kind:"skill_activity",fact:{...fact,skillVersion:"v2"}})).rejects.toThrow("SKILL_ACTIVITY_FACT_CONFLICT");
+    await expect(repo.appendExecutionEvent(toOrgId(OTHER_ORG),RUN,{kind:"skill_activity",fact})).rejects.toThrow();
+  });
+
   it("serializes concurrent claimers by thread while allowing independent threads to execute",async()=>{
     const org=toOrgId(ORG);await repo.failRun(org,RUN,"RUN_INTERRUPTED");
     const otherThread=`${THREAD}-independent`;

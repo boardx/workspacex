@@ -1,3 +1,4 @@
+import { SkillActivityFact } from "@repo/contracts/skill-activity";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
 import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
@@ -379,10 +380,21 @@ export class PgAgentRunRepository implements AgentRunStore {
   }
 
   async appendExecutionEvent(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void> {
+    if (event.kind === "skill_activity") event = { ...event, fact: SkillActivityFact.parse(event.fact) };
     await this.db.withTenant(orgId, async (session) => {
       // Serialize writers across API replicas using the existing run row. The event
       // becomes visible only after commit, so replay never observes an uncommitted seq.
       await session.query("SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      if (event.kind === "skill_activity") {
+        const existing = await session.query<{same:boolean}>(
+          `SELECT payload->'fact' = $4::jsonb AS same FROM agent_execution_events
+           WHERE org_id=$1 AND run_id=$2 AND payload->>'kind'='skill_activity'
+           AND payload->'fact'->>'factId'=$3 LIMIT 1`, [orgId,runId,event.fact.factId,JSON.stringify(event.fact)]);
+        if (existing.rows[0]) {
+          if (!existing.rows[0].same) throw new Error("SKILL_ACTIVITY_FACT_CONFLICT");
+          return;
+        }
+      }
       await session.query(
         `INSERT INTO agent_execution_events (org_id,run_id,seq,payload)
          SELECT $1,$2,COALESCE(MAX(seq)+1,0),$3::jsonb FROM agent_execution_events

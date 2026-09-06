@@ -823,6 +823,7 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
   readonly checkpointResume?: boolean;
   readonly liveInterjections?: boolean;
   readonly modelProvider: string;
