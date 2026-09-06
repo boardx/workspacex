@@ -2326,7 +2326,7 @@ export function CopilotKitV2PanelBody({
               <span className="truncate">{queuedReplyCopy(queuedReply)}</span>
               <button
                 type="button"
-                className="shrink-0 underline-offset-2 transition-colors duration-fast hover:text-foreground hover:underline"
+                className="shrink-0 underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline"
                 onClick={() => { setInputDraft(queuedReply); setQueuedReply(null); }}
               >
                 取消
