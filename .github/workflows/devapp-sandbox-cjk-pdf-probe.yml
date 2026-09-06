@@ -1,0 +1,122 @@
+# 在 devapp 上向**跑着的那个沙箱容器**要一份真的中文 PDF,并把它作为 artifact 传回来。
+#
+# ## 它补的洞
+#
+# 「中文 PDF 能不能生成」这条链有三层:①沙箱镜像里有没有 CJK 字体与 fontkit ②沙箱能不能
+# 真的画出带中文字形的 PDF ③模型会不会照 SKILL.md 写出那段脚本。第 ③ 层要真实模型 +
+# 登录账号,走 `real-model-chat-evidence.yml`(需要机器上的 `/opt/workspacex/real-model-e2e.env`)。
+# 本工作流只测 ① ②,**不需要任何凭据**,因此任何时候都能跑一次拿到硬证据。
+#
+# 为什么值得单独有:2026-09-06 事故里,「main 上代码是对的」与「那台机器上能不能出中文 PDF」
+# 之间隔着两个静默失效的环节(镜像不重建、root 副本不更新)。这条通道把后者变成一次
+# 点击就能得到的动态事实——而不是从 git log 推断。
+#
+# ## 它对这台机器做什么
+#
+#   写:在沙箱容器的 **tmpfs 工作目录**里生成一份 PDF(那是每次执行都会被清掉的临时目录),
+#      并把它拷进本次 job 的 artifact。
+#   读:沙箱 `POST /run` 的返回。
+#   不做:不重启任何服务、不改配置、不碰数据库、不写 /opt/workspacex 下任何文件。
+#
+# ⚠ 断言用**字形编号**,不是"文件大小 > 0":Identity-H 下 `Tj` 操作数是字形编号,编号 0
+#   是 .notdef——也就是用户看到的那个方框。判据必须是"每个汉字都有真字形",否则一份
+#   画满方框的 PDF 也会算通过(与 apps/skill-sandbox/tests/produces-real-cjk-pdf.test.ts
+#   同一条判据,那边测镜像构建产物,这边测**线上正在跑的那个容器**)。
+name: devapp-sandbox-cjk-pdf-probe
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: workspacex-sandbox-cjk-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 这个沙箱容器是什么时候起来的、镜像是哪一份
+        shell: bash
+        run: |
+          docker inspect --format 'container={{.Id}} started={{.State.StartedAt}} image={{.Image}}' \
+            workspacex-skill-sandbox-1
+          docker exec workspacex-skill-sandbox-1 node -e "
+            const fs = require('fs');
+            const p = process.env.SKILL_SANDBOX_CJK_FONT;
+            console.log('SKILL_SANDBOX_CJK_FONT=' + p);
+            console.log('font bytes=' + (p ? fs.statSync(p).size : 'n/a'));
+            console.log('fontkit=' + require.resolve('@pdf-lib/fontkit'));
+          "
+
+      - name: 向跑着的沙箱要一份中文 PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 脚本经 base64 传入,避免多层 shell 引号把中文或换行改形（与既有容器测试同一手法）。
+          SCRIPT_B64=$(base64 -w0 <<'SCRIPT'
+          const { PDFDocument } = require('pdf-lib');
+          const fontkit = require('@pdf-lib/fontkit');
+          const fs = require('fs');
+          (async () => {
+            const fontPath = process.env.SKILL_SANDBOX_CJK_FONT;
+            if (!fontPath) throw new Error('SKILL_SANDBOX_CJK_FONT not set');
+            const doc = await PDFDocument.create();
+            doc.registerFontkit(fontkit);
+            const font = await doc.embedFont(fs.readFileSync(fontPath), { subset: true });
+            const page = doc.addPage([595, 842]);
+            const title = '季度经营回顾';
+            page.drawText(title, { x: 50, y: 780, size: 24, font });
+            page.drawText('营收同比增长 18%（中英文混排 mixed English）', { x: 50, y: 745, size: 12, font });
+            fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/cjk-probe.pdf', await doc.save());
+            console.log('CJK_GLYPHS:' + font.encodeText(title).toString());
+          })().catch((e) => { console.error(e.stack); process.exit(1); });
+          SCRIPT
+          )
+
+          docker exec -e PROBE_B64="$SCRIPT_B64" workspacex-skill-sandbox-1 node -e '
+            const http = require("http");
+            const script = Buffer.from(process.env.PROBE_B64, "base64").toString("utf8");
+            const payload = JSON.stringify({ script, timeoutMs: 60000 });
+            const req = http.request({
+              socketPath: process.env.SKILL_SANDBOX_SOCKET, path: "/run", method: "POST",
+              headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+            }, (res) => {
+              let body = "";
+              res.on("data", (c) => { body += c; });
+              res.on("end", () => process.stdout.write(body));
+            });
+            req.on("error", (e) => { console.error(e.message); process.exit(8); });
+            req.end(payload);
+          ' > /tmp/sandbox-run.json
+
+          node -e '
+            const fs = require("fs");
+            const r = JSON.parse(fs.readFileSync("/tmp/sandbox-run.json", "utf8"));
+            console.log("exitCode=" + r.exitCode);
+            console.log("stdout=" + r.stdout.trim());
+            if (r.stderr.trim()) console.log("stderr=" + r.stderr.trim());
+            if (r.exitCode !== 0) { console.error("✗ 沙箱执行失败"); process.exit(1); }
+
+            const hex = /CJK_GLYPHS:<([0-9A-Fa-f]+)>/.exec(r.stdout);
+            if (!hex) { console.error("✗ 脚本没报出字形编号"); process.exit(1); }
+            const ids = [];
+            for (let i = 0; i < hex[1].length; i += 4) ids.push(parseInt(hex[1].slice(i, i + 4), 16));
+            console.log("glyph ids=" + ids.join(","));
+            // 编号 0 = .notdef = 用户看到的方框。有一个就算失败。
+            if (ids.some((id) => id === 0)) { console.error("✗ 有汉字落到 .notdef（方框）"); process.exit(1); }
+            if (ids.length !== 6) { console.error("✗ 字形数与标题字数对不上"); process.exit(1); }
+
+            const file = r.files.find((f) => f.name === "cjk-probe.pdf");
+            if (!file) { console.error("✗ 没有产出文件"); process.exit(1); }
+            fs.writeFileSync("/tmp/cjk-probe.pdf", Buffer.from(file.contentBase64, "base64"));
+            console.log("✅ 线上沙箱产出中文 PDF：" + file.sizeBytes + " 字节，每个汉字都有真字形");
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devapp-cjk-pdf
+          path: /tmp/cjk-probe.pdf
+          if-no-files-found: error
