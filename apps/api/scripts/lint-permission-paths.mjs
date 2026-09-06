@@ -31,6 +31,8 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
+import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -60,7 +62,7 @@ const SUBTASK_BOUNDARIES = new Set([
 const ALLOWLIST = new Map([
   [
     "src/infrastructure/agent-run/pg-subtask-run-store.ts",
-    "WX-T042: mixed system queue and parent-authorized disclosure port. Claims have no requester; get/list are reachable only after authorizeSubtaskParent uses the existing Chat resolveVisibility decision. RLS plus explicit org scope and composite parent/org FK protect storage. This exception is mechanically bounded by checkSubtaskPermissionBoundary below (exact tables, tenant transactions and controller authorization ordering), mutation tests in scripts/tests/subtask-permission-boundary.test.mjs, and private-owner/intruder real HTTP evidence in tests/agent-runtime/subtask-run-store-real-db.test.ts. Removing those protections invalidates this entry.",
+    "WX-T042: mixed system queue and parent-authorized disclosure port. Claims have no requester; get/list are reachable only after authorizeSubtaskParent uses the existing Chat resolveVisibility decision. RLS plus explicit org scope and composite parent/org FK protect storage. Parent cancellation reads only the scoped agent_runs cancellation timestamp/id; parent locks serialize enqueue/claim against durable cancellation, with no parent content disclosure. This exception is mechanically bounded by checkSubtaskPermissionBoundary below (exact tables, tenant transactions and controller authorization ordering), mutation tests in scripts/tests/subtask-permission-boundary.test.mjs, and private-owner/intruder real HTTP evidence in tests/agent-runtime/subtask-run-store-real-db.test.ts. Removing those protections invalidates this entry.",
   ],
   [
     "src/infrastructure/agent-run/subtask-run-executor.ts",
@@ -482,6 +484,18 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+    }
+    if (WORKBENCH_REPOSITORIES.has(rel)) {
+      const errors = checkWorkbenchRepository(rel, body, p => readFileSync(join(API, p), "utf8"));
+      if (!existsSync(join(API, "scripts/tests/workbench-repository-boundary.test.mjs"))) errors.push("repository counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (WORKBENCH_BOUNDARIES.has(rel)) {
+      const errors = checkWorkbenchPermissionBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/workbench-permission-boundary.test.mjs"))) errors.push("boundary counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
     }
     if (ALLOWLIST.has(rel)) continue;
     const guarded = body.includes(FILTER_MODULE);
