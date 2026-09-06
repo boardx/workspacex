@@ -433,6 +433,11 @@ function toWireSkills(skills: readonly PinnedSkillContent[] | undefined): readon
   return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content }));
 }
 
+/** messages-tuple 里算"模型输出"的 chunk 类型；见 `tryStreamRun` 内对应注释。 */
+function isAiMessageChunkType(type: unknown): boolean {
+  return type === "AIMessageChunk" || type === "ai";
+}
+
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
@@ -686,11 +691,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
           if (Array.isArray(parsed)) {
             // messages-tuple 形状：[chunk, metadata]。
             if (parsed.length === 0) continue;
-            const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown };
+            const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown; type?: unknown };
             if (typeof chunk.tool_call_id === "string" && chunk.tool_call_id !== "") {
               await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
               continue;
             }
+            // 2026-09-06 人类实测（devapp）：用户在 run 进行中回复的「B」出现在了 **assistant
+            // 气泡正文里**。messages-tuple 流不只带模型 token：图里任何节点追加进 `messages`
+            // 的消息都会以同一形状流出来，包括 `harness.py` `InterjectionMiddleware` 注入的
+            // 那条 `HumanMessage`（插话）。这里此前只看"有 content、没 tool_call_id"就当
+            // 模型 token 喂给 onDelta，于是用户自己的话被当成 agent 说的。只认 AI 侧的
+            // 两种 type（真引擎采集 `01-sse-stream.txt` 里出现的全部就是 `AIMessageChunk` 87
+            // 条 + `ai` 3 条），其余（human / system …）静默跳过——同一条"形状不匹配就退化、
+            // 不猜"的纪律。
+            if (!isAiMessageChunkType(chunk.type)) continue;
             if (typeof chunk.content === "string" && chunk.content !== "") {
               await onDelta(chunk.content);
             }
