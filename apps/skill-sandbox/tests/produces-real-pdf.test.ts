@@ -3,8 +3,9 @@
  * + V1-CP 反证。同一形态：断言落在 `src/inspect-pdf.ts` 的真解析上（`pdf-lib` 解析
  * 语法 + 扫描 content stream 里的 `Tj`/`TJ` 展示文本算子），不用"文件大小 > 0"这类断言。
  *
- * ⚠ 用英文文本——`src/inspect-pdf.ts` 头部注释已说明:pdf-lib 的 StandardFonts 只覆盖
- * WinAnsi 编码，不支持中文，嵌入 CJK 字体属于 design-delta §2 范围外。
+ * ⚠ 本文件用英文文本 + `StandardFonts`,锁的是"内置字体这条路仍然好使"。中文是
+ * **另一条路**(嵌入预装 CJK 字体 + Identity-H),由 `produces-real-cjk-pdf.test.ts`
+ * 单独锁——两条路的断言方式不一样(那边比对字形编号,不是读回文本),不要合并。
  */
 import { describe, expect, it } from "vitest";
 import { executeScript } from "../src/execute-script.js";

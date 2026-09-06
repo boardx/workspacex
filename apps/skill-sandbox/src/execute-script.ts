@@ -69,6 +69,15 @@ export interface ExecuteScriptOptions {
    * 且 `network: none` 下容器本就装不了包，二者自洽（contract §4 末尾）。
    */
   readonly preinstalledModulesDir?: string;
+  /**
+   * 预装的中文（CJK）字体文件路径。给出时会：① 把它的**真实路径**加进只读授权；
+   * ② 以 `SKILL_SANDBOX_CJK_FONT` 传给脚本，让脚本能 `embedFont(readFileSync(...))`
+   * 画中文（pdf-lib 的 StandardFonts 只有 WinAnsi 拉丁字符，画不出中文）。
+   *
+   * ⚠ 只读，且只授权这**一个文件**，不是整个 /usr/share/fonts —— 沙箱里脚本能读到
+   * 的东西越少越好，这里没有理由放开一整棵目录树。
+   */
+  readonly cjkFontPath?: string;
 }
 
 /** 截断到字节上限，并明确告诉模型「这里被截断了」——不假装输出就这么长。 */
@@ -131,7 +140,11 @@ interface Paths {
 }
 
 async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<ExecuteScriptResult> {
-  const readPaths = [paths.workdir, ...(await moduleReadRoots(options.preinstalledModulesDir))];
+  const readPaths = [
+    paths.workdir,
+    ...(await moduleReadRoots(options.preinstalledModulesDir)),
+    ...(await fontReadPaths(options.cjkFontPath)),
+  ];
 
   const args = [
     "--experimental-permission",
@@ -155,6 +168,9 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
     // 干净环境：不把宿主进程的 env（可能含凭据）泄进被执行的脚本里。
     env: {
       SKILL_SANDBOX_OUT_DIR: paths.outdir,
+      // 字体路径没配时**不要**塞一个空字符串进去：脚本里 `if (process.env.X)` 的
+      // 判断要能如实反映"这套环境到底有没有中文字体"，空串会让它以为有。
+      ...(options.cjkFontPath ? { SKILL_SANDBOX_CJK_FONT: options.cjkFontPath } : {}),
       PATH: "/usr/bin:/bin",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -226,6 +242,26 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
 async function moduleReadRoots(modulesDir: string | undefined): Promise<readonly string[]> {
   if (!modulesDir) return [];
   return [await realpath(modulesDir)];
+}
+
+/**
+ * 字体文件的**真实**读路径。与 `moduleReadRoots` 同一条纪律：Node 权限模型按真实
+ * 路径判定，软链路径授权了也没用（Debian 的字体目录里软链很常见）。
+ *
+ * ⚠ 路径不存在时**不静默吞掉**：授权一个不存在的路径不会报错，脚本却会在
+ * `readFileSync` 上以 ENOENT 失败——那时报错指向脚本，看不出来是环境没配。这里
+ * 直接抛，让"服务配错了"在配错的地方就暴露出来。
+ */
+async function fontReadPaths(fontPath: string | undefined): Promise<readonly string[]> {
+  if (!fontPath) return [];
+  try {
+    return [await realpath(fontPath)];
+  } catch (e) {
+    throw new Error(
+      `SKILL_SANDBOX_CJK_FONT points at a path that cannot be resolved: ${fontPath} ` +
+        `(${e instanceof Error ? e.message : String(e)})`,
+    );
+  }
 }
 
 /**

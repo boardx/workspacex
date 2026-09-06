@@ -53,7 +53,35 @@ RUN npm install --omit=dev --no-package-lock \
  && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')" \
  && node -e "require.resolve('docx'); console.log('docx preinstalled OK')" \
  && node -e "require.resolve('exceljs'); console.log('exceljs preinstalled OK')" \
- && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')"
+ && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')" \
+ && node -e "require.resolve('@pdf-lib/fontkit'); console.log('@pdf-lib/fontkit preinstalled OK')"
+
+# ---------- 中文（CJK）字体：PDF 里画中文的唯一办法 ----------
+#
+# pdf-lib 的 StandardFonts 是 PDF 标准 14 字体，编码是 WinAnsi —— 只有拉丁字符。
+# 用它 drawText('中文') 不是"画得难看"，是**直接抛错/画出乱码**。要画中文只有一条
+# 路：嵌入一份真的带中文字形的字体文件（`@pdf-lib/fontkit` + `embedFont(bytes)`）。
+#
+# ⚠ 字体必须**预装进镜像**，理由与 npm 包完全相同：容器 `network: none`，运行时
+#   下不动任何东西。脚本里写 fetch 字体只会失败一次再报错。
+#
+# 选 fonts-droid-fallback（Apache-2.0）而不是 fonts-noto-cjk，理由是**单一 TTF**：
+#   - Noto CJK / 文泉驿 / 文鼎 在 Debian 里都是 `.ttc`（TrueType Collection，多个
+#     字面装在一个文件里）。fontkit 解析 ttc 得到的是 collection 对象，pdf-lib 的
+#     `embedFont()` 不接受它——脚本会以一句难懂的解析错误失败。
+#   - DroidSansFallbackFull.ttf 是单字面 TTF，4MB，覆盖简繁中文 + 日文 + 韩文，
+#     `embedFont(..., { subset: true })` 之后只把用到的字形写进 PDF（实测一页
+#     中英混排的 PDF 只有 2.4KB）。
+#
+# ⚠ 路径写**真实文件**那一个。`/usr/share/fonts/truetype/droid/` 下这份是真文件
+#   （dpkg 装的另一份 `/usr/share/fonts-droid-fallback/truetype/DroidSansFallback.ttf`
+#   是精简版），而 Node 权限模型按真实路径判定、不递归解析软链（见
+#   src/execute-script.ts 头注），所以不能随手指一个软链路径。
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends fonts-droid-fallback \
+ && rm -rf /var/lib/apt/lists/* \
+ # 自检：字体真的在那儿、且真的能被 fontkit 嵌进 PDF，构建期就证明，不留到运行时。
+ && node -e "const fs=require('fs');const b=fs.readFileSync('/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf');if(b.length<1e6)throw new Error('CJK font too small: '+b.length);console.log('CJK font preinstalled OK', b.length)"
 
 COPY --from=build /build/dist ./dist
 
@@ -63,6 +91,7 @@ USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。
 ENV SKILL_SANDBOX_MODULES_DIR=/opt/sandbox/node_modules \
+    SKILL_SANDBOX_CJK_FONT=/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf \
     SKILL_SANDBOX_PORT=8790 \
     TMPDIR=/tmp
 
