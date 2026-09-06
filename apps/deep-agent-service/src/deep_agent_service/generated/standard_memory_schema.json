@@ -1,0 +1,439 @@
+{
+  "scopeKey": "wsx_memory_scope",
+  "limits": {
+    "text": 8000,
+    "pageSize": 25,
+    "maxItems": 256,
+    "databaseTimeoutMs": 15000,
+    "maxConcurrentOperations": 16
+  },
+  "failureCodes": [
+    "memory_revision_conflict",
+    "memory_idempotency_conflict",
+    "memory_revision_required",
+    "memory_limit"
+  ],
+  "searchInput": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "maxLength": 256
+      },
+      "cursor": {
+        "type": "string",
+        "pattern": "^\\d{1,4}$"
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "writeInput": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8000
+      },
+      "sourceMessageId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "memoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "expectedRevision": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "idempotencyKey": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_-]+$"
+      }
+    },
+    "required": [
+      "text",
+      "sourceMessageId",
+      "idempotencyKey"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "deleteInput": {
+    "type": "object",
+    "properties": {
+      "memoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "expectedRevision": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "memoryId",
+      "expectedRevision"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "searchOutput": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "const": "literal"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "memoryId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8000
+            },
+            "revision": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "sourceRef": {
+              "type": "object",
+              "properties": {
+                "threadId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "messageId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "threadId",
+                "messageId"
+              ],
+              "additionalProperties": false
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "memoryId",
+            "text",
+            "revision",
+            "sourceRef",
+            "updatedAt"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 25
+      },
+      "cursor": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "mode",
+      "items"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "writeOutput": {
+    "type": "object",
+    "properties": {
+      "memoryId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "revision": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "memoryId",
+      "revision"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "deleteOutput": {
+    "type": "object",
+    "properties": {
+      "deleted": {
+        "type": "boolean",
+        "const": true
+      }
+    },
+    "required": [
+      "deleted"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "proofInput": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "userId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "enum": [
+          "wx_memory_search",
+          "wx_memory_write",
+          "wx_memory_delete"
+        ]
+      },
+      "toolArgs": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "cursor": {
+                "type": "string",
+                "pattern": "^\\d{1,4}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8000
+              },
+              "sourceMessageId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "memoryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "idempotencyKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              }
+            },
+            "required": [
+              "text",
+              "sourceMessageId",
+              "idempotencyKey"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "memoryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              }
+            },
+            "required": [
+              "memoryId",
+              "expectedRevision"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "threadId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "messageId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "threadId",
+            "messageId"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 256
+      }
+    },
+    "required": [
+      "orgId",
+      "userId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs",
+      "sources"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "proofOutput": {
+    "type": "object",
+    "properties": {
+      "scope": {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          },
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "orgId",
+          "userId"
+        ],
+        "additionalProperties": false
+      },
+      "sourceRef": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "messageId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "threadId",
+          "messageId"
+        ],
+        "additionalProperties": false
+      },
+      "visible": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "threadId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "messageId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "threadId",
+            "messageId"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 256
+      }
+    },
+    "required": [
+      "scope",
+      "visible"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "scope": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "\\S"
+      },
+      "userId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "\\S"
+      }
+    },
+    "required": [
+      "orgId",
+      "userId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

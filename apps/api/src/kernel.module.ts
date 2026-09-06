@@ -1,4 +1,7 @@
 import { STANDARD_WEB_SERVICE } from "./application/agent-run/standard-web-tools";
+import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
+import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
+import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
 import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
 import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
 import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
@@ -885,7 +888,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1775,6 +1778,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: STANDARD_WEB_SERVICE,
       useFactory: createStandardWebService,
+    },
+    {
+      provide: STANDARD_MEMORY_PROOF,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
+        new PgStandardMemoryProof(db, authority, { repo, ids, chat }),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
     },
     {
       provide: NATIVE_OUTPUT_STAGING,
