@@ -22,6 +22,7 @@ import {
 } from "@nestjs/common";
 import {
   agentRuntime,
+  subtaskRun,
   artifact,
   auth,
   canvas,
@@ -112,6 +113,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const subtaskCancellation = subtaskRun.CancelSubtaskRunFailure.safeParse(raw);
+  if (subtaskCancellation.success) return { reasonCode: subtaskCancellation.data };
   const permission = identity.PermissionReason.safeParse(raw);
   if (permission.success) return { reasonCode: permission.data };
 

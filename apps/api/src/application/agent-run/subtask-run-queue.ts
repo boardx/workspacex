@@ -43,7 +43,12 @@ export type EnqueueSubtaskRunInput = SubtaskRunContract.EnqueueSubtaskRunInput;
  * 子任务 run 的持久化端口——生产使用 `PgSubtaskRunStore`，测试可用
  * `InMemorySubtaskRunStore`。公开队列方法形状保持不变。
  */
+export type CancelSubtaskOutcome =
+  | { kind: "cancelled"; subtaskRun: SubtaskRun & { status: "cancelled" } }
+  | { kind: "not_found" | SubtaskRunContract.CancelSubtaskRunFailure };
+
 export interface SubtaskRunStore {
+  cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome>;
   /** 入队一条新的子任务 run，初始状态 `pending`。 */
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun>;
   /**

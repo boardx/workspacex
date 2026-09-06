@@ -32,7 +32,7 @@
  * 与归档线程；不可见与不存在均返回 404。WX-T042 接通执行后不再保留仅 org 鉴权。
  */
 import {
-  BadRequestException, Body, Controller, Get, Headers, Inject, NotFoundException, Param, Post,
+  BadRequestException, HttpCode, Body, Controller, Get, Headers, Inject, NotFoundException, Param, Post,
   UnauthorizedException, Optional, ConflictException, ForbiddenException, ServiceUnavailableException,
 } from "@nestjs/common";
 import { Public } from "../public.decorator";
@@ -119,6 +119,19 @@ export class SubtaskRunController {
     this.executor?.kick(toOrgId(principal.orgId));
     const subtaskRuns = await this.store.listByParentRun(toOrgId(principal.orgId), runId);
     return { parentRunId: runId, subtaskRuns: [...subtaskRuns] };
+  }
+
+  /** Cancel one pending child only; running execution and parent lifecycle are untouched. */
+  @Post("/agent-runs/:runId/subtask-runs/:id/cancel")
+  @HttpCode(200)
+  async cancel(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
+    @Param("id") id: string): Promise<SubtaskRunContract.CancelSubtaskRunResult> {
+    assertPrincipal(principal);
+    await this.authorizeParent(principal,runId,true);
+    const outcome = await this.store.cancel(toOrgId(principal.orgId),runId,id);
+    if (outcome.kind === "not_found") throw new NotFoundException();
+    if (outcome.kind !== "cancelled") throw new ConflictException({ reasonCode: outcome.kind });
+    return SubtaskRunContract.CancelSubtaskRunResult.parse({ subtaskRun: outcome.subtaskRun });
   }
 
   /**

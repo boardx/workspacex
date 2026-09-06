@@ -3,7 +3,7 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
 import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
-import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore } from "../../application/agent-run/subtask-run-queue";
+import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome } from "../../application/agent-run/subtask-run-queue";
 
 type Row = { id: string; parent_run_id: string; description: string; context: string | null;
   status: SubtaskRun["status"]; result: string | null; error: string | null; created_at: Date; updated_at: Date };
@@ -30,6 +30,19 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
         throw new SubtaskIdempotencyConflictError("subtask_idempotency_conflict");
       }
       return decode(row);
+    });
+  }
+
+  cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome> {
+    return this.db.withTenant(orgId, async (s) => {
+      const locked = await s.query<Row>("SELECT * FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND id=$3 FOR UPDATE", [orgId,parentRunId,id]);
+      const row = locked.rows[0];
+      if (!row) return { kind: "not_found" };
+      if (row.status === "running") return { kind: "cancellation_not_supported_for_running" };
+      if (row.status === "completed" || row.status === "failed") return { kind: "terminal_conflict" };
+      if (row.status === "cancelled") return { kind: "cancelled", subtaskRun: { ...decode(row), status: "cancelled" } };
+      const changed = await s.query<Row>("UPDATE subtask_runs SET status='cancelled',updated_at=now() WHERE org_id=$1 AND parent_run_id=$2 AND id=$3 AND status='pending' RETURNING *", [orgId,parentRunId,id]);
+      return { kind: "cancelled", subtaskRun: { ...decode(changed.rows[0]!), status: "cancelled" } };
     });
   }
 

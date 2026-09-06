@@ -6,7 +6,7 @@ import { SubtaskIdempotencyConflictError } from "../../application/agent-run/sub
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore,
+  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome,
 } from "../../application/agent-run/subtask-run-queue";
 
 interface Row extends SubtaskRun {
@@ -44,6 +44,17 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     this.rows.set(row.id, row);
     if (key !== undefined) this.idempotency.set(key,row.id);
     return stripOrg(row);
+  }
+
+  async cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome> {
+    const row = this.rows.get(id);
+    if (!row || row.orgId !== String(orgId) || row.parentRunId !== parentRunId) return { kind: "not_found" };
+    if (row.status === "running") return { kind: "cancellation_not_supported_for_running" };
+    if (row.status === "completed" || row.status === "failed") return { kind: "terminal_conflict" };
+    const cancelled = { ...row, status: "cancelled" as const,
+      updatedAt: row.status === "cancelled" ? row.updatedAt : new Date().toISOString() };
+    this.rows.set(id, cancelled);
+    return { kind: "cancelled", subtaskRun: { ...stripOrg(cancelled), status: "cancelled" } };
   }
 
   async claimQueued(orgId: OrgId, limit: number): Promise<readonly SubtaskRun[]> {

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  AlertTriangle, CheckCircle2, ChevronRight, Loader2, RotateCcw,
+  AlertTriangle, Ban, CheckCircle2, ChevronRight, Loader2, RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -172,6 +172,7 @@ const STATUS_ICON: Record<SubtaskRunStatus, React.ComponentType<{ className?: st
   running: Loader2,
   completed: CheckCircle2,
   failed: AlertTriangle,
+  cancelled: Ban,
 };
 
 function SubtaskRunCard({
