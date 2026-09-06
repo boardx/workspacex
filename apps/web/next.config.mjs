@@ -366,6 +366,7 @@ export default {
       { source: `${prefix}/research`, destination: `${apiOrigin}/research` },
       { source: `${prefix}/research/:path*`, destination: `${apiOrigin}/research/:path*` },
       { source: `${prefix}/artifacts/:path*`, destination: `${apiOrigin}/artifacts/:path*` },
+      { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
       { source: `${prefix}/artifact-versions/:path*`, destination: `${apiOrigin}/artifact-versions/:path*` },
       { source: `${prefix}/artifact-aliases/:path*`, destination: `${apiOrigin}/artifact-aliases/:path*` },
       { source: `${prefix}/export-jobs/:path*`, destination: `${apiOrigin}/export-jobs/:path*` },
