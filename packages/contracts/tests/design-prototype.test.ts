@@ -89,6 +89,35 @@ describe("DesignProject.prototype 不变量", () => {
   });
 });
 
+describe("迭代 5 属性面板元数据（单源门控）", () => {
+  it("每种类型：PROTOTYPE_FIELDS 的 key 集合 == 对应 *Props 的 shape 键集合；枚举 options 与 zod 一致", () => {
+    for (const type of dp.PrototypeNodeType.options) {
+      const schema = dp.PROTOTYPE_PROPS_SCHEMAS[type];
+      const keys = schema === null ? [] : Object.keys(schema.shape).sort();
+      expect([type, dp.PROTOTYPE_FIELDS[type].map((f) => f.key).sort()]).toEqual([type, keys]);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) {
+        if (f.kind !== "enum" || schema === null) continue;
+        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly string[] } } | undefined;
+        const opts = z?.unwrap?.().options;
+        if (opts !== undefined) expect([type, f.key, f.options]).toEqual([type, f.key, opts]);
+      }
+    }
+  });
+  it("setProps 里 null = 删键；拒绝原因是闭集且带 nodeId", () => {
+    const base = dp.ensurePrototypeIds([{ type: "stack", children: [{ type: "button", props: { label: "x", variant: "danger" } }] }]);
+    const out = dp.applyPrototypePatch(base, [{ op: "setProps", id: "n2", props: { variant: null } }]);
+    expect((out[0] as { children: readonly dp.PrototypeNode[] }).children[0]).toEqual({ id: "n2", type: "button", props: { label: "x" } });
+    try {
+      dp.applyPrototypePatch(base, [{ op: "remove", id: "zzz" }]);
+      throw new Error("should throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(dp.PrototypePatchError);
+      expect(e).toMatchObject({ reason: "UNKNOWN_NODE", nodeId: "zzz" });
+      expect(dp.PrototypePatchRejectReason.safeParse((e as dp.PrototypePatchError).reason).success).toBe(true);
+    }
+  });
+});
+
 describe("PROTOTYPE_SCHEMA_GUIDE", () => {
   it("每个原语类型都出现在给模型看的说明里", () => {
     for (const t of dp.PrototypeNodeType.options) expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(t);

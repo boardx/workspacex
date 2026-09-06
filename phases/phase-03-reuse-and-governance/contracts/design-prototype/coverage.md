@@ -29,7 +29,7 @@
 | `DesignChatWriteback.prototype` / `DesignWritebackField = "prototype"` | V10 V13 |
 | `PrototypeNodeId` / `PrototypePatchOp` / `DesignPrototypePatch` / `PROTOTYPE_PATCH_GUIDE` | V16 |
 | `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | V17 |
-| `patchPrototype` / `PROTOTYPE_PATCH_REJECTED` | V20 |
+| `patchPrototype` / `PROTOTYPE_PATCH_REJECTED` / `PrototypePatchRejectReason` / `PROTOTYPE_FIELDS` / `PROTOTYPE_PROPS_SCHEMAS` | V20 |
 | `PrototypeVersion(Summary)` / `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` / `VERSION_NOT_FOUND` | V18 |
 
 没有任何契约面找不到 UC；没有任何 V 找不到契约面。迭代 3 起本束新增三条路由（版本历史），都挂在 `/pm-designs/:projectId/versions` 下。

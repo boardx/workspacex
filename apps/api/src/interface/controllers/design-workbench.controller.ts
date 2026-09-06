@@ -105,7 +105,9 @@ function mapProjectError(e: unknown): Error | null {
   if (e instanceof DesignProjectNotFoundError) return new NotFoundException({ reasonCode: "PROJECT_NOT_FOUND" });
   if (e instanceof DesignProjectNotOwnerError) return new ForbiddenException({ reasonCode: "NOT_PROJECT_OWNER" });
   if (e instanceof PrototypeVersionNotFoundError) return new NotFoundException({ reasonCode: "VERSION_NOT_FOUND" });
-  if (e instanceof PrototypePatchRejectedError) return new BadRequestException({ reasonCode: "PROTOTYPE_PATCH_REJECTED", detail: e.detail });
+  if (e instanceof PrototypePatchRejectedError) {
+    return new BadRequestException({ reasonCode: "PROTOTYPE_PATCH_REJECTED", patchReason: e.reason, ...(e.nodeId !== undefined ? { nodeId: e.nodeId } : {}) });
+  }
   if (e instanceof DesignProjectNameRequiredError) return new UnprocessableEntityException({ reasonCode: "NAME_REQUIRED" });
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
   //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：

@@ -16,50 +16,21 @@ import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { patchPrototype, prototypeNodeLabel, type DesignProject, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
 
-type Field =
-  | { key: string; label: string; kind: "text" }
-  | { key: string; label: string; kind: "multiline" }
-  | { key: string; label: string; kind: "lines" }
-  | { key: string; label: string; kind: "bool" }
-  | { key: string; label: string; kind: "number" }
-  | { key: string; label: string; kind: "enum"; options: readonly string[] };
+import { designPrototype } from "@repo/contracts";
 
-const SCALE = ["none", "sm", "md", "lg"] as const;
-/** 与契约 `design-prototype.ts` 各 `*Props` 一一对应；加原语时这里也要加一行，否则面板只显示「这种节点没有可改的属性」。 */
-const FIELDS: Record<PrototypeNode["type"], readonly Field[]> = {
-  stack: [
-    { key: "direction", label: "方向", kind: "enum", options: ["column", "row"] },
-    { key: "gap", label: "间距", kind: "enum", options: SCALE },
-    { key: "padding", label: "内边距", kind: "enum", options: SCALE },
-    { key: "align", label: "对齐", kind: "enum", options: ["start", "center", "end", "between"] },
-    { key: "fill", label: "填满剩余空间", kind: "bool" },
-  ],
-  card: [{ key: "title", label: "标题", kind: "text" }],
-  navbar: [{ key: "title", label: "标题", kind: "text" }, { key: "left", label: "左侧", kind: "text" }, { key: "right", label: "右侧", kind: "text" }],
-  text: [
-    { key: "content", label: "文案", kind: "multiline" },
-    { key: "variant", label: "样式", kind: "enum", options: ["title", "subtitle", "body", "caption", "label"] },
-    { key: "muted", label: "弱化", kind: "bool" },
-    { key: "align", label: "对齐", kind: "enum", options: ["start", "center", "end"] },
-  ],
-  button: [
-    { key: "label", label: "文案", kind: "text" },
-    { key: "variant", label: "样式", kind: "enum", options: ["primary", "secondary", "ghost", "danger"] },
-    { key: "full", label: "通栏", kind: "bool" },
-  ],
-  input: [
-    { key: "label", label: "标签", kind: "text" },
-    { key: "placeholder", label: "占位文字", kind: "text" },
-    { key: "value", label: "已填内容", kind: "text" },
-    { key: "multiline", label: "多行", kind: "bool" },
-  ],
-  image: [{ key: "alt", label: "说明", kind: "text" }, { key: "ratio", label: "比例", kind: "enum", options: ["square", "video", "wide", "portrait"] }],
-  list: [{ key: "items", label: "条目（一行一项）", kind: "lines" }, { key: "leading", label: "前缀", kind: "enum", options: ["none", "dot", "check", "avatar"] }],
-  divider: [],
-  spacer: [{ key: "size", label: "高度", kind: "enum", options: SCALE }],
-  tabs: [{ key: "items", label: "标签（一行一项）", kind: "lines" }, { key: "active", label: "当前项（从 0 起）", kind: "number" }],
-  badge: [{ key: "label", label: "文案", kind: "text" }, { key: "tone", label: "色调", kind: "enum", options: ["neutral", "info", "success", "warning", "danger"] }],
-  avatar: [{ key: "name", label: "名字", kind: "text" }],
+/** 字段表来自契约（单源，契约测试锁定「每类型 key 集合 == props shape 键集合」）；这里只负责渲染。 */
+const FIELDS = designPrototype.PROTOTYPE_FIELDS;
+type Field = designPrototype.PrototypeField;
+
+/** 服务端闭集 `patchReason` → 给人看的话。 */
+const REJECT_TEXT: Record<designPrototype.PrototypePatchRejectReason, string> = {
+  UNKNOWN_NODE: "这个节点已经不存在了（可能刚被模型改掉），重新选一个。",
+  DUPLICATE_ID: "节点 id 重复，画布数据需要重新生成一次。",
+  ROOT_REMOVE: "页面的根节点不能删。",
+  NOT_CONTAINER: "目标不是容器，放不进子节点。",
+  INVALID_NODE: "改完的属性不符合这种节点的规则，检查一下取值。",
+  LIMITS: "这一页节点太多或嵌套太深了。",
+  NO_PROTOTYPE: "还没有原型，先让模型画一版。",
 };
 
 type Draft = Record<string, string | boolean | number | undefined>;
@@ -81,7 +52,7 @@ function toDraft(node: PrototypeNode): Draft {
   return d;
 }
 
-/** 草稿 → 只含改动键的 props；空字符串表示「清掉这个可选键」（契约里可选键不接受空串）。 */
+/** 草稿 → 只含改动键的 props；空字符串 / 「（默认）」⇒ `null`（服务端 setProps 里 null = 删该键；`undefined` 会被 JSON 丢掉）。 */
 function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
   const before = toDraft(node);
   const out: Record<string, unknown> = {};
@@ -91,19 +62,24 @@ function diff(node: PrototypeNode, draft: Draft): Record<string, unknown> {
     if (a === b) continue;
     if (f.kind === "lines") out[f.key] = String(b ?? "").split("\n").map((s) => s.trim()).filter((s) => s !== "");
     else if (f.kind === "bool") out[f.key] = b === true;
-    else if (f.kind === "number") out[f.key] = b;
-    else out[f.key] = b === "" ? undefined : b;
+    else if (f.kind === "number") out[f.key] = b === undefined ? null : b;
+    else out[f.key] = b === "" ? null : b;
   }
   return out;
 }
 
 function reason(err: unknown): string {
   if (err instanceof ApiError) {
-    const detail = (err.raw as { detail?: unknown } | null | undefined)?.detail;
-    return typeof detail === "string" ? detail : err.reasonCode ?? `http_${err.status}`;
+    const raw = err.raw as { patchReason?: unknown } | null | undefined;
+    const parsed = designPrototype.PrototypePatchRejectReason.safeParse(raw?.patchReason);
+    if (parsed.success) return REJECT_TEXT[parsed.data];
+    return err.reasonCode ?? `http_${err.status}`;
   }
   return err instanceof Error ? err.message : String(err);
 }
+
+/** 契约 `patchPrototype.in.summary` ≤ 200：标签本身最长 200，拼上前缀必须截。 */
+const summaryOf = (prefix: string, node: PrototypeNode): string => `${prefix}${prototypeNodeLabel(node)}`.slice(0, 200);
 
 export function PrototypeInspector({
   projectId, node, path, onSaved, onDeleted,
@@ -131,7 +107,7 @@ export function PrototypeInspector({
     setError(null);
     try {
       const ops: PrototypePatchOp[] = [{ op: "setProps", id, props: changes }];
-      const out = await patchPrototype(projectId, ops, `改了${prototypeNodeLabel(node)}`);
+      const out = await patchPrototype(projectId, ops, summaryOf("改了", node));
       onSaved(out.project);
     } catch (err) {
       setError(reason(err));
@@ -144,7 +120,7 @@ export function PrototypeInspector({
     setBusy(true);
     setError(null);
     try {
-      const out = await patchPrototype(projectId, [{ op: "remove", id }], `删掉了${prototypeNodeLabel(node)}`);
+      const out = await patchPrototype(projectId, [{ op: "remove", id }], summaryOf("删掉了", node));
       onDeleted(out.project);
     } catch (err) {
       setError(reason(err));
@@ -174,7 +150,7 @@ export function PrototypeInspector({
           {f.kind === "enum" && (
             <select id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} className={control} data-testid={`design-inspector-${f.key}`}>
               <option value="">（默认）</option>
-              {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           )}
         </div>

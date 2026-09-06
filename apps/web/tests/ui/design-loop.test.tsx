@@ -1350,7 +1350,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
       if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
         posted.push(opts.body);
-        if (fail) throw new ApiError(400, "PROTOTYPE_PATCH_REJECTED", { reasonCode: "PROTOTYPE_PATCH_REJECTED", detail: "patch op #0: no node with id n2" });
+        if (fail) throw new ApiError(400, "PROTOTYPE_PATCH_REJECTED", { reasonCode: "PROTOTYPE_PATCH_REJECTED", patchReason: "UNKNOWN_NODE", nodeId: "n2" });
         const body = opts.body as { ops: { op: string }[] };
         if (body.ops[0]?.op === "remove") return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [] }] }) };
         return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [{ type: "button", id: "n2", props: { label: "停止", variant: "danger" } }] }] }) };
@@ -1369,18 +1369,24 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.click(screen.getByTestId("design-inspector-apply"));
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toEqual({ ops: [{ op: "setProps", id: "n2", props: { label: "停止", variant: "danger" } }], summary: "改了按钮「发送」" });
+    // 清掉可选属性 ⇒ 发 null（不是被 JSON 丢掉的 undefined）
+    await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("按钮「停止」"));
+    fireEvent.change(screen.getByTestId("design-inspector-variant"), { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect((posted[1] as { ops: unknown[] }).ops).toEqual([{ op: "setProps", id: "n2", props: { variant: null } }]);
     await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("停止"));
     expect(screen.getByTestId("design-inspector").textContent).toContain("按钮「停止」"); // 选中保持，面板随新树刷新
     // 失败：detail 原样显示
     fail = true;
     fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "x" } });
     fireEvent.click(screen.getByTestId("design-inspector-apply"));
-    expect((await screen.findByTestId("design-inspector-error")).textContent).toContain("no node with id n2");
+    expect((await screen.findByTestId("design-inspector-error")).textContent).toContain("这个节点已经不存在了");
     fail = false;
     // 删除
     fireEvent.click(screen.getByTestId("design-inspector-remove"));
-    await waitFor(() => expect(posted).toHaveLength(3));
-    expect(posted[2]).toEqual({ ops: [{ op: "remove", id: "n2" }], summary: "删掉了按钮「停止」" });
+    await waitFor(() => expect(posted).toHaveLength(4));
+    expect(posted[3]).toEqual({ ops: [{ op: "remove", id: "n2" }], summary: "删掉了按钮「停止」" });
     await waitFor(() => expect(screen.queryByTestId("design-inspector")).toBeNull());
     expect(screen.getByTestId("design-detail-phone-tree").textContent).not.toContain("停止");
   });

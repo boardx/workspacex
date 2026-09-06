@@ -176,6 +176,53 @@ export type PrototypeScreen = z.infer<typeof PrototypeScreen>;
 export const DesignPrototypeWriteback = z.array(PrototypeScreen).min(1).max(PROTOTYPE_MAX_SCREENS);
 export type DesignPrototypeWriteback = z.infer<typeof DesignPrototypeWriteback>;
 
+/* ─────────────────────────── 迭代 5：属性面板的字段元数据（单源） ─────────────────────────── */
+
+/** 每种原语的 props schema——属性面板元数据的机械门控用它对账（契约测试逐类型比 shape 键）。 */
+export const PROTOTYPE_PROPS_SCHEMAS = {
+  stack: StackProps, card: CardProps, navbar: NavbarProps, text: TextProps, button: ButtonProps, input: InputProps,
+  image: ImageProps, list: ListProps, divider: null, spacer: SpacerProps, tabs: TabsProps, badge: BadgeProps, avatar: AvatarProps,
+} as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
+
+export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
+export interface PrototypeField {
+  readonly key: string;
+  readonly label: string;
+  readonly kind: PrototypeFieldKind;
+  /** `kind === "enum"` 时的闭集；由对应 `z.enum` 的 `options` 派生，不手抄。 */
+  readonly options?: readonly string[];
+}
+
+const SCALE_OPTIONS = Scale.options;
+const F = (key: string, label: string, kind: PrototypeFieldKind, options?: readonly string[]): PrototypeField => ({ key, label, kind, ...(options !== undefined ? { options } : {}) });
+
+/**
+ * 属性面板字段表：**每个类型的 key 集合 == 对应 `*Props` 的 shape 键集合**（契约测试锁定），枚举 options 直接
+ * 取自 zod `.options`。加/改属性只改 schema 与这里，前端不再另抄一份（Codex P1：第二份事实源）。
+ */
+export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField[]> = {
+  stack: [
+    F("direction", "方向", "enum", StackProps.shape.direction.unwrap().options),
+    F("gap", "间距", "enum", SCALE_OPTIONS), F("padding", "内边距", "enum", SCALE_OPTIONS),
+    F("align", "对齐", "enum", StackProps.shape.align.unwrap().options), F("fill", "填满剩余空间", "bool"),
+  ],
+  card: [F("title", "标题", "text")],
+  navbar: [F("title", "标题", "text"), F("left", "左侧", "text"), F("right", "右侧", "text")],
+  text: [
+    F("content", "文案", "multiline"), F("variant", "样式", "enum", TextProps.shape.variant.unwrap().options),
+    F("muted", "弱化", "bool"), F("align", "对齐", "enum", TextProps.shape.align.unwrap().options),
+  ],
+  button: [F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options), F("full", "通栏", "bool")],
+  input: [F("placeholder", "占位文字", "text"), F("label", "标签", "text"), F("value", "已填内容", "text"), F("multiline", "多行", "bool")],
+  image: [F("alt", "说明", "text"), F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options)],
+  list: [F("items", "条目（一行一项）", "lines"), F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options)],
+  divider: [],
+  spacer: [F("size", "高度", "enum", SCALE_OPTIONS)],
+  tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
+  badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
+  avatar: [F("name", "名字", "text")],
+};
+
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
 
 export const PROTOTYPE_MAX_PATCH_OPS = 50;
@@ -183,7 +230,7 @@ export const PROTOTYPE_MAX_PATCH_OPS = 50;
 /**
  * 四种 patch 操作，全部按节点 id 寻址（id 在项目内唯一，所以不带页）：
  *   · `replace`  用 `node` 整体替换 `id` 那棵子树（可以换类型）；新子树里没 id 的节点由服务端补。
- *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）。
+ *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）；键值 `null` = 删该键。
  *   · `insert`   把 `node` 插进容器 `parentId` 的 `children[index]`（缺省追加到末尾）。
  *   · `remove`   删掉 `id` 那棵子树。根节点不可删（一页至少有根）。
  * 语义是**顺序**执行：后一条能看到前一条的结果；任一条失败 ⇒ 整批不生效（字段级拒绝，同 I-10）。
@@ -191,6 +238,7 @@ export const PROTOTYPE_MAX_PATCH_OPS = 50;
 export const PrototypePatchOp = z.discriminatedUnion("op", [
   /** `node.id` 若给出会被忽略——替换后的根沿用被替换节点的 id（稳定身份）。 */
   z.object({ op: z.literal("replace"), id: PrototypeNodeId, node: PrototypeNode }).strict(),
+  /** `props` 里某键为 `null` ⇒ 删掉该键（可选属性回到默认）。 */
   z.object({ op: z.literal("setProps"), id: PrototypeNodeId, props: z.record(z.unknown()) }).strict(),
   z.object({ op: z.literal("insert"), parentId: PrototypeNodeId, index: z.number().int().min(0).optional(), node: PrototypeNode }).strict(),
   z.object({ op: z.literal("remove"), id: PrototypeNodeId }).strict(),
@@ -254,8 +302,17 @@ export function prototypeIdsUnique(prototype: readonly PrototypeNode[]): boolean
   return !dup;
 }
 
+/**
+ * patch 被拒的**闭集**原因——它会经 HTTP 回到前端（`PROTOTYPE_PATCH_REJECTED` + `patchReason`），
+ * 全局异常过滤器只放行闭集里的值，自由文本的 message 只进日志（`all-exceptions.filter.ts` 的纪律）。
+ */
+export const PrototypePatchRejectReason = z.enum([
+  "UNKNOWN_NODE", "DUPLICATE_ID", "ROOT_REMOVE", "NOT_CONTAINER", "INVALID_NODE", "LIMITS", "NO_PROTOTYPE",
+]);
+export type PrototypePatchRejectReason = z.infer<typeof PrototypePatchRejectReason>;
+
 export class PrototypePatchError extends Error {
-  constructor(readonly opIndex: number, message: string) {
+  constructor(readonly opIndex: number, readonly reason: PrototypePatchRejectReason, message: string, readonly nodeId?: string) {
     super(`patch op #${opIndex}: ${message}`);
     this.name = "PrototypePatchError";
   }
@@ -273,9 +330,15 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
     const visit = (n: PrototypeNode): PrototypeNode | null => {
       if (op.op === "setProps" && n.id === op.id) {
         hit += 1;
-        const merged = { ...n, props: { ...(("props" in n ? n.props : undefined) ?? {}), ...op.props } };
+        // `null` = 删掉这个键（可选属性回到默认）；JSON 里 undefined 会被丢掉，所以删除必须有显式表示。
+        const props: Record<string, unknown> = { ...(("props" in n ? n.props : undefined) ?? {}) };
+        for (const [k, v] of Object.entries(op.props)) {
+          if (v === null) delete props[k];
+          else props[k] = v;
+        }
+        const merged = { ...n, props };
         const parsed = PrototypeNode.safeParse(merged);
-        if (!parsed.success) throw new PrototypePatchError(i, `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`);
+        if (!parsed.success) throw new PrototypePatchError(i, "INVALID_NODE", `setProps on ${op.id} yields invalid node: ${parsed.error.issues[0]?.message ?? "invalid"}`, op.id);
         return parsed.data;
       }
       if (op.op === "replace" && n.id === op.id) {
@@ -301,24 +364,24 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
         }
         return { ...n, children };
       }
-      if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, `${op.parentId} is a ${n.type}, not a container`);
+      if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, "NOT_CONTAINER", `${op.parentId} is a ${n.type}, not a container`, op.parentId);
       return n;
     };
     const next: PrototypeNode[] = [];
     for (const root of current) {
       const r = visit(root);
-      if (r === null) throw new PrototypePatchError(i, `cannot remove page root ${root.id ?? ""}`);
+      if (r === null) throw new PrototypePatchError(i, "ROOT_REMOVE", `cannot remove page root ${root.id ?? ""}`, root.id);
       next.push(r);
     }
     const target = op.op === "insert" ? op.parentId : op.id;
-    if (hit === 0) throw new PrototypePatchError(i, `no node with id ${target}`);
-    if (hit > 1) throw new PrototypePatchError(i, `id ${target} is not unique`);
+    if (hit === 0) throw new PrototypePatchError(i, "UNKNOWN_NODE", `no node with id ${target}`, target);
+    if (hit > 1) throw new PrototypePatchError(i, "DUPLICATE_ID", `id ${target} is not unique`, target);
     current = ensurePrototypeIds(next);
   });
   for (const [k, root] of current.entries()) {
-    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, `page ${k + 1} exceeds limits after patch`);
+    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
   }
-  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "ids not unique after patch");
+  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
   return current;
 }
 
