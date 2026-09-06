@@ -338,7 +338,17 @@ function applyFixturePatch(screens, inserts) {
 export async function routeDesignWorkbench(page, { empty = false, slow = false, failList = false } = {}) {
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({ ...p, chat: [...p.chat] }));
+  // ⚠ `prototype` 必须深拷贝：chat/patch 两条路都会**改这棵树**，浅拷贝会把改动写回模块级
+  //   `DESIGN_PROJECTS`，让同一个 Node 进程里后拍的每一张图都带上前一张的改动（rev-uiux
+  //   三评 D4 判 0 的根因：v1 预览画布上出现了比当前版本还多的控件）。
+  const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({
+    ...p, chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
+  }));
+  // 版本日志是 append-only 的快照，写入那一刻拍下当时的树——不从活树事后倒推。
+  const versions = new Map(projects.map((p) => [p.id, p.id !== "proj-chat-ui" ? [] : [
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: asV1(p.prototype) },
+    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: structuredClone(p.prototype) },
+  ]]));
 
   await page.route((url) => new URL(url).pathname === "/pm-designs", async (route) => {
     const req = route.request();
@@ -397,6 +407,11 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     ]);
     project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区左侧加了附件按钮，AI 回复下方加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
     project.updatedAt = NOW;
+    (versions.get(project.id) ?? []).push({
+      id: `${project.id}-v${(versions.get(project.id)?.length ?? 0) + 1}`, seq: (versions.get(project.id)?.length ?? 0) + 1,
+      source: "model", summary: "输入区加了附件按钮，AI 回复下方加了复制。", frames: project.frames,
+      notes: project.frameNotes, createdAt: NOW, prototype: structuredClone(project.prototype),
+    });
     // suggestions 是"下一步"，不能是刚做完的那两件——否则助手说"加好了"，紧跟着建议"去加一下"。
     return json(route, { project, reply: { source: "model", applied: ["prototype"], suggestions: ["把发送键做成图标", "给历史会话加分组", "设计设置页"] } });
   });
@@ -416,13 +431,8 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     project.updatedAt = NOW;
     return json(route, { project });
   });
-  // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
-  const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
-    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    // v1 是 v2 的前身：那时发送键还叫「发送」、AI 回复也还没有"正在生成"标记——预览 v1
-    // 要能在画布上看出与 v2 的差别，否则版本历史只是一份看不出所以然的时间戳列表。
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: asV1(p.prototype) },
-  ]);
+  // 迭代 3：版本历史——读上面的 append-only 快照日志，最新的排在前面。
+  const versionsOf = (p) => [...(versions.get(p.id) ?? [])].reverse();
   await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
     const project = projects.find((p) => p.id === id);
