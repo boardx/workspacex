@@ -447,6 +447,13 @@ function isAiMessageChunkType(type: unknown): boolean {
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
+  private memoryConfig(input: ModelCallInput): Record<string, unknown> {
+    if (input.executionMode === "text-only" || input.trustedMemoryScope === undefined) return {};
+    const scope = SC.TrustedMemoryScope.parse(input.trustedMemoryScope);
+    if (!input.orgId || scope.orgId !== input.orgId) throw new Error("memory_scope_tenant_mismatch");
+    return { [SC.MEMORY_SCOPE_CONFIG_KEY]: scope };
+  }
+
   private subtaskConfig(input: ModelCallInput): Record<string, string> {
     if (!this.config.subtaskCallbackBaseUrl || input.executionMode === "text-only") return {};
     return {
@@ -930,6 +937,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
               org_skills: toWireSkills(input.skills),
               ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
               ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
               ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
               // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
               // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
@@ -1056,6 +1064,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
              * files.test.ts`，2026-09-04 CI 抓到）。
              */
             ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
           },
         },
       }),

@@ -1,0 +1,23 @@
+[stack-admission] load1=2.83 cores=10 perCore=0.28 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq4ujfc-0cbf2afb-16f0c44d42a8 db=wsx_16f0c44d42a87dac16db compose=wsx-16f0c44d42a87dac16db pg=22645 redis=27645 sandbox=52645
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_16f0c44d42a87dac16db capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts (14 tests) 128ms
+ ✓ tests/agent-runtime/attachment-notice-in-context.test.ts (7 tests) 4ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  02:16:02
+   Duration  2.62s (transform 301ms, setup 0ms, collect 458ms, tests 131ms, environment 0ms, prepare 46ms)
+
+[db-isolation] db=wsx_16f0c44d42a87dac16db peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts tests/agent-runtime/attachment-notice-in-context.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：4s

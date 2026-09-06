@@ -864,6 +864,8 @@ export interface ModelCallInput {
    * `DEEP_AGENT_SUBAGENTS_ENABLED` 未开启时的旧行为一致（工具即使被注册也没有可用的
    * 派发目标——见 `deep_agent_service/tools.py::spawn_async_task` 自己的降级说明）。
    */
+  /** Trusted requester identity only; absent means no personal memory capability. */
+  readonly trustedMemoryScope?: z.infer<typeof SC.TrustedMemoryScope>;
   readonly orgId?: string;
   readonly runId?: string;
   readonly system: string;

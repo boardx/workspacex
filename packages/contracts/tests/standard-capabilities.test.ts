@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { standardCapabilitiesSchema } from "../scripts/standard-capabilities-schema";
-import { CanonicalBase64, SKILL_PACKAGE_LIMITS, StandardCapabilityDescriptor, TrustedSkillPackage } from "../src/standard-capabilities";
+import { TrustedMemoryScope, CanonicalBase64, SKILL_PACKAGE_LIMITS, StandardCapabilityDescriptor, TrustedSkillPackage } from "../src/standard-capabilities";
 
 const file = (path: string) => ({ path, contentBase64: "aGk=", mediaType: "text/plain", digest: "a".repeat(64) });
 const pkg = (paths: string[]) => ({ skillId: "s1", versionId: "v1", files: paths.map(file) });
@@ -48,3 +48,9 @@ describe("trusted skill package contract", () => {
     }
   });
 });
+
+ it("validates trusted memory identity without anonymous or extra fields", () => {
+   expect(TrustedMemoryScope.safeParse({ orgId: "org", userId: "user" }).success).toBe(true);
+   for (const value of [{ orgId: "org", userId: " " }, { orgId: "", userId: "u" }, { orgId: "org", userId: "u", role: "admin" }])
+     expect(TrustedMemoryScope.safeParse(value).success).toBe(false);
+ });

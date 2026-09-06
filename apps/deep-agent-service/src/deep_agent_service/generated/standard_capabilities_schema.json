@@ -1,6 +1,30 @@
 {
   "configurableKeys": {
-    "executionMode": "wsx_execution_mode"
+    "executionMode": "wsx_execution_mode",
+    "memoryScope": "wsx_memory_scope"
+  },
+  "memoryScope": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "\\S"
+      },
+      "userId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "\\S"
+      }
+    },
+    "required": [
+      "orgId",
+      "userId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
   },
   "limits": {
     "maxFiles": 256,

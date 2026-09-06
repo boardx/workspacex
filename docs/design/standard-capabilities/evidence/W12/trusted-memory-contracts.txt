@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/standard-capabilities.test.ts (20 tests) 20ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  02:16:13
+   Duration  236ms (transform 29ms, setup 0ms, collect 42ms, tests 20ms, environment 0ms, prepare 35ms)
+

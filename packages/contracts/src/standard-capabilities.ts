@@ -6,6 +6,11 @@ import { z } from "zod";
 
 /** Server-only restriction; never an end-user or model permission grant. */
 export const EXECUTION_MODE_CONFIG_KEY = "wsx_execution_mode";
+export const MEMORY_SCOPE_CONFIG_KEY = "wsx_memory_scope";
+export const TrustedMemoryScope = z.object({
+  orgId: z.string().min(1).max(256).regex(/\S/),
+  userId: z.string().min(1).max(256).regex(/\S/),
+}).strict();
 export const RestrictedExecutionMode = z.literal("text-only");
 
 export const StandardCapabilityId = z.string().regex(/^WX-[ETS][0-9]{3}$/);

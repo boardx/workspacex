@@ -211,3 +211,35 @@ describe("WX-E004 full package trusted context", () => {
     expect(JSON.stringify(body.input ?? {})).not.toContain("contentBase64");
   });
 });
+
+describe("W12 trusted personal memory context component", () => {
+  it.each([false, true])("projects requester identity outside messages, resume=%s", async resume => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", orgId: "org-a", trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+      ...(resume ? { resume: { decision: "approve" } } : {}) } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable[SC.MEMORY_SCOPE_CONFIG_KEY])
+      .toEqual({ orgId: "org-a", userId: "owner" });
+    expect(JSON.stringify(body.input ?? {})).not.toContain("owner");
+  });
+  it.each([undefined, "org-b"])("rejects missing or mismatched tenant %s", async orgId => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await expect(provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", orgId, trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+    } as never, async () => {})).rejects.toThrow();
+    expect(capturedBodies).toHaveLength(0);
+  });
+  it("does not grant memory to text-only even with a supplied scope", async () => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", executionMode: "text-only", orgId: "org-a",
+      trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+    } as never, async () => {});
+    expect((capturedBodies[0]!.config as { configurable: Record<string, unknown> }).configurable)
+      .not.toHaveProperty(SC.MEMORY_SCOPE_CONFIG_KEY);
+  });
+});
