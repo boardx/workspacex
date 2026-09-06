@@ -52,6 +52,8 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 
 - **V24**（迭代 9）：system prompt 加设计原则（单主操作 / 手机页结构 / 层级靠 variant / 非理想态进 notes / 文案动词 / 分页）与两条 few-shot（整页 / patch）；`reply.suggestions`（≤ 3 条、每条 ≤ 40 字，逐条过契约，退路 `[]`）在最后一条 AI 气泡下成 chips；空项目显示三条起手模板（契约常量）。
 
+- **V25**（迭代 10）：主链路 e2e（`apps/web/e2e/design-prototype-loop.spec.ts`，真浏览器 + 夹具）四条：起手 → 发送 → 生成中（秒数/取消）→ 建议 chips；画板并排/缩放/Ctrl+滚轮/拖拽/聚焦/切单页；点选（含键盘 Enter）→ 属性面板 → 应用发 setProps；历史预览 + 导出 JSON 下载 + 复制到剪贴板。`design-loop-responsive.spec.ts` 增两个原型场景 × 三档视口无横向溢出。保真评分卡见 `fidelity-rubric.md`（合格门槛 ≥ 9，由 rev-uiux 打分）。
+
 **失败模式（穷举，B5.2 的表继续适用，这里只列本束新增）**
 | 情况 | 用户可见结果 | 标记 |
 |---|---|---|

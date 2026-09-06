@@ -13,6 +13,7 @@
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |
+| V25 | e2e 主链路 + 评分卡（迭代 10） | 无新契约面（`design-prototype-loop.spec.ts` / `fidelity-rubric.md`） | 全链路 testid | ✅ |
 | V24 | 对话质量（迭代 9） | `DesignChatReply.suggestions` / `DesignChatSuggestion` / `DESIGN_WORKBENCH_STARTERS` | `design-detail-starters` / `design-detail-suggestions` | ✅ |
 | V23 | 导出升级 + 交互说明（迭代 8） | `DesignChatReply.suggestions` / `DesignChatSuggestion` / `DESIGN_WORKBENCH_STARTERS` | V24 |
 | `PrototypeScreen.notes` / `DesignProject.frameNotes` / `PrototypeVersionSummary.notes`（导出无接口） | `design-detail-export-*` / `design-detail-notes` | ✅ |

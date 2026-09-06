@@ -19,11 +19,12 @@ function download(blob: Blob, name: string): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = name;
-  a.rel = "noopener";
+  a.hidden = true;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // 不能同步 revoke：Chromium 在 click 之后才开始读 blob，立刻 revoke 会让下载拿到空文件/默认名（e2e 实测）。
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** 当前页在画布上的那块屏（单页 / 画板都挂 `data-frame-index`）。 */

@@ -28,7 +28,7 @@ describe("buildDesignDocMarkdown", () => {
     expect(md).toContain("### 页 2：设置\n\n- 列表"); // 空说明不出引用块
     const spec = JSON.parse(buildPrototypeSpecJson(base)) as { screens: { frame: string; notes: string }[] };
     expect(spec.screens.map((s) => s.notes)).toEqual(["首屏即可发消息；生成中可停止。", ""]);
-    expect(prototypeSpecFileName(base, NOW)).toBe("聊天-UI-改版-2026-09-06.prototype.json");
+    expect(prototypeSpecFileName(base, NOW)).toBe("UI-2026-09-06.prototype.json");
     expect(md).toContain("### 页 2：设置\n\n- 列表：账号 / 外观");
     expect(md).toContain("- PM：画个 聊天");
   });
@@ -43,6 +43,7 @@ describe("buildDesignDocMarkdown", () => {
   });
   it("outlinePrototype 深度缩进；文件名去掉不安全字符并带日期", () => {
     expect(outlinePrototype({ type: "card", props: { title: "T" }, children: [{ type: "divider" }] })).toEqual(["- 卡片「T」", "  - 分隔线"]);
-    expect(designDocFileName(base, NOW)).toBe("聊天-UI-改版-2026-09-06.md");
+    expect(designDocFileName(base, NOW)).toBe("UI-2026-09-06.md"); // 非 ASCII 去掉（Chromium 会把中文 download 名退成「download」）
+    expect(designDocFileName({ ...base, name: "对话助手" }, NOW)).toBe("design-2026-09-06.md");
   });
 });

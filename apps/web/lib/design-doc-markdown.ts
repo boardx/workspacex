@@ -81,9 +81,13 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
   return lines.join("\n");
 }
 
-/** 文件名：项目名去掉路径不安全字符 + 日期。 */
+/**
+ * 文件名：项目名里只保留 ASCII 字母数字与 `-_`，其余（含中文）去掉，+ 日期。
+ * 迭代 10 e2e 实测：Chromium 对 `download` 属性里的非 ASCII 名会退回默认的「download」，中文名等于没名。
+ * 中文项目名 ⇒ `design-<日期>`；文件内容里项目名仍是原文。
+ */
 export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
-  const safe = project.name.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "design";
+  const safe = project.name.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "design";
   return `${safe}-${now.toISOString().slice(0, 10)}.md`;
 }
 

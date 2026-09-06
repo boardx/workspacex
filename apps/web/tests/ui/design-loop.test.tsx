@@ -1566,7 +1566,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(md).toContain("## 验收标准");
     expect(md).toContain("### 页 1：聊天");
     expect(md).toContain("文本：你好");
-    expect(revoke).toHaveBeenCalledWith("blob:doc");
+    await waitFor(() => expect(revoke).toHaveBeenCalledWith("blob:doc"), { timeout: 2000 }); // 迭代 10：revoke 延后 1s
     click.mockRestore();
   });
 

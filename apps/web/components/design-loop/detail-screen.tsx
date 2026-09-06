@@ -419,9 +419,9 @@ export function DesignDetailScreen({
                   <History aria-hidden className="h-3 w-3" /> 历史
                 </button>
               </div>
-              <div className="flex min-h-0 flex-1">
+              <div className="relative flex min-h-0 flex-1">
                 {/* 单页视图：桌面 720px 在窄视口下装不下 ⇒ 允许横向滚动（Codex），不缩放不裁切 */}
-                <div className={cn("relative flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
+                <div className={cn("relative min-w-0 flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-auto p-6")} data-allow-x-scroll={viewMode === "single" ? "单页视图桌面尺寸可横向滚动" : undefined}>
                   {preview !== null && (
                     <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
@@ -450,8 +450,9 @@ export function DesignDetailScreen({
                   )}
                 </div>
                 {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
+                {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
                 {(historyOpen || (focus !== null && preview === null)) && (
-                  <div className="flex w-64 shrink-0 flex-col border-l border-border bg-card/40" data-testid="design-detail-side">
+                  <div className="absolute inset-y-0 right-0 z-10 flex w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:max-w-none md:bg-card/40" data-testid="design-detail-side">
                     {focus !== null && preview === null && (
                       <PrototypeInspector
                         projectId={project.id}
