@@ -52,7 +52,10 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
 
   // 把 run 事件订阅打死——截图里那一帧的成因（见文件头注）。握手一建立就断开，
   // 客户端会走完重连预算后判定 `connection-lost`。
-  await page.routeWebSocket(/\/agent-runs\/[^/]+\/events/, (ws) => ws.close());
+  let closedSockets = 0;
+  await page.routeWebSocket(/\/agent-runs\/[^/]+\/events/, (ws) => { closedSockets += 1; ws.close(); });
+  // Disable the newer journal fallback too: this case must prove the authoritative run GET.
+  await page.route(/\/agent-runs\/[^/]+\/execution-events(?:\?|$)/, route => route.abort());
 
   await page.goto("/chat");
 
@@ -60,7 +63,11 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   // hydration 直接读到已经写回的回复（`findPendingRunId` 为 null），这条恢复路径
   // 根本不会被触发，整条用例会变成一条什么都没验证的"绿"。下面第 ① 条断言正是
   // 为了机械地挡住这种空转。
-  const marker = `${CHAT_READ_E2E.deepAgentMultiStepTrigger} #2825-${Date.now()}`;
+  const marker = CHAT_READ_E2E.deepAgentMultiStepTrigger;
+  const initialRunResponse = page.waitForResponse(async response => {
+    if (!response.ok() || !/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname)) return false;
+    return (await response.json()).status === "running";
+  }, { timeout: 60_000 });
   await page.getByTestId("copilotkit-v2-input").fill(marker);
   await page.getByTestId("copilotkit-v2-send").click();
   // 用户气泡出现 = 这一轮已经真的发出去了（`agent_runs` 行已建、人类消息已带 runId）。
@@ -68,29 +75,43 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   await page.waitForURL(/\/chat\/[^/]+$/);
   const firstThreadUrl = page.url();
   const firstThreadId = firstThreadUrl.split("/").pop()!;
+  const runResponse = await initialRunResponse;
+  const run = await runResponse.json() as {runId: string; threadId: string};
+  expect(run.threadId).toBe(firstThreadId);
 
   // 切到另一条会话：真实路由导航，面板整体卸载——内存里的在途 run 状态到此全丢。
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL(/\/chat\/[^/]+$/);
   await expect(page).not.toHaveURL(firstThreadUrl);
 
-  // 立刻切回来：这一轮 run 此刻仍在途，正是恢复路径要覆盖的窗口。
+  // Arm the observer before remounting. Requiring a real nonterminal response after
+  // remount prevents a completed hydration path from masquerading as run recovery.
+  const restoringRun = page.waitForResponse(async response => {
+    if (!response.ok() || response.url() !== runResponse.url()) return false;
+    const value = await response.json();
+    return value.status === "running" && value.resultMessageId === null;
+  }, { timeout: 30_000 });
+  const settledRun = page.waitForResponse(async response => {
+    if (!response.ok() || response.url() !== runResponse.url()) return false;
+    const value = await response.json();
+    return value.status === "succeeded" && typeof value.resultMessageId === "string";
+  }, { timeout: 120_000 });
   await page.getByTestId(`chat-thread-${firstThreadId}`).click();
   await page.waitForURL(firstThreadUrl);
-
-  // ① 防空转：恢复路径确实被走到了（"正在恢复上次未完成的任务…"真的出现过）。
-  //    这条断言不通过 ⇒ 下面两条"没出错、有回复"就是无意义的绿。
-  await expect(page.getByText("正在恢复上次未完成的任务…")).toBeVisible({ timeout: 30_000 });
-
-  // ② 恢复最终收尾：助手回复出现在消息区。loopback 剧本把用户原话逐字嵌进最终回复，
-  //    所以"原话出现两次"= 用户气泡 + 助手回复，而不只是那条用户气泡。
-  await expect
-    .poll(
-      async () =>
-        (await page.getByTestId("copilotkit-v2-messages").innerText()).split(marker).length - 1,
-      { timeout: 120_000, intervals: [1_000, 2_000, 3_000] },
-    )
-    .toBeGreaterThanOrEqual(2);
+  await restoringRun;
+  const final = await (await settledRun).json() as {resultMessageId: string};
+  expect(closedSockets).toBeGreaterThan(0);
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  expect(token).toBeTruthy();
+  const apiBase = new URL(runResponse.url()).origin;
+  const stored = await page.request.get(`${apiBase}/chat/threads/${firstThreadId}/messages?limit=100`, {
+    headers: {Authorization: `Bearer ${token}`},
+  });
+  expect(stored.ok()).toBe(true);
+  const finalMessage = (await stored.json()).messages.find((message: {id: string}) => message.id === final.resultMessageId);
+  expect(finalMessage?.agentRunId).toBe(run.runId);
+  expect(finalMessage?.text).toContain("多步依赖链已完整执行");
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(finalMessage.text, { timeout: 30_000 });
 
   // ③ 不再谎称"没能确认"——那句提示出现即为本 issue 的回归。
   await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);

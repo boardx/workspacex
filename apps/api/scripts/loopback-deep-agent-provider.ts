@@ -32,7 +32,8 @@
  *   GET  /threads/:id/runs/:runId    -> { status: "pending" | "success" }
  *   GET  /threads/:id/state          -> { values: { messages: ThreadMessage[] } }
  *
- * `state` 从第一次读起就是「完整」的（计划句 + 一次工具调用 + 配对的工具结果 +
+ * 新线程在 POST runs 之前的 `state` 为空；默认剧本开始执行后返回「完整」的
+ * 状态（计划句 + 一次工具调用 + 配对的工具结果 +
  * 最终回复），不做「过几轮才补全」的时序游戏——`completeWithProgress` 的轮询循环
  * 本来就会在 run 到终态后再补读一次，用不着靠人为延迟制造"中途态"，那样只会引入
  * e2e 里不必要的时序竞争。`status` 前一次答 `pending`、后一次答 `success`，只是为了
@@ -218,6 +219,8 @@ interface ApprovalDecision {
 }
 
 interface RunRecord {
+  /** Thread creation alone is not execution; initial state must contain no future tools. */
+  readonly started: boolean;
   readonly userText: string;
   statusPolls: number;
   /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
@@ -330,7 +333,7 @@ const server = createServer((req, res) => {
         requested = undefined;
       }
       const threadId = requested ?? randomUUID();
-      if (!runs.has(threadId)) runs.set(threadId, { userText: "", statusPolls: 0, decision: null });
+      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, decision: null });
       sendJson(res, 200, { thread_id: threadId });
     });
     return;
@@ -374,6 +377,7 @@ const server = createServer((req, res) => {
         conversationLog.set(threadId, log);
       }
       runs.set(threadId, {
+        started: true,
         userText: lastUserText,
         statusPolls: 0,
         decision: null,
@@ -461,6 +465,7 @@ const server = createServer((req, res) => {
     const threadId = stateMatch[1]!;
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
+    if (!record.started) { sendJson(res, 200, { values: { messages: [] } }); return; }
     const toolCallId = `call-${threadId}`;
     // DA-06 取证扩展（#1749，UI 主卡第 2 项「规划步骤」）：剧本先发一次 write_todos
     // ——与真 deepagents TodoListMiddleware 的调用形状一致（args.todos 数组），
