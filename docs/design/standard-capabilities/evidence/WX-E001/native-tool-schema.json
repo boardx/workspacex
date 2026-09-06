@@ -1,0 +1,500 @@
+{
+  "kind": "verification-evidence-not-runtime-authority",
+  "source_commit": "2e973a92fbc0e482134ad85a22fbd634020db2fb",
+  "scope": "Compiled real installed graph with a fake model. No model or sandbox execution.",
+  "versions": {
+    "deepagents": "0.7.6",
+    "langchain": "1.3.15",
+    "langgraph": "1.2.11",
+    "langgraph-api": "0.12.4",
+    "pytest": "9.1.1",
+    "pytest-timeout": "2.4.0"
+  },
+  "tools": {
+    "call_skill": {
+      "description": "调用一个已挂载的技能，让它针对给定任务真正执行一次并返回结果——不是复述这个\n技能会做什么，而是把任务交给它去做。`skill_stable_name` 必须是 list_org_skills\n返回过的工具名之一；`task` 要写清这个技能需要知道的全部上下文，描述得越具体，\n结果越可用。",
+      "properties": {
+        "skill_stable_name": {
+          "title": "Skill Stable Name",
+          "type": "string"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "skill_stable_name",
+        "task"
+      ],
+      "title": "call_skill",
+      "type": "object"
+    },
+    "choose_execution_option": {
+      "description": "当完成任务存在多个（2-3 个）可行方案、且各方案在投入/见效时间/预期收益上有\n实质差异时，调用这个工具把方案摆出来交给用户对比选择，不要替用户擅自决定。\n`requestId` 用一个新的唯一字符串标识本次请求；`options` 是 2 到 3 个方案卡片，\n每项包含 `optionId`（方案唯一标识）、`title`（方案标题）、`effort`（投入：\n低/中/高）、`timeToValue`（预计见效时间）、`expectedReturn`（预期收益）。\n只有一个可行方案、或方案之间没有实质取舍时，不要调用这个工具。",
+      "properties": {
+        "requestId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requestid"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Options"
+        },
+        "selectedOptionId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selectedoptionid"
+        }
+      },
+      "title": "choose_execution_option",
+      "type": "object"
+    },
+    "confirm_task_intent": {
+      "description": "当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能\n继续时，调用这个工具向用户复述你对任务的理解，并列出你依赖的假设（至少两条），\n等待用户确认或修改这些假设后再继续执行。`requestId` 用一个新的唯一字符串标识\n本次确认请求；`understanding` 是你对任务目标的复述；`assumptions` 是你为了完成\n任务而依赖的假设清单（至少两条，每条都要具体、可核实）。不要在用户已经把目标\n说得很清楚、且不需要额外假设时调用这个工具——那只会制造不必要的等待。",
+      "properties": {
+        "requestId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requestid"
+        },
+        "understanding": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Understanding"
+        },
+        "assumptions": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assumptions"
+        }
+      },
+      "title": "confirm_task_intent",
+      "type": "object"
+    },
+    "delete": {
+      "description": "Input schema for the `delete` tool.",
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the file to delete. Must be absolute, not relative.",
+          "title": "File Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "title": "DeleteSchema",
+      "type": "object"
+    },
+    "edit_file": {
+      "description": "Input schema for the `edit_file` tool.",
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the file to edit. Must be absolute, not relative.",
+          "title": "File Path",
+          "type": "string"
+        },
+        "old_string": {
+          "description": "The exact text to find and replace. Must be unique in the file unless replace_all is True.",
+          "title": "Old String",
+          "type": "string"
+        },
+        "new_string": {
+          "description": "The text to replace old_string with. Must be different from old_string.",
+          "title": "New String",
+          "type": "string"
+        },
+        "replace_all": {
+          "default": false,
+          "description": "If True, replace all occurrences of old_string. If False (default), old_string must be unique.",
+          "title": "Replace All",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "file_path",
+        "old_string",
+        "new_string"
+      ],
+      "title": "EditFileSchema",
+      "type": "object"
+    },
+    "execute": {
+      "description": "Input schema for the `execute` tool.",
+      "properties": {
+        "command": {
+          "description": "Shell command to execute in the sandbox environment.",
+          "title": "Command",
+          "type": "string"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional timeout in seconds for this command. Overrides the default timeout. Use 0 for no-timeout execution on backends that support it.",
+          "title": "Timeout"
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "title": "ExecuteSchema",
+      "type": "object"
+    },
+    "fill_run_params": {
+      "description": "当继续执行任务需要若干运行参数、但用户尚未提供全部取值时，调用这个工具列出\n需要补全的每个参数——包括你对该参数的 AI 猜测值（没有把握就填 null）、给出这个\n猜测的依据、该参数是否必填、以及当前已知值，交给用户逐项确认或修改，然后再继续\n执行。`requestId` 用一个新的唯一字符串标识本次请求；`fields` 是参数字段清单，\n每项包含 `name`（参数名）、`label`（人类可读标签）、`aiGuess`（你的猜测值，\n没把握则为 null）、`rationale`（给出该猜测的依据，`aiGuess` 非 null 时必须提供）、\n`required`（是否必填）、`currentValue`（当前已知值，没有则为 null）。不要在所有\n必填参数已经明确时调用这个工具。",
+      "properties": {
+        "requestId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requestid"
+        },
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fields"
+        }
+      },
+      "title": "fill_run_params",
+      "type": "object"
+    },
+    "glob": {
+      "description": "Input schema for the `glob` tool.",
+      "properties": {
+        "pattern": {
+          "description": "Glob pattern to match files (e.g., '**/*.py', '*.txt', '/subdir/**/*.md').",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base directory to search from. Defaults to the backend's default root.",
+          "title": "Path"
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "title": "GlobSchema",
+      "type": "object"
+    },
+    "grep": {
+      "description": "Input schema for the `grep` tool.",
+      "properties": {
+        "pattern": {
+          "description": "Text pattern to search for (literal string, not regex).",
+          "title": "Pattern",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Directory to search in. Defaults to current working directory.",
+          "title": "Path"
+        },
+        "glob": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Glob pattern (NOT regex) limiting which files are searched (e.g. '*.py', '*.ts'). A pattern without '/' matches the file name at any depth; a pattern containing '/' matches the search-root-relative path (e.g. 'src/**/*.py'). This is an in-tool file filter, not a call to the separate glob tool. Brace expansion (e.g. '*.{ts,tsx}') is not supported on all backends; run a separate search per extension for reliable results.",
+          "title": "Glob"
+        },
+        "output_mode": {
+          "default": "files_with_matches",
+          "description": "Shape of the returned text. 'files_with_matches' (default): newline-separated matching file paths. 'content': matching lines grouped by file under a '<path>:' header, each line indented and formatted '<line_number>: <line text>' (only the matched line, no surrounding context). 'count': one '<path>: <match_count>' line per file.",
+          "enum": [
+            "files_with_matches",
+            "content",
+            "count"
+          ],
+          "title": "Output Mode",
+          "type": "string"
+        },
+        "max_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap on the total number of matches returned across all files. Leave unset to use the configured default. When the cap is hit, results are truncated and a note says so; narrow the pattern or path to see the rest.",
+          "title": "Max Count"
+        }
+      },
+      "required": [
+        "pattern"
+      ],
+      "title": "GrepSchema",
+      "type": "object"
+    },
+    "list_org_skills": {
+      "description": "列出本次运行可用的技能（组织已导入、已 pin 到这次对话的技能），每项包含技能的\n工具名（调用 call_skill 时要用的 skill_stable_name）和人类可读名称。调用其他工具\n之前，先用这个看看有哪些技能可用。",
+      "properties": {},
+      "title": "list_org_skills",
+      "type": "object"
+    },
+    "ls": {
+      "description": "Input schema for the `ls` tool.",
+      "properties": {
+        "path": {
+          "description": "Absolute path to the directory to list. Must be absolute, not relative.",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "LsSchema",
+      "type": "object"
+    },
+    "read_file": {
+      "description": "Input schema for the `read_file` tool.",
+      "properties": {
+        "file_path": {
+          "description": "Absolute path to the file to read. Must be absolute, not relative.",
+          "title": "File Path",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0,
+          "description": "Line number to start reading from (0-indexed). Use for pagination of large files.",
+          "title": "Offset",
+          "type": "integer"
+        },
+        "limit": {
+          "default": 100,
+          "description": "Maximum number of lines to read. Use for pagination of large files.",
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "title": "ReadFileSchema",
+      "type": "object"
+    },
+    "spawn_async_task": {
+      "description": "把一个可以独立并行处理的子任务派发出去，**不等待它跑完**——调用后立即返回\n「已派发」，你应该继续处理主对话的其它部分或直接回复用户，不要停下来等这个子任务\n的结果。适合用在：一次请求里能拆出多个互不依赖、可以同时进行的子任务时，把每个\n子任务分别派发一次。`description` 要写清楚这个子任务的目标，写得越具体，子任务\n执行时越不会跑偏；`context` 可选，补充子任务需要知道的背景信息（例如父任务已经\n确认的事实、用户提到的约束）。\n\n与 `task` 工具的区别：`task` 是**同步**委托给一个具名子代理，调用方要等它跑完才\n拿到结果，适合\"这一步必须先有子代理的结论才能继续\"的场景；这个工具是**异步**\n派发进后台队列，不阻塞当前对话，适合\"这几个子任务可以各自独立跑，我不需要现在\n就知道结果\"的场景——两者是两种不同的委托方式，不要混用。\n\n没有配置好异步派发通路时（本次运行的部署未开启这项能力），会诚实告诉你派发失败，\n而不是假装派发成功——遇到这种情况，改用 `task` 或自己继续处理这个子任务，不要\n当作它已经在后台跑了。",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Context"
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "spawn_async_task",
+      "type": "object"
+    },
+    "task": {
+      "description": "Input schema for the `task` tool.",
+      "properties": {
+        "description": {
+          "description": "A detailed description of the task for the subagent to perform autonomously. Include all necessary context and specify the expected output format.",
+          "title": "Description",
+          "type": "string"
+        },
+        "subagent_type": {
+          "description": "The type of subagent to use. Must be one of the available agent types listed in the tool description.",
+          "title": "Subagent Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "subagent_type"
+      ],
+      "title": "TaskToolSchema",
+      "type": "object"
+    },
+    "write_file": {
+      "description": "Input schema for the `write_file` tool.",
+      "properties": {
+        "file_path": {
+          "description": "Absolute path where the file should be written. Must be absolute, not relative.",
+          "title": "File Path",
+          "type": "string"
+        },
+        "content": {
+          "description": "The text content to write to the file. This parameter is required.",
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path",
+        "content"
+      ],
+      "title": "WriteFileSchema",
+      "type": "object"
+    },
+    "write_todos": {
+      "$defs": {
+        "Todo": {
+          "description": "A single todo item with content and status.",
+          "properties": {
+            "content": {
+              "title": "Content",
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "pending",
+                "in_progress",
+                "completed"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "content",
+            "status"
+          ],
+          "title": "Todo",
+          "type": "object"
+        }
+      },
+      "description": "Input schema for the `write_todos` tool.",
+      "properties": {
+        "todos": {
+          "items": {
+            "$ref": "#/$defs/Todo"
+          },
+          "title": "Todos",
+          "type": "array"
+        }
+      },
+      "required": [
+        "todos"
+      ],
+      "title": "WriteTodosInput",
+      "type": "object"
+    }
+  }
+}
