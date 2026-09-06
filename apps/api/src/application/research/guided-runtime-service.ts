@@ -15,6 +15,17 @@ const shapes: Record<Node, string> = {
   research: '[{"id":existingSourceId,"decision":"pending"|"accepted"|"excluded"}]',
   report: '{"title":string,"summary":string,"sections":[{"sectionId":existingOutlineId,"body":string,"sourceIds":acceptedSourceId[]}]}',
 };
+function normalizedSourceUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Invalid source URL");
+    url.hash = "";
+    return url.href;
+  } catch { throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID"); }
+}
+function acceptPendingSources(state: ResearchRuntime) {
+  for (const source of state.sources) if (source.decision === "pending") source.decision = "accepted";
+}
 function fingerprint(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item)
     ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item)).digest("hex");
@@ -63,7 +74,10 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
   if (draft.node === "brief") state.brief = draft.value;
   if (draft.node === "directions") state.directions = draft.value.map((item, order) => ({ ...item, order }));
   if (draft.node === "outline") state.outline = draft.value.map((item, order) => ({ ...item, order }));
-  if (draft.node === "research") state.sources = state.sources.map((source) => ({ ...source, decision: draft.value.find((item) => item.id === source.id)?.decision ?? source.decision }));
+  if (draft.node === "research") state.sources = state.sources.map((source) => {
+    const decision = draft.value.find((item) => item.id === source.id)?.decision ?? source.decision;
+    return { ...source, decision: decision === "pending" && source.decision === "excluded" ? "excluded" : decision };
+  });
   if (draft.node === "report") state.report = draft.value;
 }
 export class GuidedRuntimeService {
@@ -113,6 +127,7 @@ export class GuidedRuntimeService {
   }
   private async generate(state: ResearchRuntime, node: Node, persist: () => Promise<void>, instruction?: string) {
     if (node === "research") { await this.plan(state, persist); return; }
+    if (node === "report") acceptPendingSources(state);
     if (node === "report" && !state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
     const value = await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations.`, { ...this.context(state), instruction }, persist);
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
@@ -141,7 +156,7 @@ export class GuidedRuntimeService {
         const hits = await this.search.search(task.query);
         if (!hits.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_EMPTY");
         for (const hit of hits) {
-          if (!state.sources.some((source) => source.url === hit.url)) state.sources.push(C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, retrievedAt: new Date().toISOString(), decision: "pending" }));
+          if (!state.sources.some((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url))) state.sources.push(C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, retrievedAt: new Date().toISOString(), decision: "accepted" }));
         }
         task.status = "succeeded";
       } catch (error) { task.status = "failed"; task.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE"; }
@@ -149,9 +164,48 @@ export class GuidedRuntimeService {
     }
     if (state.tasks.some((task) => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   }
+  private async editSource(state: ResearchRuntime, command: RuntimeCommand) {
+    if (command.node !== "research" || command.draft || command.message || command.proposalId) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    if (command.action === "remove_source") {
+      const source = state.sources.find((item) => item.id === command.sourceId);
+      if (!source) throw new ResearchRuntimeError("RESEARCH_SOURCE_NOT_FOUND");
+      if (source.decision === "excluded") return;
+      invalidate(state, "research");
+      source.decision = "excluded";
+      return;
+    }
+    if (!command.sourceUrl || command.sourceUrl.length > 1000) throw new ResearchRuntimeError("RESEARCH_SOURCE_URL_INVALID");
+    const url = normalizedSourceUrl(command.sourceUrl);
+    const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === url);
+    if (existing) {
+      if (existing.decision === "accepted") return;
+      invalidate(state, "research");
+      existing.decision = "accepted";
+      return;
+    }
+    const section = state.outline.find((item) => item.enabled);
+    if (!section) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    // A submitted URL is only a query to the configured search boundary, never a direct fetch target.
+    let hits: Awaited<ReturnType<GuidedSearchPort["search"]>>;
+    try { hits = await this.search.search(url); }
+    catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE"); }
+    const hit = hits.find((item) => {
+      try { return normalizedSourceUrl(item.url) === url && Boolean(item.content.trim()); }
+      catch { return false; }
+    });
+    if (!hit) throw new ResearchRuntimeError("RESEARCH_SOURCE_NOT_FOUND");
+    const taskId = randomUUID();
+    const parsed = C.GuidedResearchSource.safeParse({ ...hit, url, id: randomUUID(), taskId, retrievedAt: new Date().toISOString(), decision: "accepted" });
+    if (!parsed.success) throw new ResearchRuntimeError("RESEARCH_SOURCE_NOT_FOUND");
+    // Do not alter the current report or append an incomplete task when adding a URL fails.
+    invalidate(state, "research");
+    state.tasks.push({ id: taskId, sectionId: section.id, query: url, status: "succeeded", attempts: 1, errorCode: null });
+    state.sources.push(parsed.data);
+  }
   private async perform(state: ResearchRuntime, command: RuntimeCommand, persist: () => Promise<void>) {
     const { node, action } = command;
     if (command.draft && command.draft.node !== node) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
+    if (action === "add_source" || action === "remove_source") { await this.editSource(state, command); return; }
     if (action === "save") {
       if (!command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       applyDraft(state, command.draft); return;
@@ -192,6 +246,7 @@ export class GuidedRuntimeService {
       if (node !== state.currentNode && !command.draft) throw new ResearchRuntimeError("RESEARCH_NODE_MISMATCH");
       if (command.draft) applyDraft(state, command.draft);
       if (node === "research" || node === "report") {
+        acceptPendingSources(state);
         if (!state.tasks.length || state.tasks.some((task) => task.status !== "succeeded")) throw new ResearchRuntimeError("RESEARCH_TASKS_INCOMPLETE");
         if (!state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
       }

@@ -377,3 +377,22 @@ describe("F195 guided research workflow command contract", () => {
     expect(parsed.nodeSummaries.directions.modelId).toBe("qwen3.7-plus");
   });
 });
+
+
+describe("research source editing command contracts", () => {
+  const base = { sessionId: "session", node: "research", expectedVersion: 1, requestId: "request" };
+  it("accepts only explicit source add/remove payloads", () => {
+    expect(research.GuidedResearchRuntimeCommand.safeParse({ ...base, action: "add_source", sourceUrl: "https://example.org/policy" }).success).toBe(true);
+    expect(research.GuidedResearchRuntimeCommand.safeParse({ ...base, action: "remove_source", sourceId: "source-1" }).success).toBe(true);
+    for (const payload of [
+      { action: "add_source" }, { action: "remove_source" },
+      { action: "add_source", node: "report", sourceUrl: "https://example.org" },
+      { action: "add_source", sourceUrl: "javascript:alert(1)" },
+      { action: "add_source", sourceUrl: "not-a-url" },
+      { action: "add_source", sourceUrl: "https://user:password@example.org" },
+      { action: "add_source", sourceUrl: "https://example.org", sourceId: "source-1" },
+      { action: "remove_source", sourceId: "source-1", draft: { node: "research", value: [] } },
+      { action: "complete", sourceUrl: "https://example.org" },
+    ]) expect(research.GuidedResearchRuntimeCommand.safeParse({ ...base, ...payload }).success).toBe(false);
+  });
+});

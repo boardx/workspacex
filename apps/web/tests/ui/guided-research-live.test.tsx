@@ -72,18 +72,19 @@ describe("live research workspace", () => {
     await screen.findByDisplayValue("Revised storage");
     expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ action: "apply", proposalId: "proposal-1", expectedVersion: 8 }));
   });
-  it("renders persisted real sources, records source decisions and offers failed task retry", async () => {
+  it("renders sources without confirmation and persists removal while offering failed task retry", async () => {
     const research: GuidedResearchRuntime = { ...initial, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"], generatedNodes: ["brief", "directions", "outline", "research"],
       tasks: [{ id: "t1", sectionId: "s1", query: "Grid policy", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }],
       sources: [{ id: "src1", taskId: "t1", title: "Official source", url: "https://example.org/policy", content: "A retrieved source", retrievedAt: "2026-09-05", decision: "pending" }] };
     vi.mocked(getResearchRuntime).mockResolvedValue(research);
-    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...research, version: 8, sources: [{ ...research.sources[0]!, decision: "accepted" }] });
+    vi.mocked(executeResearchRuntime).mockResolvedValue({ ...research, version: 8, sources: [{ ...research.sources[0]!, decision: "excluded" }] });
     render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />);
     expect(await screen.findByRole("link", { name: "Official source" })).toHaveAttribute("href", "https://example.org/policy");
     expect(screen.getByRole("button", { name: "重试失败任务" })).toBeEnabled();
-    fireEvent.change(screen.getByLabelText("来源处理 Official source"), { target: { value: "accepted" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "save", draft: { node: "research", value: [{ id: "src1", decision: "accepted" }] } })));
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "删除来源 Official source" }));
+    await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "remove_source", sourceId: "src1", expectedVersion: 7 })));
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Official source" })).not.toBeInTheDocument());
   });
 });
 
