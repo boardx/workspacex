@@ -1,0 +1,45 @@
+# 标准 Tools / Skills 差量实施
+
+本目录是用户直接交办批次的**设计输入与验证记录**，不是另一份 feature 状态源，也不是模型运行时注册表。
+
+- 跟踪 issue：[#2864](https://github.com/boardx/workspacex/issues/2864)。
+- 分支：`codex/standard-capabilities`；起始实施基线：`11d1c9e417b45fa7900779e862248482d8a96946`。
+- 需求：保留 46 个 Tools、20 个 Skills、9 个前置项的独立编号和验收；删除重复建设。
+- 审阅分类：14 项不新增独立主体；31 项组件/技能包接入；30 项产品差量。分类是设计审阅结论，不代表 passing。
+- 19 个共享工作包仅用于避免重复计量；每个能力仍单独验证和跟踪。
+
+## 本次用户授权与交付方式
+
+用户在本会话明确要求：
+
+> 你新建一个worktree，来开始工作吧，你在这个worktree上执行完所有的开发，然后每个任务执行commit，然后做一个大的pr将来整合到main
+
+因此本批次每个任务单独 commit，最终汇总一个 PR，留待未来整合到 main。本次指令覆盖默认“一项一个 PR”的粒度，不取消独立 review、测试、权限和结果验证；不擅自合并 main。
+
+本批次由用户直接指定，不替代 readiness 队列中的其他既有任务；队列外实施理由已在 #2864 记录。不重开已有 passing feature，不伪写历史设计签核。
+
+## 阅读顺序
+
+1. [capability-catalog.json](capability-catalog.json)：75 个能力的需求、复用来源、差量和独特验收。
+2. [contract-reuse-map.md](contract-reuse-map.md)：既有契约与本批次差量边界。
+3. [implementation-notes.md](implementation-notes.md)：commit、测试、运行基线与待解决问题。
+
+旧规格与本次 review 冲突时，采用本目录的剪裁说明。当前目录不是发布清单；`ready`、授权、版本和真实工具 schema 必须由运行体给出，不能由设计 JSON 假装已上线。
+
+## 公共约束
+
+- 全部 Agent 能力基于现有 Python Deep Agents / LangGraph 与 TypeScript 领域网关，不另建推理或研究执行引擎。
+- 原生工具只配置与验证，不复制实现；实际参数由锁定运行时导出，设计中的参数摘要不作为第二份 schema。
+- 权限、错误码、AG-UI 事件复用 `packages/contracts` 和已有领域单源，只对必要差量扩展。
+- Skill 使用完整不可变包，引用实际文件、版本和许可；正文、脚本与参考资料渐进读取。
+- 用户指定文件产物时验证真实文件与可读性；文本问答不强制生成文件。
+- 复用 harness verify、pytest、Vitest、Playwright；不新增通用 `verify-standard-capability.ts` 框架。
+- 不恢复已冻结的 `POST /skills`；技能草稿优先走产物、既有导入和版本治理。
+- SQL Toolkit 直接集成不依赖 MCP；调度只选择一个提供者；不将离线 Whisper、notebook 或 LibreOffice 无条件引入全部任务。
+- 实际测试通过只证明对应范围；不以 mock、工具名暴露、文件大小、测试文件存在或旧签核替代真实链路。
+
+## 分支集成纪律
+
+每项实施 commit 的标题包含 `WX-*` 编号，正文记录 issue、变更、验证与边界。共享基础在其前置任务 commit 中实现；下游编号只提交自身差量或验证证据，不重复拷贝基础代码。
+
+不得为了“每项一个 commit”制造空提交；完全复用项可提交实际验证与映射证据。最终 PR 附编号→commit→验证映射。在全部验收前保持未完成描述，不标 passing、不关闭作为完成凭证的任务。
