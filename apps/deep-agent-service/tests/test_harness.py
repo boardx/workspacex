@@ -797,6 +797,19 @@ def _looping_graph(n_tool_rounds: int, tool_fn=None):
 
     class ScriptedModel(GenericFakeChatModel):
         def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            names = [t.get("function", {}).get("name", t.get("name"))
+                     if isinstance(t, dict) else getattr(t, "name", getattr(t, "__name__", None))
+                     for t in tools]
+            if names == ["GraderResponse"]:
+                # The rubric grader is a separate agent, not another main-loop
+                # turn. Sharing gen() consumed spin calls and then fed it infinite
+                # plain text, which can never satisfy ToolStrategy output.
+                from deepagents.middleware.rubric import GraderResponse
+                verdict = GraderResponse(result="satisfied", explanation="Budget/retry fixture; content grading is tested separately.")
+                response = AIMessage(content="", tool_calls=[{
+                    "id": "fixture-grade", "name": "GraderResponse", "args": verdict.model_dump(),
+                }])
+                return ScriptedModel(messages=itertools.repeat(response))
             return self
 
     def gen():
