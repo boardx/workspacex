@@ -16,3 +16,6 @@
 - 04:40 更新：核心完整依赖链在 `fa444df27` 测试 + `b0b776692` 生产构建下 14/14 通过（`/private/tmp/wsx-2867-core-loop-local3.log`）。四组全栈首轮 9/12 通过，反馈管理列表403导致1失败2未运行；`37687f5e2` 已修为线程可见roster，5反馈+2timeline+tsc/lint通过。当前重新构建运行四组全栈，日志 `/private/tmp/wsx-2867-fullstack-local2.log`，数据库 `wsx_workbench_2867_fullstack_2`，端口保持32169/47169。Mermaid `5270a0a0f`，下一次最迟05:08更新。
 
 - 04:52 更新：`37687f5e2`全新生产构建后的四组全栈12/12通过，日志 `/private/tmp/wsx-2867-fullstack-local2.log`；本轮宿主服务全部退出（32169/47169及四个provider端口均无监听）。最新CI `56fe68aca` 的TC5强杀恢复竞态修复为`e86b61e8a`：默认async checkpoint先由独立图状态读确认再kill，本地独立库 `wsx_workbench_2867_checkpoint_1` 连续三次3/3通过。最终日志 `/private/tmp/wsx-2867-checkpoint-test4.log`；未修改生产durability或工具幂等保证。
+
+- 05:07 更新：独立审查补修录音post-start失败清理与过期回调（`2711782e3`），17/17行为测试、tsc/lint通过；新生产构建的core录音用例通过，跨渠道录音在独立新库复验通过（`/private/tmp/wsx-2867-recording-final-isolated.log`）。首次同时运行两项目录音用例共享seed线程造成409，保留失败日志，不计作产品修复。当前远端HEAD `31a0862d7`、CI运行中；所有本轮宿主端口已释放，共享Docker栈不动。
+- Peer已提交事实更新：`045f48ae5`含实际Skill fact/authority/子取消adapter；协议一致，但联合分支须保留`446b03557`与`d78a0790d`两处共享实现修复。已向用户请求peer整合后SHA及native已有环境入口。详见集成契约；不复制标准能力大提交。
