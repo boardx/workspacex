@@ -1,3 +1,6 @@
+import { PARENT_RUN_CONTROL, ParentRunControl, CHILD_RUN_CANCELLER, type ChildRunCanceller } from "./application/agent-run/parent-run-control";
+import { TOOL_EXECUTION_AUTHORITY, ToolExecutionAuthority } from "./application/agent-run/tool-execution-authority";
+import { PgParentRunControlReader } from "./infrastructure/agent-run/pg-parent-run-control";
 import { ModelGuidedResearchCheckpointGenerator } from "./application/research/model-guided-checkpoint-generator";
 import { GUIDED_RUNTIME_STORE, GUIDED_SEARCH_PORT, GUIDED_RUNTIME_SERVICE, type GuidedRuntimeStore, type GuidedSearchPort } from "./application/research/guided-runtime-ports";
 import { GuidedRuntimeService } from "./application/research/guided-runtime-service";
@@ -1737,6 +1740,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // issue #2767 -- F06 三档授权存储的单一实例，`AgentRunExecutor`（执行循环的
     // `hasGrant` 查询）与 `CopilotkitAguiController`（`decideToolPermission` 的
     // once/forever 写入）共用同一个，不各自 `new` 一份。
+    {
+      provide: PARENT_RUN_CONTROL,
+      useFactory: (db: DatabasePort, children?: ChildRunCanceller) => new ParentRunControl(new PgParentRunControlReader(db), children),
+      inject: [DATABASE_PORT, { token: CHILD_RUN_CANCELLER, optional: true }],
+    },
+    {
+      provide: TOOL_EXECUTION_AUTHORITY,
+      useFactory: (db: DatabasePort, runs: AgentRunStore, grants: ToolPermissionGrantStore) =>
+        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants),
+      inject: [DATABASE_PORT, AGENT_RUN_STORE, TOOL_PERMISSION_GRANT_STORE],
+    },
     {
       provide: TOOL_PERMISSION_GRANT_STORE,
       useFactory: (db: DatabasePort) => new PgToolPermissionGrantRepository(db),

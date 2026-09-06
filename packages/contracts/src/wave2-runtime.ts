@@ -1,3 +1,4 @@
+import { ChildCancellationStatus } from "./run-control";
 /**
  * Signed Wave 2 runtime delta (#409 / PR #426).
  *
@@ -436,6 +437,7 @@ export const AgentRunStep = z.object({
 export const AgentRunView = z.object({
   recoveryDiagnostic: z.string().max(256).nullable().optional(),
   cancelRequestedAt: z.string().nullable().optional(),
+  childCancellation: ChildCancellationStatus.optional(),
   runId: z.string(),
   threadId: z.string(),
   inputMessageId: z.string(),

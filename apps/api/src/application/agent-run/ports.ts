@@ -826,6 +826,9 @@ export interface ModelCallInput {
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
   readonly checkpointResume?: boolean;
   readonly liveInterjections?: boolean;
+  /** Trusted executor identity, never sourced from model tool arguments. */
+  readonly executionAttemptId?: string;
+  readonly executionLeaseEpoch?: number;
   readonly modelProvider: string;
   readonly modelId: string;
   /**

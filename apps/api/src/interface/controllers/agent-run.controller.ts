@@ -1,3 +1,4 @@
+import { PARENT_RUN_CONTROL, type ParentRunControl } from "../../application/agent-run/parent-run-control";
 import { decideToolPermission, RunNotAwaitingToolPermissionError } from "../../application/agent-run/decide-tool-permission";
 import { operations as permissionOperations } from "@repo/contracts/plan-permissions";
 import { cancelAgentRun, RunCancellationConflictError, RunCancellationUnavailableError } from "../../application/agent-run/cancel-run";
@@ -78,6 +79,7 @@ export class AgentRunController {
     @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(MODEL_CALL_PORT) private readonly model?: ModelCallPort,
+    @Inject(PARENT_RUN_CONTROL) private readonly parentControl?: ParentRunControl,
   ) {}
 
   @Post("/agent-runs/:runId/permission-requests/:permissionRequestId/decision")
@@ -106,9 +108,11 @@ export class AgentRunController {
   async cancel(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
     assertPrincipal(principal);
     try {
-      return await cancelAgentRun({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+      const result = await cancelAgentRun({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
         model: this.model, liveQueue: Boolean(this.interjections.pollForKernel) },
         { orgId: toOrgId(principal.orgId), userId: principal.userId, runId });
+      const childCancellation = await this.parentControl?.propagateCancellation(toOrgId(principal.orgId), runId) ?? { kind: "unavailable" };
+      return { ...result, childCancellation };
     } catch (error) {
       if (error instanceof AgentRunNotVisibleError) throw new NotFoundException();
       if (error instanceof AgentRunRetryForbiddenError) throw new ForbiddenException();
@@ -143,10 +147,11 @@ export class AgentRunController {
   async run(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
     assertPrincipal(principal);
     try {
-      return await readAgentRun(
+      const result = await readAgentRun(
         { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs },
         { userId: principal.userId, orgId: toOrgId(principal.orgId), runId },
       );
+      return { ...result, childCancellation: await this.parentControl?.readCancellation(toOrgId(principal.orgId), runId) ?? { kind: "unavailable" } };
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");

@@ -70,3 +70,15 @@ describe("run control authorization and truthful state", () => {
     expect(createConfirmedRun).not.toHaveBeenCalled();
   });
 });
+
+it("tool execution service callback rejects missing identity before inspecting the run", async () => {
+  vi.stubEnv("DEEP_AGENT_SERVICE_INTERNAL_KEY", "secret");
+  const check = vi.fn().mockResolvedValue({ allowed: true });
+  const controller = new RunInterjectionController({} as AgentRunStore, {} as InterjectionStore,
+    {} as ToolPermissionGrantStore, { check } as never);
+  const body = { orgId: "org-a", attemptId: "run-a:1", leaseEpoch: 2, toolName: "read_file" };
+  await expect(controller.checkTool(undefined, "run-a", body)).rejects.toMatchObject({ status: 401 });
+  expect(check).not.toHaveBeenCalled();
+  expect(await controller.checkTool("secret", "run-a", body)).toEqual({ allowed: true });
+  expect(check).toHaveBeenCalledWith({ ...body, parentRunId: "run-a" });
+});

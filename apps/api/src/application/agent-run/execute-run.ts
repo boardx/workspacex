@@ -1,4 +1,4 @@
-import { RunLeaseLostError } from "./run-lease";
+import { RunLeaseLostError, currentRunLease } from "./run-lease";
 import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
 import { publicExecutionPayload } from "./public-execution-payload";
 /**
@@ -1137,15 +1137,12 @@ async function executeClaimed(
         threadId: run.threadId,
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
+        executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch,
         onSkillActivity: async (fact) => {
           await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "skill_activity", attemptId: executionAttemptId, fact });
         },
-        // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
-        // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
-        // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
-        // fail closed），本层不做第二份解析副本。Phase 14 F06：deny 变体让 provider
-        // 发 resume:{decision:"reject"}——引擎侧 HumanInTheLoopMiddleware 原生支持的
-        // 拒绝语义，收到后自己调整后续计划继续跑，不是让这次调用直接失败。
+        // Resume the existing checkpoint after a decision; never resend user input.
+        // The provider validates edited args and forwards rejection to native HITL.
         ...(run.pendingDecision === null
           ? {}
           : run.pendingDecision.kind === "approve"

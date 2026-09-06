@@ -510,7 +510,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
       throw new ModelCallError("MODEL_CALL_FAILED", "live interjection callback is not configured");
     }
     return { run_control_callback: { base_url: this.config.subtaskCallbackBaseUrl,
-      key: this.config.subtaskCallbackKey, org_id: input.orgId, run_id: input.runId } };
+      key: this.config.subtaskCallbackKey, org_id: input.orgId, run_id: input.runId,
+      ...(input.executionAttemptId ? { attempt_id: input.executionAttemptId } : {}),
+      ...(input.executionLeaseEpoch !== undefined ? { lease_epoch: input.executionLeaseEpoch } : {}) } };
   }
 
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
