@@ -86,6 +86,25 @@ describe("CopilotKitV2AgentInterrupts —— 三个工具名的 useHumanInTheLoo
       expect(respond).toHaveBeenCalledWith("approved");
     });
 
+    it("issue #2842：assumptions 不是数组（模型多编码成 JSON 字符串）→ 退回骨架态，不抛错、不崩页", () => {
+      render(<CopilotKitV2AgentInterrupts />);
+      const respond = respondSpy();
+      const el = registered[AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent]!.render({
+        name: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent,
+        description: "",
+        toolCallId: "tc-2842",
+        args: { requestId: "req-x", understanding: "U", assumptions: '["a1", "a2"]' } as never,
+        status: "executing",
+        result: undefined,
+        respond,
+      });
+      expect(() => render(el)).not.toThrow();
+      // 骨架态：外壳在、可操作的「继续」不在（loading 态不渲染 card 主体）。
+      expect(screen.getByTestId("agent-interrupt-confirm-intent-shell")).toBeInTheDocument();
+      expect(screen.queryByTestId("agent-interrupt-confirm-intent-continue")).toBeNull();
+      expect(respond).not.toHaveBeenCalled();
+    });
+
     it("改假设并提交 → respond({ assumptions }) 原始对象（走通用 edit 协议）", () => {
       render(<CopilotKitV2AgentInterrupts />);
       const respond = respondSpy();

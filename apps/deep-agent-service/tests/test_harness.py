@@ -210,7 +210,9 @@ def test_precompletion_checklist_seed_is_unconditional(monkeypatch):
 
     monkeypatch.delenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", raising=False)
     mw = [type(m).__name__ for m in build_precompletion_middleware(_fake_model())]
-    assert mw == ["_DefaultCompletionChecklistMiddleware", "RubricMiddleware"], (
+    # issue #2836：挂的是子类 CurrentTurnRubricMiddleware（仍是 RubricMiddleware 实例，
+    # 见 test_current_turn_rubric_*），顺序不变。
+    assert mw == ["_DefaultCompletionChecklistMiddleware", "CurrentTurnRubricMiddleware"], (
         f"播种件必须无条件出现且排在 RubricMiddleware 之前，实际 {mw}"
     )
 
@@ -1393,3 +1395,101 @@ def test_interjection_replan_not_forced_when_write_todos_not_mounted():
 
     InterjectionMiddleware().wrap_model_call(request, handler)
     assert captured["tool_choice"] is None, "write_todos 未挂载时不强行指向不存在的工具"
+
+
+# ── issue #2836：每轮对话窗口 + 判类工作动词 ────────────────────────
+
+
+def test_turn_window_middleware_is_first_in_build_middleware():
+    """它的 before_agent 要先于所有按 messages 判断的中间件跑，所以必须排第一。"""
+    from deep_agent_service.harness import TurnWindowMiddleware, build_middleware
+
+    mw = build_middleware(_fake_model())
+    assert type(mw[0]) is TurnWindowMiddleware, [type(m).__name__ for m in mw][:3]
+
+
+def test_turn_window_prefix_literal_matches_ts_side():
+    """前缀字面量与 `deep-agent-model-provider.ts` 的 `TURN_MESSAGE_ID_PREFIX` 逐字相同
+    （TS 侧由 deep-agent-model-provider.test.ts 钉）。改一侧不改另一侧 ⇒ 远端窗口静默失效。"""
+    from deep_agent_service.harness import TURN_MESSAGE_ID_PREFIX
+
+    assert TURN_MESSAGE_ID_PREFIX == "wsx-turn:"
+
+
+def test_turn_window_removes_everything_before_the_latest_turn():
+    """上一轮的 system/user + 模型自己产生的 AI/Tool 消息全部删除；本轮的一条不动。"""
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+
+    from deep_agent_service.harness import TurnWindowMiddleware
+
+    msgs = [
+        SystemMessage("s", id="wsx-turn:run-1:system"),
+        HumanMessage("u1", id="wsx-turn:run-1:user"),
+        AIMessage("a1", id="ai-1"),
+        ToolMessage("t", tool_call_id="c1", id="tool-1"),
+        SystemMessage("s", id="wsx-turn:run-2:system"),
+        HumanMessage("u1", id="wsx-turn:run-2:h0"),
+        AIMessage("a1", id="wsx-turn:run-2:h1"),
+        HumanMessage("u2", id="wsx-turn:run-2:user"),
+    ]
+    update = TurnWindowMiddleware().before_agent({"messages": msgs, "todos": [{"content": "旧待办", "status": "pending"}]}, None)
+    assert update is not None
+    assert [r.id for r in update["messages"]] == ["wsx-turn:run-1:system", "wsx-turn:run-1:user", "ai-1", "tool-1"]
+    # 上一轮的待办同样不带进新的一轮（否则 grader 按"todo 未终态"打回、模型再去更新旧待办）。
+    assert update["todos"] == []
+
+
+def test_turn_window_noop_without_prefixed_messages_or_on_first_turn():
+    """不打 id 的调用方（旧 TS / golden 裸输入）与首轮：找不到"更旧的一轮" ⇒ no-op，
+    行为与改动前逐字相同。`command.resume` 续跑不带新输入，也落在这个分支。"""
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+    from deep_agent_service.harness import TurnWindowMiddleware
+
+    mw = TurnWindowMiddleware()
+    assert mw.before_agent({"messages": [HumanMessage("x", id="plain"), AIMessage("y", id="ai")]}, None) is None
+    assert mw.before_agent({"messages": []}, None) is None
+    first_turn = [SystemMessage("s", id="wsx-turn:run-1:system"), HumanMessage("u", id="wsx-turn:run-1:user")]
+    assert mw.before_agent({"messages": first_turn}, None) is None
+    # 本轮之内模型产生的无前缀消息（resume 时 before_agent 再跑一次会看到它们）不删。
+    mid_run = [*first_turn, AIMessage("a", id="ai-1")]
+    assert mw.before_agent({"messages": mid_run}, None) is None
+
+
+def test_classify_task_text_connector_needs_a_work_verb():
+    """2026-09-06 真栈取证的两句纯问答（"并简要说明""各自怎么解释"）不再被判成多步任务；
+    真有动作的连接词句（调研…并写报告）判定不变。"""
+    from deep_agent_service.harness import TASK_CATEGORY_NO_PLAN, _classify_task_text
+
+    assert _classify_task_text("人类目前还没有解决的最重要的科学难题有哪些？请按领域分类，每个领域列 3-4 条，并简要说明。") == TASK_CATEGORY_NO_PLAN
+    assert _classify_task_text("第四类里的意识的困难问题具体是什么意思？主流的几种理论各自怎么解释？") == TASK_CATEGORY_NO_PLAN
+    assert _classify_task_text("调研三个方向分别给出结论并写一份对比报告") == TASK_CATEGORY_MULTI_STEP_LOW_RISK
+
+
+def test_current_turn_rubric_grades_only_the_current_turn():
+    """grader 的 transcript 从最后一条 `wsx-turn:…:user` 起——TS 重发的旧轮历史（普通
+    user/assistant 消息）与更早的工具往返不进评分；返工 HumanMessage 在其后，照常可见。"""
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+
+    from deepagents import RubricMiddleware
+    from deep_agent_service.harness import CurrentTurnRubricMiddleware, _current_turn_messages
+
+    msgs = [
+        SystemMessage("s", id="wsx-turn:run-2:system"),
+        HumanMessage("上一轮：做个 pptx", id="wsx-turn:run-2:h0"),
+        AIMessage("我已经生成了 PPT，请查看附件 ⚠ 脚本执行失败", id="wsx-turn:run-2:h1"),
+        HumanMessage("这一轮：画一张 adlib 画布", id="wsx-turn:run-2:user"),
+        AIMessage("```canvas …```", id="ai-now"),
+        HumanMessage("A grader reviewed your work …", id="revision-1"),
+    ]
+    scoped = _current_turn_messages(msgs)
+    assert [m.id for m in scoped] == ["wsx-turn:run-2:user", "ai-now", "revision-1"]
+    rubric = CurrentTurnRubricMiddleware(model=_fake_model(), max_iterations=2)
+    assert isinstance(rubric, RubricMiddleware)
+    payload = rubric._build_grader_payload({"rubric": "清单", "messages": msgs}, 0)
+    assert "画一张 adlib 画布" in payload and "```canvas" in payload
+    assert "做个 pptx" not in payload and "脚本执行失败" not in payload
+    # 没有带前缀的用户消息（golden 测试 / 旧调用方）⇒ 整段，与库行为相同。
+    plain = [HumanMessage("q", id="a"), AIMessage("我接下来打算…", id="b")]
+    assert _current_turn_messages(plain) is plain
+    assert "我接下来打算" in rubric._build_grader_payload({"rubric": "清单", "messages": plain}, 0)

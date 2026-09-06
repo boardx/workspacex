@@ -125,6 +125,18 @@ export function CopilotKitV2AgentInterrupts(): null {
             />
           );
         }
+        // issue #2842：模型偶尔把 assumptions 多编码成 JSON 字符串（API 侧已归一化，
+        // `agent-interrupt-args.ts`）；这里再守一道——不是数组就退回骨架态，不让
+        // `assumptions.map` 把整页掀进错误边界。
+        if (!Array.isArray(args.assumptions)) {
+          return (
+            <ConfirmIntentCard
+              args={{ requestId: "", understanding: "", assumptions: ["", ""] }}
+              state="loading"
+              canWrite={false}
+            />
+          );
+        }
         return (
           <ConfirmIntentCard
             args={args}
@@ -156,6 +168,10 @@ export function CopilotKitV2AgentInterrupts(): null {
           ) : (
             <FillParamsCard fields={[]} state="loading" canWrite={false} />
           );
+        }
+        if (!Array.isArray(args.fields)) {
+          // issue #2842：同 confirm_task_intent 的守法——非数组退回骨架态，不崩页。
+          return <FillParamsCard fields={[]} state="loading" canWrite={false} />;
         }
         return (
           <FillParamsCard
@@ -191,6 +207,10 @@ export function CopilotKitV2AgentInterrupts(): null {
           ) : (
             <ChooseOptionCard options={[]} state="loading" canWrite={false} />
           );
+        }
+        if (!Array.isArray(args.options)) {
+          // issue #2842：同上。
+          return <ChooseOptionCard options={[]} state="loading" canWrite={false} />;
         }
         return (
           <ChooseOptionCard

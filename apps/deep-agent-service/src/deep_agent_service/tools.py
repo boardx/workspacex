@@ -92,6 +92,8 @@ own doc comment describes ("Never throws").
 """
 from __future__ import annotations
 
+import json
+
 import logging
 from typing import Callable, TypedDict
 
@@ -177,6 +179,32 @@ def _read_subtask_callback(config: RunnableConfig) -> SubtaskCallback | None:
     }
 
 
+# issue #2842（2026-09-06 本地真栈实测，qwen3.8-max）：模型给三个 HITL 虚拟工具的数组
+# 参数偶尔是**一个 JSON 字符串**（`assumptions: "[\"…\", \"…\"]"`）。原签名 `list[str]`
+# 让 langchain 在 approve/resume 时校验失败——ToolMessage 变成
+# "Error invoking tool 'confirm_task_intent' with kwargs …"，模型据此再调一次同样形状的
+# confirm_task_intent，再中断、再确认……用户点了「继续」永远走不出去。签名放宽到
+# `list | str`，进来先解一层；解不出的按原值处理（空 ⇒ 走各自的"没有收到有效…"分支）。
+def _coerce_list(value: object) -> list | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list):
+                return parsed
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        return lines or None
+    return None
+
+
+
 def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
     """Bind the two tools to a concrete chat model (dependency injection, not a module-level
     singleton) -- this is what makes `tools.py` testable without a real `deepagents`/network
@@ -239,7 +267,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
     def confirm_task_intent(
         requestId: str | None = None,
         understanding: str | None = None,
-        assumptions: list[str] | None = None,
+        assumptions: list[str] | str | None = None,
     ) -> str:
         """当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能
         继续时，调用这个工具向用户复述你对任务的理解，并列出你依赖的假设（至少两条），
@@ -249,6 +277,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
         说得很清楚、且不需要额外假设时调用这个工具——那只会制造不必要的等待。"""
         # `assumptions` 缺失或为空：既不是合法的初始提案，也不是合法的编辑结果——
         # 两条路径都要求非空的假设清单（契约 I-2：assumptions >= 2 条）。
+        assumptions = [str(a) for a in (_coerce_list(assumptions) or [])]
         if not assumptions:
             return "没有收到有效的假设清单，无法确认任务目标，请重新给出理解与至少两条假设后再次调用。"
         if understanding is not None:
@@ -264,7 +293,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
     @tool
     def fill_run_params(
         requestId: str | None = None,
-        fields: list[dict] | None = None,
+        fields: list[dict] | str | None = None,
     ) -> str:
         """当继续执行任务需要若干运行参数、但用户尚未提供全部取值时，调用这个工具列出
         需要补全的每个参数——包括你对该参数的 AI 猜测值（没有把握就填 null）、给出这个
@@ -274,6 +303,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
         没把握则为 null）、`rationale`（给出该猜测的依据，`aiGuess` 非 null 时必须提供）、
         `required`（是否必填）、`currentValue`（当前已知值，没有则为 null）。不要在所有
         必填参数已经明确时调用这个工具。"""
+        fields = _coerce_list(fields)
         if not fields:
             return "没有收到需要补全的参数字段，无法继续，请重新列出参数字段后再次调用。"
         resolved: list[str] = []
@@ -298,7 +328,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
     @tool
     def choose_execution_option(
         requestId: str | None = None,
-        options: list[dict] | None = None,
+        options: list[dict] | str | None = None,
         selectedOptionId: str | None = None,
     ) -> str:
         """当完成任务存在多个（2-3 个）可行方案、且各方案在投入/见效时间/预期收益上有
@@ -313,6 +343,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
             # resume 载荷不合法。
             return "没有收到用户选择的方案，无法继续，请重新列出可选方案后再次调用。"
         chosen_title = selectedOptionId
+        options = _coerce_list(options)
         if options:
             for option in options:
                 if isinstance(option, dict) and option.get("optionId") == selectedOptionId:

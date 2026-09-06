@@ -58,6 +58,7 @@ from langchain.agents.middleware import (
     ToolRetryMiddleware,
 )
 from langchain.agents.middleware.types import AgentState
+from langchain_core.messages import RemoveMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
 from langgraph.errors import GraphBubbleUp
@@ -172,6 +173,40 @@ class _DefaultCompletionChecklistMiddleware(AgentMiddleware):
         return {"rubric": DEFAULT_COMPLETION_CHECKLIST}
 
 
+class CurrentTurnRubricMiddleware(RubricMiddleware):
+    """issue #2836：grader 只看**本轮** transcript。
+
+    `deep-agent-model-provider.ts` 每轮都把裁剪过的历史窗口当普通 user/assistant 消息
+    重发过来（那是给主模型的上下文），库默认把 state 里全部 messages 拼成 transcript
+    交给 grader——于是上一轮 pptx 脚本失败、上上轮任务模式"计划未经确认"这类**旧轮**的
+    事实被拿来判**本轮**的画布回复 needs_revision（2026-09-06 实测 grader 原话：
+    "the assistant claimed to have generated a PPT … before the tool execution failed"
+    ——那是三轮前的事），返工一次再评一次，一轮画布从 8s 变 30-36s。
+
+    `DEFAULT_COMPLETION_CHECKLIST` 五条问的都是「本次回复」；把 transcript 收敛到最后
+    一条本轮用户消息（`wsx-turn:<runId>:user`）之后，是按清单本来的语义评，不是放宽。
+    grader 注入的返工 HumanMessage 在这条之后，返工轮照常可见。找不到带前缀的用户消息
+    （不打 id 的调用方 / golden 测试）⇒ 整段 messages，与库行为逐字相同
+    （`tests/golden/test_tc3` 走的就是这条）。只覆写 `_build_grader_payload` 这一个
+    组装入口，评分/状态/跳转流程一个字不碰。
+    """
+
+    def _build_grader_payload(self, state, iteration):  # noqa: ANN001, ANN201
+        messages = state.get("messages") or []
+        scoped = {**state, "messages": _current_turn_messages(messages)}
+        return super()._build_grader_payload(scoped, iteration)
+
+
+def _current_turn_messages(messages: list) -> list:
+    """最后一条 `wsx-turn:…:user` 消息（含）之后的全部消息；没有就是原列表。"""
+    start = None
+    for i, m in enumerate(messages):
+        mid = getattr(m, "id", None)
+        if isinstance(mid, str) and mid.startswith(TURN_MESSAGE_ID_PREFIX) and mid.endswith(":user"):
+            start = i
+    return messages if start is None else messages[start:]
+
+
 def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """D7 退出前自检的两件（顺序有意义，见上面的挂载顺序说明）。
 
@@ -179,11 +214,84 @@ def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware
     这个灰度开关打开，验证稳定后按 R6 要求默认开启且开关本身移除——现在
     `_DefaultCompletionChecklistMiddleware()` 与 `RubricMiddleware`（后者本来就
     无条件挂，没有 rubric 时逐字 no-op）一样无条件挂载，退出前自检对所有 run 生效。
+
+    issue #2836 取证：这次 grader 调用每轮固定 4-5s，纯文本问答也不例外——曾试过
+    「本轮没有 ToolMessage 就不评分」，但 D7 是人类签署的能力标准且 `tests/golden/
+    test_tc3` 钉的正是纯文本回复被打回返工这条路径，不在这里单方面削弱；要不要为纯文本
+    轮省掉这次调用是人类决策（见 issue #2836 评论）。真正修掉的是 grader 拿旧轮事实判
+    本轮的问题——挂的是子类 `CurrentTurnRubricMiddleware`（仍是 RubricMiddleware 实例），
+    见其类头注。
     """
     seed: list[AgentMiddleware] = [_DefaultCompletionChecklistMiddleware()]
     # max_iterations 显式钉死不吃库默认（库默认 3）——同 Summarization trigger/keep
     # 的纪律：升级时默认值漂移不得悄悄改变我们的重试预算。2 = 最多返工一次。
-    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+    return [*seed, CurrentTurnRubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
+
+# ── issue #2836：每轮对话窗口（TS 是历史的唯一事实源，远端线程不再无限累积） ──────
+#
+# 2026-09-06 本地真栈取证（记录代理逐请求记 prompt_tokens）：DA-04 让同一个 Chat thread
+# 的每一轮都落进同一个远端 LangGraph thread，checkpointer 因此把**每一轮的全部消息**
+# （AI 正文、write_todos 的 AIMessage/ToolMessage、grader 注入的返工消息……）都留在
+# `messages` 里；与此同时 `deep-agent-model-provider.ts` 每轮又把 system + 裁剪过的
+# 历史窗口（`HISTORY_MAX_CHARS`）+ 本轮用户消息**再发一遍**——同一段对话在 prompt 里
+# 出现两份，且远端那份没有任何上限：3 轮 23 条消息 / 18.7k tokens，8 轮 108 条 / 50k
+# tokens，再往后撞 SummarizationMiddleware 的 60k 触发线又多一次大调用。devapp 上前缀
+# 缓存一失效，每次调用先 prefill 50k+，一轮 4-5 次调用就是人类实测的 300+ 秒。
+#
+# 修法不是「远端不要记」（HITL resume / plan-control 暂停续跑 / files / todos 都要
+# 同一个线程的持久状态），而是**只把 `messages` 收敛成一份**：TS 侧给每轮发来的
+# 消息打 `wsx-turn:<runId>:…` 形状的 id（`deep-agent-model-provider.ts`
+# `TURN_MESSAGE_ID_PREFIX`，两侧字面量由 `test_harness.py` 与 TS 测试各自钉住），
+# 本中间件在 `before_agent` 把**本轮首条带该前缀的消息之前**的所有消息删掉——
+# 上一轮的内容 TS 已经按它的裁剪规则重新发过来了。
+#
+# 边界（刻意）：
+# · 只删「本轮首条 wsx-turn 消息之前」的，本轮之内不带 id 的 AI/Tool 消息（模型这轮
+#   产生的）一条不动——`command.resume`（HITL 裁决后续跑）与 plan-control 的
+#   `input: null` 续跑不带新输入、没有新的 wsx-turn 前缀，`before_agent` 即便再跑一次
+#   也找不到「更新的一轮」，自然 no-op。
+# · 一个不打 id 的调用方（旧版 TS、golden 测试的裸输入）：找不到前缀 ⇒ no-op，
+#   行为与本改动之前逐字相同。
+TURN_MESSAGE_ID_PREFIX = "wsx-turn:"
+
+
+def _turn_window_removals(messages: list) -> list[RemoveMessage]:
+    """本轮首条 `wsx-turn:` 消息之前的所有消息 → RemoveMessage 列表。"""
+    latest_prefix: str | None = None
+    for m in messages:
+        mid = getattr(m, "id", None)
+        if isinstance(mid, str) and mid.startswith(TURN_MESSAGE_ID_PREFIX):
+            # 前缀 = "wsx-turn:<runId>:"，同一轮的所有消息共享它；越靠后的越新。
+            latest_prefix = mid.rsplit(":", 1)[0] + ":"
+    if latest_prefix is None:
+        return []
+    first_of_turn = next(
+        i for i, m in enumerate(messages)
+        if isinstance(getattr(m, "id", None), str) and m.id.startswith(latest_prefix)
+    )
+    return [RemoveMessage(id=m.id) for m in messages[:first_of_turn] if getattr(m, "id", None)]
+
+
+class TurnWindowMiddleware(AgentMiddleware):
+    """见上方「每轮对话窗口」注释。只有 before_agent（sync/async 都实现，#2417 教训）。"""
+
+    def _update(self, state: dict) -> dict | None:
+        removals = _turn_window_removals(state.get("messages") or [])
+        if not removals:
+            return None
+        _logger.info("turn window: dropping %d stale remote messages (issue #2836)", len(removals))
+        # `todos` 同样跨轮残留（TodoListMiddleware 的 state 键）：上一轮任务模式留下的
+        # 待办会让这一轮的 grader 按"todo 未终态"判 needs_revision、模型再花几次调用去
+        # 更新旧待办（2026-09-06 实测：一轮画布因此从 8s 变 36s）。新的一轮 = 新任务，
+        # 待办从空开始；plan-control 的确认/续跑不带新输入，走不到这里，账本不受影响。
+        return {"messages": removals, "todos": []}
+
+    def before_agent(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._update(state)
+
+    async def abefore_agent(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._update(state)
 
 
 # DA-11（issue #2220 方案 B，rubric D1「结构化计划」的确定性保证；issue #2417 重做——
@@ -452,6 +560,14 @@ _ACTION_VERBS = (
 )
 
 
+# issue #2836：连接词路径要求共现的「工作动词」——把纯讲解类动词（回复/回答/解释/说明/
+# 介绍）排除在外。它们在 `_ACTION_VERBS` 里是为枚举路径（"生成 X，说明 Y"两侧各有动词）
+# 服务的；单独作为"这句话里有要执行的动作"的证据时，"并简要说明""各自怎么解释"这类
+# 纯问答会被判成多步任务。枚举路径不变。
+_EXPLANATORY_VERBS = ("回复", "回答", "解释", "说明", "介绍")
+_MULTI_STEP_WORK_VERBS = tuple(v for v in _ACTION_VERBS if v not in _EXPLANATORY_VERBS)
+
+
 def _has_enumerated_multi_action(text: str) -> bool:
     """逗号/顿号并列的两个动作是否两侧都各自带动词（见上方模块注释）。只看
     第一个命中的分隔符两侧——前两段都有动词已经足以确认"至少两个动作被串起来"
@@ -496,9 +612,15 @@ def _classify_task_text(text: str) -> str:
     if not stripped:
         return TASK_CATEGORY_NO_PLAN
 
+    # issue #2836：连接词判据必须与动作动词共现。2026-09-06 真栈取证："请按领域分类，每个
+    # 领域列 3-4 条，并简要说明""主流的几种理论各自怎么解释"这类纯问答被"并/各自"命中判成
+    # 多步任务，每轮平白多两次模型调用（强制 write_todos + 收尾再 write_todos 一次）；
+    # 单字连接词在中文散文里到处都是（并不/并非/不再/各自），它们说明"多步"的前提是
+    # 句子里真的有要执行的动作。
     is_multi_step = (
         len(stripped) >= _MULTI_STEP_MIN_CHARS
         and any(connector in stripped for connector in _MULTI_STEP_CONNECTORS)
+        and any(verb in stripped for verb in _MULTI_STEP_WORK_VERBS)
     ) or _has_enumerated_multi_action(stripped)
     if not is_multi_step:
         return TASK_CATEGORY_NO_PLAN
@@ -849,6 +971,9 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     漂移不该悄悄改变我们的上下文策略（「同一事实不两处声明」的运行时版本）。
     """
     return [
+        # issue #2836：排第一——它的 before_agent 要先把上一轮的远端残留删掉，后面
+        # 所有按 messages 判断的中间件（判类、插话、rubric）看到的才是本轮的窗口。
+        TurnWindowMiddleware(),
         TodoListMiddleware(),
         # Phase 14 后续 A（#2755）：紧跟规划工具之后、两个"钉 write_todos"的中间件之前——
         # 它的 before_model 要先把插话追加进 messages，后面 TaskClassifier 的判类与
