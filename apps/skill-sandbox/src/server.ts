@@ -24,6 +24,9 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { executeScript } from "./execute-script.js";
+import { SessionManager } from "./session/manager.js";
+import { BubblewrapProvider } from "./session/provider.js";
+import { handleSessionRequest } from "./session/http.js";
 
 /** 单次执行的 wall-clock 硬上限。调用方给的 `timeoutMs` 只能更小,不能更大。 */
 export const MAX_TIMEOUT_MS = 300_000;
@@ -37,6 +40,9 @@ export interface SandboxServerOptions {
   /** 预装 CJK 字体文件路径（镜像里的 `SKILL_SANDBOX_CJK_FONT`）——PDF 画中文用。 */
   readonly cjkFontPath?: string;
   readonly nodeBinary?: string;
+  readonly sessionManager?: SessionManager;
+  /** Dedicated instance using the session setup seccomp profile; never serves legacy /run. */
+  readonly sessionsOnly?: boolean;
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
@@ -57,13 +63,20 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 }
 
 export function createSandboxServer(options: SandboxServerOptions = {}): Server {
-  return createServer((req, res) => {
-    void handle(req, res, options).catch((e: unknown) => {
+  const sessions = options.sessionManager ?? new SessionManager(new BubblewrapProvider());
+  const timer = setInterval(() => { void sessions.reapExpired().catch(() => undefined); }, 10000);
+  timer.unref();
+  const server = createServer((req, res) => {
+    void (async () => {
+      if (!await handleSessionRequest(req, res, sessions)) await handle(req, res, options);
+    })().catch((e: unknown) => {
       // 兜底:任何未预期的异常都回 500,让调用侧映射成 SANDBOX_UNAVAILABLE,
       // 而不是悄悄回一个"看起来成功"的空结果。
       send(res, 500, { error: e instanceof Error ? e.message : "unexpected sandbox failure" });
     });
   });
+  server.on("close", () => clearInterval(timer));
+  return server;
 }
 
 async function handle(
@@ -78,7 +91,7 @@ async function handle(
     return;
   }
 
-  if (req.method !== "POST" || !url.startsWith("/run")) {
+  if (options.sessionsOnly || req.method !== "POST" || !url.startsWith("/run")) {
     send(res, 404, { error: "not found" });
     return;
   }

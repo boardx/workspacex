@@ -89,3 +89,4 @@ export * as streamingTransport from "./streaming-transport";
 export * as planPermissions from "./plan-permissions";
 export * as artifactsSteering from "./artifacts-steering";
 export * as errorObservability from "./error-observability";
+export * as sandboxSession from "./sandbox-session";
