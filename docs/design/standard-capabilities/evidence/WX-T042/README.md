@@ -101,3 +101,22 @@ Executed from `apps/api`:
 The structural checks support the narrow exception; they do not replace the real private
 owner/intruder and cross-organization tests described above. No new runtime permissions or
 changes to the main-run protocol were introduced by this gate fix.
+
+## PR2869 migration replay correction
+
+CI exposed non-replayable CREATE statements in the new subtask migration. Added
+IF NOT EXISTS to its table/index creation and drop-then-create for its exact tenant
+policy. The companion MCP schema migration now uses ADD COLUMN IF NOT EXISTS.
+No unrelated migration or permission grant changed; ENABLE/FORCE RLS remains explicit.
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api migrate:check
+```
+
+Exit 0: this worktree's 202 migrations applied from empty, then every file force-replayed;
+schema digest identical and all files recorded. The existing digest explicitly includes
+pg_policies definitions and pg_class relrowsecurity/relforcerowsecurity, so replay
+preserved tenant policy and enabled/forced RLS state. Raw log: `migrations-replay.txt`.
+Wrapper cleaned its own stack; total 10 seconds. git diff --check also passed.
+The CI report mentioned 204 files; this evidence is deliberately limited to the actual
+202-file local worktree and does not claim the merged CI checkout was tested locally.

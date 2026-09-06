@@ -32,3 +32,7 @@ regression expectations reflect it. The complete six-file set then passed on rer
 compilation, all MCP runtime execution, credential decryption or completed E005.
 The temporary four-line contract-size exception and required extraction deadline are
 recorded in `../../mcp-execution-delta.md`.
+
+Migration replay fix: nullable MCP schema columns now use ADD COLUMN IF NOT EXISTS.
+The actual full empty-build + forced replay check passed; shared raw log and detailed
+RLS-preservation evidence are in `../WX-T042/migrations-replay.txt` and that README.
