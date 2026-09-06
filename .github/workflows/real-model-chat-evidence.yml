@@ -51,6 +51,10 @@ on:
         description: "单次 run 的等待上限（毫秒）。默认 900000 = 15 分钟；网关 300–400s 天花板本身是被测对象，别调小"
         required: false
         default: "900000"
+      expect_kind:
+        description: "断言 ⑥ 判什么：file（默认，产出文件按字节判）或 canvas（工作坊画布渲染完成 + 30 秒验收线，issue #2852/#2836）"
+        required: false
+        default: "file"
 
 # 同一时刻只允许一轮：两个真实模型 run 抢同一台机器，既烧钱又让证据互相污染。
 concurrency:
@@ -64,6 +68,7 @@ jobs:
     env:
       REAL_MODEL_E2E_PROMPT: ${{ inputs.prompt }}
       REAL_MODEL_E2E_RUN_TIMEOUT_MS: ${{ inputs.run_timeout_ms }}
+      REAL_MODEL_E2E_EXPECT_KIND: ${{ inputs.expect_kind }}
       REAL_MODEL_E2E_EVIDENCE_DIR: ${{ github.workspace }}/apps/web/test-results/real-model-evidence
     steps:
       - uses: actions/checkout@v4
