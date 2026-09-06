@@ -96,5 +96,6 @@
 
 ## 相关
 - #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
+- `.harness/instructions/deployment-verification-standard.md`（本条在部署链上的落地规则：四层各要问什么）
 - `.harness/instructions/core-loop-readiness-standard.md`（CLR 的门控总览）
 - `.harness/instructions/agent-resource-cleanup-sop.md`（只清理能证明是自己造的栈）
