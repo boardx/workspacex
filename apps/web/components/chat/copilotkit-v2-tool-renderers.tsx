@@ -3,10 +3,11 @@
 import * as React from "react";
 import { z } from "zod";
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
-import { Loader2, CheckCircle2, ListTodo, FileSearch, FileText } from "lucide-react";
+import { Loader2, CheckCircle2, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { evictedToolResultNotice, parseEvictedToolResult } from "@/lib/tool-result-eviction";
 
 /**
  * DA-19c 工具可见性（框架版 Gap 1/4，issue backlog `DA-19c`）—— `/chat/copilotkit-v2`
@@ -227,9 +228,7 @@ function SearchDocumentsCard({
             ))}
           </ul>
         ) : (
-          <p className="text-10 text-card-foreground" data-testid="copilotkit-v2-tool-search-documents-raw-result">
-            {result}
-          </p>
+          <ToolResultText result={result ?? ""} testId="copilotkit-v2-tool-search-documents-raw-result" />
         )}
       </CardContent>
     </Card>
@@ -324,9 +323,52 @@ function GenericToolCard({
           <p className="truncate font-mono text-10 text-muted-foreground">{paramsSummary}</p>
         ) : null}
         {status === "complete" && typeof result === "string" && result.trim() !== "" ? (
-          <p className="whitespace-pre-wrap break-words text-10 text-card-foreground">{result}</p>
+          <ToolResultText result={result} testId="copilotkit-v2-tool-generic-result" />
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * 完成态结果正文的唯一出口（`GenericToolCard` 与 `SearchDocumentsCard` 的兜底分支共用）。
+ *
+ * 2026-09-06 devapp 实测：deep-agent 内核把超阈值的工具结果（`task` 子代理稍长的汇报就会）
+ * 驱逐成沙箱文件，正文换成一段**给模型看**的英文搬运占位（形状与识别见
+ * `lib/tool-result-eviction.ts` 头注），此前这里原样展示给用户——人类反馈"这个结果看起来也挺
+ * 奇怪的"。识别到就改成一句中文（路径保留，用户能对上 agent 后续 `read_file` 的对象）+ 折叠的
+ * 原文：不隐藏事实，只是不把内部搬运痕迹当结果摆在第一屏。不是占位就与之前完全一样。
+ */
+function ToolResultText({ result, testId }: { result: string; testId: string }) {
+  const [rawOpen, setRawOpen] = React.useState(false);
+  const evicted = React.useMemo(() => parseEvictedToolResult(result), [result]);
+  if (evicted === null) {
+    return <p className="whitespace-pre-wrap break-words text-10 text-card-foreground" data-testid={testId}>{result}</p>;
+  }
+  return (
+    <div className="flex flex-col gap-1" data-testid={testId} data-tool-result-evicted="true">
+      <p className="flex items-start gap-1.5 text-10 text-card-foreground" data-testid="copilotkit-v2-tool-result-evicted-notice">
+        <FileText aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 break-all">{evictedToolResultNotice(evicted.path)}</span>
+      </p>
+      <button
+        type="button"
+        onClick={() => setRawOpen((v) => !v)}
+        aria-expanded={rawOpen}
+        data-testid="copilotkit-v2-tool-result-evicted-toggle"
+        className="flex w-fit items-center gap-1 text-10 text-muted-foreground transition-colors duration-base hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ChevronRight aria-hidden className={cn("h-3 w-3 shrink-0 transition-transform duration-fast", rawOpen && "rotate-90")} />
+        {rawOpen ? "收起原文" : "查看原文"}
+      </button>
+      {rawOpen ? (
+        <p
+          className="whitespace-pre-wrap break-words font-mono text-10 text-muted-foreground"
+          data-testid="copilotkit-v2-tool-result-evicted-raw"
+        >
+          {evicted.raw}
+        </p>
+      ) : null}
+    </div>
   );
 }

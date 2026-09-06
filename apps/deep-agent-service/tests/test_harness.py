@@ -686,7 +686,11 @@ def test_call_skill_interrupt_on_is_conditional_by_skill():
 # ── DA-08（rubric D8②）：大工具结果驱逐到虚拟文件系统的活体反证 ──
 
 
-def _offload_graph(payload_chars: int):
+def _offload_graph(payload_chars: int, monkeypatch=None, evict_tokens: int = 1000):
+    """驱逐阈值通过 `KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS` 显式压到 1000（默认已是 8000），
+    让 8000 字符的探针稳定越线——测的是"越线就驱逐"这条机制，不是默认值本身。"""
+    if monkeypatch is not None:
+        monkeypatch.setenv("KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS", str(evict_tokens))
     from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
     from langchain_core.messages import AIMessage
     from langchain_core.tools import tool
@@ -710,10 +714,10 @@ def _offload_graph(payload_chars: int):
     return create_deep_agent(model=model, tools=[probe_tool], middleware=build_middleware(model))
 
 
-def test_large_tool_result_evicted_to_file():
-    """超过阈值（1000 token ≈ 4KB）的工具输出必须被驱逐：正文只留文件引用，
+def test_large_tool_result_evicted_to_file(monkeypatch):
+    """超过阈值（env 压到 1000 token ≈ 4KB）的工具输出必须被驱逐：正文只留文件引用，
     完整内容一字不丢地落在 state files——两半都断言，缺一半就是丢数据。"""
-    out = _offload_graph(payload_chars=8000).invoke({"messages": [{"role": "user", "content": "go"}]})
+    out = _offload_graph(payload_chars=8000, monkeypatch=monkeypatch).invoke({"messages": [{"role": "user", "content": "go"}]})
     tool_msgs = [m for m in out["messages"] if type(m).__name__ == "ToolMessage"]
     assert len(tool_msgs) == 1
     body = str(tool_msgs[0].content)
@@ -729,25 +733,41 @@ def test_large_tool_result_evicted_to_file():
     assert content.count("X") == 8000, "落盘内容必须一字不丢"
 
 
-def test_small_tool_result_stays_inline():
+def test_small_tool_result_stays_inline(monkeypatch):
     """反向：不超限的输出保持原样内联——驱逐不是无差别搬家，小结果搬走只会
     多一次 read_file 往返。"""
-    out = _offload_graph(payload_chars=200).invoke({"messages": [{"role": "user", "content": "go"}]})
+    out = _offload_graph(payload_chars=200, monkeypatch=monkeypatch).invoke({"messages": [{"role": "user", "content": "go"}]})
     tool_msgs = [m for m in out["messages"] if type(m).__name__ == "ToolMessage"]
     assert "X" * 200 in str(tool_msgs[0].content)
     assert not (out.get("files") or {}), "小结果不该产生任何落盘文件"
 
 
-def test_evict_threshold_pinned():
-    """阈值显式固定为 1000（≈4KB，rubric v2 口径），不吃库默认 20000——
-    升级时默认值漂移不得悄悄改变上下文策略（与 Summarization 同一条纪律）。"""
+def test_evict_threshold_pinned(monkeypatch):
+    """阈值显式固定为默认 8000（2026-09-06 由 1000 提高，见 harness.py 注释），不吃库默认
+    20000——升级时默认值漂移不得悄悄改变上下文策略（与 Summarization 同一条纪律）。"""
     from deep_agent_service.harness import TOOL_RESULT_EVICT_TOKENS, build_middleware
     from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-    assert TOOL_RESULT_EVICT_TOKENS == 1000
+    monkeypatch.delenv("KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS", raising=False)
+    assert TOOL_RESULT_EVICT_TOKENS == 8000
     mw = build_middleware(FakeListChatModel(responses=["ok"]))
     fs = next(m for m in mw if type(m).__name__ == "FilesystemMiddleware")
-    assert getattr(fs, "_tool_token_limit_before_evict", None) == 1000  # 私有名，实测 vars() 确认
+    assert getattr(fs, "_tool_token_limit_before_evict", None) == 8000  # 私有名，实测 vars() 确认
+
+
+def test_evict_threshold_env_override(monkeypatch):
+    """`KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS` 覆盖默认；非法值（非正整数）回落默认而不是炸。"""
+    from deep_agent_service.harness import TOOL_RESULT_EVICT_TOKENS, build_middleware, tool_result_evict_tokens
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS", "1234")
+    assert tool_result_evict_tokens() == 1234
+    mw = build_middleware(FakeListChatModel(responses=["ok"]))
+    fs = next(m for m in mw if type(m).__name__ == "FilesystemMiddleware")
+    assert getattr(fs, "_tool_token_limit_before_evict", None) == 1234
+    for bad in ("", "0", "-5", "abc"):
+        monkeypatch.setenv("KERNEL_DEEP_AGENT_TOOL_EVICT_TOKENS", bad)
+        assert tool_result_evict_tokens() == TOOL_RESULT_EVICT_TOKENS
 
 
 # ── DA-07d（rubric D7）：预算熔断 + 死循环纠偏 + 失败重试的活体反证 ──
