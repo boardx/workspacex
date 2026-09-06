@@ -276,6 +276,8 @@ export interface CanvasTemplateRepository {
     readonly title: string;
     readonly footer: string;
     readonly promptText: string;
+    /** issue #2825——「画完这个接着推荐哪几个」。全量替换，同 `tags`。 */
+    readonly recommendAfter: readonly string[];
   }): Promise<UpdateMetadataOutcome>;
 
   /**

@@ -198,6 +198,9 @@ export async function updateCanvasTemplateMetadata(
       title: input.title ?? "",
       footer: input.footer ?? "",
       promptText: input.promptText ?? "",
+      // issue #2825——「画完这个接着推荐哪几个模板」。同 `tags`：全量替换，省略等于
+      // 清空，所以调用方（`template-editor-panel.tsx` 的 `saveChrome`）必须原样带回。
+      recommendAfter: input.recommendAfter ?? [],
     },
   });
 }

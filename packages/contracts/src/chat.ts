@@ -1098,6 +1098,65 @@ export const operations = {
   },
 
   /**
+   * recommendCanvasTemplates —— 2026-09-06，**设计增量、待人类补签**（同 #496/#988/
+   * `suggestTemplateSections` 的先例：人类当面交办「可否变为一个动态的、更具上下文来
+   * 推荐可视化模板的地方，而不只是用户画像」，本操作是那句话的契约面）。
+   *
+   * ## 它替换掉的是什么
+   *
+   * chat 建议行里那条「生成用户画像」chip 此前是前端一个写死的常量
+   * （`copilotkit-v2-panel-body.tsx` 的 `personaSuggestions`）：19 个内置 + 组织自建的
+   * 画布模板里只有 `persona` 一个进得了建议行，文案永远相同，后台 template-admin 里
+   * 新建/改名/停用一个模板对它毫无影响。本操作把「现在该推荐哪几个画布模板」变成一次
+   * **服务端按当前线程内容 + 当前已发布模板库**算出来的答案。
+   *
+   * ## 判据只有两条，都读真实状态，不猜
+   *
+   * ① **线程里已经产出过哪些模板**——扫这条线程已落库消息正文里的 ```` ```canvas ````/
+   *    ```` ```persona ```` 围栏（`模板: <key>` 行），这是 `buildCanvasTemplateGuidance`
+   *    （issue #1493）指导模型写出来的那个格式，不是为本操作新发明的标记。
+   * ② **模板自己配的推荐关系**——已发布模板行的 `recommendAfter`
+   *    （`canvas.updateTemplateMetadata.in.recommendAfter`，后台可改）。
+   *
+   * 两条合成：线程里出现过的每个模板，取它的 `recommendAfter`，去掉线程里已经画过的，
+   * 按「被推荐次数、模板库顺序」排好返回。线程里一个画布都没有 ⇒ 返回**起点模板**
+   * （没有被任何已发布模板推荐过的那些，即推荐图的入度为 0 者）——这样一条刚开始的
+   * 对话看到的是「用户画像 / HMW 问题陈述」这类开场模板，而不是空。
+   *
+   * ⚠ **不调模型**。这是一次纯粹的读取 + 集合运算，几毫秒返回，可以在面板挂载时直接
+   *   调用；建议行里另一半（CopilotKit 的追问建议）才是模型生成的。把它做成模型调用
+   *   会让一排 chip 的出现时间取决于模型排队情况，而它本质上只是"模板库里配好的下一步"。
+   * ⚠ **本操作不产出任何画布**。点击一条建议之后发生什么由前端决定（`persona` 走既有
+   *   `summarizePersonaFromThread`，其余走一条普通用户消息，由 issue #1493 已经注入
+   *   system prompt 的那段 canvas 指引带模型产出围栏）——本操作只回答"推荐什么"。
+   * ⚠ `projectId` 走 **query** 且可缺省（缺省 = 个人线程），与 `getThread` 逐字同套，
+   *   见 🔴 #594 那条注释。
+   */
+  recommendCanvasTemplates: {
+    method: "GET", path: "/chat/threads/:threadId/canvas-template-recommendations",
+    in: z.object({
+      threadId: z.string(),
+      projectId: z.string().nullable(),
+    }).strict(),
+    out: z.object({
+      items: z.array(z.object({
+        /** 已发布模板行的 key，如 `journey-map`。 */
+        key: z.string(),
+        /** 后台配的显示名，chip 文案直接用它——前端不另存一份中文名映射。 */
+        displayName: z.string(),
+        /**
+         * 点这条 chip 要发出去的那句话。服务端拼，前端原样发——「怎么让模型照这个
+         * 模板产出围栏」是后端 `buildCanvasTemplateGuidance` 那套格式约定的一部分，
+         * 前端再拼一遍就是同一条规则的第二份副本。
+         */
+        prompt: z.string(),
+      })).max(4),
+    }).strict(),
+    /** 不可见/不存在同一个出口（同 `getThread`）。模板库读不到时返回空 `items`，不报错。 */
+    err: ["NOT_VISIBLE"] as const,
+  },
+
+  /**
    * generateFollowUpSuggestions —— UIUX 对标 CopilotKit gap #2（issue #712）：把线程
    * composer 下方的「追问建议」chip 从纯前端确定性规则换成一次真实模型推理。
    *
@@ -1613,4 +1672,22 @@ export const KNOWN_CONTRACT_GAPS = {
    * （`listThreadArtifacts.out.items[].messageId` + `getThreadArtifactSource`）。
    */
   C_CHAT_11: "summarizePersonaFromThread is signed off (design-delta chat-persona-roundtrip, confirmed 2026-08-18): mode stays draft-only, insufficient data keeps landing a placeholder instead of rejecting, and the same signoff added out.resultMessageId plus the assistant-message mindmap-fence behavior and the G1 readback loop (items[].messageId + getThreadArtifactSource)",
+
+  /**
+   * **`recommendCanvasTemplates` 待人类补签**（2026-09-06，issue #2825；同 #496/#988/
+   * `suggestTemplateSections` 的先例——人类当面交办、实现先行、登记待补签）。
+   *
+   * 交办原话：「可否变为一个动态的、更具上下文来推荐可视化模板的地方，而不只是用户
+   * 画像，比如上面是用户画像，就可以推荐用户旅程图、同理心地图等，主要渲染我们在
+   * 后台定义好的画布模板」。落地成两件：canvas 侧模板注册表新增可编辑的
+   * `recommendAfter`（`canvas.updateTemplateMetadata`），chat 侧新增本只读操作。
+   *
+   * 需要人类拍板的两处（实现已按下述取舍先做，改判只需改一处纯函数）：
+   * ① **空线程推荐"起点模板"的排序**用的是出度启发式（能带出更多后续的排前面），
+   *    见 `domain/canvas/template-recommendation.ts` 的 `entryTemplates` 头注——
+   *    它比 key 字典序诚实，但仍是启发式，人类可能想要一份显式的开场模板清单。
+   * ② **一次最多推 3 条**（契约上限 4）。建议行里还并排渲染 CopilotKit 的模型追问
+   *    建议，两边加起来超过一行会把 composer 顶下去。
+   */
+  C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff: read-only, no model call; recommends canvas templates from the org's published recommendAfter graph minus what the thread already drew; open questions are the entry-template ordering heuristic (out-degree) and the 3-chip display cap",
 } as const;

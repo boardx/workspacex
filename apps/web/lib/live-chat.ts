@@ -278,6 +278,32 @@ export async function summarizePersonaFromThread(
 }
 
 /**
+ * chat 建议行里那排**画布模板推荐**（issue #2825）——
+ * `GET /chat/threads/:threadId/canvas-template-recommendations`。
+ *
+ * 取代此前前端写死的那条「生成用户画像」常量 chip：推荐哪几个模板由服务端按
+ * 「这条线程已经画过哪些 canvas 围栏」+「后台已发布模板配的 `recommendAfter`」
+ * 算出来，前端只渲染与发送 `items[].prompt`，不在这里复制任何一条推荐规则。
+ *
+ * ⚠ `projectId` 与 `getThread` 同套：`null`（个人线程）⇒ 查询参数整个省略，
+ *   不传字符串 `"null"`（见本文件 🔴 #594 那段注释）。
+ */
+export type RecommendCanvasTemplatesOut = z.infer<
+  typeof chat.operations.recommendCanvasTemplates.out
+>;
+
+export async function recommendCanvasTemplates(
+  threadId: string,
+  projectId: string | null,
+  sessionToken?: string,
+): Promise<RecommendCanvasTemplatesOut> {
+  return apiRequest<RecommendCanvasTemplatesOut>(
+    chat.operations.recommendCanvasTemplates.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
+  );
+}
+
+/**
  * UIUX 对标 CopilotKit gap #2（issue #712）—— 真实的「追问建议」推理调用，
  * `POST /chat/threads/:threadId/followup-suggestions`。与 `summarizePersonaFromThread`
  * 同一个薄封装形状：类型从契约推导，一律经 `apiRequest`。

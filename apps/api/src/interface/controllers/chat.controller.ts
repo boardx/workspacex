@@ -141,6 +141,7 @@ import {
   PersonalThreadRequiresDraftError,
 } from "../../application/chat/land-as-artifact";
 import { summarizePersonaFromThread } from "../../application/chat/summarize-persona-from-thread";
+import { recommendCanvasTemplates } from "../../application/chat/recommend-canvas-templates";
 import {
   ArtifactLandingNotFoundError,
   checkDownstreamEligibility,
@@ -1135,6 +1136,41 @@ export class ChatController {
       if (e instanceof LandMaterializationFailedError) {
         throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
       }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * chat 建议行里那排**画布模板推荐**（`recommendCanvasTemplates`，issue #2825，
+   * 设计增量待人类补签）。纯读：判权 + 扫线程里已经画过哪些 canvas 围栏 + 读该组织
+   * 已发布模板的 `recommendAfter`，算出接下来推荐哪几个模板。**不调模型、不写库。**
+   *
+   * 依赖与 `summarizePersonaRoute` 同一组（`personaSummaryDeps`：线程仓储 +
+   * identity + canvas 模板仓储）——两条路径读的是同一张模板表、同一个 `listTemplates`
+   * 用例，不为本路由另接一份依赖。
+   *
+   * 🔴 #594：`projectId` 查询参数缺省折成 `null`（个人线程分支），与上面
+   * `thread()` 逐字同套——空字符串同样折成 `null`，理由见那条注释。
+   */
+  @Get("/chat/threads/:threadId/canvas-template-recommendations")
+  async canvasTemplateRecommendations(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Query("projectId") rawProjectId?: string,
+  ) {
+    assertPrincipal(principal);
+    const projectId = rawProjectId === undefined || rawProjectId === "" ? null : rawProjectId;
+    try {
+      return await recommendCanvasTemplates(this.personaSummaryDeps, {
+        userId: principal.userId,
+        orgId: toOrgId(principal.orgId),
+        projectId,
+        threadId,
+      });
+    } catch (e) {
+      // 同 `thread()`：不可见与不存在一个出口、不带 body。
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }
