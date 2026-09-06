@@ -1,27 +1,22 @@
-# deep-agent-service (#739) -- same shape as the existing open_deep_research deployment
-# (`python:3.11-slim`, `pip install -e .`, `langgraph dev`). See #738's investigation for
-# why this is a standalone service rather than a chat-completion-shaped provider.
-#
-# ⚠ #738 core current, NOT this PR's invention: `.harness/scripts/vm/deploy.sh` does not
-# auto-build/run the open_deep_research container today -- it is started by hand on the VM
-# (see `deep-research-model-provider.ts`'s own header comment). This Dockerfile is written
-# so a human can build and run it the same way; it is NOT wired into `deploy.sh`'s automated
-# path, and this PR does not claim it is.
 FROM python:3.11-slim
-
 WORKDIR /app
 
-COPY pyproject.toml langgraph.json ./
+# issue #2880 —— 按 uv.lock 安装，不再 `pip install -e .`：后者解析出 langgraph-api 0.10.3
+# （EOL），与本地/测试锁定的 0.12.4 两套运行时；本地绿 ≠ 线上跑的是同一份代码。
+COPY pyproject.toml uv.lock langgraph.json ./
 COPY src ./src
+RUN pip install --no-cache-dir uv==0.12.5 \
+ && uv sync --frozen --no-dev \
+ && rm -rf /root/.cache
 
-RUN pip install --no-cache-dir -e .
-
-# Required at container-start time (see `src/deep_agent_service/model.py`'s own doc
-# comment): KERNEL_MODEL_BASE_URL, KERNEL_MODEL_API_KEY (same values as apps/api's copies,
-# no new credential), KERNEL_DEEP_AGENT_MODEL_ID (defaults to a placeholder, see model.py).
-#
-# Bound to 127.0.0.1 on the VM host side via `-p 127.0.0.1:<port>:2024`, same discipline the
-# open_deep_research container already uses -- this service has no auth of its own.
 EXPOSE 2024
 
-CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "2024", "--allow-blocking", "--no-browser"]
+# issue #2880（2026-09-07 devapp docker logs 取证）：
+# · `--no-reload`：生产不监视文件。运行时自己往 `.langgraph_api/` 写持久化，被 dev 的
+#   watchfiles 当成代码改动每 10s 触发一次重载，在跑的 run 被反复打断。
+# · `--n-jobs-per-worker 10`：默认 1 ⇒ `Worker stats max=1`，一个慢/卡的 run 让后面所有
+#   run 排队（实测 n_pending=5、最长等待 2638s），用户侧表现为全站「模型正在思考…」。
+# · 仍是 `langgraph dev`（in-memory 运行时 + 可选 Postgres 检查点）——换 `langgraph up`
+#   需要许可证/控制面，不在本 issue 范围。
+CMD ["/app/.venv/bin/langgraph", "dev", "--host", "0.0.0.0", "--port", "2024", \
+     "--allow-blocking", "--no-browser", "--no-reload", "--n-jobs-per-worker", "10"]
