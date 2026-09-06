@@ -62,6 +62,7 @@
  *   塞不进一个二进制 .pptx。硬改它会把 UC-20 的落地产物语义一起改掉——那是另一件事。
  *   用户要把这个 .pptx 留成项目产物，仍然走既有的显式落地操作。
  */
+import { outputFileMime } from "./output-file-mime";
 import type { ObjectStore } from "../artifact/ports";
 import { ModelCallError, type RunOutputFile } from "./ports";
 import {
@@ -75,20 +76,6 @@ import { SandboxUnavailableError, type SkillSandboxPort } from "../skill/skill-s
 
 /** 沙箱单次执行的 wall-clock 上限。与试跑同值——同一条执行语义不该有两个超时。 */
 export const CHAT_SCRIPT_TIMEOUT_MS = 120_000;
-
-/**
- * 按扩展名给 mime。与 `execute-trial-run.ts` 的表**同形**（⚠ 已知重复，两处各声明
- * 一次——本仓栽过五次的"同一事实两处声明"，本次只是按既有约定同步更新，不在本
- * feature 范围内合并成单一来源）。F979（design-delta skill-office-docs-node-runtime）
- * 新增 docx/xlsx/pdf 三个扩展——认不出的一律 `application/octet-stream`（诚实的
- * "不知道"，不猜一个像样的类型）。
- */
-const MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
-  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".pdf": "application/pdf",
-};
 
 /**
  * 沙箱执行产出的一个文件，字节已落对象存储。
@@ -194,9 +181,7 @@ export async function maybeRunSkillScript(
       const key = deps.objectKeyFor
         ? deps.objectKeyFor(file.name)
         : `agent-run-outputs/${input.runId}/${file.name}`;
-      const dot = file.name.lastIndexOf(".");
-      const mime = (dot === -1 ? undefined : MIME_BY_EXTENSION[file.name.slice(dot).toLowerCase()])
-        ?? "application/octet-stream";
+      const mime = outputFileMime(file.name);
       await objects.putOnce(key, bytes, mime);
       files.push({ name: file.name, mime, sizeBytes: bytes.length, objectKey: key });
     }
