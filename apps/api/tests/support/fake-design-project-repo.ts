@@ -8,7 +8,7 @@ import type {
   DesignProjectPatch,
   DesignProjectRepository,
   DesignProjectRow,
-  NewPrototypeVersion,
+  NewPrototypeVersionMeta,
   PrototypeVersionRow,
   NewDesignProject,
   PushToInboxResult,
@@ -39,14 +39,9 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
   async getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null> {
     return this.versions.find((v) => v.projectId === projectId && v.id === versionId) ?? null;
   }
-  async recordVersion(projectId: string, ownerId: string, version: NewPrototypeVersion): Promise<Omit<PrototypeVersionRow, "prototype"> | null> {
-    const r = this.rows.get(projectId);
-    if (r === undefined || r.ownerId !== ownerId) return null;
-    const seq = this.versions.filter((v) => v.projectId === projectId).length + 1;
-    const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...version.frames], prototype: [...version.prototype], createdAt: this.stamp() };
-    this.versions.push(row);
-    const { prototype: _p, ...rest } = row;
-    return rest;
+  private lastVersion: Omit<PrototypeVersionRow, "prototype"> | null = null;
+  lastRecordedVersion(): Omit<PrototypeVersionRow, "prototype"> | null {
+    return this.lastVersion;
   }
 
   private stamp(): string {
@@ -93,7 +88,8 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     return this.rows.get(projectId) ?? null;
   }
 
-  async update(projectId: string, ownerId: string, patch: DesignProjectPatch): Promise<DesignProjectRow | null> {
+  async update(projectId: string, ownerId: string, patch: DesignProjectPatch, version?: NewPrototypeVersionMeta): Promise<DesignProjectRow | null> {
+    this.lastVersion = null;
     const r = this.rows.get(projectId);
     if (r === undefined || r.ownerId !== ownerId) return null;
     const next: DesignProjectRow = {
@@ -108,6 +104,14 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
+    if (version !== undefined) {
+      // 同真实仓储：与 UPDATE 同一步落版本，frames/prototype 取更新后的行。
+      const seq = this.versions.filter((v) => v.projectId === projectId).length + 1;
+      const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...next.frames], prototype: [...next.prototype], createdAt: this.stamp() };
+      this.versions.push(row);
+      const { prototype: _p, ...rest } = row;
+      this.lastVersion = rest;
+    }
     return next;
   }
 

@@ -1,8 +1,8 @@
 /**
  * 迭代 3 —— 原型版本历史三用例：列表 / 单条 / 恢复。
  *
- * 版本的**产生**不在这里：`append-project-chat.ts` 在 `prototype` 真的被写回后调 `recordVersion`
- * （source: "model"）；恢复在这里写回旧版内容后**再追加**一条 `source: "restore"`（历史只追加）。
+ * 版本的**产生**不在这里：`append-project-chat.ts` 在 `prototype` 真的被写回时随 `projects.update`
+ * 同一事务落一条（source: "model"）；恢复在这里写回旧版内容并**同一事务**追加一条 `source: "restore"`。
  * 可见性同项目：列表/单条全组织可读；恢复仅 owner（写回走 `projects.update` 的 owner 谓词）。
  */
 import { designPrototype } from "@repo/contracts";
@@ -51,10 +51,10 @@ export async function restorePrototypeVersion(
   if (v === null) throw new PrototypeVersionNotFoundError();
   // 旧版可能来自 id 之前的时代：补齐后写回，模型与画布看到的每个节点都可寻址。
   const prototype = designPrototype.ensurePrototypeIds(v.prototype);
-  const written = await deps.projects.update(input.projectId, input.ownerId, { frames: v.frames, prototype });
+  const written = await deps.projects.update(input.projectId, input.ownerId, { frames: v.frames, prototype }, { source: "restore", summary: `恢复自 v${v.seq}` });
   if (written === null) throw new DesignProjectNotOwnerError();
-  const recorded = await deps.projects.recordVersion(input.projectId, input.ownerId, { source: "restore", summary: `恢复自 v${v.seq}`, frames: v.frames, prototype });
-  if (recorded === null) throw new DesignProjectNotOwnerError();
+  const recorded = deps.projects.lastRecordedVersion();
+  if (recorded === null) throw new Error("design-workbench: restore wrote the project but no version was recorded");
   const names = await ownerNamesFor(deps, [written.ownerId]);
   return { project: projectDesignProject(written, names.get(written.ownerId) ?? null), version: summaryView(recorded) };
 }

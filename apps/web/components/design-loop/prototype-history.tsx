@@ -37,9 +37,11 @@ function reason(err: unknown): string {
 }
 
 export function PrototypeHistoryPanel({
-  projectId, isOwner, previewId, onPreview, onRestored,
+  projectId, revision, isOwner, previewId, onPreview, onRestored,
 }: {
   projectId: string;
+  /** 项目的 `updatedAt`——它一变就重拉列表（对话写回 / 手改 / 恢复都会改它），面板开着也不会过期。 */
+  revision: string;
   isOwner: boolean;
   /** 正在预览的版本 id（父组件持有），用于高亮。 */
   previewId: string | null;
@@ -60,7 +62,7 @@ export function PrototypeHistoryPanel({
     }
   }, [projectId]);
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void load(); }, [load, revision]);
 
   const preview = async (v: PrototypeVersionSummary) => {
     if (previewId === v.id) { onPreview(null); return; }

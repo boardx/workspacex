@@ -19,7 +19,7 @@ import type {
   DesignProjectRepositoryFactory,
   DesignProjectRow,
   NewDesignProject,
-  NewPrototypeVersion,
+  NewPrototypeVersionMeta,
   ProjectTemplate,
   PrototypeNode,
   PrototypeVersionRow,
@@ -247,7 +247,13 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     });
   }
 
-  async update(projectId: string, ownerId: string, patch: DesignProjectPatch): Promise<DesignProjectRow | null> {
+  private lastVersion: Omit<PrototypeVersionRow, "prototype"> | null = null;
+  lastRecordedVersion(): Omit<PrototypeVersionRow, "prototype"> | null {
+    return this.lastVersion;
+  }
+
+  async update(projectId: string, ownerId: string, patch: DesignProjectPatch, version?: NewPrototypeVersionMeta): Promise<DesignProjectRow | null> {
+    this.lastVersion = null;
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<ProjectDbRow>(
         `UPDATE design_projects
@@ -273,6 +279,21 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       );
       const row = rows[0];
       if (row === undefined) return null;
+      if (version !== undefined) {
+        // 同一事务：上面的 UPDATE 已锁住项目行，同项目的 MAX(seq)+1 在并发写回之间串行。
+        const id = `${projectId}-v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const { rows: vrows } = await s.query<VersionDbRow>(
+          `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype)
+           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb
+             FROM design_project_prototype_versions
+            WHERE org_id = $2 AND project_id = $3
+           RETURNING id, project_id, seq, source, summary, frames, created_at`,
+          [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(toStringArray(row.frames)), JSON.stringify(toPrototype(row.prototype, toStringArray(row.frames)))],
+        );
+        const v = vrows[0];
+        if (v === undefined) throw new Error("design-workbench: inserted version vanished within the same transaction");
+        this.lastVersion = toVersionSummary(v);
+      }
       return toRow(row, await this.chatFor(s, row.id));
     });
   }
@@ -304,29 +325,6 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       if (row === undefined) return null;
       const summary = toVersionSummary(row);
       return { ...summary, prototype: toPrototype(row.prototype, summary.frames) };
-    });
-  }
-
-  async recordVersion(projectId: string, ownerId: string, version: NewPrototypeVersion): Promise<Omit<PrototypeVersionRow, "prototype"> | null> {
-    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
-      // owner 谓词在这条 SELECT 上——版本只由 owner 的写回产生。
-      const { rows: owned } = await s.query<{ id: string }>(
-        `SELECT id FROM design_projects WHERE org_id = $1 AND owner_id = $2 AND id = $3`,
-        [this.orgId, ownerId, projectId],
-      );
-      if (owned.length === 0) return null;
-      const id = `${projectId}-v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const { rows } = await s.query<VersionDbRow>(
-        `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype)
-         SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb
-           FROM design_project_prototype_versions
-          WHERE org_id = $2 AND project_id = $3
-         RETURNING id, project_id, seq, source, summary, frames, created_at`,
-        [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(version.frames), JSON.stringify(version.prototype)],
-      );
-      const row = rows[0];
-      if (row === undefined) throw new Error("design-workbench: inserted version vanished within the same transaction");
-      return toVersionSummary(row);
     });
   }
 

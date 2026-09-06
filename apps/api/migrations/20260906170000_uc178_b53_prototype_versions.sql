@@ -41,3 +41,23 @@ DROP TRIGGER IF EXISTS design_project_prototype_versions_append_only_trg ON desi
 CREATE TRIGGER design_project_prototype_versions_append_only_trg
   BEFORE UPDATE OR DELETE ON design_project_prototype_versions
   FOR EACH ROW EXECUTE FUNCTION dw_prototype_versions_append_only();
+
+/* ── RLS：per-org（同 design_projects / design_project_chat_messages）；「仅 owner」在仓储 SQL 谓词里 ── */
+
+DO $$
+BEGIN
+  EXECUTE 'ALTER TABLE design_project_prototype_versions ENABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE design_project_prototype_versions FORCE ROW LEVEL SECURITY';
+END
+$$;
+
+DROP POLICY IF EXISTS design_project_prototype_versions_tenant ON design_project_prototype_versions;
+CREATE POLICY design_project_prototype_versions_tenant ON design_project_prototype_versions
+  USING (org_id = current_setting('app.current_org', true))
+  WITH CHECK (org_id = current_setting('app.current_org', true));
+
+REVOKE ALL ON design_project_prototype_versions FROM app_rw;
+-- 追加写、只读：没有 UPDATE/DELETE 授权，与触发器双重把关（同 design_project_chat_messages）。
+GRANT SELECT, INSERT ON design_project_prototype_versions TO app_rw;
+
+SELECT kernel_apply_org_freeze_policies();

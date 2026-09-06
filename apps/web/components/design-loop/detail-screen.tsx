@@ -384,6 +384,7 @@ export function DesignDetailScreen({
                 {historyOpen && (
                   <PrototypeHistoryPanel
                     projectId={project.id}
+                    revision={project.updatedAt}
                     isOwner
                     previewId={preview?.id ?? null}
                     onPreview={setPreview}
