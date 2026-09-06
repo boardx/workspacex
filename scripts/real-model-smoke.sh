@@ -24,6 +24,10 @@ real_model_require_isolation
 real_model_require_credentials "dashscope 真实模型" DASHSCOPE_API_KEY DASHSCOPE_BASE_URL DASHSCOPE_MODEL
 
 EVIDENCE_DIR="${REAL_MODEL_E2E_EVIDENCE_DIR:-${REPO_ROOT}/apps/web/test-results/real-model-evidence}"
+# ⚠ 每轮**先清空**证据目录。不清的话上一轮的产物会留在原地：一个这轮压根没产出文件的
+# 失败 run，目录里却躺着上一轮的 `91-produced.pdf/.docx/.xlsx`——读证据的人（和写这段
+# 注释的 agent 自己）会据此得出完全相反的结论。证据包的价值全部来自"它只描述这一轮"。
+rm -rf "$EVIDENCE_DIR"
 mkdir -p "$EVIDENCE_DIR"
 STACK_LOG="${EVIDENCE_DIR}/50-stack-up.log"
 
