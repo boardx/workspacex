@@ -6,8 +6,8 @@ The normal `/research?session=…` workspace reads a durable session runtime. Br
 
 - `KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER` and `KERNEL_GUIDED_RESEARCH_MODEL_ID` optionally override the general `KERNEL_MODEL_PROVIDER` and `KERNEL_MODEL_ID`.
 - The model port uses the existing server model credentials and base URL configuration.
-- `TAVILY_API_KEY` enables the real search adapter. It is required for actual search execution; missing credentials produce an explicit error.
-- `KERNEL_GUIDED_SEARCH_URL` defaults to `https://api.tavily.com/search`. Override only for an explicitly trusted compatible gateway or the isolated loopback test provider. Search credentials are sent to this configured destination.
+- Guided research uses the existing BoardX Google Custom Search proxy at `https://www.web-search.boardx.us/`. It sends `GET ?q=<query>` and consumes `results` entries with `title`, `url`, and `snippet`. No Tavily key or application-side Google key is required; upstream Google credentials are managed by the existing proxy.
+- `KERNEL_GUIDED_SEARCH_URL` optionally overrides that endpoint for a trusted compatible gateway or isolated loopback test provider. Remove any old Tavily endpoint override when deploying this change. Queries are sent to this configured destination; authorization headers and model credentials are never forwarded.
 - Credentials belong in local/deployment secrets, never in tracked files.
 
 ## Persistence and concurrency
@@ -22,7 +22,7 @@ Messages, model attempts, proposals, drafts, tasks, retrieved content, source de
 
 ## Sources and reports
 
-Search tasks are created from model-generated queries covering the confirmed outline. Source IDs are minted by the server, URLs/content come from the search provider, and sources start pending. The user explicitly retains or excludes sources. Reports must cover every enabled outline section and reference only retained source IDs. Links are resolved from those persisted records, not from URLs invented by the report model. The model receives bounded source excerpts and is asked to state evidence limitations; structural citation validation is not a guarantee of semantic correctness.
+Search tasks are created from model-generated queries covering the confirmed outline. Source IDs are minted by the server, URLs/content come from the search provider, and sources start pending. The user explicitly retains or excludes sources. Reports must cover every enabled outline section and reference only retained source IDs. Links are resolved from those persisted records, not from URLs invented by the report model. The model receives bounded source excerpts (Google search snippets, not fetched full pages) and is asked to state evidence limitations; structural citation validation is not a guarantee of semantic correctness.
 
 ## Verification
 
@@ -30,4 +30,8 @@ Search tasks are created from model-generated queries covering the confirmed out
 - UI: `pnpm --filter web exec vitest run tests/ui/guided-research-live.test.tsx tests/ui/guided-research-flow.test.tsx tests/ui/guided-research-checkpoints-live.test.tsx tests/ui/guided-research-home-live.test.tsx`
 - Browser: `node --import tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test guided-research-runtime.spec.ts --config=playwright.fullstack-smoke.config.ts --project=seeded`
 
-The automated provider fixtures are explicitly configured HTTP/test doubles. They verify the real application and persistence paths, but do not constitute a real DashScope/Tavily production smoke test. That test additionally requires configured credentials and authorization for the external requests.
+The automated provider fixtures are explicitly configured HTTP/test doubles. They verify the real application and persistence paths, but do not constitute a real model/Google proxy production smoke test. A live model test additionally requires model credentials and authorization for the external requests.
+
+## Recovering existing failed searches
+
+After deploying the Google adapter, reopen the saved research session and retry failed tasks. Existing successes and source decisions are preserved. Source snippets remain pending until explicitly accepted. The workflow still requires successful search tasks and retained evidence before generating the report; unavailable, malformed, or empty upstream responses never become fabricated successful searches.

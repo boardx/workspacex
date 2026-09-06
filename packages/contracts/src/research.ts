@@ -838,7 +838,7 @@ export const GuidedResearchConversationModelOutput = z.object({
 }).strict();
 // External search responses can contain additional provider metadata; only these fields are consumed.
 export const GuidedResearchSearchProviderResponse = z.object({ results: z.array(z.object({
-  title: z.string().min(1), url: z.string().url(), content: z.string(), raw_content: z.string().nullable().optional(),
+  title: z.string().trim().min(1), url: z.string().url(), snippet: z.string(),
 })) });
 
 // Durable five-step research. The model never creates source identifiers or URLs.

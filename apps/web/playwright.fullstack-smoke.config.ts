@@ -198,7 +198,6 @@ const asrProviderEnv = {
  */
 const modelProviderEnv = {
   KERNEL_GUIDED_SEARCH_URL: `http://127.0.0.1:${modelProviderPort}/search`,
-  TAVILY_API_KEY: "fullstack-research-loopback-not-a-secret",
   KERNEL_MODEL_PROVIDER: FULLSTACK_E2E.agentModelProvider,
   KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
   // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
