@@ -25,6 +25,23 @@ const COMMON_PREAMBLE = (lib: string) =>
 const NO_CODE_IN_FINAL_REPLY =
   `脚本成功执行、文件生成之后，回复用户的最终消息里**不要再贴一遍这段脚本代码**——文件已经产出，用户要的是文件本身，重复贴代码只会让消息变得又长又难读，没有任何信息价值。最终回复只需要一两句话说清楚生成了什么内容、文件叫什么名字。`;
 
+/**
+ * 中文支持（2026-09-06 人类反馈：「excel/pdf/word/ppt 都要很好地支持中英文」）。
+ *
+ * docx / xlsx / pptx 三者都是 OOXML —— 文本以 UTF-8 存在 XML 里，中文本身**从来
+ * 不会**变成乱码，与 PDF 完全不同（PDF 要把字形嵌进文件，所以那份 SKILL.md 里另有
+ * 一整节讲嵌字体）。这三份这里唯一要交代的是**字体名**：OOXML 只记名字，字面由
+ * 打开文件的软件提供，写一个中文机器上不存在的西文字体名会让中文走 fallback，
+ * 排版忽宽忽窄。所以规则很短：要么别指定，要么指定一个中日韩机器上普遍存在的。
+ */
+const CJK_TEXT_NOTE = (howToSetFont: string) =>
+  `中英文混排开箱即用：文件里的文本是 UTF-8，中文不会变成乱码，不需要嵌入字体（这
+一点和 PDF 不同）。唯一要注意的是**字体名**——文档里只记名字，字面由打开文件的软件
+提供：如果指定了一个中文机器上没有的西文字体（Calibri、Arial 之类），中文会退回
+系统默认字体，同一段里宽窄不一。做法二选一：**不指定字体**（用软件默认，最省事），
+或者指定一个中日韩系统上普遍存在的（Windows/WPS：\`微软雅黑\`、\`宋体\`、\`等线\`；
+macOS：\`PingFang SC\`）。${howToSetFont}`;
+
 export const DOCX_CREATE_SKILL_MD = `# Word 文档生成（docx-create）
 
 用这个 skill 从零创建一份 Word 文档（\`.docx\`），适合报告、纪要、说明书这类以标题
@@ -59,6 +76,10 @@ Packer.toBuffer(doc).then((buf) => {
 
 支持：多级标题、段落、项目符号/编号列表、表格（\`Table\`/\`TableRow\`/\`TableCell\`）、
 基础字符样式（加粗/斜体/字号/颜色）。
+
+## 中文支持
+
+${CJK_TEXT_NOTE("docx 里设字体：`new TextRun({ text: '中文正文', font: '微软雅黑' })`。")}
 
 ## 明确做不到的事
 
@@ -107,6 +128,10 @@ wb.xlsx.writeFile(process.env.SKILL_SANDBOX_OUT_DIR + '/output.xlsx');
 
 支持：多个 sheet、单元格样式（字体/填色/边框/数字格式）、常见公式的**文本写入**
 （\`SUM\`/\`AVERAGE\`/\`COUNT\` 等，公式语法本身要写对，因为这里不校验、不求值）。
+
+## 中文支持
+
+${CJK_TEXT_NOTE("exceljs 里设字体：`cell.font = { name: '微软雅黑', size: 11 }`；中文列头记得把列宽调宽一点（`sheet.getColumn(1).width = 20`），否则会显示成 `####` 或被截断。")}
 
 ## 明确做不到的事
 
@@ -163,6 +188,10 @@ pres.writeFile({ fileName: process.env.SKILL_SANDBOX_OUT_DIR + '/output.pptx' })
 
 支持：多页幻灯片、标题/正文文本框、基础形状与文本框样式（字号/加粗/颜色/对齐）、
 简单表格（\`addTable\`）、内嵌图片（PNG/JPG）。
+
+## 中文支持
+
+${CJK_TEXT_NOTE("pptxgenjs 里设字体：`slide.addText('中文标题', { fontFace: '微软雅黑', fontSize: 32 })`。")}
 
 ## 明确做不到的事
 
@@ -226,18 +255,48 @@ const fs = require('fs');
 - 内容较多、排版复杂的请求，优先拆成用户能接受的更简单版式，而不是写一份几百行的
   脚本去追求"看起来精致"。
 
-## ⚠ 已知限制：内置字体不支持中文
+## 中文（以及日文/韩文）：必须嵌入预装字体，不能用内置字体
 
-pdf-lib 的内置标准字体只覆盖拉丁字符（WinAnsi 编码）。**用户要求中文正文时，如实
-告知这个限制**（内置字体画不出中文，会显示成空白或乱码），不要硬着头皮画一份坏
-文件。可以建议改用 docx 或 xlsx（两者都能正常处理中文），或者明确这次只能是
-英文内容。
+pdf-lib 的内置标准字体（\`StandardFonts\`）只覆盖拉丁字符（WinAnsi 编码），拿它画中文
+会直接抛错或画出乱码。**只要正文里有任何一个非拉丁字符，就走下面这条路**：沙箱里
+预装了一份覆盖简繁中文 + 日文 + 韩文的字体，路径在环境变量
+\`process.env.SKILL_SANDBOX_CJK_FONT\` 里，配合预装的 \`@pdf-lib/fontkit\` 嵌入：
+
+\`\`\`js
+const { PDFDocument } = require('pdf-lib');
+const fontkit = require('@pdf-lib/fontkit');
+const fs = require('fs');
+
+(async () => {
+  const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
+  // subset: true —— 只把真正用到的字形写进 PDF，一页中英混排通常只有几 KB。
+  const font = await doc.embedFont(fs.readFileSync(process.env.SKILL_SANDBOX_CJK_FONT), { subset: true });
+
+  const page = doc.addPage([595, 842]); // A4
+  page.drawText('季度经营回顾', { x: 50, y: 780, size: 24, font });
+  page.drawText('营收同比增长 18%（含 English 混排）', { x: 50, y: 745, size: 12, font });
+
+  fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/report.pdf', await doc.save());
+})().catch((e) => { console.error(e.stack); process.exit(1); });
+\`\`\`
+
+要点：
+
+- 这一份字体**中英文都能画**，中英混排直接用同一个 \`font\` 就行，不需要为拉丁字符
+  另外嵌一个 Helvetica。
+- 只有一种字重（没有真正的粗体/斜体字面）。要强调就用更大的字号、或者在文字下面画
+  一条线，**不要**去 \`embedFont(StandardFonts.HelveticaBold)\` 再拿它画中文。
+- \`SKILL_SANDBOX_CJK_FONT\` 万一没有值（未配置的环境），别硬画：如实告诉用户这套
+  环境缺中文字体。
+- 换行要自己算：中文字符没有空格可断，一行大概能放 \`(页宽 - 左右边距) / 字号\` 个
+  汉字，按内容手动切几行即可，不要为此写通用排版函数（见上一节）。
 
 ## 明确做不到的事
 
 - 不能编辑/合并/拆分已存在的 PDF。
 - 不支持表单域、OCR、数字签名。
-- 内置字体不支持中文（见上）。
+- 中文字体只有一种字重（无粗体/斜体字面），见上。
 
 ## ⚠ 生成完成后，最终回复里不要贴代码
 

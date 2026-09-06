@@ -7,18 +7,28 @@
  * （`Tj`/`TJ` 操作符的括号字符串操作数），确认请求的文本真的被画进了页面，不是只有
  * 一个空白页。
  *
- * ⚠ **已知限制**：`pdf-lib` 的标准 14 字体（`StandardFonts`）只覆盖 WinAnsi 编码
- * （拉丁字符），不支持中文——嵌入 CJK 字体需要额外的字体文件与 `@pdf-lib/fontkit`
- * 依赖，属于范围外（design-delta §2 明确首个切片只做纯文本排版，不含字体管理）。
- * 因此本 skill 的示例/测试文本用英文，promptTemplate 里会如实告知这一限制。
+ * ⚠ **只对拉丁文本有效**：`pdf-lib` 的标准 14 字体（`StandardFonts`）走 WinAnsi 编码，
+ * `Tj` 操作数就是字符本身，所以这里能把文本读回来。**中文走的是另一条路**——嵌入
+ * 字体 + Identity-H，`Tj` 操作数是字形编号而不是字符，且 pdf-lib 不写 ToUnicode
+ * CMap（实测确认），从 PDF 反查不回原文。中文的断言方式见
+ * `tests/produces-real-cjk-pdf.test.ts` 头注（比对字形编号 + .notdef 检查），
+ * 别试图在这里"顺手支持一下中文文本提取"，那是做不到的。
  */
-import { PDFDocument } from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import { inflateSync } from "node:zlib";
 
 export interface PdfInspection {
   readonly pageCount: number;
   /** 每一页 content stream 里，`Tj`/`TJ` 算子展示的文本，按页面顺序拍平。 */
   readonly textRuns: readonly string[];
+  /**
+   * 文件里**内嵌**的字体文件个数（字体描述符上的 `/FontFile`、`/FontFile2`、
+   * `/FontFile3` 键）。中文 PDF 的关键断言之一：字体必须真的嵌进文件，只写一个
+   * 字体名字指望阅读器自己有，换台机器就是一页方框。
+   */
+  readonly embeddedFontFileCount: number;
+  /** 字体字典上的 `/Encoding` 名（内嵌 CJK 子集字体是 `Identity-H`）。 */
+  readonly fontEncodings: readonly string[];
 }
 
 export async function inspectPdf(buffer: Buffer): Promise<PdfInspection> {
@@ -35,7 +45,35 @@ export async function inspectPdf(buffer: Buffer): Promise<PdfInspection> {
       textRuns.push(...extractShownText(bytes));
     }
   }
-  return { pageCount, textRuns };
+  const { embeddedFontFileCount, fontEncodings } = inspectFonts(doc);
+  return { pageCount, textRuns, embeddedFontFileCount, fontEncodings };
+}
+
+/**
+ * 遍历**已解析的间接对象**找字体信息，而不是在原始字节里 grep `/FontFile2`。
+ *
+ * ⚠ 这不是风格选择：pdf-lib 保存时会把对象写进压缩的 object stream，字典里的键名
+ * 在文件字节里**根本不以明文出现**（实测：一份确实内嵌了子集字体的 PDF，
+ * `bytes.includes('/FontFile2')` 是 false）。在字节里 grep 会得到一个稳定的假阴性，
+ * 而假阴性在这里的方向是"把好文件判坏"——比假阳性好，但仍然是错的断言。
+ */
+function inspectFonts(doc: PDFDocument): {
+  embeddedFontFileCount: number;
+  fontEncodings: readonly string[];
+} {
+  let embeddedFontFileCount = 0;
+  const fontEncodings: string[] = [];
+  for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+    if (!(obj instanceof PDFDict)) continue;
+    for (const key of obj.keys()) {
+      if (String(key).startsWith("/FontFile")) embeddedFontFileCount += 1;
+    }
+    if (String(obj.get(PDFName.of("Type")) ?? "") === "/Font") {
+      const encoding = obj.get(PDFName.of("Encoding"));
+      if (encoding) fontEncodings.push(String(encoding).replace(/^\//, ""));
+    }
+  }
+  return { embeddedFontFileCount, fontEncodings };
 }
 
 /**

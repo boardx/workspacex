@@ -117,6 +117,8 @@ services:
     environment:
       SKILL_SANDBOX_SOCKET: /run/sandbox/skill-sandbox.sock
       SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
+      # PDF 画中文的字体（镜像里预装，见 apps/skill-sandbox/Dockerfile）。
+      SKILL_SANDBOX_CJK_FONT: /usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf
       TMPDIR: /tmp
     mem_limit: 1g
     memswap_limit: 1g

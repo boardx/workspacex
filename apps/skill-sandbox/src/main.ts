@@ -39,7 +39,14 @@ const socketPath = process.env.SKILL_SANDBOX_SOCKET;
  */
 const preinstalledModulesDir = process.env.SKILL_SANDBOX_MODULES_DIR;
 
-const server = createSandboxServer({ preinstalledModulesDir });
+/**
+ * 镜像里预装的中文字体(见 Dockerfile)。与上面同一条纪律:没有内建 fallback ——
+ * 没配就是没有,脚本会看到 `SKILL_SANDBOX_CJK_FONT` 未定义并如实说"这套环境画不了
+ * 中文 PDF",而不是让服务假装自己有字体、最后画出一页方框。
+ */
+const cjkFontPath = process.env.SKILL_SANDBOX_CJK_FONT;
+
+const server = createSandboxServer({ preinstalledModulesDir, cjkFontPath });
 
 if (socketPath !== undefined && socketPath !== "") {
   // 重启时清掉上一次留下的 socket 文件,否则 EADDRINUSE。

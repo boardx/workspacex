@@ -34,6 +34,8 @@ const MAX_REQUEST_BYTES = 1024 * 1024;
 
 export interface SandboxServerOptions {
   readonly preinstalledModulesDir?: string;
+  /** 预装 CJK 字体文件路径（镜像里的 `SKILL_SANDBOX_CJK_FONT`）——PDF 画中文用。 */
+  readonly cjkFontPath?: string;
   readonly nodeBinary?: string;
 }
 
@@ -104,6 +106,7 @@ async function handle(
     timeoutMs,
     nodeBinary: options.nodeBinary,
     preinstalledModulesDir: options.preinstalledModulesDir,
+    cjkFontPath: options.cjkFontPath,
   });
 
   send(res, 200, result);

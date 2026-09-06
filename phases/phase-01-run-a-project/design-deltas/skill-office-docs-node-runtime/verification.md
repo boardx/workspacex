@@ -67,3 +67,31 @@ URL 的引用（`contract.md` §0/§6 的授权边界的机械核验）。
 
 `skill-sandbox-execution`（pptx）既有全部断言仍然全绿——新依赖预装、镜像自检新增
 一行，不改变 pptx skill 自己的任何行为。
+
+## V7 中英文支持（2026-09-06 人类反馈补充：「excel/pdf/word/ppt 都要很好地支持中英文」）
+
+原 §2 把"字体管理"划在范围外，pdf-create 的 SKILL.md 因此写着"内置字体不支持中文，
+建议改用 docx/xlsx"。实测（devapp 通用助手，用户要一份中文 PDF）：模型照这句话把
+用户劝退了——**规范里写着的限制，落到用户那里就是功能缺失**。本次把它补上。
+
+- **V7-pdf**：镜像预装 CJK 字体（`fonts-droid-fallback` 的单字面 TTF，
+  路径由 `SKILL_SANDBOX_CJK_FONT` 给出），沙箱把该文件的真实路径加进只读授权并
+  以环境变量传给脚本。在 **`network: none`** 容器里跑一段"嵌入该字体画中文"的脚本，
+  断言：① 每个汉字的字形编号 ≠ 0（0 = `.notdef`，就是用户看到的方框本身）；
+  ② 这些字形编号真的出现在页面 content stream 里；③ 字体真的被内嵌
+  （`/FontFile*` + `Identity-H`，走**解析后的间接对象**判定——pdf-lib 会把对象写进
+  压缩流，在原始字节里 grep `/FontFile2` 是稳定的假阴性）。
+  → `apps/skill-sandbox/tests/produces-real-cjk-pdf.test.ts`
+- **V7-prompt**：SKILL.md 正文与镜像不许漂移——正文里教的环境变量名/库名与沙箱
+  实际提供的逐字一致，且旧的"做不到中文"劝退话术不许回来。
+  → `apps/api/tests/skill/office-docs-cjk-guidance.test.ts`
+- **V7-ooxml**：docx/xlsx/pptx 三者是 OOXML，中文是 UTF-8 文本，**本来就不会乱码**，
+  不需要嵌字体；这三份正文只交代字体名怎么选（写一个中文机器上没有的西文字体名会让
+  中文走 fallback）。同一条测试锁住"它们不要去教嵌字体"，避免把 PDF 的做法误植过去。
+
+⚠ **反证 V7-CP（两条，均已实跑）**：
+1. 同一段脚本改用 `StandardFonts.Helvetica` 画同样的中文 → 必须失败（WinAnsi 编码器
+   抛错），证明 V7-pdf 测的是"嵌入字体这条路"，不是"随便画点什么都能过"。
+   （已写进测试文件，与主断言同跑。）
+2. 把 `SKILL_SANDBOX_CJK_FONT` 从容器里摘掉再跑同一段脚本 → 实测 `exitCode 1`、
+   产物为空，证明这条绿依赖的是**镜像里真的有那份字体**，不是别的什么巧合。
