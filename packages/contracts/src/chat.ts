@@ -1150,7 +1150,7 @@ export const operations = {
          * 前端再拼一遍就是同一条规则的第二份副本。
          */
         prompt: z.string(),
-      })).max(4),
+      }).strict()).max(4),
     }).strict(),
     /** 不可见/不存在同一个出口（同 `getThread`）。模板库读不到时返回空 `items`，不报错。 */
     err: ["NOT_VISIBLE"] as const,
