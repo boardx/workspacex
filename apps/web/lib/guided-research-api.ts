@@ -1,5 +1,6 @@
 import { research } from "@repo/contracts";
 import { apiRequest } from "./api-client";
+import { streamResearchCommand, type ResearchStreamEvent } from "./guided-research-stream";
 import type { z } from "zod";
 
 export type GuidedResearchSession = z.infer<typeof research.GuidedResearchSession>;
@@ -111,7 +112,8 @@ export async function getResearchRuntime(sessionId: string): Promise<GuidedResea
   const op = research.operations.getGuidedResearchRuntime;
   return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(sessionId)), { method: op.method }));
 }
-export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand): Promise<GuidedResearchRuntime> {
+export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand, onEvent?: (event: ResearchStreamEvent) => void, signal?: AbortSignal): Promise<GuidedResearchRuntime> {
+  if (onEvent) return streamResearchCommand(input, onEvent, signal);
   const op = research.operations.executeGuidedResearchRuntime;
   return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body: input }));
 }

@@ -19,3 +19,6 @@ export interface GuidedSearchPort {
 export const GUIDED_RUNTIME_STORE = Symbol("GuidedRuntimeStore");
 export const GUIDED_SEARCH_PORT = Symbol("GuidedSearchPort");
 export const GUIDED_RUNTIME_SERVICE = Symbol("GuidedRuntimeService");
+
+export type RuntimeStreamEvent = z.infer<typeof C.GuidedResearchRuntimeStreamEvent>;
+export type RuntimeObserver = (event: RuntimeStreamEvent) => void;

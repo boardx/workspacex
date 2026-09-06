@@ -70,8 +70,22 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("research-sources-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
+  await page.keyboard.press("Escape");
+  const reportResponse = page.waitForResponse((response) => response.url().endsWith("/runtime/commands/stream") && response.request().postDataJSON()?.node === "research");
   await page.getByRole("button", { name: "确认并继续", exact: true }).click();
-  await expect(page.getByTestId("research-report")).toContainText("并网政策报告");
+  const streamResponse = await reportResponse;
+  expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
+  await expect(page.getByTestId("research-report-preview-text")).toContainText("并网政策报告", { timeout: 30000 });
+  await expect(page.getByTestId("research-report")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
+  // Reload disconnects SSE. The server-owned generation must continue, not be replayed.
+  await page.reload();
+  await expect(page.getByTestId("research-report-preview-text")).toContainText("并网政策报告", { timeout: 10000 });
+  await expect(page.getByTestId("research-report")).toContainText("并网政策报告", { timeout: 60000 });
+  const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
+  expect(runtimeResponse.ok()).toBeTruthy();
+  const runtime = await runtimeResponse.json();
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(1);
   await page.reload();
   await expect(page.getByTestId("research-report")).toContainText("并网政策报告");
   await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toHaveAttribute("href", /\/research-evidence$/);

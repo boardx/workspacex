@@ -872,6 +872,8 @@ export const GuidedResearchRuntime = z.object({
   currentNode: ResearchNode, availableNodes: z.array(ResearchNode),
   brief: GuidedResearchBrief, directions: z.array(GuidedResearchDirection), outline: z.array(GuidedResearchOutlineSection),
   tasks: z.array(GuidedResearchTask), sources: z.array(GuidedResearchSource), report: GuidedResearchReport.nullable(),
+  reportStream: z.object({ requestId: z.string().min(1), sequence: z.number().int().nonnegative(), text: z.string().max(1048576), status: z.enum(["streaming", "failed"]) }).strict().nullable().optional(),
+  reportPartial: z.boolean().optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),
   completed: z.boolean(), busy: z.boolean(), leaseUntil: z.string().nullable(), errorCode: z.string().nullable(),
   generatedNodes: z.array(ResearchNode),
@@ -892,7 +894,8 @@ export const GuidedResearchRuntimeCommand = z.object({
     } catch { return false; }
   }).optional(),
   sourceId: z.string().min(1).optional(),
-}).strict().refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
+  allowPartialResearch: z.boolean().optional(),
+}).strict().refine((command) => command.allowPartialResearch === undefined || (command.node === "research" && ["confirm", "complete"].includes(command.action)), "partial research requires explicit research completion").refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
   .refine((command) => {
     if (command.action === "add_source" || command.action === "remove_source") {
       return command.node === "research" && !command.draft && !command.message && !command.proposalId
@@ -901,7 +904,18 @@ export const GuidedResearchRuntimeCommand = z.object({
     return !command.sourceUrl && !command.sourceId;
   }, "source commands require the research node and exactly one source reference");
 
+export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("snapshot"), state: GuidedResearchRuntime }).strict(),
+  z.object({ type: z.literal("report_delta"), sessionId: z.string(), requestId: z.string(), version: z.number().int().nonnegative(), sequence: z.number().int().positive(), delta: z.string().max(1048576) }).strict(),
+  z.object({ type: z.literal("result"), state: GuidedResearchRuntime }).strict(),
+  z.object({ type: z.literal("error"), reasonCode: z.string() }).strict(),
+]);
+
 export const operations = {
+  streamGuidedResearchRuntime: {
+    method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands/stream",
+    in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntimeStreamEvent, err: guidedWorkflowErrors,
+  },
   getGuidedResearchRuntime: {
     method: "GET", path: "/research/guided-sessions/:sessionId/runtime",
     in: z.object({ sessionId: z.string().min(1) }).strict(), out: GuidedResearchRuntime,

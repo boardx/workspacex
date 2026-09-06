@@ -1,6 +1,7 @@
+import { GUIDED_RUNTIME_SERVICE } from "../../src/application/research/guided-runtime-ports";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { research as C } from "@repo/contracts";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -289,5 +290,99 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
     expect(calls).toEqual(["brief", "directions"]);
     await expect(service.execute(actor, session, { ...command, message: "different input" })).rejects.toMatchObject({ reasonCode: "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH" });
+  });
+});
+
+describe("report streaming and explicit partial evidence", () => {
+  it("persists the first provider delta before completion and survives observer disconnect/replay", async () => {
+    await reachResearch();
+    let release!: () => void;
+    let started!: () => void;
+    const first = new Promise<void>((resolve) => { started = resolve; });
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    let streamCalls = 0;
+    const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
+      streamCalls++;
+      const answer = await model.complete(input);
+      await delta(answer.text.slice(0, 35)); started(); await blocked;
+      await delta(answer.text.slice(35)); return answer;
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
+    const command: RuntimeCommand = { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() };
+    const events: string[] = [];
+    const execution = runtime.execute(actor, session, command, (event) => { events.push(event.type); if (event.type === "report_delta") throw new Error("socket closed"); });
+    try {
+      await first;
+      const snapshot = await runtime.get(actor, session);
+      expect(snapshot.currentNode).toBe("report"); expect(snapshot.busy).toBe(true);
+      expect(snapshot.report).toBeNull(); expect(snapshot.reportStream?.text).toHaveLength(35);
+      expect(snapshot.reportStream?.sequence).toBe(1);
+      expect(await runtime.execute(actor, session, command)).toEqual(snapshot);
+      expect(streamCalls).toBe(1);
+    } finally { release(); }
+    state = await execution;
+    expect(state.errorCode).toBeNull(); expect(state.report?.title).toBe("Findings");
+    expect(state.reportStream).toBeNull(); expect(events[0]).toBe("snapshot"); expect(events.at(-1)).toBe("result");
+  });
+  it("serves an authorized SSE observer and keeps generating after the socket closes", async () => {
+    await reachResearch();
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
+      const answer = await model.complete(input); await delta(answer.text.slice(0, 35)); await blocked;
+      await delta(answer.text.slice(35)); return answer;
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
+    const routeService = app.get<GuidedRuntimeService>(GUIDED_RUNTIME_SERVICE);
+    const spy = vi.spyOn(routeService, "execute").mockImplementation((...args) => runtime.execute(...args));
+    const path = `${base}/research/guided-sessions/${actor.sessionId}/runtime/commands/stream`;
+    const command = { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() };
+    const headers = { "content-type": "application/json", "x-kernel-test-principal": `${userId}:${orgId}` };
+    try {
+      const denied = await fetch(path, { method: "POST", headers: { ...headers, "x-kernel-test-principal": `outsider:${orgId}` }, body: JSON.stringify(command) });
+      expect(denied.status).toBe(404); expect(spy).not.toHaveBeenCalled();
+      const response = await fetch(path, { method: "POST", headers, body: JSON.stringify(command) });
+      expect(response.headers.get("content-type")).toContain("text/event-stream");
+      const reader = response.body!.getReader(); const decoder = new TextDecoder(); let frames = "";
+      while (!frames.includes('"type":"report_delta"')) {
+        const item = await reader.read(); if (item.done) throw new Error("stream ended before delta"); frames += decoder.decode(item.value);
+      }
+      expect((await runtime.get(actor, session)).report).toBeNull();
+      await reader.cancel(); release();
+      await expect.poll(async () => (await runtime.get(actor, session)).busy, { timeout: 10000 }).toBe(false);
+      expect((await runtime.get(actor, session)).report?.title).toBe("Findings");
+    } finally { release(); spy.mockRestore(); }
+  });
+  it.each(["transport", "citation"])("keeps incomplete report text without accepting a %s failure", async (failure) => {
+    await reachResearch();
+    badCitation = failure === "citation";
+    const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
+      const answer = await model.complete(input); await delta(answer.text);
+      if (failure === "transport") throw new Error("disconnected upstream");
+      return answer;
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, streamed);
+    const result = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() });
+    expect(result.errorCode).toBe(failure === "citation" ? "RESEARCH_CONTENT_REFERENCE_INVALID" : "RESEARCH_WORKFLOW_UNAVAILABLE");
+    expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
+    expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).toContain("Findings");
+    expect((await runtime.get(actor, session)).reportStream).toEqual(result.reportStream);
+  });
+  it("requires an explicit partial choice and retains evidence gaps through report completion", async () => {
+    await reachResearch();
+    await db.withTenant(orgId, (tx) => tx.query(`UPDATE guided_research_runtime SET state=jsonb_set(state,'{tasks}',(state->'tasks') || $3::jsonb) WHERE org_id=$1 AND session_id=$2`, [orgId,actor.sessionId,JSON.stringify([{ id: "failed-query", sectionId: "o1", query: "Missing source", status: "failed", attempts: 1, errorCode: "RESEARCH_SEARCH_UNAVAILABLE" }])]));
+    state = await service.get(actor, session);
+    await run("complete"); expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
+    await run("complete", { allowPartialResearch: true });
+    expect(state.errorCode).toBeNull(); expect(state.currentNode).toBe("report"); expect(state.reportPartial).toBe(true);
+    expect(state.tasks.some((task) => task.status === "failed")).toBe(true);
+    await run("complete"); expect(state.completed).toBe(true); expect(state.reportPartial).toBe(true);
+  });
+  it.each(["pending", "running"])("never bypasses %s tasks with the partial option", async (status) => {
+    await reachResearch();
+    await db.withTenant(orgId, (tx) => tx.query(`UPDATE guided_research_runtime SET state=jsonb_set(state,'{tasks,0,status}',$3::jsonb) WHERE org_id=$1 AND session_id=$2`, [orgId,actor.sessionId,JSON.stringify(status)]));
+    state = await service.get(actor, session);
+    await run("complete", { allowPartialResearch: true });
+    expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(state.report).toBeNull();
   });
 });

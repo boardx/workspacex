@@ -396,3 +396,18 @@ describe("research source editing command contracts", () => {
     ]) expect(research.GuidedResearchRuntimeCommand.safeParse({ ...base, ...payload }).success).toBe(false);
   });
 });
+
+describe("durable report stream contract", () => {
+  it("limits partial evidence approval to explicit research completion", () => {
+    const command = { sessionId: "session", requestId: "request", expectedVersion: 1, node: "research", action: "complete", allowPartialResearch: true };
+    expect(research.GuidedResearchRuntimeCommand.safeParse(command).success).toBe(true);
+    expect(research.GuidedResearchRuntimeCommand.safeParse({ ...command, action: "generate" }).success).toBe(false);
+    expect(research.GuidedResearchRuntimeCommand.safeParse({ ...command, node: "report" }).success).toBe(false);
+  });
+  it("bounds and sequences compact provider delta events", () => {
+    const event = { type: "report_delta", sessionId: "session", requestId: "request", version: 1, sequence: 1, delta: "report text" };
+    expect(research.GuidedResearchRuntimeStreamEvent.safeParse(event).success).toBe(true);
+    expect(research.GuidedResearchRuntimeStreamEvent.safeParse({ ...event, sequence: 0 }).success).toBe(false);
+    expect(research.GuidedResearchRuntimeStreamEvent.safeParse({ ...event, delta: "x".repeat(1048577) }).success).toBe(false);
+  });
+});
