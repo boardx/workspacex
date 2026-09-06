@@ -1,0 +1,73 @@
+{
+  "limits": {
+    "maxFiles": 256,
+    "maxFileBytes": 8388608,
+    "maxPackageBytes": 16777216
+  },
+  "package": {
+    "type": "object",
+    "properties": {
+      "skillId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "versionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^(?!\\/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)(?!.*\\/$).+$"
+            },
+            "contentBase64": {
+              "allOf": [
+                {
+                  "type": "string",
+                  "maxLength": 11184812
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+                }
+              ]
+            },
+            "mediaType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "contentBase64",
+            "mediaType",
+            "digest"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 1,
+        "maxItems": 256
+      }
+    },
+    "required": [
+      "skillId",
+      "versionId",
+      "files"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}
