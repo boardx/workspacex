@@ -19,8 +19,10 @@ import type {
   DesignProjectRepositoryFactory,
   DesignProjectRow,
   NewDesignProject,
+  NewPrototypeVersion,
   ProjectTemplate,
   PrototypeNode,
+  PrototypeVersionRow,
   PushToInboxResult,
 } from "../../application/design-workbench/project-ports";
 
@@ -110,6 +112,29 @@ const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at`;
+
+interface VersionDbRow {
+  readonly id: string;
+  readonly project_id: string;
+  readonly seq: number;
+  readonly source: string;
+  readonly summary: string;
+  readonly frames: unknown;
+  readonly prototype?: unknown;
+  readonly created_at: Date | string;
+}
+
+function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototype"> {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    seq: row.seq,
+    source: row.source === "user" || row.source === "restore" ? row.source : "model",
+    summary: row.summary,
+    frames: toStringArray(row.frames),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
 
 class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   constructor(
@@ -249,6 +274,59 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       const row = rows[0];
       if (row === undefined) return null;
       return toRow(row, await this.chatFor(s, row.id));
+    });
+  }
+
+  /* ── 迭代 3：原型版本（design_project_prototype_versions，append-only）── */
+
+  async listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<VersionDbRow>(
+        `SELECT id, project_id, seq, source, summary, frames, created_at
+           FROM design_project_prototype_versions
+          WHERE org_id = $1 AND project_id = $2
+          ORDER BY seq DESC`,
+        [this.orgId, projectId],
+      );
+      return rows.map(toVersionSummary);
+    });
+  }
+
+  async getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<VersionDbRow>(
+        `SELECT id, project_id, seq, source, summary, frames, prototype, created_at
+           FROM design_project_prototype_versions
+          WHERE org_id = $1 AND project_id = $2 AND id = $3`,
+        [this.orgId, projectId, versionId],
+      );
+      const row = rows[0];
+      if (row === undefined) return null;
+      const summary = toVersionSummary(row);
+      return { ...summary, prototype: toPrototype(row.prototype, summary.frames) };
+    });
+  }
+
+  async recordVersion(projectId: string, ownerId: string, version: NewPrototypeVersion): Promise<Omit<PrototypeVersionRow, "prototype"> | null> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // owner 谓词在这条 SELECT 上——版本只由 owner 的写回产生。
+      const { rows: owned } = await s.query<{ id: string }>(
+        `SELECT id FROM design_projects WHERE org_id = $1 AND owner_id = $2 AND id = $3`,
+        [this.orgId, ownerId, projectId],
+      );
+      if (owned.length === 0) return null;
+      const id = `${projectId}-v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const { rows } = await s.query<VersionDbRow>(
+        `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype)
+         SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb
+           FROM design_project_prototype_versions
+          WHERE org_id = $2 AND project_id = $3
+         RETURNING id, project_id, seq, source, summary, frames, created_at`,
+        [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(version.frames), JSON.stringify(version.prototype)],
+      );
+      const row = rows[0];
+      if (row === undefined) throw new Error("design-workbench: inserted version vanished within the same transaction");
+      return toVersionSummary(row);
     });
   }
 

@@ -8,6 +8,8 @@ import type {
   DesignProjectPatch,
   DesignProjectRepository,
   DesignProjectRow,
+  NewPrototypeVersion,
+  PrototypeVersionRow,
   NewDesignProject,
   PushToInboxResult,
 } from "../../src/application/design-workbench/project-ports";
@@ -27,7 +29,25 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
   seedFeedback(feedbackId: string, fb: { submittedBy: string; title: string }): void {
     this.feedback.set(feedbackId, fb);
   }
+  /** 迭代 3：版本快照，按写入顺序；seq 每项目递增。 */
+  readonly versions: PrototypeVersionRow[] = [];
   private tick = 0;
+
+  async listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]> {
+    return this.versions.filter((v) => v.projectId === projectId).map(({ prototype: _p, ...rest }) => rest).sort((a, b) => b.seq - a.seq);
+  }
+  async getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null> {
+    return this.versions.find((v) => v.projectId === projectId && v.id === versionId) ?? null;
+  }
+  async recordVersion(projectId: string, ownerId: string, version: NewPrototypeVersion): Promise<Omit<PrototypeVersionRow, "prototype"> | null> {
+    const r = this.rows.get(projectId);
+    if (r === undefined || r.ownerId !== ownerId) return null;
+    const seq = this.versions.filter((v) => v.projectId === projectId).length + 1;
+    const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...version.frames], prototype: [...version.prototype], createdAt: this.stamp() };
+    this.versions.push(row);
+    const { prototype: _p, ...rest } = row;
+    return rest;
+  }
 
   private stamp(): string {
     this.tick += 1;

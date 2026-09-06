@@ -53,6 +53,25 @@ export interface DesignProjectRow {
   readonly updatedAt: string;
 }
 
+/** 迭代 3：一条原型版本快照（存储行；投影到契约 `PrototypeVersion`）。 */
+export interface PrototypeVersionRow {
+  readonly id: string;
+  readonly projectId: string;
+  readonly seq: number;
+  readonly source: "model" | "user" | "restore";
+  readonly summary: string;
+  readonly frames: readonly string[];
+  readonly prototype: readonly PrototypeNode[];
+  readonly createdAt: string;
+}
+
+export interface NewPrototypeVersion {
+  readonly source: "model" | "user" | "restore";
+  readonly summary: string;
+  readonly frames: readonly string[];
+  readonly prototype: readonly PrototypeNode[];
+}
+
 export interface NewDesignProject {
   readonly id: string;
   readonly ownerId: string;
@@ -142,6 +161,12 @@ export interface DesignProjectRepository {
   appendChat(projectId: string, ownerId: string, turns: readonly Omit<DesignProjectChatTurn, "at">[]): Promise<DesignProjectRow | null>;
   /** 硬删。仅 owner。返回是否真的删了一行。 */
   delete(projectId: string, ownerId: string): Promise<boolean>;
+  /** 迭代 3：版本列表（不带树），按 seq 倒序。项目不存在 ⇒ `[]`（调用方先 `get` 判存在）。全组织可读。 */
+  listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]>;
+  /** 迭代 3：单条（带树）。不存在 / 不属于该项目 ⇒ `null`。 */
+  getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null>;
+  /** 迭代 3：追加一条版本（seq = max+1）。仅 owner；不存在/不是 owner ⇒ `null`。 */
+  recordVersion(projectId: string, ownerId: string, version: NewPrototypeVersion): Promise<Omit<PrototypeVersionRow, "prototype"> | null>;
   /**
    * `pushToInbox` 的落库半程——**一次数据库事务**内完成：
    *   ① 标记 `pushed=true, pushed_at=now()`，`push_note` 按传入值覆盖（`undefined` ⇒ 不改）。

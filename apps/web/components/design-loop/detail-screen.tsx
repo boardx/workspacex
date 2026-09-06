@@ -1,12 +1,13 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { PrototypeCanvas } from "./prototype-canvas";
+import { PrototypeHistoryPanel } from "./prototype-history";
 import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
 import {
   appendProjectChat as apiAppendProjectChat,
@@ -17,6 +18,7 @@ import {
   prototypeNodeLabel,
   type DesignProject,
   type DesignWritebackField,
+  type PrototypeVersion,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
 
@@ -111,6 +113,9 @@ export function DesignDetailScreen({
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
@@ -333,8 +338,8 @@ export function DesignDetailScreen({
 
           {tab === "canvas" ? (
             <div className="flex min-h-0 flex-1 flex-col" data-testid="design-detail-canvas">
-              <div className="flex gap-1 border-b border-border px-4 py-2">
-                {project.frames.map((f, i) => (
+              <div className="flex items-center gap-1 border-b border-border px-4 py-2">
+                {(preview ?? project).frames.map((f, i) => (
                   <button
                     key={f}
                     type="button"
@@ -348,14 +353,43 @@ export function DesignDetailScreen({
                     {f}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
+                  aria-pressed={historyOpen}
+                  data-testid="design-detail-history-toggle"
+                  className={cn(
+                    "ml-auto inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    historyOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
+                  )}
+                >
+                  <History aria-hidden className="h-3 w-3" /> 历史
+                </button>
               </div>
-              <div className="grid flex-1 place-items-center overflow-y-auto bg-background p-6">
-                <PrototypeCanvas
-                  label={project.frames[frame] ?? ""}
-                  root={project.prototype[frame] ?? null}
-                  selectedId={focus !== null && focus.frameIndex === frame ? selectedId : null}
-                  onSelect={setSelectedId}
-                />
+              <div className="flex min-h-0 flex-1">
+                <div className="relative grid flex-1 place-items-center overflow-y-auto bg-background p-6">
+                  {preview !== null && (
+                    <div className="absolute left-4 top-4 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
+                      正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
+                      <Button variant="ghost" size="sm" onClick={() => setPreview(null)} data-testid="design-detail-preview-exit">退出预览</Button>
+                    </div>
+                  )}
+                  <PrototypeCanvas
+                    label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
+                    root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
+                    selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
+                    onSelect={preview === null ? setSelectedId : null}
+                  />
+                </div>
+                {historyOpen && (
+                  <PrototypeHistoryPanel
+                    projectId={project.id}
+                    isOwner
+                    previewId={preview?.id ?? null}
+                    onPreview={setPreview}
+                    onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
+                  />
+                )}
               </div>
             </div>
           ) : (
