@@ -19,12 +19,13 @@
  * ⚠ 仓储按组织构造（`forOrg`），同 `FeedbackDraftRepositoryFactory`。
  */
 import type { z } from "zod";
-import type { designWorkbench } from "@repo/contracts";
+import type { designPrototype, designWorkbench } from "@repo/contracts";
 
 export const DESIGN_PROJECT_REPOSITORY = Symbol("DesignProjectRepository");
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
+export type PrototypeNode = z.infer<typeof designPrototype.PrototypeNode>;
 
 export interface DesignProjectRow {
   readonly id: string;
@@ -34,6 +35,8 @@ export interface DesignProjectRow {
   readonly problem: string;
   readonly criteria: readonly string[];
   readonly frames: readonly string[];
+  /** B5.3：按位置对应 `frames[i]` 的组件树；`[]` = 还没生成（契约 `DesignProject.prototype` 不变量）。 */
+  readonly prototype: readonly PrototypeNode[];
   readonly pushed: boolean;
   readonly pushedAt: string | null;
   readonly pushNote: string | null;
@@ -58,6 +61,8 @@ export interface NewDesignProject {
   readonly problem: string;
   readonly criteria: readonly string[];
   readonly frames: readonly string[];
+  /** 新建恒为 `[]`——树只由模型经对话写回。 */
+  readonly prototype: readonly PrototypeNode[];
   readonly linkedFeedbackId: string | null;
 }
 
@@ -73,6 +78,11 @@ export interface DesignProjectPatch {
   readonly problem?: string;
   readonly criteria?: readonly string[];
   readonly frames?: readonly string[];
+  /**
+   * B5.3：与 `frames` 一起给 ⇒ 整页重生成（长度必须相等，`append-project-chat.ts` 负责拆）；
+   * 只给 `frames` 不给 `prototype` ⇒ 仓储把 `prototype` 清成 `[]`（标签变了，旧树不再对应）。
+   */
+  readonly prototype?: readonly PrototypeNode[];
 }
 
 /**

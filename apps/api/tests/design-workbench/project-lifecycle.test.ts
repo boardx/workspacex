@@ -190,6 +190,27 @@ describe("appendProjectChat", () => {
     expect(ctx?.chat.map((c) => c.text)).toEqual(["第一句", C.DESIGN_WORKBENCH_CHAT_REPLY, "把导出成功率写进验收标准"]);
   });
 
+  it("B5.3 prototype 写回：{frame,root}[] 拆成 frames + prototype 一次写入，applied 列 frames 与 prototype；只写回 frames ⇒ 旧树清空", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
+    const tree = { type: "stack" as const, children: [{ type: "text" as const, props: { content: "hi" } }] };
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "画好了。", source: "model", writeback: { frames: ["被忽略"], prototype: [{ frame: "聊天", root: tree }, { frame: "设置", root: { type: "divider" } }] } };
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天 UI" });
+    expect(out.reply).toEqual({ source: "model", applied: ["frames", "prototype"] });
+    expect(out.project.frames).toEqual(["聊天", "设置"]);
+    expect(out.project.prototype).toEqual([tree, { type: "divider" }]);
+    expect(ai.calls[0]?.prototype).toEqual([]);
+
+    const relabel = new FakeDesignChat();
+    relabel.answer = { text: "改名了。", source: "model", writeback: { frames: ["首页", "设置"] } };
+    const out2 = await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "第一页叫首页" });
+    expect(out2.reply.applied).toEqual(["frames"]);
+    expect(out2.project.frames).toEqual(["首页", "设置"]);
+    expect(out2.project.prototype).toEqual([]);
+    expect(relabel.calls[0]?.prototype).toEqual([tree, { type: "divider" }]);
+  });
+
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1" }));

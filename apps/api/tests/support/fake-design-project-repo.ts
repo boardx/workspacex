@@ -83,6 +83,8 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       ...(patch.problem !== undefined ? { problem: patch.problem } : {}),
       ...(patch.criteria !== undefined ? { criteria: [...patch.criteria] } : {}),
       ...(patch.frames !== undefined ? { frames: [...patch.frames] } : {}),
+      // 同 pg 仓储：只改 frames 不给 prototype ⇒ 清空；给了 ⇒ 替换。
+      ...(patch.prototype !== undefined ? { prototype: [...patch.prototype] } : patch.frames !== undefined ? { prototype: [] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
@@ -184,6 +186,7 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     problem: "",
     criteria: [],
     frames: [],
+    prototype: [],
     pushed: false,
     pushedAt: null,
     pushNote: null,

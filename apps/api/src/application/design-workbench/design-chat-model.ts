@@ -18,7 +18,7 @@
  * 整段不是 JSON ⇒ 把整段非空输出当回复文字（模型只是没按格式说话，话本身还是它说的），
  * 不写回。模型不可用/超时/空输出 ⇒ 退回 `DESIGN_WORKBENCH_CHAT_REPLY`、`source: "fallback"`，不抛。
  */
-import { designAiCollab, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
 import type { z } from "zod";
 import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
@@ -28,11 +28,14 @@ import type { DesignProjectRow } from "./project-ports";
 export type AiReplySource = z.infer<typeof designAiCollab.AiReplySource>;
 export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteback>;
 
-/** 每轮回复的硬超时——同 B5.1 `DRAFT_REFINE_REPLY_TIMEOUT_MS` 的理由（用户在等一句话）。 */
-export const DESIGN_CHAT_REPLY_TIMEOUT_MS = 30_000;
+/**
+ * 每轮回复的硬超时。B5.2 时是 30s（「用户在等一句话」）；B5.3 起模型可能整页重生成多页组件树，
+ * 输出是数千字的 JSON，实测标准补全 30s 不够——放宽到 90s。前端发送中禁用输入框并显示进度。
+ */
+export const DESIGN_CHAT_REPLY_TIMEOUT_MS = 90_000;
 
-/** 模型看到的项目上下文：五个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
-export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "chat">;
+/** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
+export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat">;
 
 export interface DesignChatReplyResult {
   readonly text: string;
@@ -52,13 +55,18 @@ export interface ModelDesignChatReplierDeps {
 }
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
-  "你是 PM 设计工作台里的设计协作助手。用户（产品经理）在和你讨论一个设计项目：问题背景、" +
-  "验收标准、原型画布的页面划分。你的任务是顺着用户说的话把设计推进一步：先用一两句话回应，" +
-  "必要时更新项目字段。只输出一个 JSON 对象，不要解释、不要 markdown 代码块标记，形如 " +
+  "你是 PM 设计工作台里的设计协作助手，像一个能直接画原型的设计师。用户（产品经理）在和你讨论一个设计项目：" +
+  "问题背景、验收标准、以及原型画布。你的任务是顺着用户说的话把设计推进一步：先用一两句话回应，必要时更新项目字段。" +
+  "只输出一个 JSON 对象，不要解释、不要 markdown 代码块标记，形如 " +
   '{"reply":"给用户看的回复，中文，不超过 200 字","writeback":{"problem":"改写后的问题背景（可选）",' +
-  '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],"frames":["完整的画布页标签列表（可选，给出即整体替换）"]}}。' +
-  "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。" +
-  "不要编造用户没说的需求；画布内容本身你不能画，只能调整页面标签。";
+  '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
+  '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
+  "当用户要你设计/画/改界面、或首次描述要做的产品时，必须给 prototype：把**全部页面**完整给出（整页重生成，给出即整体替换，" +
+  "没提到的页也要保留并原样给回），每页一个 {frame, root}，页数 1–20。" +
+  "只改页面标签不改内容时可用 writeback.frames（完整标签列表）代替。" +
+  designPrototype.PROTOTYPE_SCHEMA_GUIDE +
+  " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
+  "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";
 
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
@@ -67,6 +75,7 @@ function describeProject(ctx: DesignChatContext): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
+    `当前原型（按页，与标签同序；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
     "对话记录（按时间顺序，最后一条是用户刚说的）：",
   ];
   if (ctx.chat.length === 0) lines.push("（还没有对话）");
@@ -88,11 +97,29 @@ export function parseWriteback(raw: unknown, log?: (message: string, detail: Rec
   for (const field of designAiCollab.DesignWritebackField.options) {
     const value = (raw as Record<string, unknown>)[field];
     if (value === undefined) continue;
-    const parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: value });
+    // B5.3：`prototype` 是递归 schema，几千层嵌套会在 safeParse 里打爆调用栈，而契约的深度上限
+    // 在递归解析之后才判——先用迭代探测把超深的原始值挡在外面（契约 `rawPrototypeDepth` 头注）。
+    if (field === "prototype" && Array.isArray(value) && value.some((s) => rawScreenTooDeep(s))) {
+      log?.("design chat: writeback field rejected by contract, skipped", { field, reason: "depth" });
+      continue;
+    }
+    let parsed: ReturnType<typeof designAiCollab.DesignChatWriteback.safeParse>;
+    try {
+      parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: value });
+    } catch (e) {
+      // 兜底：解析本身抛（而不是返回 success:false）也只丢这个字段，不让整次对话 500。
+      log?.("design chat: writeback field parse threw, skipped", { field, detail: e instanceof Error ? e.message : "unknown" });
+      continue;
+    }
     if (parsed.success) out[field] = parsed.data[field];
     else log?.("design chat: writeback field rejected by contract, skipped", { field });
   }
   return out as DesignChatWriteback;
+}
+
+function rawScreenTooDeep(screen: unknown): boolean {
+  const root = screen !== null && typeof screen === "object" ? (screen as { root?: unknown }).root : undefined;
+  return designPrototype.rawPrototypeDepth(root) > designPrototype.PROTOTYPE_MAX_DEPTH;
 }
 
 export class ModelDesignChatReplier implements DesignChatModel {

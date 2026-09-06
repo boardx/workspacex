@@ -14,6 +14,7 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
     problem: "",
     criteria: [],
     frames: [],
+    prototype: [],
     pushed: true,
     pushedAt: "2026-09-04T00:00:00.000Z",
     linkedFeedbackId: null,

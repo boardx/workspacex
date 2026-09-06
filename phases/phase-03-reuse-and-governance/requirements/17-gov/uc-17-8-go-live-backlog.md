@@ -244,7 +244,14 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   （4 条新/改，含「只看到本项目历史」「非 owner 不调模型」）、
   `tests/ui/design-loop.test.tsx` 1 新 1 改；`permission-propagation-six-paths.test.ts`
   （真 PG）过迁移。PR：`worker/claude-uc17-8-b5-2-design-chat-ai`。
-- B5.3 不做（PDF 明确 out of scope，仅登记）。
+- ~~B5.3 不做（PDF 明确 out of scope，仅登记）。~~ **2026-09-06 人类推翻**：原型画布做成模型
+  生成的**结构化 JSON 组件树**（不是 HTML），本轮只做「整页重生成」，增量修改下一轮；
+  顶栏可「导出设计文档」（Markdown）。新契约束 `contracts/design-prototype/`（五件材料齐，
+  `status: pending` 待签核）。契约：`design-prototype.ts`（13 种原语闭集、`PrototypeScreen` 上限）
+  + `DesignProject.prototype`（按位置对应 `frames[i]`，`superRefine` 门控）+ `DesignChatWriteback.prototype`；
+  API：`append-project-chat.ts` 把 `{frame,root}[]` 拆成 `frames`+`prototype` 一次写入，只改 `frames` 清空树
+  （迁移 `20260906160000_uc178_b53_design_prototype.sql`），超时 30s→90s；Web：`prototype-canvas.tsx`
+  渲染表按类型穷举、`lib/design-doc-markdown.ts` 导出。截图 `ui-preview/design-prototype/` 三张。
 - ✅ B6.5（无障碍与响应式复核）2026-09-05 落地：
   **键盘替代**——看板拖拽的每一条合法迁移都有 drawer 操作按钮做同一件事：按 `stage × kind`
   逐格核对两个源状态机（`product-feedback.ts` `ALLOWED_TRANSITIONS`、`system-error-logs.ts`
@@ -420,7 +427,7 @@ design-workbench       PM 设计工作台：Project 实体 + 推送 → 收件�
 |---|---|---|---|
 | B5.1 | 草稿「继续完善」对话接 deep-agent-service：澄清问题由模型按 `kind` + 结构化字段生成；对话历史落 `drafts.chat[]`；提交时模型把对话摘要成结构化字段 | 5 | B1.4 |
 | B5.2 | 设计详情左侧对话接 deep-agent-service：每项目独立 thread；回复可写回 `problem/criteria/frames`（画布仍是占位块） | 5 | B4.5 |
-| B5.3 | 原型画布从占位块升级为可编辑（PDF 明确 out of scope，仅登记） | — | — |
+| B5.3 | 原型画布：对话驱动、模型整页生成结构化组件树；导出设计文档（2026-09-06 人类推翻「仅登记」；增量修改为后续条目） | 8 | B5.2 |
 
 ### B6 · 横切（上线门槛）
 

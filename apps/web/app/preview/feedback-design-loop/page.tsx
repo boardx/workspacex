@@ -97,7 +97,9 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
     // 表达，`resolvePreviewState` 只认七态白名单，非法值静默落回 `default`（`ui-state.ts`）。
     // `detail-loading`/`detail-depfailed` 两个场景名同理不改 id，是让截图脚本挂起/拒绝
     // `/pm-designs` 来产生这两态。
-    return <DetailByFirstProject projectId={scene === "detail-missing" ? "proj-does-not-exist" : "proj-empty-states"} />;
+    // B5.3：`detail-prototype` 用已生成原型的样本项目（夹具 `proj-chat-ui`）拍组件树画布。
+    const id = scene === "detail-missing" ? "proj-does-not-exist" : scene === "detail-prototype" ? "proj-chat-ui" : "proj-empty-states";
+    return <DetailByFirstProject projectId={id} />;
   }
 
   if (scene.startsWith("workbench")) {
