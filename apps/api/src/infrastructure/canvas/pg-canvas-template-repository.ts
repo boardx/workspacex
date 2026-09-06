@@ -41,7 +41,10 @@ import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/t
 import type { VisibilityScope } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
 import { PLATFORM_ORG_ID, isPlatformOwned } from "../../domain/canvas/platform-org";
-import { generateDefaultPromptText } from "../../domain/canvas/builtin-template-config";
+import {
+  BUILTIN_RECOMMEND_AFTER,
+  generateDefaultPromptText,
+} from "../../domain/canvas/builtin-template-config";
 
 interface TemplateSqlRow {
   org_id: string;
@@ -60,6 +63,8 @@ interface TemplateSqlRow {
   title: string;
   footer: string;
   prompt_text: string;
+  /** issue #2825——见 `toGuarded` 里的兜底注释。 */
+  recommend_after: readonly string[];
   /** #2221——见 `template-ports.ts` 的 `layoutSource`/`builtinDerived` 完整语义。 */
   layout_source: "builtin-derived" | "user-edited";
   size: PaperSize;
@@ -97,7 +102,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
       const r = await s.query<TemplateSqlRow>(
         `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
-                t.title, t.footer, t.prompt_text, t.layout_source, t.size,
+                t.title, t.footer, t.prompt_text, t.recommend_after, t.layout_source, t.size,
                 t.created_at, t.updated_at,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
@@ -353,6 +358,22 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
                   ),
                 )
               : row.prompt_text,
+          // ⚠ 与上面 `promptText` 完全同一条兜底纪律（issue #2825）：内置模板从未被
+          //   组织配置过推荐关系时（该列仍是 `{}`），回落到 `BUILTIN_RECOMMEND_AFTER`
+          //   这份唯一默认表，让 chat 的模板推荐开箱可用，而不用等谁跑一次回填脚本。
+          //   组织一旦在 template-admin 里存过（哪怕存成空数组"我就是不要推荐"），
+          //   库里的值就不再是默认那份 `{}`……
+          //   ⚠ 这里有一个已知且刻意接受的局限：`text[]` 分不出"没配过"与"配成了空"，
+          //   所以内置模板被显式清空后，读回来仍是默认表。清空一个内置模板的推荐关系
+          //   要靠把它配成一份不含任何 key 的**显式**列表这条路走不通——需要的是一个
+          //   可空列（`null` = 没配过）。本次不引入，因为 `prompt_text` 的既有兜底
+          //   有一模一样的局限（空串既是"没写"也是"写成了空"），两处保持同一形状比
+          //   为其中一处单独发明一套三态语义更容易被下一个人读懂；真要区分时，两处
+          //   一起改成可空列。
+          recommendAfter:
+            row.recommend_after.length === 0 && row.builtin
+              ? [...(BUILTIN_RECOMMEND_AFTER[row.key] ?? [])]
+              : [...row.recommend_after],
           layoutSource: row.layout_source,
           size: row.size,
           createdAt: row.created_at.toISOString(),
@@ -484,6 +505,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly title: string;
     readonly footer: string;
     readonly promptText: string;
+    /** issue #2825——全量替换，同 `tags`（省略等于清空，见契约那条注释）。 */
+    readonly recommendAfter: readonly string[];
   }): Promise<UpdateMetadataOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -498,15 +521,20 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         title: string;
         footer: string;
         prompt_text: string;
+        recommend_after: readonly string[];
       }>(
         // ⚠ `sections` 仍然不在 SET 里——本操作对任何状态生效，靠的就是它物理上碰不到
         //   内容。加进来会让「改装帧」变成一条能绕过不可变快照的路径。
         `UPDATE canvas_templates
-            SET display_name = $4, tags = $5::text[], title = $6, footer = $7, prompt_text = $8, updated_at = now()
+            SET display_name = $4, tags = $5::text[], title = $6, footer = $7, prompt_text = $8,
+                recommend_after = $9::text[], updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, tags, title, footer, prompt_text`,
-        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags], cmd.title, cmd.footer, cmd.promptText],
+                   underlying_type, tags, title, footer, prompt_text, recommend_after`,
+        [
+          cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags],
+          cmd.title, cmd.footer, cmd.promptText, [...cmd.recommendAfter],
+        ],
       );
       const row = r.rows[0];
       if (row === undefined) return { updated: false };
@@ -524,6 +552,11 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           title: row.title,
           footer: row.footer,
           promptText: row.prompt_text,
+          // ⚠ 这里**不**走 `toGuarded` 里那份内置兜底：本响应回的是「这次写进去的是
+          //   什么」，兜底是「读的时候没有配置就给个默认」。写回显里掺兜底，会让
+          //   一次"把内置模板的推荐关系清空"的保存看起来没生效（回来的还是默认表），
+          //   而库里其实已经空了——下一次列表读取又会显示默认，两处说法不一致。
+          recommendAfter: [...row.recommend_after],
         },
       };
     });

@@ -511,3 +511,55 @@ export function generateDefaultPromptText(
   for (const name of body) lines.push(`- ${name}`);
   return lines.join("\n");
 }
+
+/**
+ * 19 个内置模板的**默认推荐关系**（issue #2825）——「画完这个，接着画哪几个」。
+ *
+ * ## 它服务于哪件事
+ *
+ * chat 建议行里的画布模板推荐（`application/chat/recommend-canvas-templates.ts`）。
+ * 库里 `canvas_templates.recommend_after` 才是权威——组织可以在 template-admin 里
+ * 改任意一条。本表只是**内置模板从未被配置过**（该列仍是空数组）时的兜底默认值，
+ * 与 `generateDefaultPromptText` 对 `prompt_text` 空值的兜底是同一条既有纪律
+ * （见 `pg-canvas-template-repository.ts` 的 `promptText` 兜底注释）：让顾问打开
+ * 编辑器、让使用者打开 chat，看到的都是一份**可用的**默认配置，而不是等谁去跑一次
+ * 回填脚本。非内置模板（组织自建）不兜底——它们留空是合法状态。
+ *
+ * ## 这些关系不是编的，也不是唯一正确的
+ *
+ * 取自设计思维/精益创业里通用的工作坊顺序：先理解人（画像 → 旅程/同理心）、
+ * 再定义问题（→ HMW）、再提方案（→ 价值主张 → 商业模式 → MVP 实验）。这是一份
+ * **默认值**，不是断言「一定要这么走」——顾问团队的方法论各不相同，所以它可改，
+ * 而且改了立刻生效（读路径只在库里为空时才回落到这里）。
+ *
+ * ⚠ 只写**推荐得出去**的边。没有出边的模板（如 `mvp`、`storyboard`）不在表里，
+ *   等于「画完它之后本表不额外推荐什么」——不是漏了。
+ * ⚠ 入度为 0 的 key（`persona` / `hmw` / `pestel` / `swot` / `ai-strategy` / `freytag` /
+ *   `burger` / `golden-circle` / `three-lenses` / `three-horizons`）是**起点模板**：
+ *   线程里还一个画布都没有时推荐它们。那个判定由消费端从本表（或库里的实际配置）
+ *   现算入度得出，**不在这里再写第二份"起点清单"**。
+ */
+export const BUILTIN_RECOMMEND_AFTER: Readonly<Record<string, readonly string[]>> = {
+  // 理解人：画像之后自然是旅程与同理心，或者追问"他想完成什么任务"。
+  persona: ["journey-map", "empathy", "jtbd"],
+  empathy: ["hmw", "jtbd"],
+  "journey-map": ["hmw", "storyboard"],
+  jtbd: ["value-proposition", "hmw"],
+  // 定义问题 → 提方案。
+  hmw: ["value-proposition", "storyboard"],
+  "value-proposition": ["adlib", "bmc"],
+  adlib: ["bmc"],
+  // 商业化与验证。
+  bmc: ["mvp", "three-horizons"],
+  "ai-bmc": ["mvp"],
+  "ai-strategy": ["ai-bmc", "three-horizons"],
+  // 外部环境 → 内部态势 → 未来布局。
+  pestel: ["swot"],
+  swot: ["three-horizons", "bmc"],
+  "three-horizons": ["mvp"],
+  // 叙事线。
+  "golden-circle": ["adlib", "storyboard"],
+  freytag: ["storyboard"],
+  "three-lenses": ["hmw"],
+  burger: ["hmw"],
+};

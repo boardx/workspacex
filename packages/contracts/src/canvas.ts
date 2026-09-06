@@ -621,6 +621,31 @@ export const operations = {
        * 因此对任何状态生效。空串 = 未写。
        */
       promptText: z.string().optional(),
+      /**
+       * 「用完这个模板之后，接着推荐哪几个模板」——chat 建议行按上下文推荐画布模板的
+       * **唯一事实源**（issue #2825）。元素是本组织已发布模板的 `key`（如 persona 的
+       * `["journey-map", "empathy", "jtbd"]`）。
+       *
+       * ## 为什么是一个可编辑字段，而不是写在代码里的一张表
+       *
+       * chat 里那条「生成用户画像」建议此前是前端写死的一条常量 chip：文案永远相同、
+       * 与后台模板库毫无关系，组织新建的模板永远不可能被推荐出来。推荐关系是**顾问的
+       * 方法论**（画完画像接着画旅程图还是同理心地图，不同咨询团队的答案不一样），
+       * 与「这个模板有哪些分区」同属模板配置，理应和分区一样在 template-admin 里被
+       * 看到和改动——写死在前端代码里就是本仓反复点名的「后台改了、chat 照旧」那种形状
+       * （同 `canvas-template-guidance.ts` issue #1493、`persona-summary.ts` 的字段清单）。
+       *
+       * ## 不校验元素是否指向真实存在的模板
+       *
+       * 与 `tags` 同一条纪律：这里只存字符串。key 指向的模板可能还没建、已归档、或对
+       * 读取者不可见——「现在还存不存在、可不可见」只有读取那一刻的 `listTemplates`
+       * 知道，在写入时校验会得到一份写入时成立、读取时未必成立的假保证。消费端
+       * （`recommendCanvasTemplates`）按当次已发布清单取交集，解析不到的 key 直接跳过。
+       *
+       * 同 title/footer/promptText：装帧/配置材料，不是 `sections` 内容，因此对任何
+       * 状态生效（已发布的内置模板也能直接改推荐关系，不必开新版）。全量替换，不是 patch。
+       */
+      recommendAfter: z.array(z.string()).optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -634,6 +659,8 @@ export const operations = {
       title: z.string(),
       footer: z.string(),
       promptText: z.string(),
+      /** 见 `in.recommendAfter`。 */
+      recommendAfter: z.array(z.string()),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -922,6 +949,11 @@ export const operations = {
         footer: z.string(),
         /** 见 `updateTemplateMetadata.in.promptText`。空串 = 未写。 */
         promptText: z.string(),
+        /**
+         * 见 `updateTemplateMetadata.in.recommendAfter`。空数组 = 没配推荐关系
+         * （该模板产出之后 chat 不会因为它而推荐任何后续模板）。
+         */
+        recommendAfter: z.array(z.string()),
         /** 见 `PaperSize`。既有历史行（本字段上线前建的）落库时归一成 `"A1"`。 */
         size: PaperSize,
         /**

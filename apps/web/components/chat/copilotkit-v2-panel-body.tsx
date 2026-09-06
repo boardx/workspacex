@@ -59,7 +59,8 @@ import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
-  createPersonalThread, listThreadAttachments, summarizePersonaFromThread,
+  createPersonalThread, listThreadAttachments, recommendCanvasTemplates,
+  summarizePersonaFromThread,
   type ListThreadAttachmentsOut,
 } from "@/lib/live-chat";
 // issue #2694 修复——`PERSONA_SUMMARY_AUTHOR_ID` 是后端/前端共认的单一事实源
@@ -93,29 +94,40 @@ const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
 
 /**
- * issue #2694 修复——「生成用户画像」建议 chip 新增的关闭状态，按线程持久化到
- * `localStorage`（键含 `threadId`）。关闭是"这次不想再看到它"，与
- * `personaAlreadyGenerated`（"后端已经落库过一份画像"）是两件独立的事实，
- * `showPersonaSuggestion` 判据里两者任一为真都该隐藏——见该判据的完整论证。
+ * issue #2694 修复——画布模板建议 chip 的关闭状态，按 **(线程, 模板 key)** 持久化到
+ * `localStorage`。关闭是"这次不想再看到它"，与"后端已经产出过这个模板"是两件独立的
+ * 事实（服务端 `recommendCanvasTemplates` 已经把画过的模板从推荐里剔掉了，这里管的是
+ * 另一半：还没画、但用户现在不想画）。
  *
  * 只做本地持久化、不写后端：这条 chip 本身不是任何领域状态，"用户不想再看到一条
- * 建议"不需要一次服务端往返，与 `personaThreadHasPersistedEvidence` 那类"后端
- * 事实"不是同一类东西，不应该被同一条纪律要求。
+ * 建议"不需要一次服务端往返，与"这条线程后端落库了什么"那类事实不是同一类东西，
+ * 不应该被同一条纪律要求。
+ *
+ * ⚠ `persona` 用的仍然是 issue #2694 时代那个**不带模板 key 的旧键名**（issue #2825
+ *   把这条 chip 从写死的一条泛化成整排推荐时保留的）——换一个新键名不会报错，只会让
+ *   所有此前主动关掉过「生成用户画像」的人在升级后又看到它一次。那是一次没有任何
+ *   好处的静默回归，而兼容它的成本就是下面这一个三目。
  */
 const PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX = "chat-persona-suggestion-dismissed:";
-function readPersonaSuggestionDismissed(threadId: string): boolean {
+const TEMPLATE_SUGGESTION_DISMISSED_KEY_PREFIX = "chat-template-suggestion-dismissed:";
+function templateSuggestionDismissKey(threadId: string, templateKey: string): string {
+  return templateKey === "persona"
+    ? PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId
+    : `${TEMPLATE_SUGGESTION_DISMISSED_KEY_PREFIX}${threadId}:${templateKey}`;
+}
+function readTemplateSuggestionDismissed(threadId: string, templateKey: string): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return window.localStorage.getItem(PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId) === "1";
+    return window.localStorage.getItem(templateSuggestionDismissKey(threadId, templateKey)) === "1";
   } catch {
     // 隐私模式 / 存储被禁：静默降级为"没关闭过"，不让这个非核心便利功能炸整个面板。
     return false;
   }
 }
-function writePersonaSuggestionDismissed(threadId: string): void {
+function writeTemplateSuggestionDismissed(threadId: string, templateKey: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(PERSONA_SUGGESTION_DISMISSED_KEY_PREFIX + threadId, "1");
+    window.localStorage.setItem(templateSuggestionDismissKey(threadId, templateKey), "1");
   } catch {
     // 同上——写失败不影响本次会话内已经生效的 state，只是刷新后关闭状态丢失。
   }
@@ -1182,6 +1194,81 @@ export function CopilotKitV2PanelBody({
   );
 
   /**
+   * ── 画布模板推荐 chip（issue #2825，泛化自 #2053 CK-P6 的「生成用户画像」）──────
+   *
+   * ## 这一段替换掉了什么
+   *
+   * 此前这里是一条**写死的常量 chip**：19 个内置 + 组织自建画布模板里只有 `persona`
+   * 一个进得了建议行，文案永远相同，后台 template-admin 里新建/改名/停用模板对它
+   * 毫无影响（人类 2026-09-06 原话：「可否变为一个动态的、更具上下文来推荐可视化
+   * 模板的地方，而不只是用户画像，比如上面是用户画像，就可以推荐用户旅程图、
+   * 同理心地图等，主要渲染我们在后台定义好的画布模板」）。
+   *
+   * 现在「推荐哪几个模板」由服务端 `recommendCanvasTemplates` 算：判据是①这条线程
+   * 已经画过哪些 canvas 围栏、②后台已发布模板各自配的 `recommendAfter`。**本文件
+   * 不复制其中任何一条规则**——它只负责渲染与点击后的动作分派，这正是上一版的教训
+   * （规则写在前端 ⇒ 后台改了模板，chat 照旧）。
+   *
+   * ## 前端仍然自己判的两件事，以及为什么它们不该下沉到服务端
+   *
+   * · `personaThreadHasPersistedEvidence`——"这条线程后端已经确认落库过至少一条
+   *   消息"。它决定的是**要不要发起这次请求**：线程 id 刚 resolve、消息还没落库时
+   *   请求回来必然是空列表，白跑一趟。判据与两个事实源的完整论证见下方定义。
+   * · `dismissedTemplateKeys`——用户主动关掉的那些。纯本地偏好，不写后端（见文件头
+   *   `readTemplateSuggestionDismissed` 的说明）。
+   *
+   * ## `persona` 是唯一的动作特例，且是刻意保留的
+   *
+   * 其余模板点击 = 发一条普通用户消息（`items[].prompt`，服务端拼好的），由
+   * `buildCanvasTemplateGuidance`（issue #1493）已经注入 system prompt 的那段
+   * canvas 指引带模型产出围栏——**不需要任何新端点**。而 `persona` 走的是既有的
+   * `summarizePersonaFromThread`（POST 专用端点，产出 mindmap 消息 + 一份 draft
+   * Artifact，已由 design-delta chat-persona-roundtrip 人类签核）。两者产物不同，
+   * 把 persona 也改成发消息会**悄悄取消**那份已签核的 Artifact 落地行为。
+   */
+  const [templateRecommendations, setTemplateRecommendations] = React.useState<
+    readonly { readonly key: string; readonly displayName: string; readonly prompt: string }[]
+  >([]);
+  const personaThreadHasPersistedEvidence =
+    initialChatThreadId !== null
+    && ((hydratedEvidence !== null
+      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.hasMessages)
+      || resolvedThreadIdsRef.current.has(initialChatThreadId));
+  /**
+   * 取一次推荐。**只在这三种时刻**跑，不做轮询：
+   *   ① 线程确认有落库消息之后（挂载 / 本轮新建线程 resolve 完）；
+   *   ② 一次 run 跑完（`agent.isRunning` 落回 false）——模型可能刚产出一份画布，
+   *     推荐清单要跟着变（画完旅程图，就不该继续推荐旅程图）；
+   *   ③ persona 汇总成功之后（它不是一次 agent run，`isRunning` 不会动）。
+   *
+   * 失败静默吞掉：建议行是锦上添花，一次 404/网络抖动不该在聊天面板上多一条红字
+   * （服务端同一条纪律——模板库读不到时返回空 `items` 而不是报错）。
+   */
+  const refreshTemplateRecommendations = React.useCallback(async (threadId: string) => {
+    try {
+      const bearer = getStoredSessionToken() ?? undefined;
+      // `projectId` 恒传 `null`：v2 外壳管的全是个人线程，与本文件其余 chat 读调用
+      //  （`getThread`/`landAsArtifact`）同一个既有约定，见 `copilotkit-v2-shell.tsx`。
+      const out = await recommendCanvasTemplates(threadId, null, bearer);
+      setTemplateRecommendations(out.items);
+    } catch {
+      setTemplateRecommendations([]);
+    }
+  }, []);
+  React.useEffect(() => {
+    if (initialChatThreadId === null || archived || !personaThreadHasPersistedEvidence) {
+      setTemplateRecommendations([]);
+      return;
+    }
+    if (agent.isRunning) return; // 跑完再取——run 途中的答案下一秒就过期了。
+    void refreshTemplateRecommendations(initialChatThreadId);
+  }, [
+    initialChatThreadId, archived, personaThreadHasPersistedEvidence,
+    agent.isRunning, refreshTemplateRecommendations,
+  ]);
+
+  /**
    * ── issue #2053 CK-P6「生成用户画像」（差距表 #6）────────────────────────────
    *
    * 平移旧轨道 `chat-live-message-panel.tsx` 的 `runPersonaSummary`：一次
@@ -1218,22 +1305,23 @@ export function CopilotKitV2PanelBody({
    */
   const [personaGeneratedOnce, setPersonaGeneratedOnce] = React.useState(false);
   /**
-   * issue #2694 修复——「生成用户画像」建议 chip 的关闭状态。惰性初始化直接读一次
-   * `localStorage`（不用 effect 再补一轮，避免"挂载首帧闪现、下一帧才消失"的抖动）；
-   * 线程切换（`initialChatThreadId` 变化）时重新读一次对应线程自己的关闭状态——
-   * 关闭是"针对这一条线程"的，不该跨线程带过去。
+   * issue #2694 修复（issue #2825 泛化）——建议 chip 的关闭状态，按模板 key 分别记。
+   * `dismissedTemplateKeys` 只是本次渲染要用的**内存投影**，权威在 `localStorage`
+   * （见文件头 `readTemplateSuggestionDismissed`）：关闭是"针对这一条线程的这一个
+   * 模板"，线程切换时整份丢弃、按新线程重读。
    */
-  const [personaSuggestionDismissed, setPersonaSuggestionDismissed] = React.useState(
-    () => initialChatThreadId !== null && readPersonaSuggestionDismissed(initialChatThreadId),
+  const [dismissedTemplateKeys, setDismissedTemplateKeys] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
   );
   React.useEffect(() => {
-    setPersonaSuggestionDismissed(
-      initialChatThreadId !== null && readPersonaSuggestionDismissed(initialChatThreadId),
-    );
+    // 线程切换：关闭状态不跨线程带过去。清空即可——下面 `visibleSuggestions` 每次
+    // 都对当次推荐列表现读一次 `localStorage`，不需要在这里预先把整个键空间扫一遍
+    // （也扫不了：推荐了哪几个模板要等服务端回来才知道）。
+    setDismissedTemplateKeys(new Set());
   }, [initialChatThreadId]);
-  const dismissPersonaSuggestion = React.useCallback(() => {
-    setPersonaSuggestionDismissed(true);
-    if (initialChatThreadId !== null) writePersonaSuggestionDismissed(initialChatThreadId);
+  const dismissTemplateSuggestion = React.useCallback((templateKey: string) => {
+    setDismissedTemplateKeys((prev) => new Set([...prev, templateKey]));
+    if (initialChatThreadId !== null) writeTemplateSuggestionDismissed(initialChatThreadId, templateKey);
   }, [initialChatThreadId]);
   const runPersonaSummary = React.useCallback(async () => {
     if (initialChatThreadId === null || personaRunning) return;
@@ -1262,6 +1350,10 @@ export function CopilotKitV2PanelBody({
       // 一直挂在已经生成过的对话下面，重新点一次除了多花一次模型调用什么也不会
       // 变（`buildPersonaLanding` 是幂等的全量重扫，不是增量）。
       setPersonaGeneratedOnce(true);
+      // issue #2825——画像不是一次 agent run（`agent.isRunning` 不会动），所以取推荐
+      // 的那个 effect 不会自己重跑；这里显式再取一次：画完画像，推荐行应该立刻换成
+      // 「用户旅程图 / 同理心地图」这些下一步，而不是等下一次对话才更新。
+      void refreshTemplateRecommendations(initialChatThreadId);
       // 画像同时落了一件产物（`out.artifactId`）——通知外壳刷新右栏「产物」栏，
       // 与 `send()` 里 run settle 后那次是同一个通道、同一个理由。
       onMessageSent?.();
@@ -1276,7 +1368,7 @@ export function CopilotKitV2PanelBody({
     } finally {
       setPersonaRunning(false);
     }
-  }, [agent, initialChatThreadId, onMessageSent, personaRunning]);
+  }, [agent, initialChatThreadId, onMessageSent, personaRunning, refreshTemplateRecommendations]);
 
   /**
    * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
@@ -1580,93 +1672,55 @@ export function CopilotKitV2PanelBody({
   }, []);
 
   /**
-   * issue #2053（CK-P6，重设计 2026-08-30，补丁二 + review 反证第三轮）——
-   * 「生成用户画像」建议 chip 的出现条件。全部读已经存在的真实状态，不新开一条判定：
-   *   · `canGeneratePersona`——服务端 `artifact.land` 能力位，硬门槛：没有它
-   *     点了必 403，属于本仓明令禁止的"假按钮"，任何时候都不能省。
-   *   · `!archived`——归档线程只读，建议行本身在归档时整体不渲染
-   *     （见下方 `{archived ? null : &lt;FollowUpSuggestions .../&gt;}`），这里
-   *     单独列出只是让判据读起来完整，不是重复的第二道门。
-   *   · `personaThreadHasPersistedEvidence`——见下方定义，"当前线程后端已经
-   *     确认落库过至少一条消息"这件事实。
-   *   · `!personaGeneratedOnce`——本次会话还没成功生成过一次；生成中时仍然渲染
-   *     （`disabled: personaRunning`），只是文案换成"生成画像中…"，与旧版按钮的
-   *     loading 态视觉一致，不会让用户觉得点击后什么都没发生。
+   * 渲染成 chip。`persona` 那条沿用它作为独立按钮时代就有的 testid
+   * （`chat-persona-summary-trigger`）——既有单测与真栈 e2e 都认这个锚点，改名
+   * 会让那些证据全部超时，而"叫什么名字"本来就不是这次要改的东西（见
+   * `LocalSuggestionChip.id` 的文件头注）。其余模板用 `chat-template-suggestion-<key>`。
    *
-   * ## 为什么不能用 `agent.messages.length > 0`（补丁二的版本，review 反证推翻）
-   *
-   * `agent.messages` 是 client/流式视图，不是"这条线程在后端落库了什么"的事实源：
-   * 用户刚发出第一条消息时，`agent.messages` 里已经有这条**乐观插入、还没落库**
-   * 的消息——`initialChatThreadId` 从 null resolve 成真实 id 那一刻，
-   * `agent.messages.length > 0` 立刻为真，但这本身是安全的（见下面 ②），补丁二
-   * 真正的漏洞在别处：如果 hydration（情形①，见下方）还没跑完、或读到的是别的
-   * 线程的残留状态，`agent.messages` 完全有可能与"这条线程实际落库了什么"脱节，
-   * 而 `runPersonaSummary` 判断的正是后端 `readAllPersistedMessages` 这份事实,
-   * 两者不是同一个数据源，用 client 视图当代理会在两者分叉的窗口里复现同一个
-   * "chip 出现但点了报错"的问题——这正是本次要修的 bug，不能用同类判据顶替。
-   *
-   * ## 两个事实源，各自对应"线程从哪来"的两种情形
-   *
-   * ①（既有线程，`hydratedEvidence`）—— 组件挂载时对**这一个** `initialChatThreadId`
-   *   跑一次 `readAllPersistedMessages`（下面那个 hydration effect），`threadId`
-   *   字段精确匹配当前 `initialChatThreadId` 才采信——防的是"残留上一次 hydration
-   *   结果"（尽管本仓路由级重挂载已经让"同一个组件实例横跨两条不同既有线程"这个
-   *   场景在当前代码路径下不会发生，见 `copilotkit-v2-panel.tsx` "切换走 [threadId]
-   *   路由级重挂载"那条注释——`threadId` 字段仍然留着，做一次不依赖那条不变量的
-   *   独立校验，这条不变量本身如果哪天被打破，这里不会跟着一起错）。
-   * ②（本轮新建线程，`resolvedThreadIdsRef`）—— 本轮乐观插入用户消息后，后端才把
-   *   线程 id resolve 出来并经 `chat_thread_id` 自定义事件回显——这个事件只在
-   *   后端已经落库了触发它的那条消息之后才会发出（本文件 hydration effect 的
-   *   guard 注释里"若 readAllPersistedMessages 跑得比 acceptHumanMessage 落库快"
-   *   一段已经在依赖同一条时序不变量，这里是复用，不是新发明），所以只要
-   *   `initialChatThreadId` 出现在这个 Set 里，就已经有 ≥1 条落库消息，不需要
-   *   （也不该）再触发一次 hydration 去确认同一件事。
-   *
-   * ⚠ 2026-09-04（issue #2694 修复，取代下面这段此前的"已知局限"记录）：
-   *   `personaGeneratedOnce` 仍然只是本次会话内的本地信号（生成成功那一刻立即
-   *   生效，不必等一次额外的服务端往返），但现在**不再是唯一的事实源**——
-   *   `personaAlreadyGenerated`（见下方）额外读一次 hydration 已经拿到的
-   *   `hydratedEvidence.hasPersonaArtifact`：该线程已落库消息里有没有一条
-   *   `authorId === ChatContract.PERSONA_SUMMARY_AUTHOR_ID`。两者是"同一件事的
-   *   两个来源"（本次会话内生成 vs. 更早、也许是上一次打开这条线程时生成），
-   *   任一为真都该隐藏——不是回归上面"不能用 `agent.messages` 当事实源"那条
-   *   纪律：这里读的仍然是 hydration 效果里 `readAllPersistedMessages` 落定的
-   *   持久化结果，不是 client 流式视图。
-   *
-   *   此外新增 `personaSuggestionDismissed`——用户主动点击关闭时置位，按线程持久化
-   *   到 `localStorage`（见文件头 `readPersonaSuggestionDismissed`/
-   *   `writePersonaSuggestionDismissed`），与"是否已生成过"是两件独立的事：
-   *   用户可以在"还没生成过"的线程上主动关闭这条建议（不想现在生成），这条建议
-   *   此后就不再自己冒出来，直到该线程真的生成过一次画像。
+   * `canGeneratePersona`（服务端 `artifact.land` 能力位）**只挡 persona 那一条**：
+   * 没有它，那条 POST 必 403，属于本仓明令禁止的"假按钮"。其余 chip 只是发一条
+   * 普通消息，与产物落地权限无关——用同一道门挡住它们会凭空少掉一批本来能用的建议。
    */
-  const personaThreadHasPersistedEvidence =
-    initialChatThreadId !== null
-    && ((hydratedEvidence !== null
-      && hydratedEvidence.threadId === initialChatThreadId
-      && hydratedEvidence.hasMessages)
-      || resolvedThreadIdsRef.current.has(initialChatThreadId));
+  /**
+   * persona 的「已经生成过」有两个来源，任一为真都该隐藏（issue #2694 的既有论证）：
+   *   · `personaGeneratedOnce`——本次会话内刚生成完那一刻立即生效，不必等一次
+   *     额外的服务端往返；
+   *   · `hydratedEvidence.hasPersonaArtifact`——hydration 读回的持久化事实（该线程
+   *     已落库消息里有一条 `authorId === PERSONA_SUMMARY_AUTHOR_ID`），对应"更早、
+   *     也许是上一次打开这条线程时生成过"。
+   *
+   * ⚠ 服务端 `recommendCanvasTemplates` **也**已经把画过的模板剔掉了（它认同一个
+   *   `PERSONA_SUMMARY_AUTHOR_ID`，见那个用例的 `drawnKeys`），这里不是重复的第二
+   *   道门：推荐是**取一次就缓存在 state 里**的，从取回到 hydration 落定、到用户
+   *   点完生成之间都有窗口，这两个本地信号补的正是那些窗口，判据仍然是同一份持久化
+   *   事实，不是另起一套判定。
+   */
   const personaAlreadyGenerated =
     personaGeneratedOnce
     || (hydratedEvidence !== null
       && hydratedEvidence.threadId === initialChatThreadId
       && hydratedEvidence.hasPersonaArtifact);
-  const showPersonaSuggestion =
-    canGeneratePersona && !archived && personaThreadHasPersistedEvidence
-    && !personaAlreadyGenerated && !personaSuggestionDismissed;
-  const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
-    ? [{
-        // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
-        // 时代就有的既有锚点，见 `LocalSuggestionChip.id` 的文件头注。
-        id: "chat-persona-summary-trigger",
-        label: personaRunning ? "生成画像中…" : "生成用户画像",
-        disabled: personaRunning,
-        onSelect: () => void runPersonaSummary(),
+  const templateSuggestions: readonly LocalSuggestionChip[] = templateRecommendations
+    .filter((t) => !dismissedTemplateKeys.has(t.key))
+    .filter((t) => initialChatThreadId === null
+      || !readTemplateSuggestionDismissed(initialChatThreadId, t.key))
+    .filter((t) => t.key !== "persona" || (canGeneratePersona && !personaAlreadyGenerated))
+    .map((t) => {
+      const isPersona = t.key === "persona";
+      const running = isPersona && personaRunning;
+      return {
+        id: isPersona ? "chat-persona-summary-trigger" : `chat-template-suggestion-${t.key}`,
+        label: running ? "生成画像中…" : `生成${t.displayName}`,
+        disabled: running,
+        onSelect: isPersona
+          ? () => void runPersonaSummary()
+          : () => void send(t.prompt),
         // issue #2694 修复——生成中不给关闭入口：点击已经在途的请求半路"关闭"不会
         // 取消它，反而会让用户误以为按钮消失=请求也没了，与上面 `disabled` 同一条
         // 纪律（不制造"看起来生效、其实没有"的交互）。
-        onDismiss: personaRunning ? undefined : dismissPersonaSuggestion,
-      }]
-    : [];
+        onDismiss: running ? undefined : () => dismissTemplateSuggestion(t.key),
+      };
+    });
 
   // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
   // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
@@ -1986,15 +2040,15 @@ export function CopilotKitV2PanelBody({
         ) : null}
         {/* issue #2053（CK-P8）—— 归档线程不给追问建议：每一条 chip 点下去都是一次
             发送（或本地建议里的 persona 生成动作），摆在只读线程上就是一排假按钮。
-            这条门也覆盖下面 `personaSuggestions`——`showPersonaSuggestion` 已经
-            单独判过 `!archived`，这里不是重复的第二道门，只是两处共用同一次
-            渲染判断。 */}
+            这条门也覆盖下面 `templateSuggestions`——取推荐的那个 effect 已经
+            单独判过 `!archived`（归档线程直接清空推荐列表），这里不是重复的第二道
+            门，只是两处共用同一次渲染判断。 */}
         {archived ? null : (
           <FollowUpSuggestions
             agentId={threadId}
             disabled={agent.isRunning}
             onSelect={(text) => void send(text)}
-            localSuggestions={personaSuggestions}
+            localSuggestions={templateSuggestions}
           />
         )}
         {personaFailure !== null ? (

@@ -307,6 +307,7 @@ export class CanvasTemplateController {
             title: body.title,
             footer: body.footer,
             promptText: body.promptText,
+            recommendAfter: body.recommendAfter,
           },
         ),
       ),

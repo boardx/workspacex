@@ -72,6 +72,7 @@ const STEP_HINTS: Record<1 | 2 | 3, string> = {
 export function TemplateEditorPanel({
   row, readOnly, onClose, onSaved,
   onPublish, onArchive, onRestore, onTrial, onMintVersion,
+  siblings = [],
 }: {
   readonly row: CanvasTemplate;
   readonly readOnly: boolean;
@@ -82,6 +83,13 @@ export function TemplateEditorPanel({
   readonly onRestore: () => void;
   readonly onTrial: () => void;
   readonly onMintVersion: () => void;
+  /**
+   * issue #2825——「接着推荐哪几个模板」那一栏的候选项：本组织模板库里**除自己以外**
+   * 的行（由 `template-admin.tsx` 把它已经拉到的那份列表传进来，不在这里再查一次接口）。
+   * 缺省空数组 ⇒ 那一栏渲染成一句"没有其它模板可推荐"，不是崩溃——本面板在测试里
+   * 被单独挂载过，不能要求每个挂载点都给这个 prop。
+   */
+  readonly siblings?: readonly CanvasTemplate[];
 }) {
   const isDraft = row.status === "draft";
   /**
@@ -124,6 +132,17 @@ export function TemplateEditorPanel({
   // 留着这一手是为了不让"响应体缺一个字段"从一次异常变成整个编辑面板崩溃——
   // `template-prompt-drawer.tsx` 会对它调用 `.trim()`。
   const [promptText, setPromptText] = React.useState(row.promptText ?? "");
+  /**
+   * issue #2825——「画完这个模板，chat 接着推荐哪几个」。同 title/footer/promptText：
+   * 装帧/配置，不是 `sections` 内容，所以走 `updateTemplateMetadata`、对任何状态生效
+   * （已发布的内置模板也能直接改推荐关系，不必开新版）。
+   *
+   * `?? []` 与上面 `promptText` 的 `?? ""` 同一条理由：契约 `.strict()` 保证服务端一定
+   * 给这个字段，兜底只是不让"响应体缺一栏"从异常升级成整个面板崩溃。
+   */
+  const [recommendAfter, setRecommendAfter] = React.useState<readonly string[]>(
+    () => [...(row.recommendAfter ?? [])],
+  );
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [newField, setNewField] = React.useState<{ key: string; name: string; type: SectionFieldType }>(
@@ -160,6 +179,7 @@ export function TemplateEditorPanel({
     || title !== row.title
     || footer !== row.footer
     || promptText !== row.promptText
+    || recommendAfter.join("\u0000") !== [...(row.recommendAfter ?? [])].join("\u0000")
     || paperSize !== (row.size ?? "A1")
     || sectionsDirty
   );
@@ -317,15 +337,20 @@ export function TemplateEditorPanel({
    *   而清空不会报错，只会让筛选栏少一类。
    */
   async function saveChrome(version = row.version): Promise<void> {
+    const recommendUnchanged =
+      recommendAfter.join("\u0000") === [...(row.recommendAfter ?? [])].join("\u0000");
     if (
       title === row.title && footer === row.footer
-      && promptText === row.promptText && version === row.version
+      && promptText === row.promptText && recommendUnchanged && version === row.version
     ) return;
     await updateCanvasTemplateMetadata({
       key: row.key, version,
       displayName: displayName.trim(),
       tags: [...(row.tags ?? [])],
       title, footer, promptText,
+      // ⚠ 同 `tags`：全量替换，省略等于清空——所以这里必须原样带上当前值，
+      //   即使这次编辑根本没碰推荐关系。
+      recommendAfter: [...recommendAfter],
     });
   }
 
@@ -355,7 +380,7 @@ export function TemplateEditorPanel({
           //   真的改变的那一栏。`updateTemplateDraft.out` 契约没有这两栏（DB 有 `updated_at`
           //   但 RETURNING 没取），同 `usageCount`/`title` 等字段一样，是本地按"刚发生了
           //   什么"合理推出来的，不是瞎猜。
-          { ...out, usageCount: 0, title, footer, promptText, platform: false, createdAt: row.createdAt, updatedAt: new Date().toISOString() },
+          { ...out, usageCount: 0, title, footer, promptText, recommendAfter: [...recommendAfter], platform: false, createdAt: row.createdAt, updatedAt: new Date().toISOString() },
         );
         return;
       }
@@ -403,7 +428,7 @@ export function TemplateEditorPanel({
           `（不可变快照，用它开过的画布不受影响）。`,
           // 铸新版本是新造一行——`createdAt`/`updatedAt` 都是"此刻"，同上一处
           // `updateTemplateDraft` 分支的理由对称（那边是改行，这里是新行）。
-          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+          { ...minted, status: "published", usageCount: 0, title, footer, promptText, recommendAfter: [...recommendAfter], platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       } else {
         const reasons = [
@@ -414,7 +439,7 @@ export function TemplateEditorPanel({
           `已铸出 v${minted.version} 草稿并保存改动，但「未发布」——` +
           `${reasons.join("；")}。修好后再点「发布模板」，v${row.version} 保持原样。`,
           // 同上——铸新版本是新造一行。
-          { ...minted, usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+          { ...minted, usageCount: 0, title, footer, promptText, recommendAfter: [...recommendAfter], platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       }
     } catch (e) {
@@ -795,6 +820,47 @@ export function TemplateEditorPanel({
               className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground"
               data-testid="tpladmin-editor-footer-input"
             />
+          </div>
+          {/*
+            issue #2825——「接着推荐哪几个模板」。放在装帧那一行下面、画布上面：它和
+            title/footer 同属"这个模板的元数据"（一次 `updateTemplateMetadata` 一起存），
+            与右栏"选中区块的显示方式"不是一类东西，混进右栏会让人以为它按区块生效。
+
+            ⚠ 用一排可点的 chip，不用多选下拉：模板库通常十几到二十几条，且顾问要看的是
+              "我选了哪几个"，chip 的选中态一眼可见；下拉要展开才知道选了什么。
+            ⚠ 顺序即优先级（服务端并列时按模板库顺序，但同一个模板自己配的这份列表
+              是有序的）——点击追加到末尾、再点移除，不做排序 UI：多一个拖拽排序控件
+              解决的是一个目前没人提出过的问题。
+          */}
+          <div className="flex flex-none flex-wrap items-center gap-1.5 border-b border-border px-4 py-2">
+            <span className="shrink-0 text-11 text-muted-foreground">用完之后推荐</span>
+            {siblings.length === 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="tpladmin-editor-recommend-empty">
+                模板库里还没有其它模板可以推荐
+              </span>
+            ) : (
+              siblings.map((t) => {
+                const picked = recommendAfter.includes(t.key);
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    disabled={!editable}
+                    aria-pressed={picked}
+                    data-testid={`tpladmin-editor-recommend-${t.key}`}
+                    onClick={() => setRecommendAfter((prev) =>
+                      prev.includes(t.key) ? prev.filter((k) => k !== t.key) : [...prev, t.key])}
+                    className={`rounded-full border px-2 py-0.5 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:text-disabled-foreground ${
+                      picked
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-transparent text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {t.displayName}
+                  </button>
+                );
+              })
+            )}
           </div>
           <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
             <div className="w-full max-w-4xl">

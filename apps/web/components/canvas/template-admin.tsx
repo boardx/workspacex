@@ -461,7 +461,8 @@ export function TemplateAdmin({
         // （同 `template-editor-panel.tsx` 铸新版本那两处一样的理由），但这一行确实
         // 就是这一刻刚 INSERT 出来的，不是猜的。
         setEditing({
-          ...out, usageCount: 0, title: "", footer: "", promptText: "", platform: false,
+          ...out, usageCount: 0, title: "", footer: "", promptText: "", recommendAfter: [],
+          platform: false,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
         return;
@@ -973,6 +974,11 @@ export function TemplateAdmin({
         <TemplateEditorPanel
           row={editing}
           readOnly={readOnly}
+          /* issue #2825——「用完之后推荐」那一栏的候选项。用**本屏已经拉到的**这份列表，
+             不在面板里再查一次接口；排除自己（一个模板推荐它自己没有意义）。
+             ⚠ 它跟着当前 `filter` 走：筛到「草稿」时候选里就只有草稿。这是刻意的——
+               候选项与列表所见一致，比"面板里悄悄多出一批列表上看不到的模板"更好解释。 */
+          siblings={state.status === "ready" ? state.rows.filter((t) => t.key !== editing.key) : []}
           onClose={() => setEditing(null)}
           onSaved={(message, updated) => {
             setNotice(message);

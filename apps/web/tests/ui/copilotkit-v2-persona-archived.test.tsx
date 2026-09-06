@@ -45,16 +45,29 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
 
-const { listMessages, summarizePersonaFromThread, createPersonalThread, listCapabilities } = vi.hoisted(() => ({
+const {
+  listMessages, summarizePersonaFromThread, createPersonalThread, listCapabilities,
+  recommendCanvasTemplates,
+} = vi.hoisted(() => ({
   listMessages: vi.fn(),
   summarizePersonaFromThread: vi.fn(),
   createPersonalThread: vi.fn(async () => ({ threadId: "thr-attach", version: 1 })),
   listCapabilities: vi.fn(async () => ({ items: [] })),
+  /**
+   * issue #2825——建议行里的模板 chip 现在由服务端推荐（`recommendCanvasTemplates`），
+   * 不再是前端写死的一条常量。默认桩回 persona 那一条，让本文件既有的 ①—⑥ 用例
+   * 继续钉住它们各自要证明的那件事（能力位 / 持久化证据 / 锚点 id / 失败文案 /
+   * 已生成 / 关闭持久化）——它们判的都是**前端在拿到推荐之后还额外做了什么**，
+   * 与"推荐从哪来"正交。⑦ 是新增的、专门钉推荐来源与非 persona 分支的那条。
+   */
+  recommendCanvasTemplates: vi.fn(async () => ({
+    items: [{ key: "persona", displayName: "用户画像", prompt: "P" }],
+  })),
 }));
 
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()),
-  listMessages, summarizePersonaFromThread, createPersonalThread,
+  listMessages, summarizePersonaFromThread, createPersonalThread, recommendCanvasTemplates,
 }));
 vi.mock("@/lib/live-capabilities", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-capabilities")>()),
@@ -154,6 +167,9 @@ beforeEach(() => {
   // 面板内部的 bearer 走 `getStoredSessionToken()`（与历史灌回同一条既有取法），
   // 不是 session context——测试里就按生产的取法把它放进 localStorage。
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "b");
+  recommendCanvasTemplates.mockImplementation(async () => ({
+    items: [{ key: "persona", displayName: "用户画像", prompt: "P" }],
+  }));
   listMessages.mockImplementation(async () => ({
     messages: [
       msg("cm-1", "human", "我想做一个给设计师的工具"),
@@ -316,6 +332,55 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     mount({ canGeneratePersona: true });
     await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  /**
+   * issue #2825 —— 人类原话「可否变为一个动态的、更具上下文来推荐可视化模板的地方，
+   * 而不只是用户画像，比如上面是用户画像，就可以推荐用户旅程图、同理心地图等，
+   * 主要渲染我们在后台定义好的画布模板」。
+   *
+   * 这条用例钉的是本次重设计的**两个**核心行为，任缺其一这一段就还是老样子：
+   *   · chip 不再只有 persona 一条：服务端推荐几条就渲染几条，文案用后台配的
+   *     `displayName`（前端不另存一份中文名映射——那正是"后台改名、chat 照旧"的
+   *     发生方式）。
+   *   · 非 persona 的 chip 点下去 = **发一条普通消息**，不是去调 persona 那个专用
+   *     端点。断言 `summarizePersonaFromThread` 没被调用很重要：如果实现偷懒把所有
+   *     chip 都接到那一个端点上，界面看起来一模一样，产出的却永远是画像。
+   *
+   * ⚠ 「发出去的正文逐字等于服务端给的 `prompt`」这条断言**不在这里**：jsdom 里
+   *   没有真实 CopilotKit runtime（`/api/copilotkit/info` 连 URL 都解析不了），
+   *   `runAgent` 在发出任何带正文的请求之前就失败了，消息气泡也因此不会被流式事件
+   *   推起来——在这里断言它，只能去钉库内部的重绘时机，那是假绿的温床。它属于
+   *   `e2e/copilotkit-v2-persona-archived.spec.ts` 那条真栈用例（见该文件同名段落）。
+   */
+  it("⑦推荐多条 ⇒ 逐条渲染后台 displayName；点非 persona 的那条 = 发消息，不走画像端点", async () => {
+    recommendCanvasTemplates.mockImplementation(async () => ({
+      items: [
+        { key: "journey-map", displayName: "用户旅程图", prompt: "请基于对话画一份用户旅程图" },
+        { key: "empathy", displayName: "同理心地图", prompt: "请基于对话画一份同理心地图" },
+      ],
+    }));
+    mount({ canGeneratePersona: true });
+
+    const journey = await screen.findByTestId("chat-template-suggestion-journey-map");
+    expect(journey.textContent).toContain("用户旅程图");
+    expect(screen.getByTestId("chat-template-suggestion-empathy").textContent).toContain("同理心地图");
+    // 推荐里没有 persona ⇒ 那条 chip 不该凭空出现（它现在也只是推荐里的一条）。
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+
+    // 先在 composer 里留一段草稿：`send()` 一旦真的走过它的前置守卫就会把草稿清空
+    // （`setInputDraft("")`），这是"点击确实走了普通发送路径"在 jsdom 里可观察、
+    // 且不绑任何库内部时机的证据。
+    const input = screen.getByTestId("copilotkit-v2-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "草稿" } });
+    expect(input.value).toBe("草稿");
+
+    fireEvent.click(journey);
+
+    await waitFor(() => expect((screen.getByTestId("copilotkit-v2-input") as HTMLInputElement).value).toBe(""));
+    // 而且**不是**去调画像那个专用端点：偷懒把所有 chip 都接到同一个端点上，
+    // 界面看起来一模一样，产出的却永远是画像。
+    expect(summarizePersonaFromThread).not.toHaveBeenCalled();
   });
 
   it("④失败原样回显 reasonCode，不糊成「生成失败」", async () => {

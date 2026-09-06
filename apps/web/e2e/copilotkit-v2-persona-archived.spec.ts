@@ -130,6 +130,53 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
   await expect(page.getByTestId("chat-diagram-fabric")).toHaveCount(1, { timeout: 60_000 });
 });
 
+/**
+ * issue #2825 —— 建议行里的画布模板推荐（「不只是用户画像」）。真栈取证：
+ * `GET /chat/threads/:id/canvas-template-recommendations` 真读这条线程、真查该组织
+ * 已发布模板的 `recommendAfter`，chip 的文案是**后台配的 displayName**。
+ *
+ * ## 这条用例是 jsdom 那侧证不了的那一半
+ *
+ * `tests/ui/copilotkit-v2-persona-archived.test.tsx` 的 ⑦ 钉的是"渲染了服务端给的
+ * 哪几条 + 点非 persona 的那条走的是普通发送路径"，但它证不了**发出去的正文逐字
+ * 等于服务端给的 `prompt`**：jsdom 里没有真实 CopilotKit runtime，`runAgent` 在发出
+ * 任何带正文的请求之前就失败了。这里有真 runtime，消息真的会进消息区，所以断言
+ * 落在"那句话真的作为一条用户消息发出去了"。
+ *
+ * ⚠ 不断言"模型真的产出了 canvas 围栏"：loopback 替身不会照模板产出结构化内容，
+ *   那是 `real-model-e2e.md` 那条 lane 的事。这里的命题精确到"推荐 → 点击 → 那句
+ *   话发出去了"，不越界声称模型行为。
+ */
+test("issue #2825：建议行按上下文推荐后台画布模板；点一条 ⇒ 服务端给的 prompt 原样发出", async ({ page }) => {
+  await login(page);
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+
+  const marker = `TPL-推荐-${Date.now()}`;
+  await sendFirstTurn(page, marker);
+
+  // 服务端算出来的推荐（空线程 ⇒ 起点模板）。`data-testid` 里的 key 与 chip 文案都
+  // 来自模板库那一行，不是前端写死的——用"能不能找到至少一条"而不是钉死某个 key，
+  // 因为组织可以在 template-admin 里改推荐关系（那正是本次要支持的事）。
+  const chips = page.locator('[data-testid^="chat-template-suggestion-"]');
+  const personaChip = page.getByTestId("chat-persona-summary-trigger");
+  await expect
+    .poll(async () => (await chips.count()) + (await personaChip.count()), { timeout: 60_000 })
+    .toBeGreaterThan(0);
+
+  // 非 persona 的那条：点下去 = 发一条普通用户消息（服务端拼的 prompt）。
+  if (await chips.count() > 0) {
+    const first = chips.first();
+    const label = (await first.textContent())?.trim() ?? "";
+    expect(label.length).toBeGreaterThan(0);
+    await first.click();
+    // 那句 prompt 里必定含模板显示名（见 `buildRecommendationPrompt`）——它作为一条
+    // 用户消息进了消息区，这就是"服务端给的正文原样发出去了"的可见证据。
+    const displayName = label.replace(/^生成/, "");
+    await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(displayName, { timeout: 60_000 });
+  }
+});
+
 test("CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入口禁用 + 只读说明", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);

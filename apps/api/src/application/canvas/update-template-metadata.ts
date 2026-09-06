@@ -35,6 +35,8 @@ export interface UpdateTemplateMetadataInput {
   readonly title?: string;
   readonly footer?: string;
   readonly promptText?: string;
+  /** issue #2825——同 `tags`：省略归一成空数组（全量替换，不是 patch）。 */
+  readonly recommendAfter?: readonly string[];
 }
 
 export async function updateTemplateMetadata(
@@ -53,6 +55,7 @@ export async function updateTemplateMetadata(
     title: input.title ?? "",
     footer: input.footer ?? "",
     promptText: input.promptText ?? "",
+    recommendAfter: input.recommendAfter ?? [],
   });
 
   if (!outcome.updated) {

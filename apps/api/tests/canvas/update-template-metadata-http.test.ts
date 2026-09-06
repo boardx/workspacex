@@ -50,12 +50,14 @@ interface StoredTemplate {
   title: string;
   footer: string;
   prompt_text: string;
+  recommend_after: string[];
 }
 
 async function readRow(key: string, version: number): Promise<StoredTemplate | undefined> {
   return asApp(ORG, async (c) => {
     const r = await c.query<StoredTemplate>(
-      `SELECT key, version, display_name, status, visibility, sections, tags, title, footer, prompt_text
+      `SELECT key, version, display_name, status, visibility, sections, tags, title, footer,
+              prompt_text, recommend_after
          FROM canvas_templates WHERE org_id = $1 AND key = $2 AND version = $3`,
       [ORG, key, version],
     );
@@ -194,6 +196,45 @@ describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () =>
     expect(after?.status).toBe("published");
   });
 
+  /**
+   * issue #2825——「用完这个模板，chat 接着推荐哪几个」也走这条操作，与 title/footer/
+   * promptText 同一套理由：它是模板的配置，不是 `sections` 内容，因此对**任何状态**
+   * 生效（已发布的行不必开新版就能改推荐关系——顾问调整方法论顺序不该产生一个新版本）。
+   *
+   * ⚠ 断言到**库里那一列**，不只是响应体：chat 的推荐端点读的是库，响应体对而列没写
+   *   进去，表现是"后台改完看起来生效了，chat 里的建议纹丝不动"——正是本次要根治的
+   *   那种「两处看起来都对」的形状。
+   */
+  it("⑩ 推荐关系真的落库，对已发布行同样生效，且不碰 sections", async () => {
+    const before = await readRow("tpl-published", 1);
+    const res = await updateMetadata(metaBody({
+      key: "tpl-published", displayName: "已发布的", tags: ["旧标签"],
+      recommendAfter: ["journey-map", "empathy"],
+    }));
+    expect(res.status).toBe(200);
+
+    const parsed = C.operations.updateTemplateMetadata.out.parse(await res.json());
+    expect(parsed.recommendAfter).toEqual(["journey-map", "empathy"]);
+
+    const after = await readRow("tpl-published", 1);
+    expect(after?.recommend_after).toEqual(["journey-map", "empathy"]);
+    expect(after?.status).toBe("published");
+    expect(JSON.stringify(after?.sections)).toBe(JSON.stringify(before?.sections));
+  });
+
+  /**
+   * 全量替换，不是 patch——同 `tags` 的既有语义。省略等于清空，这一条把它钉死：
+   * 一个"只想改个名字"却忘了把 `recommendAfter` 原样带回来的调用方，会静默地把
+   * 推荐关系清空（前端 `saveChrome` 因此必须原样带回，见那里的注释）。
+   */
+  it("⑪ 省略 recommendAfter ⇒ 清空（全量替换语义，与 tags 一致）", async () => {
+    await updateMetadata(metaBody({ recommendAfter: ["empathy"] }));
+    expect((await readRow("tpl-draft", 1))?.recommend_after).toEqual(["empathy"]);
+
+    await updateMetadata(metaBody());
+    expect((await readRow("tpl-draft", 1))?.recommend_after).toEqual([]);
+  });
+
   it("① draft：改名 + 换标签，库里真的变了，sections 一个字节没动", async () => {
     const before = await readRow("tpl-draft", 1);
     const res = await updateMetadata(metaBody());
@@ -213,6 +254,10 @@ describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () =>
       title: "",
       footer: "",
       promptText: "",
+      // issue #2825——同上：没带 ⇒ 归一成空数组。⚠ 回显**不掺**读路径对内置模板的
+      // 那份默认推荐兜底（`BUILTIN_RECOMMEND_AFTER`）：这里回的是"这次写进去的是
+      // 什么"，掺了兜底会让一次清空看起来没生效。这一行本身就是那条纪律的断言。
+      recommendAfter: [],
     });
 
     const after = await readRow("tpl-draft", 1);
