@@ -48,7 +48,7 @@ Python 进程，见本文件头注）：同样的双维门控，同样的默认�
 （不是新造一套 Python 专属的名字——运维只需要在两个容器里注入相同的值，与
 `KERNEL_MODEL_BASE_URL`/`KERNEL_MODEL_API_KEY` 同一纪律）：
   1. **model 维度** —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔，默认
-     `qwen-plus,qwen3.7-plus`，与 `configured-model-provider.ts` 的
+     `qwen-plus,qwen3.7-plus,qwen3.8-max`，与 `configured-model-provider.ts` 的
      `readThinkingDisableModelIds` 默认值逐字相同）里是否包含这次实际使用的
      `model_id`；
   2. **endpoint 维度** —— `KERNEL_MODEL_BAILIAN_EXTENSIONS`（`"1"`/`"0"` 显式覆盖，
@@ -74,7 +74,12 @@ DEFAULT_MODEL_ID = "qwen-plus"
 
 # #2700 —— 与 `configured-model-provider.ts` 的 `readThinkingDisableModelIds` 默认值
 # 逐字相同，见本文件头注「判断逻辑必须与 configured-model-provider.ts 保持一致」。
-_DEFAULT_THINKING_DISABLE_MODEL_IDS = "qwen-plus,qwen3.7-plus"
+# 2026-09-06 人类反馈「task 工具处理时间很长，把 thinking 关掉」：devapp 实测跑的是
+# `qwen3.8-max`（`.harness/state/deepagent-eval/2026-08-23-3d327c13/.../01-sse-stream.txt`
+# 里 140 条 `"model_name":"qwen3.8-max"`），不在此前的默认集合里，于是 thinking 一直
+# 开着——百炼文档：qwen3.5/3.6/3.7/3.8 系列是混合思考模型，`enable_thinking` **默认 true**
+# （https://help.aliyun.com/zh/model-studio/deep-thinking）。把它补进默认集合。
+_DEFAULT_THINKING_DISABLE_MODEL_IDS = "qwen-plus,qwen3.7-plus,qwen3.8-max"
 
 # 与 `configured-model-provider.ts` 的 `isBailianBaseUrl` 判据相同的真实百炼 host。
 _BAILIAN_HOSTNAMES = frozenset({"dashscope.aliyuncs.com", "www.dashscope.aliyuncs.com"})

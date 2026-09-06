@@ -185,7 +185,7 @@ function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
  * #2504 —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔）→ 非流式请求里允许带
  * `enable_thinking: false` 的 modelId 集合。
  *
- * ⚠ 默认值 `qwen-plus,qwen3.7-plus` 是**这个仓库自己已经在用**的两个 Bailian 混合思考
+ * ⚠ 默认值 `qwen-plus,qwen3.7-plus`（+2026-09-06 的 `qwen3.8-max`）是**这个仓库自己已经在用**的 Bailian 混合思考
  * 模型 id（`deep_agent_service/model.py` 的 `DEFAULT_MODEL_ID`、
  * `simulate-template-run.ts`/`suggest-template-sections.ts`/
  * `guided-*-generator.ts` 的 `modelId` 常量），不是凭空猜的——两者都是"混合模型"
@@ -197,7 +197,10 @@ function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
  * 假装缓解了。同样的纪律见 `readVisionModelIds` 头注。
  */
 function readThinkingDisableModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
-  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen-plus,qwen3.7-plus";
+  // 2026-09-06 —— 补 `qwen3.8-max`：devapp 实际部署的 deep-agent 模型（见 `model.py`
+  // `_DEFAULT_THINKING_DISABLE_MODEL_IDS` 旁注），百炼文档列为混合思考、默认开 thinking。
+  // 两边默认值必须逐字相同（`apps/deep-agent-service/tests/test_model.py` 机械比对）。
+  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen-plus,qwen3.7-plus,qwen3.8-max";
   return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
 }
 
