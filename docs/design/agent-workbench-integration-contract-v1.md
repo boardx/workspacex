@@ -4,7 +4,7 @@
 
 ## 可集成版本
 
-分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `f997cfede`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
+分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `dcaaf7f01`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
 
 | 单元 | 提交 | 导出 / 入口 |
 |---|---|---|
@@ -110,6 +110,19 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 
 截至本次核查：本分支 Python 尚无 `skill_activity` 事实 emitter，也尚未调用 `tool-execution/check`；provider 已传入 callback 身份，但不等于原生工具已执行检查。`kernel.module.ts` 仅可选注入 `CHILD_RUN_CANCELLER`，尚无生产 adapter 注册。这三项由 Tools/Skills peer 接入；本分支提供统一接收端、检查端和展示端。缺省 adapter 返回 unavailable，不显示子任务全部停止。
 
+## Peer 已提交实现（04:55 只读核查）
+
+以下以 `git show 045f48ae5` 为证据，不包含 peer 未提交文件，也不表示已合入 main 或本工作台分支。
+
+| 接点 | peer 提交 | 已提交实现 |
+|---|---|---|
+| 父取消 | `4ef787b83` | `PgChildRunCanceller` → `PgSubtaskRunStore.cancelChildren/readCancellation`；pending 原子取消，running 保持 pending，enqueue/claim 使用父锁 |
+| Skill 事实 | `0e2bdb411` | `NativeSkillActivity`、`observe_skill_read`；当前只发送 metadata_discovered/body_read，不声明执行成功 |
+| 工具授权 | `0e2bdb411` | `NativeToolAuthority` → `HttpNativeToolAuthority`，在 dispatch 前调用共享检查入口 |
+| Native 主入口及成果 | `045f48ae5` | opt-in factory/session/成果接线，需 KERNEL_NATIVE_RUNTIME=1；为较大集成提交，不能当作独立小适配补丁 |
+
+已提交局部证据包括 Skill 52 项、authority 74 项及 deadline 26 项、取消 API 20 项和边界 8 项。其 scripted model / 最小 Nest 跨语言验证不等于完整生产入口、真实模型或本分支最新控制契约的联合验收。正在核对最小依赖闭包和交叉符号；未将标准能力实现复制进本 PR。
+
 ## 已有证据与联合验收边界
 
 - `c11d77f57` 提交前对应工作树：`execution-journal-pg.test.ts` 15 项通过，含 8 个并发 writer 同事实去重、冲突和跨组织隔离。
@@ -123,3 +136,12 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 - 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。
 - 浏览器 `b1d46b1bd`：10 项通过、1 项失败（恢复成功后的 journal 故障提示断言）；`1a97584d5` 目标恢复复验 1 项通过。普通模型流式终稿身份修复 `1a97584d5` 后 AG-UI PG 2 项通过，审批 PG 6 项通过。这里的回环模型证据不等于真实模型或 peer 联合验收。
 - 最后独立审查修复：取消/暂停 journal 18 项、计划终态 PG 19 项、工具权限及父取消 PG 6 项通过。真实 DashScope 验收因自动审批要求明确外发授权而未启动，不宣称已通过。
+
+### Shared implementation prerequisites for the joint lane
+
+At peer commit `045f48ae5`, the public run-control, skill-activity and parent-run-control contracts match. Preserve two newer workbench fixes by symbol before joint acceptance:
+
+- `446b03557`: `matchesDeniedTool` must reject denied arguments even when a ToolCall ID is omitted or changed; an existing grant cannot bypass explicit denial.
+- `d78a0790d`: preserve `pauseAtCheckpoint` returning paused/cancelled/null across ports, execute-run and PG repository; cancellation wins the pause race.
+
+Use the peer branch as the joint verification carrier without importing the entire standard-capabilities implementation into this PR. Parent cancellation can be tested independently. Native graph facts and authority require `045f48ae5` for the production factory/session entry. The existing cross-language lane bypasses production enqueue/provider orchestration, so it does not replace workbench-started approval/tool/artifact/cancellation/recovery acceptance.
