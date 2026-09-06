@@ -101,6 +101,18 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
 
+# W09: install renderers at build time; execution stays offline and resource bounded.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig \
+ && fc-cache -f \
+ && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt \
+ && rm -rf /var/lib/apt/lists/*
+
+# Debian's LO config registry is normally in /etc and linked from /usr. Materialize
+# only its installed immutable assets under the existing read-only /usr mount.
+COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
+RUN python3 scripts/materialize-office-config.py
+
 COPY security/generate-seccomp.py ./security/generate-seccomp.py
 RUN python3 security/generate-seccomp.py
 

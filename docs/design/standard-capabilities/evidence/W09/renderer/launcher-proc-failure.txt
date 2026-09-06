@@ -1,0 +1,26 @@
+ Volume wx-office-render-green_sessions_socket Creating 
+ Volume wx-office-render-green_sessions_socket Created 
+ Container wx-office-render-green-skill-sandbox-sessions-run-a06c94d93268 Creating 
+ Container wx-office-render-green-skill-sandbox-sessions-run-a06c94d93268 Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+SERVICE_READY_MS 229
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"executionId":"ee9197f6-e39c-46dd-84c1-f3af013f1d9a","exitCode":1,"output":"ERROR: /proc not mounted - LibreOffice is unlikely to work well if at all\nTraceback (most recent call last):\n  File \"/workspace/render-office.py\", line 36, in <module>\n    subprocess.run(['libreoffice', '-env:UserInstallation=' + (Path(scratch) / 'profile').as_uri(),\n  File \"/usr/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['libreoffice', '-env:UserInstallation=file:///tmp/office-render-c7hq7ago/profile', '--headless', '--convert-to', 'pdf', '--outdir', '/workspace/render-docx', '/workspace/b.docx']' returned non-zero exit status 1.\n","truncated":false,"timedOut":false,"cancelled":false}
+
+1 !== 0
+
+    at file:///opt/sandbox/[eval1]:37:43
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2
+

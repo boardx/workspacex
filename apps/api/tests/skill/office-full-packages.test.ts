@@ -7,7 +7,7 @@ import {ensureDatabase,migrateOnce,asApp} from '../support/db';
 const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();await ensurePlatformOrgSeeded();});
 it('packages original creation recipes and fixed immutable hashes without rewriting the engine',()=>{
- for(const spec of OFFICIAL_SKILLS){const result=officeSkillPackage(spec);expect(result.package.files).toHaveLength(3);
+ for(const spec of OFFICIAL_SKILLS){const result=officeSkillPackage(spec);expect(result.package.files).toHaveLength(4);
  expect(Buffer.from(result.package.files[0]!.contentBase64,'base64').toString()).toContain(spec.content);
  const body=Buffer.from(result.package.files[0]!.contentBase64,'base64').toString();
  expect(body).not.toContain('risk_level:');
@@ -31,7 +31,7 @@ it('upgrades legacy platform package transactionally and preserves immutable old
  const initial=await snapshot();await Promise.all([ensurePlatformSkillsSeeded(),ensurePlatformSkillsSeeded()]);expect(await snapshot()).toEqual(initial);
  await asApp('org-platform',async c=>{
  const rows=await c.query("SELECT f.path,f.content,f.digest FROM skill_version_files f JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id WHERE f.org_id='org-platform' AND v.skill_id=$1 AND v.content_digest=$2 ORDER BY f.path",[spec.skillId,officeSkillPackage(spec).digest]);
- expect(rows.rows).toHaveLength(3);
+ expect(rows.rows).toHaveLength(4);
  const legacy=await c.query("SELECT content FROM skill_version_files WHERE org_id='org-platform' AND version_id=$1",[old]);expect(legacy.rows[0].content.toString()).toBe('legacy');
  });
 });

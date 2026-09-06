@@ -1,0 +1,90 @@
+ Volume wx-office-render-final_sessions_socket Creating 
+ Volume wx-office-render-final_sessions_socket Created 
+ Container wx-office-render-final-skill-sandbox-sessions-run-ead19a52f7d3 Creating 
+ Container wx-office-render-final-skill-sandbox-sessions-run-ead19a52f7d3 Created 
+fontconfig	2.14.1-4
+libreoffice-calc	4:7.4.7-1+deb12u14
+libreoffice-core	4:7.4.7-1+deb12u14
+libreoffice-impress	4:7.4.7-1+deb12u14
+libreoffice-writer	4:7.4.7-1+deb12u14
+poppler-utils	22.12.0-2+deb12u3
+
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+SERVICE_READY_MS 420
+RENDER_MS docx 5289
+convert /workspace/b.docx -> /workspace/render-docx/b.pdf using filter : writer_pdf_Export
+{"pdf": "/workspace/render-docx/b.pdf", "pages": ["/workspace/render-docx/page-1.png", "/workspace/render-docx/page-2.png"], "visualInspection": "required"}
+经营报告 页眉
+新文本
+
+工作空间 页脚
+
+
+经营报告 页眉
+季度经营回顾 2026 中文 淼喆
+
+工作空间 页脚
+
+
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+BAAAAA+DejaVuSans                    TrueType          WinAnsi          yes yes yes     12  0
+CAAAAA+NotoSansCJKjp-Regular-Proportional Type 1            Builtin          yes yes yes     17  0
+
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/docx/b.pdf 15945 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/docx/page-1.png 9228 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/docx/page-2.png 12444 bytes
+RENDER_MS pptx 3163
+convert /workspace/b.pptx -> /workspace/render-pptx/b.pdf using filter : impress_pdf_Export
+{"pdf": "/workspace/render-pptx/b.pdf", "pages": ["/workspace/render-pptx/page-1.png", "/workspace/render-pptx/page-2.png"], "visualInspection": "required"}
+新文本
+
+
+季度经营回顾 2026 中文 淼喆
+
+
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+BAAAAA+NotoSansCJKjp-Regular-Proportional Type 1            Builtin          yes yes yes     12  0
+
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pptx/b.pdf 7898 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pptx/page-1.png 4735 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pptx/page-2.png 10311 bytes
+RENDER_MS xlsx 3003
+convert /workspace/b.xlsx -> /workspace/render-xlsx/b.pdf using filter : calc_pdf_Export
+{"pdf": "/workspace/render-xlsx/b.pdf", "pages": ["/workspace/render-xlsx/page-1.png", "/workspace/render-xlsx/page-2.png"], "visualInspection": "required"}
+7
+季度经营回顾 2026 中文 淼喆
+
+
+UNCHANGED
+
+
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+BAAAAA+DejaVuSans                    TrueType          WinAnsi          yes yes yes     12  0
+CAAAAA+NotoSansCJKjp-Regular-Proportional Type 1            Builtin          yes yes yes     17  0
+
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/xlsx/b.pdf 15055 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/xlsx/page-1.png 9374 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/xlsx/page-2.png 5796 bytes
+RENDER_MS pdf 1083
+Syntax Warning: Mismatch between font type and embedded font file
+{"pdf": "/workspace/render-pdf/b.pdf", "pages": ["/workspace/render-pdf/page-1.png", "/workspace/render-pdf/page-2.png"], "visualInspection": "required"}
+Syntax Warning: Mismatch between font type and embedded font file
+季度经营回顾 中文 淼喆
+
+
+
+Syntax Warning: Mismatch between font type and embedded font file
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+NotoSansCJKsc-Regular-9742           CID Type 0C (OT)  Identity-H       yes no  yes      4  0
+
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pdf/b.pdf 4268522 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pdf/page-1.png 5834 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W09/renderer/pdf/page-2.png 464 bytes
+BROKEN_INPUT_FAILS_WITHOUT_RENDER_MANIFEST
+memory.peak 219672576
+pids.peak 33
+FOUR_OFFICE_REAL_RENDER_CJK_TEXT_AND_EMBEDDED_FONT_OK

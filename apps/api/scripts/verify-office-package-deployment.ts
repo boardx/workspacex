@@ -22,7 +22,7 @@ import * as recipes from './scripts/office-docs-skill-content.ts';
 for (const kind of ['docx','pptx','xlsx','pdf']) {
  const content=recipes[kind.toUpperCase()+'_CREATE_SKILL_MD'];
  const result=officeSkillPackage({skillId:kind,stableName:kind+'-create',content});
- assert.equal(result.package.files.length,3);
+ assert.equal(result.package.files.length,4);
  assert(result.package.files.every(f=>Buffer.from(f.contentBase64,'base64').length>0));
  assert(!Buffer.from(result.package.files[0].contentBase64,'base64').toString().includes('risk_level:'));
 }
