@@ -100,3 +100,29 @@ describe("ChatTaskInspector 折叠态 —— 只手点，不自动展开（issue
     expect(isCollapsed()).toBe(true);
   });
 });
+
+
+describe("移动端任务成果抽屉", () => {
+  const originalMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    api.fetchPlanLedger.mockReturnValue(new Promise(() => {}));
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({
+      matches: true, addEventListener: () => {}, removeEventListener: () => {},
+    }) });
+  });
+  afterEach(() => {
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: originalMatchMedia });
+  });
+  it("默认不遮挡对话，手动打开成果后可关闭且新内容不会重新弹出", () => {
+    const { rerender } = render(<ChatTaskInspector {...baseProps()} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByTestId("chat-task-workbench-mobile-open"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("chat-task-workbench-inspector-tab-artifacts"));
+    expect(screen.getByRole("tabpanel").getAttribute("aria-label")).toBe("产物");
+    fireEvent.click(screen.getByTestId("chat-task-workbench-inspector-collapse"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    rerender(<ChatTaskInspector {...baseProps({ artifacts: { items: [artifactItem] } })} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});

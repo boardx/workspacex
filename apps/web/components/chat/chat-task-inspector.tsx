@@ -14,6 +14,18 @@ import {
 } from "@/lib/chat-task-inspector-tabs";
 import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+const mobileQuery = "(max-width: 767px)";
+function subscribeViewport(notify: () => void): () => void {
+  const query = window.matchMedia?.(mobileQuery);
+  query?.addEventListener("change", notify);
+  return () => query?.removeEventListener("change", notify);
+}
+function mobileSnapshot(): boolean {
+  return window.matchMedia?.(mobileQuery).matches ?? false;
+}
+function desktopSnapshot(): boolean { return false; }
 
 /**
  * issue #2068（TW-P0-4）—— 右栏动态 Inspector。
@@ -101,6 +113,7 @@ const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }>
 };
 
 export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
+  const mobile = React.useSyncExternalStore(subscribeViewport, mobileSnapshot, desktopSnapshot);
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
@@ -193,11 +206,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     setOverride("expanded");
   }, []);
 
-  return (
+  const inspector = (
     <aside
       className={cn(
-        "hidden shrink-0 flex-col border-l border-border bg-card md:flex",
-        collapsed ? "w-10" : "w-72",
+        "flex shrink-0 flex-col border-l border-border bg-card",
+        mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : "w-72",
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
@@ -327,6 +340,29 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         </div>
       )}
     </aside>
+  );
+  if (!mobile) return inspector;
+  return (
+    <Dialog open={!collapsed} onOpenChange={(open) => setOverride(open ? "expanded" : "collapsed")}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          data-testid="chat-task-workbench-mobile-open"
+          aria-label="打开任务进度与成果"
+          className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <PanelRightOpen aria-hidden className="h-4 w-4" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className="left-auto right-0 top-0 h-dvh max-h-dvh w-[min(92vw,24rem)] max-w-none translate-x-0 translate-y-0 gap-0 rounded-none p-0"
+      >
+        <DialogTitle className="sr-only">任务进度与成果</DialogTitle>
+        {inspector}
+      </DialogContent>
+    </Dialog>
   );
 }
 
