@@ -1632,8 +1632,17 @@ export function CopilotKitV2PanelBody({
           回扫困难，也让工作台看起来像一个没有布局的容器。
           `max-w-3xl` = 48rem = 768px，落在 720–880 区间内，且用的是 Tailwind 既有刻度，
           不是为过门控现编的 `max-w-[880px]`（那正是 TW-P2-5 要拦的"页面自创值"）。
-          窄屏无影响：`max-w` 只封上限。 */}
-      <div className="relative mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
+          窄屏无影响：`max-w` 只封上限。
+          2026-09-06 人类反馈（真栈截图）「滚动条贴着消息文字，应该贴到窗口右边」——
+          此前 `max-w-3xl` 直接扣在这一层最外层列上，而消息滚动容器
+          （`copilotkit-v2-messages`，`overflow-y-auto`）就是这一层的直接子孙，宽度
+          被同一个上限收窄，滚动条因此出现在 768px 列的右边缘、离窗口右边界还有一大截
+          空白，看起来像贴在文字旁边。阅读宽度约束本身没有错（TW-P2-1 判据不变），
+          错的是"扣在哪一层"：外层列现在改回满宽，`max-w-3xl` 挪到内部两处真正持有
+          文字/控件的容器上（消息内容 `messagesContentRef` 与下方 composer 分组），
+          滚动容器夹在满宽的外层列与被收窄的内容之间，滚动条自然贴到窗口边界，
+          与 ChatGPT/Claude.ai 同款布局一致。 */}
+      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
         {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
             常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
@@ -1695,7 +1704,16 @@ export function CopilotKitV2PanelBody({
           )}
           data-testid="copilotkit-v2-messages"
         >
-        <div ref={messagesContentRef} className={cn(isEmptyThread && "flex flex-1 flex-col")}>
+        <div
+          ref={messagesContentRef}
+          className={cn(
+            // 2026-09-06 —— 阅读宽度约束（issue #2075 TW-P2-1）从外层列搬到这里：
+            // 外层列（滚动容器的祖先）现在满宽，滚动条贴窗口边界；文字本身仍然
+            // 不超过 768px，由这层 `mx-auto max-w-3xl` 单独承担，判据没有放宽。
+            "mx-auto w-full max-w-3xl",
+            isEmptyThread && "flex flex-1 flex-col",
+          )}
+        >
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
               历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
               有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
@@ -1876,6 +1894,11 @@ export function CopilotKitV2PanelBody({
             `threadId={null}` 时（新对话尚未发出第一条消息）组件自己返回 `null`，
             不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。
             `refetchSignal={planLedgerRefetchTick}`：issue #2451，见上面该 state 头注。 */}
+        {/* 2026-09-06 —— 外层列已改回满宽（见上方头注），composer 及其上下的
+            计划面板/错误横幅/追问 chips/附件区/页脚这一整段本来就靠外层列的
+            `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
+            刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
         <CopilotKitV2PlanControl threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
@@ -2274,6 +2297,7 @@ export function CopilotKitV2PanelBody({
           </span>
         </div>
         <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
+        </div>
       </div>
       {panelActiveFiles.length > 0 ? (
         <div className="min-w-0 flex-1">
