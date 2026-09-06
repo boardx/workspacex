@@ -1493,3 +1493,25 @@ def test_current_turn_rubric_grades_only_the_current_turn():
     plain = [HumanMessage("q", id="a"), AIMessage("我接下来打算…", id="b")]
     assert _current_turn_messages(plain) is plain
     assert "我接下来打算" in rubric._build_grader_payload({"rubric": "清单", "messages": plain}, 0)
+
+
+def test_current_turn_rubric_skips_grading_for_tool_free_turns_option_a():
+    """人类 2026-09-06 裁决（#2836 选项 A）：本轮没有 ToolMessage ⇒ `_prepare_evaluation`
+    返回 None（库的 after_agent 据此 no-op，grader 一次模型调用都不发）；有工具 ⇒ 照常。"""
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+    from deep_agent_service.harness import CurrentTurnRubricMiddleware
+
+    class _Runtime:
+        stream_writer = None
+
+    rubric = CurrentTurnRubricMiddleware(model=_fake_model(), max_iterations=2)
+    text_only = [HumanMessage("q", id="wsx-turn:r:user"), AIMessage("a")]
+    assert rubric._prepare_evaluation({"rubric": "清单", "messages": text_only}, _Runtime()) is None
+    # 上一轮调过工具、本轮没有 ⇒ 仍跳过（只看本轮）。
+    prev_tool = [HumanMessage("q1", id="wsx-turn:r1:user"), ToolMessage("t", tool_call_id="c"), AIMessage("a1"),
+                 HumanMessage("q2", id="wsx-turn:r2:user"), AIMessage("a2")]
+    assert rubric._prepare_evaluation({"rubric": "清单", "messages": prev_tool}, _Runtime()) is None
+    with_tool = [HumanMessage("q", id="wsx-turn:r:user"), AIMessage("calling"), ToolMessage("r", tool_call_id="c"), AIMessage("done")]
+    prep = rubric._prepare_evaluation({"rubric": "清单", "messages": with_tool}, _Runtime())
+    assert prep is not None and prep[1] == 0

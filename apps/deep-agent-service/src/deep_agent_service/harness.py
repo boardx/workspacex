@@ -58,7 +58,7 @@ from langchain.agents.middleware import (
     ToolRetryMiddleware,
 )
 from langchain.agents.middleware.types import AgentState
-from langchain_core.messages import RemoveMessage
+from langchain_core.messages import RemoveMessage, ToolMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
 from langgraph.errors import GraphBubbleUp
@@ -195,6 +195,22 @@ class CurrentTurnRubricMiddleware(RubricMiddleware):
         messages = state.get("messages") or []
         scoped = {**state, "messages": _current_turn_messages(messages)}
         return super()._build_grader_payload(scoped, iteration)
+
+    def _prepare_evaluation(self, state, runtime):  # noqa: ANN001, ANN201
+        # 人类 2026-09-06 裁决（issue #2836 选项 A）：本轮从头到尾没有产生任何 ToolMessage
+        # 的纯文本回复不评分——清单第 2/3/4 条问的是"声称做过的动作有没有工具结果支撑 /
+        # todo 是否终态 / 失败有没有如实说"，无工具的一轮无物可查；剩下两条不值每轮
+        # 固定 4-8s 外加一次可能的整轮返工（实测把单轮画布从 8s 拖到 35s）。
+        # 有工具调用的轮次（call_skill / write_todos / 文件工具……）照常评分与返工，
+        # `tests/golden/test_tc3` 钉的就是这条。
+        if not _turn_has_tool_message(_current_turn_messages(state.get("messages") or [])):
+            return None
+        return super()._prepare_evaluation(state, runtime)
+
+
+def _turn_has_tool_message(messages: list) -> bool:
+    """本轮消息里有没有 ToolMessage（模型真的调过工具）。"""
+    return any(isinstance(m, ToolMessage) for m in messages)
 
 
 def _current_turn_messages(messages: list) -> list:

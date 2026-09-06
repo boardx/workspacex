@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import ToolMessage, AIMessage, HumanMessage
 from langchain_core.tools import tool
 
 from _scripted import ScriptedChatModel, ai_tool_call, grader_always_satisfied_response, tool_call_names
@@ -179,7 +179,14 @@ def _checklist_router(grader_verdicts: list[str]):  # noqa: ANN202
                 }
             return AIMessage(content="", tool_calls=[{"id": f"grade-{len(_grader_calls)}", "name": "GraderResponse", "args": args}])
 
-        # 主链：被打回过（transcript 里出现了 grader 的返工指示）就给结论。
+        # 主链：先真的调一次 write_todos（issue #2836 选项 A 起，本轮没有任何工具调用的
+        # 纯文本回复不评分——D7 钉的是"有工具的轮次"被拦下返工），然后给一个明显
+        # 不合格的过程陈述；被打回过（transcript 里出现了 grader 的返工指示）就给结论。
+        if not any(isinstance(m, ToolMessage) for m in messages):
+            return AIMessage(
+                content="",
+                tool_calls=[{"id": "todo-1", "name": "write_todos", "args": {"todos": [{"content": "查资料", "status": "in_progress"}]}}],
+            )
         revised = any(
             isinstance(m, HumanMessage) and "打算" in str(getattr(m, "content", ""))
             for m in messages
