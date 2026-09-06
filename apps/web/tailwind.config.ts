@@ -93,11 +93,26 @@ const config: Config = {
           "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
           "50%": { transform: "translateY(-0.125rem) rotate(-6deg)" },
         },
+        /**
+         * issue #2837（2026-09-06 devapp 人类实测）—— 进度卡图形从 12px 放大到 28px 之后，
+         * 单独的 `flap`（只有 scaleX 开合）在长任务里盯久了显得机械：翅膀原地开合、
+         * 身体一动不动。`butterfly-fly` 把 flap 与 drift **合成为同一段 keyframes**
+         * （仍然一个元素一段动画，不叠两个 animation）：一个周期里上浮一次、扑翼两次
+         * （25% / 75% 各收拢一次，扑翼频率 = 上浮频率 × 2），并在收翅时轻微左右倾斜，
+         * 像是拍翅把自己托起来再落下。`flap` / `drift` 保留供比对，默认改用这一段。
+         */
+        "butterfly-fly": {
+          "0%, 100%": { transform: "translateY(0) rotate(0deg) scaleX(1)", opacity: "1" },
+          "25%": { transform: "translateY(-0.1875rem) rotate(-4deg) scaleX(0.45)", opacity: "0.85" },
+          "50%": { transform: "translateY(-0.3rem) rotate(0deg) scaleX(1)", opacity: "1" },
+          "75%": { transform: "translateY(-0.1875rem) rotate(4deg) scaleX(0.45)", opacity: "0.85" },
+        },
       },
       animation: {
         "fade-in": "fade-in 160ms ease-out",
         "butterfly-flap": "butterfly-flap 1.1s ease-in-out infinite",
         "butterfly-drift": "butterfly-drift 1.8s ease-in-out infinite",
+        "butterfly-fly": "butterfly-fly 1.6s ease-in-out infinite",
       },
       /**
        * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见

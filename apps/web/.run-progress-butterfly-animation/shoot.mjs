@@ -19,17 +19,17 @@ async function shoot(name, reducedMotion, sel, opts = {}) {
   console.log(name, JSON.stringify(anim));
   await ctx.close();
 }
-for (const m of ["flap", "drift"]) {
+for (const m of ["fly", "flap", "drift"]) {
   for (const s of ["preparing", "acting", "replying"]) await shoot(`${m}-${s}`, "no-preference", `[data-shot="${m}-${s}"]`, { wait: m === "drift" ? 450 : 0 });
   await shoot(`${m}-replying-reduced-motion`, "reduce", `[data-shot="${m}-replying"]`);
   await shoot(`${m}-large`, "no-preference", `[data-shot="${m}-large"]`, { wait: 550 });
   await shoot(`${m}-replying-dark`, "no-preference", `[data-shot="${m}-replying"]`, { dark: true });
   // 候选整版截图（贴 issue 用）：标题 + 三阶段卡 + 放大图形标，一张图看全貌。
-  await shoot(`candidate-${m === "flap" ? "a" : "b"}-${m}`, "no-preference", `[data-shot-section="${m}"]`, { wait: 550 });
+  await shoot(`candidate-${m === "flap" ? "a" : m === "drift" ? "b" : "c"}-${m}`, "no-preference", `[data-shot-section="${m}"]`, { wait: 550 });
   // 两帧对比证明动效真的在动（同一元素相隔约半个周期）。
   await shoot(`${m}-replying-t0`, "no-preference", `[data-shot="${m}-replying"]`, { wait: 0 });
   await shoot(`${m}-replying-t-half`, "no-preference", `[data-shot="${m}-replying"]`, {
-    wait: m === "flap" ? 550 : 900,
+    wait: m === "flap" ? 550 : m === "drift" ? 900 : 400,
   });
 }
 await browser.close();
