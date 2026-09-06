@@ -7,6 +7,12 @@
  * **同一次** `projects.update`，`applied` 同时列出 `frames` 与 `prototype`（两者都真的变了）。
  * `prototype` 与 `frames` 同时给出时以 `prototype` 为准（它自带标签），契约头注逐字。
  *
+ * ## 迭代 1：`writeback.patch`（局部修改）
+ *
+ * 按节点 id 顺序应用到当前 `prototype`（`applyPrototypePatch`，纯函数）；任一条失败 ⇒ 整批不生效、
+ * 记日志、`applied` 不含 `prototype`（字段级拒绝，同 I-10）。还没生成过原型时 patch 无处可打，同样拒。
+ * 落库前 `ensurePrototypeIds`：整页写回里模型没写 id 的节点补上，模型下一轮看到的每个节点都可寻址。
+ *
  *   ① owner 校验（非 owner 不调模型、不写任何东西——契约头注逐字）。
  *   ② `deps.ai.reply`（`DesignChatModel`，唯一实现 `ModelDesignChatReplier`）按**本项目**五个字段
  *      + 本项目完整 `chat`（含这次用户消息）生成回复与可选写回；模型失败时端口自己退回
@@ -22,7 +28,7 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import type { designAiCollab } from "@repo/contracts";
+import { designPrototype, type designAiCollab } from "@repo/contracts";
 import type { DesignChatModel } from "./design-chat-model";
 import type { DesignProjectPatch } from "./project-ports";
 import {
@@ -60,11 +66,24 @@ export async function appendProjectChat(
   });
 
   const screens = ai.writeback.prototype;
+  let patched: readonly designPrototype.PrototypeNode[] | undefined;
+  if (screens === undefined && ai.writeback.patch !== undefined) {
+    if (current.prototype.length === 0) {
+      deps.logger?.info("design chat: patch rejected, project has no prototype yet", { projectId: input.projectId, traceId: deps.traceId ?? "" });
+    } else {
+      try {
+        patched = designPrototype.applyPrototypePatch(current.prototype, ai.writeback.patch);
+      } catch (e) {
+        deps.logger?.info("design chat: patch rejected", { projectId: input.projectId, traceId: deps.traceId ?? "", detail: e instanceof Error ? e.message : "unknown" });
+      }
+    }
+  }
   const patch: DesignProjectPatch = {
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
-      ? { frames: screens.map((s) => s.frame), prototype: screens.map((s) => s.root) }
+      ? { frames: screens.map((s) => s.frame), prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)) }
+      : patched !== undefined ? { prototype: patched }
       : ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
   };
   const applied = Object.keys(patch) as DesignWritebackField[];

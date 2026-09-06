@@ -29,7 +29,7 @@
  * 没有这个字段（旧记录 / 用户自己说的话）⇒ 不适用，不是「模型说的」。
  */
 import { z } from "zod";
-import { DesignPrototypeWriteback } from "./design-prototype";
+import { DesignPrototypePatch, DesignPrototypeWriteback } from "./design-prototype";
 
 /**
  * 一条 AI 回复的来源。**只出现在 `role: "ai"` 的记录上**；`user` 记录与 B5 之前写入的旧
@@ -62,6 +62,8 @@ export const DesignChatWriteback = z
     frames: z.array(z.string().min(1).max(200)).min(1).max(20).optional(),
     /** B5.3 整页重生成：给出即替换全部页面（标签 + 树）。与 `frames` 同时给出时 `prototype` 优先——它自带标签。 */
     prototype: DesignPrototypeWriteback.optional(),
+    /** 迭代 1：局部修改，按节点 id 寻址（`design-prototype.ts` `PrototypePatchOp`）。与 `prototype` 同时给出时 `prototype` 优先（整页更完整）。应用成功 ⇒ `applied` 里记 `prototype`——它是被改的项目字段。 */
+    patch: DesignPrototypePatch.optional(),
   })
   .strict();
 export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;

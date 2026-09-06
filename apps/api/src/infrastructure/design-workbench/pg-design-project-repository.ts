@@ -70,7 +70,8 @@ function toPrototype(raw: unknown, frames: readonly string[]): readonly Prototyp
     if (!parsed.success) return [];
     out.push(parsed.data);
   }
-  return out;
+  // 迭代 1 之前写入的树没有 id：读出时按遍历序补（确定性），模型与 patch 看到的 id 一致；下次写回即落库。
+  return designPrototype.ensurePrototypeIds(out);
 }
 
 function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {

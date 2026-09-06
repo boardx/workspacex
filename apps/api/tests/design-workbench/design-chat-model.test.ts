@@ -72,6 +72,8 @@ describe("B5.2 ModelDesignChatReplier", () => {
     const input = model.complete.mock.calls[0]?.[0];
     expect(input?.user).toContain('"type":"divider"');
     expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("navbar");
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("setProps"); // 迭代 1：patch 说明进 prompt
+    expect(parseWriteback({ patch: [{ op: "remove", id: "n2" }] })).toEqual({ patch: [{ op: "remove", id: "n2" }] });
     const bad = { frame: "x", root: { type: "iframe" } };
     expect(parseWriteback({ criteria: ["a"], prototype: [screen, bad] })).toEqual({ criteria: ["a"] });
   });

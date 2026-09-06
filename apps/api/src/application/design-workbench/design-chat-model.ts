@@ -61,10 +61,11 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   '{"reply":"给用户看的回复，中文，不超过 200 字","writeback":{"problem":"改写后的问题背景（可选）",' +
   '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
   '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
-  "当用户要你设计/画/改界面、或首次描述要做的产品时，必须给 prototype：把**全部页面**完整给出（整页重生成，给出即整体替换，" +
-  "没提到的页也要保留并原样给回），每页一个 {frame, root}，页数 1–20。" +
-  "只改页面标签不改内容时可用 writeback.frames（完整标签列表）代替。" +
-  designPrototype.PROTOTYPE_SCHEMA_GUIDE +
+  "还没有原型（当前原型为空数组）、用户首次描述要做的产品、要求新增页面、或要求整页重画/重排时，给 prototype：" +
+  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root}，页数 1–20。" +
+  "已有原型且只是局部改动（改文案/加删一块/调属性）时**不要**给 prototype，用 writeback.patch（见下）。" +
+  "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
+  designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
   "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";
 
@@ -75,7 +76,7 @@ function describeProject(ctx: DesignChatContext): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
-    `当前原型（按页，与标签同序；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
+    `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype)}`,
     "对话记录（按时间顺序，最后一条是用户刚说的）：",
   ];
   if (ctx.chat.length === 0) lines.push("（还没有对话）");
@@ -94,7 +95,9 @@ function extractJsonObject(text: string): unknown {
 export function parseWriteback(raw: unknown, log?: (message: string, detail: Record<string, unknown>) => void): DesignChatWriteback {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
   const out: Record<string, unknown> = {};
-  for (const field of designAiCollab.DesignWritebackField.options) {
+  // 迭代 1：按写回**形状**的键遍历（含 `patch`），不是按 `DesignWritebackField`（那是被改的项目字段，
+  // `patch` 改的是 `prototype`，`applied` 里记后者）。
+  for (const field of Object.keys(designAiCollab.DesignChatWriteback.shape) as (keyof DesignChatWriteback)[]) {
     const value = (raw as Record<string, unknown>)[field];
     if (value === undefined) continue;
     // B5.3：`prototype` 是递归 schema，几千层嵌套会在 safeParse 里打爆调用栈，而契约的深度上限

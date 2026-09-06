@@ -30,6 +30,12 @@
 - **I-12 原语说明单源。** `DESIGN_CHAT_SYSTEM_PROMPT` 拼 `PROTOTYPE_SCHEMA_GUIDE`，不另抄；
   契约测试断言闭集里每个类型名都出现在说明里。
 
+- **I-13 节点 id 项目内唯一、落库必有。**（迭代 1）`ensurePrototypeIds` 在每次写回前补齐缺失 id、
+  保留已有；`prototypeIdsUnique` 是落库不变量。迭代 1 之前的存量树在读出时按遍历序确定性补 id。
+- **I-14 patch 整批原子、结果重验。**（迭代 1）`applyPrototypePatch` 顺序执行，每步结果重新过
+  `PrototypeNode` 契约与整页上限；任一步失败整批不生效、`applied` 不含 `prototype`。没有原型时 patch 拒。
+  `prototype`（整页）与 `patch` 同时给出以 `prototype` 为准。
+
 ## 3. 取舍
 
 | 问题 | 选 | 不选 | 为什么 |
@@ -41,9 +47,9 @@
 | 超时 | 90s | 保持 30s | 多页 JSON 输出，实测 30s 不够；失败仍退固定回执 |
 | 存量数据 | 默认 `[]`，不回填 | 迁移时生成 | 生成要调模型，迁移里调模型是把不可重放的东西放进 DDL |
 
-## 4. 下一轮（增量修改）会碰的东西——现在刻意没做
+## 4. 迭代路线（2026-09-06 人类指令：连续迭代到接近 Claude Design）
 
-- 节点 `id`（稳定寻址）与 `PrototypePatch`（替换/插入/删除子树）；
+- ✅ 迭代 1：节点 `id` + `PrototypePatchOp`（setProps / replace / insert / remove），模型可局部改。
 - 画布选中态 + 「就改这一块」的对话上下文；
 - 版本回退（现在每次整页替换，旧树只在对话历史里能追溯，不能一键回滚）；
 - 流式生成 / 取消。
