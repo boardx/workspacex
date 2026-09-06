@@ -89,6 +89,33 @@ describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
     expect(caught).toBe(true);
   });
 
+  it("④ 字体路径只声明在镜像里——compose 不许再写一份（一个事实一处声明）", () => {
+    /*
+     * 2026-09-06 实测事故：`SKILL_SANDBOX_CJK_FONT` 同时写在 Dockerfile 与两份 compose 里。
+     * 换字体时只改了 Dockerfile，容器于是拿着一个**已经不存在的**路径跑——镜像明明是新的、
+     * 字体明明装好了，部署自检却红在"文件不存在"上，非常难读。
+     *
+     * 修法不是"记得两边一起改"（那是本仓栽过五次的那条），是**删掉副本**：路径由镜像的
+     * ENV 给，compose 只负责它自己那份运行参数（socket / modules / tmpfs）。
+     */
+    for (const file of [
+      "../../../apps/skill-sandbox/docker-compose.sandbox.yml",
+      "../../../apps/api/docker-compose.deploy.yml",
+    ]) {
+      const yaml = readFileSync(resolve(import.meta.dirname, file), "utf8");
+      const declarations = yaml
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("#") && line.includes("SKILL_SANDBOX_CJK_FONT"));
+      expect(declarations, `${file} 又声明了一份字体路径：${declarations.join(" / ")}`).toEqual([]);
+    }
+    // 反面：镜像里必须有这唯一的一份。
+    const dockerfile = readFileSync(
+      resolve(import.meta.dirname, "../../../apps/skill-sandbox/Dockerfile"),
+      "utf8",
+    );
+    expect(dockerfile).toMatch(/SKILL_SANDBOX_CJK_FONT=\S+/);
+  });
+
   it("③ compose 里 skill-sandbox 确实是 build: 出来的（本门控的前提）", () => {
     // 哪天它改成从 registry 拉固定 tag 的镜像，本文件这套断言的前提就不成立了，
     // 该换成"tag 与当前 SHA 一致"的检查——所以把前提也钉住，不让它无声漂移。
