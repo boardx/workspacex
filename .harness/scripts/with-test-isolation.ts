@@ -118,7 +118,8 @@ export async function runWithTestIsolation(
   }
   console.log(
     `[test-isolation] id=${isolation.WORKSPACEX_ISOLATION_ID} db=${isolation.WORKSPACEX_DB} ` +
-    `compose=${isolation.COMPOSE_PROJECT_NAME} pg=${isolation.PGPORT} redis=${isolation.REDIS_PORT}`,
+    `compose=${isolation.COMPOSE_PROJECT_NAME} pg=${isolation.PGPORT} redis=${isolation.REDIS_PORT} ` +
+    `sandbox=${isolation.SKILL_SANDBOX_PORT}`,
   );
   const result = await new Promise<{ code: number | null; error: Error | null }>((resolve) => {
     child.once("error", (error) => resolve({ code: null, error }));

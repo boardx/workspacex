@@ -57,6 +57,20 @@ export const REAL_MODEL_SMOKE = {
       : "fullstack-smoke seed account (REAL_MODEL_E2E_USE_FULLSTACK_SEED=1)",
   prompt: env("REAL_MODEL_E2E_PROMPT") ?? REAL_MODEL_DEFAULT_PROMPT,
   /**
+   * 断言 ⑥ 判的产物类型。默认是 PDF —— 两条 lane 的既有行为**一个字不变**。
+   *
+   * 之所以做成可配：平台技能目录里有四个官方 skill（pptx/docx/xlsx/pdf-create，
+   * 见 `platform-skill-catalog.ts`），而这条 lane 原来只覆盖其中一个。换个 prompt
+   * 加一对期望值就能把另外三个也走一遍真实模型，不必分叉出第二份 spec。
+   *
+   * `expectMagic` 判的是**文件头字节**，不是扩展名：PDF 是 `%PDF-`；OOXML 三兄弟
+   * （docx/xlsx/pptx）都是 zip 容器，用 `PK` 判。控制字节没法干净地穿过环境变量，
+   * 所以这里只取 zip 魔数可打印的前两字节——它已经足够把「真的 OOXML」与占位空壳、
+   * 错误 JSON、纯文本区分开，何况长度下限（>1000 字节）是另一条独立判据。
+   */
+  expectExt: env("REAL_MODEL_E2E_EXPECT_EXT") ?? "pdf",
+  expectMagic: env("REAL_MODEL_E2E_EXPECT_MAGIC") ?? "%PDF-",
+  /**
    * 一次真实模型 run 的等待上限，默认 15 分钟。
    *
    * ⚠ 给得阔绰是有意的：真实模型这条用例本来就要跑数分钟，而"网关 300–400s 天花板"
