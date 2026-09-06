@@ -76,7 +76,25 @@
 （label + lease）而不是可推断**——不要用启发式（"超过 N 小时算孤儿"），那会误伤长任务，
 且违反 `agent-resource-cleanup-sop.md` 已有的硬规矩。
 
+## 第 5 次（2026-09-06）：`git log` 说改动在 main 上，说明不了跑着的容器是哪一版
+
+`docker compose up -d` 对带 `build:` 的服务**只在镜像不存在时**才构建。于是
+`apps/skill-sandbox` 的镜像自 2026-08-21 首次部署起就冻在那一版，之后所有源码改动
+（预装库、CJK 字体……）一次都没上过 devapp——而每一轮部署都是绿的，healthz 一直 200。
+
+骗人的痕迹是**最有说服力的那种**：`git log` / `merge-base --is-ancestor` 都如实显示
+改动在 main 上；PR 全绿；部署脚本跑完没报错。这些都是真的，它们只是**都不回答**
+「此刻那个容器里跑的是哪一版代码」。用户侧的症状因此与代码完全对不上：API 是新的、
+按新 SKILL.md 教模型 `require('@pdf-lib/fontkit')`，沙箱是旧的、根本没这个包。
+
+**该读的动态信号**：问跑着的容器本身——`docker exec <容器> node -e "require.resolve('X')"`、
+`stat` 那个该在的文件。部署脚本现在每轮都这么问一次，缺了就红退
+（`.harness/scripts/vm/deploy.sh` 第 3 步，门控见 `deploy-image-freshness.test.ts`）。
+
+⚠ 一并记住这条的下游形态：**排障时先确认"跑着的是哪一版"，再怀疑代码**。这次先花了
+一轮去查字体/编码，而根因是那份代码压根没上线。
+
 ## 相关
-- #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
+- #2810（沙箱镜像永不重建，第 5 次）· #823（三条过期注释）· #834（评分卡不在 main）· #839（G5/G6 两道门）· #841（sweep-docker 盲区）
 - `.harness/instructions/core-loop-readiness-standard.md`（CLR 的门控总览）
 - `.harness/instructions/agent-resource-cleanup-sop.md`（只清理能证明是自己造的栈）
