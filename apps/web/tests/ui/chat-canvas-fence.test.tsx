@@ -107,6 +107,31 @@ describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块�
     expect(el.getAttribute("data-template-source")).toBe("builtin");
     expect(listCanvasTemplates).toHaveBeenCalledWith({ orgId: "org-personal-1" });
   });
+
+  it("#2838：「只读预览」角标 + 「最大化」独立成一行 header，与画布内容区分层，不再 absolute 压在画布上", async () => {
+    render(<MarkdownMessage text={PERSONA_FENCE} />);
+    const el = await screen.findByTestId("chat-canvas-fabric");
+    const header = screen.getByTestId("chat-canvas-fabric-header");
+    const body = screen.getByTestId("chat-canvas-fabric-body");
+    // header / body 是围栏容器的两个并列子节点，header 在前——画布内容从 header 下方开始。
+    expect(header.parentElement).toBe(el);
+    expect(body.parentElement).toBe(el);
+    expect(header.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 角标与最大化按钮都在 header 里，而不是画布内容区里。
+    expect(header).toHaveTextContent("工作坊画布模板 · 只读预览");
+    expect(header.contains(screen.getByTestId("chat-canvas-maximize"))).toBe(true);
+    expect(body.textContent).not.toContain("只读预览");
+    // 回归钉子：header 及其子树不允许再用 absolute 定位覆盖画布（这正是重叠的根因）。
+    for (const node of [header, ...Array.from(header.querySelectorAll("*"))]) {
+      // `className` 在 <svg> 上是 SVGAnimatedString，统一读属性字符串。
+      expect(node.getAttribute("class") ?? "").not.toMatch(/\babsolute\b/);
+    }
+    // 画布内容（校验中/已挂 canvas）都只落在 body 里。
+    const surfaceOrLoading =
+      screen.queryByTestId("chat-canvas-fabric-surface") ?? screen.getAllByTestId("chat-canvas-loading")[0];
+    expect(surfaceOrLoading).toBeDefined();
+    expect(body.contains(surfaceOrLoading ?? null)).toBe(true);
+  });
 });
 
 describe("组织自建模板 → 自动布局", () => {

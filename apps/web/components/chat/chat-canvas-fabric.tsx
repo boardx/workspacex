@@ -380,42 +380,51 @@ function CanvasFabricBody({
       data-ready={ready}
       className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
     >
-      <div className="pointer-events-none absolute left-2 top-2 z-10">
-        <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => void openMaximized()}
-        data-testid="chat-canvas-maximize"
-        className="absolute right-2 top-2 z-10"
-        aria-label="最大化并编辑此画布"
-        disabled={status.phase !== "valid" || openingReadback}
+      {/* issue #2838：角标与「最大化」原先是 absolute 压在画布左上/右上角，而模板几何
+          的标题条恰好画在顶部（`fitToContent` padding 24 后标题就落在角标底下），
+          「价值主张宣言」等 title 被角标盖住。改成独立一行 header（普通文档流），
+          画布内容区从 header 下方开始，不再与任何模板几何争位。 */}
+      <div
+        data-testid="chat-canvas-fabric-header"
+        className="flex items-center justify-between gap-2 border-b border-border-subtle bg-card px-2 py-1.5"
       >
-        <Maximize2 aria-hidden className="h-3.5 w-3.5" />
-        {openingReadback ? "读取保存版…" : "最大化"}
-      </Button>
+        <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void openMaximized()}
+          data-testid="chat-canvas-maximize"
+          className="shrink-0"
+          aria-label="最大化并编辑此画布"
+          disabled={status.phase !== "valid" || openingReadback}
+        >
+          <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+          {openingReadback ? "读取保存版…" : "最大化"}
+        </Button>
+      </div>
 
-      {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
-      {status.phase === "valid" ? (
-        <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
-      ) : (
-        <div
-          data-testid="chat-canvas-loading"
-          className="flex h-40 items-center justify-center text-11 text-muted-foreground"
-        >
-          {!inView ? "滚动到此处即渲染" : !closed ? "画布内容生成中…" : "解析工作坊画布模板中…"}
-        </div>
-      )}
-      {status.phase === "valid" && !ready && (
-        <div
-          data-testid="chat-canvas-loading"
-          className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
-        >
-          渲染画布中…
-        </div>
-      )}
+      <div data-testid="chat-canvas-fabric-body" className="relative">
+        {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
+        {status.phase === "valid" ? (
+          <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
+        ) : (
+          <div
+            data-testid="chat-canvas-loading"
+            className="flex h-40 items-center justify-center text-11 text-muted-foreground"
+          >
+            {!inView ? "滚动到此处即渲染" : !closed ? "画布内容生成中…" : "解析工作坊画布模板中…"}
+          </div>
+        )}
+        {status.phase === "valid" && !ready && (
+          <div
+            data-testid="chat-canvas-loading"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
+          >
+            渲染画布中…
+          </div>
+        )}
+      </div>
     </div>
   );
 }
