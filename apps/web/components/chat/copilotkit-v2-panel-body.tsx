@@ -9,14 +9,14 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Square } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, Paperclip, Pause, PenLine, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
-import { useCopilotKitV2RunProgress, LONG_RUN_HINT, type RunStage } from "@/lib/copilotkit-v2-run-progress";
+import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
@@ -49,7 +49,7 @@ import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
+import { RunProgressCard } from "@/components/chat/run-progress-card";
 import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
@@ -81,13 +81,6 @@ import { Button } from "@/components/ui/button";
 // 文件头的完整取证）。同 `CopilotKitV2AgentInterrupts` 的既有先例——独立文件、`return
 // null`、直接挂进 JSX，不在这个已经很大的文件里再叠一段 `useHumanInTheLoop` 内联注册。
 import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permission";
-
-/** PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段的显示顺序与文案，唯一事实源。 */
-const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
-  { key: "preparing", label: "准备" },
-  { key: "acting", label: "执行" },
-  { key: "replying", label: "回复" },
-];
 
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
@@ -1885,76 +1878,22 @@ export function CopilotKitV2PanelBody({
               可能还没写回，正在核实真实状态。两者 or 起来才是"这条线程现在该不该显示
               生成中"的完整判据，见 `runIsRunning` 声明处头注（`runProgress.phaseLabel`
               取不到时已经回落到 `RUN_RESTORE_PHASE_LABEL`，这里不用再判断一次）。 */}
+          {/* issue #2837（PR #2839 review）—— 卡片本体抽到 `run-progress-card.tsx`（本文件
+              已超 2000 行；截图 harness 也渲染同一个组件，不再抄第二份 className）。
+              三桶阶段（PROP-CHAT-UIUX-ITER-002 V2）从 `runProgress.stage` 派生，见
+              `copilotkit-v2-run-progress.ts` 头注；计划步骤行在工具阶段（真引擎实测占一轮
+              的前 85%）里真正回答"它在干嘛"。 */}
           {!historyLoading && (agent.isRunning || runRestore.isRestoring) ? (
-            <div
-              data-testid="copilotkit-v2-running-indicator"
-              role="status"
-              aria-live="polite"
-              className="mt-3 flex w-fit max-w-full items-center gap-3 rounded-xl border border-border-subtle bg-muted/60 px-4 py-3"
-            >
-              {/* issue #2785 —— X 图形标换成蝴蝶主题动画（形态与约束见
-                  `run-progress-butterfly.tsx` 头注）。
-                  issue #2837（2026-09-06 devapp 人类实测）—— 卡片放大、布局改成
-                  「左：蝴蝶 28px 竖向居中；右：阶段行 + 思考/计时行」；蝴蝶从 thinking
-                  行里移到卡片左侧，文案、计时、testid 一个字没动。 */}
-              <RunProgressButterfly />
-              <div className="flex min-w-0 flex-col gap-1">
-                {/* PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段（准备/执行/回复），
-                    从 `runProgress.stage` 派生（详见 `copilotkit-v2-run-progress.ts` 头注：
-                    不是 TW-P0-3①那套六态工作流指示器，两者独立）。`stage` 为 `null`
-                    时（未开始、或 `runRestore.isRestoring` 的核实窗口——那段没有真实
-                    事件支撑）不渲染，不编一个默认阶段。 */}
-                {runProgress.stage !== null ? (
-                  <span
-                    className="flex items-center gap-1.5 text-12 text-muted-foreground"
-                    data-testid="copilotkit-v2-thinking-stage"
-                    data-stage={runProgress.stage}
-                  >
-                    {RUN_STAGE_ORDER.map(({ key, label }, i) => (
-                      <React.Fragment key={key}>
-                        {i > 0 ? <span aria-hidden>→</span> : null}
-                        <span
-                          className={cn(
-                            key === runProgress.stage && "font-medium text-card-foreground",
-                          )}
-                        >
-                          {label}
-                        </span>
-                      </React.Fragment>
-                    ))}
-                  </span>
-                ) : null}
-                <span
-                  className="flex flex-wrap items-center gap-1.5 text-13 text-muted-foreground"
-                  data-testid="copilotkit-v2-thinking"
-                >
-                  <span data-testid="copilotkit-v2-thinking-phase">
-                    {runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")}
-                  </span>
-                  {runProgress.elapsedSeconds !== null ? (
-                    <span data-testid="copilotkit-v2-thinking-elapsed">
-                      · 已用 {runProgress.elapsedSeconds} 秒
-                    </span>
-                  ) : null}
-                  {runProgress.isLongRun ? (
-                    <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
-                  ) : null}
-                </span>
-                {/* 工具阶段（真引擎实测占一轮的前 85%）里真正回答"它在干嘛"的那一行。
-                    没有计划时不渲染——编一句"正在处理第 1 步"就是假进度。 */}
-                {planStep !== null ? (
-                  <span
-                    className="flex min-w-0 items-center gap-1.5 text-12 text-card-foreground"
-                    data-testid="copilotkit-v2-thinking-plan-step"
-                  >
-                    <ListChecks aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
-                    <span className="min-w-0 truncate">
-                      第 {planStep.index}/{planStep.total} 步 · {planStep.content}
-                    </span>
-                  </span>
-                ) : null}
-              </div>
-            </div>
+            <RunProgressCard
+              className="mt-3"
+              stage={runProgress.stage}
+              phaseLabel={
+                runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")
+              }
+              elapsedSeconds={runProgress.elapsedSeconds}
+              isLongRun={runProgress.isLongRun}
+              planStep={planStep}
+            />
           ) : null}
           {/* issue #2756 —— 中途插话入口（F12 `InterjectionComposer`）：running 态才渲染，
               挂在进度指示下方作兄弟节点，见 `chat-host-interjection.tsx` 头注。 */}
