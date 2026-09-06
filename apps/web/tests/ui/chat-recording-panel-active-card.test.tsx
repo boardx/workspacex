@@ -148,6 +148,43 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
     expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
   });
 
+  it.each(["track", "empty", "messages", "stream"] as const)("start成功后%s失败结束session且保留原错误", async (failure) => {
+    if (failure === "track") startThreadRecording.mockResolvedValue({ sessionId: "sess-1", tracks: [] });
+    if (failure === "empty") listMessages.mockResolvedValue({ messages: [] });
+    if (failure === "messages") listMessages.mockRejectedValue(new Error("read failed"));
+    if (failure === "stream") openAsrStream.mockRejectedValue(new Error("stream failed"));
+    render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "failed");
+    expect(screen.getByTestId("chat-live-recording-error")).toHaveTextContent({ track: "没有返回任何音轨", empty: "没有任何消息", messages: "无法读取本会话的消息", stream: "无法连接转写服务" }[failure]);
+  });
+
+  it("清理失败时重试不能覆盖尚未释放的session身份", async () => {
+    startThreadRecording.mockResolvedValue({ sessionId: "sess-1", tracks: [] });
+    endThreadRecording.mockRejectedValue(new Error("offline"));
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(screen.getByTestId("chat-live-recording-error")).toHaveTextContent("没有返回任何音轨");
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(startThreadRecording).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenLastCalledWith("sess-1", "b");
+    endThreadRecording.mockResolvedValue(undefined); view.unmount(); await flush();
+  });
+
+  it("bearer更新后旧ASR回调不能覆盖新scope状态", async () => {
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="old" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    const old = asrHandlers!;
+    view.rerender(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="new" />);
+    await flush();
+    act(() => { old.onPartial("旧转录"); old.onError("ASR_PROVIDER_UNAVAILABLE"); });
+    expect(screen.queryByText("旧转录")).toBeNull();
+    expect(screen.queryByTestId("chat-live-recording-error")).toBeNull();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "idle");
+  });
+
   it("空闲态不显示转录中行内卡", async () => {
     render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
     await flush();

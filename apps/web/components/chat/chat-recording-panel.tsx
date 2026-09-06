@@ -188,6 +188,12 @@ export function ChatRecordingPanel({
   const start = React.useCallback(async () => {
     if (!canRecord) return;
     const owner = lifetime.current;
+    // A previous cleanup failure must not be hidden by replacing its session ID.
+    if (owner.sessionId) {
+      try { await endThreadRecording(owner.sessionId, bearer); owner.sessionId = null; }
+      catch { if (owner.active) setFailure("此前的录音尚未停止，请稍后重试。"); return; }
+      if (!owner.active || !canRecordRef.current) return;
+    }
     setPhase("starting");
     setFailure(null);
     setSegments([]);
@@ -197,17 +203,21 @@ export function ChatRecordingPanel({
     try {
       started = await startThreadRecording(threadId, projectId, userId, bearer);
     } catch (e) {
+      if (!owner.active) return;
       failedRef.current = true;
       setPhase("failed");
       setFailure(describeStartFailure(e));
       return;
     }
     owner.sessionId = started.sessionId;
-    const release = async () => {
+    const release = async (nextPhase: Phase = "idle") => {
       const id = owner.sessionId;
-      owner.sessionId = null;
-      try { if (id) await endThreadRecording(id, bearer); }
-      finally { if (owner.active) setPhase("idle"); }
+      try {
+        if (id) await endThreadRecording(id, bearer);
+        owner.sessionId = null;
+      } catch {
+        if (owner.active) setFailure((current) => current ?? "停止录音失败，请稍后重试。");
+      } finally { if (owner.active) setPhase(nextPhase); }
     };
     if (!owner.active || !canRecordRef.current) { await release(); return; }
     setSessionId(started.sessionId);
@@ -218,6 +228,7 @@ export function ChatRecordingPanel({
       failedRef.current = true;
       setPhase("failed");
       setFailure("录音已开始，但服务端没有返回任何音轨，无法采音。请联系管理员。");
+      await release("failed");
       return;
     }
 
@@ -233,32 +244,37 @@ export function ChatRecordingPanel({
     let anchorMessageId: string;
     try {
       const listed = await listMessages(threadId, { limit: 1 }, bearer);
+      if (!owner.active || !canRecordRef.current) { await release(); return; }
       const latest = listed.messages[listed.messages.length - 1];
       if (latest === undefined) {
         failedRef.current = true;
         setPhase("failed");
         setFailure("本会话还没有任何消息，转录没有可挂靠的锚点。请先在会话里发一条消息。");
+        await release("failed");
         return;
       }
       anchorMessageId = latest.id;
     } catch {
+      if (!owner.active) { await release(); return; }
       failedRef.current = true;
       setPhase("failed");
       setFailure("无法读取本会话的消息，转录没有可挂靠的锚点。请重试。");
+      await release("failed");
       return;
     }
 
     if (!owner.active || !canRecordRef.current) { await release(); return; }
     try {
       const openedStream = await openAsrStream(started.sessionId, trackId, anchorMessageId, {
-        onPartial: (text) => setPartial(text),
-        onFinal: () => { setPartial(""); },
+        onPartial: (text) => { if (owner.active) setPartial(text); },
+        onFinal: () => { if (owner.active) setPartial(""); },
         onError: (reason) => {
+          if (!owner.active) return;
           failedRef.current = true;
           setFailure(ASR_FAILURE_TEXT[reason]);
           setPhase("failed");
         },
-        onFinished: () => setPartial(""),
+        onFinished: () => { if (owner.active) setPartial(""); },
       }, { sessionToken: bearer });
       if (!owner.active || !canRecordRef.current) {
         try { await openedStream.stop(); } finally { await release(); }
@@ -268,6 +284,7 @@ export function ChatRecordingPanel({
       setPhase("recording");
       setRecordingStartedAt(Date.now());
     } catch (e) {
+      if (!owner.active) { await release(); return; }
       failedRef.current = true;
       setPhase("failed");
       setFailure(
@@ -275,6 +292,7 @@ export function ChatRecordingPanel({
           ? e.message
           : "无法连接转写服务。请确认你仍处于登录状态后重试。",
       );
+      await release("failed");
     }
   }, [bearer, canRecord, projectId, threadId, userId]);
 
