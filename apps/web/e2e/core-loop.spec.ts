@@ -792,9 +792,14 @@ test.describe("核心闭环八步", () => {
     await threadList.getByText(title).click();
     const messageList = page.getByTestId("copilotkit-v2-messages");
     await expect(messageList).toContainText(marker);
-    await expect(
-      messageList.getByText(runStat.assistantTexts[0]!, { exact: true }),
-    ).toHaveCount(1);
+    // Markdown is rendered as paragraphs and collapsed code, not the raw source.
+    // The copy action binds the displayed assistant to its actual persisted ID.
+    await expect(messageList.locator(`[data-testid="chat-message-copy"][data-message-id="${resultMessageId}"]`)).toHaveCount(1);
+    await expect(messageList.locator("p").filter({ hasText: `${FULLSTACK_E2E.agentReplyPrefix} ${marker}` })).toHaveCount(1);
+    const script = /```run_script\n([\s\S]*?)\n```/.exec(runStat.assistantTexts[0]!);
+    expect(script, "fixture reply must retain the actually executed script").not.toBeNull();
+    await messageList.getByRole("button", { name: "显示代码", exact: true }).click();
+    await expect(messageList.locator("pre code")).toContainText(script![1]!);
   });
 
   /**
