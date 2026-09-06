@@ -196,17 +196,28 @@ export function TemplateEditorPanel({
     || sectionsDirty
   );
 
-  // Esc 关面板——同 `chat-diagram-canvas-modal.tsx` 等其它全屏编辑面板的既定约定。
-  // ⚠ 提示词抽屉开着时先关抽屉，不直接关整个面板（否则一次 Esc 丢掉两层上下文）。
+  /*
+   * Esc 关面板——同 `chat-diagram-canvas-modal.tsx` 等其它全屏编辑面板的既定约定。
+   *
+   * ⚠ **Escape 的层级只有这一个 handler 说了算**，浮层各自挂 `onKeyDown` 是错的
+   *   （PR #2846 codex review P1 逐字指出，属实）：React 的事件挂在根容器上，浮层
+   *   自己那个 handler 跑完，事件照样冒泡到这个 window 监听，于是一次 Esc 既关浮层
+   *   又关整个编辑器——用户按 Esc 只想收起一个下拉，结果丢掉一屏未保存的改动。
+   *   用 `stopPropagation` 也能挡住，但那把"Esc 该关哪一层"拆成了两处声明；
+   *   一处从外到里排好次序，才是这条注释从一开始就想表达的东西。
+   *
+   * 次序：最里层的浮层 → 提示词抽屉 → 整个面板。
+   */
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (promptOpen) setPromptOpen(false);
+      if (recommendPickerOpen) setRecommendPickerOpen(false);
+      else if (promptOpen) setPromptOpen(false);
       else onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, promptOpen]);
+  }, [onClose, promptOpen, recommendPickerOpen]);
 
   function patchSection(sectionId: string, patch: Partial<SectionDraft>): void {
     setSections((prev) => prev.map((s) => (s.sectionId === sectionId ? { ...s, ...patch } : s)));
@@ -855,108 +866,109 @@ export function TemplateEditorPanel({
           */}
           <div className="relative flex flex-none flex-wrap items-center gap-1.5 border-b border-border px-4 py-2">
             <span className="shrink-0 text-11 text-muted-foreground">用完之后推荐</span>
-            {siblings.length === 0 ? (
+            {/*
+              ⚠ 已选中的那几条「独立渲染」，不挂在 `siblings.length > 0` 这个条件下
+                （PR #2846 codex review P2 逐字指出，属实）：当前筛选只剩被编辑的这一行
+                时 `siblings` 为空，把整段收进那个分支会让已配置的推荐整排消失、
+                且无法移除——而"指向当前看不到的模板时如实显示那个 key"正是下面这段特意要做
+                的事，被这个条件抵消掉就等于没做。候选为空只影响"能不能再加"，不影响
+                "已经配了什么"。
+            */}
+            {recommendAfter.map((key) => {
+              const sibling = siblings.find((t) => t.key === key);
+              return (
+                <span
+                  key={key}
+                  data-testid={`tpladmin-editor-recommend-${key}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-2 py-0.5 text-10 text-primary-foreground"
+                >
+                  {/* `find` 找不到 = 指向一个已归档/已删/当前筛选看不到的 key：如实显示
+                      这个 key 本身，不静默丢掉（丢掉的话保存一次就把它清了，而使用者
+                      根本不知道自己删了什么）。 */}
+                  {sibling?.displayName ?? key}
+                  {editable ? (
+                    <button
+                      type="button"
+                      aria-label={`移除推荐 ${sibling?.displayName ?? key}`}
+                      data-testid={`tpladmin-editor-recommend-${key}-remove`}
+                      onClick={() => setRecommendAfter((prev) => prev.filter((k) => k !== key))}
+                      className="rounded-full leading-none text-primary-foreground/70 transition-colors duration-fast hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </span>
+              );
+            })}
+            {recommendAfter.length === 0 && siblings.length === 0 ? (
               <span className="text-11 text-muted-foreground" data-testid="tpladmin-editor-recommend-empty">
                 模板库里还没有其它模板可以推荐
               </span>
-            ) : (
-              <>
-                {recommendAfter.length === 0 ? (
-                  <span className="text-11 text-muted-foreground" data-testid="tpladmin-editor-recommend-none">
-                    未配置（chat 会按通用规则给下一步建议）
-                  </span>
-                ) : null}
-                {/* 已选中的：**按 `recommendAfter` 的顺序**渲染，不是按 `siblings` 的顺序
-                    ——这一栏的顺序就是推荐优先级，照库顺序画会把它显示成另一个次序。
-                    `find` 找不到 = 指向一个已归档/已删/当前筛选看不到的 key：如实显示
-                    这个 key 本身，不静默丢掉（丢掉的话保存一次就把它清了，而使用者
-                    根本不知道自己删了什么）。 */}
-                {recommendAfter.map((key) => {
-                  const sibling = siblings.find((t) => t.key === key);
-                  return (
-                    <span
-                      key={key}
-                      data-testid={`tpladmin-editor-recommend-${key}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-2 py-0.5 text-10 text-primary-foreground"
-                    >
-                      {sibling?.displayName ?? key}
-                      {editable ? (
-                        <button
-                          type="button"
-                          aria-label={`移除推荐 ${sibling?.displayName ?? key}`}
-                          data-testid={`tpladmin-editor-recommend-${key}-remove`}
-                          onClick={() => setRecommendAfter((prev) => prev.filter((k) => k !== key))}
-                          className="rounded-full leading-none text-primary-foreground/70 transition-colors duration-fast hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          ×
-                        </button>
-                      ) : null}
-                    </span>
-                  );
-                })}
-                {editable ? (
-                  <button
-                    type="button"
-                    aria-expanded={recommendPickerOpen}
-                    data-testid="tpladmin-editor-recommend-add"
-                    onClick={() => { setRecommendPickerOpen((v) => !v); setRecommendQuery(""); }}
-                    className="rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    ＋ 添加
-                  </button>
-                ) : null}
-                {recommendPickerOpen && editable ? (
-                  /* Escape 关闭：浮层里有输入框，用户的第一反应就是按 Esc。
-                     不做点击外部关闭——那要挂 document 级监听，而这个浮层有明确的
-                     开关按钮和「完成」按钮，够用了。 */
-                  <div
-                    role="dialog"
-                    aria-label="选择接下来推荐的模板"
-                    onKeyDown={(e) => { if (e.key === "Escape") setRecommendPickerOpen(false); }}
-                    data-testid="tpladmin-editor-recommend-picker"
-                    className="absolute left-4 top-full z-20 mt-1 w-72 rounded-control border border-border bg-background p-2 shadow-lg"
-                  >
-                    <input
-                      autoFocus
-                      value={recommendQuery}
-                      onChange={(e) => setRecommendQuery(e.target.value)}
-                      placeholder="搜模板名或 key"
-                      data-testid="tpladmin-editor-recommend-search"
-                      className="w-full rounded-control border border-border bg-background px-2 py-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                    {/* 限高 + 滚动：这一层才是"50 个模板也不会撑爆界面"的兑现处。 */}
-                    <div className="mt-1 max-h-56 overflow-y-auto">
-                      {recommendCandidates.length === 0 ? (
-                        <div className="px-2 py-3 text-11 text-muted-foreground">
-                          {siblings.length === recommendAfter.length ? "都已经加进来了" : "没有匹配的模板"}
-                        </div>
-                      ) : (
-                        recommendCandidates.map((t) => (
-                          <button
-                            key={t.key}
-                            type="button"
-                            data-testid={`tpladmin-editor-recommend-option-${t.key}`}
-                            onClick={() => setRecommendAfter((prev) => [...prev, t.key])}
-                            className="flex w-full items-baseline gap-2 rounded-control px-2 py-1 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <span className="text-11">{t.displayName}</span>
-                            <span className="truncate text-10 text-muted-foreground">{t.key}</span>
-                          </button>
-                        ))
-                      )}
+            ) : null}
+            {recommendAfter.length === 0 && siblings.length > 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="tpladmin-editor-recommend-none">
+                未配置（chat 会按通用规则给下一步建议）
+              </span>
+            ) : null}
+            {editable && siblings.length > 0 ? (
+              <button
+                type="button"
+                aria-expanded={recommendPickerOpen}
+                data-testid="tpladmin-editor-recommend-add"
+                onClick={() => { setRecommendPickerOpen((v) => !v); setRecommendQuery(""); }}
+                className="rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                ＋ 添加
+              </button>
+            ) : null}
+            {recommendPickerOpen && editable ? (
+              /* Escape 由面板那一个 window 监听按层级处理（见它的头注）——这里**不**再挂
+                 一个自己的 `onKeyDown`：两处都管 Esc 的结果是一次按键关掉两层。 */
+              <div
+                role="dialog"
+                aria-label="选择接下来推荐的模板"
+                data-testid="tpladmin-editor-recommend-picker"
+                className="absolute left-4 top-full z-20 mt-1 w-72 rounded-control border border-border bg-background p-2 shadow-lg"
+              >
+                <input
+                  autoFocus
+                  value={recommendQuery}
+                  onChange={(e) => setRecommendQuery(e.target.value)}
+                  placeholder="搜模板名或 key"
+                  data-testid="tpladmin-editor-recommend-search"
+                  className="w-full rounded-control border border-border bg-background px-2 py-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                {/* 限高 + 滚动：这一层才是"50 个模板也不会撑爆界面"的兑现处。 */}
+                <div className="mt-1 max-h-56 overflow-y-auto">
+                  {recommendCandidates.length === 0 ? (
+                    <div className="px-2 py-3 text-11 text-muted-foreground">
+                      {siblings.length === recommendAfter.length ? "都已经加进来了" : "没有匹配的模板"}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setRecommendPickerOpen(false)}
-                      data-testid="tpladmin-editor-recommend-done"
-                      className="mt-1 w-full rounded-control border border-border px-2 py-1 text-10 text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      完成
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
+                  ) : (
+                    recommendCandidates.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        data-testid={`tpladmin-editor-recommend-option-${t.key}`}
+                        onClick={() => setRecommendAfter((prev) => [...prev, t.key])}
+                        className="flex w-full items-baseline gap-2 rounded-control px-2 py-1 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="text-11">{t.displayName}</span>
+                        <span className="truncate text-10 text-muted-foreground">{t.key}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRecommendPickerOpen(false)}
+                  data-testid="tpladmin-editor-recommend-done"
+                  className="mt-1 w-full rounded-control border border-border px-2 py-1 text-10 text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  完成
+                </button>
+              </div>
+            ) : null}
           </div>
           <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
             <div className="w-full max-w-4xl">

@@ -1892,6 +1892,62 @@ describe("2026-09-06 · 「用完之后推荐」不摊开整库（issue #2825 �
     expect(within(picker).queryByTestId("tpladmin-editor-recommend-option-tpl-7")).toBeNull();
   });
 
+  /**
+   * PR #2846 codex review P1 的回归用例。
+   *
+   * 面板有一个 `window` 级 Escape 监听（`onClose()`）。浮层自己再挂一个 `onKeyDown`
+   * 时，React 的事件跑完照样冒泡到那个 window 监听——一次 Esc 既收起浮层**又关掉整个
+   * 编辑器**，而这一屏可能有一堆未保存的分区改动。修法是把 Escape 的层级收进那一个
+   * window handler（浮层 → 提示词抽屉 → 面板），不是在浮层里 `stopPropagation`。
+   *
+   * ⚠ 事件必须打在 `window` 上（`fireEvent.keyDown(window, …)`）：打在浮层节点上只
+   *   验证得了 React 那一半，而这条 bug 恰恰出在"另一半也会收到"。
+   */
+  it("浮层开着时按 Esc：只收起浮层，编辑器还在（不是一次关两层）", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-add"));
+    await within(panel).findByTestId("tpladmin-editor-recommend-picker");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("tpladmin-editor-recommend-picker")).toBeNull());
+    // 编辑器本身没被一起关掉——这才是这条用例的重点。
+    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
+
+    // 反证：浮层已经关了，再按一次 Esc 就该轮到面板——否则上面那条"没关掉"可能只是
+    // 因为 Esc 根本没生效，而不是因为层级排对了。
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+  });
+
+  /**
+   * PR #2846 codex review P2 的回归用例：当前筛选只剩被编辑的这一行时 `siblings` 为空。
+   * 上一版把整段（含已选中的 chip）收在 `siblings.length === 0` 的另一分支里，于是
+   * 已配置的推荐**整排消失且无法移除**——而"指向当前看不到的模板时如实显示那个 key"
+   * 正是这段特意要做的事，被那个条件整个抵消掉。
+   */
+  it("候选为空（筛选后只剩自己）⇒ 已配置的推荐照常显示、照常能移除", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+        usageCount: 0, sections: [], recommendAfter: ["bmc-archived"],
+      })],
+    })));
+    renderApp(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
+    // 显示的是 key 本身（库里找不到这一行）——不静默丢掉。
+    const chip = within(panel).getByTestId("tpladmin-editor-recommend-bmc-archived");
+    expect(chip).toHaveTextContent("bmc-archived");
+    // 而且移得掉：显示却移不掉，等于把一条配置永久焊死在这里。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-bmc-archived-remove"));
+    await waitFor(() =>
+      expect(within(panel).queryByTestId("tpladmin-editor-recommend-bmc-archived")).toBeNull());
+  });
+
   it("点 × 移除已选中的一条", async () => {
     const panel = await openEditor();
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-bmc-remove"));
