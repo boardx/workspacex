@@ -296,7 +296,8 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
 
     // 新线程什么都没挂 —— 先钉住真实空态，否则「挂上了」可能一直就是真的。
-    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+    await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+    await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
 
     /* 挂载：POST 必须 201。⚠ URL 带 `?projectId=…`，不要用 `$` 收尾（8a 踩过）。 */
     await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();

@@ -69,8 +69,10 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
   }
 
   /* ── ② 挂一个已启用的 skill，配一个可运行 agent，发一条**引用转录内容**的消息 ── */
-  const mountEmpty = page.getByTestId("chat-skill-mount-empty");
-  if (await mountEmpty.isVisible().catch(() => false)) {
+  await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+  const mountPanel = page.getByTestId("chat-skill-mount-panel");
+  await expect(mountPanel).toBeAttached();
+  if (await mountPanel.getAttribute("data-mounted-count") === "0") {
     await page.getByTestId("chat-skill-mount").click();
     const mountResponse = page.waitForResponse((r) => (
       r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url())
