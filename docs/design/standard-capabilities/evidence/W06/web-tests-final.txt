@@ -1,0 +1,25 @@
+[stack-admission] load1=2.73 cores=10 perCore=0.27 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqarlj4-989d69d4-fd372c6aa24a db=wsx_fd372c6aa24ab0b9abdc compose=wsx-fd372c6aa24ab0b9abdc pg=21498 redis=26498 sandbox=51498
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_fd372c6aa24ab0b9abdc capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-web-tools.test.ts (18 tests) 10950ms
+   ✓ standard web public fetch transport > real Readability worker extracts article without executing scripts or loading subresources 664ms
+   ✓ standard web public fetch transport > worker deadline refuses pathological HTML rather than blocking the API event loop 5018ms
+   ✓ standard web public fetch transport > concurrent parser capacity fails closed without an unbounded waiting queue 5024ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  05:01:42
+   Duration  13.42s (transform 278ms, setup 0ms, collect 395ms, tests 10.95s, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_fd372c6aa24ab0b9abdc peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-web-tools.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：1s
+  总计：14s

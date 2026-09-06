@@ -1,0 +1,24 @@
+[stack-admission] load1=2.57 cores=10 perCore=0.26 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqaczik-4db84400-8ba66c7b44f3 db=wsx_8ba66c7b44f357937d6d compose=wsx-8ba66c7b44f357937d6d pg=24771 redis=29771 sandbox=54771
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_8ba66c7b44f357937d6d capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-web-tools.test.ts (17 tests) 5870ms
+   ✓ standard web public fetch transport > real Readability worker extracts article without executing scripts or loading subresources 682ms
+   ✓ standard web public fetch transport > element budget refuses malicious HTML rather than blocking the API event loop 5001ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  04:50:21
+   Duration  9.85s (transform 292ms, setup 0ms, collect 386ms, tests 5.87s, environment 0ms, prepare 59ms)
+
+[db-isolation] db=wsx_8ba66c7b44f357937d6d peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-web-tools.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：1s
+  总计：11s

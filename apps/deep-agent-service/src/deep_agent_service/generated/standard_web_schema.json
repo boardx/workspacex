@@ -1,0 +1,342 @@
+{
+  "limits": {
+    "deadlineMs": 10000,
+    "parseDeadlineMs": 5000,
+    "maxBodyBytes": 1048576,
+    "maxTextChars": 60000,
+    "maxResults": 5,
+    "maxResponseBytes": 524288,
+    "maxElements": 50000,
+    "maxParseWorkers": 2,
+    "maxSnippetChars": 8000
+  },
+  "input": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "web_search"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "pattern": "\\S"
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253,
+                  "pattern": "^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$"
+                },
+                "maxItems": 10
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "timeRange": {
+                "type": "string",
+                "const": "all"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "fetch_url"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "tools": {
+    "web_search": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,63}$"
+            },
+            "maxItems": 10
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "timeRange": {
+            "type": "string",
+            "const": "all"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "pattern": "^web:[a-f0-9]{64}$"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "retrievedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "contentHash": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "snippet": {
+                  "type": "string",
+                  "maxLength": 30000
+                }
+              },
+              "required": [
+                "sourceId",
+                "url",
+                "retrievedAt",
+                "contentHash",
+                "title",
+                "snippet"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 5
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string",
+            "const": "boardx-google"
+          },
+          "candidateLimit": {
+            "type": "number",
+            "const": 5
+          },
+          "domainFilter": {
+            "type": "string",
+            "const": "post-filter-provider-candidates"
+          },
+          "contentKind": {
+            "type": "string",
+            "const": "search-snippet"
+          }
+        },
+        "required": [
+          "results",
+          "truncated",
+          "provider",
+          "candidateLimit",
+          "domainFilter",
+          "contentKind"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "fetch_url": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^web:[a-f0-9]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "retrievedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "resolvedUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 60000
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "contentKind": {
+            "type": "string",
+            "const": "extracted-text"
+          },
+          "extractor": {
+            "type": "string",
+            "enum": [
+              "mozilla-readability",
+              "utf8-text"
+            ]
+          },
+          "hashScope": {
+            "type": "string",
+            "const": "full-extracted-text"
+          }
+        },
+        "required": [
+          "sourceId",
+          "url",
+          "retrievedAt",
+          "contentHash",
+          "resolvedUrl",
+          "title",
+          "text",
+          "truncated",
+          "contentKind",
+          "extractor",
+          "hashScope"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  }
+}

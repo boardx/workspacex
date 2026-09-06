@@ -35,6 +35,16 @@ import {INTERJECTION_STORE} from '../../src/application/agent-run/interjection-s
 import {TOOL_PERMISSION_GRANT_STORE} from '../../src/application/agent-run/tool-permission-grants';
 import {PgToolPermissionGrantRepository} from '../../src/infrastructure/agent-run/pg-tool-permission-grant-repository';
 import {PgInterjectionStore} from '../../src/infrastructure/agent-run/pg-interjection-store';
+import https from 'node:https';
+import dns from 'node:dns';
+import {testTlsMaterial} from '../support/tls';
+import {StandardWebToolsController} from '../../src/interface/controllers/standard-web-tools.controller';
+import {STANDARD_WEB_SERVICE} from '../../src/application/agent-run/standard-web-tools';
+import {DefaultStandardWebService} from '../../src/infrastructure/agent-run/standard-web-service';
+import {createStandardWebFetch} from '../../src/infrastructure/agent-run/standard-web-fetch';
+import {GoogleGuidedSearch} from '../../src/infrastructure/research/google-guided-search';
+import {IDENTITY_REPOSITORY} from '../../src/application/identity/ports';
+import {PgIdentityRepository} from '../../src/infrastructure/identity/pg-identity-repository';
 const org=toOrgId('native-chain-'+randomUUID()),parent='run-'+randomUUID();
 const workspace=join(process.cwd(),'../..');let db:PgDatabase;let root:string;
 function processRun(cmd:string,args:string[],input='',env=process.env):Promise<string>{return new Promise((resolve,reject)=>{
@@ -85,20 +95,30 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const contents=[{path:'SKILL.md',text:'---\nname: example\ndescription: Generate a UTF8 report.\n---\nRun /skills/example/scripts/report.py then publish /workspace/report.txt.\n',mediaType:'text/markdown'},{path:'scripts/report.py',text:script,mediaType:'text/x-python'}];
  const pack={skillId:'s1',versionId:'v1',files:contents.map(f=>({path:f.path,mediaType:f.mediaType,contentBase64:Buffer.from(f.text).toString('base64'),digest:createHash('sha256').update(f.text).digest('hex')}))};
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};
- let provisioned=false;let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
+ let webServer:https.Server|undefined;let provisioned=false;let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
  const oldKey=process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='native-chain-service-key';
  try{
   expect(await authority.check({...ctx,toolName:'execute'})).toEqual({allowed:false,reason:'approval_required'});
-  for(const tool of ['read_file','execute','wx_artifact_publish'])await grants.grantForRun(org,parent,tool);
-  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false});provisioned=true;
-  class TestModule{};Module({controllers:[NativeSessionController,NativeOutputStagingController,RunInterjectionController],providers:[
+  for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url'])await grants.grantForRun(org,parent,tool);
+  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false});provisioned=true;
+  let webUrl='';let webRequests=0;
+  webServer=https.createServer(testTlsMaterial(),(req,res)=>{webRequests++;
+   if(req.url?.startsWith('/search')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({results:[{title:'真实来源',url:webUrl+'/article',snippet:'Search excerpt only.'}]}));}
+   else{res.writeHead(200,{'content-type':'text/html;charset=utf-8'});res.end('<html><head><title>真实来源</title></head><body><article><h1>真实来源</h1><p>'+('This real article substantiates the search result with actual extracted body text. '.repeat(15))+'</p></article></body></html>');}});
+  await new Promise<void>(resolve=>webServer!.listen(0,'127.0.0.1',resolve));webUrl=`https://allowed.example:${(webServer.address() as {port:number}).port}`;
+  const lookup=((host:string,opts:{all?:boolean},cb:Function)=>opts.all?cb(null,[{address:'127.0.0.1',family:4}]):cb(null,'127.0.0.1',4)) as unknown as typeof dns.lookup;
+  const webFetch=createStandardWebFetch({connectTimeoutMs:10000,extraTrustedCa:testTlsMaterial().cert,seams:{lookup,checkAddress:()=>{}}});
+  const webService=new DefaultStandardWebService(new GoogleGuidedSearch(webFetch,webUrl+'/search'),webFetch);
+  class TestModule{};Module({controllers:[NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardWebToolsController],providers:[
+   {provide:STANDARD_WEB_SERVICE,useValue:webService},{provide:IDENTITY_REPOSITORY,useValue:new PgIdentityRepository(db)},
    {provide:NATIVE_SESSION_OWNER,useValue:owner},{provide:NATIVE_OUTPUT_STAGING,useValue:staging},{provide:TOOL_EXECUTION_AUTHORITY,useValue:authority},
    {provide:AGENT_RUN_STORE,useValue:repo},{provide:INTERJECTION_STORE,useValue:new PgInterjectionStore(db)},{provide:TOOL_PERMISSION_GRANT_STORE,useValue:grants}]})(TestModule);
   app=await NestFactory.create(TestModule,{logger:false});await app.listen(0,'127.0.0.1');const base=await app.getUrl();
   const denied=await fetch(`${base}/internal/agent-runs/${parent}/tool-execution/check`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY},body:JSON.stringify({orgId:org,attemptId:ctx.attemptId,leaseEpoch:2,toolName:'execute'})});expect(denied.status).toBe(200);expect((await denied.json() as {allowed:boolean}).allowed).toBe(false);
+  const deniedWeb=await fetch(`${base}/internal/agent-runs/${parent}/standard-web/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY},body:JSON.stringify({orgId:org,attemptId:ctx.attemptId,leaseEpoch:2,toolCallId:'stale-web',toolName:'fetch_url',toolArgs:{url:webUrl+'/article'}})});expect(deniedWeb.status).toBe(403);expect(webRequests).toBe(0);
   const config={configurable:{native_runtime:ref,org_skills:[{stable_name:'example',package:pack}],disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
-  const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
-  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','execute','wx_artifact_publish']);
+  const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),WX_WEB_TEST_URL:webUrl+'/article',NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
+  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','execute','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(webRequests).toBe(2);
   const files=await staging.listFiles(org,parent);expect(files).toHaveLength(1);expect(Buffer.from((await objects.get(files[0]!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;
   const write={runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files};
@@ -106,5 +126,5 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(1);
   const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(1);
   console.log(JSON.stringify({chain:'native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback',...report,artifacts:versions.rows.length,attachments:attachments.rows.length}));
- }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
+ }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{if(webServer){webServer.closeAllConnections();await new Promise<void>(resolve=>webServer!.close(()=>resolve()));}await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
 },120000);

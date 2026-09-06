@@ -1,3 +1,6 @@
+import { STANDARD_WEB_SERVICE } from "./application/agent-run/standard-web-tools";
+import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
+import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
 import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
 import { NativeOutputStagingController } from "./interface/controllers/native-output-staging.controller";
 import { PgNativeOutputStaging } from "./infrastructure/agent-run/pg-native-output-staging";
@@ -882,7 +885,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1768,6 +1771,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: CHILD_RUN_CANCELLER,
       useFactory: (db: DatabasePort) => new PgChildRunCanceller(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: STANDARD_WEB_SERVICE,
+      useFactory: createStandardWebService,
     },
     {
       provide: NATIVE_OUTPUT_STAGING,

@@ -2,6 +2,7 @@
 import asyncio
 import json
 import sys
+import os
 from langchain_core.messages import AIMessage
 from test_native_graph import ScriptedModel
 from deep_agent_service import native_factory
@@ -11,6 +12,8 @@ model=ScriptedModel(messages=iter([
  AIMessage(content='',tool_calls=[{'id':'read-skill','name':'read_file','args':{'file_path':'/skills/example/SKILL.md'}}]),
  AIMessage(content='',tool_calls=[{'id':'execute-report','name':'execute','args':{'command':'python3 /skills/example/scripts/report.py'}}]),
  AIMessage(content='',tool_calls=[{'id':'publish-report','name':'wx_artifact_publish','args':{'workspacePath':'/workspace/report.txt','title':'report.txt','mediaType':'text/plain','idempotencyKey':'report-v1'}}]),
+ AIMessage(content='',tool_calls=[{'id':'search-source','name':'web_search','args':{'query':'Evidence source 中文','limit':1}}]),
+ AIMessage(content='',tool_calls=[{'id':'fetch-source','name':'fetch_url','args':{'url':os.environ['WX_WEB_TEST_URL']}}]),
  AIMessage(content='Report staged for writeback.')]))
 native_factory._shared_runtime=lambda:(model,None,[])
 async def run():
@@ -22,5 +25,8 @@ async def run():
  messages=state['messages']
  tools=[m.name for m in messages if m.type=='tool']
  assert all(getattr(m,'status',None)!='error' for m in messages),str(messages)
- print(json.dumps({'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
+ web_results={m.name:json.loads(m.content) for m in messages if m.type=='tool' and m.name in ('web_search','fetch_url')}
+ linked=web_results['web_search']['results'][0]['sourceId']==web_results['fetch_url']['sourceId']
+ assert 'actual extracted body text' in web_results['fetch_url']['text']
+ print(json.dumps({'webSourceLinked':linked,'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
 asyncio.run(run())
