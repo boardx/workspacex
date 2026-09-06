@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
 const calls = vi.hoisted(() => ({ read: vi.fn(), request: vi.fn() }));
@@ -47,6 +47,17 @@ describe("durable approval", () => {
     fireEvent.click(await screen.findByTestId("agent-interrupt-choose-option-option-b"));
     await waitFor(() => expect(calls.request).toHaveBeenCalledWith("/agent-runs/run/decision", expect.objectContaining({ body: { permissionRequestId: "choice-id", decision: "edit", editedArgs: { selectedOptionId: "b" } } })));
     await waitFor(() => expect(screen.queryByTestId("restored-run-approval")).toBeNull());
+  });
+
+  it("synchronously locks duplicate decisions before React commits disabled state", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "summary" } });
+    let finish!: () => void;
+    calls.request.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    render(<RestoredRunApproval runId="run" />);
+    const button = await screen.findByRole("button", { name: "仅本次允许" });
+    act(() => { button.click(); button.click(); });
+    expect(calls.request).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
   });
 
 });

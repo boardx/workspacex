@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 export function RestoredRunApproval({ runId, bearer, canWrite = true }: { runId: string; bearer?: string; canWrite?: boolean }): JSX.Element | null {
   const [run, setRun] = React.useState<AgentRunView | null>(null);
   const [consumedRequestId, setConsumedRequestId] = React.useState<string | null>(null);
+  const inFlight = React.useRef(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -25,24 +26,26 @@ export function RestoredRunApproval({ runId, bearer, canWrite = true }: { runId:
   }, [runId, bearer]);
   const request = run?.pendingApproval;
   const decide = async (decision: "once" | "run" | "forever" | "deny") => {
-    if (!canWrite || !request?.permissionRequestId || pending) return;
+    if (!canWrite || !request?.permissionRequestId || inFlight.current) return;
+    inFlight.current = true;
     setPending(true); setError(null);
     try {
       await apiRequest(planPermissions.operations.decidePermissionRequest.path.replace(":runId", encodeURIComponent(runId)).replace(":permissionRequestId", encodeURIComponent(request.permissionRequestId)), { method: "POST", body: { decision }, sessionToken: bearer });
       setConsumedRequestId(request.permissionRequestId);
       setRun(await getAgentRun(runId, bearer));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
-    finally { setPending(false); }
+    finally { inFlight.current = false; setPending(false); }
   };
   const decideForm = async (decision: "approve" | "edit" | "reject", editedArgs?: Record<string, unknown>) => {
-    if (!canWrite || !request?.permissionRequestId || pending) return;
+    if (!canWrite || !request?.permissionRequestId || inFlight.current) return;
+    inFlight.current = true;
     setPending(true); setError(null);
     try {
       await apiRequest(wave2Runtime.operations.decideAgentRun.path.replace(":runId", encodeURIComponent(runId)), { method: "POST", body: { permissionRequestId: request.permissionRequestId, decision, ...(decision === "edit" ? { editedArgs } : {}) }, sessionToken: bearer });
       setConsumedRequestId(request.permissionRequestId);
       setRun(await getAgentRun(runId, bearer));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
-    finally { setPending(false); }
+    finally { inFlight.current = false; setPending(false); }
   };
   if (request?.permissionRequestId && request.permissionRequestId === consumedRequestId) return null;
   if (request?.interrupt && run?.status === "awaiting_tool_permission") return <section data-testid="restored-run-approval">{error ? <p role="alert">{error}</p> : null}<RestoredInterruptForm interrupt={request.interrupt} pending={!canWrite || pending || !request.permissionRequestId} decide={decideForm} /></section>;
