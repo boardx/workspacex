@@ -83,9 +83,19 @@ const runRouteMatcher = (u: URL): boolean =>
 
 async function login(page: import("@playwright/test").Page): Promise<void> {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
-  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  const email = page.getByTestId("login-email");
+  const password = page.getByTestId("login-password");
+  await expect(email).toBeEditable();
+  await expect(password).toBeEditable();
+  await email.fill(CHAT_READ_E2E.email);
+  await password.fill(CHAT_READ_E2E.password);
+  await expect(email).toHaveValue(CHAT_READ_E2E.email);
+  await expect(password).toHaveValue(CHAT_READ_E2E.password);
+  const response = page.waitForResponse((res) =>
+    new URL(res.url()).pathname === "/auth/login" && res.request().method() === "POST",
+  );
   await page.getByTestId("login-submit").click();
+  expect((await response).status(), "real UI login must succeed before chat assertions").toBe(200);
   await page.waitForURL(/\/projects$/, { waitUntil: "domcontentloaded" });
 }
 
