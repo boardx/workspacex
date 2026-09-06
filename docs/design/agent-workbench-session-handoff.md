@@ -12,3 +12,5 @@
 - 本会话未新建 Docker 栈。共享 `workspacex-kernel` 不属于本会话，必须保留；原始 checkout 的已有修改未触碰。当前 worktree 用于正在进行的 CI 修复与联合验收，不能移除。
 
 - 04:20 后继续：主分支合入 `69d3f574a`，215 项完整迁移强制重放通过（`/private/tmp/wsx-2867-migration-replay-main.log`）；录音修复 `59425199f`、反馈修复 `b0b776692` 已提交。根正在运行回环 core-loop，独立数据库 `wsx_workbench_2867_core_1`，API 32169 / Web 47169，日志 `/private/tmp/wsx-2867-core-loop-local.log`；结束后核实结果及进程释放。
+
+- 04:40 更新：核心完整依赖链在 `fa444df27` 测试 + `b0b776692` 生产构建下 14/14 通过（`/private/tmp/wsx-2867-core-loop-local3.log`）。四组全栈首轮 9/12 通过，反馈管理列表403导致1失败2未运行；`37687f5e2` 已修为线程可见roster，5反馈+2timeline+tsc/lint通过。当前重新构建运行四组全栈，日志 `/private/tmp/wsx-2867-fullstack-local2.log`，数据库 `wsx_workbench_2867_fullstack_2`，端口保持32169/47169。Mermaid `5270a0a0f`，下一次最迟05:08更新。
