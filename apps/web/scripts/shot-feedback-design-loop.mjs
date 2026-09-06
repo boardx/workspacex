@@ -168,6 +168,11 @@ async function sendSlow(page) {
   await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
   await click(page, '[data-testid="design-detail-send"]');
   await page.waitForSelector('[data-testid="design-detail-generating"]', { timeout: 4000 });
+  // 等到计时器真的走过一秒再拍：恒为 0s 的静态图无法自证计时器在动（rev-uiux 复评登记项）。
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="design-detail-elapsed"]');
+    return el !== null && /[1-9]\d*s/.test(el.textContent ?? "");
+  }, { timeout: 4000 });
 }
 async function openSpec(page) { await clickUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
 async function openPushConfirm(page) { await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }

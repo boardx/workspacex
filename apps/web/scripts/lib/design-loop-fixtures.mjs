@@ -305,6 +305,32 @@ export const DESIGN_PROJECTS = [
   },
 ];
 
+/** v1 视图：把 v2 相对 v1 的两处改动倒回去（「停止」→「发送」、去掉"正在生成"标记）。 */
+function asV1(screens) {
+  const walk = (n) => ({
+    ...n,
+    ...(n.id === "n14" ? { props: { ...n.props, label: "发送", variant: "primary" } } : {}),
+    ...(n.children ? { children: n.children.filter((c) => c.id !== "n11").map(walk) } : {}),
+  });
+  return (screens ?? []).map(walk);
+}
+
+/** 在整份 prototype（每页一棵树）里按 id 找节点。夹具自用，不是契约实现的第二份副本。 */
+function findFixtureNode(screens, nodeId) {
+  const walk = (n) => (n.id === nodeId ? n : (n.children ?? []).reduce((hit, c) => hit ?? walk(c), null));
+  return (screens ?? []).reduce((hit, s) => hit ?? walk(s), null);
+}
+
+/** 把若干 insert 施加到 prototype 上（只支持 insert，够夹具用；重复施加是幂等的）。 */
+function applyFixturePatch(screens, inserts) {
+  for (const { nodeId, index, node } of inserts) {
+    const parent = findFixtureNode(screens, nodeId);
+    if (!parent || findFixtureNode(screens, node.id)) continue;
+    parent.children = [...(parent.children ?? [])];
+    parent.children.splice(index, 0, node);
+  }
+}
+
 /**
  * 拦 `/pm-designs*`：列表 / 建 / 改 / 删 / 追加对话 / 推送。
  * `slow`：`listMyProjects` 故意挂起不 resolve，用于截「加载中」骨架屏（真实请求在飞）。
@@ -363,22 +389,39 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     const body = route.request().postDataJSON() ?? {};
     // B5.3 截「正在生成」过渡：这句故意晚 3s 才 fulfill（真实等待，不是摆图），同 createProject 的做法。
     if (String(body.text ?? "").includes("附件")) await new Promise((r) => setTimeout(r, 3000));
-    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区右侧加了附件按钮，AI 回复右上角加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
+    // 增量修改这条路径必须**真的改画布**：回复说"加好了"而画布上没有，是屏上肉眼可见的矛盾
+    // （rev-uiux 复评 D2/D10 判 0 的根因就是这里原先回 `applied: []` 只写字不动树）。
+    applyFixturePatch(project.prototype, [
+      { nodeId: "n12", index: 0, node: { id: "n90", type: "button", props: { label: "＋", variant: "ghost" } } },
+      { nodeId: "n9", index: 2, node: { id: "n91", type: "button", props: { label: "复制", variant: "ghost" } } },
+    ]);
+    project.chat = [...project.chat, { role: "user", text: body.text, at: NOW }, { role: "ai", text: "改好了：输入区左侧加了附件按钮，AI 回复下方加了复制。要不要顺手把发送键做成图标？", at: NOW, source: "model" }];
     project.updatedAt = NOW;
-    return json(route, { project, reply: { source: "model", applied: [], suggestions: ["输入区加附件按钮", "给 AI 回复加复制", "设计设置页"] } });
+    // suggestions 是"下一步"，不能是刚做完的那两件——否则助手说"加好了"，紧跟着建议"去加一下"。
+    return json(route, { project, reply: { source: "model", applied: ["prototype"], suggestions: ["把发送键做成图标", "给历史会话加分组", "设计设置页"] } });
   });
 
-  // 迭代 5：人直接改画布——夹具只回显（不真的算 patch；截图不需要）
+  // 迭代 5：人直接改画布——夹具按 nodeId 真的把 setProps 合进树里（不是回显）。
   await page.route((url) => /^\/pm-designs\/[^/]+\/prototype\/patch$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
     const project = projects.find((p) => p.id === id);
     if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    for (const op of route.request().postDataJSON()?.ops ?? []) {
+      const node = op.nodeId ? findFixtureNode(project.prototype, op.nodeId) : null;
+      if (node && op.op === "setProps") {
+        node.props = { ...node.props, ...op.props };
+        for (const [k, v] of Object.entries(op.props ?? {})) if (v === null) delete node.props[k];
+      }
+    }
+    project.updatedAt = NOW;
     return json(route, { project });
   });
   // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
   const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
     { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
+    // v1 是 v2 的前身：那时发送键还叫「发送」、AI 回复也还没有"正在生成"标记——预览 v1
+    // 要能在画布上看出与 v2 的差别，否则版本历史只是一份看不出所以然的时间戳列表。
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了三页：「聊天」消息流 + 输入区，「历史会话」可搜索列表，「用量」本月配额与进度。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: asV1(p.prototype) },
   ]);
   await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
