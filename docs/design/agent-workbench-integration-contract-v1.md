@@ -4,7 +4,7 @@
 
 ## 可集成版本
 
-分支：`codex/agent-workbench-upgrade`。以下均已提交到本地独立 worktree，尚未合入 main；最终共用一个 PR，目前 PR 未创建。不能把本文件当作 main 或已部署版本的声明。
+分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `17ad7475a`。以下均已提交，尚未合入 main；最终共用一个 PR，目前 PR 未创建。不能把本文件当作 main 或已部署版本的声明。
 
 | 单元 | 提交 | 导出 / 入口 |
 |---|---|---|
@@ -14,6 +14,8 @@
 | 单次审批精确绑定与参数身份 | `577961624` | `ToolExecutionCheckInput` 新增 permissionRequestId/toolCallId/toolArgs；迁移 `20260907021000_tool_approval_execution_identity.sql` |
 | 子取消确认展示 | `6420a3681` | GET/POST 的 `childCancellation`，独立提示与退避读取 |
 | 主运行恢复与 fencing | `1db6a178f` | `run-lease.ts`、`PgRunRecovery`、同线程串行领取 |
+| 暂停取消竞争及停止展示 | `d78a0790d` / `f884c2348` | `pauseAtCheckpoint` 原子取消优先；`PlanPhase.cancelled` |
+| 明确拒绝优先于已有 grant | `446b03557` | 同一拒绝调用缺身份或改 ID 重发相同参数均拒绝 |
 
 ## Skill 事实进入统一 journal
 
@@ -40,7 +42,9 @@ get_stream_writer()({
 })
 ```
 
-provider 的 fresh 和 resume 均请求 `messages-tuple`、`updates`、`custom`。`DeepAgentModelProvider` 严格验证 custom envelope 后等待回调持久化；写入失败不得伪装为成功接收。事实内容不接收 orgId、runId、attemptId 或任意扩展字段。
+部署前置条件：API 必须设置 `KERNEL_DEEP_AGENT_STREAM_ENABLED=1`。默认关闭时走状态轮询，不消费 custom Skill 事实，也没有从 GET state 推断 Skill 成功的 fallback。联合验收必须确认这一配置，并断言 peer 发出的 factId 实际出现在 journal，而不能只检查 Python 已发送。
+
+启用后 provider 的 fresh 和 resume 均请求 `messages-tuple`、`updates`、`custom`。`DeepAgentModelProvider` 严格验证 custom envelope 后等待回调持久化；写入失败不得伪装为成功接收。事实内容不接收 orgId、runId、attemptId 或任意扩展字段。
 
 | stage | 附加字段 | 含义 |
 |---|---|---|
@@ -112,4 +116,6 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 
 - 父取消与权限接点：PG 3 项通过（真实 context attempt、过期 epoch、跨租户、首次取消身份）；后端目标 22 项通过；子取消 UI 7 项通过。仍不等于 peer adapter 联合验收。
 
-- 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。所有生产代码当前合并最新 main 后冻结于 `35b880453`，浏览器复验正在执行。
+- 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。
+- 浏览器 `b1d46b1bd`：10 项通过、1 项失败（恢复成功后的 journal 故障提示断言）；`1a97584d5` 目标恢复复验 1 项通过。普通模型流式终稿身份修复 `1a97584d5` 后 AG-UI PG 2 项通过，审批 PG 6 项通过。这里的回环模型证据不等于真实模型或 peer 联合验收。
+- 最后独立审查修复：取消/暂停 journal 18 项、计划终态 PG 19 项、工具权限及父取消 PG 6 项通过。真实 DashScope 验收因自动审批要求明确外发授权而未启动，不宣称已通过。
