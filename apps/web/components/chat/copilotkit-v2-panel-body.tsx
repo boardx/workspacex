@@ -567,7 +567,7 @@ export function CopilotKitV2PanelBody({
         // 只有一份写法），不在这里复制第二遍循环。
         const { messages: collected, pendingRunId: detectedPendingRunId } =
           await readAllPersistedMessages(initialChatThreadId, bearer);
-        void hydrateRunTrace(collected, bearer).catch(() => setError("执行过程暂时无法恢复，请刷新重试。"));
+        void hydrateRunTrace(collected, bearer).catch(() => { if (!cancelled) setError((current) => current ?? "执行过程暂时无法恢复，请刷新重试。"); });
         // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
         // 写回且带 `agentRunId`（服务端第三道归因门，见
         // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
