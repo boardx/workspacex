@@ -22,6 +22,8 @@ OUT=node_modules/.cache/butterfly-shots      # 输出目录（不入库）
 pnpm exec tsx .run-progress-butterfly-animation/harness.tsx "$OUT"
 pnpm exec tailwindcss -c .run-progress-butterfly-animation/tailwind.shots.config.cjs -i app/globals.css -o "$OUT/out.css"
 node .run-progress-butterfly-animation/shoot.mjs "$OUT"
+# 本机没有 /opt/pw-browsers/chromium（沙箱路径）时，传空串让 Playwright 用自带的 Chromium：
+#   CHROMIUM_PATH="" node .run-progress-butterfly-animation/shoot.mjs "$OUT"
 ```
 
 ## 两个候选方案（issue 要求：定稿前先贴 2 个候选让人类挑）
@@ -63,7 +65,8 @@ node .run-progress-butterfly-animation/shoot.mjs "$OUT"
 人类实测长任务里 12px 图形太小、单独 flap 机械。默认尺寸 `h-3 w-3` → `h-7 w-7`；新增
 `butterfly-fly` keyframes（flap + drift 合成为同一段：一个周期上浮一次、扑翼两次），
 进度卡布局改为「左蝴蝶竖向居中 + 右两行文案（`text-12` / `text-13`）」，`rounded-xl px-4 py-3`。
-`harness.tsx` / `shoot.mjs` 已同步为新布局并多出 `fly` 一组，跑法同上。
+`harness.tsx` 不再复刻卡片：直接渲染生产用的 `components/chat/run-progress-card.tsx`（面板 body
+用的同一个组件，PR #2839 review 抽出），截图即真实 UI；`shoot.mjs` 多出 `fly` 一组，跑法同上。
 
 | 文件 | 说明 |
 |---|---|
