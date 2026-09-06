@@ -82,7 +82,8 @@
  * 账本（DB 级强制，见 `AppendedRunStep.toolCallId` 的头注），这两次事件因此落成两行，
  * 由读端按 `toolCallId` 折叠回一张卡片，不是同一行被原地改写。
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { normalizeAgentInterruptArgs } from "../../domain/agent-run/agent-interrupt-args";
 import { DEEP_AGENT_HITL_TOOL_NAME, DEEP_AGENT_HITL_ARGS_MAX_CHARS } from "@repo/contracts/deep-agent-hitl";
 import {
   AGENT_INTERRUPTS_TOOL_NAME_LIST,
@@ -351,10 +352,13 @@ function extractToolCallEvents(
           AGENT_INTERRUPTS_TOOL_NAME_LIST.includes(name)
             ? Math.max(4000, DEEP_AGENT_HITL_ARGS_MAX_CHARS, AGENT_INTERRUPTS_ARGS_MAX_CHARS)
             : undefined;
-        const argsSummary = call.args === undefined
+        // issue #2842：三个具名 HITL 虚拟工具的 args 先归一化（模型把数组字段多编码成
+        // JSON 字符串时解回来），summary 与 argsFull 用同一份，前端拿到的就是契约形状。
+        const normalizedArgs = normalizeAgentInterruptArgs(name, call.args);
+        const argsSummary = normalizedArgs === undefined
           ? null
-          : summarizeProgressText(JSON.stringify(call.args), maxChars);
-        pending.set(id, { name, argsSummary, planningNote, argsFull: call.args });
+          : summarizeProgressText(JSON.stringify(normalizedArgs), maxChars);
+        pending.set(id, { name, argsSummary, planningNote, argsFull: normalizedArgs });
         // #742 Gap 1: report "announced, not yet answered" exactly once per id.
         if (!emittedIds.inProgress.has(id)) {
           found.push({
@@ -833,7 +837,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         // issue #2767 -- 直接从原始 args 对象读 `skill_stable_name`，不是从下面
         // `argsSummary`（可能被截断的摘要文本）反解析。非 call_skill 的中断
         // （三个具名虚拟工具）没有这个字段，`skillStableName` 保持 undefined。
-        const args = call.args;
+        const args = normalizeAgentInterruptArgs(name, call.args);
         const skillStableName = name === DEEP_AGENT_HITL_TOOL_NAME
           && typeof args === "object" && args !== null && !Array.isArray(args)
           && typeof (args as Record<string, unknown>).skill_stable_name === "string"
@@ -841,7 +845,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           : undefined;
         return {
           toolName: name,
-          argsSummary: call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args), 4000),
+          argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(args), 4000),
           ...(skillStableName === undefined ? {} : { skillStableName }),
         };
       }
@@ -939,10 +943,21 @@ export class DeepAgentModelProvider implements ModelCallPort {
       return body.run_id;
     }
 
-    const messages: { role: string; content: string }[] = [];
-    if (input.system.trim() !== "") messages.push({ role: "system", content: input.system });
-    for (const turn of input.history ?? []) messages.push({ role: turn.role, content: turn.content });
-    messages.push({ role: "user", content: input.user });
+    // issue #2836 —— 每条消息带 `wsx-turn:<runId>:…` id（`turnMessageId`）：远端
+    // `TurnWindowMiddleware`（harness.py）靠这个前缀识别"本轮"，把上一轮以前累积在
+    // checkpointer 里的消息删掉。此前远端线程无上限累积 + 这里每轮重发历史 ⇒ 同一段
+    // 对话在 prompt 里两份、8 轮 50k tokens，devapp 画布一轮 300+ 秒的根因。
+    // 同一 runId 内 id 唯一（h<i> 按位置），跨 run 前缀不同；不用 chat_messages.id
+    // 是因为 history 里还有 L2 摘要/trace/文件上下文这类没有持久 id 的伪消息。
+    const turnKey = turnMessageKey(input.runId);
+    const messages: { role: string; content: string; id: string }[] = [];
+    if (input.system.trim() !== "") {
+      messages.push({ role: "system", content: input.system, id: turnMessageId(turnKey, "system") });
+    }
+    (input.history ?? []).forEach((turn, i) => {
+      messages.push({ role: turn.role, content: turn.content, id: turnMessageId(turnKey, `h${i}`) });
+    });
+    messages.push({ role: "user", content: input.user, id: turnMessageId(turnKey, "user") });
 
     const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
       method: "POST",
@@ -1043,13 +1058,41 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return body.run_id;
   }
 
+  /**
+   * issue #2842 —— run 的"有效"终态。langgraph-api 0.12.4（uv.lock 锁定，devapp 同版）
+   * 实测：一个停在 `interrupt_on` 等人裁决的 run，`GET /threads/:id/runs/:runId` 报的是
+   * **`success`**，只有 `GET /threads/:id` 的 `status` 是 `interrupted`（`interrupts` 里
+   * 有 action_requests，state 的 `next` 停在 `HumanInTheLoopMiddleware.after_model`）。
+   * 此前三条终态路径都只看 run 状态，`success` 就去读终稿 ⇒ 没有 AI 文本 ⇒
+   * MODEL_CALL_FAILED"produced no assistant message"——三个具名 HITL 虚拟工具
+   * （confirm_task_intent / fill_run_params / choose_execution_option）与 L2 skill 的
+   * `call_skill` interrupt 在 UI 上一律显示成「模型这次没能返回可用结果」（2026-09-06
+   * 本地真栈实测，未改动的 main 同样复现）。
+   *
+   * 修法：run 报 `success` 时再看一眼 thread——`status === "interrupted"` 或 `interrupts`
+   * 非空 ⇒ 按 `interrupted` 处理。只在 `success` 时多这一次读（其它状态语义不变）；
+   * thread 读不到（非 2xx——本仓大量极简假上游只实现 `/threads/:id/runs` 与 `/state`）
+   * 按"没有中断"处理，与本次改动前逐字相同，不把一条缺失的测试路由放大成 run 失败。
+   */
   private async readRunStatus(baseUrl: string, threadId: string, runId: string): Promise<string> {
     const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs/${runId}`, { method: "GET" });
     if (!response.ok) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run status read failed with HTTP ${response.status}`);
     }
     const body = (await response.json()) as RunStatusResponse;
-    return body.status ?? "unknown";
+    const status = body.status ?? "unknown";
+    if (status === "success" && (await this.readThreadInterrupted(baseUrl, threadId))) return "interrupted";
+    return status;
+  }
+
+  private async readThreadInterrupted(baseUrl: string, threadId: string): Promise<boolean> {
+    const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}`, { method: "GET" });
+    if (!response.ok) return false;
+    const body = (await response.json().catch(() => ({}))) as {
+      status?: unknown; interrupts?: Record<string, unknown> | null;
+    };
+    if (body.status === "interrupted") return true;
+    return body.interrupts !== null && typeof body.interrupts === "object" && Object.keys(body.interrupts).length > 0;
   }
 
   /** #783: extracted so `completeWithProgress`'s `emitNewEvents` can read the SAME endpoint
@@ -1077,6 +1120,23 @@ function readFinalReply(messages: readonly ThreadMessage[]): string {
 }
 
 /** Chat threadId → 远端 thread id 的决定性派生。见 `ensureThread` 的注释。 */
+/**
+ * issue #2836 —— 与 `apps/deep-agent-service/.../harness.py` 的 `TURN_MESSAGE_ID_PREFIX`
+ * 逐字相同（两侧各自的测试钉住字面量；改一侧不改另一侧，远端窗口会静默失效、退回
+ * 无限累积——那正是本 issue 修的东西）。形状 `wsx-turn:<runId>:<slot>`，远端按
+ * `rsplit(":", 1)` 取前缀识别同一轮。runId 缺席（不经 execute-run 的调用方、测试）时
+ * 一次 createRun 内用同一个随机 key，仍是合法前缀，下一轮照样能把它识别为"旧的"。
+ */
+export const TURN_MESSAGE_ID_PREFIX = "wsx-turn:";
+
+export function turnMessageKey(runId: string | undefined): string {
+  return runId !== undefined && runId !== "" ? runId : randomUUID();
+}
+
+export function turnMessageId(turnKey: string, slot: string): string {
+  return `${TURN_MESSAGE_ID_PREFIX}${turnKey}:${slot}`;
+}
+
 export function deriveRemoteThreadId(chatThreadId: string): string {
   const hex = createHash("sha256").update(`workspacex:deep-agent:${chatThreadId}`).digest("hex");
   // RFC 4122 形状：版本位固定 4、变体位固定 8——格式合法即可，唯一性来自 sha256。

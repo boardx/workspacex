@@ -1,0 +1,2 @@
+# langgraph dev 的本地持久化目录（线程/检查点），不入库
+.langgraph_api/

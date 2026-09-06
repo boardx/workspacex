@@ -120,15 +120,19 @@ describe("DeepAgentModelProvider.complete", () => {
     expect(capturedRunBodies).toHaveLength(1);
     const body = capturedRunBodies[0] as {
       assistant_id: string;
-      input: { messages: { role: string; content: string }[] };
+      input: { messages: { role: string; content: string; id: string }[] };
       config: { configurable: { org_skills: { stable_name: string; name: string; content: string }[] } };
     };
     expect(body.assistant_id).toBe("Deep Agent");
+    // issue #2836：每条消息带 `wsx-turn:<runId>:<slot>` id，远端 TurnWindowMiddleware
+    // 靠它识别"本轮"并删掉上一轮以前的累积。前缀字面量与 harness.py 逐字相同。
     expect(body.input.messages).toEqual([
-      { role: "system", content: "你是通用助手。技能A：画图。" },
-      { role: "user", content: "上一轮消息" },
-      { role: "user", content: "画一个流程图" },
+      { role: "system", content: "你是通用助手。技能A：画图。", id: expect.stringMatching(/^wsx-turn:[^:]+:system$/) },
+      { role: "user", content: "上一轮消息", id: expect.stringMatching(/^wsx-turn:[^:]+:h0$/) },
+      { role: "user", content: "画一个流程图", id: expect.stringMatching(/^wsx-turn:[^:]+:user$/) },
     ]);
+    const prefixes = new Set(body.input.messages.map((m) => m.id.split(":").slice(0, 2).join(":")));
+    expect(prefixes.size).toBe(1); // 同一轮的三条消息共享同一个 runId 前缀
     expect(body.config.configurable.org_skills).toEqual([
       { stable_name: "diagram-maker", name: "画图技能", content: "You draw diagrams." },
     ]);

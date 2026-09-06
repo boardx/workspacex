@@ -418,3 +418,26 @@ def test_spawn_async_task_context_is_forwarded_when_present(monkeypatch) -> None
     )
 
     assert calls[0]["context"] == "父任务已确认用户想要中文回复"
+
+
+def test_hitl_tools_accept_json_string_arrays_issue_2842():
+    """模型把数组参数多编码成 JSON 字符串时（2026-09-06 qwen3.8-max 真实形状），三个 HITL
+    工具照常工作——此前 `list[str]` 签名校验失败 ⇒ 模型反复重调 ⇒ 用户点「继续」走不出去。"""
+    from deep_agent_service.tools import _coerce_list, build_tools
+
+    assert _coerce_list('["a", "b"]') == ["a", "b"]
+    assert _coerce_list("1. a\n2. b") == ["1. a", "2. b"]
+    assert _coerce_list(["x"]) == ["x"]
+    assert _coerce_list("") is None and _coerce_list(None) is None
+
+    tools = {t.name: t for t in build_tools(FakeChatModel("unused"))}
+    out = tools["confirm_task_intent"].invoke({
+        "requestId": "r", "understanding": "写报告", "assumptions": '["主题为年度总结", "格式 docx"]',
+    })
+    assert "主题为年度总结" in out and "格式 docx" in out and "没有收到" not in out
+    out = tools["fill_run_params"].invoke({"requestId": "r", "fields": '[{"name": "cc", "value": "a@b"}]'})
+    assert "cc=" in out
+    out = tools["choose_execution_option"].invoke({
+        "requestId": "r", "options": '[{"optionId": "o1", "title": "快"}]', "selectedOptionId": "o1",
+    })
+    assert "「快」" in out

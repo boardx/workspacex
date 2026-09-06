@@ -19,6 +19,8 @@ afterEach(() => new Promise<void>((r) => (server ? server.close(() => r()) : r()
 
 function startFake(opts: {
   runStatus: string;
+  /** issue #2842：`GET /threads/t1` 的 status（langgraph-api 0.12.4 里 interrupt 只体现在这里）。缺省不实现该路由（404）。 */
+  threadStatus?: string;
   messages?: unknown[];
   onRunBody?: (body: unknown) => void;
 }): Promise<string> {
@@ -35,6 +37,9 @@ function startFake(opts: {
     }
     if (req.method === "GET" && /\/runs\/r1$/.test(url)) {
       res.writeHead(200).end(JSON.stringify({ status: opts.runStatus })); return;
+    }
+    if (req.method === "GET" && /\/threads\/t1$/.test(url) && opts.threadStatus !== undefined) {
+      res.writeHead(200).end(JSON.stringify({ thread_id: "t1", status: opts.threadStatus })); return;
     }
     if (req.method === "GET" && /\/state$/.test(url)) {
       res.writeHead(200).end(JSON.stringify({ values: { messages: opts.messages ?? [] } })); return;
@@ -72,6 +77,31 @@ describe("DA-07b provider：中断与恢复（rubric D6）", () => {
       argsSummary: JSON.stringify({ skill: "risky" }),
     });
     expect(result.text).toBe("");
+  });
+
+  it('issue #2842：远端 run=success 但 thread=interrupted（langgraph-api 0.12.4 的真实形状）→ 仍返回待批摘要，不是 MODEL_CALL_FAILED', async () => {
+    const baseUrl = await startFake({
+      runStatus: "success",
+      threadStatus: "interrupted",
+      messages: [
+        { type: "ai", content: "", tool_calls: [{ id: "c1", name: "confirm_task_intent", args: { requestId: "r-1" } }] },
+      ],
+    });
+    // 流式与轮询两条路径都要对：completeWithProgress（流式关闭 ⇒ 走轮询）与 complete。
+    const result = await provider(baseUrl).completeWithProgress(base as never, async () => {});
+    expect(result.interrupted).toEqual({ toolName: "confirm_task_intent", argsSummary: JSON.stringify({ requestId: "r-1" }) });
+    expect(result.text).toBe("");
+    await expect(provider(baseUrl).complete(base as never)).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+  });
+
+  it("issue #2842 反证：thread 路由不存在（极简假上游）时 run=success 仍按成功处理，行为与改动前相同", async () => {
+    const baseUrl = await startFake({
+      runStatus: "success",
+      messages: [{ type: "ai", content: "plain done", tool_calls: [] }],
+    });
+    const result = await provider(baseUrl).completeWithProgress(base as never, async () => {});
+    expect(result.text).toBe("plain done");
+    expect(result.interrupted).toBeUndefined();
   });
 
   it("resume 输入 → POST body 用 command.resume.decisions，且绝不重发用户输入", async () => {
