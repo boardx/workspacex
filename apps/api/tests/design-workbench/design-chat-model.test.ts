@@ -73,6 +73,9 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(input?.user).toContain('"type":"divider"');
     expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("navbar");
     expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain("setProps"); // 迭代 1：patch 说明进 prompt
+    const focused = replier(async () => ({ text: "{}" }));
+    await focused.r.reply({ ...CTX, focus: { id: "n2", frame: "聊天", path: ["纵向布局", "按钮「发送」"], node: { id: "n2", type: "button" } } });
+    expect(focused.model.complete.mock.calls[0]?.[0]?.user).toContain("选中了节点 id=n2"); // 迭代 2
     expect(parseWriteback({ patch: [{ op: "remove", id: "n2" }] })).toEqual({ patch: [{ op: "remove", id: "n2" }] });
     const bad = { frame: "x", root: { type: "iframe" } };
     expect(parseWriteback({ criteria: ["a"], prototype: [screen, bad] })).toEqual({ criteria: ["a"] });

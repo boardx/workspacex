@@ -204,7 +204,7 @@ export class DesignWorkbenchController {
     try {
       return await appendProjectChat(
         { ...this.deps(principal), ai: this.designChat() },
-        { projectId, ownerId: principal.userId, text: body.text },
+        { projectId, ownerId: principal.userId, text: body.text, ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}) },
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;

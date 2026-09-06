@@ -47,9 +47,18 @@ export interface AppendProjectChatDeps extends DesignProjectDeps {
   readonly ai: DesignChatModel;
 }
 
+/** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
+function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly designPrototype.PrototypeNode[] }, id: string | undefined) {
+  if (id === undefined) return {};
+  const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
+  if (hit === null) return {};
+  const node = hit.path[hit.path.length - 1]!;
+  return { focus: { id, frame: row.frames[hit.frameIndex] ?? "", path: hit.path.map(designPrototype.prototypeNodeLabel), node } };
+}
+
 export async function appendProjectChat(
   deps: AppendProjectChatDeps,
-  input: { readonly projectId: string; readonly ownerId: string; readonly text: string },
+  input: { readonly projectId: string; readonly ownerId: string; readonly text: string; readonly focusNodeId?: string },
 ): Promise<{ readonly project: DesignProjectView; readonly reply: DesignChatReply }> {
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
@@ -62,6 +71,7 @@ export async function appendProjectChat(
     criteria: current.criteria,
     frames: current.frames,
     prototype: current.prototype,
+    ...focusFor(current, input.focusNodeId),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 

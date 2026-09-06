@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ import {
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
+  findPrototypeNodePath,
+  prototypeNodeLabel,
   type DesignProject,
   type DesignWritebackField,
   type ProjectTemplate,
@@ -107,6 +109,8 @@ export function DesignDetailScreen({
   const [chatError, setChatError] = React.useState<string | null>(null);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
+  /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
@@ -129,6 +133,11 @@ export function DesignDetailScreen({
   }, [reload]);
 
   const project = load.kind === "ready" ? load.project : null;
+  // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
+  const focus = React.useMemo(
+    () => (project !== null && selectedId !== null ? findPrototypeNodePath(project.prototype, selectedId) : null),
+    [project, selectedId],
+  );
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -177,9 +186,12 @@ export function DesignDetailScreen({
     setSending(true);
     setChatError(null);
     try {
-      const { project: updated, reply } = await apiAppendProjectChat(project.id, value);
+      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
+      // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
+      // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
+      if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
     } catch (err) {
       setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
@@ -276,13 +288,26 @@ export function DesignDetailScreen({
               {chatError}
             </div>
           )}
+          {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
+          {focus !== null && (
+            <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
+              <Crosshair aria-hidden className="h-3 w-3 text-primary" />
+              <span className="truncate">
+                针对：<span className="text-background-foreground">{prototypeNodeLabel(focus.path[focus.path.length - 1]!)}</span>
+                <span className="ml-1 text-10">（{project.frames[focus.frameIndex]} › {focus.path.slice(0, -1).map(prototypeNodeLabel).join(" › ") || "根"}）</span>
+              </span>
+              <button type="button" onClick={() => setSelectedId(null)} aria-label="取消针对" className="ml-auto rounded-control p-0.5 transition-colors duration-fast hover:bg-card" data-testid="design-detail-focus-clear">
+                <X aria-hidden className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-2 border-t border-border p-3">
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={2}
               disabled={sending}
-              placeholder="告诉我要改什么，我来更新画布"
+              placeholder={focus !== null ? "要怎么改这个节点？" : "告诉我要改什么，我来更新画布"}
               data-testid="design-detail-input"
               className="flex-1"
             />
@@ -325,7 +350,12 @@ export function DesignDetailScreen({
                 ))}
               </div>
               <div className="grid flex-1 place-items-center overflow-y-auto bg-background p-6">
-                <PrototypeCanvas label={project.frames[frame] ?? ""} root={project.prototype[frame] ?? null} />
+                <PrototypeCanvas
+                  label={project.frames[frame] ?? ""}
+                  root={project.prototype[frame] ?? null}
+                  selectedId={focus !== null && focus.frameIndex === frame ? selectedId : null}
+                  onSelect={setSelectedId}
+                />
               </div>
             </div>
           ) : (

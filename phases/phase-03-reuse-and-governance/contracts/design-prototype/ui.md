@@ -2,7 +2,7 @@
 
 > ## 自检（可机械核对）
 >
-> **本文件引用 3 张截图，目录下实际 3 张。N == M，无死链、无多列、无遗漏。**
+> **本文件引用 4 张截图，目录下实际 4 张。N == M，无死链、无多列、无遗漏。**
 >
 > 这一行由 `.harness/scripts/lint-ui-material.mjs` 双向对账（引用集合 == 实存集合）。
 
@@ -17,6 +17,7 @@
 |---|---|---|
 | [detail-prototype-dark.png](../../ui-preview/design-prototype/detail-prototype-dark.png) | 第一页「聊天」 | 占位块变成渲染的组件树：导航栏、消息流（`fill` 撑满、用户气泡右对齐、AI 头像 + 卡片 + 「正在生成」badge）、底部输入区（输入框吃满剩余宽度 + 危险色「停止」）；顶栏新增「导出设计文档」 |
 | [detail-prototype-page2-dark.png](../../ui-preview/design-prototype/detail-prototype-page2-dark.png) | 切到第二页「历史会话」 | 位置对应（I-8）：标签条切页 ⇒ 画布换树；搜索框、tabs、dot 列表、留白、通栏主按钮 |
+| [detail-prototype-focus-dark.png](../../ui-preview/design-prototype/detail-prototype-focus-dark.png) | 迭代 2：点选画布上的「停止」按钮 | 节点描边高亮；对话面板上方出现焦点 chip「针对：按钮「停止」（聊天 › 纵向布局 › 横向布局）」，可 × 清除；输入框占位改为「要怎么改这个节点？」；发送时请求带 `focusNodeId`，模型优先用 patch 改它 |
 | [detail-prototype-generating-dark.png](../../ui-preview/design-prototype/detail-prototype-generating-dark.png) | 发送后等待模型（真实等待，夹具晚 3s 才回） | 对话面板底部「正在生成，画布会整页重绘，可能需要一分钟……」，输入框与发送键禁用 |
 
 ⚠ 未产出：占位块 + 引导语的空态特写（`design-detail-phone-placeholder`）——与 `design-workbench`
