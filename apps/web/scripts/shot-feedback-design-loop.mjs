@@ -84,6 +84,8 @@ const SHOTS = [
   ["detail-prototype-single-dark.png", "detail-prototype", "default", "dark", singleView],
   // 迭代 2：点选画布节点 ⇒ 描边 + 对话面板上方的焦点 chip
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
+  // 迭代 5：选中节点后的属性面板（与 focus 同一动作，右栏多出字段）
+  ["detail-prototype-inspector-dark.png", "detail-prototype", "default", "dark", selectNodeInspector],
   // 迭代 3：打开版本历史并预览 v1
   ["detail-prototype-history-dark.png", "detail-prototype", "default", "dark", openHistoryPreview],
 ];
@@ -133,6 +135,10 @@ async function openHistoryPreview(page) {
   await singleView(page);
   await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
   await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
+}
+async function selectNodeInspector(page) {
+  await selectNode(page);
+  await page.waitForSelector('[data-testid="design-inspector"]', { timeout: 4000 });
 }
 async function selectNode(page) {
   await singleView(page);

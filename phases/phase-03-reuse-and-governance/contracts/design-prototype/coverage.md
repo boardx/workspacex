@@ -13,6 +13,7 @@
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |
+| V20 | 直接编辑（迭代 5） | `patchPrototype` / `PROTOTYPE_PATCH_REJECTED` | `design-inspector-*` | ✅ |
 | V19 | 画板视图（迭代 4） | 无接口（纯前端 `prototype-board.tsx`） | `design-detail-board` / `design-detail-view-*` / `design-detail-zoom-*` | ✅ |
 | V18 | 版本历史（迭代 3） | `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` | `design-detail-history-toggle` / `design-history-*` / `design-detail-preview-banner` | ✅ |
 | V17 | 画布选中态 + focusNodeId（迭代 2） | `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | `design-detail-focus` / `design-detail-focus-clear` / `[data-node-id]` | ✅ |
@@ -28,6 +29,7 @@
 | `DesignChatWriteback.prototype` / `DesignWritebackField = "prototype"` | V10 V13 |
 | `PrototypeNodeId` / `PrototypePatchOp` / `DesignPrototypePatch` / `PROTOTYPE_PATCH_GUIDE` | V16 |
 | `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | V17 |
+| `patchPrototype` / `PROTOTYPE_PATCH_REJECTED` / `PrototypePatchRejectReason` / `PROTOTYPE_FIELDS` / `PROTOTYPE_PROPS_SCHEMAS` | V20 |
 | `PrototypeVersion(Summary)` / `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` / `VERSION_NOT_FOUND` | V18 |
 
 没有任何契约面找不到 UC；没有任何 V 找不到契约面。迭代 3 起本束新增三条路由（版本历史），都挂在 `/pm-designs/:projectId/versions` 下。

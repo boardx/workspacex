@@ -14,6 +14,7 @@ import {
   restorePrototypeVersion,
 } from "../../src/application/design-workbench/prototype-versions";
 import { deleteProject } from "../../src/application/design-workbench/delete-project";
+import { PrototypePatchRejectedError, patchPrototype } from "../../src/application/design-workbench/patch-prototype";
 import { pushToInbox } from "../../src/application/design-workbench/push-to-inbox";
 import {
   DesignProjectNameRequiredError,
@@ -295,6 +296,21 @@ describe("appendProjectChat", () => {
     await expect(restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-2", versionId: items[1]!.id })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
     await expect(getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: "nope" })).rejects.toBeInstanceOf(PrototypeVersionNotFoundError);
     await expect(listPrototypeVersions(deps(repo), { projectId: "nope" })).rejects.toBeInstanceOf(DesignProjectNotFoundError);
+  });
+
+  it("迭代 5 patchPrototype：owner 直接改 ⇒ 同一条 applyPrototypePatch、记 user 版本；未知 id ⇒ PROTOTYPE_PATCH_REJECTED 带 detail；没原型 ⇒ 拒；非 owner ⇒ 403", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["页"], prototype: [{ id: "n1", type: "stack", children: [{ id: "n2", type: "button", props: { label: "发送" } }] }] }));
+    const out = await patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-1", ops: [{ op: "setProps", id: "n2", props: { label: "停止" } }], summary: "改了按钮" });
+    const root = out.project.prototype[0];
+    if (root?.type !== "stack") throw new Error("root");
+    expect(root.children[0]).toMatchObject({ id: "n2", props: { label: "停止" } });
+    expect(repo.versions.map((v) => [v.source, v.summary])).toEqual([["user", "改了按钮"]]);
+    await expect(patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-1", ops: [{ op: "remove", id: "zzz" }] })).rejects.toMatchObject({ reason: "UNKNOWN_NODE", nodeId: "zzz" });
+    await expect(patchPrototype(deps(repo), { projectId: "dp-1", ownerId: "u-2", ops: [{ op: "remove", id: "n2" }] })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1" }));
+    await expect(patchPrototype(deps(repo), { projectId: "dp-2", ownerId: "u-1", ops: [{ op: "remove", id: "n2" }] })).rejects.toMatchObject({ reason: "NO_PROTOTYPE" });
+    expect(new PrototypePatchRejectedError("LIMITS", "x")).toBeInstanceOf(Error);
   });
 
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {

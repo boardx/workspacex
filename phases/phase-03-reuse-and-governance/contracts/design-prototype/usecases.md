@@ -42,6 +42,8 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 
 - **V19**（迭代 4）：默认画板视图，全部页并排；滚轮平移、Ctrl/⌘+滚轮以指针为中心缩放、空白拖拽、键盘 −/＝/0、右下角按钮与「适应」；点标题/节点聚焦该页；「单页」视图只看当前页；预览态在两种视图下都生效。纯前端，无契约变化。
 
+- **V20**（迭代 5）：owner 选中节点后在属性面板改文案/属性 ⇒ `POST …/prototype/patch { ops:[setProps], summary }`；删除 ⇒ `remove`；服务端 `applyPrototypePatch` 重验、与 UPDATE 同一事务记 `source: user` 版本；未知 id / 删根 / 结果不合法 / 没原型 ⇒ 400 `PROTOTYPE_PATCH_REJECTED` + 闭集 `patchReason`（`PrototypePatchRejectReason`）+ `nodeId`，前端按闭集给人话；非 owner ⇒ 403。属性面板字段表 `PROTOTYPE_FIELDS` 来自契约（测试锁定与各 `*Props` shape 键集合相等）；清空可选属性发 `null`（setProps 里 null = 删键）。
+
 **失败模式（穷举，B5.2 的表继续适用，这里只列本束新增）**
 | 情况 | 用户可见结果 | 标记 |
 |---|---|---|
@@ -50,3 +52,4 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 | 库里 `prototype` 长度 ≠ `frames`（契约演进后旧数据） | 读出按「还没生成」，画布占位块 | — |
 | 模型超时（90s） | 固定回执，画布不变 | `source: "fallback"` |
 | `patch` 任一条失败 / 还没有原型 | 画布不变；其余字段照写；记日志 | `applied` 不含 `prototype` |
+| 人直接改的 patch 失败（迭代 5） | 属性面板红字显示服务端 detail；画布不变 | 400 `PROTOTYPE_PATCH_REJECTED` |
