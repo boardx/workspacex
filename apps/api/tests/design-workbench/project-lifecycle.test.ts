@@ -17,7 +17,7 @@ import {
 } from "../../src/application/design-workbench/project-shared";
 import { toOrgId } from "../../src/domain/org-id";
 import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
-import { designWorkbench as C } from "@repo/contracts";
+import { designPrototype, designWorkbench as C } from "@repo/contracts";
 import type { DesignChatContext, DesignChatModel, DesignChatReplyResult } from "../../src/application/design-workbench/design-chat-model";
 
 /** B5.2：`DesignChatModel` 的内存 fake——默认退回固定回执（fallback），记录看到的上下文。 */
@@ -188,6 +188,61 @@ describe("appendProjectChat", () => {
     const ctx = ai.calls[0];
     expect(ctx).toMatchObject({ name: "导出改版", problem: "旧背景" });
     expect(ctx?.chat.map((c) => c.text)).toEqual(["第一句", C.DESIGN_WORKBENCH_CHAT_REPLY, "把导出成功率写进验收标准"]);
+  });
+
+  it("B5.3 prototype 写回：{frame,root}[] 拆成 frames + prototype 一次写入，applied 列 frames 与 prototype；只写回 frames ⇒ 旧树清空", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
+    const tree = { type: "stack" as const, children: [{ type: "text" as const, props: { content: "hi" } }] };
+    const ai = new FakeDesignChat();
+    ai.answer = { text: "画好了。", source: "model", writeback: { frames: ["被忽略"], prototype: [{ frame: "聊天", root: tree }, { frame: "设置", root: { type: "divider" } }] } };
+    const out = await appendProjectChat({ ...deps(repo), ai }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天 UI" });
+    expect(out.reply).toEqual({ source: "model", applied: ["frames", "prototype"] });
+    expect(out.project.frames).toEqual(["聊天", "设置"]);
+    expect(out.project.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }])); // 迭代 1：落库补 id
+    expect(ai.calls[0]?.prototype).toEqual([]);
+
+    const relabel = new FakeDesignChat();
+    relabel.answer = { text: "改名了。", source: "model", writeback: { frames: ["首页", "设置"] } };
+    const out2 = await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "第一页叫首页" });
+    expect(out2.reply.applied).toEqual(["frames"]);
+    expect(out2.project.frames).toEqual(["首页", "设置"]);
+    expect(out2.project.prototype).toEqual([]);
+    expect(relabel.calls[0]?.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }]));
+  });
+
+  it("迭代 1 patch 写回：按 id 局部改并落库、applied 记 prototype；整页写回补 id；没原型时 patch 拒、非法 patch 拒但其余字段照写", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
+    // 没原型 ⇒ patch 无处可打
+    const early = new FakeDesignChat();
+    early.answer = { text: "改了。", source: "model", writeback: { patch: [{ op: "remove", id: "n1" }], criteria: ["c"] } };
+    const out0 = await appendProjectChat({ ...deps(repo), ai: early }, { projectId: "dp-1", ownerId: "u-1", text: "删掉" });
+    expect(out0.reply.applied).toEqual(["criteria"]);
+    // 整页写回：模型没写 id ⇒ 落库时补齐
+    const whole = new FakeDesignChat();
+    whole.answer = { text: "画好了。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "hi" } }, { type: "button", props: { label: "发送" } }] } }] } };
+    const out1 = await appendProjectChat({ ...deps(repo), ai: whole }, { projectId: "dp-1", ownerId: "u-1", text: "画个聊天" });
+    const root = out1.project.prototype[0];
+    expect(root).toMatchObject({ id: "n1", type: "stack" });
+    if (root?.type !== "stack") throw new Error("root");
+    expect(root.children.map((c) => c.id)).toEqual(["n2", "n3"]);
+    // patch：按 id 改
+    const p = new FakeDesignChat();
+    p.answer = { text: "按钮改成停止。", source: "model", writeback: { patch: [{ op: "setProps", id: "n3", props: { label: "停止", variant: "danger" } }] } };
+    const out2 = await appendProjectChat({ ...deps(repo), ai: p }, { projectId: "dp-1", ownerId: "u-1", text: "按钮改成停止" });
+    expect(out2.reply.applied).toEqual(["prototype"]);
+    const r2 = out2.project.prototype[0];
+    if (r2?.type !== "stack") throw new Error("r2");
+    expect(r2.children[1]).toMatchObject({ id: "n3", props: { label: "停止", variant: "danger" } });
+    expect(out2.project.frames).toEqual(["聊天"]);
+    expect(p.calls[0]?.prototype[0]).toMatchObject({ id: "n1" }); // 模型看到的是带 id 的树
+    // 非法 patch（未知 id）⇒ prototype 不动，problem 照写
+    const bad = new FakeDesignChat();
+    bad.answer = { text: "x", source: "model", writeback: { patch: [{ op: "remove", id: "zzz" }], problem: "新背景" } };
+    const out3 = await appendProjectChat({ ...deps(repo), ai: bad }, { projectId: "dp-1", ownerId: "u-1", text: "删" });
+    expect(out3.reply.applied).toEqual(["problem"]);
+    expect(out3.project.prototype).toEqual(out2.project.prototype);
   });
 
   it("每项目独立 thread：模型只看到本项目的历史，不混入别的项目", async () => {

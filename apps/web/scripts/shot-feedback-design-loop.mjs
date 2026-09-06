@@ -22,7 +22,11 @@ const OUT = process.env.OUT;
 if (!OUT) throw new Error("OUT env required");
 mkdirSync(OUT, { recursive: true });
 const DESIGN_WORKBENCH_OUT = join(dirname(OUT), "design-workbench");
-const outDirFor = (file) => (file.startsWith("workbench-") || file.startsWith("detail-") ? DESIGN_WORKBENCH_OUT : OUT);
+// UC-17.8 B5.3：`detail-prototype-*` 是契约束 `design-prototype` 自己的材料，落它自己的目录。
+const DESIGN_PROTOTYPE_OUT = join(dirname(OUT), "design-prototype");
+const outDirFor = (file) =>
+  file.startsWith("detail-prototype-") ? DESIGN_PROTOTYPE_OUT
+  : file.startsWith("workbench-") || file.startsWith("detail-") ? DESIGN_WORKBENCH_OUT : OUT;
 
 const ROOT = '[data-testid="feedback-design-loop-preview"]';
 
@@ -72,6 +76,10 @@ const SHOTS = [
   ["detail-loading-dark.png", "detail-loading", "default", "dark", null],
   ["detail-depfailed-dark.png", "detail-depfailed", "default", "dark", null],
   ["detail-missing-dark.png", "detail-missing", "default", "dark", null],
+  // 新增（UC-17.8 B5.3，原型画布从占位块变成模型生成的组件树）
+  ["detail-prototype-dark.png", "detail-prototype", "default", "dark", null],
+  ["detail-prototype-page2-dark.png", "detail-prototype", "default", "dark", openSecondFrame],
+  ["detail-prototype-generating-dark.png", "detail-prototype", "default", "dark", sendSlow],
 ];
 
 async function clickReq(page) { await click(page, '[data-testid="feedback-kind-需求"]'); }
@@ -113,6 +121,12 @@ async function createSlow(page) {
   await click(page, '[data-testid="project-dialog-submit"]');
   await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
 }
+async function openSecondFrame(page) { await clickUntil(page, '[data-testid="design-detail-frame-1"]', '[data-testid="design-detail-phone-tree"]'); }
+async function sendSlow(page) {
+  await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
+  await click(page, '[data-testid="design-detail-send"]');
+  await page.waitForSelector('[data-testid="design-detail-generating"]', { timeout: 4000 });
+}
 async function openSpec(page) { await clickUntil(page, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'); }
 async function openPushConfirm(page) { await clickUntil(page, '[data-testid="design-detail-push"]', '[data-testid="design-push-confirm"]'); }
 async function doPush(page) {
@@ -148,6 +162,7 @@ const filterRe = process.env.SHOTS_FILTER ? new RegExp(process.env.SHOTS_FILTER)
 const shotsToRun = filterRe ? SHOTS.filter(([file]) => filterRe.test(file)) : SHOTS;
 
 mkdirSync(DESIGN_WORKBENCH_OUT, { recursive: true });
+mkdirSync(DESIGN_PROTOTYPE_OUT, { recursive: true });
 const browser = await chromium.launch(process.env.PW_EXECUTABLE ? { executablePath: process.env.PW_EXECUTABLE } : {});
 for (const [file, scene, state, theme, prepare] of shotsToRun) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, colorScheme: theme, deviceScaleFactor: 2 });

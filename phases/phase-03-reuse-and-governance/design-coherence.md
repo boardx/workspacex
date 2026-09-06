@@ -5,7 +5,7 @@ phase: "03"
 #   （phase-03 此前没有 contracts/ 目录，本文件与该束同时建立）。
 #   **新增束必须同时加进这里并重做复核**——否则新束的 feature 会靠一份从没看过它们的
 #   复核解锁开工（ADR-023 背景 1 的原样复现）。
-covers_bundles: [design-ai-collab, design-workbench, feedback-drafts, feedback-loop, inbox-unified]
+covers_bundles: [design-ai-collab, design-prototype, design-workbench, feedback-drafts, feedback-loop, inbox-unified]
 status: confirmed
 confirmed_by: "usamshen（本会话口头授权，由 agent 代转录；人类原话：「以上的两个问题，同意，请继续」）"
 confirmed_at: "2026-09-05T02:47:59Z"
@@ -101,6 +101,7 @@ UC-17.8 B5.1 在 `contracts/` 下新建了 `design-ai-collab` 目录（五件材
 | X-F10 | D7「先固定回执上线」（§2.5 X-F8）与本束「模型生成、失败退回固定回执」的关系 | `feedback-loop` + `design-workbench` + backlog D7 | ✅ 不冲突：D7 裁的是**上线顺序**（先固定，AI 后置成独立束），本束就是那个后置束；固定回执从「唯一路径」降为「退路」，两束契约头注已同步改口 |
 | X-F11 | 退路策略与 `feedback-loop` 的 `structureFeedbackDraft`（失败**抛** 503）不一致 | `feedback-loop`（已签核） | ⚠ **待人类确认**：是有意的差别——那里整理就是点击的唯一目的；这里用户的话已落库、AI 没回好不该让操作失败。理由见本束 `domain.md` §4；若人类要求统一为"失败即 503"，B5 两处都要改 |
 | X-F12 | B5.2 写回 `problem/criteria/frames` 与 `design-workbench` 已签材料「`criteria`/`frames` 不接受前端传入、`updateProject` 不改它们」 | `design-workbench`（pending） | ⚠ **待人类确认**：写回是**服务端**按模型输出、经 `DesignChatWriteback` 严格解析后做的，前端仍不能传这三个字段——不违反那条口径，但那条口径的措辞（「B5.3 之前它们本来就不允许用户编辑」）要在 `design-workbench` 契约头注里改成「用户不能直接编辑，可经对话由模型写回」，B5.2 PR 负责改口 |
+| X-F13 | B5.3（`design-prototype` 束，2026-09-06 人类推翻「仅登记」）给 `DesignProject` 加 `prototype`，与 `design-workbench` 已签材料「画布/原型内容字段刻意没有」「`criteria`/`frames` 不接受前端传入」+ `design-ai-collab` 已签的 `DesignChatWriteback` 三字段闭集 | `design-workbench`（pending）· `design-ai-collab`（confirmed 2026-09-05） | ✅ 2026-09-06 人类复核通过（usamshen）：：① `prototype` 同样只经模型写回、前端不可传，「不接受前端传入」的口径原样成立；② `design-ai-collab` 签的是「三字段」，现在是四字段——写回**形状**扩展了，写回**规则**（逐字段严格解析、直接写回 + `applied` 如实）没变；③ 只改 `frames` 会清空 `prototype`（I-8），这是 B5.2 签核时不存在的副作用，人类要认可「宁可没有也不错位」这条取舍。都在 `contracts/design-prototype/design-signoff.md` 的「请人类确认的三件」里 |
 
 ## 3. 仍然没做的（`status: confirmed` **不覆盖**这些）
 

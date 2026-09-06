@@ -29,6 +29,7 @@
  * 没有这个字段（旧记录 / 用户自己说的话）⇒ 不适用，不是「模型说的」。
  */
 import { z } from "zod";
+import { DesignPrototypePatch, DesignPrototypeWriteback } from "./design-prototype";
 
 /**
  * 一条 AI 回复的来源。**只出现在 `role: "ai"` 的记录上**；`user` 记录与 B5 之前写入的旧
@@ -41,10 +42,11 @@ export type AiReplySource = z.infer<typeof AiReplySource>;
 
 /**
  * B5.2：设计详情对话的回复**可写回**的项目字段。闭集三值——`problem`（背景）、`criteria`
- * （验收标准）、`frames`（画布页标签文案；画布内容本身仍是占位块，B5.3 out of scope）。
+ * （验收标准）、`frames`（画布页标签文案）、`prototype`（B5.3，2026-09-06 起：每页的组件树，
+ * 见 `design-prototype.ts`；写回形状是 `{frame, root}[]`，服务端拆成 `frames` + `prototype` 原子写）。
  * `name`/`template` 不在里面：那两个是 owner 在弹窗里定的身份信息，不该被一句对话改掉。
  */
-export const DesignWritebackField = z.enum(["problem", "criteria", "frames"]);
+export const DesignWritebackField = z.enum(["problem", "criteria", "frames", "prototype"]);
 export type DesignWritebackField = z.infer<typeof DesignWritebackField>;
 
 /**
@@ -58,6 +60,10 @@ export const DesignChatWriteback = z
     problem: z.string().min(1).max(4000).optional(),
     criteria: z.array(z.string().min(1).max(200)).min(1).max(20).optional(),
     frames: z.array(z.string().min(1).max(200)).min(1).max(20).optional(),
+    /** B5.3 整页重生成：给出即替换全部页面（标签 + 树）。与 `frames` 同时给出时 `prototype` 优先——它自带标签。 */
+    prototype: DesignPrototypeWriteback.optional(),
+    /** 迭代 1：局部修改，按节点 id 寻址（`design-prototype.ts` `PrototypePatchOp`）。与 `prototype` 同时给出时 `prototype` 优先（整页更完整）。应用成功 ⇒ `applied` 里记 `prototype`——它是被改的项目字段。 */
+    patch: DesignPrototypePatch.optional(),
   })
   .strict();
 export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;

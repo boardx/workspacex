@@ -18,7 +18,7 @@
  *   人看到）。真要给单条查询单独开销的场景（比如项目量级变大后分页），再加操作，
  *   不在这里"顺手"发明。
  */
-import { designAiCollab, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designWorkbench, designPrototype } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -31,6 +31,8 @@ export type UpdateProjectOut = z.infer<typeof designWorkbench.operations.updateP
 export type AppendProjectChatOut = z.infer<typeof designWorkbench.operations.appendProjectChat.out>;
 /** B5.2：模型回复可写回的字段闭集——契约 `designAiCollab.DesignWritebackField` 派生，不手写。 */
 export type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
+/** B5.3：原型画布组件树节点——契约 `designPrototype.PrototypeNode` 派生，渲染表见 `components/design-loop/prototype-canvas.tsx`。 */
+export type PrototypeNode = z.infer<typeof designPrototype.PrototypeNode>;
 export type DeleteProjectOut = z.infer<typeof designWorkbench.operations.deleteProject.out>;
 export type PushToInboxOut = z.infer<typeof designWorkbench.operations.pushToInbox.out>;
 export type CreateDesignGithubIssueOut = z.infer<typeof designWorkbench.operations.createDesignGithubIssue.out>;

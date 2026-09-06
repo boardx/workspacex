@@ -10,6 +10,7 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
+import { designPrototype } from "@repo/contracts";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -19,6 +20,7 @@ import type {
   DesignProjectRow,
   NewDesignProject,
   ProjectTemplate,
+  PrototypeNode,
   PushToInboxResult,
 } from "../../application/design-workbench/project-ports";
 
@@ -30,6 +32,8 @@ interface ProjectDbRow {
   readonly problem: string;
   readonly criteria: unknown;
   readonly frames: unknown;
+  /** B5.3：jsonb 数组，每项一棵树——迁移 `20260906160000_uc178_b53_design_prototype.sql` */
+  readonly prototype: unknown;
   readonly pushed: boolean;
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
@@ -53,6 +57,23 @@ function toStringArray(raw: unknown): readonly string[] {
   return raw.filter((v): v is string => typeof v === "string");
 }
 
+/**
+ * 读出来的树逐页过契约——库里只可能有服务端写进去的、当时过了契约的树，但契约会演进（原语
+ * 闭集加减）；一页不合法整份 `prototype` 按「还没生成」处理，而不是渲染半套：契约不变量要求
+ * 长度要么 0 要么等于 frames，缺一页就没法按位置对应。
+ */
+function toPrototype(raw: unknown, frames: readonly string[]): readonly PrototypeNode[] {
+  if (!Array.isArray(raw) || raw.length !== frames.length) return [];
+  const out: PrototypeNode[] = [];
+  for (const item of raw) {
+    const parsed = designPrototype.PrototypeNode.safeParse(item);
+    if (!parsed.success) return [];
+    out.push(parsed.data);
+  }
+  // 迭代 1 之前写入的树没有 id：读出时按遍历序补（确定性），模型与 patch 看到的 id 一致；下次写回即落库。
+  return designPrototype.ensurePrototypeIds(out);
+}
+
 function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {
   return rows.map((r) => ({
     role: r.role === "ai" ? "ai" : "user",
@@ -72,6 +93,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     problem: row.problem,
     criteria: toStringArray(row.criteria),
     frames: toStringArray(row.frames),
+    prototype: toPrototype(row.prototype, toStringArray(row.frames)),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
@@ -85,7 +107,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
 }
 
 const SELECT_COLUMNS = `
-  id, owner_id, name, template, problem, criteria, frames,
+  id, owner_id, name, template, problem, criteria, frames, prototype,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at`;
 
@@ -209,6 +231,11 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                 problem    = COALESCE($6, problem),
                 criteria   = COALESCE($7::jsonb, criteria),
                 frames     = COALESCE($8::jsonb, frames),
+                prototype  = CASE
+                               WHEN $9::jsonb IS NOT NULL THEN $9::jsonb
+                               WHEN $8::jsonb IS NOT NULL THEN '[]'::jsonb
+                               ELSE prototype
+                             END,
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -216,6 +243,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           this.orgId, ownerId, projectId, patch.name ?? null, patch.template ?? null, patch.problem ?? null,
           patch.criteria === undefined ? null : JSON.stringify(patch.criteria),
           patch.frames === undefined ? null : JSON.stringify(patch.frames),
+          patch.prototype === undefined ? null : JSON.stringify(patch.prototype),
         ],
       );
       const row = rows[0];
