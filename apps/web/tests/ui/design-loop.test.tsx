@@ -1244,6 +1244,51 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.queryByTestId("design-detail-focus")).toBeNull();
   });
 
+  it("迭代 3 版本历史：打开面板拉列表；点一版 ⇒ 预览横幅 + 画布显示旧树、不可点选；恢复 ⇒ POST、项目整体替换、退出预览、列表刷新", async () => {
+    const now = { type: "text" as const, id: "n1", props: { content: "现在的" } };
+    const old = { type: "text" as const, id: "n1", props: { content: "旧的" } };
+    const calls: string[] = [];
+    let restored = false;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      calls.push(`${opts?.method ?? "GET"} ${path}`);
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [now] })] };
+      if (path === "/pm-designs/p1/versions") return { items: [
+        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
+        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], createdAt: "2026-09-06T02:00:00.000Z" },
+        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z" },
+      ] };
+      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
+      if (path === "/pm-designs/p1/versions/v1/restore" && opts?.method === "POST") {
+        restored = true;
+        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], createdAt: "2026-09-06T03:00:00.000Z" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("现在的");
+    fireEvent.click(screen.getByTestId("design-detail-history-toggle"));
+    await screen.findByTestId("design-history-item-2");
+    expect(screen.getByTestId("design-history-item-1").textContent).toContain("第一版");
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    await screen.findByTestId("design-detail-preview-banner");
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("旧的");
+    expect(screen.getByTestId("design-detail-frame-0").textContent).toBe("旧页名");
+    // 预览态不可点选
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n1"]') as HTMLElement);
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+    fireEvent.click(screen.getByTestId("design-history-restore-1"));
+    await waitFor(() => expect(calls).toContain("POST /pm-designs/p1/versions/v1/restore"));
+    await waitFor(() => expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull());
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("旧的");
+    await screen.findByTestId("design-history-item-3");
+    // 退出预览按钮 / 再点同一版取消预览
+    fireEvent.click(screen.getByTestId("design-history-preview-1"));
+    await screen.findByTestId("design-detail-preview-banner");
+    fireEvent.click(screen.getByTestId("design-detail-preview-exit"));
+    expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull();
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();

@@ -98,7 +98,9 @@ export async function appendProjectChat(
   };
   const applied = Object.keys(patch) as DesignWritebackField[];
   if (applied.length > 0) {
-    const written = await deps.projects.update(input.projectId, input.ownerId, patch);
+    // 迭代 3：原型真的变了（整页 / patch）⇒ 与 UPDATE 同一事务追加一条版本快照。只改标签（树被清空）不记——那不是一版原型。
+    const version = patch.prototype !== undefined ? { source: "model" as const, summary: ai.text.replace(/\s+/g, " ").trim().slice(0, 120) } : undefined;
+    const written = await deps.projects.update(input.projectId, input.ownerId, patch, version);
     if (written === null) throw new DesignProjectNotOwnerError();
   }
 

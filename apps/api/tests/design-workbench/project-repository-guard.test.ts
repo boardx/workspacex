@@ -66,12 +66,12 @@ describe("设计项目仓储的豁免前提：写按 owner+org 收窄,读只按 
     expect(source).not.toContain("withoutTenant");
   });
 
-  it("names no tenant table other than design_projects / design_project_chat_messages / product_feedback", () => {
+  it("names no tenant table other than design_projects / design_project_chat_messages / design_project_prototype_versions / product_feedback", () => {
     const tables = new Set<string>();
     for (const sql of statements) {
       for (const m of sql.matchAll(/\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi)) tables.add(m[1]!.toLowerCase());
     }
-    expect([...tables].sort()).toEqual(["design_project_chat_messages", "design_projects", "product_feedback"]);
+    expect([...tables].sort()).toEqual(["design_project_chat_messages", "design_project_prototype_versions", "design_projects", "product_feedback"]);
   });
 
   it("the product_feedback UPDATE (resolved_by_design_id) is scoped to org (not owner — writing to a feedback row, not a design project row)", () => {

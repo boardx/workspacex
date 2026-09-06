@@ -53,6 +53,24 @@ export interface DesignProjectRow {
   readonly updatedAt: string;
 }
 
+/** 迭代 3：一条原型版本快照（存储行；投影到契约 `PrototypeVersion`）。 */
+export interface PrototypeVersionRow {
+  readonly id: string;
+  readonly projectId: string;
+  readonly seq: number;
+  readonly source: "model" | "user" | "restore";
+  readonly summary: string;
+  readonly frames: readonly string[];
+  readonly prototype: readonly PrototypeNode[];
+  readonly createdAt: string;
+}
+
+/** 随 `update` 一起落的版本元数据；`frames`/`prototype` 取 UPDATE 之后的行，不由调用方另给一份。 */
+export interface NewPrototypeVersionMeta {
+  readonly source: "model" | "user" | "restore";
+  readonly summary: string;
+}
+
 export interface NewDesignProject {
   readonly id: string;
   readonly ownerId: string;
@@ -133,8 +151,13 @@ export interface DesignProjectRepository {
   listForOrg(): Promise<readonly DesignProjectRow[]>;
   /** 不存在 ⇒ `null`。全组织可读，不接 `ownerId`。 */
   get(projectId: string): Promise<DesignProjectRow | null>;
-  /** 一条 UPDATE，`updated_at = now()`。不存在/不是 owner ⇒ `null`（用例层转 `NOT_PROJECT_OWNER`）。 */
-  update(projectId: string, ownerId: string, patch: DesignProjectPatch): Promise<DesignProjectRow | null>;
+  /**
+   * 一条 UPDATE，`updated_at = now()`。不存在/不是 owner ⇒ `null`（用例层转 `NOT_PROJECT_OWNER`）。
+   * 迭代 3：可选 `version`——**同一事务**里在 UPDATE 之后追加一条版本快照（`frames`/`prototype` 取
+   * UPDATE 后的行）。UPDATE 先锁住项目行，所以同一项目的 `seq = max+1` 在并发写回之间天然串行，
+   * 不需要额外的计数器；两步要么都成、要么都不成（Codex：历史不能与当前原型分叉）。
+   */
+  update(projectId: string, ownerId: string, patch: DesignProjectPatch, version?: NewPrototypeVersionMeta): Promise<DesignProjectRow | null>;
   /**
    * 追加一条对话消息（`design_project_chat_messages`，append-only）。仅 owner。
    * 不存在/不是 owner ⇒ `null`；成功时返回追加后的完整行（含新的 `chat`）。
@@ -142,6 +165,12 @@ export interface DesignProjectRepository {
   appendChat(projectId: string, ownerId: string, turns: readonly Omit<DesignProjectChatTurn, "at">[]): Promise<DesignProjectRow | null>;
   /** 硬删。仅 owner。返回是否真的删了一行。 */
   delete(projectId: string, ownerId: string): Promise<boolean>;
+  /** 迭代 3：版本列表（不带树），按 seq 倒序。项目不存在 ⇒ `[]`（调用方先 `get` 判存在）。全组织可读。 */
+  listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]>;
+  /** 迭代 3：单条（带树）。不存在 / 不属于该项目 ⇒ `null`。 */
+  getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null>;
+  /** 迭代 3：`update(..., version)` 之后这次调用记下的那条版本（同一返回里带回，省一次查询）。 */
+  lastRecordedVersion(): Omit<PrototypeVersionRow, "prototype"> | null;
   /**
    * `pushToInbox` 的落库半程——**一次数据库事务**内完成：
    *   ① 标记 `pushed=true, pushed_at=now()`，`push_note` 按传入值覆盖（`undefined` ⇒ 不改）。

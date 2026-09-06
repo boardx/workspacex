@@ -82,6 +82,8 @@ const SHOTS = [
   ["detail-prototype-generating-dark.png", "detail-prototype", "default", "dark", sendSlow],
   // 迭代 2：点选画布节点 ⇒ 描边 + 对话面板上方的焦点 chip
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
+  // 迭代 3：打开版本历史并预览 v1
+  ["detail-prototype-history-dark.png", "detail-prototype", "default", "dark", openHistoryPreview],
 ];
 
 async function clickReq(page) { await click(page, '[data-testid="feedback-kind-需求"]'); }
@@ -124,6 +126,10 @@ async function createSlow(page) {
   await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
 }
 async function openSecondFrame(page) { await clickUntil(page, '[data-testid="design-detail-frame-1"]', '[data-testid="design-detail-phone-tree"]'); }
+async function openHistoryPreview(page) {
+  await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
+  await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
+}
 async function selectNode(page) {
   await page.waitForSelector('[data-testid="design-detail-phone-tree"]');
   await page.locator('[data-proto="button"]').first().click();
