@@ -693,10 +693,15 @@ export function CopilotKitV2PanelBody({
    */
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
     if (outcome.kind === "gave-up") {
+      // issue #2825 重设计 —— `still-running` 是**读到了**真实状态（服务端说它还在跑），
+      // 不是"没能确认"。把一条好好在跑的任务报成一句听起来像失败的话，是本轮修的
+      // 另一半：用户据此以为任务丢了，其实只是这一页跟不到实时进度而已。
       setError(
         outcome.reason === "auth-expired"
           ? "登录状态可能已过期，无法核实上一条任务的执行状态，请重新登录后刷新页面。"
-          : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
+          : outcome.reason === "still-running"
+            ? "这条任务仍在后台运行，但本页暂时跟不到它的实时进度，稍后刷新页面即可看到结果。"
+            : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
       );
       setPendingRunId(null);
       return;

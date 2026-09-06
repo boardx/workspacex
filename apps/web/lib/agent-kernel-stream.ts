@@ -25,6 +25,18 @@
  * 这里的重连预算是**次数**（`MAX_RECONNECT_ATTEMPTS`），不是像旧轮询那样的
  * **时间**（20 分钟）——旧机制的问题从来不是"轮询"本身，是"允许无限期地假装还有希望"；
  * 有限次数的重连没有这个问题：连接层面的失败通常在几次尝试内就能看出"能不能恢复"。
+ *
+ * ## `disconnects`：把"这条连接刚断了一次"如实告诉调用方（issue #2825 性能重设计）
+ *
+ * `reconnectState` 回答的是"要不要给用户看重连提示"，它在整个退避过程中一直停在
+ * `"reconnecting"` 这一个值上——**同一个值不会再次触发调用方的 effect**，所以调用方
+ * 无法用它区分"断了第 1 次"和"断了第 4 次"。`disconnects` 是一个单调递增的计数：
+ * 每一次**非主动**关闭 +1。
+ *
+ * 它存在的唯一理由，是让调用方（`copilotkit-v2-run-restore.ts`）能在**每一次断开的
+ * 那一刻**去做一次权威读，而不是干等整个重连预算跑完（实测：那样要 12 秒才能看到
+ * 已经跑完的结果，见该文件 issue #2825 那节头注）。这不是把轮询搬回来——读的次数被
+ * 重连**次数**上界（`MAX_RECONNECT_ATTEMPTS`）夹住，与时间无关。
  */
 import * as React from "react";
 import { z } from "zod";
@@ -114,6 +126,11 @@ const RESTORED_TOAST_MS = 3_000;
 export interface AgentKernelRunStreamState {
   /** `null` = 至今未曾断线，不需要展示任何重连提示。 */
   readonly reconnectState: ReconnectState | null;
+  /**
+   * 这条订阅至今**非主动**断开过多少次（单调递增，见文件头注 `disconnects` 那节）。
+   * 调用方据此在"刚断开的那一刻"做一次权威读，不必等整个重连预算跑完。
+   */
+  readonly disconnects: number;
 }
 
 /**
@@ -129,10 +146,12 @@ export function useAgentKernelRunStream(
   const onEventRef = React.useRef(onEvent);
   onEventRef.current = onEvent;
   const [reconnectState, setReconnectState] = React.useState<ReconnectState | null>(null);
+  const [disconnects, setDisconnects] = React.useState(0);
 
   React.useEffect(() => {
     if (runId === null || !sessionToken) {
       setReconnectState(null);
+      setDisconnects(0);
       return;
     }
     let cancelled = false;
@@ -164,6 +183,9 @@ export function useAgentKernelRunStream(
         },
         onClose: ({ intentional }) => {
           if (cancelled || intentional) return;
+          // 先如实计数再决定要不要继续重连——预算耗尽的那一次断开同样是一次断开，
+          // 调用方对它做的权威读正是"最后一次确认"（见文件头注）。
+          setDisconnects((n) => n + 1);
           attempts += 1;
           if (attempts > MAX_RECONNECT_ATTEMPTS) {
             setReconnectState("failed");
@@ -189,5 +211,5 @@ export function useAgentKernelRunStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId, sessionToken]);
 
-  return { reconnectState };
+  return { reconnectState, disconnects };
 }

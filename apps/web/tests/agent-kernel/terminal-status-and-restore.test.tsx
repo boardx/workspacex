@@ -244,6 +244,76 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
     expect(result.current.isRestoring).toBe(true);
   });
 
+  /* ── issue #2825 性能重设计：断线即读，不等整个重连预算 ────────────────── */
+
+  it("issue #2825 重设计：连接第一次断开就立刻权威读 ⇒ 读到终态即收尾，不等 5 次退避重连跑完（真栈实测 12.0s→1.4s 的那一条）", async () => {
+    // 第一次权威读（挂载时）如实读到还在跑；断开后那一次读到已完成。
+    getAgentRun
+      .mockResolvedValueOnce({
+        runId: "run-1", threadId: "thr-1", status: "running", error: null, resultMessageId: null,
+      })
+      .mockResolvedValue({
+        runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-7",
+      });
+    vi.stubGlobal("WebSocket", class extends FakeWebSocket {
+      constructor(url: string, protocols: string[]) {
+        super(url, protocols);
+        sockets.push(this);
+        queueMicrotask(() => { this.open(); this.close(); });
+      }
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    const startedAt = Date.now();
+    renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalledWith({
+      kind: "settled",
+      view: { runId: "run-1", threadId: "thr-1", status: "succeeded", error: null, resultMessageId: "cm-7" },
+    }), { timeout: 3_000 });
+    // 重连预算是 5 次退避（500/850/1445/2456/4176ms ≈ 9.4s）。收尾必须发生在第一次
+    // 断开之后、远早于那个预算——这条时间断言正是这次重设计的性能本身，不是形式。
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
+    // 只断了一次就收了：不该已经把重连次数用光。
+    expect(sockets.length).toBeLessThanOrEqual(2);
+  }, 20_000);
+
+  it("issue #2825 重设计：重连预算耗尽时服务端说它**还在跑** ⇒ 如实 still-running，不报成听起来像失败的『没能确认』", async () => {
+    getAgentRun.mockResolvedValue({
+      runId: "run-1", threadId: "thr-1", status: "running", error: null, resultMessageId: null,
+    });
+    vi.stubGlobal("WebSocket", class extends FakeWebSocket {
+      constructor(url: string, protocols: string[]) {
+        super(url, protocols);
+        sockets.push(this);
+        queueMicrotask(() => { this.open(); this.close(); });
+      }
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled(), { timeout: 30_000 });
+    expect(onSettled).toHaveBeenCalledWith({ kind: "gave-up", reason: "still-running" });
+  }, 40_000);
+
+  it("issue #2825 重设计 CP 反证：上一条不是恒真——同样耗尽预算但连权威读都失败时，仍然是 connection-lost", async () => {
+    getAgentRun.mockRejectedValue(new Error("network"));
+    vi.stubGlobal("WebSocket", class extends FakeWebSocket {
+      constructor(url: string, protocols: string[]) {
+        super(url, protocols);
+        sockets.push(this);
+        queueMicrotask(() => { this.open(); this.close(); });
+      }
+    });
+    const { useCopilotKitV2RunRestore } = await import("@/lib/copilotkit-v2-run-restore");
+    const onSettled = vi.fn();
+    renderHook(() => useCopilotKitV2RunRestore("run-1", "tok", onSettled));
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled(), { timeout: 30_000 });
+    expect(onSettled).toHaveBeenCalledWith({ kind: "gave-up", reason: "connection-lost" });
+  }, 40_000);
+
   it("issue #2825：连接层面撑不住准备放弃前，先补一次权威读——读到终态就如实 settled，不再谎称『没能确认』", async () => {
     getAgentRun
       .mockRejectedValueOnce(new Error("network"))
