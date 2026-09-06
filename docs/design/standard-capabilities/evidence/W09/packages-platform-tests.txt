@@ -1,0 +1,26 @@
+[stack-admission] load1=3.25 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq871n7-884ce406-09194e73b173 db=wsx_09194e73b173bbd9b1f1 compose=wsx-09194e73b173bbd9b1f1 pg=23427 redis=28427 sandbox=53427
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_09194e73b173bbd9b1f1 capacity=100 current=6 required=32
+{"level":"error","msg":"chat run executed skill script","traceId":"80dada82-e979-4dbc-a016-c1433651b261","detail":{"raw":"chat run executed skill script"}}
+ ✓ tests/skill/platform-owned-skills-real-stack.test.ts (9 tests) 5651ms
+ ✓ tests/skill/office-docs-cjk-guidance.test.ts (11 tests) 2ms
+ ✓ tests/skill/office-full-packages.test.ts (2 tests) 280ms
+ ✓ tests/skill/office-docs-starter-pack-source-guard.test.ts (10 tests) 2ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  03:49:44
+   Duration  8.75s (transform 1.53s, setup 0ms, collect 484ms, tests 5.94s, environment 0ms, prepare 93ms)
+
+[db-isolation] db=wsx_09194e73b173bbd9b1f1 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/office-full-packages.test.ts tests/skill/platform-owned-skills-real-stack.test.ts tests/skill/office-docs-starter-pack-source-guard.test.ts tests/skill/office-docs-cjk-guidance.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：10s

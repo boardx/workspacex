@@ -1,0 +1,13 @@
+ Volume wx-office-packages_sessions_socket Creating 
+ Volume wx-office-packages_sessions_socket Created 
+ Container wx-office-packages-skill-sandbox-sessions-run-d71a36c3e6d7 Creating 
+ Container wx-office-packages-skill-sandbox-sessions-run-d71a36c3e6d7 Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+Changed one text node; all other ZIP entry bytes preserved. Render QA still required.
+Changed one text node; all other ZIP entry bytes preserved. Render QA still required.
+Changed one literal cell. Formula recalculation requested on open, not performed. Complex Excel features may not roundtrip; inspect output.
+Page content copied in requested order. Form/document metadata preservation is not promised; no redaction performed.
+OOXML_EDIT_OTHER_ENTRIES_UNCHANGED
+XLSX_PDF_STRUCTURE_OK
+
+FOUR_OFFICE_PACKAGES_REAL_SANDBOX_OK_RENDER_NOT_VERIFIED

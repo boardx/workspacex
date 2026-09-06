@@ -1,3 +1,4 @@
+import { officeSkillPackage } from "../../../scripts/office-skill-packages";
 /**
  * issue #2343 —— 让"平台组织 + 四个官方 skill 存在"这件事不再依赖任何人手动
  * SSH 上真实部署机重跑一次脚本。
@@ -42,7 +43,6 @@
  * 一旦将来有人真的刷新了那份特权副本，两条自愈路径同时生效也完全无害（都是
  * `ON CONFLICT DO NOTHING`）——这是双保险，不是互斥的两个方案。
  */
-import { createHash } from "node:crypto";
 import { migrationConfig } from "../db/pg-config";
 import { PgDatabase } from "../db/pg-database";
 import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
@@ -57,7 +57,6 @@ import {
 // import infrastructure）。这里反过来 import 它，只补上正文，不重复声明四个名字。
 import { PLATFORM_SKILL_CATALOG } from "../../domain/skill/platform-skill-catalog";
 
-const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
 /** 两个 backfill 共用的服务身份——`org-platform` 唯一成员，结构上不可登录
  *  （见下方 `ensurePlatformOrgSeeded` 的头注）。 */
@@ -146,7 +145,7 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
     // 租户设成 `PLATFORM_ORG_ID`。
     await db.withTenant(toOrgId(PLATFORM_ORG_ID), async (s) => {
       for (const spec of OFFICIAL_SKILLS) {
-        const versionId = `${spec.skillId}-v1`;
+        const bundle = officeSkillPackage(spec);
         const now = new Date().toISOString();
 
         // issue（后台「编辑」打开 PDF/Word/Excel/演示文稿四个官方 skill 报「找不到
@@ -226,24 +225,28 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
            RETURNING id`,
           [spec.skillId, PLATFORM_ORG_ID, spec.stableName, spec.displayName, SERVICE_ACTOR_ID, now],
         );
-        if (skillInsert.rows.length === 0) {
+        // Serialize package publication; immutable historical pins remain untouched.
+        await s.query("SELECT id FROM skills WHERE org_id=$1 AND id=$2 FOR UPDATE", [PLATFORM_ORG_ID,spec.skillId]);
+        const latest = await s.query<{ creator_id: string; content_digest: string }>(
+          "SELECT creator_id,content_digest FROM skill_versions WHERE org_id=$1 AND skill_id=$2 AND published=true ORDER BY created_at DESC,id DESC LIMIT 1",
+          [PLATFORM_ORG_ID,spec.skillId]);
+        const existing = await s.query("SELECT id FROM skill_versions WHERE org_id=$1 AND skill_id=$2 AND content_digest=$3 AND published=true",[PLATFORM_ORG_ID,spec.skillId,bundle.digest]);
+        if (existing.rows.length || (latest.rows[0] && latest.rows[0].creator_id !== SERVICE_ACTOR_ID)) {
           alreadyExisted.push(spec.stableName);
           continue;
         }
-
+        const versionId = skillInsert.rows.length ? `${spec.skillId}-v1` : bundle.package.versionId;
         await s.query(
           `INSERT INTO skill_versions
              (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id, created_at, published)
-           VALUES ($1,$2,$3,'v1',$4,'{}'::jsonb,$5,$6,false)
+           VALUES ($1,$2,$3,$7,$4,'{}'::jsonb,$5,$6,false)
            ON CONFLICT (id) DO NOTHING`,
-          [versionId, PLATFORM_ORG_ID, spec.skillId, sha256(spec.content), SERVICE_ACTOR_ID, now],
+          [versionId, PLATFORM_ORG_ID, spec.skillId, bundle.digest, SERVICE_ACTOR_ID, now, `pkg-${bundle.digest}`],
         );
-        await s.query(
-          `INSERT INTO skill_version_files (org_id, version_id, path, content, media_type, digest)
-           VALUES ($1,$2,'SKILL.md',$3::bytea,'text/markdown',$4)
-           ON CONFLICT (version_id, path) DO NOTHING`,
-          [PLATFORM_ORG_ID, versionId, Buffer.from(spec.content, "utf8"), sha256(spec.content)],
-        );
+        for (const file of bundle.package.files) await s.query(
+          `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
+           VALUES ($1,$2,$3,$4::bytea,$5,$6) ON CONFLICT (version_id,path) DO NOTHING`,
+          [PLATFORM_ORG_ID,versionId,file.path,Buffer.from(file.contentBase64,"base64"),file.mediaType,file.digest]);
         // 与真实发布用例走同一个数据库函数——不在这里手写第二份"怎样发布一个版本"。
         await s.query("SELECT wave2_publish_skill_version($1,$2)", [PLATFORM_ORG_ID, versionId]);
 

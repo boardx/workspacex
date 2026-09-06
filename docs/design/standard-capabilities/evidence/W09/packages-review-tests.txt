@@ -1,0 +1,27 @@
+[stack-admission] load1=3.52 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq8ghqo-5c453cdc-c1bb2030ab38 db=wsx_c1bb2030ab38edd4b4fc compose=wsx-c1bb2030ab38edd4b4fc pg=21160 redis=26160 sandbox=51160
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c1bb2030ab38edd4b4fc capacity=100 current=6 required=32
+{"level":"error","msg":"chat run executed skill script","traceId":"07ad606f-8354-4fbf-bc48-6cba7e2f943d","detail":{"raw":"chat run executed skill script"}}
+ ✓ tests/skill/platform-owned-skills-real-stack.test.ts (9 tests) 6579ms
+   ✓ V2+V3 — 全新 org 能真的挂载平台 skill 到 thread 上，且挂载后真的能执行、产出文件 > 挂载之后真的能执行：真实 chat run 产出一个可解析的 .pptx（readPinnedSkills 真的读到了平台行的正文） 336ms
+ ✓ tests/skill/office-docs-cjk-guidance.test.ts (11 tests) 2ms
+ ✓ tests/skill/office-full-packages.test.ts (2 tests) 306ms
+ ✓ tests/skill/office-docs-starter-pack-source-guard.test.ts (10 tests) 2ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  03:57:05
+   Duration  9.91s (transform 1.69s, setup 0ms, collect 532ms, tests 6.89s, environment 0ms, prepare 116ms)
+
+[db-isolation] db=wsx_c1bb2030ab38edd4b4fc peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/office-full-packages.test.ts tests/skill/platform-owned-skills-real-stack.test.ts tests/skill/office-docs-starter-pack-source-guard.test.ts tests/skill/office-docs-cjk-guidance.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：1s
+  总计：11s
