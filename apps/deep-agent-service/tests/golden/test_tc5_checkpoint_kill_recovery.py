@@ -3,6 +3,10 @@
 场景定义（rubric 原文）：「任务执行中途 kill 服务进程，重启后从 checkpoint 续跑
 并回溯一次历史节点」。
 
+本测试保证「第一步结果的 checkpoint 已提交后，被 SIGKILL 再恢复不会重跑第一步」。
+它不声称未提交 checkpoint 的副作用也具有 exactly-once 保证；默认 async 持久化
+允许下一步启动与上一步落盘并行，因此 kill 前必须独立读库确认提交边界。
+
 ## 自动化分级（这条是五条里唯一**需要外部依赖**的）
 
 | 检验点 | 本文件 | 说明 |
@@ -65,21 +69,77 @@ def _spawn_worker(dsn: str, thread_id: str, ledger: Path, ready: Path) -> subpro
     )
 
 
-def _wait_for_ready(proc: subprocess.Popen, ready: Path) -> None:
-    deadline = time.time() + READY_TIMEOUT_SECONDS
-    while time.time() < deadline:
-        if ready.exists():
-            return
+def _completed_first_step_only(messages) -> bool:  # noqa: ANN001
+    """Observe persisted results, not merely an AI request or the side-effect ledger."""
+    first_done = any(
+        getattr(message, "type", None) == "tool"
+        and getattr(message, "tool_call_id", None) == "s1"
+        and getattr(message, "content", None) == "step one done"
+        for message in messages
+    )
+    second_requested = any(
+        call.get("id") == "s2" and call.get("name") == "step_two"
+        for message in messages
+        for call in (getattr(message, "tool_calls", None) or [])
+    )
+    second_done = any(
+        getattr(message, "type", None) == "tool"
+        and getattr(message, "tool_call_id", None) == "s2"
+        for message in messages
+    )
+    return first_done and second_requested and not second_done
+
+
+def _wait_for_ready(proc: subprocess.Popen, ready: Path, graph, config) -> str:  # noqa: ANN001
+    # LangGraph defaults to async durability: entering step_two does NOT prove the
+    # earlier checkpoint committed. The parent reads via a separate PG connection.
+    deadline = time.monotonic() + READY_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
         if proc.poll() is not None:
             out, err = proc.communicate()
             pytest.fail(
-                "worker 进程在跑到第二步之前就退出了，说明这次失败与 kill/恢复无关：\n"
+                "worker 进程在可恢复 checkpoint 确认前退出：\n"
                 f"stdout={out.decode(errors='replace')[-2000:]}\n"
                 f"stderr={err.decode(errors='replace')[-2000:]}"
             )
-        time.sleep(0.2)
-    proc.kill()
-    pytest.fail(f"worker 在 {READY_TIMEOUT_SECONDS}s 内没跑到第二步")
+        if ready.exists():
+            # get_state hydrates DeltaChannel history; raw saver channel_values
+            # can omit messages even when their versions have committed.
+            state = graph.get_state(config)
+            if _completed_first_step_only(state.values.get("messages", [])):
+                return state.config["configurable"]["checkpoint_id"]
+        time.sleep(0.05)
+    pytest.fail(f"worker 在 {READY_TIMEOUT_SECONDS}s 内未持久化第一步结果及第二步调用")
+
+
+def test_checkpoint_barrier_requires_completed_result_and_pending_second_call():
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    requested_first = AIMessage(content="", tool_calls=[{"id": "s1", "name": "step_one", "args": {}}])
+    completed_first = ToolMessage(content="step one done", tool_call_id="s1")
+    requested_second = AIMessage(content="", tool_calls=[{"id": "s2", "name": "step_two", "args": {}}])
+    assert not _completed_first_step_only([requested_first, requested_second])
+    assert not _completed_first_step_only([requested_first, completed_first])
+    assert _completed_first_step_only([requested_first, completed_first, requested_second])
+    assert not _completed_first_step_only([
+        requested_first, completed_first, requested_second,
+        ToolMessage(content="step two done", tool_call_id="s2"),
+    ])
+
+
+def test_checkpoint_barrier_times_out_when_ready_has_no_committed_checkpoint(tmp_path, monkeypatch):  # noqa: ANN001
+    from types import SimpleNamespace
+
+    ready = tmp_path / "ready.flag"
+    ready.write_text("ready", encoding="utf-8")
+    ticks = iter([0.0, 0.0, READY_TIMEOUT_SECONDS + 1.0])
+    monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    with pytest.raises(pytest.fail.Exception, match="未持久化第一步结果"):
+        _wait_for_ready(
+            SimpleNamespace(poll=lambda: None), ready,
+            SimpleNamespace(get_state=lambda _: SimpleNamespace(values={})), {"configurable": {"thread_id": "missing"}},
+        )
 
 
 def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # noqa: ANN001, ANN201
@@ -91,15 +151,41 @@ def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # 
     ledger.write_text("", encoding="utf-8")
     ready = tmp_path / "ready.flag"
 
+    from deepagents import create_deep_agent
+    from _tc5_worker import _Scripted
+
+    from langchain_core.tools import tool
+
+    @tool
+    def step_one() -> str:
+        """第一步。"""
+        with ledger.open("a", encoding="utf-8") as fh:
+            fh.write("step_one\n")
+        return "step one done"
+
+    @tool
+    def step_two() -> str:
+        """第二步（重启后不再卡住）。"""
+        with ledger.open("a", encoding="utf-8") as fh:
+            fh.write("step_two\n")
+        return "step two done"
+
     # ── ① 起一个真进程，让它跑到第二步中途卡住，然后 SIGKILL ──
     proc = _spawn_worker(dsn, thread_id, ledger, ready)
     try:
-        _wait_for_ready(proc, ready)
+        with PostgresSaver.from_conn_string(dsn) as observer:
+            observer_graph = create_deep_agent(
+                model=_Scripted(), tools=[step_one, step_two], checkpointer=observer,
+            )
+            checkpoint_before_kill = _wait_for_ready(
+                proc, ready, observer_graph, {"configurable": {"thread_id": thread_id}},
+            )
         os.kill(proc.pid, signal.SIGKILL)
         proc.wait(timeout=30)
     finally:
         if proc.poll() is None:
             proc.kill()
+        proc.wait(timeout=30)
     assert proc.returncode in (-signal.SIGKILL, -9), (
         f"必须是被 SIGKILL 打死，不是自己退出的（returncode={proc.returncode}）"
     )
@@ -108,35 +194,20 @@ def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # 
         f"被 kill 前两步都应已开始执行，实际账本 {ledger_after_kill}"
     )
 
-    # ── ② 全新进程内重建图（模拟服务重启），从 checkpoint 续跑 ──
-    from deepagents import create_deep_agent
-
-    from _tc5_worker import _Scripted  # noqa: PLC0415  # 与被 kill 的进程用同一份剧本
+    # ── ② 全新图实例（模拟服务重启），从 checkpoint 续跑 ──
 
     with PostgresSaver.from_conn_string(dsn) as saver:
         config = {"configurable": {"thread_id": thread_id}}
         state = saver.get(config)
         assert state is not None, "SIGKILL 之后 checkpoint 必须还在 Postgres 里——这就是 D4 要的东西"
 
-        from langchain_core.tools import tool
-
-        @tool
-        def step_one() -> str:
-            """第一步。"""
-            with ledger.open("a", encoding="utf-8") as fh:
-                fh.write("step_one\n")
-            return "step one done"
-
-        @tool
-        def step_two() -> str:
-            """第二步（重启后不再卡住）。"""
-            with ledger.open("a", encoding="utf-8") as fh:
-                fh.write("step_two\n")
-            return "step two done"
-
         graph = create_deep_agent(
             model=_Scripted(), tools=[step_one, step_two], checkpointer=saver
         )
+        durable_boundary = graph.get_state({"configurable": {
+            "thread_id": thread_id, "checkpoint_id": checkpoint_before_kill,
+        }})
+        assert _completed_first_step_only(durable_boundary.values.get("messages", []))
         # `invoke(None, config)` = 从该 thread 的最后一个 checkpoint 续跑（不是重开一轮）。
         resumed = graph.invoke(None, config)
 
@@ -152,8 +223,9 @@ def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # 
         # ── ③ 回溯一次历史节点（time travel）──
         history = list(graph.get_state_history(config))
         assert len(history) >= 3, f"checkpoint 历史必须可枚举，实际 {len(history)} 个"
-        # 挑一个「第一步已完成、第二步还没开始」的历史节点读回去。
-        earlier = history[len(history) // 2]
+        # Read the exact pre-kill checkpoint independently observed in Postgres,
+        # rather than selecting an arbitrary middle entry by list position.
+        earlier = next(item for item in history if item.config["configurable"]["checkpoint_id"] == checkpoint_before_kill)
         replayed = graph.get_state(
             {
                 "configurable": {
@@ -175,6 +247,7 @@ def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # 
                 "requires": "真 Postgres（DEEP_AGENT_TEST_POSTGRES_URL）",
                 "thread_id": thread_id,
                 "worker_returncode": proc.returncode,
+                "checkpoint_confirmed_before_kill": checkpoint_before_kill,
                 "ledger_after_kill": ledger_after_kill,
                 "ledger_after_resume": ledger_final,
                 "step_one_executions": ledger_final.count("step_one"),
