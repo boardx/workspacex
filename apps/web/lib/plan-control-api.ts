@@ -19,8 +19,8 @@ import type { z } from "zod";
 
 export type PlanLedgerView = z.infer<typeof planControl.getPlanLedger.out>;
 
-export async function fetchPlanLedger(threadId: string): Promise<PlanLedgerView> {
-  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/ledger`);
+export async function fetchPlanLedger(threadId: string, projectId?: string | null): Promise<PlanLedgerView> {
+  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/ledger`, { query: { projectId: projectId ?? undefined } });
   return planControl.getPlanLedger.out.parse(raw);
 }
 
@@ -40,10 +40,10 @@ export function planControlErrorCode(e: unknown): PlanControlErrorCode | null {
 export type ReorderPlanStepOutput = z.infer<typeof planControl.reorderPlanStep.out>;
 
 export async function reorderPlanStep(
-  threadId: string, input: { basedOnRevision: number; planStepId: string; toIndex: number },
+  threadId: string, input: { basedOnRevision: number; planStepId: string; toIndex: number }, projectId?: string | null,
 ): Promise<ReorderPlanStepOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/steps/reorder`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.reorderPlanStep.out.parse(raw);
 }
@@ -51,10 +51,10 @@ export async function reorderPlanStep(
 export type DeletePlanStepOutput = z.infer<typeof planControl.deletePlanStep.out>;
 
 export async function deletePlanStep(
-  threadId: string, input: { basedOnRevision: number; planStepId: string },
+  threadId: string, input: { basedOnRevision: number; planStepId: string }, projectId?: string | null,
 ): Promise<DeletePlanStepOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/steps/delete`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.deletePlanStep.out.parse(raw);
 }
@@ -62,10 +62,10 @@ export async function deletePlanStep(
 export type AddPlanConstraintOutput = z.infer<typeof planControl.addPlanConstraint.out>;
 
 export async function addPlanConstraint(
-  threadId: string, input: { basedOnRevision: number; planStepId: string; text: string },
+  threadId: string, input: { basedOnRevision: number; planStepId: string; text: string }, projectId?: string | null,
 ): Promise<AddPlanConstraintOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/constraints`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.addPlanConstraint.out.parse(raw);
 }
@@ -73,10 +73,10 @@ export async function addPlanConstraint(
 export type RemovePlanConstraintOutput = z.infer<typeof planControl.removePlanConstraint.out>;
 
 export async function removePlanConstraint(
-  threadId: string, input: { basedOnRevision: number; constraintId: string },
+  threadId: string, input: { basedOnRevision: number; constraintId: string }, projectId?: string | null,
 ): Promise<RemovePlanConstraintOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/constraints/remove`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.removePlanConstraint.out.parse(raw);
 }
@@ -84,35 +84,35 @@ export async function removePlanConstraint(
 export type ConfirmPlanOutput = z.infer<typeof planControl.confirmPlan.out>;
 
 export async function confirmPlan(
-  threadId: string, input: { basedOnRevision: number },
+  threadId: string, input: { basedOnRevision: number }, projectId?: string | null,
 ): Promise<ConfirmPlanOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/confirm`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.confirmPlan.out.parse(raw);
 }
 
 export type PausePlanRunOutput = z.infer<typeof planControl.pausePlanRun.out>;
 
-export async function pausePlanRun(threadId: string): Promise<PausePlanRunOutput> {
-  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/pause`, { method: "POST" });
+export async function pausePlanRun(threadId: string, projectId?: string | null): Promise<PausePlanRunOutput> {
+  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/pause`, { method: "POST", query: { projectId: projectId ?? undefined } });
   return planControl.pausePlanRun.out.parse(raw);
 }
 
 export type ResumePlanRunOutput = z.infer<typeof planControl.resumePlanRun.out>;
 
-export async function resumePlanRun(threadId: string): Promise<ResumePlanRunOutput> {
-  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/resume`, { method: "POST" });
+export async function resumePlanRun(threadId: string, projectId?: string | null): Promise<ResumePlanRunOutput> {
+  const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/runs/resume`, { method: "POST", query: { projectId: projectId ?? undefined } });
   return planControl.resumePlanRun.out.parse(raw);
 }
 
 export type RetryPlanStepOutput = z.infer<typeof planControl.retryPlanStep.out>;
 
 export async function retryPlanStep(
-  threadId: string, input: { planStepId: string },
+  threadId: string, input: { planStepId: string }, projectId?: string | null,
 ): Promise<RetryPlanStepOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/steps/retry`, {
-    method: "POST", body: input,
+    method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.retryPlanStep.out.parse(raw);
 }

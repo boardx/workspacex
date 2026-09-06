@@ -39,19 +39,19 @@ export interface UsePlanLedgerPollingResult {
   readonly refetch: () => Promise<void>;
 }
 
-export function usePlanLedgerPolling(threadId: string | null): UsePlanLedgerPollingResult {
+export function usePlanLedgerPolling(threadId: string | null, projectId?: string | null): UsePlanLedgerPollingResult {
   const [ledger, setLedger] = React.useState<PlanLedgerView | null>(null);
 
   const refetch = React.useCallback(async (): Promise<void> => {
     if (threadId === null) { setLedger(null); return; }
     try {
-      setLedger(await fetchPlanLedger(threadId));
+      setLedger(await fetchPlanLedger(threadId, projectId));
     } catch {
       // 读失败静默重试（下一轮轮询）——调用方各自已有的错误横幅覆盖"这条线程
       // 出问题了"，这里不需要再叠一层独立错误态（同既有
       // `copilotkit-v2-plan-control.tsx` 的既定纪律）。
     }
-  }, [threadId]);
+  }, [threadId, projectId]);
 
   React.useEffect(() => {
     void refetch();

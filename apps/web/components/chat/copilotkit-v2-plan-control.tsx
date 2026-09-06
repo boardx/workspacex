@@ -84,6 +84,8 @@ export interface CopilotKitV2PlanControlProps {
    *  见该文件对 `resolvedChatThreadId` 的头注）。`null` 时（新对话尚未发出第一条消息）
    *  不渲染——线程还不存在，没有账本可读。 */
   readonly threadId: string | null;
+  readonly projectId?: string | null;
+  readonly canWrite?: boolean;
   /**
    * issue #2451 —— `copilotkit-v2-panel.tsx` 的 `RUN_ERROR` 订阅（"模型这次没能
    * 返回可用结果"横幅）每次触发都把这个数改一下（自增计数器）。本组件用它做两件事：
@@ -96,9 +98,9 @@ export interface CopilotKitV2PlanControlProps {
 }
 
 export function CopilotKitV2PlanControl(
-  { threadId, refetchSignal }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
-  const { ledger, refetch } = usePlanLedgerPolling(threadId);
+  const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
@@ -141,6 +143,7 @@ export function CopilotKitV2PlanControl(
   }, [needsDecision]);
 
   async function runAction(action: () => Promise<unknown>): Promise<boolean> {
+    if (!canWrite) return false;
     setBusy(true);
     setActionErrorCode(null);
     try {
@@ -164,28 +167,28 @@ export function CopilotKitV2PlanControl(
   const revision = ledger.revision;
 
   const handleReorder = (planStepId: string, toIndex: number): void => {
-    void runAction(() => reorderPlanStep(tid, { basedOnRevision: revision, planStepId, toIndex }));
+    void runAction(() => reorderPlanStep(tid, { basedOnRevision: revision, planStepId, toIndex }, projectId));
   };
   const handleDelete = (planStepId: string): void => {
-    void runAction(() => deletePlanStep(tid, { basedOnRevision: revision, planStepId }));
+    void runAction(() => deletePlanStep(tid, { basedOnRevision: revision, planStepId }, projectId));
   };
   const handleAddConstraint = (planStepId: string, text: string): void => {
-    void runAction(() => addPlanConstraint(tid, { basedOnRevision: revision, planStepId, text }));
+    void runAction(() => addPlanConstraint(tid, { basedOnRevision: revision, planStepId, text }, projectId));
   };
   const handleRemoveConstraint = (constraintId: string): void => {
-    void runAction(() => removePlanConstraint(tid, { basedOnRevision: revision, constraintId }));
+    void runAction(() => removePlanConstraint(tid, { basedOnRevision: revision, constraintId }, projectId));
   };
   const handleConfirm = (): void => {
-    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }));
+    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId));
   };
   const handlePause = (): void => {
-    void runAction(() => pausePlanRun(tid));
+    void runAction(() => pausePlanRun(tid, projectId));
   };
   const handleResume = (): void => {
-    void runAction(() => resumePlanRun(tid));
+    void runAction(() => resumePlanRun(tid, projectId));
   };
   const handleRetryStep = (planStepId: string): void => {
-    void runAction(() => retryPlanStep(tid, { planStepId }));
+    void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
 
   const runningStepIndex = ledger.steps.findIndex((s) => s.status !== "completed");
@@ -220,6 +223,7 @@ export function CopilotKitV2PlanControl(
         {!collapsed && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
             size="xs"
+            disabled={!canWrite}
             variant={editing ? "primary" : "outline"}
             className="ml-auto"
             data-testid={PLAN_CONTROL_EDIT_TOGGLE_TESTID}
@@ -239,7 +243,7 @@ export function CopilotKitV2PlanControl(
         </p>
       )}
 
-      {!collapsed && ledger.phase === "failed" && failedStep && (
+      {!collapsed && canWrite && ledger.phase === "failed" && failedStep && (
         <PlanFailureRecovery
           failedStepIndex={failedStepDisplayIndex}
           failedStepLabel={failedStep.content}
@@ -260,8 +264,8 @@ export function CopilotKitV2PlanControl(
           elapsedMs={ledger.progress.elapsedMs}
           isPaused={Boolean(ledger.pausedAt)}
           isPauseRequested={!ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}
-          onPause={handlePause}
-          onResume={handleResume}
+          onPause={canWrite ? handlePause : undefined}
+          onResume={canWrite ? handleResume : undefined}
           hasRecentError={hasRecentError && !ledger.pausedAt}
         />
       )}

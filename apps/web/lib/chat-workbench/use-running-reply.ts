@@ -6,16 +6,30 @@ import { classifyInterjectFailure, interjectAgentRun, INTERJECT_FAILURE_COPY, IN
 import { resolveRunningReplyRoute, runningReplyAckCopy } from "@/lib/chat-composer-running-reply";
 
 type QueuedReply = { id: string; text: string };
+const EMPTY_QUEUE: QueuedReply[] = [];
 /** Each queued delivery retains its idempotency key until an explicit successful ACK. */
 export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken, runIsRunning, send, clearDraft, setError }: {
   agent: AbstractAgent; threadId: string; run: ChatHostInterjectionRun; inputDraft: string; sessionToken: string | null;
   runIsRunning: boolean; send: (text: string, opts?: { clientMessageId?: string }) => Promise<boolean>;
   clearDraft: () => void; setError: (error: string | null) => void;
 }) {
-  const [queues, setQueues] = React.useState<Record<string, QueuedReply[]>>({});
-  const queue = queues[threadId] ?? [];
-  const [failedThreads, setFailedThreads] = React.useState<Record<string, boolean>>({});
+  const storageKey = `workbench-queued-replies:${sessionToken ? Array.from(sessionToken).reduce((hash, char) => Math.imul(hash, 31) + char.charCodeAt(0) | 0, 0) : "anonymous"}`;
+  const [queues, setQueues] = React.useState<Record<string, QueuedReply[]>>(() => {
+    try { return JSON.parse(sessionStorage.getItem(storageKey) ?? "{}"); } catch { return {}; }
+  });
+  const [loadedStorageKey, setLoadedStorageKey] = React.useState(storageKey);
+  const queue = loadedStorageKey === storageKey ? queues[threadId] ?? EMPTY_QUEUE : EMPTY_QUEUE;
+  const [failedThreads, setFailedThreads] = React.useState<Record<string, boolean>>(() => Object.fromEntries(Object.keys(queues).map((id) => [id, true])));
   const queuedFailed = failedThreads[threadId] ?? false;
+  React.useEffect(() => {
+    if (loadedStorageKey !== storageKey) {
+      let restored: Record<string, QueuedReply[]> = {};
+      try { restored = JSON.parse(sessionStorage.getItem(storageKey) ?? "{}"); } catch { /* Empty local draft. */ }
+      setQueues(restored); setFailedThreads(Object.fromEntries(Object.keys(restored).map((id) => [id, true])));
+      setLoadedStorageKey(storageKey); return;
+    }
+    try { sessionStorage.setItem(storageKey, JSON.stringify(queues)); } catch { /* Retain in memory if storage is disabled. */ }
+  }, [queues, storageKey, loadedStorageKey]);
   const [runningReplyAck, setRunningReplyAck] = React.useState<string | null>(null);
   const [interjectPending, setInterjectPending] = React.useState(false);
   const [delivering, setDelivering] = React.useState(false);
@@ -47,7 +61,7 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
     } finally { sending.current = false; setInterjectPending(false); }
   }, [inputDraft, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId]);
   React.useEffect(() => {
-    if (runIsRunning || !queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
+    if (runIsRunning || run.status === "paused" || run.status === "awaiting_tool_permission" || !queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
     const entry = queue[0]!;
     sending.current = true;
     setDelivering(true);
@@ -56,7 +70,7 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
       else setFailedThreads((previous) => ({ ...previous, [threadId]: true }));
     }).catch(() => setFailedThreads((previous) => ({ ...previous, [threadId]: true })))
       .finally(() => { sending.current = false; setDelivering(false); });
-  }, [runIsRunning, queue, send, delivering, interjectPending, queuedFailed, threadId]);
+  }, [runIsRunning, run.status, queue, send, delivering, interjectPending, queuedFailed, threadId]);
   React.useEffect(() => { setRunningReplyAck(null); }, [threadId]);
   React.useEffect(() => {
     if (runningReplyAck === null) return;

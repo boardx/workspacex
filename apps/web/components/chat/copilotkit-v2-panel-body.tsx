@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
+import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
 import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
 import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
@@ -88,6 +90,8 @@ const EMPTY_SEND_HINT_MS = 2_500;
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
+  observedRunId = null,
+  projectId = null,
   onThreadResolved,
   onMessageSent,
   onArtifactLanded,
@@ -96,6 +100,8 @@ export function CopilotKitV2PanelBody({
   onPendingMaterialsChange,
   threadAttachments = null,
   archived = false,
+  canWrite = true,
+  canDecide = true,
   canGeneratePersona = false,
   orgId = null,
   actingAgentId = null,
@@ -105,6 +111,8 @@ export function CopilotKitV2PanelBody({
   onSelectAgent,
 }: {
   chatThreadId?: string | null;
+  observedRunId?: string | null;
+  projectId?: string | null;
   /** CK-P3（#2054）—— 当前发送 agent 的真实 id，供逐条消息的「对 agent 提反馈」归因；
    *  用户未选择（走服务端配置的默认 agent）时为 `null`，此时不画反馈入口。 */
   actingAgentId?: string | null;
@@ -146,6 +154,8 @@ export function CopilotKitV2PanelBody({
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   archived?: boolean;
+  canWrite?: boolean;
+  canDecide?: boolean;
   /** issue #2053（CK-P6）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   canGeneratePersona?: boolean;
   /**
@@ -604,7 +614,7 @@ export function CopilotKitV2PanelBody({
             collected.filter((m) => m.role === "assistant").map((m) => m.id),
           );
           if (assistantMessageIds.size > 0) {
-            const attachments = await listThreadAttachments(initialChatThreadId, null, bearer);
+            const attachments = await listThreadAttachments(initialChatThreadId, projectId, bearer);
             if (!cancelled) {
               const rehydrated = attachments.items
                 .filter((item) => assistantMessageIds.has(item.messageId))
@@ -641,7 +651,7 @@ export function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace]);
+  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles, hydrateRunTrace, projectId]);
 
   // Restore final messages with their persisted identities; errors remain visible.
   const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
@@ -720,7 +730,8 @@ export function CopilotKitV2PanelBody({
     onMessageSent?.();
     return true;
   }, [agent, messageIdentity, registerHydrated, bindTraceMessages, onMessageSent, runTrace.events]);
-  useRunTraceTail({ threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
+  React.useEffect(() => { if (observedRunId) setPendingRunId(observedRunId); }, [observedRunId]);
+  useRunTraceTail({ observedRunId, threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
     events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult });
 
   /**
@@ -778,21 +789,12 @@ export function CopilotKitV2PanelBody({
    * （读 URL 线程的 `chat_message_attachments`）也永远看不到它们。
    * 只有全新对话（`initialChatThreadId === null`）才保留原来的挂载即建逻辑。
    */
-  /**
-   * 2026-09-02（issue #2520）—— 上面两段头注里的"挂载后立即真建一条附件专用线程"
-   * 已经撤掉：人类本地实测每打开一次裸 `/chat`，列表里就多一条空的「新对话」（前一次
-   * 预建的那条永远没被用上）。改成**按需**：`useChatAttachments` 的 `resolveThreadId`
-   * 只在第一次真的有文件要上传时才被调用，那一刻才 `createPersonalThread`；同一段
-   * 对话里只建一次（memo 住 in-flight 的 promise，并发拖入多个文件也只建一条），失败
-   * 则下一次上传重新尝试。📎 按钮的可用性因此只取决于"已登录"，不再等预建完成——
-   * 头注里"两段式交互"的顾虑本来就不成立：文件对话框是同步打开的，上传本来就在
-   * 选完文件之后异步发生，线程在那一刻建完全来得及。
-   */
+  // Create one scope-correct thread lazily for attachments or the first project message.
   const [createdAttachmentThreadId, setCreatedAttachmentThreadId] = React.useState<string | null>(null);
   const attachmentThreadPromiseRef = React.useRef<Promise<string> | null>(null);
   const resolveAttachmentThreadId = React.useCallback((): Promise<string> => {
     if (attachmentThreadPromiseRef.current === null) {
-      attachmentThreadPromiseRef.current = createPersonalThread(null)
+      attachmentThreadPromiseRef.current = createWorkbenchThread(projectId)
         .then((created) => {
           setCreatedAttachmentThreadId(created.threadId);
           return created.threadId;
@@ -803,7 +805,7 @@ export function CopilotKitV2PanelBody({
         });
     }
     return attachmentThreadPromiseRef.current;
-  }, []);
+  }, [projectId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
@@ -993,12 +995,20 @@ export function CopilotKitV2PanelBody({
   // 连接上有一轮 run 时为真；`runRestore.isRestoring` 覆盖"挂载时发现上一轮 run 可能
   // 还没写回，正在核实"这段窗口——两者是"这条线程当前是否该显示生成中"这同一件事的
   // 两个真实来源，or 起来才是完整答案，不是二选一。
-  const runIsRunning = agent.isRunning || runRestore.isRestoring;
+  const activeTrace = Object.entries(runTrace.events).filter(([, events]) => {
+    const status = [...events].reverse().find((event) => event.kind === "status");
+    return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
+  }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
+  const runIsRunning = agent.isRunning || runRestore.isRestoring || Boolean(activeTrace);
   // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
-  const interjectionRun = useChatHostInterjectionRun({
+  const connectedInterjectionRun = useChatHostInterjectionRun({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
     restore: { runId: runRestore.runId, status: runRestore.status },
   });
+  const traceStatus = activeTrace?.[1].slice().reverse().find((event) => event.kind === "status");
+  const interjectionRun = activeTrace && traceStatus?.kind === "status"
+    ? { runId: activeTrace[0], status: traceStatus.status }
+    : connectedInterjectionRun;
   // issue #2797 -- 见 `runReportContextRef` 声明处头注：每次渲染后刷新,供上面
   // `onError` 订阅 / `send()` 的 `catch` 读到的是当前这一轮真实的 runId/threadId/
   // phase,不是订阅建立那一刻闭包住的旧值。不带依赖数组——就是要在每次渲染后跑。
@@ -1009,10 +1019,6 @@ export function CopilotKitV2PanelBody({
       phase: runProgress.stage,
     };
   });
-  const activeTrace = Object.entries(runTrace.events).filter(([, events]) => {
-    const status = [...events].reverse().find((event) => event.kind === "status");
-    return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
-  }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
   const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? null, sessionToken);
   React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
   const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
@@ -1079,7 +1085,7 @@ export function CopilotKitV2PanelBody({
   const send = React.useCallback(
     async (override?: string, opts?: { readonly clientMessageId?: string }) => {
       const text = (override ?? inputDraft).trim();
-      if (text === "" || runIsRunning) return false;
+      if (!canWrite || archived || text === "" || runIsRunning) return false;
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -1106,8 +1112,9 @@ export function CopilotKitV2PanelBody({
       // attachmentIds 归属），所以本轮一旦带了附件，chatThreadId 就必须是
       // `attachmentThreadId`——即便这是 turn 1（DA-19g 原本"turn 1 不传"的前提是
       // "还没有任何真实线程"，本轮已经因为附件而有了）。没有附件的路径完全不变。
-      const chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
+      let chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
       try {
+        if (!chatThreadId && projectId) chatThreadId = await resolveAttachmentThreadId();
         // DA-19g -- echo the resolved Chat thread id back on every turn AFTER the first
         // (see the `chatThreadIdRef` block above for why this is the fix, not a new
         // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour, UNLESS
@@ -1141,7 +1148,7 @@ export function CopilotKitV2PanelBody({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch],
+    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
   );
 
   // Template recommendations retain the existing persisted-evidence and permission gates.
@@ -1153,7 +1160,7 @@ export function CopilotKitV2PanelBody({
       || resolvedThreadIdsRef.current.has(initialChatThreadId));
   const { templateRecommendations, personaGeneratedOnce, personaRunning, personaFailure,
     dismissedTemplateKeys, dismissTemplateSuggestion, runPersonaSummary } = useTemplateRecommendations({
-      agent, initialChatThreadId, archived, personaThreadHasPersistedEvidence, onMessageSent,
+      agent, initialChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
     });
 
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
@@ -1179,9 +1186,9 @@ export function CopilotKitV2PanelBody({
   // 自己的既有纪律）：只有当它恰好在别的原因引发的渲染之间真的变了，下面这个 memo
   // 才应该重建对象；lint 规则不认识"读 ref 当依赖是有意为之"这个既有模式，下一行禁用。
   const artifactLandingContextValue = React.useMemo(
-    () => ({ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
+    () => ({ projectId, threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [chatThreadIdRef.current, sessionToken],
+    [chatThreadIdRef.current, sessionToken, projectId],
   );
 
   /**
@@ -1221,7 +1228,7 @@ export function CopilotKitV2PanelBody({
   // 2026-09-06 人类直接反馈：「agent 还在生成时也要能回复 A/B」——`agent.isRunning` 不再是
   // 禁用理由；运行中的正文走 `sendWhileRunning`（插话 / 排队，见
   // `lib/chat-composer-running-reply.ts` 文件头），发送键只在**输入框为空**时才是「停止」。
-  const sendDisabledReason: string | null = archived
+  const sendDisabledReason: string | null = !canWrite ? "当前对话只读或写权限尚未确认" : archived
     ? "该对话已归档，不能再发送消息"
     : attach.hasUploading
       ? "附件正在上传，请等待上传完成后再发送"
@@ -1249,7 +1256,7 @@ export function CopilotKitV2PanelBody({
   */
   // issue #2520 —— 附件线程改为第一次上传时按需建（见上面 `resolveAttachmentThreadId`），
   // 📎 不再等预建完成，只看是否登录（未登录上传本来就要鉴权）。
-  const attachDisabled = archived || agent.isRunning || sessionToken === null;
+  const attachDisabled = !canWrite || archived || agent.isRunning || sessionToken === null;
   const [attachOpen, setAttachOpen] = React.useState(false);
   React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
   const [emptySendHint, setEmptySendHint] = React.useState(false);
@@ -1453,6 +1460,7 @@ export function CopilotKitV2PanelBody({
                       打字/滚动都强制重渲染全部消息（含画布）。 */}
                   <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
+                      {activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? <RestoredRunApproval canWrite={canDecide} key={`${activeTrace[0]}:${traceStatus.seq}`} runId={activeTrace[0]} bearer={sessionToken ?? undefined} /> : null}
                       <TaskTimeline
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}
@@ -1543,7 +1551,7 @@ export function CopilotKitV2PanelBody({
             `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
             刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
         <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
-        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
+        <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -1764,7 +1772,7 @@ export function CopilotKitV2PanelBody({
                   "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
-                disabled={archived}
+                disabled={!canWrite || archived}
                 placeholder={
                   archived
                     ? "该对话已归档，不能再发送消息"
@@ -1830,7 +1838,7 @@ export function CopilotKitV2PanelBody({
                       sessionToken === null ? "login" : initialChatThreadId === null ? "no-thread" : undefined
                     }
                     aria-haspopup="listbox"
-                    disabled={archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
+                    disabled={!canWrite || archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
                     badge={skillTrigger.mountedCount}
                     onClick={() => setSkillOpenRequest((n) => n + 1)}
                   >
@@ -1851,7 +1859,7 @@ export function CopilotKitV2PanelBody({
                     status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
                     selectedAgentId={selectedAgentId}
                     onSelect={(agentId) => onSelectAgent(agentId)}
-                    disabled={agentOptions.status !== "ready" || archived}
+                    disabled={!canWrite || agentOptions.status !== "ready" || archived}
                   />
                 </span>
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
@@ -1876,7 +1884,7 @@ export function CopilotKitV2PanelBody({
                   phase={voice.phase}
                   elapsedSeconds={voice.totalSeconds}
                   level={speech.level}
-                  disabled={archived || agent.isRunning}
+                  disabled={!canWrite || archived || agent.isRunning}
                   onStart={voice.start}
                   onStop={voice.finish}
                   onResume={voice.start}
@@ -1894,7 +1902,7 @@ export function CopilotKitV2PanelBody({
                   onAutoPauseChange={voice.setAutoPause}
                   deviceMenuRequest={voice.deviceMenuRequest}
                 />
-                {(runIsRunning || cancellation.requested) && !archived && inputDraft.trim() === "" ? (
+                {(runIsRunning || cancellation.requested) && canWrite && !archived && inputDraft.trim() === "" ? (
                   /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
                      `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。
                      2026-09-06：只在输入框为空时是「停止」——一旦用户敲了字，它就是「发送」
@@ -1937,9 +1945,9 @@ export function CopilotKitV2PanelBody({
             `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
             肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
-          {queuedReply !== null && runIsRunning ? (
+          {queuedReply !== null ? (
             <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
-              <span className="truncate">{queuedFailed ? "排队消息发送失败，内容已保留" : queuedReplyCopy(queuedReply)}</span>
+              <span className="truncate">{queuedFailed ? "本地待发内容已保留，请重试发送" : queuedReplyCopy(queuedReply)}</span>
               {queuedFailed ? <button type="button" onClick={retryQueuedReply}>重试</button> : null}
               <button
                 type="button"

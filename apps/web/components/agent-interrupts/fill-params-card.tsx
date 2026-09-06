@@ -30,11 +30,13 @@ export function FillParamsCard({
   fields,
   state,
   canWrite,
+  supportsLedgerOnly = true,
   onSubmit,
 }: {
   fields: readonly ParamField[];
   state: UiState;
   canWrite: boolean;
+  supportsLedgerOnly?: boolean;
   /** UC-2 的两个分支合成一次调用：未改动 → `{decision:"approve"}`；有改动 →
    *  `{decision:"edit", fields, appliedTo}`（`fields` 只携带当前值，逐字段
    *  `{name, value}`，与 `FillParamsDecision.editedArgs.fields` 同形）。
@@ -167,7 +169,7 @@ export function FillParamsCard({
             <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle p-2.5" data-testid={`${TID}-applied-to`}>
               <span className="text-11 font-medium text-muted-foreground">改动应用方式</span>
               <div className="flex gap-1.5">
-                {(["full-rerun", "ledger-only"] as AppliedTo[]).map((a) => (
+                {((supportsLedgerOnly ? ["full-rerun", "ledger-only"] : ["full-rerun"]) as AppliedTo[]).map((a) => (
                   <Button
                     key={a}
                     size="xs"

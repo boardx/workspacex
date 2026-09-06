@@ -15,6 +15,7 @@ import {
 import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AgentArtifactVersionsPanel } from "@/components/chat/workbench/agent-artifact-versions-panel";
 
 const mobileQuery = "(max-width: 767px)";
 function subscribeViewport(notify: () => void): () => void {
@@ -74,6 +75,9 @@ function desktopSnapshot(): boolean { return false; }
 export interface ChatTaskInspectorProps {
   readonly hasSelection: boolean;
   readonly threadId: string | null;
+  readonly projectId?: string | null;
+  readonly canEditArtifacts?: boolean;
+  readonly onRunStarted?: (runId: string) => void;
   readonly artifacts: ListThreadArtifactsOut | null;
   readonly materials: ListThreadAttachmentsOut | null;
   readonly loading: boolean;
@@ -144,7 +148,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   // queued/tick 续跑两条通路下都跟得上真实进度的数据源（文件头注）。账本一旦
   // 有步骤（`ledger.steps.length > 0`），一律以它为准，不再信 `planTodos`：
   // 后者只在实时桥通路上更新，续跑通路下会停在陈旧值，正是本 issue 的症状。
-  const { ledger: planLedger } = usePlanLedgerPolling(threadId);
+  const { ledger: planLedger } = usePlanLedgerPolling(threadId, props.projectId);
   const ledgerTodos: readonly PlanTodo[] | null = planLedger !== null && planLedger.steps.length > 0
     ? planLedger.steps.map((s) => ({ content: s.content, status: s.status }))
     : null;
@@ -319,6 +323,15 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               uploadCtl={null}
             />
           ) : activeTab === "artifacts" ? (
+            <>
+            {threadId && <AgentArtifactVersionsPanel
+              key={threadId}
+              threadId={threadId}
+              projectId={props.projectId}
+              canEdit={props.canEditArtifacts ?? false}
+              refreshKey={`${isRunning}:${artifactsCount}`}
+              onRunStarted={props.onRunStarted}
+            />}
             <ChatArtifactsPanel
               hasSelection={hasSelection}
               artifacts={artifacts}
@@ -327,6 +340,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               onRetry={onRetry}
               onOpen={onOpenArtifact}
             />
+            </>
           ) : activeTab === "roster" && roster !== undefined ? (
             <RosterPanel {...roster} />
           ) : (

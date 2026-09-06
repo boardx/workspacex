@@ -12,7 +12,8 @@ export function executionTailDelay(events: readonly ExecutionEvent[], failures =
   return status?.kind === "status" && (status.status === "paused" || status.status === "awaiting_tool_permission") ? 5000 : 1000;
 }
 /** REST resume has no AG-UI connection; tail the same durable journal with bounded concurrency. */
-export function useRunTraceTail({ threadId, bearer, events, append, onSettled }: {
+export function useRunTraceTail({ threadId, bearer, events, append, onSettled, observedRunId }: {
+  observedRunId?: string | null;
   threadId: string | null; bearer?: string; events: TraceStore;
   append: (events: readonly ExecutionEvent[]) => void;
   onSettled: (runId: string) => Promise<boolean>;
@@ -21,7 +22,7 @@ export function useRunTraceTail({ threadId, bearer, events, append, onSettled }:
   latest.current = { events, append, onSettled };
   const watched = React.useRef(new Set<string>());
   React.useEffect(() => { watched.current.clear(); }, [threadId, bearer]);
-  const runKeys = Object.keys(events).sort().join("\n");
+  const runKeys = [...new Set([...Object.keys(events), ...(observedRunId ? [observedRunId] : [])])].sort().join("\n");
   React.useEffect(() => {
     if (!threadId || !bearer || !runKeys) return;
     const controller = new AbortController();

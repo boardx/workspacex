@@ -286,6 +286,8 @@ export { SCROLL_BOTTOM_THRESHOLD_PX, isScrolledNearBottom } from "@/lib/copilotk
 
 export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
+  observedRunId = null,
+  projectId = null,
   onThreadResolved,
   onMessageSent,
   onArtifactLanded,
@@ -294,6 +296,8 @@ export function CopilotKitV2Panel({
   onPendingMaterialsChange,
   threadAttachments = null,
   archived = false,
+  canWrite = true,
+  canDecide = true,
   canGeneratePersona = false,
 }: {
   /**
@@ -303,6 +307,8 @@ export function CopilotKitV2Panel({
    * `/chat/copilotkit-v2` 裸路由，或"新建对话"入口）。
    */
   chatThreadId?: string | null;
+  observedRunId?: string | null;
+  projectId?: string | null;
   /**
    * 首次发消息、后端真正创建出一条新线程（`resolveThreadId` 的 `null` 分支）时触发
    * 一次，交给外壳写回地址栏 + 刷新线程列表。`initialChatThreadId` 非空时（续聊一条
@@ -356,6 +362,8 @@ export function CopilotKitV2Panel({
    * （`chat-composer-archived`）与旧轨道 `chat-live-message-panel.tsx` 逐字同套。
    */
   archived?: boolean;
+  canWrite?: boolean;
+  canDecide?: boolean;
   /**
    * issue #2053（CK-P6，差距表 #6）—— 「生成用户画像」的渲染门。事实来源是外壳
    * `getThread(...).capabilities` 是否含 `artifact.land`，与旧轨道
@@ -427,6 +435,8 @@ export function CopilotKitV2Panel({
         <CopilotKitV2PanelBody
           key={selectedAgentId ?? "__server_default__"}
           chatThreadId={initialChatThreadId}
+          observedRunId={observedRunId}
+          projectId={projectId}
           onThreadResolved={onThreadResolved}
           onMessageSent={onMessageSent}
           onPlanTodosChange={onPlanTodosChange}
@@ -435,6 +445,8 @@ export function CopilotKitV2Panel({
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}
+          canWrite={canWrite}
+          canDecide={canDecide}
           canGeneratePersona={canGeneratePersona}
           // issue #2130（TW-4）—— Skill 挂载入口搬进 Body 内部渲染，需要 `orgId`
           // 才能读 `listSkills(orgId)`；此前只有外层持有它。

@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
 const agent = { addMessage: vi.fn() } as unknown as AbstractAgent;
 describe("running reply queue", () => {
+  beforeEach(() => sessionStorage.clear());
   it("drains two replies in FIFO order even when run status stays false through resolution", async () => {
     const send = vi.fn().mockResolvedValue(true);
     const { result, rerender } = renderHook(({ text, running }) => useRunningReply({ agent, threadId: "a", run: { runId: null, status: null }, inputDraft: text, sessionToken: null, runIsRunning: running, send, clearDraft: vi.fn(), setError: vi.fn() }), { initialProps: { text: "first", running: true } });
@@ -30,4 +31,19 @@ describe("running reply queue", () => {
     await waitFor(() => expect(result.current.queuedReply).toBeNull());
     expect(send.mock.calls[0]![1]).toEqual(send.mock.calls[1]![1]);
   });
+  it("keeps paused and approval queues blocked and restores drafts after remount", async () => {
+    const send = vi.fn().mockResolvedValue(true);
+    const setup = (status: "paused" | "awaiting_tool_permission" | "succeeded") => useRunningReply({ agent, threadId: "restore", run: { runId: "run", status }, inputDraft: "local draft", sessionToken: null, runIsRunning: false, send, clearDraft: vi.fn(), setError: vi.fn() });
+    const first = renderHook(() => setup("paused"));
+    await act(() => first.result.current.sendWhileRunning());
+    expect(send).not.toHaveBeenCalled();
+    first.unmount();
+    const second = renderHook(({ status }) => setup(status), { initialProps: { status: "awaiting_tool_permission" as "paused" | "awaiting_tool_permission" | "succeeded" } });
+    expect(second.result.current.queuedReply).toBe("local draft");
+    act(() => second.result.current.retryQueuedReply());
+    expect(send).not.toHaveBeenCalled();
+    second.rerender({ status: "succeeded" });
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  });
+
 });

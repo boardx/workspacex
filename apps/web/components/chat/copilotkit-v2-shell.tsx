@@ -15,11 +15,12 @@ import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
-  createPersonalThread, deleteThread, getAgentPanel, getThread, listPersonalThreads,
+  deleteThread, getAgentPanel, getThread,
   listThreadArtifacts, listThreadAttachments, renameThread, setThreadPinned, updateAgentRoster,
   type GetAgentPanelOut, type GetThreadOut, type ListThreadArtifactsOut,
   type ListThreadAttachmentsOut, type ListThreadsOut, type ThreadCard,
 } from "@/lib/live-chat";
+import { createWorkbenchThread, listWorkbenchThreads, workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 
@@ -69,7 +70,7 @@ import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilitie
  *   1. `packages/contracts/src/recording.ts` 的 `startRecording.in.projectId` 是
  *      `z.string()`——**非空**，且 err 含 `NO_PROJECT_ROLE`，服务端
  *      `RecordingController.requireProjectRole` 按项目角色判权。
- *   2. 本外壳的线程**全部**是个人线程（`createPersonalThread(null)` 建，
+ *   2. 本外壳的线程**全部**是个人线程（`createWorkbenchThread(projectId)` 建，
  *      `listPersonalThreads` 列，`thread.projectId === null`）；带 `?projectId=` 的
  *      项目内对话在 `/chat` 上至今仍路由到旧屏 `ChatReadScreen`（见
  *      `app/chat/page.tsx` 头注：项目上下文是差距表第 1 项未收敛的另一半）。
@@ -207,11 +208,13 @@ function renameCardInThreadList(list: ListThreadsOut, threadId: string, title: s
   };
 }
 
-export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
+export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initialThreadId: string | null; projectId?: string | null }): JSX.Element {
   const router = useRouter();
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
-  const sourceKey = bearer ?? null;
+  const sourceKey = bearer ? `${bearer}::${projectId ?? "personal"}` : null;
+  const [observedRunId, setObservedRunId] = React.useState<string | null>(null);
+  const handleExternalRunStarted = React.useCallback((runId: string) => setObservedRunId(runId), []);
 
   /**
    * 2026-09-03 人类实测反馈第三轮、第四轮——round 1（PR #2480）修的是"点击瞬间
@@ -265,6 +268,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const applyThreadSelection = React.useCallback((threadId: string | null) => {
     selectedThreadIdRef.current = threadId;
     setSelectedThreadId(threadId);
+    setObservedRunId(null);
     setPanelMountKey(threadId ?? "new");
   }, []);
 
@@ -365,7 +369,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
   const [threads, setThreads] = React.useState<ListThreadsOut | null>(
-    () => (bearer && threadListCache?.bearer === bearer ? threadListCache.value : null),
+    () => (bearer && threadListCache?.bearer === sourceKey ? threadListCache.value : null),
   );
   const [listError, setListError] = React.useState<string | null>(null);
   const listGeneration = React.useRef(0);
@@ -418,13 +422,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     const controller = new AbortController();
     listAbortRef.current = controller;
     const seq = ++threadListRequestSeq;
-    const result = await listPersonalThreads({}, bearer, controller.signal);
+    const result = await listWorkbenchThreads(projectId, bearer, controller.signal);
     // 已经卸载的实例发出的请求：数据照常吐给调用方（万一它是 handleDelete/
     // handleRename 那种"提交本身还没走完，只是恰好在这个 await 期间被卸载"的
     // 边角情形），但不再写共享缓存——不该由一个不再存在的实例决定全局缓存是什么。
-    if (mountedRef.current) applyThreadListResult(bearer, seq, result);
+    if (mountedRef.current) applyThreadListResult(sourceKey!, seq, result);
     return result;
-  }, [bearer]);
+  }, [bearer, projectId, sourceKey]);
 
   const reloadThreads = React.useCallback(async () => {
     if (!bearer) return;
@@ -502,6 +506,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    *   没有能力事实支撑、点下去可能 403 的按钮（同本仓「不渲染而不是渲染后禁用」纪律）。
    */
   const archived = threadDetail?.thread.archived ?? false;
+  const canWriteThread = !archived && (selectedThreadId ? threadDetail?.capabilities.includes("composer.send") === true : threads?.capabilities.includes("thread.mutate") === true);
   const canGeneratePersona = threadDetail?.capabilities.includes("artifact.land") ?? false;
 
   const loadRightPanel = React.useCallback(async () => {
@@ -513,11 +518,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     setArtifactsFailure(null);
     setMaterialsFailure(null);
     const [nextArtifacts, nextMaterials, nextDetail] = await Promise.allSettled([
-      listThreadArtifacts(threadId, null, bearer),
-      listThreadAttachments(threadId, null, bearer),
+      listThreadArtifacts(threadId, projectId, bearer),
+      listThreadAttachments(threadId, projectId, bearer),
       // issue #2053 —— 线程详情与右栏同批取。它自己失败**不**让右栏整体失败
       // （契约 getThread 的"部分成功"精神），只是 archived/能力回落到保守缺省。
-      getThread(threadId, null, bearer),
+      getThread(threadId, projectId, bearer),
     ]);
     if (generation !== rightGeneration.current) return;
     setThreadDetailResult(nextDetail.status === "fulfilled" ? { key, value: nextDetail.value } : null);
@@ -534,7 +539,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       setMaterialsFailure({ key, value: nextMaterials.reason instanceof Error ? nextMaterials.reason.message : "材料列表读取失败" });
     }
     setRightLoadingKey(null);
-  }, [bearer, selectedThreadId]);
+  }, [bearer, selectedThreadId, projectId]);
 
   React.useEffect(() => {
     if (rightKey) void loadRightPanel();
@@ -573,7 +578,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     const key = `${bearer} ${selectedThreadId}`;
     const generation = ++rosterGeneration.current;
     try {
-      const result = await getAgentPanel(selectedThreadId, null, bearer);
+      const result = await getAgentPanel(selectedThreadId, projectId, bearer);
       if (generation !== rosterGeneration.current) return;
       setRosterResult({ key, value: result });
       setRosterFailure(null);
@@ -582,7 +587,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       setRosterResult(null);
       setRosterFailure({ key, value: failure instanceof Error ? failure.message : "编制读取失败" });
     }
-  }, [bearer, selectedThreadId]);
+  }, [bearer, selectedThreadId, projectId]);
 
   React.useEffect(() => {
     if (rightKey) void loadRoster();
@@ -628,7 +633,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       await updateAgentRoster(
         selectedThreadId,
-        null,
+        projectId,
         { add: [...change.add], remove: [...change.remove], expectedRosterVersion: rosterVersion },
         bearer,
       );
@@ -640,7 +645,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       setRosterPending(false);
     }
-  }, [bearer, loadRoster, roster, selectedThreadId]);
+  }, [bearer, loadRoster, roster, selectedThreadId, projectId]);
 
   const [createPending, setCreatePending] = React.useState(false);
   /**
@@ -694,19 +699,19 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       const topCard = threads?.groups[0]?.cards[0];
       if (topCard?.status === "not-started") {
         applyThreadSelection(topCard.id); // 同步切换，见上面头注——不等 router.push 结算
-        router.push(`/chat/${topCard.id}`);
+        router.push(workbenchThreadPath(topCard.id, projectId));
         return;
       }
-      const result = await createPersonalThread(null);
+      const result = await createWorkbenchThread(projectId);
       await reloadThreads();
       applyThreadSelection(result.threadId); // 同上
-      router.push(`/chat/${result.threadId}`);
+      router.push(workbenchThreadPath(result.threadId, projectId));
     } catch (failure) {
       setCreateFailure(describeMutateFailure(failure));
     } finally {
       setCreatePending(false);
     }
-  }, [applyThreadSelection, bearer, reloadThreads, router, threads]);
+  }, [applyThreadSelection, bearer, reloadThreads, router, threads, projectId]);
 
   /**
    * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
@@ -761,7 +766,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 换成了"再摧一把已经在飞的软导航"，而不是"炸掉整个页面重来"。
    */
   const pushThreadRoute = React.useCallback((threadId: string) => {
-    const path = `/chat/${threadId}`;
+    const path = workbenchThreadPath(threadId, projectId);
     cancelPendingFallback(); // 先作废上一次点击的兜底，再取本次代号（顺序反了本次代号会被自己作废）
     const generation = navigationGeneration.current;
     router.push(path);
@@ -772,7 +777,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       if (window.location.pathname === path) return;
       router.push(path);
     }, 4_000);
-  }, [cancelPendingFallback, router]);
+  }, [cancelPendingFallback, router, projectId]);
 
   /**
    * 点击列表项——见组件顶部头注：切换到哪条线程只由这次点击本身、同步决定，
@@ -805,14 +810,14 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     setSelectedThreadId((prev) => {
       if (prev === resolvedThreadId) return prev;
       selectedThreadIdRef.current = resolvedThreadId;
-      window.history.replaceState(null, "", `/chat/${resolvedThreadId}`);
+      window.history.replaceState(null, "", workbenchThreadPath(resolvedThreadId, projectId));
       return resolvedThreadId;
     });
     void reloadThreads();
-  }, [reloadThreads]);
+  }, [reloadThreads, projectId]);
 
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
-  const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
+  const canCreate = threads?.capabilities.includes("thread.mutate") ?? false;
 
   /**
    * issue #2075（TW-P2-6）—— 改名 / 删除。
@@ -842,13 +847,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     setMutatePending("rename");
     setMutateFailure(null);
     try {
-      const target = await getThread(threadId, null, bearer);
-      await renameThread(threadId, null, title, target.thread.version);
+      const target = await getThread(threadId, projectId, bearer);
+      await renameThread(threadId, projectId, title, target.thread.version);
 
       // 改名已经在服务端生效——本地立刻乐观修补缓存里的标题，不等一次可能失败的
       // 后台刷新（见 `patchThreadListCache` 头注）。缓存里没有这个 bearer 的既有
       // 数据（从未成功拉取过一次）时退回旧路径，直接等一次真实刷新。
-      const optimistic = patchThreadListCache(bearer, (list) => renameCardInThreadList(list, threadId, title));
+      const optimistic = patchThreadListCache(sourceKey!, (list) => renameCardInThreadList(list, threadId, title));
       if (optimistic) {
         setThreads(optimistic);
         void fetchThreadList().catch(() => undefined); // 后台补一次服务端权威数据，失败不影响上面已生效的修补
@@ -863,7 +868,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
-  }, [bearer, fetchThreadList, loadRightPanel, reloadThreads, selectedThreadId]);
+  }, [bearer, fetchThreadList, loadRightPanel, reloadThreads, selectedThreadId, projectId, sourceKey]);
 
   const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
     if (!bearer) return;
@@ -871,14 +876,14 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     setMutatePending("delete");
     setMutateFailure(null);
     try {
-      const target = await getThread(threadId, null, bearer);
-      await deleteThread(threadId, null, target.thread.version, reason);
+      const target = await getThread(threadId, projectId, bearer);
+      await deleteThread(threadId, projectId, target.thread.version, reason);
 
       // 删除已经在服务端生效——本地立刻乐观修补缓存把这条卡片摘掉，不等一次
       // 可能失败的后台刷新（见 `patchThreadListCache` 头注：刷新失败不该让
       // 已经删掉的卡片在本地看起来像还在）。缓存里没有这个 bearer 的既有数据时
       // 退回旧路径，直接等一次真实刷新——这种情况没有"旧数据"可乐观修补。
-      const optimistic = patchThreadListCache(bearer, (list) => removeCardFromThreadList(list, threadId));
+      const optimistic = patchThreadListCache(sourceKey!, (list) => removeCardFromThreadList(list, threadId));
       const nextList = optimistic ?? await fetchThreadList();
       setThreads(nextList);
       if (optimistic) void fetchThreadList().catch(() => undefined); // 后台补一次权威数据，失败不影响上面已生效的修补
@@ -888,7 +893,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
         // 同步切一次显示状态（见组件顶部头注），不等 `router.replace` 结算。
         applyThreadSelection(next);
-        router.replace(next ? `/chat/${next}` : "/chat");
+        router.replace(workbenchThreadPath(next ?? null, projectId));
       }
     } catch (failure) {
       // 卸载触发的中止不是一次真实的删除失败——见 `reloadThreads` catch 同一条注释。
@@ -897,7 +902,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
-  }, [applyThreadSelection, bearer, fetchThreadList, router, selectedThreadId]);
+  }, [applyThreadSelection, bearer, fetchThreadList, router, selectedThreadId, projectId, sourceKey]);
 
   /**
    * issue #2075（TW-P2-6）—— 搜索与置顶。
@@ -922,8 +927,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       // `ThreadCard`（列表投影）没有 `version` 字段——与 `handleRename`/`handleDelete`
       // 同一条纪律（见上面两个回调的头注）：版本号只有 `getThread` 这个详情读端口
       // 一个事实源，提交那一刻现取，不在列表卡片上顺手带一份可能过期的版本号。
-      const target = await getThread(card.id, null, bearer);
-      await setThreadPinned(card.id, null, !card.pinned, target.thread.version);
+      const target = await getThread(card.id, projectId, bearer);
+      await setThreadPinned(card.id, projectId, !card.pinned, target.thread.version);
       await reloadThreads();
     } catch {
       // 置顶不是关键路径操作：失败时不额外弹错误提示，让用户再点一次即可——
@@ -931,7 +936,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       if (mountedRef.current) setPinPending(null);
     }
-  }, [bearer, pinPending, reloadThreads]);
+  }, [bearer, pinPending, reloadThreads, projectId]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const matchesQuery = React.useCallback(
@@ -1147,6 +1152,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         <CopilotKitV2Panel
           key={panelMountKey}
           chatThreadId={selectedThreadId}
+          observedRunId={observedRunId}
+          projectId={projectId}
           onThreadResolved={handleThreadResolved}
           /* 🔴 issue #2094 —— 除右栏外还要重读左栏线程列表。
              自动命名与卡片状态都发生在服务端（首条消息落库时改 `chat_threads.title`，
@@ -1168,6 +1175,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           onPendingMaterialsChange={setPendingMaterialsCount}
           threadAttachments={materials?.items ?? null}
           archived={archived}
+          canWrite={canWriteThread}
+          canDecide={canWriteThread && (projectId === null || threadDetail?.capabilities.includes("approval.decide") === true)}
           canGeneratePersona={canGeneratePersona}
         />
         </div>
@@ -1181,6 +1190,9 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           的只读预览弹窗；`ChatTaskInspector` 内部把它原样转给 `ChatArtifactsPanel`
           的 `onOpen`，不在这一层重新实现点击逻辑。 */}
       <ChatTaskInspector
+        onRunStarted={handleExternalRunStarted}
+        projectId={projectId}
+        canEditArtifacts={canWriteThread && canGeneratePersona}
         hasSelection={selectedThreadId !== null}
         threadId={selectedThreadId}
         artifacts={artifacts}
@@ -1209,7 +1221,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           // （`THREAD_ARCHIVED_READONLY`），但按「按钮不渲染 且 接口拒绝」的既有
           // 纪律，编辑入口也不该在归档线程上渲染——不是新增能力，是让前端诚实
           // 反映服务端已经在拒的事。
-          canMutate: canCreate && !archived,
+          canMutate: canWriteThread && threadDetail?.capabilities.includes("thread.mutate") === true,
           pending: rosterPending,
           mutateFailure: rosterMutateFailure,
           candidates: agentCandidates,
@@ -1229,7 +1241,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       {openArtifact !== null && selectedThreadId !== null ? (
         <ChatArtifactPreviewDialog
           threadId={selectedThreadId}
-          projectId={null}
+          projectId={projectId}
           artifactId={openArtifact.artifactId}
           title={openArtifact.title}
           bearer={bearer ?? undefined}

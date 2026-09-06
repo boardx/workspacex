@@ -46,5 +46,5 @@ export function runningReplyAckCopy(text: string): string {
 
 /** 排队等待本轮结束时页脚的一句话。 */
 export function queuedReplyCopy(text: string): string {
-  return `「${previewReplyText(text)}」将在本轮结束后自动发送`;
+  return `本地排队：「${previewReplyText(text)}」将在本轮结束后发送`;
 }

@@ -50,12 +50,14 @@ function V2MarkdownRenderer({
   threadId,
   messageId,
   bearer,
+  projectId,
 }: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer> & {
   threadId?: string;
   messageId?: string;
   bearer?: string;
+  projectId?: string | null;
 }): JSX.Element {
-  return <MarkdownMessage text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
+  return <MarkdownMessage projectId={projectId ?? undefined} text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
 }
 
 /** Legacy messages without a durable run trace still use the registered tool renderers,
@@ -225,7 +227,7 @@ function V2ToolCallsView(
  * `artifactLandingContextValue`），这里只导出 Context 对象本身供该处 `.Provider`
  * 与本文件内 `V2AssistantMessageImpl` 的 `React.useContext` 两侧共用。
  */
-export const ArtifactLandingCtx = React.createContext<{ threadId: string | undefined; bearer: string | undefined }>({
+export const ArtifactLandingCtx = React.createContext<{ threadId: string | undefined; bearer: string | undefined; projectId?: string | null }>({
   threadId: undefined,
   bearer: undefined,
 });
@@ -316,7 +318,7 @@ function V2AssistantMessageImpl(
   // agent 消息里的图表会被静默判成"落不了地"——「保存」退回本地演示、刷新后编辑
   // 全丢，而它本来完全可以持久化。
   const realMessageId = actionsCtx?.identity.resolvePersisted(messageId) ?? undefined;
-  const { threadId: artifactThreadId, bearer: artifactBearer } = React.useContext(ArtifactLandingCtx);
+  const { threadId: artifactThreadId, bearer: artifactBearer, projectId: artifactProjectId } = React.useContext(ArtifactLandingCtx);
   // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
   // 不另找一处读。
   const text = typeof props.message.content === "string" ? props.message.content : "";
@@ -393,9 +395,10 @@ function V2AssistantMessageImpl(
         threadId={artifactThreadId}
         messageId={realMessageId}
         bearer={artifactBearer}
+        projectId={artifactProjectId}
       />
     ),
-    [artifactThreadId, realMessageId, artifactBearer],
+    [artifactThreadId, realMessageId, artifactBearer, artifactProjectId],
   );
   const copyButton = React.useCallback(
     (copyProps: React.ComponentProps<typeof CopilotChatAssistantMessage.CopyButton>) => (

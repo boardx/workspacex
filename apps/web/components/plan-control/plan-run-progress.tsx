@@ -62,14 +62,14 @@ export function PlanRunProgress(
           <span className="text-11 text-muted-foreground">{stepIndex}/{stepTotal} · 已用 {formatElapsed(elapsedMs)}</span>
           {isPaused ? (
             <Button
-              size="sm" variant="primary" className="ml-auto" disabled={hasRecentError}
+              size="sm" variant="primary" className="ml-auto" disabled={!onResume || hasRecentError}
               data-testid={PLAN_RUN_RESUME_TESTID} onClick={onResume}
             >
               <Play aria-hidden className="h-3.5 w-3.5" /> 恢复
             </Button>
           ) : (
             <Button
-              size="sm" variant="outline" className="ml-auto" disabled={hasRecentError || isPauseRequested}
+              size="sm" variant="outline" className="ml-auto" disabled={!onPause || hasRecentError || isPauseRequested}
               data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}
             >
               <Pause aria-hidden className="h-3.5 w-3.5" /> {isPauseRequested ? "暂停中…" : "暂停"}

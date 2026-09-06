@@ -44,7 +44,8 @@ function writeTemplateSuggestionDismissed(threadId: string, templateKey: string)
   }
 }
 
-export function useTemplateRecommendations({ agent, initialChatThreadId, archived, personaThreadHasPersistedEvidence, onMessageSent }: {
+export function useTemplateRecommendations({ agent, initialChatThreadId, projectId = null, archived, personaThreadHasPersistedEvidence, onMessageSent }: {
+  projectId?: string | null;
   agent: AbstractAgent; initialChatThreadId: string | null; archived: boolean;
   personaThreadHasPersistedEvidence: boolean; onMessageSent?: () => void;
 }) {
@@ -66,12 +67,12 @@ export function useTemplateRecommendations({ agent, initialChatThreadId, archive
       const bearer = getStoredSessionToken() ?? undefined;
       // `projectId` 恒传 `null`：v2 外壳管的全是个人线程，与本文件其余 chat 读调用
       //  （`getThread`/`landAsArtifact`）同一个既有约定，见 `copilotkit-v2-shell.tsx`。
-      const out = await recommendCanvasTemplates(threadId, null, bearer);
+      const out = await recommendCanvasTemplates(threadId, projectId, bearer);
       setTemplateRecommendations(out.items);
     } catch {
       setTemplateRecommendations([]);
     }
-  }, []);
+  }, [projectId]);
   React.useEffect(() => {
     if (initialChatThreadId === null || archived || !personaThreadHasPersistedEvidence) {
       setTemplateRecommendations([]);

@@ -23,6 +23,7 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   const generation = React.useRef(0);
   const controllers = React.useRef(new Set<AbortController>());
   React.useEffect(() => {
+    const activeControllers = controllers.current;
     const resolvedInPlace = previousThread.current === null && threadId !== null && currentRun.current !== null;
     previousThread.current = threadId;
     if (resolvedInPlace) return;
@@ -30,7 +31,7 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
     currentRun.current = null;
     storeRef.current = {};
     setEvents({}); setMessageRuns({});
-    return () => { for (const controller of controllers.current) controller.abort(); controllers.current.clear(); };
+    return () => { for (const controller of activeControllers) controller.abort(); activeControllers.clear(); };
   }, [agent, threadId]);
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({

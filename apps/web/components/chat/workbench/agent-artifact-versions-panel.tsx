@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import Image from "next/image";
 import { Download, FileText, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -129,7 +130,7 @@ function ArtifactPreview({artifact,version,sessionToken}:{artifact:AgentArtifact
       {diff.lines.map((line,index)=><div key={index} className="whitespace-pre-wrap break-all" aria-label={line.kind==="added"?"新增":line.kind==="removed"?"删除":"未变"}>{line.kind==="added"?"+ ":line.kind==="removed"?"− ":"  "}{line.text}</div>)}
       {diff.truncated&&<p className="font-sans text-muted-foreground">比较限于前 600 行及每版前 256 KB，完整内容请下载查看。</p>}</div>
       :text!==null?<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-container border border-border p-3 text-11">{text}</pre>
-      :artifact.kind==="png"?<img src={url} alt={`${artifact.name}，版本 ${version}`} className="max-h-64 w-full rounded-container object-contain"/>
+      :artifact.kind==="png"?<Image unoptimized src={url} width={1024} height={768} alt={`${artifact.name}，版本 ${version}`} className="max-h-64 w-full rounded-container object-contain"/>
       :artifact.kind==="pdf"?<iframe src={url} title={`${artifact.name}，版本 ${version}`} className="h-64 w-full rounded-container border border-border"/>
       :<p className="rounded-container border border-border p-3 text-13 text-muted-foreground">此格式可下载查看；历史版本均保留。</p>}
     {blob&&blob.size>PREVIEW_BYTES&&isTextArtifact(artifact.name)&&<p className="text-11 text-muted-foreground">预览仅显示前 256 KB，完整内容请下载。</p>}
