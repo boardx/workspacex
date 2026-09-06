@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
+import { TaskNotifications } from "@/components/chat/workbench/task-notifications";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
@@ -1012,6 +1013,11 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
             仍用 `ThreadListHeader`，不跟着这里改——那是另一个决定，本次没有被
             要求覆盖它们。 */}
         <SidebarBrandHeader />
+        {session && <TaskNotifications
+          scopeKey={`${session.currentOrgId}:${session.userId}:${projectId ?? "personal"}`}
+          cards={threads ? threads.groups.flatMap((group) => group.cards) : null}
+          activeThreadId={selectedThreadId} onOpenThread={selectThread} onRefresh={reloadThreads}
+        />}
         <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
