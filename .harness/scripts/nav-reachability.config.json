@@ -45,6 +45,7 @@
       "inbox-unified": "/platform-admin",
       "feedback-drafts": "/platform-admin",
       "design-ai-collab": "/platform-admin",
+      "design-prototype": "/studio/design-workbench",
       "design-workbench": "/studio/design-workbench"
     },
     "allowRoutes": [
