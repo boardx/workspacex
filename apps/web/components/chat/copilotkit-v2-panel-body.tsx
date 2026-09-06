@@ -1799,7 +1799,17 @@ export function CopilotKitV2PanelBody({
           onKeyDown={handleUserScrollIntent}
           onPointerDown={handleUserScrollIntent}
           className={cn(
-            "flex-1 overflow-y-auto p-3",
+            // issue #2857（2026-09-06 devapp 人类实测「消息区能滚过底部进入整屏空白」）——
+            // `relative` 是修法本身，不是装饰。真栈复现（`chat-task-workbench-scroll-
+            // overshoot.spec.ts`）：落定态量不出空白；运行中，内容里出现的绝对定位后代
+            // （抓到的是插话表单的 `sr-only` <Label>，`position:absolute`）以本容器
+            // **外面**那层 `relative` 包装（FAB 的定位层，#2096）为包含块，被摆到内容
+            // 底部的静态位置——在本容器可视区之下、又不算本容器的 scrollable overflow，
+            // 于是撑大的是外层 `main`（AppShell 的 `overflow-y-auto`）：滚轮在消息区
+            // 滚到头后接着推整列，composer 被推上去，露出整屏底色；线程越长空白越多屏。
+            // 本容器自己成为定位上下文后，绝对定位后代被收进它自己的滚动内容里，外层
+            // 再也量不到。FAB 是本容器的兄弟，不受影响（它仍以外层包装为定位层）。
+            "relative flex-1 overflow-y-auto p-3",
             // 2026-09-03 人类反馈（真栈截图）「今天想完成什么这个 section 不需要
             // 灰色背景」—— 空态这一支不再画 `bg-background`（应用画布色，与外层
             // 白底的 composer 卡片并排时会显得像一块灰底方块），改为透明、直接
