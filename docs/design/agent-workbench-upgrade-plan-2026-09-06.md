@@ -2,7 +2,7 @@
 
 日期：2026-09-06。状态：实施中；2026-09-07 用户直接授权独立 worktree、并行 subagent、逐单元 commit、最终一个 PR。跟踪 issue：#2867；不代改设计签核状态。
 
-## 开发进度图（更新于 2026-09-07 02:45 Asia/Shanghai）
+## 开发进度图（更新于 2026-09-07 03:10 Asia/Shanghai）
 
 本图是本升级项目的进度展示入口。初始化依据为本计划已记录的代码调查，尚未重新核实远端部署。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。目前已通过新 worktree 初始化，三路实施并行；S0–S12 尚未完成实施验收，不计算虚假的完成百分比。
 
@@ -22,23 +22,23 @@ flowchart TB
   S1 --> S2["S2 进行中：统一身份与事件契约\ncommit dc1c69c33 / 8186b0ec4"]:::active
 
   subgraph FE["前端工作线"]
-    S8["S8 进行中：执行时间线\ncommit fb78a425a / 1b49ddfe4\n回放增量 commit c0acfa889 · 待复验"]:::active
-    S9["S9 进行中：输入器与任务导航\ncommit 1657e9651 / d759d0f5f"]:::active
-    S10["S10 进行中：成果工作区\ncommit bdbbbba20 / 67685a563\n权限 8186b0ec4 · PG 5通过"]:::active
+    S8["S8 待验收：执行时间线\ncommit c11d77f57 / fe7edbd5c\n真实 Skill 事实 · 终稿恢复"]:::verify
+    S9["S9 待验收：输入器与任务导航\ncommit 391d7f63c / 6420a3681"]:::verify
+    S10["S10 待验收：成果工作区\ncommit bdbbbba20 / 67685a563\n权限 8186b0ec4 · PG 7通过"]:::verify
     S8 --> S9
     S8 --> S10
   end
 
   subgraph API["API / 数据工作线"]
-    S3["S3 进行中：持久事件与命令\ncommit dc1c69c33 / 961931612\n恢复租约 commit 1db6a178f"]:::active
-    S4["S4 进行中：真实流式事件\ncommit dc1c69c33 / be15506c8\nSkill 新来源待 peer 接口"]:::active
+    S3["S3 进行中：持久事件与命令\ncommit dc1c69c33 / 961931612\n恢复租约 1db6a178f · 子取消 78543a6b2"]:::active
+    S4["S4 待联合验收：真实流式事件\ncommit c11d77f57 · 事实入口可接\n真实来源由 peer 提供"]:::verify
     S3 --> S4
   end
 
   subgraph ENGINE["内核与运行控制工作线"]
-    S5["S5 进行中：停止 / 暂停 / 恢复\ncommit 702daabf7 / bdbbbba20"]:::active
-    S6["S6 进行中：本轮插话与排队\ncommit 1db6a178f / c0acfa889"]:::active
-    S7["S7 进行中：持久审批身份\ncommit 8186b0ec4 / 1657e9651\nAGUI / HITL 回归 8通过"]:::active
+    S5["S5 进行中：停止 / 暂停 / 恢复\ncommit c170a1594 / 63e57162f"]:::active
+    S6["S6 待验收：本轮插话与排队\ncommit 1db6a178f / c0acfa889"]:::verify
+    S7["S7 进行中：持久审批身份\ncommit 78543a6b2 / fe7edbd5c\n精确 once 绑定增量未提交"]:::active
     S5 --> S6 --> S7
   end
 
@@ -58,7 +58,7 @@ flowchart TB
   S4 -.成果事件接入.-> S10
   S7 -.交互接入.-> S9
 
-  S9 --> S11["S11 验收中：浏览器 5通过 / 5失败\n被测 commit b5ba84636（实现 c0acfa889）\n登录时序 / 最终回复修复中"]:::verify
+  S9 --> S11["S11 验收中：前端单测 95通过\n旧浏览器批次 5通过 / 5失败\n被测 commit b5ba84636（实现 c0acfa889）\n登录时序 / 最终回复修复中"]:::verify
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
@@ -97,6 +97,7 @@ flowchart TB
 | 日期 | 节点 | 变化与证据 | 下一动作 | 实测 Token |
 |---|---|---|---|---|
 | 2026-09-07 02:29 | S3 / S6 / S8 / S12 | 1db6a178f：恢复 fencing、同线程串行、真实最终消息身份；c0acfa889：服务端队列 UI、插话状态、项目入口与历史恢复。提交前对应工作树 PG 42 项、前端 75 项及补充测试通过；尚未将其记为该 SHA 的浏览器验收通过 | 冻结 c0acfa889 跑个人/项目流式回放与持久审批 E2E | 未采集 |
+| 2026-09-07 03:10 | S3–S9 / S11 | c11d77f57：真实Skill事实入口/原子去重/阶段展示；78543a6b2+6420a3681：父取消与子确认分离；391d7f63c：草稿和ACK保护；c170a1594：取消窗口；fe7edbd5c：最终回复；bfc60e477：登录水合。前端95项+lint通过，最新PG27通过。旧E2E5/5失败已定位，待新提交复验 | 完成once参数绑定，统一浏览器验收，交peer接口文档63e57162f | 未采集 |
 | 2026-09-07 02:07 | S3 / S6 / S7 / S9 | 961931612：服务端下一轮FIFO，journal/队列PG 12通过；d759d0f5f：后台提醒5通过；95720f4e3复用peer测试修复，Python 101通过；审批8186b0ec4+1657e9651，AGUI8通过。重启恢复及插话状态补齐中；最新浏览器批次未通过登录前置，首轮流式回放1通过记录保留 | 完成恢复租约、插话回放、队列UI；固定代码后统一浏览器验收 | 未采集 |
 | 2026-09-07 | S7 / S10–S12 | 成果版本提交 67685a563；成果 UI 8/8、冲突控制器 1/1；项目 scope 接线完成待联合验收；独立 review 发现私有消息/成果权限缺口，正在修复；浏览器流式回放验收仍运行 | 完成问答恢复、权限修复、peer Skill 来源对齐及联合验收 | 未采集 |
 | 2026-09-07 | S2–S9 | 核心提交 dc1c69c33 / fb78a425a / be15506c8；API 默认 tsc 通过；journal+FIFO PG 7/7、计划控制 PG 12/12、Python 6/6；前端核心与真实框架组件 8 测通过。E2E 仍在执行，尚未通过 | 补 REST 恢复 tail、后台终态、真实停止；成果版本接线 | 未采集 |
