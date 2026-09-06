@@ -340,7 +340,7 @@ export class PgAgentRunRepository implements AgentRunStore {
         return "cancel_requested";
       }
       if (status !== "queued" && status !== "paused" && status !== "awaiting_tool_permission") return null;
-      await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now(),cancel_requested_at=now() WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now(),cancel_requested_at=COALESCE(cancel_requested_at,now()) WHERE org_id=$1 AND id=$2", [orgId, runId]);
       return "cancelled";
     });
   }

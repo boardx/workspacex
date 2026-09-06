@@ -202,6 +202,13 @@ describe("durable execution journal", () => {
     const events = await repo.readExecutionEvents(toOrgId(ORG), RUN, -1);
     expect(events.map((event) => event.kind === "status" ? event.status : event.kind)).toEqual(["cancelled"]);
   });
+  it("preserves the first cancellation identity when a running task reaches approval before a retry", async () => {
+    const first = "2026-09-07T00:00:00.000Z";
+    await asApp(ORG, c => c.query("UPDATE agent_runs SET cancel_requested_at=$2, status='awaiting_tool_permission' WHERE id=$1", [RUN, first]));
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancelled");
+    const result = await asApp(ORG, c => c.query("SELECT cancel_requested_at FROM agent_runs WHERE id=$1", [RUN]));
+    expect(result.rows[0].cancel_requested_at.toISOString()).toBe(first);
+  });
   it("settles a late accepted cancellation atomically before writeback and rejects requests after that boundary", async () => {
     expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancel_requested");
     await repo.storeOutputAwaitingWriteback(toOrgId(ORG), RUN, { text: "done", finalStepSeq: 1 });
