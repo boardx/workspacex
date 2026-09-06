@@ -701,7 +701,10 @@ export function CopilotKitV2PanelBody({
       setError(
         outcome.reason === "auth-expired"
           ? "登录状态可能已过期，无法核实上一条任务的执行状态，请重新登录后刷新页面。"
-          : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
+          : outcome.reason === "stalled"
+            // issue #2860：服务端超过回收窗口仍非终态——如实说"没进展"，不冒充失败。
+            ? "上一条任务已超过 3 分钟没有任何进展（可能因服务重启中断），请重新发送一次。"
+            : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
       );
       setPendingRunId(null);
       return;

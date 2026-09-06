@@ -48,6 +48,8 @@ const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
   // Phase 14 F01（kernel-gateway 契约束 R4 A1）：网关下发前健康检查未过，请求根本
   // 没有发出去——与 MODEL_CALL_FAILED（调用已发起、内核/模型出错）是不同的事实。
   KERNEL_UNAVAILABLE: "服务暂时不可用，请稍后重试",
+  // issue #2860：执行它的服务进程重启了，run 被回收器收敛成终态——不是模型出错，重发即可。
+  RUN_INTERRUPTED: "上一条任务因服务重启被中断了，请重新发送",
 };
 
 /** 终态错误码 → 人读文案。`code` 为 `null`（读不到具体原因）时给一句诚实的兜底。 */

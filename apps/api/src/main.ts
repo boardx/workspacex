@@ -28,6 +28,10 @@ import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/record
 import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
 import { DATABASE_PORT } from "./application/ports/database.port";
 import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
+import { sweepOrphanedRuns } from "./infrastructure/agent-run/sweep-orphaned-runs";
+
+/** issue #2860 —— 幽灵 run 周期回收间隔；阈值本身在 `DEFAULT_STALE_RUNNING_THRESHOLD_MS`。 */
+const ORPHANED_RUN_SWEEP_INTERVAL_MS = 60_000;
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -203,4 +207,16 @@ if (isProcessEntry()) {
   if (!swept.ok) {
     console.error("error_logs retention sweep failed (will retry on next boot or write cadence):", swept.error);
   }
+  // issue #2860 —— 幽灵 run 回收：启动时一次（上一个进程死时正在跑的 run 此刻心跳已停），
+  // 之后每分钟一次（本进程活着但某个 run 的执行链意外断掉——理论上 executeQueuedRuns 的
+  // finally 会兜住，这一层是保险）。见 `sweep-orphaned-runs.ts` 头注。
+  const sweepOrphans = async (): Promise<void> => {
+    try {
+      await sweepOrphanedRuns(app.get(DATABASE_PORT), { log: (msg, detail) => console.warn(msg, detail ?? "") });
+    } catch (e) {
+      console.error("orphaned agent run sweep failed:", e);
+    }
+  };
+  await sweepOrphans();
+  setInterval(() => void sweepOrphans(), ORPHANED_RUN_SWEEP_INTERVAL_MS).unref();
 }

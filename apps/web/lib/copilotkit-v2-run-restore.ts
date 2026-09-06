@@ -81,7 +81,17 @@ export const RUN_RESTORE_PHASE_LABEL = "正在恢复上次未完成的任务…"
  */
 export type RunRestoreOutcome =
   | { readonly kind: "settled"; readonly view: AgentRunView }
-  | { readonly kind: "gave-up"; readonly reason: "connection-lost" | "auth-expired" };
+  | { readonly kind: "gave-up"; readonly reason: "connection-lost" | "auth-expired" | "stalled" };
+
+/**
+ * issue #2860 —— 权威读读到"还在跑"之后不再只等事件流：每 RESTORE_POLL_INTERVAL_MS 再
+ * 权威读一次，最多 RESTORE_POLL_MAX_MS。服务端幽灵 run 的收敛窗口是
+ * `DEFAULT_STALE_RUNNING_THRESHOLD_MS`（2 分钟）+ 回收器周期（1 分钟），这里给 3.5 分钟：
+ * 正常情况下回收先发生、这里读到 `failed(RUN_INTERRUPTED)` 走 settled；到点仍非终态才
+ * 如实报 `stalled`（run 可能真的还在跑，不冒充失败）。
+ */
+const RESTORE_POLL_INTERVAL_MS = 5_000;
+const RESTORE_POLL_MAX_MS = 210_000;
 
 /** 确认性读的重试预算——有界次数、毫秒级退避，弥合"事件先到、落库随后完成"的时序缝隙
  *  （I-3），不是旧机制那种以分钟计的"轮询预算"。 */
@@ -176,13 +186,42 @@ export function useCopilotKitV2RunRestore(
       try {
         const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
         if (cancelled || settledRef.current) return;
-        if (!isTerminalWave2RunStatus(view.status)) return;
-        settledRef.current = true;
-        setIsRestoring(false);
-        onSettledRef.current({ kind: "settled", view });
+        if (isTerminalWave2RunStatus(view.status)) {
+          settledRef.current = true;
+          setIsRestoring(false);
+          onSettledRef.current({ kind: "settled", view });
+          return;
+        }
       } catch {
-        // 读不到就交给事件流继续等，不在这里编造结果（与本文件其余部分同一条纪律）。
+        // 读不到就交给事件流 + 下面的有界复读继续，不在这里编造结果。
       }
+      // issue #2860 —— 非终态：事件流可能永远不来（重启后回放缓冲为空），有界复读兜底。
+      const startedAt = Date.now();
+      while (!cancelled && !settledRef.current && Date.now() - startedAt < RESTORE_POLL_MAX_MS) {
+        await new Promise((resolve) => setTimeout(resolve, RESTORE_POLL_INTERVAL_MS));
+        if (cancelled || settledRef.current) return;
+        try {
+          const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
+          if (cancelled || settledRef.current) return;
+          setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status as AgentKernelRunStatus));
+          if (!isTerminalWave2RunStatus(view.status)) continue;
+          settledRef.current = true;
+          setIsRestoring(false);
+          onSettledRef.current({ kind: "settled", view });
+          return;
+        } catch (failure) {
+          if (failure instanceof ApiError && failure.status === 401) {
+            settledRef.current = true;
+            setIsRestoring(false);
+            onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
+            return;
+          }
+        }
+      }
+      if (cancelled || settledRef.current) return;
+      settledRef.current = true;
+      setIsRestoring(false);
+      onSettledRef.current({ kind: "gave-up", reason: "stalled" });
     })();
     return () => {
       cancelled = true;

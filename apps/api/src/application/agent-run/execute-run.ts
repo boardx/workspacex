@@ -44,7 +44,7 @@ import type {
   PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
-import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
+import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime, RUN_HEARTBEAT_INTERVAL_MS } from "./ports";
 import type { ModelCallImage } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
@@ -1371,6 +1371,18 @@ export async function executeQueuedRuns(
       publishStatusChange(deps, input.orgId, outcome.runId, "failed");
       continue;
     }
+    // issue #2860 —— 进行中每 RUN_HEARTBEAT_INTERVAL_MS 写一次心跳；进程死了心跳就停，
+    // 回收器（`reclaimStaleRunning` / `sweepOrphanedRuns`）据此在 2 分钟内把它收敛成
+    // RUN_INTERRUPTED，而不是像此前那样卡 `running` 20 分钟且要等人来读。心跳写失败只记
+    // 日志，绝不影响 run 本身。
+    const heartbeat = deps.runs.heartbeatRun === undefined ? null : setInterval(() => {
+      deps.runs.heartbeatRun?.(input.orgId, outcome.run.runId).catch((e: unknown) => {
+        deps.log("agent run heartbeat failed", {
+          runId: outcome.run.runId, detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
+        });
+      });
+    }, RUN_HEARTBEAT_INTERVAL_MS);
+    heartbeat?.unref?.();
     try {
       await executeClaimed(deps, input.orgId, outcome.run);
     } catch (e) {
@@ -1382,6 +1394,8 @@ export async function executeQueuedRuns(
       });
       await deps.runs.failRun(input.orgId, outcome.run.runId, "MODEL_CALL_FAILED");
       publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
+    } finally {
+      if (heartbeat !== null) clearInterval(heartbeat);
     }
   }
   return claimed.length;
