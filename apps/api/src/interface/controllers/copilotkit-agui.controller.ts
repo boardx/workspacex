@@ -915,11 +915,12 @@ export class CopilotkitAguiController {
         });
 
       if (outcome.kind === "succeeded") {
-        if (sawAnyDelta) {
+        if (this.runs.readExecutionEvents) {
+          messageId = executionRelay.finish(outcome.messageId, outcome.text);
+        } else if (sawAnyDelta) {
           // Every fragment already went out via `onDelta` above -- resending
           // `outcome.text` here would duplicate the assistant bubble's content.
-          if (this.runs.readExecutionEvents) closeExecutionMessage();
-          else write({ type: EventType.TEXT_MESSAGE_END, messageId });
+          write({ type: EventType.TEXT_MESSAGE_END, messageId });
         } else {
           // 阶段1b's exact fallback: streaming was off, or the routed provider does not
           // support it, so the whole answer arrives as one chunk instead of many.

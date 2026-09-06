@@ -726,12 +726,11 @@ export function CopilotKitV2PanelBody({
     const terminal = [...(runTrace.events[runId] ?? [])].reverse().find((event) => event.kind === "status");
     if (!messages.some((message) => message.role === "assistant" && message.agentRunId === runId))
       return terminal?.kind === "status" && (terminal.status === "failed" || terminal.status === "cancelled");
-    const known = new Set(agent.messages.flatMap((message) => [message.id, messageIdentity.resolvePersisted(message.id)]));
-    const restored = messages.filter((message) => message.role === "assistant" && message.agentRunId === runId && !known.has(message.id));
+    const restored = messages.filter((message) => message.role === "assistant" && message.agentRunId === runId);
     registerHydrated(restored.map((message) => ({ id: message.id, rateable: message.rateable })));
     bindTraceMessages(messages);
     if (restored.length) {
-      agent.setMessages(restoreFinalMessages(agent.messages, runTrace.events[runId] ?? [], restored));
+      agent.setMessages(restoreFinalMessages(agent.messages, runTrace.events[runId] ?? [], restored, messageIdentity.resolvePersisted));
     }
     onMessageSent?.();
     return true;

@@ -17,6 +17,8 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   let messageId: string | null = null;
   let sawText = false;
   const seenMessages = new Set<string>();
+  const messageText = new Map<string, string>();
+  let finalMessageId: string | null = null;
   const cursors = new Map<string, number>();
   const close = () => {
     if (openMessage) write({ type: EventType.TEXT_MESSAGE_END, messageId: openMessage });
@@ -35,8 +37,10 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
         write({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" });
       }
       sawText = true;
+      messageText.set(event.messageId, (messageText.get(event.messageId) ?? "") + event.delta);
       write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: event.messageId, delta: event.delta });
     } else if (event.kind === "tool_start") {
+      finalMessageId = null;
       close();
       write({ type: EventType.TOOL_CALL_START, toolCallId: event.toolCallId, toolCallName: event.toolName });
       write({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.toolCallId, delta: JSON.stringify(event.args ?? {}) });
@@ -46,10 +50,21 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
         messageId: `${event.toolCallId}:result`, role: "tool",
         content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? null) });
     } else if (event.kind === "final_message") {
+      finalMessageId = event.messageId;
       messageId = event.messageId;
       sawText = seenMessages.has(messageId);
     }
     return { messageId, sawText };
   };
-  return { accept, close };
+  const finish = (persistedMessageId: string, text: string): string => {
+    close();
+    // Identity proves which message is final; equality only verifies that its full
+    // bytes reached this connection (a dropped SSE tail must not truncate the answer).
+    if (finalMessageId && seenMessages.has(finalMessageId) && messageText.get(finalMessageId) === text) return finalMessageId;
+    write({type:EventType.TEXT_MESSAGE_START,messageId:persistedMessageId,role:"assistant"});
+    write({type:EventType.TEXT_MESSAGE_CONTENT,messageId:persistedMessageId,delta:text});
+    write({type:EventType.TEXT_MESSAGE_END,messageId:persistedMessageId});
+    return persistedMessageId;
+  };
+  return { accept, close, finish };
 }
