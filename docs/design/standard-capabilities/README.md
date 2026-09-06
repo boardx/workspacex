@@ -21,8 +21,9 @@
 ## 阅读顺序
 
 1. [capability-catalog.json](capability-catalog.json)：75 个能力的需求、复用来源、差量和独特验收。
-2. [contract-reuse-map.md](contract-reuse-map.md)：既有契约与本批次差量边界。
-3. [implementation-notes.md](implementation-notes.md)：commit、测试、运行基线与待解决问题。
+2. [peer-boundaries.md](peer-boundaries.md)：用户指定的工作台 peer 分工；先排除对方负责的重复建设。
+3. [contract-reuse-map.md](contract-reuse-map.md)：既有契约与本批次差量边界。
+4. [implementation-notes.md](implementation-notes.md)：commit、测试、运行基线与待解决问题。
 
 旧规格与本次 review 冲突时，采用本目录的剪裁说明。当前目录不是发布清单；`ready`、授权、版本和真实工具 schema 必须由运行体给出，不能由设计 JSON 假装已上线。
 
