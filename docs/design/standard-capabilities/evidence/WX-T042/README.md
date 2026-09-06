@@ -75,3 +75,29 @@ resource cleanup policy and richer permission/version snapshot requirements from
 WX-T042 catalog are not claimed complete by this adapter increment. Recovery requires a later
 tenant kick/query, not an unattended global restart sweep. Existing model provider configuration
 and the parent's pinned model are used; no fallback provider or additional tools are granted.
+
+## Permission-path pre-push gate fix
+
+The two exact infrastructure paths are registered in the existing permission-path exception
+map, with `checkSubtaskPermissionBoundary` executed by that same lint gate. No dummy Guarded
+import or fabricated user decision was added. Queue claims and fixed-version model inputs
+are system operations; user reads and retries retain the actual parent Chat authorization.
+
+The check limits SQL to the relevant tables, requires static statements inside
+`withTenant(orgId)` and explicit org predicates, verifies the tenant-matched pinned version
+join, preserves text-only/no-parent-thread execution, and checks that list/retry call the
+existing parent authorization before reading rows. The gate also requires both the mutation
+test file and the existing real DB/HTTP evidence test to remain present.
+
+Executed from `apps/api`:
+
+- `node --test scripts/tests/subtask-permission-boundary.test.mjs`: 7/7 passed, including
+  mutations removing tenant predicates, tenant transaction, parent authorization, fixed
+  version join and text-only boundary. [Raw output](./permission-boundary-tests.txt).
+- `pnpm lint`: exit 0. [Full API lint output](./permission-lint.txt).
+- `node scripts/lint-permission-paths.mjs`: exit 0 after the final evidence-presence check;
+  1223 files and 195 tenant tables scanned. [Output](./permission-paths.txt).
+
+The structural checks support the narrow exception; they do not replace the real private
+owner/intruder and cross-organization tests described above. No new runtime permissions or
+changes to the main-run protocol were introduced by this gate fix.
