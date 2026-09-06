@@ -63,7 +63,7 @@ flowchart TB
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
-  S11 --> S12["S12 待交付：个人/项目入口已验\n被测 commit b1d46b1bd\n远端17ad7475a · 单 PR准备中"]:::verify
+  S11 --> S12["S12 待交付：草稿 PR 2890\ncommit b13e25f40 · CI进行中\n个人/项目入口被测 b1d46b1bd"]:::verify
 
   subgraph LEGEND["颜色规则（完成必须有验收与交付证据）"]
     LG["绿色：已完成"]:::done

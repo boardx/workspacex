@@ -4,7 +4,7 @@
 
 ## 可集成版本
 
-分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `17ad7475a`。以下均已提交，尚未合入 main；最终共用一个 PR，目前 PR 未创建。不能把本文件当作 main 或已部署版本的声明。
+分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `b13e25f40`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
 
 | 单元 | 提交 | 导出 / 入口 |
 |---|---|---|
