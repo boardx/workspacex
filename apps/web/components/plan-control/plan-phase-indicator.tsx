@@ -27,6 +27,7 @@ export interface PlanPhaseIndicatorProps {
 }
 
 export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JSX.Element {
+  if (phase === "cancelled") return <div data-testid="plan-phase-indicator" data-phase="cancelled" role="status" className="text-13 text-muted-foreground">{PLAN_PHASE_LABEL_ZH.cancelled}</div>;
   if (phase === "failed") {
     return (
       <div
