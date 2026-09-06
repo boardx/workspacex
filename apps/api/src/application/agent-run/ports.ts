@@ -826,6 +826,8 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  /** Non-secret binding issued by the trusted native session owner. */
+  readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
@@ -893,7 +895,7 @@ export interface ModelCallInput {
    * `pausePlanRun` 需要它来调用 `POST /threads/:id/runs/:run_id/cancel`。
    * 不注入 ⇒ 行为逐字节不变（回调不存在，不调用）。
    */
-  readonly onRemoteRunStarted?: (remoteRunId: string) => void | Promise<void>;
+  readonly onRemoteRunStarted?: (remoteRunId: string, remoteThreadId?: string) => void | Promise<void>;
   /**
    * issue #2664 -- 本次调用所属的 org id 与已 claim 的 `agent_runs` 行 id。OPTIONAL，
    * 同 `threadId` 一条既有先例：只有 `DeepAgentModelProvider` 关心它，别的 provider

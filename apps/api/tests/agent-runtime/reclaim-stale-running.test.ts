@@ -87,7 +87,7 @@ describe("Expired lease reconciliation preserves running and terminal state boun
     const after = await readRun(id);
     expect(after.status).toBe("failed");
     expect(after.errorCode).toBe("RUN_INTERRUPTED");
-    expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,`remote-${id}`,id);
+    expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,`remote-${id}`,id,undefined,"legacy");
   });
 
   it("a running run started moments ago is left alone -- a healthy in-flight run must not be reclaimed", async () => {

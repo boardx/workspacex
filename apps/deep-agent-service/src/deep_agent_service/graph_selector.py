@@ -23,6 +23,11 @@ def select_graph(config: RunnableConfig):
     if not isinstance(configurable, dict):
         raise ValueError("Invalid execution configuration")
     key = _execution_mode_key()
+    from deep_agent_service.native_factory import native_config_key, native_graph_context
+    if native_config_key() in configurable:
+        if key in configurable:
+            raise ValueError("Native and restricted execution modes cannot be combined")
+        return native_graph_context(config)
     if key not in configurable:
         from deep_agent_service.graph import graph
         return graph

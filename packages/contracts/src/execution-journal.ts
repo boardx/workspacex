@@ -11,7 +11,7 @@ export const ExecutionEvent = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("status"), status: z.enum(["running", "succeeded", "failed", "paused", "cancelled", "awaiting_tool_permission"]) }),
   z.object({ ...base, kind: z.literal("final_message"), messageId: z.string().min(1) }),
   z.object({ ...base, kind: z.literal("text_delta"), messageId: z.string().min(1), delta: z.string() }),
-  z.object({ ...base, kind: z.literal("tool_start"), toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(), args: z.unknown() }),
+  z.object({ ...base, kind: z.literal("tool_start"), toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(), args: z.unknown(), planningNote: z.string().max(4000).optional() }),
   z.object({ ...base, kind: z.literal("tool_end"), toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(), result: z.unknown(), ok: z.boolean() }),
 ]);
 export type ExecutionEvent = z.infer<typeof ExecutionEvent>;

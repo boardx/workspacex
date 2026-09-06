@@ -2,7 +2,7 @@ import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { parentCancelRequestId, type ParentCancellationReader } from "../../application/agent-run/parent-run-control";
-import type { ToolAuthorityReader, ToolAuthoritySnapshot, ToolExecutionCheck } from "../../application/agent-run/tool-execution-authority";
+import type { ToolAuthorityReader, ToolAuthoritySnapshot, ExecutionAuthorityContext } from "../../application/agent-run/tool-execution-authority";
 export class PgParentRunControlReader implements ParentCancellationReader, ToolAuthorityReader {
   constructor(private readonly db: DatabasePort) {}
   async readCancellation(orgId: OrgId, parentRunId: string) {
@@ -13,7 +13,7 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
       return row ? { orgId: row.org_id, parentRunId: row.id, requestId: parentCancelRequestId(row.org_id, row.id, row.cancel_requested_at) } : null;
     });
   }
-  withSnapshot<T>(input: ToolExecutionCheck, check: (snapshot: ToolAuthoritySnapshot | null) => Promise<T>): Promise<T> {
+  withSnapshot<T>(input: ExecutionAuthorityContext, check: (snapshot: ToolAuthoritySnapshot | null) => Promise<T>): Promise<T> {
     return this.db.withTenant(input.orgId, async session => {
       const { rows } = await session.query<{ active: boolean; cancel_requested: boolean; lease_valid: boolean; attempt_id: string | null; skill_version_ids: string[]; pending_permission_request_id: string | null; pending_tool_call_id: string | null; pending_tool_name: string | null; pending_tool_args_digest: string | null; pending_decision: string | null; pending_edited_args: string | null; pending_tool_authorized_attempt: string | null }>(
         `SELECT r.status='running' AS active, r.cancel_requested_at IS NOT NULL AS cancel_requested,

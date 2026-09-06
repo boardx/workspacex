@@ -94,13 +94,13 @@ const INPUT = {
 } as never;
 
 describe("DA-03 真流式（rubric D3）", () => {
-  it("createRun 声明 stream_mode: [messages-tuple, updates]——不声明时 join 流只有 values 快照、零 token（2026-08-23 生产无流式的根因）", async () => {
+  it("createRun 声明 stream_mode: [messages-tuple, updates, custom]——不声明时 join 流只有 values 快照、零 token（2026-08-23 生产无流式的根因）", async () => {
     const baseUrl = await startFake({ streamStatus: 200, chunks: ["hi"], gapMs: 1 });
     seenRunBodies.length = 0;
     await provider(baseUrl, true).completeWithProgress(INPUT, async () => {}, async () => {});
     // D2（同一份 2026-08-23 重评，见 deep-agent-model-provider.ts createRun 里这个字段
     // 旁的注释）：不加 "updates" 时工具调用可见性只能靠轮询兜底，不是逐次事件驱动。
-    expect(seenRunBodies[0]?.stream_mode).toEqual(["messages-tuple", "updates"]);
+    expect(seenRunBodies[0]?.stream_mode).toEqual(["messages-tuple", "updates", "custom"]);
   });
 
   it("delta 按序逐个到达，且到达时刻分散——终态打包冒充流式在这条断言下必然露馅", async () => {
@@ -282,7 +282,7 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
       toolName: "list_org_skills", toolArgsSummary: "{}",
       toolResultSummary: "- diagram-maker：画图技能", planningNote: "先看看有哪些技能可用",
       phase: "complete", toolCallId: "call-1",
-      toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能",
+      toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能", ok: true,
     },
   ];
 

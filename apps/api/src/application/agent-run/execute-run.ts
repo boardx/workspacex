@@ -1,3 +1,5 @@
+import type { NativeOutputStaging } from "./native-output-staging";
+import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
 import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
 import { publicExecutionPayload } from "./public-execution-payload";
@@ -44,7 +46,7 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, RunStepStatus,
+  PinnedSkillContent, RunFailureCode, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
@@ -62,6 +64,7 @@ import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
 import { createSkillActivityWriter } from "./skill-activity-writer";
+import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import { buildDeepAgentSkillCatalogBlock } from "./skill-catalog";
@@ -403,6 +406,8 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  readonly nativeSessions?: NativeSessionOwner;
+  readonly nativeOutputs?: NativeOutputStaging;
   readonly artifactContinuations?: ArtifactContinuationReader;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
@@ -591,9 +596,9 @@ export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
-  mode: "full" | "deep-agent-catalog" = "full",
+  mode: "full" | "deep-agent-catalog" | "native" = "full",
 ): string {
-  const skillParts = skills.length === 0 ? []
+  const skillParts = skills.length === 0 || mode === "native" ? []
     : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
     : skills.map((s) => s.content);
   const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
@@ -614,34 +619,6 @@ export function buildSystemPrompt(
  * 使「用量少记了」这件事可查。静默吞掉才是那个会让人以为计量在工作的错法。
  * 具名缺口 `GAP-USAGE-WRITE-RETRY`：本轮不做重试队列，写失败即永久少记一行。
  */
-async function meter(
-  deps: ExecuteAgentRunDeps,
-  orgId: OrgId,
-  run: ClaimedAgentRun,
-  usage: ReportedUsage,
-  outcome: "succeeded" | "failed",
-): Promise<void> {
-  if (!deps.usage) return;
-  try {
-    await deps.usage.record(orgId, {
-      userId: run.requesterUserId,
-      runId: run.runId,
-      modelProvider: run.modelProvider,
-      modelId: run.modelId,
-      // 总数缺失记 0（必填维度）；拆分维度缺失记 null（「上游没报」≠「用了 0」）。
-      tokensTotal: usage.total ?? 0,
-      promptTokens: usage.prompt ?? null,
-      completionTokens: usage.completion ?? null,
-      outcome,
-    });
-  } catch (e) {
-    deps.log("token usage metering write failed; usage under-counted for this run", {
-      runId: run.runId, tokensTotal: usage.total ?? 0, outcome,
-      detail: e instanceof Error ? e.message : "unexpected metering failure",
-    });
-  }
-}
-
 async function executeClaimed(
   deps: ExecuteAgentRunDeps,
   orgId: OrgId,
@@ -727,7 +704,7 @@ async function executeClaimed(
     // `org_skills` 由 `call_skill` 按需取（`buildDeepAgentSkillCatalogBlock` 头注）。
     // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
     // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
-    const systemPromptMode = isDeepAgentRun ? "deep-agent-catalog" : "full";
+    const systemPromptMode = isDeepAgentRun && deps.nativeSessions ? "native" : isDeepAgentRun ? "deep-agent-catalog" : "full";
     system = buildSystemPrompt(run.instructions, skills, canvasGuidance, systemPromptMode);
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
@@ -741,7 +718,7 @@ async function executeClaimed(
      * ⚠ 拼在**最后**：skill 自己的指令优先，这里只追加一层能力说明——与
      *   `execute-trial-run.ts` 逐字同一条纪律，不写第二套拼法。
      */
-    if (deps.sandbox && deps.objects && toolSkills.length > 0) {
+    if (!(isDeepAgentRun && deps.nativeSessions) && deps.sandbox && deps.objects && toolSkills.length > 0) {
       system = `${system}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
       /*
        * #1747 —— 同一道门，同一段文本，多一个出口。
@@ -1125,6 +1102,7 @@ async function executeClaimed(
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   try {
+    if (isDeepAgentRun && deps.nativeSessions && !deps.nativeOutputs) throw new ModelCallError("MODEL_CALL_FAILED", "native_output_delivery_unavailable");
     // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
     // shape `deps.model` actually offers for this run's pinned provider; every field below
     // is a superset of what the retired branches used to build separately (deep-agent-only
@@ -1182,7 +1160,7 @@ async function executeClaimed(
         // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
         // 既有先例）——写失败只 log，不影响这轮回复本身。
         ...(deps.planLedger ? {
-          onRemoteRunStarted: (remoteRunId: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId),
+          onRemoteRunStarted: (remoteRunId: string, remoteThreadId?: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId, remoteThreadId),
         } : {}),
       },
       async (event) => {
@@ -1205,7 +1183,7 @@ async function executeClaimed(
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
-          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary) }
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
           : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
         if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
@@ -1217,6 +1195,8 @@ async function executeClaimed(
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "text_delta", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${metadata?.messageId ?? "assistant"}`, delta });
         publishTokenDelta(deps, orgId, run.runId, delta);
       },
+      isDeepAgentRun && deps.nativeSessions ? { owner: deps.nativeSessions,
+        logReleaseFailure: () => deps.log("native session release pending", { runId: run.runId }) } : undefined,
     );
     if (completion.cancelled) {
       if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");
@@ -1299,9 +1279,10 @@ async function executeClaimed(
    *   "这条消息没人答"。把它变成 `failRun` 会让用户既拿不到文件，也看不到失败原因——
    *   run 的终态错误码不进响应正文（本文件的既有纪律）。
    */
-  let outputFiles: readonly ProducedFile[] = [];
+  let outputFiles: readonly ProducedFile[] = isDeepAgentRun && deps.nativeSessions
+    ? await deps.nativeOutputs!.listFiles(orgId, run.runId) : [];
   if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
-  {
+  if (!(isDeepAgentRun && deps.nativeSessions)) {
     const scripted = await maybeRunSkillScript(
       {
         sandbox: deps.sandbox,

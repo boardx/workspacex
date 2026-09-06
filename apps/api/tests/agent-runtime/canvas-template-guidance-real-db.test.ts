@@ -24,6 +24,7 @@ import { PgCanvasTemplateRepository } from "../../src/infrastructure/canvas/pg-c
 import { UuidDecisionIdFactory } from "../../src/infrastructure/identity/in-memory-session-store";
 import { createCanvasTemplateGuidancePort } from "../../src/application/agent-run/canvas-template-guidance";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
 
@@ -123,7 +124,10 @@ async function askAndRun(
   await addChatMessage({ orgId: ORG, id: qid, threadId, body: question, authorId: ACTOR });
   await enqueueRun(threadId, qid, runId);
   const calls: ModelCallInput[] = [];
-  await executeQueuedRuns(deps(calls, withCanvas), { orgId: toOrgId(ORG) });
+  const runDeps = deps(calls, withCanvas);
+  await executeQueuedRuns(runDeps, { orgId: toOrgId(ORG) });
+  // A second turn in the same thread is claimable only after the real writeback boundary.
+  await writeBackPendingRuns(runDeps, { orgId: toOrgId(ORG) });
   const call = calls.at(-1);
   expect(call).toBeDefined();
   return { system: call!.system };

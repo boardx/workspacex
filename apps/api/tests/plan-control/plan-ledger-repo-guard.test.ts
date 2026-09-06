@@ -51,14 +51,25 @@ describe("白名单条目前提 ②：不调用 withoutTenant", () => {
 });
 
 describe("白名单条目前提 ③：写路径（appendEngineSnapshot）只从已授权轮次内部触达", () => {
-  it("src/interface/ 下只有 copilotkit-agui.controller.ts 引用 ingest-engine-plan-snapshot（UC-2 的唯一触发路径，usecases.md 逐字要求）", () => {
+  it("HTTP transports cannot write engine snapshots; the authorized executor owns persistence", () => {
     const offenders = filesUnder(interfaceDir).filter((f) => {
       const text = readFileSync(f, "utf8");
       return text.includes("ingest-engine-plan-snapshot") || text.includes("ingestEnginePlanSnapshot");
     });
-    expect(offenders.map((f) => f.split("/src/interface/")[1]?.replace(/^\/+/, ""))).toEqual([
-      "controllers/copilotkit-agui.controller.ts",
-    ]);
+    expect(offenders).toEqual([]);
+    const applicationDir = fileURLToPath(new URL("../../src/application/", import.meta.url));
+    const callers = filesUnder(applicationDir).filter(f => {
+      const source = readFileSync(f, "utf8");
+      return /import\s*\{\s*ingestEnginePlanSnapshot\s*\}/.test(source);
+    });
+    expect(callers.map(f => f.split("/src/application/")[1]?.replace(/^\/+/, ""))).toEqual(["agent-run/execute-run-events.ts"]);
+    const events = readFileSync(callers[0]!, "utf8");
+    expect(events).toContain('event.phase === "in_progress"');
+    expect(events).toContain('event.ok === false');
+    expect(events).toContain('event.toolName !== "write_todos"');
+    expect(events).toContain("if (snapshot) await ingestEnginePlanSnapshot");
+    const executor = readFileSync(new URL("../../src/application/agent-run/execute-run.ts", import.meta.url), "utf8");
+    expect(executor).toContain("await persistToolPlan(deps.planLedger, orgId, run.threadId, event)");
   });
 });
 

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { BadRequestException, Body, Controller, Headers, Inject, NotFoundException, Param, Post, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Headers, HttpCode, Inject, NotFoundException, Param, Post, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { InterjectionPollInput, InterjectionPollOutput, ToolExecutionCheckInput, ToolExecutionCheckOutput } from "@repo/contracts/run-control";
 import { TOOL_EXECUTION_AUTHORITY, type ToolExecutionAuthority } from "../../application/agent-run/tool-execution-authority";
 import { Public } from "../public.decorator";
@@ -28,6 +28,7 @@ export class RunInterjectionController {
   }
   @Public()
   @Post("/internal/agent-runs/:runId/tool-execution/check")
+  @HttpCode(200)
   async checkTool(@Headers("x-deep-agent-internal-key") key: string | undefined,
     @Param("runId") runId: string, @Body() body: unknown) {
     this.assertInternalKey(key);

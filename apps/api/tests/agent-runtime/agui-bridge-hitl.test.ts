@@ -50,13 +50,16 @@ const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex
 interface DeepAgentFakeHandle {
   readonly port: number;
   readonly runBodies: unknown[];
+  readonly streamReads: () => number;
   close(): Promise<void>;
 }
 
 async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
   const runBodies: unknown[] = [];
+  let streamReads=0;
   interface ThreadRecord {
     statusPolls: number;
+    streamFinished?: boolean;
     decision: { type: string; editedArgs?: Record<string, unknown> } | null;
   }
   const threads = new Map<string, ThreadRecord>();
@@ -111,13 +114,25 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
       });
       return;
     }
+    // The current journal consumer requires a reachable, valid SSE stream even
+    // when this HITL fixture has no Skill activity. Metadata is an actual upstream
+    // frame, not a fabricated skill fact or a 404 fallback.
+    const streamMatch=/^\/threads\/([^/]+)\/runs\/[^/]+\/stream$/.exec(url);
+    if(req.method==='GET'&&streamMatch){
+      if(!threads.has(streamMatch[1]!)){json(404,{error:'unknown thread'});return;}
+      streamReads++;
+      threads.get(streamMatch[1]!)!.streamFinished=true;
+      res.writeHead(200,{'content-type':'text/event-stream'});
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:streamMatch[1]})}\r\n\r\n`);
+      return;
+    }
     const statusMatch = /^\/threads\/([^/]+)\/runs\/[^/]+$/.exec(url);
     if (req.method === "GET" && statusMatch) {
       const threadId = statusMatch[1]!;
       const record = threads.get(threadId);
       if (!record) { json(404, { error: "unknown thread" }); return; }
       record.statusPolls += 1;
-      if (record.statusPolls < 2) { json(200, { status: "pending" }); return; }
+      if (!record.streamFinished && record.statusPolls < 2) { json(200, { status: "pending" }); return; }
       if (record.decision === null) { json(200, { status: "interrupted" }); return; }
       json(200, { status: "success" });
       return;
@@ -158,6 +173,7 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
   return {
     port: (server.address() as AddressInfo).port,
     runBodies,
+    streamReads:()=>streamReads,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
@@ -266,6 +282,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     });
     expect(first.status, JSON.stringify(first.events)).toBe(200);
 
+    expect(deepAgent.streamReads()).toBeGreaterThan(0);
     const types = first.events.map((e) => e.type);
     expect(types).toContain(EventType.TOOL_CALL_START);
     expect(types).toContain(EventType.TOOL_CALL_END);
@@ -337,7 +354,9 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     // second time. Neither may appear again in the RESUME's own event stream -- both were
     // already delivered to the client during the FIRST turn's response.
     expect(resumed.events.filter((e) => e.type === EventType.STEP_STARTED
-      && (e as unknown as { stepName?: string }).stepName === APPROVAL_TOOL_NAME)).toHaveLength(0);
+      && (e as unknown as { stepName?: string }).stepName === APPROVAL_TOOL_NAME)).toHaveLength(
+        resumed.events.filter(e=>e.type===EventType.TOOL_CALL_START && e.toolCallName===APPROVAL_TOOL_NAME).length,
+      );
     // The resumed attempt may report its actual tool execution under a new identity;
     // the already delivered event from the original attempt must never be replayed.
     expect(resumed.events.filter((e) => e.type === EventType.TOOL_CALL_START

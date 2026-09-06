@@ -7,6 +7,7 @@
  *   且**绝不带 input.messages**——重发用户输入会让引擎把同一条消息处理两遍。
  * · decideAgentRun 的 approve/reject/竞态三路。
  */
+import { toolArgumentsDigest } from "../../src/application/agent-run/tool-arguments-digest";
 import { createServer, type Server } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -73,7 +74,7 @@ describe("DA-07b provider：中断与恢复（rubric D6）", () => {
     });
     const result = await provider(baseUrl).completeWithProgress(base as never, async () => {});
     expect(result.interrupted).toEqual({
-      toolName: "call_skill",
+      toolName: "call_skill", toolCallId: "c2", toolArgsDigest: toolArgumentsDigest({ skill: "risky" }),
       argsSummary: JSON.stringify({ skill: "risky" }),
     });
     expect(result.text).toBe("");
@@ -89,7 +90,7 @@ describe("DA-07b provider：中断与恢复（rubric D6）", () => {
     });
     // 流式与轮询两条路径都要对：completeWithProgress（流式关闭 ⇒ 走轮询）与 complete。
     const result = await provider(baseUrl).completeWithProgress(base as never, async () => {});
-    expect(result.interrupted).toEqual({ toolName: "confirm_task_intent", argsSummary: JSON.stringify({ requestId: "r-1" }) });
+    expect(result.interrupted).toEqual({ toolName: "confirm_task_intent", toolCallId: "c1", toolArgsDigest: toolArgumentsDigest({ requestId: "r-1" }), argsSummary: JSON.stringify({ requestId: "r-1" }) });
     expect(result.text).toBe("");
     await expect(provider(baseUrl).complete(base as never)).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
   });

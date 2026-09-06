@@ -106,14 +106,12 @@ describe("(c) hasGrant 只折成布尔——从不选出授权记录的内容列
 describe("(d) 上一层的可见性裁决还在——decide-tool-permission 先判定，后落库", () => {
   const decideSrc = stripComments(readFileSync(DECIDE_USE_CASE, "utf8"));
 
-  it("resolveVisibility 在 grants.grantForRun/grantStanding 之前", () => {
-    expect(decideSrc).toContain("resolveVisibility(deps");
+  it("visibility precedes the atomic request decision; no separate grant can escape its transaction", () => {
     const visibilityAt = decideSrc.indexOf("resolveVisibility(deps");
-    const grantForRunAt = decideSrc.indexOf("deps.grants.grantForRun(");
-    const grantStandingAt = decideSrc.indexOf("deps.grants.grantStanding(");
+    const decisionAt = decideSrc.indexOf("await deps.runs.decidePermissionRequest(");
     expect(visibilityAt).toBeGreaterThanOrEqual(0);
-    expect(grantForRunAt).toBeGreaterThan(visibilityAt);
-    expect(grantStandingAt).toBeGreaterThan(visibilityAt);
+    expect(decisionAt).toBeGreaterThan(visibilityAt);
+    expect(decideSrc).not.toMatch(/deps\.grants\.grant(?:ForRun|Standing)\(/);
   });
 
   it("变异：把 resolveVisibility 调用整个删掉，断言必须变红", () => {

@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readFile, opendir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -19,11 +19,14 @@ interface Session {
 /** Metadata and capabilities are held by the trusted service, never inside mounted paths. */
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
+  private readonly destroyed = new Map<string, { hash: Buffer; expiresAt: number; done: Promise<void>; settled: boolean }>();
   private creating = 0;
   private closing = 0;
   constructor(private readonly provider: SessionExecutionProvider, private readonly baseDir = tmpdir()) {}
 
   async create(skills: FileInput[] = [], ttlMs = L.defaultTtlMs!) {
+    this.reapTombstones();
+    if (this.destroyed.size + this.sessions.size + this.creating >= L.maxSessions! * L.maxExecutionsPerSession!) throw new Error("SESSION_LIMIT");
     if (this.sessions.size + this.creating + this.closing >= L.maxSessions!) throw new Error("SESSION_LIMIT");
     if (!Number.isInteger(ttlMs) || ttlMs < 1 || ttlMs > L.maxTtlMs! || skills.length > L.maxFiles!) throw new Error("INVALID_SESSION_INPUT");
     const decoded = skills.map((file) => {
@@ -163,11 +166,27 @@ export class SessionManager {
     return { cancelled };
   }
 
+  private reapTombstones() {
+    for (const [id, value] of this.destroyed) if (value.settled && value.expiresAt <= Date.now()) this.destroyed.delete(id);
+  }
+
   async destroy(id: string, token: string) {
+    this.reapTombstones();
+    const tombstone = this.destroyed.get(id);
+    if (tombstone) {
+      const hash = createHash("sha256").update(token).digest();
+      if (!timingSafeEqual(hash, tombstone.hash)) throw new Error("SESSION_NOT_FOUND");
+      await tombstone.done;
+      return { deleted: true as const };
+    }
     const session = this.get(id, token);
     if (session.busy && !session.execution) throw new Error("SESSION_BUSY");
     this.sessions.delete(id);
-    await this.close(session);
+    const value = { hash: createHash("sha256").update(token).digest(), expiresAt: session.expiresAt,
+      done: Promise.resolve(), settled: false };
+    this.destroyed.set(id, value);
+    value.done = this.close(session).finally(() => { value.settled = true; });
+    await value.done;
     return { deleted: true as const };
   }
 
@@ -181,6 +200,7 @@ export class SessionManager {
 
   /** Called by the service timer; no caller capability is needed for expired resources. */
   async reapExpired(): Promise<void> {
+    this.reapTombstones();
     for (const [id, session] of this.sessions) {
       if (session.expiresAt > Date.now()) continue;
       if (session.busy && !session.execution) continue;

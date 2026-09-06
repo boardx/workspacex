@@ -223,9 +223,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     });
   }
 
-  async recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string): Promise<void> {
+  async recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string, remoteThreadId?: string): Promise<void> {
     await this.db.withTenant(orgId, (s) =>
-      s.query("UPDATE agent_runs SET remote_run_id = $1 WHERE id = $2", [remoteRunId, runId]),
+      s.query("UPDATE agent_runs SET remote_run_id = $1, remote_thread_id = COALESCE($3, remote_thread_id) WHERE id = $2 AND org_id = $4", [remoteRunId, runId, remoteThreadId ?? null, orgId]),
     );
   }
 

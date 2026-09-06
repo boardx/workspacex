@@ -1,3 +1,4 @@
+import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contracts/native-session-binding";
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
@@ -480,8 +481,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
 
   /** Recovery never calls startRun/createRun. Only an explicitly run-associated
    * checkpoint may supply completion; a thread's newer state is not this run's result. */
-  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string):Promise<ReconciledRemoteRun>{
-    const baseUrl=this.config.baseUrl,threadId=deriveRemoteThreadId(chatThreadId);
+  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string,remoteThreadId?:string,runtimeProfile:"legacy"|"native-v1"="legacy"):Promise<ReconciledRemoteRun>{
+    const baseUrl=this.config.baseUrl,threadId=remoteThreadId??deriveRemoteThreadId(chatThreadId);
     const signal=AbortSignal.timeout(Math.min(this.config.timeoutMs,15000));
     try{
       const response=await fetch(`${baseUrl}/threads/${threadId}/runs/${encodeURIComponent(remoteRunId)}`,{signal});
@@ -514,7 +515,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       const text=readFinalReply(messages);
       if(!text.trim())return {kind:"uncertain",diagnostic:"checkpoint_has_no_final_reply"};
       const scriptCandidates=collectScriptCandidates(messages);
-      if(scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
+      if(runtimeProfile!=="native-v1"&&scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
       const finalMessage=[...messages].reverse().find(message=>message.type==="ai"&&typeof message.content==="string"&&message.content.trim()!=="");
       return {kind:"success",completion:{text,...(finalMessage?.id?{finalMessageId:finalMessage.id}:{})}};
     }catch{return {kind:"uncertain",diagnostic:"remote_reconcile_unavailable"};}
@@ -524,8 +525,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return Boolean(this.config.subtaskCallbackBaseUrl && this.config.subtaskCallbackKey);
   }
 
+  private nativeConfig(input: ModelCallInput): Record<string, unknown> {
+    if (input.nativeSession === undefined) return {};
+    const parsed = NativeSessionBindingRef.safeParse(input.nativeSession);
+    if (!parsed.success || input.executionMode !== undefined || input.scriptProtocol !== undefined
+      || !input.orgId || !input.runId || !input.executionAttemptId
+      || !Number.isInteger(input.executionLeaseEpoch) || input.executionLeaseEpoch! < 1
+      || !input.onSkillActivity) {
+      throw new ModelCallError("MODEL_CALL_FAILED", "native_runtime_configuration_invalid");
+    }
+    return { [NATIVE_SESSION_CONFIG_KEY]: parsed.data };
+  }
+
   private runControlConfig(input: ModelCallInput): Record<string, unknown> {
-    if (input.executionMode === "text-only" || !input.liveInterjections) return {};
+    if (input.executionMode === "text-only" || (!input.liveInterjections && !input.nativeSession)) return {};
     if (!this.supportsLiveInterjections() || !input.orgId || !input.runId) {
       throw new ModelCallError("MODEL_CALL_FAILED", "live interjection callback is not configured");
     }
@@ -888,10 +901,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
         `run pinned provider "${input.modelProvider}", this port only serves "${DEEP_AGENT_PROVIDER_NAME}"`,
       );
     }
+    this.nativeConfig(input);
     const deadline = Date.now() + timeoutMs;
-    const threadId = input.threadId === undefined || input.threadId === ""
-      ? await this.createThread(baseUrl)
-      : await this.ensureThread(baseUrl, input.threadId);
+    const threadId = input.nativeSession
+      ? await this.ensureThread(baseUrl, `native:${NativeSessionBindingRef.parse(input.nativeSession).bindingId}`)
+      : input.threadId === undefined || input.threadId === ""
+        ? await this.createThread(baseUrl)
+        : await this.ensureThread(baseUrl, input.threadId);
     // Snapshot BEFORE submitting the new run: a post-submit read can already include
     // this attempt's newly completed tool, incorrectly suppressing its real event.
     const prior = input.threadId || input.resume || input.checkpointResume
@@ -1076,6 +1092,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // --filter=@repo/api` 因此是红的——顺手清掉，不是本 PR 的功能改动。
           config: {
             configurable: {
+              ...this.nativeConfig(input),
               ...this.runControlConfig(input),
               org_skills: toWireSkills(input.skills),
               ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
@@ -1104,7 +1121,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
-      await input.onRemoteRunStarted?.(body.run_id);
+      await input.onRemoteRunStarted?.(body.run_id, threadId);
       return body.run_id;
     }
 
@@ -1150,6 +1167,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         ...(input.checkpointResume ? { command: { resume: true } } : { input: { messages } }),
         config: {
           configurable: {
+              ...this.nativeConfig(input),
               ...this.runControlConfig(input),
             org_skills: toWireSkills(input.skills),
             ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
@@ -1217,7 +1235,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
-    await input.onRemoteRunStarted?.(body.run_id);
+    await input.onRemoteRunStarted?.(body.run_id, threadId);
     return body.run_id;
   }
 

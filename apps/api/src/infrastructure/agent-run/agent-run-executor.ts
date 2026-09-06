@@ -1,3 +1,5 @@
+import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
+import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import type { InterjectionStore } from "../../application/agent-run/interjection-store";
 import type { ArtifactContinuationReader } from "../../application/artifacts-steering/artifact-execution";
 /**
@@ -146,6 +148,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly toolPermissionGrants?: ToolPermissionGrantStore,
     private readonly interjections?: InterjectionStore,
     private readonly artifactContinuations?: ArtifactContinuationReader,
+    private readonly nativeSessions?: NativeSessionOwner,
+    private readonly nativeOutputs?: NativeOutputStaging,
   ) {}
 
   /**
@@ -188,7 +192,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       planLedger: this.planLedger,
       events: this.events,
       toolPermissionGrants: this.toolPermissionGrants,
-      interjections: this.interjections, artifactContinuations: this.artifactContinuations,
+      interjections: this.interjections, artifactContinuations: this.artifactContinuations, nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },

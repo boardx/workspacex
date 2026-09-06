@@ -1,0 +1,30 @@
+[stack-admission] load1=9.25 cores=10 perCore=0.92 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq9rpk2-06f8058f-2a550c5603a8 db=wsx_2a550c5603a8eb6b9c2f compose=wsx-2a550c5603a8eb6b9c2f pg=21790 redis=26790 sandbox=51790
+
+> @repo/api@0.0.0 test:native-chain /private/tmp/workspacex-standard-capabilities/apps/api
+> vitest run --config vitest.native-chain.config.ts
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_2a550c5603a8eb6b9c2f capacity=100 current=6 required=32
+stdout | tests/agent-runtime/native-full-chain.test.ts > official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback
+{"chain":"native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback","skillStages":["metadata_discovered","body_read"],"tools":["read_file","execute","wx_artifact_publish"],"final":"Report staged for writeback.","artifacts":1,"attachments":1}
+
+ ✓ tests/agent-runtime/native-full-chain.test.ts (1 test) 14866ms
+   ✓ official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback 7941ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  04:33:48
+   Duration  19.97s (transform 674ms, setup 0ms, collect 1.16s, tests 14.87s, environment 0ms, prepare 50ms)
+
+[db-isolation] db=wsx_2a550c5603a8eb6b9c2f peak_connections=2
+[timing] pnpm --filter @repo/api test:native-chain
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：1s
+  总计：21s

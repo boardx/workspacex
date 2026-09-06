@@ -1,0 +1,109 @@
+{
+  "configurableKey": "native_runtime",
+  "packageSetAlgorithm": "v1:json-sorted-ascii-stableName-skillId-versionId-packageDigest-tuples",
+  "packageSetGolden": {
+    "input": [
+      {
+        "stableName": "b",
+        "skillId": "技能",
+        "versionId": "v2",
+        "packageDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "stableName": "a",
+        "skillId": "s1",
+        "versionId": "v1",
+        "packageDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "canonical": "[[\"a\",\"s1\",\"v1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],[\"b\",\"技能\",\"v2\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]]"
+  },
+  "ref": {
+    "type": "object",
+    "properties": {
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "profile": {
+        "type": "string",
+        "const": "native-v1"
+      },
+      "policy": {
+        "type": "string",
+        "const": "native-v1"
+      }
+    },
+    "required": [
+      "bindingId",
+      "profile",
+      "policy"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "runId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "orgId",
+      "runId",
+      "attemptId",
+      "leaseEpoch"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "token": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "expiresAt": {
+        "type": "integer"
+      },
+      "interruptOn": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
+      "packageDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "required": [
+      "sessionId",
+      "token",
+      "expiresAt",
+      "interruptOn",
+      "packageDigest"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

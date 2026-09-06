@@ -7,7 +7,7 @@ export type ReconciledRemoteRun =
  | {kind:"approval";toolName:string;argsSummary:string|null;interrupt?:RestorableInterrupt}
  | {kind:"failed";diagnostic:string}
  | {kind:"uncertain";diagnostic:string};
-export interface RemoteRunReconciler { reconcileExistingRun(threadId:string,remoteRunId:string,logicalRunId?:string):Promise<ReconciledRemoteRun> }
+export interface RemoteRunReconciler { reconcileExistingRun(threadId:string,remoteRunId:string,logicalRunId?:string,remoteThreadId?:string,runtimeProfile?:"legacy"|"native-v1"):Promise<ReconciledRemoteRun> }
 export const RUN_RECOVERY=Symbol("RunRecovery");
 /** Public recovery explanation; transport details stay outside the user interface. */
 export function recoveryExplanation(diagnostic:string):string {

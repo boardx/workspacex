@@ -869,8 +869,8 @@
         "WX-E003",
         "WX-E006"
       ],
-      "input_summary": "workspacePath:string, title:string, mediaType:string, sourceRefs?:string[], targetProjectId?:string, idempotencyKey:string",
-      "output_summary": "artifactId,versionId,sha256,previewRef,status:ready",
+      "input_summary": "workspacePath:string, title:string, mediaType:受支持MIME, idempotencyKey:string；sourceRefs/targetProjectId 首版明确拒绝，后续扩展需契约与权限接线。",
+      "output_summary": "工具回执 {publishId,sha256,sizeBytes,status:staged}；现有写回提交后产物查询 {artifactId,versionId,previewRef,status:ready}。staged 不等于可预览版本。",
       "acceptance_criteria": [
         "真实文件发布后UI可预览且DB/对象hash一致。",
         "上传故障、无文件、MIME不符均不返回ready；重试只建一个版本。"

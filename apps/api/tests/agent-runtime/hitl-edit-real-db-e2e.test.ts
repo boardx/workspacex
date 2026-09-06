@@ -75,6 +75,7 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
   // 决定性派生同一个远端 thread id，本文件两条用例若共用一个 chat 线程会撞进同一份状态。
   interface ThreadRecord {
     statusPolls: number;
+    streamFinished?: boolean;
     decision: { type: string; editedArgs?: Record<string, unknown> } | null;
   }
   const threads = new Map<string, ThreadRecord>();
@@ -129,13 +130,20 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
       });
       return;
     }
+    const streamMatch=/^\/threads\/([^/]+)\/runs\/[^/]+\/stream$/.exec(url);
+    if(req.method==='GET'&&streamMatch){
+      if(!threads.has(streamMatch[1]!)){json(404,{error:'unknown thread'});return;}
+      threads.get(streamMatch[1]!)!.streamFinished=true;
+      res.writeHead(200,{'content-type':'text/event-stream'});
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:streamMatch[1]})}\r\n\r\n`);return;
+    }
     const statusMatch = /^\/threads\/([^/]+)\/runs\/[^/]+$/.exec(url);
     if (req.method === "GET" && statusMatch) {
       const threadId = statusMatch[1]!;
       const record = threads.get(threadId);
       if (!record) { json(404, { error: "unknown thread" }); return; }
       record.statusPolls += 1;
-      if (record.statusPolls < 2) { json(200, { status: "pending" }); return; }
+      if (!record.streamFinished && record.statusPolls < 2) { json(200, { status: "pending" }); return; }
       if (record.decision === null) { json(200, { status: "interrupted" }); return; }
       json(200, { status: "success" });
       return;
@@ -290,7 +298,7 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
     expect(awaiting.status).toBe("awaiting_tool_permission");
     expect(awaiting.pendingApproval?.toolName).toBe(APPROVAL_TOOL_NAME);
 
-    const decideResponse = await decide(agentRunId, { decision: "edit", editedArgs: EDITED_ARGS });
+    const decideResponse = await decide(agentRunId, { decision: "edit", editedArgs: EDITED_ARGS, permissionRequestId: awaiting.pendingApproval?.permissionRequestId });
     expect(decideResponse.status).toBe(200);
     const decided = await decideResponse.json() as { status: string };
     expect(decided.status).toBe("queued");
@@ -320,9 +328,10 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
   it("反证：approve（不编辑）时上游收到的仍是原始参数——证明上面的『相等』不是恒真", async () => {
     const { agentRunId } = await postMessage("触发人工审批");
     await tick();
-    await readRun(agentRunId);
+    const awaiting = await readRun(agentRunId);
+    expect(awaiting.pendingApproval?.permissionRequestId).toBeTruthy();
 
-    const decideResponse = await decide(agentRunId, { decision: "approve" });
+    const decideResponse = await decide(agentRunId, { decision: "approve", permissionRequestId: awaiting.pendingApproval?.permissionRequestId });
     expect(decideResponse.status).toBe(200);
     await tick();
 

@@ -69,7 +69,7 @@ describe("artifact continuation over existing attachments",()=>{
       await journal.appendExecutionEvent(org,"source-run",{kind:"text_delta",attemptId:"source-run:1",messageId:"source-run:1:recovered-ai",delta:"Recovered act"});
       const recovery=new PgRunRecovery(actual,new PgAgentRunRepository(actual),{reconcileExistingRun});
       expect(await recovery.tick(org)).toBe(1);expect(await recovery.tick(org)).toBe(0);
-      expect(reconcileExistingRun).toHaveBeenCalledTimes(1);expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,"existing-remote","source-run");
+      expect(reconcileExistingRun).toHaveBeenCalledTimes(1);expect(reconcileExistingRun).toHaveBeenCalledWith(THREAD,"existing-remote","source-run",undefined,"legacy");
       const saved=await asApp(ORG,c=>c.query("SELECT status,model_output,lease_epoch FROM agent_runs WHERE id='source-run'"));
       expect(saved.rows[0]).toMatchObject({status:"writeback_pending",model_output:"Recovered actual response",lease_epoch:2});
       const log=vi.fn();

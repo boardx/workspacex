@@ -1,0 +1,24 @@
+[stack-admission] load1=11.59 cores=10 perCore=1.16 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqa3xfs-ef426757-1e71d593819c db=wsx_1e71d593819c691112c1 compose=wsx-1e71d593819c691112c1 pg=21723 redis=26723 sandbox=51723
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_1e71d593819c691112c1 capacity=100 current=6 required=32
+ ✓ tests/plan-control/plan-ledger-repo-guard.test.ts (5 tests) 164ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 6ms
+ ✓ tests/agent-runtime/native-invocation.test.ts (5 tests) 10ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  04:43:18
+   Duration  4.73s (transform 138ms, setup 0ms, collect 74ms, tests 180ms, environment 1ms, prepare 179ms)
+
+[db-isolation] db=wsx_1e71d593819c691112c1 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/plan-control/plan-ledger-repo-guard.test.ts tests/agent-runtime/native-invocation.test.ts tests/agent-run/execute-run-thin-gateway.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：1s
+  总计：6s

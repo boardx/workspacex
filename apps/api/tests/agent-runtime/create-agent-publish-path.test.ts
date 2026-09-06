@@ -99,6 +99,11 @@ async function adminClient(database = "postgres") {
 async function startDeepAgentServer(): Promise<string> {
   deepAgentServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "";
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}/stream`) {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({ run_id: RUN_ID })}\r\n\r\n`);
+      return;
+    }
     const respond = (status: number, body: unknown) => {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));

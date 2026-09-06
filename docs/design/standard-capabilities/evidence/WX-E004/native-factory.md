@@ -1,0 +1,9 @@
+# Native factory binding verification
+
+Command: `WX_NATIVE_SANDBOX_CONTAINER=wx-native-factory-test apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_native_factory.py apps/deep-agent-service/tests/test_graph_selector.py -q --timeout=60`
+
+Result: 27 passed. The native factory test uses the actual isolated session service, uploaded immutable skill package and official graph tools. A local HTTP broker fixture supplies the shared strict resolve response; the same fixture handles real dispatch authority and existing interjection polling. It verifies metadata/body-read events, a single authority check for the actual read call, unchanged configurable data without session token, and client closure. This does not establish the TS broker database implementation or production deployment wiring.
+
+The generated native-session binding schema is the single source for the `native_runtime` reference, resolve input/output and package-set canonicalization algorithm. A Unicode golden matches the shared canonical JSON. Expiry is Unix milliseconds. Missing or invalid bindings, pins, service configuration, expired response, extra fields, denied/redirect responses and oversized response fail closed. Transport has a five-second total deadline, a 16 KiB response cap and no redirects/retries.
+
+Deployment supplies `NATIVE_SESSION_SERVICE_BASE_URL`, `NATIVE_SESSION_SERVICE_KEY` (mapped to the API's dedicated internal key), and fixed absolute `NATIVE_SESSION_SOCKET`. Session credentials are resolved transiently and retained only in the backend closure, never added to graph config/state. The gateway owns creation, expiry and destruction. Python closes its HTTP client on graph-context exit. The shared legacy model, checkpointer and tracing callbacks are reused. Missing native selection remains legacy; native plus restricted execution mode is rejected.

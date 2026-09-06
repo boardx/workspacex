@@ -1,3 +1,5 @@
+import { bindNativeInvocation } from "./native-invocation";
+import type { NativeSessionOwner } from "./native-session-owner";
 import { assertCurrentRunLease } from "./run-lease";
 import type { ModelDeltaMetadata } from "./ports";
 /**
@@ -34,8 +36,13 @@ export async function invokeKernel(
   input: ModelCallInput,
   onProgress: (event: ModelCallProgressEvent) => Promise<void>,
   onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
+  native?: { owner: NativeSessionOwner; logReleaseFailure: () => void },
 ): Promise<ModelCallCompletion> {
   await assertCurrentRunLease();
+  const bound = native ? await bindNativeInvocation(native.owner, input) : undefined;
+  if (bound) input = bound.input;
+  let retainSession = false;
+  try {
   // `supportsProgress`, when the port implements it (today: only `RoutingModelCallPort`),
   // narrows the gate to the run's OWN pinned provider -- see that method's doc comment for
   // why a router-shaped port must not take this branch for a provider that only streams
@@ -46,10 +53,19 @@ export async function invokeKernel(
   const wantsProgress = completeWithProgress !== undefined
     && (model.supportsProgress ? model.supportsProgress(input.modelProvider) : true);
   if (wantsProgress && completeWithProgress) {
-    return completeWithProgress(input, onProgress, onDelta);
+    const completion = await completeWithProgress(input, onProgress, onDelta);
+    retainSession = Boolean(completion.interrupted || completion.paused);
+    return completion;
   }
   if (model.completeStream) {
-    return model.completeStream(input, onDelta);
+    const completion = await model.completeStream(input, onDelta);
+    retainSession = Boolean(completion.interrupted || completion.paused);
+    return completion;
   }
-  return model.complete(input);
+  const completion = await model.complete(input);
+  retainSession = Boolean(completion.interrupted || completion.paused);
+  return completion;
+  } finally {
+    if (bound && !retainSession) await bound.release().catch(() => native?.logReleaseFailure());
+  }
 }

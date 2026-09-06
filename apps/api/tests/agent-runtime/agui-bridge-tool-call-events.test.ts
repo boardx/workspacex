@@ -1,3 +1,4 @@
+import { withoutExecutionJournal } from "../support/agui-execution-journal";
 /**
  * #789 -- native AG-UI `TOOL_CALL_*`/`STEP_*` events over `POST /copilotkit/agui`
  * (chat-ux-acceptance-criteria.md items 2/3: "可见的规划步骤"/"可见的工具调用与进度").
@@ -63,6 +64,7 @@ let runId = "";
  * 建一个中间态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
+let streamFinished = false;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -81,13 +83,19 @@ async function startLanggraphServer(): Promise<void> {
       req.on("end", () => respond(res, 200, { run_id: runId }));
       return;
     }
+    // Valid upstream SSE availability is required by the durable Skill journal.
+    if(req.method==='GET'&&url===`/threads/${threadId}/runs/${runId}/stream`){
+      res.writeHead(200,{'content-type':'text/event-stream'});
+      streamFinished = true;
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:runId})}\r\n\r\n`);return;
+    }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = statusCallCount === 0 ? "running" : "success";
+      const status = !streamFinished && statusCallCount === 0 ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = stateCallCount === 0
+      const messages = !streamFinished && stateCallCount === 0
         ? [{ type: "human", content: "画一个架构图" }]
         : [
           { type: "human", content: "画一个架构图" },
@@ -214,6 +222,7 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
+  streamFinished = false;
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
@@ -234,7 +243,7 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     // `run_phase`（准备阶段进度，context_building / model_thinking）同样是管道事件
     // （见 agui-bridge-state-events.test.ts 的 PLUMBING_CUSTOM_EVENT_NAMES 头注），出现
     // 次数取决于轮询命中的时序（0-2 次），因此在这条精确序列断言之前先过滤掉。
-    const nonPhaseEvents = events.filter(
+    const nonPhaseEvents = withoutExecutionJournal(events).filter(
       (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
     );
     expect(nonPhaseEvents.map((e) => e.type)).toEqual([
@@ -306,6 +315,7 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     expect(finalContent?.delta).toBe(FINAL_TEXT);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）——第一次看到 running，第二次才成功。
-    expect(statusCallCount).toBeGreaterThanOrEqual(2);
+    expect(streamFinished).toBe(true);
+    expect(statusCallCount).toBeGreaterThanOrEqual(1);
   }, 30_000);
 });

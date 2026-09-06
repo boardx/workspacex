@@ -11,7 +11,8 @@ export default defineConfig({
      * 脚本在主套件后独占补跑（见 vitest.exclusive.config.ts）。#1068 的包间串行化
      * 解决的是跨包，解决不了包内——这条是那条修复的直接续作。
      */
-    exclude: ["tests/recording/personal-transcription-persistence.test.ts"],
+    // Real native sandbox lane requires an explicitly owned container; see test:native-chain.
+    exclude: ["tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],
     /**
      * WORKSPACEX_DB is how parallel workers avoid dropping each other's database, and

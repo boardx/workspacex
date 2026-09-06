@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/skill-sandbox
+
+ ✓ tests/session-manager.test.ts (13 tests) 577ms
+   ✓ trusted session manager > rejects oversized directory listings instead of returning partial or unbounded output 523ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  04:02:49
+   Duration  944ms (transform 85ms, setup 0ms, collect 130ms, tests 577ms, environment 0ms, prepare 42ms)
+

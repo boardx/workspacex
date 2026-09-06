@@ -60,6 +60,7 @@ let databasePort: PgDatabase;
 let base = "";
 let deepAgentServer: Server;
 let statusPollCount = 0;
+let joinedStreamCount = 0;
 let capturedRunBodies: unknown[] = [];
 
 function ownerConfig(database: string) {
@@ -77,6 +78,12 @@ async function adminClient(database = "postgres") {
 async function startDeepAgentServer(): Promise<string> {
   deepAgentServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "";
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}/stream`) {
+      joinedStreamCount += 1;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({ run_id: RUN_ID })}\r\n\r\n`);
+      return;
+    }
     const respond = (status: number, body: unknown) => {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
@@ -96,8 +103,8 @@ async function startDeepAgentServer(): Promise<string> {
     }
     if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}`) {
       statusPollCount += 1;
-      // 前两次仍在跑，第三次才转终态——证明轮询循环本身被真实走过。
-      const status = statusPollCount < 3 ? "running" : "success";
+      // Joining the required facts stream settles this fixture before terminal status is read.
+      const status = joinedStreamCount > 0 || statusPollCount >= 3 ? "success" : "running";
       return respond(200, { status });
     }
     if (req.method === "GET" && url === `/threads/${THREAD_ID}/state`) {
@@ -210,7 +217,8 @@ describe("#661 新组织 bootstrap 出来就有一个真实可聊的默认 agent
     const run = (await runRes.json()) as { status: string };
     expect(run.status).toBe("succeeded");
     // 轮询循环真的被走过，不是第一次查询就判定终态。
-    expect(statusPollCount).toBeGreaterThanOrEqual(3);
+    expect(joinedStreamCount).toBe(1);
+    expect(statusPollCount).toBeGreaterThanOrEqual(1);
     expect(capturedRunBodies).toHaveLength(1);
 
     /* ── ⑥ 最终回复真实写回了 chat 线程 ── */

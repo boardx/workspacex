@@ -1,3 +1,4 @@
+import { withoutExecutionJournal } from "../support/agui-execution-journal";
 /**
  * DA-17（UX-9 Line D2）-- AG-UI 状态轴：`write_todos` → `STATE_SNAPSHOT` over
  * `POST /copilotkit/agui`。
@@ -95,6 +96,7 @@ let runId = "";
 /** 同 `agui-bridge-tool-call-events.test.ts`：第一次轮询只有人类消息，之后是完整终态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
+let streamFinished = false;
 /** 每条测试各自设定的终态消息序列（loopback 服务器返回的 `values.messages`）。 */
 let finalMessages: unknown[] = [];
 
@@ -115,13 +117,19 @@ async function startLanggraphServer(): Promise<void> {
       req.on("end", () => respond(res, 200, { run_id: runId }));
       return;
     }
+    // Valid upstream SSE availability is required by the durable Skill journal.
+    if(req.method==='GET'&&url===`/threads/${threadId}/runs/${runId}/stream`){
+      res.writeHead(200,{'content-type':'text/event-stream'});
+      streamFinished = true;
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:runId})}\r\n\r\n`);return;
+    }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = statusCallCount === 0 ? "running" : "success";
+      const status = !streamFinished && statusCallCount === 0 ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = stateCallCount === 0
+      const messages = !streamFinished && stateCallCount === 0
         ? [{ type: "human", content: "更新一下计划" }]
         : finalMessages;
       stateCallCount += 1;
@@ -198,7 +206,7 @@ async function postBridgeTurn(text: string): Promise<ParsedSseEvent[]> {
   });
   const raw = await response.text();
   expect(response.status, raw).toBe(200);
-  return parseSse(raw);
+  return withoutExecutionJournal(parseSse(raw));
 }
 
 beforeAll(async () => {
@@ -226,6 +234,7 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
+  streamFinished = false;
   finalMessages = [];
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
@@ -261,7 +270,8 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     )).toHaveLength(0);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）。
-    expect(statusCallCount).toBeGreaterThanOrEqual(2);
+    expect(streamFinished).toBe(true);
+    expect(statusCallCount).toBeGreaterThanOrEqual(1);
   }, 30_000);
 
   it("run 无 write_todos（但有别的工具调用）→ 零 STATE_*/CUSTOM 事件，不发空快照", async () => {

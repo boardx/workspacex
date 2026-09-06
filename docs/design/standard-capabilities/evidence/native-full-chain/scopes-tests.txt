@@ -1,0 +1,21 @@
+[stack-admission] load1=3.80 cores=10 perCore=0.38 running=0/2
+[test-isolation] id=run-mtq9ye1p-1baeaffa-1e446df51609 db=wsx_1e446df51609a674f1a5 compose=wsx-1e446df51609a674f1a5 pg=21077 redis=26077 sandbox=51077
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_1e446df51609a674f1a5 capacity=100 current=6 required=32
+ ✓ tests/agent-run/permission-grant-scopes.test.ts (12 tests) 4159ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  04:38:59
+   Duration  6.84s (transform 468ms, setup 0ms, collect 651ms, tests 4.16s, environment 0ms, prepare 51ms)
+
+[db-isolation] db=wsx_1e446df51609a674f1a5 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/permission-grant-scopes.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：8s

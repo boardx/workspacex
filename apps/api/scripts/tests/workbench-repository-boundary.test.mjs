@@ -22,3 +22,20 @@ test('reject missing controller authorization',()=>{
  const p='src/infrastructure/agent-run/pg-interjection-store.ts';
  assert.ok(check(p,read(p),f=>read(f).replace('await this.run(principal,runId);','')).length);
 });
+const staging='src/infrastructure/agent-run/pg-native-output-staging.ts';
+for(const [label,mutate] of [
+ ['removed authority',s=>s.replace('this.authority.check','this.authority.skip')],
+ ['fake denial guard',s=>s.replace('if(!decision.allowed)','if(false)')],
+ ['forged tenant parameter',s=>s.replaceAll('[context.orgId,context.parentRunId','["other",context.parentRunId')],
+ ['missing parent predicate',s=>s.replaceAll(' AND run_id=$2','')],
+ ['wrong session binding',s=>s.replace('context.bindingId,context','context.modelBinding,context')],
+ ['forged tool arguments',s=>s.replace('toolArgs:input','toolArgs:{}')],
+ ['read before authority',s=>s.replace('const decision=await this.authority.check','await this.files(bound).read(input.workspacePath);const decision=await this.authority.check')],
+ ['new unreviewed method',s=>s.replace('async listFiles(', 'async publicListFiles(')],
+])test('staging rejects '+label,()=>assert.ok(check(staging,mutate(read(staging)),read).length));
+test('staging rejects public exposure of internal listFiles',()=>{
+ assert.ok(check(staging,read(staging),p=>p.endsWith('native-output-staging.controller.ts')?read(p)+'\nthis.staging.listFiles(orgId,runId);':read(p)).length);
+});
+test('staging rejects recovery without fence',()=>{
+ assert.ok(check(staging,read(staging),p=>p.endsWith('pg-run-recovery.ts')?read(p).replace('await withRunLease(', 'await withoutFence('):read(p)).length);
+});

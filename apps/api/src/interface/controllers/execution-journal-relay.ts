@@ -2,6 +2,7 @@ import { EventType } from "@ag-ui/core";
 import { AGUI_EXECUTION_EVENT_NAME, type ExecutionEvent } from "@repo/contracts/execution-journal";
 
 type JournalWireEvent =
+  | { type: EventType.STEP_STARTED | EventType.STEP_FINISHED; stepName: string }
   | { type: EventType.CUSTOM; name: string; value: ExecutionEvent }
   | { type: EventType.TEXT_MESSAGE_START; messageId: string; role: "assistant" }
   | { type: EventType.TEXT_MESSAGE_CONTENT; messageId: string; delta: string }
@@ -20,9 +21,17 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   const messageText = new Map<string, string>();
   let finalMessageId: string | null = null;
   const cursors = new Map<string, number>();
+  const activeSteps = new Map<string, string>();
   const close = () => {
     if (openMessage) write({ type: EventType.TEXT_MESSAGE_END, messageId: openMessage });
     openMessage = null;
+  };
+  const closeTurn = () => {
+    close();
+    // AG-UI requires closed step envelopes before RUN_FINISHED, including HITL.
+    // This closes presentation only; no tool result is fabricated.
+    for (const stepName of activeSteps.values()) write({ type: EventType.STEP_FINISHED, stepName });
+    activeSteps.clear();
   };
   const accept = (event: ExecutionEvent) => {
     if (event.seq <= (cursors.get(event.runId) ?? -1)) return { messageId, sawText };
@@ -42,6 +51,14 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     } else if (event.kind === "tool_start") {
       finalMessageId = null;
       close();
+      activeSteps.set(event.toolCallId, event.toolName);
+      write({ type: EventType.STEP_STARTED, stepName: event.toolName });
+      if (!sawText && event.planningNote?.trim()) {
+        const planningId = `${event.toolCallId}:planning`;
+        write({ type: EventType.TEXT_MESSAGE_START, messageId: planningId, role: "assistant" });
+        write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: planningId, delta: event.planningNote });
+        write({ type: EventType.TEXT_MESSAGE_END, messageId: planningId });
+      }
       write({ type: EventType.TOOL_CALL_START, toolCallId: event.toolCallId, toolCallName: event.toolName });
       write({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.toolCallId, delta: JSON.stringify(event.args ?? {}) });
       write({ type: EventType.TOOL_CALL_END, toolCallId: event.toolCallId });
@@ -49,6 +66,7 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
       write({ type: EventType.TOOL_CALL_RESULT, toolCallId: event.toolCallId,
         messageId: `${event.toolCallId}:result`, role: "tool",
         content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? null) });
+      if (activeSteps.delete(event.toolCallId)) write({ type: EventType.STEP_FINISHED, stepName: event.toolName });
     } else if (event.kind === "final_message") {
       finalMessageId = event.messageId;
       messageId = event.messageId;
@@ -57,7 +75,7 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     return { messageId, sawText };
   };
   const finish = (persistedMessageId: string, text: string): string => {
-    close();
+    closeTurn();
     // Identity proves which message is final; equality only verifies that its full
     // bytes reached this connection (a dropped SSE tail must not truncate the answer).
     if (finalMessageId && seenMessages.has(finalMessageId) && messageText.get(finalMessageId) === text) return finalMessageId;
@@ -66,5 +84,5 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     write({type:EventType.TEXT_MESSAGE_END,messageId:persistedMessageId});
     return persistedMessageId;
   };
-  return { accept, close, finish };
+  return { accept, close: closeTurn, finish };
 }

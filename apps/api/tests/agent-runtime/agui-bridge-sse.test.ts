@@ -20,6 +20,7 @@
  * discipline matters) -- proving the bridge relays the real writeback, not a fabricated
  * reply.
  */
+import { withoutExecutionJournal } from "../support/agui-execution-journal";
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -237,7 +238,7 @@ describe("POST /copilotkit/agui", () => {
       // see agui-bridge-state-events.test.ts's PLUMBING_CUSTOM_EVENT_NAMES doc -- and fires
       // an indeterminate number of times (0-2) depending on polling timing, so it is
       // filtered out before this exact-sequence assertion.
-      const nonPhaseEvents = events.filter(
+      const nonPhaseEvents = withoutExecutionJournal(events).filter(
         (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
       );
       expect(nonPhaseEvents.map((e) => e.type)).toEqual([
@@ -258,7 +259,8 @@ describe("POST /copilotkit/agui", () => {
       const echoed = AguiChatMessageIdValue.parse(idEcho?.value);
       const streamStart = events.find((e) => e.type === EventType.TEXT_MESSAGE_START);
       expect(echoed.streamingMessageId).toBe(streamStart?.messageId);
-      expect(echoed.chatMessageId).not.toBe(echoed.streamingMessageId);
+      // A non-streamed final reply is rendered under its already durable message identity.
+      expect(echoed.chatMessageId).toBe(echoed.streamingMessageId);
 
       const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
       expect(content?.delta).toBe("durable AG-UI reply from the loopback provider");
@@ -308,7 +310,7 @@ describe("POST /copilotkit/agui", () => {
     expect(status).toBe(200);
     // CK-P3 (issue #2054) -- 第二个 CUSTOM 是 `chat_message_id` 回显，见上一条用例的注释。
     // `run_phase`（准备阶段进度）同上一条用例过滤：出现次数不确定，不占位置断言。
-    const nonPhaseEvents = events.filter(
+    const nonPhaseEvents = withoutExecutionJournal(events).filter(
       (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
     );
     expect(nonPhaseEvents.map((e) => e.type)).toEqual([

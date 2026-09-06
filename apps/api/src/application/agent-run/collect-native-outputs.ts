@@ -1,3 +1,4 @@
+import { NativeArtifactPublishInput } from "@repo/contracts/native-artifact-publish";
 import { createHash } from "node:crypto";
 import { sandboxSession as S, standardCapabilities as SC } from "@repo/contracts";
 import { ObjectExistsError, type ObjectStore } from "../artifact/ports";
@@ -11,7 +12,7 @@ const digest = (bytes: Uint8Array | string) => createHash("sha256").update(bytes
 /** No attachment/event writes. A failed batch may leave unreferenced immutable objects. */
 export async function collectNativeOutputs(
   deps: { sessionFiles: BoundSessionFiles; objects: ObjectStore },
-  input: { runId: string; paths: readonly string[] },
+  input: { runId: string; paths: readonly string[]; verifiedMime?: string },
 ): Promise<readonly RunOutputFile[]> {
   if (!input.runId.trim() || input.runId.length > 256 || input.paths.length > S.limits.maxFiles) throw new Error("native_output_limit");
   const names = new Set<string>();
@@ -35,7 +36,7 @@ export async function collectNativeOutputs(
     const bytes = Buffer.from(file.contentBase64, "base64");
     const hash = digest(bytes);
     const name = path.slice(path.lastIndexOf("/") + 1);
-    const mime = outputFileMime(name);
+    const mime = input.verifiedMime === undefined ? outputFileMime(name) : NativeArtifactPublishInput.shape.mediaType.parse(input.verifiedMime);
     const key = `agent-run-outputs/${digest(input.runId)}/${hash}/${encodeURIComponent(name)}`;
     try { await deps.objects.putOnce(key, bytes, mime); }
     catch (error) { if (!(error instanceof ObjectExistsError)) throw error; }

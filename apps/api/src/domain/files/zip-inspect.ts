@@ -27,7 +27,7 @@
  * shape of attack R7/R10 names ("嵌套层数") without this feature growing a recursive
  * decompressor of arbitrary depth.
  */
-import { createInflateRaw } from "node:zlib";
+import { createInflateRaw, inflateRawSync } from "node:zlib";
 
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
@@ -271,4 +271,26 @@ export async function inspectZipForBomb(bytes: Uint8Array, limits: ZipBombLimits
   }
 
   return { ok: true, entryCount: entries.length, inspectedDecompressedBytes: total, reason: null };
+}
+
+/** Reuse the same central-directory parser after inspectZipForBomb succeeds. */
+export function zipEntryNames(bytes: Uint8Array): readonly string[] {
+  const buf=Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength),eocd=findEocd(buf);
+  if(!eocd)throw new Error('malformed archive');
+  const entries=readCentralDirectory(buf,eocd.cdOffset,eocd.entryCount);
+  if(entries.length!==eocd.entryCount)throw new Error('malformed archive');
+  return entries.map(e=>e.filename);
+}
+/** A single bounded metadata entry; never allocates the full expanded archive. */
+export function readZipEntryBounded(bytes: Uint8Array,name:string,maxBytes:number): Buffer {
+  if(!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>1024*1024)throw new Error('invalid metadata limit');
+  const buf=Buffer.from(bytes.buffer,bytes.byteOffset,bytes.byteLength),eocd=findEocd(buf);
+  if(!eocd)throw new Error('malformed archive');
+  const entries=readCentralDirectory(buf,eocd.cdOffset,eocd.entryCount).filter(e=>e.filename===name);
+  if(entries.length!==1)throw new Error('missing or duplicate metadata');
+  const entry=entries[0]!,data=localFileData(buf,entry);
+  if(!data||entry.uncompressedSize>maxBytes)throw new Error('metadata limit');
+  const result=entry.compressionMethod===0?data:entry.compressionMethod===8?inflateRawSync(data,{maxOutputLength:maxBytes}):null;
+  if(!result||result.length>maxBytes||result.length!==entry.uncompressedSize)throw new Error('invalid metadata');
+  return result;
 }

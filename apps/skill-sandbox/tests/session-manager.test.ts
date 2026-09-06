@@ -1,3 +1,4 @@
+import { sessionLimits as limits } from "../src/session/schema.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, symlink, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -123,4 +124,23 @@ describe("trusted session manager", () => {
     expect((await manager.list(session.sessionId, session.token, "/skills")).entries).toHaveLength(1);
   }, 20_000);
 
+});
+
+it('authenticated destroy tombstones expire and cannot authorize other credentials',async()=>{
+ const {manager,session}=await setup();
+ await manager.destroy(session.sessionId,session.token);
+ await expect(manager.destroy(session.sessionId,'b'.repeat(64))).rejects.toThrow('SESSION_NOT_FOUND');
+ await expect(manager.destroy(session.sessionId,session.token)).resolves.toEqual({deleted:true});
+ const tombstones=(manager as unknown as {destroyed:Map<string,{expiresAt:number}>}).destroyed;
+ tombstones.get(session.sessionId)!.expiresAt=0;
+ await manager.reapExpired();expect(tombstones.size).toBe(0);
+ await expect(manager.destroy(session.sessionId,session.token)).rejects.toThrow();
+});
+it('tombstone capacity refuses new sessions rather than evicting unexpired cancellation proof',async()=>{
+ const {manager,session}=await setup();await manager.destroy(session.sessionId,session.token);
+ const tombstones=(manager as unknown as {destroyed:Map<string,unknown>}).destroyed;
+ const original=tombstones.get(session.sessionId);
+ for(let i=1;i<limits.maxSessions!*limits.maxExecutionsPerSession!;i++)tombstones.set(`capacity-${i}`,original);
+ await expect(manager.create([])).rejects.toThrow('SESSION_LIMIT');
+ await expect(manager.destroy(session.sessionId,session.token)).resolves.toEqual({deleted:true});
 });

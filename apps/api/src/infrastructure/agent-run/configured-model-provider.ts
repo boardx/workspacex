@@ -373,8 +373,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
    */
   readonly completeStream?: (
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
-  ) => Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
+    onDelta: (delta: string, metadata?: { messageId: string }) => Promise<void>,
+  ) => Promise<{ readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
 
   constructor(config: ConfiguredModelProviderConfig) {
     this.config = config;
@@ -516,7 +516,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
+    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
   > {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
@@ -589,8 +589,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
    */
   private async streamImpl(
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }> {
+    onDelta: (delta: string, metadata?: { messageId: string }) => Promise<void>,
+  ): Promise<{ readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }> {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -670,7 +670,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             const delta = chunk.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta !== "") {
               text += delta;
-              await onDelta(delta);
+              await onDelta(delta, { messageId: "assistant" });
             }
             // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
             // 不用后来的 undefined 把已经报过的数抹掉。
@@ -692,6 +692,6 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    return { text, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
+    return { text, finalMessageId: "assistant", tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
   }
 }

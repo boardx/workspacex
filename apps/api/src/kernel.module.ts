@@ -1,3 +1,11 @@
+import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
+import { NativeOutputStagingController } from "./interface/controllers/native-output-staging.controller";
+import { PgNativeOutputStaging } from "./infrastructure/agent-run/pg-native-output-staging";
+import { createNativeSessionFiles } from "./infrastructure/agent-run/native-session-files";
+import { NativeSessionController } from "./interface/controllers/native-session.controller";
+import { NATIVE_SESSION_OWNER, type NativeSessionOwner } from "./application/agent-run/native-session-owner";
+import { PgNativeSessionOwner } from "./infrastructure/agent-run/pg-native-session-owner";
+import { createNativeSessionTransport } from "./infrastructure/agent-run/native-session-transport";
 import { PgChildRunCanceller } from "./infrastructure/agent-run/pg-child-run-canceller";
 import { PARENT_RUN_CONTROL, ParentRunControl, CHILD_RUN_CANCELLER, type ChildRunCanceller } from "./application/agent-run/parent-run-control";
 import { TOOL_EXECUTION_AUTHORITY, ToolExecutionAuthority } from "./application/agent-run/tool-execution-authority";
@@ -874,6 +882,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    NativeSessionController, NativeOutputStagingController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1081,8 +1090,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: RUN_RECOVERY,
-      useFactory: (db: DatabasePort, runs: AgentRunStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig())),
-      inject: [DATABASE_PORT, AGENT_RUN_STORE],
+      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined),
+      inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER],
     },
     {
       provide: ARTIFACT_STORE,
@@ -1695,7 +1704,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
-        interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader,
+        interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1735,12 +1744,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 构造函数该参数自己的完整取证）。与 `CopilotkitAguiController` 共用
           // `TOOL_PERMISSION_GRANT_STORE` 这同一个单例，不各自新开一份。
           toolPermissionGrants, interjections, artifactContinuations,
+          process.env.KERNEL_NATIVE_RUNTIME === "1" ? nativeSessions ?? undefined : undefined,
+          nativeOutputs ?? undefined,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
-        INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER,
+        INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
@@ -1756,6 +1767,25 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: CHILD_RUN_CANCELLER,
       useFactory: (db: DatabasePort) => new PgChildRunCanceller(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: NATIVE_OUTPUT_STAGING,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, objects: ObjectStore, authority: ToolExecutionAuthority) => {
+        if (!owner) return null;
+        const socketPath = process.env.NATIVE_SESSION_SOCKET!;
+        return new PgNativeOutputStaging(db, owner, objects, authority,
+          resolved => createNativeSessionFiles({ socketPath, sessionId: resolved.sessionId, token: resolved.token }));
+      },
+      inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, OBJECT_STORE, TOOL_EXECUTION_AUTHORITY],
+    },
+    {
+      provide: NATIVE_SESSION_OWNER,
+      useFactory: (db: DatabasePort) => {
+        const socket=process.env.NATIVE_SESSION_SOCKET, key=process.env.NATIVE_SESSION_BINDING_KEY;
+        if (process.env.KERNEL_NATIVE_RUNTIME === "1" && (!socket || !key)) throw new Error("native_runtime_configuration_missing");
+        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key) : null;
+      },
       inject: [DATABASE_PORT],
     },
     {
