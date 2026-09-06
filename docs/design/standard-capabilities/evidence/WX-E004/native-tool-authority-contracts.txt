@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/tool-authority-schema.test.ts (1 test) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  03:37:46
+   Duration  188ms (transform 41ms, setup 0ms, collect 54ms, tests 2ms, environment 0ms, prepare 29ms)
+

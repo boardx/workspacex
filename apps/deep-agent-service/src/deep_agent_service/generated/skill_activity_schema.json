@@ -1,0 +1,319 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "const": "skill_activity"
+      },
+      "version": {
+        "type": "number",
+        "const": 1
+      },
+      "fact": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "factId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillStableName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "skillVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "packageDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "stage": {
+                "type": "string",
+                "const": "metadata_discovered"
+              }
+            },
+            "required": [
+              "contractVersion",
+              "factId",
+              "skillId",
+              "skillStableName",
+              "skillVersion",
+              "packageDigest",
+              "stage"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "factId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillStableName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "skillVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "packageDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "stage": {
+                "type": "string",
+                "const": "body_read"
+              },
+              "readPath": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "contractVersion",
+              "factId",
+              "skillId",
+              "skillStableName",
+              "skillVersion",
+              "packageDigest",
+              "stage",
+              "readPath"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "factId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillStableName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "skillVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "packageDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "toolCallId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "stage": {
+                "type": "string",
+                "const": "execution_started"
+              }
+            },
+            "required": [
+              "contractVersion",
+              "factId",
+              "skillId",
+              "skillStableName",
+              "skillVersion",
+              "packageDigest",
+              "toolCallId",
+              "stage"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "factId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillStableName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "skillVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "packageDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "toolCallId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "stage": {
+                "type": "string",
+                "const": "execution_succeeded"
+              }
+            },
+            "required": [
+              "contractVersion",
+              "factId",
+              "skillId",
+              "skillStableName",
+              "skillVersion",
+              "packageDigest",
+              "toolCallId",
+              "stage"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "number",
+                "const": 1
+              },
+              "factId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "skillStableName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "skillVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "packageDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "toolCallId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "stage": {
+                "type": "string",
+                "const": "execution_failed"
+              },
+              "errorCode": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+              }
+            },
+            "required": [
+              "contractVersion",
+              "factId",
+              "skillId",
+              "skillStableName",
+              "skillVersion",
+              "packageDigest",
+              "toolCallId",
+              "stage",
+              "errorCode"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "required": [
+      "type",
+      "version",
+      "fact"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "packageDigestAlgorithm": {
+    "version": 1,
+    "hash": "sha256",
+    "encoding": "utf-8",
+    "ordering": "unicode-code-point",
+    "serialization": "compact-json-path-digest-pairs"
+  },
+  "golden": {
+    "files": [
+      {
+        "path": "😀.txt",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "path": ".txt",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "path": "SKILL.md",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "path": "中文.txt",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "canonical": "[[\"SKILL.md\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],[\"中文.txt\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],[\".txt\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],[\"😀.txt\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"]]",
+    "sha256": "ea294b59e7da5e7c6ccef708c2c814f3e8b44c5c2743186067dd084d87c5aa43"
+  }
+}

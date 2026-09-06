@@ -20,7 +20,9 @@ from langchain.agents.middleware.types import PrivateStateAttr
 from langchain_core.language_models.chat_models import BaseChatModel
 from typing_extensions import NotRequired
 
+from .native_tool_authority import NativeToolAuthority, ToolAuthority, ToolAuthorityError
 from .harness import build_middleware
+from .native_skill_activity import NativeSkillActivity, SkillActivityError
 from .sandbox_backend import HttpSessionSandbox, SandboxTransportError
 from .skill_packages import package_mount_files
 
@@ -38,9 +40,10 @@ class _BoundSkillsMiddleware(SkillsMiddleware):
         # Official by-name override: exactly one SkillsMiddleware in the graph.
         return "SkillsMiddleware"
 
-    def __init__(self, backend, binding: str):
+    def __init__(self, backend, binding: str, activity=None):
         super().__init__(backend=backend, sources=["/skills/"])
         self._binding = binding
+        self._activity = activity
 
     def _validate_binding(self, state):
         previous = state.get("native_skills_binding")
@@ -52,11 +55,15 @@ class _BoundSkillsMiddleware(SkillsMiddleware):
     def before_agent(self, state, runtime, config):
         self._validate_binding(state)
         update = super().before_agent(state, runtime, config)
+        if self._activity is not None:
+            self._activity.metadata_discovered((update or state).get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
 
     async def abefore_agent(self, state, runtime, config):
         self._validate_binding(state)
         update = await super().abefore_agent(state, runtime, config)
+        if self._activity is not None:
+            self._activity.metadata_discovered((update or state).get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
 
 
@@ -66,6 +73,7 @@ def create_native_graph(
     sandbox: HttpSessionSandbox,
     pinned_skills: list[dict[str, Any]],
     interrupt_on: dict,
+    tool_authority: ToolAuthority,
     tools=(),
     system_prompt=None,
     checkpointer=None,
@@ -77,11 +85,13 @@ def create_native_graph(
     construction. Missing/legacy-only packages fail closed. No mount is modified.
     The trusted factory must create this session from exactly the same
     package_mount_files(pinned_skills), without additional packages.
+    tool_authority is mandatory and checked immediately before every tool dispatch.
     interrupt_on is mandatory trusted-factory policy; {} is an explicit grant
     for the isolated low-risk tools, never an inferred default.
     Checkpoint bindings reject stale skills_metadata rather than silently reusing
     cached descriptions from another package version or session.
     """
+    authority_middleware = NativeToolAuthority(tool_authority)
     if not isinstance(interrupt_on, dict):
         raise ValueError("An explicit trusted interrupt policy is required; {} explicitly authorizes sandbox tools")
     if not isinstance(sandbox, HttpSessionSandbox):
@@ -110,10 +120,11 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, SandboxTransportError) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure
+    activity = NativeSkillActivity(pinned_skills)
     return create_deep_agent(
         model=model, tools=tools, system_prompt=system_prompt, backend=backend,
         skills=["/skills/"],
@@ -122,6 +133,6 @@ def create_native_graph(
         subagents=[{"name": "general-purpose",
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")}],
-        middleware=[_BoundSkillsMiddleware(backend, binding), *middleware],
+        middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, authority_middleware],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )

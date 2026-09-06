@@ -61,3 +61,12 @@ def real_native_session(pins=None):
         finally:
             deleted = client.delete(f"/sessions/{session['sessionId']}", headers={"Authorization": f"Bearer {session['token']}"})
             assert deleted.status_code == 200
+
+
+class FakeAuthority:
+    """Explicit test-only authority, never selected by a production factory."""
+    def check(self, tool_call):
+        return None
+
+    async def acheck(self, tool_call):
+        return None

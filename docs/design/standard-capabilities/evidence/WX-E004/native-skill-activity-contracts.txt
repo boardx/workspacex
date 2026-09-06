@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/skill-package-manifest.test.ts (2 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  03:24:55
+   Duration  238ms (transform 53ms, setup 0ms, collect 71ms, tests 3ms, environment 0ms, prepare 30ms)
+

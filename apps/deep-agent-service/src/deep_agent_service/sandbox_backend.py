@@ -20,6 +20,7 @@ import deepagents.backends.sandbox as upstream
 from deepagents.backends.sandbox import BaseSandbox
 
 from .upstream_compat import ensure_sandbox_compat
+from .native_skill_activity import observe_skill_read
 
 
 LIMITS = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())["limits"]
@@ -125,12 +126,15 @@ class HttpSessionSandbox(BaseSandbox):
                     output = downloaded.content.decode("utf-8")
                 except UnicodeDecodeError:
                     return ReadResult(error="Sandbox read capture was not UTF-8 JSON")
-            return upstream._parse_read_output(output, file_path)
+            parsed = upstream._parse_read_output(output, file_path)
         finally:
             # Generated hexadecimal path only, never interpolate a caller path into cleanup.
             cleaned = self.execute(f"rm -f -- {capture} {capture}.ec")
             if cleaned.exit_code != 0 or cleaned.truncated:
                 raise SandboxTransportError("Sandbox read capture cleanup failed")
+
+        observe_skill_read(file_path, parsed)
+        return parsed
 
     async def aread(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
         return await asyncio.to_thread(self.read, file_path, offset, limit)

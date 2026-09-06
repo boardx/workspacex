@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 
+from native_sandbox_fixture import FakeAuthority
 from native_sandbox_fixture import pinned_skill_package as package, real_native_session
 
 from deep_agent_service import native_graph
@@ -60,7 +61,7 @@ def test_native_tools_and_harness_share_one_backend(monkeypatch):
         return middleware
     monkeypatch.setattr(native_graph, "build_middleware", capture)
     adapter = sandbox()
-    graph = create_native_graph(model(), sandbox=adapter, pinned_skills=[], interrupt_on={})
+    graph = create_native_graph(model(), sandbox=adapter, pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={})
     node = graph.nodes["tools"]
     names = set(getattr(getattr(node, "bound", node), "tools_by_name"))
     assert {"read_file", "write_file", "edit_file", "execute", "ls", "glob", "grep"} <= names
@@ -73,10 +74,10 @@ def test_native_tools_and_harness_share_one_backend(monkeypatch):
 
 def test_pins_must_be_full_and_match_mounted_bytes():
     with pytest.raises(ValueError, match="complete package"):
-        create_native_graph(model(), sandbox=sandbox(), pinned_skills=[{"stable_name": "old", "content": "legacy"}], interrupt_on={})
+        create_native_graph(model(), sandbox=sandbox(), pinned_skills=[{"stable_name": "old", "content": "legacy"}], tool_authority=FakeAuthority(), interrupt_on={})
     with pytest.raises(ValueError, match="does not match"):
-        create_native_graph(model(), sandbox=sandbox(package(), corrupt=True), pinned_skills=package(), interrupt_on={})
-    create_native_graph(model(), sandbox=sandbox(package()), pinned_skills=package(), interrupt_on={})
+        create_native_graph(model(), sandbox=sandbox(package(), corrupt=True), pinned_skills=package(), tool_authority=FakeAuthority(), interrupt_on={})
+    create_native_graph(model(), sandbox=sandbox(package()), pinned_skills=package(), tool_authority=FakeAuthority(), interrupt_on={})
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -115,7 +116,7 @@ def test_large_result_uses_official_state_route(monkeypatch):
         """Emit a large research result."""
         return "X" * 8000
     graph = create_native_graph(model(AIMessage(content="", tool_calls=[{"id": "large", "name": "large_result", "args": {}}]),
-                                      AIMessage(content="done")), sandbox=sandbox(), pinned_skills=[], interrupt_on={}, tools=[large_result])
+                                      AIMessage(content="done")), sandbox=sandbox(), pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={}, tools=[large_result])
     result = graph.invoke({"messages": [{"role": "user", "content": "hello"}]})
     assert "/large" in result.get("files", {}), str({"files": list(result.get("files", {})), "messages": [str(m.content)[:180] for m in result["messages"]]})
     assert "".join(result["files"]["/large"]["content"]) == "X" * 8000
@@ -128,13 +129,13 @@ def test_checkpoint_cache_rejects_other_session_or_package(change):
     session_id = str(uuid4())
     checkpointer = MemorySaver()
     config = {"configurable": {"thread_id": "native-cache"}}
-    first = create_native_graph(model(), sandbox=sandbox(pins, session_id=session_id), pinned_skills=pins, interrupt_on={}, checkpointer=checkpointer)
+    first = create_native_graph(model(), sandbox=sandbox(pins, session_id=session_id), pinned_skills=pins, tool_authority=FakeAuthority(), interrupt_on={}, checkpointer=checkpointer)
     first.invoke({"messages": [{"role": "user", "content": "hello"}]}, config)
     next_pins = copy.deepcopy(pins)
     if change == "package":
         next_pins[0]["package"]["versionId"] = "v2"
     other = create_native_graph(model(), sandbox=sandbox(next_pins, session_id=str(uuid4()) if change == "session" else session_id),
-                                pinned_skills=next_pins, interrupt_on={}, checkpointer=checkpointer)
+                                pinned_skills=next_pins, tool_authority=FakeAuthority(), interrupt_on={}, checkpointer=checkpointer)
     with pytest.raises(ValueError, match="cache binding mismatch"):
         other.invoke({"messages": [{"role": "user", "content": "hello again"}]}, config)
 
@@ -143,7 +144,7 @@ def test_real_pinned_skill_executes_in_isolated_session():
         graph = create_native_graph(model(
             AIMessage(content="", tool_calls=[{"id": "read-skill", "name": "read_file", "args": {"file_path": "/skills/example/SKILL.md"}}]),
             AIMessage(content="", tool_calls=[{"id": "execute-skill", "name": "execute", "args": {"command": "python3 /skills/example/scripts/report.py", "timeout": 10}}]),
-            AIMessage(content="Created the report.")), sandbox=adapter, pinned_skills=pins, interrupt_on={}, checkpointer=MemorySaver())
+            AIMessage(content="Created the report.")), sandbox=adapter, pinned_skills=pins, tool_authority=FakeAuthority(), interrupt_on={}, checkpointer=MemorySaver())
         config = {"configurable": {"thread_id": "native-integration"}}
         result = graph.invoke({"messages": [{"role": "user", "content": "Create the report using the example skill."}]}, config)
         assert any(skill["name"] == "example" for skill in graph.get_state(config).values["skills_metadata"])
@@ -165,7 +166,7 @@ def test_unknown_execution_outcome_is_not_retried():
                                          "truncated": False, "timedOut": False, "cancelled": False})
     adapter = HttpSessionSandbox(str(uuid4()), "a" * 64, httpx.Client(transport=httpx.MockTransport(handler), base_url="http://sandbox"))
     graph = create_native_graph(model(AIMessage(content="", tool_calls=[{"id": "unknown", "name": "execute", "args": {"command": "side-effect"}}]),
-                                      AIMessage(content="Execution outcome is unknown.")), sandbox=adapter, pinned_skills=[], interrupt_on={})
+                                      AIMessage(content="Execution outcome is unknown.")), sandbox=adapter, pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={})
     with pytest.raises(SandboxTransportError, match="outcome unknown"):
         graph.invoke({"messages": [{"role": "user", "content": "hello"}]})
     assert len(calls) == 1, "Retrying with new execution IDs can replay the side effect"
@@ -175,8 +176,8 @@ def test_interrupt_policy_must_be_explicit():
     with pytest.raises(TypeError, match="interrupt_on"):
         create_native_graph(model(), sandbox=sandbox(), pinned_skills=[])
     with pytest.raises(ValueError, match="explicit trusted interrupt policy"):
-        create_native_graph(model(), sandbox=sandbox(), pinned_skills=[], interrupt_on=None)
-    create_native_graph(model(), sandbox=sandbox(), pinned_skills=[], interrupt_on={})
+        create_native_graph(model(), sandbox=sandbox(), pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on=None)
+    create_native_graph(model(), sandbox=sandbox(), pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={})
 
 
 def test_only_explicit_text_delegate_cannot_call_parent_tool(monkeypatch):
@@ -196,7 +197,7 @@ def test_only_explicit_text_delegate_cannot_call_parent_tool(monkeypatch):
     graph = create_native_graph(model(
         AIMessage(content="", tool_calls=[{"id": "delegate", "name": "task", "args": {"description": "Draft text only", "subagent_type": "general-purpose"}}]),
         AIMessage(content="TEXT_ONLY_CHILD", tool_calls=[{"id": "denied", "name": "parent_secret", "args": {}}]),
-        AIMessage(content="done")), sandbox=sandbox(), pinned_skills=[], interrupt_on={}, tools=[parent_secret])
+        AIMessage(content="done")), sandbox=sandbox(), pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={}, tools=[parent_secret])
     assert len(children) == 1
     assert "tools" not in children[0].nodes
     assert not any("SkillsMiddleware" in name or "FilesystemMiddleware" in name for name in children[0].nodes)
@@ -211,7 +212,7 @@ def test_real_execute_waits_for_official_approval():
         graph = create_native_graph(model(
             AIMessage(content="", tool_calls=[{"id": "gated", "name": "execute", "args": {"command": "python3 /skills/example/scripts/report.py", "timeout": 10}}]),
             AIMessage(content="Approved report created.")), sandbox=adapter, pinned_skills=pins,
-            interrupt_on={"execute": True}, checkpointer=MemorySaver())
+            tool_authority=FakeAuthority(), interrupt_on={"execute": True}, checkpointer=MemorySaver())
         config = {"configurable": {"thread_id": "native-hitl"}}
         paused = graph.invoke({"messages": [{"role": "user", "content": "Create a report."}]}, config)
         assert paused.get("__interrupt__")

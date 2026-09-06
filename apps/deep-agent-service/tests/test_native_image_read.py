@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from pydantic import Field
 
 from deep_agent_service.native_graph import create_native_graph
+from native_sandbox_fixture import FakeAuthority
 from native_sandbox_fixture import real_native_session
 from test_native_graph import ScriptedModel
 
@@ -45,7 +46,7 @@ def test_uploaded_png_reaches_image_capable_model(width, asynchronous):
         assert adapter.upload_files([('/workspace/screenshot.png', payload)])[0].error is None
         read = asyncio.run(adapter.aread('/workspace/screenshot.png')) if asynchronous else adapter.read('/workspace/screenshot.png')
         assert read.error is None
-        graph = create_native_graph(model, sandbox=adapter, pinned_skills=[], interrupt_on={})
+        graph = create_native_graph(model, sandbox=adapter, pinned_skills=[], tool_authority=FakeAuthority(), interrupt_on={})
         graph.invoke({'messages': [{'role': 'user', 'content': 'Read the uploaded image.'}]},
                      config={'configurable': {'disable_task_auto_classify': True}})
     blocks = [block for messages in model.observed for message in messages
