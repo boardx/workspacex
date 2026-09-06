@@ -15,6 +15,8 @@ import httpx
 from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
 from deepagents.backends.sandbox import BaseSandbox
 
+from .upstream_compat import ensure_sandbox_compat
+
 
 LIMITS = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())["limits"]
 
@@ -25,6 +27,7 @@ class SandboxTransportError(RuntimeError):
 
 class HttpSessionSandbox(BaseSandbox):
     def __init__(self, session_id: str, token: str, client: httpx.Client):
+        ensure_sandbox_compat()
         self._session_id = str(UUID(session_id))
         if len(token) != 64 or any(c not in "0123456789abcdef" for c in token):
             raise ValueError("Invalid sandbox credential")
