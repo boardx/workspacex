@@ -215,6 +215,29 @@ else
   echo "${ENV_FILE} 已存在，不覆盖——避免把线上密码换成新值后服务连不上自己的库"
 fi
 
+# 2026-09-06 实测事故：上面那个块**只在 deploy.env 不存在时**跑。于是后来给部署链新增的
+# 每一个必需键（如 `DIAG_DB_PASSWORD`，2026-09-02 随 app_diag_ro 一起加的）在**已经存在
+# deploy.env 的机器上永远不会被补进去**，重跑 provision.sh 也不会——`if [ ! -f ]` 直接跳过。
+# 症状：deploy.sh 跑到用它的那一步 `unbound variable` 当场死掉，而这台机器上一次成功部署
+# 是几周前的事，谁也想不到是 env 少了一行。
+#
+# ⇒ 存量文件按键逐个补齐：**只补缺的，绝不覆盖已有的值**（覆盖 = 把线上密码换掉，
+#   服务连不上自己的数据库——这正是本文件头注第一段就在防的事）。
+ensure_env_key() {
+  local key=$1 value=$2
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    return 0
+  fi
+  printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+  echo "  补齐缺失的 ${key}（已有的值一个都没动）"
+}
+
+gen_secret() { openssl rand -base64 24; }
+ensure_env_key DIAG_DB_USER app_diag_ro
+ensure_env_key DIAG_DB_PASSWORD "$(gen_secret)"
+chmod 600 "$ENV_FILE"
+chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
+
 step "5. Caddy（TLS 终结，同源反代——避免碰应用代码里没有的 CORS 配置）"
 if ! command -v caddy >/dev/null 2>&1; then
   apt-get -qq update >/dev/null
@@ -352,10 +375,23 @@ install -o root -g root -m 0644 "${APP_DIR}/.harness/scripts/vm/deep-agent-lib.s
 install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/deploy.sh" /usr/local/bin/workspacex-deploy
 echo "已装 $(sha256sum /usr/local/bin/workspacex-deploy | cut -d' ' -f1)"
 
+# 2026-09-06：上面这三份此前**只有人手动跑本脚本才会更新**——改了 deploy.sh 合入 main
+# 对真正被执行的东西没有任何影响，而部署照样绿（#2833 已把这条缝变成会红的门）。
+# 这一行装的是那道门的**修复动作**：一条无参、只从 origin/main 取内容的更新命令，
+# 由 devapp-install-trusted-scripts.yml 手动触发。为什么这样设计见该脚本头注。
+install -o root -g root -m 0755 "${APP_DIR}/.harness/scripts/vm/install-trusted-scripts.sh" \
+  /usr/local/bin/workspacex-install-trusted-scripts
+echo "已装 $(sha256sum /usr/local/bin/workspacex-install-trusted-scripts | cut -d' ' -f1)"
+
 step "8. sudoers：${RUNNER_USER} 只许免密跑这一条命令"
 SUDOERS_FILE=/etc/sudoers.d/workspacex-deploy
+# ⚠ 两条都**钉死绝对路径且不带通配**。第二条（更新 root 副本）本身是一条提权面：
+#   装进 /usr/local/bin 的东西会被 root 执行。它的安全性靠三件事一起成立——命令不接受
+#   参数、脚本只从 origin/main 的 git 对象取内容（不读工作区）、装完打印 sha256 可追。
+#   详见 install-trusted-scripts.sh 头注；别在这里给它加参数或通配。
 cat > "$SUDOERS_FILE" <<EOF
 ${RUNNER_USER} ALL=(root) NOPASSWD: /usr/local/bin/workspacex-deploy
+${RUNNER_USER} ALL=(root) NOPASSWD: /usr/local/bin/workspacex-install-trusted-scripts
 EOF
 chmod 440 "$SUDOERS_FILE"
 visudo -cf "$SUDOERS_FILE" && echo "sudoers 语法通过"
