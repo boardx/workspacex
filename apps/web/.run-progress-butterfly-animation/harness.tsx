@@ -1,27 +1,20 @@
 /**
  * issue #2785 截图 harness —— 见同目录 README.md「截图怎么来的」。
- * 用真实 RunProgressButterfly + 真实文案常量 + 与 copilotkit-v2-panel-body.tsx 同一套
- * className 复刻进度卡，静态渲染成 HTML（不起 Next/CopilotKit）。用法：
+ * 直接渲染生产用的 RunProgressCard（run-progress-card.tsx，面板 body 用的同一个组件）+
+ * 真实文案常量，静态渲染成 HTML（不起 Next/CopilotKit）。用法：
  *   pnpm exec tsx .run-progress-butterfly-animation/harness.tsx <输出目录>
  */
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  RunProgressButterfly,
-  type RunProgressButterflyMotion,
-} from "@/components/chat/run-progress-butterfly";
-import { cn } from "@/lib/utils";
-import { REPLYING_PHASE_LABEL, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
+import { RunProgressButterfly, type RunProgressButterflyMotion } from "@/components/chat/run-progress-butterfly";
+import { RunProgressCard } from "@/components/chat/run-progress-card";
+import { REPLYING_PHASE_LABEL } from "@/lib/copilotkit-v2-run-progress";
 import { phaseLabelForRunPhase, phaseLabelForToolName } from "@/lib/agent-run-phase";
 
-const RUN_STAGE_ORDER = [
-  { key: "preparing", label: "准备" },
-  { key: "acting", label: "执行" },
-  { key: "replying", label: "回复" },
-] as const;
-
+// issue #2837（PR #2839 review）—— 不再复刻进度卡：直接渲染生产用的 `RunProgressCard`，
+// 截图即真实 UI，卡片再改也不会在这里漂成第二份声明。
 const STAGES = [
   { stage: "preparing", phase: phaseLabelForRunPhase("accepted"), elapsed: 2, longrun: false },
   { stage: "acting", phase: phaseLabelForToolName("call_skill"), elapsed: 7, longrun: false },
@@ -35,43 +28,22 @@ function Card({
   longrun,
   motion,
 }: {
-  stage: string;
+  stage: "preparing" | "acting" | "replying";
   phase: string;
   elapsed: number;
   longrun: boolean;
   motion: RunProgressButterflyMotion;
 }): JSX.Element {
   return (
-    <div
-      data-testid="copilotkit-v2-running-indicator"
-      role="status"
-      aria-live="polite"
-      className="mt-3 flex w-fit max-w-full items-center gap-3 rounded-xl border border-border-subtle bg-muted/60 px-4 py-3"
-    >
-      <RunProgressButterfly motion={motion} />
-      <div className="flex min-w-0 flex-col gap-1">
-        <span
-          className="flex items-center gap-1.5 text-12 text-muted-foreground"
-          data-testid="copilotkit-v2-thinking-stage"
-          data-stage={stage}
-        >
-          {RUN_STAGE_ORDER.map(({ key, label }, i) => (
-            <React.Fragment key={key}>
-              {i > 0 ? <span aria-hidden>→</span> : null}
-              <span className={cn(key === stage && "font-medium text-card-foreground")}>{label}</span>
-            </React.Fragment>
-          ))}
-        </span>
-        <span
-          className="flex flex-wrap items-center gap-1.5 text-13 text-muted-foreground"
-          data-testid="copilotkit-v2-thinking"
-        >
-          <span data-testid="copilotkit-v2-thinking-phase">{phase}</span>
-          <span data-testid="copilotkit-v2-thinking-elapsed">· 已用 {elapsed} 秒</span>
-          {longrun ? <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span> : null}
-        </span>
-      </div>
-    </div>
+    <RunProgressCard
+      className="mt-3"
+      stage={stage}
+      phaseLabel={phase}
+      elapsedSeconds={elapsed}
+      isLongRun={longrun}
+      planStep={null}
+      motion={motion}
+    />
   );
 }
 
