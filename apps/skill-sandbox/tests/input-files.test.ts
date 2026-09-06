@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { executeScript } from "../src/execute-script";
-import { parseInputFiles } from "../src/input-files";
+import { executeScript } from "../src/execute-script.js";
+import { parseInputFiles } from "../src/input-files.js";
 
 describe("immutable source files", () => {
   it("rejects traversal, duplicate names and malformed base64 before execution", () => {
