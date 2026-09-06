@@ -23,12 +23,23 @@ const SelectionCtx = React.createContext<{ selectedId: string | null; onSelect: 
 function useTap(node: PrototypeNode) {
   const { selectedId, onSelect } = React.useContext(SelectionCtx);
   const id = node.id;
+  const interactive = onSelect !== null && id !== undefined;
+  const toggle = () => { if (interactive) onSelect(id === selectedId ? null : id); };
   return {
     "data-node-id": id,
     "data-selected": id !== undefined && id === selectedId ? "true" : undefined,
-    onClick: onSelect === null || id === undefined
-      ? undefined
-      : (e: React.MouseEvent) => { e.stopPropagation(); onSelect(id === selectedId ? null : id); },
+    // 可选中时是一个真正的控件：role/tabIndex/aria-pressed + Enter/Space 触发（Codex P2：不能只挂 onClick）。
+    ...(interactive
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          "aria-pressed": id === selectedId,
+          onClick: (e: React.MouseEvent) => { e.stopPropagation(); toggle(); },
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggle(); }
+          },
+        }
+      : {}),
   } as const;
 }
 

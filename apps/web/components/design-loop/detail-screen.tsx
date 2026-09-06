@@ -189,6 +189,9 @@ export function DesignDetailScreen({
       const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
+      // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
+      // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
+      if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
     } catch (err) {
       setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);

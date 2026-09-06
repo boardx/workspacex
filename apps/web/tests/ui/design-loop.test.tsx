@@ -1213,6 +1213,35 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]).toEqual({ text: "删掉它", focusNodeId: "n3" });
     await waitFor(() => expect(screen.queryByTestId("design-detail-focus")).toBeNull()); // n3 没了 ⇒ chip 消失
+    // 键盘可选：Tab 到节点、Enter 选中、Space 取消
+    const nav = screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement;
+    expect(nav.getAttribute("role")).toBe("button");
+    expect(nav.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(nav, { key: "Enter" });
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("导航栏「首页」");
+    expect(nav.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyDown(nav, { key: " " });
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
+  });
+
+  it("迭代 2 整页重生成后选中清空：applied 含 frames ⇒ 即使新树里有同名 id 也不沿用（Codex P1）", async () => {
+    const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+    const regenerated = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "全新的 n2" } }] };
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return { project: project({ frames: ["新页"], prototype: [regenerated], chat: [{ role: "user", text: "重画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "重画了。", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: ["frames", "prototype"] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("按钮「发送」");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "重画" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("全新的 n2"));
+    expect(screen.queryByTestId("design-detail-focus")).toBeNull();
   });
 
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
