@@ -42,6 +42,7 @@ import {
   buildFeedbackInboxItems,
   buildExceptionInboxItems,
   buildDesignInboxItems,
+  applyBoardOrder,
   compareInboxDesc,
   decodeInboxCursor,
   encodeInboxCursor,
@@ -49,6 +50,7 @@ import {
   type InboxSortKey,
 } from "./inbox-projection";
 import { aggregateInboxSources, logInboxAggregation, type InboxObservabilityDeps } from "./aggregate-inbox-sources";
+import type { InboxOrderRepository } from "./inbox-order.port";
 
 export type InboxItemView = z.infer<typeof C.InboxItem>;
 export type InboxSourcesView = z.infer<typeof C.InboxSources>;
@@ -68,6 +70,8 @@ export interface ListInboxDeps extends InboxObservabilityDeps {
    * 那种"需要平台超管身份才查得动"的第二道门,任何过了 `canTriage` 的请求者都能看这一半。
    */
   readonly design: DesignProjectDeps;
+  /** 2026-09-06——列内排序值的落库端口，见契约 `InboxItem.boardOrder` 头注。 */
+  readonly orders: InboxOrderRepository;
 }
 
 export interface ListInboxInput extends Pick<ListFeedbackInput, "viewerId" | "viewerOrgRole" | "viewerTeamId"> {
@@ -98,11 +102,15 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
   const startedAt = Date.now();
   const { feedbackItems, exceptionItems, designItems, sources, stats } = await aggregateInboxSources(deps, input);
 
-  let all = [
-    ...buildFeedbackInboxItems(feedbackItems),
-    ...buildExceptionInboxItems(exceptionItems),
-    ...buildDesignInboxItems(designItems),
-  ];
+  const orders = await deps.orders.getOrders();
+  let all = applyBoardOrder(
+    [
+      ...buildFeedbackInboxItems(feedbackItems),
+      ...buildExceptionInboxItems(exceptionItems),
+      ...buildDesignInboxItems(designItems),
+    ],
+    orders,
+  );
 
   if (input.kind !== undefined) all = all.filter((i) => i.item.kind === input.kind);
   if (input.excludeKind !== undefined) all = all.filter((i) => i.item.kind !== input.excludeKind);

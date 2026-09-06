@@ -64,3 +64,19 @@ export async function listInbox(input?: {
 export async function getInboxCounts(): Promise<GetInboxCountsOut> {
   return apiRequest<GetInboxCountsOut>(inbox.operations.getInboxCounts.path);
 }
+
+export type ReorderInboxItemOut = z.infer<typeof inbox.operations.reorderInboxItem.out>;
+
+/**
+ * 2026-09-06——列内排序（拖拽排序 / ↑↓ 按钮共用），见契约 `reorderInboxItem` 头注。
+ * `orderedIds` 是这一列排序后的**完整**新顺序（`board-reorder.ts` 算），不是增量指令。
+ */
+export async function reorderInboxItem(
+  stage: InboxStage,
+  orderedIds: readonly { readonly kind: InboxKind; readonly id: string }[],
+): Promise<ReorderInboxItemOut> {
+  return apiRequest<ReorderInboxItemOut>(inbox.operations.reorderInboxItem.path, {
+    method: "PUT",
+    body: { stage, orderedIds },
+  });
+}

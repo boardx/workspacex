@@ -333,6 +333,16 @@ export const InboxItem = z
     exception: InboxExceptionMeta.nullable(),
     submittedByMe: z.boolean(),
     votedByMe: z.boolean(),
+    /**
+     * 2026-09-06（列内可上下移动/拖拽排序）——**列内展示顺序，越小越靠前**。
+     * 落库表见 `apps/api/migrations/20260906120000_inbox_board_order.sql`
+     * 的 `inbox_item_order`（独立表，`(org_id, kind, item_id)` 寻址，源表不动一列）。
+     * ⚠ 这是**跨整个收件箱**的一个数，不是"只在某一列里有意义"的相对值——一条从未
+     *   被排过序的条目回退到 `-createdAt 的毫秒数`（服务端 `list-inbox.ts` 算），
+     *   让默认顺序与现有"越新越靠前"一致。前端按列（`stage`）分组后各自按这个值
+     *   升序展示；拖拽/上下移动的落库操作见 `operations.reorderInboxItem`。
+     */
+    boardOrder: z.number(),
   })
   .strict();
 export type InboxItem = z.infer<typeof InboxItem>;
@@ -431,6 +441,46 @@ export const operations = {
           .strict(),
         total: z.number().int().nonnegative(),
         sources: InboxSources,
+      })
+      .strict(),
+    err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 2026-09-06——把某一列（`stage`）重新排序（拖拽排序 / ↑↓ 按钮共用这一条操作）。
+   *
+   * ⚠ **不是** `PUT /inbox/:id/status` 那类"迁移状态"的操作——这条只改展示顺序，
+   *   `stage` 由 `sourceStatus` 派生这条规则完全不变（见文件头「状态迁移不新建接口」）。
+   *   跨列拖拽仍然只能通过 `feedbackLoop.operations.triageFeedback` /
+   *   `systemErrorLogs.operations.updateSystemErrorLifecycle` 完成。
+   *
+   * ⚠ **`orderedIds` 是这一列排序后的完整成员列表**（`{kind,id}`，按新顺序），不是
+   *   "把某一项挪到某个位置"的增量指令——前端已经在本地把整列重新排过一次（拖拽落点 /
+   *   点了 ↑↓），这里原样把那份顺序告诉服务端。服务端按数组下标 0..n-1 整体重新赋值
+   *   （见迁移文件头注「排序值」），不做增量插入，天然幂等：同一份顺序提交两次结果一样。
+   * ⚠ 服务端**不校验** `orderedIds` 是不是这一列"当前真实的全部成员"——请求发出后
+   *   到落库前，列的真实成员完全可能已经变化（另一张卡片被并发拖进/拖出这一列）。
+   *   这里只对**传进来的这些 id** 落一次排序值；漏传的 id 保留它原来的 `boardOrder`
+   *   不动，不会被这次调用抹掉或重新编号——所以一次稍微过期的提交最多是"顺序看起来
+   *   有点错位"，不会丢数据或产生一个不存在的状态。
+   */
+  reorderInboxItem: {
+    method: "PUT",
+    path: "/inbox/order",
+    in: z
+      .object({
+        stage: InboxStage,
+        orderedIds: z
+          .array(z.object({ kind: InboxKind, id: z.string() }).strict())
+          .min(1)
+          .max(500),
+      })
+      .strict(),
+    out: z
+      .object({
+        stage: InboxStage,
+        /** 本次实际落库的条数（`orderedIds` 去重后的数量，见用例头注） */
+        count: z.number().int().nonnegative(),
       })
       .strict(),
     err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,

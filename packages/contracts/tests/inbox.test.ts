@@ -84,6 +84,7 @@ const feedbackItem: inbox.InboxItem = {
   exception: null,
   submittedByMe: false,
   votedByMe: true,
+  boardOrder: 0,
 };
 
 const exceptionItem: inbox.InboxItem = {
@@ -108,6 +109,7 @@ const exceptionItem: inbox.InboxItem = {
   exception: { location: "/auth/callback", count: 12, affectedUsers: null, devNote: null, tags: [] },
   submittedByMe: false,
   votedByMe: false,
+  boardOrder: 0,
 };
 
 describe("InboxItem -- 正例", () => {
@@ -229,12 +231,28 @@ describe("listInbox.in -- query 边界", () => {
 });
 
 describe("操作形状", () => {
-  it("两个操作都是 GET、无路径参数、错误码都在 InboxError 里", () => {
-    for (const op of Object.values(inbox.operations)) {
+  it("listInbox / getInboxCounts 都是 GET、无路径参数、错误码都在 InboxError 里", () => {
+    for (const op of [inbox.operations.listInbox, inbox.operations.getInboxCounts]) {
       expect(op.method).toBe("GET");
       expect(op.path).not.toContain(":");
       for (const e of op.err) expect(inbox.InboxError.options).toContain(e);
     }
+  });
+  it("reorderInboxItem：PUT /inbox/order，不是「按 id 迁移状态」那种路径参数形状", () => {
+    const op = inbox.operations.reorderInboxItem;
+    expect(op.method).toBe("PUT");
+    expect(op.path).toBe("/inbox/order");
+    expect(op.path).not.toContain(":");
+    for (const e of op.err) expect(inbox.InboxError.options).toContain(e);
+  });
+  it("reorderInboxItem.in：orderedIds 至少 1 条、最多 500 条，元素闭集校验", () => {
+    const schema = inbox.operations.reorderInboxItem.in;
+    expect(schema.safeParse({ stage: "backlog", orderedIds: [] }).success).toBe(false);
+    expect(schema.safeParse({ stage: "backlog", orderedIds: [{ kind: "feedback", id: "a" }] }).success).toBe(true);
+    expect(schema.safeParse({ stage: "backlog", orderedIds: [{ kind: "nope", id: "a" }] }).success).toBe(false);
+    expect(schema.safeParse({ stage: "nope", orderedIds: [{ kind: "feedback", id: "a" }] }).success).toBe(false);
+    const tooMany = Array.from({ length: 501 }, (_, i) => ({ kind: "feedback" as const, id: `id-${i}` }));
+    expect(schema.safeParse({ stage: "backlog", orderedIds: tooMany }).success).toBe(false);
   });
   it("listInbox.out：sources.exception 只有 included|withheld", () => {
     const out = inbox.operations.listInbox.out;

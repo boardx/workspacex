@@ -2,7 +2,7 @@
 import * as React from "react";
 import {
   LayoutList, Columns3, Search, X, Sparkles, Play, Check, Undo2, Ban, ShieldAlert, PlugZap, Loader2, Lock, Github,
-  MoreHorizontal, Eye, Paperclip, MessageSquare, Mail,
+  MoreHorizontal, Eye, Paperclip, MessageSquare, Mail, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   getInboxCounts,
   listInbox,
+  reorderInboxItem,
   INBOX_KIND_LABEL,
   INBOX_KIND_OPTIONS,
   INBOX_STAGE_LABEL,
@@ -24,6 +25,7 @@ import {
   type InboxKind,
   type InboxStage,
 } from "@/lib/live-inbox";
+import { canArchiveInboxItem, moveAdjacent, reorderIds, sortByBoardOrder } from "./board-reorder";
 import {
   triageFeedback,
   listFeedbackStatusEvents,
@@ -504,6 +506,64 @@ export function DesignLoopInboxScreen({
   };
 
   /**
+   * 2026-09-06——显式「归档」动作（不是「不做」的同义词）：沿用 `不做` 列，触发已有的
+   * `已归档` 状态（`triageFeedback(id, "已归档")`）。`已归档` 不需要理由——见契约
+   * `feedback-loop.ts` 的 `TRIAGE_REASON_REQUIRED` 只在转 `不做` 时触发，`已归档` 不在
+   * 那条规则里，所以不像「不做」那样落到 drawer 的理由表单,直接乐观迁移。
+   * 显示条件（`canArchiveInboxItem`）已经在按钮/菜单项那一层判过，这里只再判一次
+   * 兜底——被绕过判定条件调用时不发一个注定会被状态机拒绝的请求。
+   */
+  const archiveItem = async (item: InboxItem) => {
+    if (!canArchiveInboxItem(item)) return;
+    const prevStage = item.stage;
+    replaceItem(item.id, { stage: "archived" });
+    bumpStageCount(prevStage, "archived");
+    setBusyId(item.id);
+    try {
+      await triageFeedback(item.id, "已归档", null, null);
+      flashSaved("已归档");
+    } catch (err) {
+      replaceItem(item.id, { stage: prevStage });
+      bumpStageCount("archived", prevStage);
+      setDragError(`没能归档（${describeFailure(err)}）`);
+      window.setTimeout(() => setDragError(null), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /**
+   * 2026-09-06——列内排序（拖拽排序 / ↑↓ 按钮共用）落库。`newOrderIds` 是这一列
+   * 排序后的**完整**新顺序（`board-reorder.ts` 算好），本地先乐观按下标重赋
+   * `boardOrder`，失败回滚成调用前各条目原有的值——同其余卡片操作的乐观更新节奏。
+   * ⚠ 与跨列拖拽（`applyTransition`）是两条不同的路径：这条**不改 `stage`**，
+   *   服务端那条操作（`reorderInboxItem`）本来就不接受任何状态相关的字段。
+   */
+  const applyReorder = (stage: InboxStage, prevIds: readonly string[], newOrderIds: readonly string[]) => {
+    if (newOrderIds.length === 0 || newOrderIds.every((id, i) => id === prevIds[i])) return;
+    const prevOrders = new Map(items.filter((i) => newOrderIds.includes(i.id)).map((i) => [i.id, i.boardOrder] as const));
+    const nextOrders = new Map(newOrderIds.map((id, idx) => [id, idx] as const));
+    setLoad((prev) =>
+      prev.kind === "ready"
+        ? { ...prev, items: prev.items.map((i) => (nextOrders.has(i.id) ? { ...i, boardOrder: nextOrders.get(i.id)! } : i)) }
+        : prev,
+    );
+    const payload = newOrderIds.map((id) => {
+      const found = items.find((i) => i.id === id);
+      return { kind: (found?.kind ?? "feedback") as InboxKind, id };
+    });
+    void reorderInboxItem(stage, payload).catch((err) => {
+      setLoad((prev) =>
+        prev.kind === "ready"
+          ? { ...prev, items: prev.items.map((i) => (prevOrders.has(i.id) ? { ...i, boardOrder: prevOrders.get(i.id)! } : i)) }
+          : prev,
+      );
+      setDragError(`没能保存排序（${describeFailure(err)}），已恢复原顺序`);
+      window.setTimeout(() => setDragError(null), 3000);
+    });
+  };
+
+  /**
    * 2026-09-05——系统异常的「开发备注 / 标签」保存。
    *
    * 写路径**复用**已经存在的 `updateSystemErrorLifecycle`（`PUT /system/error-logs/:id`），
@@ -736,8 +796,21 @@ export function DesignLoopInboxScreen({
             data-allow-x-scroll="看板四列在 md 以下横向滚动是设计，不是内容被裁"
           >
             {INBOX_STAGE_ORDER.map((col) => {
-              const colItems = filtered.filter((i) => i.stage === col);
+              // 列内展示顺序：`boardOrder` 升序（`board-reorder.ts`）——跨列拖拽只改 `stage`，
+              // 不动这个值,所以刚被拖进来的卡片仍按它旧的 `boardOrder` 落座,不是恒在列尾/列首。
+              const colItems = sortByBoardOrder(filtered.filter((i) => i.stage === col));
+              const colIds = colItems.map((i) => i.id);
               const colCount = counts === null || hidingExceptions ? colItems.length : counts.byStage[col];
+              /** 同列内拖拽 = 排序；跨列拖拽 = 状态迁移。`beforeId===null` 表示拖到列尾（空白处）。 */
+              const dropInColumn = (draggedId: string, beforeId: string | null) => {
+                const dragged = items.find((i) => i.id === draggedId);
+                if (dragged === undefined) return;
+                if (dragged.stage === col) {
+                  applyReorder(col, colIds, reorderIds(colIds, draggedId, beforeId));
+                } else {
+                  void applyTransition(dragged, col);
+                }
+              };
               return (
                 <div
                   key={col}
@@ -753,8 +826,8 @@ export function DesignLoopInboxScreen({
                     e.preventDefault();
                     const id = e.dataTransfer.getData("text/plain");
                     setDragOver(null);
-                    const item = items.find((i) => i.id === id);
-                    if (item) void applyTransition(item, col);
+                    // 落在列的空白处（没有命中任何一张卡片）：跨列迁移或挪到列尾。
+                    dropInColumn(id, null);
                   }}
                   className={cn(
                     "flex min-h-32 w-64 shrink-0 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast md:w-auto",
@@ -765,7 +838,7 @@ export function DesignLoopInboxScreen({
                     <span className="text-11 font-medium text-muted-foreground">{INBOX_STAGE_LABEL[col]}</span>
                     <span className="text-11 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
                   </div>
-                  {colItems.map((item) => (
+                  {colItems.map((item, idx) => (
                     <BoardCard
                       key={item.id}
                       item={item}
@@ -774,6 +847,14 @@ export function DesignLoopInboxScreen({
                       onOpen={() => setOpenId(item.id)}
                       onNavigateLink={navigateToLinked}
                       onQuickAction={(target) => void applyTransition(item, target)}
+                      onArchive={() => void archiveItem(item)}
+                      // B6.5：拖拽的非拖拽等价操作——列首/列尾对应方向禁用。
+                      canMoveUp={idx > 0}
+                      canMoveDown={idx < colItems.length - 1}
+                      onMoveUp={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "up"))}
+                      onMoveDown={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "down"))}
+                      // 落到这张卡片上 ⇒ 插到它前面（同列）或触发跨列迁移（不同列）。
+                      onDropOnCard={(draggedId) => dropInColumn(draggedId, item.id)}
                     />
                   ))}
                 </div>
@@ -878,11 +959,13 @@ const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-backgroun
  * 摆进菜单，不重造第二套状态机判断。`item.kind === "design"` 没有对应源操作，不渲染。
  */
 function QuickActionMenu({
-  item, busy, onQuickAction, testidPrefix,
+  item, busy, onQuickAction, onArchive, testidPrefix,
 }: {
   item: InboxItem;
   busy: boolean;
   onQuickAction: (target: InboxStage) => void;
+  /** 2026-09-06——归档动作，`undefined` 时不渲染这个入口（列表视图暂不需要，board 才传）。 */
+  onArchive?: () => void;
   testidPrefix: string;
 }) {
   if (item.kind === "design") return null;
@@ -933,13 +1016,24 @@ function QuickActionMenu({
             </MenuItem>
           </>
         )}
+        {onArchive !== undefined && canArchiveInboxItem(item) && (
+          <>
+            <MenuSeparator />
+            {/* 2026-09-06——沿用「不做」列，触发已有的「已归档」状态，不需要理由
+                （只有转「不做」才要理由，见契约 `TRIAGE_REASON_REQUIRED`），所以直接点即生效。 */}
+            <MenuItem onSelect={onArchive} data-testid={`${testidPrefix}-menu-archive-${item.code}`}>
+              归档
+            </MenuItem>
+          </>
+        )}
       </MenuContent>
     </Menu>
   );
 }
 
 function BoardCard({
-  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction,
+  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction, onArchive,
+  canMoveUp, canMoveDown, onMoveUp, onMoveDown, onDropOnCard,
 }: {
   item: InboxItem;
   busy: boolean;
@@ -947,6 +1041,14 @@ function BoardCard({
   onOpen: () => void;
   onNavigateLink: NavigateLink;
   onQuickAction: (target: InboxStage) => void;
+  onArchive: () => void;
+  /** B6.5：拖拽（列内排序）的非拖拽等价操作——见 `board-reorder.ts` 的 `moveAdjacent`。 */
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  /** 另一张卡片被拖到这张卡片上：同列 = 插到它前面（排序），跨列 = 触发状态迁移。 */
+  onDropOnCard: (draggedId: string) => void;
 }) {
   /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
    *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
@@ -959,6 +1061,16 @@ function BoardCard({
         setGrabbed(true);
       }}
       onDragEnd={() => setGrabbed(false)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation(); // 不让列容器自己的 onDragOver 把"落在某张卡片上"误判成"落在列尾"
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation(); // 同上，交给这张卡片自己的 onDrop 处理，列容器的 onDrop 不再触发
+        const draggedId = e.dataTransfer.getData("text/plain");
+        if (draggedId !== "" && draggedId !== item.id) onDropOnCard(draggedId);
+      }}
       onClick={onOpen}
       role="button"
       tabIndex={0}
@@ -979,10 +1091,30 @@ function BoardCard({
         highlighted && HIGHLIGHT_CLASS,
       )}
     >
-      <div className="absolute right-1.5 top-1.5 invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
-        <QuickActionMenu item={item} busy={busy} onQuickAction={onQuickAction} testidPrefix="inbox-card" />
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
+        <button
+          type="button"
+          aria-label="上移"
+          disabled={busy || !canMoveUp}
+          data-testid={`inbox-card-move-up-${item.code}`}
+          onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronUp aria-hidden className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          aria-label="下移"
+          disabled={busy || !canMoveDown}
+          data-testid={`inbox-card-move-down-${item.code}`}
+          onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronDown aria-hidden className="h-3.5 w-3.5" />
+        </button>
+        <QuickActionMenu item={item} busy={busy} onQuickAction={onQuickAction} onArchive={onArchive} testidPrefix="inbox-card" />
       </div>
-      <div className="flex items-center gap-1.5 pr-5">
+      <div className="flex items-center gap-1.5 pr-16">
         <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
         <KindLabel item={item} />
         {item.severe && <SevereBadge />}

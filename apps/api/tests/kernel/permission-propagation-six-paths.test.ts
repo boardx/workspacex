@@ -1166,7 +1166,11 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-tool-permission-grant-repository.ts` 的 ALLOWLIST 条目——三档授权存储表
     // `tool_permission_grants` 无 `ObjectRef` 可挂，三个方法都不回传行内容，判权在
     // 用例层（`decide-tool-permission.ts`），豁免理由见该条目自身注释。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(88);
+    // ⚠ Raised 88 -> 89 by UC-17.8（运营收件箱看板列内排序）：新增
+    // `pg-inbox-order-repository.ts` 的 ALLOWLIST 条目——`inbox_item_order` 一行只有
+    // 「这个组织的这个 (kind,item_id) 排第几」这一个整数，不携带任何 D3 门控过的正文，
+    // 豁免理由与前提见该条目自身注释，配套 `tests/inbox/inbox-order-repo-guard.test.ts`。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(89);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -11,6 +11,15 @@ import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports
 import { guard } from "../../src/application/security/permission-filter";
 import { toOrgId } from "../../src/domain/org-id";
 import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
+import type { InboxOrderRepository } from "../../src/application/inbox/inbox-order.port";
+
+/** 空排序仓储——测试不关心 `boardOrder` 时用它:所有条目都回退到默认序（`defaultBoardOrder`）。 */
+function fakeInboxOrders(stored: ReadonlyMap<string, number> = new Map()): InboxOrderRepository {
+  return {
+    getOrders: async () => stored,
+    setOrders: async () => undefined,
+  };
+}
 
 function feedbackRow(over: Partial<FeedbackRow> = {}): FeedbackRow {
   return {
@@ -104,6 +113,7 @@ function baseDeps(
       orgId: toOrgId("org-1"),
       submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
     },
+    orders: fakeInboxOrders(),
   };
 }
 

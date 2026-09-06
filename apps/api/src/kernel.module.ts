@@ -433,6 +433,8 @@ import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 import { InboxController } from "./interface/controllers/inbox.controller";
+import { INBOX_ORDER_REPOSITORY } from "./application/inbox/inbox-order.port";
+import { PgInboxOrderRepository } from "./infrastructure/inbox/pg-inbox-order-repository";
 import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
@@ -2193,6 +2195,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PRODUCT_FEEDBACK_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProductFeedbackRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // UC-17.8——收件箱看板列内排序：同 `PRODUCT_FEEDBACK_REPOSITORY` 的理由，
+    // `reorderInboxItem.in` 没有 `orgId`，仓储必须按组织构造。
+    {
+      provide: INBOX_ORDER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInboxOrderRepository(db),
       inject: [DATABASE_PORT],
     },
     // 2026-08-30："转开发"建 GitHub issue + 任意分诊转移发状态变更邮件（ADR-108）。
