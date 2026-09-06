@@ -62,14 +62,15 @@
  *
  *   · **`chat[]` 的独立查询接口**——同 `FeedbackDraft.chat` 的先例，直接嵌在实体里；B4.2 会建
  *     `design_project_chat_messages` 表，但那是存储层拆分，投影仍是 `DesignProject.chat`。
- *   · **画布/原型内容的字段**——PDF 原文「画布仍是占位块」（B5.3 明确 out of scope）；`frames`
- *     只是画布页横向标签条的标签文案，不是画布内容本身。
+ *   · ~~画布/原型内容的字段~~——2026-09-06 人类决策推翻「B5.3 out of scope」：`prototype` 是按位置
+ *     对应 `frames[i]` 的结构化组件树（`design-prototype.ts`），仍**只能经模型写回**，不接受前端传入。
  *   · **`PUT /pm-designs/:id/status`**——`go-live-backlog.md` §B3.1 提过这个假设路径，但
  *     设计方案没有状态机（`pushed: boolean` 就是它唯一的二态），状态迁移不需要单独接口；
  *     进收件箱后的状态机是 `InboxItem`/`system-error-logs` 那一套四态，属于 B3 契约，不在这里。
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
+import { PrototypeNode } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -140,6 +141,8 @@ export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
  *   将来若默认文案改版，已创建项目的验收标准不应该跟着变。
  *   UC-17.8 B5.2 起，`problem`/`criteria`/`frames` 可由 `appendProjectChat` 里的模型回复
  *   **经服务端**写回（`DesignChatWriteback` 严格解析）；用户仍不能直接编辑 `criteria`/`frames`。
+ * ⚠ B5.3：`prototype[i]` 是 `frames[i]` 那一页的组件树。不变量：长度为 0（还没生成，画布显示
+ *   占位块）或恰等于 `frames.length`——由下方 `superRefine` 机械门控，任何一端违反都解析失败。
  */
 export const DesignProject = z
   .object({
@@ -150,6 +153,7 @@ export const DesignProject = z
     problem: z.string().max(4000),
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
+    prototype: z.array(PrototypeNode),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
@@ -172,7 +176,12 @@ export const DesignProject = z
     createdAt: z.string(),
     updatedAt: z.string(),
   })
-  .strict();
+  .strict()
+  .superRefine((p, ctx) => {
+    if (p.prototype.length !== 0 && p.prototype.length !== p.frames.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "prototype must be empty or one tree per frame", path: ["prototype"] });
+    }
+  });
 export type DesignProject = z.infer<typeof DesignProject>;
 
 /* ─────────────────────────── 错误码 ─────────────────────────── */

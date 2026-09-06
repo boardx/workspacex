@@ -943,7 +943,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
-    criteria: ["a"], frames: ["草稿页 1"], pushed: false, pushedAt: null,
+    criteria: ["a"], frames: ["草稿页 1"], prototype: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
     chat: [], ownerId: "u1", ownerName: "我",
     createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
@@ -1123,6 +1123,76 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(applied.textContent).not.toContain("背景");
     expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
     expect(screen.getByTestId("design-detail-frame-1").textContent).toContain("导出页");
+  });
+
+  it("B5.3 发消息：模型写回 prototype ⇒ 画布从占位块变成渲染的组件树，切页看到另一页；「已更新」列原型画布", async () => {
+    const chatTree = {
+      type: "stack" as const, props: { direction: "column" as const },
+      children: [
+        { type: "navbar" as const, props: { title: "ChatGPT", right: "新对话" } },
+        { type: "stack" as const, props: { fill: true }, children: [{ type: "card" as const, children: [{ type: "text" as const, props: { content: "帮我写一封邮件" } }] }] },
+        { type: "input" as const, props: { placeholder: "发送消息" } },
+        { type: "button" as const, props: { label: "发送", full: true } },
+      ],
+    };
+    const settingsTree = { type: "stack" as const, children: [{ type: "list" as const, props: { items: ["账号", "外观"], leading: "check" as const } }] };
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        return {
+          project: project({
+            frames: ["聊天", "设置"], prototype: [chatTree, settingsTree],
+            chat: [
+              { role: "user", text: "给我设计一个 chat 的 UI，模拟 chatgpt", at: "2026-09-06T00:00:00.000Z" },
+              { role: "ai", text: "画好了两页。", at: "2026-09-06T00:00:01.000Z", source: "model" },
+            ],
+          }),
+          reply: { source: "model", applied: ["frames", "prototype"] },
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getByTestId("design-detail-phone-placeholder")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "给我设计一个 chat 的 UI，模拟 chatgpt" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    expect(await screen.findByTestId("design-detail-generating")).toBeTruthy();
+    const tree = await screen.findByTestId("design-detail-phone-tree");
+    expect(screen.queryByTestId("design-detail-phone-placeholder")).toBeNull();
+    expect(tree.textContent).toContain("ChatGPT");
+    expect(tree.textContent).toContain("帮我写一封邮件");
+    expect(tree.textContent).toContain("发送消息");
+    expect(within(tree).getAllByText("发送").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("design-detail-chat-applied").textContent).toContain("原型画布");
+    fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("外观");
+    expect(screen.queryByTestId("design-detail-generating")).toBeNull();
+  });
+
+  it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
+    const create = vi.fn(() => "blob:doc");
+    const revoke = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: revoke, configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天"], prototype: [{ type: "text", props: { content: "你好" } }] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export-doc"));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    const blob = (create.mock.calls[0] as unknown as [Blob])[0];
+    const md = await blob.text();
+    expect(md).toContain("# 深化 B-3");
+    expect(md).toContain("## 验收标准");
+    expect(md).toContain("### 页 1：聊天");
+    expect(md).toContain("文本：你好");
+    expect(revoke).toHaveBeenCalledWith("blob:doc");
+    click.mockRestore();
   });
 
   it("推送：调真实 pushToInbox，成功页两个出口读服务端返回的真实 inboxCode", async () => {
@@ -1344,7 +1414,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",
@@ -1372,7 +1442,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",

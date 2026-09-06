@@ -1,0 +1,73 @@
+/**
+ * UC-17.8 B5.3 —— 把一个设计项目导出成**设计文档**（Markdown）。
+ *
+ * 纯函数：输入契约 `DesignProject`，输出一段 Markdown 文本；下载/复制由调用方做。
+ * 内容顺序 = 详情页右侧的阅读顺序（问题与目标 → 验收标准 → 原型逐页大纲 → 对话摘录）。
+ * 原型部分是组件树的**缩进大纲**，不是 JSON dump：给工程/评审看的是结构与文案，
+ * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
+ */
+import type { DesignProject, PrototypeNode } from "./live-design-workbench";
+
+const TEMPLATE_LABEL: Record<DesignProject["template"], string> = { mobile: "移动端设计", ui: "UI 原型", wireframe: "线框图" };
+
+/** 一个节点在大纲里的一行文字：类型 + 最能代表它的文案。 */
+export function describeNode(n: PrototypeNode): string {
+  switch (n.type) {
+    case "stack": return `布局（${n.props?.direction === "row" ? "横向" : "纵向"}${n.props?.fill === true ? "，填满" : ""}）`;
+    case "card": return n.props?.title !== undefined ? `卡片「${n.props.title}」` : "卡片";
+    case "navbar": return `导航栏「${n.props.title}」${n.props.left !== undefined ? `，左：${n.props.left}` : ""}${n.props.right !== undefined ? `，右：${n.props.right}` : ""}`;
+    case "text": return `文本${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}：${n.props.content}`;
+    case "button": return `按钮「${n.props.label}」${n.props.variant !== undefined ? `（${n.props.variant}）` : ""}`;
+    case "input": return `输入框${n.props.label !== undefined ? `「${n.props.label}」` : ""}${n.props.placeholder !== undefined ? `，占位：${n.props.placeholder}` : ""}${n.props.multiline === true ? "，多行" : ""}`;
+    case "image": return `图片：${n.props.alt}`;
+    case "list": return `列表：${n.props.items.join(" / ")}`;
+    case "divider": return "分隔线";
+    case "spacer": return "留白";
+    case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
+    case "badge": return `标记「${n.props.label}」`;
+    case "avatar": return `头像：${n.props.name}`;
+  }
+}
+
+export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] = []): string[] {
+  out.push(`${"  ".repeat(depth)}- ${describeNode(root)}`);
+  if (root.type === "stack" || root.type === "card") for (const c of root.children) outlinePrototype(c, depth + 1, out);
+  return out;
+}
+
+export function buildDesignDocMarkdown(project: DesignProject, now: Date = new Date()): string {
+  const lines: string[] = [];
+  lines.push(`# ${project.name}`, "");
+  lines.push(`- 模板：${TEMPLATE_LABEL[project.template]}`);
+  lines.push(`- 负责人：${project.ownerName ?? "（未知）"}`);
+  if (project.linkedFeedbackId !== null) lines.push(`- 来源反馈：${project.linkedFeedbackId}`);
+  if (project.githubIssueUrl !== null) lines.push(`- 开发 issue：${project.githubIssueUrl}`);
+  lines.push(`- 导出时间：${now.toISOString()}`, "");
+  lines.push("## 问题与目标", "", project.problem.trim() === "" ? "（还没写）" : project.problem, "");
+  lines.push("## 验收标准", "");
+  if (project.criteria.length === 0) lines.push("（还没有）");
+  for (const [i, c] of project.criteria.entries()) lines.push(`${i + 1}. ${c}`);
+  lines.push("", "## 原型", "");
+  if (project.prototype.length === 0) {
+    lines.push(`还没有生成原型。页面划分：${project.frames.join("、") || "（无）"}`);
+  } else {
+    for (const [i, root] of project.prototype.entries()) {
+      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "", ...outlinePrototype(root), "");
+    }
+  }
+  const aiTurns = project.chat.filter((t) => t.role === "user").length;
+  lines.push("## 设计过程（对话摘录）", "");
+  if (project.chat.length === 0) lines.push("（没有对话）");
+  else {
+    lines.push(`共 ${aiTurns} 轮。`, "");
+    for (const t of project.chat) lines.push(`- ${t.role === "user" ? "PM" : "AI"}：${t.text.replace(/\s+/g, " ").trim()}`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** 文件名：项目名去掉路径不安全字符 + 日期。 */
+export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
+  const safe = project.name.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "design";
+  return `${safe}-${now.toISOString().slice(0, 10)}.md`;
+}

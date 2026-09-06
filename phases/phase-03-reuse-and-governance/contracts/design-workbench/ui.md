@@ -103,7 +103,7 @@ BASE=http://localhost:3187 \
 1. 左侧 360px「设计协作」对话面板，历史为空时展示 `DESIGN_WORKBENCH_CHAT_INTRO`
    固定引导语（不落库，见契约文件头【待确认点 2】）；
 2. 右侧「原型画布 / 说明与验收标准」两个 Tab；画布下横向标签条（`frames`）+ 居中手机
-   占位块（`PhoneCanvas`，画布内容本身仍是占位块，B5.3 明确 out of scope）；
+   占位块（`PhoneCanvas`；**2026-09-06 起** B5.3 由 `design-prototype` 束把它换成模型生成的组件树 `PrototypeCanvas`，没树时仍是占位块）；
 3. 「说明与验收标准」Tab：问题与目标（`problem`，未填时给出引导语）、关联反馈 id
    （`linkedFeedbackId` 非空时）、三条固定验收标准（`DESIGN_PROJECT_INITIAL_CRITERIA`）；
 4. 顶部条：返回工作台、面包屑、`源自反馈` 徽标（有关联时）、右上角推送按钮（未推送/

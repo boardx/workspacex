@@ -1,7 +1,11 @@
 /**
  * `appendProjectChat`（UC-17.8 B4.3 → B5.2）—— 详情页左侧「设计协作」面板发送。仅 owner。
  *
- * ## B5.2：模型回复 + 写回 `problem/criteria/frames`
+ * ## B5.2：模型回复 + 写回 `problem/criteria/frames`；B5.3：+ `prototype`（整页重生成）
+ *
+ * `writeback.prototype` 是 `{frame, root}[]`——服务端拆成 `frames`（标签）+ `prototype`（树）
+ * **同一次** `projects.update`，`applied` 同时列出 `frames` 与 `prototype`（两者都真的变了）。
+ * `prototype` 与 `frames` 同时给出时以 `prototype` 为准（它自带标签），契约头注逐字。
  *
  *   ① owner 校验（非 owner 不调模型、不写任何东西——契约头注逐字）。
  *   ② `deps.ai.reply`（`DesignChatModel`，唯一实现 `ModelDesignChatReplier`）按**本项目**五个字段
@@ -51,13 +55,17 @@ export async function appendProjectChat(
     problem: current.problem,
     criteria: current.criteria,
     frames: current.frames,
+    prototype: current.prototype,
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 
+  const screens = ai.writeback.prototype;
   const patch: DesignProjectPatch = {
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
-    ...(ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
+    ...(screens !== undefined
+      ? { frames: screens.map((s) => s.frame), prototype: screens.map((s) => s.root) }
+      : ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
   };
   const applied = Object.keys(patch) as DesignWritebackField[];
   if (applied.length > 0) {

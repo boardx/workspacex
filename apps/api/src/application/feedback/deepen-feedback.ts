@@ -85,6 +85,7 @@ export async function deepenFeedback(
     problem: outcome.payload,
     criteria: designWorkbench.DESIGN_PROJECT_INITIAL_CRITERIA,
     frames: designWorkbench.DESIGN_PROJECT_INITIAL_FRAMES,
+    prototype: [],
     linkedFeedbackId: input.feedbackId,
   });
 

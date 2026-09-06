@@ -74,6 +74,7 @@ export * as designWorkbench from "./design-workbench";
 
 /* ── UC-17.8 Sprint 4 · AI 协作（B5：两束共用的「模型/退路」词汇，不新增路由）───────────── */
 export * as designAiCollab from "./design-ai-collab";
+export * as designPrototype from "./design-prototype";
 
 /* ── 两级成员管理：平台级名册与角色调整（组织级在 org-admin 束）────────── */
 export * as platformMembers from "./platform-members";
