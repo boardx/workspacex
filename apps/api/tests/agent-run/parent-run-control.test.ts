@@ -43,3 +43,36 @@ it("does not accept context from a previous claim as the current attempt", async
   await asApp(ORG, c => c.query("UPDATE agent_runs SET started_at=now()+interval '1 second' WHERE org_id=$1 AND id='parent'", [ORG]));
   expect(await reader.withSnapshot(check, async s => s?.attemptId)).toBeNull();
 });
+
+it("binds once permission to real call, args and attempt; repeats are idempotent but other identities are refused", async () => {
+  const { PgAgentRunRepository } = await import("../../src/infrastructure/agent-run/pg-agent-run-repository");
+  const { toolArgumentsDigest } = await import("../../src/application/agent-run/tool-arguments-digest");
+  const repo = new PgAgentRunRepository(db);
+  await repo.markAwaitingToolPermission(org, "parent", {toolName: "external_write", argsSummary: "redacted", toolCallId: "call-actual", toolArgsDigest: toolArgumentsDigest({target: "original"})!});
+  const requestId = await asApp(ORG, async c => (await c.query("SELECT pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id='parent'", [ORG])).rows[0].pending_permission_request_id as string);
+  expect(await repo.decidePermissionRequest(org, "parent", requestId, "once", "parent-user")).toBe(true);
+  await asApp(ORG, async c => {
+    await c.query("UPDATE agent_runs SET status='running' WHERE org_id=$1 AND id='parent'", [ORG]);
+  });
+  const exact = {...check, toolName: "external_write", permissionRequestId: requestId, toolCallId: "call-actual", toolArgs: {target: "original"}};
+  const allowed = (value: typeof exact) => reader.withSnapshot(value, async s => await s?.authorizeOnce?.() ?? false);
+  expect(await allowed({...exact, toolCallId: "other-call"})).toBe(false);
+  expect(await allowed({...exact, toolArgs: {target: "different"}})).toBe(false);
+  expect(await allowed({...exact, permissionRequestId: "00000000-0000-4000-8000-000000000000"})).toBe(false);
+  expect(await allowed(exact)).toBe(true);
+  expect(await allowed(exact)).toBe(true);
+  expect(await allowed({...exact, attemptId: "parent:4"})).toBe(false);
+  expect(await reader.withSnapshot({...exact, orgId: toOrgId(OTHER)}, async s => s)).toBeNull();
+});
+it("edited approval accepts only the explicitly edited arguments", async () => {
+  const { PgAgentRunRepository } = await import("../../src/infrastructure/agent-run/pg-agent-run-repository");
+  const { toolArgumentsDigest } = await import("../../src/application/agent-run/tool-arguments-digest");
+  const repo = new PgAgentRunRepository(db);
+  await repo.markAwaitingToolPermission(org, "parent", {toolName: "external_write", argsSummary: "redacted", toolCallId: "call-edit", toolArgsDigest: toolArgumentsDigest({target: "old"})!});
+  const requestId = await asApp(ORG, async c => (await c.query("SELECT pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id='parent'", [ORG])).rows[0].pending_permission_request_id as string);
+  await repo.decidePermissionRequest(org, "parent", requestId, "edit", "parent-user", JSON.stringify({target: "new"}));
+  await asApp(ORG, c => c.query("UPDATE agent_runs SET status='running' WHERE org_id=$1 AND id='parent'", [ORG]));
+  const exact = {...check, toolName: "external_write", permissionRequestId: requestId, toolCallId: "call-edit", toolArgs: {target: "old"}};
+  expect(await reader.withSnapshot(exact, async s => s?.authorizeOnce?.())).toBe(false);
+  expect(await reader.withSnapshot({...exact, toolArgs: {target: "new"}}, async s => s?.authorizeOnce?.())).toBe(true);
+});

@@ -48,6 +48,8 @@ import { publishStatusChange } from "./execute-run-events";
 import { checkPendingInterjection } from "./interjection-handling";
 
 export interface InterruptedToolCall {
+  readonly toolCallId?: string;
+  readonly toolArgsDigest?: string;
   readonly toolName: string;
   readonly argsSummary: string | null;
     readonly interrupt?: RestorableInterrupt | null;

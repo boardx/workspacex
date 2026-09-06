@@ -1,3 +1,4 @@
+import type { ToolExecutionCheckOutput } from "@repo/contracts/run-control";
 import type { OrgId } from "../../domain/org-id";
 import { classifyToolCallRisk, resolveSkillRiskLevels } from "../../domain/agent-run/skill-risk-level";
 import type { AgentRunStore } from "./ports";
@@ -10,14 +11,19 @@ export interface ToolExecutionCheck {
   readonly leaseEpoch: number;
   readonly toolName: string;
   readonly skillStableName?: string;
+  readonly permissionRequestId?: string;
+  readonly toolCallId?: string;
+  readonly toolArgs?: unknown;
 }
-export type ToolExecutionDecision = { readonly allowed: true } | { readonly allowed: false; readonly reason: "run_unavailable" | "cancel_requested" | "lease_lost" | "attempt_stale" | "skill_not_mounted" | "approval_required" };
+export type ToolExecutionDecision = ToolExecutionCheckOutput;
 export interface ToolAuthoritySnapshot {
   readonly active: boolean;
   readonly cancelRequested: boolean;
   readonly leaseValid: boolean;
   readonly attemptId: string | null;
   readonly skillVersionIds: readonly string[];
+  readonly explicitlyDenied?: boolean;
+  readonly authorizeOnce?: () => Promise<boolean>;
 }
 export interface ToolAuthorityReader {
   /** Keep the run row locked for the check to avoid cancellation/grant races. */
@@ -35,11 +41,17 @@ export class ToolExecutionAuthority {
       if (!snapshot.leaseValid) return { allowed: false, reason: "lease_lost" };
       if (snapshot.attemptId !== input.attemptId) return { allowed: false, reason: "attempt_stale" };
       const skills = input.toolName === "call_skill" ? await this.runs.readPinnedSkills(input.orgId, snapshot.skillVersionIds) : [];
-      if (input.toolName === "call_skill" && !skills.some(skill => skill.stableName === input.skillStableName)) {
+      const actualSkill = input.toolArgs && typeof input.toolArgs === "object" && !Array.isArray(input.toolArgs)
+        ? (input.toolArgs as Record<string, unknown>).skill_stable_name : undefined;
+      if (input.toolName === "call_skill" && (typeof actualSkill !== "string"
+        || (input.skillStableName !== undefined && input.skillStableName !== actualSkill)
+        || !skills.some(skill => skill.stableName === actualSkill))) {
         return { allowed: false, reason: "skill_not_mounted" };
       }
-      const risk = classifyToolCallRisk(input, resolveSkillRiskLevels(skills));
-      if (risk === "L2" && !await this.grants.hasGrant(input.orgId, input.parentRunId, input.toolName)) {
+      if (snapshot.explicitlyDenied) return { allowed: false, reason: "approval_required" };
+      const risk = classifyToolCallRisk({ ...input, skillStableName: typeof actualSkill === "string" ? actualSkill : undefined }, resolveSkillRiskLevels(skills));
+      if (risk === "L2" && !await this.grants.hasGrant(input.orgId, input.parentRunId, input.toolName)
+        && !await snapshot.authorizeOnce?.()) {
         return { allowed: false, reason: "approval_required" };
       }
       return { allowed: true };

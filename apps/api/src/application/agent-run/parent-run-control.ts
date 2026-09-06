@@ -1,3 +1,4 @@
+import type { ChildCancellationStatus } from "@repo/contracts/run-control";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 
@@ -8,10 +9,7 @@ export interface ParentCancellation {
   readonly parentRunId: string;
   readonly requestId: string;
 }
-export type ChildCancellationResult =
-  | { readonly kind: "unavailable" }
-  | { readonly kind: "pending"; readonly runningChildIds: readonly string[] }
-  | { readonly kind: "confirmed" };
+export type ChildCancellationResult = Exclude<ChildCancellationStatus, { kind: "not_requested" }>;
 /** Implemented by the child runtime owner; confirmed means every scoped child is terminal. */
 export interface ChildRunCanceller {
   cancelChildren(input: ParentCancellation): Promise<ChildCancellationResult>;

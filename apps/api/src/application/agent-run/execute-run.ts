@@ -1137,7 +1137,7 @@ async function executeClaimed(
         threadId: run.threadId,
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
-        executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch,
+        executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
         onSkillActivity: async (fact) => {
           await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "skill_activity", attemptId: executionAttemptId, fact });
         },

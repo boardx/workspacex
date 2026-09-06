@@ -91,6 +91,7 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  readonly permissionRequestId?: string;
   readonly leaseEpoch?: number;
   readonly checkpointResume?: boolean;
   readonly runId: string;
@@ -437,7 +438,7 @@ export interface AgentRunStore {
    */
   markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
   ): Promise<void>;
 
   /**
@@ -829,6 +830,7 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
+  readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
   /**
@@ -1020,6 +1022,8 @@ export interface ModelCallCompletion {
    * 「等待批准」误判成「provider 没回内容」。
    */
   readonly interrupted?: {
+    readonly toolCallId?: string;
+    readonly toolArgsDigest?: string;
     readonly toolName: string;
     readonly argsSummary: string | null;
     readonly interrupt?: RestorableInterrupt | null;

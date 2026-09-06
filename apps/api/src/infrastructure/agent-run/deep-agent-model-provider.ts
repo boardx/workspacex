@@ -1,3 +1,4 @@
+import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
 import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
@@ -512,6 +513,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return { run_control_callback: { base_url: this.config.subtaskCallbackBaseUrl,
       key: this.config.subtaskCallbackKey, org_id: input.orgId, run_id: input.runId,
       ...(input.executionAttemptId ? { attempt_id: input.executionAttemptId } : {}),
+      ...(input.executionPermissionRequestId ? { permission_request_id: input.executionPermissionRequestId } : {}),
       ...(input.executionLeaseEpoch !== undefined ? { lease_epoch: input.executionLeaseEpoch } : {}) } };
   }
 
@@ -935,7 +937,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
 
   private async readPendingApproval(
     baseUrl: string, threadId: string,
-  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null; interrupt?: RestorableInterrupt }> {
+  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null; interrupt?: RestorableInterrupt; toolCallId?: string; toolArgsDigest?: string }> {
     return this.pendingApprovalFromState(await this.readState(baseUrl, threadId));
   }
 
@@ -964,7 +966,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         const restorable = RestorableInterrupt.safeParse({ toolName: name, args });
         return {
           ...(restorable.success ? { interrupt: restorable.data } : {}),
-          toolName: name,
+          toolName: name, toolCallId: id, toolArgsDigest: toolArgumentsDigest(call.args) ?? undefined,
           argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(publicExecutionPayload(JSON.stringify(args))), 4000),
           ...(skillStableName === undefined ? {} : { skillStableName }),
         };

@@ -51,3 +51,23 @@ it("does not turn a persisted parent cancellation into an error when child adapt
   expect(await control.readCancellation(orgId, "run")).toEqual({kind: "unavailable"});
   expect(await new ParentRunControl({readCancellation: async () => null}).readCancellation(orgId, "run")).toEqual({kind: "not_requested"});
 });
+it("uses exact once authorization only after run, lease and attempt guards", async () => {
+  const authorizeOnce = vi.fn().mockResolvedValue(true);
+  const service = authority({authorizeOnce}).service;
+  expect(await service.check({...input, toolName: "external_write"})).toEqual({allowed: true});
+  expect(authorizeOnce).toHaveBeenCalledTimes(1);
+  expect(await authority({authorizeOnce, attemptId: "other"}).service.check({...input, toolName: "external_write"})).toEqual({allowed: false, reason: "attempt_stale"});
+  expect(authorizeOnce).toHaveBeenCalledTimes(1);
+});
+
+it("classifies call_skill by actual args and cannot smuggle an L2 target behind an L0 hint", async () => {
+  const service = new ToolExecutionAuthority({withSnapshot: async (_input, check) => check(snapshot)}, {
+    readPinnedSkills: async () => [
+      {versionId: "low", stableName: "low", name: "Low", content: "---\nrisk_level: L0\n---"},
+      {versionId: "high", stableName: "high", name: "High", content: "---\nrisk_level: L2\n---"},
+    ],
+  }, createInMemoryToolPermissionGrantStore());
+  expect(await service.check({...input, toolName: "call_skill", skillStableName: "low", toolArgs: {skill_stable_name: "high"}})).toEqual({allowed: false, reason: "skill_not_mounted"});
+  expect(await service.check({...input, toolName: "call_skill", toolArgs: {skill_stable_name: "high"}})).toEqual({allowed: false, reason: "approval_required"});
+  expect(await service.check({...input, toolName: "call_skill", toolArgs: {skill_stable_name: "low"}})).toEqual({allowed: true});
+});

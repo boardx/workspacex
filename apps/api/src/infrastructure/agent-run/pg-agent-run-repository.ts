@@ -40,6 +40,7 @@ import type {
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  pending_permission_request_id?: string | null;
   lease_epoch?: number;
   checkpoint_resume?: boolean;
   id: string; thread_id: string; project_id: string; input_message_id: string;
@@ -171,7 +172,7 @@ export class PgAgentRunRepository implements AgentRunStore {
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
                   r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
-                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch`,
+                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch, r.pending_permission_request_id`,
         [orgId, threads.rows.map(thread=>thread.id), DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
       if (claimed.rows.length === 0) return [];
@@ -227,6 +228,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // UX-9 D4：edit 的降级路径也 fail closed——'edit' 行缺 pending_edited_args
           // 只能来自数据损坏（editAndRequeue 单语句同写两列），editedArgsJson 传
           // "null" 让 provider 的对象校验去报 ModelCallError，绝不静默当 approve。
+          permissionRequestId: row.pending_permission_request_id ?? undefined,
           pendingDecision: row.pending_decision === "approve"
             ? { kind: "approve" as const }
             : row.pending_decision === "edit"
@@ -507,16 +509,17 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // 只从 running 起跳（触发器同样拦，但这里显式写条件让意图可读；
       // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
       await s.query(
         `UPDATE agent_runs
-            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4, pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb
+            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4, pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL, pending_decision=NULL
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null],
+        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null, pending.toolCallId ?? null, pending.toolArgsDigest ?? null],
       );
     });
   }
