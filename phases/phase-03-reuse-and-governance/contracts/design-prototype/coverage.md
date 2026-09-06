@@ -13,6 +13,7 @@
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |
+| V22 | 生成体验（迭代 7） | `coercePrototypeRaw` / `parseWritebackDetailed` / 修复轮（无契约变化） | `design-detail-elapsed` / `design-detail-cancel` / `design-detail-retry` | ✅ |
 | V21 | 原语扩充 + 设备（迭代 6） | `PrototypeNodeType`（21）/ `isPrototypeContainer` / `PROTOTYPE_SCHEMA_GUIDE` | `[data-proto=hero|grid|stat|…]` / `[data-device]` | ✅ |
 | V20 | 直接编辑（迭代 5） | `patchPrototype` / `PROTOTYPE_PATCH_REJECTED` | `design-inspector-*` | ✅ |
 | V19 | 画板视图（迭代 4） | 无接口（纯前端 `prototype-board.tsx`） | `design-detail-board` / `design-detail-view-*` / `design-detail-zoom-*` | ✅ |

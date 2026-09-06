@@ -478,6 +478,42 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
   }
 }
 
+/* ─────────────────────────── 迭代 7：常见格式错误自动纠偏 ─────────────────────────── */
+
+const NUMERIC_KEYS = new Set(["value", "active", "columns"]);
+
+/**
+ * 在过契约**之前**对模型给的原始树做几种机械纠偏——都是「意思对了、格式差一点」的错，
+ * 让契约拒掉再让模型重来一轮太贵：
+ *   · `type` 大小写/首尾空白；
+ *   · 容器（stack/card/grid）漏了 `children` ⇒ 补 `[]`；叶子多了 `children` ⇒ 删；
+ *   · `divider` 带了空 `props` ⇒ 删；
+ *   · `value` / `active` / `columns` 写成数字字符串 ⇒ 转数字。
+ * **不**删未知 props 键、**不**猜缺失的必填项——那些是真错，交给契约与修复轮。
+ * 输入不是对象 ⇒ 原样返回；迭代式处理，深度由调用方先用 `rawPrototypeDepth` 挡。
+ */
+export function coercePrototypeRaw(raw: unknown): unknown {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const n = { ...(raw as Record<string, unknown>) };
+  if (typeof n.type === "string") n.type = n.type.trim().toLowerCase();
+  const isContainer = (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(String(n.type));
+  if (isContainer) {
+    n.children = Array.isArray(n.children) ? n.children.map(coercePrototypeRaw) : [];
+  } else if ("children" in n) {
+    delete n.children;
+  }
+  if (n.type === "divider" && "props" in n) delete n.props;
+  if (n.props !== null && typeof n.props === "object" && !Array.isArray(n.props)) {
+    const props = { ...(n.props as Record<string, unknown>) };
+    for (const k of NUMERIC_KEYS) {
+      const v = props[k];
+      if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) props[k] = Number(v);
+    }
+    n.props = props;
+  }
+  return n;
+}
+
 /** 给模型看的 patch 说明——同 `PROTOTYPE_SCHEMA_GUIDE`，只此一份。 */
 export const PROTOTYPE_PATCH_GUIDE =
   "局部修改用 writeback.patch（数组，按顺序执行，≤ " + PROTOTYPE_MAX_PATCH_OPS + " 条），按节点 id 寻址（当前原型里每个节点都有 id）：" +

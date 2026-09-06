@@ -1419,6 +1419,53 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-inspector-delta")).toBeTruthy();
   });
 
+  it("迭代 7 生成体验：生成中显示已等待秒数与「取消」；取消 ⇒ 草稿保留、无错误；失败 ⇒ 错误条带「重试」，重试重发同一句", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let mode: "hang" | "fail" | "ok" = "hang";
+    const posted: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown; signal?: AbortSignal }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        posted.push(opts.body);
+        if (mode === "hang") {
+          return new Promise((_resolve, reject) => {
+            opts.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          });
+        }
+        if (mode === "fail") throw new TypeError("Failed to fetch");
+        return { project: project({ chat: [{ role: "user", text: "画", at: "2026-09-06T00:00:00.000Z" }, { role: "ai", text: "好", at: "2026-09-06T00:00:01.000Z", source: "model" }] }), reply: { source: "model", applied: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    try {
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "画" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-generating");
+      await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+      expect(screen.getByTestId("design-detail-elapsed").textContent).toBe("5s");
+      expect(screen.getByTestId("design-detail-generating").textContent).toContain("生成页面结构");
+      fireEvent.click(screen.getByTestId("design-detail-cancel"));
+      await waitFor(() => expect(screen.queryByTestId("design-detail-generating")).toBeNull());
+      expect(screen.queryByTestId("design-detail-chat-error")).toBeNull();
+      expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("画");
+      // 失败 ⇒ 重试
+      mode = "fail";
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await screen.findByTestId("design-detail-chat-error");
+      expect(screen.getByTestId("design-detail-chat-error").textContent).toContain("无法连接服务器");
+      mode = "ok";
+      fireEvent.click(screen.getByTestId("design-detail-retry"));
+      await waitFor(() => expect(posted).toHaveLength(3));
+      expect(posted[2]).toEqual({ text: "画" });
+      await waitFor(() => expect(screen.queryByTestId("design-detail-chat-error")).toBeNull());
+      expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();

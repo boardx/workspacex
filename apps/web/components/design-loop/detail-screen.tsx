@@ -111,6 +111,10 @@ export function DesignDetailScreen({
   const [text, setText] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [chatError, setChatError] = React.useState<string | null>(null);
+  /** 迭代 7：进行中的请求（可取消）、已等待秒数、上一句失败时留下的原文（供「重试」）。 */
+  const abortRef = React.useRef<AbortController | null>(null);
+  const [elapsed, setElapsed] = React.useState(0);
+  const [retryText, setRetryText] = React.useState<string | null>(null);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
@@ -189,13 +193,19 @@ export function DesignDetailScreen({
     return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
 
-  const send = async () => {
-    const value = text.trim();
+  const send = async (override?: string) => {
+    const value = (override ?? text).trim();
     if (value === "") return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setSending(true);
     setChatError(null);
+    setRetryText(null);
+    setElapsed(0);
+    const started = Date.now();
+    const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
     try {
-      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined);
+      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
       // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
@@ -203,12 +213,22 @@ export function DesignDetailScreen({
       if (reply.applied.includes("frames")) setSelectedId(null);
       setText("");
     } catch (err) {
-      setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
-      window.setTimeout(() => setChatError(null), 3000);
+      if (controller.signal.aborted) {
+        // 用户自己取消的：不是错误，草稿原样留在输入框。⚠ 服务端那次调用可能仍会完成并落库——
+        // 下次读取会看到它；这里不假装它一定没发生。
+        setText(value);
+      } else {
+        setText(value);
+        setRetryText(value);
+        setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
+      }
     } finally {
+      window.clearInterval(tick);
+      abortRef.current = null;
       setSending(false);
     }
   };
+  const cancel = () => abortRef.current?.abort();
 
   const confirmPush = async (note: string) => {
     setPushBusy(true);
@@ -289,12 +309,22 @@ export function DesignDetailScreen({
           </div>
           {sending && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-generating" role="status">
-              <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> 正在生成，画布会整页重绘，可能需要一分钟……
+              <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+              <span className="truncate">
+                {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
+                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "快好了，最长 90 秒…"}
+                <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
+              </span>
+              <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
             </div>
           )}
           {chatError !== null && (
-            <div className="mx-3 mb-1 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
-              {chatError}
+            <div className="mx-3 mb-1 flex items-center gap-2 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
+              <span className="min-w-0 flex-1 truncate">{chatError}</span>
+              {retryText !== null && (
+                <button type="button" onClick={() => void send(retryText)} className="shrink-0 rounded-control border border-destructive-foreground/40 px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-destructive-foreground/10" data-testid="design-detail-retry">重试</button>
+              )}
+              <button type="button" onClick={() => { setChatError(null); setRetryText(null); }} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-destructive-foreground/10"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}

@@ -118,6 +118,16 @@ describe("迭代 5 属性面板元数据（单源门控）", () => {
   });
 });
 
+describe("迭代 7 coercePrototypeRaw", () => {
+  it("只修机械格式错，不猜缺失必填、不删未知键；非对象原样返回", () => {
+    expect(dp.coercePrototypeRaw({ type: " CARD ", props: { title: "t", bogus: 1 } })).toEqual({ type: "card", props: { title: "t", bogus: 1 }, children: [] });
+    expect(dp.coercePrototypeRaw({ type: "tabs", props: { items: ["a"], active: "1" } })).toEqual({ type: "tabs", props: { items: ["a"], active: 1 } });
+    expect(dp.coercePrototypeRaw({ type: "button" })).toEqual({ type: "button" }); // 缺 props 不补
+    expect(dp.coercePrototypeRaw("x")).toBe("x");
+    expect(dp.coercePrototypeRaw(null)).toBe(null);
+  });
+});
+
 describe("迭代 6 原语扩充", () => {
   it("八种新原语正例；grid 是容器；闭集 21 种；bottomnav 2–6 项", () => {
     const page: dp.PrototypeNode = {

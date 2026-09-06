@@ -74,10 +74,10 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string, signal?: AbortSignal): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) } },
+    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) }, signal },
   );
 }
 /* ── 迭代 3：原型版本历史 ── */

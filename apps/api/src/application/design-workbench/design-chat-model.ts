@@ -34,6 +34,11 @@ export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteb
  */
 export const DESIGN_CHAT_REPLY_TIMEOUT_MS = 90_000;
 
+/** 迭代 7：修复轮的硬超时——比首轮短，用户已经等过一次了。 */
+export const DESIGN_CHAT_REPAIR_TIMEOUT_MS = 45_000;
+/** 修复轮只针对这两个字段：文字字段被拒几乎不会发生，且修复它不值一次往返。 */
+const REPAIRABLE_FIELDS = new Set(["prototype", "patch"]);
+
 /** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
 export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat"> & {
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
@@ -100,9 +105,23 @@ function extractJsonObject(text: string): unknown {
   return JSON.parse(text.slice(start, end + 1));
 }
 
+export interface WritebackRejection {
+  readonly field: string;
+  readonly reason: string;
+}
+
 /** 逐字段过契约：不合法的字段丢掉，其余保留（契约 `DesignChatWriteback` 头注逐字）。 */
 export function parseWriteback(raw: unknown, log?: (message: string, detail: Record<string, unknown>) => void): DesignChatWriteback {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return parseWritebackDetailed(raw, log).writeback;
+}
+
+/** 迭代 7：同 `parseWriteback`，但把每个被拒字段的**原因**带出来——修复轮要把它原话告诉模型。 */
+export function parseWritebackDetailed(
+  raw: unknown,
+  log?: (message: string, detail: Record<string, unknown>) => void,
+): { readonly writeback: DesignChatWriteback; readonly rejected: readonly WritebackRejection[] } {
+  const rejected: WritebackRejection[] = [];
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return { writeback: {}, rejected };
   const out: Record<string, unknown> = {};
   // 迭代 1：按写回**形状**的键遍历（含 `patch`），不是按 `DesignWritebackField`（那是被改的项目字段，
   // `patch` 改的是 `prototype`，`applied` 里记后者）。
@@ -113,20 +132,33 @@ export function parseWriteback(raw: unknown, log?: (message: string, detail: Rec
     // 在递归解析之后才判——先用迭代探测把超深的原始值挡在外面（契约 `rawPrototypeDepth` 头注）。
     if (field === "prototype" && Array.isArray(value) && value.some((s) => rawScreenTooDeep(s))) {
       log?.("design chat: writeback field rejected by contract, skipped", { field, reason: "depth" });
+      rejected.push({ field, reason: `某一页嵌套深度超过 ${designPrototype.PROTOTYPE_MAX_DEPTH}` });
       continue;
     }
+    // 迭代 7：过契约前先做机械纠偏（type 大小写 / 容器漏 children / 数字字符串…），见契约 `coercePrototypeRaw`。
+    const coerced = field === "prototype" && Array.isArray(value)
+      ? value.map((s) => (s !== null && typeof s === "object" && !Array.isArray(s) ? { ...(s as Record<string, unknown>), root: designPrototype.coercePrototypeRaw((s as { root?: unknown }).root) } : s))
+      : field === "patch" && Array.isArray(value)
+        ? value.map((op) => (op !== null && typeof op === "object" && !Array.isArray(op) && "node" in op ? { ...(op as Record<string, unknown>), node: designPrototype.coercePrototypeRaw((op as { node?: unknown }).node) } : op))
+        : value;
     let parsed: ReturnType<typeof designAiCollab.DesignChatWriteback.safeParse>;
     try {
-      parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: value });
+      parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: coerced });
     } catch (e) {
       // 兜底：解析本身抛（而不是返回 success:false）也只丢这个字段，不让整次对话 500。
       log?.("design chat: writeback field parse threw, skipped", { field, detail: e instanceof Error ? e.message : "unknown" });
+      rejected.push({ field, reason: "无法解析" });
       continue;
     }
     if (parsed.success) out[field] = parsed.data[field];
-    else log?.("design chat: writeback field rejected by contract, skipped", { field });
+    else {
+      const issue = parsed.error.issues[0];
+      const reason = issue === undefined ? "不合法" : `${issue.path.join(".")}: ${issue.message}`;
+      log?.("design chat: writeback field rejected by contract, skipped", { field, reason });
+      rejected.push({ field, reason });
+    }
   }
-  return out as DesignChatWriteback;
+  return { writeback: out as DesignChatWriteback, rejected };
 }
 
 function rawScreenTooDeep(screen: unknown): boolean {
@@ -137,22 +169,54 @@ function rawScreenTooDeep(screen: unknown): boolean {
 export class ModelDesignChatReplier implements DesignChatModel {
   constructor(private readonly deps: ModelDesignChatReplierDeps) {}
 
-  async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} };
-    let text: string;
+  private async callModel(user: string, timeoutMs: number): Promise<string> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const completion = await Promise.race([
         this.deps.model.complete({
           modelProvider: this.deps.chatModel.provider,
           modelId: this.deps.chatModel.modelId,
           system: DESIGN_CHAT_SYSTEM_PROMPT,
-          user: describeProject(ctx),
+          user,
         }),
         new Promise<never>((_resolve, reject) => {
-          setTimeout(() => reject(new Error("design chat model call timed out")), DESIGN_CHAT_REPLY_TIMEOUT_MS);
+          timer = setTimeout(() => reject(new Error("design chat model call timed out")), timeoutMs);
         }),
       ]);
-      text = completion.text;
+      return completion.text;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * 迭代 7：修复轮。首轮的 `prototype`/`patch` 被契约拒了 ⇒ 把**原话理由**告诉模型，让它只重新输出修正后的
+   * 完整 JSON；再解析一次。修复轮也失败 ⇒ 保留首轮已经合法的字段与回复文字（不再第三轮）。
+   */
+  private async repair(ctx: DesignChatContext, firstText: string, rejected: readonly WritebackRejection[]): Promise<DesignChatWriteback | null> {
+    const user =
+      describeProject(ctx) +
+      "\n\n你上一轮的输出如下：\n" + firstText.slice(0, 12_000) +
+      "\n\n其中 writeback 有字段没通过契约校验：\n" +
+      rejected.map((r) => `- ${r.field}：${r.reason}`).join("\n") +
+      "\n请只修正这些问题，重新输出**完整**的 JSON（reply + writeback），不要解释。";
+    try {
+      const text = await this.callModel(user, DESIGN_CHAT_REPAIR_TIMEOUT_MS);
+      const obj = extractJsonObject(text) as Record<string, unknown>;
+      const { writeback, rejected: still } = parseWritebackDetailed(obj.writeback, this.deps.log);
+      this.deps.log("design chat: repair round finished", { stillRejected: still.map((r) => r.field) });
+      return writeback;
+    } catch (e) {
+      this.deps.log("design chat: repair round failed, keeping first-round result", { detail: e instanceof Error ? e.message : "unknown" });
+      return null;
+    }
+  }
+
+  async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
+    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} };
+    let text: string;
+    try {
+      text = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
     } catch (e) {
       this.deps.log("design chat: model call failed, falling back to fixed reply", {
         modelProvider: this.deps.chatModel.provider,
@@ -175,7 +239,16 @@ export class ModelDesignChatReplier implements DesignChatModel {
     }
     const obj = raw as Record<string, unknown>;
     const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
-    const writeback = parseWriteback(obj.writeback, this.deps.log);
+    let { writeback } = parseWritebackDetailed(obj.writeback, this.deps.log);
+    const { rejected } = parseWritebackDetailed(obj.writeback);
+    const repairable = rejected.filter((r) => REPAIRABLE_FIELDS.has(r.field));
+    if (repairable.length > 0) {
+      const repaired = await this.repair(ctx, text, repairable);
+      if (repaired !== null) {
+        // 修复轮里合法的字段覆盖首轮；首轮已合法、修复轮没给的字段保留。
+        writeback = { ...writeback, ...repaired };
+      }
+    }
     if (reply === "") {
       // JSON 里没有可用的 reply：写回仍可能有效，但给用户看的那句退回固定回执并如实标记。
       return { text: fallback.text, source: "fallback", writeback };

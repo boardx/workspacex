@@ -48,6 +48,46 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(input?.user.indexOf("用户：先聊聊")).toBeLessThan(input?.user.indexOf("用户：把成功率") ?? -1);
   });
 
+  it("迭代 7 修复轮：首轮 prototype 不合法 ⇒ 带原话理由再问一次；修复轮合法 ⇒ 用它；修复轮也失败 ⇒ 保留首轮合法字段与回复", async () => {
+    const bad = '{"reply":"画好了。","writeback":{"criteria":["c1"],"prototype":[{"frame":"聊天","root":{"type":"iframe"}}]}}';
+    const good = '{"reply":"修好了。","writeback":{"prototype":[{"frame":"聊天","root":{"type":"text","props":{"content":"hi"}}}]}}';
+    let n = 0;
+    const ok = replier(async () => ({ text: (n += 1) === 1 ? bad : good }));
+    const out = await ok.r.reply(CTX);
+    expect(ok.model.complete).toHaveBeenCalledTimes(2);
+    const repairPrompt = ok.model.complete.mock.calls[1]?.[0]?.user ?? "";
+    expect(repairPrompt).toContain("没通过契约校验");
+    expect(repairPrompt).toContain("prototype");
+    expect(out.text).toBe("画好了。"); // 回复文字沿用首轮
+    expect(out.writeback).toEqual({ criteria: ["c1"], prototype: [{ frame: "聊天", root: { type: "text", props: { content: "hi" } } }] });
+
+    let m = 0;
+    const stillBad = replier(async () => { m += 1; if (m === 1) return { text: bad }; throw new Error("boom"); });
+    const out2 = await stillBad.r.reply(CTX);
+    expect(stillBad.model.complete).toHaveBeenCalledTimes(2);
+    expect(out2).toEqual({ text: "画好了。", source: "model", writeback: { criteria: ["c1"] } });
+
+    // 只有文字字段被拒 ⇒ 不发修复轮
+    const textOnly = replier(async () => ({ text: '{"reply":"x","writeback":{"criteria":[]}}' }));
+    await textOnly.r.reply(CTX);
+    expect(textOnly.model.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("迭代 7 纠偏：type 大小写 / 容器漏 children / 数字字符串 / divider 带 props 在过契约前被修正", () => {
+    const out = parseWriteback({ prototype: [{ frame: "p", root: { type: "Stack", children: [
+      { type: "grid", props: { columns: "2" } },
+      { type: "divider", props: {} },
+      { type: "progress", props: { value: "68" } },
+      { type: "text", props: { content: "x" }, children: [] },
+    ] } }] });
+    expect(out.prototype?.[0]?.root).toEqual({ type: "stack", children: [
+      { type: "grid", props: { columns: 2 }, children: [] },
+      { type: "divider" },
+      { type: "progress", props: { value: 68 } },
+      { type: "text", props: { content: "x" } },
+    ] });
+  });
+
   it("模型抛错 / 空输出 ⇒ 固定回执 + fallback + 空 writeback，不抛", async () => {
     const failing = replier(async () => { throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "none"); });
     expect(await failing.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {} });
