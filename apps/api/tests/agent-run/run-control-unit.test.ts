@@ -52,7 +52,7 @@ describe("run control authorization and truthful state", () => {
     const result = await pausePlanRun({ runs, engine: { cancelRun },
       interjections: { requestPause } as unknown as InterjectionStore,
       model: { supportsLiveInterjections: () => true } as unknown as ModelCallPort,
-      provenance: { append: vi.fn().mockResolvedValue("audit-a") } }, input);
+      provenance: { append: vi.fn().mockResolvedValue("audit-a"), appendWithin: vi.fn().mockResolvedValue("audit-a") } }, input);
     expect(result.status).toBe("pause_requested");
     expect(requestPause).toHaveBeenCalledWith(orgId, "run-a");
     expect(cancelRun).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe("run control authorization and truthful state", () => {
     const createConfirmedRun = vi.fn(), resumeCheckpoint = vi.fn().mockResolvedValue({ runId: "run-a" });
     const result = await resumePlanRun({
       runs: { getLatestRun: vi.fn().mockResolvedValue({ runId: "run-a", pausedAt: "2026-09-07T00:00:00Z" }) } as unknown as PlanRunStatusReader,
-      runCreator: { createConfirmedRun, resumeCheckpoint }, provenance: { append: vi.fn().mockResolvedValue("audit-a") },
+      runCreator: { createConfirmedRun, resumeCheckpoint }, provenance: { append: vi.fn().mockResolvedValue("audit-a"), appendWithin: vi.fn().mockResolvedValue("audit-a") },
     }, input);
     expect(result.runId).toBe("run-a");
     expect(resumeCheckpoint).toHaveBeenCalledWith({ ...input, runId: "run-a" });

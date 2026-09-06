@@ -3,7 +3,7 @@ from typing import TypedDict
 
 import httpx
 import pytest
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
@@ -93,3 +93,26 @@ def test_pause_at_next_boundary_and_checkpoint_resume_never_replays_completed_to
     assert resumed["completed"] == 1
     assert "__interrupt__" not in resumed
     assert external_actions == ["external action committed"]
+
+
+def test_late_input_reopens_final_model_but_never_splits_tool_pair(monkeypatch):
+    monkeypatch.setattr(run_control, "poll_interjections", lambda *a, **kw: [value("late")])
+    middleware = InterjectionMiddleware()
+    final = {"messages": [AIMessage("done")]}
+    update = middleware.after_model(final, None)
+    assert update["jump_to"] == "model"
+    assert update["messages"][0].id == "interjection:late"
+    tools = {"messages": [AIMessage("", tool_calls=[{"name": "write_file", "args": {}, "id": "tool-1"}])]}
+    assert middleware.after_model(tools, None) is None
+
+
+def test_async_late_input_matches_sync_path(monkeypatch):
+    import asyncio
+
+    async def poll(*args, **kwargs):
+        return [value("late-async")]
+
+    monkeypatch.setattr(run_control, "apoll_interjections", poll)
+    update = asyncio.run(InterjectionMiddleware().aafter_model({"messages": [AIMessage("done")]}, None))
+    assert update["jump_to"] == "model"
+    assert update["messages"][0].id == "interjection:late-async"

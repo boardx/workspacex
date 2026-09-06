@@ -57,7 +57,7 @@ from langchain.agents.middleware import (
     ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
-from langchain.agents.middleware.types import AgentState
+from langchain.agents.middleware.types import AgentState, hook_config
 from langchain_core.messages import RemoveMessage, ToolMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
@@ -956,17 +956,29 @@ class InterjectionMiddleware(AgentMiddleware):
         from deep_agent_service.run_control import apoll_interjections
         return self._live_update(state, await apoll_interjections(state, pause_at_boundary=True))
 
+    def _has_pending_tools(self, state: dict) -> bool:
+        messages = state.get("messages") or []
+        return bool(messages and getattr(messages[-1], "tool_calls", None))
+
+    def _after_model_update(self, state: dict, values: list[dict]) -> dict | None:
+        if self._has_pending_tools(state):
+            # Never insert human input between an AI tool_call and its ToolMessage.
+            return None
+        update = self._live_update(state, values)
+        # Input arriving during the final model call still belongs to this run.
+        return {**update, "jump_to": "model"} if update else None
+
+    @hook_config(can_jump_to=["model"])
     def after_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
         from deep_agent_service.run_control import poll_interjections
-        # At this boundary the preceding before_model messages are in graph state.
-        # Newly queued deliveries are retained for the next before_model boundary.
-        poll_interjections(state)
-        return None
+        return self._after_model_update(state, poll_interjections(
+            state, pause_at_boundary=not self._has_pending_tools(state)))
 
+    @hook_config(can_jump_to=["model"])
     async def aafter_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
         from deep_agent_service.run_control import apoll_interjections
-        await apoll_interjections(state)
-        return None
+        return self._after_model_update(state, await apoll_interjections(
+            state, pause_at_boundary=not self._has_pending_tools(state)))
 
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
