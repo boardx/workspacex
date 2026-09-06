@@ -377,10 +377,18 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async pauseAtCheckpoint(orgId: OrgId, runId: string): Promise<void> {
-    await this.db.withTenant(orgId, async (session) => {
-      await session.query(`UPDATE agent_runs SET status='paused', error_code=NULL, paused_at=now(), ended_at=NULL
-        WHERE org_id=$1 AND id=$2 AND status='running'`, [orgId, runId]);
+  async pauseAtCheckpoint(orgId: OrgId, runId: string): Promise<"paused" | "cancelled" | null> {
+    return this.db.withTenant(orgId, async (session) => {
+      // The row update is the arbitration boundary. A cancel accepted before this
+      // checkpoint wins even when the remote interruption was originally user_pause.
+      const { rows } = await session.query<{ status: "paused" | "cancelled" }>(`UPDATE agent_runs
+        SET status=CASE WHEN cancel_requested_at IS NOT NULL THEN 'cancelled' ELSE 'paused' END,
+            error_code=NULL,
+            paused_at=CASE WHEN cancel_requested_at IS NOT NULL THEN NULL ELSE now() END,
+            ended_at=CASE WHEN cancel_requested_at IS NOT NULL THEN now() ELSE NULL END,
+            pause_requested_at=CASE WHEN cancel_requested_at IS NOT NULL THEN NULL ELSE pause_requested_at END
+        WHERE org_id=$1 AND id=$2 AND status='running' RETURNING status`, [orgId, runId]);
+      return rows[0]?.status ?? null;
     });
   }
 

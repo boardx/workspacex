@@ -372,7 +372,7 @@ export interface PendingWriteback {
 export interface AgentRunStore {
   requestCancellation?(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null>;
   cancelAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
-  pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<void>;
+  pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<"paused" | "cancelled" | null>;
   isPausedAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   resumeCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
   appendExecutionEvent?(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void>;

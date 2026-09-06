@@ -220,6 +220,24 @@ describe("durable execution journal", () => {
     await repo.storeOutputAwaitingWriteback(toOrgId(ORG), RUN, { text: "done", finalStepSeq: 1 });
     expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe(null);
   });
+  it("gives accepted cancellation atomic priority over a delayed pause checkpoint", async () => {
+    await asApp(ORG, c => c.query("UPDATE agent_runs SET pause_requested_at=now() WHERE id=$1", [RUN]));
+    expect(await repo.requestCancellation(toOrgId(ORG), RUN)).toBe("cancel_requested");
+    expect(await repo.pauseAtCheckpoint(toOrgId(ORG), RUN)).toBe("cancelled");
+    const row = await asApp(ORG, c => c.query("SELECT status,paused_at,pause_requested_at,ended_at FROM agent_runs WHERE id=$1", [RUN]));
+    expect(row.rows[0]).toMatchObject({status: "cancelled", paused_at: null, pause_requested_at: null});
+    expect(row.rows[0].ended_at).not.toBeNull();
+    expect((await repo.readExecutionEvents(toOrgId(ORG), RUN, -1)).at(-1)).toMatchObject({kind: "status", status: "cancelled"});
+    expect(await repo.resumeCheckpoint(toOrgId(ORG), RUN)).toBe(false);
+    expect(await repo.pauseAtCheckpoint(toOrgId(OTHER_ORG), RUN)).toBeNull();
+  });
+  it("settles concurrent pause confirmation and cancellation in either lock order", async () => {
+    const [, pause] = await Promise.all([repo.requestCancellation(toOrgId(ORG), RUN), repo.pauseAtCheckpoint(toOrgId(ORG), RUN)]);
+    expect(["paused", "cancelled"]).toContain(pause);
+    const row = await asApp(ORG, c => c.query("SELECT status FROM agent_runs WHERE id=$1", [RUN]));
+    expect(row.rows[0].status).toBe("cancelled");
+    expect((await repo.readExecutionEvents(toOrgId(ORG), RUN, -1)).at(-1)).toMatchObject({kind: "status", status: "cancelled"});
+  });
   it("only resumes a settled pause once and atomically clears its request marker", async () => {
     expect(await repo.resumeCheckpoint(toOrgId(ORG), RUN)).toBe(false);
     await repo.pauseAtCheckpoint(toOrgId(ORG), RUN);
