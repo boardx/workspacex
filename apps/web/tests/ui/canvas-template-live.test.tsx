@@ -1812,3 +1812,85 @@ describe("画布模板库排序功能", () => {
     ]);
   });
 });
+
+/**
+ * issue #2825 第二轮 —— 「用完之后推荐」那一栏的**紧凑度**。
+ *
+ * 人类 2026-09-06 实测原话：「后台的界面不要摊开所有的 chips，占用的空间太大了，
+ * 你要知道有可能会有 50 个 chips，现在的办法有问题」。第一版把整库渲染成一排可点
+ * chip，行高随库增长，把画布挤到屏幕外。
+ *
+ * 所以这里钉的判据是**「未选中的模板不在这一行里」**，而不是"渲染了几个 DOM 节点"
+ * 或"这个 div 的高度是多少"——前者是行为（库多大都不影响这一行），后者要么脆、
+ * 要么在 jsdom 里根本量不出来（jsdom 不做布局，`offsetHeight` 恒为 0）。
+ */
+describe("2026-09-06 · 「用完之后推荐」不摊开整库（issue #2825 第二轮）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-recommend";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-recommend");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** 30 条的库——真实库已经接近这个量级，而第一版的前提是"十几到二十几条"。 */
+  const BIG_LIBRARY = [
+    template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+      usageCount: 0, sections: [], recommendAfter: ["bmc"],
+    }),
+    ...Array.from({ length: 29 }, (_, i) => template({
+      key: `tpl-${i}`, displayName: `模板${i}`, version: 1, status: "draft", builtin: false, usageCount: 0,
+    })),
+    template({ key: "bmc", displayName: "商业模式画布", version: 1, status: "draft", builtin: false, usageCount: 0 }),
+  ];
+
+  async function openEditor(): Promise<HTMLElement> {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: BIG_LIBRARY })));
+    renderApp(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    return screen.findByTestId("tpladmin-editor-panel");
+  }
+
+  it("只渲染已选中的那几条；未选中的 30 条一条都不在这一行里", async () => {
+    const panel = await openEditor();
+    // 已选中的（swot 配了 bmc）显示出来——它就是这一栏要让人一眼看到的东西。
+    expect(within(panel).getByTestId("tpladmin-editor-recommend-bmc")).toBeInTheDocument();
+    // 未选中的一律不在。这一条就是本次修复：库有多大，这一行都只有"已选中 + 添加按钮"。
+    expect(within(panel).queryByTestId("tpladmin-editor-recommend-tpl-0")).toBeNull();
+    expect(within(panel).queryByTestId("tpladmin-editor-recommend-tpl-28")).toBeNull();
+  });
+
+  it("＋ 添加 → 搜索 → 点一条：加进这一栏，且候选里不再出现它", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-add"));
+    const picker = await within(panel).findByTestId("tpladmin-editor-recommend-picker");
+
+    // 搜索按名字过滤——库大到需要收起来时，也就大到"滚动找"不好使了。
+    fireEvent.change(within(picker).getByTestId("tpladmin-editor-recommend-search"), {
+      target: { value: "模板7" },
+    });
+    expect(within(picker).getByTestId("tpladmin-editor-recommend-option-tpl-7")).toBeInTheDocument();
+    expect(within(picker).queryByTestId("tpladmin-editor-recommend-option-tpl-8")).toBeNull();
+
+    fireEvent.click(within(picker).getByTestId("tpladmin-editor-recommend-option-tpl-7"));
+    // 加进了这一栏。
+    await waitFor(() =>
+      expect(within(panel).getByTestId("tpladmin-editor-recommend-tpl-7")).toBeInTheDocument());
+    // 已经选中的不再出现在候选里——否则会被加第二次，而 `recommendAfter` 是一个有序
+    // 列表不是集合，重复项会真的存进去。
+    expect(within(picker).queryByTestId("tpladmin-editor-recommend-option-tpl-7")).toBeNull();
+  });
+
+  it("点 × 移除已选中的一条", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-bmc-remove"));
+    await waitFor(() =>
+      expect(within(panel).queryByTestId("tpladmin-editor-recommend-bmc")).toBeNull());
+    expect(within(panel).getByTestId("tpladmin-editor-recommend-none")).toBeInTheDocument();
+  });
+});
