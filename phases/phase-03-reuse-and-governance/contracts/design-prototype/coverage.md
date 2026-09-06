@@ -13,6 +13,7 @@
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |
+| V19 | 画板视图（迭代 4） | 无接口（纯前端 `prototype-board.tsx`） | `design-detail-board` / `design-detail-view-*` / `design-detail-zoom-*` | ✅ |
 | V18 | 版本历史（迭代 3） | `listPrototypeVersions` / `getPrototypeVersion` / `restorePrototypeVersion` | `design-detail-history-toggle` / `design-history-*` / `design-detail-preview-banner` | ✅ |
 | V17 | 画布选中态 + focusNodeId（迭代 2） | `appendProjectChat.in.focusNodeId` / `findPrototypeNodePath` / `prototypeNodeLabel` | `design-detail-focus` / `design-detail-focus-clear` / `[data-node-id]` | ✅ |
 | V16 | patch 局部改（迭代 1） | `DesignChatWriteback.patch` / `applyPrototypePatch` / `ensurePrototypeIds` | `design-detail-phone-tree` / `design-detail-chat-applied` | ✅ |

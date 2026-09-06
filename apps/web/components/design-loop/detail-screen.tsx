@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X, History } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X, History, LayoutGrid, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { PrototypeCanvas } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
+import { PrototypeBoard } from "./prototype-board";
 import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
 import {
   appendProjectChat as apiAppendProjectChat,
@@ -115,6 +116,8 @@ export function DesignDetailScreen({
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /** 迭代 3：版本历史面板开关 + 正在预览的旧版本（画布临时显示它的树，不写库）。 */
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
+  const [viewMode, setViewMode] = React.useState<"board" | "single">("board");
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
@@ -353,13 +356,23 @@ export function DesignDetailScreen({
                     {f}
                   </button>
                 ))}
+                <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
+                  <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <LayoutGrid aria-hidden className="h-3 w-3" /> 画板
+                  </button>
+                  <button type="button" onClick={() => setViewMode("single")} aria-pressed={viewMode === "single"} data-testid="design-detail-view-single" title="单页：只看当前页"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "single" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <Smartphone aria-hidden className="h-3 w-3" /> 单页
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
                   aria-pressed={historyOpen}
                   data-testid="design-detail-history-toggle"
                   className={cn(
-                    "ml-auto inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     historyOpen ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                   )}
                 >
@@ -367,19 +380,30 @@ export function DesignDetailScreen({
                 </button>
               </div>
               <div className="flex min-h-0 flex-1">
-                <div className="relative grid flex-1 place-items-center overflow-y-auto bg-background p-6">
+                <div className={cn("relative flex-1 overflow-hidden bg-background", viewMode === "single" && "grid place-items-center overflow-y-auto p-6")}>
                   {preview !== null && (
-                    <div className="absolute left-4 top-4 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
+                    <div className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-card border border-primary/40 bg-card px-2.5 py-1.5 text-11" data-testid="design-detail-preview-banner">
                       正在预览 <span className="font-mono font-medium">v{preview.seq}</span>，画布未改动
                       <Button variant="ghost" size="sm" onClick={() => setPreview(null)} data-testid="design-detail-preview-exit">退出预览</Button>
                     </div>
                   )}
-                  <PrototypeCanvas
-                    label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
-                    root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
-                    selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
-                    onSelect={preview === null ? setSelectedId : null}
-                  />
+                  {viewMode === "board" ? (
+                    <PrototypeBoard
+                      frames={(preview ?? project).frames}
+                      prototype={(preview ?? project).prototype}
+                      activeFrame={Math.min(frame, (preview ?? project).frames.length - 1)}
+                      onFocusFrame={setFrame}
+                      selectedId={preview === null && focus !== null ? selectedId : null}
+                      onSelect={preview === null ? setSelectedId : null}
+                    />
+                  ) : (
+                    <PrototypeCanvas
+                      label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
+                      root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
+                      selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
+                      onSelect={preview === null ? setSelectedId : null}
+                    />
+                  )}
                 </div>
                 {historyOpen && (
                   <PrototypeHistoryPanel

@@ -1158,6 +1158,8 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "给我设计一个 chat 的 UI，模拟 chatgpt" } });
     fireEvent.click(screen.getByTestId("design-detail-send"));
     expect(await screen.findByTestId("design-detail-generating")).toBeTruthy();
+    await screen.findAllByTestId("design-detail-phone-tree");
+    fireEvent.click(screen.getByTestId("design-detail-view-single")); // 迭代 4 起默认是画板视图（多页并排），这条断言看单页
     const tree = await screen.findByTestId("design-detail-phone-tree");
     expect(screen.queryByTestId("design-detail-phone-placeholder")).toBeNull();
     expect(tree.textContent).toContain("ChatGPT");
@@ -1287,6 +1289,44 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     await screen.findByTestId("design-detail-preview-banner");
     fireEvent.click(screen.getByTestId("design-detail-preview-exit"));
     expect(screen.queryByTestId("design-detail-preview-banner")).toBeNull();
+  });
+
+  it("迭代 4 画板视图：默认所有页并排；点标题聚焦该页；−/＋/1:1 改缩放；Ctrl+滚轮缩放、滚轮平移；单页/画板可切换", async () => {
+    const t = (c: string) => ({ type: "text" as const, id: `t-${c}`, props: { content: c } });
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天", "设置", "关于"], prototype: [t("一"), t("二"), t("三")] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    const board = screen.getByTestId("design-detail-board");
+    expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(3);
+    expect(screen.getByTestId("design-detail-board-frame-2").textContent).toContain("三");
+    // 聚焦第 2 页 ⇒ 标签条同步
+    fireEvent.click(within(screen.getByTestId("design-detail-board-frame-1")).getByRole("button", { name: /设置/ }));
+    expect(screen.getByTestId("design-detail-frame-1").className).toContain("bg-card");
+    // 缩放按钮
+    const level = () => screen.getByTestId("design-detail-zoom-level").textContent;
+    fireEvent.click(screen.getByTestId("design-detail-zoom-reset"));
+    expect(level()).toBe("100%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-in"));
+    expect(level()).toBe("120%");
+    fireEvent.click(screen.getByTestId("design-detail-zoom-out"));
+    expect(level()).toBe("100%");
+    // Ctrl+滚轮缩放；普通滚轮平移
+    fireEvent.wheel(board, { deltaY: -100, ctrlKey: true });
+    expect(level()).toBe("120%");
+    const before = screen.getByTestId("design-detail-board-stage").style.transform;
+    fireEvent.wheel(board, { deltaY: 40, deltaX: 0 });
+    expect(screen.getByTestId("design-detail-board-stage").style.transform).not.toBe(before);
+    // 点画板里的节点 ⇒ 选中 + 聚焦那页
+    fireEvent.click(screen.getByTestId("design-detail-board-frame-2").querySelector('[data-node-id="t-三"]') as HTMLElement);
+    expect(screen.getByTestId("design-detail-focus").textContent).toContain("关于");
+    // 切单页
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    expect(screen.queryByTestId("design-detail-board")).toBeNull();
+    expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(1);
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("三");
   });
 
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {

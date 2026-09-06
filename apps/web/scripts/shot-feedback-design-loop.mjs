@@ -77,9 +77,11 @@ const SHOTS = [
   ["detail-depfailed-dark.png", "detail-depfailed", "default", "dark", null],
   ["detail-missing-dark.png", "detail-missing", "default", "dark", null],
   // 新增（UC-17.8 B5.3，原型画布从占位块变成模型生成的组件树）
+  // 迭代 4 起默认是画板视图：detail-prototype-dark 拍画板；单页类的三张先切到单页
   ["detail-prototype-dark.png", "detail-prototype", "default", "dark", null],
   ["detail-prototype-page2-dark.png", "detail-prototype", "default", "dark", openSecondFrame],
   ["detail-prototype-generating-dark.png", "detail-prototype", "default", "dark", sendSlow],
+  ["detail-prototype-single-dark.png", "detail-prototype", "default", "dark", singleView],
   // 迭代 2：点选画布节点 ⇒ 描边 + 对话面板上方的焦点 chip
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
   // 迭代 3：打开版本历史并预览 v1
@@ -125,17 +127,20 @@ async function createSlow(page) {
   await click(page, '[data-testid="project-dialog-submit"]');
   await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
 }
-async function openSecondFrame(page) { await clickUntil(page, '[data-testid="design-detail-frame-1"]', '[data-testid="design-detail-phone-tree"]'); }
+async function singleView(page) { await clickUntil(page, '[data-testid="design-detail-view-single"]', '[data-testid="design-detail-phone-tree"]'); await page.waitForTimeout(200); }
+async function openSecondFrame(page) { await singleView(page); await click(page, '[data-testid="design-detail-frame-1"]'); }
 async function openHistoryPreview(page) {
+  await singleView(page);
   await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
   await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
 }
 async function selectNode(page) {
-  await page.waitForSelector('[data-testid="design-detail-phone-tree"]');
+  await singleView(page);
   await page.locator('[data-proto="button"]').first().click();
   await page.waitForSelector('[data-testid="design-detail-focus"]', { timeout: 4000 });
 }
 async function sendSlow(page) {
+  await singleView(page);
   await page.fill('[data-testid="design-detail-input"]', "输入区加一个附件按钮，消息流里给 AI 回复加复制按钮");
   await click(page, '[data-testid="design-detail-send"]');
   await page.waitForSelector('[data-testid="design-detail-generating"]', { timeout: 4000 });

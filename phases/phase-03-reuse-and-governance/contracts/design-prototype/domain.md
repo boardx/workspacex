@@ -58,4 +58,5 @@
 - ✅ 迭代 1：节点 `id` + `PrototypePatchOp`（setProps / replace / insert / remove），模型可局部改。
 - ✅ 迭代 2：画布选中态 + `focusNodeId`——「就改这一块」的对话上下文。
 - ✅ 迭代 3：版本历史（append-only 快照；预览 / 恢复；恢复也是一版）。
+- ✅ 迭代 4：多画板画布（并排 / 平移缩放 / 聚焦），单页视图保留。
 - 流式生成 / 取消。
