@@ -86,6 +86,8 @@ const SHOTS = [
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
   // 迭代 6：第三页「用量」——新原语一屏
   ["detail-prototype-page3-dark.png", "detail-prototype", "default", "dark", openThirdFrame],
+  // 迭代 8：导出菜单打开
+  ["detail-prototype-export-dark.png", "detail-prototype", "default", "dark", openExport],
   // 迭代 5：选中节点后的属性面板（与 focus 同一动作，右栏多出字段）
   ["detail-prototype-inspector-dark.png", "detail-prototype", "default", "dark", selectNodeInspector],
   // 迭代 3：打开版本历史并预览 v1
@@ -139,6 +141,7 @@ async function openHistoryPreview(page) {
   await clickUntil(page, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
   await clickUntil(page, '[data-testid="design-history-preview-1"]', '[data-testid="design-detail-preview-banner"]');
 }
+async function openExport(page) { await clickUntil(page, '[data-testid="design-detail-export"]', '[data-testid="design-detail-export-menu"]'); }
 async function selectNodeInspector(page) {
   await selectNode(page);
   await page.waitForSelector('[data-testid="design-inspector"]', { timeout: 4000 });

@@ -36,6 +36,7 @@ interface ProjectDbRow {
   readonly frames: unknown;
   /** B5.3：jsonb 数组，每项一棵树——迁移 `20260906160000_uc178_b53_design_prototype.sql` */
   readonly prototype: unknown;
+  readonly frame_notes: unknown;
   readonly pushed: boolean;
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
@@ -57,6 +58,12 @@ interface ChatDbRow {
 function toStringArray(raw: unknown): readonly string[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((v): v is string => typeof v === "string");
+}
+
+/** 迭代 8：与 frames 同长才有意义（按位置对应），否则按「没写」。 */
+function toNotes(raw: unknown, frames: readonly string[]): readonly string[] {
+  const arr = toStringArray(raw);
+  return arr.length === frames.length ? arr : [];
 }
 
 /**
@@ -96,6 +103,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     criteria: toStringArray(row.criteria),
     frames: toStringArray(row.frames),
     prototype: toPrototype(row.prototype, toStringArray(row.frames)),
+    frameNotes: toNotes(row.frame_notes, toStringArray(row.frames)),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
@@ -109,7 +117,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
 }
 
 const SELECT_COLUMNS = `
-  id, owner_id, name, template, problem, criteria, frames, prototype,
+  id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at`;
 
@@ -121,6 +129,7 @@ interface VersionDbRow {
   readonly summary: string;
   readonly frames: unknown;
   readonly prototype?: unknown;
+  readonly notes: unknown;
   readonly created_at: Date | string;
 }
 
@@ -132,6 +141,7 @@ function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototy
     source: row.source === "user" || row.source === "restore" ? row.source : "model",
     summary: row.summary,
     frames: toStringArray(row.frames),
+    notes: toNotes(row.notes, toStringArray(row.frames)),
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -267,6 +277,11 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                                WHEN $8::jsonb IS NOT NULL THEN '[]'::jsonb
                                ELSE prototype
                              END,
+                frame_notes = CASE
+                               WHEN $10::jsonb IS NOT NULL THEN $10::jsonb
+                               WHEN $8::jsonb IS NOT NULL THEN '[]'::jsonb
+                               ELSE frame_notes
+                             END,
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -275,6 +290,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           patch.criteria === undefined ? null : JSON.stringify(patch.criteria),
           patch.frames === undefined ? null : JSON.stringify(patch.frames),
           patch.prototype === undefined ? null : JSON.stringify(patch.prototype),
+          patch.frameNotes === undefined ? null : JSON.stringify(patch.frameNotes),
         ],
       );
       const row = rows[0];
@@ -283,12 +299,12 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
         // 同一事务：上面的 UPDATE 已锁住项目行，同项目的 MAX(seq)+1 在并发写回之间串行。
         const id = `${projectId}-v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { rows: vrows } = await s.query<VersionDbRow>(
-          `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype)
-           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb
+          `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype, notes)
+           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb
              FROM design_project_prototype_versions
             WHERE org_id = $2 AND project_id = $3
-           RETURNING id, project_id, seq, source, summary, frames, created_at`,
-          [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(toStringArray(row.frames)), JSON.stringify(toPrototype(row.prototype, toStringArray(row.frames)))],
+           RETURNING id, project_id, seq, source, summary, frames, notes, created_at`,
+          [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(toStringArray(row.frames)), JSON.stringify(toPrototype(row.prototype, toStringArray(row.frames))), JSON.stringify(toNotes(row.frame_notes, toStringArray(row.frames)))],
         );
         const v = vrows[0];
         if (v === undefined) throw new Error("design-workbench: inserted version vanished within the same transaction");
@@ -303,7 +319,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<VersionDbRow>(
-        `SELECT id, project_id, seq, source, summary, frames, created_at
+        `SELECT id, project_id, seq, source, summary, frames, notes, created_at
            FROM design_project_prototype_versions
           WHERE org_id = $1 AND project_id = $2
           ORDER BY seq DESC`,
@@ -316,7 +332,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<VersionDbRow>(
-        `SELECT id, project_id, seq, source, summary, frames, prototype, created_at
+        `SELECT id, project_id, seq, source, summary, frames, prototype, notes, created_at
            FROM design_project_prototype_versions
           WHERE org_id = $1 AND project_id = $2 AND id = $3`,
         [this.orgId, projectId, versionId],

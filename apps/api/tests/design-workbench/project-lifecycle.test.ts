@@ -269,7 +269,7 @@ describe("appendProjectChat", () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
     const whole = new FakeDesignChat();
-    whole.answer = { text: "画好了，两页。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "v1" } }] } }] } };
+    whole.answer = { text: "画好了，两页。", source: "model", writeback: { prototype: [{ frame: "聊天", root: { type: "stack", children: [{ type: "text", props: { content: "v1" } }] }, notes: " 首屏可发消息 " }] } };
     await appendProjectChat({ ...deps(repo), ai: whole }, { projectId: "dp-1", ownerId: "u-1", text: "画" });
     const p = new FakeDesignChat();
     p.answer = { text: "改了文案。", source: "model", writeback: { patch: [{ op: "setProps", id: "n2", props: { content: "v2" } }] } };
@@ -284,6 +284,7 @@ describe("appendProjectChat", () => {
     const v1 = await getPrototypeVersion(deps(repo), { projectId: "dp-1", versionId: items[1]!.id });
     expect(v1.version.prototype[0]).toMatchObject({ type: "stack", children: [{ props: { content: "v1" } }] });
     expect(v1.version.frames).toEqual(["聊天"]);
+    expect(v1.version.notes).toEqual(["首屏可发消息"]); // 迭代 8：notes 随整页写回落库并进版本（trim）
 
     // 当前项目：标签被改成「首页」、树被清空
     expect((await repo.get("dp-1"))?.prototype).toEqual([]);
@@ -291,6 +292,7 @@ describe("appendProjectChat", () => {
     expect(restored.project.frames).toEqual(["聊天"]);
     expect(restored.project.prototype[0]).toMatchObject({ children: [{ props: { content: "v1" } }] });
     expect(restored.version).toMatchObject({ seq: 3, source: "restore", summary: "恢复自 v1" });
+    expect(restored.project.frameNotes).toEqual(v1.version.notes); // 迭代 8：说明随版本恢复
     expect((await listPrototypeVersions(deps(repo), { projectId: "dp-1" })).items).toHaveLength(3);
 
     await expect(restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-2", versionId: items[1]!.id })).rejects.toBeInstanceOf(DesignProjectNotOwnerError);

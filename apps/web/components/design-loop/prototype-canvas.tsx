@@ -283,9 +283,11 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, device = "phone",
+  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
+  frameIndex?: number;
   /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。主题跟随页面 `.dark`——globals.css 没有独立的 `.light` 类，不另造第二份 token。 */
   device?: PrototypeDevice;
 }) {
@@ -293,7 +295,7 @@ export function PrototypeCanvas({
   const size = DEVICE_SIZE[device];
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect }}>
-    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device}>
+    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex}>
       <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
         <Icon aria-hidden className="h-3 w-3" /> {label}
       </div>

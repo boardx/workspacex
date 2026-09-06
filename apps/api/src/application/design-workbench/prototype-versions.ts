@@ -22,7 +22,7 @@ export type PrototypeVersionSummaryView = Omit<PrototypeVersionRow, "prototype" 
 export type PrototypeVersionView = Omit<PrototypeVersionRow, "projectId">;
 
 function summaryView(v: Omit<PrototypeVersionRow, "prototype">): PrototypeVersionSummaryView {
-  return { id: v.id, seq: v.seq, source: v.source, summary: v.summary, frames: [...v.frames], createdAt: v.createdAt };
+  return { id: v.id, seq: v.seq, source: v.source, summary: v.summary, frames: [...v.frames], notes: [...v.notes], createdAt: v.createdAt };
 }
 
 export async function listPrototypeVersions(deps: DesignProjectDeps, input: { readonly projectId: string }): Promise<{ readonly items: readonly PrototypeVersionSummaryView[] }> {
@@ -51,7 +51,7 @@ export async function restorePrototypeVersion(
   if (v === null) throw new PrototypeVersionNotFoundError();
   // 旧版可能来自 id 之前的时代：补齐后写回，模型与画布看到的每个节点都可寻址。
   const prototype = designPrototype.ensurePrototypeIds(v.prototype);
-  const written = await deps.projects.update(input.projectId, input.ownerId, { frames: v.frames, prototype }, { source: "restore", summary: `恢复自 v${v.seq}` });
+  const written = await deps.projects.update(input.projectId, input.ownerId, { frames: v.frames, prototype, frameNotes: v.notes }, { source: "restore", summary: `恢复自 v${v.seq}` });
   if (written === null) throw new DesignProjectNotOwnerError();
   const recorded = deps.projects.lastRecordedVersion();
   if (recorded === null) throw new Error("design-workbench: restore wrote the project but no version was recorded");

@@ -78,7 +78,7 @@ describe("rawPrototypeDepth（解析前迭代探测）", () => {
 
 describe("DesignProject.prototype 不变量", () => {
   const base = {
-    id: "dp-1", name: "n", template: "ui" as const, problem: "", criteria: [], pushed: false, pushedAt: null,
+    id: "dp-1", name: "n", template: "ui" as const, problem: "", criteria: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null, chat: [], ownerId: "u", ownerName: null,
     createdAt: "2026-09-06T00:00:00.000Z", updatedAt: "2026-09-06T00:00:00.000Z",
   };
@@ -86,6 +86,11 @@ describe("DesignProject.prototype 不变量", () => {
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [] }).success).toBe(true);
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [chatScreen, chatScreen] }).success).toBe(true);
     expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [chatScreen] }).success).toBe(false);
+    // 迭代 8：frameNotes 同样按位置对应
+    expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [], frameNotes: ["x"] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...base, frames: ["a", "b"], prototype: [], frameNotes: ["x", ""] }).success).toBe(true);
+    expect(dp.PrototypeScreen.safeParse({ frame: "f", root: chatScreen, notes: "首屏即可发消息" }).success).toBe(true);
+    expect(dp.PrototypeScreen.safeParse({ frame: "f", root: chatScreen, notes: "x".repeat(dp.PROTOTYPE_NOTES_MAX + 1) }).success).toBe(false);
   });
 });
 

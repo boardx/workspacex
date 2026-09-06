@@ -154,6 +154,8 @@ export const DesignProject = z
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
     prototype: z.array(PrototypeNode),
+    /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
+    frameNotes: z.array(z.string()),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
@@ -180,6 +182,9 @@ export const DesignProject = z
   .superRefine((p, ctx) => {
     if (p.prototype.length !== 0 && p.prototype.length !== p.frames.length) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "prototype must be empty or one tree per frame", path: ["prototype"] });
+    }
+    if (p.frameNotes.length !== 0 && p.frameNotes.length !== p.frames.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "frameNotes must be empty or one note per frame", path: ["frameNotes"] });
     }
   });
 export type DesignProject = z.infer<typeof DesignProject>;
@@ -250,6 +255,8 @@ export const PrototypeVersionSummary = z
     /** 一句话：模型那轮回复的前 120 字 / 「恢复自 v3」/ 人改的说明。可空字符串。 */
     summary: z.string().max(200),
     frames: z.array(z.string()),
+    /** 迭代 8：那一版的每页交互说明（与 frames 同长或空）。 */
+    notes: z.array(z.string()),
     createdAt: z.string(),
   })
   .strict();

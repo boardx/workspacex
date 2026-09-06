@@ -210,7 +210,7 @@ export const DESIGN_PROJECTS = [
     id: "proj-empty-states", name: "反馈分诊看板重设计", template: "wireframe",
     problem: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。",
     criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [], frameNotes: [],
     pushed: false, pushedAt: null, linkedFeedbackId: "in-b1",
     chat: [
       { role: "user", text: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。", at: "2026-09-03T02:00:00.000Z" },
@@ -222,7 +222,7 @@ export const DESIGN_PROJECTS = [
   {
     id: "proj-mobile-invite", name: "移动端批量邀请", template: "mobile",
     problem: "", criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
-    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [],
+    frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [], frameNotes: [],
     pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
@@ -234,6 +234,12 @@ export const DESIGN_PROJECTS = [
     problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
     criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
     frames: ["聊天", "历史会话", "用量"],
+    // 迭代 8：每页交互说明（模型随整页写回给出）
+    frameNotes: [
+      "首屏即可发消息；生成中「发送」变「停止」，点停止保留已生成的部分；空态显示三条示例问题。",
+      "按最近更新排序；搜索匹配标题与首条消息；左滑删除，删除前二次确认。",
+      "",
+    ],
     prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
@@ -371,8 +377,8 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
   });
   // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
   const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
-    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
-    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
+    { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },
+    { id: "proj-chat-ui-v1", seq: 1, source: "model", summary: "画好了两页：「聊天」是消息流 + 输入区，「历史会话」是可搜索的会话列表。", frames: p.frames, notes: p.frameNotes, createdAt: "2026-09-06T02:00:10.000Z", prototype: p.prototype },
   ]);
   await page.route((url) => /^\/pm-designs\/[^/]+\/versions$/.test(new URL(url).pathname), (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);

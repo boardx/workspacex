@@ -137,6 +137,7 @@ export function PrototypeBoard({
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
                 device={device}
+                frameIndex={i}
               />
             </div>
           </div>

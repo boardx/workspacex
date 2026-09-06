@@ -196,8 +196,14 @@ export function withinPrototypeLimits(root: PrototypeNode): boolean {
 }
 
 /** 模型写回用的一页：页标签 + 这一页的树。服务端拆成 `frames[i]` / `prototype[i]`。 */
+export const PROTOTYPE_NOTES_MAX = 600;
 export const PrototypeScreen = z
-  .object({ frame: Label, root: PrototypeNode })
+  .object({
+    frame: Label,
+    root: PrototypeNode,
+    /** 迭代 8：这一页的交互说明（做什么 / 主要交互 / 状态与边界），进设计文档与说明页；可省略。 */
+    notes: z.string().max(PROTOTYPE_NOTES_MAX).optional(),
+  })
   .strict()
   .refine((s) => withinPrototypeLimits(s.root), { message: `prototype screen exceeds ${PROTOTYPE_MAX_NODES} nodes or depth ${PROTOTYPE_MAX_DEPTH}` });
 export type PrototypeScreen = z.infer<typeof PrototypeScreen>;
@@ -535,4 +541,5 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
   "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
-  `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。`;
+  `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
+  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。`;

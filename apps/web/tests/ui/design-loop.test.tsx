@@ -29,6 +29,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
+// 迭代 8：PNG 导出的 html2canvas 在 jsdom 里跑不了——用 vi.hoisted 定义的 mock（vi.mock 工厂会被提升到 import 之前）。
+type FakeCanvas = { toBlob: (cb: (b: Blob | null) => void, type?: string) => void };
+const { html2canvasMock } = vi.hoisted(() => ({ html2canvasMock: vi.fn<(el: HTMLElement, opts?: unknown) => Promise<FakeCanvas>>() }));
+vi.mock("html2canvas", () => ({ default: html2canvasMock }));
 vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
@@ -944,7 +948,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
-    criteria: ["a"], frames: ["草稿页 1"], prototype: [], pushed: false, pushedAt: null,
+    criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
     chat: [], ownerId: "u1", ownerName: "我",
     createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
@@ -1256,14 +1260,14 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
       calls.push(`${opts?.method ?? "GET"} ${path}`);
       if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [now] })] };
       if (path === "/pm-designs/p1/versions") return { items: [
-        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
-        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], createdAt: "2026-09-06T02:00:00.000Z" },
-        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z" },
+        ...(restored ? [{ id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["页"], notes: [], createdAt: "2026-09-06T03:00:00.000Z" }] : []),
+        { id: "v2", seq: 2, source: "model", summary: "改成现在的", frames: ["页"], notes: [], createdAt: "2026-09-06T02:00:00.000Z" },
+        { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T01:00:00.000Z" },
       ] };
-      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
+      if (path === "/pm-designs/p1/versions/v1") return { version: { id: "v1", seq: 1, source: "model", summary: "第一版", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T01:00:00.000Z", prototype: [old] } };
       if (path === "/pm-designs/p1/versions/v1/restore" && opts?.method === "POST") {
         restored = true;
-        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], createdAt: "2026-09-06T03:00:00.000Z" } };
+        return { project: project({ frames: ["旧页名"], prototype: [old] }), version: { id: "v3", seq: 3, source: "restore", summary: "恢复自 v1", frames: ["旧页名"], notes: [], createdAt: "2026-09-06T03:00:00.000Z" } };
       }
       throw new Error(`unexpected ${path}`);
     });
@@ -1466,6 +1470,49 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     }
   });
 
+  it("迭代 8 导出菜单：JSON 规格下载含页/说明/树；复制 JSON 进剪贴板；PNG 走 html2canvas 抓当前页；说明页显示各页交互说明", async () => {
+    const create = vi.fn(() => "blob:x");
+    Object.defineProperty(URL, "createObjectURL", { value: create, configurable: true });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const writeText = vi.fn(async (_text: string) => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    // afterEach 会 reset 所有 mock 的实现，所以在本用例里给
+    html2canvasMock.mockImplementation(async () => ({ toBlob: (cb) => cb(new Blob(["png"], { type: "image/png" })) }));
+    const tree = { type: "text" as const, id: "n1", props: { content: "你好" } };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["聊天", "设置"], prototype: [tree, tree], frameNotes: ["首屏即可发消息", ""] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    fireEvent.click(screen.getByTestId("design-detail-export-json"));
+    expect(click).toHaveBeenCalledTimes(1);
+    const blob = (create.mock.calls[0] as unknown as [Blob])[0];
+    const spec = JSON.parse(await blob.text()) as { version: number; screens: { frame: string; notes: string; root: unknown }[] };
+    expect(spec.version).toBe(1);
+    expect(spec.screens.map((s) => [s.frame, s.notes])).toEqual([["聊天", "首屏即可发消息"], ["设置", ""]]);
+    expect(spec.screens[0]?.root).toEqual(tree);
+    // 复制
+    fireEvent.click(screen.getByTestId("design-detail-export"));
+    fireEvent.click(screen.getByTestId("design-detail-export-copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(String(writeText.mock.calls[0]?.[0])).toContain("首屏即可发消息");
+    expect((await screen.findByTestId("design-detail-export-copy")).textContent).toContain("已复制");
+    // PNG：html2canvas 被 mock，抓的是 data-frame-index=当前页 的那块屏
+    fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+    fireEvent.click(screen.getByTestId("design-detail-export-png"));
+    await waitFor(() => expect(html2canvasMock).toHaveBeenCalledTimes(1));
+    expect((html2canvasMock.mock.calls[0] as unknown as [HTMLElement])[0].getAttribute("data-frame-index")).toBe("1");
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    // 说明页
+    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    expect(screen.getByTestId("design-detail-notes").textContent).toContain("首屏即可发消息");
+    expect(screen.queryByTestId("design-detail-note-1")).toBeNull(); // 空说明的页不列
+    click.mockRestore();
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();
@@ -1478,6 +1525,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     });
     render(<DesignDetailScreen projectId="p1" />);
     await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-export"));
     fireEvent.click(screen.getByTestId("design-detail-export-doc"));
     expect(click).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
@@ -1710,7 +1758,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [], frameNotes: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",
@@ -1738,7 +1786,7 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
       if (path === "/pm-designs/d1/github-issue" && opts?.method === "POST") {
         return {
           project: {
-            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [],
+            id: "d1", name: "方案一", template: "wireframe", problem: "", criteria: [], frames: [], prototype: [], frameNotes: [],
             pushed: true, pushedAt: "2026-09-02T00:00:00.000Z", linkedFeedbackId: "x1",
             githubIssueUrl: "https://github.com/boardx/workspacex/issues/77", githubIssueNumber: 77,
             chat: [], ownerId: "u1", ownerName: "我",

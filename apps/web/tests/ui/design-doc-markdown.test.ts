@@ -1,11 +1,12 @@
 /** B5.3 `buildDesignDocMarkdown` / `outlinePrototype` 纯函数正例。 */
 import { describe, expect, it } from "vitest";
-import { buildDesignDocMarkdown, designDocFileName, outlinePrototype } from "@/lib/design-doc-markdown";
+import { buildDesignDocMarkdown, buildPrototypeSpecJson, designDocFileName, outlinePrototype, prototypeSpecFileName } from "@/lib/design-doc-markdown";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const base: DesignProject = {
   id: "p1", name: "聊天 UI/改版", template: "ui", problem: "对话入口太深", criteria: ["首屏可发消息"],
   frames: ["聊天", "设置"],
+  frameNotes: ["首屏即可发消息；生成中可停止。", ""],
   prototype: [
     { type: "stack", children: [{ type: "navbar", props: { title: "ChatGPT" } }, { type: "button", props: { label: "发送", variant: "primary" } }] },
     { type: "list", props: { items: ["账号", "外观"] } },
@@ -23,7 +24,11 @@ describe("buildDesignDocMarkdown", () => {
     expect(md).toContain("- 来源反馈：fb-1");
     expect(md).toContain("## 问题与目标\n\n对话入口太深");
     expect(md).toContain("1. 首屏可发消息");
-    expect(md).toContain("### 页 1：聊天\n\n- 布局（纵向）\n  - 导航栏「ChatGPT」\n  - 按钮「发送」（primary）");
+    expect(md).toContain("### 页 1：聊天\n\n> 首屏即可发消息；生成中可停止。\n\n- 布局（纵向）\n  - 导航栏「ChatGPT」\n  - 按钮「发送」（primary）");
+    expect(md).toContain("### 页 2：设置\n\n- 列表"); // 空说明不出引用块
+    const spec = JSON.parse(buildPrototypeSpecJson(base)) as { screens: { frame: string; notes: string }[] };
+    expect(spec.screens.map((s) => s.notes)).toEqual(["首屏即可发消息；生成中可停止。", ""]);
+    expect(prototypeSpecFileName(base, NOW)).toBe("聊天-UI-改版-2026-09-06.prototype.json");
     expect(md).toContain("### 页 2：设置\n\n- 列表：账号 / 外观");
     expect(md).toContain("- PM：画个 聊天");
   });

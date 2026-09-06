@@ -101,13 +101,14 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       ...(patch.frames !== undefined ? { frames: [...patch.frames] } : {}),
       // 同 pg 仓储：只改 frames 不给 prototype ⇒ 清空；给了 ⇒ 替换。
       ...(patch.prototype !== undefined ? { prototype: [...patch.prototype] } : patch.frames !== undefined ? { prototype: [] } : {}),
+      ...(patch.frameNotes !== undefined ? { frameNotes: [...patch.frameNotes] } : patch.frames !== undefined ? { frameNotes: [] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
     if (version !== undefined) {
       // 同真实仓储：与 UPDATE 同一步落版本，frames/prototype 取更新后的行。
       const seq = this.versions.filter((v) => v.projectId === projectId).length + 1;
-      const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...next.frames], prototype: [...next.prototype], createdAt: this.stamp() };
+      const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...next.frames], prototype: [...next.prototype], notes: [...next.frameNotes], createdAt: this.stamp() };
       this.versions.push(row);
       const { prototype: _p, ...rest } = row;
       this.lastVersion = rest;
@@ -211,6 +212,7 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     criteria: [],
     frames: [],
     prototype: [],
+    frameNotes: [],
     pushed: false,
     pushedAt: null,
     pushNote: null,

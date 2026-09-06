@@ -63,7 +63,11 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
     lines.push(`还没有生成原型。页面划分：${project.frames.join("、") || "（无）"}`);
   } else {
     for (const [i, root] of project.prototype.entries()) {
-      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "", ...outlinePrototype(root), "");
+      lines.push(`### 页 ${i + 1}：${project.frames[i] ?? ""}`, "");
+      // 迭代 8：每页交互说明先于结构大纲——工程先读「这页做什么」再看「里面有什么」。
+      const note = (project.frameNotes[i] ?? "").trim();
+      if (note !== "") lines.push(`> ${note.replace(/\n+/g, " ")}`, "");
+      lines.push(...outlinePrototype(root), "");
     }
   }
   const aiTurns = project.chat.filter((t) => t.role === "user").length;
@@ -81,4 +85,21 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
 export function designDocFileName(project: DesignProject, now: Date = new Date()): string {
   const safe = project.name.replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "design";
   return `${safe}-${now.toISOString().slice(0, 10)}.md`;
+}
+
+/**
+ * 迭代 8：原型规格 JSON——给工程/别的工具吃的机器可读版本：页标签、每页交互说明、组件树（带 id）。
+ * 不含对话与验收（那些在设计文档里）；`version` 是这份格式的版本号，不是项目版本。
+ */
+export function buildPrototypeSpecJson(project: DesignProject): string {
+  const screens = project.frames.map((frame, i) => ({
+    frame,
+    notes: project.frameNotes[i] ?? "",
+    root: project.prototype[i] ?? null,
+  }));
+  return JSON.stringify({ version: 1, project: { id: project.id, name: project.name, template: project.template }, screens }, null, 2);
+}
+
+export function prototypeSpecFileName(project: DesignProject, now: Date = new Date()): string {
+  return designDocFileName(project, now).replace(/\.md$/, ".prototype.json");
 }

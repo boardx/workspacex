@@ -70,7 +70,8 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
   '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
   "还没有原型（当前原型为空数组）、用户首次描述要做的产品、要求新增页面、或要求整页重画/重排时，给 prototype：" +
-  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root}，页数 1–20。" +
+  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root, notes}，页数 1–20；" +
+  "notes 是给工程看的这页交互说明（做什么、主要交互、空态/加载/错误），一到三句。" +
   "已有原型且只是局部改动（改文案/加删一块/调属性）时**不要**给 prototype，用 writeback.patch（见下）。" +
   "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +

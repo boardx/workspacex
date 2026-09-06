@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, FileDown, Crosshair, X, History, LayoutGrid, Smartphone } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
-import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
+import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
   listMyProjects,
@@ -42,25 +42,6 @@ function describeFailure(err: unknown): string {
   if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
   if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
   return String(err);
-}
-
-/**
- * B5.3：导出设计文档——纯客户端拼 Markdown（`lib/design-doc-markdown.ts`）后触发下载。
- * 不走服务端：文档的全部素材已经在 `DesignProject` 里，多一个接口只是多一份可漂移的副本。
- * jsdom 没有 `URL.createObjectURL`，测试里 mock 它；生产浏览器真下载。
- */
-function exportDoc(project: DesignProject): void {
-  const now = new Date();
-  const blob = new Blob([buildDesignDocMarkdown(project, now)], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = designDocFileName(project, now);
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 type Load =
@@ -254,9 +235,8 @@ export function DesignDetailScreen({
         <span className="min-w-0 truncate text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
         {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => exportDoc(project)} data-testid="design-detail-export-doc" title="导出为 Markdown 设计文档">
-            <FileDown aria-hidden className="h-3.5 w-3.5" /> 导出设计文档
-          </Button>
+          {/* 迭代 8：导出菜单——设计文档 / 原型 JSON / 当前页 PNG / 复制 */}
+          <PrototypeExportMenu project={project} frame={Math.min(frame, Math.max(0, project.frames.length - 1))} />
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
               <Check aria-hidden className="h-3.5 w-3.5" /> 已推送到收件箱
@@ -436,6 +416,7 @@ export function DesignDetailScreen({
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
                       device={deviceOf(project.template)}
+                      frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                     />
                   )}
                 </div>
@@ -489,6 +470,24 @@ export function DesignDetailScreen({
                   ))}
                 </ul>
               </section>
+              {/* 迭代 8：每页交互说明（模型随整页写回给出；没有就不显示这一节） */}
+              {project.frameNotes.some((n) => n.trim() !== "") && (
+                <section className="mt-6" data-testid="design-detail-notes">
+                  <h3 className="text-14 font-semibold">各页交互说明</h3>
+                  <ol className="mt-1.5 flex flex-col gap-2">
+                    {project.frames.map((f, i) => {
+                      const note = (project.frameNotes[i] ?? "").trim();
+                      if (note === "") return null;
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-13" data-testid={`design-detail-note-${i}`}>
+                          <MessageSquareText aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span><span className="font-medium">{f}</span>：<span className="text-muted-foreground">{note}</span></span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
             </div>
           )}
         </div>
