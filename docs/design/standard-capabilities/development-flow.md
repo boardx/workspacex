@@ -14,7 +14,8 @@ flowchart TD
   E3 --> E4
   E4 --> Scope[WX-T010 仅文本委派已验证；扩展文件授权待做]:::active
   E3 --> FileTests[T001–T008 官方文件行为证据：f9b1ca28a]:::verified
-  FileTests --> FileJoin[附件原件、图像读取及标准编号trace待接入]
+  FileTests --> ImageRead[WX-T002 大图读取：已复现64KiB截断，修复中]:::active
+  ImageRead --> FileJoin[附件原件及标准编号trace待接入]
   E4 --> NativeJoin[可信factory生产接线与联合验收]
   E4 --> Version[WX-E008 固定包版本兼容]
   E3 --> E6[W04 native产物适配与取消原语]
@@ -64,7 +65,8 @@ flowchart TD
   SQL --> Gate
   Methods --> Gate
   Gate --> Commits[每个任务独立commit]
-  Commits --> PR[单个汇总Draft PR；后续全绿CI与完整验收]
+  Commits --> Migration[迁移重放修复：e4b8e9b34，本地202项重放通过]:::verified
+  Migration --> PR[汇总Draft PR #2869：CI与完整验收进行中]:::active
   PR --> Main[等待后续整合main]
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
@@ -82,3 +84,5 @@ W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。WX
 W12可信身份组件已提交1f2735a71，API21项及契约20项测试通过；长期记忆的持久化、来源校验、CAS与幂等仍待实现。E005执行桥为红色依赖项：当前批准工具发布未形成固定版本快照，peer尚无稳定公开准入接口；不以目录发现或mutable whitelist代替授权。
 
 生产factory、公共trace和联合验收单独保持灰色；T010扩展授权与E008仍待完成，不把组件结果扩展为完整用户链路已交付。正常pre-push的13项受影响typecheck/lint已通过，init.sh快速路径也通过；全仓CI及最终整合以汇总PR实际结果为准。
+
+汇总 [Draft PR #2869](https://github.com/boardx/workspacex/pull/2869) 已创建。CI发现新增迁移不可重放，修复 e4b8e9b34 已完成本地空库建立与强制重放验证；新一轮CI结果待核对。WX-T002真实图像测试为1通过、1失败：小图进入模型image block，大于64KiB的PNG触发官方读取JSON截断，正在适配有界结果传输，尚未标绿。

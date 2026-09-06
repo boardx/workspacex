@@ -46,4 +46,6 @@ W12可信身份组件1f2735a71：真实execute-run调用者派生org/user，prov
 
 后续增量：`b287fb9a7` 修复 T042 权限 lint 的精确例外及边界门控；`ebe8afe29` 提交 E004 原生 Skills 图，独立 review 的默认子代理继承及缺省审批两个阻断均修复，35 项测试包含真实隔离执行/HITL。T001–T008 真实行为测试发现锁定上游路径型 grep 模板引号缺陷，单独修复中；不因此宣布整包通过。正常 push 曾被 API permission lint 拒绝，修复后仍需重跑完整 pre-push。
 
-75 项未全部实现或验收，工作台公共能力另由 peer 交付；最终汇总 PR 尚未创建，不合入 main。未提交任务与局部验证边界分别记录在各 evidence 目录。
+75 项未全部实现或验收，工作台公共能力另由 peer 交付；汇总 Draft PR [#2869](https://github.com/boardx/workspacex/pull/2869) 已创建，不合入 main。未提交任务与局部验证边界分别记录在各 evidence 目录。
+
+CI迁移重放失败已修复并提交 `e4b8e9b34`，真实本地202项迁移空库建立及强制重放通过，schema/RLS摘要不变；正常pre-push13项通过并已推送，PR新head检查尚待结果。
