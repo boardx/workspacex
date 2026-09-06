@@ -3,7 +3,7 @@ import { ResearchRuntimeError, type ResearchRuntime, type RuntimeObserver } from
 export type RuntimePersistence = (() => Promise<void>) & { requestId: string; observe: RuntimeObserver };
 
 // Provider fragments are persisted before publication. The observer never owns execution.
-export async function streamReport(model: ModelCallPort, input: ModelCallInput, state: ResearchRuntime, persist: RuntimePersistence) {
+export async function streamReport(model: ModelCallPort, input: ModelCallInput, state: ResearchRuntime, persist: RuntimePersistence, onResetReady?: (reset: () => Promise<void>) => void) {
   state.report = null;
   state.completed = false;
   state.generatedNodes = state.generatedNodes.filter((node) => node !== "report");
@@ -32,6 +32,13 @@ export async function streamReport(model: ModelCallPort, input: ModelCallInput, 
     void chain.catch((error: unknown) => { failure = error; });
     return chain;
   };
+  onResetReady?.(async () => {
+    await flush();
+    const progress = state.reportStream!;
+    progress.text = ""; progress.sequence += 1;
+    await persist();
+    persist.observe({ type: "snapshot", state: structuredClone(state) });
+  });
   try {
     const result = model.completeStream ? await model.completeStream(input, async (delta) => {
       if (failure) throw failure;

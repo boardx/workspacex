@@ -45,7 +45,11 @@ const model: ModelCallPort = { complete: async (input) => {
   if (node === "directions") value = [{ id: "d1", title: "Policy", description: "Grid rules", enabled: true, order: 0 }];
   if (node === "outline") value = [{ id: "o1", title: "Policy findings", questions: ["What rules apply?"], enabled: true, order: 0 }];
   if (node === "research") value = { tasks: [{ sectionId: "o1", query: "European grid storage policy official" }] };
-  if (node === "report") value = { title: "Findings", summary: "Limited to the available source", sections: [{ sectionId: "o1", body: "The retrieved policy explains the grid rules.", sourceIds: [badCitation ? "fabricated" : context.sources[0].id] }] };
+  if (node === "report") {
+    const id = badCitation ? "fabricated" : context.sources?.[0]?.id;
+    const chapter = { sectionId: context.section?.id ?? "o1", body: `### Evidence\n\nThe retrieved policy explains the grid rules and supports a limited comparison of the documented requirements. [[source:${id}]]\n\n### Analysis\n\nThe available evidence supports a cautious policy comparison, while implementation details remain uncertain.\n\n### Recommendations\n\nVerify current local requirements before selecting an entry option; this source does not establish financial returns.`, sourceIds: [id] };
+    value = context.reportStage === "chapter" ? chapter : context.reportStage === "synthesis" ? { title: "Findings", summary: "Limited to the available source" } : { title: "Findings", summary: "Limited to the available source", sections: [chapter] };
+  }
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
   return { text: JSON.stringify(value) };
 } };
@@ -118,7 +122,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reviewed = { ...state.report!, summary: "Reviewed evidence summary" };
     await run("complete", { draft: { node: "report", value: reviewed } });
     expect(state.report).toEqual(reviewed);
-    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual(C.ResearchNode.options);
+    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual([...C.ResearchNode.options, "report"]);
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
   });
@@ -315,8 +319,8 @@ describe("report streaming and explicit partial evidence", () => {
       await first;
       const snapshot = await runtime.get(actor, session);
       expect(snapshot.currentNode).toBe("report"); expect(snapshot.busy).toBe(true);
-      expect(snapshot.report).toBeNull(); expect(snapshot.reportStream?.text).toHaveLength(35);
-      expect(snapshot.reportStream?.sequence).toBe(1);
+      expect(snapshot.report).toBeNull(); expect(snapshot.reportStream?.text).toContain('"sections":['); expect(snapshot.reportStream?.text!.length).toBeGreaterThan(35);
+      expect(snapshot.reportStream?.sequence).toBeGreaterThanOrEqual(1);
       expect(await runtime.execute(actor, session, command)).toEqual(snapshot);
       expect(streamCalls).toBe(1);
     } finally { release(); }
@@ -365,7 +369,7 @@ describe("report streaming and explicit partial evidence", () => {
     const result = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() });
     expect(result.errorCode).toBe(failure === "citation" ? "RESEARCH_CONTENT_REFERENCE_INVALID" : "RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
-    expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).toContain("Findings");
+    expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).toContain("Evidence");
     expect((await runtime.get(actor, session)).reportStream).toEqual(result.reportStream);
   });
   it("requires an explicit partial choice and retains evidence gaps through report completion", async () => {

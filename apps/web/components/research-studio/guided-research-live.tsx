@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResearchProgress, ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
+import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
+import { GuidedResearchReportDocument } from "./guided-research-report-document";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { GuidedResearchSources } from "./guided-research-sources";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
@@ -203,11 +205,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   function navigate(next: Command["node"]) { if (state && !busy) { setNode(next); setDraft(draftOf(state, next)); setError(null); } }
   function downloadReport() {
     if (!state?.report) return;
-    const report = state.report;
-    const content = [`# ${report.title}`, report.summary, ...report.sections.flatMap((section) => [
-      `## ${state.outline.find((item) => item.id === section.sectionId)?.title ?? ""}`, section.body,
-      ...section.sourceIds.map((id) => { const source = state.sources.find((item) => item.id === id); return source ? `- ${source.title}: ${source.url}` : ""; }),
-    ])].join("\n\n");
+    const content = researchReportMarkdown(researchReportDocument(state.report, state.sources, state.outline), state.reportPartial);
     const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "research-report.md"; anchor.click(); URL.revokeObjectURL(url);
   }
@@ -262,7 +260,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-12 font-medium">检索任务明细 · {state.tasks.length} 项</summary><div className="mt-3 space-y-2">{state.tasks.map((task) => <Card key={task.id}><CardContent className="p-3 text-12"><p>{task.query}</p><p className="mt-1 text-muted-foreground">{{ pending: "等待检索", running: "正在检索", succeeded: "已完成", failed: "检索失败" }[task.status]} · 尝试 {task.attempts} 次</p>{task.errorCode && <p className="mt-1 text-destructive">{errors[task.errorCode] ?? "任务执行失败，请重试。"}</p>}</CardContent></Card>)}</div></details>
           <GuidedResearchSources sources={state.sources} disabled={busy} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
         </>}
-        {node === "report" && state.report && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><nav aria-label="报告目录" className="rounded-lg border border-border p-4"><h2 className="font-semibold">目录</h2><ul className="mt-2 space-y-1 text-12">{state.report.sections.map((section, index) => <li key={section.sectionId}><a className="text-primary underline" href={`#research-report-section-${index}`}>{state.outline.find((item) => item.id === section.sectionId)?.title}</a></li>)}</ul></nav><h2 className="text-20 font-semibold">{state.report.title}</h2><p className="whitespace-pre-wrap text-12 leading-relaxed">{state.report.summary}</p>{state.report.sections.map((section, index) => <Card id={`research-report-section-${index}`} key={section.sectionId}><CardContent className="space-y-3 p-4"><h3 className="font-semibold">{state.outline.find((item) => item.id === section.sectionId)?.title}</h3><p className="whitespace-pre-wrap text-12 leading-relaxed">{section.body}</p><ul className="space-y-1 text-12">{section.sourceIds.map((id) => { const source = state.sources.find((item) => item.id === id); return source ? <li key={id}><a className="text-primary underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li> : null; })}</ul></CardContent></Card>)}<Button variant="outline" onClick={downloadReport}>下载报告（Markdown）</Button></div>}
+        {node === "report" && state.report && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><nav aria-label="报告目录" className="rounded-lg border border-border p-4"><h2 className="font-semibold">目录</h2><ul className="mt-2 space-y-1 text-12">{state.report.sections.map((section, index) => <li key={section.sectionId}><a className="text-primary underline" href={`#research-report-section-${index}`}>{state.outline.find((item) => item.id === section.sectionId)?.title}</a></li>)}</ul></nav><GuidedResearchReportDocument document={researchReportDocument(state.report, state.sources, state.outline)} /><Button variant="outline" onClick={downloadReport}>下载报告（Markdown）</Button></div>}
         {researchBlocked && <p role="status" className="text-12 text-muted-foreground">{researchPending ? "检索仍在进行，任务结束后可生成报告。" : "请完成检索并保留至少一个真实来源后生成报告。"}</p>}
         <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || !validDraft || node === "report"} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || !validDraft || researchBlocked || (state.completed && node === "report")} onClick={() => void run(node === "report" || node === "research" ? "complete" : "confirm", { ...(draft ? { draft } : {}), ...(partialResearch ? { allowPartialResearch: true } : {}) })}>{node === "report" ? "完成研究" : partialResearch ? "基于已有来源生成报告" : "确认并继续"}</Button></div>
         </>}
