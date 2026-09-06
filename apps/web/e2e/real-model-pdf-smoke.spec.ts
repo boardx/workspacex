@@ -126,13 +126,19 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
   const send = page.getByTestId("copilotkit-v2-send");
   // `data-send-state` 是 composer 自己声明给 e2e 的判据（见 copilotkit-v2-panel-body.tsx），
   // 不去读 title/aria 文案——那些会随文案改动漂移。
+  //
+  // ⚠ 必须**先填字再等 ready**：`sendDisabled` 的四条理由里有一条就是"输入为空"
+  //   （`inputDraft.trim() === ""` ⇒ EMPTY_INPUT_REASON，issue #2130 要求的产品行为）。
+  //   本行原来在 fill 之前 poll `ready`，那是在等一个空输入永远到不了的状态——
+  //   2026-09-06 本 lane 第一次真跑就卡在这里 120s 红退（#2805 合入时无 Docker/无凭据，
+  //   这条路径从没被执行过）。填字之后再判 ready，判的才是"composer 真的可发送"。
+  await composer.fill(REAL_MODEL_SMOKE.prompt);
   await expect
     .poll(() => send.getAttribute("data-send-state"), { timeout: 120_000, intervals: [500, 1_000, 2_000] })
     .toBe("ready");
   evidence.record("① 真实 /chat 可用（composer 就绪）", true, `baseURL=${REAL_MODEL_SMOKE.baseUrl}`);
 
   /* ── ② 发出那一句 ────────────────────────────────────────────────────── */
-  await composer.fill(REAL_MODEL_SMOKE.prompt);
   const sentAt = Date.now();
   await send.click();
 
