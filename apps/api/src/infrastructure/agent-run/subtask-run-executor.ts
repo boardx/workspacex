@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { LoggerPort } from "../../application/ports/logger.port";
-import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
+import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
 import type { ModelCallPort } from "../../application/agent-run/ports";
 import { executeQueuedSubtaskRuns, type SubtaskRunStore } from "../../application/agent-run/subtask-run-queue";
 import type { OrgId } from "../../domain/org-id";
@@ -32,7 +32,7 @@ export class SubtaskRunExecutor {
         // Do not simulate cancellation with Promise.race while the real model keeps running.
         const timeout = this.executionTimeouts.get(parent.model_provider);
         if (timeout === undefined || !Number.isFinite(timeout) || timeout <= 0
-          || timeout + 60_000 >= DEFAULT_STALE_RUNNING_THRESHOLD_MS) {
+          || timeout + 60_000 >= SUBTASK_STALE_RUNNING_THRESHOLD_MS) {
           throw new Error("subtask_provider_timeout_or_execution_mode_unsupported");
         }
         const completion = await this.model.complete({ modelProvider: parent.model_provider,

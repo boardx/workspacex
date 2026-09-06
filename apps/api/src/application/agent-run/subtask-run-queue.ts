@@ -111,3 +111,6 @@ export async function executeQueuedSubtaskRuns(
   }
   return claimed.length;
 }
+
+/** Derived text-task recovery deadline; independent from peer main-run leases. */
+export const SUBTASK_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;

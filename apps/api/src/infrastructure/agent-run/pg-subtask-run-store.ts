@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
-import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
+import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
 import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
 import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore } from "../../application/agent-run/subtask-run-queue";
 
@@ -15,7 +15,7 @@ const decode = (r: Row): SubtaskRun => ({ id: r.id, parentRunId: r.parent_run_id
  * without fencing. Existing user retry creates a new id. Recovery runs on the next tenant kick. */
 export class PgSubtaskRunStore implements SubtaskRunStore {
   constructor(private readonly db: DatabasePort,
-    private readonly staleMs = DEFAULT_STALE_RUNNING_THRESHOLD_MS) {}
+    private readonly staleMs = SUBTASK_STALE_RUNNING_THRESHOLD_MS) {}
 
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun> {
     return this.db.withTenant(orgId, async (s) => {

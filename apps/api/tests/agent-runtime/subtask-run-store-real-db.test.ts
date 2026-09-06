@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { SUBTASK_RUN_STORE } from "../../src/application/agent-run/subtask-run-queue";
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, seedOrg } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -11,6 +11,13 @@ import { PgSubtaskRunStore } from "../../src/infrastructure/agent-run/pg-subtask
 import { SubtaskRunExecutor } from "../../src/infrastructure/agent-run/subtask-run-executor";
 import { SubtaskRunController } from "../../src/interface/controllers/subtask-run.controller";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
+
+// Counterexample: the CI merge shortened the peer main-run deadline to two minutes.
+// Derived tasks must still accept their independently bounded 180-second provider.
+vi.mock("../../src/application/agent-run/ports", async importOriginal => ({
+  ...await importOriginal<typeof import("../../src/application/agent-run/ports")>(),
+  DEFAULT_STALE_RUNNING_THRESHOLD_MS: 2 * 60_000,
+}));
 
 const suffix = randomUUID();
 const org = toOrgId(`org-t042-${suffix}`), other = toOrgId(`org-t042-other-${suffix}`);

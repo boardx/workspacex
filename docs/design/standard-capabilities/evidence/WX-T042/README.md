@@ -120,3 +120,33 @@ preserved tenant policy and enabled/forced RLS state. Raw log: `migrations-repla
 Wrapper cleaned its own stack; total 10 seconds. git diff --check also passed.
 The CI report mentioned 204 files; this evidence is deliberately limited to the actual
 202-file local worktree and does not claim the merged CI checkout was tested locally.
+
+## PR2869 merged-CI deadline drift and regression repair
+
+The old CI head was 749969d770d8b1beefed04a57e460ca90606fd6c, but actions/checkout
+actually tested merge a39716c7 against base a6c7c4b6f35b20eabbdb9fb3a442d03cd3582f5d.
+The merged ports.ts changed the peer main-run stale deadline to two minutes (head/local
+had twenty). Both failed subtask success tests rejected execution with
+`subtask_provider_timeout_or_execution_mode_unsupported`. This was a production coupling
+bug, not a reason to accept failed results. Derived tasks now own one twenty-minute
+SUBTASK_STALE_RUNNING_THRESHOLD_MS in subtask-run-queue.ts, shared by PG recovery and
+executor timeout validation; peer main-run configuration is untouched.
+
+The real DB test now substitutes the observed two-minute main-run deadline and still
+requires the 180-second configured child to complete. Seven tests pass, including real
+HTTP model invocation, tenant/private authorization, stale recovery and long-timeout
+rejection. No completed expectation was relaxed.
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/agent-runtime/deep-agent-produces-files.test.ts tests/mcp/new-tool-defaults-closed.test.ts tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-run/deep-agent-flags-removed.test.ts tests/kernel/permission-propagation-six-paths.test.ts
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts
+```
+
+Initial targeted set: 73/73 pass after correcting stale scope-key/schema-fingerprint/
+backend-signature/permission-exception expectations. After the actual deadline fix,
+seven real DB tests pass again; final counterexample run with the two-minute peer
+constant also passes 7/7 (`ci-main-deadline-counterexample.txt`). All wrappers cleaned
+their own stacks. Permission-path lint passes (`ci-permission-lint.txt`), diff check passes.
+The exception regression names the two reviewed T042 files and requires their structural
+boundary helper in addition to the revised limit of 91. The flag regression continues
+to require unconditional TaskClassifierMiddleware and rejects conditional spread.
