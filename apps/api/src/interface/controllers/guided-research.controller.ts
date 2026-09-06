@@ -1,6 +1,7 @@
+import type { Response } from "express";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, Res, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -54,6 +55,31 @@ export class GuidedResearchController {
     const session = await this.current(principal, sessionId);
     try { return await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data); }
     catch (error) { this.runtimeError(error); }
+  }
+
+  @Post(C.operations.streamGuidedResearchRuntime.path)
+  async streamRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown, @Res() response: Response) {
+    assertPrincipal(principal);
+    const input = C.GuidedResearchRuntimeCommand.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    const session = await this.current(principal, sessionId);
+    response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    response.setHeader("Cache-Control", "no-cache, no-transform");
+    response.setHeader("X-Accel-Buffering", "no");
+    response.flushHeaders();
+    let connected = true;
+    const detach = () => { connected = false; };
+    response.on("close", detach);
+    const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
+      if (!connected || response.destroyed) return;
+      // Bound a slow observer's output buffer; recovery reads the durable snapshot.
+      if (response.writableLength > 1048576) { connected = false; response.end(); return; }
+      response.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    const heartbeat = setInterval(() => { if (connected && !response.destroyed) response.write(": keepalive\n\n"); }, 15000);
+    try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data, send); }
+    catch (error) { send({ type: "error", reasonCode: error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE" }); }
+    finally { clearInterval(heartbeat); response.off("close", detach); if (!response.destroyed) response.end(); }
   }
 
   private runtimeError(error: unknown): never {

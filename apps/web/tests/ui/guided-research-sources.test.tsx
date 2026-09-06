@@ -55,6 +55,6 @@ describe("compact research sources", () => {
     await screen.findByRole("link", { name: "New source" });
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "add_source", sourceUrl: "https://example.org/new", expectedVersion: state.version }));
     fireEvent.click(screen.getByRole("button", { name: "确认并继续" }));
-    await waitFor(() => expect(executeResearchRuntime).toHaveBeenLastCalledWith(expect.objectContaining({ action: "complete", expectedVersion: next.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }, { id: "new", decision: "accepted" }] } })));
+    await waitFor(() => expect(vi.mocked(executeResearchRuntime).mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ action: "complete", expectedVersion: next.version, draft: { node: "research", value: [{ id: source.id, decision: "accepted" }, { id: "new", decision: "accepted" }] } })));
   });
 });

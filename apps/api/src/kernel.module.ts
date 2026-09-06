@@ -1786,7 +1786,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: GUIDED_RUNTIME_STORE, useFactory: (db: DatabasePort) => new PgGuidedRuntimeStore(db), inject: [DATABASE_PORT] },
     { provide: GUIDED_SEARCH_PORT, useFactory: () => new GoogleGuidedSearch() },
     { provide: GUIDED_RUNTIME_SERVICE,
-      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => new GuidedRuntimeService(store, model, search),
+      useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort) => {
+        const config = readModelProviderConfig();
+        // Report streaming is a research capability, independent of chat's rollout flag.
+        const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
+        const reportModel: ModelCallPort = {
+          complete: (input) => model.complete(input),
+          completeStream: (input, onDelta) => input.modelProvider === config.provider
+            ? configured.completeStream!(input, onDelta)
+            : model.completeStream ? model.completeStream(input, onDelta) : model.complete(input),
+        };
+        return new GuidedRuntimeService(store, model, search, undefined, reportModel);
+      },
       inject: [GUIDED_RUNTIME_STORE, MODEL_CALL_PORT, GUIDED_SEARCH_PORT] },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,

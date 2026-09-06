@@ -5,7 +5,7 @@ The normal `/research?session=…` workspace reads a durable session runtime. Br
 ## Configuration
 
 - `KERNEL_GUIDED_RESEARCH_MODEL_PROVIDER` and `KERNEL_GUIDED_RESEARCH_MODEL_ID` optionally override the general `KERNEL_MODEL_PROVIDER` and `KERNEL_MODEL_ID`.
-- The model port uses the existing server model credentials and base URL configuration.
+- The model port uses the existing server model credentials and base URL configuration. The configured chat provider is separately composed with streaming enabled for research report generation, without changing the global chat streaming rollout flag. A different explicitly selected provider retains its own streaming capabilities; providers without token output are not presented as simulated token streams.
 - Guided research uses the existing BoardX Google Custom Search proxy at `https://www.web-search.boardx.us/`. It sends `GET ?q=<query>` and consumes `results` entries with `title`, `url`, and `snippet`. No Tavily key or application-side Google key is required; upstream Google credentials are managed by the existing proxy.
 - `KERNEL_GUIDED_SEARCH_URL` optionally overrides that endpoint for a trusted compatible gateway or isolated loopback test provider. Remove any old Tavily endpoint override when deploying this change. Queries are sent to this configured destination; authorization headers and model credentials are never forwarded.
 - Credentials belong in local/deployment secrets, never in tracked files.
@@ -38,4 +38,12 @@ The automated provider fixtures are explicitly configured HTTP/test doubles. The
 
 ## Recovering existing failed searches
 
-After deploying the Google adapter, reopen the saved research session and retry failed tasks. Existing successes and source decisions are preserved. Source snippets are included automatically. Existing pending sources are accepted before report generation, preserving explicitly excluded sources. The workflow still requires successful search tasks and retained evidence before generating the report; unavailable, malformed, or empty upstream responses never become fabricated successful searches.
+After deploying the Google adapter, reopen the saved research session and retry failed tasks. Existing successes and source decisions are preserved. Source snippets are included automatically. Existing pending sources are accepted before report generation, preserving explicitly excluded sources. Ordinary confirmation requires successful search tasks and retained evidence. When all tasks have ended, the explicit partial-research action can use retained evidence while preserving failed tasks and disclosing their limitations; unavailable, malformed, or empty responses never become fabricated successful searches.
+
+## Streamed report generation (#2828)
+
+Report generation follows a token-event/final-result lifecycle: provider fragments are sent while the model is still producing the report, and the complete structured report is accepted only after outline and citation validation. The command stream uses the same authorization, request identity and version fence as ordinary commands. It emits an initial snapshot, ordered report deltas and a final result, rather than duplicating all sources in every token frame.
+
+A bounded, checkpointed report preview is persisted with the request ID and sequence. It is provisional text, not a validated report. Refresh or connection loss recovers the saved preview and ongoing operation without resubmitting the model call. Failed or invalid generation remains visibly incomplete; downloading/completing a report still requires validated final content.
+
+When all search tasks have ended but some failed, the user may explicitly choose to generate from existing sources. Pending/running tasks and missing retained evidence still block generation. Failed tasks are not relabeled as successes: the report carries the partial-research basis and model context includes the evidence gaps. Ordinary confirmation without the explicit choice retains the stricter guard.
