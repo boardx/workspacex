@@ -46,29 +46,31 @@ function Card({
       data-testid="copilotkit-v2-running-indicator"
       role="status"
       aria-live="polite"
-      className="mt-3 flex w-fit max-w-full flex-col gap-1 rounded-lg border border-border-subtle bg-muted/60 px-3 py-2"
+      className="mt-3 flex w-fit max-w-full items-center gap-3 rounded-xl border border-border-subtle bg-muted/60 px-4 py-3"
     >
-      <span
-        className="flex items-center gap-1 text-9 text-muted-foreground"
-        data-testid="copilotkit-v2-thinking-stage"
-        data-stage={stage}
-      >
-        {RUN_STAGE_ORDER.map(({ key, label }, i) => (
-          <React.Fragment key={key}>
-            {i > 0 ? <span aria-hidden>→</span> : null}
-            <span className={cn(key === stage && "font-medium text-card-foreground")}>{label}</span>
-          </React.Fragment>
-        ))}
-      </span>
-      <span
-        className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
-        data-testid="copilotkit-v2-thinking"
-      >
-        <RunProgressButterfly motion={motion} />
-        <span data-testid="copilotkit-v2-thinking-phase">{phase}</span>
-        <span data-testid="copilotkit-v2-thinking-elapsed">· 已用 {elapsed} 秒</span>
-        {longrun ? <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span> : null}
-      </span>
+      <RunProgressButterfly motion={motion} />
+      <div className="flex min-w-0 flex-col gap-1">
+        <span
+          className="flex items-center gap-1.5 text-12 text-muted-foreground"
+          data-testid="copilotkit-v2-thinking-stage"
+          data-stage={stage}
+        >
+          {RUN_STAGE_ORDER.map(({ key, label }, i) => (
+            <React.Fragment key={key}>
+              {i > 0 ? <span aria-hidden>→</span> : null}
+              <span className={cn(key === stage && "font-medium text-card-foreground")}>{label}</span>
+            </React.Fragment>
+          ))}
+        </span>
+        <span
+          className="flex flex-wrap items-center gap-1.5 text-13 text-muted-foreground"
+          data-testid="copilotkit-v2-thinking"
+        >
+          <span data-testid="copilotkit-v2-thinking-phase">{phase}</span>
+          <span data-testid="copilotkit-v2-thinking-elapsed">· 已用 {elapsed} 秒</span>
+          {longrun ? <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span> : null}
+        </span>
+      </div>
     </div>
   );
 }
@@ -76,7 +78,7 @@ function Card({
 function Page(): JSX.Element {
   return (
     <main className="min-h-screen bg-background p-6 text-foreground">
-      {(["flap", "drift"] as const).map((motion) => (
+      {(["fly", "flap", "drift"] as const).map((motion) => (
         <section key={motion} data-shot-section={motion} className="mb-6 flex flex-col gap-2 bg-background p-2">
           <h2 className="text-11 font-medium text-muted-foreground">motion={motion}</h2>
           {STAGES.map((s) => (

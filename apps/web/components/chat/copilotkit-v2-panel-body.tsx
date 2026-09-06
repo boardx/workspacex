@@ -1908,65 +1908,70 @@ export function CopilotKitV2PanelBody({
               data-testid="copilotkit-v2-running-indicator"
               role="status"
               aria-live="polite"
-              className="mt-3 flex w-fit max-w-full flex-col gap-1 rounded-lg border border-border-subtle bg-muted/60 px-3 py-2"
+              className="mt-3 flex w-fit max-w-full items-center gap-3 rounded-xl border border-border-subtle bg-muted/60 px-4 py-3"
             >
-              {/* PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段（准备/执行/回复），
-                  从 `runProgress.stage` 派生（详见 `copilotkit-v2-run-progress.ts` 头注：
-                  不是 TW-P0-3①那套六态工作流指示器，两者独立）。`stage` 为 `null`
-                  时（未开始、或 `runRestore.isRestoring` 的核实窗口——那段没有真实
-                  事件支撑）不渲染，不编一个默认阶段。 */}
-              {runProgress.stage !== null ? (
-                <span
-                  className="flex items-center gap-1 text-9 text-muted-foreground"
-                  data-testid="copilotkit-v2-thinking-stage"
-                  data-stage={runProgress.stage}
-                >
-                  {RUN_STAGE_ORDER.map(({ key, label }, i) => (
-                    <React.Fragment key={key}>
-                      {i > 0 ? <span aria-hidden>→</span> : null}
-                      <span
-                        className={cn(
-                          key === runProgress.stage && "font-medium text-card-foreground",
-                        )}
-                      >
-                        {label}
-                      </span>
-                    </React.Fragment>
-                  ))}
-                </span>
-              ) : null}
-              <span
-                className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
-                data-testid="copilotkit-v2-thinking"
-              >
-                {/* issue #2785 —— X 图形标换成蝴蝶主题动画（形态与约束见
-                    `run-progress-butterfly.tsx` 头注）；阶段行、文案、计时一个字没动。 */}
-                <RunProgressButterfly />
-                <span data-testid="copilotkit-v2-thinking-phase">
-                  {runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")}
-                </span>
-                {runProgress.elapsedSeconds !== null ? (
-                  <span data-testid="copilotkit-v2-thinking-elapsed">
-                    · 已用 {runProgress.elapsedSeconds} 秒
+              {/* issue #2785 —— X 图形标换成蝴蝶主题动画（形态与约束见
+                  `run-progress-butterfly.tsx` 头注）。
+                  issue #2837（2026-09-06 devapp 人类实测）—— 卡片放大、布局改成
+                  「左：蝴蝶 28px 竖向居中；右：阶段行 + 思考/计时行」；蝴蝶从 thinking
+                  行里移到卡片左侧，文案、计时、testid 一个字没动。 */}
+              <RunProgressButterfly />
+              <div className="flex min-w-0 flex-col gap-1">
+                {/* PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段（准备/执行/回复），
+                    从 `runProgress.stage` 派生（详见 `copilotkit-v2-run-progress.ts` 头注：
+                    不是 TW-P0-3①那套六态工作流指示器，两者独立）。`stage` 为 `null`
+                    时（未开始、或 `runRestore.isRestoring` 的核实窗口——那段没有真实
+                    事件支撑）不渲染，不编一个默认阶段。 */}
+                {runProgress.stage !== null ? (
+                  <span
+                    className="flex items-center gap-1.5 text-12 text-muted-foreground"
+                    data-testid="copilotkit-v2-thinking-stage"
+                    data-stage={runProgress.stage}
+                  >
+                    {RUN_STAGE_ORDER.map(({ key, label }, i) => (
+                      <React.Fragment key={key}>
+                        {i > 0 ? <span aria-hidden>→</span> : null}
+                        <span
+                          className={cn(
+                            key === runProgress.stage && "font-medium text-card-foreground",
+                          )}
+                        >
+                          {label}
+                        </span>
+                      </React.Fragment>
+                    ))}
                   </span>
                 ) : null}
-                {runProgress.isLongRun ? (
-                  <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
-                ) : null}
-              </span>
-              {/* 工具阶段（真引擎实测占一轮的前 85%）里真正回答"它在干嘛"的那一行。
-                  没有计划时不渲染——编一句"正在处理第 1 步"就是假进度。 */}
-              {planStep !== null ? (
                 <span
-                  className="flex min-w-0 items-center gap-1.5 text-11 text-card-foreground"
-                  data-testid="copilotkit-v2-thinking-plan-step"
+                  className="flex flex-wrap items-center gap-1.5 text-13 text-muted-foreground"
+                  data-testid="copilotkit-v2-thinking"
                 >
-                  <ListChecks aria-hidden className="h-3 w-3 shrink-0 text-primary" />
-                  <span className="min-w-0 truncate">
-                    第 {planStep.index}/{planStep.total} 步 · {planStep.content}
+                  <span data-testid="copilotkit-v2-thinking-phase">
+                    {runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")}
                   </span>
+                  {runProgress.elapsedSeconds !== null ? (
+                    <span data-testid="copilotkit-v2-thinking-elapsed">
+                      · 已用 {runProgress.elapsedSeconds} 秒
+                    </span>
+                  ) : null}
+                  {runProgress.isLongRun ? (
+                    <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
+                  ) : null}
                 </span>
-              ) : null}
+                {/* 工具阶段（真引擎实测占一轮的前 85%）里真正回答"它在干嘛"的那一行。
+                    没有计划时不渲染——编一句"正在处理第 1 步"就是假进度。 */}
+                {planStep !== null ? (
+                  <span
+                    className="flex min-w-0 items-center gap-1.5 text-12 text-card-foreground"
+                    data-testid="copilotkit-v2-thinking-plan-step"
+                  >
+                    <ListChecks aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span className="min-w-0 truncate">
+                      第 {planStep.index}/{planStep.total} 步 · {planStep.content}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
             </div>
           ) : null}
           {/* issue #2756 —— 中途插话入口（F12 `InterjectionComposer`）：running 态才渲染，

@@ -57,3 +57,19 @@ node .run-progress-butterfly-animation/shoot.mjs "$OUT"
 - `pnpm --filter web exec vitest run tests/chat/run-progress-butterfly.test.tsx`
 - `pnpm --filter web run lint`
 - `apps/web/scripts/lint-design.sh`
+
+## issue #2837（2026-09-06）—— 放大到 28px + 方案 C `fly`（默认）
+
+人类实测长任务里 12px 图形太小、单独 flap 机械。默认尺寸 `h-3 w-3` → `h-7 w-7`；新增
+`butterfly-fly` keyframes（flap + drift 合成为同一段：一个周期上浮一次、扑翼两次），
+进度卡布局改为「左蝴蝶竖向居中 + 右两行文案（`text-12` / `text-13`）」，`rounded-xl px-4 py-3`。
+`harness.tsx` / `shoot.mjs` 已同步为新布局并多出 `fly` 一组，跑法同上。
+
+| 文件 | 说明 |
+|---|---|
+| `candidate-c-fly.png` | 方案 C 整版（三阶段卡 + 放大图形标） |
+| `fly-2837/fly-preparing.png` / `fly-acting.png` / `fly-replying.png` | running 三阶段（当前阶段高亮） |
+| `fly-2837/fly-replying-dark.png` | `.dark` 主题 |
+| `fly-2837/fly-replying-reduced-motion.png` | `prefers-reduced-motion: reduce`，animationName=none |
+| `fly-2837/fly-frame-t0.png` / `fly-frame-t400.png` | 同一元素相隔 0.4s（1/4 周期）：t400 是收翅+上浮那一帧 |
+| `fly-2837/fly-large.png` | 48px 放大形态 |

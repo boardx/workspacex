@@ -34,6 +34,13 @@
  * `copilotkit-v2-panel-body.tsx` 里的 `<RunProgressButterfly />` 加一个
  * `motion="drift"` prop，不用碰这个文件本身。
  *
+ * ## issue #2837（2026-09-06 devapp 人类实测）—— 放大 + 合成动效
+ *
+ * 长任务（300+ 秒）里被盯着看很久，人类原话「有点丑，要大一点」：12px 太小、单独
+ * flap 显得机械。默认尺寸 `h-3 w-3` → `h-7 w-7`（28px），新增方案 C `fly`（默认）：
+ * flap + drift **合成为同一段** keyframes（`butterfly-fly`，扑翼频率为上浮频率 2 倍），
+ * 仍然是一个元素一段动画。`flap` / `drift` 保留供比对。
+ *
  * 纯装饰：`aria-hidden`，可读文案在旁边的 `copilotkit-v2-thinking-phase` 上。
  */
 "use client";
@@ -54,14 +61,23 @@ export const BUTTERFLY_PATH =
   "M11.6 11.8C10.2 11.1 7.8 11.3 6.8 13.1C6 14.6 7 16.3 9 16.1C10.3 16 11.3 14.1 11.6 13Z" +
   "M12.4 11.8C13.8 11.1 16.2 11.3 17.2 13.1C18 14.6 17 16.3 15 16.1C13.7 16 12.7 14.1 12.4 13Z";
 
-export type RunProgressButterflyMotion = "flap" | "drift";
+export type RunProgressButterflyMotion = "flap" | "drift" | "fly";
+
+const MOTION_CLASS: Record<RunProgressButterflyMotion, string> = {
+  flap: "animate-butterfly-flap",
+  drift: "animate-butterfly-drift",
+  fly: "animate-butterfly-fly",
+};
 
 export function RunProgressButterfly({
   className,
-  motion = "flap",
+  motion = "fly",
 }: {
   className?: string;
-  /** 默认 `flap`（方案 A，翅膀开合）；`drift`（方案 B，上下浮动+轻晃）仅供人类切换比对。 */
+  /**
+   * 默认 `fly`（方案 C，issue #2837：扑翼 + 上浮合成一段）；`flap`（方案 A，只开合）与
+   * `drift`（方案 B，只浮动+轻晃）保留供人类切换比对。
+   */
   motion?: RunProgressButterflyMotion;
 }): JSX.Element {
   return (
@@ -72,8 +88,8 @@ export function RunProgressButterfly({
       data-testid="copilotkit-v2-thinking-mark"
       data-motion={motion}
       className={cn(
-        "h-3 w-3 shrink-0 origin-center text-ai motion-reduce:animate-none",
-        motion === "flap" ? "animate-butterfly-flap" : "animate-butterfly-drift",
+        "h-7 w-7 shrink-0 origin-center text-ai motion-reduce:animate-none",
+        MOTION_CLASS[motion],
         className,
       )}
     >
