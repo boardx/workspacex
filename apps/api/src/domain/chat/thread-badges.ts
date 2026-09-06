@@ -185,6 +185,8 @@ export function threadCardStatus(input: {
       return "running";
     case "awaiting_tool_permission":
       return "awaiting-approval";
+    case "paused":
+      return "paused";
     case "failed":
       return "failed";
     case "succeeded":

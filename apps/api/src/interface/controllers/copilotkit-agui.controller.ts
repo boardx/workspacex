@@ -1,3 +1,5 @@
+import { createExecutionJournalRelay } from "./execution-journal-relay";
+import { type ExecutionEvent } from "@repo/contracts/execution-journal";
 /**
  * `POST /copilotkit/agui` -- the AG-UI SSE bridge (#654 Phase 1b, streaming since 阶段2b).
  *
@@ -473,7 +475,7 @@ function writeToolCallStep(
   // that is the actual signal `useHumanInTheLoop` reads (see above), and it is what
   // `resumeAguiBridgeTurn` supplies later once `decideAgentRun` produces a genuine terminal
   // outcome for the step.
-  if (step.status === "in_progress" && isPendingApproval) {
+  if (step.status === "in_progress") {
     write({ type: EventType.STEP_FINISHED, stepName });
     return;
   }
@@ -782,7 +784,9 @@ export class CopilotkitAguiController {
     const clientThreadId = body.threadId ?? randomUUID();
     const clientRunId = body.runId ?? randomUUID();
     // #654 阶段2b -- minted here, not read off the persisted Chat message. See file head.
-    const messageId = randomUUID();
+    let messageId: string = randomUUID();
+    const executionRelay = createExecutionJournalRelay(write);
+    const closeExecutionMessage = executionRelay.close;
     let sawAnyDelta = false;
     // DA-19a -- the CALLER's persisted Chat thread id, echoed forward via `forwardedProps`
     // (see file head "real cross-turn continuation"). Empty/whitespace-only is treated the
@@ -830,7 +834,13 @@ export class CopilotkitAguiController {
             this.resolvedChatThreadIdByClientThreadId.set(clientThreadId, resolvedThreadId);
           }
         },
+        onExecutionEvent: (event: ExecutionEvent) => {
+          const current = executionRelay.accept(event);
+          if (current.messageId) messageId = current.messageId;
+          sawAnyDelta = current.sawText;
+        },
         onDelta: (delta: string) => {
+          if (this.runs.readExecutionEvents) return;
           if (!sawAnyDelta) {
             sawAnyDelta = true;
             write({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" });
@@ -846,7 +856,10 @@ export class CopilotkitAguiController {
           write({ type: EventType.CUSTOM, name: AGUI_RUN_PHASE_EVENT_NAME, value: { phase } });
         },
         onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
-          write, step, isPendingApproval, sawAnyDelta,
+          this.runs.readExecutionEvents
+            ? (event) => { if (event.type === EventType.STATE_SNAPSHOT || event.type === EventType.STATE_DELTA) write(event); }
+            : write,
+          step, isPendingApproval, sawAnyDelta,
           (todos) => {
             // F973 UC-2 -- `resolvedThreadId` is set by `onThreadResolved`, which fires
             // BEFORE `onStarted`/any `onStep` in this same turn (see that field's own doc
@@ -927,7 +940,8 @@ export class CopilotkitAguiController {
         if (sawAnyDelta) {
           // Every fragment already went out via `onDelta` above -- resending
           // `outcome.text` here would duplicate the assistant bubble's content.
-          write({ type: EventType.TEXT_MESSAGE_END, messageId });
+          if (this.runs.readExecutionEvents) closeExecutionMessage();
+          else write({ type: EventType.TEXT_MESSAGE_END, messageId });
         } else {
           // 阶段1b's exact fallback: streaming was off, or the routed provider does not
           // support it, so the whole answer arrives as one chunk instead of many.
@@ -977,8 +991,12 @@ export class CopilotkitAguiController {
           write({ type: EventType.CUSTOM, name: AGUI_FILE_EVENT_NAME.FILE_CREATED, value });
         }
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
+      } else if (outcome.kind === "paused") {
+        closeExecutionMessage();
+        write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else if (outcome.kind === "failed") {
-        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        if (this.runs.readExecutionEvents) closeExecutionMessage();
+        else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error });
       } else if (outcome.kind === "awaiting_tool_permission") {
         // DA-19g -- NOT an error. `onStep` above already wrote the dangling
@@ -988,14 +1006,17 @@ export class CopilotkitAguiController {
         // `status: "executing"` and render `respond`. The NEXT `POST /copilotkit/agui` this
         // client makes (once a human decides) is `resumeAguiBridgeTurn`'s job, not this
         // request's -- this SSE stream's job stops at "yielded control".
-        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        if (this.runs.readExecutionEvents) closeExecutionMessage();
+        else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else {
-        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        if (this.runs.readExecutionEvents) closeExecutionMessage();
+        else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: "AGENT_RUN_TIMEOUT", code: "AGENT_RUN_TIMEOUT" });
       }
     } catch (e) {
-      if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
+      if (this.runs.readExecutionEvents) closeExecutionMessage();
+        else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
       if (e instanceof MessageThreadNotVisibleError || e instanceof AgentRunNotVisibleError) {
         write({ type: EventType.RUN_ERROR, message: "THREAD_NOT_VISIBLE", code: "THREAD_NOT_VISIBLE" });
       } else if (e instanceof MessageNoWriteRoleError) {

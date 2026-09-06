@@ -1,3 +1,4 @@
+import type { ModelDeltaMetadata } from "./ports";
 /**
  * Phase 14 F01 (`kernel-gateway` 契约束 UC-1 `forwardRun`) -- the ONE place `execute-run.ts`
  * asks a `ModelCallPort` for an answer.
@@ -31,7 +32,7 @@ export async function invokeKernel(
   model: ModelCallPort,
   input: ModelCallInput,
   onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-  onDelta: (delta: string) => Promise<void>,
+  onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
 ): Promise<ModelCallCompletion> {
   // `supportsProgress`, when the port implements it (today: only `RoutingModelCallPort`),
   // narrows the gate to the run's OWN pinned provider -- see that method's doc comment for

@@ -1,3 +1,4 @@
+import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * Ports for the minimal no-tool AgentRun (Wave 2 delta §5, #414).
  *
@@ -89,6 +90,7 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  readonly checkpointResume?: boolean;
   readonly runId: string;
   readonly threadId: string;
   /**
@@ -271,6 +273,8 @@ export interface AppendedRunStep {
  * an ADDITIONAL, purely observational trail, never a second source of truth for whether
  * the call succeeded.
  */
+export interface ModelDeltaMetadata { readonly messageId?: string; }
+
 export interface AppendedRunDelta {
   readonly runId: string;
   readonly seq: number;
@@ -359,6 +363,11 @@ export interface PendingWriteback {
 }
 
 export interface AgentRunStore {
+  pauseAtCheckpoint?(orgId: OrgId, runId: string): Promise<void>;
+  isPausedAtCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
+  resumeCheckpoint?(orgId: OrgId, runId: string): Promise<boolean>;
+  appendExecutionEvent?(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void>;
+  readExecutionEvents?(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]>;
   /**
    * Atomically move up to `limit` of this tenant's `queued` runs to `running` and return
    * their snapshots. The claim IS the exactly-once guarantee: two concurrent executors
@@ -720,6 +729,8 @@ export interface ThreadHistoryMessage {
  * their own, proof `DeepAgentModelProvider` will populate them correctly.
  */
 export interface ModelCallProgressEvent {
+  /** Structured ToolMessage status; never inferred from prose. */
+  readonly ok?: boolean;
   readonly toolName: string;
   readonly toolArgsSummary: string | null;
   readonly toolResultSummary: string | null;
@@ -803,6 +814,8 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  readonly checkpointResume?: boolean;
+  readonly liveInterjections?: boolean;
   readonly modelProvider: string;
   readonly modelId: string;
   /**
@@ -985,6 +998,8 @@ export class ModelCallError extends Error {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  readonly paused?: boolean;
+  readonly finalMessageId?: string;
   /**
    * DA-07b：非 undefined = 远端 run 停在敏感工具调用前等人裁决（interrupt_on）。
    * 此时没有终稿，text 为空串；调用方必须先查本字段再判空文本——顺序反了会把
@@ -1024,6 +1039,7 @@ export interface ModelCallCompletion {
 }
 
 export interface ModelCallPort {
+  supportsLiveInterjections?(modelProvider: string): boolean;
   /**
    * Perform the single model call for a pinned provider/model.
    *
@@ -1058,7 +1074,7 @@ export interface ModelCallPort {
    */
   completeStream?(
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<ModelCallCompletion>;
 
   /**
@@ -1093,7 +1109,7 @@ export interface ModelCallPort {
      * 执行的两种观察，拆成两个方法会诱导两次调用。不传时 provider 行为必须与
      * 加此参数之前逐字一致（S1=B 双轨纪律在端口层的镜像）。
      */
-    onDelta?: (delta: string) => Promise<void>,
+    onDelta?: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     /* ⚠ 返回 `ModelCallCompletion`（#1747）：它在原来的 `{text,tokens,...}` 之上多带
        `files`——deep-agent 走 `call_skill` 产出的脚本，其执行产物要经这里回到
        `execute-run.ts` 落 ObjectStore。与上面的 `onDelta` 是两件独立的事，同时保留。 */

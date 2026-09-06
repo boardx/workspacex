@@ -35,7 +35,7 @@ import {
   AgentRunNotAwaitingToolPermissionError,
   decideAgentRun,
 } from "../../application/agent-run/decide-agent-run";
-import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Query, Post, Res, ServiceUnavailableException } from "@nestjs/common";
 import type { Response } from "express";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -74,6 +74,18 @@ export class AgentRunController {
     @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
+
+  @Get("/agent-runs/:runId/execution-events")
+  async executionEvents(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
+    @Query("afterSeq") afterSeqRaw?: string) {
+    assertPrincipal(principal);
+    const afterSeq = afterSeqRaw === undefined ? -1 : Number(afterSeqRaw);
+    if (!Number.isSafeInteger(afterSeq) || afterSeq < -1) throw new BadRequestException("invalid_cursor");
+    // Same visibility gate as the normal run endpoint; no cross-thread existence oracle.
+    await this.run(principal, runId);
+    const events = await this.runs.readExecutionEvents?.(toOrgId(principal.orgId), runId, afterSeq) ?? [];
+    return { events, nextSeq: events.at(-1)?.seq ?? null };
+  }
 
   @Get("/agent-runs/:runId")
   async run(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {

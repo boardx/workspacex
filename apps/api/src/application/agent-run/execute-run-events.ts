@@ -91,7 +91,7 @@ export function forwardToolCallProgress(
     // 见 `execute-run.ts` `record()` 这次调用自己的 `failureCode: null`：这一层目前对
     // `tool_call` 步骤只有"完成"一种终态记录，不区分工具执行本身是否失败——既有限制，
     // 不是本 feature 引入的倒退（`ModelCallProgressEvent` 本身也没有一个 `ok` 字段）。
-    ok: true,
+    ok: event.ok !== false,
     result: event.toolResultFull ?? null,
     emittedAt: deps.clock.now(),
   }));

@@ -1,3 +1,4 @@
+import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * PostgreSQL implementation of the #414 run store.
  *
@@ -34,6 +35,7 @@ import type {
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  checkpoint_resume?: boolean;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
   skill_version_ids: unknown; model_provider: string; model_id: string;
@@ -147,7 +149,7 @@ export class PgAgentRunRepository implements AgentRunStore {
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
                   r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
-                  r.pending_tool_name, r.pending_edited_args`,
+                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume`,
         [orgId, limit],
       );
       if (claimed.rows.length === 0) return [];
@@ -192,6 +194,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // F159：计量要归属到人，而 `agent_runs` 本身没有「谁触发的」这一列——
           // 触发它的那条人类消息的作者就是那个人，同一次 JOIN 顺手带出来。
           requesterUserId: extra.requester_user_id,
+          checkpointResume: row.checkpoint_resume === true,
           agentId: row.agent_id,
           agentVersionId: row.agent_version_id,
           instructions: extra.instructions,
@@ -217,7 +220,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // acceptance 写的那一行），与"未定义时退回旧硬编码 1"完全等价，这里仍然只在
           // pending_decision 非空时赋值，让"从未 resume 过"的路径在类型和取值上都不可能
           // 因为这次改动而改变一个字节。
-          ...(row.pending_decision !== null && row.pending_decision !== undefined
+          ...((row.checkpoint_resume || (row.pending_decision !== null && row.pending_decision !== undefined))
             ? { resumeStepSeqBase: extra.max_step_seq }
             : {}),
         } });
@@ -301,6 +304,56 @@ export class PgAgentRunRepository implements AgentRunStore {
           step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote,
           step.toolCallId, inputFullContentEnc, outputFullContentEnc],
       );
+    });
+  }
+
+  async pauseAtCheckpoint(orgId: OrgId, runId: string): Promise<void> {
+    await this.db.withTenant(orgId, async (session) => {
+      await session.query(`UPDATE agent_runs SET status='paused', error_code=NULL, paused_at=now(), ended_at=NULL
+        WHERE org_id=$1 AND id=$2 AND status='running'`, [orgId, runId]);
+    });
+  }
+
+  async isPausedAtCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ paused: boolean }>(
+        "SELECT paused_at IS NOT NULL AS paused FROM agent_runs WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      return rows[0]?.paused === true;
+    });
+  }
+
+  async resumeCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ id: string }>(
+        `UPDATE agent_runs SET status='queued', checkpoint_resume=true, paused_at=NULL,
+         pending_decision=NULL, error_code=NULL, ended_at=NULL, pause_requested_at=NULL
+         WHERE org_id=$1 AND id=$2 AND paused_at IS NOT NULL
+         AND status='paused' RETURNING id`, [orgId, runId],
+      );
+      return rows.length === 1;
+    });
+  }
+
+  async appendExecutionEvent(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void> {
+    await this.db.withTenant(orgId, async (session) => {
+      // Serialize writers across API replicas using the existing run row. The event
+      // becomes visible only after commit, so replay never observes an uncommitted seq.
+      await session.query("SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      await session.query(
+        `INSERT INTO agent_execution_events (org_id,run_id,seq,payload)
+         SELECT $1,$2,COALESCE(MAX(seq)+1,0),$3::jsonb FROM agent_execution_events
+         WHERE org_id=$1 AND run_id=$2`, [orgId, runId, JSON.stringify(event)],
+      );
+    });
+  }
+
+  async readExecutionEvents(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ seq: number; payload: Record<string, unknown>; created_at: Date }>(
+        `SELECT seq,payload,created_at FROM agent_execution_events
+         WHERE org_id=$1 AND run_id=$2 AND seq>$3 ORDER BY seq LIMIT 1000`, [orgId, runId, afterSeq],
+      );
+      return rows.map((row) => ExecutionEvent.parse({ ...row.payload, runId, seq: row.seq, emittedAt: row.created_at.toISOString() }));
     });
   }
 
@@ -575,6 +628,9 @@ export class PgAgentRunRepository implements AgentRunStore {
           WHERE org_id=$1 AND id=$2 AND status='writeback_pending'`,
         [orgId, input.runId],
       );
+      await s.query(`INSERT INTO agent_execution_events (org_id,run_id,seq,payload)
+        SELECT $1,$2,COALESCE(MAX(seq)+1,0),' {"kind":"status","status":"succeeded"}'::jsonb
+        FROM agent_execution_events WHERE org_id=$1 AND run_id=$2`, [orgId, input.runId]);
       return { messageId };
     });
   }
