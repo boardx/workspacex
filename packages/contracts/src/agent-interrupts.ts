@@ -108,11 +108,11 @@ export type OptionCard = z.infer<typeof OptionCard>;
 
 /* ── 三、UC-1 confirmTaskIntent —— 目标复述卡 ────────────────────────── */
 
-/** 触发工具 `confirm_task_intent` 的初始 args。不变量 I-2：assumptions ≥ 2 条。 */
+/** 触发工具 `confirm_task_intent` 的初始 args。不变量 I-2：assumptions 可为空，仅列真实假设。 */
 export const ConfirmIntentArgs = z.object({
   requestId: z.string().min(1),
   understanding: z.string().min(1),
-  assumptions: z.array(z.string().min(1)).min(2),
+  assumptions: z.array(z.string().min(1)),
 });
 export type ConfirmIntentArgs = z.infer<typeof ConfirmIntentArgs>;
 
@@ -121,7 +121,7 @@ export const ConfirmIntentDecision = z.discriminatedUnion("decision", [
   z.object({ decision: z.literal("approve") }),
   z.object({
     decision: z.literal("edit"),
-    editedArgs: z.object({ assumptions: z.array(z.string().min(1)).min(2) }),
+    editedArgs: z.object({ assumptions: z.array(z.string().min(1)) }),
   }),
 ]);
 export type ConfirmIntentDecision = z.infer<typeof ConfirmIntentDecision>;
