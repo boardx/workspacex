@@ -122,33 +122,71 @@ export function recommendTemplates(input: {
 }): readonly TemplateRecommendation[] {
   const byKey = new Map(input.published.map((t) => [t.key, t] as const));
   const already = new Set(input.drawnKeys);
+  // 模板库顺序（`listTemplates` 的 `ORDER BY key, version`）——一个稳定、与调用次数
+  // 无关的次序，三个梯队并列时都用它，避免同一条线程刷新两次 chip 换位置。
+  const order = new Map(input.published.map((t, i) => [t.key, i] as const));
+  const undrawn = input.published.filter((t) => !already.has(t.key));
 
-  // 线程里还一个画布都没有：推起点模板（判定③）。
-  if (already.size === 0) {
-    return entryTemplates(input.published)
-      .slice(0, input.limit)
-      .map((t) => ({ key: t.key, displayName: t.displayName }));
-  }
+  /*
+   * ── 三个梯队，**依次兜底，直到凑够或没得推为止**（2026-09-06 人类实测反馈：
+   *    「我看到第二轮以后就没有了，每一轮都要有推荐的下一步的动作」）──────────
+   *
+   * ## 上一版为什么会在第二轮之后整排消失
+   *
+   * 上一版只有梯队①：把画过的模板各自的 `recommendAfter` 汇总起来。这在**内置
+   * 模板**上看着没问题（它们有 `BUILTIN_RECOMMEND_AFTER` 兜底），但组织自建的
+   * 模板（真实库里 `ai-business-model` 这一类）`recommend_after` 就是空的——没人
+   * 配过，读路径的内置兜底也**只对 `builtin` 行生效**。于是：第一轮空线程走
+   * 梯队③的前身（起点模板）还有推荐，模型一画出这张自建模板，票数为空 ⇒ 返回
+   * 空 `items` ⇒ 建议行整排消失，而且此后每一轮都消失。
+   *
+   * ## 修法不是"给自建模板也编一份默认推荐"
+   *
+   * 那要么是猜（凭什么说画完这张该画哪张），要么是把内置那份表硬套到组织自己的
+   * 方法论上。真正的判断是：**「接下来还能画什么」永远有答案**——库里任何一张
+   * 还没画过的模板都是一个合法的下一步，只是**有多好**不同。所以按"有多好"排成
+   * 三个梯队，前面的不够就用后面的补：
+   *
+   *   ① 已画过的模板**明确配了**的下一步（后台配置，最强信号）；
+   *   ② 起点模板里还没画的（`entryTemplates`，方法论上的开场）；
+   *   ③ 其余还没画过的，按模板库顺序（最弱信号：至少它是一张能画的模板）。
+   *
+   * ⚠ 梯队③不是"随便凑数"：一条 chip 的代价是用户读一眼，收益是他发现库里还有
+   *   这张模板可用——对一个**没有配过任何推荐关系**的组织（新装、或者刚导入一批
+   *   自建模板），梯队③就是它全部的推荐来源，没有它这个功能对那种组织等于不存在。
+   * ⚠ 三个梯队都不重复：`seen` 一路去重，已画过的自始至终排除在外。
+   */
+  const ranked: TemplateRecommendation[] = [];
+  const seen = new Set<string>();
+  const push = (t: RecommendableTemplate): void => {
+    if (seen.has(t.key) || already.has(t.key)) return;
+    seen.add(t.key);
+    ranked.push({ key: t.key, displayName: t.displayName });
+  };
 
-  // 判定①：已画过的模板各自的下一步，统计被推荐次数。
+  // 梯队①：已画过的模板各自明确配的下一步，按被推荐次数（多个模板都指向它 ⇒ 更该画）。
   const votes = new Map<string, number>();
   for (const key of already) {
     const source = byKey.get(key);
-    if (source === undefined) continue; // 画过一个已停用/已不可见的模板——没有下一步可推。
+    if (source === undefined) continue; // 画过一个已停用/已不可见的模板——它没有下一步可查。
     for (const next of source.recommendAfter) {
       if (!byKey.has(next)) continue; // 指向不存在/未发布/不可见的 key，安静跳过。
-      if (already.has(next)) continue; // 判定②：画过的不再推荐。
+      if (already.has(next)) continue; // 画过的不再推荐。
       votes.set(next, (votes.get(next) ?? 0) + 1);
     }
   }
+  for (const [key] of [...votes.entries()].sort(
+    (a, b) => (b[1] - a[1]) || ((order.get(a[0]) ?? 0) - (order.get(b[0]) ?? 0)),
+  )) push(byKey.get(key)!);
 
-  // 并列时按模板库顺序（`listTemplates` 的 `ORDER BY key, version`）——一个稳定、
-  // 与调用次数无关的顺序，避免同一条线程刷新两次 chip 换位置。
-  const order = new Map(input.published.map((t, i) => [t.key, i] as const));
-  return [...votes.entries()]
-    .sort((a, b) => (b[1] - a[1]) || ((order.get(a[0]) ?? 0) - (order.get(b[0]) ?? 0)))
-    .slice(0, input.limit)
-    .map(([key]) => ({ key, displayName: byKey.get(key)!.displayName }));
+  // 梯队②：起点模板（入度 0，按出度排——见 `entryTemplates`）。线程还一个画布都没有
+  // 时它就是全部答案；画过之后它是"还没走过的开场"，仍然比梯队③强。
+  if (ranked.length < input.limit) for (const t of entryTemplates(input.published)) push(t);
+
+  // 梯队③：其余还没画过的，模板库顺序。
+  if (ranked.length < input.limit) for (const t of undrawn) push(t);
+
+  return ranked.slice(0, input.limit);
 }
 
 /**

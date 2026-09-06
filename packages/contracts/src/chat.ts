@@ -1110,18 +1110,31 @@ export const operations = {
    * 新建/改名/停用一个模板对它毫无影响。本操作把「现在该推荐哪几个画布模板」变成一次
    * **服务端按当前线程内容 + 当前已发布模板库**算出来的答案。
    *
-   * ## 判据只有两条，都读真实状态，不猜
+   * ## 两件输入事实，都读真实状态，不猜
    *
    * ① **线程里已经产出过哪些模板**——扫这条线程已落库消息正文里的 ```` ```canvas ````/
    *    ```` ```persona ```` 围栏（`模板: <key>` 行），这是 `buildCanvasTemplateGuidance`
-   *    （issue #1493）指导模型写出来的那个格式，不是为本操作新发明的标记。
+   *    （issue #1493）指导模型写出来的那个格式，不是为本操作新发明的标记；再加上
+   *    `PERSONA_SUMMARY_AUTHOR_ID` 那条产出（它落的是 mindmap 围栏，扫不出来）。
    * ② **模板自己配的推荐关系**——已发布模板行的 `recommendAfter`
    *    （`canvas.updateTemplateMetadata.in.recommendAfter`，后台可改）。
    *
-   * 两条合成：线程里出现过的每个模板，取它的 `recommendAfter`，去掉线程里已经画过的，
-   * 按「被推荐次数、模板库顺序」排好返回。线程里一个画布都没有 ⇒ 返回**起点模板**
-   * （没有被任何已发布模板推荐过的那些，即推荐图的入度为 0 者）——这样一条刚开始的
-   * 对话看到的是「用户画像 / HMW 问题陈述」这类开场模板，而不是空。
+   * ## 排序是**三个梯队依次兜底**，直到凑够 `items` 或没得推为止
+   *
+   *   ① 已画过的模板明确配了的下一步（按被推荐次数、模板库顺序）——后台配置，最强信号；
+   *   ② 起点模板里还没画的（推荐图入度为 0 者，之间按出度排）——方法论上的开场；
+   *   ③ 其余还没画过的已发布模板，按模板库顺序——最弱信号：至少它是一张能画的模板。
+   *
+   * 库里每一张都画过了 ⇒ `items` 为空（不推荐一件用户刚做完的事），除此之外**每一轮
+   * 都给得出下一步**。梯队②③是 2026-09-06 人类实测「第二轮以后就没有了，每一轮都要有
+   * 推荐的下一步的动作」之后加的：组织自建模板的 `recommend_after` 是空的（没人配过，
+   * 而内置默认表只对 `builtin` 行兜底），只有梯队①时，模型一画出这类模板就再也拿不到
+   * 任何建议。
+   *
+   * ⚠ 这套排序语义 **schema 表达不了**（`out.items` 只是一个有序数组），所以它的唯一
+   *   权威描述是这段散文 + `domain/canvas/template-recommendation.ts` 里那个纯函数与
+   *   它的测试。改行为时这三处一起改——本操作下方 `KNOWN_CONTRACT_GAPS.C_CHAT_12`
+   *   记的是"待人类补签的取舍"，不是第二份行为说明。
    *
    * ⚠ **不调模型**。这是一次纯粹的读取 + 集合运算，几毫秒返回，可以在面板挂载时直接
    *   调用；建议行里另一半（CopilotKit 的追问建议）才是模型生成的。把它做成模型调用
@@ -1683,11 +1696,15 @@ export const KNOWN_CONTRACT_GAPS = {
    * `recommendAfter`（`canvas.updateTemplateMetadata`），chat 侧新增本只读操作。
    *
    * 需要人类拍板的两处（实现已按下述取舍先做，改判只需改一处纯函数）：
-   * ① **空线程推荐"起点模板"的排序**用的是出度启发式（能带出更多后续的排前面），
-   *    见 `domain/canvas/template-recommendation.ts` 的 `entryTemplates` 头注——
-   *    它比 key 字典序诚实，但仍是启发式，人类可能想要一份显式的开场模板清单。
+   * ① **推荐是三个梯队依次兜底**（后台配的下一步 → 起点模板 → 其余没画过的），
+   *    起点模板之间按出度启发式排序，见 `domain/canvas/template-recommendation.ts`
+   *    的两处头注。2026-09-06 人类实测「第二轮以后就没有了，每一轮都要有推荐的
+   *    下一步的动作」之后加的梯队②③——没有它们，一个没配过任何推荐关系的组织
+   *    （自建模板的 `recommend_after` 是空的，内置兜底只对 builtin 行生效）画完
+   *    第一张画布之后就再也拿不到任何建议。人类可能想要更强的取舍（比如"没配过
+   *    就不推"），那要改的是这一个函数。
    * ② **一次最多推 3 条**（契约上限 4）。建议行里还并排渲染 CopilotKit 的模型追问
    *    建议，两边加起来超过一行会把 composer 顶下去。
    */
-  C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff: read-only, no model call; recommends canvas templates from the org's published recommendAfter graph minus what the thread already drew; open questions are the entry-template ordering heuristic (out-degree) and the 3-chip display cap",
+  C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff: read-only, no model call; recommends canvas templates in three fallback tiers (configured recommendAfter of what the thread drew, then entry templates, then any undrawn published template) so every turn offers a next step; open questions are that tier cascade plus the entry out-degree heuristic, and the 3-chip display cap",
 } as const;

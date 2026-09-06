@@ -58,16 +58,23 @@ describe("detectCanvasTemplateKeys · 线程里画过哪些模板", () => {
 });
 
 describe("recommendTemplates · 推荐哪几个", () => {
+  /**
+   * ⚠ 本 describe 里的断言都只钉**梯队①那一段**（`slice`/`[0]`/`not.toContain`），
+   *   不钉整个数组：`limit` 没被梯队①填满时，梯队②③会把它补齐（见
+   *   `recommendTemplates` 里三个梯队的头注）。把兜底补进来的那几条也写进断言，
+   *   等于把"补齐"这条行为反过来锁死成"不许补齐"。
+   */
   it("①推荐来自后台配的 recommendAfter：改掉那一栏，推荐结果跟着变", () => {
     const before = recommendTemplates({ drawnKeys: ["persona"], published: LIB, limit: 3 });
-    expect(before.map((t) => t.key)).toEqual(["journey-map", "empathy"]);
+    // persona 配的就是这两个，且顺序就是它配的顺序。
+    expect(before.map((t) => t.key).slice(0, 2)).toEqual(["journey-map", "empathy"]);
 
     // 同一份线程事实，只把 persona 那一行的推荐关系改成 hmw——这正是后台管理员在
-    // template-admin 里做的那一个动作。
+    // template-admin 里做的那一个动作。它必须**排到最前**（梯队①压过所有兜底）。
     const relinked = LIB.map((t) =>
       t.key === "persona" ? { ...t, recommendAfter: ["hmw"] } : t);
     const after = recommendTemplates({ drawnKeys: ["persona"], published: relinked, limit: 3 });
-    expect(after.map((t) => t.key)).toEqual(["hmw"]);
+    expect(after[0]?.key).toBe("hmw");
   });
 
   it("②已经画过的不再推荐", () => {
@@ -77,7 +84,7 @@ describe("recommendTemplates · 推荐哪几个", () => {
 
   it("③线程里一个画布都没有 ⇒ 推起点模板（入度为 0），不是空", () => {
     const out = recommendTemplates({ drawnKeys: [], published: LIB, limit: 3 });
-    expect(out.map((t) => t.key)).toEqual(["persona"]);
+    expect(out[0]?.key).toBe("persona");
     expect(entryTemplates(LIB).map((t) => t.key)).toEqual(["persona"]);
   });
 
@@ -105,7 +112,9 @@ describe("recommendTemplates · 推荐哪几个", () => {
     const withDangling = LIB.map((t) =>
       t.key === "persona" ? { ...t, recommendAfter: ["ghost-template", "empathy"] } : t);
     const out = recommendTemplates({ drawnKeys: ["persona"], published: withDangling, limit: 3 });
-    expect(out.map((t) => t.key)).toEqual(["empathy"]);
+    expect(out[0]?.key).toBe("empathy");
+    // 关键是这一条：那个 key 在库里不存在，任何梯队都不该把它变成一条 chip。
+    expect(out.map((t) => t.key)).not.toContain("ghost-template");
   });
 
   it("⑤被推荐次数多的在前；并列按模板库顺序（刷新两次不换位置）", () => {
@@ -115,7 +124,43 @@ describe("recommendTemplates · 推荐哪几个", () => {
       { key: "storyboard", displayName: "故事板", recommendAfter: [] },
     ].map((t) => (t.key === "journey-map" ? { ...t, recommendAfter: ["hmw", "storyboard"] } : t));
     const out = recommendTemplates({ drawnKeys: ["journey-map", "empathy"], published: lib, limit: 3 });
-    expect(out.map((t) => t.key)).toEqual(["hmw", "storyboard"]);
+    expect(out.map((t) => t.key).slice(0, 2)).toEqual(["hmw", "storyboard"]);
+  });
+
+  /**
+   * ⑥ **2026-09-06 人类实测的那个 bug 的回归用例**：「我看到第二轮以后就没有了，
+   * 每一轮都要有推荐的下一步的动作」。
+   *
+   * 真实形态：组织自建模板（库里 `ai-business-model` 那一类）`recommendAfter` 是空的
+   * ——没人配过，而读路径的 `BUILTIN_RECOMMEND_AFTER` 兜底**只对 builtin 行生效**。
+   * 上一版只有梯队①，模型一画出这张自建模板，票数为空 ⇒ 返回空 ⇒ 建议行整排消失，
+   * 而且此后每一轮都消失。
+   *
+   * 判据刻意是「非空」而不是「等于某个具体清单」：要证明的命题就是**永远有下一步**，
+   * 钉死具体是哪几条反而会把梯队②③的排序也焊进这条用例里。
+   */
+  it("⑥ 画过的模板一条推荐关系都没配（组织自建） ⇒ 仍然有下一步，不是空", () => {
+    const orgLib: readonly RecommendableTemplate[] = [
+      { key: "ai-business-model", displayName: "AI 商业模型画布", recommendAfter: [] },
+      { key: "ai-strategy", displayName: "AI 战略画布", recommendAfter: [] },
+      { key: "custom-1", displayName: "自建画布一", recommendAfter: [] },
+    ];
+    const out = recommendTemplates({ drawnKeys: ["ai-business-model"], published: orgLib, limit: 3 });
+    expect(out.length).toBeGreaterThan(0);
+    // 画过的那张不会被再推一次——兜底不等于"把整个库倒出来"。
+    expect(out.map((t) => t.key)).not.toContain("ai-business-model");
+  });
+
+  /**
+   * ⑦ 兜底的边界：库里所有模板都画过了 ⇒ 老老实实返回空。
+   * 「永远有下一步」的前提是**还有没画过的模板**；没有了还硬推一条，就是推荐一件
+   * 用户刚做完的事——那比空着更糟。
+   */
+  it("⑦ 库里每一张都画过了 ⇒ 返回空（兜底不制造重复推荐）", () => {
+    const out = recommendTemplates({
+      drawnKeys: LIB.map((t) => t.key), published: LIB, limit: 3,
+    });
+    expect(out).toEqual([]);
   });
 
   it("limit 由调用方给，超出部分截断", () => {

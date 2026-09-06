@@ -145,6 +145,12 @@ interface TemplateRow {
    */
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * issue #2825「用完之后推荐」——同上面三段注释的既有纪律：这份夹具类型是手写的，
+   * 契约扩了字段就得跟着补。⚠ 这一条是 CI 逐字报出来才补上的（本地漏跑了加完
+   * 用例之后的那次 typecheck），正是那几段注释反复说的同一件事。
+   */
+  recommendAfter?: string[];
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
@@ -1810,5 +1816,143 @@ describe("画布模板库排序功能", () => {
     expect(renderedOrder()).toEqual([
       "tpladmin-card-keyC-1", "tpladmin-card-keyA-1", "tpladmin-card-keyB-1",
     ]);
+  });
+});
+
+/**
+ * issue #2825 第二轮 —— 「用完之后推荐」那一栏的**紧凑度**。
+ *
+ * 人类 2026-09-06 实测原话：「后台的界面不要摊开所有的 chips，占用的空间太大了，
+ * 你要知道有可能会有 50 个 chips，现在的办法有问题」。第一版把整库渲染成一排可点
+ * chip，行高随库增长，把画布挤到屏幕外。
+ *
+ * 所以这里钉的判据是**「未选中的模板不在这一行里」**，而不是"渲染了几个 DOM 节点"
+ * 或"这个 div 的高度是多少"——前者是行为（库多大都不影响这一行），后者要么脆、
+ * 要么在 jsdom 里根本量不出来（jsdom 不做布局，`offsetHeight` 恒为 0）。
+ */
+describe("2026-09-06 · 「用完之后推荐」不摊开整库（issue #2825 第二轮）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-recommend";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-recommend");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** 30 条的库——真实库已经接近这个量级，而第一版的前提是"十几到二十几条"。 */
+  const BIG_LIBRARY = [
+    template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+      usageCount: 0, sections: [], recommendAfter: ["bmc"],
+    }),
+    ...Array.from({ length: 29 }, (_, i) => template({
+      key: `tpl-${i}`, displayName: `模板${i}`, version: 1, status: "draft", builtin: false, usageCount: 0,
+    })),
+    template({ key: "bmc", displayName: "商业模式画布", version: 1, status: "draft", builtin: false, usageCount: 0 }),
+  ];
+
+  async function openEditor(): Promise<HTMLElement> {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: BIG_LIBRARY })));
+    renderApp(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    return screen.findByTestId("tpladmin-editor-panel");
+  }
+
+  it("只渲染已选中的那几条；未选中的 30 条一条都不在这一行里", async () => {
+    const panel = await openEditor();
+    // 已选中的（swot 配了 bmc）显示出来——它就是这一栏要让人一眼看到的东西。
+    expect(within(panel).getByTestId("tpladmin-editor-recommend-bmc")).toBeInTheDocument();
+    // 未选中的一律不在。这一条就是本次修复：库有多大，这一行都只有"已选中 + 添加按钮"。
+    expect(within(panel).queryByTestId("tpladmin-editor-recommend-tpl-0")).toBeNull();
+    expect(within(panel).queryByTestId("tpladmin-editor-recommend-tpl-28")).toBeNull();
+  });
+
+  it("＋ 添加 → 搜索 → 点一条：加进这一栏，且候选里不再出现它", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-add"));
+    const picker = await within(panel).findByTestId("tpladmin-editor-recommend-picker");
+
+    // 搜索按名字过滤——库大到需要收起来时，也就大到"滚动找"不好使了。
+    fireEvent.change(within(picker).getByTestId("tpladmin-editor-recommend-search"), {
+      target: { value: "模板7" },
+    });
+    expect(within(picker).getByTestId("tpladmin-editor-recommend-option-tpl-7")).toBeInTheDocument();
+    expect(within(picker).queryByTestId("tpladmin-editor-recommend-option-tpl-8")).toBeNull();
+
+    fireEvent.click(within(picker).getByTestId("tpladmin-editor-recommend-option-tpl-7"));
+    // 加进了这一栏。
+    await waitFor(() =>
+      expect(within(panel).getByTestId("tpladmin-editor-recommend-tpl-7")).toBeInTheDocument());
+    // 已经选中的不再出现在候选里——否则会被加第二次，而 `recommendAfter` 是一个有序
+    // 列表不是集合，重复项会真的存进去。
+    expect(within(picker).queryByTestId("tpladmin-editor-recommend-option-tpl-7")).toBeNull();
+  });
+
+  /**
+   * PR #2846 codex review P1 的回归用例。
+   *
+   * 面板有一个 `window` 级 Escape 监听（`onClose()`）。浮层自己再挂一个 `onKeyDown`
+   * 时，React 的事件跑完照样冒泡到那个 window 监听——一次 Esc 既收起浮层**又关掉整个
+   * 编辑器**，而这一屏可能有一堆未保存的分区改动。修法是把 Escape 的层级收进那一个
+   * window handler（浮层 → 提示词抽屉 → 面板），不是在浮层里 `stopPropagation`。
+   *
+   * ⚠ 事件必须打在 `window` 上（`fireEvent.keyDown(window, …)`）：打在浮层节点上只
+   *   验证得了 React 那一半，而这条 bug 恰恰出在"另一半也会收到"。
+   */
+  it("浮层开着时按 Esc：只收起浮层，编辑器还在（不是一次关两层）", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-add"));
+    await within(panel).findByTestId("tpladmin-editor-recommend-picker");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("tpladmin-editor-recommend-picker")).toBeNull());
+    // 编辑器本身没被一起关掉——这才是这条用例的重点。
+    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
+
+    // 反证：浮层已经关了，再按一次 Esc 就该轮到面板——否则上面那条"没关掉"可能只是
+    // 因为 Esc 根本没生效，而不是因为层级排对了。
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+  });
+
+  /**
+   * PR #2846 codex review P2 的回归用例：当前筛选只剩被编辑的这一行时 `siblings` 为空。
+   * 上一版把整段（含已选中的 chip）收在 `siblings.length === 0` 的另一分支里，于是
+   * 已配置的推荐**整排消失且无法移除**——而"指向当前看不到的模板时如实显示那个 key"
+   * 正是这段特意要做的事，被那个条件整个抵消掉。
+   */
+  it("候选为空（筛选后只剩自己）⇒ 已配置的推荐照常显示、照常能移除", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+        usageCount: 0, sections: [], recommendAfter: ["bmc-archived"],
+      })],
+    })));
+    renderApp(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
+    // 显示的是 key 本身（库里找不到这一行）——不静默丢掉。
+    const chip = within(panel).getByTestId("tpladmin-editor-recommend-bmc-archived");
+    expect(chip).toHaveTextContent("bmc-archived");
+    // 而且移得掉：显示却移不掉，等于把一条配置永久焊死在这里。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-bmc-archived-remove"));
+    await waitFor(() =>
+      expect(within(panel).queryByTestId("tpladmin-editor-recommend-bmc-archived")).toBeNull());
+  });
+
+  it("点 × 移除已选中的一条", async () => {
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-recommend-bmc-remove"));
+    await waitFor(() =>
+      expect(within(panel).queryByTestId("tpladmin-editor-recommend-bmc")).toBeNull());
+    expect(within(panel).getByTestId("tpladmin-editor-recommend-none")).toBeInTheDocument();
   });
 });
