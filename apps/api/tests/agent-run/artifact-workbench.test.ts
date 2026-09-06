@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { migrationFiles, MIGRATIONS_DIR } from "../../src/infrastructure/db/migrator";
 import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import { PgRunRecovery } from "../../src/infrastructure/agent-run/pg-run-recovery";
 import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agent-run-repository";
@@ -13,7 +15,7 @@ import { PgArtifactStore } from "../../src/infrastructure/artifacts-steering/pg-
 import { PgArtifactContinuationReader } from "../../src/infrastructure/artifacts-steering/pg-artifact-continuation-reader";
 import { registerRunArtifacts } from "../../src/infrastructure/artifacts-steering/register-run-artifacts";
 import { toOrgId } from "../../src/domain/org-id";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { addOrgMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 
 const ORG="org-artifact-workbench", OTHER="org-artifact-workbench-other", THREAD="artifact-personal-thread", USER="artifact-user";
@@ -138,6 +140,41 @@ describe("artifact continuation over existing attachments",()=>{
     await expect(commands.accept(org,invalid)).rejects.toThrow("ARTIFACT_VERSION_NOT_FOUND");
     const missing=await asApp(ORG,c=>c.query("SELECT id FROM agent_runs WHERE id=$1",[invalid.runId]));
     expect(missing.rows).toEqual([]);
+  });
+
+  it("replays workbench migrations without changing cancellation, approval identities or registered continuation attachments", async () => {
+    const repo = new PgAgentRunRepository(db);
+    await run("cancelled-replay");
+    await repo.requestCancellation(org, "cancelled-replay");
+    await repo.cancelAtCheckpoint(org, "cancelled-replay");
+    await run("approval-replay");
+    await repo.markAwaitingToolPermission(org, "approval-replay", {toolName: "call_skill", argsSummary: "summary"});
+    const approvalBefore = await asApp(ORG, c => c.query("SELECT pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id='approval-replay'", [ORG]));
+    await run("registered-edit");
+    await asApp(ORG, c => c.query("INSERT INTO agent_run_artifact_context(org_id,run_id,artifact_id,based_on_version) VALUES($1,'registered-edit',$2,1)", [ORG, artifactId]));
+    await output("registered-edit", "object-replay-v2", "retained bytes");
+    await register("registered-edit", "object-replay-v2");
+    await asApp(ORG, c => c.query("UPDATE chat_messages SET agent_run_id='registered-edit' WHERE org_id=$1 AND id='registered-edit-output'", [ORG]));
+    await repo.storeOutputAwaitingWriteback(org, "registered-edit", {text: "done", finalStepSeq: 2});
+    await asApp(ORG, c => c.query("UPDATE agent_runs SET status='succeeded' WHERE org_id=$1 AND id='registered-edit'", [ORG]));
+    const before = await asApp(ORG, c => c.query("SELECT id,artifact_id,version,attachment_id,storage_key FROM agent_artifact_versions WHERE org_id=$1 ORDER BY id", [ORG]));
+    const replayFiles = migrationFiles().filter(name => /^202609070(?:1[0-9]|2[01])000_/.test(name));
+    expect(replayFiles).toHaveLength(12);
+    // Owner is used only to apply DDL, exactly as production migration repair does.
+    // Every preservation assertion below goes back through tenant-scoped app access.
+    await asOwner(async c => {
+      for (const name of replayFiles) {
+        await c.query("BEGIN");
+        try { await c.query(readFileSync(`${MIGRATIONS_DIR}/${name}`, "utf8")); await c.query("COMMIT"); }
+        catch (error) { await c.query("ROLLBACK"); throw error; }
+      }
+    });
+    const after = await asApp(ORG, c => c.query("SELECT id,artifact_id,version,attachment_id,storage_key FROM agent_artifact_versions WHERE org_id=$1 ORDER BY id", [ORG]));
+    expect(after.rows).toEqual(before.rows);
+    expect((await asApp(ORG, c => c.query("SELECT id FROM agent_artifacts WHERE org_id=$1 AND id='agent-artifact-registered-edit-attachment'", [ORG]))).rows).toEqual([]);
+    expect((await asApp(ORG, c => c.query("SELECT status FROM agent_runs WHERE org_id=$1 AND id='cancelled-replay'", [ORG]))).rows[0].status).toBe("cancelled");
+    expect((await asApp(ORG, c => c.query("SELECT pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id='approval-replay'", [ORG]))).rows).toEqual(approvalBefore.rows);
+    expect(await objects.get("object-replay-v2")).toEqual(Buffer.from("retained bytes"));
   });
 
   it("missing output cannot create a fake continuation version",async()=>{

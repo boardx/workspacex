@@ -1,3 +1,9 @@
+-- A later cancellation migration supersedes these definitions. Replaying this
+-- file over a live upgraded database must not narrow its CHECK or transition rules.
+DO $migration$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='agent_runs'::regclass
+    AND attname='cancel_requested_at' AND NOT attisdropped) THEN RETURN; END IF;
 -- Status is a database fact. Emit in the same transaction as the transition, including
 -- watchdog/context failures which never reach the model progress callback.
 -- Both this trigger and appendExecutionEvent hold the parent run row lock FIRST.
@@ -30,3 +36,6 @@ DROP TRIGGER IF EXISTS workbench_run_status_journal_trg ON agent_runs;
 CREATE TRIGGER workbench_run_status_journal_trg AFTER UPDATE OF status ON agent_runs
   FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)
   EXECUTE FUNCTION workbench_journal_run_status();
+
+END
+$migration$;

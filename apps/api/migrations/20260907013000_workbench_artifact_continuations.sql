@@ -1,12 +1,19 @@
 -- Versions reference the SAME immutable bytes as the assistant attachment.
 CREATE UNIQUE INDEX IF NOT EXISTS chat_message_attachments_org_id_id_artifact_idx ON chat_message_attachments(org_id,id);
-ALTER TABLE agent_artifact_versions ADD COLUMN attachment_id text;
-ALTER TABLE agent_artifact_versions ADD CONSTRAINT agent_artifact_version_attachment_tenant_fk
-  FOREIGN KEY(org_id,attachment_id) REFERENCES chat_message_attachments(org_id,id);
-ALTER TABLE agent_artifact_versions ADD COLUMN based_on_version integer;
-CREATE UNIQUE INDEX agent_artifact_versions_attachment ON agent_artifact_versions(attachment_id) WHERE attachment_id IS NOT NULL;
+ALTER TABLE agent_artifact_versions ADD COLUMN IF NOT EXISTS attachment_id text;
+DO $migration$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='agent_artifact_versions'::regclass
+    AND conname='agent_artifact_version_attachment_tenant_fk') THEN
+    ALTER TABLE agent_artifact_versions ADD CONSTRAINT agent_artifact_version_attachment_tenant_fk
+      FOREIGN KEY(org_id,attachment_id) REFERENCES chat_message_attachments(org_id,id);
+  END IF;
+END
+$migration$;
+ALTER TABLE agent_artifact_versions ADD COLUMN IF NOT EXISTS based_on_version integer;
+CREATE UNIQUE INDEX IF NOT EXISTS agent_artifact_versions_attachment ON agent_artifact_versions(attachment_id) WHERE attachment_id IS NOT NULL;
 
-CREATE TABLE agent_run_artifact_context (
+CREATE TABLE IF NOT EXISTS agent_run_artifact_context (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   run_id text NOT NULL,
   artifact_id text NOT NULL REFERENCES agent_artifacts(id) ON DELETE CASCADE,
@@ -17,6 +24,7 @@ CREATE TABLE agent_run_artifact_context (
 );
 ALTER TABLE agent_run_artifact_context ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_run_artifact_context FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS agent_run_artifact_context_tenant ON agent_run_artifact_context;
 CREATE POLICY agent_run_artifact_context_tenant ON agent_run_artifact_context
   USING (org_id=current_setting('app.current_org',true))
   WITH CHECK (org_id=current_setting('app.current_org',true));
@@ -32,6 +40,7 @@ FROM chat_message_attachments a
 JOIN chat_messages m ON m.org_id=a.org_id AND m.id=a.message_id AND m.author_kind='agent'
 JOIN agent_runs r ON r.org_id=m.org_id AND r.id=m.agent_run_id AND r.status='succeeded'
 WHERE EXISTS (SELECT 1 FROM agent_run_steps s WHERE s.org_id=r.org_id AND s.run_id=r.id)
+  AND NOT EXISTS (SELECT 1 FROM agent_artifact_versions v WHERE v.org_id=a.org_id AND v.attachment_id=a.id)
 ON CONFLICT DO NOTHING;
 INSERT INTO agent_artifact_versions(id,org_id,artifact_id,version,produced_by_run_id,produced_by_step_id,change_note,storage_key,size_bytes,attachment_id)
 SELECT 'agent-artifact-'||a.id||'-v1',a.org_id,'agent-artifact-'||a.id,1,r.id,s.id,input.body,a.storage_ref,a.bytes,a.id
@@ -40,4 +49,5 @@ JOIN chat_messages m ON m.org_id=a.org_id AND m.id=a.message_id AND m.author_kin
 JOIN agent_runs r ON r.org_id=m.org_id AND r.id=m.agent_run_id AND r.status='succeeded'
 JOIN chat_messages input ON input.org_id=r.org_id AND input.id=r.input_message_id
 JOIN LATERAL (SELECT id FROM agent_run_steps WHERE org_id=r.org_id AND run_id=r.id ORDER BY seq DESC LIMIT 1) s ON true
+WHERE NOT EXISTS (SELECT 1 FROM agent_artifact_versions v WHERE v.org_id=a.org_id AND v.attachment_id=a.id)
 ON CONFLICT DO NOTHING;

@@ -1,5 +1,5 @@
 -- The existing FIFO is authoritative. Journal projection is transactional, not an API side effect.
-CREATE FUNCTION workbench_journal_interjection() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION workbench_journal_interjection() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE n integer;
 BEGIN
  IF TG_OP='UPDATE' AND (NEW.status IS NOT DISTINCT FROM OLD.status OR NEW.status<>'applied') THEN RETURN NEW; END IF;
@@ -10,8 +10,9 @@ BEGIN
   CASE WHEN NEW.status='applied' THEN NEW.applied_at ELSE NEW.received_at END);
  RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS workbench_interjection_journal ON agent_run_interjections;
 CREATE TRIGGER workbench_interjection_journal AFTER INSERT OR UPDATE OF status ON agent_run_interjections FOR EACH ROW EXECUTE FUNCTION workbench_journal_interjection();
-CREATE FUNCTION workbench_journal_unapplied_interjections() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION workbench_journal_unapplied_interjections() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE item record; n integer;
 BEGIN
  IF NEW.status NOT IN('succeeded','failed','cancelled') THEN RETURN NEW; END IF;
@@ -22,4 +23,5 @@ BEGIN
  END LOOP;
  RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS workbench_unapplied_interjections ON agent_runs;
 CREATE TRIGGER workbench_unapplied_interjections AFTER UPDATE OF status ON agent_runs FOR EACH ROW WHEN(OLD.status IS DISTINCT FROM NEW.status) EXECUTE FUNCTION workbench_journal_unapplied_interjections();

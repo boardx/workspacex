@@ -1,8 +1,8 @@
-ALTER TABLE agent_runs ADD COLUMN lease_epoch integer NOT NULL DEFAULT 0;
-ALTER TABLE agent_runs ADD COLUMN lease_expires_at timestamptz;
-ALTER TABLE agent_runs ADD COLUMN recovery_attempts integer NOT NULL DEFAULT 0;
-ALTER TABLE agent_runs ADD COLUMN recovery_diagnostic text;
-CREATE INDEX agent_runs_recovery_due_idx ON agent_runs(lease_expires_at) WHERE status='running';
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS lease_epoch integer NOT NULL DEFAULT 0;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS lease_expires_at timestamptz;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS recovery_attempts integer NOT NULL DEFAULT 0;
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS recovery_diagnostic text;
+CREATE INDEX IF NOT EXISTS agent_runs_recovery_due_idx ON agent_runs(lease_expires_at) WHERE status='running';
 -- Recovery discovers expired work; it must not declare failure/cancel a live remote run.
 CREATE OR REPLACE FUNCTION kernel_reclaim_orphaned_agent_runs(threshold_ms integer)
 RETURNS TABLE(id text,org_id text,thread_id text,remote_run_id text)

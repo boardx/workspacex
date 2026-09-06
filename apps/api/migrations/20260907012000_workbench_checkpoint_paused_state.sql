@@ -1,3 +1,9 @@
+-- A later cancellation migration supersedes these definitions. Replaying this
+-- file over a live upgraded database must not narrow its CHECK or transition rules.
+DO $migration$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='agent_runs'::regclass
+    AND attname='cancel_requested_at' AND NOT attisdropped) THEN RETURN; END IF;
 -- A checkpoint pause is nonterminal. Preserve every existing terminal/retry guard.
 ALTER TABLE agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check;
 ALTER TABLE agent_runs ADD CONSTRAINT agent_runs_status_check CHECK (
@@ -37,3 +43,6 @@ BEGIN
   RAISE EXCEPTION 'AgentRun % may not move from % to %', OLD.id, OLD.status, NEW.status;
 END;
 $$ LANGUAGE plpgsql;
+
+END
+$migration$;
