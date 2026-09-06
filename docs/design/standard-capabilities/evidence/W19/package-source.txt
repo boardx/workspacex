@@ -1,0 +1,1 @@
+PASS: real FileSkillStarterPackSource reads both complete packages; per-file bytes/digests and pack digest verified; missing deployment root/version fail closed; tampering rejected.
