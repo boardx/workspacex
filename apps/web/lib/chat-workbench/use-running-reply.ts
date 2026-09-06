@@ -8,12 +8,14 @@ import { resolveRunningReplyRoute, runningReplyAckCopy } from "@/lib/chat-compos
 type QueuedReply = { id: string; text: string };
 const EMPTY_QUEUE: QueuedReply[] = [];
 /** Each queued delivery retains its idempotency key until an explicit successful ACK. */
-export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken, enqueue, clearDraft, setError }: {
+export function useRunningReply({ agent, threadId, draftScope, run, inputDraft, inputDraftRevision, sessionToken, enqueue, clearDraft, setError }: {
   agent: AbstractAgent; threadId: string; run: ChatHostInterjectionRun; inputDraft: string; sessionToken: string | null;
   enqueue: (text: string, opts?: { clientMessageId?: string }) => Promise<boolean>;
-  clearDraft: () => void; setError: (error: string | null) => void;
+  draftScope?: string;
+  inputDraftRevision?: number;
+  clearDraft: (revision?: number) => void; setError: (error: string | null) => void;
 }) {
-  const storageKey = `workbench-queued-replies:${sessionToken ? Array.from(sessionToken).reduce((hash, char) => Math.imul(hash, 31) + char.charCodeAt(0) | 0, 0) : "anonymous"}`;
+  const storageKey = `workbench-queued-replies:${draftScope ?? "anonymous"}`;
   const [queues, setQueues] = React.useState<Record<string, QueuedReply[]>>(() => {
     try { return JSON.parse(sessionStorage.getItem(storageKey) ?? "{}"); } catch { return {}; }
   });
@@ -36,6 +38,8 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
   const currentThread = React.useRef(threadId);
   currentThread.current = threadId;
   const sending = React.useRef(false);
+  const mounted = React.useRef(true);
+  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const sendWhileRunning = React.useCallback(async (options?: { forceQueue?: boolean }) => {
     const text = inputDraft.trim();
     if (!text || sending.current) return;
@@ -43,23 +47,23 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
     if (options?.forceQueue || resolveRunningReplyRoute({ runId: run.runId, status: run.status }) === "queue") {
       const entry = { id: crypto.randomUUID(), text };
       setQueues((previous) => ({ ...previous, [threadId]: [...(previous[threadId] ?? []), entry] }));
-      clearDraft();
+      clearDraft(inputDraftRevision);
       return;
     }
     sending.current = true;
     setInterjectPending(true);
     try {
       const receipt = await interjectAgentRun({ runId: run.runId!, text }, { sessionToken });
-      if (currentThread.current !== threadId) return;
+      if (!mounted.current || currentThread.current !== threadId) return;
       agent.addMessage({ id: `interjection:${receipt.interjectionId}`, role: "user", content: text });
-      clearDraft();
+      clearDraft(inputDraftRevision);
       setRunningReplyAck(runningReplyAckCopy(text));
     } catch (error) {
-      if (currentThread.current !== threadId) return;
+      if (!mounted.current || currentThread.current !== threadId) return;
       const code = classifyInterjectFailure(error);
       setError(code ? INTERJECT_FAILURE_COPY[code] : INTERJECT_UNKNOWN_FAILURE_COPY);
     } finally { sending.current = false; setInterjectPending(false); }
-  }, [inputDraft, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId]);
+  }, [inputDraft, inputDraftRevision, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId]);
   React.useEffect(() => {
     if (!queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
     const entry = queue[0]!;

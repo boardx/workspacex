@@ -1,4 +1,6 @@
 "use client";
+import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
+import { useSession } from "@/components/session/session-provider";
 
 import * as React from "react";
 import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
@@ -184,17 +186,13 @@ export function CopilotKitV2PanelBody({
   const runTrace = useRunTrace(agent, initialChatThreadId);
   const hydrateRunTrace = runTrace.hydrate;
   const acceptedRunEpoch = runTrace.acceptedRunEpoch;
-  const [inputDraft, setInputDraft] = React.useState("");
+  const draftSession = useSession().session;
+  const composerDraft = useComposerDraft({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId ?? null, projectId, threadId: initialChatThreadId });
+  const { text: inputDraft, setText: setInputDraft, clear: clearComposerDraft } = composerDraft;
   const sendFailedRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
   const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
-  /**
-   * issue #2797 -- `onError` 订阅（下面）与 `send()` 的 `catch` 分支各自上报一次异常
-   * 时，需要"这一刻真实的 runId/threadId/phase"，而不是订阅建立那一刻（`useEffect`
-   * 依赖数组只有 `[copilotkit, threadId]`,只在挂载时跑一次）闭包住的旧值。用一个
-   * ref 而不是把这三个值塞进依赖数组重新订阅——`ref.current` 由下面另一个不带依赖
-   * 数组的 effect 每次渲染后刷新,读的时候永远是最新一次渲染的值,订阅本身不用重建。
-   */
+  // Keep the latest run context for stable framework error subscriptions.
   const runReportContextRef = React.useRef<{
     runId: string | null; threadId: string | null; phase: RunStage | null;
   }>({ runId: null, threadId: null, phase: null });
@@ -251,7 +249,7 @@ export function CopilotKitV2PanelBody({
     if (skillMention === null) return;
     setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
     setMention(null);
-  }, [skillMention]);
+  }, [skillMention, setInputDraft]);
 
   /**
    * issue #2046（CK-P2）—— `@` 候选与插入，语义平移旧 composer：候选是本线程
@@ -816,6 +814,7 @@ export function CopilotKitV2PanelBody({
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
+    canWrite: canWrite && !archived,
     bearer: sessionToken ?? undefined,
     resolveThreadId: initialChatThreadId === null ? resolveAttachmentThreadId : undefined,
   });
@@ -864,7 +863,7 @@ export function CopilotKitV2PanelBody({
   const voiceOpts = React.useMemo(() => ({
     setDraft: (text: string) => setInputDraft(text),
     getDraft: () => inputDraftRef.current,
-  }), []);
+  }), [setInputDraft]);
   const voice = useComposerVoiceSession(speech, voiceOpts);
   // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
   React.useEffect(() => {
@@ -1155,7 +1154,7 @@ export function CopilotKitV2PanelBody({
         return acceptedRunEpoch.current > acceptedBefore;
       }
     },
-    [agent, copilotkit, inputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
+    [agent, copilotkit, inputDraft, setInputDraft, runIsRunning, attach, attachmentThreadId, onMessageSent, acceptedRunEpoch, canWrite, archived, projectId, resolveAttachmentThreadId],
   );
 
   // Template recommendations retain the existing persisted-evidence and permission gates.
@@ -1245,9 +1244,10 @@ export function CopilotKitV2PanelBody({
   const sendDisabled = sendDisabledReason !== null;
 
   // Running deliveries are serialized by useRunningReply.
-  const clearRunningDraft = React.useCallback(() => { setInputDraft(""); setMention(null); }, []);
+  const clearRunningDraft = React.useCallback((revision?: number) => { clearComposerDraft(revision); setMention(null); }, [clearComposerDraft]);
   const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
-    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, sessionToken, enqueue: serverQueue.enqueue,
+    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
+    draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
     clearDraft: clearRunningDraft, setError,
   });
 
@@ -1319,7 +1319,7 @@ export function CopilotKitV2PanelBody({
           拖拽落区覆盖整个左栏（消息列表 + composer），与旧轨道 `ChatFullSurfaceDropOverlay`
           同一套挂法（`chat-read-screen.tsx`）。 */}
       {/* issue #2053（CK-P8）—— 归档线程不接受拖拽上传：落区与提示都不挂，
-          与旧轨道 `chat-live-message-panel.tsx` 的 `{...(archived ? {} : attach.dragHandlers)}`
+          与旧轨道 `chat-live-message-panel.tsx` 的 `{...(!canWrite || archived ? {} : attach.dragHandlers)}`
           逐字同套。留着落区而在提交时报错，才是骗人的那一种。 */}
       {/* issue #2075（TW-P2-1）—— 阅读宽度约束提到**整条中央列**上。
           此前 `max-w-3xl` 只包着消息列表内部，composer / 追问 chips / 附件区 / 运行状态条
@@ -1337,8 +1337,8 @@ export function CopilotKitV2PanelBody({
           文字/控件的容器上（消息内容 `messagesContentRef` 与下方 composer 分组），
           滚动容器夹在满宽的外层列与被收窄的内容之间，滚动条自然贴到窗口边界，
           与 ChatGPT/Claude.ai 同款布局一致。 */}
-      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
-        {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
+      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(!canWrite || archived ? {} : attach.dragHandlers)}>
+        {!canWrite || archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
             常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
             才把节点插进 DOM，读屏软件多半一句都不会念（这是 live region 最经典的坑）。 */}
@@ -1629,7 +1629,7 @@ export function CopilotKitV2PanelBody({
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
-        {archived ? null : <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />}
+        {archived ? null : <ChatAttachmentList ctl={attach} canRetry={canWrite} disabled={agent.isRunning} />}
         {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
             换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
             `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}

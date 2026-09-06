@@ -9,7 +9,7 @@ it("replaces a partial streamed reply after recovery without duplicating the fin
 });
 it("replaces known stale stream aliases with persisted authoritative content without losing another run", () => {
   const restored = [{ id: "persisted", role: "assistant" as const, content: "已按原参数执行", authorId: "agent", agentRunId: "run", rateable: true }];
-  const current = [{id: "prior", role: "assistant", content: "以前一轮"}, {id: "attempt:assistant", role: "assistant", content: "MOUNTPROOF"}, {id: "persisted", role: "assistant", content: "残句"}];
+  const current: Parameters<typeof restoreFinalMessages>[0] = [{id: "prior", role: "assistant", content: "以前一轮"}, {id: "attempt:assistant", role: "assistant", content: "MOUNTPROOF"}, {id: "persisted", role: "assistant", content: "残句"}];
   const resolve = (id: string) => id === "attempt:assistant" ? "persisted" : null;
   const result = restoreFinalMessages(current, [], restored, resolve);
   expect(result.map(message => message.id)).toEqual(["prior", "persisted"]);
