@@ -4,6 +4,10 @@
  */
 import { z } from "zod";
 
+/** Server-only restriction; never an end-user or model permission grant. */
+export const EXECUTION_MODE_CONFIG_KEY = "wsx_execution_mode";
+export const RestrictedExecutionMode = z.literal("text-only");
+
 export const StandardCapabilityId = z.string().regex(/^WX-[ETS][0-9]{3}$/);
 export const StandardCapabilityDescriptor = z.object({
   id: StandardCapabilityId,

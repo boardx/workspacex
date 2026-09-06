@@ -1,16 +1,8 @@
 /**
- * `SubtaskRunStore` 的进程内存实现——issue #2664 明确允许的"最小可行"通路
- * （issue 原文：「如果现有架构里没有这条通路，你需要新增一个最小可行的」），issue #2666
- * 复用同一份实现补了 `listByParentRun`（见该端口方法自己的文档）。
- *
- * ## 已知取舍（跟着这份 MVP 走，不是意外遗漏）
- *
- * 进程重启即丢失队列内容——与 `agent_runs` 落 Postgres、跨进程/跨重启存活不同。可接受，
- * 因为子任务本身就是"主对话还在、agent 进程还活着"这段时间窗口内的派生工作，不是需要
- * 独立于主对话生命周期存在的记录。多副本部署下每个进程持有各自的队列，不互相领取——
- * 与生产要求的"多实例共享一个队列"不同，留作后续把持久层换成 Postgres 时的自然扩展点
- * （`SubtaskRunStore` 接口形状已经与实现解耦，替换实现不动调用方）。
+ * `SubtaskRunStore` 的内存测试实现。WX-T042 生产绑定已切到 PgSubtaskRunStore，
+ * 此类保留便于应用层测试；重启/多进程持久化只由 Postgres adapter 提供。
  */
+import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -23,10 +15,19 @@ interface Row extends SubtaskRun {
 
 export class InMemorySubtaskRunStore implements SubtaskRunStore {
   private readonly rows = new Map<string, Row>();
+  private readonly idempotency = new Map<string, string>();
 
   constructor(private readonly idFactory: () => string = () => randomUUID()) {}
 
   async enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun> {
+    const key = input.idempotencyKey === undefined ? undefined : JSON.stringify([orgId,input.parentRunId,input.idempotencyKey]);
+    const existing = key === undefined ? undefined : this.rows.get(this.idempotency.get(key) ?? "");
+    if (existing) {
+      if (existing.description !== input.description || existing.context !== (input.context ?? null)) {
+        throw new SubtaskIdempotencyConflictError("subtask_idempotency_conflict");
+      }
+      return stripOrg(existing);
+    }
     const now = new Date().toISOString();
     const row: Row = {
       id: this.idFactory(),
@@ -41,6 +42,7 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
       updatedAt: now,
     };
     this.rows.set(row.id, row);
+    if (key !== undefined) this.idempotency.set(key,row.id);
     return stripOrg(row);
   }
 
@@ -82,7 +84,7 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     patch: Pick<Row, "status" | "result" | "error">,
   ): void {
     const row = this.rows.get(id);
-    if (!row || row.orgId !== String(orgId)) return;
+    if (!row || row.orgId !== String(orgId) || row.status !== "running") return;
     this.rows.set(id, { ...row, ...patch, updatedAt: new Date().toISOString() });
   }
 }

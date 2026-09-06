@@ -32,6 +32,7 @@ import {
 } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../../src/application/skill/run-script-with-retries";
 import type { PinnedSkillContent } from "../../src/application/agent-run/ports";
+import { standardCapabilities as SC } from "@repo/contracts";
 
 const SKILL_STABLE_NAME = "pdf-create";
 const SCRIPT_FENCE = "```run_script\nconst fs=require('fs');fs.writeFileSync('a.pdf','%PDF-1.4');\n```";
@@ -161,6 +162,33 @@ describe("issue #2768：resume 请求转发 org_skills/script_protocol，call_sk
 
 
 describe("WX-E004 full package trusted context", () => {
+  it.each([false, true])("preserves background callback context on resume=%s", async (resume) => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5,
+      subtaskCallbackBaseUrl: "http://trusted-api", subtaskCallbackKey: "test-secret" });
+    await provider.completeWithProgress({
+      modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any", system: "s", user: "u",
+      orgId: "org-test", runId: "run-test", history: [], skills: [],
+      ...(resume ? { resume: { decision: "approve" } } : {}),
+    } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable).toMatchObject({
+      subtask_callback_base_url: "http://trusted-api", subtask_callback_key: "test-secret",
+      org_id: "org-test", parent_run_id: "run-test",
+    });
+  });
+  it.each([false, true])("forwards server text-only restriction on resume=%s", async (resume) => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({
+      modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any", system: "s", user: "u",
+      history: [], skills: [], executionMode: "text-only",
+      ...(resume ? { resume: { decision: "approve" } } : {}),
+    } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable[SC.EXECUTION_MODE_CONFIG_KEY]).toBe("text-only");
+    expect(JSON.stringify(body.input ?? {})).not.toContain(SC.EXECUTION_MODE_CONFIG_KEY);
+  });
   it.each([false, true])("forwards identical complete binary files on resume=%s outside messages", async (resume) => {
     const { baseUrl, capturedBodies } = await startFake();
     const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5 });

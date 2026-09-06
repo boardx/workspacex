@@ -1,4 +1,7 @@
 {
+  "configurableKeys": {
+    "executionMode": "wsx_execution_mode"
+  },
   "limits": {
     "maxFiles": 256,
     "maxFileBytes": 8388608,

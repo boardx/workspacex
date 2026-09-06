@@ -52,6 +52,8 @@ export type SubtaskRun = z.infer<typeof SubtaskRun>;
 
 /** `spawn_async_task` 一次调用 ⇒ 一次入队请求的输入形状。 */
 export const EnqueueSubtaskRunInput = z.object({
+  /** Stable tool-call identity; absent preserves legacy new-task semantics. */
+  idempotencyKey: z.string().min(1).max(256).optional(),
   parentRunId: z.string(),
   description: z.string().min(1),
   context: z.string().nullable().optional(),

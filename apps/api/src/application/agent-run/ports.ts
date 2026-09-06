@@ -793,6 +793,8 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
+  readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly modelProvider: string;
   readonly modelId: string;
   /**

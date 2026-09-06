@@ -95,12 +95,12 @@ from __future__ import annotations
 import json
 
 import logging
-from typing import Callable, TypedDict
+from typing import Annotated, Callable, TypedDict
 
 import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import tool
+from langchain_core.tools import InjectedToolCallId, tool
 
 _logger = logging.getLogger(__name__)
 
@@ -352,7 +352,9 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
         return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
 
     @tool
-    def spawn_async_task(description: str, config: RunnableConfig, context: str | None = None) -> str:
+    def spawn_async_task(description: str, config: RunnableConfig,
+                         tool_call_id: Annotated[str, InjectedToolCallId],
+                         context: str | None = None) -> str:
         """把一个可以独立并行处理的子任务派发出去，**不等待它跑完**——调用后立即返回
         「已派发」，你应该继续处理主对话的其它部分或直接回复用户，不要停下来等这个子任务
         的结果。适合用在：一次请求里能拆出多个互不依赖、可以同时进行的子任务时，把每个
@@ -380,6 +382,7 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
             "parentRunId": callback["parent_run_id"],
             "description": description,
             "context": context,
+            "idempotencyKey": tool_call_id,
         }
         headers = {"content-type": "application/json"}
         if callback["key"] != "":
@@ -394,6 +397,8 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
             response.raise_for_status()
             body = response.json()
             subtask_run_id = body.get("subtaskRunId") if isinstance(body, dict) else None
+            if not isinstance(subtask_run_id, str) or not subtask_run_id.strip():
+                raise ValueError("Missing subtask run identifier")
         except Exception as exc:  # noqa: BLE001 -- 同 call_skill 的纪律：错误不冒泡阻断主循环
             _logger.warning("spawn_async_task 派发失败：%s: %s", type(exc).__name__, exc)
             return f"派发子任务失败（{type(exc).__name__}），未能加入后台队列，请改为同步处理这个子任务。"
