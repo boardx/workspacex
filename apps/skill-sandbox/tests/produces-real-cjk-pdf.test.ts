@@ -1,24 +1,25 @@
 /**
  * 中文 PDF（2026-09-06 人类反馈：「excel/pdf/word/ppt 都要很好地支持中英文」）。
  *
- * ## 为什么这条必须跑在**容器里**，不能像 `produces-real-pdf.test.ts` 那样直接
- * ## 在宿主上调 `executeScript`
+ * ## 这份测试的第一版是**绿的，而产出的 PDF 打开是方框**
  *
- * 被测的东西不是"某段 JS 会不会跑"，而是**镜像里到底有没有那份 CJK 字体**、
- * 沙箱有没有把它的路径授权+传进脚本。这三件事全都是镜像/服务的属性，宿主上
- * 根本不存在（macOS 上没有 DroidSansFallbackFull.ttf，Linux CI 上也未必有）。
- * 在宿主上"用系统里随便找一个中文字体"来测，测的是那台机器，不是我们发的镜像。
+ * 第一版断言「每个汉字的字形编号 != 0」（0 = .notdef = 方框）。它抓不到真实缺陷，
+ * 因为 `subset: true` 会把字形**重新编号**成 1,2,3…——编号非零是恒真的，与那些字形
+ * 里到底有没有轮廓无关。线上因此产出了一份 3801 字节、打开全是方框的 PDF，而门控全绿。
+ * 同一天记的第二笔「全绿但空转」，就发生在我自己写的反证旁边。
  *
- * ## 断言为什么不是"文件大小 > 0"，也不是 `textRuns` 里能读到中文
+ * ## 现在锁的三件事（每件都能独立变红）
  *
- * pdf-lib 嵌入自定义字体走 Identity-H：content stream 里的 `Tj` 操作数是**字形
- * 编号**，不是字符，而且 pdf-lib **不写 ToUnicode CMap**（实测确认，不是从规范
- * 推的），所以从 PDF 里反查不回"中"这个字。真正要证明的事其实是两条：
- *   ① 这些汉字在嵌入的字体里**有真字形**（glyph id ≠ 0；id 0 是 .notdef，
- *      也就是用户会看到的那个方框/空白——正是本次要修的症状本身）；
- *   ② 那些字形编号**真的被画进了页面**的 content stream。
- * 脚本把 `font.encodeText(...)` 的结果打到 stdout，测试这边比对页面里画的字节，
- * 两条一起断言。
+ * ① **源字体覆盖**：样本里每个字符（中文 + 数字 + 拉丁 + 全角标点 + 生僻字）在字体里
+ *   都必须有非零字形。旧字体 DroidSansFallback 就栽在这条上——它**没有拉丁字形**，
+ *   'm'/'A'/'1'/'%' 全是 .notdef，任何带数字的中文文档都会画方框。
+ * ② **内嵌字体真的可用**：把 PDF 里的 FontFile 掏出来重新解析，用到的每个字形都要
+ *   取得到、且轮廓非空。`subset: true` 产出的字体在这一步会直接解析失败或读越界。
+ * ③ **不子集化**：pdf-lib 的运行期子集器在 TrueType 与 CFF 两条路上都产出坏字体
+ *   （实测三种字体，逐个渲染确认）。子集化已挪到构建期用 fontTools 做。
+ *
+ * 反证就是**同一段脚本加上 `subset: true`**：② 必须立刻变红。这条反证如果哪天变绿了，
+ * 说明 pdf-lib 修好了它的子集器——那时才可以考虑把子集化搬回运行期，并省下几 MB。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
@@ -31,11 +32,11 @@ const execFileAsync = promisify(execFile);
 const IMAGE = "workspacex-skill-sandbox:test";
 const SUFFIX = `${process.pid}-${Date.now()}-cjk`;
 
-const CJK_TEXT = "季度经营回顾";
-const MIXED_TEXT = "营收同比增长 18% (mixed English)";
+/** 中文 + 数字 + 拉丁 + 全角标点 + 两个生僻字（GB2312 之外，专门盯字符集裁得够不够）。 */
+const SAMPLE = "季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆";
 
-/** SKILL.md（`office-docs-skill-content.ts`）里教的那段形状，逐字同构。 */
-const CJK_PDF_SCRIPT = `
+/** SKILL.md 里教的那段形状，逐字同构——包括**不写** subset。 */
+const cjkScript = (subset: boolean) => `
 const { PDFDocument } = require('pdf-lib');
 const fontkit = require('@pdf-lib/fontkit');
 const fs = require('fs');
@@ -43,29 +44,25 @@ const fs = require('fs');
 (async () => {
   const fontPath = process.env.SKILL_SANDBOX_CJK_FONT;
   if (!fontPath) throw new Error('SKILL_SANDBOX_CJK_FONT not set');
+  const bytes = fs.readFileSync(fontPath);
+
+  // 覆盖自检：任何一个字符在字体里没有字形，就是"打开会看到方框"，如实报出来。
+  const probe = fontkit.create(bytes);
+  const missing = [...new Set(${JSON.stringify(SAMPLE)})]
+    .filter((ch) => ch !== ' ' && (probe.glyphsForString(ch)[0] || {}).id === 0);
+  console.log('MISSING_GLYPHS:' + missing.join(''));
+
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  const font = await doc.embedFont(fs.readFileSync(fontPath), { subset: true });
+  const font = await doc.embedFont(bytes${subset ? ", { subset: true }" : ""});
 
   const page = doc.addPage([595, 842]);
-  page.drawText(${JSON.stringify(CJK_TEXT)}, { x: 50, y: 780, size: 24, font });
-  page.drawText(${JSON.stringify(MIXED_TEXT)}, { x: 50, y: 745, size: 12, font });
+  page.drawText(${JSON.stringify(SAMPLE)}, { x: 40, y: 780, size: 18, font });
 
   fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/report.pdf', await doc.save());
-  console.log('CJK_GLYPHS:' + font.encodeText(${JSON.stringify(CJK_TEXT)}).toString());
-})().catch((e) => { console.error(e.stack); process.exit(1); });
-`;
-
-/** 反证用：拿内置标准字体画同样的中文——必须失败，不许"看起来成功"。 */
-const STANDARD_FONT_SCRIPT = `
-const { PDFDocument, StandardFonts } = require('pdf-lib');
-const fs = require('fs');
-(async () => {
-  const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  doc.addPage([595, 842]).drawText(${JSON.stringify(CJK_TEXT)}, { x: 50, y: 780, size: 24, font });
-  fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/bad.pdf', await doc.save());
-  console.log('WROTE_WITH_STANDARD_FONT');
+  // ⚠ 报**去掉空白之后**那些字符的编号：空格的字形轮廓本来就是空的（它是合法的
+  //   零宽度字形，不是坏字形），混在里面会让"轮廓非空"这条判据产生一条假红。
+  console.log('DRAWN_CODES:' + font.encodeText(${JSON.stringify(SAMPLE)}.replace(/\\s/g, '')).toString());
 })().catch((e) => { console.error(e.stack); process.exit(1); });
 `;
 
@@ -81,22 +78,21 @@ async function dockerAvailable(): Promise<boolean> {
 const HAS_DOCKER = await dockerAvailable();
 const describeDocker = HAS_DOCKER ? describe : describe.skip;
 
-describeDocker("沙箱能产出真正带中文字形的 PDF", () => {
+describeDocker("沙箱产出的中文 PDF 必须真的能读（不是「字形编号非零」）", () => {
   const created: string[] = [];
   let container = "";
 
   beforeAll(async () => {
     await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
       cwd: join(import.meta.dirname, ".."),
-      timeout: 900_000,
+      timeout: 1_800_000,
     });
     container = `wsx-sandbox-cjk-${SUFFIX}`;
     await execFileAsync(
       "docker",
       [
-        // L1 参数与 docker-compose.sandbox.yml 同构（network:none 也一起带上——
-        // 中文字体是**预装**的，不需要出网，这条同时证明了这一点）。
         "run", "-d", "--name", container,
+        // network:none 一起带上——字体是预装的，不需要出网，这条同时证明了这一点。
         "--network", "none",
         "--read-only",
         "--user", "node",
@@ -114,7 +110,7 @@ describeDocker("沙箱能产出真正带中文字形的 PDF", () => {
     );
     created.push(container);
     await waitForReady(container);
-  }, 1_200_000);
+  }, 2_400_000);
 
   afterAll(async () => {
     for (const name of created) {
@@ -122,20 +118,14 @@ describeDocker("沙箱能产出真正带中文字形的 PDF", () => {
     }
   }, 300_000);
 
-  it("draws Chinese with real glyphs from the preinstalled font, offline", async () => {
-    const result = await postRun(container, CJK_PDF_SCRIPT);
+  it("① 源字体覆盖中文、数字、拉丁、全角标点与生僻字，② 内嵌字体每个用到的字形都有轮廓", async () => {
+    const result = await postRun(container, cjkScript(false));
     expect(result.stderr, `sandbox stderr:\n${result.stderr}`).toBe("");
     expect(result.exitCode).toBe(0);
 
-    const glyphHex = /CJK_GLYPHS:<([0-9A-Fa-f]+)>/.exec(result.stdout)?.[1];
-    expect(glyphHex, `stdout:\n${result.stdout}`).toBeTruthy();
-
-    // ① 每个汉字都有真字形：Identity-H 下每个字形编号占 2 字节，编号 0 = .notdef
-    //    （用户看到的方框）。有任何一个是 0 就说明这份字体不覆盖中文。
-    const ids: number[] = [];
-    for (let i = 0; i < glyphHex!.length; i += 4) ids.push(parseInt(glyphHex!.slice(i, i + 4), 16));
-    expect(ids).toHaveLength(CJK_TEXT.length);
-    expect(ids.filter((id) => id === 0)).toEqual([]);
+    // ① 一个都不许缺。缺了就是"打开看到方框"，旧字体正是死在这条上。
+    const missing = /MISSING_GLYPHS:(.*)/.exec(result.stdout)?.[1] ?? "<not reported>";
+    expect(missing, `字体缺这些字符的字形：${missing}`).toBe("");
 
     const file = result.files.find((f) => f.name === "report.pdf");
     expect(file, `files: ${result.files.map((f) => f.name).join(",")}`).toBeTruthy();
@@ -143,27 +133,64 @@ describeDocker("沙箱能产出真正带中文字形的 PDF", () => {
 
     const inspection = await inspectPdf(bytes);
     expect(inspection.pageCount).toBe(1);
-
-    // ② 那些字形编号真的被画进了 content stream。inspectPdf 把 Tj/TJ 的操作数按
-    //    latin1 还原成字节串，这里转回 hex 与脚本报的编码比对。
-    const drawn = inspection.textRuns.map((run) => Buffer.from(run, "latin1").toString("hex").toUpperCase());
-    expect(drawn).toContain(glyphHex!.toUpperCase());
-
-    // ③ 字体真的**嵌**进了文件，不是只写了个字体名字指望阅读器自己有——那正是
-    //    换台机器就变方框的经典坏法。Identity-H 是内嵌子集字体的编码方式。
     expect(inspection.embeddedFontFileCount).toBeGreaterThan(0);
     expect(inspection.fontEncodings).toContain("Identity-H");
+
+    // ② 真正的判据：内嵌字体能被重新解析，且页面上画的每个编号都对应一个有轮廓的字形。
+    const codes = drawnCodes(result.stdout);
+    expect(codes.length).toBe([...SAMPLE.replace(/\s/g, "")].length);
+    const usable = await inspection.usableGlyphs(codes);
+    expect(usable.unreadableFont, `内嵌字体解析失败：${usable.unreadableFont}`).toBeNull();
+    expect(usable.brokenCodes, `这些字形在内嵌字体里取不到或没有轮廓：${usable.brokenCodes.join(",")}`)
+      .toEqual([]);
   }, 300_000);
 
-  it("counterproof: the built-in standard font still cannot draw the same Chinese", async () => {
-    const result = await postRun(container, STANDARD_FONT_SCRIPT);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stdout).not.toContain("WROTE_WITH_STANDARD_FONT");
-    // WinAnsi 编码器对非拉丁字符抛错——证明上面那条测试测的是"嵌入字体这条路"，
-    // 不是"随便画点什么都能过"。
-    expect(result.stderr).toMatch(/WinAnsi|cannot encode|0x[0-9a-fA-F]+/);
+  it("反证：同一段脚本加上 subset:true，② 必须立刻变红（它产出的 PDF 打开是方框）", async () => {
+    const result = await postRun(container, cjkScript(true));
+    expect(result.exitCode, `stderr:\n${result.stderr}`).toBe(0);
+
+    const bytes = Buffer.from(
+      result.files.find((f) => f.name === "report.pdf")!.contentBase64,
+      "base64",
+    );
+    const inspection = await inspectPdf(bytes);
+    const usable = await inspection.usableGlyphs(drawnCodes(result.stdout));
+
+    // 子集化产出的字体要么整份解析不了，要么用到的字形取不到/没有轮廓——两者都算红。
+    const caught = usable.unreadableFont !== null || usable.brokenCodes.length > 0;
+    expect(
+      caught,
+      "subset:true 竟然产出了可用的内嵌字体 —— 若 pdf-lib 已修好子集器，" +
+        "可以考虑把子集化搬回运行期并省下几 MB，但要先补一份渲染证据",
+    ).toBe(true);
+  }, 300_000);
+
+  it("反证：字符集若裁掉生僻字，① 会红（锁住构建期用的是 CJK 全区而不是 GB2312）", async () => {
+    // 淼/喆 在 GB2312 之外。这条不重新构建镜像（太贵），而是直接问字体本身——
+    // 与 ① 用的是同一个覆盖判据，证明它对"字符集裁小了"这件事确实敏感。
+    const probe = await postRun(
+      container,
+      `
+      const fontkit = require('@pdf-lib/fontkit');
+      const fs = require('fs');
+      const font = fontkit.create(fs.readFileSync(process.env.SKILL_SANDBOX_CJK_FONT));
+      const rare = [...'淼喆霁翀'];
+      console.log('RARE_MISSING:' + rare.filter((ch) => (font.glyphsForString(ch)[0] || {}).id === 0).join(''));
+      `,
+    );
+    expect(probe.exitCode, probe.stderr).toBe(0);
+    expect(/RARE_MISSING:(.*)/.exec(probe.stdout)?.[1]).toBe("");
   }, 300_000);
 });
+
+/** 脚本报出来的、页面上真正画下去的字形编号（Identity-H：每 2 字节一个）。 */
+function drawnCodes(stdout: string): readonly number[] {
+  const hex = /DRAWN_CODES:<([0-9A-Fa-f]+)>/.exec(stdout)?.[1];
+  expect(hex, `stdout 里没有 DRAWN_CODES：\n${stdout}`).toBeTruthy();
+  const codes: number[] = [];
+  for (let i = 0; i < hex!.length; i += 4) codes.push(parseInt(hex!.slice(i, i + 4), 16));
+  return codes;
+}
 
 async function waitForReady(containerName: string): Promise<void> {
   const deadline = Date.now() + 90_000;

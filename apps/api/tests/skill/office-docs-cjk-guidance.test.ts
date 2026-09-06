@@ -48,7 +48,25 @@ describe("四份 office SKILL.md 都交代了中英文怎么处理", () => {
     expect(PDF_CREATE_SKILL_MD).toContain("SKILL_SANDBOX_CJK_FONT");
     expect(PDF_CREATE_SKILL_MD).toContain("@pdf-lib/fontkit");
     expect(PDF_CREATE_SKILL_MD).toContain("registerFontkit");
-    expect(PDF_CREATE_SKILL_MD).toMatch(/subset:\s*true/);
+  });
+
+  it("pdf-create: 不许再教 subset:true —— 它产出的 PDF 打开是方框", () => {
+    /*
+     * 2026-09-06 实测：pdf-lib 的运行期子集器在 TrueType 与 CFF 两条路上都产出损坏的
+     * 内嵌字体（三种字体逐个渲染确认）。脚本照常成功、文件照常产出，用户打开看到一页
+     * 方框。子集化已挪到镜像构建期用 fontTools 做。
+     *
+     * 这里断言的是**示例代码里**没有 subset —— 正文可以（也应该）出现禁止它的那句话，
+     * 所以不能简单地 grep "subset: true"。
+     */
+    const samples = PDF_CREATE_SKILL_MD.match(/embedFont\([^)]*\)[^\n]*/g) ?? [];
+    expect(samples.length).toBeGreaterThan(0);
+    for (const sample of samples) {
+      expect(sample, `示例里出现了 subset：${sample}`).not.toMatch(/subset/);
+    }
+    expect(PDF_CREATE_SKILL_MD).toContain("绝对不要写");
+    // 纯英文文档不该背 4.5MB 的嵌入字体——这条建议必须在，否则每份英文 PDF 都变大。
+    expect(PDF_CREATE_SKILL_MD).toContain("StandardFonts.Helvetica");
   });
 
   it("三份 OOXML skill 不去教嵌字体（它们不需要，教了反而会误导）", () => {

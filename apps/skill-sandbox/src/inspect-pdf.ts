@@ -14,7 +14,8 @@
  * `tests/produces-real-cjk-pdf.test.ts` 头注（比对字形编号 + .notdef 检查），
  * 别试图在这里"顺手支持一下中文文本提取"，那是做不到的。
  */
-import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import { inflateSync } from "node:zlib";
 
 export interface PdfInspection {
@@ -27,8 +28,23 @@ export interface PdfInspection {
    * 字体名字指望阅读器自己有，换台机器就是一页方框。
    */
   readonly embeddedFontFileCount: number;
-  /** 字体字典上的 `/Encoding` 名（内嵌 CJK 子集字体是 `Identity-H`）。 */
+  /** 字体字典上的 `/Encoding` 名（内嵌 CJK 字体是 `Identity-H`）。 */
   readonly fontEncodings: readonly string[];
+  /**
+   * 把内嵌字体**掏出来重新解析**，看这些字形编号是不是真的可用（取得到、且轮廓非空）。
+   *
+   * ⚠ 这条才是"打开不会是方框"的判据。2026-09-06 实测教训：只断言"字形编号 != 0"
+   * 会放行一份打开全是方框的 PDF——`subset: true` 会把字形重编号成 1,2,3…，编号非零
+   * 恒真，与那些字形里到底有没有轮廓无关。
+   */
+  readonly usableGlyphs: (codes: readonly number[]) => Promise<GlyphUsability>;
+}
+
+export interface GlyphUsability {
+  /** 内嵌字体整份解析不了时给出原因；能解析则为 null。 */
+  readonly unreadableFont: string | null;
+  /** 取不到或轮廓为空的字形编号——非空就意味着页面上那些位置是方框。 */
+  readonly brokenCodes: readonly number[];
 }
 
 export async function inspectPdf(buffer: Buffer): Promise<PdfInspection> {
@@ -45,8 +61,50 @@ export async function inspectPdf(buffer: Buffer): Promise<PdfInspection> {
       textRuns.push(...extractShownText(bytes));
     }
   }
-  const { embeddedFontFileCount, fontEncodings } = inspectFonts(doc);
-  return { pageCount, textRuns, embeddedFontFileCount, fontEncodings };
+  const { embeddedFontFileCount, fontEncodings, embeddedFontBytes } = inspectFonts(doc);
+  return {
+    pageCount,
+    textRuns,
+    embeddedFontFileCount,
+    fontEncodings,
+    usableGlyphs: (codes) => Promise.resolve(checkGlyphs(embeddedFontBytes, codes)),
+  };
+}
+
+/**
+ * 用内嵌的那份字体字节自己解析一遍，逐个字形要轮廓。
+ *
+ * ⚠ 不去猜"哪种失败算坏"：解析不了、取不到字形、轮廓为空，三者都算坏，各自如实报出。
+ * ⚠ CFF（OTF）字体内嵌在 `/FontFile3` 里的是**裸 CFF 表**，fontkit 打不开它——那不
+ *   等于字体坏了。所以 CFF 这一路用 `/FontFile3` 存在与否 + 页面编码来判断，真正的
+ *   字形可用性由构建期的覆盖自检与本函数对 TrueType 路径的检查共同覆盖；
+ *   `subset: true` 的坏结果在这里表现为"解析失败"，正是我们要它红的那种红。
+ */
+function checkGlyphs(
+  fontBytes: Uint8Array | null,
+  codes: readonly number[],
+): GlyphUsability {
+  if (!fontBytes) return { unreadableFont: "PDF 里没有内嵌字体文件", brokenCodes: [...codes] };
+  let font: ReturnType<typeof fontkit.create>;
+  try {
+    font = fontkit.create(Buffer.from(fontBytes));
+  } catch (e) {
+    return {
+      unreadableFont: e instanceof Error ? e.message : "内嵌字体无法解析",
+      brokenCodes: [...codes],
+    };
+  }
+  const broken: number[] = [];
+  for (const code of new Set(codes)) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const glyph = (font as any).getGlyph(code);
+      if (!glyph?.path || glyph.path.commands.length === 0) broken.push(code);
+    } catch {
+      broken.push(code);
+    }
+  }
+  return { unreadableFont: null, brokenCodes: broken };
 }
 
 /**
@@ -60,20 +118,37 @@ export async function inspectPdf(buffer: Buffer): Promise<PdfInspection> {
 function inspectFonts(doc: PDFDocument): {
   embeddedFontFileCount: number;
   fontEncodings: readonly string[];
+  embeddedFontBytes: Uint8Array | null;
 } {
   let embeddedFontFileCount = 0;
+  let embeddedFontBytes: Uint8Array | null = null;
   const fontEncodings: string[] = [];
   for (const [, obj] of doc.context.enumerateIndirectObjects()) {
     if (!(obj instanceof PDFDict)) continue;
     for (const key of obj.keys()) {
-      if (String(key).startsWith("/FontFile")) embeddedFontFileCount += 1;
+      if (!String(key).startsWith("/FontFile")) continue;
+      embeddedFontFileCount += 1;
+      const stream = doc.context.lookup(obj.get(PDFName.of(String(key).slice(1)))!);
+      if (stream instanceof PDFRawStream) embeddedFontBytes = decodeStream(stream);
     }
     if (String(obj.get(PDFName.of("Type")) ?? "") === "/Font") {
       const encoding = obj.get(PDFName.of("Encoding"));
       if (encoding) fontEncodings.push(String(encoding).replace(/^\//, ""));
     }
   }
-  return { embeddedFontFileCount, fontEncodings };
+  return { embeddedFontFileCount, fontEncodings, embeddedFontBytes };
+}
+
+/** 字体流通常是 FlateDecode；不是就当已经是明文（与 content stream 那边同一条处理）。 */
+function decodeStream(stream: PDFRawStream): Uint8Array {
+  const raw = Buffer.from(stream.getContents());
+  const filter = String(stream.dict.get(PDFName.of("Filter")) ?? "");
+  if (!filter.includes("FlateDecode")) return raw;
+  try {
+    return inflateSync(raw);
+  } catch {
+    return raw;
+  }
 }
 
 /**

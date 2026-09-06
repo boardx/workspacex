@@ -77,6 +77,26 @@ Packer.toBuffer(doc).then((buf) => {
 支持：多级标题、段落、项目符号/编号列表、表格（\`Table\`/\`TableRow\`/\`TableCell\`）、
 基础字符样式（加粗/斜体/字号/颜色）。
 
+## ⚠ 建表必须显式给宽度
+
+\`docx\` 建的表格如果不写宽度，Word 会按 \`auto\` 布局排——实测（2026-09-06）中文列会被
+挤成**一字一行**的竖条，整张表没法看。每次建表都带上表宽与列宽：
+
+\`\`\`js
+const { Table, TableRow, TableCell, Paragraph, WidthType } = require('docx');
+
+new Table({
+  width: { size: 100, type: WidthType.PERCENTAGE },
+  columnWidths: [3000, 2000, 2000],           // 单位是 DXA（1/20 磅），按列内容分配
+  rows: [
+    new TableRow({ children: ['指标', '本季', '同比'].map((t) => new TableCell({
+      width: { size: 33, type: WidthType.PERCENTAGE },
+      children: [new Paragraph(t)],
+    })) }),
+  ],
+});
+\`\`\`
+
 ## 中文支持
 
 ${CJK_TEXT_NOTE("docx 里设字体：`new TextRun({ text: '中文正文', font: '微软雅黑' })`。")}
@@ -255,12 +275,12 @@ const fs = require('fs');
 - 内容较多、排版复杂的请求，优先拆成用户能接受的更简单版式，而不是写一份几百行的
   脚本去追求"看起来精致"。
 
-## 中文（以及日文/韩文）：必须嵌入预装字体，不能用内置字体
+## 中文（以及日文/韩文）：必须嵌入预装字体
 
 pdf-lib 的内置标准字体（\`StandardFonts\`）只覆盖拉丁字符（WinAnsi 编码），拿它画中文
-会直接抛错或画出乱码。**只要正文里有任何一个非拉丁字符，就走下面这条路**：沙箱里
-预装了一份覆盖简繁中文 + 日文 + 韩文的字体，路径在环境变量
-\`process.env.SKILL_SANDBOX_CJK_FONT\` 里，配合预装的 \`@pdf-lib/fontkit\` 嵌入：
+会直接抛错。**只要正文里出现任何非拉丁字符，就走下面这条路**：沙箱预装了一份覆盖
+简体中文 + 数字 + 拉丁字母 + 全角标点的字体，路径在 \`process.env.SKILL_SANDBOX_CJK_FONT\`，
+配合预装的 \`@pdf-lib/fontkit\` 嵌入：
 
 \`\`\`js
 const { PDFDocument } = require('pdf-lib');
@@ -270,8 +290,8 @@ const fs = require('fs');
 (async () => {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
-  // subset: true —— 只把真正用到的字形写进 PDF，一页中英混排通常只有几 KB。
-  const font = await doc.embedFont(fs.readFileSync(process.env.SKILL_SANDBOX_CJK_FONT), { subset: true });
+  // ⚠ 不要传 { subset: true }（见下）。
+  const font = await doc.embedFont(fs.readFileSync(process.env.SKILL_SANDBOX_CJK_FONT));
 
   const page = doc.addPage([595, 842]); // A4
   page.drawText('季度经营回顾', { x: 50, y: 780, size: 24, font });
@@ -283,20 +303,25 @@ const fs = require('fs');
 
 要点：
 
-- 这一份字体**中英文都能画**，中英混排直接用同一个 \`font\` 就行，不需要为拉丁字符
-  另外嵌一个 Helvetica。
-- 只有一种字重（没有真正的粗体/斜体字面）。要强调就用更大的字号、或者在文字下面画
-  一条线，**不要**去 \`embedFont(StandardFonts.HelveticaBold)\` 再拿它画中文。
-- \`SKILL_SANDBOX_CJK_FONT\` 万一没有值（未配置的环境），别硬画：如实告诉用户这套
-  环境缺中文字体。
-- 换行要自己算：中文字符没有空格可断，一行大概能放 \`(页宽 - 左右边距) / 字号\` 个
-  汉字，按内容手动切几行即可，不要为此写通用排版函数（见上一节）。
+- **绝对不要写 \`{ subset: true }\`**。pdf-lib 的子集化在这份字体上产出**损坏的内嵌
+  字体**：脚本照常成功、文件照常产出，但用户打开看到的是一页方框。这是实测结论，
+  不是保守起见。
+- 这份字体**中英文、数字、常用标点都能画**，混排直接用同一个 \`font\`。
+- **正文全是拉丁字符时，改用内置字体**（\`await doc.embedFont(StandardFonts.Helvetica)\`）：
+  嵌入字体会给 PDF 增加约 4.5MB，纯英文文档没必要背这个体积。
+- 只有一种字重（没有真正的粗体/斜体字面）。要强调就用更大的字号、或在文字下画一条线，
+  **不要**去 \`embedFont(StandardFonts.HelveticaBold)\` 再拿它画中文。
+- \`SKILL_SANDBOX_CJK_FONT\` 没有值时（未配置的环境）别硬画：如实告诉用户这套环境缺中文字体。
+- 换行要自己算：中文没有空格可断，一行大约能放 \`(页宽 - 左右边距) / 字号\` 个汉字，
+  按内容手动切几行即可，不要为此写通用排版函数（见上一节）。
 
 ## 明确做不到的事
 
 - 不能编辑/合并/拆分已存在的 PDF。
 - 不支持表单域、OCR、数字签名。
 - 中文字体只有一种字重（无粗体/斜体字面），见上。
+- 中文字体覆盖到 CJK 统一表意文字全区（U+4E00–U+9FFF）：常用字与生僻字都有，
+  但扩展 B 及以上的极罕见字（如 𠮷）没有，会画成方框。
 
 ## ⚠ 生成完成后，最终回复里不要贴代码
 

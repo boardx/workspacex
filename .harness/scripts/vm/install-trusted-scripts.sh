@@ -39,8 +39,14 @@ BRANCH=${TRUSTED_SCRIPTS_BRANCH:-main}
 
 [ -d "$APP_DIR/.git" ] || { echo "✗ $APP_DIR 不是一个 git 仓库" >&2; exit 1; }
 
-echo "→ fetch origin/${BRANCH}"
-git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
+# WARN fetch 必须以 **APP_USER** 的身份跑，不能用 root。2026-09-06 实测（本脚本首跑，
+#   exit 128）：仓库是 SSH remote，部署密钥在 /home/<APP_USER>/.ssh 下，root 自己没有，
+#   `git fetch` 直接 Permission denied (publickey)。人类在机器上手敲时撞的是同一个坑。
+#   ⚠ 只有 fetch 换身份：取内容与安装仍由 root 做（git 对象读得到），安全前提没变——
+#   仍然只认 origin/main 的对象，不读工作区。
+APP_USER=${APP_USER:-workspacex}
+echo "→ fetch origin/${BRANCH}（以 ${APP_USER} 身份，root 没有部署密钥）"
+sudo -u "$APP_USER" git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
 SOURCE_SHA=$(git -C "$APP_DIR" rev-parse "origin/${BRANCH}")
 echo "  origin/${BRANCH} = ${SOURCE_SHA}"
 
