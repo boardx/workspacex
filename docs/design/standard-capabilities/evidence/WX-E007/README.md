@@ -13,4 +13,6 @@ PYTHONPATH=src .venv/bin/python -m pytest \
  tests/test_harness.py::test_tool_retry_recovers_transient_failure -q
 ```
 
-3 passed，45.07 秒，退出 0；一条既有 genai 弃用警告。主代理独立检查 fixture 差量后接受。未新增测试框架；全量回归仍待资源可用后重跑，不据此宣告 WX-E007 全部验收完成。
+3 passed，45.07 秒，退出 0；一条既有 genai 弃用警告。主代理独立检查 fixture 差量后接受。未新增测试框架。
+
+随后重跑 graph、selector、tools、harness、sandbox backend、skill packages 六文件：143 passed，13.78 秒，退出 0，原始输出见 `python-regression.txt`。该测试集合通过不等于所有 75 项已经验收。

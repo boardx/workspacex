@@ -42,11 +42,13 @@
 - `ac597acc5`（WX-T011）：`agent-interrupts.ts` assumptions 不再至少两条；`tools.py`/`graph.py` 与确认卡保持一致并补测试。没有重建审批、恢复或布局。peer 修改同一区域时保留这条语义，避免重新实现或恢复旧约束。
 - `65327d7b1`（WX-E002）：新增 `standard-capabilities.ts`，未修改主 run 状态或事件 union。
 - `7dcd2feaa`（WX-E004 API）：`PinnedSkillContent.package`、`readPinnedSkills` 全文件读取、`toWireSkills` fresh/resume 包传输属于本批次；与 peer 事件适配分别合并。
-- 未提交的 WX-T042：`ports.ts` 仅增加受信任 `executionMode`；provider 仅投影该限制并统一 fresh/resume callback；Python selector 仅为后台文本任务选无工具图；`kernel.module.ts` 仅替换子任务 DI。主 run 账本、stream 事件和恢复关系不在这些修改中。
+- `06d1e5cce`（WX-T042 增量）：`ports.ts` 仅增加受信任 `executionMode`；provider 仅投影该限制并统一 fresh/resume callback；Python selector 仅为后台文本任务选无工具图；`kernel.module.ts` 仅替换子任务 DI。主 run 账本、stream 事件和恢复关系不在这些修改中。
 - `f26b931e1`（WX-E007）：仅修预算测试假模型，使独立 Rubric grader 不消费主脚本；生产 harness 未修改。
 
 `ports.ts`、`deep-agent-model-provider.ts`、`pg-agent-run-repository.ts`、`kernel.module.ts`、`graph.py`/`harness.py` 是交叉文件。按上述符号/职责合并，不整文件覆盖另一会话，不借能力接线改造 peer 的控制平面。事件、控制及产物接入以最终共享 contracts 为准。
 
 ## 集成验收
+
+特别需要对齐 Skill 活动来源：peer 输入计划以 `call_skill` 为当前展示来源；它适用于旧路径。本批次目标是官方 SkillsMiddleware 渐进读取完整包，新路径不保证每个 Skill 都调用旧 `call_skill`。应根据真实加载记录、固定包版本与实际 ToolCall 关联做展示；不得为了 UI 计数保留多余模型调用，也不得把读 SKILL.md 算作技能已经执行成功。公共活动字段由 peer 的统一契约承载，本批次提供来源事实。
 
 本批次输出能力结果和取消原语；peer 映射为统一工作台事实。最终联合验证 native 文件内容/hash、失败不显示 ready、控制命令不重复取消、停止后不启动新工具，以及 ToolCall/子任务在实时流和回放中不重复。双方局部测试通过不等于集成链通过。

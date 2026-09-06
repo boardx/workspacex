@@ -9,12 +9,12 @@ flowchart TD
   E1 --> E2[WX-E002 共享包契约：65327d7b1]:::verified
   E2 --> T11[WX-T011 真实假设确认：ac597acc5]:::verified
   E2 --> E4API[WX-E004 API完整包传输：7dcd2feaa]:::verified
-  E2 --> E3[W02 会话沙箱与官方Backend]:::active
+  E2 --> E3[WX-E003 会话沙箱与官方Backend：b12638bd8]:::verified
   E4API --> E4[W03 原生Skills加载、版本与子代理范围]:::active
   E3 --> E4
   E3 --> E6[W04 native产物适配与取消原语]
   E4 --> E6
-  E2 --> T42[W16 派生子任务队列与无工具执行]:::active
+  E2 --> T42[WX-T042 文本子任务队列增量：06d1e5cce]:::verified
   Peer[peer S2–S10：统一事件与主任务控制、插话审批、工作台与成果UI]:::peer
   E6 -.接入统一契约.-> Peer
   T42 -.子任务结果与取消原语.-> Peer
@@ -58,6 +58,6 @@ flowchart TD
   classDef peer fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
 ```
 
-W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。W02 最终 sessions-only 镜像与 HTTP 隔离链已经验证，尚待提交及运行时接线。W16 已补执行入口和权限/幂等，最后差量待统一回归。蓝色节点保留集成验收责任，不在本分支重复建设。
+W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。WX-E003 最终 sessions-only 镜像、HTTP 隔离链和官方 Backend 已验证提交，原生图接线仍在进行。WX-T042 文本子任务持久化、权限、幂等和受限执行已验证提交；父取消、产物和公共事件仍待集成，不代表 W16 全部验收。蓝色节点保留集成验收责任，不在本分支重复建设。
 
 原始 75 项编号、场景、重要程度和验收范围见 `capability-catalog.json`；本图没有删除灰色任务，也不以已有提交数量换算总体完成百分比。
