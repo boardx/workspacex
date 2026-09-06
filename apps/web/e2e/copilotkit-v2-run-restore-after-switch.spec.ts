@@ -113,8 +113,12 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   expect(finalMessage?.text).toContain("多步依赖链已完整执行");
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(finalMessage.text, { timeout: 30_000 });
 
-  // ③ 不再谎称"没能确认"——那句提示出现即为本 issue 的回归。
-  await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);
+  // The run's authoritative recovery succeeded above. Journal replay remains
+  // deliberately unavailable, so its truthful, separate warning must remain visible.
+  // Require exactly that warning; unrelated or false task-recovery errors still fail.
+  await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(1);
+  await expect(page.getByTestId("copilotkit-v2-error")).toHaveText("执行过程暂时无法恢复，请刷新重试。");
+  await expect(page.getByText(/长时间未能确认上一条任务|上一条任务已超过 3 分钟没有任何进展|登录状态可能已过期/)).toHaveCount(0);
   // ④ 恢复阶段的文案已经收掉，不是永远转着。
   await expect(page.getByText("正在恢复上次未完成的任务…")).toHaveCount(0);
 });
