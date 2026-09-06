@@ -54,6 +54,16 @@ beforeEach(async()=>{
 
 describe("artifact continuation over existing attachments",()=>{
   const artifactId="agent-artifact-source-run-attachment";
+  it("reads source privacy facts through pinned version ancestry",async()=>{
+    await asApp(ORG,c=>c.query("UPDATE chat_messages SET visibility_scope='private',raw_transcript=true WHERE org_id=$1 AND id='source-run-input'",[ORG]));
+    await run("descendant-run");
+    await asApp(ORG,c=>c.query("INSERT INTO agent_run_artifact_context(org_id,run_id,artifact_id,based_on_version) VALUES($1,'descendant-run',$2,1)",[ORG,artifactId]));
+    await output("descendant-run","object-v2","derived content");await register("descendant-run","object-v2");
+    const facts=await store.sourceMessageFacts(org,artifactId,2);
+    expect(facts).toEqual(expect.arrayContaining([{id:"source-run-input",visibilityScope:"private",rawTranscript:true},
+      {id:"descendant-run-input",visibilityScope:null,rawTranscript:false}]));
+    expect(await store.sourceMessageFacts(toOrgId(OTHER),artifactId,2)).toEqual([]);
+  });
   it("registers one version idempotently and retains personal thread guard",async()=>{
     await register("source-run","object-v1");
     expect(await store.findLocator(org,artifactId)).toEqual({threadId:THREAD,projectId:null});

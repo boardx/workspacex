@@ -1,7 +1,7 @@
 /**
  * F212（`agent-interrupts` 契约束）—— zod schema 行为断言。
  *
- * 覆盖 `domain.md` 五节的不变量：I-2（confirm_intent assumptions ≥2）、
+ * 覆盖 `domain.md` 五节的不变量：I-2（confirm_intent 仅列真实假设）、
  * I-3（fill_params 有猜测必有依据）、I-5（choose_option options ∈ [2,3]）、
  * I-6（choose_option resume 用 optionId 回指）；以及 `usecases.md` 顶部
  * 统一失败枚举 `AgentInterruptError`（8 正式码 + 1 占位码）完整性。
@@ -40,13 +40,9 @@ describe("F212 agent-interrupts — 工具名单一事实源（不变量 I-7）"
 });
 
 describe("UC-1 confirmTaskIntent —— 目标复述卡", () => {
-  it("assumptions 少于 2 条被拒（不变量 I-2）", () => {
-    expect(
-      ConfirmIntentArgs.safeParse({ requestId: "r1", understanding: "u", assumptions: ["only one"] }).success,
-    ).toBe(false);
-    expect(
-      ConfirmIntentArgs.safeParse({ requestId: "r1", understanding: "u", assumptions: ["a", "b"] }).success,
-    ).toBe(true);
+  it.each([[], ["only one"], ["a", "b"]])("允许真实假设 %j", (...assumptions) => {
+    expect(ConfirmIntentArgs.safeParse({ requestId: "r1", understanding: "u", assumptions }).success).toBe(true);
+    expect(ConfirmIntentDecision.safeParse({ decision: "edit", editedArgs: { assumptions } }).success).toBe(true);
   });
 
   it("out 的 approve/edit 两分支都能被 discriminatedUnion 判别", () => {
@@ -55,7 +51,7 @@ describe("UC-1 confirmTaskIntent —— 目标复述卡", () => {
       ConfirmIntentDecision.safeParse({ decision: "edit", editedArgs: { assumptions: ["a", "b"] } }).success,
     ).toBe(true);
     expect(
-      ConfirmIntentDecision.safeParse({ decision: "edit", editedArgs: { assumptions: ["only one"] } }).success,
+      ConfirmIntentDecision.safeParse({ decision: "edit", editedArgs: { assumptions: [""] } }).success,
     ).toBe(false);
   });
 });

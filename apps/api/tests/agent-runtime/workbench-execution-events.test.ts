@@ -51,20 +51,30 @@ describe("workbench public execution", () => {
     fakeKernel([], { task: [{ value: { kind: "user_cancel" } }] });
     expect(await provider().completeWithProgress(input, async () => {})).toEqual({ text: "", cancelled: true });
   });
+  it("persists only validated public question fields for a real interrupt", async () => {
+    fakeKernel([{ type: "ai", content: "", tool_calls: [{ id: "ask", name: "confirm_task_intent", args: {
+      requestId: "question", understanding: "Make a plan", assumptions: ["a", "b"], api_key: "hidden" } }] }], { task: [{ value: {} }] });
+    const result = await provider().completeWithProgress(input, async () => {});
+    expect(result.interrupted?.argsSummary).not.toContain("hidden");
+    expect(result.interrupted?.interrupt).toEqual({ toolName: "confirm_task_intent", args: {
+      requestId: "question", understanding: "Make a plan", assumptions: ["a", "b"] } });
+  });
   it("streams public text with message identities while rejecting human and reasoning chunks", async () => {
     fakeKernel([{ type: "ai", id: "final-id", content: "answer" }]);
     const original = globalThis.fetch;
     const frames = [
       [{ type: "human", id: "human", content: "secret user interjection" }, {}],
       [{ type: "AIMessageChunk", id: "thinking", content: [{ type: "reasoning", reasoning: "private" }] }, {}],
-      [{ type: "AIMessageChunk", id: "progress-id", content: "checking" }, {}],
+      [{ type: "AIMessageChunk", id: "progress-id", content: "checking" }, { langgraph_checkpoint_ns: "model:top" }],
+      [{ type: "AIMessageChunk", id: "child-id", content: "child answer" }, { langgraph_checkpoint_ns: "tools:parent|model:child" }],
       [{ type: "AIMessageChunk", id: "final-id", content: "answer" }, {}],
     ].map((chunk) => `event: messages\ndata: ${JSON.stringify(chunk)}\n\n`).join("");
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => url.endsWith("/stream")
       ? new Response(frames, { headers: { "content-type": "text/event-stream" } }) : original(url, init)));
     const streaming = new DeepAgentModelProvider({ baseUrl: "http://kernel.invalid", pollIntervalMs: 1, timeoutMs: 1000, streamEnabled: true });
     const deltas: unknown[] = [];
-    await streaming.completeWithProgress(input, async () => {}, async (delta, metadata) => { deltas.push([delta, metadata?.messageId]); });
+    const completion = await streaming.completeWithProgress(input, async () => {}, async (delta, metadata) => { deltas.push([delta, metadata?.messageId]); });
+    expect(completion.finalMessageId).toBe("final-id");
     expect(deltas).toEqual([["checking", "progress-id"], ["answer", "final-id"]]);
   });
   it("propagates journal callback failure instead of treating it as a recoverable stream disconnect", async () => {

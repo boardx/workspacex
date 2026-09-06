@@ -46,7 +46,14 @@ export class AgentArtifactController {
     const input = { orgId: toOrgId(principal.orgId), userId: principal.userId,threadId,projectId: projectId || null };
     await getThread(this.deps,input);
     const ids = await this.artifacts.listByThread?.(input.orgId,threadId) ?? [];
-    return { artifacts: await Promise.all(ids.map(async artifactId => this.publicRecord(await this.visible(() => getArtifact(this.deps,{ ...input,artifactId }))))) };
+    const records = await Promise.all(ids.map(async artifactId => {
+      try { return this.publicRecord(await getArtifact(this.deps,{...input,artifactId})); }
+      catch (error) {
+        if (error instanceof ArtifactNotVisibleError || error instanceof ArtifactNotFoundError) return null;
+        throw error;
+      }
+    }));
+    return {artifacts: records.filter(record => record !== null)};
   }
   @Get("/artifacts/:artifactId")
   async get(@CurrentPrincipal() principal: Principal, @Param("artifactId") artifactId: string) {

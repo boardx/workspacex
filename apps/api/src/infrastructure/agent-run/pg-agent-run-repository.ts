@@ -1,3 +1,4 @@
+import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
@@ -53,6 +54,8 @@ interface RunRow {
   result_message_id: string | null; created_at: Date;
   pending_tool_name?: string | null;
   pending_args_summary?: string | null;
+  pending_permission_request_id?: string | null;
+  pending_interrupt?: RestorableInterrupt | null;
   pending_decision?: string | null;
 }
 
@@ -471,21 +474,48 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // 只从 running 起跳（触发器同样拦，但这里显式写条件让意图可读；
       // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
       await s.query(
         `UPDATE agent_runs
-            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4
+            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4, pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, pending.toolName, pending.argsSummary],
+        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null],
       );
     });
   }
 
-  async approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+  async decidePermissionRequest(orgId: OrgId, runId: string, permissionRequestId: string,
+    decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const updated = await s.query<{ pending_tool_name: string }>(
+        `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
+           pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
+           error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
+           ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END
+         WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+           AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name`,
+        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null],
+      );
+      const row = updated.rows[0];
+      if (!row) return false;
+      if (decision === "run" || decision === "forever") {
+        await s.query(
+          `INSERT INTO tool_permission_grants
+             (id,org_id,scope,run_id,tool_name,granted_by_user_id,granted_at)
+           VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,now()) ON CONFLICT DO NOTHING`,
+          [orgId, decision, decision === "run" ? runId : null, row.pending_tool_name,
+            decision === "forever" ? userId : null],
+        );
+      }
+      return true;
+    });
+  }
+
+  async approveAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       // → queued 而非 → running：executor 的 claimQueued 只领 queued，置 running
       // 等于造一个永远没人执行的 run。重新入队让既有领取/并发语义原样生效。
@@ -493,8 +523,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         `UPDATE agent_runs
             SET status='queued', pending_decision='approve'
           WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+            AND ($3::uuid IS NULL OR pending_permission_request_id=$3::uuid)
           RETURNING id`,
-        [orgId, runId],
+        [orgId, runId, permissionRequestId ?? null],
       );
       return updated.rows.length > 0;
     });
@@ -515,7 +546,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+  async denyAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       // 与 approveAndRequeue 同一条边、同一套竞态语义——拒绝也重新入队而不是直接
       // failRun：execute-run 据此让 provider 发 resume:{decision:"reject"}，内核收到
@@ -524,8 +555,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         `UPDATE agent_runs
             SET status='queued', pending_decision='deny'
           WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+            AND ($3::uuid IS NULL OR pending_permission_request_id=$3::uuid)
           RETURNING id`,
-        [orgId, runId],
+        [orgId, runId, permissionRequestId ?? null],
       );
       return updated.rows.length > 0;
     });
@@ -583,8 +615,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       const inserted = await s.query<{ id: string }>(
         `INSERT INTO chat_messages
            (id,org_id,thread_id,author_kind,author_id,agent_id,body,
-            agent_run_id,reply_to_message_id)
-         VALUES ($1,$2,$3,'agent',$4,$4,$5,$6,$7)
+            agent_run_id,reply_to_message_id,visibility_scope,raw_transcript)
+         SELECT $1,$2,$3,'agent',$4,$4,$5,$6,$7,m.visibility_scope,m.raw_transcript
+           FROM chat_messages m WHERE m.org_id=$2 AND m.thread_id=$3 AND m.id=$7
          ON CONFLICT DO NOTHING
          RETURNING id`,
         [randomUUID(), orgId, input.threadId, input.agentId, input.text,
@@ -763,7 +796,7 @@ export class PgAgentRunRepository implements AgentRunStore {
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
                 r.status, r.error_code, r.created_at, r.cancel_requested_at, reply.id AS result_message_id,
-                r.pending_tool_name, r.pending_args_summary
+                r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            LEFT JOIN chat_messages reply
@@ -845,7 +878,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       createdAt: found.row.created_at.toISOString(),
       pendingApproval: found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
         ? null
-        : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null },
+        : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null, permissionRequestId: found.row.pending_permission_request_id ?? null, interrupt: found.row.pending_interrupt ?? null },
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.

@@ -60,6 +60,27 @@ afterAll(async () => {
 });
 
 describe("durable execution journal", () => {
+  it("binds grants to the current permission identity and rejects stale or duplicate decisions", async () => {
+    const org = toOrgId(ORG);
+    const pendingId = async () => (await asApp(ORG, (c) => c.query(
+      `SELECT pending_permission_request_id AS id FROM agent_runs WHERE id=$1`, [RUN]))).rows[0].id as string;
+    await repo.markAwaitingToolPermission(org, RUN, { toolName: "call_skill", argsSummary: "safe summary" });
+    const first = await pendingId();
+    await repo.markAwaitingToolPermission(org, RUN, { toolName: "ignored", argsSummary: null });
+    expect(await pendingId()).toBe(first);
+    expect(await repo.decidePermissionRequest(org, RUN, first, "once", ACTOR)).toBe(true);
+    expect(await repo.decidePermissionRequest(org, RUN, first, "forever", ACTOR)).toBe(false);
+    await asApp(ORG, (c) => c.query(`UPDATE agent_runs SET status='running' WHERE id=$1`, [RUN]));
+    await repo.markAwaitingToolPermission(org, RUN, { toolName: "call_skill", argsSummary: "second" });
+    const second = await pendingId();
+    expect(second).not.toBe(first);
+    expect(await repo.decidePermissionRequest(org, RUN, first, "forever", ACTOR)).toBe(false);
+    const grants = await asApp(ORG, (c) => c.query(`SELECT id FROM tool_permission_grants WHERE org_id=$1`, [ORG]));
+    expect(grants.rows).toHaveLength(0);
+    expect(await repo.decidePermissionRequest(org, RUN, second, "run", ACTOR)).toBe(true);
+    const current = await asApp(ORG, (c) => c.query(`SELECT scope FROM tool_permission_grants WHERE org_id=$1`, [ORG]));
+    expect(current.rows).toEqual([{ scope: "run" }]);
+  });
   it("serializes concurrent writers and replays the exact cursor suffix across repository instances", async () => {
     const orgId = toOrgId(ORG);
     await Promise.all(Array.from({ length: 12 }, (_, index) => repo.appendExecutionEvent(orgId, RUN,

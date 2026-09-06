@@ -11,6 +11,7 @@
  * 这里的类型直接复用它，不重复定义）。
  */
 import type { artifactsSteering as AS } from "@repo/contracts";
+import type { MessageFacts } from "../../domain/chat/thread-visibility";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
 
@@ -51,6 +52,8 @@ export interface AppendArtifactVersionInput {
  * 具体实现（`PgArtifactStore`）额外有数据库层面的 append-only 触发器兜底。
  */
 export interface ArtifactStore {
+  /** Source input and output facts, including pinned base ancestry; absent means deny observers. */
+  sourceMessageFacts?(orgId: OrgId, artifactId: string, version: number): Promise<readonly MessageFacts[]>;
   listByThread?(orgId: OrgId, threadId: string): Promise<readonly string[]>;
   /** 首次创建 Artifact（version=1）。`id` 由调用方生成（见 `ArtifactClock.newArtifactId`）。 */
   createArtifact(orgId: OrgId, input: CreateArtifactInput): Promise<AS.ArtifactRecord>;

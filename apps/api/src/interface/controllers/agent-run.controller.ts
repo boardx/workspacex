@@ -1,3 +1,5 @@
+import { decideToolPermission, RunNotAwaitingToolPermissionError } from "../../application/agent-run/decide-tool-permission";
+import { operations as permissionOperations } from "@repo/contracts/plan-permissions";
 import { cancelAgentRun, RunCancellationConflictError, RunCancellationUnavailableError } from "../../application/agent-run/cancel-run";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 /**
@@ -77,6 +79,27 @@ export class AgentRunController {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(MODEL_CALL_PORT) private readonly model?: ModelCallPort,
   ) {}
+
+  @Post("/agent-runs/:runId/permission-requests/:permissionRequestId/decision")
+  @HttpCode(200)
+  async decidePermission(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
+    @Param("permissionRequestId") permissionRequestId: string, @Body() body: { decision?: unknown }) {
+    assertPrincipal(principal);
+    const parsed = permissionOperations.decidePermissionRequest.in.safeParse({ runId, permissionRequestId, decision: body?.decision });
+    if (!parsed.success) throw new BadRequestException("invalid_permission_decision");
+    try {
+      await decideToolPermission({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+        kick: (orgId) => this.executor.kick(orgId) },
+        { ...parsed.data, orgId: toOrgId(principal.orgId), userId: principal.userId });
+      return { runId, permissionRequestId };
+    } catch (error) {
+      if (error instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (error instanceof AgentRunRetryForbiddenError) throw new ForbiddenException();
+      if (error instanceof RunNotAwaitingToolPermissionError) throw new ConflictException("stale_permission_request");
+      if (error instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw error;
+    }
+  }
 
   @Post("/agent-runs/:runId/cancel")
   @HttpCode(202)
@@ -248,7 +271,7 @@ export class AgentRunController {
   async decide(
     @CurrentPrincipal() principal: Principal,
     @Param("runId") runId: string,
-    @Body() body: { decision?: unknown; editedArgs?: unknown },
+    @Body() body: { decision?: unknown; editedArgs?: unknown; permissionRequestId?: unknown },
   ) {
     assertPrincipal(principal);
     const decision = body?.decision;
@@ -268,6 +291,7 @@ export class AgentRunController {
         { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, kick: (orgId) => this.executor.kick(orgId) },
         {
           userId: principal.userId, orgId: toOrgId(principal.orgId), runId,
+          ...(typeof body.permissionRequestId === "string" ? { permissionRequestId: body.permissionRequestId } : {}),
           ...(decision === "edit"
             ? { decision, editedArgs: editedArgs as Readonly<Record<string, unknown>> }
             : { decision }),

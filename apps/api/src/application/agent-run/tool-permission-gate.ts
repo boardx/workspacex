@@ -1,3 +1,4 @@
+import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 /**
  * Phase 14 F06（`plan-permissions` 契约束 R3 步骤 4-6，R5，I-1/I-4）—— 内核中断在一个
  * 工具调用前时，网关这一层该做什么的**唯一落点**。
@@ -49,6 +50,7 @@ import { checkPendingInterjection } from "./interjection-handling";
 export interface InterruptedToolCall {
   readonly toolName: string;
   readonly argsSummary: string | null;
+    readonly interrupt?: RestorableInterrupt | null;
   /**
    * issue #2767 —— `call_skill` 中断时，目标 skill 的稳定名（`DeepAgentHitlToolArgs.
    * skill_stable_name`），由 provider 直接从待批工具调用的原始 args 里读出，不是从

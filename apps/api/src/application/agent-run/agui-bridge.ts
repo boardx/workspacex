@@ -516,6 +516,7 @@ export async function resumeAguiBridgeTurn(
     readonly userId: string;
     readonly orgId: OrgId;
     readonly threadId: string;
+    readonly permissionRequestId?: string;
     readonly decision:
       | { readonly kind: "approve" | "reject" }
       | { readonly kind: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> };
@@ -554,6 +555,7 @@ export async function resumeAguiBridgeTurn(
 
   await decideAgentRun(deps, {
     userId: input.userId, orgId: input.orgId, runId,
+    permissionRequestId: input.permissionRequestId,
     ...(input.decision.kind === "edit"
       ? { decision: "edit" as const, editedArgs: input.decision.editedArgs }
       : { decision: input.decision.kind }),
@@ -593,10 +595,9 @@ export async function resumeAguiBridgeTurnToolPermission(
     readonly userId: string;
     readonly orgId: OrgId;
     readonly threadId: string;
+    readonly permissionRequestId?: string;
     readonly decision: ToolPermissionDecisionKind;
-    /** `decideToolPermission` 收下这个字段但不参与判定（同一个 run 同一时刻只可能有
-     *  一个待批工具调用，见该函数自己的文档）——这里传 AG-UI 消息里带的
-     *  `toolCallId`（拿不到就传空串），只为了错误信息里能回显真实值。 */
+    /** Legacy transport field. Identity-bearing approvals require the persisted permissionRequestId. */
     readonly toolCallId: string;
     readonly onStarted?: () => void;
     readonly onExecutionEvent?: (event: ExecutionEvent) => void;
@@ -624,7 +625,7 @@ export async function resumeAguiBridgeTurnToolPermission(
 
   await decideToolPermission(deps, {
     userId: input.userId, orgId: input.orgId, runId,
-    toolCallId: input.toolCallId, decision: input.decision,
+    permissionRequestId: input.permissionRequestId, toolCallId: input.toolCallId, decision: input.decision,
   });
   input.onStarted?.();
 

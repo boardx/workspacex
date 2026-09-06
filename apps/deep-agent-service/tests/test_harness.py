@@ -1515,3 +1515,16 @@ def test_current_turn_rubric_skips_grading_for_tool_free_turns_option_a():
     with_tool = [HumanMessage("q", id="wsx-turn:r:user"), AIMessage("calling"), ToolMessage("r", tool_call_id="c"), AIMessage("done")]
     prep = rubric._prepare_evaluation({"rubric": "清单", "messages": with_tool}, _Runtime())
     assert prep is not None and prep[1] == 0
+
+
+def test_confirm_intent_empty_assumptions_still_requires_approval(monkeypatch):
+    from langgraph.types import Command
+    graph = _named_tool_graph(monkeypatch, "confirm_task_intent", {
+        "requestId": "zero", "understanding": "整理报告", "assumptions": [],
+    })
+    config = {"configurable": {"thread_id": "confirm-zero"}}
+    paused = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in paused
+    result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
+    assert any("用户已确认对任务的理解：整理报告" in str(m.content)
+               for m in result.get("messages", []))

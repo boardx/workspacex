@@ -74,6 +74,26 @@ async function projectIdFor(s: TenantSession, orgId: OrgId, artifactId: string):
 export class PgArtifactStore implements ArtifactStore {
   constructor(private readonly db: DatabasePort) {}
 
+  async sourceMessageFacts(orgId: OrgId, artifactId: string, version: number) {
+    return this.db.withTenant(orgId, async s => {
+      const result = await s.query<{id: string; raw_transcript: boolean; visibility_scope: import("../../domain/chat/thread-visibility").MessageFacts["visibilityScope"]}>(`
+        WITH RECURSIVE lineage AS (
+          SELECT v.* FROM agent_artifact_versions v WHERE v.org_id=$1 AND v.artifact_id=$2 AND v.version=$3
+          UNION
+          SELECT base.* FROM agent_artifact_versions base JOIN lineage child
+            ON base.org_id=child.org_id AND base.artifact_id=child.artifact_id AND base.version=child.based_on_version
+        )
+        SELECT DISTINCT m.id,m.raw_transcript,m.visibility_scope FROM lineage v
+        JOIN agent_runs r ON r.org_id=v.org_id AND r.id=v.produced_by_run_id
+        JOIN agent_artifacts a ON a.org_id=v.org_id AND a.id=v.artifact_id
+        JOIN chat_messages m ON m.org_id=r.org_id AND m.thread_id=a.thread_id
+          AND (m.id=r.input_message_id OR m.agent_run_id=r.id OR m.id IN
+            (SELECT f.message_id FROM chat_message_attachments f WHERE f.org_id=v.org_id AND f.id=v.attachment_id))`,
+        [orgId, artifactId, version]);
+      return result.rows.map(row => ({id:row.id,rawTranscript:row.raw_transcript,visibilityScope:row.visibility_scope}));
+    });
+  }
+
   async listByThread(orgId: OrgId, threadId: string): Promise<readonly string[]> {
     return this.db.withTenant(orgId, async (s) => {
       const result = await s.query<{ id: string }>(`SELECT id FROM agent_artifacts WHERE org_id=$1 AND thread_id=$2 ORDER BY created_at,id`, [orgId, threadId]);

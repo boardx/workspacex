@@ -1,3 +1,5 @@
+import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
+import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
 /**
  * `DeepAgentModelProvider` -- the `ModelCallPort` for the new deepagents-backed general
@@ -733,6 +735,10 @@ export class DeepAgentModelProvider implements ModelCallPort {
             // 条 + `ai` 3 条），其余（human / system …）静默跳过——同一条"形状不匹配就退化、
             // 不猜"的纪律。
             if (!isAiMessageChunkType(chunk.type)) continue;
+            // Nested graphs belong to their task/tool trace, never the parent answer.
+            const metadata = parsed[1] as { langgraph_checkpoint_ns?: unknown; checkpoint_ns?: unknown } | undefined;
+            const namespace = metadata?.langgraph_checkpoint_ns ?? metadata?.checkpoint_ns;
+            if (typeof namespace === "string" && (namespace.includes("|") || namespace.startsWith("tools:"))) continue;
             if (typeof chunk.content === "string" && chunk.content !== "") {
               await onDelta(chunk.content, { messageId: typeof chunk.id === "string" ? chunk.id : undefined });
             }
@@ -872,7 +878,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
 
   private async readPendingApproval(
     baseUrl: string, threadId: string,
-  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null }> {
+  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null; interrupt?: RestorableInterrupt }> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
     const answered = new Set<string>();
@@ -895,9 +901,11 @@ export class DeepAgentModelProvider implements ModelCallPort {
           && typeof (args as Record<string, unknown>).skill_stable_name === "string"
           ? (args as Record<string, unknown>).skill_stable_name as string
           : undefined;
+        const restorable = RestorableInterrupt.safeParse({ toolName: name, args });
         return {
+          ...(restorable.success ? { interrupt: restorable.data } : {}),
           toolName: name,
-          argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(args), 4000),
+          argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(publicExecutionPayload(JSON.stringify(args))), 4000),
           ...(skillStableName === undefined ? {} : { skillStableName }),
         };
       }

@@ -1,3 +1,4 @@
+import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * Ports for the minimal no-tool AgentRun (Wave 2 delta §5, #414).
@@ -317,7 +318,7 @@ export interface RunProjection {
    * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
    * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
    * 的 .strict() 拒绝——29 个既有测试当场教的。） */
-  readonly pendingApproval: { readonly toolName: string; readonly argsSummary: string | null } | null;
+  readonly pendingApproval: { readonly permissionRequestId?: string | null; readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null } | null;
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */
@@ -433,7 +434,7 @@ export interface AgentRunStore {
    */
   markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null },
   ): Promise<void>;
 
   /**
@@ -441,7 +442,9 @@ export interface AgentRunStore {
    * 供 executor 重新领 run 时让 provider 走 resume。返回 false = run 不在
    * awaiting_tool_permission（并发裁决/已终态），调用方按冲突处理，不重试。
    */
-  approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
+  decidePermissionRequest?(orgId: OrgId, runId: string, permissionRequestId: string,
+    decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean>;
+  approveAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean>;
 
   /**
    * UX-9 D4：awaiting_tool_permission → queued（人改参数后放行），记 pending_decision='edit'
@@ -464,7 +467,7 @@ export interface AgentRunStore {
    * CopilotKit `useHumanInTheLoop` 三键弹层（F07/F08 迁移前维持原状，见该函数文件头）。
    * 本方法只服务新的四选一工具权限确认弹层。
    */
-  denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
+  denyAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean>;
 
   /**
    * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
@@ -1012,6 +1015,7 @@ export interface ModelCallCompletion {
   readonly interrupted?: {
     readonly toolName: string;
     readonly argsSummary: string | null;
+    readonly interrupt?: RestorableInterrupt | null;
     /**
      * issue #2767 —— `toolName === "call_skill"` 时，待批调用的原始
      * `skill_stable_name` 参数（直接从 tool_call 的 `args` 对象读出，不是从

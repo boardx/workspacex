@@ -238,6 +238,7 @@ interface AguiRunInput {
    * Omitted entirely by callers that have not been upgraded yet; this bridge falls back
    * to minting a fresh `randomUUID()` exactly as it always has. */
   readonly forwardedProps?: {
+    readonly permissionRequestId?: unknown;
     readonly chatThreadId?: string;
     readonly attachmentIds?: unknown;
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
@@ -905,6 +906,7 @@ export class CopilotkitAguiController {
           ? await resumeAguiBridgeTurnToolPermission(this.deps, {
             userId: principal.userId, orgId: toOrgId(principal.orgId),
             threadId: resumeChatThreadId ?? "",
+            permissionRequestId: typeof body.forwardedProps?.permissionRequestId === "string" ? body.forwardedProps.permissionRequestId : undefined,
             decision: resumeDecision.decision,
             toolCallId: resumeToolCallId ?? "",
             ...sharedCallbacks,
@@ -918,6 +920,7 @@ export class CopilotkitAguiController {
             // on an empty string exactly like it would on any other thread with no pending
             // run, so this is deliberately NOT special-cased into its own error code.
             threadId: resumeChatThreadId ?? "",
+            permissionRequestId: typeof body.forwardedProps?.permissionRequestId === "string" ? body.forwardedProps.permissionRequestId : undefined,
             decision: resumeDecision,
             ...sharedCallbacks,
           }))

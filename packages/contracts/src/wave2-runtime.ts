@@ -6,6 +6,7 @@
  * manifests, backend validation, and the admin client all derive from this one source.
  */
 import { z } from "zod";
+import { RestorableInterrupt } from "./agent-interrupts";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -455,6 +456,8 @@ export const AgentRunView = z.object({
    * optional：老客户端/老快照缺字段不炸（向后兼容）。
    */
   pendingApproval: z.object({
+    permissionRequestId: z.string().uuid().nullable().optional(),
+    interrupt: RestorableInterrupt.nullable().optional(),
     toolName: z.string(),
     argsSummary: z.string().nullable(),
   }).strict().nullable().optional(),
@@ -498,6 +501,7 @@ export const operations = {
     in: z.object({
       runId: z.string().min(1),
       decision: z.enum(["approve", "edit", "reject"]),
+      permissionRequestId: z.string().uuid().optional(),
       editedArgs: z.record(z.unknown()).optional(),
     }).strict().superRefine((v, ctx) => {
       if (v.decision === "edit" && v.editedArgs === undefined) {
