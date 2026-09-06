@@ -31,8 +31,11 @@ afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => reso
  * 真引擎零 delta。 */
 type LineEnding = "lf" | "crlf";
 
+/** 字符串 = 模型 token（`AIMessageChunk`）；对象 = 原样写进 messages-tuple 的任意消息形状。 */
+type FakeChunk = string | { readonly content: string; readonly type: string; readonly id?: string };
+
 function startFake(
-  opts: { streamStatus: number; chunks: readonly string[]; gapMs: number; lineEnding?: LineEnding },
+  opts: { streamStatus: number; chunks: readonly FakeChunk[]; gapMs: number; lineEnding?: LineEnding },
 ): Promise<string> {
   const eol = opts.lineEnding === "crlf" ? "\r\n" : "\n";
   server = createServer(async (req, res) => {
@@ -55,7 +58,8 @@ function startFake(
       }
       res.writeHead(200, { "content-type": "text/event-stream" });
       for (const c of opts.chunks) {
-        res.write(`event: messages${eol}data: [{"content": ${JSON.stringify(c)}, "type": "AIMessageChunk"}, {}]${eol}${eol}`);
+        const payload = typeof c === "string" ? { content: c, type: "AIMessageChunk" } : c;
+        res.write(`event: messages${eol}data: [${JSON.stringify(payload)}, {}]${eol}${eol}`);
         await new Promise((r) => setTimeout(r, opts.gapMs));
       }
       res.end();
@@ -142,6 +146,22 @@ describe("DA-03 真流式（rubric D3）", () => {
     expect(arrivals.map((a) => a.delta)).toEqual(["He", "llo ", "world"]);
     expect(arrivals[2]!.at - arrivals[0]!.at).toBeGreaterThanOrEqual(30);
     expect(result.text).toBe("Hello world");
+  });
+
+  /**
+   * 2026-09-06 人类实测（devapp）：run 进行中用户回复「B」，它出现在了 assistant 气泡正文里。
+   * messages-tuple 流会把图里任何节点追加的消息都流出来——`harness.py` 的
+   * `InterjectionMiddleware` 以 `HumanMessage`（id 前缀 `interjection:`）注入插话，
+   * 解析器此前不看 `type`，把它当模型 token 喂给了 onDelta。
+   */
+  it("messages-tuple 里的 human 消息（中途插话注入）不当作模型 token——只有 AIMessageChunk/ai 进 onDelta", async () => {
+    const baseUrl = await startFake({
+      streamStatus: 200, gapMs: 1,
+      chunks: ["He", { content: "【用户中途插话·局部调整】B", type: "human", id: "interjection:i-1" }, "llo world"],
+    });
+    const deltas: string[] = [];
+    await provider(baseUrl, true).completeWithProgress(INPUT, async () => {}, async (d) => void deltas.push(d));
+    expect(deltas).toEqual(["He", "llo world"]);
   });
 
   it("回退（S1=B）：/stream 404 时走轮询拿到同样终稿，onDelta 一次都不 fire", async () => {

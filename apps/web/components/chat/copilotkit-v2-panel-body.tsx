@@ -21,6 +21,10 @@ import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
 import { ChatHostInterjection } from "@/components/chat/chat-host-interjection";
+import {
+  classifyInterjectFailure, interjectAgentRun, INTERJECT_FAILURE_COPY, INTERJECT_UNKNOWN_FAILURE_COPY,
+} from "@/lib/agent-kernel-interject";
+import { resolveRunningReplyRoute, runningReplyAckCopy, queuedReplyCopy } from "@/lib/chat-composer-running-reply";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
@@ -1484,16 +1488,70 @@ export function CopilotKitV2PanelBody({
    * 把它加进禁用条件有极小概率在慢机器上制造一条此前不存在的竞态红——判据
    * TW-P0-5④ 本身只要求"空输入必须禁用并说明原因"，不需要这一条也能满足。
    */
+  // 2026-09-06 人类直接反馈：「agent 还在生成时也要能回复 A/B」——`agent.isRunning` 不再是
+  // 禁用理由；运行中的正文走 `sendWhileRunning`（插话 / 排队，见
+  // `lib/chat-composer-running-reply.ts` 文件头），发送键只在**输入框为空**时才是「停止」。
   const sendDisabledReason: string | null = archived
     ? "该对话已归档，不能再发送消息"
-    : agent.isRunning
-      ? "Agent 正在处理上一条消息，请稍候…"
-      : attach.hasUploading
-        ? "附件正在上传，请等待上传完成后再发送"
-        : inputDraft.trim() === ""
-          ? EMPTY_INPUT_REASON
-          : null;
+    : attach.hasUploading
+      ? "附件正在上传，请等待上传完成后再发送"
+      : inputDraft.trim() === ""
+        ? EMPTY_INPUT_REASON
+        : null;
   const sendDisabled = sendDisabledReason !== null;
+
+  /**
+   * run 进行中的回复。两条路（判据在 `resolveRunningReplyRoute`）：
+   * - `interject`：真实 runId 已知且内核 `running` ⇒ `POST /agent-runs/:runId/interject`，
+   *   成功后正文以一条本地 user 消息回显在线程里（与正常发送同一个 `agent.addMessage`
+   *   入口，用户看到的是"我说了 B"，不是"agent 说了 B"），页脚给一句 ack；失败则文案
+   *   进 `error` 横幅、正文留在输入框供重发（与 `InterjectionComposer` 同一套错误映射）。
+   * - `queue`：拿不到可插话的 run ⇒ 正文离开输入框进 `queuedReply`，页脚如实说明
+   *   「本轮结束后自动发送」；下面的 effect 在 `agent.isRunning` 翻假时用正常 `send` 发出。
+   * ⚠ 插话**不落库为 chat 消息**（后端 `interject-run.ts` 只写内核账本），刷新后这条
+   *   本地回显会消失——这是后端插话链路今天的边界，不在本次前端改动里补。
+   */
+  const [queuedReply, setQueuedReply] = React.useState<string | null>(null);
+  const [runningReplyAck, setRunningReplyAck] = React.useState<string | null>(null);
+  const [interjectPending, setInterjectPending] = React.useState(false);
+  const sendWhileRunning = React.useCallback(async () => {
+    const text = inputDraft.trim();
+    if (text === "" || interjectPending) return;
+    setError(null);
+    const route = resolveRunningReplyRoute({ runId: interjectionRun.runId, status: interjectionRun.status });
+    if (route === "queue") {
+      setQueuedReply(text);
+      setInputDraft("");
+      setMention(null);
+      return;
+    }
+    setInterjectPending(true);
+    try {
+      await interjectAgentRun({ runId: interjectionRun.runId!, text }, { sessionToken });
+      agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+      setInputDraft("");
+      setMention(null);
+      setRunningReplyAck(runningReplyAckCopy(text));
+    } catch (e) {
+      const code = classifyInterjectFailure(e);
+      setError(code ? INTERJECT_FAILURE_COPY[code] : INTERJECT_UNKNOWN_FAILURE_COPY);
+    } finally {
+      setInterjectPending(false);
+    }
+  }, [inputDraft, interjectPending, interjectionRun.runId, interjectionRun.status, sessionToken, agent]);
+  React.useEffect(() => {
+    if (agent.isRunning || queuedReply === null) return;
+    setQueuedReply(null);
+    void send(queuedReply);
+  }, [agent.isRunning, queuedReply, send]);
+  React.useEffect(() => {
+    if (!agent.isRunning) setRunningReplyAck(null);
+  }, [agent.isRunning]);
+  React.useEffect(() => {
+    if (runningReplyAck === null) return;
+    const t = window.setTimeout(() => setRunningReplyAck(null), 4_000);
+    return () => window.clearTimeout(t);
+  }, [runningReplyAck]);
 
   /*
     2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：
@@ -2116,6 +2174,7 @@ export function CopilotKitV2PanelBody({
                     e.preventDefault();
                     // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
                     if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
+                    if (agent.isRunning) { void sendWhileRunning(); return; }
                     void send();
                   }
                 }}
@@ -2220,9 +2279,11 @@ export function CopilotKitV2PanelBody({
                   onAutoPauseChange={voice.setAutoPause}
                   deviceMenuRequest={voice.deviceMenuRequest}
                 />
-                {agent.isRunning && !archived ? (
+                {agent.isRunning && !archived && inputDraft.trim() === "" ? (
                   /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
-                     `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。 */
+                     `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。
+                     2026-09-06：只在输入框为空时是「停止」——一旦用户敲了字，它就是「发送」
+                     （运行中走 `sendWhileRunning`），否则 agent 问的「A/B」用户答不了。 */
                   <button
                     type="button"
                     data-testid="copilotkit-v2-send"
@@ -2242,10 +2303,10 @@ export function CopilotKitV2PanelBody({
                     size="icon"
                     variant="primary"
                     className="shrink-0 rounded-pill"
-                    disabled={sendDisabled}
+                    disabled={sendDisabled || interjectPending}
                     title={sendDisabledReason ?? "发送"}
                     aria-label="发送"
-                    onClick={() => void send()}
+                    onClick={() => void (agent.isRunning ? sendWhileRunning() : send())}
                   >
                     <ArrowUp aria-hidden className="h-4 w-4" />
                   </Button>
@@ -2260,9 +2321,22 @@ export function CopilotKitV2PanelBody({
             `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
             肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
-          {sendDisabledReason !== null
+          {queuedReply !== null && agent.isRunning ? (
+            <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
+              <span className="truncate">{queuedReplyCopy(queuedReply)}</span>
+              <button
+                type="button"
+                className="shrink-0 underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline"
+                onClick={() => { setInputDraft(queuedReply); setQueuedReply(null); }}
+              >
+                取消
+              </button>
+            </span>
+          ) : runningReplyAck !== null ? (
+            <span data-testid="chat-task-workbench-composer-running-reply-ack">{runningReplyAck}</span>
+          ) : sendDisabledReason !== null
             && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
-            && !agent.isRunning && !attach.hasUploading ? (
+            && !attach.hasUploading ? (
             <span data-testid="chat-task-workbench-composer-send-disabled-reason">{sendDisabledReason}</span>
           ) : voice.phase === "listening" || voice.phase === "connecting" ? (
             <span>按 Esc 停止录音</span>
