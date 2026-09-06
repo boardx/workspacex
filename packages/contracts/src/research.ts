@@ -881,11 +881,25 @@ export const GuidedResearchRuntime = z.object({
 }).strict();
 export const GuidedResearchRuntimeCommand = z.object({
   sessionId: z.string().min(1), node: ResearchNode,
-  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply"]),
+  action: z.enum(["save", "generate", "confirm", "start", "retry", "complete", "message", "apply", "add_source", "remove_source"]),
   requestId: z.string().min(1).max(200), expectedVersion: z.number().int().nonnegative(),
   draft: GuidedResearchRuntimeDraft.optional(), message: z.string().trim().min(1).max(10000).optional(),
   proposalId: z.string().min(1).optional(),
-}).strict().refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node");
+  sourceUrl: z.string().trim().max(1000).url().refine((value) => {
+    try {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+    } catch { return false; }
+  }).optional(),
+  sourceId: z.string().min(1).optional(),
+}).strict().refine((command) => !command.draft || command.node === command.draft.node, "draft must target the requested node")
+  .refine((command) => {
+    if (command.action === "add_source" || command.action === "remove_source") {
+      return command.node === "research" && !command.draft && !command.message && !command.proposalId
+        && (command.action === "add_source" ? Boolean(command.sourceUrl) && !command.sourceId : Boolean(command.sourceId) && !command.sourceUrl);
+    }
+    return !command.sourceUrl && !command.sourceId;
+  }, "source commands require the research node and exactly one source reference");
 
 export const operations = {
   getGuidedResearchRuntime: {

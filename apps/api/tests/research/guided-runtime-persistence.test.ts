@@ -155,12 +155,78 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     } finally { releaseModel!(); await pending; }
     expect(state.currentNode).toBe("directions"); expect(state.busy).toBe(false);
   });
-  it("does not confirm research without completed searches and explicitly accepted sources", async () => {
+  it("does not confirm research without completed searches and included sources", async () => {
     await reachResearch();
+    await run("remove_source", { sourceId: state.sources[0]!.id });
     await run("complete"); expect(state.errorCode).toBe("RESEARCH_SOURCES_REQUIRED");
     expect(state.currentNode).toBe("research"); expect(calls).not.toContain("report");
     await run("generate");
     await run("complete"); expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE");
+  });
+  it("includes new and legacy pending evidence without accepting excluded sources", async () => {
+    await reachResearch();
+    expect(state.sources[0]!.decision).toBe("accepted");
+    await run("save", { draft: { node: "research", value: [{ id: state.sources[0]!.id, decision: "pending" }] } });
+    await run("complete");
+    expect(state.errorCode).toBeNull(); expect(state.currentNode).toBe("report");
+    expect(state.sources[0]!.decision).toBe("accepted");
+    await run("remove_source", { node: "research", sourceId: state.sources[0]!.id });
+    expect(state.report).toBeNull(); expect(state.currentNode).toBe("research");
+    await run("complete", { draft: { node: "research", value: [{ id: state.sources[0]!.id, decision: "pending" }] } });
+    expect(state.errorCode).toBe("RESEARCH_SOURCES_REQUIRED"); expect(state.sources[0]!.decision).toBe("excluded");
+  });
+  it("persists removals across retries and restores an explicitly re-added URL without duplicate evidence", async () => {
+    await reachResearch();
+    const source = state.sources[0]!;
+    await run("remove_source", { sourceId: source.id });
+    // A previously failed task returning the same URL must not resurrect the removal.
+    await db.withTenant(orgId, (tx) => tx.query(`UPDATE guided_research_runtime SET state=jsonb_set(state,'{tasks,0,status}','"failed"') WHERE org_id=$1 AND session_id=$2`, [orgId, actor.sessionId]));
+    await run("retry");
+    expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("excluded");
+    const before = searchCalls;
+    await run("add_source", { sourceUrl: source.url + "#section" });
+    expect(state.sources).toHaveLength(1); expect(state.sources[0]!.decision).toBe("accepted"); expect(searchCalls).toBe(before);
+    await run("add_source", { sourceUrl: source.url });
+    expect(state.sources).toHaveLength(1); expect(state.tasks).toHaveLength(1);
+    expect((await service.get(actor, session)).sources).toEqual(state.sources);
+  });
+  it("adds only matching retrieved URL evidence with succeeded provenance and idempotent replay", async () => {
+    await reachResearch(); await run("complete");
+    const url = "https://example.org/additional-policy";
+    let additions = 0;
+    service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, { search: async (query) => {
+      additions++; expect(query).toBe(url);
+      return [{ title: "Additional policy", url: url + "#findings", content: "Retrieved evidence from the search boundary." }];
+    } });
+    const command: RuntimeCommand = { sessionId: actor.sessionId, node: "research", action: "add_source", sourceUrl: url, expectedVersion: state.version, requestId: randomUUID() };
+    state = await service.execute(actor, session, command);
+    expect(state.errorCode).toBeNull(); expect(state.report).toBeNull(); expect(state.currentNode).toBe("research");
+    const added = state.sources.find((item) => item.url === url)!;
+    expect(added.decision).toBe("accepted");
+    expect(state.tasks.find((task) => task.id === added.taskId)).toMatchObject({ status: "succeeded", sectionId: "o1", attempts: 1 });
+    expect(await service.execute(actor, session, command)).toEqual(state); expect(additions).toBe(1);
+    await expect(service.execute(actor, session, { ...command, requestId: randomUUID() })).rejects.toMatchObject({ reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT" });
+  });
+  it("does not let manually added evidence bypass incomplete planned searches", async () => {
+    await run("confirm"); await run("confirm"); failSearch = true; await run("confirm");
+    expect(state.tasks[0]!.status).toBe("failed");
+    const url = "https://example.org/manual-evidence";
+    service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, { search: async () => [{ title: "Evidence", url, content: "Retrieved manual source." }] });
+    await run("add_source", { sourceUrl: url });
+    expect(state.errorCode).toBeNull(); expect(state.sources[0]!.decision).toBe("accepted");
+    await run("complete");
+    expect(state.errorCode).toBe("RESEARCH_TASKS_INCOMPLETE"); expect(state.report).toBeNull();
+  });
+  it.each(["unmatched", "empty", "unavailable"])("keeps report and task state intact after %s additions", async (failure) => {
+    await reachResearch(); await run("complete");
+    const before = structuredClone(state);
+    service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, { search: async () => {
+      if (failure === "unavailable") throw new Error("provider failed");
+      return [{ title: "Result", url: failure === "unmatched" ? "https://example.org/other" : "https://example.org/policy", content: failure === "empty" ? "  " : "Evidence" }];
+    } });
+    await run("add_source", { node: "research", sourceUrl: "https://example.org/policy" });
+    expect(state.errorCode).toBe(failure === "unavailable" ? "RESEARCH_SEARCH_UNAVAILABLE" : "RESEARCH_SOURCE_NOT_FOUND");
+    expect(state.tasks).toEqual(before.tasks); expect(state.sources).toEqual(before.sources); expect(state.report).toEqual(before.report); expect(state.currentNode).toBe("report");
   });
   it("persists model messages and rejects stale proposals", async () => {
     await run("message", { message: "Narrow the brief" });

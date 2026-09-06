@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResearchProgress, ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
+import { GuidedResearchSources } from "./guided-research-sources";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { getResearchRuntime, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
@@ -17,7 +18,7 @@ function draftOf(state: Runtime, node: Command["node"]): Draft | null {
   if (node === "brief") return { node, value: state.brief };
   if (node === "directions") return state.directions.length ? { node, value: state.directions } : null;
   if (node === "outline") return state.outline.length ? { node, value: state.outline } : null;
-  if (node === "research") return { node, value: state.sources.map(({ id, decision }) => ({ id, decision })) };
+  if (node === "research") return { node, value: state.sources.map(({ id, decision }) => ({ id, decision: decision === "pending" ? "accepted" : decision })) };
   return state.report ? { node, value: state.report } : null;
 }
 function ProposalPreview({ draft }: { draft: Draft }) {
@@ -39,7 +40,9 @@ const errors: Record<string, string> = {
   RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
   RESEARCH_EXECUTION_INTERRUPTED: "上次检索已中断，请重试。",
   RESEARCH_SEARCH_PARTIAL_FAILURE: "部分检索失败，已保存成功结果。请重试失败任务。",
-  RESEARCH_SOURCES_REQUIRED: "请先保留至少一个真实来源。",
+  RESEARCH_SOURCES_REQUIRED: "请先添加至少一个真实来源。",
+  RESEARCH_SOURCE_URL_INVALID: "请输入有效的公开网页链接。",
+  RESEARCH_SOURCE_NOT_FOUND: "未找到该链接的可用描述，请检查链接或稍后重试。",
   RESEARCH_TASKS_INCOMPLETE: "请先完成检索任务，失败任务可重试。",
   RESEARCH_CONTENT_REFERENCE_INVALID: "生成内容引用了不可用的来源，已拒绝应用。请重新生成。",
   RESEARCH_NODE_STATE_INVALID: "模型返回的内容不符合本步骤要求，请重试。",
@@ -139,6 +142,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       setNode(target); setDraft(draftOf(next, target));
       if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
       if (action === "message" && !next.errorCode) setMessage("");
+      return !next.errorCode;
     } catch (cause) {
       if (!isCurrent()) return;
       // Capture the submitted editor before a recovery read or polling can replace it.
@@ -225,8 +229,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
           <div className="flex gap-2"><Button variant="primary" disabled={busy} onClick={() => void run("start")}>开始真实检索</Button><Button variant="outline" disabled={busy || !state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running"))} onClick={() => void run("retry")}>重试失败任务</Button></div>
           <Card data-testid="research-search-summary"><CardContent className="space-y-2 p-4"><h2 className="font-semibold">研究检索进度</h2><p className="text-12">已完成 {state.tasks.filter((task) => task.status === "succeeded").length} / {state.tasks.length} 项任务</p><p className="text-12 text-muted-foreground" data-testid="research-current-query">{state.tasks.find((task) => task.status === "running" || task.status === "pending")?.query ?? (state.tasks.length ? "本轮检索已结束" : "请先生成研究计划或开始检索")}</p></CardContent></Card>
           <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-12 font-medium">检索任务明细 · {state.tasks.length} 项</summary><div className="mt-3 space-y-2">{state.tasks.map((task) => <Card key={task.id}><CardContent className="p-3 text-12"><p>{task.query}</p><p className="mt-1 text-muted-foreground">{{ pending: "等待检索", running: "正在检索", succeeded: "已完成", failed: "检索失败" }[task.status]} · 尝试 {task.attempts} 次</p>{task.errorCode && <p className="mt-1 text-destructive">{errors[task.errorCode] ?? "任务执行失败，请重试。"}</p>}</CardContent></Card>)}</div></details>
-          <h2 className="font-semibold">真实来源 · {state.sources.length}</h2>
-          {state.sources.map((source) => <Card key={source.id}><CardContent className="space-y-2 p-4 text-12"><a className="text-primary underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a><p className="line-clamp-4 whitespace-pre-wrap text-muted-foreground">{source.content}</p><label>来源处理 <select aria-label={`来源处理 ${source.title}`} className="rounded-md border border-border bg-background p-2" disabled={busy} value={draft?.node === "research" ? draft.value.find((item) => item.id === source.id)?.decision ?? source.decision : source.decision} onChange={(event) => { const decision = event.target.value as "pending" | "accepted" | "excluded"; if (draft?.node === "research") setDraft({ ...draft, value: draft.value.map((item) => item.id === source.id ? { ...item, decision } : item) }); }}><option value="pending">待处理</option><option value="accepted">保留</option><option value="excluded">排除</option></select></label></CardContent></Card>)}
+          <GuidedResearchSources sources={state.sources} disabled={busy} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
         </>}
         {node === "report" && state.report && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><nav aria-label="报告目录" className="rounded-lg border border-border p-4"><h2 className="font-semibold">目录</h2><ul className="mt-2 space-y-1 text-12">{state.report.sections.map((section, index) => <li key={section.sectionId}><a className="text-primary underline" href={`#research-report-section-${index}`}>{state.outline.find((item) => item.id === section.sectionId)?.title}</a></li>)}</ul></nav><h2 className="text-20 font-semibold">{state.report.title}</h2><p className="whitespace-pre-wrap text-12 leading-relaxed">{state.report.summary}</p>{state.report.sections.map((section, index) => <Card id={`research-report-section-${index}`} key={section.sectionId}><CardContent className="space-y-3 p-4"><h3 className="font-semibold">{state.outline.find((item) => item.id === section.sectionId)?.title}</h3><p className="whitespace-pre-wrap text-12 leading-relaxed">{section.body}</p><ul className="space-y-1 text-12">{section.sourceIds.map((id) => { const source = state.sources.find((item) => item.id === id); return source ? <li key={id}><a className="text-primary underline" href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li> : null; })}</ul></CardContent></Card>)}<Button variant="outline" onClick={downloadReport}>下载报告（Markdown）</Button></div>}
         <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-card/95 py-4"><Button variant="outline" disabled={busy || !validDraft || node === "report"} onClick={() => draft && void run("save", { draft })}>保存草稿</Button><Button variant="primary" disabled={busy || !validDraft || (state.completed && node === "report")} onClick={() => void run(node === "report" || node === "research" ? "complete" : "confirm", draft ? { draft } : {})}>{node === "report" ? "完成研究" : "确认并继续"}</Button></div>
