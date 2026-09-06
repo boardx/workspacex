@@ -34,4 +34,14 @@ describe("run trace disclosure", () => {
     vi.useRealTimers();
   });
 
+  it("labels legacy text as historical public content and never invents a live run", () => {
+    const events: ExecutionEvent[] = [{ ...base, source: "legacy", seq: 0, kind: "text_delta", messageId: "legacy-text", delta: "旧公开记录" }];
+    const { container } = render(<RunTracePanel runId="run-1" events={events} running />);
+    expect(screen.getByTestId("run-trace-toggle")).toHaveTextContent("历史执行记录");
+    expect(container.querySelector(".animate-spin")).toBeNull();
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    expect(screen.getByText("历史公开记录")).toBeVisible();
+    expect(screen.getByText("旧公开记录")).toBeVisible();
+  });
+
 });

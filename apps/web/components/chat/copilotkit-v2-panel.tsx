@@ -346,7 +346,7 @@ export function CopilotKitV2Panel({
      *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
      *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
      *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
-    readonly startedAt: number | null;
+    readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /**

@@ -66,7 +66,8 @@ export async function readAllPersistedMessages(
     replyToMessageId: string | null;
   }[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < 50; page += 1) {
+  const seenCursors = new Set<string>();
+  for (;;) {
     const result = await listMessages(threadId, { cursor, limit: 100 }, bearer);
     for (const m of result.messages) {
       collected.push({
@@ -85,6 +86,8 @@ export async function readAllPersistedMessages(
       });
     }
     if (result.nextCursor === null) break;
+    if (seenCursors.has(result.nextCursor)) throw new Error("Message history returned a repeated cursor");
+    seenCursors.add(result.nextCursor);
     cursor = result.nextCursor;
   }
   return { messages: collected, pendingRunId: findPendingRunId(rawForPendingRunLookup) };

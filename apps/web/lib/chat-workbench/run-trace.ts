@@ -3,18 +3,34 @@ import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 export type TraceStore = Readonly<Record<string, readonly ExecutionEvent[]>>;
 export type TraceEntry = {
   id: string; messageId?: string; kind: "progress" | "tool" | "skill"; text: string;
-  status: "running" | "succeeded" | "failed"; args?: unknown; result?: unknown;
+  status: "running" | "succeeded" | "failed"; source?: "legacy"; args?: unknown; result?: unknown;
 };
 /** The server sequence is the identity, including during replay after reconnect. */
 export function reduceTrace(store: TraceStore, events: readonly ExecutionEvent[]): TraceStore {
   if (!events.length) return store;
-  const next = { ...store };
+  const grouped = new Map<string, ExecutionEvent[]>();
   for (const event of events) {
-    const existing = next[event.runId] ?? [];
-    if (existing.some((item) => item.seq === event.seq)) continue;
-    next[event.runId] = [...existing, event].sort((a, b) => a.seq - b.seq);
+    const batch = grouped.get(event.runId) ?? [];
+    batch.push(event); grouped.set(event.runId, batch);
   }
-  return next;
+  let next: Record<string, readonly ExecutionEvent[]> | undefined;
+  for (const [runId, incoming] of grouped) {
+    const prior = store[runId] ?? [];
+    const hasCurrent = prior.some((event) => event.source !== "legacy") || incoming.some((event) => event.source !== "legacy");
+    const existing = hasCurrent ? prior.filter((event) => event.source !== "legacy") : prior;
+    const batch = hasCurrent ? incoming.filter((event) => event.source !== "legacy") : incoming;
+    const known = new Set(existing.map((event) => event.seq));
+    const added = batch.filter((event) => {
+      if (known.has(event.seq)) return false;
+      known.add(event.seq); return true;
+    });
+    if (!added.length && existing.length === prior.length) continue;
+    next ??= { ...store };
+    const ordered = added.every((event, index) => index === 0 || event.seq > added[index - 1]!.seq);
+    next[runId] = ordered && (!added.length || !existing.length || added[0]!.seq > existing.at(-1)!.seq)
+      ? [...existing, ...added] : [...existing, ...added].sort((a, b) => a.seq - b.seq);
+  }
+  return next ?? store;
 }
 /** A tool boundary confirms that earlier public text was progress, not the answer. */
 export function progressMessageIds(events: readonly ExecutionEvent[]): Set<string> {
@@ -33,13 +49,13 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
   const entries: TraceEntry[] = [];
   const tools = new Map<string, TraceEntry>();
   for (const event of events) {
-    if (event.kind === "final_message" || event.kind === "status") continue;
+    if (event.kind === "final_message" || event.kind === "status" || event.kind === "interjection") continue;
     if (event.kind === "text_delta") {
-      if (!progressIds.has(event.messageId)) continue;
+      if (event.source !== "legacy" && !progressIds.has(event.messageId)) continue;
       const previous = entries.at(-1);
       const id = `text:${event.messageId}`;
       if (previous?.messageId === event.messageId && previous.kind === "progress") previous.text += event.delta;
-      else entries.push({ id: `${id}:${event.seq}`, messageId: event.messageId, kind: "progress", text: event.delta, status: "succeeded" });
+      else entries.push({ id: `${id}:${event.seq}`, messageId: event.messageId, kind: "progress", text: event.delta, status: "succeeded", source: event.source });
       continue;
     }
     const toolKey = `${event.attemptId ?? ""}:${event.toolCallId}`;

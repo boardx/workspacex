@@ -2,7 +2,12 @@
 
 import * as React from "react";
 import { createWorkbenchThread } from "@/lib/chat-workbench/project-scope";
+import { restoreFinalMessages } from "@/lib/chat-workbench/restore-final-messages";
 import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
+import { QueuedMessagesPanel } from "@/components/chat/workbench/queued-messages-panel";
+import { useThreadMessageQueue } from "@/lib/chat-workbench/use-thread-message-queue";
+import { useDispatchedQueueMessages } from "@/lib/chat-workbench/use-dispatched-queue-messages";
+import { QueueNextTurnAction } from "@/components/chat/workbench/queue-next-turn-action";
 import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
 import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
@@ -147,7 +152,7 @@ export function CopilotKitV2PanelBody({
      *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
      *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
      *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
-    readonly startedAt: number | null;
+    readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -182,6 +187,7 @@ export function CopilotKitV2PanelBody({
   const [inputDraft, setInputDraft] = React.useState("");
   const sendFailedRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
   /**
    * issue #2797 -- `onError` 订阅（下面）与 `send()` 的 `catch` 分支各自上报一次异常
    * 时，需要"这一刻真实的 runId/threadId/phase"，而不是订阅建立那一刻（`useEffect`
@@ -667,6 +673,7 @@ export function CopilotKitV2PanelBody({
       setPendingRunId(null);
       return;
     }
+    setRecoveryDiagnostic(outcome.view.recoveryDiagnostic ?? null);
     if (outcome.view.status === "failed") {
       setError(describeCopilotkitV2RunError(outcome.view.error));
     }
@@ -724,14 +731,15 @@ export function CopilotKitV2PanelBody({
     registerHydrated(restored.map((message) => ({ id: message.id, rateable: message.rateable })));
     bindTraceMessages(messages);
     if (restored.length) {
-      const finalIds = new Set((runTrace.events[runId] ?? []).filter((event) => event.kind === "final_message").map((event) => event.messageId));
-      agent.setMessages([...agent.messages.filter((message) => !finalIds.has(message.id)), ...restored.map((message) => ({ id: message.id, role: message.role, content: message.content }))]);
+      agent.setMessages(restoreFinalMessages(agent.messages, runTrace.events[runId] ?? [], restored));
     }
     onMessageSent?.();
     return true;
   }, [agent, messageIdentity, registerHydrated, bindTraceMessages, onMessageSent, runTrace.events]);
   React.useEffect(() => { if (observedRunId) setPendingRunId(observedRunId); }, [observedRunId]);
-  useRunTraceTail({ observedRunId, threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
+  const serverQueue = useThreadMessageQueue(resolvedChatThreadId, selectedAgentId, getStoredSessionToken());
+  const queuedRunIds = useDispatchedQueueMessages(agent, serverQueue.items, resolvedChatThreadId, getStoredSessionToken(), registerHydrated, bindTraceMessages);
+  useRunTraceTail({ observedRunId, observedRunIds: [...queuedRunIds, ...(runRestore.runId ? [runRestore.runId] : [])], threadId: resolvedChatThreadId, bearer: getStoredSessionToken() ?? undefined,
     events: runTrace.events, append: runTrace.append, onSettled: restoreJournalResult });
 
   /**
@@ -999,7 +1007,7 @@ export function CopilotKitV2PanelBody({
     const status = [...events].reverse().find((event) => event.kind === "status");
     return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
   }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
-  const runIsRunning = agent.isRunning || runRestore.isRestoring || Boolean(activeTrace);
+  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
   // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
   const connectedInterjectionRun = useChatHostInterjectionRun({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
@@ -1027,9 +1035,9 @@ export function CopilotKitV2PanelBody({
     onRunStateChange?.({
       isRunning: runIsRunning,
       phaseLabel: runPhaseLabel,
-      startedAt: runStartedAt,
+      startedAt: runStartedAt, recoveryDiagnostic,
     });
-  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange]);
+  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange, recoveryDiagnostic]);
   const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
   const pendingMaterialsCount = attach.uploadedIds.length;
   React.useEffect(() => {
@@ -1091,7 +1099,7 @@ export function CopilotKitV2PanelBody({
       // 「加入这一轮」按钮同一条禁用逻辑）。
       if (attach.hasUploading) return false;
       const acceptedBefore = acceptedRunEpoch.current;
-      sendFailedRef.current = false;
+      sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
       setInputDraft("");
       // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
@@ -1240,7 +1248,7 @@ export function CopilotKitV2PanelBody({
   // Running deliveries are serialized by useRunningReply.
   const clearRunningDraft = React.useCallback(() => { setInputDraft(""); setMention(null); }, []);
   const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
-    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, sessionToken, runIsRunning, send,
+    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, sessionToken, enqueue: serverQueue.enqueue,
     clearDraft: clearRunningDraft, setError,
   });
 
@@ -1902,6 +1910,7 @@ export function CopilotKitV2PanelBody({
                   onAutoPauseChange={voice.setAutoPause}
                   deviceMenuRequest={voice.deviceMenuRequest}
                 />
+                <QueueNextTurnAction visible={runIsRunning && inputDraft.trim().length > 0} disabled={sendDisabled || interjectPending} onQueue={() => void sendWhileRunning({ forceQueue: true })} />
                 {(runIsRunning || cancellation.requested) && canWrite && !archived && inputDraft.trim() === "" ? (
                   /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
                      `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。
@@ -1939,11 +1948,8 @@ export function CopilotKitV2PanelBody({
             </div>
           </div>
           {composerStatusBar}
+          <QueuedMessagesPanel {...serverQueue} canWrite={canWrite} />
         </div>
-        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。
-            2026-09-03 人类反馈「最底下那行字上面留空太多了」—— 卡片内部工具行下方本来就有
-            `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
-            肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
           {queuedReply !== null ? (
             <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
@@ -1989,4 +1995,3 @@ export function CopilotKitV2PanelBody({
     </div>
   );
 }
-

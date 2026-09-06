@@ -40,6 +40,9 @@ const ROUTES = [
   "/chat/warmup-route-compile-only",
   // 登录页：每个 spec 的第一步都是它，同样只该付一次编译。
   "/login",
+  // Successful login navigates here before entering chat. Compile it outside the
+  // scenario budget, just like the chat routes, so login isn't blamed for bundling.
+  "/projects",
 ];
 
 const WARMUP_BUDGET_MS = 300_000;

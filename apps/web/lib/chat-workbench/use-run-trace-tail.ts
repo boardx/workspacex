@@ -6,14 +6,15 @@ import { readExecutionPage } from "./execution-events-api";
 import { ApiError } from "@/lib/api-client";
 
 export function executionTailDelay(events: readonly ExecutionEvent[], failures = 0): number | null {
+  if (events.length && events.every((event) => event.source === "legacy") && !events.some((event) => event.kind === "status")) return null;
   const status = [...events].reverse().find((event) => event.kind === "status");
   if (status?.kind === "status" && (status.status === "succeeded" || status.status === "failed" || status.status === "cancelled")) return null;
   if (failures) return Math.min(30_000, 1000 * 2 ** Math.min(failures, 5));
   return status?.kind === "status" && (status.status === "paused" || status.status === "awaiting_tool_permission") ? 5000 : 1000;
 }
 /** REST resume has no AG-UI connection; tail the same durable journal with bounded concurrency. */
-export function useRunTraceTail({ threadId, bearer, events, append, onSettled, observedRunId }: {
-  observedRunId?: string | null;
+export function useRunTraceTail({ threadId, bearer, events, append, onSettled, observedRunId, observedRunIds = [] }: {
+  observedRunId?: string | null; observedRunIds?: readonly string[];
   threadId: string | null; bearer?: string; events: TraceStore;
   append: (events: readonly ExecutionEvent[]) => void;
   onSettled: (runId: string) => Promise<boolean>;
@@ -22,11 +23,12 @@ export function useRunTraceTail({ threadId, bearer, events, append, onSettled, o
   latest.current = { events, append, onSettled };
   const watched = React.useRef(new Set<string>());
   React.useEffect(() => { watched.current.clear(); }, [threadId, bearer]);
-  const runKeys = [...new Set([...Object.keys(events), ...(observedRunId ? [observedRunId] : [])])].sort().join("\n");
+  const runKeys = [...new Set([...Object.keys(events), ...observedRunIds, ...(observedRunId ? [observedRunId] : [])])].sort().join("\n");
+  const observedKeys = [...observedRunIds, ...(observedRunId ? [observedRunId] : [])].sort().join("\n");
   React.useEffect(() => {
     if (!threadId || !bearer || !runKeys) return;
     const controller = new AbortController();
-    for (const runId of runKeys.split("\n")) if (executionTailDelay(latest.current.events[runId] ?? []) !== null) watched.current.add(runId);
+    for (const runId of runKeys.split("\n")) if (observedKeys.split("\n").includes(runId) || executionTailDelay(latest.current.events[runId] ?? []) !== null) watched.current.add(runId);
     const tracked = [...watched.current];
     const nextAt = new Map(tracked.map((runId) => [runId, 0]));
     const failures = new Map<string, number>();
@@ -38,7 +40,7 @@ export function useRunTraceTail({ threadId, bearer, events, append, onSettled, o
           const runId = pending.shift()!;
           try {
             const previous = latest.current.events[runId] ?? [];
-            let cursor = previous.at(-1)?.seq ?? -1;
+            let cursor = previous.filter((event) => event.source !== "legacy").at(-1)?.seq ?? -1;
             let combined = previous;
             while (!controller.signal.aborted) {
               const page = await readExecutionPage(runId, cursor, bearer, controller.signal);
@@ -71,5 +73,5 @@ export function useRunTraceTail({ threadId, bearer, events, append, onSettled, o
     };
     void tick();
     return () => { controller.abort(); if (timer) clearTimeout(timer); };
-  }, [threadId, bearer, runKeys]);
+  }, [threadId, bearer, runKeys, observedKeys]);
 }

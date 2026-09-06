@@ -7,11 +7,8 @@
  * 挂载会随动态段取值每次卸载重建，正是"快速切换线程后选中态跳回旧线程"的根因
  * （该文件头注有完整推导）。这条路由仍然必须存在，否则 Next 不认裸 `/chat`。
  *
- * issue #2067 起，本文件不再自己判断 `?projectId=`/`?thread=`——那两支旧屏
- * （`ChatReadScreen`/`PersonalChatScreen`）已经由 `next.config.mjs` 的
- * `rewrites().beforeFiles` 在到达这里之前整体改写到 `/chat/legacy`（同一套组件、
- * 同一份逻辑，见该路由 `page.tsx` 头注），AppShell 与 CopilotKit provider 由共享的
- * `(v2)/layout.tsx` 提供，不在这里重复组合（那正是 #2067 要修的重挂载问题）。
+ * Project and personal query links share this route. ShellRoute resolves scope,
+ * while the shared layout owns the one AppShell and CopilotKit provider tree.
  *
  * 历史沿革（2026-08-25 人类裁决两连）：先「直接更改，chat为新的版本copilot-kit」
  * （#2026，裸 /chat redirect 到灰度路由），再「路由要改为 chat，不要

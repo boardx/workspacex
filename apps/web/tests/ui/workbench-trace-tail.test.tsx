@@ -40,4 +40,14 @@ describe("resume journal tail", () => {
     rerender({ threadId: "b" });
     expect(signal.aborted).toBe(true);
   });
+  it("never uses legacy display sequence as a live cursor and observes explicitly restored runs", () => {
+    read.mockImplementation(() => new Promise(() => {}));
+    const events: TraceStore = { "run-a": [{ runId: "run-a", emittedAt: "now", source: "legacy", seq: 50, kind: "text_delta", messageId: "old", delta: "history" }] };
+    const first = renderHook(() => useRunTraceTail({ threadId: "thread", bearer: "token", events, append: vi.fn(), onSettled: vi.fn() }));
+    expect(read).not.toHaveBeenCalled();
+    first.unmount();
+    renderHook(() => useRunTraceTail({ threadId: "thread", bearer: "token", events, observedRunId: "run-a", append: vi.fn(), onSettled: vi.fn() }));
+    expect(read.mock.calls[0]?.slice(0, 3)).toEqual(["run-a", -1, "token"]);
+  });
+
 });

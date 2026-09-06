@@ -8,9 +8,9 @@ import { resolveRunningReplyRoute, runningReplyAckCopy } from "@/lib/chat-compos
 type QueuedReply = { id: string; text: string };
 const EMPTY_QUEUE: QueuedReply[] = [];
 /** Each queued delivery retains its idempotency key until an explicit successful ACK. */
-export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken, runIsRunning, send, clearDraft, setError }: {
+export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken, enqueue, clearDraft, setError }: {
   agent: AbstractAgent; threadId: string; run: ChatHostInterjectionRun; inputDraft: string; sessionToken: string | null;
-  runIsRunning: boolean; send: (text: string, opts?: { clientMessageId?: string }) => Promise<boolean>;
+  enqueue: (text: string, opts?: { clientMessageId?: string }) => Promise<boolean>;
   clearDraft: () => void; setError: (error: string | null) => void;
 }) {
   const storageKey = `workbench-queued-replies:${sessionToken ? Array.from(sessionToken).reduce((hash, char) => Math.imul(hash, 31) + char.charCodeAt(0) | 0, 0) : "anonymous"}`;
@@ -36,11 +36,11 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
   const currentThread = React.useRef(threadId);
   currentThread.current = threadId;
   const sending = React.useRef(false);
-  const sendWhileRunning = React.useCallback(async () => {
+  const sendWhileRunning = React.useCallback(async (options?: { forceQueue?: boolean }) => {
     const text = inputDraft.trim();
     if (!text || sending.current) return;
     setError(null);
-    if (resolveRunningReplyRoute({ runId: run.runId, status: run.status }) === "queue") {
+    if (options?.forceQueue || resolveRunningReplyRoute({ runId: run.runId, status: run.status }) === "queue") {
       const entry = { id: crypto.randomUUID(), text };
       setQueues((previous) => ({ ...previous, [threadId]: [...(previous[threadId] ?? []), entry] }));
       clearDraft();
@@ -49,9 +49,9 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
     sending.current = true;
     setInterjectPending(true);
     try {
-      await interjectAgentRun({ runId: run.runId!, text }, { sessionToken });
+      const receipt = await interjectAgentRun({ runId: run.runId!, text }, { sessionToken });
       if (currentThread.current !== threadId) return;
-      agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+      agent.addMessage({ id: `interjection:${receipt.interjectionId}`, role: "user", content: text });
       clearDraft();
       setRunningReplyAck(runningReplyAckCopy(text));
     } catch (error) {
@@ -61,16 +61,16 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
     } finally { sending.current = false; setInterjectPending(false); }
   }, [inputDraft, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId]);
   React.useEffect(() => {
-    if (runIsRunning || run.status === "paused" || run.status === "awaiting_tool_permission" || !queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
+    if (!queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
     const entry = queue[0]!;
     sending.current = true;
     setDelivering(true);
-    void send(entry.text, { clientMessageId: entry.id }).then((ok) => {
+    void enqueue(entry.text, { clientMessageId: entry.id }).then((ok) => {
       if (ok) setQueues((previous) => ({ ...previous, [threadId]: (previous[threadId] ?? []).filter((item) => item.id !== entry.id) }));
       else setFailedThreads((previous) => ({ ...previous, [threadId]: true }));
     }).catch(() => setFailedThreads((previous) => ({ ...previous, [threadId]: true })))
       .finally(() => { sending.current = false; setDelivering(false); });
-  }, [runIsRunning, run.status, queue, send, delivering, interjectPending, queuedFailed, threadId]);
+  }, [queue, enqueue, delivering, interjectPending, queuedFailed, threadId]);
   React.useEffect(() => { setRunningReplyAck(null); }, [threadId]);
   React.useEffect(() => {
     if (runningReplyAck === null) return;
@@ -85,6 +85,6 @@ export function useRunningReply({ agent, threadId, run, inputDraft, sessionToken
       setQueues((previous) => ({ ...previous, [threadId]: text === null ? [] : [{ id: crypto.randomUUID(), text }] }));
       setFailedThreads((previous) => ({ ...previous, [threadId]: false }));
     },
-    runningReplyAck, interjectPending, sendWhileRunning,
+    runningReplyAck, interjectPending: interjectPending || delivering, sendWhileRunning,
   };
 }

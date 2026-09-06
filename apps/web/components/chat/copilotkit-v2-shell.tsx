@@ -980,7 +980,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   const [runState, setRunState] = React.useState<{
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
-    readonly startedAt: number | null;
+    readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
 
@@ -1027,7 +1027,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           ) : null}
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
-          <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
+          <p className="text-10 text-muted-foreground">{projectId ? "项目上下文，按对话权限可见" : "不挂靠任何项目，仅自己可见"}</p>
           {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
               理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
           <Input
@@ -1129,15 +1129,15 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
             data-testid="copilotkit-v2-thread-topbar-title"
           >
             {selectedThreadId === null
-              ? "个人对话"
-              : cards.find((card) => card.id === selectedThreadId)?.title ?? "个人对话"}
+              ? (projectId ? "项目对话" : "个人对话")
+              : cards.find((card) => card.id === selectedThreadId)?.title ?? (projectId ? "项目对话" : "个人对话")}
           </span>
           <span
             className="flex shrink-0 items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
             data-testid="copilotkit-v2-thread-topbar-visibility"
           >
             <Lock aria-hidden className="h-2.5 w-2.5" />
-            仅自己可见
+            {projectId ? "按对话权限可见" : "仅自己可见"}
           </span>
         </div>
         {/*
@@ -1213,6 +1213,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
         runStartedAt={runState.startedAt}
+        recoveryDiagnostic={runState.recoveryDiagnostic}
         /* 2026-08-29——CK-P7 编制搬进右栏「编制」页签（见上面移除左栏 `RosterPanel`
            那处的头注）。只在选中了一条线程时传，未选中时整个 prop 是 `undefined`，
            `ChatTaskInspector` 因此完全不渲染这个页签——与此前"未选中线程时左栏

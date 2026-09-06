@@ -94,6 +94,7 @@ export interface ChatTaskInspectorProps {
   readonly isRunning: boolean;
   /** 当前阶段文案（`copilotkit-v2-run-progress.ts`），无可翻译事件时为 null。 */
   readonly runPhaseLabel: string | null;
+  readonly recoveryDiagnostic?: string | null;
   /** `RUN_STARTED` 时刻（epoch ms）；秒数在本组件内派生——见 panel 侧同名 prop 的注释：
    *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
   readonly runStartedAt: number | null;
@@ -349,6 +350,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
+              recoveryDiagnostic={props.recoveryDiagnostic}
             />
           )}
         </div>
@@ -363,7 +365,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           type="button"
           data-testid="chat-task-workbench-mobile-open"
           aria-label="打开任务进度与成果"
-          className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-container text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <PanelRightOpen aria-hidden className="h-4 w-4" />
         </button>
@@ -446,18 +448,20 @@ function ProgressTab({
  * 固定文案——同本组件其余行"没有真实数据就不放"的纪律。
  */
 function RunDetailsTab({
-  threadId, isRunning, runPhaseLabel, runElapsedSeconds,
+  threadId, isRunning, runPhaseLabel, runElapsedSeconds, recoveryDiagnostic,
 }: {
   threadId: string | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
   runElapsedSeconds: number | null;
+  recoveryDiagnostic?: string | null;
 }) {
   const rows: readonly (readonly [string, string])[] = [
     ["对话标识", threadId ?? "尚未创建"],
     ["运行状态", isRunning ? "运行中" : "空闲"],
     ["当前阶段", runPhaseLabel ?? "—"],
     ["本轮已用", runElapsedSeconds !== null ? `${runElapsedSeconds} 秒` : "—"],
+    ...(recoveryDiagnostic ? [["恢复状态", recoveryDiagnostic] as const] : []),
   ];
   return (
     <dl className="flex flex-col gap-1.5 p-3 text-11" data-testid="chat-task-workbench-inspector-run-details">

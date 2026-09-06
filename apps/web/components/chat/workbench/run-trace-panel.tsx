@@ -18,7 +18,8 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const entries = React.useMemo(() => traceEntries(events), [events]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
-  const active = status?.kind === "status" ? status.status === "running" : running;
+  const legacy = events.every((event) => event.source === "legacy");
+  const active = !legacy && (status?.kind === "status" ? status.status === "running" : running);
   React.useEffect(() => {
     if (!active) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -30,7 +31,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const end = active ? now : Date.parse(events[events.length - 1]!.emittedAt);
   const seconds = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, Math.floor((end - start) / 1000)) : 0;
   const elapsed = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-  const label = status?.kind === "status" && status.status === "cancelled" ? "已停止" : status?.kind === "status" && status.status === "failed" ? "执行失败" : status?.kind === "status" && status.status === "paused" ? "已暂停" : status?.kind === "status" && status.status === "awaiting_tool_permission" ? "等待确认" : active ? "正在执行" : "执行过程";
+  const label = legacy ? "历史执行记录" : status?.kind === "status" && status.status === "cancelled" ? "已停止" : status?.kind === "status" && status.status === "failed" ? "执行失败" : status?.kind === "status" && status.status === "paused" ? "已暂停" : status?.kind === "status" && status.status === "awaiting_tool_permission" ? "等待确认" : active ? "正在执行" : "执行过程";
   const failed = entries.some((entry) => entry.status === "failed");
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
@@ -44,7 +45,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {entries.map((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status}>
-          {entry.kind === "progress" ? <div className="whitespace-pre-wrap break-words leading-relaxed"><span className="mr-2 text-11">Thinking · 进展摘要</span>{entry.text}</div> :
+          {entry.kind === "progress" ? <div className="whitespace-pre-wrap break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span>{entry.text}</div> :
             <details className="min-w-0">
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
