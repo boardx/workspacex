@@ -15,8 +15,10 @@
  * `chat.controller.ts` 的 `createMessage` 同一条门，不第二次发明。
  */
 import {
-  Body, Controller, ForbiddenException, Get, HttpException, Inject, NotFoundException, Param, Post, Query,
+  Body, Controller, ForbiddenException, Get, HttpException, Inject, NotFoundException, Optional, Param, Post, Query,
 } from "@nestjs/common";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
+import { INTERJECTION_STORE, type InterjectionStore } from "../../application/agent-run/interjection-store";
 import { getThread, ThreadNotVisibleError } from "../../application/chat/get-thread";
 import { resolveVisibility } from "../../application/chat/resolve-visibility";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
@@ -58,6 +60,8 @@ export class PlanControlController {
     @Inject(ENGINE_RUN_CONTROLLER) private readonly engine: EngineRunController,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
     @Inject(DATABASE_PORT) private readonly db: DatabasePort,
+    @Optional() @Inject(INTERJECTION_STORE) private readonly interjections?: InterjectionStore,
+    @Optional() @Inject(MODEL_CALL_PORT) private readonly model?: ModelCallPort,
   ) {}
 
   private get visibilityDeps() {
@@ -203,7 +207,7 @@ export class PlanControlController {
     assertPrincipal(principal);
     await this.assertWritable(principal, threadId, projectId);
     return this.runPlanEdit(() => pausePlanRun(
-      { runs: this.runs, engine: this.engine, provenance: this.provenance },
+      { runs: this.runs, engine: this.engine, provenance: this.provenance, interjections: this.interjections, model: this.model },
       { orgId: toOrgId(principal.orgId), threadId, actorId: principal.userId },
     ));
   }

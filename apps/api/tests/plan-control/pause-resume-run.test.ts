@@ -12,7 +12,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { DEEP_AGENT_PROVIDER_NAME, deriveRemoteThreadId } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { INTERJECTION_STORE, type InterjectionStore } from "../../src/application/agent-run/interjection-store";
 import { pausePlanRun } from "../../src/application/plan-control/pause-plan-run";
 import { resumePlanRun } from "../../src/application/plan-control/resume-plan-run";
 import { DeepAgentEngineRunController } from "../../src/infrastructure/plan-control/deep-agent-engine-run-controller";
@@ -152,6 +153,13 @@ let planLedger: PlanLedgerRepository & PlanRunStatusReader;
 let provenance: ProvenanceWriter;
 let engine: DeepAgentEngineRunController;
 let runCreator: AcceptMessagePlanRunCreator;
+const pauseDeps = () => ({ runs: planLedger, engine, provenance,
+  interjections: app.get<InterjectionStore>(INTERJECTION_STORE),
+  model: { supportsLiveInterjections: () => true } as unknown as ModelCallPort });
+async function confirmBoundaryPause(runId: string) {
+  await app.get<AgentRunStore>(AGENT_RUN_STORE).pauseAtCheckpoint!(toOrgId(ORG), runId);
+}
+
 
 /** 同 confirm-plan-delivery-digest.test.ts 的既有先例：轮询而非固定 sleep，避免
  *  machine 负载高时 executor.kick() 这个 fire-and-forget 还没到达就先断言。 */
@@ -234,33 +242,26 @@ async function seedRun(status: string, opts: { remoteRunId?: string | null } = {
 }
 
 describe("UC-9 pausePlanRun", () => {
-  it("有活跃 run（status=running，remote_run_id 已记账）：真实调用 cancel(action=interrupt)，run 打上 pausedAt", async () => {
+  it("有活跃 run：持久化暂停请求，工具不中断，确认前不标 pausedAt", async () => {
     const runId = await seedRun("running");
     const out = await pausePlanRun(
-      { runs: planLedger, engine, provenance },
+      pauseDeps(),
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     );
     expect(out.runId).toBe(runId);
     expect(out.pausedAtStepId).toBeNull();
     expect(out.auditEventId).toBeTruthy();
 
-    // 独立核实：真实替身确实收到了 cancel 请求，且 action=interrupt（domain.md I-12
-    // 的证据链：不是 rollback，是保留已完成步骤的 interrupt）。
-    expect(deepAgent.cancelCalls).toHaveLength(1);
-    expect(deepAgent.cancelCalls[0]!.action).toBe("interrupt");
-    expect(deepAgent.cancelCalls[0]!.threadId).toBe(deriveRemoteThreadId(THREAD));
-    expect(deepAgent.cancelCalls[0]!.runId).toBe(`remote-${runId}`);
-
-    // 独立查库：paused_at 真的写进去了，不是只信返回值。
-    const row = await asApp(ORG, (c) =>
-      c.query<{ paused_at: Date | null }>("SELECT paused_at FROM agent_runs WHERE id = $1", [runId]),
-    );
-    expect(row.rows[0]!.paused_at).not.toBeNull();
+    expect(out.status).toBe("pause_requested");
+    expect(deepAgent.cancelCalls).toHaveLength(0);
+    const row = await asApp(ORG, c => c.query("SELECT paused_at,pause_requested_at FROM agent_runs WHERE id=$1", [runId]));
+    expect(row.rows[0].paused_at).toBeNull();
+    expect(row.rows[0].pause_requested_at).not.toBeNull();
   });
 
   it("没有任何 run -> NO_ACTIVE_RUN", async () => {
     await expect(pausePlanRun(
-      { runs: planLedger, engine, provenance },
+      pauseDeps(),
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     )).rejects.toMatchObject({ code: "NO_ACTIVE_RUN" });
   });
@@ -268,7 +269,7 @@ describe("UC-9 pausePlanRun", () => {
   it("run 已终态（succeeded）-> RUN_ALREADY_TERMINAL", async () => {
     await seedRun("succeeded");
     await expect(pausePlanRun(
-      { runs: planLedger, engine, provenance },
+      pauseDeps(),
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     )).rejects.toMatchObject({ code: "RUN_ALREADY_TERMINAL" });
   });
@@ -276,25 +277,27 @@ describe("UC-9 pausePlanRun", () => {
   it("run 已终态（failed）-> RUN_ALREADY_TERMINAL", async () => {
     await seedRun("failed");
     await expect(pausePlanRun(
-      { runs: planLedger, engine, provenance },
+      pauseDeps(),
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     )).rejects.toMatchObject({ code: "RUN_ALREADY_TERMINAL" });
   });
 
   it("重复暂停已暂停的 run -> NO_ACTIVE_RUN（没有第二次可暂停的对象）", async () => {
-    await seedRun("running");
-    await pausePlanRun({ runs: planLedger, engine, provenance }, { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR });
+    const runId = await seedRun("running");
+    await pausePlanRun(pauseDeps(), { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR });
+    await confirmBoundaryPause(runId);
     await expect(pausePlanRun(
-      { runs: planLedger, engine, provenance },
+      pauseDeps(),
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     )).rejects.toMatchObject({ code: "NO_ACTIVE_RUN" });
   });
 });
 
 describe("UC-13 resumePlanRun（暂停的配对动作）", () => {
-  it("暂停后可恢复：真实创建新一轮 run（复用 acceptHumanMessage 管线），产生新 runId 与审计", async () => {
+  it("确认安全边界暂停后：同 logical run 以 checkpoint command 恢复", async () => {
     const pausedRunId = await seedRun("running");
-    await pausePlanRun({ runs: planLedger, engine, provenance }, { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR });
+    await pausePlanRun(pauseDeps(), { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR });
+    await confirmBoundaryPause(pausedRunId);
 
     const beforeCount = deepAgent.runBodies.length;
     const out = await resumePlanRun(
@@ -302,7 +305,7 @@ describe("UC-13 resumePlanRun（暂停的配对动作）", () => {
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     );
     expect(out.runId).toBeTruthy();
-    expect(out.runId).not.toBe(pausedRunId);
+    expect(out.runId).toBe(pausedRunId);
     expect(out.resumedFromStepId).toBeNull();
     expect(out.auditEventId).toBeTruthy();
 
@@ -310,6 +313,8 @@ describe("UC-13 resumePlanRun（暂停的配对动作）", () => {
     // executor.kick() 是 fire-and-forget，固定 50ms sleep 在机器负载高时会先于它到达
     // 就断言——同 confirm-plan-delivery-digest.test.ts 的既有先例，改轮询。
     await waitForNewRunBody(beforeCount);
+    expect(deepAgent.runBodies[beforeCount]).toMatchObject({ command: { resume: true } });
+    expect(deepAgent.runBodies[beforeCount]).not.toHaveProperty("input");
   }, 30_000);
 
   it("从未暂停过 -> NO_PAUSED_STATE", async () => {

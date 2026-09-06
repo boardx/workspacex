@@ -34,6 +34,7 @@
  * swallowed, never thrown into the caller -- the run itself keeps executing and writes back
  * to chat regardless of whether this incidental plan-ledger sync succeeds.
  */
+import { PlanEditError } from "../../application/plan-control/plan-edit-errors";
 import { randomUUID } from "node:crypto";
 import { acceptHumanMessage } from "../../application/chat/message-roundtrip";
 import type {
@@ -96,6 +97,20 @@ export const PLAN_CONFIRMATION_MESSAGE_TEXT = "（用户已确认当前计划，
 
 export class AcceptMessagePlanRunCreator implements PlanRunCreator {
   constructor(private readonly deps: AcceptMessagePlanRunCreatorDeps) {}
+
+  async resumeCheckpoint(input: { readonly orgId: OrgId; readonly threadId: string;
+    readonly actorId: string; readonly runId: string }): Promise<PlanRunCreatorOutput> {
+    const latest = await this.deps.runs.getLatestRun(input.orgId, input.threadId);
+    if (!latest || latest.runId !== input.runId || latest.pausedAt === null) {
+      throw new PlanEditError("NO_PAUSED_STATE");
+    }
+    // The store atomically requeues this logical run and records checkpoint mode.
+    // Repeated clicks cannot mint new messages or restart already-completed tools.
+    const resumed = await this.deps.agentRunStore.resumeCheckpoint?.(input.orgId, input.runId);
+    if (!resumed) throw new PlanEditError("NO_PAUSED_STATE");
+    this.deps.executor.kick(input.orgId);
+    return { runId: input.runId };
+  }
 
   async createConfirmedRun(input: PlanRunCreatorInput): Promise<PlanRunCreatorOutput> {
     const latestRun = await this.deps.runs.getLatestRun(input.orgId, input.threadId);

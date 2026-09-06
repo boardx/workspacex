@@ -11,6 +11,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import { retryPlanStep } from "../../src/application/plan-control/retry-plan-step";
+import { INTERJECTION_STORE, type InterjectionStore } from "../../src/application/agent-run/interjection-store";
 import { pausePlanRun } from "../../src/application/plan-control/pause-plan-run";
 import { resumePlanRun } from "../../src/application/plan-control/resume-plan-run";
 import { ingestEnginePlanSnapshot } from "../../src/application/plan-control/ingest-engine-plan-snapshot";
@@ -287,12 +288,15 @@ describe("I-13：pause / resume / retry-step 三个执行控制动作各产生�
 
     await seedRun("running");
     const pauseOut = await pausePlanRun(
-      { runs: planLedger, engine, provenance }, { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
+      { runs: planLedger, engine, provenance,
+        interjections: app.get<InterjectionStore>(INTERJECTION_STORE),
+        model: { supportsLiveInterjections: () => true } as unknown as ModelCallPort }, { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     );
     const pauseAudit = await auditRow(pauseOut.auditEventId);
     expect(pauseAudit?.actor_id).toBe(ACTOR);
     expect(pauseAudit?.detail.action).toBe("pausePlanRun");
 
+    await app.get<AgentRunStore>(AGENT_RUN_STORE).pauseAtCheckpoint!(toOrgId(ORG), pauseOut.runId);
     const resumeOut = await resumePlanRun(
       { runs: planLedger, runCreator, provenance }, { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     );

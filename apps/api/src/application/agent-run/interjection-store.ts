@@ -26,6 +26,13 @@ export interface PendingInterjection {
 }
 
 export interface InterjectionStore {
+  /** Request a pause at the next model boundary; never interrupt a running tool. */
+  requestPause?(orgId: OrgId, runId: string): Promise<boolean>;
+  isPauseRequested?(orgId: OrgId, runId: string): Promise<boolean>;
+
+  /** Live kernel boundary: retain delivery until a checkpoint-visible message acknowledges it. */
+  pollForKernel?(orgId: OrgId, runId: string, acknowledgedIds: readonly string[]): Promise<readonly StagedKernelInterjection[]>;
+
   /** 记录一条新插话，覆盖该 run 此前任何尚未被消费的一条（见文件头"单槽覆盖"）。 */
   submit(orgId: OrgId, runId: string, interjection: PendingInterjection): Promise<void>;
 
