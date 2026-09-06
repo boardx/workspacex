@@ -99,15 +99,13 @@ function ToolPermissionDialog({
 
   const focusComposer = React.useCallback((): void => {
     const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
-    // `preventScroll`：裸 `focus()` 会把每一层祖先（含 AppShell 的 overflow 容器）滚到输入框处，
-    // 2026-09-06 人类实测整个界面被滚空（见 `app-shell.tsx` 根节点 `overflow-clip` 注释）。
-    composer?.focus({ preventScroll: true });
+    composer?.focus();
   }, []);
   const returnFocusToComposer = React.useCallback((event: Event) => {
     const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
     if (composer === null) return;
     event.preventDefault();
-    composer.focus({ preventScroll: true });
+    composer.focus();
   }, []);
   // 同 `SendEmailApprovalDialog` 的既有纪律（issue #2075 TW-A11Y-5）：Esc/遮罩关闭
   // 与卸载两条路径都可能发生，两帧延迟兜底 Radix 自己的焦点恢复覆盖我们的设置。
