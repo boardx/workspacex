@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
 import { CopilotChatMessageView, CopilotChatAssistantMessage, useRenderToolCall } from "@copilotkit/react-core/v2";
 import { progressMessageIds, type TraceStore, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-message";
@@ -25,7 +26,7 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   return <>
     {runId && trace?.length && first?.id === props.message.id ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
     {trace && first?.id === props.message.id ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} /> : null}
-    <RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={trace && progressMessageIds(trace).has(props.message.id) ? { ...props.message, content: "" } : props.message} /></RunTraceCoveredContext.Provider>
+    <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={trace && progressMessageIds(trace).has(props.message.id) ? { ...props.message, content: "" } : props.message} /></RunTraceCoveredContext.Provider></MessageRunContext.Provider>
   </>;
 }
 const TraceAssistantSlot = Object.assign(TraceAssistant, CopilotChatAssistantMessage);

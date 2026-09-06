@@ -2,6 +2,7 @@
 import { createContext } from "react";
 import { agentInterrupts } from "@repo/contracts";
 import { CALL_SKILL_TOOL_NAME } from "@/lib/agent-run-phase";
+export const MessageRunContext = createContext<string | null>(null);
 export const RunTraceCoveredContext = createContext(false);
 /** These renderers may ask for input; their genuine framework tool IDs stay outside disclosures. */
 export function isDecisionTool(name: string): boolean {
