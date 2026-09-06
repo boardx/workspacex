@@ -117,8 +117,10 @@ services:
     environment:
       SKILL_SANDBOX_SOCKET: /run/sandbox/skill-sandbox.sock
       SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
-      # PDF 画中文的字体（镜像里预装，见 apps/skill-sandbox/Dockerfile）。
-      SKILL_SANDBOX_CJK_FONT: /usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf
+      # ⚠ 这里**不再声明** SKILL_SANDBOX_CJK_FONT：字体路径由镜像的 ENV 给（见
+      # apps/skill-sandbox/Dockerfile）。2026-09-06 实测事故：路径同时写在 Dockerfile 与
+      # 这里，换字体时只改了前者，容器于是拿着一个**已经不存在的**路径跑，部署自检当场红。
+      # 一个事实一处声明——本仓栽过五次的同一条。门控见 deploy-image-freshness.test.ts。
       TMPDIR: /tmp
     mem_limit: 1g
     memswap_limit: 1g
