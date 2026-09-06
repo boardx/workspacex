@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res } from "@nestjs/common";
+import { BadRequestException, ConflictException, Body, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { artifactsSteering as AS } from "@repo/contracts";
 import { ARTIFACT_STORE, ARTIFACT_RUN_LAUNCHER, type ArtifactStore, type ArtifactRunLauncher } from "../../application/artifacts-steering/ports";
@@ -11,6 +11,7 @@ import { OBJECT_STORE, type ObjectStore } from "../../application/artifact/ports
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import { toOrgId } from "../../domain/org-id";
+import { MessageIdempotencyConflictError } from "../../application/chat/message-roundtrip";
 import { getThread } from "../../application/chat/get-thread";
 
 @Controller()
@@ -31,6 +32,7 @@ export class AgentArtifactController {
   }
   private async visible<T>(fn: () => Promise<T>): Promise<T> {
     try { return await fn(); } catch (error) {
+      if (error instanceof MessageIdempotencyConflictError) throw new ConflictException("artifact_continuation_idempotency_conflict");
       if (error instanceof ArtifactNotFoundError || error instanceof ArtifactNotVisibleError || error instanceof ArtifactVersionNotFoundError) {
         throw new NotFoundException("artifact_not_found");
       }
