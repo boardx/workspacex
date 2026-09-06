@@ -405,6 +405,10 @@ const ALLOWLIST = new Map([
     "src/infrastructure/agent-run/pg-tool-permission-grant-repository.ts",
     "Phase 14 F06（`plan-permissions` 契约束 R5，`StandingToolGrant`）：`tool_permission_grants` 背后没有 `ObjectRef` 能表达的 ACL 对象（不是 Artifact/Segment/Capability/Project/Organization/Interview 的任何一种）——它是授权元数据（哪个组织/run 对哪个工具名给过哪一档许可），不是要披露给某个请求方看的租户内容。三个方法没有一个把行内容交还给调用方：`grantForRun`/`grantStanding` 是纯 INSERT（`Promise<void>`）；`hasGrant` 折成一个布尔（`SELECT EXISTS(...)`），从不选出 `granted_by_user_id`/`granted_at` 这类内容列。真正的裁决在上一层：`decide-tool-permission.ts` 先跑 `resolveVisibility` + observer/归档线程判定，只有通过之后才会调用这三个方法之一——同 F119/F124 系列条目的既有次序（先裁决、后落库），不是第二道无人把关的门。⚠ 豁免仅在（a）本文件只出现 `tool_permission_grants` 这一张租户表，（b）从不调用 `withoutTenant`，（c）`hasGrant` 唯一的 SELECT 是 `EXISTS(...)`、从不选出 `granted_by_user_id`/`granted_at` 时有效：tests/agent-run/tool-permission-grant-repo-guard.test.ts 逐条断言。该测试若被删除，本条目必须一并删除。",
   ],
+  [
+    "src/infrastructure/inbox/pg-inbox-order-repository.ts",
+    "UC-17.8 收件箱看板列内排序：`inbox_item_order` 背后没有 `ObjectRef` 能表达的 ACL 对象——它不是 Artifact/Segment/Capability 的任何一种，一行只有「这个组织的这个 (kind,id) 排在第几」这一个整数，不携带反馈正文、标题、任何 D3 门控过的内容。真正的内容披露仍然只发生在 `list-inbox.ts`/`inbox-projection.ts` 那条已经 `guard()` 过的路径上（`buildFeedbackInboxItems` 的 `detail`/`structured` 走 `product_feedback` 的 D3 判定）——这张表只在那条路径**之后**把 `sort_order` 合并进已经决定好能不能看的 `InboxItem.boardOrder` 字段，合并的是一个数字,不是决定「能不能看」。谁能写排序值由 `reorder-inbox-item.ts` 的 `viewerOrgRole !== null`（本组织成员）把守,与 `listInbox` 同一条门,不是这张表自己决定。⚠ 豁免仅在（a）本文件只出现 `inbox_item_order` 这一张租户表,（b）从不调用 `withoutTenant`,（c）`getOrders`/`setOrders` 两个方法都不选出/写入除 `kind`/`item_id`/`sort_order`/`updated_at` 之外的任何列时有效:tests/inbox/inbox-order-repo-guard.test.ts 逐条断言。该测试若被删除,本条目必须一并删除。",
+  ],
 ]);
 
 /** Parse the migrations for tenant-carrying table names. */

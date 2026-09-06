@@ -9,6 +9,7 @@ import type { z } from "zod";
 import type { FeedbackItemView } from "../feedback/list-feedback";
 import type { ErrorLogListItem, ErrorLogPort } from "../ports/error-log.port";
 import type { DesignProjectView } from "../design-workbench/project-shared";
+import { boardOrderKey as boardOrderKeyOf, defaultBoardOrder } from "../../domain/inbox/board-order";
 
 /** 见 `list-inbox.ts` 文件头「分页的取舍」——单次聚合最多从 `error_logs` 拉这么多行。 */
 export const INBOX_EXCEPTION_FETCH_CAP = 2000;
@@ -42,6 +43,22 @@ export async function fetchAllExceptions(
 }
 
 export type InboxItemView = z.infer<typeof C.InboxItem>;
+
+/**
+ * 把落库的排序值合并进 `InboxItem.boardOrder`（`listInbox`/`getInboxCounts` 共用，
+ * 同一事实不得声明在两处）。**没有存过值的条目**回退到 `defaultBoardOrder`——
+ * 与现有「按 `createdAt` 倒序」的顺序保持连续，见该函数头注。
+ */
+export function applyBoardOrder(
+  keyed: readonly InboxKeyed[],
+  orders: ReadonlyMap<string, number>,
+): InboxKeyed[] {
+  return keyed.map(({ item, key }) => {
+    const stored = orders.get(boardOrderKeyOf(item.kind, item.id));
+    const boardOrder = stored ?? defaultBoardOrder(item.createdAt);
+    return { item: { ...item, boardOrder }, key };
+  });
+}
 
 /** 排序/游标用的复合键——`createdAt` 倒序，同刻按 `kind`+`id`（契约头注原话）。 */
 export interface InboxSortKey {
@@ -148,6 +165,9 @@ export function buildFeedbackInboxItems(rows: readonly FeedbackItemView[]): Inbo
       exception: null,
       submittedByMe: row.submittedByMe,
       votedByMe: row.votedByMe,
+      // 占位——真实值由 `list-inbox.ts`/`get-inbox-counts.ts` 用 `InboxOrderRepository`
+      // 的结果覆盖（见 `applyBoardOrder`）。这里必须先给一个数字满足 `.strict()` 形状。
+      boardOrder: 0,
     };
     return { item, key: { createdAt: row.createdAt, kind: "feedback", id: row.id } };
   });
@@ -209,6 +229,7 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
       },
       submittedByMe: false,
       votedByMe: false,
+      boardOrder: 0, // 占位，见 `buildFeedbackInboxItems` 同名字段注释。
     };
     return { item, key: { createdAt: row.createdAt, kind: "exception", id: row.id } };
   });
@@ -266,6 +287,7 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       exception: null,
       submittedByMe: false,
       votedByMe: false,
+      boardOrder: 0, // 占位，见 `buildFeedbackInboxItems` 同名字段注释。
     };
     return { item, key: { createdAt: row.createdAt, kind: "design", id: row.id } };
   });

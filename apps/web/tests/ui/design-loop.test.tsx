@@ -116,6 +116,7 @@ function feedbackItem(over: Partial<InboxItem> = {}): InboxItem {
     statusReason: null, severe: false, votes: 1, reporter: "谁",
     createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
     resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+    boardOrder: 0,
     ...over,
   };
 }
@@ -128,6 +129,7 @@ function exceptionItem(over: Partial<InboxItem> = {}): InboxItem {
     createdAt: "2026-09-01T00:00:00.000Z", github: null, attachments: [], linkedFeedbackId: null,
     resolvedByDesignId: null, exception: { location: "svc", count: 3, affectedUsers: 1, devNote: null, tags: [] },
     submittedByMe: false, votedByMe: false,
+    boardOrder: 0,
     ...over,
   };
 }
@@ -140,6 +142,10 @@ function mockInbox(items: InboxItem[], sources: { exception: "included" | "withh
     if (/^\/feedback\/[^/]+\/events$/.test(path)) return { events: [] };
     if (/^\/feedback\/[^/]+\/github-issue\/comments$/.test(path)) return { comments: [] };
     if (/^\/system\/error-logs\/[^/]+$/.test(path) && opts?.method === "PUT") return { status: opts.body?.status };
+    if (path === "/inbox/order" && opts?.method === "PUT") {
+      const orderedIds = (opts.body?.orderedIds as { kind: string; id: string }[] | undefined) ?? [];
+      return { stage: opts.body?.stage, count: orderedIds.length };
+    }
     throw new Error(`unexpected ${path}`);
   });
 }
@@ -261,6 +267,102 @@ describe("⑤ 看板拖放触发真实状态迁移", () => {
     // 回滚后卡片回到待处理列。
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
     expect(screen.getByTestId("inbox-card-B-1")).toBeTruthy();
+  });
+});
+
+describe("⑫ 归档动作：只对 feedback 且 sourceStatus ∈ {已修复,不做} 显示，点击调 triageFeedback(已归档)", () => {
+  it("已修复的反馈卡片：菜单里有「归档」，点击后乐观挪到「不做」列并调 PUT /feedback/:id/status(已归档)", async () => {
+    mockInbox([feedbackItem({ id: "x1", sourceStatus: "已修复", stage: "done" })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    expect(await screen.findByTestId("inbox-card-menu-archive-B-1")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-card-menu-archive-B-1"));
+    // 乐观迁移：卡片立刻挪进「不做」列（沿用现有列，不新建列）。
+    await waitFor(() => expect(within(screen.getByTestId("inbox-column-archived")).getByTestId("inbox-card-B-1")).toBeTruthy());
+    await waitFor(() => expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(1));
+    const [, opts] = callsTo("/feedback/x1/status", "PUT")[0]!;
+    expect(opts!.body!.status).toBe("已归档");
+    // 已归档不需要理由——不像「不做」那样必填。
+    expect(opts!.body!.reason).toBeNull();
+  });
+
+  it("待处理的反馈：菜单里没有「归档」（状态机不允许直接归档）", async () => {
+    mockInbox([feedbackItem({ id: "x1", sourceStatus: "待处理", stage: "backlog" })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-B-1"), { button: 0 });
+    await screen.findByTestId("inbox-card-menu-start-B-1");
+    expect(screen.queryByTestId("inbox-card-menu-archive-B-1")).toBeNull();
+  });
+
+  it("系统异常：即使落在「不做」列也没有「归档」菜单项（系统异常没有已归档状态）", async () => {
+    mockInbox([exceptionItem({ id: "e1", sourceStatus: "不做", stage: "archived" })]);
+    render(<DesignLoopInboxScreen state="default" />);
+    // issue #2752 ①——「全部」视图默认隐藏系统异常，先切回可见。
+    fireEvent.click(await screen.findByTestId("inbox-toggle-show-exceptions"));
+    await screen.findByTestId("inbox-card-E-1");
+    fireEvent.pointerDown(screen.getByTestId("inbox-card-menu-E-1"), { button: 0 });
+    await waitFor(() => expect(screen.getByTestId("inbox-card-menu-content-E-1")).toBeTruthy());
+    expect(screen.queryByTestId("inbox-card-menu-archive-E-1")).toBeNull();
+  });
+});
+
+describe("⑬ 列内排序：↑↓ 按钮与拖拽落库，且不触发跨列状态迁移", () => {
+  it("↑↓ 按钮交换同列内相邻两张卡片的顺序，并调 PUT /inbox/order（不改状态）", async () => {
+    mockInbox([
+      feedbackItem({ id: "x1", code: "B-1", boardOrder: 0 }),
+      feedbackItem({ id: "x2", code: "B-2", boardOrder: 1 }),
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    const col = screen.getByTestId("inbox-column-backlog");
+    // 初始顺序：B-1 在 B-2 前面。
+    const before = within(col).getAllByRole("button", { name: /^B-\d/ });
+    expect(before[0]!.getAttribute("aria-label")).toContain("B-1");
+    // 第二张卡片点「上移」，应当与第一张互换。
+    fireEvent.click(screen.getByTestId("inbox-card-move-up-B-2"));
+    await waitFor(() => expect(callsTo("/inbox/order", "PUT")).toHaveLength(1));
+    const [, opts] = callsTo("/inbox/order", "PUT")[0]!;
+    expect(opts!.body!.stage).toBe("backlog");
+    expect((opts!.body!.orderedIds as { id: string }[]).map((o) => o.id)).toEqual(["x2", "x1"]);
+    await waitFor(() => {
+      const after = within(col).getAllByRole("button", { name: /^B-\d/ });
+      expect(after[0]!.getAttribute("aria-label")).toContain("B-2");
+    });
+    // 没有发状态迁移请求——排序不是分诊。
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
+    expect(callsTo("/feedback/x2/status", "PUT")).toHaveLength(0);
+  });
+
+  it("列首的卡片「上移」按钮禁用，列尾的「下移」按钮禁用", async () => {
+    mockInbox([
+      feedbackItem({ id: "x1", code: "B-1", boardOrder: 0 }),
+      feedbackItem({ id: "x2", code: "B-2", boardOrder: 1 }),
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    expect((screen.getByTestId("inbox-card-move-up-B-1") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("inbox-card-move-down-B-2") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("inbox-card-move-down-B-1") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("inbox-card-move-up-B-2") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("同列内拖拽落到另一张卡片上 ⇒ 只调 /inbox/order，不触发跨列状态迁移", async () => {
+    mockInbox([
+      feedbackItem({ id: "x1", code: "B-1", boardOrder: 0 }),
+      feedbackItem({ id: "x2", code: "B-2", boardOrder: 1 }),
+    ]);
+    render(<DesignLoopInboxScreen state="default" />);
+    await screen.findByTestId("inbox-card-B-1");
+    // 把 B-1 拖到 B-2 上面（同列）：应当插到 B-2 前面（顺序不变，因为 B-1 本就在前面）
+    // ——换一种更能体现效果的手法：把 B-2 拖到 B-1 上面，B-2 应当被插到 B-1 前面。
+    fireEvent.drop(screen.getByTestId("inbox-card-B-1"), { dataTransfer: { getData: () => "x2" } });
+    await waitFor(() => expect(callsTo("/inbox/order", "PUT")).toHaveLength(1));
+    const [, opts] = callsTo("/inbox/order", "PUT")[0]!;
+    expect((opts!.body!.orderedIds as { id: string }[]).map((o) => o.id)).toEqual(["x2", "x1"]);
+    expect(callsTo("/feedback/x1/status", "PUT")).toHaveLength(0);
+    expect(callsTo("/feedback/x2/status", "PUT")).toHaveLength(0);
   });
 });
 

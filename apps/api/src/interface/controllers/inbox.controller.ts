@@ -19,7 +19,7 @@
  *      `isRequestorPlatformOperator`（与 `PlatformOperatorGuard` 同一个域函数 +
  *      同两个仓储，见该文件头注）。
  */
-import { BadRequestException, Controller, ForbiddenException, Get, Inject, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Inject, Put, Query, Req } from "@nestjs/common";
 import { inbox as C } from "@repo/contracts";
 import { PRODUCT_FEEDBACK_REPOSITORY, type ProductFeedbackRepositoryFactory } from "../../application/feedback/ports";
 import {
@@ -40,12 +40,15 @@ import {
 import { isRequestorPlatformOperator } from "../../application/system/platform-operator-check";
 import { getInboxCounts } from "../../application/inbox/get-inbox-counts";
 import { InboxPermissionRevokedError, listInbox } from "../../application/inbox/list-inbox";
+import { reorderInboxItem } from "../../application/inbox/reorder-inbox-item";
+import { INBOX_ORDER_REPOSITORY, type InboxOrderRepositoryFactory } from "../../application/inbox/inbox-order.port";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 
 export const LIST_INBOX_SCHEMA = C.operations.listInbox.in;
+export const REORDER_INBOX_ITEM_SCHEMA = C.operations.reorderInboxItem.in;
 
 @Controller()
 export class InboxController {
@@ -59,6 +62,7 @@ export class InboxController {
     @Inject(CREDENTIAL_REPOSITORY) private readonly credentials: CredentialRepository,
     @Inject(PLATFORM_ADMIN_REPOSITORY) private readonly platformAdmins: PlatformAdminRepository,
     @Inject(DESIGN_PROJECT_REPOSITORY) private readonly designProjects: DesignProjectRepositoryFactory,
+    @Inject(INBOX_ORDER_REPOSITORY) private readonly orders: InboxOrderRepositoryFactory,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
@@ -121,6 +125,7 @@ export class InboxController {
           },
           errorLog: await this.errorLogForRequestor(principal),
           design: this.designDeps(principal),
+          orders: this.orders.forOrg(principal.orgId),
           logger: this.logger,
           traceId: traceIdOf(req),
         },
@@ -162,6 +167,28 @@ export class InboxController {
           traceId: traceIdOf(req),
         },
         { viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
+      );
+    } catch (e) {
+      if (e instanceof InboxPermissionRevokedError) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+      throw e;
+    }
+  }
+
+  /**
+   * 2026-09-06——列内排序（拖拽排序 / ↑↓ 按钮共用），见契约 `reorderInboxItem` 头注。
+   * 鉴权同 `listInbox`：只挡「不是本组织成员」，不要求 `canTriage`——排序不是分诊。
+   */
+  @Put("/inbox/order")
+  async reorder(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const parsed = REORDER_INBOX_ITEM_SCHEMA.safeParse(body);
+    if (!parsed.success) throw new BadRequestException("validation_failed");
+
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      return await reorderInboxItem(
+        { orders: this.orders.forOrg(principal.orgId) },
+        { viewerOrgRole: orgRole, stage: parsed.data.stage, orderedIds: parsed.data.orderedIds },
       );
     } catch (e) {
       if (e instanceof InboxPermissionRevokedError) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
