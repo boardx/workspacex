@@ -145,6 +145,12 @@ interface TemplateRow {
    */
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * issue #2825「用完之后推荐」——同上面三段注释的既有纪律：这份夹具类型是手写的，
+   * 契约扩了字段就得跟着补。⚠ 这一条是 CI 逐字报出来才补上的（本地漏跑了加完
+   * 用例之后的那次 typecheck），正是那几段注释反复说的同一件事。
+   */
+  recommendAfter?: string[];
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
