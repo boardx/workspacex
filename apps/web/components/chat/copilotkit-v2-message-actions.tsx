@@ -152,13 +152,13 @@ export function CopilotKitV2CopyButton({
  * 挂进 `additionalToolbarItems` 的那一组：反馈 + 评分。
  * 两者的渲染条件各自独立（见文件头），不是一个开关控制两个。
  */
-export function CopilotKitV2MessageExtraActions({ messageId }: { messageId: string }): JSX.Element | null {
+export function CopilotKitV2MessageExtraActions({ messageId, projectId = null }: { messageId: string; projectId?: string | null }): JSX.Element | null {
   const ctx = useCopilotKitV2MessageActions();
   if (ctx === null) return null;
   const chatMessageId = ctx.identity.resolve(messageId);
   return (
     <>
-      <PersistedAgentFeedback messageId={ctx.identity.resolvePersisted(messageId)} />
+      <PersistedAgentFeedback messageId={ctx.identity.resolvePersisted(messageId)} projectId={projectId} />
       {/* ⚠ `revealOnHover={false}`：框架 toolbar 链路上没有 `group` 祖先，
           旧轨道那套 `group-hover:visible` 在这里不是"藏起来"，是「永远不出现」
           （真栈 e2e 第一轮实测点不下去）。见 `message-rating.tsx` 该 prop 的注释。 */}
