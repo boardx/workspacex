@@ -94,6 +94,23 @@ function ReadOnlyResolved({ testid, title, note }: { testid: string; title: stri
  */
 const liveSeenInterruptToolCallIds = new Set<string>();
 
+/**
+ * issue #2858（devapp 2026-09-06 实测）—— 用户点了「继续」/「接受」之后，run 继续跑几十秒
+ * 到几分钟，这段时间 `useHumanInTheLoop` 给这条 toolCall 的 `status` 不是 `complete`
+ * （结果要等 run 收尾才回来），而 `respond` 已经用掉 ⇒ 落进上面"非 executing"分支的
+ * `loading` 骨架——用户看到自己刚确认过的卡片变成一排灰块，以为页面坏了。
+ * 这里按 toolCallId 记"本标签页已裁决"，裁决过的一律渲染「已裁决，等待 run 收尾」，
+ * 与 `complete` 分支同一张只读卡；纯本地记忆，不改协议。
+ */
+const respondedInterruptToolCallIds = new Set<string>();
+
+function respondOnce<T>(toolCallId: string, respond: (payload: T) => void): (payload: T) => void {
+  return (payload) => {
+    respondedInterruptToolCallIds.add(toolCallId);
+    respond(payload);
+  };
+}
+
 /** 三张卡片共用：在 `render` 里先记一次"是否观察到未决态"，再判断这次
  *  `"complete"` 渲染是不是翻旧账。纯函数，不是 Hook，`render` 三处都能直接调用。 */
 function isStaleHistoricInterruptReplay(toolCallId: string, status: string): boolean {
@@ -111,7 +128,7 @@ export function CopilotKitV2AgentInterrupts(): null {
         if (status !== "executing" || respond === undefined) {
           const state: UiState = status === "inProgress" ? "loading" : "default";
           if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
-          return status === "complete" ? (
+          return status === "complete" || respondedInterruptToolCallIds.has(toolCallId) ? (
             <ReadOnlyResolved
               testid="agent-interrupt-confirm-intent"
               title="确认一下我的理解，再开始"
@@ -142,8 +159,8 @@ export function CopilotKitV2AgentInterrupts(): null {
             args={args}
             state="default"
             canWrite
-            onContinue={() => respond("approved")}
-            onEditSubmit={(assumptions) => respond({ assumptions })}
+            onContinue={() => respondOnce(toolCallId, respond)("approved")}
+            onEditSubmit={(assumptions) => respondOnce(toolCallId, respond)({ assumptions })}
           />
         );
       },
@@ -159,7 +176,7 @@ export function CopilotKitV2AgentInterrupts(): null {
       render: ({ toolCallId, status, args, respond }) => {
         if (status !== "executing" || respond === undefined) {
           if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
-          return status === "complete" ? (
+          return status === "complete" || respondedInterruptToolCallIds.has(toolCallId) ? (
             <ReadOnlyResolved
               testid="agent-interrupt-fill-params"
               title="开始前，帮我确认几个参数"
@@ -180,8 +197,8 @@ export function CopilotKitV2AgentInterrupts(): null {
             canWrite
             onSubmit={(payload) =>
               payload.decision === "approve"
-                ? respond("approved")
-                : respond({ fields: payload.fields, appliedTo: payload.appliedTo })
+                ? respondOnce(toolCallId, respond)("approved")
+                : respondOnce(toolCallId, respond)({ fields: payload.fields, appliedTo: payload.appliedTo })
             }
           />
         );
@@ -198,7 +215,7 @@ export function CopilotKitV2AgentInterrupts(): null {
       render: ({ toolCallId, status, args, respond }) => {
         if (status !== "executing" || respond === undefined) {
           if (isStaleHistoricInterruptReplay(toolCallId, status)) return null;
-          return status === "complete" ? (
+          return status === "complete" || respondedInterruptToolCallIds.has(toolCallId) ? (
             <ReadOnlyResolved
               testid="agent-interrupt-choose-option"
               title="有几条推进路线，选一条我就接着做"
@@ -217,8 +234,8 @@ export function CopilotKitV2AgentInterrupts(): null {
             options={args.options}
             state="default"
             canWrite
-            onSelectConfirm={(selectedOptionId) => respond({ selectedOptionId })}
-            onDecline={() => respond("denied")}
+            onSelectConfirm={(selectedOptionId) => respondOnce(toolCallId, respond)({ selectedOptionId })}
+            onDecline={() => respondOnce(toolCallId, respond)("denied")}
           />
         );
       },

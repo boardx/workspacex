@@ -105,6 +105,27 @@ describe("CopilotKitV2AgentInterrupts —— 三个工具名的 useHumanInTheLoo
       expect(respond).not.toHaveBeenCalled();
     });
 
+    it("issue #2858：点「继续」之后 run 还在跑（status 回到 inProgress、respond 已用掉）→ 渲染「已裁决」只读卡，不是骨架", () => {
+      render(<CopilotKitV2AgentInterrupts />);
+      const respond = respondSpy();
+      const args = { requestId: "req-2858", understanding: "U", assumptions: ["a1", "a2"] };
+      const live = registered[AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent]!.render({
+        name: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent, description: "", toolCallId: "tc-2858",
+        args, status: "executing", result: undefined, respond,
+      });
+      const first = render(live);
+      fireEvent.click(screen.getByTestId("agent-interrupt-confirm-intent-continue"));
+      expect(respond).toHaveBeenCalledWith("approved");
+      first.unmount();
+      const after = registered[AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent]!.render({
+        name: AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent, description: "", toolCallId: "tc-2858",
+        args, status: "inProgress", result: undefined, respond: undefined,
+      });
+      render(after);
+      expect(screen.getByTestId("agent-interrupt-confirm-intent-resolved")).toHaveTextContent("本次裁决已提交，等待 run 收尾。");
+      expect(screen.queryByTestId("agent-interrupt-confirm-intent-continue")).toBeNull();
+    });
+
     it("改假设并提交 → respond({ assumptions }) 原始对象（走通用 edit 协议）", () => {
       render(<CopilotKitV2AgentInterrupts />);
       const respond = respondSpy();
