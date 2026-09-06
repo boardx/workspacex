@@ -10,15 +10,18 @@ flowchart TD
   E2 --> T11[WX-T011 真实假设确认：ac597acc5]:::verified
   E2 --> E4API[WX-E004 API完整包传输：7dcd2feaa]:::verified
   E2 --> E3[WX-E003 会话沙箱与官方Backend：b12638bd8]:::verified
-  E4API --> E4[W03 原生Skills加载、版本与子代理范围]:::active
+  E4API --> E4[WX-E004 原生Skills图：实现与独立review中]:::active
   E3 --> E4
+  E4 --> Scope[WX-T010 子代理授权及文件范围]
+  E4 --> Version[WX-E008 固定包版本兼容]
   E3 --> E6[W04 native产物适配与取消原语]
   E4 --> E6
   E2 --> T42[WX-T042 文本子任务队列增量：06d1e5cce]:::verified
   Peer[peer S2–S10：统一事件与主任务控制、插话审批、工作台与成果UI]:::peer
   E6 -.接入统一契约.-> Peer
-  T42 -.子任务结果与取消原语.-> Peer
-  E2 --> MCP[W05 LangChain MCP接线]
+  T42 --> T42Join[WX-T042 父取消、产物及公共事件待接入]
+  T42Join -.复用统一控制契约.-> Peer
+  E2 --> MCP[WX-E005 LangChain MCP接线：现有实现差量审查中]:::active
   MCP --> Browser[W10 浏览器交互与网页产物]
   E4 --> Research[W06 搜索与研究工作流]
   E4 --> Context[W07 项目上下文、检索与写作]
@@ -35,6 +38,9 @@ flowchart TD
   E6 --> Gate[逐任务测试、独立review、真实E2E]
   Peer --> Gate
   T42 --> Gate
+  T42Join --> Gate
+  Scope --> Gate
+  Version --> Gate
   Browser --> Gate
   Research --> Gate
   Context --> Gate
@@ -61,3 +67,5 @@ flowchart TD
 W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。WX-E003 最终 sessions-only 镜像、HTTP 隔离链和官方 Backend 已验证提交，原生图接线仍在进行。WX-T042 文本子任务持久化、权限、幂等和受限执行已验证提交；父取消、产物和公共事件仍待集成，不代表 W16 全部验收。蓝色节点保留集成验收责任，不在本分支重复建设。
 
 原始 75 项编号、场景、重要程度和验收范围见 `capability-catalog.json`；本图没有删除灰色任务，也不以已有提交数量换算总体完成百分比。
+
+当前执行顺序：完成 E004 原生 Skills 图的独立 review 和未知执行结果禁止重试的回归，再接 E005 已有 MCP 治理。E004 已运行固定脚本并下载真实产物，但尚未提交，也尚未启用生产 factory；因此保持黄色。T010 与 E008 单列为待完成，不把 E004 的局部结果扩展为整个 W03 已完成。
