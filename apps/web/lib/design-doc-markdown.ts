@@ -6,7 +6,10 @@
  * 原型部分是组件树的**缩进大纲**，不是 JSON dump：给工程/评审看的是结构与文案，
  * 树的原始 JSON 由 `DesignProject.prototype` 本身承载，不在文档里再复制一份。
  */
+import { designPrototype } from "@repo/contracts";
 import type { DesignProject, PrototypeNode } from "./live-design-workbench";
+
+const { isPrototypeContainer } = designPrototype;
 
 const TEMPLATE_LABEL: Record<DesignProject["template"], string> = { mobile: "移动端设计", ui: "UI 原型", wireframe: "线框图" };
 
@@ -26,12 +29,20 @@ export function describeNode(n: PrototypeNode): string {
     case "tabs": return `标签页：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
     case "badge": return `标记「${n.props.label}」`;
     case "avatar": return `头像：${n.props.name}`;
+    case "bottomnav": return `底部导航：${n.props.items.map((t, i) => (i === (n.props.active ?? 0) ? `[${t}]` : t)).join(" / ")}`;
+    case "switch": return `开关「${n.props.label}」${n.props.on === true ? "（开）" : "（关）"}`;
+    case "checkbox": return `复选「${n.props.label}」${n.props.checked === true ? "（已选）" : ""}`;
+    case "chip": return `筛选「${n.props.label}」${n.props.selected === true ? "（选中）" : ""}`;
+    case "progress": return `进度 ${n.props.value}%${n.props.label !== undefined ? `：${n.props.label}` : ""}`;
+    case "stat": return `指标「${n.props.label}」= ${n.props.value}${n.props.delta !== undefined ? `（${n.props.delta}）` : ""}`;
+    case "hero": return `头图「${n.props.title}」${n.props.subtitle !== undefined ? `：${n.props.subtitle}` : ""}${n.props.cta !== undefined ? `，按钮「${n.props.cta}」` : ""}`;
+    case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }
 
 export function outlinePrototype(root: PrototypeNode, depth = 0, out: string[] = []): string[] {
   out.push(`${"  ".repeat(depth)}- ${describeNode(root)}`);
-  if (root.type === "stack" || root.type === "card") for (const c of root.children) outlinePrototype(c, depth + 1, out);
+  if (isPrototypeContainer(root)) for (const c of root.children) outlinePrototype(c, depth + 1, out);
   return out;
 }
 

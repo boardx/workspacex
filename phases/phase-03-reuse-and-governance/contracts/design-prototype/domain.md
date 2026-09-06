@@ -28,6 +28,7 @@
 - **I-11 只经契约 patch 写回，永远重验。**（迭代 5 改写；原文「只能经模型写回」）写 `prototype` 只有两条路：
   模型写回（`appendProjectChat`）与人直接改（`patchPrototype`），两条都走 `applyPrototypePatch` / 整页契约重验，
   `createProject`/`updateProject` 仍不收它，新建恒为 `[]`。
+- **I-17 容器闭集单源。**（迭代 6）有 `children` 的类型只在 `PROTOTYPE_CONTAINER_TYPES` 声明一次，所有遍历（度量 / 补 id / patch / 路径 / 大纲）只认 `isPrototypeContainer`。
 - **I-12 原语说明单源。** `DESIGN_CHAT_SYSTEM_PROMPT` 拼 `PROTOTYPE_SCHEMA_GUIDE`，不另抄；
   契约测试断言闭集里每个类型名都出现在说明里。
 
@@ -61,4 +62,5 @@
 - ✅ 迭代 3：版本历史（append-only 快照；预览 / 恢复；恢复也是一版）。
 - ✅ 迭代 4：多画板画布（并排 / 平移缩放 / 聚焦），单页视图保留。
 - ✅ 迭代 5：直接编辑（属性面板 setProps / 删除），与模型同一条写回路径，记 `user` 版本。
+- ✅ 迭代 6：原语 13 → 21 + 设备尺寸由模板派生（主题不做，理由见 V21）。
 - 流式生成 / 取消。

@@ -1391,6 +1391,34 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.getByTestId("design-detail-phone-tree").textContent).not.toContain("停止");
   });
 
+  it("迭代 6：新原语渲染（hero/grid/stat/progress/chip/switch/checkbox/bottomnav）；设备尺寸由模板派生", async () => {
+    const page = { type: "stack" as const, id: "r", children: [
+      { type: "hero" as const, id: "h", props: { title: "本月用量", cta: "升级套餐" } },
+      { type: "grid" as const, id: "g", props: { columns: 3 as const }, children: [{ type: "stat" as const, id: "s", props: { label: "对话数", value: "1,284", delta: "+12%", tone: "success" as const } }] },
+      { type: "progress" as const, id: "p", props: { value: 68, label: "配额" } },
+      { type: "chip" as const, id: "c", props: { label: "本周", selected: true } },
+      { type: "switch" as const, id: "w", props: { label: "提醒", on: true } },
+      { type: "checkbox" as const, id: "k", props: { label: "含测试", checked: true } },
+      { type: "bottomnav" as const, id: "b", props: { items: ["聊天", "用量"], active: 1 } },
+    ] };
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ template: "ui", frames: ["用量"], prototype: [page] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    const tree = screen.getByTestId("design-detail-phone-tree");
+    for (const t of ["本月用量", "升级套餐", "对话数", "1,284", "+12%", "配额", "68%", "本周", "提醒", "含测试", "聊天", "用量"]) expect(tree.textContent).toContain(t);
+    expect(tree.querySelector('[data-proto="grid"]')?.className).toContain("grid-cols-3");
+    expect(tree.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("68");
+    expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("desktop"); // template ui ⇒ 桌面
+    // 属性面板认识新类型
+    fireEvent.click(tree.querySelector('[data-node-id="s"]') as HTMLElement);
+    expect(screen.getByTestId("design-inspector").textContent).toContain("指标「对话数」");
+    expect(screen.getByTestId("design-inspector-delta")).toBeTruthy();
+  });
+
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {
     const create = vi.fn(() => "blob:doc");
     const revoke = vi.fn();

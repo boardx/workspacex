@@ -118,6 +118,37 @@ describe("迭代 5 属性面板元数据（单源门控）", () => {
   });
 });
 
+describe("迭代 6 原语扩充", () => {
+  it("八种新原语正例；grid 是容器；闭集 21 种；bottomnav 2–6 项", () => {
+    const page: dp.PrototypeNode = {
+      type: "stack", children: [
+        { type: "hero", props: { title: "本月用量", subtitle: "已用 68%", cta: "升级" } },
+        { type: "grid", props: { columns: 2 }, children: [
+          { type: "stat", props: { label: "对话数", value: "1,284", delta: "+12%", tone: "success" } },
+          { type: "progress", props: { value: 68, label: "配额" } },
+        ] },
+        { type: "chip", props: { label: "本周", selected: true } },
+        { type: "switch", props: { label: "提醒", on: true } },
+        { type: "checkbox", props: { label: "含测试" } },
+        { type: "bottomnav", props: { items: ["聊天", "用量"], active: 1 } },
+      ],
+    };
+    expect(dp.PrototypeNode.safeParse(page).success).toBe(true);
+    expect(dp.PrototypeNodeType.options).toHaveLength(21);
+    expect(dp.isPrototypeContainer({ type: "grid", children: [] })).toBe(true);
+    expect(dp.isPrototypeContainer({ type: "hero", props: { title: "x" } })).toBe(false);
+    expect(dp.measurePrototype(page)).toEqual({ nodes: 9, depth: 3 });
+    expect(dp.PrototypeNode.safeParse({ type: "bottomnav", props: { items: ["只有一项"] } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "progress", props: { value: 120 } }).success).toBe(false);
+    expect(dp.PrototypeNode.safeParse({ type: "grid", props: { columns: 4 }, children: [] }).success).toBe(false);
+    // patch 能进 grid
+    const withIds = dp.ensurePrototypeIds([page]);
+    const gridId = (withIds[0] as { children: dp.PrototypeNode[] }).children[1]!.id!;
+    const out = dp.applyPrototypePatch(withIds, [{ op: "insert", parentId: gridId, node: { type: "stat", props: { label: "新", value: "1" } } }]);
+    expect(dp.measurePrototype(out[0]!).nodes).toBe(10);
+  });
+});
+
 describe("PROTOTYPE_SCHEMA_GUIDE", () => {
   it("每个原语类型都出现在给模型看的说明里", () => {
     for (const t of dp.PrototypeNodeType.options) expect(dp.PROTOTYPE_SCHEMA_GUIDE).toContain(t);

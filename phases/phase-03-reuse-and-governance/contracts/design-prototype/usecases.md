@@ -44,6 +44,8 @@ UC: 发一句设计协作消息（B5.2 同一条路径，写回形状扩展）
 
 - **V20**（迭代 5）：owner 选中节点后在属性面板改文案/属性 ⇒ `POST …/prototype/patch { ops:[setProps], summary }`；删除 ⇒ `remove`；服务端 `applyPrototypePatch` 重验、与 UPDATE 同一事务记 `source: user` 版本；未知 id / 删根 / 结果不合法 / 没原型 ⇒ 400 `PROTOTYPE_PATCH_REJECTED` + 闭集 `patchReason`（`PrototypePatchRejectReason`）+ `nodeId`，前端按闭集给人话；非 owner ⇒ 403。属性面板字段表 `PROTOTYPE_FIELDS` 来自契约（测试锁定与各 `*Props` shape 键集合相等）；清空可选属性发 `null`（setProps 里 null = 删键）。
 
+- **V21**（迭代 6）：原语闭集 13 → 21（bottomnav / switch / checkbox / chip / progress / stat / hero / grid），契约、渲染表、属性面板、设计文档大纲、给模型的说明五处同步（契约测试锁定闭集数量与说明覆盖）；设备尺寸由模板派生并写进 prompt（手机 300 / 平板 440 / 桌面 720）。主题**不做**：globals.css 没有独立 `.light` 类，画布跟随页面 `.dark`，不另造第二份 token。
+
 **失败模式（穷举，B5.2 的表继续适用，这里只列本束新增）**
 | 情况 | 用户可见结果 | 标记 |
 |---|---|---|

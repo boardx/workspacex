@@ -75,7 +75,7 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
 function describeProject(ctx: DesignChatContext): string {
   const lines = [
     `项目名称：${ctx.name}`,
-    `模板：${ctx.template}`,
+    `模板：${ctx.template}（目标设备：${ctx.template === "mobile" ? "手机，画布宽 300px，单列为主，底部可放 bottomnav" : ctx.template === "ui" ? "桌面，画布宽 720px，可用 grid 2–3 列与 hero 头图" : "平板，画布宽 440px"}）`,
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,

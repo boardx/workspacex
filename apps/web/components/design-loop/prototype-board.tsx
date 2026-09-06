@@ -12,21 +12,18 @@
 import * as React from "react";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PrototypeCanvas } from "./prototype-canvas";
+import { PrototypeCanvas, DEVICE_SIZE, type PrototypeDevice } from "./prototype-canvas";
 import type { PrototypeNode } from "@/lib/live-design-workbench";
 
 const MIN = 0.25;
 const MAX = 2.5;
 const STEP = 1.2;
-/** 每块画板占位宽高（与 `PrototypeCanvas` 的 300×560 一致，+ 标题行），用于「适应」的估算。 */
-const BOARD_W = 300;
-const BOARD_H = 590;
 const GAP = 48;
 
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect,
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone",
 }: {
   frames: readonly string[];
   prototype: readonly PrototypeNode[];
@@ -34,7 +31,11 @@ export function PrototypeBoard({
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
+  device?: PrototypeDevice;
 }) {
+  // 每块画板占位宽高（与 `PrototypeCanvas` 的设备尺寸一致，+ 标题行），用于「适应」的估算。
+  const BOARD_W = DEVICE_SIZE[device].w;
+  const BOARD_H = DEVICE_SIZE[device].h + 30;
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const stageRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: GAP, y: GAP / 2, k: 1 });
@@ -50,7 +51,7 @@ export function PrototypeBoard({
     // 「适应」允许低于手动缩放下限：20 页的画板本来就得缩到 25% 以下才装得下，但不小于 5%、不放大超过 1。
     const k = Math.max(0.05, Math.min((el.clientWidth - GAP * 2) / contentW, (el.clientHeight - GAP) / contentH, 1));
     setView({ x: Math.max(GAP, (el.clientWidth - contentW * k) / 2), y: Math.max(GAP / 2, (el.clientHeight - contentH * k) / 2), k });
-  }, [frames.length]);
+  }, [frames.length, BOARD_W, BOARD_H]);
 
   // 首次与页数变化时适应一次；jsdom 里 clientWidth 为 0，fit 会把 k 夹到 MIN——测试不依赖具体值。
   React.useEffect(() => { fit(); }, [fit]);
@@ -135,6 +136,7 @@ export function PrototypeBoard({
                 root={prototype[i] ?? null}
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
+                device={device}
               />
             </div>
           </div>

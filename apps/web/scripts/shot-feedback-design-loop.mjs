@@ -84,6 +84,8 @@ const SHOTS = [
   ["detail-prototype-single-dark.png", "detail-prototype", "default", "dark", singleView],
   // 迭代 2：点选画布节点 ⇒ 描边 + 对话面板上方的焦点 chip
   ["detail-prototype-focus-dark.png", "detail-prototype", "default", "dark", selectNode],
+  // 迭代 6：第三页「用量」——新原语一屏
+  ["detail-prototype-page3-dark.png", "detail-prototype", "default", "dark", openThirdFrame],
   // 迭代 5：选中节点后的属性面板（与 focus 同一动作，右栏多出字段）
   ["detail-prototype-inspector-dark.png", "detail-prototype", "default", "dark", selectNodeInspector],
   // 迭代 3：打开版本历史并预览 v1
@@ -130,6 +132,7 @@ async function createSlow(page) {
   await page.waitForSelector('[data-testid="workbench-generating"]', { timeout: 4000 });
 }
 async function singleView(page) { await clickUntil(page, '[data-testid="design-detail-view-single"]', '[data-testid="design-detail-phone-tree"]'); await page.waitForTimeout(200); }
+async function openThirdFrame(page) { await singleView(page); await click(page, '[data-testid="design-detail-frame-2"]'); }
 async function openSecondFrame(page) { await singleView(page); await click(page, '[data-testid="design-detail-frame-1"]'); }
 async function openHistoryPreview(page) {
   await singleView(page);

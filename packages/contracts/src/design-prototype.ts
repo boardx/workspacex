@@ -41,6 +41,8 @@ export const PROTOTYPE_MAX_SCREENS = 20;
 /** 原语闭集。新增类型要同时改 `apps/web/components/design-loop/prototype-canvas.tsx` 的渲染表——那边用 `Record<PrototypeNodeType, …>` 穷举，漏了编译不过。 */
 export const PrototypeNodeType = z.enum([
   "stack", "card", "navbar", "text", "button", "input", "image", "list", "divider", "spacer", "tabs", "badge", "avatar",
+  // 迭代 6 扩充：底部导航 / 开关 / 复选 / 筛选 chip / 进度 / 指标 / hero 头图 / 网格容器
+  "bottomnav", "switch", "checkbox", "chip", "progress", "stat", "hero", "grid",
 ]);
 export type PrototypeNodeType = z.infer<typeof PrototypeNodeType>;
 
@@ -89,6 +91,14 @@ const SpacerProps = z.object({ size: Scale.optional() }).strict();
 const TabsProps = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
 const AvatarProps = z.object({ name: Label }).strict();
+const BottomNavProps = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
+const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
+const CheckboxProps = z.object({ label: Label, checked: z.boolean().optional() }).strict();
+const ChipProps = z.object({ label: Label, selected: z.boolean().optional() }).strict();
+const ProgressProps = z.object({ value: z.number().min(0).max(100), label: Label.optional() }).strict();
+const StatProps = z.object({ label: Label, value: Label, delta: Label.optional(), tone: z.enum(["neutral", "success", "danger"]).optional() }).strict();
+const HeroProps = z.object({ title: Label, subtitle: z.string().max(400).optional(), cta: Label.optional() }).strict();
+const GridProps = z.object({ columns: z.union([z.literal(2), z.literal(3)]).optional(), gap: Scale.optional() }).strict();
 
 /** 叶子节点：无 `children`。 */
 const Leaf = z.discriminatedUnion("type", [
@@ -103,12 +113,27 @@ const Leaf = z.discriminatedUnion("type", [
   z.object({ id: Id, type: z.literal("tabs"), props: TabsProps }).strict(),
   z.object({ id: Id, type: z.literal("badge"), props: BadgeProps }).strict(),
   z.object({ id: Id, type: z.literal("avatar"), props: AvatarProps }).strict(),
+  z.object({ id: Id, type: z.literal("bottomnav"), props: BottomNavProps }).strict(),
+  z.object({ id: Id, type: z.literal("switch"), props: SwitchProps }).strict(),
+  z.object({ id: Id, type: z.literal("checkbox"), props: CheckboxProps }).strict(),
+  z.object({ id: Id, type: z.literal("chip"), props: ChipProps }).strict(),
+  z.object({ id: Id, type: z.literal("progress"), props: ProgressProps }).strict(),
+  z.object({ id: Id, type: z.literal("stat"), props: StatProps }).strict(),
+  z.object({ id: Id, type: z.literal("hero"), props: HeroProps }).strict(),
 ]);
 
 export type PrototypeNode =
   | z.infer<typeof Leaf>
   | { readonly id?: PrototypeNodeId; readonly type: "stack"; readonly props?: z.infer<typeof StackProps>; readonly children: readonly PrototypeNode[] }
-  | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] };
+  | { readonly id?: PrototypeNodeId; readonly type: "card"; readonly props?: z.infer<typeof CardProps>; readonly children: readonly PrototypeNode[] }
+  | { readonly id?: PrototypeNodeId; readonly type: "grid"; readonly props?: z.infer<typeof GridProps>; readonly children: readonly PrototypeNode[] };
+
+/** 容器类型闭集（有 `children`）。所有遍历只认它，加容器只改这里 + `PrototypeNode` 的 union。 */
+export const PROTOTYPE_CONTAINER_TYPES = ["stack", "card", "grid"] as const;
+export type PrototypeContainer = Extract<PrototypeNode, { children: readonly PrototypeNode[] }>;
+export function isPrototypeContainer(n: PrototypeNode): n is PrototypeContainer {
+  return (PROTOTYPE_CONTAINER_TYPES as readonly string[]).includes(n.type);
+}
 
 /**
  * 递归节点。容器（`stack`/`card`）必有 `children`（可空数组），叶子没有。
@@ -119,6 +144,7 @@ export const PrototypeNode: z.ZodType<PrototypeNode> = z.lazy(() =>
     Leaf,
     z.object({ id: Id, type: z.literal("stack"), props: StackProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
     z.object({ id: Id, type: z.literal("card"), props: CardProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
+    z.object({ id: Id, type: z.literal("grid"), props: GridProps.optional(), children: z.array(PrototypeNode).max(PROTOTYPE_MAX_NODES) }).strict(),
   ]),
 );
 
@@ -129,7 +155,7 @@ export function measurePrototype(root: PrototypeNode): { readonly nodes: number;
   const walk = (n: PrototypeNode, d: number): void => {
     nodes += 1;
     if (d > depth) depth = d;
-    if (n.type === "stack" || n.type === "card") for (const c of n.children) walk(c, d + 1);
+    if (isPrototypeContainer(n)) for (const c of n.children) walk(c, d + 1);
   };
   walk(root, 1);
   return { nodes, depth };
@@ -249,7 +275,7 @@ export type DesignPrototypePatch = z.infer<typeof DesignPrototypePatch>;
 
 function collectIds(root: PrototypeNode, out: Set<string>): void {
   if (root.id !== undefined) out.add(root.id);
-  if (root.type === "stack" || root.type === "card") for (const c of root.children) collectIds(c, out);
+  if (isPrototypeContainer(root)) for (const c of root.children) collectIds(c, out);
 }
 
 /**
@@ -277,7 +303,7 @@ export function ensurePrototypeIds(prototype: readonly PrototypeNode[]): readonl
       id = nextId();
     }
     seen.add(id);
-    if (n.type === "stack" || n.type === "card") {
+    if (isPrototypeContainer(n)) {
       const children = n.children.map(fill);
       return { ...n, id, children };
     }
@@ -296,7 +322,7 @@ export function prototypeIdsUnique(prototype: readonly PrototypeNode[]): boolean
       if (seen.has(n.id)) dup = true;
       seen.add(n.id);
     }
-    if (n.type === "stack" || n.type === "card") for (const c of n.children) walk(c);
+    if (isPrototypeContainer(n)) for (const c of n.children) walk(c);
   };
   for (const r of prototype) walk(r);
   return !dup;
@@ -351,7 +377,7 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
         hit += 1;
         return null;
       }
-      if (n.type === "stack" || n.type === "card") {
+      if (isPrototypeContainer(n)) {
         let children: PrototypeNode[] = [];
         for (const c of n.children) {
           const r = visit(c);
@@ -396,7 +422,7 @@ export function findPrototypeNodePath(
   const walk = (n: PrototypeNode, trail: PrototypeNode[]): PrototypeNode[] | null => {
     const here = [...trail, n];
     if (n.id === id) return here;
-    if (n.type === "stack" || n.type === "card") {
+    if (isPrototypeContainer(n)) {
       for (const c of n.children) {
         const r = walk(c, here);
         if (r !== null) return r;
@@ -427,6 +453,14 @@ export function prototypeNodeLabel(n: PrototypeNode): string {
     case "stack": return n.props?.direction === "row" ? "横向布局" : "纵向布局";
     case "divider": return "分隔线";
     case "spacer": return "留白";
+    case "bottomnav": return `底部导航（${n.props.items.join("/")}）`;
+    case "switch": return `开关「${n.props.label}」`;
+    case "checkbox": return `复选「${n.props.label}」`;
+    case "chip": return `筛选「${n.props.label}」`;
+    case "progress": return `进度 ${n.props.value}%`;
+    case "stat": return `指标「${n.props.label}」`;
+    case "hero": return `头图「${n.props.title}」`;
+    case "grid": return `网格（${n.props?.columns ?? 2} 列）`;
   }
 }
 
@@ -442,10 +476,13 @@ export const PROTOTYPE_PATCH_GUIDE =
  * 与上面各 `*Props` 同步维护；契约测试 `design-prototype.test.ts` 检查每个类型名都出现在这段文字里。
  */
 export const PROTOTYPE_SCHEMA_GUIDE =
-  "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card 有 children）。类型与 props：" +
+  "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
   "card{title?}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align?}；" +
   "button{label, variant:primary|secondary|ghost|danger, full?}；input{placeholder?, label?, value?, multiline?}；" +
   "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
-  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}。" +
+  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}；" +
+  "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
+  "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
+  "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。`;

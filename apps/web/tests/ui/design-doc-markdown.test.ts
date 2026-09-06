@@ -30,6 +30,12 @@ describe("buildDesignDocMarkdown", () => {
   it("没有原型时说明页面划分而不是输出空节", () => {
     expect(buildDesignDocMarkdown({ ...base, prototype: [] }, NOW)).toContain("还没有生成原型。页面划分：聊天、设置");
   });
+  it("迭代 6：新原语的大纲文案；grid 是容器会缩进", () => {
+    expect(outlinePrototype({ type: "grid", props: { columns: 3 }, children: [{ type: "stat", props: { label: "对话数", value: "1,284", delta: "+12%" } }, { type: "progress", props: { value: 68 } }] }))
+      .toEqual(["- 网格（3 列）", "  - 指标「对话数」= 1,284（+12%）", "  - 进度 68%"]);
+    expect(outlinePrototype({ type: "bottomnav", props: { items: ["聊天", "用量"], active: 1 } })).toEqual(["- 底部导航：聊天 / [用量]"]);
+    expect(outlinePrototype({ type: "hero", props: { title: "T", cta: "Go" } })).toEqual(["- 头图「T」，按钮「Go」"]);
+  });
   it("outlinePrototype 深度缩进；文件名去掉不安全字符并带日期", () => {
     expect(outlinePrototype({ type: "card", props: { title: "T" }, children: [{ type: "divider" }] })).toEqual(["- 卡片「T」", "  - 分隔线"]);
     expect(designDocFileName(base, NOW)).toBe("聊天-UI-改版-2026-09-06.md");

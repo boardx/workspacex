@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
@@ -396,6 +396,7 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      device={deviceOf(project.template)}
                     />
                   ) : (
                     <PrototypeCanvas
@@ -403,6 +404,7 @@ export function DesignDetailScreen({
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
+                      device={deviceOf(project.template)}
                     />
                   )}
                 </div>

@@ -233,7 +233,7 @@ export const DESIGN_PROJECTS = [
     id: "proj-chat-ui", name: "对话助手移动端", template: "mobile",
     problem: "客服团队要一个像 ChatGPT 的内部对话助手：会话列表、消息流、输入区、发送/停止、空态与加载态。",
     criteria: ["首屏即可发出第一条消息", "生成中可随时停止", "历史会话可回看与继续"],
-    frames: ["聊天", "历史会话"],
+    frames: ["聊天", "历史会话", "用量"],
     prototype: withIds([
       {
         type: "stack", props: { direction: "column", gap: "sm" },
@@ -267,6 +267,24 @@ export const DESIGN_PROJECTS = [
           { type: "list", props: { items: ["退款政策改写", "周报润色", "英文邮件翻译", "面试题整理"], leading: "dot" } },
           { type: "spacer", props: { size: "lg" } },
           { type: "button", props: { label: "开始新对话", variant: "primary", full: true } },
+        ],
+      },
+      // 迭代 6：新原语一页——hero / grid+stat / progress / chip / switch / checkbox / bottomnav
+      {
+        type: "stack", props: { direction: "column", gap: "sm", padding: "sm" },
+        children: [
+          { type: "hero", props: { title: "本月用量", subtitle: "已用 68%，按当前速度月底前够用。", cta: "升级套餐" } },
+          { type: "grid", props: { columns: 2, gap: "sm" }, children: [
+            { type: "stat", props: { label: "对话数", value: "1,284", delta: "+12% 环比", tone: "success" } },
+            { type: "stat", props: { label: "平均响应", value: "2.4s", delta: "-0.3s", tone: "success" } },
+          ] },
+          { type: "progress", props: { value: 68, label: "配额" } },
+          { type: "stack", props: { direction: "row", gap: "sm" }, children: [
+            { type: "chip", props: { label: "本周", selected: true } }, { type: "chip", props: { label: "本月" } }, { type: "chip", props: { label: "全部" } },
+          ] },
+          { type: "switch", props: { label: "用量提醒", on: true } },
+          { type: "checkbox", props: { label: "包含测试对话", checked: false } },
+          { type: "bottomnav", props: { items: ["聊天", "历史", "用量", "我的"], active: 2 } },
         ],
       },
     ]),
