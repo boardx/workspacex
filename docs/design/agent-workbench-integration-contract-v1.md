@@ -4,7 +4,7 @@
 
 ## 可集成版本
 
-分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `b13e25f40`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
+分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `2e968fcba`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
 
 | 单元 | 提交 | 导出 / 入口 |
 |---|---|---|
@@ -94,7 +94,7 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 }
 ```
 
-`call_skill` 必须提供实际 `toolArgs` 对象，其中 `skill_stable_name` 是风险与挂载身份的唯一来源；可选 `skillStableName` 若提供必须一致。Python 从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch，以及恢复审批时的 permission_request_id；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
+`call_skill` 必须提供实际 `toolArgs` 对象，其中 `skill_stable_name` 是风险与挂载身份的唯一来源；可选 `skillStableName` 若提供必须一致。peer 接入 Python 原生工具/MCP 时，须从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch，以及恢复审批时的 permission_request_id；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
 
 输出为 allowed:true 或 allowed:false + reason（run_unavailable、cancel_requested、lease_lost、attempt_stale、skill_not_mounted、approval_required）。服务同时核对真实 run 状态、取消标记、epoch/有效期和真实 context_built 对应 attempt；租约只是其中一个条件。风险和 L2 grant 复用 `classifyToolCallRisk`、固定 `readPinnedSkills` 及 `ToolPermissionGrantStore`。
 
@@ -105,6 +105,10 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 应用迁移后新产生的待批记录才有完整身份；历史缺少实际 call/hash 的记录不猜测补授权。旧 HITL resume 路径保留。peer 的真正工具执行去重仍需按实际 call 处理，重复检查成功不表示允许重复产生副作用。
 
 该检查只授权当前 dispatch 边界，不是可长期复用的许可，也不替代工具自己的文件、SQL、MCP 等资源 ACL。peer 应紧邻执行调用；不能检查一次后永久缓存 allowed。实际 ToolCall 执行幂等及远端停止确认仍由工具/子任务 owner 提供。
+
+## 当前尚未接通的生产路径
+
+截至本次核查：本分支 Python 尚无 `skill_activity` 事实 emitter，也尚未调用 `tool-execution/check`；provider 已传入 callback 身份，但不等于原生工具已执行检查。`kernel.module.ts` 仅可选注入 `CHILD_RUN_CANCELLER`，尚无生产 adapter 注册。这三项由 Tools/Skills peer 接入；本分支提供统一接收端、检查端和展示端。缺省 adapter 返回 unavailable，不显示子任务全部停止。
 
 ## 已有证据与联合验收边界
 
