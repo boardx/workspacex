@@ -9,6 +9,7 @@ import { LinkBadge } from "./badges";
 import { PrototypeCanvas } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeBoard } from "./prototype-board";
+import { PrototypeInspector } from "./prototype-inspector";
 import { buildDesignDocMarkdown, designDocFileName } from "@/lib/design-doc-markdown";
 import {
   appendProjectChat as apiAppendProjectChat,
@@ -405,15 +406,29 @@ export function DesignDetailScreen({
                     />
                   )}
                 </div>
-                {historyOpen && (
-                  <PrototypeHistoryPanel
-                    projectId={project.id}
-                    revision={project.updatedAt}
-                    isOwner
-                    previewId={preview?.id ?? null}
-                    onPreview={setPreview}
-                    onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
-                  />
+                {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
+                {(historyOpen || (focus !== null && preview === null)) && (
+                  <div className="flex w-64 shrink-0 flex-col border-l border-border bg-card/40" data-testid="design-detail-side">
+                    {focus !== null && preview === null && (
+                      <PrototypeInspector
+                        projectId={project.id}
+                        node={focus.path[focus.path.length - 1]!}
+                        path={focus.path}
+                        onSaved={(p) => setLoad({ kind: "ready", project: p })}
+                        onDeleted={(p) => { setLoad({ kind: "ready", project: p }); setSelectedId(null); }}
+                      />
+                    )}
+                    {historyOpen && (
+                      <PrototypeHistoryPanel
+                        projectId={project.id}
+                        revision={project.updatedAt}
+                        isOwner
+                        previewId={preview?.id ?? null}
+                        onPreview={setPreview}
+                        onRestored={(p) => { setLoad({ kind: "ready", project: p }); setFrame(0); setSelectedId(null); }}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </div>

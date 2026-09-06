@@ -48,6 +48,7 @@ import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
+import { ApiError } from "@/lib/api-client";
 import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
@@ -1339,6 +1340,49 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(screen.queryByTestId("design-detail-board")).toBeNull();
     expect(screen.getAllByTestId("design-detail-phone-tree")).toHaveLength(1);
     expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("三");
+  });
+
+  it("迭代 5 属性面板：选中节点 ⇒ 右栏出现字段；改文案+样式后「应用」只发改动键的 setProps；返回的 project 替换；删除发 remove；服务端 400 的 detail 原样显示", async () => {
+    const tree = { type: "stack" as const, id: "n1", children: [{ type: "button" as const, id: "n2", props: { label: "发送" } }] };
+    const posted: unknown[] = [];
+    let fail = false;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        posted.push(opts.body);
+        if (fail) throw new ApiError(400, "PROTOTYPE_PATCH_REJECTED", { reasonCode: "PROTOTYPE_PATCH_REJECTED", detail: "patch op #0: no node with id n2" });
+        const body = opts.body as { ops: { op: string }[] };
+        if (body.ops[0]?.op === "remove") return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [] }] }) };
+        return { project: project({ frames: ["页"], prototype: [{ ...tree, children: [{ type: "button", id: "n2", props: { label: "停止", variant: "danger" } }] }] }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="n2"]') as HTMLElement);
+    const inspector = await screen.findByTestId("design-inspector");
+    expect(inspector.textContent).toContain("按钮「发送」");
+    expect((screen.getByTestId("design-inspector-apply") as HTMLButtonElement).disabled).toBe(true); // 没改不能应用
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    fireEvent.change(screen.getByTestId("design-inspector-variant"), { target: { value: "danger" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toEqual({ ops: [{ op: "setProps", id: "n2", props: { label: "停止", variant: "danger" } }], summary: "改了按钮「发送」" });
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("停止"));
+    expect(screen.getByTestId("design-inspector").textContent).toContain("按钮「停止」"); // 选中保持，面板随新树刷新
+    // 失败：detail 原样显示
+    fail = true;
+    fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "x" } });
+    fireEvent.click(screen.getByTestId("design-inspector-apply"));
+    expect((await screen.findByTestId("design-inspector-error")).textContent).toContain("no node with id n2");
+    fail = false;
+    // 删除
+    fireEvent.click(screen.getByTestId("design-inspector-remove"));
+    await waitFor(() => expect(posted).toHaveLength(3));
+    expect(posted[2]).toEqual({ ops: [{ op: "remove", id: "n2" }], summary: "删掉了按钮「停止」" });
+    await waitFor(() => expect(screen.queryByTestId("design-inspector")).toBeNull());
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).not.toContain("停止");
   });
 
   it("B5.3 导出设计文档：点按钮触发一次 .md 下载，内容含问题/验收/原型大纲", async () => {

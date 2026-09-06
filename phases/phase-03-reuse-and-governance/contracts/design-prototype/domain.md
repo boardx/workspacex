@@ -25,8 +25,9 @@
 - **I-10 字段级拒绝。** 任一页超限（深度 > 8 / 节点 > 300）或有非法节点 ⇒ **整个** `prototype`
   字段不写（`parseWriteback` 逐字段判，粒度是字段不是页）；`problem`/`criteria` 照写。
   半套原型比没有更糟——页数对不上 I-8 也守不住。
-- **I-11 只能经模型写回。** 前端没有任何写 `prototype` 的入口（`createProject`/`updateProject`
-  的 `in` 都不收它），新建恒为 `[]`。用户改画布的唯一动作是再说一句话。
+- **I-11 只经契约 patch 写回，永远重验。**（迭代 5 改写；原文「只能经模型写回」）写 `prototype` 只有两条路：
+  模型写回（`appendProjectChat`）与人直接改（`patchPrototype`），两条都走 `applyPrototypePatch` / 整页契约重验，
+  `createProject`/`updateProject` 仍不收它，新建恒为 `[]`。
 - **I-12 原语说明单源。** `DESIGN_CHAT_SYSTEM_PROMPT` 拼 `PROTOTYPE_SCHEMA_GUIDE`，不另抄；
   契约测试断言闭集里每个类型名都出现在说明里。
 
@@ -59,4 +60,5 @@
 - ✅ 迭代 2：画布选中态 + `focusNodeId`——「就改这一块」的对话上下文。
 - ✅ 迭代 3：版本历史（append-only 快照；预览 / 恢复；恢复也是一版）。
 - ✅ 迭代 4：多画板画布（并排 / 平移缩放 / 聚焦），单页视图保留。
+- ✅ 迭代 5：直接编辑（属性面板 setProps / 删除），与模型同一条写回路径，记 `user` 版本。
 - 流式生成 / 取消。

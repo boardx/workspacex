@@ -100,6 +100,15 @@ export async function restorePrototypeVersion(projectId: string, versionId: stri
   return apiRequest<RestorePrototypeVersionOut>(versionPath(designWorkbench.operations.restorePrototypeVersion.path, projectId, versionId), { method: "POST", body: {} });
 }
 
+/* ── 迭代 5：人直接改画布 ── */
+export type PrototypePatchOp = z.infer<typeof designPrototype.PrototypePatchOp>;
+export type PatchPrototypeOut = z.infer<typeof designWorkbench.operations.patchPrototype.out>;
+export async function patchPrototype(projectId: string, ops: readonly PrototypePatchOp[], summary?: string): Promise<PatchPrototypeOut> {
+  return apiRequest<PatchPrototypeOut>(versionPath(designWorkbench.operations.patchPrototype.path, projectId), {
+    method: "POST", body: { ops, ...(summary !== undefined ? { summary } : {}) },
+  });
+}
+
 /** 迭代 2：画布选中态用——契约里的路径查找与短标签，前端不另写遍历。 */
 export const findPrototypeNodePath = designPrototype.findPrototypeNodePath;
 export const prototypeNodeLabel = designPrototype.prototypeNodeLabel;

@@ -344,6 +344,13 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     return json(route, { project, reply: { source: "fallback", applied: [] } });
   });
 
+  // 迭代 5：人直接改画布——夹具只回显（不真的算 patch；截图不需要）
+  await page.route((url) => /^\/pm-designs\/[^/]+\/prototype\/patch$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    return json(route, { project });
+  });
   // 迭代 3：版本历史——夹具里 proj-chat-ui 有两版（v1 首次整页、v2 patch 改文案），其余项目为空。
   const versionsOf = (p) => (p.id !== "proj-chat-ui" ? [] : [
     { id: "proj-chat-ui-v2", seq: 2, source: "model", summary: "把「发送」改成了生成中的「停止」，并给 AI 回复加了正在生成的标记。", frames: p.frames, createdAt: "2026-09-06T02:00:40.000Z", prototype: p.prototype },

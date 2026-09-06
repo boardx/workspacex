@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { PrototypeNode, PrototypeNodeId } from "./design-prototype";
+import { DesignPrototypePatch, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -202,6 +202,8 @@ export const DesignWorkbenchError = z.enum([
   "DEPENDENCY_UNAVAILABLE",
   /** 迭代 3：原型版本不存在（或不属于该项目） */
   "VERSION_NOT_FOUND",
+  /** 迭代 5：人直接改画布的 patch 没通过（未知 id / 删根 / 结果不合法 / 还没有原型）——`detail` 说明哪一条 */
+  "PROTOTYPE_PATCH_REJECTED",
   /**
    * B4.4「用 PM 设计工作台深化」——源反馈不存在或不在本组织。
    * 同 `feedback-loop.ts` 的 `FEEDBACK_NOT_FOUND` 纪律：404 非 403，不泄露存在性。
@@ -380,6 +382,20 @@ export const operations = {
     in: z.object({ projectId: z.string(), versionId: z.string() }).strict(),
     out: z.object({ project: DesignProject, version: PrototypeVersionSummary }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "VERSION_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 迭代 5：人在画布上**直接改**——选中节点后在属性面板改文案/属性，或删掉它。仅 owner。
+   * 走与模型写回完全同一条路：`applyPrototypePatch` 顺序执行、每步重验、整批原子；成功记一条
+   * `source: "user"` 的版本（`summary` 由前端给一句，如「改了按钮「发送」的文案」）。
+   * 这条路径的存在改写了 I-11「只经模型写回」——现在是「只经契约 patch 写回（模型或人），永远重验」。
+   */
+  patchPrototype: {
+    method: "POST",
+    path: "/pm-designs/:projectId/prototype/patch",
+    in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */

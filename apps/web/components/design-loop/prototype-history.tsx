@@ -92,7 +92,7 @@ export function PrototypeHistoryPanel({
   };
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-l border-border bg-card/40" data-testid="design-history">
+    <aside className="flex min-h-0 flex-1 flex-col" data-testid="design-history">
       <div className="flex items-center gap-1.5 border-b border-border px-3 py-2 text-12 font-medium">
         <History aria-hidden className="h-3.5 w-3.5" /> 版本历史
         {items !== null && <span className="ml-auto text-10 text-muted-foreground">{items.length} 版</span>}
