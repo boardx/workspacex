@@ -109,6 +109,17 @@ describe("ensurePrototypeIds", () => {
     expect(ids).toEqual(["n1", "n2", "n3", "hero", "n4"]); // n2 已占用被跳过
     expect(dp.ensurePrototypeIds(out)).toBe(out); // 幂等：引用相等
   });
+  it("重复 id：第二次出现的重新分配，输出唯一", () => {
+    const dup = dp.ensurePrototypeIds([
+      { type: "stack", id: "a", children: [{ type: "divider", id: "a" }, { type: "divider", id: "n1" }] },
+      { type: "text", id: "a", props: { content: "x" } },
+    ]);
+    const ids: string[] = [];
+    const walk = (n: dp.PrototypeNode) => { ids.push(n.id ?? "?"); if (n.type === "stack" || n.type === "card") n.children.forEach(walk); };
+    dup.forEach(walk);
+    expect(ids).toEqual(["a", "n2", "n1", "n3"]);
+    expect(dp.prototypeIdsUnique(dup)).toBe(true);
+  });
 });
 
 describe("applyPrototypePatch", () => {
@@ -136,6 +147,14 @@ describe("applyPrototypePatch", () => {
     if (inner.type !== "stack") throw new Error("inner");
     expect(inner.children.map((c) => [c.type, c.id])).toEqual([["badge", "n6"], ["text", "n4"]]);
     expect(inner.children[1]).toMatchObject({ props: { content: "hello" } });
+    // replace 时 node 自带的 id 被忽略，沿用被替换节点的 id；同批后续 op 仍能按原 id 寻址
+    const kept = dp.applyPrototypePatch(base, [
+      { op: "replace", id: "n4", node: { id: "custom", type: "badge", props: { label: "x" } } },
+      { op: "setProps", id: "n4", props: { tone: "info" } },
+    ]);
+    const k = kept[0]!; if (k.type !== "stack") throw new Error();
+    const ki = k.children[1]!; if (ki.type !== "stack") throw new Error();
+    expect(ki.children[0]).toMatchObject({ id: "n4", type: "badge", props: { label: "x", tone: "info" } });
     expect(base[0]).toBe(base[0]); // 入参未改
     expect(dp.prototypeIdsUnique(out)).toBe(true);
   });

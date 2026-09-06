@@ -61,9 +61,10 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   '{"reply":"给用户看的回复，中文，不超过 200 字","writeback":{"problem":"改写后的问题背景（可选）",' +
   '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
   '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
-  "当用户要你设计/画/改界面、或首次描述要做的产品时，必须给 prototype：把**全部页面**完整给出（整页重生成，给出即整体替换，" +
-  "没提到的页也要保留并原样给回），每页一个 {frame, root}，页数 1–20。" +
-  "只改页面标签不改内容时可用 writeback.frames（完整标签列表）代替。" +
+  "还没有原型（当前原型为空数组）、用户首次描述要做的产品、要求新增页面、或要求整页重画/重排时，给 prototype：" +
+  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root}，页数 1–20。" +
+  "已有原型且只是局部改动（改文案/加删一块/调属性）时**不要**给 prototype，用 writeback.patch（见下）。" +
+  "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
   "writeback 只在用户这句话确实要求或明显蕴含改动时才给，且只给要改的键；不改就省略 writeback。不要编造用户没说的需求。";

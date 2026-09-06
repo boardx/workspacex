@@ -189,6 +189,7 @@ export const PROTOTYPE_MAX_PATCH_OPS = 50;
  * 语义是**顺序**执行：后一条能看到前一条的结果；任一条失败 ⇒ 整批不生效（字段级拒绝，同 I-10）。
  */
 export const PrototypePatchOp = z.discriminatedUnion("op", [
+  /** `node.id` 若给出会被忽略——替换后的根沿用被替换节点的 id（稳定身份）。 */
   z.object({ op: z.literal("replace"), id: PrototypeNodeId, node: PrototypeNode }).strict(),
   z.object({ op: z.literal("setProps"), id: PrototypeNodeId, props: z.record(z.unknown()) }).strict(),
   z.object({ op: z.literal("insert"), parentId: PrototypeNodeId, index: z.number().int().min(0).optional(), node: PrototypeNode }).strict(),
@@ -205,11 +206,14 @@ function collectIds(root: PrototypeNode, out: Set<string>): void {
 
 /**
  * 给没有 id 的节点补 id，已有的保留；生成的 id 在整个 `prototype` 内唯一（`n1`、`n2`……跳过已占用的）。
- * 幂等：全部有 id 时原样返回（引用相等）。落库前必跑一次，这样模型下一轮看到的每个节点都可寻址。
+ * 模型整页给出时可能把同一个 id 写在两个节点上——**第二次出现的重新分配**（遍历序，第一次出现的保留），
+ * 所以输出恒满足 `prototypeIdsUnique`。幂等：全部有 id 且无重复时原样返回（引用相等）。
+ * 落库前必跑一次，这样模型下一轮看到的每个节点都可寻址。
  */
 export function ensurePrototypeIds(prototype: readonly PrototypeNode[]): readonly PrototypeNode[] {
   const used = new Set<string>();
   for (const r of prototype) collectIds(r, used);
+  const seen = new Set<string>();
   let counter = 0;
   const nextId = (): string => {
     do counter += 1; while (used.has(`n${counter}`));
@@ -219,12 +223,17 @@ export function ensurePrototypeIds(prototype: readonly PrototypeNode[]): readonl
   };
   let changed = false;
   const fill = (n: PrototypeNode): PrototypeNode => {
-    const id = n.id ?? (changed = true, nextId());
+    let id = n.id;
+    if (id === undefined || seen.has(id)) {
+      changed = true;
+      id = nextId();
+    }
+    seen.add(id);
     if (n.type === "stack" || n.type === "card") {
       const children = n.children.map(fill);
       return { ...n, id, children };
     }
-    return n.id === undefined ? { ...n, id } : n;
+    return n.id === id ? n : { ...n, id };
   };
   const out = prototype.map(fill);
   return changed ? out : prototype;
@@ -271,7 +280,9 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
       }
       if (op.op === "replace" && n.id === op.id) {
         hit += 1;
-        return { ...op.node, id: op.node.id ?? n.id };
+        // 被替换节点的 id 是稳定身份：新子树根**一律**沿用它，模型在 node 里写的 id 不算数
+        // （同批后续 op 还会按原 id 寻址）。子树内部的 id 照常保留/补齐。
+        return { ...op.node, id: n.id };
       }
       if (op.op === "remove" && n.id === op.id) {
         hit += 1;
