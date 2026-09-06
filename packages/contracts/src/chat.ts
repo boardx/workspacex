@@ -1098,11 +1098,15 @@ export const operations = {
   },
 
   /**
-   * recommendCanvasTemplates —— 2026-09-06，设计增量，**✅ 已人类签核**（同日交办、
-   * 同日实现、同日确认；同 #496/#988/`suggestTemplateSections` 的先例：人类当面交办
-   * 「可否变为一个动态的、更具上下文来推荐可视化模板的地方，而不只是用户画像」，
-   * 本操作是那句话的契约面）。签核确认的两处取舍与被否掉的替代方案，见下方
-   * `KNOWN_CONTRACT_GAPS.C_CHAT_12`。
+   * recommendCanvasTemplates —— 2026-09-06，设计增量，**🟡 待人类补签**（同 #496/#988/
+   * `suggestTemplateSections` 的先例：人类当面交办「可否变为一个动态的、更具上下文来
+   * 推荐可视化模板的地方，而不只是用户画像」，本操作是那句话的契约面）。
+   *
+   * 签核材料已备齐，等人类改那一行 `status`：
+   * `phases/phase-01-run-a-project/design-deltas/canvas-template-recommendations/`
+   * （三件：contract.md / verification.md / design-signoff.md）。⚠ **唯一的签核门是
+   * 那份 `design-signoff.md`**，不是这段注释——本注释一度写成"已签核"，而机械签核链上
+   * 没有任何对应记录（PR #2856 codex review P1 指出，属实，已回退）。
    *
    * ## 它替换掉的是什么
    *
@@ -1136,7 +1140,7 @@ export const operations = {
    * ⚠ 这套排序语义 **schema 表达不了**（`out.items` 只是一个有序数组），所以它的唯一
    *   权威描述是这段散文 + `domain/canvas/template-recommendation.ts` 里那个纯函数与
    *   它的测试。改行为时这三处一起改——本操作下方 `KNOWN_CONTRACT_GAPS.C_CHAT_12`
-   *   记的是"人类签核确认了哪两处取舍、否掉了什么"，不是第二份行为说明。
+   *   记的是"待人类拍板的取舍"，不是第二份行为说明。
    *
    * ⚠ **不调模型**。这是一次纯粹的读取 + 集合运算，几毫秒返回，可以在面板挂载时直接
    *   调用；建议行里另一半（CopilotKit 的追问建议）才是模型生成的。把它做成模型调用
@@ -1689,34 +1693,37 @@ export const KNOWN_CONTRACT_GAPS = {
   C_CHAT_11: "summarizePersonaFromThread is signed off (design-delta chat-persona-roundtrip, confirmed 2026-08-18): mode stays draft-only, insufficient data keeps landing a placeholder instead of rejecting, and the same signoff added out.resultMessageId plus the assistant-message mindmap-fence behavior and the G1 readback loop (items[].messageId + getThreadArtifactSource)",
 
   /**
-   * **`recommendCanvasTemplates` ✅ 已人类签核**（2026-09-06 确认；issue #2825，
-   * 同 #496/#988/`suggestTemplateSections` 的先例——人类当面交办、实现先行、
-   * 当日登记待补签，同日确认）。
+   * **`recommendCanvasTemplates` 🟡 待人类补签**（2026-09-06，issue #2825；同 #496/#988/
+   * `suggestTemplateSections` 的先例——人类当面交办、实现先行、登记待补签）。
    *
    * 交办原话：「可否变为一个动态的、更具上下文来推荐可视化模板的地方，而不只是用户
    * 画像，比如上面是用户画像，就可以推荐用户旅程图、同理心地图等，主要渲染我们在
    * 后台定义好的画布模板」。落地成两件：canvas 侧模板注册表新增可编辑的
    * `recommendAfter`（`canvas.updateTemplateMetadata`），chat 侧新增本只读操作。
    *
-   * 签核确认的两处取舍（此前登记为"待人类拍板"，2026-09-06 人类当面确认**维持现状**）：
+   * ## 签核材料在哪，以及为什么不在这里
+   *
+   * `phases/phase-01-run-a-project/design-deltas/canvas-template-recommendations/`。
+   * **唯一的签核门是那份 `design-signoff.md`**（AGENTS.md「设计签核（三件、一处签）」
+   * + ADR-023），`status` 只能由人类改。本条目一度被写成"已签核"——依据只是会话里的
+   * 一句口头确认，而机械签核链上没有任何对应记录：那正是本仓「静态痕迹 ≠ 动态事实」
+   * 点名的形状（一段写得越笃定的注释，读起来越像权威）。已回退。
+   *
+   * ## 等人类拍板的两处取舍（实现已按下述先做，改判只需改一处纯函数）
+   *
    * ① **推荐是三个梯队依次兜底**（后台配的下一步 → 起点模板 → 其余没画过的），
    *    起点模板之间按出度启发式排序，见 `domain/canvas/template-recommendation.ts`
-   *    的两处头注。梯队②③是同日人类实测「第二轮以后就没有了，每一轮都要有推荐的
-   *    下一步的动作」之后加的——没有它们，一个没配过任何推荐关系的组织（自建模板的
-   *    `recommend_after` 是空的，内置兜底只对 builtin 行生效）画完第一张画布之后就
-   *    再也拿不到任何建议。
+   *    的两处头注。梯队②③是 2026-09-06 人类实测「第二轮以后就没有了，每一轮都要有
+   *    推荐的下一步的动作」之后加的——没有它们，一个没配过任何推荐关系的组织（自建
+   *    模板的 `recommend_after` 是空的，内置兜底只对 builtin 行生效）画完第一张画布
+   *    之后就再也拿不到任何建议。
    *
-   *    确认时摆在人类面前的替代方案是「没配过就不推」（去掉梯队②③），**未采纳**，
-   *    理由记在这里以免下一个人重新推演：对一个没配过任何推荐关系的组织，**梯队②
-   *    本身就等于整个库**——没有任何边时所有模板的入度都是 0、全部算起点模板，
-   *    所以梯队③其实只在"已经配了推荐图、且起点模板都画过了"这一种情况下兜一次底。
-   *    收紧省下的噪音很少，代价却是把"每一轮都有下一步"重新变成有条件的。
+   *    替代方案「没配过就不推」（去掉梯队②③）的取舍写在 delta 的 contract.md §5，
+   *    一并留在这里免得下一个人重推：对没配过任何推荐关系的组织，**梯队②本身就等于
+   *    整个库**（没有边时所有模板入度为 0、全部算起点），所以梯队③只在"已经配了推荐图、
+   *    且起点模板都画过了"这一种情况下兜一次底。
    * ② **一次最多推 3 条**（契约上限 4）。建议行里还并排渲染 CopilotKit 的模型追问
    *    建议，两边加起来超过一行会把 composer 顶下去。
-   *
-   * ⚠ 签核的是**这两处取舍**，不是"这段行为从此不可改"。改行为时，本操作头注的
-   *   三梯队散文、`template-recommendation.ts` 那个纯函数、以及它的测试要一起改
-   *   （见操作头注末尾那条"权威三处"）。
    */
-  C_CHAT_12: "recommendCanvasTemplates (issue #2825) is signed off (human confirmed 2026-09-06): read-only, no model call; recommends canvas templates in three fallback tiers (configured recommendAfter of what the thread drew, then entry templates, then any undrawn published template) so every turn offers a next step. The confirmed trade-offs are that tier cascade with its entry out-degree ordering, and the 3-chip display cap; the rejected alternative was 'recommend nothing unless configured'",
+  C_CHAT_12: "recommendCanvasTemplates (issue #2825) is a design delta pending human signoff (materials: phases/phase-01-run-a-project/design-deltas/canvas-template-recommendations/, whose design-signoff.md is the only signoff gate): read-only, no model call; recommends canvas templates in three fallback tiers (configured recommendAfter of what the thread drew, then entry templates, then any undrawn published template) so every turn offers a next step; open questions are that tier cascade with its entry out-degree ordering, and the 3-chip display cap",
 } as const;
