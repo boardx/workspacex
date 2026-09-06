@@ -247,7 +247,7 @@ export default defineConfig({
        * 随 `verify:chat-read`（`e2e-full` 阻塞路径）一起跑。
        */
       name: "chat-task-workbench",
-      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy)\.spec\.ts$/,
+      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy|scroll-overshoot)\.spec\.ts$/,
     },
   ],
   fullyParallel: false,
