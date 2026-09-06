@@ -127,3 +127,23 @@ admission/approval integration must be tested before claiming the production cha
 
 Until those shared interfaces exist, preserve the completed schema increment and report
 execution as not wired. Do not pretend that a permissive placeholder is an integration.
+
+## Fixed-version follow-up: actual publish-chain prerequisite
+
+The existing `agent_versions.tool_policy` is not a whitelist snapshot: migration
+`20260804150000_wave2_agent_starter_import.sql` constrains it to an empty JSON array.
+`ToolWhitelistEntry` also has no reviewed schema fingerprint today. Actual runtime
+version creators are `pg-self-publish-agent-repository.ts` (toolless publication),
+`pg-system-agent-repository.ts` (creation and republishing),
+`pg-agent-starter-import-repository.ts` (empty-policy import), and
+`pg-agent-skill-pins-repository.ts` (copies the baseline policy). Operational backfill
+and seed scripts also insert versions. None establishes a nonempty approved MCP snapshot.
+
+The normal `PgAgentPublishRepository.updatePublishState` updates mutable agent state
+without minting a version; its `securityScanPassed` currently returns false because no
+agent scan record exists. Full E005 therefore requires the actual approved-publication
+chain to mint an immutable version with the approved tool entries and reviewed schema
+fingerprints in one transaction. Do not bypass scanning or read mutable whitelist state
+as historical approval. Do not add an unused snapshot column/reader that can only contain
+empty values before that real nonempty publishing entrance is available. This finding
+is a prerequisite, not completed MCP execution.

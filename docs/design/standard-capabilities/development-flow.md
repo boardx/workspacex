@@ -25,7 +25,8 @@ flowchart TD
   T42 --> T42Join[WX-T042 父取消、产物及公共事件待接入]
   T42Join -.复用统一控制契约.-> Peer
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
-  MCPSchema --> MCP[WX-E005 可信执行桥：接线设计中]:::active
+  MCPSchema --> MCP[WX-E005 执行桥：待固定版本授权和稳定准入接口]:::blocked
+  MCP -.复用准入与审批.-> Peer
   MCP --> Browser[W10 浏览器交互与网页产物]
   E4 --> Research[W06 搜索与研究工作流]
   E4 --> Context[W07 项目上下文、检索与写作]
@@ -33,7 +34,8 @@ flowchart TD
   E3 --> Office[W09 Office有限编辑与渲染QA]
   E3 --> Data[W18 数据分析与可视化]
   E4 --> Canvas[W11 画布与图表]
-  E2 --> Memory[W12 用户记忆与撤销]
+  E2 --> MemoryScope[W12 可信个人scope：1f2735a71]:::verified
+  MemoryScope --> Memory[W12 持久Store、来源校验、读写删与撤销]
   E2 --> Schedule[W13 持久调度]
   E6 --> Media[W14 图片、音频与纪要]
   E4 --> Author[W15 完整Skill草稿包]
@@ -62,7 +64,7 @@ flowchart TD
   SQL --> Gate
   Methods --> Gate
   Gate --> Commits[每个任务独立commit]
-  Commits --> PR[单个汇总PR及全绿CI]
+  Commits --> PR[单个汇总Draft PR；后续全绿CI与完整验收]
   PR --> Main[等待后续整合main]
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
@@ -77,4 +79,6 @@ W01 基础分开显示；W03 API 传输通过不代表原生加载已完成。WX
 
 当前执行顺序：E004 原生 Skills 图已独立 review 并提交；E005 完整schema增量38项测试通过。T006 上游模板兼容修复已提交 c448d3028；文件/Skills/兼容组合49个用例已有分次通过证据（46项通过后修正3个测试字段，再3项通过），并非一次49项全绿。基础Python回归173通过、4个显式集成跳过；这些集成另有真实沙箱证据。E003另外完成160次执行、零僵尸累积验证。
 
-下一步是E005可信执行桥及原生factory接线。生产factory、公共trace和联合验收单独保持灰色；T010扩展授权与E008仍待完成，不把组件结果扩展为完整用户链路已交付。正常pre-push的13项受影响typecheck/lint已通过，分支已推送到a2e6de1c0，后续提交继续推送。
+W12可信身份组件已提交1f2735a71，API21项及契约20项测试通过；长期记忆的持久化、来源校验、CAS与幂等仍待实现。E005执行桥为红色依赖项：当前批准工具发布未形成固定版本快照，peer尚无稳定公开准入接口；不以目录发现或mutable whitelist代替授权。
+
+生产factory、公共trace和联合验收单独保持灰色；T010扩展授权与E008仍待完成，不把组件结果扩展为完整用户链路已交付。正常pre-push的13项受影响typecheck/lint已通过，init.sh快速路径也通过；全仓CI及最终整合以汇总PR实际结果为准。
