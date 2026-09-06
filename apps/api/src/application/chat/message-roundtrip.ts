@@ -136,6 +136,7 @@ export async function acceptHumanMessage(
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
+      queuedMessageId?: string;
     /**
      * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
@@ -224,6 +225,7 @@ export async function acceptHumanMessage(
       snapshot,
       attachmentIds,
       artifactContinuation: input.artifactContinuation,
+      queuedMessageId: input.queuedMessageId,
     });
   } catch (e) {
     // 仓储在事务内因附件不合格回滚——整条消息未写入。转成用例错误交控制器映射 422。

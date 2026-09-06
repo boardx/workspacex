@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { PgChatMessageCommandRepository } from "../../src/infrastructure/chat/pg-chat-message-command-repository";
+import { QueuedMessageNotReadyError, type PublishedAgentSnapshot } from "../../src/application/chat/message-command-ports";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -60,6 +63,27 @@ afterAll(async () => {
 });
 
 describe("durable execution journal", () => {
+  it("atomically dispatches the FIFO head once and leaves later messages waiting across repository instances", async () => {
+    const orgId=toOrgId(ORG);
+    const ids=[randomUUID(),randomUUID(),randomUUID()];
+    for(const id of ids) await asApp(ORG,c=>c.query(`INSERT INTO thread_message_queue(id,org_id,thread_id,actor_id,client_request_id,body,agent_id) VALUES($1,$2,$3,$4,$1,'queued text','agent-i654')`,[id,ORG,THREAD,ACTOR]));
+    const commands=new PgChatMessageCommandRepository(db);
+    const input=(index:number)=>({projectId:PROJECT,threadId:THREAD,actorId:ACTOR,clientMessageId:ids[index]!,queuedMessageId:ids[index]!,text:"queued text",selectedAgentId:"agent-i654",messageId:`queue-message-${index}`,runId:`queue-run-${index}`,
+      snapshot:{agentId:"agent-i654",agentVersionId:"agent-version-i654",skillVersionIds:[],modelProvider:"test-provider",modelId:"test-model"} as unknown as PublishedAgentSnapshot});
+    await expect(commands.accept(orgId,input(0))).rejects.toBeInstanceOf(QueuedMessageNotReadyError);
+    await repo.failRun(orgId,RUN,"RUN_INTERRUPTED");
+    await expect(commands.accept(orgId,input(1))).rejects.toBeInstanceOf(QueuedMessageNotReadyError);
+    await Promise.all([commands.accept(orgId,input(0)),new PgChatMessageCommandRepository(db).accept(orgId,input(0))]);
+    const state=await asApp(ORG,c=>c.query(`SELECT status,run_id FROM thread_message_queue WHERE org_id=$1 ORDER BY sequence`,[ORG]));
+    expect(state.rows).toEqual([{status:"dispatched",run_id:"queue-run-0"},{status:"pending",run_id:null},{status:"pending",run_id:null}]);
+    const messages=await asApp(ORG,c=>c.query(`SELECT id FROM chat_messages WHERE org_id=$1 AND client_message_id=$2`,[ORG,ids[0]]));
+    expect(messages.rows).toHaveLength(1);
+    await expect(commands.accept(orgId,input(1))).rejects.toBeInstanceOf(QueuedMessageNotReadyError);
+    await asApp(ORG,c=>c.query(`UPDATE thread_message_queue SET status='cancelled' WHERE id=$1`,[ids[1]]));
+    await repo.failRun(orgId,"queue-run-0","RUN_INTERRUPTED");
+    await commands.accept(orgId,input(2));
+    expect((await asApp(ORG,c=>c.query(`SELECT run_id FROM thread_message_queue WHERE id=$1`,[ids[2]]))).rows[0].run_id).toBe("queue-run-2");
+  });
   it("binds grants to the current permission identity and rejects stale or duplicate decisions", async () => {
     const org = toOrgId(ORG);
     const pendingId = async () => (await asApp(ORG, (c) => c.query(

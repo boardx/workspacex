@@ -372,6 +372,9 @@ import { ARTIFACT_STORE, ARTIFACT_RUN_LAUNCHER } from "./application/artifacts-s
 import { PgArtifactStore } from "./infrastructure/artifacts-steering/pg-artifact-store";
 import { PgArtifactContinuationReader } from "./infrastructure/artifacts-steering/pg-artifact-continuation-reader";
 import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-steering/accept-message-artifact-run-launcher";
+import { THREAD_MESSAGE_QUEUE, ThreadMessageQueue } from "./infrastructure/chat-queue/thread-message-queue";
+import { ThreadMessageQueueController } from "./interface/controllers/thread-message-queue.controller";
+import type { DefaultAgentResolver } from "./application/chat/message-command-ports";
 import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
@@ -865,6 +868,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentRunController,
     RunInterjectionController,
     AgentArtifactController,
+    ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,
@@ -1040,6 +1044,32 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         ENABLED_SKILL_VERSION_READER,
         AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
         MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, DATABASE_PORT,
+      ],
+    },
+    {
+      provide: THREAD_MESSAGE_QUEUE,
+      useFactory: (
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
+        commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort,
+        runs: PlanLedgerRepository & PlanRunStatusReader, agentRunStore: AgentRunStore,
+        model: ModelCallPort, titleModel: ThreadTitleModelConfig, logger: LoggerPort, db: DatabasePort, defaultAgents: DefaultAgentResolver,
+      ) => new ThreadMessageQueue({
+        db, defaultAgents,
+        repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
+        model, titleModel,
+        // 同 ChatController.log 的既有先例（server-side only 适配器）。
+        log: (message: string, detail: Record<string, unknown>) => {
+          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+        },
+      }),
+      inject: [
+        IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
+        CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+        ENABLED_SKILL_VERSION_READER,
+        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, DATABASE_PORT, DEFAULT_AGENT_RESOLVER,
       ],
     },
     {

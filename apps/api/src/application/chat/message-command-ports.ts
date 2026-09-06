@@ -236,6 +236,7 @@ export interface ChatMessageCommandRepository {
        */
       attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
+      queuedMessageId?: string;
     },
   ): Promise<Guarded<AcceptMessageOutcome>>;
 
@@ -260,3 +261,6 @@ export interface ChatMessageCommandRepository {
 }
 
 export const CHAT_MESSAGE_COMMAND_REPOSITORY = Symbol("ChatMessageCommandRepository");
+
+/** Retryable: an earlier message or active run still owns the thread. */
+export class QueuedMessageNotReadyError extends Error {}

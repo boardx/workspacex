@@ -1,3 +1,4 @@
+import { QueuedMessageNotReadyError } from "../../application/chat/message-command-ports";
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -59,6 +60,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
       selectedAgentId: string; messageId: string; runId: string; snapshot: PublishedAgentSnapshot;
       attachmentIds?: readonly string[];
       artifactContinuation?: ArtifactContinuationContext;
+      queuedMessageId?: string;
     },
   ) {
     const outcome = await this.db.withTenant(orgId, async (s): Promise<AcceptMessageOutcome> => {
@@ -70,6 +72,17 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         return replay.text === input.text && replay.requestedAgentId === input.selectedAgentId
           ? { kind: "replay", accepted: replay }
           : { kind: "conflict" };
+      }
+      // Serialize queue consumption with every normal acceptance on this thread.
+      await s.query(`SELECT id FROM chat_threads WHERE org_id=$1 AND id=$2 FOR UPDATE`, [orgId,input.threadId]);
+      if (input.queuedMessageId) {
+        const ready = await s.query(`SELECT q.id FROM thread_message_queue q
+          WHERE q.org_id=$1 AND q.thread_id=$2 AND q.id=$3::uuid AND q.actor_id=$4
+            AND q.id=$5::uuid AND q.body=$6 AND q.agent_id=$7 AND q.status='pending'
+            AND NOT EXISTS (SELECT 1 FROM thread_message_queue older WHERE older.org_id=q.org_id AND older.thread_id=q.thread_id AND older.status='pending' AND older.sequence<q.sequence)
+            AND NOT EXISTS (SELECT 1 FROM agent_runs r WHERE r.org_id=q.org_id AND r.thread_id=q.thread_id AND r.status NOT IN ('succeeded','failed','cancelled'))
+          FOR UPDATE OF q`, [orgId,input.threadId,input.queuedMessageId,input.actorId,input.clientMessageId,input.text,input.selectedAgentId]);
+        if (!ready.rows.length) throw new QueuedMessageNotReadyError();
       }
       const inserted = await s.query<{ created_at: Date }>(
         `INSERT INTO chat_messages
@@ -88,6 +101,10 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
           input.snapshot.agentVersionId, JSON.stringify(input.snapshot.skillVersionIds),
           input.snapshot.modelProvider, input.snapshot.modelId],
       );
+      if (input.queuedMessageId) {
+        await s.query(`UPDATE thread_message_queue SET status='dispatched',run_id=$3
+          WHERE org_id=$1 AND id=$2::uuid AND status='pending'`, [orgId,input.queuedMessageId,input.runId]);
+      }
       if (input.artifactContinuation) {
         const ctx = input.artifactContinuation;
         const linked = await s.query<{ run_id: string }>(`INSERT INTO agent_run_artifact_context(org_id,run_id,artifact_id,based_on_version)
