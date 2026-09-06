@@ -50,3 +50,22 @@ This is a recorded unresolved typecheck limit, not a passing typecheck claim.
 ## Native graph incremental evidence
 
 The opt-in Python capability graph and real isolated skill execution are documented in [native-graph.md](./native-graph.md). Existing API evidence and its typecheck limitation above remain unchanged.
+
+## Required Skill stream deadline review fix
+
+Independent review found mandatory custom-stream delivery could hang beyond the model
+request deadline, because SSE fetch/body reads had no cancellation signal. The provider
+now passes its existing absolute deadline into tryStreamRun and uses one AbortController
+for response headers and streamed body, clearing its timer in finally. Required delivery
+still fails closed; it never falls back to polling or submits another remote run.
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/agent-runtime/workbench-skill-activity.test.ts tests/agent-runtime/deep-agent-resume-forwards-skills.test.ts
+```
+
+23/23 pass, exit 0; raw log skill-journal-deadline-tests.txt. Two added counterexamples
+hold headers or keep the SSE body open indefinitely until the actual AbortSignal fires;
+each fails MODEL_CALL_FAILED within the bounded test duration and starts exactly one
+remote run. Fresh/resume and strict delivery regressions remain green. Wrapper cleaned
+its stack. This timeout does not claim remote execution was cancelled or that a blocked
+journal database write is abortable.

@@ -38,7 +38,7 @@ cleanup. All containers/volumes used in this turn were removed; no DB stack rema
   scope requirements. Verify actual persistent Store deployment; never fall back to
   in-memory or treat checkpoints as personal memory.
 - E005: follow mcp-execution-integration.md. Fixed-version approved whitelist publication
-  is not currently established, and peer has no stable public admission contract. Do not
+  is not currently established, and peer admission contract has now been merged, but fixed-version tool publication is still missing. Do not
   add empty unused snapshot fields or bypass the existing failed security scan. Extract
   MCP contract definitions before the next addition to oversized agent-runtime.ts;
   the four-field temporary exception is scoped in mcp-execution-delta.md.
@@ -65,4 +65,8 @@ history as one 49-passed invocation. Production real-model/combined UI acceptanc
 
 ## Latest peer-facing increment
 
-352a506ba provides POST /agent-runs/:runId/subtask-runs/:id/cancel, shared CancelSubtaskRunResult/Failure and SubtaskRunStore.cancel. Pending-only, atomic/idempotent; running is explicit409, parent cascade and late enqueue admission remain unimplemented. 23 realDB/HTTP tests plus API/Web typecheck passed and independent review found no blocker. Forward peer-integration-request.md for stable journal writer and execution authorization integration. Native output collector16961012d and UDS producerff22a9e5a have component evidence (26+9 tests) but no production selector/writeback integration. d5f15ec15 CI was classified green by the canonical helper; later commits must run their own CI.
+352a506ba provides POST /agent-runs/:runId/subtask-runs/:id/cancel, shared CancelSubtaskRunResult/Failure and SubtaskRunStore.cancel. Pending-only, atomic/idempotent; running is explicit409, parent cascade and late enqueue admission were subsequently implemented in 4ef787b83. 23 realDB/HTTP tests plus API/Web typecheck passed and independent review found no blocker. Forward peer-integration-request.md for stable journal writer and execution authorization integration. Native output collector16961012d and UDS producerff22a9e5a have component evidence (26+9 tests) but no production selector/writeback integration. d5f15ec15 CI was classified green by the canonical helper; later commits must run their own CI.
+
+## Current integration checkpoint
+
+Peer b952314f0 is merged as e58f6bedc. Parent cancellation adapter 4ef787b83 and permission boundary regression gates 550a2e064 are committed. Skill journal strict delivery and absolute SSE deadline 570abc19e passed 39 integration tests. Python native facts/authority, Office complete packages and W19 method packages are in progress; do not mark them deployed. Native factory requires a private credential binding lifecycle; never put sandbox session tokens into persisted configurable.
