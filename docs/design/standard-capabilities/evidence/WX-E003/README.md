@@ -116,3 +116,28 @@ Exit 0: 26 passed, one existing google/genai deprecation warning; raw output `py
 ### Final local verification (2026-09-07)
 
 The 4097-directory fixture initially exceeded Vitest's default 5-second timeout under shared host load. Fixture creation now uses batches of 32 operations and a 20-second test-only timeout; the production limit and rejection assertion are unchanged. Re-run: sandbox 23 tests passed in 690 ms, followed by successful TypeScript typecheck. Contracts: 22 tests passed (19 capability + 3 sandbox), followed by successful TypeScript typecheck. Python adapter and pinned-package loader: 39 tests passed in 11.74 s (26 sandbox + 13 package tests), with one existing Google SDK deprecation warning. Package-loader implementation belongs to WX-E004 and is committed separately.
+
+## Container lifecycle reliability regression
+
+The long-lived sessions service exhausted its unchanged 128-PID budget because Node
+as PID 1 did not reap orphaned bubblewrap helpers. The opt-in sessions Compose service
+now uses `init: true`; the legacy service, PID quota and isolation settings are unchanged.
+The root-authorized `wx-native-files-test` was stopped and its project's volumes removed
+before rebuilding the same project/container. The rebuilt container remains running
+under the main agent's ownership for native-file tool verification.
+
+Commands from repository root:
+
+```bash
+docker stop wx-native-files-test
+docker compose -p wx-native-files -f apps/skill-sandbox/docker-compose.sessions.yml down --volumes
+docker compose -p wx-native-files -f apps/skill-sandbox/docker-compose.sessions.yml run -d --name wx-native-files-test skill-sandbox-sessions
+docker exec -i wx-native-files-test node --input-type=module < apps/skill-sandbox/tests/session-lifecycle-container.mjs
+```
+
+Result: exit 0, **160 real executions** in two sequential sessions (80 each, below the
+128-execution session limit). The regression calls the actual running service over its
+Unix socket and reads container `/proc` outside each sandbox. Baseline process count
+was 3 with 0 zombies; after both 80 and 160 executions it was still 3 with 0 zombies.
+Each execution returned HTTP 200, exit code 0 and the expected actual command output;
+both sessions were destroyed. Raw output: `session-lifecycle.txt`.

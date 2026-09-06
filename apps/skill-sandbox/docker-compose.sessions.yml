@@ -5,6 +5,7 @@ services:
     extends:
       file: docker-compose.sandbox.yml
       service: skill-sandbox
+    init: true
     image: workspacex-skill-sandbox:e003
     security_opt:
       - seccomp=./security/docker-seccomp.json
