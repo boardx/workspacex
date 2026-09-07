@@ -1,12 +1,12 @@
 ---
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed
 bundle: prototype-navigation
-base_bundle: design-prototype   # 挂靠束：原型画布（已签，2026-09-06）
+base_bundle: design-prototype
 scope: clickable-prototype-model-authored-links-preview-mode-board-connectors
 covers: []
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-07T10:30:00Z"
+confirmed_via: "PR #2918"
 ---
 
 # design delta 签核 · 可点击原型——页与页之间的跳转关系（迭代 11）
