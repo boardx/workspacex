@@ -102,10 +102,9 @@ export async function listThreads(
   ]);
 
   for (const row of candidates) {
-    // 分组先算：本周之前的线程没有可归的组（待裁决第 11 条），
-    // 那就没必要为它跑一次判权。⚠ 顺序反过来也正确，只是慢。
+    // 2026-09-07 起 `threadGroupLabel` 恒有归宿（今天/本周/更早），不会再返回
+    // `null`——见该文件头注（decision 11 已裁）。这里不再有「不必判权」的早退。
     const label = threadGroupLabel(new Date(row.lastActivityAt), now);
-    if (label === null) continue;
 
     const outcome = await resolveVisibility(deps, {
       userId: input.userId,
