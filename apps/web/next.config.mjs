@@ -75,6 +75,29 @@ export default {
    * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
    */
   webpack(config, { webpack }) {
+    /**
+     * #2926: `@copilotkit/runtime/v2` currently depends on
+     * `@ai-sdk/google-vertex@3.x`, whose latest compatible
+     * `@ai-sdk/provider-utils@3.0.36` still contains `import(id)` as a Node 18
+     * fallback. Webpack cannot statically resolve that expression and reports
+     * this warning while compiling the server-only CopilotKit route.
+     *
+     * Upstream tracks the same expression at vercel/ai#18545. Its first v6
+     * backport is provider-utils 4.0.42 (vercel/ai#18559); provider-utils 5 also
+     * removes the parsed expression. Neither major is compatible with the
+     * provider@2 contract used by google-vertex@3, and CopilotKit 1.70.1 still
+     * declares google-vertex ^3.0.97. Keep the working dependency graph and
+     * ignore precisely this module/message pair until CopilotKit moves to a
+     * compatible AI SDK line. This does not suppress warnings from any other
+     * module or any other warning emitted by provider-utils.
+     */
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings ?? []),
+      {
+        module: /@ai-sdk[\\/]provider-utils[\\/]dist[\\/]index\.mjs$/,
+        message: /^Critical dependency: the request of a dependency is an expression$/,
+      },
+    ];
     config.plugins.push(
       new webpack.NormalModuleReplacementPlugin(
         /@copilotkit[\\/]react-core[\\/]dist[\\/]v2[\\/]index\.css$/,
