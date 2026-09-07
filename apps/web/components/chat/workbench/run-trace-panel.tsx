@@ -4,6 +4,7 @@ import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } f
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, type TraceEntry } from "@/lib/chat-workbench/run-trace";
+import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 
 function detail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
@@ -12,6 +13,16 @@ const skillStageLabels: Record<string, string> = {
   metadata_discovered: "发现技能元数据", body_read: "读取技能正文",
   execution_started: "技能执行中", execution_succeeded: "技能执行成功", execution_failed: "技能执行失败",
 };
+function eventLabel(entry: TraceEntry): string {
+  if (entry.activityStage) return `${skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
+  if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? "正在调用技能" : "已调用技能"} · ${entry.text}`;
+  const action = entry.text === "search_documents" ? "检索资料"
+    : entry.text === "spawn_async_task" ? "派发后台任务"
+    : entry.text === "write_todos" ? "更新执行计划"
+    : entry.text === "run_script" ? "执行生成脚本"
+    : "执行工具操作";
+  return `${entry.status === "failed" ? `${action}失败` : entry.status === "running" ? `正在${action}` : `已${action}`}`;
+}
 /** A disclosure never changes the lifetime of the event subscription. */
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
@@ -40,6 +51,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const failed = entries.some((entry) => entry.status === "failed");
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
+  const hasSubtasks = entries.some((entry) => entry.kind === "tool" && entry.text === "spawn_async_task");
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -55,7 +67,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
                   {entry.kind === "skill" ? <Sparkles aria-hidden className="h-3.5 w-3.5" /> : <Wrench aria-hidden className="h-3.5 w-3.5" />}
-                  <span>{entry.activityStage ? skillStageLabels[entry.activityStage] : entry.kind === "skill" ? "Skill 工具调用" : "Tool"} · {entry.text}</span>
+                  <span data-testid="chat-task-workbench-event-row">{eventLabel(entry)}</span>
                   {entry.status === "observed" ? <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 aria-label={running ? "执行中" : "未收到完成状态"} className={running ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
               </summary>
@@ -68,6 +80,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
             </details>}
         </li>)}
       </ol>
+      {hasSubtasks ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
     </div>
   </section>;
 }
