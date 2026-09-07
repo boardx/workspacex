@@ -22,7 +22,7 @@ flowchart TD
   E4 --> SkillEvents[实际Skill事实与必达journal：0e2bdb411 / 570abc19e]:::verified
   SkillEvents --> NativeAuthority[逐次工具授权与有界HTTP：0e2bdb411]:::verified
   SkillEvents -.契约对齐.-> Peer
-  E4 --> Version[WX-E008 持久版本恢复：f5fbf35f4；全量兼容待验]:::active
+  E4 --> Version[WX-E008 恢复与旧run排空：f5fbf35f4；快照b8352e879]:::verified
   E3 --> OutputStore[WX-E006 字节收集与UDS下载：16961012d、ff22a9e5a]:::verified
   OutputStore --> E6[W04 暂存与产物写回：045f48ae5]:::verified
   E4 --> E6
@@ -39,7 +39,7 @@ flowchart TD
   MCP --> Browser[W10 组件bd61f17ec；真实浏览器失败修复待验]:::active
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
   E4 --> Context[W07 项目与检索：35fc834dc；四项Skill：ce3399822]:::verified
-  E3 --> Parse[W08 原件解析7d1126261、OCR50c6eac90；跨页表格待做]:::active
+  E3 --> Parse[W08 四格式定位与跨页表格：真实UDS通过；生产HTTP验收中]:::active
   E3 --> Office[W09 Office完整包与有限编辑：02f73bdff]:::verified
   Office --> Renderer[W09 隔离Office渲染与简单页面检查：274f4e8ad]:::verified
   E3 --> Data[W18 离线分析依赖与完整方法包：c917fdbae]:::verified
@@ -71,6 +71,8 @@ flowchart TD
   T11 --> NativeForms[T011–13 native 交互入口：4cc047087]:::verified
   RunningCancel --> NativeAsync[T042 native 入口待补]:::active
   NativeForms --> Gate
+  E6 --> NativeEntries[T021/T040/T041 下载与状态取消：78a771abf，35项DB/HTTP通过]:::verified
+  NativeEntries --> Gate
   NativeAsync --> Gate
   Parse --> Gate
   Renderer --> Gate
@@ -84,13 +86,19 @@ flowchart TD
   MethodDelivery --> Gate
   Gate --> Commits[每个任务独立commit]
   Data --> S007[S007真实模型：报告+CSV+Python源码，51c85cf7f]:::verified
+  Context --> S001[S001知识问答与S008会议准备：ec3e655b4，真实引用核验通过]:::verified
+  Research --> S002[S002真实研究：来源账本与图步数预算修复中]:::active
+  Author --> S015[S015真实草稿生成：节点预算反证已定位，复验中]:::active
+  Methods --> SkillsRevised[S017/S019/S020修订：真实模型及人工核对通过，待提交]:::active
   Media --> S009[S009真实模型及语义核对：1.1.1，d3d5baf2d]:::verified
   Media --> ASR[S016真实ASR：等待配置]:::blocked
   Commits --> Migration[迁移与数据指纹重放：9a4f280f8，228项通过]:::verified
-  Migration --> Push[已授权公开推送；远端检查点b8352e879]:::active
+  Peer --> Picker[Skill选择器：c2948fbd7；桌面/手机真实挂载通过]:::verified
+  Picker --> Gate
+  Migration --> Push[已授权公开推送；远端检查点ec3e655b4]:::verified
   Push --> PR[Draft PR #2869；CI 修复与新 SHA 验证中]:::active
   PR --> Main[等待后续整合main]
-  Resource[本地3路：两组真实Skill验收、下载/状态/取消；云端并行]:::active -.影响未完成工作.-> Gate
+  Resource[本地3路：研究引用、Skill草稿、Office生产链；云端并行]:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -100,15 +108,17 @@ flowchart TD
 
 ## Current delivery boundary
 
-Local committed checkpoint: 51c85cf7f. Public checkpoint: b8352e879. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
+Local committed checkpoint: 78a771abf. Public checkpoint: ec3e655b4. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
 
-At public b8352e879, all four backend test shards, runtime gates, full compilation and control-plane checks passed. Core-loop and fullstack smoke failed; the Python job was still running at inspection. Real CI traces identify an overflowing Skill picker. The peer owns its UI correction and will provide a reviewed commit; force clicks and timeout inflation are not accepted fixes.
+At earlier b8352e879, all four backend test shards, runtime gates, full compilation and control-plane checks passed. Core-loop and fullstack smoke failed on an overflowing Skill picker; Python ended cancelled and is under diagnosis. Peer correction c2948fbd7 and normal-pointer regression assertions 923df5362 are now pushed in ec3e655b4. Desktop/mobile actual mount tests passed; current-head CI must pass separately.
 
 Hybrid retrieval passed 65 real database/HTTP and 14 Python tests (58587bae5). Migration fresh/replay covered 228 files and populated-data fingerprints; the workbench replay passed 8 tests (9a4f280f8). Persistent tool snapshot/browser registration is committed in b8352e879.
 
 S009 passed a real-model scenario and full semantic review with immutable meeting-minutes 1.1.1 (d3d5baf2d). Earlier false rejection wording remains recorded as a failed run. S007 published actual report, CSV and executable Python source through artifact writeback (51c85cf7f); the reviewed result and bounded fixture-specific limitations are retained in evidence/g-skill-batch/S007. These are bounded acceptance cases, not general model reliability claims.
 
-Browser component tests passed, but actual Chromium exposed form-value and screenshot-path failures. Cloud fixes, isolated preview and runtime security integration require local review and rerun. Office locator changes are transferring as private patches. Download/status/cancel native adapters are being verified against real authorization and persisted artifacts. Remaining Skills require individual actual-model evidence. S016 live ASR requires provider configuration; deterministic protocol fixtures do not establish recognition quality.
+Browser component tests passed, but actual Chromium exposed form-value and screenshot-path failures. Cloud fixes, isolated preview and runtime security integration require local review and rerun. Office locator patch hashes are verified and integrated locally: PDF/DOCX/PPTX/XLSX real files and real isolated UDS execution passed; production HTTP plus source-permission acceptance is running. Download/status/cancel adapters passed 35 real PG/HTTP, 11 Python and 3 contract tests and are committed in 78a771abf. Deleted Agent sources cannot downgrade to legacy download responses.
+
+S001/S008 actual-model citation and source-version checks passed (ec3e655b4). Revised S017/S019/S020 representative scenarios passed actual-model delivery and manual review; versioned changes await their independent commit. S002 source-ledger accuracy and S015 graph step budgets remain yellow. Real node observations show middleware steps consume the fixture's 200-step budget; no production routing defect or automatic retry is inferred. S016 live ASR requires provider configuration; protocol fixtures do not establish recognition quality.
 
 The [W07 scope audit](w07-scope-audit.md) removes an unnecessary new graph seed resolver and universal interview-index project from the implementation plan. The original capability requirements remain intact; graph requests are explicitly rejected rather than simulated.
 
