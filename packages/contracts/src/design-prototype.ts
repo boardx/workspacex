@@ -195,6 +195,20 @@ export function withinPrototypeLimits(root: PrototypeNode): boolean {
   return m.nodes <= PROTOTYPE_MAX_NODES && m.depth <= PROTOTYPE_MAX_DEPTH;
 }
 
+/**
+ * 迭代 11（design-delta `prototype-navigation`，待人类签核）：页与页之间的**跳转关系**。
+ * 挂在屏上而不是节点 props 上——多项原语（list/tabs/bottomnav）的 `items` 要配平行的目标数组，
+ * 属性面板没有「按行给目标」这种字段类型；屏级数组则 21 个 `*Props` 一个不动，校验集中一处。
+ * - `from`：本页树里的节点 id；`item` 只对多项原语有意义（第几项），单目标原语不带。
+ * - `to`：目标页在 `screens` 里的序号（0 起）。按序号不按标签：仓库既有约定就是按位置配对，
+ *   按标签会在改名时断；整页重生成时 `links` 随 `screens` 一起重给，序号天然重算。
+ */
+export const PROTOTYPE_MAX_LINKS = 30;
+export const PrototypeLink = z
+  .object({ from: PrototypeNodeId, item: z.number().int().min(0).optional(), to: z.number().int().min(0) })
+  .strict();
+export type PrototypeLink = z.infer<typeof PrototypeLink>;
+
 /** 模型写回用的一页：页标签 + 这一页的树。服务端拆成 `frames[i]` / `prototype[i]`。 */
 export const PROTOTYPE_NOTES_MAX = 600;
 export const PrototypeScreen = z
@@ -203,6 +217,8 @@ export const PrototypeScreen = z
     root: PrototypeNode,
     /** 迭代 8：这一页的交互说明（做什么 / 主要交互 / 状态与边界），进设计文档与说明页；可省略。 */
     notes: z.string().max(PROTOTYPE_NOTES_MAX).optional(),
+    /** 迭代 11：这一页出发的跳转关系；可省略。合法性要看整份 screens，见 `validateLinks`。 */
+    links: z.array(PrototypeLink).max(PROTOTYPE_MAX_LINKS).optional(),
   })
   .strict()
   .refine((s) => withinPrototypeLimits(s.root), { message: `prototype screen exceeds ${PROTOTYPE_MAX_NODES} nodes or depth ${PROTOTYPE_MAX_DEPTH}` });
@@ -296,6 +312,60 @@ export type DesignPrototypePatch = z.infer<typeof DesignPrototypePatch>;
 function collectIds(root: PrototypeNode, out: Set<string>): void {
   if (root.id !== undefined) out.add(root.id);
   if (isPrototypeContainer(root)) for (const c of root.children) collectIds(c, out);
+}
+
+/** 有 `items` 的多项原语——`PrototypeLink.item` 只对它们有意义。只此一处声明。 */
+export const PROTOTYPE_MULTI_ITEM_TYPES = ["list", "tabs", "bottomnav"] as const;
+/** navbar 左右两个按钮以 `item: 0 | 1` 区分（左 0、右 1）。 */
+export const PROTOTYPE_NAVBAR_ITEMS = 2;
+
+function findNode(root: PrototypeNode, id: string): PrototypeNode | null {
+  if (root.id === id) return root;
+  if (isPrototypeContainer(root)) for (const c of root.children) { const hit = findNode(c, id); if (hit !== null) return hit; }
+  return null;
+}
+
+/** 一个节点能承载几个跳转目标：多项原语 = items 数；navbar = 2（左/右）；其余 = 1（不带 item）。 */
+export function linkSlotsOf(node: PrototypeNode): number {
+  if ((PROTOTYPE_MULTI_ITEM_TYPES as readonly string[]).includes(node.type)) return (node as { props?: { items?: readonly string[] } }).props?.items?.length ?? 0;
+  if (node.type === "navbar") return PROTOTYPE_NAVBAR_ITEMS;
+  return 1;
+}
+
+export type LinkDropReason = "TARGET_OUT_OF_RANGE" | "SELF_LINK" | "FROM_NOT_FOUND" | "ITEM_OUT_OF_RANGE" | "DUPLICATE" | "TOO_MANY";
+
+/**
+ * 迭代 11：跳转关系的合法性要看整份 screens，所以在这里而不是 `PrototypeScreen` 的 refine 里判。
+ * **逐条丢、不整页拒**（design-delta §2，与 I-10 的粒度不同，是人类要拍板的取舍 ①）：悬空的跳转
+ * 不至于让整页作废。返回每页清洗后的 links 与被丢条目的原因（给日志与修复轮用）。幂等。
+ */
+export function validateLinks(
+  screens: readonly { readonly root: PrototypeNode; readonly links?: readonly PrototypeLink[] }[],
+): { readonly links: readonly (readonly PrototypeLink[])[]; readonly dropped: readonly { screen: number; link: PrototypeLink; reason: LinkDropReason }[] } {
+  const dropped: { screen: number; link: PrototypeLink; reason: LinkDropReason }[] = [];
+  const links = screens.map((s, i) => {
+    const seen = new Set<string>();
+    const kept: PrototypeLink[] = [];
+    for (const l of s.links ?? []) {
+      const reason: LinkDropReason | null =
+        l.to >= screens.length ? "TARGET_OUT_OF_RANGE"
+        : l.to === i ? "SELF_LINK"
+        : (() => {
+            const node = findNode(s.root, l.from);
+            if (node === null) return "FROM_NOT_FOUND";
+            const slots = linkSlotsOf(node);
+            if (slots > 1 ? (l.item === undefined || l.item >= slots) : l.item !== undefined && l.item !== 0) return "ITEM_OUT_OF_RANGE";
+            return null;
+          })();
+      const key = `${l.from}#${l.item ?? 0}`;
+      if (reason !== null) dropped.push({ screen: i, link: l, reason });
+      else if (seen.has(key)) dropped.push({ screen: i, link: l, reason: "DUPLICATE" });
+      else if (kept.length >= PROTOTYPE_MAX_LINKS) dropped.push({ screen: i, link: l, reason: "TOO_MANY" });
+      else { seen.add(key); kept.push(l); }
+    }
+    return kept;
+  });
+  return { links, dropped };
 }
 
 /**

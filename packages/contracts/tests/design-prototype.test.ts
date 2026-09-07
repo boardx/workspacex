@@ -252,3 +252,64 @@ describe("applyPrototypePatch", () => {
     for (const op of ["setProps", "replace", "insert", "remove"]) expect(dp.PROTOTYPE_PATCH_GUIDE).toContain(op);
   });
 });
+
+/**
+ * 迭代 11（design-delta `prototype-navigation`，待签核）—— V26：跳转关系是契约的一部分，
+ * 悬空**只丢那一条**、页面保留（与 I-10 的粒度不同，是 delta §7 取舍 ①；这里按建议 A 锁定）。
+ */
+describe("迭代 11 跳转关系 validateLinks：逐条丢、不整页拒", () => {
+  const btn = (id: string) => ({ id, type: "button" as const, props: { label: id } });
+  const page = (id: string, links: dp.PrototypeLink[], extra: dp.PrototypeNode[] = []) => ({
+    root: { id: `root-${id}`, type: "stack" as const, children: [btn(id), ...extra] },
+    links,
+  });
+  it("目标越界 / 自跳 / from 不在本页 / item 越界 / 重复：各自只丢那一条，其余保留", () => {
+    const nav = { id: "nav", type: "bottomnav" as const, props: { items: ["A", "B"], active: 0 } };
+    const screens = [
+      page("a", [
+        { from: "a", to: 1 },              // 合法
+        { from: "a", to: 9 },              // 越界
+        { from: "a", to: 0 },              // 自跳
+        { from: "ghost", to: 1 },          // from 不在本页
+        { from: "nav", item: 2, to: 1 },   // item 越界（只有 2 项）
+        { from: "nav", item: 1, to: 1 },   // 合法
+        { from: "nav", item: 1, to: 1 },   // 重复 (from,item)
+        { from: "a", item: 0, to: 1 },     // 单目标原语带 item:0 视同不带 ⇒ 与第一条重复
+      ], [nav]),
+      page("b", []),
+    ];
+    const { links, dropped } = dp.validateLinks(screens);
+    expect(links[0]).toEqual([{ from: "a", to: 1 }, { from: "nav", item: 1, to: 1 }]);
+    expect(links[1]).toEqual([]);
+    expect(dropped.map((d) => d.reason)).toEqual([
+      "TARGET_OUT_OF_RANGE", "SELF_LINK", "FROM_NOT_FOUND", "ITEM_OUT_OF_RANGE", "DUPLICATE", "DUPLICATE",
+    ]);
+  });
+  it("一页超过 30 条 ⇒ 截到 30（按顺序），不拒", () => {
+    const many = Array.from({ length: 35 }, (_, i) => ({ id: `b${i}`, type: "button" as const, props: { label: "x" } }));
+    const screens = [
+      { root: { id: "r", type: "stack" as const, children: many }, links: many.map((n) => ({ from: n.id, to: 1 })) },
+      page("z", []),
+    ];
+    const { links, dropped } = dp.validateLinks(screens);
+    expect(links[0]).toHaveLength(dp.PROTOTYPE_MAX_LINKS);
+    expect(dropped.filter((d) => d.reason === "TOO_MANY")).toHaveLength(5);
+  });
+  it("幂等：清洗过的结果再清洗一次不再丢任何东西", () => {
+    const screens = [page("a", [{ from: "a", to: 1 }, { from: "a", to: 5 }]), page("b", [{ from: "b", to: 0 }])];
+    const once = dp.validateLinks(screens);
+    const twice = dp.validateLinks(screens.map((s, i) => ({ ...s, links: once.links[i] })));
+    expect(twice.dropped).toEqual([]);
+    expect(twice.links).toEqual(once.links);
+  });
+  it("契约：PrototypeScreen.links 可省略；PrototypeLink 严格、to/item 非负整数；DesignProject.frameLinks 与 frames 等长或空", () => {
+    expect(dp.PrototypeScreen.safeParse({ frame: "首页", root: { type: "divider" } }).success).toBe(true);
+    expect(dp.PrototypeLink.safeParse({ from: "a", to: -1 }).success).toBe(false);
+    expect(dp.PrototypeLink.safeParse({ from: "a", to: 1, extra: 1 }).success).toBe(false);
+    const base = { id: "p", name: "n", template: "mobile", problem: "", criteria: [], frames: ["a", "b"], prototype: [], frameNotes: [],
+      pushed: false, pushedAt: null, linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null, chat: [], ownerId: "u", ownerName: null,
+      createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z" };
+    expect(dw.DesignProject.safeParse({ ...base, frameLinks: [[], []] }).success).toBe(true);
+    expect(dw.DesignProject.safeParse({ ...base, frameLinks: [[]] }).success).toBe(false);
+  });
+});

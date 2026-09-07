@@ -1868,3 +1868,75 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
     expect(screen.getByTestId("inbox-column-count-backlog").textContent).toBe("1");
   });
 });
+
+/**
+ * 迭代 11（design-delta `prototype-navigation`，待人类签核）—— UI 先行部分的验收（delta V29 / V30 / V31 的
+ * 前端半边）。跳转表由 `project.frameLinks` 给（服务端接线前夹具提供），画布只消费。
+ */
+describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => {
+  const btn = (id: string, label: string) => ({ id, type: "button" as const, props: { label } });
+  const treeA = { id: "ra", type: "stack" as const, children: [btn("go", "去 B"), btn("stay", "普通按钮")] };
+  const treeB = { id: "rb", type: "stack" as const, children: [{ id: "tb", type: "text" as const, props: { content: "这是 B 页" } }] };
+  const linked = () => project({ frames: ["A", "B"], prototype: [treeA, treeB], frameLinks: [[{ from: "go", to: 1 }], []] });
+
+  it("V29 预览模式：点有跳转的按钮 ⇒ 换到目标页；点没跳转的节点 ⇒ 不换页也不选中；切回编辑恢复选中语义", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [linked()] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-view-single"));
+    fireEvent.click(screen.getByTestId("design-detail-mode-preview"));
+    const tree = screen.getByTestId("design-detail-phone-tree");
+    // 只有带跳转的可点位标了 data-linked；普通按钮没有任何可点暗示。
+    expect(within(tree).getByText("去 B").closest("[data-node-id]")?.getAttribute("data-linked")).toBe("true");
+    expect(within(tree).getByText("普通按钮").closest("[data-node-id]")?.getAttribute("data-linked")).toBeNull();
+    // 没跳转的节点：点了不换页，也不选中（预览不是编辑）。
+    fireEvent.click(within(tree).getByText("普通按钮"));
+    expect(screen.queryByTestId("design-inspector")).toBeNull();
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("去 B");
+    // 有跳转的：换到 B 页。
+    fireEvent.click(within(tree).getByText("去 B"));
+    expect(screen.getByTestId("design-detail-phone-tree").textContent).toContain("这是 B 页");
+    // 切回编辑：点节点又是选中语义（属性面板出现）。
+    fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+    fireEvent.click(screen.getByTestId("design-detail-mode-edit"));
+    fireEvent.click(within(screen.getByTestId("design-detail-phone-tree")).getByText("普通按钮"));
+    expect(await screen.findByTestId("design-inspector")).toBeTruthy();
+  });
+
+  it("V30 画板连线数 == 合法 link 数；没有 link 的项目不渲染连线层", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [linked()] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1);
+  });
+  it("V30 反证：没有 link 的项目不渲染连线层（不是按相邻页画「流程图」）", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["A", "B"], prototype: [treeA, treeB] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.queryByTestId("design-detail-board-links")).toBeNull();
+  });
+
+  it("V31（前端半边）属性面板「跳转」：单目标一个下拉；选目标 ⇒ 本页 links 本地更新、画板多一条连线", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["A", "B"], prototype: [treeA, treeB], frameLinks: [[], []] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    expect(screen.queryByTestId("design-detail-board-links")).toBeNull();
+    fireEvent.click(within(screen.getAllByTestId("design-detail-phone-tree")[0]!).getByText("去 B"));
+    const select = await screen.findByTestId("design-inspector-link-0");
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["无", "2 · B"]); // 本页 A 不在选项里
+    fireEvent.change(select, { target: { value: "1" } });
+    expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1);
+  });
+});

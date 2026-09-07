@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { DesignPrototypePatch, PrototypeNode, PrototypeNodeId } from "./design-prototype";
+import { DesignPrototypePatch, PrototypeLink, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -173,6 +173,11 @@ export const DesignProject = z
     prototype: z.array(PrototypeNode),
     /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
     frameNotes: z.array(z.string()),
+    /**
+     * 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系，`frameLinks[i]` 属于
+     * `frames[i]`。可省略（服务端接线前不发；UI 先行阶段由夹具提供）。存储形状见 delta §5。
+     */
+    frameLinks: z.array(z.array(PrototypeLink)).optional(),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
@@ -202,6 +207,9 @@ export const DesignProject = z
     }
     if (p.frameNotes.length !== 0 && p.frameNotes.length !== p.frames.length) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "frameNotes must be empty or one note per frame", path: ["frameNotes"] });
+    }
+    if (p.frameLinks !== undefined && p.frameLinks.length !== 0 && p.frameLinks.length !== p.frames.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "frameLinks must be empty or one list per frame", path: ["frameLinks"] });
     }
   });
 export type DesignProject = z.infer<typeof DesignProject>;

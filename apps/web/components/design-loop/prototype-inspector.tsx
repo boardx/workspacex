@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
-import { patchPrototype, prototypeNodeLabel, type DesignProject, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
+import { patchPrototype, prototypeNodeLabel, linkSlotsOf, type DesignProject, type PrototypeLink, type PrototypeNode, type PrototypePatchOp } from "@/lib/live-design-workbench";
 
 import { designPrototype } from "@repo/contracts";
 
@@ -82,7 +82,7 @@ function reason(err: unknown): string {
 const summaryOf = (prefix: string, node: PrototypeNode): string => `${prefix}${prototypeNodeLabel(node)}`.slice(0, 200);
 
 export function PrototypeInspector({
-  projectId, node, path, onSaved, onDeleted,
+  projectId, node, path, onSaved, onDeleted, frames = [], frameIndex = 0, links = [], onSetLinks,
 }: {
   projectId: string;
   node: PrototypeNode;
@@ -90,6 +90,15 @@ export function PrototypeInspector({
   path: readonly PrototypeNode[];
   onSaved: (project: DesignProject) => void;
   onDeleted: (project: DesignProject) => void;
+  /**
+   * 迭代 11（design-delta `prototype-navigation`，待签核）：「点击后跳转到」。
+   * `links` 是**本页**的跳转表；改动交给 `onSetLinks(本页新的完整 links)`——对应 delta §3 的
+   * `setLinks` op（整体替换一页的 links）。签核前只有 UI：父组件先在本地更新，不发请求。
+   */
+  frames?: readonly string[];
+  frameIndex?: number;
+  links?: readonly PrototypeLink[];
+  onSetLinks?: (links: readonly PrototypeLink[]) => void;
 }) {
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(node));
   const [busy, setBusy] = React.useState(false);
@@ -129,6 +138,20 @@ export function PrototypeInspector({
     }
   };
 
+  // 迭代 11：这个节点有几个可点位（单目标 1 / navbar 2 / 多项原语 = items 数），各自一个目标下拉。
+  const slots = linkSlotsOf(node);
+  const slotLabel = (i: number): string =>
+    slots === 1 ? "点击后跳转到"
+    : node.type === "navbar" ? (i === 0 ? "左侧按钮 → " : "右侧按钮 → ")
+    : `「${(node as { props?: { items?: readonly string[] } }).props?.items?.[i] ?? i + 1}」 → `;
+  const targetOf = (slot: number): number | "" => links.find((l) => l.from === id && (l.item ?? 0) === slot)?.to ?? "";
+  const setTarget = (slot: number, raw: string) => {
+    if (id === undefined || onSetLinks === undefined) return;
+    const rest = links.filter((l) => !(l.from === id && (l.item ?? 0) === slot));
+    if (raw === "") { onSetLinks(rest); return; }
+    onSetLinks([...rest, slots > 1 ? { from: id, item: slot, to: Number(raw) } : { from: id, to: Number(raw) }]);
+  };
+
   const fieldId = (k: string) => `proto-field-${k}`;
   const control = "h-8 w-full rounded-control border border-input bg-background px-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
@@ -155,6 +178,20 @@ export function PrototypeInspector({
           )}
         </div>
       ))}
+      {onSetLinks !== undefined && id !== undefined && slots > 0 && (
+        <div className="flex flex-col gap-1.5 border-t border-border pt-2" data-testid="design-inspector-links">
+          <p className="text-10 font-medium uppercase tracking-wide text-muted-foreground">跳转</p>
+          {Array.from({ length: slots }, (_, slot) => (
+            <label key={slot} className="flex items-center gap-1.5 text-11">
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">{slotLabel(slot)}</span>
+              <select value={targetOf(slot)} onChange={(e) => setTarget(slot, e.target.value)} disabled={busy} className={cn(control, "w-32 shrink-0")} data-testid={`design-inspector-link-${slot}`}>
+                <option value="">无</option>
+                {frames.map((f, i) => i !== frameIndex && <option key={i} value={i}>{i + 1} · {f}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
       {error !== null && <p className="text-11 text-destructive" role="alert" data-testid="design-inspector-error">{error}</p>}
       <div className="flex items-center gap-2 pt-1">
         <Button variant="primary" size="sm" onClick={() => void apply()} disabled={busy || !dirty || id === undefined} data-testid="design-inspector-apply">

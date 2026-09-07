@@ -95,6 +95,10 @@ const SHOTS = [
   ["detail-prototype-inspector-dark.png", "detail-prototype", "default", "dark", selectNodeInspector],
   // 迭代 3：打开版本历史并预览 v1
   ["detail-prototype-history-dark.png", "detail-prototype", "default", "dark", openHistoryPreview],
+  // 迭代 11（design-delta prototype-navigation，UI 先行材料）：预览模式 / 画板连线 / 属性面板跳转下拉
+  ["detail-prototype-preview-dark.png", "detail-prototype", "default", "dark", previewHover],
+  ["detail-prototype-links-dark.png", "detail-prototype", "default", "dark", boardLinks],
+  ["detail-prototype-inspector-link-dark.png", "detail-prototype", "default", "dark", selectNavForLinks],
 ];
 
 async function clickReq(page) { await click(page, '[data-testid="feedback-kind-需求"]'); }
@@ -157,6 +161,27 @@ async function selectNodeInspector(page) {
   // 与 focus 那张的区别：这里把文案改成未应用的草稿态，「应用」按钮由灰转亮。
   await page.fill('[data-testid="design-inspector-label"]', "停止生成");
   await page.waitForSelector('[data-testid="design-inspector-apply"]:not([disabled])', { timeout: 4000 });
+}
+// 迭代 11：单页 → 第二页 → 切「预览」→ 鼠标悬停在带跳转的「开始新对话」上（手型 + 描边可见）
+async function previewHover(page) {
+  await singleView(page);
+  await openSecondFrame(page);
+  await click(page, '[data-testid="design-detail-mode-preview"]');
+  await page.waitForSelector('[data-linked="true"]', { timeout: 4000 });
+  await page.locator('[data-node-id="n21"]').hover();
+}
+// 迭代 11：画板视图 + 连线层（三页之间 6 条）
+async function boardLinks(page) {
+  // SVG path 在 Playwright 的"可见"判定下拿不到 bbox（描边不算填充），等 attached 即可——有它就说明连线算出来了。
+  await page.waitForSelector('[data-testid="design-detail-board-links"] path', { state: "attached", timeout: 4000 });
+  await click(page, '[data-testid="design-detail-zoom-fit"]');
+}
+// 迭代 11：单页 → 第三页 → 选中底部导航 ⇒ 属性面板按项各一个「→」下拉
+async function selectNavForLinks(page) {
+  await singleView(page);
+  await openThirdFrame(page);
+  await page.locator('[data-proto="bottomnav"]').first().click();
+  await page.waitForSelector('[data-testid="design-inspector-links"]', { timeout: 4000 });
 }
 async function selectNode(page) {
   await singleView(page);

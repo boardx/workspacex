@@ -33,6 +33,9 @@ export type AppendProjectChatOut = z.infer<typeof designWorkbench.operations.app
 export type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
 /** B5.3：原型画布组件树节点——契约 `designPrototype.PrototypeNode` 派生，渲染表见 `components/design-loop/prototype-canvas.tsx`。 */
 export type PrototypeNode = z.infer<typeof designPrototype.PrototypeNode>;
+/** 迭代 11（待签核）：页与页之间的跳转关系，挂在屏上。 */
+export type PrototypeLink = z.infer<typeof designPrototype.PrototypeLink>;
+export const linkSlotsOf = designPrototype.linkSlotsOf;
 export type DeleteProjectOut = z.infer<typeof designWorkbench.operations.deleteProject.out>;
 export type PushToInboxOut = z.infer<typeof designWorkbench.operations.pushToInbox.out>;
 export type CreateDesignGithubIssueOut = z.infer<typeof designWorkbench.operations.createDesignGithubIssue.out>;

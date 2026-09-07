@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ import {
   type DesignProject,
   type DesignChatFallbackReason,
   type DesignWritebackField,
+  type PrototypeLink,
   type PrototypeVersion,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
@@ -126,6 +127,11 @@ export function DesignDetailScreen({
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** 迭代 4：画布视图——「画板」把所有页并排铺开可平移缩放（默认），「单页」只看当前页。 */
   const [viewMode, setViewMode] = React.useState<"board" | "single">("board");
+  /**
+   * 迭代 11（design-delta `prototype-navigation`，待签核）：编辑 / 预览。预览下点有跳转的节点 = 换页，
+   * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
+   */
+  const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
@@ -151,9 +157,21 @@ export function DesignDetailScreen({
   const project = load.kind === "ready" ? load.project : null;
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
-    () => (project !== null && selectedId !== null ? findPrototypeNodePath(project.prototype, selectedId) : null),
-    [project, selectedId],
+    () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
+    [project, selectedId, canvasMode],
   );
+  /** 迭代 11：每页出发的跳转表（服务端接线前可能没有 ⇒ 空）。 */
+  // 预览旧版本时不画连线：版本快照里还没有 links（存储形状是 delta §5 要人类拍板的取舍 ②）。
+  const frameLinks = React.useMemo(() => (preview === null ? project?.frameLinks : undefined) ?? [], [preview, project]);
+  /**
+   * 迭代 11 · UI 先行：属性面板改跳转目标 ⇒ 先只在本地更新 `frameLinks`，**不发请求**——
+   * `setLinks` op 属于签核后的服务端工作（delta §3）。签核落地后这里改成 `patchPrototype([{op:"setLinks",…}])`。
+   */
+  const setPageLinks = (pageIndex: number, links: readonly PrototypeLink[]) => {
+    if (project === null) return;
+    const next = Array.from({ length: project.frames.length }, (_, i) => (i === pageIndex ? [...links] : [...(project.frameLinks?.[i] ?? [])]));
+    setLoad({ kind: "ready", project: { ...project, frameLinks: next } });
+  };
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -432,6 +450,17 @@ export function DesignDetailScreen({
                     <Smartphone aria-hidden className="h-3 w-3" /> 单页
                   </button>
                 </div>
+                {/* 迭代 11：编辑 / 预览。预览点有跳转的节点 = 换页；进预览时清掉选中，退出再选。 */}
+                <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布模式">
+                  <button type="button" onClick={() => setCanvasMode("edit")} aria-pressed={canvasMode === "edit"} data-testid="design-detail-mode-edit" title="编辑：点节点选中它去改"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "edit" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <Crosshair aria-hidden className="h-3 w-3" /> 编辑
+                  </button>
+                  <button type="button" onClick={() => { setCanvasMode("preview"); setSelectedId(null); }} aria-pressed={canvasMode === "preview"} data-testid="design-detail-mode-preview" title="预览：点有跳转的按钮，像用真的 App 一样走一遍"
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", canvasMode === "preview" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
+                    <Play aria-hidden className="h-3 w-3" /> 预览
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
@@ -463,6 +492,9 @@ export function DesignDetailScreen({
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
                       device={deviceOf(project.template)}
+                      links={frameLinks}
+                      mode={canvasMode}
+                      onNavigate={setFrame}
                     />
                   ) : (
                     <PrototypeCanvas
@@ -472,6 +504,9 @@ export function DesignDetailScreen({
                       onSelect={preview === null ? setSelectedId : null}
                       device={deviceOf(project.template)}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
+                      mode={canvasMode}
+                      links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
+                      onNavigate={setFrame}
                     />
                   )}
                 </div>
@@ -486,6 +521,10 @@ export function DesignDetailScreen({
                         path={focus.path}
                         onSaved={(p) => setLoad({ kind: "ready", project: p })}
                         onDeleted={(p) => { setLoad({ kind: "ready", project: p }); setSelectedId(null); }}
+                        frames={project.frames}
+                        frameIndex={focus.frameIndex}
+                        links={frameLinks[focus.frameIndex] ?? []}
+                        onSetLinks={(links) => setPageLinks(focus.frameIndex, links)}
                       />
                     )}
                     {historyOpen && (
