@@ -60,10 +60,11 @@ it("atomic pending cancel competes with claim, stays idempotent and rejects late
       await store.complete(org,run.id,"late"); await store.fail(org,run.id,"late");
       expect((await store.get(org,run.id))?.status).toBe("cancelled");
     } else {
-      expect(cancel.kind).toBe("cancellation_not_supported_for_running");
+      expect(cancel.kind).toBe("cancel_requested");
       expect(claimed.map(r => r.id)).toContain(run.id);
       await store.complete(org,run.id,"done");
-      expect((await store.cancel(org,parent,run.id)).kind).toBe("terminal_conflict");
+      expect((await store.cancel(org,parent,run.id)).kind).toBe("cancelled");
+      expect((await store.get(org,run.id))?.result).toBeNull();
     }
   }
   const foreign = await store.enqueue(other,{parentRunId:otherParent,description:"foreign"});
@@ -92,9 +93,13 @@ it("real HTTP cancellation requires parent visibility/write permission and is id
     const running = await store.enqueue(org,{parentRunId:parent,description:"running cannot cancel"});
     await store.claimQueued(org,1);
     const busy = await call("actor",org,parent,running.id);
-    expect(busy.status).toBe(409); expect(await busy.json()).toMatchObject({reasonCode:"cancellation_not_supported_for_running"});
+    expect(busy.status).toBe(200); expect(await busy.json()).toMatchObject({subtaskRun:{status:"running",cancellation:{state:"pending"}}});
     await store.fail(org,running.id,"failed");
-    const terminal = await call("actor",org,parent,running.id);
+    expect((await call("actor",org,parent,running.id)).status).toBe(200);
+    expect(await store.get(org,running.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'unknown'}});
+    const ordinary=await store.enqueue(org,{parentRunId:parent,description:'ordinary failure'});
+    await store.claimQueued(org,1);await store.fail(org,ordinary.id,'failed');
+    const terminal = await call("actor",org,parent,ordinary.id);
     expect(terminal.status).toBe(409); expect(await terminal.json()).toMatchObject({reasonCode:"terminal_conflict"});
     await addProjectMember(org,`project-${org}`,"actor","observer",null);
     await asApp(org,c=>c.query("UPDATE chat_threads SET project_id=$2,visibility_scope='plenary' WHERE id=$1",[`thread-${org}`,`project-${org}`]));

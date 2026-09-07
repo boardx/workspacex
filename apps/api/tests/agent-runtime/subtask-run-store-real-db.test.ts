@@ -1,3 +1,4 @@
+import {EXECUTION_MODE_CONFIG_KEY} from "@repo/contracts/standard-capabilities";
 import { createServer } from "node:http";
 import { SUBTASK_RUN_STORE } from "../../src/application/agent-run/subtask-run-queue";
 import { createHash, randomUUID } from "node:crypto";
@@ -241,3 +242,95 @@ describe("parent cancellation handshake", () => {
     expect(await adapter.readCancellation(input)).toEqual({kind:"confirmed"});
   });
 });
+
+it('W16 parent cancellation suppresses a late completed child result',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(org,{parentRunId:parent,description:'late result fence'});
+ await store.claimQueued(org,20);
+ try{
+  await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2',[org,parent]));
+  await store.complete(org,run.id,'must never publish');
+  expect(await store.get(org,run.id)).toMatchObject({status:'cancelled',result:null,error:null});
+ }finally{await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2',[org,parent]));}
+});
+
+it('W16 cancels the actual local HTTP request across stores without claiming vendor cessation',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const {ConfiguredModelProvider,readModelProviderConfig}=await import('../../src/infrastructure/agent-run/configured-model-provider');
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(org,{parentRunId:parent,description:'stop HTTP'});
+ let entered!:()=>void;const started=new Promise<void>(r=>{entered=r;});let closed=false,calls=0,body='';
+ const server=createServer((req,res)=>{
+  calls++;req.on('data',chunk=>{body+=String(chunk);});req.on('end',()=>{
+   res.writeHead(200,{'content-type':'application/json'});res.write('{"choices":[');entered();
+  });res.on('close',()=>{closed=true;});
+ });await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+ const model=new ConfiguredModelProvider(readModelProviderConfig({KERNEL_MODEL_PROVIDER:'test-provider',KERNEL_MODEL_API_KEY:'test-only',KERNEL_MODEL_BASE_URL:base,KERNEL_MODEL_TIMEOUT_MS:'5000'}));
+
+ const executor=new SubtaskRunExecutor(store,db,model,logger,false,new Map([['test-provider',5000]]));
+ try{
+  const execution=executor.tick(org);await started;
+  expect((await new PgSubtaskRunStore(db).cancel(org,parent,run.id)).kind).toBe('cancel_requested');
+  await execution;
+  const end=Date.now()+2000;while(!closed&&Date.now()<end)await new Promise(r=>setTimeout(r,10));
+  expect(closed).toBe(true);expect(calls).toBe(1);expect(JSON.parse(body)).not.toHaveProperty('signal');
+  expect(await store.get(org,run.id)).toMatchObject({status:'failed',result:null,error:'subtask_cancel_unknown',cancellation:{state:'unknown'}});
+  const restarted=new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,{complete:async()=>{throw new Error('must not replay');}},logger,false,new Map([['test-provider',5000]]));
+  expect(await restarted.tick(org)).toBe(0);await store.complete(org,run.id,'late result');
+  expect((await store.get(org,run.id))?.result).toBeNull();
+ }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+},60000);
+
+it('W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const {DeepAgentModelProvider,readDeepAgentProviderConfig,deriveRemoteThreadId}=await import('../../src/infrastructure/agent-run/deep-agent-model-provider');
+ const {DeepAgentEngineRunController}=await import('../../src/infrastructure/plan-control/deep-agent-engine-run-controller');
+ const store=new PgSubtaskRunStore(db);let started!:()=>void;const remoteStarted=new Promise<void>(r=>{started=r;});
+ const states=new Map<string,string>();let submissions=0,stops=0,work=0,worker:ReturnType<typeof setInterval>|undefined,loseReply=false;
+ const server=createServer(async(req,res)=>{
+  let raw='';for await(const chunk of req)raw+=String(chunk);
+  const path=new URL(req.url!,'http://local').pathname,parts=path.split('/');
+  const reply=(value:unknown)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify(value));};
+  if(req.method==='POST'&&path==='/threads'){reply({thread_id:JSON.parse(raw).thread_id});return;}
+  if(path.endsWith('/state')){reply({values:{messages:[]}});return;}
+  if(req.method==='POST'&&path.endsWith('/runs')){
+   const input=JSON.parse(raw);expect(input.config.configurable[EXECUTION_MODE_CONFIG_KEY]).toBe('text-only');
+   submissions++;const id=randomUUID();states.set(id,'running');worker=setInterval(()=>{work++;},10);reply({run_id:id});started();return;
+  }
+  if(req.method==='POST'&&path.endsWith('/cancel')){
+   stops++;states.set(parts[4]!,'interrupted');if(worker)clearInterval(worker);
+   if(loseReply){loseReply=false;res.writeHead(200);res.write(' ');return;}
+   setTimeout(()=>reply({}),30);return;
+  }
+  if(req.method==='GET'&&parts.length===5){reply({run_id:parts[4],status:states.get(parts[4]!)??'running'});return;}
+  reply({status:'idle'});
+ });await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+ const old={base:process.env.KERNEL_DEEP_AGENT_BASE_URL,timeout:process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS};
+ process.env.KERNEL_DEEP_AGENT_BASE_URL=base;process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS='300';
+
+ const model=new DeepAgentModelProvider({...readDeepAgentProviderConfig(),timeoutMs:5000,pollIntervalMs:20});
+ const engine=new DeepAgentEngineRunController();
+ try{
+  await asApp(org,c=>c.query("UPDATE agent_runs SET model_provider='deep-agent' WHERE org_id=$1 AND id=$2",[org,parent]));
+  const run=await store.enqueue(org,{parentRunId:parent,description:'remote stop'});
+  const executor=new SubtaskRunExecutor(store,db,model,logger,false,new Map([['deep-agent',5000]]),engine);
+  const executing=executor.tick(org);await remoteStarted;
+  const until=Date.now()+2000;while(!(await store.readExecution(org,run.id))?.remoteRunId&&Date.now()<until)await new Promise(r=>setTimeout(r,10));
+  await new PgSubtaskRunStore(db).cancel(org,parent,run.id);await executing;
+  expect(await store.get(org,run.id)).toMatchObject({status:'cancelled',result:null,cancellation:{state:'confirmed'}});
+  const stoppedAt=work;await new Promise(r=>setTimeout(r,50));expect(work).toBe(stoppedAt);expect(submissions).toBe(1);expect(stops).toBeGreaterThan(0);
+  const lost=await store.enqueue(org,{parentRunId:parent,description:'persisted remote handle'});await store.claimQueued(org,1);
+  const remoteId=randomUUID();states.set(remoteId,'running');await store.bindRemoteRun(org,lost.id,remoteId,deriveRemoteThreadId(lost.id));
+  await store.cancel(org,parent,lost.id);loseReply=true;
+  await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
+  expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'unknown'}});
+  await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
+  expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'confirmed'}});
+  expect(submissions).toBe(1);await store.complete(org,lost.id,'late');expect((await store.get(org,lost.id))?.result).toBeNull();
+ }finally{
+  if(worker)clearInterval(worker);server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));
+  await asApp(org,c=>c.query("UPDATE agent_runs SET model_provider='test-provider' WHERE org_id=$1 AND id=$2",[org,parent]));
+  for(const [key,value] of [['KERNEL_DEEP_AGENT_BASE_URL',old.base],['KERNEL_DEEP_AGENT_TIMEOUT_MS',old.timeout]]){if(value===undefined)delete process.env[key!];else process.env[key!]=value;}
+ }
+},60000);

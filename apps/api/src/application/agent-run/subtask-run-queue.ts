@@ -44,10 +44,19 @@ export type EnqueueSubtaskRunInput = SubtaskRunContract.EnqueueSubtaskRunInput;
  * `InMemorySubtaskRunStore`。公开队列方法形状保持不变。
  */
 export type CancelSubtaskOutcome =
-  | { kind: "cancelled"; subtaskRun: SubtaskRun & { status: "cancelled" } }
+  | { kind: "cancelled" | "cancel_requested"; subtaskRun: SubtaskRun }
   | { kind: "not_found" | SubtaskRunContract.CancelSubtaskRunFailure };
 
+export interface SubtaskExecutionState {
+  readonly run: SubtaskRun;
+  readonly remoteRunId: string | null;
+  readonly remoteThreadId: string | null;
+}
 export interface SubtaskRunStore {
+  readExecution(orgId: OrgId, id: string): Promise<SubtaskExecutionState | null>;
+  bindRemoteRun(orgId: OrgId, id: string, remoteRunId: string, remoteThreadId: string): Promise<void>;
+  recordCancellation(orgId: OrgId, id: string, state: "confirmed" | "unknown", remoteRunId?: string | null): Promise<void>;
+  listCancellationRecovery(orgId: OrgId, limit: number): Promise<readonly SubtaskExecutionState[]>;
   cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome>;
   /** 入队一条新的子任务 run，初始状态 `pending`。 */
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun>;
@@ -107,6 +116,7 @@ export async function executeQueuedSubtaskRuns(
       const result = await deps.execute(run);
       await deps.store.complete(input.orgId, run.id, result);
     } catch (e) {
+      if (e instanceof SubtaskCancellationPendingError) continue;
       const detail = e instanceof Error ? e.message : "unexpected subtask execution failure";
       deps.log("subtask run execution failed", {
         subtaskRunId: run.id, parentRunId: run.parentRunId, detail,
@@ -123,3 +133,6 @@ export const SUBTASK_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
 export class SubtaskParentCancelledError extends Error {
   constructor() { super("subtask_parent_cancelled"); }
 }
+
+/** Cancellation is already persisted; never turn an unknown outcome into success/failure replay. */
+export class SubtaskCancellationPendingError extends Error {}

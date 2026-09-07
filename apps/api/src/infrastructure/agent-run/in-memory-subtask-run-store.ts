@@ -6,7 +6,7 @@ import { SubtaskIdempotencyConflictError } from "../../application/agent-run/sub
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome,
+  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState,
 } from "../../application/agent-run/subtask-run-queue";
 
 interface Row extends SubtaskRun {
@@ -15,6 +15,7 @@ interface Row extends SubtaskRun {
 
 export class InMemorySubtaskRunStore implements SubtaskRunStore {
   private readonly rows = new Map<string, Row>();
+  private readonly remotes=new Map<string,{remoteRunId:string;remoteThreadId:string}>();
   private readonly idempotency = new Map<string, string>();
 
   constructor(private readonly idFactory: () => string = () => randomUUID()) {}
@@ -49,9 +50,12 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
   async cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome> {
     const row = this.rows.get(id);
     if (!row || row.orgId !== String(orgId) || row.parentRunId !== parentRunId) return { kind: "not_found" };
-    if (row.status === "running") return { kind: "cancellation_not_supported_for_running" };
+    if (row.status === "running" || row.cancellation?.state==='unknown') {
+      const requested:Row={...row,cancellation:row.cancellation??{requestedAt:new Date().toISOString(),state:'pending'}};
+      this.rows.set(id,requested);return {kind:'cancel_requested',subtaskRun:stripOrg(requested)};
+    }
     if (row.status === "completed" || row.status === "failed") return { kind: "terminal_conflict" };
-    const cancelled = { ...row, status: "cancelled" as const,
+    const cancelled = { ...row, cancellation: {requestedAt:row.cancellation?.requestedAt??new Date().toISOString(),state:'confirmed' as const}, status: "cancelled" as const,
       updatedAt: row.status === "cancelled" ? row.updatedAt : new Date().toISOString() };
     this.rows.set(id, cancelled);
     return { kind: "cancelled", subtaskRun: { ...stripOrg(cancelled), status: "cancelled" } };
@@ -77,6 +81,26 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     this.transition(orgId, id, { status: "failed", result: null, error });
   }
 
+  async readExecution(orgId:OrgId,id:string):Promise<SubtaskExecutionState|null>{
+    const run=await this.get(orgId,id);return run?{run,...(this.remotes.get(id)??{remoteRunId:null,remoteThreadId:null})}:null;
+  }
+  async bindRemoteRun(orgId:OrgId,id:string,remoteRunId:string,remoteThreadId:string){
+    const run=await this.get(orgId,id),prior=this.remotes.get(id);
+    if(!run||(run.status!=='running'&&run.cancellation?.state!=='unknown')||(prior&&(prior.remoteRunId!==remoteRunId||prior.remoteThreadId!==remoteThreadId)))throw new Error('subtask_remote_binding_conflict');
+    this.remotes.set(id,{remoteRunId,remoteThreadId});
+  }
+  async recordCancellation(orgId:OrgId,id:string,state:'confirmed'|'unknown',remoteRunId?:string|null){
+    const row=this.rows.get(id);if(!row||row.orgId!==String(orgId)||!row.cancellation)return;
+    if(state==='confirmed'&&(remoteRunId===undefined||(this.remotes.get(id)?.remoteRunId??null)!==remoteRunId))throw new Error('subtask_cancel_identity_unverified');
+    if(row.status!=='running'&&row.cancellation.state!=='unknown')return;
+    this.rows.set(id,{...row,cancellation:{...row.cancellation,state},result:null,
+      status:row.status==='running'?(state==='confirmed'?'cancelled':'failed'):row.status,
+      error:row.status==='running'?(state==='confirmed'?null:'subtask_cancel_unknown'):(state==='confirmed'?'subtask_cancelled_after_reconciliation':row.error)});
+  }
+  async listCancellationRecovery(orgId:OrgId,limit:number):Promise<readonly SubtaskExecutionState[]>{
+    const rows=[...this.rows.values()].filter(r=>r.orgId===String(orgId)&&r.cancellation&&(r.status==='running'||r.cancellation.state==='unknown')).slice(0,Math.min(20,limit));
+    return Promise.all(rows.map(async row=>(await this.readExecution(orgId,row.id))!));
+  }
   async get(orgId: OrgId, id: string): Promise<SubtaskRun | null> {
     const row = this.rows.get(id);
     if (!row || row.orgId !== String(orgId)) return null;
@@ -96,6 +120,10 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
   ): void {
     const row = this.rows.get(id);
     if (!row || row.orgId !== String(orgId) || row.status !== "running") return;
+    if(row.cancellation){
+      patch=patch.status==='completed'?{status:'cancelled',result:null,error:null}:{status:'failed',result:null,error:'subtask_cancel_unknown'};
+      this.rows.set(id,{...row,...patch,cancellation:{...row.cancellation,state:patch.status==='cancelled'?'confirmed':'unknown'}});return;
+    }
     this.rows.set(id, { ...row, ...patch, updatedAt: new Date().toISOString() });
   }
 }

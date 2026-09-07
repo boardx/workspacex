@@ -826,6 +826,8 @@ export interface ModelCallImage {
 }
 
 export interface ModelCallInput {
+  /** Local transport cancellation only; never serialized or a claim of remote cessation. */
+  readonly signal?: AbortSignal;
   /** Non-secret binding issued by the trusted native session owner. */
   readonly nativeSession?: z.infer<typeof import("@repo/contracts/native-session-binding").NativeSessionBindingRef>;
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */

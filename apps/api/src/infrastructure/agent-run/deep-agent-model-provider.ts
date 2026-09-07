@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
 import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contracts/native-session-binding";
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
@@ -550,10 +552,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
-    if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
-    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
-    await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
-    return this.readCompletion(baseUrl, threadId);
+    return subtaskCallSignal.run(input.signal,async()=>{
+      input.signal?.throwIfAborted();
+      if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
+      const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+      await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
+      return this.readCompletion(baseUrl, threadId);
+    });
   }
 
   /**
@@ -1324,9 +1329,11 @@ export function deriveRemoteThreadId(chatThreadId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-async function fetchWithTransportErrors(url: string, init: { method: string; body?: string }): Promise<Response> {
+async function fetchWithTransportErrors(url: string, init: { method: string; body?: string; signal?: AbortSignal }): Promise<Response> {
   try {
-    return await fetch(url, { ...init, headers: { "content-type": "application/json" } });
+    const scoped=subtaskCallSignal.getStore();
+    const signal=scoped?(init.signal?AbortSignal.any([scoped,init.signal]):scoped):init.signal;
+    return await fetch(url, { ...init, ...(signal?{signal}:{}), headers: { "content-type": "application/json" } });
   } catch {
     // Same redaction discipline as `DeepResearchModelProvider`'s identical helper: no host/
     // port detail leaves this process.
@@ -1335,5 +1342,12 @@ async function fetchWithTransportErrors(url: string, init: { method: string; bod
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const signal=subtaskCallSignal.getStore();
+  if(!signal)return new Promise(resolve=>setTimeout(resolve,ms));
+  return new Promise((resolve,reject)=>{
+    if(signal.aborted){reject(signal.reason);return;}
+    const abort=()=>{clearTimeout(timer);reject(signal.reason);};
+    const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},ms);
+    signal.addEventListener('abort',abort,{once:true});
+  });
 }

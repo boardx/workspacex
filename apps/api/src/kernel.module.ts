@@ -223,7 +223,7 @@ import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-le
 // 被绑进这个容器——issue（本 PR 描述）：接线 copilotkit-v2-panel 时发现除 UC-1 外的全部
 // plan-control 写操作在真实 app 里没有 HTTP 面，只在测试里手工 new 过依赖。
 import { PLAN_RUN_CREATOR } from "./application/plan-control/plan-run-creator-port";
-import { ENGINE_RUN_CONTROLLER } from "./application/plan-control/engine-run-controller-port";
+import { ENGINE_RUN_CONTROLLER, type EngineRunController } from "./application/plan-control/engine-run-controller-port";
 import { AcceptMessagePlanRunCreator } from "./infrastructure/plan-control/accept-message-plan-run-creator";
 import { DeepAgentEngineRunController } from "./infrastructure/plan-control/deep-agent-engine-run-controller";
 // F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
@@ -1574,7 +1574,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -1582,9 +1582,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           deadlines.set(configured.provider, configured.timeoutMs);
         }
         return new SubtaskRunExecutor(store, db, model, logger,
-          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines);
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供

@@ -17,7 +17,7 @@
  *
  * `pending`（已入队，尚未被领取）→ `running`（已被 `claimQueued` 领取，正在执行）
  * → `completed`（执行成功，`result` 非空）| `failed`（执行失败，`error` 非空，不影响
- * 同批次其它子任务）。`pending` 另可原子转为 `cancelled`；所有终态不可逆。
+ * 同批次其它子任务）。取消先记录请求，确认后转 `cancelled`；未知结果为 `failed` + cancellation.unknown。终态结果不再发布。
  */
 import { z } from "zod";
 
@@ -35,7 +35,11 @@ export type SubtaskRunStatus = z.infer<typeof SubtaskRunStatus>;
  * `result`/`error` 互斥：终态为 `completed` 时 `result` 非 null、`error` 为 null；终态为
  * `failed` 时相反；`pending`/`running`/`cancelled` 两者都为 null。
  */
+export const SubtaskCancellation = z.object({
+  requestedAt: z.string().datetime(), state: z.enum(["pending", "confirmed", "unknown"]),
+}).strict();
 export const SubtaskRun = z.object({
+  cancellation: SubtaskCancellation.optional(),
   id: z.string(),
   parentRunId: z.string(),
   /** 子任务的目标描述——`spawn_async_task` 调用时模型给出的自然语言任务说明。 */
@@ -72,8 +76,12 @@ export const ListSubtaskRunsResult = z.object({
 });
 export type ListSubtaskRunsResult = z.infer<typeof ListSubtaskRunsResult>;
 
-/** Pending-only cancellation; running execution is not interrupted. */
-export const CancelSubtaskRunResult = z.object({ subtaskRun: SubtaskRun.extend({ status: z.literal("cancelled") }) });
+/** Durable request: running remains pending until cessation is verified. */
+export const CancelSubtaskRunResult = z.object({ subtaskRun: z.union([
+  SubtaskRun.extend({status:z.literal("cancelled")}),
+  SubtaskRun.extend({status:z.literal("running"),cancellation:SubtaskCancellation.extend({state:z.literal("pending")})}),
+  SubtaskRun.extend({status:z.literal("failed"),cancellation:SubtaskCancellation.extend({state:z.literal("unknown")})}),
+]) });
 export type CancelSubtaskRunResult = z.infer<typeof CancelSubtaskRunResult>;
 
 export const CancelSubtaskRunFailure = z.enum(["cancellation_not_supported_for_running", "terminal_conflict"]);

@@ -472,7 +472,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     try {
       return await undiciFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
-        signal: abort.signal,
+        signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
         dispatcher: this.dispatcher(),
         headers: {
           "content-type": "application/json",

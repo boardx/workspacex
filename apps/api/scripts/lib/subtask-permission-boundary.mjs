@@ -52,7 +52,19 @@ export function checkSubtaskPermissionBoundary(path, source, controller, authori
   if (!statements) errors.push("expected SQL statements were not inspected");
   if (executor) {
     if (!/executionMode:\s*["']text-only["']/.test(source)) errors.push("text-only execution required");
-    if (/\bthreadId\s*:/.test(source)) errors.push("parent remote thread must not be inherited");
+    const checkThread = node => {
+      if(ts.isPropertyAssignment(node)&&node.name.getText(ast)==='threadId'&&node.initializer.getText(ast)!=='run.id')errors.push("parent remote thread must not be inherited");
+      ts.forEachChild(node,checkThread);
+    };checkThread(ast);
+    if(!source.includes('signal:local.signal')||!source.includes('await this.store.bindRemoteRun(orgId,run.id,remoteRunId,remoteThreadId)'))errors.push('bounded transport and persisted child remote identity required');
+  }
+  if(!executor){
+    const methods=new Map();
+    function collectStore(node){if(ts.isMethodDeclaration(node))methods.set(node.name.getText(ast),node.getText(ast));ts.forEachChild(node,collectStore);}collectStore(ast);
+    if(!methods.get('finish')?.includes('await this.readExecution(orgId,id)')||!methods.get('finish')?.includes('execution?.run.cancellation'))errors.push('late result cancellation fence required');
+    const cancel=methods.get('cancel')??'';
+    const lock=cancel.indexOf('SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE');
+    if(lock<0||lock>cancel.indexOf('SELECT * FROM subtask_runs'))errors.push('parent lock must precede child cancel lock');
   }
   const controllerAst = ts.createSourceFile("controller.ts", controller, ts.ScriptTarget.Latest, true);
   const methods = new Map();

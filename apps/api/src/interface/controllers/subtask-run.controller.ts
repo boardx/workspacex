@@ -122,7 +122,7 @@ export class SubtaskRunController {
     return { parentRunId: runId, subtaskRuns: [...subtaskRuns] };
   }
 
-  /** Cancel one pending child only; running execution and parent lifecycle are untouched. */
+  /** Durably request cancellation of one child; response does not claim remote cessation. */
   @Post("/agent-runs/:runId/subtask-runs/:id/cancel")
   @HttpCode(200)
   async cancel(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
@@ -131,7 +131,8 @@ export class SubtaskRunController {
     await this.authorizeParent(principal,runId,true);
     const outcome = await this.store.cancel(toOrgId(principal.orgId),runId,id);
     if (outcome.kind === "not_found") throw new NotFoundException();
-    if (outcome.kind !== "cancelled") throw new ConflictException({ reasonCode: outcome.kind });
+    if (outcome.kind !== "cancelled" && outcome.kind !== "cancel_requested") throw new ConflictException({ reasonCode: outcome.kind });
+    this.executor?.kick(toOrgId(principal.orgId));
     return SubtaskRunContract.CancelSubtaskRunResult.parse({ subtaskRun: outcome.subtaskRun });
   }
 
@@ -153,7 +154,7 @@ export class SubtaskRunController {
     const orgId = toOrgId(principal.orgId);
     const existing = await this.store.get(orgId, id);
     if (!existing || existing.parentRunId !== runId) throw new NotFoundException();
-    if (existing.status !== "failed") throw new ConflictException("SUBTASK_NOT_RETRYABLE");
+    if (existing.status !== "failed" || existing.cancellation?.state === "unknown") throw new ConflictException("SUBTASK_NOT_RETRYABLE");
     const run = await this.store.enqueue(orgId, {
       parentRunId: existing.parentRunId,
       description: existing.description,

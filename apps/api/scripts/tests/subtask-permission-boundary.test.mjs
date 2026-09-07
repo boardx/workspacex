@@ -40,11 +40,16 @@ test("counterproof: allowing denied visibility or bypassing the shared decision 
   assert.notEqual(inspect(storePath,store,controller,authorization.replace("await resolveVisibility(","await unrelatedVisibility(")).length,0);
 });
 test("counterproof: tools or parent remote thread reuse are not permitted", () => {
-  assert.notEqual(inspect(executorPath,executor.replace('executionMode: "text-only"','executionMode: "native"')).length,0);
-  assert.notEqual(inspect(executorPath,executor.replace("history: []","threadId: run.parentRunId, history: []")).length,0);
+  assert.notEqual(inspect(executorPath,executor.replace('executionMode:"text-only"','executionMode:"native"')).length,0);
+  assert.notEqual(inspect(executorPath,executor.replace("threadId:run.id","threadId:run.parentRunId")).length,0);
 });
 test("parent cancellation exception cannot read private content or scan all parents", () => {
   assert.notEqual(inspect(storePath,store.replace("SELECT cancel_requested_at FROM agent_runs", "UPDATE agent_runs SET cancel_requested_at=NULL")).length,0);
   assert.notEqual(inspect(storePath,store.replaceAll("SELECT cancel_requested_at FROM agent_runs","SELECT instructions FROM agent_runs")).length,0);
   assert.notEqual(inspect(storePath,store.replaceAll("AND id=$2 FOR UPDATE", "FOR UPDATE")).length,0);
+});
+
+test("running cancellation cannot lose the result fence or durable handle",()=>{
+ assert.notEqual(inspect(storePath,store.replace('if(execution?.run.cancellation)','if(false)')).length,0);
+ assert.notEqual(inspect(executorPath,executor.replace('await this.store.bindRemoteRun(orgId,run.id,remoteRunId,remoteThreadId)','await unrelated()')).length,0);
 });
