@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bilingual Counter / 双语计数器</title>
+<style>
+  :root {
+    color-scheme: light;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f7fb;
+    color: #1f2933;
+  }
+  main {
+    width: min(92vw, 480px);
+    padding: 2rem 1.5rem;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    text-align: center;
+  }
+  h1 {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin: 0 0 0.5rem;
+  }
+  p.subtitle {
+    margin: 0 0 1.5rem;
+    color: #52606d;
+    font-size: 0.95rem;
+  }
+  .counter {
+    font-size: clamp(3rem, 10vw, 4.5rem);
+    font-weight: 700;
+    margin: 1rem 0 1.5rem;
+    line-height: 1;
+  }
+  .actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-size: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  button:focus-visible {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+  }
+  button.primary {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+  }
+  button.secondary {
+    background: #e5e7eb;
+    color: #1f2933;
+  }
+  button:active { transform: translateY(1px); }
+  .empty-state {
+    margin-top: 1.25rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+    min-height: 1.4em;
+  }
+  @media (max-width: 480px) {
+    main { padding: 1.75rem 1.25rem; }
+    button { flex: 1 1 45%; }
+  }
+</style>
+</head>
+<body>
+<main aria-labelledby="title">
+  <h1 id="title">Bilingual Counter<br /><span lang="zh">双语计数器</span></h1>
+  <p class="subtitle">Offline self-contained demo · 离线自包含演示</p>
+  <div class="counter" role="status" aria-live="polite" id="count">0</div>
+  <div class="actions">
+    <button type="button" class="primary" id="addBtn">Add / 加一</button>
+    <button type="button" class="secondary" id="resetBtn">Reset / 清零</button>
+  </div>
+  <p class="empty-state" id="emptyState">Count is zero. Tap Add to start. · 计数为零，点击“加一”开始。</p>
+</main>
+<script>
+(function () {
+  var countEl = document.getElementById('count');
+  var emptyEl = document.getElementById('emptyState');
+  var addBtn = document.getElementById('addBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var count = 0;
+
+  function render() {
+    countEl.textContent = String(count);
+    if (count === 0) {
+      emptyEl.hidden = false;
+      emptyEl.textContent = 'Count is zero. Tap Add to start. · 计数为零，点击“加一”开始。';
+    } else {
+      emptyEl.hidden = true;
+      emptyEl.textContent = '';
+    }
+  }
+
+  addBtn.addEventListener('click', function () {
+    count += 1;
+    render();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    count = 0;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

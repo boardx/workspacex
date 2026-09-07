@@ -8,24 +8,24 @@ All inputs are agent-authored synthetic fixtures in new `*-real-model.cases.ts` 
 
 | ID / Skill | 当前包；真实模型验证版本 | 实际模型、产物与人工证据 | 目录必需剩余 / 可选边界 |
 |---|---|---|---|
-| S001 组织知识问答 | standard-context 1.1.0；已验1.0.0 | [S001人工复核](../g-skill-batch/S001/REVIEW.md)：真实知识search/read、原文引句与版本、answer.md写回、零工具负例 | 1.1.0尚需重验；代表场景是当前thread来源，撤权后不再引用、完全无结果与可点击引用仍须以对应实际验收覆盖，不能只拿方法包文字证明 |
+| S001 组织知识问答 | standard-context 1.1.0；已验同版 | [1.1.0实际复核](../g-skill-batch/context-1.1.0/S001/REVIEW.md)：真实知识search/read、原文与版本、写回、零工具负例 | 当前thread来源代表场景通过；撤权/完全无结果模型场景仍按实际对应证据判定，不以方法文字替代 |
 | S002 联网研究 | standard-web 1.1.0含web-research 1.0.0；已验pack1.0.0同Skill版本 | [S002最终复核](../g-skill-batch/S002/REVIEW.md)：真实搜索2次/fetch5次、4页全文1失败、来源ID/hash核对、报告写回、预算表、零工具负例 | 当前场景通过；冲突来源保留须由明确冲突fixture或独立证据覆盖，网站永远可用不是承诺；实际JSON全Skill对象对比已确认pack1.1.0内web-research与1.0.0完全相同 |
 | S003 Word | 平台docx-create内容寻址包，非starter semver；创建场景已验 | [S003真实模型复核](../g-skill-batch/S003/REVIEW.md)：双语两页/表格/实际页眉，DOCX/PDF/PNG写回、原尺寸目视、零工具负例；首次预算编造失败保留，页眉误判已纠正 | 创建代表场景通过；目录指定段落编辑与无关段落不变仍需对应证据，不扩大任意DOCX布局/编辑 |
 | S004 表格 | 平台xlsx-create内容寻址包；创建场景已验 | [S004真实模型复核](../g-skill-batch/S004/REVIEW.md)：三原始行与双语标题、SUM真实公式/cache30/12/42、两页PDF独立渲染目视、写回、零工具负例 | 创建/公式样例通过；目录指定单元格编辑且其他表不变仍需独立对应证据，资源限制是组件边界；不承诺任意公式重算 |
-| S005 演示文稿 | 平台pptx-create内容寻址包；live未跑 | [W09组件](../W09/README.md)、[逐页渲染样例](../W09/renderer/README.md) | 必需：真实model创建/精确文本替换、中文字体/图片逐页检查、未知对象明确拒绝；任意复杂文件无损不在范围 |
-| S006 PDF | 平台pdf-create内容寻址包；live未跑 | [W09组件](../W09/README.md)、[PDF渲染](../W09/renderer/README.md) | 必需：真实model中英文可提取+目视、页序、表单写值重开；当前页复制脚本不保证表单保留，不能当表单验收；覆盖矩形不是安全涂黑 |
+| S005 演示文稿 | 平台pptx-create内容寻址包；创建代表已验 | [S005真实模型复核](../g-skill-batch/S005/REVIEW.md)：实际官方包renderer、产物写回与人工复核 | 创建代表通过；目录精确文本替换/未知对象拒绝及任意复杂文件无损不能由该创建样例外推 |
+| S006 PDF | 平台pdf-create内容寻址包；创建与表单代表已验 | [S006复核](../g-skill-batch/S006/REVIEW.md)及[S006_FORM](../g-skill-batch/S006_FORM/REVIEW.md)实际填表后fresh sandbox重开验值、编辑保持 | 代表场景通过；复杂PDF全组合未验，覆盖矩形不是安全涂黑 |
 | S007 数据分析 | data-workflows1.0.0；已验同版 | [S007复核](../g-skill-batch/S007/REVIEW.md)：真实计算A40/B12/总52，三文件analysis.md/analyze.py/result.csv写回，缺失/重复策略、零工具负例 | 已验样本数值与非因果表述；[独立重跑](../g-skill-batch/S007/independent-replay.txt)在新隔离session原样执行实际发布脚本两次，CSV字节均与发布结果一致。脚本固定输入路径、全缺失组泛化及措辞问题已保留，不冒充任意数据集通用质量 |
-| S008 会议准备 | standard-context1.1.0；已验1.0.0 | [S008复核](../g-skill-batch/S008/REVIEW.md)：真实授权来源、背景/议程/问题/缺口、报告写回、零工具负例 | 1.1.0尚需重验；完全无资料场景需明确覆盖。未发送邀请是预期，不能增加发送工作 |
+| S008 会议准备 | standard-context 1.1.0；已验同版 | [1.1.0复核](../g-skill-batch/context-1.1.0/S008/REVIEW.md)：真实授权来源、背景/议程/问题/缺口、写回、零工具负例 | 默认来源代表场景通过；完全无资料模型场景仍待对应验收，未发送邀请是预期 |
 | S009 会议纪要 | standard-audio1.1.1中meeting-minutes1.1.1；已验同版 | [严格live](../W14/audio-real-model/README.md)：实际模型读完整技能与合成转录、决策/未决语义人工核查、定位、产物写回、零工具负例 | 转录输入代表场景通过；[60分钟源链](../W14/audio-long/README.md)是实际传输/解码+受控ASR文本组件证据，不是供应商准确率。无需为给定转录再次ASR |
 | S010 访谈综合 | standard-methods1.0.1中interview-synthesis1.0.0；已验pack1.0.0同技能内容 | [报告](S010/report.md)及trace：3记录/2人、重复不计、异议原句/定位、无人口属性编造、写回、零工具负例 | 本合成场景覆盖目录主要语义；1.0.1构建验证保持S010对象与1.0.0相同。任意组织研究库路线不据此宣称已验 |
 | S011 组织沟通 | standard-context1.1.0；已验1.0.0 | [报告](S011/report.md)：计划已批准但未上线、日期/指标未知、草稿无发送、写回、零工具负例 | 1.1.0需重验；权限失效反证依赖真实底层读权限证据，不能仅把合成资料无敏感内容当ACL证明 |
 | S012 图表画布 | standard-canvas1.0.0；已验同版 | [报告](S012/report.md)及trace：实际canvas read/update/read，revision1→2，ID/edge保留；旧revision冲突、intruder读取拒绝 | 本次源变更通过，UI像素未验；目录无权限写入必须由W11实际写拒绝测试覆盖，读拒绝不能替代写拒绝 |
-| S013 网页产物 | standard-web1.1.0中web-artifact1.0.0；live未验 | 当前等待生产browser/隔离预览路径，未用静态截图冒充 | 必需：真实按钮/空状态、移动无横溢、网络拒绝、源码/预览/测试记录和真实model。生产部署平台明确已删，不应复活 |
+| S013 网页产物 | standard-web 1.1.2已实际跑但未通过 | [真实浏览器首轮失败](browser-first/README.md)：双视口/点击/快照/截图工具已执行，HTML发布拒绝且无writeback；后续[HTML组件](../WX-T020/html-download/README.md)已修 | 黄色：[新包实际模型25调用预算失败](browser-bounded-budget/README.md)，未完成发布；旧ref/网络拒绝完整验收仍必需，不用不发请求冒充网络反证 |
 | S014 项目报告 | standard-context1.1.0；已验1.0.0 | [报告](S014/report.md)与真实project list/read：observedAt/人数/空agenda/blueprint一致，未知预算不猜，写回、零工具负例 | 1.1.0需重验；原1.0.0代表场景满足实际API事实要求。不能以纯overview文本替代API；新增预算模型明确不做 |
 | S015 技能草稿 | standard-authoring1.0.0；已验同版 | [最终报告](authoring-final/S015/report.md)、[独立脚本反证](authoring-final/S015/independent-script-fixtures.json)：实际model创建6文件包、脚本正3/负拒绝、两产物写回、未启用、零工具负例 | [新包第二隔离模型场景](remaining-first/S015-generated/model-trace.json)已通过：挂载实际生成包、自动加载count-sum、运行原脚本得到3、报告写回，算术0工具；缺脚本/权限提升由[W15实际门禁](../W15/README.md)分别覆盖。无需新发布器 |
 | S016 音频转录 | standard-audio1.1.1中audio-transcription1.1.0；live未验 | [60min真实源链](../W14/audio-long/README.md)：MP3→FFmpeg→120现ASR会话→转录JSON写回，损坏/空声/权限反证 | 必需G-SKILL尚阻于真实ASR配置缺失；不得拿text-model key替代ASR授权或受控WS文本替代供应商。时间是源块边界，不是词级/实名说话人 |
 | S017 视觉内容 | standard-visual1.0.1；已验同版 | [新版报告](revised/S017/report.md)、[PNG](revised/S017/poster.png)：800×600精确两段中文、预装字体/几何素材、实际写回、人工看图、零工具负例 | 目录依赖仅E004/T008/T020，且“生成式提供者按需”，所以离线PNG满足本场景；供应商图片生成是独立可选路径，未据此验证。旧像素⇒字形错误报告保留 |
-| S018 | standard-document 1.2.0（实际 packDigest 见 result.json） | 真实双输入模型：跨页表格 + 扫描图；[最终证据](document-final/README.md) | 4 数合计 1140、真实页/单元格定位、OCR 75/币种缺失、两原件 hash、实际写回及零工具负例通过；已人工比对结构与原扫描图 | 该目录代表场景通过；不外推任意 OCR 准确率，此前并发 409 失败保留 |
+| S018 文档理解 | standard-document 1.2.0；已验同版 | [双输入最终证据](document-final/README.md)：跨页4数合计1140、真实page/cell定位、OCR75/币种缺失、两原件hash、实际写回、零工具负例；人工比对结构与原扫描图 | 目录跨页+扫描代表场景通过，不外推任意OCR准确率；此前并发409失败保留 |
 | S019 研究规划 | standard-methods1.0.1中user-research-planning1.0.1；已验同版 | [新版报告](revised/S019/report.md)：含结束/追问的O1/O2映射、未完成/退出者招募、跳过/录音可选、未虚构研究、写回、零工具负例 | 本合成规划场景通过；旧无映射/幸存者偏差报告保留。未执行招募/研究是范围要求，不新增第二研究系统 |
 | S020 数据可视化 | data-workflows1.0.0；已验同版 | [报告](revised/S020/report.md)、[PNG](revised/S020/chart.png)、[实际脚本](revised/S020/chart.py)：10/20、零基线、C缺失非零、中文可见，3文件写回、零工具负例 | 本合成场景通过；可复现脚本绑定原session输入路径，异地运行需提供源并改路径；任意缺失/图形泛化不承诺 |
 

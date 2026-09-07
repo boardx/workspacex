@@ -1,0 +1,121 @@
+{
+  "sourceFiles": [
+    {
+      "path": "/workspace/web-artifact/index.html",
+      "sha256": "e80d345a50f173fa12d6dccd840885d7c0d4aa5f426bb9cad66ce63fe3d51108",
+      "sizeBytes": 3425,
+      "readBack": "full_content_verified_via_sha256_and_partial_cat"
+    }
+  ],
+  "bundle": {
+    "path": "/workspace/web-artifact/bundle.html",
+    "sha256": "e80d345a50f173fa12d6dccd840885d7c0d4aa5f426bb9cad66ce63fe3d51108",
+    "sizeBytes": 3425,
+    "readBack": "full_content_verified_via_sha256_and_partial_cat",
+    "selfContained": true,
+    "notes": "Bundle is identical to source index.html; no external assets or network requests."
+  },
+  "preview": {
+    "desktopUrl": "https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=desktop",
+    "mobileUrl": "https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=mobile",
+    "adapterResult": "Both URLs loaded via run-isolated browser adapter from workspace; titles matched 'Bilingual Counter / 双语计数器'. These are not public URLs."
+  },
+  "desktop": {
+    "viewport": "1280x720",
+    "structureSnapshot": {
+      "status": "passed",
+      "actualToolEvidence": "browser_snapshot returned heading, empty-state generic, status role with text '0', and two buttons (Add One / 加一, Reset / 清零).",
+      "limitations": null
+    },
+    "addButton": {
+      "status": "passed",
+      "actualToolEvidence": "Clicked Add button via ref element:dc87a31192ac413231a21b88f4b6842baa1411b7bea40c4862817f28b77b0341; subsequent snapshot showed status text '1' and empty-state hidden. Second click produced '2'.",
+      "limitations": null
+    },
+    "resetButton": {
+      "status": "passed",
+      "actualToolEvidence": "After count reached 2, clicked Reset via ref element:f29fa5d2a4439d62d9b780279f182487126986f1368e3d541368074f931612a1; snapshot showed status '0' and empty-state visible again.",
+      "limitations": null
+    },
+    "emptyState": {
+      "status": "passed",
+      "actualToolEvidence": "Empty-state generic present at initial load and after reset; absent when count was 1 or 2.",
+      "limitations": null
+    },
+    "horizontalOverflow": {
+      "status": "not_tested",
+      "actualToolEvidence": "Structure snapshot does not provide geometric overflow proof. Screenshot captured but visual inspection by model is not available as tool evidence.",
+      "limitations": "No layout measurement tool invoked; visual check not automated."
+    }
+  },
+  "mobile": {
+    "viewport": "390x844",
+    "structureSnapshot": {
+      "status": "passed",
+      "actualToolEvidence": "browser_snapshot on mobile URL returned same semantic structure: heading, empty-state, status '0', Add and Reset buttons.",
+      "limitations": null
+    },
+    "addButton": {
+      "status": "passed",
+      "actualToolEvidence": "Clicked mobile Add button via ref element:773fe4b927b093461f13a05f597fea9815b178ea72fbbbc30660af0640bb7fd0; subsequent snapshot showed status '1' and empty-state removed.",
+      "limitations": null
+    },
+    "horizontalOverflow": {
+      "status": "not_tested",
+      "actualToolEvidence": "Screenshot taken at 390x844; no geometric overflow measurement performed.",
+      "limitations": "Visual readability and overflow not verified by tool."
+    }
+  },
+  "network": {
+    "allowedRequest": {
+      "status": "not_applicable",
+      "actualToolEvidence": "Page contains no fetch/XHR or external resource references; no allowed request needed.",
+      "limitations": null
+    },
+    "unauthorizedRequestBlocked": {
+      "status": "not_tested",
+      "actualToolEvidence": "No unauthorized network request was initiated from the page; absence of requests is not evidence of blocking.",
+      "limitations": "Skill requires actual request + explicit rejection evidence. Page is offline-only by design, so this boundary was not probed."
+    }
+  },
+  "screenshots": [
+    {
+      "label": "desktop",
+      "workspacePath": "/workspace/web-artifact/desktop-screenshot.png",
+      "originalWorkspacePath": "/workspace/browser-658fa2acfe11a47cba0c2c5b802a4a62cf8cc309d2be9bce1d0e51a9c1b98896.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "9437bf7a181e3282ff05d135ba396117975df1b439f520a62931c5b6a58cb9f2",
+      "sizeBytes": 39882,
+      "readBack": "sha256_verified_after_copy"
+    },
+    {
+      "label": "mobile",
+      "workspacePath": "/workspace/web-artifact/mobile-screenshot.png",
+      "originalWorkspacePath": "/workspace/browser-8b9c5940fb314b16e26faf355a784c8fa22eea2f0ad02a5728091f66f55e2d01.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "1158f0fdd080a19ae6f58fdb33dc82965bdccf159c2c34f3e59b9a7b2aec9049",
+      "sizeBytes": 25352,
+      "readBack": "sha256_verified_after_copy"
+    }
+  ],
+  "artifacts": {
+    "bundle.html": { "status": "not_published", "receipt": null },
+    "index.html": { "status": "not_published", "receipt": null },
+    "test-record.json": { "status": "not_published", "receipt": null },
+    "desktop-screenshot.png": { "status": "not_published", "receipt": null },
+    "mobile-screenshot.png": { "status": "not_published", "receipt": null },
+    "report.md": { "status": "not_published", "receipt": null }
+  },
+  "staleRefRejection": {
+    "status": "not_tested",
+    "actualToolEvidence": "Each interaction used fresh refs from the latest snapshot. No stale ref was submitted to provoke an explicit rejection.",
+    "limitations": "Negative probe not executed; cannot claim passed."
+  },
+  "limitations": [
+    "Horizontal overflow and visual CJK readability were not verified by automated tool evidence; screenshots exist but visual inspection is not a tool result.",
+    "Unauthorized network blocking was not probed because the page makes no network requests by design.",
+    "Stale ref rejection was not probed; fresh refs were used throughout."
+  ]
+}

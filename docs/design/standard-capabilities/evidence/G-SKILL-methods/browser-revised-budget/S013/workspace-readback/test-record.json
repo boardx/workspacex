@@ -1,0 +1,83 @@
+{
+  "sourceFiles": [
+    {
+      "path": "/workspace/web-artifact/index.html",
+      "sha256": "1feaae4a91cbbcdd974073c6270ff9f1e6913a65821f629e8bf584c3e69d4dfc",
+      "sizeBytes": 3268,
+      "readback": "full_file_verified_via_sha256_and_head_tail_check"
+    }
+  ],
+  "bundle": {
+    "path": "/workspace/web-artifact/bundle.html",
+    "sha256": "1feaae4a91cbbcdd974073c6270ff9f1e6913a65821f629e8bf584c3e69d4dfc",
+    "sizeBytes": 3268,
+    "readback": "full_file_verified_identical_to_index_html"
+  },
+  "preview": {
+    "desktopUrl": "https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=desktop",
+    "mobileUrl": "https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=mobile",
+    "adapterLoadResult": "both_urls_loaded_successfully_via_run_isolated_browser_adapter_from_workspace"
+  },
+  "desktop": {
+    "viewport": "1280x720",
+    "structuralSnapshot": "passed",
+    "primaryButtonsLocated": "Add/加一 and Reset/清零 buttons found via snapshot refs",
+    "emptyStateLocated": "Empty state paragraph visible at count=0 with bilingual text",
+    "interactionAdd": "clicked Add -> status changed from 0 to 1, empty state hidden",
+    "interactionReset": "clicked Reset -> status returned to 0, empty state restored",
+    "refRefreshAfterMutation": "new snapshot taken after each click with fresh refs",
+    "horizontalOverflow": "not_tested",
+    "actualToolEvidence": "browser_navigate(desktop), browser_snapshot x3, browser_click(add then reset), browser_take_screenshot(fullPage 1280x720)"
+  },
+  "mobile": {
+    "viewport": "390x844",
+    "structuralSnapshot": "passed",
+    "primaryButtonsLocated": "Add/加一 and Reset/清零 buttons found via snapshot refs in mobile viewport",
+    "emptyStateLocated": "Empty state paragraph visible at count=0 in mobile viewport",
+    "interactionAdd": "clicked Add -> status changed from 0 to 1, empty state hidden",
+    "interactionReset": "clicked Reset -> status returned to 0, empty state restored",
+    "refRefreshAfterMutation": "new snapshot taken after each click with fresh refs",
+    "horizontalOverflow": "not_tested",
+    "actualToolEvidence": "browser_navigate(mobile), browser_snapshot x3, browser_click(add then reset), browser_take_screenshot(fullPage 390x844)"
+  },
+  "network": {
+    "allowedRequest": "not_applicable_page_has_no_fetch_or_xhr",
+    "unauthorizedRequestBlocked": "not_tested",
+    "rationale": "Page contains zero network calls; no unauthorized request was attempted. Per skill rules, absence of requests does not prove blocking.",
+    "actualToolEvidence": "source code inspection shows no fetch/XHR; no blocked-request probe executed"
+  },
+  "screenshots": [
+    {
+      "label": "desktop",
+      "workspacePath": "/workspace/web-artifact/desktop.png",
+      "width": 1280,
+      "height": 720,
+      "sha256": "259eeddbaf9d0b3cadf746c13d5e149e4196654a31baaa3952b45c1ab63b7c64",
+      "sizeBytes": 40538,
+      "readback": "copied_from_browser_workspace_and_verified_via_sha256"
+    },
+    {
+      "label": "mobile",
+      "workspacePath": "/workspace/web-artifact/mobile.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ce815e7e30cf4d1e583dab17be395d717fc284bf7ff3f9805b0c6cead7bd8c66",
+      "sizeBytes": 33388,
+      "readback": "copied_from_browser_workspace_and_verified_via_sha256"
+    }
+  ],
+  "artifacts": {
+    "bundle.html": "not_published",
+    "index.html": "not_published",
+    "test-record.json": "not_published",
+    "desktop.png": "not_published",
+    "mobile.png": "not_published",
+    "report.md": "not_published"
+  },
+  "limitations": [
+    "Horizontal overflow not geometrically verified; only structural snapshots confirm element presence.",
+    "Visual readability of Chinese characters not independently verified beyond snapshot text content.",
+    "No unauthorized network request probe executed; network blocking marked not_tested per skill evidence rules.",
+    "Stale-ref rejection not probed; fresh refs obtained after each mutation instead."
+  ]
+}
