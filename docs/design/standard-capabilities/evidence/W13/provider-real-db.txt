@@ -1,0 +1,24 @@
+[stack-admission] load1=3.35 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtql33cc-a9048c79-fe53474bda5b db=wsx_fe53474bda5be57aba1a compose=wsx-fe53474bda5be57aba1a pg=20603 redis=25603 sandbox=50603
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_fe53474bda5be57aba1a capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-scheduler-provider.test.ts (3 tests) 6092ms
+   ✓ official persistent due job survives restart and two workers claim only once 5757ms
+   ✓ SDK transaction binding rolls cron and one-shot registration back together 332ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  09:50:35
+   Duration  8.37s (transform 47ms, setup 0ms, collect 53ms, tests 6.09s, environment 0ms, prepare 25ms)
+
+[db-isolation] db=wsx_fe53474bda5be57aba1a peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-scheduler-provider.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：9s

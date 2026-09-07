@@ -143,7 +143,7 @@ def test_input_manifest_prompt_preserves_data_and_rejects_duplicate_identity():
     with pytest.raises(factory.NativeFactoryError): factory._input_prompt([item,dict(item,attachmentId='other')])
 
 
-def test_factory_registers_actual_image_tool(monkeypatch):
+def test_factory_registers_actual_schedule_tools(monkeypatch):
     from contextlib import nullcontext
     from unittest.mock import Mock
     value=config();pins=value['configurable']['org_skills']
@@ -161,6 +161,6 @@ def test_factory_registers_actual_image_tool(monkeypatch):
         async with factory.native_graph_context(value): pass
     asyncio.run(run())
     registered={t.name:t for t in build.call_args.kwargs['tools']}
-    for name in ['wx_image_generate']:
+    for name in ['wx_schedule_create','wx_schedule_list','wx_schedule_cancel','wx_image_generate']:
         assert registered[name].coroutine is not None
         assert registered[name].args_schema['type']=='object'

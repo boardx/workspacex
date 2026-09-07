@@ -35,6 +35,7 @@ import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbenc
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
 import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-execution-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
+import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
@@ -491,6 +492,12 @@ for (const root of ROOTS) {
     if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
       const errors = checkMcpExecutionBoundary(rel, body);
       if (!existsSync(join(API, "scripts/tests/mcp-execution-boundary.test.mjs"))) errors.push("MCP authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === STANDARD_SCHEDULE_PATH) {
+      const errors = checkStandardSchedule(body);
+      if (!existsSync(join(API, "scripts/tests/standard-schedule-boundary.test.mjs"))) errors.push("scheduler authorization counterexamples missing");
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

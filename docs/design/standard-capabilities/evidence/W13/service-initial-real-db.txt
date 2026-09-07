@@ -1,0 +1,25 @@
+[stack-admission] load1=3.85 cores=10 perCore=0.38 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqlh7pd-b865d06f-6c3e506bf7c2 db=wsx_6c3e506bf7c269ef2be8 compose=wsx-6c3e506bf7c269ef2be8 pg=23147 redis=28147 sandbox=53147
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_6c3e506bf7c269ef2be8 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-scheduler-service.test.ts (4 tests) 6872ms
+   ✓ real HTTP creation/list/cancel reuses current authority and rejects changed identity 448ms
+   ✓ cancel linearizes before a new run or waits for an already accepted occurrence 2122ms
+   ✓ revocation prevents the next actual due run and submits only a peer reminder fact 1095ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:01:33
+   Duration  9.38s (transform 341ms, setup 0ms, collect 622ms, tests 6.87s, environment 0ms, prepare 23ms)
+
+[db-isolation] db=wsx_6c3e506bf7c269ef2be8 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-scheduler-service.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：0s
+  总计：10s

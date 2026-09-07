@@ -1,0 +1,301 @@
+{
+  "limits": {
+    "maxInstructionChars": 8000,
+    "maxSummaryChars": 200,
+    "maxResponseBytes": 65536,
+    "maxActivePerUser": 20,
+    "pageSize": 50,
+    "maxFutureDays": 366
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "userId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "enum": [
+          "wx_schedule_create",
+          "wx_schedule_list",
+          "wx_schedule_cancel"
+        ]
+      },
+      "toolArgs": {
+        "type": "object",
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "orgId",
+      "userId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "tools": {
+    "wx_schedule_create": {
+      "type": "object",
+      "properties": {
+        "instruction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8000
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "once",
+            "cron"
+          ]
+        },
+        "scheduleSpec": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "expression": {
+              "type": "string",
+              "minLength": 9,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "instruction",
+        "timezone",
+        "idempotencyKey",
+        "trigger",
+        "scheduleSpec"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "wx_schedule_list": {
+      "type": "object",
+      "properties": {
+        "cursor": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "wx_schedule_cancel": {
+      "type": "object",
+      "properties": {
+        "scheduleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "scheduleId"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  "outputs": {
+    "wx_schedule_create": {
+      "type": "object",
+      "properties": {
+        "scheduleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "cancelled",
+            "completed",
+            "failed"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "failureCode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "authorization_revoked",
+                "delivery_rejected"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scheduleId",
+        "summary",
+        "nextRunAt",
+        "status",
+        "revision",
+        "failureCode"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "wx_schedule_list": {
+      "type": "object",
+      "properties": {
+        "schedules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scheduleId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "summary": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "nextRunAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "cancelled",
+                  "completed",
+                  "failed"
+                ]
+              },
+              "revision": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "failureCode": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "authorization_revoked",
+                      "delivery_rejected"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "scheduleId",
+              "summary",
+              "nextRunAt",
+              "status",
+              "revision",
+              "failureCode"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "cursor": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "schedules"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "wx_schedule_cancel": {
+      "type": "object",
+      "properties": {
+        "cancelled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cancelled"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

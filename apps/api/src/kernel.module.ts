@@ -2,6 +2,12 @@ import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-t
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
 import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
+import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
+import { PgBossScheduler } from "./infrastructure/agent-run/pg-boss-scheduler";
+import { PgStandardSchedule } from "./infrastructure/agent-run/pg-standard-schedule";
+import { ScheduledChatRunGateway } from "./infrastructure/agent-run/scheduled-chat-run-gateway";
+import { StandardScheduleRuntime } from "./infrastructure/agent-run/standard-schedule-runtime";
+import { StandardScheduleController } from "./interface/controllers/standard-schedule.controller";
 import { SKILL_DRAFT_SERVICE, DefaultSkillDraftService } from "./application/agent-run/skill-draft";
 import { createNativeDraftSession } from "./infrastructure/agent-run/native-draft-session";
 import { SkillDraftController } from "./interface/controllers/skill-draft.controller";
@@ -916,7 +922,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    StandardImageController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1841,6 +1847,27 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       },
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
+    },
+    {
+      provide: STANDARD_SCHEDULE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository,
+        ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore,
+        commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort, model: ModelCallPort, titleModel: ThreadTitleModelConfig,
+        logger: LoggerPort, notifier?: ScheduledRunNotifier) => {
+        if (process.env.KERNEL_STANDARD_SCHEDULER !== "1") return null;
+        const provider = new PgBossScheduler(db, code => logger.error(code, {traceId:randomUUID(),err:code}));
+        const gateway = new ScheduledChatRunGateway({repo,ids,chat,commands,publishedAgents,threadMounts,enabledSkills,
+          model,titleModel,log: () => logger.error("schedule_chat_failed", {traceId:randomUUID(),err:"schedule_chat_failed"})},
+          orgId => executor.kick(orgId));
+        return new StandardScheduleRuntime(provider, new PgStandardSchedule({db,authority,
+          visibility:{repo,ids,chat,runs},provider,gateway,notifier}));
+      },
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY,
+        CHAT_REPOSITORY, AGENT_RUN_STORE, CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER,
+        THREAD_MOUNTED_SKILL_READER, ENABLED_SKILL_VERSION_READER, AGENT_RUN_EXECUTOR,
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
     },
     {
       provide: STANDARD_SQL_SOURCE,

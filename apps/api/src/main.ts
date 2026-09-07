@@ -164,6 +164,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
 if (isProcessEntry()) {
   loadLocalEnvFileForDev();
   const app = await createApp();
+  app.enableShutdownHooks(["SIGTERM", "SIGINT"]);
   const port = Number(process.env.PORT ?? 3200);
   await app.listen(port);
   attachStreamingSurfaces(app);
