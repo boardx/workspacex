@@ -47,12 +47,21 @@ function relayProcess(container:string,code:string,input:string):Promise<string>
 const invoke=(path:string,override:Record<string,unknown>={})=>fetch(base+`/internal/agent-runs/${run}/document/parse`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':'w08-http-key'},body:JSON.stringify({orgId:org,attemptId:context.attemptId,leaseEpoch:1,bindingId,toolCallId:randomUUID(),toolName:'wx_document_parse',toolArgs:{workspacePath:path,outputMode:'chunks',ocr:false},...override})});
 beforeAll(async()=>{
  const container=process.env.WX_NATIVE_SANDBOX_CONTAINER;if(!container)throw new Error('actual W08 sandbox container required');
+ // Probe the exact provider setup with its mandatory BPF before HTTP hides OS diagnostics.
+ // This is a fixed /usr/bin/true command, not user input and not a policy relaxation.
+ const probe=JSON.parse(await relayProcess(container,`const fs=require('node:fs'),cp=require('node:child_process');const fd=fs.openSync('/opt/sandbox/session-seccomp.bpf','r');try{const r=cp.spawnSync('/usr/bin/bwrap',['--seccomp','3','--unshare-all','--unshare-user','--die-with-parent','--new-session','--cap-drop','ALL','--ro-bind','/usr','/usr','--ro-bind','/lib','/lib','--ro-bind-try','/lib64','/lib64','--clearenv','--','/usr/bin/true'],{env:{},timeout:5000,maxBuffer:4096,stdio:['ignore','pipe','pipe',fd]});process.stdout.write(JSON.stringify({arch:process.arch,status:r.status,signal:r.signal,error:r.error?.code,stderr:r.stderr?.toString().slice(0,2048)}));}finally{fs.closeSync(fd);}`,'')) as {arch:string;status:number|null;stderr?:string};
+ expect(probe.status,JSON.stringify(probe)).toBe(0);
+
  ensureDatabase();await migrateOnce();root=await mkdtemp(join(tmpdir(),'wx-w08-http-'));socket=join(root,'sandbox.sock');
  const fixture=await readFile(join(workspace,'apps/deep-agent-service/tests/native_sandbox_fixture.py'),'utf8');
  const code=fixture.split('_UDS_RELAY = r"""')[1]?.split('"""')[0];if(!code)throw new Error('relay missing');
  relay=createServer(async(req,res)=>{try{let body='';for await(const chunk of req)body+=chunk;
   const output=JSON.parse(await relayProcess(container,code,JSON.stringify({method:req.method,path:req.url,headers:req.headers,body}))) as {status:number;body:string};
-  if(req.method==='POST'&&req.url?.endsWith('/executions')){executionCount++;executedCommands.push(String((JSON.parse(body) as {command:string}).command));const hook=afterExecution;afterExecution=undefined;if(hook)await hook();}
+  if(req.method==='POST'&&req.url?.endsWith('/executions')){
+   // Only synthetic fixture execution responses; never log request headers/session tokens.
+   const result=JSON.parse(output.body) as {error?:string;exitCode?:number|null;output?:string;timedOut?:boolean;cancelled?:boolean;truncated?:boolean};
+   if(output.status!==200||result.exitCode!==0)console.error('[native-document execution]',JSON.stringify({status:output.status,error:result.error,exitCode:result.exitCode,timedOut:result.timedOut,cancelled:result.cancelled,truncated:result.truncated,output:result.output?.slice(0,2048)}));
+   executionCount++;executedCommands.push(String((JSON.parse(body) as {command:string}).command));const hook=afterExecution;afterExecution=undefined;if(hook)await hook();}
   res.writeHead(output.status,{'content-type':'application/json'});res.end(output.body);
  }catch{res.writeHead(503);res.end('{}');}});await new Promise<void>(done=>relay.listen(socket,done));
  process.env.NATIVE_SESSION_SOCKET=socket;process.env.NATIVE_SESSION_BINDING_KEY='d'.repeat(64);process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='w08-http-key';process.env.WORKSPACEX_OBJECT_ROOT=root;process.env.KERNEL_QUIET='1';
