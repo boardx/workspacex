@@ -250,6 +250,24 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # 2026-09-08（#2972）：本 job 下面那步在 **fork PR** 上会把 @repo/api 留在
+      # `--affected` 集合里跑（因为 `gates-test` 对 fork PR 整体跳过），而 @repo/api 的
+      # 默认套件里有 4 个跨语言取证文件要 spawn `apps/deep-agent-service/.venv/bin/python`。
+      # 同仓 PR 上 @repo/api 被 `--filter='!@repo/api'` 排除，装它纯属浪费 ⇒ 只在
+      # fork PR 这一种场景装。条件写法与下面那步的 `IS_FORK_PR` 同源，理由见那里的注释
+      # （不得写出「event 不等于 pull_request」的字面量模式）。
+      - name: Detect fork PR (Python runtime only needed when @repo/api runs here)
+        id: forkpr
+        run: echo "value=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}" >> "$GITHUB_OUTPUT"
+      - uses: astral-sh/setup-uv@v7.0.0
+        if: steps.forkpr.outputs.value == 'true'
+        with:
+          version: "0.12.5"
+      - name: Install locked Python runtime for cross-language API integration tests
+        if: steps.forkpr.outputs.value == 'true'
+        working-directory: apps/deep-agent-service
+        run: uv sync --frozen --extra dev
+
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
       #
@@ -490,6 +508,23 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
+      # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
+      # @repo/api 的默认 vitest 套件，而其中 4 个文件（standard-memory-real-db /
+      # standard-scheduler-service / standard-sql-database / standard-sql-source-real-db）
+      # 直接 `spawn(apps/deep-agent-service/.venv/bin/python, …)` 跨语言取证。这个 job
+      # 从建立起就没装过 Python 运行时 ⇒ 5 条用例全挂在同一行
+      # `spawn …/.venv/bin/python ENOENT`（run 34135593071）。
+      #
+      # ⚠ 这不是"这几条测试有问题"：`backend-gates.yml` 的 `gates-test` 跑的是同一份
+      #   `vitest.config.ts`，它有这两步，同样这 4 个文件在那里是绿的。缺的只是本车道。
+      #   版本/参数与 `gates-test` 保持逐字一致，避免两条车道的 Python 运行时漂移。
+      #   `lint-ci-python-runtime.test.ts` 机械守住"跑 api 默认套件的 job 必须装它"。
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - name: Install locked Python runtime for cross-language API integration tests
+        working-directory: apps/deep-agent-service
+        run: uv sync --frozen --extra dev
       - name: Execute uncached trusted full gate
         shell: bash
         run: |
