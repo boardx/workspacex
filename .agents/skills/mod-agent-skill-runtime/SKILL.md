@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-07：有状态 MCP 不能直接套用“每次 tools/call 新建并关闭 Client”的通用执行桥——浏览器的 navigate→snapshot→click 依赖同一隔离 context；应按可信 native binding 保持固定版本 MCP session，并用服务端 opaque page/element generation 阻断跨 run 与旧引用，terminal/取消/TTL 复用统一 run 生命周期回收（出处：issue #2864，`docs/design/standard-capabilities/evidence/W10/verification.md`）。
 - 2026-09-05：把 `call_skill` 一刀切记成 L2 是把"调用 skill 这个动作"当成了风险
   单位，真正的风险单位是**被调用的那个 skill**——分级判断要接住"目标是谁"，不能
   只看"用了哪个工具"（`bash_exec`/三个具名虚拟工具确实是"工具本身即风险"，但
