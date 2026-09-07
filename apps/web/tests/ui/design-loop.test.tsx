@@ -1873,6 +1873,63 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
  * 迭代 11（design-delta `prototype-navigation`，待人类签核）—— UI 先行部分的验收（delta V29 / V30 / V31 的
  * 前端半边）。跳转表由 `project.frameLinks` 给（服务端接线前夹具提供），画布只消费。
  */
+/**
+ * 2026-09-07 人类指令：composer 回车直接发、Shift+Enter 换行；底部不显示模型名。
+ */
+describe("对话输入区：回车发送 / Shift+Enter 换行 / 输入法组字不误发", () => {
+  const tree = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+  const setup = async () => {
+    const sent: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (/\/chat$/.test(path) && opts?.method === "POST") {
+        sent.push(opts.body);
+        return { project: project({ frames: ["页"], prototype: [tree] }), reply: { source: "model", applied: [], suggestions: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    return { sent, input: screen.getByTestId("design-detail-input") };
+  };
+
+  it("回车发送；Shift+Enter 不发（留给换行）", async () => {
+    const { sent, input } = await setup();
+    fireEvent.change(input, { target: { value: "改一下标题" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(sent).toHaveLength(0);
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ text: "改一下标题" });
+  });
+
+  it("输入法组字中的回车是在选词，不发送（中文/日文用户的半截词不该被发出去）", async () => {
+    const { sent, input } = await setup();
+    fireEvent.change(input, { target: { value: "改一下" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("空内容按回车不发", async () => {
+    const { sent, input } = await setup();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("底部状态条不显示模型名——它此前是硬编码字面量，与部署实际用的模型无关", () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    return waitFor(() => {
+      const bar = screen.getByTestId("design-detail-statusbar");
+      expect(bar.textContent).not.toMatch(/claude|opus|gpt/i);
+      expect(bar.textContent).toContain("设计系统 WorkspaceX UI");
+    });
+  });
+});
+
 describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => {
   const btn = (id: string, label: string) => ({ id, type: "button" as const, props: { label } });
   const treeA = { id: "ra", type: "stack" as const, children: [btn("go", "去 B"), btn("stay", "普通按钮")] };

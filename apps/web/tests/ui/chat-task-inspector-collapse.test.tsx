@@ -87,6 +87,7 @@ describe("ChatTaskInspector 折叠态 —— 只手点，不自动展开（issue
       />,
     );
     expect(isCollapsed()).toBe(true);
+    expect(screen.getByTestId("chat-task-workbench-inspector")).toHaveAttribute("data-active-tab", "artifacts");
   });
 
   it("点「展开」按钮真的会展开；再点「收起」真的会收起", () => {

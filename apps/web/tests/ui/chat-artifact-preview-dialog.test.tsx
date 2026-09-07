@@ -71,6 +71,9 @@ describe("产物列表点击查看（issue #2099）", () => {
     });
     render(<Harness />);
 
+    expect(screen.getByTestId("chat-task-workbench-artifact-preview")).toBeVisible();
+    expect(screen.getByTestId("chat-task-workbench-artifact-sources")).toBeVisible();
+
     fireEvent.click(screen.getByTestId("chat-artifact-art-1"));
     expect(getThreadArtifactSource).toHaveBeenCalledWith("thr-1", "art-1", null, "b");
 
