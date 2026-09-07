@@ -37,11 +37,15 @@ export async function fetchLatestSavedDiagramSource(input: {
     // 就是这么红的）。字节本体每次落地都有（materializeArtifact 的 content.md）。
     const candidates = list.items.filter((i) => i.messageId === input.messageId);
     const candidatesToRead = input.accepts ? [...candidates].reverse() : candidates.slice(-1);
+    let soleCandidateSource: SavedDiagramSource | null = null;
     for (const candidate of candidatesToRead) {
       try {
         const source = await getThreadArtifactSource(
           input.threadId, candidate.artifactId, input.projectId, input.bearer,
         );
+        if (candidates.length === 1) {
+          soleCandidateSource = { markdown: source.markdown, savedAt: source.savedAt };
+        }
         if (!input.accepts || input.accepts(source.markdown)) {
           return { markdown: source.markdown, savedAt: source.savedAt };
         }
@@ -50,7 +54,10 @@ export async function fetchLatestSavedDiagramSource(input: {
         // invisible outcome. A different visible save may still match this fence.
       }
     }
-    return null;
+    // A single saved artifact keeps the historical behavior even when its source is
+    // malformed: the renderer must surface that saved error instead of silently showing
+    // the older message body. Identity filtering is only needed when siblings compete.
+    return soleCandidateSource;
   } catch {
     return null;
   }
