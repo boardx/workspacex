@@ -6,6 +6,9 @@ import { getCanvasSource, type GetCanvasSourceDeps } from '../canvas/get-canvas-
 import { renderCanvas } from '../canvas/render-canvas';
 import { updateCanvasSource, authorizeCanvasSourceUpdate } from '../canvas/update-canvas-source';
 import { CanvasError } from '../canvas/errors';
+export class CanvasIdempotencyConflict extends Error {
+  constructor() { super('canvas_idempotency_conflict'); }
+}
 export const STANDARD_CANVAS_SERVICE = Symbol('StandardCanvasService');
 interface Actor { orgId: OrgId; userId: string; }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -30,7 +33,7 @@ export class StandardCanvasService {
     const replay = async () => {
       const version=await this.deps.instances.findVersion(actor.orgId,input.canvasId,versionId);
       if (!version) return null;
-      if(version.contentHash!==contentHash || version.version!==input.expectedRevision+1) throw new Error('canvas_idempotency_conflict');
+      if(version.contentHash!==contentHash || version.version!==input.expectedRevision+1) throw new CanvasIdempotencyConflict();
       return CanvasUpdateOutput.parse({newRevision:version.version,versionId,contentHash,replayed:true});
     };
     const prior=await replay(); if(prior) return prior;

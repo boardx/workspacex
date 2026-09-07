@@ -1,7 +1,7 @@
 import {timingSafeEqual} from 'node:crypto';
 import {Body,Controller,Headers,HttpCode,Inject,Param,Post,BadRequestException,UnauthorizedException,ForbiddenException,ServiceUnavailableException,ConflictException,NotFoundException} from '@nestjs/common';
 import {StandardCanvasInvocation} from '@repo/contracts/standard-canvas-tools';
-import {STANDARD_CANVAS_SERVICE,StandardCanvasService} from '../../application/agent-run/standard-canvas-tools';
+import {STANDARD_CANVAS_SERVICE,StandardCanvasService,CanvasIdempotencyConflict} from '../../application/agent-run/standard-canvas-tools';
 import {TOOL_EXECUTION_AUTHORITY,type ToolExecutionAuthority} from '../../application/agent-run/tool-execution-authority';
 import {AGENT_RUN_STORE,type AgentRunStore} from '../../application/agent-run/ports';
 import {IDENTITY_REPOSITORY,DECISION_ID_FACTORY,type IdentityRepository,type DecisionIdFactory} from '../../application/identity/ports';
@@ -32,7 +32,7 @@ export class StandardCanvasToolsController {
   try{switch(input.toolName){
    case 'wx_canvas_read':return await this.service.read(actor,input.toolArgs);
    case 'wx_canvas_update':return await this.service.update(actor,input.toolArgs);
-  }}catch(error){if((error instanceof CanvasError && error.reasonCode==='VERSION_CHANGED')||(error instanceof Error && error.message==='canvas_idempotency_conflict'))throw new ConflictException('canvas_revision_or_idempotency_conflict');
+  }}catch(error){if((error instanceof CanvasError && error.reasonCode==='VERSION_CHANGED')||(error instanceof CanvasIdempotencyConflict))throw new ConflictException('canvas_revision_or_idempotency_conflict');
    if(error instanceof CanvasError)throw new NotFoundException('canvas_unavailable');
    throw new ServiceUnavailableException('standard_canvas_unavailable_or_refused');}
  }
