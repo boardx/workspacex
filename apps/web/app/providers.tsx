@@ -4,6 +4,7 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/components/session/session-provider";
 import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
+import { DisablePageZoom } from "@/components/system/disable-page-zoom";
 
 /**
  * ADR-110 —— 客户端数据获取层的根 Provider。
@@ -34,6 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
         <GlobalErrorReporter />
+        <DisablePageZoom />
         {children}
       </SessionProvider>
     </QueryClientProvider>

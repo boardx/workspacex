@@ -360,6 +360,16 @@
   body {
     overscroll-behavior-x: none;
   }
+  /*
+    禁用整页缩放（触屏路径）：`touch-action: pan-x pan-y` 只放行平移，不放行捏合
+    缩放/双击缩放手势，浏览器直接不派发对应手势、无需 JS 拦截。桌面 trackpad 捏合
+    走的是另一条事件路径（`wheel` + ctrlKey / Safari 的 gesture* 事件），这里管不到，
+    由 `components/system/disable-page-zoom.tsx` 挡（同一件事分两处实现，不是重复）。
+  */
+  html,
+  body {
+    touch-action: pan-x pan-y;
+  }
   /* 焦点环全局兜底：严禁裸 outline-none 消除焦点可见性（uiux-standards §5）*/
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
