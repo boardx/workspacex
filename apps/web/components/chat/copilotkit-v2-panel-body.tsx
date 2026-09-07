@@ -1007,7 +1007,7 @@ export function CopilotKitV2PanelBody({
     const status = [...events].reverse().find((event) => event.kind === "status");
     return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
   }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
-  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "running" || runRestore.status === "queued" || runRestore.status === "writeback_pending" || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
+  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "running" || runRestore.status === "queued" || runRestore.status === "awaiting_plan_confirmation" || runRestore.status === "writeback_pending" || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
   // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
   const connectedInterjectionRun = useChatHostInterjectionRun({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
@@ -1032,6 +1032,7 @@ export function CopilotKitV2PanelBody({
   const restoredPhaseLabel = runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL
     : runRestore.status === "running" ? "正在执行"
     : runRestore.status === "queued" ? "等待执行"
+    : runRestore.status === "awaiting_plan_confirmation" ? "等待确认计划"
     : runRestore.status === "writeback_pending" ? "正在保存结果"
     : runRestore.status === "paused" ? "任务已暂停"
     : runRestore.status === "awaiting_tool_permission" ? "等待确认" : null;

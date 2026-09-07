@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-const { getAgentRun } = vi.hoisted(() => ({ getAgentRun: vi.fn() }));
+const { getAgentRun, connection } = vi.hoisted(() => ({ getAgentRun: vi.fn(), connection: { state: "connected" } }));
 vi.mock("@/lib/agent-run", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-run")>()),
   getAgentRun,
@@ -14,7 +14,7 @@ vi.mock("@/lib/agent-run", async (importOriginal) => ({
 vi.mock("@/lib/agent-kernel-stream", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/agent-kernel-stream")>()),
   // WS 连上了、但永远不来事件——重启后回放缓冲为空的真实形状。
-  useAgentKernelRunStream: () => ({ reconnectState: "connected", attempts: 0 }),
+  useAgentKernelRunStream: () => ({ reconnectState: connection.state, attempts: 0 }),
 }));
 
 import { useCopilotKitV2RunRestore, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
@@ -22,7 +22,7 @@ import { useCopilotKitV2RunRestore, type RunRestoreOutcome } from "@/lib/copilot
 const running = { runId: "run-1", status: "running", error: null } as never;
 const interrupted = { runId: "run-1", status: "failed", error: "RUN_INTERRUPTED" } as never;
 
-beforeEach(() => { vi.useFakeTimers(); getAgentRun.mockReset(); });
+beforeEach(() => { vi.useFakeTimers(); getAgentRun.mockReset(); connection.state = "connected"; });
 afterEach(() => { vi.useRealTimers(); });
 
 async function flush(ms: number): Promise<void> {
@@ -74,4 +74,21 @@ describe("useCopilotKitV2RunRestore —— 有界复读（issue #2860）", () =>
     await flush(30_000);
     expect(getAgentRun).toHaveBeenCalledTimes(1);
   });
+});
+
+it("failed WS final-read cannot stop polling while a slow authoritative read still says running", async () => {
+  let resolveRead!: (value: unknown) => void;
+  getAgentRun.mockResolvedValue(running);
+  const outcomes: RunRestoreOutcome[] = [];
+  const { result, rerender } = renderHook(() => useCopilotKitV2RunRestore("run-1", "bearer", o => void outcomes.push(o)));
+  await flush(0);
+  getAgentRun.mockImplementationOnce(() => new Promise(resolve => { resolveRead = resolve; }));
+  connection.state = "failed";
+  rerender();
+  await flush(6000); // Cross a poll tick while the WS fallback read is pending.
+  await act(async () => { resolveRead(running); });
+  expect(result.current).toMatchObject({ runId: "run-1", status: "running", isRestoring: false });
+  getAgentRun.mockResolvedValue(interrupted);
+  await flush(5000);
+  expect(outcomes).toEqual([{ kind: "settled", view: interrupted }]);
 });
