@@ -61,6 +61,17 @@ describe("research report stream UI", () => {
     expect(screen.getByText("已保存正文")).toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
+  it("accepts a higher-sequence server reset when a provider cannot stream tokens", async () => {
+    const restored = { ...streaming(), reportStream: { requestId: "request", sequence: 2, text: '{"summary":"待替换草稿', status: "streaming" as const } };
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored).mockResolvedValue({ ...restored, reportStream: { ...restored.reportStream, sequence: 3, text: "" } });
+    vi.useFakeTimers();
+    await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
+    expect(screen.getByText("待替换草稿")).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.queryByText("待替换草稿")).not.toBeInTheDocument();
+    expect(screen.getByText("正在组织报告内容…")).toBeInTheDocument();
+    expect(executeResearchRuntime).not.toHaveBeenCalled();
+  });
   it("offers explicit partial evidence generation only when failed tasks are terminal", async () => {
     vi.mocked(getResearchRuntime).mockResolvedValue({ ...initial, tasks: [{ ...initial.tasks[0]!, status: "failed" }] });
     vi.mocked(executeResearchRuntime).mockResolvedValue({ ...initial, version: 8 });
