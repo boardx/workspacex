@@ -28,3 +28,10 @@ it('admits JSON artifacts as data only and rejects malformed or non-UTF8 bytes',
  for(const bytes of [Buffer.from('{"broken":'),Buffer.from([255,255]),Buffer.from('<script>invalid JSON</script>')])await expect(validateNativeArtifactBytes(input,bytes)).rejects.toThrow();
  await expect(validateNativeArtifactBytes({...input,title:'draft.txt'},Buffer.from('{}'))).rejects.toThrow();
 });
+
+it('delivers Python reproduction source as UTF8 data while rejecting binary and mismatched titles',async()=>{
+ const input=NativeArtifactPublishInput.parse({workspacePath:'/workspace/analyze.py',title:'analyze.py',mediaType:'text/plain',idempotencyKey:'source'});
+ await expect(validateNativeArtifactBytes(input,Buffer.from('import pandas as pd\nprint(52)\n'))).resolves.toBeUndefined();
+ for(const bytes of [Buffer.from([0x7f,0x45,0x4c,0x46]),Buffer.from([255,255]),Buffer.from('x\0y')])await expect(validateNativeArtifactBytes(input,bytes)).rejects.toThrow();
+ await expect(validateNativeArtifactBytes({...input,title:'analyze.txt'},Buffer.from('print(52)'))).rejects.toThrow();
+});

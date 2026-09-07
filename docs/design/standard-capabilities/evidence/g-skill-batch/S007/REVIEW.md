@@ -1,0 +1,7 @@
+# S007 real-model review
+
+The opt-in canonical isolation command in the batch README completed with exit 0 (1 test, 82 seconds). Actual qwen3.8-max read the pinned data-analysis skill, read the five synthetic CSV rows, executed Python in the owned isolated sandbox, published analysis.md/analyze.py/result.csv, and completed existing PG writeback for three artifacts. The unrelated arithmetic follow-up emitted zero tool calls. Initial .py publication rejection is retained in source-delivery-before.txt and its trace; source-delivery-after.txt records the successful rerun after the production whitelist fix.
+
+Manual inspection: the source SHA256 matches independently hashed source.txt; CSV values A=40, B=12, TOTAL=52 match the supplied records. The report correctly identifies one missing value and one duplicate, retains the duplicate, and does not claim causality. Code and actual results are retained, not reconstructed in the test.
+
+Quality limitations: the report calls contributor counts a “denominator” for a sum, which is mathematically imprecise. The script targets this particular authorized /inputs path and does not accept a portable CLI input argument. Its fillna(0) after grouping is harmless on these exact rows but would need revision for all-missing groups. This is evidence of the tested synthetic scenario and actual source delivery, not general validation for arbitrary datasets or a claim that generated analysis always needs no review.

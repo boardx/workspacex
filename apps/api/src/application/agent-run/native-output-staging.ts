@@ -17,7 +17,7 @@ export interface NativeOutputStaging {
 }
 const TYPES:Record<string,{mime:string;kind:string}>={
  pdf:{mime:'application/pdf',kind:'pdf'},png:{mime:'image/png',kind:'png'},jpg:{mime:'image/jpeg',kind:'jpeg'},jpeg:{mime:'image/jpeg',kind:'jpeg'},
- json:{mime:'application/json',kind:'text'},txt:{mime:'text/plain',kind:'text'},md:{mime:'text/markdown',kind:'text'},csv:{mime:'text/csv',kind:'text'},
+ json:{mime:'application/json',kind:'text'},txt:{mime:'text/plain',kind:'text'},py:{mime:'text/plain',kind:'text'},md:{mime:'text/markdown',kind:'text'},csv:{mime:'text/csv',kind:'text'},
  docx:{mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',kind:'zip'},xlsx:{mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',kind:'zip'},pptx:{mime:'application/vnd.openxmlformats-officedocument.presentationml.presentation',kind:'zip'},
 };
 export async function validateNativeArtifactBytes(input:PublishInput,bytes:Uint8Array):Promise<void>{

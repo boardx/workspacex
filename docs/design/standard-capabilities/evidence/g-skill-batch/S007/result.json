@@ -1,0 +1,1 @@
+{"model":"qwen3.8-max","caseId":"S007","packages":[{"name":"data-analysis","version":"1.0.0"},{"name":"data-visualization","version":"1.0.0"}],"outputSha256":"bd8214cfe72f77ef47c516a531973c46ea0e5a14e5e67985a4ac6429c8a2ba23","artifacts":3,"actualWriteback":true}
