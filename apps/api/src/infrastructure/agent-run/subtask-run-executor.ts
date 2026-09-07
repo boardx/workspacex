@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import type {SubtaskContextResolver} from '../../application/agent-run/standard-subtask-tools';
+import {NATIVE_SUBTASK_CONTEXT_PREFIX} from '@repo/contracts/standard-subtask-tools';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { LoggerPort } from "../../application/ports/logger.port";
@@ -17,7 +19,8 @@ export class SubtaskRunExecutor {
     private readonly model: ModelCallPort, private readonly logger: LoggerPort,
     private readonly autostart: boolean,
     private readonly executionTimeouts: ReadonlyMap<string, number> = new Map(),
-    private readonly engine?:EngineRunController) {}
+    private readonly engine?:EngineRunController,
+    private readonly contexts?:SubtaskContextResolver) {}
 
   private async stopRemote(orgId:OrgId,state:SubtaskExecutionState):Promise<void>{
     if(!state.remoteRunId||state.remoteThreadId!==deriveRemoteThreadId(state.run.id)||!this.engine){
@@ -95,9 +98,12 @@ export class SubtaskRunExecutor {
       }catch{if(!done.signal.aborted)local.abort();}
     })();
     try{
+      if(run.context?.startsWith(NATIVE_SUBTASK_CONTEXT_PREFIX)&&!this.contexts)throw new Error('subtask_context_resolver_unavailable');
+      const executionContext=this.contexts?await this.contexts.prepare(orgId,run):run.context;
+      if(local.signal.aborted)throw new SubtaskCancellationPendingError();
       const completion=await this.model.complete({modelProvider:parent.model_provider,
         modelId:parent.model_id,system:parent.instructions,
-        user:run.context?`${run.description}\n\nContext:\n${run.context}`:run.description,
+        user:executionContext?`${run.description}\n\nContext:\n${executionContext}`:run.description,
         history:[],skills:[],orgId:String(orgId),executionMode:"text-only",signal:local.signal,
         ...(parent.model_provider==='deep-agent'?{threadId:run.id,onRemoteRunStarted:async(remoteRunId:string,remoteThreadId?:string)=>{
           if(remoteThreadId!==deriveRemoteThreadId(run.id))throw new Error('subtask_remote_identity_mismatch');
