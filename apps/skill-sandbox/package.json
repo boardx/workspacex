@@ -18,6 +18,7 @@
     "ajv": "8.18.0",
     "docx": "^9.7.1",
     "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1"
   },
@@ -29,6 +30,7 @@
   },
   "exports": {
     ".": "./src/main.ts",
+    "./inspect-pdf": "./src/inspect-pdf.ts",
     "./ooxml": "./src/ooxml.ts",
     "./input-files": "./src/input-files.ts"
   }
