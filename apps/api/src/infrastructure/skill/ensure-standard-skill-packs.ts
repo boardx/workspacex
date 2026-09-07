@@ -13,6 +13,7 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-methods',packVersion:'1.0.0'},
   {packId:'standard-context',packVersion:'1.0.0'},
   {packId:'standard-canvas',packVersion:'1.0.0'},
+  {packId:'standard-document',packVersion:'1.1.0'},
 ] as const;
 export async function ensureStandardSkillPacksSeeded(db:DatabasePort, actorId:string) {
   const packs=new FileSkillStarterPackSource(fileURLToPath(new URL('../../../../../skills/starter-packs/',import.meta.url)));

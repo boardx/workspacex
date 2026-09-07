@@ -13,9 +13,9 @@ it('publishes shipped complete workflow packages through the existing importer a
   const rows=await asApp(PLATFORM_ORG_ID,c=>c.query(`SELECT s.stable_name,v.id,count(f.path)::int AS files
     FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id
     JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id
-    WHERE s.org_id=$1 AND v.published=true AND s.stable_name='knowledge-grounded-answer'
+    WHERE s.org_id=$1 AND v.published=true AND s.stable_name IN ('knowledge-grounded-answer','document-understanding')
     GROUP BY s.stable_name,v.id`,[PLATFORM_ORG_ID]));
-  expect(rows.rows).toHaveLength(1);expect(rows.rows[0].files).toBe(4);
+  expect(rows.rows).toHaveLength(2);expect(rows.rows.find(r=>r.stable_name==='knowledge-grounded-answer')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='document-understanding')?.files).toBe(3);
   const second=await ensurePlatformSkillCatalogSeeded();expect(second.ok).toBe(true);
   if(!second.ok)throw second.error;
   expect(second.report.standardPacks.every(p=>!p.created)).toBe(true);
