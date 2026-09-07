@@ -1,12 +1,16 @@
 -- Versions reference the SAME immutable bytes as the assistant attachment.
 CREATE UNIQUE INDEX IF NOT EXISTS chat_message_attachments_org_id_id_artifact_idx ON chat_message_attachments(org_id,id);
-ALTER TABLE agent_artifact_versions ADD COLUMN attachment_id text;
-ALTER TABLE agent_artifact_versions ADD CONSTRAINT agent_artifact_version_attachment_tenant_fk
+ALTER TABLE agent_artifact_versions ADD COLUMN IF NOT EXISTS attachment_id text;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='agent_artifact_versions'::regclass AND conname='agent_artifact_version_attachment_tenant_fk') THEN
+    ALTER TABLE agent_artifact_versions ADD CONSTRAINT agent_artifact_version_attachment_tenant_fk
   FOREIGN KEY(org_id,attachment_id) REFERENCES chat_message_attachments(org_id,id);
-ALTER TABLE agent_artifact_versions ADD COLUMN based_on_version integer;
-CREATE UNIQUE INDEX agent_artifact_versions_attachment ON agent_artifact_versions(attachment_id) WHERE attachment_id IS NOT NULL;
+  END IF;
+END $$;
+ALTER TABLE agent_artifact_versions ADD COLUMN IF NOT EXISTS based_on_version integer;
+CREATE UNIQUE INDEX IF NOT EXISTS agent_artifact_versions_attachment ON agent_artifact_versions(attachment_id) WHERE attachment_id IS NOT NULL;
 
-CREATE TABLE agent_run_artifact_context (
+CREATE TABLE IF NOT EXISTS agent_run_artifact_context (
   org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   run_id text NOT NULL,
   artifact_id text NOT NULL REFERENCES agent_artifacts(id) ON DELETE CASCADE,
@@ -17,6 +21,7 @@ CREATE TABLE agent_run_artifact_context (
 );
 ALTER TABLE agent_run_artifact_context ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_run_artifact_context FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS agent_run_artifact_context_tenant ON agent_run_artifact_context;
 CREATE POLICY agent_run_artifact_context_tenant ON agent_run_artifact_context
   USING (org_id=current_setting('app.current_org',true))
   WITH CHECK (org_id=current_setting('app.current_org',true));

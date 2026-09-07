@@ -330,6 +330,7 @@ export default {
       // 界面上看起来像「AgentRun 读不出来」，实际上 run 在服务端跑得好好的 ——
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
+      { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
       // #654 阶段1b：AG-UI SSE 桥接端点。`CopilotkitAguiController` 是 `@Controller()`
       // （空前缀），路径是裸的 `POST /copilotkit/agui` —— 与上面 `/agent-runs`、
       // `/threads` 同一个形状、同一个坑（第九次）。`lint-rewrite-coverage` 已经把这条
