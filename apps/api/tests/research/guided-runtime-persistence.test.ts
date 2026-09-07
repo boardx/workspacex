@@ -44,12 +44,20 @@ const model: ModelCallPort = { complete: async (input) => {
   let value: unknown = brief;
   if (node === "directions") value = [{ id: "d1", title: "Policy", description: "Grid rules", enabled: true, order: 0 }];
   if (node === "outline") value = [{ id: "o1", title: "Policy findings", questions: ["What rules apply?"], enabled: true, order: 0 }];
+  if (node === "directions") value = (value as Array<Record<string, unknown>>).map((item) => ({ ...item,
+    decisionQuestions: ["哪些并网要求影响进入决策？"], hypotheses: ["待验证：并网要求可能影响项目实施时间"],
+    comparisonDimensions: ["适用范围、接入条件与实施时间"], evidenceNeeds: ["现行政策原文及适用范围"] }));
+  if (node === "outline") value = (value as Array<Record<string, unknown>>).map((item) => ({ ...item,
+    objective: "明确政策约束对进入决策的影响", analysisApproach: "比较适用范围并区分已证实要求与缺口", expectedOutput: "带证据局限的实施建议",
+    subsections: ["Evidence", "Analysis", "Recommendations"].map((title, index) => ({ id: `${item.id}-${index}`, title, questions: [["政策证据说明什么？"], ["对项目有什么影响？"], ["下一步需要验证什么？"]][index] })) }));
   if (node === "research") value = { tasks: [{ sectionId: "o1", query: "European grid storage policy official" }] };
   if (node === "report") {
     const id = badCitation ? "fabricated" : context.sources?.[0]?.id;
     const chapter = { sectionId: context.section?.id ?? "o1", body: `### Evidence\n\nThe retrieved policy explains the grid rules and supports a limited comparison of the documented requirements. [[source:${id}]]\n\n### Analysis\n\nThe available evidence supports a cautious policy comparison, while implementation details remain uncertain.\n\n### Recommendations\n\nVerify current local requirements before selecting an entry option; this source does not establish financial returns.`, sourceIds: [id] };
     value = context.reportStage === "chapter" ? chapter : context.reportStage === "synthesis" ? { title: "Findings", summary: "Limited to the available source" } : { title: "Findings", summary: "Limited to the available source", sections: [chapter] };
   }
+  if (node === "report" && context.reportStage === "evidence") value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled source identifies policy evidence; real-world applicability remains unverified.", relevance: "direct" })) })) };
+  if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: "adequate", issues: [] };
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
   return { text: JSON.stringify(value) };
 } };
@@ -122,7 +130,7 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reviewed = { ...state.report!, summary: "Reviewed evidence summary" };
     await run("complete", { draft: { node: "report", value: reviewed } });
     expect(state.report).toEqual(reviewed);
-    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual([...C.ResearchNode.options, "report"]);
+    expect(state.errorCode).toBeNull(); expect(state.completed).toBe(true); expect(calls).toEqual([...C.ResearchNode.options, "report", "report", "report"]);
     const restored = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search).get(actor, session);
     expect(restored).toEqual(state); expect(restored.report!.sections[0]!.sourceIds).toEqual([sourceId]);
   });

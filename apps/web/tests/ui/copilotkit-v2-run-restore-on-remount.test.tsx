@@ -168,11 +168,11 @@ beforeEach(() => {
 
 describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失", () => {
   it("挂载即显示生成中，收到终态推流事件后确认读到终态、指示消失、真实写回的回复被拉回来渲染", async () => {
-    let resolveCount = 0;
+    let completed = false;
     getAgentRun.mockImplementation(async (runId: string) => {
-      resolveCount += 1;
+
       expect(runId).toBe("run-1");
-      if (resolveCount < 2) {
+      if (!completed) {
         // I-3：事件是 fire-and-forget，可能先于落库事务提交到达——确认读允许对
         // "仍读到非终态"做几次很短的重试（见 `copilotkit-v2-run-restore.ts` 文件头）。
         return { runId: "run-1", threadId: THREAD_ID, status: "running", error: null, resultMessageId: null };
@@ -185,10 +185,12 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
 
     // ① 挂载后：切回的人不该看到"像从没提交过"——生成中指示必须出现。
     await screen.findByTestId("copilotkit-v2-running-indicator");
-    expect(screen.getByTestId("copilotkit-v2-thinking-phase").textContent).toContain("恢复");
+    expect(screen.getByTestId("copilotkit-v2-running-indicator")).toHaveClass("sr-only");
+    expect(screen.getByTestId("copilotkit-v2-thinking-phase").textContent).toContain("正在执行");
 
     // ② 网关推来这个 run 的终态事件——不是轮询发现的，是真实订阅收到的。
     await waitFor(() => expect(sockets.length).toBe(1));
+    completed = true;
     sockets[0]!.emit(statusChange("succeeded"));
 
     // ③ 确认读到终态：指示消失，服务端这期间真实写回的回复出现在消息区。

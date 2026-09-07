@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
+import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 
@@ -42,7 +43,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      {active ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : null}
+      {active ? <RunProgressButterfly /> : null}
       <span>{failed ? `${label} · 有失败步骤` : label} · 历时 {elapsed} · 工具 {tools} 次 · 技能活动 {skills} 项</span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>

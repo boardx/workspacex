@@ -34,6 +34,20 @@ test("research persists all five model-backed steps through the real UI, API and
   for (const expectedTitle of ["研究方向", "报告大纲"]) {
     await expect(page.getByRole("heading", { name: expectedTitle, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "确认并继续", exact: true })).toBeEnabled();
+    if (expectedTitle === "报告大纲") {
+      const chapter = page.getByRole("region", { name: "报告章节 1", exact: true });
+      await chapter.locator("summary").click();
+      await chapter.getByLabel("章节目标", { exact: true }).fill("核实政策适用范围与实施约束");
+      await chapter.getByRole("button", { name: "添加小节", exact: true }).click();
+      await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(4);
+      await chapter.getByRole("button", { name: "删除小节", exact: true }).last().click();
+      await expect(chapter.getByLabel("小节标题", { exact: true })).toHaveCount(3);
+      await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+      await page.reload();
+      await chapter.locator("summary").click();
+      await expect(chapter.getByLabel("章节目标", { exact: true })).toHaveValue("核实政策适用范围与实施约束");
+      await page.screenshot({ path: testInfo.outputPath("research-outline-details.png"), fullPage: true });
+    }
     if (expectedTitle === "研究方向") {
       await page.screenshot({ path: testInfo.outputPath("research-directions.png"), fullPage: true });
       await page.setViewportSize({ width: 390, height: 844 });
@@ -85,7 +99,9 @@ test("research persists all five model-backed steps through the real UI, API and
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
-  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length + 1);
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 2);
+  expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
+  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report").every((call: { status: string }) => call.status === "succeeded")).toBe(true);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   await expect(page.getByTestId("research-report").locator("sup a").first()).toBeVisible();
   await expect(page.getByTestId("research-report")).not.toContainText("[[source:");

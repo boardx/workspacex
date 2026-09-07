@@ -77,6 +77,15 @@ export const ChatVisibility = z.enum([
   "private",        // 私有：仅创建者（研究阶段的线程 / #594 起也含无项目的个人线程）
 ]);
 
+/**
+ * 线程列表按时间分组的档位——`listThreads` 与 `listPersonalThreads` 共用同一个
+ * 枚举，不各自声明一份字面量（本仓「同一事实不得声明在两处」的纪律）。
+ *
+ * 2026-09-07 起三档、恒有归宿：本周之前一律「更早」，不再有线程因为分不到组而
+ * 从响应里消失（domain.md 待裁决第 11 条，见 `apps/api/.../thread-grouping.ts` 头注）。
+ */
+export const ThreadGroupLabel = z.enum(["今天", "本周", "更早"]);
+
 /** 线程阶段——决定右栏是否显示转录（uc-8-2 E1） */
 export const ThreadPhase = z.enum(["onsite", "research"]);
 
@@ -524,10 +533,9 @@ export const operations = {
   /* ── 一、线程列表与生命周期（F109 · uc-8-1）────────────────────── */
 
   /**
-   * listThreads —— 今天/本周分组。
+   * listThreads —— 今天/本周/更早三组，恒可浏览（决 #11，2026-09-07）。
    * ⚠ **空态返回 `groups: []`，不生成示例线程**（V4）。
    * ⚠ **不泄露**：无可见对话时不得泄露「存在但不可见」的条目数（V9）。
-   * ⚠ 「更早」分组无契约（待裁决第 11 条），本端口**只返回今天/本周两组**。
    */
   listThreads: {
     method: "GET", path: "/chat/projects/:projectId/threads",
@@ -538,7 +546,7 @@ export const operations = {
     }).strict(),
     out: z.object({
       groups: z.array(z.object({
-        label: z.enum(["今天", "本周"]),
+        label: ThreadGroupLabel,
         cards: z.array(ThreadCard),
       }).strict()),
       /**
@@ -574,7 +582,7 @@ export const operations = {
     }).strict(),
     out: z.object({
       groups: z.array(z.object({
-        label: z.enum(["今天", "本周"]),
+        label: ThreadGroupLabel,
         cards: z.array(ThreadCard),
       }).strict()),
       capabilities: z.array(z.string()),

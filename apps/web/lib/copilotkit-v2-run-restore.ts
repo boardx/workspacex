@@ -55,7 +55,7 @@ import {
  */
 
 export interface RunRestoreState {
-  /** 正在向服务端核实这个 run 是否已经跑完；`true` 时调用方应显示"生成中"一类指示。 */
+  /** 尚未取得权威快照；读取成功后为 false，执行/暂停/审批由 status 表示。 */
   readonly isRestoring: boolean;
   /** 断线重连提示状态（R4 E2）。`null` = 至今未曾断线，不需要展示任何提示。 */
   readonly reconnectState: ReconnectState | null;
@@ -67,7 +67,7 @@ export interface RunRestoreState {
    * 再开第二条订阅。
    */
   readonly runId: string | null;
-  readonly status: AgentKernelRunStatus | null;
+  readonly status: AgentKernelRunStatus | AgentRunView["status"] | null;
 }
 
 /** `isRestoring` 为真时展示的阶段文案——单一事实源，调用方不要另写一份措辞。 */
@@ -83,13 +83,8 @@ export type RunRestoreOutcome =
   | { readonly kind: "settled"; readonly view: AgentRunView }
   | { readonly kind: "gave-up"; readonly reason: "connection-lost" | "auth-expired" | "stalled" };
 
-/**
- * issue #2860 —— 权威读读到"还在跑"之后不再只等事件流：每 RESTORE_POLL_INTERVAL_MS 再
- * 权威读一次，最多 RESTORE_POLL_MAX_MS。服务端幽灵 run 的收敛窗口是
- * `DEFAULT_STALE_RUNNING_THRESHOLD_MS`（2 分钟）+ 回收器周期（1 分钟），这里给 3.5 分钟：
- * 正常情况下回收先发生、这里读到 `failed(RUN_INTERRUPTED)` 走 settled；到点仍非终态才
- * 如实报 `stalled`（run 可能真的还在跑，不冒充失败）。
- */
+/** Poll the durable snapshot when ephemeral events are absent. The budget limits
+ * continuous read failures, never the duration of a confirmed background run. */
 const RESTORE_POLL_INTERVAL_MS = 5_000;
 const RESTORE_POLL_MAX_MS = 210_000;
 
@@ -113,8 +108,9 @@ export function useCopilotKitV2RunRestore(
   const onSettledRef = React.useRef(onSettled);
   onSettledRef.current = onSettled;
   const [isRestoring, setIsRestoring] = React.useState(pendingRunId !== null);
-  const [status, setStatus] = React.useState<AgentKernelRunStatus | null>(null);
+  const [status, setStatus] = React.useState<AgentKernelRunStatus | AgentRunView["status"] | null>(null);
   const settledRef = React.useRef(false);
+  const confirmingRef = React.useRef(false);
   const sessionTokenRef = React.useRef(sessionToken);
   sessionTokenRef.current = sessionToken;
 
@@ -124,13 +120,25 @@ export function useCopilotKitV2RunRestore(
     setStatus(null);
   }, [pendingRunId]);
 
+  const finish = React.useCallback((outcome: RunRestoreOutcome) => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    setIsRestoring(false);
+    onSettledRef.current(outcome);
+  }, []);
+
   const confirmTerminal = React.useCallback(async (runId: string) => {
     for (let attempt = 1; attempt <= CONFIRM_TERMINAL_MAX_ATTEMPTS; attempt += 1) {
       try {
         const view = await getAgentRun(runId, sessionTokenRef.current);
-        if (isTerminalWave2RunStatus(view.status) || attempt === CONFIRM_TERMINAL_MAX_ATTEMPTS) {
+        if (isTerminalWave2RunStatus(view.status)) {
           setIsRestoring(false);
-          onSettledRef.current({ kind: "settled", view });
+          finish({ kind: "settled", view });
+          return;
+        }
+        if (attempt === CONFIRM_TERMINAL_MAX_ATTEMPTS) {
+            setStatus(view.status);
+          setIsRestoring(false);
           return;
         }
         // 事件先于落库到达（I-3）：这次读还没看到终态，短暂等一下再确认一次。
@@ -138,18 +146,18 @@ export function useCopilotKitV2RunRestore(
         // 与旧机制同一条纪律：401 是不可恢复的（bearer 已过期），立即停止，不重试。
         if (failure instanceof ApiError && failure.status === 401) {
           setIsRestoring(false);
-          onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
+          finish({ kind: "gave-up", reason: "auth-expired" });
           return;
         }
         if (attempt === CONFIRM_TERMINAL_MAX_ATTEMPTS) {
           setIsRestoring(false);
-          onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
+          finish({ kind: "gave-up", reason: "connection-lost" });
           return;
         }
       }
       await new Promise((resolve) => setTimeout(resolve, CONFIRM_TERMINAL_RETRY_DELAY_MS));
     }
-  }, []);
+  }, [finish]);
 
   /**
    * issue #2825 —— 放弃之前的最后一次权威读：读到终态就如实 `settled`（用户切走期间
@@ -158,27 +166,26 @@ export function useCopilotKitV2RunRestore(
   const settleWithFinalRead = React.useCallback(async (runId: string) => {
     try {
       const view = await getAgentRun(runId, sessionTokenRef.current);
-      if (view.status === "paused" || view.status === "awaiting_tool_permission") {
-        settledRef.current = false;
+      if (!isTerminalWave2RunStatus(view.status)) {
         setStatus(view.status);
         setIsRestoring(false);
         return;
       }
       if (isTerminalWave2RunStatus(view.status)) {
         setIsRestoring(false);
-        onSettledRef.current({ kind: "settled", view });
+        finish({ kind: "settled", view });
         return;
       }
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) {
         setIsRestoring(false);
-        onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
+        finish({ kind: "gave-up", reason: "auth-expired" });
         return;
       }
     }
     setIsRestoring(false);
-    onSettledRef.current({ kind: "gave-up", reason: "connection-lost" });
-  }, []);
+    finish({ kind: "gave-up", reason: "connection-lost" });
+  }, [finish]);
 
   /**
    * issue #2825 —— 订阅之前先问一次"它现在是什么状态"。见文件头注：run 在用户切走
@@ -192,12 +199,11 @@ export function useCopilotKitV2RunRestore(
       try {
         const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
         if (cancelled || settledRef.current) return;
-        setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status as AgentKernelRunStatus));
-        setIsRestoring(view.status !== "paused" && view.status !== "awaiting_tool_permission");
+        setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status));
+        setIsRestoring(false);
         if (isTerminalWave2RunStatus(view.status)) {
-          settledRef.current = true;
           setIsRestoring(false);
-          onSettledRef.current({ kind: "settled", view });
+          finish({ kind: "settled", view });
           return;
         }
       } catch {
@@ -211,33 +217,30 @@ export function useCopilotKitV2RunRestore(
         try {
           const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
           if (cancelled || settledRef.current) return;
-          setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status as AgentKernelRunStatus));
-          const waitingForUser = view.status === "paused" || view.status === "awaiting_tool_permission";
-          setIsRestoring(!waitingForUser);
-          if (waitingForUser) startedAt = Date.now();
-          if (!isTerminalWave2RunStatus(view.status)) continue;
-          settledRef.current = true;
+          setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status));
           setIsRestoring(false);
-          onSettledRef.current({ kind: "settled", view });
+          // A successful authoritative read is live evidence, including a long-running task.
+          startedAt = Date.now();
+          if (!isTerminalWave2RunStatus(view.status)) continue;
+          setIsRestoring(false);
+          finish({ kind: "settled", view });
           return;
         } catch (failure) {
           if (failure instanceof ApiError && failure.status === 401) {
-            settledRef.current = true;
-            setIsRestoring(false);
-            onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
+              setIsRestoring(false);
+            finish({ kind: "gave-up", reason: "auth-expired" });
             return;
           }
         }
       }
       if (cancelled || settledRef.current) return;
-      settledRef.current = true;
       setIsRestoring(false);
-      onSettledRef.current({ kind: "gave-up", reason: "stalled" });
+      finish({ kind: "gave-up", reason: "stalled" });
     })();
     return () => {
       cancelled = true;
     };
-  }, [pendingRunId]);
+  }, [pendingRunId, finish]);
 
   const handleEvent = React.useCallback((event: KernelStreamEvent) => {
     if (settledRef.current) return;
@@ -245,10 +248,11 @@ export function useCopilotKitV2RunRestore(
     // issue #2756 —— 非终态的状态变化同样如实带出去（`running` ↔ `awaiting_*`/`paused`），
     // 插话入口只对 `running` 开放；终态一到即置 `null`，下面随即结束核实。
     setStatus(isTerminalRunStatus(event.status) ? null : event.status);
-    setIsRestoring(event.status !== "paused" && event.status !== "awaiting_tool_permission");
+    setIsRestoring(false);
     if (!isTerminalRunStatus(event.status)) return;
-    settledRef.current = true;
-    void confirmTerminal(event.runId);
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    void confirmTerminal(event.runId).finally(() => { confirmingRef.current = false; });
   }, [confirmTerminal]);
 
   const stream = useAgentKernelRunStream(
@@ -260,8 +264,9 @@ export function useCopilotKitV2RunRestore(
   React.useEffect(() => {
     if (pendingRunId === null || settledRef.current) return;
     if (stream.reconnectState !== "failed") return;
-    settledRef.current = true;
-    void settleWithFinalRead(pendingRunId);
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    void settleWithFinalRead(pendingRunId).finally(() => { confirmingRef.current = false; });
   }, [stream.reconnectState, pendingRunId, settleWithFinalRead]);
 
   const active = pendingRunId !== null && !settledRef.current;

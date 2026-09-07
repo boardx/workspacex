@@ -53,7 +53,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/components/chat/copilotkit-v2-panel", () => ({
-  CopilotKitV2Panel: () => <div data-testid="stub-copilotkit-v2-panel" />,
+  CopilotKitV2Panel: ({ canWrite }: { canWrite: boolean }) => <div data-testid="stub-copilotkit-v2-panel" data-can-write={String(canWrite)} />,
 }));
 vi.mock("@/components/chat/chat-roster-panel", () => ({ RosterPanel: () => null }));
 vi.mock("@/components/chat/chat-task-inspector", () => ({ ChatTaskInspector: () => null }));
@@ -653,5 +653,21 @@ describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", (
 
     await screen.findByTestId("copilotkit-v2-create-thread-error");
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("composer permissions are independent of side-panel resources", () => {
+  it("enables an authorized composer even if artifacts and attachments never settle", async () => {
+    listThreadArtifacts.mockImplementation(() => new Promise(() => {}));
+    listThreadAttachments.mockImplementation(() => new Promise(() => {}));
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await waitFor(() => expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-write", "true"));
+  });
+  it("does not infer write permission when the authoritative detail read fails", async () => {
+    getThread.mockRejectedValue(new Error("unavailable"));
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await waitFor(() => expect(getThread).toHaveBeenCalled());
+    expect(screen.getByTestId("stub-copilotkit-v2-panel")).toHaveAttribute("data-can-write", "false");
   });
 });

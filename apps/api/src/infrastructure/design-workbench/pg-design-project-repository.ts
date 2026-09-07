@@ -262,6 +262,19 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     return this.lastVersion;
   }
 
+/**
+ * ⚠ 2026-09-07 用户实测的数据丢失 —— 下面 UPDATE 里 `prototype` / `frame_notes` 那两个
+ * CASE 为什么按**长度**判，而不是「只写 frames 就置 `[]`」：
+ *
+ * 原先是一律清空，为的是守住契约不变量（`prototype` 要么空、要么与 `frames` 等长）。代价是
+ * **纯改标签也会清掉整份原型**：用户说「增加设置页」，模型只回了 `writeback.frames`，
+ * 三页画好的原型当场全没，屏上就是那句「怎么全部空了？」。
+ *
+ * 不变量该按长度判——等长（纯改标签）保留，只有长度真的对不上（按位置对应已经不成立）才清。
+ * 应用层还有一道门：`append-project-chat.ts` 的 `framesKeepPagesAligned` 直接拒掉会改页数的
+ * frames-only 写回，所以这条 SQL 的清空分支在对话链路上已不可达，留着是兜底（别的调用方
+ * 写出不一致的行时，库里仍然不会存下半套）。
+ */
   async update(projectId: string, ownerId: string, patch: DesignProjectPatch, version?: NewPrototypeVersionMeta): Promise<DesignProjectRow | null> {
     this.lastVersion = null;
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
@@ -274,12 +287,16 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                 frames     = COALESCE($8::jsonb, frames),
                 prototype  = CASE
                                WHEN $9::jsonb IS NOT NULL THEN $9::jsonb
-                               WHEN $8::jsonb IS NOT NULL THEN '[]'::jsonb
+                               WHEN $8::jsonb IS NOT NULL
+                                 AND jsonb_array_length($8::jsonb) <> jsonb_array_length(prototype)
+                                 THEN '[]'::jsonb
                                ELSE prototype
                              END,
                 frame_notes = CASE
                                WHEN $10::jsonb IS NOT NULL THEN $10::jsonb
-                               WHEN $8::jsonb IS NOT NULL THEN '[]'::jsonb
+                               WHEN $8::jsonb IS NOT NULL
+                                 AND jsonb_array_length($8::jsonb) <> jsonb_array_length(frame_notes)
+                                 THEN '[]'::jsonb
                                ELSE frame_notes
                              END,
                 updated_at = now()

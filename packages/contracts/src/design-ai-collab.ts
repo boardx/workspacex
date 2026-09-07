@@ -74,6 +74,25 @@ export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;
  * `design-workbench.ts` `appendProjectChat` 头注。
  */
 /** 迭代 9：模型给的「下一步建议」——短句，点一下就当用户消息发出去。展示层，不落库。 */
+/**
+ * 退路原因（闭集）。前端按它给一句人话，**不透传服务端异常细节**（同
+ * `all-exceptions.filter.ts` 的纪律：只有闭集枚举能出现在响应体里）。
+ * - `MODEL_NOT_CONFIGURED`：这个部署没配单次补全 provider（`KERNEL_MODEL_PROVIDER` 为空）。
+ * - `MODEL_CALL_FAILED`：配了但调用失败（网络 / 鉴权）。
+ * - `MODEL_TIMEOUT`：在超时预算内没画完——2026-09-07 线上实测最常见的一种，与"打不通"
+ *   的下一步完全不同（少画几页 / 让运维放宽预算，而不是重试同一个必然超时的请求）。
+ * - `MODEL_EMPTY_OUTPUT`：调通了但输出为空。
+ * - `MODEL_NO_REPLY_TEXT`：输出是 JSON 但没有可用的 `reply`（写回可能仍然生效）。
+ */
+export const DesignChatFallbackReason = z.enum([
+  "MODEL_NOT_CONFIGURED",
+  "MODEL_CALL_FAILED",
+  "MODEL_TIMEOUT",
+  "MODEL_EMPTY_OUTPUT",
+  "MODEL_NO_REPLY_TEXT",
+]);
+export type DesignChatFallbackReason = z.infer<typeof DesignChatFallbackReason>;
+
 export const DesignChatSuggestion = z.string().min(1).max(40);
 export const DESIGN_CHAT_MAX_SUGGESTIONS = 3;
 
@@ -83,6 +102,16 @@ export const DesignChatReply = z
     applied: z.array(DesignWritebackField),
     /** 迭代 9：0–3 条下一步建议（模型没给 / 退路 ⇒ `[]`）。 */
     suggestions: z.array(DesignChatSuggestion).max(DESIGN_CHAT_MAX_SUGGESTIONS),
+    /**
+     * 退路原因。`source: "fallback"` 时**必给**，`"model"` 时**必不给**——由下面的
+     * `superRefine` 机械保证，免得前端拿到"退路但说不出为什么"或"模型回复却挂着原因"。
+     */
+    fallbackReason: DesignChatFallbackReason.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((v, ctx) => {
+    if ((v.source === "fallback") !== (v.fallbackReason !== undefined)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fallbackReason"], message: "fallbackReason 与 source==='fallback' 必须同时成立" });
+    }
+  });
 export type DesignChatReply = z.infer<typeof DesignChatReply>;

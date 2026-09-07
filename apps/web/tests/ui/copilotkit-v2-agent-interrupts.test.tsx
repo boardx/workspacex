@@ -1,15 +1,31 @@
+import * as React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 const registered = vi.hoisted(() => ({} as Record<string, { render: (...args: unknown[]) => unknown }>));
 vi.mock("@copilotkit/react-core/v2", () => ({ useHumanInTheLoop: (tool: { name: string; render: (...args: unknown[]) => unknown }) => { registered[tool.name] = tool; } }));
 import { CopilotKitV2AgentInterrupts } from "@/components/chat/copilotkit-v2-agent-interrupts";
 import { RestoredInterruptForm } from "@/components/chat/workbench/restored-interrupt-form";
+import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
+import { InterruptRenderContext } from "@/components/chat/workbench/interrupt-render-context";
 import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
 describe("durable interrupt presentation", () => {
   it("registers all framework tools without treating executing as a permission request", () => {
     render(<CopilotKitV2AgentInterrupts />);
     expect(Object.keys(registered).sort()).toEqual(Object.values(AGENT_INTERRUPTS_TOOL_NAMES).sort());
-    for (const tool of Object.values(registered)) expect(tool.render({ status: "executing", args: {} })).toBeNull();
+    for (const tool of Object.values(registered)) expect(tool.render({ status: "executing", args: {} })).not.toBeNull();
+  });
+  it("shows the registered confirmation card immediately, without inventing permission before run identity", () => {
+    render(<CopilotKitV2AgentInterrupts />);
+    render(<>{registered.confirm_task_intent!.render({ status: "executing", args: { requestId: "r", understanding: "确认目标", assumptions: [] } }) as React.ReactNode}</>);
+    expect(screen.getByText("确认目标")).toBeVisible();
+    expect(screen.getByTestId("agent-interrupt-confirm-intent-continue")).toBeDisabled();
+  });
+  it("does not duplicate the host's authoritative pending confirmation surface", () => {
+    render(<CopilotKitV2AgentInterrupts />);
+    render(<MessageRunContext.Provider value="run-1"><InterruptRenderContext.Provider value={{ canWrite: true, pendingRunId: "run-1" }}>
+      {registered.confirm_task_intent!.render({ status: "executing", args: { requestId: "r", understanding: "唯一确认", assumptions: [] } }) as React.ReactNode}
+    </InterruptRenderContext.Provider></MessageRunContext.Provider>);
+    expect(screen.queryByText("唯一确认")).toBeNull();
   });
   it("edits assumptions through the persisted form decision", () => {
     const decide = vi.fn().mockResolvedValue(undefined);

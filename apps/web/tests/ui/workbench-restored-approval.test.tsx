@@ -49,6 +49,31 @@ describe("durable approval", () => {
     await waitFor(() => expect(screen.queryByTestId("restored-run-approval")).toBeNull());
   });
 
+  it("opens a nonmodal intent dialog and permits closing and reopening without a decision", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "dialog-id", toolName: "confirm_task_intent", interrupt: { toolName: "confirm_task_intent", args: { requestId: "r", understanding: "Dialog goal", assumptions: [] } } } });
+    render(<RestoredRunApproval runId="run" />);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).not.toHaveAttribute("aria-modal", "true");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls.request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "打开待确认请求" }));
+    expect(await screen.findByRole("dialog")).toBeVisible();
+  });
+  it("terminal authority removes a stale streaming fallback", async () => {
+    calls.read.mockResolvedValue({ status: "cancelled", pendingApproval: null });
+    render(<RestoredRunApproval runId="run" fallbackInterrupt={{ toolName: "confirm_task_intent", args: { requestId: "old", understanding: "Old goal", assumptions: [] } }} />);
+    await waitFor(() => expect(screen.queryByTestId("interrupt-awaiting-persistence")).toBeNull());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("an old tool cannot act on a later request in the same run", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "new-permission", toolName: "confirm_task_intent", interrupt: { toolName: "confirm_task_intent", args: { requestId: "new", understanding: "New goal", assumptions: [] } } } });
+    render(<RestoredRunApproval runId="run" fallbackInterrupt={{ toolName: "confirm_task_intent", args: { requestId: "old", understanding: "Old goal", assumptions: [] } }} />);
+    await screen.findByRole("group", { name: "已结束的确认记录" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("agent-interrupt-confirm-intent-continue")).toBeDisabled();
+    expect(calls.request).not.toHaveBeenCalled();
+  });
   it("synchronously locks duplicate decisions before React commits disabled state", async () => {
     calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "summary" } });
     let finish!: () => void;

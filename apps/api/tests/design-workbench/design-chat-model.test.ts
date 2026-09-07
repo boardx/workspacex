@@ -111,19 +111,23 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(parseSuggestions("nope")).toEqual([]);
   });
 
-  it("模型抛错 / 空输出 ⇒ 固定回执 + fallback + 空 writeback，不抛", async () => {
+  it("模型抛错 / 空输出 ⇒ 退路 + 原因 + 空 writeback，不抛", async () => {
+    // 2026-09-07：三种退路各有各的下一步——「没配 provider」要找运维，「调用失败」可以重试，
+    // 「输出为空」换个说法就行。合并成一句"模型不可用"，用户就无从判断该等还是该去修。
     const failing = replier(async () => { throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "none"); });
-    expect(await failing.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] });
+    expect(await failing.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: "MODEL_NOT_CONFIGURED" });
     expect(failing.log).toHaveBeenCalled();
+    const broken = replier(async () => { throw new ModelCallError("MODEL_CALL_FAILED", "boom"); });
+    expect((await broken.r.reply(CTX)).fallbackReason).toBe("MODEL_CALL_FAILED");
     const empty = replier(async () => ({ text: " " }));
-    expect(await empty.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] });
+    expect(await empty.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: "MODEL_EMPTY_OUTPUT" });
   });
 
   it("输出不是 JSON ⇒ 整段当回复（source=model），不写回；JSON 无 reply ⇒ 文字退路但 writeback 仍生效", async () => {
     const plain = replier(async () => ({ text: "我觉得可以先把导出拆成两步。" }));
     expect(await plain.r.reply(CTX)).toEqual({ text: "我觉得可以先把导出拆成两步。", source: "model", writeback: {}, suggestions: [] });
     const noReply = replier(async () => ({ text: '{"writeback":{"problem":"新背景"}}' }));
-    expect(await noReply.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: { problem: "新背景" }, suggestions: [] });
+    expect(await noReply.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: { problem: "新背景" }, suggestions: [], fallbackReason: "MODEL_NO_REPLY_TEXT" });
   });
 
   it("B5.3 prototype 写回：合法整页树保留；一页超限 ⇒ 整个 prototype 字段丢、其余字段照写；prompt 含当前原型与原语说明", async () => {

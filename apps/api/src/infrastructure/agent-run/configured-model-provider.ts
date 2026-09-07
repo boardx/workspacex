@@ -162,7 +162,21 @@ function isBailianBaseUrl(baseUrl: string): boolean {
   } catch {
     return false;
   }
-  return hostname === "dashscope.aliyuncs.com" || hostname === "www.dashscope.aliyuncs.com";
+  if (hostname === "dashscope.aliyuncs.com" || hostname === "www.dashscope.aliyuncs.com") return true;
+  /**
+   * ⚠ 2026-09-07 devapp 实测根因：百炼**独享/私有部署**的 base url 长这样——
+   * `https://llm-<实例 id>.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，
+   * hostname 不含 `dashscope.aliyuncs.com`，于是这里判 false、`enable_thinking: false`
+   * 一直没发出去，qwen3 的深度思考始终开着。表现是设计协作连续五次
+   * `design chat model call timed out`（#2504 修的正是同一个根因，只是那次只覆盖了
+   * 共享端点这一半）。
+   *
+   * 按**后缀精确匹配** `.maas.aliyuncs.com`（不是子串包含——`isBailianBaseUrl` 头注
+   * 记着 `dashscope.aliyuncs.com.attacker.example` 这类伪造子域为什么必须严格判）：
+   * 这一段是阿里云 Model Studio 私有实例的固定域，与共享端点同一套百炼扩展字段。
+   * 仍然保留 `KERNEL_MODEL_BAILIAN_EXTENSIONS` 显式覆盖，给代理后面那种域名对不上的部署。
+   */
+  return hostname.endsWith(".maas.aliyuncs.com");
 }
 
 /**

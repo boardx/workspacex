@@ -1,3 +1,4 @@
+import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
 import { generateReportChapters, inlineReportSources } from "./guided-report-chapters";
 import { type RuntimePersistence } from "./guided-report-stream";
 import type { RuntimeObserver } from "./guided-runtime-ports";
@@ -13,8 +14,8 @@ const nodes = C.ResearchNode.options;
 type Node = z.infer<typeof C.ResearchNode>;
 const shapes: Record<Node, string> = {
   brief: '{"topic":string,"goal":string,"timeRange":string,"region":string,"focus":string}',
-  directions: '[{"id":string,"title":string,"description":string,"enabled":boolean,"order":integer}]',
-  outline: '[{"id":string,"title":string,"questions":string[],"enabled":boolean,"order":integer}]',
+  directions: researchDesignShapes.directions,
+  outline: researchDesignShapes.outline,
   research: '[{"id":existingSourceId,"decision":"pending"|"accepted"|"excluded"}]',
   report: '{"title":string,"summary":string,"sections":[{"sectionId":existingOutlineId,"body":string,"sourceIds":acceptedSourceId[]}]}',
 };
@@ -118,7 +119,7 @@ export class GuidedRuntimeService {
     observe({ type: "result", state: structuredClone(state) });
     return state;
   }
-  private async completeJson(state: ResearchRuntime, node: Node, system: string, context: unknown, persist: RuntimePersistence): Promise<unknown> {
+  private async completeJson(state: ResearchRuntime, node: Node, system: string, context: unknown, persist: RuntimePersistence, validate?: (value: unknown) => void): Promise<unknown> {
     const call = { id: randomUUID(), node, modelId: this.modelConfig.id, status: "failed" as "failed" | "succeeded", createdAt: new Date().toISOString() };
     // Persist an attempt before calling any external provider; failure never looks like successful generation.
     state.modelCalls.push(call);
@@ -129,9 +130,10 @@ export class GuidedRuntimeService {
         user: JSON.stringify(context) };
       const result = await this.model.complete(input);
       const value = extractJson(result.text);
+      validate?.(value);
       call.status = "succeeded";
       return value;
-    } catch { throw new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE"); }
+    } catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE"); }
   }
   private context(state: ResearchRuntime) {
     return { brief: state.brief, directions: state.directions.filter((item) => item.enabled), outline: state.outline.filter((item) => item.enabled),
@@ -143,15 +145,20 @@ export class GuidedRuntimeService {
     if (node === "research") { await this.plan(state, persist); return; }
     if (node === "report") { acceptPendingSources(state); this.requireResearchBasis(state, Boolean(state.reportPartial)); }
     if (node === "report" && !state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
-    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist);
+    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
+      const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generated });
+      if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+      validateGeneratedResearchDesign(node, candidate.data.value);
+    });
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    validateGeneratedResearchDesign(node, draft.data.value);
     applyDraft(state, draft.data);
     if (node === "report") state.reportStream = null;
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence) {
-    const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"tasks":[{"sectionId":existingOutlineId,"query":string}]}. Cover every enabled section, use at most 60 queries.', this.context(state), persist);
+    const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"tasks":[{"sectionId":existingOutlineId,"query":string}]}. Cover every enabled section and its subsection questions, prioritize decision-critical evidence gaps and hypotheses, and use specific queries for official/primary sources, comparative data and conflicting evidence. Respect the brief geography and time range; deduplicate equivalent queries and use at most 60 queries.', this.context(state), persist);
     const result = C.GuidedResearchPlanModelOutput.safeParse(raw);
     const ids = state.outline.filter((item) => item.enabled).map((item) => item.id);
     if (!result.success || result.data.tasks.some((task) => !ids.includes(task.sectionId)) || ids.some((id) => !result.data.tasks.some((task) => task.sectionId === id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -249,10 +256,11 @@ export class GuidedRuntimeService {
       if (!command.message) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       state.messages.push({ id: randomUUID(), node, role: "user", text: command.message, createdAt: new Date().toISOString() });
       await persist();
-      const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context. ${node === "report" ? "For report revisions preserve the enabled outline chapter order, exact scope, Markdown subheadings and analytical depth. Keep inline [[source:<id>]] markers beside supported claims; each chapter sourceIds must exactly match its inline IDs, and summary citations must refer to IDs cited in the chapters. Do not replace rich chapters with a brief outline or remove their evidence limitations." : ""}`, { ...this.context(state), targetNode: node, draft: command.draft, instruction: command.message }, persist);
+      const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context. Preserve existing detailed direction fields and chapter objectives, analysis approaches, expected outputs and subsections when revising; update related questions consistently, never silently discard them. ${node === "report" ? "For report revisions preserve the enabled outline chapter order, exact scope, Markdown subheadings and analytical depth. Keep inline [[source:<id>]] markers beside supported claims; each chapter sourceIds must exactly match its inline IDs, and summary citations must refer to IDs cited in the chapters. Do not replace rich chapters with a brief outline or remove their evidence limitations." : ""}`, { ...this.context(state), targetNode: node, draft: command.draft, instruction: command.message }, persist);
       const result = C.GuidedResearchConversationModelOutput.safeParse(raw);
       if (!result.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-      const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: result.data.value });
+      const previous = command.draft?.node === node ? command.draft.value : node === "directions" ? state.directions : node === "outline" ? state.outline : undefined;
+      const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: preserveResearchDesign(node, result.data.value, previous) });
       if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateRuntimeDraft(state, draft.data);
       state.messages.push({ id: randomUUID(), node, role: "assistant", text: result.data.assistantMessage, createdAt: new Date().toISOString() });
