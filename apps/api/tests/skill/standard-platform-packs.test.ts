@@ -15,7 +15,7 @@ it('publishes shipped complete workflow packages through the existing importer a
     JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id
     WHERE s.org_id=$1 AND v.published=true AND s.stable_name IN ('knowledge-grounded-answer','document-understanding','skill-authoring','visual-content','audio-transcription','meeting-minutes')
     GROUP BY s.stable_name,v.id`,[PLATFORM_ORG_ID]));
-  expect(rows.rows).toHaveLength(6);expect(rows.rows.find(r=>r.stable_name==='knowledge-grounded-answer')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='document-understanding')?.files).toBe(3);expect(rows.rows.find(r=>r.stable_name==='skill-authoring')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='visual-content')?.files).toBe(4);
+  expect(rows.rows).toHaveLength(6);expect(rows.rows.find(r=>r.stable_name==='knowledge-grounded-answer')?.files).toBe(5);expect(rows.rows.find(r=>r.stable_name==='document-understanding')?.files).toBe(3);expect(rows.rows.find(r=>r.stable_name==='skill-authoring')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='visual-content')?.files).toBe(4);
   for(const name of ['audio-transcription','meeting-minutes']) expect(rows.rows.find(r=>r.stable_name===name)?.files).toBe(4);
   const second=await ensurePlatformSkillCatalogSeeded();expect(second.ok).toBe(true);
   if(!second.ok)throw second.error;
