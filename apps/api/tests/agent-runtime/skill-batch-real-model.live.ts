@@ -52,6 +52,10 @@ import { PgChatAttachmentRepository } from '../../src/infrastructure/chat/pg-cha
 import { PgChatRepository } from '../../src/infrastructure/chat/pg-chat-repository';
 import {writeFile,mkdir} from 'node:fs/promises';
 import {FileSkillStarterPackSource} from '../../src/infrastructure/skill/file-skill-starter-pack-source';
+import {Document,Header,Packer,Paragraph,Table,TableCell,TableRow} from 'docx';
+import ExcelJS from 'exceljs';
+import PptxGenJS from 'pptxgenjs';
+import {unzip} from '@repo/skill-sandbox/ooxml';
 const caseId=process.env.WX_SKILL_BATCH_CASE as SkillBatchId;
 if(!Object.hasOwn(SKILL_BATCH_SCENARIOS,caseId))throw new Error('unknown skill batch case');
 const scenario=SKILL_BATCH_SCENARIOS[caseId];
@@ -78,6 +82,13 @@ async function seed(scope: typeof org, id: string) {
   });
 }
 
+async function officeEditFixture(id:SkillBatchId):Promise<{bytes:Buffer;mime:string}|null>{
+ if(id==='S003_EDIT')return {mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',bytes:await Packer.toBuffer(new Document({sections:[{headers:{default:new Header({children:[new Paragraph('页眉保持') ]})},children:[new Paragraph('季度状态：待确认'),new Paragraph('无关段落保持'),new Table({rows:[new TableRow({children:[new TableCell({children:[new Paragraph('表格保持') ]})]})]})]}]}))};
+ if(id==='S004_EDIT'){const book=new ExcelJS.Workbook(),data=book.addWorksheet('Data'),other=book.addWorksheet('Other');data.getCell('A1').value=1;data.getCell('B2').value='样式保持';data.getCell('B2').font={bold:true,color:{argb:'FF336699'}};other.getCell('A1').value='工作表保持';other.getCell('C1').value={formula:'Data!A1*2',result:2};return {mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',bytes:Buffer.from(await book.xlsx.writeBuffer())};}
+ if(id==='S005_EDIT'){const deck=new PptxGenJS(),first=deck.addSlide();first.addText('状态：待确认',{x:1,y:1,w:4,h:1,fontFace:'Noto Sans CJK SC'});first.addImage({data:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',x:1,y:3,w:1,h:1});deck.addSlide().addText('第二页保持',{x:1,y:1,w:4,h:1,fontFace:'Noto Sans CJK SC'});return {mime:'application/vnd.openxmlformats-officedocument.presentationml.presentation',bytes:(await deck.write({outputType:'nodebuffer'})) as Buffer};}
+ return null;
+}
+
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());root=await mkdtemp(join(tmpdir(),'wx-chain-'));await seed(org,parent);
  await asApp(org,c=>c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '10 minutes' WHERE id=$1",[parent]));
  await asApp(org,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),org,parent]));
@@ -99,8 +110,8 @@ it('real configured model executes the selected synthetic skill scenario',async(
  let production:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
  try{
   for(const tool of ['write_todos','read_file','write_file','edit_file','ls','glob','execute','wx_artifact_publish','wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read','web_search','fetch_url'])await grants.grantForRun(org,parent,tool);
-  const transcript=scenario.input;
-  const uploaded=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:`thread-${org}`,filename:scenario.inputName,mime:'text/plain',bytes:Buffer.from(transcript)});
+  const transcript=scenario.input;const editFixture=await officeEditFixture(caseId);const inputBytes=editFixture?.bytes??Buffer.from(transcript);
+  const uploaded=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:`thread-${org}`,filename:scenario.inputName,mime:editFixture?.mime??'text/plain',bytes:inputBytes});
   await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));
   expect(await extractAttachment({store:objects,extraction:new PgAttachmentExtractionRepository(db),converter:new AnydocAttachmentToMarkdown()},org,uploaded.id)).toBe('extracted');
   const pack=scenario.packId==='office'?null:verifySkillStarterPack(await new FileSkillStarterPackSource(join(workspace,'skills/starter-packs')).load(scenario.packId,packVersion),{packId:scenario.packId,packVersion});
@@ -122,9 +133,19 @@ it('real configured model executes the selected synthetic skill scenario',async(
   expect(report.negativeCalls).toEqual([]);
   const files=await staging.listFiles(org,parent);expect(files.length).toBeGreaterThan(0);
   const primary=files.find(f=>f.name===scenario.output);expect(primary).toBeDefined();
+  if(caseId==='S003_EDIT'||caseId==='S004_EDIT'||caseId==='S005_EDIT'){
+   expect(report.calls.some((call:{name:string;args:{command?:string}})=>call.name==='execute'&&call.args.command?.includes('render-office.py'))).toBe(true);
+   expect(files.some(file=>file.name.endsWith('.pdf'))).toBe(true);expect(files.some(file=>file.name.endsWith('.png'))).toBe(true);
+  }
   const bytes=Buffer.from((await objects.get(primary!.objectKey))!);
   for(const file of files){if(!/^[a-zA-Z0-9_.-]+$/.test(file.name))throw new Error('unsafe evidence filename');await writeFile(join(evidence,file.name),Buffer.from((await objects.get(file.objectKey))!));}
   await writeFile(join(evidence,'source.txt'),transcript);
+  if(caseId==='S003_EDIT'||caseId==='S005_EDIT'){
+   const changedPart=caseId==='S003_EDIT'?'word/document.xml':'ppt/slides/slide1.xml',before=new Map(unzip(inputBytes).map(e=>[e.name,e.bytes])),after=new Map(unzip(bytes).map(e=>[e.name,e.bytes]));expect([...after.keys()]).toEqual([...before.keys()]);
+   for(const[name,original]of before)if(name!==changedPart)expect(createHash('sha256').update(after.get(name)!).digest('hex')).toBe(createHash('sha256').update(original).digest('hex'));
+   const changed=after.get(changedPart)!.toString('utf8');expect(changed).toContain('已确认');expect(changed).not.toContain('待确认');
+  }
+  if(caseId==='S004_EDIT'){const before=new ExcelJS.Workbook(),after=new ExcelJS.Workbook();await before.xlsx.load(inputBytes as unknown as Parameters<typeof before.xlsx.load>[0]);await after.xlsx.load(bytes as unknown as Parameters<typeof after.xlsx.load>[0]);expect(after.getWorksheet('Data')!.getCell('A1').value).toBe(7);expect(after.getWorksheet('Other')!.getCell('A1').value).toBe('工作表保持');expect(after.getWorksheet('Other')!.getCell('C1').value).toEqual(before.getWorksheet('Other')!.getCell('C1').value);expect(after.getWorksheet('Data')!.getCell('B2').font).toEqual(before.getWorksheet('Data')!.getCell('B2').font);const xml=new Map(unzip(bytes).map(e=>[e.name,e.bytes])).get('xl/workbook.xml')!.toString('utf8');expect(xml).toMatch(/fullCalcOnLoad="1"/);}
   if(scenario.output.endsWith('.md')){
    const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
    if(caseId==='S007'){expect(files.some(f=>f.name.endsWith('.py'))).toBe(true);expect(files.some(f=>f.name.endsWith('.csv'))).toBe(true);expect(report.calls.some((c:{name:string;args:{command?:string}})=>c.name==='execute'&&/python/.test(c.args.command??''))).toBe(true);expect(text).toMatch(/52/);expect(text).toMatch(/40/);expect(text).toMatch(/12/);expect(text).toMatch(/缺失|空值|missing/i);expect(text).toMatch(/重复|duplicate/i);}
@@ -133,7 +154,9 @@ it('real configured model executes the selected synthetic skill scenario',async(
    if(caseId==='S008'){expect(text).toMatch(/3/);expect(text).toMatch(/议程|agenda/i);expect(text).toMatch(/未知|未确定|unknown/i);expect(report.calls.some((c:{name:string})=>c.name==='wx_knowledge_read')).toBe(true);}
   }
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;await repo.commitWriteback(org,{runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files});
-  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(files.length);await writeFile(join(evidence,'result.json'),JSON.stringify({model:report.model,caseId,packages:skills.map(s=>({name:s.stableName,version:s.package.versionId})),outputSha256:createHash('sha256').update(bytes).digest('hex'),artifacts:files.length,actualWriteback:true}));
+  const versions=await db.withTenant(org,s=>s.query<{storage_key:string}>('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(files.length);
+  const published=versions.rows.find(row=>row.storage_key===primary!.objectKey);expect(published).toBeDefined();const downloaded=await objects.get(published!.storage_key);expect(downloaded).not.toBeNull();const outputSha256=createHash('sha256').update(bytes).digest('hex'),artifactDownloadSha256=createHash('sha256').update(downloaded!).digest('hex');expect(artifactDownloadSha256).toBe(outputSha256);
+  await writeFile(join(evidence,'result.json'),JSON.stringify({model:report.model,caseId,packages:skills.map(s=>({name:s.stableName,version:s.package.versionId})),outputSha256,artifactDownloadSha256,artifacts:files.length,actualWriteback:true}));
  }finally{
   const evidence=process.env.WX_SKILL_BATCH_EVIDENCE!;await mkdir(evidence,{recursive:true});
   for(const file of await staging.listFiles(org,parent)){if(/^[a-zA-Z0-9_.-]+$/.test(file.name)){const data=await objects.get(file.objectKey);if(data)await writeFile(join(evidence,file.name),Buffer.from(data));}}
