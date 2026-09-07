@@ -7,6 +7,7 @@ import httpx
 from jsonschema import Draft7Validator,FormatChecker
 from langchain.tools import ToolRuntime
 from langchain_core.tools import StructuredTool
+from langchain_core.messages import ToolMessage
 _SCHEMA=json.loads((Path(__file__).parent/'generated/standard_web_schema.json').read_text())
 class StandardWebError(RuntimeError):pass
 async def _invoke(name,args,runtime):
@@ -22,6 +23,8 @@ async def _invoke(name,args,runtime):
         async with asyncio.timeout(deadline):
             async with httpx.AsyncClient(timeout=deadline,follow_redirects=False,trust_env=False) as client:
                 async with client.stream('POST',url,headers={'x-deep-agent-internal-key':callback['key'],'accept-encoding':'identity'},json=body) as response:
+                    if response.status_code==503:
+                        return ToolMessage(content='Web source unavailable or refused; no content confirmed. Do not cite this failed source. You may choose another authorized public source.',tool_call_id=runtime.tool_call_id,name=name,status='error')
                     if response.status_code!=200 or response.headers.get('content-encoding','identity')!='identity':raise ValueError()
                     content=bytearray()
                     async for chunk in response.aiter_raw():

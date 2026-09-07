@@ -20,7 +20,7 @@ def test_gateway_failures_are_bounded_and_secret_free(monkeypatch,failure):
  seen=[]
  def handle(request):
   seen.append(request)
-  return httpx.Response(503 if failure=='status' else 302 if failure=='redirect' else 200,stream=httpx.ByteStream(b'x'*(web._SCHEMA['limits']['maxResponseBytes']+1) if failure=='oversize' else b'{}'))
+  return httpx.Response(403 if failure=='status' else 302 if failure=='redirect' else 200,stream=httpx.ByteStream(b'x'*(web._SCHEMA['limits']['maxResponseBytes']+1) if failure=='oversize' else b'{}'))
  original=httpx.AsyncClient
  monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
  with pytest.raises(web.StandardWebError) as error:asyncio.run(web._invoke('fetch_url',{'url':'https://example.com'},runtime()))

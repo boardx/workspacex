@@ -1,0 +1,279 @@
+[stack-admission] load1=3.36 cores=10 perCore=0.34 running=0/2
+[test-isolation] id=run-mtqvbqwo-2de29350-c2e18a663cf4 db=wsx_c2e18a663cf48fbc3f65 compose=wsx-c2e18a663cf48fbc3f65 pg=20934 redis=25934 sandbox=50934
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c2e18a663cf48fbc3f65 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/skill-batch-real-model.live.ts (1 test | 1 failed) 45472ms
+   × real configured model executes the selected synthetic skill scenario 42436ms
+     → real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/skill_batch_real_model_runner.py", line 39, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/skill_batch_real_model_runner.py", line 16, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':prompt}]},config={**config,'recursion_limit':200},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3440, in astream
+    async for _ in runner.atick(
+    ...<16 lines>...
+            yield o
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 557, in atick
+    _panic_or_proceed(
+    ~~~~~~~~~~~~~~~~~^
+        futures.done.union(f for f, t in futures.items() if t is not None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        handled_futures=handled_futures,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 687, in _panic_or_proceed
+    raise exc
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        step.ainvoke(input, config, **kwargs), context=context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 858, in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1216, in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1207, in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/deepagents/middleware/filesystem.py", line 3489, in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_skill_activity.py", line 110, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/middleware/tool_retry.py", line 380, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 97, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1198, in execute
+    return await self._execute_tool_async(req, input_type, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1153, in _execute_tool_async
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1105, in _execute_tool_async
+    response = await tool.ainvoke(call_args, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py", line 70, in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 776, in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 1264, in arun
+    raise error_to_raise
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 1230, in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py", line 124, in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py", line 37, in invoke
+    async def invoke(runtime:ToolRuntime,**kwargs):return await _invoke(name,kwargs,runtime)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py", line 33, in _invoke
+    except Exception:raise StandardWebError('Web source unavailable or request refused; no content confirmed') from None
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+deep_agent_service.standard_web_tools.StandardWebError: Web source unavailable or request refused; no content confirmed
+During task with name 'tools' and id 'c2a0d9fa-4ed6-3715-9c86-cee264ada817'
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/skill-batch-real-model.live.ts > real configured model executes the selected synthetic skill scenario
+Error: real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/skill_batch_real_model_runner.py", line 39, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/skill_batch_real_model_runner.py", line 16, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':prompt}]},config={**config,'recursion_limit':200},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3440, in astream
+    async for _ in runner.atick(
+    ...<16 lines>...
+            yield o
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 557, in atick
+    _panic_or_proceed(
+    ~~~~~~~~~~~~~~~~~^
+        futures.done.union(f for f, t in futures.items() if t is not None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        handled_futures=handled_futures,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 687, in _panic_or_proceed
+    raise exc
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        step.ainvoke(input, config, **kwargs), context=context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 858, in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1216, in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1207, in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/deepagents/middleware/filesystem.py", line 3489, in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_skill_activity.py", line 110, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/middleware/tool_retry.py", line 380, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 97, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1198, in execute
+    return await self._execute_tool_async(req, input_type, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1153, in _execute_tool_async
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1105, in _execute_tool_async
+    response = await tool.ainvoke(call_args, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py", line 70, in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 776, in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 1264, in arun
+    raise error_to_raise
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py", line 1230, in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py", line 124, in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py", line 37, in invoke
+    async def invoke(runtime:ToolRuntime,**kwargs):return await _invoke(name,kwargs,runtime)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py", line 33, in _invoke
+    except Exception:raise StandardWebError('Web source unavailable or request refused; no content confirmed') from None
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+deep_agent_service.standard_web_tools.StandardWebError: Web source unavailable or request refused; no content confirmed
+During task with name 'tools' and id 'c2a0d9fa-4ed6-3715-9c86-cee264ada817'
+
+ ❯ ChildProcess.<anonymous> tests/agent-runtime/skill-batch-real-model.live.ts:60:487
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  14:37:14
+   Duration  47.91s (transform 2.05s, setup 0ms, collect 633ms, tests 45.47s, environment 0ms, prepare 22ms)
+
+[db-isolation] db=wsx_c2e18a663cf48fbc3f65 peak_connections=6
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.skill-batch-real-model.config.ts
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.skill-batch-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：48s
+  清理：1s
+  总计：49s
