@@ -66,8 +66,8 @@ export async function listPersonalThreads(
   ]);
 
   for (const row of candidates) {
+    // 2026-09-07 起恒有归宿（今天/本周/更早），见 thread-grouping.ts 头注（decision 11 已裁）。
     const label = threadGroupLabel(new Date(row.lastActivityAt), now);
-    if (label === null) continue;
 
     const outcome = await resolveVisibility(deps, {
       userId: input.userId,
