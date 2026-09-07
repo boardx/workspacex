@@ -74,9 +74,10 @@ import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
  * 修法：`extractMermaidBlocks` 现在吐出 `closed: boolean`（围栏是否真的闭合），
  * `markdown-message.tsx` 原样透传给本组件的 `closed` prop。`closed === false`
  * 时校验 effect 整个跳过，状态机停在 "validating"（渲成「解析工作坊画布模板
- * 中…」loading 态，不进错误分支）——直到围栏闭合（`closed` 变 true，因为
- * `previewCode` 也变了，`key={previewCode}` 使实例整个重挂，从干净的
- * "validating" 重新起跑）才真正跑 `checkCanvasFence`。围栏闭合后格式确实有
+ * 中…」loading 态，不进错误分支）——直到围栏闭合（`closed` 变 true）才真正跑
+ * `checkCanvasFence`。流式期间复用同一个 body 实例，避免每个增量都因
+ * `key={previewCode}` 重建整张预览卡、在完成时肉眼闪一下；此时 fabric 尚未挂载，
+ * 原地推进状态是安全的。围栏闭合后格式确实有
  * 误，报错逻辑原样保留，不受影响。
  *
  * ── 根因修复（issue #1668 引入的回归，与 `ChatDiagramFabric` 同款，同一次 devapp
@@ -131,6 +132,15 @@ export function ChatCanvasFabric({
   // 才退回原始消息文本。此前恒用 `code`：保存/关闭全屏后气泡卡片纹丝不动就是因为
   // 这条预览渲染从没读过 `savedSource`（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
   const previewCode = savedSource?.markdown ?? code;
+  const sourceTemplateKey = React.useMemo(() => {
+    const checked = checkCanvasFence(code, lang);
+    return checked.ok ? checked.key : null;
+  }, [code, lang]);
+  const acceptsSavedSource = React.useCallback((markdown: string) => {
+    if (sourceTemplateKey === null) return false;
+    const checked = checkCanvasFence(markdown, lang);
+    return checked.ok && checked.key === sourceTemplateKey;
+  }, [sourceTemplateKey, lang]);
   // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
   // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
@@ -151,12 +161,12 @@ export function ChatCanvasFabric({
     }
     setOpeningReadback(true);
     const saved = await fetchLatestSavedDiagramSource({
-      threadId, messageId, projectId: projectId ?? null, bearer,
+      threadId, messageId, projectId: projectId ?? null, bearer, accepts: acceptsSavedSource,
     });
     setSavedSource(saved);
     setOpeningReadback(false);
     setMaximized(true);
-  }, [openingReadback, threadId, messageId, projectId, bearer]);
+  }, [openingReadback, threadId, messageId, projectId, bearer, acceptsSavedSource]);
 
   // 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）——与
   // `ChatDiagramFabric` 同款修法（该文件有完整背景注释，此处不复述）：图表消息
@@ -174,14 +184,14 @@ export function ChatCanvasFabric({
     let cancelled = false;
     void (async () => {
       const saved = await fetchLatestSavedDiagramSource({
-        threadId, messageId, projectId: projectId ?? null, bearer,
+        threadId, messageId, projectId: projectId ?? null, bearer, accepts: acceptsSavedSource,
       });
       if (!cancelled && saved !== null) setSavedSource(saved);
     })();
     return () => {
       cancelled = true;
     };
-  }, [inView, savedSource, threadId, messageId, projectId, bearer]);
+  }, [inView, savedSource, threadId, messageId, projectId, bearer, acceptsSavedSource]);
 
   // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例
   // 是重对象）。停在 outer：previewCode 变化触发的重挂载只发生在**已经进过视口一次
@@ -209,7 +219,11 @@ export function ChatCanvasFabric({
   return (
     <>
       <CanvasFabricBody
-        key={previewCode}
+        // 原始消息在流式生成时 `previewCode` 会逐 token 变化，但 `closed=false` 期间
+        // fabric 尚未挂载；保持同一个实例可让预览卡 DOM 连续，不在围栏闭合时闪一下。
+        // 只有读回/保存产生了另一份已落库源码时才换 key，继续保留 issue #1668 所需的
+        // 「已挂 fabric 后源码变化必须整棵安全重挂」边界。
+        key={savedSource?.markdown ?? "original-message-source"}
         previewCode={previewCode}
         lang={lang}
         orgId={orgId}
@@ -246,9 +260,9 @@ export function ChatCanvasFabric({
 
 /**
  * 只读预览的状态机本体（validating → resolving → valid | error）+ fabric canvas
- * 挂载/卸载。由 `ChatCanvasFabric` 用 `key={previewCode}` 渲染——previewCode 变化时
- * 整个组件实例连同内部 DOM 一起被摘除重挂。见 `ChatCanvasFabric`/`ChatDiagramFabric`
- * 文件头大注释。
+ * 挂载/卸载。原始消息的流式增量复用同一个实例；保存版/读回版替换原始源码时，
+ * `ChatCanvasFabric` 才用保存版 markdown 作 key，让整个实例连同 fabric DOM 安全重挂。
+ * 见 `ChatCanvasFabric`/`ChatDiagramFabric` 文件头大注释。
  */
 function CanvasFabricBody({
   previewCode, lang, orgId, inView, closed, containerRef, openMaximized, openingReadback,
@@ -268,8 +282,9 @@ function CanvasFabricBody({
   const [ready, setReady] = React.useState(false);
 
   // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
-  // `previewCode`/`lang`/`orgId` 在这个组件实例的生命周期内不会变（previewCode 变化
-  // 即换 key、换实例）；`orgId` 理论上可能因为登录状态变化而变，沿用既有依赖数组。
+  // 原始消息流式期间 `previewCode` 会变化，但 `closed=false` 会在下面提前返回，fabric
+  // 也尚未挂载；围栏闭合后 code 即稳定。保存版替换仍由外层 key 触发安全重挂。
+  // `orgId` 理论上可能因为登录状态变化而变，沿用既有依赖数组。
   React.useEffect(() => {
     if (!inView) return;
     // 围栏还没闭合（issue #2298）：流式增量文本里的半截内容，不是作者的最终
@@ -346,8 +361,8 @@ function CanvasFabricBody({
       cancelled = true;
       canvas.dispose();
     };
-    // 本组件实例内 previewCode/lang 恒定不变（见组件头注释），status.phase 是这条
-    // effect 唯一真正会变化的依赖。
+    // 正常流式期间 closed=false，不会进入 valid；围栏闭合后 previewCode 稳定。
+    // 保存版替换会由外层 key 重挂，因此不会在同一个已挂 fabric 的 DOM 上换源码。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status.phase, previewCode, lang]);
 

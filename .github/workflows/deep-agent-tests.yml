@@ -56,14 +56,14 @@ jobs:
       DEEP_AGENT_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/deep_agent_ci
       GUIDED_RESEARCH_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/deep_agent_ci
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7.0.0
       - name: 全量 pytest（含 TC-1~TC-5 黄金压测场景）
         working-directory: apps/deep-agent-service
         run: uv run --extra dev pytest tests -v
       - name: 归档黄金压测场景的证据
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: deepagent-golden-evidence
           path: apps/deep-agent-service/.golden-evidence/

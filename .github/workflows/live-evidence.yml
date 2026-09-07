@@ -17,12 +17,12 @@ jobs:
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 采集活体证据（探针 thread，只读边界见脚本头）
         run: bash apps/deep-agent-service/scripts/live-evidence.sh
       - name: 收敛最新证据包
         run: cp "$(ls -t /tmp/deepagent-evidence-*.tar.gz | head -1)" ./deepagent-evidence.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: deepagent-evidence
           path: deepagent-evidence.tar.gz

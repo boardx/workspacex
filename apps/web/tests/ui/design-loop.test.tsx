@@ -1873,6 +1873,63 @@ describe("⑬ 2026-09-05：设计方案「转开发」——收件箱 drawer 建
  * 迭代 11（design-delta `prototype-navigation`，待人类签核）—— UI 先行部分的验收（delta V29 / V30 / V31 的
  * 前端半边）。跳转表由 `project.frameLinks` 给（服务端接线前夹具提供），画布只消费。
  */
+/**
+ * 2026-09-07 人类指令：composer 回车直接发、Shift+Enter 换行；底部不显示模型名。
+ */
+describe("对话输入区：回车发送 / Shift+Enter 换行 / 输入法组字不误发", () => {
+  const tree = { type: "stack" as const, id: "n1", children: [{ type: "text" as const, id: "n2", props: { content: "x" } }] };
+  const setup = async () => {
+    const sent: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      if (/\/chat$/.test(path) && opts?.method === "POST") {
+        sent.push(opts.body);
+        return { project: project({ frames: ["页"], prototype: [tree] }), reply: { source: "model", applied: [], suggestions: [] } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    return { sent, input: screen.getByTestId("design-detail-input") };
+  };
+
+  it("回车发送；Shift+Enter 不发（留给换行）", async () => {
+    const { sent, input } = await setup();
+    fireEvent.change(input, { target: { value: "改一下标题" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(sent).toHaveLength(0);
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toMatchObject({ text: "改一下标题" });
+  });
+
+  it("输入法组字中的回车是在选词，不发送（中文/日文用户的半截词不该被发出去）", async () => {
+    const { sent, input } = await setup();
+    fireEvent.change(input, { target: { value: "改一下" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("空内容按回车不发", async () => {
+    const { sent, input } = await setup();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("底部状态条不显示模型名——它此前是硬编码字面量，与部署实际用的模型无关", () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ frames: ["页"], prototype: [tree] })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    return waitFor(() => {
+      const bar = screen.getByTestId("design-detail-statusbar");
+      expect(bar.textContent).not.toMatch(/claude|opus|gpt/i);
+      expect(bar.textContent).toContain("设计系统 WorkspaceX UI");
+    });
+  });
+});
+
 describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => {
   const btn = (id: string, label: string) => ({ id, type: "button" as const, props: { label } });
   const treeA = { id: "ra", type: "stack" as const, children: [btn("go", "去 B"), btn("stay", "普通按钮")] };
@@ -1925,9 +1982,18 @@ describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => 
     expect(screen.queryByTestId("design-detail-board-links")).toBeNull();
   });
 
-  it("V31（前端半边）属性面板「跳转」：单目标一个下拉；选目标 ⇒ 本页 links 本地更新、画板多一条连线", async () => {
-    apiRequest.mockImplementation(async (path: string) => {
+  it("V31 属性面板「跳转」：单目标一个下拉；选目标 ⇒ 发 setLinks（与模型同一条路），回包的 links 上画板", async () => {
+    // 迭代 11 接线后：改跳转**不是本地更新**，而是一条 `setLinks` patch——人改与模型改同一条
+    // 写回路径（I-11），所以它同样过 `validateLinks`、同样记一条 user 版本。
+    // 用同文件已有的 `linked()` 夹具：它的 from 是真实存在的节点 id（"go"）——
+    // 画板只画得出源节点找得到的线，编一个 id 会让这条断言变成假绿。
+    const calls: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
       if (path === "/pm-designs") return { items: [project({ frames: ["A", "B"], prototype: [treeA, treeB], frameLinks: [[], []] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        calls.push(opts.body);
+        return { project: linked() };
+      }
       throw new Error(`unexpected ${path}`);
     });
     render(<DesignDetailScreen projectId="p1" />);
@@ -1937,6 +2003,8 @@ describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => 
     const select = await screen.findByTestId("design-inspector-link-0");
     expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["无", "2 · B"]); // 本页 A 不在选项里
     fireEvent.change(select, { target: { value: "1" } });
-    expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toMatchObject({ ops: [{ op: "setLinks", screen: 0 }] });
+    await waitFor(() => expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1));
   });
 });

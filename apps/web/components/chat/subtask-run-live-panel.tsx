@@ -1,7 +1,7 @@
 "use client";
 import { useSubtaskRuns, useRetrySubtaskRun } from "@/lib/chat/use-subtask-runs";
 import { SubtaskRunPanel } from "./subtask-run-panel";
-import type { SubtaskRunView } from "@/lib/mock/subtask-run";
+import type { SubtaskRunView } from "@/lib/chat/subtask-run";
 
 /**
  * `SubtaskRunPanel` 接真实数据的薄容器——`useSubtaskRuns` 轮询

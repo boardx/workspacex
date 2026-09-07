@@ -208,7 +208,7 @@ describe("#387 trusted full-stack gate contract", () => {
     // 只在 workflow_dispatch 手动勾选时跑，不在 pull_request/push/schedule 上跑），
     // 它自己的证据上传步骤同样需要 always()（记分牌红了也要能看到 test-results 截图），
     // 是真实新增的第三个「always() + upload-artifact」配对，不是漂移或误加。
-    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v4/g)).toHaveLength(3);
+    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v6/g)).toHaveLength(3);
     expect(workflow).toContain("phase-01-fullstack-smoke-evidence");
     expect(workflow).toContain("phase-01-e2e-full-evidence");
     expect(workflow).toContain("phase-01-chat-task-workbench-evidence");

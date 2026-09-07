@@ -1,0 +1,83 @@
+# Trusted DevApp evidence lane for Issue #2958. It is manual and main-only: pull-request
+# code never receives provider credentials. Uploaded artifacts contain scrubbed evidence only.
+name: s013-real-model-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      exact_sha:
+        description: 'Full SHA to verify; it must equal the current main HEAD'
+        required: true
+        type: string
+
+concurrency:
+  group: s013-real-model-evidence
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 45
+    env:
+      S013_EXPECTED_SHA: ${{ inputs.exact_sha }}
+      WX_NATIVE_SANDBOX_CONTAINER: workspacex-skill-sandbox-sessions-1
+      WORKSPACEX_BROWSER_MCP_ENDPOINT: http://127.0.0.1:58931/mcp
+      WX_AUDIO_REAL_EVIDENCE: ${{ github.workspace }}/apps/api/test-results/s013-real-model
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Bind the run to the current main HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "${#S013_EXPECTED_SHA}" -eq 40
+          test "$actual_sha" = "$S013_EXPECTED_SHA"
+          mkdir -p "$WX_AUDIO_REAL_EVIDENCE"
+          printf '{"expectedSha":"%s","actualSha":"%s","ref":"refs/heads/main"}\n' \
+            "$S013_EXPECTED_SHA" "$actual_sha" > "$WX_AUDIO_REAL_EVIDENCE/00-checkout.json"
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: '0.12.5'
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen --extra dev
+        working-directory: apps/deep-agent-service
+      - name: Six-configuration preflight
+        run: bash .harness/scripts/vm/s013-real-model-evidence.sh preflight
+      - name: Bounded real-model HTML acceptance
+        id: acceptance
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . "${RUNNER_TEMP}/s013-real-model.env"
+          set +a
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+            pnpm --filter @repo/api run test:browser-skill-real-model \
+            > "${RUNNER_TEMP}/s013-real-model-raw.log" 2>&1
+      - name: Scrub all textual evidence
+        id: scrub
+        if: always()
+        run: bash .harness/scripts/vm/s013-real-model-evidence.sh scrub "${RUNNER_TEMP}/s013-real-model-raw.log"
+      - uses: actions/upload-artifact@v6
+        if: always() && steps.scrub.outcome == 'success'
+        with:
+          name: s013-real-model-evidence-${{ inputs.exact_sha }}
+          path: apps/api/test-results/s013-real-model
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove ephemeral credentials and raw log
+        if: always()
+        run: bash .harness/scripts/vm/s013-real-model-evidence.sh cleanup
+      - name: Preserve the acceptance verdict
+        if: always() && (steps.acceptance.outcome != 'success' || steps.scrub.outcome != 'success')
+        run: exit 1

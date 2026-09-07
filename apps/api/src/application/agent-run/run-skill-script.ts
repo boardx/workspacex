@@ -165,9 +165,20 @@ export async function maybeRunSkillScript(
   // 第三条：`reply` 优先，其次才是 #1747 的候选来源。顺序有意义——模型这轮**自己**写出来
   // 的脚本，与写回给用户的正文是同一段文字；候选来源是链路中间产物，只在正文里确实没有
   // 脚本时才用得上。`scriptSources` 缺省 ⇒ 这一行退化成改动前的那一行。
-  const scriptSource = [input.reply, ...(input.scriptSources ?? [])]
-    .find((candidate) => tryExtractScript(candidate) !== null);
-  if (scriptSource === undefined) return notAttempted;
+  // A deep-agent turn may call more than one file skill (for example docx-create and
+  // pptx-create). Each ToolMessage is a separate candidate. The old `.find()` silently
+  // discarded every candidate after the first, so the run could claim both formats while
+  // only one script ever reached the sandbox. Deduplicate the extracted script bodies
+  // because an orchestrator may also repeat a tool result in its final reply.
+  const scriptSources: string[] = [];
+  const seenScripts = new Set<string>();
+  for (const candidate of [input.reply, ...(input.scriptSources ?? [])]) {
+    const script = tryExtractScript(candidate);
+    if (script === null || seenScripts.has(script)) continue;
+    seenScripts.add(script);
+    scriptSources.push(candidate);
+  }
+  if (scriptSources.length === 0) return notAttempted;
 
   const sandbox = deps.sandbox;
   const objects = deps.objects;
@@ -176,21 +187,25 @@ export async function maybeRunSkillScript(
     if (await deps.cancelAtCheckpoint?.()) throw new ScriptCancelledAtBoundary();
   };
   try {
-    const loop = await runScriptWithRetries({
-      sandbox: { run: async (request) => { await checkCancellation(); return sandbox.run(request); } },
-      timeoutMs: deps.timeoutMs ?? CHAT_SCRIPT_TIMEOUT_MS,
-      maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
-      inputFiles: input.inputFiles,
-      log: deps.log,
-      // 第 1 次复用已有回复（feedback === null），之后才真的再调模型。
-      generateScript: async (feedback) => {
-        await checkCancellation();
-        return feedback === null ? scriptSource : deps.regenerate(feedback);
-      },
-    });
+    const loops = [];
+    for (const scriptSource of scriptSources) {
+      loops.push(await runScriptWithRetries({
+        sandbox: { run: async (request) => { await checkCancellation(); return sandbox.run(request); } },
+        timeoutMs: deps.timeoutMs ?? CHAT_SCRIPT_TIMEOUT_MS,
+        maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
+        inputFiles: input.inputFiles,
+        log: deps.log,
+        // Each candidate's first attempt reuses its own tool result. A failed candidate
+        // alone asks the model for a correction; already successful siblings are not rerun.
+        generateScript: async (feedback) => {
+          await checkCancellation();
+          return feedback === null ? scriptSource : deps.regenerate(feedback);
+        },
+      }));
+    }
 
     const files: ProducedFile[] = [];
-    for (const file of loop.files) {
+    for (const file of loops.flatMap((loop) => loop.files)) {
       const bytes = Buffer.from(file.contentBase64, "base64");
       const key = deps.objectKeyFor
         ? deps.objectKeyFor(file.name)
@@ -202,10 +217,16 @@ export async function maybeRunSkillScript(
     }
 
     deps.log("chat run executed skill script", {
-      runId: input.runId, attempts: loop.attempts, fileCount: files.length,
+      runId: input.runId,
+      scriptCount: loops.length,
+      attempts: loops.reduce((sum, loop) => sum + loop.attempts, 0),
+      fileCount: files.length,
     });
 
-    return { kind: "succeeded", text: renderSuccess(input.reply, files), files, attempts: loop.attempts };
+    return {
+      kind: "succeeded", text: renderSuccess(input.reply, files), files,
+      attempts: loops.reduce((sum, loop) => sum + loop.attempts, 0),
+    };
   } catch (e) {
     if (e instanceof ScriptCancelledAtBoundary) return { kind: "cancelled", text: input.reply, files: [] };
     const failure = toFailure(e);

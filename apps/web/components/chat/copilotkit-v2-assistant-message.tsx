@@ -8,7 +8,6 @@ import {
   useSuggestions,
   CopilotChatAssistantMessage,
   CopilotChatToolCallsView,
-  useRenderToolCall,
 } from "@copilotkit/react-core/v2";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import {
@@ -60,112 +59,20 @@ function V2MarkdownRenderer({
   return <MarkdownMessage projectId={projectId ?? undefined} text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
 }
 
-/** Legacy messages without a durable run trace still use the registered tool renderers,
- * inside a default-collapsed disclosure (including a single call). */
-/**
- * issue #2451 —— 真实截图抓到的问题：一轮回复里模型调用了不止一次 `write_todos`
- * （改主意/纠正上一版计划），每次调用各自独立注册渲染（`useRenderTool` 按
- * `toolCallId` 分派，`copilotkit-v2-tool-renderers.tsx`），框架默认的
- * `CopilotChatToolCallsView` 因此把它们逐张原样摊平——用户看到好几张内容不一致的
- * "制定执行计划"卡片，摞在一起，分不清哪张是最新的。
- *
- * `useRenderTool` 的 render 回调本身拿不到"同一条消息里还有哪些兄弟工具调用"这个
- * 信息（各卡片各自独立渲染，互不知情），唯一能拿到 `message.toolCalls` 全量顺序
- * 的地方就是这一层——所以去重逻辑放在这里，不下沉进 `WriteTodosCard` 本身。
- *
- * 不隐藏更早的卡片（本仓一贯的"不悄悄清除状态痕迹"纪律——`AGENTS.md` 反复强调
- * 的"没有证据=没有完成"同一条纪律的另一面：也不能让"这条计划以前长什么样"凭空
- * 消失），只把它们视觉上淡化 + 贴一个"计划已更新"徽标，让最新一版自然成为视觉
- * 焦点。除 `write_todos` 外的其它工具调用渲染逻辑完全不变。
- *
- * 2026-09-04 人类直接反馈（真栈截图：两张内容不同的"制定执行计划"卡片同屏并存，
- * 都是完整展开态）——第一版这条去重只在**同一条消息内**多次调用 `write_todos`
- * 时生效（`hasSupersededWriteTodos` 只数当前 `message.toolCalls`）。真实场景里，
- * 模型往往是**跨两条独立消息**各自调用一次 `write_todos`（先给一版计划、下一轮
- * 收到反馈后再整体重发一版），每条消息各自只有一次调用，第一版的 `toolCalls.
- * length === 1` 分支直接原样渲染、完全绕开了去重逻辑。这里改成把"谁是全局最新
- * 一次 write_todos"这个判断挪到**整个对话**（`props.messages`）范围，不再局限
- * 于当前这一条消息——`lastWriteTodosCallId` 现在按 `toolCallId` 比较（跨消息
- * 唯一），不再按"消息内下标"比较（那个下标离开所在消息就没有意义）。
- */
-function findLastWriteTodosToolCallId(
-  messages: React.ComponentProps<typeof CopilotChatToolCallsView>["messages"],
-): string | null {
-  let lastId: string | null = null;
-  for (const m of messages ?? []) {
-    if (m.role !== "assistant" || !m.toolCalls) continue;
-    for (const call of m.toolCalls) {
-      if (call.function.name === "write_todos") lastId = call.id;
-    }
-  }
-  return lastId;
-}
-
-function WriteTodosDedupedToolCallsView(
-  props: React.ComponentProps<typeof CopilotChatToolCallsView> & { lastWriteTodosCallId: string | null },
-): JSX.Element | null {
-  const { lastWriteTodosCallId, ...viewProps } = props;
-  const toolCalls = viewProps.message.toolCalls ?? [];
-  const renderToolCall = useRenderToolCall();
-  return (
-    <>
-      {toolCalls.map((toolCall) => {
-        // `.find()`'s predicate isn't a type guard by default, so TS keeps the wider
-        // `Message` union even after the `role === "tool"` check — cast to the one
-        // variant `useRenderToolCall`'s `toolMessage` param actually accepts (matches
-        // the library's own untyped-JS equivalent in `CopilotChatToolCallsView`).
-        const toolMessage = (viewProps.messages ?? []).find(
-          (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-        ) as Extract<NonNullable<typeof viewProps.messages>[number], { role: "tool" }> | undefined;
-        const rendered = renderToolCall({ toolCall, toolMessage });
-        if (rendered === null) return null;
-        if (toolCall.function.name !== "write_todos" || toolCall.id === lastWriteTodosCallId) {
-          return <React.Fragment key={toolCall.id}>{rendered}</React.Fragment>;
-        }
-        return (
-          <div
-            key={toolCall.id}
-            data-testid="copilotkit-v2-tool-write-todos-superseded"
-            className="relative opacity-60"
-          >
-            <span className="absolute right-2 top-2 z-10 rounded-control bg-muted px-1.5 py-0.5 text-10 text-muted-foreground">
-              计划已更新
-            </span>
-            {rendered}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
+/** Legacy messages without a durable run trace still use registered renderers in a
+ * collapsed disclosure. Plan writes are excluded because the plan ledger is their
+ * authoritative projection; decision tools stay visible until resolved. */
 function V2ToolCallsView(
   props: React.ComponentProps<typeof CopilotChatToolCallsView>,
 ): JSX.Element | null {
   const covered = React.useContext(RunTraceCoveredContext);
   const allToolCalls = props.message.toolCalls ?? [];
   const decisionCalls = allToolCalls.filter((call) => isDecisionTool(call.function.name));
-  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name));
+  // write_todos is projected into the durable plan ledger. Rendering its legacy
+  // message card as well creates contradictory copies after updates and replay.
+  const toolCalls = allToolCalls.filter((call) => !isDecisionTool(call.function.name) && call.function.name !== "write_todos");
   const decisions = decisionCalls.length ? <CopilotChatToolCallsView {...props} message={{ ...props.message, toolCalls: decisionCalls }} /> : null;
-  const traceProps = { ...props, message: { ...props.message, toolCalls } };
   const [expanded, setExpanded] = React.useState(false);
-  // 2026-09-04（回指 issue #2451）—— 全局（跨整个对话，不只是这一条消息）唯一一次
-  // "最新的 write_todos 调用"，见上面 `findLastWriteTodosToolCallId` 头注。
-  const lastWriteTodosCallId = React.useMemo(
-    () => findLastWriteTodosToolCallId(props.messages ?? [props.message]),
-    [props.messages, props.message],
-  );
-  // 这一条消息里存在**任意一个**已经被更晚调用取代的 write_todos，就要走去重渲染——
-  // 覆盖"同一条消息内调用多次"（原判据）与"这条消息只调用了一次，但更晚的消息
-  // 又调用了一次"（本轮新覆盖的场景）两种情况。
-  const hasSupersededWriteTodos = toolCalls.some(
-    (c) => c.function.name === "write_todos" && c.id !== lastWriteTodosCallId,
-  );
-  const ToolCallsRenderer = hasSupersededWriteTodos
-    ? (viewProps: React.ComponentProps<typeof CopilotChatToolCallsView>) => (
-      <WriteTodosDedupedToolCallsView {...viewProps} lastWriteTodosCallId={lastWriteTodosCallId} />
-    )
-    : CopilotChatToolCallsView;
   // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
   // 引用的 id 不会在重渲染之间跳变），且天然跨组件实例互不相同（同一屏多条
   // 消息各自的折叠面板不会撞 id）。
@@ -208,7 +115,7 @@ function V2ToolCallsView(
         className="flex max-h-64 flex-col gap-1.5 overflow-y-auto border-t border-border-subtle p-2"
         data-testid="copilotkit-v2-tool-calls-group-body"
       >
-        <ToolCallsRenderer {...traceProps} />
+        <CopilotChatToolCallsView {...props} message={{ ...props.message, toolCalls }} />
       </div>
     </div>
     </>

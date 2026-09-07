@@ -28,10 +28,9 @@
  * 没修、也修不了的：如果这个组织**所有**已发布 agent 都是 `deep-agent`
  * （目前 `createAgent`/`selfPublishToollessAgent`/默认 agent 三条路径全部如此，
  * 只有 agent-starter-import 的包可能带别的 provider），这条回退会查到 0 行，
- * 与静态 `KERNEL_SKILL_TRIALRUN_MODEL_ID` 一样退回诚实的 `MODEL_UNAVAILABLE`。
- * 这不是本文件能修的 bug——是 devapp 部署缺一个真正能用的 `modelId`
- * （`KERNEL_SKILL_TRIALRUN_MODEL_ID` 从未被设置过），需要有 VM 部署权限的人配置，
- * 已在 issue 里如实报告，不在这里猜一个没验证过的模型 id 冒充"修好了"。
+ * 与部署配置的试跑 model id 一样退回诚实的 `MODEL_UNAVAILABLE`。试跑配置优先读
+ * `KERNEL_SKILL_TRIALRUN_MODEL_ID`，未声明时复用同一通用 provider 已显式配置的
+ * `KERNEL_MODEL_ID`；两者都没有时仍不猜测 model id。
  *
  * ## 为什么不直接查 `PgPublishedAgentReader`
  *
@@ -43,7 +42,7 @@
  *
  * 组织可能同时有历史遗留的、模型早就下线的旧 agent。最近发布的那个最可能是
  * 目前实际还在被使用、模型配置仍然有效的那个——这是一个启发式，不是保证，
- * 所以 `KERNEL_SKILL_TRIALRUN_MODEL_ID`/诚实报 `MODEL_UNAVAILABLE` 仍然是兜底路径，
+ * 所以部署配置/诚实报 `MODEL_UNAVAILABLE` 仍然是兜底路径，
  * 不是被这条回退取代。
  */
 import type { DatabasePort } from "../../application/ports/database.port";

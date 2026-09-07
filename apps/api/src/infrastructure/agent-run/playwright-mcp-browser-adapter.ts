@@ -400,6 +400,14 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
       throw new Error('browser_tool_denied');
     }
     const bound = await resolveOwner();
+    // Reject disallowed destinations before minting a durable execution receipt. A policy
+    // refusal did not reach Playwright, so recording it as an unknown browser side effect
+    // would be both misleading and would turn a safe retry into `unconfirmed_no_replay`.
+    // The check remains inside the serial dispatch below as a DNS-rebinding/TOCTOU guard.
+    if (invocation.toolName === 'browser_navigate') {
+      const input = parsed as z.infer<typeof BrowserNavigateInput>;
+      if (!previewRequest(input.url)) await abortable(this.network.assertAllowed(input.url), signal);
+    }
     const claim = await abortable(this.receipts.claim(context, validated, argsDigest, deadlineAt), signal);
     if (claim.kind === 'unconfirmed') {
       void this.release(context.bindingId).catch(() => undefined);

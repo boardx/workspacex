@@ -1,10 +1,10 @@
+import { research as C } from "@repo/contracts";
 import type { GuidedResearchRuntime } from "./guided-research-api";
 
 type Source = GuidedResearchRuntime["sources"][number];
-export type ReportContent = { title: string; summary: string; sections: { sectionId: string; body: string; sourceIds?: string[] }[] };
+export type ReportContent = { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; body: string; sourceIds?: string[] }[] };
 export type ReportReference = { number: number; title: string; url: string };
-export type ReportDocument = { title: string; summary: string; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
-const marker = /\[\[source:([^\]\r\n]+)\]\]/g;
+export type ReportDocument = { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
 // Citation-like examples inside inline/fenced code remain literal Markdown.
 function outsideCode(text: string, transform: (part: string) => string): string {
   const code = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1[ \t]*$|(?![\s\S]))|(`+)[^\n]*?\2/gm;
@@ -45,12 +45,12 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
   }
   function content(body: string, fallback: string[] = []): string {
     let markers = false;
-    let text = outsideCode(body, (part) => part.replace(marker, (_match, id: string) => {
+    let text = C.mapGuidedResearchCitations(body, (id) => {
       markers = true; const item = reference(id);
       if (item) return `[${item.number}](${citationHref(item.number)})`;
       unresolvedReferences++;
       return options.provisional ? "" : "〔来源不可用〕";
-    }).replace(/\[\[source:[^\]]*$/, options.provisional ? "" : "〔来源不可用〕"));
+    }, () => { unresolvedReferences++; return options.provisional ? "" : "〔来源不可用〕"; });
     if (!markers && fallback.length) {
       const used = new Set<number>(); const links: string[] = [];
       for (const id of fallback) { const item = reference(id); if (item && !used.has(item.number)) { used.add(item.number); links.push(`[${item.number}](${citationHref(item.number)})`); } }
@@ -59,8 +59,10 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
     return text;
   }
   const summary = content(report.summary);
+  const introduction = report.introduction ? content(report.introduction) : undefined;
   const sections = report.sections.map((section) => ({ sectionId: section.sectionId, title: outline.find((item) => item.id === section.sectionId)?.title ?? "研究章节", body: content(section.body, section.sourceIds) }));
-  return { title: report.title, summary, sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
+  const conclusion = report.conclusion ? content(report.conclusion) : undefined;
+  return { title: report.title, summary, ...(introduction ? { introduction } : {}), ...(conclusion ? { conclusion } : {}), sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
 }
 
 function escapeMarkdown(text: string): string { return text.replace(/[\\`*_[\]<>]/g, "\\$&").replace(/[\r\n]+/g, " "); }
@@ -69,7 +71,9 @@ export function researchReportMarkdown(document: ReportDocument, partial = false
   const blocks = [`# ${escapeMarkdown(document.title)}`];
   if (partial) blocks.push("> 本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。");
   if (document.summary) blocks.push("## 执行摘要", footnotes(document.summary));
-  for (const section of document.sections) blocks.push(`## ${escapeMarkdown(section.title)}`, footnotes(section.body));
+  if (document.introduction) blocks.push("## 研究范围与方法", footnotes(document.introduction));
+  document.sections.forEach((section, index) => blocks.push(`## ${index + 1}. ${escapeMarkdown(section.title)}`, footnotes(section.body)));
+  if (document.conclusion) blocks.push("## 综合结论", footnotes(document.conclusion));
   if (document.references.length) {
     blocks.push("## 参考来源");
     for (const reference of document.references) blocks.push(`[^${reference.number}]: [${escapeMarkdown(reference.title)}](<${reference.url.replace(/[<>]/g, encodeURIComponent)}>)`);

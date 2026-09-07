@@ -123,6 +123,22 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(await empty.r.reply(CTX)).toEqual({ text: C.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: "MODEL_EMPTY_OUTPUT" });
   });
 
+  /**
+   * 2026-09-07 用户实测：模型一次整页重画 5 页，输出超上限被**截断**，JSON 没闭合、parse 失败，
+   * 于是半截 JSON 被当成聊天回复**原样泼进对话框**。截断的输出是失败，不是回复。
+   */
+  it("看着是 JSON 却解析不了（截断）⇒ 判 MODEL_BAD_JSON，绝不把半截 JSON 当回复显示", async () => {
+    const truncated = '{"reply":"已在各页 notes 中补充完整的路由跳转逻辑","suggestions":["加一个错误提示页"],"writeback":{"prototype":[{"frame":"对话","root":{"id":"n1","type":"stack","children":[{"id":"n2"';
+    const r = replier(async () => ({ text: truncated }));
+    const out = await r.r.reply(CTX);
+    expect(out.fallbackReason).toBe("MODEL_BAD_JSON");
+    expect(out.source).toBe("fallback");
+    expect(out.writeback).toEqual({});
+    // 关键：那句"已经补充好了"不能出现在屏上——写回一个字都没生效
+    expect(out.text).not.toContain("已在各页");
+    expect(out.text).not.toContain("writeback");
+  });
+
   it("输出不是 JSON ⇒ 整段当回复（source=model），不写回；JSON 无 reply ⇒ 文字退路但 writeback 仍生效", async () => {
     const plain = replier(async () => ({ text: "我觉得可以先把导出拆成两步。" }));
     expect(await plain.r.reply(CTX)).toEqual({ text: "我觉得可以先把导出拆成两步。", source: "model", writeback: {}, suggestions: [] });

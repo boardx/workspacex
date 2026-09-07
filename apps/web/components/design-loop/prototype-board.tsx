@@ -1,4 +1,10 @@
 "use client";
+/** 把 v 夹进 [lo, hi]；区间反了（页太矮）就取中点。线的端点必须落在页边上，不能飘到页外。 */
+function clampTo(v: number, lo: number, hi: number): number {
+  if (hi <= lo) return (lo + hi) / 2;
+  return Math.min(hi, Math.max(lo, v));
+}
+
 /**
  * 迭代 4 —— 多画板画布（Claude Design 式）：所有页并排铺在一块可平移/缩放的画板上。
  *
@@ -86,15 +92,42 @@ export function PrototypeBoard({
         const srcEl = frameEl.querySelector(multi ? `[data-link-item="${linkKey(l.from, l.item)}"]` : `[data-node-id="${l.from}"]`);
         const dstEl = stage.querySelector(`[data-board-frame="${l.to}"]`);
         if (srcEl === null || dstEl === null) continue;
-        const a = rel(srcEl.getBoundingClientRect());
+        const node = rel(srcEl.getBoundingClientRect());
+        const src = rel(frameEl.getBoundingClientRect());
         const b = rel(dstEl.getBoundingClientRect());
         const rightward = l.to > i;
-        const sx = rightward ? a.x2 : a.x1;
-        const sy = (a.y1 + a.y2) / 2;
+        /**
+         * ⚠ 线**从页边出发，不从节点出发**。此前起点取的是节点自身的左右缘，而节点在手机
+         * 里面，于是每条线都要横穿这一页的内容才能出来——实测图上一条线正好划过 AI 气泡
+         * 「已使用按剩余天数按比例退。」。垂直位置仍取节点中心（夹在页内），所以"是哪个控件
+         * 出发的"依然读得出来，只是线本身只走页与页之间的空档。
+         */
+        const sx = rightward ? src.x2 : src.x1;
+        const sy = clampTo((node.y1 + node.y2) / 2, src.y1 + 8, src.y2 - 8);
         const tx = rightward ? b.x1 : b.x2;
-        const ty = (b.y1 + b.y2) / 2;
+        // 终点此前固定取目标页的**垂直中心**，于是两条反向的线在中间撞成一对背靠背箭头
+        // （实测图 1、2 页之间就是）。改成尽量与起点同高：线走平，落点也不再互相重合。
+        const ty = clampTo(sy, b.y1 + 8, b.y2 - 8);
         const dx = Math.max(24, Math.abs(tx - sx) / 2) * (rightward ? 1 : -1);
-        out.push({ key: `${i}:${linkKey(l.from, l.item)}→${l.to}`, d: `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}` });
+        const key = `${i}:${linkKey(l.from, l.item)}→${l.to}`;
+        if (Math.abs(l.to - i) > 1) {
+          /**
+           * 跨页（3→1 这种）：直连必然压过中间那一页的内容，改从**上方绕行**——同流程图的画法。
+           * ⚠ 控制点必须用**固定小偏移**，不能沿用上面那个"一半距离"的 dx：跨页时两点相距很远，
+           *   dx 会大到让三次曲线严重过冲——实测冲出可视区又斜插回中间那页，比直连还糟。
+           *   这里是"抬起来 → 顶上走直线 → 落下去"，形状可预测，与页数多少无关。
+           */
+          const h = rightward ? 40 : -40;
+          const top = Math.min(src.y1, b.y1) - 28;
+          out.push({
+            key,
+            d: `M ${sx} ${sy} C ${sx + h} ${sy}, ${sx + h} ${top}, ${sx + h * 2} ${top}`
+              + ` L ${tx - h * 2} ${top}`
+              + ` C ${tx - h} ${top}, ${tx - h} ${ty}, ${tx} ${ty}`,
+          });
+          continue;
+        }
+        out.push({ key, d: `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}` });
       }
     });
     setPaths(out);

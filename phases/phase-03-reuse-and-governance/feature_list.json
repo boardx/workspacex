@@ -1110,6 +1110,69 @@
       ],
       "evidence": "",
       "notes": "【B3.6 退役记录，2026-09-04】原 notes（FB-3，旧两列屏）见 git 历史。旧屏 `components/admin/feedback-screen.tsx` 与其测试 `tests/ui/admin-feedback-live.test.tsx` / `admin-feedback-transitions-match-domain.test.ts` 已删除——前者的行为覆盖已并入 `tests/ui/design-loop.test.tsx`（inbox-screen 的等价用例：状态迁移、转不做必填理由、withheld 提示、GitHub issue 编辑器）。原 verification 里的 `feedback-loop-smoke.spec.ts -g \"反馈端到端\"` 用例仍然存在且更新为打 `/platform-admin/inbox`，但那条 e2e 挂在 F49 依赖链上游的 F48（提交侧）而不是本 feature，本 feature 不再声称拥有它。本 feature 保持 not_started：它描述的具体实现已经被替换，不满足\"行为真实可见、端到端可复现\"这条完成定义的第 1 条（描述的屏已不存在），也没有必要另开一个新 id 去重复 B3.1–B3.5 已经验证过的东西。"
+    },
+    {
+      "id": "F50",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-API",
+      "title": "可点击原型：跳转关系是契约的一部分，悬空只丢那一条",
+      "user_visible_behavior": "模型整页生成时可以给出页与页之间的跳转关系（links）。指向不存在的页、自己指自己、指向本页没有的节点，只有那一条被丢掉，页面本身照常可用——不会因为一条连错的线让整页作废。删掉一个被指向的源节点后，那条跳转自动失效。",
+      "spec_ref": "design-deltas/prototype-navigation/contract.md#§1",
+      "depends_on": [
+        "p3:F48"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/design-prototype.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F51",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-API",
+      "title": "人改与模型改同一条写回路径：setLinks + 存储收敛成单列 screens",
+      "user_visible_behavior": "在属性面板给节点选「点击后跳转到某页」，改动作为一条 setLinks 落库并记一版历史，与模型自己连线走的是同一条重验路径。恢复旧版本时跳转关系一起回到那一版。纯改页标签不再清空已经画好的原型（#2900 那类数据丢失在存储收敛后不可能再发生）。",
+      "spec_ref": "design-deltas/prototype-navigation/contract.md#§5",
+      "depends_on": [
+        "p3:F50"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/merge-screens.test.ts",
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F52",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "预览模式与画板连线：原型真的点得动、看得出流程",
+      "user_visible_behavior": "顶栏切到「预览」后，有跳转的节点鼠标变手型、点一下真的换到目标页；没有跳转的节点点了不动也不选中；切回「编辑」恢复选中改属性的语义。画板视图里页与页之间画出连线，随平移缩放一起变换。导出的设计文档每页多一节「跳转」，JSON 规格带上 links。",
+      "spec_ref": "design-deltas/prototype-navigation/contract.md#§4",
+      "depends_on": [
+        "p3:F51"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/design-doc-markdown.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '预览模式：点有跳转的节点真的换页'"
+      ],
+      "evidence": ""
     }
   ]
 }

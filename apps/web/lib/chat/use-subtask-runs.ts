@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { subtaskRun as C } from "@repo/contracts";
 import { apiRequest } from "../api-client";
 import { queryKeys } from "../query-keys";
-import { isSubtaskRunActive, type SubtaskRunView } from "../mock/subtask-run";
+import { isSubtaskRunActive, type SubtaskRunView } from "./subtask-run";
 
 /**
  * `GET /agent-runs/:runId/subtask-runs`（issue #2666）—— 前端后台任务面板的取数源。

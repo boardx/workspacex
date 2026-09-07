@@ -64,6 +64,18 @@ step() { printf '\n══════ %s ══════\n' "$1"; }
 [ -r "$DEPLOY_READINESS_LIB" ] || { echo "缺 root-owned readiness helper: $DEPLOY_READINESS_LIB"; exit 1; }
 # shellcheck disable=SC1090
 source "$DEPLOY_READINESS_LIB"
+
+# #2929: the trusted copy of this helper owns the idempotent secret/admission bootstrap.
+# Existing values are validated and preserved; missing values are generated into deploy.env
+# without being printed. Keeping socket/key configured while admission=0 is what lets a
+# persisted native-v1 run drain after the new-run gate closes.
+DEEP_AGENT_LIB=${DEEP_AGENT_LIB:-/usr/local/lib/workspacex-deep-agent-lib.sh}
+[ -r "$DEEP_AGENT_LIB" ] || { echo "缺 root-owned deep-agent helper: $DEEP_AGENT_LIB"; exit 1; }
+# shellcheck source=/dev/null
+source "$DEEP_AGENT_LIB"
+native_runtime_ensure_deploy_env "$ENV_FILE" "/run/workspacex-native-sessions/skill-sandbox.sock" "1"
+chmod 600 "$ENV_FILE"
+chown "$RUN_AS":"$RUN_AS" "$ENV_FILE"
 # shellcheck disable=SC2046
 export $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs)
 
@@ -100,8 +112,11 @@ sudo -u "$RUN_AS" pnpm install --frozen-lockfile
 SANDBOX_SOCKET_DIR=${SANDBOX_SOCKET_DIR:-/run/workspacex-sandbox}
 SANDBOX_UID=$(id -u "$RUN_AS")
 SANDBOX_GID=$(id -g "$RUN_AS")
-export SANDBOX_SOCKET_DIR SANDBOX_UID SANDBOX_GID
+NATIVE_SESSION_SOCKET_PATH=$NATIVE_SESSION_SOCKET
+NATIVE_SESSION_SOCKET_DIR=${NATIVE_SESSION_SOCKET_PATH%/*}
+export SANDBOX_SOCKET_DIR SANDBOX_UID SANDBOX_GID NATIVE_SESSION_SOCKET_DIR
 install -d -o "$RUN_AS" -g "$RUN_AS" -m 0770 "$SANDBOX_SOCKET_DIR"
+install -d -o "$RUN_AS" -g "$RUN_AS" -m 0770 "$NATIVE_SESSION_SOCKET_DIR"
 
 # API（宿主 systemd 服务）从 ENV_FILE 读这条。写进去而不是只导出：systemd 只认
 # EnvironmentFile，父 shell 的 export 到不了它。
@@ -112,6 +127,19 @@ if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
 fi
 
 step "3. 依赖服务（具名卷；项目名与门控栈分开，端口也分开）"
+# Native sessions require the dedicated outer AppArmor profile. Install it under the
+# persistent boot-time path, then load the exact current-main bytes before Docker creates
+# the container. Missing parser/policy fails before replacing API or Deep Agent.
+NATIVE_APPARMOR_SOURCE="$APP_DIR/apps/skill-sandbox/security/docker-apparmor-sessions"
+NATIVE_APPARMOR_INSTALLED=/etc/apparmor.d/workspacex-native-sessions
+command -v apparmor_parser >/dev/null 2>&1 || {
+  echo "✗ 缺 apparmor_parser；以 root 重跑 provision.sh 后再部署"
+  exit 1
+}
+[ -r "$NATIVE_APPARMOR_SOURCE" ] || { echo "✗ 缺 Native session AppArmor policy"; exit 1; }
+install -o root -g root -m 0644 "$NATIVE_APPARMOR_SOURCE" "$NATIVE_APPARMOR_INSTALLED"
+apparmor_parser -r -W "$NATIVE_APPARMOR_INSTALLED"
+echo "  Native session AppArmor policy 已加载（hash=$(sha256sum "$NATIVE_APPARMOR_INSTALLED" | cut -d' ' -f1)）"
 #
 # WARN **`--build` 不是可选项**（2026-09-06 实测事故）。compose 对带 `build:` 的服务只在
 #   **镜像不存在时**才构建；镜像已存在时 `up -d` 直接复用它，源码改了也不管。
@@ -137,6 +165,7 @@ step "3. 依赖服务（具名卷；项目名与门控栈分开，端口也分�
 #   （那个 `:?` 形式正是为此设计——它没有静默起一个属主错误的沙箱）。
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
+  NATIVE_SESSION_SOCKET_DIR="$NATIVE_SESSION_SOCKET_DIR" \
   SANDBOX_UID="$SANDBOX_UID" \
   SANDBOX_GID="$SANDBOX_GID" \
   docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d --build
@@ -183,6 +212,32 @@ if [ "$SANDBOX_HEALTH_READY" != "1" ]; then
 fi
 echo "  沙箱就绪：$SANDBOX_SOCKET_PATH（uid=$SANDBOX_UID，healthz 已应答）"
 
+# Native sessions are a separate service and socket. Probe as the API service user, create
+# and destroy one empty session, and assert legacy /run is absent. The probe never prints
+# the bearer token.
+NATIVE_SESSION_CONTAINER=workspacex-skill-sandbox-sessions-1
+for i in $(seq 1 30); do
+  [ -S "$NATIVE_SESSION_SOCKET_PATH" ] && break
+  sleep 1
+done
+if [ ! -S "$NATIVE_SESSION_SOCKET_PATH" ]; then
+  echo "✗ Native session socket 未出现"
+  docker logs --tail 40 "$NATIVE_SESSION_CONTAINER" 2>&1 || true
+  exit 1
+fi
+NATIVE_SOCK_OWNER=$(stat -c '%u' "$NATIVE_SESSION_SOCKET_PATH" 2>/dev/null || stat -f '%u' "$NATIVE_SESSION_SOCKET_PATH")
+[ "$NATIVE_SOCK_OWNER" = "$SANDBOX_UID" ] || {
+  echo "✗ Native session socket 属主与 API 服务用户不一致"
+  exit 1
+}
+[ "$(docker inspect --format '{{.AppArmorProfile}}' "$NATIVE_SESSION_CONTAINER")" = "workspacex-native-sessions" ] || {
+  echo "✗ Native session 容器未加载专用 AppArmor profile"
+  exit 1
+}
+sudo -u "$RUN_AS" env NATIVE_SESSION_SOCKET="$NATIVE_SESSION_SOCKET_PATH" \
+  node "$APP_DIR/.harness/scripts/vm/native-session-probe.mjs"
+echo "  Native sessions-only 沙箱就绪（socket=READY，AppArmor=ENFORCED）"
+
 # WARN healthz 应答只证明"有一个沙箱在跑"，不证明它是当前源码构建的那一版——上面那条
 #   `--build` 事故里，坏掉的沙箱 healthz 一直是 200。这里对跑着的容器取一次动态事实：
 #   镜像里该有的预装依赖与 CJK 字体真的在不在。缺了就红退，而不是等用户在 chat 里
@@ -195,14 +250,16 @@ for probe in \
   "require.resolve('@pdf-lib/fontkit')" \
   "require('fs').statSync(process.env.SKILL_SANDBOX_CJK_FONT)"
 do
-  if ! docker exec workspacex-skill-sandbox-1 node -e "$probe" >/dev/null 2>&1; then
-    echo "✗ 跑着的沙箱容器缺少 [$probe] —— 镜像不是当前源码构建的那一版"
-    echo "  （compose 只在镜像不存在时才 build；本步已带 --build，若仍失败请查构建日志）"
-    docker logs --tail 40 workspacex-skill-sandbox-1 2>&1 || true
-    exit 1
-  fi
+  for container in workspacex-skill-sandbox-1 "$NATIVE_SESSION_CONTAINER"; do
+    if ! docker exec "$container" node -e "$probe" >/dev/null 2>&1; then
+      echo "✗ 跑着的沙箱容器缺少 [$probe] —— 镜像不是当前源码构建的那一版"
+      echo "  （compose 只在镜像不存在时才 build；本步已带 --build，若仍失败请查构建日志）"
+      docker logs --tail 40 "$container" 2>&1 || true
+      exit 1
+    fi
+  done
 done
-echo "  沙箱镜像自检通过：四个预装库 + CJK 字体都在跑着的容器里"
+echo "  两个沙箱镜像自检通过：四个预装库 + CJK 字体都在跑着的容器里"
 
 step "4. 迁移 —— 先于部署，且幂等"
 # 幂等在别处已被证明：migrate:check 会无视版本表强制重放每个文件再比对 schema 摘要。
@@ -405,6 +462,14 @@ fi
 deep_agent_project_capability_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
   DEEP_AGENT_CHECKPOINT_DB
 
+# Native recovery dependencies are projected regardless of KERNEL_NATIVE_RUNTIME. The flag
+# gates only new-run admission in API; removing this UDS/key wiring when the flag is 0 would
+# strand already-persisted native-v1 runs and make drain/release impossible.
+DEEP_AGENT_NATIVE_SOCKET=/run/native-sessions/skill-sandbox.sock
+DEEP_AGENT_NATIVE_SERVICE_BASE="http://workspacex-api-host:${APP_API_PORT}"
+deep_agent_project_native_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
+  "$DEEP_AGENT_NATIVE_SOCKET" "$DEEP_AGENT_NATIVE_SERVICE_BASE"
+
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 
 echo "  构建镜像 ${DEEP_AGENT_IMAGE}（从当前部署源码，有出处）"
@@ -420,6 +485,8 @@ esac
 docker rm -f workspacex-deep-agent >/dev/null 2>&1 || true
 docker run -d --name workspacex-deep-agent --restart unless-stopped \
   -p "127.0.0.1:${DEEP_AGENT_HOST_PORT}:2024" \
+  --add-host workspacex-api-host:host-gateway \
+  -v "${NATIVE_SESSION_SOCKET_DIR}:/run/native-sessions:ro" \
   --env-file "$DEEP_AGENT_ENV_FILE" \
   "$DEEP_AGENT_IMAGE" >/dev/null
 
@@ -448,6 +515,8 @@ if ! deep_agent_wait_graph_ready "http://127.0.0.1:${DEEP_AGENT_HOST_PORT}" "$DE
   docker logs --tail 60 workspacex-deep-agent 2>&1 || true
   exit 1
 fi
+native_runtime_assert_deep_agent_container workspacex-deep-agent \
+  "$NATIVE_SESSION_SOCKET_PATH" "$DEEP_AGENT_NATIVE_SOCKET" "$DEEP_AGENT_NATIVE_SERVICE_BASE"
 echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（/ok → 200 且 graph \"${DEEP_AGENT_GRAPH_ID}\" 已加载）"
 
 # 镜像 GC（best-effort）：新容器已验证就绪后才回收，保留当前 SHA + 上一轮 tag（回滚位），
@@ -539,6 +608,16 @@ for s in workspacex-api workspacex-web; do
   systemctl is-active --quiet "$s" || { echo "✗ $s 没起来"; journalctl -u "$s" -n 20 --no-pager; exit 1; }
 done
 echo "  workspacex-api / workspacex-web active"
+
+# EnvironmentFile presence is only a static trace. Read the restarted process itself and
+# assert that socket, binding key, internal key and admission state are loaded. Values stay
+# inside the helper; the deployment log contains boolean state only.
+API_MAIN_PID=$(systemctl show --property MainPID --value workspacex-api)
+[[ "$API_MAIN_PID" =~ ^[1-9][0-9]*$ ]] || { echo "✗ workspacex-api MainPID 无效"; exit 1; }
+native_runtime_assert_api_env_file "/proc/${API_MAIN_PID}/environ" \
+  "$NATIVE_SESSION_SOCKET_PATH" "$KERNEL_NATIVE_RUNTIME"
+native_runtime_assert_deep_agent_api_callback workspacex-deep-agent
+echo "  Native API process：admission=${KERNEL_NATIVE_RUNTIME} socket=READY binding-key=PRESENT service-key=PRESENT"
 
 step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 # 只测 200 的冒烟会在「RLS 没生效但服务活着」时全绿，而那正是最该被拦下的状态。

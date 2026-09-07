@@ -107,6 +107,11 @@ const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动�
  * 是编辑后的值」而不是原样通过。
  */
 const APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER;
+const CLARIFICATION_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CLARIFICATION_TRIGGER;
+const CLARIFICATION_ARTIFACT_NAME = process.env.LOOPBACK_DEEP_AGENT_CLARIFICATION_ARTIFACT_NAME
+  ?? "WorkspaceX-Agent-report.pdf";
+const CONFIRM_INTENT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER;
+const CHOOSE_OPTION_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER;
 /**
  * ⚠ **替身必须与真实引擎发同一个工具名**，所以这里从契约取，不再有
  * `?? "send_email"` 兜底，也不再吃 `LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME`
@@ -247,6 +252,59 @@ function approvalReply(record: RunRecord): string {
     : record.decision.type === "edit"
       ? `已按你编辑后的参数执行：${JSON.stringify(args)}`
       : `已按原参数执行：${JSON.stringify(args)}`;
+}
+
+function isClarification(record: RunRecord): boolean {
+  return CLARIFICATION_TRIGGER !== undefined && record.userText === CLARIFICATION_TRIGGER;
+}
+
+function isConfirmIntent(record: RunRecord): boolean {
+  return CONFIRM_INTENT_TRIGGER !== undefined && record.userText === CONFIRM_INTENT_TRIGGER;
+}
+
+function isChooseOption(record: RunRecord): boolean {
+  return CHOOSE_OPTION_TRIGGER !== undefined && record.userText === CHOOSE_OPTION_TRIGGER;
+}
+
+function needsFormDecision(record: RunRecord): boolean {
+  return isClarification(record) || isConfirmIntent(record) || isChooseOption(record);
+}
+
+function clarificationReply(record: RunRecord): string {
+  if (record.decision === null) return "生成前需要补充主题与内容来源。";
+  const fields = record.decision.type === "edit" && Array.isArray(record.decision.editedArgs?.fields)
+    ? record.decision.editedArgs.fields as Array<{ name?: unknown; value?: unknown }>
+    : [];
+  const topic = fields.find((field) => field.name === "topic")?.value;
+  return `已根据你补充的${typeof topic === "string" ? `“${topic}”` : "主题"}生成中文 PDF。`;
+}
+
+function clarificationScript(): string {
+  return [
+    "已按 pdf-create 技能准备生成脚本。",
+    "```run_script",
+    "const fs = require('fs');",
+    `fs.writeFileSync(process.env.SKILL_SANDBOX_OUT_DIR + '/${CLARIFICATION_ARTIFACT_NAME}', '%PDF-1.4');`,
+    "```",
+  ].join("\n");
+}
+
+function confirmIntentReply(record: RunRecord): string {
+  if (record.decision === null) return "执行前需要确认任务意图。";
+  const assumptions = record.decision.type === "edit" && Array.isArray(record.decision.editedArgs?.assumptions)
+    ? record.decision.editedArgs.assumptions.filter((item): item is string => typeof item === "string")
+    : [];
+  return assumptions.length > 0
+    ? `已按修改后的假设继续：${assumptions.join("；")}`
+    : "已按确认的任务意图继续执行。";
+}
+
+function chooseOptionReply(record: RunRecord): string {
+  if (record.decision === null) return "执行前需要选择一个方案。";
+  const selected = record.decision.type === "edit" && typeof record.decision.editedArgs?.selectedOptionId === "string"
+    ? record.decision.editedArgs.selectedOptionId
+    : "unknown";
+  return `已选择方案：${selected}`;
 }
 
 const runs = new Map<string, RunRecord>();
@@ -403,6 +461,16 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
+    // The three generative-UI form tools interrupt as soon as their call is present in
+    // thread state.  Unlike a normal model run, there is no useful extra "pending" poll
+    // after the SSE join has ended: the production provider requires the joined run to
+    // have reached a decisive state before it can persist mandatory Skill activity.
+    // Resume keeps this same record/run and sets `decision`, so it falls through to the
+    // ordinary terminal threshold below instead of interrupting a second time.
+    if (needsFormDecision(record) && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
     const requiredPolls = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, 20)
@@ -444,9 +512,12 @@ const server = createServer((req, res) => {
     // 从未判过这两个触发词，永远落到下面这句通用模板，是 DA-19g 评分第 2 轮抓到的真
     // 根因）。未命中任何触发词时的默认模板原样保留，不改措辞。
     const isApproval = APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER;
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
+    const isClarifying = isClarification(record);
+    const isConfirming = isConfirmIntent(record);
+    const isChoosing = isChooseOption(record);
+    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
     const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
-      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
@@ -458,6 +529,11 @@ const server = createServer((req, res) => {
     const timer = setInterval(() => {
       if (idx >= pieces.length) {
         clearInterval(timer);
+        // LangGraph's join stream closes only after the remote run has settled. Mirror that
+        // contract: the provider performs one authoritative status read immediately after
+        // EOF, which must observe a terminal state for ordinary runs. Form interrupts still
+        // win in the status handler until a decision exists.
+        record.statusPolls = Number.MAX_SAFE_INTEGER;
         res.end();
         return;
       }
@@ -610,6 +686,93 @@ const server = createServer((req, res) => {
           ],
         },
       });
+      return;
+    }
+    if (isClarification(record)) {
+      const fillCallId = `clarification-${threadId}`;
+      const originalArgs = {
+        requestId: `clarification-request-${threadId}`,
+        fields: [
+          { name: "topic", label: "主题", aiGuess: null, rationale: null, required: true, currentValue: null },
+          { name: "content_source", label: "内容来源", aiGuess: null, rationale: null, required: true, currentValue: null },
+          { name: "audience_or_purpose", label: "受众或用途", aiGuess: "团队内部评审", rationale: "生成适合当前工作台评审的一页说明", required: false, currentValue: null },
+        ],
+      };
+      record.approvalArgs = originalArgs;
+      const pending = {
+        id: `clarification-${threadId}:pending`,
+        type: "ai",
+        content: "我需要先了解文档主题和内容来源。",
+        tool_calls: [{ id: fillCallId, name: "fill_run_params", args: originalArgs }],
+      };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pending] } });
+        return;
+      }
+      const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+        ? record.decision.editedArgs
+        : originalArgs;
+      const skillCallId = `clarification-skill-${threadId}`;
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            { ...pending, tool_calls: [{ id: fillCallId, name: "fill_run_params", args: usedArgs }] },
+            { type: "tool", tool_call_id: fillCallId, content: `已收到补充参数：${JSON.stringify(usedArgs)}` },
+            { type: "ai", content: "信息已齐全，开始生成 PDF。", tool_calls: [{ id: skillCallId, name: "call_skill", args: { skill_stable_name: "pdf-create", task: "生成一页中文产品说明 PDF" } }] },
+            { type: "tool", tool_call_id: skillCallId, content: clarificationScript() },
+            { id: `clarification-${threadId}:final`, type: "ai", content: clarificationReply(record) },
+          ],
+        },
+      });
+      return;
+    }
+    if (isConfirmIntent(record)) {
+      const callId = `confirm-intent-${threadId}`;
+      const originalArgs = {
+        requestId: `confirm-intent-request-${threadId}`,
+        understanding: "整理当前讨论并输出一份可供团队评审的执行建议",
+        assumptions: ["以当前会话内容为唯一事实来源"],
+      };
+      const pending = { id: `${callId}:pending`, type: "ai", content: "请先确认我对任务的理解。", tool_calls: [{ id: callId, name: "confirm_task_intent", args: originalArgs }] };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pending] } });
+        return;
+      }
+      const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+        ? { ...originalArgs, ...record.decision.editedArgs }
+        : originalArgs;
+      sendJson(res, 200, { values: { messages: [
+        { type: "human", content: record.userText },
+        { ...pending, tool_calls: [{ id: callId, name: "confirm_task_intent", args: usedArgs }] },
+        { type: "tool", tool_call_id: callId, content: `任务意图已确认：${JSON.stringify(usedArgs)}` },
+        { id: `${callId}:final`, type: "ai", content: confirmIntentReply(record) },
+      ] } });
+      return;
+    }
+    if (isChooseOption(record)) {
+      const callId = `choose-option-${threadId}`;
+      const originalArgs = {
+        requestId: `choose-option-request-${threadId}`,
+        options: [
+          { optionId: "fast", title: "快速生成初稿", effort: "低", timeToValue: "立即", expectedReturn: "先得到可评审版本" },
+          { optionId: "thorough", title: "深入分析后生成", effort: "中", timeToValue: "稍后", expectedReturn: "得到依据更完整的版本" },
+        ],
+      };
+      const pending = { id: `${callId}:pending`, type: "ai", content: "请选择更符合当前目标的执行方案。", tool_calls: [{ id: callId, name: "choose_execution_option", args: originalArgs }] };
+      if (record.decision === null) {
+        sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }, pending] } });
+        return;
+      }
+      const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+        ? record.decision.editedArgs
+        : originalArgs;
+      sendJson(res, 200, { values: { messages: [
+        { type: "human", content: record.userText },
+        pending,
+        { type: "tool", tool_call_id: callId, content: `执行方案已选择：${JSON.stringify(usedArgs)}` },
+        { id: `${callId}:final`, type: "ai", content: chooseOptionReply(record) },
+      ] } });
       return;
     }
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;

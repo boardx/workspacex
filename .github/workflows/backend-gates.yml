@@ -103,15 +103,15 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
           # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。见下方历史事故记录。
           fetch-depth: 0
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -166,18 +166,18 @@ jobs:
       # 会撞库名——`WORKSPACEX_DB` 是隔离边界，见 #538。
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7.0.0
         with:
           version: "0.12.5"
       - name: Install locked Python runtime for cross-language API integration tests
@@ -206,14 +206,14 @@ jobs:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_native_document
       WX_NATIVE_SANDBOX_CONTAINER: wx-native-document-skill-sandbox-sessions-1
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7.0.0
         with:
           version: "0.12.5"
       - run: uv sync --frozen --extra dev
@@ -258,12 +258,12 @@ jobs:
     env:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_runtime
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -313,14 +313,14 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -340,7 +340,7 @@ jobs:
 
       - name: Upload core-loop evidence (success or failure)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: backend-gates-core-loop-evidence-${{ github.run_id }}
           path: |
@@ -370,7 +370,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
           # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。浅克隆没有 origin/main 这个

@@ -219,7 +219,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByText("第 1 步「调研竞品定价」失败")).toBeNull();
   });
 
-  it("phase='done'（任务已跑完）不再渲染确认门——即使 gate.required 仍是 true，也不能让用户以为还没结束", async () => {
+  it("phase='done'（任务已跑完）不再渲染计划面板——即使 gate.required 仍是 true", async () => {
     // ⚠ 这不是假设：`evaluatePlanGate` 按契约只看 `todoCount`（UC-8），todoCount
     // 从确认前到跑完都没变过，所以真实后端在 phase='done' 时 gate.required 仍是
     // true。这条用例钉的正是「组件层面要不要拿它来渲染」，不是重新定义契约本身。
@@ -236,7 +236,8 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     );
     render(<CopilotKitV2PlanControl threadId="t-9" />);
 
-    await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
     expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
   });
 
@@ -292,8 +293,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     }
   });
 
-  // issue #2451 —— 真实截图抓到的矛盾：phase="done" 但账本里还有步骤没被标记完成。
-  it("phase='done' 但 progress.completed < progress.total：渲染如实提示，不伪造步骤已完成", async () => {
+  it("phase='done' 但 progress.completed < progress.total：仍由执行轨迹保留历史，不显示可编辑计划", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "done",
@@ -306,15 +306,11 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-11" />);
-    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
-
-    const notice = await screen.findByTestId("chat-task-workbench-plan-done-incomplete-notice");
-    expect(notice.textContent).toContain("1");
-    // 步骤列表本身没被悄悄改写——第二步仍然如实显示 pending，不是伪造成 completed。
-    expect(screen.getAllByTestId(PLAN_STEP_TESTID)[1]).toHaveAttribute("data-plan-status", "pending");
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
   });
 
-  it("phase='done' 且所有步骤都 completed：不渲染提示（沿用改动前的行为）", async () => {
+  it("phase='done' 且所有步骤都 completed：不渲染计划面板", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "done",
@@ -327,7 +323,8 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-12" />);
-    await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
     expect(screen.queryByTestId("chat-task-workbench-plan-done-incomplete-notice")).toBeNull();
   });
 
@@ -403,17 +400,12 @@ describe("compact plan presentation", () => {
     expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
     expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
   });
-  it("defaults ordinary plans to a factual summary, with no duplicate card heading", async () => {
+  it("hides completed plans because the execution trace owns completed history", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"done",progress:{completed:0,total:2,elapsedMs:100}}));
     render(<CopilotKitV2PlanControl threadId="ordinary" />);
-    const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(toggle.textContent).toContain("0/2 步已标记完成");
-    expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
-    fireEvent.click(toggle);
-    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
-    expect(screen.queryByText("当前计划")).toBeNull();
-    expect(screen.queryByText("Plan")).toBeNull();
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    expect(screen.queryByText("编辑计划")).toBeNull();
   });
   it("resets editing and expansion on thread changes, ignoring late old-thread reads", async () => {
     let resolveOld!: (ledger: PlanLedgerView) => void;
@@ -424,9 +416,10 @@ describe("compact plan presentation", () => {
     view.rerender(<CopilotKitV2PlanControl threadId="first" projectId="project" refetchSignal={1} />);
     await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledTimes(2));
     view.rerender(<CopilotKitV2PlanControl threadId="second" projectId="project" />);
-    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("false"));
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledTimes(3));
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
     resolveOld(ledgerWithSteps({phase:"failed"}));
-    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).textContent).toContain("本轮已结束"));
+    await waitFor(() => expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull());
     expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
     expect(api.resumePlanRun).not.toHaveBeenCalled();
   });

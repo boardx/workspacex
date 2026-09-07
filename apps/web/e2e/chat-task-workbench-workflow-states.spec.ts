@@ -85,6 +85,12 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
     60_000,
   );
 
+  // 计划默认折叠；需要调整时由用户显式进入编辑态。完成态计划已经进入执行轨迹，
+  // 不会继续在 composer 上方重复渲染。
+  const editToggle = page.getByTestId("chat-task-workbench-plan-edit-toggle");
+  await expect(editToggle).toBeVisible({ timeout: 10_000 });
+  await editToggle.click();
+
   // ② 文案面向用户：不得把工具名 `write_todos` 印在界面上。
   expect(
     (await panel.innerText()),
@@ -109,7 +115,10 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
       gapMessage("TW-P0-3③", testId, `计划步骤不支持${what}`),
     ).toBeVisible({ timeout: 10_000 });
   }
-  await expectAnchor(page, "chat-task-workbench-plan-add-constraint", "TW-P0-3③", "计划面板不支持为任务追加约束");
+  await expect(
+    firstStep.getByTestId("chat-task-workbench-plan-step-add-constraint"),
+    gapMessage("TW-P0-3③", "chat-task-workbench-plan-step-add-constraint", "计划面板不支持为任务步骤追加约束"),
+  ).toBeVisible({ timeout: 10_000 });
 
   // 反伪造条款：删除必须真的生效，不是点了没反应的假按钮。
   const before = await steps.count();
@@ -175,7 +184,7 @@ test("TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可�
   await expectAnchor(page, "chat-task-workbench-run-pause", "TW-P0-3⑤", "执行中不能暂停", 20_000);
 });
 
-test("TW-P0-3⑥：失败态说明失败步骤，并给出重试该步 / 修改输入 / 恢复检查点", async ({ page }) => {
+test("TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试该步 / 修改输入", async ({ page }) => {
   await openFreshThread(page);
   // 确定性替身的失败剧本（既有 `copilotkit-v2-error-banner.spec.ts` 在用同一个触发词）。
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentFailureTrigger);
@@ -189,9 +198,12 @@ test("TW-P0-3⑥：失败态说明失败步骤，并给出重试该步 / 修改�
   for (const [suffix, what] of [
     ["retry-step", "重试该步"],
     ["edit-input", "修改输入"],
-    ["restore-checkpoint", "恢复检查点"],
   ] as const) {
     const testId = `chat-task-workbench-failure-${suffix}`;
     await expectAnchor(page, testId, "TW-P0-3⑥", `失败态没有提供「${what}」这个恢复动作`, 20_000);
   }
+
+  // `packages/contracts/src/plan-control.ts` 明确删除了任意历史 checkpoint 恢复，
+  // 且契约测试机械禁止该 action。Web 不渲染一个无法调用统一契约的假按钮。
+  await expect(page.getByTestId("chat-task-workbench-failure-restore-checkpoint")).toHaveCount(0);
 });

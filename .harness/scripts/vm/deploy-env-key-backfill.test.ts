@@ -39,7 +39,9 @@ afterEach(() => {
  */
 function runBackfill(existingEnv: string): { env: string; stdout: string; status: number } {
   const start = PROVISION.indexOf("ensure_env_key() {");
-  const end = PROVISION.indexOf('chown "${APP_USER}:${APP_USER}" "$ENV_FILE"', start);
+  // #2929 appends the separately tested Native helper call after the legacy DIAG block.
+  // Stop at that boundary so this fixture keeps proving only ensure_env_key itself.
+  const end = PROVISION.indexOf("NATIVE_RUNTIME_LIB=", start);
   expect(start, "provision.sh 里找不到 ensure_env_key —— 锚点漂了").toBeGreaterThan(-1);
   expect(end, "provision.sh 里找不到补齐段的结尾").toBeGreaterThan(start);
   const snippet = PROVISION.slice(start, end);
