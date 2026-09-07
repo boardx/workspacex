@@ -83,6 +83,8 @@ _DEFAULT_THINKING_DISABLE_MODEL_IDS = "qwen-plus,qwen3.7-plus,qwen3.8-max"
 
 # 与 `configured-model-provider.ts` 的 `isBailianBaseUrl` 判据相同的真实百炼 host。
 _BAILIAN_HOSTNAMES = frozenset({"dashscope.aliyuncs.com", "www.dashscope.aliyuncs.com"})
+#: 百炼独享/私有实例的固定域（`llm-<实例 id>.<region>.maas.aliyuncs.com`）。
+_BAILIAN_MAAS_SUFFIX = ".maas.aliyuncs.com"
 
 
 class DeepAgentModelConfigError(RuntimeError):
@@ -97,7 +99,14 @@ def _is_bailian_base_url(base_url: str) -> bool:
         hostname = urlsplit(base_url).hostname or ""
     except ValueError:
         return False
-    return hostname in _BAILIAN_HOSTNAMES
+    if hostname in _BAILIAN_HOSTNAMES:
+        return True
+    # 2026-09-07 devapp 实测：百炼独享实例是
+    # `https://llm-<实例 id>.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，
+    # hostname 不含 dashscope，此前判 False ⇒ enable_thinking 从未关掉。按 host 段
+    # 后缀匹配（不是子串），与 `configured-model-provider.ts` 的 `isBailianBaseUrl`
+    # 逐字同一判据——两处改动必须同步，见该函数头注。
+    return hostname.endswith(_BAILIAN_MAAS_SUFFIX)
 
 
 def _thinking_disable_model_ids(env: "os._Environ[str]") -> frozenset[str]:

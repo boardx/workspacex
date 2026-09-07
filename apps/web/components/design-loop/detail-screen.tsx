@@ -32,7 +32,8 @@ import {
  */
 const FALLBACK_REASON_TEXT: Record<DesignChatFallbackReason, string> = {
   MODEL_NOT_CONFIGURED: "这个部署还没配置 AI 模型，画布生成用不了——需要运维在部署配置里补上模型 provider。",
-  MODEL_CALL_FAILED: "调用 AI 模型失败（网络、鉴权或超时）。可以重试一次；一直失败就让运维看部署日志。",
+  MODEL_CALL_FAILED: "调用 AI 模型失败（网络或鉴权）。可以重试一次；一直失败就让运维看部署日志。",
+  MODEL_TIMEOUT: "这次画的东西太大，AI 没能在时限内画完。试试少要几页、或把要求说得更具体一点再发一次。",
   MODEL_EMPTY_OUTPUT: "AI 模型这次返回了空结果。换个说法再试一次通常就好了。",
   MODEL_NO_REPLY_TEXT: "AI 模型这次没给出可用的回复文本；如果画布有变化，那部分已经生效。",
 };
@@ -346,7 +347,7 @@ export function DesignDetailScreen({
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
               <span className="truncate">
                 {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
-                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "快好了，最长 90 秒…"}
+                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "页数多的时候会久一些，仍在生成…"}
                 <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
               </span>
               <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>

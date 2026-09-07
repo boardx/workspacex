@@ -178,6 +178,22 @@ describe("#2504 readBailianExtensionsEnabled —— endpoint 维度的判定逻�
     expect(readBailianExtensionsEnabled({}, "https://dashscope.aliyuncs.com/compatible-mode/v1")).toBe(true);
   });
 
+  /**
+   * 2026-09-07 devapp 实测：百炼**独享实例**的 base url 是
+   * `https://llm-<实例 id>.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`，
+   * 此前判 false ⇒ `enable_thinking:false` 从未发出 ⇒ qwen3 深度思考一直开着 ⇒
+   * 设计协作连续五次 `design chat model call timed out`。
+   */
+  it("baseUrl 是百炼独享实例（*.maas.aliyuncs.com）⇒ true，同共享端点一套扩展字段", () => {
+    expect(readBailianExtensionsEnabled({}, "https://llm-jb1kfwgfohl80lle.cn-beijing.maas.aliyuncs.com/compatible-mode/v1")).toBe(true);
+    expect(readBailianExtensionsEnabled({}, "https://llm-abc.cn-hangzhou.maas.aliyuncs.com/compatible-mode/v1")).toBe(true);
+  });
+
+  it("后缀匹配是按 host 段的，不是子串——伪造的 `…maas.aliyuncs.com.attacker.example` 不算命中", () => {
+    expect(readBailianExtensionsEnabled({}, "https://llm-x.cn-beijing.maas.aliyuncs.com.attacker.example/v1")).toBe(false);
+    expect(readBailianExtensionsEnabled({}, "https://evilmaas.aliyuncs.com/v1")).toBe(false);
+  });
+
   it("baseUrl 是别的端点（自托管/其它厂商）⇒ 默认 false，不是裸猜", () => {
     expect(readBailianExtensionsEnabled({}, "https://my-self-hosted-vllm.internal/v1")).toBe(false);
     expect(readBailianExtensionsEnabled({}, "")).toBe(false);
