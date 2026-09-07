@@ -889,6 +889,47 @@ export function CopilotKitV2PanelBody({
     getDraft: () => inputDraftRef.current,
   }), [setInputDraft]);
   const voice = useComposerVoiceSession(speech, voiceOpts);
+  /*
+    录音期文字滚动（人类反馈 2026-09-07：「composer 在录音的过程中文字多了以后无法上下
+    滚动来查看文本，不能向下滚动看下面的文字」）——
+    ① 录音期真正显示文字的是 `<textarea>` 底下那层镜像（`...-live-transcript`），
+       它是 `absolute inset-0 overflow-hidden`，自己不滚也不跟随；`<textarea>` 虽然
+       能滚（原生 `overflow: auto`），但它的文字是透明的，滚了也看不见任何变化——
+       用户看到的就是"文字超过 3 行以后再也翻不到下面"。
+    ② 修法：镜像的 `scrollTop` 跟着 `<textarea>` 走（`overflow-hidden` 的元素依旧
+       可以被程序化滚动），于是滚轮/方向键在输入框上的滚动会真实地翻动可见文字。
+    ③ 另外转录是持续追加的：只要用户没有主动往上翻（`voiceFollowRef`），新文字落地
+       后自动滚到底，最新的一句始终可见；一旦用户往上翻，就停止自动跟随，直到他们
+       自己滚回底部为止。
+  */
+  const composerMirrorRef = React.useRef<HTMLDivElement | null>(null);
+  const voiceFollowRef = React.useRef(true);
+  const syncComposerMirrorScroll = React.useCallback(() => {
+    const ta = composerInputRef.current;
+    const mirror = composerMirrorRef.current;
+    if (!ta || !mirror) return;
+    mirror.scrollTop = ta.scrollTop;
+  }, []);
+  const onComposerScroll = React.useCallback(() => {
+    const ta = composerInputRef.current;
+    if (ta) {
+      // 2px 容差：行高取整/亚像素滚动位置会让"已经到底"差一点点。
+      voiceFollowRef.current = ta.scrollHeight - ta.scrollTop - ta.clientHeight <= 2;
+    }
+    syncComposerMirrorScroll();
+  }, [syncComposerMirrorScroll]);
+  const voiceActive = speech.listening || speech.connecting;
+  // 每次开录都重新跟随（上一段录音里用户往上翻过，不该影响下一段）。
+  React.useEffect(() => {
+    if (voiceActive) voiceFollowRef.current = true;
+  }, [voiceActive]);
+  React.useEffect(() => {
+    if (!voiceActive) return;
+    const ta = composerInputRef.current;
+    if (!ta) return;
+    if (voiceFollowRef.current) ta.scrollTop = ta.scrollHeight;
+    syncComposerMirrorScroll();
+  }, [voiceActive, speech.baseText, speech.committedText, speech.partialText, syncComposerMirrorScroll]);
   // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
   React.useEffect(() => {
     if (voice.phase !== "listening" && voice.phase !== "connecting") return;
@@ -1759,7 +1800,10 @@ export function CopilotKitV2PanelBody({
                 return (
                   <div
                     aria-hidden
+                    ref={composerMirrorRef}
                     data-testid="chat-task-workbench-composer-live-transcript"
+                    /* `overflow-hidden` 不给它自己的滚动条（滚动条归 `<textarea>`），
+                       但 `scrollTop` 依旧可写——由 `syncComposerMirrorScroll` 跟随输入框。 */
                     className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-0.5 py-0.5 text-16 leading-relaxed"
                   >
                     <span className="text-card-foreground">{dark}</span>
@@ -1782,7 +1826,7 @@ export function CopilotKitV2PanelBody({
                   // `focus-visible:ring-*` 替代，否则键盘用户看不见焦点在哪）——改成
                   // `ring-1`（更细）+ `ring-ring/30`（30% 不透明度，浅灰而不是实心黑），
                   // 聚焦仍然可见，只是不再是一块生硬的黑框。
-                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
+                  "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={!canWrite || archived}
@@ -1794,6 +1838,8 @@ export function CopilotKitV2PanelBody({
                       : "输入任务目标，Shift+Enter 换行，Enter 发送"
                 }
                 value={inputDraft}
+                // 录音期镜像层跟着输入框滚（否则透明文字滚了、可见文字不动）。
+                onScroll={onComposerScroll}
                 onChange={(e) => {
                   setInputDraft(e.target.value);
                   if (emptySendHint) setEmptySendHint(false);
