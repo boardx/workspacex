@@ -400,9 +400,19 @@ export function DesignDetailScreen({
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                // 2026-09-07 人类指令：回车直接发，Shift+Enter 换行。
+                // ⚠ 输入法组字期间的回车是**在选词**，不是在发送——不判 `isComposing` 会把
+                //   中文/日文用户的半截词直接发出去。`e.nativeEvent.isComposing` 是这件事的
+                //   标准信号（KeyboardEvent.isComposing），jsdom 里为 undefined，视作非组字。
+                if (e.key !== "Enter" || e.shiftKey || (e.nativeEvent as { isComposing?: boolean }).isComposing === true) return;
+                e.preventDefault();
+                if (text.trim() === "" || sending) return;
+                void send();
+              }}
               rows={2}
               disabled={sending}
-              placeholder={focus !== null ? "要怎么改这个节点？" : "告诉我要改什么，我来更新画布"}
+              placeholder={focus !== null ? "要怎么改这个节点？（回车发送，Shift+Enter 换行）" : "告诉我要改什么，我来更新画布（回车发送，Shift+Enter 换行）"}
               data-testid="design-detail-input"
               className="flex-1"
             />
@@ -596,7 +606,9 @@ export function DesignDetailScreen({
 
       {/* 底部状态条 */}
       <footer className="flex items-center gap-3 border-t border-border bg-panel px-4 py-1.5 text-11 text-muted-foreground" data-testid="design-detail-statusbar">
-        <span>claude-opus-4.6</span>
+        {/* 2026-09-07 人类指令：不显示模型名。它此前是**硬编码的字面量**，与这个部署实际用的
+            模型无关（真实值在服务端 `KERNEL_MODEL_*`，前端拿不到）——写死一个名字在屏上，
+            部署换了模型它照样这么写，属于会骗人的静态痕迹。要显示就得有真数据源，先删。 */}
         <span>设计系统 WorkspaceX UI</span>
         <span>{TEMPLATE_LABEL[project.template]}</span>
         <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
