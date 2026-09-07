@@ -16,7 +16,6 @@ import type { BrowserExecutionReceipts } from '../../src/application/agent-run/s
 import {
   OfficialPlaywrightMcpSessionFactory,
   RemotePlaywrightMcpSessionFactory,
-  RemotePlaywrightMcpSessionFactory,
   PlaywrightMcpBrowserAdapter,
   type BrowserNetworkPolicy,
   type BrowserMcpSessionFactory,
