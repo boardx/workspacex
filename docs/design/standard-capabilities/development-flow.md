@@ -36,10 +36,10 @@ flowchart TD
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
   MCPSchema --> MCP[WX-E005 anonymous, isolation and credential broker: 41d60d32f]:::verified
   MCP -.复用准入与审批.-> Peer
-  MCP --> Browser[W10 组件bd61f17ec；真实浏览器失败修复待验]:::active
+  MCP --> Browser[W10 实际Chromium 3项与PG 6项通过；隔离运行时待验]:::active
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
   E4 --> Context[W07 项目与检索：35fc834dc；四项Skill：ce3399822]:::verified
-  E3 --> Parse[W08 四格式定位与跨页表格：真实UDS通过；生产HTTP验收中]:::active
+  E3 --> Parse[W08 四格式定位：真实UDS及6项生产HTTP通过，c67dc4e15]:::verified
   E3 --> Office[W09 Office完整包与有限编辑：02f73bdff]:::verified
   Office --> Renderer[W09 隔离Office渲染与简单页面检查：274f4e8ad]:::verified
   E3 --> Data[W18 离线分析依赖与完整方法包：c917fdbae]:::verified
@@ -74,6 +74,14 @@ flowchart TD
   E6 --> NativeEntries[T021/T040/T041 下载与状态取消：78a771abf，35项DB/HTTP通过]:::verified
   NativeEntries --> Gate
   NativeAsync --> Gate
+  Parse --> S018[S018跨页表格与扫描页：并发409及缓存撤权待修验]:::active
+  S018 --> Gate
+  Renderer --> OfficeSkills[S003页眉视觉复验；S004创建公式通过；S005/S006待验]:::active
+  OfficeSkills --> Gate
+  Context --> ContextVersion[context 1.1.0：组件通过，新版真实模型待验]:::active
+  ContextVersion --> Gate
+  Browser --> S013[S013网页Skill：等待生产隔离浏览器入口]:::active
+  S013 --> Gate
   Parse --> Gate
   Renderer --> Gate
   Data --> Gate
@@ -87,9 +95,9 @@ flowchart TD
   Gate --> Commits[每个任务独立commit]
   Data --> S007[S007真实模型：报告+CSV+Python源码，51c85cf7f]:::verified
   Context --> S001[S001知识问答与S008会议准备：ec3e655b4，真实引用核验通过]:::verified
-  Research --> S002[S002真实研究：来源账本与图步数预算修复中]:::active
-  Author --> S015[S015真实草稿生成：节点预算反证已定位，复验中]:::active
-  Methods --> SkillsRevised[S017/S019/S020修订：真实模型及人工核对通过，待提交]:::active
+  Research --> S002[S002真实研究：来源账本及失败恢复通过，a727c21bb]:::verified
+  Author --> S015[S015草稿已提交；生成Skill第二次模型调用通过，待提交]:::active
+  Methods --> SkillsRevised[S017/S019/S020代表场景及人工核对通过：352efabaf / ffbeae429]:::verified
   Media --> S009[S009真实模型及语义核对：1.1.1，d3d5baf2d]:::verified
   Media --> ASR[S016真实ASR：等待配置]:::blocked
   Commits --> Migration[迁移与数据指纹重放：9a4f280f8，228项通过]:::verified
@@ -98,7 +106,7 @@ flowchart TD
   Migration --> Push[已授权公开推送；远端检查点ec3e655b4]:::verified
   Push --> PR[Draft PR #2869；CI 修复与新 SHA 验证中]:::active
   PR --> Main[等待后续整合main]
-  Resource[本地3路：研究引用、Skill草稿、Office生产链；云端并行]:::active -.影响未完成工作.-> Gate
+  Resource[本地3路：沙箱并发、Office与新版上下文、剩余Skill验收]:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -108,7 +116,7 @@ flowchart TD
 
 ## Current delivery boundary
 
-Local committed checkpoint: 78a771abf. Public checkpoint: ec3e655b4. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
+Local committed checkpoint: c67dc4e15. Public checkpoint: ec3e655b4. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
 
 At earlier b8352e879, all four backend test shards, runtime gates, full compilation and control-plane checks passed. Core-loop and fullstack smoke failed on an overflowing Skill picker; Python ended cancelled and is under diagnosis. Peer correction c2948fbd7 and normal-pointer regression assertions 923df5362 are now pushed in ec3e655b4. Desktop/mobile actual mount tests passed; current-head CI must pass separately.
 
@@ -116,9 +124,15 @@ Hybrid retrieval passed 65 real database/HTTP and 14 Python tests (58587bae5). M
 
 S009 passed a real-model scenario and full semantic review with immutable meeting-minutes 1.1.1 (d3d5baf2d). Earlier false rejection wording remains recorded as a failed run. S007 published actual report, CSV and executable Python source through artifact writeback (51c85cf7f); the reviewed result and bounded fixture-specific limitations are retained in evidence/g-skill-batch/S007. These are bounded acceptance cases, not general model reliability claims.
 
-Browser component tests passed, but actual Chromium exposed form-value and screenshot-path failures. Cloud fixes, isolated preview and runtime security integration require local review and rerun. Office locator patch hashes are verified and integrated locally: PDF/DOCX/PPTX/XLSX real files and real isolated UDS execution passed; production HTTP plus source-permission acceptance is running. Download/status/cancel adapters passed 35 real PG/HTTP, 11 Python and 3 contract tests and are committed in 78a771abf. Deleted Agent sources cannot downgrade to legacy download responses.
+W08 four-format locators are committed in c67dc4e15: actual isolated UDS execution and six production HTTP/PG cases passed. Download/status/cancel adapters passed 35 real PG/HTTP, 11 Python and three contract tests (78a771abf). Browser fixes now pass three actual Chromium cases and six real PG receipt cases; these changes are still uncommitted. The Chromium fixture explicitly permits in-process execution and does not establish production network isolation. Remote runtime/proxy acceptance and S013 remain yellow. See [browser evidence](evidence/W10-real-browser/current-acceptance.md).
 
-S001/S008 actual-model citation and source-version checks passed (ec3e655b4). Revised S017/S019/S020 representative scenarios passed actual-model delivery and manual review; versioned changes await their independent commit. S002 source-ledger accuracy and S015 graph step budgets remain yellow. Real node observations show middleware steps consume the fixture's 200-step budget; no production routing defect or automatic retry is inferred. S016 live ASR requires provider configuration; protocol fixtures do not establish recognition quality.
+S002 source-ledger accuracy and failed-fetch recovery passed and were committed in a727c21bb. S017/S019/S020 representative scenarios and reviewed artifacts were committed in 352efabaf and ffbeae429. S015 draft generation is committed; a second isolated actual-model run loaded the generated Skill, executed its original script and produced total 3. That additional evidence awaits commit. These bounded successes do not imply every catalog acceptance clause has passed; see the [20-Skill coverage index](evidence/G-SKILL-methods/README.md).
+
+S003 remains yellow: the second actual rendered document still lacks the required page-two header. S004 creation, real formula values and two-page rendering passed; specified-cell editing remains to be verified. S005/S006 still require their actual-model acceptance, including PDF form values after reopening. Updated standard-context 1.1.0 has component evidence but still needs new-version model verification; prior 1.0.0 results are not relabeled as 1.1.0 results.
+
+S018's actual model requested PDF parsing and scan OCR concurrently, exposing HTTP 409 SESSION_BUSY. A bounded dispatch fix is in progress. A separate cache-revocation test is also required: rejection of a new parse after revocation does not prove that an already-created cache cannot be read. Neither boundary is green. S016 live ASR remains blocked on provider configuration. T042's native entry remains incomplete.
+
+Python CI's oversized parameter IDs have a committed fix (9ff99a631), preserving the original large payload test. New-head CI must verify the result; an earlier timeout is not treated as a proven runtime deadlock. Public checkpoint remains the last confirmed ec3e655b4 because the later push encountered a network failure.
 
 The [W07 scope audit](w07-scope-audit.md) removes an unnecessary new graph seed resolver and universal interview-index project from the implementation plan. The original capability requirements remain intact; graph requests are explicitly rejected rather than simulated.
 
