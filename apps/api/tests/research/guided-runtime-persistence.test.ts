@@ -50,11 +50,11 @@ const model: ModelCallPort = { complete: async (input) => {
   if (node === "outline") value = (value as Array<Record<string, unknown>>).map((item) => ({ ...item,
     objective: "明确政策约束对进入决策的影响", analysisApproach: "比较适用范围并区分已证实要求与缺口", expectedOutput: "带证据局限的实施建议",
     subsections: ["Evidence", "Analysis", "Recommendations"].map((title, index) => ({ id: `${item.id}-${index}`, title, questions: [["政策证据说明什么？"], ["对项目有什么影响？"], ["下一步需要验证什么？"]][index] })) }));
-  if (node === "research") value = { tasks: [{ sectionId: "o1", query: "European grid storage policy official" }] };
+  if (node === "research") value = { overview: "核对欧洲并网政策", optimizedQuestion: "欧洲并网政策如何影响进入策略？", tasks: [{ sectionId: "o1", title: "官方政策核验", objective: "核验并网政策证据", deliverables: ["可核验的政策来源"], query: "European grid storage policy official" }] };
   if (node === "report") {
     const id = badCitation ? "fabricated" : context.sources?.[0]?.id;
     const chapter = { sectionId: context.section?.id ?? "o1", body: `### Evidence\n\nThe retrieved policy explains the grid rules and supports a limited comparison of the documented requirements. [[source:${id}]]\n\n### Analysis\n\nThe available evidence supports a cautious policy comparison, while implementation details remain uncertain.\n\n### Recommendations\n\nVerify current local requirements before selecting an entry option; this source does not establish financial returns.`, sourceIds: [id] };
-    value = context.reportStage === "chapter" ? chapter : context.reportStage === "synthesis" ? { title: "Findings", summary: "Limited to the available source" } : { title: "Findings", summary: "Limited to the available source", sections: [chapter] };
+    value = ["chapter", "chapter_revision"].includes(context.reportStage) ? chapter : ["synthesis", "synthesis_revision"].includes(context.reportStage) ? { title: "Findings", summary: "Limited to the available source" } : { title: "Findings", summary: "Limited to the available source", sections: [chapter] };
   }
   if (node === "report" && context.reportStage === "evidence") value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled source identifies policy evidence; real-world applicability remains unverified.", relevance: "direct" })) })) };
   if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: "adequate", issues: [] };
@@ -365,7 +365,7 @@ describe("report streaming and explicit partial evidence", () => {
       expect((await runtime.get(actor, session)).report?.title).toBe("Findings");
     } finally { release(); spy.mockRestore(); }
   });
-  it.each(["transport", "citation"])("keeps incomplete report text without accepting a %s failure", async (failure) => {
+  it.each(["transport", "citation"])("keeps only approved checkpoint text after a %s failure", async (failure) => {
     await reachResearch();
     badCitation = failure === "citation";
     const streamed: ModelCallPort = { complete: model.complete, completeStream: async (input, delta) => {
@@ -377,8 +377,36 @@ describe("report streaming and explicit partial evidence", () => {
     const result = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() });
     expect(result.errorCode).toBe(failure === "citation" ? "RESEARCH_CONTENT_REFERENCE_INVALID" : "RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
-    expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).toContain("Evidence");
+    expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).not.toContain("Evidence"); expect(result.reportCheckpoint?.chapters).toEqual([]);
     expect((await runtime.get(actor, session)).reportStream).toEqual(result.reportStream);
+  });
+  it("reloads approved chapters from PostgreSQL and resumes only the unfinished chapter", async () => {
+    await reachResearch();
+    const second = { ...state.outline[0]!, id: "o2", title: "Implementation", order: 1 };
+    await db.withTenant(orgId, (tx) => tx.query(`UPDATE guided_research_runtime SET state=jsonb_set(state,'{outline}',(state->'outline') || $3::jsonb) WHERE org_id=$1 AND session_id=$2`, [orgId, actor.sessionId, JSON.stringify([second])]));
+    state = await service.get(actor, session);
+    let failSecond = true;
+    const generated: string[] = [];
+    const resumable: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "chapter") {
+        generated.push(context.section.id);
+        if (context.section.id === "o2" && failSecond) throw new Error("provider interrupted");
+      }
+      return model.complete(input);
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }, resumable);
+    const interrupted = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "research", action: "complete", expectedVersion: state.version, requestId: randomUUID() });
+    expect(interrupted.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
+    expect(interrupted.reportCheckpoint?.chapters.map((chapter) => chapter.sectionId)).toEqual(["o1"]);
+    const restored = await runtime.get(actor, session);
+    expect(restored.reportCheckpoint).toEqual(interrupted.reportCheckpoint);
+    failSecond = false;
+    const resumed = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "report", action: "retry", expectedVersion: restored.version, requestId: randomUUID() });
+    expect(resumed.errorCode).toBeNull();
+    expect(generated).toEqual(["o1", "o2", "o2"]);
+    expect(resumed.report?.sections.map((chapter) => chapter.sectionId)).toEqual(["o1", "o2"]);
+    expect(resumed.report?.sections[0]).toEqual(interrupted.reportCheckpoint!.chapters[0]);
   });
   it("requires an explicit partial choice and retains evidence gaps through report completion", async () => {
     await reachResearch();

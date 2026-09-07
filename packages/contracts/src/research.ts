@@ -850,8 +850,16 @@ export const GuidedResearchSession = z.object({
 }).strict();
 
 // Provider wire schemas are shared contracts too; API adapters consume these by reference.
-export const GuidedResearchPlanModelOutput = z.object({
-  tasks: z.array(z.object({ sectionId: z.string(), query: z.string().trim().min(1).max(1000) }).strict()).min(1).max(60),
+const GuidedResearchTaskDetails = {
+  title: z.string().trim().min(1).max(500),
+  objective: z.string().trim().min(1).max(2000),
+  deliverables: z.array(z.string().trim().min(1).max(1000)).min(1).max(12),
+};
+const GuidedResearchPlanDescription = z.object({
+  overview: z.string().trim().min(1).max(5000), optimizedQuestion: z.string().trim().min(1).max(3000),
+}).strict();
+export const GuidedResearchPlanModelOutput = GuidedResearchPlanDescription.extend({
+  tasks: z.array(z.object({ sectionId: z.string(), query: z.string().trim().min(1).max(1000), ...GuidedResearchTaskDetails }).strict()).min(1).max(60),
 }).strict();
 export const GuidedResearchConversationModelOutput = z.object({
   assistantMessage: z.string().min(1).max(10000), value: z.unknown(),
@@ -864,12 +872,13 @@ export const GuidedResearchSearchProviderResponse = z.object({ results: z.array(
 
 // Durable five-step research. The model never creates source identifiers or URLs.
 export const GuidedResearchSource = z.object({
-  id: z.string().min(1), taskId: z.string().min(1), title: z.string().min(1),
+  id: z.string().min(1), taskId: z.string().min(1), taskIds: z.array(z.string().min(1)).optional(), title: z.string().min(1),
   url: z.string().url().refine((url) => /^https?:\/\//.test(url)),
   content: z.string().min(1).max(30000), retrievedAt: z.string(),
   decision: z.enum(["pending", "accepted", "excluded"]),
 }).strict();
 export const GuidedResearchTask = z.object({
+  title: GuidedResearchTaskDetails.title.optional(), objective: GuidedResearchTaskDetails.objective.optional(), deliverables: GuidedResearchTaskDetails.deliverables.optional(),
   id: z.string().min(1), sectionId: z.string().min(1), query: z.string().trim().min(1).max(1000),
   status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
   errorCode: z.string().nullable(),
@@ -906,6 +915,10 @@ export const GuidedResearchRuntime = z.object({
   brief: GuidedResearchBrief, directions: z.array(GuidedResearchDirection), outline: z.array(GuidedResearchOutlineSection),
   tasks: z.array(GuidedResearchTask), sources: z.array(GuidedResearchSource), report: GuidedResearchReport.nullable(),
   reportStream: z.object({ requestId: z.string().min(1), sequence: z.number().int().nonnegative(), text: z.string().max(1048576), status: z.enum(["streaming", "failed"]) }).strict().nullable().optional(),
+  researchPlan: GuidedResearchPlanDescription.nullable().optional(),
+  progress: z.object({ stage: z.enum(["planning", "searching", "organizing", "writing", "reviewing", "synthesizing"]), completed: z.number().int().nonnegative(), total: z.number().int().nonnegative(), sectionId: z.string().optional() }).strict().nullable().optional(),
+  reportCheckpoint: z.object({ basis: z.string().min(1), instruction: z.string().max(10000).optional(), chapters: GuidedResearchReport.shape.sections.min(0) }).strict().nullable().optional(),
+  reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
   reportPartial: z.boolean().optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),
   completed: z.boolean(), busy: z.boolean(), leaseUntil: z.string().nullable(), errorCode: z.string().nullable(),

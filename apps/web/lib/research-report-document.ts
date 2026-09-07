@@ -3,7 +3,7 @@ import type { GuidedResearchRuntime } from "./guided-research-api";
 type Source = GuidedResearchRuntime["sources"][number];
 export type ReportContent = { title: string; summary: string; sections: { sectionId: string; body: string; sourceIds?: string[] }[] };
 export type ReportReference = { number: number; title: string; url: string };
-export type ReportDocument = { title: string; summary: string; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[] };
+export type ReportDocument = { title: string; summary: string; sections: { sectionId: string; title: string; body: string }[]; references: ReportReference[]; unresolvedReferences?: number };
 const marker = /\[\[source:([^\]\r\n]+)\]\]/g;
 // Citation-like examples inside inline/fenced code remain literal Markdown.
 function outsideCode(text: string, transform: (part: string) => string): string {
@@ -27,12 +27,17 @@ export function researchReferenceUrl(value: string): string | null {
 }
 
 /** One numbering pass shared by final rendering, provisional rendering and export. */
-export function researchReportDocument(report: ReportContent, sources: Source[], outline: GuidedResearchRuntime["outline"]): ReportDocument {
+export function researchReportDocument(report: ReportContent, sources: Source[], outline: GuidedResearchRuntime["outline"], options: { provisional?: boolean; aliases?: { alias: string; sourceId: string }[] } = {}): ReportDocument {
   const accepted = new Map(sources.filter((source) => source.decision === "accepted").map((source) => [source.id, source]));
+  const aliases = new Map<string, string | null>();
+  for (const item of options.provisional ? options.aliases ?? [] : []) {
+    aliases.set(item.alias, aliases.has(item.alias) && aliases.get(item.alias) !== item.sourceId ? null : item.sourceId);
+  }
+  let unresolvedReferences = 0;
   const references: ReportReference[] = [];
   const byUrl = new Map<string, ReportReference>();
   function reference(id: string): ReportReference | null {
-    const source = accepted.get(id); const url = source && researchReferenceUrl(source.url);
+    const source = accepted.get(id) ?? accepted.get(aliases.get(id) ?? ""); const url = source && researchReferenceUrl(source.url);
     if (!source || !url) return null;
     let item = byUrl.get(url);
     if (!item) { item = { number: references.length + 1, title: source.title, url }; references.push(item); byUrl.set(url, item); }
@@ -42,8 +47,10 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
     let markers = false;
     let text = outsideCode(body, (part) => part.replace(marker, (_match, id: string) => {
       markers = true; const item = reference(id);
-      return item ? `[${item.number}](${citationHref(item.number)})` : "〔来源不可用〕";
-    }).replace(/\[\[source:[^\]]*$/, ""));
+      if (item) return `[${item.number}](${citationHref(item.number)})`;
+      unresolvedReferences++;
+      return options.provisional ? "" : "〔来源不可用〕";
+    }).replace(/\[\[source:[^\]]*$/, options.provisional ? "" : "〔来源不可用〕"));
     if (!markers && fallback.length) {
       const used = new Set<number>(); const links: string[] = [];
       for (const id of fallback) { const item = reference(id); if (item && !used.has(item.number)) { used.add(item.number); links.push(`[${item.number}](${citationHref(item.number)})`); } }
@@ -53,7 +60,7 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
   }
   const summary = content(report.summary);
   const sections = report.sections.map((section) => ({ sectionId: section.sectionId, title: outline.find((item) => item.id === section.sectionId)?.title ?? "研究章节", body: content(section.body, section.sourceIds) }));
-  return { title: report.title, summary, sections, references };
+  return { title: report.title, summary, sections, references, ...(unresolvedReferences ? { unresolvedReferences } : {}) };
 }
 
 function escapeMarkdown(text: string): string { return text.replace(/[\\`*_[\]<>]/g, "\\$&").replace(/[\r\n]+/g, " "); }
