@@ -1,0 +1,54 @@
+
+> @repo/api@0.0.0 test:browser-real /private/tmp/workspacex-standard-capabilities/apps/api
+> WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+ ❯ tests/agent-runtime/playwright-mcp-browser-real.test.ts (2 tests | 2 failed) 2357ms
+   × W10 real Playwright MCP and Chromium acceptance > navigates, snapshots, fills, clicks, isolates storage, and writes a real PNG 1616ms
+     → playwright_mcp_call_failed
+   × W10 real Playwright MCP and Chromium acceptance > persists screenshot bytes through the real isolated session and independently reads them back 723ms
+     → ENOENT: no such file or directory, open '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/workspacex-browser-cfak3N/screenshot-20e29684d93b523978cde164d2bc87e73ea1118fc110e5f011dd3f6a6c560484.png'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/playwright-mcp-browser-real.test.ts > W10 real Playwright MCP and Chromium acceptance > navigates, snapshots, fills, clicks, isolates storage, and writes a real PNG
+Error: playwright_mcp_call_failed
+ ❯ textResult src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:186:29
+    184| 
+    185| function textResult(result: McpResult): string {
+    186|   if (result.isError) throw new Error('playwright_mcp_call_failed');
+       |                             ^
+    187|   const content = result.content ?? [];
+    188|   const encoded = JSON.stringify(content);
+ ❯ src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:347:9
+ ❯ PlaywrightMcpBrowserAdapter.serial src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:272:18
+ ❯ PlaywrightMcpBrowserAdapter.invoke src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:292:12
+ ❯ tests/agent-runtime/playwright-mcp-browser-real.test.ts:63:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/agent-runtime/playwright-mcp-browser-real.test.ts > W10 real Playwright MCP and Chromium acceptance > persists screenshot bytes through the real isolated session and independently reads them back
+Error: ENOENT: no such file or directory, open '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/workspacex-browser-cfak3N/screenshot-20e29684d93b523978cde164d2bc87e73ea1118fc110e5f011dd3f6a6c560484.png'
+ ❯ src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:356:21
+    354|       const filename = `screenshot-${randomBytes(32).toString('hex')}.…
+    355|       await state.mcp.call('browser_take_screenshot', { filename, type…
+    356|       const bytes = await readFile(join(state.mcp.outputDir, filename)…
+       |                     ^
+    357|       const dimensions = pngDimensions(bytes);
+    358|       const workspacePath = `/workspace/browser-${sha256(`${context.bi…
+ ❯ PlaywrightMcpBrowserAdapter.serial src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:272:18
+ ❯ PlaywrightMcpBrowserAdapter.invoke src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:292:12
+ ❯ tests/agent-runtime/playwright-mcp-browser-real.test.ts:120:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  14:04:17
+   Duration  3.00s (transform 247ms, setup 0ms, collect 545ms, tests 2.36s, environment 0ms, prepare 26ms)
+
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:browser-real: `WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts`
+Exit status 1

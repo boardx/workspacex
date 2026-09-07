@@ -1,78 +1,20 @@
-# W10 浏览器工具接线说明
+# W10 浏览器工具接线与验收
 
-基线：`codex/standard-capabilities@414aca176dcd19d63c68b711a8436e05fe78ee74`。本工作包实现 `WX-T022`–`WX-T026` 的独立契约、Playwright MCP adapter、controller、Python LangChain tools、测试与 `WX-S013` skill 包；按任务约束没有修改共享 composition root 或 native factory。
+2026-09-07，WX-T022–T026 / WX-S013。生产 composition 使用 `PlaywrightMcpBrowserAdapter`、`PgBrowserExecutionReceipts`、`PublicBrowserNetworkPolicy` 和 `RemotePlaywrightMcpSessionFactory`。kernel 通过 `WORKSPACEX_BROWSER_MCP_ENDPOINT` 与现有 `NATIVE_SESSION_SOCKET` 接入；未配置时服务不可用，不回退到无隔离浏览器。Python 标准工具已通过既有 native factory 与可信工具快照接入。
 
-## 固定上游
+固定上游为 `@playwright/mcp@0.0.80`（Apache-2.0；tag commit `4c1fb03bad3bae379b0ae0e3d81d2660de56bd91`），镜像内 Playwright 为 `1.63.0-alpha-2026-08-31`。镜像 digest、启动参数、官方 seccomp 来源及真实部署差异见 [运行时说明](../../../apps/browser-runtime/README.md)。不使用运行时 latest 安装。
 
-- `@playwright/mcp@0.0.80`，Apache-2.0，tag commit `4c1fb03bad3bae379b0ae0e3d81d2660de56bd91`。
-- 该版本固定 `playwright@1.63.0-alpha-2026-08-31`。浏览器二进制必须由独立 browser runtime/image 按此 revision 预装，不能运行时 `npx @latest`。
-- adapter 使用官方 MCP 的 `browser_navigate`、`browser_snapshot`、`browser_click`、`browser_fill_form`、`browser_take_screenshot`；启动时检查实际 schema，缺字段即拒绝。
+标准包发布目标是 `standard-web/1.1.1.json`，其中 `web-artifact` 为 1.0.1；已发布的 1.1.0 保持原字节。`web-research` 对象保持不变。新包复用现有平台 seed，不创建另一套发布器。
 
-## 协调者接线补丁
-
-以下是需要由主协调者在共享热点文件中完成的精确改动；本分支不代改。
-
-### `apps/deep-agent-service/src/deep_agent_service/native_factory.py`
-
-```diff
-@@
- from .standard_web_tools import standard_web_tools
-+from .standard_browser_tools import standard_browser_tools
-@@
--tools=[artifact_publish_tool(), *standard_web_tools(), *standard_memory_tools(),
-+tools=[artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(),
-```
-
-`native_graph_context` 是 fresh/resume 共用 factory，必须只在这一处加入，避免两条路径工具集漂移。
-
-### `apps/api/src/kernel.module.ts`
-
-```diff
-@@ imports
-+import { STANDARD_BROWSER_SERVICE } from "./application/agent-run/standard-browser-tools";
-+import { PlaywrightMcpBrowserAdapter } from "./infrastructure/agent-run/playwright-mcp-browser-adapter";
-+import { StandardBrowserToolsController } from "./interface/controllers/standard-browser-tools.controller";
-@@ controllers
--StandardImageController, StandardScheduleController,
-+StandardImageController, StandardBrowserToolsController, StandardScheduleController,
-@@ providers（放在 STANDARD_WEB_SERVICE 后）
-+{
-+  provide: STANDARD_BROWSER_SERVICE,
-+  useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority) => {
-+    const socketPath = process.env.NATIVE_SESSION_SOCKET;
-+    return owner && socketPath
-+      ? new PlaywrightMcpBrowserAdapter(
-+          owner,
-+          bound => createNativeDraftSession({ socketPath, ...bound }),
-+          authority,
-+        )
-+      : null;
-+  },
-+  inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY],
-+},
-```
-
-adapter 按 native binding 的 `expiresAt` 自动关闭 MCP client、BrowserContext、browser process 并清理临时输出目录；主运行在 terminal/cancel 时若已有统一释放回调，应额外调用 `STANDARD_BROWSER_SERVICE.release(bindingId)` 以提前回收，不能新建第二套 run 生命周期。
-
-### `apps/api/src/application/agent-run/native-invocation.ts`
-
-将下列五项加入既有 `NATIVE_PROFILE_TOOLS`：
-
-```ts
-"browser_navigate", "browser_snapshot", "browser_click",
-"browser_fill_form", "browser_take_screenshot"
-```
-
-风险等级必须在既有 `tool-risk-tier.ts` 单源声明：`browser_click`、`browser_fill_form` 为 L2；`browser_navigate` 涉及外部动作，建议 L2；`browser_snapshot`、`browser_take_screenshot` 可按现有读取/文件政策评审后定级。不得在 adapter 新建风险枚举。
-
-### 标准 skill 发布
-
-`skills/starter-packs/standard-web/1.1.0.json` 含原 `web-research` 和新增 `web-artifact`。协调者在无并行冲突时把 `apps/api/src/infrastructure/skill/ensure-standard-skill-packs.ts` 的 `standard-web` 版本从 `1.0.0` 改为 `1.1.0`，然后运行现有平台 seed 集成测试。此分支未修改该共享发布源。
+验收证据见 [真实浏览器记录](evidence/W10-real-browser/current-acceptance.md) 和 `evidence/W10-real-browser/production-runtime/`：本地实际 Chromium 3项、实际 PG receipt 6项、生产 Remote MCP 的导航/快照与桌面手机预览，以及私网 CONNECT 拒绝/直接公网绕过失败。独立 S013 实际模型验收另外记录，不能用组件测试替代。
 
 ## 部署边界
 
-- browser runtime 必须有固定 revision 的 Chromium 和系统依赖；API 容器当前没有安装它们。
-- adapter 的逐请求 DNS/private-IP 检查会阻断字面和当前解析到的 loopback、link-local、RFC1918 地址，并对每个 document/subresource route 重验。要抵御 DNS rebinding/QUIC 绕过，还需部署层强制 browser runtime 只经受控 egress proxy 出网并禁直连；Playwright MCP 的 origin flags 不是安全边界。
+- `apps/browser-runtime/docker-compose.browser.yml` 是生产默认：官方 MCP runtime 只加入 `internal: true` 的 control network，唯一出站 peer 是双网卡 Squid；MCP 端口只绑宿主 loopback。两个 image 都是无默认值的必填 `@sha256` 引用，缺少审核 digest 会在 compose 展开阶段失败。
+- Chromium 强制使用 proxy、取消隐式 loopback bypass、禁 shared context、启用 sandbox/non-root/read-only/cap-drop。Squid 在连接侧 DNS 后拒绝 loopback、RFC1918、link-local、云元数据、mapped IPv4、NAT64、组播和保留段。browser runtime 本身没有 public network，即使页面尝试绕开 proxy 也没有公网路由。
+- adapter 的第一道 URL/DNS 门直接复用既有 `classifyAddress`，覆盖 WHATWG canonicalized `::ffff:7f00:1`；它是快速拒绝和审计层，最终 socket 边界仍由上述网络拓扑及 proxy 提供。Playwright MCP 的 origin flags 不被当作安全边界。
 - screenshot 只返回经过 PNG 尺寸/hash和 sandbox读回验证的 `/workspace/browser-<hash>.png`；需要用户交付时继续调用既有 `wx_artifact_publish`，`staged` 不得写成 ready。
+- `WX-S013` 预览使用保留的 `https://preview.workspacex.invalid/workspace/web-artifact/*.html?viewport=desktop|mobile`。adapter 在逐次权限和 owner 校验后从当前 binding 的 workspace 读回自包含 HTML，通过 Playwright MCP 官方 `browser_route` 临时装载并随后 `browser_unroute`；CSP 默认拒绝网络、表单提交、frame 和 object。desktop/mobile 只映射 1280×720 与 390×844，并由官方 `browser_resize` 执行，不接受模型提供任意尺寸，也不建立公网预览服务。
 - 当前 controller 统一把拒绝、失败、未知结果映射为无细节 503，避免模型按未知结果自动重放有副作用操作；现有 authority 仍是逐次授权单源。
-- 当前 adapter 只在单进程、单 binding 内串行化动作；若运行时会在失败后重放同一 `toolCallId`，协调者必须在调用 adapter 前使用既有持久化 receipt/journal 去重并回放已确认结果。不能把内存串行化描述为 durable exactly-once。
+- `PgBrowserExecutionReceipts` 复用既有 `mcp_tool_executions` 持久状态机：外部 dispatch 前原子 claim；相同 `(org,run,toolCallId)` 仅回放 schema 校验过的 succeeded result；pending/unconfirmed 或参数冲突一律拒绝，不会重新点击/填写/导航。adapter 没有无 receipt 的构造默认值。
+- 单一 30 秒 deadline 从 invoke 入口开始，覆盖 owner/authority、receipt claim、MCP state 创建和同 binding 串行排队。每个 MCP 动作之后以及成功 receipt 发布之前再次检查权限和 owner；取消、lease/attempt 失效或超时均不返回/发布成功结果，DB finish 也在 run row lock 下复核取消、attempt、lease 与 receipt deadline。

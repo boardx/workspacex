@@ -40,4 +40,19 @@ export interface StandardBrowserService {
   release(bindingId: string): Promise<void>;
 }
 
+export type BrowserReceiptClaim =
+  | { readonly kind: 'claimed' }
+  | { readonly kind: 'succeeded'; readonly result: BrowserInvocationOutput }
+  | { readonly kind: 'unconfirmed' };
+
+/**
+ * Durable before-dispatch receipt. A prior pending/unconfirmed action is never dispatched
+ * again: the caller only knows that its outcome is unknown, not that it did not happen.
+ */
+export interface BrowserExecutionReceipts {
+  claim(context: BrowserContext, invocation: BrowserInvocation, argsDigest: string, deadlineAt: Date): Promise<BrowserReceiptClaim>;
+  succeed(context: BrowserContext, invocation: BrowserInvocation, argsDigest: string, result: BrowserInvocationOutput): Promise<void>;
+  markUnconfirmed(context: BrowserContext, invocation: BrowserInvocation, argsDigest: string): Promise<void>;
+}
+
 export interface BrowserWorkspace extends DraftSessionFiles {}

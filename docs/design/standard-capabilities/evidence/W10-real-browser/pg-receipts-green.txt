@@ -1,0 +1,22 @@
+[stack-admission] load1=2.86 cores=10 perCore=0.29 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqx25f0-8058c10e-c5abe6814652 db=wsx_c5abe68146521422799b compose=wsx-c5abe68146521422799b pg=22217 redis=27217 sandbox=52217
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c5abe68146521422799b capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (6 tests) 3583ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  15:25:46
+   Duration  5.63s (transform 60ms, setup 0ms, collect 57ms, tests 3.58s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_c5abe68146521422799b peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：1s
+  总计：7s

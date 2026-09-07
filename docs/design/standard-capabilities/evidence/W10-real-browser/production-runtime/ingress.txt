@@ -1,0 +1,4 @@
+Actual loopback HTTP probes after ingress restart:
+foreign Host: 403
+foreign Origin: 403
+Trusted Remote MCP navigation and snapshot: passed; see navigation-snapshot.txt

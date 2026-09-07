@@ -1,0 +1,16 @@
+
+> @repo/api@0.0.0 test:browser-real /private/tmp/workspacex-standard-capabilities/apps/api
+> WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+ ✓ tests/agent-runtime/playwright-mcp-browser-real.test.ts (3 tests) 1833ms
+   ✓ W10 real Playwright MCP and Chromium acceptance > navigates, snapshots, fills, clicks, isolates storage, and writes a real PNG 1001ms
+   ✓ W10 real Playwright MCP and Chromium acceptance > persists screenshot bytes through the real isolated session and independently reads them back 636ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:19:46
+   Duration  2.53s (transform 255ms, setup 0ms, collect 581ms, tests 1.83s, environment 0ms, prepare 29ms)
+

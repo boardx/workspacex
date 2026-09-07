@@ -4,7 +4,7 @@ description: 创建需要真实交互、状态或响应式布局的自包含网�
 license: Apache-2.0
 metadata:
   capability_id: WX-S013
-  version: 1.0.0
+  version: 1.0.1
 ---
 
 # 交互式网页产物
@@ -17,9 +17,9 @@ metadata:
 
 1. 用 `write_file` 创建源文件，随后用 `read_file` 逐个读回。需要编译时只调用沙箱中已存在并锁定的命令；缺少依赖就明确报告阻断，不得临时联网安装。
 2. 生成可交付的 `bundle.html`。它必须自包含或只引用一并交付的相对资源；创建 `test-record.json` 记录文件 hash、测试页面、视口和每项结果。
-3. 只有平台返回本次 run 隔离的预览 URL 后，才能调用 `browser_navigate`。不要把 `/workspace/...` 当成 URL，也不要自行建立公网部署服务。
+3. 先把自包含预览入口写到 `/workspace/web-artifact/bundle.html`，再使用平台保留的 run 隔离 URL：桌面为 `https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=desktop`，移动端为同一路径加 `viewport=mobile`。该 URL 只是一项受控 browser adapter 能力：adapter 会在本次 binding 的 owner/权限校验后从授权 workspace 读回 HTML，通过官方 Playwright MCP 的临时 route 装载；它不是 DNS 或公网建站服务。不得自行替换 host、路径或 viewport。
 4. 用 `browser_snapshot` 找到主要按钮、输入和空状态；用返回的 opaque refs 调用 `browser_fill_form` / `browser_click`。每次改变页面后重新 snapshot，禁止复用旧 ref。
-5. 用 `browser_take_screenshot` 保存桌面和移动验收证据。当前工具没有视口调整能力时，移动视口项必须标为阻断，不得用缩放截图冒充。
+5. 分别导航上述 desktop（1280×720）和 mobile（390×844）预览 URL，再用 `browser_take_screenshot` 保存两组证据。viewport 是平台固定值，不接受任意尺寸；不得用缩放截图冒充移动视口。
 6. 未授权网络请求必须被拒绝。页面仍应显示明确错误或离线状态，不得因请求失败而空白。
 7. 通过 `read_file` 读回 `bundle.html`、源码和 `test-record.json`；需要交付时逐个调用 `wx_artifact_publish`。`staged` 不是用户可下载，只有真实 ready/交付回执后才能称已交付。
 

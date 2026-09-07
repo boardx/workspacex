@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createConnection } from '@playwright/mcp';
 import { chromium, type Browser, type BrowserContext as PlaywrightBrowserContext } from 'playwright';
 import type { z } from 'zod';
@@ -25,6 +25,7 @@ import {
 import { schemas } from '@repo/contracts/sandbox-session';
 import type {
   BrowserContext,
+  BrowserExecutionReceipts,
   BrowserInvocation,
   BrowserInvocationOutput,
   BrowserWorkspace,
@@ -32,8 +33,11 @@ import type {
 } from '../../application/agent-run/standard-browser-tools';
 import type { NativeResolved, NativeSessionOwner } from '../../application/agent-run/native-session-owner';
 import type { ToolExecutionAuthority } from '../../application/agent-run/tool-execution-authority';
+import { classifyAddress } from '../../domain/skill/import-source';
+import { mcpExecutionDigest } from '../mcp/mcp-execution-digest';
 
 const REQUIRED_TOOLS = new Set(['browser_navigate', 'browser_snapshot', 'browser_click', 'browser_fill_form', 'browser_take_screenshot']);
+const ADAPTER_UPSTREAM_TOOLS = new Set([...REQUIRED_TOOLS, 'browser_resize', 'browser_route', 'browser_unroute']);
 const sha256 = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 const opaque = (kind: 'page' | 'element') => `${kind}:${randomBytes(32).toString('hex')}`;
 
@@ -41,38 +45,21 @@ export interface BrowserNetworkPolicy {
   assertAllowed(url: string): Promise<void>;
 }
 
-function privateIpv4(address: string): boolean {
-  const octets = address.split('.').map(Number);
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return true;
-  const [a, b] = octets as [number, number, number, number];
-  return a === 0 || a === 10 || a === 127 || a >= 224
-    || (a === 100 && b >= 64 && b <= 127)
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && (b === 0 || b === 168))
-    || (a === 198 && (b === 18 || b === 19));
-}
-
-function privateIp(address: string): boolean {
-  const normalized = address.toLowerCase().split('%', 1)[0] ?? '';
-  if (isIP(normalized) === 4) return privateIpv4(normalized);
-  if (isIP(normalized) !== 6) return true;
-  if (normalized === '::' || normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd')
-    || /^fe[89ab]/.test(normalized) || normalized.startsWith('ff')) return true;
-  const mapped = normalized.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
-  return mapped ? privateIpv4(mapped) : false;
-}
-
 export class PublicBrowserNetworkPolicy implements BrowserNetworkPolicy {
+  constructor(private readonly resolve = async (hostname: string): Promise<readonly string[]> =>
+    (await lookup(hostname, { all: true, verbatim: true })).map(item => item.address)) {}
+
   async assertAllowed(raw: string): Promise<void> {
-    const url = new URL(raw);
+    let url: URL;
+    try { url = new URL(raw); } catch { throw new Error('browser_network_denied'); }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hostname === 'localhost') {
       throw new Error('browser_network_denied');
     }
-    const hostname = url.hostname.startsWith('[') && url.hostname.endsWith(']') ? url.hostname.slice(1, -1) : url.hostname;
-    const literalKind = isIP(hostname);
-    const addresses = literalKind ? [hostname] : (await lookup(hostname, { all: true, verbatim: true })).map(item => item.address);
-    if (!addresses.length || addresses.some(privateIp)) throw new Error('browser_network_denied');
+    const classification = classifyAddress(url.hostname);
+    if (classification === 'blocked') throw new Error('browser_network_denied');
+    if (classification === 'public') return;
+    const addresses = await this.resolve(url.hostname);
+    if (!addresses.length || addresses.some(address => classifyAddress(address) !== 'public')) throw new Error('browser_network_denied');
   }
 }
 
@@ -82,7 +69,7 @@ interface McpResult {
 }
 
 interface BrowserMcpSession {
-  readonly outputDir: string;
+  readonly outputDir: string | null;
   call(name: string, args: Record<string, unknown>, signal: AbortSignal): Promise<McpResult>;
   close(): Promise<void>;
 }
@@ -105,6 +92,9 @@ function assertUpstreamSchemas(tools: readonly { name: string; inputSchema: unkn
   if (!requiredKeys(byName.get('browser_navigate')).has('url')) throw new Error('playwright_mcp_contract_changed');
   if (!requiredKeys(byName.get('browser_click')).has('target')) throw new Error('playwright_mcp_contract_changed');
   if (!requiredKeys(byName.get('browser_fill_form')).has('fields')) throw new Error('playwright_mcp_contract_changed');
+  if (!['width', 'height'].every(key => requiredKeys(byName.get('browser_resize')).has(key))) throw new Error('playwright_mcp_contract_changed');
+  if (!requiredKeys(byName.get('browser_route')).has('pattern')) throw new Error('playwright_mcp_contract_changed');
+  if (!Object.hasOwn(properties(byName.get('browser_unroute')), 'pattern')) throw new Error('playwright_mcp_contract_changed');
   const screenshot = properties(byName.get('browser_take_screenshot'));
   if (!['filename', 'type', 'fullPage', 'scale'].every(key => Object.hasOwn(screenshot, key))) throw new Error('playwright_mcp_contract_changed');
 }
@@ -114,7 +104,12 @@ export interface BrowserMcpSessionFactory {
 }
 
 export class OfficialPlaywrightMcpSessionFactory implements BrowserMcpSessionFactory {
-  constructor(private readonly network: BrowserNetworkPolicy = new PublicBrowserNetworkPolicy()) {}
+  constructor(
+    private readonly network: BrowserNetworkPolicy,
+    acknowledgement: { readonly allowInProcessBrowserWithoutNetworkNamespace: true },
+  ) {
+    if (acknowledgement.allowInProcessBrowserWithoutNetworkNamespace !== true) throw new Error('browser_runtime_boundary_required');
+  }
 
   async create(_sessionKey: string): Promise<BrowserMcpSession> {
     const outputDir = await mkdtemp(join(tmpdir(), 'workspacex-browser-'));
@@ -134,7 +129,7 @@ export class OfficialPlaywrightMcpSessionFactory implements BrowserMcpSessionFac
         }
       });
       server = await createConnection({
-        capabilities: ['core'],
+        capabilities: 'core,network'.split(',') as ('core' | 'network')[],
         outputDir,
         outputMaxSize: 32 * 1024 * 1024,
         imageResponses: 'omit',
@@ -151,7 +146,7 @@ export class OfficialPlaywrightMcpSessionFactory implements BrowserMcpSessionFac
       return {
         outputDir,
         async call(name, args, signal) {
-          if (!REQUIRED_TOOLS.has(name)) throw new Error('browser_tool_not_allowed');
+          if (!ADAPTER_UPSTREAM_TOOLS.has(name)) throw new Error('browser_tool_not_allowed');
           return await activeClient.callTool({ name, arguments: args }, undefined, { signal, timeout: L.deadlineMs, maxTotalTimeout: L.deadlineMs }) as McpResult;
         },
         async close() {
@@ -171,6 +166,64 @@ export class OfficialPlaywrightMcpSessionFactory implements BrowserMcpSessionFac
   }
 }
 
+function loopbackMcpEndpoint(raw: string): URL {
+  const url = new URL(raw);
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (url.protocol !== 'http:' || !['127.0.0.1', '::1'].includes(host) || url.username || url.password
+    || url.pathname !== '/mcp' || url.search || url.hash) throw new Error('browser_runtime_endpoint_denied');
+  return url;
+}
+
+/** Production factory: the loopback endpoint must front the isolated browser-runtime compose stack. */
+export class RemotePlaywrightMcpSessionFactory implements BrowserMcpSessionFactory {
+  private readonly endpoint: URL;
+
+  constructor(endpoint: string) { this.endpoint = loopbackMcpEndpoint(endpoint); }
+
+  async create(_sessionKey: string): Promise<BrowserMcpSession> {
+    const client = new Client({ name: 'workspacex-browser-adapter', version: '1.0.0' });
+    const transport = new StreamableHTTPClientTransport(this.endpoint, {
+      fetch: async (input, init) => {
+        const terminating = init?.method === 'DELETE';
+        const response = await fetch(input, { ...init, redirect: 'error',
+          ...(terminating ? { signal: AbortSignal.timeout(L.deadlineMs) } : {}),
+        });
+        // SDK terminateSession treats 405 as success; this runtime requires a
+        // real server-side termination acknowledgement instead.
+        if (terminating && !response.ok) {
+          await response.body?.cancel();
+          throw new Error('browser_remote_termination_unconfirmed');
+        }
+        return response;
+      },
+      reconnectionOptions: { maxRetries: 0, initialReconnectionDelay: 0, maxReconnectionDelay: 0, reconnectionDelayGrowFactor: 1 },
+    });
+    let closing: Promise<void> | undefined;
+    const close = () => closing ??= (async () => {
+      try {
+        if (transport.sessionId) await transport.terminateSession();
+      } finally {
+        await client.close();
+      }
+    })();
+    try {
+      await client.connect(transport, { timeout: L.deadlineMs });
+      assertUpstreamSchemas((await client.listTools(undefined, { timeout: L.deadlineMs })).tools);
+      return {
+        outputDir: null,
+        async call(name, args, signal) {
+          if (!ADAPTER_UPSTREAM_TOOLS.has(name)) throw new Error('browser_tool_not_allowed');
+          return await client.callTool({ name, arguments: args }, undefined, { signal, timeout: L.deadlineMs, maxTotalTimeout: L.deadlineMs }) as McpResult;
+        },
+        close,
+      };
+    } catch (error) {
+      await close().catch(() => undefined);
+      throw error;
+    }
+  }
+}
+
 interface SessionState {
   readonly mcp: BrowserMcpSession;
   pageRef: string | null;
@@ -180,6 +233,40 @@ interface SessionState {
   elements: Map<string, { upstreamRef: string; generation: number; name?: string; fillType?: 'textbox' | 'checkbox' | 'radio' | 'combobox' | 'slider' }>;
   tail: Promise<void>;
   expiry: ReturnType<typeof setTimeout>;
+}
+
+function deadlineError(): Error { return new Error('browser_action_deadline_exceeded'); }
+
+async function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) throw deadlineError();
+  return await new Promise<T>((resolve, reject) => {
+    const abort = () => reject(deadlineError());
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
+}
+
+function previewRequest(raw: string): { workspacePath: string; viewport: { width: number; height: number } } | null {
+  if (!raw.startsWith('https://preview.workspacex.invalid/')) return null;
+  if (!/^https:\/\/preview\.workspacex\.invalid\/workspace\/web-artifact\/[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.html\?viewport=(?:desktop|mobile)$/.test(raw)
+    || raw.includes('%')) {
+    throw new Error('browser_preview_url_denied');
+  }
+  const url = new URL(raw);
+  const viewport = url.searchParams.get('viewport');
+  return {
+    workspacePath: url.pathname,
+    viewport: viewport === 'mobile'
+      ? { width: L.mobileViewportWidth, height: L.mobileViewportHeight }
+      : { width: L.viewportWidth, height: L.viewportHeight },
+  };
+}
+
+function isolatedPreviewHtml(bytes: Buffer): string {
+  if (!bytes.length || bytes.length > L.maxPreviewBytes) throw new Error('browser_preview_size_invalid');
+  const html = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'";
+  return `<meta http-equiv="Content-Security-Policy" content="${policy}">${html}`;
 }
 
 function textResult(result: McpResult): string {
@@ -217,6 +304,22 @@ function pngDimensions(bytes: Uint8Array): { width: number; height: number } {
   return { width, height };
 }
 
+async function screenshotBytes(result: McpResult, session: BrowserMcpSession, filename: string): Promise<Buffer> {
+  const image = (result.content ?? []).find(item => item && typeof item === 'object' && !Array.isArray(item)
+    && (item as Record<string, unknown>).type === 'image'
+    && (item as Record<string, unknown>).mimeType === 'image/png'
+    && typeof (item as Record<string, unknown>).data === 'string') as Record<string, unknown> | undefined;
+  if (image) {
+    const bytes = Buffer.from(image.data as string, 'base64');
+    if (!bytes.length || bytes.toString('base64').replace(/=+$/, '') !== (image.data as string).replace(/=+$/, '')) {
+      throw new Error('browser_screenshot_invalid');
+    }
+    return bytes;
+  }
+  if (!session.outputDir) throw new Error('browser_screenshot_missing');
+  return readFile(join(session.outputDir, filename));
+}
+
 export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
   private readonly states = new Map<string, Promise<SessionState>>();
 
@@ -224,14 +327,17 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
     private readonly owner: NativeSessionOwner,
     private readonly workspaces: (bound: NativeResolved) => BrowserWorkspace,
     private readonly authority: Pick<ToolExecutionAuthority, 'check'>,
-    private readonly factory: BrowserMcpSessionFactory = new OfficialPlaywrightMcpSessionFactory(),
+    private readonly receipts: BrowserExecutionReceipts,
+    private readonly network: BrowserNetworkPolicy,
+    private readonly factory: BrowserMcpSessionFactory,
+    private readonly deadlineSignal: () => AbortSignal = () => AbortSignal.timeout(L.deadlineMs),
   ) {}
 
   private async state(bindingId: string, expiresAt: number): Promise<SessionState> {
     let pending = this.states.get(bindingId);
     if (!pending) {
       pending = this.factory.create(sha256(bindingId)).then(mcp => {
-        const expiry = setTimeout(() => { void this.release(bindingId); }, Math.max(0, expiresAt - Date.now()));
+        const expiry = setTimeout(() => { void this.release(bindingId).catch(() => undefined); }, Math.max(0, expiresAt - Date.now()));
         expiry.unref();
         return { mcp, pageRef: null, generation: 0, url: 'about:blank', title: '', elements: new Map(), tail: Promise.resolve(), expiry };
       });
@@ -264,39 +370,75 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
     return { text: snapshotBody(text), metadata: pageMetadata(text, state) };
   }
 
-  private async serial<T>(state: SessionState, action: () => Promise<T>): Promise<T> {
-    const previous = state.tail;
-    let unlock!: () => void;
-    state.tail = new Promise<void>(resolve => { unlock = resolve; });
-    await previous;
-    try { return await action(); } finally { unlock(); }
+  private async serial<T>(state: SessionState, signal: AbortSignal, action: () => Promise<T>): Promise<T> {
+    const run = state.tail.then(async () => {
+      if (signal.aborted) throw deadlineError();
+      return await action();
+    });
+    state.tail = run.then(() => undefined, () => undefined);
+    return await abortable(run, signal);
   }
 
   async invoke(context: BrowserContext, invocation: BrowserInvocation): Promise<BrowserInvocationOutput> {
+    const deadlineAt = new Date(Date.now() + L.deadlineMs);
+    const signal = this.deadlineSignal();
     const parsed = invocation.toolName === 'browser_navigate' ? BrowserNavigateInput.parse(invocation.toolArgs)
       : invocation.toolName === 'browser_snapshot' ? BrowserSnapshotInput.parse(invocation.toolArgs)
       : invocation.toolName === 'browser_click' ? BrowserClickInput.parse(invocation.toolArgs)
       : invocation.toolName === 'browser_fill_form' ? BrowserFillFormInput.parse(invocation.toolArgs)
       : BrowserTakeScreenshotInput.parse(invocation.toolArgs);
+    const validated = { toolName: invocation.toolName, toolArgs: parsed } as BrowserInvocation;
+    const argsDigest = mcpExecutionDigest(parsed);
     const authorize = async () => {
-      const decision = await this.authority.check({ ...context, toolName: invocation.toolName, toolArgs: parsed });
+      const decision = await abortable(this.authority.check({ ...context, toolName: invocation.toolName, toolArgs: parsed }), signal);
       if (!decision.allowed) throw new Error('browser_tool_denied');
     };
-    const initialDecision = await this.authority.check({ ...context, toolName: invocation.toolName, toolArgs: parsed });
+    const resolveOwner = () => abortable(this.owner.resolve(context.bindingId, context), signal);
+    const initialDecision = await abortable(this.authority.check({ ...context, toolName: invocation.toolName, toolArgs: parsed }), signal);
     if (!initialDecision.allowed) {
-      if (['cancel_requested', 'lease_lost', 'run_unavailable', 'attempt_stale'].includes(initialDecision.reason)) await this.release(context.bindingId);
+      if (['cancel_requested', 'lease_lost', 'run_unavailable', 'attempt_stale'].includes(initialDecision.reason)) void this.release(context.bindingId).catch(() => undefined);
       throw new Error('browser_tool_denied');
     }
-    const bound = await this.owner.resolve(context.bindingId, context);
-    const state = await this.state(context.bindingId, bound.expiresAt);
-    return await this.serial(state, async () => {
-      const signal = AbortSignal.timeout(L.deadlineMs);
+    const bound = await resolveOwner();
+    const claim = await abortable(this.receipts.claim(context, validated, argsDigest, deadlineAt), signal);
+    if (claim.kind === 'unconfirmed') {
+      void this.release(context.bindingId).catch(() => undefined);
+      throw new Error('browser_execution_unconfirmed_no_replay');
+    }
+    if (claim.kind === 'succeeded') return claim.result;
+    try {
+      const state = await abortable(this.state(context.bindingId, bound.expiresAt), signal);
+      const postcheck = async () => { await authorize(); await resolveOwner(); };
+      const result = await this.serial(state, signal, async () => {
       await authorize();
-      await this.owner.resolve(context.bindingId, context);
+      await resolveOwner();
       if (invocation.toolName === 'browser_navigate') {
         const input = parsed as z.infer<typeof BrowserNavigateInput>;
+        const preview = previewRequest(input.url);
+        if (preview) {
+          const workspace = this.workspaces(bound);
+          const file = schemas.file.parse(await abortable(workspace.read(preview.workspacePath), signal));
+          if (file.path !== preview.workspacePath) throw new Error('browser_preview_readback_failed');
+          const bytes = Buffer.from(file.contentBase64, 'base64');
+          if (file.sizeBytes !== bytes.length || file.contentBase64 !== bytes.toString('base64')) throw new Error('browser_preview_readback_failed');
+          const html = isolatedPreviewHtml(bytes);
+          await state.mcp.call('browser_resize', preview.viewport, signal).then(textResult);
+          await postcheck();
+          await state.mcp.call('browser_route', { pattern: input.url, status: 200, body: html, contentType: 'text/html; charset=utf-8' }, signal).then(textResult);
+          await postcheck();
+        } else {
+          await abortable(this.network.assertAllowed(input.url), signal);
+          await state.mcp.call('browser_resize', { width: L.viewportWidth, height: L.viewportHeight }, signal).then(textResult);
+          await postcheck();
+        }
         await state.mcp.call('browser_navigate', { url: input.url }, signal).then(textResult);
+        await postcheck();
         const snapshot = await this.snapshot(state, signal);
+        await postcheck();
+        if (preview) {
+          await state.mcp.call('browser_unroute', { pattern: input.url }, signal).then(textResult);
+          await postcheck();
+        }
         this.rotate(state, snapshot.metadata);
         return BrowserNavigateOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation });
       }
@@ -304,6 +446,7 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
         const input = parsed as z.infer<typeof BrowserSnapshotInput>;
         this.page(state, input.pageRef);
         const snapshot = await this.snapshot(state, signal);
+        await postcheck();
         state.url = snapshot.metadata.url; state.title = snapshot.metadata.title; state.elements.clear();
         const upstream = [...snapshot.text.matchAll(/\bref=([A-Za-z0-9_-]{1,256})\b/g)].map(match => match[1] as string);
         const unique = [...new Set(upstream)].slice(0, L.maxElements);
@@ -332,7 +475,9 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
         this.page(state, input.pageRef);
         const element = this.element(state, input.elementRef);
         await state.mcp.call('browser_click', { target: element.upstreamRef, element: element.name ?? 'authorized element' }, signal).then(textResult);
+        await postcheck();
         const snapshot = await this.snapshot(state, signal);
+        await postcheck();
         this.rotate(state, snapshot.metadata);
         return BrowserClickOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation, outcome: 'clicked' });
       }
@@ -342,27 +487,43 @@ export class PlaywrightMcpBrowserAdapter implements StandardBrowserService {
         const fields = input.fields.map(field => {
           const element = this.element(state, field.ref);
           if (!element.fillType) throw new Error('browser_element_not_fillable');
-          return { target: element.upstreamRef, name: element.name ?? 'authorized field', type: element.fillType, value: field.value };
+          return { target: element.upstreamRef, name: element.name ?? 'authorized field', type: element.fillType, value: String(field.value) };
         });
         await state.mcp.call('browser_fill_form', { fields }, signal).then(textResult);
+        await postcheck();
         const snapshot = await this.snapshot(state, signal);
+        await postcheck();
         this.rotate(state, snapshot.metadata);
         return BrowserFillFormOutput.parse({ pageRef: state.pageRef, ...snapshot.metadata, generation: state.generation, filled: input.fields.map(field => field.ref) });
       }
       const input = parsed as z.infer<typeof BrowserTakeScreenshotInput>;
       this.page(state, input.pageRef);
       const filename = `screenshot-${randomBytes(32).toString('hex')}.png`;
-      await state.mcp.call('browser_take_screenshot', { filename, type: 'png', fullPage: input.fullPage ?? false, scale: 'css' }, signal).then(textResult);
-      const bytes = await readFile(join(state.mcp.outputDir, filename));
+      const upstreamFilename = state.mcp.outputDir ? join(state.mcp.outputDir, filename) : undefined;
+      const upstream = await state.mcp.call('browser_take_screenshot', {
+        ...(upstreamFilename ? { filename: upstreamFilename } : {}), type: 'png', fullPage: input.fullPage ?? false, scale: 'css',
+      }, signal);
+      textResult(upstream);
+      await postcheck();
+      const bytes = await screenshotBytes(upstream, state.mcp, filename);
       const dimensions = pngDimensions(bytes);
       const workspacePath = `/workspace/browser-${sha256(`${context.bindingId}:${filename}`)}.png`;
       const workspace = this.workspaces(bound);
-      await workspace.write({ path: workspacePath, contentBase64: bytes.toString('base64') });
-      const readback = schemas.file.parse(await workspace.read(workspacePath));
+      await abortable(workspace.write({ path: workspacePath, contentBase64: bytes.toString('base64') }), signal);
+      const readback = schemas.file.parse(await abortable(workspace.read(workspacePath), signal));
       if (readback.path !== workspacePath || readback.sizeBytes !== bytes.length || readback.contentBase64 !== bytes.toString('base64')) throw new Error('browser_screenshot_readback_failed');
-      await authorize(); await this.owner.resolve(context.bindingId, context);
+      await postcheck();
       return BrowserScreenshotOutput.parse({ pageRef: state.pageRef, workspacePath, mime: 'image/png', ...dimensions, sha256: sha256(bytes), sizeBytes: bytes.length, fullPage: input.fullPage ?? false });
-    });
+      });
+      await postcheck();
+      await abortable(this.receipts.succeed(context, validated, argsDigest, result), signal);
+      return result;
+    } catch {
+      if (signal.aborted) void this.receipts.markUnconfirmed(context, validated, argsDigest).catch(() => undefined);
+      else await abortable(this.receipts.markUnconfirmed(context, validated, argsDigest), signal).catch(() => undefined);
+      void this.release(context.bindingId).catch(() => undefined);
+      throw new Error('browser_execution_unconfirmed_no_replay');
+    }
   }
 
   async release(bindingId: string): Promise<void> {

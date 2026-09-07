@@ -1,0 +1,108 @@
+services:
+  browser-runtime:
+    image: mcr.microsoft.com/playwright/mcp@sha256:${BROWSER_RUNTIME_IMAGE_DIGEST:?set reviewed 64-hex manifest digest}
+    init: true
+    user: "${BROWSER_UID:?set non-root browser uid}:${BROWSER_GID:?set non-root browser gid}"
+    environment:
+      XDG_CONFIG_HOME: /tmp/browser-config
+      XDG_CACHE_HOME: /tmp/browser-cache
+    entrypoint: ["node", "/app/cli.js"]
+    command:
+      - --headless
+      - --browser
+      - chromium
+      - --sandbox
+      - --isolated
+      - --block-service-workers
+      - --codegen
+      - none
+      - --snapshot-mode
+      - full
+      - --caps
+      - network
+      - --image-responses
+      - allow
+      - --output-dir
+      - /tmp/browser-output
+      - --output-max-size
+      - "33554432"
+      - --proxy-server
+      - http://browser-egress:3128
+      - --proxy-bypass
+      - "<-loopback>"
+      - --port
+      - "8931"
+      - --host
+      - 0.0.0.0
+      - --allowed-hosts
+      - localhost:8931
+    networks:
+      - browser_control
+    depends_on:
+      - browser-egress
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp_profile.json
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
+    restart: unless-stopped
+
+  browser-ingress:
+    image: mcr.microsoft.com/playwright/mcp@sha256:${BROWSER_RUNTIME_IMAGE_DIGEST:?set reviewed 64-hex manifest digest}
+    init: true
+    user: "1000:1000"
+    entrypoint: ["node", "/relay/mcp-relay.mjs"]
+    volumes:
+      - ./mcp-relay.mjs:/relay/mcp-relay.mjs:ro
+    ports:
+      - "127.0.0.1:${BROWSER_MCP_PORT:-58931}:8931"
+    networks:
+      - browser_control
+      - browser_ingress
+    depends_on:
+      - browser-runtime
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    pids_limit: 32
+    cpus: 0.25
+
+  browser-egress:
+    image: ubuntu/squid@sha256:${BROWSER_EGRESS_PROXY_IMAGE_DIGEST:?set reviewed 64-hex manifest digest}
+    init: true
+    user: "13:13"
+    entrypoint: ["/usr/sbin/squid"]
+    command: ["-f", "/etc/squid/squid.conf", "-NYC"]
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      - browser_control
+      - browser_public
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/log/squid:rw,nosuid,nodev,size=16m,uid=13,gid=13
+      - /var/spool/squid:rw,nosuid,nodev,size=16m,uid=13,gid=13
+      - /run:rw,nosuid,nodev,size=4m,uid=13,gid=13
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+
+networks:
+  browser_control:
+    internal: true
+  browser_public: {}
+  browser_ingress: {}

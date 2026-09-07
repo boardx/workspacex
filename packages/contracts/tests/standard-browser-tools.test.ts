@@ -16,6 +16,10 @@ const page = `page:${'b'.repeat(64)}`;
 
 it('keeps model input separate from trusted run identity', () => {
   expect(BrowserNavigateInput.safeParse({ url: 'https://example.com' }).success).toBe(true);
+  expect(BrowserNavigateInput.safeParse({ url: 'https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=desktop' }).success).toBe(true);
+  expect(BrowserNavigateInput.safeParse({ url: 'https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=mobile' }).success).toBe(true);
+  expect(BrowserNavigateInput.safeParse({ url: 'https://preview.workspacex.invalid/workspace/web-artifact/%2e%2e/secret.html?viewport=mobile' }).success).toBe(false);
+  expect(BrowserNavigateInput.safeParse({ url: 'https://preview.workspacex.invalid/workspace/web-artifact/bundle.html?viewport=375x812' }).success).toBe(false);
   expect(BrowserNavigateInput.safeParse({ url: 'https://example.com', orgId: 'forged' }).success).toBe(false);
   expect(BrowserClickInput.safeParse({ pageRef: page, elementRef: ref }).success).toBe(true);
   expect(BrowserClickInput.safeParse({ pageRef: `page:${'c'.repeat(64)}`, elementRef: 'e1' }).success).toBe(false);

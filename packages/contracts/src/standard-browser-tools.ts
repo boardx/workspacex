@@ -17,6 +17,9 @@ export const STANDARD_BROWSER_LIMITS = {
   maxFields: 100,
   viewportWidth: 1_280,
   viewportHeight: 720,
+  mobileViewportWidth: 390,
+  mobileViewportHeight: 844,
+  maxPreviewBytes: 2 * 1024 * 1024,
 } as const;
 
 export const BrowserPageRef = z.string().regex(/^page:[a-f0-9]{64}$/);
@@ -25,8 +28,12 @@ export const BrowserElementRef = z.string().regex(/^element:[a-f0-9]{64}$/);
 export const BrowserNavigateInput = z.object({
   url: z.string().url().max(4096).refine(value => {
     const parsed = new URL(value);
+    if (parsed.hostname === 'preview.workspacex.invalid') {
+      return /^https:\/\/preview\.workspacex\.invalid\/workspace\/web-artifact\/[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*\.html\?viewport=(?:desktop|mobile)$/.test(value)
+        && !parsed.hash && !value.includes('%');
+    }
     return ['http:', 'https:'].includes(parsed.protocol) && !parsed.username && !parsed.password;
-  }, 'public HTTP(S) URL required'),
+  }, 'public HTTP(S) or isolated workspace preview URL required'),
 }).strict();
 
 export const BrowserSnapshotInput = z.object({

@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+ ✓ tests/agent-runtime/playwright-mcp-browser-real.test.ts (3 tests | 2 skipped) 1262ms
+   ✓ W10 real Playwright MCP and Chromium acceptance > renders desktop/mobile workspace previews with actual CSP blocking network requests 1249ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 2 skipped (3)
+   Start at  15:58:41
+   Duration  1.89s (transform 256ms, setup 0ms, collect 529ms, tests 1.26s, environment 0ms, prepare 26ms)
+

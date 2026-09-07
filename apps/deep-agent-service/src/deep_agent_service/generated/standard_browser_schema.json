@@ -6,7 +6,10 @@
     "maxElements": 2000,
     "maxFields": 100,
     "viewportWidth": 1280,
-    "viewportHeight": 720
+    "viewportHeight": 720,
+    "mobileViewportWidth": 390,
+    "mobileViewportHeight": 844,
+    "maxPreviewBytes": 2097152
   },
   "input": {
     "anyOf": [
