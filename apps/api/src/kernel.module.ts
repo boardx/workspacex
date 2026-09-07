@@ -52,6 +52,8 @@ import { MCP_EXECUTION_SNAPSHOT, type McpExecutionSnapshot } from "./application
 import { PgMcpExecutionSnapshot } from "./infrastructure/mcp/pg-mcp-execution-snapshot";
 import { createHttpMcpExecution } from "./infrastructure/mcp/http-mcp-execution";
 import { McpExecutionSnapshotController } from "./interface/controllers/mcp-execution-snapshot.controller";
+import { STANDARD_SUBTASK_SERVICE, SUBTASK_CONTEXT_RESOLVER, StandardSubtaskContextResolver, DefaultStandardSubtaskService } from "./application/agent-run/standard-subtask-tools";
+import { StandardSubtaskToolsController } from "./interface/controllers/standard-subtask-tools.controller";
 import { STANDARD_DOCUMENT_SERVICE } from "./application/agent-run/standard-document-tools";
 import { DefaultStandardDocumentService } from "./infrastructure/agent-run/standard-document-service";
 import { createNativeDocumentSession } from "./infrastructure/agent-run/native-document-session";
@@ -67,6 +69,10 @@ import { StandardContextToolsController } from "./interface/controllers/standard
 import type { BindingDeps } from "./application/artifact/binding-ports";
 import type { ProjectListRepository, ProjectOverviewRepository } from "./application/project/ports";
 import { STANDARD_WEB_SERVICE } from "./application/agent-run/standard-web-tools";
+import { STANDARD_BROWSER_SERVICE } from "./application/agent-run/standard-browser-tools";
+import { PlaywrightMcpBrowserAdapter, PublicBrowserNetworkPolicy, RemotePlaywrightMcpSessionFactory } from "./infrastructure/agent-run/playwright-mcp-browser-adapter";
+import { PgBrowserExecutionReceipts } from "./infrastructure/agent-run/pg-browser-execution-receipts";
+import { StandardBrowserToolsController } from "./interface/controllers/standard-browser-tools.controller";
 import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
 import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
 import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
@@ -958,7 +964,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentRunController,
     RunInterjectionController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
-    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1653,7 +1659,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -1661,9 +1667,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           deadlines.set(configured.provider, configured.timeoutMs);
         }
         return new SubtaskRunExecutor(store, db, model, logger,
-          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine);
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供
@@ -1894,6 +1900,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: createStandardWebService,
     },
     {
+      provide: STANDARD_BROWSER_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, db: DatabasePort) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        const endpoint = process.env.WORKSPACEX_BROWSER_MCP_ENDPOINT;
+        return owner && socketPath && endpoint ? new PlaywrightMcpBrowserAdapter(
+          owner, bound => createNativeDraftSession({socketPath,...bound}), authority,
+          new PgBrowserExecutionReceipts(db), new PublicBrowserNetworkPolicy(),
+          new RemotePlaywrightMcpSessionFactory(endpoint),
+        ) : null;
+      },
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, DATABASE_PORT],
+    },
+    {
       provide: SKILL_DRAFT_SERVICE,
       useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, objects: ObjectStore) => {
         const socketPath = process.env.NATIVE_SESSION_SOCKET;
@@ -1972,6 +1991,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgStandardSqlSource(db, authority, { repo, ids, chat }),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: SUBTASK_CONTEXT_RESOLVER,
+      useFactory: (runs: AgentRunStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, knowledge: StandardContextService) =>
+        new StandardSubtaskContextResolver(runs, { repo, ids, chat }, knowledge),
+      inject: [AGENT_RUN_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, STANDARD_CONTEXT_SERVICE],
+    },
+    {
+      provide: STANDARD_SUBTASK_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, sources: StandardSubtaskContextResolver, store: PgSubtaskRunStore, executor: SubtaskRunExecutor) =>
+        owner ? new DefaultStandardSubtaskService(owner, authority, sources, store, executor) : null,
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, SUBTASK_CONTEXT_RESOLVER, SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR],
     },
     {
       provide: STANDARD_DOCUMENT_SERVICE,

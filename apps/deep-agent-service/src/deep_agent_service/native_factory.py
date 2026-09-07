@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 import httpx
 from jsonschema import Draft7Validator, FormatChecker
 
+from .standard_subtask_tools import spawn_async_task_tool
 from .native_graph import create_native_graph
 from .native_session_binding_guard import NativeSessionBindingGuard
 from .native_artifact_publish import artifact_publish_tool
@@ -138,5 +139,5 @@ async def native_graph_context(config):
         # These tools describe a human decision; even an older binding cannot skip its form.
         interrupt_on={**resolved['interruptOn'], **{tool.name:True for tool in interactions}}
         graph=await asyncio.to_thread(create_native_graph,model,sandbox=adapter,pinned_skills=pins,
-            binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []), tools=[tool for tool in [*interactions, artifact_download_tool(), run_status_tool(), run_cancel_tool(), artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])] if tool.name in interrupt_on],tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
+            binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []), tools=[tool for tool in [*interactions, spawn_async_task_tool(), artifact_download_tool(), run_status_tool(), run_cancel_tool(), artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])] if tool.name in interrupt_on],tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
         yield graph.with_config({'callbacks':callbacks})

@@ -114,6 +114,7 @@ def create_native_graph(
     from .standard_schedule import StandardScheduleError
     from .standard_sql_database import StandardSqlError
     from .standard_skill_draft import SkillDraftError
+    from .standard_subtask_tools import StandardSubtaskError
     from .mcp_snapshot_tools import McpExecutionError
     snapshot = NativeToolSnapshot(tool_snapshot, tool_authority) if tool_snapshot is not None else None
     if snapshot is not None:
@@ -147,7 +148,7 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError, StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, McpExecutionError)) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError, StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, StandardSubtaskError, McpExecutionError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure
