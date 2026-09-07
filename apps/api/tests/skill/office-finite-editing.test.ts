@@ -62,7 +62,10 @@ describe("S003-S005 finite Office editing", () => {
     expect(edited.getWorksheet("Other")!.getCell("A1").value).toBe("KEEP SHEET");
     expect(edited.getWorksheet("Other")!.getCell("C1").value).toEqual({ formula: "Data!A1*2", result: 2 });
     expect(JSON.stringify(edited.getWorksheet("Data")!.getCell("B2").font)).toBe(font);
-    const workbookXml = entries(await readFile(output)).get("xl/workbook.xml")!.toString("utf8");
+    const before = entries(await readFile(input)), after = entries(await readFile(output));
+    expect([...after.keys()]).toEqual([...before.keys()]);
+    for (const [name, bytes] of before) if (name !== "xl/workbook.xml" && name !== "xl/worksheets/sheet1.xml") expect(hash(after.get(name)!)).toBe(hash(bytes));
+    const workbookXml = after.get("xl/workbook.xml")!.toString("utf8");
     expect(workbookXml).toMatch(/fullCalcOnLoad="1"/);
   });
 

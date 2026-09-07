@@ -1,0 +1,73 @@
+name: office-editing-real-model-evidence
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: office-editing-real-model-evidence
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 45
+    env:
+      WORKSPACEX_DB: wsx_office_edit_${{ github.run_id }}
+      WX_NATIVE_SANDBOX_CONTAINER: wx-office-edit-skill-sandbox-sessions-1
+      WX_DOCUMENT_SKILLS_REAL_EVIDENCE: ${{ github.workspace }}/apps/api/test-results/office-editing-real-model
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --extra dev
+        working-directory: apps/deep-agent-service
+      - name: Start owned PostgreSQL and isolated Office sandbox
+        run: |
+          sudo apparmor_parser -r -W apps/skill-sandbox/security/docker-apparmor-sessions
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+          docker compose -p wx-office-edit -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml up -d --build
+          for attempt in $(seq 1 30); do
+            if docker exec "$WX_NATIVE_SANDBOX_CONTAINER" test -S /run/sessions/skill-sandbox.sock; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Preflight pinned real-model configuration
+        run: |
+          test -r /opt/workspacex/deploy.env
+          set -a
+          . /opt/workspacex/deploy.env
+          set +a
+          test -n "$DASHSCOPE_API_KEY"
+          test -n "$DASHSCOPE_BASE_URL"
+          test -n "$DASHSCOPE_MODEL"
+      - name: Run three pinned Office edit cases
+        id: spec
+        continue-on-error: true
+        run: |
+          set -a
+          . /opt/workspacex/deploy.env
+          set +a
+          pnpm --filter @repo/api exec vitest run --config vitest.document-skills-real-model.config.ts
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: office-editing-real-model-evidence-${{ github.sha }}
+          path: apps/api/test-results/office-editing-real-model
+          retention-days: 30
+          if-no-files-found: error
+      - name: Release owned infrastructure
+        if: always()
+        run: |
+          docker compose -p wx-office-edit -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml down --volumes
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes
+          sudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions || true
+      - name: Preserve live verdict
+        if: always() && steps.spec.outcome == 'failure'
+        run: exit 1

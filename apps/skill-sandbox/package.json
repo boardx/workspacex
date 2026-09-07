@@ -30,6 +30,7 @@
   },
   "exports": {
     ".": "./src/main.ts",
+    "./inspect-pdf": "./src/inspect-pdf.ts",
     "./ooxml": "./src/ooxml.ts",
     "./input-files": "./src/input-files.ts"
   }
