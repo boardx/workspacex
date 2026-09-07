@@ -346,8 +346,8 @@ describe("列表继承 F108 的服务端可见性过滤（不是前端不渲染�
   });
 });
 
-describe("分组：只有今天 / 本周两组（待裁决第 11 条）", () => {
-  it("本周之前的线程不出现在任何一组里", async () => {
+describe("分组：今天 / 本周 / 更早三组（decision 11 已裁，2026-09-07）", () => {
+  it("本周之前的线程归入「更早」，不再从列表里消失", async () => {
     const longAgo = new Date(Date.now() - 60 * 86_400_000);
     await addChatThread({
       orgId: ORG, id: "f109b-t-old", projectId: PROJECT, groupId: null,
@@ -355,9 +355,11 @@ describe("分组：只有今天 / 本周两组（待裁决第 11 条）", () => 
       lastActivityAt: longAgo,
     });
     const body = (await (await listThreads("u-fac")).json()) as ListOut;
-    expect(body.groups.map((g) => g.label)).toEqual(["今天", "本周"]);
-    expect(cardOf(body, "f109b-t-old")).toBeUndefined();
-    // 成对：今天的那条在。
+    expect(body.groups.map((g) => g.label)).toEqual(["今天", "本周", "更早"]);
+    expect(cardOf(body, "f109b-t-old")).toBeDefined();
+    const olderGroup = body.groups.find((g) => g.label === "更早");
+    expect(olderGroup?.cards.some((c) => c.id === "f109b-t-old")).toBe(true);
+    // 成对：今天的那条也还在，不是「更早」吞掉了别的组。
     expect(cardOf(body, "f109b-t-plenary")).toBeDefined();
   });
 
@@ -365,7 +367,7 @@ describe("分组：只有今天 / 本周两组（待裁决第 11 条）", () => 
     const now = new Date("2026-07-31T10:00:00Z"); // 周五
     expect(threadGroupLabel(new Date("2026-07-31T23:59:59Z"), now)).toBe("今天");
     expect(threadGroupLabel(new Date("2026-07-27T00:00:00Z"), now)).toBe("本周"); // 本周一
-    expect(threadGroupLabel(new Date("2026-07-26T23:59:59Z"), now)).toBeNull(); // 上周日
+    expect(threadGroupLabel(new Date("2026-07-26T23:59:59Z"), now)).toBe("更早"); // 上周日
   });
 });
 

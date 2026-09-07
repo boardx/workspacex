@@ -218,10 +218,11 @@ await addChatThread({
  *     但 `ChatReadScreen` 在 URL 不带 `?thread=` 时默认选中列表第一条
  *     （`chat-read-screen.tsx:137`），`listThreads` 又按 `last_activity_at DESC`
  *     排序——稍不注意就会顶替 `THREAD_ID` 成为默认项，把 `chat-read.spec.ts` 里
- *     8 条依赖「默认落在 51 条消息那条线程」的既有用例全部带红；往回钉太远（如
- *     2020-01-01）又会撞上 `threadGroupLabel`（`thread-grouping.ts`）「只认今天/
- *     本周两组、更早的线程直接不出现在返回值里」这条已知功能缺失，线程从侧栏
- *     整个消失。两个坑本质上都是「同一个项目内的线程列表互相干扰」。
+ *     8 条依赖「默认落在 51 条消息那条线程」的既有用例全部带红——`threadGroupLabel`
+ *     （`thread-grouping.ts`）2026-09-07 起本周之前的线程归入「更早」、不再从
+ *     返回值里消失（decision 11 已裁），但仍然会被排到「更早」组的末尾、排序不变，
+ *     所以往回钉太远依旧会撞上「默认选中项被顶替」这同一个坑，不是因为线程会消失。
+ *     本质仍是「同一个项目内的线程列表互相干扰」。
  *   放进独立项目，两个问题一次性消失：`chat-read.spec.ts` 数的是 `PROJECT_ID`
  *   下的会话数，与这里无关；默认选中也是各项目独立计算，互不竞争。
  */
