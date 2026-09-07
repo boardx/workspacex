@@ -106,6 +106,14 @@ const CANDIDATE_SET = `
 export class PgSegmentRetriever implements SegmentRetriever {
   constructor(private readonly db: DatabasePort) {}
 
+  /** Exact index row, still guarded by its original artifact; used for version-pinned reads. */
+  async byId(orgId: ChannelQuery['orgId'],segmentId:string):Promise<Guarded<CandidateRow>|null>{
+    return this.db.withTenant(orgId,async s=>{
+      const result=await s.query<Row>(`SELECT ${COLUMNS},0 AS channel_score FROM segment_text st WHERE ${CANDIDATE_SET} AND st.segment_id=$3`,[orgId,null,segmentId]);
+      return result.rows[0]?toGuarded(result.rows[0]):null;
+    });
+  }
+
   /**
    * Full-text. AND over every token (`wsx_tsquery`), which is what makes this the exact-match
    * channel rather than a worse version of the vector channel -- see migration 0009.

@@ -45,3 +45,16 @@ def test_success_preserves_real_source_identity_and_scope(monkeypatch):
  assert asyncio.run(web._invoke('wx_knowledge_search',{'query':'evidence','projectId':'project'},runtime()))==result
  assert seen[0]['toolArgs']=={'query':'evidence','projectId':'project'}
  assert len(seen)==1
+
+
+def test_organization_index_scope_and_canonical_segment_citation(monkeypatch):
+ result={'items':[{'sourceId':'segment:s','versionId':'v1@sha256:'+'a'*64,'title':'Indexed file','excerpt':'Evidence','citationAnchor':{'kind':'indexed-segment','segmentId':'s','artifactId':'a','artifactVersionId':'v1','projectId':None,'anchor':{'kind':'page','locator':'3'}}}],'scopeMode':'organization-index-fts','coverage':'primary-file-index','truncated':False}
+ seen=[]
+ def handle(request):
+  seen.append(json.loads(request.content))
+  return httpx.Response(200,stream=httpx.ByteStream(json.dumps(result).encode()))
+ original=httpx.AsyncClient
+ monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+ assert asyncio.run(web._invoke('wx_knowledge_search',{'query':'evidence','scope':'organization-index'},runtime()))==result
+ assert seen[0]['toolArgs']['scope']=='organization-index'
+ assert seen[0]['orgId']=='org'

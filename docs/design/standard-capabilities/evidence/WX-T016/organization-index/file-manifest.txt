@@ -1,0 +1,15 @@
+packages/contracts/src/standard-context-tools.ts
+apps/deep-agent-service/src/deep_agent_service/generated/standard_context_schema.json
+apps/deep-agent-service/src/deep_agent_service/standard_context_tools.py
+apps/deep-agent-service/tests/test_standard_context_tools.py
+apps/api/src/infrastructure/retrieval/pg-segment-retriever.ts
+apps/api/src/infrastructure/retrieval/pg-organization-knowledge-index.ts
+apps/api/src/infrastructure/agent-run/organization-context-source.ts
+apps/api/tests/agent-runtime/organization-context-source.test.ts
+apps/api/tests/agent-runtime/standard-context-source.test.ts
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/README.md
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/api-first.txt
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/api.txt
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/python.txt
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/permission-lint.txt
+docs/design/standard-capabilities/evidence/WX-T016/organization-index/file-manifest.txt

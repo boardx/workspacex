@@ -36,7 +36,7 @@ it('real FTS → immutable FsObjectStore bytes → real ID and digest, never sto
  const output=await source.search(actor,{query:'NEEDLE'});expect(output.items).toHaveLength(1);
  const hit=output.items[0]!;expect(hit.sourceId).toBe('chat-attachment:own');expect(hit.excerpt).toContain('actual immutable');expect(JSON.stringify(output)).not.toContain('chat-attachments-extracted/');
  expect(hit.versionId).toBe('sha256:'+createHash('sha256').update('NEEDLE actual immutable extraction 中文 own').digest('hex'));
- const read=await source.read(actor,{sourceId:hit.sourceId,versionId:hit.versionId});expect(read.content).toContain('中文 own');expect(read.citationAnchor.messageId).toBe('message-own');
+ const read=await source.read(actor,{sourceId:hit.sourceId,versionId:hit.versionId});expect(read.content).toContain('中文 own');expect(read.citationAnchor.kind).toBe('chat-attachment');if(read.citationAnchor.kind==='indexed-segment')throw new Error('unexpected citation kind');expect(read.citationAnchor.messageId).toBe('message-own');
  await expect(source.read(actor,{sourceId:hit.sourceId,versionId:'sha256:'+'0'.repeat(64)})).rejects.toThrow();
 });
 it('private other-user IDs and foreign tenant cannot be read or searched',async()=>{

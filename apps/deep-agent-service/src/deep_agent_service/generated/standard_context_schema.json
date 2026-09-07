@@ -1,5 +1,6 @@
 {
   "limits": {
+    "maxIndexedCandidates": 100,
     "maxResults": 20,
     "maxReadBytes": 4194304,
     "maxTextChars": 60000,
@@ -44,6 +45,13 @@
                 "minLength": 1,
                 "maxLength": 2000,
                 "pattern": "\\S"
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "current-files",
+                  "organization-index"
+                ]
               },
               "projectId": {
                 "type": "string",
@@ -250,6 +258,13 @@
             "maxLength": 2000,
             "pattern": "\\S"
           },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "current-files",
+              "organization-index"
+            ]
+          },
           "projectId": {
             "type": "string",
             "minLength": 1,
@@ -288,39 +303,100 @@
                   "type": "string"
                 },
                 "citationAnchor": {
-                  "type": "object",
-                  "properties": {
-                    "kind": {
-                      "type": "string",
-                      "enum": [
-                        "chat-attachment",
-                        "canvas-artifact"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "chat-attachment",
+                            "canvas-artifact"
+                          ]
+                        },
+                        "sourceRecordId": {
+                          "type": "string"
+                        },
+                        "threadId": {
+                          "type": "string"
+                        },
+                        "messageId": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "sourceRecordId",
+                        "threadId",
+                        "messageId",
+                        "projectId"
+                      ],
+                      "additionalProperties": false
                     },
-                    "sourceRecordId": {
-                      "type": "string"
-                    },
-                    "threadId": {
-                      "type": "string"
-                    },
-                    "messageId": {
-                      "type": "string"
-                    },
-                    "projectId": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "const": "indexed-segment"
+                        },
+                        "segmentId": {
+                          "type": "string"
+                        },
+                        "artifactId": {
+                          "type": "string"
+                        },
+                        "artifactVersionId": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "anchor": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "page",
+                                "bbox",
+                                "timecode",
+                                "message-id",
+                                "question-no",
+                                "image-region"
+                              ]
+                            },
+                            "locator": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "locator"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "segmentId",
+                        "artifactId",
+                        "artifactVersionId",
+                        "projectId",
+                        "anchor"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "kind",
-                    "sourceRecordId",
-                    "threadId",
-                    "messageId",
-                    "projectId"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "required": [
@@ -336,7 +412,14 @@
           },
           "scopeMode": {
             "type": "string",
-            "const": "existing-file-retrieval"
+            "enum": [
+              "existing-file-retrieval",
+              "organization-index-fts"
+            ]
+          },
+          "coverage": {
+            "type": "string",
+            "const": "primary-file-index"
           },
           "truncated": {
             "type": "boolean"
@@ -392,39 +475,100 @@
             "maxLength": 60000
           },
           "citationAnchor": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "chat-attachment",
-                  "canvas-artifact"
-                ]
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "chat-attachment",
+                      "canvas-artifact"
+                    ]
+                  },
+                  "sourceRecordId": {
+                    "type": "string"
+                  },
+                  "threadId": {
+                    "type": "string"
+                  },
+                  "messageId": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "sourceRecordId",
+                  "threadId",
+                  "messageId",
+                  "projectId"
+                ],
+                "additionalProperties": false
               },
-              "sourceRecordId": {
-                "type": "string"
-              },
-              "threadId": {
-                "type": "string"
-              },
-              "messageId": {
-                "type": "string"
-              },
-              "projectId": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "indexed-segment"
+                  },
+                  "segmentId": {
+                    "type": "string"
+                  },
+                  "artifactId": {
+                    "type": "string"
+                  },
+                  "artifactVersionId": {
+                    "type": "string"
+                  },
+                  "projectId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "anchor": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "page",
+                          "bbox",
+                          "timecode",
+                          "message-id",
+                          "question-no",
+                          "image-region"
+                        ]
+                      },
+                      "locator": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "locator"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "kind",
+                  "segmentId",
+                  "artifactId",
+                  "artifactVersionId",
+                  "projectId",
+                  "anchor"
+                ],
+                "additionalProperties": false
               }
-            },
-            "required": [
-              "kind",
-              "sourceRecordId",
-              "threadId",
-              "messageId",
-              "projectId"
-            ],
-            "additionalProperties": false
+            ]
           },
           "accessibleAt": {
             "type": "string",
@@ -435,7 +579,10 @@
           },
           "contentKind": {
             "type": "string",
-            "const": "extracted-source"
+            "enum": [
+              "extracted-source",
+              "indexed-segment"
+            ]
           }
         },
         "required": [

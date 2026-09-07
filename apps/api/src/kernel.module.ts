@@ -1,3 +1,5 @@
+import { OrganizationContextSource } from "./infrastructure/agent-run/organization-context-source";
+import { PgOrganizationKnowledgeIndex } from "./infrastructure/retrieval/pg-organization-knowledge-index";
 import { SCHEDULE_NOTIFICATIONS } from "./application/agent-run/schedule-notifications";
 import { PgScheduleNotifications } from "./infrastructure/agent-run/pg-schedule-notifications";
 import { ScheduleNotificationsController } from "./interface/controllers/schedule-notifications.controller";
@@ -1924,7 +1926,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         const auth = { repo: identity, ids: decisions };
         return new StandardContextService({ repo: lists, identity },
           { repo: overview, auth, binding: { bindings, artifacts, auth, ids, provenance } },
-          new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat }));
+          new OrganizationContextSource(new PgOrganizationKnowledgeIndex(db, auth), auth,
+            new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat })));
       },
       inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
         PROJECT_LIST_REPOSITORY, PROJECT_OVERVIEW_REPOSITORY, BINDING_REPOSITORY, ARTIFACT_REPOSITORY, ID_FACTORY, PROVENANCE_WRITER],

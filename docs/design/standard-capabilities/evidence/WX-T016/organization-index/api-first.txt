@@ -1,0 +1,23 @@
+[stack-admission] load1=3.23 cores=10 perCore=0.32 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqplk2q-fb1a5bcc-0b169367270b db=wsx_0b169367270bc1600435 compose=wsx-0b169367270bc1600435 pg=23903 redis=28903 sandbox=53903
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_0b169367270bc1600435 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-context-source.test.ts (6 tests | 1 skipped) 3079ms
+ ✓ tests/agent-runtime/organization-context-source.test.ts (7 tests | 1 skipped) 778ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed | 2 skipped (13)
+   Start at  11:56:54
+   Duration  6.38s (transform 313ms, setup 0ms, collect 514ms, tests 3.86s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_0b169367270bc1600435 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/organization-context-source.test.ts tests/agent-runtime/standard-context-source.test.ts -t ^(?!.*production HTTP)
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：7s
