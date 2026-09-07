@@ -1,0 +1,79 @@
+services:
+  browser-runtime:
+    image: mcr.microsoft.com/playwright/mcp@sha256:${BROWSER_RUNTIME_IMAGE_DIGEST:?set reviewed 64-hex manifest digest}
+    init: true
+    user: "${BROWSER_UID:?set non-root browser uid}:${BROWSER_GID:?set non-root browser gid}"
+    command:
+      - /app/cli.js
+      - --headless
+      - --browser
+      - chromium
+      - --sandbox
+      - --isolated
+      - --block-service-workers
+      - --codegen
+      - none
+      - --snapshot-mode
+      - full
+      - --image-responses
+      - allow
+      - --output-dir
+      - /tmp/browser-output
+      - --output-max-size
+      - "33554432"
+      - --proxy-server
+      - http://browser-egress:3128
+      - --proxy-bypass
+      - "<-loopback>"
+      - --port
+      - "8931"
+      - --host
+      - 0.0.0.0
+      - --allowed-hosts
+      - 127.0.0.1,localhost
+    ports:
+      - "127.0.0.1:${BROWSER_MCP_PORT:-58931}:8931"
+    networks:
+      - browser_control
+    depends_on:
+      - browser-egress
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
+    restart: unless-stopped
+
+  browser-egress:
+    image: ubuntu/squid@sha256:${BROWSER_EGRESS_PROXY_IMAGE_DIGEST:?set reviewed 64-hex manifest digest}
+    init: true
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      - browser_control
+      - browser_public
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/log/squid:rw,nosuid,nodev,size=16m
+      - /var/spool/squid:rw,nosuid,nodev,size=16m
+      - /run:rw,nosuid,nodev,size=4m
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+
+networks:
+  browser_control:
+    internal: true
+  browser_public: {}

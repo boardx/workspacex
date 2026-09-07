@@ -5,7 +5,9 @@ export default defineConfig({
   test: {
     include: [
       'tests/agent-runtime/playwright-mcp-browser-adapter.test.ts',
+      'tests/agent-runtime/pg-browser-execution-receipts.test.ts',
       'tests/agent-runtime/playwright-mcp-upstream-contract.test.ts',
+      'tests/agent-runtime/browser-runtime-deployment.test.ts',
       'tests/agent-runtime/playwright-mcp-browser-real.test.ts',
     ],
     maxWorkers: 1,

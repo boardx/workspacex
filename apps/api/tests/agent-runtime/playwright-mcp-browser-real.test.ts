@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { NativeSessionOwner, NativeResolved } from '../../src/application/agent-run/native-session-owner';
 import type { ToolExecutionAuthority } from '../../src/application/agent-run/tool-execution-authority';
+import type { BrowserExecutionReceipts } from '../../src/application/agent-run/standard-browser-tools';
 import {
   OfficialPlaywrightMcpSessionFactory,
   PlaywrightMcpBrowserAdapter,
@@ -41,11 +42,17 @@ suite('W10 real Playwright MCP and Chromium acceptance', () => {
     const resolved = { sessionId: 'real-session', expiresAt: Date.now() + 60_000 } as unknown as NativeResolved;
     const owner = { resolve: async () => resolved } as unknown as NativeSessionOwner;
     const authority = { check: async () => ({ allowed: true, reason: 'allowed' }) } as unknown as Pick<ToolExecutionAuthority, 'check'>;
+    const receipts: BrowserExecutionReceipts = {
+      async claim() { return { kind: 'claimed' }; },
+      async succeed() {},
+      async markUnconfirmed() {},
+    };
     const workspace = {
       async write(file: { path: string; contentBase64: string }) { files.set(file.path, file.contentBase64); return {}; },
       async read(path: string) { const contentBase64 = files.get(path); if (!contentBase64) throw new Error('missing'); return { path, contentBase64, sizeBytes: Buffer.from(contentBase64, 'base64').length }; },
     };
-    const adapter = new PlaywrightMcpBrowserAdapter(owner, () => workspace, authority, new OfficialPlaywrightMcpSessionFactory(allowFixture));
+    const localFactory = new OfficialPlaywrightMcpSessionFactory(allowFixture, { allowInProcessBrowserWithoutNetworkNamespace: true });
+    const adapter = new PlaywrightMcpBrowserAdapter(owner, () => workspace, authority, receipts, allowFixture, localFactory);
     adapters.push(adapter);
     const context = (bindingId: string, run: string) => ({ orgId: 'org' as never, parentRunId: run, attemptId: `${run}:0`, leaseEpoch: 1, bindingId, toolCallId: `${run}-${randomUUID()}` });
     const openA = await adapter.invoke(context(A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url } });
