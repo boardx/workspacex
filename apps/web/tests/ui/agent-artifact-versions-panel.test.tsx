@@ -48,6 +48,8 @@ describe("artifact version actions",()=>{
   it("hides editing for read-only viewers",async()=>{
     render(<AgentArtifactVersionsPanel threadId="thread-a"/>);
     await screen.findByTestId("artifact-version-picker");
+    expect(screen.getByTestId("chat-task-workbench-artifact-versions")).toBeVisible();
+    expect(await screen.findByTestId("chat-task-workbench-artifact-export")).toBeVisible();
     expect(screen.queryByTestId("artifact-edit-instruction")).toBeNull();
   });
   it("discards a late response from the previous thread",async()=>{

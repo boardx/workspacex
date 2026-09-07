@@ -73,7 +73,7 @@ export function AgentArtifactVersionsPanel({threadId,projectId,sessionToken,refr
     finally{if(currentThread.current===submittedThread)setSubmitting(false);}
   }
   return <section className="min-w-0 space-y-3" aria-label="成果与版本" data-testid="agent-artifact-versions-panel">
-    <div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium">成果与版本</h3>
+    <div className="flex items-center justify-between gap-2"><h3 className="text-13 font-medium" data-testid="chat-task-workbench-artifact-versions">成果与版本</h3>
       <Button variant="ghost" size="sm" aria-label="刷新成果与修改进度" onClick={()=>setReload(v=>v+1)}><RefreshCw className="h-4 w-4"/></Button></div>
     {loading&&<p role="status" data-testid="loading" className="flex items-center gap-2 text-13 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>正在读取成果…</p>}
     {error&&<div role="alert" data-testid="err-artifacts" className="rounded-container border border-border p-3 text-13">{error}<Button variant="ghost" size="sm" onClick={()=>setReload(v=>v+1)}>刷新</Button></div>}
@@ -124,7 +124,7 @@ function ArtifactPreview({artifact,version,sessionToken}:{artifact:AgentArtifact
   if(error)return <div role="alert" className="text-13">此版本暂时无法读取。<Button variant="ghost" size="sm" onClick={()=>setRetry(v=>v+1)}>重试预览</Button></div>;
   if(!url)return <p role="status" className="text-13 text-muted-foreground">正在读取版本…</p>;
   return <div className="space-y-2">
-    <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={()=>{const anchor=document.createElement("a");anchor.href=url;anchor.download=artifact.name;anchor.click();}}><Download className="h-4 w-4"/>下载此版本</Button>
+    <div className="flex flex-wrap gap-2"><Button data-testid="chat-task-workbench-artifact-export" variant="outline" size="sm" onClick={()=>{const anchor=document.createElement("a");anchor.href=url;anchor.download=artifact.name;anchor.click();}}><Download className="h-4 w-4"/>下载此版本</Button>
       {isTextArtifact(artifact.name)&&base&&<Button variant="ghost" size="sm" disabled={diffBusy} onClick={()=>void compare()}>与版本 {base} 比较</Button>}</div>
     {diff?<div data-testid="artifact-text-diff" className="max-h-64 overflow-auto rounded-container border border-border p-3 font-mono text-11">
       {diff.lines.map((line,index)=><div key={index} className="whitespace-pre-wrap break-all" aria-label={line.kind==="added"?"新增":line.kind==="removed"?"删除":"未变"}>{line.kind==="added"?"+ ":line.kind==="removed"?"− ":"  "}{line.text}</div>)}

@@ -3,6 +3,9 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { RunTracePanel } from "@/components/chat/workbench/run-trace-panel";
+vi.mock("@/components/chat/subtask-run-live-panel", () => ({
+  SubtaskRunLivePanel: ({ parentRunId }: { parentRunId: string | null }) => <div data-testid="subtask-live">{parentRunId}</div>,
+}));
 const base = { runId: "run-1", emittedAt: "2026-09-07T00:00:00Z" };
 const start: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "tool-1", toolName: "search", args: { query: "资料" } };
 describe("run trace disclosure", () => {
@@ -19,8 +22,17 @@ describe("run trace disclosure", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-status", "succeeded");
     expect(screen.getByText("done")).not.toBeVisible();
-    fireEvent.click(screen.getByText("Tool · search"));
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已执行工具操作");
+    expect(screen.getByTestId("chat-task-workbench-event-row")).not.toHaveTextContent("search");
+    fireEvent.click(screen.getByText("已执行工具操作"));
     expect(screen.getByText("done")).toBeVisible();
+  });
+  it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
+    const spawn: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "tool-sub", toolName: "spawn_async_task", args: { description: "检索资料" } };
+    render(<RunTracePanel runId="run-1" events={[spawn]} />);
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("正在派发后台任务");
+    expect(screen.getByTestId("subtask-live")).toHaveTextContent("run-1");
   });
   it("shows a status-only disclosure and uses durable pause timestamps without a running spinner", () => {
     vi.useFakeTimers();

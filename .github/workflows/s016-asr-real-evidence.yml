@@ -1,0 +1,79 @@
+# Trusted, manual, main-only S016 vendor ASR evidence lane for Issue #2932.
+# Provider credentials stay in the self-hosted DevApp runner's 0600 deploy.env.
+name: s016-asr-real-evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      exact_sha:
+        description: 'Full SHA to verify; it must equal the current main HEAD'
+        required: true
+        type: string
+
+concurrency:
+  group: s016-asr-real-evidence
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 30
+    env:
+      S016_EXPECTED_SHA: ${{ inputs.exact_sha }}
+      WX_ASR_REAL_EVIDENCE: ${{ github.workspace }}/apps/api/test-results/s016-asr-real
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Bind the run to current main HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "${#S016_EXPECTED_SHA}" -eq 40
+          test "$actual_sha" = "$S016_EXPECTED_SHA"
+          mkdir -p "$WX_ASR_REAL_EVIDENCE"
+          printf '{"expectedSha":"%s","actualSha":"%s","ref":"refs/heads/main"}\n' \
+            "$S016_EXPECTED_SHA" "$actual_sha" > "$WX_ASR_REAL_EVIDENCE/00-checkout.json"
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Four-key ASR preflight (statuses only)
+        id: preflight
+        continue-on-error: true
+        run: bash .harness/scripts/vm/s016-asr-real-evidence.sh preflight
+      - name: Real vendor bilingual transcription acceptance
+        id: acceptance
+        if: steps.preflight.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . "${RUNNER_TEMP}/s016-asr-real.env"
+          set +a
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+            pnpm --filter @repo/api exec vitest run --config vitest.asr-real-model.config.ts \
+            > "${RUNNER_TEMP}/s016-asr-real-raw.log" 2>&1
+      - name: Scrub textual evidence
+        id: scrub
+        if: always() && steps.preflight.outcome == 'success'
+        run: bash .harness/scripts/vm/s016-asr-real-evidence.sh scrub
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: s016-asr-real-evidence-${{ inputs.exact_sha }}
+          path: apps/api/test-results/s016-asr-real
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove ephemeral credentials and raw log
+        if: always()
+        run: bash .harness/scripts/vm/s016-asr-real-evidence.sh cleanup
+      - name: Preserve the live verdict
+        if: always() && (steps.preflight.outcome != 'success' || steps.acceptance.outcome != 'success' || steps.scrub.outcome != 'success')
+        run: exit 1

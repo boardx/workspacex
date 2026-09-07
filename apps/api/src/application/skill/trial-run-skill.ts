@@ -99,7 +99,7 @@ export interface TrialRunSkillDeps {
   readonly identities: IdentityRepository;
   readonly runs: Pick<AgentRunStore, "readPinnedSkills">;
   readonly model: ModelCallPort;
-  /** 静态兜底（`KERNEL_SKILL_TRIALRUN_MODEL_ID`）——只在 `orgAgentModel` 查不到时才用。 */
+  /** 部署配置兜底——专用试跑 model id 优先，否则复用同一 provider 的通用 model id。 */
   readonly modelProvider: string;
   readonly modelId: string;
   /**
@@ -128,11 +128,11 @@ export async function trialRunSkill(
 
   /**
    * 人类反馈（2026-08-17，两次）：devapp 上试跑报 `MODEL_UNAVAILABLE`——不是代码 bug，
-   * 是这条部署没配 `KERNEL_SKILL_TRIALRUN_MODEL_ID`。自愈式回退：先问这个组织
+   * 是这条部署没有可用于单轮补全的 model id。自愈式回退：先问这个组织
    * **已经证明能打通**的模型（`orgAgentModel`，见其头注——第二版起只借用
    * `RoutingModelCallPort` 那个通用 provider，`deep-agent` 等专用 provider 一律
    * 排除，不会再"查到一个必然打不通的模型"），查不到（没有可借的已发布 agent，
-   * 或没注入这个可选依赖）才退回静态配置；两者都没有才诚实报 `MODEL_UNAVAILABLE`——
+   * 或没注入这个可选依赖）才退回部署配置；两者都没有才诚实报 `MODEL_UNAVAILABLE`——
    * 不是让进程启动失败，与 `ConfiguredModelProvider` 对未配置 provider 的处理同一条
    * 纪律（call-time 失败，不是 boot-time 崩溃）。
    *
