@@ -52,7 +52,11 @@ def test_forwards_trusted_identity_once_and_validates_output(monkeypatch):
     assert body['toolCallId'] == 'actual-call'
 
 
-@pytest.mark.parametrize('status, body', [(503, b'{}'), (302, b'{}'), (200, b'x' * (2 * 1024 * 1024 + 1)), (200, b'{}')])
+@pytest.mark.parametrize(
+    'status, body',
+    [(503, b'{}'), (302, b'{}'), (200, b'x' * (2 * 1024 * 1024 + 1)), (200, b'{}')],
+    ids=['upstream-error', 'redirect', 'oversize', 'invalid-json'],
+)
 def test_failure_is_sanitized_and_not_retried(monkeypatch, status, body):
     seen = []
 
