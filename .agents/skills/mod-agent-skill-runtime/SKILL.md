@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-07：真实模型长链验收不能把 LangGraph 默认 `recursion_limit=25` 当成 25 次模型调用预算——当前中间件每轮会经过多个图节点，外层 recursion 可能先于 `ModelCallLimitMiddleware(run_limit=25)` 误杀，留下“25 次预算耗尽”的假归因。测试 runner 应把 recursion ceiling 设到明显更高，只让生产模型调用熔断器做权威边界，并用模型 callback 单独计数、断言 `<=25`（出处：issue #2930）。
 - 2026-09-05：把 `call_skill` 一刀切记成 L2 是把"调用 skill 这个动作"当成了风险
   单位，真正的风险单位是**被调用的那个 skill**——分级判断要接住"目标是谁"，不能
   只看"用了哪个工具"（`bash_exec`/三个具名虚拟工具确实是"工具本身即风险"，但
