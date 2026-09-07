@@ -42,6 +42,11 @@ UPDATE design_projects p
  WHERE p.screens = '[]'::jsonb
    AND jsonb_array_length(p.frames) > 0;
 
+-- `design_project_prototype_versions` 的 append-only 触发器（20260906170000）拦 UPDATE/DELETE，
+-- 回填这列不是改历史内容（frames/prototype/notes 原样不动），只是给既有快照补一份等价的派生
+-- 表示，因此在同一迁移事务内临时关闭触发器执行，随后立刻恢复——不改授权、不改触发器定义本身。
+ALTER TABLE design_project_prototype_versions DISABLE TRIGGER design_project_prototype_versions_append_only_trg;
+
 UPDATE design_project_prototype_versions v
    SET screens = (
      SELECT COALESCE(jsonb_agg(
@@ -54,3 +59,5 @@ UPDATE design_project_prototype_versions v
    )
  WHERE v.screens = '[]'::jsonb
    AND jsonb_array_length(v.frames) > 0;
+
+ALTER TABLE design_project_prototype_versions ENABLE TRIGGER design_project_prototype_versions_append_only_trg;
