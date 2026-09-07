@@ -13,7 +13,7 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-methods',packVersion:'1.0.1'},
   {packId:'standard-context',packVersion:'1.0.0'},
   {packId:'standard-canvas',packVersion:'1.0.0'},
-  {packId:'standard-document',packVersion:'1.1.0'},
+  {packId:'standard-document',packVersion:'1.2.0'},
   {packId:'standard-authoring',packVersion:'1.0.0'},
   {packId:'standard-visual',packVersion:'1.0.1'},
   {packId:'standard-audio',packVersion:'1.1.1'},

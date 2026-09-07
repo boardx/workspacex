@@ -1,0 +1,4 @@
+{
+  "maxChunks": 50000,
+  "maxOutputBytes": 8388608
+}

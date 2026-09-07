@@ -8,12 +8,13 @@ from deep_agent_service import standard_document_tools as document
 def runtime():
  return SimpleNamespace(tool_call_id='actual-call',config={'configurable':{'native_runtime':{'bindingId':'00000000-0000-4000-8000-000000000001'},'run_control_callback':{'base_url':'http://gateway','key':'service-secret','org_id':'org','run_id':'run','attempt_id':'run:0','lease_epoch':1}}})
 
-def test_tool_hides_identity_and_rejects_unimplemented_modes_before_dispatch(monkeypatch):
+def test_tool_hides_identity_and_rejects_invalid_paths_before_dispatch(monkeypatch):
  tool=document.document_parse_tool()
  assert not {'runtime','orgId','bindingId','token'} & set(tool.args)
  monkeypatch.setattr(document.httpx,'AsyncClient',lambda **_:pytest.fail('must not dispatch'))
- for args in ({'workspacePath':'/inputs/a','outputMode':'chunks'},{'workspacePath':'/workspace/not-an-original'}):
+ for args in ({'workspacePath':'/inputs/a','outputMode':'xml'},{'workspacePath':'/workspace/not-an-original'}):
   with pytest.raises(document.StandardDocumentError):asyncio.run(document._parse(runtime(),args))
+ document._V['toolInput'].validate({'workspacePath':'/inputs/a.docx','outputMode':'chunks'})
 
 @pytest.mark.parametrize('failure',['status','redirect','oversize','invalid'])
 def test_unknown_responses_are_not_retried_and_hide_secrets(monkeypatch,failure):
@@ -40,3 +41,11 @@ def test_ocr_reference_pair_generated_schema():
  jsonschema.validate({**base,**pair},schema)
  for key,value in pair.items():
   with pytest.raises(jsonschema.ValidationError):jsonschema.validate({**base,key:value},schema)
+
+def test_generated_structure_schema_accepts_native_locations_and_rejects_fake_word_page():
+ import jsonschema
+ schema=document._SCHEMA['structure']
+ native={'schemaVersion':1,'engine':{'name':'python-docx','version':'1.2.0'},'sourceFormat':'docx','coordinateSpace':'ooxml_native','chunks':[{'type':'docx_paragraph','text':'原文','locator':{'paragraphIndex':0}}]}
+ jsonschema.validate(native,schema)
+ native['chunks'][0]['locator']['pageNumber']=1
+ with pytest.raises(jsonschema.ValidationError):jsonschema.validate(native,schema)

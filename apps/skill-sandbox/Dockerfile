@@ -149,6 +149,8 @@ RUN apt-get update \
  && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata > /opt/sandbox/ocr-model-hashes.txt \
  && rm -rf /var/lib/apt/lists/*
 COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
+COPY scripts/structure-document.py /usr/local/lib/workspacex/structure-document.py
+COPY scripts/document-structure-limits.json /usr/local/lib/workspacex/document-structure-limits.json
 
 # W14: maintained offline audio decoding, fixed Bookworm package; no runtime installs.
 RUN apt-get update \

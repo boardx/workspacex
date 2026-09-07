@@ -48,6 +48,26 @@ it('returns no reference on timeout, bad output or revocation after execution',a
  await expect(h.service.parse(context,{workspacePath:path})).rejects.toThrow('revoked');
 });
 
+it('returns verified native Office chunks while preserving source and permission checks',async()=>{
+ const structure={schemaVersion:1,engine:{name:'python-docx',version:'1.2.0'},sourceFormat:'docx',coordinateSpace:'ooxml_native',chunks:[{type:'docx_paragraph',text:'董事会摘要',locator:{paragraphIndex:0}},{type:'docx_table_cell',text:'120',locator:{tableIndex:0,rowIndex:1,columnIndex:1}}]};
+ const f=setup('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+ const read=f.session.read.getMockImplementation()!;
+ f.session.read.mockImplementation(async p=>{if(!p.endsWith('structure.json'))return read(p);const data=Buffer.from(JSON.stringify(structure));return {path:p,sizeBytes:data.length,contentBase64:data.toString('base64')};});
+ const result=await f.service.parse(context,{workspacePath:path,outputMode:'chunks'});
+ if(!('structureHash' in result))throw new Error('missing native structure');
+ expect(result.structureHash).toBe(sha(Buffer.from(JSON.stringify(structure))));
+ expect(result.source.mediaType).toContain('wordprocessingml');
+ expect(result.warnings).toContain('docx_page_numbers_unavailable');
+ expect(f.session.execute.mock.calls[0]![0].command).toContain("'python3' '/usr/local/lib/workspacex/structure-document.py'");
+ expect(f.inputs.read).toHaveBeenCalledTimes(2);
+});
+
+it('rejects chunks for formats without defensible native locations',async()=>{
+ const f=setup();
+ await expect(f.service.parse(context,{workspacePath:path,outputMode:'chunks'})).rejects.toThrow('structure_format_unsupported');
+ expect(f.session.execute).not.toHaveBeenCalled();
+});
+
 it('OCR returns verified real structure and rejects invalid coordinates or oversized claims',async()=>{
  const structure={engine:'tesseract',coordinateSpace:'rendered_page_pixels',pages:[{pageNumber:1,width:100,height:100,words:[{text:'中文',bbox:{x:1,y:2,width:30,height:20},confidence:95}]}]};
  const f=setup('application/pdf');

@@ -1,0 +1,44 @@
+[stack-admission] load1=1.50 cores=10 perCore=0.15 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqwnxoq-c4feae6f-04fe272baa2f db=wsx_04fe272baa2f94192a4f compose=wsx-04fe272baa2f94192a4f pg=20035 redis=25035 sandbox=50035
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_04fe272baa2f94192a4f capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts (6 tests | 6 skipped)
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts (6 tests | 6 skipped) 5703ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-document-locators-http.test.ts [ tests/agent-runtime/standard-document-locators-http.test.ts ]
+Error: mcp_run_unavailable
+ ❯ PgMcpExecutionSnapshot.facts src/infrastructure/mcp/pg-mcp-execution-snapshot.ts:38:19
+     36|     JOIN chat_threads t ON t.org_id=r.org_id AND t.id=r.thread_id
+     37|     WHERE r.org_id=$1 AND r.id=$2 FOR SHARE OF a`,[org,run])).rows[0]);
+     38|   if(!facts)throw new Error('mcp_run_unavailable');
+       |                   ^
+     39|   const organization=await this.visibility.repo.findOrganization(org);
+     40|   if(!organization)throw new Error('mcp_run_unavailable');
+ ❯ src/infrastructure/mcp/pg-mcp-execution-snapshot.ts:77:15
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgNativeSessionOwner.provision src/infrastructure/agent-run/pg-native-session-owner.ts:36:27
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts:65:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  6 skipped (6)
+   Start at  15:14:43
+   Duration  8.13s (transform 1.68s, setup 0ms, collect 422ms, tests 5.70s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_04fe272baa2f94192a4f peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：9s

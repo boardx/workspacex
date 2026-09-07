@@ -1,0 +1,1 @@
+{"engines": {"pdf": {"name": "pdfplumber", "version": "0.11.10"}, "docx": {"name": "python-docx", "version": "1.2.0"}, "pptx": {"name": "python-pptx", "version": "1.0.2"}, "xlsx": {"name": "openpyxl", "version": "3.1.5"}}, "pdfPages": [1, 2], "pdfTableId": "pdf-table-0", "docxChunks": 5, "pptxChunks": 5, "xlsxChunks": 6, "sourceBytesUnchanged": true, "unsupportedRejected": true}

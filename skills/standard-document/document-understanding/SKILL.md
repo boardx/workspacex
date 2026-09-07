@@ -1,9 +1,9 @@
 ---
 name: document-understanding
-description: 读取当前会话上传的文本PDF、Office和CSV原件，提取可核验内容、表格和问题答案，保留原始文件与解析失败边界。支持Markdown与显式扫描件OCR，并保留真实页像素坐标和识别置信度。
+description: 读取当前会话上传的文本PDF、Office和CSV原件，提取可核验内容、表格和问题答案，保留原始文件与解析失败边界。支持Markdown、原生Office定位、PDF表格页来源与显式扫描件OCR。
 metadata:
   capability_id: WX-S018
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # 文档理解
@@ -25,7 +25,16 @@ metadata:
 
 扫描件、文字为空、乱码、重复段落或跨页表格错位，都应明确指出未识别内容，不能靠猜测补齐。
 扫描PDF、PNG、JPEG可显式使用 `ocr:true`，读取 `structurePath` 并保留 `structureHash`。该JSON提供真实页号、渲染页像素尺寸、词框和引擎置信度；坐标不是PDF点坐标，置信度不是事实正确率。低置信度或关键金额应要求对照原图核查，不能猜补。跨页表格完整恢复仍不支持。
-这条能力的待实现范围见 `references/runtime.md`。
+
+需要原文定位时使用 `outputMode:"chunks"` 并读取 `structurePath`：PDF文字和表格单元格给出真实
+`pageNumber` 与PDF点空间 `bbox`；DOCX给段落或表格/行/列索引，不给不存在于OOXML中的稳定页码；
+PPTX给幻灯片号、元素索引/名称及表格单元格；XLSX给工作表名、地址、行列与合并范围。所有 `Index`
+均从0开始，页/幻灯片号和XLSX行列从1开始。公式按原文返回，不声称已重算。
+
+PDF跨页表格只有相邻页列数和非空重复表头完全一致时才共享 `tableId`，并返回
+`cross_page_table_grouping_heuristic`；这只是保守候选分组，不是确定语义。表头未重复、复杂合并或
+检测不到表格时如实保留断裂/失败，不自行拼接。CSV、TXT、Markdown及其他格式没有可辩护的原生
+结构定位时拒绝 chunks，不伪造定位。完整运行边界见 `references/runtime.md`。
 
 输出时先回答问题，再给有来源的证据、缺失字段和冲突。区分原文事实与推断；数值保留单位、期间、
 分母和原文口径。需要编辑原文件时先复制到 `/workspace` 并使用对应Office技能，保留原件不变。
