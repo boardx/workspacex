@@ -126,7 +126,12 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
   await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
   await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
   const title = `旅程③ ${unique}`;
-  const threadId = await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
+  // The seeded-github-import project is deliberately stateful. Earlier specs can
+  // leave a not-started draft with a mounted skill, and the product correctly
+  // reuses that draft when New is clicked. This journey needs a clean mount
+  // baseline, so create an isolated persisted fixture instead of weakening the
+  // zero-mount counterproof.
+  const threadId = await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId, { forceFresh: true });
   await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
   await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
   await page.getByTestId("chat-skill-mount").click();

@@ -1,7 +1,12 @@
 import { expect, type Page, type Response } from "@playwright/test";
 
 /** New tasks are persisted immediately; rename uses the actual card menu. */
-export async function createNamedWorkbenchThread(page: Page, title: string, projectId: string): Promise<string> {
+export async function createNamedWorkbenchThread(
+  page: Page,
+  title: string,
+  projectId: string,
+  options: { forceFresh?: boolean } = {},
+): Promise<string> {
   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
   const before = await page.request.get(`/__fullstack_api/chat/projects/${projectId}/threads`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -16,6 +21,30 @@ export async function createNamedWorkbenchThread(page: Page, title: string, proj
   page.on("response", observeCreate);
   let threadId: string;
   try {
+    if (options.forceFresh) {
+      // The product intentionally reuses an existing not-started thread when the
+      // user clicks New. Stateful journey suites can leave such a draft with
+      // mounted skills, so tests which need a clean mount baseline create their
+      // fixture explicitly and then exercise the rest of the journey in the UI.
+      const response = await page.request.post("/__fullstack_api/chat/threads/mutate", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          op: "create",
+          projectId,
+          threadId: null,
+          groupId: null,
+          title,
+          visibilityScope: "plenary",
+          expectedVersion: null,
+          reason: null,
+        },
+      });
+      expect(response.ok()).toBe(true);
+      threadId = (await response.json()).threadId as string;
+      await page.goto(`/chat/${encodeURIComponent(threadId)}?projectId=${encodeURIComponent(projectId)}`);
+      await expect(page.getByTestId(`chat-thread-${threadId}`)).toHaveAttribute("data-selected", "true");
+      return threadId;
+    }
     await page.getByTestId("chat-thread-create").click();
     await page.waitForURL(url => /^\/chat\/[^/]+$/.test(url.pathname) && url.searchParams.get("projectId") === projectId);
     threadId = decodeURIComponent(new URL(page.url()).pathname.split("/").at(-1)!);
@@ -51,4 +80,3 @@ export async function openWorkbenchRoster(page: Page): Promise<void> {
   await page.getByTestId("chat-task-workbench-inspector-tab-roster").click();
   await expect(page.getByTestId("chat-roster-edit")).toBeVisible();
 }
-
