@@ -31,7 +31,7 @@ jobs:
           echo "── df /opt/workspacex ──"; df -h /opt/workspacex 2>&1 || true
           echo "── .next 现状（构建产物是否完整）──"
           ls -l /opt/workspacex/app/apps/web/.next/BUILD_ID 2>&1 || echo "(无 BUILD_ID)"
-          cat /opt/workspacex/app/apps/web/.next/BUILD_ID 2>/dev/null; echo
+          cat /opt/workspacex/app/apps/web/.next/BUILD_ID 2>/dev/null || echo "(读不到 BUILD_ID ⇒ 上次构建没跑完)"
           ls -ld /opt/workspacex/app/apps/web/.next/static/chunks 2>&1 || true
           (cd /opt/workspacex/app && git log --oneline -1) 2>&1 || true
 
