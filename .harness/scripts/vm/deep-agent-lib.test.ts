@@ -466,3 +466,119 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
     expect(deployText).toContain("DEEP_AGENT_CHECKPOINT_DB");
   });
 });
+
+describe("#2929 native runtime deployment env — persistent owner with admission-only rollout", () => {
+  const socket = "/run/workspacex-native-sessions/skill-sandbox.sock";
+
+  function ensure(initial: string, admission = "1") {
+    const temp = tempDir();
+    const envFile = join(temp, "deploy.env");
+    writeFileSync(envFile, initial);
+    const result = runLib(
+      `native_runtime_ensure_deploy_env '${envFile}' '${socket}' '${admission}'`,
+    );
+    return { ...result, envFile, content: readFileSync(envFile, "utf8") };
+  }
+
+  it("backfills an absolute socket, 256-bit binding key, internal key and enabled admission without printing secrets", () => {
+    const result = ensure("APP_API_PORT=3200\n");
+    expect(result.status).toBe(0);
+    expect(result.content).toContain(`NATIVE_SESSION_SOCKET=${socket}`);
+    expect(result.content).toMatch(/^NATIVE_SESSION_BINDING_KEY=[a-f0-9]{64}$/m);
+    expect(result.content).toMatch(/^DEEP_AGENT_SERVICE_INTERNAL_KEY=[a-f0-9]{64}$/m);
+    expect(result.content).toContain("KERNEL_NATIVE_RUNTIME=1");
+    const binding = result.content.match(/^NATIVE_SESSION_BINDING_KEY=(.+)$/m)![1]!;
+    const service = result.content.match(/^DEEP_AGENT_SERVICE_INTERNAL_KEY=(.+)$/m)![1]!;
+    expect(`${result.stdout}${result.stderr}`).not.toContain(binding);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(service);
+  });
+
+  it("is idempotent and never rotates existing deployment secrets or admission state", () => {
+    const binding = "a".repeat(64);
+    const service = "b".repeat(64);
+    const initial = [
+      `NATIVE_SESSION_SOCKET=${socket}`,
+      `NATIVE_SESSION_BINDING_KEY=${binding}`,
+      `DEEP_AGENT_SERVICE_INTERNAL_KEY=${service}`,
+      "KERNEL_NATIVE_RUNTIME=0",
+      "",
+    ].join("\n");
+    const first = ensure(initial, "1");
+    expect(first.status).toBe(0);
+    expect(first.content).toBe(initial);
+    const second = runLib(`native_runtime_ensure_deploy_env '${first.envFile}' '${socket}' '1'`);
+    expect(second.status).toBe(0);
+    expect(readFileSync(first.envFile, "utf8")).toBe(initial);
+  });
+
+  it("fails closed on malformed existing values instead of replacing or guessing them", () => {
+    for (const invalid of [
+      `NATIVE_SESSION_SOCKET=relative.sock\nNATIVE_SESSION_BINDING_KEY=${"a".repeat(64)}\nDEEP_AGENT_SERVICE_INTERNAL_KEY=${"b".repeat(64)}\nKERNEL_NATIVE_RUNTIME=1\n`,
+      `NATIVE_SESSION_SOCKET=${socket}\nNATIVE_SESSION_BINDING_KEY=short\nDEEP_AGENT_SERVICE_INTERNAL_KEY=${"b".repeat(64)}\nKERNEL_NATIVE_RUNTIME=1\n`,
+      `NATIVE_SESSION_SOCKET=${socket}\nNATIVE_SESSION_BINDING_KEY=${"a".repeat(64)}\nDEEP_AGENT_SERVICE_INTERNAL_KEY=bad value\nKERNEL_NATIVE_RUNTIME=1\n`,
+      `NATIVE_SESSION_SOCKET=${socket}\nNATIVE_SESSION_BINDING_KEY=${"a".repeat(64)}\nDEEP_AGENT_SERVICE_INTERNAL_KEY=${"b".repeat(64)}\nKERNEL_NATIVE_RUNTIME=maybe\n`,
+    ]) {
+      const result = ensure(invalid);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("native runtime");
+    }
+  });
+
+  it("projects recovery dependencies into Deep Agent even when new-run admission is disabled", () => {
+    const temp = tempDir();
+    const source = join(temp, "deploy.env");
+    const dest = join(temp, "deep-agent.env");
+    const service = "b".repeat(64);
+    writeFileSync(source, [
+      `NATIVE_SESSION_SOCKET=${socket}`,
+      `NATIVE_SESSION_BINDING_KEY=${"a".repeat(64)}`,
+      `DEEP_AGENT_SERVICE_INTERNAL_KEY=${service}`,
+      "KERNEL_NATIVE_RUNTIME=0",
+      "",
+    ].join("\n"));
+    writeFileSync(dest, "KERNEL_MODEL_BASE_URL=http://model\n");
+    const result = runLib(
+      `deep_agent_project_native_env '${source}' '${dest}' '/run/native-sessions/skill-sandbox.sock' 'http://workspacex-api-host:3200'`,
+    );
+    expect(result.status).toBe(0);
+    const projected = readFileSync(dest, "utf8");
+    expect(projected).toContain("NATIVE_SESSION_SOCKET=/run/native-sessions/skill-sandbox.sock");
+    expect(projected).toContain("NATIVE_SESSION_SERVICE_BASE_URL=http://workspacex-api-host:3200");
+    expect(projected).toContain(`NATIVE_SESSION_SERVICE_KEY=${service}`);
+    expect(projected).not.toContain("NATIVE_SESSION_BINDING_KEY");
+    expect(result.stderr).toContain("admission=0");
+    expect(result.stderr).not.toContain(service);
+  });
+
+  it("checks the restarted API process environment without exposing key material", () => {
+    const temp = tempDir();
+    const processEnv = join(temp, "environ");
+    const binding = "a".repeat(64);
+    const service = "b".repeat(64);
+    writeFileSync(processEnv, Buffer.from([
+      `NATIVE_SESSION_SOCKET=${socket}`,
+      `NATIVE_SESSION_BINDING_KEY=${binding}`,
+      `DEEP_AGENT_SERVICE_INTERNAL_KEY=${service}`,
+      "KERNEL_NATIVE_RUNTIME=0",
+      "",
+    ].join("\0")));
+    const result = runLib(
+      `native_runtime_assert_api_env_file '${processEnv}' '${socket}' '0'`,
+    );
+    expect(result.status).toBe(0);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(binding);
+    expect(`${result.stdout}${result.stderr}`).not.toContain(service);
+    writeFileSync(processEnv, Buffer.from(`NATIVE_SESSION_SOCKET=${socket}\0KERNEL_NATIVE_RUNTIME=0\0`));
+    const denied = runLib(`native_runtime_assert_api_env_file '${processEnv}' '${socket}' '0'`);
+    expect(denied.status).not.toBe(0);
+    expect(denied.stderr).toContain("process env");
+  });
+
+  it("the real deploy and provision paths both invoke the same idempotent env helper", () => {
+    const deploy = readFileSync(DEPLOY, "utf8");
+    const provision = readFileSync(PROVISION, "utf8");
+    expect(deploy).toContain("native_runtime_ensure_deploy_env");
+    expect(provision).toContain("native_runtime_ensure_deploy_env");
+    expect(deploy.indexOf("native_runtime_ensure_deploy_env")).toBeLessThan(deploy.indexOf("export $(grep"));
+  });
+});

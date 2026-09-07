@@ -60,6 +60,17 @@ else
   echo "Docker 已装：$(docker --version)"
 fi
 
+step "0a. AppArmor（Native session 外层约束）"
+if ! command -v apparmor_parser >/dev/null 2>&1; then
+  apt-get -qq update >/dev/null
+  apt-get -qq install -y apparmor >/dev/null
+fi
+command -v apparmor_parser >/dev/null 2>&1 || {
+  echo "✗ 缺 apparmor_parser，Native session 不能在未加载外层策略时启动"
+  exit 1
+}
+echo "AppArmor parser 已就绪"
+
 step "0b. Node.js 22 + pnpm（deploy.sh 用 workspacex 身份跑 pnpm install/build，见「踩过的坑」第三条）"
 if ! command -v node >/dev/null 2>&1 || [[ "$(node --version)" != v22.* ]]; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
@@ -235,6 +246,11 @@ ensure_env_key() {
 gen_secret() { openssl rand -base64 24; }
 ensure_env_key DIAG_DB_USER app_diag_ro
 ensure_env_key DIAG_DB_PASSWORD "$(gen_secret)"
+NATIVE_RUNTIME_LIB="${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh"
+[ -r "$NATIVE_RUNTIME_LIB" ] || { echo "✗ 缺 Native runtime helper: ${NATIVE_RUNTIME_LIB}"; exit 1; }
+# shellcheck source=/dev/null
+source "$NATIVE_RUNTIME_LIB"
+native_runtime_ensure_deploy_env "$ENV_FILE" "/run/workspacex-native-sessions/skill-sandbox.sock" "1"
 chmod 600 "$ENV_FILE"
 chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 
