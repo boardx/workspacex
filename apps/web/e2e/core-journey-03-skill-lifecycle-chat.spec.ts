@@ -156,7 +156,12 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
   const completed = await submitWorkbenchRun(page);
 
   await page.reload();
-  await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
+  // Reload must restore this persisted task. A display title (or its position
+  // among other stateful journeys' cards) is not the identity of the task.
+  await expect(page).toHaveURL(url =>
+    url.pathname === `/chat/${threadId}` && url.searchParams.get("projectId") === FULLSTACK_E2E.projectId);
+  await expect(page.getByTestId(`chat-thread-${threadId}`)).toHaveAttribute("data-selected", "true");
+  await expect(page.getByTestId(`chat-skill-mounted-${skill!.skillId}`)).toBeVisible();
   const messageList = page.getByTestId("copilotkit-v2-messages");
   await expect(messageList).toContainText(marker);
   // 真实实测：挂了 skill 之后，这条 run 走的不是 core-loop.spec.ts 8b 那条纯 echo
