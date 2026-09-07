@@ -115,10 +115,12 @@ async function readBack(versionId: string): Promise<{
   readonly published: boolean;
   readonly files: readonly { path: string; content: string; digest: string }[];
   readonly skillName: string;
+  readonly skillId: string;
+  readonly stableName: string;
 }> {
   return asApp(ORG, async (client) => {
     const version = await client.query(
-      `SELECT v.published, s.name
+      `SELECT v.published, v.skill_id, s.name, s.stable_name
          FROM skill_versions v JOIN skills s ON s.id = v.skill_id AND s.org_id = v.org_id
         WHERE v.org_id = $1 AND v.id = $2`,
       [ORG, versionId],
@@ -131,6 +133,8 @@ async function readBack(versionId: string): Promise<{
     return {
       published: version.rows[0]?.published === true,
       skillName: version.rows[0]?.name ?? "",
+      skillId: version.rows[0]?.skill_id ?? "",
+      stableName: version.rows[0]?.stable_name ?? "",
       files: files.rows.map((r) => ({
         path: r.path,
         content: Buffer.from(r.content).toString(),
@@ -159,6 +163,11 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
 
     const stored = await readBack(result.versionId);
     expect(stored.skillName).toBe("url-imported-skill");
+    // G2（2026-09-07 人类实测）：`stable_name` 是 chat 阶段文案「正在执行技能脚本
+    // （…）」直接回显的那个值（`agent-run-phase.ts` 的 `phaseLabelForCallSkillArgs`）
+    // ——它不能是内部 skill id，否则用户看到的是一串 `sk_<uuid>` 而不是名字。
+    expect(stored.stableName).toBe("url-imported-skill");
+    expect(stored.stableName).not.toBe(stored.skillId);
     expect(stored.files).toHaveLength(1);
     expect(stored.files[0]!.path).toBe("SKILL.md");
     // ⚠ 断言真实字节，不只是「有一行」。
@@ -172,6 +181,56 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
     expect(listing.count).toBe(1);
     expect(listing.kind).toBe("skill");
     expect(listing.enabled).toBe(true);
+  });
+
+  it("展示名含中文 ⇒ stable_name 保留原名，不音译成裸 ascii 残片、也不是内部 id", async () => {
+    handler = (_req, res) => {
+      res.writeHead(200, { "content-type": "text/markdown" });
+      res.end("# imported skill\n");
+    };
+    const result = await importSkillFromUrl(
+      {
+        orgId: ORG,
+        actorId: ACTOR,
+        sourceUrl: `https://allowed.example:${port}/SKILL.md`,
+        name: "AI 转型洞察报告",
+        idempotencyKey: "i595-key-zh",
+      },
+      { identities: ADMIN, fetch: fetcher(true), repository, policy: { localOnlyOrg: false } },
+    );
+    const stored = await readBack(result.versionId);
+    expect(stored.stableName).toBe("AI-转型洞察报告");
+    expect(stored.stableName).not.toBe(stored.skillId);
+  });
+
+  it("stable_name 撞车（重复导入同名 skill）⇒ 追加数字后缀，不是唯一约束报错", async () => {
+    const importOnce = (idempotencyKey: string) => {
+      handler = (_req, res) => {
+        res.writeHead(200, { "content-type": "text/markdown" });
+        res.end("# imported skill\n");
+      };
+      return importSkillFromUrl(
+        {
+          orgId: ORG,
+          actorId: ACTOR,
+          sourceUrl: `https://allowed.example:${port}/SKILL.md`,
+          // 用两个不同的展示名，但 ascii 化后落到同一个 slug —— "Report!!" 与
+          // "report" 都会削成 "report"；`skills_name_casefold_uniq` 只挡「同名」，
+          // 挡不住「不同名但同 slug」，这条覆盖的正是这一种碰撞。
+          name: idempotencyKey === "i595-key-slug-a" ? "Report!!" : "report",
+          idempotencyKey,
+        },
+        { identities: ADMIN, fetch: fetcher(true), repository, policy: { localOnlyOrg: false } },
+      );
+    };
+    const first = await importOnce("i595-key-slug-a");
+    const second = await importOnce("i595-key-slug-b");
+    const [firstStored, secondStored] = await Promise.all([
+      readBack(first.versionId),
+      readBack(second.versionId),
+    ]);
+    expect(firstStored.stableName).toBe("report");
+    expect(secondStored.stableName).toBe("report-2");
   });
 
   it("同一幂等键重复导入 ⇒ 回放同一个版本，不产生第二行", async () => {
