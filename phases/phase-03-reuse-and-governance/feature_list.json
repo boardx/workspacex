@@ -1173,6 +1173,109 @@
         "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '预览模式：点有跳转的节点真的换页'"
       ],
       "evidence": ""
+    },
+    {
+      "id": "F53",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-AI",
+      "title": "分页生成：一次骨架 + 每页一次，单次输出量与页数解耦",
+      "user_visible_behavior": "描述完产品，2–3 秒内画布上就出现带标签的空页骨架，然后一页页填充出组件树，先生成好的页此刻就能点选和改属性，不必等全部完成。8 页的项目不再超时或被截断。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§1",
+      "depends_on": [
+        "p3:F52"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts",
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F54",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "页级失败可见且可单独重试，截断有独立回执",
+      "user_visible_behavior": "某一页没生成完时，只有那一页显示占位框和「第 N 页没生成完」，其余页照常可用；点「重试这一页」只重跑那一页。输出被截断时回执明说是截断，而不是笼统的「没能返回结果」。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§1.2",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
+        "pnpm --filter contracts exec vitest run tests/design-ai-collab.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F55",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-AI",
+      "title": "addScreen / removeScreen：增删页不再整页重给，跳转索引整体平移",
+      "user_visible_behavior": "让 AI「在第 2 页后面加一页设置页」或「删掉第 3 页」时，其余页的组件树原样不动；删页后原本指向后面页的跳转仍然指对地方，不会静默错位。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§2",
+      "depends_on": [
+        "p3:F52"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter contracts exec vitest run tests/design-prototype.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F56",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "导出可点击的自包含 HTML",
+      "user_visible_behavior": "导出菜单里点「可点击原型 (.html)」下载一个文件，双击用任何浏览器打开就能看到全部页面，点带跳转的按钮真的换页，断网也能用，不依赖本产品。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§3",
+      "depends_on": [
+        "p3:F52"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/prototype-export-html.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '导出可点击 HTML：打开后点跳转真的换页'"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F57",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "导出 PDF 交付文档：界面一节每页一屏图 + 一段说明",
+      "user_visible_behavior": "导出菜单里点「设计文档 (PDF)」得到一份可以直接发给别人的文档：封面、问题与目标、验收标准、界面（每页一屏图 + 交互说明 + 结构大纲 + 人话跳转清单）、设计过程。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§4",
+      "depends_on": [
+        "p3:F56"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/prototype-export-pdf.test.ts"
+      ],
+      "evidence": ""
     }
   ]
 }
