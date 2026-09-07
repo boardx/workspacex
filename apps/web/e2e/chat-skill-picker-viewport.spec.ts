@@ -42,6 +42,8 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 700 
     await inViewport(picker, viewport.width, viewport.height);
     await inViewport(first, viewport.width, viewport.height);
     await inViewport(cancel, viewport.width, viewport.height);
+    await expect(picker).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("skill-picker-expanded.png"), fullPage: true });
     const scrollBefore = await picker.evaluate(el => {
       const scrolling = [el, ...el.querySelectorAll("*")].find(node => /auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight);
       return scrolling ? { top: scrolling.scrollTop, height: scrolling.clientHeight } : null;
@@ -52,7 +54,6 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 700 
     await inViewport(cancel, viewport.width, viewport.height);
     await cancel.click(); await expect(picker).toHaveCount(0);
     await openPicker();
-    await page.screenshot({ path: testInfo.outputPath("skill-picker-expanded.png"), fullPage: true });
     const mounted = page.waitForResponse(response => response.request().method() === "POST" && response.url().includes(`/threads/${threadId}/skill-mounts`));
     await last.click(); // Native Playwright actionability/scrolling; never force the click.
     expect((await mounted).ok()).toBe(true);
