@@ -37,7 +37,18 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
          FROM agent_runs r WHERE r.org_id=$1 AND r.id=$2 FOR UPDATE OF r`,
         [input.orgId, input.parentRunId, input.leaseEpoch]);
       const row = rows[0];
-      return check(row ? { active: row.active, cancelRequested: row.cancel_requested, leaseValid: row.lease_valid,
+      if (!row) {
+        const child=(await session.query<{active:boolean;cancel_requested:boolean;lease_valid:boolean;attempt_id:string|null;skill_version_ids:string[];file_output:boolean}>(
+          `SELECT c.status='running' AS active, c.cancel_requested_at IS NOT NULL OR p.cancel_requested_at IS NOT NULL AS cancel_requested,
+             c.lease_epoch=$3 AS lease_valid,c.execution_attempt_id AS attempt_id,c.skill_version_ids,
+             c.output_policy IS NOT NULL AS file_output
+           FROM subtask_runs c JOIN agent_runs p ON p.org_id=c.org_id AND p.id=c.parent_run_id
+           WHERE c.org_id=$1 AND c.id=$2 FOR UPDATE OF p,c`,[input.orgId,input.parentRunId,input.leaseEpoch])).rows[0];
+        return check(child?{active:child.active,cancelRequested:child.cancel_requested,leaseValid:child.lease_valid,
+          attemptId:child.attempt_id,skillVersionIds:child.skill_version_ids,
+          allowedTools:child.file_output?["wx_artifact_publish"]:[]}:null);
+      }
+      return check({ active: row.active, cancelRequested: row.cancel_requested, leaseValid: row.lease_valid,
         attemptId: row.attempt_id, skillVersionIds: row.skill_version_ids,
         explicitlyDenied: matchesDeniedTool(input, row),
         authorizeOnce: async () => {
@@ -54,7 +65,7 @@ export class PgParentRunControlReader implements ParentCancellationReader, ToolA
             WHERE org_id=$1 AND id=$2 AND pending_tool_authorized_attempt IS NULL RETURNING id`,
             [input.orgId, input.parentRunId, input.attemptId]);
           return consumed.rows.length === 1;
-        } } : null);
+        } });
     });
   }
 }

@@ -14,6 +14,7 @@ export class PgNativeRunInputs implements NativeRunInputs {
   constructor(private db: DatabasePort, private objects: ObjectStore, private visibility: ResolveVisibilityDeps) {}
   async read(context: ExecutionAuthorityContext) {
     const rows = await this.db.withTenant(context.orgId, async s => {
+      if((await s.query('SELECT id FROM subtask_runs WHERE org_id=$1 AND id=$2',[context.orgId,context.parentRunId])).rows.length)return [];
       const run = (await s.query<{ thread_id: string; input_message_id: string; author_id: string }>(
         `SELECT r.thread_id,r.input_message_id,m.author_id FROM agent_runs r
          JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id AND m.thread_id=r.thread_id

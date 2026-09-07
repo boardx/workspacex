@@ -1660,7 +1660,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore,nativeSessions:NativeSessionOwner|null) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -1668,9 +1668,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           deadlines.set(configured.provider, configured.timeoutMs);
         }
         return new SubtaskRunExecutor(store, db, model, logger,
-          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts, outputs??undefined,runs);
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts, outputs??undefined,runs,
+          // #2931: a file-producing subtask needs its OWN native session to reach
+          // `wx_artifact_publish`. Absent (no sandbox socket) ⇒ `outputFiles` runs
+          // fail closed rather than silently degrading to text-only.
+          nativeSessions??undefined);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE,NATIVE_SESSION_OWNER],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供

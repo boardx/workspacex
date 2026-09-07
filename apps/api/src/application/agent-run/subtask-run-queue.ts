@@ -52,6 +52,8 @@ export interface SubtaskExecutionState {
   readonly run: SubtaskRun;
   readonly remoteRunId: string | null;
   readonly remoteThreadId: string | null;
+  readonly executionAttemptId: string | null;
+  readonly leaseEpoch: number;
 }
 export interface SubtaskRunStore {
   readExecution(orgId: OrgId, id: string): Promise<SubtaskExecutionState | null>;

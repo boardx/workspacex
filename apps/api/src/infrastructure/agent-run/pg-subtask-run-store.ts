@@ -7,7 +7,7 @@ import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError } from "..
 import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState } from "../../application/agent-run/subtask-run-queue";
 import type {RunOutputFile} from '../../application/agent-run/ports';
 
-type Row = { output_policy:unknown;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string;artifact_refs:unknown;output_manifest:unknown;cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
+type Row = { execution_attempt_id:string|null;lease_epoch:number;output_policy:unknown;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string;artifact_refs:unknown;output_manifest:unknown;cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
   status: SubtaskRun["status"]; result: string | null; error: string | null; created_at: Date; updated_at: Date };
 const decode = (r: Row): SubtaskRun => ({ ...(r.cancel_requested_at && r.cancellation_state ? {cancellation:{requestedAt:r.cancel_requested_at.toISOString(),state:r.cancellation_state}} : {}), id: r.id, parentRunId: r.parent_run_id,
   description: r.description, context: r.context,...(r.output_policy?{outputFiles:r.output_policy as SubtaskRun['outputFiles']}:{}),
@@ -85,7 +85,8 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
           await s.query("UPDATE subtask_runs SET status='cancelled',updated_at=now() WHERE org_id=$1 AND parent_run_id=$2 AND status='pending'", [orgId,parent.id]);
           continue;
         }
-        const r = await s.query<Row>(`UPDATE subtask_runs SET status='running',updated_at=now()
+        const r = await s.query<Row>(`UPDATE subtask_runs SET status='running',lease_epoch=lease_epoch+1,
+          execution_attempt_id=id||':'||(lease_epoch+1)::text,updated_at=now()
           WHERE org_id=$1 AND id IN (SELECT id FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND status='pending'
           ORDER BY created_at,id LIMIT $3 FOR UPDATE SKIP LOCKED) RETURNING *`, [orgId,parent.id,maximum-claimed.length]);
         claimed.push(...r.rows.map(decode));
@@ -185,7 +186,8 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
           status=CASE WHEN status='pending' THEN 'cancelled' ELSE status END
           WHERE org_id=$1 AND id=$2 RETURNING *`,[orgId,id,parent.rows[0].cancel_requested_at])).rows[0]!;
       }
-      return {run:decode(row),remoteRunId:row.remote_run_id,remoteThreadId:row.remote_thread_id};
+      return {run:decode(row),remoteRunId:row.remote_run_id,remoteThreadId:row.remote_thread_id,
+        executionAttemptId:row.execution_attempt_id,leaseEpoch:Number(row.lease_epoch)};
     });
   }
   bindRemoteRun(orgId:OrgId,id:string,remoteRunId:string,remoteThreadId:string):Promise<void>{

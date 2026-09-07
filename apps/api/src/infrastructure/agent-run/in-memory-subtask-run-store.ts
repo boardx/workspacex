@@ -93,7 +93,7 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
   }
 
   async readExecution(orgId:OrgId,id:string):Promise<SubtaskExecutionState|null>{
-    const run=await this.get(orgId,id);return run?{run,...(this.remotes.get(id)??{remoteRunId:null,remoteThreadId:null})}:null;
+    const run=await this.get(orgId,id);return run?{run,...(this.remotes.get(id)??{remoteRunId:null,remoteThreadId:null}),executionAttemptId:`${id}:1`,leaseEpoch:1}:null;
   }
   async bindRemoteRun(orgId:OrgId,id:string,remoteRunId:string,remoteThreadId:string){
     const run=await this.get(orgId,id),prior=this.remotes.get(id);

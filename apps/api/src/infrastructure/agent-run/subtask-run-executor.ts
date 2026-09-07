@@ -11,6 +11,8 @@ import type { EngineRunController } from '../../application/plan-control/engine-
 import { deriveRemoteThreadId } from './deep-agent-model-provider';
 import type { OrgId } from "../../domain/org-id";
 import type {NativeOutputStaging} from '../../application/agent-run/native-output-staging';
+import type {NativeSessionOwner} from '../../application/agent-run/native-session-owner';
+import {bindNativeInvocation} from '../../application/agent-run/native-invocation';
 
 /** Same tenant kick lifecycle. Recovery only interrupts persisted remote identities;
  * it never recreates a model run or claims that HTTP abort stopped vendor compute. */
@@ -23,7 +25,8 @@ export class SubtaskRunExecutor {
     private readonly engine?:EngineRunController,
     private readonly contexts?:SubtaskContextResolver,
     private readonly outputs?:Pick<NativeOutputStaging,'listFiles'>,
-    private readonly pins?:Pick<AgentRunStore,'readPinnedSkills'>) {}
+    private readonly pins?:Pick<AgentRunStore,'readPinnedSkills'>,
+    private readonly native?:NativeSessionOwner) {}
 
   private async stopRemote(orgId:OrgId,state:SubtaskExecutionState):Promise<void>{
     if(!state.remoteRunId||state.remoteThreadId!==deriveRemoteThreadId(state.run.id)||!this.engine){
@@ -53,6 +56,15 @@ export class SubtaskRunExecutor {
       if (claimed === 0) break;
     }
     return executed;
+  }
+  private nativeOwnerOrThrow():NativeSessionOwner{
+    if(!this.native||!this.outputs)throw new Error('subtask_artifact_staging_unavailable');
+    return this.native;
+  }
+  /** Minted on claim (`lease_epoch+1`). Absent = a row predating the column: fail closed. */
+  private attemptOrThrow(state:SubtaskExecutionState):string{
+    if(!state.executionAttemptId||!Number.isInteger(state.leaseEpoch)||state.leaseEpoch<1)throw new Error('subtask_execution_identity_unavailable');
+    return state.executionAttemptId;
   }
   private async execute(orgId:OrgId,run:SubtaskRun):Promise<string|{text:string;files:readonly import('../../application/agent-run/ports').RunOutputFile[]}>{
     const parent = await this.db.withTenant(orgId, async (s) => {
@@ -106,17 +118,33 @@ export class SubtaskRunExecutor {
       const skills=this.pins?await this.pins.readPinnedSkills(orgId,run.snapshot.skillVersionIds):[];
       if(skills.length!==run.snapshot.skillVersionIds.length||skills.some((skill,index)=>skill.versionId!==run.snapshot.skillVersionIds[index]))throw new Error('subtask_skill_snapshot_unavailable_or_changed');
       if(local.signal.aborted)throw new SubtaskCancellationPendingError();
-      const completion=await this.model.complete({modelProvider:run.snapshot.modelProvider,
+      const onRemoteRunStarted=async(remoteRunId:string,remoteThreadId?:string)=>{
+        if(remoteThreadId!==deriveRemoteThreadId(run.id))throw new Error('subtask_remote_identity_mismatch');
+        await this.store.bindRemoteRun(orgId,run.id,remoteRunId,remoteThreadId);
+        const state=await this.store.readExecution(orgId,run.id);
+        if(state?.run.cancellation){await this.stopRemote(orgId,state);local.abort();}
+      };
+      const base={modelProvider:run.snapshot.modelProvider,
         modelId:run.snapshot.modelId,system:parent.instructions,
         user:executionContext?`${run.description}\n\nContext:\n${executionContext}`:run.description,
-        history:[],skills,orgId:String(orgId),executionMode:"text-only",signal:local.signal,
-        ...(run.snapshot.modelProvider==='deep-agent'?{threadId:run.id,onRemoteRunStarted:async(remoteRunId:string,remoteThreadId?:string)=>{
-          if(remoteThreadId!==deriveRemoteThreadId(run.id))throw new Error('subtask_remote_identity_mismatch');
-          await this.store.bindRemoteRun(orgId,run.id,remoteRunId,remoteThreadId);
-          const state=await this.store.readExecution(orgId,run.id);
-          if(state?.run.cancellation){await this.stopRemote(orgId,state);local.abort();}
-        }}:{}),
-      });
+        history:[],skills,orgId:String(orgId),signal:local.signal,
+        ...(run.snapshot.modelProvider==='deep-agent'?{threadId:run.id,onRemoteRunStarted}:{}),
+      };
+      // A file-producing subtask must reach the SAME native staging endpoint the main run
+      // uses, under its OWN (run, attempt, lease) identity -- `text-only` cannot publish at
+      // all. It is not a widening: `PgParentRunControlReader` resolves a subtask id to
+      // `allowedTools=[wx_artifact_publish]`, so every other native tool stays denied.
+      const bound=run.outputFiles
+        ? await bindNativeInvocation(this.nativeOwnerOrThrow(),{...base,runId:run.id,
+            executionAttemptId:this.attemptOrThrow(before),executionLeaseEpoch:before.leaseEpoch,
+            onSkillActivity:async()=>{},...(run.snapshot.modelProvider==='deep-agent'?{}:{onRemoteRunStarted})})
+        : undefined;
+      let completion;
+      try{
+        completion=await this.model.complete(bound?bound.input:{...base,executionMode:"text-only"});
+      }finally{
+        if(bound)await bound.release().catch(()=>{});
+      }
       await cancellation;
       const current=await this.store.readExecution(orgId,run.id);
       if(current?.run.cancellation){
