@@ -1,0 +1,84 @@
+[stack-admission] load1=2.41 cores=10 perCore=0.24 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqvlw9q-98bd827d-9a014eb2bec0 db=wsx_9a014eb2bec057cc5285 compose=wsx-9a014eb2bec057cc5285 pg=21946 redis=26946 sandbox=51946
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_9a014eb2bec057cc5285 capacity=100 current=6 required=32
+ ↓ tests/agent-runtime/canvas-skill-real-model.live.ts (1 test | 1 skipped)
+ ❯ tests/agent-runtime/authoring-skill-real-model.live.ts (1 test | 1 failed) 89749ms
+   × 'S015' real configured model selects skill and delivers source-grounded artifact 89749ms
+     → real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/method_skills_real_model_runner.py", line 35, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/method_skills_real_model_runner.py", line 15, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':prompt}]},config={**config,'recursion_limit':200},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3492, in astream
+    raise GraphRecursionError(msg)
+langgraph.errors.GraphRecursionError: Recursion limit of 200 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+
+ ✓ tests/agent-runtime/visual-skills-real-model.live.ts (2 tests) 161114ms
+   ✓ 'S017' real configured model selects skill and delivers source-grounded artifact 46627ms
+   ✓ 'S020' real configured model selects skill and delivers source-grounded artifact 114487ms
+ ✓ tests/agent-runtime/method-skills-real-model.live.ts (4 tests | 3 skipped) 62945ms
+   ✓ 'S019' real configured model selects skill and delivers source-grounded artifact 62944ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/authoring-skill-real-model.live.ts > 'S015' real configured model selects skill and delivers source-grounded artifact
+Error: real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/method_skills_real_model_runner.py", line 35, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/method_skills_real_model_runner.py", line 15, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':prompt}]},config={**config,'recursion_limit':200},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3492, in astream
+    raise GraphRecursionError(msg)
+langgraph.errors.GraphRecursionError: Recursion limit of 200 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+
+ ❯ ChildProcess.<anonymous> tests/agent-runtime/authoring-skill-real-model.live.ts:55:487
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed | 1 skipped (4)
+      Tests  1 failed | 3 passed | 4 skipped (8)
+   Start at  14:45:08
+   Duration  318.80s (transform 779ms, setup 0ms, collect 2.09s, tests 313.81s, environment 0ms, prepare 143ms)
+
+[db-isolation] db=wsx_9a014eb2bec057cc5285 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.extended-skills-real-model.config.ts -t S019|S015|S017|S020
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.extended-skills-real-model.config.ts -t S019|S015|S017|S020
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5m19s
+  清理：1s
+  总计：5m20s

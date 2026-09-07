@@ -1,0 +1,1 @@
+{"positive":{"executionId":"de2c8c01-af9b-489c-8fd5-81cf9e933d27","exitCode":0,"output":"{\"total\": 3}\n","truncated":false,"timedOut":false,"cancelled":false},"negative":{"executionId":"78fd1078-b588-41c1-8228-622a36a93470","exitCode":1,"output":"error: negative count -1\n","truncated":false,"timedOut":false,"cancelled":false}}

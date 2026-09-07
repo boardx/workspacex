@@ -1,0 +1,23 @@
+[stack-admission] load1=2.32 cores=10 perCore=0.23 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqwc0ok-4571caff-9b793881a5a8 db=wsx_9b793881a5a8251bc09c compose=wsx-9b793881a5a8251bc09c pg=22801 redis=27801 sandbox=52801
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_9b793881a5a8251bc09c capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/authoring-skill-real-model.live.ts (1 test) 69535ms
+   ✓ 'S015' real configured model selects skill and delivers source-grounded artifact 69534ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:05:27
+   Duration  72.33s (transform 412ms, setup 0ms, collect 685ms, tests 69.53s, environment 0ms, prepare 38ms)
+
+[db-isolation] db=wsx_9b793881a5a8251bc09c peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.authoring-skill-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m13s
+  清理：0s
+  总计：1m13s

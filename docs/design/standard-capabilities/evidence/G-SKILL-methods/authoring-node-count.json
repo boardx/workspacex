@@ -1,0 +1,18 @@
+{
+  "SkillsMiddleware.before_agent": 1,
+  "PatchToolCallsMiddleware.before_agent": 1,
+  "TurnWindowMiddleware.before_agent": 1,
+  "_DefaultCompletionChecklistMiddleware.before_agent": 1,
+  "CurrentTurnRubricMiddleware.before_agent": 1,
+  "SummarizationMiddleware.before_model": 18,
+  "InterjectionMiddleware.before_model": 18,
+  "TaskClassifierMiddleware.before_model": 18,
+  "ModelCallLimitMiddleware.before_model": 18,
+  "model": 18,
+  "HumanInTheLoopMiddleware.after_model": 18,
+  "ModelCallLimitMiddleware.after_model": 18,
+  "ToolCallLimitMiddleware.after_model": 18,
+  "InterjectionMiddleware.after_model": 17,
+  "TodoListMiddleware.after_model": 17,
+  "tools": 17
+}

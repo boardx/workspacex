@@ -1,0 +1,5 @@
+Research question R1: Is onboarding clear?
+Participant P01, transcript T01: "The setup was clear and I finished without help."
+Duplicate copy of T01, same participant P01: "The setup was clear and I finished without help."
+Participant P02, transcript T02: "The setup was confusing; I could not find the next step."
+No demographic information was collected.
