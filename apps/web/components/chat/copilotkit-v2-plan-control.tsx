@@ -2,7 +2,6 @@
 import * as React from "react";
 import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly";
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
@@ -67,8 +66,8 @@ import { describePlanFailureReason } from "@/lib/plan-control-copy";
  * `ui.md` S1 原文"落在消息流顶部"的读法是"计划态跨整条对话、不该随消息滚走"——
  * 这条不变量没有变。人类当场反馈的是**顶部固定占屏**这一件具体呈现：改到贴着
  * composer（消息列表下方、输入框上方），同样不随消息滚动，但离用户当前视线
- * （正在打字/正在看的地方）更近；并加一个折叠开关，默认展开，折叠只留
- * `PlanPhaseIndicator` 一行——这是"简化界面"的落点：折叠态不隐藏计划存在与否，
+ * （正在打字/正在看的地方）更近；并加一个折叠开关，普通计划默认折叠，折叠只留
+ * 真实进度摘要一行——这是"简化界面"的落点：折叠态不隐藏计划存在与否，
  * 只收起步骤明细/编辑/确认门这些只在需要决策时才用得上的内容。**需要用户决策的
  * 状态（`gate.required` 或 `phase === "failed"`）从别的态转入时自动展开**，不让
  * 用户因为上一轮手动折叠而错过下一次真正需要确认/处理失败的时刻。挂载点搬动见
@@ -97,7 +96,11 @@ export interface CopilotKitV2PlanControlProps {
   readonly refetchSignal?: number;
 }
 
-export function CopilotKitV2PlanControl(
+export function CopilotKitV2PlanControl(props: CopilotKitV2PlanControlProps): React.JSX.Element {
+  return <PlanControlSession key={JSON.stringify([props.threadId, props.projectId ?? null])} {...props} />;
+}
+
+function PlanControlSession(
   { threadId, projectId, canWrite = true, refetchSignal }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
   const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
@@ -121,9 +124,9 @@ export function CopilotKitV2PlanControl(
   }, [ledger?.phase]);
   const hasRecentError = recentErrorTick !== null;
 
-  // 折叠开关：默认展开。needsDecision 从 false→true 的那次转变自动展开——
+  // 折叠开关：默认折叠。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
   //
   // ⚠ 合并注：原写法是 `gate.required && phase !== "executing"`，与下面渲染
   // `PlanConfirmGate` 的条件（`phase === "planning"`）不是同一个判据——`gate.
@@ -134,7 +137,7 @@ export function CopilotKitV2PlanControl(
   // 改成与确认门渲染条件同源：只有「计划阶段确实要确认」或「失败态确实要处理」
   // 才算需要决策，"done" 不再触发强制展开。
   const needsDecision = ledger !== null && (
-    ledger.phase === "failed" || (ledger.phase === "planning" && ledger.gate.required)
+    ledger.phase === "failed" || ledger.phase === "approving" || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0 || (ledger.phase === "planning" && ledger.gate.required)
   );
   const prevNeedsDecisionRef = React.useRef(needsDecision);
   React.useEffect(() => {
@@ -162,7 +165,9 @@ export function CopilotKitV2PlanControl(
   }
 
   const pausedWithoutPlan = Boolean(ledger?.pausedAt && ledger.steps.length === 0 && !["done", "failed", "cancelled"].includes(ledger.phase));
-  if (threadId === null || ledger === null || (ledger.phase === "preparing" && !pausedWithoutPlan)) return null;
+  const hasPlanAction = ledger !== null && ((ledger.phase === "planning" && ledger.gate.required)
+    || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0);
+  if (threadId === null || ledger === null || (ledger.steps.length === 0 && !pausedWithoutPlan && !hasPlanAction)) return null;
 
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
@@ -215,6 +220,12 @@ export function CopilotKitV2PlanControl(
   const failedStep = failedStepIndex !== -1 ? ledger.steps[failedStepIndex] : currentStep;
   const failedStepDisplayIndex = failedStepIndex !== -1 ? failedStepIndex + 1 : currentStepIndex;
 
+  const completed = ledger.steps.filter(step => step.status === "completed").length;
+  const stateLabel = ledger.phase === "cancelled" ? "任务已停止" : ledger.phase === "failed" ? "执行遇到问题"
+    : ledger.pausedAt ? "任务已暂停" : ledger.phase === "approving" ? "等待审批"
+    : ledger.phase === "done" ? "本轮已结束" : ledger.pauseRequestedAt ? "正在暂停"
+    : ledger.phase === "executing" ? "执行中" : ledger.gate.required ? "等待确认" : "待执行";
+
   return (
     <div data-testid="chat-task-workbench-plan-control" className="mb-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -224,11 +235,11 @@ export function CopilotKitV2PlanControl(
           data-testid={PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID}
           aria-label={collapsed ? "展开计划面板" : "折叠计划面板"}
           onClick={() => setCollapsed((v) => !v)}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 items-center gap-2 rounded-control px-1 py-1 text-13 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
+          <span data-testid="chat-task-workbench-plan-summary">执行计划 · {stateLabel}{ledger.steps.length > 0 ? ` · ${completed}/${ledger.steps.length} 步已标记完成` : ""}</span>
         </button>
-        <PlanPhaseIndicator phase={ledger.phase} />
         {!collapsed && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
             size="xs"
@@ -244,7 +255,7 @@ export function CopilotKitV2PlanControl(
         )}
       </div>
 
-      {!collapsed && actionErrorCode !== null && (
+      {actionErrorCode !== null && (
         <p role="status" className="text-11 text-destructive" data-testid="chat-task-workbench-plan-action-error">
           {actionErrorCode === "PLAN_REVISION_CHANGED"
             ? "计划刚被更新，已刷新到最新版本——请基于当前状态重试这次修改。"
@@ -252,7 +263,7 @@ export function CopilotKitV2PlanControl(
         </p>
       )}
 
-      {!collapsed && canWrite && ledger.phase === "failed" && failedStep && (
+      {canWrite && ledger.phase === "failed" && failedStep && (
         <PlanFailureRecovery
           failedStepIndex={failedStepDisplayIndex}
           failedStepLabel={failedStep.content}
@@ -261,11 +272,11 @@ export function CopilotKitV2PlanControl(
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
           reason={describePlanFailureReason(ledger.errorCode)}
           onRetryStep={() => handleRetryStep(failedStep.planStepId)}
-          onEditInput={() => setEditing(true)}
+          onEditInput={() => { setCollapsed(false); setEditing(true); }}
         />
       )}
 
-      {!collapsed && ledger.phase === "executing" && currentStep && (
+      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && ledger.phase === "executing" && currentStep && (
         <PlanRunProgress
           currentStepLabel={currentStep.content}
           stepIndex={currentStepIndex}
@@ -294,14 +305,13 @@ export function CopilotKitV2PlanControl(
           data-testid="chat-task-workbench-plan-done-incomplete-notice"
           className="text-11 text-muted-foreground"
         >
-          本轮执行已结束，但计划账本里还有 {ledger.progress.total - ledger.progress.completed} 步没有被标记完成——
-          大概率是模型收尾时没有再同步一次进度，不代表这些步骤真的没做，可展开下方步骤自行核对。
+          本轮执行已结束，计划账本仍有 {ledger.progress.total - ledger.progress.completed} 步未标记完成，请核对下方步骤。
         </p>
       )}
 
-      {!collapsed && ledger.pendingApplyAtNextRun && <PlanPendingApplyBanner onPauseNow={handlePause} />}
+      {ledger.pendingApplyAtNextRun && <fieldset disabled={!canWrite || busy} className="min-w-0"><PlanPendingApplyBanner onPauseNow={handlePause} /></fieldset>}
 
-      {!collapsed && (editing ? (
+      {!collapsed && ledger.steps.length > 0 && (editing && canWrite ? (
         <PlanPanelEdit
           steps={ledger.steps}
           onReorder={handleReorder}
@@ -310,16 +320,17 @@ export function CopilotKitV2PlanControl(
           onRemoveConstraint={handleRemoveConstraint}
         />
       ) : (
-        <PlanPanelReadOnly steps={ledger.steps} />
+        <PlanPanelReadOnly steps={ledger.steps} compact />
       ))}
 
-      {!collapsed && ledger.orphanedConstraints.map((c) => (
+      {ledger.orphanedConstraints.map((c) => (
+        <fieldset key={c.constraintId} disabled={!canWrite || busy} className="min-w-0">
         <OrphanConstraintNotice
-          key={c.constraintId}
           text={c.text}
           formerStepContent={c.formerStepContent}
           onRemove={() => handleRemoveConstraint(c.constraintId)}
         />
+        </fieldset>
       ))}
 
       {/*
@@ -340,17 +351,16 @@ export function CopilotKitV2PlanControl(
        * 保险。不改 `evaluatePlanGate` 本身——它仍然如实回答"这份计划要不要
        * 确认"，只是本组件不再对着一个已经过去的阶段问这个问题。
        *
-       * `!collapsed` 是折叠开关（同一批合入 main 的独立改动）：折叠态下整块
-       * 都不渲染，与 `phase === "planning"` 是两个独立的必要条件，不是二选一
-       * ——`needsDecision` 已经保证 gate.required 时不会停在折叠态上，这里
-       * 只是同时满足"没折叠"与"确实到了该问的那个阶段"。
+       * 待确认操作独立于详情折叠，避免收起步骤后隐藏处理入口。
        */}
-      {!collapsed && ledger.phase === "planning" && (
+      {ledger.phase === "planning" && ledger.gate.required && (
+        <fieldset disabled={!canWrite || busy} className="min-w-0">
         <PlanConfirmGate
           gate={ledger.gate}
           onConfirmRun={handleConfirm}
-          onContinueEditing={() => setEditing(true)}
+          onContinueEditing={() => { if (canWrite) { setCollapsed(false); setEditing(true); } }}
         />
+        </fieldset>
       )}
 
       {busy && <span className="sr-only" role="status">计划操作处理中…</span>}

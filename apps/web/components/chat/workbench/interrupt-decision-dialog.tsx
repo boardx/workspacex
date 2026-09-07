@@ -1,0 +1,19 @@
+"use client";
+import * as React from "react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { RestoredInterruptForm } from "./restored-interrupt-form";
+/** Mounted only for an authoritative permission request; closing never rejects it. */
+export function InterruptDecisionDialog(props: React.ComponentProps<typeof RestoredInterruptForm>): JSX.Element {
+  const [open, setOpen] = React.useState(true);
+  return <>
+    <Button variant="outline" onClick={() => setOpen(true)}>打开待确认请求</Button>
+    <Dialog open={open} onOpenChange={setOpen} modal={false}>
+      <DialogContent onInteractOutside={(event) => event.preventDefault()}>
+        <DialogTitle>{props.interrupt.toolName === "confirm_task_intent" ? "确认任务意图" : "任务需要你的确认"}</DialogTitle>
+        <DialogDescription>可以暂时关闭并继续补充要求；关闭不会提交或拒绝此次请求。</DialogDescription>
+        <RestoredInterruptForm {...props} />
+      </DialogContent>
+    </Dialog>
+  </>;
+}

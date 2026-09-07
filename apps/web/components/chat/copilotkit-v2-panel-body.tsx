@@ -12,6 +12,7 @@ import { useThreadMessageQueue } from "@/lib/chat-workbench/use-thread-message-q
 import { useDispatchedQueueMessages } from "@/lib/chat-workbench/use-dispatched-queue-messages";
 import { QueueNextTurnAction } from "@/components/chat/workbench/queue-next-turn-action";
 import { TaskTimeline } from "@/components/chat/workbench/task-timeline";
+import { InterruptRenderContext } from "./workbench/interrupt-render-context";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
 import { ChildCancellationNotice, latestCancelledRun } from "@/components/chat/workbench/child-cancellation-notice";
 import { useRunCancellation } from "@/lib/chat-workbench/use-run-cancellation";
@@ -56,12 +57,11 @@ import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-a
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { ProducedFilesCtx } from "@/components/chat/copilotkit-v2-assistant-message";
-import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
+import { useAguiPlanTodos } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
-import { RunProgressCard } from "@/components/chat/run-progress-card";
 import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
@@ -1007,7 +1007,7 @@ export function CopilotKitV2PanelBody({
     const status = [...events].reverse().find((event) => event.kind === "status");
     return status?.kind === "status" && ["running", "paused", "awaiting_tool_permission"].includes(status.status);
   }).sort((a, b) => (b[1].at(-1)?.emittedAt ?? "").localeCompare(a[1].at(-1)?.emittedAt ?? ""))[0];
-  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
+  const runIsRunning = agent.isRunning || runRestore.isRestoring || runRestore.status === "running" || runRestore.status === "queued" || runRestore.status === "writeback_pending" || runRestore.status === "paused" || runRestore.status === "awaiting_tool_permission" || Boolean(activeTrace) || serverQueue.items.some((item) => item.status === "pending" || (item.status === "dispatched" && item.runId && !runTrace.events[item.runId]));
   // issue #2756 —— 在途 run 的真实 runId + 实时 status，供下方插话入口用（逻辑全在该 hook 文件头）。
   const connectedInterjectionRun = useChatHostInterjectionRun({
     agent, isRunning: agent.isRunning, threadId: resolvedChatThreadId, sessionToken,
@@ -1029,7 +1029,13 @@ export function CopilotKitV2PanelBody({
   });
   const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? latestCancelledRun(runTrace.events), sessionToken);
   React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
-  const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
+  const restoredPhaseLabel = runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL
+    : runRestore.status === "running" ? "正在执行"
+    : runRestore.status === "queued" ? "等待执行"
+    : runRestore.status === "writeback_pending" ? "正在保存结果"
+    : runRestore.status === "paused" ? "任务已暂停"
+    : runRestore.status === "awaiting_tool_permission" ? "等待确认" : null;
+  const runPhaseLabel = runProgress.phaseLabel ?? restoredPhaseLabel;
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
     onRunStateChange?.({
@@ -1038,7 +1044,6 @@ export function CopilotKitV2PanelBody({
       startedAt: runStartedAt, recoveryDiagnostic,
     });
   }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange, recoveryDiagnostic]);
-  const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
   const pendingMaterialsCount = attach.uploadedIds.length;
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
@@ -1248,7 +1253,7 @@ export function CopilotKitV2PanelBody({
   // Running deliveries are serialized by useRunningReply.
   const clearRunningDraft = React.useCallback((revision?: number) => { clearComposerDraft(revision); setMention(null); }, [clearComposerDraft]);
   const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
-    agent, threadId: initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
+    agent, canWrite: canWrite && !archived, threadId: resolvedChatThreadId ?? initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
     draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
     clearDraft: clearRunningDraft, setError,
   });
@@ -1469,6 +1474,8 @@ export function CopilotKitV2PanelBody({
                       打字/滚动都强制重渲染全部消息（含画布）。 */}
                   <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
+                      <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
+                        pendingRunId: activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? activeTrace[0] : null }}>
                       {activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? <RestoredRunApproval canWrite={canDecide} key={`${activeTrace[0]}:${traceStatus.seq}`} runId={activeTrace[0]} bearer={sessionToken ?? undefined} /> : null}
                       <TaskTimeline
                         events={runTrace.events}
@@ -1478,51 +1485,20 @@ export function CopilotKitV2PanelBody({
                         assistantMessage={V2AssistantMessage}
                         userMessage={V2UserMessage}
                       />
+                      </InterruptRenderContext.Provider>
                     </ProducedFilesCtx.Provider>
                   </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
             </div>
           )}
-          {/* issue #2068（第二件）—— 合并后的**唯一** loading，落在「AI 回复应该出现的
-              位置」：消息列表末尾、用户那句话下面，不是 composer 上方两条各说各的。
-              设计推理（含真引擎 14.44s 一轮的分项时间线、以及它与右栏计划面板的分工）
-              见上面 `runProgress` 那一段长注释，这里不复述。
-
-              ⚠ testid 沿用 `copilotkit-v2-running-indicator`（容器）与
-                `copilotkit-v2-thinking*`（内部各段）：这两组锚点被
-                `chat-task-workbench-fixture.ts` 的 `sendAndSettle`、
-                `chat-task-workbench-inspector.spec.ts`、
-                `copilotkit-v2-message-actions.spec.ts` 当成"这一轮跑完了没有"的信号
-                在用。语义一个字没变（在跑=在，跑完=不在），变的只有位置与形态；
-                改名会把三处既有断言变成"元素不存在 ⇒ 立即通过"的静默假绿。 */}
-          {/* session-switch task-state-loss fix —— `runRestore.isRestoring` 补的是
-              `agent.isRunning` 覆盖不到的那段窗口：挂载 hydration 发现上一轮 run
-              可能还没写回，正在核实真实状态。两者 or 起来才是"这条线程现在该不该显示
-              生成中"的完整判据，见 `runIsRunning` 声明处头注（`runProgress.phaseLabel`
-              取不到时已经回落到 `RUN_RESTORE_PHASE_LABEL`，这里不用再判断一次）。 */}
-          {/* issue #2837（PR #2839 review）—— 卡片本体抽到 `run-progress-card.tsx`（本文件
-              已超 2000 行；截图 harness 也渲染同一个组件，不再抄第二份 className）。
-              三桶阶段（PROP-CHAT-UIUX-ITER-002 V2）从 `runProgress.stage` 派生，见
-              `copilotkit-v2-run-progress.ts` 头注；计划步骤行在工具阶段（真引擎实测占一轮
-              的前 85%）里真正回答"它在干嘛"。 */}
-          {!historyLoading && (agent.isRunning || runRestore.isRestoring) ? (
-            <RunProgressCard
-              className="mt-3"
-              runId={interjectionRun.runId}
-              stage={runProgress.stage}
-              phaseLabel={
-                runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")
-              }
-              elapsedSeconds={runProgress.elapsedSeconds}
-              isLongRun={runProgress.isLongRun}
-              planStep={planStep}
-            />
+          {/* Keep the lifecycle anchor and announcement without a second visual progress panel.
+              The subscriptions above still supply run controls, restore and inspector state. */}
+          {!historyLoading && runIsRunning ? (
+            <span className="sr-only" role="status" data-testid="copilotkit-v2-running-indicator" data-run-id={interjectionRun.runId ?? undefined}>
+              <span data-testid="copilotkit-v2-thinking-phase">{runPhaseLabel ?? "正在执行"}</span>
+            </span>
           ) : null}
-          {/* issue #2756 的 `ChatHostInterjection` 已于本轮撤下（2026-09-06 人类实测 5 处 UI 问题）：
-              消息流里再嵌一个输入框与底部主 composer 功能重复（主 composer 运行中已走
-              `sendWhileRunning` 插话）、两个 loading 同时转、内部约束文案外露。插话统一收敛到
-              主 composer；在途 run 的真实 runId 改挂在进度卡的 `data-run-id` 上供 e2e 读取。 */}
         </div>
         </div>
           {/* issue #2096 —— 此前按钮曾挂在从消息区一路延伸到 composer 的最外层包装里，

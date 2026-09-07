@@ -35,23 +35,34 @@ describe("useCopilotKitV2RunRestore —— 有界复读（issue #2860）", () =>
     const outcomes: RunRestoreOutcome[] = [];
     const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "bearer", (o) => void outcomes.push(o)));
     await flush(0);
-    expect(result.current.isRestoring).toBe(true);
+    expect(result.current.isRestoring).toBe(false);
+    expect(result.current.status).toBe("running");
     await flush(5_000 * 2 + 100);
     expect(outcomes).toEqual([{ kind: "settled", view: interrupted }]);
     expect(result.current.isRestoring).toBe(false);
     expect(getAgentRun).toHaveBeenCalledTimes(3);
   });
 
-  it("超过复读上限仍非终态 ⇒ gave-up(stalled)，如实说没进展、不冒充失败", async () => {
+  it("authoritatively running beyond the old budget remains attached without requesting a new run", async () => {
     getAgentRun.mockResolvedValue(running);
     const outcomes: RunRestoreOutcome[] = [];
-    const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "bearer", (o) => void outcomes.push(o)));
+    const { result, unmount } = renderHook(() => useCopilotKitV2RunRestore("run-1", "bearer", o => void outcomes.push(o)));
     await flush(0);
-    await flush(200_000);
-    expect(outcomes).toEqual([]);
-    await flush(20_000);
-    expect(outcomes).toEqual([{ kind: "gave-up", reason: "stalled" }]);
     expect(result.current.isRestoring).toBe(false);
+    await flush(240_000);
+    expect(outcomes).toEqual([]);
+    expect(result.current).toMatchObject({ runId: "run-1", status: "running", isRestoring: false });
+    unmount();
+  });
+
+  it.each(["paused", "awaiting_tool_permission"])("restores %s immediately and follows the same run to completion", async status => {
+    getAgentRun.mockResolvedValueOnce({ ...running as object, status }).mockResolvedValue(interrupted);
+    const outcomes: RunRestoreOutcome[] = [];
+    const { result } = renderHook(() => useCopilotKitV2RunRestore("run-1", "bearer", o => void outcomes.push(o)));
+    await flush(0);
+    expect(result.current).toMatchObject({ runId: "run-1", status, isRestoring: false });
+    await flush(5000);
+    expect(outcomes).toEqual([{ kind: "settled", view: interrupted }]);
   });
 
   it("首次权威读就是终态 ⇒ 立即 settled，一次复读都不发（#2825 行为不变）", async () => {

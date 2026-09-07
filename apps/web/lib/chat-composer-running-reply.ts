@@ -19,13 +19,13 @@
  * 两条路都不 `abortRun()`：用户是在**回答** agent，不是在打断它；打断仍是「停止」键
  * 自己的事（输入框为空时它还在原位）。
  */
-import type { AgentKernelRunStatus } from "./agent-kernel-stream";
+import type { ChatHostInterjectionRun } from "./chat-host-interjection-run";
 
 export type RunningReplyRoute = "interject" | "queue";
 
 export interface RunningReplyRun {
   readonly runId: string | null;
-  readonly status: AgentKernelRunStatus | null;
+  readonly status: ChatHostInterjectionRun["status"];
 }
 
 /** 与 `chat-host-interjection.tsx` 渲染插话入口的判据逐字相同（同一条契约 UC-4 规则）。 */

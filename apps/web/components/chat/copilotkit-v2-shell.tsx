@@ -452,7 +452,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    * 「材料」这份数据同时下传给消息面板作 `@` 引用候选（CK-P2）——同一份事实，
    * 不让面板发第二次请求。
    */
-  const rightKey = bearer && selectedThreadId ? `${bearer} ${selectedThreadId}` : null;
+  const rightKey = bearer && selectedThreadId ? JSON.stringify([bearer, projectId, selectedThreadId]) : null;
   const [artifactsResult, setArtifactsResult] = React.useState<{ key: string; value: ListThreadArtifactsOut } | null>(null);
   const [materialsResult, setMaterialsResult] = React.useState<{ key: string; value: ListThreadAttachmentsOut } | null>(null);
   /**
@@ -497,21 +497,22 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
 
   const loadRightPanel = React.useCallback(async () => {
     if (!bearer || !selectedThreadId) return;
-    const key = `${bearer} ${selectedThreadId}`;
+    const key = JSON.stringify([bearer, projectId, selectedThreadId]);
     const threadId = selectedThreadId;
     const generation = ++rightGeneration.current;
     setRightLoadingKey(key);
     setArtifactsFailure(null);
     setMaterialsFailure(null);
-    const [nextArtifacts, nextMaterials, nextDetail] = await Promise.allSettled([
+    // Composer permissions must not wait for unrelated artifact/attachment reads.
+    void getThread(threadId, projectId, bearer).then(
+      value => { if (generation === rightGeneration.current) setThreadDetailResult({ key, value }); },
+      () => { if (generation === rightGeneration.current) setThreadDetailResult(null); },
+    );
+    const [nextArtifacts, nextMaterials] = await Promise.allSettled([
       listThreadArtifacts(threadId, projectId, bearer),
       listThreadAttachments(threadId, projectId, bearer),
-      // issue #2053 —— 线程详情与右栏同批取。它自己失败**不**让右栏整体失败
-      // （契约 getThread 的"部分成功"精神），只是 archived/能力回落到保守缺省。
-      getThread(threadId, projectId, bearer),
     ]);
     if (generation !== rightGeneration.current) return;
-    setThreadDetailResult(nextDetail.status === "fulfilled" ? { key, value: nextDetail.value } : null);
     if (nextArtifacts.status === "fulfilled") {
       setArtifactsResult({ key, value: nextArtifacts.value });
     } else {
@@ -561,7 +562,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
 
   const loadRoster = React.useCallback(async () => {
     if (!bearer || !selectedThreadId) return;
-    const key = `${bearer} ${selectedThreadId}`;
+    const key = JSON.stringify([bearer, projectId, selectedThreadId]);
     const generation = ++rosterGeneration.current;
     try {
       const result = await getAgentPanel(selectedThreadId, projectId, bearer);

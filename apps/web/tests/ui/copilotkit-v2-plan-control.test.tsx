@@ -32,7 +32,7 @@ const api = vi.hoisted(() => ({
 vi.mock("@/lib/plan-control-api", () => api);
 
 import { CopilotKitV2PlanControl } from "@/components/chat/copilotkit-v2-plan-control";
-import { PLAN_PHASE_INDICATOR_TESTID } from "@/components/plan-control/plan-phase-indicator";
+const PLAN_PHASE_INDICATOR_TESTID = "chat-task-workbench-plan-summary";
 import { PLAN_PANEL_TESTID, PLAN_STEP_TESTID } from "@/components/plan-control/plan-panel-readonly";
 import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/plan-control/plan-panel-edit";
 import { PLAN_CONFIRM_RUN_TESTID } from "@/components/plan-control/plan-confirm-gate";
@@ -100,7 +100,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
   });
 
-  it("有真实计划时渲染六态指示器 + 只读面板 + 确认门（gate.required=true）", async () => {
+  it("有真实计划时渲染进度摘要 + 只读面板 + 确认门（gate.required=true）", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps());
     render(<CopilotKitV2PlanControl threadId="t-2" />);
 
@@ -170,6 +170,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     );
     api.pausePlanRun.mockResolvedValue({ runId: "run-1", pausedAtStepId: "s2", auditEventId: "a" });
     render(<CopilotKitV2PlanControl threadId="t-6" />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
 
     const pauseBtn = await screen.findByTestId("chat-task-workbench-run-pause");
     fireEvent.click(pauseBtn);
@@ -239,7 +240,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
   });
 
-  it("折叠开关：默认展开，点击后收起步骤/确认门，只留六态指示器一行；再点一次展开回来", async () => {
+  it("待确认计划自动展开；折叠详情仍保留确认操作", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps());
     render(<CopilotKitV2PlanControl threadId="t-9" />);
 
@@ -249,7 +250,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
 
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+    expect(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeTruthy();
     expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
     // 折叠态仍然保留六态指示器——不是把计划的存在与否也藏起来。
     expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy();
@@ -268,7 +269,6 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       render(<CopilotKitV2PlanControl threadId="t-10" />);
       await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
 
-      fireEvent.click(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
       expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("false");
 
       // 轮询窗口内引擎把账本翻成失败态——不是用户手动刷新触发的。
@@ -306,6 +306,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-11" />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
 
     const notice = await screen.findByTestId("chat-task-workbench-plan-done-incomplete-notice");
     expect(notice.textContent).toContain("1");
@@ -366,6 +367,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     const { rerender } = render(<CopilotKitV2PlanControl threadId="t-15" refetchSignal={0} />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
     await waitFor(() => expect(screen.getByTestId("chat-task-workbench-run-pause")).toBeTruthy());
     expect(screen.getByTestId("chat-task-workbench-run-pause")).not.toBeDisabled();
     expect(api.fetchPlanLedger.mock.calls.length).toBe(1);
@@ -390,4 +392,70 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     // 失败后应重新拉取账本（第一次挂载 + 失败后一次 = 至少 2 次）。
     await waitFor(() => expect(api.fetchPlanLedger.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
+});
+
+describe("compact plan presentation", () => {
+  beforeEach(() => { for (const fn of Object.values(api)) fn.mockReset(); });
+  it.each(["done", "cancelled", "preparing"] as const)("hides zero-step %s without actionable state", async phase => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase,steps:[],gate:{required:true,reason:"multi-step"}}));
+    render(<CopilotKitV2PlanControl threadId="empty" />);
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
+  });
+  it("defaults ordinary plans to a factual summary, with no duplicate card heading", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"done",progress:{completed:0,total:2,elapsedMs:100}}));
+    render(<CopilotKitV2PlanControl threadId="ordinary" />);
+    const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("0/2 步已标记完成");
+    expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
+    expect(screen.queryByText("当前计划")).toBeNull();
+    expect(screen.queryByText("Plan")).toBeNull();
+  });
+  it("resets editing and expansion on thread changes, ignoring late old-thread reads", async () => {
+    let resolveOld!: (ledger: PlanLedgerView) => void;
+    api.fetchPlanLedger.mockResolvedValueOnce(ledgerWithSteps()).mockImplementationOnce(() => new Promise<PlanLedgerView>(resolve => {resolveOld=resolve;})).mockResolvedValue(ledgerWithSteps({phase:"done"}));
+    const view = render(<CopilotKitV2PlanControl threadId="first" projectId="project" refetchSignal={0} />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID));
+    expect(screen.getAllByTestId(PLAN_STEP_DELETE_TESTID).length).toBeGreaterThan(0);
+    view.rerender(<CopilotKitV2PlanControl threadId="first" projectId="project" refetchSignal={1} />);
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledTimes(2));
+    view.rerender(<CopilotKitV2PlanControl threadId="second" projectId="project" />);
+    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("false"));
+    resolveOld(ledgerWithSteps({phase:"failed"}));
+    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).textContent).toContain("本轮已结束"));
+    expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
+    expect(api.resumePlanRun).not.toHaveBeenCalled();
+  });
+  it("keeps a paused plan resume visible with details initially collapsed", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"executing",pausedAt:"2026-09-07T00:00:00Z"}));
+    render(<CopilotKitV2PlanControl threadId="paused" canWrite={false} />);
+    const toggle=await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect((screen.getByTestId(PLAN_RUN_RESUME_TESTID) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+it("zero-step pending changes remain visible and cannot be acted on by read-only viewers", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"executing",steps:[],pendingApplyAtNextRun:true}));
+  render(<CopilotKitV2PlanControl threadId="pending-empty" canWrite={false} />);
+  const banner = await screen.findByTestId("chat-task-workbench-plan-pending-apply");
+  expect(banner).toBeTruthy();
+  expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
+  expect(banner.closest("fieldset")).toHaveAttribute("disabled");
+});
+
+it("editing input from a collapsed failure opens its real editing form", async () => {
+  api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"failed",failedStepId:"s1"}));
+  render(<CopilotKitV2PlanControl threadId="failed-edit" />);
+  const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+  await waitFor(() => expect(toggle.getAttribute("aria-expanded")).toBe("true"));
+  fireEvent.click(toggle);
+  expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", {name:"修改输入"}));
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(2);
 });

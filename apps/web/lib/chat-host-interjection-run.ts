@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import type { AgentRunView } from "./agent-run";
 import type { AbstractAgent } from "@ag-ui/client";
 import { readAllPersistedMessages } from "./copilotkit-v2-persisted-messages";
 import {
@@ -50,7 +51,7 @@ export interface ChatHostInterjectionRun {
   /** 当前可插话的 run 的真实 `agent_runs.id`；没有在途 run、或还没解析出来时为 `null`。 */
   readonly runId: string | null;
   /** 该 run 最近一次 `status_change` 的状态；还没收到任何状态事件时为 `null`。 */
-  readonly status: AgentKernelRunStatus | null;
+  readonly status: AgentKernelRunStatus | AgentRunView["status"] | null;
 }
 
 /** 落库行与 `RUN_STARTED` 之间的时序缝隙（I-3 同类）允许的重试：次数有界、毫秒级退避。 */
@@ -65,7 +66,7 @@ export function useChatHostInterjectionRun(input: {
   readonly threadId: string | null;
   readonly sessionToken: string | null;
   /** `useCopilotKitV2RunRestore` 带出来的恢复路径 run（同一条订阅，不再开第二条）。 */
-  readonly restore: { readonly runId: string | null; readonly status: AgentKernelRunStatus | null };
+  readonly restore: { readonly runId: string | null; readonly status: AgentKernelRunStatus | AgentRunView["status"] | null };
 }): ChatHostInterjectionRun {
   const { agent, isRunning, threadId, sessionToken, restore } = input;
   const [liveRunId, setLiveRunId] = React.useState<string | null>(null);
