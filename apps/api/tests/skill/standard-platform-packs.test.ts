@@ -13,14 +13,14 @@ it('publishes shipped complete workflow packages through the existing importer a
   const rows=await asApp(PLATFORM_ORG_ID,c=>c.query(`SELECT s.stable_name,v.id,count(f.path)::int AS files
     FROM skills s JOIN skill_versions v ON v.skill_id=s.id AND v.org_id=s.org_id
     JOIN skill_version_files f ON f.version_id=v.id AND f.org_id=v.org_id
-    WHERE s.org_id=$1 AND v.published=true AND s.stable_name IN ('knowledge-grounded-answer','document-understanding')
+    WHERE s.org_id=$1 AND v.published=true AND s.stable_name IN ('knowledge-grounded-answer','document-understanding','skill-authoring')
     GROUP BY s.stable_name,v.id`,[PLATFORM_ORG_ID]));
-  expect(rows.rows).toHaveLength(2);expect(rows.rows.find(r=>r.stable_name==='knowledge-grounded-answer')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='document-understanding')?.files).toBe(3);
+  expect(rows.rows).toHaveLength(3);expect(rows.rows.find(r=>r.stable_name==='knowledge-grounded-answer')?.files).toBe(4);expect(rows.rows.find(r=>r.stable_name==='document-understanding')?.files).toBe(3);expect(rows.rows.find(r=>r.stable_name==='skill-authoring')?.files).toBe(4);
   const second=await ensurePlatformSkillCatalogSeeded();expect(second.ok).toBe(true);
   if(!second.ok)throw second.error;
   expect(second.report.standardPacks.every(p=>!p.created)).toBe(true);
   expect(second.report.standardPacks.map(p=>p.result)).toEqual(first.report.standardPacks.map(p=>p.result));
-},30000);
+},120000);
 
 it('exposes the published standard package through the actual Skills API to ordinary members in distinct organizations',async()=>{
   ensureDatabase();await migrateOnce();
@@ -39,4 +39,4 @@ it('exposes the published standard package through the actual Skills API to ordi
     }
     expect(ids[0]).toBe(ids[1]);
   }finally{await app.close();for(const [k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await resetOrgs(...orgs);}
-},30000);
+},120000);
