@@ -1,3 +1,16 @@
+import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
+import type { DeliveryDeps } from "./application/files/deliver-artifact";
+import { AGENT_ARTIFACT_DELIVERY_SOURCE, type AgentArtifactDeliverySource } from "./application/files/agent-artifact-delivery-source";
+import { PgAgentArtifactDeliverySource } from "./infrastructure/files/pg-agent-artifact-delivery-source";
+import { STANDARD_ENTRY_SCOPE } from "./application/agent-run/standard-entry-scope";
+import { AuthorizedNativeEntryScope } from "./infrastructure/agent-run/authorized-native-entry-scope";
+import { STANDARD_ARTIFACT_DOWNLOAD, StandardArtifactDownloadService } from "./application/agent-run/standard-artifact-download";
+import { STANDARD_RUN_STATUS, StandardRunStatusService } from "./application/agent-run/standard-run-status";
+import { STANDARD_RUN_CANCEL, StandardRunCancelService } from "./application/agent-run/standard-run-cancel";
+import { PgRunArtifactRefsReader } from "./infrastructure/agent-run/pg-run-artifact-refs-reader";
+import { StandardArtifactDownloadController } from "./interface/controllers/standard-artifact-download.controller";
+import { StandardRunStatusController } from "./interface/controllers/standard-run-status.controller";
+import { StandardRunCancelController } from "./interface/controllers/standard-run-cancel.controller";
 import { OrganizationHybridRetrieval } from "./infrastructure/retrieval/organization-hybrid-retrieval";
 import { PgSegmentRetriever } from "./infrastructure/retrieval/pg-segment-retriever";
 import { langChainRerankClientFromEnv } from "./infrastructure/retrieval/langchain-rerank-client";
@@ -944,6 +957,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
@@ -1427,6 +1441,36 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // ⚠ The isolated origin is a security boundary, not cosmetics -- an uploaded .html or a
     // scripted .svg served from the main origin runs there. See the builder's header.
     { provide: DOWNLOAD_URL_BUILDER, useClass: IsolatedDownloadUrlBuilder },
+    {
+      provide: STANDARD_ENTRY_SCOPE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore) =>
+        new AuthorizedNativeEntryScope(db, authority, {repo,ids,chat}, runs),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE],
+    },
+    {
+      provide: AGENT_ARTIFACT_DELIVERY_SOURCE,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, artifacts: ArtifactReadDeps["artifacts"], objects: ObjectStore) =>
+        new PgAgentArtifactDeliverySource(db, {repo,ids,chat,artifacts}, objects),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, ARTIFACT_STORE, OBJECT_STORE],
+    },
+    {
+      provide: STANDARD_ARTIFACT_DOWNLOAD,
+      useFactory: (grants: DeliveryDeps["grants"], urls: DeliveryDeps["urls"], objectStore: DeliveryDeps["objectStore"], integrity: DeliveryDeps["integrity"], repo: DeliveryDeps["repo"], ids: DeliveryDeps["ids"], idFactory: DeliveryDeps["idFactory"], provenance: DeliveryDeps["provenance"], agentArtifacts: AgentArtifactDeliverySource) =>
+        new StandardArtifactDownloadService({grants,urls,objectStore,integrity,repo,ids,idFactory,provenance,agentArtifacts,now:()=>new Date()}),
+      inject: [DOWNLOAD_GRANT_REPOSITORY, DOWNLOAD_URL_BUILDER, OBJECT_STORE_PROBE, OBJECT_INTEGRITY_CHECKER, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, ID_FACTORY, PROVENANCE_WRITER, AGENT_ARTIFACT_DELIVERY_SOURCE],
+    },
+    {
+      provide: STANDARD_RUN_STATUS,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore, artifacts: ArtifactReadDeps["artifacts"]) =>
+        new StandardRunStatusService({repo,ids,chat,runs},new PgRunArtifactRefsReader(db,{repo,ids,chat,artifacts})),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE, ARTIFACT_STORE],
+    },
+    {
+      provide: STANDARD_RUN_CANCEL,
+      useFactory: (repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore, model: ModelCallPort, children: ParentRunControl, interjections: InterjectionStore) =>
+        new StandardRunCancelService({repo,ids,chat,runs,model,liveQueue:Boolean(interjections.pollForKernel)},children),
+      inject: [IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE, MODEL_CALL_PORT, PARENT_RUN_CONTROL, INTERJECTION_STORE],
+    },
     // F33.
     {
       provide: EXPORT_CONTENT_REPOSITORY,

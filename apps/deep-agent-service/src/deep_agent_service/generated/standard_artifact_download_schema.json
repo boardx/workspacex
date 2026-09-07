@@ -1,0 +1,140 @@
+{
+  "toolName": "wx_artifact_download",
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_artifact_download"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "versionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "download",
+              "export"
+            ]
+          }
+        },
+        "required": [
+          "artifactId",
+          "versionId",
+          "purpose"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "artifactId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "versionId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "purpose": {
+        "type": "string",
+        "enum": [
+          "download",
+          "export"
+        ]
+      }
+    },
+    "required": [
+      "artifactId",
+      "versionId",
+      "purpose"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolOutput": {
+    "type": "object",
+    "properties": {
+      "downloadRef": {
+        "type": "string",
+        "format": "uri"
+      },
+      "expiresAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "artifactVersion": {
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifactId",
+          "versionId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "downloadRef",
+      "expiresAt",
+      "artifactVersion"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "limits": {
+    "deadlineMs": 30000,
+    "maxResponseBytes": 65536
+  }
+}

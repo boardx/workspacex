@@ -99,6 +99,9 @@ def create_native_graph(
     """
     from .native_artifact_publish import NativeArtifactPublishError
     from .standard_web_tools import StandardWebError
+    from .standard_artifact_download import StandardArtifactDownloadError
+    from .standard_run_status import StandardRunStatusError
+    from .standard_run_cancel import StandardRunCancelError
     from .standard_browser_tools import StandardBrowserError
     from .standard_memory import StandardMemoryError
     from .standard_context_tools import StandardContextError
@@ -142,7 +145,7 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, McpExecutionError)) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardArtifactDownloadError, StandardRunStatusError, StandardRunCancelError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, McpExecutionError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure
