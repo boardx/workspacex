@@ -1,4 +1,32 @@
 import ts from 'typescript';
+/** Exact claim identity stays unchanged when the reviewed profile helper narrows dependencies. */
+function hasClaimedExecutorBoundary(source){
+ const ast=ts.createSourceFile('execute-run.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+ const text=n=>n?.getText(ast).replace(/\s/g,'');
+ const imported=ast.statements.some(n=>ts.isImportDeclaration(n)&&n.moduleSpecifier.text==='./runtime-profile-routing'
+  &&n.importClause?.namedBindings&&ts.isNamedImports(n.importClause.namedBindings)
+  &&n.importClause.namedBindings.elements.some(e=>e.name.text==='dependenciesForRuntimeProfile'&&!e.propertyName));
+ let found=false,invalid=false;
+ function visit(n){
+  if(ts.isCallExpression(n)&&ts.isIdentifier(n.expression)&&n.expression.text==='executeClaimed'){
+   const args=n.arguments,first=args[0];
+   const wrapped=first&&ts.isCallExpression(first)&&ts.isIdentifier(first.expression)
+    &&first.expression.text==='dependenciesForRuntimeProfile'&&first.arguments.length===2
+    &&text(first.arguments[0])==='deps'&&text(first.arguments[1])==='outcome.run'&&imported;
+   let owner=n.parent;while(owner&&!ts.isFunctionDeclaration(owner))owner=owner.parent;
+   const arrow=n.parent,heartbeat=arrow?.parent;
+   const fenced=arrow&&ts.isArrowFunction(arrow)&&arrow.body===n&&heartbeat&&ts.isCallExpression(heartbeat)
+    &&text(heartbeat.expression)==='withRunHeartbeat'&&heartbeat.arguments.length===6
+    &&heartbeat.arguments[4]===arrow&&text(heartbeat.arguments[0])==='deps.runs'
+    &&text(heartbeat.arguments[1])==='deps.log'&&text(heartbeat.arguments[2])==='input.orgId'
+    &&text(heartbeat.arguments[3])==='outcome.run.runId'&&text(heartbeat.arguments[5])==='outcome.run.leaseEpoch';
+   if(args.length===3&&(text(first)==='deps'||wrapped)&&text(args[1])==='input.orgId'
+    &&text(args[2])==='outcome.run'&&owner?.name?.text==='executeQueuedRuns'&&fenced)found=true;
+   else invalid=true;
+  }
+  ts.forEachChild(n,visit);
+ }visit(ast);return found&&!invalid;
+}
 const prefix='src/infrastructure/';
 const specs={
  'agent-run/pg-native-run-inputs.ts':['agent_runs','chat_messages','chat_message_attachments'],
@@ -130,7 +158,7 @@ export function checkWorkbenchRepository(path,source,read){
   require(source,/WHERE c.org_id=\$1 AND c.run_id=\$2/,'continuation run binding missing');
   const c=read('src/application/agent-run/execute-run.ts');
   require(c,/artifactContinuations\?\.prepare\(orgId, run.runId\)/,'source must belong to claimed run');
-  require(c,/executeClaimed\(deps, input.orgId, outcome.run\)/,'claimed executor boundary missing');
+  if(!hasClaimedExecutorBoundary(c))errors.push('claimed executor boundary missing');
  }
  if(path.endsWith('register-run-artifacts.ts')){
   require(source,/WHERE r.org_id=\$2 AND r.id=\$5/,'artifact source message tenant/run binding missing');

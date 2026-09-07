@@ -47,3 +47,22 @@ test('staging rejects public exposure of internal listFiles',()=>{
 test('staging rejects recovery without fence',()=>{
  assert.ok(check(staging,read(staging),p=>p.endsWith('pg-run-recovery.ts')?read(p).replace('await withRunLease(', 'await withoutFence('):read(p)).length);
 });
+const continuation='src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts';
+const executor='src/application/agent-run/execute-run.ts';
+test('claimed boundary accepts exact runtime-profile dependency wrapper',()=>{
+ assert.deepEqual(check(continuation,read(continuation),read),[]);
+});
+for(const [label,from,to] of [
+ ['arbitrary dependency wrapper','dependenciesForRuntimeProfile(deps, outcome.run)','modelChosenDependencies(deps, outcome.run)'],
+ ['wrong wrapper source','dependenciesForRuntimeProfile(deps, outcome.run)','dependenciesForRuntimeProfile(otherDeps, outcome.run)'],
+ ['wrong wrapped claim','dependenciesForRuntimeProfile(deps, outcome.run)','dependenciesForRuntimeProfile(deps, input.run)'],
+ ['wrong tenant','), input.orgId, outcome.run)', '), other.orgId, outcome.run)'],
+ ['wrong dispatched claim','), input.orgId, outcome.run)', '), input.orgId, input.run)'],
+ ['wrong heartbeat tenant','deps.log, input.orgId, outcome.run.runId','deps.log, other.orgId, outcome.run.runId'],
+ ['wrong heartbeat claim','deps.log, input.orgId, outcome.run.runId','deps.log, input.orgId, input.run.runId'],
+ ['wrong heartbeat epoch','outcome.run), outcome.run.leaseEpoch)', 'outcome.run), input.run.leaseEpoch)'],
+ ['wrong wrapper module','"./runtime-profile-routing"','"./untrusted-router"'],
+])test('claimed boundary rejects '+label,()=>{
+ const original=read(executor),changed=original.replace(from,to);assert.notEqual(changed,original);
+ assert.ok(check(continuation,read(continuation),p=>p===executor?changed:read(p)).length);
+});
