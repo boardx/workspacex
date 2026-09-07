@@ -1,0 +1,13 @@
+{
+  "lane": "local-existing-infra",
+  "baseUrl": "http://127.0.0.1:42168",
+  "prompt": "生成一个 pdf，总结你可以做的事情",
+  "account": "fullstack-fullstack-e2e@example.test",
+  "credentialSource": "fullstack-smoke seed account (REAL_MODEL_E2E_USE_FULLSTACK_SEED=1)",
+  "runTimeoutMs": 900000,
+  "threadId": "thr-633baf9f-308c-4969-8cf0-d34701af8873",
+  "agentRunId": "6c693577-3509-4730-9db4-d30c66459caf",
+  "elapsedSeconds": 494,
+  "runStartObserved": true,
+  "generatedAt": "2026-09-07T03:17:40.546Z"
+}

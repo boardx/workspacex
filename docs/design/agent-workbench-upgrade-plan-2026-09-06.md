@@ -2,7 +2,7 @@
 
 日期：2026-09-06。状态：实施中；2026-09-07 用户直接授权独立 worktree、并行 subagent、逐单元 commit、最终一个 PR。跟踪 issue：#2867；不代改设计签核状态。
 
-## 开发进度图（更新于 2026-09-07 11:04 Asia/Shanghai）
+## 开发进度图（更新于 2026-09-07 11:24 Asia/Shanghai）
 
 本图是本升级项目的进度展示入口。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。当前三路 subagent 正在逐项核对节点验收；绿色表示节点验收完成，紫色另表示通过 PR 交付。节点验收与仓库 feature passing 状态分开记录，不按代码量虚报完成。
 
@@ -22,7 +22,7 @@ flowchart TB
   S1 --> S2["S2 验收完成：身份与事件契约\ncommit a06e8a365\n真实 HTTP / PG 矩阵 4/4"]:::done
 
   subgraph FE["前端工作线"]
-    S8["S8 100活动浏览器验收中\ncommit e24ebdc22\n已修PG断连，5/5通过"]:::verify
+    S8["S8 验收完成：流式执行时间线\ncommit 168d9b12f\n10轮/100工具 · 阅读位置稳定"]:::done
     S9["S9 验收完成：输入与反馈\ncommit d9bca8350 / bb52d22bb\n输入恢复29/29 · 暂停入口20/20"]:::done
     S10["S10 待联合验收：成果工作区\ncommit b0edc074a / 67685a563\npeer 50b9d9a409 取消释放已提交"]:::verify
     S8 --> S9
@@ -38,7 +38,7 @@ flowchart TB
   subgraph ENGINE["内核与运行控制工作线"]
     S5["S5 补验收：停止 / 暂停 / 恢复\ncommit bb52d22bb\n无计划恢复已修，20/20通过"]:::verify
     S6["S6 待验收：本轮插话与排队\ncommit 1db6a178f / c0acfa889"]:::verify
-    S7["S7 待评审：持久审批身份\ncommit 577961624 / 446b03557\nonce及明确deny · PG通过"]:::verify
+    S7["S7 验收完成：持久审批\ncommit 4747cee55 / 8f51bc1f5\n浏览器3/3 · 实模PDF无误审批"]:::done
     S5 --> S6 --> S7
   end
 
@@ -59,13 +59,14 @@ flowchart TB
   S7 -.交互接入.-> S9
 
   S9 --> S11["S11 联合验收进行中\n被测 commit cbd94528e\nCI：77通过 / 1跳过，无重试\n新增修复待同SHA回归"]:::active
-  S11 --> RM["实模已获合成数据测试授权\n测试 commit 8a896dd19\n当前运行中，待实际结果"]:::active
+  S11 --> RM["实模验收完成：真实PDF\n生产05e396b90 · 测试8a896dd19\n8/8通过 · 494秒 · 1299987字节"]:::done
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
   S11 --> S12["S12 后续导入旅程迁移\ncommit a83730fcb / a47ef0a55\n进度 commit 3e50354c7\nPR2890 · review 32/32通过"]:::active
 
   subgraph ACCEPTED["已完成的专项验收（不替代上级节点全部要求）"]
+    VI["API实例重建 / cursor续接 / 撤权\ncommit 895f991da\n真实HTTP/PG 4/4，非OS重启"]:::done
     VJ["Journal 序号/回放/取消竞争\n被测 commit 31b2c2452\n真实 PG 18/18"]:::done
     VP["父控制与授权范围\n被测 commit 31b2c2452\n真实 PG 13/13"]:::done
     VA["双页面审批竞争与待审批取消\n被测 commit f1a0c295f\n真实浏览器 2/2"]:::done
@@ -73,6 +74,7 @@ flowchart TB
     VF["插话持久 FIFO\n被测 commit 31b2c2452\n真实 PG 3/3"]:::done
   end
   S3 -.专项证据.-> VJ
+  S3 -.专项证据.-> VI
   S7 -.专项证据.-> VP
   S6 -.专项证据.-> VF
   S7 -.专项证据.-> VA
@@ -112,6 +114,9 @@ flowchart TB
 
 | 日期 | 节点 | 变化与证据 | 下一动作 | 实测 Token |
 |---|---|---|---|---|
+| 2026-09-07 11:25 | S3 / PR | `895f991da` 新增真实双Nest实例、PG游标续接、实例重建与撤销membership后双端404，联合租约mock共4/4通过。[证据](evidence/agent-workbench/2026-09-07-instance-recovery.txt)。此专项子节点转绿，不冒充10分钟或OS进程强杀验证。五轮review已发现并修复PG断连、无plan恢复、AGUI顺序、夹具身份及CI mock问题；准备冻结本PR并更新CI | 原计划剩余专项（S1完整多视口评审、S3长任务OS重启、S5–S6真实控制矩阵、S10版本继续修改/peer联合链）保持黄色，由证据完成后再转绿；不阻止已实现工作台契约按peer确认顺序先交付 | 未采集 |
+| 2026-09-07 11:24 | S8 | `168d9b12f` 对应夹具增量的真实浏览器10轮/100活动验收1/1通过：每轮10个真实journal工具结果、共100个唯一身份、结束前流式可见、向上阅读不跳、折叠展开锚点稳定。用例7.7分钟，总运行含预热11.4分钟。[原始证据](evidence/agent-workbench/2026-09-07-hundred-activities.txt)。S8转绿，历史刷新/框架保留证据继续沿用；脚本化外部引擎回执不冒充100次真实模型调用 | 双实例恢复验证后冻结最终PR提交，修复CI旧mock并复验 | 未采集 |
+| 2026-09-07 11:22 | S7 / S10 / S11 | 第5轮：真实Deep Agents+DashScope+技能沙箱+浏览器标准PDF用例8/8，runner退出0，耗时494秒，1299987字节，SHA256 `bef57de87c3a6ce9afd79de44333be6e32b53f88fc5558651a3eca0f7c60239a`；无审批/错误横幅/重复答复/传输中断/页面异常。[判决](evidence/agent-workbench/2026-09-07-real-model-verdict.txt)及[上下文](evidence/agent-workbench/2026-09-07-real-model-context.json)，生产包含 `05e396b90`，运行期间后续修改仅测试与文档。`4747cee55` 审批刷新/切换浏览器3/3；结合跨run授权PG证据，S7转绿。`086edcd2a` 修复CI旧租约mock，7/7通过。S8夹具每轮ID复用已修 `168d9b12f`，100活动复跑中 | 冻结最终提交、当前CI全绿后按用户授权merge；S10版本继续修改与peer native联合链不由首次PDF成功替代 | 未采集 |
 | 2026-09-07 11:04 | S4 / S8 / S9 / S11 | 第4轮：`05e396b90` 修复计划快照先于工具结果的竞态，真实HTTP/PG、顺序及断连复验9/9，独立review无P1/P2；`90549ff8b` 复用CI权威隔离门控。S9以 `d9bca8350` 输入恢复29/29及 `bb52d22bb` 20/20转绿，语音恢复指既有分段采音停止后继续，主run checkpoint联合验收仍由S5负责。[输入证据](evidence/agent-workbench/2026-09-07-input-recovery.txt)。浏览器前置503定位为测试环境漏配REDIS_PORT，已修环境重跑，不计产品失败/通过。真实模型已获用户授权并在现有栈重跑 | 完成浏览器与实模结果；第5轮冻结PR版本和权威合并门禁 | 未采集 |
 | 2026-09-07 10:56 | 五轮迭代 1–3 | 第1轮三路独立审计全部黄色backlog；第2轮 `e24ebdc22` 修复连接断开后进程崩溃，真实PG及单元5/5，`bb52d22bb` 修复无计划暂停任务继续入口，20/20且独立review无P1/P2；第3轮开始真实浏览器及HTTP detach验收，发现原状态快照早于工具RESULT竞态，正在修复。`cbd94528e` CI全栈日志为77通过/1跳过/无重试。用户已授权DashScope合成数据测试和最终merge main | 第4轮独立复核修复与联合证据；第5轮冻结SHA、PR门禁和合并检查。全部必需验收未齐前不宣称全绿 | 未采集 |
 | 2026-09-07 10:33 | S0 / S8 | `cbd94528e` 标准 init 退出0，lock hash无变化、生成文件无差异；[基线报告](agent-workbench-baseline-acceptance.md)及[原始日志](evidence/agent-workbench/2026-09-07-init.txt)补齐当前环境验收，S0转绿。S8复验在机器load约30时 `/chat` 300秒编译预热失败，测试未开始；当前负载已回落，准备复跑 | 复跑S8；保留现有通过节点颜色 | 未采集 |
