@@ -20,7 +20,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {beforeAll,afterAll,it,expect} from 'vitest';
-import {seedOrg,addOrgMember,asApp,ensureDatabase,migrateOnce,resetOrgs} from '../support/db';
+import {seedOrg,addOrgMember,addProjectMember,asApp,ensureDatabase,migrateOnce,resetOrgs} from '../support/db';
 import {addChatThread,addChatMessage} from '../support/chat-db';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
 import {appConfig} from '../../src/infrastructure/db/pg-config';
@@ -62,10 +62,12 @@ async function seed(scope: typeof org, id: string) {
   const project = `project-${scope}`, thread = `thread-${scope}`, agent = `agent-${scope}`, version = `version-${scope}`;
   await seedOrg({ orgId: scope, projectId: project });
   await addOrgMember(scope,"actor","consultant",null);
+  await addProjectMember(scope,project,'actor','member',null);
   await addOrgMember(scope,"intruder","consultant",null);
   await addChatThread({ orgId: scope, id: thread, projectId: null, visibilityScope: "private", createdBy: "actor" });
   await addChatMessage({ orgId: scope, id: `message-${scope}`, threadId: thread, body: "parent", authorId: "actor" });
   await asApp(scope, async (c) => {
+    await c.query("UPDATE projects SET name='Cedar' WHERE org_id=$1 AND id=$2",[scope,project]);
     await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
       VALUES($1,$2,'t042','T042','enabled','actor',now(),now())`, [agent,scope]);
     await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,
@@ -86,40 +88,68 @@ afterAll(async()=>{await db?.close();await resetOrgs(org);await rm(root,{recursi
 import {verifySkillStarterPack} from '../../src/domain/skill/starter-pack';
 it('real configured model executes the selected synthetic skill scenario',async()=>{
  for(const key of ['DASHSCOPE_API_KEY','DASHSCOPE_BASE_URL','DASHSCOPE_MODEL','WX_SKILL_BATCH_EVIDENCE'])if(!process.env[key])throw new Error(`missing ${key}`);
- const packVersion=process.env.WX_SKILL_BATCH_PACK_VERSION??'1.0.0';if(!['1.0.0','1.1.0'].includes(packVersion)||(packVersion==='1.1.0'&&scenario.packId!=='standard-context'))throw new Error('unsupported case package version');
+ const packVersion=('packVersion' in scenario?scenario.packVersion:process.env.WX_SKILL_BATCH_PACK_VERSION)??'1.0.0';
+ if(!['1.0.0','1.1.0','1.1.2'].includes(packVersion)||(packVersion==='1.1.0'&&scenario.packId!=='standard-context')||(packVersion==='1.1.2'&&scenario.packId!=='standard-web'))throw new Error('unsupported case package version');
  const container=process.env.WX_NATIVE_SANDBOX_CONTAINER;if(!container)throw new Error('owned sandbox required');
  const fixture=await readFile(join(workspace,'apps/deep-agent-service/tests/native_sandbox_fixture.py'),'utf8'),relayCode=fixture.split('_UDS_RELAY = r"""')[1]?.split('"""')[0];if(!relayCode)throw new Error('relay missing');
- const socket=join(root,'sandbox.sock');const relay=createServer(async(req,res)=>{try{req.setEncoding('utf8');let body='';for await(const c of req)body+=c;const output=JSON.parse(await processRun('docker',['exec','-i',container,'node','-e',relayCode.replace("let input = '';", "process.stdin.setEncoding('utf8'); let input = '';").replace("let body='';res.on", "res.setEncoding('utf8'); let body='';res.on")],JSON.stringify({method:req.method,path:req.url,headers:req.headers,body})));res.writeHead(output.status,{'content-type':'application/json'});res.end(output.body);}catch{res.writeHead(503);res.end('{}');}});await new Promise<void>(r=>relay.listen(socket,r));
+ const socket=join(root,'sandbox.sock');const relay=createServer(async(req,res)=>{try{req.setEncoding('utf8');let body='';for await(const c of req)body+=c;const output=JSON.parse(await processRun('docker',['exec','-i',container,'node','-e',relayCode.replace("let input = '';", "process.stdin.setEncoding('utf8'); let input = '';").replace("let body='';res.on", "res.setEncoding('utf8'); let body='';res.on")],JSON.stringify({method:req.method,path:req.url,headers:req.headers,body})));res.writeHead(output.status,{'content-type':'application/json'});res.end(output.body);}catch(error){const evidence=process.env.WX_SKILL_BATCH_EVIDENCE;if(evidence){let detail=String(error);for(const key of ['DASHSCOPE_API_KEY','NATIVE_SESSION_SERVICE_KEY','DEEP_AGENT_SERVICE_INTERNAL_KEY'])if(process.env[key])detail=detail.replaceAll(process.env[key]!,'[redacted]');await mkdir(evidence,{recursive:true});await writeFile(join(evidence,'sandbox-transport-failure.json'),JSON.stringify({code:'sandbox_transport_failed',detail}));}res.writeHead(503);res.end('{"error":"sandbox_transport_failed"}');}});await new Promise<void>(r=>relay.listen(socket,r));
  const objects=new FsObjectStore(root),repo=new PgAgentRunRepository(db),grants=new PgToolPermissionGrantRepository(db),identity=new PgIdentityRepository(db),chat=new PgChatRepository(db);
  const owner=new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),'e'.repeat(64),new PgNativeRunInputs(db,objects,{repo:identity,ids:{next:()=>randomUUID()},chat}));
  const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),repo,grants),staging=new PgNativeOutputStaging(db,owner,objects,authority,b=>createNativeSessionFiles({socketPath:socket,...b}));
  const oldKey=process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=randomUUID();let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
  const previousEnv={WORKSPACEX_OBJECT_ROOT:process.env.WORKSPACEX_OBJECT_ROOT,KERNEL_AGENT_RUN_AUTOSTART:process.env.KERNEL_AGENT_RUN_AUTOSTART};
  process.env.WORKSPACEX_OBJECT_ROOT=root;process.env.KERNEL_AGENT_RUN_AUTOSTART='0';
- let production:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
+ let production:Awaited<ReturnType<typeof NestFactory.create>>|undefined,provisioned=false;
  try{
   for(const tool of ['write_todos','read_file','write_file','edit_file','ls','glob','execute','wx_artifact_publish','wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read','web_search','fetch_url'])await grants.grantForRun(org,parent,tool);
   const transcript=scenario.input;
-  const uploaded=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:`thread-${org}`,filename:scenario.inputName,mime:'text/plain',bytes:Buffer.from(transcript)});
-  await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));
-  expect(await extractAttachment({store:objects,extraction:new PgAttachmentExtractionRepository(db),converter:new AnydocAttachmentToMarkdown()},org,uploaded.id)).toBe('extracted');
+  if(!['S001_REVOKED','S008_EMPTY','S011_REVOKED'].includes(caseId)){
+   const uploaded=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:`thread-${org}`,filename:scenario.inputName,mime:'text/plain',bytes:Buffer.from(transcript)});
+   await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));
+   expect(await extractAttachment({store:objects,extraction:new PgAttachmentExtractionRepository(db),converter:new AnydocAttachmentToMarkdown()},org,uploaded.id)).toBe('extracted');
+  }
   const pack=scenario.packId==='office'?null:verifySkillStarterPack(await new FileSkillStarterPackSource(join(workspace,'skills/starter-packs')).load(scenario.packId,packVersion),{packId:scenario.packId,packVersion});
   const content={ 'docx-create':DOCX_CREATE_SKILL_MD,'xlsx-create':XLSX_CREATE_SKILL_MD,'pptx-create':PPTX_CREATE_SKILL_MD,'pdf-create':PDF_CREATE_SKILL_MD };
   const skills=pack?pack.skills.map(s=>({stableName:s.stableName,package:{skillId:s.stableName,versionId:s.semanticVersion,files:s.files}})):
    PLATFORM_SKILL_CATALOG.map(spec=>({stableName:spec.stableName,package:officeSkillPackage({...spec,content:content[spec.stableName as keyof typeof content]}).package}));
   const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};const policy:Record<string,boolean>=Object.fromEntries(['execute','wx_artifact_publish','write_todos','read_file','write_file','edit_file','ls','glob','grep'].map(name=>[name,false]));
-  if(caseId==='S001'||caseId==='S008')for(const name of ['wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read'])policy[name]=false;
-  if(caseId==='S002')for(const name of ['web_search','fetch_url'])policy[name]=false;
-  const ref=await owner.provision(ctx,skills,policy);
+  if(caseId.startsWith('S001')||caseId.startsWith('S008')||caseId.startsWith('S011')||caseId.startsWith('S014'))for(const name of ['wx_knowledge_search','wx_knowledge_read','wx_project_list','wx_project_read'])policy[name]=false;
+  if(caseId.startsWith('S002'))for(const name of ['web_search','fetch_url'])policy[name]=false;
+  const ref=await owner.provision(ctx,skills,policy);provisioned=true;
   production=await(await import('../../src/main')).createApp();
-  class TestModule{};Module({controllers:[NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardContextToolsController,StandardWebToolsController],providers:[{provide:STANDARD_CONTEXT_SERVICE,useValue:production!.get(STANDARD_CONTEXT_SERVICE)},{provide:STANDARD_WEB_SERVICE,useValue:production!.get(STANDARD_WEB_SERVICE)},{provide:IDENTITY_REPOSITORY,useValue:identity},{provide:DECISION_ID_FACTORY,useValue:{next:()=>randomUUID()}},{provide:CHAT_REPOSITORY,useValue:chat},{provide:NATIVE_SESSION_OWNER,useValue:owner},{provide:NATIVE_OUTPUT_STAGING,useValue:staging},{provide:TOOL_EXECUTION_AUTHORITY,useValue:authority},{provide:AGENT_RUN_STORE,useValue:repo},{provide:INTERJECTION_STORE,useValue:new PgInterjectionStore(db)},{provide:TOOL_PERMISSION_GRANT_STORE,useValue:grants}]})(TestModule);
+  const conflictSources=[
+   {url:'https://docs.example.test/widget-current',title:'Current widget status',text:'Acme Widget is generally available in release 2.0.'},
+   {url:'https://archive.example.test/widget-preview',title:'Archived widget status',text:'Acme Widget remains preview-only in release 1.5.'},
+  ].map(source=>({...source,sourceId:'web:'+createHash('sha256').update(source.url).digest('hex'),contentHash:createHash('sha256').update(source.text).digest('hex')}));
+  const webService=caseId==='S002_CONFLICT'?{
+   search:async()=>({results:conflictSources.map(source=>({sourceId:source.sourceId,url:source.url,title:source.title,snippet:source.text,contentHash:source.contentHash,retrievedAt:new Date().toISOString()})),truncated:false,provider:'boardx-google',candidateLimit:5,domainFilter:'post-filter-provider-candidates',contentKind:'search-snippet'}),
+   fetch:async(input:{url:string})=>{const source=conflictSources.find(item=>item.url===input.url);if(!source)throw new Error('fixture_source_missing');return {sourceId:source.sourceId,url:source.url,resolvedUrl:source.url,title:source.title,text:source.text,contentHash:source.contentHash,retrievedAt:new Date().toISOString(),truncated:false,contentKind:'extracted-text',extractor:'utf8-text',hashScope:'full-extracted-text'};},
+  }:production!.get(STANDARD_WEB_SERVICE);
+  class TestModule{};Module({controllers:[NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardContextToolsController,StandardWebToolsController],providers:[{provide:STANDARD_CONTEXT_SERVICE,useValue:production!.get(STANDARD_CONTEXT_SERVICE)},{provide:STANDARD_WEB_SERVICE,useValue:webService},{provide:IDENTITY_REPOSITORY,useValue:identity},{provide:DECISION_ID_FACTORY,useValue:{next:()=>randomUUID()}},{provide:CHAT_REPOSITORY,useValue:chat},{provide:NATIVE_SESSION_OWNER,useValue:owner},{provide:NATIVE_OUTPUT_STAGING,useValue:staging},{provide:TOOL_EXECUTION_AUTHORITY,useValue:authority},{provide:AGENT_RUN_STORE,useValue:repo},{provide:INTERJECTION_STORE,useValue:new PgInterjectionStore(db)},{provide:TOOL_PERMISSION_GRANT_STORE,useValue:grants}]})(TestModule);
   app=await NestFactory.create(TestModule,{logger:false});await app.listen(0,'127.0.0.1');const base=await app.getUrl();
+  const revoked=caseId==='S001_REVOKED'||caseId==='S011_REVOKED';
+  if(revoked){
+   const projectId=`project-${org}`,sourceThread=`source-thread-${org}`,sourceMessage=`source-message-${org}`;
+   await addChatThread({orgId:org,id:sourceThread,projectId,visibilityScope:'plenary',createdBy:'actor'});
+   await addChatMessage({orgId:org,id:sourceMessage,threadId:sourceThread,body:'revocable source',authorId:'actor'});
+   const secret='AX-17 confidential launch date is 2039-04-03 and adoption is 91 percent.';
+   const sourceUpload=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:sourceThread,filename:'revocable.txt',mime:'text/plain',bytes:Buffer.from(secret)});
+   await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,sourceUpload.id,sourceMessage]));
+   expect(await extractAttachment({store:objects,extraction:new PgAttachmentExtractionRepository(db),converter:new AnydocAttachmentToMarkdown()},org,sourceUpload.id)).toBe('extracted');
+   const invoke=async(toolName:string,toolArgs:unknown)=>{const response=await fetch(`${base}/internal/agent-runs/${parent}/standard-context/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY!},body:JSON.stringify({orgId:org,attemptId:ctx.attemptId,leaseEpoch:1,toolCallId:randomUUID(),toolName,toolArgs})});return {status:response.status,body:await response.text()};};
+   const searched=await invoke('wx_knowledge_search',{query:'AX-17',projectId});expect(searched.status).toBe(200);const hit=(JSON.parse(searched.body) as {items:Array<{sourceId:string;versionId:string}>}).items[0];expect(hit).toBeDefined();
+   const read=await invoke('wx_knowledge_read',{sourceId:hit!.sourceId,versionId:hit!.versionId,projectId});expect(read.status).toBe(200);expect(read.body).toContain('2039-04-03');
+   await asApp(org,c=>c.query('DELETE FROM project_memberships WHERE org_id=$1 AND project_id=$2 AND user_id=$3',[org,projectId,'actor']));
+   const denied=await invoke('wx_knowledge_read',{sourceId:hit!.sourceId,versionId:hit!.versionId,projectId});expect(denied.status).toBe(503);expect(denied.body).not.toContain(secret);
+   const evidence=process.env.WX_SKILL_BATCH_EVIDENCE!,readBody=JSON.parse(read.body);await mkdir(evidence,{recursive:true});await writeFile(join(evidence,'revocation-proof.json'),JSON.stringify({sourceId:hit!.sourceId,versionId:hit!.versionId,before:{status:read.status,body:readBody,contentHash:createHash('sha256').update(readBody.content).digest('hex')},after:{status:denied.status,body:JSON.parse(denied.body)}}));
+  }
   const config={configurable:{native_runtime:ref,org_skills:skills.map(s=>({stable_name:s.stableName,package:s.package})),disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
   const raw=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/skill_batch_real_model_runner.py')],JSON.stringify({config,prompt:scenario.prompt}),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
   const evidence=process.env.WX_SKILL_BATCH_EVIDENCE!;await mkdir(evidence,{recursive:true});await writeFile(join(evidence,'model-trace.json'),raw);const report=JSON.parse(raw);
   expect(report.skillActivity.some((fact:{skillStableName:string;stage:string})=>fact.skillStableName===scenario.stableName&&fact.stage==='body_read')).toBe(true);
   expect(report.calls.some((c:{name:string})=>c.name==='wx_artifact_publish')).toBe(true);
   expect(report.negativeCalls).toEqual([]);
+  if(['S011_REVOKED','S014_CURRENT'].includes(caseId))expect(report.calls.some((c:{name:string})=>['send_email','send_notification','create_task','post_message'].includes(c.name))).toBe(false);
   const files=await staging.listFiles(org,parent);expect(files.length).toBeGreaterThan(0);
   const primary=files.find(f=>f.name===scenario.output);expect(primary).toBeDefined();
   const bytes=Buffer.from((await objects.get(primary!.objectKey))!);
@@ -128,14 +158,17 @@ it('real configured model executes the selected synthetic skill scenario',async(
   if(scenario.output.endsWith('.md')){
    const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
    if(caseId==='S007'){expect(files.some(f=>f.name.endsWith('.py'))).toBe(true);expect(files.some(f=>f.name.endsWith('.csv'))).toBe(true);expect(report.calls.some((c:{name:string;args:{command?:string}})=>c.name==='execute'&&/python/.test(c.args.command??''))).toBe(true);expect(text).toMatch(/52/);expect(text).toMatch(/40/);expect(text).toMatch(/12/);expect(text).toMatch(/缺失|空值|missing/i);expect(text).toMatch(/重复|duplicate/i);}
-   if(caseId==='S002'){expect(report.calls.some((c:{name:string})=>c.name==='web_search')).toBe(true);expect(report.calls.some((c:{name:string})=>c.name==='fetch_url')).toBe(true);expect(text).toMatch(/https:\/\//);const fetched=report.results.filter((r:{name:string;status:string})=>r.name==='fetch_url'&&r.status==='success').map((r:{content:string})=>JSON.parse(r.content) as {sourceId:string;contentHash:string;url:string});expect(fetched.length).toBeGreaterThan(0);expect(fetched.some((f:{sourceId:string;contentHash:string})=>text.includes(f.sourceId)&&text.includes(f.contentHash))).toBe(true);}
+   if(caseId==='S002'||caseId==='S002_CONFLICT'){expect(report.calls.some((c:{name:string})=>c.name==='web_search')).toBe(true);expect(report.calls.some((c:{name:string})=>c.name==='fetch_url')).toBe(true);expect(text).toMatch(/https:\/\//);const fetched=report.results.filter((r:{name:string;status:string})=>r.name==='fetch_url'&&r.status==='success').map((r:{content:string})=>JSON.parse(r.content) as {sourceId:string;contentHash:string;url:string;text?:string});expect(fetched.length).toBeGreaterThan(0);expect(fetched.some((f:{sourceId:string;contentHash:string})=>text.includes(f.sourceId)&&text.includes(f.contentHash))).toBe(true);if(caseId==='S002_CONFLICT'){expect(fetched).toHaveLength(2);for(const source of conflictSources){expect(text).toContain(source.sourceId);expect(text).toContain(source.contentHash);expect(text).toContain(source.url);expect(fetched.some((f:{text?:string})=>f.text===source.text)).toBe(true);}expect(text).toMatch(/冲突|矛盾|conflict/i);}}
    if(caseId==='S001'){expect(text).toMatch(/14/);expect(text).toMatch(/未知|未确定|undecided|unknown/i);expect(report.calls.some((c:{name:string})=>c.name==='wx_knowledge_read')).toBe(true);}
    if(caseId==='S008'){expect(text).toMatch(/3/);expect(text).toMatch(/议程|agenda/i);expect(text).toMatch(/未知|未确定|unknown/i);expect(report.calls.some((c:{name:string})=>c.name==='wx_knowledge_read')).toBe(true);}
+   if(caseId==='S008_EMPTY'){expect(report.calls.some((c:{name:string})=>c.name==='wx_knowledge_search')).toBe(true);expect(text).toMatch(/待补|未知|unknown|missing/i);expect(text).toMatch(/目标|时间|参会|议程|项目事实/);expect(text).not.toMatch(/(?:负责人|参会人|项目经理)[：:]\s*[\u4e00-\u9fff]{2,4}|\b\d+%/);}
+   if(caseId==='S001_REVOKED'||caseId==='S011_REVOKED'){expect(report.calls.some((c:{name:string})=>c.name==='wx_knowledge_search'||c.name==='wx_knowledge_read')).toBe(false);expect(text).toMatch(/未知|无法访问|撤权|无权|unknown|unavailable/i);expect(text).not.toMatch(/2039-04-03|91\s*(?:percent|%)/i);}
+   if(caseId==='S014_CURRENT'){expect(report.calls.some((c:{name:string})=>c.name==='wx_project_list')).toBe(true);expect(report.calls.some((c:{name:string})=>c.name==='wx_project_read')).toBe(true);expect(text).toMatch(/Cedar/);expect(text).toMatch(/预算[\s\S]{0,50}(?:未知|未提供)|(?:未知|未提供)[\s\S]{0,50}预算/i);expect(text).toMatch(/任务[\s\S]{0,50}(?:未知|未提供)|(?:未知|未提供)[\s\S]{0,50}任务/i);expect(text).toMatch(/blueprint.{0,20}(?:null|未实现|未配置|不可用)/i);expect(text).not.toMatch(/blueprint\s*(?:已上线|已实现|可用)/i);const apiResults=report.results.filter((r:{name:string;status:string})=>['wx_project_list','wx_project_read'].includes(r.name)&&r.status==='success').map((r:{name:string;content:string})=>({name:r.name,body:JSON.parse(r.content)}));expect(apiResults).toHaveLength(2);const overview=apiResults.find((r:{name:string})=>r.name==='wx_project_read')!.body.overview;expect(overview.name).toBe('Cedar');expect(overview.status).toBe('active');expect(overview.roleCounts.member).toBe(1);await writeFile(join(evidence,'api-fixture.json'),JSON.stringify(apiResults));}
   }
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;await repo.commitWriteback(org,{runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files});
-  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(files.length);await writeFile(join(evidence,'result.json'),JSON.stringify({model:report.model,caseId,packages:skills.map(s=>({name:s.stableName,version:s.package.versionId})),outputSha256:createHash('sha256').update(bytes).digest('hex'),artifacts:files.length,actualWriteback:true}));
+  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(files.length);await writeFile(join(evidence,'result.json'),JSON.stringify({model:report.model,modelSnapshot:{provider:'dashscope',modelId:process.env.DASHSCOPE_MODEL},caseId,packId:scenario.packId,packVersion,packDigest:pack?.packDigest??null,packages:skills.map(s=>({name:s.stableName,version:s.package.versionId})),outputSha256:createHash('sha256').update(bytes).digest('hex'),artifacts:files.length,actualWriteback:true}));
  }finally{
   const evidence=process.env.WX_SKILL_BATCH_EVIDENCE!;await mkdir(evidence,{recursive:true});
   for(const file of await staging.listFiles(org,parent)){if(/^[a-zA-Z0-9_.-]+$/.test(file.name)){const data=await objects.get(file.objectKey);if(data)await writeFile(join(evidence,file.name),Buffer.from(data));}}
-  try{await owner.releaseForRun(org,parent);}finally{await app?.close();await production?.close();for(const[k,v]of Object.entries(previousEnv)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await new Promise<void>(r=>relay.close(()=>r()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}
+  try{if(provisioned)await owner.releaseForRun(org,parent);}finally{await app?.close();await production?.close();for(const[k,v]of Object.entries(previousEnv)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await new Promise<void>(r=>relay.close(()=>r()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}
 },300000);
