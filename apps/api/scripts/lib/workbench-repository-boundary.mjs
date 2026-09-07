@@ -29,11 +29,20 @@ function hasClaimedExecutorBoundary(source){
 }
 const prefix='src/infrastructure/';
 const specs={
- 'agent-run/pg-native-run-inputs.ts':['agent_runs','chat_messages','chat_message_attachments'],
+ // #2931 —— `subtask_runs` 只用于一条**存在性探针**（SELECT id）。产文件的子任务在
+ // provision 时也会走到这里，而它在 `agent_runs` 里没有行，原本会抛
+ // `native_input_scope_unavailable` 把整条路打死。探针让子任务拿到空输入集——
+ // 这是**收窄**（子任务不继承父 run 的附件范围），不是新开一条披露面：它只披露
+ // 「这个 id 是不是子任务」，不返回任何租户内容。下方 checks 把它钉死成这个形状。
+ 'agent-run/pg-native-run-inputs.ts':['agent_runs','chat_messages','chat_message_attachments','subtask_runs'],
  'agent-run/pg-native-output-staging.ts':['native_output_staging'],
  'agent-run/pg-native-session-owner.ts':['native_session_bindings','agent_runs'],
  'agent-run/pg-interjection-store.ts':['agent_run_interjections','agent_runs'],
- 'agent-run/pg-parent-run-control.ts':['agent_runs','agent_run_steps'],
+ // #2931 —— 严格回退读：只有当 id 不是父 run 时才查 `subtask_runs`，用于给产文件的
+ // 子任务解析出**它自己的** (attempt, lease) 身份。返回的是授权判定，不是租户内容；
+ // 且它 NARROWS——`allowed_tools` 把子任务收窄到只有发布产物那一个工具。
+ // 详细理由与形状锁见 workbench-permission-boundaries.mjs 同名条目。
+ 'agent-run/pg-parent-run-control.ts':['agent_runs','agent_run_steps','subtask_runs'],
  'agent-run/pg-run-recovery.ts':['agent_runs','agent_run_steps'],
  'artifacts-steering/accept-message-artifact-run-launcher.ts':['agent_runs','agent_run_artifact_context'],
  'artifacts-steering/pg-artifact-continuation-reader.ts':['agent_run_artifact_context','agent_artifacts','agent_artifact_versions'],
@@ -73,6 +82,13 @@ export function checkWorkbenchRepository(path,source,read){
  }visit(ast);if(!queryCount)errors.push('boundary SQL disappeared');
  if(path.endsWith('pg-native-run-inputs.ts')){
   for(const text of ["m.thread_id=r.thread_id", "r.org_id=$1 AND r.id=$2", "m.author_kind='human'", "a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4", 'limits.maxFiles+1'])if(!source.includes(text))errors.push('input scope or bound missing '+text);
+  // #2931 形状锁：子任务探针只能是这一条、只 SELECT id、按 org+id 打、且必须
+  // 出现在父 run 查询之前（否则那句 throw 先执行，探针等于没写）。少任何一条，
+  // `subtask_runs` 就不该出现在本文件的 specs 里。
+  require(source,/const subtask=await s\.query\('SELECT id FROM subtask_runs WHERE org_id=\$1 AND id=\$2',\[context\.orgId,context\.parentRunId\]\);/,'subtask probe must be the exact scoped id-only read');
+  require(source,/if\(subtask\.rows\.length\)return \[\];/,'subtask probe must yield empty inputs, never parent scope');
+  if(source.indexOf('FROM subtask_runs')>source.indexOf('native_input_scope_unavailable'))errors.push('subtask probe must precede the parent-run scope throw');
+  if((source.match(/subtask_runs/g)??[]).length!==1)errors.push('subtask_runs may be named exactly once here');
   const owner=read('src/infrastructure/agent-run/pg-native-session-owner.ts');
   require(owner,/inputSet=await this.authorized\(context,async\(\)=>this.inputs\?this.inputs.read\(context\)/,'input bytes require parent authority before reader');
   require(source,/await resolveVisibility\(this.visibility, \{orgId:context.orgId,userId:run.author_id,threadId:run.thread_id,projectId:facts.projectId\}\)/,'input bytes require current source visibility');

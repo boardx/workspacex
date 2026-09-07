@@ -14,7 +14,13 @@ export class PgNativeRunInputs implements NativeRunInputs {
   constructor(private db: DatabasePort, private objects: ObjectStore, private visibility: ResolveVisibilityDeps) {}
   async read(context: ExecutionAuthorityContext) {
     const rows = await this.db.withTenant(context.orgId, async s => {
-      if((await s.query('SELECT id FROM subtask_runs WHERE org_id=$1 AND id=$2',[context.orgId,context.parentRunId])).rows.length)return [];
+      // #2931: a durable subtask provisions a native session too, but it owns no
+      // `agent_runs` row -- the parent-scope read below would throw and kill every
+      // file-producing subtask. It gets an EMPTY input set: a subtask must not
+      // inherit the parent run's attachment scope. Discloses nothing but "is this
+      // id a subtask"; shape pinned by workbench-repository-boundary.
+      const subtask=await s.query('SELECT id FROM subtask_runs WHERE org_id=$1 AND id=$2',[context.orgId,context.parentRunId]);
+      if(subtask.rows.length)return [];
       const run = (await s.query<{ thread_id: string; input_message_id: string; author_id: string }>(
         `SELECT r.thread_id,r.input_message_id,m.author_id FROM agent_runs r
          JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id AND m.thread_id=r.thread_id
