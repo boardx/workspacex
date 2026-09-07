@@ -144,9 +144,9 @@ export function ChatRecordingPanel({
    * 这一步是本组件与「假绿」之间的分界线：流式过程中攒的 `asr.final` 只是回显，
    * 界面最终显示的是**数据库读回来的**那一份。
    */
-  const refresh = React.useCallback(async (id: string) => {
+  const refresh = React.useCallback(async (id: string, owner: { active: boolean }) => {
     const out = await readTranscript(id, bearer);
-    setSegments(out.segments);
+    if (owner.active && lifetime.current === owner) setSegments(out.segments);
   }, [bearer]);
 
   /**
@@ -297,16 +297,23 @@ export function ChatRecordingPanel({
   }, [bearer, canRecord, projectId, threadId, userId]);
 
   const stop = React.useCallback(async () => {
+    const owner = lifetime.current;
+    const stream = streamRef.current;
+    const isCurrent = () => owner.active && lifetime.current === owner;
     setPhase("stopping");
     try {
-      await streamRef.current?.stop();
-      streamRef.current = null;
+      await stream?.stop();
+      if (!isCurrent()) return;
+      if (streamRef.current === stream) streamRef.current = null;
       if (sessionId !== null) {
         await endThreadRecording(sessionId, bearer);
-        lifetime.current.sessionId = null;
-        await refresh(sessionId);
+        if (!isCurrent()) return;
+        owner.sessionId = null;
+        await refresh(sessionId, owner);
+        if (!isCurrent()) return;
       }
     } catch (e) {
+      if (!isCurrent()) return;
       failedRef.current = true;
       setFailure(
         e instanceof ApiError

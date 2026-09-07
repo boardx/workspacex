@@ -185,6 +185,31 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
     expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "idle");
   });
 
+  it.each(["stream", "end", "refresh"] as const)("停止流程%s延迟期间换bearer，旧响应不能清除新录音", async (boundary) => {
+    let finish!: (value?: unknown) => void;
+    const pending = new Promise((resolve) => { finish = resolve; });
+    const oldStop = vi.fn(async () => {}), newStop = vi.fn(async () => {});
+    openAsrStream.mockResolvedValueOnce({ stop: oldStop }).mockResolvedValueOnce({ stop: newStop });
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="old" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    if (boundary === "stream") oldStop.mockReturnValueOnce(pending as Promise<void>);
+    if (boundary === "end") endThreadRecording.mockReturnValueOnce(pending);
+    if (boundary === "refresh") readTranscript.mockReturnValueOnce(pending);
+    fireEvent.click(screen.getByTestId("chat-live-recording-stop")); await flush();
+    view.rerender(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="new" />); await flush();
+    startThreadRecording.mockResolvedValueOnce({ sessionId: "sess-new", tracks: [{ trackId: "track-new" }] });
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+    await act(async () => finish(boundary === "refresh" ? { segments: [{ id: "old", text: "旧停止回读" }] } : undefined));
+    await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+    fireEvent.click(screen.getByTestId("chat-recording-view-transcript"));
+    expect(screen.queryByText("旧停止回读")).toBeNull();
+    view.unmount(); await flush();
+    expect(newStop).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-new", "new");
+  });
+
   it("空闲态不显示转录中行内卡", async () => {
     render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
     await flush();
