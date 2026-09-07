@@ -36,7 +36,7 @@ flowchart TD
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
   MCPSchema --> MCP[WX-E005 anonymous, isolation and credential broker: 41d60d32f]:::verified
   MCP -.复用准入与审批.-> Peer
-  MCP --> Browser[W10 实际Chromium 3项与PG 6项通过；隔离运行时待验]:::active
+  MCP --> Browser[W10 隔离Remote与PG验收通过：4c535ffc6]:::verified
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
   E4 --> Context[W07 项目与检索：35fc834dc；四项Skill：ce3399822]:::verified
   E3 --> Parse[W08 四格式定位：真实UDS及6项生产HTTP通过，c67dc4e15]:::verified
@@ -69,18 +69,18 @@ flowchart TD
   Hybrid --> Gate
   Index --> Gate
   T11 --> NativeForms[T011–13 native 交互入口：4cc047087]:::verified
-  RunningCancel --> NativeAsync[T042 native 入口待补]:::active
+  RunningCancel --> NativeAsync[T042 native文本入口7e8848e93；文件产物仍待补]:::active
   NativeForms --> Gate
   E6 --> NativeEntries[T021/T040/T041 下载与状态取消：78a771abf，35项DB/HTTP通过]:::verified
   NativeEntries --> Gate
   NativeAsync --> Gate
-  Parse --> S018[S018跨页表格与扫描页：并发409及缓存撤权待修验]:::active
+  Parse --> S018[S018双解析真实模型通过：cfeb272d8；撤权0cea68804]:::verified
   S018 --> Gate
-  Renderer --> OfficeSkills[S003页眉视觉复验；S004创建公式通过；S005/S006待验]:::active
+  Renderer --> OfficeSkills[S003–S006代表场景与PDF表单重开通过：75c4a43bb]:::verified
   OfficeSkills --> Gate
-  Context --> ContextVersion[context 1.1.0：组件通过，新版真实模型待验]:::active
+  Context --> ContextVersion[context 1.1.0：两项新版真实模型通过，830cb9db5]:::verified
   ContextVersion --> Gate
-  Browser --> S013[S013网页Skill：等待生产隔离浏览器入口]:::active
+  Browser --> S013[S013网页Skill：HTML产物出口后续修复]:::active
   S013 --> Gate
   Parse --> Gate
   Renderer --> Gate
@@ -96,15 +96,17 @@ flowchart TD
   Data --> S007[S007真实模型：报告+CSV+Python源码，51c85cf7f]:::verified
   Context --> S001[S001知识问答与S008会议准备：ec3e655b4，真实引用核验通过]:::verified
   Research --> S002[S002真实研究：来源账本及失败恢复通过，a727c21bb]:::verified
-  Author --> S015[S015草稿已提交；生成Skill第二次模型调用通过，待提交]:::active
+  Author --> S015[S015生成Skill第二次模型调用通过：cfeb272d8]:::verified
   Methods --> SkillsRevised[S017/S019/S020代表场景及人工核对通过：352efabaf / ffbeae429]:::verified
   Media --> S009[S009真实模型及语义核对：1.1.1，d3d5baf2d]:::verified
   Media --> ASR[S016真实ASR：等待配置]:::blocked
   Commits --> Migration[迁移与数据指纹重放：9a4f280f8，228项通过]:::verified
   Peer --> Picker[Skill选择器：c2948fbd7；桌面/手机真实挂载通过]:::verified
   Picker --> Gate
-  Migration --> Push[已授权公开推送；远端检查点ec3e655b4]:::verified
+  Migration --> Push[核心候选已推送：b1a31d8f4]:::verified
   Push --> PR[Draft PR #2869；CI 修复与新 SHA 验证中]:::active
+  PR --> Preview[devapp核心预览部署34100037730：门控运行中]:::active
+  Preview --> Live[远端普通用户文件验收待执行]:::active
   PR --> Main[等待后续整合main]
   Resource[本地3路：沙箱并发、Office与新版上下文、剩余Skill验收]:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
@@ -114,26 +116,12 @@ flowchart TD
   classDef peer fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
 ```
 
-## Current delivery boundary
+## 当前交付边界
 
-Local committed checkpoint: c67dc4e15. Public checkpoint: ec3e655b4. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
+核心候选 b1a31d8f4 已推送；devapp 部署 workflow 34100037730 已启动，尚未完成远端验收。见 [核心预览说明](core-preview.md)。PR #2869 保持未合并。
 
-At earlier b8352e879, all four backend test shards, runtime gates, full compilation and control-plane checks passed. Core-loop and fullstack smoke failed on an overflowing Skill picker; Python ended cancelled and is under diagnosis. Peer correction c2948fbd7 and normal-pointer regression assertions 923df5362 are now pushed in ec3e655b4. Desktop/mobile actual mount tests passed; current-head CI must pass separately.
+绿色只表示框内注明的范围及证据，不表示全部75项目录或线上启用。Office代表场景、S015二次加载、S018并发解析与缓存撤权、新版上下文两场景均已通过并提交。S013 HTML产物、T042子任务文件输出、真实ASR及目录其他剩余验收继续迭代，见 [Skill覆盖索引](evidence/G-SKILL-methods/README.md)。
 
-Hybrid retrieval passed 65 real database/HTTP and 14 Python tests (58587bae5). Migration fresh/replay covered 228 files and populated-data fingerprints; the workbench replay passed 8 tests (9a4f280f8). Persistent tool snapshot/browser registration is committed in b8352e879.
+旧检查点8cc4a46a0的pytest通过；后端第4分片失败是实际容器测试误入只有PG的普通通道。修复增加独立真实容器job并作为部署依赖，不跳过该验收。固定核心候选的CI与部署结果须另行确认。
 
-S009 passed a real-model scenario and full semantic review with immutable meeting-minutes 1.1.1 (d3d5baf2d). Earlier false rejection wording remains recorded as a failed run. S007 published actual report, CSV and executable Python source through artifact writeback (51c85cf7f); the reviewed result and bounded fixture-specific limitations are retained in evidence/g-skill-batch/S007. These are bounded acceptance cases, not general model reliability claims.
-
-W08 four-format locators are committed in c67dc4e15: actual isolated UDS execution and six production HTTP/PG cases passed. Download/status/cancel adapters passed 35 real PG/HTTP, 11 Python and three contract tests (78a771abf). Browser fixes now pass three actual Chromium cases and six real PG receipt cases; these changes are still uncommitted. The Chromium fixture explicitly permits in-process execution and does not establish production network isolation. Remote runtime/proxy acceptance and S013 remain yellow. See [browser evidence](evidence/W10-real-browser/current-acceptance.md).
-
-S002 source-ledger accuracy and failed-fetch recovery passed and were committed in a727c21bb. S017/S019/S020 representative scenarios and reviewed artifacts were committed in 352efabaf and ffbeae429. S015 draft generation is committed; a second isolated actual-model run loaded the generated Skill, executed its original script and produced total 3. That additional evidence awaits commit. These bounded successes do not imply every catalog acceptance clause has passed; see the [20-Skill coverage index](evidence/G-SKILL-methods/README.md).
-
-S003 remains yellow: the second actual rendered document still lacks the required page-two header. S004 creation, real formula values and two-page rendering passed; specified-cell editing remains to be verified. S005/S006 still require their actual-model acceptance, including PDF form values after reopening. Updated standard-context 1.1.0 has component evidence but still needs new-version model verification; prior 1.0.0 results are not relabeled as 1.1.0 results.
-
-S018's actual model requested PDF parsing and scan OCR concurrently, exposing HTTP 409 SESSION_BUSY. A bounded dispatch fix is in progress. A separate cache-revocation test is also required: rejection of a new parse after revocation does not prove that an already-created cache cannot be read. Neither boundary is green. S016 live ASR remains blocked on provider configuration. T042's native entry remains incomplete.
-
-Python CI's oversized parameter IDs have a committed fix (9ff99a631), preserving the original large payload test. New-head CI must verify the result; an earlier timeout is not treated as a proven runtime deadlock. Public checkpoint remains the last confirmed ec3e655b4 because the later push encountered a network failure.
-
-The [W07 scope audit](w07-scope-audit.md) removes an unnecessary new graph seed resolver and universal interview-index project from the implementation plan. The original capability requirements remain intact; graph requests are explicitly rejected rather than simulated.
-
-Three local workers coordinate one owned database stack at a time. No merge into main is authorized.
+已整合最新main及peer工作台UI。现有devapp配置未启用新的原生session运行时，因此本地原生证据不等于devapp可用。需要真实远端文件生成/下载验收；后续配置开启原生能力另留证据。
