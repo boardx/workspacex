@@ -150,9 +150,22 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
 
+# W14: maintained offline audio decoding, fixed Bookworm package; no runtime installs.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg=7:5.1.9-0+deb12u1 \
+ && dpkg-query -W ffmpeg libavcodec59 libavformat59 libavutil57 libswresample4 > /opt/sandbox/audio-versions.txt \
+ && ffmpeg -version > /opt/sandbox/audio-build.txt \
+ && ffmpeg -L > /opt/sandbox/audio-license.txt 2>&1 \
+ && cp /usr/share/doc/ffmpeg/copyright /opt/sandbox/audio-copyright \
+ && rm -rf /var/lib/apt/lists/*
+
 # 非 root（node 镜像自带 uid/gid 1000 的 `node` 用户）。
 # 应用目录保持 root 所有、对 node 只读 —— 服务不需要写自己的代码目录。
 RUN mkdir -p /run/sessions && chown node:node /run/sessions
+# Resolve only package-library alternatives at build time; never mount /etc.
+RUN python3 -c "from pathlib import Path; links=[p for name in ('libblas.so.3','liblapack.so.3') for p in Path('/usr/lib').glob('*/'+name) if p.is_symlink()]; [(p.unlink(), p.symlink_to(target)) for p,target in [(p,p.resolve(strict=True)) for p in links] if str(target).startswith('/usr/')]"
+COPY scripts/decode-audio.py /usr/local/lib/workspacex/decode-audio.py
+
 USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。
