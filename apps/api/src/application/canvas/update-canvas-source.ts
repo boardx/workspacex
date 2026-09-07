@@ -61,6 +61,29 @@ export interface UpdateCanvasSourceOutput {
 const sha256 = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
 
+/** Same existing write predicate used by source updates and their idempotent result replay. */
+export async function authorizeCanvasSourceUpdate(
+  deps: Pick<UpdateCanvasSourceDeps,'identity'|'instances'>,
+  input: Pick<UpdateCanvasSourceInput,'orgId'|'userId'|'instanceId'>,
+): Promise<void> {
+  // ① 实例头。契约 `updateSource.err` 里没有 `INSTANCE_NOT_FOUND`——不存在的实例
+  //    抛 `CanvasError("INSTANCE_NOT_FOUND")` 由控制器映 404 会发明一个不在闭集里的
+  //    响应码；这里复用 getSource 的码是不诚实的吗？不——同一个资源寻址失败在两个
+  //    操作上是同一件事，且 `INSTANCE_NOT_FOUND` 在 `CanvasError` 闭集里。缺口
+  //    （updateSource.err 漏列它）在 PR 里报出，不在这里编一个别的码。
+  const instance = await deps.instances.findInstance(input.orgId, input.instanceId);
+  if (instance === null) throw new CanvasError("INSTANCE_NOT_FOUND");
+
+  // ② 组归属（见文件头）。非成员与别组成员同一个出口。
+  const membership = await deps.identity.findProjectMembership(
+    input.userId, instance.workshopId, input.orgId,
+  );
+  if (membership === null || membership.groupId !== instance.groupId) {
+    throw new CanvasError("NOT_IN_GROUP");
+  }
+
+}
+
 export async function updateCanvasSource(
   deps: UpdateCanvasSourceDeps,
   input: UpdateCanvasSourceInput,
@@ -97,25 +120,3 @@ export async function updateCanvasSource(
   };
 }
 
-/** Same existing write predicate used by source updates and their idempotent result replay. */
-export async function authorizeCanvasSourceUpdate(
-  deps: Pick<UpdateCanvasSourceDeps,'identity'|'instances'>,
-  input: Pick<UpdateCanvasSourceInput,'orgId'|'userId'|'instanceId'>,
-): Promise<void> {
-  // ① 实例头。契约 `updateSource.err` 里没有 `INSTANCE_NOT_FOUND`——不存在的实例
-  //    抛 `CanvasError("INSTANCE_NOT_FOUND")` 由控制器映 404 会发明一个不在闭集里的
-  //    响应码；这里复用 getSource 的码是不诚实的吗？不——同一个资源寻址失败在两个
-  //    操作上是同一件事，且 `INSTANCE_NOT_FOUND` 在 `CanvasError` 闭集里。缺口
-  //    （updateSource.err 漏列它）在 PR 里报出，不在这里编一个别的码。
-  const instance = await deps.instances.findInstance(input.orgId, input.instanceId);
-  if (instance === null) throw new CanvasError("INSTANCE_NOT_FOUND");
-
-  // ② 组归属（见文件头）。非成员与别组成员同一个出口。
-  const membership = await deps.identity.findProjectMembership(
-    input.userId, instance.workshopId, input.orgId,
-  );
-  if (membership === null || membership.groupId !== instance.groupId) {
-    throw new CanvasError("NOT_IN_GROUP");
-  }
-
-}

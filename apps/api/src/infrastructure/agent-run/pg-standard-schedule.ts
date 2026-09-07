@@ -1,6 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {SCHEDULE_LIMITS,ScheduleCreateInput,ScheduleListInput,ScheduleCancelInput,ScheduleToolRequest,SCHEDULE_TOOL_SCHEMAS,ScheduleItem} from '@repo/contracts/standard-schedule';
+import {ScheduleWake as wake,SCHEDULE_LIMITS,ScheduleCreateInput,ScheduleListInput,ScheduleCancelInput,ScheduleToolRequest,SCHEDULE_TOOL_SCHEMAS,ScheduleItem} from '@repo/contracts/standard-schedule';
 import type {StandardSchedule,ScheduledRunGateway,ScheduledRunNotifier} from '../../application/agent-run/standard-schedule';
 import type {DatabasePort,TenantSession} from '../../application/ports/database.port';
 import type {ToolExecutionAuthority} from '../../application/agent-run/tool-execution-authority';
@@ -15,7 +15,6 @@ import {PgBossScheduler,type ScheduleWake,SCHEDULE_QUEUE} from './pg-boss-schedu
 import type {Job} from 'pg-boss';
 interface Row {id:string;org_id:string;user_id:string;thread_id:string;agent_id:string;instruction:string;args_digest:string;status:'active'|'cancelled'|'completed'|'failed';revision:number;failure_code:'authorization_revoked'|'delivery_rejected'|null;notification_pending:boolean;last_occurrence_id:string|null;last_run_id:string|null;}
 interface Deps {db:DatabasePort;authority:Pick<ToolExecutionAuthority,'check'>;visibility:GetThreadDeps&ReadAgentRunDeps;provider:PgBossScheduler;gateway:ScheduledRunGateway;notifier?:ScheduledRunNotifier;}
-const wake=z.object({orgId:z.string().min(1).max(256),scheduleId:z.string().uuid()}).strict();
 export class PgStandardSchedule implements StandardSchedule{
  constructor(private readonly deps:Deps){}
  async invoke(runId:string,raw:z.infer<typeof ScheduleToolRequest>):Promise<unknown>{

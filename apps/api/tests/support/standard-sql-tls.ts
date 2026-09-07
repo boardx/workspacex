@@ -1,3 +1,4 @@
+import {assertIsolatedDatabase} from '../../../../.harness/scripts/lib/test-isolation';
 import {execFileSync} from 'node:child_process';
 import {mkdtemp,rm,chmod} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -6,10 +7,16 @@ import pg from 'pg';
 import {migrationConfig} from '../../src/infrastructure/db/pg-config';
 /** Enable TLS only inside this standard wrapper's disposable PostgreSQL container. */
 export async function enableIsolatedSqlTls(){
- const project=process.env.COMPOSE_PROJECT_NAME;
- if(!project?.startsWith('wsx-'))throw new Error('isolated SQL TLS requires wrapper ownership');
+ const config=migrationConfig();
+ assertIsolatedDatabase({resolvedDatabase:config.database,env:process.env});
+ const githubRunner=process.env.GITHUB_ACTIONS==='true';
+ const project=process.env.COMPOSE_PROJECT_NAME??(githubRunner?'workspacex-kernel':undefined);
+ if(!project||(!project.startsWith('wsx-')&&!(githubRunner&&project==='workspacex-kernel')))throw new Error('isolated SQL TLS requires wrapper ownership');
+ if(!['127.0.0.1','localhost','::1'].includes(config.host))throw new Error('isolated SQL TLS requires loopback database');
  const container=execFileSync('docker',['compose','-f',join(process.cwd(),'docker-compose.dev.yml'),'-p',project,'ps','-q','postgres'],{encoding:'utf8'}).trim();
  if(!/^[a-f0-9]{12,64}$/.test(container))throw new Error('one owned postgres container required');
+ const ports=execFileSync('docker',['port',container,'5432/tcp'],{encoding:'utf8'}).trim().split('\n');
+ if(!ports.some(port=>port.endsWith(':'+String(config.port))))throw new Error('owned SQL container port mismatch');
  const root=await mkdtemp(join(tmpdir(),'wx-sql-tls-'));
  try{
   const key=join(root,'server.key'),cert=join(root,'server.crt');

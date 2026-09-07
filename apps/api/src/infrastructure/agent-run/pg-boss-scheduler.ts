@@ -1,10 +1,12 @@
+import type {z} from 'zod';
+import type {ScheduleWake as ScheduleWakeSchema} from '@repo/contracts/standard-schedule';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {PgBoss,type Job} from 'pg-boss';
 import {CronExpressionParser} from 'cron-parser';
 import type {DatabasePort,TenantSession} from '../../application/ports/database.port';
 export const SCHEDULE_QUEUE='workspacex-scheduled-run';
 export const SCHEDULE_SCHEMA='workspacex_scheduler';
-export type ScheduleWake={orgId:string;scheduleId:string};
+export type ScheduleWake=z.infer<typeof ScheduleWakeSchema>;
 /** Official pg-boss owns due-time evaluation, persistent claims, retries and cron.
  * Private transaction binding is required because schedule/unschedule ignore options.db. */
 export class PgBossScheduler {

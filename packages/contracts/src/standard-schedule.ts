@@ -23,3 +23,6 @@ export const ScheduleCancelOutput=z.object({cancelled:z.boolean()}).strict();
 export const ScheduleToolRequest=z.object({orgId:id,userId:id,attemptId:id,leaseEpoch:z.number().int().positive(),toolCallId:id,permissionRequestId:z.string().uuid().optional(),toolName:ScheduleToolName,toolArgs:z.record(z.unknown())}).strict();
 export const SCHEDULE_TOOL_SCHEMAS={wx_schedule_create:ScheduleCreateInput,wx_schedule_list:ScheduleListInput,wx_schedule_cancel:ScheduleCancelInput} as const;
 export const SCHEDULE_OUTPUT_SCHEMAS={wx_schedule_create:ScheduleCreateOutput,wx_schedule_list:ScheduleListOutput,wx_schedule_cancel:ScheduleCancelOutput} as const;
+
+/** Internal official scheduler payload; contains only trusted resource identities. */
+export const ScheduleWake = z.object({orgId:z.string().min(1).max(256),scheduleId:z.string().uuid()}).strict();
