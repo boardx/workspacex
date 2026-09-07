@@ -1,0 +1,65 @@
+{
+  "package": "langchain-community",
+  "version": "0.4.2",
+  "files": {
+    "sql_database.py": "cdb2e32ac0f8536c637da5595f855851f97bae94f6a1c093be43c67f31184148",
+    "tool.py": "bae9a85172db29a80e7ae03e6f73dc856b05db39e128a8d89af7fe13d15ce300",
+    "toolkit.py": "9b46ddcb79dd465078c18592fdf1ca8e8dd7ff53ae7e4fafa708d71f85020204"
+  },
+  "tools": {
+    "sql_db_query": {
+      "properties": {
+        "query": {
+          "description": "A detailed and correct SQL query.",
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "_QuerySQLDatabaseToolInput",
+      "type": "object"
+    },
+    "sql_db_schema": {
+      "properties": {
+        "table_names": {
+          "description": "A comma-separated list of the table names for which to return the schema. Example input: 'table1, table2, table3'",
+          "title": "Table Names",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_names"
+      ],
+      "title": "_InfoSQLDatabaseToolInput",
+      "type": "object"
+    },
+    "sql_db_list_tables": {
+      "properties": {
+        "tool_input": {
+          "default": "",
+          "description": "An empty string",
+          "title": "Tool Input",
+          "type": "string"
+        }
+      },
+      "title": "_ListSQLDatabaseToolInput",
+      "type": "object"
+    },
+    "sql_db_query_checker": {
+      "properties": {
+        "query": {
+          "description": "A detailed and SQL query to be checked.",
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "_QuerySQLCheckerToolInput",
+      "type": "object"
+    }
+  }
+}

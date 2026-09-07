@@ -16,7 +16,7 @@ export async function withAuthorizedStandardToolRun<T>(db:DatabasePort,authority
   if(!decision.allowed)throw new Error('standard_tool_authority_denied');
   const run=(await session.query<{thread_id:string;input_message_id:string;author_id:string;author_kind:string}>(
    `SELECT r.thread_id,r.input_message_id,m.author_id,m.author_kind FROM agent_runs r
-    JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id
+    JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id AND m.thread_id=r.thread_id
     WHERE r.org_id=$1 AND r.id=$2`,[orgId,runId])).rows[0];
   if(!run||run.author_kind!=='human'||run.author_id!==input.userId)throw new Error('standard_tool_scope_denied');
   const currentThread=await visibility.chat.findThreadFacts(orgId,run.thread_id);

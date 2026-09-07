@@ -1,0 +1,12 @@
+...                                                                      [100%]
+=============================== warnings summary ===============================
+src/deep_agent_service/standard_sql.py:12
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+.venv/lib/python3.14/site-packages/trustcall/_base.py:46
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 2 warnings in 0.37s

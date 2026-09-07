@@ -1,0 +1,23 @@
+[stack-admission] load1=5.05 cores=10 perCore=0.50 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqkeaz7-7ec8f633-a6d1db742568 db=wsx_a6d1db7425683658fed6 compose=wsx-a6d1db7425683658fed6 pg=21060 redis=26060 sandbox=51060
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_a6d1db7425683658fed6 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-sql-database.test.ts (1 test) 9534ms
+   ✓ official SQL Toolkit crosses the real asynchronous read-only PostgreSQL boundary 9534ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:31:18
+   Duration  12.06s (transform 49ms, setup 0ms, collect 28ms, tests 9.53s, environment 0ms, prepare 57ms)
+
+[db-isolation] db=wsx_a6d1db7425683658fed6 peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-sql-database.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：1s
+  总计：13s

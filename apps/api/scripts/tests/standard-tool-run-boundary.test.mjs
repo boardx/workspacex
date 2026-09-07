@@ -7,7 +7,7 @@ test('real shared trusted run boundary',()=>assert.deepEqual(checkStandardToolRu
 for(const [before,after] of [
  ['authority.check','authority.skip'],['!decision.allowed','false'],
  ['[orgId,runId]','["other",runId]'],['r.org_id=$1 AND r.id=$2','r.org_id=$1'],
- ['m.author_kind FROM','m.body FROM'],['run.author_id!==input.userId','false'],
+ ['m.author_kind FROM','m.body FROM'],[' AND m.thread_id=r.thread_id',''],['run.author_id!==input.userId','false'],
  ['await resolveVisibility(','await fakeVisibility('],["currentVisibility.kind!=='allow'",'false'],
  ['parentRunId:runId','parentRunId:"other"'],['return consume(','return rawOutput('],
  ['db.withTenant(orgId','db.withTenant(toOrgId("other")'],

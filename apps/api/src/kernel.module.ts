@@ -1,3 +1,6 @@
+import { STANDARD_SQL_SOURCE } from "./application/agent-run/standard-sql-source";
+import { PgStandardSqlSource } from "./infrastructure/agent-run/pg-standard-sql-source";
+import { StandardSqlSourceController } from "./interface/controllers/standard-sql-source.controller";
 import { STANDARD_CANVAS_SERVICE, StandardCanvasService } from "./application/agent-run/standard-canvas-tools";
 import { StandardCanvasToolsController } from "./interface/controllers/standard-canvas-tools.controller";
 import { STANDARD_CONTEXT_SERVICE, StandardContextService } from "./application/agent-run/standard-context-tools";
@@ -896,7 +899,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1786,6 +1789,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: STANDARD_WEB_SERVICE,
       useFactory: createStandardWebService,
+    },
+    {
+      provide: STANDARD_SQL_SOURCE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
+        new PgStandardSqlSource(db, authority, { repo, ids, chat }),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
     },
     {
       provide: STANDARD_CANVAS_SERVICE,

@@ -18,7 +18,7 @@ export function checkStandardToolRun(source){
  if(compact(call('db.withTenant')?.arguments[0])!=='orgId'||call('db.withoutTenant'))errors.push('tenant transaction required');
  if(queries.length===1){
   const query=queries[0],literal=query.arguments[0];
-  const sql='SELECT r.thread_id,r.input_message_id,m.author_id,m.author_kind FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id WHERE r.org_id=$1 AND r.id=$2';
+  const sql='SELECT r.thread_id,r.input_message_id,m.author_id,m.author_kind FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id AND m.thread_id=r.thread_id WHERE r.org_id=$1 AND r.id=$2';
   if(!literal||!ts.isStringLiteralLike(literal)||literal.text.replace(/\s+/g,' ').trim()!==sql||compact(query.arguments[1])!=='[orgId,runId]')errors.push('only tenant-bound requester facts allowed');
  }
  const author=conditions.find(n=>compact(n.expression)==="!run||run.author_kind!=='human'||run.author_id!==input.userId");
