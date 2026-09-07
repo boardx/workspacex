@@ -21,6 +21,13 @@ export async function fetchLatestSavedDiagramSource(input: {
   /** `null` = 个人线程（人类裁决，2026-08-21：个人对话也支持 G1 读回）。 */
   projectId: string | null;
   bearer?: string;
+  /**
+   * One assistant message may contain more than one canvas fence. When supplied,
+   * keep walking that message's saves from newest to oldest until the source belongs
+   * to this concrete fence. Without it, retain the historical "latest per message"
+   * behavior used by a single Mermaid diagram.
+   */
+  accepts?: (markdown: string) => boolean;
 }): Promise<SavedDiagramSource | null> {
   try {
     const list = await listThreadArtifacts(input.threadId, input.projectId, input.bearer);
@@ -29,12 +36,21 @@ export async function fetchLatestSavedDiagramSource(input: {
     // citations ⇒ hasSource 恒 false，拿它过滤会把每一条保存版都滤掉（e2e 首轮实测
     // 就是这么红的）。字节本体每次落地都有（materializeArtifact 的 content.md）。
     const candidates = list.items.filter((i) => i.messageId === input.messageId);
-    const latest = candidates[candidates.length - 1];
-    if (!latest) return null;
-    const source = await getThreadArtifactSource(
-      input.threadId, latest.artifactId, input.projectId, input.bearer,
-    );
-    return { markdown: source.markdown, savedAt: source.savedAt };
+    const candidatesToRead = input.accepts ? [...candidates].reverse() : candidates.slice(-1);
+    for (const candidate of candidatesToRead) {
+      try {
+        const source = await getThreadArtifactSource(
+          input.threadId, candidate.artifactId, input.projectId, input.bearer,
+        );
+        if (!input.accepts || input.accepts(source.markdown)) {
+          return { markdown: source.markdown, savedAt: source.savedAt };
+        }
+      } catch {
+        // Another user's draft and a missing artifact intentionally share the same
+        // invisible outcome. A different visible save may still match this fence.
+      }
+    }
+    return null;
   } catch {
     return null;
   }

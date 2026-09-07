@@ -42,6 +42,25 @@ vi.mock("fabric", async (importOriginal) => {
 });
 
 describe("ChatCanvasFabric：围栏未闭合的流式中间态不应报终态错误（issue #2298）", () => {
+  it("同一围栏从半截流到闭合时复用预览卡 DOM，完成瞬间不重挂闪烁", async () => {
+    const { ChatCanvasFabric } = await import("@/components/chat/chat-canvas-fabric");
+    const view = render(<ChatCanvasFabric code={"模板: per"} lang="canvas" closed={false} />);
+    const cardBefore = await screen.findByTestId("chat-canvas-fabric");
+
+    view.rerender(
+      <ChatCanvasFabric
+        code={["模板: persona", "姓名: 林可", "## 用户描述", "- 项目型采购"].join("\n")}
+        lang="canvas"
+        closed
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("chat-canvas-fabric").getAttribute("data-template-source")).toBe("builtin"),
+    );
+    expect(screen.getByTestId("chat-canvas-fabric")).toBe(cardBefore);
+  });
+
   it("closed=false 时，半截内容（连模板 key 都没写完）保持加载态，不出现 chat-canvas-error", async () => {
     const { ChatCanvasFabric } = await import("@/components/chat/chat-canvas-fabric");
     // 复刻截图现场：模板 key 只流到「ch」，还没有任何「## 分区」标题。
