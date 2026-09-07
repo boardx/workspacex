@@ -34,3 +34,4 @@
 - 视觉复核发现手机裁切后补 min-height/flex 收缩与计划内部滚动；手机复验通过，额外断言输入框和恢复按钮位于视口且恢复按钮可用（最后一轮 1.4 分钟）。
 - 最终 web typecheck、ESLint、design lint 和 diff-check 通过。
 - 确认弹窗的浏览器 payload/decision 为明确 HTTP fixture；真实后端确认恢复仍由既有协议测试覆盖，不将该 UI case 冒充真实模型执行。
+- 真实浏览器插话补充验收通过（1.5 分钟）：正在执行工具时发送方向补充，后台返回真实 ACK，journal 记录 received，原工具随后成功结束，同一 run 成功且无取消/额外启动。回环模型不代表真实模型采纳新方向，证据不作该声称。
