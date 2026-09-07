@@ -48,6 +48,7 @@ export function FillParamsCard({
   ) => void;
 }) {
   const [dirty, setDirty] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
   const [appliedTo, setAppliedTo] = React.useState<AppliedTo>("full-rerun");
   // 逐字段当前值——受控读数，提交时原样带走。初值取 `currentValue`，与各控件的
   // `defaultValue`/`defaultChecked` 逻辑上是同一份初值，这里另存一份是因为
@@ -58,13 +59,18 @@ export function FillParamsCard({
   );
 
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
-  const forceInvalid = state === "invalid";
+  const forceInvalid = state === "invalid" || submitted;
+  const isBlank = (field: ParamField): boolean => {
+    if (!field.required) return false;
+    const value = values[field.name];
+    return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+  };
 
   return (
     <InterruptCardShell
       testid={TID}
-      title="开始前，帮我确认几个参数"
-      subtitle="标了「AI 建议」的字段是我猜的，可直接改。"
+      title="补充任务信息"
+      subtitle="只填写会影响结果的缺失信息；已有内容不会重复询问。"
     >
       <StateShell
         state={effectiveState}
@@ -81,7 +87,7 @@ export function FillParamsCard({
           <div className="flex flex-col gap-2.5">
             {fields.map((f) => {
               const aiGuessed = f.aiGuess !== null;
-              const blankRequired = forceInvalid && f.aiGuess === null && f.required;
+              const blankRequired = forceInvalid && isBlank(f);
               return (
                 <div
                   key={f.name}
@@ -198,17 +204,21 @@ export function FillParamsCard({
               className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
               data-testid={`${TID}-submit`}
               disabled={!canWrite}
-              onClick={() =>
-                dirty
-                  ? onSubmit?.({
+              onClick={() => {
+                setSubmitted(true);
+                if (fields.some(isBlank)) return;
+                if (dirty) {
+                  onSubmit?.({
                       decision: "edit",
                       fields: fields.map((f) => ({ name: f.name, value: values[f.name] })),
                       appliedTo,
-                    })
-                  : onSubmit?.({ decision: "approve" })
-              }
+                    });
+                } else {
+                  onSubmit?.({ decision: "approve" });
+                }
+              }}
             >
-              {dirty ? "应用" : "接受"}
+              提交并继续
             </Button>
           </div>
         </div>

@@ -65,13 +65,13 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeInTheDocument();
   });
 
-  it("多次工具调用：收进一个分组容器，默认收起，展开后两张卡片可见", () => {
+  it("普通工具与计划写入同轮出现时，只把普通工具收进分组", () => {
     renderMessage([
       toolCall("call-1", "list_org_skills"),
       toolCall("call-2", "write_todos", { todos: [{ content: "找字体", status: "completed" }] }),
     ]);
     const group = screen.getByTestId("copilotkit-v2-tool-calls-group");
-    expect(group).toHaveAttribute("data-tool-calls-count", "2");
+    expect(group).toHaveAttribute("data-tool-calls-count", "1");
 
     const toggle = screen.getByTestId("copilotkit-v2-tool-calls-group-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -83,7 +83,7 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(toggle).toHaveAttribute("aria-controls", body.id);
 
     expect(within(body).getByTestId("copilotkit-v2-tool-generic")).toBeInTheDocument();
-    expect(within(body).getByTestId("copilotkit-v2-tool-write-todos")).toBeInTheDocument();
+    expect(within(body).queryByTestId("copilotkit-v2-tool-write-todos")).toBeNull();
   });
 
   it("点击折叠按钮（鼠标）：内容区加 hidden，但节点仍在 DOM 里，aria-expanded 翻假", () => {
@@ -164,33 +164,24 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
 
   // issue #2451 —— 真实截图抓到：模型一轮里调用了两次 write_todos（改主意/纠正
   // 上一版计划），此前每次调用各自独立渲染成一张卡片，摞在一起看不出哪张是最新的。
-  it("一轮消息里 write_todos 被调用两次：更早那张淡化+贴「计划已更新」，最新那张正常展示", () => {
+  it("一轮消息里的 write_todos 不再重复渲染为工具卡", () => {
     renderMessage([
       toolCall("call-1", "write_todos", { todos: [{ content: "旧版第一步", status: "pending" }] }),
       toolCall("call-2", "list_org_skills"),
       toolCall("call-3", "write_todos", { todos: [{ content: "新版第一步", status: "in_progress" }] }),
     ]);
 
-    const cards = screen.getAllByTestId("copilotkit-v2-tool-write-todos");
-    expect(cards).toHaveLength(2);
-
-    // 更早那张（call-1）被包在"已被取代"外壳里、视觉淡化，但仍然渲染在 DOM 里——
-    // 不是被静默删除（同一条"不悄悄清除状态痕迹"纪律）。
-    const superseded = screen.getAllByTestId("copilotkit-v2-tool-write-todos-superseded");
-    expect(superseded).toHaveLength(1);
-    expect(within(superseded[0]!).getByText("计划已更新")).toBeInTheDocument();
-    expect(within(superseded[0]!).getByText("旧版第一步")).toBeInTheDocument();
-
-    // 最新那张（call-3）不在任何"已被取代"外壳里。
-    expect(screen.getByText("新版第一步").closest('[data-testid="copilotkit-v2-tool-write-todos-superseded"]')).toBeNull();
+    expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).toBeNull();
+    expect(screen.queryByText("旧版第一步")).toBeNull();
+    expect(screen.queryByText("新版第一步")).toBeNull();
 
     // 中间那次非 write_todos 调用完全不受影响。
     expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeInTheDocument();
   });
 
-  it("一轮消息里只调用一次 write_todos：不出现「已被取代」外壳（沿用改动前的行为）", () => {
+  it("单次 write_todos 也由权威计划账本展示，不生成消息工具卡", () => {
     renderMessage([toolCall("call-1", "write_todos", { todos: [{ content: "唯一一步", status: "pending" }] })]);
-    expect(screen.getByTestId("copilotkit-v2-tool-write-todos")).toBeInTheDocument();
+    expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).toBeNull();
     expect(screen.queryByTestId("copilotkit-v2-tool-write-todos-superseded")).not.toBeInTheDocument();
   });
 
@@ -200,7 +191,7 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
   // 消息里连续调用两次。上面 issue #2451 那版去重只看"当前消息自己的 toolCalls"，
   // 每条消息各自 `toolCalls.length === 1`，直接绕开了去重、两张都原样全展开——
   // 这正是这张截图里的真实缺陷。这里验证跨消息也能被同一份"全局最新" id 认出来。
-  it("write_todos 分别出现在两条独立消息里：更早那条消息的卡片淡化+贴「计划已更新」，后一条正常展示", () => {
+  it("跨消息的 write_todos 也不产生重复计划卡", () => {
     const messageA = {
       id: "msg-a",
       role: "assistant" as const,
@@ -222,14 +213,8 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
       </CopilotKit>,
     );
 
-    const cards = screen.getAllByTestId("copilotkit-v2-tool-write-todos");
-    expect(cards).toHaveLength(2);
-
-    const superseded = screen.getAllByTestId("copilotkit-v2-tool-write-todos-superseded");
-    expect(superseded).toHaveLength(1);
-    expect(within(superseded[0]!).getByText("计划已更新")).toBeInTheDocument();
-    expect(within(superseded[0]!).getByText("旧版第一步")).toBeInTheDocument();
-
-    expect(screen.getByText("新版第一步").closest('[data-testid="copilotkit-v2-tool-write-todos-superseded"]')).toBeNull();
+    expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).toBeNull();
+    expect(screen.queryByText("旧版第一步")).toBeNull();
+    expect(screen.queryByText("新版第一步")).toBeNull();
   });
 });
