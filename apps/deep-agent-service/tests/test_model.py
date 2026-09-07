@@ -97,7 +97,7 @@ def test_build_chat_model_does_not_disable_thinking_for_forged_maas_subdomain(
 
     model = build_chat_model()
 
-    assert model.extra_body is None or model.extra_body == {}
+    assert model.extra_body is None
 
 
 def test_build_chat_model_disables_thinking_for_configured_qwen3_model_id(
