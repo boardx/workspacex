@@ -233,7 +233,7 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
     await waitFor(() => expect(result.current.isRestoring).toBe(false));
   });
 
-  it("issue #2825 CP 反证：上一条不是恒真——服务端如实说还在 running 时，同样不发事件，它必须仍然停在恢复中、不冒充完成", async () => {
+  it("issue #2825 CP 反证：上一条不是恒真——服务端如实说还在 running 时，同样不发事件，它必须显示已确认运行且保持订阅、不冒充完成", async () => {
     getAgentRun.mockResolvedValue({
       runId: "run-1", threadId: "thr-1", status: "running", error: null, resultMessageId: null,
     });
@@ -243,7 +243,8 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
 
     await waitFor(() => expect(getAgentRun).toHaveBeenCalledTimes(1));
     expect(onSettled).not.toHaveBeenCalled();
-    expect(result.current.isRestoring).toBe(true);
+    expect(result.current.isRestoring).toBe(false);
+    expect(result.current.status).toBe("running");
   });
 
   it("issue #2825：连接层面撑不住准备放弃前，先补一次权威读——读到终态就如实 settled，不再谎称『没能确认』", async () => {

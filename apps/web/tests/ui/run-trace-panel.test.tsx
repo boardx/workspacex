@@ -10,6 +10,7 @@ describe("run trace disclosure", () => {
     const { rerender } = render(<RunTracePanel runId="run-1" events={[start]} running />);
     const toggle = screen.getByTestId("run-trace-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("copilotkit-v2-thinking-mark")).toHaveClass("animate-butterfly-fly", "motion-reduce:animate-none");
     expect(screen.getByTestId("run-trace-body")).not.toBeVisible();
     expect(toggle).toHaveAttribute("aria-controls", screen.getByTestId("run-trace-body").id);
     fireEvent.click(toggle);
@@ -31,6 +32,7 @@ describe("run trace disclosure", () => {
     const { container } = render(<RunTracePanel runId="run-1" events={statusEvents} running />);
     expect(screen.getByTestId("run-trace-toggle")).toHaveTextContent("已暂停 · 历时 00:04");
     expect(container.querySelector(".animate-spin")).toBeNull();
+    expect(screen.queryByTestId("copilotkit-v2-thinking-mark")).toBeNull();
     vi.useRealTimers();
   });
 

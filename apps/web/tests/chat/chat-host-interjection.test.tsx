@@ -229,7 +229,10 @@ describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插�
     await waitFor(() => expect(sockets.length).toBe(1));
 
     act(() => sockets[0]!.emit(statusChange("awaiting_tool_permission", 1)));
-    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-running-indicator")).toHaveTextContent("等待确认"));
+    expect(screen.getByTestId("copilotkit-v2-running-indicator")).toHaveClass("sr-only");
+    expect(screen.queryByTestId("copilotkit-v2-thinking-mark")).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".animate-spin")).toHaveLength(0);
     const input = screen.getByTestId("copilotkit-v2-input");
     fireEvent.change(input, { target: { value: "补一张图" } });
     fireEvent.click(screen.getByTestId("copilotkit-v2-send"));

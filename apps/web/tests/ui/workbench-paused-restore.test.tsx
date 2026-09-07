@@ -18,7 +18,8 @@ describe("paused run restoration", () => {
     expect(onSettled).not.toHaveBeenCalled();
     read.mockResolvedValue({ id: "run", status: "running" });
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
-    expect(result.current.isRestoring).toBe(true);
+    expect(result.current.isRestoring).toBe(false);
+    expect(result.current.status).toBe("running");
     read.mockResolvedValue({ id: "run", status: "cancelled" });
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(onSettled).toHaveBeenCalledTimes(1);

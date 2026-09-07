@@ -140,20 +140,11 @@ describe("RunProgressButterfly（issue #2785）", () => {
     expect(screen.getByTestId("copilotkit-v2-thinking-phase")).toHaveTextContent("正在思考…");
   });
 
-  it("面板 body 与截图 harness 都只渲染 RunProgressCard，不再各抄一份卡片（同一事实只声明一处）", () => {
-    for (const [name, src] of [["panelBody", panelBody], ["harness", harness]] as const) {
-      expect(src, name).toContain("<RunProgressCard");
-      expect(src, name).not.toContain('data-testid="copilotkit-v2-running-indicator"');
-      expect(src, name).not.toContain('data-testid="copilotkit-v2-thinking-stage"');
-      expect(src, name).not.toContain("<RunProgressXMark");
-      expect(src, name).not.toContain("RUN_STAGE_ORDER");
-    }
-    // running 判据仍在调用方：在跑（或恢复核实窗口）才渲染，跑完不在——e2e 靠这个信号。
-    const runningBlock = panelBody.match(
-      /\(agent\.isRunning \|\| runRestore\.isRestoring\) \? \(\s*<RunProgressCard[\s\S]*?\/>\s*\) : null\}/,
-    );
-    expect(runningBlock).not.toBeNull();
-    expect(runningBlock?.[0]).not.toContain("<Loader2");
-    expect(runningBlock?.[0]).toContain("planStep={planStep}");
+  it("工作台移除重复进度卡，保留恢复订阅；旧截图组件仍可独立使用", () => {
+    expect(panelBody).not.toContain("<RunProgressCard");
+    expect(panelBody).not.toContain('data-testid="copilotkit-v2-thinking-stage"');
+    expect(panelBody).toContain("useCopilotKitV2RunProgress(agent, agent.isRunning)");
+    expect(panelBody).toContain('className="sr-only" role="status" data-testid="copilotkit-v2-running-indicator"');
+    expect(harness).toContain("<RunProgressCard");
   });
 });

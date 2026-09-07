@@ -36,3 +36,7 @@ describe("页脚文案", () => {
     expect(queuedReplyCopy("B")).toBe("本地排队：「B」将在本轮结束后发送");
   });
 });
+
+it.each(["writeback_pending", "awaiting_plan_confirmation"] as const)("authoritative HTTP state %s queues the next turn without treating it as running", status => {
+  expect(resolveRunningReplyRoute({runId:"persisted-run",status})).toBe("queue");
+});

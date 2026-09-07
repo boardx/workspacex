@@ -52,23 +52,24 @@ function StepBadge({ status, index }: { status: PlanStepStatus; index: number })
 
 export interface PlanPanelReadOnlyProps {
   readonly steps: readonly PlanStep[];
+  readonly compact?: boolean;
 }
 
-export function PlanPanelReadOnly({ steps }: PlanPanelReadOnlyProps): React.JSX.Element {
+export function PlanPanelReadOnly({ steps, compact = false }: PlanPanelReadOnlyProps): React.JSX.Element {
   return (
-    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className="w-full overflow-hidden">
+    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className={cn("w-full overflow-hidden", compact && "border-0 bg-transparent shadow-none")}>
       {/*
         issue #2476 —— 卡头改成独立的、`--accent` 浅底的标题区，跟下面的步骤列表
         分层：卡头只回答"这是什么计划"，不跟步骤内容混排。复用既有 `--accent`
         （F19 已定义、2026-08-27 改版未触碰的浅青绿 token），不是新色。
       */}
-      <div className="flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5">
+      {!compact && <div className="flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5">
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-9 font-medium uppercase tracking-wide text-accent-foreground/70">Plan</span>
           <span className="text-13 font-semibold text-accent-foreground">当前计划</span>
         </div>
         <Badge tone="neutral" className="ml-auto text-10">{steps.length} 步</Badge>
-      </div>
+      </div>}
       <CardContent className="flex flex-col gap-2 py-3">
         <ol className="flex flex-col gap-1.5">
           {steps.map((step, index) => (
