@@ -54,7 +54,7 @@ const model: ModelCallPort = { complete: async (input) => {
   if (node === "report") {
     const id = badCitation ? "fabricated" : context.sources?.[0]?.id;
     const chapter = { sectionId: context.section?.id ?? "o1", body: `### Evidence\n\nThe retrieved policy explains the grid rules and supports a limited comparison of the documented requirements. [[source:${id}]]\n\n### Analysis\n\nThe available evidence supports a cautious policy comparison, while implementation details remain uncertain.\n\n### Recommendations\n\nVerify current local requirements before selecting an entry option; this source does not establish financial returns.`, sourceIds: [id] };
-    value = ["chapter", "chapter_revision"].includes(context.reportStage) ? chapter : ["synthesis", "synthesis_revision"].includes(context.reportStage) ? { title: "Findings", summary: "Limited to the available source" } : { title: "Findings", summary: "Limited to the available source", sections: [chapter] };
+    value = ["chapter", "chapter_revision"].includes(context.reportStage) ? chapter : ["synthesis", "synthesis_revision"].includes(context.reportStage) ? { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap." } : { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap.", sections: [chapter] };
   }
   if (node === "report" && context.reportStage === "evidence") value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled source identifies policy evidence; real-world applicability remains unverified.", relevance: "direct" })) })) };
   if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: "adequate", issues: [] };
@@ -379,6 +379,25 @@ describe("report streaming and explicit partial evidence", () => {
     expect(result.report).toBeNull(); expect(result.completed).toBe(false); expect(result.generatedNodes).not.toContain("report");
     expect(result.reportStream?.status).toBe("failed"); expect(result.reportStream?.text).not.toContain("Evidence"); expect(result.reportCheckpoint?.chapters).toEqual([]);
     expect((await runtime.get(actor, session)).reportStream).toEqual(result.reportStream);
+  });
+  it("preserves formal front matter when a Skill proposal omits it", async () => {
+    await reachResearch(); await run("complete");
+    const edited = { ...state.report!, introduction: "User-reviewed research scope and methods." };
+    const proposing: ModelCallPort = { complete: async (input) => {
+      const answer = await model.complete(input);
+      const parsed = JSON.parse(answer.text);
+      if (JSON.parse(input.user).targetNode === "report") {
+        delete parsed.value.introduction; delete parsed.value.conclusion;
+      }
+      return { text: JSON.stringify(parsed) };
+    } };
+    const runtime = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), proposing, search, { provider: "test", id: "test-model" });
+    const proposed = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "report", action: "message", message: "Revise the summary", draft: { node: "report", value: edited }, expectedVersion: state.version, requestId: randomUUID() });
+    expect(proposed.errorCode).toBeNull();
+    expect(proposed.proposal?.draft.value).toMatchObject({ introduction: edited.introduction, conclusion: edited.conclusion });
+    const applied = await runtime.execute(actor, session, { sessionId: actor.sessionId, node: "report", action: "apply", proposalId: proposed.proposal!.id, expectedVersion: proposed.version, requestId: randomUUID() });
+    expect(applied.errorCode).toBeNull();
+    expect(applied.report).toMatchObject({ introduction: edited.introduction, conclusion: edited.conclusion });
   });
   it("reloads approved chapters from PostgreSQL and resumes only the unfinished chapter", async () => {
     await reachResearch();

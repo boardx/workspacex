@@ -17,7 +17,7 @@ const shapes: Record<Node, string> = {
   directions: researchDesignShapes.directions,
   outline: researchDesignShapes.outline,
   research: '[{"id":existingSourceId,"decision":"pending"|"accepted"|"excluded"}]',
-  report: '{"title":string,"summary":string,"sections":[{"sectionId":existingOutlineId,"body":string,"sourceIds":acceptedSourceId[]}]}',
+  report: '{"title":string,"summary":string,"introduction":string,"conclusion":string,"sections":[{"sectionId":existingOutlineId,"body":string,"sourceIds":acceptedSourceId[]}]}',
 };
 function normalizedSourceUrl(value: string): string {
   try {
@@ -52,6 +52,7 @@ export function validateRuntimeDraft(state: ResearchRuntime, draft: RuntimeDraft
     if (!draft.value.some((item) => item.enabled) || new Set(draft.value.map((item) => item.id)).size !== draft.value.length) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
   }
   if (draft.node === "report") {
+    if (inlineReportSources(draft.value.title).length) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
     const expected = state.outline.filter((item) => item.enabled).map((item) => item.id);
     const actual = draft.value.sections.map((item) => item.sectionId);
     const accepted = new Set(state.sources.filter((item) => item.decision === "accepted").map((item) => item.id));
@@ -62,7 +63,7 @@ export function validateRuntimeDraft(state: ResearchRuntime, draft: RuntimeDraft
       if (inline.length && (inline.length !== new Set(section.sourceIds).size || inline.some((id) => !section.sourceIds.includes(id)))) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
     }
     const cited = new Set(draft.value.sections.flatMap((section) => section.sourceIds));
-    if (inlineReportSources(draft.value.summary).some((id) => !accepted.has(id) || !cited.has(id))) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
+    if ([draft.value.summary, draft.value.introduction ?? "", draft.value.conclusion ?? ""].some((text) => inlineReportSources(text).some((id) => !accepted.has(id) || !cited.has(id)))) throw new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
   }
 }
 function invalidate(state: ResearchRuntime, node: Node) {
@@ -275,10 +276,10 @@ export class GuidedRuntimeService {
       if (!command.message) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       state.messages.push({ id: randomUUID(), node, role: "user", text: command.message, createdAt: new Date().toISOString() });
       await persist();
-      const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context. Preserve existing detailed direction fields and chapter objectives, analysis approaches, expected outputs and subsections when revising; update related questions consistently, never silently discard them. ${node === "report" ? "For report revisions preserve the enabled outline chapter order, exact scope, Markdown subheadings and analytical depth. Keep inline [[source:<id>]] markers beside supported claims; each chapter sourceIds must exactly match its inline IDs, and summary citations must refer to IDs cited in the chapters. Do not replace rich chapters with a brief outline or remove their evidence limitations." : ""}`, { ...this.context(state), targetNode: node, draft: command.draft, instruction: command.message }, persist);
+      const raw = await this.completeJson(state, node, `Discuss the user's request and propose a complete ${node} draft, without executing or confirming it. Return {"assistantMessage":string,"value":${shapes[node]},"action":"save"|"generate"|"start"|"retry"|"confirm"|"complete"}. Use save for draft revisions; for an explicit request to execute research propose start, and for an explicit request to proceed propose confirm (complete for research/report). The user must approve the action before it runs. Only use actual source IDs in the context. Preserve existing detailed direction fields and chapter objectives, analysis approaches, expected outputs and subsections when revising; update related questions consistently, never silently discard them. ${node === "report" ? "For report revisions preserve the enabled outline chapter order, exact scope, Markdown subheadings and analytical depth. Keep inline [[source:<id>]] markers beside supported claims; each chapter sourceIds must exactly match its inline IDs, and summary, introduction and conclusion citations must refer to IDs cited in the chapters. Preserve the introduction and cross-chapter conclusion when revising a formal report. Do not replace rich chapters with a brief outline or remove their evidence limitations." : ""}`, { ...this.context(state), targetNode: node, draft: command.draft, instruction: command.message }, persist);
       const result = C.GuidedResearchConversationModelOutput.safeParse(raw);
       if (!result.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-      const previous = command.draft?.node === node ? command.draft.value : node === "directions" ? state.directions : node === "outline" ? state.outline : undefined;
+      const previous = command.draft?.node === node ? command.draft.value : node === "directions" ? state.directions : node === "outline" ? state.outline : node === "report" ? state.report : undefined;
       const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value: preserveResearchDesign(node, result.data.value, previous) });
       if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateRuntimeDraft(state, draft.data);
