@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-07：同一个通用单轮补全 provider 的子能力若另开可选 model-id override，读取器必须明确复用已配置的通用 model id，并保持专用 override 优先；只读新变量会让已有可用模型的部署误报 `MODEL_UNAVAILABLE`。两处 DI 消费必须共用一个配置读取器，两处都空才 fail closed（出处：issue #2941）。
 - 2026-09-05：把 `call_skill` 一刀切记成 L2 是把"调用 skill 这个动作"当成了风险
   单位，真正的风险单位是**被调用的那个 skill**——分级判断要接住"目标是谁"，不能
   只看"用了哪个工具"（`bash_exec`/三个具名虚拟工具确实是"工具本身即风险"，但

@@ -506,6 +506,7 @@ import {
 import { PgSkillTrialRunStore } from "./infrastructure/skill/pg-skill-trial-run-store";
 import { SkillTrialRunExecutor } from "./infrastructure/skill/skill-trial-run-executor";
 import { PgOrgAgentModelReader } from "./infrastructure/skill/pg-org-agent-model-reader";
+import { readSkillTrialRunModelConfig } from "./infrastructure/skill/trial-run-model-config";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
@@ -1723,15 +1724,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
        * 模型 A skill 试跑（`SkillTrialRunController`）要一个 modelId——skill 本身没有
        * `model_provider`/`model_id` 列（那是 agent 才有的字段），trial-run-skill.ts
        * 头注解释了为什么。provider 复用**同一个**已配置的 chat provider（不新开
-       * 第二条模型接入面），modelId 是一个独立、可选的部署配置——空串 = 这个
-       * 部署没打开这条能力，`trial-run-skill.ts` 在调用时诚实报 `MODEL_UNAVAILABLE`，
+       * 第二条模型接入面）。modelId 优先读专用的可选部署配置，再复用同一 provider
+       * 已显式配置的通用 `KERNEL_MODEL_ID`；两处都为空才表示部署没打开这条能力，
+       * `trial-run-skill.ts` 在调用时诚实报 `MODEL_UNAVAILABLE`，
        * 不在这里让整个进程启动失败（那会把「一个能力没配」变成「全组织 API 起不来」）。
        */
       provide: SKILL_TRIALRUN_MODEL_ID,
-      useFactory: () => ({
-        provider: readModelProviderConfig().provider,
-        modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
-      }),
+      useFactory: () => readSkillTrialRunModelConfig(),
     },
     /**
      * 人类反馈（2026-08-17，两次）：devapp 上试跑报 `MODEL_UNAVAILABLE`——见
@@ -1782,8 +1781,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         objects: ObjectStore,
         orgAgentModel: OrgAgentModelReader,
         logger: LoggerPort,
-      ) =>
-        new SkillTrialRunExecutor(
+      ) => {
+        const trialRunModel = readSkillTrialRunModelConfig();
+        return new SkillTrialRunExecutor(
           {
             store,
             runs,
@@ -1791,14 +1791,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
             sandbox,
             objects,
             orgAgentModel,
-            // 静态兜底，与 SKILL_TRIALRUN_MODEL_ID 同源同值；组织里有已发布 agent 时
+            // 部署配置兜底，与 SKILL_TRIALRUN_MODEL_ID 同源同值；组织里有已发布 agent 时
             // 由 orgAgentModel 覆盖（自愈式回退，见 trial-run-skill.ts 头注）。
-            modelProvider: readModelProviderConfig().provider,
-            modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
+            modelProvider: trialRunModel.provider,
+            modelId: trialRunModel.modelId,
           },
           logger,
           process.env.KERNEL_SKILL_TRIALRUN_AUTOSTART !== "0",
-        ),
+        );
+      },
       inject: [
         SKILL_TRIAL_RUN_STORE,
         AGENT_RUN_STORE,

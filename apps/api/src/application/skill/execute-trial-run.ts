@@ -170,7 +170,7 @@ async function runOnce(
 
   /**
    * 模型解析与同步实现（`trial-run-skill.ts`）**逐字同一条规则**：先问这个组织已经
-   * 证明能打通的模型，查不到才退回静态配置，两者都没有才诚实报 `MODEL_UNAVAILABLE`。
+   * 证明能打通的模型，查不到才退回显式部署配置，两者都没有才诚实报 `MODEL_UNAVAILABLE`。
    * ⚠ 不在这里另写一套 —— 同一事实两处声明是本仓已栽过五次的坑。
    */
   const orgModel = (await deps.orgAgentModel?.findAnyPublished(orgId)) ?? null;
