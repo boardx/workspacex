@@ -33,7 +33,12 @@ import type {
   FileRetrievalHit, FileRetrievalPort, FileRetrievalScope,
 } from "../../application/agent-run/file-retrieval";
 
-interface HitRow {
+export interface FileSourceRow {
+  source_record_id: string; thread_id: string; message_id: string; project_id: string | null;
+  extracted_ref: string | null;
+}
+
+interface HitRow extends FileSourceRow {
   kind: string;
   title: string | null;
   text: string | null;
@@ -52,6 +57,7 @@ WITH q AS (
   SELECT replace(plainto_tsquery('simple', $2)::text, '&', '|')::tsquery AS tsq
 )
 SELECT 'chat-attachment' AS kind, a.filename AS title, a.extracted_excerpt AS text,
+       a.id AS source_record_id, a.thread_id, a.message_id, t.project_id, a.extracted_ref,
        ts_rank(a.search_tsv, q.tsq) AS rank
   FROM chat_message_attachments a
   JOIN chat_threads t ON t.id = a.thread_id AND t.org_id = a.org_id
@@ -74,6 +80,7 @@ SELECT 'chat-attachment' AS kind, a.filename AS title, a.extracted_excerpt AS te
    )
 UNION ALL
 SELECT 'canvas-artifact' AS kind, l.title AS title, l.content_excerpt AS text,
+       l.id AS source_record_id, l.thread_id, l.message_id, t.project_id, NULL::text AS extracted_ref,
        ts_rank(l.search_tsv, q.tsq) AS rank
   FROM chat_artifact_landings l
   JOIN chat_threads t ON t.id = l.thread_id AND t.org_id = l.org_id
@@ -96,6 +103,23 @@ SELECT 'canvas-artifact' AS kind, l.title AS title, l.content_excerpt AS text,
 
 export class PgFileRetrieval implements FileRetrievalPort {
   constructor(private readonly db: DatabasePort) {}
+
+  /** Same retrieval predicates and SQL as legacy search; exposes actual storage identity internally. */
+  async searchSources(orgId: OrgId, scope: FileRetrievalScope, query: string, limit: number): Promise<readonly HitRow[]> {
+    if (limit <= 0 || query.trim() === "") return [];
+    return this.db.withTenant(orgId, async s => (await s.query<HitRow>(SEARCH_SQL, [
+      orgId, query, scope.threadId, scope.projectId, scope.actorUserId, limit,
+    ])).rows);
+  }
+
+  /** Exact source lookup retains the same restricted scope; it cannot broaden search visibility. */
+  async findAttachmentSource(orgId: OrgId, scope: FileRetrievalScope, id: string): Promise<HitRow | null> {
+    const sql = SEARCH_SQL.replace('a.search_tsv @@ q.tsq', 'a.id = $7')
+      .replace('l.search_tsv @@ q.tsq', 'false');
+    return this.db.withTenant(orgId, async s => (await s.query<HitRow>(sql, [
+      orgId, '', scope.threadId, scope.projectId, scope.actorUserId, 1, id,
+    ])).rows[0] ?? null);
+  }
 
   async search(
     orgId: OrgId,

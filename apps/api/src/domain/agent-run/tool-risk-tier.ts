@@ -27,7 +27,7 @@ export type ToolRiskLevel = z.infer<typeof PP.ToolRiskLevel>;
  */
 const L0_READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "read_file", "grep", "web_fetch", "list_org_skills", "glob", "ls",
-  "wx_memory_search",
+  "wx_memory_search", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read",
 ]);
 
 /** L1：有版本历史、可回滚的副作用。本仓当前的执行内核尚未注册这两个工具，但分级

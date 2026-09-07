@@ -1,0 +1,819 @@
+{
+  "limits": {
+    "maxResults": 20,
+    "maxReadBytes": 4194304,
+    "maxTextChars": 60000,
+    "maxResponseBytes": 1048576,
+    "deadlineMs": 30000
+  },
+  "input": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_knowledge_search"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "pattern": "\\S"
+              },
+              "projectId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_knowledge_read"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "sourceId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "versionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "projectId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "sourceId",
+              "versionId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_project_list"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_project_read"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "projectId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "projectId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "tools": {
+    "wx_knowledge_search": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "versionId": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "excerpt": {
+                  "type": "string"
+                },
+                "citationAnchor": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "chat-attachment",
+                        "canvas-artifact"
+                      ]
+                    },
+                    "sourceRecordId": {
+                      "type": "string"
+                    },
+                    "threadId": {
+                      "type": "string"
+                    },
+                    "messageId": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "sourceRecordId",
+                    "threadId",
+                    "messageId",
+                    "projectId"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "sourceId",
+                "versionId",
+                "title",
+                "excerpt",
+                "citationAnchor"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 20
+          },
+          "scopeMode": {
+            "type": "string",
+            "const": "existing-file-retrieval"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "scopeMode",
+          "truncated"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "wx_knowledge_read": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "versionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "sourceId",
+          "versionId"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 60000
+          },
+          "citationAnchor": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "chat-attachment",
+                  "canvas-artifact"
+                ]
+              },
+              "sourceRecordId": {
+                "type": "string"
+              },
+              "threadId": {
+                "type": "string"
+              },
+              "messageId": {
+                "type": "string"
+              },
+              "projectId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "sourceRecordId",
+              "threadId",
+              "messageId",
+              "projectId"
+            ],
+            "additionalProperties": false
+          },
+          "accessibleAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "contentKind": {
+            "type": "string",
+            "const": "extracted-source"
+          }
+        },
+        "required": [
+          "sourceId",
+          "sourceVersion",
+          "content",
+          "citationAnchor",
+          "accessibleAt",
+          "truncated",
+          "contentKind"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "wx_project_list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "workshop",
+                    "research_project",
+                    "user_insight"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "archived"
+                  ]
+                },
+                "readOnlyReason": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "archived",
+                        "org-disabled"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "kind",
+                "status",
+                "readOnlyReason",
+                "tags"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "projects",
+          "observedAt"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "wx_project_read": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "overview": {
+            "type": "object",
+            "properties": {
+              "projectId": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "workshop",
+                  "research_project",
+                  "user_insight"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "archived"
+                ]
+              },
+              "currentAgendaSegment": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "workshopId": {
+                        "type": "string"
+                      },
+                      "agendaSegmentDefinitionId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "ordinal": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "duration": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      "state": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "active",
+                          "closed",
+                          "skipped"
+                        ]
+                      },
+                      "mergedInto": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "acceptedSources": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "survey",
+                            "conversation",
+                            "interview",
+                            "prototype-run",
+                            "research-run",
+                            "upload",
+                            "ai-generated"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "workshopId",
+                      "agendaSegmentDefinitionId",
+                      "ordinal",
+                      "title",
+                      "duration",
+                      "state",
+                      "mergedInto",
+                      "acceptedSources"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "roleCounts": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "facilitator": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "groupLead": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "member": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "observer": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "facilitator",
+                      "groupLead",
+                      "member",
+                      "observer"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "backflow": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "bindingId": {
+                      "type": "string"
+                    },
+                    "artifactId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "live",
+                        "pinned"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "pinnedBy": {
+                      "type": "string"
+                    },
+                    "pinnedAt": {
+                      "type": "string"
+                    },
+                    "badge": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "live",
+                        "pinned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "bindingId",
+                    "artifactId",
+                    "title",
+                    "mode",
+                    "version",
+                    "pinnedBy",
+                    "pinnedAt",
+                    "badge"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "blueprint": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "projectId",
+              "name",
+              "kind",
+              "status",
+              "currentAgendaSegment",
+              "roleCounts",
+              "backflow",
+              "blueprint"
+            ],
+            "additionalProperties": false
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "project-overview"
+                },
+                "projectId": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "projectId"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "overview",
+          "observedAt",
+          "sourceRefs"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  }
+}

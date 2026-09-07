@@ -1,3 +1,8 @@
+import { STANDARD_CONTEXT_SERVICE, StandardContextService } from "./application/agent-run/standard-context-tools";
+import { StandardContextSource } from "./infrastructure/agent-run/standard-context-source";
+import { StandardContextToolsController } from "./interface/controllers/standard-context-tools.controller";
+import type { BindingDeps } from "./application/artifact/binding-ports";
+import type { ProjectListRepository, ProjectOverviewRepository } from "./application/project/ports";
 import { STANDARD_WEB_SERVICE } from "./application/agent-run/standard-web-tools";
 import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
 import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
@@ -889,7 +894,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1779,6 +1784,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: STANDARD_WEB_SERVICE,
       useFactory: createStandardWebService,
+    },
+    {
+      provide: STANDARD_CONTEXT_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, identity: IdentityRepository, decisions: DecisionIdFactory,
+        chat: ChatRepository, lists: ProjectListRepository, overview: ProjectOverviewRepository,
+        bindings: BindingDeps["bindings"], artifacts: BindingDeps["artifacts"], ids: BindingDeps["ids"], provenance: BindingDeps["provenance"]) => {
+        const auth = { repo: identity, ids: decisions };
+        return new StandardContextService({ repo: lists, identity },
+          { repo: overview, auth, binding: { bindings, artifacts, auth, ids, provenance } },
+          new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat }));
+      },
+      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
+        PROJECT_LIST_REPOSITORY, PROJECT_OVERVIEW_REPOSITORY, BINDING_REPOSITORY, ARTIFACT_REPOSITORY, ID_FACTORY, PROVENANCE_WRITER],
     },
     {
       provide: STANDARD_MEMORY_PROOF,

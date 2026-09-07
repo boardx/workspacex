@@ -1,0 +1,21 @@
+[stack-admission] load1=4.15 cores=10 perCore=0.41 running=0/2
+[test-isolation] id=run-mtqb90y4-447ff202-4b6ea64d6ed8 db=wsx_4b6ea64d6ed8686e2aca compose=wsx-4b6ea64d6ed8686e2aca pg=22733 redis=27733 sandbox=52733
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_4b6ea64d6ed8686e2aca capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-context-source.test.ts (4 tests) 2833ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  05:15:15
+   Duration  5.21s (transform 275ms, setup 0ms, collect 377ms, tests 2.83s, environment 0ms, prepare 26ms)
+
+[db-isolation] db=wsx_4b6ea64d6ed8686e2aca peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-context-source.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

@@ -4,7 +4,7 @@ import { ModelCallError, type ModelCallInput } from "./ports";
 import type { NativeSessionOwner } from "./native-session-owner";
 
 /** Profile membership, not a second permission classification. Unknown tools remain L2. */
-const NATIVE_PROFILE_TOOLS = ["ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete"] as const;
+const NATIVE_PROFILE_TOOLS = ["ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read"] as const;
 export async function bindNativeInvocation(owner: NativeSessionOwner, input: ModelCallInput) {
   if (input.modelProvider !== "deep-agent" || !input.orgId || !input.runId || !input.executionAttemptId
     || !Number.isInteger(input.executionLeaseEpoch) || input.executionLeaseEpoch! < 1 || input.executionMode !== undefined
