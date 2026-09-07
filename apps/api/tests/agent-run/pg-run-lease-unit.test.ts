@@ -1,12 +1,16 @@
+import {EventEmitter} from "node:events";
 import {beforeEach,describe,expect,it,vi} from "vitest";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {RunLeaseLostError,withRunLease} from "../../src/application/agent-run/run-lease";
 import {toOrgId} from "../../src/domain/org-id";
 const mock=vi.hoisted(()=>({query:vi.fn(),release:vi.fn(),connect:vi.fn()}));
-vi.mock("pg",()=>({default:{Pool:class {connect=mock.connect;end=vi.fn();}}}));
+vi.mock("pg",()=>({default:{Pool:class extends EventEmitter {
+ async connect(){const client=await mock.connect();this.emit("connect",client);return client;}
+ end=vi.fn();
+}}}));
 const org=toOrgId("o");
 const db=new PgDatabase({host:"",port:0,user:"",password:"",database:""});
-beforeEach(()=>{vi.clearAllMocks();mock.connect.mockResolvedValue({query:mock.query,release:mock.release});mock.query.mockResolvedValue({rows:[{id:"r"}]});});
+beforeEach(()=>{vi.clearAllMocks();mock.connect.mockResolvedValue(Object.assign(new EventEmitter(),{query:mock.query,release:mock.release}));mock.query.mockResolvedValue({rows:[{id:"r"}]});});
 describe("database fencing",()=>{
  it("rejects stale worker writes before invoking the transaction body",async()=>{
   mock.query.mockImplementation(async(sql:string)=>({rows:sql.includes("lease_epoch")?[]:[{id:"r"}]}));
