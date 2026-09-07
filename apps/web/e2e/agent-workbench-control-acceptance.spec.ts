@@ -78,3 +78,25 @@ test("待审批阶段取消：真实终态持久化，旧审批不能恢复任�
   expect(events.filter(event => event.kind === "status" && event.status === "cancelled")).toHaveLength(1);
   expect(events.some(event => event.kind === "status" && event.status === "succeeded")).toBe(false);
 });
+
+test("刷新和切换后仍处理同一持久审批请求", async ({ page }) => {
+  const { run, url, headers } = await pendingApproval(page);
+  const taskUrl = page.url();
+  await page.reload();
+  await expect(page.getByTestId("restored-run-approval")).toBeVisible({ timeout: 60000 });
+  expect(((await (await page.request.get(url, { headers })).json()) as Run).pendingApproval.permissionRequestId).toBe(run.pendingApproval.permissionRequestId);
+  await page.goto("/projects");
+  await expect(page).toHaveURL(/\/projects$/);
+  await page.goto(taskUrl);
+  const card = page.getByTestId("restored-run-approval");
+  await expect(card).toBeVisible({ timeout: 60000 });
+  const decision = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith(`/permission-requests/${run.pendingApproval.permissionRequestId}/decision`));
+  await card.getByRole("button", { name: "仅本次允许", exact: true }).click();
+  expect((await decision).status()).toBe(200);
+  await expect.poll(async () => ((await (await page.request.get(url, { headers })).json()) as Run).status, { timeout: 60000 }).toBe("succeeded");
+  await expect(card).toHaveCount(0);
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("已按原参数执行", { timeout: 30000 });
+  const final = await (await page.request.get(url, { headers })).json() as Run;
+  expect(final.runId).toBe(run.runId);
+  expect(final.resultMessageId).toBeTruthy();
+});
