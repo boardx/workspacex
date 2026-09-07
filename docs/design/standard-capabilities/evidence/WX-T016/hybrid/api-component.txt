@@ -1,0 +1,29 @@
+[stack-admission] load1=2.50 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mtqtffl4-4ed3aae0-dedaab67a327 db=wsx_dedaab67a327b9631173 compose=wsx-dedaab67a327b9631173 pg=22679 redis=27679 sandbox=52679
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_dedaab67a327b9631173 capacity=100 current=6 required=32
+ ✓ tests/kernel/retrieval-five-channels.test.ts (37 tests) 5823ms
+ ✓ tests/kernel/retrieval-fts-first-class.test.ts (15 tests) 2038ms
+{"level":"error","msg":"http exception","traceId":"8b3a73f3-ccca-481b-938d-fe049c140a83","detail":{"name":"ServiceUnavailableException","message":"standard_context_unavailable_or_refused","stack":"ServiceUnavailableException: standard_context_unavailable_or_refused\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:36:17)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"af194eac-ba4f-4b79-b14f-8679d57c5592","detail":{"name":"BadRequestException","message":"standard_context_invalid_or_unsupported_input","stack":"BadRequestException: standard_context_invalid_or_unsupported_input\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:22:83)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"9af363aa-5a1c-4fde-89e2-004d08260486","detail":{"name":"ForbiddenException","message":"standard_context_denied","stack":"ForbiddenException: standard_context_denied\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:24:108)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"7e9aa081-4ede-43b0-9dad-c0a660669481","detail":{"name":"ForbiddenException","message":"standard_context_denied","stack":"ForbiddenException: standard_context_denied\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:24:108)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/organization-context-source.test.ts (7 tests) 3498ms
+   ✓ production HTTP uses the claimed human run and rejects forged tenant, lease and source access 2789ms
+ ✓ tests/agent-runtime/organization-hybrid-retrieval.test.ts (5 tests) 746ms
+
+ Test Files  4 passed (4)
+      Tests  64 passed (64)
+   Start at  13:44:07
+   Duration  15.09s (transform 1.68s, setup 0ms, collect 669ms, tests 12.10s, environment 0ms, prepare 88ms)
+
+[db-isolation] db=wsx_dedaab67a327b9631173 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/organization-hybrid-retrieval.test.ts tests/agent-runtime/organization-context-source.test.ts tests/kernel/retrieval-five-channels.test.ts tests/kernel/retrieval-fts-first-class.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：0s
+  总计：16s

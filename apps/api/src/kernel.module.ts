@@ -1,4 +1,7 @@
-import { EMBEDDING_PORT, type EmbeddingPort } from "./application/retrieval/ports";
+import { OrganizationHybridRetrieval } from "./infrastructure/retrieval/organization-hybrid-retrieval";
+import { PgSegmentRetriever } from "./infrastructure/retrieval/pg-segment-retriever";
+import { langChainRerankClientFromEnv } from "./infrastructure/retrieval/langchain-rerank-client";
+import { EMBEDDING_PORT, RERANK_PORT, type RerankPort, type EmbeddingPort } from "./application/retrieval/ports";
 import { ARTIFACT_INDEX_PRODUCER, type ArtifactIndexProducer } from "./application/retrieval/index-artifact-version";
 import { ARTIFACT_INDEXING_SERVICE } from "./application/retrieval/request-artifact-index";
 import { langChainEmbeddingClientFromEnv } from "./infrastructure/retrieval/langchain-embedding-client";
@@ -1340,6 +1343,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // NOT open those paths, and nothing here should be read as saying it does.
     { provide: OBJECT_STORE, useFactory: () => new FsObjectStore(objectStoreRoot()) },
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
+    { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
     {
       provide: ARTIFACT_INDEX_PRODUCER,
       useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
@@ -1946,15 +1950,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: STANDARD_CONTEXT_SERVICE,
       useFactory: (db: DatabasePort, objects: ObjectStore, identity: IdentityRepository, decisions: DecisionIdFactory,
         chat: ChatRepository, lists: ProjectListRepository, overview: ProjectOverviewRepository,
-        bindings: BindingDeps["bindings"], artifacts: BindingDeps["artifacts"], ids: BindingDeps["ids"], provenance: BindingDeps["provenance"]) => {
+        bindings: BindingDeps["bindings"], artifacts: BindingDeps["artifacts"], ids: BindingDeps["ids"], provenance: BindingDeps["provenance"], embeddings: EmbeddingPort | null, rerank: RerankPort | null) => {
         const auth = { repo: identity, ids: decisions };
+        const index = new PgOrganizationKnowledgeIndex(db, auth);
         return new StandardContextService({ repo: lists, identity },
           { repo: overview, auth, binding: { bindings, artifacts, auth, ids, provenance } },
-          new OrganizationContextSource(new PgOrganizationKnowledgeIndex(db, auth), auth,
-            new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat })));
+          new OrganizationContextSource(index, auth,
+            new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat }),
+            new OrganizationHybridRetrieval(index, auth, embeddings && rerank ? { retriever: new PgSegmentRetriever(db), embeddings, rerank } : undefined)));
       },
       inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
-        PROJECT_LIST_REPOSITORY, PROJECT_OVERVIEW_REPOSITORY, BINDING_REPOSITORY, ARTIFACT_REPOSITORY, ID_FACTORY, PROVENANCE_WRITER],
+        PROJECT_LIST_REPOSITORY, PROJECT_OVERVIEW_REPOSITORY, BINDING_REPOSITORY, ARTIFACT_REPOSITORY, ID_FACTORY, PROVENANCE_WRITER, EMBEDDING_PORT, RERANK_PORT],
     },
     {
       provide: STANDARD_MEMORY_PROOF,

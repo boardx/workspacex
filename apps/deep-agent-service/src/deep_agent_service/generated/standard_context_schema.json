@@ -50,13 +50,23 @@
                 "type": "string",
                 "enum": [
                   "current-files",
-                  "organization-index"
+                  "organization-index",
+                  "organization-hybrid"
                 ]
               },
               "projectId": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 256
+              },
+              "queryTask": {
+                "type": "string",
+                "enum": [
+                  "search",
+                  "answer",
+                  "research",
+                  "decision-support"
+                ]
               },
               "limit": {
                 "type": "integer",
@@ -262,13 +272,23 @@
             "type": "string",
             "enum": [
               "current-files",
-              "organization-index"
+              "organization-index",
+              "organization-hybrid"
             ]
           },
           "projectId": {
             "type": "string",
             "minLength": 1,
             "maxLength": 256
+          },
+          "queryTask": {
+            "type": "string",
+            "enum": [
+              "search",
+              "answer",
+              "research",
+              "decision-support"
+            ]
           },
           "limit": {
             "type": "integer",
@@ -414,12 +434,44 @@
             "type": "string",
             "enum": [
               "existing-file-retrieval",
-              "organization-index-fts"
+              "organization-index-fts",
+              "organization-index-hybrid"
             ]
           },
           "coverage": {
             "type": "string",
             "const": "primary-file-index"
+          },
+          "retrievalPlan": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "channel": {
+                  "type": "string",
+                  "enum": [
+                    "fts",
+                    "vector",
+                    "graph",
+                    "metadata",
+                    "claim"
+                  ]
+                },
+                "weight": {
+                  "type": "number"
+                },
+                "hitCount": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "weight",
+                "hitCount"
+              ],
+              "additionalProperties": false
+            }
           },
           "truncated": {
             "type": "boolean"

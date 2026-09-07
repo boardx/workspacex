@@ -54,7 +54,7 @@ import {
   type RetrievalChannel,
 } from "../../domain/retrieval/channel-plan";
 import { applyRerank, fuse, type ChannelRanking } from "../../domain/retrieval/rrf";
-import { disclose, type Disclosed, type Withheld } from "../security/permission-filter";
+import { disclose, type Disclosed, type Withheld, type Guarded, type Disclosure } from "../security/permission-filter";
 import {
   propagationPathFor,
   type CandidateRow,
@@ -155,6 +155,8 @@ export interface RetrieveDeps extends AuthorizeDeps {
   readonly retriever: SegmentRetriever;
   readonly embeddings: EmbeddingPort;
   readonly rerank: RerankPort;
+  /** Trusted composition hook for organization-wide canonical per-source project disclosure. */
+  readonly discloseChannel?: (rows: readonly Guarded<CandidateRow>[], path: "retrieval" | "embedding-similarity") => Promise<Disclosure<CandidateRow>>;
 }
 
 /** One channel's disclosed output, kept per channel so fusion sees five orderings. */
@@ -223,7 +225,9 @@ export async function retrieveCandidates(
   // correct path the slow one, and that is how R7 gets hollowed out (coherence X-1).
   const outcomes: ChannelOutcome[] = [];
   for (const { planned, rows } of raw) {
-    const d = await disclose<CandidateRow>(deps, {
+    const d = deps.discloseChannel
+      ? await deps.discloseChannel(rows, propagationPathFor(planned.channel))
+      : await disclose<CandidateRow>(deps, {
       userId: input.userId,
       orgId: input.orgId,
       projectId: input.projectId ?? undefined,

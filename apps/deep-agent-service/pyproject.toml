@@ -24,6 +24,7 @@ dependencies = [
   "opentelemetry-exporter-otlp-proto-http>=1.37,<2",
   "langmem==0.0.30",
   "langchain-community==0.4.2",
+  "langchain-classic==1.0.8",
   "sqlalchemy[asyncio]==2.0.52",
 ]
 

@@ -1,3 +1,4 @@
+import type {OrganizationHybridRetrieval} from '../retrieval/organization-hybrid-retrieval';
 import {createHash} from 'node:crypto';
 import {KnowledgeReadOutput,KnowledgeSearchOutput,STANDARD_CONTEXT_LIMITS as L,STANDARD_CONTEXT_TOOLS as C} from '@repo/contracts/standard-context-tools';
 import type {z} from 'zod';
@@ -9,20 +10,24 @@ const version=(item:AuthorizedIndexedSegment)=>`${item.row.artifactVersionId}@sh
 const citation=(item:AuthorizedIndexedSegment)=>({kind:'indexed-segment' as const,segmentId:item.row.segmentId,artifactId:item.row.artifactId,artifactVersionId:item.row.artifactVersionId,projectId:item.locator.project_id,anchor:{kind:item.locator.anchor_kind,locator:item.locator.anchor_locator}});
 /** Explicit organization-index profile, composed alongside existing extracted attachments. */
 export class OrganizationContextSource implements StandardKnowledgeSource {
- constructor(private index:PgOrganizationKnowledgeIndex,private identity:AuthorizeDeps,private files:StandardKnowledgeSource){}
+ constructor(private index:PgOrganizationKnowledgeIndex,private identity:AuthorizeDeps,private files:StandardKnowledgeSource,private hybrid?:OrganizationHybridRetrieval){}
  private async project(actor:TrustedContextActor,projectId?:string){
   if(projectId&&!(await authorize(this.identity,{orgId:actor.orgId,userId:actor.userId,projectId,object:{kind:'project',id:projectId},action:'read.published'})).allowed)throw new Error('context_source_unavailable');
  }
  async search(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_search.input>){
-  if(input.scope!=='organization-index')return this.files.search(actor,input);
+  if(input.queryTask&&input.scope!=='organization-hybrid')throw new Error('context_query_task_unsupported');
+  if(input.scope!=='organization-index'&&input.scope!=='organization-hybrid')return this.files.search(actor,input);
   await this.project(actor,input.projectId);const limit=input.limit??5;
-  const candidates=await this.index.search(actor,input.query,input.projectId),items=[];
+  const hybrid=input.scope==='organization-hybrid';
+  if(hybrid&&!this.hybrid)throw new Error('hybrid_not_configured');
+  const outcome=hybrid?await this.hybrid!.search(actor,input):undefined;
+  const candidates=outcome?.candidates??await this.index.search(actor,input.query,input.projectId),items=[];
   for(const candidate of candidates.slice(0,limit)){
    const current=await this.index.read(actor,candidate.row.segmentId,input.projectId);
    if(!current)throw new Error('context_source_unavailable');
    items.push({sourceId:`segment:${current.row.segmentId}`,versionId:version(current),title:current.locator.title,excerpt:windowExcerpt(current.row.content,input.query.toLowerCase().split(/\s+/),2000),citationAnchor:citation(current)});
   }
-  return KnowledgeSearchOutput.parse({items,scopeMode:'organization-index-fts',coverage:'primary-file-index',truncated:candidates.length>limit});
+  return KnowledgeSearchOutput.parse({items,scopeMode:hybrid?'organization-index-hybrid':'organization-index-fts',...(outcome?{retrievalPlan:outcome.plan}:{}),coverage:'primary-file-index',truncated:candidates.length>limit});
  }
  async read(actor:TrustedContextActor,input:z.infer<typeof C.wx_knowledge_read.input>){
   if(!input.sourceId.startsWith('segment:'))return this.files.read(actor,input);

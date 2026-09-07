@@ -93,4 +93,6 @@ async def embedding_endpoint(request:Request):
     except Exception:
         return JSONResponse({'error':'embedding_unavailable'},status_code=503)
 
-app=Starlette(routes=[Route('/internal/retrieval/embeddings',embedding_endpoint,methods=['POST'])])
+from .retrieval_rerank import rerank_endpoint
+
+app=Starlette(routes=[Route('/internal/retrieval/rerank',rerank_endpoint,methods=['POST']),Route('/internal/retrieval/embeddings',embedding_endpoint,methods=['POST'])])
