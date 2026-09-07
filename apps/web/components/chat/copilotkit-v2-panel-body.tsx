@@ -1367,7 +1367,11 @@ export function CopilotKitV2PanelBody({
           文字/控件的容器上（消息内容 `messagesContentRef` 与下方 composer 分组），
           滚动容器夹在满宽的外层列与被收窄的内容之间，滚动条自然贴到窗口边界，
           与 ChatGPT/Claude.ai 同款布局一致。 */}
-      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3" {...(!canWrite || archived ? {} : attach.dragHandlers)}>
+      <div
+        className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3"
+        data-testid={initialChatThreadId === null ? "chat-task-workbench-preattach-dropzone" : undefined}
+        {...(!canWrite || archived ? {} : attach.dragHandlers)}
+      >
         {!canWrite || archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
             常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
