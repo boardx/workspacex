@@ -120,8 +120,11 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 | Skill 事实 | `0e2bdb411` | `NativeSkillActivity`、`observe_skill_read`；当前只发送 metadata_discovered/body_read，不声明执行成功 |
 | 工具授权 | `0e2bdb411` | `NativeToolAuthority` → `HttpNativeToolAuthority`，在 dispatch 前调用共享检查入口 |
 | Native 主入口及成果 | `045f48ae5` | opt-in factory/session/成果接线，需 KERNEL_NATIVE_RUNTIME=1；为较大集成提交，不能当作独立小适配补丁 |
+| 暂停结算后的 native session 归属 | `50b9d9a409` | `pauseAtCheckpoint` 实际返回 cancelled 时释放 run session；paused 时保留；失败只记录 release pending |
 
 已提交局部证据包括 Skill 52 项、authority 74 项及 deadline 26 项、取消 API 20 项和边界 8 项。其 scripted model / 最小 Nest 跨语言验证不等于完整生产入口、真实模型或本分支最新控制契约的联合验收。正在核对最小依赖闭包和交叉符号；未将标准能力实现复制进本 PR。
+
+`50b9d9a409` 的提交证据记录 6 文件 41 项通过，其中 PG 覆盖取消与暂停顺序，gateway 内存测试覆盖 cancelled 释放一次、paused 不释放。核查时 peer 当前 HEAD 为 `1db33275de2c48447926b33cf95bca3426839eb0`，但工作区还含其他未提交增量；因此这里只引用独立提交，不把该 HEAD 或 41 项局部测试表述为完整 native 联合验收。
 
 ## 已有证据与联合验收边界
 

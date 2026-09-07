@@ -2,7 +2,7 @@
 
 日期：2026-09-06。状态：实施中；2026-09-07 用户直接授权独立 worktree、并行 subagent、逐单元 commit、最终一个 PR。跟踪 issue：#2867；不代改设计签核状态。
 
-## 开发进度图（更新于 2026-09-07 09:23 Asia/Shanghai）
+## 开发进度图（更新于 2026-09-07 09:45 Asia/Shanghai）
 
 本图是本升级项目的进度展示入口。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。当前三路 subagent 已停笔，根协调者正在收束完整 E2E 与联合验收；S0–S12 尚未全部达到 PR/CI/联合验收门，不能按代码量虚报完成。
 
@@ -24,7 +24,7 @@ flowchart TB
   subgraph FE["前端工作线"]
     S8["S8 待评审：执行时间线\ncommit c11d77f57 / 1a97584d5\n浏览器回放及终稿回归通过"]:::verify
     S9["S9 待联合验收：输入与反馈\ncommit 37687f5e2 / bd392b6ca\n录音异步归属20项通过"]:::verify
-    S10["S10 待联合验收：成果工作区\ncommit b0edc074a / 67685a563\npeer 045f48ae5 native链待合入"]:::verify
+    S10["S10 待联合验收：成果工作区\ncommit b0edc074a / 67685a563\npeer 50b9d9a409 取消释放已提交"]:::verify
     S8 --> S9
     S8 --> S10
   end
@@ -58,12 +58,12 @@ flowchart TB
   S4 -.成果事件接入.-> S10
   S7 -.交互接入.-> S9
 
-  S9 --> S11["S11 当前HEAD完整链待CI\ncommit a47ef0a55 / bd392b6ca\n前序串行：76过 / 1败 / 1跳过\n本机干净构建超240秒，未跑用例"]:::active
+  S9 --> S11["S11 当前HEAD完整链CI全绿\ncommit 76a44a546\nfullstack-smoke 19分25秒通过\n待PR及联合验收"]:::verify
   S11 --> RM["实模待授权：DashScope外发审批\n测试 commit 8a896dd19\n未运行，不以回环替代"]:::blocked
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
-  S11 --> S12["S12 后续导入旅程迁移\ncommit a83730fcb / a47ef0a55\nPR2890 · 完整链与CI待复验"]:::active
+  S11 --> S12["S12 后续导入旅程迁移\ncommit a83730fcb / a47ef0a55\nPR2890 · review 32/32通过"]:::active
 
   subgraph LEGEND["颜色规则（完成必须有验收与交付证据）"]
     LG["绿色：已完成"]:::done
@@ -97,6 +97,7 @@ flowchart TB
 
 | 日期 | 节点 | 变化与证据 | 下一动作 | 实测 Token |
 |---|---|---|---|---|
+| 2026-09-07 09:45 | S4 / S9–S12 | PR #2890 当前提交 `76a44a546` 的核心 E2E、pytest、四个 API 分片、运行时门禁、完整编译、受影响范围、控制平面及 `fullstack-smoke` 全部通过；全栈 smoke 用时 19 分 25 秒。独立 UI review 对默认折叠、流式与终稿分离、journal 回放去重、Skill 阶段区分、录音 owner 隔离复验 5 文件 32/32，通过且无 P0/P1/P2。peer 独立提交 `50b9d9a409` 已在暂停结算为 cancelled 时释放 native session，提交证据为 6 文件 41 项；peer 当前整个工作区仍不干净，因此不把其 HEAD 记为联合完成 | 提交并推送进度/契约记录；等待 peer 干净整合 SHA 后完成真实 Skill/取消联合链；DashScope 仍待明确外发授权 | 未采集 |
 | 2026-09-07 09:23 | S4 / S9 / S11–S12 | 生产 `31a0862d7`＋测试 `a83730fcb` 的完整单 worker 验证为 76 通过、1 失败、1 跳过；唯一失败是 Skill 旅程复用前序已挂载技能的未开始线程。`a47ef0a55` 已保留零挂载反证并建立独立持久线程，子智能体复核无 P0/P1/P2。`bd392b6ca` 已绑定录音停止异步结果与 session owner，组件 20/20、类型与 lint 通过。当前 HEAD 干净构建复验在本机高负载下超出 webServer 240 秒启动窗口，测试用例未开始；另一次同 HEAD 干净构建启动成功且前 14 项通过后 runner 无断言输出退出，均不冒充完整链结果。peer `0e2bdb411`/`045f48ae5` 的真实 Skill emitter/native 链已提交但尚未联合 | 推送当前提交，使用独立 CI runner 完成当前 HEAD 全链；按符号合入 peer 干净整合 SHA，保留 `446b03557` deny 优先和 `d78a0790d` 取消优先 | 未采集 |
 | 2026-09-07 08:54 | S4 / S9 / S11–S12 | PR #2890 远端 head `31a0862d7`，除 `fullstack-smoke` 因后续推送被取消外，其余 CI 全绿；本地 head `c7062ced1`。`a83730fcb` 已迁移 3 个 GitHub 导入后续旅程，类型检查通过。完整链实跑 78 项，结果为 61 通过、8 失败、1 跳过、8 未运行。trace 显示 5 个 worker 下 8 个失败均先出现 5 秒等待结束而请求尚未完成，未见 4xx/5xx/权限或数据覆盖证据；尚须单 worker 复验，不能标绿。peer 已提交 native 接点，但其 worktree 还有大量未提交增量；联合链仍须保留 `446b03557` 与 `d78a0790d` | 冻结版本以单 worker 复验 8 个失败，再跑完整链；等待 peer 给整合 SHA/native 环境；真实 DashScope 仍待明确授权 | 未采集 |
 | 2026-09-07 05:22 | S9 / S11–S12 | 2711782e3录音失败清理17/17及两条隔离浏览器链通过；31a0862d7 CI除全栈外均通过。完整CI还有GitHub导入后续阶段，a83730fcb迁移其3份旧UI测试；本地完整77项依赖链进行中，不将此前12项当作全量 | 收束77项与CI；peer联合提交/环境、实模授权仍待输入 | 未采集 |
