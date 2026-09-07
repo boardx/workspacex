@@ -1,0 +1,27 @@
+[stack-admission] load1=3.91 cores=10 perCore=0.39 running=0/2
+[test-isolation] id=run-mtqsydfr-fc856548-1ca4b1f5069b db=wsx_1ca4b1f5069b4836f6d3 compose=wsx-1ca4b1f5069b4836f6d3 pg=20509 redis=25509 sandbox=50509
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_1ca4b1f5069b4836f6d3 capacity=100 current=6 required=32
+ ✓ tests/agent-run/artifact-workbench.test.ts (8 tests) 4093ms
+   ✓ artifact continuation over existing attachments > replays workbench migrations without changing cancellation, approval identities or registered continuation attachments 372ms
+ ✓ tests/agent-runtime/agui-bridge-tool-call-events.test.ts (1 test) 4168ms
+   ✓ POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件 > 一次真实工具调用产出 TOOL_CALL_START/ARGS/END/RESULT，再是最终答案；无流式正文时保留规划摘要回退 583ms
+ ✓ tests/skill/standard-platform-packs.test.ts (2 tests) 1629ms
+   ✓ publishes shipped complete workflow packages through the existing importer and replays without duplicate versions 431ms
+   ✓ exposes the published standard package through the actual Skills API to ordinary members in distinct organizations 1197ms
+
+ Test Files  3 passed (3)
+      Tests  11 passed (11)
+   Start at  13:30:51
+   Duration  12.45s (transform 2.20s, setup 0ms, collect 562ms, tests 9.89s, environment 0ms, prepare 68ms)
+
+[db-isolation] db=wsx_1ca4b1f5069b4836f6d3 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/agui-bridge-tool-call-events.test.ts tests/agent-run/artifact-workbench.test.ts tests/skill/standard-platform-packs.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：0s
+  总计：13s

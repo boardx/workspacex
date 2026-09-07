@@ -1,3 +1,17 @@
+# Latest continuation checkpoint (2026-09-07)
+
+Current committed checkpoint: 4cc047087; public branch remains at 414aca176. Active plan has three rounds; no merge to main. See development-flow.md for scoped progress.
+
+CI stream fixtures, exact subtask permission checks, reviewed indexing producer/user API, audio pack publication and native interactive tools are separately committed. Latest targeted CI rerun passed 11 tests; indexing passed 32 tests; native interaction passed 53 Python and 6 database tests. Full API types passed before latest hybrid composition wiring.
+
+Uncommitted work is intentionally owned: root cloud migration/browser integration and artifact title schema; runtime worker hybrid retrieval; LangChain worker persistent tool snapshot and browser registration; audio worker concurrent sandbox reads and strict real-model meeting-minutes semantics. Never stage all files or reset another worker.
+
+Real-model S009 technical chain delivered Markdown, but semantic review found deferred decision misreported as rejection. Skill 1.1.1 and a stronger assertion are under test; do not mark G-SKILL green from the earlier transport pass. S016 ASR config missing, user clarification pending.
+
+Cloud browser branch origin/codex/w10-browser-tools-2864 and migration origin/cloud-migration-2907 were fetched and applied, pending integration acceptance. W08 Office patch is still transferring privately; public Dockerfile write was rejected by cloud approval review and remains stopped. Do not bypass that rejection.
+
+---
+
 # Standard capabilities implementation handoff
 
 Worktree: `/private/tmp/workspacex-standard-capabilities`; branch `codex/standard-capabilities`.
