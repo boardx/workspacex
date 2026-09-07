@@ -28,7 +28,7 @@ export class DefaultStandardAudioService implements StandardAudioService {
   await checkSource();
   if(input.diarization===true||input.language!==undefined)throw new Error('audio_mode_unsupported');
   if(!this.provider.isConfigured()||!this.provider.modelRef)throw new Error('audio_provider_unavailable');
-  if(!['audio/wav','audio/x-wav','audio/wave'].includes(source.mediaType))throw new Error('audio_format_unsupported');
+  if(!['audio/wav','audio/x-wav','audio/wave','audio/mpeg'].includes(source.mediaType))throw new Error('audio_format_unsupported');
   const identityInput={attachmentId:input.attachmentId};
   const requestKey=hash(JSON.stringify(identityInput)),prefix=`audio-transcription/${hash(context.orgId)}/${hash(context.parentRunId)}/${requestKey}`;
   const intent=Buffer.from(JSON.stringify({input:identityInput,sourceHash:source.digest,modelRef:this.provider.modelRef}));
@@ -42,13 +42,28 @@ export class DefaultStandardAudioService implements StandardAudioService {
    const segments:z.infer<typeof AudioTranscribed>['segments']=[];
    const stop=new AbortController(),cancel=new AbortController();
    const watch=(async()=>{try{while(true){await delay(1000,undefined,{signal:stop.signal});await this.owner.resolve(context.bindingId,context);}}catch{if(!stop.signal.aborted)cancel.abort();}})();
-   try{for(const [index,chunk] of decoded.chunks.entries()){
-    await authorize();await checkSource();await this.owner.resolve(context.bindingId,context);
-    const pcm=await decoded.read(chunk),text=await transcribeAudioChunk(this.provider,pcm,AbortSignal.any([signal,cancel.signal]));
-    segments.push({id:`chunk-${index}`,startMs:chunk.startMs,endMs:chunk.endMs,text});
-   }}finally{stop.abort();await watch;}
+   // Session file operations are exclusive. Only ASR sessions run concurrently;
+   // at most `concurrency` workers can wait for this bounded read sequence.
+   let readTail:Promise<unknown>=Promise.resolve();
+   const readChunk=(chunk:(typeof decoded.chunks)[number])=>{const result=readTail.then(()=>decoded.read(chunk));readTail=result.catch(()=>{});return result;};
+   let next=0,firstError:unknown;
+   const worker=async()=>{
+    while(!cancel.signal.aborted){
+     const index=next++,chunk=decoded.chunks[index];if(!chunk)return;
+     try{
+      await authorize();await checkSource();await this.owner.resolve(context.bindingId,context);
+      const pcm=await readChunk(chunk),text=await transcribeAudioChunk(this.provider,pcm,AbortSignal.any([signal,cancel.signal]));
+      segments[index]={id:`chunk-${index}`,startMs:chunk.startMs,endMs:chunk.endMs,text};
+     }catch(error){firstError??=error;cancel.abort();throw error;}
+    }
+   };
+   try{await Promise.allSettled(Array.from({length:Math.min(L.concurrency,decoded.chunks.length)},worker));
+    if(firstError)throw firstError;
+    signal.throwIfAborted();if(cancel.signal.aborted||segments.length!==decoded.chunks.length||segments.some(s=>!s))throw new Error('audio_transcription_cancelled');
+   }finally{stop.abort();cancel.abort();await watch;}
    const warnings:z.infer<typeof AudioTranscribed>['warnings']=['source_chunk_boundaries_not_word_timestamps','speaker_identity_unavailable','confidence_not_calibrated'];
    if(segments.every(s=>!s.text.trim()))warnings.push('no_recognized_speech');
+   else if(segments.some(s=>!s.text.trim()))warnings.push('some_chunks_without_recognized_speech');
    bytes=Buffer.from(JSON.stringify({sourceHash:source.digest,segments,warnings}));
    if(bytes.length>L.maxTextBytes)throw new Error('audio_transcript_too_large');
    receipt=AudioTranscribed.parse({workspacePath,sha256:hash(bytes),sourceHash:source.digest,segments,warnings});

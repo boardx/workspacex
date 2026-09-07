@@ -1,4 +1,4 @@
-# W14 audio transcription delta — design, not delivery evidence
+# W14 audio transcription delta — implementation boundaries; evidence linked separately
 
 ## Existing runtime facts
 
@@ -8,15 +8,17 @@
 
 ## Proposed bounded vertical slice
 
-Input preserves catalog `attachmentId`, optional `language`, optional `diarization`. Initially reject explicit diarization and unsupported language selection instead of ignoring them. The first decoding path uses Python standard-library wave in the existing bound sandbox for PCM16, mono, 16kHz WAV, limited to 120 seconds and the shared 8MiB original-file limit. Invalid, empty, silent and unsupported-format input must be distinguished from successful transcription. No external dependency is required for this first path.
+Input preserves catalog `attachmentId`, optional `language`, optional `diarization`. Initially reject explicit diarization and unsupported language selection instead of ignoring them. The original WAV-only increment used Python wave. The current consumer uses the installed fixed FFmpeg adapter for authorized WAV/MP3 up to 60 minutes, retaining the shared 8MiB original-file limit. Invalid, empty, silent and unsupported-format input must be distinguished from successful transcription. FFmpeg is installed at build time; no runtime network installation is allowed.
 
 Source audio is divided at actual sample offsets into at most 30-second PCM chunks. One existing ASR session per chunk aggregates its actual final text. Segment startMs/endMs describe the complete source chunk, explicitly not provider word/utterance alignment. Unknown speakers remain absent. Empty final text does not invent speech. Every session is aborted on timeout, owner cancellation or provider error. Streaming frame sizes and audio format must reuse existing recording contracts.
 
 Output uses workspacePath, sha256, sourceHash, segments and warnings so the existing artifact publisher can create a real deliverable. It does not return a transcriptId or fabricate a personal recording entity. The accepted catalog delta must record this output adjustment. Final artifact identity comes only from the existing staged/writeback path. Durable intent is fixed by trusted organization/run/source hash plus normalized parameters, persisted before the first provider operation. Same source/arguments replay returns identical transcript bytes and hash; an incomplete intent is unknown outcome and does not automatically send audio again. New object prefixes have no proven automatic GC and require integration with the existing retention policy.
 
-## Next supported-format increment
+## Current long-audio consumer
 
-The current sandbox Dockerfile does not install FFmpeg. Arbitrary authorized MP3/M4A and other compressed audio need maintained offline decoding, preferably fixed distro FFmpeg/ffprobe packages in the existing image, not a new ASR engine. This is within the authorized development scope and requires explicit codec/duration/decoded-size limits, exact package/license evidence, actual container tests and preservation of the current isolation and resource limits. Longer files also need bounded execution scheduling rather than pretending the first synchronous 120-second slice satisfies hour-long audio.
+The fixed FFmpeg decoder and packaged image are independently verified under the existing sandbox isolation. It emits 30-second PCM chunks, then the service serializes session file reads (the existing session API is exclusive) while at most four existing manual ASR sessions run concurrently. Results are indexed by source chunk order. A failed chunk aborts peers and prevents a completed receipt; a persisted unknown intent is not resubmitted. The whole tool has a 240-second deadline. Slow upstream execution fails explicitly rather than extending the parent run deadline.
+
+Supported file formats are WAV and MP3, not arbitrary codecs. Forced language and diarization remain explicit unsupported modes. Empty individual chunks remain empty and receive a warning; all-empty confirmed results are marked separately. No names or word timestamps are invented. The fixed decoder/Docker evidence is `evidence/W14/audio-ffmpeg/`; long-audio consumer evidence is `evidence/W14/audio-long/`.
 
 ## Skills
 

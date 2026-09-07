@@ -1,0 +1,21 @@
+[stack-admission] load1=3.14 cores=10 perCore=0.31 running=0/2
+[test-isolation] id=run-mtqrkze2-cdd54e3c-4f74dcbf64f9 db=wsx_4f74dcbf64f9f6a9c11d compose=wsx-4f74dcbf64f9f6a9c11d pg=23751 redis=28751 sandbox=53751
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_4f74dcbf64f9f6a9c11d capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-audio-tools.test.ts (7 tests) 170ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  12:52:27
+   Duration  2.60s (transform 270ms, setup 0ms, collect 341ms, tests 170ms, environment 0ms, prepare 25ms)
+
+[db-isolation] db=wsx_4f74dcbf64f9f6a9c11d peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-audio-tools.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s

@@ -72,6 +72,7 @@ describe("declaredMimeMatchesBytes", () => {
       "audio/wav": WAV,
       "audio/x-wav": WAV,
       "audio/wave": WAV,
+      "audio/mpeg": Buffer.from([0xff,0xfb,0x90,0]),
       "image/png": PNG,
       "image/jpeg": JPEG,
       "image/webp": WEBP,
@@ -95,4 +96,11 @@ it("WAV intake distinguishes RIFF/WAVE from WebP and forged executable bytes",()
   expect(declaredMimeMatchesBytes(mime,TEXT)).toBe(false);
  }
  expect(declaredMimeMatchesBytes('image/webp',WAV)).toBe(false);
+});
+
+it('accepts MP3 magic while rejecting AAC, images and executable masquerades',()=>{
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0x49,0x44,0x33,4,0,0,0,0,0,0]))).toBe(true);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0xff,0xfb,0x90,0]))).toBe(true);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0xff,0xf1,0x50,0x80]))).toBe(false);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from('MZ\0binary'))).toBe(false);
 });

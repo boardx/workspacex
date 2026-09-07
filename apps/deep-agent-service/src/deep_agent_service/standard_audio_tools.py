@@ -41,4 +41,4 @@ def audio_transcribe_tool():
     async def run(runtime:ToolRuntime,**kwargs):return await _parse(runtime,kwargs)
     def sync(runtime:ToolRuntime,**kwargs):return asyncio.run(_parse(runtime,kwargs))
     return StructuredTool(name=_SCHEMA['toolName'],args_schema=_SCHEMA['toolInput'],func=sync,coroutine=run,
-        description='Transcribe an authorized original WAV attachment using configured ASR. First slice accepts PCM16 mono16k WAV up to120 seconds; forced language and speaker diarization are unsupported. Timestamps are source chunk ranges, not word alignment. A workspace JSON with actual hash is returned; publish it with wx_artifact_publish if a deliverable is requested. Never automatically resubmit an unknown outcome.')
+        description='Transcribe an authorized original WAV or MP3 attachment using configured ASR. Accepts up to 60 minutes within the original-file byte limit; forced language and speaker diarization are unsupported. Timestamps are source chunk ranges, not word alignment. A workspace JSON with actual hash is returned; publish it with wx_artifact_publish if a deliverable is requested. Never automatically resubmit an unknown outcome.')

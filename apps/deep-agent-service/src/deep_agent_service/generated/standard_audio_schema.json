@@ -2,9 +2,11 @@
   "toolName": "wx_audio_transcribe",
   "limits": {
     "maxBytes": 8388608,
-    "maxDurationMs": 120000,
+    "maxDurationMs": 3600000,
     "chunkDurationMs": 30000,
-    "deadlineMs": 180000,
+    "deadlineMs": 240000,
+    "concurrency": 4,
+    "decodeDeadlineMs": 120000,
     "maxTextBytes": 262144,
     "responseBytes": 270336
   },
@@ -130,7 +132,7 @@
             "endMs": {
               "type": "integer",
               "exclusiveMinimum": 0,
-              "maximum": 120000
+              "maximum": 3600000
             },
             "text": {
               "type": "string",
@@ -146,7 +148,7 @@
           "additionalProperties": false
         },
         "minItems": 1,
-        "maxItems": 4
+        "maxItems": 120
       },
       "warnings": {
         "type": "array",
@@ -156,10 +158,11 @@
             "source_chunk_boundaries_not_word_timestamps",
             "speaker_identity_unavailable",
             "confidence_not_calibrated",
-            "no_recognized_speech"
+            "no_recognized_speech",
+            "some_chunks_without_recognized_speech"
           ]
         },
-        "maxItems": 4
+        "maxItems": 5
       }
     },
     "required": [

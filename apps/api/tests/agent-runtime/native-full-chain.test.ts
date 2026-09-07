@@ -75,7 +75,7 @@ import { StandardDocumentToolsController } from '../../src/interface/controllers
 const org=toOrgId('native-chain-'+randomUUID()),parent='run-'+randomUUID();
 const workspace=join(process.cwd(),'../..');let db:PgDatabase;let root:string;
 function processRun(cmd:string,args:string[],input='',env=process.env):Promise<string>{return new Promise((resolve,reject)=>{
- const child=spawn(cmd,args,{env});const timer=setTimeout(()=>child.kill('SIGKILL'),90000);child.on('close',()=>clearTimeout(timer));let out='',err='';child.stdout.on('data',c=>out+=c);child.stderr.on('data',c=>err+=c);
+ const child=spawn(cmd,args,{env});const timer=setTimeout(()=>child.kill('SIGKILL'),process.env.WX_AUDIO_LONG_FIXTURE?270000:90000);child.on('close',()=>clearTimeout(timer));let out='',err='';child.stdout.on('data',c=>out+=c);child.stderr.on('data',c=>err+=c);
  child.on('error',reject);child.on('exit',code=>code===0?resolve(out):reject(new Error(`${cmd} exited ${code}: ${err}`)));child.stdin.end(input);
 });}
 async function seed(scope: typeof org, id: string) {
@@ -122,6 +122,7 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const contents=[{path:'SKILL.md',text:'---\nname: example\ndescription: Generate a UTF8 report.\n---\nRun /skills/example/scripts/report.py then publish /workspace/report.txt.\n',mediaType:'text/markdown'},{path:'scripts/report.py',text:script,mediaType:'text/x-python'}];
  const pack={skillId:'s1',versionId:'v1',files:contents.map(f=>({path:f.path,mediaType:f.mediaType,contentBase64:Buffer.from(f.text).toString('base64'),digest:createHash('sha256').update(f.text).digest('hex')}))};
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};
+ const longAudio=process.env.WX_AUDIO_LONG_FIXTURE;let audioByteCount=0,asrActive=0,asrPeak=0;
  let asrServer:WebSocketServer|undefined;let audioSubmits=0;let audioHadIntent=false;const audioFrames:Buffer[]=[];
  let imageServer:ReturnType<typeof createServer>|undefined;let imageSubmits=0;let submitHadIntent=false;let webServer:https.Server|undefined;let provisioned=false;let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
  const oldKey=process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='native-chain-service-key';
@@ -131,7 +132,7 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   const {Document,Packer,Paragraph}=createRequire(join(workspace,'apps/skill-sandbox/package.json'))('docx');
   const originals=[{filename:'original.docx',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',bytes:await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('原始文档保持不变')]}]}))},{filename:'original.csv',mime:'text/csv',bytes:Buffer.from('group,value\n甲,10\n乙,40\n')}];
   originals.push({filename:'scan.png',mime:'image/png',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/document-ocr/scan.png'))});
-  originals.push({filename:'original.wav',mime:'audio/wav',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/audio/source.wav'))});
+  originals.push(longAudio?{filename:'original.mp3',mime:'audio/mpeg',bytes:await readFile(longAudio)}:{filename:'original.wav',mime:'audio/wav',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/audio/source.wav'))});
   const uploadDeps={repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}};
   for(const source of originals){const uploaded=await uploadAttachment(uploadDeps,{orgId:org,userId:'actor',threadId:`thread-${org}`,...source});
    await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));}
@@ -152,22 +153,24 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
    if(req.method==='POST'){imageSubmits++;const h=(x:string)=>createHash('sha256').update(x).digest('hex');submitHadIntent=(await objects.get(`image-generation/${h(org)}/${h(parent)}/${h('image-v1')}/intent.json`))!==null;res.end(JSON.stringify({output:{task_id:'generated-task'}}));}
    else res.end(JSON.stringify({output:{task_status:'SUCCEEDED',results:[{url:webUrl+'/image.png'}]}}));});
   await new Promise<void>(resolve=>imageServer!.listen(0,'127.0.0.1',resolve));
-  const audioId=originalInputs.find(i=>i.path.endsWith('.wav'))!.attachmentId;
+  const audioId=originalInputs.find(i=>i.path.endsWith(longAudio?'.mp3':'.wav'))!.attachmentId;
   asrServer=new WebSocketServer({server:imageServer});
-  asrServer.on('connection',ws=>ws.on('message',async raw=>{
+  asrServer.on('connection',ws=>{asrActive++;asrPeak=Math.max(asrPeak,asrActive);ws.once('close',()=>{asrActive--;});ws.on('message',async raw=>{
    const frame=JSON.parse(String(raw));
    if(frame.type==='session.update')expect(frame.session.turn_detection).toBeNull();
-   if(frame.type==='input_audio_buffer.append')audioFrames.push(Buffer.from(frame.audio,'base64'));
+   if(frame.type==='input_audio_buffer.append'){const pcm=Buffer.from(frame.audio,'base64');audioByteCount+=pcm.length;if(!longAudio)audioFrames.push(pcm);}
    if(frame.type==='session.finish'){
     audioSubmits++;const digest=(v:string)=>createHash('sha256').update(v).digest('hex');
     audioHadIntent=Boolean(await objects.get(`audio-transcription/${digest(org)}/${digest(parent)}/${digest(JSON.stringify({attachmentId:audioId}))}/intent.json`));
+    if(longAudio)await new Promise(resolve=>setTimeout(resolve,10));
     ws.send(JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:'1',event_id:'1',transcript:'会议决定保留原件。'}));
     ws.send(JSON.stringify({type:'conversation.item.input_audio_transcription.completed',item_id:'2',event_id:'2',transcript:'Review the transcript before publication.'}));
     ws.send(JSON.stringify({type:'session.finished'}));
    }
-  }));
+  });});
   const audioProvider=new ConfiguredRealtimeAsrProvider({provider:'realtime',baseUrl:`ws://127.0.0.1:${(imageServer.address() as {port:number}).port}`,apiKey:'test',model:'fixture-asr'});
   const audioService=new DefaultStandardAudioService(owner,new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),bound=>({...createNativeDraftSession({socketPath:socket,...bound}),execute:createNativeDocumentSession({socketPath:socket,...bound}).execute}),authority,new PgIdentityRepository(db),objects,audioProvider);
+  const originalTranscribe=audioService.transcribe.bind(audioService);audioService.transcribe=async(...args)=>{try{return await originalTranscribe(...args);}catch(error){if(process.env.WX_AUDIO_DEBUG)console.error('AUDIO_INTERNAL_TEST_DIAGNOSTIC',error);throw error;}};
   const imageProvider=new BailianImageProvider({apiKey:'test-key',modelId:'fixture-model',timeoutMs:5000,pollIntervalMs:1,baseUrl:`http://127.0.0.1:${(imageServer.address() as {port:number}).port}`});
   const imageService=new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),bound=>({...createNativeDraftSession({socketPath:socket,...bound}),execute:createNativeDocumentSession({socketPath:socket,...bound}).execute}),authority,new PgIdentityRepository(db),objects,{modelRef:'fixture-model',generateImage:imageProvider.generateImage.bind(imageProvider)},createGeneratedImageDownloader({connectTimeoutMs:5000,extraTrustedCa:testTlsMaterial().cert,seams:{lookup,checkAddress:()=>{}}}));
   const draftService=new DefaultSkillDraftService(owner,bound=>createNativeDraftSession({socketPath:socket,...bound}),authority,objects);
@@ -194,7 +197,7 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,workspacePath:'/inputs/forged.docx'}})).status).toBe(503);
   const config={configurable:{native_runtime:ref,org_skills:[{stable_name:'example',package:pack}],disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
   const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),WX_AUDIO_ATTACHMENT_ID:audioId,WX_WEB_TEST_URL:webUrl+'/article',WX_INPUT_PATHS:JSON.stringify(originalInputs.map(i=>i.path)),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
-  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_skill_create_draft','wx_artifact_publish','wx_artifact_publish','wx_image_generate','wx_artifact_publish','wx_audio_transcribe','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.draftFixtureVerified).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(3);expect(imageSubmits).toBe(1);expect(submitHadIntent).toBe(true);expect(audioSubmits).toBe(1);expect(audioHadIntent).toBe(true);expect(Buffer.concat(audioFrames)).toEqual((await readFile(join(workspace,'apps/api/tests/fixtures/audio/source.wav'))).subarray(44));expect(report.audio.segments).toEqual([{id:'chunk-0',startMs:0,endMs:1000,text:'会议决定保留原件。\nReview the transcript before publication.'}]);
+  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_skill_create_draft','wx_artifact_publish','wx_artifact_publish','wx_image_generate','wx_artifact_publish','wx_audio_transcribe','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.draftFixtureVerified).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(3);expect(imageSubmits).toBe(1);expect(submitHadIntent).toBe(true);expect(audioSubmits).toBe(longAudio?120:1);expect(audioHadIntent).toBe(true);if(longAudio){expect(audioByteCount).toBe(115200000);expect(asrPeak).toBeLessThanOrEqual(4);expect(report.audio.segments).toHaveLength(120);expect(report.audio.segments[119].endMs).toBe(3600000);}else{expect(Buffer.concat(audioFrames)).toEqual((await readFile(join(workspace,'apps/api/tests/fixtures/audio/source.wav'))).subarray(44));expect(report.audio.segments).toEqual([{id:'chunk-0',startMs:0,endMs:1000,text:'会议决定保留原件。\nReview the transcript before publication.'}]);}
   const audioBody={orgId:org,attemptId:ctx.attemptId,leaseEpoch:1,bindingId:ref.bindingId,toolCallId:'audio-replay',toolName:'wx_audio_transcribe',toolArgs:{attachmentId:audioId}};
   const callAudio=(body:unknown)=>fetch(`${base}/internal/agent-runs/${parent}/audio-transcribe`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY!},body:JSON.stringify(body)});
   const replay=await callAudio(audioBody);expect(replay.status).toBe(200);expect(await replay.json()).toEqual(report.audio);
@@ -203,14 +206,14 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   expect((await callAudio(audioBody)).status).toBe(503);await addOrgMember(org,'actor','consultant',null);
   await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,`thread-${org}`,'intruder']));
   expect((await callAudio(audioBody)).status).toBe(503);
-  await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,`thread-${org}`,'actor']));expect(audioSubmits).toBe(1);
+  await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,`thread-${org}`,'actor']));expect(audioSubmits).toBe(longAudio?120:1);
   const finalBinding=await owner.resolve(ref.bindingId,ctx);expect(finalBinding.inputs).toEqual(originalInputs);
   expect(report.documentParsed).toBe(true);const markdown=await createNativeSessionFiles({socketPath:socket,...finalBinding}).read(report.document.textPath) as {contentBase64:string};
   const parsedBytes=Buffer.from(markdown.contentBase64,'base64');expect(parsedBytes.toString('utf8')).toContain('原始文档保持不变');expect(createHash('sha256').update(parsedBytes).digest('hex')).toBe(report.document.textHash);
   expect(report.document.sourceHash).toBe(originalInputs.find(i=>i.path.endsWith('.docx'))!.digest);
   const audioSession={...createNativeDraftSession({socketPath:socket,...finalBinding}),execute:createNativeDocumentSession({socketPath:socket,...finalBinding}).execute};
-  await expect(decodeWav(audioSession,'/workspace/report.txt',createHash('sha256').update('真实跨语言产物 UTF8').digest('hex'))).rejects.toThrow('audio_decode_failed');
-  await expect(decodeWav(audioSession,originalInputs.find(i=>i.path.endsWith('.wav'))!.path,'0'.repeat(64))).rejects.toThrow('audio_decode_failed');
+  await expect(decodeWav(audioSession,'/workspace/report.txt',createHash('sha256').update('真实跨语言产物 UTF8').digest('hex'))).rejects.toThrow('audio_source_invalid');
+  await expect(decodeWav(audioSession,originalInputs.find(i=>i.path.endsWith(longAudio?'.mp3':'.wav'))!.path,'0'.repeat(64))).rejects.toThrow('audio_decode_failed');
   const files=await staging.listFiles(org,parent);expect(files).toHaveLength(4);expect(Buffer.from((await objects.get(files.find(f=>f.name==='generated.png')!.objectKey))!)).toEqual(imageFixture);expect(Buffer.from((await objects.get(files.find(f=>f.name==='report.txt')!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
   const transcriptBytes=Buffer.from((await objects.get(files.find(f=>f.name==='transcript.json')!.objectKey))!);expect(createHash('sha256').update(transcriptBytes).digest('hex')).toBe(report.audio.sha256);expect(JSON.parse(transcriptBytes.toString('utf8')).segments).toEqual(report.audio.segments);
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;
@@ -230,4 +233,4 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   for(const file of stored.rows)expect(createHash('sha256').update(String(file.content)).digest('hex')).toBe(file.digest);
   console.log(JSON.stringify({chain:'native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback',...report,artifacts:versions.rows.length,attachments:attachments.rows.length}));
  }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{if(asrServer){for(const client of asrServer.clients)client.terminate();await new Promise<void>(resolve=>asrServer!.close(()=>resolve()));}if(imageServer){imageServer.closeAllConnections();await new Promise<void>(resolve=>imageServer!.close(()=>resolve()));}if(webServer){webServer.closeAllConnections();await new Promise<void>(resolve=>webServer!.close(()=>resolve()));}await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
-},120000);
+},300000);
