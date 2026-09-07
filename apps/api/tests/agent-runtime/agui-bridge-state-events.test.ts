@@ -97,6 +97,7 @@ let runId = "";
 /** 同 `agui-bridge-tool-call-events.test.ts`：第一次轮询只有人类消息，之后是完整终态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
+let holdKernelCompletion = false;
 /** 每条测试各自设定的终态消息序列（loopback 服务器返回的 `values.messages`）。 */
 let finalMessages: unknown[] = [];
 
@@ -118,12 +119,12 @@ async function startLanggraphServer(): Promise<void> {
       return;
     }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = statusCallCount === 0 ? "running" : "success";
+      const status = (holdKernelCompletion || statusCallCount === 0) ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = stateCallCount === 0
+      const messages = (holdKernelCompletion || stateCallCount === 0)
         ? [{ type: "human", content: "更新一下计划" }]
         : finalMessages;
       stateCallCount += 1;
@@ -228,6 +229,7 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
+  holdKernelCompletion = false;
   finalMessages = [];
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
@@ -291,3 +293,33 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   }, 30_000);
 });
+
+it("S4 detached observer cannot prevent executor plan and final message persistence", async () => {
+  holdKernelCompletion = true;
+  finalMessages = toolCallTurn("write_todos", { todos: TODOS });
+  const abort = new AbortController();
+  try {
+    const response = await fetch(`${BASE}/copilotkit/agui?agentId=${AGENT}`, {
+      method: "POST", headers: principal(ACTOR, ORG), signal: abort.signal,
+      body: JSON.stringify({ threadId: randomUUID(), runId: randomUUID(), messages: [{ id: randomUUID(), role: "user", content: "更新一下计划" }] }),
+    });
+    expect(response.status).toBe(200);
+    await expect.poll(() => statusCallCount, { timeout: 10000 }).toBeGreaterThan(0);
+    const before = await asApp(ORG, c => c.query("SELECT id,thread_id,status FROM agent_runs WHERE org_id=$1", [ORG]));
+    expect(before.rows).toHaveLength(1);
+    expect(before.rows[0].status).toBe("running");
+    // Abort the actual HTTP observer before the kernel produces any plan result.
+    abort.abort();
+    holdKernelCompletion = false;
+    const id = before.rows[0].id as string;
+    await expect.poll(async () => (await asApp(ORG, c => c.query("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, id]))).rows[0]?.status,
+      { timeout: 15000 }).toBe("succeeded");
+    const { PLAN_LEDGER_REPOSITORY } = await import("../../src/application/plan-control/ports");
+    const ledger = app.get<import("../../src/application/plan-control/ports").PlanLedgerRepository>(PLAN_LEDGER_REPOSITORY);
+    const persisted = await ledger.getLatest((await import("../../src/domain/org-id")).toOrgId(ORG), before.rows[0].thread_id);
+    expect(persisted!.steps.map(step => step.content)).toEqual(TODOS.map(todo => todo.content));
+    const restored = await fetch(`${BASE}/agent-runs/${id}`, { headers: principal(ACTOR, ORG) });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toMatchObject({ runId: id, status: "succeeded", resultMessageId: expect.any(String) });
+  } finally { abort.abort(); holdKernelCompletion = false; }
+}, 30000);

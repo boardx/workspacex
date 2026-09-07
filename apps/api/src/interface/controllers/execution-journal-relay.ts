@@ -1,7 +1,9 @@
+import { parseWriteTodosSnapshot } from "@repo/contracts/agui-state-events";
 import { EventType } from "@ag-ui/core";
 import { AGUI_EXECUTION_EVENT_NAME, type ExecutionEvent } from "@repo/contracts/execution-journal";
 
 type JournalWireEvent =
+  | { type: EventType.STATE_SNAPSHOT; snapshot: NonNullable<ReturnType<typeof parseWriteTodosSnapshot>> }
   | { type: EventType.CUSTOM; name: string; value: ExecutionEvent }
   | { type: EventType.TEXT_MESSAGE_START; messageId: string; role: "assistant" }
   | { type: EventType.TEXT_MESSAGE_CONTENT; messageId: string; delta: string }
@@ -20,6 +22,22 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   const messageText = new Map<string, string>();
   let finalMessageId: string | null = null;
   const cursors = new Map<string, number>();
+  // The persisted step projection and journal are separate reads. Match completed
+  // write_todos occurrences in their shared execution order, never public args.
+  const planSteps: Array<ReturnType<typeof parseWriteTodosSnapshot>> = [];
+  const planResults: boolean[] = [];
+  const flushPlans = () => {
+    while (planSteps.length && planResults.length) {
+      const snapshot = planSteps.shift();
+      const ok = planResults.shift();
+      if (ok && snapshot) write({ type: EventType.STATE_SNAPSHOT, snapshot });
+    }
+  };
+  const acceptPlanStep = (step: { toolName: string | null; status: string; toolArgsSummary: string | null }) => {
+    if (step.toolName !== "write_todos" || !["succeeded", "failed"].includes(step.status)) return;
+    planSteps.push(step.status === "succeeded" && step.toolArgsSummary !== null ? parseWriteTodosSnapshot(step.toolArgsSummary) : null);
+    flushPlans();
+  };
   const close = () => {
     if (openMessage) write({ type: EventType.TEXT_MESSAGE_END, messageId: openMessage });
     openMessage = null;
@@ -49,6 +67,7 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
       write({ type: EventType.TOOL_CALL_RESULT, toolCallId: event.toolCallId,
         messageId: `${event.toolCallId}:result`, role: "tool",
         content: typeof event.result === "string" ? event.result : JSON.stringify(event.result ?? null) });
+      if (event.toolName === "write_todos") { planResults.push(event.ok); flushPlans(); }
     } else if (event.kind === "final_message") {
       finalMessageId = event.messageId;
       messageId = event.messageId;
@@ -66,5 +85,5 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
     write({type:EventType.TEXT_MESSAGE_END,messageId:persistedMessageId});
     return persistedMessageId;
   };
-  return { accept, close, finish };
+  return { accept, acceptPlanStep, close, finish };
 }

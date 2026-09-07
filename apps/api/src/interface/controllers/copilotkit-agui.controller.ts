@@ -848,13 +848,10 @@ export class CopilotkitAguiController {
         onPhase: (phase: AguiRunPhase) => {
           write({ type: EventType.CUSTOM, name: AGUI_RUN_PHASE_EVENT_NAME, value: { phase } });
         },
-        onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
-          this.runs.readExecutionEvents
-            ? (event) => { if (event.type === EventType.STATE_SNAPSHOT || event.type === EventType.STATE_DELTA) write(event); }
-            : write,
-          step, isPendingApproval, sawAnyDelta,
-
-        ),
+        onStep: (step: RunStepPublic, isPendingApproval: boolean) => {
+          if (this.runs.readExecutionEvents) executionRelay.acceptPlanStep(step);
+          else writeToolCallStep(write, step, isPendingApproval, sawAnyDelta);
+        },
       };
 
       // DA-19g -- `forwardedProps.chatThreadId` is the PRIMARY source (an explicit caller
