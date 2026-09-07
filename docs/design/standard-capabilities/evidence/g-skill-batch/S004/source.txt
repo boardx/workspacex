@@ -1,0 +1,4 @@
+team,amount
+A,10
+A,20
+B,12

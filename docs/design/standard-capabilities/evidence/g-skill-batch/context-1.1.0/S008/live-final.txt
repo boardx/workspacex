@@ -1,0 +1,22 @@
+[stack-admission] load1=3.23 cores=10 perCore=0.32 running=0/2
+[test-isolation] id=run-mtqyi1su-77021aa4-24d84c8a75de db=wsx_24d84c8a75de817beda0 compose=wsx-24d84c8a75de817beda0 pg=20146 redis=25146 sandbox=50146
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_24d84c8a75de817beda0 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/skill-batch-real-model.live.ts (1 test) 72677ms
+   ✓ real configured model executes the selected synthetic skill scenario 69829ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  16:06:07
+   Duration  75.12s (transform 1.65s, setup 0ms, collect 625ms, tests 72.68s, environment 0ms, prepare 25ms)
+
+[db-isolation] db=wsx_24d84c8a75de817beda0 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.skill-batch-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m15s
+  清理：1s
+  总计：1m16s

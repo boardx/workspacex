@@ -1,0 +1,28 @@
+{
+  "file": "sales.xlsx",
+  "parts": {
+    "xl/worksheets/sheet1.xml": "0 1 2 10 2 20 3 12",
+    "xl/worksheets/sheet2.xml": "0 4 2 30 3 12 5 42"
+  },
+  "formulas": [
+    {
+      "sheet": "xl/worksheets/sheet2.xml",
+      "cell": "B2",
+      "formula": "SUM('Raw Data 原始数据'!B2:B3)",
+      "cached": "30"
+    },
+    {
+      "sheet": "xl/worksheets/sheet2.xml",
+      "cell": "B3",
+      "formula": "SUM('Raw Data 原始数据'!B4:B4)",
+      "cached": "12"
+    },
+    {
+      "sheet": "xl/worksheets/sheet2.xml",
+      "cell": "B4",
+      "formula": "SUM(B2:B3)",
+      "cached": "42"
+    }
+  ],
+  "visualReviewStillRequired": true
+}

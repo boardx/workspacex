@@ -1,0 +1,10 @@
+{
+  "file": "slides.pptx",
+  "parts": {
+    "ppt/slides/slide1.xml": "Objectives 目标 Project Morning Star\n Conduct a test demonstration to validate the synthetic approach.\n Budget:  TBD\n Delivery Date:  TBD 合成项目晨星\n 开展测试演示，验证合成技术路线的可行性。\n 预算： 待定\n 交付日期： 待定 Synthetic Morning Star | 合成项目晨星",
+    "ppt/slides/slide2.xml": "Experimental Results 实验结果 ⚠ Not all experiments passed — 1 of 3 is still awaiting review.\n 并非全部成功——3次实验中仍有1次待复核。 Experiment 1 / 实验 1\n \n✓ PASSED\n 通过 Experiment 2 / 实验 2\n \n✓ PASSED\n 通过 Experiment 3 / 实验 3\n \n◷ AWAITING\nREVIEW\n 待复核 Synthetic Morning Star | 合成项目晨星",
+    "ppt/slides/slide3.xml": "Next Steps 下一步 English\n \n1. Complete the review of Experiment 3\n 2. Analyze root cause if Experiment 3 fails\n 3. Confirm project budget and delivery timeline\n 4. Plan follow-up experiments based on results\n 5. Prepare formal demonstration report 中文\n \n1. 完成实验3的复核工作\n 2. 若实验3未通过，分析根本原因\n 3. 确认项目预算与交付时间表\n 4. 根据实验结果规划后续实验\n 5. 编写正式测试演示报告 Synthetic Morning Star | 合成项目晨星"
+  },
+  "formulas": [],
+  "visualReviewStillRequired": true
+}

@@ -1,0 +1,89 @@
+[stack-admission] load1=2.18 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqwrkox-354d77ee-6532f9d2d737 db=wsx_6532f9d2d73722cc1928 compose=wsx-6532f9d2d73722cc1928 pg=24570 redis=29570 sandbox=54570
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_6532f9d2d73722cc1928 capacity=100 current=6 required=32
+[Nest] 21469  - 09/07/2026, 3:17:41 PM   ERROR [ExceptionHandler] Nest can't resolve dependencies of the StandardBrowserToolsController (?). Please make sure that the argument Symbol(StandardBrowserService) at index [0] is available in the KernelModule context.
+
+Potential solutions:
+- Is KernelModule a valid NestJS module?
+- If Symbol(StandardBrowserService) is a provider, is it part of the current KernelModule?
+- If Symbol(StandardBrowserService) is exported from a separate @Module, is that module imported within KernelModule?
+  @Module({
+    imports: [ /* the Module containing Symbol(StandardBrowserService) */ ]
+  })
+
+Error: Nest can't resolve dependencies of the StandardBrowserToolsController (?). Please make sure that the argument Symbol(StandardBrowserService) at index [0] is available in the KernelModule context.
+
+Potential solutions:
+- Is KernelModule a valid NestJS module?
+- If Symbol(StandardBrowserService) is a provider, is it part of the current KernelModule?
+- If Symbol(StandardBrowserService) is exported from a separate @Module, is that module imported within KernelModule?
+  @Module({
+    imports: [ /* the Module containing Symbol(StandardBrowserService) */ ]
+  })
+
+    at Injector.lookupComponentInParentModules (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:262:19)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Injector.resolveComponentInstance (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:215:33)
+    at resolveParam (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:129:38)
+    at async Promise.all (index 0)
+    at Injector.resolveConstructorParams (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:144:27)
+    at Injector.loadInstance (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:70:13)
+    at Injector.loadController (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:89:9)
+    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+    at async Promise.all (index 67)
+ ❯ tests/agent-runtime/skill-batch-real-model.live.ts (1 test | 1 failed) 5792ms
+   × real configured model executes the selected synthetic skill scenario 2749ms
+     → Nest can't resolve dependencies of the StandardBrowserToolsController (?). Please make sure that the argument Symbol(StandardBrowserService) at index [0] is available in the KernelModule context.
+
+Potential solutions:
+- Is KernelModule a valid NestJS module?
+- If Symbol(StandardBrowserService) is a provider, is it part of the current KernelModule?
+- If Symbol(StandardBrowserService) is exported from a separate @Module, is that module imported within KernelModule?
+  @Module({
+    imports: [ /* the Module containing Symbol(StandardBrowserService) */ ]
+  })
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/skill-batch-real-model.live.ts > real configured model executes the selected synthetic skill scenario
+Error: Nest can't resolve dependencies of the StandardBrowserToolsController (?). Please make sure that the argument Symbol(StandardBrowserService) at index [0] is available in the KernelModule context.
+
+Potential solutions:
+- Is KernelModule a valid NestJS module?
+- If Symbol(StandardBrowserService) is a provider, is it part of the current KernelModule?
+- If Symbol(StandardBrowserService) is exported from a separate @Module, is that module imported within KernelModule?
+  @Module({
+    imports: [ /* the Module containing Symbol(StandardBrowserService) */ ]
+  })
+
+ ❯ Injector.lookupComponentInParentModules ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:262:19
+ ❯ Injector.resolveComponentInstance ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:215:33
+ ❯ resolveParam ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:129:38
+ ❯ Injector.resolveConstructorParams ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:144:27
+ ❯ Injector.loadInstance ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:70:13
+ ❯ Injector.loadController ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/injector.js:89:9
+ ❯ ../../node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/injector/instance-loader.js:68:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  15:17:33
+   Duration  8.54s (transform 1.74s, setup 0ms, collect 671ms, tests 5.79s, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_6532f9d2d73722cc1928 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.skill-batch-real-model.config.ts
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.skill-batch-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：10s

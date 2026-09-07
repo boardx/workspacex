@@ -1,0 +1,2 @@
+合成项目晨星：目标是测试演示。事实：3次实验，2次通过，1次待复核。没有预算和交付日期。
+Synthetic Morning Star: 3 experiments; 2 passed; 1 awaiting review. No budget or delivery date.

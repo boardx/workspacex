@@ -86,6 +86,7 @@ afterAll(async()=>{await db?.close();await resetOrgs(org);await rm(root,{recursi
 import {verifySkillStarterPack} from '../../src/domain/skill/starter-pack';
 it('real configured model executes the selected synthetic skill scenario',async()=>{
  for(const key of ['DASHSCOPE_API_KEY','DASHSCOPE_BASE_URL','DASHSCOPE_MODEL','WX_SKILL_BATCH_EVIDENCE'])if(!process.env[key])throw new Error(`missing ${key}`);
+ const packVersion=process.env.WX_SKILL_BATCH_PACK_VERSION??'1.0.0';if(!['1.0.0','1.1.0'].includes(packVersion)||(packVersion==='1.1.0'&&scenario.packId!=='standard-context'))throw new Error('unsupported case package version');
  const container=process.env.WX_NATIVE_SANDBOX_CONTAINER;if(!container)throw new Error('owned sandbox required');
  const fixture=await readFile(join(workspace,'apps/deep-agent-service/tests/native_sandbox_fixture.py'),'utf8'),relayCode=fixture.split('_UDS_RELAY = r"""')[1]?.split('"""')[0];if(!relayCode)throw new Error('relay missing');
  const socket=join(root,'sandbox.sock');const relay=createServer(async(req,res)=>{try{req.setEncoding('utf8');let body='';for await(const c of req)body+=c;const output=JSON.parse(await processRun('docker',['exec','-i',container,'node','-e',relayCode.replace("let input = '';", "process.stdin.setEncoding('utf8'); let input = '';").replace("let body='';res.on", "res.setEncoding('utf8'); let body='';res.on")],JSON.stringify({method:req.method,path:req.url,headers:req.headers,body})));res.writeHead(output.status,{'content-type':'application/json'});res.end(output.body);}catch{res.writeHead(503);res.end('{}');}});await new Promise<void>(r=>relay.listen(socket,r));
@@ -102,7 +103,7 @@ it('real configured model executes the selected synthetic skill scenario',async(
   const uploaded=await uploadAttachment({repo:identity,ids:{next:()=>randomUUID()},chat,attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}},{orgId:org,userId:'actor',threadId:`thread-${org}`,filename:scenario.inputName,mime:'text/plain',bytes:Buffer.from(transcript)});
   await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));
   expect(await extractAttachment({store:objects,extraction:new PgAttachmentExtractionRepository(db),converter:new AnydocAttachmentToMarkdown()},org,uploaded.id)).toBe('extracted');
-  const pack=scenario.packId==='office'?null:verifySkillStarterPack(await new FileSkillStarterPackSource(join(workspace,'skills/starter-packs')).load(scenario.packId,'1.0.0'),{packId:scenario.packId,packVersion:'1.0.0'});
+  const pack=scenario.packId==='office'?null:verifySkillStarterPack(await new FileSkillStarterPackSource(join(workspace,'skills/starter-packs')).load(scenario.packId,packVersion),{packId:scenario.packId,packVersion});
   const content={ 'docx-create':DOCX_CREATE_SKILL_MD,'xlsx-create':XLSX_CREATE_SKILL_MD,'pptx-create':PPTX_CREATE_SKILL_MD,'pdf-create':PDF_CREATE_SKILL_MD };
   const skills=pack?pack.skills.map(s=>({stableName:s.stableName,package:{skillId:s.stableName,versionId:s.semanticVersion,files:s.files}})):
    PLATFORM_SKILL_CATALOG.map(spec=>({stableName:spec.stableName,package:officeSkillPackage({...spec,content:content[spec.stableName as keyof typeof content]}).package}));
