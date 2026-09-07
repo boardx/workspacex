@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   isSubtaskRunActive, SUBTASK_RUN_STATUS_LABEL, SUBTASK_RUN_STATUS_TONE,
   type SubtaskRunStatus, type SubtaskRunView,
-} from "@/lib/mock/subtask-run";
+} from "@/lib/chat/subtask-run";
 
 /**
  * 后台任务面板（issue #2666，依赖 issue #2664 `spawn_async_task` 的子任务 run）。

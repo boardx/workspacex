@@ -35,7 +35,10 @@ describe("framework task timeline", () => {
     expect(screen.getByText("先列出资料", { exact: false })).not.toBeVisible();
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
     expect(screen.getByText("先列出资料", { exact: false })).toBeVisible();
-    fireEvent.click(screen.getByText("Tool · list_org_skills"));
+    const toolRow = screen.getByTestId("chat-task-workbench-event-row");
+    expect(toolRow).toHaveTextContent("已执行工具操作");
+    expect(toolRow).not.toHaveTextContent("list_org_skills");
+    fireEvent.click(toolRow);
     expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeVisible();
   });
   it("keeps a registered decision renderer visible outside a collapsed trace", () => {
@@ -65,9 +68,11 @@ describe("framework task timeline", () => {
     </CopilotKit>);
 
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
-    expect(screen.getAllByText("Tool · write_todos")).toHaveLength(2);
+    const planRows = screen.getAllByTestId("chat-task-workbench-event-row");
+    expect(planRows.filter((row) => row.textContent === "已更新执行计划")).toHaveLength(2);
+    expect(planRows.some((row) => row.textContent?.includes("write_todos"))).toBe(false);
     expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("Tool · search_documents"));
+    fireEvent.click(screen.getByText("已检索资料"));
     expect(screen.getByTestId("copilotkit-v2-tool-search-documents")).toBeVisible();
   });
 
