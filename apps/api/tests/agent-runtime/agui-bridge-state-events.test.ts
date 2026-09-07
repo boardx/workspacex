@@ -1,4 +1,4 @@
-import { withoutExecutionJournal } from "../support/agui-execution-journal";
+import { AGUI_EXECUTION_EVENT_NAME } from "@repo/contracts/execution-journal";
 /**
  * DA-17（UX-9 Line D2）-- AG-UI 状态轴：`write_todos` → `STATE_SNAPSHOT` over
  * `POST /copilotkit/agui`。
@@ -78,6 +78,7 @@ const STATE_EVENT_TYPES = new Set<string>([
  */
 const PLUMBING_CUSTOM_EVENT_NAMES = new Set<string>([
   "chat_thread_id",
+  AGUI_EXECUTION_EVENT_NAME,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
   AGUI_RUN_PHASE_EVENT_NAME,
 ]);
@@ -96,7 +97,7 @@ let runId = "";
 /** 同 `agui-bridge-tool-call-events.test.ts`：第一次轮询只有人类消息，之后是完整终态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
-let streamFinished = false;
+let holdKernelCompletion = false;
 /** 每条测试各自设定的终态消息序列（loopback 服务器返回的 `values.messages`）。 */
 let finalMessages: unknown[] = [];
 
@@ -117,19 +118,13 @@ async function startLanggraphServer(): Promise<void> {
       req.on("end", () => respond(res, 200, { run_id: runId }));
       return;
     }
-    // Valid upstream SSE availability is required by the durable Skill journal.
-    if(req.method==='GET'&&url===`/threads/${threadId}/runs/${runId}/stream`){
-      res.writeHead(200,{'content-type':'text/event-stream'});
-      streamFinished = true;
-      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:runId})}\r\n\r\n`);return;
-    }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = !streamFinished && statusCallCount === 0 ? "running" : "success";
+      const status = (holdKernelCompletion || statusCallCount === 0) ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = !streamFinished && stateCallCount === 0
+      const messages = (holdKernelCompletion || stateCallCount === 0)
         ? [{ type: "human", content: "更新一下计划" }]
         : finalMessages;
       stateCallCount += 1;
@@ -206,7 +201,7 @@ async function postBridgeTurn(text: string): Promise<ParsedSseEvent[]> {
   });
   const raw = await response.text();
   expect(response.status, raw).toBe(200);
-  return withoutExecutionJournal(parseSse(raw));
+  return parseSse(raw);
 }
 
 beforeAll(async () => {
@@ -234,7 +229,7 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
-  streamFinished = false;
+  holdKernelCompletion = false;
   finalMessages = [];
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
@@ -244,7 +239,7 @@ beforeEach(async () => {
 });
 
 describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT", () => {
-  it("run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在该 step 的 STEP_FINISHED 之后", async () => {
+  it("run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在真实工具 TOOL_CALL_RESULT 之后", async () => {
     finalMessages = toolCallTurn("write_todos", { todos: TODOS });
     const events = await postBridgeTurn("更新一下计划");
 
@@ -255,8 +250,8 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
       todos: TODOS.map((t) => ({ content: t.content, status: t.status })),
     });
 
-    // 顺序：完整的 STEP_STARTED → TOOL_CALL_* → STEP_FINISHED 序列先走完，快照随后。
-    const finishedIdx = events.findIndex((e) => e.type === EventType.STEP_FINISHED);
+    // Journal模式不再伪造STEP包络；真实TOOL_CALL_RESULT先出现，计划快照随后。
+    const finishedIdx = events.findIndex((e) => e.type === EventType.TOOL_CALL_RESULT);
     const snapshotIdx = events.findIndex((e) => e.type === EventType.STATE_SNAPSHOT);
     expect(finishedIdx).toBeGreaterThanOrEqual(0);
     expect(snapshotIdx).toBeGreaterThan(finishedIdx);
@@ -270,8 +265,7 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     )).toHaveLength(0);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）。
-    expect(streamFinished).toBe(true);
-    expect(statusCallCount).toBeGreaterThanOrEqual(1);
+    expect(statusCallCount).toBeGreaterThanOrEqual(2);
   }, 30_000);
 
   it("run 无 write_todos（但有别的工具调用）→ 零 STATE_*/CUSTOM 事件，不发空快照", async () => {
@@ -299,3 +293,33 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   }, 30_000);
 });
+
+it("S4 detached observer cannot prevent executor plan and final message persistence", async () => {
+  holdKernelCompletion = true;
+  finalMessages = toolCallTurn("write_todos", { todos: TODOS });
+  const abort = new AbortController();
+  try {
+    const response = await fetch(`${BASE}/copilotkit/agui?agentId=${AGENT}`, {
+      method: "POST", headers: principal(ACTOR, ORG), signal: abort.signal,
+      body: JSON.stringify({ threadId: randomUUID(), runId: randomUUID(), messages: [{ id: randomUUID(), role: "user", content: "更新一下计划" }] }),
+    });
+    expect(response.status).toBe(200);
+    await expect.poll(() => statusCallCount, { timeout: 10000 }).toBeGreaterThan(0);
+    const before = await asApp(ORG, c => c.query("SELECT id,thread_id,status FROM agent_runs WHERE org_id=$1", [ORG]));
+    expect(before.rows).toHaveLength(1);
+    expect(before.rows[0].status).toBe("running");
+    // Abort the actual HTTP observer before the kernel produces any plan result.
+    abort.abort();
+    holdKernelCompletion = false;
+    const id = before.rows[0].id as string;
+    await expect.poll(async () => (await asApp(ORG, c => c.query("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, id]))).rows[0]?.status,
+      { timeout: 15000 }).toBe("succeeded");
+    const { PLAN_LEDGER_REPOSITORY } = await import("../../src/application/plan-control/ports");
+    const ledger = app.get<import("../../src/application/plan-control/ports").PlanLedgerRepository>(PLAN_LEDGER_REPOSITORY);
+    const persisted = await ledger.getLatest((await import("../../src/domain/org-id")).toOrgId(ORG), before.rows[0].thread_id);
+    expect(persisted!.steps.map(step => step.content)).toEqual(TODOS.map(todo => todo.content));
+    const restored = await fetch(`${BASE}/agent-runs/${id}`, { headers: principal(ACTOR, ORG) });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toMatchObject({ runId: id, status: "succeeded", resultMessageId: expect.any(String) });
+  } finally { abort.abort(); holdKernelCompletion = false; }
+}, 30000);

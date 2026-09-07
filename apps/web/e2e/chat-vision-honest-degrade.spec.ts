@@ -1,3 +1,5 @@
+import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
+import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
 /**
  * P2（#1561）—— 真实浏览器：上传图片 → 发消息触发 run → 图像通道是否真的被组装进
  * `ModelCallInput`，以及当前部署没有视觉能力时是否真的走了**诚实降级**（而不是静默
@@ -68,21 +70,16 @@ test("P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实
 
   // ── 本用例专属线程 ─────────────────────────────────────────────────────
   const title = `P2 图像诚实降级 ${Date.now()}`;
-  const threadList = page.getByTestId("chat-read-thread-list");
-  await expect(page.getByTestId("chat-thread-create")).toBeVisible();
-  await page.getByTestId("chat-thread-create").click();
-  await page.getByTestId("chat-thread-title-input").fill(title);
-  await page.getByTestId("chat-thread-title-submit").click();
-  await expect(threadList.getByText(title)).toBeVisible();
-  await threadList.getByText(title).click();
+  const threadList = page.getByTestId("copilotkit-v2-thread-list");
+  await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
 
   // ── 把可运行的那个 agent 挂进本线程编制（同 core-loop 步骤 8b 同一条真实路径） ──
-  await page.getByTestId("chat-roster-edit").click();
+  await openWorkbenchRoster(page);
+    await page.getByTestId("chat-roster-edit").click();
   await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
   await page.getByTestId("chat-roster-add-submit").click();
   await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
-  await page.getByTestId("chat-agent-select").click();
-  await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
+  await selectWorkbenchAgent(page, FULLSTACK_E2E.agentId);
 
   // ── 真实浏览器上传一张图片附件到这条线程 ──────────────────────────────
   // 隐藏 input 由 `ChatAttachmentButton` 无条件渲染（不挂在「加材料」弹窗打开与否上），
@@ -103,30 +100,18 @@ test("P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实
 
   // ── 发一条带唯一标记的消息，触发本轮 run ──────────────────────────────
   const marker = `P2_VISION_HONESTY_${Date.now()}`;
-  await page.getByTestId("chat-message-input").fill(marker);
-  await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
+  await page.getByTestId("copilotkit-v2-input").fill(marker);
+  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
 
-  const responsePromise = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && /\/chat\/threads\/[^/]+\/messages(\?|$)/.test(response.url())
-  ));
-  await page.getByTestId("chat-message-submit").click();
-  expect((await responsePromise).status()).toBe(202);
-
-  // ── run 由服务端推进到终态 ─────────────────────────────────────────────
-  const status = page.getByTestId("chat-live-agent-run-status");
-  await expect(status).toBeVisible();
-  await expect(status).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
-  await expect(status).toHaveAttribute("data-result-message-id", /.+/);
+  await submitWorkbenchRun(page);
 
   // ── 回复正文：确定性上游回显了它真实收到的 userText ───────────────────
   // 这条断言链是本测试的核心证据：回复里同时出现「用户标记」与「诚实告知文案」，
   // 证明的是 `execute-run.ts` 真的把 `renderVisionNotice()` 的输出拼进了发给模型的
   // `userText`，而不是图片被悄悄丢在半路、模型收到的只是一条干净的纯文本消息。
-  const messageList = page.getByTestId("chat-message-list");
+  const messageList = page.getByTestId("copilotkit-v2-messages");
   await expect(messageList).toContainText(marker);
-  const replyRow = messageList.getByTestId("chat-message-row")
-    .filter({ hasText: FULLSTACK_E2E.agentReplyPrefix });
+  const replyRow = messageList.getByTestId("copilot-assistant-message");
   await expect(replyRow).toHaveCount(1);
 
   // 文案逐字对齐 `run-image-input.ts` 的 `renderVisionNotice()`（见本文件头注），
@@ -140,7 +125,6 @@ test("P2/#1561：上传图片发消息，视觉能力缺席时模型收到诚实
   // ── 刷新后仍在：诚实告知文案是写进库、随写回落地的一部分，不是内存里的一帧 ──
   await page.reload();
   await threadList.getByText(title).click();
-  const persistedReplyRow = page.getByTestId("chat-message-list").getByTestId("chat-message-row")
-    .filter({ hasText: FULLSTACK_E2E.agentReplyPrefix });
+  const persistedReplyRow = page.getByTestId("copilotkit-v2-messages");
   await expect(persistedReplyRow).toContainText(expectedNotice);
 });

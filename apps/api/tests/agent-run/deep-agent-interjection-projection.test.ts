@@ -83,7 +83,7 @@ describe("#2755 DeepAgentModelProvider：ModelCallInput.interjection → config.
     const body = await lastBodyAfter({ ...BASE, resume: { decision: "reject" } });
     expect(Object.keys(body).sort()).toEqual(["assistant_id", "command", "config", "stream_mode"]);
     expect(body.config).toEqual({ configurable: { org_skills: [] } });
-    expect(body.stream_mode).toContain("custom");
+    expect(body.stream_mode).toEqual(["messages-tuple", "updates", "custom"]);
   });
 
   it("新建 run 分支：带插话 ⇒ configurable 多出同名键；不带 ⇒ 键不出现", async () => {

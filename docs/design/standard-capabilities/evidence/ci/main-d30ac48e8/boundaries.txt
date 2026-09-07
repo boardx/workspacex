@@ -1,0 +1,328 @@
+TAP version 13
+# Subtest: dedicated broker exact receipt and role boundary
+ok 1 - dedicated broker exact receipt and role boundary
+  ---
+  duration_ms: 7.918167
+  type: 'test'
+  ...
+# Subtest: reject broker mutation config.user!=='mcp_executor'
+ok 2 - reject broker mutation config.user!=='mcp_executor'
+  ---
+  duration_ms: 2.084667
+  type: 'test'
+  ...
+# Subtest: reject broker mutation sealed.revision!==frozen.credentialRevision
+ok 3 - reject broker mutation sealed.revision!==frozen.credentialRevision
+  ---
+  duration_ms: 1.588459
+  type: 'test'
+  ...
+# Subtest: reject broker mutation identity.orgId,identity.runId
+ok 4 - reject broker mutation identity.orgId,identity.runId
+  ---
+  duration_ms: 2.634084
+  type: 'test'
+  ...
+# Subtest: reject broker mutation mcpExecutionDigest(args)
+ok 5 - reject broker mutation mcpExecutionDigest(args)
+  ---
+  duration_ms: 1.52875
+  type: 'test'
+  ...
+# Subtest: reject broker mutation catch{throw new Error('mcp_execution_unconfirmed');}
+ok 6 - reject broker mutation catch{throw new Error('mcp_execution_unconfirmed');}
+  ---
+  duration_ms: 1.245125
+  type: 'test'
+  ...
+# Subtest: reject broker mutation return await executeSealedMcp
+ok 7 - reject broker mutation return await executeSealedMcp
+  ---
+  duration_ms: 1.125334
+  type: 'test'
+  ...
+# Subtest: worker inverse is private and output refuses direct reflection
+ok 8 - worker inverse is private and output refuses direct reflection
+  ---
+  duration_ms: 3.189666
+  type: 'test'
+  ...
+# Subtest: reject worker mutation function decryptForTransport
+ok 9 - reject worker mutation function decryptForTransport
+  ---
+  duration_ms: 6.057916
+  type: 'test'
+  ...
+# Subtest: reject worker mutation reflectsMcpCredential(result,credential)
+ok 10 - reject worker mutation reflectsMcpCredential(result,credential)
+  ---
+  duration_ms: 3.540292
+  type: 'test'
+  ...
+# Subtest: reject worker mutation reflectsMcpCredential(listed,credential)
+ok 11 - reject worker mutation reflectsMcpCredential(listed,credential)
+  ---
+  duration_ms: 5.289875
+  type: 'test'
+  ...
+# Subtest: reject worker mutation key.fill(0);value?.fill(0);
+ok 12 - reject worker mutation key.fill(0);value?.fill(0);
+  ---
+  duration_ms: 1.3205
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+ok 13 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+  ---
+  duration_ms: 7.976792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+ok 14 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+  ---
+  duration_ms: 2.050166
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+ok 15 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+  ---
+  duration_ms: 3.723167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+ok 16 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+  ---
+  duration_ms: 2.504166
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+ok 17 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+  ---
+  duration_ms: 3.057417
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+ok 18 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+  ---
+  duration_ms: 2.9395
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+ok 19 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+  ---
+  duration_ms: 1.280084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+ok 20 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+  ---
+  duration_ms: 9.078292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+ok 21 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+  ---
+  duration_ms: 5.354333
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+ok 22 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+  ---
+  duration_ms: 3.068625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+ok 23 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+  ---
+  duration_ms: 2.744417
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+ok 24 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+  ---
+  duration_ms: 4.894958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+ok 25 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+  ---
+  duration_ms: 1.973292
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+ok 26 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+  ---
+  duration_ms: 2.327166
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+ok 27 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+  ---
+  duration_ms: 1.768833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+ok 28 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+  ---
+  duration_ms: 1.886333
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+ok 29 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+  ---
+  duration_ms: 1.855291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+ok 30 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+  ---
+  duration_ms: 1.749167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects (server.credential_configured&&!this.broker)||server.involves_customer_data
+ok 31 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects (server.credential_configured&&!this.broker)||server.involves_customer_data
+  ---
+  duration_ms: 1.418875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects review.credential_revision!==server.credential_revision
+ok 32 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects review.credential_revision!==server.credential_revision
+  ---
+  duration_ms: 2.214125
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+ok 33 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+  ---
+  duration_ms: 1.965709
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+ok 34 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+  ---
+  duration_ms: 3.932291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+ok 35 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+  ---
+  duration_ms: 1.785958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts real boundary
+ok 36 - src/infrastructure/mcp/pg-mcp-isolation.ts real boundary
+  ---
+  duration_ms: 1.104916
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects member.orgRole!=='admin'
+ok 37 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects member.orgRole!=='admin'
+  ---
+  duration_ms: 0.513958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects await this.authorize(orgId,userId);
+ok 38 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects await this.authorize(orgId,userId);
+  ---
+  duration_ms: 0.475084
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects mode==='interrupt'
+ok 39 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects mode==='interrupt'
+  ---
+  duration_ms: 0.504792
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects WHERE org_id=$1 AND server_id=$2 AND status='pending'
+ok 40 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects WHERE org_id=$1 AND server_id=$2 AND status='pending'
+  ---
+  duration_ms: 0.525666
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts real boundary
+ok 41 - src/infrastructure/mcp/mcp-inflight-control.ts real boundary
+  ---
+  duration_ms: 0.572458
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects row.status!=='pending'
+ok 42 - src/infrastructure/mcp/mcp-inflight-control.ts rejects row.status!=='pending'
+  ---
+  duration_ms: 0.356708
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects AND isolation_request_id IS NOT NULL
+ok 43 - src/infrastructure/mcp/mcp-inflight-control.ts rejects AND isolation_request_id IS NOT NULL
+  ---
+  duration_ms: 0.3685
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects await pending;
+ok 44 - src/infrastructure/mcp/mcp-inflight-control.ts rejects await pending;
+  ---
+  duration_ms: 0.323333
+  type: 'test'
+  ...
+# Subtest: current exact system/disclosure boundaries satisfy the exception
+ok 45 - current exact system/disclosure boundaries satisfy the exception
+  ---
+  duration_ms: 29.636
+  type: 'test'
+  ...
+# Subtest: counterproof: losing tenant SQL predicates or transaction scope fails
+ok 46 - counterproof: losing tenant SQL predicates or transaction scope fails
+  ---
+  duration_ms: 16.005208
+  type: 'test'
+  ...
+# Subtest: counterproof: a second tenant table is not included in the exception
+ok 47 - counterproof: a second tenant table is not included in the exception
+  ---
+  duration_ms: 4.70675
+  type: 'test'
+  ...
+# Subtest: counterproof: unpinned or cross-org parent version join fails
+ok 48 - counterproof: unpinned or cross-org parent version join fails
+  ---
+  duration_ms: 4.200833
+  type: 'test'
+  ...
+# Subtest: counterproof: missing parent authorization before list or retry fails
+ok 49 - counterproof: missing parent authorization before list or retry fails
+  ---
+  duration_ms: 6.587833
+  type: 'test'
+  ...
+# Subtest: counterproof: allowing denied visibility or bypassing the shared decision fails
+ok 50 - counterproof: allowing denied visibility or bypassing the shared decision fails
+  ---
+  duration_ms: 4.698791
+  type: 'test'
+  ...
+# Subtest: counterproof: tools or parent remote thread reuse are not permitted
+ok 51 - counterproof: tools or parent remote thread reuse are not permitted
+  ---
+  duration_ms: 3.398417
+  type: 'test'
+  ...
+# Subtest: parent cancellation exception cannot read private content or scan all parents
+ok 52 - parent cancellation exception cannot read private content or scan all parents
+  ---
+  duration_ms: 7.176875
+  type: 'test'
+  ...
+# Subtest: running cancellation cannot lose the result fence or durable handle
+ok 53 - running cancellation cannot lose the result fence or durable handle
+  ---
+  duration_ms: 9.268333
+  type: 'test'
+  ...
+1..53
+# tests 53
+# suites 0
+# pass 53
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 294.134292

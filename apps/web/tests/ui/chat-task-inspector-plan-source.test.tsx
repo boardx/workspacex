@@ -85,7 +85,7 @@ describe("ChatTaskInspector —— 进度页签以账本为准，不信陈旧的
     render(<ChatTaskInspector {...baseProps()} planTodos={STALE_SSE_TODOS} />);
     expandInspector();
 
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1"));
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1", undefined));
     await waitFor(() =>
       expect(screen.getByTestId("chat-task-workbench-plan-ratio").textContent).toContain("1/3"),
     );
@@ -106,7 +106,7 @@ describe("ChatTaskInspector —— 进度页签以账本为准，不信陈旧的
     render(<ChatTaskInspector {...baseProps()} planTodos={STALE_SSE_TODOS} />);
     expandInspector();
 
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1"));
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledWith("t-1", undefined));
     await waitFor(() =>
       expect(screen.getByTestId("chat-task-workbench-plan-ratio").textContent).toContain("3/3"),
     );

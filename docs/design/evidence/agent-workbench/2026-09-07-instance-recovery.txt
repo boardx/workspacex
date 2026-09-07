@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api
+
+[db-isolation] db=wsx_workbench_acceptance_2867 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"0e013275-5165-40f6-9da0-dea8ba61b85c","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AgentRunController.run (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api/src/interface/controllers/agent-run.controller.ts:156:55)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at AgentRunController.executionEvents (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api/src/interface/controllers/agent-run.controller.ts:140:5)\n    at /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"7ba652e8-5d5d-40b5-a84b-14f8cd03a38c","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at AgentRunController.run (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api/src/interface/controllers/agent-run.controller.ts:156:55)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at AgentRunController.executionEvents (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api/src/interface/controllers/agent-run.controller.ts:140:5)\n    at /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-run/workbench-journal-instance-http.test.ts (1 test) 3199ms
+ ✓ tests/agent-run/pg-run-lease-unit.test.ts (3 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  11:23:07
+   Duration  3.80s (transform 1.45s, setup 0ms, collect 36ms, tests 3.20s, environment 0ms, prepare 49ms)
+
+[db-isolation] db=wsx_workbench_acceptance_2867 peak_connections=6

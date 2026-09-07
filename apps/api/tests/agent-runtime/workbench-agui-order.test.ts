@@ -46,3 +46,28 @@ it('final identity avoids duplicate text, while an unconfirmed identity still fa
   expect(wire.filter(e=>e.type===EventType.TEXT_MESSAGE_CONTENT)).toHaveLength(confirmed?1:2);
  }
 });
+it.each([true, false])("plan snapshots follow their actual result regardless of step read timing (step first=%s)", stepFirst => {
+  const wire: { type: EventType }[] = [];
+  const relay = createExecutionJournalRelay(event => wire.push(event));
+  const step = { toolName: "write_todos", status: "succeeded", toolArgsSummary: JSON.stringify({ todos: [{ content: "real plan", status: "pending" }] }) };
+  const end: ExecutionEvent = { runId: "run", emittedAt: "2026-09-07T00:00:00Z", seq: 0, kind: "tool_end", toolCallId: "call", toolName: "write_todos", ok: true, result: "done" };
+  if (stepFirst) relay.acceptPlanStep(step); else relay.accept(end);
+  expect(wire.some(event => event.type === EventType.STATE_SNAPSHOT)).toBe(false);
+  if (stepFirst) relay.accept(end); else relay.acceptPlanStep(step);
+  expect(wire.slice(-2).map(event => event.type)).toEqual([EventType.TOOL_CALL_RESULT, EventType.STATE_SNAPSHOT]);
+  relay.accept(end);
+  expect(wire.filter(event => event.type === EventType.STATE_SNAPSHOT)).toHaveLength(1);
+});
+it("failed and malformed plan occurrences consume ordering slots without manufacturing snapshots", () => {
+  const wire: { type: EventType }[] = []; const relay = createExecutionJournalRelay(event => wire.push(event));
+  for (const [seq, status, summary] of [[0, "failed", '{"todos":[]}'], [1, "succeeded", '{broken']] as const) {
+    relay.acceptPlanStep({toolName:"write_todos",status,toolArgsSummary:summary});
+    relay.accept({runId:"run",emittedAt:"2026-09-07T00:00:00Z",seq,kind:"tool_end",toolCallId:`call-${seq}`,toolName:"write_todos",ok:status==="succeeded",result:null});
+  }
+  expect(wire.filter(event => event.type === EventType.STATE_SNAPSHOT)).toHaveLength(0);
+  relay.acceptPlanStep({ toolName: "write_todos", status: "succeeded", toolArgsSummary: JSON.stringify({ todos: [{ content: "plan C", status: "pending" }] }) });
+  relay.accept({ runId: "run", emittedAt: "2026-09-07T00:00:00Z", seq: 2, kind: "tool_end", toolCallId: "call-C", toolName: "write_todos", ok: true, result: null });
+  expect(wire.filter(event => event.type === EventType.STATE_SNAPSHOT)).toEqual([
+    { type: EventType.STATE_SNAPSHOT, snapshot: { todos: [{ content: "plan C", status: "pending" }] } },
+  ]);
+});

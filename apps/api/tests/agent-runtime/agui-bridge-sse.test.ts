@@ -20,7 +20,6 @@
  * discipline matters) -- proving the bridge relays the real writeback, not a fabricated
  * reply.
  */
-import { withoutExecutionJournal } from "../support/agui-execution-journal";
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -238,8 +237,8 @@ describe("POST /copilotkit/agui", () => {
       // see agui-bridge-state-events.test.ts's PLUMBING_CUSTOM_EVENT_NAMES doc -- and fires
       // an indeterminate number of times (0-2) depending on polling timing, so it is
       // filtered out before this exact-sequence assertion.
-      const nonPhaseEvents = withoutExecutionJournal(events).filter(
-        (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+      const nonPhaseEvents = events.filter(
+        (e) => !(e.type === EventType.CUSTOM && [AGUI_RUN_PHASE_EVENT_NAME, "execution_event"].includes(e.name as string)),
       );
       expect(nonPhaseEvents.map((e) => e.type)).toEqual([
         EventType.RUN_STARTED,
@@ -251,16 +250,14 @@ describe("POST /copilotkit/agui", () => {
         EventType.RUN_FINISHED,
       ]);
 
-      // CK-P3 -- 这条回显必须指向**真实落库**的那条消息，而不是把 wire 上的临时
-      // messageId 原样回显一遍（那样等于什么都没解决）。两者必须是不同的值。
+      // The echo must resolve to the real database row. A nonstreamed completion is
+      // already persisted before relay, so its wire identity may be that same row ID.
       const idEcho = events.filter((e) => e.type === EventType.CUSTOM)
         .find((e) => e.name === AGUI_CHAT_MESSAGE_ID_EVENT_NAME);
       expect(idEcho).toBeDefined();
       const echoed = AguiChatMessageIdValue.parse(idEcho?.value);
       const streamStart = events.find((e) => e.type === EventType.TEXT_MESSAGE_START);
       expect(echoed.streamingMessageId).toBe(streamStart?.messageId);
-      // A non-streamed final reply is rendered under its already durable message identity.
-      expect(echoed.chatMessageId).toBe(echoed.streamingMessageId);
 
       const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
       expect(content?.delta).toBe("durable AG-UI reply from the loopback provider");
@@ -275,11 +272,12 @@ describe("POST /copilotkit/agui", () => {
 
       // The reply is the persisted Chat message's real bytes, read via the same store the
       // Chat UI reads -- not text invented by the bridge.
-      const persisted = await asApp(ORG, (c) => c.query<{ body: string }>(
-        "SELECT body FROM chat_messages WHERE org_id=$1 AND author_kind='agent' ORDER BY created_at DESC LIMIT 1",
+      const persisted = await asApp(ORG, (c) => c.query<{ id: string; body: string }>(
+        "SELECT id,body FROM chat_messages WHERE org_id=$1 AND author_kind='agent' ORDER BY created_at DESC LIMIT 1",
         [ORG],
       ));
       expect(persisted.rows[0]?.body).toBe("durable AG-UI reply from the loopback provider");
+      expect(echoed.chatMessageId).toBe(persisted.rows[0]?.id);
     },
     30_000,
   );
@@ -310,8 +308,8 @@ describe("POST /copilotkit/agui", () => {
     expect(status).toBe(200);
     // CK-P3 (issue #2054) -- 第二个 CUSTOM 是 `chat_message_id` 回显，见上一条用例的注释。
     // `run_phase`（准备阶段进度）同上一条用例过滤：出现次数不确定，不占位置断言。
-    const nonPhaseEvents = withoutExecutionJournal(events).filter(
-      (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+    const nonPhaseEvents = events.filter(
+      (e) => !(e.type === EventType.CUSTOM && [AGUI_RUN_PHASE_EVENT_NAME, "execution_event"].includes(e.name as string)),
     );
     expect(nonPhaseEvents.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED, EventType.CUSTOM, EventType.TEXT_MESSAGE_START,

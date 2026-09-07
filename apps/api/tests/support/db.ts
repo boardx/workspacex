@@ -104,6 +104,9 @@ export function ensureDatabase(): void {
   // So: check first, and treat losing the create race as success -- the winner's container
   // is exactly what we wanted. Only a container that never becomes ready is a real failure.
   if (!postgresReady()) {
+    if (process.env.WORKSPACEX_REUSE_INFRA === "1") {
+      throw new Error("Existing PostgreSQL is unavailable; WORKSPACEX_REUSE_INFRA forbids starting or restarting infrastructure");
+    }
     try {
       execFileSync("docker", [...COMPOSE, "up", "-d", "postgres"], { stdio: "pipe" });
     } catch (e) {

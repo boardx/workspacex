@@ -241,8 +241,11 @@ async function readRun(runId: string) {
 }
 
 async function decide(runId: string, body: unknown): Promise<Response> {
+  const current = await readRun(runId);
+  const permissionRequestId = current.pendingApproval?.permissionRequestId;
+  expect(permissionRequestId).toEqual(expect.any(String));
   return fetch(`${BASE}/agent-runs/${runId}/decision`, {
-    method: "POST", headers: principal(ACTOR, ORG), body: JSON.stringify(body),
+    method: "POST", headers: principal(ACTOR, ORG), body: JSON.stringify({ ...(body as object), permissionRequestId }),
   });
 }
 

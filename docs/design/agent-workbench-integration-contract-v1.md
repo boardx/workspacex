@@ -4,7 +4,7 @@
 
 ## 可集成版本
 
-分支：`codex/agent-workbench-upgrade`。以下均已提交到本地独立 worktree，尚未合入 main；最终共用一个 PR，目前 PR 未创建。不能把本文件当作 main 或已部署版本的声明。
+分支：`codex/agent-workbench-upgrade`，已推送至 origin，远端接入快照 `dcaaf7f01`。以下均已提交，尚未合入 main；统一草稿 [PR #2890](https://github.com/boardx/workspacex/pull/2890) 已创建，CI 与联合验收仍在进行。不能把本文件当作 main 或已部署版本的声明。
 
 | 单元 | 提交 | 导出 / 入口 |
 |---|---|---|
@@ -14,6 +14,8 @@
 | 单次审批精确绑定与参数身份 | `577961624` | `ToolExecutionCheckInput` 新增 permissionRequestId/toolCallId/toolArgs；迁移 `20260907021000_tool_approval_execution_identity.sql` |
 | 子取消确认展示 | `6420a3681` | GET/POST 的 `childCancellation`，独立提示与退避读取 |
 | 主运行恢复与 fencing | `1db6a178f` | `run-lease.ts`、`PgRunRecovery`、同线程串行领取 |
+| 暂停取消竞争及停止展示 | `d78a0790d` / `f884c2348` | `pauseAtCheckpoint` 原子取消优先；`PlanPhase.cancelled` |
+| 明确拒绝优先于已有 grant | `446b03557` | 同一拒绝调用缺身份或改 ID 重发相同参数均拒绝 |
 
 ## Skill 事实进入统一 journal
 
@@ -40,7 +42,9 @@ get_stream_writer()({
 })
 ```
 
-provider 的 fresh 和 resume 均请求 `messages-tuple`、`updates`、`custom`。`DeepAgentModelProvider` 严格验证 custom envelope 后等待回调持久化；写入失败不得伪装为成功接收。事实内容不接收 orgId、runId、attemptId 或任意扩展字段。
+部署前置条件：API 必须设置 `KERNEL_DEEP_AGENT_STREAM_ENABLED=1`。默认关闭时走状态轮询，不消费 custom Skill 事实，也没有从 GET state 推断 Skill 成功的 fallback。联合验收必须确认这一配置，并断言 peer 发出的 factId 实际出现在 journal，而不能只检查 Python 已发送。
+
+启用后 provider 的 fresh 和 resume 均请求 `messages-tuple`、`updates`、`custom`。`DeepAgentModelProvider` 严格验证 custom envelope 后等待回调持久化；写入失败不得伪装为成功接收。事实内容不接收 orgId、runId、attemptId 或任意扩展字段。
 
 | stage | 附加字段 | 含义 |
 |---|---|---|
@@ -90,7 +94,7 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 }
 ```
 
-`call_skill` 必须提供实际 `toolArgs` 对象，其中 `skill_stable_name` 是风险与挂载身份的唯一来源；可选 `skillStableName` 若提供必须一致。Python 从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch，以及恢复审批时的 permission_request_id；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
+`call_skill` 必须提供实际 `toolArgs` 对象，其中 `skill_stable_name` 是风险与挂载身份的唯一来源；可选 `skillStableName` 若提供必须一致。peer 接入 Python 原生工具/MCP 时，须从可信 `configurable.run_control_callback` 读取 base_url、key、org_id、run_id、attempt_id、lease_epoch，以及恢复审批时的 permission_request_id；fresh/resume 均由主执行器及 provider 投影，不接受模型参数覆盖这些字段。
 
 输出为 allowed:true 或 allowed:false + reason（run_unavailable、cancel_requested、lease_lost、attempt_stale、skill_not_mounted、approval_required）。服务同时核对真实 run 状态、取消标记、epoch/有效期和真实 context_built 对应 attempt；租约只是其中一个条件。风险和 L2 grant 复用 `classifyToolCallRisk`、固定 `readPinnedSkills` 及 `ToolPermissionGrantStore`。
 
@@ -102,6 +106,26 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 
 该检查只授权当前 dispatch 边界，不是可长期复用的许可，也不替代工具自己的文件、SQL、MCP 等资源 ACL。peer 应紧邻执行调用；不能检查一次后永久缓存 allowed。实际 ToolCall 执行幂等及远端停止确认仍由工具/子任务 owner 提供。
 
+## 当前尚未接通的生产路径
+
+截至本次核查：本分支 Python 尚无 `skill_activity` 事实 emitter，也尚未调用 `tool-execution/check`；provider 已传入 callback 身份，但不等于原生工具已执行检查。`kernel.module.ts` 仅可选注入 `CHILD_RUN_CANCELLER`，尚无生产 adapter 注册。这三项由 Tools/Skills peer 接入；本分支提供统一接收端、检查端和展示端。缺省 adapter 返回 unavailable，不显示子任务全部停止。
+
+## Peer 已提交实现（04:55 只读核查）
+
+以下以 `git show 045f48ae5` 为证据，不包含 peer 未提交文件，也不表示已合入 main 或本工作台分支。
+
+| 接点 | peer 提交 | 已提交实现 |
+|---|---|---|
+| 父取消 | `4ef787b83` | `PgChildRunCanceller` → `PgSubtaskRunStore.cancelChildren/readCancellation`；pending 原子取消，running 保持 pending，enqueue/claim 使用父锁 |
+| Skill 事实 | `0e2bdb411` | `NativeSkillActivity`、`observe_skill_read`；当前只发送 metadata_discovered/body_read，不声明执行成功 |
+| 工具授权 | `0e2bdb411` | `NativeToolAuthority` → `HttpNativeToolAuthority`，在 dispatch 前调用共享检查入口 |
+| Native 主入口及成果 | `045f48ae5` | opt-in factory/session/成果接线，需 KERNEL_NATIVE_RUNTIME=1；为较大集成提交，不能当作独立小适配补丁 |
+| 暂停结算后的 native session 归属 | `50b9d9a409` | `pauseAtCheckpoint` 实际返回 cancelled 时释放 run session；paused 时保留；失败只记录 release pending |
+
+已提交局部证据包括 Skill 52 项、authority 74 项及 deadline 26 项、取消 API 20 项和边界 8 项。其 scripted model / 最小 Nest 跨语言验证不等于完整生产入口、真实模型或本分支最新控制契约的联合验收。正在核对最小依赖闭包和交叉符号；未将标准能力实现复制进本 PR。
+
+`50b9d9a409` 的提交证据记录 6 文件 41 项通过，其中 PG 覆盖取消与暂停顺序，gateway 内存测试覆盖 cancelled 释放一次、paused 不释放。核查时 peer 当前 HEAD 为 `1db33275de2c48447926b33cf95bca3426839eb0`，但工作区还含其他未提交增量；因此这里只引用独立提交，不把该 HEAD 或 41 项局部测试表述为完整 native 联合验收。
+
 ## 已有证据与联合验收边界
 
 - `c11d77f57` 提交前对应工作树：`execution-journal-pg.test.ts` 15 项通过，含 8 个并发 writer 同事实去重、冲突和跨组织隔离。
@@ -112,4 +136,15 @@ readCancellation(input: ParentCancellation): Promise<ChildCancellationResult>;
 
 - 父取消与权限接点：PG 3 项通过（真实 context attempt、过期 epoch、跨租户、首次取消身份）；后端目标 22 项通过；子取消 UI 7 项通过。仍不等于 peer adapter 联合验收。
 
-- 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。所有生产代码当前合并最新 main 后冻结于 `35b880453`，浏览器复验正在执行。
+- 单次审批补齐后：parent-run-control PG 5 项（包括 once、edit）+ journal 16 项 + thin gateway 6 项，共 27 项通过；后端纯测试 26 项。
+- 浏览器 `b1d46b1bd`：10 项通过、1 项失败（恢复成功后的 journal 故障提示断言）；`1a97584d5` 目标恢复复验 1 项通过。普通模型流式终稿身份修复 `1a97584d5` 后 AG-UI PG 2 项通过，审批 PG 6 项通过。这里的回环模型证据不等于真实模型或 peer 联合验收。
+- 最后独立审查修复：取消/暂停 journal 18 项、计划终态 PG 19 项、工具权限及父取消 PG 6 项通过。真实 DashScope 验收因自动审批要求明确外发授权而未启动，不宣称已通过。
+
+### Shared implementation prerequisites for the joint lane
+
+At peer commit `045f48ae5`, the public run-control, skill-activity and parent-run-control contracts match. Preserve two newer workbench fixes by symbol before joint acceptance:
+
+- `446b03557`: `matchesDeniedTool` must reject denied arguments even when a ToolCall ID is omitted or changed; an existing grant cannot bypass explicit denial.
+- `d78a0790d`: preserve `pauseAtCheckpoint` returning paused/cancelled/null across ports, execute-run and PG repository; cancellation wins the pause race.
+
+Use the peer branch as the joint verification carrier without importing the entire standard-capabilities implementation into this PR. Parent cancellation can be tested independently. Native graph facts and authority require `045f48ae5` for the production factory/session entry. The existing cross-language lane bypasses production enqueue/provider orchestration, so it does not replace workbench-started approval/tool/artifact/cancellation/recovery acceptance.

@@ -43,10 +43,9 @@ export interface GetPlanLedgerOutput {
 }
 
 const ACTIVE_RUN_STATUSES = new Set(["running"]);
-// ⚠ `RunStatusForPhase` 只有 "idle"|"running"|"succeeded"|"failed"|"interrupted" 五值
-// （`PgPlanLedgerRepository.toRunStatusForPhase` 把 DB 的 queued/writeback_pending/
-// awaiting_tool_permission 都折进 "running"）。`activeRunId` 只在这一档非空——"idle"/"succeeded"/
-// "failed" 都不是「当前有一个正在跑或等待推进的 run」。
+// `RunStatusForPhase` distinguishes idle/running/succeeded/failed/interrupted/cancelled.
+// The repository folds queued/writeback_pending/awaiting_tool_permission into running.
+// Only running has an activeRunId; terminal states never inherit live pause controls.
 
 export async function getPlanLedger(
   repo: PlanLedgerRepository,
@@ -63,7 +62,10 @@ export async function getPlanLedger(
   const total = steps.length;
   const completed = steps.filter((s) => s.status === "completed").length;
 
-  const runStatus = run?.pausedAt ? "interrupted" : run?.status ?? "idle";
+  const terminal = run !== null && ["succeeded", "failed", "cancelled"].includes(run.status);
+  // Stored pause timestamps remain audit history; terminal runs have no live pause control.
+  const pausedAt = terminal ? null : run?.pausedAt ?? null;
+  const runStatus = pausedAt ? "interrupted" : run?.status ?? "idle";
   const activeRunId = run !== null && ACTIVE_RUN_STATUSES.has(runStatus) ? run.runId : null;
   const elapsedMs = run !== null && activeRunId !== null
     ? Math.max(0, Date.now() - new Date(run.createdAt).getTime())
@@ -102,8 +104,8 @@ export async function getPlanLedger(
     : null;
 
   return {
-    pausedAt: run?.pausedAt ?? null,
-    pauseRequestedAt: run?.pauseRequestedAt ?? null,
+    pausedAt,
+    pauseRequestedAt: terminal ? null : run?.pauseRequestedAt ?? null,
     cancelRequestedAt: run?.cancelRequestedAt ?? null,
     revision: ledger?.revision ?? 0,
     engineEpoch: ledger?.engineEpoch ?? 0,
@@ -118,7 +120,7 @@ export async function getPlanLedger(
     progress: { completed, total, elapsedMs },
     pendingApplyAtNextRun,
     activeRunId,
-    errorCode: run?.pausedAt ? null : run?.errorCode ?? null,
+    errorCode: runStatus === "failed" ? run?.errorCode ?? null : null,
     failedStepId,
   };
 }

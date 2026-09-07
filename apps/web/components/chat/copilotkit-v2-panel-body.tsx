@@ -1,4 +1,5 @@
 "use client";
+import { ProjectRecordingPanel } from "@/components/chat/workbench/project-recording-panel";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useSession } from "@/components/session/session-provider";
 
@@ -567,7 +568,7 @@ export function CopilotKitV2PanelBody({
         // 只有一份写法），不在这里复制第二遍循环。
         const { messages: collected, pendingRunId: detectedPendingRunId } =
           await readAllPersistedMessages(initialChatThreadId, bearer);
-        void hydrateRunTrace(collected, bearer).catch(() => setError("执行过程暂时无法恢复，请刷新重试。"));
+        void hydrateRunTrace(collected, bearer).catch(() => { if (!cancelled) setError((current) => current ?? "执行过程暂时无法恢复，请刷新重试。"); });
         // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
         // 写回且带 `agentRunId`（服务端第三道归因门，见
         // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
@@ -1559,6 +1560,7 @@ export function CopilotKitV2PanelBody({
             `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
             刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
         <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
+        <ProjectRecordingPanel projectId={projectId} threadId={resolvedChatThreadId} userId={draftSession?.userId ?? null} bearer={sessionToken} canWrite={canWrite} archived={archived} />
         <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机

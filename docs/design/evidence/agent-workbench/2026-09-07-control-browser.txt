@@ -1,0 +1,7 @@
+Tested code: f1a0c295f; subsequent 8f51bc1f5 only adds PG test. Full local log: /private/tmp/wsx-control-scroll-browser.log
+Running 3 tests using 1 worker
+  ✓  1 [chat-read] › e2e/agent-workbench-control-acceptance.spec.ts:28:5 › 两个页面裁决同一审批：只有一个赢家，一条持久最终回复 (24.8s)
+  ✓  2 [chat-read] › e2e/agent-workbench-control-acceptance.spec.ts:63:5 › 待审批阶段取消：真实终态持久化，旧审批不能恢复任务 (12.6s)
+  ✘  3 [chat-read] › e2e/agent-workbench-scroll-acceptance.spec.ts:6:5 › S8: ten rounds and one hundred tool activities retain the reading position (2.1m)
+  1 failed
+  2 passed (4.0m)

@@ -1,4 +1,4 @@
-import { withoutExecutionJournal } from "../support/agui-execution-journal";
+import { AGUI_EXECUTION_EVENT_NAME } from "@repo/contracts/execution-journal";
 /**
  * #789 -- native AG-UI `TOOL_CALL_*`/`STEP_*` events over `POST /copilotkit/agui`
  * (chat-ux-acceptance-criteria.md items 2/3: "可见的规划步骤"/"可见的工具调用与进度").
@@ -64,7 +64,6 @@ let runId = "";
  * 建一个中间态。 */
 let stateCallCount = 0;
 let statusCallCount = 0;
-let streamFinished = false;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -83,19 +82,13 @@ async function startLanggraphServer(): Promise<void> {
       req.on("end", () => respond(res, 200, { run_id: runId }));
       return;
     }
-    // Valid upstream SSE availability is required by the durable Skill journal.
-    if(req.method==='GET'&&url===`/threads/${threadId}/runs/${runId}/stream`){
-      res.writeHead(200,{'content-type':'text/event-stream'});
-      streamFinished = true;
-      res.end(`event: metadata\r\ndata: ${JSON.stringify({run_id:runId})}\r\n\r\n`);return;
-    }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = !streamFinished && statusCallCount === 0 ? "running" : "success";
+      const status = statusCallCount === 0 ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = !streamFinished && stateCallCount === 0
+      const messages = stateCallCount === 0
         ? [{ type: "human", content: "画一个架构图" }]
         : [
           { type: "human", content: "画一个架构图" },
@@ -222,7 +215,6 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
-  streamFinished = false;
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
@@ -232,7 +224,7 @@ beforeEach(async () => {
 });
 
 describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件", () => {
-  it("一次真实的工具调用循环，产出 STEP_STARTED → 规划文本 → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED，再是最终答案", async () => {
+  it("一次真实工具调用产出 TOOL_CALL_START/ARGS/END/RESULT，再是最终答案；规划摘要不重复为正文", async () => {
     const events = await postBridgeTurn("画一个架构图");
 
     // DA-19a -- every real run also mints/echoes a CUSTOM chat_thread_id event right after
@@ -243,21 +235,16 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     // `run_phase`（准备阶段进度，context_building / model_thinking）同样是管道事件
     // （见 agui-bridge-state-events.test.ts 的 PLUMBING_CUSTOM_EVENT_NAMES 头注），出现
     // 次数取决于轮询命中的时序（0-2 次），因此在这条精确序列断言之前先过滤掉。
-    const nonPhaseEvents = withoutExecutionJournal(events).filter(
-      (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+    const nonPhaseEvents = events.filter(
+      (e) => !(e.type === EventType.CUSTOM && (e.name === AGUI_RUN_PHASE_EVENT_NAME || e.name === AGUI_EXECUTION_EVENT_NAME)),
     );
     expect(nonPhaseEvents.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED,
       EventType.CUSTOM,
-      EventType.STEP_STARTED,
-      EventType.TEXT_MESSAGE_START, // planning note bubble
-      EventType.TEXT_MESSAGE_CONTENT,
-      EventType.TEXT_MESSAGE_END,
       EventType.TOOL_CALL_START,
       EventType.TOOL_CALL_ARGS,
       EventType.TOOL_CALL_END,
       EventType.TOOL_CALL_RESULT,
-      EventType.STEP_FINISHED,
       EventType.TEXT_MESSAGE_START, // final answer bubble
       EventType.TEXT_MESSAGE_CONTENT,
       EventType.TEXT_MESSAGE_END,
@@ -269,23 +256,12 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
       EventType.RUN_FINISHED,
     ]);
 
-    // #789 的桥接层用持久化的 tool_call step 自己的 toolName 当 stepName——那是
-    // execute-run.ts 里 completeWithProgress 分支记录的 `call_skill`（deepagents 的
-    // 通用工具名，见 tools.py），不是被调用的那个 skill 自己的名字（`SKILL` 常量），
-    // 这条断言直接反映 #740 的架构：工具集合是 `list_org_skills`/`call_skill` 这两个
-    // 通用工具，skill 本身是它们的参数，不是各自的工具。
-    const stepStarted = events.find((e) => e.type === EventType.STEP_STARTED);
-    const stepFinished = events.find((e) => e.type === EventType.STEP_FINISHED);
-    expect(stepStarted?.stepName).toBe("call_skill");
-    expect(stepFinished?.stepName).toBe("call_skill");
-
-    // The planning note is the model's OWN words, visible as real text -- not synthesized.
-    // Index 4, not 3: DA-19a's CUSTOM chat_thread_id shifted every following index by one.
-    // Taken off `nonPhaseEvents`, not `events`: `run_phase` CUSTOM events (filtered above)
-    // would otherwise shift this index unpredictably.
-    const planningContent = nonPhaseEvents[4];
-    expect(planningContent?.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
-    expect(planningContent?.delta).toBe(PLANNING_NOTE);
+    // Journal lifecycle is authoritative; don't fabricate a STEP envelope or a
+    // second text message from the persisted planning-note summary.
+    expect(events.filter(e => e.type === EventType.STEP_STARTED || e.type === EventType.STEP_FINISHED)).toHaveLength(0);
+    const notes = await asApp(ORG, c => c.query("SELECT planning_note FROM agent_run_steps WHERE org_id=$1 AND kind='tool_call' ORDER BY seq", [ORG]));
+    expect(notes.rows.length).toBeGreaterThan(0);
+    expect(notes.rows.every(row => row.planning_note === PLANNING_NOTE)).toBe(true);
 
     const toolStart = events.find((e) => e.type === EventType.TOOL_CALL_START);
     const toolArgs = events.find((e) => e.type === EventType.TOOL_CALL_ARGS);
@@ -311,11 +287,10 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     //   这里不需要第二份对位置的隐式依赖。
     const contents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
     const finalContent = contents[contents.length - 1];
-    expect(contents).toHaveLength(2);
+    expect(contents).toHaveLength(1);
     expect(finalContent?.delta).toBe(FINAL_TEXT);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）——第一次看到 running，第二次才成功。
-    expect(streamFinished).toBe(true);
-    expect(statusCallCount).toBeGreaterThanOrEqual(1);
+    expect(statusCallCount).toBeGreaterThanOrEqual(2);
   }, 30_000);
 });

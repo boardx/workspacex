@@ -9,7 +9,7 @@
  *
  * 覆盖：11 个操作（`usecases.md` UC-1…UC-10 + UC-12；**UC-11 `restoreCheckpoint`
  * 已随人类 2026-08-26 裁决 (c) 整条删除，不留一个恒失败的接口**）、
- * `PlanControlError` 的封闭错误枚举、`PlanPhase` 六态与中文文案的单一映射、
+ * `PlanControlError` 的封闭错误枚举、`PlanPhase` 七态与中文文案的单一映射、
  * `PlanGateDecision` 判定表、`derivePlanPhase` 派生纯函数（含 XC-59 反证的
  * 白名单过滤，见下）。
  *
@@ -68,12 +68,12 @@ export const PlanOrigin = z.enum(["engine", "user"]);
 export type PlanOrigin = z.infer<typeof PlanOrigin>;
 
 /**
- * `PlanPhase` —— 六态，**派生值，不可写**（I-7）。
+ * `PlanPhase` —— 七态（含已停止），**派生值，不可写**（I-7）。
  *
  * ⚠ 文案与枚举值是同一事实的两份表示——`PLAN_PHASE_LABEL_ZH` 是单一事实源，
  * 前端不得自己维护第二张映射表（`domain.md` 一·5，本仓已五次因此漂移）。
  */
-export const PlanPhase = z.enum(["preparing", "planning", "executing", "approving", "done", "failed"]);
+export const PlanPhase = z.enum(["preparing", "planning", "executing", "approving", "done", "failed", "cancelled"]);
 export type PlanPhase = z.infer<typeof PlanPhase>;
 
 /** `PlanPhase` → 中文文案，单一事实源。 */
@@ -84,6 +84,7 @@ export const PLAN_PHASE_LABEL_ZH: Readonly<Record<PlanPhase, string>> = Object.f
   approving: "审批",
   done: "完成",
   failed: "失败",
+  cancelled: "已停止",
 });
 
 /**
@@ -574,7 +575,7 @@ export const PendingToolCall = z.object({
 export type PendingToolCall = z.infer<typeof PendingToolCall>;
 
 /** run 的粗粒度状态——`derivePlanPhase` 只需要区分这几档，不需要引擎的全部状态机。 */
-export const RunStatusForPhase = z.enum(["idle", "running", "succeeded", "failed", "interrupted"]);
+export const RunStatusForPhase = z.enum(["idle", "running", "succeeded", "failed", "interrupted", "cancelled"]);
 export type RunStatusForPhase = z.infer<typeof RunStatusForPhase>;
 
 /**
@@ -596,10 +597,11 @@ export function derivePlanPhase(input: {
     (call) => call.awaitingApproval && PLAN_APPROVAL_TOOL_WHITELIST.includes(call.toolName),
   );
 
+  if (input.runStatus === "cancelled") return "cancelled";
+  if (input.runStatus === "succeeded") return "done";
   if (input.hasFailedStep || input.runStatus === "failed") return "failed";
   if (hasPendingApproval) return "approving";
   if (input.ledgerEmpty) return "preparing";
   if (input.runStatus === "running" || input.runStatus === "interrupted") return "executing";
-  if (input.runStatus === "succeeded") return "done";
   return "planning";
 }

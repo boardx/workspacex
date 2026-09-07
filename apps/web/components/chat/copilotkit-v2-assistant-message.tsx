@@ -424,7 +424,7 @@ function V2AssistantMessageImpl(
         toolCallsView={V2ToolCallsView}
         additionalToolbarItems={
           <>
-            <CopilotKitV2MessageExtraActions messageId={messageId} />
+            <CopilotKitV2MessageExtraActions messageId={messageId} projectId={artifactProjectId} />
             {/* 2026-08-27（对照 Claude Design 原型）—— 「落地为产物」的触发器现在是
                 与复制/反馈/评分同一排的小图标，不再自成一行。真正打开后的表单/完成态
                 仍然是块级，见下方 `CopilotKitV2MessageLandingPanel`。 */}

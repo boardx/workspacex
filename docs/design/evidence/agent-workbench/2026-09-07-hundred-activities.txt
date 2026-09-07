@@ -1,0 +1,163 @@
+[WebServer] (node:90331) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90332) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90339) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90340) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90341) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90347) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90348) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90350) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90356) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90357) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90393) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90440) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90739) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91018) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91019) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91673) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91682) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91688) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91692) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91698) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  ⚠ ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+google-vertex@3.0.164_zod@3.25.76/node_modules/@ai-sdk/google-vertex/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/agent/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/index.mjs
+[WebServer] ./app/api/copilotkit/[[...slug]]/route.ts
+[WebServer] (node:92725) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  ⚠ ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+google-vertex@3.0.164_zod@3.25.76/node_modules/@ai-sdk/google-vertex/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/agent/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/index.mjs
+[WebServer] ./app/api/copilotkit/[[...slug]]/route.ts
+[WebServer]  ⚠ ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+google-vertex@3.0.164_zod@3.25.76/node_modules/@ai-sdk/google-vertex/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/agent/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/index.mjs
+[WebServer] ./app/api/copilotkit/[[...slug]]/route.ts
+[WebServer] Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+[WebServer]  ⚠ ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+google-vertex@3.0.164_zod@3.25.76/node_modules/@ai-sdk/google-vertex/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/agent/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/index.mjs
+[WebServer] ./app/api/copilotkit/[[...slug]]/route.ts
+[WebServer] (node:99239) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Multiple versions of Lit loaded. Loading multiple versions is not recommended. See https://lit.dev/msg/multiple-versions for more information.
+
+Running 1 test using 1 worker
+
+(node:868) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  ⚠ ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] Critical dependency: the request of a dependency is an expression
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+provider-utils@3.0.32_zod@3.25.76/node_modules/@ai-sdk/provider-utils/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@ai-sdk+google-vertex@3.0.164_zod@3.25.76/node_modules/@ai-sdk/google-vertex/dist/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/agent/index.mjs
+[WebServer] ../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/index.mjs
+[WebServer] ./app/api/copilotkit/[[...slug]]/route.ts
+[WebServer] (node:879) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91698) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] (node:1099) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:1306) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:1321) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6087) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Invalid run request body: SyntaxError: Unexpected end of JSON input
+[WebServer]     at JSON.parse (<anonymous>)
+[WebServer]     at parseJSONFromBytes (node:internal/deps/undici/undici:5888:19)
+[WebServer]     at successSteps (node:internal/deps/undici/undici:5869:27)
+[WebServer]     at consumeBody (node:internal/deps/undici/undici:5875:9)
+[WebServer]     at NextRequest.json (node:internal/deps/undici/undici:5815:18)
+[WebServer]     at parseRunRequest (webpack-internal:///(rsc)/../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/runtime/handlers/shared/agent-utils.mjs:137:37)
+[WebServer]     at handleSuggestAgent (webpack-internal:///(rsc)/../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/runtime/handlers/handle-suggest.mjs:56:94)
+[WebServer]     at async handler (webpack-internal:///(rsc)/../../node_modules/.pnpm/@copilotkit+runtime@1.66.4_@cfworker+json-schema@4.1.1_@langchain+core@1.2.9_@opentelemetry+a_ntpinsmrdff7qdu7xovnyx6lbu/node_modules/@copilotkit/runtime/dist/v2/runtime/core/fetch-handler.mjs:163:16)
+[WebServer]     at async /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:55778
+[WebServer]     at async eO.execute (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:46527)
+[WebServer]     at async eO.handle (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:6:57112)
+[WebServer]     at async doRender (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:1352:42)
+[WebServer]     at async cacheEntry.responseCache.get.routeKind (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:1562:40)
+[WebServer]     at async DevServer.renderToResponseWithComponentsImpl (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:1482:28)
+[WebServer]     at async DevServer.renderPageComponent (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:1908:24)
+[WebServer]     at async DevServer.renderToResponseImpl (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:1946:32)
+[WebServer]     at async DevServer.pipeImpl (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:921:25)
+[WebServer]     at async NextNodeServer.handleCatchallRenderRequest (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/next-server.js:272:17)
+[WebServer]     at async DevServer.handleRequestImpl (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/base-server.js:817:17)
+[WebServer]     at async /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+[WebServer]     at async Span.traceAsyncFn (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/trace/trace.js:154:20)
+[WebServer]     at async DevServer.handleRequest (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+[WebServer]     at async invokeRender (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/lib/router-server.js:173:21)
+[WebServer]     at async handleRequest (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/lib/router-server.js:350:24)
+[WebServer]     at async requestHandlerImpl (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/lib/router-server.js:374:13)
+[WebServer]     at async Server.requestListener (/Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/node_modules/.pnpm/next@14.2.15_@opentelemetry+api@1.9.1_@playwright+test@1.62.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/server/lib/start-server.js:141:13)
+[WebServer] (node:8166) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10061) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:11874) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:12545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:13740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:15384) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:17642) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chat-read] › e2e/agent-workbench-scroll-acceptance.spec.ts:6:5 › S8: ten rounds and one hundred tool activities retain the reading position (7.7m)
+[WebServer] (node:18155) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+  Slow test file: [chat-read] › e2e/agent-workbench-scroll-acceptance.spec.ts (7.7m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 passed (11.4m)

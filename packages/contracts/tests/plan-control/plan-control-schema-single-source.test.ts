@@ -45,22 +45,22 @@ describe("F972 · PlanOrigin 封闭两值（domain.md 一·4）", () => {
   });
 });
 
-describe("F972 · PlanPhase 六值 + 中文文案单一事实源（domain.md 一·5，I-7）", () => {
-  const SIX = ["preparing", "planning", "executing", "approving", "done", "failed"];
+describe("F972 · PlanPhase 七值 + 中文文案单一事实源（domain.md 一·5，I-7）", () => {
+  const PHASES = ["preparing", "planning", "executing", "approving", "done", "failed", "cancelled"];
 
-  it("恰好六个态", () => {
-    expect(PlanPhase.options.sort()).toEqual([...SIX].sort());
+  it("恰好七个态", () => {
+    expect(PlanPhase.options.sort()).toEqual([...PHASES].sort());
   });
 
-  it("PLAN_PHASE_LABEL_ZH 是六值到中文的完整映射，没有遗漏也没有多余键", () => {
-    expect(Object.keys(PLAN_PHASE_LABEL_ZH).sort()).toEqual([...SIX].sort());
+  it("PLAN_PHASE_LABEL_ZH 是七值到中文的完整映射，没有遗漏也没有多余键", () => {
+    expect(Object.keys(PLAN_PHASE_LABEL_ZH).sort()).toEqual([...PHASES].sort());
     for (const phase of PlanPhase.options) {
       expect(typeof PLAN_PHASE_LABEL_ZH[phase]).toBe("string");
       expect(PLAN_PHASE_LABEL_ZH[phase].length).toBeGreaterThan(0);
     }
   });
 
-  it("六值对应人类可读文案（准备/计划/执行/审批/完成/失败）", () => {
+  it("七值对应人类可读文案（准备/计划/执行/审批/完成/失败）", () => {
     expect(PLAN_PHASE_LABEL_ZH).toEqual({
       preparing: "准备",
       planning: "计划",
@@ -68,6 +68,7 @@ describe("F972 · PlanPhase 六值 + 中文文案单一事实源（domain.md 一
       approving: "审批",
       done: "完成",
       failed: "失败",
+      cancelled: "已停止",
     });
   });
 });

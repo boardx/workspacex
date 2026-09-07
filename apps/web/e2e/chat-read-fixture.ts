@@ -61,6 +61,7 @@ export const CHAT_READ_E2E = {
    * `playwright.chat-read.config.ts` 下发给替身进程。
    */
   deepAgentMultiStepTrigger: "取证：请展示多步执行",
+  deepAgentScrollAcceptanceTrigger: "取证：请展示十步滚动验收",
   /**
    * UX-9 D4 前端接入取证（gap 清单第 3 条，「Edit, then continue」HITL 模式）：
    * 替身对这句触发词让 run 走真实 `awaiting_tool_permission`（`status: "interrupted"`），

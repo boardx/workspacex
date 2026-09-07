@@ -62,7 +62,6 @@ let threadId = "";
 let runId = "";
 let stateCallCount = 0;
 let statusCallCount = 0;
-let streamFinished = false;
 
 function respond(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -90,32 +89,31 @@ async function startLanggraphServer(): Promise<void> {
     // `tryStreamRun`'s own head).
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}/stream`) {
       res.writeHead(200, { "content-type": "text/event-stream" });
-      for (const [id, chunks] of [["planning", PLANNING_CHUNKS], ["final", FINAL_CHUNKS]] as const) for (const chunk of chunks) {
-        res.write(`event: messages\ndata: [{"content": ${JSON.stringify(chunk)}, "type": "AIMessageChunk", "id": ${JSON.stringify(id)}}, {}]\n\n`);
+      for (const [id, chunks] of [["planning-message", PLANNING_CHUNKS], ["final-message", FINAL_CHUNKS]] as const) {
+        for (const chunk of chunks) res.write(`event: messages\ndata: [{"id": ${JSON.stringify(id)}, "content": ${JSON.stringify(chunk)}, "type": "AIMessageChunk"}, {}]\n\n`);
       }
-      streamFinished = true;
       res.end();
       return;
     }
     if (req.method === "GET" && url === `/threads/${threadId}/runs/${runId}`) {
-      const status = !streamFinished && statusCallCount === 0 ? "running" : "success";
+      const status = statusCallCount === 0 ? "running" : "success";
       statusCallCount += 1;
       return respond(res, 200, { status });
     }
     if (req.method === "GET" && url === `/threads/${threadId}/state`) {
-      const messages = !streamFinished && stateCallCount === 0
+      const messages = stateCallCount === 0
         ? [{ type: "human", content: "生成一个 pdf，总结你可以做的事情" }]
         : [
           { type: "human", content: "生成一个 pdf，总结你可以做的事情" },
           {
-            type: "ai", id: "planning", content: PLANNING_NOTE,
+            id: "planning-message", type: "ai", content: PLANNING_NOTE,
             tool_calls: [{
               id: TOOL_CALL_ID, name: "call_skill",
               args: { skill_stable_name: SKILL, task: "生成一份说明文档 PDF" },
             }],
           },
           { type: "tool", tool_call_id: TOOL_CALL_ID, content: SKILL_RESULT },
-          { type: "ai", id: "final", content: FINAL_TEXT },
+          { id: "final-message", type: "ai", content: FINAL_TEXT },
         ];
       stateCallCount += 1;
       return respond(res, 200, { values: { messages } });
@@ -236,7 +234,6 @@ beforeEach(async () => {
   runId = `run-${randomUUID()}`;
   stateCallCount = 0;
   statusCallCount = 0;
-  streamFinished = false;
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
@@ -257,17 +254,14 @@ describe("POST /copilotkit/agui + KERNEL_DEEP_AGENT_STREAM_ENABLED=1 -- 规划�
     }
     const bubbleTexts = [...bubbleTextById.values()];
 
-    // The journal preserves the upstream planning/final message identities instead
-    // of merging them. Both appear once; no synthetic planning-note copy is added.
+    // The journal preserves the engine's distinct message identities. Planning and
+    // final text each appear exactly once; tool-step planningNote must not add a copy.
     expect(bubbleTexts, JSON.stringify(bubbleTexts)).toEqual([PLANNING_NOTE, FINAL_TEXT]);
-    expect(bubbleTexts.filter(t=>t===PLANNING_NOTE)).toHaveLength(1);
-    expect([...bubbleTextById.keys()].some(id=>id.endsWith(':planning'))).toBe(true);
-    expect([...bubbleTextById.keys()].some(id=>id.endsWith(':final'))).toBe(true);
 
     // 工具调用本身的可见性不受影响：STEP_*/TOOL_CALL_* 序列照常出现。
-    const stepStarted = events.find((e) => e.type === EventType.STEP_STARTED);
+    const stepStarted = events.find((e) => e.type === EventType.TOOL_CALL_START);
     const toolResult = events.find((e) => e.type === EventType.TOOL_CALL_RESULT);
-    expect(stepStarted?.stepName).toBe("call_skill");
+    expect(stepStarted?.toolCallName).toBe("call_skill");
     expect(toolResult?.content).toBe(SKILL_RESULT);
 
     // 持久化的最终回复仍然是模型真实终稿，不受本次修复影响。

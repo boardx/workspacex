@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api
+
+[db-isolation] db=wsx_workbench_acceptance_2867 capacity=100 current=6 required=32
+ ✓ tests/agent-run/workbench-control-http-acceptance.test.ts (4 tests) 7868ms
+   ✓ S2 supported HTTP identity / authorization / idempotency / revision matrix > unknown and cross-tenant run/queue reads and cancellation fail without an existence oracle 451ms
+   ✓ S2 supported HTTP identity / authorization / idempotency / revision matrix > observer may read a plenary journal but cannot cancel or enqueue 319ms
+   ✓ S2 supported HTTP identity / authorization / idempotency / revision matrix > repeated cancel is idempotent and emits only one durable cancelled transition 327ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:08:28
+   Duration  9.14s (transform 3.47s, setup 0ms, collect 63ms, tests 7.87s, environment 0ms, prepare 66ms)
+
+[db-isolation] db=wsx_workbench_acceptance_2867 peak_connections=5

@@ -58,6 +58,8 @@ function toRunStatusForPhase(dbStatus: string): PlanRunSnapshot["status"] {
       return "succeeded";
     case "failed":
       return "failed";
+    case "cancelled":
+      return "cancelled";
     default:
       // Unknown future status: fail toward "running" (i.e. do not silently claim "done").
       return "running";
