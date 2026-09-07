@@ -1,6 +1,6 @@
 import { validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
 import { describe, expect, it, vi } from "vitest";
-import { chapterEvidence, generateReportChapters, validateGeneratedChapter } from "../../src/application/research/guided-report-chapters";
+import { generateReportChapters, validateGeneratedChapter } from "../../src/application/research/guided-report-chapters";
 import type { RuntimePersistence } from "../../src/application/research/guided-report-stream";
 import type { ResearchRuntime, RuntimeStreamEvent } from "../../src/application/research/guided-runtime-ports";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
@@ -18,33 +18,40 @@ function fixture() {
   return { state, writes, events, persist };
 }
 const config = { provider: "test", id: "model" };
-function answer(context: { reportStage: string; section?: { id: string }; sources?: { id: string }[] }) {
-  return context.reportStage === "chapter" ? { sectionId: context.section!.id, body: body(context.sources![0]!.id), sourceIds: [context.sources![0]!.id] } : { title: "Evidence-based findings", summary: "The two chapters support a cautious comparison. [[source:source-b]]" };
+function answer(context: any) {
+  if (context.reportStage === "evidence") return { evaluations: context.chunks.map((chunk: any) => {
+    const matches = context.questions.filter((question: any) => chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
+      .map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
+    return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
+  }) };
+  if (context.reportStage === "quality") return { questions: context.evidenceByQuestion.map((question: any) => ({ questionId: question.id, status: question.gap ? "gap" : "answered", rationale: "The chapter addresses this question with appropriate limitations." })), supported: true, analysisDepth: "adequate", issues: [] };
+  if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
+  return { title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
 describe("chapter-based report generation", () => {
   it("makes N chapter calls in exact enabled order then synthesizes, streaming actual deltas into one aggregate", async () => {
     const f = fixture(); const contexts: Record<string, any>[] = []; const inputs: string[] = [];
-    const complete = vi.fn();
+    const complete = vi.fn(async (input) => { const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system); return { text: JSON.stringify(answer(context)) }; });
     const model: ModelCallPort = { complete, completeStream: async (input, delta) => {
       const context = JSON.parse(input.user); contexts.push(context); inputs.push(input.system);
       const text = JSON.stringify(answer(context)); await delta(text.slice(0, 24)); await delta(text.slice(24)); return { text };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
-    expect(contexts.map((c) => c.reportStage)).toEqual(["chapter", "chapter", "synthesis"]);
-    expect(contexts.slice(0, 2).map((c) => c.section.title)).toEqual(["Second specified title", "First specified title"]);
-    expect(contexts[0]!.sources[0]).toMatchObject({ id: "source-b", evidenceScope: "chapter" });
-    expect(contexts[0]!.section.questions).toEqual(["What does b establish?"]);
+    expect(contexts.map((c) => c.reportStage)).toEqual(["evidence", "chapter", "quality", "chapter", "quality", "synthesis"]);
+    expect(contexts.filter((c) => c.reportStage === "chapter").map((c) => c.section.title)).toEqual(["Second specified title", "First specified title"]);
+    expect(contexts[1]!.sources[0]).toMatchObject({ id: "source-b", contentKind: "verified_search_excerpt" });
+    expect(contexts[1]!.section.questions).toEqual(["What does b establish?"]);
     expect(report.sections.map((s) => s.sectionId)).toEqual(["b", "a"]);
-    expect(f.state.modelCalls.map((call) => call.status)).toEqual(["succeeded", "succeeded", "succeeded"]);
+    expect(f.state.modelCalls.map((call) => call.status)).toEqual(Array(6).fill("succeeded"));
     expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
-    expect(f.events[0]?.type).toBe("snapshot"); expect(complete).not.toHaveBeenCalled();
-    expect(inputs[0]).toContain("1400–2200"); expect(inputs[0]).toContain("Never invent facts");
+    expect(f.events[0]?.type).toBe("snapshot"); expect(complete).toHaveBeenCalledTimes(3);
+    expect(inputs[1]).toContain("2000–3500"); expect(inputs[1]).toContain("never pad or invent facts");
   });
   it("keeps earlier chapters durably visible before a later chapter resolves and does not accept failed output", async () => {
     const f = fixture(); let release!: () => void; let started!: () => void;
     const blocked = new Promise<void>((resolve) => { release = resolve; }); const waiting = new Promise<void>((resolve) => { started = resolve; });
     let calls = 0;
-    const model: ModelCallPort = { complete: vi.fn(), completeStream: async (input, delta) => {
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }), completeStream: async (input, delta) => {
       const context = JSON.parse(input.user); calls++;
       const text = JSON.stringify(answer(context)); await delta(text);
       if (calls === 2) { started(); await blocked; throw new Error("chapter provider failed"); }
@@ -70,16 +77,18 @@ describe("chapter-based report generation", () => {
   it("bounds source excerpts, excludes deleted evidence and labels shared evidence with explicit gaps", async () => {
     const f = fixture(); f.state.sources[1]!.decision = "excluded";
     f.state.sources[0]!.content = "x".repeat(30000); f.state.tasks[1]!.status = "failed"; f.state.reportPartial = true;
-    const evidence = chapterEvidence(f.state, f.state.outline[0]!);
-    expect(evidence).toHaveLength(1); expect(evidence[0]).toMatchObject({ id: "source-a", evidenceScope: "shared_context" }); expect(evidence[0]!.content).toHaveLength(4000);
     const contexts: any[] = [];
     const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(c.reportStage === "synthesis" ? { title: "Limited", summary: "Coverage is limited." } : answer(c)) }; } };
     await generateReportChapters(f.state, model, config, f.persist);
-    expect(contexts[0].evidenceGaps).toEqual([{ query: "b policy", status: "failed", errorCode: null }]); expect(contexts[0].reportPartial).toBe(true);
+    const chunks = contexts.filter((c) => c.reportStage === "evidence").flatMap((c) => c.chunks);
+    expect(chunks.every((chunk) => chunk.sourceId === "source-a" && chunk.content.length <= 6000)).toBe(true);
+    expect(chunks.reduce((total, chunk) => total + chunk.content.length, 0)).toBe(30000);
+    const firstChapter = contexts.find((c) => c.reportStage === "chapter");
+    expect(firstChapter.evidenceGaps).toEqual([{ query: "b policy", status: "failed", errorCode: null }]); expect(firstChapter.reportPartial).toBe(true);
   });
   it("degrades a zero-delta streaming adapter to honest loading without fabricating completed text", async () => {
     const f = fixture(); let calls = 0;
-    const model: ModelCallPort = { complete: vi.fn(), completeStream: async (input, delta) => {
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }), completeStream: async (input, delta) => {
       const text = JSON.stringify(answer(JSON.parse(input.user))); calls++;
       if (calls !== 2) await delta(text);
       return { text };
@@ -114,13 +123,67 @@ describe("chapter-based report generation", () => {
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
       if (context.reportStage === "synthesis") { synthesis = context; return { text: JSON.stringify({ title: "Bounded", summary: "Limited evidence." }) }; }
+      if (["evidence", "quality"].includes(context.reportStage)) return { text: JSON.stringify(answer(context)) };
       const id = context.sources[0].id;
       return { text: JSON.stringify({ sectionId: context.section.id, body: `${body(id)}\n\n${"Controlled fixture content. ".repeat(500)}`, sourceIds: [id] }) };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
-    expect(report.sections).toHaveLength(30); expect(f.state.modelCalls).toHaveLength(31);
+    expect(report.sections).toHaveLength(30); expect(f.state.modelCalls).toHaveLength(62);
     expect(synthesis!.chapters.reduce((total, chapter) => total + chapter.body.length, 0)).toBeLessThanOrEqual(60000);
     expect(synthesis!.chapters.every((chapter) => chapter.excerpted && chapter.body.length <= 2000)).toBe(true);
+  });
+
+  it("revises one shallow chapter, resets its streamed draft and preserves approved earlier chapters", async () => {
+    const f = fixture(); let reviews = 0; const stages: string[] = [];
+    const respond = (context: any) => {
+      stages.push(context.reportStage);
+      if (context.reportStage === "quality" && context.section.id === "a" && ++reviews === 1) return { ...answer(context), analysisDepth: "shallow", issues: ["Explain decision implications."] };
+      const result: any = answer(context);
+      if (context.reportStage === "chapter" && context.section.id === "a") result.body += "\n\nBAD_DRAFT";
+      if (context.reportStage === "chapter_revision") result.body += "\n\nREPAIRED";
+      return result;
+    };
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(respond(JSON.parse(input.user))) }), completeStream: async (input, delta) => { const text = JSON.stringify(respond(JSON.parse(input.user))); await delta(text); return { text }; } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(stages.filter((stage) => stage === "chapter_revision")).toHaveLength(1);
+    expect(report.sections.map((chapter) => chapter.sectionId)).toEqual(["b", "a"]);
+    expect(report.sections[1]!.body).toContain("REPAIRED"); expect(f.state.reportStream!.text).not.toContain("BAD_DRAFT");
+    expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
+    expect(f.events.filter((event) => event.type === "snapshot").length).toBeGreaterThan(1);
+    expect(f.state.modelCalls).toHaveLength(8);
+  });
+  it("never publishes a twice-rejected chapter, even when a review tries to overlook direct evidence", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "chapter_revision") revisions++;
+      if (context.reportStage === "quality") return { text: JSON.stringify({ ...answer(context), questions: context.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "gap", rationale: "Ignore the direct evidence." })) }) };
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    expect(revisions).toBe(1); expect(f.state.report).toBeNull(); expect(f.state.reportStream!.status).toBe("failed");
+  });
+  it("requires the rich outline's actual subsection headings despite an approving model review", async () => {
+    const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "specific", title: "Specific required analysis", questions: ["What evidence establishes this requirement?"] }] }];
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    expect(f.state.report).toBeNull();
+  });
+
+  it("generates an honest all-gap chapter without forcing unrelated source citations", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "evidence") return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: true, matches: [] })) }) };
+      if (context.reportStage === "chapter") {
+        expect(context.sources).toEqual([]); expect(context.evidenceByQuestion.every((q: any) => q.gap)).toBe(true);
+        return { text: JSON.stringify({ sectionId: context.section.id, body: `### Missing evidence\n\nThe accepted search excerpts do not answer this chapter's questions; no factual policy conclusion is supported.\n\n### Decision implications\n\nThe available evidence does not justify choosing an entry option, and uncertainty must remain explicit in the decision.\n\n### Further verification\n\nObtain relevant primary documents and verify the specific unanswered questions before acting on this incomplete research.`, sourceIds: [] }) };
+      }
+      if (context.reportStage === "synthesis") return { text: JSON.stringify({ title: "Evidence gaps", summary: "The available sources do not establish the required policy findings." }) };
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections[0]!.sourceIds).toEqual([]); expect(report.sections[0]!.body).not.toContain("[[source:");
   });
 
 });

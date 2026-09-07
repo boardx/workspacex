@@ -71,7 +71,7 @@ const loadingCopy: Record<ResearchNode, { title: string; description: string }> 
   directions: { title: "正在生成研究方向", description: "模型正在根据已确认的主题，拆解值得研究的问题。" },
   outline: { title: "正在生成报告大纲", description: "模型正在将研究方向组织为清晰的章节结构。" },
   research: { title: "正在研究资料", description: "正在根据报告大纲规划检索任务，并收集相关来源。进度会自动保存。" },
-  report: { title: "正在生成研究报告", description: "模型正在结合已保留的来源撰写报告，并整理引用。" },
+  report: { title: "正在生成研究报告", description: "模型正在整理来源证据、撰写章节并检查报告质量。正文就绪后会逐步显示。" },
 };
 
 export function ResearchLoading({ node }: { node: ResearchNode }) {
