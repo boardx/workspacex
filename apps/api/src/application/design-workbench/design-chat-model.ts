@@ -312,7 +312,18 @@ export class ModelDesignChatReplier implements DesignChatModel {
     try {
       raw = extractJsonObject(text);
     } catch {
-      this.deps.log("design chat: model output was not JSON, using it verbatim without writeback", {});
+      /**
+       * ⚠ 2026-09-07 用户实测：这条分支曾把**整坨 JSON 泼进对话框**。原意是"模型用大白话答的、
+       * 没给 JSON ⇒ 原样显示"，但模型一次整页重画 5 页时输出被截断，JSON 没闭合、parse 失败，
+       * 于是半截 JSON 被当成聊天回复显示出来。
+       *
+       * 所以要分两种：真·大白话（不以 `{` 开头）照旧原样显示；看着是 JSON 却解析不了 ⇒ 判失败。
+       * **不救里面那句 `reply` 拿来显示**——它往往写着"已在各页补充了跳转逻辑"，而写回一个字
+       * 都没生效，那正是本迭代反复在修的"界面声称的事情没有真的发生"。
+       */
+      const looksLikeJson = text.trimStart().startsWith("{");
+      this.deps.log("design chat: model output was not parseable JSON", { looksLikeJson, length: text.length });
+      if (looksLikeJson) return fallbackWith("MODEL_BAD_JSON");
       return { text: text.trim().slice(0, 4000), source: "model", writeback: {}, suggestions: [] };
     }
     const obj = raw as Record<string, unknown>;

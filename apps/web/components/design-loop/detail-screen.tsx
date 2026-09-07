@@ -37,6 +37,7 @@ const FALLBACK_REASON_TEXT: Record<DesignChatFallbackReason, string> = {
   MODEL_CALL_FAILED: "调用 AI 模型失败（网络或鉴权）。可以重试一次；一直失败就让运维看部署日志。",
   MODEL_TIMEOUT: "这次画的东西太大，AI 没能在时限内画完。试试少要几页、或把要求说得更具体一点再发一次。",
   MODEL_EMPTY_OUTPUT: "AI 模型这次返回了空结果。换个说法再试一次通常就好了。",
+  MODEL_BAD_JSON: "AI 这次的输出太长被截断了，画布没有更新。把要求拆小一点再试——比如一次只改一两页，或者只让它把页面连起来。",
   MODEL_NO_REPLY_TEXT: "AI 模型这次没给出可用的回复文本；如果画布有变化，那部分已经生效。",
 };
 
