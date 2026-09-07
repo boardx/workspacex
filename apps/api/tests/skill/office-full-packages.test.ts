@@ -10,6 +10,10 @@ it('packages original creation recipes and fixed immutable hashes without rewrit
  for(const spec of OFFICIAL_SKILLS){const result=officeSkillPackage(spec);expect(result.package.files).toHaveLength(4);
  expect(Buffer.from(result.package.files[0]!.contentBase64,'base64').toString()).toContain(spec.content);
  const body=Buffer.from(result.package.files[0]!.contentBase64,'base64').toString();
+ expect(body.indexOf(`Read /skills/${spec.stableName}/references/editing-and-qa.md`)).toBeLessThan(body.indexOf(spec.content));
+ expect(body).toContain('Write explicitly under /workspace');
+ expect(body).toContain('Do not redraw a separate PDF');
+ expect(body).toContain('Do not run npm/pip installs');
  expect(body).not.toContain('risk_level:');
  // A redistributed/renamed package must retain the original undeclared-risk default.
  expect(resolveSkillRiskLevel({stableName:'imported-office-copy',content:body})).toBe('L1');
