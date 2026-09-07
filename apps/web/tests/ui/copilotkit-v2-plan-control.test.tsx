@@ -36,6 +36,7 @@ import { PLAN_PHASE_INDICATOR_TESTID } from "@/components/plan-control/plan-phas
 import { PLAN_PANEL_TESTID, PLAN_STEP_TESTID } from "@/components/plan-control/plan-panel-readonly";
 import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/plan-control/plan-panel-edit";
 import { PLAN_CONFIRM_RUN_TESTID } from "@/components/plan-control/plan-confirm-gate";
+import { PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
 import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } from "@/components/chat/copilotkit-v2-plan-control";
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
@@ -72,6 +73,22 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     render(<CopilotKitV2PlanControl threadId={null} />);
     expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
     expect(api.fetchPlanLedger).not.toHaveBeenCalled();
+  });
+
+  it("没有计划步骤的暂停任务仍可通过既有 checkpoint 接口继续", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", pausedAt: "2026-09-07T00:00:00Z" }));
+    api.resumePlanRun.mockResolvedValue({ runId: "run-paused" });
+    render(<CopilotKitV2PlanControl threadId="t-paused" projectId="project-a" />);
+    fireEvent.click(await screen.findByTestId(PLAN_RUN_RESUME_TESTID));
+    await waitFor(() => expect(api.resumePlanRun).toHaveBeenCalledWith("t-paused", "project-a"));
+    expect(screen.queryByText(/当前步骤/)).toBeNull();
+  });
+
+  it("无步骤暂停任务的只读访问者不能继续", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", pausedAt: "2026-09-07T00:00:00Z" }));
+    render(<CopilotKitV2PlanControl threadId="t-paused" canWrite={false} />);
+    expect((await screen.findByTestId(PLAN_RUN_RESUME_TESTID)) as HTMLButtonElement).toHaveProperty("disabled", true);
+    expect(api.resumePlanRun).not.toHaveBeenCalled();
   });
 
   it("phase='preparing'（零计划，I-1 正常态）时不渲染面板——不是错误态，是本来就没有可展示的计划", async () => {

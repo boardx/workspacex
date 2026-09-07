@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/web
+
+ ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (20 tests) 179ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  10:48:15
+   Duration  1.21s (transform 298ms, setup 64ms, collect 440ms, tests 179ms, environment 256ms, prepare 22ms)
+

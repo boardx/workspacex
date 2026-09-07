@@ -6,7 +6,7 @@ import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicat
 import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly";
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
-import { PlanRunProgress } from "@/components/plan-control/plan-run-progress";
+import { PlanRunProgress, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import {
   addPlanConstraint, confirmPlan, deletePlanStep, pausePlanRun,
@@ -161,7 +161,8 @@ export function CopilotKitV2PlanControl(
     }
   }
 
-  if (threadId === null || ledger === null || ledger.phase === "preparing") return null;
+  const pausedWithoutPlan = Boolean(ledger?.pausedAt && ledger.steps.length === 0 && !["done", "failed", "cancelled"].includes(ledger.phase));
+  if (threadId === null || ledger === null || (ledger.phase === "preparing" && !pausedWithoutPlan)) return null;
 
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
@@ -190,6 +191,14 @@ export function CopilotKitV2PlanControl(
   const handleRetryStep = (planStepId: string): void => {
     void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
+
+  // A checkpoint belongs to the run, including runs that never wrote a plan.
+  // Do not invent a step/progress fraction just to expose its resume command.
+  if (pausedWithoutPlan) return <div className="flex items-center gap-2 text-13">
+    <span role="status">任务已暂停</span>
+    <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
+    {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
+  </div>;
 
   const runningStepIndex = ledger.steps.findIndex((s) => s.status !== "completed");
   const currentStepIndex = runningStepIndex === -1 ? ledger.steps.length : runningStepIndex + 1;
