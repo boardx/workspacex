@@ -218,23 +218,38 @@ jobs:
           version: "0.12.5"
       - run: uv sync --frozen --extra dev
         working-directory: apps/deep-agent-service
+      - name: Load dedicated session AppArmor policy
+        run: |
+          sudo apparmor_parser -r -W apps/skill-sandbox/security/docker-apparmor-sessions
       - name: Build and start the actual isolated document sandbox
         run: |
-          docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml up -d --build
+          docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml up -d --build
           for attempt in $(seq 1 30); do
             if docker exec "$WX_NATIVE_SANDBOX_CONTAINER" test -S /run/sessions/skill-sandbox.sock; then exit 0; fi
             sleep 1
           done
           exit 1
+      - name: Verify actual policy and user-code isolation
+        run: |
+          docker inspect --format '{{.AppArmorProfile}} {{json .HostConfig.SecurityOpt}}' "$WX_NATIVE_SANDBOX_CONTAINER"
+          test "$(docker inspect --format '{{.AppArmorProfile}}' "$WX_NATIVE_SANDBOX_CONTAINER")" = workspacex-native-sessions
+          docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml run --rm --no-deps \
+            -e SKILL_SANDBOX_SOCKET=/tmp/isolation-check.sock \
+            --volume "$PWD/apps/skill-sandbox/tests/session-container.mjs:/session-test.mjs:ro" \
+            --entrypoint node skill-sandbox-sessions /session-test.mjs
       - name: Start isolated PostgreSQL
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
       - name: Actual document parse and cached-source revocation
         run: pnpm --filter api exec vitest run --config vitest.native-document.config.ts
+      - name: Capture bounded AppArmor denials
+        if: failure()
+        run: sudo dmesg | grep 'apparmor="DENIED"' | tail -40 || true
       - name: Release owned infrastructure
         if: always()
         run: |
-          docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml down --volumes
+          docker compose -p wx-native-document -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml down --volumes
           docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes
+          sudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions
 
   gates-runtime:
     runs-on: ubuntu-latest
@@ -340,14 +355,13 @@ jobs:
     # 部署』」——那句话本身没错，但「显式动作」现在改成了 merge 本身（PR review + merge
     # 已经是人的显式动作），不需要再加一道「记得打 tag」。
     # 打 tag 仍然可以触发部署（保留，给需要显式标记发布点的场景用），但不再是唯一路径。
-    # The explicitly requested legacy core preview does not enable the native
-    # session runtime. Native acceptance remains required for main/tag deployment.
+    # Every deployment, including the requested branch preview, requires all gates.
     if: >-
       always() && !cancelled() &&
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
-      ((needs.native-document-chain.result == 'success' &&
-        (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')) ||
+      needs.native-document-chain.result == 'success' &&
+      ((startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
         github.ref == 'refs/heads/codex/standard-capabilities'))
     concurrency:

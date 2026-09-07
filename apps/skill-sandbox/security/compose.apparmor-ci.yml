@@ -1,0 +1,6 @@
+# Explicit opt-in only after loading docker-apparmor-sessions on the Linux host.
+# Compose merges security_opt with the base NNP and dedicated seccomp entries.
+services:
+  skill-sandbox-sessions:
+    security_opt:
+      - apparmor=workspacex-native-sessions
