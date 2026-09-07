@@ -120,6 +120,20 @@ describe("Phase 14 F01 -- 网关转发到内核（gateway → kernel forwarding�
       else expect(event).not.toHaveProperty("capability");
     }
   });
+  it.each(["paused", "cancelled"] as const)("releases a native pause only if database cancellation wins (%s)", async settled => {
+    const store = fakeStore(baseRun({ leaseEpoch: 1 }));
+    store.pauseAtCheckpoint = async () => settled;
+    const release = vi.fn(async () => {}), releaseForRun = vi.fn(async () => {});
+    const options = deps(store, {complete: async () => ({text:"",paused:true}),completeWithProgress: async () => ({text:"",paused:true})});
+    Object.assign(options, {
+      nativeSessions: {provision: async () => ({bindingId:"11111111-1111-4111-8111-111111111111",profile:"native-v1",policy:"native-v1"}),resolve:async()=>{throw new Error("unused");},release,releaseForRun},
+      nativeOutputs:{listFiles:async()=>[]},planLedger:{getLatest:async()=>null,recordRemoteRunId:async()=>{}},
+    });
+    await executeQueuedRuns(options,{orgId:ORG});
+    expect(store.failedWith).toBeNull(); expect(store.output).toBeNull();
+    expect(release).not.toHaveBeenCalled();
+    expect(releaseForRun).toHaveBeenCalledTimes(settled === "cancelled" ? 1 : 0);
+  });
   it("一次真实 run 全链路经网关鉴权后转发到内核（completeWithProgress）并正确回传结果", async () => {
     const run = baseRun();
     const store = fakeStore(run);

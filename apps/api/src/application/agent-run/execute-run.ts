@@ -1205,7 +1205,11 @@ async function executeClaimed(
     }
     if (completion.paused) {
       if (!deps.runs.pauseAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "pause persistence unavailable");
-      await deps.runs.pauseAtCheckpoint(orgId, run.runId);
+      const settled = await deps.runs.pauseAtCheckpoint(orgId, run.runId);
+      if (settled === "cancelled" && deps.nativeSessions) {
+        try { await deps.nativeSessions.releaseForRun(orgId, run.runId); }
+        catch { deps.log("native session release pending", { runId: run.runId }); }
+      }
       return;
     }
     if (completion.interrupted !== undefined) {
