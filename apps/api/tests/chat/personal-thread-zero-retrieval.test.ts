@@ -35,6 +35,7 @@ import { PgAgentRunRepository } from "../../src/infrastructure/agent-run/pg-agen
 import { PgFileRetrieval } from "../../src/infrastructure/agent-run/pg-file-retrieval";
 import { PgAgentRunContextSnapshot } from "../../src/infrastructure/agent-run/pg-agent-run-context-snapshot";
 import { executeQueuedRuns, type ExecuteAgentRunDeps } from "../../src/application/agent-run/execute-run";
+import { writeBackPendingRuns } from "../../src/application/agent-run/writeback";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
 import { FILE_CONTEXT_MESSAGE_HEADER_PREFIX } from "../../src/application/agent-run/file-retrieval";
 import { toOrgId } from "../../src/domain/org-id";
@@ -142,7 +143,10 @@ async function askAndRun(
   await addChatMessage({ orgId: ORG, id: qid, threadId, body: question, authorId: actor });
   await enqueueRun(threadId, qid, runId);
   const calls: ModelCallInput[] = [];
-  await executeQueuedRuns(deps(calls), { orgId: toOrgId(ORG) });
+  const runtimeDeps = deps(calls);
+  await executeQueuedRuns(runtimeDeps, { orgId: toOrgId(ORG) });
+  // Complete the real lifecycle before another run can claim this same thread.
+  expect(await writeBackPendingRuns(runtimeDeps, { orgId: toOrgId(ORG) })).toBe(1);
   const finalCall = calls.at(-1);
   const history = (finalCall?.history ?? []).map((m) => m.content);
   return { calls, history };

@@ -68,17 +68,10 @@ describe("#2067 AppShell 持久化：路由组结构", () => {
     expect(threadPage).not.toMatch(/^import .*CopilotKitV2Shell/m);
   });
 
-  it("next.config.mjs 在 beforeFiles 位置只把带 projectId 的 /chat 深链拦到 /chat/legacy", async () => {
+  it("项目和个人线程统一进入 v2，不再按 projectId 转到 legacy", async () => {
     const { beforeFiles } = await nextConfig.rewrites();
-
-    const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
-    expect(chatRewrites).toHaveLength(2);
-
-    const legacyRule = chatRewrites.find((rule) => rule.destination === "/chat/legacy");
-    expect(legacyRule?.has?.[0]?.key).toBe("projectId");
-    // 项目内对话本轮不支持迁移（issue #2457，人类 2026-09-01 裁决）——这是唯一
-    // 还落在旧屏上的场景。
-    expect(legacyRule?.missing).toBeUndefined();
+    expect(beforeFiles.some((rule) => rule.destination === "/chat/legacy")).toBe(false);
+    expect(beforeFiles.filter((rule) => rule.source === "/chat")).toHaveLength(1);
   });
 
   it("issue #2457：只带 thread（不带 projectId）的纯个人线程深链改拦到 /chat/:threadId，继续走 v2", async () => {

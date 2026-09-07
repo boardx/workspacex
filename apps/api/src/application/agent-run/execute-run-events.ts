@@ -18,6 +18,15 @@ import type { OrgId } from "../../domain/org-id";
 import type { AgentRunClock, ModelCallProgressEvent } from "./ports";
 import type { RunEventBusPort } from "./run-event-bus";
 import { parseWriteTodosSnapshot } from "@repo/contracts/agui-state-events";
+import type { PlanLedgerRepository } from "../plan-control/ports";
+import { ingestEnginePlanSnapshot } from "../plan-control/ingest-engine-plan-snapshot";
+
+/** The executor awaits this write; transports only project the persisted plan. */
+export async function persistToolPlan(repo: PlanLedgerRepository | undefined, orgId: OrgId, threadId: string, event: ModelCallProgressEvent): Promise<void> {
+  if (!repo || event.phase === "in_progress" || event.ok === false || event.toolName !== "write_todos") return;
+  const snapshot = parseWriteTodosSnapshot(event.toolArgsSummary ?? "");
+  if (snapshot) await ingestEnginePlanSnapshot(repo, { orgId, threadId, todos: snapshot.todos });
+}
 
 export interface ForwardsToEventBus {
   readonly clock: AgentRunClock;
@@ -91,7 +100,7 @@ export function forwardToolCallProgress(
     // 见 `execute-run.ts` `record()` 这次调用自己的 `failureCode: null`：这一层目前对
     // `tool_call` 步骤只有"完成"一种终态记录，不区分工具执行本身是否失败——既有限制，
     // 不是本 feature 引入的倒退（`ModelCallProgressEvent` 本身也没有一个 `ok` 字段）。
-    ok: true,
+    ok: event.ok !== false,
     result: event.toolResultFull ?? null,
     emittedAt: deps.clock.now(),
   }));

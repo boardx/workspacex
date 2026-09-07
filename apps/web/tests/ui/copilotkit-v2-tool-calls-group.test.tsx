@@ -59,13 +59,13 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(screen.queryByTestId("copilotkit-v2-tool-calls-group")).not.toBeInTheDocument();
   });
 
-  it("1 次工具调用：不加折叠外壳，直接展示这张卡片", () => {
+  it("1 次工具调用：默认折叠，保留这张卡片", () => {
     renderMessage([toolCall("call-1", "list_org_skills")]);
-    expect(screen.queryByTestId("copilotkit-v2-tool-calls-group")).not.toBeInTheDocument();
+    expect(screen.getByTestId("copilotkit-v2-tool-calls-group-toggle")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeInTheDocument();
   });
 
-  it("多次工具调用：收进一个分组容器，默认展开，两张卡片都可见（沿用既有 e2e 的可见性断言）", () => {
+  it("多次工具调用：收进一个分组容器，默认收起，展开后两张卡片可见", () => {
     renderMessage([
       toolCall("call-1", "list_org_skills"),
       toolCall("call-2", "write_todos", { todos: [{ content: "找字体", status: "completed" }] }),
@@ -74,7 +74,8 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(group).toHaveAttribute("data-tool-calls-count", "2");
 
     const toggle = screen.getByTestId("copilotkit-v2-tool-calls-group-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
 
     const body = screen.getByTestId("copilotkit-v2-tool-calls-group-body");
     expect(body).not.toHaveAttribute("hidden");
@@ -91,6 +92,7 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
       toolCall("call-2", "ls", { path: "/usr/share/fonts" }),
     ]);
     const toggle = screen.getByTestId("copilotkit-v2-tool-calls-group-toggle");
+    fireEvent.click(toggle);
     fireEvent.click(toggle);
 
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -116,7 +118,6 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     expect(screen.getByTestId("copilotkit-v2-tool-calls-group-toggle").tagName).toBe("BUTTON");
 
     const toggle = screen.getByTestId("copilotkit-v2-tool-calls-group-toggle");
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -136,8 +137,7 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     );
     expect(screen.getByTestId("copilotkit-v2-tool-calls-group")).toHaveAttribute("data-tool-calls-count", "2");
 
-    // 用户在这一轮还在跑的时候先手动收起。
-    fireEvent.click(screen.getByTestId("copilotkit-v2-tool-calls-group-toggle"));
+    // 本轮默认收起，后续事件不能改变它。
     expect(screen.getByTestId("copilotkit-v2-tool-calls-group-toggle")).toHaveAttribute("aria-expanded", "false");
 
     // 同一条消息又流进来一次新的工具调用（`glob`）——`V2AssistantMessage` 原地

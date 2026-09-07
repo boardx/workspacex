@@ -40,6 +40,8 @@
  *   断言，理由与那个文件头注逐字相同，不重复贴一遍。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
+import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
@@ -123,14 +125,15 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
         用的账号），不是继续用管理员——管理员不是这个项目的成员。 */
   await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
   await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-  await page.getByTestId("chat-thread-create").click();
   const title = `旅程③ ${unique}`;
-  await page.getByTestId("chat-thread-title-input").fill(title);
-  await page.getByTestId("chat-thread-title-submit").click();
-  await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
-
-  await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+  // The seeded-github-import project is deliberately stateful. Earlier specs can
+  // leave a not-started draft with a mounted skill, and the product correctly
+  // reuses that draft when New is clicked. This journey needs a clean mount
+  // baseline, so create an isolated persisted fixture instead of weakening the
+  // zero-mount counterproof.
+  const threadId = await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId, { forceFresh: true });
   await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+  await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
   await page.getByTestId("chat-skill-mount").click();
   const mountResponse = page.waitForResponse(
     (r) => r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url()),
@@ -140,26 +143,21 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
   await expect(page.getByTestId(`chat-skill-mounted-${skill!.skillId}`)).toBeVisible();
 
   // 把可运行的 agent 挂进编制（同 core-loop.spec.ts 步骤 8b 同一条路径）。
+  await openWorkbenchRoster(page);
   await page.getByTestId("chat-roster-edit").click();
   await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
   await page.getByTestId("chat-roster-add-submit").click();
   await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
   const marker = `JOURNEY03_${unique}`;
-  await page.getByTestId("chat-agent-select").click();
-  await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
-  await page.getByTestId("chat-message-input").fill(marker);
-  await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
-  await page.getByTestId("chat-message-submit").click();
-
-  // run 真的推进到终态，且**恰好一条**回复——同 core-loop.spec.ts 步骤 8b 的纪律：
-  // 数最终条数，不数成功次数；一次 run 必须只留下一条回复，不多不少。
-  const status = page.getByTestId("chat-live-agent-run-status");
-  await expect(status).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
+  await selectWorkbenchAgent(page, FULLSTACK_E2E.agentId);
+  await page.getByTestId("copilotkit-v2-input").fill(marker);
+  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
+  const completed = await submitWorkbenchRun(page);
 
   await page.reload();
-  await page.getByTestId("chat-read-thread-list").getByText(title).click();
-  const messageList = page.getByTestId("chat-message-list");
+  await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
+  const messageList = page.getByTestId("copilotkit-v2-messages");
   await expect(messageList).toContainText(marker);
   // 真实实测：挂了 skill 之后，这条 run 走的不是 core-loop.spec.ts 8b 那条纯 echo
   // 的 loopback 路径，而是真的经由 deep-agent + skill 沙箱执行。对照
@@ -173,8 +171,18 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
   // "真的执行了 skill"与"agent 只是简单回显了一句"区分开：后者不会产出这段文字。
   await expect(messageList).toContainText("已在沙箱中执行上面的脚本，生成以下文件");
   await expect(messageList).toContainText("deck.pptx");
-  // exactly-once 的纪律不丢：断言总行数恰好 2（human 一条 + agent 一条），同
-  // core-loop.spec.ts 8b `runStat.threadMessages` 检查同一件事，只是从 API 读改成
-  // 从 DOM 数——这里没有 runId 可直接查库，DOM 计数是本条唯一够得到的等价证据。
-  await expect(messageList.getByTestId("chat-message-row")).toHaveCount(2);
+  // 刷新后正文只出现一条助手回复；持久 API 验证该线程恰好一问一答及真实 run 身份。
+  await expect(messageList.getByTestId("copilot-assistant-message")).toHaveCount(1);
+  const memberToken = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  const persisted = await page.request.get(`/__fullstack_api/chat/threads/${threadId}/messages`, {
+    headers: { Authorization: `Bearer ${memberToken}` },
+  });
+  expect(persisted.status()).toBe(200);
+  const history = await persisted.json();
+  expect(history.nextCursor).toBeNull();
+  expect(history.messages).toHaveLength(2);
+  expect(history.messages.filter((message: { authorKind: string }) => message.authorKind === "human")).toHaveLength(1);
+  expect(history.messages.filter((message: { authorKind: string }) => message.authorKind === "agent")).toEqual([
+    expect.objectContaining({ id: completed.resultMessageId, agentRunId: completed.runId }),
+  ]);
 });

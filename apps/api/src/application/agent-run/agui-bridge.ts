@@ -1,3 +1,4 @@
+import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 /**
  * `runAguiBridgeTurn` -- the orchestration behind the AG-UI SSE bridge (#654 Phase 1b).
  *
@@ -181,6 +182,7 @@ export interface AguiBridgeInput {
    * forwards deltas downstream (e.g. writing them onto an SSE response) does not want a
    * failed write silently swallowed here.
    */
+  readonly onExecutionEvent?: (event: ExecutionEvent) => void;
   readonly onDelta?: (delta: string) => void;
   /**
    * #789 -- fired, in `seq` order, for every `tool_call` step observed while polling
@@ -237,6 +239,7 @@ export interface RunStepPublic {
 }
 
 export type AguiBridgeOutcome =
+  | { readonly kind: "paused" | "cancelled"; readonly threadId: string; readonly runId: string }
   | {
     readonly kind: "succeeded";
     readonly threadId: string;
@@ -259,6 +262,16 @@ export type AguiBridgeOutcome =
    */
   | { readonly kind: "awaiting_tool_permission"; readonly threadId: string; readonly runId: string };
 
+async function readExecutionCursor(runs: AgentRunStore, orgId: OrgId, runId: string): Promise<number> {
+  let cursor = -1;
+  if (!runs.readExecutionEvents) return cursor;
+  while (true) {
+    const events = await runs.readExecutionEvents(orgId, runId, cursor);
+    cursor = events.at(-1)?.seq ?? cursor;
+    if (events.length < 1000) return cursor;
+  }
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** The run reached `awaiting_tool_permission` again immediately after a resume without ever
@@ -280,7 +293,8 @@ async function pollAguiRunToOutcome(
     readonly runId: string;
     readonly pollIntervalMs?: number;
     readonly maxPolls?: number;
-    readonly onDelta?: (delta: string) => void;
+    readonly onExecutionEvent?: (event: ExecutionEvent) => void;
+  readonly onDelta?: (delta: string) => void;
     readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
     readonly onPhase?: (phase: AguiRunPhase) => void;
     /**
@@ -298,6 +312,7 @@ async function pollAguiRunToOutcome(
      * turn defaults, unchanged from before this field existed.
      */
     readonly initialLastSeenDeltaSeq?: number;
+    readonly initialExecutionSeq?: number;
     readonly initialReportedStepCount?: number;
   },
 ): Promise<AguiBridgeOutcome> {
@@ -309,8 +324,18 @@ async function pollAguiRunToOutcome(
   const maxPolls = input.maxPolls ?? DEFAULT_RUN_MAX_POLLS;
   let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
   let reportedStepCount = input.initialReportedStepCount ?? 0;
+  let lastExecutionSeq = input.initialExecutionSeq ?? -1;
   let reportedRunning = false;
   let reportedContextBuilt = false;
+
+  const flushExecutionEvents = async (): Promise<void> => {
+    if (!input.onExecutionEvent || !deps.runs.readExecutionEvents) return;
+    while (true) {
+      const events = await deps.runs.readExecutionEvents(input.orgId, runId, lastExecutionSeq);
+      for (const event of events) { input.onExecutionEvent(event); lastExecutionSeq = event.seq; }
+      if (events.length < 1000) return;
+    }
+  };
 
   // See `runAguiBridgeTurn`'s file-head comment on the 2026-08-08 CI-only race this closes.
   const flushRemainingDeltas = async (): Promise<void> => {
@@ -323,6 +348,7 @@ async function pollAguiRunToOutcome(
   };
 
   for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+    await flushExecutionEvents();
     if (input.onDelta) {
       const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
       for (const delta of deltas) {
@@ -355,6 +381,7 @@ async function pollAguiRunToOutcome(
     }
     if (projection.status === "succeeded") {
       await flushRemainingDeltas();
+      await flushExecutionEvents();
       if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();
       const page = await listMessagePage(deps, {
         userId: input.userId, orgId: input.orgId, threadId, limit: 100,
@@ -363,8 +390,14 @@ async function pollAguiRunToOutcome(
       if (message === undefined) throw new AguiBridgeResultUnreadableError();
       return { kind: "succeeded", threadId, runId, messageId: message.id, text: message.text };
     }
+    if (projection.status === "paused" || projection.status === "cancelled") {
+      await flushExecutionEvents();
+      return { kind: projection.status, threadId, runId };
+    }
     if (projection.status === "failed") {
       await flushRemainingDeltas();
+      await flushExecutionEvents();
+      if (await deps.runs.isPausedAtCheckpoint?.(input.orgId, runId)) return { kind: "paused", threadId, runId };
       return { kind: "failed", threadId, runId, error: projection.error ?? "UNKNOWN" };
     }
     // DA-19g -- run halted on a real interrupt, not a failure and not "still working": the
@@ -377,6 +410,7 @@ async function pollAguiRunToOutcome(
     // is definitely not a timeout.
     if (projection.status === "awaiting_tool_permission") {
       await flushRemainingDeltas();
+      await flushExecutionEvents();
       return { kind: "awaiting_tool_permission", threadId, runId };
     }
     await sleep(pollIntervalMs);
@@ -446,7 +480,7 @@ export async function runAguiBridgeTurn(
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId, runId: accepted.agentRunId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
-    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
+    onExecutionEvent: input.onExecutionEvent, onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
     initialReportedStepCount, initialLastSeenDeltaSeq,
   });
 }
@@ -482,11 +516,13 @@ export async function resumeAguiBridgeTurn(
     readonly userId: string;
     readonly orgId: OrgId;
     readonly threadId: string;
+    readonly permissionRequestId?: string;
     readonly decision:
       | { readonly kind: "approve" | "reject" }
       | { readonly kind: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> };
     readonly onStarted?: () => void;
-    readonly onDelta?: (delta: string) => void;
+    readonly onExecutionEvent?: (event: ExecutionEvent) => void;
+  readonly onDelta?: (delta: string) => void;
     readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
     readonly onPhase?: (phase: AguiRunPhase) => void;
     readonly pollIntervalMs?: number;
@@ -511,6 +547,7 @@ export async function resumeAguiBridgeTurn(
   const preDecisionDeltas = input.onDelta
     ? await deps.runs.readModelDeltas(input.orgId, runId, -1)
     : [];
+  const initialExecutionSeq = await readExecutionCursor(deps.runs, input.orgId, runId);
   const initialReportedStepCount = preDecisionProjection.steps.length;
   const initialLastSeenDeltaSeq = preDecisionDeltas.length > 0
     ? preDecisionDeltas[preDecisionDeltas.length - 1]!.seq
@@ -518,6 +555,7 @@ export async function resumeAguiBridgeTurn(
 
   await decideAgentRun(deps, {
     userId: input.userId, orgId: input.orgId, runId,
+    permissionRequestId: input.permissionRequestId,
     ...(input.decision.kind === "edit"
       ? { decision: "edit" as const, editedArgs: input.decision.editedArgs }
       : { decision: input.decision.kind }),
@@ -532,8 +570,8 @@ export async function resumeAguiBridgeTurn(
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId: input.threadId, runId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
-    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
-    initialReportedStepCount, initialLastSeenDeltaSeq,
+    onExecutionEvent: input.onExecutionEvent, onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
+    initialReportedStepCount, initialLastSeenDeltaSeq, initialExecutionSeq,
   });
 }
 
@@ -557,13 +595,13 @@ export async function resumeAguiBridgeTurnToolPermission(
     readonly userId: string;
     readonly orgId: OrgId;
     readonly threadId: string;
+    readonly permissionRequestId?: string;
     readonly decision: ToolPermissionDecisionKind;
-    /** `decideToolPermission` 收下这个字段但不参与判定（同一个 run 同一时刻只可能有
-     *  一个待批工具调用，见该函数自己的文档）——这里传 AG-UI 消息里带的
-     *  `toolCallId`（拿不到就传空串），只为了错误信息里能回显真实值。 */
+    /** Legacy transport field. Identity-bearing approvals require the persisted permissionRequestId. */
     readonly toolCallId: string;
     readonly onStarted?: () => void;
-    readonly onDelta?: (delta: string) => void;
+    readonly onExecutionEvent?: (event: ExecutionEvent) => void;
+  readonly onDelta?: (delta: string) => void;
     readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
     readonly onPhase?: (phase: AguiRunPhase) => void;
     readonly pollIntervalMs?: number;
@@ -579,6 +617,7 @@ export async function resumeAguiBridgeTurnToolPermission(
   const preDecisionDeltas = input.onDelta
     ? await deps.runs.readModelDeltas(input.orgId, runId, -1)
     : [];
+  const initialExecutionSeq = await readExecutionCursor(deps.runs, input.orgId, runId);
   const initialReportedStepCount = preDecisionProjection.steps.length;
   const initialLastSeenDeltaSeq = preDecisionDeltas.length > 0
     ? preDecisionDeltas[preDecisionDeltas.length - 1]!.seq
@@ -586,14 +625,14 @@ export async function resumeAguiBridgeTurnToolPermission(
 
   await decideToolPermission(deps, {
     userId: input.userId, orgId: input.orgId, runId,
-    toolCallId: input.toolCallId, decision: input.decision,
+    permissionRequestId: input.permissionRequestId, toolCallId: input.toolCallId, decision: input.decision,
   });
   input.onStarted?.();
 
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId: input.threadId, runId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
-    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
-    initialReportedStepCount, initialLastSeenDeltaSeq,
+    onExecutionEvent: input.onExecutionEvent, onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
+    initialReportedStepCount, initialLastSeenDeltaSeq, initialExecutionSeq,
   });
 }

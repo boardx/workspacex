@@ -157,6 +157,7 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
         跑完再查这些的话，弹窗可能已经被关掉、横幅可能已经被下一次渲染顶掉。 */
   const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
   const approvalCard = page.getByTestId("chat-approval-card");
+  const restoredApproval = page.getByTestId("restored-run-approval");
   const errorBanner = page.getByTestId("copilotkit-v2-error");
   let approvalSeenAt: string | null = null;
   let errorSeenText: string | null = null;
@@ -176,7 +177,7 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
 
   while (Date.now() < deadline) {
     // 弹窗/横幅：数节点，不等它可见——`toBeVisible` 会等，等就会错过下一次采样。
-    if (approvalSeenAt === null && (await permissionDialog.count()) + (await approvalCard.count()) > 0) {
+    if (approvalSeenAt === null && (await permissionDialog.count()) + (await approvalCard.count()) + (await restoredApproval.count()) > 0) {
       approvalSeenAt = `+${((Date.now() - sentAt) / 1000).toFixed(1)}s`;
     }
     if (errorSeenText === null && (await errorBanner.count()) > 0) {
@@ -232,7 +233,7 @@ test("真实模型：/chat 发「生成一个 pdf…」→ 真的产出 PDF、�
     "③ 全程没有出现工具授权/审批弹窗（pdf-create 是 L0，#2782）",
     approvalSeenAt === null,
     approvalSeenAt === null
-      ? "chat-tool-permission-dialog / chat-approval-card 在整轮轮询中一次都没有出现"
+      ? "chat-tool-permission-dialog / chat-approval-card / restored-run-approval 在整轮轮询中一次都没有出现"
       : `弹窗在 ${approvalSeenAt} 出现——L0 技能不该要人点确认`,
   );
 

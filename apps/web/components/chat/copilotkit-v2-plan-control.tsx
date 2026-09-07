@@ -84,6 +84,8 @@ export interface CopilotKitV2PlanControlProps {
    *  见该文件对 `resolvedChatThreadId` 的头注）。`null` 时（新对话尚未发出第一条消息）
    *  不渲染——线程还不存在，没有账本可读。 */
   readonly threadId: string | null;
+  readonly projectId?: string | null;
+  readonly canWrite?: boolean;
   /**
    * issue #2451 —— `copilotkit-v2-panel.tsx` 的 `RUN_ERROR` 订阅（"模型这次没能
    * 返回可用结果"横幅）每次触发都把这个数改一下（自增计数器）。本组件用它做两件事：
@@ -96,28 +98,13 @@ export interface CopilotKitV2PlanControlProps {
 }
 
 export function CopilotKitV2PlanControl(
-  { threadId, refetchSignal }: CopilotKitV2PlanControlProps,
+  { threadId, projectId, canWrite = true, refetchSignal }: CopilotKitV2PlanControlProps,
 ): React.JSX.Element | null {
-  const { ledger, refetch } = usePlanLedgerPolling(threadId);
+  const { ledger, refetch } = usePlanLedgerPolling(threadId, projectId);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
-  /**
-   * 缺口 4（如实登记，未硬套）：`getPlanLedger.out` 不暴露"当前 run 是否已被暂停"
-   * （`PlanRunSnapshot.pausedAt` 存在于 `PlanRunStatusReader` 端口，但
-   * `get-plan-ledger.ts` 没有把它投影进读模型——`derivePlanPhase` 把 running 和
-   * interrupted/paused 都折进同一个 `"executing"` 态）。真正的服务端派生值补全前，
-   * 这里退而求其次：暂停/恢复成功后各自把这个 state 板正过来，反映"我最后一次点的
-   * 是哪个"，不是真正跨会话/多端一致的服务端状态——如实是一个近似，不是编造。
-   */
-  const [pausedLocally, setPausedLocally] = React.useState(false);
-
-  // 离开 executing 态（完成/失败/新一轮重新进入 planning）时清掉本地"暂停"近似值——
-  // 不让上一轮 run 的暂停印记残留到下一轮。
-  React.useEffect(() => {
-    if (ledger?.phase !== "executing") setPausedLocally(false);
-  }, [ledger?.phase]);
-
+  // Pause state comes only from the durable ledger, including after refresh.
   // issue #2451 —— `refetchSignal` 每变一次（父组件的 `RUN_ERROR` 订阅触发），立刻
   // 抢一次 refetch，并把这次报错标成"最近报错"；同样在离开 executing 态时清掉——
   // 与上面 `pausedLocally` 是同一条纪律，不让上一轮的报错印记残留到下一轮。
@@ -156,6 +143,7 @@ export function CopilotKitV2PlanControl(
   }, [needsDecision]);
 
   async function runAction(action: () => Promise<unknown>): Promise<boolean> {
+    if (!canWrite) return false;
     setBusy(true);
     setActionErrorCode(null);
     try {
@@ -179,28 +167,28 @@ export function CopilotKitV2PlanControl(
   const revision = ledger.revision;
 
   const handleReorder = (planStepId: string, toIndex: number): void => {
-    void runAction(() => reorderPlanStep(tid, { basedOnRevision: revision, planStepId, toIndex }));
+    void runAction(() => reorderPlanStep(tid, { basedOnRevision: revision, planStepId, toIndex }, projectId));
   };
   const handleDelete = (planStepId: string): void => {
-    void runAction(() => deletePlanStep(tid, { basedOnRevision: revision, planStepId }));
+    void runAction(() => deletePlanStep(tid, { basedOnRevision: revision, planStepId }, projectId));
   };
   const handleAddConstraint = (planStepId: string, text: string): void => {
-    void runAction(() => addPlanConstraint(tid, { basedOnRevision: revision, planStepId, text }));
+    void runAction(() => addPlanConstraint(tid, { basedOnRevision: revision, planStepId, text }, projectId));
   };
   const handleRemoveConstraint = (constraintId: string): void => {
-    void runAction(() => removePlanConstraint(tid, { basedOnRevision: revision, constraintId }));
+    void runAction(() => removePlanConstraint(tid, { basedOnRevision: revision, constraintId }, projectId));
   };
   const handleConfirm = (): void => {
-    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }));
+    void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId));
   };
   const handlePause = (): void => {
-    void runAction(() => pausePlanRun(tid)).then((ok) => { if (ok) setPausedLocally(true); });
+    void runAction(() => pausePlanRun(tid, projectId));
   };
   const handleResume = (): void => {
-    void runAction(() => resumePlanRun(tid)).then((ok) => { if (ok) setPausedLocally(false); });
+    void runAction(() => resumePlanRun(tid, projectId));
   };
   const handleRetryStep = (planStepId: string): void => {
-    void runAction(() => retryPlanStep(tid, { planStepId }));
+    void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
 
   const runningStepIndex = ledger.steps.findIndex((s) => s.status !== "completed");
@@ -235,6 +223,7 @@ export function CopilotKitV2PlanControl(
         {!collapsed && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
             size="xs"
+            disabled={!canWrite}
             variant={editing ? "primary" : "outline"}
             className="ml-auto"
             data-testid={PLAN_CONTROL_EDIT_TOGGLE_TESTID}
@@ -254,7 +243,7 @@ export function CopilotKitV2PlanControl(
         </p>
       )}
 
-      {!collapsed && ledger.phase === "failed" && failedStep && (
+      {!collapsed && canWrite && ledger.phase === "failed" && failedStep && (
         <PlanFailureRecovery
           failedStepIndex={failedStepDisplayIndex}
           failedStepLabel={failedStep.content}
@@ -273,10 +262,11 @@ export function CopilotKitV2PlanControl(
           stepIndex={currentStepIndex}
           stepTotal={ledger.steps.length}
           elapsedMs={ledger.progress.elapsedMs}
-          isPaused={pausedLocally}
-          onPause={handlePause}
-          onResume={handleResume}
-          hasRecentError={hasRecentError}
+          isPaused={Boolean(ledger.pausedAt)}
+          isPauseRequested={!ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}
+          onPause={canWrite ? handlePause : undefined}
+          onResume={canWrite ? handleResume : undefined}
+          hasRecentError={hasRecentError && !ledger.pausedAt}
         />
       )}
 

@@ -158,6 +158,12 @@ export function useCopilotKitV2RunRestore(
   const settleWithFinalRead = React.useCallback(async (runId: string) => {
     try {
       const view = await getAgentRun(runId, sessionTokenRef.current);
+      if (view.status === "paused" || view.status === "awaiting_tool_permission") {
+        settledRef.current = false;
+        setStatus(view.status);
+        setIsRestoring(false);
+        return;
+      }
       if (isTerminalWave2RunStatus(view.status)) {
         setIsRestoring(false);
         onSettledRef.current({ kind: "settled", view });
@@ -186,6 +192,8 @@ export function useCopilotKitV2RunRestore(
       try {
         const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
         if (cancelled || settledRef.current) return;
+        setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status as AgentKernelRunStatus));
+        setIsRestoring(view.status !== "paused" && view.status !== "awaiting_tool_permission");
         if (isTerminalWave2RunStatus(view.status)) {
           settledRef.current = true;
           setIsRestoring(false);
@@ -196,7 +204,7 @@ export function useCopilotKitV2RunRestore(
         // 读不到就交给事件流 + 下面的有界复读继续，不在这里编造结果。
       }
       // issue #2860 —— 非终态：事件流可能永远不来（重启后回放缓冲为空），有界复读兜底。
-      const startedAt = Date.now();
+      let startedAt = Date.now();
       while (!cancelled && !settledRef.current && Date.now() - startedAt < RESTORE_POLL_MAX_MS) {
         await new Promise((resolve) => setTimeout(resolve, RESTORE_POLL_INTERVAL_MS));
         if (cancelled || settledRef.current) return;
@@ -204,6 +212,9 @@ export function useCopilotKitV2RunRestore(
           const view: AgentRunView = await getAgentRun(pendingRunId, sessionTokenRef.current);
           if (cancelled || settledRef.current) return;
           setStatus(isTerminalWave2RunStatus(view.status) ? null : (view.status as AgentKernelRunStatus));
+          const waitingForUser = view.status === "paused" || view.status === "awaiting_tool_permission";
+          setIsRestoring(!waitingForUser);
+          if (waitingForUser) startedAt = Date.now();
           if (!isTerminalWave2RunStatus(view.status)) continue;
           settledRef.current = true;
           setIsRestoring(false);
@@ -234,6 +245,7 @@ export function useCopilotKitV2RunRestore(
     // issue #2756 —— 非终态的状态变化同样如实带出去（`running` ↔ `awaiting_*`/`paused`），
     // 插话入口只对 `running` 开放；终态一到即置 `null`，下面随即结束核实。
     setStatus(isTerminalRunStatus(event.status) ? null : event.status);
+    setIsRestoring(event.status !== "paused" && event.status !== "awaiting_tool_permission");
     if (!isTerminalRunStatus(event.status)) return;
     settledRef.current = true;
     void confirmTerminal(event.runId);

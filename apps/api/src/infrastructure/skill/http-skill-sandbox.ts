@@ -1,3 +1,5 @@
+import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
+import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
  * `SkillSandboxPort` 的唯一实现：经 HTTP 调 `apps/skill-sandbox` 的 `POST /run`
  * （design delta `skill-sandbox-execution` contract §3，F962 / #1583）。
@@ -88,9 +90,11 @@ export class HttpSkillSandbox implements SkillSandboxPort {
   async run(input: {
     readonly script: string;
     readonly timeoutMs: number;
+    readonly inputFiles?: readonly SandboxInputFile[];
   }): Promise<SandboxRunResult> {
+    await assertCurrentRunLease();
     const options = this.target();
-    const payload = JSON.stringify({ script: input.script, timeoutMs: input.timeoutMs });
+    const payload = JSON.stringify({ script: input.script, timeoutMs: input.timeoutMs, ...(input.inputFiles ? { inputFiles: input.inputFiles } : {}) });
 
     const body = await new Promise<string>((resolve, reject) => {
       const req = request(

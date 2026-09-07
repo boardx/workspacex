@@ -45,6 +45,7 @@
  * 它若还绿，说明这条断言验的不是「第一个」，而是「恰好没人注册过」—— 从第一天起空转。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import {
   EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat, readVerificationToken,
@@ -313,15 +314,13 @@ test.describe("核心闭环八步", () => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
-    await expect(page.getByTestId("chat-read-thread-list")).toBeVisible();
+    await expect(page.getByTestId("copilotkit-v2-thread-list")).toBeVisible();
     // 写入口的渲染依据是服务端下发的 `thread.mutate`（#460/#489）。
     // 它不可见就说明能力没下发到位——那正是 #489 修的那条死路。
     await expect(page.getByTestId("chat-thread-create")).toBeVisible();
 
     const title = `闭环会话 ${Date.now()}`;
-    await page.getByTestId("chat-thread-create").click();
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
 
     // 「刷新后仍在」是这条唯一能区分「写进了库」与「写进了 React state」的断言。
     //
@@ -330,7 +329,7 @@ test.describe("核心闭环八步", () => {
     //   （`chat-thread-<id>`）与详情页的 `<h1>` 上，两个命中直接判失败——
     //   会话明明建出来了，报出来却像是没建成。
     //   收窄到列表**更严**，不是放宽：闭环真正要的就是「它在那份持久化的列表里」。
-    const threadList = page.getByTestId("chat-read-thread-list");
+    const threadList = page.getByTestId("copilotkit-v2-thread-list");
     await expect(threadList.getByText(title)).toBeVisible();
     await page.reload();
     await expect(threadList.getByText(title)).toBeVisible();
@@ -358,7 +357,7 @@ test.describe("核心闭环八步", () => {
   //   · **`op:"create"` 走同一个 URL、同一个方法，是通的**（上面 6a 就是证据）；
   //   · 不是前端守卫静默 return —— 请求真发出去了，`expectedVersion` 也带上了；
   //   · 不是线程不存在 —— 那个 id 是上一步刚建的，列表与详情都渲染出来了；
-  //   · 不是竞态 —— 加「等 chat-thread-detail 可见」再改名，结果一模一样。
+  //   · 不是竞态 —— 加「等 copilotkit-v2-thread-topbar 可见」再改名，结果一模一样。
   //
   // 所以这里用 `test.fail()` 而不是把它写进 6a：缺口要**可见、有名字、
   // 修好之后会自动报 "expected to fail but passed" 逼人回来翻正**。
@@ -366,11 +365,9 @@ test.describe("核心闭环八步", () => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
-    const threadList = page.getByTestId("chat-read-thread-list");
+    const threadList = page.getByTestId("copilotkit-v2-thread-list");
     const title = `闭环改删 ${Date.now()}`;
-    await page.getByTestId("chat-thread-create").click();
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
 
     // 2026-08-30 起「…」菜单对**任意**可写卡片都渲染（不再要求先选中，见
     // `thread-list-shell.tsx` `ThreadCardButton` 头注）——这个 seeded 项目在闭环
@@ -380,13 +377,13 @@ test.describe("核心闭环八步", () => {
     // （`data-testid="chat-thread-selection-actions"`，同一张卡片才有的外层 div），
     // 再在它内部找菜单触发按钮。仍然先点中那张卡，顺带验证「点卡片能选中并打开
     // 详情」这条本身没坏。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
-    // 因此按标题在 `chat-thread-card-list` 内点 —— 那个容器**只包会话卡**，
+    // 因此按标题在 `copilotkit-v2-thread-list` 内点 —— 那个容器**只包会话卡**，
     // 不含写入口，正是为这种定位准备的（见该组件注释）。
-    const cardList = page.getByTestId("chat-thread-card-list");
+    const cardList = page.getByTestId("copilotkit-v2-thread-list");
     const cardContainer = (text: string) =>
       cardList.locator('[data-testid="chat-thread-selection-actions"]').filter({ hasText: text });
     await cardList.getByText(title).click();
-    await expect(page.getByTestId("chat-thread-detail")).toBeVisible();
+    await expect(page.getByTestId("copilotkit-v2-thread-topbar")).toBeVisible();
 
     // ⚠ 新标题**刻意不包含原标题**。写成 `${title} 改名后` 的话，
     //   下面「旧名字消失」那条会因子串匹配恒假 —— 一个会自己骗自己的断言。
@@ -420,90 +417,26 @@ test.describe("核心闭环八步", () => {
     await expect(threadList.getByText(renamed)).toHaveCount(0);
   });
 
-  /**
-   * ⚠ 这一条原本**锚在死代码上**，红了，但**红错了原因**。由 coord-chat-e2e 在 #492 写入，此处收口。
-   *
-   * 原文断言 `chat-composer-input`。实测该 testid **只定义在**
-   * `apps/web/components/chat/composer.tsx:47`，而那条组件链**路由走不到**：
-   * `composer.tsx` 的唯一引用者是 `components/chat/chat-main.tsx:11`，而 `chat-main.tsx`
-   * 在 `apps/web` 里**零引用者**（`grep -rn chat-main apps` 只命中它自身的 `data-testid`
-   * 与一条测试注释）。⇒ 它恒红的原因是「断言够不到那个元素」，不是「发消息没做」。
-   * （`composer.tsx` 本身**不许删**：它被 `phases/phase-01-run-a-project/contracts/chat/ui.md:69`
-   *   登记为已签核原型屏材料，删它是签核动作 —— #529 已正确拒绝。）
-   *
-   * 这不是从 import 图推断出来的，是**实测**的：临时探针在本夹具默认状态下
-   * （登录 → `/chat?projectId=…` → 新建线程）同时量了两个锚点，结果
-   * `chat-message-input=visible`、`chat-composer-input=0` —— 旧锚点整页零命中。
-   *
-   * ## 真实锚点（写进断言前逐个在源码里重新定位，并实测走得到）
-   *   · `chat-message-input`        components/chat/chat-live-message-panel.tsx:553
-   *   · `chat-message-submit`       components/chat/chat-live-message-panel.tsx:582
-   *   · `chat-agent-select`         components/chat/chat-live-message-panel.tsx:954
-   *     （#728 D8：不再是原生 `&lt;select&gt;`，是弹层触发按钮；选项在
-   *     `chat-agent-select-option-&lt;agentId&gt;`，需要先 `.click()` 打开再点选项）
-   *   · `chat-roster-edit`          components/chat/chat-read-screen.tsx:875
-   *   · `chat-roster-add-input`     components/chat/chat-read-screen.tsx:901
-   *   · `chat-roster-add-submit`    components/chat/chat-read-screen.tsx:908
-   *   · `chat-roster-agent-<id>`    components/chat/chat-read-screen.tsx:936
-   *   活链路是 `app/chat/page.tsx` → `ChatReadScreen` → `ChatLiveMessagePanel`。
-   *
-   *   ⚠ #728 回归（发现于 PR #837 合并后）：编制表单**曾经**无条件渲染在
-   *   `writable` 分支下（就是这段注释此前写的那样），#728 的一次主屏视觉重做给
-   *   `RosterPanel` 加了 `addOpen` 折叠态（默认 `false`），表单现在**折在
-   *   `chat-roster-edit` 这个「编辑」按钮后面**——恰好就是这段注释警告过的
-   *   「锚点存在但默认折叠够不到」那个坑，这次是真被踩中了：两处步骤
-   *   （6b/8b）直接 `.fill(chat-roster-add-input)`，元素还没渲染，
-   *   `locator.fill` 死等到 30s/180s 超时。修法是在 `.fill()` 前先点开
-   *   `chat-roster-edit`，不是撤回这个折叠态（那是本轮真实、有意的 UI 改动，
-   *   不是误删）。
-   *
-   * ## 翻正（2026-08-05）：阻塞解除的**真正来源**是 #435，不是 #467/#546
-   *
-   * 上一版注释判定的红因是对的：提交键 disabled 条件是
-   * `archived || submitting || text.trim() === "" || selectedAgentId === ""`
-   * （`chat-live-message-panel.tsx:214`，现 :215 的 `submit()` 守卫同条件），
-   * 新建线程编制为空 ⇒ `selectedAgentId === ""` ⇒ 键禁用。缺的是
-   * 「新建会话里有一个可挂的 Agent」。
-   *
-   * 但补上这一段的**不是** skill 挂载（#467 / PR #546）—— 那条链走
-   * `/threads/:id/skill-mounts`，跟 `selectedAgentId` 无关，挂满 skill 提交键照样禁用。
-   * 真正补上的是 #435（PR #537）落地的**线程级编制写路径**
-   * `POST /chat/threads/:threadId/agents`（packages/contracts/src/chat.ts:527），
-   * 界面入口即上面那两个 `chat-roster-add-*` 锚点。步骤 8b 自 #537 起就一直在用它跑绿，
-   * 也就是说 6b 的阻塞其实**在 #537 合入那天就已经解除了**，只是没人回来翻正。
-   *
-   * ⚠ 这里是走**界面**把 agent 加进编制，不是给夹具偷种一条 roster 行。
-   *   真实用户也必须先给会话配一个 agent 才能开口，这就是那条产品路径；
-   *   预种编制会让用例在「新建会话根本发不出消息」时照样绿 —— 那是假绿。
-   *   夹具只种到 `org_agents` / `agents`（agent 在**组织目录**里存在），
-   *   线程编制一行都不种（见 `fullstack-smoke-fixture.ts`，与 8b 同一约定）。
-   *
-   * ## 与步骤 8b 的分工（两条都留着，不是重复）
-   *   8b 测的是 **agent 执行**：run 推进到 succeeded、库里**恰好一条**回复。
-   *   6b 测的是 **human 消息本身的持久化**：POST 拿到 202、`reload()` 后正文仍在。
-   *   8b 会因为 runtime 侧任何问题而红；6b 只依赖写端口 + 读端口，
-   *   留着它，「消息写进库了吗」这件事才有一条不受 runtime 影响的独立断言。
-   */
+  /** New workbench transport is AG-UI SSE. Preserve the real roster mutation,
+   * selected agent, user message persistence, and write-failure counter-proofs. */
   test("[#462] 步骤 6b：在会话里发一条消息并刷新后仍在", async ({ page }) => {
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
     // 自己建线程，不蹭 6a 留下的那条：单独 grep 跑这一条时项目里可能一条线程都没有，
     // 蹭上一条用例的残留会让它在全量跑绿、单跑红。
-    const threadList = page.getByTestId("chat-read-thread-list");
-    await page.getByTestId("chat-thread-create").click();
+    const threadList = page.getByTestId("copilotkit-v2-thread-list");
     const title = `闭环发消息 ${Date.now()}`;
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
     await expect(threadList.getByText(title)).toBeVisible();
     await threadList.getByText(title).click();
 
     // ── 先钉住坏状态确实存在 ────────────────────────────────────────────────
-    // 新建线程编制为空 ⇒ 提交键必须是**禁用**的。这一句不是装饰：没有它，
-    // 下面那句 `toBeEnabled()` 就可能一直是真的（比如有人把 disabled 条件删了），
-    // 而「加 agent」这一步是否真的起了作用就再也测不出来。
+    // 编制起初为空；空输入不能提交。随后真实挂载并显式选择该 Agent，
+    // 输入消息后才提交，不用空输入的禁用状态推断 Agent 授权。
+    await openWorkbenchRoster(page);
     await expect(page.getByTestId("chat-roster-empty")).toBeVisible();
-    await expect(page.getByTestId("chat-message-submit")).toBeDisabled();
+    await expect(page.getByTestId("copilotkit-v2-send")).toBeDisabled();
 
     // ── 走界面把 agent 加进本线程编制（真实用户路径） ───────────────────────
     // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可选。
@@ -514,53 +447,38 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId(`chat-roster-agent-${FULLSTACK_E2E.agentId}`)).toBeVisible();
 
     const text = `闭环消息 ${Date.now()}`;
-    await expect(page.getByTestId("chat-message-input")).toBeVisible();
-    await page.getByTestId("chat-agent-select").click();
-    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
-    await page.getByTestId("chat-message-input").fill(text);
+    await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+    await page.getByTestId("chat-task-workbench-capability-picker").click();
+    await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${FULLSTACK_E2E.agentId}"]`).click();
+    await page.getByTestId("copilotkit-v2-input").fill(text);
     // 编制补上之后这一行才转绿——它是「阻塞已解除」这件事的断言本体。
-    await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
+    await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
 
-    // ⚠ 不要用 `$` 收尾：发消息的 URL 带 `?projectId=…`（同 8a 挂载踩过的坑），
-    //   锚死结尾会永不匹配，表现为「等响应超时」而不是「功能没做」。
-    //   契约路径 `POST /chat/threads/:threadId/messages`，packages/contracts/src/chat.ts:568。
-    /* ── 反证开关：两档，各自钉死**不同**的一行 ────────────────────────────
-     *
-     * 一条用例「摘掉后端就变红」还不够，必须问「它是不是因为**对的原因**红的」。
-     * 本条有两个独立断言，各配一档反证；实测红点落在哪一行都记在下面。
-     *
-     *   · `drop-write` —— 写端口坏掉（500）。红在 :426 的 `toBe(202)`：
-     *       `expect(received).toBe(expected) … Received: 500`
-     *     证明「202」不是摆设。但它**红得太早**，够不到刷新那一步 ⇒ 单靠它
-     *     无法排除「消息只进了 React state」，所以才有下面这一档。
-     *
-     *   · `noop-write` —— 写端口**假装成功**：照常返回 202，但一个字节都不落库。
-     *     前面所有断言（编制、提交键 enabled、202）**全部照常通过**，红点精确落在
-     *     :431 刷新之后的 `toContainText`：`element(s) not found`。
-     *     这才是真正考验「写进 PostgreSQL 而不是写进 React state」的那一刀 ——
-     *     红在刷新**之后**，而不是刷新之前。
-     */
+    // Intercept the real browser write transport. noop-write returns a valid empty
+    // SSE run but writes no human message; only the post-reload assertion can pass
+    // with a genuinely persisted message. drop-write must fail at HTTP success.
     const counterproof = process.env.CORE_LOOP_COUNTERPROOF_6B;
     if (counterproof === "noop-write" || counterproof === "drop-write") {
-      await page.route(/\/chat\/threads\/[^/]+\/messages(\?|$)/, async (route) => {
+      await page.route(/\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/, async (route) => {
         if (route.request().method() !== "POST") return route.fallback();
         await route.fulfill({
-          status: counterproof === "noop-write" ? 202 : 500,
-          contentType: "application/json",
-          body: "{}",
+          status: counterproof === "noop-write" ? 200 : 500,
+          contentType: "text/event-stream",
+          body: `data: ${JSON.stringify({ type: "RUN_STARTED", threadId: route.request().postDataJSON().threadId, runId: "noop-write" })}\n\ndata: ${JSON.stringify({ type: "RUN_FINISHED", threadId: route.request().postDataJSON().threadId, runId: "noop-write" })}\n\n`,
         });
       });
     }
     const responsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST" && /\/chat\/threads\/[^/]+\/messages(\?|$)/.test(response.url())
+      response.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url())
     ));
-    await page.getByTestId("chat-message-submit").click();
-    expect((await responsePromise).status()).toBe(202);
+    await page.getByTestId("copilotkit-v2-send").click();
+    expect((await responsePromise).status()).toBe(200);
+    await (await responsePromise).finished();
 
     // ── 刷新后仍在：唯一能区分「写进 PostgreSQL」与「写进 React state」的断言 ──
     await page.reload();
     await threadList.getByText(title).click();
-    await expect(page.getByTestId("chat-message-list")).toContainText(text);
+    await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text);
   });
 
   /* ── 步骤 7：实时录音在 chat 上 ───────────────────────────────────────── */
@@ -623,7 +541,7 @@ test.describe("核心闭环八步", () => {
     }
 
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    const threadList = page.getByTestId("chat-read-thread-list");
+    const threadList = page.getByTestId("copilotkit-v2-thread-list");
     // 种子里那条**已完成录音授权**的线程。为什么它必须预置（而 6a/8a 的线程是现场建的），
     // 理由写在 `fullstack-smoke-fixture.ts`：授权按 `source_ref_id` 存，而现场新建的
     // 线程 id 在种子跑的时候还不存在，纯属时序问题——**不是**「契约里没有写授权格子的
@@ -719,15 +637,13 @@ test.describe("核心闭环八步", () => {
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
 
     // 自己建线程，不蹭别的用例留下的那条（单跑时项目里可能一条都没有）。
-    await page.getByTestId("chat-thread-create").click();
     const title = `闭环挂 skill ${Date.now()}`;
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
-    await expect(page.getByTestId("chat-read-thread-list").getByText(title)).toBeVisible();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
+    await expect(page.getByTestId("copilotkit-v2-thread-list").getByText(title)).toBeVisible();
 
     const skillId = FULLSTACK_E2E.mountableSkillId;
     // 新建的线程什么都没挂——先钉住这个真实空态，否则下面的「挂上了」可能一直就是真的。
-    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+    await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
 
     /* ── 挂载：POST 必须 201，且界面出现该 skill 的角标 ── */
     await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
@@ -743,7 +659,7 @@ test.describe("核心闭环八步", () => {
 
     /* ── 生效：刷新后仍在（区分 PostgreSQL 与 React state） ── */
     await page.reload();
-    await page.getByTestId("chat-read-thread-list").getByText(title).click();
+    await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
 
     /* ── 卸载：DELETE 必须 200，且刷新后不再出现 ── */
@@ -755,8 +671,8 @@ test.describe("核心闭环八步", () => {
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toHaveCount(0);
 
     await page.reload();
-    await page.getByTestId("chat-read-thread-list").getByText(title).click();
-    await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+    await page.getByTestId("copilotkit-v2-thread-list").getByText(title).click();
+    await expect(page.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "0");
   });
 
   test("步骤 8b：会话内的 agent **真的执行**并产生**恰好一条**回复（#435 交付）", async ({ page }) => {
@@ -795,11 +711,9 @@ test.describe("核心闭环八步", () => {
     // 不复用步骤 6a 留下的那条：两条用例共用一条线程，消息计数就会互相干扰，
     // 而那种干扰表现为间歇红，最后会被归因成「e2e 不稳」然后被人加重试掩盖过去。
     const title = `闭环 8b 会话 ${Date.now()}`;
-    const threadList = page.getByTestId("chat-read-thread-list");
+    const threadList = page.getByTestId("copilotkit-v2-thread-list");
     await expect(page.getByTestId("chat-thread-create")).toBeVisible();
-    await page.getByTestId("chat-thread-create").click();
-    await page.getByTestId("chat-thread-title-input").fill(title);
-    await page.getByTestId("chat-thread-title-submit").click();
+    await createNamedWorkbenchThread(page, title, FULLSTACK_E2E.projectId);
     await expect(threadList.getByText(title)).toBeVisible();
     await threadList.getByText(title).click();
 
@@ -808,6 +722,7 @@ test.describe("核心闭环八步", () => {
     // 刻意留给这里做 —— 线程是现场建的，预种不了，而这一步顺带证明编制写路径是活的。
     // #728 回归修复：加表单折在「编辑」按钮后面，先点开才有 add-input 可选。
     // #619：点开后那个字段是选择器（候选来自 `GET /capabilities?kind=agent`）。
+    await openWorkbenchRoster(page);
     await page.getByTestId("chat-roster-edit").click();
     await page.getByTestId("chat-roster-add-input").selectOption(FULLSTACK_E2E.agentId);
     await page.getByTestId("chat-roster-add-submit").click();
@@ -817,21 +732,29 @@ test.describe("核心闭环八步", () => {
     // 标记的作用：回复正文里必须能找到它。找不到就说明回复不是这次 run 产出的
     // （可能是上一次跑剩下的行，也可能是谁在前端合成的）。
     const marker = `CORE_LOOP_8B_${Date.now()}`;
-    await page.getByTestId("chat-agent-select").click();
-    await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
-    await page.getByTestId("chat-message-input").fill(marker);
-    await page.getByTestId("chat-message-submit").click();
+    await page.getByTestId("chat-task-workbench-capability-picker").click();
+    await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${FULLSTACK_E2E.agentId}"]`).click();
+    await page.getByTestId("copilotkit-v2-input").fill(marker);
+    await page.getByTestId("copilotkit-v2-send").click();
 
     // ── run 的状态由**服务端**推进到终态 ──────────────────────────────────
-    const status = page.getByTestId("chat-live-agent-run-status");
-    await expect(status).toBeVisible();
-    // `data-run-status` 直接来自 `GET /agent-runs/:runId` 的 `status`。断言 `succeeded`
-    // 而不是「非 queued」：`succeeded` 在库里被触发器保证「写回已提交」才可达
-    // （`20260805150000_i413_chat_writeback.sql:74-91`），它本身就是一句关于持久化的断言。
-    await expect(status).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
-    const runId = await status.getAttribute("data-run-id");
-    expect(runId, "run status 必须带上它在讲哪一次 run").toBeTruthy();
-    await expect(status).toHaveAttribute("data-result-message-id", /.+/);
+    const trace = page.getByTestId("run-trace-panel");
+    await expect(trace).toHaveAttribute("data-run-id", /.+/);
+    const runId = await trace.getAttribute("data-run-id");
+    expect(runId).toBeTruthy();
+    const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+    let resultMessageId: string | null = null;
+    await expect.poll(async () => {
+      const response = await page.request.get(`/__fullstack_api/agent-runs/${runId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(response.ok()).toBe(true);
+      const run = await response.json();
+      expect(run.runId).toBe(runId);
+      resultMessageId = run.resultMessageId;
+      return run.status;
+    }, { timeout: 120_000 }).toBe("succeeded");
+    expect(resultMessageId).toBeTruthy();
 
     // ── 库侧终局：**恰好一条**回复 ────────────────────────────────────────
     //
@@ -867,11 +790,16 @@ test.describe("核心闭环八步", () => {
     // 「刷新后仍在」是唯一能区分「写进了库」与「写进了 React state」的断言。
     await page.reload();
     await threadList.getByText(title).click();
-    const messageList = page.getByTestId("chat-message-list");
+    const messageList = page.getByTestId("copilotkit-v2-messages");
     await expect(messageList).toContainText(marker);
-    await expect(
-      messageList.getByTestId("chat-message-row").filter({ hasText: FULLSTACK_E2E.agentReplyPrefix }),
-    ).toHaveCount(1);
+    // Markdown is rendered as paragraphs and collapsed code, not the raw source.
+    // The copy action binds the displayed assistant to its actual persisted ID.
+    await expect(messageList.locator(`[data-testid="chat-message-copy"][data-message-id="${resultMessageId}"]`)).toHaveCount(1);
+    await expect(messageList.locator("p").filter({ hasText: `${FULLSTACK_E2E.agentReplyPrefix} ${marker}` })).toHaveCount(1);
+    const script = /```run_script\n([\s\S]*?)\n```/.exec(runStat.assistantTexts[0]!);
+    expect(script, "fixture reply must retain the actually executed script").not.toBeNull();
+    await messageList.getByRole("button", { name: "显示代码", exact: true }).click();
+    await expect(messageList.locator("pre code")).toContainText(script![1]!);
   });
 
   /**

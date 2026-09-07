@@ -212,3 +212,19 @@ describe("XC-59 反证：agent-interrupts 三个新工具名不得触发 phase='
     },
   );
 });
+
+
+describe("terminal run wins over historical pause timestamps", () => {
+  it.each(["succeeded", "failed", "cancelled"])("%s cannot expose a live resume action", async (status) => {
+    const runId = await insertRun(status);
+    await asApp(ORG, c => c.query("UPDATE agent_runs SET paused_at=now(),pause_requested_at=now() WHERE org_id=$1 AND id=$2", [ORG, runId]));
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.phase).toBe(status === "succeeded" ? "done" : status);
+    expect(out.activeRunId).toBeNull();
+    expect(out.pausedAt).toBeNull();
+    expect(out.pauseRequestedAt).toBeNull();
+    const history = await repo.getLatestRun(toOrgId(ORG), THREAD);
+    expect(history?.pausedAt).not.toBeNull();
+    expect(history?.pauseRequestedAt).not.toBeNull();
+  });
+});

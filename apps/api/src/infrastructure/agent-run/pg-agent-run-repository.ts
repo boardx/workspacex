@@ -1,3 +1,9 @@
+import { SkillActivityFact } from "@repo/contracts/skill-activity";
+import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
+import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
+import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
+import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * PostgreSQL implementation of the #414 run store.
  *
@@ -34,6 +40,9 @@ import type {
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  pending_permission_request_id?: string | null;
+  lease_epoch?: number;
+  checkpoint_resume?: boolean;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
   skill_version_ids: unknown; model_provider: string; model_id: string;
@@ -43,12 +52,16 @@ interface ClaimRow {
 }
 
 interface RunRow {
+  recovery_diagnostic?: string | null;
+  cancel_requested_at?: Date | null;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
   model_provider: string; model_id: string; status: string; error_code: string | null;
   result_message_id: string | null; created_at: Date;
   pending_tool_name?: string | null;
   pending_args_summary?: string | null;
+  pending_permission_request_id?: string | null;
+  pending_interrupt?: RestorableInterrupt | null;
   pending_decision?: string | null;
 }
 
@@ -134,21 +147,33 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   claimQueued(orgId: OrgId, limit: number): Promise<readonly ClaimOutcome[]> {
     return this.db.withTenant(orgId, async (s) => {
+      // Acceptance and dispatch use this same row lock. Different workers may claim
+      // different threads, but never two executions from one thread at the same time.
+      const threads = await s.query<{id:string}>(
+        `SELECT t.id FROM chat_threads t WHERE t.org_id=$1
+          AND EXISTS (SELECT 1 FROM agent_runs q WHERE q.org_id=t.org_id AND q.thread_id=t.id AND q.status='queued')
+          AND NOT EXISTS (SELECT 1 FROM agent_runs active WHERE active.org_id=t.org_id AND active.thread_id=t.id
+            AND active.status NOT IN ('queued','succeeded','failed','cancelled'))
+          ORDER BY t.id LIMIT $2 FOR UPDATE OF t SKIP LOCKED`, [orgId,limit]);
+      if (!threads.rows.length) return [];
       const claimed = await s.query<ClaimRow>(
         `UPDATE agent_runs r
-            SET status='running', started_at=now()
+            SET status='running', started_at=now(), heartbeat_at=now(), lease_epoch=lease_epoch+1, lease_expires_at=now()+($3::bigint * interval '1 millisecond')
           WHERE r.org_id=$1
             AND r.id IN (
-              SELECT id FROM agent_runs
-               WHERE org_id=$1 AND status='queued'
-               ORDER BY created_at, id
-               LIMIT $2
-               FOR UPDATE SKIP LOCKED
+              SELECT head.id FROM agent_runs head
+               WHERE head.org_id=$1 AND head.thread_id=ANY($2::text[]) AND head.status='queued'
+                 AND head.id=(SELECT q.id FROM agent_runs q WHERE q.org_id=head.org_id
+                   AND q.thread_id=head.thread_id AND q.status='queued' ORDER BY q.created_at,q.id LIMIT 1)
+                 AND NOT EXISTS (SELECT 1 FROM agent_runs active WHERE active.org_id=head.org_id
+                   AND active.thread_id=head.thread_id AND active.status NOT IN ('queued','succeeded','failed','cancelled'))
+               ORDER BY head.created_at,head.id
+               FOR UPDATE OF head SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
                   r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
-                  r.pending_tool_name, r.pending_edited_args`,
-        [orgId, limit],
+                  r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch, r.pending_permission_request_id`,
+        [orgId, threads.rows.map(thread=>thread.id), DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
       if (claimed.rows.length === 0) return [];
       // The claim's RETURNING cannot join, so the immutable trimmings (the thread's
@@ -179,11 +204,12 @@ export class PgAgentRunRepository implements AgentRunStore {
         // readable has nothing to execute. It is REPORTED, not skipped: the claim above
         // already moved it out of `queued`, so skipping would strand it in `running`.
         if (extra === undefined) {
-          runs.push({ kind: "unresolvable", runId: row.id });
+          runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch:row.lease_epoch });
           continue;
         }
         runs.push({ kind: "executable", run: {
           runId: row.id,
+          leaseEpoch: row.lease_epoch,
           threadId: row.thread_id,
           projectId: extra.project_id,
           inputMessageId: row.input_message_id,
@@ -192,6 +218,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // F159：计量要归属到人，而 `agent_runs` 本身没有「谁触发的」这一列——
           // 触发它的那条人类消息的作者就是那个人，同一次 JOIN 顺手带出来。
           requesterUserId: extra.requester_user_id,
+          checkpointResume: row.checkpoint_resume === true,
           agentId: row.agent_id,
           agentVersionId: row.agent_version_id,
           instructions: extra.instructions,
@@ -201,6 +228,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // UX-9 D4：edit 的降级路径也 fail closed——'edit' 行缺 pending_edited_args
           // 只能来自数据损坏（editAndRequeue 单语句同写两列），editedArgsJson 传
           // "null" 让 provider 的对象校验去报 ModelCallError，绝不静默当 approve。
+          permissionRequestId: row.pending_permission_request_id ?? undefined,
           pendingDecision: row.pending_decision === "approve"
             ? { kind: "approve" as const }
             : row.pending_decision === "edit"
@@ -217,7 +245,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           // acceptance 写的那一行），与"未定义时退回旧硬编码 1"完全等价，这里仍然只在
           // pending_decision 非空时赋值，让"从未 resume 过"的路径在类型和取值上都不可能
           // 因为这次改动而改变一个字节。
-          ...(row.pending_decision !== null && row.pending_decision !== undefined
+          ...((row.checkpoint_resume || (row.pending_decision !== null && row.pending_decision !== undefined))
             ? { resumeStepSeqBase: extra.max_step_seq }
             : {}),
         } });
@@ -304,6 +332,109 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  async requestCancellation(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ status: string }>("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      const status = rows[0]?.status;
+      if (status === "cancelled") return "cancelled";
+      if (status === "running") {
+        await s.query("UPDATE agent_runs SET cancel_requested_at=COALESCE(cancel_requested_at,now()) WHERE org_id=$1 AND id=$2", [orgId, runId]);
+        return "cancel_requested";
+      }
+      if (status !== "queued" && status !== "paused" && status !== "awaiting_tool_permission") return null;
+      await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now(),cancel_requested_at=COALESCE(cancel_requested_at,now()) WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      return "cancelled";
+    });
+  }
+
+  async cancelAtCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query("UPDATE agent_runs SET status='cancelled',error_code=NULL,ended_at=now() WHERE org_id=$1 AND id=$2 AND status='running' AND cancel_requested_at IS NOT NULL RETURNING id", [orgId, runId]);
+      return rows.length === 1;
+    });
+  }
+
+  async pauseAtCheckpoint(orgId: OrgId, runId: string): Promise<"paused" | "cancelled" | null> {
+    return this.db.withTenant(orgId, async (session) => {
+      // The row update is the arbitration boundary. A cancel accepted before this
+      // checkpoint wins even when the remote interruption was originally user_pause.
+      const { rows } = await session.query<{ status: "paused" | "cancelled" }>(`UPDATE agent_runs
+        SET status=CASE WHEN cancel_requested_at IS NOT NULL THEN 'cancelled' ELSE 'paused' END,
+            error_code=NULL,
+            paused_at=CASE WHEN cancel_requested_at IS NOT NULL THEN NULL ELSE now() END,
+            ended_at=CASE WHEN cancel_requested_at IS NOT NULL THEN now() ELSE NULL END,
+            pause_requested_at=CASE WHEN cancel_requested_at IS NOT NULL THEN NULL ELSE pause_requested_at END
+        WHERE org_id=$1 AND id=$2 AND status='running' RETURNING status`, [orgId, runId]);
+      return rows[0]?.status ?? null;
+    });
+  }
+
+  async isPausedAtCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ paused: boolean }>(
+        "SELECT paused_at IS NOT NULL AS paused FROM agent_runs WHERE org_id=$1 AND id=$2", [orgId, runId]);
+      return rows[0]?.paused === true;
+    });
+  }
+
+  async resumeCheckpoint(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ id: string }>(
+        `UPDATE agent_runs SET status='queued', checkpoint_resume=true, paused_at=NULL,
+         pending_decision=NULL, error_code=NULL, ended_at=NULL, pause_requested_at=NULL
+         WHERE org_id=$1 AND id=$2 AND paused_at IS NOT NULL
+         AND status='paused' RETURNING id`, [orgId, runId],
+      );
+      return rows.length === 1;
+    });
+  }
+
+  async appendExecutionEvent(orgId: OrgId, runId: string, event: ExecutionEventInput): Promise<void> {
+    if (event.kind === "skill_activity") event = { ...event, fact: SkillActivityFact.parse(event.fact) };
+    await this.db.withTenant(orgId, async (session) => {
+      // Serialize writers across API replicas using the existing run row. The event
+      // becomes visible only after commit, so replay never observes an uncommitted seq.
+      await session.query("SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
+      if (event.kind === "skill_activity") {
+        const existing = await session.query<{same:boolean}>(
+          `SELECT payload->'fact' = $4::jsonb AS same FROM agent_execution_events
+           WHERE org_id=$1 AND run_id=$2 AND payload->>'kind'='skill_activity'
+           AND payload->'fact'->>'factId'=$3 LIMIT 1`, [orgId,runId,event.fact.factId,JSON.stringify(event.fact)]);
+        if (existing.rows[0]) {
+          if (!existing.rows[0].same) throw new Error("SKILL_ACTIVITY_FACT_CONFLICT");
+          return;
+        }
+      }
+      await session.query(
+        `INSERT INTO agent_execution_events (org_id,run_id,seq,payload)
+         SELECT $1,$2,COALESCE(MAX(seq)+1,0),$3::jsonb FROM agent_execution_events
+         WHERE org_id=$1 AND run_id=$2`, [orgId, runId, JSON.stringify(event)],
+      );
+    });
+  }
+
+  async readLegacyExecutionEvents(orgId:OrgId,runId:string):Promise<readonly ExecutionEvent[]> {
+    return this.db.withTenant(orgId,async s=>{
+      const run=(await s.query<{status:string;ended_at:Date|null}>(`SELECT status,ended_at FROM agent_runs r WHERE org_id=$1 AND id=$2
+        AND NOT EXISTS(SELECT 1 FROM agent_execution_events e WHERE e.org_id=r.org_id AND e.run_id=r.id)`,[orgId,runId])).rows[0];
+      if(!run) return [];
+      const steps=(await s.query<StepRow & {seq:number}>(`SELECT * FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq`,[orgId,runId])).rows;
+      const deltas=(await s.query<{seq:number;text:string;created_at:Date}>(`SELECT seq,text,created_at FROM agent_run_deltas WHERE org_id=$1 AND run_id=$2 ORDER BY seq`,[orgId,runId])).rows;
+      const terminal=(run.status==="succeeded" || run.status==="failed" || run.status==="cancelled") && run.ended_at ? {status:run.status as "succeeded"|"failed"|"cancelled",endedAt:run.ended_at.toISOString()} : undefined;
+      return legacyExecutionEvents(runId,steps.map(row=>({seq:row.seq,kind:row.kind,status:row.status,startedAt:row.started_at.toISOString(),endedAt:row.ended_at.toISOString(),toolCallId:row.tool_call_id,toolName:row.tool_name,args:row.tool_args_summary,result:row.tool_result_summary})),deltas.map(row=>({seq:row.seq,text:row.text,createdAt:row.created_at.toISOString()})),terminal);
+    });
+  }
+
+  async readExecutionEvents(orgId: OrgId, runId: string, afterSeq: number): Promise<readonly ExecutionEvent[]> {
+    return this.db.withTenant(orgId, async (session) => {
+      const { rows } = await session.query<{ seq: number; payload: Record<string, unknown>; created_at: Date }>(
+        `SELECT seq,payload,created_at FROM agent_execution_events
+         WHERE org_id=$1 AND run_id=$2 AND seq>$3 ORDER BY seq LIMIT 1000`, [orgId, runId, afterSeq],
+      );
+      return rows.map((row) => ExecutionEvent.parse({ ...row.payload, runId, seq: row.seq, emittedAt: row.created_at.toISOString() }));
+    });
+  }
+
   async appendModelDelta(orgId: OrgId, delta: AppendedRunDelta): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
@@ -342,8 +473,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       // terminal step, not the pre-#725 assumption that it is always `3`.
       await s.query(
         `UPDATE agent_runs
-            SET status='writeback_pending', model_output=$3, model_called_seq=$4,
-                model_output_files=$5::jsonb
+            SET status=CASE WHEN cancel_requested_at IS NOT NULL THEN 'cancelled' ELSE 'writeback_pending' END,
+                ended_at=CASE WHEN cancel_requested_at IS NOT NULL THEN now() ELSE ended_at END,
+                model_output=$3, model_called_seq=$4, model_output_files=$5::jsonb
           WHERE org_id=$1 AND id=$2 AND status='running'`,
         // #1624：没有产物时写入 `'[]'` —— 与该列的 DEFAULT 完全一致，所以没有沙箱端口
         // 的部署里这条 UPDATE 的结果与本次改动之前逐字节相同。
@@ -358,25 +490,17 @@ export class PgAgentRunRepository implements AgentRunStore {
    * 不会误伤这期间刚好写回完成、状态已经翻走的行（`WHERE status='running'` 是原子判据，
    * 不是先 SELECT 再 UPDATE 的两步竞态）。复用 `failRun` 同一条 SQL 形状，不新起一套。
    */
-  async reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number> {
-    return this.db.withTenant(orgId, async (s) => {
-      const reclaimed = await s.query(
-        `UPDATE agent_runs SET status='failed', error_code='RUN_INTERRUPTED', ended_at=now()
-          WHERE org_id=$1 AND status='running'
-            AND coalesce(heartbeat_at, started_at) < now() - ($2 || ' milliseconds')::interval
-        RETURNING id`,
-        [orgId, olderThanMs],
-      );
-      return reclaimed.rows.length;
-    });
+  async reclaimStaleRunning(_orgId: OrgId, _olderThanMs: number): Promise<number> {
+    // Expired execution is reconciled by PgRunRecovery, never killed or replayed here.
+    return 0;
   }
 
   /** issue #2860 —— 见 `AgentRunStore.heartbeatRun`；只对仍在 `running` 的行写。 */
   async heartbeatRun(orgId: OrgId, runId: string): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
-        `UPDATE agent_runs SET heartbeat_at=now() WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId],
+        `UPDATE agent_runs SET heartbeat_at=now(),lease_expires_at=now()+($3::bigint * interval '1 millisecond') WHERE org_id=$1 AND id=$2 AND status='running'`,
+        [orgId, runId, DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
     });
   }
@@ -385,7 +509,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
         `UPDATE agent_runs SET status='failed', error_code=$3, ended_at=now()
-          WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed')`,
+          WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed','cancelled')`,
         [orgId, runId, code],
       );
     });
@@ -393,21 +517,49 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async markAwaitingToolPermission(
     orgId: OrgId, runId: string,
-    pending: { readonly toolName: string; readonly argsSummary: string | null },
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // 只从 running 起跳（触发器同样拦，但这里显式写条件让意图可读；
       // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
       await s.query(
         `UPDATE agent_runs
-            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4
+            SET status='awaiting_tool_permission', pending_tool_name=$3, pending_args_summary=$4, pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL, pending_decision=NULL
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, pending.toolName, pending.argsSummary],
+        [orgId, runId, pending.toolName, pending.argsSummary, pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null, pending.toolCallId ?? null, pending.toolArgsDigest ?? null],
       );
     });
   }
 
-  async approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+  async decidePermissionRequest(orgId: OrgId, runId: string, permissionRequestId: string,
+    decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const updated = await s.query<{ pending_tool_name: string }>(
+        `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
+           pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
+           error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
+           ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END
+         WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+           AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name`,
+        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null],
+      );
+      const row = updated.rows[0];
+      if (!row) return false;
+      if (decision === "run" || decision === "forever") {
+        await s.query(
+          `INSERT INTO tool_permission_grants
+             (id,org_id,scope,run_id,tool_name,granted_by_user_id,granted_at)
+           VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,now()) ON CONFLICT DO NOTHING`,
+          [orgId, decision, decision === "run" ? runId : null, row.pending_tool_name,
+            decision === "forever" ? userId : null],
+        );
+      }
+      return true;
+    });
+  }
+
+  async approveAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       // → queued 而非 → running：executor 的 claimQueued 只领 queued，置 running
       // 等于造一个永远没人执行的 run。重新入队让既有领取/并发语义原样生效。
@@ -415,8 +567,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         `UPDATE agent_runs
             SET status='queued', pending_decision='approve'
           WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+            AND ($3::uuid IS NULL OR pending_permission_request_id=$3::uuid)
           RETURNING id`,
-        [orgId, runId],
+        [orgId, runId, permissionRequestId ?? null],
       );
       return updated.rows.length > 0;
     });
@@ -437,7 +590,7 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async denyAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+  async denyAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
       // 与 approveAndRequeue 同一条边、同一套竞态语义——拒绝也重新入队而不是直接
       // failRun：execute-run 据此让 provider 发 resume:{decision:"reject"}，内核收到
@@ -446,8 +599,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         `UPDATE agent_runs
             SET status='queued', pending_decision='deny'
           WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
+            AND ($3::uuid IS NULL OR pending_permission_request_id=$3::uuid)
           RETURNING id`,
-        [orgId, runId],
+        [orgId, runId, permissionRequestId ?? null],
       );
       return updated.rows.length > 0;
     });
@@ -505,8 +659,9 @@ export class PgAgentRunRepository implements AgentRunStore {
       const inserted = await s.query<{ id: string }>(
         `INSERT INTO chat_messages
            (id,org_id,thread_id,author_kind,author_id,agent_id,body,
-            agent_run_id,reply_to_message_id)
-         VALUES ($1,$2,$3,'agent',$4,$4,$5,$6,$7)
+            agent_run_id,reply_to_message_id,visibility_scope,raw_transcript)
+         SELECT $1,$2,$3,'agent',$4,$4,$5,$6,$7,m.visibility_scope,m.raw_transcript
+           FROM chat_messages m WHERE m.org_id=$2 AND m.thread_id=$3 AND m.id=$7
          ON CONFLICT DO NOTHING
          RETURNING id`,
         [randomUUID(), orgId, input.threadId, input.agentId, input.text,
@@ -567,6 +722,8 @@ export class PgAgentRunRepository implements AgentRunStore {
             file.objectKey, file.name, file.mime, file.sizeBytes],
         );
       }
+
+      await registerRunArtifacts(s, { orgId, runId: input.runId, threadId: input.threadId, messageId, files: input.files ?? [] });
 
       // Guarded on the current status so the loser of a race is a no-op rather than an
       // illegal `succeeded -> succeeded` write against the transition trigger.
@@ -682,8 +839,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.created_at, reply.id AS result_message_id,
-                r.pending_tool_name, r.pending_args_summary
+                r.status, r.error_code, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
+                r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            LEFT JOIN chat_messages reply
@@ -743,6 +900,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       modelProvider: found.row.model_provider,
       modelId: found.row.model_id,
       status: found.row.status as RunLifecycleStatus,
+      cancelRequestedAt: found.row.cancel_requested_at?.toISOString() ?? null,
+      recoveryDiagnostic: found.row.recovery_diagnostic ?? null,
       error: found.row.error_code as RunFailureCode | null,
       resultMessageId: found.row.result_message_id,
       steps: found.steps.map((step) => ({
@@ -764,7 +923,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       createdAt: found.row.created_at.toISOString(),
       pendingApproval: found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
         ? null
-        : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null },
+        : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null, permissionRequestId: found.row.pending_permission_request_id ?? null, interrupt: found.row.pending_interrupt ?? null },
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.

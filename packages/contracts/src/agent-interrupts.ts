@@ -108,11 +108,11 @@ export type OptionCard = z.infer<typeof OptionCard>;
 
 /* ── 三、UC-1 confirmTaskIntent —— 目标复述卡 ────────────────────────── */
 
-/** 触发工具 `confirm_task_intent` 的初始 args。不变量 I-2：assumptions ≥ 2 条。 */
+/** 触发工具 `confirm_task_intent` 的初始 args。不变量 I-2：assumptions 可为空，仅列真实假设。 */
 export const ConfirmIntentArgs = z.object({
   requestId: z.string().min(1),
   understanding: z.string().min(1),
-  assumptions: z.array(z.string().min(1)).min(2),
+  assumptions: z.array(z.string().min(1)),
 });
 export type ConfirmIntentArgs = z.infer<typeof ConfirmIntentArgs>;
 
@@ -121,7 +121,7 @@ export const ConfirmIntentDecision = z.discriminatedUnion("decision", [
   z.object({ decision: z.literal("approve") }),
   z.object({
     decision: z.literal("edit"),
-    editedArgs: z.object({ assumptions: z.array(z.string().min(1)).min(2) }),
+    editedArgs: z.object({ assumptions: z.array(z.string().min(1)) }),
   }),
 ]);
 export type ConfirmIntentDecision = z.infer<typeof ConfirmIntentDecision>;
@@ -254,3 +254,11 @@ export const AGENT_INTERRUPTS_TOOL_NAME_LIST: readonly string[] = [
  * （`cross-lang-tool-parity.test.ts`）断言这份并集与 Python 常量一致。
  */
 export const AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE = AGENT_INTERRUPTS_TOOL_NAME_LIST.join(",");
+
+/** Explicit user-facing form payload only; arbitrary tool arguments never enter this projection. */
+export const RestorableInterrupt = z.discriminatedUnion("toolName", [
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.confirmTaskIntent), args: ConfirmIntentArgs }),
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.fillRunParams), args: FillParamsArgs }),
+  z.object({ toolName: z.literal(AGENT_INTERRUPTS_TOOL_NAMES.chooseExecutionOption), args: ChooseOptionArgs }),
+]);
+export type RestorableInterrupt = z.infer<typeof RestorableInterrupt>;

@@ -33,6 +33,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   listMessages,
 }));
 
+import { ProjectRecordingPanel } from "@/components/chat/workbench/project-recording-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 
 let asrHandlers: Parameters<typeof openAsrStream>[3] | null = null;
@@ -43,6 +44,7 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
     window.localStorage.clear();
     asrHandlers = null;
     readTranscript.mockResolvedValue({ segments: [] });
+    endThreadRecording.mockResolvedValue(undefined);
     listMessages.mockResolvedValue({ messages: [{ id: "m-1" }], nextCursor: null });
     startThreadRecording.mockResolvedValue({ sessionId: "sess-1", tracks: [{ trackId: "track-1" }] });
     openAsrStream.mockImplementation(async (_sessionId, _trackId, _messageId, handlers) => {
@@ -61,6 +63,152 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
       await act(async () => { await Promise.resolve(); });
     }
   }
+
+  it("项目工作台只读仍读取持久转录，但不能创建录音", async () => {
+    window.localStorage.setItem("wsx.recordingSession.t", "saved-session");
+    readTranscript.mockResolvedValue({ segments: [{ id: "seg-1", text: "已保存的转录" }] });
+    render(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite={false} archived={false} />);
+    await flush();
+    expect(readTranscript).toHaveBeenCalledWith("saved-session", "b");
+    expect(screen.getByTestId("chat-live-transcript")).toHaveTextContent("已保存的转录");
+    expect(screen.getByTestId("chat-live-recording-start")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    expect(startThreadRecording).not.toHaveBeenCalled();
+  });
+
+  it("项目工作台录音使用真实scope，归档禁录，切个人线程移除入口", async () => {
+    const view = render(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite archived />);
+    expect(screen.getByTestId("chat-live-recording-start")).toBeDisabled();
+    view.rerender(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite archived={false} />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    expect(startThreadRecording).toHaveBeenCalledWith("t", "p", "u", "b");
+    fireEvent.click(screen.getByTestId("chat-live-recording-stop"));
+    await flush();
+    view.rerender(<ProjectRecordingPanel projectId={null} threadId="personal" userId="u" bearer="b" canWrite archived={false} />);
+    expect(screen.queryByTestId("chat-recording-panel")).toBeNull();
+  });
+
+  it("切线程后前一场转录的迟到读取不能进入新线程", async () => {
+    window.localStorage.setItem("wsx.recordingSession.a", "session-a");
+    let finish!: (value: unknown) => void;
+    readTranscript.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const view = render(<ProjectRecordingPanel projectId="p" threadId="a" userId="u" bearer="b" canWrite={false} archived={false} />);
+    await flush();
+    view.rerender(<ProjectRecordingPanel projectId="p" threadId="b" userId="u" bearer="b" canWrite={false} archived={false} />);
+    await act(async () => finish({ segments: [{ id: "old", text: "线程A私有转录" }] }));
+    expect(screen.queryByText("线程A私有转录")).toBeNull();
+    expect(screen.getByTestId("chat-live-transcript-empty")).toBeInTheDocument();
+  });
+
+  it("录音中失去写权限会停止当前采音，保留转录读取", async () => {
+    const stop = vi.fn(async () => {});
+    openAsrStream.mockResolvedValue({ stop });
+    const view = render(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite archived={false} />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    view.rerender(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite={false} archived={false} />);
+    await flush();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
+    expect(screen.getByTestId("chat-live-recording-start")).toBeDisabled();
+  });
+
+  it.each(["start", "anchor", "open"] as const)("%s 等待期间撤回权限，迟到响应不得留下采音", async (boundary) => {
+    let resolve!: (value: unknown) => void;
+    const deferred = new Promise((done) => { resolve = done; });
+    const stopped = vi.fn(async () => {});
+    if (boundary === "start") startThreadRecording.mockReturnValue(deferred);
+    if (boundary === "anchor") listMessages.mockReturnValue(deferred);
+    if (boundary === "open") openAsrStream.mockReturnValue(deferred);
+    const view = render(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite archived={false} />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    view.rerender(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite={false} archived={false} />);
+    await act(async () => resolve(boundary === "start"
+      ? { sessionId: "sess-1", tracks: [{ trackId: "track-1" }] }
+      : boundary === "anchor" ? { messages: [{ id: "m-1" }] } : { stop: stopped }));
+    await flush();
+    if (boundary === "open") expect(stopped).toHaveBeenCalledTimes(1);
+    else expect(openAsrStream).not.toHaveBeenCalled();
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "idle");
+    expect(screen.getByTestId("chat-live-recording-start")).toBeDisabled();
+  });
+
+  it("离开录音线程释放采音流并结束自己的录音会话", async () => {
+    const stop = vi.fn(async () => {});
+    openAsrStream.mockResolvedValue({ stop });
+    const view = render(<ProjectRecordingPanel projectId="p" threadId="t" userId="u" bearer="b" canWrite archived={false} />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    view.unmount();
+    await flush();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
+  });
+
+  it.each(["track", "empty", "messages", "stream"] as const)("start成功后%s失败结束session且保留原错误", async (failure) => {
+    if (failure === "track") startThreadRecording.mockResolvedValue({ sessionId: "sess-1", tracks: [] });
+    if (failure === "empty") listMessages.mockResolvedValue({ messages: [] });
+    if (failure === "messages") listMessages.mockRejectedValue(new Error("read failed"));
+    if (failure === "stream") openAsrStream.mockRejectedValue(new Error("stream failed"));
+    render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-1", "b");
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "failed");
+    expect(screen.getByTestId("chat-live-recording-error")).toHaveTextContent({ track: "没有返回任何音轨", empty: "没有任何消息", messages: "无法读取本会话的消息", stream: "无法连接转写服务" }[failure]);
+  });
+
+  it("清理失败时重试不能覆盖尚未释放的session身份", async () => {
+    startThreadRecording.mockResolvedValue({ sessionId: "sess-1", tracks: [] });
+    endThreadRecording.mockRejectedValue(new Error("offline"));
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(screen.getByTestId("chat-live-recording-error")).toHaveTextContent("没有返回任何音轨");
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(startThreadRecording).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenLastCalledWith("sess-1", "b");
+    endThreadRecording.mockResolvedValue(undefined); view.unmount(); await flush();
+  });
+
+  it("bearer更新后旧ASR回调不能覆盖新scope状态", async () => {
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="old" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    const old = asrHandlers!;
+    view.rerender(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="new" />);
+    await flush();
+    act(() => { old.onPartial("旧转录"); old.onError("ASR_PROVIDER_UNAVAILABLE"); });
+    expect(screen.queryByText("旧转录")).toBeNull();
+    expect(screen.queryByTestId("chat-live-recording-error")).toBeNull();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "idle");
+  });
+
+  it.each(["stream", "end", "refresh"] as const)("停止流程%s延迟期间换bearer，旧响应不能清除新录音", async (boundary) => {
+    let finish!: (value?: unknown) => void;
+    const pending = new Promise((resolve) => { finish = resolve; });
+    const oldStop = vi.fn(async () => {}), newStop = vi.fn(async () => {});
+    openAsrStream.mockResolvedValueOnce({ stop: oldStop }).mockResolvedValueOnce({ stop: newStop });
+    const view = render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="old" />);
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    if (boundary === "stream") oldStop.mockReturnValueOnce(pending as Promise<void>);
+    if (boundary === "end") endThreadRecording.mockReturnValueOnce(pending);
+    if (boundary === "refresh") readTranscript.mockReturnValueOnce(pending);
+    fireEvent.click(screen.getByTestId("chat-live-recording-stop")); await flush();
+    view.rerender(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="new" />); await flush();
+    startThreadRecording.mockResolvedValueOnce({ sessionId: "sess-new", tracks: [{ trackId: "track-new" }] });
+    fireEvent.click(screen.getByTestId("chat-live-recording-start")); await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+    await act(async () => finish(boundary === "refresh" ? { segments: [{ id: "old", text: "旧停止回读" }] } : undefined));
+    await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+    fireEvent.click(screen.getByTestId("chat-recording-view-transcript"));
+    expect(screen.queryByText("旧停止回读")).toBeNull();
+    view.unmount(); await flush();
+    expect(newStop).toHaveBeenCalledTimes(1);
+    expect(endThreadRecording).toHaveBeenCalledWith("sess-new", "new");
+  });
 
   it("空闲态不显示转录中行内卡", async () => {
     render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);

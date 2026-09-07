@@ -245,23 +245,30 @@ describe("【互斥反证】核销真的是条件 UPDATE，不是靠别的约束
 
     let settled = false;
     let racer!: ReturnType<typeof activateRaw>;
-    await db.withoutTenant(async (session) => {
-      await session.query(
-        "UPDATE org_invite_tokens SET consumed_at = now() WHERE token = $1",
-        [inv.token!],
-      );
-      racer = activateRaw(inv.token!, "u-f10-atomic-rowlock").then((r) => {
-        settled = true;
-        return r;
-      }) as ReturnType<typeof activateRaw>;
-      await new Promise((resolve) => setTimeout(resolve, 1_500));
-      expect(settled, "activate 没有阻塞在令牌行锁上").toBe(false);
-    });
+    // A separate database owner keeps the contender out of the holder session.
+    const holderDb = new PgDatabase(appConfig());
+    try {
+      await holderDb.withoutTenant(async (session) => {
+        await session.query(
+          "UPDATE org_invite_tokens SET consumed_at = now() WHERE token = $1",
+          [inv.token!],
+        );
+        racer = activateRaw(inv.token!, "u-f10-atomic-rowlock").then((r) => {
+          settled = true;
+          return r;
+        }) as ReturnType<typeof activateRaw>;
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        expect(settled, "activate 没有阻塞在令牌行锁上").toBe(false);
+      });
 
-    await expect(racer).resolves.toMatchObject({ ok: false, reason: "not-found" });
-    const after = await snapshot(inv.inviteId, EMAIL_LIKE);
-    expect(after.members).toBe(0);
-    expect(after.credentials).toBe(0);
+      await expect(racer).resolves.toMatchObject({ ok: false, reason: "not-found" });
+      const after = await snapshot(inv.inviteId, EMAIL_LIKE);
+      expect(after.members).toBe(0);
+      expect(after.credentials).toBe(0);
+    } finally {
+      await racer?.catch(() => undefined);
+      await holderDb.close();
+    }
   });
 });
 

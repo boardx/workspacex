@@ -1,3 +1,4 @@
+import { AGUI_EXECUTION_EVENT_NAME } from "@repo/contracts/execution-journal";
 /**
  * DA-17（UX-9 Line D2）-- AG-UI 状态轴：`write_todos` → `STATE_SNAPSHOT` over
  * `POST /copilotkit/agui`。
@@ -77,6 +78,7 @@ const STATE_EVENT_TYPES = new Set<string>([
  */
 const PLUMBING_CUSTOM_EVENT_NAMES = new Set<string>([
   "chat_thread_id",
+  AGUI_EXECUTION_EVENT_NAME,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
   AGUI_RUN_PHASE_EVENT_NAME,
 ]);
@@ -235,7 +237,7 @@ beforeEach(async () => {
 });
 
 describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT", () => {
-  it("run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在该 step 的 STEP_FINISHED 之后", async () => {
+  it("run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在真实工具 TOOL_CALL_RESULT 之后", async () => {
     finalMessages = toolCallTurn("write_todos", { todos: TODOS });
     const events = await postBridgeTurn("更新一下计划");
 
@@ -246,8 +248,8 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
       todos: TODOS.map((t) => ({ content: t.content, status: t.status })),
     });
 
-    // 顺序：完整的 STEP_STARTED → TOOL_CALL_* → STEP_FINISHED 序列先走完，快照随后。
-    const finishedIdx = events.findIndex((e) => e.type === EventType.STEP_FINISHED);
+    // Journal模式不再伪造STEP包络；真实TOOL_CALL_RESULT先出现，计划快照随后。
+    const finishedIdx = events.findIndex((e) => e.type === EventType.TOOL_CALL_RESULT);
     const snapshotIdx = events.findIndex((e) => e.type === EventType.STATE_SNAPSHOT);
     expect(finishedIdx).toBeGreaterThanOrEqual(0);
     expect(snapshotIdx).toBeGreaterThan(finishedIdx);

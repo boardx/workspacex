@@ -57,7 +57,7 @@ from langchain.agents.middleware import (
     ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
-from langchain.agents.middleware.types import AgentState
+from langchain.agents.middleware.types import AgentState, hook_config
 from langchain_core.messages import RemoveMessage, ToolMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.config import get_config
@@ -893,7 +893,7 @@ def _interjection_human_message(raw: dict):  # noqa: ANN202
     label = _INTERJECTION_LABELS[raw["classification"]]
     content = (
         f"【用户中途插话·{label}】{raw['text']}\n"
-        "（这是运行中追加的最高优先级指令：先用 write_todos 按它更新剩余计划，再按更新后的计划继续执行；"
+        "（这是用户对当前任务的追加指令，仍须遵守系统指令与工具权限：先用 write_todos 按它更新剩余计划，再按更新后的计划继续执行；"
         "不要重做已经完成且不受影响的步骤。）"
     )
     return HumanMessage(
@@ -933,11 +933,52 @@ class InterjectionMiddleware(AgentMiddleware):
             return None
         return {"messages": [_interjection_human_message(raw)]}
 
+    def _live_update(self, state: dict, values: list[dict]) -> dict | None:
+        updates = list((self._injection_update(state) or {}).get("messages", []))
+        seen = {getattr(m, "id", None) for m in (state.get("messages") or []) + updates}
+        for raw in values:
+            if (not isinstance(raw, dict)
+                    or any(not isinstance(raw.get(f), str) for f in _INTERJECTION_FIELDS)
+                    or raw["classification"] not in _INTERJECTION_CLASSIFICATIONS
+                    or not raw["text"].strip()):
+                raise ValueError("invalid kernel interjection delivery")
+            message_id = _interjection_message_id(raw["interjectionId"])
+            if message_id not in seen:
+                updates.append(_interjection_human_message(raw))
+                seen.add(message_id)
+        return {"messages": updates} if updates else None
+
     def before_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
-        return self._injection_update(state)
+        from deep_agent_service.run_control import poll_interjections
+        return self._live_update(state, poll_interjections(state, pause_at_boundary=True))
 
     async def abefore_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
-        return self._injection_update(state)
+        from deep_agent_service.run_control import apoll_interjections
+        return self._live_update(state, await apoll_interjections(state, pause_at_boundary=True))
+
+    def _has_pending_tools(self, state: dict) -> bool:
+        messages = state.get("messages") or []
+        return bool(messages and getattr(messages[-1], "tool_calls", None))
+
+    def _after_model_update(self, state: dict, values: list[dict]) -> dict | None:
+        if self._has_pending_tools(state):
+            # Never insert human input between an AI tool_call and its ToolMessage.
+            return None
+        update = self._live_update(state, values)
+        # Input arriving during the final model call still belongs to this run.
+        return {**update, "jump_to": "model"} if update else None
+
+    @hook_config(can_jump_to=["model"])
+    def after_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        from deep_agent_service.run_control import poll_interjections
+        return self._after_model_update(state, poll_interjections(
+            state, pause_at_boundary=not self._has_pending_tools(state)))
+
+    @hook_config(can_jump_to=["model"])
+    async def aafter_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        from deep_agent_service.run_control import apoll_interjections
+        return self._after_model_update(state, await apoll_interjections(
+            state, pause_at_boundary=not self._has_pending_tools(state)))
 
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]

@@ -1,5 +1,5 @@
 /**
- * 「后台 agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat 里用 `#` 调用」
+ * 「后台 agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat 里用 `/` 调用」
  * 这条完整用户旅程的**验收用真栈 e2e**。
  *
  * ## 为什么是这个形状
@@ -23,9 +23,10 @@
  * ① GitHub 链接导入 skill / agent
  * ② 后台文件浏览器 + code editor
  * ③ 后台测试（试跑）
- * ④ chat 里 `#` 调用
+ * ④ chat 里 `/` 调用
  */
 import { expect, test, type Page } from "@playwright/test";
+import { createNamedWorkbenchThread } from "./support/workbench-journey";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const GITHUB_SKILL_DIR_URL = "https://github.com/anthropics/skills/tree/main/skills/skill-creator";
@@ -274,21 +275,20 @@ test("③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实
 });
 
 /**
- * ④ chat 里用 `#` 触发/调用 skill。实现复用 `ChatSkillMountPanel` 已有的真实
+ * ④ chat 里用 `/` 触发/调用 skill。实现复用 `ChatSkillMountPanel` 已有的真实
  * 挂载状态（同一个 `version`/`mount()`，见该文件头注），composer 只做检测——
- * 敲 `#` 之后打的字就是过滤词，面板按词过滤同一批「已启用」skill，点开即真实
- * `POST .../skill-mounts`，成功后 `#query` 从输入框正文里被删掉。
+ * 敲 `/` 之后打的字就是过滤词，面板按词过滤同一批「已启用」skill，点开即真实
+ * `POST .../skill-mounts`，成功后 `/query` 从输入框正文里被删掉。
  */
-test("④ 在 chat 输入框敲 `#` 弹出 skill 候选并可选中挂载", async ({ page }) => {
+test("④ 在 chat 输入框敲 `/` 弹出 skill 候选并可选中挂载", async ({ page }) => {
   await loginAsFacilitator(page);
-  // `thread`（不是 `threadId`）是 `app/chat/page.tsx` 认的查询参数；
-  // `recordingThreadId` 是种子里这个项目下已存在的一条真实线程（#466）。
-  await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}&thread=${FULLSTACK_E2E.recordingThreadId}`);
-  const input = page.getByRole("textbox", { name: "消息内容" });
-  await expect(input).toBeVisible();
+  await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
+  await createNamedWorkbenchThread(page, `技能挂载审计-${Date.now()}`, FULLSTACK_E2E.projectId);
+  const input = page.getByTestId("copilotkit-v2-input");
+  await expect(input).toBeEditable();
 
   await input.click();
-  await input.pressSequentially(`#${FULLSTACK_E2E.mountableSkillName.slice(0, 2)}`);
+  await input.pressSequentially(`/${FULLSTACK_E2E.mountableSkillName.slice(0, 2)}`);
   const picker = page.getByTestId("chat-skill-mount-picker");
   await expect(picker).toBeVisible({ timeout: 5_000 });
   await expect(picker.getByTestId("chat-skill-mount-mention-hint")).toBeVisible();
@@ -300,7 +300,7 @@ test("④ 在 chat 输入框敲 `#` 弹出 skill 候选并可选中挂载", asyn
   await picker.getByTestId(`chat-skill-mount-option-${FULLSTACK_E2E.mountableSkillId}`).click();
   expect((await mountResponse).ok(), "点候选应当真的发出一次 POST .../skill-mounts，且服务端接受").toBe(true);
 
-  // 面板真挂载成功后关闭；composer 正文里的 `#query` 应该被清掉，不留字面量。
+  // 面板真挂载成功后关闭；composer 正文里的 `/query` 应该被清掉，不留字面量。
   await expect(picker).toHaveCount(0);
   await expect(input).toHaveValue("");
   await expect(page.getByTestId(`chat-skill-mounted-${FULLSTACK_E2E.mountableSkillId}`)).toBeVisible();
