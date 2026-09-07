@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api
+
+[db-isolation] db=wsx_workbench_acceptance_2867 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/execution-journal-pg.test.ts (18 tests) 8838ms
+ ✓ tests/agent-run/parent-run-control.test.ts (6 tests) 1339ms
+ ✓ tests/agent-run/permission-grant-scopes.test.ts (7 tests) 28ms
+ ✓ tests/agent-run/pg-interjection-store.test.ts (3 tests) 695ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  10:04:41
+   Duration  12.86s (transform 400ms, setup 0ms, collect 636ms, tests 10.90s, environment 0ms, prepare 236ms)
+
+[db-isolation] db=wsx_workbench_acceptance_2867 peak_connections=7

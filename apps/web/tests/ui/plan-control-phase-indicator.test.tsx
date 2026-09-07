@@ -65,7 +65,7 @@ describe("单一事实源：文案取自 @repo/contracts 的 PLAN_PHASE_LABEL_ZH
   it("六态文案与契约常量逐字相等（防止漂移出第二份副本）", () => {
     render(<PlanPhaseIndicator phase="done" />);
     for (const p of ALL_PHASES) {
-      if (p === "failed") continue;
+      if (p === "failed" || p === "cancelled") continue;
       expect(screen.queryByText(PLAN_PHASE_LABEL_ZH[p])).toBeTruthy();
     }
   });

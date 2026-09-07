@@ -1,3 +1,10 @@
+import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
+import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
+import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
+import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
+import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
+import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
 /**
  * `DeepAgentModelProvider` -- the `ModelCallPort` for the new deepagents-backed general
  * assistant (#740, replacing the TS tool loop this PR does NOT yet remove -- see #741 for
@@ -191,7 +198,14 @@ interface WireToolCallRequest {
   readonly args?: unknown;
 }
 
+/** Delivery failure is not a transport reconnect: the durable observer must fail closed. */
+class ProgressDeliveryError extends Error {
+  constructor(readonly original: unknown) { super("execution event delivery failed"); }
+}
+
 interface ThreadMessage {
+  readonly id?: string;
+  readonly status?: unknown;
   readonly type?: string;
   readonly content?: unknown;
   /** Present on an `AIMessage` that asked to call one or more tools (#783). */
@@ -387,7 +401,7 @@ function extractToolCallEvents(
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
           phase: "complete", toolCallId: id,
-          toolArgsFull: call.argsFull, toolResultFull: message.content,
+          toolArgsFull: call.argsFull, toolResultFull: message.content, ok: message.status !== "error",
         },
       });
       pending.delete(id);
@@ -445,7 +459,66 @@ function isAiMessageChunkType(type: unknown): boolean {
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
+  /** Recovery never calls startRun/createRun. Only an explicitly run-associated
+   * checkpoint may supply completion; a thread's newer state is not this run's result. */
+  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string):Promise<ReconciledRemoteRun>{
+    const baseUrl=this.config.baseUrl,threadId=deriveRemoteThreadId(chatThreadId);
+    const signal=AbortSignal.timeout(Math.min(this.config.timeoutMs,15000));
+    try{
+      const response=await fetch(`${baseUrl}/threads/${threadId}/runs/${encodeURIComponent(remoteRunId)}`,{signal});
+      if(!response.ok)return {kind:"uncertain",diagnostic:`remote_run_http_${response.status}`};
+      const run=await response.json() as {run_id?:string;status?:string;thread_id?:string};
+      if(run.run_id&&run.run_id!==remoteRunId||run.thread_id&&run.thread_id!==threadId)return {kind:"uncertain",diagnostic:"remote_run_identity_mismatch"};
+      if(run.status==="pending"||run.status==="running")return {kind:"running"};
+      if(run.status==="error"||run.status==="timeout")return {kind:"failed",diagnostic:`remote_${run.status}`};
+      if(run.status!=="success"&&run.status!=="interrupted")return {kind:"uncertain",diagnostic:"remote_status_unknown"};
+      const stateResponse=await fetch(`${baseUrl}/threads/${threadId}/state`,{signal});
+      if(!stateResponse.ok)return {kind:"uncertain",diagnostic:"checkpoint_unavailable"};
+      const state=await stateResponse.json() as ThreadStateResponse & {metadata?:{run_id?:string;langgraph_run_id?:string}};
+      if(state.metadata?.run_id!==remoteRunId&&state.metadata?.langgraph_run_id!==remoteRunId)return {kind:"uncertain",diagnostic:"checkpoint_run_identity_unverified"};
+      // A dynamic interrupt is not equivalent to successful completion. The normal
+      // explicit user-resume path remains authoritative until checkpoint decoding is verified.
+      const hasControl=(value:unknown,kind:string):boolean=>!!value&&typeof value==="object"&&((value as {kind?:unknown}).kind===kind||Object.values(value).some(item=>hasControl(item,kind)));
+      const checkpoint=state as {tasks?:{interrupts?:unknown}[];interrupts?:unknown};
+      const interrupts=[checkpoint.interrupts,...(checkpoint.tasks??[]).map(task=>task.interrupts)];
+      if(hasControl(interrupts,"user_cancel"))return {kind:"cancelled"};
+      if(hasControl(interrupts,"user_pause"))return {kind:"paused"};
+      const pending=this.pendingApprovalFromState(state);
+      if(run.status==="interrupted"||(state as {next?:unknown[]}).next?.length){
+        return pending.toolName!=="unknown"?{kind:"approval",...pending}:{kind:"uncertain",diagnostic:"interrupted_checkpoint_requires_review"};
+      }
+      if(pending.toolName!=="unknown")return {kind:"uncertain",diagnostic:"checkpoint_has_unfinished_tool"};
+      const allMessages=state.values?.messages??[];
+      const boundary=logicalRunId?allMessages.findIndex(message=>message.id===turnMessageId(logicalRunId,"user")):-1;
+      if(logicalRunId&&boundary<0)return {kind:"uncertain",diagnostic:"checkpoint_turn_boundary_unverified"};
+      const messages=boundary<0?allMessages:allMessages.slice(boundary+1);
+      const text=readFinalReply(messages);
+      if(!text.trim())return {kind:"uncertain",diagnostic:"checkpoint_has_no_final_reply"};
+      const scriptCandidates=collectScriptCandidates(messages);
+      if(scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
+      const finalMessage=[...messages].reverse().find(message=>message.type==="ai"&&typeof message.content==="string"&&message.content.trim()!=="");
+      return {kind:"success",completion:{text,...(finalMessage?.id?{finalMessageId:finalMessage.id}:{})}};
+    }catch{return {kind:"uncertain",diagnostic:"remote_reconcile_unavailable"};}
+  }
+
+  supportsLiveInterjections(): boolean {
+    return Boolean(this.config.subtaskCallbackBaseUrl && this.config.subtaskCallbackKey);
+  }
+
+  private runControlConfig(input: ModelCallInput): Record<string, unknown> {
+    if (!input.liveInterjections) return {};
+    if (!this.supportsLiveInterjections() || !input.orgId || !input.runId) {
+      throw new ModelCallError("MODEL_CALL_FAILED", "live interjection callback is not configured");
+    }
+    return { run_control_callback: { base_url: this.config.subtaskCallbackBaseUrl,
+      key: this.config.subtaskCallbackKey, org_id: input.orgId, run_id: input.runId,
+      ...(input.executionAttemptId ? { attempt_id: input.executionAttemptId } : {}),
+      ...(input.executionPermissionRequestId ? { permission_request_id: input.executionPermissionRequestId } : {}),
+      ...(input.executionLeaseEpoch !== undefined ? { lease_epoch: input.executionLeaseEpoch } : {}) } };
+  }
+
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
+    if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
     return this.readCompletion(baseUrl, threadId);
@@ -489,18 +562,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
   async completeWithProgress(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-    onDelta?: (delta: string) => Promise<void>,
+    onDelta?: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
   ): Promise<ModelCallCompletion> {
-    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs, completedToolIds } = await this.startRun(input);
     // #742 Gap 1: two sets, not one -- see `ToolCallEmittedIds`'s own doc for why a call
     // legitimately needs to pass through both phases without either suppressing the other.
-    const emitted: ToolCallEmittedIds = { inProgress: new Set<string>(), complete: new Set<string>() };
+    const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
-    if (this.config.streamEnabled === true && onDelta !== undefined) {
+    if (this.config.streamEnabled === true && (onDelta !== undefined || input.onSkillActivity !== undefined)) {
       // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
       // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
       // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
-      const streamed = await this.tryStreamRun(baseUrl, threadId, runId, onDelta, onProgress, emitted);
+      const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
+        async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
+        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, input.onSkillActivity);
       if (streamed) {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
@@ -514,7 +589,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         if (status === "interrupted") {
           // DA-07b：停在 interrupt_on 等人裁决——不是失败。读 state 找出待批的调用。
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
-          return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
+          return this.readInterruptedCompletion(baseUrl, threadId);
         }
         if (status === "error" || status === "timeout") {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
@@ -534,7 +609,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (status === "interrupted") {
         // DA-07b：等人裁决，不是失败。
         await emitNewEvents();
-        return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
+        return this.readInterruptedCompletion(baseUrl, threadId);
       }
       if (status === "error" || status === "timeout") {
         // One last read: a call that completed in the same instant the run turned terminal
@@ -570,7 +645,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
     }
-    return { text, scriptCandidates: collectScriptCandidates(messages) };
+    const finalMessage = [...messages].reverse().find((message) => message.type === "ai" && typeof message.content === "string" && message.content.trim() !== "");
+    return { text, finalMessageId: finalMessage?.id, scriptCandidates: collectScriptCandidates(messages) };
   }
 
   /** `completeWithProgress` 的 tool 事件提取（原内联闭包提为方法，流式与轮询两条通路共用）。
@@ -628,9 +704,10 @@ export class DeepAgentModelProvider implements ModelCallPort {
     baseUrl: string,
     threadId: string,
     runId: string,
-    onDelta: (delta: string) => Promise<void>,
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     emitted: ToolCallEmittedIds,
+    onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
   ): Promise<boolean> {
     let response: Response;
     try {
@@ -692,10 +769,17 @@ export class DeepAgentModelProvider implements ModelCallPort {
           } catch {
             continue;
           }
+          if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
+            try {
+              const event = SkillActivityStream.parse(parsed);
+              await onSkillActivity?.(event.fact);
+            } catch (error) { throw new ProgressDeliveryError(error); }
+            continue;
+          }
           if (Array.isArray(parsed)) {
             // messages-tuple 形状：[chunk, metadata]。
             if (parsed.length === 0) continue;
-            const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown; type?: unknown };
+            const chunk = parsed[0] as { id?: unknown; content?: unknown; tool_call_id?: unknown; type?: unknown };
             if (typeof chunk.tool_call_id === "string" && chunk.tool_call_id !== "") {
               await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
               continue;
@@ -709,8 +793,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
             // 条 + `ai` 3 条），其余（human / system …）静默跳过——同一条"形状不匹配就退化、
             // 不猜"的纪律。
             if (!isAiMessageChunkType(chunk.type)) continue;
+            // Nested graphs belong to their task/tool trace, never the parent answer.
+            const metadata = parsed[1] as { langgraph_checkpoint_ns?: unknown; checkpoint_ns?: unknown } | undefined;
+            const namespace = metadata?.langgraph_checkpoint_ns ?? metadata?.checkpoint_ns;
+            if (typeof namespace === "string" && (namespace.includes("|") || namespace.startsWith("tools:"))) continue;
             if (typeof chunk.content === "string" && chunk.content !== "") {
-              await onDelta(chunk.content);
+              await onDelta(chunk.content, { messageId: typeof chunk.id === "string" ? chunk.id : undefined });
             }
             continue;
           }
@@ -721,14 +809,21 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // 逻辑消费，这里不重新解析它。
           if (typeof parsed === "object" && parsed !== null) {
             const patch = parsed as Record<string, unknown>;
-            if ("tools" in patch && patch.tools !== null && patch.tools !== undefined) {
+            const hasToolAnnouncement = Object.values(patch).some((value) => {
+              if (!value || typeof value !== "object") return false;
+              const messages = (value as { messages?: unknown }).messages;
+              return Array.isArray(messages) && messages.some((message) =>
+                message && typeof message === "object" && Array.isArray(message.tool_calls) && message.tool_calls.length > 0);
+            });
+            if (hasToolAnnouncement || ("tools" in patch && patch.tools !== null && patch.tools !== undefined)) {
               await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
             }
           }
         }
       }
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof ProgressDeliveryError) throw error.original;
       // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
       return true;
     } finally {
@@ -739,7 +834,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create
    * the thread and run, and hand back everything the poll loop needs. */
   private async startRun(input: ModelCallInput): Promise<{
-    readonly baseUrl: string; readonly threadId: string; readonly runId: string;
+    readonly baseUrl: string; readonly threadId: string; readonly runId: string; readonly completedToolIds: readonly string[];
     readonly deadline: number; readonly pollIntervalMs: number; readonly timeoutMs: number;
   }> {
     const { baseUrl, timeoutMs, pollIntervalMs } = this.config;
@@ -761,8 +856,14 @@ export class DeepAgentModelProvider implements ModelCallPort {
     const threadId = input.threadId === undefined || input.threadId === ""
       ? await this.createThread(baseUrl)
       : await this.ensureThread(baseUrl, input.threadId);
+    // Snapshot BEFORE submitting the new run: a post-submit read can already include
+    // this attempt's newly completed tool, incorrectly suppressing its real event.
+    const prior = input.threadId || input.resume || input.checkpointResume
+      ? (await this.readState(baseUrl, threadId)).values?.messages ?? [] : [];
+    const completedToolIds = prior.flatMap((message) => message.type === "tool" && typeof message.tool_call_id === "string"
+      ? [message.tool_call_id] : []);
     const runId = await this.createRun(baseUrl, threadId, input);
-    return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs };
+    return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs, completedToolIds };
   }
 
   /**
@@ -782,6 +883,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 伪装成「记性差」。
    */
   private async ensureThread(baseUrl: string, chatThreadId: string): Promise<string> {
+    await assertCurrentRunLease();
     const remoteThreadId = deriveRemoteThreadId(chatThreadId);
     const response = await fetchWithTransportErrors(`${baseUrl}/threads`, {
       method: "POST",
@@ -818,10 +920,28 @@ export class DeepAgentModelProvider implements ModelCallPort {
 
   /** DA-07b：从 thread state 找待批的调用——最后一个没有 ToolMessage 回应的 tool_call。
    * 找不到时如实返回占位名（"unknown"），绝不编参数。 */
+  private async readInterruptedCompletion(baseUrl: string, threadId: string): Promise<ModelCallCompletion> {
+    const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}`, { method: "GET" });
+    if (response.ok) {
+      const body = await response.json() as { interrupts?: unknown };
+      const hasControl = (value: unknown, kind: string): boolean => {
+        if (!value || typeof value !== "object") return false;
+        if ((value as { kind?: unknown }).kind === kind) return true;
+        return Object.values(value).some((item) => hasControl(item, kind));
+      };
+      if (hasControl(body.interrupts, "user_cancel")) return { text: "", cancelled: true };
+      if (hasControl(body.interrupts, "user_pause")) return { text: "", paused: true };
+    }
+    return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
+  }
+
   private async readPendingApproval(
     baseUrl: string, threadId: string,
-  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null }> {
-    const state = await this.readState(baseUrl, threadId);
+  ): Promise<{ toolName: string; argsSummary: string | null; skillStableName?: string | null; interrupt?: RestorableInterrupt; toolCallId?: string; toolArgsDigest?: string }> {
+    return this.pendingApprovalFromState(await this.readState(baseUrl, threadId));
+  }
+
+  private pendingApprovalFromState(state:ThreadStateResponse){
     const messages = state.values?.messages ?? [];
     const answered = new Set<string>();
     for (const m of messages) {
@@ -843,9 +963,11 @@ export class DeepAgentModelProvider implements ModelCallPort {
           && typeof (args as Record<string, unknown>).skill_stable_name === "string"
           ? (args as Record<string, unknown>).skill_stable_name as string
           : undefined;
+        const restorable = RestorableInterrupt.safeParse({ toolName: name, args });
         return {
-          toolName: name,
-          argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(args), 4000),
+          ...(restorable.success ? { interrupt: restorable.data } : {}),
+          toolName: name, toolCallId: id, toolArgsDigest: toolArgumentsDigest(call.args) ?? undefined,
+          argsSummary: args === undefined ? null : summarizeProgressText(JSON.stringify(publicExecutionPayload(JSON.stringify(args))), 4000),
           ...(skillStableName === undefined ? {} : { skillStableName }),
         };
       }
@@ -854,6 +976,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   private async createThread(baseUrl: string): Promise<string> {
+    await assertCurrentRunLease();
     const response = await fetchWithTransportErrors(`${baseUrl}/threads`, { method: "POST", body: "{}" });
     const body = (await response.json()) as { thread_id?: string };
     if (!response.ok || !body.thread_id) {
@@ -863,6 +986,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   private async createRun(baseUrl: string, threadId: string, input: ModelCallInput): Promise<string> {
+    await assertCurrentRunLease();
     // DA-07b：resume 模式——向停在 interrupt 的既有 run 提交裁决，绝不重发用户输入
     // （重发会让引擎把同一条消息处理两遍）。resume 形状 {"decisions":[...]} 是 0.7.6
     // HumanInTheLoopMiddleware 的实测契约（裸列表 TypeError，见 deep-agent-service
@@ -891,6 +1015,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
         method: "POST",
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
+          stream_mode: ["messages-tuple", "updates", "custom"],
           command: { resume: { decisions: [decision] } },
           // issue #2768 -- a resume is the SAME run's next model call, and `call_skill`'s
           // ONLY source of "which skills are pinned to this run" is `configurable.org_skills`
@@ -915,6 +1040,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // --filter=@repo/api` 因此是红的——顺手清掉，不是本 PR 的功能改动。
           config: {
             configurable: {
+              ...this.runControlConfig(input),
               org_skills: toWireSkills(input.skills),
               ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
               // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
@@ -939,7 +1065,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
-      input.onRemoteRunStarted?.(body.run_id);
+      await input.onRemoteRunStarted?.(body.run_id);
       return body.run_id;
     }
 
@@ -981,10 +1107,11 @@ export class DeepAgentModelProvider implements ModelCallPort {
         // 加上 "updates" 后，`tryStreamRun` 新增对象形状（{node_name: patch}）的分支：
         // 见到 "tools" 节点的 patch 就立刻触发一次 `emitNewToolEvents`——复用既有的
         // state 读 + `extractToolCallEvents` 配对逻辑，不新建第二套记账路径。
-        stream_mode: ["messages-tuple", "updates"],
-        input: { messages },
+        stream_mode: ["messages-tuple", "updates", "custom"],
+        ...(input.checkpointResume ? { command: { resume: true } } : { input: { messages } }),
         config: {
           configurable: {
+              ...this.runControlConfig(input),
             org_skills: toWireSkills(input.skills),
             /*
              * #1747 —— 脚本执行协议原样转发给远端。
@@ -1054,7 +1181,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
-    input.onRemoteRunStarted?.(body.run_id);
+    await input.onRemoteRunStarted?.(body.run_id);
     return body.run_id;
   }
 

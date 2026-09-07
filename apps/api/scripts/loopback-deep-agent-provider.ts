@@ -32,7 +32,8 @@
  *   GET  /threads/:id/runs/:runId    -> { status: "pending" | "success" }
  *   GET  /threads/:id/state          -> { values: { messages: ThreadMessage[] } }
  *
- * `state` 从第一次读起就是「完整」的（计划句 + 一次工具调用 + 配对的工具结果 +
+ * 新线程在 POST runs 之前的 `state` 为空；默认剧本开始执行后返回「完整」的
+ * 状态（计划句 + 一次工具调用 + 配对的工具结果 +
  * 最终回复），不做「过几轮才补全」的时序游戏——`completeWithProgress` 的轮询循环
  * 本来就会在 run 到终态后再补读一次，用不着靠人为延迟制造"中途态"，那样只会引入
  * e2e 里不必要的时序竞争。`status` 前一次答 `pending`、后一次答 `success`，只是为了
@@ -91,6 +92,8 @@ const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
  * 触发词唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentMultiStepTrigger`。
  */
 const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
+const SCROLL_ACCEPTANCE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER;
+const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动验收执行完成。";
 /**
  * UX-9 D4 前端接入取证（gap 清单第 3 条）—— 对这句触发词，第一次到达状态阈值时回
  * `status: "interrupted"` 而不是 `"success"`：`DeepAgentModelProvider.completeWithProgress`
@@ -218,6 +221,10 @@ interface ApprovalDecision {
 }
 
 interface RunRecord {
+  /** Thread creation alone is not execution; initial state must contain no future tools. */
+  readonly started: boolean;
+  /** Per execution, retained by the existing resume branch and every state poll. */
+  readonly scrollExecutionId?: string;
   readonly userText: string;
   statusPolls: number;
   /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
@@ -228,6 +235,18 @@ interface RunRecord {
   /** issue #2020 / #2534：这一轮的 `org_skills` 里真的出现了 skill 哨兵——
    *  见 `mountedSkillReachedUpstream`。开关未给全时恒 `false`。 */
   skillSentinelSeen?: boolean;
+}
+
+function approvalReply(record: RunRecord): string {
+  if (record.decision === null) return "这一步需要人工批准后才能继续。";
+  const args = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+    ? record.decision.editedArgs
+    : { skill_stable_name: "quarterly-report", task: "取证：待批技能调用（原始参数，未编辑）" };
+  return record.decision.type === "reject"
+    ? "已按你的选择跳过这次技能调用，不会执行。"
+    : record.decision.type === "edit"
+      ? `已按你编辑后的参数执行：${JSON.stringify(args)}`
+      : `已按原参数执行：${JSON.stringify(args)}`;
 }
 
 const runs = new Map<string, RunRecord>();
@@ -318,7 +337,7 @@ const server = createServer((req, res) => {
         requested = undefined;
       }
       const threadId = requested ?? randomUUID();
-      if (!runs.has(threadId)) runs.set(threadId, { userText: "", statusPolls: 0, decision: null });
+      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, decision: null });
       sendJson(res, 200, { thread_id: threadId });
     });
     return;
@@ -362,7 +381,9 @@ const server = createServer((req, res) => {
         conversationLog.set(threadId, log);
       }
       runs.set(threadId, {
+        started: true,
         userText: lastUserText,
+        scrollExecutionId: SCROLL_ACCEPTANCE_TRIGGER !== undefined && lastUserText === SCROLL_ACCEPTANCE_TRIGGER ? randomUUID() : undefined,
         statusPolls: 0,
         decision: null,
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
@@ -383,7 +404,9 @@ const server = createServer((req, res) => {
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
     // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
-    const requiredPolls = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+    const requiredPolls = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+      ? Math.max(STATUS_POLLS_BEFORE_DONE, 20)
+      : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS)
       : STATUS_POLLS_BEFORE_DONE;
     if (record.statusPolls < requiredPolls) { sendJson(res, 200, { status: "pending" }); return; }
@@ -420,7 +443,10 @@ const server = createServer((req, res) => {
     // `computeSpecialTurnReply`——与 `/state` 单一事实源，见该函数自己的头注（此前这里
     // 从未判过这两个触发词，永远落到下面这句通用模板，是 DA-19g 评分第 2 轮抓到的真
     // 根因）。未命中任何触发词时的默认模板原样保留，不改措辞。
-    const reply = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+    const isApproval = APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER;
+    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
+    const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
@@ -435,7 +461,7 @@ const server = createServer((req, res) => {
         res.end();
         return;
       }
-      res.write(`event: messages\ndata: [{"content": ${JSON.stringify(pieces[idx])}, "type": "AIMessageChunk"}, {}]\n\n`);
+      res.write(`event: messages\ndata: [${JSON.stringify({ id: streamMessageId, content: pieces[idx], type: "AIMessageChunk" })}, {}]\n\n`);
       idx += 1;
     }, STREAM_GAP_MS);
     req.on("close", () => clearInterval(timer));
@@ -447,6 +473,7 @@ const server = createServer((req, res) => {
     const threadId = stateMatch[1]!;
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
+    if (!record.started) { sendJson(res, 200, { values: { messages: [] } }); return; }
     const toolCallId = `call-${threadId}`;
     // DA-06 取证扩展（#1749，UI 主卡第 2 项「规划步骤」）：剧本先发一次 write_todos
     // ——与真 deepagents TodoListMiddleware 的调用形状一致（args.todos 数组），
@@ -462,6 +489,19 @@ const server = createServer((req, res) => {
     };
     // UI 评分第 4 项：多步依赖链剧本。第二个工具（read_document）的 args.path 逐字
     // 取自第一个工具（search_documents）结果里的文件名——链条本身就是证据。
+    if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER) {
+      // Protocol-level fixture, like the three-step fixture below: production
+      // polling, journal persistence and rendering must observe every receipt.
+      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      for (let index = 0; index < 10; index += 1) {
+        const id = `scroll-${record.scrollExecutionId}-${index}`;
+        if (record.statusPolls >= index * 2) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
+        if (record.statusPolls >= (index + 1) * 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
+      }
+      if (record.statusPolls >= 20) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      sendJson(res, 200, { values: { messages } });
+      return;
+    }
     if (MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER) {
       const searchCallId = `search-${threadId}`;
       const readCallId = `read-${threadId}`;
@@ -529,6 +569,7 @@ const server = createServer((req, res) => {
       };
       record.approvalArgs = originalArgs;
       const pendingApprovalAi = {
+        id: `approval-${threadId}:pending`,
         type: "ai",
         content: "这一步需要人工批准后才能继续。",
         tool_calls: [{ id: approvalCallId, name: APPROVAL_TOOL_NAME, args: originalArgs }],
@@ -558,18 +599,14 @@ const server = createServer((req, res) => {
       const toolResultText = record.decision.type === "reject"
         ? "用户拒绝了这次技能调用，未执行。"
         : `已执行技能（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：` + JSON.stringify(usedArgs);
-      const finalReplyText = record.decision.type === "reject"
-        ? "已按你的选择跳过这次技能调用，不会执行。"
-        : record.decision.type === "edit"
-          ? `已按你编辑后的参数执行：${JSON.stringify(usedArgs)}`
-          : `已按原参数执行：${JSON.stringify(usedArgs)}`;
+      const finalReplyText = approvalReply(record);
       sendJson(res, 200, {
         values: {
           messages: [
             { type: "human", content: record.userText },
             { ...pendingApprovalAi, tool_calls: [{ id: approvalCallId, name: APPROVAL_TOOL_NAME, args: usedArgs }] },
             { type: "tool", tool_call_id: approvalCallId, content: toolResultText },
-            { type: "ai", content: finalReplyText },
+            { id: `approval-${threadId}:final`, type: "ai", content: finalReplyText },
           ],
         },
       });

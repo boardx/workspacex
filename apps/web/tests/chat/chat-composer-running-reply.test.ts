@@ -33,6 +33,6 @@ describe("页脚文案", () => {
 
   it("插话 ack / 排队提示都带上用户原文", () => {
     expect(runningReplyAckCopy("B")).toContain("「B」");
-    expect(queuedReplyCopy("B")).toBe("「B」将在本轮结束后自动发送");
+    expect(queuedReplyCopy("B")).toBe("本地排队：「B」将在本轮结束后发送");
   });
 });

@@ -215,7 +215,13 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
     await screen.findByText("PDF 已生成，请查收。");
     // 一开始就没有回复缺口（挂载时 `listMessages` 已经带上 cm-2），`findPendingRunId`
     // 判定这条人类消息已有回复——不该触发任何订阅或确认读。
-    await waitFor(() => expect(getAgentRun).not.toHaveBeenCalled());
+    // PersistedAgentFeedback 另有一次带 AbortSignal 的归属读取；恢复确认读
+    // 使用 (runId, bearer) 两参数，不能把两条路径混为「所有 GET 必须为零」。
+    await waitFor(() => expect(getAgentRun).toHaveBeenCalledTimes(1));
+    expect(getAgentRun).toHaveBeenCalledWith("run-1", "b", expect.any(AbortSignal));
+    expect(getAgentRun).not.toHaveBeenCalledWith("run-1", "b");
+    expect(listMessages).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText("PDF 已生成，请查收。")).toHaveLength(1);
     expect(sockets.length).toBe(0);
     expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument();
   });

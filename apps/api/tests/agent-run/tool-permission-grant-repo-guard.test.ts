@@ -106,14 +106,20 @@ describe("(c) hasGrant 只折成布尔——从不选出授权记录的内容列
 describe("(d) 上一层的可见性裁决还在——decide-tool-permission 先判定，后落库", () => {
   const decideSrc = stripComments(readFileSync(DECIDE_USE_CASE, "utf8"));
 
-  it("resolveVisibility 在 grants.grantForRun/grantStanding 之前", () => {
-    expect(decideSrc).toContain("resolveVisibility(deps");
+  it("先判可见性与请求身份，再进入原子裁决；授权 INSERT 在胜出的 UPDATE 后", () => {
     const visibilityAt = decideSrc.indexOf("resolveVisibility(deps");
-    const grantForRunAt = decideSrc.indexOf("deps.grants.grantForRun(");
-    const grantStandingAt = decideSrc.indexOf("deps.grants.grantStanding(");
+    const identityAt = decideSrc.indexOf('throw new RunNotAwaitingToolPermissionError("stale_permission_request")');
+    const decisionAt = decideSrc.indexOf("await deps.runs.decidePermissionRequest(");
     expect(visibilityAt).toBeGreaterThanOrEqual(0);
-    expect(grantForRunAt).toBeGreaterThan(visibilityAt);
-    expect(grantStandingAt).toBeGreaterThan(visibilityAt);
+    expect(identityAt).toBeGreaterThan(visibilityAt);
+    expect(decisionAt).toBeGreaterThan(identityAt);
+    const runRepo = stripComments(readFileSync(new URL("../../src/infrastructure/agent-run/pg-agent-run-repository.ts", import.meta.url), "utf8"));
+    const atomic = runRepo.slice(runRepo.indexOf("async decidePermissionRequest("), runRepo.indexOf("async approveAndRequeue("));
+    expect(atomic).toContain("this.db.withTenant(orgId");
+    expect(atomic).toContain("pending_permission_request_id=$3::uuid");
+    const lostRaceAt = atomic.indexOf("if (!row) return false;");
+    expect(lostRaceAt).toBeGreaterThan(atomic.indexOf("UPDATE agent_runs"));
+    expect(atomic.indexOf("INSERT INTO tool_permission_grants")).toBeGreaterThan(lostRaceAt);
   });
 
   it("变异：把 resolveVisibility 调用整个删掉，断言必须变红", () => {

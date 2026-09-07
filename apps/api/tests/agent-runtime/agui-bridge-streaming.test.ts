@@ -204,7 +204,8 @@ describe("POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1", () => {
       // an indeterminate number of times (0-2) depending on polling timing, so positional
       // assertions below are taken against the events with it filtered out.
       const nonPhaseEvents = events.filter(
-        (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+        (e) => !(e.type === EventType.CUSTOM &&
+          (e.name === AGUI_RUN_PHASE_EVENT_NAME || e.name === "execution_event")),
       );
 
       // RUN_STARTED first, THEN DA-19a's CUSTOM chat_thread_id (every real run mints/echoes

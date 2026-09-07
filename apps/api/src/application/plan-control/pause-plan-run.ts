@@ -1,9 +1,8 @@
-/**
- * UC-9 `pausePlanRun` —— 暂停（`usecases.md` UC-9，可恢复的中止，人类 2026-08-26 裁决）。
- *
- * 语义：`POST /threads/{remoteThreadId}/runs/{remoteRunId}/cancel?action=interrupt`
- * ——保留已完成步骤，不是丢弃进度的 rollback（domain.md I-12 的证据链）。
+/** Request a checkpoint pause at the next model boundary. The HTTP response
+ * acknowledges intent; only a kernel user_pause interrupt confirms paused_at.
  */
+import type { ModelCallPort } from "../agent-run/ports";
+import type { InterjectionStore } from "../agent-run/interjection-store";
 import type { OrgId } from "../../domain/org-id";
 import type { ProvenanceWriter } from "../provenance/ports";
 import { PlanEditError } from "./plan-edit-errors";
@@ -18,6 +17,7 @@ export interface PausePlanRunInput {
 
 export interface PausePlanRunOutput {
   readonly runId: string;
+  readonly status: "pause_requested";
   /** 步骤级颗粒度读不到（`EngineStateReader` "当前读不到"，`usecases.md` 端口表原话）
    * ——如实返回 `null`，不编一个假的当前步骤 id。 */
   readonly pausedAtStepId: string | null;
@@ -25,6 +25,8 @@ export interface PausePlanRunOutput {
 }
 
 export interface PausePlanRunDeps {
+  readonly interjections?: InterjectionStore;
+  readonly model?: ModelCallPort;
   readonly runs: PlanRunStatusReader;
   readonly engine: EngineRunController;
   readonly provenance: ProvenanceWriter;
@@ -47,14 +49,16 @@ export async function pausePlanRun(
     // idle（无 run 行本身已在上面处理）——不应到达这里，防御性地按 NO_ACTIVE_RUN 处理。
     throw new PlanEditError("NO_ACTIVE_RUN");
   }
-  if (run.remoteRunId === null) {
-    // P-2 的短暂窗口：远端 run 已创建但 onRemoteRunStarted 的写入还没落地/丢了。
-    // 没有 remoteRunId 就没有可 cancel 的对象——如实报 NO_ACTIVE_RUN，不假装暂停成功。
+
+  if (!run.modelProvider || !deps.model?.supportsLiveInterjections?.(run.modelProvider)) {
     throw new PlanEditError("NO_ACTIVE_RUN");
   }
 
-  await deps.engine.cancelRun(input.threadId, run.remoteRunId);
-  await deps.runs.markRunPaused(input.orgId, run.runId);
+  // A request is not a pause. The Python before_model boundary creates a durable
+  // interrupt, and the executor confirms paused_at after observing that interrupt.
+  if (!deps.interjections?.requestPause || !await deps.interjections.requestPause(input.orgId, run.runId)) {
+    throw new PlanEditError("NO_ACTIVE_RUN");
+  }
 
   let auditEventId: string;
   try {
@@ -67,5 +71,5 @@ export async function pausePlanRun(
     throw new PlanEditError("AUDIT_SINK_UNAVAILABLE");
   }
 
-  return { runId: run.runId, pausedAtStepId: null, auditEventId };
+  return { runId: run.runId, status: "pause_requested", pausedAtStepId: null, auditEventId };
 }

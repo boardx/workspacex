@@ -41,10 +41,10 @@ export function previewReplyText(text: string): string {
 
 /** 插话已被服务端接收后页脚的一句话（对应 `InterjectionComposer` 的 `interjection-ack`）。 */
 export function runningReplyAckCopy(text: string): string {
-  return `已收到「${previewReplyText(text)}」，agent 会在下一步之前纳入考虑`;
+  return `已收到「${previewReplyText(text)}」，已排队等待本轮安全边界处理`;
 }
 
 /** 排队等待本轮结束时页脚的一句话。 */
 export function queuedReplyCopy(text: string): string {
-  return `「${previewReplyText(text)}」将在本轮结束后自动发送`;
+  return `本地排队：「${previewReplyText(text)}」将在本轮结束后发送`;
 }

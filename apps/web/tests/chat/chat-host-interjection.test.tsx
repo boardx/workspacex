@@ -76,6 +76,7 @@ vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import * as apiClient from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
@@ -217,15 +218,23 @@ describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插�
   });
 
   it("对照组：status_change(awaiting_tool_permission) ⇒ 正文排队而不是插话；回到 running 才插话", async () => {
+    const originalRequest = apiClient.apiRequest;
+    const request = vi.spyOn(apiClient, "apiRequest").mockImplementation(async (path, options) => {
+      if (!path.endsWith("/queued-messages")) return originalRequest(path, options);
+      if (options?.method !== "POST") return { items: [] };
+      const body = options.body as { text: string; clientRequestId: string };
+      return { id: "a0000000-0000-4000-8000-000000000001", ...body, agentId: "agent-1", status: "pending", runId: null, createdAt: RECEIVED_AT, error: null };
+    });
     mountHost();
     await waitFor(() => expect(sockets.length).toBe(1));
 
     act(() => sockets[0]!.emit(statusChange("awaiting_tool_permission", 1)));
-    await screen.findByTestId("copilotkit-v2-running-indicator");
+    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument());
     const input = screen.getByTestId("copilotkit-v2-input");
     fireEvent.change(input, { target: { value: "补一张图" } });
     fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
-    await screen.findByTestId("chat-task-workbench-composer-queued-reply");
+    expect(await screen.findByTestId("workbench-queued-message")).toHaveTextContent("补一张图");
+    expect(request).toHaveBeenCalledWith(`/chat/threads/${THREAD_ID}/queued-messages`, expect.objectContaining({ method: "POST", body: expect.objectContaining({ text: "补一张图" }) }));
     expect(interjectAgentRun).not.toHaveBeenCalled();
 
     act(() => sockets[0]!.emit(statusChange("running", 2)));
@@ -233,6 +242,7 @@ describe("/chat 宿主 · 在途 run 为 running ⇒ 主 composer 发送即插�
     fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
     await waitFor(() => expect(interjectAgentRun).toHaveBeenCalledTimes(1));
     expect(interjectAgentRun.mock.calls[0]![0]).toEqual({ runId: RUN_ID, text: "再补一张" });
+    request.mockRestore();
   });
 });
 

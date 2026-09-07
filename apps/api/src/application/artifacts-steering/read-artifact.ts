@@ -14,6 +14,7 @@
  * （未来接线时）的事。
  */
 import type { artifactsSteering as AS } from "@repo/contracts";
+import { observerMayReadMessage, type ThreadFacts } from "../../domain/chat/thread-visibility";
 import type { OrgId } from "../../domain/org-id";
 import type { ResolveVisibilityDeps } from "../chat/resolve-visibility";
 import { resolveVisibility } from "../chat/resolve-visibility";
@@ -41,7 +42,9 @@ export async function getArtifact(
   if (guarded === null) throw new ArtifactNotFoundError();
   const disclosed = discloseDecided(guarded, outcome.base);
   if (!isDisclosed(disclosed)) throw new ArtifactNotVisibleError();
-  return disclosed.payload;
+  const versions = await visibleVersions(deps.artifacts,input.orgId,input.artifactId,disclosed.payload.versions,outcome.decision.observerProjection,outcome.thread);
+  if (!versions.length) throw new ArtifactNotVisibleError();
+  return {...disclosed.payload,versions};
 }
 
 export async function listArtifactVersions(
@@ -59,5 +62,16 @@ export async function listArtifactVersions(
   const guarded = await deps.artifacts.listVersions(input.orgId, input);
   const disclosed = discloseDecided(guarded, outcome.base);
   if (!isDisclosed(disclosed)) throw new ArtifactNotVisibleError();
-  return disclosed.payload;
+  const versions = await visibleVersions(deps.artifacts,input.orgId,input.artifactId,disclosed.payload.versions,outcome.decision.observerProjection,outcome.thread);
+  return {...disclosed.payload,versions};
+}
+
+async function visibleVersions(store: ArtifactStore, orgId: OrgId, artifactId: string,
+  versions: readonly AS.ArtifactVersionInfo[], observer: boolean, thread: ThreadFacts): Promise<AS.ArtifactVersionInfo[]> {
+  if (!observer) return [...versions];
+  const checked = await Promise.all(versions.map(async version => {
+    const facts = await store.sourceMessageFacts?.(orgId,artifactId,version.version) ?? [];
+    return facts.length > 0 && facts.every(message => observerMayReadMessage(message,thread)) ? version : null;
+  }));
+  return checked.filter((version): version is AS.ArtifactVersionInfo => version !== null);
 }

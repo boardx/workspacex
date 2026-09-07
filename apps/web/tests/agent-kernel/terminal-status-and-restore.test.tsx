@@ -186,7 +186,7 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
     });
   });
 
-  it("本 phase 触发 bug 的回归用例：run 停在 awaiting_tool_permission，收到该状态事件后立即确认（非终态，仍在恢复中，不安静卡死也不误判成功）", async () => {
+  it("本 phase 触发 bug 的回归用例：run 停在 awaiting_tool_permission，收到该状态事件后立即确认（非终态，等待用户且保留订阅，不误判成功）", async () => {
     // issue #2825 起，订阅之前先做一次权威读；这里它如实读到非终态（run 真的还停着），
     // 于是恢复交给事件流继续。
     getAgentRun.mockResolvedValue({
@@ -207,9 +207,11 @@ describe("useCopilotKitV2RunRestore：真实 WS 事件驱动，终态到达后�
       });
     });
 
-    // 非终态事件不触发额外的确认读、不误判完成——仍在如实展示"恢复中"。
+    // 等待用户不显示忙碌恢复，但保留真实 run 身份和非终态。
     expect(getAgentRun).toHaveBeenCalledTimes(1);
-    expect(result.current.isRestoring).toBe(true);
+    expect(result.current.isRestoring).toBe(false);
+    expect(result.current.status).toBe("awaiting_tool_permission");
+    expect(result.current.runId).toBe("run-1");
     expect(onSettled).not.toHaveBeenCalled();
   });
 

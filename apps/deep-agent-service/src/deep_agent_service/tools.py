@@ -270,25 +270,25 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
         assumptions: list[str] | str | None = None,
     ) -> str:
         """当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能
-        继续时，调用这个工具向用户复述你对任务的理解，并列出你依赖的假设（至少两条），
+        继续时，调用这个工具向用户复述你对任务的理解，并列出你依赖的真实假设（可以为零条或一条，不要编造），
         等待用户确认或修改这些假设后再继续执行。`requestId` 用一个新的唯一字符串标识
         本次确认请求；`understanding` 是你对任务目标的复述；`assumptions` 是你为了完成
-        任务而依赖的假设清单（至少两条，每条都要具体、可核实）。不要在用户已经把目标
+        任务而依赖的真实假设清单（允许零条或一条，每条都要具体、可核实）。不要在用户已经把目标
         说得很清楚、且不需要额外假设时调用这个工具——那只会制造不必要的等待。"""
-        # `assumptions` 缺失或为空：既不是合法的初始提案，也不是合法的编辑结果——
-        # 两条路径都要求非空的假设清单（契约 I-2：assumptions >= 2 条）。
-        assumptions = [str(a) for a in (_coerce_list(assumptions) or [])]
-        if not assumptions:
-            return "没有收到有效的假设清单，无法确认任务目标，请重新给出理解与至少两条假设后再次调用。"
+        # 空数组是合法的“没有额外假设”；缺少数组仍是损坏的恢复载荷。
+        parsed = _coerce_list(assumptions)
+        if parsed is None or any(not isinstance(a, str) or not a.strip() for a in parsed):
+            return "没有收到有效的假设清单，无法确认任务目标，请提供真实假设数组（可以为空）。"
+        assumptions = parsed
         if understanding is not None:
             # approve 路径：resume 时原样收到完整的初始提案。
             return (
                 f"用户已确认对任务的理解：{understanding}。"
-                f"确认的假设：{'；'.join(assumptions)}。请据此继续执行任务。"
+                f"确认的假设：{'；'.join(assumptions) if assumptions else '无额外假设'}。请据此继续执行任务。"
             )
         # edit 路径：resume 只带回了改过的 assumptions（`ConfirmIntentDecision.editedArgs`
         # 不含 understanding/requestId，见本文件头部说明）。
-        return f"用户修改了假设为：{'；'.join(assumptions)}。请据此继续执行任务，不要再使用你最初提出的假设。"
+        return f"用户修改了假设为：{'；'.join(assumptions) if assumptions else '无额外假设'}。请据此继续执行任务，不要再使用你最初提出的假设。"
 
     @tool
     def fill_run_params(

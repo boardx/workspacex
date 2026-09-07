@@ -3,6 +3,7 @@
 // 的 `e2e-full` job 跑（不是新 job，是既有 job 里的一步：单自建 runner 是硬瓶颈）。
 // 「不存在这种没人跑的 spec」本身也已成为机械门控：.harness/scripts/lint-spec-gate-coverage.mjs。
 import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
 import { CHAT_READ_E2E } from "./e2e/chat-read-fixture";
 
 // 端口不再写死 3211/3198。写死的端口在 CI 上是 #468 那类偶发红（EADDRINUSE）的来源，
@@ -237,7 +238,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
     },
     {
       /**
@@ -427,6 +428,7 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
         LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
+        LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER: CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
         // DA-19g —— 多轮上下文取证开关，见 `CHAT_READ_E2E.deepAgentFollowupContextTrigger`
         // 自己的头注。
         LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_TRIGGER: CHAT_READ_E2E.deepAgentFollowupContextTrigger,
@@ -441,7 +443,11 @@ export default defineConfig({
     },
     {
       command: [
-        "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
+        // Local coordinated runs may reuse healthy infrastructure. Never restart a
+        // shared stack; a failed readiness probe must fail the test setup instead.
+        process.env.WORKSPACEX_REUSE_INFRA === "1"
+          ? "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" exec -T postgres pg_isready -h 127.0.0.1 -U postgres"
+          : "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" up -d --wait postgres redis",
         "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" exec -T postgres createdb -U postgres \"$WORKSPACEX_DB\"",
         "pnpm --filter @repo/api migrate",
         "pnpm --filter @repo/api exec tsx scripts/seed-chat-read-e2e.ts",
@@ -577,6 +583,10 @@ export default defineConfig({
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,
+      env: {
+        ...process.env,
+        NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve(__dirname, "e2e/support/google-fonts-mock.cjs"),
+      },
     },
   ],
 });

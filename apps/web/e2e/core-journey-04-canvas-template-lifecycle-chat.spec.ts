@@ -23,6 +23,7 @@
  * 不撞任何唯一约束）。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { createNamedWorkbenchThread } from "./support/workbench-journey";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 /**
@@ -166,6 +167,9 @@ test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发�
         证明"使用"与"chat"不是两个互不相干的孤岛——绑定生效的是同一个项目，
         该项目的会话列表真的能打开、能新建会话。 */
   await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-  await expect(page.getByTestId("chat-read-thread-list")).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-thread-list")).toBeVisible();
   await expect(page.getByTestId("chat-thread-create")).toBeVisible();
+  const threadId = await createNamedWorkbenchThread(page, `旅程④模板会话-${unique}`, FULLSTACK_E2E.projectId);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeEditable();
+  await expect(page.getByTestId(`chat-thread-${threadId}`)).toHaveAttribute("data-selected", "true");
 });

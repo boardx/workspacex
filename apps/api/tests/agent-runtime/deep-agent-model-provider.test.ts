@@ -282,7 +282,7 @@ describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progr
       {
         toolName: "list_org_skills", toolArgsSummary: "{}",
         toolResultSummary: "- diagram-maker：画图技能", planningNote: "我先看看有哪些技能可用",
-        phase: "complete", toolCallId: "call-1",
+        phase: "complete", ok: true, toolCallId: "call-1",
         toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能",
       },
       {
@@ -294,7 +294,7 @@ describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progr
       {
         toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
         toolResultSummary: "已生成架构图。", planningNote: "调用画图技能",
-        phase: "complete", toolCallId: "call-2",
+        phase: "complete", ok: true, toolCallId: "call-2",
         toolArgsFull: { skill_stable_name: "diagram-maker", task: "画架构图" },
         toolResultFull: "已生成架构图。",
       },

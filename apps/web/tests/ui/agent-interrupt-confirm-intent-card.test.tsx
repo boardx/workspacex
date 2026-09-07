@@ -64,7 +64,7 @@ describe("F213 · 改假设分支：进入编辑态后每条假设变可编辑�
     expect(after.length).toBe(before.length + 1);
   });
 
-  it("删除一条假设 → 数组变短，提交按钮在剩余非空条数 <2 时禁用（I-2 前端侧防呆）", () => {
+  it("删除到一条真实假设仍可提交", () => {
     render(<ConfirmIntentCard args={MOCK_CONFIRM_INTENT} state="default" canWrite />);
     fireEvent.click(screen.getByTestId(`${TID}-edit-toggle`));
     // 删到只剩 1 条：逐一删除除第 0 条外的所有假设。
@@ -72,7 +72,7 @@ describe("F213 · 改假设分支：进入编辑态后每条假设变可编辑�
       fireEvent.click(screen.getByTestId(`${TID}-assumption-remove-1`));
     });
     expect(screen.getAllByTestId(new RegExp(`^${TID}-assumption-input-\\d+$`)).length).toBe(1);
-    expect((screen.getByTestId(`${TID}-edit-submit`) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId(`${TID}-edit-submit`) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("取消编辑 → 回到只读态，假设内容不变", () => {
@@ -95,10 +95,10 @@ describe("F213 · 七态矩阵（ui.md 屏一）", () => {
     expect(screen.getByTestId("empty").textContent).toContain("没有待确认");
   });
 
-  it("invalid：强制进入编辑态并给出「假设不能为空」的字段级错误", () => {
+  it("invalid：强制进入编辑态并给出「假设格式无效」的字段级错误", () => {
     render(<ConfirmIntentCard args={MOCK_CONFIRM_INTENT} state="invalid" canWrite />);
     expect(screen.getByTestId(`${TID}-assumption-input-0`)).toBeTruthy();
-    expect(screen.getByTestId("err-assumptions").textContent).toContain("不能为空");
+    expect(screen.getByTestId("err-assumptions").textContent).toContain("格式无效");
   });
 
   it("dep-failed：提示 AUDIT_SINK_UNAVAILABLE 语义（决策写不进审计）", () => {
@@ -132,5 +132,16 @@ describe("F213 · canWrite=true 时决策按钮可用（无权限降级不会误
     render(<ConfirmIntentCard args={MOCK_CONFIRM_INTENT} state="default" canWrite />);
     expect((screen.getByTestId(`${TID}-continue`) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByTestId(`${TID}-edit-toggle`) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+
+describe("WX-T011 真实假设", () => {
+  it.each([0, 1])("允许提交 %i 条假设", (count) => {
+    let submitted: string[] | undefined;
+    const assumptions = MOCK_CONFIRM_INTENT.assumptions.slice(0, count);
+    render(<ConfirmIntentCard args={{ ...MOCK_CONFIRM_INTENT, assumptions }} state="default" canWrite initialEditing onEditSubmit={(value) => { submitted = value; }} />);
+    fireEvent.click(screen.getByTestId(`${TID}-edit-submit`));
+    expect(submitted).toEqual(assumptions);
   });
 });

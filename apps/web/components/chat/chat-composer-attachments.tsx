@@ -86,6 +86,7 @@ function nextLocalId(): string {
  * composer 附件状态机。`threadId` 变（切线程）会清空——一个线程的 pending 附件不该带到另一个。
  */
 export function useChatAttachments(opts: {
+  canWrite?: boolean;
   threadId: string;
   bearer?: string;
   /**
@@ -96,7 +97,8 @@ export function useChatAttachments(opts: {
    */
   resolveThreadId?: () => Promise<string>;
 }) {
-  const { threadId, bearer, resolveThreadId } = opts;
+  const { threadId, bearer, resolveThreadId, canWrite = true } = opts;
+  const canWriteRef = React.useRef(canWrite); canWriteRef.current = canWrite;
   const [attachments, setAttachments] = React.useState<LiveAttachment[]>([]);
   /**
    * `pickFiles` 需要"当前有几个附件"来判数量上限，但不能靠把 `attachments` 塞进
@@ -135,8 +137,10 @@ export function useChatAttachments(opts: {
   }, []);
 
   const doUpload = React.useCallback(async (localId: string, file: File) => {
+    if (!canWriteRef.current) return;
     try {
       const targetThreadId = threadId !== "" ? threadId : await resolveThreadId?.();
+      if (!canWriteRef.current) return;
       if (!targetThreadId) throw new Error("no thread to attach to");
       const uploaded: ChatAttachment = await uploadAttachment(
         targetThreadId, file, bearer,
@@ -164,7 +168,7 @@ export function useChatAttachments(opts: {
    * 副作用只在 `pickFiles` 本体（一次真实点击只调一次）里跑一遍。
    */
   const pickFiles = React.useCallback((files: FileList | File[] | null) => {
-    if (!files) return;
+    if (!canWriteRef.current || !files) return;
     const list = Array.from(files);
     if (list.length === 0) return;
 
@@ -201,6 +205,7 @@ export function useChatAttachments(opts: {
   }, [doUpload]);
 
   const retry = React.useCallback((localId: string) => {
+    if (!canWriteRef.current) return;
     // 同 `pickFiles` 那处 2026-08-19 修复的道理：真实上传的触发不能挂在 `setAttachments`
     // 的 updater 函数体里（StrictMode 双调用会真的重传两次）。用 `attachmentsRef` 读现状，
     // updater 只做纯合并，`doUpload` 调用在 updater 外面、只发生一次。
@@ -328,9 +333,9 @@ export function ChatFullSurfaceDropOverlay({ active }: { active: boolean }) {
 }
 
 export function ChatAttachmentList({
-  ctl, disabled, testId = "chat-attachment-list", idPrefix = "chat-attachment",
+  ctl, disabled, canRetry = true, testId = "chat-attachment-list", idPrefix = "chat-attachment",
 }: {
-  ctl: ChatAttachmentsController; disabled?: boolean; testId?: string; idPrefix?: string;
+  ctl: ChatAttachmentsController; disabled?: boolean; canRetry?: boolean; testId?: string; idPrefix?: string;
 }) {
   if (ctl.attachments.length === 0) return null;
   return (
@@ -338,7 +343,7 @@ export function ChatAttachmentList({
       {ctl.attachments.map((att) => (
         <AttachmentRow
           key={att.localId}
-          att={att}
+          att={canRetry ? att : { ...att, retryable: false }}
           idPrefix={idPrefix}
           disabled={disabled}
           confirming={ctl.confirmingId === att.localId}

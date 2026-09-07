@@ -28,6 +28,7 @@
  * Enumerated here rather than inferred, and each entry states what makes it different --
  * an allowlist without reasons grows.
  */
+import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-permission-boundaries.mjs";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -440,6 +441,13 @@ function walk(dir, out = []) {
 }
 
 const TABLES = tenantTables();
+const boundaryFailures = verifyWorkbenchBoundaries(path => readFileSync(join(API,path), "utf8"), TABLES);
+if (boundaryFailures.length) {
+  for (const failure of boundaryFailures) console.error(`Workbench permission boundary: ${failure}`);
+  process.exit(1);
+}
+for (const [path, rule] of workbenchBoundaries) ALLOWLIST.set(path, rule.reason);
+
 const ROOTS = process.argv.slice(2).length ? process.argv.slice(2) : [join(API, "src")];
 
 let fail = 0;

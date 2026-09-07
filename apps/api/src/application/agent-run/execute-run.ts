@@ -1,3 +1,6 @@
+import { RunLeaseLostError, currentRunLease } from "./run-lease";
+import type { ArtifactContinuationReader } from "../artifacts-steering/artifact-execution";
+import { publicExecutionPayload } from "./public-execution-payload";
 /**
  * `executeAgentRun` -- the Wave 2 §5 slice, and nothing else.
  *
@@ -67,7 +70,7 @@ import type { VisionInputStatus } from "./context-snapshot";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 import type { RunEventBusPort } from "./run-event-bus";
-import { forwardToolCallProgress, publishStatusChange, publishTokenDelta } from "./execute-run-events";
+import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
 import { record } from "./record-run-step";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
 import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
@@ -399,6 +402,7 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  readonly artifactContinuations?: ArtifactContinuationReader;
   readonly runs: AgentRunStore;
   readonly model: ModelCallPort;
   /**
@@ -1013,7 +1017,8 @@ async function executeClaimed(
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
   // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
   history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
-  let userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+  const artifactContinuation = await deps.artifactContinuations?.prepare(orgId, run.runId);
+  let userText = withAttachmentNotice(run.inputText, run.inputAttachments) + (artifactContinuation ? `\n\n${artifactContinuation.instruction}` : "");
 
   /*
    * P2（#1561）—— 图像通道：把本轮触发消息挂的图片按可见性规则取出、定界，交给支持视觉的
@@ -1115,12 +1120,9 @@ async function executeClaimed(
     }
   }
 
-  // DA-03：token 增量落进同一个 delta 账本（appendModelDelta + 递增 seq）无论走哪种
-  // provider 形状——agui-bridge 的逐轮 readModelDeltas 转发因此对它们一视同仁，不需要
-  // 知道 token 是谁产的。一个共享计数器是安全的：`invokeKernel` 只会走三种形状中的一种
-  // （`ModelCallPort` 自己的文档已经说明它们互斥），onDelta 因此每次调用最多被这一条
-  // 路径使用。
-  let deltaSeq = 0;
+  let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
+  deltaSeq += 1;
+  const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   try {
     // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
     // shape `deps.model` actually offers for this run's pinned provider; every field below
@@ -1135,12 +1137,12 @@ async function executeClaimed(
         threadId: run.threadId,
         // issue #2664 -- 只有 deep-agent provider 读这两个字段，见 `ModelCallInput` 自己的文档。
         orgId: String(orgId), runId: run.runId,
-        // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
-        // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
-        // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
-        // fail closed），本层不做第二份解析副本。Phase 14 F06：deny 变体让 provider
-        // 发 resume:{decision:"reject"}——引擎侧 HumanInTheLoopMiddleware 原生支持的
-        // 拒绝语义，收到后自己调整后续计划继续跑，不是让这次调用直接失败。
+        executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
+        onSkillActivity: async (fact) => {
+          await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "skill_activity", attemptId: executionAttemptId, fact });
+        },
+        // Resume the existing checkpoint after a decision; never resend user input.
+        // The provider validates edited args and forwards rejection to native HITL.
         ...(run.pendingDecision === null
           ? {}
           : run.pendingDecision.kind === "approve"
@@ -1170,7 +1172,9 @@ async function executeClaimed(
         // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
         ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
         // Phase 14 后续 A（#2755）：上一次检查点消费到的插话随这次调用回灌内核，见 `interjection-handling.ts`。
-        ...(await takeInterjectionForKernel(deps, orgId, run.runId)),
+        ...(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel
+          ? { liveInterjections: true } : await takeInterjectionForKernel(deps, orgId, run.runId)),
+        ...(run.checkpointResume ? { checkpointResume: true } : {}),
         // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
         // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
         ...(vision.images.length > 0 ? { images: vision.images } : {}),
@@ -1178,30 +1182,19 @@ async function executeClaimed(
         // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
         // 既有先例）——写失败只 log，不影响这轮回复本身。
         ...(deps.planLedger ? {
-          onRemoteRunStarted: (remoteRunId: string) => {
-            void deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId).catch((e: unknown) => {
-              deps.log("plan-control: failed to persist remote_run_id (pausePlanRun will be unable to cancel this run)", {
-                runId: run.runId, detail: e instanceof Error ? e.message : "unexpected write failure",
-              });
-            });
-          },
+          onRemoteRunStarted: (remoteRunId: string) => deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId),
         } : {}),
       },
       async (event) => {
         const stepStartedAt = deps.clock.now();
-        // #742 Gap 1: `phase` absent/"complete" is the pre-existing behaviour verbatim
-        // (one event, one terminal `succeeded` row). `phase: "in_progress"` is the new
-        // branch -- it ALSO gets its own new row (append-only ledger, see
-        // `AppendedRunStep.toolCallId`'s own doc for why this can't be an UPDATE); the
-        // read side folds the pair back into one card for the same `toolCallId`.
-        const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : "succeeded";
+        const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : event.ok === false ? "failed" : "succeeded";
         const stepSeq = seqCursor.value;
         await record(deps, orgId, {
           runId: run.runId, seq: stepSeq, kind: "tool_call", startedAt: stepStartedAt,
           status,
           inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
           outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
-          failureCode: null,
+          failureCode: event.ok === false ? "MODEL_CALL_FAILED" : null,
           toolName: event.toolName,
           toolArgsSummary: event.toolArgsSummary,
           toolResultSummary: event.toolResultSummary,
@@ -1209,25 +1202,32 @@ async function executeClaimed(
           toolCallId: event.toolCallId ?? null,
         });
         seqCursor.value += 1;
-        // Phase 14 F03 -- forward this SAME progress event onto the WS bus, fire-and-forget,
-        // NOT gated on the `record()` ledger write above (I-3). See `execute-run-events.ts`.
+        await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
-        // Phase 14 F11 -- 一次工具调用的终态之后、下一次之前：见 `interjection-handling.ts`。
-        if (status === "succeeded") await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
+        await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary) }
+          : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
+        if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },
-      async (delta) => {
+      async (delta, metadata) => {
         if (delta === "") return;
         const seq = deltaSeq;
         deltaSeq += 1;
         await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
-        // Phase 14 F03 -- own seq space on the WS bus, fire-and-forget (I-3).
+        await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "text_delta", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${metadata?.messageId ?? "assistant"}`, delta });
         publishTokenDelta(deps, orgId, run.runId, delta);
       },
     );
+    if (completion.cancelled) {
+      if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");
+      await deps.runs.cancelAtCheckpoint(orgId, run.runId); return;
+    }
+    if (completion.paused) {
+      if (!deps.runs.pauseAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "pause persistence unavailable");
+      await deps.runs.pauseAtCheckpoint(orgId, run.runId);
+      return;
+    }
     if (completion.interrupted !== undefined) {
-      // Phase 14 F06 -- 分级+授权判断与两条落点（自动放行续跑 / 停进
-      // awaiting_tool_permission 等人裁决）都在 `tool-permission-gate.ts`，这里只是
-      // 一次调用（同 `execute-run-events.ts`/`record-run-step.ts` 的既有抽离理由）。
       await handleInterruptedToolCall(deps, orgId, run.runId, completion.interrupted, {
         seq: seqCursor.value, modelStartedAt, systemDigest, system,
       }, skillRisks);
@@ -1236,6 +1236,7 @@ async function executeClaimed(
     if (completion.text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
     }
+    if (completion.finalMessageId) await deps.runs.appendExecutionEvent?.(orgId, run.runId, { kind: "final_message", attemptId: executionAttemptId, messageId: `${executionAttemptId}:${completion.finalMessageId}` });
     text = completion.text;
     reportedTokens = completion.tokens;
     reportedPrompt = completion.promptTokens;
@@ -1299,15 +1300,14 @@ async function executeClaimed(
    *   run 的终态错误码不进响应正文（本文件的既有纪律）。
    */
   let outputFiles: readonly ProducedFile[] = [];
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   {
     const scripted = await maybeRunSkillScript(
       {
         sandbox: deps.sandbox,
+        cancelAtCheckpoint: () => deps.runs.cancelAtCheckpoint?.(orgId, run.runId) ?? Promise.resolve(false),
         objects: deps.objects,
         log: deps.log,
-        // 回喂：把上一次的真实 exitCode/stderr 作为一条 user 消息再问一次。
-        // 用**同一个** system（含 skill 正文与执行协议）与同一段 history，
-        // 否则第二次生成的脚本会在一个与第一次不同的上下文里写出来。
         regenerate: async (feedback) => {
           const retry = await deps.model.complete({
             modelProvider: run.modelProvider,
@@ -1334,15 +1334,15 @@ async function executeClaimed(
           return retryCandidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
         },
       },
-      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates },
+      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
     );
+    if (scripted.kind === "cancelled") return;
     text = scripted.text;
     outputFiles = scripted.files;
   }
 
+  if (await deps.runs.cancelAtCheckpoint?.(orgId, run.runId)) return;
   /* ── hand off to #413 ── */
-  // `writeback_pending`, not `succeeded`. §6: the run may only become succeeded after the
-  // Chat writeback transaction commits, and that transaction is not in this slice.
   await deps.runs.storeOutputAwaitingWriteback(
     orgId, run.runId,
     // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。
@@ -1368,21 +1368,22 @@ export async function executeQueuedRuns(
       deps.log("agent run snapshot no longer resolvable", {
         runId: outcome.runId, code: "AGENT_VERSION_UNAVAILABLE",
       });
-      await deps.runs.failRun(input.orgId, outcome.runId, "AGENT_VERSION_UNAVAILABLE");
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.runId,()=>deps.runs.failRun(input.orgId,outcome.runId,"AGENT_VERSION_UNAVAILABLE"),outcome.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.runId, "failed");
       continue;
     }
     try {
       // issue #2860：心跳见 `run-heartbeat.ts`。
-      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run));
+      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run), outcome.run.leaseEpoch);
     } catch (e) {
+      if(e instanceof RunLeaseLostError)continue;
       // A defect in this file, not a provider failure. Still recorded, still terminal:
       // leaving the run stuck in `running` forever is the one outcome nobody can act on.
       deps.log("agent run executor defect", {
         runId: outcome.run.runId,
         detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
-      await deps.runs.failRun(input.orgId, outcome.run.runId, "MODEL_CALL_FAILED");
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED"),outcome.run.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
     }
   }

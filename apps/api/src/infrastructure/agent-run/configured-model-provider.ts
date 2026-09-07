@@ -46,9 +46,10 @@
  * at all (`ports.ts`'s own header) -- this class went back to the pre-#725 request/response
  * shape, not a shape that merely stopped being exercised.
  */
+import { randomUUID } from "node:crypto";
 import { Agent, fetch as undiciFetch, type Response as UndiciResponse } from "undici";
 import type {
-  ModelCallImage, ModelCallInput, ModelCallPort,
+  ModelCallImage, ModelCallInput, ModelCallPort, ModelCallCompletion, ModelDeltaMetadata,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 import type { ReportedUsage } from "../../application/agent-run/ports";
@@ -373,8 +374,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
    */
   readonly completeStream?: (
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
-  ) => Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
+  ) => Promise<ModelCallCompletion>;
 
   constructor(config: ConfiguredModelProviderConfig) {
     this.config = config;
@@ -589,8 +590,8 @@ export class ConfiguredModelProvider implements ModelCallPort {
    */
   private async streamImpl(
     input: ModelCallInput,
-    onDelta: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }> {
+    onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
+  ): Promise<ModelCallCompletion> {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
@@ -617,6 +618,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
       throw new ModelCallError("MODEL_CALL_FAILED", "model provider returned no stream body");
     }
 
+    // This adapter emits one assistant message per completion, unlike a tool graph.
+    // The same identity binds every streamed fragment to its final completion.
+    const finalMessageId = randomUUID();
     let text = "";
     let usage: ReportedUsage = {};
     const reader = response.body.getReader();
@@ -670,7 +674,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             const delta = chunk.choices?.[0]?.delta?.content;
             if (typeof delta === "string" && delta !== "") {
               text += delta;
-              await onDelta(delta);
+              await onDelta(delta, { messageId: finalMessageId });
             }
             // 流式的 usage 通常只在最后一帧出现；每帧覆盖式合并，缺的维度保留上一次的值，
             // 不用后来的 undefined 把已经报过的数抹掉。
@@ -692,6 +696,6 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    return { text, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
+    return { text, finalMessageId, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
   }
 }

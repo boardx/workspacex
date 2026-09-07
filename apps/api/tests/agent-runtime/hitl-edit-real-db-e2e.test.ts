@@ -290,7 +290,11 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
     expect(awaiting.status).toBe("awaiting_tool_permission");
     expect(awaiting.pendingApproval?.toolName).toBe(APPROVAL_TOOL_NAME);
 
-    const decideResponse = await decide(agentRunId, { decision: "edit", editedArgs: EDITED_ARGS });
+    expect(awaiting.pendingApproval?.permissionRequestId).toEqual(expect.any(String));
+    const decideResponse = await decide(agentRunId, {
+      permissionRequestId: awaiting.pendingApproval!.permissionRequestId,
+      decision: "edit", editedArgs: EDITED_ARGS,
+    });
     expect(decideResponse.status).toBe(200);
     const decided = await decideResponse.json() as { status: string };
     expect(decided.status).toBe("queued");
@@ -320,9 +324,13 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
   it("反证：approve（不编辑）时上游收到的仍是原始参数——证明上面的『相等』不是恒真", async () => {
     const { agentRunId } = await postMessage("触发人工审批");
     await tick();
-    await readRun(agentRunId);
+    const awaiting = await readRun(agentRunId);
+    expect(awaiting.pendingApproval?.permissionRequestId).toEqual(expect.any(String));
 
-    const decideResponse = await decide(agentRunId, { decision: "approve" });
+    const decideResponse = await decide(agentRunId, {
+      permissionRequestId: awaiting.pendingApproval!.permissionRequestId,
+      decision: "approve",
+    });
     expect(decideResponse.status).toBe(200);
     await tick();
 

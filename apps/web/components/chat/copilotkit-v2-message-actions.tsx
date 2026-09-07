@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Copy, Check } from "lucide-react";
 import { MessageRating } from "@/components/chat/message-rating";
-import { FeedbackButton } from "@/components/feedback/feedback-button";
+import { PersistedAgentFeedback } from "@/components/chat/workbench/persisted-agent-feedback";
 import type { ChatMessageIdentityIndex } from "@/lib/copilotkit-v2-message-identity";
 import {
   MessageLandingTrigger, MessageLandingPanel, type MessageLandingState,
@@ -46,9 +46,8 @@ import {
  * 消息级 👍/👎 答的是"这一条回答好不好"；`FeedbackButton` 答的是"这个 agent 老是
  * 漏掉附件"这类跨很多条消息的话，两者在下游走两条不同的路（旧轨道
  * `chat-live-message-panel.tsx` 同一段注释）。它只需要 agent id，**不**需要
- * messageId，所以不受上面那条 id 缺口的限制——每条 AI 消息都画得出来。
- * ⚠ `agentId` 为 `null`（用户还没选 agent，走服务端默认）时不画：反馈要能一直对上
- * 同一个 agent，对不上就不采集，不塞一个 `"default"` 之类的占位。
+ * messageId。工作台先确认该回复的持久消息身份，再从所属 run 解析真实 agent。
+ * 当前 composer 的选择不会改变历史回复的反馈归属；未持久化或无法核实归属时不显示。
  */
 
 /**
@@ -153,19 +152,13 @@ export function CopilotKitV2CopyButton({
  * 挂进 `additionalToolbarItems` 的那一组：反馈 + 评分。
  * 两者的渲染条件各自独立（见文件头），不是一个开关控制两个。
  */
-export function CopilotKitV2MessageExtraActions({ messageId }: { messageId: string }): JSX.Element | null {
+export function CopilotKitV2MessageExtraActions({ messageId, projectId = null }: { messageId: string; projectId?: string | null }): JSX.Element | null {
   const ctx = useCopilotKitV2MessageActions();
   if (ctx === null) return null;
   const chatMessageId = ctx.identity.resolve(messageId);
   return (
     <>
-      {ctx.agentId !== null ? (
-        <FeedbackButton
-          target={{ kind: "agent", agentId: ctx.agentId }}
-          targetLabel={ctx.agentLabel}
-          testid="chat-agent-feedback"
-        />
-      ) : null}
+      <PersistedAgentFeedback messageId={ctx.identity.resolvePersisted(messageId)} projectId={projectId} />
       {/* ⚠ `revealOnHover={false}`：框架 toolbar 链路上没有 `group` 祖先，
           旧轨道那套 `group-hover:visible` 在这里不是"藏起来"，是「永远不出现」
           （真栈 e2e 第一轮实测点不下去）。见 `message-rating.tsx` 该 prop 的注释。 */}

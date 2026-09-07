@@ -1,3 +1,4 @@
+import { lockArtifactVersions } from "./lock-artifact-versions";
 /**
  * `ArtifactStore` 的 PostgreSQL 实现（F09）。表结构见
  * `migrations/20260905000000_f09_agent_artifacts.sql`。
@@ -33,11 +34,15 @@ interface VersionRow {
   storage_key: string;
   size_bytes: string; // bigint 经 pg 驱动回来是字符串
   created_at: Date;
+  attachment_id?: string | null;
+  based_on_version?: number | null;
 }
 
 function toVersionInfo(row: VersionRow): AS.ArtifactVersionInfo {
   return {
     version: row.version,
+    ...(row.attachment_id ? { attachmentId: row.attachment_id } : {}),
+    ...(row.based_on_version ? { basedOnVersion: row.based_on_version } : {}),
     producedByRunId: row.produced_by_run_id,
     producedByStepId: row.produced_by_step_id,
     changeNote: row.change_note,
@@ -48,7 +53,7 @@ function toVersionInfo(row: VersionRow): AS.ArtifactVersionInfo {
 }
 
 const VERSIONS_BY_ARTIFACT_SQL = `
-  SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at
+  SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at, attachment_id, based_on_version
     FROM agent_artifact_versions
    WHERE org_id = $1 AND artifact_id = $2
    ORDER BY version ASC`;
@@ -56,17 +61,45 @@ const VERSIONS_BY_ARTIFACT_SQL = `
 /** `guard()` 的 `ObjectRef` 要用 Artifact 所在线程的 project——查不到（已删除的线程）
  *  时返回 `null`，调用方把它当"这条 Artifact 现在够不上可判定的对象"处理。 */
 async function projectIdFor(s: TenantSession, orgId: OrgId, artifactId: string): Promise<string | null> {
-  const result = await s.query<{ project_id: string }>(
-    `SELECT t.project_id
+  const result = await s.query<{ project_id: string | null; created_by: string }>(
+    `SELECT t.project_id,t.created_by
        FROM agent_artifacts a JOIN chat_threads t ON t.id = a.thread_id AND t.org_id = a.org_id
       WHERE a.org_id = $1 AND a.id = $2`,
     [orgId, artifactId],
   );
-  return result.rows[0]?.project_id ?? null;
+  const row = result.rows[0];
+  return row ? row.project_id ?? `personal:${row.created_by}` : null;
 }
 
 export class PgArtifactStore implements ArtifactStore {
   constructor(private readonly db: DatabasePort) {}
+
+  async sourceMessageFacts(orgId: OrgId, artifactId: string, version: number) {
+    return this.db.withTenant(orgId, async s => {
+      const result = await s.query<{id: string; raw_transcript: boolean; visibility_scope: import("../../domain/chat/thread-visibility").MessageFacts["visibilityScope"]}>(`
+        WITH RECURSIVE lineage AS (
+          SELECT v.* FROM agent_artifact_versions v WHERE v.org_id=$1 AND v.artifact_id=$2 AND v.version=$3
+          UNION
+          SELECT base.* FROM agent_artifact_versions base JOIN lineage child
+            ON base.org_id=child.org_id AND base.artifact_id=child.artifact_id AND base.version=child.based_on_version
+        )
+        SELECT DISTINCT m.id,m.raw_transcript,m.visibility_scope FROM lineage v
+        JOIN agent_runs r ON r.org_id=v.org_id AND r.id=v.produced_by_run_id
+        JOIN agent_artifacts a ON a.org_id=v.org_id AND a.id=v.artifact_id
+        JOIN chat_messages m ON m.org_id=r.org_id AND m.thread_id=a.thread_id
+          AND (m.id=r.input_message_id OR m.agent_run_id=r.id OR m.id IN
+            (SELECT f.message_id FROM chat_message_attachments f WHERE f.org_id=v.org_id AND f.id=v.attachment_id))`,
+        [orgId, artifactId, version]);
+      return result.rows.map(row => ({id:row.id,rawTranscript:row.raw_transcript,visibilityScope:row.visibility_scope}));
+    });
+  }
+
+  async listByThread(orgId: OrgId, threadId: string): Promise<readonly string[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ id: string }>(`SELECT id FROM agent_artifacts WHERE org_id=$1 AND thread_id=$2 ORDER BY created_at,id`, [orgId, threadId]);
+      return result.rows.map(row => row.id);
+    });
+  }
 
   createArtifact(orgId: OrgId, input: CreateArtifactInput): Promise<AS.ArtifactRecord> {
     return this.db.withTenant(orgId, async (s) => {
@@ -112,7 +145,7 @@ export class PgArtifactStore implements ArtifactStore {
       if (exists.rows.length === 0) {
         throw new Error(`appendVersion: artifact ${input.artifactId} not found`);
       }
-      await s.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`agent_artifact:${orgId}:${input.artifactId}`]);
+      await lockArtifactVersions(s,orgId,input.artifactId);
       const maxVersion = await s.query<{ max: number | null }>(
         `SELECT MAX(version) AS max FROM agent_artifact_versions WHERE org_id = $1 AND artifact_id = $2`,
         [orgId, input.artifactId],
@@ -130,7 +163,7 @@ export class PgArtifactStore implements ArtifactStore {
         ],
       );
       const inserted = await s.query<VersionRow>(
-        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at
+        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at, attachment_id, based_on_version
            FROM agent_artifact_versions WHERE org_id = $1 AND id = $2`,
         [orgId, versionId],
       );
@@ -169,7 +202,7 @@ export class PgArtifactStore implements ArtifactStore {
       // 递增且从不改写（I-2），拿它当游标不会因为并发追加而错位。
       const afterVersion = input.cursor === null ? 0 : Number(input.cursor);
       const result = await s.query<VersionRow>(
-        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at
+        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at, attachment_id, based_on_version
            FROM agent_artifact_versions
           WHERE org_id = $1 AND artifact_id = $2 AND version > $3
           ORDER BY version ASC
@@ -195,7 +228,7 @@ export class PgArtifactStore implements ArtifactStore {
   ): Promise<Guarded<AS.ArtifactVersionInfo> | null> {
     return this.db.withTenant(orgId, async (s) => {
       const result = await s.query<VersionRow>(
-        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at
+        `SELECT version, produced_by_run_id, produced_by_step_id, change_note, storage_key, size_bytes, created_at, attachment_id, based_on_version
            FROM agent_artifact_versions WHERE org_id = $1 AND artifact_id = $2 AND version = $3`,
         [orgId, artifactId, version],
       );
@@ -209,7 +242,7 @@ export class PgArtifactStore implements ArtifactStore {
 
   findLocator(orgId: OrgId, artifactId: string): Promise<ArtifactLocator | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const result = await s.query<{ thread_id: string; project_id: string }>(
+      const result = await s.query<{ thread_id: string; project_id: string | null }>(
         `SELECT a.thread_id, t.project_id
            FROM agent_artifacts a JOIN chat_threads t ON t.id = a.thread_id AND t.org_id = a.org_id
           WHERE a.org_id = $1 AND a.id = $2`,

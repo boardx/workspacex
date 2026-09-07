@@ -1,4 +1,5 @@
 import * as React from "react";
+import { renderToString } from "react-dom/server";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
@@ -55,4 +56,36 @@ describe("real login failure mapping", () => {
     expect(screen.getByTestId("login-error")).toHaveTextContent("锁定");
     expect(screen.getByTestId("login-error")).not.toHaveTextContent("登录服务暂时不可用");
   });
+});
+
+
+it("keeps SSR login controls disabled until hydration, then submits the entered values", async () => {
+  const ui = <SessionProvider><LoginForm state="default" /></SessionProvider>;
+  const container = document.createElement("div");
+  container.innerHTML = renderToString(ui);
+  document.body.appendChild(container);
+  const email = container.querySelector<HTMLInputElement>('[data-testid="login-email"]')!;
+  const password = container.querySelector<HTMLInputElement>('[data-testid="login-password"]')!;
+  const submit = container.querySelector<HTMLButtonElement>('[data-testid="login-submit"]')!;
+  expect(email).toBeDisabled();
+  expect(password).toBeDisabled();
+  expect(submit).toBeDisabled();
+  submit.click();
+  expect(login).not.toHaveBeenCalled();
+
+  login.mockRejectedValueOnce(new ApiError(401, "INVALID_CREDENTIAL", {}));
+  const mounted = render(ui, { container, hydrate: true });
+  await waitFor(() => expect(email).toBeEnabled());
+  expect(password).toBeEnabled();
+  expect(submit).toBeEnabled();
+  fireEvent.change(email, { target: { value: "lead@example.com" } });
+  fireEvent.change(password, { target: { value: "entered-password" } });
+  fireEvent.click(submit);
+  await waitFor(() => {
+    expect(login).toHaveBeenCalledTimes(1);
+    expect(login).toHaveBeenCalledWith("lead@example.com", "entered-password");
+  });
+  await waitFor(() => expect(screen.getByTestId("login-error")).toBeInTheDocument());
+  mounted.unmount();
+  container.remove();
 });

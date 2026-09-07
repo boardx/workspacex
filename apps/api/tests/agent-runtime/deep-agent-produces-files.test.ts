@@ -133,6 +133,8 @@ async function startDeepAgentFake(options: DeepAgentFakeOptions): Promise<DeepAg
       return;
     }
     if (req.method === "GET" && /^\/threads\/[^/]+\/state$/.test(url)) {
+      // The initial checkpoint predates this run: future completed tools must not appear as history.
+      if (createRunBodies.length === 0) { json(200, { values: { messages: [] } }); return; }
       const messages: Record<string, unknown>[] = [{ type: "human", content: "帮我做一份季度回顾的 deck" }];
       if (options.toolResult !== null) {
         messages.push({

@@ -68,6 +68,7 @@ export async function listThreads(
   projectId: string,
   opts: { includeArchived?: boolean; filter?: "all" | "project" | "my-agents" } = {},
   sessionToken?: string,
+  signal?: AbortSignal,
 ): Promise<ListThreadsOut> {
   return apiRequest<ListThreadsOut>(
     chat.operations.listThreads.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -78,6 +79,7 @@ export async function listThreads(
         filter: opts.filter,
       },
       sessionToken,
+      signal,
     },
   );
 }

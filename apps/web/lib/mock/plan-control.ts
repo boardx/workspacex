@@ -13,18 +13,11 @@
  * `constraintId`/`planStepId`），所以特意不与契约同名，避免「看着像同一份契约、
  * 实际字段对不上」的误导；真正接线时以契约字段名为准，这份 mock 类型会被替换掉。
  */
-import type { PlanPhase, PlanStepStatus } from "@repo/contracts/plan-control";
+import { PLAN_PHASE_LABEL_ZH, type PlanPhase, type PlanStepStatus } from "@repo/contracts/plan-control";
 
 export type { PlanPhase, PlanStepStatus };
 
-export const PLAN_PHASE_LABEL: Record<PlanPhase, string> = {
-  preparing: "准备",
-  planning: "计划",
-  executing: "执行",
-  approving: "审批",
-  done: "完成",
-  failed: "失败",
-};
+export const PLAN_PHASE_LABEL = PLAN_PHASE_LABEL_ZH;
 
 /** 指示线上的五格（failed 不在线上，替换整条 → S6）。domain.md 第一节 5。 */
 export const PHASE_LINE: PlanPhase[] = ["preparing", "planning", "executing", "approving", "done"];

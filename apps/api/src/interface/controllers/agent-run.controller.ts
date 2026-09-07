@@ -1,3 +1,8 @@
+import { PARENT_RUN_CONTROL, type ParentRunControl } from "../../application/agent-run/parent-run-control";
+import { decideToolPermission, RunNotAwaitingToolPermissionError } from "../../application/agent-run/decide-tool-permission";
+import { operations as permissionOperations } from "@repo/contracts/plan-permissions";
+import { cancelAgentRun, RunCancellationConflictError, RunCancellationUnavailableError } from "../../application/agent-run/cancel-run";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 /**
  * `GET /agent-runs/:runId` -- Wave 2's run transport (delta §5).
  *
@@ -35,7 +40,7 @@ import {
   AgentRunNotAwaitingToolPermissionError,
   decideAgentRun,
 } from "../../application/agent-run/decide-agent-run";
-import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Query, Post, Res, ServiceUnavailableException } from "@nestjs/common";
 import type { Response } from "express";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -73,16 +78,80 @@ export class AgentRunController {
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
     @Inject(INTERJECTION_STORE) private readonly interjections: InterjectionStore,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(MODEL_CALL_PORT) private readonly model?: ModelCallPort,
+    @Inject(PARENT_RUN_CONTROL) private readonly parentControl?: ParentRunControl,
   ) {}
+
+  @Post("/agent-runs/:runId/permission-requests/:permissionRequestId/decision")
+  @HttpCode(200)
+  async decidePermission(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
+    @Param("permissionRequestId") permissionRequestId: string, @Body() body: { decision?: unknown }) {
+    assertPrincipal(principal);
+    const parsed = permissionOperations.decidePermissionRequest.in.safeParse({ runId, permissionRequestId, decision: body?.decision });
+    if (!parsed.success) throw new BadRequestException("invalid_permission_decision");
+    try {
+      await decideToolPermission({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+        kick: (orgId) => this.executor.kick(orgId) },
+        { ...parsed.data, orgId: toOrgId(principal.orgId), userId: principal.userId });
+      return { runId, permissionRequestId };
+    } catch (error) {
+      if (error instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (error instanceof AgentRunRetryForbiddenError) throw new ForbiddenException();
+      if (error instanceof RunNotAwaitingToolPermissionError) throw new ConflictException("stale_permission_request");
+      if (error instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw error;
+    }
+  }
+
+  @Post("/agent-runs/:runId/cancel")
+  @HttpCode(202)
+  async cancel(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    try {
+      const result = await cancelAgentRun({ repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs,
+        model: this.model, liveQueue: Boolean(this.interjections.pollForKernel) },
+        { orgId: toOrgId(principal.orgId), userId: principal.userId, runId });
+      const childCancellation = await this.parentControl?.propagateCancellation(toOrgId(principal.orgId), runId) ?? { kind: "unavailable" };
+      return { ...result, childCancellation };
+    } catch (error) {
+      if (error instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (error instanceof AgentRunRetryForbiddenError) throw new ForbiddenException();
+      if (error instanceof RunCancellationConflictError) throw new ConflictException("run_not_cancellable");
+      if (error instanceof RunCancellationUnavailableError) throw new ServiceUnavailableException("safe_cancel_unavailable");
+      if (error instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw error;
+    }
+  }
+
+  @Get("/agent-runs/:runId/interjections")
+  async interjectionStatus(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    await this.run(principal,runId);
+    return {items:await this.interjections.listPublic?.(toOrgId(principal.orgId),runId) ?? []};
+  }
+
+  @Get("/agent-runs/:runId/execution-events")
+  async executionEvents(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string,
+    @Query("afterSeq") afterSeqRaw?: string) {
+    assertPrincipal(principal);
+    const afterSeq = afterSeqRaw === undefined ? -1 : Number(afterSeqRaw);
+    if (!Number.isSafeInteger(afterSeq) || afterSeq < -1) throw new BadRequestException("invalid_cursor");
+    // Same visibility gate as the normal run endpoint; no cross-thread existence oracle.
+    await this.run(principal, runId);
+    const events = await this.runs.readExecutionEvents?.(toOrgId(principal.orgId), runId, afterSeq) ?? [];
+    const legacyEvents = afterSeq === -1 && events.length === 0 ? await this.runs.readLegacyExecutionEvents?.(toOrgId(principal.orgId),runId) ?? [] : [];
+    return { events, legacyEvents, nextSeq: events.at(-1)?.seq ?? null };
+  }
 
   @Get("/agent-runs/:runId")
   async run(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
     assertPrincipal(principal);
     try {
-      return await readAgentRun(
+      const result = await readAgentRun(
         { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs },
         { userId: principal.userId, orgId: toOrgId(principal.orgId), runId },
       );
+      return { ...result, childCancellation: await this.parentControl?.readCancellation(toOrgId(principal.orgId), runId) ?? { kind: "unavailable" } };
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
@@ -173,6 +242,8 @@ export class AgentRunController {
       });
       if (outcome.kind === "succeeded") {
         write({ type: "final", status: "succeeded", resultMessageId: outcome.resultMessageId });
+      } else if (outcome.kind === "paused" || outcome.kind === "cancelled") {
+        write({ type: "final", status: outcome.kind });
       } else if (outcome.kind === "failed") {
         write({ type: "final", status: "failed", error: outcome.error });
       } else {
@@ -213,7 +284,7 @@ export class AgentRunController {
   async decide(
     @CurrentPrincipal() principal: Principal,
     @Param("runId") runId: string,
-    @Body() body: { decision?: unknown; editedArgs?: unknown },
+    @Body() body: { decision?: unknown; editedArgs?: unknown; permissionRequestId?: unknown },
   ) {
     assertPrincipal(principal);
     const decision = body?.decision;
@@ -233,6 +304,7 @@ export class AgentRunController {
         { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, kick: (orgId) => this.executor.kick(orgId) },
         {
           userId: principal.userId, orgId: toOrgId(principal.orgId), runId,
+          ...(typeof body.permissionRequestId === "string" ? { permissionRequestId: body.permissionRequestId } : {}),
           ...(decision === "edit"
             ? { decision, editedArgs: editedArgs as Readonly<Record<string, unknown>> }
             : { decision }),

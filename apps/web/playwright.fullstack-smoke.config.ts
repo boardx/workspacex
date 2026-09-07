@@ -603,7 +603,11 @@ export default defineConfig({
     },
     {
       command: [
-        `${compose} up -d --wait postgres redis minio`,
+        // Coordinated local runs reuse the already healthy infra stack. Never run
+        // compose up against another task's services; readiness failures fail setup.
+        process.env.WORKSPACEX_REUSE_INFRA === "1"
+          ? `${compose} exec -T postgres pg_isready -h 127.0.0.1 -U postgres`
+          : `${compose} up -d --wait postgres redis minio`,
         "pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts",
         `PGPORT=${apiPgPort} pnpm --filter @repo/api start`,
       ].join(" && "),

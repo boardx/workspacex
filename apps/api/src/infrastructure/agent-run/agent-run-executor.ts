@@ -1,3 +1,5 @@
+import type { InterjectionStore } from "../../application/agent-run/interjection-store";
+import type { ArtifactContinuationReader } from "../../application/artifacts-steering/artifact-execution";
 /**
  * The executor as the process runs it (#414's model call, #413's Chat writeback).
  *
@@ -142,6 +144,8 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 相同（恒问，同既有测试默认预期一致）。
      */
     private readonly toolPermissionGrants?: ToolPermissionGrantStore,
+    private readonly interjections?: InterjectionStore,
+    private readonly artifactContinuations?: ArtifactContinuationReader,
   ) {}
 
   /**
@@ -184,6 +188,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       planLedger: this.planLedger,
       events: this.events,
       toolPermissionGrants: this.toolPermissionGrants,
+      interjections: this.interjections, artifactContinuations: this.artifactContinuations,
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },

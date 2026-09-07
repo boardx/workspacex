@@ -19,6 +19,8 @@ export const ArtifactKind = z.enum(["pdf", "docx", "png", "other"]);
 export type ArtifactKind = z.infer<typeof ArtifactKind>;
 
 export const ArtifactVersionInfo = z.object({
+  attachmentId: z.string().optional(),
+  basedOnVersion: z.number().int().min(1).nullable().optional(),
   version: z.number().int().min(1),
   /** 每个版本必须能明确追溯到产生它的 run/step（R7 业务规则）。 */
   producedByRunId: z.string(),
@@ -42,6 +44,11 @@ export const ArtifactRecord = z.object({
 }).strict();
 export type ArtifactRecord = z.infer<typeof ArtifactRecord>;
 
+/** Browser read models expose only an authenticated content route, never storage keys. */
+export const ArtifactPublicVersionInfo = ArtifactVersionInfo.omit({ storageKey: true }).extend({ contentUrl: z.string() });
+export const ArtifactPublicRecord = ArtifactRecord.omit({ versions: true }).extend({ versions: z.array(ArtifactPublicVersionInfo) });
+export type ArtifactPublicRecord = z.infer<typeof ArtifactPublicRecord>;
+
 export const ArtifactError = z.enum([
   "NOT_VISIBLE",
   "ARTIFACT_NOT_FOUND",
@@ -50,7 +57,13 @@ export const ArtifactError = z.enum([
 ]);
 export type ArtifactError = z.infer<typeof ArtifactError>;
 
+export const ArtifactContinuationContext = z.object({
+  artifactId: z.string().min(1), basedOnVersion: z.number().int().min(1),
+}).strict();
+export type ArtifactContinuationContext = z.infer<typeof ArtifactContinuationContext>;
+
 export const ContinueArtifactInput = z.object({
+  clientRequestId: z.string().uuid().optional(),
   artifactId: z.string().min(1),
   /** E2：显式指定基于哪个版本继续，不能默默用最新版本代替。 */
   basedOnVersion: z.number().int().min(1),
@@ -147,14 +160,14 @@ export const operations = {
     method: "GET",
     path: "/artifacts/:artifactId",
     in: z.object({ artifactId: z.string().min(1) }).strict(),
-    out: ArtifactRecord,
+    out: ArtifactPublicRecord,
     err: ["NOT_VISIBLE", "ARTIFACT_NOT_FOUND"] as const,
   },
   listArtifactVersions: {
     method: "GET",
     path: "/artifacts/:artifactId/versions",
     in: ListArtifactVersionsInput,
-    out: ListArtifactVersionsOutput,
+    out: ListArtifactVersionsOutput.omit({ versions: true }).extend({ versions: z.array(ArtifactPublicVersionInfo) }),
     err: ["NOT_VISIBLE", "ARTIFACT_NOT_FOUND"] as const,
   },
   continueArtifact: {

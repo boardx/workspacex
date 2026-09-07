@@ -1,3 +1,5 @@
+import { openWorkbenchRoster } from "./support/workbench-journey";
+import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
 /**
  * 核心旅程 ⑤：会话内录音 → 转录落库 → 挂 skill 的 agent 用它生成回复 → 跨渠道验证上下文
  * 不串味（项目 chat 与个人 chat 是两个独立渠道，录音/回复不会莫名跨渠道出现）。
@@ -39,12 +41,13 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
         与 core-loop.spec.ts 步骤 7 同一条真实链路（getUserMedia + 假音频设备 +
         WS /recording/sessions/:id/asr-stream + 真实上游代理 + 落库），不重新发明。 */
   await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-  const threadList = page.getByTestId("chat-read-thread-list");
+  const threadList = page.getByTestId("copilotkit-v2-thread-list");
   await expect(threadList.getByText(FULLSTACK_E2E.recordingThreadTitle)).toBeVisible();
   await threadList.getByText(FULLSTACK_E2E.recordingThreadTitle).click();
 
   const status = page.getByTestId("chat-live-recording-status");
   // 反空转：录之前必须真的没有转录（种子刻意不预置任何一行）。
+  await expect(status).toBeVisible();
   const alreadyIdle = (await status.getAttribute("data-phase")) === "idle";
   if (alreadyIdle) {
     await expect(page.getByTestId("chat-live-transcript-empty")).toBeVisible();
@@ -66,8 +69,10 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
   }
 
   /* ── ② 挂一个已启用的 skill，配一个可运行 agent，发一条**引用转录内容**的消息 ── */
-  const mountEmpty = page.getByTestId("chat-skill-mount-empty");
-  if (await mountEmpty.isVisible().catch(() => false)) {
+  await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
+  const mountPanel = page.getByTestId("chat-skill-mount-panel");
+  await expect(mountPanel).toBeAttached();
+  if (await mountPanel.getAttribute("data-mounted-count") === "0") {
     await page.getByTestId("chat-skill-mount").click();
     const mountResponse = page.waitForResponse((r) => (
       r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url())
@@ -77,6 +82,7 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
   }
   await expect(page.getByTestId(`chat-skill-mounted-${FULLSTACK_E2E.mountableSkillId}`)).toBeVisible();
 
+  await openWorkbenchRoster(page);
   const rosterEmpty = await page.getByTestId("chat-roster-empty").isVisible().catch(() => false);
   if (rosterEmpty) {
     await page.getByTestId("chat-roster-edit").click();
@@ -90,18 +96,12 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
   // 这里验的是链路真的通（挂载生效 + agent 真的执行 + 回复真的落库），不是模型
   // 因此答得更好，边界与 core-loop.spec.ts 步骤 8b 一致。
   const marker = `JOURNEY05_${Date.now()}`;
-  await page.getByTestId("chat-agent-select").click();
-  await page.getByTestId(`chat-agent-select-option-${FULLSTACK_E2E.agentId}`).click();
-  await page.getByTestId("chat-message-input").fill(`${marker} 基于刚才的录音转录内容生成一份小结`);
-  await expect(page.getByTestId("chat-message-submit")).toBeEnabled();
-  await page.getByTestId("chat-message-submit").click();
+  await selectWorkbenchAgent(page, FULLSTACK_E2E.agentId);
+  await page.getByTestId("copilotkit-v2-input").fill(`${marker} 基于刚才的录音转录内容生成一份小结`);
+  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
+  await submitWorkbenchRun(page);
 
-  const runStatus = page.getByTestId("chat-live-agent-run-status");
-  await expect(runStatus).toHaveAttribute("data-run-status", "succeeded", { timeout: 120_000 });
-
-  await page.reload();
-  await threadList.getByText(FULLSTACK_E2E.recordingThreadTitle).click();
-  const messageList = page.getByTestId("chat-message-list");
+  const messageList = page.getByTestId("copilotkit-v2-messages");
   await expect(messageList).toContainText(marker);
   await expect(page.getByTestId("chat-live-transcript")).toContainText(FULLSTACK_E2E.asrTranscriptPrefix);
 
@@ -115,7 +115,8 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
   const probe = `JOURNEY05_PROBE_${Date.now()}`;
   await page.getByTestId("copilotkit-v2-input").fill(probe);
   const messages = page.getByTestId("copilotkit-v2-messages");
-  await page.getByTestId("copilotkit-v2-send").click();
+  await selectWorkbenchAgent(page, FULLSTACK_E2E.agentId);
+  await submitWorkbenchRun(page);
   await expect(messages).toContainText(probe, { timeout: 20_000 });
   await expect(messages).not.toContainText(marker);
   await expect(messages).not.toContainText(FULLSTACK_E2E.asrTranscriptPrefix);

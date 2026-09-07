@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { CopilotKitV2Shell } from "./copilotkit-v2-shell";
 
 /**
@@ -39,7 +39,9 @@ import { CopilotKitV2Shell } from "./copilotkit-v2-shell";
  */
 export function CopilotKitV2ShellRoute(): JSX.Element {
   const params = useParams<{ threadId?: string }>();
-  const raw = params?.threadId;
+  const search = useSearchParams();
+  const projectId = search.get("projectId");
+  const raw = params?.threadId ?? search.get("thread");
   const threadId = typeof raw === "string" && raw.length > 0 ? decodeURIComponent(raw) : null;
-  return <CopilotKitV2Shell initialThreadId={threadId} />;
+  return <CopilotKitV2Shell key={projectId ?? "personal"} initialThreadId={threadId} projectId={projectId} />;
 }

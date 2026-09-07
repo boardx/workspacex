@@ -441,3 +441,12 @@ def test_hitl_tools_accept_json_string_arrays_issue_2842():
         "requestId": "r", "options": '[{"optionId": "o1", "title": "快"}]', "selectedOptionId": "o1",
     })
     assert "「快」" in out
+
+
+def test_confirm_intent_zero_and_one_real_assumptions():
+    tool = _tool("confirm_task_intent")
+    for assumptions in ([], ["使用用户给定资料"]):
+        result = tool.invoke({"understanding": "整理报告", "assumptions": assumptions})
+        assert "用户已确认对任务的理解：整理报告" in result
+        result = tool.invoke({"assumptions": assumptions})
+        assert "用户修改了假设" in result

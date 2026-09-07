@@ -1,3 +1,4 @@
+import { AGENT_INTERRUPTS_TOOL_NAME_LIST } from "@repo/contracts/agent-interrupts";
 /**
  * decideToolPermission（Phase 14 F06，`plan-permissions` 契约束 UC-6）—— 四选一工具
  * 权限决策的落点：仅本次 / 本次 run 内都允许 / 以后都允许 / 拒绝。
@@ -32,7 +33,7 @@ export class RunNotAwaitingToolPermissionError extends Error {
 
 export interface DecideToolPermissionDeps extends ResolveVisibilityDeps {
   readonly runs: AgentRunStore;
-  readonly grants: ToolPermissionGrantStore;
+  readonly grants?: ToolPermissionGrantStore;
   readonly kick: (orgId: OrgId) => void;
 }
 
@@ -40,14 +41,9 @@ export async function decideToolPermission(
   deps: DecideToolPermissionDeps,
   input: {
     readonly userId: string; readonly orgId: OrgId; readonly runId: string;
-    /**
-     * UC-6 的入参形状里有 `toolCallId`，但本仓当前的执行内核每次只可能有一个待批
-     * 工具调用停在 `awaiting_tool_permission`（`AgentRunStore.findAwaitingToolPermissionRunId`
-     * 自己的文档已经论证过这个不变量）——竞态/"已被裁决"因此已经由下面对 run 状态
-     * 本身的条件 UPDATE 兜底，不需要这里再拿 `toolCallId` 去匹配一份并不存在的多值
-     * 待批列表。字段仍然收下（契约形状忠实），只在错误信息里回显，不参与判定。
-     */
-    readonly toolCallId: string;
+    /** Legacy route parameter name; value is the durable permissionRequestId. */
+    readonly toolCallId?: string;
+    readonly permissionRequestId?: string;
     readonly decision: ToolPermissionDecisionKind;
   },
 ): Promise<RunProjection> {
@@ -71,31 +67,17 @@ export async function decideToolPermission(
   if (beforeDisclosed.payload.status !== "awaiting_tool_permission") {
     throw new RunNotAwaitingToolPermissionError(beforeDisclosed.payload.status);
   }
-  const pendingToolName = beforeDisclosed.payload.pendingApproval?.toolName ?? null;
-
-  if (input.decision === "deny") {
-    const requeued = await deps.runs.denyAndRequeue(input.orgId, input.runId);
-    if (!requeued) {
-      const guarded = await deps.runs.readRun(input.orgId, input.runId);
-      throw new RunNotAwaitingToolPermissionError(guarded === null ? "unknown" : "conflict");
-    }
-    deps.kick(input.orgId);
-  } else {
-    const requeued = await deps.runs.approveAndRequeue(input.orgId, input.runId);
-    if (!requeued) {
-      const guarded = await deps.runs.readRun(input.orgId, input.runId);
-      throw new RunNotAwaitingToolPermissionError(guarded === null ? "unknown" : "conflict");
-    }
-    // I-4：授权粒度互不越界——"仅本次"不落任何授权记录，只把这一次放行。
-    if (pendingToolName !== null) {
-      if (input.decision === "run") {
-        await deps.grants.grantForRun(input.orgId, input.runId, pendingToolName);
-      } else if (input.decision === "forever") {
-        await deps.grants.grantStanding(input.orgId, pendingToolName, input.userId);
-      }
-    }
-    deps.kick(input.orgId);
+  const permissionRequestId = beforeDisclosed.payload.pendingApproval?.permissionRequestId;
+  if (!permissionRequestId || (input.permissionRequestId ?? input.toolCallId) !== permissionRequestId) {
+    throw new RunNotAwaitingToolPermissionError("stale_permission_request");
   }
+  if (beforeDisclosed.payload.pendingApproval?.interrupt || AGENT_INTERRUPTS_TOOL_NAME_LIST.some((name) => name === beforeDisclosed.payload.pendingApproval?.toolName)) {
+    throw new RunNotAwaitingToolPermissionError("form_decision_required");
+  }
+  if (!deps.runs.decidePermissionRequest || !await deps.runs.decidePermissionRequest(
+    input.orgId, input.runId, permissionRequestId, input.decision, input.userId,
+  )) throw new RunNotAwaitingToolPermissionError("stale_permission_request");
+  deps.kick(input.orgId);
 
   const guarded = await deps.runs.readRun(input.orgId, input.runId);
   if (guarded === null) throw new AgentRunNotVisibleError();

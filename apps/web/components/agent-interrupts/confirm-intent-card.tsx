@@ -10,7 +10,7 @@ import type { ConfirmIntentArgs } from "@/lib/agent-interrupts-types";
 /**
  * 屏一：目标复述卡（confirm_intent）—— ui.md「屏一」。
  *
- * · 只读态：一句「理解」 + ≥2 条假设（I-2），两动作「继续」/「改假设」。
+ * · 只读态：一句「理解」 + 真实假设（允许零条），两动作「继续」/「改假设」。
  * · 编辑态：每条假设变可编辑文本框 + 增删；提交 = 用新假设重新确认一次（UC-1 edit 分支）。
  * · 未确认前卡片下方不渲染任何后续工具调用卡（I-1 的可视化 —— 见下方占位说明区）。
  */
@@ -30,8 +30,7 @@ export function ConfirmIntentCard({
   initialEditing?: boolean;
   /** 「继续」= UC-1 的 approve 分支。不传（预览路由）时按钮保留旧行为——纯展示、无副作用。 */
   onContinue?: () => void;
-  /** 「用新假设继续」= UC-1 的 edit 分支，传出已过滤空行的假设数组（≥2 条，由下方
-   *  `nonBlank < 2` 的 disabled 判据保证调用时刻已经满足）。 */
+  /** 「用新假设继续」= UC-1 的 edit 分支，传出已过滤空行的假设数组（允许零条，不要求补造假设）。 */
   onEditSubmit?: (assumptions: string[]) => void;
 }) {
   const [editing, setEditing] = React.useState(initialEditing);
@@ -39,7 +38,7 @@ export function ConfirmIntentCard({
 
   // 无权限：决策接口不可用，整卡走 denied 态（NO_WRITE_ROLE）
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
-  // 校验失败态：强制进入编辑态，并把第 2 条假设清空，触发「至少保留 2 条非空」错误
+  // 校验失败态：强制进入编辑态，展示服务器返回的校验错误
   const forceInvalid = state === "invalid";
   const isEditing = editing || forceInvalid;
   const shownDrafts = forceInvalid
@@ -58,7 +57,7 @@ export function ConfirmIntentCard({
         state={effectiveState}
         skeletonRows={4}
         emptyHint="当前没有待确认的目标复述——AI 还没有发起这次中断。"
-        errors={{ assumptions: "假设不能为空，且至少保留 2 条——请补全或删除空行后再提交。" }}
+        errors={{ assumptions: "假设格式无效，请补全或删除空行后再提交；没有额外假设时可以全部删除。" }}
         denial={{ layer: "project", reason: "观察者可以查看这次复述，但不能替团队做确认。" }}
         depFailure={{ what: "决策写不进审计（AUDIT_SINK_UNAVAILABLE），本次确认已被安全拦下。" }}
         successMessage="已按当前理解继续执行"
@@ -185,7 +184,7 @@ export function ConfirmIntentCard({
                   variant="secondary"
                   className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
                   data-testid={`${TID}-edit-submit`}
-                  disabled={!canWrite || nonBlank < 2}
+                  disabled={!canWrite || forceInvalid}
                   onClick={() => onEditSubmit?.(shownDrafts.filter((d) => d.trim().length > 0))}
                 >
                   用新假设继续

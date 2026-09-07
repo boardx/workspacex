@@ -1,3 +1,4 @@
+import { withRunLease } from "./run-lease";
 import type { OrgId } from "../../domain/org-id";
 import { RUN_HEARTBEAT_INTERVAL_MS, type AgentRunStore } from "./ports";
 
@@ -15,7 +16,9 @@ export async function withRunHeartbeat<T>(
   orgId: OrgId,
   runId: string,
   work: () => Promise<T>,
+  epoch?: number,
 ): Promise<T> {
+  const execute=async()=>{
   const heartbeat = runs.heartbeatRun === undefined ? null : setInterval(() => {
     runs.heartbeatRun?.(orgId, runId).catch((e: unknown) => {
       log("agent run heartbeat failed", { runId, detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown" });
@@ -27,4 +30,6 @@ export async function withRunHeartbeat<T>(
   } finally {
     if (heartbeat !== null) clearInterval(heartbeat);
   }
+  };
+  return epoch===undefined?execute():withRunLease({orgId,runId,epoch,verify:async()=>{await runs.heartbeatRun?.(orgId,runId);}},execute);
 }

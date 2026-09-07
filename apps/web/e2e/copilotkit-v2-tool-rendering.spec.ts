@@ -82,11 +82,29 @@ const runRouteMatcher = (u: URL): boolean =>
   u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info";
 
 async function login(page: import("@playwright/test").Page): Promise<void> {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
-  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  const email = page.getByTestId("login-email");
+  const password = page.getByTestId("login-password");
+  await expect(email).toBeEditable();
+  await expect(password).toBeEditable();
+  await email.fill(CHAT_READ_E2E.email);
+  await password.fill(CHAT_READ_E2E.password);
+  await expect(email).toHaveValue(CHAT_READ_E2E.email);
+  await expect(password).toHaveValue(CHAT_READ_E2E.password);
+  const response = page.waitForResponse((res) =>
+    new URL(res.url()).pathname === "/auth/login" && res.request().method() === "POST",
+  );
   await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/projects$/);
+  expect((await response).status(), "real UI login must succeed before chat assertions").toBe(200);
+  await page.waitForURL(/\/projects$/, { waitUntil: "domcontentloaded" });
+}
+
+async function expandToolDetails(card: import("@playwright/test").Locator): Promise<void> {
+  const panel = card.locator('xpath=ancestor::*[@data-testid="run-trace-panel"][1]');
+  const toggle = panel.getByTestId("run-trace-toggle");
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  const details = card.locator("xpath=ancestor::details[1]");
+  if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
 }
 
 /** 与 `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同的预热手法——见该文件头注。 */
@@ -135,6 +153,7 @@ test("DA-19c write_todos 定制卡片——进行中/完成两态真实渲染出
       continue;
     }
 
+    await expandToolDetails(card);
     // 等它落到终态（`data-tool-status="complete"`）——真实计划条目列表只在这一态渲染。
     await expect
       .poll(async () => card.getAttribute("data-tool-status"), { timeout: 20_000 })
@@ -219,6 +238,7 @@ test("DA-19c search_documents 定制卡片——检索词参数真实渲染、�
       continue;
     }
 
+    await expandToolDetails(card);
     // ── 反证① 检索词（args.query，逐字等于剧本里的 `record.userText`，即触发词本身）可见——
     // 这条走的是 TOOL_CALL_ARGS，不受已知限制③（只影响 TOOL_CALL_RESULT）波及。
     await expect(card).toContainText(CHAT_READ_E2E.deepAgentMultiStepTrigger);
@@ -239,3 +259,46 @@ test("DA-19c search_documents 定制卡片——检索词参数真实渲染、�
 
   expect(renderedCard, `all ${MAX_ATTEMPTS} attempts failed; last: ${lastNote}`).toBe(true);
 });
+
+// #2867: real API + journal + CopilotRuntime + browser. Observing the DOM while
+// the run response is still open prevents a buffered-at-completion false positive.
+test("工作台旧入口保留项目和线程参数", async ({ request }) => {
+  const response = await request.get(`/chat/legacy?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`, { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  const location = new URL(response.headers().location!, response.url());
+  expect(location.pathname).toBe("/chat");
+  expect(location.searchParams.get("projectId")).toBe(CHAT_READ_E2E.projectId);
+  expect(location.searchParams.get("thread")).toBe(CHAT_READ_E2E.threadId);
+});
+for (const projectId of [null, CHAT_READ_E2E.projectId]) {
+test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }) => {
+  await login(page);
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto(projectId ? `/chat?projectId=${projectId}` : "/chat", { waitUntil: "domcontentloaded" });
+  let streamFinished = false;
+  const runResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST" && response.url().includes("/api/copilotkit/") && response.url().includes("/run"));
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
+  const response = await runResponse;
+  void response.finished().then(() => { streamFinished = true; });
+  const panel = page.getByTestId("run-trace-panel").last();
+  const toggle = panel.getByTestId("run-trace-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByTestId("run-trace-body")).toBeHidden();
+  await toggle.click();
+  await expect(panel.getByTestId("run-trace-entry").first()).toBeVisible();
+  expect(streamFinished, "活动必须在运行流结束前可见").toBe(false);
+  await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(1);
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => streamFinished, { timeout: 60_000 }).toBe(true);
+  const runId = await panel.getAttribute("data-run-id");
+  const count = await panel.getByTestId("run-trace-entry").count();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const restored = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
+  await expect(restored.getByTestId("run-trace-toggle")).toHaveAttribute("aria-expanded", "false");
+  await restored.getByTestId("run-trace-toggle").click();
+  await expect(restored.getByTestId("run-trace-entry")).toHaveCount(count);
+  if (projectId) await expect(page).toHaveURL(new RegExp(`projectId=${projectId}`));
+});
+}

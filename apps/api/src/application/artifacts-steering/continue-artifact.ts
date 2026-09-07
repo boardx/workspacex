@@ -38,6 +38,8 @@ export async function continueArtifact(
     threadId: locator.threadId,
   });
   if (outcome.kind !== "allow") throw new ArtifactNotVisibleError();
+  // Reject before reading a version, so write-role errors cannot reveal hidden versions.
+  if (outcome.actor.projectRole === "observer" || outcome.thread.archived) throw new ArtifactNotVisibleError();
 
   // I-4：显式按 `basedOnVersion` 查，不是"读最新版本"。
   const guardedVersion = await deps.artifacts.findVersion(input.orgId, input.artifactId, input.basedOnVersion);
@@ -50,6 +52,7 @@ export async function continueArtifact(
     threadId: locator.threadId,
     artifactId: input.artifactId,
     instruction: input.instruction,
+    clientRequestId: input.clientRequestId,
     basedOnVersion: disclosedVersion.payload,
   });
 

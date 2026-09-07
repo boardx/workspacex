@@ -74,7 +74,7 @@ export function describeAgentRunError(code: AgentRunError | null): string {
  * 与消息流里的重试入口（`chat-live-message-panel.tsx`）都已接上——这句注释此前说
  * 「没有客户端调用、没有 UI 入口」，不要再把那句话读成现状。
  */
-const TERMINAL_STATUSES: ReadonlySet<string> = new Set<AgentRunStatus>(["succeeded", "failed"]);
+const TERMINAL_STATUSES: ReadonlySet<string> = new Set<AgentRunStatus>(["succeeded", "failed", "cancelled"]);
 
 export function isTerminalRunStatus(status: AgentRunStatus): boolean {
   return TERMINAL_STATUSES.has(status);
@@ -83,10 +83,11 @@ export function isTerminalRunStatus(status: AgentRunStatus): boolean {
 export async function getAgentRun(
   runId: string,
   sessionToken?: string,
+  signal?: AbortSignal,
 ): Promise<AgentRunView> {
   return apiRequest<AgentRunView>(
     wave2Runtime.operations.getAgentRun.path.replace(":runId", encodeURIComponent(runId)),
-    { method: "GET", sessionToken },
+    { method: "GET", sessionToken, signal },
   );
 }
 

@@ -201,6 +201,13 @@ export const operations = {
     out: z.object({ runId: z.string() }).strict(),
     err: ["NOT_VISIBLE", "RUN_NOT_AWAITING_PLAN_CONFIRMATION"] as const,
   },
+  decidePermissionRequest: {
+    method: "POST",
+    path: "/agent-runs/:runId/permission-requests/:permissionRequestId/decision",
+    in: z.object({ runId: z.string().min(1), permissionRequestId: z.string().uuid(), decision: ToolPermissionDecisionKind }).strict(),
+    out: z.object({ runId: z.string(), permissionRequestId: z.string().uuid() }).strict(),
+    err: ["NOT_VISIBLE", "RUN_NOT_AWAITING_TOOL_PERMISSION"] as const,
+  },
   decideToolPermission: {
     method: "POST",
     path: "/agent-runs/:runId/tool-calls/:toolCallId/decision",

@@ -24,11 +24,21 @@ export class DeepAgentEngineRunController implements EngineRunController {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(
-        `${baseUrl}/threads/${remoteThreadId}/runs/${remoteRunId}/cancel?action=interrupt`,
+        `${baseUrl}/threads/${remoteThreadId}/runs/${encodeURIComponent(remoteRunId)}/cancel?action=interrupt&wait=true`,
         { method: "POST", signal: controller.signal },
       );
       if (!response.ok) {
         throw new Error(`deep agent cancel failed with HTTP ${response.status}`);
+      }
+      // wait=true streams until the cancellation settles; receiving headers alone
+      // does not prove interruption. Drain it, then read the authoritative run state.
+      await response.text();
+      const settled = await fetch(`${baseUrl}/threads/${remoteThreadId}/runs/${encodeURIComponent(remoteRunId)}`,
+        { signal: controller.signal });
+      if (!settled.ok) throw new Error(`deep agent cancel verification failed with HTTP ${settled.status}`);
+      const state = await settled.json() as { status?: string };
+      if (state.status !== "interrupted") {
+        throw new Error("deep agent did not reach an interrupted checkpoint");
       }
     } finally {
       clearTimeout(timer);

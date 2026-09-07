@@ -1170,7 +1170,33 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-inbox-order-repository.ts` 的 ALLOWLIST 条目——`inbox_item_order` 一行只有
     // 「这个组织的这个 (kind,item_id) 排第几」这一个整数，不携带任何 D3 门控过的正文，
     // 豁免理由与前提见该条目自身注释，配套 `tests/inbox/inbox-order-repo-guard.test.ts`。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(89);
+    // Workbench entries are not bare exemptions: their source predicates are checked
+    // by the production gate. Keep the existing bare-entry ceiling unchanged.
+    const boundaryAudit = JSON.parse(execFileSync("node", ["--input-type=module", "-e", `
+      import { workbenchBoundaries, verifyWorkbenchBoundaries } from './scripts/workbench-permission-boundaries.mjs';
+      import { readFileSync } from 'node:fs';
+      const read = path => readFileSync(path, 'utf8');
+      const tables = new Set([...workbenchBoundaries.values()].flatMap(rule => rule.tables));
+      const failures = verifyWorkbenchBoundaries(read, tables);
+      const rules = [...workbenchBoundaries].map(([path, rule]) => ({
+        path, reason: rule.reason, checks: rule.checks.length,
+        // Removing the admitted implementation must invalidate its exemption.
+        rejectsMissingImplementation: verifyWorkbenchBoundaries(file => file === path ? '' : read(file), tables).some(f => f.startsWith(path + ':')),
+      }));
+      console.log(JSON.stringify({ failures, rules }));
+    `], { cwd: API, encoding: "utf8" })) as {
+      failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
+    };
+    expect(boundaryAudit.failures).toEqual([]);
+    expect(boundaryAudit.rules).toHaveLength(8);
+    for (const rule of boundaryAudit.rules) {
+      expect(rule.reason.length, rule.path).toBeGreaterThan(40);
+      expect(rule.checks, rule.path).toBeGreaterThan(0);
+      expect(rule.rejectsMissingImplementation, rule.path).toBe(true);
+    }
+    const total = Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1);
+    expect(total).toBeGreaterThanOrEqual(boundaryAudit.rules.length);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(89);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
@@ -1181,6 +1207,7 @@ describe("lint-permission-paths: counter-proof", () => {
     const entries = [...block.matchAll(/\[\n\s*"src\//g)].length;
     expect(entries, "could not parse the allowlist -- this assertion would be vacuous").toBeGreaterThan(0);
     expect(reasons.length, "an allowlist entry has no real justification").toBe(entries);
+    expect(total).toBe(entries + boundaryAudit.rules.length);
     for (const reason of reasons) {
       expect(reason, `weak justification: ${reason}`).not.toMatch(/^(todo|legacy|temporary|for now)\b/i);
     }

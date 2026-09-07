@@ -1,3 +1,4 @@
+import { validateInterruptDecision } from "./validate-interrupt-decision";
 /**
  * decideAgentRun（DA-07b，#1749，rubric D6）—— awaiting_tool_permission 的唯一出口。
  *
@@ -38,7 +39,7 @@ export async function decideAgentRun(
   // decision 与 editedArgs 的绑定在类型上钉死（判别联合）：edit 必带改后参数、
   // approve/reject 不可能带——控制器把 400 挡在门外，这里不再需要运行时二次校验。
   input: {
-    readonly userId: string; readonly orgId: OrgId; readonly runId: string;
+    readonly userId: string; readonly orgId: OrgId; readonly runId: string; readonly permissionRequestId?: string;
   } & (
     | { readonly decision: "approve" | "reject" }
     | { readonly decision: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> }
@@ -69,6 +70,25 @@ export async function decideAgentRun(
     throw new AgentRunNotAwaitingToolPermissionError(beforeDisclosed.payload.status);
   }
 
+  const form = beforeDisclosed.payload.pendingApproval?.interrupt;
+  if (form && !validateInterruptDecision(form, input)) {
+    throw new AgentRunNotAwaitingToolPermissionError("invalid_form_decision");
+  }
+  const permissionRequestId = beforeDisclosed.payload.pendingApproval?.permissionRequestId;
+  if (permissionRequestId) {
+    if (input.permissionRequestId !== permissionRequestId || !deps.runs.decidePermissionRequest ||
+        !await deps.runs.decidePermissionRequest(input.orgId, input.runId, permissionRequestId,
+          input.decision === "approve" ? "once" : input.decision, input.userId,
+          input.decision === "edit" ? JSON.stringify(input.editedArgs) : undefined)) {
+      throw new AgentRunNotAwaitingToolPermissionError("stale_permission_request");
+    }
+    if (input.decision !== "reject") deps.kick(input.orgId);
+    const result = await deps.runs.readRun(input.orgId, input.runId);
+    if (!result) throw new AgentRunNotVisibleError();
+    const visible = discloseDecided(result, outcome.base);
+    if (!isDisclosed(visible)) throw new AgentRunNotVisibleError();
+    return visible.payload;
+  }
   if (input.decision === "reject") {
     // failRun 自带「非终态才动」条件；已终态时下面的重读把真实状态报给冲突方。
     await deps.runs.failRun(input.orgId, input.runId, "HITL_REJECTED");

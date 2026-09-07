@@ -51,14 +51,29 @@ describe("白名单条目前提 ②：不调用 withoutTenant", () => {
 });
 
 describe("白名单条目前提 ③：写路径（appendEngineSnapshot）只从已授权轮次内部触达", () => {
-  it("src/interface/ 下只有 copilotkit-agui.controller.ts 引用 ingest-engine-plan-snapshot（UC-2 的唯一触发路径，usecases.md 逐字要求）", () => {
-    const offenders = filesUnder(interfaceDir).filter((f) => {
-      const text = readFileSync(f, "utf8");
-      return text.includes("ingest-engine-plan-snapshot") || text.includes("ingestEnginePlanSnapshot");
-    });
-    expect(offenders.map((f) => f.split("/src/interface/")[1]?.replace(/^\/+/, ""))).toEqual([
-      "controllers/copilotkit-agui.controller.ts",
-    ]);
+  it("HTTP 不直接写快照；已授权受理的 run 经 executor 完成事件持久化", () => {
+    const source = (path: string) => readFileSync(new URL(`../../src/${path}`, import.meta.url), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const direct = filesUnder(interfaceDir).filter(f => /ingest-engine-plan-snapshot|ingestEnginePlanSnapshot/.test(readFileSync(f, "utf8")));
+    expect(direct).toEqual([]);
+    const controller = source("interface/controllers/copilotkit-agui.controller.ts");
+    expect(controller).toContain("await runAguiBridgeTurn(this.deps,");
+    const bridge = source("application/agent-run/agui-bridge.ts");
+    expect(bridge).toContain("await acceptHumanMessage(deps,");
+    const accept = source("application/chat/message-roundtrip.ts");
+    const authorizeAt = accept.indexOf("await resolveVisibility(deps,");
+    expect(authorizeAt).toBeGreaterThan(-1);
+    expect(accept.indexOf("await deps.commands.accept(")).toBeGreaterThan(authorizeAt);
+    const executor = source("application/agent-run/execute-run.ts");
+    expect(executor).toContain("await deps.runs.claimQueued(input.orgId,");
+    expect(executor).toContain("() => executeClaimed(deps, input.orgId, outcome.run)");
+    expect(executor).toContain("await persistToolPlan(deps.planLedger, orgId, run.threadId, event)");
+    const events = source("application/agent-run/execute-run-events.ts");
+    expect(events).toMatch(/if \(!repo \|\| event.phase === "in_progress" \|\| event.ok === false \|\| event.toolName !== "write_todos"\) return;/);
+    expect(events).toContain("await ingestEnginePlanSnapshot(repo, { orgId, threadId, todos: snapshot.todos })");
+    // Counter-proof: deleting the actual authorization call cannot leave this gate green.
+    const mutated = accept.replace("await resolveVisibility(deps,", "await removedAuthorization(deps,");
+    expect(mutated.indexOf("await resolveVisibility(deps,")).toBe(-1);
   });
 });
 

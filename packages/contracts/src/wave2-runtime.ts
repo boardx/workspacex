@@ -1,3 +1,4 @@
+import { ChildCancellationStatus } from "./run-control";
 /**
  * Signed Wave 2 runtime delta (#409 / PR #426).
  *
@@ -6,6 +7,7 @@
  * manifests, backend validation, and the admin client all derive from this one source.
  */
 import { z } from "zod";
+import { RestorableInterrupt } from "./agent-interrupts";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -269,7 +271,7 @@ export const AgentStarterImportResult = z.object({
 /* ═══════════════ §5 · minimal no-tool AgentRun (#414) ═══════════════ */
 
 export const AgentRunStatus = z.enum([
-  "queued", "running", "writeback_pending", "succeeded", "failed",
+  "queued", "running", "writeback_pending", "succeeded", "failed", "paused", "cancelled",
   /**
    * DA-07b（#1749，rubric D6 人在环）起家，Phase 14 F06 起并入 `plan-permissions`
    * 契约束：run 停在一个未被授权的 L2（不可逆/高风险）工具调用前，等人四选一裁决
@@ -433,6 +435,9 @@ export const AgentRunStep = z.object({
 }).strict();
 
 export const AgentRunView = z.object({
+  recoveryDiagnostic: z.string().max(256).nullable().optional(),
+  cancelRequestedAt: z.string().nullable().optional(),
+  childCancellation: ChildCancellationStatus.optional(),
   runId: z.string(),
   threadId: z.string(),
   inputMessageId: z.string(),
@@ -454,6 +459,8 @@ export const AgentRunView = z.object({
    * optional：老客户端/老快照缺字段不炸（向后兼容）。
    */
   pendingApproval: z.object({
+    permissionRequestId: z.string().uuid().nullable().optional(),
+    interrupt: RestorableInterrupt.nullable().optional(),
     toolName: z.string(),
     argsSummary: z.string().nullable(),
   }).strict().nullable().optional(),
@@ -497,6 +504,7 @@ export const operations = {
     in: z.object({
       runId: z.string().min(1),
       decision: z.enum(["approve", "edit", "reject"]),
+      permissionRequestId: z.string().uuid().optional(),
       editedArgs: z.record(z.unknown()).optional(),
     }).strict().superRefine((v, ctx) => {
       if (v.decision === "edit" && v.editedArgs === undefined) {

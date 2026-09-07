@@ -51,6 +51,7 @@ export interface StreamRunInput {
 }
 
 export type StreamRunOutcome =
+  | { readonly kind: "paused" | "cancelled" }
   | { readonly kind: "succeeded"; readonly resultMessageId: string | null }
   | { readonly kind: "failed"; readonly error: string | null }
   | { readonly kind: "timeout" };
@@ -93,6 +94,10 @@ export async function streamAgentRunDeltas(
     if (projection.status === "succeeded") {
       await flushRemainingDeltas();
       return { kind: "succeeded", resultMessageId: projection.resultMessageId };
+    }
+    if (projection.status === "paused" || projection.status === "cancelled") {
+      await flushRemainingDeltas();
+      return { kind: projection.status };
     }
     if (projection.status === "failed") {
       await flushRemainingDeltas();
