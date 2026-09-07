@@ -458,7 +458,7 @@ export class PrototypePatchError extends Error {
 export function applyPrototypePatch<T extends { readonly root: PrototypeNode; readonly links?: readonly PrototypeLink[] }>(
   screens: readonly T[],
   ops: readonly PrototypePatchOp[],
-): readonly T[] {
+): readonly (T & { readonly links: readonly PrototypeLink[] })[] {
   let current: readonly T[] = screens;
   ops.forEach((op, i) => {
     if (op.op === "setLinks") {
@@ -526,6 +526,8 @@ export function applyPrototypePatch<T extends { readonly root: PrototypeNode; re
   }
   if (!prototypeIdsUnique(current.map((s) => s.root))) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
   const cleaned = validateLinks(current);
+  // 返回类型显式带上 links：入参里它是可选的，但**出参一定有**（收尾统一清洗过），
+  // 调用方不该再为它写一次 `?? []`。
   return current.map((s, k) => ({ ...s, links: cleaned.links[k]! }));
 }
 
@@ -641,4 +643,10 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
   "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
-  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。`;
+  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
+  // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。
+  `每页还可带 links（≤ ${PROTOTYPE_MAX_LINKS} 条）：这页点了之后去哪。形如 {"from":"节点 id","to":目标页序号}；` +
+  "多项原语（list/tabs/bottomnav）和 navbar 的左右按钮要多给一个 item（第几项，0 起；navbar 左 0 右 1）。" +
+  "to 是**页序号**（0 起，按你给出的页顺序），不是页标签。" +
+  "想连线就**自己给那个节点写 id**——id 允许你写，不写的由服务端补，那样你就指不到它。" +
+  "指向不存在的页、自己指自己、指向本页没有的节点：那一条会被丢掉，其余照常生效，不影响这一页。";

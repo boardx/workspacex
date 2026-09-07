@@ -335,7 +335,7 @@ describe("迭代 11 setLinks op", () => {
     expect(out[1]!.links).toEqual([]);
     // 泛型让 frame/notes 穿过去——这个函数不需要知道它们存在
     expect([out[0]!.frame, out[0]!.notes]).toEqual(["第1页", "说明1"]);
-    expect(screens[0]!.links).toBeUndefined(); // 入参未被改
+    expect(Object.hasOwn(screens[0]!, "links")).toBe(false); // 入参未被改（没被就地塞上 links）
   });
 
   it("screen 越界 ⇒ UNKNOWN_SCREEN（闭集里与 UNKNOWN_NODE 分开：说的是页没找到，不是节点）", () => {

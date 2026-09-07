@@ -13,6 +13,7 @@ import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
+  patchPrototype,
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
@@ -164,13 +165,14 @@ export function DesignDetailScreen({
   // 预览旧版本时不画连线：版本快照里还没有 links（存储形状是 delta §5 要人类拍板的取舍 ②）。
   const frameLinks = React.useMemo(() => (preview === null ? project?.frameLinks : undefined) ?? [], [preview, project]);
   /**
-   * 迭代 11 · UI 先行：属性面板改跳转目标 ⇒ 先只在本地更新 `frameLinks`，**不发请求**——
-   * `setLinks` op 属于签核后的服务端工作（delta §3）。签核落地后这里改成 `patchPrototype([{op:"setLinks",…}])`。
+   * 迭代 11：属性面板改跳转目标 ⇒ 发一条 `setLinks`（delta §3）——**与模型走同一条写回路径**
+   * （I-11），所以人手连的线同样会过 `validateLinks`、同样记一条 `user` 版本。
+   * 失败不吞：把服务端的拒绝原因交给属性面板显示（它已有 `REJECT_TEXT` 那套人话映射）。
    */
-  const setPageLinks = (pageIndex: number, links: readonly PrototypeLink[]) => {
+  const setPageLinks = async (pageIndex: number, links: readonly PrototypeLink[]) => {
     if (project === null) return;
-    const next = Array.from({ length: project.frames.length }, (_, i) => (i === pageIndex ? [...links] : [...(project.frameLinks?.[i] ?? [])]));
-    setLoad({ kind: "ready", project: { ...project, frameLinks: next } });
+    const out = await patchPrototype(project.id, [{ op: "setLinks", screen: pageIndex, links: [...links] }], "改了跳转");
+    setLoad({ kind: "ready", project: out.project });
   };
 
   React.useEffect(() => {

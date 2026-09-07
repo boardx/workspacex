@@ -68,6 +68,19 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
       const note = (project.frameNotes[i] ?? "").trim();
       if (note !== "") lines.push(`> ${note.replace(/\n+/g, " ")}`, "");
       lines.push(...outlinePrototype(root), "");
+      // 迭代 11：这页点了之后去哪。工程照着实现路由，所以写成「哪个控件 → 第几页（标签）」，
+      // 不是裸的节点 id——文档的读者是人。
+      const links = project.frameLinks?.[i] ?? [];
+      if (links.length > 0) {
+        lines.push("跳转：", "");
+        for (const l of links) {
+          const node = designPrototype.findPrototypeNodePath(project.prototype, l.from);
+          const label = node === null ? l.from : designPrototype.prototypeNodeLabel(node.path[node.path.length - 1]!);
+          const item = l.item === undefined ? "" : `第 ${l.item + 1} 项`;
+          lines.push(`- ${label}${item} → 第 ${l.to + 1} 页「${project.frames[l.to] ?? ""}」`);
+        }
+        lines.push("");
+      }
     }
   }
   const aiTurns = project.chat.filter((t) => t.role === "user").length;
@@ -100,6 +113,8 @@ export function buildPrototypeSpecJson(project: DesignProject): string {
     frame,
     notes: project.frameNotes[i] ?? "",
     root: project.prototype[i] ?? null,
+    // 迭代 11：跳转关系随规格一起出——下游要照它接路由。
+    links: project.frameLinks?.[i] ?? [],
   }));
   return JSON.stringify({ version: 1, project: { id: project.id, name: project.name, template: project.template }, screens }, null, 2);
 }
