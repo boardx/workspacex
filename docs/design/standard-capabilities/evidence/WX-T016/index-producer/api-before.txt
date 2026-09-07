@@ -1,0 +1,103 @@
+[stack-admission] load1=3.17 cores=10 perCore=0.32 running=0/2
+[test-isolation] id=run-mtqre73j-822f6144-c4e9904ffeef db=wsx_c4e9904ffeef9e96e382 compose=wsx-c4e9904ffeef9e96e382 pg=21167 redis=26167 sandbox=51167
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c4e9904ffeef9e96e382 capacity=100 current=6 required=32
+ ✓ tests/files/worker-replay-no-duplicate.test.ts (2 tests) 2914ms
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts (5 tests | 4 failed) 486ms
+   × real upload bytes/outbox → original segments → atomic index → authorized FTS, replay remains idempotent 51ms
+     → expected [] to have a length of 1 but got +0
+   × review gate retains pending indexed text until actual READY transition 39ms
+     → expected [] to deeply equal [ { lifecycle: 'review-pending' } ]
+   × registered model vectors persist atomically; unregistered model never commits an index 54ms
+     → expected [] to deeply equal [ Array(1) ]
+   × corrupt source hash and publisher revocation prevent even text-only index writes 44ms
+     → permission denied for table artifact_versions
+ ✓ tests/files/ingestion-repo-metadata-only.test.ts (3 tests) 280ms
+ ✓ tests/agent-runtime/index-artifact-version.test.ts (7 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/artifact-index-producer-real-db.test.ts > real upload bytes/outbox → original segments → atomic index → authorized FTS, replay remains idempotent
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts:38:75
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/agent-runtime/artifact-index-producer-real-db.test.ts > review gate retains pending indexed text until actual READY transition
+AssertionError: expected [] to deeply equal [ { lifecycle: 'review-pending' } ]
+
+- Expected
++ Received
+
+- Array [
+-   Object {
+-     "lifecycle": "review-pending",
+-   },
+- ]
++ Array []
+
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts:47:167
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/agent-runtime/artifact-index-producer-real-db.test.ts > registered model vectors persist atomically; unregistered model never commits an index
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+- Expected
++ Received
+
+- Array [
+-   Object {
+-     "dims": 2,
+-     "model": "test-local-vector",
+-     "model_version": "producer-ee343efa-638b-48e5-8398-808d8ed9f81b",
+-   },
+- ]
++ Array []
+
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts:54:172
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/agent-runtime/artifact-index-producer-real-db.test.ts > corrupt source hash and publisher revocation prevent even text-only index writes
+error: permission denied for table artifact_versions
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:198:17
+    196|     await c.query("BEGIN");
+    197|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    198|     const out = await fn(c);
+       |                 ^
+    199|     await c.query("COMMIT");
+    200|     return out;
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts:66:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 13 passed (17)
+   Start at  12:47:10
+   Duration  6.33s (transform 320ms, setup 0ms, collect 460ms, tests 3.68s, environment 0ms, prepare 85ms)
+
+[db-isolation] db=wsx_c4e9904ffeef9e96e382 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/index-artifact-version.test.ts tests/agent-runtime/artifact-index-producer-real-db.test.ts tests/files/worker-replay-no-duplicate.test.ts tests/files/ingestion-repo-metadata-only.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/index-artifact-version.test.ts tests/agent-runtime/artifact-index-producer-real-db.test.ts tests/files/worker-replay-no-duplicate.test.ts tests/files/ingestion-repo-metadata-only.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：7s

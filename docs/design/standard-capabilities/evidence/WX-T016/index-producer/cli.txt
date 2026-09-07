@@ -1,0 +1,23 @@
+[stack-admission] load1=15.57 cores=10 perCore=1.56 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqrxuz7-d3c081a0-61db916647f6 db=wsx_61db916647f6d79e9cb5 compose=wsx-61db916647f6d79e9cb5 pg=24558 redis=29558 sandbox=54558
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_61db916647f6d79e9cb5 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/artifact-index-producer-real-db.test.ts (7 tests | 6 skipped) 43559ms
+   ✓ deployed maintenance entry invokes the same real producer with normal app privileges 4201ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 6 skipped (7)
+   Start at  13:02:30
+   Duration  67.30s (transform 2.24s, setup 0ms, collect 2.50s, tests 43.56s, environment 0ms, prepare 184ms)
+
+[db-isolation] db=wsx_61db916647f6d79e9cb5 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/artifact-index-producer-real-db.test.ts -t deployed maintenance entry
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m10s
+  清理：3s
+  总计：1m13s

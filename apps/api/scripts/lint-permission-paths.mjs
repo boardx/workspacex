@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
 import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-execution-boundary.mjs";
+import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/artifact-index-writer-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
@@ -513,6 +514,12 @@ for (const root of ROOTS) {
     if (rel === STANDARD_SCHEDULE_PATH) {
       const errors = checkStandardSchedule(body);
       if (!existsSync(join(API, "scripts/tests/standard-schedule-boundary.test.mjs"))) errors.push("scheduler authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === ARTIFACT_INDEX_WRITER_PATH) {
+      const errors = checkArtifactIndexWriter(body);
+      if (!existsSync(join(API, "scripts/tests/artifact-index-writer-boundary.test.mjs"))) errors.push("index writer authorization counterexamples missing");
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

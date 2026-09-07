@@ -1,3 +1,4 @@
+import {INGESTION_LEASE_MS} from '../../application/files/ingestion-ports';
 /**
  * PostgreSQL implementation of the F36 outbox/history ports.
  *
@@ -80,6 +81,7 @@ export class PgIngestionRepository implements IngestionOutboxRepository, Ingesti
     orgId: OrgId,
     artifactVersionId: string,
     workerId: string,
+    respectActiveLease = false,
   ): Promise<IngestionOutboxJob | null> {
     return this.db.withTenant(orgId, async (s) => {
       const claimed = await s.query<{
@@ -92,10 +94,11 @@ export class PgIngestionRepository implements IngestionOutboxRepository, Ingesti
             AND id = (
               SELECT id FROM ingestion_outbox
                WHERE org_id = $1 AND artifact_version_id = $2
+                 AND (NOT $4::boolean OR status IN ('pending','failed') OR (status='processing' AND locked_at < now() - ($5 || ' milliseconds')::interval))
                FOR UPDATE SKIP LOCKED
             )
           RETURNING id::text, org_id, artifact_id, artifact_version_id, step, attempts`,
-        [orgId, artifactVersionId, workerId],
+        [orgId, artifactVersionId, workerId, respectActiveLease, INGESTION_LEASE_MS],
       );
       const row = claimed.rows[0];
       if (row === undefined) return null;
@@ -132,6 +135,11 @@ export class PgIngestionRepository implements IngestionOutboxRepository, Ingesti
         orgId,
         job.artifact_id,
       ]);
+      // The same transaction owns readiness and its searchable projection. Never revive
+      // explicitly revoked/expired evidence while advancing ingestion.
+      await s.query(`UPDATE segment_text SET lifecycle = CASE WHEN $3 = 'READY' THEN 'effective' ELSE 'review-pending' END
+        WHERE org_id=$1 AND artifact_version_id=$2 AND lifecycle IN ('effective','review-pending')`,
+        [orgId, job.artifact_version_id, nextStatus]);
       await s.query(
         `INSERT INTO ingestion_history (org_id, artifact_version_id, status) VALUES ($1,$2,$3)`,
         [orgId, job.artifact_version_id, nextStatus],

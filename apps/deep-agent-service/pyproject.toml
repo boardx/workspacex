@@ -10,6 +10,7 @@ dependencies = [
   "langgraph-checkpoint-postgres>=2.0.0",
   "psycopg[binary,pool]>=3.2.0",
   "jsonschema>=4.23.0",
+  "starlette==1.6.0",
   # issue #2664 -- `spawn_async_task` 直接 `import httpx` 回调 TS 侧队列端点。已经作为
   # langgraph-api 等的传递依赖存在于 uv.lock（见下面 otel 三行同一条纪律的原话：
   # 我们的代码直接 import 它，不能只靠别人的传递依赖碰巧把它带进来）。

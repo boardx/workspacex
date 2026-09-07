@@ -1,3 +1,10 @@
+import { EMBEDDING_PORT, type EmbeddingPort } from "./application/retrieval/ports";
+import { ARTIFACT_INDEX_PRODUCER, type ArtifactIndexProducer } from "./application/retrieval/index-artifact-version";
+import { ARTIFACT_INDEXING_SERVICE } from "./application/retrieval/request-artifact-index";
+import { langChainEmbeddingClientFromEnv } from "./infrastructure/retrieval/langchain-embedding-client";
+import { createArtifactIndexProducer } from "./infrastructure/retrieval/artifact-index-producer";
+import { createArtifactIndexingService } from "./infrastructure/retrieval/artifact-indexing-service";
+import { ArtifactIndexingController } from "./interface/controllers/artifact-indexing.controller";
 import { NATIVE_FILE_DELEGATION } from "./application/agent-run/native-file-delegation";
 import { NativeFileDelegationProof } from "./infrastructure/agent-run/native-file-delegation-proof";
 import { NativeFileDelegationController } from "./interface/controllers/native-file-delegation.controller";
@@ -934,7 +941,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1332,6 +1339,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // ⚠ `saveDraft` / `pinVersion` still have no request shape -- providing the store does
     // NOT open those paths, and nothing here should be read as saying it does.
     { provide: OBJECT_STORE, useFactory: () => new FsObjectStore(objectStoreRoot()) },
+    { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
+    {
+      provide: ARTIFACT_INDEX_PRODUCER,
+      useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
+        createArtifactIndexProducer(db, objects, embeddings ?? undefined),
+      inject: [DATABASE_PORT, OBJECT_STORE, EMBEDDING_PORT],
+    },
+    {
+      provide: ARTIFACT_INDEXING_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, producer: ArtifactIndexProducer) =>
+        createArtifactIndexingService(db, objects, producer),
+      inject: [DATABASE_PORT, OBJECT_STORE, ARTIFACT_INDEX_PRODUCER],
+    },
     // F17. Called INSIDE the aperture (see `export-to-organization.ts` step 5), so a future
     // cross-deployment transport inherits the approval check instead of having to remember it.
     {

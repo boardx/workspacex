@@ -1,0 +1,4 @@
+✗ src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts: claimed executor boundary missing
+
+❌ 1 unguarded tenant read(s). See UC-0.3 R7 / coherence X-1.
+scanned=1345 tenant-tables=208 allowlisted=97

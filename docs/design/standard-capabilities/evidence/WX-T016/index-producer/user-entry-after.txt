@@ -1,0 +1,35 @@
+[stack-admission] load1=5.10 cores=10 perCore=0.51 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqswyjf-bc1a07ae-83183dc3408e db=wsx_83183dc3408ee72758e3 compose=wsx-83183dc3408ee72758e3 pg=23971 redis=28971 sandbox=53971
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_83183dc3408ee72758e3 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"56a287bd-8bd5-4306-aca2-39ae8ccc6b11","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ArtifactIndexingController.index (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/artifact-indexing.controller.ts:15:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"84876589-b8bd-430b-a1bc-1d47e836c792","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ArtifactIndexingController.index (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/artifact-indexing.controller.ts:15:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b656472c-ca61-47c6-9066-7370b03df6a1","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ArtifactIndexingController.index (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/artifact-indexing.controller.ts:15:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"99685765-5724-43bd-8ef7-d2cfeea0cc85","detail":{"name":"BadRequestException","message":"invalid_artifact_index_request","stack":"BadRequestException: invalid_artifact_index_request\n    at ArtifactIndexingController.index (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/artifact-indexing.controller.ts:13:119)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"738e560b-93ed-4b3f-aee5-dc535e49818e","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ArtifactIndexingController.index (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/artifact-indexing.controller.ts:15:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/artifact-index-producer-real-db.test.ts (10 tests) 9834ms
+   ✓ real upload bytes/outbox → original segments → atomic index → authorized FTS, replay remains idempotent 318ms
+   ✓ deployed maintenance entry invokes the same real producer with normal app privileges 583ms
+   ✓ real production user entry applies current file-write permission and drives the existing outbox 4374ms
+ ✓ tests/files/review-pending-gate.test.ts (8 tests) 7ms
+ ✓ tests/files/worker-replay-no-duplicate.test.ts (2 tests) 547ms
+ ✓ tests/files/ingestion-repo-metadata-only.test.ts (3 tests) 401ms
+ ✓ tests/agent-runtime/index-artifact-version.test.ts (8 tests) 4ms
+ ✓ tests/agent-runtime/langchain-embedding-client.test.ts (1 test) 34ms
+
+ Test Files  6 passed (6)
+      Tests  32 passed (32)
+   Start at  13:29:45
+   Duration  14.15s (transform 2.38s, setup 0ms, collect 572ms, tests 10.83s, environment 1ms, prepare 218ms)
+
+[db-isolation] db=wsx_83183dc3408ee72758e3 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/index-artifact-version.test.ts tests/agent-runtime/artifact-index-producer-real-db.test.ts tests/agent-runtime/langchain-embedding-client.test.ts tests/files/worker-replay-no-duplicate.test.ts tests/files/ingestion-repo-metadata-only.test.ts tests/files/review-pending-gate.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：0s
+  总计：15s
