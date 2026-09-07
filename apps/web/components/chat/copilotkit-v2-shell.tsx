@@ -973,7 +973,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col md:flex-row">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
         <Button
           size="xs"
@@ -1095,7 +1095,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           )}
         </div>
       </aside>
-      <div className={cn("flex min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
+      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
         {/*
           2026-09-03（对照设计参照图补的缺口）—— 轻量顶部信息条：当前会话标题 +
           「仅自己可见」隐私提示。此前 `/chat` v2 整条路由 `hideTopBar`，用户切换

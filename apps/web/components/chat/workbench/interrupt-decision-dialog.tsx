@@ -9,7 +9,7 @@ export function InterruptDecisionDialog(props: React.ComponentProps<typeof Resto
   return <>
     <Button variant="outline" onClick={() => setOpen(true)}>打开待确认请求</Button>
     <Dialog open={open} onOpenChange={setOpen} modal={false}>
-      <DialogContent onInteractOutside={(event) => event.preventDefault()}>
+      <DialogContent className="overflow-y-auto overscroll-contain" onInteractOutside={(event) => event.preventDefault()}>
         <DialogTitle>{props.interrupt.toolName === "confirm_task_intent" ? "确认任务意图" : "任务需要你的确认"}</DialogTitle>
         <DialogDescription>可以暂时关闭并继续补充要求；关闭不会提交或拒绝此次请求。</DialogDescription>
         <RestoredInterruptForm {...props} />

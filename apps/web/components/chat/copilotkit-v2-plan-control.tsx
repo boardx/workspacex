@@ -227,7 +227,7 @@ function PlanControlSession(
     : ledger.phase === "executing" ? "执行中" : ledger.gate.required ? "等待确认" : "待执行";
 
   return (
-    <div data-testid="chat-task-workbench-plan-control" className="mb-3 flex flex-col gap-2">
+    <div data-testid="chat-task-workbench-plan-control" className="flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64">
       <div className="flex items-center gap-2">
         <button
           type="button"

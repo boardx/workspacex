@@ -99,6 +99,8 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   await page.getByTestId(`chat-thread-${firstThreadId}`).click();
   await page.waitForURL(firstThreadUrl);
   await restoringRun;
+  await expect(page.getByTestId("copilotkit-v2-thinking-phase")).toHaveText("正在执行");
+  await expect(page.getByText("正在恢复上次未完成的任务…")).toHaveCount(0);
   const final = await (await settledRun).json() as {resultMessageId: string};
   expect(closedSockets).toBeGreaterThan(0);
   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));

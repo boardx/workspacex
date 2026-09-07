@@ -89,17 +89,18 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
   //   回归：`runProgress` 接线一行没动）。`waitForSelector` 在 click 前建立订阅，
   //   没有这段间隙。
   const thinkingAppeared = page.waitForSelector(
-    "[data-testid=\"copilotkit-v2-thinking-elapsed\"]",
+    "[data-testid=\"copilotkit-v2-running-indicator\"]",
     { state: "attached", timeout: 60_000 },
   );
   await page.getByTestId("copilotkit-v2-send").click();
   await thinkingAppeared;
+  await expect(page.getByTestId("run-trace-toggle").last()).toContainText("历时");
 
   const messages = page.getByTestId("copilotkit-v2-messages");
   await expect(messages).toContainText(CHAT_READ_E2E.agentReplyPrefix, { timeout: 60_000 });
 
-  // run 收场后进度行必须消失——留着会让"上一轮跑了多久"一直挂在界面上，读起来像还在跑。
-  await expect(page.getByTestId("copilotkit-v2-thinking-elapsed")).toHaveCount(0, { timeout: 30_000 });
+  // 收场后仅运行状态标记消失；持久 trace 保留真实用时。
+  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 30_000 });
 
   // ── 反证① 复制：剪贴板里真的是这条 AI 消息的正文 ────────────────────────────
   const assistantBubble = page.getByTestId("copilot-assistant-message").last();

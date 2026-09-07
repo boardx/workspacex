@@ -1319,7 +1319,7 @@ export function CopilotKitV2PanelBody({
   const isEmptyThread = !historyLoading && agent.messages.length === 0 && !agent.isRunning;
 
   return (
-    <div className="flex h-full w-full gap-3">
+    <div className="flex h-full min-h-0 w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
           文件工作台，两栏各占一半宽度，右栏没有任何文件时不占位（见 ActiveFilePanel
           自己的"缺席"纪律），左栏独占全宽。
@@ -1345,7 +1345,7 @@ export function CopilotKitV2PanelBody({
           文字/控件的容器上（消息内容 `messagesContentRef` 与下方 composer 分组），
           滚动容器夹在满宽的外层列与被收窄的内容之间，滚动条自然贴到窗口边界，
           与 ChatGPT/Claude.ai 同款布局一致。 */}
-      <div className="relative flex w-full min-w-0 flex-1 flex-col gap-3" {...(!canWrite || archived ? {} : attach.dragHandlers)}>
+      <div className="relative flex min-h-0 w-full min-w-0 flex-1 flex-col gap-3" {...(!canWrite || archived ? {} : attach.dragHandlers)}>
         {!canWrite || archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
             常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
@@ -1536,7 +1536,7 @@ export function CopilotKitV2PanelBody({
             计划面板/错误横幅/追问 chips/附件区/页脚这一整段本来就靠外层列的
             `max-w-3xl` 收窄；外层列让出这条上限之后，这里用同一个 Tailwind
             刻度单独补上，不是新造一条阅读宽度判据，只是换了承担它的容器。 */}
-        <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-3">
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl shrink-0 flex-col gap-3">
         <ProjectRecordingPanel projectId={projectId} threadId={resolvedChatThreadId} userId={draftSession?.userId ?? null} bearer={sessionToken} canWrite={canWrite} archived={archived} />
         <CopilotKitV2PlanControl projectId={projectId} canWrite={canWrite} threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
