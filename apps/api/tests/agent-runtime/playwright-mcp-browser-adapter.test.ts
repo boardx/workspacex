@@ -163,9 +163,10 @@ describe('Playwright MCP browser adapter contract', () => {
   });
 
   it('does not call Playwright MCP when the public-network gate rejects navigation', async () => {
-    const { adapter, calls, context } = fixture({ networkDenied: true });
-    await expect(adapter.invoke(context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } })).rejects.toThrow('unconfirmed_no_replay');
+    const { adapter, calls, context, rows } = fixture({ networkDenied: true });
+    await expect(adapter.invoke(context(BINDING_A, 'run-a'), { toolName: 'browser_navigate', toolArgs: { url: 'https://example.com' } })).rejects.toThrow('browser_network_denied');
     expect([...calls.values()].flat().filter(call => call.name === 'browser_navigate')).toHaveLength(0);
+    expect(rows.size).toBe(0);
   });
 
   it('covers browser state creation with the action deadline', async () => {
