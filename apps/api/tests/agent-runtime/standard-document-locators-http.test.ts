@@ -112,6 +112,14 @@ it('production Python graph refuses cached read/execute after real source revoca
  await app.get<ToolPermissionGrantStore>(TOOL_PERMISSION_GRANT_STORE).grantForRun(org,run,'execute');
  const config={configurable:{native_runtime:{bindingId,profile:'native-v1',policy:'native-v1'},org_skills:pinnedPackage.map(pin=>({stable_name:pin.stableName,package:pin.package})),disable_task_auto_classify:true,run_control_callback:{base_url:base,key:'w08-http-key',org_id:org,run_id:run,attempt_id:context.attemptId,lease_epoch:1}},cachedPath};
  const initialSession=(await owner.resolve(bindingId,context)).sessionId;
+ // #2935：live lane 也把"拒绝没有下游副作用"钉住——同 run 的暂存产物与 artifact
+ // 版本在撤权前后必须逐字段相等（默认套件里的对应反证见
+ // native-cached-source-revocation-real-db.test.ts）。
+ const sideEffects=()=>asApp(org,async c=>({
+  staging:Number((await c.query('SELECT count(*)::int AS count FROM native_output_staging WHERE org_id=$1 AND run_id=$2',[org,run])).rows[0]!.count),
+  artifacts:Number((await c.query('SELECT count(*)::int AS count FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,run])).rows[0]!.count),
+ }));
+ const sideEffectsBefore=await sideEffects();
  let ready=false,denied=false,restored=false,before=0;
  try{
   await new Promise<void>((done,reject)=>{
@@ -126,5 +134,6 @@ it('production Python graph refuses cached read/execute after real source revoca
    child.on('error',reject);child.on('close',code=>{clearTimeout(timer);void work.then(()=>code===0?done():reject(new Error('Python binding verification failed: '+error)));});child.stdin.write(JSON.stringify(config)+'\n');
   });
   expect({ready,denied,restored}).toEqual({ready:true,denied:true,restored:true});expect((await owner.resolve(bindingId,context)).sessionId).toBe(initialSession);
+  expect(await sideEffects()).toEqual(sideEffectsBefore);
  }finally{await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));}
 },120000);
