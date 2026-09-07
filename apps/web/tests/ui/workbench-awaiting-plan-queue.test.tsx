@@ -1,6 +1,6 @@
 /** Real panel/composer and running-reply hook; restored state and queue boundary are controlled. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 
 const copilotkitV2CssPath = vi.hoisted(() => require.resolve("@copilotkit/react-core/v2/styles.css"));
 vi.mock(copilotkitV2CssPath, () => ({}));
@@ -150,7 +150,21 @@ vi.mock("@/lib/copilotkit-v2-run-restore", async importOriginal => ({
 
 it("restored plan confirmation without active journal trace routes composer input to the next-turn queue", async () => {
   getAgentRun.mockResolvedValue({runId:"run-1",threadId:THREAD_ID,status:"awaiting_plan_confirmation",resultMessageId:null,pendingApproval:null});
-  const requests = vi.spyOn(globalThis,"fetch");
+  const originalFetch = globalThis.fetch;
+  let releaseJournal!: () => void;
+  let journalReads = 0;
+  const journalGate = new Promise<void>(resolve => { releaseJournal = resolve; });
+  const requests = vi.spyOn(globalThis,"fetch").mockImplementation(async (url, options) => {
+    if (String(url).includes("/execution-events?")) {
+      journalReads += 1;
+      expect(String(url)).toContain("/agent-runs/run-1/execution-events?afterSeq=-1");
+      await journalGate;
+      // Empty durable history has no next cursor. In particular, {} is not a
+      // journal page and would produce a real replay error after slow hydration.
+      return new Response(JSON.stringify({events:[],legacyEvents:[],nextSeq:null}), {status:200,headers:{"Content-Type":"application/json"}});
+    }
+    return originalFetch(url, options);
+  });
   mount();
   const input = await screen.findByTestId("copilotkit-v2-input");
   await waitFor(()=>expect(listMessages).toHaveBeenCalled());
@@ -163,5 +177,8 @@ it("restored plan confirmation without active journal trace routes composer inpu
   expect(queue.enqueue).toHaveBeenCalledTimes(1);
   expect(createPersonalThread).not.toHaveBeenCalled();
   expect(requests.mock.calls.some(([url, options]) => options?.method === "POST" && /\/agent\/[^/]+\/run|\/copilotkit\/agui/.test(String(url)))).toBe(false);
+  await waitFor(() => expect(journalReads).toBeGreaterThan(0));
+  await act(async () => { releaseJournal(); await journalGate; });
   expect(screen.queryByTestId("copilotkit-v2-error")).toBeNull();
+  requests.mockRestore();
 });
