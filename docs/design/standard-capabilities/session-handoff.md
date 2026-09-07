@@ -10,11 +10,11 @@ identity waiver and aggregate PR exception remain in effect; do not invent regis
 
 Read development-flow.md for scoped component progress and capability-catalog.json for
 all 75 original requirements. Progress colours do not mean harness passing or deployment.
-Latest committed implementation at this snapshot: f51283005. Last successfully pushed:
-50c6eac902d8c15a86a45f0a9589646f9a810b55. That push passed 13 local checks. Current PR
-snapshot is Draft / DIRTY, no current CI results. merge-tree preview found one conflict
-in apps/deep-agent-service/Dockerfile against fetched origin/main; preserve both changes
-when integrating main into this feature branch after worker edits are committed.
+Latest committed implementation at this snapshot: 587f72955. Last successfully pushed:
+3943e9780e815348649f15f64c637b7c54a1e7cd. That push passed 13 local checks. Main was integrated into this feature branch in 03b8361e7. The only Dockerfile conflict
+preserves frozen dependency installation and upstream no-reload/concurrency flags.
+Frozen pnpm installation and actual langgraph CLI option checks passed. New commits
+still need pushing and current-head CI; no merge of this PR into main occurred.
 
 Native factory/session persistence and recovery, actual Skill events, per-tool authority,
 readonly authorized attachment inputs and output staging/writeback are implemented.
@@ -33,18 +33,21 @@ acceptance is implied by scripted-model and DB/HTTP component chains.
 
 Root owns git staging/commits/push, progress documents, platform seed, and main integration.
 Three parallel workers share this worktree; never revert another worker's edits.
-- claude_research: W14 standard image generation using existing Bailian provider,
-  guarded image download, sandbox validation and complete Skill; audio remains later work.
-- current_runtime_audit: E005 sealed credential broker and MCP isolation/acknowledgements;
-  browser integration follows. Anonymous execution is already committed.
-- langchain_research: W13 official pg-boss scheduler, now production composition. Worker
-  temporarily owns kernel.module.ts/native_factory.py and related profile wiring.
-  Provider/service tests passed; missing durable notifier rejects create. No fake notifier.
+- claude_research: image tool committed1f1eee8cf and visual pack seed587f72955; now
+  audio transcription using existing ASR provider, then fixed FFmpeg conversion and audio Skills.
+- current_runtime_audit: MCP isolation committed47f11e590 with14 real API and31 AST
+  tests. Now restricted credential broker; browser follows. Migration070000 reserved.
+- langchain_research: scheduler committed1d86b1200, including actual lifecycle and
+  cancellation-lock proof. Durable notifier remains absent. Now W16 running subtask
+  cancellation, late-output fencing and honest unknown outcomes; coordinates shared
+  ModelCallInput/ConfiguredModelProvider signal changes. No peer main-run/UI changes.
+Root owns shared kernel/factory composition again. DB slot is free after visual seed
+regression; workers request a slot before wrappers. All prior owned stacks cleaned.
 
 Remaining requirements include running subtask cancellation and public events, delegated
 file authority, broader retrieval, cross-page tables and Office locators, audio Skills,
 compatibility/deployment verification, joint real-model E2E and current-head CI/review.
-S015 platform seed addition is in progress; its complete package is already committed.
+S015 and S017 platform seed releases are committed and real DB/API verified.
 
 ## Peer
 

@@ -34,7 +34,7 @@ flowchart TD
   T42Join --> RunningCancel[WX-T042 running取消与公共事件待接入]
   T42Join -.复用统一控制契约.-> Peer
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
-  MCPSchema --> MCP[WX-E005 匿名审批执行桥：0872c9b3d；凭据与隔离开发中]:::active
+  MCPSchema --> MCP[WX-E005 匿名桥0872c9b3d、隔离47f11e590；凭据开发中]:::active
   MCP -.复用准入与审批.-> Peer
   MCP --> Browser[W10 浏览器交互与网页产物]
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
@@ -46,9 +46,9 @@ flowchart TD
   E4 --> Canvas[W11 画布版本工具：ecfbee70f；Skill：776e2a9f7]:::verified
   E2 --> MemoryScope[W12 可信个人scope：1f2735a71]:::verified
   MemoryScope --> Memory[W12 持久Store、撤权、取消回滚及生产DI：b91057172]:::verified
-  E2 --> Schedule[W13 持久调度组件已验；生产接线中]:::active
+  E2 --> Schedule[W13 持久调度接线1d86b1200；通知待接]:::active
   Schedule --> Notify[持久通知接口待接入]:::blocked
-  E6 --> Media[W14 图片适配开发中；音频与纪要待做]:::active
+  E6 --> Media[W14 图片1f1eee8cf、视觉包587f72955；音频开发中]:::active
   E4 --> Author[W15 草稿到产物再导入完整链：f51283005]:::verified
   E3 --> SQL[W17 官方SQL与取消反证：7d42283e3]:::verified
   E4 --> Methods[W19 两项方法包及导入源校验：ffbf307a2]:::verified
@@ -77,10 +77,10 @@ flowchart TD
   MethodDelivery --> Gate
   Gate --> Commits[每个任务独立commit]
   Commits --> Migration[迁移重放修复：e4b8e9b34，本地202项重放通过]:::verified
-  Migration --> Push[已授权公开推送；远端检查点50c6eac90]:::active
-  Push --> PR[汇总Draft PR #2869：处理main冲突后更新]:::active
+  Migration --> Push[已授权公开推送；远端检查点3943e9780]:::active
+  Push --> PR[汇总Draft PR #2869：main已整合03b8361e7；待新SHA CI]:::active
   PR --> Main[等待后续整合main]
-  Resource[3个并行agent：图片、MCP凭据隔离、调度接线]:::active -.影响未完成工作.-> Gate
+  Resource[3个并行agent：音频、MCP凭据、running子任务取消]:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -100,14 +100,15 @@ W17 官方 SQL Toolkit、独立只读角色、取消与超时反证已提交 7d4
 
 MCP 匿名工具已具备不可变审查与运行快照、逐调用审批和权限重验、隔离 Worker 与实际 ToolNode 接线，提交 0872c9b3d。凭据代理、治理中断确认和浏览器接入仍在开发，不能把匿名链的通过当作 E005 全部完成。
 
-W15 完整草稿包、JSON 产物发布写回与管理员导入链已提交 f51283005；实际脚本验证和完整文件摘要均有测试。标准包发布已有跨组织普通用户 API 可见性证据，S015 的平台发布清单正在补入。W14 已复用有界图片供应商调用 776a63556，标准图片工具尚在开发。
+W15 完整草稿包、JSON 产物发布写回与管理员导入链已提交 f51283005；实际脚本验证和完整文件摘要均有测试。标准包发布已有跨组织普通用户 API 可见性证据，S015 平台发布提交3943e9780；W14 图片工具完整链提交1f1eee8cf，视觉包发布提交587f72955。
 
 ## 最新交付边界
 
-- 本快照最新已提交实现为 f51283005；最后成功推送为 50c6eac902d8c15a86a45f0a9589646f9a810b55。
-- 用户已明确授权本次代码和测试文档推送公开仓库 boardx/workspacex、更新 PR #2869，暂不合并 main。正常 push 的 13 项本地检查通过；不等同于远端 CI。
-- 当前 PR 快照为 Draft / DIRTY、无当前检查结果。merge-tree 预检显示与 origin/main 的 Dockerfile 冲突，待完成当前工作包后整合主分支变化。未操作 main 分支合并。
-- 与 peer 的初始接口协调已收到回复；后续任务消息工具返回 Transport closed，未声称新消息已送达。W13 持久通知仍需实际接口。
-- 三个并行 agent 分别负责图片、MCP 凭据与隔离、调度生产接线；数据库验证使用单栈串行调度。
-- 浏览器、音频、running 子任务取消、文件委派、完整检索及表格定位仍有剩余工作；真实模型联合验收与最新 CI 尚未完成。
-- 全部 75 项 backlog 尚未完成；绿色只覆盖图中明确范围，不以提交数量估算完成百分比。
+- 本快照最新实现587f72955；最后成功推送3943e9780，正常门控13/13通过。随后提交图片1f1eee8cf、MCP重隔离47f11e590、调度1d86b1200及视觉包587f72955，待推送取得新SHA CI。
+- main已整合为开发分支上的03b8361e7；唯一Dockerfile冲突保留冻结依赖安装及main的no-reload/并发参数，锁文件安装和实际CLI参数检查通过。没有把本PR合入main。
+- MCP重隔离真实数据库/HTTP/Worker 14项、权限AST31项通过。只确认实际本地停止，远端结果保持unknown；凭据代理仍在开发。
+- W13生产生命周期和父取消竞争反证通过，同一数据库事务连接覆盖授权与调度写入；持久通知适配器仍缺失，create明确拒绝，不宣称全用户调度可用。
+- 图片完整链使用真实provider类、本地供应商协议fixture、真实TLS下载、沙箱解码及PG产物写回，未进行外部模型画质验收。参考图编辑不支持；新图片intent前缀自动清理仍待接入保留策略。
+- 与peer初始接口协调已收到回复；后续任务工具Transport closed，未声称新消息送达。工作台与主run控制继续由peer负责。
+- 三个并行agent继续音频、凭据、运行中子任务取消；DB测试按单栈串行。浏览器、文件委派、完整检索/表格定位、真实模型联合验收及最终CI仍未完成。
+- 全部75项backlog尚未完成；绿色仅覆盖明确验证范围，不以提交数量估算百分比。
