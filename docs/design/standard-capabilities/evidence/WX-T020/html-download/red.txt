@@ -1,0 +1,84 @@
+[stack-admission] load1=2.50 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mtqyvb38-1eb8ba85-37520823a1ca db=wsx_37520823a1ca70e1354f compose=wsx-37520823a1ca70e1354f pg=22915 redis=27915 sandbox=52915
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_37520823a1ca70e1354f capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/native-output-staging.test.ts (6 tests | 1 failed) 6ms
+   × HTML download artifacts require exact MIME and UTF8 bytes, never a disguised binary 2ms
+     → [
+  {
+    "received": "text/html",
+    "code": "invalid_enum_value",
+    "options": [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "application/json",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ],
+    "path": [
+      "mediaType"
+    ],
+    "message": "Invalid enum value. Expected 'application/pdf' | 'image/png' | 'image/jpeg' | 'text/plain' | 'text/markdown' | 'text/csv' | 'application/json' | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/vnd.openxmlformats-officedocument.presentationml.presentation', received 'text/html'"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/native-output-staging.test.ts > HTML download artifacts require exact MIME and UTF8 bytes, never a disguised binary
+ZodError: [
+  {
+    "received": "text/html",
+    "code": "invalid_enum_value",
+    "options": [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "application/json",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ],
+    "path": [
+      "mediaType"
+    ],
+    "message": "Invalid enum value. Expected 'application/pdf' | 'image/png' | 'image/jpeg' | 'text/plain' | 'text/markdown' | 'text/csv' | 'application/json' | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/vnd.openxmlformats-officedocument.presentationml.presentation', received 'text/html'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/agent-runtime/native-output-staging.test.ts:39:41
+     37| });
+     38| it('HTML download artifacts require exact MIME and UTF8 bytes, never a…
+     39|  const input=NativeArtifactPublishInput.parse({workspacePath:'/workspa…
+       |                                         ^
+     40|  const bytes=Buffer.from('<!doctype html><html><body><script>window.te…
+     41|  await expect(validateNativeArtifactBytes(input,bytes)).resolves.toBeU…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  16:16:26
+   Duration  2.30s (transform 256ms, setup 0ms, collect 320ms, tests 6ms, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_37520823a1ca70e1354f peak_connections=1
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/native-output-staging.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-output-staging.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：1s
+  总计：3s

@@ -35,3 +35,11 @@ it('delivers Python reproduction source as UTF8 data while rejecting binary and 
  for(const bytes of [Buffer.from([0x7f,0x45,0x4c,0x46]),Buffer.from([255,255]),Buffer.from('x\0y')])await expect(validateNativeArtifactBytes(input,bytes)).rejects.toThrow();
  await expect(validateNativeArtifactBytes({...input,title:'analyze.txt'},Buffer.from('print(52)'))).rejects.toThrow();
 });
+it('HTML download artifacts require exact MIME and UTF8 bytes, never a disguised binary',async()=>{
+ const input=NativeArtifactPublishInput.parse({workspacePath:'/workspace/bundle.html',title:'bundle.html',mediaType:'text/html',idempotencyKey:'html'});
+ const bytes=Buffer.from('<!doctype html><html><body><script>window.test=1</script>合成网页</body></html>');
+ await expect(validateNativeArtifactBytes(input,bytes)).resolves.toBeUndefined();
+ for(const bad of [Buffer.from([255]),Buffer.from([0x7f,0x45,0x4c,0x46]),Buffer.from('a\0b')])await expect(validateNativeArtifactBytes(input,bad)).rejects.toThrow();
+ await expect(validateNativeArtifactBytes({...input,mediaType:'text/plain'},bytes)).rejects.toThrow();
+ await expect(validateNativeArtifactBytes({...input,title:'bundle.txt'},bytes)).rejects.toThrow();
+});
