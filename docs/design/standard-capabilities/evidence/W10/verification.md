@@ -1,6 +1,6 @@
 # W10 验证证据（云端执行）
 
-基线：`f1ecb4734940ac30a8e260f5b71eb69d83d3f26f`。日期：2026-09-07。
+最终重放基线：`414aca176dcd19d63c68b711a8436e05fe78ee74`（`origin/codex/standard-capabilities`，2026-09-07 再次 fetch 后）。初始开发基线为 `f1ecb4734940ac30a8e260f5b71eb69d83d3f26f`。日期：2026-09-07。
 
 ## 已通过
 

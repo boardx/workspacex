@@ -1,6 +1,6 @@
 # W10 浏览器工具接线说明
 
-基线：`codex/standard-capabilities@f1ecb4734940ac30a8e260f5b71eb69d83d3f26f`。本工作包实现 `WX-T022`–`WX-T026` 的独立契约、Playwright MCP adapter、controller、Python LangChain tools、测试与 `WX-S013` skill 包；按任务约束没有修改共享 composition root 或 native factory。
+基线：`codex/standard-capabilities@414aca176dcd19d63c68b711a8436e05fe78ee74`。本工作包实现 `WX-T022`–`WX-T026` 的独立契约、Playwright MCP adapter、controller、Python LangChain tools、测试与 `WX-S013` skill 包；按任务约束没有修改共享 composition root 或 native factory。
 
 ## 固定上游
 
