@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   isSubtaskRunActive, SUBTASK_RUN_STATUS_LABEL, SUBTASK_RUN_STATUS_TONE,
   type SubtaskRunStatus, type SubtaskRunView,
-} from "@/lib/mock/subtask-run";
+} from "@/lib/chat/subtask-run";
 
 /**
  * 后台任务面板（issue #2666，依赖 issue #2664 `spawn_async_task` 的子任务 run）。
@@ -79,6 +79,10 @@ export function SubtaskRunPanel({
 
   const activeCount = runs.filter(isSubtaskRunActive).length;
   const failedCount = runs.filter((r) => r.status === "failed").length;
+  const startedAt = Math.min(...runs.map((run) => Date.parse(run.createdAt)).filter(Number.isFinite));
+  const endedAt = Math.max(...runs.map((run) => Date.parse(run.updatedAt)).filter(Number.isFinite));
+  const durationSeconds = Number.isFinite(startedAt) && Number.isFinite(endedAt)
+    ? Math.max(0, Math.round((endedAt - startedAt) / 1000)) : 0;
 
   function focusRun(id: string) {
     setOpen(true);
@@ -108,6 +112,20 @@ export function SubtaskRunPanel({
         total={runs.length}
         onToggle={() => setOpen((v) => !v)}
       />
+      {open ? (
+        <div className="space-y-2 border-t border-border-subtle p-2 text-11 text-muted-foreground">
+          <div data-testid="chat-task-workbench-subagent-detail-input">
+            <span className="font-medium text-card-foreground">输入</span>
+            <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.description}{run.context ? ` · ${run.context}` : ""}</li>)}</ul>
+          </div>
+          <p data-testid="chat-task-workbench-subagent-detail-tools"><span className="font-medium text-card-foreground">工具明细</span> · 当前运行记录尚未提供</p>
+          <p data-testid="chat-task-workbench-subagent-detail-duration"><span className="font-medium text-card-foreground">耗时</span> · {durationSeconds} 秒</p>
+          <div data-testid="chat-task-workbench-subagent-detail-result">
+            <span className="font-medium text-card-foreground">结果</span>
+            <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.result ?? run.error ?? SUBTASK_RUN_STATUS_LABEL[run.status]}</li>)}</ul>
+          </div>
+        </div>
+      ) : null}
       {!open && justCompletedIds.length > 0 && (
         <button
           type="button"
@@ -150,14 +168,14 @@ function SubtaskRunBadge({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      data-testid="chat-subtask-badge"
+      data-testid="chat-task-workbench-subagent-node"
       className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ChevronRight
         aria-hidden
         className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-fast", open && "rotate-90")}
       />
-      <span className="font-medium">
+      <span className="font-medium" data-testid="chat-subtask-badge">
         {activeCount > 0 ? `有 ${activeCount} 个任务在后台运行` : `后台任务 · ${total}`}
       </span>
       {failedCount > 0 && (

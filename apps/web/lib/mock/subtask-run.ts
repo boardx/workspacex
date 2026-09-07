@@ -1,40 +1,19 @@
 /**
- * 后台任务面板（issue #2666）的类型 + mock 数据 —— **刻意不带 `"use client"`**，
- * 同 `lib/mock/chat.ts` 头注同一条理由：类型/纯数据要能被服务端组件 import。
+ * 后台任务面板（issue #2666）的故事化 mock 数据 —— **刻意不带 `"use client"`**，
+ * 同 `lib/mock/chat.ts` 头注同一条理由：纯数据要能被服务端组件 import。
  *
- * `SubtaskRunView` 直接 `z.infer` 自 `@repo/contracts` 的 `subtaskRun.SubtaskRun`——
- * issue #2664/#2666 共用同一份状态机，没有取值分歧，不需要另起一份 `View` 类型
- * （对照 `lib/mock/chat.ts` 头注的判断标准：结构/取值都一致时直接派生）。
+ * 正式类型与状态展示语义位于 `lib/chat/subtask-run.ts`；这里仅保留故事化 mock 数据，
+ * 避免正式聊天路由为了复用类型而把 `lib/mock` 带入运行时闭包。
  */
-import type { z } from "zod";
-import { subtaskRun as C } from "@repo/contracts";
+import type { SubtaskRunView } from "@/lib/chat/subtask-run";
 
-export type SubtaskRunStatus = z.infer<typeof C.SubtaskRunStatus>;
-export type SubtaskRunView = z.infer<typeof C.SubtaskRun>;
-
-export const SUBTASK_RUN_STATUS_LABEL: Record<SubtaskRunStatus, string> = {
-  pending: "排队中",
-  running: "进行中",
-  completed: "已完成",
-  failed: "出错",
-  cancelled: "已取消",
-};
-
-/** 角标/状态点色调：进行中=ai（正在工作）、已完成=primary、出错=danger、排队=neutral */
-export const SUBTASK_RUN_STATUS_TONE: Record<
-  SubtaskRunStatus, "primary" | "ai" | "danger" | "neutral"
-> = {
-  pending: "neutral",
-  running: "ai",
-  completed: "primary",
-  failed: "danger",
-  cancelled: "neutral",
-};
-
-/** 未到终态（`pending`/`running`）视为"还在后台跑"，供角标计数与轮询是否继续用。 */
-export function isSubtaskRunActive(run: SubtaskRunView): boolean {
-  return run.status === "pending" || run.status === "running";
-}
+export {
+  isSubtaskRunActive,
+  SUBTASK_RUN_STATUS_LABEL,
+  SUBTASK_RUN_STATUS_TONE,
+  type SubtaskRunStatus,
+  type SubtaskRunView,
+} from "@/lib/chat/subtask-run";
 
 /** 验收标准三态 mock：一个进行中、一个已完成、一个出错（AC「三个子任务同时可见地在跑」）。 */
 export const MOCK_SUBTASK_RUNS: SubtaskRunView[] = [

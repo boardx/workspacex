@@ -477,7 +477,7 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     const panel = await screen.findByTestId("chat-artifacts-panel");
-    expect(panel).toHaveTextContent("产物（1）");
+    expect(panel).toHaveTextContent("产物预览（1）");
     expect(panel).toHaveTextContent("真实草稿产物");
     expect(panel).toHaveTextContent("草稿");
     expect(listThreadArtifacts).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
