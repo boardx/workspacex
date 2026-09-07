@@ -12,6 +12,8 @@
     "test:native-chain": "vitest run --config vitest.native-chain.config.ts",
     "test:browser-adapter": "vitest run --config vitest.browser-adapter.config.ts",
     "test:browser-real": "WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts",
+    "test:browser-skill-real-model": "vitest run --config vitest.browser-skill-real-model.config.ts",
+    "test:asr-real-model": "vitest run --config vitest.asr-real-model.config.ts",
     "test:stability": "bash scripts/verify-test-stability.sh",
     "test:stability:tempfile": "bash scripts/verify-test-stability.sh --check-tempfiles",
     "migrate": "tsx src/infrastructure/db/migrate-cli.ts",

@@ -41,7 +41,7 @@ test("TW-P0-6①：审批界面四选一按钮齐（仅本次 / 本 run 内 / �
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  const dialog = page.getByTestId("chat-tool-permission-dialog");
+  const dialog = page.getByTestId("restored-run-approval");
   await expect(
     dialog,
     "TW-P0-6①：没有等到工具权限确认弹层——这一轮没有真的停下来等人批准（HITL 未触发），不是按钮缺失。",
@@ -61,7 +61,7 @@ test("TW-P0-6②：审批卡披露五项（想做什么 / 为什么 / 影响面 
   await openFreshThread(page);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("chat-tool-permission-dialog")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("restored-run-approval")).toBeVisible({ timeout: 120_000 });
 
   const card = await expectAnchor(
     page,
@@ -93,7 +93,7 @@ test("TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证�
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
   await expect(
-    page.getByTestId("chat-tool-permission-dialog"),
+    page.getByTestId("restored-run-approval"),
     [
       "【差距 TW-P0-6③】一次纯读操作也弹了审批卡。",
       "审计原话：读操作可静默；写入、删除、发送、支付、发布必须按风险分级。",

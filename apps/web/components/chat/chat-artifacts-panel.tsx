@@ -44,7 +44,7 @@ export function ChatArtifactsPanel({
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium">产物{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
+        <h2 className="text-12 font-medium" data-testid="chat-task-workbench-artifact-preview">产物预览{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
       </div>
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
@@ -68,7 +68,7 @@ export function ChatArtifactsPanel({
         </div>
       ) : null}
       {artifacts ? (
-        <div className="flex flex-col gap-2 p-3">
+        <div className="flex flex-col gap-2 p-3" data-testid="chat-task-workbench-artifact-sources">
           {artifacts.items.length === 0 ? (
             <p className="text-12 text-muted-foreground" data-testid="chat-artifacts-empty">
               这条线程还没有落地的产物。

@@ -31,6 +31,11 @@ describe("SubtaskRunPanel -- 后台任务角标 + 三态卡片（issue #2666）"
     render(<SubtaskRunPanel parentRunId="run-mock-1" runs={runs()} />);
     fireEvent.click(screen.getByTestId("chat-subtask-badge"));
 
+    expect(screen.getByTestId("chat-task-workbench-subagent-node")).toHaveAttribute("aria-expanded", "true");
+    for (const suffix of ["input", "tools", "duration", "result"]) {
+      expect(screen.getByTestId(`chat-task-workbench-subagent-detail-${suffix}`)).toBeVisible();
+    }
+
     const cards = screen.getAllByTestId("chat-subtask-card");
     expect(cards).toHaveLength(3);
     expect(cards.map((c) => c.getAttribute("data-status"))).toEqual(["running", "completed", "failed"]);
@@ -112,4 +117,3 @@ describe("SubtaskRunPanel -- 后台任务角标 + 三态卡片（issue #2666）"
     expect(container).toBeEmptyDOMElement();
   });
 });
-

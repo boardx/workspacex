@@ -144,4 +144,23 @@ test.describe("原型画布主链路（迭代 10）", () => {
     await expect(page.getByTestId("design-detail-board-links")).toBeVisible();
     expect(await page.getByTestId("design-detail-board-link").count()).toBe(6);
   });
+
+  /**
+   * 2026-09-07 人类指令：回车直接发、Shift+Enter 换行。这条只能在真浏览器里验——
+   * jsdom 的 `fireEvent.keyDown` 不会真的往 textarea 里插入换行，也没有真实的 IME。
+   */
+  test("回车发送、Shift+Enter 换行（真键盘）", async ({ page }) => {
+    await open(page, "detail-prototype");
+    const input = page.getByTestId("design-detail-input");
+    await input.click();
+    await input.fill("第一行");
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("第二行");
+    // Shift+Enter 没发出去：输入框里留着两行
+    await expect(input).toHaveValue("第一行\n第二行");
+    await page.keyboard.press("Enter");
+    // 回车发出去了：输入框清空，对话里多出这条
+    await expect(input).toHaveValue("");
+    await expect(page.getByTestId("design-detail-chat")).toContainText("第一行");
+  });
 });

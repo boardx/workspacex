@@ -6,7 +6,23 @@ import { agentInterrupts, planPermissions, wave2Runtime } from "@repo/contracts"
 import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
 import { apiRequest } from "@/lib/api-client";
 import { InterruptDecisionDialog } from "./interrupt-decision-dialog";
+import {
+  ToolPermissionCard,
+  type ToolPermissionCardDecision,
+  type ToolPermissionCardRequest,
+} from "@/components/agent-kernel/tool-permission-card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+
+function permissionCardRequest(toolName: string, argsSummary: string | null): ToolPermissionCardRequest {
+  return {
+    risk: "L2",
+    intent: toolName === CALL_SKILL_TOOL_NAME ? "调用一个需要授权的技能" : `调用工具 ${toolName}`,
+    rationale: "该操作被运行时判定为高风险，可能产生不可逆或外部可见的影响。",
+    command: argsSummary ?? "服务端尚未提供参数摘要。",
+    affects: "服务端尚未提供更具体的影响对象；如范围不明确，请拒绝此次执行。",
+  };
+}
 /** Authoritative pending request identity survives refresh; summaries are display-only. */
 export function RestoredRunApproval(props: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt }): JSX.Element | null {
   return <ApprovalSession key={props.runId} {...props} />;
@@ -17,6 +33,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   const inFlight = React.useRef(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [permissionOpen, setPermissionOpen] = React.useState(true);
   React.useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -40,6 +57,9 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
     finally { inFlight.current = false; setPending(false); }
   };
+  const decideFromCard = (decision: ToolPermissionCardDecision): void => {
+    void decide(decision === "always" ? "forever" : decision);
+  };
   const decideForm = async (decision: "approve" | "edit" | "reject", editedArgs?: Record<string, unknown>) => {
     if (!canWrite || !request?.permissionRequestId || inFlight.current) return;
     inFlight.current = true;
@@ -61,11 +81,30 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   </section>;
   if (request && request.toolName !== CALL_SKILL_TOOL_NAME) return <p role="alert">确认请求暂时无法恢复，请重新加载任务后重试。</p>;
   if (!error && (run?.status !== "awaiting_tool_permission" || !request)) return null;
-  return <section data-testid="restored-run-approval" className="my-3 rounded-lg border p-4" aria-label="等待工具审批">
-    <p className="font-medium">等待批准：{request?.toolName}</p>
-    {request?.argsSummary ? <p className="my-2 whitespace-pre-wrap text-sm text-muted-foreground">{request.argsSummary}</p> : null}
-    {error ? <p role="alert">{error}</p> : null}
-    {!request?.permissionRequestId ? <p className="text-sm">等待服务端恢复审批请求。</p> : null}
-    <div className="mt-3 flex flex-wrap gap-2">{([['once', '仅本次允许'], ['run', '本任务内允许'], ['forever', '以后都允许'], ['deny', '拒绝']] as const).map(([decision, label]) => <Button key={decision} variant={decision === "deny" ? "outline" : "primary"} disabled={!canWrite || pending || !request?.permissionRequestId} onClick={() => void decide(decision)}>{label}</Button>)}</div>
+  return <section
+    data-testid="restored-run-approval"
+    className="my-3"
+    aria-label="等待工具审批"
+  >
+    <Button variant="outline" onClick={() => setPermissionOpen(true)}>打开工具审批</Button>
+    <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}>
+      <DialogContent data-testid="chat-tool-permission-dialog" className="max-w-lg border-none bg-transparent p-0 shadow-none" hideClose>
+        <DialogTitle className="sr-only">审批高风险操作</DialogTitle>
+        <DialogDescription className="sr-only">检查操作范围与参数，然后选择授权范围或拒绝。</DialogDescription>
+        {error ? <p role="alert">{error}</p> : null}
+        {!request?.permissionRequestId ? <p className="text-sm">等待服务端恢复审批请求。</p> : null}
+        {request ? <fieldset
+          data-testid="chat-task-workbench-approval-card"
+          data-risk="L2"
+          disabled={!canWrite || pending || !request.permissionRequestId}
+        >
+          <ToolPermissionCard
+            request={permissionCardRequest(request.toolName, request.argsSummary)}
+            decided={null}
+            onDecide={decideFromCard}
+          />
+        </fieldset> : null}
+      </DialogContent>
+    </Dialog>
   </section>;
 }
