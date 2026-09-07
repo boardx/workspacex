@@ -16,7 +16,7 @@ app_rw 仍不能 SELECT ciphertext，也不能执行取密函数。mcp_executor 
 
 一次 invoke 只计算一个绝对 deadline。broker 等待与 Worker 使用同一期限，取密晚到时直接丢弃，绝不启动新的远端执行；执行失败和超时保持 unconfirmed、不自动重放。真实数据库回执落盘/清理可能额外等待，因此不声称整个 HTTP 响应有 30 秒硬上界。
 
-凭据直接出现在远端返回 JSON 时，Worker 在发送结果之前拒绝。该检查不声称能辨识恶意服务器的任意编码或拆分外泄：服务器本来就是批准的凭据接收方；批准 endpoint/account 仍是必要治理边界。Worker stdout/stderr 被隔离消费，失败只返回固定错误码。
+框架管理的错误、日志、snapshot、receipt 和持久化结果不得包含原始明文凭据；凭据原始字节直接出现在远端返回 JSON 时，Worker 在发送结果之前拒绝。这里的“不泄漏”仅是原始明文与直接字面回显承诺，不是通用 DLP：Base64 等编码、拆分、加密或派生表示不在该检查的可识别范围内。服务器本来就是批准的凭据接收方；批准 endpoint/account 仍是必要治理边界。Worker stdout/stderr 被隔离消费，失败只返回固定错误码。
 
 ## 验证状态
 

@@ -72,10 +72,15 @@ attach the credential for the bounded request, and discard it. The inward port r
 an execution result, not a plaintext secret. Keep domain CredentialCipher encrypt-only.
 
 Unknown key/algorithm, unavailable reader or decrypt failure must prevent the network
-call. Errors, HTTP logs, traces and model results must not contain secrets. Update the
-existing credential-never-echoed regression deliberately to assert this narrowly scoped
-reader and no domain/API reader; do not remove that protection. Anonymous servers need
-no secret reader and can form the first vertical slice after all three grants are real.
+call. Framework-owned errors, HTTP logs, traces, snapshots and results must not contain
+the raw plaintext credential; an approved MCP response that directly reflects those
+bytes must be rejected before persistence. This is not a generic DLP claim: encoded
+(including Base64), split, encrypted or derived representations returned by the approved
+server are untrusted tool content and are outside this literal-reflection guarantee.
+Endpoint/account review remains the control for that boundary. Update the existing
+credential-never-echoed regression deliberately to assert this narrowly scoped reader
+and no domain/API reader; do not remove that protection. Anonymous servers need no
+secret reader and can form the first vertical slice after all three grants are real.
 
 ## Minimal complete production chain
 
@@ -84,8 +89,10 @@ no secret reader and can form the first vertical slice after all three grants ar
 SSRF-guarded MCP SDK transport → registered upstream tools/call → bounded MCP result
 → native LangChain ToolMessage. No main-run queue or event writer is added.
 
-Use an official LangChain MCP adapter against a TS-owned, run-scoped MCP facade so
-upstream credentials and endpoints never enter Python/model arguments. The facade must
+Use an official LangChain MCP adapter against a TS-owned, run-scoped MCP facade so the
+framework never places upstream credentials and endpoints in Python/model arguments.
+This says nothing stronger about arbitrary content returned by an approved upstream.
+The facade must
 implement both authorized tools/list and tools/call; list emits only granted, complete,
 fingerprint-pinned schemas, and call rechecks live policy and argument validation.
 Provider injects facade URL and authentication into trusted runtime configuration on
