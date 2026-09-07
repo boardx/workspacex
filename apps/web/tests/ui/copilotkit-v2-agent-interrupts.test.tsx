@@ -58,6 +58,13 @@ describe("durable interrupt presentation", () => {
     expect(decide).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId("agent-interrupt-fill-params-input-topic")).toHaveAttribute("aria-invalid", "true"));
   });
+  it("lets users accept a visible AI suggestion without retyping it", () => {
+    const decide = vi.fn().mockResolvedValue(undefined);
+    render(<RestoredInterruptForm interrupt={{ toolName: "fill_run_params", args: { requestId: "r", fields: [{ name: "audience", label: "受众", aiGuess: "项目团队", rationale: "来自当前项目", required: true, currentValue: null }] } }} pending={false} decide={decide} />);
+    expect(screen.getByTestId("agent-interrupt-fill-params-input-audience")).toHaveValue("项目团队");
+    fireEvent.click(screen.getByTestId("agent-interrupt-fill-params-submit"));
+    expect(decide).toHaveBeenCalledWith("approve");
+  });
   it("can reject both proposed options", () => {
     const decide = vi.fn().mockResolvedValue(undefined);
     render(<RestoredInterruptForm interrupt={{ toolName: "choose_execution_option", args: { requestId: "r", options: ["a", "b"].map((optionId) => ({ optionId, title: optionId, effort: "低", timeToValue: "1天", expectedReturn: "报告" })) } }} pending={false} decide={decide} />);

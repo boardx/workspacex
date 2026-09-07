@@ -55,7 +55,7 @@ export function FillParamsCard({
   // uncontrolled 输入的运行时值读不到（DOM 以外没有第二个事实源），提交要拿到
   // 真实值只能自己记账，不是重复状态。
   const [values, setValues] = React.useState<Record<string, unknown>>(() =>
-    Object.fromEntries(fields.map((f) => [f.name, f.currentValue])),
+    Object.fromEntries(fields.map((f) => [f.name, f.currentValue ?? f.aiGuess])),
   );
 
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
@@ -120,7 +120,7 @@ export function FillParamsCard({
                     <Input
                       id={`${TID}-input-${f.name}`}
                       data-testid={`${TID}-input-${f.name}`}
-                      defaultValue={(f.currentValue as string) ?? ""}
+                      defaultValue={((f.currentValue ?? f.aiGuess) as string) ?? ""}
                       placeholder={f.aiGuess === null ? "请填写…" : undefined}
                       onChange={(e) => {
                         setDirty(true);
