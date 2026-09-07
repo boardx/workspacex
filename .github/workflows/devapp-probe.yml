@@ -95,3 +95,11 @@ jobs:
           $PSQL "SELECT om.org_id, om.user_id FROM org_memberships om JOIN credentials c ON c.user_id = om.user_id WHERE c.email ILIKE '%usam%'" 2>&1 | head -10
           echo "── projects 总行数（判断是新建库还是老库）──"
           $PSQL "SELECT count(*) FROM projects" 2>&1 | head -3
+          echo "── usam@boardx.us（u-f43693f4…）精确按个人线程判据统计：project_id IS NULL（#594 起个人线程的真实过滤条件），按 org 分组 ──"
+          $PSQL "SELECT org_id, count(*) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NULL GROUP BY org_id" 2>&1 | head -10
+          echo "── 同一账号，project_id 非空（项目线程）按 org 分组，作对照 ──"
+          $PSQL "SELECT org_id, count(*) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NOT NULL GROUP BY org_id" 2>&1 | head -10
+          echo "── API 日志：最近 30 分钟内 personal-thread / listPersonalThreads 相关的错误或 5xx（判断是不是接口本身在报错，前端把错误吞成了空列表）──"
+          journalctl -u workspacex-api --since "-30min" 2>&1 | grep -iE "personal|thread" | grep -iE "error|5[0-9][0-9]|exception|fail" | tail -30 || echo "（无匹配行）"
+          echo "── API 日志：最近 30 分钟内 5xx 总数（正样本：日志本身可读）──"
+          journalctl -u workspacex-api --since "-30min" 2>&1 | grep -c '"statusCode":5' || true
