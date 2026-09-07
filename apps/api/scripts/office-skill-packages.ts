@@ -8,10 +8,13 @@ Use native execute for scripts and /workspace for inputs/outputs; never execute 
 script a second time after it has already run. Inspect and render before delivery.
 Word/PPT edits only replace one entire exact text node in the specified XML part; split
 runs, ambiguous text, layout reconstruction and arbitrary embedded objects are unsupported.
-Unmodified ZIP entries retain their bytes. PptxGenJS creates presentations; it cannot import
+Unsupported objects are listed in a structured OFFICE_EDIT_UNSUPPORTED_OBJECT error and the
+output is not published. Unmodified ZIP entries retain their bytes. PptxGenJS creates presentations; it cannot import
 and edit a presentation. XLSX editing uses ExcelJS and supports literal cells; complex
 macros, signatures, unsupported drawings and other advanced features are not promised
-lossless. Recalculation on open is requested, not performed here. PDF page selection is
+lossless. The finite XLSX editor rejects macros, signatures, external links, pivots,
+drawings and comments before writing. Formula recalculation on open is requested and
+reported as requested_on_open_not_performed; no cached result is invented. PDF page selection is
 structural copying, not body editing, secure redaction or guaranteed form preservation.
 For a standard PDF AcroForm, the preinstalled pdf-lib can fill existing text fields
 and checkboxes. Reopen the saved bytes and check field values; do not flatten before
