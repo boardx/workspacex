@@ -27,8 +27,11 @@
  *   **可指名的**、跨用户一致的一个选择，而「服务器本地时区」会随部署环境变。
  *   按用户时区分组需要一个「用户时区」的事实源，本阶段没有 ⇒ 登记为缺口，不擅自造。
  */
+import { z } from "zod";
+import { chat as C } from "@repo/contracts";
 
-export type ThreadGroupLabel = "今天" | "本周" | "更早";
+/** 契约是单源（`packages/contracts/src/chat.ts` 的 `ThreadGroupLabel`），这里只引用，不重定义。 */
+export type ThreadGroupLabel = z.infer<typeof C.ThreadGroupLabel>;
 
 /** UTC 日历日的序号（1970-01-01 = 0）。用它比较，而不是比较毫秒差。 */
 function utcDayIndex(d: Date): number {
