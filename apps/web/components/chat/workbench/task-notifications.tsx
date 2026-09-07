@@ -35,7 +35,9 @@ export function TaskNotifications({scopeKey,sessionToken,cards,activeThreadId,on
       </div>)}
       {scheduled.cursor&&<Button variant="ghost" size="sm" onClick={()=>void scheduled.refresh(scheduled.cursor)}>下一页定时任务提醒</Button>}
       {!notices.length&&!scheduled.notices.length?<p className="text-11 text-muted-foreground">暂无未读提醒</p>:<>
-        {notices.map(notice=><Button key={notice.threadId} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal text-left" onClick={()=>{markRead(notice.threadId);onOpenThread(notice.threadId);}}>
+        {/* `h-auto` 是为了让长标题折行（不是为了压扁按钮）。24px 最小命中区由 Button base 的
+            `min-h-6` 兜底——`h-auto` 只解开上界；这里不重复声明同一个事实（TW-A11Y-2）。 */}
+        {notices.map(notice=><Button key={notice.threadId} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal py-1 text-left" onClick={()=>{markRead(notice.threadId);onOpenThread(notice.threadId);}}>
           {cards?.find(card=>card.id===notice.threadId)?.title} · {labels[notice.status]}
         </Button>)}
         {notices.length>0&&<Button variant="ghost" size="sm" onClick={()=>markRead()}>任务状态提醒标为已读</Button>}

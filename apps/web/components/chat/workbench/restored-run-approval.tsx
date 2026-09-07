@@ -6,6 +6,7 @@ import { agentInterrupts, planPermissions, wave2Runtime } from "@repo/contracts"
 import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
 import { apiRequest } from "@/lib/api-client";
 import { InterruptDecisionDialog } from "./interrupt-decision-dialog";
+import { useDialogReturnFocus } from "./use-dialog-return-focus";
 import {
   ToolPermissionCard,
   type ToolPermissionCardDecision,
@@ -34,6 +35,8 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [permissionOpen, setPermissionOpen] = React.useState(true);
+  // 同 InterruptDecisionDialog：这个弹窗也是挂载即打开、没有用户 trigger（TW-A11Y-5）。
+  const returnPermissionFocus = useDialogReturnFocus(permissionOpen);
   React.useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -88,7 +91,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   >
     <Button variant="outline" onClick={() => setPermissionOpen(true)}>打开工具审批</Button>
     <Dialog open={permissionOpen} onOpenChange={setPermissionOpen}>
-      <DialogContent data-testid="chat-tool-permission-dialog" className="max-w-lg border-none bg-transparent p-0 shadow-none" hideClose>
+      <DialogContent data-testid="chat-tool-permission-dialog" className="max-w-lg border-none bg-transparent p-0 shadow-none" hideClose onCloseAutoFocus={returnPermissionFocus}>
         <DialogTitle className="sr-only">审批高风险操作</DialogTitle>
         <DialogDescription className="sr-only">检查操作范围与参数，然后选择授权范围或拒绝。</DialogDescription>
         {error ? <p role="alert">{error}</p> : null}
