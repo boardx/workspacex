@@ -1,0 +1,124 @@
+TAP version 13
+# Subtest: real memory facts/visibility boundary
+ok 1 - real memory facts/visibility boundary
+  ---
+  duration_ms: 56.570416
+  type: 'test'
+  ...
+# Subtest: reject mutation withAuthorizedStandardToolRun(this.db
+ok 2 - reject mutation withAuthorizedStandardToolRun(this.db
+  ---
+  duration_ms: 7.161667
+  type: 'test'
+  ...
+# Subtest: reject mutation runId,{...input,toolArgs:args}
+ok 3 - reject mutation runId,{...input,toolArgs:args}
+  ---
+  duration_ms: 5.25975
+  type: 'test'
+  ...
+# Subtest: reject mutation write.sourceMessageId!==run.inputMessageId
+ok 4 - reject mutation write.sourceMessageId!==run.inputMessageId
+  ---
+  duration_ms: 6.048542
+  type: 'test'
+  ...
+# Subtest: reject mutation await getThread(
+ok 5 - reject mutation await getThread(
+  ---
+  duration_ms: 5.838625
+  type: 'test'
+  ...
+# Subtest: reject mutation userId:run.userId,threadId
+ok 6 - reject mutation userId:run.userId,threadId
+  ---
+  duration_ms: 29.703083
+  type: 'test'
+  ...
+# Subtest: reject mutation return MemoryProofOutput.parse
+ok 7 - reject mutation return MemoryProofOutput.parse
+  ---
+  duration_ms: 6.55
+  type: 'test'
+  ...
+# Subtest: real shared trusted run boundary
+ok 8 - real shared trusted run boundary
+  ---
+  duration_ms: 146.169791
+  type: 'test'
+  ...
+# Subtest: reject mutation authority.check
+ok 9 - reject mutation authority.check
+  ---
+  duration_ms: 7.05475
+  type: 'test'
+  ...
+# Subtest: reject mutation !decision.allowed
+ok 10 - reject mutation !decision.allowed
+  ---
+  duration_ms: 3.856333
+  type: 'test'
+  ...
+# Subtest: reject mutation [orgId,runId]
+ok 11 - reject mutation [orgId,runId]
+  ---
+  duration_ms: 37.866959
+  type: 'test'
+  ...
+# Subtest: reject mutation r.org_id=$1 AND r.id=$2
+ok 12 - reject mutation r.org_id=$1 AND r.id=$2
+  ---
+  duration_ms: 4.725458
+  type: 'test'
+  ...
+# Subtest: reject mutation m.author_kind FROM
+ok 13 - reject mutation m.author_kind FROM
+  ---
+  duration_ms: 4.214333
+  type: 'test'
+  ...
+# Subtest: reject mutation run.author_id!==input.userId
+ok 14 - reject mutation run.author_id!==input.userId
+  ---
+  duration_ms: 13.403459
+  type: 'test'
+  ...
+# Subtest: reject mutation await resolveVisibility(
+ok 15 - reject mutation await resolveVisibility(
+  ---
+  duration_ms: 4.685917
+  type: 'test'
+  ...
+# Subtest: reject mutation currentVisibility.kind!=='allow'
+ok 16 - reject mutation currentVisibility.kind!=='allow'
+  ---
+  duration_ms: 9.638
+  type: 'test'
+  ...
+# Subtest: reject mutation parentRunId:runId
+ok 17 - reject mutation parentRunId:runId
+  ---
+  duration_ms: 6.895292
+  type: 'test'
+  ...
+# Subtest: reject mutation return consume(
+ok 18 - reject mutation return consume(
+  ---
+  duration_ms: 12.390708
+  type: 'test'
+  ...
+# Subtest: reject mutation db.withTenant(orgId
+ok 19 - reject mutation db.withTenant(orgId
+  ---
+  duration_ms: 6.03075
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2730.782292

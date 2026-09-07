@@ -33,6 +33,7 @@ import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
+import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
@@ -485,6 +486,12 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+    }
+    if (rel === STANDARD_TOOL_RUN_PATH) {
+      const errors = checkStandardToolRun(body);
+      if (!existsSync(join(API, "scripts/tests/standard-tool-run-boundary.test.mjs"))) errors.push("trusted run counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
     }
     if (rel === MEMORY_PROOF_PATH) {
       const errors = checkMemoryProof(body);
