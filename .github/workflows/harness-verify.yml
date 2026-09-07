@@ -115,7 +115,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
@@ -123,10 +123,10 @@ jobs:
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
 
       - name: Setup Node (read .nvmrc)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -233,16 +233,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v4.4.0
 
       - name: Setup Node (read .nvmrc)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -318,9 +318,9 @@ jobs:
     if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -353,9 +353,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -375,10 +375,10 @@ jobs:
     # `e2e-core-loop`（deploy 前置条件）。
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -402,7 +402,7 @@ jobs:
           exit "$status"
       - name: Upload runtime evidence (success or failure)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: phase-01-fullstack-smoke-evidence-${{ github.run_id }}
           path: |
@@ -481,10 +481,10 @@ jobs:
     # `if: always()` + `upload-artifact` 恰好出现 **2** 次、且存在名为 `e2e-full` 的 job。
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -537,7 +537,7 @@ jobs:
 
       - name: Upload E2E evidence (success or failure)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: phase-01-e2e-full-evidence-${{ github.run_id }}
           path: |
@@ -569,10 +569,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -582,7 +582,7 @@ jobs:
         run: pnpm run verify:chat-task-workbench
       - name: Upload chat-task-workbench evidence (success or failure)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: phase-01-chat-task-workbench-evidence-${{ github.run_id }}
           path: apps/web/test-results/

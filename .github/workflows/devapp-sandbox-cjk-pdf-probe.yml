@@ -37,7 +37,7 @@ jobs:
     runs-on: [self-hosted, linux, x64, workspacex]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 这个沙箱容器是什么时候起来的、字体是哪一份
         shell: bash
@@ -161,7 +161,7 @@ jobs:
             console.log("✅ 线上沙箱产出可读的中文 PDF：" + file.sizeBytes + " 字节");
           '
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: devapp-cjk-pdf
           path: /tmp/cjk-probe.pdf

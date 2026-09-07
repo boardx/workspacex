@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 门控（碰生产前先过测试）
         run: <typecheck + test>
       - name: 迁移（幂等，必须先于部署）
