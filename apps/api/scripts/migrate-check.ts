@@ -85,6 +85,30 @@ async function seedPopulatedReplayFixture(): Promise<void> {
        VALUES ('project-migration-replay-probe', 'org-migration-replay-probe')
        ON CONFLICT (id) DO NOTHING`,
     );
+    // Reproduce a real upgrade, not only an empty-schema replay: versions written before
+    // `screens` existed have legacy frames/prototype/notes and the column's [] default.
+    // The version ledger is append-only, so every later migration must leave this row intact.
+    await client.query(
+      `INSERT INTO design_projects
+         (id, org_id, owner_id, name, template, frames, prototype, frame_notes, screens)
+       VALUES
+         ('design-migration-replay-probe', 'org-migration-replay-probe',
+          'migration-replay-owner', 'migration replay design', 'mobile',
+          '["Home"]'::jsonb, '[{"type":"text","text":"Legacy"}]'::jsonb,
+          '["legacy note"]'::jsonb,
+          '[{"frame":"Home","root":{"type":"text","text":"Legacy"},"notes":"legacy note"}]'::jsonb)
+       ON CONFLICT (id) DO NOTHING`,
+    );
+    await client.query(
+      `INSERT INTO design_project_prototype_versions
+         (id, org_id, project_id, seq, source, summary, frames, prototype, notes)
+       VALUES
+         ('design-version-migration-replay-probe', 'org-migration-replay-probe',
+          'design-migration-replay-probe', 1, 'user', 'legacy version',
+          '["Home"]'::jsonb, '[{"type":"text","text":"Legacy"}]'::jsonb,
+          '["legacy note"]'::jsonb)
+       ON CONFLICT (id) DO NOTHING`,
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
@@ -135,8 +159,32 @@ await probe.connect();
 const populatedProbeCount = await probe.query<{ n: string }>(
   "SELECT count(*)::text AS n FROM organizations WHERE id = 'org-migration-replay-probe'",
 );
+const legacyVersion = await probe.query<{ screens: unknown; frames: unknown; prototype: unknown; notes: unknown }>(
+  `SELECT screens, frames, prototype, notes
+     FROM design_project_prototype_versions
+    WHERE id = 'design-version-migration-replay-probe'`,
+);
+let versionUpdateBlocked = false;
+try {
+  await probe.query(
+    `UPDATE design_project_prototype_versions
+        SET summary = 'must remain immutable'
+      WHERE id = 'design-version-migration-replay-probe'`,
+  );
+} catch (error) {
+  versionUpdateBlocked = /append-only/i.test((error as Error).message);
+}
 await probe.end();
 check("populated replay fixture survived", populatedProbeCount.rows[0]?.n === "1", `count=${populatedProbeCount.rows[0]?.n ?? "?"}`);
+check(
+  "legacy prototype version survived replay byte-for-byte",
+  JSON.stringify(legacyVersion.rows[0]?.screens) === "[]" &&
+    JSON.stringify(legacyVersion.rows[0]?.frames) === '["Home"]' &&
+    JSON.stringify(legacyVersion.rows[0]?.prototype) === '[{"text":"Legacy","type":"text"}]' &&
+    JSON.stringify(legacyVersion.rows[0]?.notes) === '["legacy note"]',
+  JSON.stringify(legacyVersion.rows[0]),
+);
+check("prototype version remains append-only after replay", versionUpdateBlocked);
 
 const client = new pg.Client(cfg);
 await client.connect();

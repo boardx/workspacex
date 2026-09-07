@@ -237,23 +237,30 @@ test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差�
    * 正确的判据是**名字与状态的映射一一对上**：任何一态的名字都不许说谎。
    * 这比「名字变了」严——一个恒定为「停止语音输入」的按钮能过前者，过不了这条。
    */
-  const status = await micButton.getAttribute("data-mic-status");
   const EXPECTED_LABEL: Record<string, string> = {
     connecting: "正在连接语音识别…",
     listening: "停止语音输入",
     stopping: "正在停止…",
+    denied: "开始语音输入",
+    unsupported: "开始语音输入",
     error: "开始语音输入",
     idle: "开始语音输入",
   };
-  const label = await micButton.getAttribute("aria-label");
+  // Read both attributes in one browser task. `connecting` can legitimately become
+  // `listening` between two Playwright round trips; comparing those two different
+  // frames reports a product failure even though each rendered frame is coherent.
+  const voiceA11y = await micButton.evaluate((button) => ({
+    status: button.getAttribute("data-mic-status") ?? "idle",
+    label: button.getAttribute("aria-label") ?? "",
+  }));
   expect(
-    label,
+    voiceA11y.label,
     [
-      `【差距 TW-A11Y-6】麦克风按钮的可访问名与状态对不上：data-mic-status=${status ?? "(无)"}，`,
-      `但 aria-label 是「${label ?? ""}」。屏幕阅读器读到的状态是错的。`,
+      `【差距 TW-A11Y-6】麦克风按钮的可访问名与状态对不上：data-mic-status=${voiceA11y.status}，`,
+      `但 aria-label 是「${voiceA11y.label}」。屏幕阅读器读到的状态是错的。`,
       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-6。`,
     ].join("\n"),
-  ).toBe(EXPECTED_LABEL[status ?? "idle"]);
+  ).toBe(EXPECTED_LABEL[voiceA11y.status]);
 
   // 收尾：能停就停，别把一条开着的采音管线留给后面的用例（已是错误态则无需再点）。
   if ((await micButton.getAttribute("data-mic-status")) === "listening") {
