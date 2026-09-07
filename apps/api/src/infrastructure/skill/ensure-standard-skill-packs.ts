@@ -16,7 +16,7 @@ export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-document',packVersion:'1.1.0'},
   {packId:'standard-authoring',packVersion:'1.0.0'},
   {packId:'standard-visual',packVersion:'1.0.0'},
-  {packId:'standard-audio',packVersion:'1.1.0'},
+  {packId:'standard-audio',packVersion:'1.1.1'},
 ] as const;
 export async function ensureStandardSkillPacksSeeded(db:DatabasePort, actorId:string) {
   const packs=new FileSkillStarterPackSource(fileURLToPath(new URL('../../../../../skills/starter-packs/',import.meta.url)));

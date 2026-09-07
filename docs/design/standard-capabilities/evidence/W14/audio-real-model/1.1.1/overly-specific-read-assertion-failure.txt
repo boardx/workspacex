@@ -1,0 +1,43 @@
+[stack-admission] load1=2.52 cores=10 perCore=0.25 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqtrc1r-765fd23e-2269fb83b489 db=wsx_2269fb83b4897dc59a56 compose=wsx-2269fb83b4897dc59a56 pg=21011 redis=26011 sandbox=51011
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_2269fb83b4897dc59a56 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/audio-skill-real-model.live.ts (1 test | 1 failed) 37501ms
+   × real configured model selects the minutes skill and writes a source-grounded artifact 34656ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/audio-skill-real-model.live.ts > real configured model selects the minutes skill and writes a source-grounded artifact
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/agent-runtime/audio-skill-real-model.live.ts:95:151
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:53:22
+   Duration  40.23s (transform 408ms, setup 0ms, collect 681ms, tests 37.50s, environment 0ms, prepare 31ms)
+
+[db-isolation] db=wsx_2269fb83b4897dc59a56 peak_connections=2
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.audio-real-model.config.ts
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.audio-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：41s

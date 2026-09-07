@@ -1,0 +1,44 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+___________ test_real_cat_emits_but_echo_and_failed_commands_do_not ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111597ce0>
+
+    def test_real_cat_emits_but_echo_and_failed_commands_do_not(monkeypatch):
+        facts=[]
+        monkeypatch.setattr(activity,'get_stream_writer',lambda:facts.append)
+        with real_native_session() as (adapter,pins):
+            reporter=activity.NativeSkillActivity(pins)
+            body=base64.b64decode(pins[0]['package']['files'][0]['contentBase64']).decode()
+            commands=['printf %s '+shlex.quote(body),'cat /skills/missing/SKILL.md','cat /skills/example/SKILL.md']
+            for index,command in enumerate(commands):
+                request=SimpleNamespace(tool_call={'id':f'actual-{index}','name':'execute','args':{'command':command}})
+                reporter.wrap_tool_call(request,lambda _:adapter.execute(command))
+>               assert len(facts)==(1 if index==2 else 0)
+E               assert 0 == 1
+E                +  where 0 = len([])
+
+tests/test_native_skill_execute_activity.py:20: AssertionError
+___________ test_truncated_failed_and_wrong_stdout_cannot_prove_cat ____________
+
+    def test_truncated_failed_and_wrong_stdout_cannot_prove_cat():
+        pins=pinned_skill_package(); reporter=activity.NativeSkillActivity(pins); facts=[]
+        body=base64.b64decode(pins[0]['package']['files'][0]['contentBase64']).decode()
+        token=activity._READ_CONTEXT.set((reporter,'actual-call',facts.append))
+        try:
+            for result in [ExecuteResponse(output=body,exit_code=1),ExecuteResponse(output=body,exit_code=0,truncated=True),ExecuteResponse(output='fake',exit_code=0)]:
+>               activity.observe_skill_execute('cat /skills/example/SKILL.md',result)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: module 'deep_agent_service.native_skill_activity' has no attribute 'observe_skill_execute'. Did you mean: 'observe_skill_read'?
+
+tests/test_native_skill_execute_activity.py:31: AttributeError
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_native_skill_execute_activity.py::test_real_cat_emits_but_echo_and_failed_commands_do_not
+FAILED tests/test_native_skill_execute_activity.py::test_truncated_failed_and_wrong_stdout_cannot_prove_cat
+2 failed, 1 warning in 1.59s

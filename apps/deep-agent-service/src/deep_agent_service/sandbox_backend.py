@@ -11,6 +11,8 @@ import inspect
 import base64
 import binascii
 import json
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -20,7 +22,7 @@ import deepagents.backends.sandbox as upstream
 from deepagents.backends.sandbox import BaseSandbox
 
 from .upstream_compat import ensure_sandbox_compat
-from .native_skill_activity import observe_skill_read
+from .native_skill_activity import observe_skill_read, observe_skill_execute
 
 
 LIMITS = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())["limits"]
@@ -41,6 +43,7 @@ class HttpSessionSandbox(BaseSandbox):
             raise ValueError("Invalid sandbox credential")
         self._token = token
         self._client = client
+        self._operation_lock = threading.RLock()
 
     @property
     def id(self) -> str:
@@ -49,13 +52,24 @@ class HttpSessionSandbox(BaseSandbox):
     def __repr__(self) -> str:
         return f"HttpSessionSandbox(session_id={self.id!r})"
 
+    @contextmanager
+    def _operation(self):
+        # Serialize a session's single execution slot, never retry a submitted command.
+        if not self._operation_lock.acquire(timeout=LIMITS["maxTimeoutMs"] / 1000 + 5):
+            raise SandboxTransportError("Sandbox operation queue timed out; request not submitted")
+        try:
+            yield
+        finally:
+            self._operation_lock.release()
+
     def _request(self, method: str, suffix: str, **kwargs) -> httpx.Response:
         # Do not follow redirects carrying a session credential to another host.
-        return self._client.request(
-            method, f"/sessions/{self.id}{suffix}",
-            headers={"Authorization": f"Bearer {self._token}"},
-            follow_redirects=False, **kwargs,
-        )
+        with self._operation():
+            return self._client.request(
+                method, f"/sessions/{self.id}{suffix}",
+                headers={"Authorization": f"Bearer {self._token}"},
+                follow_redirects=False, **kwargs,
+            )
 
     @staticmethod
     def _body(response: httpx.Response) -> dict:
@@ -96,7 +110,9 @@ class HttpSessionSandbox(BaseSandbox):
                 reason = "timed out" if body["timedOut"] else "cancelled"
                 return ExecuteResponse(output=f"Execution {reason}.\n{output}", exit_code=None,
                                        truncated=body["truncated"])
-            return ExecuteResponse(output=output, exit_code=body["exitCode"], truncated=body["truncated"])
+            result = ExecuteResponse(output=output, exit_code=body["exitCode"], truncated=body["truncated"])
+            observe_skill_execute(command, result)
+            return result
         except httpx.TimeoutException:
             try:
                 self._request("POST", f"/executions/{execution_id}/cancel", timeout=5)
@@ -107,11 +123,16 @@ class HttpSessionSandbox(BaseSandbox):
             raise SandboxTransportError("Sandbox transport unavailable; execution outcome unknown") from None
 
     def read(self, file_path: str, offset: int = 0, limit: int = 2000) -> ReadResult:
+        with self._operation():
+            return self._read_captured(file_path, offset, limit)
+
+    def _read_captured(self, file_path: str, offset: int, limit: int) -> ReadResult:
         # Pin private upstream reader/capture helpers; dependency upgrades require review.
         if hashlib.sha256(inspect.getsource(upstream).encode()).hexdigest() != "13c228a22bfd1cf84e9cd1f2f8e4813e710a9fb405de19e189a2f42a3cfe60b6":
             raise SandboxTransportError("Upstream read helpers changed; review native image regressions before upgrading")
         capture = f"/workspace/.native-read-{uuid4().hex}.json"
         backend = _ReadCaptureSandbox(self._session_id, self._token, self._client)
+        backend._operation_lock = self._operation_lock
         try:
             result = backend.execute_with_offload(upstream._build_read_cmd(file_path, offset, limit), capture,
                                                  max_inline_bytes=8192, max_capture_bytes=_READ_CAPTURE_BYTES)

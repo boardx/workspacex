@@ -3,7 +3,7 @@ import { NativeSessionResolveInput } from './native-session-binding';
 export const NATIVE_ARTIFACT_TOOL = 'wx_artifact_publish';
 export const NativeArtifactPublishInput = z.object({
  workspacePath:z.string().max(1024).regex(/^\/workspace\/.+/),
- title:z.string().min(1).max(200).regex(/^[^/\\\u0000-\u001f]+$/),
+ title:z.string().min(1).max(200).regex(/^[^/\\\u0000-\u001f]+$/).describe("Download filename including an extension matching workspacePath and mediaType, for example meeting-minutes.md. A display title without an extension is rejected."),
  mediaType:z.enum(['application/pdf','image/png','image/jpeg','text/plain','text/markdown','text/csv','application/json','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.openxmlformats-officedocument.presentationml.presentation']),
  idempotencyKey:z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/),
 }).strict();

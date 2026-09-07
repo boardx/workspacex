@@ -12,7 +12,8 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 200,
-        "pattern": "^[^/\\\\\\u0000-\\u001f]+$"
+        "pattern": "^[^/\\\\\\u0000-\\u001f]+$",
+        "description": "Download filename including an extension matching workspacePath and mediaType, for example meeting-minutes.md. A display title without an extension is rejected."
       },
       "mediaType": {
         "type": "string",
@@ -85,7 +86,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "pattern": "^[^/\\\\\\u0000-\\u001f]+$"
+            "pattern": "^[^/\\\\\\u0000-\\u001f]+$",
+            "description": "Download filename including an extension matching workspacePath and mediaType, for example meeting-minutes.md. A display title without an extension is rejected."
           },
           "mediaType": {
             "type": "string",

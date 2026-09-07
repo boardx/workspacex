@@ -37,15 +37,36 @@ def observe_skill_read(path, result):
         activity.body_read(path, call_id, writer)
 
 
+def observe_skill_execute(command, result):
+    context = _READ_CONTEXT.get()
+    if context is None or result.exit_code != 0 or result.truncated:
+        return
+    activity, call_id, writer = context
+    activity.complete_cat_read(command, result.output, call_id, writer)
+
+
 class NativeSkillActivity(AgentMiddleware):
     def __init__(self, pinned_skills):
         self._by_path = {}
+        self._instruction_digests = {}
         for skill in pinned_skills:
             package = skill['package']
             digest = hashlib.sha256(canonical_package_manifest(package['files']).encode('utf-8')).hexdigest()
-            self._by_path[f"/skills/{skill['stable_name']}/SKILL.md"] = {
+            path = f"/skills/{skill['stable_name']}/SKILL.md"
+            self._instruction_digests[path] = next(f['digest'] for f in package['files'] if f['path'] == 'SKILL.md')
+            self._by_path[path] = {
                 'contractVersion': 1, 'skillId': package['skillId'], 'skillStableName': skill['stable_name'],
                 'skillVersion': package['versionId'], 'packageDigest': digest}
+
+    def complete_cat_read(self, command, output, call_id, writer):
+        # Deliberately not arbitrary shell tracing: exact single cat, real complete
+        # stdout, and immutable pinned bytes are all required before an event.
+        for path, expected in self._instruction_digests.items():
+            if command not in (f"cat {path}", f"/usr/bin/cat {path}"):
+                continue
+            if hashlib.sha256(output.encode('utf-8')).hexdigest() == expected:
+                self.body_read(path, call_id, writer)
+            return
 
     def _emit(self, identity, stage, writer, *, path=None, call_id=None):
         material = [stage, identity['skillId'], identity['skillStableName'], identity['skillVersion'], identity['packageDigest'], path, call_id]
@@ -76,7 +97,7 @@ class NativeSkillActivity(AgentMiddleware):
             self._emit(identity, 'body_read', writer, path=path, call_id=call_id)
 
     def wrap_tool_call(self, request, handler):
-        if request.tool_call['name'] != 'read_file':
+        if request.tool_call['name'] not in ('read_file', 'execute'):
             return handler(request)
         token = _READ_CONTEXT.set((self, request.tool_call.get('id'), get_stream_writer()))
         try:
@@ -85,7 +106,7 @@ class NativeSkillActivity(AgentMiddleware):
             _READ_CONTEXT.reset(token)
 
     async def awrap_tool_call(self, request, handler):
-        if request.tool_call['name'] != 'read_file':
+        if request.tool_call['name'] not in ('read_file', 'execute'):
             return await handler(request)
         token = _READ_CONTEXT.set((self, request.tool_call.get('id'), get_stream_writer()))
         try:
