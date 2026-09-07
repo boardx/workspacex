@@ -30,7 +30,9 @@
 ```diff
 @@ imports
 +import { STANDARD_BROWSER_SERVICE } from "./application/agent-run/standard-browser-tools";
-+import { PlaywrightMcpBrowserAdapter } from "./infrastructure/agent-run/playwright-mcp-browser-adapter";
++import { DATABASE_PORT, type DatabasePort } from "./application/ports/database.port";
++import { PlaywrightMcpBrowserAdapter, PublicBrowserNetworkPolicy, RemotePlaywrightMcpSessionFactory } from "./infrastructure/agent-run/playwright-mcp-browser-adapter";
++import { PgBrowserExecutionReceipts } from "./infrastructure/agent-run/pg-browser-execution-receipts";
 +import { StandardBrowserToolsController } from "./interface/controllers/standard-browser-tools.controller";
 @@ controllers
 -StandardImageController, StandardScheduleController,
@@ -38,21 +40,25 @@
 @@ providers（放在 STANDARD_WEB_SERVICE 后）
 +{
 +  provide: STANDARD_BROWSER_SERVICE,
-+  useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority) => {
++  useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, db: DatabasePort) => {
 +    const socketPath = process.env.NATIVE_SESSION_SOCKET;
-+    return owner && socketPath
++    const endpoint = process.env.WORKSPACEX_BROWSER_MCP_ENDPOINT;
++    return owner && socketPath && endpoint
 +      ? new PlaywrightMcpBrowserAdapter(
 +          owner,
 +          bound => createNativeDraftSession({ socketPath, ...bound }),
 +          authority,
++          new PgBrowserExecutionReceipts(db),
++          new PublicBrowserNetworkPolicy(),
++          new RemotePlaywrightMcpSessionFactory(endpoint),
 +        )
 +      : null;
 +  },
-+  inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY],
++  inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, DATABASE_PORT],
 +},
 ```
 
-adapter 按 native binding 的 `expiresAt` 自动关闭 MCP client、BrowserContext、browser process 并清理临时输出目录；主运行在 terminal/cancel 时若已有统一释放回调，应额外调用 `STANDARD_BROWSER_SERVICE.release(bindingId)` 以提前回收，不能新建第二套 run 生命周期。
+`WORKSPACEX_BROWSER_MCP_ENDPOINT` 只接受 `http://127.0.0.1:<port>/mcp` 或 IPv6 loopback；缺失或非 loopback 时 browser service 不启动。adapter 按 native binding 的 `expiresAt` 自动关闭 MCP client/隔离 context；主运行在 terminal/cancel 时若已有统一释放回调，应额外调用 `STANDARD_BROWSER_SERVICE.release(bindingId)` 以提前回收，不能新建第二套 run 生命周期。
 
 ### `apps/api/src/application/agent-run/native-invocation.ts`
 
@@ -71,8 +77,9 @@ adapter 按 native binding 的 `expiresAt` 自动关闭 MCP client、BrowserCont
 
 ## 部署边界
 
-- browser runtime 必须有固定 revision 的 Chromium 和系统依赖；API 容器当前没有安装它们。
-- adapter 的逐请求 DNS/private-IP 检查会阻断字面和当前解析到的 loopback、link-local、RFC1918 地址，并对每个 document/subresource route 重验。要抵御 DNS rebinding/QUIC 绕过，还需部署层强制 browser runtime 只经受控 egress proxy 出网并禁直连；Playwright MCP 的 origin flags 不是安全边界。
+- `apps/browser-runtime/docker-compose.browser.yml` 是生产默认：官方 MCP runtime 只加入 `internal: true` 的 control network，唯一出站 peer 是双网卡 Squid；MCP 端口只绑宿主 loopback。两个 image 都是无默认值的必填 `@sha256` 引用，缺少审核 digest 会在 compose 展开阶段失败。
+- Chromium 强制使用 proxy、取消隐式 loopback bypass、禁 shared context、启用 sandbox/non-root/read-only/cap-drop。Squid 在连接侧 DNS 后拒绝 loopback、RFC1918、link-local、云元数据、mapped IPv4、NAT64、组播和保留段。browser runtime 本身没有 public network，即使页面尝试绕开 proxy 也没有公网路由。
+- adapter 的第一道 URL/DNS 门直接复用既有 `classifyAddress`，覆盖 WHATWG canonicalized `::ffff:7f00:1`；它是快速拒绝和审计层，最终 socket 边界仍由上述网络拓扑及 proxy 提供。Playwright MCP 的 origin flags 不被当作安全边界。
 - screenshot 只返回经过 PNG 尺寸/hash和 sandbox读回验证的 `/workspace/browser-<hash>.png`；需要用户交付时继续调用既有 `wx_artifact_publish`，`staged` 不得写成 ready。
 - 当前 controller 统一把拒绝、失败、未知结果映射为无细节 503，避免模型按未知结果自动重放有副作用操作；现有 authority 仍是逐次授权单源。
-- 当前 adapter 只在单进程、单 binding 内串行化动作；若运行时会在失败后重放同一 `toolCallId`，协调者必须在调用 adapter 前使用既有持久化 receipt/journal 去重并回放已确认结果。不能把内存串行化描述为 durable exactly-once。
+- `PgBrowserExecutionReceipts` 复用既有 `mcp_tool_executions` 持久状态机：外部 dispatch 前原子 claim；相同 `(org,run,toolCallId)` 仅回放 schema 校验过的 succeeded result；pending/unconfirmed 或参数冲突一律拒绝，不会重新点击/填写/导航。adapter 没有无 receipt 的构造默认值。
