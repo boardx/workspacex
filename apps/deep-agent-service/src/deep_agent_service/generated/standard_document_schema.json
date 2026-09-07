@@ -1,0 +1,164 @@
+{
+  "toolName": "wx_document_parse",
+  "limits": {
+    "timeoutMs": 30000,
+    "responseBytes": 32768
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "workspacePath": {
+        "type": "string",
+        "pattern": "^\\/inputs\\/",
+        "maxLength": 4096
+      },
+      "outputMode": {
+        "type": "string",
+        "const": "markdown"
+      },
+      "ocr": {
+        "type": "boolean",
+        "const": false
+      }
+    },
+    "required": [
+      "workspacePath"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_document_parse"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "workspacePath": {
+            "type": "string",
+            "pattern": "^\\/inputs\\/",
+            "maxLength": 4096
+          },
+          "outputMode": {
+            "type": "string",
+            "const": "markdown"
+          },
+          "ocr": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "workspacePath"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "bindingId",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "textPath": {
+        "type": "string",
+        "pattern": "^\\/workspace\\/parsed-[a-f0-9-]{36}\\/document\\.md$"
+      },
+      "sourceHash": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "textHash": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "source": {
+        "type": "object",
+        "properties": {
+          "attachmentId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "mediaType": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "attachmentId",
+          "path",
+          "mediaType",
+          "sizeBytes"
+        ],
+        "additionalProperties": false
+      },
+      "warnings": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "markdown_only_no_page_coordinates",
+            "ocr_not_performed",
+            "tables_may_lose_layout"
+          ]
+        },
+        "maxItems": 3
+      }
+    },
+    "required": [
+      "textPath",
+      "sourceHash",
+      "textHash",
+      "source",
+      "warnings"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

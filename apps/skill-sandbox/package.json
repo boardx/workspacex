@@ -2,7 +2,7 @@
   "name": "@repo/skill-sandbox",
   "version": "0.1.0",
   "private": true,
-  "description": "\u8bd5\u8dd1\u63a5\u771f\u6267\u884c\u7684\u6c99\u7bb1\u670d\u52a1\uff1aPOST /run \u5728 network:none \u5bb9\u5668 + Node \u6743\u9650\u6a21\u578b\u4e24\u5c42\u9694\u79bb\u4e0b\u6267\u884c\u6a21\u578b\u751f\u6210\u7684\u811a\u672c\uff0c\u56de\u4ea7\u7269\uff08F962 / design-delta skill-sandbox-execution\uff09",
+  "description": "试跑接真执行的沙箱服务：POST /run 在 network:none 容器 + Node 权限模型两层隔离下执行模型生成的脚本，回产物（F962 / design-delta skill-sandbox-execution）",
   "type": "module",
   "main": "src/main.ts",
   "scripts": {
@@ -13,6 +13,7 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
+    "@firecrawl/anydoc": "0.1.8",
     "@pdf-lib/fontkit": "^1.1.1",
     "ajv": "8.18.0",
     "docx": "^9.7.1",

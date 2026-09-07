@@ -1,0 +1,1 @@
+PASS complete three-file document-understanding pack through actual FileSkillStarterPackSource; tampering refused. Not a live model G-SKILL.

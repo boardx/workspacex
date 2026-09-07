@@ -1,0 +1,6 @@
+{"format":"docx","sourceHash":"0658c0aa1937edd1df5f96b222cdb590b3838d3745a5724fa39b697da35e53d0","markdown":"中文文档\n\n|  |  |\n| --- | --- |\n| 收入 | 50 |\n","outputHash":"f55a321e28db95a7033baf185db6a580b2f87f84715d8d857d357324c5c0cb13"}
+{"format":"xlsx","sourceHash":"f19899affe0f9517b7ab57610aa013da7c6003320777496aaf0099fbc8aa6c6d","markdown":"| 分组 | 收入 |\n| --- | --- |\n| 甲 | 10 |\n| 乙 | 40 |\n","outputHash":"214faa6a5ad475e0b4872360fc34fe8d924e967b8a063d7698eac60aa54d4c34"}
+{"format":"pptx","sourceHash":"7931b0d53c5980f9049bb933e34addd7af76c7a4da8fe26980c0f2855876235b","markdown":"中国营收 50\n","outputHash":"0e8999e1cc26562cb35210646d65a1a05460f8c0a7014a25f74b57e7c44c0871"}
+{"format":"pdf","sourceHash":"fd1e0ba5cd5869e7fefcdb8b0a3be5760205bf58d215a127eac04d502451438f","markdown":"## 第一页收入 10\n\n## 第二页收入 40\n","outputHash":"628aee5f8b11edfcabdb9e0cc99cbf759c7fdceee120cc6eb0edda2da9d0a760"}
+{"format":"csv","sourceHash":"b3a029cacbc8bd73f176f6029563c65e9a7a3bd38ebe4fa759e3928fd49fbbf5","markdown":"| 分组 | 收入 |\n| --- | --- |\n| 甲 | 10 |\n| 乙 | 40 |\n","outputHash":"214faa6a5ad475e0b4872360fc34fe8d924e967b8a063d7698eac60aa54d4c34"}
+OFFLINE_ANYDOC_FIVE_FORMATS_AND_CORRUPT_FAILURE_VERIFIED

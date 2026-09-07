@@ -1,3 +1,7 @@
+import { STANDARD_DOCUMENT_SERVICE } from "./application/agent-run/standard-document-tools";
+import { DefaultStandardDocumentService } from "./infrastructure/agent-run/standard-document-service";
+import { createNativeDocumentSession } from "./infrastructure/agent-run/native-document-session";
+import { StandardDocumentToolsController } from "./interface/controllers/standard-document-tools.controller";
 import { STANDARD_SQL_SOURCE } from "./application/agent-run/standard-sql-source";
 import { PgStandardSqlSource } from "./infrastructure/agent-run/pg-standard-sql-source";
 import { StandardSqlSourceController } from "./interface/controllers/standard-sql-source.controller";
@@ -899,7 +903,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardSqlSourceController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1795,6 +1799,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgStandardSqlSource(db, authority, { repo, ids, chat }),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: STANDARD_DOCUMENT_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        if (!owner || !socketPath) return { parse: async () => { throw new Error("document_parse_unavailable"); } };
+        return new DefaultStandardDocumentService(owner, new PgNativeRunInputs(db,objects,{repo,ids,chat}),
+          bound => createNativeDocumentSession({socketPath,...bound}), authority);
+      },
+      inject: [DATABASE_PORT, OBJECT_STORE, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
     },
     {
       provide: STANDARD_CANVAS_SERVICE,
