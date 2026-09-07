@@ -1,3 +1,5 @@
+> Superseded by [three-round-delivery-plan.md](three-round-delivery-plan.md). Historical proposal only.
+
 # 五轮交付计划
 
 日期：2026-09-07。目标：完成 capability-catalog.json 的 75 项验收缺口，使 development-flow.md 中对应范围全部有真实绿色证据，并使汇总 PR #2869 达到可合并状态。保留用户“暂不合并 main”的约束。
