@@ -75,6 +75,47 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
 }
 
+/**
+ * `stable_name` 撞的是不是 `skills_stable_name_uniq`（`org_id, stable_name`）这条——
+ * 与撞 `skills_name_casefold_uniq`（`org_id, lower(name)`）是两种不同的冲突，前者不该
+ * 翻成 `SkillNameConflictError`（那会让用户看到「名字重复」但他填的名字其实没有重复，
+ * 只是自动生成的 `stable_name` 撞了）。pg 驱动在唯一约束冲突时把约束名放在
+ * `error.constraint` 上。
+ */
+function isStableNameUniqueViolation(error: unknown): boolean {
+  return (
+    isUniqueViolation(error)
+    && (error as { constraint?: string }).constraint === "skills_stable_name_uniq"
+  );
+}
+
+/**
+ * 声明式创建路径（starter pack）的 `stable_name` 来自 pack manifest（人类写的
+ * `pdf-create` 这种 slug）。URL 导入没有 manifest，此前直接拿内部 id `sk_<uuid>`
+ * 当 `stable_name`（G2，2026-09-07 人类实测：chat 阶段文案「正在执行技能脚本
+ * （sk_c8b0b9a3-...）」把内部 id 原样展示给用户——`agent-run-phase.ts` 的既有纪律是
+ * 「原样回显 `skill_stable_name`，不额外维护第二张翻译表」，这条纪律成立的前提是
+ * `stable_name` 本身就是人类可读的，URL 导入这条路径破坏了这个前提）。
+ * 这里从 `input.name`（用户在导入时填的展示名）派生一个可读 slug，而不是引入
+ * 第二份「id → 可读名」映射——修的是 `stable_name` 的生成来源，不是它的展示方式。
+ */
+function slugifyForStableName(name: string): string {
+  const trimmed = name.trim();
+  // 含非 ASCII 字符（中文/日文/其他语言）时不做音译——音译会削掉大部分信息
+  // （"AI 转型洞察报告" 音译只剩 "ai"，反而比原名更不可读），保留原文、只把空白
+  // 折成连字符：用户自己填的名字本身就是「人类可读」，不需要被翻译成拼音，
+  // 见文件头 G2「用户填的名字才是人类可读，id 从来不是」。
+  // eslint-disable-next-line no-control-regex -- 判定"是否纯 ASCII"需要这个范围。
+  if (!/^[\x00-\x7F]*$/.test(trimmed)) return trimmed.replace(/\s+/g, "-");
+  const ascii = trimmed
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return ascii === "" ? trimmed : ascii;
+}
+
 export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
   constructor(private readonly db: DatabasePort) {}
 
@@ -160,19 +201,48 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
       );
       if (platformConflict.rows[0]?.present) throw new SkillNameConflictError(input.name);
 
-      try {
-        await session.query(
-          `INSERT INTO skills
-             (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
-           VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)`,
-          [skillId, input.orgId, skillId, input.name, input.actorId, now],
-        );
-      } catch (error) {
-        // `skills_name_casefold_uniq`（org_id, lower(name)）撞了：同组织已有同名 skill
-        // （不分大小写）。翻成与声明式创建路径同一个错误类型，见文件头 G1 长注。
-        if (isUniqueViolation(error)) throw new SkillNameConflictError(input.name);
-        throw error;
+      // 见上面 `slugifyForStableName` 的文件头 G2：`stable_name` 从展示名派生，不是
+      // 内部 id。并发/重名场景下同一个组织可能已经有相同的 slug——advisory lock 只
+      // 保证同组织导入串行，挡不住"上周已经导入过同名 skill"这种历史冲突，所以插入
+      // 撞 `skills_stable_name_uniq` 时追加数字后缀重试，而不是让内部 id 兜底。
+      //
+      // ⚠ SAVEPOINT，不是裸 try/catch：PostgreSQL 里一次约束冲突会把**整个事务**
+      //   置为 aborted，重试同一事务里的下一条 INSERT 会直接拿到
+      //   "current transaction is aborted" ——与 `pg-invite-link-repository.ts`
+      //   `try_insert_link` 同一个坑、同一个修法。
+      const baseStableName = slugifyForStableName(input.name);
+      let stableName = baseStableName;
+      let attempt = 1;
+      // 20 次都撞说明该组织真有大量同名/同 slug 的 skill——退到"slug + skillId 后缀"
+      // 保证收敛，同时仍然是从用户填的名字派生的、不是裸 id。
+      const MAX_SUFFIX_ATTEMPTS = 20;
+      for (;;) {
+        await session.query("SAVEPOINT try_insert_skill");
+        try {
+          await session.query(
+            `INSERT INTO skills
+               (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)`,
+            [skillId, input.orgId, stableName, input.name, input.actorId, now],
+          );
+          break;
+        } catch (error) {
+          await session.query("ROLLBACK TO SAVEPOINT try_insert_skill");
+          if (isStableNameUniqueViolation(error)) {
+            attempt += 1;
+            stableName = attempt > MAX_SUFFIX_ATTEMPTS
+              ? `${baseStableName}-${skillId}`
+              : `${baseStableName}-${attempt}`;
+            continue;
+          }
+          // `skills_name_casefold_uniq`（org_id, lower(name)）撞了：同组织已有同名
+          // skill（不分大小写）。翻成与声明式创建路径同一个错误类型，见文件头
+          // G1 长注。
+          if (isUniqueViolation(error)) throw new SkillNameConflictError(input.name);
+          throw error;
+        }
       }
+      await session.query("RELEASE SAVEPOINT try_insert_skill");
       await session.query(
         `INSERT INTO skill_versions
            (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id,
