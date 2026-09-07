@@ -28,4 +28,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 # open_deep_research container already uses -- this service has no auth of its own.
 EXPOSE 2024
 
-CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "2024", "--allow-blocking", "--no-browser"]
+# #2880: runtime checkpoint writes must not trigger file-watch reloads.
+# Preserve main's worker concurrency fix while using the locked virtualenv.
+CMD ["/app/.venv/bin/langgraph", "dev", "--host", "0.0.0.0", "--port", "2024", "--allow-blocking", "--no-browser", "--no-reload", "--n-jobs-per-worker", "10"]

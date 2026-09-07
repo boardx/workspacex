@@ -56,6 +56,16 @@ const SCENES: { name: string; scene: string; ready: string; prepare?: (page: Pag
     name: "detail 说明", scene: "detail", ready: '[data-testid="design-detail-canvas"]',
     prepare: (p) => clickUntil(p, '[data-testid="design-detail-tab-spec"]', '[data-testid="design-detail-spec"]'),
   },
+  // 迭代 10：原型画布——画板视图（自身可平移，标 data-allow-x-scroll）与单页 + 属性面板 + 历史
+  { name: "detail 原型画板", scene: "detail-prototype", ready: '[data-testid="design-detail-board"]' },
+  {
+    name: "detail 原型单页 + 属性面板 + 历史", scene: "detail-prototype", ready: '[data-testid="design-detail-board"]',
+    prepare: async (p) => {
+      await clickUntil(p, '[data-testid="design-detail-view-single"]', '[data-testid="design-detail-phone-tree"]');
+      await clickUntil(p, '[data-proto="button"]', '[data-testid="design-inspector"]');
+      await clickUntil(p, '[data-testid="design-detail-history-toggle"]', '[data-testid="design-history"]');
+    },
+  },
 ];
 
 async function clickUntil(page: Page, selector: string, expected: string, tries = 20) {

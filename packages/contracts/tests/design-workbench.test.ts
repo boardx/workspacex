@@ -28,6 +28,7 @@ const project: dw.DesignProject = {
   criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
   frames: [...dw.DESIGN_PROJECT_INITIAL_FRAMES],
   prototype: [],
+  frameNotes: [],
   githubIssueUrl: null,
   githubIssueNumber: null,
   pushed: false,

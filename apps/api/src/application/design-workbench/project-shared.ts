@@ -49,6 +49,7 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     criteria: [...row.criteria],
     frames: [...row.frames],
     prototype: [...row.prototype],
+    frameNotes: [...row.frameNotes],
     pushed: row.pushed,
     pushedAt: row.pushedAt,
     linkedFeedbackId: row.linkedFeedbackId,

@@ -28,7 +28,9 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import { designPrototype, type designAiCollab } from "@repo/contracts";
+import { designAiCollab, designPrototype } from "@repo/contracts";
+
+const designAiCollabFields = designAiCollab.DesignWritebackField.options;
 import type { DesignChatModel } from "./design-chat-model";
 import type { DesignProjectPatch } from "./project-ports";
 import {
@@ -47,9 +49,18 @@ export interface AppendProjectChatDeps extends DesignProjectDeps {
   readonly ai: DesignChatModel;
 }
 
+/** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
+function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly designPrototype.PrototypeNode[] }, id: string | undefined) {
+  if (id === undefined) return {};
+  const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
+  if (hit === null) return {};
+  const node = hit.path[hit.path.length - 1]!;
+  return { focus: { id, frame: row.frames[hit.frameIndex] ?? "", path: hit.path.map(designPrototype.prototypeNodeLabel), node } };
+}
+
 export async function appendProjectChat(
   deps: AppendProjectChatDeps,
-  input: { readonly projectId: string; readonly ownerId: string; readonly text: string },
+  input: { readonly projectId: string; readonly ownerId: string; readonly text: string; readonly focusNodeId?: string },
 ): Promise<{ readonly project: DesignProjectView; readonly reply: DesignChatReply }> {
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
@@ -62,6 +73,7 @@ export async function appendProjectChat(
     criteria: current.criteria,
     frames: current.frames,
     prototype: current.prototype,
+    ...focusFor(current, input.focusNodeId),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 
@@ -82,13 +94,16 @@ export async function appendProjectChat(
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
-      ? { frames: screens.map((s) => s.frame), prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)) }
+      ? { frames: screens.map((s) => s.frame), prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)), frameNotes: screens.map((s) => (s.notes ?? "").trim()) }
       : patched !== undefined ? { prototype: patched }
       : ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
   };
-  const applied = Object.keys(patch) as DesignWritebackField[];
+  // `applied` 只列契约闭集里的项目字段（`frameNotes` 随 `prototype` 一起写，不单列）。
+  const applied = Object.keys(patch).filter((k): k is DesignWritebackField => (designAiCollabFields as readonly string[]).includes(k));
   if (applied.length > 0) {
-    const written = await deps.projects.update(input.projectId, input.ownerId, patch);
+    // 迭代 3：原型真的变了（整页 / patch）⇒ 与 UPDATE 同一事务追加一条版本快照。只改标签（树被清空）不记——那不是一版原型。
+    const version = patch.prototype !== undefined ? { source: "model" as const, summary: ai.text.replace(/\s+/g, " ").trim().slice(0, 120) } : undefined;
+    const written = await deps.projects.update(input.projectId, input.ownerId, patch, version);
     if (written === null) throw new DesignProjectNotOwnerError();
   }
 
@@ -101,6 +116,6 @@ export async function appendProjectChat(
   const names = await ownerNamesFor(deps, [updated.ownerId]);
   return {
     project: projectDesignProject(updated, names.get(updated.ownerId) ?? null),
-    reply: { source: ai.source, applied },
+    reply: { source: ai.source, applied, suggestions: [...ai.suggestions] },
   };
 }

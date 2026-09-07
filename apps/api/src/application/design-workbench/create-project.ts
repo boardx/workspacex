@@ -37,6 +37,7 @@ export async function createProject(
     criteria: designWorkbench.DESIGN_PROJECT_INITIAL_CRITERIA,
     frames: designWorkbench.DESIGN_PROJECT_INITIAL_FRAMES,
     prototype: [],
+    frameNotes: [],
     linkedFeedbackId: input.linkedFeedbackId ?? null,
   });
 

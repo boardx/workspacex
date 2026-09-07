@@ -73,10 +73,16 @@ export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;
  * 与其把「建议」返回给用户再点一次确认，这里选**直接写回 + 如实回报**：理由见
  * `design-workbench.ts` `appendProjectChat` 头注。
  */
+/** 迭代 9：模型给的「下一步建议」——短句，点一下就当用户消息发出去。展示层，不落库。 */
+export const DesignChatSuggestion = z.string().min(1).max(40);
+export const DESIGN_CHAT_MAX_SUGGESTIONS = 3;
+
 export const DesignChatReply = z
   .object({
     source: AiReplySource,
     applied: z.array(DesignWritebackField),
+    /** 迭代 9：0–3 条下一步建议（模型没给 / 退路 ⇒ `[]`）。 */
+    suggestions: z.array(DesignChatSuggestion).max(DESIGN_CHAT_MAX_SUGGESTIONS),
   })
   .strict();
 export type DesignChatReply = z.infer<typeof DesignChatReply>;

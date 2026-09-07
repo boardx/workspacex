@@ -70,7 +70,7 @@
  */
 import { z } from "zod";
 import { AiReplySource, DesignChatReply } from "./design-ai-collab";
-import { PrototypeNode } from "./design-prototype";
+import { DesignPrototypePatch, PrototypeNode, PrototypeNodeId } from "./design-prototype";
 
 /* ─────────────────────────── 枚举与常量 ─────────────────────────── */
 
@@ -104,6 +104,16 @@ export const DESIGN_PROJECT_INITIAL_FRAMES: readonly string[] = ["草稿页 1", 
  */
 export const DESIGN_WORKBENCH_CHAT_INTRO =
   "把你想解决的问题说清楚，我会顺着它更新右边的原型画布和验收标准。可以先从「谁在什么场景下会用到」讲起。";
+
+/**
+ * 迭代 9：空项目的起手模板——三条现成的第一句话，点一下即发。展示层文案，不落库；
+ * 与引导语同源在这里声明一次（api/web 共用），不在前端另写一份。
+ */
+export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; readonly prompt: string }[] = [
+  { label: "对话助手", prompt: "给我设计一个像 ChatGPT 的对话助手：会话列表、消息流、输入区（发送/停止）、空态与加载态。" },
+  { label: "数据看板", prompt: "设计一个运营数据看板：顶部 3 个核心指标，中间趋势区，底部可筛选的明细列表，带空态。" },
+  { label: "表单流程", prompt: "设计一个三步表单流程：填写信息 → 确认 → 完成，每步有校验错误态和返回上一步。" },
+];
 
 /**
  * 对话面板发送后的固定回执。D7（2026-09-02）上线时它是唯一路径；**UC-17.8 B5.2 起它是模型
@@ -154,6 +164,8 @@ export const DesignProject = z
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
     prototype: z.array(PrototypeNode),
+    /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
+    frameNotes: z.array(z.string()),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
@@ -181,6 +193,9 @@ export const DesignProject = z
     if (p.prototype.length !== 0 && p.prototype.length !== p.frames.length) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "prototype must be empty or one tree per frame", path: ["prototype"] });
     }
+    if (p.frameNotes.length !== 0 && p.frameNotes.length !== p.frames.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "frameNotes must be empty or one note per frame", path: ["frameNotes"] });
+    }
   });
 export type DesignProject = z.infer<typeof DesignProject>;
 
@@ -200,6 +215,10 @@ export const DesignWorkbenchError = z.enum([
   "NOT_PROJECT_OWNER",
   /** 超时/网络/下游不可用 */
   "DEPENDENCY_UNAVAILABLE",
+  /** 迭代 3：原型版本不存在（或不属于该项目） */
+  "VERSION_NOT_FOUND",
+  /** 迭代 5：人直接改画布的 patch 没通过（未知 id / 删根 / 结果不合法 / 还没有原型）——`detail` 说明哪一条 */
+  "PROTOTYPE_PATCH_REJECTED",
   /**
    * B4.4「用 PM 设计工作台深化」——源反馈不存在或不在本组织。
    * 同 `feedback-loop.ts` 的 `FEEDBACK_NOT_FOUND` 纪律：404 非 403，不泄露存在性。
@@ -230,6 +249,31 @@ export const DesignWorkbenchError = z.enum([
   "DESIGN_ISSUE_CREATION_FAILED",
 ]);
 export type DesignWorkbenchError = z.infer<typeof DesignWorkbenchError>;
+
+/* ─────────────────────────── 迭代 3：原型版本 ─────────────────────────── */
+
+/** 这一版是谁产生的：模型写回 / 人在画布直接改（迭代 5 起）/ 人从历史恢复。 */
+export const PrototypeVersionSource = z.enum(["model", "user", "restore"]);
+export type PrototypeVersionSource = z.infer<typeof PrototypeVersionSource>;
+
+export const PrototypeVersionSummary = z
+  .object({
+    id: z.string(),
+    /** 项目内从 1 递增；列表按它倒序。 */
+    seq: z.number().int().positive(),
+    source: PrototypeVersionSource,
+    /** 一句话：模型那轮回复的前 120 字 / 「恢复自 v3」/ 人改的说明。可空字符串。 */
+    summary: z.string().max(200),
+    frames: z.array(z.string()),
+    /** 迭代 8：那一版的每页交互说明（与 frames 同长或空）。 */
+    notes: z.array(z.string()),
+    createdAt: z.string(),
+  })
+  .strict();
+export type PrototypeVersionSummary = z.infer<typeof PrototypeVersionSummary>;
+
+export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode) }).strict();
+export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
 
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
@@ -317,9 +361,58 @@ export const operations = {
   appendProjectChat: {
     method: "POST",
     path: "/pm-designs/:projectId/chat",
-    in: z.object({ projectId: z.string(), text: z.string().min(1).max(4000) }).strict(),
+    in: z
+      .object({
+        projectId: z.string(),
+        text: z.string().min(1).max(4000),
+        /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
+        focusNodeId: PrototypeNodeId.optional(),
+      })
+      .strict(),
     out: z.object({ project: DesignProject, reply: DesignChatReply }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 迭代 3：原型版本历史。每次 `prototype` 被写回（模型整页 / patch / 人恢复）都追加一条快照
+   * （`design_project_prototype_versions`，append-only），列表不带树（可能很大 × N），单条带树。
+   * 全组织可读（同项目可见性）；恢复仅 owner——恢复 = 把那一版的 `frames`+`prototype` 写回项目，
+   * 并**再追加一条** `source: "restore"` 的版本（历史只追加、不回退，回退本身也是历史）。
+   */
+  listPrototypeVersions: {
+    method: "GET",
+    path: "/pm-designs/:projectId/versions",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ items: z.array(PrototypeVersionSummary) }).strict(),
+    err: ["PROJECT_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  getPrototypeVersion: {
+    method: "GET",
+    path: "/pm-designs/:projectId/versions/:versionId",
+    in: z.object({ projectId: z.string(), versionId: z.string() }).strict(),
+    out: z.object({ version: PrototypeVersion }).strict(),
+    err: ["PROJECT_NOT_FOUND", "VERSION_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+  restorePrototypeVersion: {
+    method: "POST",
+    path: "/pm-designs/:projectId/versions/:versionId/restore",
+    in: z.object({ projectId: z.string(), versionId: z.string() }).strict(),
+    out: z.object({ project: DesignProject, version: PrototypeVersionSummary }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "VERSION_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 迭代 5：人在画布上**直接改**——选中节点后在属性面板改文案/属性，或删掉它。仅 owner。
+   * 走与模型写回完全同一条路：`applyPrototypePatch` 顺序执行、每步重验、整批原子；成功记一条
+   * `source: "user"` 的版本（`summary` 由前端给一句，如「改了按钮「发送」的文案」）。
+   * 这条路径的存在改写了 I-11「只经模型写回」——现在是「只经契约 patch 写回（模型或人），永远重验」。
+   */
+  patchPrototype: {
+    method: "POST",
+    path: "/pm-designs/:projectId/prototype/patch",
+    in: z.object({ projectId: z.string(), ops: DesignPrototypePatch, summary: z.string().max(200).optional() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "PROTOTYPE_PATCH_REJECTED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 删项目。硬删——仅 owner；未推送/已推送均可删（需求未对已推送项目的删除设限）。 */

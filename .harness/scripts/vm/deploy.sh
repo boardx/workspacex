@@ -460,9 +460,19 @@ step "5. 构建前端"
 # 所以服务器日志里一条错误都没有——症状完全不像部署问题，人只会以为「服务坏了」。
 #
 # 第 3、4 步本来就是这么传的，唯独这一步漏了。
+#
+# 2026-09-07 实测事故（#2892 合入后的 main 部署，run 34059040233）：`next build` 主进程
+# 在 Node 默认 ~2 GB 老生代上限处 `FATAL ERROR: ... JavaScript heap out of memory`
+# 退出 134。更糟的是构建是**原地**写 `apps/web/.next` 的——旧的 `next start` 还在
+# 用同一个目录伺服，半截产物让线上每个页面的根布局 hydration 失败，用户只看到
+# `global-error.tsx` 的「应用启动时出了点问题」；服务器侧 api/web 两个 systemd 单元
+# 全程 active，日志一条错误都没有。前端 bundle 每合一个 feature 就更大，2 GB 不是
+# 常量。这里显式放宽 V8 堆上限（deploy.env 里可用 WEB_BUILD_HEAP_MB 覆盖），
+# 让构建用的是机器真实内存，而不是 Node 的默认值。
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) NODE_ENV=production \
+  NODE_OPTIONS="--max-old-space-size=${WEB_BUILD_HEAP_MB:-4096}" \
   pnpm --filter web run build >/dev/null
-echo "  built"
+echo "  built (heap limit ${WEB_BUILD_HEAP_MB:-4096} MB)"
 
 # 反证：构建产物里必须找得到真实 API 源，找不到就是又落回 localhost 缺省值了。
 # 这条断言便宜（一次 grep），但它拦的是一类「服务器全绿、用户全红」的故障。
