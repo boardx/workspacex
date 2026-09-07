@@ -84,11 +84,14 @@ jobs:
           echo "── organizations / credentials 总行数（全库，判断是不是整库被清）──"
           $PSQL "SELECT count(*) FROM organizations" 2>&1 | head -3
           $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
-          echo "── usamshen 的 credentials 行是否还在（只查存在性与创建时间，不取密文/邮箱以外字段）──"
-          $PSQL "SELECT id, email, created_at FROM credentials WHERE email ILIKE '%usamshen%' OR email ILIKE '%usam.shen%'" 2>&1 | head -5
+          echo "── usamshen 的 credentials 行是否还在（列名按 0010 迁移是 user_id，不是 id；不取密码哈希以外的敏感字段）──"
+          $PSQL "SELECT user_id, email FROM credentials WHERE email ILIKE '%usam%'" 2>&1 | head -5
           echo "── chat_threads 总行数、按 created_by 分组数（判断是不是所有会话都没了，还是只有这个用户/项目视图没了）──"
           $PSQL "SELECT count(*) FROM chat_threads" 2>&1 | head -3
           $PSQL "SELECT created_by, count(*) FROM chat_threads GROUP BY created_by ORDER BY 2 DESC LIMIT 10" 2>&1 | head -12
-          echo "── projects 总行数、organizations 表最早/最晚 created_at（判断是新建库还是老库）──"
+          echo "── 该账号名下的线程分布在哪些 org/project（按 created_by 精确匹配一次即可，先看上一步分组里哪个 user_id 对上邮箱）──"
+          $PSQL "SELECT t.org_id, t.project_id, t.ownership_layer, count(*) FROM chat_threads t JOIN credentials c ON c.user_id = t.created_by WHERE c.email ILIKE '%usam%' GROUP BY 1,2,3" 2>&1 | head -10
+          echo "── org_memberships：该账号属于哪些组织（个人对话是否落在一个他已不在其中的组织下）──"
+          $PSQL "SELECT om.org_id, om.user_id FROM org_memberships om JOIN credentials c ON c.user_id = om.user_id WHERE c.email ILIKE '%usam%'" 2>&1 | head -10
+          echo "── projects 总行数（判断是新建库还是老库）──"
           $PSQL "SELECT count(*) FROM projects" 2>&1 | head -3
-          $PSQL "SELECT min(created_at), max(created_at) FROM organizations" 2>&1 | head -3
