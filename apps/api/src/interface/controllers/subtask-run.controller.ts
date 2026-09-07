@@ -159,6 +159,8 @@ export class SubtaskRunController {
       parentRunId: existing.parentRunId,
       description: existing.description,
       context: existing.context,
+      ...(existing.outputFiles?{outputFiles:existing.outputFiles}:{}),
+      snapshot:existing.snapshot,
       idempotencyKey: `retry:${existing.id}`,
     }).catch((error: unknown) => {
       if (error instanceof SubtaskParentCancelledError) throw new ConflictException({ reasonCode: SubtaskRunContract.EnqueueSubtaskRunFailure.enum.SUBTASK_PARENT_CANCELLED });

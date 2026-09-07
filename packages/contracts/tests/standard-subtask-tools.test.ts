@@ -15,6 +15,13 @@ describe('native subtask shared boundary',()=>{
  });
  it('rejects duplicate normalized references and unbounded payloads',()=>{
   const ref='{"sourceId":"a","versionId":"v"}';expect(()=>parseSubtaskContextRefs([ref,'{ "versionId":"v", "sourceId":"a" }'])).toThrow();
-  expect(()=>SubtaskSpawnInput.parse({description:'x',idempotencyKey:'k',contextRefs:['x'.repeat(5000)]})).toThrow();
+ expect(()=>SubtaskSpawnInput.parse({description:'x',idempotencyKey:'k',contextRefs:['x'.repeat(5000)]})).toThrow();
+ });
+ it('defaults to text-only and bounds explicitly delegated file outputs',()=>{
+  expect(SubtaskSpawnInput.parse({description:'text',idempotencyKey:'text'}).outputFiles).toBeUndefined();
+  expect(SubtaskSpawnInput.parse({description:'files',idempotencyKey:'files',outputFiles:{mediaTypes:['text/markdown'],maxFiles:2,maxTotalBytes:4096}}).outputFiles)
+   .toEqual({mediaTypes:['text/markdown'],maxFiles:2,maxTotalBytes:4096});
+  expect(()=>SubtaskSpawnInput.parse({description:'files',idempotencyKey:'files',outputFiles:{mediaTypes:[],maxFiles:1,maxTotalBytes:1}})).toThrow();
+  expect(()=>SubtaskSpawnInput.parse({description:'files',idempotencyKey:'files',outputFiles:{mediaTypes:['application/octet-stream'],maxFiles:1,maxTotalBytes:1}})).toThrow();
  });
 });

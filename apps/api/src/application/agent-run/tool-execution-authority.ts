@@ -23,6 +23,7 @@ export interface ToolAuthoritySnapshot {
   readonly attemptId: string | null;
   readonly skillVersionIds: readonly string[];
   readonly explicitlyDenied?: boolean;
+  readonly allowedTools?: readonly string[];
   readonly authorizeOnce?: () => Promise<boolean>;
 }
 export type ExecutionAuthorityContext = Omit<ToolExecutionCheck, "toolName"> & { readonly toolName?: string };
@@ -41,6 +42,7 @@ export class ToolExecutionAuthority {
       if (snapshot.cancelRequested) return { allowed: false, reason: "cancel_requested" };
       if (!snapshot.leaseValid) return { allowed: false, reason: "lease_lost" };
       if (snapshot.attemptId !== input.attemptId) return { allowed: false, reason: "attempt_stale" };
+      if (snapshot.allowedTools && !snapshot.allowedTools.includes(input.toolName)) return { allowed: false, reason: "run_unavailable" };
       const skills = input.toolName === "call_skill" ? await this.runs.readPinnedSkills(input.orgId, snapshot.skillVersionIds) : [];
       const actualSkill = input.toolArgs && typeof input.toolArgs === "object" && !Array.isArray(input.toolArgs)
         ? (input.toolArgs as Record<string, unknown>).skill_stable_name : undefined;

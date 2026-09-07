@@ -88,3 +88,56 @@ it("explicit denial beats existing grant even when call identity is omitted or c
   expect(await authority.check({...request,toolCallId:"new-id"})).toEqual({allowed:false,reason:"approval_required"});
   expect(await authority.check({...request,toolCallId:"new-id",toolArgs:{target:"different"}})).toEqual({allowed:true});
 });
+
+/**
+ * #2931 —— 产文件的 durable 子任务要用**自己**的 (run, attempt, lease) 身份走到
+ * `wx_artifact_publish`。在此之前 `withSnapshot` 只查 `agent_runs`，子任务 id 查不到
+ * ⇒ 直接 `run_unavailable`，真实子模型一次都写不进自己的 staging。
+ *
+ * 这几条同时钉住反方向：解析到子任务**不等于**把父 run 的工具权限借给它。
+ */
+/** 与 `subtask_output_policy_shape` 一致的最小合法策略。 */
+const FILE_POLICY = { mediaTypes: ["application/pdf"], maxFiles: 1, maxTotalBytes: 1024 };
+const seedChild = async (options: { id: string; status?: string; outputPolicy?: unknown; epoch?: number } ) => {
+  await asApp(ORG, c => c.query(
+    `INSERT INTO subtask_runs(id,org_id,parent_run_id,description,status,created_at,updated_at,
+       agent_version_id,skill_version_ids,model_provider,model_id,
+       output_policy,lease_epoch,execution_attempt_id)
+     VALUES($1,$2,'parent','make a file',$3,now(),now(),
+       'parent-version','[]'::jsonb,'deep-agent','deep-agent',
+       $4::jsonb,$5,$6)`,
+    [options.id, ORG, options.status ?? "running",
+      options.outputPolicy === undefined ? null : JSON.stringify(options.outputPolicy),
+      options.epoch ?? 3, `${options.id}:${options.epoch ?? 3}`]));
+};
+const childCheck = (id: string, toolName = "wx_artifact_publish", epoch = 3) =>
+  ({ orgId: org, parentRunId: id, leaseEpoch: epoch, attemptId: `${id}:${epoch}`, toolName });
+
+it("#2931 resolves a file-producing subtask by its own identity, and grants it publish ONLY", async () => {
+  await seedChild({ id: "child-files", outputPolicy: FILE_POLICY });
+  const snapshot = await reader.withSnapshot(childCheck("child-files"), async s => s);
+  expect(snapshot).toMatchObject({ active: true, leaseValid: true, attemptId: "child-files:3" });
+  // 唯一被放行的工具就是发布产物那一个——父 run 的其余 native 工具一概不继承。
+  expect(snapshot?.allowedTools).toEqual(["wx_artifact_publish"]);
+});
+
+it("#2931 a text-only subtask resolves but is allowed NO tool at all", async () => {
+  await seedChild({ id: "child-text" });
+  expect(await reader.withSnapshot(childCheck("child-text"), async s => s?.allowedTools)).toEqual([]);
+});
+
+it("#2931 subtask identity is fenced by org, lease epoch, attempt and its own status", async () => {
+  await seedChild({ id: "child-fenced", outputPolicy: FILE_POLICY });
+  expect(await reader.withSnapshot({ ...childCheck("child-fenced"), orgId: toOrgId(OTHER) }, async s => s)).toBeNull();
+  expect(await reader.withSnapshot({ ...childCheck("child-fenced"), leaseEpoch: 2 }, async s => s?.leaseValid)).toBe(false);
+  // 晚到的完成不能靠旧 attempt 继续发布。
+  await asApp(ORG, c => c.query("UPDATE subtask_runs SET status='completed',result='done' WHERE org_id=$1 AND id='child-fenced'", [ORG]));
+  expect(await reader.withSnapshot(childCheck("child-fenced"), async s => s?.active)).toBe(false);
+});
+
+it("#2931 cancelling the PARENT stops the child from publishing", async () => {
+  await seedChild({ id: "child-cancel", outputPolicy: FILE_POLICY });
+  expect(await reader.withSnapshot(childCheck("child-cancel"), async s => s?.cancelRequested)).toBe(false);
+  await asApp(ORG, c => c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id='parent'", [ORG]));
+  expect(await reader.withSnapshot(childCheck("child-cancel"), async s => s?.cancelRequested)).toBe(true);
+});

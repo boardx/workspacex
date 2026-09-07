@@ -15,6 +15,13 @@ export {
   type SubtaskRunView,
 } from "@/lib/chat/subtask-run";
 
+const MOCK_SUBTASK_SNAPSHOT: SubtaskRunView["snapshot"] = {
+  agentVersionId: "agent-version-mock-1",
+  skillVersionIds: [],
+  modelProvider: "deep-agent",
+  modelId: "model-mock-1",
+};
+
 /** 验收标准三态 mock：一个进行中、一个已完成、一个出错（AC「三个子任务同时可见地在跑」）。 */
 export const MOCK_SUBTASK_RUNS: SubtaskRunView[] = [
   {
@@ -25,6 +32,8 @@ export const MOCK_SUBTASK_RUNS: SubtaskRunView[] = [
     status: "running",
     result: null,
     error: null,
+    snapshot: MOCK_SUBTASK_SNAPSHOT,
+    artifactRefs: [],
     createdAt: "2026-09-04T14:32:10.000Z",
     updatedAt: "2026-09-04T14:32:40.000Z",
   },
@@ -36,6 +45,8 @@ export const MOCK_SUBTASK_RUNS: SubtaskRunView[] = [
     status: "completed",
     result: "已确认 4 家可承接的本地 EPC，报价区间 ￥3.2–4.1/W，详见附表。",
     error: null,
+    snapshot: MOCK_SUBTASK_SNAPSHOT,
+    artifactRefs: [],
     createdAt: "2026-09-04T14:32:05.000Z",
     updatedAt: "2026-09-04T14:33:52.000Z",
   },
@@ -47,6 +58,8 @@ export const MOCK_SUBTASK_RUNS: SubtaskRunView[] = [
     status: "failed",
     result: null,
     error: "行业数据库 MCP 授权超时，未能取到 2026Q3 电价曲线",
+    snapshot: MOCK_SUBTASK_SNAPSHOT,
+    artifactRefs: [],
     createdAt: "2026-09-04T14:32:15.000Z",
     updatedAt: "2026-09-04T14:33:05.000Z",
   },

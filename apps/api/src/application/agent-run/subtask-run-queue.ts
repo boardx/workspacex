@@ -34,6 +34,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { subtaskRun as SubtaskRunContract } from "@repo/contracts";
+import type { RunOutputFile } from "./ports";
 
 export type SubtaskRun = SubtaskRunContract.SubtaskRun;
 export type SubtaskRunStatus = SubtaskRunContract.SubtaskRunStatus;
@@ -51,6 +52,8 @@ export interface SubtaskExecutionState {
   readonly run: SubtaskRun;
   readonly remoteRunId: string | null;
   readonly remoteThreadId: string | null;
+  readonly executionAttemptId: string | null;
+  readonly leaseEpoch: number;
 }
 export interface SubtaskRunStore {
   readExecution(orgId: OrgId, id: string): Promise<SubtaskExecutionState | null>;
@@ -68,6 +71,8 @@ export interface SubtaskRunStore {
   claimQueued(orgId: OrgId, limit: number): Promise<readonly SubtaskRun[]>;
   /** 把一条 `running` 的子任务 run 标记为 `completed`，写入真实结果文本。 */
   complete(orgId: OrgId, id: string, result: string): Promise<void>;
+  /** Atomically fences cancellation and publishes already verified immutable output objects. */
+  completeWithArtifacts?(orgId:OrgId,id:string,result:string,files:readonly RunOutputFile[]):Promise<void>;
   /** 把一条 `running` 的子任务 run 标记为 `failed`，写入错误信息；不影响同批其它条。 */
   fail(orgId: OrgId, id: string, error: string): Promise<void>;
   /** 按 id 读一条子任务 run；供 issue #2666 的 UI 展示与测试断言用。不存在返回 `null`。 */
@@ -97,7 +102,7 @@ export interface ExecuteQueuedSubtaskRunsDeps {
    * `executeQueuedSubtaskRuns` 捕获、转成该条的 `fail`，不冒泡到调用方、不影响同批
    * 其它条（与 `execute-run.ts` 的 `executeQueuedRuns` 同一条"一条失败不拖累整批"纪律）。
    */
-  readonly execute: (run: SubtaskRun) => Promise<string>;
+  readonly execute: (run: SubtaskRun) => Promise<string|{text:string;files:readonly RunOutputFile[]}>;
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
 
@@ -114,7 +119,9 @@ export async function executeQueuedSubtaskRuns(
   for (const run of claimed) {
     try {
       const result = await deps.execute(run);
-      await deps.store.complete(input.orgId, run.id, result);
+      if(typeof result==='string')await deps.store.complete(input.orgId, run.id, result);
+      else if(deps.store.completeWithArtifacts)await deps.store.completeWithArtifacts(input.orgId,run.id,result.text,result.files);
+      else throw new Error('subtask_artifact_writeback_unavailable');
     } catch (e) {
       if (e instanceof SubtaskCancellationPendingError) continue;
       const detail = e instanceof Error ? e.message : "unexpected subtask execution failure";

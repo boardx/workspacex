@@ -31,11 +31,23 @@ export const workbenchBoundaries = new Map([
       [null,/WHERE i\.org_id=\$1 AND i\.run_id=\$2/]],
   }],
   ['src/infrastructure/agent-run/pg-parent-run-control.ts', {
-    tables:['agent_runs','agent_run_steps'],
-    reason:'Reads facts from which cancellation and tool authorization decisions are made. Returns authority decisions, never content; guarding those facts with the decision would be circular.',
+    tables:['agent_runs','agent_run_steps','subtask_runs'],
+    reason:'Reads facts from which cancellation and tool authorization decisions are made. Returns authority decisions, never content; guarding those facts with the decision would be circular. #2931 adds `subtask_runs` for exactly one reason: a durable subtask that produces files must be authorized under ITS OWN (run, attempt, lease) identity. Before this, a subtask id resolved to no row here and every `wx_artifact_publish` from a real sub-model was denied `run_unavailable`. The read is a strict fallback (only when the id is not a parent run), is joined to the parent so parent cancellation still governs the child, and NARROWS rather than widens: it returns `allowedTools` pinned to the single publish tool, so a subtask inherits none of the parent run\'s native tool profile.',
     checks:[[null,/FROM agent_runs r WHERE r\.org_id=\$1 AND r\.id=\$2 FOR UPDATE OF r/],
       [null,/r\.lease_epoch=\$3 AND r\.lease_expires_at>now\(\)/],
-      ['src/interface/controllers/run-interjection.controller.ts',/async checkTool\([\s\S]*?this\.assertInternalKey\(key\);[\s\S]*?this\.authority\.check/]],
+      ['src/interface/controllers/run-interjection.controller.ts',/async checkTool\([\s\S]*?this\.assertInternalKey\(key\);[\s\S]*?this\.authority\.check/],
+      // #2931 —— 子任务回退分支的形状锁。加表不是放行：这几条把它钉死成「只在父 run
+      // 查不到时才走、必须 JOIN 父 run 拿父级取消、必须按 org+id 加锁、租约按子任务
+      // 自己的 epoch 判、且放行工具只能是那唯一一个发布工具的常量」。少任何一条，
+      // 这张表就不该出现在上面的 tables 里。
+      [null,/const row = rows\[0\] \?\? \(await session\.query/],
+      [null,/NULL AS pending_permission_request_id, NULL AS pending_tool_call_id, NULL AS pending_tool_name,/],
+      [null,/FROM subtask_runs c JOIN agent_runs p ON p\.org_id=c\.org_id AND p\.id=c\.parent_run_id/],
+      [null,/WHERE c\.org_id=\$1 AND c\.id=\$2 FOR UPDATE OF p,c/],
+      [null,/c\.cancel_requested_at IS NOT NULL OR p\.cancel_requested_at IS NOT NULL AS cancel_requested/],
+      [null,/c\.lease_epoch=\$3 AS lease_valid/],
+      [null,/CASE WHEN c\.output_policy IS NOT NULL THEN ARRAY\[\$4::text\] ELSE ARRAY\[\]::text\[\] END AS allowed_tools/],
+      [null,/input\.leaseEpoch, NATIVE_ARTIFACT_TOOL\]\)\)\.rows\[0\]/]],
   }],
   ['src/infrastructure/agent-run/pg-run-recovery.ts', {
     tables:['agent_runs','agent_run_steps'],
