@@ -24,6 +24,8 @@ const DEPLOY = resolve(import.meta.dirname, "deploy.sh");
 const COMPOSE = resolve(import.meta.dirname, "../../../apps/api/docker-compose.deploy.yml");
 
 const deployText = readFileSync(DEPLOY, "utf8");
+const provisionText = readFileSync(resolve(import.meta.dirname, "provision.sh"), "utf8");
+const nativeProbeText = readFileSync(resolve(import.meta.dirname, "native-session-probe.mjs"), "utf8");
 
 /** deploy.sh 里那条把 compose 栈起起来的命令。 */
 function composeUpLine(text: string): string {
@@ -45,7 +47,8 @@ describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
   it("② 起完之后对跑着的容器取动态事实：预装库与 CJK 字体都要真的在里面", () => {
     // 光有 --build 还不够：构建缓存、跑错 compose 文件、手工起的同名容器……都能让
     // 跑着的东西不是刚构建的那一版。所以要问容器本身，而不是问部署脚本自己。
-    expect(deployText).toContain("docker exec workspacex-skill-sandbox-1");
+    expect(deployText).toContain('for container in workspacex-skill-sandbox-1 "$NATIVE_SESSION_CONTAINER"');
+    expect(deployText).toContain('docker exec "$container"');
     for (const probe of ["pptxgenjs", "docx", "exceljs", "pdf-lib", "@pdf-lib/fontkit"]) {
       expect(deployText, `沙箱自检漏了 ${probe}`).toContain(`require.resolve('${probe}')`);
     }
@@ -137,5 +140,58 @@ describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
     const sandboxBlock = compose.slice(compose.indexOf("skill-sandbox:"));
     expect(sandboxBlock).toContain("build:");
     expect(sandboxBlock).toContain("context: ../skill-sandbox");
+  });
+});
+
+describe("#2929 DevApp native session topology", () => {
+  it("runs a separately confined sessions-only sandbox over one host UDS directory", () => {
+    const compose = readFileSync(COMPOSE, "utf8");
+    const native = compose.slice(compose.indexOf("skill-sandbox-sessions:"));
+    expect(native).toContain('network_mode: "none"');
+    expect(native).toContain("read_only: true");
+    expect(native).toContain("cap_drop:");
+    expect(native).toContain("- ALL");
+    expect(native).toContain("no-new-privileges:true");
+    expect(native).toContain("seccomp=../skill-sandbox/security/docker-seccomp.json");
+    expect(native).toContain("apparmor=workspacex-native-sessions");
+    expect(native).toContain("SKILL_SANDBOX_SESSIONS_ONLY: \"1\"");
+    expect(native).toContain("${NATIVE_SESSION_SOCKET_DIR:?set NATIVE_SESSION_SOCKET_DIR}:/run/sessions");
+    expect(native).not.toContain("docker.sock");
+  });
+
+  it("loads the persistent AppArmor policy before compose and probes the actual sessions-only endpoint", () => {
+    const profileAt = deployText.indexOf("apparmor_parser -r -W");
+    const composeAt = deployText.indexOf("docker compose -f apps/api/docker-compose.deploy.yml");
+    expect(profileAt).toBeGreaterThan(-1);
+    expect(profileAt).toBeLessThan(composeAt);
+    expect(deployText).toContain("native-session-probe.mjs");
+    expect(deployText).toContain("workspacex-skill-sandbox-sessions-1");
+    expect(nativeProbeText).toContain('request("POST", "/sessions"');
+    expect(nativeProbeText).toContain('request("POST", "/run"');
+    expect(nativeProbeText).toContain("status !== 404");
+    expect(nativeProbeText).not.toMatch(/console\.(log|error).*token/);
+    expect(provisionText).toContain("apparmor_parser");
+  });
+
+  it("mounts only the native socket directory read-only into Deep Agent and never passes the binding key", () => {
+    const runAt = deployText.indexOf("docker run -d --name workspacex-deep-agent");
+    const runBlock = deployText.slice(runAt, deployText.indexOf("# 健康检查①", runAt));
+    expect(runAt).toBeGreaterThan(-1);
+    expect(runBlock).toContain('-v "${NATIVE_SESSION_SOCKET_DIR}:/run/native-sessions:ro"');
+    expect(runBlock).toContain("--add-host workspacex-api-host:host-gateway");
+    expect(runBlock).not.toContain("docker.sock");
+    expect(runBlock).not.toContain("NATIVE_SESSION_BINDING_KEY");
+    expect(deployText).toContain("deep_agent_project_native_env");
+    expect(deployText).toContain("native_runtime_assert_deep_agent_container");
+  });
+
+  it("checks the restarted API process env and reports only boolean key state", () => {
+    const restartAt = deployText.indexOf("systemctl restart workspacex-api workspacex-web");
+    const probeAt = deployText.indexOf("native_runtime_assert_api_env_file");
+    expect(restartAt).toBeGreaterThan(-1);
+    expect(probeAt).toBeGreaterThan(restartAt);
+    expect(deployText.indexOf("native_runtime_assert_deep_agent_api_callback")).toBeGreaterThan(restartAt);
+    expect(deployText).toContain("binding-key=PRESENT");
+    expect(deployText).toContain("service-key=PRESENT");
   });
 });

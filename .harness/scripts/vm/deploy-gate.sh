@@ -60,7 +60,7 @@ assert_trusted_copies_match_repo() {
     repo="$SCRIPT_DIR/$name"
     [[ -r "$repo" ]] || { echo "✗ 仓库里缺 $repo" >&2; drifted=1; continue; }
     if [[ ! -r "$installed" ]]; then
-      echo "✗ 目标机器上没有 $installed（provision.sh 从没跑过？）" >&2
+      echo "✗ 目标机器上没有 ${installed}（provision.sh 从没跑过？）" >&2
       drifted=1
       continue
     fi

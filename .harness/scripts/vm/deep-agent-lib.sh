@@ -161,3 +161,162 @@ deep_agent_project_capability_env() {
   fi
   return 0
 }
+
+# #2929: provision/deploy share this one idempotent writer. Existing non-empty values are
+# never changed; malformed values fail closed instead of being silently rotated. The helper
+# reports key names only, never their values.
+native_runtime_ensure_deploy_env() {
+  local file=$1 default_socket=$2 default_admission=${3:-1}
+  local socket binding service_key admission generated=()
+  [ -f "$file" ] || { echo "✗ native runtime env file missing: ${file}" >&2; return 1; }
+  [[ "$default_socket" == /*/skill-sandbox.sock ]] || {
+    echo "✗ native runtime default socket must be an absolute skill-sandbox.sock path" >&2
+    return 1
+  }
+  [[ "$default_admission" == "0" || "$default_admission" == "1" ]] || {
+    echo "✗ native runtime default admission must be 0 or 1" >&2
+    return 1
+  }
+
+  socket=$(read_env_value "$file" NATIVE_SESSION_SOCKET)
+  if [ -z "$socket" ]; then
+    socket=$default_socket
+    printf 'NATIVE_SESSION_SOCKET=%s\n' "$socket" >> "$file"
+    generated+=(NATIVE_SESSION_SOCKET)
+  fi
+  binding=$(read_env_value "$file" NATIVE_SESSION_BINDING_KEY)
+  if [ -z "$binding" ]; then
+    binding=$(openssl rand -hex 32)
+    printf 'NATIVE_SESSION_BINDING_KEY=%s\n' "$binding" >> "$file"
+    generated+=(NATIVE_SESSION_BINDING_KEY)
+  fi
+  service_key=$(read_env_value "$file" DEEP_AGENT_SERVICE_INTERNAL_KEY)
+  if [ -z "$service_key" ]; then
+    service_key=$(openssl rand -hex 32)
+    printf 'DEEP_AGENT_SERVICE_INTERNAL_KEY=%s\n' "$service_key" >> "$file"
+    generated+=(DEEP_AGENT_SERVICE_INTERNAL_KEY)
+  fi
+  admission=$(read_env_value "$file" KERNEL_NATIVE_RUNTIME)
+  if [ -z "$admission" ]; then
+    admission=$default_admission
+    printf 'KERNEL_NATIVE_RUNTIME=%s\n' "$admission" >> "$file"
+    generated+=(KERNEL_NATIVE_RUNTIME)
+  fi
+
+  [[ "$socket" == /*/skill-sandbox.sock && "$socket" != *$'\n'* ]] || {
+    echo "✗ native runtime NATIVE_SESSION_SOCKET is invalid" >&2
+    return 1
+  }
+  [[ "$binding" =~ ^[a-f0-9]{64}$ ]] || {
+    echo "✗ native runtime NATIVE_SESSION_BINDING_KEY must be 64 lowercase hex characters" >&2
+    return 1
+  }
+  [[ "$service_key" =~ ^[^[:space:]]{32,}$ ]] || {
+    echo "✗ native runtime DEEP_AGENT_SERVICE_INTERNAL_KEY must be at least 32 non-space characters" >&2
+    return 1
+  }
+  [[ "$admission" == "0" || "$admission" == "1" ]] || {
+    echo "✗ native runtime KERNEL_NATIVE_RUNTIME must be 0 or 1" >&2
+    return 1
+  }
+  if ((${#generated[@]} > 0)); then
+    echo "  native runtime 已补齐配置键：${generated[*]}（值不回显）" >&2
+  fi
+}
+
+# Deep Agent needs the UDS and API callback key for both new native runs and recovery of an
+# already-persisted native-v1 run. Therefore this projection intentionally remains present
+# when KERNEL_NATIVE_RUNTIME=0; that flag controls admission only.
+deep_agent_project_native_env() {
+  local src=$1 dest=$2 container_socket=$3 service_base=$4
+  local host_socket binding service_key admission
+  host_socket=$(read_env_value "$src" NATIVE_SESSION_SOCKET)
+  binding=$(read_env_value "$src" NATIVE_SESSION_BINDING_KEY)
+  service_key=$(read_env_value "$src" DEEP_AGENT_SERVICE_INTERNAL_KEY)
+  admission=$(read_env_value "$src" KERNEL_NATIVE_RUNTIME)
+  [[ "$host_socket" == /*/skill-sandbox.sock ]] || { echo "✗ native runtime host socket is invalid" >&2; return 1; }
+  [[ "$binding" =~ ^[a-f0-9]{64}$ ]] || { echo "✗ native runtime binding key is unavailable" >&2; return 1; }
+  [[ "$service_key" =~ ^[^[:space:]]{32,}$ ]] || { echo "✗ native runtime service key is unavailable" >&2; return 1; }
+  [[ "$admission" == "0" || "$admission" == "1" ]] || { echo "✗ native runtime admission is invalid" >&2; return 1; }
+  [[ "$container_socket" == /*/skill-sandbox.sock ]] || { echo "✗ native runtime container socket is invalid" >&2; return 1; }
+  [[ "$service_base" =~ ^http://[a-zA-Z0-9.-]+:[0-9]+$ ]] || { echo "✗ native runtime service base URL is invalid" >&2; return 1; }
+  {
+    printf 'NATIVE_SESSION_SOCKET=%s\n' "$container_socket"
+    printf 'NATIVE_SESSION_SERVICE_BASE_URL=%s\n' "$service_base"
+    printf 'NATIVE_SESSION_SERVICE_KEY=%s\n' "$service_key"
+  } >> "$dest"
+  echo "  Native recovery env 已投影：admission=${admission} socket=PRESENT service-key=PRESENT" >&2
+}
+
+# Read the restarted process' NUL-delimited /proc environ and assert the runtime bindings
+# were actually loaded. Error messages contain key names/boolean state only.
+native_runtime_assert_api_env_file() {
+  local file=$1 expected_socket=$2 expected_admission=$3
+  local socket binding service_key admission
+  [ -r "$file" ] || { echo "✗ native runtime process env is unreadable" >&2; return 1; }
+  socket=$(tr '\0' '\n' < "$file" | grep '^NATIVE_SESSION_SOCKET=' | tail -1) || true
+  socket=${socket#NATIVE_SESSION_SOCKET=}
+  binding=$(tr '\0' '\n' < "$file" | grep '^NATIVE_SESSION_BINDING_KEY=' | tail -1) || true
+  binding=${binding#NATIVE_SESSION_BINDING_KEY=}
+  service_key=$(tr '\0' '\n' < "$file" | grep '^DEEP_AGENT_SERVICE_INTERNAL_KEY=' | tail -1) || true
+  service_key=${service_key#DEEP_AGENT_SERVICE_INTERNAL_KEY=}
+  admission=$(tr '\0' '\n' < "$file" | grep '^KERNEL_NATIVE_RUNTIME=' | tail -1) || true
+  admission=${admission#KERNEL_NATIVE_RUNTIME=}
+  if [[ "$socket" != "$expected_socket" || ! "$binding" =~ ^[a-f0-9]{64}$ ||
+        ! "$service_key" =~ ^[^[:space:]]{32,}$ || "$admission" != "$expected_admission" ]]; then
+    echo "✗ native runtime process env missing or inconsistent" >&2
+    return 1
+  fi
+}
+
+# Deep Agent must have exactly one host bind: the native UDS directory, read-only. The
+# in-container probe validates env presence, absence of the binding encryption key, and an
+# actual HTTP health exchange through that socket without printing any secret.
+native_runtime_assert_deep_agent_container() {
+  local container=$1 host_socket=$2 container_socket=$3 service_base=$4
+  local host_dir container_dir expected binds
+  host_dir=${host_socket%/*}
+  container_dir=${container_socket%/*}
+  expected="${host_dir}:${container_dir}:ro"
+  binds=$(docker inspect --format '{{json .HostConfig.Binds}}' "$container" 2>/dev/null) || {
+    echo "✗ native runtime Deep Agent topology cannot be inspected" >&2
+    return 1
+  }
+  [[ "$binds" == "[\"${expected}\"]" ]] || {
+    echo "✗ native runtime Deep Agent must mount only the session socket directory read-only" >&2
+    return 1
+  }
+  docker exec \
+    -e WX_EXPECTED_NATIVE_SOCKET="$container_socket" \
+    -e WX_EXPECTED_NATIVE_SERVICE_BASE="$service_base" \
+    "$container" python -c 'import os,socket
+p=os.environ["WX_EXPECTED_NATIVE_SOCKET"]
+assert os.environ.get("NATIVE_SESSION_SOCKET")==p
+assert os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL")==os.environ["WX_EXPECTED_NATIVE_SERVICE_BASE"]
+assert len(os.environ.get("NATIVE_SESSION_SERVICE_KEY", ""))>=32
+assert "NATIVE_SESSION_BINDING_KEY" not in os.environ
+s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);s.settimeout(2);s.connect(p)
+s.sendall(b"GET /healthz HTTP/1.1\r\nHost: sandbox\r\nConnection: close\r\n\r\n")
+status=s.recv(128).split(b"\r\n",1)[0];s.close()
+assert b" 200 " in status' >/dev/null 2>&1 || {
+    echo "✗ native runtime Deep Agent env or UDS probe failed" >&2
+    return 1
+  }
+}
+
+# After API restart, a request with the projected internal key must cross the container-to-
+# host boundary and reach the Native controller. A deliberately invalid binding/body must
+# return 400: 401 means key mismatch, 5xx means the owner is absent, and connection failure
+# means the host-gateway topology is broken.
+native_runtime_assert_deep_agent_api_callback() {
+  local container=$1
+  docker exec "$container" python -c 'import os,httpx
+base=os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL", "").rstrip("/")
+key=os.environ.get("NATIVE_SESSION_SERVICE_KEY", "")
+assert base and len(key)>=32
+r=httpx.post(base+"/internal/native-sessions/invalid/resolve",headers={"x-deep-agent-internal-key":key},json={},timeout=3,follow_redirects=False,trust_env=False)
+assert r.status_code==400' >/dev/null 2>&1 || {
+    echo "✗ native runtime Deep Agent → API authenticated callback probe failed" >&2
+    return 1
+  }
+}

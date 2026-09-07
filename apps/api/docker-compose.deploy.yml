@@ -128,6 +128,39 @@ services:
     pids_limit: 128
     restart: unless-stopped
 
+  # #2929: persistent Native sessions use a dedicated service. It shares only its UDS
+  # directory with the host API/Deep Agent and never receives a Docker socket or a network.
+  # The outer AppArmor/seccomp policy permits trusted bubblewrap setup; the inner per-run
+  # seccomp filter then removes namespace/mount escape paths from user code.
+  skill-sandbox-sessions:
+    build:
+      context: ../skill-sandbox
+      dockerfile: Dockerfile
+    init: true
+    network_mode: "none"
+    read_only: true
+    user: "${SANDBOX_UID:?set SANDBOX_UID}:${SANDBOX_GID:?set SANDBOX_GID}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=../skill-sandbox/security/docker-seccomp.json
+      - apparmor=workspacex-native-sessions
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+    volumes:
+      - ${NATIVE_SESSION_SOCKET_DIR:?set NATIVE_SESSION_SOCKET_DIR}:/run/sessions
+    environment:
+      SKILL_SANDBOX_SESSIONS_ONLY: "1"
+      SKILL_SANDBOX_SOCKET: /run/sessions/skill-sandbox.sock
+      SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
+      TMPDIR: /tmp
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+
 volumes:
   workspacex_pgdata:
   workspacex_miniodata:
