@@ -8,10 +8,12 @@
  * 都由测试 mock。
  */
 import * as React from "react";
-import { Download, FileDown, FileJson, Image as ImageIcon, Copy, Check, Loader2 } from "lucide-react";
+import { Download, FileDown, FileJson, Image as ImageIcon, Copy, Check, Loader2, MousePointerClick, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { buildDesignDocMarkdown, designDocFileName, buildPrototypeSpecJson, prototypeSpecFileName } from "@/lib/design-doc-markdown";
+import { buildPrototypeExportHtml, collectPageCss, prototypeExportHtmlFileName } from "@/lib/prototype-export-html";
+import { renderScreensToMarkup } from "@/lib/prototype-export-render";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 function download(blob: Blob, name: string): void {
@@ -67,6 +69,52 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
       setBusy(null);
     }
   };
+  /**
+   * 迭代 12（F56）：自包含、可点击的 HTML。
+   * 结构用 `renderToStaticMarkup` 渲染**同一批组件**，样式从页面自己的 stylesheet 抽——
+   * 两边都不另写一份（签核取舍 ①=A）。
+   */
+  const html = async () => {
+    setBusy("html");
+    try {
+      const screens = await renderScreensToMarkup(project);
+      const css = collectPageCss(screens.map((s) => s.markup).join(""), Array.from(document.styleSheets) as CSSStyleSheet[]);
+      const now = new Date();
+      const text = buildPrototypeExportHtml({ project, screens, css, now });
+      download(new Blob([text], { type: "text/html;charset=utf-8" }), prototypeExportHtmlFileName(project.name, now));
+      flash("html");
+      setOpen(false);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * 迭代 12（F57）：PDF 交付文档 = 上面那份 HTML 的**打印视图**（签核取舍 ②=A）。
+   * 不引 jsPDF：中文要么打包 ~8MB 字体、要么把文字光栅化成图（不可选中不可搜索），
+   * 而这份 PDF 的用途正是发给人读和引用。代价是用户在打印对话框里多点一次「保存为 PDF」。
+   * 产物里 `@media print` 把所有页都展开、每页分页，界面一节图文同页。
+   */
+  const pdf = async () => {
+    setBusy("pdf");
+    try {
+      const screens = await renderScreensToMarkup(project);
+      const css = collectPageCss(screens.map((s) => s.markup).join(""), Array.from(document.styleSheets) as CSSStyleSheet[]);
+      const text = buildPrototypeExportHtml({ project, screens, css, now: new Date(), forPrint: true });
+      const w = window.open("", "_blank");
+      if (w !== null) {
+        w.document.write(text);
+        w.document.close();
+        w.focus();
+        w.print();
+      }
+      flash("pdf");
+      setOpen(false);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const png = async () => {
     const el = frameElementFor(frame);
     if (el === null) return;
@@ -100,6 +148,14 @@ export function PrototypeExportMenu({ project, frame }: { project: DesignProject
           <button type="button" role="menuitem" onClick={() => void png()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-png">
             {busy === "png" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon aria-hidden className="h-3.5 w-3.5" />}
             当前页 PNG{project.frames[frame] !== undefined ? `（${project.frames[frame]}）` : ""}
+          </button>
+          <button type="button" role="menuitem" onClick={() => void html()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-html">
+            {busy === "html" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <MousePointerClick aria-hidden className="h-3.5 w-3.5" />}
+            可点击原型 (.html)
+          </button>
+          <button type="button" role="menuitem" onClick={() => void pdf()} disabled={busy !== null || project.prototype.length === 0} className={item} data-testid="design-detail-export-pdf">
+            {busy === "pdf" ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Printer aria-hidden className="h-3.5 w-3.5" />}
+            设计文档 (PDF)
           </button>
           <button type="button" role="menuitem" onClick={() => void copy()} disabled={busy !== null} className={cn(item, done === "copy" && "text-success")} data-testid="design-detail-export-copy">
             {done === "copy" ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Copy aria-hidden className="h-3.5 w-3.5" />}

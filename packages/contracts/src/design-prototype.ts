@@ -310,6 +310,14 @@ export const PrototypePatchOp = z.discriminatedUnion("op", [
    * op，一个整体替换够用、校验只写一次（design-delta §3）。
    */
   z.object({ op: z.literal("setLinks"), screen: z.number().int().min(0), links: z.array(PrototypeLink).max(PROTOTYPE_MAX_LINKS) }).strict(),
+  /**
+   * 迭代 12（design-delta `paged-generation-and-doc-export` §2）：增删**页**。
+   * 在此之前增页/删页只能整页重给 `prototype`——这正是「一次吐出所有页」最常见的触发原因之一，
+   * 而它本可以是一个局部 op。`frame` 与树由同一条 op 一起改，等长不变量由实现保证而不是靠模型自觉。
+   * `at` 是插入位置（0..len，len = 追加到末尾）；`root` 可省略 ⇒ 插入一个**还没生成**的空页。
+   */
+  z.object({ op: z.literal("addScreen"), at: z.number().int().min(0), frame: Label, root: PrototypeNode.optional() }).strict(),
+  z.object({ op: z.literal("removeScreen"), screen: z.number().int().min(0) }).strict(),
 ]);
 export type PrototypePatchOp = z.infer<typeof PrototypePatchOp>;
 export const DesignPrototypePatch = z.array(PrototypePatchOp).min(1).max(PROTOTYPE_MAX_PATCH_OPS);
@@ -346,7 +354,7 @@ export type LinkDropReason = "TARGET_OUT_OF_RANGE" | "SELF_LINK" | "FROM_NOT_FOU
  * 不至于让整页作废。返回每页清洗后的 links 与被丢条目的原因（给日志与修复轮用）。幂等。
  */
 export function validateLinks(
-  screens: readonly { readonly root: PrototypeNode; readonly links?: readonly PrototypeLink[] }[],
+  screens: readonly { readonly root?: PrototypeNode; readonly links?: readonly PrototypeLink[] }[],
 ): { readonly links: readonly (readonly PrototypeLink[])[]; readonly dropped: readonly { screen: number; link: PrototypeLink; reason: LinkDropReason }[] } {
   const dropped: { screen: number; link: PrototypeLink; reason: LinkDropReason }[] = [];
   const links = screens.map((s, i) => {
@@ -357,7 +365,9 @@ export function validateLinks(
         l.to >= screens.length ? "TARGET_OUT_OF_RANGE"
         : l.to === i ? "SELF_LINK"
         : (() => {
-            const node = findNode(s.root, l.from);
+            // 迭代 12：还没生成的页（`root` 缺）没有节点可寻址 ⇒ 从它出发的 link 一律丢。
+            // 指**向**它的 link 不受影响：那页迟早会生成，目标序号是合法的。
+            const node = s.root === undefined ? null : findNode(s.root, l.from);
             if (node === null) return "FROM_NOT_FOUND";
             const slots = linkSlotsOf(node);
             if (slots > 1 ? (l.item === undefined || l.item >= slots) : l.item !== undefined && l.item !== 0) return "ITEM_OUT_OF_RANGE";
@@ -372,6 +382,32 @@ export function validateLinks(
     return kept;
   });
   return { links, dropped };
+}
+
+/**
+ * 迭代 12（delta §2）：增删页之后，**所有页**的跳转目标序号整体平移。
+ *
+ * ⚠ 这是本 delta 最容易被漏掉、也最难看出来的一处：不平移的失败是**静默错位**——
+ * 删掉第 2 页之后，原本指向第 3 页的跳转仍写着 `to: 2`，界面上一切正常，点下去去了错的页。
+ * 比「链接失效」更糟，因为没有任何东西显示为坏。
+ *
+ * - `delta === +1`（在 `at` 处插了一页）：`to >= at` 的目标 +1。
+ * - `delta === -1`（删掉了第 `at` 页）：`to === at` 的**丢掉**（目标没了）；`to > at` 的 -1。
+ */
+export function shiftLinkTargets<T extends { readonly links?: readonly PrototypeLink[] }>(
+  screens: readonly T[],
+  at: number,
+  delta: 1 | -1,
+): readonly (T & { readonly links: readonly PrototypeLink[] })[] {
+  return screens.map((s) => {
+    const out: PrototypeLink[] = [];
+    for (const l of s.links ?? []) {
+      if (delta === 1) out.push(l.to >= at ? { ...l, to: l.to + 1 } : l);
+      else if (l.to === at) continue;
+      else out.push(l.to > at ? { ...l, to: l.to - 1 } : l);
+    }
+    return { ...s, links: out };
+  });
 }
 
 /**
@@ -455,7 +491,7 @@ export class PrototypePatchError extends Error {
  * 收尾统一过一次 `validateLinks`：**逐条丢**悬空的跳转、页面保留（design-delta §2 取舍 ①）。
  * 所以「删了源节点」「patch 后页数变了」这类间接失效不需要调用方自己收拾。
  */
-export function applyPrototypePatch<T extends { readonly root: PrototypeNode; readonly links?: readonly PrototypeLink[] }>(
+export function applyPrototypePatch<T extends { readonly root?: PrototypeNode; readonly links?: readonly PrototypeLink[] }>(
   screens: readonly T[],
   ops: readonly PrototypePatchOp[],
 ): readonly (T & { readonly links: readonly PrototypeLink[] })[] {
@@ -466,6 +502,30 @@ export function applyPrototypePatch<T extends { readonly root: PrototypeNode; re
         throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `no screen at index ${op.screen} (have ${current.length})`);
       }
       current = current.map((s, k) => (k === op.screen ? { ...s, links: op.links } : s));
+      return;
+    }
+    if (op.op === "addScreen") {
+      if (op.at > current.length) throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `cannot insert at ${op.at} (have ${current.length})`);
+      if (current.length >= PROTOTYPE_MAX_SCREENS) throw new PrototypePatchError(i, "LIMITS", `already at ${PROTOTYPE_MAX_SCREENS} screens`);
+      // 新页只有 frame / root / links 三个字段；`T` 的其它可选字段（notes 等）缺省。
+      // `T` 不强制声明 `frame`（既有调用方传的是裸树），所以这里断言构造。
+      const fresh = { frame: op.frame, ...(op.root === undefined ? {} : { root: op.root }), links: [] } as unknown as T;
+      const shifted = shiftLinkTargets(current, op.at, 1);
+      const merged = [...shifted.slice(0, op.at), fresh, ...shifted.slice(op.at)];
+      // 新页的树是模型/人现给的，节点通常没有 id——不补的话它一落库就**不可寻址**，
+      // 下一条 patch 想改这一页里的东西会拿到 UNKNOWN_NODE。补 id 要看**整个项目**
+      // （id 跨页唯一），所以在合并之后统一跑一次，而不是只对新页跑。
+      const keys = merged.flatMap((s, k) => (s.root === undefined ? [] : [k]));
+      const withIds = ensurePrototypeIds(keys.map((k) => merged[k]!.root!));
+      const byKey = new Map(keys.map((k, idx) => [k, withIds[idx]!]));
+      current = merged.map((s, k) => (byKey.has(k) ? { ...s, root: byKey.get(k)! } : s));
+      return;
+    }
+    if (op.op === "removeScreen") {
+      if (op.screen >= current.length) throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `no screen at index ${op.screen} (have ${current.length})`);
+      if (current.length === 1) throw new PrototypePatchError(i, "LIMITS", "cannot remove the only screen");
+      const shifted = shiftLinkTargets(current, op.screen, -1);
+      current = [...shifted.slice(0, op.screen), ...shifted.slice(op.screen + 1)];
       return;
     }
     let hit = 0;
@@ -509,22 +569,27 @@ export function applyPrototypePatch<T extends { readonly root: PrototypeNode; re
       if (op.op === "insert" && n.id === op.parentId) throw new PrototypePatchError(i, "NOT_CONTAINER", `${op.parentId} is a ${n.type}, not a container`, op.parentId);
       return n;
     };
-    const next: PrototypeNode[] = [];
-    for (const s of current) {
+    // 迭代 12：还没生成的页（`root` 缺）没有树可遍历——跳过它，位置留着。
+    const next = new Map<number, PrototypeNode>();
+    for (const [k, s] of current.entries()) {
+      if (s.root === undefined) continue;
       const r = visit(s.root);
       if (r === null) throw new PrototypePatchError(i, "ROOT_REMOVE", `cannot remove page root ${s.root.id ?? ""}`, s.root.id);
-      next.push(r);
+      next.set(k, r);
     }
     const target = op.op === "insert" ? op.parentId : op.id;
     if (hit === 0) throw new PrototypePatchError(i, "UNKNOWN_NODE", `no node with id ${target}`, target);
     if (hit > 1) throw new PrototypePatchError(i, "DUPLICATE_ID", `id ${target} is not unique`, target);
-    const withIds = ensurePrototypeIds(next);
-    current = current.map((s, k) => ({ ...s, root: withIds[k]! }));
+    const keys = [...next.keys()];
+    const withIds = ensurePrototypeIds(keys.map((k) => next.get(k)!));
+    const byKey = new Map(keys.map((k, idx) => [k, withIds[idx]!]));
+    current = current.map((s, k) => (byKey.has(k) ? { ...s, root: byKey.get(k)! } : s));
   });
   for (const [k, s] of current.entries()) {
-    if (!withinPrototypeLimits(s.root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
+    if (s.root !== undefined && !withinPrototypeLimits(s.root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
   }
-  if (!prototypeIdsUnique(current.map((s) => s.root))) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
+  const roots = current.flatMap((s) => (s.root === undefined ? [] : [s.root]));
+  if (!prototypeIdsUnique(roots)) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
   const cleaned = validateLinks(current);
   // 返回类型显式带上 links：入参里它是可选的，但**出参一定有**（收尾统一清洗过），
   // 调用方不该再为它写一次 `?? []`。

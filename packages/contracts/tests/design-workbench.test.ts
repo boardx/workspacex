@@ -220,6 +220,12 @@ describe("退路必须说明原因（DesignChatReply）", () => {
     expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback" }).success).toBe(false);
     expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "MODEL_NOT_CONFIGURED" }).success).toBe(true);
   });
+  it("迭代 12：闭集含 MODEL_OUTPUT_TRUNCATED，且与 MODEL_BAD_JSON 是两个成员", () => {
+    // 「输出被长度截断」与「输出不合语法」此前落成同一个原因，屏上给用户的下一步却不同。
+    expect(ai.DesignChatFallbackReason.options).toContain("MODEL_OUTPUT_TRUNCATED");
+    expect(ai.DesignChatFallbackReason.options).toContain("MODEL_BAD_JSON");
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" }).success).toBe(true);
+  });
   it("source=model 不许带 fallbackReason", () => {
     expect(ai.DesignChatReply.safeParse({ ...base, source: "model" }).success).toBe(true);
     expect(ai.DesignChatReply.safeParse({ ...base, source: "model", fallbackReason: "MODEL_CALL_FAILED" }).success).toBe(false);
@@ -228,6 +234,7 @@ describe("退路必须说明原因（DesignChatReply）", () => {
     expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "WHATEVER" }).success).toBe(false);
     expect(ai.DesignChatFallbackReason.options).toEqual([
       "MODEL_NOT_CONFIGURED", "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_NO_REPLY_TEXT",
+      "MODEL_OUTPUT_TRUNCATED",
     ]);
   });
   it("退路文案不再承诺「稍后会更新」——它不会兑现", () => {

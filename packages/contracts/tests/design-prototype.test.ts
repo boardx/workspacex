@@ -362,3 +362,82 @@ describe("迭代 11 setLinks op", () => {
     expect(out[0]!.links).toEqual([]);
   });
 });
+
+/**
+ * 迭代 12（delta `paged-generation-and-doc-export` §2）—— V41 / V42。
+ * 增删**页**不再需要整页重给 `prototype`，且增删之后跳转目标序号整体平移。
+ */
+describe("迭代 12：addScreen / removeScreen 与跳转索引平移", () => {
+  /** 三页，每页一个按钮；page0 的按钮指向 page2。 */
+  const three = () => {
+    const roots = dp.ensurePrototypeIds([
+      { type: "stack", children: [{ type: "button", props: { label: "去第三页" } }] },
+      { type: "stack", children: [{ type: "button", props: { label: "b" } }] },
+      { type: "stack", children: [{ type: "button", props: { label: "c" } }] },
+    ]);
+    return roots.map((root, i) => ({ frame: `第${i + 1}页`, root, links: [] as dp.PrototypeLink[] }));
+  };
+  /** page0 的按钮 id（`ensurePrototypeIds` 是深度优先，root=n1、button=n2）。 */
+  const btn0 = "n2";
+
+  it("addScreen 同时插入 frame 与树，长度一致；`at` 越界 ⇒ UNKNOWN_SCREEN", () => {
+    const out = dp.applyPrototypePatch(three(), [
+      { op: "addScreen", at: 1, frame: "插进来的", root: { type: "stack", children: [{ type: "text", props: { content: "新" } }] } },
+    ]);
+    expect(out).toHaveLength(4);
+    expect(out.map((s) => s.frame)).toEqual(["第1页", "插进来的", "第2页", "第3页"]);
+    // 每一页都还有树，且新页的树补上了 id
+    expect(out.every((s) => s.root !== undefined)).toBe(true);
+    expect(out[1]!.root!.id).toBeDefined();
+    expect(() => dp.applyPrototypePatch(three(), [{ op: "addScreen", at: 9, frame: "x" }]))
+      .toThrow(expect.objectContaining({ reason: "UNKNOWN_SCREEN" }));
+  });
+
+  it("addScreen 不带 root ⇒ 插入一个还没生成的空页（root 缺，不是空树）", () => {
+    const out = dp.applyPrototypePatch(three(), [{ op: "addScreen", at: 3, frame: "待生成" }]);
+    expect(out).toHaveLength(4);
+    expect(out[3]).toMatchObject({ frame: "待生成" });
+    expect(out[3]!.root).toBeUndefined();
+  });
+
+  it("removeScreen 同时删 frame 与树；越界 ⇒ UNKNOWN_SCREEN；只剩一页时不许删", () => {
+    const out = dp.applyPrototypePatch(three(), [{ op: "removeScreen", screen: 1 }]);
+    expect(out.map((s) => s.frame)).toEqual(["第1页", "第3页"]);
+    expect(() => dp.applyPrototypePatch(three(), [{ op: "removeScreen", screen: 9 }]))
+      .toThrow(expect.objectContaining({ reason: "UNKNOWN_SCREEN" }));
+    const one = three().slice(0, 1);
+    expect(() => dp.applyPrototypePatch(one, [{ op: "removeScreen", screen: 0 }]))
+      .toThrow(expect.objectContaining({ reason: "LIMITS" }));
+  });
+
+  /**
+   * ⚠ 本 delta 最值钱的一条（verification.md V42）。不平移的失败是**静默错位**：
+   * 删掉第 2 页之后原本指向第 3 页的跳转仍写着 `to: 2`，界面上一切正常，点下去去了错的页。
+   */
+  it("删页 ⇒ 后面页的跳转目标整体前移；指向被删页的那条被丢", () => {
+    const linked = dp.applyPrototypePatch(three(), [{ op: "setLinks", screen: 0, links: [{ from: btn0, to: 2 }] }]);
+    expect(linked[0]!.links).toEqual([{ from: btn0, to: 2 }]);
+    const out = dp.applyPrototypePatch(linked, [{ op: "removeScreen", screen: 1 }]);
+    // 第 3 页现在是第 2 页（索引 1）——目标必须跟着变，不能还写着 2
+    expect(out[0]!.links).toEqual([{ from: btn0, to: 1 }]);
+
+    const toDeleted = dp.applyPrototypePatch(three(), [{ op: "setLinks", screen: 0, links: [{ from: btn0, to: 1 }] }]);
+    expect(dp.applyPrototypePatch(toDeleted, [{ op: "removeScreen", screen: 1 }])[0]!.links).toEqual([]);
+  });
+
+  it("插页 ⇒ 插入点及其之后的跳转目标整体后移", () => {
+    const linked = dp.applyPrototypePatch(three(), [{ op: "setLinks", screen: 0, links: [{ from: btn0, to: 1 }] }]);
+    const out = dp.applyPrototypePatch(linked, [{ op: "addScreen", at: 1, frame: "插进来的" }]);
+    expect(out[0]!.links).toEqual([{ from: btn0, to: 2 }]);
+  });
+
+  it("还没生成的页：从它出发的 link 丢掉，指向它的 link 保留", () => {
+    const withHole = [
+      { frame: "有树", root: { id: "r0", type: "stack" as const, children: [{ id: "b0", type: "button" as const, props: { label: "去" } }] }, links: [{ from: "b0", to: 1 }] },
+      { frame: "没树", links: [{ from: "b0", to: 0 }] },
+    ];
+    const { links } = dp.validateLinks(withHole);
+    expect(links[0]).toEqual([{ from: "b0", to: 1 }]);  // 指向未生成页 ⇒ 保留（那页迟早会生成）
+    expect(links[1]).toEqual([]);                        // 从未生成页出发 ⇒ 丢（没有节点可寻址）
+  });
+});

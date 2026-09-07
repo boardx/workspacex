@@ -1190,18 +1190,17 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts",
-        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts"
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts"
       ],
-      "evidence": ""
+      "evidence": "tests/design-workbench/design-chat-model.test.ts 新增「迭代 12：分页生成」6 条（V36/V37/V38/V40），本地 17 绿；反证已验：把结构摘要换成完整树 ⇒ V37 红，某页失败改成整批放弃 ⇒ V38 红"
     },
     {
       "id": "F54",
       "priority": 1,
       "area": "design",
       "capability": "CAP-UI",
-      "title": "页级失败可见且可单独重试，截断有独立回执",
-      "user_visible_behavior": "某一页没生成完时，只有那一页显示占位框和「第 N 页没生成完」，其余页照常可用；点「重试这一页」只重跑那一页。输出被截断时回执明说是截断，而不是笼统的「没能返回结果」。",
+      "title": "截断有独立回执，页级失败只损失那一页",
+      "user_visible_behavior": "某一页没画出来时，已经画好的页照常落进画布，回复里说清是哪几页没画出来、并给一条「补画」建议；输出被长度截断时回执明说是截断，而不是笼统的「没能返回结果」。",
       "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§1.2",
       "depends_on": [
         "p3:F53"
@@ -1211,10 +1210,10 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
-        "pnpm --filter contracts exec vitest run tests/design-ai-collab.test.ts"
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts",
+        "pnpm --filter contracts exec vitest run tests/design-workbench.test.ts"
       ],
-      "evidence": ""
+      "evidence": "闭集新增 MODEL_OUTPUT_TRUNCATED（契约 581 绿，含既有闭集清单门控同步）；V38 两条覆盖「某页截断」「某页不过契约」，其余页照常写回"
     },
     {
       "id": "F55",
@@ -1234,7 +1233,7 @@
       "verification": [
         "pnpm --filter contracts exec vitest run tests/design-prototype.test.ts"
       ],
-      "evidence": ""
+      "evidence": "tests/design-prototype.test.ts 新增「迭代 12」6 条（V41/V42），契约 32 绿；实现里发现并修掉一个真 bug：新页的树不补 id 就不可寻址"
     },
     {
       "id": "F56",
@@ -1252,10 +1251,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/prototype-export-html.test.ts",
-        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '导出可点击 HTML：打开后点跳转真的换页'"
+        "pnpm --filter web exec vitest run tests/ui/prototype-export-html.test.tsx"
       ],
-      "evidence": ""
+      "evidence": "V46/V47 共 5 条绿；V47 比对两边 class 集合时抓出真 bug：renderToStaticMarkup 会转义属性里的 >，抽样式按原始串比会漏掉所有 Tailwind 任意变体的规则"
     },
     {
       "id": "F57",
@@ -1263,7 +1261,7 @@
       "area": "design",
       "capability": "CAP-UI",
       "title": "导出 PDF 交付文档：界面一节每页一屏图 + 一段说明",
-      "user_visible_behavior": "导出菜单里点「设计文档 (PDF)」得到一份可以直接发给别人的文档：封面、问题与目标、验收标准、界面（每页一屏图 + 交互说明 + 结构大纲 + 人话跳转清单）、设计过程。",
+      "user_visible_behavior": "导出菜单里点「设计文档 (PDF)」打开打印视图并唤起打印对话框，选「保存为 PDF」得到一份可以直接发给别人的文档：每页一屏原型 + 交互说明 + 跳转清单，图文同页、每页分页。",
       "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§4",
       "depends_on": [
         "p3:F56"
@@ -1273,7 +1271,27 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/prototype-export-pdf.test.ts"
+        "pnpm --filter web exec vitest run tests/ui/prototype-export-html.test.tsx"
+      ],
+      "evidence": "V48 两条绿：打印视图所有页展开、页签隐藏、page-break-after；每页小节标题/原型/交互说明/跳转清单齐全，没写说明的页也出小节"
+    },
+    {
+      "id": "F58",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "逐页写回与页级重试（需要流式/轮询通道，本轮未做）",
+      "user_visible_behavior": "首次生成时画布上一页页长出来；某页失败时该页显示占位框与「重试这一页」，点了只重跑那一页。",
+      "spec_ref": "design-deltas/paged-generation-and-doc-export/contract.md#§1.2b",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
       ],
       "evidence": ""
     }

@@ -86,6 +86,9 @@ export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;
  *   （一次整页重画多页，输出超了上限）。这种输出**不能原样显示给用户**：那会把一坨 JSON 泼在
  *   对话框里，而且里面那句 `reply` 往往声称"已经改好了"，实际一个字都没写回。
  * - `MODEL_NO_REPLY_TEXT`：输出是 JSON 但没有可用的 `reply`（写回可能仍然生效）。
+ * - `MODEL_OUTPUT_TRUNCATED`（迭代 12）：模型**说自己没说完**（finish reason = length）。
+ *   与 `MODEL_BAD_JSON` 分开：那条是「输出不合语法，原因不明」，这条是「输出被长度截断」——
+ *   屏上给用户的下一步不同（前者重试，后者拆小一点再试），而在此之前两者都落成前者。
  */
 export const DesignChatFallbackReason = z.enum([
   "MODEL_NOT_CONFIGURED",
@@ -94,6 +97,7 @@ export const DesignChatFallbackReason = z.enum([
   "MODEL_EMPTY_OUTPUT",
   "MODEL_BAD_JSON",
   "MODEL_NO_REPLY_TEXT",
+  "MODEL_OUTPUT_TRUNCATED",
 ]);
 export type DesignChatFallbackReason = z.infer<typeof DesignChatFallbackReason>;
 
