@@ -1,0 +1,257 @@
+[stack-admission] load1=2.57 cores=10 perCore=0.26 running=0/2
+[test-isolation] id=run-mtqy5zwd-5cb3a9f4-bdecee47ca40 db=wsx_bdecee47ca40c72af2ec compose=wsx-bdecee47ca40c72af2ec pg=21319 redis=26319 sandbox=51319
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_bdecee47ca40c72af2ec capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"4820f85e-81a4-4835-924e-9ef62005806e","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"6644bced-2f2a-4818-aa1e-8aa48291209a","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"acb78db0-bdac-4dad-94d5-647170301720","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"3e912e6d-81c9-41bf-9956-d2222e45b8f8","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c9681114-eec4-4629-b4f1-fa080080866a","detail":{"name":"ServiceUnavailableException","message":"native_session_unavailable","stack":"ServiceUnavailableException: native_session_unavailable\n    at NativeSessionController.resolve (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/native-session.controller.ts:18:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"cb45fc3b-17ea-4bfd-ad80-c79f5e603a7c","detail":{"name":"ServiceUnavailableException","message":"native_session_unavailable","stack":"ServiceUnavailableException: native_session_unavailable\n    at NativeSessionController.resolve (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/native-session.controller.ts:18:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+stdout | tests/agent-runtime/standard-document-locators-http.test.ts > production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding
+revoked fixture commands ["python3 -c \"\nimport os\nimport json\nimport base64\n\npath = base64.b64decode('L3NraWxscy8=').decode('utf-8')\n\ntry:\n    with os.scandir(path) as it:\n        for entry in it:\n            result = {\n                'path': os.path.join(path, entry.name),\n                'is_dir': entry.is_dir(follow_symlinks=False)\n            }\n            print(json.dumps(result))\nexcept FileNotFoundError:\n    print(json.dumps({'error': 'path_not_found'}))\nexcept NotADirectoryError:\n    print(json.dumps({'error': 'not_a_directory'}))\nexcept PermissionError:\n    print(json.dumps({'error': 'permission_denied'}))\n\" 2>/dev/null","python3 -c \"\nimport os\nimport json\nimport base64\n\npath = base64.b64decode('L3NraWxscy8=').decode('utf-8')\n\ntry:\n    with os.scandir(path) as it:\n        for entry in it:\n            result = {\n                'path': os.path.join(path, entry.name),\n                'is_dir': entry.is_dir(follow_symlinks=False)\n            }\n            print(json.dumps(result))\nexcept FileNotFoundError:\n    print(json.dumps({'error': 'path_not_found'}))\nexcept NotADirectoryError:\n    print(json.dumps({'error': 'not_a_directory'}))\nexcept PermissionError:\n    print(json.dumps({'error': 'permission_denied'}))\n\" 2>/dev/null"]
+
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts (7 tests | 1 failed) 11315ms
+   ✓ production HTTP parses actual pdf bytes into AnyDoc text and native locators 667ms
+   ✓ production HTTP parses actual docx bytes into AnyDoc text and native locators 584ms
+   ✓ production HTTP parses actual pptx bytes into AnyDoc text and native locators 624ms
+   ✓ production HTTP parses actual xlsx bytes into AnyDoc text and native locators 736ms
+   ✓ revocation after actual sandbox parsing prevents returning text or structure references 591ms
+   × production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding 2412ms
+     → Python binding verification failed: Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/native_cached_source_revocation_runner.py", line 42, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/native_cached_source_revocation_runner.py", line 36, in main
+    result=await graph.ainvoke({'messages':[{'role':'user','content':'Read the restored source.'}]})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 4090, in ainvoke
+    async for chunk in self.astream(
+    ...<30 lines>...
+            chunks.append(chunk)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3440, in astream
+    async for _ in runner.atick(
+    ...<16 lines>...
+            yield o
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 396, in atick
+    await arun_with_retry(
+    ...<15 lines>...
+    )
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        step.ainvoke(input, config, **kwargs), context=context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 858, in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1216, in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1207, in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/deepagents/middleware/filesystem.py", line 3489, in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_skill_activity.py", line 113, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/middleware/tool_retry.py", line 380, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_sandbox_dispatch.py", line 132, in awrap_tool_call
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_sandbox_dispatch.py", line 126, in dispatch
+    result = await handler(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 96, in awrap_tool_call
+    await self._authority.acheck(request.tool_call)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_snapshot.py", line 38, in acheck
+    return await self.authority.acheck(call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 83, in acheck
+    await self._perform(*self._request(tool_call))
+                         ~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 45, in _request
+    raise ToolAuthorityError('Invalid or missing trusted tool authority context') from None
+deep_agent_service.native_tool_authority.ToolAuthorityError: Invalid or missing trusted tool authority context
+During task with name 'tools' and id '3b67154c-bc6b-3066-af4b-c4fe0b66e67b'
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-document-locators-http.test.ts > production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding
+Error: Python binding verification failed: Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/native_cached_source_revocation_runner.py", line 42, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/native_cached_source_revocation_runner.py", line 36, in main
+    result=await graph.ainvoke({'messages':[{'role':'user','content':'Read the restored source.'}]})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 4090, in ainvoke
+    async for chunk in self.astream(
+    ...<30 lines>...
+            chunks.append(chunk)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3440, in astream
+    async for _ in runner.atick(
+    ...<16 lines>...
+            yield o
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py", line 396, in atick
+    await arun_with_retry(
+    ...<15 lines>...
+    )
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        step.ainvoke(input, config, **kwargs), context=context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 858, in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1216, in _arun_one
+    content = _handle_tool_error(e, flag=self._handle_tool_errors)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 434, in _handle_tool_error
+    content = flag(e)  # type: ignore [assignment, call-arg]
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 391, in _default_handle_tool_errors
+    raise e
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py", line 1207, in _arun_one
+    return await self._awrap_tool_call(tool_request, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/deepagents/middleware/filesystem.py", line 3489, in awrap_tool_call
+    tool_result = await handler(request)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_skill_activity.py", line 113, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/middleware/tool_retry.py", line 380, in awrap_tool_call
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 754, in composed
+    return await outer(request, call_inner)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_sandbox_dispatch.py", line 132, in awrap_tool_call
+    return await asyncio.shield(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_sandbox_dispatch.py", line 126, in dispatch
+    result = await handler(request)
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain/agents/factory.py", line 751, in call_inner
+    return await inner(req, execute)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 96, in awrap_tool_call
+    await self._authority.acheck(request.tool_call)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_snapshot.py", line 38, in acheck
+    return await self.authority.acheck(call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 83, in acheck
+    await self._perform(*self._request(tool_call))
+                         ~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/native_tool_authority.py", line 45, in _request
+    raise ToolAuthorityError('Invalid or missing trusted tool authority context') from None
+deep_agent_service.native_tool_authority.ToolAuthorityError: Invalid or missing trusted tool authority context
+During task with name 'tools' and id '3b67154c-bc6b-3066-af4b-c4fe0b66e67b'
+
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts:117:115
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  15:56:45
+   Duration  13.57s (transform 1.63s, setup 0ms, collect 387ms, tests 11.31s, environment 0ms, prepare 24ms)
+
+[db-isolation] db=wsx_bdecee47ca40c72af2ec peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：1s
+  总计：14s

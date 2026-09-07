@@ -19,6 +19,7 @@ import httpx
 from jsonschema import Draft7Validator, FormatChecker
 
 from .native_graph import create_native_graph
+from .native_session_binding_guard import NativeSessionBindingGuard
 from .native_artifact_publish import artifact_publish_tool
 from .standard_web_tools import standard_web_tools
 from .standard_memory import standard_memory_tools
@@ -128,6 +129,7 @@ async def native_graph_context(config):
     # Shared multi-package canonicalization is supplied by the binding contract generator.
     expected=_package_set_digest(pins)
     if resolved['packageDigest']!=expected: raise NativeFactoryError('Native session package binding mismatch')
+    binding_guard=NativeSessionBindingGuard(resolved, lambda: _resolve(ref,identity))
     input_prompt=_input_prompt(resolved.get('inputs', []))
     with _sandbox_client(socket) as client:
         adapter=HttpSessionSandbox(resolved['sessionId'],resolved['token'],client)
@@ -136,5 +138,5 @@ async def native_graph_context(config):
         # These tools describe a human decision; even an older binding cannot skip its form.
         interrupt_on={**resolved['interruptOn'], **{tool.name:True for tool in interactions}}
         graph=await asyncio.to_thread(create_native_graph,model,sandbox=adapter,pinned_skills=pins,
-            system_prompt=input_prompt, inputs=resolved.get('inputs', []), tools=[tool for tool in [*interactions, artifact_download_tool(), run_status_tool(), run_cancel_tool(), artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])] if tool.name in interrupt_on],tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
+            binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []), tools=[tool for tool in [*interactions, artifact_download_tool(), run_status_tool(), run_cancel_tool(), artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])] if tool.name in interrupt_on],tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
         yield graph.with_config({'callbacks':callbacks})

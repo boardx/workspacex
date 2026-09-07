@@ -88,7 +88,15 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
  async resolve(bindingId:string,context:ExecutionAuthorityContext){return this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
   const row=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 AND id=$3',[context.orgId,context.parentRunId,bindingId])).rows[0];
   if(!row||row.status!=='ready'||Number(row.expires_at)<=Date.now())throw new Error('native_session_binding_unavailable');
-  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest,inputs:NativeInputManifest.parse(row.input_manifest),...(this.mcp?{mcpSnapshot:await this.mcp.resolve(context)}:{})});
+  const pinnedInputs=NativeInputManifest.parse(row.input_manifest);
+  if(pinnedInputs.length){
+   if(!this.inputs)throw new Error('native_input_provider_unavailable');
+   // Reuse current source visibility and byte verification before permitting any
+   // access to the session, including cached derivatives reached by execute.
+   const current=NativeInputManifest.parse((await this.inputs.read(context)).manifest);
+   if(pinnedInputs.some(file=>JSON.stringify(current.find(candidate=>candidate.path===file.path))!==JSON.stringify(file)))throw new Error('native_input_changed');
+  }
+  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest,inputs:pinnedInputs,...(this.mcp?{mcpSnapshot:await this.mcp.resolve(context)}:{})});
  }));}
  async releaseForRun(orgId:ExecutionAuthorityContext['orgId'],runId:string){
   const id=await this.db.withTenant(orgId,async s=>(await s.query<{id:string}>('SELECT id FROM native_session_bindings WHERE org_id=$1 AND run_id=$2',[orgId,runId])).rows[0]?.id);

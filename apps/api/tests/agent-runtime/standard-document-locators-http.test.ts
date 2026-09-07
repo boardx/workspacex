@@ -34,6 +34,8 @@ const envNames=['NATIVE_SESSION_SOCKET','NATIVE_SESSION_BINDING_KEY','DEEP_AGENT
 const previous=Object.fromEntries(envNames.map(k=>[k,process.env[k]]));
 let app:NestExpressApplication,db:DatabasePort,owner:NativeSessionOwner,relay:Server,root:string,base:string,socket:string,bindingId:string;
 let inputs:Awaited<ReturnType<NativeSessionOwner['resolve']>>['inputs']=[];
+let cachedPath='',pinnedPackage:Parameters<NativeSessionOwner['provision']>[1]=[];
+const executedCommands:string[]=[];
 let executionCount=0,afterExecution:(()=>Promise<void>)|undefined;
 const hash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 function relayProcess(container:string,code:string,input:string):Promise<string>{return new Promise((resolveResult,reject)=>{
@@ -50,7 +52,7 @@ beforeAll(async()=>{
  const code=fixture.split('_UDS_RELAY = r"""')[1]?.split('"""')[0];if(!code)throw new Error('relay missing');
  relay=createServer(async(req,res)=>{try{let body='';for await(const chunk of req)body+=chunk;
   const output=JSON.parse(await relayProcess(container,code,JSON.stringify({method:req.method,path:req.url,headers:req.headers,body}))) as {status:number;body:string};
-  if(req.method==='POST'&&req.url?.endsWith('/executions')){executionCount++;const hook=afterExecution;afterExecution=undefined;if(hook)await hook();}
+  if(req.method==='POST'&&req.url?.endsWith('/executions')){executionCount++;executedCommands.push(String((JSON.parse(body) as {command:string}).command));const hook=afterExecution;afterExecution=undefined;if(hook)await hook();}
   res.writeHead(output.status,{'content-type':'application/json'});res.end(output.body);
  }catch{res.writeHead(503);res.end('{}');}});await new Promise<void>(done=>relay.listen(socket,done));
  process.env.NATIVE_SESSION_SOCKET=socket;process.env.NATIVE_SESSION_BINDING_KEY='d'.repeat(64);process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='w08-http-key';process.env.WORKSPACEX_OBJECT_ROOT=root;process.env.KERNEL_QUIET='1';
@@ -68,7 +70,8 @@ beforeAll(async()=>{
  const objects=app.get<ObjectStore>(OBJECT_STORE),deps={repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}};
  for(const [,filename,mime] of originals){const bytes=await readFile(join(workspace,'apps/skill-sandbox/tests/fixtures/document-structure',filename));const uploaded=await uploadAttachment(deps,{orgId:org,userId:'actor',threadId:thread,filename,mime,bytes});await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,run+'-input']));}
  const content=Buffer.from('---\nname: w08-fixture\ndescription: Read supplied documents.\n---\nUse wx_document_parse.\n');
- const ref=await owner.provision(context,[{stableName:'w08-fixture',package:{skillId:'w08-fixture',versionId:'v1',files:[{path:'SKILL.md',mediaType:'text/markdown',contentBase64:content.toString('base64'),digest:hash(content)}]}}],{wx_document_parse:true});bindingId=ref.bindingId;inputs=(await owner.resolve(bindingId,context)).inputs;
+ pinnedPackage=[{stableName:'w08-fixture',package:{skillId:'w08-fixture',versionId:'v1',files:[{path:'SKILL.md',mediaType:'text/markdown',contentBase64:content.toString('base64'),digest:hash(content)}]}}];
+ const ref=await owner.provision(context,pinnedPackage,{wx_document_parse:true,read_file:false,execute:false});bindingId=ref.bindingId;inputs=(await owner.resolve(bindingId,context)).inputs;
 },60000);
 afterAll(async()=>{afterExecution=undefined;if(bindingId)await owner.release(bindingId,org,run);await app?.close();if(relay)await new Promise<void>((done,reject)=>relay.close(error=>error?reject(error):done()));await resetOrgs(org);if(root)await rm(root,{recursive:true,force:true});for(const k of envNames){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}},30000);
 it('production authority rejects missing grants, stale lease and forged source before execution',async()=>{
@@ -84,7 +87,7 @@ for(const [format,filename] of originals)it(`production HTTP parses actual ${for
  const text=Buffer.from(textFile.contentBase64,'base64'),structureBytes=Buffer.from(structureFile.contentBase64,'base64');
  expect(hash(text)).toBe(result.textHash);expect(text.length).toBeGreaterThan(10);expect(hash(structureBytes)).toBe(result.structureHash);expect(hash(Buffer.from(original.contentBase64,'base64'))).toBe(source.digest);expect(result.sourceHash).toBe(source.digest);
  const structure=DocumentStructure.parse(JSON.parse(structureBytes.toString()));if(!('chunks' in structure))throw new Error('wrong structure format');expect(structure.sourceFormat).toBe(format);
- if(format==='pdf'){expect(structure.tables?.map(t=>t.pageNumber)).toEqual([1,2]);expect(structure.tables?.[0]?.tableId).toBe(structure.tables?.[1]?.tableId);expect(structure.tables?.[1]?.continuationDetection).toBe('repeated_header_and_columns');expect(structure.chunks).toContainEqual(expect.objectContaining({text:'450',locator:expect.objectContaining({pageNumber:2})}));}
+ if(format==='pdf'){cachedPath=result.textPath;expect(structure.tables?.map(t=>t.pageNumber)).toEqual([1,2]);expect(structure.tables?.[0]?.tableId).toBe(structure.tables?.[1]?.tableId);expect(structure.tables?.[1]?.continuationDetection).toBe('repeated_header_and_columns');expect(structure.chunks).toContainEqual(expect.objectContaining({text:'450',locator:expect.objectContaining({pageNumber:2})}));}
  if(format==='docx'){expect(structure.chunks).toContainEqual(expect.objectContaining({type:'docx_table_cell',text:'120',locator:{tableIndex:0,rowIndex:1,columnIndex:1}}));expect(result.warnings).toContain('docx_page_numbers_unavailable');}
  if(format==='pptx')expect(structure.chunks).toContainEqual(expect.objectContaining({type:'pptx_table_cell',text:'120',locator:expect.objectContaining({slideNumber:2})}));
  if(format==='xlsx'){expect(structure.chunks).toContainEqual(expect.objectContaining({text:'=B2*2',locator:expect.objectContaining({address:'C2'})}));expect(structure.chunks).toContainEqual(expect.objectContaining({locator:expect.objectContaining({address:'A4',mergedRange:'A4:B4'})}));}
@@ -93,4 +96,26 @@ it('revocation after actual sandbox parsing prevents returning text or structure
  const before=executionCount;afterExecution=async()=>{await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'intruder']));};
  try{const response=await invoke(inputs[0]!.path);expect(response.status).toBe(503);expect(executionCount).toBe(before+1);const error=await response.text();expect(error).not.toContain('/workspace/');expect(error).not.toContain('structurePath');}
  finally{await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));}
+},120000);
+
+it('production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding',async()=>{
+ expect(cachedPath).toMatch(/^\/workspace\/parsed-/);
+ await app.get<ToolPermissionGrantStore>(TOOL_PERMISSION_GRANT_STORE).grantForRun(org,run,'execute');
+ const config={configurable:{native_runtime:{bindingId,profile:'native-v1',policy:'native-v1'},org_skills:pinnedPackage.map(pin=>({stable_name:pin.stableName,package:pin.package})),disable_task_auto_classify:true,run_control_callback:{base_url:base,key:'w08-http-key',org_id:org,run_id:run,attempt_id:context.attemptId,lease_epoch:1}},cachedPath};
+ const initialSession=(await owner.resolve(bindingId,context)).sessionId;
+ let ready=false,denied=false,restored=false,before=0;
+ try{
+  await new Promise<void>((done,reject)=>{
+   const child=spawn(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_cached_source_revocation_runner.py')],{env:{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:'w08-http-key'},stdio:['pipe','pipe','pipe']});
+   const timer=setTimeout(()=>child.kill('SIGKILL'),90000);let pending='',error='';let work=Promise.resolve();
+   child.stdout.on('data',(chunk:Buffer)=>{pending+=chunk.toString();let newline:number;while((newline=pending.indexOf('\n'))>=0){const line=pending.slice(0,newline).trim();pending=pending.slice(newline+1);work=work.then(async()=>{
+    if(line==='READY'){ready=true;before=executionCount;await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'intruder']));child.stdin.write('REVOKED\n');}
+    if(line==='DENIED'){denied=true;const discovery=executedCommands.slice(before);console.info('revoked fixture commands',JSON.stringify(discovery));expect(discovery).toHaveLength(2);expect(discovery.every(command=>command.includes("base64.b64decode('L3NraWxscy8=')")&&command.includes('with os.scandir(path)')&&!command.includes(cachedPath)&&!command.includes('cat '))).toBe(true);await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));child.stdin.write('RESTORED\n');}
+    if(line==='RESTORED_READ_AND_EXECUTE_VERIFIED')restored=true;
+   }).catch(cause=>{child.kill('SIGKILL');reject(cause);});}});
+   child.stderr.on('data',(chunk:Buffer)=>{if(error.length<12000)error+=chunk.toString();});
+   child.on('error',reject);child.on('close',code=>{clearTimeout(timer);void work.then(()=>code===0?done():reject(new Error('Python binding verification failed: '+error)));});child.stdin.write(JSON.stringify(config)+'\n');
+  });
+  expect({ready,denied,restored}).toEqual({ready:true,denied:true,restored:true});expect((await owner.resolve(bindingId,context)).sessionId).toBe(initialSession);
+ }finally{await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));}
 },120000);

@@ -1,0 +1,64 @@
+[stack-admission] load1=2.35 cores=10 perCore=0.23 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqxu78k-6f29e31b-b299a8a65806 db=wsx_b299a8a658063b7557d6 compose=wsx-b299a8a658063b7557d6 pg=24630 redis=29630 sandbox=54630
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_b299a8a658063b7557d6 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/native-session-owner-real-db.test.ts (14 tests | 1 failed | 13 skipped) 3014ms
+   × real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources 163ms
+     → promise resolved "{ …(6) }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/native-session-owner-real-db.test.ts > real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources
+AssertionError: promise resolved "{ …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "expiresAt": 1788767320599,
++   "inputs": Array [
++     Object {
++       "attachmentId": "attachment-09960dda-d07a-450e-8aae-2ce18187ad33",
++       "digest": "8550dc351654b0dea8b333f7554b549bab3b181003e7195cdb5f52b70ccaee90",
++       "filename": "../../原始.csv",
++       "mediaType": "text/csv",
++       "path": "/inputs/89222fff5ef99f11e251a610c18cef2e7ebc759f34382989fd2db2957592a3f2/__..___.csv",
++       "sizeBytes": 18,
++     },
++   ],
++   "interruptOn": Object {},
++   "packageDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
++   "sessionId": "45d0c9cb-7408-448d-83ac-0e69f22accbc",
++   "token": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++ }
+
+ ❯ tests/agent-runtime/native-session-owner-real-db.test.ts:69:50
+     67|   await asApp(scope,c=>c.query('DELETE FROM org_memberships WHERE org_…
+     68|   await expect(owner().provision(ctx,[],{})).rejects.toThrow('scope_de…
+     69|   await expect(owner().resolve(ref.bindingId,ctx)).rejects.toThrow('sc…
+       |                                                  ^
+     70|   await addOrgMember(scope,'actor','consultant',null);
+     71|   await asApp(scope,c=>c.query('UPDATE chat_threads SET created_by=$3 …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  15:47:35
+   Duration  5.54s (transform 326ms, setup 0ms, collect 427ms, tests 3.01s, environment 0ms, prepare 26ms)
+
+[db-isolation] db=wsx_b299a8a658063b7557d6 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/native-session-owner-real-db.test.ts -t real attachment bytes
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-session-owner-real-db.test.ts -t real attachment bytes
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：1s
+  总计：6s

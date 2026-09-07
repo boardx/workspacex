@@ -66,16 +66,22 @@ it('real attachment bytes are scoped, immutable on resume and fail closed on una
   expect(await owner().provision(ctx,[],{})).toEqual(ref);expect(created).toBe(1);
   await asApp(scope,c=>c.query('DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2',[scope,'actor']));
   await expect(owner().provision(ctx,[],{})).rejects.toThrow('scope_denied');
+  await expect(owner().resolve(ref.bindingId,ctx)).rejects.toThrow('scope_denied');
   await addOrgMember(scope,'actor','consultant',null);
   await asApp(scope,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[scope,`thread-${scope}`,'intruder']));
   await expect(owner().provision(ctx,[],{})).rejects.toThrow('scope_denied');
+  await expect(owner().resolve(ref.bindingId,ctx)).rejects.toThrow('scope_denied');
   await asApp(scope,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[scope,`thread-${scope}`,'actor']));
   await expect(owner().provision({...ctx,orgId:toOrgId('other-org')},[],{})).rejects.toThrow('denied');
   await expect(reader.read({...ctx,parentRunId:'other-run'})).rejects.toThrow('scope');
   await writeFile(resolveObjectPath(root,'original.csv'),Buffer.alloc(source.length,120));
   await expect(owner().provision(ctx,[],{})).rejects.toThrow('existing_binding_unavailable');expect(created).toBe(1);
-  // Existing session returns its original verified snapshot; it never remounts modified source bytes.
+  // Pins remain immutable, but revoked/changed originals no longer authorize cached access.
+  await expect(owner().resolve(ref.bindingId,ctx)).rejects.toThrow('input_changed');
+  await writeFile(resolveObjectPath(root,'original.csv'),source);
   expect((await owner().resolve(ref.bindingId,ctx)).inputs).toEqual(resolved.inputs);
+  await expect(new PgNativeSessionOwner(db,new PgParentRunControlReader(db),transport,'b'.repeat(64)).resolve(ref.bindingId,ctx)).rejects.toThrow('input_provider_unavailable');
+  expect(created).toBe(1);
   await rm(resolveObjectPath(root,'original.csv'));
   await expect(owner().provision(ctx,[],{})).rejects.toThrow('bytes_unavailable');
   await asApp(scope,c=>c.query('UPDATE chat_message_attachments SET bytes=8388609 WHERE org_id=$1 AND id=$2',[scope,id]));

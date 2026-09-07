@@ -1,0 +1,56 @@
+[stack-admission] load1=2.91 cores=10 perCore=0.29 running=0/2
+[test-isolation] id=run-mtqy4uhm-7c16c082-0f333251e5b4 db=wsx_0f333251e5b4ee15e561 compose=wsx-0f333251e5b4ee15e561 pg=23457 redis=28457 sandbox=53457
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_0f333251e5b4ee15e561 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"2a4bed72-2444-4571-94e3-ea6220f36ca3","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"54aa534c-f799-4cb9-a752-09ee47bba882","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"62cae967-108b-4f03-833e-c27da7c21bbd","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"867b232d-e9d2-4624-84ff-49fd38f9437b","detail":{"name":"ServiceUnavailableException","message":"document_parse_failed_no_result_confirmed","stack":"ServiceUnavailableException: document_parse_failed_no_result_confirmed\n    at StandardDocumentToolsController.parse (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-document-tools.controller.ts:19:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"7bab5bff-f833-48a5-a74e-0c3e531ef1a5","detail":{"name":"ServiceUnavailableException","message":"native_session_unavailable","stack":"ServiceUnavailableException: native_session_unavailable\n    at NativeSessionController.resolve (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/native-session.controller.ts:18:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"54adc5bd-dc35-4819-b021-97fbdcbfa940","detail":{"name":"ServiceUnavailableException","message":"native_session_unavailable","stack":"ServiceUnavailableException: native_session_unavailable\n    at NativeSessionController.resolve (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/native-session.controller.ts:18:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+stdout | tests/agent-runtime/standard-document-locators-http.test.ts > production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding
+revoked fixture commands ["python3 -c \"\nimport os\nimport json\nimport base64\n\npath = base64.b64decode('L3NraWxscy8=').decode('utf-8')\n\ntry:\n    with os.scandir(path) as it:\n        for entry in it:\n            result = {\n                'path': os.path.join(path, entry.name),\n                'is_dir': entry.is_dir(follow_symlinks=False)\n            }\n            print(json.dumps(result))\nexcept FileNotFoundError:\n    print(json.dumps({'error': 'path_not_found'}))\nexcept NotADirectoryError:\n    print(json.dumps({'error': 'not_a_directory'}))\nexcept PermissionError:\n    print(json.dumps({'error': 'permission_denied'}))\n\" 2>/dev/null","python3 -c \"\nimport os\nimport json\nimport base64\n\npath = base64.b64decode('L3NraWxscy8=').decode('utf-8')\n\ntry:\n    with os.scandir(path) as it:\n        for entry in it:\n            result = {\n                'path': os.path.join(path, entry.name),\n                'is_dir': entry.is_dir(follow_symlinks=False)\n            }\n            print(json.dumps(result))\nexcept FileNotFoundError:\n    print(json.dumps({'error': 'path_not_found'}))\nexcept NotADirectoryError:\n    print(json.dumps({'error': 'not_a_directory'}))\nexcept PermissionError:\n    print(json.dumps({'error': 'permission_denied'}))\n\" 2>/dev/null"]
+
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts (7 tests | 1 failed) 11201ms
+   ✓ production HTTP parses actual pdf bytes into AnyDoc text and native locators 696ms
+   ✓ production HTTP parses actual docx bytes into AnyDoc text and native locators 633ms
+   ✓ production HTTP parses actual pptx bytes into AnyDoc text and native locators 652ms
+   ✓ production HTTP parses actual xlsx bytes into AnyDoc text and native locators 814ms
+   ✓ revocation after actual sandbox parsing prevents returning text or structure references 416ms
+   × production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding 2078ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-document-locators-http.test.ts > production Python graph refuses cached read/execute after real source revocation and resumes the same restored binding
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/agent-runtime/standard-document-locators-http.test.ts:113:244
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  15:55:51
+   Duration  13.67s (transform 1.67s, setup 0ms, collect 415ms, tests 11.20s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_0f333251e5b4ee15e561 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-document-locators-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：1s
+  总计：15s
