@@ -99,9 +99,12 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       ...(patch.problem !== undefined ? { problem: patch.problem } : {}),
       ...(patch.criteria !== undefined ? { criteria: [...patch.criteria] } : {}),
       ...(patch.frames !== undefined ? { frames: [...patch.frames] } : {}),
-      // 同 pg 仓储：只改 frames 不给 prototype ⇒ 清空；给了 ⇒ 替换。
-      ...(patch.prototype !== undefined ? { prototype: [...patch.prototype] } : patch.frames !== undefined ? { prototype: [] } : {}),
-      ...(patch.frameNotes !== undefined ? { frameNotes: [...patch.frameNotes] } : patch.frames !== undefined ? { frameNotes: [] } : {}),
+      // 同 pg 仓储：给了 prototype ⇒ 替换；只改 frames ⇒ **等长就保留**（纯改标签不该毁掉
+      // 画好的原型，2026-09-07 用户实测的数据丢失），长度对不上才清（按位置对应已不成立）。
+      ...(patch.prototype !== undefined ? { prototype: [...patch.prototype] }
+        : patch.frames !== undefined && patch.frames.length !== r.prototype.length ? { prototype: [] } : {}),
+      ...(patch.frameNotes !== undefined ? { frameNotes: [...patch.frameNotes] }
+        : patch.frames !== undefined && patch.frames.length !== r.frameNotes.length ? { frameNotes: [] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);

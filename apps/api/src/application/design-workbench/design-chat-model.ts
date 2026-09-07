@@ -114,7 +114,7 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
     "首次生成先给 1–3 页最核心的（页越多越容易超时，用户想要更多页会再让你加），已有原型的整页重画则保持原有页数，上限 20 页；" +
   "notes 是给工程看的这页交互说明（做什么、主要交互、空态/加载/错误），一到三句。" +
   "已有原型且只是局部改动（改文案/加删一块/调属性）时**不要**给 prototype，用 writeback.patch（见下）。" +
-  "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
+  "**只改页面标签、页数不变**时才用 writeback.frames（完整标签列表）；增页/删页必须整页给 prototype（它自带标签）——只给 frames 会让页数与组件树对不上，那次写回会被服务端拒绝。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
   DESIGN_PRINCIPLES + DESIGN_FEW_SHOT +
