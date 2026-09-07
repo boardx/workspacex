@@ -433,6 +433,9 @@ export function DesignDetailScreen({
                     key={f}
                     type="button"
                     onClick={() => setFrame(i)}
+                    // 迭代 11：这排页签是一组互斥的"当前页"选择，读屏得知道哪一个是选中的
+                    // （同顶栏视图/模式切换的既有做法）。e2e 也据此断言预览模式真的换了页。
+                    aria-pressed={frame === i}
                     data-testid={`design-detail-frame-${i}`}
                     className={cn(
                       "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
