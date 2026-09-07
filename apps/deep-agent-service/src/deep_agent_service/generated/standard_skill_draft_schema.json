@@ -1,0 +1,355 @@
+{
+  "toolName": "wx_skill_create_draft",
+  "limits": {
+    "maxFiles": 256,
+    "maxBytes": 8388608,
+    "responseBytes": 32768
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "stableName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[a-z0-9][a-z0-9-]*$"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "semanticVersion": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+$"
+      },
+      "files": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "workspacePath": {
+              "type": "string",
+              "pattern": "^\\/\\workspace\\/",
+              "maxLength": 4096
+            },
+            "packagePath": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^(?!\\/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)(?!.*\\/$).+$"
+            }
+          },
+          "required": [
+            "workspacePath",
+            "packagePath"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 1,
+        "maxItems": 256
+      },
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": {}
+      },
+      "outputSchema": {
+        "type": "object",
+        "additionalProperties": {}
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "runtime": {
+              "type": "string",
+              "enum": [
+                "node",
+                "python"
+              ]
+            },
+            "packages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 128
+            }
+          },
+          "required": [
+            "runtime",
+            "packages"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 2
+      }
+    },
+    "required": [
+      "stableName",
+      "name",
+      "description",
+      "semanticVersion",
+      "files",
+      "inputSchema",
+      "outputSchema",
+      "dependencies"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_skill_create_draft"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "stableName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "semanticVersion": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "workspacePath": {
+                  "type": "string",
+                  "pattern": "^\\/\\workspace\\/",
+                  "maxLength": 4096
+                },
+                "packagePath": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "pattern": "^(?!\\/)(?!.*[\\\\:\\u0000-\\u001f\\u007f])(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)(?!.*\\/$).+$"
+                }
+              },
+              "required": [
+                "workspacePath",
+                "packagePath"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 256
+          },
+          "inputSchema": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "outputSchema": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runtime": {
+                  "type": "string",
+                  "enum": [
+                    "node",
+                    "python"
+                  ]
+                },
+                "packages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 128
+                }
+              },
+              "required": [
+                "runtime",
+                "packages"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 2
+          }
+        },
+        "required": [
+          "stableName",
+          "name",
+          "description",
+          "semanticVersion",
+          "files",
+          "inputSchema",
+          "outputSchema",
+          "dependencies"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "bindingId",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "const": "artifact_draft"
+      },
+      "workspacePath": {
+        "type": "string",
+        "pattern": "^\\/workspace\\/skill-draft-[a-f0-9]{64}\\.json$"
+      },
+      "packId": {
+        "type": "string"
+      },
+      "packVersion": {
+        "type": "string"
+      },
+      "packDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "fileDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "validationReport": {
+        "type": "object",
+        "properties": {
+          "packageIntegrity": {
+            "type": "string",
+            "const": "verified"
+          },
+          "fileCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "dependencyExecution": {
+            "type": "string",
+            "const": "not_verified"
+          },
+          "fixtureExecution": {
+            "type": "string",
+            "const": "not_run"
+          },
+          "publication": {
+            "type": "string",
+            "const": "admin_import_required"
+          }
+        },
+        "required": [
+          "packageIntegrity",
+          "fileCount",
+          "dependencyExecution",
+          "fixtureExecution",
+          "publication"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "status",
+      "workspacePath",
+      "packId",
+      "packVersion",
+      "packDigest",
+      "fileDigest",
+      "validationReport"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

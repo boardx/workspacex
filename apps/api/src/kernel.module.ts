@@ -1,3 +1,8 @@
+import { SKILL_DRAFT_SERVICE, DefaultSkillDraftService } from "./application/agent-run/skill-draft";
+import { createNativeDraftSession } from "./infrastructure/agent-run/native-draft-session";
+import { SkillDraftController } from "./interface/controllers/skill-draft.controller";
+import { SkillArtifactImportController } from "./interface/controllers/skill-artifact-import.controller";
+import { SKILL_ARTIFACT_IMPORT_DEPS } from "./application/skill-import/import-skill-artifact";
 import { MCP_EXECUTION_SNAPSHOT, type McpExecutionSnapshot } from "./application/agent-run/mcp-execution-snapshot";
 import { PgMcpExecutionSnapshot } from "./infrastructure/mcp/pg-mcp-execution-snapshot";
 import { createHttpMcpExecution } from "./infrastructure/mcp/http-mcp-execution";
@@ -907,7 +912,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1797,6 +1802,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: STANDARD_WEB_SERVICE,
       useFactory: createStandardWebService,
+    },
+    {
+      provide: SKILL_DRAFT_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, objects: ObjectStore) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        return owner && socketPath ? new DefaultSkillDraftService(owner,
+          bound => createNativeDraftSession({socketPath,...bound}), authority, objects) : null;
+      },
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE],
+    },
+    {
+      provide: SKILL_ARTIFACT_IMPORT_DEPS,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) =>
+        ({artifacts:new PgArtifactStore(db),repo,ids,chat,objects,identities:repo,imports:new PgSkillStarterImportRepository(db)}),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE],
     },
     {
       provide: MCP_EXECUTION_SNAPSHOT,

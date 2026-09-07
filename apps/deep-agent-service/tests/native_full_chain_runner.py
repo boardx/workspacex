@@ -20,11 +20,15 @@ class InputAwareModel(ScriptedModel):
   if messages[-1].type=='tool' and messages[-1].name=='wx_document_parse':
    parsed=json.loads(messages[-1].content)
    return ChatResult(generations=[ChatGeneration(message=AIMessage(content='',tool_calls=[{'id':'read-parsed-document','name':'read_file','args':{'file_path':parsed['textPath']}}]))])
+  if messages[-1].type=='tool' and messages[-1].name=='wx_skill_create_draft':
+   draft=json.loads(messages[-1].content)
+   return ChatResult(generations=[ChatGeneration(message=AIMessage(content='',tool_calls=[{'id':'publish-draft','name':'wx_artifact_publish','args':{'workspacePath':draft['workspacePath'],'title':'draft.json','mediaType':'application/json','idempotencyKey':'draft-v1'}}]))])
   return super()._generate(messages,*args,**kwargs)
 model=InputAwareModel(messages=iter([
  AIMessage(content='',tool_calls=[{'id':'read-skill','name':'read_file','args':{'file_path':'/skills/example/SKILL.md'}}]),
  AIMessage(content='',tool_calls=[{'id':'parse-original','name':'wx_document_parse','args':{'workspacePath':next(p for p in expected_paths if p.endswith('.docx')),'outputMode':'markdown','ocr':False}}]),
  AIMessage(content='',tool_calls=[{'id':'execute-report','name':'execute','args':{'command':'python3 /skills/example/scripts/report.py'}}]),
+ AIMessage(content='',tool_calls=[{'id':'create-draft','name':'wx_skill_create_draft','args':{'stableName':'generated-example','name':'Generated example','description':'Use a script to print verified output.','semanticVersion':'1.0.0','files':[{'workspacePath':'/workspace/draft-SKILL.md','packagePath':'SKILL.md'},{'workspacePath':'/workspace/draft-script.py','packagePath':'scripts/report.py'}],'inputSchema':{},'outputSchema':{},'dependencies':[{'runtime':'python','packages':[]}]}}]),
  AIMessage(content='',tool_calls=[{'id':'publish-report','name':'wx_artifact_publish','args':{'workspacePath':'/workspace/report.txt','title':'report.txt','mediaType':'text/plain','idempotencyKey':'report-v1'}}]),
  AIMessage(content='',tool_calls=[{'id':'search-source','name':'web_search','args':{'query':'Evidence source 中文','limit':1}}]),
  AIMessage(content='',tool_calls=[{'id':'fetch-source','name':'fetch_url','args':{'url':os.environ['WX_WEB_TEST_URL']}}]),
@@ -47,5 +51,8 @@ async def run():
  document=json.loads(next(m.content for m in messages if m.type=='tool' and m.name=='wx_document_parse'))
  document_parsed=any(m.type=='tool' and m.name=='read_file' and '原始文档保持不变' in str(m.content) for m in messages)
  assert document_parsed
- print(json.dumps({'documentParsed':document_parsed,'document':document,'inputsVerified':inputs_verified,'inputPromptVerified':seen_input_prompt,'webSourceLinked':linked,'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
+ draft=json.loads(next(m.content for m in messages if m.type=='tool' and m.name=='wx_skill_create_draft'))
+ fixture_verified=any(m.type=='tool' and m.name=='execute' and 'DRAFT_FIXTURE_VERIFIED' in str(m.content) for m in messages)
+ assert fixture_verified
+ print(json.dumps({'draftFixtureVerified':fixture_verified,'draft':draft,'documentParsed':document_parsed,'document':document,'inputsVerified':inputs_verified,'inputPromptVerified':seen_input_prompt,'webSourceLinked':linked,'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
 asyncio.run(run())

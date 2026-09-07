@@ -1,3 +1,10 @@
+import {DefaultSkillDraftService,SKILL_DRAFT_SERVICE} from '../../src/application/agent-run/skill-draft';
+import {createNativeDraftSession} from '../../src/infrastructure/agent-run/native-draft-session';
+import {SkillDraftController} from '../../src/interface/controllers/skill-draft.controller';
+import {SkillArtifactImportController} from '../../src/interface/controllers/skill-artifact-import.controller';
+import {SKILL_ARTIFACT_IMPORT_DEPS} from '../../src/application/skill-import/import-skill-artifact';
+import {PgArtifactStore} from '../../src/infrastructure/artifacts-steering/pg-artifact-store';
+import {PgSkillStarterImportRepository} from '../../src/infrastructure/skill/pg-skill-starter-import-repository';
 import 'reflect-metadata';
 import {NestFactory} from '@nestjs/core';
 import {Module} from '@nestjs/common';
@@ -100,7 +107,7 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const repo=new PgAgentRunRepository(db),grants=new PgToolPermissionGrantRepository(db);
  const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),repo,grants);
  const staging=new PgNativeOutputStaging(db,owner,objects,authority,bound=>createNativeSessionFiles({socketPath:socket,...bound}));
- const script="from pathlib import Path\nimport csv,zipfile,hashlib\nfiles=list(Path('/inputs').glob('*/*'))\nassert len(files)==3\nbefore={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nfor p in files:\n try: p.write_bytes(b'bad'); raise AssertionError('writable original')\n except OSError: pass\n try: p.unlink(); raise AssertionError('deletable original')\n except OSError: pass\n Path('/workspace',p.name).write_bytes(p.read_bytes())\nwith zipfile.ZipFile(next(p for p in files if p.suffix=='.docx')) as z: assert '原始文档保持不变' in z.read('word/document.xml').decode()\nwith open(next(p for p in files if p.suffix=='.csv')) as f: assert sum(int(r['value']) for r in csv.DictReader(f))==50\nassert before=={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nprint('UPLOADED_INPUTS_VERIFIED')\nPath('/workspace/report.txt').write_text('真实跨语言产物 UTF8',encoding='utf-8')\n";
+ const script="from pathlib import Path\nimport csv,zipfile,hashlib,subprocess\nfiles=list(Path('/inputs').glob('*/*'))\nassert len(files)==3\nbefore={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nfor p in files:\n try: p.write_bytes(b'bad'); raise AssertionError('writable original')\n except OSError: pass\n try: p.unlink(); raise AssertionError('deletable original')\n except OSError: pass\n Path('/workspace',p.name).write_bytes(p.read_bytes())\nwith zipfile.ZipFile(next(p for p in files if p.suffix=='.docx')) as z: assert '原始文档保持不变' in z.read('word/document.xml').decode()\nwith open(next(p for p in files if p.suffix=='.csv')) as f: assert sum(int(r['value']) for r in csv.DictReader(f))==50\nassert before=={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nprint('UPLOADED_INPUTS_VERIFIED')\nPath('/workspace/report.txt').write_text('真实跨语言产物 UTF8',encoding='utf-8')\nPath('/workspace/draft-SKILL.md').write_text('---\\nname: generated-example\\ndescription: Print verified output.\\n---\\nRun scripts/report.py.\\n')\nPath('/workspace/draft-script.py').write_text('print(42)\\n')\nassert subprocess.run(['python3','/workspace/draft-script.py'],check=True,capture_output=True,text=True,timeout=5).stdout.strip()=='42'\nprint('DRAFT_FIXTURE_VERIFIED')\n";
  const contents=[{path:'SKILL.md',text:'---\nname: example\ndescription: Generate a UTF8 report.\n---\nRun /skills/example/scripts/report.py then publish /workspace/report.txt.\n',mediaType:'text/markdown'},{path:'scripts/report.py',text:script,mediaType:'text/x-python'}];
  const pack={skillId:'s1',versionId:'v1',files:contents.map(f=>({path:f.path,mediaType:f.mediaType,contentBase64:Buffer.from(f.text).toString('base64'),digest:createHash('sha256').update(f.text).digest('hex')}))};
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};
@@ -108,14 +115,14 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const oldKey=process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='native-chain-service-key';
  try{
   expect(await authority.check({...ctx,toolName:'execute'})).toEqual({allowed:false,reason:'approval_required'});
-  for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url'])await grants.grantForRun(org,parent,tool);
+  for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url','wx_skill_create_draft'])await grants.grantForRun(org,parent,tool);
   const {Document,Packer,Paragraph}=createRequire(join(workspace,'apps/skill-sandbox/package.json'))('docx');
   const originals=[{filename:'original.docx',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',bytes:await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('原始文档保持不变')]}]}))},{filename:'original.csv',mime:'text/csv',bytes:Buffer.from('group,value\n甲,10\n乙,40\n')}];
   originals.push({filename:'scan.png',mime:'image/png',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/document-ocr/scan.png'))});
   const uploadDeps={repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}};
   for(const source of originals){const uploaded=await uploadAttachment(uploadDeps,{orgId:org,userId:'actor',threadId:`thread-${org}`,...source});
    await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));}
-  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false,wx_document_parse:false});provisioned=true;
+  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false,wx_document_parse:false,wx_skill_create_draft:false});provisioned=true;
   const originalInputs=(await owner.resolve(ref.bindingId,ctx)).inputs;expect(originalInputs).toHaveLength(3);
   let webUrl='';let webRequests=0;
   webServer=https.createServer(testTlsMaterial(),(req,res)=>{webRequests++;
@@ -126,12 +133,14 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   const webFetch=createStandardWebFetch({connectTimeoutMs:10000,extraTrustedCa:testTlsMaterial().cert,seams:{lookup,checkAddress:()=>{}}});
   const webService=new DefaultStandardWebService(new GoogleGuidedSearch(webFetch,webUrl+'/search'),webFetch);
   const documentService=new DefaultStandardDocumentService(owner,new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),bound=>createNativeDocumentSession({socketPath:socket,...bound}),authority);
-  class TestModule{};Module({controllers:[StandardDocumentToolsController,NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardWebToolsController],providers:[
-   {provide:STANDARD_DOCUMENT_SERVICE,useValue:documentService},
+  const draftService=new DefaultSkillDraftService(owner,bound=>createNativeDraftSession({socketPath:socket,...bound}),authority,objects);
+  const importDeps={artifacts:new PgArtifactStore(db),repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),objects,identities:new PgIdentityRepository(db),imports:new PgSkillStarterImportRepository(db)};
+  class TestModule{};Module({controllers:[SkillDraftController,SkillArtifactImportController,StandardDocumentToolsController,NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardWebToolsController],providers:[
+   {provide:SKILL_DRAFT_SERVICE,useValue:draftService},{provide:SKILL_ARTIFACT_IMPORT_DEPS,useValue:importDeps},{provide:STANDARD_DOCUMENT_SERVICE,useValue:documentService},
    {provide:STANDARD_WEB_SERVICE,useValue:webService},{provide:IDENTITY_REPOSITORY,useValue:new PgIdentityRepository(db)},
    {provide:NATIVE_SESSION_OWNER,useValue:owner},{provide:NATIVE_OUTPUT_STAGING,useValue:staging},{provide:TOOL_EXECUTION_AUTHORITY,useValue:authority},
    {provide:AGENT_RUN_STORE,useValue:repo},{provide:INTERJECTION_STORE,useValue:new PgInterjectionStore(db)},{provide:TOOL_PERMISSION_GRANT_STORE,useValue:grants}]})(TestModule);
-  app=await NestFactory.create(TestModule,{logger:false});await app.listen(0,'127.0.0.1');const base=await app.getUrl();
+  app=await NestFactory.create(TestModule,{logger:false});app.use((req:{headers:Record<string,string>;principal?:{orgId:typeof org;userId:string}},_res:unknown,next:()=>void)=>{if(req.headers['x-fixture-user'])req.principal={orgId:org,userId:req.headers['x-fixture-user']};next();});await app.listen(0,'127.0.0.1');const base=await app.getUrl();
   const denied=await fetch(`${base}/internal/agent-runs/${parent}/tool-execution/check`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY},body:JSON.stringify({orgId:org,attemptId:ctx.attemptId,leaseEpoch:2,toolName:'execute'})});expect(denied.status).toBe(200);expect((await denied.json() as {allowed:boolean}).allowed).toBe(false);
   const deniedWeb=await fetch(`${base}/internal/agent-runs/${parent}/standard-web/invoke`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY},body:JSON.stringify({orgId:org,attemptId:ctx.attemptId,leaseEpoch:2,toolCallId:'stale-web',toolName:'fetch_url',toolArgs:{url:webUrl+'/article'}})});expect(deniedWeb.status).toBe(403);expect(webRequests).toBe(0);
   const documentBody={orgId:org,attemptId:ctx.attemptId,leaseEpoch:1,bindingId:ref.bindingId,toolCallId:'parse-original',toolName:'wx_document_parse',toolArgs:{workspacePath:originalInputs.find(i=>i.path.endsWith('.docx'))!.path,outputMode:'markdown',ocr:false}};
@@ -148,17 +157,27 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,workspacePath:'/inputs/forged.docx'}})).status).toBe(503);
   const config={configurable:{native_runtime:ref,org_skills:[{stable_name:'example',package:pack}],disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
   const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),WX_WEB_TEST_URL:webUrl+'/article',WX_INPUT_PATHS:JSON.stringify(originalInputs.map(i=>i.path)),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
-  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(2);
+  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_skill_create_draft','wx_artifact_publish','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.draftFixtureVerified).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(2);
   const finalBinding=await owner.resolve(ref.bindingId,ctx);expect(finalBinding.inputs).toEqual(originalInputs);
   expect(report.documentParsed).toBe(true);const markdown=await createNativeSessionFiles({socketPath:socket,...finalBinding}).read(report.document.textPath) as {contentBase64:string};
   const parsedBytes=Buffer.from(markdown.contentBase64,'base64');expect(parsedBytes.toString('utf8')).toContain('原始文档保持不变');expect(createHash('sha256').update(parsedBytes).digest('hex')).toBe(report.document.textHash);
   expect(report.document.sourceHash).toBe(originalInputs.find(i=>i.path.endsWith('.docx'))!.digest);
-  const files=await staging.listFiles(org,parent);expect(files).toHaveLength(1);expect(Buffer.from((await objects.get(files[0]!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
+  const files=await staging.listFiles(org,parent);expect(files).toHaveLength(2);expect(Buffer.from((await objects.get(files.find(f=>f.name==='report.txt')!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;
   const write={runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files};
   await repo.commitWriteback(org,write);await repo.commitWriteback(org,write);
-  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(1);
-  const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(1);
+  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(2);
+  const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(2);
+  const draftVersion=await db.withTenant(org,s=>s.query('SELECT artifact_id,version FROM agent_artifact_versions WHERE org_id=$1 AND storage_key=$2',[org,files.find(f=>f.name==='draft.json')!.objectKey]));
+  const importBody={artifactId:draftVersion.rows[0]!.artifact_id,version:Number(draftVersion.rows[0]!.version),expectedDigest:report.draft.fileDigest,idempotencyKey:'draft-import'};
+  const importRequest=(user:string,body=importBody)=>fetch(`${base}/admin/skills/artifact-imports`,{method:'POST',headers:{'content-type':'application/json','x-fixture-user':user},body:JSON.stringify(body)});
+  expect((await importRequest('actor')).status).toBe(403);
+  await asApp(org,c=>c.query("UPDATE org_memberships SET org_role='admin' WHERE org_id=$1 AND user_id IN ('actor','intruder')",[org]));
+  expect((await importRequest('intruder')).status).toBe(404);
+  expect((await importRequest('actor',{...importBody,expectedDigest:'a'.repeat(64)})).status).toBe(422);
+  const imported=await importRequest('actor');expect(imported.status).toBe(201);const importedBody=await imported.json() as {versionIds:string[]};expect((await importRequest('actor')).status).toBe(200);
+  const stored=await db.withTenant(org,s=>s.query('SELECT path,content,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2',[org,importedBody.versionIds[0]]));expect(stored.rows).toHaveLength(2);
+  for(const file of stored.rows)expect(createHash('sha256').update(String(file.content)).digest('hex')).toBe(file.digest);
   console.log(JSON.stringify({chain:'native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback',...report,artifacts:versions.rows.length,attachments:attachments.rows.length}));
  }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{if(webServer){webServer.closeAllConnections();await new Promise<void>(resolve=>webServer!.close(()=>resolve()));}await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
 },120000);
