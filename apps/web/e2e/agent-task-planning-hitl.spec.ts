@@ -122,7 +122,9 @@ test("复杂任务把 write_todos 持久化为一份计划，完成后只保留�
 
   await trace.getByTestId("run-trace-toggle").click();
   await expect(trace.getByTestId("run-trace-entry").first()).toBeVisible();
+  await expect(page.getByTestId("copilotkit-v2-tool-write-todos")).toHaveCount(0);
   await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("copilotkit-v2-tool-write-todos")).toHaveCount(0);
   await expect(page.locator(`[data-testid="run-trace-panel"][data-run-id="${completed.runId}"]`)).toHaveCount(1);
   await expect(page.getByTestId("chat-task-workbench-plan-control")).toHaveCount(0);
 });

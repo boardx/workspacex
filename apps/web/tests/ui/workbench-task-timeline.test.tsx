@@ -49,4 +49,26 @@ describe("framework task timeline", () => {
     expect(screen.getByRole("button", { name: "确认任务" })).toBeVisible();
   });
 
+  it("keeps write_todos audit rows but never projects journal snapshots as duplicate plan cards", () => {
+    const planEvents: ExecutionEvent[] = [
+      { ...base, seq: 0, kind: "tool_start", toolCallId: "plan-1", toolName: "write_todos", args: { todos: [{ content: "旧计划", status: "pending" }] } },
+      { ...base, seq: 1, kind: "tool_end", toolCallId: "plan-1", toolName: "write_todos", result: "ok", ok: true },
+      { ...base, seq: 2, kind: "tool_start", toolCallId: "plan-2", toolName: "write_todos", args: { todos: [{ content: "新计划", status: "in_progress" }] } },
+      { ...base, seq: 3, kind: "tool_end", toolCallId: "plan-2", toolName: "write_todos", result: "ok", ok: true },
+      { ...base, seq: 4, kind: "tool_start", toolCallId: "search-1", toolName: "search_documents", args: { query: "资料" } },
+      { ...base, seq: 5, kind: "tool_end", toolCallId: "search-1", toolName: "search_documents", result: "找到资料", ok: true },
+    ];
+    render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2ToolRenderers />
+      <TaskTimeline messages={[{ id: "answer", role: "assistant", content: "处理中" }]}
+        messageRuns={{ answer: "run-a" }} events={{ "run-a": planEvents }} isRunning />
+    </CopilotKit>);
+
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    expect(screen.getAllByText("Tool · write_todos")).toHaveLength(2);
+    expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Tool · search_documents"));
+    expect(screen.getByTestId("copilotkit-v2-tool-search-documents")).toBeVisible();
+  });
+
 });
