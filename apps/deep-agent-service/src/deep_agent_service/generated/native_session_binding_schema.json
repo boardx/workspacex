@@ -1,4 +1,5 @@
 {
+  "maxResponseBytes": 2097152,
   "configurableKey": "native_runtime",
   "packageSetAlgorithm": "v1:json-sorted-ascii-stableName-skillId-versionId-packageDigest-tuples",
   "packageSetGolden": {
@@ -142,6 +143,75 @@
         },
         "maxItems": 256,
         "default": []
+      },
+      "mcpSnapshot": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "object",
+            "properties": {
+              "snapshotId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "snapshotId",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^mcp__[a-z0-9-]+__[a-z0-9_]+$",
+                  "maxLength": 64
+                },
+                "canonicalName": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 16000
+                },
+                "inputSchema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "schemaFingerprint": {
+                  "type": "string",
+                  "pattern": "^v2:[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "name",
+                "canonicalName",
+                "description",
+                "inputSchema",
+                "schemaFingerprint"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "ref",
+          "tools"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [

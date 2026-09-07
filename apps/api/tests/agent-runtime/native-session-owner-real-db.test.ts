@@ -168,3 +168,23 @@ it.each(['success','missing-stager','uncertain','paused','approval'])('native PG
  expect(releases).toEqual(mode==='success'||mode==='uncertain'?[[scope,run]]:[]);
  }finally{await resetOrgs(scope);}
 });
+
+it('projects the frozen MCP snapshot with mandatory interrupts and refuses an unavailable snapshot on resume',async()=>{
+ const scope=toOrgId('native-mcp-'+randomUUID()),run='mcp-'+randomUUID();await seed(scope,run);
+ try {
+  await asApp(scope,c=>c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '10 minutes' WHERE id=$1",[run]));
+  await asApp(scope,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),scope,run]));
+  const view={ref:{snapshotId:randomUUID(),digest:'c'.repeat(64)},tools:[{name:'mcp__reviewed__read',canonicalName:'mcp:reviewed.read',description:'fixed',inputSchema:{type:'object',properties:{}},schemaFingerprint:'v2:'+'d'.repeat(64)}]};
+  let created=0,available=true;
+  const mcp={capture:async()=>view,resolve:async()=>{if(!available)throw new Error('snapshot_unavailable');return view;}};
+  const owner=new PgNativeSessionOwner(db,new PgParentRunControlReader(db),{create:async()=>{created++;return {sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000};},destroy:async()=>{}},'b'.repeat(64),undefined,mcp);
+  const ctx={orgId:scope,parentRunId:run,attemptId:run+':0',leaseEpoch:1};
+  const binding=await owner.provision(ctx,[],{'mcp__reviewed__read':false});
+  const resolved=await owner.resolve(binding.bindingId,ctx);
+  expect(resolved.mcpSnapshot).toEqual(view);expect(resolved.interruptOn['mcp__reviewed__read']).toBe(true);
+  expect(JSON.stringify(resolved.mcpSnapshot)).not.toContain('endpoint');
+  expect(await owner.provision(ctx,[],{'mcp__reviewed__read':false})).toEqual(binding);expect(created).toBe(1);
+  available=false;await expect(owner.resolve(binding.bindingId,ctx)).rejects.toThrow('snapshot_unavailable');
+  await owner.release(binding.bindingId,scope,run);
+ }finally{await resetOrgs(scope);}
+});

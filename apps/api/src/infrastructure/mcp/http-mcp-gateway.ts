@@ -59,7 +59,7 @@ export interface HttpMcpGatewayDeps {
   readonly extraTrustedCa?: string | Buffer;
 }
 
-function sideEffectOf(tool: McpSdkTool): DiscoveredTool["sideEffect"] {
+export function sideEffectOf(tool: McpSdkTool): DiscoveredTool["sideEffect"] {
   const a = tool.annotations;
   if (a?.readOnlyHint === true) return "只读";
   if (a?.openWorldHint === true) return "对外发送";
@@ -71,7 +71,7 @@ function sideEffectOf(tool: McpSdkTool): DiscoveredTool["sideEffect"] {
  * `discoverMcpTools` 的指纹比对使用。属性名排序是为了让同一份 schema 无论 JS 引擎
  * 按什么顺序枚举 key 都产出同一个签名——否则每次重新发现都可能误报"签名变了"。
  */
-function signatureOf(tool: McpSdkTool): string {
+export function signatureOf(tool: McpSdkTool): string {
   const properties = tool.inputSchema?.properties ?? {};
   const required = new Set(tool.inputSchema?.required ?? []);
   const params = Object.keys(properties)

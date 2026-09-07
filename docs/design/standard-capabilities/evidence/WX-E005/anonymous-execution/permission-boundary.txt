@@ -1,0 +1,142 @@
+TAP version 13
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+ok 1 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+  ---
+  duration_ms: 14.667959
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+ok 2 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+  ---
+  duration_ms: 3.069666
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+ok 3 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+  ---
+  duration_ms: 3.652459
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+ok 4 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+  ---
+  duration_ms: 2.608625
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+ok 5 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+  ---
+  duration_ms: 2.716042
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+ok 6 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+  ---
+  duration_ms: 1.937042
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+ok 7 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+  ---
+  duration_ms: 1.880833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+ok 8 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+  ---
+  duration_ms: 8.740709
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+ok 9 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+  ---
+  duration_ms: 6.427333
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+ok 10 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+  ---
+  duration_ms: 5.609125
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+ok 11 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+  ---
+  duration_ms: 4.340959
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+ok 12 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+  ---
+  duration_ms: 3.936083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+ok 13 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+  ---
+  duration_ms: 3.852459
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+ok 14 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+  ---
+  duration_ms: 4.058375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+ok 15 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+  ---
+  duration_ms: 2.911417
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+ok 16 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+  ---
+  duration_ms: 2.809375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+ok 17 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+  ---
+  duration_ms: 2.679083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+ok 18 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+  ---
+  duration_ms: 3.182667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects server.credential_configured||server.involves_customer_data
+ok 19 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects server.credential_configured||server.involves_customer_data
+  ---
+  duration_ms: 3.283542
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+ok 20 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+  ---
+  duration_ms: 2.50825
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+ok 21 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+  ---
+  duration_ms: 3.248041
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+ok 22 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+  ---
+  duration_ms: 2.63975
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 436.494542

@@ -87,7 +87,7 @@ export interface GuardedFetchOptions {
  * `assertResolvedMcpAddressAllowed` 的所有单测依然全绿，正是端到端反证要证的事
  * （与 `http-import-fetcher.ts` 头注逐字同一条纪律）。
  */
-export function createGuardedFetch(options: GuardedFetchOptions): typeof fetch {
+export function createManagedGuardedFetch(options: GuardedFetchOptions): {fetch:typeof fetch;close:()=>Promise<void>} {
   const seams = options.seams ?? PRODUCTION_SEAMS;
   const agent = new Agent({
     connect: {
@@ -99,7 +99,7 @@ export function createGuardedFetch(options: GuardedFetchOptions): typeof fetch {
     headersTimeout: options.connectTimeoutMs,
   });
 
-  return (async (input: string | URL | Request, init?: RequestInit) => {
+  const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
     const merged: Record<string, unknown> = { ...(init as Record<string, unknown> | undefined) };
     merged.redirect = "error";
     merged.dispatcher = agent;
@@ -116,4 +116,7 @@ export function createGuardedFetch(options: GuardedFetchOptions): typeof fetch {
     merged.signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
     return undiciFetch(input as never, merged as never) as unknown as Promise<Response>;
   }) as typeof fetch;
+  return {fetch:fetcher,close:()=>agent.destroy()};
 }
+
+export function createGuardedFetch(options:GuardedFetchOptions):typeof fetch {return createManagedGuardedFetch(options).fetch;}

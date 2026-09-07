@@ -21,6 +21,7 @@ from .standard_context_tools import standard_context_tools
 from .standard_canvas_tools import standard_canvas_tools
 from .standard_document_tools import document_parse_tool
 from .standard_sql import standard_sql_tools
+from .mcp_snapshot_tools import mcp_snapshot_tools
 from .native_skill_activity import canonical_package_manifest
 from .native_tool_authority import HttpNativeToolAuthority
 from .sandbox_backend import HttpSessionSandbox
@@ -58,7 +59,7 @@ async def _resolve(ref, identity):
                         raise NativeFactoryError('Native session resolution refused')
                     content=bytearray()
                     async for chunk in response.aiter_raw():
-                        if len(content)+len(chunk)>16384: raise NativeFactoryError('Native session response exceeded limit')
+                        if len(content)+len(chunk)>_SCHEMA['maxResponseBytes']: raise NativeFactoryError('Native session response exceeded limit')
                         content.extend(chunk)
                     resolved=json.loads(content);_VALIDATORS['output'].validate(resolved)
                     if resolved['expiresAt'] <= time.time() * 1000:
@@ -123,5 +124,5 @@ async def native_graph_context(config):
         adapter=HttpSessionSandbox(resolved['sessionId'],resolved['token'],client)
         model,checkpointer,callbacks=_shared_runtime()
         graph=await asyncio.to_thread(create_native_graph,model,sandbox=adapter,pinned_skills=pins,
-            system_prompt=input_prompt, tools=[artifact_publish_tool(), *standard_web_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model)],interrupt_on=resolved['interruptOn'],tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
+            system_prompt=input_prompt, tools=[artifact_publish_tool(), *standard_web_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])],interrupt_on=resolved['interruptOn'],tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
         yield graph.with_config({'callbacks':callbacks})

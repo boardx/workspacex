@@ -1,3 +1,7 @@
+import { MCP_EXECUTION_SNAPSHOT, type McpExecutionSnapshot } from "./application/agent-run/mcp-execution-snapshot";
+import { PgMcpExecutionSnapshot } from "./infrastructure/mcp/pg-mcp-execution-snapshot";
+import { createHttpMcpExecution } from "./infrastructure/mcp/http-mcp-execution";
+import { McpExecutionSnapshotController } from "./interface/controllers/mcp-execution-snapshot.controller";
 import { STANDARD_DOCUMENT_SERVICE } from "./application/agent-run/standard-document-tools";
 import { DefaultStandardDocumentService } from "./infrastructure/agent-run/standard-document-service";
 import { createNativeDocumentSession } from "./infrastructure/agent-run/native-document-session";
@@ -903,7 +907,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1795,6 +1799,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: createStandardWebService,
     },
     {
+      provide: MCP_EXECUTION_SNAPSHOT,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
+        new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution()),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
       provide: STANDARD_SQL_SOURCE,
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgStandardSqlSource(db, authority, { repo, ids, chat }),
@@ -1848,12 +1858,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: NATIVE_SESSION_OWNER,
-      useFactory: (db: DatabasePort, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => {
+      useFactory: (db: DatabasePort, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, mcp: McpExecutionSnapshot) => {
         const socket=process.env.NATIVE_SESSION_SOCKET, key=process.env.NATIVE_SESSION_BINDING_KEY;
         if (process.env.KERNEL_NATIVE_RUNTIME === "1" && (!socket || !key)) throw new Error("native_runtime_configuration_missing");
-        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key,new PgNativeRunInputs(db,objects,{repo,ids,chat})) : null;
+        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key,new PgNativeRunInputs(db,objects,{repo,ids,chat}),mcp) : null;
       },
-      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MCP_EXECUTION_SNAPSHOT],
     },
     {
       provide: PARENT_RUN_CONTROL,

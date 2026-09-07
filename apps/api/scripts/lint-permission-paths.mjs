@@ -33,6 +33,7 @@ import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
+import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-execution-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
@@ -486,6 +487,12 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+    }
+    if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
+      const errors = checkMcpExecutionBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/mcp-execution-boundary.test.mjs"))) errors.push("MCP authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
     }
     if (rel === STANDARD_TOOL_RUN_PATH) {
       const errors = checkStandardToolRun(body);

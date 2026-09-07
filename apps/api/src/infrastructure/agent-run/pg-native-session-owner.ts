@@ -5,13 +5,14 @@ import { canonicalSkillPackageManifest } from "@repo/contracts/skill-package-man
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { NativeSessionOwner,NativeSessionTransport,NativePins } from "../../application/agent-run/native-session-owner";
 import type { ExecutionAuthorityContext,ToolAuthorityReader } from "../../application/agent-run/tool-execution-authority";
+import type { McpExecutionSnapshot } from "../../application/agent-run/mcp-execution-snapshot";
 import type { NativeRunInputs } from "../../application/agent-run/native-run-inputs";
 import { limits } from "@repo/contracts/sandbox-session";
 type Row={input_manifest:unknown;input_digest:string|null;id:string;org_id:string;run_id:string;status:string;session_id:string;token_cipher:string;expires_at:string;package_digest:string;interrupt_on:Record<string,boolean>};
 const hash=(v:string|Buffer)=>createHash('sha256').update(v).digest('hex');
 export class PgNativeSessionOwner implements NativeSessionOwner {
  #key:Buffer;
- constructor(private db:DatabasePort,private authority:ToolAuthorityReader,private transport:NativeSessionTransport,keyHex:string,private inputs?:NativeRunInputs){
+ constructor(private db:DatabasePort,private authority:ToolAuthorityReader,private transport:NativeSessionTransport,keyHex:string,private inputs?:NativeRunInputs,private mcp?:Pick<McpExecutionSnapshot,"capture"|"resolve">){
   if(!/^[a-f0-9]{64}$/.test(keyHex))throw new Error('native_session_key_unavailable');this.#key=Buffer.from(keyHex,'hex');
  }
  private authorized<T>(context:ExecutionAuthorityContext,fn:()=>Promise<T>){
@@ -31,7 +32,8 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
   const parsed=pins.map(p=>({...p,package:TrustedSkillPackage.parse(p.package)}));
   const digest=hash(canonicalNativePackageSet(parsed.map(p=>({stableName:p.stableName,skillId:p.package.skillId,versionId:p.package.versionId,packageDigest:hash(canonicalSkillPackageManifest(p.package.files))}))));
   for(const p of parsed)for(const f of p.package.files)if(hash(Buffer.from(f.contentBase64,'base64'))!==f.digest)throw new Error('native_package_digest_mismatch');
-  const policy=NativeSessionResolved.shape.interruptOn.parse(interruptOn);
+  const snapshot=this.mcp?await this.mcp.capture(context):undefined;
+  const policy=NativeSessionResolved.shape.interruptOn.parse({...interruptOn,...Object.fromEntries((snapshot?.tools??[]).map(tool=>[tool.name,true]))});
   const inputSet=await this.authorized(context,async()=>this.inputs?this.inputs.read(context):{manifest:[],files:[]});
   const inputManifest=NativeInputManifest.parse(inputSet.manifest);
   if(inputManifest.length!==inputSet.files.length)throw new Error("native_input_manifest_mismatch");
@@ -78,7 +80,7 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
  async resolve(bindingId:string,context:ExecutionAuthorityContext){return this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
   const row=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 AND id=$3',[context.orgId,context.parentRunId,bindingId])).rows[0];
   if(!row||row.status!=='ready'||Number(row.expires_at)<=Date.now())throw new Error('native_session_binding_unavailable');
-  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest,inputs:NativeInputManifest.parse(row.input_manifest)});
+  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest,inputs:NativeInputManifest.parse(row.input_manifest),...(this.mcp?{mcpSnapshot:await this.mcp.resolve(context)}:{})});
  }));}
  async releaseForRun(orgId:ExecutionAuthorityContext['orgId'],runId:string){
   const id=await this.db.withTenant(orgId,async s=>(await s.query<{id:string}>('SELECT id FROM native_session_bindings WHERE org_id=$1 AND run_id=$2',[orgId,runId])).rows[0]?.id);
