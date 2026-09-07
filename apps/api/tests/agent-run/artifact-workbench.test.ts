@@ -159,7 +159,26 @@ describe("artifact continuation over existing attachments",()=>{
     await asApp(ORG, c => c.query("UPDATE agent_runs SET status='succeeded' WHERE org_id=$1 AND id='registered-edit'", [ORG]));
     const before = await asApp(ORG, c => c.query("SELECT id,artifact_id,version,attachment_id,storage_key FROM agent_artifact_versions WHERE org_id=$1 ORDER BY id", [ORG]));
     const replayFiles = migrationFiles().filter(name => /^202609070(?:1[0-9]|2[01])000_/.test(name));
-    expect(replayFiles).toHaveLength(12);
+    // This is intentionally an exact review boundary, not a count. A count says nothing
+    // about which migrations will be replayed and let an accidental replacement pass. New
+    // files in this interval must be named here after their populated-data behaviour has
+    // been reviewed; otherwise this assertion keeps the gate red.
+    expect(replayFiles).toEqual([
+      "20260907010000_standard_subtask_runs.sql",
+      "20260907010000_workbench_execution_journal.sql",
+      "20260907011000_workbench_interjections.sql",
+      "20260907012000_workbench_checkpoint_paused_state.sql",
+      "20260907013000_workbench_artifact_continuations.sql",
+      "20260907014000_workbench_status_journal.sql",
+      "20260907015000_workbench_safe_cancel.sql",
+      "20260907016000_workbench_permission_identity.sql",
+      "20260907017000_workbench_interrupt_projection.sql",
+      "20260907018000_thread_message_queue.sql",
+      "20260907019000_agent_run_recovery_lease.sql",
+      "20260907020000_interjection_public_events.sql",
+      "20260907020000_standard_mcp_tool_schema.sql",
+      "20260907021000_tool_approval_execution_identity.sql",
+    ]);
     // Owner is used only to apply DDL, exactly as production migration repair does.
     // Every preservation assertion below goes back through tenant-scoped app access.
     await asOwner(async c => {
