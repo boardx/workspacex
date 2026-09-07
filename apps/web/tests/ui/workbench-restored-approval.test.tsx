@@ -10,6 +10,12 @@ describe("durable approval", () => {
     calls.read.mockResolvedValueOnce({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "Safe summary" } }).mockResolvedValue({ status: "running", pendingApproval: null });
     calls.request.mockResolvedValue({ runId: "run", permissionRequestId: "request-id" });
     render(<RestoredRunApproval runId="run" bearer="token" />);
+    const card = await screen.findByTestId("chat-task-workbench-approval-card");
+    expect(card).toHaveAttribute("data-risk", "L2");
+    expect(screen.getByTestId("perm-intent")).toHaveTextContent("需要授权的技能");
+    expect(screen.getByTestId("perm-rationale")).toHaveTextContent("高风险");
+    expect(screen.getByTestId("perm-command")).toHaveTextContent("Safe summary");
+    expect(screen.getByTestId("perm-affects")).toHaveTextContent("尚未提供更具体的影响对象");
     fireEvent.click(await screen.findByRole("button", { name: "仅本次允许" }));
     await waitFor(() => expect(calls.request).toHaveBeenCalledWith("/agent-runs/run/permission-requests/request-id/decision", expect.objectContaining({ body: { decision: "once" } })));
     await waitFor(() => expect(screen.queryByTestId("restored-run-approval")).toBeNull());
@@ -39,6 +45,18 @@ describe("durable approval", () => {
     expect(calls.request).not.toHaveBeenCalled();
   });
 
+  it("keeps a dismissed durable permission request available without making a decision", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "request-id", toolName: "call_skill", argsSummary: "summary" } });
+    render(<RestoredRunApproval runId="run" />);
+    const dialog = await screen.findByTestId("chat-tool-permission-dialog");
+    expect(dialog).toHaveAttribute("role", "dialog");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("chat-tool-permission-dialog")).toBeNull());
+    expect(calls.request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "打开工具审批" }));
+    expect(await screen.findByTestId("chat-tool-permission-dialog")).toBeVisible();
+  });
+
   it("submits only the selected option field and durable request identity", async () => {
     const options = ["a", "b"].map((optionId) => ({ optionId, title: optionId, effort: "低", timeToValue: "1天", expectedReturn: "报告" }));
     calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "choice-id", toolName: "choose_execution_option", interrupt: { toolName: "choose_execution_option", args: { requestId: "form", options } } } });
@@ -49,11 +67,11 @@ describe("durable approval", () => {
     await waitFor(() => expect(screen.queryByTestId("restored-run-approval")).toBeNull());
   });
 
-  it("opens a nonmodal intent dialog and permits closing and reopening without a decision", async () => {
+  it("opens a modal intent dialog and permits closing and reopening without a decision", async () => {
     calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "dialog-id", toolName: "confirm_task_intent", interrupt: { toolName: "confirm_task_intent", args: { requestId: "r", understanding: "Dialog goal", assumptions: [] } } } });
     render(<RestoredRunApproval runId="run" />);
     const dialog = await screen.findByRole("dialog");
-    expect(dialog).not.toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("data-testid", "chat-tool-permission-dialog");
     fireEvent.keyDown(dialog, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(calls.request).not.toHaveBeenCalled();
