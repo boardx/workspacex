@@ -43,6 +43,7 @@ import { createNamedWorkbenchThread } from "./support/workbench-journey";
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { clickActionableSkillMountOption } from "./support/skill-mount";
 // ⚠ 从产品代码 import 那个 key，**不在这里再写一份字面量**：鉴权是
 //   `Authorization: Bearer <token>`（不是 cookie，见 `api-client.ts` 文件头），
 //   token 存在 localStorage 的这个键下。抄一份副本就是本仓九次漂移的形状。
@@ -305,7 +306,7 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     const mountResponse = page.waitForResponse(
       (r) => r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url()),
     );
-    await page.getByTestId(`chat-skill-mount-option-${approved!.skillId}`).click();
+    await clickActionableSkillMountOption(page, approved!.skillId);
     const mounted = await mountResponse;
     expect(mounted.status()).toBe(201);
     await expect(page.getByTestId(`chat-skill-mounted-${approved!.skillId}`)).toBeVisible();
