@@ -223,6 +223,8 @@ interface ApprovalDecision {
 interface RunRecord {
   /** Thread creation alone is not execution; initial state must contain no future tools. */
   readonly started: boolean;
+  /** Per execution, retained by the existing resume branch and every state poll. */
+  readonly scrollExecutionId?: string;
   readonly userText: string;
   statusPolls: number;
   /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
@@ -381,6 +383,7 @@ const server = createServer((req, res) => {
       runs.set(threadId, {
         started: true,
         userText: lastUserText,
+        scrollExecutionId: SCROLL_ACCEPTANCE_TRIGGER !== undefined && lastUserText === SCROLL_ACCEPTANCE_TRIGGER ? randomUUID() : undefined,
         statusPolls: 0,
         decision: null,
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
@@ -441,7 +444,7 @@ const server = createServer((req, res) => {
     // 从未判过这两个触发词，永远落到下面这句通用模板，是 DA-19g 评分第 2 轮抓到的真
     // 根因）。未命中任何触发词时的默认模板原样保留，不改措辞。
     const isApproval = APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER;
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${threadId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
+    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
     const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
@@ -491,11 +494,11 @@ const server = createServer((req, res) => {
       // polling, journal persistence and rendering must observe every receipt.
       const messages: unknown[] = [{ type: "human", content: record.userText }];
       for (let index = 0; index < 10; index += 1) {
-        const id = `scroll-${threadId}-${index}`;
+        const id = `scroll-${record.scrollExecutionId}-${index}`;
         if (record.statusPolls >= index * 2) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
         if (record.statusPolls >= (index + 1) * 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
       }
-      if (record.statusPolls >= 20) messages.push({ id: `scroll-${threadId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      if (record.statusPolls >= 20) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
       sendJson(res, 200, { values: { messages } });
       return;
     }
