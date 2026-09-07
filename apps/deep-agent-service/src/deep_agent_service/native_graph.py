@@ -96,6 +96,7 @@ def create_native_graph(
     from .standard_web_tools import StandardWebError
     from .standard_memory import StandardMemoryError
     from .standard_context_tools import StandardContextError
+    from .standard_canvas_tools import StandardCanvasError
     authority_middleware = NativeToolAuthority(tool_authority)
     if not isinstance(interrupt_on, dict):
         raise ValueError("An explicit trusted interrupt policy is required; {} explicitly authorizes sandbox tools")
@@ -125,7 +126,7 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardMemoryError, StandardContextError)) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardMemoryError, StandardContextError, StandardCanvasError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure

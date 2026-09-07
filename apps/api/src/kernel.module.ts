@@ -1,3 +1,5 @@
+import { STANDARD_CANVAS_SERVICE, StandardCanvasService } from "./application/agent-run/standard-canvas-tools";
+import { StandardCanvasToolsController } from "./interface/controllers/standard-canvas-tools.controller";
 import { STANDARD_CONTEXT_SERVICE, StandardContextService } from "./application/agent-run/standard-context-tools";
 import { StandardContextSource } from "./infrastructure/agent-run/standard-context-source";
 import { StandardContextToolsController } from "./interface/controllers/standard-context-tools.controller";
@@ -894,7 +896,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController,
+    NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1784,6 +1786,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: STANDARD_WEB_SERVICE,
       useFactory: createStandardWebService,
+    },
+    {
+      provide: STANDARD_CANVAS_SERVICE,
+      useFactory: (instances: CanvasInstanceRepository, repo: IdentityRepository, ids: DecisionIdFactory) =>
+        new StandardCanvasService({ instances, auth: { repo, ids } }),
+      inject: [CANVAS_INSTANCE_REPOSITORY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY],
     },
     {
       provide: STANDARD_CONTEXT_SERVICE,

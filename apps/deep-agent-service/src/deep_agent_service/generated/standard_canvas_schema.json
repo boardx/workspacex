@@ -1,0 +1,516 @@
+{
+  "limits": {
+    "maxResponseBytes": 4194304,
+    "deadlineMs": 30000
+  },
+  "input": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_canvas_read"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "canvasId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "canvasId"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "wx_canvas_update"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "canvasId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "replace-source"
+                  },
+                  "markdown": {
+                    "type": "string",
+                    "maxLength": 262144
+                  }
+                },
+                "required": [
+                  "kind",
+                  "markdown"
+                ],
+                "additionalProperties": false
+              },
+              "idempotencyKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "canvasId",
+              "expectedRevision",
+              "changes",
+              "idempotencyKey"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "tools": {
+    "wx_canvas_read": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "canvasId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "canvasId"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "canvasId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 262144
+          },
+          "revision": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "supportedOperations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "const": "replace-source"
+            }
+          },
+          "renderSource": {
+            "type": "object",
+            "properties": {
+              "diagramModel": {
+                "type": "string"
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sectionId": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "便利贴列表",
+                        "短文本",
+                        "长文本"
+                      ]
+                    },
+                    "aiHint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "order": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "capacity": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "layout": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "col": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "row": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 8
+                            },
+                            "w": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "h": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 8
+                            },
+                            "cols": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 10
+                            },
+                            "max": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 99
+                            },
+                            "tone": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 3
+                            },
+                            "overflow": {
+                              "type": "string",
+                              "enum": [
+                                "缩小字号",
+                                "叠放",
+                                "截断"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "col",
+                            "row",
+                            "w",
+                            "h",
+                            "cols",
+                            "max",
+                            "tone",
+                            "overflow"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "sectionId",
+                    "name",
+                    "order",
+                    "required",
+                    "capacity"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "stickies": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "stickyId": {
+                      "type": "string"
+                    },
+                    "sectionId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "size": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "authorRef": {
+                      "type": "string"
+                    },
+                    "aiGenerated": {
+                      "type": "boolean"
+                    },
+                    "citationRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "stickyId",
+                    "sectionId",
+                    "text",
+                    "color",
+                    "size",
+                    "authorRef",
+                    "aiGenerated",
+                    "citationRef"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "ignoredSyntaxCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ignoredBlocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "rawLineRange": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "to": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "rawLineRange"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "diagramModel",
+              "sections",
+              "stickies",
+              "ignoredSyntaxCount",
+              "ignoredBlocks"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "canvasId",
+          "source",
+          "revision",
+          "versionId",
+          "contentHash",
+          "supportedOperations",
+          "renderSource"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "wx_canvas_update": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "canvasId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "replace-source"
+              },
+              "markdown": {
+                "type": "string",
+                "maxLength": 262144
+              }
+            },
+            "required": [
+              "kind",
+              "markdown"
+            ],
+            "additionalProperties": false
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "canvasId",
+          "expectedRevision",
+          "changes",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "newRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "versionId": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "newRevision",
+          "versionId",
+          "contentHash",
+          "replayed"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  }
+}

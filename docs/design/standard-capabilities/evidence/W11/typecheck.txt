@@ -1,0 +1,8 @@
+tests/agent-runtime/standard-document-tools.test.ts(20,76): error TS2345: Argument of type '{ check: Mock<() => Promise<{ allowed: boolean; }>>; }' is not assignable to parameter of type 'Pick<ToolExecutionAuthority, "check">'.
+  The types returned by 'check(...)' are incompatible between these types.
+    Type 'Promise<{ allowed: boolean; }>' is not assignable to type 'Promise<{ allowed: true; } | { allowed: false; reason: "run_unavailable" | "cancel_requested" | "lease_lost" | "attempt_stale" | "skill_not_mounted" | "approval_required"; }>'.
+      Type '{ allowed: boolean; }' is not assignable to type '{ allowed: true; } | { allowed: false; reason: "run_unavailable" | "cancel_requested" | "lease_lost" | "attempt_stale" | "skill_not_mounted" | "approval_required"; }'.
+        Property 'reason' is missing in type '{ allowed: boolean; }' but required in type '{ allowed: false; reason: "run_unavailable" | "cancel_requested" | "lease_lost" | "attempt_stale" | "skill_not_mounted" | "approval_required"; }'.
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit
