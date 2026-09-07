@@ -31,7 +31,9 @@ const buttonVariants = cva(
         ai: "bg-ai-tint text-ai-tint-foreground hover:bg-ai-tint/80 border border-ai/20",
       },
       size: {
-        xs: "h-6 px-2 text-11",
+        // `h-6` alone can be overridden by a consuming surface's button reset. Keep the
+        // 24px minimum hit target as an invariant for every compact button (TW-A11Y-2).
+        xs: "h-6 min-h-6 px-2 text-11",
         sm: "h-7 px-2.5 text-12",
         md: "h-8 px-3 text-13",
         lg: "h-10 px-4 text-14",

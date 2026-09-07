@@ -54,7 +54,10 @@ test("TW-P0-2①：入口是「选择能力」且默认自动匹配、可展开"
 
   // 「可展开」：点开后能力卡列表真的出现。
   await picker.click();
-  await expectAnchor(page, "chat-task-workbench-capability-card", "TW-P0-2①", "展开后没有能力卡列表", 20_000);
+  await expect(
+    page.getByTestId("chat-task-workbench-capability-card").first(),
+    gapMessage("TW-P0-2①", "chat-task-workbench-capability-card", "展开后没有能力卡列表"),
+  ).toBeVisible({ timeout: 20_000 });
 });
 
 test("TW-P0-2②：每张能力卡披露六项（擅长/工具技能/可读材料/写权限/记忆范围/当前状态）", async ({ page }) => {
