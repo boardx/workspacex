@@ -1,0 +1,23 @@
+[stack-admission] load1=2.18 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqtwxrw-76aa2bcd-2d47c56e6b20 db=wsx_2d47c56e6b20871577ba compose=wsx-2d47c56e6b20871577ba pg=23318 redis=28318 sandbox=53318
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_2d47c56e6b20871577ba capacity=100 current=6 required=32
+ ✓ tests/agent-run/artifact-workbench.test.ts (8 tests) 4201ms
+   ✓ artifact continuation over existing attachments > replays workbench migrations without changing cancellation, approval identities or registered continuation attachments 415ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  13:57:44
+   Duration  6.80s (transform 312ms, setup 0ms, collect 396ms, tests 4.20s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_2d47c56e6b20871577ba peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/artifact-workbench.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：8s
