@@ -37,11 +37,24 @@ scrub() {
   local raw_log="${1:?raw log required}"
   # scrubSecrets removes exact credential values only when they are available to
   # this process. Load the ephemeral 0600 file without echoing it.
-  set -a
-  # shellcheck disable=SC1090
-  source "$RUN_ENV_FILE"
-  set +a
+  #
+  # #2930: `scrub` also runs on the failure path (`if: always()`), where preflight
+  # may have died BEFORE minting the ephemeral file. Sourcing it unconditionally
+  # then failed with "No such file or directory" and became the last error in the
+  # log — burying preflight's real message (the actual cause) under an unrelated
+  # one. A run that never reached the provider cannot have an exact credential in
+  # its log, so scrub with the generic patterns instead of dying here.
+  if [ -f "$RUN_ENV_FILE" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$RUN_ENV_FILE"
+    set +a
+  else
+    echo "[s013] ${RUN_ENV_FILE} absent — preflight failed before any credential was used; pattern-only scrub." >&2
+  fi
   mkdir -p "$EVIDENCE_DIR"
+  # Same reason: the raw log may not exist yet when preflight fails early.
+  [ -f "$raw_log" ] || : > "$raw_log"
   pnpm --filter web exec tsx e2e/support/scrub-file.ts "$raw_log" "$EVIDENCE_DIR/02-run.log" 5000
   while IFS= read -r -d '' file; do
     local temporary="${file}.scrubbed"
