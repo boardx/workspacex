@@ -836,7 +836,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const result = await s.query<{ author_id: string }>(
         `SELECT m.author_id
            FROM agent_runs r JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
-          WHERE r.org_id=$1 AND r.id=$2`,
+          WHERE r.org_id=$1 AND r.id=$2 AND m.author_kind='human' AND m.thread_id=r.thread_id`,
         [orgId, runId],
       );
       return result.rows[0]?.author_id ?? null;

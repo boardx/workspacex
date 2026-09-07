@@ -96,6 +96,9 @@ it('production HTTP bridge uses real run requester/authority and project API par
   const canonicalList=await fetch(`${base}/projects?orgId=${org}`,{headers});expect(canonicalList.status).toBe(200);expect(ProjectListOutput.parse(await projects.json()).projects).toEqual(await canonicalList.json());
   const overview=await invoke('wx_project_read',{projectId:project});expect(overview.status).toBe(200);
   const canonicalOverview=await fetch(`${base}/projects/${project}/overview?orgId=${org}`,{headers});expect(canonicalOverview.status).toBe(200);expect(ProjectReadOutput.parse(await overview.json()).overview).toEqual(await canonicalOverview.json());
+  await asApp(org,c=>c.query("UPDATE chat_messages SET author_kind='agent' WHERE id='message-own' AND org_id=$1",[org]));
+  expect((await invoke('wx_project_list',{})).status).toBe(403);
+  await asApp(org,c=>c.query("UPDATE chat_messages SET author_kind='human' WHERE id='message-own' AND org_id=$1",[org]));
   await asApp(org,c=>c.query("UPDATE chat_threads SET created_by='bob' WHERE id='personal' AND org_id=$1",[org]));
   expect((await invoke('wx_project_list',{})).status).toBe(403);
  }finally{await app.close();for(const[k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}
