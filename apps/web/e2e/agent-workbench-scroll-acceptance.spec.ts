@@ -12,6 +12,7 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
   const toolIdentities = new Set<string>();
   for (let round = 0; round < 10; round += 1) {
     await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+    await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
     const responsePromise = page.waitForResponse(response => response.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
     await page.getByTestId("copilotkit-v2-send").click();
     const response = await responsePromise;
@@ -50,7 +51,8 @@ test("S8: ten rounds and one hundred tool activities retain the reading position
     expect(new Set(completed.map(event => event.toolCallId)).size).toBe(10);
     for (const event of completed) toolIdentities.add(`${event.runId}:${event.toolCallId}`);
     await expect(panel.locator('[data-testid="run-trace-entry"][data-kind="tool"]')).toHaveCount(10);
-    await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
+    expect(journal.some(event => event.kind === "status" && event.status === "succeeded")).toBe(true);
+    await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0);
   }
   expect(toolIdentities.size).toBe(100);
   await expect(page.locator('[data-testid="run-trace-entry"][data-kind="tool"]')).toHaveCount(100);
