@@ -1,3 +1,7 @@
+import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
+import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
+import { StandardImageController } from "./interface/controllers/standard-image.controller";
+import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
 import { SKILL_DRAFT_SERVICE, DefaultSkillDraftService } from "./application/agent-run/skill-draft";
 import { createNativeDraftSession } from "./infrastructure/agent-run/native-draft-session";
 import { SkillDraftController } from "./interface/controllers/skill-draft.controller";
@@ -912,7 +916,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    StandardImageController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1823,6 +1827,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
         new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution()),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: STANDARD_IMAGE_SERVICE,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) => {
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, config=readBailianImageProviderConfig();
+        if (!owner || !socketPath || !config.apiKey.trim()) return null;
+        const provider=new BailianImageProvider(config);
+        return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
+          bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
+          authority,repo,objects,{modelRef:config.modelId,generateImage:provider.generateImage.bind(provider)},createGeneratedImageDownloader());
+      },
+      inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
+        DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
     },
     {
       provide: STANDARD_SQL_SOURCE,

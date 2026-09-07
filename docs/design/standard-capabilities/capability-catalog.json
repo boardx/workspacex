@@ -1324,7 +1324,7 @@
         "WX-E002"
       ],
       "input_summary": "prompt:string,referenceAttachmentIds?:string[],sizeProfile:string,idempotencyKey:string",
-      "output_summary": "artifactId,versionId,modelRef",
+      "output_summary": "status:generated,workspacePath,mime,width,height,sha256,sizeBytes,modelRef,taskId；再经wx_artifact_publish进入staged与最终writeback",
       "acceptance_criteria": [
         "真实生成图片可打开，产物记录模型与请求；错误不回虚假链接。",
         "无权参考图被拒；供应商不支持编辑时明确报错。"

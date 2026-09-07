@@ -98,6 +98,7 @@ def create_native_graph(
     from .standard_context_tools import StandardContextError
     from .standard_canvas_tools import StandardCanvasError
     from .standard_document_tools import StandardDocumentError
+    from .standard_image_tools import StandardImageError
     from .standard_sql_database import StandardSqlError
     from .standard_skill_draft import SkillDraftError
     from .mcp_snapshot_tools import McpExecutionError
@@ -130,7 +131,7 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, SkillDraftError, McpExecutionError)) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardImageError, SkillDraftError, McpExecutionError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure

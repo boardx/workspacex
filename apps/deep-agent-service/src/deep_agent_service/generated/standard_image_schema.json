@@ -1,0 +1,187 @@
+{
+  "toolName": "wx_image_generate",
+  "limits": {
+    "maxBytes": 8388608,
+    "downloadMs": 15000,
+    "verifyMs": 30000,
+    "deadlineMs": 180000,
+    "responseBytes": 32768,
+    "dimension": 1024
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 16384
+      },
+      "referenceAttachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "maxItems": 256
+      },
+      "sizeProfile": {
+        "type": "string",
+        "const": "square"
+      },
+      "idempotencyKey": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      }
+    },
+    "required": [
+      "prompt",
+      "sizeProfile",
+      "idempotencyKey"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_image_generate"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "referenceAttachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "maxItems": 256
+          },
+          "sizeProfile": {
+            "type": "string",
+            "const": "square"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          }
+        },
+        "required": [
+          "prompt",
+          "sizeProfile",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "bindingId",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "const": "generated"
+      },
+      "workspacePath": {
+        "type": "string",
+        "pattern": "^\\/workspace\\/generated-[a-f0-9]{64}\\.(png|jpg)$"
+      },
+      "mime": {
+        "type": "string",
+        "enum": [
+          "image/png",
+          "image/jpeg"
+        ]
+      },
+      "width": {
+        "type": "number",
+        "const": 1024
+      },
+      "height": {
+        "type": "number",
+        "const": 1024
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "sizeBytes": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 8388608
+      },
+      "modelRef": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "taskId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "status",
+      "workspacePath",
+      "mime",
+      "width",
+      "height",
+      "sha256",
+      "sizeBytes",
+      "modelRef",
+      "taskId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

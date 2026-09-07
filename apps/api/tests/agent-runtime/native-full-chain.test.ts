@@ -1,3 +1,8 @@
+import {STANDARD_IMAGE_SERVICE} from '../../src/application/agent-run/standard-image-tools';
+import {DefaultStandardImageService} from '../../src/infrastructure/agent-run/standard-image-service';
+import {StandardImageController} from '../../src/interface/controllers/standard-image.controller';
+import {createGeneratedImageDownloader} from '../../src/infrastructure/agent-run/generated-image-downloader';
+import {BailianImageProvider} from '../../src/infrastructure/agent-run/bailian-image-provider';
 import {DefaultSkillDraftService,SKILL_DRAFT_SERVICE} from '../../src/application/agent-run/skill-draft';
 import {createNativeDraftSession} from '../../src/infrastructure/agent-run/native-draft-session';
 import {SkillDraftController} from '../../src/interface/controllers/skill-draft.controller';
@@ -111,32 +116,40 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const contents=[{path:'SKILL.md',text:'---\nname: example\ndescription: Generate a UTF8 report.\n---\nRun /skills/example/scripts/report.py then publish /workspace/report.txt.\n',mediaType:'text/markdown'},{path:'scripts/report.py',text:script,mediaType:'text/x-python'}];
  const pack={skillId:'s1',versionId:'v1',files:contents.map(f=>({path:f.path,mediaType:f.mediaType,contentBase64:Buffer.from(f.text).toString('base64'),digest:createHash('sha256').update(f.text).digest('hex')}))};
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};
- let webServer:https.Server|undefined;let provisioned=false;let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
+ let imageServer:ReturnType<typeof createServer>|undefined;let imageSubmits=0;let submitHadIntent=false;let webServer:https.Server|undefined;let provisioned=false;let app:Awaited<ReturnType<typeof NestFactory.create>>|undefined;
  const oldKey=process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY='native-chain-service-key';
  try{
   expect(await authority.check({...ctx,toolName:'execute'})).toEqual({allowed:false,reason:'approval_required'});
-  for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url','wx_skill_create_draft'])await grants.grantForRun(org,parent,tool);
+  for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url','wx_skill_create_draft','wx_image_generate'])await grants.grantForRun(org,parent,tool);
   const {Document,Packer,Paragraph}=createRequire(join(workspace,'apps/skill-sandbox/package.json'))('docx');
   const originals=[{filename:'original.docx',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',bytes:await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('原始文档保持不变')]}]}))},{filename:'original.csv',mime:'text/csv',bytes:Buffer.from('group,value\n甲,10\n乙,40\n')}];
   originals.push({filename:'scan.png',mime:'image/png',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/document-ocr/scan.png'))});
   const uploadDeps={repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}};
   for(const source of originals){const uploaded=await uploadAttachment(uploadDeps,{orgId:org,userId:'actor',threadId:`thread-${org}`,...source});
    await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));}
-  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false,wx_document_parse:false,wx_skill_create_draft:false});provisioned=true;
+  const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false,wx_document_parse:false,wx_skill_create_draft:false,wx_image_generate:false});provisioned=true;
   const originalInputs=(await owner.resolve(ref.bindingId,ctx)).inputs;expect(originalInputs).toHaveLength(3);
+  const imageFixture=await readFile(join(workspace,'apps/api/tests/fixtures/generated-image/square.png'));
   let webUrl='';let webRequests=0;
   webServer=https.createServer(testTlsMaterial(),(req,res)=>{webRequests++;
-   if(req.url?.startsWith('/search')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({results:[{title:'真实来源',url:webUrl+'/article',snippet:'Search excerpt only.'}]}));}
+   if(req.url==='/image.png'){res.writeHead(200,{'content-type':'image/png'});res.end(imageFixture);}
+   else if(req.url?.startsWith('/search')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({results:[{title:'真实来源',url:webUrl+'/article',snippet:'Search excerpt only.'}]}));}
    else{res.writeHead(200,{'content-type':'text/html;charset=utf-8'});res.end('<html><head><title>真实来源</title></head><body><article><h1>真实来源</h1><p>'+('This real article substantiates the search result with actual extracted body text. '.repeat(15))+'</p></article></body></html>');}});
   await new Promise<void>(resolve=>webServer!.listen(0,'127.0.0.1',resolve));webUrl=`https://allowed.example:${(webServer.address() as {port:number}).port}`;
   const lookup=((host:string,opts:{all?:boolean},cb:Function)=>opts.all?cb(null,[{address:'127.0.0.1',family:4}]):cb(null,'127.0.0.1',4)) as unknown as typeof dns.lookup;
   const webFetch=createStandardWebFetch({connectTimeoutMs:10000,extraTrustedCa:testTlsMaterial().cert,seams:{lookup,checkAddress:()=>{}}});
   const webService=new DefaultStandardWebService(new GoogleGuidedSearch(webFetch,webUrl+'/search'),webFetch);
   const documentService=new DefaultStandardDocumentService(owner,new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),bound=>createNativeDocumentSession({socketPath:socket,...bound}),authority);
+  imageServer=createServer(async(req,res)=>{res.setHeader('content-type','application/json');
+   if(req.method==='POST'){imageSubmits++;const h=(x:string)=>createHash('sha256').update(x).digest('hex');submitHadIntent=(await objects.get(`image-generation/${h(org)}/${h(parent)}/${h('image-v1')}/intent.json`))!==null;res.end(JSON.stringify({output:{task_id:'generated-task'}}));}
+   else res.end(JSON.stringify({output:{task_status:'SUCCEEDED',results:[{url:webUrl+'/image.png'}]}}));});
+  await new Promise<void>(resolve=>imageServer!.listen(0,'127.0.0.1',resolve));
+  const imageProvider=new BailianImageProvider({apiKey:'test-key',modelId:'fixture-model',timeoutMs:5000,pollIntervalMs:1,baseUrl:`http://127.0.0.1:${(imageServer.address() as {port:number}).port}`});
+  const imageService=new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),bound=>({...createNativeDraftSession({socketPath:socket,...bound}),execute:createNativeDocumentSession({socketPath:socket,...bound}).execute}),authority,new PgIdentityRepository(db),objects,{modelRef:'fixture-model',generateImage:imageProvider.generateImage.bind(imageProvider)},createGeneratedImageDownloader({connectTimeoutMs:5000,extraTrustedCa:testTlsMaterial().cert,seams:{lookup,checkAddress:()=>{}}}));
   const draftService=new DefaultSkillDraftService(owner,bound=>createNativeDraftSession({socketPath:socket,...bound}),authority,objects);
   const importDeps={artifacts:new PgArtifactStore(db),repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),objects,identities:new PgIdentityRepository(db),imports:new PgSkillStarterImportRepository(db)};
-  class TestModule{};Module({controllers:[SkillDraftController,SkillArtifactImportController,StandardDocumentToolsController,NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardWebToolsController],providers:[
-   {provide:SKILL_DRAFT_SERVICE,useValue:draftService},{provide:SKILL_ARTIFACT_IMPORT_DEPS,useValue:importDeps},{provide:STANDARD_DOCUMENT_SERVICE,useValue:documentService},
+  class TestModule{};Module({controllers:[StandardImageController,SkillDraftController,SkillArtifactImportController,StandardDocumentToolsController,NativeSessionController,NativeOutputStagingController,RunInterjectionController,StandardWebToolsController],providers:[
+   {provide:STANDARD_IMAGE_SERVICE,useValue:imageService},{provide:SKILL_DRAFT_SERVICE,useValue:draftService},{provide:SKILL_ARTIFACT_IMPORT_DEPS,useValue:importDeps},{provide:STANDARD_DOCUMENT_SERVICE,useValue:documentService},
    {provide:STANDARD_WEB_SERVICE,useValue:webService},{provide:IDENTITY_REPOSITORY,useValue:new PgIdentityRepository(db)},
    {provide:NATIVE_SESSION_OWNER,useValue:owner},{provide:NATIVE_OUTPUT_STAGING,useValue:staging},{provide:TOOL_EXECUTION_AUTHORITY,useValue:authority},
    {provide:AGENT_RUN_STORE,useValue:repo},{provide:INTERJECTION_STORE,useValue:new PgInterjectionStore(db)},{provide:TOOL_PERMISSION_GRANT_STORE,useValue:grants}]})(TestModule);
@@ -157,17 +170,17 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,workspacePath:'/inputs/forged.docx'}})).status).toBe(503);
   const config={configurable:{native_runtime:ref,org_skills:[{stable_name:'example',package:pack}],disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
   const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),WX_WEB_TEST_URL:webUrl+'/article',WX_INPUT_PATHS:JSON.stringify(originalInputs.map(i=>i.path)),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
-  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_skill_create_draft','wx_artifact_publish','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.draftFixtureVerified).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(2);
+  const report=JSON.parse(output);expect(report.skillStages).toEqual(['metadata_discovered','body_read']);expect(report.tools).toEqual(['read_file','wx_document_parse','read_file','execute','wx_skill_create_draft','wx_artifact_publish','wx_artifact_publish','wx_image_generate','wx_artifact_publish','web_search','fetch_url']);expect(report.webSourceLinked).toBe(true);expect(report.draftFixtureVerified).toBe(true);expect(report.inputsVerified).toBe(true);expect(report.inputPromptVerified).toBe(true);expect(webRequests).toBe(3);expect(imageSubmits).toBe(1);expect(submitHadIntent).toBe(true);
   const finalBinding=await owner.resolve(ref.bindingId,ctx);expect(finalBinding.inputs).toEqual(originalInputs);
   expect(report.documentParsed).toBe(true);const markdown=await createNativeSessionFiles({socketPath:socket,...finalBinding}).read(report.document.textPath) as {contentBase64:string};
   const parsedBytes=Buffer.from(markdown.contentBase64,'base64');expect(parsedBytes.toString('utf8')).toContain('原始文档保持不变');expect(createHash('sha256').update(parsedBytes).digest('hex')).toBe(report.document.textHash);
   expect(report.document.sourceHash).toBe(originalInputs.find(i=>i.path.endsWith('.docx'))!.digest);
-  const files=await staging.listFiles(org,parent);expect(files).toHaveLength(2);expect(Buffer.from((await objects.get(files.find(f=>f.name==='report.txt')!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
+  const files=await staging.listFiles(org,parent);expect(files).toHaveLength(3);expect(Buffer.from((await objects.get(files.find(f=>f.name==='generated.png')!.objectKey))!)).toEqual(imageFixture);expect(Buffer.from((await objects.get(files.find(f=>f.name==='report.txt')!.objectKey))!)).toEqual(Buffer.from('真实跨语言产物 UTF8'));
   await repo.storeOutputAwaitingWriteback(org,parent,{text:report.final,finalStepSeq:1,files});const pending=(await repo.claimWritebackPending(org,1))[0]!;
   const write={runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files};
   await repo.commitWriteback(org,write);await repo.commitWriteback(org,write);
-  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(2);
-  const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(2);
+  const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(3);
+  const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(3);
   const draftVersion=await db.withTenant(org,s=>s.query('SELECT artifact_id,version FROM agent_artifact_versions WHERE org_id=$1 AND storage_key=$2',[org,files.find(f=>f.name==='draft.json')!.objectKey]));
   const importBody={artifactId:draftVersion.rows[0]!.artifact_id,version:Number(draftVersion.rows[0]!.version),expectedDigest:report.draft.fileDigest,idempotencyKey:'draft-import'};
   const importRequest=(user:string,body=importBody)=>fetch(`${base}/admin/skills/artifact-imports`,{method:'POST',headers:{'content-type':'application/json','x-fixture-user':user},body:JSON.stringify(body)});
@@ -179,5 +192,5 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   const stored=await db.withTenant(org,s=>s.query('SELECT path,content,digest FROM skill_version_files WHERE org_id=$1 AND version_id=$2',[org,importedBody.versionIds[0]]));expect(stored.rows).toHaveLength(2);
   for(const file of stored.rows)expect(createHash('sha256').update(String(file.content)).digest('hex')).toBe(file.digest);
   console.log(JSON.stringify({chain:'native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback',...report,artifacts:versions.rows.length,attachments:attachments.rows.length}));
- }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{if(webServer){webServer.closeAllConnections();await new Promise<void>(resolve=>webServer!.close(()=>resolve()));}await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
+ }finally{try{if(provisioned)await owner.releaseForRun(org,parent);}finally{try{await app?.close();}finally{if(imageServer){imageServer.closeAllConnections();await new Promise<void>(resolve=>imageServer!.close(()=>resolve()));}if(webServer){webServer.closeAllConnections();await new Promise<void>(resolve=>webServer!.close(()=>resolve()));}await new Promise<void>((resolve,reject)=>relay.close(e=>e?reject(e):resolve()));if(oldKey===undefined)delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY=oldKey;}}}
 },120000);

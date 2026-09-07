@@ -141,3 +141,26 @@ def test_input_manifest_prompt_preserves_data_and_rejects_duplicate_identity():
     assert factory._input_prompt([]) is None
     with pytest.raises(factory.NativeFactoryError): factory._input_prompt([item,dict(item,path='/inputs/'+'c'*64+'/other.csv')])
     with pytest.raises(factory.NativeFactoryError): factory._input_prompt([item,dict(item,attachmentId='other')])
+
+
+def test_factory_registers_actual_image_tool(monkeypatch):
+    from contextlib import nullcontext
+    from unittest.mock import Mock
+    value=config();pins=value['configurable']['org_skills']
+    payload=resolved();payload['packageDigest']=factory._package_set_digest(pins)
+    async def resolve(*_): return payload
+    monkeypatch.setenv('NATIVE_SESSION_SOCKET','/run/test.sock')
+    monkeypatch.setattr(factory,'_resolve',resolve)
+    monkeypatch.setattr(factory,'_sandbox_client',lambda _:nullcontext(Mock()))
+    monkeypatch.setattr(factory,'_shared_runtime',lambda:(Mock(),None,[]))
+    # SQL toolkit requires a real chat model; it is outside this registration assertion.
+    monkeypatch.setattr(factory,'standard_sql_tools',lambda _:[])
+    graph=Mock();build=Mock(return_value=graph)
+    monkeypatch.setattr(factory,'create_native_graph',build)
+    async def run():
+        async with factory.native_graph_context(value): pass
+    asyncio.run(run())
+    registered={t.name:t for t in build.call_args.kwargs['tools']}
+    for name in ['wx_image_generate']:
+        assert registered[name].coroutine is not None
+        assert registered[name].args_schema['type']=='object'
