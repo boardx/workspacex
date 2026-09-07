@@ -237,6 +237,8 @@ export const ResearchError = z.enum([
   "RESEARCH_GRAPH_VERSION_CONFLICT",
   /** 当前节点提交的完整前端状态未通过严格校验。 */
   "RESEARCH_NODE_STATE_INVALID",
+  "RESEARCH_EVIDENCE_BUDGET_EXCEEDED",
+  "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
   /** 同一个 requestId 被用于不同的命令载荷。 */
   "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
   /** 命令引用了当前 revision 不可用的下游内容。 */
@@ -590,10 +592,16 @@ export const GuidedResearchBrief = z.object({
   focus: z.string().trim().max(2000),
 }).strict();
 
+const ResearchDetailItems = z.array(z.string().trim().min(1).max(1000)).max(12);
+
 export const GuidedResearchDirection = z.object({
   id: z.string().trim().min(1),
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().min(1).max(2000),
+  decisionQuestions: ResearchDetailItems.optional(),
+  hypotheses: ResearchDetailItems.optional(),
+  comparisonDimensions: ResearchDetailItems.optional(),
+  evidenceNeeds: ResearchDetailItems.optional(),
   enabled: z.boolean(),
   order: z.number().int().nonnegative(),
 }).strict();
@@ -602,10 +610,21 @@ export const GuidedResearchDirectionGenerationResponse = z.object({
   directions: z.array(GuidedResearchDirection).min(1),
 }).strict();
 
+export const GuidedResearchOutlineSubsection = z.object({
+  id: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
+  questions: ResearchDetailItems.min(1),
+}).strict();
+
 export const GuidedResearchOutlineSection = z.object({
   id: z.string().trim().min(1),
   title: z.string().trim().min(1).max(200),
   questions: z.array(z.string().trim().min(1).max(1000)).min(1),
+  objective: z.string().trim().min(1).max(2000).optional(),
+  analysisApproach: z.string().trim().min(1).max(2000).optional(),
+  expectedOutput: z.string().trim().min(1).max(2000).optional(),
+  subsections: z.array(GuidedResearchOutlineSubsection).min(1).max(8)
+    .refine((items) => new Set(items.map((item) => item.id)).size === items.length).optional(),
   enabled: z.boolean(),
   order: z.number().int().nonnegative(),
 }).strict();
@@ -795,6 +814,8 @@ const guidedWorkflowErrors = [
   "RESEARCH_NODE_MISMATCH",
   "RESEARCH_GRAPH_VERSION_CONFLICT",
   "RESEARCH_NODE_STATE_INVALID",
+  "RESEARCH_EVIDENCE_BUDGET_EXCEEDED",
+  "RESEARCH_REPORT_QUALITY_INSUFFICIENT",
   "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
   "RESEARCH_CONTENT_REFERENCE_INVALID",
   "RESEARCH_TASK_NOT_RETRYABLE",
@@ -853,11 +874,23 @@ export const GuidedResearchTask = z.object({
   status: z.enum(["pending", "running", "succeeded", "failed"]), attempts: z.number().int().nonnegative(),
   errorCode: z.string().nullable(),
 }).strict();
+const GuidedResearchEvidenceEvaluation = z.object({
+  sourceId: z.string().min(1), chunkId: z.string().min(1), irrelevant: z.boolean(),
+  matches: z.array(z.object({ questionId: z.string().min(1), quote: z.string().trim().min(1).max(600), insight: z.string().trim().min(1).max(600), relevance: z.enum(["direct", "context"]) }).strict()).max(256),
+}).strict();
+export const GuidedResearchEvidenceModelOutput = z.object({ evaluations: z.array(GuidedResearchEvidenceEvaluation).min(1).max(8) }).strict();
+
+export const GuidedResearchChapterReviewModelOutput = z.object({
+  questions: z.array(z.object({ questionId: z.string().min(1), status: z.enum(["answered", "gap", "missing"]), rationale: z.string().trim().min(1).max(1000) }).strict()).max(64),
+  supported: z.boolean(), analysisDepth: z.enum(["adequate", "shallow"]), issues: z.array(z.string().trim().min(1).max(1000)).max(30),
+}).strict();
+
 export const GuidedResearchReport = z.object({
   title: z.string().trim().min(1).max(200), summary: z.string().trim().min(1).max(10000),
   sections: z.array(z.object({
     sectionId: z.string().min(1), body: z.string().trim().min(1).max(20000),
-    sourceIds: z.array(z.string().min(1)).min(1),
+    // An evidence-gap chapter must not invent a citation to an unrelated source.
+    sourceIds: z.array(z.string().min(1)),
   }).strict()).min(1).max(30),
 }).strict();
 export const GuidedResearchRuntimeDraft = z.discriminatedUnion("node", [

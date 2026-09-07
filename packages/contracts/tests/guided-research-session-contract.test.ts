@@ -411,3 +411,25 @@ describe("durable report stream contract", () => {
     expect(research.GuidedResearchRuntimeStreamEvent.safeParse({ ...event, delta: "x".repeat(1048577) }).success).toBe(false);
   });
 });
+
+describe("detailed research design compatibility", () => {
+  const legacy = { id: "chapter", title: "Market entry", questions: ["Which market?"], enabled: true, order: 0 };
+  it("preserves editable analysis metadata through the runtime draft contract", () => {
+    const item = { ...legacy, objective: "Choose a first market", analysisApproach: "Compare equivalent entry costs", expectedOutput: "Decision matrix with gaps", subsections: [{ id: "cost", title: "Entry costs", questions: ["Which costs are verified?"] }] };
+    const parsed = research.GuidedResearchRuntimeDraft.parse({ node: "outline", value: [item] });
+    expect(parsed).toEqual({ node: "outline", value: [item] });
+    expect(research.GuidedResearchOutlineSection.parse(legacy)).toEqual(legacy);
+    const direction = { id: "d", title: "Entry", description: "Investigate costs", enabled: true, order: 0, decisionQuestions: ["Which market?"], hypotheses: ["Lower cost may improve entry feasibility"], comparisonDimensions: ["EUR upfront cost"], evidenceNeeds: ["Comparable cost data"] };
+    expect(research.GuidedResearchRuntimeDraft.parse({ node: "directions", value: [direction] })).toEqual({ node: "directions", value: [direction] });
+  });
+  it("rejects ambiguous subsection IDs and blank questions instead of losing information", () => {
+    const subsection = { id: "same", title: "Cost", questions: ["What cost?"] };
+    expect(research.GuidedResearchOutlineSection.safeParse({ ...legacy, subsections: [subsection, subsection] }).success).toBe(false);
+    expect(research.GuidedResearchOutlineSection.safeParse({ ...legacy, subsections: [{ ...subsection, questions: ["  "] }] }).success).toBe(false);
+  });
+});
+
+
+it("allows an honest evidence-gap chapter without fabricating a source reference", () => {
+  expect(research.GuidedResearchReport.parse({ title: "Coverage limitations", summary: "Further research required", sections: [{ sectionId: "gap", body: "No relevant evidence supports an answer yet.", sourceIds: [] }] }).sections[0]?.sourceIds).toEqual([]);
+});
