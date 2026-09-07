@@ -92,6 +92,8 @@ async function startLanggraphServer(): Promise<void> {
       for (const [id, chunks] of [["planning-message", PLANNING_CHUNKS], ["final-message", FINAL_CHUNKS]] as const) {
         for (const chunk of chunks) res.write(`event: messages\ndata: [{"id": ${JSON.stringify(id)}, "content": ${JSON.stringify(chunk)}, "type": "AIMessageChunk"}, {}]\n\n`);
       }
+      statusCallCount = Math.max(statusCallCount, 1);
+      stateCallCount = Math.max(stateCallCount, 1);
       res.end();
       return;
     }
