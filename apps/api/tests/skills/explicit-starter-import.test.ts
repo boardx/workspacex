@@ -13,6 +13,17 @@ import {
   resetOrgs,
   seedOrg,
 } from "../support/db";
+import { withoutPlatformOwnedSkills } from "../support/platform-owned-skills";
+
+/**
+ * design-delta `platform-owned-skills`：`org-platform` 名下的 skill 行对每一个 org
+ * 可见，所以 `/capabilities?kind=skill` 会带上它们。本文件断言的是"**这个 org 自己**
+ * 没有 / 只有一个 skill"——`counts()`（逐张表 `WHERE org_id = $1`）已经是 org 作用域
+ * 的，只有走 `/capabilities` 的这两处要显式把平台行放到一边。判据是归属而不是名字，
+ * 理由见 `tests/support/platform-owned-skills.ts` 的文件头。
+ */
+const ownSkillsIn = <T extends { id: string }>(items: readonly T[]): Promise<T[]> =>
+  withoutPlatformOwnedSkills(items, (item) => item.id);
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -238,7 +249,7 @@ describe("production-shaped empty state and authorization", () => {
       headers: authFor(ADMIN),
     });
     expect(directory.status).toBe(200);
-    expect(await directory.json()).toEqual([]);
+    expect(await ownSkillsIn(await directory.json() as Array<{ id: string }>)).toEqual([]);
     expect((await counts()).skills).toBe(0);
   });
 
@@ -360,9 +371,10 @@ describe("verified, transactional explicit import", () => {
     const directory = await fetch(`${base}/capabilities?orgId=${ORG}&kind=skill`, {
       headers: authFor(ADMIN),
     }).then((value) => value.json()) as Array<{ id: string; name: string }>;
-    expect(directory).toHaveLength(1);
-    expect(directory.map((entry) => entry.id)).toEqual(result.skillIds);
-    expect(directory.map((entry) => entry.name)).toEqual(["Facilitation core"]);
+    const own = await ownSkillsIn(directory);
+    expect(own).toHaveLength(1);
+    expect(own.map((entry) => entry.id)).toEqual(result.skillIds);
+    expect(own.map((entry) => entry.name)).toEqual(["Facilitation core"]);
   });
 
   it.each(["bad-file", "bad-pack", "missing-root"])(

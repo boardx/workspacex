@@ -16,11 +16,11 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { createHash, randomUUID } from "node:crypto";
 import { skills as C } from "@repo/contracts";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
-import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
+import { withoutPlatformOwnedSkills } from "../support/platform-owned-skills";
 
-/** design-delta `platform-owned-skills`——见 `skill-contract-crud.test.ts` 顶部同名注释。 */
-const isOfficialPlatformSkill = (skillId: string): boolean =>
-  OFFICIAL_SKILLS.some((s) => s.skillId === skillId);
+/** design-delta `platform-owned-skills`——判据见 `tests/support/platform-owned-skills.ts` 文件头。 */
+const withoutPlatformSkills = <T extends { skillId: string }>(items: readonly T[]): Promise<T[]> =>
+  withoutPlatformOwnedSkills(items, (i) => i.skillId);
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -107,9 +107,9 @@ describe("2026-08-07：后台 Skill 目录合并显示 wave2（URL 导入）的 
     const parsed = C.operations.listSkills.out.safeParse(await res.json());
     expect(parsed.success ? null : parsed.error.issues).toBeNull();
     const body = parsed.success ? parsed.data : null!;
-    // design-delta `platform-owned-skills`：四个官方 skill 对所有 org 可见，过滤掉
-    // 再断言"这个 org 自己没有 wave2 skill"——不是本文件要守的性质被破坏。
-    expect(body.items.filter((i) => !isOfficialPlatformSkill(i.skillId))).toEqual([]);
+    // design-delta `platform-owned-skills`：`org-platform` 名下的 skill 对所有 org
+    // 可见，过滤掉再断言"这个 org 自己没有 wave2 skill"——不是本文件要守的性质被破坏。
+    expect(await withoutPlatformSkills(body.items)).toEqual([]);
     expect(body.total).toBe(body.items.length);
   });
 });
