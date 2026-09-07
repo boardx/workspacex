@@ -231,6 +231,30 @@ for required_key in APP_DB_PASSWORD DIAG_DB_PASSWORD; do
   fi
 done
 
+step "4b-i. 单次补全模型配置存在性（KERNEL_MODEL_*）"
+# ⚠ 2026-09-07 用户实测事故：设计协作发消息只回一句固定回执、画布永远空着。根因是
+#   `KERNEL_MODEL_PROVIDER` 这条 env——「通用助手」不读它（#740 起恒定 pin
+#   `deep-agent`，见 pg-default-agent-repository.ts 头注），所以聊天照常能用，而**所有
+#   走单次补全的功能**都读它：设计协作画布生成、线程命名、追问建议、反馈草稿 AI 整理、
+#   系统异常摘要。它为空时这些功能一个都不会报错，只是安静地退回固定文案——
+#   「配了一半」比「什么都没配」更难查，因为主路径看起来是好的。
+#   这里把它变成部署时就红的东西：没有脚本的规范条目视为未落地。
+for model_key in KERNEL_MODEL_PROVIDER KERNEL_MODEL_BASE_URL KERNEL_MODEL_API_KEY; do
+  # ⚠ 不用 deep-agent-lib.sh 的 `read_env_value`：那个库在第 4h 步（本步之后）才 source。
+  model_line=$(grep "^${model_key}=" "$ENV_FILE" 2>/dev/null | tail -1) || true
+  if [ -z "${model_line#"${model_key}="}" ]; then
+    echo "✗ ${ENV_FILE} 缺 ${model_key}（或值为空）"
+    echo "  没有它，下列功能会**静默退回固定文案**而不是报错："
+    echo "    设计协作原型画布生成 / 线程自动命名 / 追问建议 / 反馈草稿 AI 整理 / 系统异常摘要"
+    echo "  在目标机器上补进 ${ENV_FILE}（0600）后重跑本脚本："
+    echo "    KERNEL_MODEL_PROVIDER=<provider 名，与 KERNEL_MODEL_BASE_URL 指向的服务一致>"
+    echo "    KERNEL_MODEL_BASE_URL=<单次补全的 OpenAI 兼容 base url>"
+    echo "    KERNEL_MODEL_API_KEY=<该服务的 key>"
+    exit 1
+  fi
+done
+echo "  KERNEL_MODEL_PROVIDER / _BASE_URL / _API_KEY 就位"
+
 step "4b-ii. app_diag_ro 密码对齐 deploy.env（system-error-logs 只读凭据）"
 # 同 4b 逐字同理：migrations/20260902012105 首次 CREATE ROLE app_diag_ro 时写死了
 # 开发默认密码 app_diag_ro_dev，deploy.env 里的 DIAG_DB_PASSWORD 是 provision.sh

@@ -52,6 +52,12 @@ export interface DesignChatReplyResult {
   readonly writeback: DesignChatWriteback;
   /** 迭代 9：模型给的下一步建议（已过契约：≤ 3 条、每条 ≤ 40 字；退路 ⇒ `[]`）。 */
   readonly suggestions: readonly string[];
+  /**
+   * 2026-09-07：走退路的**为什么**。`source: "fallback"` 时必给（契约 `DesignChatReply`
+   * 用 superRefine 机械绑定），让屏上那句话能说清楚是"没配模型"还是"调用失败"——
+   * 用户实测时只看到一句"稍后会更新画布"，无从判断该等还是该找运维。
+   */
+  readonly fallbackReason?: designAiCollab.DesignChatFallbackReason;
 }
 
 export interface DesignChatModel {
@@ -254,7 +260,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
   }
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] };
+    const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult =>
+      ({ text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: reason });
     let text: string;
     try {
       text = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
@@ -265,11 +272,14 @@ export class ModelDesignChatReplier implements DesignChatModel {
         code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
         detail: e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected model call failure",
       });
-      return fallback;
+      // `MODEL_PROVIDER_NOT_CONFIGURED` 是"这个部署没配 provider"，与"配了但打不通"是
+      // 两件不同的事，屏上给的下一步也不同——不要合并成一句"模型不可用"。
+      return fallbackWith(e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED"
+        ? "MODEL_NOT_CONFIGURED" : "MODEL_CALL_FAILED");
     }
     if (text.trim() === "") {
       this.deps.log("design chat: model output was empty, falling back to fixed reply", {});
-      return fallback;
+      return fallbackWith("MODEL_EMPTY_OUTPUT");
     }
     let raw: unknown;
     try {
@@ -293,7 +303,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     const suggestions = parseSuggestions(obj.suggestions);
     if (reply === "") {
       // JSON 里没有可用的 reply：写回仍可能有效，但给用户看的那句退回固定回执并如实标记。
-      return { text: fallback.text, source: "fallback", writeback, suggestions };
+      return { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback, suggestions, fallbackReason: "MODEL_NO_REPLY_TEXT" };
     }
     return { text: reply.slice(0, 4000), source: "model", writeback, suggestions };
   }

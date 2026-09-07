@@ -47,6 +47,8 @@ export const DESIGN_WORKBENCH_CHAT_INTRO = designWorkbench.DESIGN_WORKBENCH_CHAT
 /** 迭代 9：空项目起手模板（契约常量，展示层）。 */
 export const DESIGN_WORKBENCH_STARTERS = designWorkbench.DESIGN_WORKBENCH_STARTERS;
 export const DESIGN_WORKBENCH_CHAT_REPLY = designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY;
+/** 2026-09-07：退路原因闭集——前端按它给一句人话（`detail-screen.tsx` 的 `FALLBACK_REASON_TEXT`）。 */
+export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatFallbackReason>;
 
 export async function createProject(input: {
   readonly name: string;

@@ -120,7 +120,14 @@ export const DESIGN_WORKBENCH_STARTERS: readonly { readonly label: string; reado
  * 不可用/超时/输出为空时的退路**（`DesignProjectChatTurn.source: "fallback"`，见
  * `design-ai-collab.ts` 头注）。同 `feedback-loop.ts` 的纪律，回执文案在这里只声明一次。
  */
-export const DESIGN_WORKBENCH_CHAT_REPLY = "好的，我记下了这个调整，稍后会更新原型画布。";
+/**
+ * ⚠ 2026-09-07 用户实测：原文案是「好的，我记下了这个调整，稍后会更新原型画布。」——这是
+ * 一句**不会兑现的承诺**。走到这条退路时模型压根没被调用，没有任何后台任务在排队，画布
+ * 永远不会"稍后更新"。用户因此连发两条、等了很久，才来问"为什么还是没出来"。
+ * 退路必须说实话：这次没有生成、为什么、以及他能做什么。
+ */
+export const DESIGN_WORKBENCH_CHAT_REPLY = "这次没有生成画布——AI 模型没能返回结果。你的这条消息已经记下，可以稍后重试；如果一直这样，让运维看一眼这个部署的模型配置。";
+
 
 /* ─────────────────────────── 实体 ─────────────────────────── */
 

@@ -116,6 +116,6 @@ export async function appendProjectChat(
   const names = await ownerNamesFor(deps, [updated.ownerId]);
   return {
     project: projectDesignProject(updated, names.get(updated.ownerId) ?? null),
-    reply: { source: ai.source, applied, suggestions: [...ai.suggestions] },
+    reply: { source: ai.source, applied, suggestions: [...ai.suggestions], ...(ai.fallbackReason === undefined ? {} : { fallbackReason: ai.fallbackReason }) },
   };
 }
