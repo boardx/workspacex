@@ -1,18 +1,18 @@
 ---
-status: draft
+status: confirmed
 bundle: paged-generation-and-doc-export
 base_bundle: design-prototype
 scope: paged-prototype-generation-per-screen-retry-clickable-html-and-pdf-delivery-doc
 covers: [F53, F54, F55, F56, F57]
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-07T17:25:00Z"
+confirmed_via: "PR #2970"
 ---
 
 # design delta 签核 · 分页生成 + 可交付文档导出（迭代 12）
 
 ⚠ `status`、`confirmed_by`、`confirmed_at` 只能由人类修改；agent 不代签
-（ADR-023 / AGENTS.md「设计签核（三件、一处签）」）。**我把 `status` 留在 `draft`。**
+（ADR-023 / AGENTS.md「设计签核（三件、一处签）」）。**本文由人类于 PR #2970 签核。**
 
 规范唯一来源：[`contract.md`](./contract.md)。验收口径：[`verification.md`](./verification.md)。
 
@@ -84,7 +84,7 @@ confirmed_via: ""
 
 签核时若与建议不同，把选择写在下面这行，agent 按它实现：
 
-> 人类选择：① ＿ ② ＿ ③ ＿
+> 人类选择：① A ② A ③ A
 
 **①、② 是本 delta 真正的成本分水岭，值得你多花两分钟：**
 
