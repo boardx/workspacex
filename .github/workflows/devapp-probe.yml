@@ -64,8 +64,53 @@ jobs:
         shell: bash
         run: |
           set +e
-          # 正样本先跑：证明 psql 与连接参数本身是通的，否则「0 行」说明不了任何事
-          PSQL="psql -h 127.0.0.1 -p 55433 -U postgres -d workspacex -tAc"
+          # 上次探针实测：宿主机没有 psql 二进制（"command not found"）。数据库跑在
+          # docker 容器 workspacex-postgres-1 里（deploy.sh 就是这么连的），改用
+          # docker exec 进容器跑 psql——容器内镜像自带 psql，这条路径才是真实生效的。
+          PSQL="docker exec workspacex-postgres-1 psql -U postgres -d workspacex -tAc"
           echo "── 正样本 SELECT 1 ──"; $PSQL "SELECT 1" 2>&1 | head -3
           echo "── credentials 行数 ──"; $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
           echo "── auth_bootstrap_state 行数 ──"; $PSQL "SELECT count(*) FROM auth_bootstrap_state" 2>&1 | head -3
+
+      - name: 用户数据是否还在（2026-09-07 usamshen 报「个人对话全没了，数据库被清空了吗」——只读核实，不改数据）
+        shell: bash
+        run: |
+          set +e
+          PSQL="docker exec workspacex-postgres-1 psql -U postgres -d workspacex -tAc"
+          echo "── postgres 容器创建时间（是不是被重建过，判定是否发生过数据卷重置）──"
+          docker inspect -f '{{.Created}}' workspacex-postgres-1 2>&1
+          echo "── 数据卷 mountpoint 与最早文件 mtime（佐证同上）──"
+          docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' workspacex-postgres-1 2>&1
+          echo "── organizations / credentials 总行数（全库，判断是不是整库被清）──"
+          $PSQL "SELECT count(*) FROM organizations" 2>&1 | head -3
+          $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
+          echo "── usamshen 的 credentials 行是否还在（列名按 0010 迁移是 user_id，不是 id；不取密码哈希以外的敏感字段）──"
+          $PSQL "SELECT user_id, email FROM credentials WHERE email ILIKE '%usam%'" 2>&1 | head -5
+          echo "── chat_threads 总行数、按 created_by 分组数（判断是不是所有会话都没了，还是只有这个用户/项目视图没了）──"
+          $PSQL "SELECT count(*) FROM chat_threads" 2>&1 | head -3
+          $PSQL "SELECT created_by, count(*) FROM chat_threads GROUP BY created_by ORDER BY 2 DESC LIMIT 10" 2>&1 | head -12
+          echo "── 该账号名下的线程分布在哪些 org/project（按 created_by 精确匹配一次即可，先看上一步分组里哪个 user_id 对上邮箱）──"
+          $PSQL "SELECT t.org_id, t.project_id, t.ownership_layer, count(*) FROM chat_threads t JOIN credentials c ON c.user_id = t.created_by WHERE c.email ILIKE '%usam%' GROUP BY 1,2,3" 2>&1 | head -10
+          echo "── org_memberships：该账号属于哪些组织（个人对话是否落在一个他已不在其中的组织下）──"
+          $PSQL "SELECT om.org_id, om.user_id FROM org_memberships om JOIN credentials c ON c.user_id = om.user_id WHERE c.email ILIKE '%usam%'" 2>&1 | head -10
+          echo "── projects 总行数（判断是新建库还是老库）──"
+          $PSQL "SELECT count(*) FROM projects" 2>&1 | head -3
+          echo "── usam@boardx.us（u-f43693f4…）精确按个人线程判据统计：project_id IS NULL（#594 起个人线程的真实过滤条件），按 org 分组 ──"
+          $PSQL "SELECT org_id, count(*) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NULL GROUP BY org_id" 2>&1 | head -10
+          echo "── 同一账号，project_id 非空（项目线程）按 org 分组，作对照 ──"
+          $PSQL "SELECT org_id, count(*) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NOT NULL GROUP BY org_id" 2>&1 | head -10
+          echo "── API 日志：最近 30 分钟内 personal-thread / listPersonalThreads 相关的错误或 5xx（判断是不是接口本身在报错，前端把错误吞成了空列表）──"
+          journalctl -u workspacex-api --since "-30min" 2>&1 | grep -iE "personal|thread" | grep -iE "error|5[0-9][0-9]|exception|fail" | tail -30 || echo "（无匹配行）"
+          echo "── API 日志：最近 30 分钟内 5xx 总数（正样本：日志本身可读）──"
+          journalctl -u workspacex-api --since "-30min" 2>&1 | grep -c '"statusCode":5' || true
+          echo "── org_memberships：usam@boardx.us 在 org-2e5de17f74b8731f（切换器里选中的「boardx」）的角色行是否存在、org_role 是否合法 ──"
+          $PSQL "SELECT user_id, org_id, org_role, team_id FROM org_memberships WHERE user_id='u-f43693f453ca98f43e9b628d260a41ea' AND org_id='org-2e5de17f74b8731f'" 2>&1 | head -5
+          echo "── organizations 表：该 org 行本身是否存在、id 精确比对（排除大小写/前后空格差异）──"
+          $PSQL "SELECT id, length(id) FROM organizations WHERE id LIKE 'org-2e5de17f74b8731f%'" 2>&1 | head -5
+          echo "── 最近 15 分钟 API 日志：GET /chat/threads 请求与响应（个人对话列表的真实端点，看请求是否到达、返回什么）──"
+          journalctl -u workspacex-api --since "-15min" 2>&1 | grep -F "/chat/threads" | grep -v "/chat/threads/" | tail -20 || echo "（无匹配行——说明前端根本没发出这个请求，或访问日志不含路径，需要换一种抓法）"
+          echo "── 关键假设：个人对话列表按 thread-grouping.ts 只回「今天/本周」两组、UTC 周一起算，本周之前的线程恒不进返回值——不是过滤成不可见，是设计上压根不下发（见该文件头注）。核对该账号个人线程 last_activity_at 的分布 ──"
+          $PSQL "SELECT now() AT TIME ZONE 'UTC' AS server_now_utc" 2>&1 | head -3
+          $PSQL "SELECT max(last_activity_at), min(last_activity_at) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NULL" 2>&1 | head -3
+          echo "── 落在本 UTC 自然周（周一 00:00 起）内的个人线程有几条——0 条就精确对应「今天/本周」分组规则吃掉了全部历史线程 ──"
+          $PSQL "SELECT count(*) FROM chat_threads WHERE created_by='u-f43693f453ca98f43e9b628d260a41ea' AND project_id IS NULL AND last_activity_at >= date_trunc('week', now() AT TIME ZONE 'UTC')" 2>&1 | head -3
