@@ -26,6 +26,7 @@ from .native_skill_activity import NativeSkillActivity, SkillActivityError
 from .sandbox_backend import HttpSessionSandbox, SandboxTransportError
 from .skill_packages import package_mount_files
 from .native_tool_identity import verify_native_tool_identities
+from .native_file_delegation import file_delegation_subagent, validated_inputs
 
 
 class _BoundSkillsState(SkillsState):
@@ -77,6 +78,8 @@ def create_native_graph(
     tool_authority: ToolAuthority,
     tools=(),
     system_prompt=None,
+    inputs=(),
+    file_authority=None,
     checkpointer=None,
     store=None,
 ):
@@ -138,14 +141,16 @@ def create_native_graph(
                 )
             item.retry_on = retry_known_failure
     activity = NativeSkillActivity(pinned_skills)
+    delegated_inputs = validated_inputs(list(inputs))
     graph = create_deep_agent(
         model=model, tools=tools, system_prompt=system_prompt, backend=backend,
         skills=["/skills/"],
         # Explicit compiled override prevents automatic parent tool/backend/skill
-        # inheritance. T010 currently permits text-only delegation.
+        # inheritance. File delegation is a separate explicit subagent type.
         subagents=[{"name": "general-purpose",
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
-                    "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")}],
+                    "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
+                   *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
         middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, authority_middleware],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )

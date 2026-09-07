@@ -1,3 +1,6 @@
+import { NATIVE_FILE_DELEGATION } from "./application/agent-run/native-file-delegation";
+import { NativeFileDelegationProof } from "./infrastructure/agent-run/native-file-delegation-proof";
+import { NativeFileDelegationController } from "./interface/controllers/native-file-delegation.controller";
 import { OrganizationContextSource } from "./infrastructure/agent-run/organization-context-source";
 import { PgOrganizationKnowledgeIndex } from "./infrastructure/retrieval/pg-organization-knowledge-index";
 import { SCHEDULE_NOTIFICATIONS } from "./application/agent-run/schedule-notifications";
@@ -931,7 +934,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1871,6 +1874,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
     },
+    { provide: NATIVE_FILE_DELEGATION, useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => new NativeFileDelegationProof(db, authority, new PgNativeRunInputs(db, objects, {repo, ids, chat})), inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY] },
     { provide: PgScheduleNotifications, useFactory: (db: DatabasePort, repo: IdentityRepository) => new PgScheduleNotifications(db, repo), inject: [DATABASE_PORT, IDENTITY_REPOSITORY] },
     { provide: SCHEDULED_RUN_NOTIFIER, useExisting: PgScheduleNotifications },
     { provide: SCHEDULE_NOTIFICATIONS, useExisting: PgScheduleNotifications },

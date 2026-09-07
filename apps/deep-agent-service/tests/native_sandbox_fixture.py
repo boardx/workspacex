@@ -37,7 +37,7 @@ process.stdin.on('end', () => {
 
 
 @contextmanager
-def real_native_session(pins=None):
+def real_native_session(pins=None, *, inputs=None):
     """Yield (adapter, pins); create/delete only one session in the named test container."""
     container = os.environ.get("WX_NATIVE_SANDBOX_CONTAINER")
     if not container:
@@ -52,7 +52,7 @@ def real_native_session(pins=None):
             return httpx.Response(response["status"], content=response["body"])
     pins = pinned_skill_package() if pins is None else pins
     with httpx.Client(transport=DockerUdsTransport(), base_url="http://sandbox") as client:
-        created = client.post("/sessions", json={"skills": package_mount_files(pins)})
+        created = client.post("/sessions", json={"skills": package_mount_files(pins), "inputs": inputs or []})
         assert created.status_code == 201
         session = created.json()
         adapter = HttpSessionSandbox(session["sessionId"], session["token"], client)

@@ -1,0 +1,15 @@
+packages/contracts/src/native-file-delegation.ts
+packages/contracts/scripts/generate-native-file-delegation-schema.ts
+packages/contracts/tests/native-file-delegation.test.ts
+apps/api/src/application/agent-run/native-file-delegation.ts
+apps/api/src/infrastructure/agent-run/native-file-delegation-proof.ts
+apps/api/src/interface/controllers/native-file-delegation.controller.ts
+apps/api/tests/agent-runtime/native-file-delegation.test.ts
+apps/deep-agent-service/src/deep_agent_service/native_file_delegation.py
+apps/deep-agent-service/src/deep_agent_service/generated/native_file_delegation_schema.json
+apps/deep-agent-service/src/deep_agent_service/native_graph.py (optional inputs/file_authority; explicit compiled subagent)
+apps/deep-agent-service/src/deep_agent_service/native_factory.py (pass resolved inputs only)
+apps/deep-agent-service/tests/native_sandbox_fixture.py (optional inputs create argument only)
+apps/deep-agent-service/tests/test_native_file_delegation.py
+apps/deep-agent-service/tests/native_file_delegation_runner.py
+docs/design/standard-capabilities/evidence/T010/
