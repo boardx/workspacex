@@ -166,8 +166,16 @@ fi
 #   Linux 上没有这道边界，但**这正是必须真连一次才算数的理由**：上面两条检查
 #   在一条断掉的链路上会全部通过。
 #   ⚠ 以 $RUN_AS 的身份连——root 连得上不代表 systemd 里那个用户连得上。
-if ! sudo -u "$RUN_AS" curl -sf --max-time 10 --unix-socket "$SANDBOX_SOCKET_PATH" \
-     http://sandbox/healthz >/dev/null 2>&1; then
+SANDBOX_HEALTH_READY=0
+for i in $(seq 1 30); do
+  if sudo -u "$RUN_AS" curl -sf --max-time 2 --unix-socket "$SANDBOX_SOCKET_PATH" \
+       http://sandbox/healthz >/dev/null 2>&1; then
+    SANDBOX_HEALTH_READY=1
+    break
+  fi
+  sleep 1
+done
+if [ "$SANDBOX_HEALTH_READY" != "1" ]; then
   echo "✗ 沙箱 socket 存在但连不上（以 $RUN_AS 身份）：$SANDBOX_SOCKET_PATH"
   echo "  socket 文件存在只说明容器 bind 过，不说明宿主进程能连到端点。"
   docker logs --tail 40 workspacex-skill-sandbox-1 2>&1 || true

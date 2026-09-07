@@ -54,6 +54,20 @@ describe("部署链必须把沙箱镜像重建成当前源码那一版", () => {
     expect(deployText).toMatch(/镜像不是当前源码构建的那一版[\s\S]{0,400}exit 1/);
   });
 
+  it("②a socket healthz 在容器冷启动窗口内有限重试，并继续以服务用户检查", () => {
+    expect(deployText).toMatch(/for i in \$\(seq 1 30\); do[\s\S]{0,500}sudo -u "\$RUN_AS" curl[\s\S]{0,500}sleep 1[\s\S]{0,200}done/);
+    expect(deployText).toContain('if [ "$SANDBOX_HEALTH_READY" != "1" ]; then');
+    expect(deployText).toMatch(/socket 存在但连不上[\s\S]{0,400}exit 1/);
+  });
+
+  it("②a 反证：退回单次 healthz 检查时，有限重试门控必须变红", () => {
+    const oneShot = deployText.replace(
+      /SANDBOX_HEALTH_READY=0\nfor i in \$\(seq 1 30\); do/,
+      "SANDBOX_HEALTH_READY=0\nif true; then",
+    );
+    expect(oneShot).not.toMatch(/SANDBOX_HEALTH_READY=0\nfor i in \$\(seq 1 30\); do/);
+  });
+
   it("②b 续行中间不许插注释行——插了会静默截断命令并把密钥打进日志", () => {
     /*
      * 2026-09-06 实测：给上面那条 compose 命令加说明时，注释写进了 `\` 续行之间。
