@@ -210,6 +210,26 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
     expect(endThreadRecording).toHaveBeenCalledWith("sess-new", "new");
   });
 
+  it.each(["NotAllowedError", "NotFoundError"])("recovers from %s on a later user start without reusing the failed session", async (name) => {
+    startThreadRecording.mockResolvedValueOnce({ sessionId: "failed-session", tracks: [{ trackId: "failed-track" }] })
+      .mockResolvedValueOnce({ sessionId: "recovered-session", tracks: [{ trackId: "recovered-track" }] });
+    openAsrStream.mockRejectedValueOnce(new DOMException("capture unavailable", name));
+    render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
+    await flush();
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "failed");
+    expect(endThreadRecording).toHaveBeenCalledWith("failed-session", "b");
+    fireEvent.click(screen.getByTestId("chat-live-recording-start"));
+    await flush();
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+    expect(openAsrStream).toHaveBeenCalledTimes(2);
+    expect(openAsrStream.mock.calls[1]![0]).toBe("recovered-session");
+    fireEvent.click(screen.getByTestId("chat-live-recording-stop"));
+    await flush();
+    expect(endThreadRecording).toHaveBeenCalledWith("recovered-session", "b");
+  });
+
   it("空闲态不显示转录中行内卡", async () => {
     render(<ChatRecordingPanel threadId="t" projectId="p" userId="u" bearer="b" />);
     await flush();

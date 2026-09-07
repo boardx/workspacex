@@ -2,6 +2,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
+import { useTaskNotifications } from "@/lib/chat-workbench/use-task-notifications";
+import type { NotificationThread } from "@/lib/chat-workbench/task-notifications";
 import type { AbstractAgent } from "@ag-ui/client";
 const { interject } = vi.hoisted(() => ({ interject: vi.fn() }));
 vi.mock("@/lib/agent-kernel-interject", async (original) => ({ ...await original<typeof import("@/lib/agent-kernel-interject")>(), interjectAgentRun: interject }));
@@ -67,4 +69,29 @@ it("does not let an old task's late ACK erase a remounted draft", async () => {
   remounted.unmount();
   const restored = renderHook(() => useComposerDraft(scope));
   expect(restored.result.current.text).toBe("new edit after returning");
+});
+
+it("keeps three running task drafts while background outcomes update without navigation", async () => {
+  localStorage.clear();
+  const cards: NotificationThread[] = ["a", "b", "c"].map(id => ({ id, title: id, status: "running", lastActivityAt: "start" }));
+  const hook = renderHook(({ active, cards }) => ({
+    draft: useComposerDraft({ ...scope, threadId: active }),
+    alerts: useTaskNotifications("s9-three-tasks", cards, active),
+  }), { initialProps: { active: "a", cards } });
+  for (const active of ["a", "b", "c"]) {
+    hook.rerender({ active, cards });
+    act(() => hook.result.current.draft.setText(`draft ${active}`));
+  }
+  const beforeUrl = window.location.href;
+  const focus = document.createElement("input"); document.body.append(focus); focus.focus();
+  const settled: NotificationThread[] = cards.map((card, i) => ({ ...card, status: (["done", "failed", "awaiting-approval"] as const)[i]!, lastActivityAt: "finished" }));
+  hook.rerender({ active: "c", cards: settled });
+  await waitFor(() => expect(hook.result.current.alerts.notices.map(n => [n.threadId, n.status])).toEqual([["a", "done"], ["b", "failed"]]));
+  expect(hook.result.current.draft.text).toBe("draft c");
+  expect(window.location.href).toBe(beforeUrl); expect(document.activeElement).toBe(focus);
+  for (const active of ["a", "b", "c"]) {
+    hook.rerender({ active, cards: settled });
+    expect(hook.result.current.draft.text).toBe(`draft ${active}`);
+  }
+  focus.remove();
 });
