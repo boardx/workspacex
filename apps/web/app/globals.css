@@ -348,6 +348,18 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
   }
+  /*
+    Mac trackpad 双指横滑手势会被浏览器（Chrome/Edge）解释为"前进/后退"，
+    在单页应用里表现为整页跳脱当前状态——这不是某个组件的滚动行为，是浏览器
+    对 body 级别横向 overscroll 的默认手势响应，所以在 html/body 这一级统一关掉，
+    不要下沉到各个可滚动容器里逐个关（关不完，新加的容器还会漏）。
+    `overscroll-behavior-x: none` 只挡住"滚到边界之后"的横向手势，不影响容器
+    内部正常的横向滚动（如果某处业务上就需要横向滚动，只影响它滚到头之后的行为）。
+  */
+  html,
+  body {
+    overscroll-behavior-x: none;
+  }
   /* 焦点环全局兜底：严禁裸 outline-none 消除焦点可见性（uiux-standards §5）*/
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
