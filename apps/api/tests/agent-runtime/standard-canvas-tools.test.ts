@@ -64,3 +64,61 @@ it('known durable version resolves lost write acknowledgement without issuing a 
  expect(result.replayed).toBe(true);expect(result.newRevision).toBe(3);expect(writes).toBe(1);
  const saved=await asApp(org,async c=>(await c.query('SELECT markdown FROM canvas_instance_versions WHERE org_id=$1 AND id=$2',[org,result.versionId])).rows[0]);expect(saved.markdown).toBe('# Final actual durable source');
 });
+/**
+ * S012 (#2935) —— 无权限用户对**既有** canvas 的实际写入被拒，且 revision/对象身份不变。
+ *
+ * 上面第二条用例已经证明"撤权后 update 返回 404"，但它只看状态码：状态码是**声明**，
+ * 不是反证。真正要钉的是三件事——拒绝发生在 append 之前（没有下游 dispatch）、
+ * 库里 revision/版本行/内容 hash 逐字段不变、以及 run/attempt/lease 身份没被拒绝动过。
+ *
+ * 反证（issue #2935 交付要求）：把 `standard-canvas-tools.ts` update 开头那句
+ * `await getCanvasSource(...)` 删掉，本用例必须变红——见 PR 正文记录的实测。
+ */
+it('an unauthorized writer is refused before any append and leaves canvas revision and version identity byte-identical',async()=>{
+ const snapshot=()=>asApp(org,async c=>({
+  instance:(await c.query('SELECT id,head_version,template_key,template_version,group_id,created_by FROM canvas_instances WHERE org_id=$1 AND id=$2',[org,canvasId])).rows,
+  versions:(await c.query('SELECT id,version,content_hash,markdown,created_by FROM canvas_instance_versions WHERE org_id=$1 AND instance_id=$2 ORDER BY version',[org,canvasId])).rows,
+  run:(await c.query('SELECT status,lease_epoch,cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2',[org,run])).rows,
+ }));
+ const authorized=await snapshot();
+ const head=Number(authorized.instance[0]!.head_version);
+ expect(authorized.versions).toHaveLength(head);
+ // 授权仍然在（第二条用例已 grantForRun），所以任何拒绝都不可能是"缺 grant"。
+ expect(await app.get<ToolPermissionGrantStore>(TOOL_PERMISSION_GRANT_STORE).hasGrant(org,run,'wx_canvas_update')).toBe(true);
+
+ // ① 服务层：无权限 actor 连一次 appendVersion 都不该发生。
+ const {PgCanvasInstanceRepository}=await import('../../src/infrastructure/canvas/pg-canvas-instance-repository');
+ const {DATABASE_PORT}=await import('../../src/application/ports/database.port');
+ const {IDENTITY_REPOSITORY,DECISION_ID_FACTORY}=await import('../../src/application/identity/ports');
+ const {StandardCanvasService}=await import('../../src/application/agent-run/standard-canvas-tools');
+ const instances=new PgCanvasInstanceRepository(app.get(DATABASE_PORT));let appends=0;
+ const append=instances.appendVersion.bind(instances);instances.appendVersion=async input=>{appends++;return append(input);};
+ const service=new StandardCanvasService({instances,auth:{repo:app.get(IDENTITY_REPOSITORY),ids:app.get(DECISION_ID_FACTORY)}});
+ const write={canvasId,expectedRevision:head,changes:{kind:'replace-source' as const,markdown:'# intruder rewrite'},idempotencyKey:'unauthorized-write'};
+ // 完全不在这个 project 里的身份：读授权就该在 append 之前把它挡掉。
+ await expect(service.update({orgId:org,userId:'unknown-user'},write)).rejects.toThrow();
+ expect(appends).toBe(0);
+
+ // ② HTTP 层：请求者调到别的组——**看得见但不该写得动**，这是 S012 说的
+ //    "无权限用户对既有 canvas 的实际写入"，比"整个人不在项目里"更接近真场景。
+ await asApp(org,c=>c.query('UPDATE project_memberships SET group_id=$3 WHERE org_id=$1 AND project_id=$2 AND user_id=\'alice\'',[org,project,g2]));
+ expect((await invoke('wx_canvas_read',{canvasId})).status).toBe(200);
+ const denied=await invoke('wx_canvas_update',write);expect(denied.status).toBe(404);
+ const leak=await denied.text();
+ for(const row of authorized.versions)expect(leak).not.toContain(row.markdown);
+ // 之前成功过的 idempotencyKey 重放同样被拒，撤权后的重放不得变成一次读。
+ expect((await invoke('wx_canvas_update',{canvasId,expectedRevision:1,changes:{kind:'replace-source',markdown:'# Evidence\n\n```mermaid\ngraph TD\n A-->B\n```\n'},idempotencyKey:'operation-1'})).status).toBe(404);
+ expect(appends).toBe(0);
+
+ // ③ revision / 版本行 / 内容 hash / run 身份逐字段不变。
+ expect(await snapshot()).toEqual(authorized);
+
+ // ④ 恢复授权后同一次写才成立，证明上面的不变不是"这个 canvas 本来就写不进去"。
+ await asApp(org,c=>c.query('UPDATE project_memberships SET group_id=$3 WHERE org_id=$1 AND project_id=$2 AND user_id=\'alice\'',[org,project,g1]));
+ const allowed=await invoke('wx_canvas_update',write);expect(allowed.status,await allowed.clone().text()).toBe(200);
+ const after=await snapshot();
+ expect(Number(after.instance[0]!.head_version)).toBe(head+1);
+ expect(after.versions).toHaveLength(head+1);
+ expect(after.versions.slice(0,head)).toEqual(authorized.versions);
+ expect(after.versions[head]!.markdown).toBe(write.changes.markdown);
+});
