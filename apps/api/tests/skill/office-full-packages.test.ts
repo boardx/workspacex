@@ -12,6 +12,11 @@ it('packages original creation recipes and fixed immutable hashes without rewrit
  const body=Buffer.from(result.package.files[0]!.contentBase64,'base64').toString();
  expect(body.indexOf(`Read /skills/${spec.stableName}/references/editing-and-qa.md`)).toBeLessThan(body.indexOf(spec.content));
  expect(body).toContain('Write explicitly under /workspace');
+ expect(body).toContain('Only when native read_file, execute and wx_artifact_publish are actually available');
+ expect(body).toContain('When the caller supplies RUN_SCRIPT_PROTOCOL');
+ expect(body).toContain('use SKILL_SANDBOX_OUT_DIR from the original recipes below');
+ expect(body).toContain('Do not claim a file has been executed, rendered or delivered from script text alone');
+ expect(officeSkillPackage({...spec,content:spec.content+'\nversion-change-proof'}).package.versionId).not.toBe(result.package.versionId);
  expect(body).toContain('Do not redraw a separate PDF');
  expect(body).toContain('Do not run npm/pip installs');
  expect(body).not.toContain('risk_level:');

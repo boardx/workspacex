@@ -24,7 +24,18 @@ The manifest reports visualInspection=required: examine
 each page/slide for clipping and CJK glyphs. If unavailable, state rendering unverified;
 ZIP/XML checks are not visual QA. Never claim ready/rendered merely because bytes exist.
 `;
-const nativeGuide=(name:string)=>`## Native execution entrypoint — read first
+const nativeGuide=(name:string)=>`## Execution protocol — choose the available runtime
+When the caller supplies RUN_SCRIPT_PROTOCOL (the legacy call_skill path), follow
+that supplied script-block protocol and use SKILL_SANDBOX_OUT_DIR from the original recipes below.
+Return the executable script for the existing executor; do not call unavailable
+native tools or assume /skills and /workspace are mounted. Do not claim a file has been executed, rendered or delivered from script text alone.
+Only report renderer verification when actual execution results provide it.
+If neither executable protocol nor native tools are available, explain that file
+execution is unavailable rather than inventing a download.
+
+## Native execution entrypoint
+Only when native read_file, execute and wx_artifact_publish are actually available,
+follow this section; it does not override the legacy script protocol above.
 Read /skills/${name}/references/editing-and-qa.md before creating or editing files.
 Write explicitly under /workspace. SKILL_SANDBOX_OUT_DIR and SKILL_SANDBOX_CJK_FONT
 in the legacy examples below are not guaranteed native environment variables.
