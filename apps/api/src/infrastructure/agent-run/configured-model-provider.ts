@@ -102,6 +102,12 @@ export interface ConfiguredModelProviderConfig {
    * `baseUrl` 不含这个域名，但确实是百炼）。
    */
   readonly bailianExtensionsEnabled: boolean;
+  /**
+   * 迭代 12（delta §1.3）：单次调用的**输出上限**。在此之前本仓一处也没设过它——用的是
+   * provider 默认值，于是「天花板在哪」既没设定也没观测，撞上了才知道（表现为输出被截断、
+   * JSON 解析失败）。`undefined` = 不发这个字段 ⇒ 与加这个开关之前逐字相同。
+   */
+  readonly maxOutputTokens?: number;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -119,6 +125,9 @@ export function readModelProviderConfig(
   // dispatcher（见 `ConfiguredModelProvider#dispatcher`），这个数字才真的说了算。
   const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
   const baseUrl = (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, "");
+  // 迭代 12：缺省**不传**，不是填一个我们编的默认值——那会在所有部署上悄悄改变行为。
+  const rawMaxOut = Number(env.KERNEL_MODEL_MAX_OUTPUT_TOKENS ?? "");
+  const maxOut = Number.isFinite(rawMaxOut) && rawMaxOut > 0 ? Math.floor(rawMaxOut) : undefined;
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
     baseUrl,
@@ -128,6 +137,7 @@ export function readModelProviderConfig(
     visionModelIds: readVisionModelIds(env),
     thinkingDisableModelIds: readThinkingDisableModelIds(env),
     bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
+    ...(maxOut === undefined ? {} : { maxOutputTokens: maxOut }),
   };
 }
 
@@ -290,7 +300,7 @@ interface WireUsage {
 }
 
 interface CompletionResponse {
-  choices?: { message?: { content?: unknown } }[];
+  choices?: { message?: { content?: unknown }; finish_reason?: unknown }[];
   usage?: WireUsage;
 }
 
@@ -502,6 +512,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
             && this.config.thinkingDisableModelIds.has(input.modelId)
             ? { enable_thinking: false }
             : {}),
+          ...(this.config.maxOutputTokens === undefined ? {} : { max_tokens: this.config.maxOutputTokens }),
         }),
       });
     } catch (err) {
@@ -531,7 +542,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
+    // 迭代 12：`truncated` 进签名——这里之前是一个比 `ModelCallCompletion` 窄的内联字面量，
+    // 端口上加了字段而这里不加，实现填了也传不出去（TS 会把它当多余属性）。
+    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number; readonly truncated?: boolean }
   > {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
@@ -588,7 +601,10 @@ export class ConfiguredModelProvider implements ModelCallPort {
     // Read straight off the wire response, never computed. Absent or non-numeric ⇒
     // `undefined` (the port's "not reported" state) -- not `0` invented at this layer.
     const usage = readUsage(parsed.usage);
-    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };
+    // 迭代 12：`finish_reason === "length"` 是模型**自己说**没说完。此前上层只能靠
+    // 「JSON 解析失败」反推截断——那把"输出不合语法"和"输出被切断"混成同一件事。
+    const truncated = parsed.choices?.[0]?.finish_reason === "length";
+    return { text: content, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion, ...(truncated ? { truncated: true } : {}) };
   }
 
   /**

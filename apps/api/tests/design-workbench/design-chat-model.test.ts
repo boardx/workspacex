@@ -6,6 +6,7 @@ import { designWorkbench as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
+  DESIGN_OUTLINE_SYSTEM_PROMPT,
   ModelDesignChatReplier,
   parseSuggestions,
   parseWriteback,
@@ -18,7 +19,9 @@ const CTX: DesignChatContext = {
   problem: "导出太慢",
   criteria: ["明确问题与目标范围"],
   frames: ["草稿页 1"],
-  prototype: [],
+  // 迭代 12：**非空**——这些用例测的是「在一个已有原型的项目上聊天」（改验收标准、局部 patch），
+  // 走的是单次调用那条路。首次生成（`prototype` 为空）走分页，另有一组用例。
+  prototype: [{ id: "n1", type: "stack", children: [{ id: "n2", type: "text", props: { content: "占位" } }] }],
   chat: [
     { role: "user", text: "先聊聊", at: "2026-09-05T00:00:00.000Z" },
     { role: "ai", text: "好的", at: "2026-09-05T00:00:01.000Z", source: "model" },
@@ -177,5 +180,94 @@ describe("B5.2 ModelDesignChatReplier", () => {
     expect(parseWriteback({ criteria: new Array(21).fill("a") })).toEqual({});
     expect(parseWriteback(null)).toEqual({});
     expect(parseWriteback(["a"])).toEqual({});
+  });
+});
+
+/**
+ * 迭代 12（delta `paged-generation-and-doc-export` §1）—— V36 / V37 / V38 / V40。
+ * 首次生成从「一次调用吐出所有页」改成「一次骨架 + 每页一次」。
+ */
+describe("迭代 12：分页生成", () => {
+  /** 空项目 = 还没有任何树 ⇒ 走分页。 */
+  const EMPTY: DesignChatContext = { ...CTX, prototype: [], frames: [] };
+  const screenJson = (frame: string) =>
+    `{"frame":"${frame}","root":{"type":"stack","children":[{"type":"text","props":{"content":"${frame}的内容"}}]},"notes":"${frame}的说明"}`;
+  const outlineJson = (frames: readonly string[]) =>
+    `{"reply":"拆成${frames.length}页。","outline":[${frames.map((f) => `{"frame":"${f}","intent":"${f}做什么"}`).join(",")}]}`;
+
+  it("V36 骨架轮只要标签与意图，prompt 里不含组件树说明；返回的页进 frames，还没有树", async () => {
+    const frames = ["登录", "首页", "设置"];
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? outlineJson(frames) : screenJson(frames[n - 2]!) }));
+    const out = await r.reply(EMPTY);
+    const outlineCall = model.complete.mock.calls[0]?.[0];
+    expect(outlineCall?.system).toBe(DESIGN_OUTLINE_SYSTEM_PROMPT);
+    // 反证锚点：骨架轮的系统提示里**没有**组件树 schema 说明，否则模型照旧整页吐
+    expect(outlineCall?.system).not.toContain("组件树原语");
+    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(frames);
+  });
+
+  it("V37 8 页 ⇒ 恰好 1 + 8 次调用；每页轮的 prompt 不含其余页的完整树", async () => {
+    const frames = Array.from({ length: 8 }, (_, i) => `第${i + 1}页`);
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? outlineJson(frames) : screenJson(frames[n - 2]!) }));
+    const out = await r.reply(EMPTY);
+    expect(model.complete).toHaveBeenCalledTimes(1 + 8);
+    expect(out.writeback.prototype).toHaveLength(8);
+    // 单次输出量与页数解耦的另一半：**输入**也不能随已生成页数线性涨。
+    // 最后一页的 prompt 里只有结构摘要，没有前 7 页的完整树。
+    const last = model.complete.mock.calls[8]?.[0]?.user ?? "";
+    expect(last).toContain("已经画好的页");
+    expect(last).not.toContain("的内容\"}}");   // 完整树里才有的 props 字面量
+    expect(last).toContain("现在只画第 7 页");
+  });
+
+  it("V38 第 3 页失败 ⇒ 只损失第 3 页，其余照常写回，回复里说清是哪一页", async () => {
+    const frames = ["A", "B", "C", "D"];
+    let n = 0;
+    const { r } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(frames) };
+      if (n === 4) return { text: screenJson("C"), truncated: true } as never;  // 第 3 页被截断
+      return { text: screenJson(frames[n - 2]!) };
+    });
+    const out = await r.reply(EMPTY);
+    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "B", "D"]);
+    expect(out.source).toBe("model");           // 不是整段退路——已经画好的三页是真的
+    expect(out.text).toContain("C");
+    expect(out.text).toContain("没画出来");
+  });
+
+  it("V38 某页 JSON 坏掉 / 不过契约 ⇒ 同样只丢那一页", async () => {
+    const frames = ["A", "B", "C"];
+    let n = 0;
+    const { r } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(frames) };
+      if (n === 3) return { text: '{"frame":"B","root":{"type":"iframe"}}' };   // 类型不在闭集
+      return { text: screenJson(frames[n - 2]!) };
+    });
+    const out = await r.reply(EMPTY);
+    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "C"]);
+  });
+
+  it("V40 骨架轮被截断 ⇒ MODEL_OUTPUT_TRUNCATED；全部页都失败 ⇒ 也是退路，不写半套", async () => {
+    const cut = replier(async () => ({ text: '{"reply":"…', truncated: true } as never));
+    expect(await cut.r.reply(EMPTY)).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+
+    let n = 0;
+    const allFail = replier(async () => {
+      n += 1;
+      return n === 1 ? { text: outlineJson(["A", "B"]) } : ({ text: "x", truncated: true } as never);
+    });
+    const out = await allFail.r.reply(EMPTY);
+    expect(out).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+    expect(out.writeback).toEqual({});
+  });
+
+  it("V40 非空项目上的截断也判 MODEL_OUTPUT_TRUNCATED，而不是靠 JSON 解析失败反推", async () => {
+    // 输出**可以**解析（没坏），但 provider 说它被长度切断了——旧实现会当成一次成功的写回。
+    const { r } = replier(async () => ({ text: '{"reply":"好了。"}', truncated: true } as never));
+    expect(await r.reply(CTX)).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
   });
 });

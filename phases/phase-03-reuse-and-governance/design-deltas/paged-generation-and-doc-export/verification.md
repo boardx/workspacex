@@ -20,10 +20,18 @@ prompt 明确只要 `outline`，模型返回 `{"outline":[{frame,intent}×5]}` �
 接口回执带 `MODEL_OUTPUT_TRUNCATED`；**不**回滚已写回的页。
 ⚠ 反证：把页轮包进一个"任一页失败 ⇒ 整批不写"的事务，这条红——它正是今天"白等三分钟"的形状。
 
-## V39 — 单页重试只重跑那一页
+## V39 — 单页重试只重跑那一页 ⛔ **未实现（登记，见 contract.md §1.2b）**
+
+失败的页不落库 ⇒ 没有可重试的目标行。替代是回复里说清哪几页没画出来 + 一条「补画「X」」
+建议 chip。要真正做它，先要有逐页写回（而逐页写回要先有流式/轮询通道）。
+**这条不改弱、不删除**——它记录的是一件该做而本轮没做的事。
+
+<details><summary>原验收线索（留档）</summary>
+
 `apps/api/tests/design-workbench/project-lifecycle.test.ts`：对 `root === undefined` 的页发重试
 ⇒ 恰好 1 次模型调用、只改那一页、记 1 条 `model` 版本；其余页的树与版本历史不变。
 ⚠ 反证：重试走首次生成那条路径 ⇒ 调用次数断言红（会变成 1 + N）。
+</details>
 
 ## V40 — 截断有独立回执，不再只靠"JSON 解析失败"
 `packages/contracts/tests/design-ai-collab.test.ts` + `design-chat-model.test.ts`：
@@ -55,11 +63,15 @@ prompt 明确只要 `outline`，模型返回 `{"outline":[{frame,intent}×5]}` �
 ⚠ 反证：页轮上下文里去掉已生成页的结构摘要 ⇒ 这条红。
 ⚠ 若实测反复红：按 §1.1 退路改成"带第 1 页完整树"，**不许**改弱这条断言来求绿。
 
-## V45 — 生成中的三态在界面上分得开
+## V45 — 生成中的三态在界面上分得开 ⛔ **未实现（登记，同 V39）**
+
+<details><summary>原验收线索（留档）</summary>
+
 `apps/web/tests/ui/design-loop.test.tsx`：骨架落库后每页有 `data-screen-state`（`pending` /
 `generating` / `ready` / `failed`）；`ready` 的页此刻就能点选改属性（不必等全部完成）；
 `failed` 的页渲染占位框 + 原因 + `design-detail-retry-screen-{i}` 按钮。
 ⚠ 反证：把"生成中禁用整个画布"加回来 ⇒ "ready 的页此刻可点"红。
+</details>
 
 ## V46 — 导出 HTML 是自包含的，且链接真的能点
 `apps/web/tests/ui/prototype-export-html.test.ts`：产物是单个字符串，**不含** `http://` /
@@ -68,7 +80,7 @@ prompt 明确只要 `outline`，模型返回 `{"outline":[{frame,intent}×5]}` �
 ⚠ 反证：把内联 `<style>` 换成外链 CDN ⇒ "不含外链"红。
 ⚠ 反证：只渲染当前页 ⇒ 页数断言红。
 
-## V47 — 导出 HTML 与实时画布同一套渲染（人类选 A 时）
+## V47 — 导出 HTML 与实时画布同一套渲染（人类选 A ✅）
 同文件 + `apps/web/tests/ui/design-loop.test.tsx`：新增一个原语只改一处即可同时出现在画布与
 导出产物里——用例对同一棵树分别取实时渲染与导出渲染，断言两者的语义 class 集合一致。
 ⚠ 反证：导出侧另写一份 `renderNodeHtml` ⇒ 这条红（两处会漂）。

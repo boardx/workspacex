@@ -234,24 +234,186 @@ function rawScreenTooDeep(screen: unknown): boolean {
   return designPrototype.rawPrototypeDepth(root) > designPrototype.PROTOTYPE_MAX_DEPTH;
 }
 
+
+/* ────────────────── 迭代 12：分页生成（delta `paged-generation-and-doc-export` §1） ────────────────── */
+
+/**
+ * 骨架轮的系统提示：**只**要页标签 + 每页一句意图，不要组件树。
+ * 几百 token，实际上不可能被截断——所以"这个项目有哪几页"这件事永远拿得到，
+ * 而在此之前它和"每页长什么样"绑在同一次输出里，一起超时、一起截断、一起没有。
+ */
+export const DESIGN_OUTLINE_SYSTEM_PROMPT =
+  "你是 PM 设计工作台里的设计协作助手。用户描述了一个要做的产品，你现在**只做一件事**：把它拆成几个页面。" +
+  "不要输出任何组件树。只输出一个 JSON 对象：" +
+  '{"reply":"给用户看的一句话，中文，不超过 100 字","outline":[{"frame":"页标签","intent":"这页做什么，一句话"}]}。' +
+  `页数 3–6 页，最多 ${designPrototype.PROTOTYPE_MAX_SCREENS} 页；先给最核心的，用户想要更多会再让你加。` +
+  "页标签是用户会说的话（「登录」「我的订单」），不是「页面1」。";
+
+/** 每页轮的系统提示：只画**一页**。 */
+export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
+  "你是 PM 设计工作台里的设计协作助手。你正在为一个已经定好页面划分的设计项目画**其中一页**。" +
+  "只输出一个 JSON 对象，不要解释、不要 markdown 代码块标记，形如 " +
+  '{"frame":"页标签","root":{组件树},"notes":"给工程看的交互说明，一到三句","links":[{"from":"节点id","to":目标页序号}]}。' +
+  "只画被指定的那一页，不要输出别的页。" +
+  designPrototype.PROTOTYPE_SCHEMA_GUIDE +
+  " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
+  DESIGN_PRINCIPLES;
+
+export interface OutlineEntry { readonly frame: string; readonly intent: string; }
+
+/** 骨架轮的输出解析。逐条过 `Label`（页标签的既有上限），不合法的丢掉。 */
+export function parseOutline(raw: unknown): readonly OutlineEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OutlineEntry[] = [];
+  for (const e of raw) {
+    if (e === null || typeof e !== "object") continue;
+    const frame = (e as { frame?: unknown }).frame;
+    const intent = (e as { intent?: unknown }).intent;
+    if (typeof frame !== "string" || frame.trim() === "") continue;
+    out.push({ frame: frame.trim().slice(0, 200), intent: typeof intent === "string" ? intent.trim().slice(0, 300) : "" });
+    if (out.length >= designPrototype.PROTOTYPE_MAX_SCREENS) break;
+  }
+  return out;
+}
+
+/**
+ * 已生成页的**结构摘要**——每页轮的上下文里带它，不带完整树（delta §1.1 取舍 ③ = A）。
+ * 带完整树等于把分页省下来的输入 token 又填回去；只带类型序列，模型仍能看出"别的页长什么样"。
+ *
+ * ⚠ 这是本 delta 唯一的未验证假设（摘要够不够让风格一致），verification.md V44 钉它。
+ */
+export function summarizeScreen(frame: string, root: designPrototype.PrototypeNode): string {
+  const types: string[] = [];
+  const walk = (n: designPrototype.PrototypeNode, depth: number): void => {
+    types.push(n.type);
+    if (depth < 2 && designPrototype.isPrototypeContainer(n)) for (const c of n.children) walk(c, depth + 1);
+  };
+  walk(root, 0);
+  return `「${frame}」：${types.slice(0, 24).join(" > ")}`;
+}
+
 export class ModelDesignChatReplier implements DesignChatModel {
   constructor(private readonly deps: ModelDesignChatReplierDeps) {}
 
-  private async callModel(user: string, timeoutMs: number): Promise<string> {
+
+  /**
+   * 迭代 12 —— 分页生成：**一次骨架 + 每页一次**（delta §1）。
+   *
+   * 病根是：一次调用要吐出所有页的完整组件树，输出长度随页数线性增长而模型单次预算固定，
+   * 到 4、5 页必然撞顶（线上实测：先是连续超时，接着是输出被截断，截断后 JSON 不完整）。
+   * 拆开之后单次输出量与页数**解耦**，8 页和 3 页一样安全。
+   *
+   * 失败面也跟着降级：在此之前一次截断 = 整段丢弃 = 用户白等三分钟；现在第 i 页失败
+   * 只损失第 i 页，**其余页照常落库**（`DesignPrototypeWriteback` 里省掉那一页），
+   * 回复里如实说是哪几页没画出来。
+   *
+   * ⚠ 与 delta §1 的一处出入，如实登记：契约写的是「每页生成完就写回，画布一页页长出来」。
+   *   这里是**一次原子写回**。原因不是省事——这条路径是一次 HTTP 请求一次响应，服务端写
+   *   八次也不会让用户的画布逐页刷新（客户端只在响应回来时才看到）。真要逐页可见需要
+   *   流式/轮询通道，那不在本 delta 范围内。写多次只会多担风险、多记 N 条版本，换不到
+   *   任何用户可见的东西。
+   */
+  private async generatePaged(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
+    const outlineText = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_OUTLINE_SYSTEM_PROMPT);
+    if (outlineText.truncated) return this.fallback("MODEL_OUTPUT_TRUNCATED");
+    let outlineRaw: unknown;
+    try {
+      outlineRaw = extractJsonObject(outlineText.text);
+    } catch {
+      this.deps.log("design chat: outline round output was not parseable JSON", { length: outlineText.text.length });
+      return this.fallback("MODEL_BAD_JSON");
+    }
+    const obj = outlineRaw as Record<string, unknown>;
+    const outline = parseOutline(obj.outline);
+    if (outline.length === 0) {
+      this.deps.log("design chat: outline round produced no usable pages", {});
+      return this.fallback("MODEL_EMPTY_OUTPUT");
+    }
+    this.deps.log("design chat: outline ready", { pages: outline.length });
+
+    const done: { frame: string; screen: Record<string, unknown> }[] = [];
+    const failed: string[] = [];
+    for (const [i, entry] of outline.entries()) {
+      const context =
+        describeProject(ctx) +
+        `\n\n这个项目的页面划分（共 ${outline.length} 页，序号从 0 起）：\n` +
+        outline.map((e, k) => `${k}. 「${e.frame}」——${e.intent}`).join("\n") +
+        (done.length === 0 ? "" : "\n\n已经画好的页（只给结构轮廓，供你保持风格一致）：\n" + done.map((d) => summarizeScreen(d.frame, d.screen.root as designPrototype.PrototypeNode)).join("\n")) +
+        `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
+      let one: { text: string; truncated: boolean };
+      try {
+        one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+      } catch (e) {
+        this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+        failed.push(entry.frame);
+        continue;
+      }
+      if (one.truncated) {
+        this.deps.log("design chat: screen round truncated", { index: i });
+        failed.push(entry.frame);
+        continue;
+      }
+      let parsed: unknown;
+      try {
+        parsed = extractJsonObject(one.text);
+      } catch {
+        this.deps.log("design chat: screen round output was not parseable JSON", { index: i, length: one.text.length });
+        failed.push(entry.frame);
+        continue;
+      }
+      const screen = { ...(parsed as Record<string, unknown>), frame: entry.frame };
+      // 逐页过契约：这一页不合法就只丢这一页，不连累别的页——与整页写回「一页被拒整批拒」
+      // 刻意不同，那条纪律的前提是"半套原型比没有更糟"，分页之后前提变了：
+      // 缺一页且**说清楚缺哪页**，比八页全没有好。
+      if (!designPrototype.PrototypeScreen.safeParse(screen).success) {
+        this.deps.log("design chat: screen rejected by contract", { index: i });
+        failed.push(entry.frame);
+        continue;
+      }
+      done.push({ frame: entry.frame, screen });
+    }
+
+    if (done.length === 0) {
+      this.deps.log("design chat: every screen round failed", { pages: outline.length });
+      return this.fallback(failed.length === outline.length ? "MODEL_OUTPUT_TRUNCATED" : "MODEL_CALL_FAILED");
+    }
+    const { writeback } = parseWritebackDetailed({ prototype: done.map((d) => d.screen) }, this.deps.log);
+    const reply = typeof obj.reply === "string" && obj.reply.trim() !== ""
+      ? obj.reply.trim()
+      : `画了 ${done.length} 页：${done.map((d) => d.frame).join("、")}。`;
+    const text = failed.length === 0
+      ? reply
+      : `${reply}\n\n还有 ${failed.length} 页没画出来：${failed.join("、")}。已经画好的都留着了，可以让我单独把没画的那几页补上。`;
+    return {
+      text: text.slice(0, 4000),
+      source: "model",
+      writeback,
+      suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
+      ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
+    };
+  }
+
+  private fallback(reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult {
+    return { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: reason };
+  }
+
+  private async callModel(user: string, timeoutMs: number, system: string = DESIGN_CHAT_SYSTEM_PROMPT): Promise<{ text: string; truncated: boolean }> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const completion = await Promise.race([
         this.deps.model.complete({
           modelProvider: this.deps.chatModel.provider,
           modelId: this.deps.chatModel.modelId,
-          system: DESIGN_CHAT_SYSTEM_PROMPT,
+          system,
           user,
         }),
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => reject(new Error(MODEL_TIMEOUT_MESSAGE)), timeoutMs);
         }),
       ]);
-      return completion.text;
+      // 迭代 12：provider 报的 `finish_reason === "length"` 一路带上来。缺席 = 没报告，
+      // **不是**"确定没截断"——所以是 `=== true` 而不是真值判断。
+      return { text: completion.text, truncated: completion.truncated === true };
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }
@@ -269,7 +431,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       rejected.map((r) => `- ${r.field}：${r.reason}`).join("\n") +
       "\n请只修正这些问题，重新输出**完整**的 JSON（reply + writeback），不要解释。";
     try {
-      const text = await this.callModel(user, DESIGN_CHAT_REPAIR_TIMEOUT_MS);
+      const { text } = await this.callModel(user, DESIGN_CHAT_REPAIR_TIMEOUT_MS);
       const obj = extractJsonObject(text) as Record<string, unknown>;
       const { writeback, rejected: still } = parseWritebackDetailed(obj.writeback, this.deps.log);
       this.deps.log("design chat: repair round finished", { stillRejected: still.map((r) => r.field) });
@@ -285,11 +447,29 @@ export class ModelDesignChatReplier implements DesignChatModel {
   }
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult =>
-      ({ text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: reason });
+    const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult => this.fallback(reason);
+    /**
+     * 迭代 12：**首次生成走分页**（还没有任何树 ⇒ 这一句必然要模型吐出全部页）。
+     * 已有原型时不走——那时用户多半是局部改动（patch），一次调用足够，分页只会多花 N 倍的钱。
+     */
+    if (ctx.prototype.length === 0) {
+      try {
+        return await this.generatePaged(ctx);
+      } catch (e) {
+        this.deps.log("design chat: paged generation failed, falling back", {
+          code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
+          detail: e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected failure",
+        });
+        if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
+        return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
+      }
+    }
     let text: string;
+    let truncated = false;
     try {
-      text = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
+      const first = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
+      text = first.text;
+      truncated = first.truncated;
     } catch (e) {
       this.deps.log("design chat: model call failed, falling back to fixed reply", {
         modelProvider: this.deps.chatModel.provider,
@@ -307,6 +487,13 @@ export class ModelDesignChatReplier implements DesignChatModel {
     if (text.trim() === "") {
       this.deps.log("design chat: model output was empty, falling back to fixed reply", {});
       return fallbackWith("MODEL_EMPTY_OUTPUT");
+    }
+    // 迭代 12：模型**自己说**没说完 ⇒ 直接判截断，不先去 parse。
+    // 在此之前只能靠"JSON 解析失败"反推，那把「输出不合语法」和「输出被切断」混成一件事，
+    // 而屏上给用户的下一步不同（换个说法 vs 拆小一点／单页重试）。
+    if (truncated) {
+      this.deps.log("design chat: model reported truncated output", { length: text.length });
+      return fallbackWith("MODEL_OUTPUT_TRUNCATED");
     }
     let raw: unknown;
     try {

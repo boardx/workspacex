@@ -1067,6 +1067,12 @@ export interface ModelCallCompletion {
    *   脚本解析。缺席/空数组 ⇒ 与本次改动之前逐字节相同，既有实现与测试替身都不必改。
    */
   readonly scriptCandidates?: readonly string[];
+  /**
+   * 迭代 12 —— provider 报告本次输出被**长度**截断（OpenAI 兼容接口的
+   * `finish_reason === "length"`）。缺席 = 没有报告，**不是**"没被截断"：
+   * 不报这个字段的 provider 一律缺席，调用方不该把缺席当成肯定的否定。
+   */
+  readonly truncated?: boolean;
 }
 
 export interface ModelCallPort {
