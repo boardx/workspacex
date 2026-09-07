@@ -1,0 +1,67 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_real_native_factory_registers_all_shared_browser_tools __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111be0d60>
+
+    def test_real_native_factory_registers_all_shared_browser_tools(monkeypatch):
+        value=config();value['configurable']['org_skills']=[]
+        answer=resolved();answer['packageDigest']=factory._package_set_digest([])
+        async def resolve(*_):return answer
+        monkeypatch.setenv('NATIVE_SESSION_SOCKET','/run/native.sock')
+        monkeypatch.setattr(factory,'_resolve',resolve)
+        monkeypatch.setattr(factory,'_sandbox_client',lambda _:httpx.Client(transport=httpx.MockTransport(lambda _:httpx.Response(500))))
+        monkeypatch.setattr(factory,'_shared_runtime',lambda:(model(),None,[]))
+        seen=[]
+        class Graph:
+            def with_config(self,_):return self
+        def create(*args,**kwargs):seen.extend(kwargs['tools']);return Graph()
+        monkeypatch.setattr(factory,'create_native_graph',create)
+        async def run():
+            async with factory.native_graph_context(value):pass
+        asyncio.run(run())
+        selected={tool.name:tool for tool in seen}
+        for tool in browser.standard_browser_tools():
+>           assert tool.name in selected
+E           AssertionError: assert 'browser_navigate' in {'confirm_task_intent': StructuredTool(name='confirm_task_intent', description='当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能\n...a.org/draft-07/schema#'}, func=<function _publish at 0x10faf6610>, coroutine=<function _apublish at 0x10faf6770>), ...}
+E            +  where 'browser_navigate' = StructuredTool(name='browser_navigate', description='Open a public HTTP(S) page in this run-isolated browser. Private ...ocals>.sync at 0x111d97320>, coroutine=<function standard_browser_tools.<locals>.build.<locals>.invoke at 0x111beba00>).name
+
+apps/deep-agent-service/tests/test_native_browser_wiring.py:32: AssertionError
+____________ test_native_browser_unknown_action_is_dispatched_once _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111be0fc0>
+
+    def test_native_browser_unknown_action_is_dispatched_once(monkeypatch):
+        calls=[]
+        async def unknown(name,args,runtime):
+            calls.append((name,args))
+            raise browser.StandardBrowserError('Browser action has an unknown outcome')
+        monkeypatch.setattr(browser,'_invoke',unknown)
+        adapter=sandbox()
+        m=model(AIMessage(content='',tool_calls=[{'id':'real-browser-call','name':'browser_click','args':{'pageRef':'page:'+'a'*64,'elementRef':'element:'+'b'*64}}]),AIMessage(content='unknown'))
+        graph=create_native_graph(m,sandbox=adapter,pinned_skills=[],tools=browser.standard_browser_tools(),
+            interrupt_on={},tool_authority=FakeAuthority())
+        async def run():return await graph.ainvoke({'messages':[{'role':'user','content':'click'}]},{'configurable':{'disable_task_auto_classify':True}})
+>       with pytest.raises(browser.StandardBrowserError):asyncio.run(run())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE StandardBrowserError
+
+apps/deep-agent-service/tests/test_native_browser_wiring.py:49: Failed
+=============================== warnings summary ===============================
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_native_browser_wiring.py::test_real_native_factory_registers_all_shared_browser_tools
+FAILED apps/deep-agent-service/tests/test_native_browser_wiring.py::test_native_browser_unknown_action_is_dispatched_once
+2 failed, 3 warnings in 5.07s

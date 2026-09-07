@@ -85,7 +85,7 @@ def test_real_factory_resolves_transient_token_and_runs_native_tool(monkeypatch)
     from native_sandbox_fixture import real_native_session
     from test_native_graph import ScriptedModel
     with real_native_session() as (adapter,pins):
-        payload=resolved();payload.update(sessionId=adapter.id,token=adapter._token,packageDigest=factory._package_set_digest(pins))
+        payload=resolved();payload['interruptOn']={'read_file':False};payload.update(sessionId=adapter.id,token=adapter._token,packageDigest=factory._package_set_digest(pins))
         requests=[]
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):
@@ -147,7 +147,7 @@ def test_factory_registers_actual_schedule_tools(monkeypatch):
     from contextlib import nullcontext
     from unittest.mock import Mock
     value=config();pins=value['configurable']['org_skills']
-    payload=resolved();payload['packageDigest']=factory._package_set_digest(pins)
+    payload=resolved();payload['interruptOn']={name:True for name in ['wx_schedule_create','wx_schedule_list','wx_schedule_cancel','wx_image_generate','wx_audio_transcribe']};payload['packageDigest']=factory._package_set_digest(pins)
     async def resolve(*_): return payload
     monkeypatch.setenv('NATIVE_SESSION_SOCKET','/run/test.sock')
     monkeypatch.setattr(factory,'_resolve',resolve)

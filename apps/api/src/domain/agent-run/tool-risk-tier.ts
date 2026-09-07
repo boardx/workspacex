@@ -26,6 +26,7 @@ export type ToolRiskLevel = z.infer<typeof PP.ToolRiskLevel>;
  * 记账不改变任何用户可见的外部状态。
  */
 const L0_READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  "browser_snapshot",
   "read_file", "grep", "web_fetch", "list_org_skills", "glob", "ls",
   "wx_memory_search", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_canvas_read",
 ]);
@@ -34,6 +35,7 @@ const L0_READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
  * 表本身与"内核这一刻实际注册了哪些工具"解耦——分级规则是固定白名单，不是从注册表
  * 反推。 */
 const L1_REVERSIBLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
+  "browser_take_screenshot", // Writes only a reversible image in the bound workspace.
   "write_file", "edit_file",
 ]);
 
@@ -43,6 +45,7 @@ const L1_REVERSIBLE_WRITE_TOOLS: ReadonlySet<string> = new Set([
  * 写入"）与 `bash_exec`（命令执行）。
  */
 const L2_HIGH_RISK_TOOLS: ReadonlySet<string> = new Set([
+  "browser_navigate", "browser_click", "browser_fill_form",
   "bash_exec", "call_skill",
 ]);
 

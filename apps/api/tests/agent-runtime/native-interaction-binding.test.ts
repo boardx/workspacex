@@ -46,7 +46,9 @@ it.each([false,true])("old binding resumes with only mandatory interaction appro
   const next={...oldPolicy,...Object.fromEntries(Object.values(AGENT_INTERRUPTS_TOOL_NAMES).map(name=>[name,true]))};
   expect(await owner().provision(ctx,[],next)).toEqual(ref);
   expect((await owner().resolve(ref.bindingId,ctx)).interruptOn).toEqual(next);
-  for(const changed of [{...next,execute:false},{...next,read_file:true},{...next,other_tool:true},{...oldPolicy}, {...next,confirm_task_intent:false}]){
+  expect(await owner().provision(ctx,[],{...next,browser_navigate:true,browser_snapshot:false,unavailable_new_tool:true})).toEqual(ref);
+  expect((await owner().resolve(ref.bindingId,ctx)).interruptOn).toEqual(next);
+  for(const changed of [{...next,execute:false},{...next,read_file:true},{...oldPolicy}, {...next,confirm_task_intent:false}]){
    await expect(owner().provision(ctx,[],changed)).rejects.toThrow('native_session_existing_binding_unavailable');
    expect((await owner().resolve(ref.bindingId,ctx)).interruptOn).toEqual(next);
   }

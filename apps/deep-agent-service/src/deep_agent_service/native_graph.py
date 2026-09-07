@@ -26,6 +26,7 @@ from .native_skill_activity import NativeSkillActivity, SkillActivityError
 from .sandbox_backend import HttpSessionSandbox, SandboxTransportError
 from .skill_packages import package_mount_files
 from .native_tool_identity import verify_native_tool_identities
+from .native_tool_snapshot import NativeToolSnapshot
 from .native_file_delegation import file_delegation_subagent, validated_inputs
 
 
@@ -77,6 +78,7 @@ def create_native_graph(
     interrupt_on: dict,
     tool_authority: ToolAuthority,
     tools=(),
+    tool_snapshot: frozenset[str] | None = None,
     system_prompt=None,
     inputs=(),
     file_authority=None,
@@ -97,6 +99,7 @@ def create_native_graph(
     """
     from .native_artifact_publish import NativeArtifactPublishError
     from .standard_web_tools import StandardWebError
+    from .standard_browser_tools import StandardBrowserError
     from .standard_memory import StandardMemoryError
     from .standard_context_tools import StandardContextError
     from .standard_canvas_tools import StandardCanvasError
@@ -107,6 +110,9 @@ def create_native_graph(
     from .standard_sql_database import StandardSqlError
     from .standard_skill_draft import SkillDraftError
     from .mcp_snapshot_tools import McpExecutionError
+    snapshot = NativeToolSnapshot(tool_snapshot, tool_authority) if tool_snapshot is not None else None
+    if snapshot is not None:
+        tool_authority = snapshot
     authority_middleware = NativeToolAuthority(tool_authority)
     if not isinstance(interrupt_on, dict):
         raise ValueError("An explicit trusted interrupt policy is required; {} explicitly authorizes sandbox tools")
@@ -136,7 +142,7 @@ def create_native_graph(
             # Keep the official retry implementation and all harness settings.
             # A lost execution response must not become a new side-effect call.
             def retry_known_failure(error, prior=previous):
-                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, McpExecutionError)) and (
+                return not isinstance(error, (SandboxTransportError, SkillActivityError, ToolAuthorityError, NativeArtifactPublishError, StandardWebError, StandardBrowserError, StandardMemoryError, StandardContextError, StandardCanvasError, StandardDocumentError, StandardSqlError, StandardScheduleError, StandardImageError, StandardAudioError, SkillDraftError, McpExecutionError)) and (
                     prior(error) if callable(prior) else isinstance(error, prior)
                 )
             item.retry_on = retry_known_failure
@@ -151,9 +157,12 @@ def create_native_graph(
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
                    *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
-        middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, authority_middleware],
+        middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, *([snapshot] if snapshot is not None else []), authority_middleware],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )
 
     verify_native_tool_identities(graph)
+    if snapshot is not None:
+        node = graph.nodes["tools"]
+        snapshot.validate(getattr(node, "bound", node).tools_by_name)
     return graph

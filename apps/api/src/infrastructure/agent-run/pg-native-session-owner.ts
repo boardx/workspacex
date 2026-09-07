@@ -47,11 +47,14 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
    if(inserted.rows[0])return {...inserted.rows[0],fresh:true};
    const existing=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 FOR UPDATE',[context.orgId,context.parentRunId])).rows[0]!;
    if((existing.input_digest??hash(canonicalNativeInputs([])))!==inputDigest||canonicalNativeInputs(NativeInputManifest.parse(existing.input_manifest))!==canonicalNativeInputs(inputManifest)||existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest)throw new Error('native_session_existing_binding_unavailable');
-   const changed=[...new Set([...Object.keys(existing.interrupt_on),...Object.keys(policy)])].filter(key=>existing.interrupt_on[key]!==policy[key]);
+   // Existing bindings retain their capability snapshot; new candidate keys are admission-only.
    const interactions:readonly string[]=Object.values(AGENT_INTERRUPTS_TOOL_NAMES);
+   const changed=Object.keys(existing.interrupt_on).filter(key=>existing.interrupt_on[key]!==policy[key]);
    if(changed.some(key=>!interactions.includes(key)||policy[key]!==true))throw new Error('native_session_existing_binding_unavailable');
-   if(changed.length)await s.query("UPDATE native_session_bindings SET interrupt_on=$3::jsonb WHERE org_id=$1 AND run_id=$2 AND id=$4",[context.orgId,context.parentRunId,JSON.stringify(policy),existing.id]);
-   return {...existing,interrupt_on:policy,fresh:false};
+   const preserved={...existing.interrupt_on};
+   for(const key of interactions)if(policy[key]===true)preserved[key]=true;
+   if(interactions.some(key=>preserved[key]!==existing.interrupt_on[key]))await s.query("UPDATE native_session_bindings SET interrupt_on=$3::jsonb WHERE org_id=$1 AND run_id=$2 AND id=$4",[context.orgId,context.parentRunId,JSON.stringify(preserved),existing.id]);
+   return {...existing,interrupt_on:preserved,fresh:false};
   }));
   if(row.fresh){
    let known: {sessionId:string;token:string;expiresAt:number}|undefined;

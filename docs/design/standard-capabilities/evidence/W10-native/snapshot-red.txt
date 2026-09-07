@@ -1,0 +1,36 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_automatic_tool_outside_snapshot_cannot_dispatch[execute-args0] ______
+
+name = 'execute', args = {'command': 'must not run'}
+
+    @pytest.mark.parametrize('name,args',[('execute',{'command':'must not run'}),('read_file',{'file_path':'/workspace/secret'})])
+    def test_automatic_tool_outside_snapshot_cannot_dispatch(name,args):
+        adapter=sandbox();authority=FakeAuthority()
+>       graph=create_native_graph(model(AIMessage(content='',tool_calls=[{'id':'forged','name':name,'args':args}])),
+            sandbox=adapter,pinned_skills=[],tools=[],interrupt_on={},tool_authority=authority,tool_snapshot=frozenset({'write_todos'}))
+E       TypeError: create_native_graph() got an unexpected keyword argument 'tool_snapshot'
+
+apps/deep-agent-service/tests/test_native_tool_snapshot.py:13: TypeError
+____ test_automatic_tool_outside_snapshot_cannot_dispatch[read_file-args1] _____
+
+name = 'read_file', args = {'file_path': '/workspace/secret'}
+
+    @pytest.mark.parametrize('name,args',[('execute',{'command':'must not run'}),('read_file',{'file_path':'/workspace/secret'})])
+    def test_automatic_tool_outside_snapshot_cannot_dispatch(name,args):
+        adapter=sandbox();authority=FakeAuthority()
+>       graph=create_native_graph(model(AIMessage(content='',tool_calls=[{'id':'forged','name':name,'args':args}])),
+            sandbox=adapter,pinned_skills=[],tools=[],interrupt_on={},tool_authority=authority,tool_snapshot=frozenset({'write_todos'}))
+E       TypeError: create_native_graph() got an unexpected keyword argument 'tool_snapshot'
+
+apps/deep-agent-service/tests/test_native_tool_snapshot.py:13: TypeError
+=============================== warnings summary ===============================
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_native_tool_snapshot.py::test_automatic_tool_outside_snapshot_cannot_dispatch[execute-args0]
+FAILED apps/deep-agent-service/tests/test_native_tool_snapshot.py::test_automatic_tool_outside_snapshot_cannot_dispatch[read_file-args1]
+2 failed, 1 warning in 0.93s
