@@ -92,6 +92,8 @@ const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
  * 触发词唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentMultiStepTrigger`。
  */
 const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
+const SCROLL_ACCEPTANCE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER;
+const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动验收执行完成。";
 /**
  * UX-9 D4 前端接入取证（gap 清单第 3 条）—— 对这句触发词，第一次到达状态阈值时回
  * `status: "interrupted"` 而不是 `"success"`：`DeepAgentModelProvider.completeWithProgress`
@@ -399,7 +401,9 @@ const server = createServer((req, res) => {
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
     // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
-    const requiredPolls = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+    const requiredPolls = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+      ? Math.max(STATUS_POLLS_BEFORE_DONE, 20)
+      : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS)
       : STATUS_POLLS_BEFORE_DONE;
     if (record.statusPolls < requiredPolls) { sendJson(res, 200, { status: "pending" }); return; }
@@ -437,8 +441,9 @@ const server = createServer((req, res) => {
     // 从未判过这两个触发词，永远落到下面这句通用模板，是 DA-19g 评分第 2 轮抓到的真
     // 根因）。未命中任何触发词时的默认模板原样保留，不改措辞。
     const isApproval = APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER;
-    const streamMessageId = isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
-    const reply = isApproval ? approvalReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${threadId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
+    const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
@@ -481,6 +486,19 @@ const server = createServer((req, res) => {
     };
     // UI 评分第 4 项：多步依赖链剧本。第二个工具（read_document）的 args.path 逐字
     // 取自第一个工具（search_documents）结果里的文件名——链条本身就是证据。
+    if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER) {
+      // Protocol-level fixture, like the three-step fixture below: production
+      // polling, journal persistence and rendering must observe every receipt.
+      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      for (let index = 0; index < 10; index += 1) {
+        const id = `scroll-${threadId}-${index}`;
+        if (record.statusPolls >= index * 2) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
+        if (record.statusPolls >= (index + 1) * 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
+      }
+      if (record.statusPolls >= 20) messages.push({ id: `scroll-${threadId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      sendJson(res, 200, { values: { messages } });
+      return;
+    }
     if (MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER) {
       const searchCallId = `search-${threadId}`;
       const readCallId = `read-${threadId}`;
