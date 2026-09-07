@@ -1,6 +1,6 @@
 import * as React from "react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
 import { executeResearchRuntime, getResearchRuntime, type GuidedResearchRuntime as Runtime } from "@/lib/guided-research-api";
 vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
@@ -34,7 +34,7 @@ describe("research report stream UI", () => {
     vi.mocked(executeResearchRuntime).mockRejectedValue(new Error("disconnect"));
     render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
-    expect(await screen.findByText("恢复的正文")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("恢复的正文")).toBeInTheDocument());
     expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

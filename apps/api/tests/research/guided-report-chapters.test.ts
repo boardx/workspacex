@@ -1,4 +1,4 @@
-import { reportBasis, reportSourceAliases } from "../../src/application/research/guided-report-checkpoint";
+import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
 import { validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
 import { describe, expect, it, vi } from "vitest";
 import { generateReportChapters, validateGeneratedChapter } from "../../src/application/research/guided-report-chapters";
@@ -27,7 +27,7 @@ function answer(context: any) {
   }) };
   if (context.reportStage === "quality") return { questions: context.evidenceByQuestion.map((question: any) => ({ questionId: question.id, status: question.gap ? "gap" : "answered", rationale: "The chapter addresses this question with appropriate limitations." })), supported: true, analysisDepth: "adequate", issues: [] };
   if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
-  return { title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
+  return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
 describe("chapter-based report generation", () => {
   it("makes N chapter calls in exact enabled order then synthesizes, streaming actual deltas into one aggregate", async () => {
@@ -71,7 +71,7 @@ describe("chapter-based report generation", () => {
     for (const bad of [{ ...chapter, sectionId: "a" }, { ...chapter, sourceIds: ["source-a"] }, { ...chapter, body: "One sentence [[source:source-b]]" }]) {
       expect(() => validateGeneratedChapter(bad, f.state.outline[0]!, new Set(["source-b"])) ).toThrow();
     }
-    const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); return { text: JSON.stringify(c.reportStage.startsWith("synthesis") ? { title: "Bad", summary: "Invented [[source:unknown]]" } : answer(c)) }; } };
+    const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); return { text: JSON.stringify(c.reportStage.startsWith("synthesis") ? { ...answer(c), title: "Bad", summary: "Invented [[source:unknown]]" } : answer(c)) }; } };
     await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
     expect(f.state.report).toBeNull(); expect(f.state.modelCalls.at(-1)?.status).toBe("failed");
   });
@@ -79,7 +79,7 @@ describe("chapter-based report generation", () => {
     const f = fixture(); f.state.sources[1]!.decision = "excluded";
     f.state.sources[0]!.content = "x".repeat(30000); f.state.tasks[1]!.status = "failed"; f.state.reportPartial = true;
     const contexts: any[] = [];
-    const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(c.reportStage === "synthesis" ? { title: "Limited", summary: "Coverage is limited." } : answer(c)) }; } };
+    const model: ModelCallPort = { complete: async (input) => { const c = JSON.parse(input.user); contexts.push(c); return { text: JSON.stringify(c.reportStage === "synthesis" ? { ...answer(c), title: "Limited", summary: "Coverage is limited." } : answer(c)) }; } };
     await generateReportChapters(f.state, model, config, f.persist);
     const chunks = contexts.filter((c) => c.reportStage === "evidence").flatMap((c) => c.chunks);
     expect(chunks.every((chunk) => chunk.sourceId === "source-a" && chunk.content.length <= 6000)).toBe(true);
@@ -123,7 +123,7 @@ describe("chapter-based report generation", () => {
     let synthesis: { chapters: { body: string; excerpted: boolean }[] } | undefined;
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
-      if (context.reportStage === "synthesis") { synthesis = context; return { text: JSON.stringify({ title: "Bounded", summary: "Limited evidence." }) }; }
+      if (context.reportStage === "synthesis") { synthesis = context; return { text: JSON.stringify({ ...answer(context), title: "Bounded", summary: "Limited evidence." }) }; }
       if (["evidence", "quality"].includes(context.reportStage)) return { text: JSON.stringify(answer(context)) };
       const id = context.sources[0].id;
       return { text: JSON.stringify({ sectionId: context.section.id, body: `${body(id)}\n\n${"Controlled fixture content. ".repeat(500)}`, sourceIds: [id] }) };
@@ -180,7 +180,7 @@ describe("chapter-based report generation", () => {
         expect(context.sources).toEqual([]); expect(context.evidenceByQuestion.every((q: any) => q.gap)).toBe(true);
         return { text: JSON.stringify({ sectionId: context.section.id, body: `### Missing evidence\n\nThe accepted search excerpts do not answer this chapter's questions; no factual policy conclusion is supported.\n\n### Decision implications\n\nThe available evidence does not justify choosing an entry option, and uncertainty must remain explicit in the decision.\n\n### Further verification\n\nObtain relevant primary documents and verify the specific unanswered questions before acting on this incomplete research.`, sourceIds: [] }) };
       }
-      if (context.reportStage === "synthesis") return { text: JSON.stringify({ title: "Evidence gaps", summary: "The available sources do not establish the required policy findings." }) };
+      if (context.reportStage === "synthesis") return { text: JSON.stringify({ introduction: "This study compares the requested policies using limited excerpts.", conclusion: "Obtain primary policy evidence before comparing options.", title: "Evidence gaps", summary: "The available sources do not establish the required policy findings." }) };
       return { text: JSON.stringify(answer(context)) };
     } };
     const report = await generateReportChapters(f.state, model, config, f.persist);
@@ -312,6 +312,53 @@ describe("chapter-based report generation", () => {
     const report = await generateReportChapters(f.state, model, config, f.persist);
     expect(report.sections).toHaveLength(1); expect(revisions).toBe(1);
     expect(f.events.filter((event) => event.type === "report_delta").map((event) => event.delta).join("")).not.toContain("```json");
+  });
+
+  it("normalizes known bare citation forms without guessing unknown UUIDs or numeric footnotes", () => {
+    const id = "f8b9a394-a481-4e2b-9077-651d901443ee";
+    const resolve = aliasResolver([{ alias: "S1", sourceId: id }]);
+    expect(canonicalReportText(`Known [[${id}]] and [S1].`, resolve)).toBe(`Known [[source:${id}]] and [[source:${id}]].`);
+    expect(canonicalReportText("A numeric footnote [1] and `[[S999]]`.", resolve)).toBe("A numeric footnote [1] and `[[S999]]`.");
+    expect(() => canonicalReportText("Unknown [[de329434-4107-4e2a-a67a-0573c2e36bed]]", resolve)).toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    for (const malformed of ["[[source:", "[[S1", "[[S1]", "[[S1][S2]]", "[[[S1]]", `[[${id}]`]) {
+      expect(() => canonicalReportText(malformed, resolve), malformed).toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+    }
+    expect(canonicalReportText("```text\n[[S999\n```", resolve)).toBe("```text\n[[S999\n```");
+  });
+  it.each(["introduction", "conclusion"])("requires new synthesis %s and repairs its omission once", async (field) => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let repaired = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user); const result = answer(context);
+      if (context.reportStage === "synthesis") delete (result as any)[field];
+      if (context.reportStage === "synthesis_revision") repaired++;
+      return { text: JSON.stringify(result) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report[field as "introduction" | "conclusion"]).toBeTruthy(); expect(repaired).toBe(1);
+  });
+  it.each(["summary", "introduction", "conclusion"])("validates canonical and bare references in synthesis %s", async (field) => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let bad = false;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user); const result = answer(context);
+      if (context.reportStage.startsWith("synthesis")) (result as any)[field] = `Distinct ${field} analysis [[${bad ? "f8b9a394-a481-4e2b-9077-651d901443ee" : "S2"}]]`;
+      return { text: JSON.stringify(result) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report[field as "summary" | "introduction" | "conclusion"]).toContain("[[source:source-b]]");
+    bad = true;
+    await expect(generateReportChapters(f.state, model, config, f.persist, undefined, true)).rejects.toThrow("RESEARCH_CONTENT_REFERENCE_INVALID");
+  });
+
+  it("rejects mechanically repeated formal components after the bounded repair", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let attempts = 0;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user); const result = answer(context);
+      if (context.reportStage.startsWith("synthesis")) { attempts++; Object.assign(result, { summary: "Repeated prose", introduction: "Repeated prose", conclusion: "Repeated prose" }); }
+      return { text: JSON.stringify(result) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
+    expect(attempts).toBe(2); expect(f.state.report).toBeNull();
+    expect(f.state.reportCheckpoint?.chapters).toHaveLength(1);
   });
 
 });

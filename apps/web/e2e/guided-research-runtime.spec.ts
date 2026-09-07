@@ -110,6 +110,10 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report").every((call: { status: string }) => call.status === "succeeded")).toBe(true);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
+  expect(runtime.report.introduction).toContain("检索摘要");
+  expect(runtime.report.conclusion).toContain("综合各章");
+  await expect(page.getByTestId("research-report").getByRole("heading", { name: "研究范围与方法", exact: true })).toBeVisible();
+  await expect(page.getByTestId("research-report").getByRole("heading", { name: "综合结论", exact: true })).toBeVisible();
   await expect(page.getByTestId("research-report").locator("sup a").first()).toBeVisible();
   await expect(page.getByTestId("research-report")).not.toContainText("[[source:");
   await page.reload();

@@ -1,6 +1,6 @@
 /** Read only string values at known report paths from an unfinished JSON document.
  * Never turn model text into HTML, links, or a validated report. */
-export function researchReportPreview(text: string): { title: string; summary: string; sections: { sectionId: string; body: string }[] } {
+export function researchReportPreview(text: string): { title: string; summary: string; introduction?: string; conclusion?: string; sections: { sectionId: string; body: string }[] } {
   text = text.replace(/^\s*```(?:json)?\s*/i, "");
   let at = 0;
   const whitespace = () => { while (/\s/.test(text[at] ?? "") && at < text.length) at++; };
@@ -53,5 +53,5 @@ export function researchReportPreview(text: string): { title: string; summary: s
   const object = (item: unknown): Record<string, unknown> => item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : {};
   const report = object(parsed);
   const field = (item: unknown) => typeof item === "string" ? item : "";
-  return { title: field(report.title), summary: field(report.summary), sections: Array.isArray(report.sections) ? report.sections.map((item) => { const section = object(item); return { sectionId: field(section.sectionId), body: field(section.body) }; }) : [] };
+  return { title: field(report.title), summary: field(report.summary), ...(typeof report.introduction === "string" ? { introduction: report.introduction } : {}), ...(typeof report.conclusion === "string" ? { conclusion: report.conclusion } : {}), sections: Array.isArray(report.sections) ? report.sections.map((item) => { const section = object(item); return { sectionId: field(section.sectionId), body: field(section.body) }; }) : [] };
 }

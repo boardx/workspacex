@@ -1,13 +1,13 @@
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
-const stages = { planning: "规划研究任务", searching: "检索资料", organizing: "整理来源证据", writing: "撰写报告章节", reviewing: "检查分析与证据质量", synthesizing: "综合研究结论" } as const;
+export const researchStageLabels = { planning: "规划研究任务", searching: "检索资料", organizing: "整理来源证据", writing: "撰写报告章节", reviewing: "检查分析与证据质量", synthesizing: "综合研究结论" } as const;
 export function GuidedResearchRuntimeProgress({ state }: { state: GuidedResearchRuntime }) {
   const progress = state.progress;
   if (!progress) return null;
   const title = progress.sectionId ? state.outline.find((section) => section.id === progress.sectionId)?.title : null;
   return <section className="space-y-2 rounded-lg border border-border bg-card p-4" data-testid="research-runtime-progress">
-    <p role="status" aria-live="polite" className="text-12 font-medium">{stages[progress.stage]} · {progress.completed} / {progress.total}{!state.busy && state.errorCode ? " · 已暂停" : ""}</p>
+    <p role="status" aria-live="polite" className="text-12 font-medium">{researchStageLabels[progress.stage]} · {progress.completed} / {progress.total}{!state.busy && state.errorCode ? " · 已暂停" : ""}</p>
     {title && <p className="text-12 text-muted-foreground">{title}</p>}
-    {progress.total > 0 && <progress className="h-2 w-full accent-primary" value={progress.completed} max={progress.total} aria-label={stages[progress.stage]} />}
+    {progress.total > 0 && <progress className="h-2 w-full accent-primary" value={progress.completed} max={progress.total} aria-label={researchStageLabels[progress.stage]} />}
   </section>;
 }
 export function GuidedResearchPlanDetails({ state, errors }: { state: GuidedResearchRuntime; errors: Record<string, string> }) {
