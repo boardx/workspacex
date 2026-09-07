@@ -69,6 +69,29 @@ async function realDeck(
   return { name: fileName, contentBase64: out.toString("base64"), sizeBytes: out.length };
 }
 
+/** A small, structurally valid PDF for upper-layer persistence and download assertions. */
+function realPdf(fileName: string): LoopbackSandboxFile {
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    "<< /Length 56 >>\nstream\nBT /F1 16 Tf 72 720 Td (WorkspaceX Agent report) Tj ET\nendstream",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets: number[] = [0];
+  for (let index = 0; index < objects.length; index += 1) {
+    offsets.push(Buffer.byteLength(body));
+    body += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xref = Buffer.byteLength(body);
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  body += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const out = Buffer.from(body, "utf8");
+  return { name: fileName, contentBase64: out.toString("base64"), sizeBytes: out.length };
+}
+
 /**
  * 造一个**自带状态**的响应器。
  *
@@ -104,6 +127,9 @@ export function createLoopbackSandboxResponder(): (script: string) => Promise<Re
         files: [{ name: "deck.pptx", contentBase64: "", sizeBytes: 0 }],
       });
     }
+
+    const pdfName = /([\w.\-\u3400-\u9fff]+\.pdf)/u.exec(script)?.[1];
+    if (pdfName) return Promise.resolve({ ...base, exitCode: 0, stdout: "WROTE_PDF\n", files: [realPdf(pdfName)] });
 
     // 从脚本里捞出 addText 的字面量当幻灯片文本，让产物内容与请求相关，
     // 而不是永远回同一个常量 deck（那样"内容与请求对应"这条断言就测不到东西）。
