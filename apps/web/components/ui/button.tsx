@@ -15,8 +15,16 @@ import { cn } from "@/lib/utils";
  * ⚠ 严禁 disabled:opacity-* —— 统一透明度作用在深色实心按钮上会把黑底白字压成
  * ~2:1 的灰对灰（uiux-standards §1.1 记录的 Rooms 侧栏真实事故）。lint-design.sh 会拦。
  */
+/**
+ * ⚠ `min-h-6` 属于 **base**，不属于某个 size（TW-A11Y-2，2026-09-08 真栈实测）。
+ * 24×24 CSS px 是**最小命中区**，任何 Button 都要有，而不是「xs 这一档记得写」。
+ * 之前它只写在 `size.xs` 上，于是调用方一句 `className="h-auto"`（为了让长标题折行）
+ * 就把 size 的 `h-7` 顶掉、高度塌到 18px——CI 抓到的正是这一个
+ * （`task-notifications` 的未读提醒按钮，实测 237×18）。写在 base 上之后，
+ * `h-auto` 只解开上界、解不开下界，命中区不会再被调用方无意抹掉。
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium " +
+  "inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium " +
     "transition-all duration-200 ease-in-out " +
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 " +
     "disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent",
@@ -31,9 +39,8 @@ const buttonVariants = cva(
         ai: "bg-ai-tint text-ai-tint-foreground hover:bg-ai-tint/80 border border-ai/20",
       },
       size: {
-        // `h-6` alone can be overridden by a consuming surface's button reset. Keep the
-        // 24px minimum hit target as an invariant for every compact button (TW-A11Y-2).
-        xs: "h-6 min-h-6 px-2 text-11",
+        // 24px 最小命中区由 base 的 `min-h-6` 统一承担（见上方头注），这里不再重复声明。
+        xs: "h-6 px-2 text-11",
         sm: "h-7 px-2.5 text-12",
         md: "h-8 px-3 text-13",
         lg: "h-10 px-4 text-14",
