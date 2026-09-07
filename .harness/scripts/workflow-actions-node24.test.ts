@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 /**
  * GitHub stopped supporting the Node.js 20 JavaScript action runtime in 2026.
@@ -36,10 +37,20 @@ function workflowSources(directory = WORKFLOW_DIR, prefix = ""): Array<{ file: s
     .sort((left, right) => left.file.localeCompare(right.file));
 }
 
+function collectUses(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectUses);
+  if (value === null || typeof value !== "object") return [];
+
+  return Object.entries(value).flatMap(([key, nested]) => {
+    if (key === "uses" && typeof nested === "string") return [nested];
+    return collectUses(nested);
+  });
+}
+
 function externalActionUses(source: string): string[] {
-  return [...source.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)/gm)]
-    .map((match) => match[1]!)
-    .filter((use) => !use.startsWith("./") && !use.startsWith("docker://"));
+  return collectUses(parse(source)).filter(
+    (use) => !use.startsWith("./") && !use.startsWith("docker://"),
+  );
 }
 
 describe("GitHub workflow JavaScript actions use audited Node.js 24 releases", () => {
