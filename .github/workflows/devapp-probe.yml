@@ -23,6 +23,18 @@ jobs:
           echo "── sudo -l（这决定我能不能换那个部署脚本）──"
           sudo -n -l 2>&1 || echo "(sudo -l 不可用)"
 
+      - name: 机器内存与磁盘（决定 next build 能给多大堆）
+        shell: bash
+        run: |
+          echo "── free -m ──"; free -m
+          echo "── nproc ──"; nproc
+          echo "── df /opt/workspacex ──"; df -h /opt/workspacex 2>&1 || true
+          echo "── .next 现状（构建产物是否完整）──"
+          ls -l /opt/workspacex/app/apps/web/.next/BUILD_ID 2>&1 || echo "(无 BUILD_ID)"
+          cat /opt/workspacex/app/apps/web/.next/BUILD_ID 2>/dev/null; echo
+          ls -ld /opt/workspacex/app/apps/web/.next/static/chunks 2>&1 || true
+          (cd /opt/workspacex/app && git log --oneline -1) 2>&1 || true
+
       - name: 应用目录的属主与可写性
         shell: bash
         run: |
