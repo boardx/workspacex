@@ -1,0 +1,1 @@
+{"model":"qwen3.8-max","caseId":"S008","packages":[{"name":"knowledge-grounded-answer","version":"1.0.0"},{"name":"meeting-preparation","version":"1.0.0"},{"name":"internal-communications","version":"1.0.0"},{"name":"project-status-report","version":"1.0.0"}],"outputSha256":"9389ac9c43cb3ba91fdb964b2116c59573d3f4d4efe0bc454fe44d80c1b4c718","artifacts":1,"actualWriteback":true}
