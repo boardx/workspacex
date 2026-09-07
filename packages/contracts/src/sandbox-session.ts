@@ -10,7 +10,7 @@ const Path = z.string().min(1).max(4096);
 const File = z.object({ path: Path, contentBase64: z.string().max(4 * Math.ceil(limits.maxFileBytes / 3)) }).strict();
 const ExecutionId = z.string().uuid();
 export const schemas = {
-  create: z.object({ skills: z.array(File).max(limits.maxFiles).default([]), ttlMs: z.number().int().min(1).max(limits.maxTtlMs).optional() }).strict(),
+  create: z.object({ skills: z.array(File).max(limits.maxFiles).default([]), inputs: z.array(File).max(limits.maxFiles).default([]), ttlMs: z.number().int().min(1).max(limits.maxTtlMs).optional() }).strict(),
   created: z.object({ sessionId: z.string().uuid(), token: z.string().regex(/^[a-f0-9]{64}$/), expiresAt: z.number().int() }).strict(),
   write: File,
   written: z.object({ path: Path, sizeBytes: z.number().int().nonnegative() }).strict(),

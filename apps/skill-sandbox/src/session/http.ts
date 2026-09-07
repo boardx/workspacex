@@ -21,8 +21,8 @@ export async function handleSessionRequest(req: IncomingMessage, res: ServerResp
       return value;
     };
     if (url.pathname === "/sessions" && req.method === "POST") {
-      const input = await body("create") as { skills?: Parameters<SessionManager["create"]>[0]; ttlMs?:number };
-      send(201, await manager.create(input.skills, input.ttlMs)); return true;
+      const input = await body("create") as { skills?: Parameters<SessionManager["create"]>[0]; inputs?: Parameters<SessionManager["create"]>[2]; ttlMs?:number };
+      send(201, await manager.create(input.skills, input.ttlMs, input.inputs)); return true;
     }
     const parts = url.pathname.split("/").slice(2);
     const id = parts[0]!;

@@ -15,6 +15,6 @@ export function createNativeSessionTransport(socketPath:string):NativeSessionTra
   });
   const timer=setTimeout(()=>{req.destroy();fail();},limits.defaultTimeoutMs);req.on('close',()=>clearTimeout(timer));req.on('error',fail);req.end(data);
  });
- return {create:async files=>schemas.created.parse(await call('POST','/sessions',schemas.create.parse({skills:files}))),
+ return {create:async (files,inputs=[])=>schemas.created.parse(await call('POST','/sessions',schemas.create.parse({skills:files,inputs}))),
   destroy:async(sessionId,token)=>{schemas.created.parse({sessionId,token,expiresAt:0});schemas.deleted.parse(await call('DELETE',`/sessions/${sessionId}`,undefined,token));}};
 }

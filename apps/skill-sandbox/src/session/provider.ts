@@ -16,6 +16,7 @@ export interface SessionExecutionInput {
   timeoutMs: number;
   workspace: string;
   skills: string;
+  inputs?: string;
   signal: AbortSignal;
 }
 export interface SessionExecutionProvider {
@@ -24,7 +25,7 @@ export interface SessionExecutionProvider {
 }
 
 /** No host root bind, socket mount, inherited environment or shared PID namespace. */
-export function bubblewrapArguments(workspace: string, skills: string): string[] {
+export function bubblewrapArguments(workspace: string, skills: string, inputs?: string): string[] {
   return ["--unshare-all", "--unshare-user", "--die-with-parent", "--new-session",
     "--cap-drop", "ALL", "--clearenv",
     "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib", "/lib",
@@ -32,6 +33,7 @@ export function bubblewrapArguments(workspace: string, skills: string): string[]
     "--ro-bind", "/opt/sandbox/node_modules", "/opt/sandbox/node_modules",
     "--dev", "/dev", "--tmpfs", "/tmp",
     "--bind", workspace, "/workspace", "--ro-bind", skills, "/skills",
+    ...(inputs ? ["--ro-bind", inputs, "/inputs"] : []),
     "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin",
     "--setenv", "HOME", "/tmp", "--setenv", "TMPDIR", "/tmp",
     "--setenv", "NODE_PATH", "/opt/sandbox/node_modules",
@@ -56,7 +58,7 @@ export class BubblewrapProvider implements SessionExecutionProvider {
 
   execute(input: SessionExecutionInput): Promise<SessionExecutionResult> {
     if (process.platform !== "linux") throw new Error("SESSION_EXECUTION_UNAVAILABLE");
-    return this.run([...bubblewrapArguments(input.workspace, input.skills),
+    return this.run([...bubblewrapArguments(input.workspace, input.skills, input.inputs),
       "--", "/bin/sh", "-c", input.command], input.executionId, input.timeoutMs, input.signal);
   }
 

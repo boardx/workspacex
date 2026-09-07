@@ -13,6 +13,6 @@ export interface NativeSessionOwner {
  release(bindingId:string,orgId:ExecutionAuthorityContext['orgId'],runId:string):Promise<void>;
 }
 export interface NativeSessionTransport {
- create(files:readonly {path:string;contentBase64:string}[]):Promise<{sessionId:string;token:string;expiresAt:number}>;
+ create(files:readonly {path:string;contentBase64:string}[],inputs?:readonly {path:string;contentBase64:string}[]):Promise<{sessionId:string;token:string;expiresAt:number}>;
  destroy(sessionId:string,token:string):Promise<void>;
 }

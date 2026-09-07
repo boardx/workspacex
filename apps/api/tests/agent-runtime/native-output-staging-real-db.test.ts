@@ -50,7 +50,7 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1,bindingId:randomUUID(),toolCallId:'publish-call'};
  const reader=new PgParentRunControlReader(db);
  const authority=new ToolExecutionAuthority(reader,{readPinnedSkills:async()=>[]},{hasGrant:async()=>true,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{}});
- const owner:NativeSessionOwner={provision:async()=>{throw new Error('unused');},release:async()=>{},releaseForRun:async()=>{},resolve:async()=>({sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000,interruptOn:{},packageDigest:'b'.repeat(64)})};
+ const owner:NativeSessionOwner={provision:async()=>{throw new Error('unused');},release:async()=>{},releaseForRun:async()=>{},resolve:async()=>({sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000,interruptOn:{},packageDigest:'b'.repeat(64),inputs:[]})};
  const staging=new PgNativeOutputStaging(db,owner,objects,authority,()=>({read:async()=>({path,sizeBytes:bytes.length,contentBase64:bytes.toString('base64')})}));
  const input={workspacePath:path,title:'a.txt',mediaType:'text/plain' as const,idempotencyKey:'one'};
  const failedObjects={putOnce:async()=>{throw new Error('object write failure');},get:objects.get.bind(objects),head:objects.head.bind(objects)};

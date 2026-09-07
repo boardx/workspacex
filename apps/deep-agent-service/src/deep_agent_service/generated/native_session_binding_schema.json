@@ -94,6 +94,54 @@
       "packageDigest": {
         "type": "string",
         "pattern": "^[a-f0-9]{64}$"
+      },
+      "inputs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "attachmentId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "filename": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "path": {
+              "type": "string",
+              "maxLength": 4096,
+              "pattern": "^\\/inputs\\/[a-f0-9]{64}\\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+            },
+            "mediaType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8388608
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "attachmentId",
+            "filename",
+            "path",
+            "mediaType",
+            "sizeBytes",
+            "digest"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 256,
+        "default": []
       }
     },
     "required": [

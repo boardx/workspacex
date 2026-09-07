@@ -51,6 +51,30 @@
           "maxItems": 256,
           "default": []
         },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "contentBase64": {
+                "type": "string",
+                "maxLength": 11184812
+              }
+            },
+            "required": [
+              "path",
+              "contentBase64"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 256,
+          "default": []
+        },
         "ttlMs": {
           "type": "integer",
           "minimum": 1,

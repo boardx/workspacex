@@ -10,6 +10,10 @@ for(const path of WORKBENCH_REPOSITORIES){
  test(path+' rejects new table',()=>assert.ok(check(path,source+"\ns.query('SELECT * FROM secrets WHERE org_id=$1', [orgId]);",read).length));
 }
 const cases=[
+ ['agent-run/pg-native-run-inputs.ts','m.author_kind=\'human\''],
+ ['agent-run/pg-native-run-inputs.ts','a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4'],
+ ['agent-run/pg-native-run-inputs.ts','limits.maxFiles+1'],
+ ['agent-run/pg-native-run-inputs.ts',"if (decision.kind !== 'allow') throw"],
  ['agent-run/pg-parent-run-control.ts','FOR UPDATE OF r'],
  ['agent-run/pg-parent-run-control.ts','toolArgumentsDigest(input.toolArgs) !== expected'],
  ['agent-run/pg-run-recovery.ts','await withRunLease('],
@@ -17,6 +21,10 @@ const cases=[
  ['artifacts-steering/pg-artifact-continuation-reader.ts','v.version=c.based_on_version'],
  ['artifacts-steering/register-run-artifacts.ts','if (!attachment) throw'],
 ];
+test('input bytes cannot precede parent authority',()=>{
+ const p='src/infrastructure/agent-run/pg-native-run-inputs.ts';
+ assert.ok(check(p,read(p),f=>read(f).replace('inputSet=await this.authorized(context','inputSet=await this.bypass(context')).length);
+});
 for(const [file,guard] of cases){const p='src/infrastructure/'+file;test('reject removed '+guard,()=>assert.ok(check(p,read(p).replace(guard,'REMOVED'),read).length));}
 test('reject missing controller authorization',()=>{
  const p='src/infrastructure/agent-run/pg-interjection-store.ts';

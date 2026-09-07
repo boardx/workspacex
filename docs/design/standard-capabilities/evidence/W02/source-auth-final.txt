@@ -1,0 +1,53 @@
+[stack-admission] load1=7.81 cores=10 perCore=0.78 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqbhz1v-91682f81-eef467ab0494 db=wsx_eef467ab049490664eb1 compose=wsx-eef467ab049490664eb1 pg=24731 redis=29731 sandbox=54731
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_eef467ab049490664eb1 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/native-session-owner-real-db.test.ts (13 tests) 53751ms
+   ✓ real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources 5003ms
+   ✓ real PG persists encrypted binding across owner restart, rejects stale scope, confirms release 799ms
+   ✓ unknown creation persists failed state and never retries external creation 409ms
+   ✓ known create compensates cancel and never publishes a stale binding 537ms
+   ✓ known create compensates db-write and never publishes a stale binding 1519ms
+   ✓ known create compensates compensation-fails and never publishes a stale binding 961ms
+   ✓ PG recovery forwards stored native profile and actual remote thread identity 1158ms
+   ✓ native PG recovery lifecycle: success 825ms
+   ✓ native PG recovery lifecycle: missing-stager 823ms
+   ✓ native PG recovery lifecycle: uncertain 910ms
+   ✓ native PG recovery lifecycle: paused 596ms
+   ✓ native PG recovery lifecycle: approval 795ms
+ ✓ tests/agent-runtime/native-output-staging-real-db.test.ts (1 test) 3196ms
+   ✓ stages actual bytes, refuses changed content, replays once and existing writeback creates one artifact version 773ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  05:22:14
+   Duration  70.38s (transform 2.36s, setup 0ms, collect 7.25s, tests 56.95s, environment 0ms, prepare 619ms)
+
+[db-isolation] db=wsx_eef467ab049490664eb1 peak_connections=3
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_eef467ab049490664eb1 capacity=100 current=6 required=32
+stdout | tests/agent-runtime/native-full-chain.test.ts > official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback
+{"chain":"native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback","inputsVerified":true,"inputPromptVerified":true,"webSourceLinked":true,"skillStages":["metadata_discovered","body_read"],"tools":["read_file","execute","wx_artifact_publish","web_search","fetch_url"],"final":"Report staged for writeback.","artifacts":1,"attachments":1}
+
+ ✓ tests/agent-runtime/native-full-chain.test.ts (1 test) 21338ms
+   ✓ official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback 18510ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  05:23:30
+   Duration  30.96s (transform 3.13s, setup 0ms, collect 6.76s, tests 21.34s, environment 0ms, prepare 430ms)
+
+[db-isolation] db=wsx_eef467ab049490664eb1 peak_connections=3
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-session-owner-real-db.test.ts tests/agent-runtime/native-output-staging-real-db.test.ts
+pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m49s
+  清理：1s
+  总计：1m50s

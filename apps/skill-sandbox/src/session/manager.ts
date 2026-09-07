@@ -24,18 +24,21 @@ export class SessionManager {
   private closing = 0;
   constructor(private readonly provider: SessionExecutionProvider, private readonly baseDir = tmpdir()) {}
 
-  async create(skills: FileInput[] = [], ttlMs = L.defaultTtlMs!) {
+  async create(skills: FileInput[] = [], ttlMs = L.defaultTtlMs!, inputs: FileInput[] = []) {
     this.reapTombstones();
     if (this.destroyed.size + this.sessions.size + this.creating >= L.maxSessions! * L.maxExecutionsPerSession!) throw new Error("SESSION_LIMIT");
     if (this.sessions.size + this.creating + this.closing >= L.maxSessions!) throw new Error("SESSION_LIMIT");
-    if (!Number.isInteger(ttlMs) || ttlMs < 1 || ttlMs > L.maxTtlMs! || skills.length > L.maxFiles!) throw new Error("INVALID_SESSION_INPUT");
-    const decoded = skills.map((file) => {
+    if (!Number.isInteger(ttlMs) || ttlMs < 1 || ttlMs > L.maxTtlMs! || skills.length > L.maxFiles! || inputs.length > L.maxFiles!) throw new Error("INVALID_SESSION_INPUT");
+    const decodeFiles = (files: FileInput[], root: string) => files.map((file) => {
       validateSessionPath(file.path);
-      if (!file.path.startsWith("/skills/")) throw new Error("INVALID_SESSION_PATH");
+      if (!file.path.startsWith(`${root}/`)) throw new Error("INVALID_SESSION_PATH");
       return { path: file.path, bytes: decode(file.contentBase64) };
     });
+    const decodedSkills = decodeFiles(skills, '/skills');
+    const decoded = [...decodedSkills, ...decodeFiles(inputs, '/inputs')];
     if (new Set(decoded.map((f) => f.path)).size !== decoded.length ||
-      decoded.reduce((size, f) => size + f.bytes.length, 0) > L.maxSkillsBytes!) throw new Error("INVALID_SESSION_INPUT");
+      decodedSkills.reduce((size, f) => size + f.bytes.length, 0) > L.maxSkillsBytes! ||
+      Buffer.byteLength(JSON.stringify({ skills, inputs, ttlMs })) > L.maxRequestBytes!) throw new Error("INVALID_SESSION_INPUT");
     this.creating++;
     let root: string;
     try { root = await mkdtemp(join(this.baseDir, "wx-session-")); }
@@ -43,6 +46,7 @@ export class SessionManager {
     try {
       await mkdir(join(root, "workspace"));
       await mkdir(join(root, "skills"));
+      await mkdir(join(root, "inputs"));
       for (const file of decoded) {
         const target = join(root, file.path.slice(1));
         await mkdir(dirname(target), { recursive: true });
@@ -148,7 +152,7 @@ export class SessionManager {
         }
         if (!available) throw new Error("SESSION_EXECUTION_UNAVAILABLE");
         return this.provider.execute({ ...input, timeoutMs: Math.min(input.timeoutMs, session.expiresAt - Date.now()),
-          workspace: join(session.root, "workspace"), skills: join(session.root, "skills"), signal: abort.signal });
+          workspace: join(session.root, "workspace"), skills: join(session.root, "skills"), inputs: join(session.root, "inputs"), signal: abort.signal });
       });
       session.execution = { id: input.executionId, abort, done };
       try {

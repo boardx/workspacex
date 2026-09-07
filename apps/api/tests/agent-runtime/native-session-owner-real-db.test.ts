@@ -11,6 +11,14 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { PgNativeSessionOwner } from "../../src/infrastructure/agent-run/pg-native-session-owner";
 import { PgParentRunControlReader } from "../../src/infrastructure/agent-run/pg-parent-run-control";
+import { PgNativeRunInputs } from '../../src/infrastructure/agent-run/pg-native-run-inputs';
+import { PgIdentityRepository } from '../../src/infrastructure/identity/pg-identity-repository';
+import { PgChatRepository } from '../../src/infrastructure/chat/pg-chat-repository';
+import { resolveObjectPath } from '../../src/infrastructure/storage/object-store-path';
+import { FsObjectStore } from '../../src/infrastructure/storage/fs-object-store';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 const org=toOrgId('native-'+randomUUID()), parent='run-'+randomUUID();let db:PgDatabase;
 async function seed(scope: typeof org, id: string) {
   const project = `project-${scope}`, thread = `thread-${scope}`, agent = `agent-${scope}`, version = `version-${scope}`;
@@ -37,6 +45,44 @@ beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase
  await asApp(org,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),org,parent]));
 });
 afterAll(async()=>{await db?.close();await resetOrgs(org);});
+it('real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources', async () => {
+ const scope=toOrgId('native-input-'+randomUUID()),run='input-'+randomUUID(),root=await mkdtemp(join(tmpdir(),'native-input-'));
+ await seed(scope,run);
+ try {
+  await asApp(scope,c=>c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '10 minutes' WHERE id=$1",[run]));
+  await asApp(scope,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),scope,run]));
+  const objects=new FsObjectStore(root),source=Buffer.from('name,value\n甲,10\n'),id='attachment-'+randomUUID();
+  await objects.putOnce('original.csv',source,'text/csv');
+  await asApp(scope,c=>c.query(`INSERT INTO chat_message_attachments(id,org_id,thread_id,message_id,storage_ref,filename,mime,bytes)
+   VALUES($1,$2,$3,$4,'original.csv','../../原始.csv','text/csv',$5)`,[id,scope,`thread-${scope}`,`message-${scope}`,source.length]));
+  const reader=new PgNativeRunInputs(db,objects,{repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db)}),ctx={orgId:scope,parentRunId:run,attemptId:run+':0',leaseEpoch:1};
+  let created=0;let mounted:readonly {path:string;contentBase64:string}[]=[];
+  const transport={create:async(_skills:unknown,inputs:typeof mounted=[])=>{created++;mounted=inputs;return {sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000};},destroy:async()=>{}};
+  const owner=()=>new PgNativeSessionOwner(db,new PgParentRunControlReader(db),transport,'b'.repeat(64),reader);
+  const ref=await owner().provision(ctx,[],{}),resolved=await owner().resolve(ref.bindingId,ctx);
+  expect(resolved.inputs).toHaveLength(1);expect(resolved.inputs[0]).toMatchObject({attachmentId:id,filename:'../../原始.csv',sizeBytes:source.length,digest:createHash('sha256').update(source).digest('hex')});
+  expect(resolved.inputs[0]!.path).toMatch(/^\/inputs\/[a-f0-9]{64}\/[A-Za-z0-9_][A-Za-z0-9_.-]*$/);
+  expect(mounted[0]?.contentBase64).toBe(source.toString('base64'));expect(JSON.stringify(resolved)).not.toContain('storage_ref');
+  expect(await owner().provision(ctx,[],{})).toEqual(ref);expect(created).toBe(1);
+  await asApp(scope,c=>c.query('DELETE FROM org_memberships WHERE org_id=$1 AND user_id=$2',[scope,'actor']));
+  await expect(owner().provision(ctx,[],{})).rejects.toThrow('scope_denied');
+  await addOrgMember(scope,'actor','consultant',null);
+  await asApp(scope,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[scope,`thread-${scope}`,'intruder']));
+  await expect(owner().provision(ctx,[],{})).rejects.toThrow('scope_denied');
+  await asApp(scope,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[scope,`thread-${scope}`,'actor']));
+  await expect(owner().provision({...ctx,orgId:toOrgId('other-org')},[],{})).rejects.toThrow('denied');
+  await expect(reader.read({...ctx,parentRunId:'other-run'})).rejects.toThrow('scope');
+  await writeFile(resolveObjectPath(root,'original.csv'),Buffer.alloc(source.length,120));
+  await expect(owner().provision(ctx,[],{})).rejects.toThrow('existing_binding_unavailable');expect(created).toBe(1);
+  // Existing session returns its original verified snapshot; it never remounts modified source bytes.
+  expect((await owner().resolve(ref.bindingId,ctx)).inputs).toEqual(resolved.inputs);
+  await rm(resolveObjectPath(root,'original.csv'));
+  await expect(owner().provision(ctx,[],{})).rejects.toThrow('bytes_unavailable');
+  await asApp(scope,c=>c.query('UPDATE chat_message_attachments SET bytes=8388609 WHERE org_id=$1 AND id=$2',[scope,id]));
+  await expect(owner().provision(ctx,[],{})).rejects.toThrow('limit');
+  await owner().release(ref.bindingId,scope,run);
+ } finally {await resetOrgs(scope);await rm(root,{recursive:true,force:true});}
+});
 it('real PG persists encrypted binding across owner restart, rejects stale scope, confirms release',async()=>{
  let created=0,deleted=0;const token='a'.repeat(64);const transport={create:async()=>{created++;return {sessionId:randomUUID(),token,expiresAt:Date.now()+60000};},destroy:async()=>{deleted++;}};
  const owner=()=>new PgNativeSessionOwner(db,new PgParentRunControlReader(db),transport,'b'.repeat(64));

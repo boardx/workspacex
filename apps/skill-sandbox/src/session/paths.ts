@@ -7,10 +7,10 @@ export function validateSessionPath(path: string, writable = false): string {
     throw new Error("INVALID_SESSION_PATH");
   }
   const normalized = posix.normalize(path);
-  if (path !== normalized || !["/workspace", "/skills"].some(
+  if (path !== normalized || !["/workspace", "/skills", "/inputs"].some(
     (root) => path === root || path.startsWith(`${root}/`),
   )) throw new Error("INVALID_SESSION_PATH");
-  if (writable && (path === "/skills" || path.startsWith("/skills/"))) {
+  if (writable && !(path === "/workspace" || path.startsWith("/workspace/"))) {
     throw new Error("SESSION_PATH_READ_ONLY");
   }
   return normalized;

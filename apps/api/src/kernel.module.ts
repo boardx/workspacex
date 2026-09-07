@@ -10,6 +10,7 @@ import { PgNativeOutputStaging } from "./infrastructure/agent-run/pg-native-outp
 import { createNativeSessionFiles } from "./infrastructure/agent-run/native-session-files";
 import { NativeSessionController } from "./interface/controllers/native-session.controller";
 import { NATIVE_SESSION_OWNER, type NativeSessionOwner } from "./application/agent-run/native-session-owner";
+import { PgNativeRunInputs } from "./infrastructure/agent-run/pg-native-run-inputs";
 import { PgNativeSessionOwner } from "./infrastructure/agent-run/pg-native-session-owner";
 import { createNativeSessionTransport } from "./infrastructure/agent-run/native-session-transport";
 import { PgChildRunCanceller } from "./infrastructure/agent-run/pg-child-run-canceller";
@@ -1797,12 +1798,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: NATIVE_SESSION_OWNER,
-      useFactory: (db: DatabasePort) => {
+      useFactory: (db: DatabasePort, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => {
         const socket=process.env.NATIVE_SESSION_SOCKET, key=process.env.NATIVE_SESSION_BINDING_KEY;
         if (process.env.KERNEL_NATIVE_RUNTIME === "1" && (!socket || !key)) throw new Error("native_runtime_configuration_missing");
-        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key) : null;
+        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key,new PgNativeRunInputs(db,objects,{repo,ids,chat})) : null;
       },
-      inject: [DATABASE_PORT],
+      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
     },
     {
       provide: PARENT_RUN_CONTROL,

@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/native-input-binding.test.ts (2 tests) 2ms
+ ✓ tests/sandbox-session.test.ts (3 tests) 4ms
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  05:21:22
+   Duration  188ms (transform 37ms, setup 0ms, collect 61ms, tests 6ms, environment 0ms, prepare 56ms)
+

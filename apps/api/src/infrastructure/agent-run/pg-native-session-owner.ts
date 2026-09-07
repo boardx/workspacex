@@ -1,15 +1,17 @@
 import { createCipheriv,createDecipheriv,createHash,randomBytes,randomUUID } from "node:crypto";
-import { NativeSessionResolved,canonicalNativePackageSet } from "@repo/contracts/native-session-binding";
+import { NativeSessionResolved,NativeInputManifest,canonicalNativeInputs,canonicalNativePackageSet } from "@repo/contracts/native-session-binding";
 import { TrustedSkillPackage } from "@repo/contracts/standard-capabilities";
 import { canonicalSkillPackageManifest } from "@repo/contracts/skill-package-manifest";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { NativeSessionOwner,NativeSessionTransport,NativePins } from "../../application/agent-run/native-session-owner";
 import type { ExecutionAuthorityContext,ToolAuthorityReader } from "../../application/agent-run/tool-execution-authority";
-type Row={id:string;org_id:string;run_id:string;status:string;session_id:string;token_cipher:string;expires_at:string;package_digest:string;interrupt_on:Record<string,boolean>};
+import type { NativeRunInputs } from "../../application/agent-run/native-run-inputs";
+import { limits } from "@repo/contracts/sandbox-session";
+type Row={input_manifest:unknown;input_digest:string|null;id:string;org_id:string;run_id:string;status:string;session_id:string;token_cipher:string;expires_at:string;package_digest:string;interrupt_on:Record<string,boolean>};
 const hash=(v:string|Buffer)=>createHash('sha256').update(v).digest('hex');
 export class PgNativeSessionOwner implements NativeSessionOwner {
  #key:Buffer;
- constructor(private db:DatabasePort,private authority:ToolAuthorityReader,private transport:NativeSessionTransport,keyHex:string){
+ constructor(private db:DatabasePort,private authority:ToolAuthorityReader,private transport:NativeSessionTransport,keyHex:string,private inputs?:NativeRunInputs){
   if(!/^[a-f0-9]{64}$/.test(keyHex))throw new Error('native_session_key_unavailable');this.#key=Buffer.from(keyHex,'hex');
  }
  private authorized<T>(context:ExecutionAuthorityContext,fn:()=>Promise<T>){
@@ -30,17 +32,24 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
   const digest=hash(canonicalNativePackageSet(parsed.map(p=>({stableName:p.stableName,skillId:p.package.skillId,versionId:p.package.versionId,packageDigest:hash(canonicalSkillPackageManifest(p.package.files))}))));
   for(const p of parsed)for(const f of p.package.files)if(hash(Buffer.from(f.contentBase64,'base64'))!==f.digest)throw new Error('native_package_digest_mismatch');
   const policy=NativeSessionResolved.shape.interruptOn.parse(interruptOn);
+  const inputSet=await this.authorized(context,async()=>this.inputs?this.inputs.read(context):{manifest:[],files:[]});
+  const inputManifest=NativeInputManifest.parse(inputSet.manifest);
+  if(inputManifest.length!==inputSet.files.length)throw new Error("native_input_manifest_mismatch");
+  for(const item of inputManifest){const file=inputSet.files.find(f=>f.path===item.path);if(!file)throw new Error("native_input_manifest_mismatch");const bytes=Buffer.from(file.contentBase64,"base64");if(bytes.toString("base64")!==file.contentBase64||bytes.length!==item.sizeBytes||hash(bytes)!==item.digest)throw new Error("native_input_manifest_mismatch");}
+  const inputDigest=hash(canonicalNativeInputs(inputManifest));
+  const skillFiles=parsed.flatMap(p=>p.package.files.map(f=>({path:`/skills/${p.stableName}/${f.path}`,contentBase64:f.contentBase64})));
+  if(Buffer.byteLength(JSON.stringify({skills:skillFiles,inputs:inputSet.files}))>limits.maxRequestBytes)throw new Error("native_input_limit");
   const row=await this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
-   const id=randomUUID();const inserted=await s.query<Row>(`INSERT INTO native_session_bindings(id,org_id,run_id,status,package_digest,interrupt_on) VALUES($1,$2,$3,'provisioning',$4,$5::jsonb) ON CONFLICT(org_id,run_id) DO NOTHING RETURNING *`,[id,context.orgId,context.parentRunId,digest,JSON.stringify(policy)]);
+   const id=randomUUID();const inserted=await s.query<Row>(`INSERT INTO native_session_bindings(id,org_id,run_id,status,package_digest,interrupt_on,input_manifest,input_digest) VALUES($1,$2,$3,'provisioning',$4,$5::jsonb,$6::jsonb,$7) ON CONFLICT(org_id,run_id) DO NOTHING RETURNING *`,[id,context.orgId,context.parentRunId,digest,JSON.stringify(policy),JSON.stringify(inputManifest),inputDigest]);
    if(inserted.rows[0])return {...inserted.rows[0],fresh:true};
    const existing=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2',[context.orgId,context.parentRunId])).rows[0]!;
-   if(existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest||JSON.stringify(Object.entries(existing.interrupt_on).sort())!==JSON.stringify(Object.entries(policy).sort()))throw new Error('native_session_existing_binding_unavailable');
+   if((existing.input_digest??hash(canonicalNativeInputs([])))!==inputDigest||canonicalNativeInputs(NativeInputManifest.parse(existing.input_manifest))!==canonicalNativeInputs(inputManifest)||existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest||JSON.stringify(Object.entries(existing.interrupt_on).sort())!==JSON.stringify(Object.entries(policy).sort()))throw new Error('native_session_existing_binding_unavailable');
    return {...existing,fresh:false};
   }));
   if(row.fresh){
    let known: {sessionId:string;token:string;expiresAt:number}|undefined;
    try{
-    known=await this.transport.create(parsed.flatMap(p=>p.package.files.map(f=>({path:`/skills/${p.stableName}/${f.path}`,contentBase64:f.contentBase64}))));
+    known=await this.transport.create(skillFiles,inputSet.files);
     const valid=NativeSessionResolved.parse({...known,interruptOn:policy,packageDigest:digest});
     const cipher=this.crypt({...row,session_id:valid.sessionId},valid.token,true);
     await this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
@@ -69,7 +78,7 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
  async resolve(bindingId:string,context:ExecutionAuthorityContext){return this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
   const row=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 AND id=$3',[context.orgId,context.parentRunId,bindingId])).rows[0];
   if(!row||row.status!=='ready'||Number(row.expires_at)<=Date.now())throw new Error('native_session_binding_unavailable');
-  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest});
+  return NativeSessionResolved.parse({sessionId:row.session_id,token:this.crypt(row,row.token_cipher,false),expiresAt:Number(row.expires_at),interruptOn:row.interrupt_on,packageDigest:row.package_digest,inputs:NativeInputManifest.parse(row.input_manifest)});
  }));}
  async releaseForRun(orgId:ExecutionAuthorityContext['orgId'],runId:string){
   const id=await this.db.withTenant(orgId,async s=>(await s.query<{id:string}>('SELECT id FROM native_session_bindings WHERE org_id=$1 AND run_id=$2',[orgId,runId])).rows[0]?.id);

@@ -1,6 +1,7 @@
 import ts from 'typescript';
 const prefix='src/infrastructure/';
 const specs={
+ 'agent-run/pg-native-run-inputs.ts':['agent_runs','chat_messages','chat_message_attachments'],
  'agent-run/pg-native-output-staging.ts':['native_output_staging'],
  'agent-run/pg-native-session-owner.ts':['native_session_bindings','agent_runs'],
  'agent-run/pg-interjection-store.ts':['agent_run_interjections','agent_runs'],
@@ -15,6 +16,7 @@ export const WORKBENCH_REPOSITORIES=new Set(Object.keys(specs).map(p=>prefix+p))
  * These are not runtime authorization and never grant a user access. */
 export function checkWorkbenchRepository(path,source,read){
  const methodNames = {
+ 'pg-native-run-inputs.ts':['read'],
  'pg-native-output-staging.ts':['stage','listFiles'],
  'pg-native-session-owner.ts':['authorized','crypt','provision','resolve','release','releaseForRun'],
  'pg-interjection-store.ts':['listPublic','requestPause','isCancelRequested','isPauseRequested','submit','pollForKernel','takePending','stageForKernel','takeStagedForKernel'],
@@ -41,6 +43,14 @@ export function checkWorkbenchRepository(path,source,read){
    }
   }ts.forEachChild(n,visit);
  }visit(ast);if(!queryCount)errors.push('boundary SQL disappeared');
+ if(path.endsWith('pg-native-run-inputs.ts')){
+  for(const text of ["m.thread_id=r.thread_id", "r.org_id=$1 AND r.id=$2", "m.author_kind='human'", "a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4", 'limits.maxFiles+1'])if(!source.includes(text))errors.push('input scope or bound missing '+text);
+  const owner=read('src/infrastructure/agent-run/pg-native-session-owner.ts');
+  require(owner,/inputSet=await this.authorized\(context,async\(\)=>this.inputs\?this.inputs.read\(context\)/,'input bytes require parent authority before reader');
+  require(source,/await resolveVisibility\(this.visibility, \{orgId:context.orgId,userId:run.author_id,threadId:run.thread_id,projectId:facts.projectId\}\)/,'input bytes require current source visibility');
+  require(source,/if \(decision.kind !== 'allow'\) throw/,'input visibility denial must refuse');
+  if(source.indexOf("if (decision.kind !== 'allow')")>source.indexOf('return (await s.query<Attachment>'))errors.push('input visibility must precede attachments');
+ }
  if(path.endsWith('pg-native-output-staging.ts')){
   const methods=[];function methodsIn(n){if(ts.isMethodDeclaration(n))methods.push(n);ts.forEachChild(n,methodsIn);}methodsIn(ast);
   const stage=methods.find(n=>n.name.getText(ast)==='stage');
