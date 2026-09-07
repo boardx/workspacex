@@ -1,5 +1,30 @@
 # Continuation checkpoint (2026-09-07)
 
+## Active checkpoint after the core release
+
+The core delivery from PR #2869 and deployment hotfix #2922 is merged and released at
+main `a1bd028a`. Deferred acceptance is now tracked by umbrella issue #2916 and its
+independently mergeable child issues:
+
+- #2929: persistent Native runtime wiring, admission, drain, and recovery on DevApp.
+- #2930: bounded S013 real-model publication and browser security acceptance.
+- #2931: governed file artifacts returned from durable T042 subtasks.
+- #2932: safe ASR configuration probe and real supported-vendor S016 acceptance.
+- #2933: finite Office editing acceptance for S003-S005.
+- #2934: context negative paths and current-version acceptance for S001/S002/S008/S011/S014.
+- #2935: S012 write denial and S018 revoked parsed-cache acceptance.
+
+The first implementation wave can run #2929, #2932, #2933, and the account-independent
+parts of #2934 in parallel. #2931 and the online portion of #2935 depend on #2929. The
+online portions of #2930 and #2934 require a current DevApp test-account preflight. #2932
+must establish ASR configuration with a safe PRESENT/MISSING probe before attempting a
+vendor transcription.
+
+Use [development-flow.md](development-flow.md) as the current implementation map. The
+checkpoint below is retained as a historical record of the pre-merge aggregate branch;
+its ownership, merge authorization, SHA, and remaining-work statements are no longer the
+active plan.
+
 Worktree: `/private/tmp/workspacex-standard-capabilities`; branch `codex/standard-capabilities`.
 Tracking issue #2864; aggregate draft PR https://github.com/boardx/workspacex/pull/2869 .
 User authorized development code and test evidence on that public branch, without merging main. Temporary module-agent identity waiver remains. Root owns git and shared kernel integration; never stage all files or reset a worker's changes.
