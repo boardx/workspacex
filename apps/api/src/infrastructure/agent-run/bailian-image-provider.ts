@@ -33,6 +33,7 @@
  * 本身。生产走 `KERNEL_BAILIAN_IMAGE_BASE_URL` 未设置时的默认值（真实 DashScope
  * 域名），测试指向一个本地 stub HTTP 服务器。
  */
+import { setTimeout as delay } from "node:timers/promises";
 import type { ModelCallInput } from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
 
@@ -83,7 +84,7 @@ export class BailianImageProvider implements ModelCallPort {
   constructor(private readonly config: BailianImageProviderConfig) {}
 
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
-    const { apiKey, modelId, timeoutMs, pollIntervalMs, baseUrl } = this.config;
+    const { apiKey } = this.config;
     if (apiKey === "") {
       throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "KERNEL_MODEL_API_KEY is not set for this deployment");
     }
@@ -94,33 +95,46 @@ export class BailianImageProvider implements ModelCallPort {
       );
     }
 
-    const prompt = input.user.trim();
-    const taskId = await this.submit(baseUrl, apiKey, modelId, prompt);
+    const image = await this.generateImage(input.user);
+    return { text: `![${truncateForAlt(input.user.trim())}](${image.url})` };
+  }
 
-    const deadline = Date.now() + timeoutMs;
-    while (true) {
-      const { status, url } = await this.readTask(baseUrl, apiKey, taskId);
-      if (status === "SUCCEEDED") {
-        if (!url) throw new ModelCallError("MODEL_CALL_FAILED", "image task succeeded but returned no image URL");
-        return { text: `![${truncateForAlt(prompt)}](${url})` };
+  /** Structured result for the standard image tool; persistence remains the existing artifact path. */
+  async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<{url:string;taskId:string;modelRef:string}> {
+    const {apiKey,modelId,baseUrl}=this.config;
+    if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
+    if (!prompt.trim() || prompt.length > 16_384) throw new ModelCallError("MODEL_CALL_FAILED", "image prompt is invalid");
+    const timeoutMs=Math.min(120_000,Math.max(1,this.config.timeoutMs));
+    const signal=callerSignal ? AbortSignal.any([callerSignal,AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
+    try {
+      signal.throwIfAborted();
+      const taskId=await this.submit(baseUrl,apiKey,modelId,prompt.trim(),signal);
+      while (true) {
+        signal.throwIfAborted();
+        const {status,url}=await this.readTask(baseUrl,apiKey,taskId,signal);
+        if(status==='SUCCEEDED') {
+          if(!url)throw new Error('missing image');
+          const parsed=new URL(url);
+          if(parsed.protocol!=='https:'||parsed.username||parsed.password||/[\s()<>]/.test(url))throw new Error('invalid image');
+          return {url,taskId,modelRef:modelId};
+        }
+        if(!['PENDING','RUNNING'].includes(status))throw new Error('terminal failure');
+        await delay(Math.min(3000,Math.max(1,this.config.pollIntervalMs)),undefined,{signal});
       }
-      if (status === "FAILED" || status === "UNKNOWN" || status === "CANCELED") {
-        throw new ModelCallError("MODEL_CALL_FAILED", `image generation task ended with status "${status}"`);
-      }
-      if (Date.now() >= deadline) {
-        throw new ModelCallError("MODEL_CALL_FAILED", `image generation task did not finish within ${timeoutMs}ms`);
-      }
-      await sleep(pollIntervalMs);
+    } catch {
+      // No retry: a lost submission acknowledgement may already have created a vendor task.
+      throw new ModelCallError("MODEL_CALL_FAILED", "image generation failed, was cancelled, or exceeded its deadline");
     }
   }
 
-  private async submit(baseUrl: string, apiKey: string, modelId: string, prompt: string): Promise<string> {
+  private async submit(baseUrl: string, apiKey: string, modelId: string, prompt: string, signal: AbortSignal): Promise<string> {
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/api/v1/services/aigc/text2image/image-synthesis`, {
-        method: "POST",
+        method: "POST", signal, redirect: "error",
         headers: {
           "content-type": "application/json",
+          "accept-encoding": "identity",
           authorization: `Bearer ${apiKey}`,
           "X-DashScope-Async": "enable",
         },
@@ -133,26 +147,28 @@ export class BailianImageProvider implements ModelCallPort {
     } catch {
       throw new ModelCallError("MODEL_CALL_FAILED", "image provider transport failure");
     }
-    const body = (await response.json().catch(() => ({}))) as SubmitResponse;
-    if (!response.ok || !body.output?.task_id) {
+    const body = await readBoundedJson(response) as SubmitResponse;
+    if (!response.ok || typeof body.output?.task_id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(body.output.task_id)) {
       throw new ModelCallError("MODEL_CALL_FAILED", `image task submission failed with HTTP ${response.status}`);
     }
     return body.output.task_id;
   }
 
-  private async readTask(baseUrl: string, apiKey: string, taskId: string): Promise<{ status: string; url: string | null }> {
+  private async readTask(baseUrl: string, apiKey: string, taskId: string, signal: AbortSignal): Promise<{ status: string; url: string | null }> {
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/api/v1/tasks/${taskId}`, {
-        headers: { authorization: `Bearer ${apiKey}` },
+        signal, redirect: "error",
+        headers: { authorization: `Bearer ${apiKey}`, "accept-encoding": "identity" },
       });
     } catch {
       throw new ModelCallError("MODEL_CALL_FAILED", "image provider transport failure");
     }
     if (!response.ok) {
+      await response.body?.cancel();
       throw new ModelCallError("MODEL_CALL_FAILED", `image task status read failed with HTTP ${response.status}`);
     }
-    const body = (await response.json().catch(() => ({}))) as TaskResponse;
+    const body = await readBoundedJson(response) as TaskResponse;
     return {
       status: body.output?.task_status ?? "UNKNOWN",
       url: body.output?.results?.[0]?.url ?? null,
@@ -166,6 +182,16 @@ function truncateForAlt(prompt: string): string {
   return cleaned.length < prompt.length ? `${cleaned}…` : cleaned;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+async function readBoundedJson(response:Response):Promise<unknown> {
+  if(response.headers.get('content-encoding') && response.headers.get('content-encoding')!=='identity') {
+    await response.body?.cancel();throw new Error('unsupported provider encoding');
+  }
+  if(!response.body)throw new Error('empty provider response');
+  const reader=response.body.getReader();const chunks:Uint8Array[]=[];let size=0;
+  try {
+    while(true){const {done,value}=await reader.read();if(done)break;
+      size+=value.length;if(size>65536)throw new Error('provider response too large');chunks.push(value);
+    }
+    return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+  } finally {await reader.cancel().catch(()=>{});reader.releaseLock();}
 }

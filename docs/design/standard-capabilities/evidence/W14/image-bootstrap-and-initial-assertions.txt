@@ -1,0 +1,92 @@
+[stack-admission] load1=2.99 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqktg3p-0b20d86f-4e43364edc3f db=wsx_4e43364edc3fed287cbc compose=wsx-4e43364edc3fed287cbc pg=22662 redis=27662 sandbox=52662
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_4e43364edc3fed287cbc capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/image-gen-agent-bootstrap-chat.test.ts (1 test) 6211ms
+   ✓ #662 直接后续：新组织 bootstrap 出来就有一个能用的图片生成 agent > 不做任何 agent 管理操作，直接进 chat → 选中图片生成 → 发消息 → 真实走完轮询 → markdown 图片写回 550ms
+ ❯ tests/agent-runtime/bailian-image-bounds.test.ts (7 tests | 6 failed) 136ms
+   × deadline aborts a stalled submission body and does not resubmit 105ms
+     → expected [Function] to throw error including 'deadline' but got 'MODEL_CALL_FAILED'
+   × caller cancellation aborts polling and stops future requests 3ms
+     → expected [Function] to throw error including 'cancelled' but got 'MODEL_CALL_FAILED'
+   × rejects oversize responses without exposing provider content 2ms
+     → expected [Function] to throw error including 'image generation failed' but got 'MODEL_CALL_FAILED'
+   × rejects redirect responses without exposing provider content 1ms
+     → expected [Function] to throw error including 'image generation failed' but got 'MODEL_CALL_FAILED'
+   × rejects task-path responses without exposing provider content 2ms
+     → expected [Function] to throw error including 'image generation failed' but got 'MODEL_CALL_FAILED'
+   × rejects result-url responses without exposing provider content 2ms
+     → expected [Function] to throw error including 'image generation failed' but got 'MODEL_CALL_FAILED'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > deadline aborts a stalled submission body and does not resubmit
+AssertionError: expected [Function] to throw error including 'deadline' but got 'MODEL_CALL_FAILED'
+
+Expected: "deadline"
+Received: "MODEL_CALL_FAILED"
+
+ ❯ tests/agent-runtime/bailian-image-bounds.test.ts:18:27
+     16| it('deadline aborts a stalled submission body and does not resubmit',a…
+     17|  let submits=0;const p=await provider((_req,res)=>{submits++;res.write…
+     18|  const started=Date.now();await expect(p.generateImage('a tree')).reje…
+       |                           ^
+     19| });
+     20| it('caller cancellation aborts polling and stops future requests',asyn…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > caller cancellation aborts polling and stops future requests
+AssertionError: expected [Function] to throw error including 'cancelled' but got 'MODEL_CALL_FAILED'
+
+Expected: "cancelled"
+Received: "MODEL_CALL_FAILED"
+
+ ❯ tests/agent-runtime/bailian-image-bounds.test.ts:23:2
+     21|  const abort=new AbortController();let polls=0;
+     22|  const p=await provider((req,res)=>{if(req.method==='POST')res.end(JSO…
+     23|  await expect(p.generateImage('a tree',abort.signal)).rejects.toThrow(…
+       |  ^
+     24| });
+     25| it.each(['oversize','redirect','task-path','result-url'])('rejects %s …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > rejects oversize responses without exposing provider content
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > rejects redirect responses without exposing provider content
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > rejects task-path responses without exposing provider content
+ FAIL  tests/agent-runtime/bailian-image-bounds.test.ts > rejects result-url responses without exposing provider content
+AssertionError: expected [Function] to throw error including 'image generation failed' but got 'MODEL_CALL_FAILED'
+
+Expected: "image generation failed"
+Received: "MODEL_CALL_FAILED"
+
+ ❯ tests/agent-runtime/bailian-image-bounds.test.ts:33:2
+     31|   res.end(JSON.stringify({output:{task_status:'SUCCEEDED',results:[{ur…
+     32|  });
+     33|  await expect(p.generateImage('a tree')).rejects.toThrow('image genera…
+       |  ^
+     34| });
+     35| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 2 passed (8)
+   Start at  09:43:05
+   Duration  8.63s (transform 1.69s, setup 0ms, collect 250ms, tests 6.35s, environment 0ms, prepare 53ms)
+
+[db-isolation] db=wsx_4e43364edc3fed287cbc peak_connections=1
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/bailian-image-bounds.test.ts tests/agent-runtime/image-gen-agent-bootstrap-chat.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/bailian-image-bounds.test.ts tests/agent-runtime/image-gen-agent-bootstrap-chat.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：10s
