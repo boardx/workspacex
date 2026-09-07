@@ -25,7 +25,7 @@
  */
 import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ensureDatabase, migrateOnce } from "../support/db";
+import { ensureDatabase, migrateOnce, resetOrgs } from "../support/db";
 import { backfillPlatformOrg } from "../../scripts/backfill-platform-org";
 import { backfillPlatformSkills, OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
 import { PLATFORM_ORG_ID, toOrgId } from "../../src/domain/org-id";
@@ -88,6 +88,27 @@ async function versionIds(): Promise<readonly string[]> {
  *   版本一旦发布就不该被改写。所以夹具从**一开始**就只种旧版本，一个字节都不删。
  */
 async function seedStaleWorldLikeDevapp(): Promise<void> {
+  /*
+   * ⚠ 先把平台组织整个删掉再重建，**不是**为了"干净一点"，是这条测试能不能跑的前提。
+   *
+   * 平台组织（`org-platform`）与那四个官方 skill 是全库**唯一一份**的共享夹具，
+   * 同一分片里好几个测试文件都会 `backfillPlatformSkills()` 它（`vitest.config.ts`
+   * 的 `maxWorkers: 1`：同一张库、文件串行）。谁先跑，谁就以**真实正文**把
+   * `<skillId>-v1` 这个版本 id 铸出来并发布——实现首次创建时铸的正是这个 id
+   * （`ensure-platform-skill-catalog.ts`：`skillInsert.rows.length ? ${skillId}-v1 : …`），
+   * 与本夹具要用的 `STALE_VERSION_ID` 逐字相同。
+   *
+   * 于是本夹具那句 `INSERT … ON CONFLICT (id) DO NOTHING` 会**静默跳过**（行已存在），
+   * 紧接着写 `skill_version_files` 就撞上「已发布版本不可变」触发器——CI shard 1 实测
+   * 就是这么红的，而且红在夹具里，看起来像实现坏了。「先到先得的固定 id」这种共享
+   * 状态，靠调整插入语句是绕不过去的，只能让本文件从一个**确定的空状态**开始。
+   *
+   * 删组织是那条触发器自己留的生命周期出口（见 `wave2_skill_immutable()` 头注：父组织
+   * 行已不可见时的级联删除放行），不是绕过它——版本行仍然一个字节都改不了。跑在本文件
+   * 之后的测试文件各自的 `beforeAll` 都会重新 backfill 一次（幂等），不受影响。
+   */
+  await resetOrgs(PLATFORM_ORG_ID);
+  await backfillPlatformOrg();
   await db.withTenant(toOrgId(PLATFORM_ORG_ID), async (s) => {
     await s.query(
       `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
@@ -123,9 +144,8 @@ describe("官方 skill 正文更新后，线上必须拿到新正文", () => {
     ensureDatabase();
     await migrateOnce();
     db = new PgDatabase(migrationConfig());
-    await backfillPlatformOrg();
     // ⚠ 这里**不**跑 skills backfill：本文件要测的正是"库里已经是旧正文"那条路径，
-    //   所以先把旧世界种出来，再让被测函数去面对它。
+    //   所以先把旧世界种出来（含平台组织本身，见该函数头注），再让被测函数去面对它。
     await seedStaleWorldLikeDevapp();
   }, 120_000);
 
