@@ -122,7 +122,10 @@ const PLAINTEXT_READER_RE =
  * pattern, so a plaintext reader added anywhere else under `src/` -- model credential or
  * not -- still fails this test.
  */
+// MCP credential inverse is module-private in the bounded outbound Worker; its exact
+// export/transport/reflection boundary has dedicated AST and real protocol countertests.
 const PLAINTEXT_READER_PATH_EXEMPT = new Set([
+  "infrastructure/mcp/http-mcp-execution-core.ts",
   "infrastructure/agent-run/transcript-content-cipher.ts",
   "infrastructure/agent-run/pg-agent-run-repository.ts",
   "application/agent-run/ports.ts",
@@ -213,8 +216,8 @@ describe("no response schema in the bundle can carry a credential (I-6, first de
   });
 });
 
-describe("nothing in apps/api/src can turn a sealed credential back into plaintext", () => {
-  it("no plaintext reader is declared anywhere under src/", () => {
+describe("no model-vault reader exists; the isolated MCP outbound inverse is separately gated", () => {
+  it("no plaintext reader is declared outside the exact reviewed infrastructure modules", () => {
     expect(plaintextReaders(API_SRC), "a plaintext reader exists -- see the vault header").toEqual([]);
   });
 

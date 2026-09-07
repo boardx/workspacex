@@ -23,6 +23,7 @@ export class PgMcpReviewSnapshots {
   return this.db.withTenant(orgId,async s=>{
    const server=(await s.query<{server_id:string;registered_by_actor_id:string;review_status:ReviewStatus;endpoint:string}>(`SELECT server_id,registered_by_actor_id,review_status,endpoint FROM mcp_servers WHERE org_id=$1 AND server_id=$2 FOR UPDATE`,[orgId,input.serverId])).rows[0];
    if(!server)throw new Error('mcp_review_denied');
+   const credentialRevision=(await s.query<{revision:string}>('SELECT revision FROM mcp_server_secrets WHERE org_id=$1 AND server_id=$2',[orgId,input.serverId])).rows[0]?.revision??null;
    const available=await createPgMcpToolStore(this.db,orgId).current(input.serverId);
    const selected=input.grantedToolIds.map(id=>{const tool=available.find(t=>t.fullName===id);if(!tool)throw new Error('mcp_review_invalid');return tool;});
    if(Buffer.byteLength(JSON.stringify(selected))>L.maxResultBytes)throw new Error('mcp_review_schema_limit');
@@ -35,7 +36,7 @@ export class PgMcpReviewSnapshots {
    let record:z.infer<typeof ReviewRecord>|undefined;
    const result=await reviewMcpServer({requestId:{next:()=>randomUUID()},provenance:new PgProvenanceRepository(this.db),reviews:{listByServer:async serverId=>(await s.query<{reviewerId:string}>('SELECT reviewer_id AS "reviewerId" FROM mcp_review_snapshots WHERE org_id=$1 AND server_id=$2 ORDER BY created_at DESC,review_id DESC',[orgId,serverId])).rows,append:async r=>{
     record=ReviewRecord.parse(r);
-    await s.query('INSERT INTO mcp_review_snapshots(org_id,review_id,server_id,reviewer_id,endpoint,record,tools) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb)',[orgId,r.reviewId,input.serverId,reviewerId,server.endpoint,JSON.stringify(record),JSON.stringify(selected)]);
+    await s.query('INSERT INTO mcp_review_snapshots(org_id,review_id,server_id,reviewer_id,endpoint,record,tools,credential_revision) VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)',[orgId,r.reviewId,input.serverId,reviewerId,server.endpoint,JSON.stringify(record),JSON.stringify(selected),credentialRevision]);
    }}},{orgId,server:{serverId:input.serverId,registeredByActorId:server.registered_by_actor_id,reviewStatus:server.review_status},reviewerId,verdict:input.verdict,reason:input.reason,authScope:input.authScope,grantedToolIds:input.grantedToolIds});
    await s.query('UPDATE mcp_tools SET auth_scope=$3 WHERE org_id=$1 AND server_id=$2',[orgId,input.serverId,'未开放']);
    if(input.verdict!=='维持隔离')for(const tool of selected){

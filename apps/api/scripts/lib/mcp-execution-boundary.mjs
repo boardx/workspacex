@@ -9,7 +9,7 @@ export function checkMcpExecutionBoundary(path,source){
  const condition=expr=>ifs.find(n=>text(n.expression)===expr&&(ts.isThrowStatement(n.thenStatement)||ts.isContinueStatement(n.thenStatement)));
  const method=name=>methods.find(n=>text(n.name)===name);
  if(calls.some(n=>text(n.expression)?.endsWith('.withoutTenant')))errors.push('unscoped transaction');
- const allowed=new Set(path.includes('review-snapshots')?['mcp_review_snapshots','mcp_servers','mcp_tools']:['agent_runs','agent_versions','agents','chat_messages','chat_threads','mcp_servers','mcp_server_secrets','mcp_review_snapshots','mcp_run_snapshots','mcp_tool_executions','mcp_isolation_requests','mcp_isolation_calls']);
+ const allowed=new Set(path.includes('review-snapshots')?['mcp_review_snapshots','mcp_servers','mcp_tools','mcp_server_secrets']:['agent_runs','agent_versions','agents','chat_messages','chat_threads','mcp_servers','mcp_server_secrets','mcp_review_snapshots','mcp_run_snapshots','mcp_tool_executions','mcp_isolation_requests','mcp_isolation_calls']);
  for(const n of calls.filter(n=>text(n.expression)?.endsWith('.query'))){
   const sql=n.arguments[0],args=text(n.arguments[1]);
   if(!sql||!ts.isStringLiteralLike(sql)){errors.push('dynamic SQL');continue;}
@@ -48,15 +48,16 @@ export function checkMcpExecutionBoundary(path,source){
   if(!ifs.some(n=>text(n.expression)==='!organization||isLocalOrg(organization.kind)'&&ts.isReturnStatement(n.thenStatement)&&text(n.thenStatement.expression)==='[]'))errors.push('egress boundary');
   if(!source.includes("m.id=r.input_message_id AND m.thread_id=r.thread_id AND m.author_kind='human'")||!source.includes('v.id=r.agent_version_id AND v.agent_id=r.agent_id'))errors.push('fixed run and human requester');
   const gate=condition('Buffer.byteLength(JSON.stringify(input.toolArgs))>L.maxArgsBytes||!(awaitthis.authority.check(context)).allowed');
-  const execute=call('this.execute');
+  const execute=call('execution');
+  if(!nodes.some(n=>ts.isVariableDeclaration(n)&&text(n.name)==='execution'&&text(n.initializer)==="frozen.credentialRevision?this.broker?.execute:this.execute"))errors.push('credential route');
   if(!condition('!(awaitthis.authority.check(context)).allowed')||!gate||!execute||gate.pos>execute.pos)errors.push('actual shared dispatch authority');
   const rechecks=calls.filter(n=>text(n.expression)==='this.recheck'&&text(n.arguments[0])==='context'&&text(n.arguments[1])==='frozen');
   if(rechecks.length!==2||!execute||rechecks[0].pos>execute.pos||rechecks[1].pos<execute.pos||text(rechecks[0].arguments[2])!==undefined||text(rechecks[1].arguments[2])!=='true')errors.push('dispatch and result reauthorization');
-  if(text(execute?.arguments[2])!=='{signal:control.signal}'||!call('acknowledgeMcpLocalStop'))errors.push('transport cancellation and acknowledgement');
-  if(!condition("!frozen||!current||frozen.reviewId!==current.reviewId||frozen.endpoint!==current.endpoint||frozen.tool.schemaFingerprint!==current.tool.schemaFingerprint"))errors.push('current revocation check');
+  if(text(execute?.arguments[2])!=='{signal:control.signal,deadlineAt,receipt:{orgId:org,runId,toolCallId:input.toolCallId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch}}'||!call('acknowledgeMcpLocalStop'))errors.push('transport cancellation and acknowledgement');
+  if(!condition("!frozen||!current||frozen.reviewId!==current.reviewId||frozen.endpoint!==current.endpoint||frozen.tool.schemaFingerprint!==current.tool.schemaFingerprint||(frozen.credentialRevision??null)!==(current.credentialRevision??null)"))errors.push('current revocation check');
   if(!condition('record.authScopeSet!==server.auth_scope')||!source.includes('tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)'))errors.push('approved scope and whitelist');
   if(!condition("prior.tool_name!==input.toolName||prior.args_digest!==hash||prior.status!=='succeeded'"))errors.push('unknown outcome replay refusal');
-  if(!source.includes('server.credential_configured||server.involves_customer_data'))errors.push('unsupported credential denial');
+  if(!source.includes('(server.credential_configured&&!this.broker)||server.involves_customer_data')||!source.includes('review.credential_revision!==server.credential_revision'))errors.push('credential revision and broker gate');
  }
  return errors;
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
  * lint-permission-paths.mjs -- the structural half of R7 "permission travels along the
  * data path" (UC-0.3 R7 / R12 V10, coherence X-1).
@@ -488,6 +489,12 @@ for (const root of ROOTS) {
         readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
         readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
       for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+    }
+    if (MCP_CREDENTIAL_BOUNDARIES.has(rel)) {
+      const errors = checkMcpCredentialBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/mcp-credential-boundary.test.mjs"))) errors.push("credential counterexamples missing");
+      for(const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
     }
     if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
       const errors = checkMcpExecutionBoundary(rel, body);

@@ -1,0 +1,28 @@
+[stack-admission] load1=8.96 cores=10 perCore=0.90 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqnysen-c8d2396c-15a0a9ef8d66 db=wsx_15a0a9ef8d66750c50ce compose=wsx-15a0a9ef8d66750c50ce pg=20799 redis=25799 sandbox=50799
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_15a0a9ef8d66750c50ce capacity=100 current=6 required=32
+ ✓ tests/mcp/mcp-credential-broker-real-db.test.ts (12 tests) 32789ms
+   ✓ real sealed AES credential reaches only the approved HTTPS transport; snapshots and receipts contain no secret 1575ms
+   ✓ secret rotation revokes old review immediately; new approval does not upgrade a frozen old run 1776ms
+   ✓ a remote server reflecting the bearer is rejected before persistence and is not replayed 903ms
+   ✓ tampering with AES authentication tag fails without reflecting ciphertext or key 2180ms
+   ✓ absolute cancellation deadline discards a late blocked DB claim without starting the remote Worker 553ms
+   ✓ discovery rejects an oversized tools metadata response before projection 1505ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  11:11:13
+   Duration  38.51s (transform 7.08s, setup 0ms, collect 1.86s, tests 32.79s, environment 0ms, prepare 42ms)
+
+[db-isolation] db=wsx_15a0a9ef8d66750c50ce peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/mcp-credential-broker-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：1s
+  总计：41s

@@ -1,3 +1,4 @@
+import { McpCredentialExecutionBroker, mcpCredentialBrokerFromEnv } from "./infrastructure/mcp/mcp-credential-execution-broker";
 import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
 import { StandardImageController } from "./interface/controllers/standard-image.controller";
@@ -1828,11 +1829,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         ({artifacts:new PgArtifactStore(db),repo,ids,chat,objects,identities:repo,imports:new PgSkillStarterImportRepository(db)}),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE],
     },
+    { provide: McpCredentialExecutionBroker, useFactory: mcpCredentialBrokerFromEnv },
     {
       provide: MCP_EXECUTION_SNAPSHOT,
-      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
-        new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution()),
-      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, broker: McpCredentialExecutionBroker | null) =>
+        new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution(), broker ?? undefined),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, McpCredentialExecutionBroker],
     },
     {
       provide: STANDARD_IMAGE_SERVICE,

@@ -1,3 +1,5 @@
+import {MCP_EXECUTION_LIMITS} from '@repo/contracts/mcp-execution-snapshot';
+import {reflectsMcpCredential} from './mcp-credential-reflection';
 /**
  * issue #1852 —— `McpGateway`（`application/mcp/ports.ts`）第一个真正说 MCP 协议的实现。
  *
@@ -102,8 +104,15 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
         seams: deps.seams,
         extraTrustedCa: deps.extraTrustedCa,
       });
+      let responseBytes=0;
+      const boundedFetch:typeof fetch=async(input,init)=>{
+        const response=await guardedFetch(input,init);
+        if(!response.body)return response;
+        const body=response.body.pipeThrough(new TransformStream<Uint8Array,Uint8Array>({transform(chunk,controller){responseBytes+=chunk.byteLength;if(responseBytes>MCP_EXECUTION_LIMITS.maxResultBytes)throw new McpServerUnreachableError(serverId);controller.enqueue(chunk);}}));
+        return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
+      };
       const transport = new StreamableHTTPClientTransport(url, {
-        fetch: guardedFetch,
+        fetch: boundedFetch,
         requestInit:
           deps.credential !== null
             ? { headers: { authorization: `Bearer ${deps.credential}` } }
@@ -134,6 +143,7 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
       const attempt = (async (): Promise<readonly DiscoveredTool[]> => {
         await client.connect(transport, { timeout: timeoutMs });
         const result = await client.listTools(undefined, { timeout: timeoutMs });
+        if (deps.credential && reflectsMcpCredential(result,deps.credential)) throw new McpServerUnreachableError(serverId);
         return result.tools.map(
           (tool): DiscoveredTool => ({
             name: tool.name,

@@ -1,0 +1,39 @@
+[stack-admission] load1=4.95 cores=10 perCore=0.49 running=0/2
+[test-isolation] id=run-mtqnnvqb-e46432e9-6ee09387e6e6 db=wsx_6ee09387e6e6bc5e2ed5 compose=wsx-6ee09387e6e6bc5e2ed5 pg=21591 redis=26591 sandbox=51591
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_6ee09387e6e6bc5e2ed5 capacity=100 current=6 required=32
+ ✓ tests/capability/model/credential-never-echoed.test.ts (23 tests) 285ms
+{"level":"error","msg":"http exception","traceId":"26f4645a-7e82-4788-80d1-d3c81a6af133","detail":{"name":"UnauthorizedException","message":"Unauthorized","stack":"UnauthorizedException: Unauthorized\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:34:97)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"e297752c-bcad-42e1-bcbc-ecf29c433f36","detail":{"name":"BadRequestException","message":"mcp_input_invalid","stack":"BadRequestException: mcp_input_invalid\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:35:72)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"8547f354-345c-401a-9fd4-95b1e6f7e756","detail":{"name":"ServiceUnavailableException","message":"mcp_execution_unavailable_or_unconfirmed","stack":"ServiceUnavailableException: mcp_execution_unavailable_or_unconfirmed\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:37:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/mcp/mcp-execution-snapshot-real-db.test.ts (10 tests) 14382ms
+   ✓ real review rejects non-admin and self review; persists exact approved tool schemas 669ms
+   ✓ real HTTPS MCP worker, frozen PG review, shared authority and actual internal HTTP controller form one execution chain 4350ms
+   ✓ local organization still captures an empty snapshot and invisible or stale runs remain errors 315ms
+ ✓ tests/mcp/mcp-credential-broker-real-db.test.ts (8 tests) 6847ms
+   ✓ real sealed AES credential reaches only the approved HTTPS transport; snapshots and receipts contain no secret 732ms
+   ✓ secret rotation revokes old review immediately; new approval does not upgrade a frozen old run 1402ms
+   ✓ a remote server reflecting the bearer is rejected before persistence and is not replayed 1054ms
+   ✓ tampering with AES authentication tag fails without reflecting ciphertext or key 1476ms
+   ✓ absolute cancellation deadline discards a late blocked DB claim without starting the remote Worker 375ms
+{"level":"error","msg":"http exception","traceId":"3011583e-5c40-415b-9112-61cbabaf1a64","detail":{"name":"ForbiddenException","message":"mcp_isolation_refused","stack":"ForbiddenException: mcp_isolation_refused\n    at McpExecutionSnapshotController.isolate (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:24:102)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"d2fd87cd-879f-43f3-aa2e-9aea4d04d2fb","detail":{"name":"ForbiddenException","message":"mcp_isolation_refused","stack":"ForbiddenException: mcp_isolation_refused\n    at McpExecutionSnapshotController.isolationStatus (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:29:117)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/mcp/mcp-isolation-real-db.test.ts (4 tests) 6827ms
+   ✓ interrupt from another service instance acknowledges actual Worker termination, never parent or sibling cancellation 1194ms
+   ✓ drain permits only the already claimed call to finish and rejects new calls 970ms
+
+ Test Files  4 passed (4)
+      Tests  45 passed (45)
+   Start at  11:02:44
+   Duration  33.57s (transform 2.57s, setup 0ms, collect 2.17s, tests 28.34s, environment 1ms, prepare 247ms)
+
+[db-isolation] db=wsx_6ee09387e6e6bc5e2ed5 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/mcp-credential-broker-real-db.test.ts tests/mcp/mcp-execution-snapshot-real-db.test.ts tests/mcp/mcp-isolation-real-db.test.ts tests/capability/model/credential-never-echoed.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：34s
+  清理：1s
+  总计：35s

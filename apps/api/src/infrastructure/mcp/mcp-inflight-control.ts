@@ -2,7 +2,7 @@ import {MCP_EXECUTION_LIMITS as L} from '@repo/contracts/mcp-execution-snapshot'
 import type {DatabasePort} from '../../application/ports/database.port';
 import type {OrgId} from '../../domain/org-id';
 /** Poll only this claimed receipt. A failed control read stops the local transport conservatively. */
-export async function mcpInflightControl(db:DatabasePort,orgId:OrgId,runId:string,toolCallId:string){
+export async function mcpInflightControl(db:DatabasePort,orgId:OrgId,runId:string,toolCallId:string,deadlineAt=Date.now()+L.deadlineMs){
  const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined,finished=false;
  let pending:Promise<void>=Promise.resolve();
  const poll=async()=>{
@@ -10,9 +10,10 @@ export async function mcpInflightControl(db:DatabasePort,orgId:OrgId,runId:strin
    if(!row||row.status!=='pending'||row.isolation_request_id)controller.abort();
   }catch{controller.abort();}
  };
+ const deadline=setTimeout(()=>controller.abort(),Math.max(0,deadlineAt-Date.now()));
  const next=()=>{if(!finished&&!controller.signal.aborted)timer=setTimeout(()=>{pending=poll().then(next);},L.cancelPollMs);};
  await poll();next();
- return {signal:controller.signal,async close(){finished=true;if(timer)clearTimeout(timer);await pending;}};
+ return {signal:controller.signal,async close(){finished=true;clearTimeout(deadline);if(timer)clearTimeout(timer);await pending;}};
 }
 /** Called only after the execution promise settles, including awaited Worker termination. */
 export async function acknowledgeMcpLocalStop(db:DatabasePort,orgId:OrgId,runId:string,toolCallId:string){

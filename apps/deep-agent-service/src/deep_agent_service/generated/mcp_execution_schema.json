@@ -1,5 +1,6 @@
 {
   "limits": {
+    "maxCredentialBytes": 8192,
     "cancelPollMs": 200,
     "cancelAckGraceMs": 2000,
     "maxConcurrentExecutions": 2,

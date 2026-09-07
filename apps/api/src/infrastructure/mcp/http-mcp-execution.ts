@@ -2,7 +2,8 @@ import {Worker} from 'node:worker_threads';
 import {createRequire} from 'node:module';
 import {McpFrozenTool,McpInvokeOutput,McpRuntimeTool,MCP_EXECUTION_LIMITS as L} from '@repo/contracts/mcp-execution-snapshot';
 import type {z} from 'zod';
-export type McpExecutionCall=(tool:z.infer<typeof McpFrozenTool>,args:Record<string,unknown>,control?:{signal:AbortSignal})=>Promise<z.infer<typeof McpInvokeOutput>>;
+export interface McpExecutionControl {signal:AbortSignal;deadlineAt?:number;receipt?:{orgId:string;runId:string;toolCallId:string;attemptId:string;leaseEpoch:number};}
+export type McpExecutionCall=(tool:z.infer<typeof McpFrozenTool>,args:Record<string,unknown>,control?:McpExecutionControl)=>Promise<z.infer<typeof McpInvokeOutput>>;
 /** Infrastructure-only TLS/DNS seams for real protocol tests, never accepted by an HTTP route. */
 export interface McpExecutionOptions {extraTrustedCa?:string;timeoutMs?:number;testNetwork?:{lookupAddress:string;allowPrivateAddress?:boolean};}
 const require=createRequire(import.meta.url);
@@ -18,7 +19,7 @@ const {parentPort,workerData}=require('node:worker_threads');
   lookup:(_host,opts,cb)=>opts?.all?cb(null,[{address:options.testNetwork.lookupAddress,family:4}]):cb(null,options.testNetwork.lookupAddress,4),
   checkAddress:options.testNetwork.allowPrivateAddress?()=>{}:assertResolvedMcpAddressAllowed
  }:undefined;
- const result=await createHttpMcpExecutionCore({extraTrustedCa:options.extraTrustedCa,timeoutMs:options.timeoutMs,seams})(workerData.tool,workerData.args);
+ const result=await createHttpMcpExecutionCore({extraTrustedCa:options.extraTrustedCa,timeoutMs:options.timeoutMs,seams,sealed:workerData.sealed})(workerData.tool,workerData.args);
  if(Buffer.byteLength(JSON.stringify(result))>workerData.maxBytes)throw Error('limit');
  parentPort.postMessage({result});
 })().catch(()=>parentPort.postMessage({failed:true}));`;
@@ -30,7 +31,8 @@ async function runWorker(payload:Record<string,unknown>,options:McpExecutionOpti
  active++;
  let worker:Worker|undefined,timer:ReturnType<typeof setTimeout>|undefined;let onAbort:(()=>void)|undefined;
  try{
-  worker=new Worker(program,{eval:true,workerData:{loader:require.resolve('tsx/esm/api'),module:new URL('./http-mcp-execution-core.ts',import.meta.url).href,parent:import.meta.url,...payload,options:{...options,timeoutMs:timeout},maxBytes:L.maxResultBytes},resourceLimits:{maxOldGenerationSizeMb:L.workerHeapMb}});
+  worker=new Worker(program,{eval:true,workerData:{loader:require.resolve('tsx/esm/api'),module:new URL('./http-mcp-execution-core.ts',import.meta.url).href,parent:import.meta.url,...payload,options:{...options,timeoutMs:timeout},maxBytes:L.maxResultBytes},stdout:true,stderr:true,resourceLimits:{maxOldGenerationSizeMb:L.workerHeapMb}});
+  worker.stdout.resume();worker.stderr.resume();
   const result=await new Promise<unknown>((resolve,reject)=>{
    onAbort=()=>reject(new Error('mcp_execution_unconfirmed'));signal?.addEventListener('abort',onAbort,{once:true});if(signal?.aborted)onAbort();
    timer=setTimeout(()=>reject(new Error('mcp_execution_unconfirmed')),timeout);
@@ -48,7 +50,7 @@ export function createHttpMcpExecution(options:McpExecutionOptions={}):McpExecut
  return async(raw,args,control)=>{
   const tool=McpFrozenTool.parse(raw);
   if(Buffer.byteLength(JSON.stringify(args))>L.maxArgsBytes||Buffer.byteLength(JSON.stringify(tool))>L.maxResultBytes)throw new Error('mcp_execution_unavailable');
-  return McpInvokeOutput.parse(await runWorker({tool,args},options,control?.signal));
+  return McpInvokeOutput.parse(await runWorker({tool,args},{...options,timeoutMs:Math.min(options.timeoutMs??L.deadlineMs,(control?.deadlineAt??Date.now()+L.deadlineMs)-Date.now())},control?.signal));
  };
 }
 /** Review compiles the entire bounded batch with the same official validator, without network access. */
@@ -56,4 +58,10 @@ export async function validateMcpToolSchemas(raw:readonly z.infer<typeof McpRunt
  if(raw.length>L.maxTools||Buffer.byteLength(JSON.stringify(raw))>L.maxResultBytes)throw new Error('mcp_review_schema_limit');
  const schemas=raw.map(t=>McpRuntimeTool.parse(t));
  await runWorker({schemas},{});
+}
+
+/** Private infrastructure envelope. It is never included in a tool schema, receipt or result. */
+export async function executeSealedMcp(tool:z.infer<typeof McpFrozenTool>,args:Record<string,unknown>,sealed:{ciphertext:string;key:string},options:McpExecutionOptions,control:McpExecutionControl){
+ if(Buffer.byteLength(JSON.stringify(args))>L.maxArgsBytes||Buffer.byteLength(JSON.stringify(tool))>L.maxResultBytes)throw new Error('mcp_execution_unavailable');
+ return McpInvokeOutput.parse(await runWorker({tool,args,sealed},{...options,timeoutMs:Math.min(options.timeoutMs??L.deadlineMs,(control.deadlineAt??Date.now()+L.deadlineMs)-Date.now())},control.signal));
 }
