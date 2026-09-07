@@ -1,0 +1,50 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ❯ tests/standard-document-tools.test.ts (3 tests | 1 failed) 5ms
+   × allows explicit OCR without changing omitted defaults 2ms
+     → [
+  {
+    "received": true,
+    "code": "invalid_literal",
+    "expected": false,
+    "path": [
+      "ocr"
+    ],
+    "message": "Invalid literal value, expected false"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/standard-document-tools.test.ts > allows explicit OCR without changing omitted defaults
+ZodError: [
+  {
+    "received": true,
+    "code": "invalid_literal",
+    "expected": false,
+    "path": [
+      "ocr"
+    ],
+    "message": "Invalid literal value, expected false"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/standard-document-tools.test.ts:16:91
+     14| });
+     15| 
+     16| it('allows explicit OCR without changing omitted defaults',()=>{expect…
+       |                                                                                           ^
+     17| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  09:38:29
+   Duration  263ms (transform 61ms, setup 0ms, collect 96ms, tests 5ms, environment 0ms, prepare 34ms)
+
+undefined
+/private/tmp/workspacex-standard-capabilities/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/standard-document-tools.test.ts

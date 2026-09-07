@@ -39,3 +39,7 @@ Official implementation: https://github.com/firecrawl/anydoc/tree/main/node
 The installed CLI documents stdin/file conversion, format selection, Markdown output and
 unsupported image-only PDFs. No Docling deployment is claimed by using its future design
 reference: https://github.com/docling-project/docling/blob/main/docling/.agents/skills/docling/SKILL.md
+
+## Subsequent bounded OCR increment
+
+Explicit `ocr:true` now uses fixed offline Tesseract plus existing Poppler for PDF/PNG/JPEG. It returns verified Markdown plus a paired structurePath/structureHash with real page pixel coordinates and word confidence. Default AnyDoc remains text-only. Full bounds, licensing, actual scan/HTTP evidence and remaining cross-page/native-Office structure gaps are recorded in [OCR evidence](evidence/W08/ocr/README.md). S018 1.1.0 is a new complete package; 1.0.0 remains immutable.

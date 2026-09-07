@@ -12,7 +12,7 @@ def test_tool_hides_identity_and_rejects_unimplemented_modes_before_dispatch(mon
  tool=document.document_parse_tool()
  assert not {'runtime','orgId','bindingId','token'} & set(tool.args)
  monkeypatch.setattr(document.httpx,'AsyncClient',lambda **_:pytest.fail('must not dispatch'))
- for args in ({'workspacePath':'/inputs/a','ocr':True},{'workspacePath':'/inputs/a','outputMode':'chunks'},{'workspacePath':'/workspace/not-an-original'}):
+ for args in ({'workspacePath':'/inputs/a','outputMode':'chunks'},{'workspacePath':'/workspace/not-an-original'}):
   with pytest.raises(document.StandardDocumentError):asyncio.run(document._parse(runtime(),args))
 
 @pytest.mark.parametrize('failure',['status','redirect','oversize','invalid'])
@@ -29,3 +29,14 @@ def test_unknown_responses_are_not_retried_and_hide_secrets(monkeypatch,failure)
  body=json.loads(seen[0].content)
  assert body['toolCallId']=='actual-call' and body['orgId']=='org'
  assert body['bindingId']==runtime().config['configurable']['native_runtime']['bindingId']
+
+def test_ocr_reference_pair_generated_schema():
+ import json
+ from pathlib import Path
+ import jsonschema
+ schema=json.loads((Path(__file__).parents[1]/'src/deep_agent_service/generated/standard_document_schema.json').read_text())['output']
+ base={'textPath':'/workspace/parsed-12345678-1234-1234-1234-123456789012/document.md','sourceHash':'a'*64,'textHash':'b'*64,'source':{'attachmentId':'a','path':'/inputs/a','mediaType':'application/pdf','sizeBytes':1},'warnings':[]}
+ pair={'structurePath':'/workspace/parsed-12345678-1234-1234-1234-123456789012/structure.json','structureHash':'c'*64}
+ jsonschema.validate({**base,**pair},schema)
+ for key,value in pair.items():
+  with pytest.raises(jsonschema.ValidationError):jsonschema.validate({**base,key:value},schema)

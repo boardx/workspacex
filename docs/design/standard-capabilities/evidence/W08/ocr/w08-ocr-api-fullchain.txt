@@ -1,0 +1,39 @@
+[stack-admission] load1=2.23 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqkw2mp-2cb207eb-c6f1bb2c6594 db=wsx_c6f1bb2c6594d4758bc9 compose=wsx-c6f1bb2c6594d4758bc9 pg=20860 redis=25860 sandbox=50860
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c6f1bb2c6594d4758bc9 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-document-tools.test.ts (4 tests) 6ms
+ ✓ tests/chat/anydoc-attachment-to-markdown.test.ts (2 tests) 5ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  09:45:07
+   Duration  2.19s (transform 53ms, setup 0ms, collect 42ms, tests 10ms, environment 0ms, prepare 51ms)
+
+[db-isolation] db=wsx_c6f1bb2c6594d4758bc9 peak_connections=1
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c6f1bb2c6594d4758bc9 capacity=100 current=6 required=32
+stdout | tests/agent-runtime/native-full-chain.test.ts > official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback
+{"chain":"native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback","documentParsed":true,"document":{"textPath":"/workspace/parsed-8849dc58-7e14-4913-9d50-9e1b44050f8f/document.md","sourceHash":"824c7a9f9fec1330c191be09005b0487696378cb809386f5f6ce3cebe46546e0","textHash":"db4ddb26b6fb59b2cd529686a7716fef4204ed2495b34327ab17531f5dea7437","source":{"attachmentId":"da35fb44-c666-4386-a02f-c95588e1eec4","path":"/inputs/4e66830d69929daa9b41dfb8ea0b475f8efdc53c73d682e12e39107339850b07/original.docx","mediaType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","sizeBytes":8533},"warnings":["markdown_only_no_page_coordinates","ocr_not_performed","tables_may_lose_layout"]},"inputsVerified":true,"inputPromptVerified":true,"webSourceLinked":true,"skillStages":["metadata_discovered","body_read"],"tools":["read_file","wx_document_parse","read_file","execute","wx_artifact_publish","web_search","fetch_url"],"final":"Report staged for writeback.","artifacts":1,"attachments":1}
+
+ ✓ tests/agent-runtime/native-full-chain.test.ts (1 test) 8197ms
+   ✓ official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback 5394ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  09:45:10
+   Duration  9.23s (transform 372ms, setup 0ms, collect 674ms, tests 8.20s, environment 0ms, prepare 21ms)
+
+[db-isolation] db=wsx_c6f1bb2c6594d4758bc9 peak_connections=2
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-document-tools.test.ts tests/chat/anydoc-attachment-to-markdown.test.ts; pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：0s
+  总计：13s

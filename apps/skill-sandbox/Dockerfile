@@ -142,6 +142,14 @@ RUN python3 security/generate-seccomp.py
 COPY --from=build /build/dist ./dist
 COPY src/generated ./dist/generated
 
+# W08: offline OCR, exact Debian Bookworm engine/language versions; no runtime download.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr=5.3.0-2 tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-chi-sim=1:4.1.0-2 \
+ && dpkg-query -W tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim > /opt/sandbox/ocr-versions.txt \
+ && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata > /opt/sandbox/ocr-model-hashes.txt \
+ && rm -rf /var/lib/apt/lists/*
+COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
+
 # 非 root（node 镜像自带 uid/gid 1000 的 `node` 用户）。
 # 应用目录保持 root 所有、对 node 只读 —— 服务不需要写自己的代码目录。
 RUN mkdir -p /run/sessions && chown node:node /run/sessions

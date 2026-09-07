@@ -1,0 +1,41 @@
+tesseract-ocr	5.3.0-2
+tesseract-ocr-chi-sim	1:4.1.0-2
+tesseract-ocr-eng	1:4.1.0-2
+7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2  /usr/share/tesseract-ocr/5/tessdata/eng.traineddata
+a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730  /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: tesseract-ocr
+Upstream-Contact: Ray Smith <theraysmith@users.sourceforge.net>
+Source: https://github.com/tesseract-ocr/
+
+Files: *
+Copyright: 1988-1995 Hewlett Packard Company.
+           2006-2019 Google Inc.
+License: Apache-2.0
+
+Files: debian/*
+Copyright: 2007-2009 Jeffrey Ratcliffe <Jeffrey.Ratcliffe@gmail.com>
+           2010-2019 Jeff Breidenbach <jab@debian.org>
+           2010-2019 Alexander Pozdnyakov <almipo@mail.ru>
+License: Apache-2.0
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License");
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: tessdata_fast
+Upstream-Contact: Ray Smith <theraysmith@users.sourceforge.net>
+Source: https://github.com/tesseract-ocr/tessdata_fast/
+
+Files: *
+Copyright: 1988-1995 Hewlett Packard Company.
+           2006-2022 Google Inc.
+License: Apache-2.0
+
+Files: debian/*
+Copyright: 2007-2009 Jeffrey Ratcliffe <Jeffrey.Ratcliffe@gmail.com>
+           2017-2019 Jeff Breidenbach <jab@debian.org>
+           2017-2022 Alexander Pozdnyakov <almipo@mail.ru>
+License: Apache-2.0
+
+License: Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License");

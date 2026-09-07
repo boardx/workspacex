@@ -9,7 +9,7 @@ https://github.com/firecrawl/anydoc/tree/main/node
 转换为Markdown（TXT/Markdown原样验证后复制）。执行发生在现有无网络沙箱里，30秒超时；
 输入与输出大小沿用沙箱限制。不安装运行时依赖，不访问托管转换服务。
 
-OCR、页坐标、跨页表格完整性、结构化chunks仍待实现。Docling官方技能和结构化API是后续复用
+显式 OCR 复用 Tesseract 5.3.0（Apache-2.0）及预装 chi_sim/eng 模型；PDF由已有Poppler逐页渲染，PNG/JPEG直接识别。返回真实页号、渲染页像素框和词置信度，默认文本路径保持不变。页数、像素、输出和时间有界，超限拒绝，不静默截断。跨页表格完整性、Office原生单元格/幻灯片结构化chunks仍待实现。Docling官方技能和结构化API是后续复用
 研究来源，不代表本运行时已经安装或允许调用Docling：
 https://github.com/docling-project/docling/blob/main/docling/.agents/skills/docling/SKILL.md
 

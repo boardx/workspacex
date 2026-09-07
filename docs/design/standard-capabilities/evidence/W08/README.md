@@ -14,7 +14,7 @@ This evidence covers real native input file → approved document tool → offli
 
 ```sh
 pnpm --filter @repo/contracts exec vitest run tests/standard-document-tools.test.ts
-.venv/bin/python -m pytest apps/deep-agent-service/tests/test_standard_document_tools.py -q
+apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_standard_document_tools.py -q
 pnpm exec tsx skills/standard-document/scripts/verify.ts
 docker build -t workspacex-skill-sandbox:w08-anydoc apps/skill-sandbox
 docker compose -p wx-doc-parse -f apps/skill-sandbox/docker-compose.sessions.yml -f /private/tmp/w08-anydoc-override.yml up -d

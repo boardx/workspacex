@@ -100,7 +100,7 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
  const repo=new PgAgentRunRepository(db),grants=new PgToolPermissionGrantRepository(db);
  const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),repo,grants);
  const staging=new PgNativeOutputStaging(db,owner,objects,authority,bound=>createNativeSessionFiles({socketPath:socket,...bound}));
- const script="from pathlib import Path\nimport csv,zipfile,hashlib\nfiles=list(Path('/inputs').glob('*/*'))\nassert len(files)==2\nbefore={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nfor p in files:\n try: p.write_bytes(b'bad'); raise AssertionError('writable original')\n except OSError: pass\n try: p.unlink(); raise AssertionError('deletable original')\n except OSError: pass\n Path('/workspace',p.name).write_bytes(p.read_bytes())\nwith zipfile.ZipFile(next(p for p in files if p.suffix=='.docx')) as z: assert '原始文档保持不变' in z.read('word/document.xml').decode()\nwith open(next(p for p in files if p.suffix=='.csv')) as f: assert sum(int(r['value']) for r in csv.DictReader(f))==50\nassert before=={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nprint('UPLOADED_INPUTS_VERIFIED')\nPath('/workspace/report.txt').write_text('真实跨语言产物 UTF8',encoding='utf-8')\n";
+ const script="from pathlib import Path\nimport csv,zipfile,hashlib\nfiles=list(Path('/inputs').glob('*/*'))\nassert len(files)==3\nbefore={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nfor p in files:\n try: p.write_bytes(b'bad'); raise AssertionError('writable original')\n except OSError: pass\n try: p.unlink(); raise AssertionError('deletable original')\n except OSError: pass\n Path('/workspace',p.name).write_bytes(p.read_bytes())\nwith zipfile.ZipFile(next(p for p in files if p.suffix=='.docx')) as z: assert '原始文档保持不变' in z.read('word/document.xml').decode()\nwith open(next(p for p in files if p.suffix=='.csv')) as f: assert sum(int(r['value']) for r in csv.DictReader(f))==50\nassert before=={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}\nprint('UPLOADED_INPUTS_VERIFIED')\nPath('/workspace/report.txt').write_text('真实跨语言产物 UTF8',encoding='utf-8')\n";
  const contents=[{path:'SKILL.md',text:'---\nname: example\ndescription: Generate a UTF8 report.\n---\nRun /skills/example/scripts/report.py then publish /workspace/report.txt.\n',mediaType:'text/markdown'},{path:'scripts/report.py',text:script,mediaType:'text/x-python'}];
  const pack={skillId:'s1',versionId:'v1',files:contents.map(f=>({path:f.path,mediaType:f.mediaType,contentBase64:Buffer.from(f.text).toString('base64'),digest:createHash('sha256').update(f.text).digest('hex')}))};
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1};
@@ -111,11 +111,12 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   for(const tool of ['read_file','execute','wx_artifact_publish','web_search','fetch_url'])await grants.grantForRun(org,parent,tool);
   const {Document,Packer,Paragraph}=createRequire(join(workspace,'apps/skill-sandbox/package.json'))('docx');
   const originals=[{filename:'original.docx',mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',bytes:await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('原始文档保持不变')]}]}))},{filename:'original.csv',mime:'text/csv',bytes:Buffer.from('group,value\n甲,10\n乙,40\n')}];
+  originals.push({filename:'scan.png',mime:'image/png',bytes:await readFile(join(workspace,'apps/api/tests/fixtures/document-ocr/scan.png'))});
   const uploadDeps={repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},chat:new PgChatRepository(db),attachments:new PgChatAttachmentRepository(db),store:objects,attachmentIds:{next:()=>randomUUID()},clock:{now:()=>new Date().toISOString()}};
   for(const source of originals){const uploaded=await uploadAttachment(uploadDeps,{orgId:org,userId:'actor',threadId:`thread-${org}`,...source});
    await asApp(org,c=>c.query('UPDATE chat_message_attachments SET message_id=$3 WHERE org_id=$1 AND id=$2',[org,uploaded.id,`message-${org}`]));}
   const ref=await owner.provision(ctx,[{stableName:'example',package:pack}],{execute:false,wx_artifact_publish:false,web_search:false,fetch_url:false,wx_document_parse:false});provisioned=true;
-  const originalInputs=(await owner.resolve(ref.bindingId,ctx)).inputs;expect(originalInputs).toHaveLength(2);
+  const originalInputs=(await owner.resolve(ref.bindingId,ctx)).inputs;expect(originalInputs).toHaveLength(3);
   let webUrl='';let webRequests=0;
   webServer=https.createServer(testTlsMaterial(),(req,res)=>{webRequests++;
    if(req.url?.startsWith('/search')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({results:[{title:'真实来源',url:webUrl+'/article',snippet:'Search excerpt only.'}]}));}
@@ -136,9 +137,14 @@ it('official Python factory crosses real UDS isolated sandbox and PG authority i
   const documentBody={orgId:org,attemptId:ctx.attemptId,leaseEpoch:1,bindingId:ref.bindingId,toolCallId:'parse-original',toolName:'wx_document_parse',toolArgs:{workspacePath:originalInputs.find(i=>i.path.endsWith('.docx'))!.path,outputMode:'markdown',ocr:false}};
   const callDocument=(body:unknown)=>fetch(`${base}/internal/agent-runs/${parent}/document/parse`,{method:'POST',headers:{'content-type':'application/json','x-deep-agent-internal-key':process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY!},body:JSON.stringify(body)});
   expect((await callDocument(documentBody)).status).toBe(503); // Actual PG tool grant is absent.
-  expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,ocr:true}})).status).toBe(400);
+  expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,outputMode:'chunks'}})).status).toBe(400);
   await grants.grantForRun(org,parent,'wx_document_parse');
   expect((await callDocument({...documentBody,leaseEpoch:2})).status).toBe(503);
+  const ocrResponse=await callDocument({...documentBody,toolCallId:'ocr-original',toolArgs:{workspacePath:originalInputs.find(i=>i.path.endsWith('.png'))!.path,ocr:true}});expect(ocrResponse.status).toBe(200);
+  const ocrResult=await ocrResponse.json() as {structurePath:string;structureHash:string};
+  const ocrFile=await createNativeSessionFiles({socketPath:socket,...await owner.resolve(ref.bindingId,ctx)}).read(ocrResult.structurePath) as {contentBase64:string};
+  const ocrBytes=Buffer.from(ocrFile.contentBase64,'base64');expect(createHash('sha256').update(ocrBytes).digest('hex')).toBe(ocrResult.structureHash);
+  const ocrStructure=JSON.parse(ocrBytes.toString('utf8'));expect(ocrStructure.pages[0].pageNumber).toBe(1);expect(ocrStructure.pages[0].words.some((w:{text:string})=>w.text==='120')).toBe(true);
   expect((await callDocument({...documentBody,toolArgs:{...documentBody.toolArgs,workspacePath:'/inputs/forged.docx'}})).status).toBe(503);
   const config={configurable:{native_runtime:ref,org_skills:[{stable_name:'example',package:pack}],disable_task_auto_classify:true,run_control_callback:{base_url:base,key:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY,org_id:org,run_id:parent,attempt_id:ctx.attemptId,lease_epoch:1}}};
   const output=await processRun(join(workspace,'apps/deep-agent-service/.venv/bin/python'),[join(workspace,'apps/deep-agent-service/tests/native_full_chain_runner.py')],JSON.stringify(config),{...process.env,PYTHONPATH:join(workspace,'apps/deep-agent-service/src'),WX_WEB_TEST_URL:webUrl+'/article',WX_INPUT_PATHS:JSON.stringify(originalInputs.map(i=>i.path)),NATIVE_SESSION_SOCKET:socket,NATIVE_SESSION_SERVICE_BASE_URL:base,NATIVE_SESSION_SERVICE_KEY:process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY});
