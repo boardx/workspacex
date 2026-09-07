@@ -999,6 +999,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
             要求覆盖它们。 */}
         <SidebarBrandHeader />
         {session && <TaskNotifications
+          sessionToken={bearer ?? undefined}
           scopeKey={`${session.currentOrgId}:${session.userId}:${projectId ?? "personal"}`}
           cards={threads ? threads.groups.flatMap((group) => group.cards) : null}
           activeThreadId={selectedThreadId} onOpenThread={selectThread} onRefresh={reloadThreads}

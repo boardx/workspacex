@@ -1,0 +1,5 @@
+Source: /private/tmp/wx-main-merge-regression.txt (root-owned isolated wrapper, reported exit 0 and cleanup)
+ ✓ tests/agent-runtime/schedule-notifications.test.ts (3 tests) 408ms
+ Test Files  13 passed (13)
+      Tests  58 passed (58)
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/workbench-agui-order.test.ts tests/agent-runtime/workbench-configured-stream-identity.test.ts tests/agent-runtime/subtask-signal-isolation.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/plan-control/plan-ledger-repo-guard.test.ts tests/agent-run/pg-database-connection-error-unit.test.ts tests/agent-runtime/standard-sql-database.test.ts tests/agent-runtime/standard-sql-source-real-db.test.ts tests/agent-runtime/standard-scheduler-service.test.ts tests/agent-runtime/standard-scheduler-composition.test.ts tests/canvas/instance-repo-guard.test.ts tests/agent-runtime/schedule-notifications.test.ts

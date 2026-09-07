@@ -1,3 +1,6 @@
+import { SCHEDULE_NOTIFICATIONS } from "./application/agent-run/schedule-notifications";
+import { PgScheduleNotifications } from "./infrastructure/agent-run/pg-schedule-notifications";
+import { ScheduleNotificationsController } from "./interface/controllers/schedule-notifications.controller";
 import { STANDARD_AUDIO_SERVICE } from "./application/agent-run/standard-audio-tools";
 import { DefaultStandardAudioService } from "./infrastructure/agent-run/standard-audio-service";
 import { StandardAudioController } from "./interface/controllers/standard-audio.controller";
@@ -926,7 +929,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1866,6 +1869,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
     },
+    { provide: PgScheduleNotifications, useFactory: (db: DatabasePort, repo: IdentityRepository) => new PgScheduleNotifications(db, repo), inject: [DATABASE_PORT, IDENTITY_REPOSITORY] },
+    { provide: SCHEDULED_RUN_NOTIFIER, useExisting: PgScheduleNotifications },
+    { provide: SCHEDULE_NOTIFICATIONS, useExisting: PgScheduleNotifications },
     {
       provide: STANDARD_SCHEDULE,
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository,

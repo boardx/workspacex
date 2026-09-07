@@ -38,6 +38,7 @@ import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary
 import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-execution-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
+import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
@@ -507,6 +508,12 @@ for (const root of ROOTS) {
     if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
       const errors = checkMcpExecutionBoundary(rel, body);
       if (!existsSync(join(API, "scripts/tests/mcp-execution-boundary.test.mjs"))) errors.push("MCP authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === SCHEDULE_NOTIFICATIONS_PATH) {
+      const errors = checkScheduleNotifications(body);
+      if (!existsSync(join(API, "scripts/tests/schedule-notifications-boundary.test.mjs"))) errors.push("schedule notification authorization counterexamples missing");
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

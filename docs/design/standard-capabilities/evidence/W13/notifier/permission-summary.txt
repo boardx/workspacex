@@ -1,0 +1,3 @@
+Command: node --test apps/api/scripts/tests/schedule-notifications-boundary.test.mjs
+Observed result: tests 11; pass 11; fail 0; exit 0.
+The main lint entry invokes this exact boundary only for pg-schedule-notifications.ts and requires the counterexample test file. No generic allowlist was added.
