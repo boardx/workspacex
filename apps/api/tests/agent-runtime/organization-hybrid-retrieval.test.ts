@@ -89,3 +89,10 @@ it('production createApp bridge uses configured hybrid providers and claimed hum
 it('withdrawal while ranking rejects the late result',async()=>{
  mode='revoke';try{await expect(source.search(actor,{query,scope:'organization-hybrid'})).rejects.toThrow('context_source_unavailable');}finally{mode='normal';}
 });
+
+it('unconfigured hybrid fails explicitly and does not contact a provider',async()=>{
+ const identity={repo:new PgIdentityRepository(db),ids:{next:randomUUID}};
+ const index=new PgOrganizationKnowledgeIndex(db,identity);
+ const unavailable=new OrganizationHybridRetrieval(index,identity);
+ seen=[];await expect(unavailable.search(actor,{query})).rejects.toThrow('hybrid_not_configured');expect(seen).toEqual([]);
+});
