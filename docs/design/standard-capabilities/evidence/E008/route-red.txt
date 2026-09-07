@@ -1,0 +1,180 @@
+[stack-admission] load1=6.30 cores=10 perCore=0.63 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqsb0bb-649ab9ac-02ff278e4ac7 db=wsx_02ff278e4ac739979e38 compose=wsx-02ff278e4ac739979e38 pg=21238 redis=26238 sandbox=51238
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_02ff278e4ac739979e38 capacity=100 current=6 required=32
+ ❯ tests/agent-run/runtime-profile-continuation.test.ts (2 tests | 2 failed) 14ms
+   × native checkpoint continuation never falls back when native deployment is unavailable 11ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      Object {
+        "checkpointResume": true,
+        "executionAttemptId": "run-1:8",
+        "executionLeaseEpoch": undefined,
+        "executionPermissionRequestId": undefined,
+        "history": Array [],
+        "modelId": "deep-agent",
+        "modelProvider": "deep-agent",
+        "onSkillActivity": [Function anonymous],
+        "orgId": "org-f11-interjection",
+        "runId": "run-1",
+        "skills": Array [],
+        "system": "你是通用助手
+    
+    ## 可视化（mermaid 图）——默认不画
+    **默认不画图，用文字回答。** 只有满足下面任意一条时才画：
+    1. 用户在本轮消息里明确要图——出现「画 / 图 / 流程图 / 时序图 / 结构图 / 示意图 / 可视化 / mermaid / 脑图 / 思维导图 / 甘特」这类词，或明说要「用图说明」。
+    2. 要表达的内容本身是**有向结构**：步骤有先后、状态之间会转移、实体之间有连线关系、事件有时间顺序；并且纯文字讲清楚需要反复回指「上面第几步 / 前面那个状态」。
+    两条都不满足就不画。**拿不准就不画。**
+    反例（一律不画）：「最好的教育是怎么样的」「你怎么看 X」「解释一下 Y」「A 和 B 有什么区别」「有哪些注意事项」——这类回答的要点是**并列的观点**，不是有向关系；给它配思维导图只是把段落标题搬进方框，不增加任何信息，反而打断阅读。内容深刻、结构清晰、要点很多，都**不是**画图的理由。
+    正例（该画）：「把 OAuth 授权码流程画出来」「这几个状态之间是怎么转的」「帮我画一下模块依赖关系」「这个项目的排期画成甘特图」。
+    
+    **以下规则只在你已经按上面判定「要画」之后才适用；判定为不画时，整节忽略。**
+    输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只用这 12 种图类型（其它类型渲染不了）：flowchart、sequenceDiagram、classDiagram、stateDiagram、erDiagram、journey、gantt、pie、quadrantChart、mindmap、timeline、gitGraph。
+    必须产出**能被 mermaid 解析**的语法，否则会渲染失败：
+    - 节点标签里含空格以外的特殊字符（例如 | : ; ( ) [ ] { } < > " #）时，把整个标签用双引号包起来：写 A["pbpaste | fabric"]，不要写 A[pbpaste | fabric]——裸的 | 会被当成边标签分隔符，直接解析失败。
+    - 不要在标签里用 <br/> 之类 HTML 标签（严格模式下不生效且容易解析失败）；要分行就拆成多个节点，别往标签里塞 HTML。
+    - 先给一个**能渲染**的简洁图，更多细节放到图后面的文字里补充。",
+        "threadId": "thread-1",
+        "trustedMemoryScope": Object {
+          "orgId": "org-f11-interjection",
+          "userId": "user-1",
+        },
+        "user": "跑一个任务",
+      },
+    ]
+
+
+Number of calls: 1
+
+   × legacy approval continuation stays legacy after native rollout is enabled 2ms
+     → expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/agent-run/runtime-profile-claim.test.ts (2 tests | 2 failed) 9843ms
+   × claim preserves durable legacy profile across repository restart and approval requeue 233ms
+     → AgentRun run-5c146200-6e38-49e1-ad91-ac14587f25d4 may not move from queued to awaiting_tool_permission
+   × claim preserves durable native-v1 profile across repository restart and approval requeue 170ms
+     → AgentRun run-99054871-ea76-4a76-a034-139926f8243b may not move from queued to awaiting_tool_permission
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/runtime-profile-claim.test.ts > claim preserves durable legacy profile across repository restart and approval requeue
+error: AgentRun run-5c146200-6e38-49e1-ad91-ac14587f25d4 may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:198:17
+    196|     await c.query("BEGIN");
+    197|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    198|     const out = await fn(c);
+       |                 ^
+    199|     await c.query("COMMIT");
+    200|     return out;
+ ❯ tests/agent-run/runtime-profile-claim.test.ts:36:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/agent-run/runtime-profile-claim.test.ts > claim preserves durable native-v1 profile across repository restart and approval requeue
+error: AgentRun run-99054871-ea76-4a76-a034-139926f8243b may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:198:17
+    196|     await c.query("BEGIN");
+    197|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    198|     const out = await fn(c);
+       |                 ^
+    199|     await c.query("COMMIT");
+    200|     return out;
+ ❯ tests/agent-run/runtime-profile-claim.test.ts:36:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/agent-run/runtime-profile-continuation.test.ts > native checkpoint continuation never falls back when native deployment is unavailable
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      Object {
+        "checkpointResume": true,
+        "executionAttemptId": "run-1:8",
+        "executionLeaseEpoch": undefined,
+        "executionPermissionRequestId": undefined,
+        "history": Array [],
+        "modelId": "deep-agent",
+        "modelProvider": "deep-agent",
+        "onSkillActivity": [Function anonymous],
+        "orgId": "org-f11-interjection",
+        "runId": "run-1",
+        "skills": Array [],
+        "system": "你是通用助手
+    
+    ## 可视化（mermaid 图）——默认不画
+    **默认不画图，用文字回答。** 只有满足下面任意一条时才画：
+    1. 用户在本轮消息里明确要图——出现「画 / 图 / 流程图 / 时序图 / 结构图 / 示意图 / 可视化 / mermaid / 脑图 / 思维导图 / 甘特」这类词，或明说要「用图说明」。
+    2. 要表达的内容本身是**有向结构**：步骤有先后、状态之间会转移、实体之间有连线关系、事件有时间顺序；并且纯文字讲清楚需要反复回指「上面第几步 / 前面那个状态」。
+    两条都不满足就不画。**拿不准就不画。**
+    反例（一律不画）：「最好的教育是怎么样的」「你怎么看 X」「解释一下 Y」「A 和 B 有什么区别」「有哪些注意事项」——这类回答的要点是**并列的观点**，不是有向关系；给它配思维导图只是把段落标题搬进方框，不增加任何信息，反而打断阅读。内容深刻、结构清晰、要点很多，都**不是**画图的理由。
+    正例（该画）：「把 OAuth 授权码流程画出来」「这几个状态之间是怎么转的」「帮我画一下模块依赖关系」「这个项目的排期画成甘特图」。
+    
+    **以下规则只在你已经按上面判定「要画」之后才适用；判定为不画时，整节忽略。**
+    输出一个 ```mermaid 围栏代码块，前端会把它渲染成图。只用这 12 种图类型（其它类型渲染不了）：flowchart、sequenceDiagram、classDiagram、stateDiagram、erDiagram、journey、gantt、pie、quadrantChart、mindmap、timeline、gitGraph。
+    必须产出**能被 mermaid 解析**的语法，否则会渲染失败：
+    - 节点标签里含空格以外的特殊字符（例如 | : ; ( ) [ ] { } < > " #）时，把整个标签用双引号包起来：写 A["pbpaste | fabric"]，不要写 A[pbpaste | fabric]——裸的 | 会被当成边标签分隔符，直接解析失败。
+    - 不要在标签里用 <br/> 之类 HTML 标签（严格模式下不生效且容易解析失败）；要分行就拆成多个节点，别往标签里塞 HTML。
+    - 先给一个**能渲染**的简洁图，更多细节放到图后面的文字里补充。",
+        "threadId": "thread-1",
+        "trustedMemoryScope": Object {
+          "orgId": "org-f11-interjection",
+          "userId": "user-1",
+        },
+        "user": "跑一个任务",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/agent-run/runtime-profile-continuation.test.ts:93:24
+     91|   const store=fakeStore(run); const complete=vi.fn(async()=>({text:"un…
+     92|   await executeQueuedRuns(deps(store,{complete}),{orgId:ORG});
+     93|   expect(complete).not.toHaveBeenCalled();
+       |                        ^
+     94|   expect(store.failRun).toHaveBeenCalledWith(ORG,run.runId,"MODEL_CALL…
+     95| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/agent-run/runtime-profile-continuation.test.ts > legacy approval continuation stays legacy after native rollout is enabled
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/agent-run/runtime-profile-continuation.test.ts:103:20
+    101|   await executeQueuedRuns({...deps(store,{complete}),nativeSessions:ow…
+    102|   expect(owner.provision).not.toHaveBeenCalled();
+    103|   expect(complete).toHaveBeenCalledTimes(1);
+       |                    ^
+    104|   expect(complete.mock.calls[0]?.[0]).not.toHaveProperty("nativeSessio…
+    105|   expect(store.failRun).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  2 failed (2)
+      Tests  4 failed (4)
+   Start at  13:12:42
+   Duration  14.86s (transform 836ms, setup 0ms, collect 1.32s, tests 9.86s, environment 0ms, prepare 139ms)
+
+[db-isolation] db=wsx_02ff278e4ac739979e38 peak_connections=2
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-run/runtime-profile-continuation.test.ts tests/agent-run/runtime-profile-claim.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/runtime-profile-continuation.test.ts tests/agent-run/runtime-profile-claim.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：16s
+  清理：1s
+  总计：17s

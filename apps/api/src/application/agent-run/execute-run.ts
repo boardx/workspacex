@@ -1,3 +1,4 @@
+import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
 import { RunLeaseLostError, currentRunLease } from "./run-lease";
@@ -407,6 +408,8 @@ export function planLayeredHistoryIncrement(
 }
 
 export interface ExecuteAgentRunDeps {
+  /** Admission of new native runs; existing native continuations still use nativeSessions. */
+  readonly nativeRuntimeEnabled?: boolean;
   readonly nativeSessions?: NativeSessionOwner;
   readonly nativeOutputs?: NativeOutputStaging;
   readonly artifactContinuations?: ArtifactContinuationReader;
@@ -1103,6 +1106,7 @@ async function executeClaimed(
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
   try {
+    if (run.runtimeProfile === "native-v1" && !deps.nativeSessions) throw new ModelCallError("MODEL_CALL_FAILED", "native_runtime_unavailable_for_continuation");
     if (isDeepAgentRun && deps.nativeSessions && !deps.nativeOutputs) throw new ModelCallError("MODEL_CALL_FAILED", "native_output_delivery_unavailable");
     // Phase 14 F01 -- the ONE call. `invokeKernel` (`invoke-kernel.ts`) picks whichever
     // shape `deps.model` actually offers for this run's pinned provider; every field below
@@ -1360,7 +1364,7 @@ export async function executeQueuedRuns(
     }
     try {
       // issue #2860：心跳见 `run-heartbeat.ts`。
-      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(deps, input.orgId, outcome.run), outcome.run.leaseEpoch);
+      await withRunHeartbeat(deps.runs, deps.log, input.orgId, outcome.run.runId, () => executeClaimed(dependenciesForRuntimeProfile(deps, outcome.run), input.orgId, outcome.run), outcome.run.leaseEpoch);
     } catch (e) {
       if(e instanceof RunLeaseLostError)continue;
       // A defect in this file, not a provider failure. Still recorded, still terminal:

@@ -1796,8 +1796,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 构造函数该参数自己的完整取证）。与 `CopilotkitAguiController` 共用
           // `TOOL_PERMISSION_GRANT_STORE` 这同一个单例，不各自新开一份。
           toolPermissionGrants, interjections, artifactContinuations,
-          process.env.KERNEL_NATIVE_RUNTIME === "1" ? nativeSessions ?? undefined : undefined,
-          nativeOutputs ?? undefined,
+          nativeSessions ?? undefined,
+          nativeOutputs ?? undefined, process.env.KERNEL_NATIVE_RUNTIME === "1",
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,

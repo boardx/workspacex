@@ -1,0 +1,65 @@
+[stack-admission] load1=15.64 cores=10 perCore=1.56 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqshbmr-5cf74dd2-f362d791fe7d db=wsx_f362d791fe7dcfdddf42 compose=wsx-f362d791fe7dcfdddf42 pg=21201 redis=26201 sandbox=51201
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_f362d791fe7dcfdddf42 capacity=100 current=6 required=32
+stdout | tests/agent-run/runtime-profile-claim.test.ts > native approval continuation drains through its original engine while new native admission is disabled
+E008_DIAGNOSTIC agent run model call failed {
+  runId: 'run-e00b255f-4160-4fa7-b321-97ed1dba3e87',
+  modelProvider: 'deep-agent',
+  modelId: 'pinned-model',
+  code: 'MODEL_CALL_FAILED',
+  detail: 'unexpected model call failure'
+}
+
+ ❯ tests/agent-run/runtime-profile-claim.test.ts (3 tests | 1 failed) 11590ms
+   ✓ claim preserves durable legacy profile across repository restart and approval requeue 383ms
+   × native approval continuation drains through its original engine while new native admission is disabled 209ms
+     → expected "spy" to be called with arguments: [ …(2) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/runtime-profile-claim.test.ts > native approval continuation drains through its original engine while new native admission is disabled
+AssertionError: expected "spy" to be called with arguments: [ …(2) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ❯ tests/agent-run/runtime-profile-claim.test.ts:68:119
+     66|     },{orgId:scope});
+     67|     expect(complete).toHaveBeenCalledTimes(1);expect(complete.mock.cal…
+     68|     expect(owner.provision).toHaveBeenCalledTimes(1);expect(owner.rele…
+       |                                                                                                                       ^
+     69|     const row=await asApp(scope,c=>c.query("SELECT status,runtime_prof…
+     70|     expect(row.rows[0]).toMatchObject({status:"writeback_pending",runt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  13:17:41
+   Duration  20.12s (transform 870ms, setup 0ms, collect 1.00s, tests 11.59s, environment 0ms, prepare 81ms)
+
+[db-isolation] db=wsx_f362d791fe7dcfdddf42 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-run/runtime-profile-claim.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/runtime-profile-claim.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：26s
+  清理：1s
+  总计：26s

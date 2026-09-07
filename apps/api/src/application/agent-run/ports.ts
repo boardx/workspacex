@@ -91,6 +91,8 @@ export interface HistoryAttachmentMeta {
 
 /** One queued run, claimed for execution, carrying its whole acceptance snapshot. */
 export interface ClaimedAgentRun {
+  /** Persisted by the run repository; optional only for legacy in-process callers. */
+  readonly runtimeProfile?: "legacy" | "native-v1";
   readonly permissionRequestId?: string;
   readonly leaseEpoch?: number;
   readonly checkpointResume?: boolean;

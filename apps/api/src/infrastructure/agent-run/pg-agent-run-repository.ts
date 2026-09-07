@@ -41,6 +41,7 @@ import type {
 } from "../../application/agent-run/ports";
 
 interface ClaimRow {
+  runtime_profile: "legacy" | "native-v1";
   pending_permission_request_id?: string | null;
   lease_epoch?: number;
   checkpoint_resume?: boolean;
@@ -172,7 +173,7 @@ export class PgAgentRunRepository implements AgentRunStore {
                FOR UPDATE OF head SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
-                  r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
+                  r.skill_version_ids, r.model_provider, r.model_id, r.runtime_profile, r.pending_decision,
                   r.pending_tool_name, r.pending_edited_args, r.checkpoint_resume, r.lease_epoch, r.pending_permission_request_id`,
         [orgId, threads.rows.map(thread=>thread.id), DEFAULT_STALE_RUNNING_THRESHOLD_MS],
       );
@@ -210,6 +211,7 @@ export class PgAgentRunRepository implements AgentRunStore {
         }
         runs.push({ kind: "executable", run: {
           runId: row.id,
+          runtimeProfile: row.runtime_profile,
           leaseEpoch: row.lease_epoch,
           threadId: row.thread_id,
           projectId: extra.project_id,

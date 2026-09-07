@@ -150,6 +150,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly artifactContinuations?: ArtifactContinuationReader,
     private readonly nativeSessions?: NativeSessionOwner,
     private readonly nativeOutputs?: NativeOutputStaging,
+    private readonly nativeRuntimeEnabled?: boolean,
   ) {}
 
   /**
@@ -192,7 +193,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       planLedger: this.planLedger,
       events: this.events,
       toolPermissionGrants: this.toolPermissionGrants,
-      interjections: this.interjections, artifactContinuations: this.artifactContinuations, nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
+      interjections: this.interjections, artifactContinuations: this.artifactContinuations, nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs, nativeRuntimeEnabled: this.nativeRuntimeEnabled,
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
