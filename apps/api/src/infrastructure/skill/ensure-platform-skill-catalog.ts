@@ -1,3 +1,4 @@
+import { ensureStandardSkillPacksSeeded } from "./ensure-standard-skill-packs";
 import { officeSkillPackage } from "../../../scripts/office-skill-packages";
 /**
  * issue #2343 —— 让"平台组织 + 四个官方 skill 存在"这件事不再依赖任何人手动
@@ -262,6 +263,7 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
 export interface PlatformSkillCatalogSeedReport {
   readonly org: PlatformOrgBackfillReport;
   readonly skills: PlatformSkillsBackfillReport;
+  readonly standardPacks: Awaited<ReturnType<typeof ensureStandardSkillPacksSeeded>>;
 }
 
 /**
@@ -277,7 +279,11 @@ export async function ensurePlatformSkillCatalogSeeded(): Promise<
   try {
     const org = await ensurePlatformOrgSeeded();
     const skills = await ensurePlatformSkillsSeeded();
-    return { ok: true, report: { org, skills } };
+    const db = new PgDatabase(migrationConfig());
+    try {
+      const standardPacks = await ensureStandardSkillPacksSeeded(db, SERVICE_ACTOR_ID);
+      return { ok: true, report: { org, skills, standardPacks } };
+    } finally { await db.close(); }
   } catch (error) {
     return { ok: false, error };
   }
