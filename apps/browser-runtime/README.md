@@ -4,13 +4,18 @@ This stack keeps the official Playwright MCP process on an `internal: true` Dock
 
 Both digest variables are mandatory; compose itself constructs immutable `name@sha256:<digest>` references. Resolve and review the official `mcr.microsoft.com/playwright/mcp` image matching `@playwright/mcp@0.0.80`, and a maintained `ubuntu/squid` image, before deployment. There is deliberately no mutable-tag or unsafe default.
 
+The reviewed digests and the unprivileged browser UID/GID live in `image-digests.env`, which is
+their single source. Load that file rather than retyping the hex anywhere:
+
 ```sh
-export BROWSER_RUNTIME_IMAGE_DIGEST='<reviewed-64-hex-manifest-digest>'
-export BROWSER_EGRESS_PROXY_IMAGE_DIGEST='<reviewed-64-hex-manifest-digest>'
-export BROWSER_UID=1000 BROWSER_GID=1000
-docker compose -f apps/browser-runtime/docker-compose.browser.yml config
-docker compose -f apps/browser-runtime/docker-compose.browser.yml up -d
+set -a; . apps/browser-runtime/image-digests.env; set +a
+docker compose -f apps/browser-runtime/docker-compose.browser.yml -p wsx-browser-runtime config
+docker compose -f apps/browser-runtime/docker-compose.browser.yml -p wsx-browser-runtime up -d
+WORKSPACEX_BROWSER_MCP_ENDPOINT=http://127.0.0.1:58931/mcp node .harness/scripts/vm/browser-mcp-probe.mjs
 ```
+
+The probe is the readiness signal. A published port is not one: `up -d` returns before Chromium
+can serve MCP, and an endpoint string being set proves nothing at all (#2930).
 
 Set `WORKSPACEX_BROWSER_MCP_ENDPOINT=http://127.0.0.1:58931/mcp` for the API composition. Do not add `browser_public` to `browser-runtime`, use `--shared-browser-context`, set `--allowed-hosts '*'`, or add a proxy bypass. If the host cannot run the browser with `--sandbox` and the non-root UID, deployment must fail rather than add `--no-sandbox`.
 
@@ -18,7 +23,7 @@ The pinned runtime enables Playwright MCP's official `network` capability only s
 
 ## Verified local runtime (2026-09-07)
 
-The browser image tested is official MCP v0.0.80, digest `dda1f7f9b812e22946635c8af7df9288b96d3b9e3f0f1b8576d6823e2031c1de`; its image entrypoint includes `--no-sandbox`, so compose explicitly replaces the entrypoint. Browser UID/GID are 1000. Squid 6.6-24.04_beta digest is `6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029`, run directly as its existing proxy UID/GID 13 with writable temporary PID/log directories.
+The browser image tested is official MCP v0.0.80 and the proxy is Squid 6.6-24.04_beta; both digests are pinned in `image-digests.env` and are not repeated here. The browser image entrypoint includes `--no-sandbox`, so compose explicitly replaces the entrypoint. Squid runs directly as its existing proxy UID/GID 13 with writable temporary PID/log directories.
 
 `seccomp_profile.json` derives from [official Playwright v1.62.0](https://github.com/microsoft/playwright/blob/v1.62.0/utils/docker/seccomp_profile.json), following [official container guidance](https://playwright.dev/docs/docker). One additional allow entry permits `chroot` inside Chromium's unprivileged user namespace because `cap_drop: ALL` makes the upstream capability-conditional entry unavailable. No host capability, privileged mode, host IPC or disabled sandbox is used.
 

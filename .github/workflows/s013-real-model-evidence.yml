@@ -50,6 +50,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv sync --frozen --extra dev
         working-directory: apps/deep-agent-service
+      # Nothing else on this runner deploys the isolated Playwright MCP stack — `vm/deploy.sh`
+      # never mentions the browser — so this lane owns its lifecycle. Before #2930 the lane
+      # only checked that WORKSPACEX_BROWSER_MCP_ENDPOINT was a non-empty string, which the
+      # `env:` block above guarantees; nothing was listening on 58931 and the first
+      # `browser_navigate` surfaced as an opaque StandardBrowserError inside the model turn.
+      - name: Start the controlled browser runtime
+        run: bash .harness/scripts/vm/s013-real-model-evidence.sh browser-up
       - name: Six-configuration preflight
         run: bash .harness/scripts/vm/s013-real-model-evidence.sh preflight
       - name: Bounded real-model HTML acceptance
@@ -75,6 +82,11 @@ jobs:
           path: apps/api/test-results/s013-real-model
           retention-days: 30
           if-no-files-found: error
+      # Own the stack, release the stack (agent-resource-cleanup-sop.md): orphan compose
+      # stacks on this shared runner have already taken Docker down once.
+      - name: Release the controlled browser runtime
+        if: always()
+        run: bash .harness/scripts/vm/s013-real-model-evidence.sh browser-down
       - name: Remove ephemeral credentials and raw log
         if: always()
         run: bash .harness/scripts/vm/s013-real-model-evidence.sh cleanup
