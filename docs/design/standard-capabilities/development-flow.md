@@ -1,6 +1,6 @@
 # 实施过程与证据快照
 
-2026-09-07，跟踪 issue #2864。此图是实施记录，不是 feature passing 状态；绿色只表示框内范围已验证提交，黄色为未完成的开发/验收，红色为阻断，灰色为待实现或接入，蓝色由 peer 负责。跨会话边界见 [peer-boundaries.md](peer-boundaries.md)。
+2026-09-07，跟踪 issue #2864 与延期能力 umbrella #2916。此图是实施记录，不是 feature passing 状态；绿色只表示框内范围已验证提交，黄色为未完成的开发/验收，红色为外部前置阻断，灰色为待实现或接入，蓝色由 peer 负责。跨会话边界见 [peer-boundaries.md](peer-boundaries.md)。
 
 ```mermaid
 flowchart TD
@@ -48,7 +48,7 @@ flowchart TD
   MemoryScope --> Memory[W12 持久Store、撤权、取消回滚及生产DI：b91057172]:::verified
   E2 --> Schedule[W13 持久调度：1d86b1200]:::verified
   Schedule --> Notify[持久通知 API 与 UI：8ec487b2c]:::verified
-  E6 --> Media[W14 长音频链：4a3582ab0；真实模型验收中]:::active
+  E6 --> Media[W14 长音频传输、解码与受控ASR链：4a3582ab0]:::verified
   E4 --> Author[W15 草稿到产物再导入完整链：f51283005]:::verified
   E3 --> SQL[W17 官方SQL与取消反证：7d42283e3]:::verified
   E4 --> Methods[W19 两项方法包及导入源校验：ffbf307a2]:::verified
@@ -69,7 +69,7 @@ flowchart TD
   Hybrid --> Gate
   Index --> Gate
   T11 --> NativeForms[T011–13 native 交互入口：4cc047087]:::verified
-  RunningCancel --> NativeAsync[T042 native文本入口7e8848e93；文件产物仍待补]:::active
+  RunningCancel --> NativeAsync[T042 native文本、取消与文件输入已完成；输出文件见#2931]:::active
   NativeForms --> Gate
   E6 --> NativeEntries[T021/T040/T041 下载与状态取消：78a771abf，35项DB/HTTP通过]:::verified
   NativeEntries --> Gate
@@ -80,7 +80,7 @@ flowchart TD
   OfficeSkills --> Gate
   Context --> ContextVersion[context 1.1.0：两项新版真实模型通过，830cb9db5]:::verified
   ContextVersion --> Gate
-  Browser --> S013[S013网页Skill：HTML产物出口后续修复]:::active
+  Browser --> S013[S013 HTML出口已修；25-call发布与安全验收见#2930]:::active
   S013 --> Gate
   Parse --> Gate
   Renderer --> Gate
@@ -99,16 +99,19 @@ flowchart TD
   Author --> S015[S015生成Skill第二次模型调用通过：cfeb272d8]:::verified
   Methods --> SkillsRevised[S017/S019/S020代表场景及人工核对通过：352efabaf / ffbeae429]:::verified
   Media --> S009[S009真实模型及语义核对：1.1.1，d3d5baf2d]:::verified
-  Media --> ASR[S016真实ASR：等待配置]:::blocked
+  Media --> ASR[S016真实供应商ASR与脱敏配置探针：#2932]:::blocked
   Commits --> Migration[迁移与数据指纹重放：9a4f280f8，228项通过]:::verified
   Peer --> Picker[Skill选择器：c2948fbd7；桌面/手机真实挂载通过]:::verified
   Picker --> Gate
-  Migration --> Push[核心候选已推送：b1a31d8f4]:::verified
-  Push --> PR[Draft PR #2869；CI 修复与新 SHA 验证中]:::active
-  PR --> Preview[devapp核心预览部署34100037730：门控运行中]:::active
-  Preview --> Live[远端普通用户文件验收待执行]:::active
-  PR --> Main[等待后续整合main]
-  Resource[本地3路：沙箱并发、Office与新版上下文、剩余Skill验收]:::active -.影响未完成工作.-> Gate
+  Migration --> Push[核心候选与修复已推送]:::verified
+  Push --> PR[PR #2869与部署修复#2922已合并]:::verified
+  PR --> Preview[main发布34111751274通过]:::verified
+  Preview --> Live[devapp核心Chat公网HTTP 200]:::verified
+  PR --> Main[main a1bd028a]:::verified
+  Main --> NativeDeploy[Native DevApp接线与admission/drain：#2929]:::active
+  Gate --> OfficeTail[S003-S005有限编辑：#2933]:::active
+  Gate --> ContextTail[S001/2/8/11/14负例与当前版：#2934]:::active
+  Gate --> AuthTail[S012写拒绝与S018撤权缓存：#2935]:::active
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -118,10 +121,10 @@ flowchart TD
 
 ## 当前交付边界
 
-核心候选 b1a31d8f4 已推送；devapp 部署 workflow 34100037730 已启动，尚未完成远端验收。见 [核心预览说明](core-preview.md)。PR #2869 保持未合并。
+PR #2869 已合并为 `7fc167c0`；Deep Agent HTTP 包导入修复 #2922 已合并为 `a1bd028a`。可信脚本安装、API/Deep Agent 发布、DevPortal 与协调网关均已通过，DevApp 核心 Chat 公网返回 HTTP 200。见 [核心预览说明](core-preview.md)。
 
-绿色只表示框内注明的范围及证据，不表示全部75项目录或线上启用。Office代表场景、S015二次加载、S018并发解析与缓存撤权、新版上下文两场景均已通过并提交。S013 HTML产物、T042子任务文件输出、真实ASR及目录其他剩余验收继续迭代，见 [Skill覆盖索引](evidence/G-SKILL-methods/README.md)。
+绿色只表示框内注明的范围及证据，不表示全部75项目录或线上启用。主干差量审计已删除 Native session 组件、T042 文本/取消/文件输入、HTML 下载以及已通过 Skill 代表场景的重复开发。剩余工作以 #2916 为唯一 tracking 入口，拆为 #2929–#2935；见 [Skill覆盖索引](evidence/G-SKILL-methods/README.md)。
 
-旧检查点8cc4a46a0的pytest通过；后端第4分片失败是实际容器测试误入只有PG的普通通道。修复增加独立真实容器job并作为部署依赖，不跳过该验收。固定核心候选的CI与部署结果须另行确认。
+S013 的最后一次真实运行在固定 25 次模型调用预算内完成文件和双视口预览，但在发布前耗尽预算；不得提高预算或把草稿冒充产物。S016 的受控 WebSocket fixture 不代表真实供应商识别质量。
 
-已整合最新main及peer工作台UI。现有devapp配置未启用新的原生session运行时，因此本地原生证据不等于devapp可用。需要真实远端文件生成/下载验收；后续配置开启原生能力另留证据。
+现有 DevApp 部署脚本尚未把共享 Native session socket 和专用 binding key 接到 Deep Agent 容器，因此本地 Native 证据不等于线上启用。最近可读的真实模型 preflight（run 34051778927）还显示 0600 测试账号文件缺失；ASR 的四项配置目前没有安全布尔探针。这些动态前置分别由 #2929、#2930/#2934 与 #2932 验证，不在本记录里静态宣称已配置。
