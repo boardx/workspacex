@@ -19,7 +19,8 @@
  * ## 回填与回滚
  *
  * 旧三列**保留一个版本**（delta §5），本版本双写：`screens` 是事实源，旧列跟着写，
- * 万一回滚旧代码仍然读得到。回填只动 `screens = '[]'` 且确有页标签的行，可重复执行。
+ * 万一回滚旧代码仍然读得到。可变的项目行回填 `screens`；append-only 的历史版本绝不
+ * UPDATE，读侧在 `screens = []` 时回落旧三列，新追加的版本则直接写 `screens`。
  */
 ALTER TABLE design_projects
   ADD COLUMN IF NOT EXISTS screens jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(screens) = 'array');
@@ -42,15 +43,5 @@ UPDATE design_projects p
  WHERE p.screens = '[]'::jsonb
    AND jsonb_array_length(p.frames) > 0;
 
-UPDATE design_project_prototype_versions v
-   SET screens = (
-     SELECT COALESCE(jsonb_agg(
-              jsonb_strip_nulls(jsonb_build_object(
-                'frame', f.value,
-                'root',  (SELECT r.value FROM jsonb_array_elements(v.prototype) WITH ORDINALITY AS r(value, ord) WHERE r.ord = f.ord),
-                'notes', (SELECT n.value FROM jsonb_array_elements(v.notes)     WITH ORDINALITY AS n(value, ord) WHERE n.ord = f.ord)
-              )) ORDER BY f.ord), '[]'::jsonb)
-       FROM jsonb_array_elements(v.frames) WITH ORDINALITY AS f(value, ord)
-   )
- WHERE v.screens = '[]'::jsonb
-   AND jsonb_array_length(v.frames) > 0;
+-- `design_project_prototype_versions` 是审计快照账本，旧行保持原样。不能为了 schema
+-- 演进临时禁用/放宽 append-only trigger；仓储已有旧三列回落路径承担兼容读取。
