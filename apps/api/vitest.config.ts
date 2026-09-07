@@ -12,7 +12,7 @@ export default defineConfig({
      * 解决的是跨包，解决不了包内——这条是那条修复的直接续作。
      */
     // Real native sandbox lane requires an explicitly owned container; see test:native-chain.
-    exclude: ["tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts"],
+    exclude: ["tests/recording/personal-transcription-persistence.test.ts", "tests/agent-runtime/native-full-chain.test.ts", "tests/agent-runtime/standard-document-locators-http.test.ts"],
     globalSetup: ["tests/support/db-global-setup.ts"],
     /**
      * WORKSPACEX_DB is how parallel workers avoid dropping each other's database, and
