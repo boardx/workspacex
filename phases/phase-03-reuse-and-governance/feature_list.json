@@ -1170,7 +1170,7 @@
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/design-doc-markdown.test.ts",
-        "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=design-prototype-loop"
+        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '预览模式：点有跳转的节点真的换页'"
       ],
       "evidence": ""
     }
