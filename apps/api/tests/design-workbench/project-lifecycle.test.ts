@@ -197,7 +197,7 @@ describe("appendProjectChat", () => {
     expect(ctx?.chat.map((c) => c.text)).toEqual(["第一句", C.DESIGN_WORKBENCH_CHAT_REPLY, "把导出成功率写进验收标准"]);
   });
 
-  it("B5.3 prototype 写回：{frame,root}[] 拆成 frames + prototype 一次写入，applied 列 frames 与 prototype；只写回 frames ⇒ 旧树清空", async () => {
+  it("B5.3 prototype 写回：{frame,root}[] 拆成 frames + prototype 一次写入，applied 列 frames 与 prototype；只写回 frames 且等长 ⇒ 纯改标签，树保留", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
     const tree = { type: "stack" as const, children: [{ type: "text" as const, props: { content: "hi" } }] };
@@ -214,8 +214,35 @@ describe("appendProjectChat", () => {
     const out2 = await appendProjectChat({ ...deps(repo), ai: relabel }, { projectId: "dp-1", ownerId: "u-1", text: "第一页叫首页" });
     expect(out2.reply.applied).toEqual(["frames"]);
     expect(out2.project.frames).toEqual(["首页", "设置"]);
-    expect(out2.project.prototype).toEqual([]);
+    // 2026-09-07：等长的纯改标签**保留**旧树。此前这里断言的是 `[]`（清空）——那正是用户
+    // 实测「怎么全部空了？」的来源：改个标签把画好的原型一起带走了。
+    expect(out2.project.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }]));
     expect(relabel.calls[0]?.prototype).toEqual(designPrototype.ensurePrototypeIds([tree, { type: "divider" }]));
+  });
+
+  /**
+   * 2026-09-07 用户实测的数据丢失（本条是它的反证）：用户说「增加设置页」，模型只回了
+   * `writeback.frames`（页数 +1）、没给 `prototype`。若照写，库里 frames=3 / prototype=2，
+   * 读取侧 `toPrototype` 长度对不上就整份返回 `[]` —— 整个画布下一次读取时全空。
+   * 现在这次 `frames` 被字段级拒绝（同 I-10：宁可不写，也不写坏），已画好的树一页不少。
+   */
+  it("增删页只给 frames 不给 prototype ⇒ 拒绝这次 frames，已有原型不被清空", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["草稿页 1"] }));
+    const draw = new FakeDesignChat();
+    draw.answer = { text: "画好了。", source: "model", writeback: { prototype: [
+      { frame: "对话", root: { type: "stack", children: [{ type: "text", props: { content: "hi" } }] } },
+      { frame: "欢迎页", root: { type: "divider" } },
+    ] }, suggestions: [] };
+    await appendProjectChat({ ...deps(repo), ai: draw }, { projectId: "dp-1", ownerId: "u-1", text: "画个 chat" });
+
+    const addPage = new FakeDesignChat();
+    addPage.answer = { text: "已新增设置页。", source: "model", writeback: { frames: ["对话", "欢迎页", "设置"] }, suggestions: [] };
+    const out = await appendProjectChat({ ...deps(repo), ai: addPage }, { projectId: "dp-1", ownerId: "u-1", text: "增加设置页" });
+
+    expect(out.reply.applied).toEqual([]);            // 这次 frames 没被写
+    expect(out.project.frames).toEqual(["对话", "欢迎页"]); // 页标签也没动
+    expect(out.project.prototype).toHaveLength(2);     // 关键：画好的两页还在
   });
 
   it("迭代 1 patch 写回：按 id 局部改并落库、applied 记 prototype；整页写回补 id；没原型时 patch 拒、非法 patch 拒但其余字段照写", async () => {
@@ -286,8 +313,11 @@ describe("appendProjectChat", () => {
     expect(v1.version.frames).toEqual(["聊天"]);
     expect(v1.version.notes).toEqual(["首屏可发消息"]); // 迭代 8：notes 随整页写回落库并进版本（trim）
 
-    // 当前项目：标签被改成「首页」、树被清空
-    expect((await repo.get("dp-1"))?.prototype).toEqual([]);
+    // 当前项目：标签被改成「首页」，等长纯改标签**不动树**（2026-09-07 起；此前这里是清空，
+    // 那正是用户实测「怎么全部空了？」的来源）。所以「只改标签不记一版」仍成立——
+    // 不是因为树没了，而是因为树压根没变。
+    expect((await repo.get("dp-1"))?.frames).toEqual(["首页"]);
+    expect((await repo.get("dp-1"))?.prototype).toHaveLength(1);
     const restored = await restorePrototypeVersion(deps(repo), { projectId: "dp-1", ownerId: "u-1", versionId: items[1]!.id });
     expect(restored.project.frames).toEqual(["聊天"]);
     expect(restored.project.prototype[0]).toMatchObject({ children: [{ props: { content: "v1" } }] });

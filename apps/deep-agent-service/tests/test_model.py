@@ -49,6 +49,8 @@ def test_build_chat_model_defaults_model_id_when_unset(monkeypatch: pytest.Monke
 # 合并进底层 HTTP 请求体的字段，与 `configured-model-provider.test.ts` 断言
 # `postCompletions` 请求体是同一层面的证据（"参数确实被传给模型调用"，不是走到网络层）。
 _BAILIAN_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+#: 百炼独享实例（2026-09-07 devapp 实测的真实形状）——此前判 False，thinking 一直没关掉。
+_BAILIAN_MAAS_URL = "https://llm-jb1kfwgfohl80lle.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 
 
 def test_build_chat_model_disables_thinking_for_default_qwen_plus(
@@ -63,6 +65,39 @@ def test_build_chat_model_disables_thinking_for_default_qwen_plus(
     model = build_chat_model()
 
     assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_disables_thinking_for_bailian_maas_instance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """百炼独享实例（`llm-<id>.<region>.maas.aliyuncs.com`）与共享端点同一套扩展字段。
+
+    2026-09-07 devapp 实测根因：此前只认 `dashscope.aliyuncs.com`，独享实例判 False，
+    `enable_thinking: False` 从未发出，qwen3 深度思考一直开着。
+    """
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", _BAILIAN_MAAS_URL)
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.setenv("KERNEL_DEEP_AGENT_MODEL_ID", "qwen3.8-max")
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body == {"enable_thinking": False}
+
+
+def test_build_chat_model_does_not_disable_thinking_for_forged_maas_subdomain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """后缀匹配按 host 段，伪造子域不算命中（同 TS 侧 `isBailianBaseUrl` 头注的纪律）。"""
+    monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://llm-x.cn-beijing.maas.aliyuncs.com.attacker.example/v1")
+    monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
+    monkeypatch.delenv("KERNEL_MODEL_THINKING_DISABLE_IDS", raising=False)
+    monkeypatch.delenv("KERNEL_MODEL_BAILIAN_EXTENSIONS", raising=False)
+
+    model = build_chat_model()
+
+    assert model.extra_body is None
 
 
 def test_build_chat_model_disables_thinking_for_configured_qwen3_model_id(

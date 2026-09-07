@@ -1082,7 +1082,7 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
               { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z", source: "fallback" },
             ],
           }),
-          reply: { source: "fallback", applied: [], suggestions: [] },
+          reply: { source: "fallback", applied: [], suggestions: [], fallbackReason: "MODEL_NOT_CONFIGURED" },
         };
       }
       throw new Error(`unexpected ${path}`);
@@ -1093,8 +1093,11 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     fireEvent.click(screen.getByTestId("design-detail-send"));
     await waitFor(() => expect(within(screen.getByTestId("design-detail-chat")).getByText("加个筛选")).toBeTruthy());
     expect(within(screen.getByTestId("design-detail-chat")).getByText(/更新原型画布/)).toBeTruthy();
-    // B5.2：退路如实标「固定回执」，没写回就没有「已更新」
+    // B5.2：退路如实标「未生成」，没写回就没有「已更新」
     expect(screen.getAllByTestId("design-detail-turn-fallback")).toHaveLength(1);
+    // 2026-09-07：退路必须说清**为什么**——用户实测时只看到"稍后会更新画布"，等了很久
+    // 才发现根本没有东西在生成。原因取自契约闭集，不透传服务端细节。
+    expect(screen.getByTestId("design-detail-fallback-reason").textContent).toMatch(/还没配置 AI 模型/);
     expect(screen.queryByTestId("design-detail-chat-applied")).toBeNull();
     // 发送成功后输入框清空。
     expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("");

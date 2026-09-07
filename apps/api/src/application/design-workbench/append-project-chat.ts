@@ -49,6 +49,24 @@ export interface AppendProjectChatDeps extends DesignProjectDeps {
   readonly ai: DesignChatModel;
 }
 
+/**
+ * 2026-09-07 用户实测的数据丢失：用户说「增加设置页」，模型只回了 `writeback.frames`
+ * （4 个标签），树还是 3 棵。库里于是存下 frames=4 / prototype=3，而读取侧
+ * `pg-design-project-repository.ts` 的 `toPrototype` 长度对不上就整份返回 `[]`——
+ * **整个画布下一次读取时全空**，用户看到的就是「怎么全部空了？」。
+ *
+ * 契约不变量本来就要求 `prototype` 要么为空、要么与 `frames` 等长（按位置对应）。所以
+ * 只给 `frames` 的写回，只有在**不改变页数**时才是安全的（纯改标签）；增删页必须整页给
+ * `prototype`（它自带标签）。长度对不上就按字段级拒绝丢掉这次 `frames`（同 I-10：
+ * 宁可不写，也不写坏），而不是让它把已经画好的几页一起带走。
+ */
+function framesKeepPagesAligned(
+  prototype: readonly designPrototype.PrototypeNode[],
+  frames: readonly string[],
+): boolean {
+  return prototype.length === 0 || prototype.length === frames.length;
+}
+
 /** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
 function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly designPrototype.PrototypeNode[] }, id: string | undefined) {
   if (id === undefined) return {};
@@ -96,8 +114,16 @@ export async function appendProjectChat(
     ...(screens !== undefined
       ? { frames: screens.map((s) => s.frame), prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)), frameNotes: screens.map((s) => (s.notes ?? "").trim()) }
       : patched !== undefined ? { prototype: patched }
-      : ai.writeback.frames !== undefined ? { frames: ai.writeback.frames } : {}),
+      : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
+        ? { frames: ai.writeback.frames } : {}),
   };
+  if (ai.writeback.frames !== undefined && screens === undefined && !framesKeepPagesAligned(current.prototype, ai.writeback.frames)) {
+    // 拒绝要留痕：静默丢字段会让「模型说加了页、页数没变」看起来像模型抽风，而不是一条门控。
+    deps.logger?.info("design chat: frames writeback rejected, page count would desync prototype", {
+      projectId: input.projectId, frames: ai.writeback.frames.length, prototype: current.prototype.length,
+      traceId: deps.traceId ?? "",
+    });
+  }
   // `applied` 只列契约闭集里的项目字段（`frameNotes` 随 `prototype` 一起写，不单列）。
   const applied = Object.keys(patch).filter((k): k is DesignWritebackField => (designAiCollabFields as readonly string[]).includes(k));
   if (applied.length > 0) {
@@ -116,6 +142,6 @@ export async function appendProjectChat(
   const names = await ownerNamesFor(deps, [updated.ownerId]);
   return {
     project: projectDesignProject(updated, names.get(updated.ownerId) ?? null),
-    reply: { source: ai.source, applied, suggestions: [...ai.suggestions] },
+    reply: { source: ai.source, applied, suggestions: [...ai.suggestions], ...(ai.fallbackReason === undefined ? {} : { fallbackReason: ai.fallbackReason }) },
   };
 }

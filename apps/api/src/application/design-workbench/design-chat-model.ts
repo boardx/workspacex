@@ -30,12 +30,29 @@ export type DesignChatWriteback = z.infer<typeof designAiCollab.DesignChatWriteb
 
 /**
  * 每轮回复的硬超时。B5.2 时是 30s（「用户在等一句话」）；B5.3 起模型可能整页重生成多页组件树，
- * 输出是数千字的 JSON，实测标准补全 30s 不够——放宽到 90s。前端发送中禁用输入框并显示进度。
+ * 输出是数千字的 JSON，放宽到 90s。
+ *
+ * ⚠ 2026-09-07 线上实测（devapp，dashscope/qwen3.8-max）：**90s 仍然不够**，同一个项目连续
+ * 五次全部 `design chat model call timed out`，用户屏上只看到固定回执、画布始终是空的。
+ * 这不是"偶尔慢"——首次整页生成要输出多页组件树的完整 JSON，几千 token 的生成时间本来
+ * 就在这个量级。默认提到 180s，与 `KERNEL_MODEL_TIMEOUT_MS` 的默认值同一量级（那是同一次
+ * HTTP 请求的另一半预算，这里比它短就等于自己先放弃）；运维可用
+ * `KERNEL_DESIGN_CHAT_TIMEOUT_MS` 按自己模型的实际速度覆盖。
+ *
+ * ⚠ 这个超时是 `Promise.race`，**不中止底层请求**——超时只是放弃等待，模型那边还在跑完。
+ * 所以把它设得比模型真实耗时短，代价不只是"用户等不到"，还有"算力照付、结果全丢"。
  */
-export const DESIGN_CHAT_REPLY_TIMEOUT_MS = 90_000;
+/** 超时那条 Error 的原话——`reply()` 靠它把超时与其它调用失败分开，只声明一次。 */
+export const MODEL_TIMEOUT_MESSAGE = "design chat model call timed out";
 
-/** 迭代 7：修复轮的硬超时——比首轮短，用户已经等过一次了。 */
-export const DESIGN_CHAT_REPAIR_TIMEOUT_MS = 45_000;
+export function readDesignChatTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = Number(env.KERNEL_DESIGN_CHAT_TIMEOUT_MS ?? "");
+  return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
+}
+export const DESIGN_CHAT_REPLY_TIMEOUT_MS = readDesignChatTimeoutMs();
+
+/** 迭代 7：修复轮的硬超时——比首轮短，用户已经等过一次了（取首轮的一半）。 */
+export const DESIGN_CHAT_REPAIR_TIMEOUT_MS = Math.round(DESIGN_CHAT_REPLY_TIMEOUT_MS / 2);
 /** 修复轮只针对这两个字段：文字字段被拒几乎不会发生，且修复它不值一次往返。 */
 const REPAIRABLE_FIELDS = new Set(["prototype", "patch"]);
 
@@ -52,6 +69,12 @@ export interface DesignChatReplyResult {
   readonly writeback: DesignChatWriteback;
   /** 迭代 9：模型给的下一步建议（已过契约：≤ 3 条、每条 ≤ 40 字；退路 ⇒ `[]`）。 */
   readonly suggestions: readonly string[];
+  /**
+   * 2026-09-07：走退路的**为什么**。`source: "fallback"` 时必给（契约 `DesignChatReply`
+   * 用 superRefine 机械绑定），让屏上那句话能说清楚是"没配模型"还是"调用失败"——
+   * 用户实测时只看到一句"稍后会更新画布"，无从判断该等还是该找运维。
+   */
+  readonly fallbackReason?: designAiCollab.DesignChatFallbackReason;
 }
 
 export interface DesignChatModel {
@@ -87,10 +110,11 @@ export const DESIGN_CHAT_SYSTEM_PROMPT =
   '"criteria":["完整的验收标准列表（可选，给出即整体替换）"],' +
   '"prototype":[{"frame":"页标签","root":{组件树}}]}}。' +
   "还没有原型（当前原型为空数组）、用户首次描述要做的产品、要求新增页面、或要求整页重画/重排时，给 prototype：" +
-  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root, notes}，页数 1–20；" +
+  "把**全部页面**完整给出（整页替换，没提到的页也要原样给回），每页一个 {frame, root, notes}；" +
+    "首次生成先给 1–3 页最核心的（页越多越容易超时，用户想要更多页会再让你加），已有原型的整页重画则保持原有页数，上限 20 页；" +
   "notes 是给工程看的这页交互说明（做什么、主要交互、空态/加载/错误），一到三句。" +
   "已有原型且只是局部改动（改文案/加删一块/调属性）时**不要**给 prototype，用 writeback.patch（见下）。" +
-  "只改页面标签不改内容时用 writeback.frames（完整标签列表）。" +
+  "**只改页面标签、页数不变**时才用 writeback.frames（完整标签列表）；增页/删页必须整页给 prototype（它自带标签）——只给 frames 会让页数与组件树对不上，那次写回会被服务端拒绝。" +
   designPrototype.PROTOTYPE_SCHEMA_GUIDE + " " + designPrototype.PROTOTYPE_PATCH_GUIDE +
   " 原型要体现真实内容与交互意图（真实的文案、按钮、输入框、列表项），不要用占位符文字。" +
   DESIGN_PRINCIPLES + DESIGN_FEW_SHOT +
@@ -217,7 +241,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
           user,
         }),
         new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(() => reject(new Error("design chat model call timed out")), timeoutMs);
+          timer = setTimeout(() => reject(new Error(MODEL_TIMEOUT_MESSAGE)), timeoutMs);
         }),
       ]);
       return completion.text;
@@ -254,7 +278,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
   }
 
   async reply(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const fallback: DesignChatReplyResult = { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [] };
+    const fallbackWith = (reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult =>
+      ({ text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: reason });
     let text: string;
     try {
       text = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
@@ -265,11 +290,16 @@ export class ModelDesignChatReplier implements DesignChatModel {
         code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
         detail: e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected model call failure",
       });
-      return fallback;
+      // `MODEL_PROVIDER_NOT_CONFIGURED` 是"这个部署没配 provider"，与"配了但打不通"是
+      // 两件不同的事，屏上给的下一步也不同——不要合并成一句"模型不可用"。
+      if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
+      // 超时与"打不通"是两件事：前者说明这次要画的东西对这个模型来说太大了（少画几页会好），
+      // 后者是网络/鉴权。合并成一句"调用失败"，用户只会一遍遍重试同一个必然超时的请求。
+      return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
     }
     if (text.trim() === "") {
       this.deps.log("design chat: model output was empty, falling back to fixed reply", {});
-      return fallback;
+      return fallbackWith("MODEL_EMPTY_OUTPUT");
     }
     let raw: unknown;
     try {
@@ -293,7 +323,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     const suggestions = parseSuggestions(obj.suggestions);
     if (reply === "") {
       // JSON 里没有可用的 reply：写回仍可能有效，但给用户看的那句退回固定回执并如实标记。
-      return { text: fallback.text, source: "fallback", writeback, suggestions };
+      return { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback, suggestions, fallbackReason: "MODEL_NO_REPLY_TEXT" };
     }
     return { text: reply.slice(0, 4000), source: "model", writeback, suggestions };
   }

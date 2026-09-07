@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as dw from "../src/design-workbench";
+import * as ai from "../src/design-ai-collab";
 
 describe("常量", () => {
   it("验收标准固定三条", () => {
@@ -204,5 +205,32 @@ describe("错误码闭集：每个操作的 err 都在 DesignWorkbenchError 里"
   });
   it("NOT_PROJECT_OWNER 存在（仅 owner 可改/删/推送/发消息）", () => {
     expect(dw.DesignWorkbenchError.options).toContain("NOT_PROJECT_OWNER");
+  });
+});
+
+/**
+ * 2026-09-07 用户实测事故：设计协作发消息只回一句「稍后会更新原型画布」，画布永远空着。
+ * 那句话是模型不可用时的退路文案，而它承诺了一件不会发生的事——没有任何后台任务在排队。
+ * 退路现在必须带上**为什么**，并且这个绑定是机械的：说了 fallback 就必须给原因，
+ * 说了 model 就不许挂原因。
+ */
+describe("退路必须说明原因（DesignChatReply）", () => {
+  const base = { applied: [], suggestions: [] } as const;
+  it("source=fallback 必须带 fallbackReason", () => {
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback" }).success).toBe(false);
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "MODEL_NOT_CONFIGURED" }).success).toBe(true);
+  });
+  it("source=model 不许带 fallbackReason", () => {
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "model" }).success).toBe(true);
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "model", fallbackReason: "MODEL_CALL_FAILED" }).success).toBe(false);
+  });
+  it("原因是闭集，未知值拒绝", () => {
+    expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "WHATEVER" }).success).toBe(false);
+    expect(ai.DesignChatFallbackReason.options).toEqual([
+      "MODEL_NOT_CONFIGURED", "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_NO_REPLY_TEXT",
+    ]);
+  });
+  it("退路文案不再承诺「稍后会更新」——它不会兑现", () => {
+    expect(dw.DESIGN_WORKBENCH_CHAT_REPLY).not.toMatch(/稍后会更新/);
   });
 });

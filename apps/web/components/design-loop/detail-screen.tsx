@@ -20,10 +20,23 @@ import {
   findPrototypeNodePath,
   prototypeNodeLabel,
   type DesignProject,
+  type DesignChatFallbackReason,
   type DesignWritebackField,
   type PrototypeVersion,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
+
+/**
+ * 2026-09-07：退路原因 → 人话。键集合来自契约闭集 `DesignChatFallbackReason`（穷举，
+ * 漏一个编译不过），不另抄一份，也不透传服务端异常细节。
+ */
+const FALLBACK_REASON_TEXT: Record<DesignChatFallbackReason, string> = {
+  MODEL_NOT_CONFIGURED: "这个部署还没配置 AI 模型，画布生成用不了——需要运维在部署配置里补上模型 provider。",
+  MODEL_CALL_FAILED: "调用 AI 模型失败（网络或鉴权）。可以重试一次；一直失败就让运维看部署日志。",
+  MODEL_TIMEOUT: "这次画的东西太大，AI 没能在时限内画完。试试少要几页、或把要求说得更具体一点再发一次。",
+  MODEL_EMPTY_OUTPUT: "AI 模型这次返回了空结果。换个说法再试一次通常就好了。",
+  MODEL_NO_REPLY_TEXT: "AI 模型这次没给出可用的回复文本；如果画布有变化，那部分已经生效。",
+};
 
 /** B5.2：`reply.applied` 的展示文案——键集合来自契约枚举，不另抄一份。 */
 const WRITEBACK_LABEL: Record<DesignWritebackField, string> = {
@@ -99,6 +112,12 @@ export function DesignDetailScreen({
   const [retryText, setRetryText] = React.useState<string | null>(null);
   /** B5.2：最近一轮模型回复写回了哪些字段（`reply.applied`）——挂在最后一条 AI 气泡下方，发下一句时清掉。 */
   const [lastApplied, setLastApplied] = React.useState<readonly DesignWritebackField[]>([]);
+  /**
+   * 2026-09-07：最近一轮退路的原因（`reply.fallbackReason`）。屏上必须说清"没配模型"
+   * 与"调用失败"的区别——用户实测时只看到一句"稍后会更新画布"，等了很久才发现根本
+   * 没有东西在生成。
+   */
+  const [fallbackReason, setFallbackReason] = React.useState<DesignChatFallbackReason | null>(null);
   /** 迭代 9：最近一轮模型给的下一步建议（`reply.suggestions`），挂在最后一条 AI 气泡下，点一下即发。 */
   const [suggestions, setSuggestions] = React.useState<readonly string[]>([]);
   /** 迭代 2：画布上选中的节点 id——发消息时随 `focusNodeId` 一起发，模型优先针对它改。 */
@@ -193,6 +212,7 @@ export function DesignDetailScreen({
       const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
+      setFallbackReason(reply.fallbackReason ?? null);
       setSuggestions(reply.suggestions);
       // 整页重生成（`frames` 被写回 ⇒ 树是新的，id 重新分配过）：旧的选中 id 可能撞上一个不相干的新节点，
       // 不能靠「id 字符串还找得到」判断身份延续——一律清掉。patch 保留 id，选中延续。
@@ -292,8 +312,14 @@ export function DesignDetailScreen({
                 {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
                 {turn.role === "ai" && turn.source === "fallback" && (
                   <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-fallback">
-                    固定回执
+                    未生成
                   </span>
+                )}
+                {/* 2026-09-07：退路原因（闭集 → 人话），只挂最后一条，说清该重试还是该找运维 */}
+                {turn.role === "ai" && i === project.chat.length - 1 && fallbackReason !== null && (
+                  <p className="mt-1 text-10 text-muted-foreground" data-testid="design-detail-fallback-reason">
+                    {FALLBACK_REASON_TEXT[fallbackReason]}
+                  </p>
                 )}
                 {/* B5.2：这轮回复写回了哪些字段（服务端 `reply.applied`），只挂在最后一条 AI 气泡下 */}
                 {turn.role === "ai" && i === project.chat.length - 1 && lastApplied.length > 0 && (
@@ -321,7 +347,7 @@ export function DesignDetailScreen({
               <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
               <span className="truncate">
                 {/* 迭代 7：分阶段文案按已等待时长给（单次请求拿不到真实阶段，所以只说「大约在做什么」+ 已等秒数，不假装精确） */}
-                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "快好了，最长 90 秒…"}
+                {elapsed < 4 ? "正在理解你的要求…" : elapsed < 20 ? "正在生成页面结构…" : elapsed < 60 ? "内容较多，仍在生成…" : "页数多的时候会久一些，仍在生成…"}
                 <span className="ml-1 font-mono text-10" data-testid="design-detail-elapsed">{elapsed}s</span>
               </span>
               <button type="button" onClick={cancel} className="ml-auto rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-card" data-testid="design-detail-cancel">取消</button>
