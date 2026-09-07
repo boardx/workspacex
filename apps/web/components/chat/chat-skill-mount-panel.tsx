@@ -162,6 +162,32 @@ export function ChatSkillMountPanel({
    * `AgentPicker` 同一套写法：`containerRef` + `document.addEventListener`。
    */
   const containerRef = React.useRef<HTMLElement>(null);
+  const pickerRef = React.useRef<HTMLDivElement>(null);
+  const [pickerMaxHeight, setPickerMaxHeight] = React.useState(320);
+  React.useLayoutEffect(() => {
+    if (!picking || variant !== "composer") return;
+    const updateAvailableSpace = () => {
+      const picker = pickerRef.current;
+      if (!picker) return;
+      const viewportTop = window.visualViewport?.offsetTop ?? 0;
+      // The bottom edge stays anchored while the list height changes.
+      setPickerMaxHeight(Math.max(0, Math.min(320, picker.getBoundingClientRect().bottom - viewportTop - 8)));
+    };
+    updateAvailableSpace();
+    window.addEventListener("resize", updateAvailableSpace);
+    window.addEventListener("scroll", updateAvailableSpace, true);
+    window.visualViewport?.addEventListener("resize", updateAvailableSpace);
+    window.visualViewport?.addEventListener("scroll", updateAvailableSpace);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateAvailableSpace);
+    if (pickerRef.current?.offsetParent) observer?.observe(pickerRef.current.offsetParent);
+    return () => {
+      window.removeEventListener("resize", updateAvailableSpace);
+      window.removeEventListener("scroll", updateAvailableSpace, true);
+      window.visualViewport?.removeEventListener("resize", updateAvailableSpace);
+      window.visualViewport?.removeEventListener("scroll", updateAvailableSpace);
+      observer?.disconnect();
+    };
+  }, [picking, variant]);
   React.useEffect(() => {
     if (!picking) return;
     function onPointerDown(e: MouseEvent) {
@@ -382,16 +408,18 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /** 挂载候选浮层——常驻在 composer 下方整条内，不是 `absolute` 覆盖层。 */
+  /** Composer 候选浮层向上展开；旧 row 变体保留文档流布局。 */
   const headless = variant === "composer";
 
   const picker = picking ? (
     <div
       className={
         headless
-          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-72 flex-col gap-0.5 rounded-lg border border-border bg-popover p-1.5 shadow-md"
+          ? "absolute bottom-full left-0 z-20 mb-1.5 flex min-h-0 w-72 max-w-full flex-col gap-0.5 overflow-hidden rounded-lg border border-border bg-popover p-1.5 shadow-md"
           : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
       }
+      ref={pickerRef}
+      style={headless ? { maxHeight: pickerMaxHeight } : undefined}
       data-testid="chat-skill-mount-picker"
     >
       {mentionQuery ? (
@@ -410,21 +438,23 @@ export function ChatSkillMountPanel({
       ) : headless ? (
         // 竖排列表：名字 + 真实 `duty`（与「浏览 skill」页同一字段），选错了才知道是什么的
         // 横排小按钮不适合"敲 / 快速挑"这个场景（2026-08-30 人类反馈）。
-        visiblePool.map((item) => (
-          <button
-            key={item.skillId}
-            type="button"
-            disabled={pending}
-            data-testid={`chat-skill-mount-option-${item.skillId}`}
-            onClick={() => void mount(item.skillId)}
-            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
-            <span className="line-clamp-1 text-10 text-muted-foreground">
-              {item.duty.trim() || "这个 skill 还没有填写说明"}
-            </span>
-          </button>
-        ))
+        <div className="min-h-0 overflow-y-auto overscroll-contain" data-testid="chat-skill-mount-options">
+          {visiblePool.map((item) => (
+            <button
+              key={item.skillId}
+              type="button"
+              disabled={pending}
+              data-testid={`chat-skill-mount-option-${item.skillId}`}
+              onClick={() => void mount(item.skillId)}
+              className="flex w-full min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="max-w-full truncate text-11 font-medium text-card-foreground">{item.name}</span>
+              <span className="line-clamp-1 text-10 text-muted-foreground">
+                {item.duty.trim() || "这个 skill 还没有填写说明"}
+              </span>
+            </button>
+          ))}
+        </div>
       ) : (
         visiblePool.map((item) => (
           <Button
@@ -442,6 +472,7 @@ export function ChatSkillMountPanel({
       <Button
         size="xs"
         variant="ghost"
+        className="shrink-0"
         data-testid="chat-skill-mount-cancel"
         onClick={() => setPicking(false)}
       >
