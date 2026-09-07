@@ -1,0 +1,102 @@
+F.....                                                                   [100%]
+=================================== FAILURES ===================================
+___________ test_received_service_failure_is_real_error_tool_message ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cac8050>
+
+    def test_received_service_failure_is_real_error_tool_message(monkeypatch):
+        requests = client(monkeypatch, 503)
+        node = ToolNode(web.standard_web_tools(), handle_tool_errors=False)
+        builder = StateGraph(MessagesState)
+        builder.add_node('tools', node)
+        builder.add_edge(START, 'tools')
+        builder.add_edge('tools', END)
+>       result = asyncio.run(builder.compile().ainvoke({'messages': [AIMessage(content='', tool_calls=[{'name': 'fetch_url', 'args': {'url': 'https://example.com'}, 'id': 'call-web', 'type': 'tool_call'}])]}, config()))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+apps/deep-agent-service/tests/test_standard_web_unavailable.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:205: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:128: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:720: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py:4090: in ainvoke
+    async for chunk in self.astream(
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py:3440: in astream
+    async for _ in runner.atick(
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_runner.py:396: in atick
+    await arun_with_retry(
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/_retry.py:744: in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py:756: in ainvoke
+    input = await asyncio.create_task(
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/_internal/_runnable.py:522: in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py:858: in _afunc
+    outputs = await asyncio.gather(*coros)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py:1193: in _arun_one
+    return await self._execute_tool_async(tool_request, input_type, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/prebuilt/tool_node.py:1105: in _execute_tool_async
+    response = await tool.ainvoke(call_args, config)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py:70: in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py:1264: in arun
+    raise error_to_raise
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/langchain_core/tools/structured.py:124: in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py:37: in invoke
+    async def invoke(runtime:ToolRuntime,**kwargs):return await _invoke(name,kwargs,runtime)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'fetch_url', args = {'url': 'https://example.com'}
+runtime = ToolRuntime(state={'messages': [AIMessage(content='', additional_kwargs={}, response_metadata={}, id='54a12adf-0fb6-46...bb4eb9895d', thread_id=None, run_id=None, node_attempt=1, node_first_attempt_time=1788763442.929075), server_info=None)
+
+    async def _invoke(name,args,runtime):
+        try:
+            callback=runtime.config['configurable']['run_control_callback']
+            base=callback['base_url'].rstrip('/');parsed=urlsplit(base)
+            if parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:raise ValueError()
+            body={'orgId':callback['org_id'],'attemptId':callback['attempt_id'],'leaseEpoch':callback['lease_epoch'],'toolCallId':runtime.tool_call_id,'toolName':name,'toolArgs':args}
+            if callback.get('permission_request_id') is not None:body['permissionRequestId']=callback['permission_request_id']
+            Draft7Validator(_SCHEMA['input'],format_checker=FormatChecker()).validate(body)
+            url=f"{base}/internal/agent-runs/{quote(callback['run_id'],safe='')}/standard-web/invoke"
+            deadline=(_SCHEMA['limits']['deadlineMs']+_SCHEMA['limits']['parseDeadlineMs'])/1000+2
+            async with asyncio.timeout(deadline):
+                async with httpx.AsyncClient(timeout=deadline,follow_redirects=False,trust_env=False) as client:
+                    async with client.stream('POST',url,headers={'x-deep-agent-internal-key':callback['key'],'accept-encoding':'identity'},json=body) as response:
+                        if response.status_code!=200 or response.headers.get('content-encoding','identity')!='identity':raise ValueError()
+                        content=bytearray()
+                        async for chunk in response.aiter_raw():
+                            if len(content)+len(chunk)>_SCHEMA['limits']['maxResponseBytes']:raise ValueError()
+                            content.extend(chunk)
+                        result=json.loads(content)
+                        Draft7Validator(_SCHEMA['tools'][name]['output'],format_checker=FormatChecker()).validate(result)
+                        return result
+>       except Exception:raise StandardWebError('Web source unavailable or request refused; no content confirmed') from None
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       deep_agent_service.standard_web_tools.StandardWebError: Web source unavailable or request refused; no content confirmed
+E       During task with name 'tools' and id '9fb3fe8e-cc91-1b3e-a594-efbb4eb9895d'
+
+apps/deep-agent-service/src/deep_agent_service/standard_web_tools.py:33: StandardWebError
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_standard_web_unavailable.py::test_received_service_failure_is_real_error_tool_message
+1 failed, 5 passed in 0.25s

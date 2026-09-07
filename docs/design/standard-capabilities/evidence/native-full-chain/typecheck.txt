@@ -1,0 +1,2 @@
+Command: pnpm --filter @repo/api exec tsc --noEmit
+Exit code: 0

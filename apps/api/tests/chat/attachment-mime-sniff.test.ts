@@ -11,6 +11,7 @@ const PDF = bytes(0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37); // %PDF-1.7
 const PNG = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00);
 const JPEG = bytes(0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10);
 const WEBP = bytes(0x52, 0x49, 0x46, 0x46, 0x1a, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50);
+const WAV = bytes(0x52,0x49,0x46,0x46,0x24,0,0,0,0x57,0x41,0x56,0x45);
 const ZIP = bytes(0x50, 0x4b, 0x03, 0x04, 0x14, 0x00); // docx/xlsx/pptx 容器
 const TEXT = new TextEncoder().encode("col_a,col_b\n1,2\n");
 const EXE = bytes(0x4d, 0x5a, 0x90, 0x00); // MZ（Windows PE），非白名单任何族
@@ -68,6 +69,10 @@ describe("declaredMimeMatchesBytes", () => {
       "text/plain": TEXT,
       "text/markdown": TEXT,
       "text/csv": TEXT,
+      "audio/wav": WAV,
+      "audio/x-wav": WAV,
+      "audio/wave": WAV,
+      "audio/mpeg": Buffer.from([0xff,0xfb,0x90,0]),
       "image/png": PNG,
       "image/jpeg": JPEG,
       "image/webp": WEBP,
@@ -81,4 +86,21 @@ describe("declaredMimeMatchesBytes", () => {
       expect(declaredMimeMatchesBytes(mime, s!)).toBe(true);
     }
   });
+});
+
+it("WAV intake distinguishes RIFF/WAVE from WebP and forged executable bytes",()=>{
+ for(const mime of ['audio/wav','audio/x-wav','audio/wave']){
+  expect(declaredMimeMatchesBytes(mime,WAV)).toBe(true);
+  expect(declaredMimeMatchesBytes(mime,WEBP)).toBe(false);
+  expect(declaredMimeMatchesBytes(mime,EXE)).toBe(false);
+  expect(declaredMimeMatchesBytes(mime,TEXT)).toBe(false);
+ }
+ expect(declaredMimeMatchesBytes('image/webp',WAV)).toBe(false);
+});
+
+it('accepts MP3 magic while rejecting AAC, images and executable masquerades',()=>{
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0x49,0x44,0x33,4,0,0,0,0,0,0]))).toBe(true);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0xff,0xfb,0x90,0]))).toBe(true);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from([0xff,0xf1,0x50,0x80]))).toBe(false);
+ expect(declaredMimeMatchesBytes('audio/mpeg',Buffer.from('MZ\0binary'))).toBe(false);
 });

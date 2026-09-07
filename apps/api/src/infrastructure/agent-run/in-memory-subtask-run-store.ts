@@ -1,20 +1,12 @@
 /**
- * `SubtaskRunStore` 的进程内存实现——issue #2664 明确允许的"最小可行"通路
- * （issue 原文：「如果现有架构里没有这条通路，你需要新增一个最小可行的」），issue #2666
- * 复用同一份实现补了 `listByParentRun`（见该端口方法自己的文档）。
- *
- * ## 已知取舍（跟着这份 MVP 走，不是意外遗漏）
- *
- * 进程重启即丢失队列内容——与 `agent_runs` 落 Postgres、跨进程/跨重启存活不同。可接受，
- * 因为子任务本身就是"主对话还在、agent 进程还活着"这段时间窗口内的派生工作，不是需要
- * 独立于主对话生命周期存在的记录。多副本部署下每个进程持有各自的队列，不互相领取——
- * 与生产要求的"多实例共享一个队列"不同，留作后续把持久层换成 Postgres 时的自然扩展点
- * （`SubtaskRunStore` 接口形状已经与实现解耦，替换实现不动调用方）。
+ * `SubtaskRunStore` 的内存测试实现。WX-T042 生产绑定已切到 PgSubtaskRunStore，
+ * 此类保留便于应用层测试；重启/多进程持久化只由 Postgres adapter 提供。
  */
+import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore,
+  EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState,
 } from "../../application/agent-run/subtask-run-queue";
 
 interface Row extends SubtaskRun {
@@ -23,10 +15,20 @@ interface Row extends SubtaskRun {
 
 export class InMemorySubtaskRunStore implements SubtaskRunStore {
   private readonly rows = new Map<string, Row>();
+  private readonly remotes=new Map<string,{remoteRunId:string;remoteThreadId:string}>();
+  private readonly idempotency = new Map<string, string>();
 
   constructor(private readonly idFactory: () => string = () => randomUUID()) {}
 
   async enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun> {
+    const key = input.idempotencyKey === undefined ? undefined : JSON.stringify([orgId,input.parentRunId,input.idempotencyKey]);
+    const existing = key === undefined ? undefined : this.rows.get(this.idempotency.get(key) ?? "");
+    if (existing) {
+      if (existing.description !== input.description || existing.context !== (input.context ?? null)) {
+        throw new SubtaskIdempotencyConflictError("subtask_idempotency_conflict");
+      }
+      return stripOrg(existing);
+    }
     const now = new Date().toISOString();
     const row: Row = {
       id: this.idFactory(),
@@ -41,7 +43,22 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
       updatedAt: now,
     };
     this.rows.set(row.id, row);
+    if (key !== undefined) this.idempotency.set(key,row.id);
     return stripOrg(row);
+  }
+
+  async cancel(orgId: OrgId, parentRunId: string, id: string): Promise<CancelSubtaskOutcome> {
+    const row = this.rows.get(id);
+    if (!row || row.orgId !== String(orgId) || row.parentRunId !== parentRunId) return { kind: "not_found" };
+    if (row.status === "running" || row.cancellation?.state==='unknown') {
+      const requested:Row={...row,cancellation:row.cancellation??{requestedAt:new Date().toISOString(),state:'pending'}};
+      this.rows.set(id,requested);return {kind:'cancel_requested',subtaskRun:stripOrg(requested)};
+    }
+    if (row.status === "completed" || row.status === "failed") return { kind: "terminal_conflict" };
+    const cancelled = { ...row, cancellation: {requestedAt:row.cancellation?.requestedAt??new Date().toISOString(),state:'confirmed' as const}, status: "cancelled" as const,
+      updatedAt: row.status === "cancelled" ? row.updatedAt : new Date().toISOString() };
+    this.rows.set(id, cancelled);
+    return { kind: "cancelled", subtaskRun: { ...stripOrg(cancelled), status: "cancelled" } };
   }
 
   async claimQueued(orgId: OrgId, limit: number): Promise<readonly SubtaskRun[]> {
@@ -64,6 +81,26 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     this.transition(orgId, id, { status: "failed", result: null, error });
   }
 
+  async readExecution(orgId:OrgId,id:string):Promise<SubtaskExecutionState|null>{
+    const run=await this.get(orgId,id);return run?{run,...(this.remotes.get(id)??{remoteRunId:null,remoteThreadId:null})}:null;
+  }
+  async bindRemoteRun(orgId:OrgId,id:string,remoteRunId:string,remoteThreadId:string){
+    const run=await this.get(orgId,id),prior=this.remotes.get(id);
+    if(!run||(run.status!=='running'&&run.cancellation?.state!=='unknown')||(prior&&(prior.remoteRunId!==remoteRunId||prior.remoteThreadId!==remoteThreadId)))throw new Error('subtask_remote_binding_conflict');
+    this.remotes.set(id,{remoteRunId,remoteThreadId});
+  }
+  async recordCancellation(orgId:OrgId,id:string,state:'confirmed'|'unknown',remoteRunId?:string|null){
+    const row=this.rows.get(id);if(!row||row.orgId!==String(orgId)||!row.cancellation)return;
+    if(state==='confirmed'&&(remoteRunId===undefined||(this.remotes.get(id)?.remoteRunId??null)!==remoteRunId))throw new Error('subtask_cancel_identity_unverified');
+    if(row.status!=='running'&&row.cancellation.state!=='unknown')return;
+    this.rows.set(id,{...row,cancellation:{...row.cancellation,state},result:null,
+      status:row.status==='running'?(state==='confirmed'?'cancelled':'failed'):row.status,
+      error:row.status==='running'?(state==='confirmed'?null:'subtask_cancel_unknown'):(state==='confirmed'?'subtask_cancelled_after_reconciliation':row.error)});
+  }
+  async listCancellationRecovery(orgId:OrgId,limit:number):Promise<readonly SubtaskExecutionState[]>{
+    const rows=[...this.rows.values()].filter(r=>r.orgId===String(orgId)&&r.cancellation&&(r.status==='running'||r.cancellation.state==='unknown')).slice(0,Math.min(20,limit));
+    return Promise.all(rows.map(async row=>(await this.readExecution(orgId,row.id))!));
+  }
   async get(orgId: OrgId, id: string): Promise<SubtaskRun | null> {
     const row = this.rows.get(id);
     if (!row || row.orgId !== String(orgId)) return null;
@@ -82,7 +119,11 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     patch: Pick<Row, "status" | "result" | "error">,
   ): void {
     const row = this.rows.get(id);
-    if (!row || row.orgId !== String(orgId)) return;
+    if (!row || row.orgId !== String(orgId) || row.status !== "running") return;
+    if(row.cancellation){
+      patch=patch.status==='completed'?{status:'cancelled',result:null,error:null}:{status:'failed',result:null,error:'subtask_cancel_unknown'};
+      this.rows.set(id,{...row,...patch,cancellation:{...row.cancellation,state:patch.status==='cancelled'?'confirmed':'unknown'}});return;
+    }
     this.rows.set(id, { ...row, ...patch, updatedAt: new Date().toISOString() });
   }
 }

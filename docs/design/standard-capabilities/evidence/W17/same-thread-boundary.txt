@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: real shared trusted run boundary
+ok 1 - real shared trusted run boundary
+  ---
+  duration_ms: 6.163042
+  type: 'test'
+  ...
+# Subtest: reject mutation authority.check
+ok 2 - reject mutation authority.check
+  ---
+  duration_ms: 1.253333
+  type: 'test'
+  ...
+# Subtest: reject mutation !decision.allowed
+ok 3 - reject mutation !decision.allowed
+  ---
+  duration_ms: 0.791584
+  type: 'test'
+  ...
+# Subtest: reject mutation [orgId,runId]
+ok 4 - reject mutation [orgId,runId]
+  ---
+  duration_ms: 0.659083
+  type: 'test'
+  ...
+# Subtest: reject mutation r.org_id=$1 AND r.id=$2
+ok 5 - reject mutation r.org_id=$1 AND r.id=$2
+  ---
+  duration_ms: 0.69925
+  type: 'test'
+  ...
+# Subtest: reject mutation m.author_kind FROM
+ok 6 - reject mutation m.author_kind FROM
+  ---
+  duration_ms: 0.611166
+  type: 'test'
+  ...
+# Subtest: reject mutation  AND m.thread_id=r.thread_id
+ok 7 - reject mutation  AND m.thread_id=r.thread_id
+  ---
+  duration_ms: 1.183041
+  type: 'test'
+  ...
+# Subtest: reject mutation run.author_id!==input.userId
+ok 8 - reject mutation run.author_id!==input.userId
+  ---
+  duration_ms: 0.552208
+  type: 'test'
+  ...
+# Subtest: reject mutation await resolveVisibility(
+ok 9 - reject mutation await resolveVisibility(
+  ---
+  duration_ms: 1.291542
+  type: 'test'
+  ...
+# Subtest: reject mutation currentVisibility.kind!=='allow'
+ok 10 - reject mutation currentVisibility.kind!=='allow'
+  ---
+  duration_ms: 0.841417
+  type: 'test'
+  ...
+# Subtest: reject mutation parentRunId:runId
+ok 11 - reject mutation parentRunId:runId
+  ---
+  duration_ms: 0.74925
+  type: 'test'
+  ...
+# Subtest: reject mutation return consume(
+ok 12 - reject mutation return consume(
+  ---
+  duration_ms: 0.550333
+  type: 'test'
+  ...
+# Subtest: reject mutation db.withTenant(orgId
+ok 13 - reject mutation db.withTenant(orgId
+  ---
+  duration_ms: 0.54725
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 188.246584

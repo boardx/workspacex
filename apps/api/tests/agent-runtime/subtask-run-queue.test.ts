@@ -168,3 +168,15 @@ describe("listByParentRun -- issue #2666's read path for the background task pan
     expect(runs).toEqual([]);
   });
 });
+
+it("WX-T042 memory adapter mirrors explicit replay idempotency and terminal immutability", async () => {
+  const store = new InMemorySubtaskRunStore();
+  const input = { parentRunId: "parent",description: "task",idempotencyKey: "tool-call" };
+  const first = await store.enqueue(ORG,input);
+  expect((await store.enqueue(ORG,input)).id).toBe(first.id);
+  await expect(store.enqueue(ORG,{ ...input,description: "changed" })).rejects.toThrow("subtask_idempotency_conflict");
+  await store.claimQueued(ORG,1);
+  await store.complete(ORG,first.id,"result");
+  await store.fail(ORG,first.id,"late failure");
+  expect((await store.get(ORG,first.id))?.result).toBe("result");
+});

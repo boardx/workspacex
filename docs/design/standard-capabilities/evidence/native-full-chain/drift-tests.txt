@@ -1,0 +1,133 @@
+[stack-admission] load1=4.41 cores=10 perCore=0.44 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq9xgh6-1526dec7-c9d7c6e91e2d db=wsx_c9d7c6e91e2d5200b96f compose=wsx-c9d7c6e91e2d5200b96f pg=21577 redis=26577 sandbox=51577
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_c9d7c6e91e2d5200b96f capacity=100 current=6 required=32
+ ❯ tests/agent-run/permission-grant-scopes.test.ts (12 tests | 6 failed) 3514ms
+   × real PostgreSQL atomic permission scope and CAS > once commits decision and exact grant scope together 61ms
+     → AgentRun run-d574811b-dc2f-4ca7-b62e-bfb91a81865d may not move from queued to awaiting_tool_permission
+   × real PostgreSQL atomic permission scope and CAS > run commits decision and exact grant scope together 51ms
+     → AgentRun run-b57996f0-b57b-42d8-a339-f761c0282866 may not move from queued to awaiting_tool_permission
+   × real PostgreSQL atomic permission scope and CAS > forever commits decision and exact grant scope together 50ms
+     → AgentRun run-36d339fd-3444-4bc3-b5e3-b18d11a5ce04 may not move from queued to awaiting_tool_permission
+   × real PostgreSQL atomic permission scope and CAS > deny commits decision and exact grant scope together 44ms
+     → AgentRun run-2f6f1faa-8af5-4b81-a60c-d7e65f87257f may not move from queued to awaiting_tool_permission
+   × real PostgreSQL atomic permission scope and CAS > stale request and cross tenant leave grants unchanged; concurrent approvals have exactly one CAS winner 63ms
+     → AgentRun run-3dbc4211-d01f-4ec6-bcff-0b1476128f86 may not move from queued to awaiting_tool_permission
+   × real PostgreSQL atomic permission scope and CAS > grant insert failure rolls back the run decision instead of partially requeueing 75ms
+     → AgentRun run-53eaeae9-2e3c-4f35-a7b3-ca3cb7ebc50e may not move from queued to awaiting_tool_permission
+ ✓ tests/agent-runtime/reclaim-stale-running.test.ts (11 tests) 1318ms
+ ✓ tests/agent-run/tool-permission-grant-repo-guard.test.ts (10 tests) 14ms
+ ✓ tests/agent-run/deep-agent-interjection-projection.test.ts (3 tests) 51ms
+ ✓ tests/agent-run/pg-interjection-store.test.ts (3 tests) 649ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > once commits decision and exact grant scope together
+error: AgentRun run-d574811b-dc2f-4ca7-b62e-bfb91a81865d may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:158:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > run commits decision and exact grant scope together
+error: AgentRun run-b57996f0-b57b-42d8-a339-f761c0282866 may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:158:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > forever commits decision and exact grant scope together
+error: AgentRun run-36d339fd-3444-4bc3-b5e3-b18d11a5ce04 may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:158:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > deny commits decision and exact grant scope together
+error: AgentRun run-2f6f1faa-8af5-4b81-a60c-d7e65f87257f may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:158:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > stale request and cross tenant leave grants unchanged; concurrent approvals have exactly one CAS winner
+error: AgentRun run-3dbc4211-d01f-4ec6-bcff-0b1476128f86 may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:169:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/agent-run/permission-grant-scopes.test.ts > real PostgreSQL atomic permission scope and CAS > grant insert failure rolls back the run decision instead of partially requeueing
+error: AgentRun run-53eaeae9-2e3c-4f35-a7b3-ca3cb7ebc50e may not move from queued to awaiting_tool_permission
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ pendingAtomic tests/agent-run/permission-grant-scopes.test.ts:153:2
+ ❯ tests/agent-run/permission-grant-scopes.test.ts:179:41
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  6 failed | 33 passed (39)
+   Start at  04:38:16
+   Duration  8.58s (transform 351ms, setup 0ms, collect 733ms, tests 5.55s, environment 0ms, prepare 124ms)
+
+[db-isolation] db=wsx_c9d7c6e91e2d5200b96f peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/reclaim-stale-running.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/agent-run/deep-agent-interjection-projection.test.ts tests/agent-run/pg-interjection-store.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/reclaim-stale-running.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/agent-run/deep-agent-interjection-projection.test.ts tests/agent-run/pg-interjection-store.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：9s

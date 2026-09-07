@@ -1,0 +1,27 @@
+ Volume wx-data-workflows-red_sessions_socket Creating 
+ Volume wx-data-workflows-red_sessions_socket Created 
+ Container wx-data-workflows-red-skill-sandbox-sessions-run-a51831d72b9e Creating 
+ Container wx-data-workflows-red-skill-sandbox-sessions-run-a51831d72b9e Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+SERVICE_READY_MS 135
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"executionId":"d26a3810-4df3-4c9d-b82a-33d58b529e5c","exitCode":1,"output":"Traceback (most recent call last):\n  File \"/workspace/analyze.py\", line 10, in <module>\n    import pandas as pd\nModuleNotFoundError: No module named 'pandas'\n","truncated":false,"timedOut":false,"cancelled":false}
+
+1 !== 0
+
+    at run (file:///opt/sandbox/[eval1]:34:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///opt/sandbox/[eval1]:36:14 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2
+

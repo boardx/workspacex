@@ -1,0 +1,55 @@
+[stack-admission] load1=4.30 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqn8tbh-cedc6790-0c12a98ef4a2 db=wsx_0c12a98ef4a2df82da22 compose=wsx-0c12a98ef4a2df82da22 pg=24646 redis=29646 sandbox=54646
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_0c12a98ef4a2df82da22 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts (10 tests | 1 failed | 9 skipped) 2887ms
+   × W16 parent cancellation suppresses a late completed child result 41ms
+     → expected { …(9) } to match object { status: 'cancelled', …(2) }
+(6 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/subtask-run-store-real-db.test.ts > W16 parent cancellation suppresses a late completed child result
+AssertionError: expected { …(9) } to match object { status: 'cancelled', …(2) }
+(6 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+    "error": null,
+-   "result": null,
+-   "status": "cancelled",
++   "result": "must never publish",
++   "status": "completed",
+  }
+
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts:251:39
+    249|   await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_a…
+    250|   await store.complete(org,run.id,'must never publish');
+    251|   expect(await store.get(org,run.id)).toMatchObject({status:'cancelled…
+       |                                       ^
+    252|  }finally{await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_req…
+    253| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  10:51:01
+   Duration  5.38s (transform 323ms, setup 0ms, collect 545ms, tests 2.89s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_0c12a98ef4a2df82da22 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts -t W16 parent cancellation
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts -t W16 parent cancellation
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

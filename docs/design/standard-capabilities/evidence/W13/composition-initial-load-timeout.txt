@@ -1,0 +1,41 @@
+[stack-admission] load1=11.85 cores=10 perCore=1.19 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqmcms8-9abef380-89f7a8559c56 db=wsx_89f7a8559c56b2a3af7f compose=wsx-89f7a8559c56b2a3af7f pg=24077 redis=29077 sandbox=54077
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_89f7a8559c56b2a3af7f capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/standard-scheduler-service.test.ts (5 tests | 1 failed) 191212ms
+   ✓ real HTTP creation/list/cancel reuses current authority and rejects changed identity 19769ms
+   ✓ actual Chat command uses the schedule lock connection and outer rollback leaves no run 1748ms
+   ✓ cancel linearizes before a new run or waits for an already accepted occurrence 5512ms
+   ✓ revocation prevents the next actual due run and submits only a peer reminder fact 10162ms
+   × production kernel factory starts real SDK through Nest and missing notifier refuses creation 60064ms
+     → Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ✓ tests/agent-runtime/native-invocation.test.ts (5 tests) 42ms
+ ✓ tests/agent-runtime/standard-scheduler-composition.test.ts (3 tests) 142ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-scheduler-service.test.ts > production kernel factory starts real SDK through Nest and missing notifier refuses creation
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 12 passed (13)
+   Start at  10:26:01
+   Duration  251.40s (transform 41.11s, setup 0ms, collect 38.57s, tests 191.40s, environment 3ms, prepare 1.06s)
+
+[db-isolation] db=wsx_89f7a8559c56b2a3af7f peak_connections=7
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-scheduler-service.test.ts tests/agent-runtime/standard-scheduler-composition.test.ts tests/agent-runtime/native-invocation.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-scheduler-service.test.ts tests/agent-runtime/standard-scheduler-composition.test.ts tests/agent-runtime/native-invocation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m15s
+  清理：13s
+  总计：4m28s

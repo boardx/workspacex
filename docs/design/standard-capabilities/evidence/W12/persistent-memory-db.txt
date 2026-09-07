@@ -1,0 +1,23 @@
+[stack-admission] load1=2.90 cores=10 perCore=0.29 running=0/2
+[test-isolation] id=run-mtqb0rwk-34717792-2c15b3ea734b db=wsx_2c15b3ea734b883df2bc compose=wsx-2c15b3ea734b883df2bc pg=24818 redis=29818 sandbox=54818
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_2c15b3ea734b883df2bc capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-memory-real-db.test.ts (2 tests) 8292ms
+   ✓ real HTTP proof binds requester and live source visibility, denies missing authority and changed lease 4001ms
+   ✓ official Python PostgresStore proves rollback, concurrent CAS, replay and tombstones 1281ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  05:08:50
+   Duration  10.85s (transform 314ms, setup 0ms, collect 583ms, tests 8.29s, environment 0ms, prepare 34ms)
+
+[db-isolation] db=wsx_2c15b3ea734b883df2bc peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-memory-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：12s

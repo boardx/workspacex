@@ -45,3 +45,16 @@ describe("checkpoint response identity and turn boundary",()=>{
   expect(await provider.reconcileExistingRun("t","remote","logical")).toMatchObject({kind:"uncertain",diagnostic:"checkpoint_turn_boundary_unverified"});
  });
 });
+
+it("uses the persisted native remote thread without probing a legacy checkpoint", async () => {
+ const fetcher=remote("running",{});
+ expect(await provider.reconcileExistingRun("legacy-chat","remote","logical","native-thread")).toEqual({kind:"running"});
+ expect(fetcher.mock.calls[0]?.[0]).toBe("http://kernel.invalid/threads/native-thread/runs/remote");
+ expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it('native profile recovers ordinary tool output while legacy guard remains strict',async()=>{
+ const fetcher=remote('success',{metadata:{run_id:'remote'},values:{messages:[{type:'tool',content:'Read 12 lines'},{type:'ai',content:'Done'}]}});
+ expect(await provider.reconcileExistingRun('t','remote',undefined,'native-thread','native-v1')).toMatchObject({kind:'success',completion:{text:'Done'}});
+ expect(fetcher.mock.calls.every(([url])=>url.includes('/threads/native-thread/'))).toBe(true);
+ expect(await provider.reconcileExistingRun('t','remote',undefined,'native-thread','legacy')).toMatchObject({kind:'failed',diagnostic:'output_execution_requires_review_no_replay'});
+});

@@ -1,0 +1,1 @@
+PASS complete four-file skill-authoring pack through actual FileSkillStarterPackSource; tampering refused. Not a live model G-SKILL.

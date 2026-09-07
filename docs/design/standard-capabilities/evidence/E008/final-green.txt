@@ -1,0 +1,24 @@
+[stack-admission] load1=9.81 cores=10 perCore=0.98 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqsit2k-7a83362b-7f0d9ae9546a db=wsx_7f0d9ae9546a5ca1ecc5 compose=wsx-7f0d9ae9546a5ca1ecc5 pg=23057 redis=28057 sandbox=53057
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_7f0d9ae9546a5ca1ecc5 capacity=100 current=6 required=32
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (3 tests) 6ms
+ ✓ tests/agent-run/runtime-profile-claim.test.ts (3 tests) 5128ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 3ms
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  13:18:46
+   Duration  8.66s (transform 535ms, setup 0ms, collect 787ms, tests 5.14s, environment 0ms, prepare 99ms)
+
+[db-isolation] db=wsx_7f0d9ae9546a5ca1ecc5 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/runtime-profile-continuation.test.ts tests/agent-run/runtime-profile-claim.test.ts tests/agent-run/execute-run-thin-gateway.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：0s
+  总计：10s

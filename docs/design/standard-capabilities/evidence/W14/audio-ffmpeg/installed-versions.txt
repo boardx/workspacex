@@ -1,0 +1,5 @@
+ffmpeg	7:5.1.9-0+deb12u1
+libavcodec59:arm64	7:5.1.9-0+deb12u1
+libavformat59:arm64	7:5.1.9-0+deb12u1
+libavutil57:arm64	7:5.1.9-0+deb12u1
+libswresample4:arm64	7:5.1.9-0+deb12u1

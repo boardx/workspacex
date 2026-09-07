@@ -1,0 +1,1 @@
+PASS actual FileSkillStarterPackSource four skills / sixteen files, exact bytes + digests + license, missing deployment root unavailable, tamper rejected. Not a live-model G-SKILL evaluation.

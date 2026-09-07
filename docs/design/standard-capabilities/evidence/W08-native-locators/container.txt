@@ -1,0 +1,2 @@
+{"pdfTables":[{"tableId":"pdf-table-0","fragmentIndex":0,"pageNumber":1,"pageTableIndex":0,"bbox":[40,50,380,170],"columnCount":2,"continuationDetection":"none"},{"tableId":"pdf-table-0","fragmentIndex":1,"pageNumber":2,"pageTableIndex":0,"bbox":[40,50,380,170],"columnCount":2,"continuationDetection":"repeated_header_and_columns"}],"pdfCellCount":34,"docxChunks":5,"pptxChunks":5,"xlsxChunks":6,"unsupportedRejected":true,"sourceBytesUnchanged":true}
+OFFLINE_REAL_PDF_DOCX_PPTX_XLSX_LOCATORS_VERIFIED

@@ -1,0 +1,16 @@
+# Worker-owned production
+apps/deep-agent-service/src/deep_agent_service/native_sandbox_dispatch.py
+apps/deep-agent-service/src/deep_agent_service/native_session_binding_guard.py
+apps/api/src/infrastructure/agent-run/pg-native-session-owner.ts
+# Worker-owned tests
+apps/deep-agent-service/tests/test_native_sandbox_dispatch.py
+apps/deep-agent-service/tests/test_native_session_binding_guard.py
+apps/deep-agent-service/tests/native_cached_source_revocation_runner.py
+apps/api/tests/agent-runtime/native-session-owner-real-db.test.ts
+apps/api/tests/agent-runtime/standard-document-locators-http.test.ts
+# Root-owned necessary composition companions
+apps/deep-agent-service/src/deep_agent_service/native_graph.py
+apps/deep-agent-service/src/deep_agent_service/native_factory.py
+# Evidence directories
+docs/design/standard-capabilities/evidence/W08/dispatch/
+docs/design/standard-capabilities/evidence/W08/current-inputs/

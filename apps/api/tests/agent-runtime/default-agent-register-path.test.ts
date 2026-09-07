@@ -53,6 +53,7 @@ let databasePort: PgDatabase;
 let base = "";
 let deepAgentServer: Server;
 let statusPollCount = 0;
+let joinedStreamCount = 0;
 let capturedRunBodies: unknown[] = [];
 
 function ownerConfig(database: string) {
@@ -70,6 +71,12 @@ async function adminClient(database = "postgres") {
 async function startDeepAgentServer(): Promise<string> {
   deepAgentServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "";
+    if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}/stream`) {
+      joinedStreamCount += 1;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({ run_id: RUN_ID })}\r\n\r\n`);
+      return;
+    }
     const respond = (status: number, body: unknown) => {
       res.writeHead(status, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
@@ -89,7 +96,7 @@ async function startDeepAgentServer(): Promise<string> {
     }
     if (req.method === "GET" && url === `/threads/${THREAD_ID}/runs/${RUN_ID}`) {
       statusPollCount += 1;
-      const status = statusPollCount < 3 ? "running" : "success";
+      const status = joinedStreamCount > 0 || statusPollCount >= 3 ? "success" : "running";
       return respond(200, { status });
     }
     if (req.method === "GET" && url === `/threads/${THREAD_ID}/state`) {
@@ -203,7 +210,8 @@ describe("#662 直接后续：/auth/register-open（开放自助注册建组织�
     const runRes = await fetch(`${base}/agent-runs/${agentRunId}`, { headers: principal });
     const run = (await runRes.json()) as { status: string };
     expect(run.status).toBe("succeeded");
-    expect(statusPollCount).toBeGreaterThanOrEqual(3);
+    expect(joinedStreamCount).toBe(1);
+    expect(statusPollCount).toBeGreaterThanOrEqual(1);
     expect(capturedRunBodies).toHaveLength(1);
 
     /* ── ⑥ 最终回复真实写回了 chat 线程 ── */

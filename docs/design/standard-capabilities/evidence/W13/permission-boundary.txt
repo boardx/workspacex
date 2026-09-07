@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: real scheduler authority and private dispatch boundary
+ok 1 - real scheduler authority and private dispatch boundary
+  ---
+  duration_ms: 9.90575
+  type: 'test'
+  ...
+# Subtest: reject withAuthorizedStandardToolRun(this.deps.db
+ok 2 - reject withAuthorizedStandardToolRun(this.deps.db
+  ---
+  duration_ms: 3.866458
+  type: 'test'
+  ...
+# Subtest: reject authorizeSubtaskParent(this.deps.visibility
+ok 3 - reject authorizeSubtaskParent(this.deps.visibility
+  ---
+  duration_ms: 2.5295
+  type: 'test'
+  ...
+# Subtest: reject ScheduleToolRequest.parse(raw)
+ok 4 - reject ScheduleToolRequest.parse(raw)
+  ---
+  duration_ms: 2.131833
+  type: 'test'
+  ...
+# Subtest: reject private async create
+ok 5 - reject private async create
+  ---
+  duration_ms: 3.704166
+  type: 'test'
+  ...
+# Subtest: reject wake.parse(job.data)
+ok 6 - reject wake.parse(job.data)
+  ---
+  duration_ms: 1.208625
+  type: 'test'
+  ...
+# Subtest: reject WHERE org_id=$1 AND user_id=$2
+ok 7 - reject WHERE org_id=$1 AND user_id=$2
+  ---
+  duration_ms: 1.048125
+  type: 'test'
+  ...
+# Subtest: reject [orgId,data.scheduleId]
+ok 8 - reject [orgId,data.scheduleId]
+  ---
+  duration_ms: 1.220958
+  type: 'test'
+  ...
+# Subtest: reject visible?.kind==='allow'?row.instruction.slice(0,SCHEDULE_LIMITS.maxSummaryChars):'任务当前不可访问'
+ok 9 - reject visible?.kind==='allow'?row.instruction.slice(0,SCHEDULE_LIMITS.maxSummaryChars):'任务当前不可访问'
+  ---
+  duration_ms: 1.662166
+  type: 'test'
+  ...
+# Subtest: reject if(row.status!=='active')
+ok 10 - reject if(row.status!=='active')
+  ---
+  duration_ms: 1.462291
+  type: 'test'
+  ...
+# Subtest: reject instruction:row.instruction,occurrenceId:job.id
+ok 11 - reject instruction:row.instruction,occurrenceId:job.id
+  ---
+  duration_ms: 0.988958
+  type: 'test'
+  ...
+# Subtest: reject id=$2::uuid FOR UPDATE
+ok 12 - reject id=$2::uuid FOR UPDATE
+  ---
+  duration_ms: 0.929083
+  type: 'test'
+  ...
+# Subtest: reject this.deps.provider.inTransaction(s,
+ok 13 - reject this.deps.provider.inTransaction(s,
+  ---
+  duration_ms: 0.899208
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 205.382166

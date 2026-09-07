@@ -61,10 +61,11 @@ export interface UpdateCanvasSourceOutput {
 const sha256 = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
 
-export async function updateCanvasSource(
-  deps: UpdateCanvasSourceDeps,
-  input: UpdateCanvasSourceInput,
-): Promise<UpdateCanvasSourceOutput> {
+/** Same existing write predicate used by source updates and their idempotent result replay. */
+export async function authorizeCanvasSourceUpdate(
+  deps: Pick<UpdateCanvasSourceDeps,'identity'|'instances'>,
+  input: Pick<UpdateCanvasSourceInput,'orgId'|'userId'|'instanceId'>,
+): Promise<void> {
   // ① 实例头。契约 `updateSource.err` 里没有 `INSTANCE_NOT_FOUND`——不存在的实例
   //    抛 `CanvasError("INSTANCE_NOT_FOUND")` 由控制器映 404 会发明一个不在闭集里的
   //    响应码；这里复用 getSource 的码是不诚实的吗？不——同一个资源寻址失败在两个
@@ -80,6 +81,14 @@ export async function updateCanvasSource(
   if (membership === null || membership.groupId !== instance.groupId) {
     throw new CanvasError("NOT_IN_GROUP");
   }
+
+}
+
+export async function updateCanvasSource(
+  deps: UpdateCanvasSourceDeps,
+  input: UpdateCanvasSourceInput,
+): Promise<UpdateCanvasSourceOutput> {
+  await authorizeCanvasSourceUpdate(deps,input);
 
   // ③ 判定与写入同一条语句（仓库层 CTE）；零行 ⇒ 乐观并发失败。
   const contentHash = sha256(input.markdown);
@@ -110,3 +119,4 @@ export async function updateCanvasSource(
     ignoredSyntaxCount: whitelist.ignoredSyntaxCount,
   };
 }
+

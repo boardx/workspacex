@@ -1,0 +1,26 @@
+node:assert:150
+  throw new AssertionError(obj);
+  ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ undefined
+- 'item-1'
+
+    at [eval]:3:27
+    at runScriptInThisContext (node:internal/vm:209:10)
+    at node:internal/process/execution:446:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:444:60)
+    at evalFunction (node:internal/process/execution:279:30)
+    at asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:11) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: 'item-1',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.1

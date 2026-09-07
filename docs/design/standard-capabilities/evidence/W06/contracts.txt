@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/standard-web-tools.test.ts (2 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  04:58:03
+   Duration  259ms (transform 52ms, setup 0ms, collect 60ms, tests 3ms, environment 0ms, prepare 32ms)
+

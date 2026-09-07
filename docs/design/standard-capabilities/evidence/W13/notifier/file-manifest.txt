@@ -1,0 +1,17 @@
+packages/contracts/src/schedule-notifications.ts
+packages/contracts/tests/schedule-notifications.test.ts
+apps/api/src/application/agent-run/schedule-notifications.ts
+apps/api/src/infrastructure/agent-run/pg-schedule-notifications.ts
+apps/api/src/interface/controllers/schedule-notifications.controller.ts
+apps/api/migrations/20260909120000_schedule_notification_receipts.sql
+apps/api/tests/agent-runtime/schedule-notifications.test.ts
+apps/api/scripts/lib/schedule-notifications-boundary.mjs
+apps/api/scripts/tests/schedule-notifications-boundary.test.mjs
+apps/api/scripts/lint-permission-paths.mjs (notification import and exact branch only)
+docs/design/standard-capabilities/evidence/W13/notifier/
+apps/api/tests/agent-runtime/schedule-notifications-delivery.test.ts
+apps/web/lib/chat-workbench/use-schedule-notifications.ts
+apps/web/components/chat/workbench/task-notifications.tsx
+apps/web/tests/ui/schedule-notifications.test.tsx
+apps/api/src/kernel.module.ts (root: one PgScheduleNotifications factory, two useExisting bindings, controller)
+apps/web/components/chat/copilotkit-v2-shell.tsx (root: sessionToken prop on existing TaskNotifications)

@@ -142,7 +142,7 @@ describe("Phase 14 F02（R6）—— deep-agent-service 五项能力开关已从
 
   it("task-auto-classify（DA-13）：`TaskClassifierMiddleware()` 无条件出现在 `build_middleware()` 返回列表里，不再是条件展开的数组", () => {
     const code = stripPyComments(readSrc(HARNESS_PY));
-    const buildMiddleware = /def build_middleware\(model: BaseChatModel\) -> list\[AgentMiddleware\]:([\s\S]*?)\ndef /.exec(code);
+    const buildMiddleware = /def build_middleware\(model: BaseChatModel(?:, \*, backend: BackendProtocol \| None = None)?\) -> list\[AgentMiddleware\]:([\s\S]*?)\ndef /.exec(code);
     expect(buildMiddleware, "harness.py 里找不到 build_middleware 的函数体").not.toBeNull();
     const body = buildMiddleware?.[1] ?? "";
     expect(body).toMatch(/\n\s*TaskClassifierMiddleware\(\),/);

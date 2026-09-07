@@ -1,0 +1,24 @@
+[stack-admission] load1=3.00 cores=10 perCore=0.30 running=0/2
+[test-isolation] id=run-mtq7tfw3-01f46a86-78fce24552ee db=wsx_78fce24552ee190e4d0d compose=wsx-78fce24552ee190e4d0d pg=23917 redis=28917 sandbox=53917
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_78fce24552ee190e4d0d capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/deep-agent-produces-files.test.ts (11 tests) 232ms
+ ✓ tests/agent-runtime/execution-journal-pg.test.ts (16 tests) 4324ms
+ ✓ tests/agent-runtime/workbench-skill-activity.test.ts (7 tests) 11ms
+ ✓ tests/agent-runtime/skill-activity-writer.test.ts (3 tests) 2ms
+
+ Test Files  4 passed (4)
+      Tests  37 passed (37)
+   Start at  03:39:09
+   Duration  7.33s (transform 387ms, setup 0ms, collect 612ms, tests 4.57s, environment 0ms, prepare 84ms)
+
+[db-isolation] db=wsx_78fce24552ee190e4d0d peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/skill-activity-writer.test.ts tests/agent-runtime/workbench-skill-activity.test.ts tests/agent-runtime/execution-journal-pg.test.ts tests/agent-runtime/deep-agent-produces-files.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：8s
+  清理：0s
+  总计：8s

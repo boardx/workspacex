@@ -1,0 +1,22 @@
+[stack-admission] load1=2.24 cores=10 perCore=0.22 running=0/2
+[test-isolation] id=run-mtqthl0u-703b5edd-40c6e55828bf db=wsx_40c6e55828bfbff9793b compose=wsx-40c6e55828bfbff9793b pg=21664 redis=26664 sandbox=51664
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_40c6e55828bfbff9793b capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/audio-skill-real-model.live.ts (1 test) 55141ms
+   ✓ real configured model selects the minutes skill and writes a source-grounded artifact 52342ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:45:48
+   Duration  57.73s (transform 369ms, setup 0ms, collect 602ms, tests 55.14s, environment 0ms, prepare 24ms)
+
+[db-isolation] db=wsx_40c6e55828bfbff9793b peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.audio-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：58s
+  清理：1s
+  总计：59s

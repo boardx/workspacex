@@ -1,0 +1,24 @@
+[stack-admission] load1=2.53 cores=10 perCore=0.25 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqn3gxa-9ec71055-77946e87a88f db=wsx_77946e87a88f299468af compose=wsx-77946e87a88f299468af pg=21327 redis=26327 sandbox=51327
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_77946e87a88f299468af capacity=100 current=6 required=32
+ ✓ tests/skill/standard-platform-packs.test.ts (2 tests) 6140ms
+   ✓ publishes shipped complete workflow packages through the existing importer and replays without duplicate versions 3249ms
+   ✓ exposes the published standard package through the actual Skills API to ordinary members in distinct organizations 2890ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  10:46:51
+   Duration  8.76s (transform 1.71s, setup 0ms, collect 468ms, tests 6.14s, environment 0ms, prepare 35ms)
+
+[db-isolation] db=wsx_77946e87a88f299468af peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/standard-platform-packs.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：10s

@@ -1,0 +1,1 @@
+Existing canvas ID: canvas-methods-real-06892a16-3e31-41b1-a18e-de66c0ba7657. Read the existing canvas, change only node B label from Review to 审核完成. Keep node IDs A and B and the A-->B edge, keep all other content. This is an authorized update of this existing canvas only.

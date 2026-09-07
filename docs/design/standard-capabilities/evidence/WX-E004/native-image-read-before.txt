@@ -1,0 +1,37 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+______________ test_uploaded_png_reaches_image_capable_model[160] ______________
+
+width = 160
+
+    @pytest.mark.parametrize('width', [16, 160])
+    def test_uploaded_png_reaches_image_capable_model(width):
+        payload = png_bytes(width)
+        if width == 160:
+            assert 64 * 1024 < len(payload) < 500 * 1024
+        model = ImageRecordingModel(profile={'image_inputs': True}, messages=iter([
+            AIMessage(content='', tool_calls=[{'id': 'png', 'name': 'read_file', 'args': {'file_path': '/workspace/screenshot.png'}}]),
+            AIMessage(content='Image received'),
+        ]))
+        with real_native_session([]) as (adapter, _):
+            assert adapter.upload_files([('/workspace/screenshot.png', payload)])[0].error is None
+            graph = create_native_graph(model, sandbox=adapter, pinned_skills=[], interrupt_on={})
+            graph.invoke({'messages': [{'role': 'user', 'content': 'Read the uploaded image.'}]},
+                         config={'configurable': {'disable_task_auto_classify': True}})
+        blocks = [block for messages in model.observed for message in messages
+                  if isinstance(message.content, list) for block in message.content
+                  if isinstance(block, dict) and block.get('type') in ('image', 'image_url')]
+>       assert blocks, f'The model never received image content: {model.observed[-1]}'
+E       AssertionError: The model never received image content: [SystemMessage(content=[{'type': 'text', 'text': '## Skills System\n\nYou have access to a skills library that provides specialized capabilities and domain knowledge.\n\n**Skills Skills**: `/skills/` (higher priority)\n\nSources labeled "Deepagents" are specific to this agent tool; sources labeled "Agents" are shared across all agent tools on this machine.\n\n**Available Skills:**\n\n(No skills available yet. You can create skills in /skills/)\n\n**How to Use Skills (Progressive Disclosure):**\n\nSkills follow a **progressive disclosure** pattern - you see their name and description above, but only read full instructions when needed:\n\n1. **Recognize when a skill applies**: Check if the user\'s task matches a skill\'s description\n2. **Read the skill\'s full instructions**: Use `read_file` on the path shown in the skill list above.\n    Pass `limit=1000` since the default of 100 lines is too small for most skill files.\n3. **Follow the skill\'s instructions**: SKILL.md contains step-by-step workflows, best practices, and examples\n4. **Access supporting files**: Skills may include helper scripts, configs, or reference docs - use absolute paths\n\n**When to Use Skills:**\n\n- User\'s request matches a skill\'s domain (e.g., "research X" -> web-research skill)\n- You need specialized knowledge or structured workflows\n- A skill provides proven patterns for complex tasks\n\n**Executing Skill Scripts:**\nSkills may contain Python scripts or other executable files. Always use absolute paths from the skill list.\n\n**Example Workflow:**\n\nUser: "Can you research the latest developments in quantum computing?"\n\n1. Check available skills -> See "web-research" skill with its path\n2. Read the full skill file: `read_file(file_path="...", limit=1000)`\n3. Follow the skill\'s research workflow (search -> organize -> synthesize)\n4. Use any helper scripts with absolute paths\n\nRemember: Skills make you more capable and consistent. When in doubt, check if a skill exists for the task!'}, {'type': 'text', 'text': '\n\n## Shell paths vs. virtual paths\n\nThe `execute` tool runs commands in the host shell and can only access files that exist on the host filesystem.\n\nSome paths returned by the file tools are virtual mounts:\n\n- If a virtual mount has a host path mapping, replace its virtual prefix with the host prefix when running shell commands.\n- If a virtual mount does not have a host path mapping, it is not accessible from the shell. Use the file tools listed above to interact with those files.\n\nDo not assume that a path returned by a file tool can be used directly in a shell command.\n\nVirtual mounts without a host path mapping (not accessible from the shell):\n- `/large_tool_results/`'}, {'type': 'text', 'text': "\n\n## `write_todos`\n\nYou have access to the `write_todos` tool to help you manage and plan complex objectives.\nUse this tool for complex objectives to ensure that you are tracking each necessary step.\nThis tool is very helpful for planning complex objectives, and for breaking down these larger complex objectives into smaller steps.\n\nIt is critical that you mark todos as completed as soon as you are done with a step. Do not batch up multiple steps before marking them as completed.\nFor simple objectives that only require a few steps, it is better to just complete the objective directly and NOT use this tool.\nWriting todos takes time and tokens, use it when it is helpful for managing complex many-step problems! But not for simple few-step requests.\n\n## Important To-Do List Usage Notes to Remember\n\n- The `write_todos` tool should never be called multiple times in parallel.\n- Don't be afraid to revise the To-Do list as you go. New information may reveal new tasks that need to be done, or old tasks that are irrelevant.\n\n## Finishing a task\n\nWhen you finish all work, write your final answer in the message AFTER your last `write_todos` call — not in the same turn as that call. Start the final message with the substantive content the user asked for — the data, computation, summary, or analysis. The user wants the result, not confirmation that the work is done."}], additional_kwargs={}, response_metadata={}), HumanMessage(content='Read the uploaded image.', additional_kwargs={}, response_metadata={}, id='373e8aac-fb01-4e54-b138-8cda28dc6fe7'), AIMessage(content='', additional_kwargs={}, response_metadata={}, id='lc_run--01a077f8-77f2-7da0-9b49-e2984e5d055d-0', tool_calls=[{'name': 'read_file', 'args': {'file_path': '/workspace/screenshot.png'}, 'id': 'png', 'type': 'tool_call'}], invalid_tool_calls=[]), ToolMessage(content='Error: File \'/workspace/screenshot.png\': unexpected server response: {"encoding": "base64", "content": "iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAIAAAAErfB6AAEsv0lEQVR4nAAHQPi/AHvqoe3hpvk4mBMn6YQhaTBxXyhpFNBCNefbwcwzJ0m6RpRynIU5wOqM+V4/UkN8cAlf4UHndpza0W1M1OAp+IFIAPsftYcb/ESJy', name='read_file', id='b6f67664-bfce-4105-9cae-e6608a7fd35e', tool_call_id='png', status='error')]
+E       assert []
+
+apps/deep-agent-service/tests/test_native_image_read.py:50: AssertionError
+=============================== warnings summary ===============================
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_native_image_read.py::test_uploaded_png_reaches_image_capable_model[160]
+1 failed, 1 passed, 1 warning in 1.94s

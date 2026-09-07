@@ -1,0 +1,9 @@
+// Actual installed decoder negative cases, through the existing session boundary.
+import assert from 'node:assert/strict';
+import {request} from 'node:http';
+import {createHash,randomUUID} from 'node:crypto';
+const sha=b=>createHash('sha256').update(b).digest('hex');
+const originals=[{path:'/inputs/broken.mp3',bytes:Buffer.from('ID3\x04\0\0broken audio')},{path:'/inputs/broken.wav',bytes:Buffer.from('RIFF\0\0\0\0WAVEbroken audio')}];
+async function call(method,path,body,token){return new Promise((resolve,reject)=>{const req=request({socketPath:process.env.SKILL_SANDBOX_SOCKET,method,path,headers:{'content-type':'application/json',...(token?{authorization:`Bearer ${token}`}:{})}},res=>{let text='';res.on('data',c=>text+=c);res.on('end',()=>{try{resolve({status:res.statusCode,body:JSON.parse(text)});}catch(e){reject(e);}});});req.on('error',reject);req.end(body?JSON.stringify(body):undefined);});}
+const made=await call('POST','/sessions',{inputs:originals.map(f=>({path:f.path,contentBase64:f.bytes.toString('base64')}))});assert.equal(made.status,201);const {sessionId,token}=made.body,prefix=`/sessions/${sessionId}`;
+try{for(const file of originals){const result=await call('POST',`${prefix}/executions`,{executionId:randomUUID(),command:`python3 /usr/local/lib/workspacex/decode-audio.py --source ${file.path} --source-hash ${sha(file.bytes)} --max-source-bytes 8388608 --max-duration-ms 3600000 --chunk-duration-ms 30000 --max-chunks 120`,timeoutMs:30000},token);assert.equal(result.status,200);assert.notEqual(result.body.exitCode,0);assert.equal(result.body.timedOut,false);const read=await call('GET',`${prefix}/files?path=${file.path}`,undefined,token);assert.equal(read.body.contentBase64,file.bytes.toString('base64'));}console.log('PASS damaged WAV and MP3 explicitly rejected; original bytes unchanged');}finally{assert.equal((await call('DELETE',prefix,undefined,token)).status,200);}

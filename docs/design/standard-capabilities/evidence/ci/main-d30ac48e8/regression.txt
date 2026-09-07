@@ -1,0 +1,41 @@
+[stack-admission] load1=2.74 cores=10 perCore=0.27 running=0/2
+[test-isolation] id=run-mtqp8vpt-dd1ff71f-f85a5b2d5a7b db=wsx_f85a5b2d5a7bb6161928 compose=wsx-f85a5b2d5a7bb6161928 pg=21149 redis=26149 sandbox=51149
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_f85a5b2d5a7bb6161928 capacity=100 current=6 required=32
+(node:60230) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ ✓ tests/agent-runtime/standard-scheduler-service.test.ts (6 tests) 17221ms
+   ✓ real HTTP creation/list/cancel reuses current authority and rejects changed identity 1053ms
+   ✓ cancel linearizes before a new run or waits for an already accepted occurrence 2101ms
+   ✓ revocation prevents the next actual due run and submits only a peer reminder fact 10061ms
+ ✓ tests/agent-run/permission-grant-scopes.test.ts (7 tests) 21ms
+ ✓ tests/agent-runtime/standard-sql-source-real-db.test.ts (2 tests) 2605ms
+   ✓ production SQL source provider and controller are registered 902ms
+   ✓ real Python native tools cross HTTP source authority into a separate TLS read-only database 1099ms
+ ✓ tests/agent-run/tool-permission-grant-repo-guard.test.ts (10 tests) 34ms
+ ✓ tests/agent-runtime/workbench-agui-order.test.ts (6 tests) 3ms
+ ✓ tests/agent-runtime/schedule-notifications.test.ts (3 tests) 408ms
+ ✓ tests/canvas/instance-repo-guard.test.ts (8 tests) 2ms
+ ✓ tests/plan-control/plan-ledger-repo-guard.test.ts (5 tests) 41ms
+ ✓ tests/agent-run/pg-database-connection-error-unit.test.ts (4 tests) 3ms
+ ✓ tests/agent-runtime/subtask-signal-isolation.test.ts (1 test) 39ms
+ ✓ tests/agent-runtime/standard-scheduler-composition.test.ts (3 tests) 5ms
+ ✓ tests/agent-runtime/workbench-configured-stream-identity.test.ts (2 tests) 4ms
+ ✓ tests/agent-runtime/standard-sql-database.test.ts (1 test) 3972ms
+   ✓ official SQL Toolkit crosses the real asynchronous read-only PostgreSQL boundary 3971ms
+
+ Test Files  13 passed (13)
+      Tests  58 passed (58)
+   Start at  11:47:03
+   Duration  31.66s (transform 1.64s, setup 0ms, collect 4.26s, tests 24.36s, environment 1ms, prepare 266ms)
+
+[db-isolation] db=wsx_f85a5b2d5a7bb6161928 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/workbench-agui-order.test.ts tests/agent-runtime/workbench-configured-stream-identity.test.ts tests/agent-runtime/subtask-signal-isolation.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/plan-control/plan-ledger-repo-guard.test.ts tests/agent-run/pg-database-connection-error-unit.test.ts tests/agent-runtime/standard-sql-database.test.ts tests/agent-runtime/standard-sql-source-real-db.test.ts tests/agent-runtime/standard-scheduler-service.test.ts tests/agent-runtime/standard-scheduler-composition.test.ts tests/canvas/instance-repo-guard.test.ts tests/agent-runtime/schedule-notifications.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：32s
+  清理：0s
+  总计：33s

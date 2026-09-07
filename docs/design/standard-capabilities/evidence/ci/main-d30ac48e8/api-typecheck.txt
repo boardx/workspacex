@@ -1,0 +1,4 @@
+
+> @repo/api@0.0.0 typecheck /private/tmp/workspacex-standard-capabilities/apps/api
+> tsc --noEmit
+

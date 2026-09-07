@@ -1,0 +1,26 @@
+[stack-admission] load1=2.24 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqrmky2-3db8914e-1dbc011746f8 db=wsx_1dbc011746f8780ebb4c compose=wsx-1dbc011746f8780ebb4c pg=20311 redis=25311 sandbox=50311
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_1dbc011746f8780ebb4c capacity=100 current=6 required=32
+stdout | tests/agent-runtime/native-file-delegation.test.ts > official task delegates twice through actual sandbox and current PG/HTTP authority
+T010_REAL_CHAIN {"completedDelegations": 2, "actualSourceObserved": true, "readonlyInput": true, "externalModelCalls": 0}
+
+ ✓ tests/agent-runtime/native-file-delegation.test.ts (2 tests) 6122ms
+   ✓ official task delegates twice through actual sandbox and current PG/HTTP authority 3070ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  12:53:41
+   Duration  8.82s (transform 333ms, setup 0ms, collect 621ms, tests 6.12s, environment 0ms, prepare 26ms)
+
+[db-isolation] db=wsx_1dbc011746f8780ebb4c peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-file-delegation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：10s

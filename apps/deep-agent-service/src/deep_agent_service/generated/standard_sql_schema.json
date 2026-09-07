@@ -1,0 +1,141 @@
+{
+  "limits": {
+    "maxArgumentChars": 16384,
+    "maxRows": 100,
+    "maxRowChars": 4096,
+    "maxOutputBytes": 65536,
+    "statementTimeoutMs": 2000,
+    "databaseTimeoutMs": 8000,
+    "maxConcurrentOperations": 8
+  },
+  "sources": {
+    "type": "object",
+    "additionalProperties": {
+      "type": "object",
+      "properties": {
+        "dsn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sslMode": {
+          "type": "string",
+          "enum": [
+            "verify-full",
+            "verify-ca",
+            "require"
+          ]
+        },
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "applicationDatabases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "dsn",
+        "sslMode",
+        "schema",
+        "views",
+        "applicationDatabases"
+      ],
+      "additionalProperties": false
+    },
+    "propertyNames": {
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "userId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "enum": [
+          "sql_db_query",
+          "sql_db_schema",
+          "sql_db_list_tables",
+          "sql_db_query_checker"
+        ]
+      },
+      "toolArgs": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "maxLength": 16384
+        }
+      }
+    },
+    "required": [
+      "orgId",
+      "userId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "dataSourceId": {
+        "type": "string",
+        "pattern": "^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+      }
+    },
+    "required": [
+      "dataSourceId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

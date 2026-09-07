@@ -1,0 +1,9 @@
+apps/api/src/application/agent-run/ports.ts (optional persisted runtimeProfile snapshot field)
+apps/api/src/application/agent-run/runtime-profile-routing.ts (per-claim admission/continuation selection)
+apps/api/src/application/agent-run/execute-run.ts (local dependency view and native-unavailable refusal)
+apps/api/src/infrastructure/agent-run/pg-agent-run-repository.ts (claim RETURNING and projection)
+apps/api/src/infrastructure/agent-run/agent-run-executor.ts (optional final admission parameter)
+apps/api/src/kernel.module.ts (root-owned composition: retain owner, separate admission flag)
+apps/api/tests/agent-run/runtime-profile-continuation.test.ts
+apps/api/tests/agent-run/runtime-profile-claim.test.ts
+docs/design/standard-capabilities/evidence/E008/

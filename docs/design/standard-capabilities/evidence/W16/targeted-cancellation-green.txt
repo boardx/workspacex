@@ -1,0 +1,24 @@
+[stack-admission] load1=3.99 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqok40u-f14300d8-39844c35705b db=wsx_39844c35705bb10fb504 compose=wsx-39844c35705bb10fb504 pg=21573 redis=26573 sandbox=51573
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_39844c35705bb10fb504 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (12 tests | 9 skipped) 4321ms
+   ✓ W16 cancels the actual local HTTP request across stores without claiming vendor cessation 449ms
+   ✓ W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay 875ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed | 9 skipped (12)
+   Start at  11:27:47
+   Duration  6.84s (transform 344ms, setup 0ms, collect 532ms, tests 4.32s, environment 0ms, prepare 26ms)
+
+[db-isolation] db=wsx_39844c35705bb10fb504 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts -t W16
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：8s

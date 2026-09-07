@@ -1,0 +1,47 @@
+ Volume wx-data-workflows-final_sessions_socket Creating 
+ Volume wx-data-workflows-final_sessions_socket Created 
+ Container wx-data-workflows-final-skill-sandbox-sessions-run-f947906f2bf9 Creating 
+ Container wx-data-workflows-final-skill-sandbox-sessions-run-f947906f2bf9 Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+SERVICE_READY_MS 221
+INVALID_INPUT_NO_RESULT_FILE
+XML_ENTITY_REJECTED
+OFFLINE_THREE_FORMATS_KNOWN_ANSWER_MISSING_DUPLICATE_ZERO_REPRODUCIBLE_OK
+XML_ENTITY_REJECTED
+OFFLINE_THREE_FORMATS_KNOWN_ANSWER_MISSING_DUPLICATE_ZERO_REPRODUCIBLE_OK
+分组金额：甲 10，乙 40
+
+45
+40
+
+40
+
+35
+
+金额（元）
+
+30
+25
+20
+15
+10
+
+10
+5
+0
+
+乙
+
+甲
+组别
+
+
+
+ARTIFACT docs/design/standard-capabilities/evidence/W18/chart.png 17877 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W18/chart.pdf 8551 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W18/chart-page.png 16522 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W18/results.json 1048 bytes
+ARTIFACT docs/design/standard-capabilities/evidence/W18/results.csv 52 bytes
+memory.peak 215048192
+pids.peak 33
+W18_OFFLINE_ANALYSIS_AND_REAL_CHINESE_CHART_OK

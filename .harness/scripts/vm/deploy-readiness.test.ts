@@ -275,7 +275,10 @@ describe("#448 post-restart readiness", () => {
     const provision = readFileSync(PROVISION, "utf8");
     const workflow = readFileSync(WORKFLOW, "utf8");
     expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v4[\s\S]*deploy-gate\.sh/);
-    expect(workflow).toContain('bash .harness/scripts/vm/deploy-gate.sh "${{ github.ref_name }}"');
+    expect(workflow).toContain(
+      "DEPLOY_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview && github.sha || github.ref_name }}",
+    );
+    expect(workflow).toContain('bash .harness/scripts/vm/deploy-gate.sh "$DEPLOY_REF"');
     expect(gate).toContain('source "$SCRIPT_DIR/deploy-readiness.sh"');
     expect(gate).toContain('local status_dir=/run/workspacex-deploy');
     expect(gate).toContain("deploy_status_content_allows_recovery");

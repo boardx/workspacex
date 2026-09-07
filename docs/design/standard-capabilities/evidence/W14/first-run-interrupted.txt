@@ -1,0 +1,63 @@
+[stack-admission] load1=5.40 cores=10 perCore=0.54 running=0/2
+[test-isolation] id=run-mtqmnt47-1bda32fd-9c346e3f1540 db=wsx_9c346e3f1540bf4e2dae compose=wsx-9c346e3f1540bf4e2dae pg=21791 redis=26791 sandbox=51791
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_9c346e3f1540bf4e2dae capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-image-tools.test.ts (6 tests) 42ms
+ ✓ tests/agent-runtime/bailian-image-bounds.test.ts (8 tests) 188ms
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+error: terminating connection due to administrator command
+    at parseErrorMessage (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/parser.js:305:11)
+    at Parser.handlePacket (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/parser.js:143:27)
+    at Parser.parse (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/parser.js:37:38)
+    at Socket.<anonymous> (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/index.js:12:42)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)
+Emitted 'error' event on Client instance at:
+    at Client._handleErrorEvent (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:417:10)
+    at Client._handleErrorMessage (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:428:12)
+    at Connection.emit (node:events:519:28)
+    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/connection.js:136:12
+    at Parser.parse (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/parser.js:38:17)
+    at Socket.<anonymous> (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/pg-protocol@1.15.0/node_modules/pg-protocol/dist/index.js:12:42)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5) {
+  length: 116,
+  severity: 'FATAL',
+  code: '57P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'postgres.c',
+  line: '3286',
+  routine: 'ProcessInterrupts'
+}
+
+Node.js v22.23.1
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-image-tools.test.ts tests/agent-runtime/image-production-di.test.ts tests/agent-runtime/bailian-image-bounds.test.ts
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-image-tools.test.ts tests/agent-runtime/image-production-di.test.ts tests/agent-runtime/bailian-image-bounds.test.ts; pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：22s
+  清理：1s
+  总计：23s

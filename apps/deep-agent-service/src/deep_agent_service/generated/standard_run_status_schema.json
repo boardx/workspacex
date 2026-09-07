@@ -1,0 +1,286 @@
+{
+  "toolName": "wx_run_status",
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "wx_run_status"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "runId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "required": [
+      "runId"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "toolOutput": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "writeback_pending",
+          "succeeded",
+          "failed",
+          "paused",
+          "cancelled",
+          "awaiting_tool_permission"
+        ]
+      },
+      "steps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "accepted",
+                "context_built",
+                "model_called",
+                "tool_call",
+                "chat_writeback"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "succeeded",
+                "failed",
+                "in_progress"
+              ]
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "endedAt": {
+              "type": "string"
+            },
+            "inputDigest": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "outputDigest": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "failureCode": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "HITL_REJECTED",
+                    "MODEL_PROVIDER_NOT_CONFIGURED",
+                    "SKILL_VERSION_UNAVAILABLE",
+                    "AGENT_VERSION_UNAVAILABLE",
+                    "MODEL_CALL_FAILED",
+                    "CHAT_WRITEBACK_FAILED",
+                    "TOOL_LOOP_LIMIT_EXCEEDED",
+                    "KERNEL_UNAVAILABLE",
+                    "RUN_INTERRUPTED"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "toolName": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "toolArgsSummary": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "toolResultSummary": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "planningNote": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "status",
+            "startedAt",
+            "endedAt",
+            "inputDigest",
+            "outputDigest",
+            "failureCode",
+            "toolName",
+            "toolArgsSummary",
+            "toolResultSummary",
+            "planningNote"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "waitingRequest": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "permissionRequestId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "toolName": {
+                "type": "string"
+              },
+              "argsSummary": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "toolName",
+              "argsSummary"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "artifactRefs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "artifactId": {
+              "type": "string"
+            },
+            "versionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "artifactId",
+            "versionId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "observedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "required": [
+      "status",
+      "steps",
+      "waitingRequest",
+      "artifactRefs",
+      "observedAt"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "limits": {
+    "deadlineMs": 30000,
+    "maxResponseBytes": 1048576
+  }
+}

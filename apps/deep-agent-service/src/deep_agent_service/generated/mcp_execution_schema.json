@@ -1,0 +1,151 @@
+{
+  "limits": {
+    "maxCredentialBytes": 8192,
+    "cancelPollMs": 200,
+    "cancelAckGraceMs": 2000,
+    "maxConcurrentExecutions": 2,
+    "workerHeapMb": 128,
+    "maxTools": 64,
+    "maxInvocations": 128,
+    "maxNameLength": 64,
+    "maxArgsBytes": 262144,
+    "maxResultBytes": 1048576,
+    "deadlineMs": 30000
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "toolName": {
+        "type": "string",
+        "pattern": "^mcp__[a-z0-9-]+__[a-z0-9_]+$",
+        "maxLength": 64
+      },
+      "toolArgs": {
+        "type": "object",
+        "additionalProperties": {}
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "array",
+        "items": {}
+      },
+      "structuredContent": {
+        "type": "object",
+        "additionalProperties": {}
+      },
+      "isError": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "content"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "snapshot": {
+    "type": "object",
+    "properties": {
+      "ref": {
+        "type": "object",
+        "properties": {
+          "snapshotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "snapshotId",
+          "digest"
+        ],
+        "additionalProperties": false
+      },
+      "tools": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^mcp__[a-z0-9-]+__[a-z0-9_]+$",
+              "maxLength": 64
+            },
+            "canonicalName": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 16000
+            },
+            "inputSchema": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "outputSchema": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "schemaFingerprint": {
+              "type": "string",
+              "pattern": "^v2:[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "name",
+            "canonicalName",
+            "description",
+            "inputSchema",
+            "schemaFingerprint"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 64
+      }
+    },
+    "required": [
+      "ref",
+      "tools"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -1,0 +1,7 @@
+# S013 first actual browser model run — blocked
+
+2026-09-07 wrapper 98108 exited 1 and cleaned its DB stack, 109 seconds, peak 3 connections. Real qwen3.8-max used the production RemotePlaywrightMcpSessionFactory at the root-owned loopback MCP endpoint and the actual native sandbox. Actual trace contains desktop/mobile navigation, snapshots, Add/Reset interactions and two screenshot operations. No model stub or in-process browser substituted.
+
+The first artifact publish attempted bundle.html with text/plain because the shared artifact schema does not yet expose text/html. Existing staging correctly rejected the MIME/extension mismatch; no ready artifact or writeback occurred. This is a real delivery capability gap, not a passing Skill. Original trace and error are retained. Screenshot tool metadata exists, but workspace was released on failure before screenshot bytes were exported; no human visual acceptance is claimed for this run.
+
+The model-authored report also incorrectly labeled avoiding stale refs as a stale-ref-rejection test, and absence of outbound traffic as network-boundary proof. These are unperformed negative tests. A later immutable Skill revision must distinguish observations from actual rejection tests and explicitly state unverified checks. Current core beta retains S013 as incomplete; subsequent HTML attachment support and revalidation are separate increments.

@@ -18,16 +18,33 @@
 FROM node:22-slim AS build
 WORKDIR /build
 COPY package.json ./
-COPY src ./src
 # ⚠ 刻意**不**拷 tsconfig.json：仓库里那份 `extends` 的是 monorepo 根配置，
 #   镜像里没有它，用它编译会 `error TS5083: Cannot read file '/tsconfig.json'`。
 #   为了编译一个三文件的服务把整个 monorepo 拷进镜像不值得，所以这里全部用
 #   命令行旗标表达，与 apps/skill-sandbox/tsconfig.json 的对应项保持一致。
-RUN npm install --no-save typescript@5 @types/node \
- && npx tsc src/*.ts \
+RUN npm install --no-save typescript@5 @types/node
+COPY src ./src
+RUN npx tsc src/*.ts src/session/*.ts \
       --types node --module NodeNext --moduleResolution NodeNext \
       --target ES2022 --strict --skipLibCheck \
       --outDir dist
+
+# W18: resolve only hash-locked wheels at build time, never inside a session.
+FROM python:3.11-slim AS analysis
+COPY analysis/requirements.lock /tmp/analysis-requirements.lock
+RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes \
+      --target /analysis -r /tmp/analysis-requirements.lock \
+ && pip download --only-binary=:all: --require-hashes --no-deps \
+      --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64 \
+      --python-version 311 --implementation cp --abi cp311 \
+      --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock
+
+# Matplotlib's searchable PDF output needs a real TrueType font, not the Office CFF font.
+FROM analysis AS analysis-font
+ADD --checksum=sha256:990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf /tmp/noto-analysis-source.ttf
+COPY analysis/prepare-font.py /tmp/prepare-font.py
+RUN PYTHONPATH=/analysis python /tmp/prepare-font.py /tmp/noto-analysis-source.ttf /font/AnalysisSans.ttf
+COPY analysis/font-LICENSE /font/LICENSE
 
 # ---------- 运行阶段 ----------
 FROM node:22-slim
@@ -88,7 +105,7 @@ RUN npm install --omit=dev --no-package-lock \
 # 省 3.5MB 不值得把它留着。纯英文文档不该背这 4.9MB，SKILL.md 因此要求：正文全是拉丁字符
 # 时用内置 StandardFonts（0 字节），出现任何非拉丁字符才用这份嵌入字体。
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 \
+ && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap \
  && mkdir -p /usr/share/fonts/workspacex \
  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))" \
  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))" \
@@ -101,10 +118,56 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
 
+# W09: install renderers at build time; execution stays offline and resource bounded.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig \
+ && fc-cache -f \
+ && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt \
+ && rm -rf /var/lib/apt/lists/*
+
+# Debian's LO config registry is normally in /etc and linked from /usr. Materialize
+# only its installed immutable assets under the existing read-only /usr mount.
+COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
+RUN python3 scripts/materialize-office-config.py
+
+# Debian Python searches this directory; /usr is already read-only in native sessions.
+COPY --from=analysis /analysis /usr/local/lib/python3.11/dist-packages
+COPY --from=analysis-font /font /usr/share/fonts/workspacex/analysis
+COPY analysis/requirements.lock ./analysis/requirements.lock
+RUN OPENBLAS_NUM_THREADS=1 python3 -c "import numpy, pandas, matplotlib, seaborn, openpyxl; print('offline analysis dependencies available')"
+
+COPY security/generate-seccomp.py ./security/generate-seccomp.py
+RUN python3 security/generate-seccomp.py
+
 COPY --from=build /build/dist ./dist
+COPY src/generated ./dist/generated
+
+# W08: offline OCR, exact Debian Bookworm engine/language versions; no runtime download.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr=5.3.0-2 tesseract-ocr-eng=1:4.1.0-2 tesseract-ocr-chi-sim=1:4.1.0-2 \
+ && dpkg-query -W tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim > /opt/sandbox/ocr-versions.txt \
+ && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/chi_sim.traineddata > /opt/sandbox/ocr-model-hashes.txt \
+ && rm -rf /var/lib/apt/lists/*
+COPY scripts/ocr-document.py /usr/local/lib/workspacex/ocr-document.py
+COPY scripts/structure-document.py /usr/local/lib/workspacex/structure-document.py
+COPY scripts/document-structure-limits.json /usr/local/lib/workspacex/document-structure-limits.json
+
+# W14: maintained offline audio decoding, fixed Bookworm package; no runtime installs.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg=7:5.1.9-0+deb12u1 \
+ && dpkg-query -W ffmpeg libavcodec59 libavformat59 libavutil57 libswresample4 > /opt/sandbox/audio-versions.txt \
+ && ffmpeg -version > /opt/sandbox/audio-build.txt \
+ && ffmpeg -L > /opt/sandbox/audio-license.txt 2>&1 \
+ && cp /usr/share/doc/ffmpeg/copyright /opt/sandbox/audio-copyright \
+ && rm -rf /var/lib/apt/lists/*
 
 # 非 root（node 镜像自带 uid/gid 1000 的 `node` 用户）。
 # 应用目录保持 root 所有、对 node 只读 —— 服务不需要写自己的代码目录。
+RUN mkdir -p /run/sessions && chown node:node /run/sessions
+# Resolve only package-library alternatives at build time; never mount /etc.
+RUN python3 -c "from pathlib import Path; links=[p for name in ('libblas.so.3','liblapack.so.3') for p in Path('/usr/lib').glob('*/'+name) if p.is_symlink()]; [(p.unlink(), p.symlink_to(target)) for p,target in [(p,p.resolve(strict=True)) for p in links] if str(target).startswith('/usr/')]"
+COPY scripts/decode-audio.py /usr/local/lib/workspacex/decode-audio.py
+
 USER node
 
 # 执行产物写在 tmpfs 上。os.tmpdir() 默认就是 /tmp，与 compose 里的 tmpfs 挂载点对齐。

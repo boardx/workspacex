@@ -1,0 +1,75 @@
+TAP version 13
+# Subtest: claimed boundary accepts exact runtime-profile dependency wrapper
+not ok 1 - claimed boundary accepts exact runtime-profile dependency wrapper
+  ---
+  duration_ms: 9.077208
+  type: 'test'
+  location: '/private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/workbench-repository-boundary.test.mjs:52:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + [
+    +   'claimed executor boundary missing'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: 'claimed executor boundary missing'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/workbench-repository-boundary.test.mjs:53:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: claimed boundary rejects arbitrary dependency wrapper
+ok 2 - claimed boundary rejects arbitrary dependency wrapper
+  ---
+  duration_ms: 1.886333
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapper source
+ok 3 - claimed boundary rejects wrong wrapper source
+  ---
+  duration_ms: 1.511917
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapped claim
+ok 4 - claimed boundary rejects wrong wrapped claim
+  ---
+  duration_ms: 1.068416
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong tenant
+ok 5 - claimed boundary rejects wrong tenant
+  ---
+  duration_ms: 3.160125
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong dispatched claim
+ok 6 - claimed boundary rejects wrong dispatched claim
+  ---
+  duration_ms: 2.578333
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapper module
+ok 7 - claimed boundary rejects wrong wrapper module
+  ---
+  duration_ms: 0.979416
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 6
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 213.030292

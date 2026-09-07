@@ -1,0 +1,9 @@
+   290292      0 lrwxrwxrwx   1 root     root           41 Jun  6 21:07 /usr/lib/libreoffice/share/uno_packages/cache -> /var/spool/libreoffice/uno_packages/cache
+   290050      0 lrwxrwxrwx   1 root     root           41 Jun  6 21:07 /usr/lib/libreoffice/share/prereg/bundled -> /var/lib/libreoffice/share/prereg/bundled
+   290055      0 lrwxrwxrwx   1 root     root           25 Jun  6 21:07 /usr/lib/libreoffice/share/registry -> /etc/libreoffice/registry
+   290054      0 lrwxrwxrwx   1 root     root           29 Jun  6 21:07 /usr/lib/libreoffice/share/psprint/psprint.conf -> /etc/libreoffice/psprint.conf
+   287961      4 lrwxrwxrwx   1 root     root           66 Jun  6 21:07 /usr/lib/libreoffice/share/config/images_colibre_dark.zip -> ../../../../share/libreoffice/share/config/images_colibre_dark.zip
+   287964      4 lrwxrwxrwx   1 root     root           61 Jun  6 21:07 /usr/lib/libreoffice/share/config/images_helpimg.zip -> ../../../../share/libreoffice/share/config/images_helpimg.zip
+   287963      4 lrwxrwxrwx   1 root     root           65 Jun  6 21:07 /usr/lib/libreoffice/share/config/images_colibre_svg.zip -> ../../../../share/libreoffice/share/config/images_colibre_svg.zip
+   287960      4 lrwxrwxrwx   1 root     root           61 Jun  6 21:07 /usr/lib/libreoffice/share/config/images_colibre.zip -> ../../../../share/libreoffice/share/config/images_colibre.zip
+   287962      4 lrwxrwxrwx   1 root     root           70 Jun  6 21:07 /usr/lib/libreoffice/share/config/images_colibre_dark_svg.zip -> ../../../../share/libreoffice/share/config/images_colibre_dark_svg.zip

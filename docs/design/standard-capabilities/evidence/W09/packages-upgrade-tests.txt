@@ -1,0 +1,23 @@
+[stack-admission] load1=2.91 cores=10 perCore=0.29 running=0/2
+[test-isolation] id=run-mtq82aws-c439338c-0bdb6a70772c db=wsx_0bdb6a70772c7be4fe43 compose=wsx-0bdb6a70772c7be4fe43 pg=24008 redis=29008 sandbox=54008
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_0bdb6a70772c7be4fe43 capacity=100 current=6 required=32
+ ✓ tests/skill/office-docs-cjk-guidance.test.ts (11 tests) 2ms
+ ✓ tests/skill/office-full-packages.test.ts (2 tests) 2616ms
+ ✓ tests/skill/office-docs-starter-pack-source-guard.test.ts (10 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  03:46:03
+   Duration  5.29s (transform 278ms, setup 0ms, collect 366ms, tests 2.62s, environment 0ms, prepare 64ms)
+
+[db-isolation] db=wsx_0bdb6a70772c7be4fe43 peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/office-full-packages.test.ts tests/skill/office-docs-starter-pack-source-guard.test.ts tests/skill/office-docs-cjk-guidance.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

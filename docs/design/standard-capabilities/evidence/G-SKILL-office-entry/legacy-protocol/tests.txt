@@ -1,0 +1,22 @@
+[stack-admission] load1=2.59 cores=10 perCore=0.26 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtr014au-c702be49-25b641fbf150 db=wsx_25b641fbf150d59bf9b3 compose=wsx-25b641fbf150d59bf9b3 pg=21435 redis=26435 sandbox=51435
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_25b641fbf150d59bf9b3 capacity=100 current=6 required=32
+ ✓ tests/skill/office-full-packages.test.ts (2 tests) 2955ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  16:48:57
+   Duration  5.57s (transform 312ms, setup 0ms, collect 381ms, tests 2.95s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_25b641fbf150d59bf9b3 peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/office-full-packages.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

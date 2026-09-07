@@ -1,0 +1,28 @@
+[stack-admission] load1=19.90 cores=10 perCore=1.99 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq47jef-fd8b3e90-2f3a481c65cd db=wsx_2f3a481c65cd41c4078b compose=wsx-2f3a481c65cd41c4078b pg=23700 redis=28700 sandbox=53700
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_2f3a481c65cd41c4078b capacity=100 current=6 required=32
+ ✓ tests/kernel/mcp-tool-discovery.test.ts (18 tests) 21ms
+ ✓ tests/mcp/http-mcp-gateway-real-protocol.test.ts (6 tests) 1598ms
+   ✓ 真实协议：tools/list 拿到真实工具，annotations 决定 sideEffect > readOnlyHint:true 的工具归为「只读」；没有 annotations 的工具保守归为「写入外部」 1331ms
+ ✓ tests/mcp/pg-mcp-server-persistence-real-db.test.ts (3 tests) 9764ms
+ ✓ tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts (4 tests) 5ms
+ ✓ tests/mcp/complete-tool-schema.test.ts (6 tests) 6ms
+ ✓ tests/mcp/complete-tool-schema-real-db.test.ts (1 test) 450ms
+
+ Test Files  6 passed (6)
+      Tests  38 passed (38)
+   Start at  01:58:11
+   Duration  28.67s (transform 1.91s, setup 0ms, collect 4.19s, tests 11.84s, environment 1ms, prepare 702ms)
+
+[db-isolation] db=wsx_2f3a481c65cd41c4078b peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/complete-tool-schema.test.ts tests/mcp/complete-tool-schema-real-db.test.ts tests/mcp/http-mcp-gateway-real-protocol.test.ts tests/mcp/pg-mcp-server-persistence-real-db.test.ts tests/kernel/mcp-tool-discovery.test.ts tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：31s
+  清理：1s
+  总计：32s

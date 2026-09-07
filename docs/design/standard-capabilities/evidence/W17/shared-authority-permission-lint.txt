@@ -1,0 +1,2 @@
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=1287 tenant-tables=201 allowlisted=91

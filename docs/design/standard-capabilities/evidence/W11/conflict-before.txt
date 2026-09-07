@@ -1,0 +1,24 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_update_tool_preserves_conflict_without_reading_or_leaking_response ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a0afe10>
+
+    def test_update_tool_preserves_conflict_without_reading_or_leaking_response(monkeypatch):
+     calls=[]
+     def handle(request):
+      calls.append(request)
+      return httpx.Response(409,stream=httpx.ByteStream(b'service-secret internal SQL detail'))
+     original=httpx.AsyncClient
+     monkeypatch.setattr(web.httpx,'AsyncClient',lambda **kwargs:original(transport=httpx.MockTransport(handle),**kwargs))
+     tool=next(t for t in web.standard_canvas_tools() if t.name=='wx_canvas_update')
+>    with pytest.raises(web.StandardCanvasError,match='^canvas_revision_or_idempotency_conflict$'):
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E    AssertionError: 
+E    - Workspace context unavailable or request refused; no content confirmed
+E    + canvas_revision_or_idempotency_conflict
+
+apps/deep-agent-service/tests/test_standard_canvas_tools.py:45: AssertionError
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_standard_canvas_tools.py::test_update_tool_preserves_conflict_without_reading_or_leaking_response
+1 failed, 6 deselected in 1.03s

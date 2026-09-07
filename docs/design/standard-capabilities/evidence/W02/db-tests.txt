@@ -1,0 +1,22 @@
+[stack-admission] load1=2.72 cores=10 perCore=0.27 running=0/2
+[test-isolation] id=run-mtqb6rc1-28d7261b-4f530ff10708 db=wsx_4f530ff10708e3137812 compose=wsx-4f530ff10708e3137812 pg=23633 redis=28633 sandbox=53633
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_4f530ff10708e3137812 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/native-session-owner-real-db.test.ts (13 tests) 3672ms
+ ✓ tests/agent-runtime/native-output-staging-real-db.test.ts (1 test) 430ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  05:13:29
+   Duration  6.79s (transform 323ms, setup 0ms, collect 635ms, tests 4.10s, environment 0ms, prepare 45ms)
+
+[db-isolation] db=wsx_4f530ff10708e3137812 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-session-owner-real-db.test.ts tests/agent-runtime/native-output-staging-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：0s
+  总计：8s

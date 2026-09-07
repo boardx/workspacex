@@ -1,0 +1,17 @@
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: authority must refuse before the sole facts query
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: tenant transaction required
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: trusted author/source binding missing
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: trusted author/source binding missing
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: current requester membership/visibility required
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: existing current visibility read required
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: bounded trusted output required
+✗ src/infrastructure/agent-run/pg-standard-memory-proof.ts: unexpected raw output
+✗ src/infrastructure/agent-run/with-authorized-standard-tool-run.ts:18  reads tenant table `agent_runs` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/agent-run/with-authorized-standard-tool-run.ts:19  reads tenant table `chat_messages` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+
+❌ 10 unguarded tenant read(s). See UC-0.3 R7 / coherence X-1.
+scanned=1278 tenant-tables=201 allowlisted=91

@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: current exact system/disclosure boundaries satisfy the exception
+ok 1 - current exact system/disclosure boundaries satisfy the exception
+  ---
+  duration_ms: 47.518042
+  type: 'test'
+  ...
+# Subtest: counterproof: losing tenant SQL predicates or transaction scope fails
+ok 2 - counterproof: losing tenant SQL predicates or transaction scope fails
+  ---
+  duration_ms: 15.620334
+  type: 'test'
+  ...
+# Subtest: counterproof: a second tenant table is not included in the exception
+ok 3 - counterproof: a second tenant table is not included in the exception
+  ---
+  duration_ms: 8.372
+  type: 'test'
+  ...
+# Subtest: counterproof: unpinned or cross-org parent version join fails
+ok 4 - counterproof: unpinned or cross-org parent version join fails
+  ---
+  duration_ms: 8.31425
+  type: 'test'
+  ...
+# Subtest: counterproof: missing parent authorization before list or retry fails
+ok 5 - counterproof: missing parent authorization before list or retry fails
+  ---
+  duration_ms: 12.224041
+  type: 'test'
+  ...
+# Subtest: counterproof: allowing denied visibility or bypassing the shared decision fails
+ok 6 - counterproof: allowing denied visibility or bypassing the shared decision fails
+  ---
+  duration_ms: 9.465042
+  type: 'test'
+  ...
+# Subtest: counterproof: tools or parent remote thread reuse are not permitted
+ok 7 - counterproof: tools or parent remote thread reuse are not permitted
+  ---
+  duration_ms: 5.777875
+  type: 'test'
+  ...
+# Subtest: parent cancellation exception cannot read private content or scan all parents
+ok 8 - parent cancellation exception cannot read private content or scan all parents
+  ---
+  duration_ms: 11.311583
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 702.896583

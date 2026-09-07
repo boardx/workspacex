@@ -1,0 +1,44 @@
+[stack-admission] load1=2.78 cores=10 perCore=0.28 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtquvzxw-5a8108a3-55fbb27d2702 db=wsx_55fbb27d2702c30e22cf compose=wsx-55fbb27d2702c30e22cf pg=23589 redis=28589 sandbox=53589
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_55fbb27d2702c30e22cf capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/canvas-skill-real-model.live.ts (1 test) 34549ms
+   ✓ 'S012' real configured model selects skill and delivers source-grounded artifact 34548ms
+ ❯ tests/agent-runtime/authoring-skill-real-model.live.ts (1 test | 1 failed) 75313ms
+   × 'S015' real configured model selects skill and delivers source-grounded artifact 75313ms
+     → expected undefined to be defined
+ ✓ tests/agent-runtime/visual-skills-real-model.live.ts (2 tests) 163599ms
+   ✓ 'S017' real configured model selects skill and delivers source-grounded artifact 59079ms
+   ✓ 'S020' real configured model selects skill and delivers source-grounded artifact 104520ms
+ ✓ tests/agent-runtime/method-skills-real-model.live.ts (4 tests | 2 skipped) 108863ms
+   ✓ 'S014' real configured model selects skill and delivers source-grounded artifact 48993ms
+   ✓ 'S019' real configured model selects skill and delivers source-grounded artifact 59870ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/authoring-skill-real-model.live.ts > 'S015' real configured model selects skill and delivers source-grounded artifact
+AssertionError: expected undefined to be defined
+ ❯ tests/agent-runtime/authoring-skill-real-model.live.ts:112:157
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 5 passed | 2 skipped (8)
+   Start at  14:25:00
+   Duration  386.39s (transform 498ms, setup 0ms, collect 1.64s, tests 382.32s, environment 0ms, prepare 119ms)
+
+[db-isolation] db=wsx_55fbb27d2702c30e22cf peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.extended-skills-real-model.config.ts -t S014|S019|S012|S015|S017|S020
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.extended-skills-real-model.config.ts -t S014|S019|S012|S015|S017|S020
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6m27s
+  清理：1s
+  总计：6m27s

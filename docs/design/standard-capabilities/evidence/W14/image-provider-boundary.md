@@ -1,0 +1,7 @@
+# W14 existing image provider transport boundary
+
+Reuses `BailianImageProvider` and its current submission/polling protocol. `complete` retains the existing Markdown response; the added `generateImage` method returns the existing vendor task ID, model reference and HTTPS result URL for subsequent standard-tool integration. It does not publish an artifact or claim the full WX-T038 tool is complete.
+
+One abort signal now covers submission headers/body, all polling requests and polling delays, with a maximum two-minute total deadline. Caller cancellation is also accepted by `generateImage`. Both endpoints reject redirects and compressed bodies; JSON is bounded to 64 KiB, decoded as strict UTF-8, and task IDs cannot escape the task path. Unknown submission outcomes are not retried. Cancelling local transport does not claim that the external vendor task was cancelled.
+
+Verification: real local HTTP-server tests passed 8/8, including a stalled response body, cancellation during polling, oversized body, redirect, invalid task path/type and unsafe result URL. The existing real Nest/PG image-agent bootstrap/chat test passed 1/1 in an earlier two-file run. That earlier run's six new assertions incorrectly expected private error details instead of the existing public `MODEL_CALL_FAILED` code; those assertions were corrected and all eight boundary tests then passed. Raw logs preserve both runs. No live vendor request or external deployment was performed.

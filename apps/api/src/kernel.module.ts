@@ -1,3 +1,93 @@
+import type { ArtifactReadDeps } from "./application/artifacts-steering/read-artifact";
+import type { DeliveryDeps } from "./application/files/deliver-artifact";
+import { AGENT_ARTIFACT_DELIVERY_SOURCE, type AgentArtifactDeliverySource } from "./application/files/agent-artifact-delivery-source";
+import { PgAgentArtifactDeliverySource } from "./infrastructure/files/pg-agent-artifact-delivery-source";
+import { STANDARD_ENTRY_SCOPE } from "./application/agent-run/standard-entry-scope";
+import { AuthorizedNativeEntryScope } from "./infrastructure/agent-run/authorized-native-entry-scope";
+import { STANDARD_ARTIFACT_DOWNLOAD, StandardArtifactDownloadService } from "./application/agent-run/standard-artifact-download";
+import { STANDARD_RUN_STATUS, StandardRunStatusService } from "./application/agent-run/standard-run-status";
+import { STANDARD_RUN_CANCEL, StandardRunCancelService } from "./application/agent-run/standard-run-cancel";
+import { PgRunArtifactRefsReader } from "./infrastructure/agent-run/pg-run-artifact-refs-reader";
+import { StandardArtifactDownloadController } from "./interface/controllers/standard-artifact-download.controller";
+import { StandardRunStatusController } from "./interface/controllers/standard-run-status.controller";
+import { StandardRunCancelController } from "./interface/controllers/standard-run-cancel.controller";
+import { OrganizationHybridRetrieval } from "./infrastructure/retrieval/organization-hybrid-retrieval";
+import { PgSegmentRetriever } from "./infrastructure/retrieval/pg-segment-retriever";
+import { langChainRerankClientFromEnv } from "./infrastructure/retrieval/langchain-rerank-client";
+import { EMBEDDING_PORT, RERANK_PORT, type RerankPort, type EmbeddingPort } from "./application/retrieval/ports";
+import { ARTIFACT_INDEX_PRODUCER, type ArtifactIndexProducer } from "./application/retrieval/index-artifact-version";
+import { ARTIFACT_INDEXING_SERVICE } from "./application/retrieval/request-artifact-index";
+import { langChainEmbeddingClientFromEnv } from "./infrastructure/retrieval/langchain-embedding-client";
+import { createArtifactIndexProducer } from "./infrastructure/retrieval/artifact-index-producer";
+import { createArtifactIndexingService } from "./infrastructure/retrieval/artifact-indexing-service";
+import { ArtifactIndexingController } from "./interface/controllers/artifact-indexing.controller";
+import { NATIVE_FILE_DELEGATION } from "./application/agent-run/native-file-delegation";
+import { NativeFileDelegationProof } from "./infrastructure/agent-run/native-file-delegation-proof";
+import { NativeFileDelegationController } from "./interface/controllers/native-file-delegation.controller";
+import { OrganizationContextSource } from "./infrastructure/agent-run/organization-context-source";
+import { PgOrganizationKnowledgeIndex } from "./infrastructure/retrieval/pg-organization-knowledge-index";
+import { SCHEDULE_NOTIFICATIONS } from "./application/agent-run/schedule-notifications";
+import { PgScheduleNotifications } from "./infrastructure/agent-run/pg-schedule-notifications";
+import { ScheduleNotificationsController } from "./interface/controllers/schedule-notifications.controller";
+import { STANDARD_AUDIO_SERVICE } from "./application/agent-run/standard-audio-tools";
+import { DefaultStandardAudioService } from "./infrastructure/agent-run/standard-audio-service";
+import { StandardAudioController } from "./interface/controllers/standard-audio.controller";
+import { McpCredentialExecutionBroker, mcpCredentialBrokerFromEnv } from "./infrastructure/mcp/mcp-credential-execution-broker";
+import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
+import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
+import { StandardImageController } from "./interface/controllers/standard-image.controller";
+import { createGeneratedImageDownloader } from "./infrastructure/agent-run/generated-image-downloader";
+import { STANDARD_SCHEDULE, SCHEDULED_RUN_NOTIFIER, type ScheduledRunNotifier } from "./application/agent-run/standard-schedule";
+import { PgBossScheduler } from "./infrastructure/agent-run/pg-boss-scheduler";
+import { PgStandardSchedule } from "./infrastructure/agent-run/pg-standard-schedule";
+import { ScheduledChatRunGateway } from "./infrastructure/agent-run/scheduled-chat-run-gateway";
+import { StandardScheduleRuntime } from "./infrastructure/agent-run/standard-schedule-runtime";
+import { StandardScheduleController } from "./interface/controllers/standard-schedule.controller";
+import { SKILL_DRAFT_SERVICE, DefaultSkillDraftService } from "./application/agent-run/skill-draft";
+import { createNativeDraftSession } from "./infrastructure/agent-run/native-draft-session";
+import { SkillDraftController } from "./interface/controllers/skill-draft.controller";
+import { SkillArtifactImportController } from "./interface/controllers/skill-artifact-import.controller";
+import { SKILL_ARTIFACT_IMPORT_DEPS } from "./application/skill-import/import-skill-artifact";
+import { MCP_EXECUTION_SNAPSHOT, type McpExecutionSnapshot } from "./application/agent-run/mcp-execution-snapshot";
+import { PgMcpExecutionSnapshot } from "./infrastructure/mcp/pg-mcp-execution-snapshot";
+import { createHttpMcpExecution } from "./infrastructure/mcp/http-mcp-execution";
+import { McpExecutionSnapshotController } from "./interface/controllers/mcp-execution-snapshot.controller";
+import { STANDARD_SUBTASK_SERVICE, SUBTASK_CONTEXT_RESOLVER, StandardSubtaskContextResolver, DefaultStandardSubtaskService } from "./application/agent-run/standard-subtask-tools";
+import { StandardSubtaskToolsController } from "./interface/controllers/standard-subtask-tools.controller";
+import { STANDARD_DOCUMENT_SERVICE } from "./application/agent-run/standard-document-tools";
+import { DefaultStandardDocumentService } from "./infrastructure/agent-run/standard-document-service";
+import { createNativeDocumentSession } from "./infrastructure/agent-run/native-document-session";
+import { StandardDocumentToolsController } from "./interface/controllers/standard-document-tools.controller";
+import { STANDARD_SQL_SOURCE } from "./application/agent-run/standard-sql-source";
+import { PgStandardSqlSource } from "./infrastructure/agent-run/pg-standard-sql-source";
+import { StandardSqlSourceController } from "./interface/controllers/standard-sql-source.controller";
+import { STANDARD_CANVAS_SERVICE, StandardCanvasService } from "./application/agent-run/standard-canvas-tools";
+import { StandardCanvasToolsController } from "./interface/controllers/standard-canvas-tools.controller";
+import { STANDARD_CONTEXT_SERVICE, StandardContextService } from "./application/agent-run/standard-context-tools";
+import { StandardContextSource } from "./infrastructure/agent-run/standard-context-source";
+import { StandardContextToolsController } from "./interface/controllers/standard-context-tools.controller";
+import type { BindingDeps } from "./application/artifact/binding-ports";
+import type { ProjectListRepository, ProjectOverviewRepository } from "./application/project/ports";
+import { STANDARD_WEB_SERVICE } from "./application/agent-run/standard-web-tools";
+import { STANDARD_BROWSER_SERVICE } from "./application/agent-run/standard-browser-tools";
+import { PlaywrightMcpBrowserAdapter, PublicBrowserNetworkPolicy, RemotePlaywrightMcpSessionFactory } from "./infrastructure/agent-run/playwright-mcp-browser-adapter";
+import { PgBrowserExecutionReceipts } from "./infrastructure/agent-run/pg-browser-execution-receipts";
+import { StandardBrowserToolsController } from "./interface/controllers/standard-browser-tools.controller";
+import { STANDARD_MEMORY_PROOF } from "./application/agent-run/standard-memory-proof";
+import { PgStandardMemoryProof } from "./infrastructure/agent-run/pg-standard-memory-proof";
+import { StandardMemoryProofController } from "./interface/controllers/standard-memory-proof.controller";
+import { createStandardWebService } from "./infrastructure/agent-run/standard-web-service";
+import { StandardWebToolsController } from "./interface/controllers/standard-web-tools.controller";
+import { NATIVE_OUTPUT_STAGING, type NativeOutputStaging } from "./application/agent-run/native-output-staging";
+import { NativeOutputStagingController } from "./interface/controllers/native-output-staging.controller";
+import { PgNativeOutputStaging } from "./infrastructure/agent-run/pg-native-output-staging";
+import { createNativeSessionFiles } from "./infrastructure/agent-run/native-session-files";
+import { NativeSessionController } from "./interface/controllers/native-session.controller";
+import { NATIVE_SESSION_OWNER, type NativeSessionOwner } from "./application/agent-run/native-session-owner";
+import { PgNativeRunInputs } from "./infrastructure/agent-run/pg-native-run-inputs";
+import { PgNativeSessionOwner } from "./infrastructure/agent-run/pg-native-session-owner";
+import { createNativeSessionTransport } from "./infrastructure/agent-run/native-session-transport";
+import { PgChildRunCanceller } from "./infrastructure/agent-run/pg-child-run-canceller";
 import { PARENT_RUN_CONTROL, ParentRunControl, CHILD_RUN_CANCELLER, type ChildRunCanceller } from "./application/agent-run/parent-run-control";
 import { TOOL_EXECUTION_AUTHORITY, ToolExecutionAuthority } from "./application/agent-run/tool-execution-authority";
 import { PgParentRunControlReader } from "./infrastructure/agent-run/pg-parent-run-control";
@@ -173,7 +263,7 @@ import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-le
 // 被绑进这个容器——issue（本 PR 描述）：接线 copilotkit-v2-panel 时发现除 UC-1 外的全部
 // plan-control 写操作在真实 app 里没有 HTTP 面，只在测试里手工 new 过依赖。
 import { PLAN_RUN_CREATOR } from "./application/plan-control/plan-run-creator-port";
-import { ENGINE_RUN_CONTROLLER } from "./application/plan-control/engine-run-controller-port";
+import { ENGINE_RUN_CONTROLLER, type EngineRunController } from "./application/plan-control/engine-run-controller-port";
 import { AcceptMessagePlanRunCreator } from "./infrastructure/plan-control/accept-message-plan-run-creator";
 import { DeepAgentEngineRunController } from "./infrastructure/plan-control/deep-agent-engine-run-controller";
 // F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
@@ -385,8 +475,9 @@ import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
-import { SUBTASK_RUN_STORE } from "./application/agent-run/subtask-run-queue";
-import { InMemorySubtaskRunStore } from "./infrastructure/agent-run/in-memory-subtask-run-store";
+import { SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR } from "./application/agent-run/subtask-run-queue";
+import { PgSubtaskRunStore } from "./infrastructure/agent-run/pg-subtask-run-store";
+import { SubtaskRunExecutor } from "./infrastructure/agent-run/subtask-run-executor";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { PlanControlController } from "./interface/controllers/plan-control.controller";
 import { BoardController } from "./interface/controllers/board.controller";
@@ -809,7 +900,7 @@ import {
   UuidRecordingIdGenerator,
 } from "./infrastructure/recording/pg-recording-repository";
 import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
-import { ASR_PROVIDER } from "./application/recording/asr-ports";
+import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
@@ -872,6 +963,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
+    ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1079,8 +1172,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: RUN_RECOVERY,
-      useFactory: (db: DatabasePort, runs: AgentRunStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig())),
-      inject: [DATABASE_PORT, AGENT_RUN_STORE],
+      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined),
+      inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER],
     },
     {
       provide: ARTIFACT_STORE,
@@ -1269,6 +1362,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // ⚠ `saveDraft` / `pinVersion` still have no request shape -- providing the store does
     // NOT open those paths, and nothing here should be read as saying it does.
     { provide: OBJECT_STORE, useFactory: () => new FsObjectStore(objectStoreRoot()) },
+    { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
+    { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
+    {
+      provide: ARTIFACT_INDEX_PRODUCER,
+      useFactory: (db: DatabasePort, objects: ObjectStore, embeddings: EmbeddingPort | null) =>
+        createArtifactIndexProducer(db, objects, embeddings ?? undefined),
+      inject: [DATABASE_PORT, OBJECT_STORE, EMBEDDING_PORT],
+    },
+    {
+      provide: ARTIFACT_INDEXING_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, producer: ArtifactIndexProducer) =>
+        createArtifactIndexingService(db, objects, producer),
+      inject: [DATABASE_PORT, OBJECT_STORE, ARTIFACT_INDEX_PRODUCER],
+    },
     // F17. Called INSIDE the aperture (see `export-to-organization.ts` step 5), so a future
     // cross-deployment transport inherits the approval check instead of having to remember it.
     {
@@ -1340,6 +1447,36 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // ⚠ The isolated origin is a security boundary, not cosmetics -- an uploaded .html or a
     // scripted .svg served from the main origin runs there. See the builder's header.
     { provide: DOWNLOAD_URL_BUILDER, useClass: IsolatedDownloadUrlBuilder },
+    {
+      provide: STANDARD_ENTRY_SCOPE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore) =>
+        new AuthorizedNativeEntryScope(db, authority, {repo,ids,chat}, runs),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE],
+    },
+    {
+      provide: AGENT_ARTIFACT_DELIVERY_SOURCE,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, artifacts: ArtifactReadDeps["artifacts"], objects: ObjectStore) =>
+        new PgAgentArtifactDeliverySource(db, {repo,ids,chat,artifacts}, objects),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, ARTIFACT_STORE, OBJECT_STORE],
+    },
+    {
+      provide: STANDARD_ARTIFACT_DOWNLOAD,
+      useFactory: (grants: DeliveryDeps["grants"], urls: DeliveryDeps["urls"], objectStore: DeliveryDeps["objectStore"], integrity: DeliveryDeps["integrity"], repo: DeliveryDeps["repo"], ids: DeliveryDeps["ids"], idFactory: DeliveryDeps["idFactory"], provenance: DeliveryDeps["provenance"], agentArtifacts: AgentArtifactDeliverySource) =>
+        new StandardArtifactDownloadService({grants,urls,objectStore,integrity,repo,ids,idFactory,provenance,agentArtifacts,now:()=>new Date()}),
+      inject: [DOWNLOAD_GRANT_REPOSITORY, DOWNLOAD_URL_BUILDER, OBJECT_STORE_PROBE, OBJECT_INTEGRITY_CHECKER, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, ID_FACTORY, PROVENANCE_WRITER, AGENT_ARTIFACT_DELIVERY_SOURCE],
+    },
+    {
+      provide: STANDARD_RUN_STATUS,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore, artifacts: ArtifactReadDeps["artifacts"]) =>
+        new StandardRunStatusService({repo,ids,chat,runs},new PgRunArtifactRefsReader(db,{repo,ids,chat,artifacts})),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE, ARTIFACT_STORE],
+    },
+    {
+      provide: STANDARD_RUN_CANCEL,
+      useFactory: (repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore, model: ModelCallPort, children: ParentRunControl, interjections: InterjectionStore) =>
+        new StandardRunCancelService({repo,ids,chat,runs,model,liveQueue:Boolean(interjections.pollForKernel)},children),
+      inject: [IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, AGENT_RUN_STORE, MODEL_CALL_PORT, PARENT_RUN_CONTROL, INTERJECTION_STORE],
+    },
     // F33.
     {
       provide: EXPORT_CONTENT_REPOSITORY,
@@ -1514,14 +1651,25 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: RUN_EVENT_BUS,
       useValue: new InMemoryRunEventBus(),
     },
-    /**
-     * issue #2664/#2666 -- 一个进程内单例，跨请求共享同一份队列状态（同 orgId 下"入队"
-     * 与"领取"/"查询"必须看到彼此）。`InMemorySubtaskRunStore` 自己的头注记录了这个
-     * MVP 的已知取舍（进程重启丢队列、多副本不共享）。
-     */
+    /** WX-T042: one durable tenant queue shared across processes and restarts. */
     {
       provide: SUBTASK_RUN_STORE,
-      useValue: new InMemorySubtaskRunStore(),
+      useFactory: (db: DatabasePort) => new PgSubtaskRunStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SUBTASK_RUN_EXECUTOR,
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver) => {
+        const configured = readModelProviderConfig();
+        const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
+        // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
+        if (![DEEP_AGENT_PROVIDER_NAME, DEEP_RESEARCH_PROVIDER_NAME, BAILIAN_IMAGE_PROVIDER_NAME].includes(configured.provider)) {
+          deadlines.set(configured.provider, configured.timeoutMs);
+        }
+        return new SubtaskRunExecutor(store, db, model, logger,
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts);
+      },
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供
@@ -1682,7 +1830,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
         decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
         events: RunEventBusPort, toolPermissionGrants: ToolPermissionGrantStore,
-        interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader,
+        interjections: InterjectionStore, artifactContinuations: ArtifactContinuationReader, nativeSessions: NativeSessionOwner | null, nativeOutputs: NativeOutputStaging | null,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
@@ -1722,12 +1870,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 构造函数该参数自己的完整取证）。与 `CopilotkitAguiController` 共用
           // `TOOL_PERMISSION_GRANT_STORE` 这同一个单例，不各自新开一份。
           toolPermissionGrants, interjections, artifactContinuations,
+          nativeSessions ?? undefined,
+          nativeOutputs ?? undefined, process.env.KERNEL_NATIVE_RUNTIME === "1",
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
         SKILL_SANDBOX_PORT, RUN_EVENT_BUS, TOOL_PERMISSION_GRANT_STORE,
-        INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER,
+        INTERJECTION_STORE, ARTIFACT_CONTINUATION_READER, NATIVE_SESSION_OWNER, NATIVE_OUTPUT_STAGING,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
@@ -1740,6 +1890,178 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // issue #2767 -- F06 三档授权存储的单一实例，`AgentRunExecutor`（执行循环的
     // `hasGrant` 查询）与 `CopilotkitAguiController`（`decideToolPermission` 的
     // once/forever 写入）共用同一个，不各自 `new` 一份。
+    {
+      provide: CHILD_RUN_CANCELLER,
+      useFactory: (db: DatabasePort) => new PgChildRunCanceller(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: STANDARD_WEB_SERVICE,
+      useFactory: createStandardWebService,
+    },
+    {
+      provide: STANDARD_BROWSER_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, db: DatabasePort) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        const endpoint = process.env.WORKSPACEX_BROWSER_MCP_ENDPOINT;
+        return owner && socketPath && endpoint ? new PlaywrightMcpBrowserAdapter(
+          owner, bound => createNativeDraftSession({socketPath,...bound}), authority,
+          new PgBrowserExecutionReceipts(db), new PublicBrowserNetworkPolicy(),
+          new RemotePlaywrightMcpSessionFactory(endpoint),
+        ) : null;
+      },
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, DATABASE_PORT],
+    },
+    {
+      provide: SKILL_DRAFT_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, objects: ObjectStore) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        return owner && socketPath ? new DefaultSkillDraftService(owner,
+          bound => createNativeDraftSession({socketPath,...bound}), authority, objects) : null;
+      },
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE],
+    },
+    {
+      provide: SKILL_ARTIFACT_IMPORT_DEPS,
+      useFactory: (db: DatabasePort, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) =>
+        ({artifacts:new PgArtifactStore(db),repo,ids,chat,objects,identities:repo,imports:new PgSkillStarterImportRepository(db)}),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE],
+    },
+    { provide: McpCredentialExecutionBroker, useFactory: mcpCredentialBrokerFromEnv },
+    {
+      provide: MCP_EXECUTION_SNAPSHOT,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, broker: McpCredentialExecutionBroker | null) =>
+        new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution(), broker ?? undefined),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, McpCredentialExecutionBroker],
+    },
+    {
+      provide: STANDARD_AUDIO_SERVICE,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore, provider: AsrProviderPort) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        if (!owner || !socketPath || !provider.isConfigured() || !provider.modelRef) return null;
+        return new DefaultStandardAudioService(owner, new PgNativeRunInputs(db, objects, {repo, ids, chat}),
+          bound => ({...createNativeDraftSession({socketPath, ...bound}), execute: createNativeDocumentSession({socketPath, ...bound}).execute}),
+          authority, repo, objects, provider);
+      },
+      inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY,
+        DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE, ASR_PROVIDER],
+    },
+    {
+      provide: STANDARD_IMAGE_SERVICE,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore) => {
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, config=readBailianImageProviderConfig();
+        if (!owner || !socketPath || !config.apiKey.trim()) return null;
+        const provider=new BailianImageProvider(config);
+        return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
+          bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
+          authority,repo,objects,{modelRef:config.modelId,generateImage:provider.generateImage.bind(provider)},createGeneratedImageDownloader());
+      },
+      inject: [DATABASE_PORT,NATIVE_SESSION_OWNER,TOOL_EXECUTION_AUTHORITY,IDENTITY_REPOSITORY,
+        DECISION_ID_FACTORY,CHAT_REPOSITORY,OBJECT_STORE],
+    },
+    { provide: NATIVE_FILE_DELEGATION, useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => new NativeFileDelegationProof(db, authority, new PgNativeRunInputs(db, objects, {repo, ids, chat})), inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY] },
+    { provide: PgScheduleNotifications, useFactory: (db: DatabasePort, repo: IdentityRepository) => new PgScheduleNotifications(db, repo), inject: [DATABASE_PORT, IDENTITY_REPOSITORY] },
+    { provide: SCHEDULED_RUN_NOTIFIER, useExisting: PgScheduleNotifications },
+    { provide: SCHEDULE_NOTIFICATIONS, useExisting: PgScheduleNotifications },
+    {
+      provide: STANDARD_SCHEDULE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository,
+        ids: DecisionIdFactory, chat: ChatRepository, runs: AgentRunStore,
+        commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort, model: ModelCallPort, titleModel: ThreadTitleModelConfig,
+        logger: LoggerPort, notifier?: ScheduledRunNotifier) => {
+        if (process.env.KERNEL_STANDARD_SCHEDULER !== "1") return null;
+        const provider = new PgBossScheduler(db, code => logger.error(code, {traceId:randomUUID(),err:code}));
+        const gateway = new ScheduledChatRunGateway({repo,ids,chat,commands,publishedAgents,threadMounts,enabledSkills,
+          model,titleModel,log: () => logger.error("schedule_chat_failed", {traceId:randomUUID(),err:"schedule_chat_failed"})},
+          orgId => executor.kick(orgId));
+        return new StandardScheduleRuntime(provider, new PgStandardSchedule({db,authority,
+          visibility:{repo,ids,chat,runs},provider,gateway,notifier}));
+      },
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY,
+        CHAT_REPOSITORY, AGENT_RUN_STORE, CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER,
+        THREAD_MOUNTED_SKILL_READER, ENABLED_SKILL_VERSION_READER, AGENT_RUN_EXECUTOR,
+        MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT, {token:SCHEDULED_RUN_NOTIFIER,optional:true}],
+    },
+    {
+      provide: STANDARD_SQL_SOURCE,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
+        new PgStandardSqlSource(db, authority, { repo, ids, chat }),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: SUBTASK_CONTEXT_RESOLVER,
+      useFactory: (runs: AgentRunStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, knowledge: StandardContextService) =>
+        new StandardSubtaskContextResolver(runs, { repo, ids, chat }, knowledge),
+      inject: [AGENT_RUN_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, STANDARD_CONTEXT_SERVICE],
+    },
+    {
+      provide: STANDARD_SUBTASK_SERVICE,
+      useFactory: (owner: NativeSessionOwner | null, authority: ToolExecutionAuthority, sources: StandardSubtaskContextResolver, store: PgSubtaskRunStore, executor: SubtaskRunExecutor) =>
+        owner ? new DefaultStandardSubtaskService(owner, authority, sources, store, executor) : null,
+      inject: [NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, SUBTASK_CONTEXT_RESOLVER, SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR],
+    },
+    {
+      provide: STANDARD_DOCUMENT_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        if (!owner || !socketPath) return { parse: async () => { throw new Error("document_parse_unavailable"); } };
+        return new DefaultStandardDocumentService(owner, new PgNativeRunInputs(db,objects,{repo,ids,chat}),
+          bound => createNativeDocumentSession({socketPath,...bound}), authority);
+      },
+      inject: [DATABASE_PORT, OBJECT_STORE, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: STANDARD_CANVAS_SERVICE,
+      useFactory: (instances: CanvasInstanceRepository, repo: IdentityRepository, ids: DecisionIdFactory) =>
+        new StandardCanvasService({ instances, auth: { repo, ids } }),
+      inject: [CANVAS_INSTANCE_REPOSITORY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY],
+    },
+    {
+      provide: STANDARD_CONTEXT_SERVICE,
+      useFactory: (db: DatabasePort, objects: ObjectStore, identity: IdentityRepository, decisions: DecisionIdFactory,
+        chat: ChatRepository, lists: ProjectListRepository, overview: ProjectOverviewRepository,
+        bindings: BindingDeps["bindings"], artifacts: BindingDeps["artifacts"], ids: BindingDeps["ids"], provenance: BindingDeps["provenance"], embeddings: EmbeddingPort | null, rerank: RerankPort | null) => {
+        const auth = { repo: identity, ids: decisions };
+        const index = new PgOrganizationKnowledgeIndex(db, auth);
+        return new StandardContextService({ repo: lists, identity },
+          { repo: overview, auth, binding: { bindings, artifacts, auth, ids, provenance } },
+          new OrganizationContextSource(index, auth,
+            new StandardContextSource(new PgFileRetrieval(db), objects, { ...auth, chat }),
+            new OrganizationHybridRetrieval(index, auth, embeddings && rerank ? { retriever: new PgSegmentRetriever(db), embeddings, rerank } : undefined)));
+      },
+      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
+        PROJECT_LIST_REPOSITORY, PROJECT_OVERVIEW_REPOSITORY, BINDING_REPOSITORY, ARTIFACT_REPOSITORY, ID_FACTORY, PROVENANCE_WRITER, EMBEDDING_PORT, RERANK_PORT],
+    },
+    {
+      provide: STANDARD_MEMORY_PROOF,
+      useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository) =>
+        new PgStandardMemoryProof(db, authority, { repo, ids, chat }),
+      inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY],
+    },
+    {
+      provide: NATIVE_OUTPUT_STAGING,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, objects: ObjectStore, authority: ToolExecutionAuthority) => {
+        if (!owner) return null;
+        const socketPath = process.env.NATIVE_SESSION_SOCKET!;
+        return new PgNativeOutputStaging(db, owner, objects, authority,
+          resolved => createNativeSessionFiles({ socketPath, sessionId: resolved.sessionId, token: resolved.token }));
+      },
+      inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, OBJECT_STORE, TOOL_EXECUTION_AUTHORITY],
+    },
+    {
+      provide: NATIVE_SESSION_OWNER,
+      useFactory: (db: DatabasePort, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, mcp: McpExecutionSnapshot) => {
+        const socket=process.env.NATIVE_SESSION_SOCKET, key=process.env.NATIVE_SESSION_BINDING_KEY;
+        if (process.env.KERNEL_NATIVE_RUNTIME === "1" && (!socket || !key)) throw new Error("native_runtime_configuration_missing");
+        return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key,new PgNativeRunInputs(db,objects,{repo,ids,chat}),mcp) : null;
+      },
+      inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MCP_EXECUTION_SNAPSHOT],
+    },
     {
       provide: PARENT_RUN_CONTROL,
       useFactory: (db: DatabasePort, children?: ChildRunCanceller) => new ParentRunControl(new PgParentRunControlReader(db), children),

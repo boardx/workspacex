@@ -1,0 +1,26 @@
+Actual command output retained from completed execution (tool session 53686).
+No test rerun was used to reconstruct this evidence.
+
+Command:
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/skill/import-fetch-diagnostics.test.ts tests/skill/import-fetch-wiring.test.ts
+
+[stack-admission] load1=2.48 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mtq5ozzl-976bf149-1879ddfd3478 db=wsx_1879ddfd34787efa55a9 compose=wsx-1879ddfd34787efa55a9 pg=24869 redis=29869 sandbox=54869
+[db-isolation] db=wsx_1879ddfd34787efa55a9 capacity=100 current=6 required=32
+ ✓ tests/skill/import-fetch-wiring.test.ts (9 tests) 67ms
+ ✓ tests/skill/import-fetch-diagnostics.test.ts (5 tests) 5ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+   Start at  02:39:43
+   Duration  2.21s (transform 44ms, setup 0ms, collect 25ms, tests 72ms, environment 0ms, prepare 50ms)
+
+[db-isolation] db=wsx_1879ddfd34787efa55a9 peak_connections=1
+[timing] command execution 3s; cleanup 0s; total 3s
+Exit code: 0
+
+Scope: bounded allowlisted GitHub API failure diagnostics, success/non-GitHub silence,
+response body/query/header secrecy, and existing real TLS/SSRF wiring regressions.
+After this run, the diagnostic test's callback type was narrowed from Function to
+(response: IncomingMessage) => void with an explicit event-surface test-double cast.
+This type-only change did not alter executable test behavior.

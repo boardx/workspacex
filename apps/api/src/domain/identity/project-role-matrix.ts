@@ -67,6 +67,7 @@ export const PROJECT_ACTIONS = [
    * 是「非 observer 即可写」这个已有惯例的延伸。F35（uploadArtifact）落地时如果需要
    * 更细的角色区分，应在这里改，而不是另建一个不经过本矩阵的判定。
    */
+  "content.indexFile",    // Rebuild derived search index; follows the same existing file-write roles.
   "content.renameFile",   // 改文件名（改名走契约，见 N-23）
   /**
    * F45（files 束 · uc-22-4 `previewDeleteImpact`/`requestDeletion`）：「调用者是项目负责人」
@@ -129,19 +130,19 @@ export const PROJECT_ROLE_MATRIX: Readonly<Record<ProjectRole, readonly ProjectA
     "agendaSegment.advance", "agendaSegment.broadcast", "agendaSegment.timer", "agendaSegment.group", "agendaSegment.bulkConfirm",
     "agendaSegment.bindTemplate", "agendaSegment.create",
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote", "content.renameFile", "member.manage",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile", "member.manage",
     "artifact.requestDeletion", "artifact.complianceOps",
     "read.ownGroup", "read.allHands", "read.published", "read.rawTranscript", "read.privateChat",
   ],
   // Runs their own group. No room control: they cannot advance the stage for everyone.
   groupLead: [
     "group.submitOutput", "group.confirmNode",
-    "content.postNote", "content.speak", "content.vote", "content.renameFile",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Participates. Cannot submit on the group's behalf or confirm its nodes.
   member: [
-    "content.postNote", "content.speak", "content.vote", "content.renameFile",
+    "content.postNote", "content.speak", "content.vote", "content.renameFile", "content.indexFile",
     "read.ownGroup", "read.allHands", "read.published",
   ],
   // Read-only, and narrower than "read": no raw transcript, no private chat, no own-group

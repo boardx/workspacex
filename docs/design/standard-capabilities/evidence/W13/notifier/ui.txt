@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/web
+
+ ✓ tests/ui/task-notifications.test.tsx (2 tests) 31ms
+ ✓ tests/ui/schedule-notifications.test.tsx (3 tests) 77ms
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  11:50:37
+   Duration  1.17s (transform 68ms, setup 265ms, collect 216ms, tests 107ms, environment 1.35s, prepare 61ms)
+

@@ -1,0 +1,24 @@
+ Container wx-office-render-green-skill-sandbox-sessions-run-842f704578f3 Creating 
+ Container wx-office-render-green-skill-sandbox-sessions-run-842f704578f3 Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+SERVICE_READY_MS 569
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"executionId":"1d8fa7ed-53ae-4351-bac6-7a499d9edbe3","exitCode":1,"output":"Traceback (most recent call last):\n  File \"/workspace/render-office.py\", line 36, in <module>\n    subprocess.run(['/usr/lib/libreoffice/program/soffice.bin', '-env:UserInstallation=' + (Path(scratch) / 'profile').as_uri(),\n  File \"/usr/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['/usr/lib/libreoffice/program/soffice.bin', '-env:UserInstallation=file:///tmp/office-render-ehbdkwah/profile', '--headless', '--convert-to', 'pdf', '--outdir', '/workspace/render-docx', '/workspace/b.docx']' returned non-zero exit status 81.\n","truncated":false,"timedOut":false,"cancelled":false}
+
+1 !== 0
+
+    at file:///opt/sandbox/[eval1]:37:43
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2
+

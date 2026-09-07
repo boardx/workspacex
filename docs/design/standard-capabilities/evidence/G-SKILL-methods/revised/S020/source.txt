@@ -1,0 +1,5 @@
+category,count
+甲组,10
+乙组,20
+丙组,
+Unit: people. Empty count is missing, not zero. Data are entirely synthetic.

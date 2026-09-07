@@ -82,6 +82,13 @@ function respond(res: ServerResponse, status: number, body: unknown): void {
 async function startLanggraphServer(): Promise<void> {
   langgraphServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "";
+    if (req.method === "GET" && url === `/threads/${remoteThreadId}/runs/${remoteRunId}/stream`) {
+      // This fixture closes the join stream only once the modeled operation is terminal.
+      statusCallCount = 1;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end(`event: metadata\r\ndata: ${JSON.stringify({ run_id: remoteRunId })}\r\n\r\n`);
+      return;
+    }
     if (req.method === "POST" && url === "/threads") {
       return respond(res, 200, { thread_id: remoteThreadId });
     }

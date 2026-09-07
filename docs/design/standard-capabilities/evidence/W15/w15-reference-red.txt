@@ -1,0 +1,53 @@
+[stack-admission] load1=4.29 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqlk07p-ab6bbee4-79f004fda964 db=wsx_79f004fda964da637fe7 compose=wsx-79f004fda964da637fe7 pg=23053 redis=28053 sandbox=53053
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_79f004fda964da637fe7 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/skill-draft.test.ts (3 tests | 2 failed) 11ms
+   × writes complete verified draft using real immutable object store and replays without new identity 6ms
+     → skill_draft_reference_missing
+   × concurrent different metadata on the same call has one winner and never overwrites saved draft 3ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/skill-draft.test.ts > writes complete verified draft using real immutable object store and replays without new identity
+Error: skill_draft_reference_missing
+ ❯ DefaultSkillDraftService.create src/application/agent-run/skill-draft.ts:35:118
+
+ ❯ tests/agent-runtime/skill-draft.test.ts:24:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/agent-runtime/skill-draft.test.ts > concurrent different metadata on the same call has one winner and never overwrites saved draft
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/agent-runtime/skill-draft.test.ts:38:196
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  10:03:44
+   Duration  2.67s (transform 369ms, setup 0ms, collect 458ms, tests 11ms, environment 0ms, prepare 42ms)
+
+[db-isolation] db=wsx_79f004fda964da637fe7 peak_connections=1
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/skill-draft.test.ts
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/skill-draft.test.ts; pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：4s

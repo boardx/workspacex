@@ -1,0 +1,35 @@
+[stack-admission] load1=16.10 cores=10 perCore=1.61 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqnhho4-2c5f0f96-67379fc728cf db=wsx_67379fc728cfd8c24a76 compose=wsx-67379fc728cfd8c24a76 pg=23631 redis=28631 sandbox=53631
+
+> @repo/api@0.0.0 migrate:check /private/tmp/workspacex-standard-capabilities/apps/api
+> ./scripts/verify-migrations.sh
+
+ Network wsx-67379fc728cfd8c24a76_default Creating 
+ Network wsx-67379fc728cfd8c24a76_default Created 
+ Container wsx-67379fc728cfd8c24a76-postgres-1 Creating 
+ Container wsx-67379fc728cfd8c24a76-postgres-1 Created 
+ Container wsx-67379fc728cfd8c24a76-postgres-1 Starting 
+ Container wsx-67379fc728cfd8c24a76-postgres-1 Started 
+NOTICE:  database "wsx_67379fc728cfd8c24a76" does not exist, skipping
+  applied 227 migration(s) to an empty database
+/private/tmp/workspacex-standard-capabilities/apps/api/src/infrastructure/db/migrator.ts:109
+          throw new Error(`migration ${name} failed: ${msg}`);
+                ^
+
+Error: migration 20260907020000_interjection_public_events.sql failed: function "workbench_journal_interjection" already exists with same argument types
+    at migrate (/private/tmp/workspacex-standard-capabilities/apps/api/src/infrastructure/db/migrator.ts:109:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/private/tmp/workspacex-standard-capabilities/apps/api/scripts/migrate-check.ts:30:16)
+
+Node.js v22.23.1
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 migrate:check: `./scripts/verify-migrations.sh`
+Exit status 1
+[timing] pnpm --filter @repo/api migrate:check
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：2s
+  总计：42s

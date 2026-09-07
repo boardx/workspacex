@@ -42,6 +42,7 @@ interface VersionRow {
 }
 
 interface GrantRow {
+  source_kind: "file" | "agent";
   id: string;
   artifact_id: string;
   version_id: string;
@@ -110,11 +111,11 @@ export class PgDownloadGrantRepository implements DownloadGrantRepository {
       await s.query(
         `INSERT INTO download_grants
            (id, org_id, artifact_id, version_id, object_key, principal_user_id,
-            permission_decision_id, purpose, token_hash, expires_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            permission_decision_id, purpose, token_hash, expires_at, source_kind)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           g.id, g.orgId, g.artifactId, g.versionId, g.objectKey, g.principalUserId,
-          g.permissionDecisionId, g.purpose, g.tokenHash, g.expiresAt.toISOString(),
+          g.permissionDecisionId, g.purpose, g.tokenHash, g.expiresAt.toISOString(), g.sourceKind ?? "file",
         ],
       );
     });
@@ -165,7 +166,7 @@ export class PgDownloadGrantRepository implements DownloadGrantRepository {
             AND consumed_at IS NULL
             AND expires_at > now()
             AND principal_user_id = $3
-      RETURNING id, artifact_id, version_id, object_key, permission_decision_id, purpose,
+      RETURNING source_kind, id, artifact_id, version_id, object_key, permission_decision_id, purpose,
                 consumed_at`,
         [input.orgId, input.tokenHash, input.principalUserId],
       );
@@ -173,6 +174,7 @@ export class PgDownloadGrantRepository implements DownloadGrantRepository {
       const row = updated.rows[0];
       if (row) {
         const grant: ConsumedDownloadGrant = {
+          sourceKind: row.source_kind,
           id: row.id,
           artifactId: row.artifact_id,
           versionId: row.version_id,

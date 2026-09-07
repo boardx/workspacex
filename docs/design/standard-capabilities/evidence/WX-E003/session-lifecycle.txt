@@ -1,0 +1,3 @@
+{"completedExecutions":80,"baseline":{"count":3,"zombies":0},"settled":{"count":3,"zombies":0}}
+{"completedExecutions":160,"baseline":{"count":3,"zombies":0},"settled":{"count":3,"zombies":0}}
+SESSION_LIFECYCLE_160_EXECUTIONS_NO_ZOMBIE_ACCUMULATION_OK

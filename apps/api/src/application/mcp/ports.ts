@@ -45,6 +45,9 @@ export class McpDiscoveryTimeoutError extends Error {
  * `NEWLY_DISCOVERED_TOOL_DEFAULT_SCOPE` (I-21).
  */
 export interface DiscoveredTool {
+  readonly description?: string;
+  readonly inputSchema?: Record<string, unknown>;
+  readonly outputSchema?: Record<string, unknown>;
   readonly name: string;
   readonly signature: string;
   readonly sideEffect: z.infer<typeof ToolSideEffect>;

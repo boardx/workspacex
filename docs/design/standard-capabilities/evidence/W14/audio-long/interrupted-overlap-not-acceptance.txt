@@ -1,0 +1,68 @@
+[stack-admission] load1=9.93 cores=10 perCore=0.99 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqrwd9l-4807893a-f684cd7387e4 db=wsx_f684cd7387e45921b4a3 compose=wsx-f684cd7387e45921b4a3 pg=23483 redis=28483 sandbox=53483
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_f684cd7387e45921b4a3 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"c2003b20-3c25-4df3-80b6-7b14f0824ac2","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at ChatAttachmentController.upload (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat-attachment.controller.ts:193:53)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"7d3c989b-93f4-466d-a4bd-29f378e2a654","detail":{"name":"ForbiddenException","message":"Forbidden Exception","stack":"ForbiddenException: Forbidden Exception\n    at ChatAttachmentController.upload (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat-attachment.controller.ts:198:19)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"b3456eb0-cb64-4504-971f-7b7b8ca51283","detail":{"name":"UnsupportedMediaTypeException","message":"Unsupported Media Type Exception","stack":"UnsupportedMediaTypeException: Unsupported Media Type Exception\n    at ChatAttachmentController.upload (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat-attachment.controller.ts:202:19)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"1aafdeb9-adba-424c-ac07-a4193d3634f1","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at ChatAttachmentController.upload (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat-attachment.controller.ts:179:13)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"ebf22fd2-2a5a-46f0-9141-db5efbd614d2","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at ChatAttachmentController.upload (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat-attachment.controller.ts:204:19)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/chat/attachment-upload.test.ts (10 tests) 82204ms
+   ✓ POST /chat/threads/:threadId/attachments > 201: 合法 PDF 落一行 pending 附件（message_id NULL），返回契约 Attachment 形状 1959ms
+   ✓ POST /chat/threads/:threadId/attachments > 修 bug：中文文件名不再 mojibake —— multipart latin1 filename 复原成 UTF-8（人类 devapp 实测） 5454ms
+   ✓ POST /chat/threads/:threadId/attachments > F153 端到端：上传真 CSV → ≤3MB 内联抽取，201 返回时 extraction_status 已 extracted + 摘录就绪 359ms
+   ✓ POST /chat/threads/:threadId/attachments > F153/#1560 端到端：上传图片 + 无视觉 key → 上传仍 201，抽取如实 failed(visionNotConfigured) 1160ms
+   ✓ POST /chat/threads/:threadId/attachments > 404: 不存在/不可见的线程 —— 裸 404，不写行 771ms
+   ✓ POST /chat/threads/:threadId/attachments > 403: 观察者无写权（NO_WRITE_ROLE），不写行 716ms
+   ✓ POST /chat/threads/:threadId/attachments > 413: 超单文件字节上限（FILE_TOO_LARGE，multer 硬顶），不写行 1225ms
+   ✓ POST /chat/threads/:threadId/attachments > 415: 非白名单类型（FILE_TYPE_REJECTED），不写行 634ms
+   ✓ POST /chat/threads/:threadId/attachments > 422: 声明 PDF 实为 EXE 字节（MIME_MISMATCH，改扩展名骗白名单），不写行 385ms
+   ✓ POST /chat/threads/:threadId/attachments > 409: 该线程 pending 达上限（ATTACHMENT_LIMIT_EXCEEDED）后拒收第 11 个 2313ms
+ ❯ tests/agent-runtime/standard-audio-tools.test.ts (8 tests | 1 failed) 1241ms
+   × covers all 120 source chunks with bounded concurrent ASR and stable source order 946ms
+     → expected 3 to be 4 // Object.is equality
+ ❯ tests/chat/attachment-mime-sniff.test.ts (10 tests | 1 failed) 14ms
+   × declaredMimeMatchesBytes > 白名单每个 MIME 都在族映射内有归属（不漏配） 6ms
+     → 白名单类型 audio/mpeg 缺少 sniff 族配置或样本: expected undefined to be defined
+ ✓ tests/recording/file-asr-manual.test.ts (3 tests) 84ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-audio-tools.test.ts > covers all 120 source chunks with bounded concurrent ASR and stable source order
+AssertionError: expected 3 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 3
+
+ ❯ tests/agent-runtime/standard-audio-tools.test.ts:56:227
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/chat/attachment-mime-sniff.test.ts > declaredMimeMatchesBytes > 白名单每个 MIME 都在族映射内有归属（不漏配）
+AssertionError: 白名单类型 audio/mpeg 缺少 sniff 族配置或样本: expected undefined to be defined
+ ❯ tests/chat/attachment-mime-sniff.test.ts:84:50
+     82|     for (const mime of CFU.ATTACHMENT_MIME_ALLOWLIST) {
+     83|       const s = specimen[mime];
+     84|       expect(s, `白名单类型 ${mime} 缺少 sniff 族配置或样本`).toBeDefi…
+       |                                                  ^
+     85|       expect(declaredMimeMatchesBytes(mime, s!)).toBe(true);
+     86|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  2 failed | 29 passed (31)
+   Start at  13:01:20
+   Duration  103.42s (transform 20.75s, setup 0ms, collect 6.44s, tests 83.54s, environment 41ms, prepare 924ms)
+
+[db-isolation] db=wsx_f684cd7387e45921b4a3 peak_connections=5
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-audio-tools.test.ts tests/chat/attachment-mime-sniff.test.ts tests/chat/attachment-upload.test.ts tests/recording/file-asr-manual.test.ts

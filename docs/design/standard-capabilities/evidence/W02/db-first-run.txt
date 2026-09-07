@@ -1,0 +1,42 @@
+[stack-admission] load1=2.70 cores=10 perCore=0.27 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqb63xx-8c0fb418-36590d8ae144 db=wsx_36590d8ae144cf4ad2e2 compose=wsx-36590d8ae144cf4ad2e2 pg=20834 redis=25834 sandbox=50834
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_36590d8ae144cf4ad2e2 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/native-session-owner-real-db.test.ts (13 tests | 1 failed) 3882ms
+   × real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources 141ms
+     → EISDIR: illegal operation on a directory, open '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/native-input-nTE9ho/original.csv'
+ ✓ tests/agent-runtime/native-output-staging-real-db.test.ts (1 test) 420ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/native-session-owner-real-db.test.ts > real attachment bytes are scoped, immutable on resume and fail closed on unavailable or oversized sources
+Error: EISDIR: illegal operation on a directory, open '/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/native-input-nTE9ho/original.csv'
+ ❯ tests/agent-runtime/native-session-owner-real-db.test.ts:66:3
+     64|   await expect(owner().provision({...ctx,orgId:toOrgId('other-org')},[…
+     65|   await expect(reader.read({...ctx,parentRunId:'other-run'})).rejects.…
+     66|   await writeFile(join(root,'original.csv'),Buffer.alloc(source.length…
+       |   ^
+     67|   await expect(owner().provision(ctx,[],{})).rejects.toThrow('existing…
+     68|   // Existing session returns its original verified snapshot; it never…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 13 passed (14)
+   Start at  05:12:59
+   Duration  6.89s (transform 302ms, setup 0ms, collect 605ms, tests 4.30s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_36590d8ae144cf4ad2e2 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/native-session-owner-real-db.test.ts tests/agent-runtime/native-output-staging-real-db.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-session-owner-real-db.test.ts tests/agent-runtime/native-output-staging-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7s
+  清理：1s
+  总计：8s

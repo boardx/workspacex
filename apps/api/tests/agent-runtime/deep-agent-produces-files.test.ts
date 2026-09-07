@@ -125,6 +125,14 @@ async function startDeepAgentFake(options: DeepAgentFakeOptions): Promise<DeepAg
       });
       return;
     }
+    // Skill facts require a stream even when text delta streaming is disabled.
+    // This legacy-script fixture emits no Skill facts; its end frame is terminal.
+    if (req.method === "GET" && /^\/threads\/[^/]+\/runs\/[^/]+\/stream$/.test(url)) {
+      polls.set("run-1", 1);
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end((options.toolResult === null ? "" : "event: updates\ndata: {\"tools\":{}}\n\n") + "event: end\ndata: {}\n\n");
+      return;
+    }
     if (req.method === "GET" && /^\/threads\/[^/]+\/runs\/[^/]+$/.test(url)) {
       // 先 pending 再 success：让真实的轮询循环真的转一圈，而不是首次即终态。
       const seen = (polls.get("run-1") ?? 0) + 1;
@@ -136,7 +144,7 @@ async function startDeepAgentFake(options: DeepAgentFakeOptions): Promise<DeepAg
       // The initial checkpoint predates this run: future completed tools must not appear as history.
       if (createRunBodies.length === 0) { json(200, { values: { messages: [] } }); return; }
       const messages: Record<string, unknown>[] = [{ type: "human", content: "帮我做一份季度回顾的 deck" }];
-      if (options.toolResult !== null) {
+      if (options.toolResult !== null && createRunBodies.length > 0) {
         messages.push({
           type: "ai",
           content: "我先把任务交给 pptx 技能。",
@@ -386,7 +394,7 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
         input: { messages: { role: string; content: string }[] };
       };
       // 协议这个键**根本不出现**——不是出现一个空串。
-      expect(Object.keys(body.config.configurable)).toEqual(["org_skills"]);
+      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "wsx_memory_scope"]);
       expect(body.config.configurable.org_skills).toEqual([]);
       // system prompt 里也一个字都没多。
       const system = body.input.messages.find((m) => m.role === "system");
@@ -408,7 +416,7 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       // 也一并出现（值是空数组：没有 L2 skill 需要拦；缺省 stableName "pptx" 未声明
       // `risk_level` frontmatter ⇒ `SKILL_RISK_DEFAULT_LEVEL` L1）。挂了 skill 就该
       // 投影真实计算结果，不是"挂了 skill 也不算"。
-      expect(Object.keys(body.config.configurable).sort()).toEqual(["hitl_skill_names", "org_skills", "script_protocol"]);
+      expect(Object.keys(body.config.configurable).sort()).toEqual(["hitl_skill_names", "org_skills", "script_protocol", "wsx_memory_scope"]);
       expect(body.input.messages.find((m) => m.role === "system")?.content).toContain("run_script");
     } finally {
       await deepAgent.close();
@@ -432,7 +440,7 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       // issue #2767 -- 同上一条用例：挂了 skill（缺省 L1）⇒ `hitl_skill_names` 一并
       // 出现（空数组）。`script_protocol` 这一条本身不受影响，仍然按 `withSandbox`
       // 决定出不出现——这条用例本来就是在验证"不送协议"，不是"不送 hitl 名单"。
-      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "hitl_skill_names"]);
+      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "hitl_skill_names", "wsx_memory_scope"]);
     } finally {
       await deepAgent.close();
     }

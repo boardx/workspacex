@@ -135,7 +135,7 @@ export interface PlanRunStatusReader {
    * F976 —— P-2 探针的写入点。`execute-run.ts` 的 `ModelCallInput.onRemoteRunStarted`
    * 回调在远端 run 创建成功后立即调用它。可重复调用是安全的（同一 `runId` 幂等覆盖）。
    */
-  recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string): Promise<void>;
+  recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string, remoteThreadId?: string): Promise<void>;
 
   /** UC-9 `pausePlanRun` 的落点：标记这条本地 run 行「已被暂停」，不改写 `status`。 */
   markRunPaused(orgId: OrgId, runId: string): Promise<void>;

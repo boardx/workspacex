@@ -52,7 +52,7 @@ async function seedAgentWithSkill(): Promise<{ agentId: string; versionId: strin
     await c.query(
       `INSERT INTO skill_version_files (org_id,version_id,path,content,media_type,digest)
        VALUES ($1,$2,'SKILL.md',$3::bytea,'text/markdown',$4)`,
-      [ORG, skillVersionId, Buffer.from("# fixture\n"), "0".repeat(64)],
+      [ORG, skillVersionId, Buffer.from("# fixture\n"), createHash("sha256").update("# fixture\n").digest("hex")],
     );
     await c.query("SELECT wave2_publish_skill_version($1,$2)", [ORG, skillVersionId]);
     await c.query(

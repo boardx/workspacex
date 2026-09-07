@@ -139,6 +139,16 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
       });
       return;
     }
+    // Required journal stream completes at the same terminal state as this run.
+    const streamMatch = /^\/threads\/([^/]+)\/runs\/[^/]+\/stream$/.exec(url);
+    if (req.method === "GET" && streamMatch) {
+      const record = threads.get(streamMatch[1]!);
+      if (!record) { json(404, { error: "unknown thread" }); return; }
+      record.statusPolls = 1;
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.end('event: metadata\ndata: {}\n\n');
+      return;
+    }
     const statusMatch = /^\/threads\/([^/]+)\/runs\/[^/]+$/.exec(url);
     if (req.method === "GET" && statusMatch) {
       const threadId = statusMatch[1]!;

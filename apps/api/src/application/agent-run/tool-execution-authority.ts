@@ -25,9 +25,10 @@ export interface ToolAuthoritySnapshot {
   readonly explicitlyDenied?: boolean;
   readonly authorizeOnce?: () => Promise<boolean>;
 }
+export type ExecutionAuthorityContext = Omit<ToolExecutionCheck, "toolName"> & { readonly toolName?: string };
 export interface ToolAuthorityReader {
   /** Keep the run row locked for the check to avoid cancellation/grant races. */
-  withSnapshot<T>(input: ToolExecutionCheck, check: (snapshot: ToolAuthoritySnapshot | null) => Promise<T>): Promise<T>;
+  withSnapshot<T>(input: ExecutionAuthorityContext, check: (snapshot: ToolAuthoritySnapshot | null) => Promise<T>): Promise<T>;
 }
 /** Trusted runtime boundary only: neither model args nor a browser may choose org/epoch.
  * This check authorizes dispatch now; it is not a reusable grant or exactly-once token. */

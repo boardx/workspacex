@@ -1,0 +1,79 @@
+{
+  "limits": {
+    "maxCandidates": 100,
+    "maxTextBytes": 32768,
+    "maxRequestBytes": 1048576,
+    "maxResponseBytes": 1048576,
+    "deadlineMs": 30000
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "candidates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "content": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "id",
+            "content"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 100
+      }
+    },
+    "required": [
+      "query",
+      "candidates"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "modelVersion": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "ids": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "maxItems": 100
+      }
+    },
+    "required": [
+      "model",
+      "modelVersion",
+      "ids"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

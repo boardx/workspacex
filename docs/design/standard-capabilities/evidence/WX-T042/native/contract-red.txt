@@ -1,0 +1,21 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ❯ tests/standard-subtask-tools.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/standard-subtask-tools.test.ts [ tests/standard-subtask-tools.test.ts ]
+Error: Failed to load url ../src/standard-subtask-tools (resolved id: ../src/standard-subtask-tools) in /private/tmp/workspacex-standard-capabilities/packages/contracts/tests/standard-subtask-tools.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@25.9.5_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  15:48:05
+   Duration  191ms (transform 44ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 27ms)
+
+undefined
+/private/tmp/workspacex-standard-capabilities/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/standard-subtask-tools.test.ts

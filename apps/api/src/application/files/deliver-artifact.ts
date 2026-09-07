@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import type { AgentArtifactDeliverySource } from "./agent-artifact-delivery-source";
 /**
  * F32 -- 五类预览器 + 单个下载（短时效 · 一次性 · 写审计）。
  *
@@ -92,6 +94,7 @@ export class FilesDeliveryError extends Error {
 }
 
 export interface DeliveryDeps extends AuthorizeDeps {
+  readonly agentArtifacts?: AgentArtifactDeliverySource;
   readonly grants: DownloadGrantRepository;
   readonly objectStore: ObjectStoreProbe;
   /** F34 (V8·22-1): the real byte-level SHA-256 check `issueDownloadUrl` runs before minting. */
@@ -113,6 +116,8 @@ export interface DeliveryInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly versionId: string;
+  /** Optional caller-supplied parent identity; a mismatch remains indistinguishable from missing. */
+  readonly artifactId?: string;
 }
 
 /**
@@ -138,7 +143,9 @@ const DELIVER_ACTION = "read.allHands";
 async function resolveVisible(
   deps: DeliveryDeps,
   input: DeliveryInput,
-): Promise<{ version: DeliverableVersion; decision: PermissionDecision }> {
+): Promise<{ version: DeliverableVersion; decision: PermissionDecision; sourceKind: "file" | "agent" }> {
+  const agentVersion = await deps.agentArtifacts?.resolve(input);
+  if (agentVersion) return {...agentVersion,sourceKind:"agent"};
   const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
   const found = await deps.grants.findVisibleVersion({
     orgId: input.orgId,
@@ -146,7 +153,9 @@ async function resolveVisible(
     requesterTeamId: membership?.teamId ?? null,
   });
   // Not visible, or not there. One answer, on purpose -- see the header.
-  if (!found) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
+  if (!found || (input.artifactId !== undefined && found.artifactId !== input.artifactId)) {
+    throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
+  }
 
   const decision = await authorize(deps, {
     userId: input.userId,
@@ -159,7 +168,7 @@ async function resolveVisible(
   });
   const disclosed = discloseDecided(found.version, decision);
   if (!isDisclosed(disclosed)) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
-  return { version: (disclosed as Disclosed<DeliverableVersion>).payload, decision };
+  return { version: (disclosed as Disclosed<DeliverableVersion>).payload, decision, sourceKind:"file" };
 }
 
 export async function previewArtifactVersion(
@@ -192,7 +201,7 @@ export async function issueDownloadUrl(
   deps: DeliveryDeps,
   input: DeliveryInput & { readonly purpose: "download" | "export" },
 ): Promise<IssueDownloadUrlResult> {
-  const { version, decision } = await resolveVisible(deps, input);
+  const { version, decision, sourceKind } = await resolveVisible(deps, input);
 
   /**
    * 「pre: 对象存储可用」 (usecases.md, verbatim).
@@ -229,6 +238,7 @@ export async function issueDownloadUrl(
   const expiresAt = downloadExpiry(now);
 
   await deps.grants.issue({
+    sourceKind,
     id: deps.idFactory.next("dlg"),
     orgId: input.orgId,
     artifactId: version.artifactId,
@@ -256,6 +266,8 @@ export async function issueDownloadUrl(
 
 /** What the redemption route needs in order to stream the bytes. */
 export interface RedeemedDownload {
+  readonly bytes?: Uint8Array;
+  readonly mime?: string;
   readonly objectKey: string;
   readonly artifactId: string;
   readonly versionId: string;
@@ -285,10 +297,21 @@ export async function redeemDownloadUrl(
   input: { readonly userId: string; readonly orgId: OrgId; readonly tokenHash: string },
 ): Promise<RedeemedDownload> {
   let eventId = "";
+  let bytes: Uint8Array | undefined;
+  let mime: string | undefined;
 
   const result = await deps.grants.consume(
     { orgId: input.orgId, tokenHash: input.tokenHash, principalUserId: input.userId },
     async (session, grant: ConsumedDownloadGrant) => {
+      if (grant.sourceKind === 'agent') {
+        const current = await deps.agentArtifacts?.resolve({...input,artifactId:grant.artifactId,versionId:grant.versionId});
+        if (!current) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
+        if (current.version.objectKey !== grant.objectKey) throw new FilesDeliveryError("ARTIFACT_NOT_FOUND");
+        const readback = await deps.agentArtifacts!.readBytes(grant.objectKey);
+        if (!readback || readback.length !== current.version.sizeBytes || createHash("sha256").update(readback).digest("hex") !== current.version.contentHash) throw new FilesDeliveryError("INTEGRITY_CHECK_FAILED");
+        bytes = readback;
+        mime = current.version.mime;
+      }
       // Inside the consuming transaction. If this throws, the consumption rolls back and the
       // link is still good -- a download with no trail is not a state this system can reach.
       eventId = await deps.provenance.appendWithin(session, {
@@ -309,6 +332,7 @@ export async function redeemDownloadUrl(
 
   if ("failure" in result) throw new FilesDeliveryError(FAILURE_CODE[result.failure]);
   return {
+    ...(bytes ? {bytes,mime} : {}),
     objectKey: result.grant.objectKey,
     artifactId: result.grant.artifactId,
     versionId: result.grant.versionId,

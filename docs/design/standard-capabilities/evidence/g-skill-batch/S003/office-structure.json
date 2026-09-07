@@ -1,0 +1,10 @@
+{
+  "file": "report.docx",
+  "parts": {
+    "word/document.xml": "项目简报 项目名称：合成项目晨星 目标：测试文档 里程碑 里程碑 说明 需求确认 确认项目需求与范围 原型验证 完成原型并进行验证 预算说明 本项目预算当前状态为\"未知\"。未获拨款、尚未批准或费用决策暂停等表述均不适用，亦无任何具体数字可供引用。请以后续正式通知为准。 Project Brief Project Name: Synthetic Project Morning Star Objective: Document testing Milestones Milestone Description Confirm Requirements Confirm project requirements and scope Validate Prototype Complete prototype and validate Budget Note The budget for this project is currently \"unknown\". No specific figures are available. Statements such as unfunded, not yet approved, or cost decision on hold do not apply. Please refer to subsequent official communication.",
+    "word/header1.xml": "晨星测试",
+    "word/header2.xml": "晨星测试"
+  },
+  "formulas": [],
+  "visualReviewStillRequired": true
+}

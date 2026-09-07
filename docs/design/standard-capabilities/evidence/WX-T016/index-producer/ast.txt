@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: index writer has same-transaction source reauthorization and bounded writes
+ok 1 - index writer has same-transaction source reauthorization and bounded writes
+  ---
+  duration_ms: 7.942167
+  type: 'test'
+  ...
+# Subtest: reject this.source.load(input)
+ok 2 - reject this.source.load(input)
+  ---
+  duration_ms: 1.553959
+  type: 'test'
+  ...
+# Subtest: reject JSON.stringify(current)!==JSON.stringify(batch)
+ok 3 - reject JSON.stringify(current)!==JSON.stringify(batch)
+  ---
+  duration_ms: 1.469958
+  type: 'test'
+  ...
+# Subtest: reject withTenant(input.orgId
+ok 4 - reject withTenant(input.orgId
+  ---
+  duration_ms: 1.098708
+  type: 'test'
+  ...
+# Subtest: reject RETURNING segment_id
+ok 5 - reject RETURNING segment_id
+  ---
+  duration_ms: 1.153625
+  type: 'test'
+  ...
+# Subtest: reject v.org_id=$1 AND
+ok 6 - reject v.org_id=$1 AND
+  ---
+  duration_ms: 0.82
+  type: 'test'
+  ...
+# Subtest: reject [segment.segmentId,input.orgId
+ok 7 - reject [segment.segmentId,input.orgId
+  ---
+  duration_ms: 1.469708
+  type: 'test'
+  ...
+# Subtest: reject const current=await this.source.load(input);
+ok 8 - reject const current=await this.source.load(input);
+  ---
+  duration_ms: 0.881584
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 225.678708

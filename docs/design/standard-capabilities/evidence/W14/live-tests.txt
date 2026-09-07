@@ -1,0 +1,38 @@
+[stack-admission] load1=8.81 cores=10 perCore=0.88 running=0/2
+[test-isolation] id=run-mtqmrtr7-8d32bebe-183ea2d4a03a db=wsx_183ea2d4a03a6ae70eb9 compose=wsx-183ea2d4a03a6ae70eb9 pg=23100 redis=28100 sandbox=53100
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_183ea2d4a03a6ae70eb9 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/image-production-di.test.ts (1 test) 17338ms
+   ✓ production kernel binds image service only when native ownership and provider credentials are configured 6428ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:37:48
+   Duration  27.93s (transform 4.05s, setup 0ms, collect 1.10s, tests 17.34s, environment 0ms, prepare 110ms)
+
+[db-isolation] db=wsx_183ea2d4a03a6ae70eb9 peak_connections=2
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_183ea2d4a03a6ae70eb9 capacity=100 current=6 required=32
+stdout | tests/agent-runtime/native-full-chain.test.ts > official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback
+{"chain":"native_factory→UDS→isolated sandbox→PG authority→FsObjectStore→writeback","generatedImage":{"status":"generated","workspacePath":"/workspace/generated-be5acb2bd0eed1b3a090ccebc451e367a6d24c2dbc6972f45ca9860a6a182df5.png","mime":"image/png","width":1024,"height":1024,"sha256":"5025fd30defaaa5cfbfca813751d1c309f992873dd0f3631aaa8f90b017918d7","sizeBytes":18781,"modelRef":"fixture-model","taskId":"generated-task"},"draftFixtureVerified":true,"draft":{"status":"artifact_draft","workspacePath":"/workspace/skill-draft-4233689065fa1b9daa9b5773ecee6cc2a76c09cf6af70d13832a581fddb33ddb.json","packId":"draft-636ed59f27630bb9ba191e80df5c1cfe687e3d630278300d","packVersion":"1.0.0","packDigest":"1540d6be33709ff750125f697d998bf5fb1b1dde0908b6ae9ea6d5156e27b66b","fileDigest":"49554c0da4ce96913269796678cc5bbd404bd1bb8aa03cef236bd8c1961b93d9","validationReport":{"packageIntegrity":"verified","fileCount":2,"dependencyExecution":"not_verified","fixtureExecution":"not_run","publication":"admin_import_required"}},"documentParsed":true,"document":{"textPath":"/workspace/parsed-43966387-8057-41b4-bb3b-1b9ce1e10757/document.md","sourceHash":"9ab267fe88f6feadd7bbebeacfc8c7d1a089c38dcd077009ae16e2a031cb7bd9","textHash":"db4ddb26b6fb59b2cd529686a7716fef4204ed2495b34327ab17531f5dea7437","source":{"attachmentId":"3ffab887-bcec-49e5-9738-508646933427","path":"/inputs/02c974013aa6980d64288ee627154df52ad4e980f3a322d314af99af489b46c1/original.docx","mediaType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","sizeBytes":8532},"warnings":["markdown_only_no_page_coordinates","ocr_not_performed","tables_may_lose_layout"]},"inputsVerified":true,"inputPromptVerified":true,"webSourceLinked":true,"skillStages":["metadata_discovered","body_read"],"tools":["read_file","wx_document_parse","read_file","execute","wx_skill_create_draft","wx_artifact_publish","wx_artifact_publish","wx_image_generate","wx_artifact_publish","web_search","fetch_url"],"final":"Report staged for writeback.","artifacts":3,"attachments":3}
+
+ ✓ tests/agent-runtime/native-full-chain.test.ts (1 test) 16743ms
+   ✓ official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback 16229ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:38:17
+   Duration  18.66s (transform 763ms, setup 0ms, collect 1.28s, tests 16.74s, environment 0ms, prepare 53ms)
+
+[db-isolation] db=wsx_183ea2d4a03a6ae70eb9 peak_connections=3
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/image-production-di.test.ts; pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：48s
+  清理：1s
+  总计：49s

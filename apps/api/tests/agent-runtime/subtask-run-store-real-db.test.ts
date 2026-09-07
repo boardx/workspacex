@@ -1,0 +1,336 @@
+import {EXECUTION_MODE_CONFIG_KEY} from "@repo/contracts/standard-capabilities";
+import { createServer } from "node:http";
+import { SUBTASK_RUN_STORE } from "../../src/application/agent-run/subtask-run-queue";
+import { createHash, randomUUID } from "node:crypto";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { addOrgMember, asApp, ensureDatabase, migrateOnce, seedOrg } from "../support/db";
+import { addChatMessage, addChatThread } from "../support/chat-db";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { toOrgId } from "../../src/domain/org-id";
+import { PgSubtaskRunStore } from "../../src/infrastructure/agent-run/pg-subtask-run-store";
+import { SubtaskRunExecutor } from "../../src/infrastructure/agent-run/subtask-run-executor";
+import { SubtaskRunController } from "../../src/interface/controllers/subtask-run.controller";
+import type { ModelCallInput } from "../../src/application/agent-run/ports";
+
+// Counterexample: the CI merge shortened the peer main-run deadline to two minutes.
+// Derived tasks must still accept their independently bounded 180-second provider.
+vi.mock("../../src/application/agent-run/ports", async importOriginal => ({
+  ...await importOriginal<typeof import("../../src/application/agent-run/ports")>(),
+  DEFAULT_STALE_RUNNING_THRESHOLD_MS: 2 * 60_000,
+}));
+
+const suffix = randomUUID();
+const org = toOrgId(`org-t042-${suffix}`), other = toOrgId(`org-t042-other-${suffix}`);
+const parent = `parent-${suffix}`, otherParent = `other-parent-${suffix}`;
+let db: PgDatabase;
+const logger = { info: () => {}, warn: () => {}, error: () => {} };
+async function seed(scope: typeof org, id: string) {
+  const project = `project-${scope}`, thread = `thread-${scope}`, agent = `agent-${scope}`, version = `version-${scope}`;
+  await seedOrg({ orgId: scope, projectId: project });
+  await addOrgMember(scope,"actor","consultant",null);
+  await addOrgMember(scope,"intruder","consultant",null);
+  await addChatThread({ orgId: scope, id: thread, projectId: null, visibilityScope: "private", createdBy: "actor" });
+  await addChatMessage({ orgId: scope, id: `message-${scope}`, threadId: thread, body: "parent", authorId: "actor" });
+  await asApp(scope, async (c) => {
+    await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+      VALUES($1,$2,'t042','T042','enabled','actor',now(),now())`, [agent,scope]);
+    await c.query(`INSERT INTO agent_versions(id,org_id,agent_id,semantic_label,instruction_digest,instructions,
+      skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+      VALUES($1,$2,$3,'v1',$4,'pinned instructions','{}','test-provider','pinned-model','[]','actor',now(),now())`,
+    [version,scope,agent,createHash("sha256").update("pinned instructions").digest("hex")]);
+    await c.query(`INSERT INTO agent_runs(id,org_id,thread_id,input_message_id,agent_id,agent_version_id,
+      skill_version_ids,model_provider,model_id,status) VALUES($1,$2,$3,$4,$5,$6,'[]','test-provider','pinned-model','queued')`,
+    [id,scope,thread,`message-${scope}`,agent,version]);
+  });
+}
+beforeAll(async () => { await ensureDatabase(); await migrateOnce(); db = new PgDatabase(appConfig());
+  await seed(org,parent); await seed(other,otherParent); }, 120_000);
+afterAll(async () => { await db?.close(); });
+
+describe("WX-T042 durable queue", () => {
+  it("survives adapter restart and claims each job once across competing workers", async () => {
+    const first = new PgSubtaskRunStore(db);
+    const jobs = await Promise.all(Array.from({ length: 8 }, (_, i) => first.enqueue(org, { parentRunId: parent, description: `job ${i}` })));
+    const restarted = new PgSubtaskRunStore(db);
+    expect((await restarted.listByParentRun(org,parent)).map(r => r.id).sort()).toEqual(jobs.map(r => r.id).sort());
+    const claims = (await Promise.all([first.claimQueued(org,5), restarted.claimQueued(org,5)])).flat();
+    expect(new Set(claims.map(r => r.id)).size).toBe(8);
+    expect(claims).toHaveLength(8);
+    for (const run of claims) await restarted.complete(org,run.id,"done");
+    await restarted.complete(org,jobs[0]!.id,"overwrite");
+    await restarted.fail(org,jobs[0]!.id,"late failure");
+    expect((await new PgSubtaskRunStore(db).get(org,jobs[0]!.id))?.result).toBe("done");
+  });
+  it("enforces organization ownership on reads, writes and parent foreign keys", async () => {
+    const store = new PgSubtaskRunStore(db);
+    const foreign = await store.enqueue(other,{ parentRunId: otherParent, description: "private" });
+    expect(await store.get(org,foreign.id)).toBeNull();
+    expect(await store.listByParentRun(org,otherParent)).toEqual([]);
+    expect(await store.claimQueued(org,20)).toEqual([]);
+    await store.complete(org,foreign.id,"attack");
+    expect((await store.get(other,foreign.id))?.status).toBe("pending");
+    await expect(store.enqueue(org,{ parentRunId: otherParent, description: "cross-org" })).rejects.toThrow();
+    const hidden = await db.withTenant(org,s => s.query("SELECT id FROM subtask_runs WHERE id=$1",[foreign.id]));
+    expect(hidden.rows).toEqual([]);
+  });
+  it("marks lost running work failed on a later kick without replaying it or accepting stale completion", async () => {
+    const store = new PgSubtaskRunStore(db);
+    const run = await store.enqueue(org,{ parentRunId: parent, description: "interrupted" });
+    await store.claimQueued(org,1);
+    await asApp(org,c => c.query("UPDATE subtask_runs SET updated_at=now()-interval '1 hour' WHERE id=$1",[run.id]));
+    expect(await new PgSubtaskRunStore(db).claimQueued(org,10)).toEqual([]);
+    await store.complete(org,run.id,"late worker");
+    expect(await store.get(org,run.id)).toMatchObject({ status: "failed", result: null, error: "subtask_execution_lost_after_restart_or_timeout" });
+    const retried = await store.enqueue(org,{ parentRunId: parent, description: "interrupted" });
+    expect(retried.id).not.toBe(run.id);
+    await store.claimQueued(org,1); await store.complete(org,retried.id,"retry done");
+  });
+  it("controller submission kicks real model port execution and persists queryable terminal output", async () => {
+    const calls: ModelCallInput[] = [];
+    const store = new PgSubtaskRunStore(db);
+    const executor = new SubtaskRunExecutor(store,db,{ complete: async input => {
+      calls.push(input); return { text: "real port result" };
+    } },logger,true,new Map([["test-provider",180_000]]));
+    const controller = new SubtaskRunController(store,executor);
+    const old = process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY;
+    process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "t042-key";
+    try {
+      const result = await controller.enqueue("t042-key",{ orgId: org,parentRunId: parent,description: "summarize",context: "scoped context" });
+      expect(result.status).toBe("pending");
+      await expect.poll(async () => (await store.get(org,result.subtaskRunId))?.status).toBe("completed");
+      expect((await store.get(org,result.subtaskRunId))?.result).toBe("real port result");
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({ modelProvider: "test-provider",modelId: "pinned-model",system: "pinned instructions",orgId: org,executionMode: "text-only",skills: [] });
+      expect(calls[0]!.user).toContain("scoped context");
+    } finally { if (old === undefined) delete process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY; else process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = old; }
+  });
+  it("deduplicates concurrent replay by explicit key and rejects different payload", async () => {
+    const store = new PgSubtaskRunStore(db);
+    const input = { parentRunId: parent,description: "idempotent task",context: "context",idempotencyKey: "call-42" };
+    const results = await Promise.all([store.enqueue(org,input),new PgSubtaskRunStore(db).enqueue(org,input)]);
+    expect(results[0]!.id).toBe(results[1]!.id);
+    await expect(store.enqueue(org,{ ...input,description: "different" })).rejects.toThrow("subtask_idempotency_conflict");
+    await expect(store.enqueue(org,{ ...input,context: null })).rejects.toThrow("subtask_idempotency_conflict");
+    const foreign = await store.enqueue(other,{ ...input,parentRunId: otherParent });
+    expect(foreign.id).not.toBe(results[0]!.id);
+    await store.claimQueued(org,1); await store.complete(org,results[0]!.id,"done");
+  });
+  it("refuses unsupported or excessively long model deadlines before invoking the model", async () => {
+    const store = new PgSubtaskRunStore(db);
+    const run = await store.enqueue(org,{ parentRunId: parent,description: "long unsupported" });
+    let calls = 0;
+    const executor = new SubtaskRunExecutor(store,db,{ complete: async () => { calls++; return { text: "unexpected" }; } },
+      logger,false,new Map([["test-provider",20 * 60_000]]));
+    await executor.tick(org);
+    expect(calls).toBe(0);
+    expect(await store.get(org,run.id)).toMatchObject({ status: "failed",error: "subtask_provider_timeout_or_execution_mode_unsupported" });
+  });
+  it("production DI and HTTP enqueue reach a real loopback model and durable terminal state", async () => {
+    const requests: Record<string, unknown>[] = [];
+    const server = createServer((req,res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", chunk => chunks.push(Buffer.from(chunk)));
+      req.on("end", () => {
+        requests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        res.writeHead(200,{ "content-type": "application/json" });
+        res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "HTTP model completed" } }] }));
+      });
+    });
+    await new Promise<void>(resolve => server.listen(0,"127.0.0.1",resolve));
+    const address = server.address() as { port: number };
+    const env = { KERNEL_MODEL_PROVIDER: "test-provider", KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${address.port}`,
+      KERNEL_MODEL_API_KEY: "test-key", DEEP_AGENT_SERVICE_INTERNAL_KEY: "t042-http-key",
+      KERNEL_AGENT_RUN_AUTOSTART: "1", KERNEL_QUIET: "1", KERNEL_ALLOW_TEST_PRINCIPAL: "1" };
+    const previous = Object.fromEntries(Object.keys(env).map(key => [key,process.env[key]]));
+    Object.assign(process.env,env);
+    let app: Awaited<ReturnType<typeof import("../../src/main")["createApp"]>> | undefined;
+    try {
+      app = await (await import("../../src/main")).createApp();
+      await app.listen(0,"127.0.0.1");
+      const port = (app.getHttpServer().address() as { port: number }).port;
+      const response = await fetch(`http://127.0.0.1:${port}/internal/subtask-runs`, {
+        method: "POST", headers: { "content-type": "application/json", "x-deep-agent-internal-key": "t042-http-key" },
+        body: JSON.stringify({ orgId: org,parentRunId: parent,description: "HTTP child" }),
+      });
+      expect(response.status).toBe(201);
+      const body = await response.json() as { subtaskRunId: string };
+      const durable = app.get<PgSubtaskRunStore>(SUBTASK_RUN_STORE);
+      expect(durable).toBeInstanceOf(PgSubtaskRunStore);
+      const { CHILD_RUN_CANCELLER } = await import("../../src/application/agent-run/parent-run-control");
+      const { PgChildRunCanceller } = await import("../../src/infrastructure/agent-run/pg-child-run-canceller");
+      expect(app.get(CHILD_RUN_CANCELLER)).toBeInstanceOf(PgChildRunCanceller);
+      await expect.poll(async () => (await durable.get(org,body.subtaskRunId))?.status).toBe("completed");
+      expect((await durable.get(org,body.subtaskRunId))?.result).toBe("HTTP model completed");
+      expect(requests).toHaveLength(1);
+      expect(requests[0]!.model).toBe("pinned-model");
+      expect(requests[0]).not.toHaveProperty("tools");
+      const url = `http://127.0.0.1:${port}/agent-runs/${parent}/subtask-runs`;
+      const headers = (user: string) => ({ "x-kernel-test-principal": `${user}:${org}` });
+      expect((await fetch(url,{ headers: headers("actor") })).status).toBe(200);
+      expect((await fetch(url,{ headers: headers("intruder") })).status).toBe(404);
+      expect((await fetch(`${url}/${body.subtaskRunId}/retry`,{ method: "POST",headers: headers("actor") })).status).toBe(409);
+      const failed = await durable.enqueue(org,{ parentRunId: parent,description: "retry private" });
+      await durable.claimQueued(org,1); await durable.fail(org,failed.id,"fixture failed");
+      expect((await fetch(`${url}/${failed.id}/retry`,{ method: "POST",headers: headers("intruder") })).status).toBe(404);
+      expect(requests).toHaveLength(1);
+      const retries = await Promise.all([0,1].map(() => fetch(`${url}/${failed.id}/retry`,{ method: "POST",headers: headers("actor") })));
+      expect(retries.map(r => r.status)).toEqual([201,201]);
+      const retryBodies = await Promise.all(retries.map(r => r.json())) as { subtaskRunId: string }[];
+      expect(retryBodies[0]!.subtaskRunId).toBe(retryBodies[1]!.subtaskRunId);
+      const retryBody = retryBodies[0]!;
+      expect(retryBody.subtaskRunId).not.toBe(failed.id);
+      await expect.poll(async () => (await durable.get(org,retryBody.subtaskRunId))?.status).toBe("completed");
+      expect(requests).toHaveLength(2);
+      await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2",[org,parent]));
+      const late = await fetch(`http://127.0.0.1:${port}/internal/subtask-runs`, {
+        method:"POST",headers:{"content-type":"application/json","x-deep-agent-internal-key":"t042-http-key"},
+        body:JSON.stringify({orgId:org,parentRunId:parent,description:"late authenticated callback"}),
+      });
+      expect(late.status).toBe(409);
+      expect(await late.json()).toMatchObject({reasonCode:"SUBTASK_PARENT_CANCELLED"});
+      expect(requests).toHaveLength(2);
+      // Restore only this fixture before the independent adapter scenarios below.
+      await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2",[org,parent]));
+    } finally {
+      await app?.close();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      for (const [key,value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+    }
+  });
+
+});
+
+describe("parent cancellation handshake", () => {
+  it("serializes enqueue and claim behind the durable parent cancellation lock", async () => {
+    const scope=toOrgId(`org-race-${randomUUID()}`), id=`race-${randomUUID()}`;
+    await seed(scope,id);
+    const store=new PgSubtaskRunStore(db);
+    const pending=await store.enqueue(scope,{parentRunId:id,description:"pending before cancel"});
+    let queued: Promise<unknown> | undefined;
+    await asApp(scope,async c=>{
+      await c.query("UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2",[scope,id]);
+      queued=store.enqueue(scope,{parentRunId:id,description:"late during transaction"}).catch(error=>error);
+      // claim uses SKIP LOCKED parent: it cannot acquire a child behind the cancellation.
+      expect(await store.claimQueued(scope,10)).toEqual([]);
+    });
+    expect(await queued).toBeInstanceOf(Error);
+    expect(String(await queued)).toContain("subtask_parent_cancelled");
+    expect(await store.claimQueued(scope,10)).toEqual([]);
+    expect((await store.get(scope,pending.id))?.status).toBe("cancelled");
+  });
+  it("uses durable parent identity, rejects late work and reads without mutation", async () => {
+    const { PgChildRunCanceller } = await import("../../src/infrastructure/agent-run/pg-child-run-canceller");
+    const { parentCancelRequestId } = await import("../../src/application/agent-run/parent-run-control");
+    const store = new PgSubtaskRunStore(db);
+    const child = await store.enqueue(org,{parentRunId:parent,description:"cancel pending"});
+    const running = await store.enqueue(org,{parentRunId:parent,description:"already running"});
+    await asApp(org,c=>c.query("UPDATE subtask_runs SET status='running' WHERE org_id=$1 AND id=$2",[org,running.id]));
+    const stamp = new Date().toISOString();
+    await asApp(org,c=>c.query("UPDATE agent_runs SET cancel_requested_at=$3 WHERE org_id=$1 AND id=$2",[org,parent,stamp]));
+    const input={orgId:org,parentRunId:parent,requestId:parentCancelRequestId(org,parent,stamp)};
+    const adapter=new PgChildRunCanceller(db);
+    expect(await adapter.readCancellation(input)).toEqual({kind:"pending",runningChildIds:[running.id]});
+    expect((await store.get(org,child.id))?.status).toBe("pending");
+    expect(await adapter.cancelChildren({...input,requestId:"forged"})).toEqual({kind:"unavailable"});
+    expect(await adapter.cancelChildren({...input,orgId:other})).toEqual({kind:"unavailable"});
+    expect(await adapter.cancelChildren(input)).toEqual({kind:"pending",runningChildIds:[running.id]});
+    expect((await store.get(org,child.id))?.status).toBe("cancelled");
+    await expect(store.enqueue(org,{parentRunId:parent,description:"late"})).rejects.toThrow("subtask_parent_cancelled");
+    expect(await store.claimQueued(org,10)).toEqual([]);
+    await store.complete(org,running.id,"actual completion");
+    expect(await adapter.readCancellation(input)).toEqual({kind:"confirmed"});
+  });
+});
+
+it('W16 parent cancellation suppresses a late completed child result',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(org,{parentRunId:parent,description:'late result fence'});
+ await store.claimQueued(org,20);
+ try{
+  await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2',[org,parent]));
+  await store.complete(org,run.id,'must never publish');
+  expect(await store.get(org,run.id)).toMatchObject({status:'cancelled',result:null,error:null});
+ }finally{await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2',[org,parent]));}
+});
+
+it('W16 cancels the actual local HTTP request across stores without claiming vendor cessation',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const {ConfiguredModelProvider,readModelProviderConfig}=await import('../../src/infrastructure/agent-run/configured-model-provider');
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(org,{parentRunId:parent,description:'stop HTTP'});
+ let entered!:()=>void;const started=new Promise<void>(r=>{entered=r;});let closed=false,calls=0,body='';
+ const server=createServer((req,res)=>{
+  calls++;req.on('data',chunk=>{body+=String(chunk);});req.on('end',()=>{
+   res.writeHead(200,{'content-type':'application/json'});res.write('{"choices":[');entered();
+  });res.on('close',()=>{closed=true;});
+ });await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+ const model=new ConfiguredModelProvider(readModelProviderConfig({KERNEL_MODEL_PROVIDER:'test-provider',KERNEL_MODEL_API_KEY:'test-only',KERNEL_MODEL_BASE_URL:base,KERNEL_MODEL_TIMEOUT_MS:'5000'}));
+
+ const executor=new SubtaskRunExecutor(store,db,model,logger,false,new Map([['test-provider',5000]]));
+ try{
+  const execution=executor.tick(org);await started;
+  expect((await new PgSubtaskRunStore(db).cancel(org,parent,run.id)).kind).toBe('cancel_requested');
+  await execution;
+  const end=Date.now()+2000;while(!closed&&Date.now()<end)await new Promise(r=>setTimeout(r,10));
+  expect(closed).toBe(true);expect(calls).toBe(1);expect(JSON.parse(body)).not.toHaveProperty('signal');
+  expect(await store.get(org,run.id)).toMatchObject({status:'failed',result:null,error:'subtask_cancel_unknown',cancellation:{state:'unknown'}});
+  const restarted=new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,{complete:async()=>{throw new Error('must not replay');}},logger,false,new Map([['test-provider',5000]]));
+  expect(await restarted.tick(org)).toBe(0);await store.complete(org,run.id,'late result');
+  expect((await store.get(org,run.id))?.result).toBeNull();
+ }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+},60000);
+
+it('W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay',async()=>{
+ const org=toOrgId('org-w16-'+randomUUID()),parent='parent-w16-'+randomUUID();await seed(org,parent);
+ const {DeepAgentModelProvider,readDeepAgentProviderConfig,deriveRemoteThreadId}=await import('../../src/infrastructure/agent-run/deep-agent-model-provider');
+ const {DeepAgentEngineRunController}=await import('../../src/infrastructure/plan-control/deep-agent-engine-run-controller');
+ const store=new PgSubtaskRunStore(db);let started!:()=>void;const remoteStarted=new Promise<void>(r=>{started=r;});
+ const states=new Map<string,string>();let submissions=0,stops=0,work=0,worker:ReturnType<typeof setInterval>|undefined,loseReply=false;
+ const server=createServer(async(req,res)=>{
+  let raw='';for await(const chunk of req)raw+=String(chunk);
+  const path=new URL(req.url!,'http://local').pathname,parts=path.split('/');
+  const reply=(value:unknown)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify(value));};
+  if(req.method==='POST'&&path==='/threads'){reply({thread_id:JSON.parse(raw).thread_id});return;}
+  if(path.endsWith('/state')){reply({values:{messages:[]}});return;}
+  if(req.method==='POST'&&path.endsWith('/runs')){
+   const input=JSON.parse(raw);expect(input.config.configurable[EXECUTION_MODE_CONFIG_KEY]).toBe('text-only');
+   submissions++;const id=randomUUID();states.set(id,'running');worker=setInterval(()=>{work++;},10);reply({run_id:id});started();return;
+  }
+  if(req.method==='POST'&&path.endsWith('/cancel')){
+   stops++;states.set(parts[4]!,'interrupted');if(worker)clearInterval(worker);
+   if(loseReply){loseReply=false;res.writeHead(200);res.write(' ');return;}
+   setTimeout(()=>reply({}),30);return;
+  }
+  if(req.method==='GET'&&parts.length===5){reply({run_id:parts[4],status:states.get(parts[4]!)??'running'});return;}
+  reply({status:'idle'});
+ });await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+ const old={base:process.env.KERNEL_DEEP_AGENT_BASE_URL,timeout:process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS};
+ process.env.KERNEL_DEEP_AGENT_BASE_URL=base;process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS='300';
+
+ const model=new DeepAgentModelProvider({...readDeepAgentProviderConfig(),timeoutMs:5000,pollIntervalMs:20});
+ const engine=new DeepAgentEngineRunController();
+ try{
+  await asApp(org,c=>c.query("UPDATE agent_runs SET model_provider='deep-agent' WHERE org_id=$1 AND id=$2",[org,parent]));
+  const run=await store.enqueue(org,{parentRunId:parent,description:'remote stop'});
+  const executor=new SubtaskRunExecutor(store,db,model,logger,false,new Map([['deep-agent',5000]]),engine);
+  const executing=executor.tick(org);await remoteStarted;
+  const until=Date.now()+2000;while(!(await store.readExecution(org,run.id))?.remoteRunId&&Date.now()<until)await new Promise(r=>setTimeout(r,10));
+  await new PgSubtaskRunStore(db).cancel(org,parent,run.id);await executing;
+  expect(await store.get(org,run.id)).toMatchObject({status:'cancelled',result:null,cancellation:{state:'confirmed'}});
+  const stoppedAt=work;await new Promise(r=>setTimeout(r,50));expect(work).toBe(stoppedAt);expect(submissions).toBe(1);expect(stops).toBeGreaterThan(0);
+  const lost=await store.enqueue(org,{parentRunId:parent,description:'persisted remote handle'});await store.claimQueued(org,1);
+  const remoteId=randomUUID();states.set(remoteId,'running');await store.bindRemoteRun(org,lost.id,remoteId,deriveRemoteThreadId(lost.id));
+  await store.cancel(org,parent,lost.id);loseReply=true;
+  await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
+  expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'unknown'}});
+  await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
+  expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'confirmed'}});
+  expect(submissions).toBe(1);await store.complete(org,lost.id,'late');expect((await store.get(org,lost.id))?.result).toBeNull();
+ }finally{
+  if(worker)clearInterval(worker);server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));
+  await asApp(org,c=>c.query("UPDATE agent_runs SET model_provider='test-provider' WHERE org_id=$1 AND id=$2",[org,parent]));
+  for(const [key,value] of [['KERNEL_DEEP_AGENT_BASE_URL',old.base],['KERNEL_DEEP_AGENT_TIMEOUT_MS',old.timeout]]){if(value===undefined)delete process.env[key!];else process.env[key!]=value;}
+ }
+},60000);

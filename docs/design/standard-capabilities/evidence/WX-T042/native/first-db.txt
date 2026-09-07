@@ -1,0 +1,123 @@
+[stack-admission] load1=2.03 cores=10 perCore=0.20 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqye63l-53ca6cd5-402c3c77454b db=wsx_402c3c77454b4900b5e6 compose=wsx-402c3c77454b4900b5e6 pg=20887 redis=25887 sandbox=50887
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_402c3c77454b4900b5e6 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"0c0efaba-fdaa-4fb0-bb89-36aa952f4be4","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:119:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"a43d1e07-17ed-4173-abc9-0ffed0b82b48","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:157:91)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"12b82dc2-57c4-4dc5-9f28-7448c90a8812","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:153:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5b418fa8-2215-436b-abfe-f3c73dc11a1d","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at /private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:99:63\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.enqueue (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:98:17)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (12 tests) 7934ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 3085ms
+   ✓ W16 cancels the actual local HTTP request across stores without claiming vendor cessation 341ms
+   ✓ W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay 842ms
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts (6 tests | 5 failed) 525ms
+   × current authorized bytes are validated, only refs persist, concurrent replay shares actual terminal state 20ms
+     → context_source_unavailable
+   × permission revoked after enqueue is checked before deferred source consumption 10ms
+     → context_source_unavailable
+   × executor rechecks deferred permissions and fails without calling model; legacy context remains unchanged 7ms
+     → context_source_unavailable
+   × truncated source and refused execution authority never enqueue 7ms
+     → context_source_unavailable
+   × real HTTP validates callback identity and source references before queue write 62ms
+     → expected 503 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-subtask-tools.test.ts > current authorized bytes are validated, only refs persist, concurrent replay shares actual terminal state
+Error: context_source_unavailable
+ ❯ StandardContextSource.read src/infrastructure/agent-run/standard-context-source.ts:52:51
+     50|   if(!input.sourceId.startsWith('chat-attachment:'))throw new Error('c…
+     51|   const row=await this.retrieval.findAttachmentSource(actor.orgId,awai…
+     52|   if(!row||!await this.permitted(actor,row))throw new Error('context_s…
+       |                                                   ^
+     53|   const content=await this.content(actor,row);
+     54|   if(content.version!==input.versionId||!await this.permitted(actor,ro…
+ ❯ StandardSubtaskContextResolver.read src/application/agent-run/standard-subtask-tools.ts:31:43
+ ❯ DefaultStandardSubtaskService.spawn src/application/agent-run/standard-subtask-tools.ts:53:17
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts:53:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/agent-runtime/standard-subtask-tools.test.ts > permission revoked after enqueue is checked before deferred source consumption
+Error: context_source_unavailable
+ ❯ StandardContextSource.read src/infrastructure/agent-run/standard-context-source.ts:52:51
+     50|   if(!input.sourceId.startsWith('chat-attachment:'))throw new Error('c…
+     51|   const row=await this.retrieval.findAttachmentSource(actor.orgId,awai…
+     52|   if(!row||!await this.permitted(actor,row))throw new Error('context_s…
+       |                                                   ^
+     53|   const content=await this.content(actor,row);
+     54|   if(content.version!==input.versionId||!await this.permitted(actor,ro…
+ ❯ StandardSubtaskContextResolver.read src/application/agent-run/standard-subtask-tools.ts:31:43
+ ❯ DefaultStandardSubtaskService.spawn src/application/agent-run/standard-subtask-tools.ts:53:17
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts:70:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/agent-runtime/standard-subtask-tools.test.ts > executor rechecks deferred permissions and fails without calling model; legacy context remains unchanged
+Error: context_source_unavailable
+ ❯ StandardContextSource.read src/infrastructure/agent-run/standard-context-source.ts:52:51
+     50|   if(!input.sourceId.startsWith('chat-attachment:'))throw new Error('c…
+     51|   const row=await this.retrieval.findAttachmentSource(actor.orgId,awai…
+     52|   if(!row||!await this.permitted(actor,row))throw new Error('context_s…
+       |                                                   ^
+     53|   const content=await this.content(actor,row);
+     54|   if(content.version!==input.versionId||!await this.permitted(actor,ro…
+ ❯ StandardSubtaskContextResolver.read src/application/agent-run/standard-subtask-tools.ts:31:43
+ ❯ DefaultStandardSubtaskService.spawn src/application/agent-run/standard-subtask-tools.ts:53:17
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts:81:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/agent-runtime/standard-subtask-tools.test.ts > truncated source and refused execution authority never enqueue
+Error: context_source_unavailable
+ ❯ StandardContextSource.read src/infrastructure/agent-run/standard-context-source.ts:52:51
+     50|   if(!input.sourceId.startsWith('chat-attachment:'))throw new Error('c…
+     51|   const row=await this.retrieval.findAttachmentSource(actor.orgId,awai…
+     52|   if(!row||!await this.permitted(actor,row))throw new Error('context_s…
+       |                                                   ^
+     53|   const content=await this.content(actor,row);
+     54|   if(content.version!==input.versionId||!await this.permitted(actor,ro…
+ ❯ StandardSubtaskContextResolver.read src/application/agent-run/standard-subtask-tools.ts:31:43
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts:92:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/agent-runtime/standard-subtask-tools.test.ts > real HTTP validates callback identity and source references before queue write
+AssertionError: expected 503 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 503
+
+ ❯ tests/agent-runtime/standard-subtask-tools.test.ts:112:70
+    110|   expect((await invoke({...input('http'),userId:'forged'})).status).to…
+    111|   expect((await invoke({...input('http'),contextRefs:['not-json']})).s…
+    112|   const response=await invoke(input('http'));expect(response.status).t…
+       |                                                                      ^
+    113|   expect(await (await invoke(input('http'))).json()).toEqual(first);
+    114|   const rows=await store.listByParentRun(org,parent);expect(rows.filte…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  5 failed | 13 passed (18)
+   Start at  16:03:06
+   Duration  11.37s (transform 1.78s, setup 0ms, collect 745ms, tests 8.46s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_402c3c77454b4900b5e6 peak_connections=10
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-subtask-tools.test.ts tests/agent-runtime/subtask-run-store-real-db.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-subtask-tools.test.ts tests/agent-runtime/subtask-run-store-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：1s
+  总计：12s

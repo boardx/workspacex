@@ -1,0 +1,227 @@
+{
+  "maxResponseBytes": 2097152,
+  "configurableKey": "native_runtime",
+  "packageSetAlgorithm": "v1:json-sorted-ascii-stableName-skillId-versionId-packageDigest-tuples",
+  "packageSetGolden": {
+    "input": [
+      {
+        "stableName": "b",
+        "skillId": "技能",
+        "versionId": "v2",
+        "packageDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "stableName": "a",
+        "skillId": "s1",
+        "versionId": "v1",
+        "packageDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "canonical": "[[\"a\",\"s1\",\"v1\",\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"],[\"b\",\"技能\",\"v2\",\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"]]"
+  },
+  "ref": {
+    "type": "object",
+    "properties": {
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "profile": {
+        "type": "string",
+        "const": "native-v1"
+      },
+      "policy": {
+        "type": "string",
+        "const": "native-v1"
+      }
+    },
+    "required": [
+      "bindingId",
+      "profile",
+      "policy"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "runId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      }
+    },
+    "required": [
+      "orgId",
+      "runId",
+      "attemptId",
+      "leaseEpoch"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "sessionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "token": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "expiresAt": {
+        "type": "integer"
+      },
+      "interruptOn": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "boolean"
+        }
+      },
+      "packageDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "inputs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "attachmentId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "filename": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "path": {
+              "type": "string",
+              "maxLength": 4096,
+              "pattern": "^\\/inputs\\/[a-f0-9]{64}\\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+            },
+            "mediaType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8388608
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "attachmentId",
+            "filename",
+            "path",
+            "mediaType",
+            "sizeBytes",
+            "digest"
+          ],
+          "additionalProperties": false
+        },
+        "maxItems": 256,
+        "default": []
+      },
+      "mcpSnapshot": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "object",
+            "properties": {
+              "snapshotId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "snapshotId",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^mcp__[a-z0-9-]+__[a-z0-9_]+$",
+                  "maxLength": 64
+                },
+                "canonicalName": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 16000
+                },
+                "inputSchema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "schemaFingerprint": {
+                  "type": "string",
+                  "pattern": "^v2:[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "name",
+                "canonicalName",
+                "description",
+                "inputSchema",
+                "schemaFingerprint"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "ref",
+          "tools"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "sessionId",
+      "token",
+      "expiresAt",
+      "interruptOn",
+      "packageDigest"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

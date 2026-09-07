@@ -1,0 +1,80 @@
+[stack-admission] load1=21.41 cores=10 perCore=2.14 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq420g8-e976e960-cae6540f2f0b db=wsx_cae6540f2f0b4ca7e469 compose=wsx-cae6540f2f0b4ca7e469 pg=22431 redis=27431 sandbox=52431
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_cae6540f2f0b4ca7e469 capacity=100 current=6 required=32
+ ❯ tests/kernel/mcp-tool-discovery.test.ts (18 tests | 1 failed) 40ms
+   × 🔴 F130 ⑶：sideEffect 变化必须当场重跑封顶并收紧 > 只读 → 写入外部 的工具，授权范围被当场从「全体成员」夹到封顶 12ms
+     → expected '未开放' to be '需人工确认每次' // Object.is equality
+ ✓ tests/mcp/http-mcp-gateway-real-protocol.test.ts (6 tests) 2066ms
+   ✓ 真实协议：tools/list 拿到真实工具，annotations 决定 sideEffect > readOnlyHint:true 的工具归为「只读」；没有 annotations 的工具保守归为「写入外部」 1782ms
+ ✓ tests/mcp/pg-mcp-server-persistence-real-db.test.ts (3 tests) 44146ms
+   ✓ PgMcpServerStore + PgMcpToolStore：真实数据库 > ① 发现结果落库为已提交状态，能从一个全新事务读回 395ms
+ ❯ tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts (4 tests | 1 failed) 32ms
+   × F130 ⑶ · sideEffect 变化 ⇒ 重新发现当场收紧 authScope > 变更路径：只读 + 全体成员 的工具，重新探测后 sideEffect 变为 对外发送 ⇒ authScope 被收紧 25ms
+     → expected [ { …(4) } ] to deeply equal [ { …(4) } ]
+ ✓ tests/mcp/complete-tool-schema.test.ts (6 tests) 31ms
+ ✓ tests/mcp/complete-tool-schema-real-db.test.ts (1 test) 5640ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/kernel/mcp-tool-discovery.test.ts > 🔴 F130 ⑶：sideEffect 变化必须当场重跑封顶并收紧 > 只读 → 写入外部 的工具，授权范围被当场从「全体成员」夹到封顶
+AssertionError: expected '未开放' to be '需人工确认每次' // Object.is equality
+
+Expected: "需人工确认每次"
+Received: "未开放"
+
+ ❯ tests/kernel/mcp-tool-discovery.test.ts:189:35
+    187|       },
+    188|     ]);
+    189|     expect(r.tools[0]!.authScope).toBe("未开放"); // WX-E005 changed f…
+       |                                   ^
+    190|     expect(AR.checkToolScopeCap({ sideEffect: "写入外部", authScope: r…
+    191|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts > F130 ⑶ · sideEffect 变化 ⇒ 重新发现当场收紧 authScope > 变更路径：只读 + 全体成员 的工具，重新探测后 sideEffect 变为 对外发送 ⇒ authScope 被收紧
+AssertionError: expected [ { …(4) } ] to deeply equal [ { …(4) } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+      "fromAuthScope": "全体成员",
+      "newSideEffect": "对外发送",
+-     "toAuthScope": "未开放",
++     "toAuthScope": "需人工确认每次",
+      "toolFullName": "mcp:crm.query_contact",
+    },
+  ]
+
+ ❯ tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts:63:37
+     61|       true,
+     62|     );
+     63|     expect(r.tightenedByCapRecheck).toEqual([
+       |                                     ^
+     64|       {
+     65|         toolFullName: "mcp:crm.query_contact",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 4 passed (6)
+      Tests  2 failed | 36 passed (38)
+   Start at  01:53:56
+   Duration  82.71s (transform 2.51s, setup 0ms, collect 5.91s, tests 51.95s, environment 3ms, prepare 1.89s)
+
+[db-isolation] db=wsx_cae6540f2f0b4ca7e469 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/mcp/complete-tool-schema.test.ts tests/mcp/complete-tool-schema-real-db.test.ts tests/mcp/http-mcp-gateway-real-protocol.test.ts tests/mcp/pg-mcp-server-persistence-real-db.test.ts tests/kernel/mcp-tool-discovery.test.ts tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/complete-tool-schema.test.ts tests/mcp/complete-tool-schema-real-db.test.ts tests/mcp/http-mcp-gateway-real-protocol.test.ts tests/mcp/pg-mcp-server-persistence-real-db.test.ts tests/kernel/mcp-tool-discovery.test.ts tests/mcp/tool-scope-cap-recheck-on-side-effect-change.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m29s
+  清理：4s
+  总计：1m33s

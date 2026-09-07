@@ -10,16 +10,12 @@ import {
   seedOrg,
 } from "../support/db";
 import { seedCredential } from "../support/auth";
-import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
+import { PLATFORM_ORG_ID } from "../../src/domain/org-id";
 
-/** 同 no-builtin-capability-lists.test.ts 的 withoutPlatformSkills 头注：
- *  design-delta `platform-owned-skills` 之后，kind=skill 是否含四个平台官方 skill
- *  取决于同一个 DB 里有没有别的文件先跑过 backfillPlatformSkills()——不能假设恒有
- *  或恒无，过滤掉再断言"这个 org 自己什么都没配置"。id 不带 `cap-` 前缀，与
- *  `skills.id` 逐字相同——「找不到 Skill」根因修复。 */
-const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `skill-platform-${s.stableName}`));
-const withoutPlatformSkills = <T extends { id: string }>(items: readonly T[]): T[] =>
-  items.filter((c) => !PLATFORM_SKILL_IDS.has(c.id));
+/** Platform-owned skill releases are shared, not organization configuration.
+ * Stable platform ownership covers both legacy IDs and imported immutable packs. */
+const withoutPlatformSkills = <T extends { id: string; orgId: string; kind: string }>(items: readonly T[]): T[] =>
+  items.filter((c) => !(c.orgId === PLATFORM_ORG_ID && c.kind === "skill"));
 
 /**
  * Responses are validated against the contract too -- not just requests.
@@ -181,7 +177,7 @@ describe("every response conforms to the contract's `out` schema", () => {
     // design-delta `platform-owned-skills`: the four platform skills (if backfilled
     // anywhere in this shared DB) ride along in `capabilities` too -- set aside first,
     // see `withoutPlatformSkills`'s own comment.
-    expect(withoutPlatformSkills((body as { capabilities: { id: string }[] }).capabilities)).toEqual([]);
+    expect(withoutPlatformSkills((body as { capabilities: { id: string; orgId: string; kind: string }[] }).capabilities)).toEqual([]);
   });
 });
 

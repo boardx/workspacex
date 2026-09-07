@@ -1,0 +1,25 @@
+[stack-admission] load1=2.80 cores=10 perCore=0.28 running=0/2
+[test-isolation] id=run-mtq5l3b2-a961a7d2-859e6456a2a2 db=wsx_859e6456a2a2befb5d13 compose=wsx-859e6456a2a2befb5d13 pg=20102 redis=25102 sandbox=50102
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_859e6456a2a2befb5d13 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"2f2889e5-0e05-45db-aaf9-c9c3076cc1db","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:118:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"71ef92dd-891c-44cd-b5c3-3dda60ab25da","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:142:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c7126d8e-ec11-4c07-b958-a8344570b465","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:138:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (7 tests) 5036ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 2438ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  02:36:40
+   Duration  7.49s (transform 1.39s, setup 0ms, collect 435ms, tests 5.04s, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_859e6456a2a2befb5d13 peak_connections=9
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：8s
+  清理：0s
+  总计：8s

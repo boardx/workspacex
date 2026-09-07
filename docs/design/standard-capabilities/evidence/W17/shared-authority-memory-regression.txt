@@ -1,0 +1,329 @@
+[stack-admission] load1=2.60 cores=10 perCore=0.26 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqjbuxh-224fb714-749956dd2d85 db=wsx_749956dd2d8572c968d6 compose=wsx-749956dd2d8572c968d6 pg=21301 redis=26301 sandbox=51301
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_749956dd2d8572c968d6 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-memory-real-db.test.ts (3 tests) 9845ms
+   ✓ production kernel exposes the real memory proof provider and controller 2223ms
+   ✓ real HTTP proof binds requester and live source visibility, denies missing authority and changed lease 3515ms
+   ✓ official Python PostgresStore proves rollback, concurrent CAS, replay and tombstones 1334ms
+ ❯ tests/agent-runtime/standard-sql-database.test.ts (1 test | 1 failed) 1444ms
+   × official SQL Toolkit crosses the real asynchronous read-only PostgreSQL boundary 1443ms
+     → FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_real_official_tools_with_readonly_view_and_bounded_rows _________
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_63764cacca0544b7a54835f41bf6d30b:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_b4b78e1dc8b342639f47774e80380439', 'views': ['allowed']}
+
+    def test_real_official_tools_with_readonly_view_and_bounded_rows(source):
+        assert call(source,'sql_db_list_tables',{})=='allowed'
+        assert 'label' in call(source,'sql_db_schema',{'table_names':'allowed'})
+>       assert call(source,'sql_db_query',{'query':'SELECT * FROM allowed ORDER BY id'})=={'rows':[{'id':1,'label':'中文'},{'id':2,'label':'second'}],'truncated':False,'rowCount':2}
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_standard_sql_database.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_standard_sql_database.py:34: in call
+    def call(source,name,args):return asyncio.run(call_sql_database(source,name,args,FakeListLLM(responses=['SELECT 1'])))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:205: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:128: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:720: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_63764cacca0544b7a54835f41bf6d30b:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_b4b78e1dc8b342639f47774e80380439', 'views': ['allowed']}
+name = 'sql_db_query', args = {'query': 'SELECT * FROM allowed ORDER BY id'}
+model = FakeListLLM(metadata={'lc_versions': {'langchain-core': '1.5.5', 'langchain': '1.3.15'}}, responses=['SELECT 1'])
+
+    async def call_sql_database(source,name,args,model):
+        """Call official synchronous tools only inside SQLAlchemy's async greenlet.
+    
+        Never use their default async executor: psycopg cancellation must reach the
+        real connection, and settlement precedes leaving the outer transaction.
+        """
+        if not _SLOTS.acquire(blocking=False):raise StandardSqlError('sql_busy')
+        engine=None
+        try:
+            engine=create_async_engine(source['dsn'],poolclass=NullPool,connect_args={'connect_timeout':5})
+            async with asyncio.timeout(8),engine.connect() as connection:
+                connection=await connection.execution_options(isolation_level='READ COMMITTED',postgresql_readonly=True)
+                async with connection.begin():
+                    await connection.execute(text("SET LOCAL statement_timeout = '2000ms'"))
+                    role=(await connection.execute(text('SELECT current_user AS name,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user'))).mappings().one()
+                    if not role['name'].startswith('wsx_sql_ro_') or any(role[key] for key in ('rolsuper','rolcreatedb','rolcreaterole','rolreplication','rolbypassrls')):
+                        raise StandardSqlError('sql_role_not_readonly')
+                    def run(sync_connection):
+                        database=_BoundedDatabase(sync_connection,schema=source['schema'],include_tables=source['views'],view_support=True,sample_rows_in_table_info=0)
+                        database._engine=_BoundEngine(sync_connection)
+                        tool=next(tool for tool in SQLDatabaseToolkit(db=database,llm=model).get_tools() if tool.name==name)
+                        output=tool._run(**args)
+                        if isinstance(output,str) and (output.startswith('Error:') or len(output.encode())>65536):
+                            raise StandardSqlError('sql_schema_unavailable')
+                        return output
+                    return await connection.run_sync(run)
+        except StandardSqlError:raise
+>       except Exception:raise StandardSqlError('sql_unavailable_or_refused') from None
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       deep_agent_service.standard_sql_database.StandardSqlError: sql_unavailable_or_refused
+
+src/deep_agent_service/standard_sql_database.py:76: StandardSqlError
+________ test_real_async_driver_cancel_settles_without_executor_worker _________
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_cb6ce6c97dad451698b792311c225ddc:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_24f8650e4ed44ca080bedc89578641f3', 'views': ['allowed']}
+
+    def test_real_async_driver_cancel_settles_without_executor_worker(source):
+        async def scenario():
+            task=asyncio.create_task(call_sql_database(source,'sql_db_query',{'query':'SELECT pg_sleep(20)'},FakeListLLM(responses=['SELECT 1'])))
+            await asyncio.sleep(.1);task.cancel()
+            with pytest.raises(asyncio.CancelledError):await asyncio.wait_for(task,3)
+            assert _SLOTS._value==8
+            assert (await call_sql_database(source,'sql_db_query',{'query':'SELECT count(*) FROM allowed'},FakeListLLM(responses=['SELECT 1'])))['rows']==[{'count':2}]
+>       asyncio.run(scenario())
+
+tests/test_standard_sql_database.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:205: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:128: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:720: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_standard_sql_database.py:50: in scenario
+    with pytest.raises(asyncio.CancelledError):await asyncio.wait_for(task,3)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/tasks.py:488: in wait_for
+    return await fut
+           ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_cb6ce6c97dad451698b792311c225ddc:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_24f8650e4ed44ca080bedc89578641f3', 'views': ['allowed']}
+name = 'sql_db_query', args = {'query': 'SELECT pg_sleep(20)'}
+model = FakeListLLM(metadata={'lc_versions': {'langchain-core': '1.5.5', 'langchain': '1.3.15'}}, responses=['SELECT 1'])
+
+    async def call_sql_database(source,name,args,model):
+        """Call official synchronous tools only inside SQLAlchemy's async greenlet.
+    
+        Never use their default async executor: psycopg cancellation must reach the
+        real connection, and settlement precedes leaving the outer transaction.
+        """
+        if not _SLOTS.acquire(blocking=False):raise StandardSqlError('sql_busy')
+        engine=None
+        try:
+            engine=create_async_engine(source['dsn'],poolclass=NullPool,connect_args={'connect_timeout':5})
+            async with asyncio.timeout(8),engine.connect() as connection:
+                connection=await connection.execution_options(isolation_level='READ COMMITTED',postgresql_readonly=True)
+                async with connection.begin():
+                    await connection.execute(text("SET LOCAL statement_timeout = '2000ms'"))
+                    role=(await connection.execute(text('SELECT current_user AS name,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user'))).mappings().one()
+                    if not role['name'].startswith('wsx_sql_ro_') or any(role[key] for key in ('rolsuper','rolcreatedb','rolcreaterole','rolreplication','rolbypassrls')):
+                        raise StandardSqlError('sql_role_not_readonly')
+                    def run(sync_connection):
+                        database=_BoundedDatabase(sync_connection,schema=source['schema'],include_tables=source['views'],view_support=True,sample_rows_in_table_info=0)
+                        database._engine=_BoundEngine(sync_connection)
+                        tool=next(tool for tool in SQLDatabaseToolkit(db=database,llm=model).get_tools() if tool.name==name)
+                        output=tool._run(**args)
+                        if isinstance(output,str) and (output.startswith('Error:') or len(output.encode())>65536):
+                            raise StandardSqlError('sql_schema_unavailable')
+                        return output
+                    return await connection.run_sync(run)
+        except StandardSqlError:raise
+>       except Exception:raise StandardSqlError('sql_unavailable_or_refused') from None
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       deep_agent_service.standard_sql_database.StandardSqlError: sql_unavailable_or_refused
+
+src/deep_agent_service/standard_sql_database.py:76: StandardSqlError
+=============================== warnings summary ===============================
+src/deep_agent_service/standard_sql_database.py:7
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql_database.py:7: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_standard_sql_database.py::test_real_official_tools_with_readonly_view_and_bounded_rows
+FAILED tests/test_standard_sql_database.py::test_real_async_driver_cancel_settles_without_executor_worker
+2 failed, 1 warning in 0.78s
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/standard-sql-database.test.ts > official SQL Toolkit crosses the real asynchronous read-only PostgreSQL boundary
+Error: FF                                                                       [100%]
+=================================== FAILURES ===================================
+_________ test_real_official_tools_with_readonly_view_and_bounded_rows _________
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_63764cacca0544b7a54835f41bf6d30b:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_b4b78e1dc8b342639f47774e80380439', 'views': ['allowed']}
+
+    def test_real_official_tools_with_readonly_view_and_bounded_rows(source):
+        assert call(source,'sql_db_list_tables',{})=='allowed'
+        assert 'label' in call(source,'sql_db_schema',{'table_names':'allowed'})
+>       assert call(source,'sql_db_query',{'query':'SELECT * FROM allowed ORDER BY id'})=={'rows':[{'id':1,'label':'中文'},{'id':2,'label':'second'}],'truncated':False,'rowCount':2}
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_standard_sql_database.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_standard_sql_database.py:34: in call
+    def call(source,name,args):return asyncio.run(call_sql_database(source,name,args,FakeListLLM(responses=['SELECT 1'])))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:205: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:128: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:720: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_63764cacca0544b7a54835f41bf6d30b:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_b4b78e1dc8b342639f47774e80380439', 'views': ['allowed']}
+name = 'sql_db_query', args = {'query': 'SELECT * FROM allowed ORDER BY id'}
+model = FakeListLLM(metadata={'lc_versions': {'langchain-core': '1.5.5', 'langchain': '1.3.15'}}, responses=['SELECT 1'])
+
+    async def call_sql_database(source,name,args,model):
+        """Call official synchronous tools only inside SQLAlchemy's async greenlet.
+    
+        Never use their default async executor: psycopg cancellation must reach the
+        real connection, and settlement precedes leaving the outer transaction.
+        """
+        if not _SLOTS.acquire(blocking=False):raise StandardSqlError('sql_busy')
+        engine=None
+        try:
+            engine=create_async_engine(source['dsn'],poolclass=NullPool,connect_args={'connect_timeout':5})
+            async with asyncio.timeout(8),engine.connect() as connection:
+                connection=await connection.execution_options(isolation_level='READ COMMITTED',postgresql_readonly=True)
+                async with connection.begin():
+                    await connection.execute(text("SET LOCAL statement_timeout = '2000ms'"))
+                    role=(await connection.execute(text('SELECT current_user AS name,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user'))).mappings().one()
+                    if not role['name'].startswith('wsx_sql_ro_') or any(role[key] for key in ('rolsuper','rolcreatedb','rolcreaterole','rolreplication','rolbypassrls')):
+                        raise StandardSqlError('sql_role_not_readonly')
+                    def run(sync_connection):
+                        database=_BoundedDatabase(sync_connection,schema=source['schema'],include_tables=source['views'],view_support=True,sample_rows_in_table_info=0)
+                        database._engine=_BoundEngine(sync_connection)
+                        tool=next(tool for tool in SQLDatabaseToolkit(db=database,llm=model).get_tools() if tool.name==name)
+                        output=tool._run(**args)
+                        if isinstance(output,str) and (output.startswith('Error:') or len(output.encode())>65536):
+                            raise StandardSqlError('sql_schema_unavailable')
+                        return output
+                    return await connection.run_sync(run)
+        except StandardSqlError:raise
+>       except Exception:raise StandardSqlError('sql_unavailable_or_refused') from None
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       deep_agent_service.standard_sql_database.StandardSqlError: sql_unavailable_or_refused
+
+src/deep_agent_service/standard_sql_database.py:76: StandardSqlError
+________ test_real_async_driver_cancel_settles_without_executor_worker _________
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_cb6ce6c97dad451698b792311c225ddc:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_24f8650e4ed44ca080bedc89578641f3', 'views': ['allowed']}
+
+    def test_real_async_driver_cancel_settles_without_executor_worker(source):
+        async def scenario():
+            task=asyncio.create_task(call_sql_database(source,'sql_db_query',{'query':'SELECT pg_sleep(20)'},FakeListLLM(responses=['SELECT 1'])))
+            await asyncio.sleep(.1);task.cancel()
+            with pytest.raises(asyncio.CancelledError):await asyncio.wait_for(task,3)
+            assert _SLOTS._value==8
+            assert (await call_sql_database(source,'sql_db_query',{'query':'SELECT count(*) FROM allowed'},FakeListLLM(responses=['SELECT 1'])))['rows']==[{'count':2}]
+>       asyncio.run(scenario())
+
+tests/test_standard_sql_database.py:53: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:205: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py:128: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py:720: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+tests/test_standard_sql_database.py:50: in scenario
+    with pytest.raises(asyncio.CancelledError):await asyncio.wait_for(task,3)
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/tasks.py:488: in wait_for
+    return await fut
+           ^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = {'dsn': 'postgresql+psycopg://wsx_sql_ro_cb6ce6c97dad451698b792311c225ddc:sql-test@127.0.0.1:21301/wsx_749956dd2d8572c968d6', 'schema': 'sql_test_24f8650e4ed44ca080bedc89578641f3', 'views': ['allowed']}
+name = 'sql_db_query', args = {'query': 'SELECT pg_sleep(20)'}
+model = FakeListLLM(metadata={'lc_versions': {'langchain-core': '1.5.5', 'langchain': '1.3.15'}}, responses=['SELECT 1'])
+
+    async def call_sql_database(source,name,args,model):
+        """Call official synchronous tools only inside SQLAlchemy's async greenlet.
+    
+        Never use their default async executor: psycopg cancellation must reach the
+        real connection, and settlement precedes leaving the outer transaction.
+        """
+        if not _SLOTS.acquire(blocking=False):raise StandardSqlError('sql_busy')
+        engine=None
+        try:
+            engine=create_async_engine(source['dsn'],poolclass=NullPool,connect_args={'connect_timeout':5})
+            async with asyncio.timeout(8),engine.connect() as connection:
+                connection=await connection.execution_options(isolation_level='READ COMMITTED',postgresql_readonly=True)
+                async with connection.begin():
+                    await connection.execute(text("SET LOCAL statement_timeout = '2000ms'"))
+                    role=(await connection.execute(text('SELECT current_user AS name,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user'))).mappings().one()
+                    if not role['name'].startswith('wsx_sql_ro_') or any(role[key] for key in ('rolsuper','rolcreatedb','rolcreaterole','rolreplication','rolbypassrls')):
+                        raise StandardSqlError('sql_role_not_readonly')
+                    def run(sync_connection):
+                        database=_BoundedDatabase(sync_connection,schema=source['schema'],include_tables=source['views'],view_support=True,sample_rows_in_table_info=0)
+                        database._engine=_BoundEngine(sync_connection)
+                        tool=next(tool for tool in SQLDatabaseToolkit(db=database,llm=model).get_tools() if tool.name==name)
+                        output=tool._run(**args)
+                        if isinstance(output,str) and (output.startswith('Error:') or len(output.encode())>65536):
+                            raise StandardSqlError('sql_schema_unavailable')
+                        return output
+                    return await connection.run_sync(run)
+        except StandardSqlError:raise
+>       except Exception:raise StandardSqlError('sql_unavailable_or_refused') from None
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       deep_agent_service.standard_sql_database.StandardSqlError: sql_unavailable_or_refused
+
+src/deep_agent_service/standard_sql_database.py:76: StandardSqlError
+=============================== warnings summary ===============================
+src/deep_agent_service/standard_sql_database.py:7
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql_database.py:7: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_standard_sql_database.py::test_real_official_tools_with_readonly_view_and_bounded_rows
+FAILED tests/test_standard_sql_database.py::test_real_async_driver_cancel_settles_without_executor_worker
+2 failed, 1 warning in 0.78s
+
+ ❯ ChildProcess.<anonymous> tests/agent-runtime/standard-sql-database.test.ts:13:57
+     11|   const child=spawn(join(cwd,'.venv/bin/python'),['-m','pytest','tests…
+     12|   child.stdout.on('data',chunk=>result+=chunk);child.stderr.on('data',…
+     13|   child.on('exit',code=>code===0?resolve(result):reject(new Error(resu…
+       |                                                         ^
+     14|  });
+     15|  expect(output).toContain('2 passed');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 3 passed (4)
+   Start at  09:01:24
+   Duration  14.08s (transform 1.60s, setup 0ms, collect 677ms, tests 11.29s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_749956dd2d8572c968d6 peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/standard-memory-real-db.test.ts tests/agent-runtime/standard-sql-database.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-memory-real-db.test.ts tests/agent-runtime/standard-sql-database.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：1s
+  总计：15s

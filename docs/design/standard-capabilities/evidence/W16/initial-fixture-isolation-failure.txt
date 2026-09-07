@@ -1,0 +1,93 @@
+[stack-admission] load1=18.04 cores=10 perCore=1.80 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqo1bek-83998888-319754b22289 db=wsx_319754b222895edf112d compose=wsx-319754b222895edf112d pg=21202 redis=26202 sandbox=51202
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_319754b222895edf112d capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"3951802d-55da-409f-92ac-c2ba6990577d","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:119:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"0e9fd697-5ba8-4dec-91ec-b3f35253123c","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:157:91)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"50374dbc-61fa-4f66-a97f-f8fab06a26fa","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:153:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"66a030e5-6c71-45fb-985a-29457a019128","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at /private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:99:63\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.enqueue (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:98:17)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts (12 tests | 3 failed) 62525ms
+   ✓ WX-T042 durable queue > survives adapter restart and claims each job once across competing workers 1651ms
+   ✓ WX-T042 durable queue > marks lost running work failed on a later kick without replaying it or accepting stale completion 316ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 20600ms
+   × W16 parent cancellation suppresses a late completed child result 12ms
+     → subtask_parent_cancelled
+   × W16 cancels the actual local HTTP request across stores without claiming vendor cessation 9ms
+     → subtask_parent_cancelled
+   × W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay 75ms
+     → subtask_parent_cancelled
+{"level":"error","msg":"http exception","traceId":"f797eb9f-9754-416f-9117-ef83efd84d8c","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.cancel (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:131:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c7e7d9b5-0702-418b-9d9d-465daa1d8e28","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.cancel (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:133:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"08348fb1-59fc-4c57-b984-76489c42b453","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at SubtaskRunController.cancel (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:134:84)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"4ace5e53-8a1a-494b-ad23-012d87a7e61a","detail":{"name":"ForbiddenException","message":"SUBTASK_RETRY_FORBIDDEN","stack":"ForbiddenException: SUBTASK_RETRY_FORBIDDEN\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:71:63)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.cancel (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:131:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"f0a16b40-5c75-400f-b1f8-8db8d7d0773d","detail":{"name":"ForbiddenException","message":"SUBTASK_RETRY_FORBIDDEN","stack":"ForbiddenException: SUBTASK_RETRY_FORBIDDEN\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:71:63)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.cancel (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:131:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-cancel-real-db.test.ts (3 tests) 19094ms
+   ✓ atomic pending cancel competes with claim, stays idempotent and rejects late writes 1665ms
+   ✓ real HTTP cancellation requires parent visibility/write permission and is idempotent 13780ms
+ ✓ tests/agent-runtime/subtask-run-queue.test.ts (11 tests) 29ms
+ ✓ tests/agent-runtime/subtask-signal-isolation.test.ts (1 test) 257ms
+ ✓ tests/agent-runtime/subtask-cancel.test.ts (2 tests) 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/subtask-run-store-real-db.test.ts > W16 parent cancellation suppresses a late completed child result
+Error: subtask_parent_cancelled
+ ❯ src/infrastructure/agent-run/pg-subtask-run-store.ts:26:62
+     24|         "SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AN…
+     25|       if (!parent.rows[0]) throw new Error("subtask_parent_unavailable…
+     26|       if (parent.rows[0].cancel_requested_at !== null) throw new Subta…
+       |                                                              ^
+     27|       const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id…
+     28|         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING *`,
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:49:19
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts:247:44
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/agent-runtime/subtask-run-store-real-db.test.ts > W16 cancels the actual local HTTP request across stores without claiming vendor cessation
+Error: subtask_parent_cancelled
+ ❯ src/infrastructure/agent-run/pg-subtask-run-store.ts:26:62
+     24|         "SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AN…
+     25|       if (!parent.rows[0]) throw new Error("subtask_parent_unavailable…
+     26|       if (parent.rows[0].cancel_requested_at !== null) throw new Subta…
+       |                                                              ^
+     27|       const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id…
+     28|         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING *`,
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:49:19
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts:266:44
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/agent-runtime/subtask-run-store-real-db.test.ts > W16 stops a real remote HTTP run and resumes cancellation after a lost acknowledgment without replay
+Error: subtask_parent_cancelled
+ ❯ src/infrastructure/agent-run/pg-subtask-run-store.ts:26:62
+     24|         "SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AN…
+     25|       if (!parent.rows[0]) throw new Error("subtask_parent_unavailable…
+     26|       if (parent.rows[0].cancel_requested_at !== null) throw new Subta…
+       |                                                              ^
+     27|       const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id…
+     28|         VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING *`,
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:49:19
+ ❯ tests/agent-runtime/subtask-run-store-real-db.test.ts:311:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  3 failed | 26 passed (29)
+   Start at  11:13:15
+   Duration  108.89s (transform 12.00s, setup 0ms, collect 3.97s, tests 81.91s, environment 3ms, prepare 2.06s)
+
+[db-isolation] db=wsx_319754b222895edf112d peak_connections=7
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-runtime/subtask-cancel-real-db.test.ts tests/agent-runtime/subtask-cancel.test.ts tests/agent-runtime/subtask-run-queue.test.ts tests/agent-runtime/subtask-signal-isolation.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-runtime/subtask-cancel-real-db.test.ts tests/agent-runtime/subtask-cancel.test.ts tests/agent-runtime/subtask-run-queue.test.ts tests/agent-runtime/subtask-signal-isolation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m54s
+  清理：2s
+  总计：1m56s

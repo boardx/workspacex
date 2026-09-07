@@ -21,6 +21,7 @@
  *   pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
  *     pnpm --filter @repo/api exec vitest run tests/skill/thread-mount-run-injection-real-db.test.ts
  */
+import { createHash } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
 import { PgThreadMountedSkillReader } from "../../src/infrastructure/chat/pg-thread-mounted-skill-reader";
@@ -76,7 +77,7 @@ async function seedRegistrySkill(skillId: string, versionId: string): Promise<vo
     await c.query(
       `INSERT INTO skill_version_files (org_id, version_id, path, content, media_type, digest)
        VALUES ($1,$2,'SKILL.md',$3,'text/markdown',$4) ON CONFLICT (version_id, path) DO NOTHING`,
-      [ORG, versionId, Buffer.from(`# ${skillId}`, "utf8"), DIGEST],
+      [ORG, versionId, Buffer.from(`# ${skillId}`, "utf8"), createHash("sha256").update(`# ${skillId}`).digest("hex")],
     );
     await c.query("SELECT wave2_publish_skill_version($1, $2)", [ORG, versionId]);
   });

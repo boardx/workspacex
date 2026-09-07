@@ -1,0 +1,21 @@
+[stack-admission] load1=3.30 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-mtqmv0i9-fa1b18c5-3be7d0cd3e5c db=wsx_3be7d0cd3e5cf7030881 compose=wsx-3be7d0cd3e5cf7030881 pg=23013 redis=28013 sandbox=53013
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_3be7d0cd3e5cf7030881 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-scheduler-service.test.ts (6 tests | 4 skipped) 7491ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 4 skipped (6)
+   Start at  10:40:17
+   Duration  17.99s (transform 3.80s, setup 0ms, collect 6.74s, tests 7.49s, environment 0ms, prepare 67ms)
+
+[db-isolation] db=wsx_3be7d0cd3e5cf7030881 peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-scheduler-service.test.ts -t production kernel factory|parent cancellation wins
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：1s
+  总计：19s

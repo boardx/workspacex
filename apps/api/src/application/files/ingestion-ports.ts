@@ -34,6 +34,8 @@ export interface NewIngestionOutboxJob {
  * makes replay safe: a job whose `locked_at` is older than `staleAfterMs` is claimable again
  * by ANY worker, including the one that originally claimed it before it crashed (uc-22-2 V12).
  */
+export const INGESTION_LEASE_MS = 5 * 60 * 1000;
+
 export interface IngestionOutboxRepository {
   /**
    * Enqueues the first step after `STORED`. Idempotent: enqueuing a step that already has a
@@ -62,7 +64,7 @@ export interface IngestionOutboxRepository {
    * LOCKED` under the hood, so an explicit replay racing an in-flight worker's own claim of
    * the SAME row cannot double-claim it -- one of the two gets `null`.
    */
-  claimForVersion(orgId: OrgId, artifactVersionId: string, workerId: string): Promise<IngestionOutboxJob | null>;
+  claimForVersion(orgId: OrgId, artifactVersionId: string, workerId: string, respectActiveLease?: boolean): Promise<IngestionOutboxJob | null>;
 
   /**
    * The step this job represents is DONE: advances `artifacts.ingestion_status`, appends an

@@ -70,14 +70,21 @@ export function serverSlugOf(serverId: string): string {
 }
 
 /**
- * Fingerprint over the signature and the side effect.
+ * Versioned fingerprint over the complete schema, description, signature and side effect.
  *
  * ⚠ It covers `sideEffect` too, not just the signature: a tool that keeps its parameters but
  * starts writing has changed in the way that matters most here, and a fingerprint blind to
  * that would report "unchanged" for the single case F130 ⑶ exists to catch.
  */
-export function fingerprint(signature: string, sideEffect: SideEffect): string {
-  return createHash("sha256").update(`${signature}|${sideEffect}`).digest("hex").slice(0, 16);
+export function fingerprint(signature: string, sideEffect: SideEffect,
+  schema: Pick<DiscoveredTool, "description" | "inputSchema" | "outputSchema"> = {}): string {
+  const canonical = JSON.stringify({ signature, sideEffect, ...schema }, (_key, value: unknown) => {
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+    }
+    return value;
+  });
+  return `v2:${createHash("sha256").update(canonical).digest("hex")}`;
 }
 
 /** The widest scope still allowed for a side effect -- used to clamp, not merely to reject. */
@@ -107,7 +114,12 @@ export function toContractTool(
     fullName: mcpToolFullName(serverSlugOf(serverId), d.name),
     serverId,
     signature: d.signature,
-    schemaFingerprint: fingerprint(d.signature, d.sideEffect),
+    ...(d.description === undefined ? {} : { description: d.description }),
+    ...(d.inputSchema === undefined ? {} : { inputSchema: d.inputSchema }),
+    ...(d.outputSchema === undefined ? {} : { outputSchema: d.outputSchema }),
+    schemaFingerprint: fingerprint(d.signature, d.sideEffect, {
+      description: d.description, inputSchema: d.inputSchema, outputSchema: d.outputSchema,
+    }),
     sideEffect: d.sideEffect,
     authScope: clampScopeToSideEffect(previousScope, d.sideEffect),
   });
@@ -128,8 +140,10 @@ export async function discoverMcpTools(
     const fullName = mcpToolFullName(serverSlugOf(input.serverId), d.name);
     const old = before.get(fullName);
     const carried = old?.authScope ?? NEWLY_DISCOVERED_TOOL_DEFAULT_SCOPE;
-    const tool = toContractTool(input.serverId, d, carried);
-    if (old !== undefined && tool.authScope !== carried) {
+    const capped = toContractTool(input.serverId, d, carried);
+    const tool = old && old.schemaFingerprint !== capped.schemaFingerprint
+      ? { ...capped, authScope: NEWLY_DISCOVERED_TOOL_DEFAULT_SCOPE } : capped;
+    if (old !== undefined && capped.authScope !== carried) {
       tightenedByCapRecheck.push({
         toolFullName: fullName,
         fromAuthScope: carried,

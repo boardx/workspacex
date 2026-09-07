@@ -659,6 +659,10 @@ export const McpServerRow = z
 /** MCP 工具。⚠ 全名恒为 `mcp:<服务器>.<工具>`（I-20），与内建 `graph.` / `brain.` 命名空间可区分 */
 export const McpTool = z
   .object({
+    description: z.string().optional(),
+    /** Missing inputSchema means legacy catalog metadata, never execution-ready. */
+    inputSchema: z.record(z.unknown()).optional(),
+    outputSchema: z.record(z.unknown()).optional(),
     fullName: z.string(),
     serverId: z.string(),
     signature: z.string(),
@@ -711,6 +715,22 @@ export const ReviewRecord = z
     authScopeSet: ToolAuthScope.nullable(),
   })
   .strict();
+
+export const McpIsolationResult = z
+      .object({
+        serverId: z.string(),
+        connectionStatus: McpConnectionStatus,
+        affectedAgentIds: z.array(z.string()),
+        interruptedCalls: z.number().int().nonnegative(),
+        requestId: z.string().uuid().optional(),
+        mode: DisableMode.optional(),
+        localAcknowledgedCalls: z.number().int().nonnegative().optional(),
+        pendingCalls: z.number().int().nonnegative().optional(),
+        unconfirmedCalls: z.number().int().nonnegative().optional(),
+        completedCalls: z.number().int().nonnegative().optional(),
+        remoteOutcome: z.literal("unknown").optional(),
+      })
+      .strict();
 
 /** 四开关。⚠ **封闭集合**；界面文案随「留痕保留期」参数**动态渲染**，不得写死「180 天」（I-24） */
 export const SecurityPolicy = z
@@ -1367,22 +1387,23 @@ export const operations = {
     ] as const,
   },
 
-  /** 重新隔离。立即生效；进行中的调用被终止并**明确失败**（不静默） */
+  /** 重新隔离：interrupt请求停止本地调用，drain允许已准入调用结束。远端副作用无法据此确认撤销。 */
   reIsolateMcpServer: {
     method: "POST",
     path: "/mcp-servers/:serverId/isolate",
     in: z
       .object({ serverId: z.string(), mode: DisableMode, reason: z.string().min(1) })
       .strict(),
-    out: z
-      .object({
-        serverId: z.string(),
-        connectionStatus: McpConnectionStatus,
-        affectedAgentIds: z.array(z.string()),
-        interruptedCalls: z.number().int().nonnegative(),
-      })
-      .strict(),
+    out: McpIsolationResult,
     err: ["NOT_ORG_ADMIN", "REVIEW_REASON_REQUIRED"] as const,
+  },
+
+  getMcpIsolationStatus: {
+    method: "GET",
+    path: "/mcp-servers/:serverId/isolation-requests/:requestId",
+    in: z.object({serverId:z.string(),requestId:z.string().uuid()}).strict(),
+    out: McpIsolationResult,
+    err: ["NOT_ORG_ADMIN", "NOT_FOUND"] as const,
   },
 
   /**

@@ -1,8 +1,13 @@
 {
-  "dependencies": ["."],
+  "dependencies": [
+    "."
+  ],
   "graphs": {
-    "Deep Agent": "./src/deep_agent_service/graph.py:graph",
+    "Deep Agent": "./src/deep_agent_service/graph_selector.py:select_graph",
     "Guided Research": "./src/deep_agent_service/guided_research_graph.py:graph"
   },
-  "env": ".env"
+  "env": ".env",
+  "http": {
+    "app": "./src/deep_agent_service/retrieval_embeddings.py:app"
+  }
 }

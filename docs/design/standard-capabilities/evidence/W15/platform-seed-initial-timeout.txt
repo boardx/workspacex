@@ -1,0 +1,55 @@
+[stack-admission] load1=14.46 cores=10 perCore=1.45 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqm8075-b465bda9-a0b34bc81cd9 db=wsx_a0b34bc81cd9689e317e compose=wsx-a0b34bc81cd9689e317e pg=24904 redis=29904 sandbox=54904
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_a0b34bc81cd9689e317e capacity=100 current=6 required=32
+ ❯ tests/skill/standard-platform-packs.test.ts (2 tests | 2 failed) 43724ms
+   × publishes shipped complete workflow packages through the existing importer and replays without duplicate versions 30759ms
+     → Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × exposes the published standard package through the actual Skills API to ordinary members in distinct organizations 12963ms
+     → duplicate key value violates unique constraint "capability_listings_uniq"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/skill/standard-platform-packs.test.ts > publishes shipped complete workflow packages through the existing importer and replays without duplicate versions
+Error: Test timed out in 30000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/skill/standard-platform-packs.test.ts > exposes the published standard package through the actual Skills API to ordinary members in distinct organizations
+error: duplicate key value violates unique constraint "capability_listings_uniq"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:38:21
+     36|       const session: TenantSession = {
+     37|         async query<R = Record<string, unknown>>(sql: string, params: …
+     38|           const r = await client.query(sql, params as unknown[]);
+       |                     ^
+     39|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+     40|         },
+ ❯ src/infrastructure/skill/ensure-platform-skill-catalog.ts:180:9
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:49:19
+ ❯ ensurePlatformSkillsSeeded src/infrastructure/skill/ensure-platform-skill-catalog.ts:147:5
+ ❯ Module.ensurePlatformSkillCatalogSeeded src/infrastructure/skill/ensure-platform-skill-catalog.ts:281:20
+ ❯ tests/skill/standard-platform-packs.test.ts:27:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  10:22:28
+   Duration  57.95s (transform 1.00s, setup 0ms, collect 1.15s, tests 43.72s, environment 0ms, prepare 149ms)
+
+[db-isolation] db=wsx_a0b34bc81cd9689e317e peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/skill/standard-platform-packs.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/skill/standard-platform-packs.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m3s
+  清理：1s
+  总计：1m5s

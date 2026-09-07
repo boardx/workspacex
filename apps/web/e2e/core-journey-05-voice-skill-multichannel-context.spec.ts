@@ -20,6 +20,7 @@ import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-ru
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { clickActionableSkillMountOption } from "./support/skill-mount";
 
 function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -77,7 +78,7 @@ test("旅程⑤：录音转录落库 → 挂 skill 的 agent 据此生成回复 
     const mountResponse = page.waitForResponse((r) => (
       r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url())
     ));
-    await page.getByTestId(`chat-skill-mount-option-${FULLSTACK_E2E.mountableSkillId}`).click();
+    await clickActionableSkillMountOption(page, FULLSTACK_E2E.mountableSkillId);
     expect((await mountResponse).status()).toBe(201);
   }
   await expect(page.getByTestId(`chat-skill-mounted-${FULLSTACK_E2E.mountableSkillId}`)).toBeVisible();

@@ -1,0 +1,1 @@
+{"playlistRejected":true,"sourceBytes":7200369,"durationMs":3600000,"chunks":120,"pcmBytes":115200000,"elapsedMs":2573,"originalUnchanged":true,"oversizedDurationRejected":true,"changedSourceRejected":true}

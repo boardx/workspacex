@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+ ✓ tests/chat/anydoc-attachment-to-markdown.test.ts (2 tests) 6ms
+ ✓ tests/agent-runtime/standard-document-tools.test.ts (6 tests) 11ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  14:32:33
+   Duration  530ms (transform 123ms, setup 0ms, collect 209ms, tests 17ms, environment 0ms, prepare 111ms)
+

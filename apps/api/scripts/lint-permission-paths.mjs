@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
  * lint-permission-paths.mjs -- the structural half of R7 "permission travels along the
  * data path" (UC-0.3 R7 / R12 V10, coherence X-1).
@@ -32,6 +33,15 @@ import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-perm
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
+import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
+import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-execution-boundary.mjs";
+import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/artifact-index-writer-boundary.mjs";
+import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
+import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
+import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
+import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
+import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
 const API = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MIGRATIONS = join(API, "migrations");
@@ -53,6 +63,10 @@ const FILTER_MODULE = "application/security/permission-filter";
  *   两者都是「这个文件没出现在改动列表里」。同一个仓的 `verify-rls.sh` ratchet 正是
  *   因为这种不可分辨静默失效过三次（F31 也为此在那边留过同样一句）。
  */
+const SUBTASK_BOUNDARIES = new Set([
+  "src/infrastructure/agent-run/pg-subtask-run-store.ts",
+  "src/infrastructure/agent-run/subtask-run-executor.ts",
+]);
 const ALLOWLIST = new Map([
   [
     "src/infrastructure/skill/pg-skill-trial-run-store.ts",
@@ -468,8 +482,72 @@ for (const root of ROOTS) {
   for (const file of walk(abs)) {
     scanned++;
     const rel = relative(API, file);
-    if (ALLOWLIST.has(rel)) continue;
     const body = readFileSync(file, "utf8");
+    if (SUBTASK_BOUNDARIES.has(rel)) {
+      for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
+        if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }
+      }
+      const boundaryErrors = checkSubtaskPermissionBoundary(rel, body,
+        readFileSync(join(API, "src/interface/controllers/subtask-run.controller.ts"), "utf8"),
+        readFileSync(join(API, "src/application/agent-run/authorize-subtask-parent.ts"), "utf8"));
+      for (const error of boundaryErrors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (MCP_CREDENTIAL_BOUNDARIES.has(rel)) {
+      const errors = checkMcpCredentialBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/mcp-credential-boundary.test.mjs"))) errors.push("credential counterexamples missing");
+      for(const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
+      const errors = checkMcpExecutionBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/mcp-execution-boundary.test.mjs"))) errors.push("MCP authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === SCHEDULE_NOTIFICATIONS_PATH) {
+      const errors = checkScheduleNotifications(body);
+      if (!existsSync(join(API, "scripts/tests/schedule-notifications-boundary.test.mjs"))) errors.push("schedule notification authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === STANDARD_SCHEDULE_PATH) {
+      const errors = checkStandardSchedule(body);
+      if (!existsSync(join(API, "scripts/tests/standard-schedule-boundary.test.mjs"))) errors.push("scheduler authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === ARTIFACT_INDEX_WRITER_PATH) {
+      const errors = checkArtifactIndexWriter(body);
+      if (!existsSync(join(API, "scripts/tests/artifact-index-writer-boundary.test.mjs"))) errors.push("index writer authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === STANDARD_TOOL_RUN_PATH) {
+      const errors = checkStandardToolRun(body);
+      if (!existsSync(join(API, "scripts/tests/standard-tool-run-boundary.test.mjs"))) errors.push("trusted run counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === MEMORY_PROOF_PATH) {
+      const errors = checkMemoryProof(body);
+      if (!existsSync(join(API, "scripts/tests/memory-proof-boundary.test.mjs"))) errors.push("memory proof counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (WORKBENCH_REPOSITORIES.has(rel)) {
+      const errors = checkWorkbenchRepository(rel, body, p => readFileSync(join(API, p), "utf8"));
+      if (!existsSync(join(API, "scripts/tests/workbench-repository-boundary.test.mjs"))) errors.push("repository counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (WORKBENCH_BOUNDARIES.has(rel)) {
+      const errors = checkWorkbenchPermissionBoundary(rel, body);
+      if (!existsSync(join(API, "scripts/tests/workbench-permission-boundary.test.mjs"))) errors.push("boundary counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (ALLOWLIST.has(rel)) continue;
     const guarded = body.includes(FILTER_MODULE);
     const inInfra = rel.includes("/infrastructure/") || rel.startsWith("infrastructure/");
 

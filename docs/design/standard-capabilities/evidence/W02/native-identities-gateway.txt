@@ -1,0 +1,23 @@
+[stack-admission] load1=7.97 cores=10 perCore=0.80 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqahjj9-58b0fbdc-5998e7dc2d90 db=wsx_5998e7dc2d90c3a57790 compose=wsx-5998e7dc2d90c3a57790 pg=23052 redis=28052 sandbox=53052
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_5998e7dc2d90c3a57790 capacity=100 current=6 required=32
+ ✓ tests/agent-run/gateway-forwarding.test.ts (6 tests) 6ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 2ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  04:53:53
+   Duration  2.87s (transform 367ms, setup 0ms, collect 486ms, tests 8ms, environment 0ms, prepare 74ms)
+
+[db-isolation] db=wsx_5998e7dc2d90c3a57790 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/gateway-forwarding.test.ts tests/agent-run/execute-run-thin-gateway.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：1s
+  总计：4s

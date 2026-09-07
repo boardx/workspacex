@@ -1,0 +1,51 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+_______ test_real_native_factory_registers_three_standard_entries[True] ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113c39220>
+admitted = True
+
+    @pytest.mark.parametrize("admitted", [False, True])
+    def test_real_native_factory_registers_three_standard_entries(monkeypatch,admitted):
+        value=config();value['configurable']['org_skills']=[]
+        answer=resolved();answer['interruptOn']={tool.name:True for tool in entry_tools()} if admitted else {};answer['packageDigest']=factory._package_set_digest([])
+        async def resolve(*_):return answer
+        monkeypatch.setenv('NATIVE_SESSION_SOCKET','/run/native.sock')
+        monkeypatch.setattr(factory,'_resolve',resolve)
+        monkeypatch.setattr(factory,'_sandbox_client',lambda _:httpx.Client(transport=httpx.MockTransport(lambda _:httpx.Response(500))))
+        monkeypatch.setattr(factory,'_shared_runtime',lambda:(model(),None,[]))
+        seen=[]
+        class Graph:
+            def with_config(self,_):return self
+        def create(*args,**kwargs):seen.extend(kwargs['tools']);return Graph()
+        monkeypatch.setattr(factory,'create_native_graph',create)
+        async def run():
+            async with factory.native_graph_context(value):pass
+        asyncio.run(run())
+        selected={tool.name:tool for tool in seen}
+        for tool in entry_tools():
+            if not admitted:
+                assert tool.name not in selected
+                continue
+>           assert tool.name in selected
+E           AssertionError: assert 'wx_artifact_download' in {'confirm_task_intent': StructuredTool(name='confirm_task_intent', description='当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能\n...utils.pydantic.choose_execution_option'>, func=<function build_tools.<locals>.choose_execution_option at 0x113d68880>)}
+E            +  where 'wx_artifact_download' = StructuredTool(name='wx_artifact_download', description='Issue a short-lived, one-time download reference for an artif...t_download_tool.<locals>.sync at 0x113da0460>, coroutine=<function artifact_download_tool.<locals>.run at 0x113da00f0>).name
+
+apps/deep-agent-service/tests/test_native_standard_entries.py:40: AssertionError
+=============================== warnings summary ===============================
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql.py:12: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED apps/deep-agent-service/tests/test_native_standard_entries.py::test_real_native_factory_registers_three_standard_entries[True]
+1 failed, 1 passed, 3 warnings in 1.14s

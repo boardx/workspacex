@@ -1,0 +1,114 @@
+[stack-admission] load1=32.84 cores=10 perCore=3.28 running=0/2
+[stack-admission] 排队中：机器每核负载 3.28（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.09（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.02（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.84（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.60（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.69（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 41s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 46s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.75（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 51s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.75（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 56s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.75（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 61s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 66s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.67（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 71s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 76s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.00（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 82s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.20（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 87s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.21（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 92s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.33（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 97s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.35（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 102s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.34（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 107s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.51（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 112s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 117s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 122s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.56（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 127s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.41（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 132s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 138s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.79（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 143s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 148s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.83（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 153s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 158s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.73（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 163s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.72（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 168s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 173s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 178s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.61（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 183s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.50（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 188s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.46（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 193s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 198s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 203s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.86（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 208s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.84（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 214s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.73（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 219s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.48（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 224s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 229s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.24（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 234s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.14（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 239s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.10（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 244s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 249s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 254s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.21（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 259s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.19（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 264s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.12（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 269s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.01（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 274s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 279s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 284s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.20（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 290s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.16（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 295s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.15（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 300s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.17（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 305s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.22（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 310s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.21（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 315s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.12（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 320s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.96（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 325s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.94（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 330s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.00（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 335s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.19（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 340s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 345s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.63（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 350s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.93（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 355s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.87（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 360s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 365s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 370s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 376s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 381s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.49（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 386s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.48（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 391s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.27（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 396s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 401s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.98（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 406s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.95（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 411s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.06（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 416s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.86（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 421s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 426s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.68（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 431s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 436s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 441s
+[test-isolation] id=run-mtq20i37-13727e79-8502d619f317 db=wsx_8502d619f3179b662701 compose=wsx-8502d619f3179b662701 pg=20609 redis=25609 sandbox=50609
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_8502d619f3179b662701 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"a62f9db0-42c3-44be-ad3b-001a7e7cac18","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:118:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"4d4aca81-138b-4cd5-b910-9b18f4763966","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:142:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"af969ebd-0d55-455c-a7a1-8280cc6b2678","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:138:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (6 tests) 25298ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 12375ms
+ ✓ tests/agent-runtime/subtask-run-queue.test.ts (11 tests) 27ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  01:04:03
+   Duration  58.41s (transform 7.68s, setup 0ms, collect 3.38s, tests 25.32s, environment 1ms, prepare 495ms)
+
+[db-isolation] db=wsx_8502d619f3179b662701 peak_connections=6
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-runtime/subtask-run-queue.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：7m21s
+  命令执行：1m0s
+  清理：1s
+  总计：8m23s

@@ -22,6 +22,7 @@
  * 抓包（`05-resume-run.json`+`13-threadB-resume-stream.json` vs `14-threadB-after-
  * resume-state.json`）。
  */
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
@@ -31,6 +32,7 @@ import {
 } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../../src/application/skill/run-script-with-retries";
 import type { PinnedSkillContent } from "../../src/application/agent-run/ports";
+import { standardCapabilities as SC } from "@repo/contracts";
 
 const SKILL_STABLE_NAME = "pdf-create";
 const SCRIPT_FENCE = "```run_script\nconst fs=require('fs');fs.writeFileSync('a.pdf','%PDF-1.4');\n```";
@@ -44,8 +46,9 @@ afterEach(() => new Promise<void>((r) => (server ? server.close(() => r()) : r()
  * 这样"org_skills 转发对了"与"call_skill 真的能执行"之间的因果关系是这份假件自己
  * 计算出来的，不是测试断言里假设出来的。
  */
-function startFake(): Promise<{ baseUrl: string; capturedResumeBodies: Record<string, unknown>[] }> {
+function startFake(): Promise<{ baseUrl: string; capturedResumeBodies: Record<string, unknown>[]; capturedBodies: Record<string, unknown>[] }> {
   const capturedResumeBodies: Record<string, unknown>[] = [];
+  const capturedBodies: Record<string, unknown>[] = [];
   server = createServer((req, res) => {
     const url = req.url ?? "";
     const json = (body: unknown): void => {
@@ -58,6 +61,7 @@ function startFake(): Promise<{ baseUrl: string; capturedResumeBodies: Record<st
       req.on("data", (c: Buffer) => chunks.push(c));
       req.on("end", () => {
         const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+        capturedBodies.push(body);
         if (body.command !== undefined) capturedResumeBodies.push(body);
         json({ run_id: "r-2768" });
       });
@@ -92,7 +96,7 @@ function startFake(): Promise<{ baseUrl: string; capturedResumeBodies: Record<st
   return new Promise((resolve) => {
     server!.listen(0, "127.0.0.1", () => {
       const addr = server!.address() as AddressInfo;
-      resolve({ baseUrl: `http://127.0.0.1:${addr.port}`, capturedResumeBodies });
+      resolve({ baseUrl: `http://127.0.0.1:${addr.port}`, capturedResumeBodies, capturedBodies });
     });
   });
 }
@@ -153,5 +157,89 @@ describe("issue #2768：resume 请求转发 org_skills/script_protocol，call_sk
     const candidate = (completion.scriptCandidates ?? []).find((c) => tryExtractScript(c) !== null);
     expect(candidate).toBeUndefined();
     expect(completion.scriptCandidates?.join("\n")).toContain("未知技能");
+  });
+});
+
+
+describe("WX-E004 full package trusted context", () => {
+  it.each([false, true])("preserves background callback context on resume=%s", async (resume) => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5,
+      subtaskCallbackBaseUrl: "http://trusted-api", subtaskCallbackKey: "test-secret" });
+    await provider.completeWithProgress({
+      modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any", system: "s", user: "u",
+      orgId: "org-test", runId: "run-test", history: [], skills: [],
+      ...(resume ? { resume: { decision: "approve" } } : {}),
+    } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable).toMatchObject({
+      subtask_callback_base_url: "http://trusted-api", subtask_callback_key: "test-secret",
+      org_id: "org-test", parent_run_id: "run-test",
+    });
+  });
+  it.each([false, true])("forwards server text-only restriction on resume=%s", async (resume) => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({
+      modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any", system: "s", user: "u",
+      history: [], skills: [], executionMode: "text-only",
+      ...(resume ? { resume: { decision: "approve" } } : {}),
+    } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable[SC.EXECUTION_MODE_CONFIG_KEY]).toBe("text-only");
+    expect(JSON.stringify(body.input ?? {})).not.toContain(SC.EXECUTION_MODE_CONFIG_KEY);
+  });
+  it.each([false, true])("forwards identical complete binary files on resume=%s outside messages", async (resume) => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5_000, pollIntervalMs: 5 });
+    const files = [
+      { path: "SKILL.md", bytes: Buffer.from("# Package") },
+      { path: "assets/template.bin", bytes: Buffer.from([0, 255, 128]) },
+    ].map(({ path, bytes }) => ({ path, contentBase64: bytes.toString("base64"),
+      mediaType: "application/octet-stream", digest: createHash("sha256").update(bytes).digest("hex") }));
+    const skillPackage = { skillId: "skill-pdf", versionId: SKILLS[0]!.versionId, files };
+    await provider.completeWithProgress({
+      modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any", system: "s", user: "u",
+      history: [], skills: [{ ...SKILLS[0]!, package: skillPackage }],
+      ...(resume ? { resume: { decision: "approve" } } : {}),
+    } as never, async () => {});
+    expect(capturedBodies).toHaveLength(1);
+    const body = capturedBodies[0]!;
+    const context = (body.config as { configurable: { org_skills: unknown[] } }).configurable;
+    expect(context.org_skills).toEqual([{ stable_name: SKILL_STABLE_NAME, name: SKILLS[0]!.name,
+      content: SKILLS[0]!.content, package: skillPackage }]);
+    expect(JSON.stringify(body.input ?? {})).not.toContain("contentBase64");
+  });
+});
+
+describe("W12 trusted personal memory context component", () => {
+  it.each([false, true])("projects requester identity outside messages, resume=%s", async resume => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", orgId: "org-a", trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+      ...(resume ? { resume: { decision: "approve" } } : {}) } as never, async () => {});
+    const body = capturedBodies[0]!;
+    expect((body.config as { configurable: Record<string, unknown> }).configurable[SC.MEMORY_SCOPE_CONFIG_KEY])
+      .toEqual({ orgId: "org-a", userId: "owner" });
+    expect(JSON.stringify(body.input ?? {})).not.toContain("owner");
+  });
+  it.each([undefined, "org-b"])("rejects missing or mismatched tenant %s", async orgId => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await expect(provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", orgId, trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+    } as never, async () => {})).rejects.toThrow();
+    expect(capturedBodies).toHaveLength(0);
+  });
+  it("does not grant memory to text-only even with a supplied scope", async () => {
+    const { baseUrl, capturedBodies } = await startFake();
+    const provider = new DeepAgentModelProvider({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await provider.completeWithProgress({ modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "any",
+      system: "s", user: "u", executionMode: "text-only", orgId: "org-a",
+      trustedMemoryScope: { orgId: "org-a", userId: "owner" },
+    } as never, async () => {});
+    expect((capturedBodies[0]!.config as { configurable: Record<string, unknown> }).configurable)
+      .not.toHaveProperty(SC.MEMORY_SCOPE_CONFIG_KEY);
   });
 });

@@ -1,0 +1,151 @@
+{
+  "toolName": "spawn_async_task",
+  "limits": {
+    "maxRefs": 8,
+    "maxRefChars": 4096,
+    "maxDescriptionChars": 8000,
+    "maxContextBytes": 4194304,
+    "deadlineMs": 30000,
+    "maxResponseBytes": 16384
+  },
+  "toolInput": {
+    "type": "object",
+    "properties": {
+      "description": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8000
+      },
+      "contextRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "JSON string copied from a real knowledge result, e.g. {\"sourceId\":\"chat-attachment:ID\",\"versionId\":\"sha256:HASH\"}; optional projectId must be authorized. No orgId/userId or URL."
+        },
+        "maxItems": 8
+      },
+      "idempotencyKey": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "description": "Stable logical dispatch key; reuse only for the identical description and context references."
+      }
+    },
+    "required": [
+      "description",
+      "idempotencyKey"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "bindingId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolName": {
+        "type": "string",
+        "const": "spawn_async_task"
+      },
+      "toolArgs": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "contextRefs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "description": "JSON string copied from a real knowledge result, e.g. {\"sourceId\":\"chat-attachment:ID\",\"versionId\":\"sha256:HASH\"}; optional projectId must be authorized. No orgId/userId or URL."
+            },
+            "maxItems": 8
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Stable logical dispatch key; reuse only for the identical description and context references."
+          }
+        },
+        "required": [
+          "description",
+          "idempotencyKey"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "bindingId",
+      "toolCallId",
+      "toolName",
+      "toolArgs"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "childRunId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "status": {
+        "anyOf": [
+          {
+            "type": "string",
+            "const": "queued"
+          },
+          {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          }
+        ]
+      }
+    },
+    "required": [
+      "childRunId",
+      "status"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

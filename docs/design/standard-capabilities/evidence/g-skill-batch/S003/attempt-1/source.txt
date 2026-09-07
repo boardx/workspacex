@@ -1,0 +1,2 @@
+合成项目晨星：目标是测试文档。里程碑：需求确认、原型验证。预算未知。
+Synthetic project Morning Star: document testing. Milestones: confirm requirements; validate prototype. Budget unknown.

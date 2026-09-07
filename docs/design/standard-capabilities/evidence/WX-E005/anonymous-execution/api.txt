@@ -1,0 +1,35 @@
+[stack-admission] load1=4.13 cores=10 perCore=0.41 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqlnrx6-c4c3d67a-819aa3c84098 db=wsx_819aa3c84098acbafa6c compose=wsx-819aa3c84098acbafa6c pg=20336 redis=25336 sandbox=50336
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_819aa3c84098acbafa6c capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"90cda2ad-0d9f-4918-824b-59703e4437bd","detail":{"name":"UnauthorizedException","message":"Unauthorized","stack":"UnauthorizedException: Unauthorized\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:23:97)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"cb9137a0-0335-404a-bd44-4204c89a3003","detail":{"name":"BadRequestException","message":"mcp_input_invalid","stack":"BadRequestException: mcp_input_invalid\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:24:72)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:38:29\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5d7e4c05-6f3a-45da-882d-ae3f36df2fc9","detail":{"name":"ServiceUnavailableException","message":"mcp_execution_unavailable_or_unconfirmed","stack":"ServiceUnavailableException: mcp_execution_unavailable_or_unconfirmed\n    at McpExecutionSnapshotController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/mcp-execution-snapshot.controller.ts:26:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/mcp/mcp-execution-snapshot-real-db.test.ts (10 tests) 16612ms
+   ✓ real review rejects non-admin and self review; persists exact approved tool schemas 1191ms
+   ✓ shared real authority denies first, grant allows once; receipts refuse replay with changed args or unknown outcome 303ms
+   ✓ late cancellation or requester revocation suppresses result and leaves an unreplayable receipt 320ms
+   ✓ real HTTPS MCP worker, frozen PG review, shared authority and actual internal HTTP controller form one execution chain 4477ms
+ ✓ tests/mcp/mcp-execution-worker-real-protocol.test.ts (5 tests) 17294ms
+   ✓ official SDK worker really lists, fingerprints and executes HTTPS tool with structured output 4410ms
+   ✓ schema mutation and invalid arguments refuse without reporting tool success 4047ms
+   ✓ production DNS gate rejects loopback and worker deadline settles, leaving slots reusable 773ms
+   ✓ bounded worker concurrency refuses excess calls and waits for terminated workers before reuse 4028ms
+   ✓ schema regex CPU cannot block the API thread and timed-out worker is terminated before slot reuse 4032ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  10:06:40
+   Duration  38.44s (transform 3.12s, setup 0ms, collect 1.24s, tests 33.91s, environment 0ms, prepare 177ms)
+
+[db-isolation] db=wsx_819aa3c84098acbafa6c peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/mcp-execution-worker-real-protocol.test.ts tests/mcp/mcp-execution-snapshot-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：39s
+  清理：1s
+  总计：40s

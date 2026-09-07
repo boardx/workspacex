@@ -90,8 +90,26 @@ function guardedLookup(seams: ImportFetchSeams): typeof dns.lookup {
   return wrapped as unknown as typeof dns.lookup;
 }
 
+const GITHUB_DIAGNOSTIC_HEADERS = [
+  "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset",
+  "retry-after", "x-github-request-id",
+] as const;
+
+function githubDiagnosticHeaders(headers: import("node:http").IncomingHttpHeaders): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const name of GITHUB_DIAGNOSTIC_HEADERS) {
+    const value = headers[name];
+    // Reject rather than truncate: no arrays, controls, URLs or arbitrary payloads.
+    if (typeof value === "string" && value.length <= 128 && /^[A-Za-z0-9 ,:-]+$/.test(value)) {
+      result[name] = value;
+    }
+  }
+  return result;
+}
+
 function once(url: URL, seams: ImportFetchSeams): Promise<{
   readonly status: number;
+  readonly diagnostics: Record<string, string>;
   readonly location: string | null;
   readonly mediaType: string;
   readonly body: Buffer;
@@ -132,6 +150,7 @@ function once(url: URL, seams: ImportFetchSeams): Promise<{
         response.on("end", () =>
           resolve({
             status: response.statusCode ?? 0,
+            diagnostics: githubDiagnosticHeaders(response.headers),
             location: response.headers.location ?? null,
             mediaType: (response.headers["content-type"] ?? "application/octet-stream").split(";")[0]!.trim(),
             body: Buffer.concat(chunks),
@@ -168,7 +187,14 @@ export async function fetchImportSource(
       target = assertImportUrlAllowed(new URL(result.location, target).toString(), policy);
       continue;
     }
-    if (result.status !== 200) throw new ImportSourceRefusedError("IMPORT_FETCH_FAILED");
+    if (result.status !== 200) {
+      if (target.protocol === "https:" && target.hostname === "api.github.com" && !target.port) {
+        console.warn("[skill-import] upstream-http-failure", {
+          host: "api.github.com", status: result.status, headers: result.diagnostics,
+        });
+      }
+      throw new ImportSourceRefusedError("IMPORT_FETCH_FAILED");
+    }
     return { url: target.toString(), mediaType: result.mediaType, body: result.body };
   }
   throw new ImportSourceRefusedError("IMPORT_TOO_MANY_REDIRECTS");

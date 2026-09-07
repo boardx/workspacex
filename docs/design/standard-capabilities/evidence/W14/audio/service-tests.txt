@@ -1,0 +1,26 @@
+[stack-admission] load1=7.85 cores=10 perCore=0.78 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqnphop-0c3693c3-cc5d365965b7 db=wsx_cc5d365965b7b164283d compose=wsx-cc5d365965b7b164283d pg=20825 redis=25825 sandbox=50825
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_cc5d365965b7b164283d capacity=100 current=6 required=32
+ ✓ tests/recording/configured-realtime-asr-provider.test.ts (11 tests) 290ms
+ ✓ tests/agent-runtime/standard-audio-tools.test.ts (4 tests) 60ms
+ ✓ tests/recording/file-asr-manual.test.ts (2 tests) 62ms
+ ✓ tests/recording/configured-realtime-asr-events.test.ts (6 tests) 14ms
+ ✓ tests/agent-runtime/audio-final-collector.test.ts (3 tests) 21ms
+
+ Test Files  5 passed (5)
+      Tests  26 passed (26)
+   Start at  11:04:01
+   Duration  12.04s (transform 945ms, setup 0ms, collect 1.66s, tests 446ms, environment 1ms, prepare 819ms)
+
+[db-isolation] db=wsx_cc5d365965b7b164283d peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/recording/configured-realtime-asr-events.test.ts tests/recording/configured-realtime-asr-provider.test.ts tests/recording/file-asr-manual.test.ts tests/agent-runtime/audio-final-collector.test.ts tests/agent-runtime/standard-audio-tools.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：4s
+  总计：19s

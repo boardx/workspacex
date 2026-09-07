@@ -1,0 +1,124 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 11.34kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/library/python:3.11-slim
+#3 DONE 0.1s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [analysis 1/3] FROM docker.io/library/python:3.11-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
+#5 resolve docker.io/library/python:3.11-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff 0.0s done
+#5 DONE 0.0s
+
+#6 [build 1/6] FROM docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+#6 resolve docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 6.77kB 0.0s done
+#7 DONE 0.0s
+
+#8 [analysis 2/3] COPY analysis/requirements.lock /tmp/analysis-requirements.lock
+#8 CACHED
+
+#9 [analysis 3/3] RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes       --target /analysis -r /tmp/analysis-requirements.lock  && pip download --only-binary=:all: --require-hashes --no-deps       --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64       --python-version 311 --implementation cp --abi cp311       --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock
+#9 CACHED
+
+#10 [stage-3  4/17] RUN npm install --omit=dev --no-package-lock  && npm cache clean --force  && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')"  && node -e "require.resolve('docx'); console.log('docx preinstalled OK')"  && node -e "require.resolve('exceljs'); console.log('exceljs preinstalled OK')"  && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')"  && node -e "require.resolve('@pdf-lib/fontkit'); console.log('@pdf-lib/fontkit preinstalled OK')"
+#10 CACHED
+
+#11 [stage-3  8/17] RUN python3 scripts/materialize-office-config.py
+#11 CACHED
+
+#12 [stage-3  6/17] RUN apt-get update  && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig  && fc-cache -f  && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt  && rm -rf /var/lib/apt/lists/*
+#12 CACHED
+
+#13 [stage-3  2/17] WORKDIR /opt/sandbox
+#13 CACHED
+
+#14 [stage-3  7/17] COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
+#14 CACHED
+
+#15 [stage-3  5/17] RUN apt-get update  && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap  && mkdir -p /usr/share/fonts/workspacex  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))"  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))"  && pyftsubset /tmp/noto-sc-full.otf --text-file=/tmp/charset.txt       --output-file=/usr/share/fonts/workspacex/NotoSansSC-Common.otf       --layout-features='' --no-hinting --desubroutinize --drop-tables+=DSIG  && rm -f /tmp/noto-sc-full.otf /tmp/charset.txt  && apt-get purge -y fonts-noto-cjk fonttools  && apt-get autoremove -y  && rm -rf /var/lib/apt/lists/*  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
+#15 CACHED
+
+#16 [stage-3  3/17] COPY package.json ./
+#16 CACHED
+
+#17 [stage-3  9/17] COPY --from=analysis /analysis /usr/local/lib/python3.11/dist-packages
+#17 CACHED
+
+#18 [build 3/6] COPY package.json ./
+#18 CACHED
+
+#19 [build 4/6] RUN npm install --no-save typescript@5 @types/node
+#19 CACHED
+
+#20 [build 5/6] COPY src ./src
+#20 CACHED
+
+#21 [build 2/6] WORKDIR /build
+#21 CACHED
+
+#22 [build 6/6] RUN npx tsc src/*.ts src/session/*.ts       --types node --module NodeNext --moduleResolution NodeNext       --target ES2022 --strict --skipLibCheck       --outDir dist
+#22 CACHED
+
+#23 [analysis-font 1/4] ADD --checksum=sha256:990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf /tmp/noto-analysis-source.ttf
+#23 DONE 89.2s
+
+#24 [analysis-font 1/4] ADD --checksum=sha256:990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf /tmp/noto-analysis-source.ttf
+#24 DONE 0.2s
+
+#25 [analysis-font 2/4] COPY analysis/prepare-font.py /tmp/prepare-font.py
+#25 DONE 0.0s
+
+#26 [analysis-font 3/4] RUN PYTHONPATH=/analysis python /tmp/prepare-font.py /tmp/noto-analysis-source.ttf /font/AnalysisSans.ttf
+#26 17.65 STATIC_TRUETYPE_ANALYSIS_FONT_OK 14287892
+#26 DONE 18.2s
+
+#27 [analysis-font 4/4] COPY analysis/font-LICENSE /font/LICENSE
+#27 DONE 0.0s
+
+#28 [stage-3 10/17] COPY --from=analysis-font /font /usr/share/fonts/workspacex/analysis
+#28 DONE 0.0s
+
+#29 [stage-3 11/17] COPY analysis/requirements.lock ./analysis/requirements.lock
+#29 DONE 0.0s
+
+#30 [stage-3 12/17] RUN OPENBLAS_NUM_THREADS=1 python3 -c "import numpy, pandas, matplotlib, seaborn, openpyxl; print('offline analysis dependencies available')"
+#30 0.591 offline analysis dependencies available
+#30 DONE 0.6s
+
+#31 [stage-3 13/17] COPY security/generate-seccomp.py ./security/generate-seccomp.py
+#31 DONE 0.0s
+
+#32 [stage-3 14/17] RUN python3 security/generate-seccomp.py
+#32 DONE 0.1s
+
+#33 [stage-3 15/17] COPY --from=build /build/dist ./dist
+#33 DONE 0.0s
+
+#34 [stage-3 16/17] COPY src/generated ./dist/generated
+#34 DONE 0.0s
+
+#35 [stage-3 17/17] RUN mkdir -p /run/sessions && chown node:node /run/sessions
+#35 DONE 0.1s
+
+#36 exporting to image
+#36 exporting layers
+#36 exporting layers 0.3s done
+#36 exporting manifest sha256:21c20c266d0e2209e888d93b966e8ae6a9a669ba5afad384d4bc00033698cfb6 done
+#36 exporting config sha256:37e85f468ab9999cd6204aaa84835998adf3e17406e875e456e4f6bff1d7ff73 done
+#36 exporting attestation manifest sha256:1f2702da17a31d5352324039287ed4cc5f4e233756db3eb3c0c5892f6c4037b2 done
+#36 exporting manifest list sha256:3ca8f5f0661fbf220863682a0c4021560213f9dfcb8f9ddb764158d9fa1c699c done
+#36 naming to docker.io/library/workspacex-skill-sandbox:w18-analysis done
+#36 unpacking to docker.io/library/workspacex-skill-sandbox:w18-analysis 0.1s done
+#36 DONE 0.4s

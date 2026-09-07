@@ -44,6 +44,7 @@
  * 这条 bug 完全静默了 7 天以上没有任何日志——见 `onClosed` 的说明。
  */
 import { WebSocket } from "ws";
+import { randomUUID } from "node:crypto";
 import {
   AsrNotConfiguredError,
   type AsrAudioFormat,
@@ -116,7 +117,7 @@ function isBenignEmptyCommitError(message: string): boolean {
 
 type ParsedTranscriptEvent =
   | { readonly kind: "partial"; readonly text: string; readonly confidence: null }
-  | { readonly kind: "final"; readonly text: string; readonly confidence: number | null };
+  | { readonly kind: "final"; readonly text: string; readonly confidence: number | null; readonly itemId?: string; readonly eventId?: string };
 
 /**
  * DashScope Qwen ASR 的高频中间结果不是 OpenAI 风格的 `delta`，而是一个当前句子的
@@ -131,6 +132,8 @@ export function parseDashscopeTranscriptEvent(event: unknown): ParsedTranscriptE
     stash?: unknown;
     transcript?: unknown;
     confidence?: unknown;
+    item_id?: unknown;
+    event_id?: unknown;
   };
   if (frame.type === "conversation.item.input_audio_transcription.text") {
     const text = typeof frame.text === "string" ? frame.text : "";
@@ -142,9 +145,15 @@ export function parseDashscopeTranscriptEvent(event: unknown): ParsedTranscriptE
       kind: "final",
       text: typeof frame.transcript === "string" ? frame.transcript : "",
       confidence: typeof frame.confidence === "number" ? frame.confidence : null,
+      ...(validTranscriptIdentity(frame.item_id) ? {itemId: frame.item_id} : {}),
+      ...(validTranscriptIdentity(frame.event_id) ? {eventId: frame.event_id} : {}),
     };
   }
   return null;
+}
+
+function validTranscriptIdentity(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= 256 && !/[\x00-\x20\x7f]/.test(value);
 }
 
 export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
@@ -156,11 +165,14 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       : config;
   }
 
+  get modelRef(): string | undefined { return this.config?.model; }
+
   isConfigured(): boolean {
     return this.config !== null;
   }
 
-  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat): Promise<AsrSession> {
+  async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual"; readonly signal?: AbortSignal}): Promise<AsrSession> {
+    const manual = options?.turnDetection === "manual";
     const config = this.config;
     if (config === null) {
       throw new AsrNotConfiguredError(
@@ -181,6 +193,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       },
     });
 
+    const abortSocket = () => socket.terminate();
+    options?.signal?.addEventListener("abort", abortSocket, {once: true});
+    socket.once("close", () => options?.signal?.removeEventListener("abort", abortSocket));
+
     await new Promise<void>((resolve, reject) => {
       const onOpen = () => { cleanup(); resolve(); };
       const onError = (e: Error) => { cleanup(); reject(e); };
@@ -190,6 +206,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       };
       socket.on("open", onOpen);
       socket.on("error", onError);
+      if (options?.signal?.aborted) abortSocket();
     });
 
     // #802 —— 会话参数确认：模型已经在连接 URL 里定了（见上），这里只是把音频格式
@@ -200,13 +217,14 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // `sample_rate`，不是 `input_audio_sample_rate`（均已用真实端点验证，见本文件头注）。
     socket.send(JSON.stringify({
       type: "session.update",
+      ...(manual ? {event_id: randomUUID()} : {}),
       session: {
         input_audio_format: "pcm",
         sample_rate: audio.sampleRate,
         input_audio_transcription: { model: config.model },
         // PROP-CHAT-ASR-LATENCY-001 —— devapp 已验证该字段可用；未配置环境变量时使用
         // 400ms 默认值，避免回退到上游更慢的默认断句。显式 null 仅用于内部排障。
-        ...(config.turnDetectionSilenceMs != null
+        ...(manual ? {turn_detection: null} : config.turnDetectionSilenceMs != null
           ? {
               turn_detection: {
                 type: "server_vad",
@@ -219,6 +237,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
     let closed = false;
     let finalSeen = false;
+    let sessionFinished = false;
     // 2026-09-04 review fix（PR #2644 reviewer diagnostic）—— `finalSeen` 在每次
     // `finish()` 开头被重置为 false（见下），只用来判断"这次收尾等待期间有没有等到
     // final"。但良性空缓冲判定需要回答一个不同的问题：「这条会话里究竟有没有真的
@@ -249,6 +268,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     };
 
     socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
+      if (manual && sessionFinished) return;
       let event: { type?: unknown; error?: unknown };
       try {
         event = JSON.parse(String(raw)) as typeof event;
@@ -257,6 +277,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       const type = typeof event.type === "string" ? event.type : "";
+      if (manual && type === "session.finished") {
+        if (!finishRequested) { reportError(PROVIDER_UNAVAILABLE, "upstream finished before client completion"); return; }
+        sessionFinished = true;
+        if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+        return;
+      }
       const transcript = parseDashscopeTranscriptEvent(event);
       if (transcript?.kind === "partial") {
         handlers.onPartial({ text: transcript.text, confidence: transcript.confidence });
@@ -268,8 +294,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         handlers.onFinal({
           text: transcript.text,
           confidence: transcript.confidence,
+          ...(transcript.itemId ? {itemId: transcript.itemId} : {}),
+          ...(transcript.eventId ? {eventId: transcript.eventId} : {}),
         });
-        if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+        if (!manual && finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         return;
       }
       if (type === "error") {
@@ -291,7 +319,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         // `finish()` 的显式 commit 打空才是"没有更多新音频可提交"的良性情况。如果
         // 整条会话从未见过 final，同样的错误消息意味着"这段录音本身就短到没转出
         // 任何东西"——那是一次真实失败，不能吞。
-        if (finishRequested && isBenignEmptyCommitError(message) && finalSeenEver) {
+        if (!manual && finishRequested && isBenignEmptyCommitError(message) && finalSeenEver) {
           // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
           // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
           // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，
@@ -310,7 +338,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     socket.on("close", (code: number, reasonBuf: Buffer) => {
       closed = true;
       if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
-      if (!finishRequested && !errorReported) {
+      if ((!finishRequested || (manual && !sessionFinished)) && !errorReported) {
         reportError(PROVIDER_UNAVAILABLE, `upstream closed unexpectedly (code=${code}): ${reasonBuf.toString() || "no reason given"}`);
       }
       handlers.onClosed();
@@ -325,18 +353,21 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
         socket.send(JSON.stringify({
           type: "input_audio_buffer.append",
+          ...(manual ? {event_id: randomUUID()} : {}),
           audio: Buffer.from(frame).toString("base64"),
         }));
       },
       commit() {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
-        socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+        socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
       },
       async finish() {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) return;
         finalSeen = false;
-        socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+        if (manual) sessionFinished = false;
+        socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
+        if (manual) socket.send(JSON.stringify({ type: "session.finish", event_id: randomUUID() }));
         // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
         // 而那种丢失在界面上长得像「录音没生效」。
         await new Promise<void>((resolve) => {
@@ -345,7 +376,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
             if (finishResolve) { finishResolve = null; resolve(); }
           }, FINISH_GRACE_MS);
         });
-        if (!finalSeen && !closed) {
+        if (!(manual ? sessionFinished : finalSeen) && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();

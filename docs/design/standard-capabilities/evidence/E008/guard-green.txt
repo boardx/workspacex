@@ -1,0 +1,364 @@
+TAP version 13
+# Subtest: src/infrastructure/agent-run/pg-native-run-inputs.ts baseline
+ok 1 - src/infrastructure/agent-run/pg-native-run-inputs.ts baseline
+  ---
+  duration_ms: 14.331208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-run-inputs.ts rejects removing tenant predicates
+ok 2 - src/infrastructure/agent-run/pg-native-run-inputs.ts rejects removing tenant predicates
+  ---
+  duration_ms: 3.081667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-run-inputs.ts rejects new table
+ok 3 - src/infrastructure/agent-run/pg-native-run-inputs.ts rejects new table
+  ---
+  duration_ms: 2.947125
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-output-staging.ts baseline
+ok 4 - src/infrastructure/agent-run/pg-native-output-staging.ts baseline
+  ---
+  duration_ms: 4.909291
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-output-staging.ts rejects removing tenant predicates
+ok 5 - src/infrastructure/agent-run/pg-native-output-staging.ts rejects removing tenant predicates
+  ---
+  duration_ms: 3.644875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-output-staging.ts rejects new table
+ok 6 - src/infrastructure/agent-run/pg-native-output-staging.ts rejects new table
+  ---
+  duration_ms: 2.776709
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-session-owner.ts baseline
+ok 7 - src/infrastructure/agent-run/pg-native-session-owner.ts baseline
+  ---
+  duration_ms: 5.887042
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-session-owner.ts rejects removing tenant predicates
+ok 8 - src/infrastructure/agent-run/pg-native-session-owner.ts rejects removing tenant predicates
+  ---
+  duration_ms: 6.172666
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-native-session-owner.ts rejects new table
+ok 9 - src/infrastructure/agent-run/pg-native-session-owner.ts rejects new table
+  ---
+  duration_ms: 4.855083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts baseline
+ok 10 - src/infrastructure/agent-run/pg-interjection-store.ts baseline
+  ---
+  duration_ms: 2.876375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts rejects removing tenant predicates
+ok 11 - src/infrastructure/agent-run/pg-interjection-store.ts rejects removing tenant predicates
+  ---
+  duration_ms: 2.068958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-interjection-store.ts rejects new table
+ok 12 - src/infrastructure/agent-run/pg-interjection-store.ts rejects new table
+  ---
+  duration_ms: 1.811083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts baseline
+ok 13 - src/infrastructure/agent-run/pg-parent-run-control.ts baseline
+  ---
+  duration_ms: 1.553458
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts rejects removing tenant predicates
+ok 14 - src/infrastructure/agent-run/pg-parent-run-control.ts rejects removing tenant predicates
+  ---
+  duration_ms: 1.417542
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-parent-run-control.ts rejects new table
+ok 15 - src/infrastructure/agent-run/pg-parent-run-control.ts rejects new table
+  ---
+  duration_ms: 1.451958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts baseline
+ok 16 - src/infrastructure/agent-run/pg-run-recovery.ts baseline
+  ---
+  duration_ms: 2.042667
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts rejects removing tenant predicates
+ok 17 - src/infrastructure/agent-run/pg-run-recovery.ts rejects removing tenant predicates
+  ---
+  duration_ms: 1.6245
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/agent-run/pg-run-recovery.ts rejects new table
+ok 18 - src/infrastructure/agent-run/pg-run-recovery.ts rejects new table
+  ---
+  duration_ms: 1.329209
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts baseline
+ok 19 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts baseline
+  ---
+  duration_ms: 1.17225
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts rejects removing tenant predicates
+ok 20 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts rejects removing tenant predicates
+  ---
+  duration_ms: 1.02
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts rejects new table
+ok 21 - src/infrastructure/artifacts-steering/accept-message-artifact-run-launcher.ts rejects new table
+  ---
+  duration_ms: 0.768
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts baseline
+ok 22 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts baseline
+  ---
+  duration_ms: 16.248459
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts rejects removing tenant predicates
+ok 23 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts rejects removing tenant predicates
+  ---
+  duration_ms: 12.174584
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts rejects new table
+ok 24 - src/infrastructure/artifacts-steering/pg-artifact-continuation-reader.ts rejects new table
+  ---
+  duration_ms: 8.008917
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts baseline
+ok 25 - src/infrastructure/artifacts-steering/register-run-artifacts.ts baseline
+  ---
+  duration_ms: 1.731791
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts rejects removing tenant predicates
+ok 26 - src/infrastructure/artifacts-steering/register-run-artifacts.ts rejects removing tenant predicates
+  ---
+  duration_ms: 2.546833
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/artifacts-steering/register-run-artifacts.ts rejects new table
+ok 27 - src/infrastructure/artifacts-steering/register-run-artifacts.ts rejects new table
+  ---
+  duration_ms: 1.230459
+  type: 'test'
+  ...
+# Subtest: input bytes cannot precede parent authority
+ok 28 - input bytes cannot precede parent authority
+  ---
+  duration_ms: 1.544209
+  type: 'test'
+  ...
+# Subtest: reject removed m.author_kind='human'
+ok 29 - reject removed m.author_kind='human'
+  ---
+  duration_ms: 1.327042
+  type: 'test'
+  ...
+# Subtest: reject removed a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4
+ok 30 - reject removed a.thread_id=$2 AND a.message_id=$3 AND m.author_id=$4
+  ---
+  duration_ms: 1.16625
+  type: 'test'
+  ...
+# Subtest: reject removed limits.maxFiles+1
+ok 31 - reject removed limits.maxFiles+1
+  ---
+  duration_ms: 0.967625
+  type: 'test'
+  ...
+# Subtest: reject removed if (decision.kind !== 'allow') throw
+ok 32 - reject removed if (decision.kind !== 'allow') throw
+  ---
+  duration_ms: 1.986417
+  type: 'test'
+  ...
+# Subtest: reject removed FOR UPDATE OF r
+ok 33 - reject removed FOR UPDATE OF r
+  ---
+  duration_ms: 3.982875
+  type: 'test'
+  ...
+# Subtest: reject removed toolArgumentsDigest(input.toolArgs) !== expected
+ok 34 - reject removed toolArgumentsDigest(input.toolArgs) !== expected
+  ---
+  duration_ms: 0.80575
+  type: 'test'
+  ...
+# Subtest: reject removed await withRunLease(
+ok 35 - reject removed await withRunLease(
+  ---
+  duration_ms: 1.741084
+  type: 'test'
+  ...
+# Subtest: reject removed await acceptHumanMessage(
+ok 36 - reject removed await acceptHumanMessage(
+  ---
+  duration_ms: 0.923666
+  type: 'test'
+  ...
+# Subtest: reject removed v.version=c.based_on_version
+ok 37 - reject removed v.version=c.based_on_version
+  ---
+  duration_ms: 8.827291
+  type: 'test'
+  ...
+# Subtest: reject removed if (!attachment) throw
+ok 38 - reject removed if (!attachment) throw
+  ---
+  duration_ms: 1.314875
+  type: 'test'
+  ...
+# Subtest: reject missing controller authorization
+ok 39 - reject missing controller authorization
+  ---
+  duration_ms: 2.729833
+  type: 'test'
+  ...
+# Subtest: staging rejects removed authority
+ok 40 - staging rejects removed authority
+  ---
+  duration_ms: 1.604208
+  type: 'test'
+  ...
+# Subtest: staging rejects fake denial guard
+ok 41 - staging rejects fake denial guard
+  ---
+  duration_ms: 1.483333
+  type: 'test'
+  ...
+# Subtest: staging rejects forged tenant parameter
+ok 42 - staging rejects forged tenant parameter
+  ---
+  duration_ms: 1.357916
+  type: 'test'
+  ...
+# Subtest: staging rejects missing parent predicate
+ok 43 - staging rejects missing parent predicate
+  ---
+  duration_ms: 1.317167
+  type: 'test'
+  ...
+# Subtest: staging rejects wrong session binding
+ok 44 - staging rejects wrong session binding
+  ---
+  duration_ms: 1.921417
+  type: 'test'
+  ...
+# Subtest: staging rejects forged tool arguments
+ok 45 - staging rejects forged tool arguments
+  ---
+  duration_ms: 1.373417
+  type: 'test'
+  ...
+# Subtest: staging rejects read before authority
+ok 46 - staging rejects read before authority
+  ---
+  duration_ms: 1.259792
+  type: 'test'
+  ...
+# Subtest: staging rejects new unreviewed method
+ok 47 - staging rejects new unreviewed method
+  ---
+  duration_ms: 1.240708
+  type: 'test'
+  ...
+# Subtest: staging rejects public exposure of internal listFiles
+ok 48 - staging rejects public exposure of internal listFiles
+  ---
+  duration_ms: 2.20925
+  type: 'test'
+  ...
+# Subtest: staging rejects recovery without fence
+ok 49 - staging rejects recovery without fence
+  ---
+  duration_ms: 1.480625
+  type: 'test'
+  ...
+# Subtest: claimed boundary accepts exact runtime-profile dependency wrapper
+ok 50 - claimed boundary accepts exact runtime-profile dependency wrapper
+  ---
+  duration_ms: 5.479209
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects arbitrary dependency wrapper
+ok 51 - claimed boundary rejects arbitrary dependency wrapper
+  ---
+  duration_ms: 6.325583
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapper source
+ok 52 - claimed boundary rejects wrong wrapper source
+  ---
+  duration_ms: 6.779375
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapped claim
+ok 53 - claimed boundary rejects wrong wrapped claim
+  ---
+  duration_ms: 5.883
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong tenant
+ok 54 - claimed boundary rejects wrong tenant
+  ---
+  duration_ms: 7.215042
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong dispatched claim
+ok 55 - claimed boundary rejects wrong dispatched claim
+  ---
+  duration_ms: 7.879583
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong heartbeat tenant
+ok 56 - claimed boundary rejects wrong heartbeat tenant
+  ---
+  duration_ms: 6.315958
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong heartbeat claim
+ok 57 - claimed boundary rejects wrong heartbeat claim
+  ---
+  duration_ms: 7.274917
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong heartbeat epoch
+ok 58 - claimed boundary rejects wrong heartbeat epoch
+  ---
+  duration_ms: 8.223
+  type: 'test'
+  ...
+# Subtest: claimed boundary rejects wrong wrapper module
+ok 59 - claimed boundary rejects wrong wrapper module
+  ---
+  duration_ms: 6.67
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 588.380625

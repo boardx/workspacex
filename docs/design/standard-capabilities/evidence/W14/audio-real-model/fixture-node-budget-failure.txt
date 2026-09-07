@@ -1,0 +1,78 @@
+[stack-admission] load1=3.42 cores=10 perCore=0.34 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqt6xlo-d453656b-3f333e1e5353 db=wsx_3f333e1e53530a1e88e8 compose=wsx-3f333e1e53530a1e88e8 pg=22846 redis=27846 sandbox=52846
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_3f333e1e53530a1e88e8 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/audio-skill-real-model.live.ts (1 test | 1 failed) 14190ms
+   × real configured model selects the minutes skill and writes a source-grounded artifact 10528ms
+     → real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/audio_skill_real_model_runner.py", line 34, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/audio_skill_real_model_runner.py", line 14, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':'请根据附件中的真实会议转录，选择适合的技能，生成会议纪要 Markdown 文件并发布为 minutes.md。包括摘要、已确认决策、行动项、未决定建议、原句或时间定位。未知责任人与日期请明确未知；不要建任务或外发。生成文件后实际读回核验，再用产物工具发布。'}]},config={**config,'recursion_limit':40},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3492, in astream
+    raise GraphRecursionError(msg)
+langgraph.errors.GraphRecursionError: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/audio-skill-real-model.live.ts > real configured model selects the minutes skill and writes a source-grounded artifact
+Error: real model process exited 1; Traceback (most recent call last):
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/audio_skill_real_model_runner.py", line 34, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 205, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/runners.py", line 128, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/shenyanbin/.local/share/uv/python/cpython-3.14.7-macos-aarch64-none/lib/python3.14/asyncio/base_events.py", line 720, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/tests/audio_skill_real_model_runner.py", line 14, in main
+    async for mode,event in graph.astream({'messages':[{'role':'user','content':'请根据附件中的真实会议转录，选择适合的技能，生成会议纪要 Markdown 文件并发布为 minutes.md。包括摘要、已确认决策、行动项、未决定建议、原句或时间定位。未知责任人与日期请明确未知；不要建任务或外发。生成文件后实际读回核验，再用产物工具发布。'}]},config={**config,'recursion_limit':40},stream_mode=['custom','values']):
+    ...<9 lines>...
+      (evidence/'partial-model-trace.json').write_text(serialized)
+  File "/private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/langgraph/pregel/main.py", line 3492, in astream
+    raise GraphRecursionError(msg)
+langgraph.errors.GraphRecursionError: Recursion limit of 40 reached without hitting a stop condition. You can increase the limit by setting the `recursion_limit` config key.
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+
+ ❯ ChildProcess.<anonymous> tests/agent-runtime/audio-skill-real-model.live.ts:46:421
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:37:31
+   Duration  16.88s (transform 461ms, setup 0ms, collect 778ms, tests 14.19s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_3f333e1e53530a1e88e8 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.audio-real-model.config.ts
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.audio-real-model.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：0s
+  总计：18s

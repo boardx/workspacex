@@ -1,0 +1,23 @@
+[stack-admission] load1=3.14 cores=10 perCore=0.31 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqrg6me-2c93ed97-657930d07332 db=wsx_657930d07332aa687bbc compose=wsx-657930d07332aa687bbc pg=21168 redis=26168 sandbox=51168
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_657930d07332aa687bbc capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/native-file-delegation.test.ts (1 test) 5990ms
+   ✓ real current input proof rejects cross-scope paths, byte changes, source revocation and parent cancellation over HTTP 3150ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  12:48:43
+   Duration  8.56s (transform 333ms, setup 0ms, collect 584ms, tests 5.99s, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_657930d07332aa687bbc peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-file-delegation.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：9s

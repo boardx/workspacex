@@ -1,0 +1,45 @@
+[stack-admission] load1=3.15 cores=10 perCore=0.31 running=0/2
+[test-isolation] id=run-mtqrh7x7-79bdaa93-03edbc14385e db=wsx_03edbc14385ef9573cf7 compose=wsx-03edbc14385ef9573cf7 pg=21828 redis=26828 sandbox=51828
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_03edbc14385ef9573cf7 capacity=100 current=6 required=32
+ ✓ tests/files/worker-replay-no-duplicate.test.ts (2 tests) 4354ms
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts (5 tests | 1 failed) 675ms
+   × corrupt source hash and publisher revocation prevent even text-only index writes 60ms
+     → SNAPSHOT_IMMUTABLE: artifact_version 0aa8702f-cc9e-4d83-a67b-c3bed25161ca is immutable (invariant I-1/I-11); correct it by adding a new version
+ ✓ tests/files/ingestion-repo-metadata-only.test.ts (3 tests) 299ms
+ ✓ tests/agent-runtime/index-artifact-version.test.ts (7 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/artifact-index-producer-real-db.test.ts > corrupt source hash and publisher revocation prevent even text-only index writes
+error: SNAPSHOT_IMMUTABLE: artifact_version 0aa8702f-cc9e-4d83-a67b-c3bed25161ca is immutable (invariant I-1/I-11); correct it by adding a new version
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asOwner tests/support/db.ts:185:12
+    183|   await c.connect();
+    184|   try {
+    185|     return await fn(c);
+       |            ^
+    186|   } finally {
+    187|     await c.end();
+ ❯ tests/agent-runtime/artifact-index-producer-real-db.test.ts:67:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 16 passed (17)
+   Start at  12:49:31
+   Duration  8.40s (transform 408ms, setup 0ms, collect 586ms, tests 5.33s, environment 0ms, prepare 104ms)
+
+[db-isolation] db=wsx_03edbc14385ef9573cf7 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/index-artifact-version.test.ts tests/agent-runtime/artifact-index-producer-real-db.test.ts tests/files/worker-replay-no-duplicate.test.ts tests/files/ingestion-repo-metadata-only.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/index-artifact-version.test.ts tests/agent-runtime/artifact-index-producer-real-db.test.ts tests/files/worker-replay-no-duplicate.test.ts tests/files/ingestion-repo-metadata-only.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：9s

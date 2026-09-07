@@ -61,6 +61,8 @@ export interface VisibleVersionLookup {
 
 /** What `issueDownloadUrl` persists. `tokenHash`, never the token. */
 export interface NewDownloadGrant {
+  /** Persisted at issuance: source deletion must not change the redemption domain. */
+  readonly sourceKind?: "file" | "agent";
   readonly id: string;
   readonly orgId: OrgId;
   readonly artifactId: string;
@@ -75,6 +77,7 @@ export interface NewDownloadGrant {
 
 /** What a successful redemption hands back -- enough to serve the bytes and to audit it. */
 export interface ConsumedDownloadGrant {
+  readonly sourceKind?: "file" | "agent";
   readonly id: string;
   readonly artifactId: string;
   readonly versionId: string;

@@ -1,0 +1,27 @@
+[stack-admission] load1=2.56 cores=10 perCore=0.26 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtq788i9-bfc75220-98e41018f125 db=wsx_98e41018f125882b3ec9 compose=wsx-98e41018f125882b3ec9 pg=23160 redis=28160 sandbox=53160
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_98e41018f125882b3ec9 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"1eaa7e34-e5de-4138-85cd-552037863d39","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.listByParentRun (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:118:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"2764fbbf-5dd3-4eae-9539-dc70e60b94d2","detail":{"name":"ConflictException","message":"SUBTASK_NOT_RETRYABLE","stack":"ConflictException: SUBTASK_NOT_RETRYABLE\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:155:45)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"829cba60-0c05-49c0-ba00-72c9e622de06","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at SubtaskRunController.authorizeParent (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:70:59)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at SubtaskRunController.retry (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/subtask-run.controller.ts:151:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/subtask-run-store-real-db.test.ts (9 tests) 5816ms
+   ✓ WX-T042 durable queue > production DI and HTTP enqueue reach a real loopback model and durable terminal state 2484ms
+ ✓ tests/agent-runtime/subtask-run-queue.test.ts (11 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+   Start at  03:22:40
+   Duration  8.47s (transform 1.51s, setup 0ms, collect 504ms, tests 5.82s, environment 0ms, prepare 51ms)
+
+[db-isolation] db=wsx_98e41018f125882b3ec9 peak_connections=10
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/subtask-run-store-real-db.test.ts tests/agent-runtime/subtask-run-queue.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：9s

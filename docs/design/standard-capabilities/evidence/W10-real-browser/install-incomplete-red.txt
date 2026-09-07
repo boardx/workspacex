@@ -1,0 +1,49 @@
+
+> @repo/api@0.0.0 test:browser-real /private/tmp/workspacex-standard-capabilities/apps/api
+> WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+ ❯ tests/agent-runtime/playwright-mcp-browser-real.test.ts (1 test | 1 failed) 13ms
+   × W10 real Playwright MCP and Chromium acceptance > navigates, snapshots, fills, clicks, isolates storage, and writes a real PNG 11ms
+     → browserType.launch: Executable doesn't exist at /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     pnpm exec playwright install                           ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/playwright-mcp-browser-real.test.ts > W10 real Playwright MCP and Chromium acceptance > navigates, snapshots, fills, clicks, isolates storage, and writes a real PNG
+Error: browserType.launch: Executable doesn't exist at /Users/shenyanbin/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     pnpm exec playwright install                           ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+ ❯ OfficialPlaywrightMcpSessionFactory.create src/infrastructure/agent-run/playwright-mcp-browser-adapter.ts:126:32
+    124|     let server: Awaited<ReturnType<typeof createConnection>> | undefin…
+    125|     try {
+    126|       browser = await chromium.launch({ headless: true });
+       |                                ^
+    127|       context = await browser.newContext({ viewport: { width: L.viewpo…
+    128|       await context.route('**/*', async route => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:56:32
+   Duration  368ms (transform 41ms, setup 0ms, collect 255ms, tests 13ms, environment 0ms, prepare 27ms)
+
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 test:browser-real: `WORKSPACEX_REAL_BROWSER=1 vitest run --config vitest.browser-adapter.config.ts tests/agent-runtime/playwright-mcp-browser-real.test.ts`
+Exit status 1

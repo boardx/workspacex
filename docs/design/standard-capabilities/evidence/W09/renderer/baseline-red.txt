@@ -1,0 +1,25 @@
+ Volume wx-office-render-red_sessions_socket Creating 
+ Volume wx-office-render-red_sessions_socket Created 
+ Container wx-office-render-red-skill-sandbox-sessions-run-2ac4c6e52692 Creating 
+ Container wx-office-render-red-skill-sandbox-sessions-run-2ac4c6e52692 Created 
+skill-sandbox listening on unix:/run/sessions/skill-sandbox.sock
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: {"executionId":"fe0a6828-9129-4e0a-b66b-19c93b2ed152","exitCode":1,"output":"Traceback (most recent call last):\n  File \"/workspace/render-office.py\", line 33, in <module>\n    subprocess.run(['libreoffice', '-env:UserInstallation=' + (Path(scratch) / 'profile').as_uri(),\n  File \"/usr/lib/python3.11/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/lib/python3.11/subprocess.py\", line 1024, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n  File \"/usr/lib/python3.11/subprocess.py\", line 1901, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'libreoffice'\n","truncated":false,"timedOut":false,"cancelled":false}
+
+1 !== 0
+
+    at file:///opt/sandbox/[eval1]:35:43
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.2
+

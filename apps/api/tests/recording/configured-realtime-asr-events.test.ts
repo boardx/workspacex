@@ -32,3 +32,11 @@ describe("parseDashscopeTranscriptEvent", () => {
     })).toEqual({ kind: "final", text: "你好", confidence: 0.9 });
   });
 });
+
+it("preserves bounded upstream final identities without treating repeated text as identity", () => {
+ expect(parseDashscopeTranscriptEvent({type:"conversation.item.input_audio_transcription.completed",transcript:"重复",item_id:"item-1",event_id:"event-1"})).toEqual({kind:"final",text:"重复",confidence:null,itemId:"item-1",eventId:"event-1"});
+ expect(parseDashscopeTranscriptEvent({type:"conversation.item.input_audio_transcription.completed",transcript:"重复",item_id:"item-2",event_id:"event-2"})).toMatchObject({itemId:"item-2",eventId:"event-2"});
+});
+it("does not project malformed or oversized upstream identities", () => {
+ expect(parseDashscopeTranscriptEvent({type:"conversation.item.input_audio_transcription.completed",transcript:"ok",item_id:12,event_id:"x".repeat(257)})).toEqual({kind:"final",text:"ok",confidence:null});
+});

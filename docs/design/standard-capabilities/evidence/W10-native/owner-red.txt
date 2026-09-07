@@ -1,0 +1,43 @@
+[stack-admission] load1=2.23 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqtlum4-80cb58d2-f3383e2071fe db=wsx_f3383e2071feba55d691 compose=wsx-f3383e2071feba55d691 pg=24408 redis=29408 sandbox=54408
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_f3383e2071feba55d691 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/native-interaction-binding.test.ts (2 tests | 2 failed) 2987ms
+   × old binding resumes with only mandatory interaction approvals strengthened (existing false keys=false) 124ms
+     → native_session_existing_binding_unavailable
+   × old binding resumes with only mandatory interaction approvals strengthened (existing false keys=true) 88ms
+     → native_session_existing_binding_unavailable
+ ✓ tests/agent-run/native-browser-policy.test.ts (2 tests) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/native-interaction-binding.test.ts > old binding resumes with only mandatory interaction approvals strengthened (existing false keys=false)
+ FAIL  tests/agent-runtime/native-interaction-binding.test.ts > old binding resumes with only mandatory interaction approvals strengthened (existing false keys=true)
+Error: native_session_existing_binding_unavailable
+ ❯ src/infrastructure/agent-run/pg-native-session-owner.ts:52:80
+
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgNativeSessionOwner.provision src/infrastructure/agent-run/pg-native-session-owner.ts:45:13
+ ❯ tests/agent-runtime/native-interaction-binding.test.ts:49:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 2 passed (4)
+   Start at  13:49:07
+   Duration  5.20s (transform 72ms, setup 0ms, collect 83ms, tests 2.99s, environment 0ms, prepare 47ms)
+
+[db-isolation] db=wsx_f3383e2071feba55d691 peak_connections=3
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/native-interaction-binding.test.ts tests/agent-run/native-browser-policy.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-interaction-binding.test.ts tests/agent-run/native-browser-policy.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

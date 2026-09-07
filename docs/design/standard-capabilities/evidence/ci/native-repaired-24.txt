@@ -1,0 +1,139 @@
+[stack-admission] load1=3.78 cores=10 perCore=0.38 running=0/2
+[test-isolation] id=run-mtq9zju4-b5f8dac9-148baed5a36b db=wsx_148baed5a36b685369f9 compose=wsx-148baed5a36b685369f9 pg=23581 redis=28581 sandbox=53581
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_148baed5a36b685369f9 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/agui-bridge-hitl.test.ts (6 tests) 12893ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > 第一轮：待批工具调用只到 TOOL_CALL_END，不提前发 RESULT，run 以 RUN_FINISHED 收场（不是超时） 573ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > identity-less resume cannot approve a newly persisted request 680ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > approve：resume 请求把 run 续跑到 succeeded，上游收到 decision=approve 与原始参数 1065ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > edit：resume 请求携带编辑后的对象，上游收到的 edited_action.args 与提交对象逐字段相等 1086ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > reject：resume 请求直接把 run 落 failed(HITL_REJECTED)，且从未向 deep-agent 发起 resume 请求 607ms
+   ✓ POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST，真 Postgres，真 deep-agent 替身） > 重复 resume（已经裁决过）诚实报 NO_PENDING_APPROVAL，不是静默成功或 500 1062ms
+{"level":"error","msg":"http exception","traceId":"51b18a24-63c5-4ea5-8b81-172ac39f93d9","detail":{"name":"UnprocessableEntityException","message":"AGENT_NOT_FOUND","stack":"UnprocessableEntityException: AGENT_NOT_FOUND\n    at ChatController.createMessage (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/chat.controller.ts:453:54)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"8eef80be-bac1-4e2a-97e2-ce06c6f1f9bd","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at AgentController.toHttp (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:311:12)\n    at AgentController.selfPublish (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:156:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"abe48841-0bc1-4ece-8d91-5de0b46a9652","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at AgentController.toHttp (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:311:12)\n    at AgentController.selfPublish (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:156:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"764397da-eef7-4277-92af-e08a33c5be24","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at AgentController.toHttp (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:311:12)\n    at AgentController.selfPublish (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:156:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"8fa9f502-b0eb-4cdd-8d43-b7d2072aa5ec","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at AgentController.toHttp (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:311:12)\n    at AgentController.selfPublish (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent.controller.ts:156:62)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b8e8a7d9-e0f3-4323-9120-1bea3391f590","detail":{"name":"UnprocessableEntityException","message":"Unprocessable Entity Exception","stack":"UnprocessableEntityException: Unprocessable Entity Exception\n    at rethrow (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent-publish.controller.ts:73:11)\n    at AgentPublishController.submit (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/agent-publish.controller.ts:98:7)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"754f6b47-da16-4f12-a658-37c2e04f1f79","detail":{"name":"NotFoundException","message":"Cannot POST /agents/agent-mtqa04yk-6-1b1iy8/definitely-not-a-real-route","stack":"NotFoundException: Cannot POST /agents/agent-mtqa04yk-6-1b1iy8/definitely-not-a-real-route\n    at callback (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/routes-resolver.js:77:19)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:23\n    at Layer.handle [as handle_request] (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:286:9\n    at Function.process_params (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:346:12)\n    at next (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:280:10)\n    at urlencodedParser (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/body-parser@1.20.4/node_modules/body-parser/lib/types/urlencoded.js:82:7)\n    at Layer.handle [as handle_request] (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/express@4.22.1/node_modules/express/lib/router/index.js:328:13)"}}
+ ✓ tests/agent-runtime/create-agent-publish-path.test.ts (6 tests) 10962ms
+   ✓ #660 验收：自建 agent 发布后真的能在会话里拿到回复 > 建 agent →（发布前仍 422）→ 自助发布 → 发消息 202 → 恰好一条回复 485ms
+ ✓ tests/agent-runtime/deep-agent-model-provider.test.ts (16 tests) 319ms
+{"level":"info","msg":"copilotkit-v2: COPILOTKIT_V2_AGENT_ID 配置有误——该值在本 org 下解析不到已发布 agent（常见错法：填成了 agent_versions.id 而不是 agents.id）。已回退到 org 动态默认。","traceId":"699d2416-2856-44b9-bc41-bd6455221ef6","orgId":"org-agui-bridge","configuredAgentId":"agent-version-5c3eb303-misconfigured"}
+{"level":"error","msg":"http exception","traceId":"aa52e68a-9477-423c-89c1-57267408cfaf","detail":{"name":"UnprocessableEntityException","message":"AGENT_NOT_FOUND","stack":"UnprocessableEntityException: AGENT_NOT_FOUND\n    at CopilotkitAguiController.resolveEffectiveAgentId (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/copilotkit-agui.controller.ts:693:11)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at CopilotkitAguiController.bridge (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/copilotkit-agui.controller.ts:705:21)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"a8e8fb16-4546-4f15-8ef0-7348448a515f","detail":{"name":"UnprocessableEntityException","message":"MESSAGE_INVALID","stack":"UnprocessableEntityException: MESSAGE_INVALID\n    at CopilotkitAguiController.bridge (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/copilotkit-agui.controller.ts:749:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/agent-runtime/agui-bridge-sse.test.ts (10 tests) 9193ms
+   ✓ POST /copilotkit/agui > wraps a real agent-run create+poll turn into a well-formed AG-UI SSE event sequence, carrying the writeback's real bytes -- not a fabricated reply 672ms
+   ✓ POST /copilotkit/agui > opens a fresh personal thread per turn (single-round scope) rather than requiring one 1167ms
+   ✓ POST /copilotkit/agui > #2038: no agentId at all -> resolves the org's deterministic default and completes a REAL turn 608ms
+   ✓ POST /copilotkit/agui > #2038: a MISCONFIGURED env default (agentIdSource=env-default, unresolvable id) falls back to the org default instead of killing the whole track -- the devapp incident's exact shape 640ms
+   ✓ POST /copilotkit/agui > #2038: a VALID env default (agentIdSource=env-default) is used as-is -- back-compat, no fallback 642ms
+   ✓ POST /copilotkit/agui > DA-19a: RUN_STARTED is ALWAYS the first event -- CUSTOM chat_thread_id (when present) comes right after it, never before (a real @ag-ui/client HttpAgent rejects the whole stream otherwise -- see the controller file head) 605ms
+   ✓ POST /copilotkit/agui > DA-19a: reusing the CUSTOM-reported chat_thread_id on the next turn continues the SAME Chat thread (real cross-turn continuation, not a fresh thread every time) 1783ms
+   ✓ POST /copilotkit/agui > 422s when the AG-UI body carries no user message 316ms
+ ✓ tests/agent-runtime/deep-agent-stream.test.ts (9 tests) 443ms
+ ✓ tests/agent-runtime/hitl-edit-real-db-e2e.test.ts (2 tests) 3198ms
+   ✓ UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，不 mock 存储层） > 编辑参数后放行 ⇒ 上游 resume 请求里的 edited_action.args 与人类编辑面板提交的对象逐字段相等 440ms
+   ✓ UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，不 mock 存储层） > 反证：approve（不编辑）时上游收到的仍是原始参数——证明上面的『相等』不是恒真 351ms
+ ✓ tests/agent-runtime/deep-agent-hitl.test.ts (18 tests) 345ms
+ ✓ tests/agent-runtime/agui-bridge-tool-call-events.test.ts (1 test) 4734ms
+   ✓ POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件 > 一次真实的工具调用循环，产出 STEP_STARTED → 规划文本 → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED，再是最终答案 1572ms
+ ✓ tests/agent-runtime/agui-bridge-state-events.test.ts (3 tests) 6980ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在该 step 的 STEP_FINISHED 之后 815ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > run 无 write_todos（但有别的工具调用）→ 零 STATE_*/CUSTOM 事件，不发空快照 819ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > write_todos 的 toolArgsSummary 被 4000 字符截断成坏 JSON → 零 STATE_* 事件，解析失败不编造 1143ms
+ ✓ tests/plan-control/confirm-plan-triggers-real-execution.test.ts (1 test) 5337ms
+   ✓ issue #2250 -- confirmPlan 触发的续跑真的执行，且 write_todos 结果真的喂回账本 > 确认计划后：真实引擎被调用（loopback 捕获到新请求），且步骤状态从 pending 真的推进 1246ms
+ ✓ tests/agent-run/artifact-workbench.test.ts (7 tests) 5937ms
+   ✓ artifact continuation over existing attachments > takes one expired lease and reconciles completion without a new remote run 477ms
+   ✓ artifact continuation over existing attachments > fences old leases across all DB mutations while preserving nested transactions 506ms
+   ✓ artifact continuation over existing attachments > reads source privacy facts through pinned version ancestry 709ms
+   ✓ artifact continuation over existing attachments > registers one version idempotently and retains personal thread guard 740ms
+   ✓ artifact continuation over existing attachments > loads the explicit older base bytes and appends without changing old versions 1003ms
+   ✓ artifact continuation over existing attachments > accepts the edit and pinned version atomically and deduplicates retried requests 677ms
+   ✓ artifact continuation over existing attachments > missing output cannot create a fake continuation version 590ms
+ ✓ tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts (1 test) 4607ms
+   ✓ POST /copilotkit/agui + KERNEL_DEEP_AGENT_STREAM_ENABLED=1 -- 规划文案不重复 > 流式已经送过的规划句子，不会再作为 planningNote 气泡重复发一遍 854ms
+ ✓ tests/agent-runtime/canvas-template-guidance-real-db.test.ts (6 tests) 3527ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > 已发布模板 → system prompt 含 key 与分区名（分区名来自数据库，不是写死的常量） 452ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > 组织新发布一个模板 → 下一次 run 的 prompt 立刻反映，证明不是缓存的（每次 run 现查） 620ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > 组织没有已发布模板 → 不注入假清单：既没有 canvas 指引小节，也没有任何模板 key 605ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > 草稿/已归档模板不出现在清单里——只读已发布的 420ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > 个人对话（projectId 为空的线程）同样验证到这段注入存在——只依赖 orgId，不依赖 projectId 364ms
+   ✓ issue #1493 canvas 模板指引真栈进 system prompt > `deps.canvasTemplates` 未注入（既有调用点，如试跑）时，system prompt 与本次改动之前逐字节相同——不多出 canvas 指引 406ms
+ ✓ tests/agent-runtime/agui-bridge-streaming.test.ts (2 tests) 11955ms
+   ✓ POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1 > relays each upstream SSE fragment as its own ordered TEXT_MESSAGE_CONTENT event, not one final blob -- and does not resend the whole text afterwards 1328ms
+   ✓ POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1 > a single-fragment reply still streams (one TEXT_MESSAGE_CONTENT, not zero) 1843ms
+ ✓ tests/agent-run/permission-grant-scopes.test.ts (12 tests) 3970ms
+   ✓ real PostgreSQL atomic permission scope and CAS > run commits decision and exact grant scope together 574ms
+   ✓ real PostgreSQL atomic permission scope and CAS > forever commits decision and exact grant scope together 442ms
+   ✓ real PostgreSQL atomic permission scope and CAS > deny commits decision and exact grant scope together 1001ms
+   ✓ real PostgreSQL atomic permission scope and CAS > stale request and cross tenant leave grants unchanged; concurrent approvals have exactly one CAS winner 745ms
+ ✓ tests/agent-runtime/default-agent-bootstrap-chat.test.ts (1 test) 25079ms
+   ✓ #661 新组织 bootstrap 出来就有一个真实可聊的默认 agent（#740：执行侧是 deepagents） > 不做任何 agent 管理操作，直接进 chat → 能看到一个可用 agent → 发消息 → 真实走完轮询 → 写回 1278ms
+ ✓ tests/agent-runtime/default-agent-register-path.test.ts (1 test) 14771ms
+   ✓ #662 直接后续：/auth/register-open（开放自助注册建组织）同样给出默认 agent > 开放注册（无邀请码）+ 邮箱验证 + 登录，不做任何 agent 管理操作，直接能聊 1542ms
+ ✓ tests/agent-runtime/reclaim-stale-running.test.ts (11 tests) 9294ms
+   ✓ Expired lease reconciliation preserves running and terminal state boundaries > an expired local run becomes failed only after the original remote confirms failure 309ms
+   ✓ Expired lease reconciliation preserves running and terminal state boundaries > a running run started moments ago is left alone -- a healthy in-flight run must not be reclaimed 392ms
+   ✓ Expired lease reconciliation preserves running and terminal state boundaries > queued/writeback_pending/awaiting_tool_permission/succeeded/failed rows are never touched -- only running 3325ms
+   ✓ Expired lease reconciliation preserves running and terminal state boundaries > a run already reclaimed does not get reclaimed a second time (idempotent, no double-log noise) 789ms
+   ✓ issue #2860 —— 心跳与幽灵 run 回收 > 心跳只写 running 的行：已终态的行心跳是 no-op 537ms
+   ✓ issue #2860 —— 心跳与幽灵 run 回收 > sweep discovers expired runs but only tenant-scoped remote reconciliation can settle them 624ms
+   ✓ uncertain recovery never submits a second operation > keeps an unreachable remote run visible and does not retry before lease expiry 475ms
+   ✓ uncertain recovery never submits a second operation > continues observing a healthy remote operation after local lease loss 576ms
+   ✓ uncertain recovery never submits a second operation > never calls a remote when the submission id is missing 628ms
+   ✓ uncertain recovery never submits a second operation > cannot claim another organization's expired work 465ms
+ ✓ tests/agent-run/tool-permission-grant-repo-guard.test.ts (10 tests) 158ms
+ ✓ tests/agent-run/deep-agent-interjection-projection.test.ts (3 tests) 141ms
+ ❯ tests/plan-control/plan-ledger-repo-guard.test.ts (5 tests | 1 failed) 291ms
+   × 白名单条目前提 ③：写路径（appendEngineSnapshot）只从已授权轮次内部触达 > HTTP transports cannot write engine snapshots; the authorized executor owns persistence 268ms
+     → expected [ '/agent-run/execute-run-events.ts' ] to deeply equal [ 'agent-run/execute-run-events.ts' ]
+ ✓ tests/agent-run/pg-interjection-store.test.ts (3 tests) 3376ms
+   ✓ durable workbench input > retains FIFO inputs across repeated delivery and repository restart until acknowledged 878ms
+   ✓ durable workbench input > cannot read, acknowledge, or submit into a different tenant/run 564ms
+   ✓ durable workbench input > records pause intent without claiming the run has paused 550ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 9ms
+ ✓ tests/agent-runtime/workbench-agui-order.test.ts (3 tests) 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/plan-control/plan-ledger-repo-guard.test.ts > 白名单条目前提 ③：写路径（appendEngineSnapshot）只从已授权轮次内部触达 > HTTP transports cannot write engine snapshots; the authorized executor owns persistence
+AssertionError: expected [ '/agent-run/execute-run-events.ts' ] to deeply equal [ 'agent-run/execute-run-events.ts' ]
+
+- Expected
++ Received
+
+  Array [
+-   "agent-run/execute-run-events.ts",
++   "/agent-run/execute-run-events.ts",
+  ]
+
+ ❯ tests/plan-control/plan-ledger-repo-guard.test.ts:65:63
+     63|       return /import\s*\{\s*ingestEnginePlanSnapshot\s*\}/.test(source…
+     64|     });
+     65|     expect(callers.map(f => f.split("/src/application/")[1])).toEqual(…
+       |                                                               ^
+     66|     const events = readFileSync(callers[0]!, "utf8");
+     67|     expect(events).toContain('event.phase === "in_progress"');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 23 passed (24)
+      Tests  1 failed | 142 passed (143)
+   Start at  04:39:54
+   Duration  155.89s (transform 3.43s, setup 0ms, collect 8.32s, tests 137.53s, environment 7ms, prepare 2.51s)
+
+[db-isolation] db=wsx_148baed5a36b685369f9 peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-run/artifact-workbench.test.ts tests/agent-run/deep-agent-interjection-projection.test.ts tests/agent-run/execute-run-thin-gateway.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/pg-interjection-store.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/agent-runtime/agui-bridge-hitl.test.ts tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts tests/agent-runtime/agui-bridge-sse.test.ts tests/agent-runtime/agui-bridge-state-events.test.ts tests/agent-runtime/agui-bridge-streaming.test.ts tests/agent-runtime/agui-bridge-tool-call-events.test.ts tests/agent-runtime/canvas-template-guidance-real-db.test.ts tests/agent-runtime/create-agent-publish-path.test.ts tests/agent-runtime/deep-agent-hitl.test.ts tests/agent-runtime/deep-agent-model-provider.test.ts tests/agent-runtime/deep-agent-stream.test.ts tests/agent-runtime/default-agent-bootstrap-chat.test.ts tests/agent-runtime/default-agent-register-path.test.ts tests/agent-runtime/hitl-edit-real-db-e2e.test.ts tests/agent-runtime/reclaim-stale-running.test.ts tests/agent-runtime/workbench-agui-order.test.ts tests/plan-control/confirm-plan-triggers-real-execution.test.ts tests/plan-control/plan-ledger-repo-guard.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/artifact-workbench.test.ts tests/agent-run/deep-agent-interjection-projection.test.ts tests/agent-run/execute-run-thin-gateway.test.ts tests/agent-run/permission-grant-scopes.test.ts tests/agent-run/pg-interjection-store.test.ts tests/agent-run/tool-permission-grant-repo-guard.test.ts tests/agent-runtime/agui-bridge-hitl.test.ts tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts tests/agent-runtime/agui-bridge-sse.test.ts tests/agent-runtime/agui-bridge-state-events.test.ts tests/agent-runtime/agui-bridge-streaming.test.ts tests/agent-runtime/agui-bridge-tool-call-events.test.ts tests/agent-runtime/canvas-template-guidance-real-db.test.ts tests/agent-runtime/create-agent-publish-path.test.ts tests/agent-runtime/deep-agent-hitl.test.ts tests/agent-runtime/deep-agent-model-provider.test.ts tests/agent-runtime/deep-agent-stream.test.ts tests/agent-runtime/default-agent-bootstrap-chat.test.ts tests/agent-runtime/default-agent-register-path.test.ts tests/agent-runtime/hitl-edit-real-db-e2e.test.ts tests/agent-runtime/reclaim-stale-running.test.ts tests/agent-runtime/workbench-agui-order.test.ts tests/plan-control/confirm-plan-triggers-real-execution.test.ts tests/plan-control/plan-ledger-repo-guard.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m37s
+  清理：3s
+  总计：2m40s

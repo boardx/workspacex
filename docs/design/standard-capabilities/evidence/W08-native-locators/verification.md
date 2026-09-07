@@ -1,0 +1,11 @@
+# W08 native source locations
+
+Private cloud patch received against 414aca176dcd19d63c68b711a8436e05fe78ee74: 55,469 bytes, SHA256 dd505fcf27cb9f61d5c314f562d845c71364bc29b9c3ff640b522ec7b51a25fc. Zero-context transport was reconstructed on its exact base before applying a complete-context diff. The Dockerfile merge retains the previously reviewed FFmpeg decoder and adds only the structure parser copy. Generated schemas, pack 1.2.0, dependency hashes and synthetic fixtures were regenerated locally.
+
+The native parser delegates to pdfplumber 0.11.10, python-docx 1.2.0, python-pptx 1.0.2 and openpyxl 3.1.5. It emits actual PDF page/point boxes, Word paragraph/table indexes, slide/element indexes and spreadsheet cell/formula/merged-range locations. Repeated-header adjacent PDF grouping is explicitly heuristic; Word page numbers and formula recalculation are not invented.
+
+Local checks: 8 API adapter tests, 5 contracts and 7 Python tests passed. Actual PDF/DOCX/PPTX/XLSX files passed parser checks on the host and through the real isolated session UDS. The latter used workspacex-skill-sandbox:w08-locators with network:none, read-only root, non-root identity, seccomp, process/resource limits and read-only synthetic fixtures. Original bytes remained unchanged and unsupported input was refused. The container test separately checks PDF text and table-cell locations; text chunks do not have a table fragment index.
+
+Commands are the committed fixture generator, verify-document-structure-fixtures.py and document-structure-container.mjs. The container script is executed via node --input-type=module using the session compose and a task-owned image override. Raw outputs and image build are adjacent. No real user document was used.
+
+The production HTTP/AnyDoc/source-permission chain subsequently passed six real PG/HTTP cases; see ../W08/locators/http-verification.md. Real-model S018 acceptance remains separate and pending. The parser limits now come from a generated shared-contract JSON file, checked by the existing schema generator; final image and four-format UDS rerun passed after this change. The owned wx-w08-locators sandbox is temporarily retained for that explicitly assigned integration test and must be cleaned after the final consumer finishes.

@@ -1,0 +1,90 @@
+{
+  "input": {
+    "type": "object",
+    "properties": {
+      "orgId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "attemptId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "leaseEpoch": {
+        "type": "integer",
+        "exclusiveMinimum": 0
+      },
+      "toolName": {
+        "type": "string",
+        "minLength": 1
+      },
+      "skillStableName": {
+        "type": "string",
+        "minLength": 1
+      },
+      "permissionRequestId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "toolArgs": {
+        "type": "object",
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "orgId",
+      "attemptId",
+      "leaseEpoch",
+      "toolName"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "allowed"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "run_unavailable",
+              "cancel_requested",
+              "lease_lost",
+              "attempt_stale",
+              "skill_not_mounted",
+              "approval_required"
+            ]
+          }
+        },
+        "required": [
+          "allowed",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

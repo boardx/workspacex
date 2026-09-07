@@ -46,6 +46,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
+import { clickActionableSkillMountOption } from "./support/skill-mount";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import {
   EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat, readVerificationToken,
@@ -653,7 +654,7 @@ test.describe("核心闭环八步", () => {
       //   见 `skill-mount.controller.ts` 的 `requireProjectId`），锚死结尾会永不匹配。
       response.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(response.url())
     ));
-    await page.getByTestId(`chat-skill-mount-option-${skillId}`).click();
+    await clickActionableSkillMountOption(page, skillId);
     expect((await mountResponse).status()).toBe(201);
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
 

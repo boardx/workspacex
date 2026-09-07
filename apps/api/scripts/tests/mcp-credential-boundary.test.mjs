@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {checkMcpCredentialBoundary,checkMcpWorkerCredentialBoundary} from '../lib/mcp-credential-boundary.mjs';
+const path='src/infrastructure/mcp/mcp-credential-execution-broker.ts',source=readFileSync(new URL('../../'+path,import.meta.url),'utf8');
+test('dedicated broker exact receipt and role boundary',()=>assert.deepEqual(checkMcpCredentialBoundary(path,source),[]));
+for(const [before,after]of [["config.user!=='mcp_executor'",'false'],['sealed.revision!==frozen.credentialRevision','false'],['identity.orgId,identity.runId','"foreign",identity.runId'],['mcpExecutionDigest(args)','"other"'],["catch{throw new Error('mcp_execution_unconfirmed');}",'catch(error){throw error;}'],['return await executeSealedMcp','return sealed; await executeSealedMcp']])test('reject broker mutation '+before,()=>{assert.ok(source.includes(before));assert.ok(checkMcpCredentialBoundary(path,source.replace(before,after)).length);});
+const worker=readFileSync(new URL('../../src/infrastructure/mcp/http-mcp-execution-core.ts',import.meta.url),'utf8');
+test('worker inverse is private and output refuses direct reflection',()=>assert.deepEqual(checkMcpWorkerCredentialBoundary(worker),[]));
+for(const [before,after]of [['function decryptForTransport','export function decryptForTransport'],['reflectsMcpCredential(result,credential)','false'],['reflectsMcpCredential(listed,credential)','false'],['key.fill(0);value?.fill(0);','']])test('reject worker mutation '+before,()=>{assert.ok(worker.includes(before));assert.ok(checkMcpWorkerCredentialBoundary(worker.replace(before,after)).length);});

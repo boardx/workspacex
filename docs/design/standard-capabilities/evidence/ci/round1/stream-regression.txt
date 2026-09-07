@@ -1,0 +1,115 @@
+[stack-admission] load1=5.26 cores=10 perCore=0.53 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqsm4n6-293d5b85-eafa7ea2fbeb db=wsx_eafa7ea2fbebe8ea7253 compose=wsx-eafa7ea2fbebe8ea7253 pg=24962 redis=29962 sandbox=54962
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_eafa7ea2fbebe8ea7253 capacity=100 current=6 required=32
+ ✓ tests/agent-interrupts/confirm-intent-gates-tools.test.ts (2 tests) 23209ms
+   ✓ F213 confirm_task_intent —— I-1 反证：未确认前不执行任何工具（真 Postgres + 真 HTTP） > continue（approve）：确认前 agent_run_steps 为空；确认后才出现唯一一条 confirm_task_intent 成功行 1709ms
+   ✓ F213 confirm_task_intent —— I-1 反证：未确认前不执行任何工具（真 Postgres + 真 HTTP） > 改假设（edit）：resume 载荷携带编辑后的完整假设列表，上游逐字段收到，不是 diff 1082ms
+ ✓ tests/agent-runtime/hitl-edit-real-db-e2e.test.ts (2 tests) 4380ms
+   ✓ UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，不 mock 存储层） > 编辑参数后放行 ⇒ 上游 resume 请求里的 edited_action.args 与人类编辑面板提交的对象逐字段相等 606ms
+   ✓ UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，不 mock 存储层） > 反证：approve（不编辑）时上游收到的仍是原始参数——证明上面的『相等』不是恒真 628ms
+ ✓ tests/agent-runtime/agui-bridge-state-events.test.ts (4 tests) 8056ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > run 含 write_todos → 流里出现 STATE_SNAPSHOT，snapshot.todos 与账本一致，且在真实工具 TOOL_CALL_RESULT 之后 1772ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > run 无 write_todos（但有别的工具调用）→ 零 STATE_*/CUSTOM 事件，不发空快照 1467ms
+   ✓ POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPSHOT > write_todos 的 toolArgsSummary 被 4000 字符截断成坏 JSON → 零 STATE_* 事件，解析失败不编造 618ms
+   ✓ S4 detached observer cannot prevent executor plan and final message persistence 471ms
+ ❯ tests/agent-run/artifact-workbench.test.ts (8 tests | 1 failed) 4349ms
+   ✓ artifact continuation over existing attachments > takes one expired lease and reconciles completion without a new remote run 366ms
+   ✓ artifact continuation over existing attachments > fences old leases across all DB mutations while preserving nested transactions 345ms
+   ✓ artifact continuation over existing attachments > reads source privacy facts through pinned version ancestry 614ms
+   ✓ artifact continuation over existing attachments > registers one version idempotently and retains personal thread guard 339ms
+   ✓ artifact continuation over existing attachments > loads the explicit older base bytes and appends without changing old versions 307ms
+   ✓ artifact continuation over existing attachments > accepts the edit and pinned version atomically and deduplicates retried requests 318ms
+   × artifact continuation over existing attachments > replays workbench migrations without changing cancellation, approval identities or registered continuation attachments 597ms
+     → expected [ …(8) ] to have a length of 12 but got 8
+   ✓ artifact continuation over existing attachments > missing output cannot create a fake continuation version 659ms
+ ❯ tests/agent-runtime/agui-bridge-tool-call-events.test.ts (1 test | 1 failed) 5169ms
+   × POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件 > 一次真实工具调用产出 TOOL_CALL_START/ARGS/END/RESULT，再是最终答案；规划摘要不重复为正文 785ms
+     → expected [ 'RUN_STARTED', 'CUSTOM', …(14) ] to deeply equal [ 'RUN_STARTED', 'CUSTOM', …(9) ]
+ ✓ tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts (1 test) 4617ms
+   ✓ POST /copilotkit/agui + KERNEL_DEEP_AGENT_STREAM_ENABLED=1 -- 规划文案不重复 > 流式已经送过的规划句子，不会再作为 planningNote 气泡重复发一遍 1524ms
+ ✓ tests/kernel/contract-response.test.ts (8 tests) 6303ms
+   ✓ every response conforms to the contract's `out` schema > POST /identity/authorize -- when ALLOWED 502ms
+   ✓ every response conforms to the contract's `out` schema > POST /identity/authorize -- when DENIED, which is the case the schema got wrong 726ms
+   ✓ every response conforms to the contract's `out` schema > POST /identity/authorize -- in project context with no project role 787ms
+   ✓ every response conforms to the contract's `out` schema > POST /identity/authorize-batch -- array, same length as the request 583ms
+   ✓ every response conforms to the contract's `out` schema > GET /identity/me 579ms
+   ✓ every response conforms to the contract's `out` schema > GET /identity/me without project context -- projectRole is null (I-11) 516ms
+   ✓ every response conforms to the contract's `out` schema > POST /identity/switch-org 459ms
+   ✓ the assertion above is not vacuous > the same schemas REJECT a body that drifts from the contract 413ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/artifact-workbench.test.ts > artifact continuation over existing attachments > replays workbench migrations without changing cancellation, approval identities or registered continuation attachments
+AssertionError: expected [ …(8) ] to have a length of 12 but got 8
+
+- Expected
++ Received
+
+- 12
++ 8
+
+ ❯ tests/agent-run/artifact-workbench.test.ts:162:25
+    160|     const before = await asApp(ORG, c => c.query("SELECT id,artifact_i…
+    161|     const replayFiles = migrationFiles().filter(name => /^202609070(?:…
+    162|     expect(replayFiles).toHaveLength(12);
+       |                         ^
+    163|     // Owner is used only to apply DDL, exactly as production migratio…
+    164|     // Every preservation assertion below goes back through tenant-sco…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/agent-runtime/agui-bridge-tool-call-events.test.ts > POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CALL_* 事件 > 一次真实工具调用产出 TOOL_CALL_START/ARGS/END/RESULT，再是最终答案；规划摘要不重复为正文
+AssertionError: expected [ 'RUN_STARTED', 'CUSTOM', …(14) ] to deeply equal [ 'RUN_STARTED', 'CUSTOM', …(9) ]
+
+- Expected
++ Received
+
+  Array [
+    "RUN_STARTED",
+    "CUSTOM",
++   "STEP_STARTED",
++   "TEXT_MESSAGE_START",
++   "TEXT_MESSAGE_CONTENT",
++   "TEXT_MESSAGE_END",
+    "TOOL_CALL_START",
+    "TOOL_CALL_ARGS",
+    "TOOL_CALL_END",
+    "TOOL_CALL_RESULT",
++   "STEP_FINISHED",
+    "TEXT_MESSAGE_START",
+    "TEXT_MESSAGE_CONTENT",
+    "TEXT_MESSAGE_END",
+    "CUSTOM",
+    "RUN_FINISHED",
+  ]
+
+ ❯ tests/agent-runtime/agui-bridge-tool-call-events.test.ts:253:47
+    251|       (e) => !(e.type === EventType.CUSTOM && (e.name === AGUI_RUN_PHA…
+    252|     );
+    253|     expect(nonPhaseEvents.map((e) => e.type)).toEqual([
+       |                                               ^
+    254|       EventType.RUN_STARTED,
+    255|       EventType.CUSTOM,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 5 passed (7)
+      Tests  2 failed | 24 passed (26)
+   Start at  13:21:21
+   Duration  68.99s (transform 6.26s, setup 0ms, collect 3.88s, tests 56.08s, environment 1ms, prepare 838ms)
+
+[db-isolation] db=wsx_eafa7ea2fbebe8ea7253 peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts tests/agent-runtime/hitl-edit-real-db-e2e.test.ts tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts tests/agent-runtime/agui-bridge-state-events.test.ts tests/agent-runtime/agui-bridge-tool-call-events.test.ts tests/agent-run/artifact-workbench.test.ts tests/kernel/contract-response.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts tests/agent-runtime/hitl-edit-real-db-e2e.test.ts tests/agent-runtime/agui-bridge-planning-note-dedup.test.ts tests/agent-runtime/agui-bridge-state-events.test.ts tests/agent-runtime/agui-bridge-tool-call-events.test.ts tests/agent-run/artifact-workbench.test.ts tests/kernel/contract-response.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m11s
+  清理：1s
+  总计：1m11s

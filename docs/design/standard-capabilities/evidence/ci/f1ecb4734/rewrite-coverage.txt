@@ -1,0 +1,1 @@
+✓ [rewrite-coverage] 299 条路由、56 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）

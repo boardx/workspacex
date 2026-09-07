@@ -1,0 +1,47 @@
+[stack-admission] load1=4.05 cores=10 perCore=0.41 running=0/2
+[test-isolation] id=run-mtqp61hy-814fb227-04e2ce8809ce db=wsx_04e2ce8809ce3df5fa10 compose=wsx-04e2ce8809ce3df5fa10 pg=22872 redis=27872 sandbox=52872
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_04e2ce8809ce3df5fa10 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/schedule-notifications.test.ts (3 tests | 1 failed) 3157ms
+   × HTTP schema binds principal identity and keeps read acknowledgment idempotent 133ms
+     → expected 500 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/schedule-notifications.test.ts > HTTP schema binds principal identity and keeps read acknowledgment idempotent
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/agent-runtime/schedule-notifications.test.ts:69:102
+     67|   expect((await ack({factId:fact.factId,userId:'intruder'})).status).t…
+     68|   principal={orgId:org,userId:'intruder'};expect((await ack({factId:fa…
+     69|   principal=viewer;for(let i=0;i<2;i++){const res=await ack({factId:fa…
+       |                                                                                                      ^
+     70|  }finally{await app.close();}
+     71| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  11:44:51
+   Duration  5.66s (transform 328ms, setup 0ms, collect 564ms, tests 3.16s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_04e2ce8809ce3df5fa10 peak_connections=4
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/schedule-notifications.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/schedule-notifications.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：7s

@@ -62,6 +62,7 @@ import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-ru
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { clickActionableSkillMountOption } from "./support/skill-mount";
 
 const API = "/__fullstack_api";
 const STAMP = Date.now();
@@ -201,7 +202,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     const mounted = page.waitForResponse(
       (r) => r.request().method() === "POST" && /\/threads\/[^/]+\/skill-mounts(\?|$)/.test(r.url()),
     );
-    await page.getByTestId(`chat-skill-mount-option-${skillId}`).click();
+    await clickActionableSkillMountOption(page, skillId);
     expect((await mounted).status()).toBe(201);
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
 

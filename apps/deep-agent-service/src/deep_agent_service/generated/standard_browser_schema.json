@@ -1,0 +1,669 @@
+{
+  "limits": {
+    "deadlineMs": 30000,
+    "maxResponseBytes": 2097152,
+    "maxSnapshotChars": 250000,
+    "maxElements": 2000,
+    "maxFields": 100,
+    "viewportWidth": 1280,
+    "viewportHeight": 720,
+    "mobileViewportWidth": 390,
+    "mobileViewportHeight": 844,
+    "maxPreviewBytes": 2097152
+  },
+  "input": {
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bindingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "browser_navigate"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "bindingId",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bindingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "browser_snapshot"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "pageRef": {
+                "type": "string",
+                "pattern": "^page:[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "pageRef"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "bindingId",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bindingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "browser_click"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "pageRef": {
+                "type": "string",
+                "pattern": "^page:[a-f0-9]{64}$"
+              },
+              "elementRef": {
+                "type": "string",
+                "pattern": "^element:[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "pageRef",
+              "elementRef"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "bindingId",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bindingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "browser_fill_form"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "pageRef": {
+                "type": "string",
+                "pattern": "^page:[a-f0-9]{64}$"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^element:[a-f0-9]{64}$"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100000
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ref",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                "minItems": 1,
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "pageRef",
+              "fields"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "bindingId",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attemptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "leaseEpoch": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "bindingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolCallId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "permissionRequestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toolName": {
+            "type": "string",
+            "const": "browser_take_screenshot"
+          },
+          "toolArgs": {
+            "type": "object",
+            "properties": {
+              "pageRef": {
+                "type": "string",
+                "pattern": "^page:[a-f0-9]{64}$"
+              },
+              "fullPage": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pageRef"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "orgId",
+          "attemptId",
+          "leaseEpoch",
+          "bindingId",
+          "toolCallId",
+          "toolName",
+          "toolArgs"
+        ],
+        "additionalProperties": false
+      }
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "tools": {
+    "browser_navigate": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "pageRef",
+          "url",
+          "title",
+          "generation"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "browser_snapshot": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "pageRef"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "snapshot": {
+            "type": "string",
+            "maxLength": 250000
+          },
+          "elements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elementRef": {
+                  "type": "string",
+                  "pattern": "^element:[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "elementRef"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 2000
+          }
+        },
+        "required": [
+          "pageRef",
+          "url",
+          "title",
+          "generation",
+          "snapshot",
+          "elements"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "browser_click": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "elementRef": {
+            "type": "string",
+            "pattern": "^element:[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "pageRef",
+          "elementRef"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outcome": {
+            "type": "string",
+            "const": "clicked"
+          }
+        },
+        "required": [
+          "pageRef",
+          "url",
+          "title",
+          "generation",
+          "outcome"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "browser_fill_form": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "pattern": "^element:[a-f0-9]{64}$"
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 100000
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "ref",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "pageRef",
+          "fields"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "filled": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^element:[a-f0-9]{64}$"
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "pageRef",
+          "url",
+          "title",
+          "generation",
+          "filled"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    },
+    "browser_take_screenshot": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "fullPage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pageRef"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "pageRef": {
+            "type": "string",
+            "pattern": "^page:[a-f0-9]{64}$"
+          },
+          "workspacePath": {
+            "type": "string",
+            "pattern": "^\\/workspace\\/browser-[a-f0-9]{64}\\.png$"
+          },
+          "mime": {
+            "type": "string",
+            "const": "image/png"
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100000
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "fullPage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pageRef",
+          "workspacePath",
+          "mime",
+          "width",
+          "height",
+          "sha256",
+          "sizeBytes",
+          "fullPage"
+        ],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  }
+}

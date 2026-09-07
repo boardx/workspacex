@@ -32,10 +32,14 @@
 import { ObjectExistsError, type ArtifactRepository, type IdFactory, type NewSegment, type ObjectStore } from "../artifact/ports";
 import { legalNextStates } from "../../domain/files/ingestion-pipeline";
 import { runExtractionAdapter } from "../../domain/files/extraction-adapters";
-import type { IngestionOutboxRepository, IngestionStep } from "./ingestion-ports";
+import { INGESTION_LEASE_MS, type IngestionOutboxRepository, type IngestionStep } from "./ingestion-ports";
 import type { OrgId } from "../../domain/org-id";
 
+import type {ArtifactIndexProducer} from '../retrieval/index-artifact-version';
+
 export interface IngestionWorkerDeps {
+  /** Production indexing; absent preserves legacy callers, never fabricates vectors. */
+  readonly indexer?: ArtifactIndexProducer;
   readonly outbox: IngestionOutboxRepository;
   readonly artifacts: ArtifactRepository;
   readonly ids: IdFactory;
@@ -83,7 +87,7 @@ export async function runIngestionWorkerTick(
   orgId: OrgId,
   workerId: string,
   reviewGate: ReviewGate = NEVER_NEEDS_REVIEW,
-  staleAfterMs = 5 * 60 * 1000,
+  staleAfterMs = INGESTION_LEASE_MS,
 ): Promise<IngestionTickResult> {
   const job = await deps.outbox.claimNext(orgId, workerId, staleAfterMs);
   if (job === null) return { claimed: false };
@@ -103,8 +107,11 @@ export async function replayIngestionRun(
   artifactVersionId: string,
   workerId: string,
   reviewGate: ReviewGate = NEVER_NEEDS_REVIEW,
+  respectActiveLease = false,
 ): Promise<IngestionTickResult> {
-  const job = await deps.outbox.claimForVersion(orgId, artifactVersionId, workerId);
+  const job = respectActiveLease
+    ? await deps.outbox.claimForVersion(orgId, artifactVersionId, workerId, true)
+    : await deps.outbox.claimForVersion(orgId, artifactVersionId, workerId);
   if (job === null) return { claimed: false };
   return processClaimedJob(deps, orgId, job, reviewGate);
 }
@@ -146,6 +153,7 @@ async function runStep(
   artifactVersionId: string,
   step: IngestionStep,
 ): Promise<void> {
+  if (step === "INDEXED" && deps.indexer) return deps.indexer.index({orgId,artifactVersionId});
   if (step === "EXTRACTED") return runExtractedStep(deps, orgId, artifactVersionId);
   if (step === "SEGMENTED") return runSegmentedStep(deps, orgId, artifactVersionId);
 }
@@ -169,6 +177,10 @@ async function runStep(
  * function treats as "already applied" -- the same "unique-violation-means-replay" reading
  * `isSegmentOrdinalConflict` already established for `SEGMENTED`.
  */
+export function extractedIngestionObjectKey(orgId:OrgId,artifactVersionId:string,derivedKind:string):string {
+  return `${orgId}/derived/${artifactVersionId}/${derivedKind}/extracted.txt`;
+}
+
 async function runExtractedStep(deps: IngestionWorkerDeps, orgId: OrgId, artifactVersionId: string): Promise<void> {
   if (deps.store === undefined) return;
 
@@ -178,7 +190,7 @@ async function runExtractedStep(deps: IngestionWorkerDeps, orgId: OrgId, artifac
   if (bytes === null) return;
 
   const extraction = runExtractionAdapter(bytes);
-  const key = `${orgId}/derived/${artifactVersionId}/${extraction.derivedKind}/extracted.txt`;
+  const key = extractedIngestionObjectKey(orgId,artifactVersionId,extraction.derivedKind);
 
   try {
     await deps.store.putOnce(key, new TextEncoder().encode(extraction.derivedText), "text/plain");

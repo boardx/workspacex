@@ -65,6 +65,9 @@ describe("真实协议：tools/list 拿到真实工具，annotations 决定 side
     expect(byName.get("create_task")?.sideEffect).toBe("写入外部");
     // 签名里带上了参数名，供 discover-tools 的指纹比对使用。
     expect(byName.get("query_contact")?.signature).toContain("company");
+    expect(byName.get("query_contact")?.description).toBe("只读查询联系人");
+    expect(byName.get("query_contact")?.inputSchema).toMatchObject({ type: "object",properties: { company: { type: "string" } } });
+    expect(byName.get("query_contact")?.outputSchema).toMatchObject({ type: "object",properties: { result: { type: "string" } } });
     expect(byName.get("create_task")?.signature).toContain("title");
   });
 

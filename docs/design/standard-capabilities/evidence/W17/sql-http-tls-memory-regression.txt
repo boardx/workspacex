@@ -1,0 +1,30 @@
+[stack-admission] load1=12.49 cores=10 perCore=1.25 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqk1od1-72fc7c5b-e9cf867be4d4 db=wsx_e9cf867be4d4bfd0839f compose=wsx-e9cf867be4d4bfd0839f pg=21707 redis=26707 sandbox=51707
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_e9cf867be4d4bfd0839f capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-memory-real-db.test.ts (3 tests) 66066ms
+   ✓ production kernel exposes the real memory proof provider and controller 17196ms
+   ✓ real HTTP proof binds requester and live source visibility, denies missing authority and changed lease 19616ms
+   ✓ official Python PostgresStore proves rollback, concurrent CAS, replay and tombstones 4791ms
+ ✓ tests/agent-runtime/standard-sql-source-real-db.test.ts (2 tests) 4569ms
+   ✓ production SQL source provider and controller are registered 1817ms
+   ✓ real Python native tools cross HTTP source authority into a separate TLS read-only database 1648ms
+ ✓ tests/agent-runtime/standard-sql-database.test.ts (1 test) 2878ms
+   ✓ official SQL Toolkit crosses the real asynchronous read-only PostgreSQL boundary 2878ms
+
+ Test Files  3 passed (3)
+      Tests  6 passed (6)
+   Start at  09:21:31
+   Duration  99.14s (transform 12.64s, setup 0ms, collect 8.48s, tests 73.51s, environment 4ms, prepare 591ms)
+
+[db-isolation] db=wsx_e9cf867be4d4bfd0839f peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-sql-database.test.ts tests/agent-runtime/standard-sql-source-real-db.test.ts tests/agent-runtime/standard-memory-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m41s
+  清理：0s
+  总计：1m42s

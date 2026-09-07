@@ -1,0 +1,1 @@
+{"sourceBytes":7200369,"durationMs":3600000,"chunks":120,"pcmBytes":115200000,"elapsedMs":2557,"originalUnchanged":true,"oversizedDurationRejected":true,"changedSourceRejected":true}

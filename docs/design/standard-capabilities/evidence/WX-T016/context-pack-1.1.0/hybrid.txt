@@ -1,0 +1,25 @@
+[stack-admission] load1=1.62 cores=10 perCore=0.16 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqwiv9c-37e6dea7-bf3f78f5c1c5 db=wsx_bf3f78f5c1c5dd0ca1b2 compose=wsx-bf3f78f5c1c5dd0ca1b2 pg=22989 redis=27989 sandbox=52989
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_bf3f78f5c1c5dd0ca1b2 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"ad8569fd-2be4-4ab9-9ac5-1f18c2aa9945","detail":{"name":"ForbiddenException","message":"standard_context_denied","stack":"ForbiddenException: standard_context_denied\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:24:108)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"325322b2-86cf-49d2-942a-e8b1be63cc00","detail":{"name":"ForbiddenException","message":"standard_context_denied","stack":"ForbiddenException: standard_context_denied\n    at StandardContextToolsController.invoke (/private/tmp/workspacex-standard-capabilities/apps/api/src/interface/controllers/standard-context-tools.controller.ts:24:108)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /private/tmp/workspacex-standard-capabilities/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/agent-runtime/organization-hybrid-retrieval.test.ts (7 tests) 6290ms
+   ✓ production createApp bridge uses configured hybrid providers and claimed human identity 2762ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  15:10:46
+   Duration  8.89s (transform 1.65s, setup 0ms, collect 369ms, tests 6.29s, environment 0ms, prepare 35ms)
+
+[db-isolation] db=wsx_bf3f78f5c1c5dd0ca1b2 peak_connections=9
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/organization-hybrid-retrieval.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：0s
+  总计：10s

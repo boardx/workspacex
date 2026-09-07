@@ -1,3 +1,5 @@
+import type { NativeOutputStaging } from "../../application/agent-run/native-output-staging";
+import type { NativeSessionOwner } from "../../application/agent-run/native-session-owner";
 import { recoverFinalMessageIdentity } from "../../application/agent-run/recover-final-message";
 import { recoveryExplanation } from "../../application/agent-run/run-recovery";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
@@ -6,11 +8,11 @@ import type { OrgId } from "../../domain/org-id";
 import type { AgentRunStore } from "../../application/agent-run/ports";
 import type { RemoteRunReconciler } from "../../application/agent-run/run-recovery";
 import { withRunLease } from "../../application/agent-run/run-lease";
-interface RecoveryRow {id:string;thread_id:string;remote_run_id:string|null;lease_epoch:number;recovery_attempts:number;model_provider:string}
+interface RecoveryRow {id:string;thread_id:string;remote_run_id:string|null;remote_thread_id:string|null;lease_epoch:number;recovery_attempts:number;model_provider:string;runtime_profile:"legacy"|"native-v1"}
 /** One bounded tenant-scoped batch. Lease expiry elects a reader of the existing
  * remote operation, never authorizes a fresh model/tool/sandbox submission. */
 export class PgRunRecovery {
-  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler){}
+  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler,private readonly nativeOutputs?:Pick<NativeOutputStaging,"listFiles">,private readonly nativeSessions?:NativeSessionOwner){}
   async tick(orgId:OrgId):Promise<number>{
     const candidates=await this.db.withTenant(orgId,async s=>(await s.query<RecoveryRow>(`
       UPDATE agent_runs r SET lease_epoch=lease_epoch+1,lease_expires_at=now()+($2::bigint * interval '1 millisecond'),
@@ -18,28 +20,41 @@ export class PgRunRecovery {
       WHERE r.org_id=$1 AND r.id IN (SELECT id FROM agent_runs WHERE org_id=$1 AND status='running'
         AND coalesce(lease_expires_at,coalesce(heartbeat_at,started_at)+($2::bigint * interval '1 millisecond'))<now()
         ORDER BY started_at,id LIMIT 10 FOR UPDATE SKIP LOCKED)
-      RETURNING id,thread_id,remote_run_id,lease_epoch,recovery_attempts,model_provider`,[orgId,DEFAULT_STALE_RUNNING_THRESHOLD_MS])).rows);
+      RETURNING id,thread_id,remote_run_id,remote_thread_id,lease_epoch,recovery_attempts,model_provider,runtime_profile`,[orgId,DEFAULT_STALE_RUNNING_THRESHOLD_MS])).rows);
     for(const run of candidates){
       await withRunLease({orgId,runId:run.id,epoch:run.lease_epoch,verify:()=>this.runs.heartbeatRun?.(orgId,run.id)??Promise.resolve()},async()=>{
-        const result=run.model_provider!=="deep-agent"?{kind:"uncertain" as const,diagnostic:"provider_recovery_unsupported"}:
-          run.remote_run_id?await this.remote.reconcileExistingRun(run.thread_id,run.remote_run_id,run.id):{kind:"uncertain" as const,diagnostic:"remote_run_id_not_recorded"};
+        let result=run.model_provider!=="deep-agent"?{kind:"uncertain" as const,diagnostic:"provider_recovery_unsupported"}:
+          run.remote_run_id?await this.remote.reconcileExistingRun(run.thread_id,run.remote_run_id,run.id,run.remote_thread_id??undefined,run.runtime_profile):{kind:"uncertain" as const,diagnostic:"remote_run_id_not_recorded"};
+        if (result.kind === "success" && run.runtime_profile === "native-v1" && !this.nativeOutputs) result = { kind: "uncertain", diagnostic: "native_output_delivery_unavailable" };
+        let terminal = false;
         if(result.kind==="success"){
           await recoverFinalMessageIdentity(this.runs,orgId,run.id,result.completion.finalMessageId);
           const finalStepSeq=await this.db.withTenant(orgId,async s=>Number((await s.query<{seq:number}>("SELECT COALESCE(MAX(seq),0) AS seq FROM agent_run_steps WHERE org_id=$1 AND run_id=$2",[orgId,run.id])).rows[0]?.seq??0));
-          await this.runs.storeOutputAwaitingWriteback(orgId,run.id,{text:result.completion.text,finalStepSeq});
+          const files = run.runtime_profile === "native-v1" ? await this.nativeOutputs!.listFiles(orgId,run.id) : undefined;
+          await this.runs.storeOutputAwaitingWriteback(orgId,run.id,{text:result.completion.text,finalStepSeq,...(files ? {files} : {})});
           await this.diagnostic(orgId,run.id,"远端执行已完成，正在恢复回复");
+          terminal = true;
         }else if(result.kind==="paused"){
           await this.runs.pauseAtCheckpoint?.(orgId,run.id);
         }else if(result.kind==="cancelled"){
           await this.runs.cancelAtCheckpoint?.(orgId,run.id);
+          terminal = true;
         }else if(result.kind==="approval"&&result.toolName!=="unknown"){
           await this.runs.markAwaitingToolPermission(orgId,run.id,result);
         }else if(result.kind==="failed"||(result.kind==="uncertain"&&run.recovery_attempts>=5)){
           await this.diagnostic(orgId,run.id,`恢复需人工核对：${recoveryExplanation(result.diagnostic)}`);
           await this.runs.failRun(orgId,run.id,"RUN_INTERRUPTED");
+          terminal = true;
         }else{
           if(result.kind==="running")await this.db.withTenant(orgId,s=>s.query("UPDATE agent_runs SET recovery_attempts=0 WHERE org_id=$1 AND id=$2",[orgId,run.id]));
           await this.diagnostic(orgId,run.id,result.kind==="running"?"远端仍在执行，继续核对原任务":`正在恢复：${recoveryExplanation("diagnostic" in result?result.diagnostic:result.kind)}`);
+        }
+        if (run.runtime_profile === "native-v1" && terminal) {
+          try {
+            if (!this.nativeSessions) throw new Error("native_session_cleanup_unavailable");
+            await this.nativeSessions.releaseForRun(orgId,run.id);
+          }
+          catch { await this.diagnostic(orgId,run.id,"执行已结束，沙箱释放尚待确认"); }
         }
       });
     }

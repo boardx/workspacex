@@ -1,0 +1,4 @@
+Command: node apps/api/scripts/lint-permission-paths.mjs
+Exit code: 0
+✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+scanned=1263 tenant-tables=201 allowlisted=91

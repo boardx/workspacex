@@ -1,0 +1,18 @@
+# Standalone opt-in configuration; original service/socket/profile remain untouched.
+# Requires Docker Compose 2.24.4+ for !override.
+services:
+  skill-sandbox-sessions:
+    extends:
+      file: docker-compose.sandbox.yml
+      service: skill-sandbox
+    init: true
+    image: workspacex-skill-sandbox:e003
+    security_opt:
+      - seccomp=./security/docker-seccomp.json
+    volumes: !override
+      - sessions_socket:/run/sessions
+    environment:
+      SKILL_SANDBOX_SESSIONS_ONLY: "1"
+      SKILL_SANDBOX_SOCKET: /run/sessions/skill-sandbox.sock
+volumes:
+  sessions_socket:

@@ -1,0 +1,228 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 10.70kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 0.2s
+
+#3 [internal] load metadata for docker.io/library/node:22-slim
+#3 DONE 0.2s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [build 1/6] FROM docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+#5 resolve docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 46.25kB done
+#6 DONE 0.0s
+
+#7 [build 2/6] WORKDIR /build
+#7 CACHED
+
+#8 [build 4/6] RUN npm install --no-save typescript@5 @types/node
+#8 CACHED
+
+#9 [build 3/6] COPY package.json ./
+#9 CACHED
+
+#10 [build 5/6] COPY src ./src
+#10 CACHED
+
+#11 [build 6/6] RUN npx tsc src/*.ts src/session/*.ts       --types node --module NodeNext --moduleResolution NodeNext       --target ES2022 --strict --skipLibCheck       --outDir dist
+#11 CACHED
+
+#12 [analysis 1/3] FROM docker.io/library/python:3.11-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff
+#12 resolve docker.io/library/python:3.11-slim@sha256:90744cff8f32887f075c47d747a173ff333e9e98801667af93c357fa9f5e28ff 0.0s done
+#12 CACHED
+
+#13 [analysis 2/3] COPY analysis/requirements.lock /tmp/analysis-requirements.lock
+#13 DONE 0.0s
+
+#14 [analysis 3/3] RUN --mount=type=cache,target=/root/.cache/pip pip install --only-binary=:all: --require-hashes       --target /analysis -r /tmp/analysis-requirements.lock  && pip download --only-binary=:all: --require-hashes --no-deps       --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64       --python-version 311 --implementation cp --abi cp311       --dest /tmp/analysis-amd64 -r /tmp/analysis-requirements.lock
+#14 1.356 Collecting contourpy==1.3.3 (from -r /tmp/analysis-requirements.lock (line 3))
+#14 1.780   Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl (329 kB)
+#14 2.242      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 329.2/329.2 kB 696.8 kB/s eta 0:00:00
+#14 2.344 Collecting cycler==0.12.1 (from -r /tmp/analysis-requirements.lock (line 77))
+#14 2.485   Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+#14 2.593 Collecting defusedxml==0.7.1 (from -r /tmp/analysis-requirements.lock (line 81))
+#14 2.681   Downloading defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+#14 2.807 Collecting et-xmlfile==2.0.0 (from -r /tmp/analysis-requirements.lock (line 85))
+#14 2.893   Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+#14 3.618 Collecting fonttools==4.64.0 (from -r /tmp/analysis-requirements.lock (line 89))
+#14 3.705   Downloading fonttools-4.64.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (5.5 MB)
+#14 16.32      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 434.8 kB/s eta 0:00:00
+#14 16.70 Collecting kiwisolver==1.5.1 (from -r /tmp/analysis-requirements.lock (line 157))
+#14 16.78   Downloading kiwisolver-1.5.1-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (1.2 MB)
+#14 19.37      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.2/1.2 MB 484.9 kB/s eta 0:00:00
+#14 20.11 Collecting matplotlib==3.10.3 (from -r /tmp/analysis-requirements.lock (line 300))
+#14 20.19   Downloading matplotlib-3.10.3-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (8.5 MB)
+#14 39.74      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.5/8.5 MB 433.2 kB/s eta 0:00:00
+#14 40.87 Collecting numpy==2.2.6 (from -r /tmp/analysis-requirements.lock (line 338))
+#14 40.95   Downloading numpy-2.2.6-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (14.3 MB)
+#14 75.54      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.3/14.3 MB 408.0 kB/s eta 0:00:00
+#14 75.77 Collecting openpyxl==3.1.5 (from -r /tmp/analysis-requirements.lock (line 400))
+#14 75.93   Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+#14 77.14      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 250.9/250.9 kB 208.5 kB/s eta 0:00:00
+#14 77.36 Collecting packaging==26.3 (from -r /tmp/analysis-requirements.lock (line 404))
+#14 77.87   Downloading packaging-26.3-py3-none-any.whl (129 kB)
+#14 78.83      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 130.0/130.0 kB 141.1 kB/s eta 0:00:00
+#14 80.72 Collecting pandas==2.2.3 (from -r /tmp/analysis-requirements.lock (line 408))
+#14 81.14   Downloading pandas-2.2.3-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl (15.6 MB)
+#14 151.3      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.6/15.6 MB 311.3 kB/s eta 0:00:00
+#14 152.3 Collecting pillow==12.3.0 (from -r /tmp/analysis-requirements.lock (line 454))
+#14 152.4   Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl (6.3 MB)
+#14 166.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 455.8 kB/s eta 0:00:00
+#14 166.4 Collecting pyparsing==3.3.2 (from -r /tmp/analysis-requirements.lock (line 543))
+#14 166.5   Downloading pyparsing-3.3.2-py3-none-any.whl (122 kB)
+#14 166.6      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 122.8/122.8 kB 845.3 kB/s eta 0:00:00
+#14 166.7 Collecting python-dateutil==2.9.0.post0 (from -r /tmp/analysis-requirements.lock (line 547))
+#14 166.8   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+#14 167.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 229.9/229.9 kB 994.9 kB/s eta 0:00:00
+#14 167.3 Collecting pytz==2026.3.post1 (from -r /tmp/analysis-requirements.lock (line 553))
+#14 167.4   Downloading pytz-2026.3.post1-py2.py3-none-any.whl (508 kB)
+#14 168.3      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 508.3/508.3 kB 537.9 kB/s eta 0:00:00
+#14 168.4 Collecting seaborn==0.13.2 (from -r /tmp/analysis-requirements.lock (line 557))
+#14 168.5   Downloading seaborn-0.13.2-py3-none-any.whl (294 kB)
+#14 169.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 294.9/294.9 kB 562.5 kB/s eta 0:00:00
+#14 169.1 Collecting six==1.17.0 (from -r /tmp/analysis-requirements.lock (line 561))
+#14 169.2   Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+#14 169.3 Collecting tzdata==2026.3 (from -r /tmp/analysis-requirements.lock (line 565))
+#14 169.4   Downloading tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+#14 169.9      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 348.2/348.2 kB 686.9 kB/s eta 0:00:00
+#14 170.2 Installing collected packages: pytz, tzdata, six, pyparsing, pillow, packaging, numpy, kiwisolver, fonttools, et-xmlfile, defusedxml, cycler, python-dateutil, openpyxl, contourpy, pandas, matplotlib, seaborn
+#14 175.7 Successfully installed contourpy-1.3.3 cycler-0.12.1 defusedxml-0.7.1 et-xmlfile-2.0.0 fonttools-4.64.0 kiwisolver-1.5.1 matplotlib-3.10.3 numpy-2.2.6 openpyxl-3.1.5 packaging-26.3 pandas-2.2.3 pillow-12.3.0 pyparsing-3.3.2 python-dateutil-2.9.0.post0 pytz-2026.3.post1 seaborn-0.13.2 six-1.17.0 tzdata-2026.3
+#14 175.7 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#14 176.1 
+#14 176.1 [notice] A new release of pip is available: 24.0 -> 26.2.1
+#14 176.1 [notice] To update, run: pip install --upgrade pip
+#14 176.8 Collecting contourpy==1.3.3 (from -r /tmp/analysis-requirements.lock (line 3))
+#14 177.2   Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (355 kB)
+#14 177.5      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 355.2/355.2 kB 1.0 MB/s eta 0:00:00
+#14 177.7 Collecting cycler==0.12.1 (from -r /tmp/analysis-requirements.lock (line 77))
+#14 177.7   Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+#14 177.8 Collecting defusedxml==0.7.1 (from -r /tmp/analysis-requirements.lock (line 81))
+#14 177.8   Using cached defusedxml-0.7.1-py2.py3-none-any.whl (25 kB)
+#14 177.9 Collecting et-xmlfile==2.0.0 (from -r /tmp/analysis-requirements.lock (line 85))
+#14 177.9   Using cached et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+#14 178.1 Collecting fonttools==4.64.0 (from -r /tmp/analysis-requirements.lock (line 89))
+#14 178.2   Downloading fonttools-4.64.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)
+#14 190.4      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 453.7 kB/s eta 0:00:00
+#14 190.5 Collecting kiwisolver==1.5.1 (from -r /tmp/analysis-requirements.lock (line 157))
+#14 190.7   Downloading kiwisolver-1.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+#14 193.8      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 464.5 kB/s eta 0:00:00
+#14 194.0 Collecting matplotlib==3.10.3 (from -r /tmp/analysis-requirements.lock (line 300))
+#14 194.1   Downloading matplotlib-3.10.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (8.6 MB)
+#14 213.3      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.6/8.6 MB 448.3 kB/s eta 0:00:00
+#14 213.5 Collecting numpy==2.2.6 (from -r /tmp/analysis-requirements.lock (line 338))
+#14 213.6   Downloading numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.8 MB)
+#14 285.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.8/16.8 MB 216.7 kB/s eta 0:00:00
+#14 285.4 Collecting openpyxl==3.1.5 (from -r /tmp/analysis-requirements.lock (line 400))
+#14 285.4   Using cached openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+#14 285.6 Collecting packaging==26.3 (from -r /tmp/analysis-requirements.lock (line 404))
+#14 285.6   Using cached packaging-26.3-py3-none-any.whl (129 kB)
+#14 285.8 Collecting pandas==2.2.3 (from -r /tmp/analysis-requirements.lock (line 408))
+#14 286.0   Downloading pandas-2.2.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (13.1 MB)
+#14 352.0      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13.1/13.1 MB 211.2 kB/s eta 0:00:00
+#14 352.2 Collecting pillow==12.3.0 (from -r /tmp/analysis-requirements.lock (line 454))
+#14 352.3   Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+#14 379.2      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 258.6 kB/s eta 0:00:00
+#14 379.3 Collecting pyparsing==3.3.2 (from -r /tmp/analysis-requirements.lock (line 543))
+#14 379.3   Using cached pyparsing-3.3.2-py3-none-any.whl (122 kB)
+#14 379.5 Collecting python-dateutil==2.9.0.post0 (from -r /tmp/analysis-requirements.lock (line 547))
+#14 379.5   Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+#14 379.6 Collecting pytz==2026.3.post1 (from -r /tmp/analysis-requirements.lock (line 553))
+#14 379.6   Using cached pytz-2026.3.post1-py2.py3-none-any.whl (508 kB)
+#14 379.7 Collecting seaborn==0.13.2 (from -r /tmp/analysis-requirements.lock (line 557))
+#14 379.7   Using cached seaborn-0.13.2-py3-none-any.whl (294 kB)
+#14 379.8 Collecting six==1.17.0 (from -r /tmp/analysis-requirements.lock (line 561))
+#14 379.8   Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+#14 379.9 Collecting tzdata==2026.3 (from -r /tmp/analysis-requirements.lock (line 565))
+#14 379.9   Using cached tzdata-2026.3-py2.py3-none-any.whl (348 kB)
+#14 379.9 Saved /tmp/analysis-amd64/contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+#14 379.9 Saved /tmp/analysis-amd64/cycler-0.12.1-py3-none-any.whl
+#14 379.9 Saved /tmp/analysis-amd64/defusedxml-0.7.1-py2.py3-none-any.whl
+#14 379.9 Saved /tmp/analysis-amd64/et_xmlfile-2.0.0-py3-none-any.whl
+#14 379.9 Saved /tmp/analysis-amd64/fonttools-4.64.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+#14 379.9 Saved /tmp/analysis-amd64/kiwisolver-1.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+#14 379.9 Saved /tmp/analysis-amd64/matplotlib-3.10.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#14 380.0 Saved /tmp/analysis-amd64/numpy-2.2.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#14 380.0 Saved /tmp/analysis-amd64/openpyxl-3.1.5-py2.py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/packaging-26.3-py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/pandas-2.2.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+#14 380.0 Saved /tmp/analysis-amd64/pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+#14 380.0 Saved /tmp/analysis-amd64/pyparsing-3.3.2-py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/python_dateutil-2.9.0.post0-py2.py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/pytz-2026.3.post1-py2.py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/seaborn-0.13.2-py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/six-1.17.0-py2.py3-none-any.whl
+#14 380.0 Saved /tmp/analysis-amd64/tzdata-2026.3-py2.py3-none-any.whl
+#14 380.1 Successfully downloaded contourpy cycler defusedxml et-xmlfile fonttools kiwisolver matplotlib numpy openpyxl packaging pandas pillow pyparsing python-dateutil pytz seaborn six tzdata
+#14 380.1 
+#14 380.1 [notice] A new release of pip is available: 24.0 -> 26.2.1
+#14 380.1 [notice] To update, run: pip install --upgrade pip
+#14 DONE 380.3s
+
+#15 [stage-2  2/16] WORKDIR /opt/sandbox
+#15 CACHED
+
+#16 [stage-2  4/16] RUN npm install --omit=dev --no-package-lock  && npm cache clean --force  && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')"  && node -e "require.resolve('docx'); console.log('docx preinstalled OK')"  && node -e "require.resolve('exceljs'); console.log('exceljs preinstalled OK')"  && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')"  && node -e "require.resolve('@pdf-lib/fontkit'); console.log('@pdf-lib/fontkit preinstalled OK')"
+#16 CACHED
+
+#17 [stage-2  6/16] RUN apt-get update  && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig  && fc-cache -f  && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt  && rm -rf /var/lib/apt/lists/*
+#17 CACHED
+
+#18 [stage-2  3/16] COPY package.json ./
+#18 CACHED
+
+#19 [stage-2  5/16] RUN apt-get update  && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap  && mkdir -p /usr/share/fonts/workspacex  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))"  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))"  && pyftsubset /tmp/noto-sc-full.otf --text-file=/tmp/charset.txt       --output-file=/usr/share/fonts/workspacex/NotoSansSC-Common.otf       --layout-features='' --no-hinting --desubroutinize --drop-tables+=DSIG  && rm -f /tmp/noto-sc-full.otf /tmp/charset.txt  && apt-get purge -y fonts-noto-cjk fonttools  && apt-get autoremove -y  && rm -rf /var/lib/apt/lists/*  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
+#19 CACHED
+
+#20 [stage-2  7/16] COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
+#20 CACHED
+
+#21 [stage-2  8/16] RUN python3 scripts/materialize-office-config.py
+#21 CACHED
+
+#22 [stage-2  9/16] COPY --from=analysis /analysis /usr/local/lib/python3.11/dist-packages
+#22 DONE 0.9s
+
+#23 [stage-2 10/16] COPY analysis/requirements.lock ./analysis/requirements.lock
+#23 DONE 0.0s
+
+#24 [stage-2 11/16] RUN OPENBLAS_NUM_THREADS=1 python3 -c "import numpy, pandas, matplotlib, seaborn, openpyxl; print('offline analysis dependencies available')"
+#24 0.597 offline analysis dependencies available
+#24 DONE 0.6s
+
+#25 [stage-2 12/16] COPY security/generate-seccomp.py ./security/generate-seccomp.py
+#25 DONE 0.0s
+
+#26 [stage-2 13/16] RUN python3 security/generate-seccomp.py
+#26 DONE 0.1s
+
+#27 [stage-2 14/16] COPY --from=build /build/dist ./dist
+#27 DONE 0.0s
+
+#28 [stage-2 15/16] COPY src/generated ./dist/generated
+#28 DONE 0.0s
+
+#29 [stage-2 16/16] RUN mkdir -p /run/sessions && chown node:node /run/sessions
+#29 DONE 0.1s
+
+#30 exporting to image
+#30 exporting layers
+#30 exporting layers 3.8s done
+#30 exporting manifest sha256:1694a35b401bc042cc9d74d7723820143af88a72f0cb96ddce4f5b89a853fff0
+#30 exporting manifest sha256:1694a35b401bc042cc9d74d7723820143af88a72f0cb96ddce4f5b89a853fff0 done
+#30 exporting config sha256:7cc3dea8e4070a5e34ae0fb0e98a6bb0310eb605b1c341a624f4220c380014b4 done
+#30 exporting attestation manifest sha256:d0b62518ccae52b6a3316ee755a962650a60295cef0ceb5a3293a56487767793 done
+#30 exporting manifest list sha256:eafb2d10b6347d9adf3c2a2373f77a2336beef42584c9a19cdf77ff8094b4087 done
+#30 naming to docker.io/library/workspacex-skill-sandbox:w18-analysis done
+#30 unpacking to docker.io/library/workspacex-skill-sandbox:w18-analysis
+#30 unpacking to docker.io/library/workspacex-skill-sandbox:w18-analysis 1.0s done
+#30 DONE 4.8s

@@ -1,3 +1,6 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
+import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contracts/native-session-binding";
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
@@ -98,6 +101,7 @@ import {
 } from "@repo/contracts/agent-interrupts";
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 import type { kernelGateway as KG } from "@repo/contracts";
+import { standardCapabilities as SC } from "@repo/contracts";
 import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
 import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "@repo/contracts/plan-permissions";
 
@@ -442,13 +446,14 @@ function collectScriptCandidates(messages: readonly ThreadMessage[]): readonly s
  * type). Keep the two in sync by hand; there is no shared schema across the language
  * boundary yet -- a follow-up worth having once this path is verified end-to-end. */
 interface WireOrgSkill {
+  readonly package?: PinnedSkillContent["package"];
   readonly stable_name: string;
   readonly name: string;
   readonly content: string;
 }
 
 function toWireSkills(skills: readonly PinnedSkillContent[] | undefined): readonly WireOrgSkill[] {
-  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content }));
+  return (skills ?? []).map((s) => ({ stable_name: s.stableName, name: s.name, content: s.content, ...(s.package ? { package: s.package } : {}) }));
 }
 
 /** messages-tuple 里算"模型输出"的 chunk 类型；见 `tryStreamRun` 内对应注释。 */
@@ -459,10 +464,27 @@ function isAiMessageChunkType(type: unknown): boolean {
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
+  private memoryConfig(input: ModelCallInput): Record<string, unknown> {
+    if (input.executionMode === "text-only" || input.trustedMemoryScope === undefined) return {};
+    const scope = SC.TrustedMemoryScope.parse(input.trustedMemoryScope);
+    if (!input.orgId || scope.orgId !== input.orgId) throw new Error("memory_scope_tenant_mismatch");
+    return { [SC.MEMORY_SCOPE_CONFIG_KEY]: scope };
+  }
+
+  private subtaskConfig(input: ModelCallInput): Record<string, string> {
+    if (!this.config.subtaskCallbackBaseUrl || input.executionMode === "text-only") return {};
+    return {
+      subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
+      subtask_callback_key: this.config.subtaskCallbackKey ?? "",
+      ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
+      ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
+    };
+  }
+
   /** Recovery never calls startRun/createRun. Only an explicitly run-associated
    * checkpoint may supply completion; a thread's newer state is not this run's result. */
-  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string):Promise<ReconciledRemoteRun>{
-    const baseUrl=this.config.baseUrl,threadId=deriveRemoteThreadId(chatThreadId);
+  async reconcileExistingRun(chatThreadId:string,remoteRunId:string,logicalRunId?:string,remoteThreadId?:string,runtimeProfile:"legacy"|"native-v1"="legacy"):Promise<ReconciledRemoteRun>{
+    const baseUrl=this.config.baseUrl,threadId=remoteThreadId??deriveRemoteThreadId(chatThreadId);
     const signal=AbortSignal.timeout(Math.min(this.config.timeoutMs,15000));
     try{
       const response=await fetch(`${baseUrl}/threads/${threadId}/runs/${encodeURIComponent(remoteRunId)}`,{signal});
@@ -495,7 +517,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       const text=readFinalReply(messages);
       if(!text.trim())return {kind:"uncertain",diagnostic:"checkpoint_has_no_final_reply"};
       const scriptCandidates=collectScriptCandidates(messages);
-      if(scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
+      if(runtimeProfile!=="native-v1"&&scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
       const finalMessage=[...messages].reverse().find(message=>message.type==="ai"&&typeof message.content==="string"&&message.content.trim()!=="");
       return {kind:"success",completion:{text,...(finalMessage?.id?{finalMessageId:finalMessage.id}:{})}};
     }catch{return {kind:"uncertain",diagnostic:"remote_reconcile_unavailable"};}
@@ -505,8 +527,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return Boolean(this.config.subtaskCallbackBaseUrl && this.config.subtaskCallbackKey);
   }
 
+  private nativeConfig(input: ModelCallInput): Record<string, unknown> {
+    if (input.nativeSession === undefined) return {};
+    const parsed = NativeSessionBindingRef.safeParse(input.nativeSession);
+    if (!parsed.success || input.executionMode !== undefined || input.scriptProtocol !== undefined
+      || !input.orgId || !input.runId || !input.executionAttemptId
+      || !Number.isInteger(input.executionLeaseEpoch) || input.executionLeaseEpoch! < 1
+      || !input.onSkillActivity) {
+      throw new ModelCallError("MODEL_CALL_FAILED", "native_runtime_configuration_invalid");
+    }
+    return { [NATIVE_SESSION_CONFIG_KEY]: parsed.data };
+  }
+
   private runControlConfig(input: ModelCallInput): Record<string, unknown> {
-    if (!input.liveInterjections) return {};
+    if (input.executionMode === "text-only" || (!input.liveInterjections && !input.nativeSession)) return {};
     if (!this.supportsLiveInterjections() || !input.orgId || !input.runId) {
       throw new ModelCallError("MODEL_CALL_FAILED", "live interjection callback is not configured");
     }
@@ -518,10 +552,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
-    if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
-    const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
-    await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
-    return this.readCompletion(baseUrl, threadId);
+    return subtaskCallSignal.run(input.signal,async()=>{
+      input.signal?.throwIfAborted();
+      if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
+      const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
+      await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
+      return this.readCompletion(baseUrl, threadId);
+    });
   }
 
   /**
@@ -569,13 +606,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // legitimately needs to pass through both phases without either suppressing the other.
     const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
-    if (this.config.streamEnabled === true && (onDelta !== undefined || input.onSkillActivity !== undefined)) {
-      // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
-      // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
-      // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
+    if (input.onSkillActivity !== undefined || (this.config.streamEnabled === true && onDelta !== undefined)) {
+      // Text-only delivery may fall back to polling. Required Skill journal facts
+      // must use a valid stream and cannot silently downgrade or resubmit the run.
       const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
         async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, input.onSkillActivity);
+        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity);
       if (streamed) {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
@@ -595,8 +631,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
           throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
         }
-        // 流断了但 run 还没终态：落回轮询等待，不重复提交。
+        // Text deltas may fall back to polling; required Skill facts cannot.
       }
+      if (input.onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
     }
 
     const emitNewEvents = async (): Promise<void> =>
@@ -707,18 +744,30 @@ export class DeepAgentModelProvider implements ModelCallPort {
     onDelta: (delta: string, metadata?: ModelDeltaMetadata) => Promise<void>,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     emitted: ToolCallEmittedIds,
+    deadline: number,
     onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
   ): Promise<boolean> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
+    try {
     let response: Response;
     try {
       response = await fetch(`${baseUrl}/threads/${threadId}/runs/${runId}/stream`, {
         method: "GET",
         headers: { accept: "text/event-stream" },
+        signal: controller.signal,
       });
     } catch {
       return false;
     }
-    if (!response.ok || response.body === null) return false;
+    if (!response.ok || response.body === null) {
+      await response.body?.cancel();
+      return false;
+    }
+    if (onSkillActivity && !response.headers.get("content-type")?.toLowerCase().startsWith("text/event-stream")) {
+      await response.body.cancel();
+      return false;
+    }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -767,12 +816,14 @@ export class DeepAgentModelProvider implements ModelCallPort {
           try {
             parsed = JSON.parse(dataLines.join(""));
           } catch {
+            if (onSkillActivity) throw new ProgressDeliveryError(new Error("skill_activity_stream_invalid"));
             continue;
           }
           if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
             try {
               const event = SkillActivityStream.parse(parsed);
-              await onSkillActivity?.(event.fact);
+              if (!onSkillActivity) throw new Error("skill_activity_writer_unavailable");
+              await onSkillActivity(event.fact);
             } catch (error) { throw new ProgressDeliveryError(error); }
             continue;
           }
@@ -821,14 +872,17 @@ export class DeepAgentModelProvider implements ModelCallPort {
           }
         }
       }
+      if (onSkillActivity && buffer.trim()) throw new ProgressDeliveryError(new Error("skill_activity_stream_incomplete"));
       return true;
     } catch (error) {
       if (error instanceof ProgressDeliveryError) throw error.original;
+      if (onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
       // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
       return true;
     } finally {
       reader.releaseLock();
     }
+    } finally { clearTimeout(timer); }
   }
 
   /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create
@@ -852,10 +906,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
         `run pinned provider "${input.modelProvider}", this port only serves "${DEEP_AGENT_PROVIDER_NAME}"`,
       );
     }
+    this.nativeConfig(input);
     const deadline = Date.now() + timeoutMs;
-    const threadId = input.threadId === undefined || input.threadId === ""
-      ? await this.createThread(baseUrl)
-      : await this.ensureThread(baseUrl, input.threadId);
+    const threadId = input.nativeSession
+      ? await this.ensureThread(baseUrl, `native:${NativeSessionBindingRef.parse(input.nativeSession).bindingId}`)
+      : input.threadId === undefined || input.threadId === ""
+        ? await this.createThread(baseUrl)
+        : await this.ensureThread(baseUrl, input.threadId);
     // Snapshot BEFORE submitting the new run: a post-submit read can already include
     // this attempt's newly completed tool, incorrectly suppressing its real event.
     const prior = input.threadId || input.resume || input.checkpointResume
@@ -1040,8 +1097,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
           // --filter=@repo/api` 因此是红的——顺手清掉，不是本 PR 的功能改动。
           config: {
             configurable: {
+              ...this.nativeConfig(input),
               ...this.runControlConfig(input),
               org_skills: toWireSkills(input.skills),
+              ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
+              ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
               ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
               // Phase 14 后续 A（#2755）：resume 是同一个 run 的"下一次 ModelCallInput"，上一次
               // 检查点消费到的插话在这里回灌内核——`harness.py` 的 `InterjectionMiddleware`
@@ -1065,7 +1126,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
-      await input.onRemoteRunStarted?.(body.run_id);
+      await input.onRemoteRunStarted?.(body.run_id, threadId);
       return body.run_id;
     }
 
@@ -1111,8 +1172,10 @@ export class DeepAgentModelProvider implements ModelCallPort {
         ...(input.checkpointResume ? { command: { resume: true } } : { input: { messages } }),
         config: {
           configurable: {
+              ...this.nativeConfig(input),
               ...this.runControlConfig(input),
             org_skills: toWireSkills(input.skills),
+            ...(input.executionMode === undefined ? {} : { [SC.EXECUTION_MODE_CONFIG_KEY]: SC.RestrictedExecutionMode.parse(input.executionMode) }),
             /*
              * #1747 —— 脚本执行协议原样转发给远端。
              *
@@ -1167,12 +1230,8 @@ export class DeepAgentModelProvider implements ModelCallPort {
              * 破坏了 T2 锁的"没挂 skill 时 configurable 逐字不变"（`deep-agent-produces-
              * files.test.ts`，2026-09-04 CI 抓到）。
              */
-            ...((this.config.subtaskCallbackBaseUrl ?? "") === "" ? {} : {
-              subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
-              subtask_callback_key: this.config.subtaskCallbackKey ?? "",
-              ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
-              ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
-            }),
+            ...this.subtaskConfig(input),
+              ...this.memoryConfig(input),
           },
         },
       }),
@@ -1181,7 +1240,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
-    await input.onRemoteRunStarted?.(body.run_id);
+    await input.onRemoteRunStarted?.(body.run_id, threadId);
     return body.run_id;
   }
 
@@ -1270,9 +1329,11 @@ export function deriveRemoteThreadId(chatThreadId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-async function fetchWithTransportErrors(url: string, init: { method: string; body?: string }): Promise<Response> {
+async function fetchWithTransportErrors(url: string, init: { method: string; body?: string; signal?: AbortSignal }): Promise<Response> {
   try {
-    return await fetch(url, { ...init, headers: { "content-type": "application/json" } });
+    const scoped=subtaskCallSignal.getStore();
+    const signal=scoped?(init.signal?AbortSignal.any([scoped,init.signal]):scoped):init.signal;
+    return await fetch(url, { ...init, ...(signal?{signal}:{}), headers: { "content-type": "application/json" } });
   } catch {
     // Same redaction discipline as `DeepResearchModelProvider`'s identical helper: no host/
     // port detail leaves this process.
@@ -1281,5 +1342,12 @@ async function fetchWithTransportErrors(url: string, init: { method: string; bod
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const signal=subtaskCallSignal.getStore();
+  if(!signal)return new Promise(resolve=>setTimeout(resolve,ms));
+  return new Promise((resolve,reject)=>{
+    if(signal.aborted){reject(signal.reason);return;}
+    const abort=()=>{clearTimeout(timer);reject(signal.reason);};
+    const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},ms);
+    signal.addEventListener('abort',abort,{once:true});
+  });
 }

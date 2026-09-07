@@ -1,0 +1,83 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 9.73kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [build 1/6] FROM docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+#4 resolve docker.io/library/node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 0.0s done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 1.89kB 0.0s done
+#5 DONE 0.0s
+
+#6 [build 4/6] RUN npm install --no-save typescript@5 @types/node
+#6 CACHED
+
+#7 [build 5/6] COPY src ./src
+#7 CACHED
+
+#8 [build 3/6] COPY package.json ./
+#8 CACHED
+
+#9 [build 2/6] WORKDIR /build
+#9 CACHED
+
+#10 [build 6/6] RUN npx tsc src/*.ts src/session/*.ts       --types node --module NodeNext --moduleResolution NodeNext       --target ES2022 --strict --skipLibCheck       --outDir dist
+#10 CACHED
+
+#11 [stage-1  3/13] COPY package.json ./
+#11 CACHED
+
+#12 [stage-1  4/13] RUN npm install --omit=dev --no-package-lock  && npm cache clean --force  && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')"  && node -e "require.resolve('docx'); console.log('docx preinstalled OK')"  && node -e "require.resolve('exceljs'); console.log('exceljs preinstalled OK')"  && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')"  && node -e "require.resolve('@pdf-lib/fontkit'); console.log('@pdf-lib/fontkit preinstalled OK')"
+#12 CACHED
+
+#13 [stage-1  5/13] RUN apt-get update  && apt-get install -y --no-install-recommends fonts-noto-cjk fonttools python3 bubblewrap  && mkdir -p /usr/share/fonts/workspacex  && python3 -c "from fontTools.ttLib import TTCollection; ttc = TTCollection('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', lazy=True); name = lambda x: (x['name'].getDebugName(6) or '').lower(); f = next(x for x in ttc.fonts if 'sc-' in name(x) and 'mono' not in name(x)); f.save('/tmp/noto-sc-full.otf'); print('extracted', f['name'].getDebugName(6))"  && python3 -c "chars = [chr(c) for c in range(0x20, 0x7F)] + list('　，。、；：？！“”‘’（）《》【】…—～·¥％℃×÷±°§№') + [chr(c) for c in range(0x4E00, 0xA000)]; open('/tmp/charset.txt', 'w', encoding='utf-8').write(''.join(dict.fromkeys(chars))); print('charset', len(set(chars)))"  && pyftsubset /tmp/noto-sc-full.otf --text-file=/tmp/charset.txt       --output-file=/usr/share/fonts/workspacex/NotoSansSC-Common.otf       --layout-features='' --no-hinting --desubroutinize --drop-tables+=DSIG  && rm -f /tmp/noto-sc-full.otf /tmp/charset.txt  && apt-get purge -y fonts-noto-cjk fonttools  && apt-get autoremove -y  && rm -rf /var/lib/apt/lists/*  && node -e "const fontkit = require('/opt/sandbox/node_modules/@pdf-lib/fontkit'); const fs = require('fs'); const path = '/usr/share/fonts/workspacex/NotoSansSC-Common.otf'; const bytes = fs.readFileSync(path); const font = fontkit.create(bytes); if (font.fonts) throw new Error('font is a collection; pdf-lib embedFont will reject it'); const sample = '季度经营回顾 2026 Q3 mixed English 18% （中英文）淼喆'; const missing = [...new Set(sample)].filter((ch) => ch !== ' ' && (font.glyphsForString(ch)[0] || {}).id === 0); if (missing.length) throw new Error('font is missing glyphs for: ' + missing.join('')); console.log('CJK font OK', (bytes.length / 1048576).toFixed(1) + 'MB', font.postscriptName)"
+#13 CACHED
+
+#14 [stage-1  2/13] WORKDIR /opt/sandbox
+#14 CACHED
+
+#15 [stage-1  6/13] RUN apt-get update  && apt-get install -y --no-install-recommends libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig  && fc-cache -f  && dpkg-query -W libreoffice-core libreoffice-writer libreoffice-impress libreoffice-calc poppler-utils fontconfig > /opt/sandbox/renderer-versions.txt  && rm -rf /var/lib/apt/lists/*
+#15 CACHED
+
+#16 [stage-1  7/13] COPY scripts/materialize-office-config.py ./scripts/materialize-office-config.py
+#16 DONE 0.0s
+
+#17 [stage-1  8/13] RUN python3 scripts/materialize-office-config.py
+#17 0.976 LibreOffice installed configuration materialized inside /usr
+#17 DONE 1.0s
+
+#18 [stage-1  9/13] COPY security/generate-seccomp.py ./security/generate-seccomp.py
+#18 DONE 0.0s
+
+#19 [stage-1 10/13] RUN python3 security/generate-seccomp.py
+#19 DONE 0.3s
+
+#20 [stage-1 11/13] COPY --from=build /build/dist ./dist
+#20 DONE 0.0s
+
+#21 [stage-1 12/13] COPY src/generated ./dist/generated
+#21 DONE 0.0s
+
+#22 [stage-1 13/13] RUN mkdir -p /run/sessions && chown node:node /run/sessions
+#22 DONE 0.2s
+
+#23 exporting to image
+#23 exporting layers
+#23 exporting layers 0.3s done
+#23 exporting manifest sha256:ecefd9a4742eed2389f30eb0217a8b4d543095c6f707cf36929ef0f4174ad95d 0.0s done
+#23 exporting config sha256:4e5c04ec92f095a1cb0a5ca798c929fa9dd25b56db95d6e57473108d78325c3e done
+#23 exporting attestation manifest sha256:29d98f3b5a31fb5fbc04f5cbdef43e84657f828008ded9ffc3824b378bd44388 0.0s done
+#23 exporting manifest list sha256:8f881eb6a6d7c878e9a5d0f71f0ec36b22998fed014786276dbbc22b19a5c3a8 0.0s done
+#23 naming to docker.io/library/workspacex-skill-sandbox:w09-renderer done
+#23 unpacking to docker.io/library/workspacex-skill-sandbox:w09-renderer 0.1s done
+#23 DONE 0.5s

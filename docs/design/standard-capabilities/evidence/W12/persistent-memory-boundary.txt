@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: real memory facts/visibility boundary
+ok 1 - real memory facts/visibility boundary
+  ---
+  duration_ms: 7.232792
+  type: 'test'
+  ...
+# Subtest: reject mutation this.authority.check
+ok 2 - reject mutation this.authority.check
+  ---
+  duration_ms: 1.693125
+  type: 'test'
+  ...
+# Subtest: reject mutation !decision.allowed
+ok 3 - reject mutation !decision.allowed
+  ---
+  duration_ms: 1.2635
+  type: 'test'
+  ...
+# Subtest: reject mutation [orgId,runId]
+ok 4 - reject mutation [orgId,runId]
+  ---
+  duration_ms: 1.733458
+  type: 'test'
+  ...
+# Subtest: reject mutation r.org_id=$1 AND r.id=$2
+ok 5 - reject mutation r.org_id=$1 AND r.id=$2
+  ---
+  duration_ms: 1.342
+  type: 'test'
+  ...
+# Subtest: reject mutation m.author_kind FROM
+ok 6 - reject mutation m.author_kind FROM
+  ---
+  duration_ms: 1.230584
+  type: 'test'
+  ...
+# Subtest: reject mutation run.author_id!==input.userId
+ok 7 - reject mutation run.author_id!==input.userId
+  ---
+  duration_ms: 1.2155
+  type: 'test'
+  ...
+# Subtest: reject mutation write.sourceMessageId!==run.input_message_id
+ok 8 - reject mutation write.sourceMessageId!==run.input_message_id
+  ---
+  duration_ms: 0.989125
+  type: 'test'
+  ...
+# Subtest: reject mutation await getThread(
+ok 9 - reject mutation await getThread(
+  ---
+  duration_ms: 1.589584
+  type: 'test'
+  ...
+# Subtest: reject mutation userId:run.author_id,threadId
+ok 10 - reject mutation userId:run.author_id,threadId
+  ---
+  duration_ms: 1.542125
+  type: 'test'
+  ...
+# Subtest: reject mutation return MemoryProofOutput.parse
+ok 11 - reject mutation return MemoryProofOutput.parse
+  ---
+  duration_ms: 1.150209
+  type: 'test'
+  ...
+# Subtest: reject mutation currentVisibility.kind!=='allow'
+ok 12 - reject mutation currentVisibility.kind!=='allow'
+  ---
+  duration_ms: 1.113958
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 198.35925

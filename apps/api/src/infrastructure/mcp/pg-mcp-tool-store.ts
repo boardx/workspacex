@@ -15,6 +15,9 @@ import type { McpToolStore } from "../../application/mcp/ports";
 import { toOrgId } from "../../domain/org-id";
 
 interface ToolRow {
+  description: string | null;
+  input_schema: Record<string, unknown> | null;
+  output_schema: Record<string, unknown> | null;
   full_name: string;
   server_id: string;
   signature: string;
@@ -29,7 +32,7 @@ export function createPgMcpToolStore(db: DatabasePort, orgId: string): McpToolSt
     async current(serverId) {
       return db.withTenant(org, async (s) => {
         const rows = await s.query<ToolRow>(
-          `SELECT full_name, server_id, signature, schema_fingerprint, side_effect, auth_scope
+          `SELECT full_name, server_id, signature, schema_fingerprint, side_effect, auth_scope, description, input_schema, output_schema
              FROM mcp_tools
             WHERE org_id = $1 AND server_id = $2`,
           [orgId, serverId],
@@ -46,9 +49,11 @@ export function createPgMcpToolStore(db: DatabasePort, orgId: string): McpToolSt
         for (const tool of tools) {
           await s.query(
             `INSERT INTO mcp_tools
-               (org_id, server_id, full_name, signature, schema_fingerprint, side_effect, auth_scope)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [orgId, serverId, tool.fullName, tool.signature, tool.schemaFingerprint, tool.sideEffect, tool.authScope],
+               (org_id, server_id, full_name, signature, schema_fingerprint, side_effect, auth_scope, description, input_schema, output_schema)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)`,
+            [orgId, serverId, tool.fullName, tool.signature, tool.schemaFingerprint, tool.sideEffect, tool.authScope, tool.description ?? null,
+              tool.inputSchema === undefined ? null : JSON.stringify(tool.inputSchema),
+              tool.outputSchema === undefined ? null : JSON.stringify(tool.outputSchema)],
           );
         }
       });
@@ -58,6 +63,9 @@ export function createPgMcpToolStore(db: DatabasePort, orgId: string): McpToolSt
 
 function toContractTool(r: ToolRow): z.infer<typeof McpTool> {
   return {
+    ...(r.description == null ? {} : { description: r.description }),
+    ...(r.input_schema == null ? {} : { inputSchema: r.input_schema }),
+    ...(r.output_schema == null ? {} : { outputSchema: r.output_schema }),
     fullName: r.full_name,
     serverId: r.server_id,
     signature: r.signature,

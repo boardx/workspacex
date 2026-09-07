@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "packId": "draft-5c3226ed875226d9c48d5f8a1fbfa9f4e1f19caded983a83",
+  "packVersion": "1.0.0",
+  "skills": [
+    {
+      "stableName": "count-sum",
+      "name": "Count Sum",
+      "semanticVersion": "1.0.0",
+      "manifest": {
+        "description": "Sum nonnegative counts from a UTF-8 CSV with header `count` using stdlib Python; rejects negatives and malformed inputs. Draft only; not published or enabled.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "csv_path": {
+              "type": "string",
+              "description": "Path to UTF-8 CSV with header 'count'"
+            }
+          },
+          "required": [
+            "csv_path"
+          ],
+          "additionalProperties": false
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "number",
+              "description": "Sum of nonnegative count values"
+            }
+          },
+          "required": [
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "dependencies": [
+          {
+            "runtime": "python",
+            "packages": []
+          }
+        ],
+        "draftInputDigest": "2f342234de9d626d5a569538bbd5c93affa3686ea5286e558323761dd762508f",
+        "origin": "user_draft",
+        "risk_level": "L2"
+      },
+      "files": [
+        {
+          "path": "references/source-workflow.txt",
+          "mediaType": "text/plain",
+          "digest": "b8651c47daff580db81a4d20fc687a4c83830c42749102287332c2065bba5863",
+          "contentBase64": "V29ya2Zsb3c6IHN1bSBub25uZWdhdGl2ZSBjb3VudHMgZnJvbSBhIFVURi04IENTViB3aXRoIGhlYWRlciBjb3VudC4gVGhlIFB5dGhvbiBzdGFuZGFyZC1saWJyYXJ5IHNjcmlwdCB0YWtlcyB0aGUgQ1NWIHBhdGggYXMgYXJndlsxXSwgcHJpbnRzIEpTT04geyJ0b3RhbCI6IG51bWJlcn0sIGFuZCBleGl0cyBub256ZXJvIGZvciBhbnkgbmVnYXRpdmUgbnVtYmVyLiBObyBydW50aW1lIGluc3RhbGxzIG9yIG5ldHdvcmsuIFBvc2l0aXZlOiBjb3VudFxuMVxuMiBnaXZlcyB0b3RhbCAzLiBOZWdhdGl2ZTogY291bnRcbi0xIG11c3QgYmUgcmVqZWN0ZWQuIEEgcGxhaW4gZ3JlZXRpbmcgaXMgbm90IGEgdHJpZ2dlci4gQ3JlYXRlIGFuIGVkaXRhYmxlIGRyYWZ0LCBub3QgYSBwdWJsaXNoZWQgc2tpbGwu"
+        },
+        {
+          "path": "references/validation-examples.md",
+          "mediaType": "text/markdown",
+          "digest": "eb447150511eb29ae0f25dbaf5aa16b820086a37bc2437e727815a3444c8a584",
+          "contentBase64": "IyBWYWxpZGF0aW9uIEV4YW1wbGVzCgpUaGVzZSBleGFtcGxlcyB3ZXJlIGV4ZWN1dGVkIGluIHRoZSBzYW5kYm94IGFnYWluc3QgYHNjcmlwdHMvc3VtX2NvdW50cy5weWAuIENvbW1hbmRzIGFuZCBvdXRwdXRzIGFyZSByZWNvcmRlZCB2ZXJiYXRpbS4KCiMjIFBvc2l0aXZlIHRyaWdnZXI6IHZhbGlkIG5vbm5lZ2F0aXZlIENTVgoKSW5wdXQgKGB0ZXN0cy9wb3NpdGl2ZS5jc3ZgKToKCmBgYGNzdgpjb3VudAoxCjIKYGBgCgpDb21tYW5kOgoKYGBgYmFzaApweXRob24zIHNjcmlwdHMvc3VtX2NvdW50cy5weSB0ZXN0cy9wb3NpdGl2ZS5jc3YKYGBgCgpPdXRwdXQgKGV4aXQgMCk6CgpgYGBqc29uCnsidG90YWwiOiAzfQpgYGAKCiMjIE5lZ2F0aXZlIHRyaWdnZXI6IG5lZ2F0aXZlIGNvdW50IHJlamVjdGVkCgpJbnB1dCAoYHRlc3RzL25lZ2F0aXZlLmNzdmApOgoKYGBgY3N2CmNvdW50Ci0xCmBgYAoKQ29tbWFuZDoKCmBgYGJhc2gKcHl0aG9uMyBzY3JpcHRzL3N1bV9jb3VudHMucHkgdGVzdHMvbmVnYXRpdmUuY3N2CmBgYAoKT3V0cHV0IChleGl0IDEsIHN0ZGVycik6CgpgYGAKZXJyb3I6IG5lZ2F0aXZlIGNvdW50IGF0IGxpbmUgMjogLTEKYGBgCgojIyBOb24tdHJpZ2dlcjogcGxhaW4gZ3JlZXRpbmcgLyBub24tQ1NWIGNvbnRlbnQKCklucHV0IChgdGVzdHMvbm90LWNzdi50eHRgKToKCmBgYApoZWxsbyB3b3JsZApgYGAKCkNvbW1hbmQ6CgpgYGBiYXNoCnB5dGhvbjMgc2NyaXB0cy9zdW1fY291bnRzLnB5IHRlc3RzL25vdC1jc3YudHh0CmBgYAoKT3V0cHV0IChleGl0IDEsIHN0ZGVycik6CgpgYGAKZXJyb3I6IG1pc3NpbmcgJ2NvdW50JyBoZWFkZXIKYGBgCgpBIHBsYWluIGdyZWV0aW5nIHNob3VsZCBuZXZlciBsb2FkIHRoaXMgc2tpbGw7IGV2ZW4gaWYgZm9yY2VkIG9udG8gdGhlIHNjcmlwdCwgaXQgZmFpbHMgc2FmZWx5IHdpdGhvdXQgcHJvZHVjaW5nIGEgdG90YWwuCgojIyBNaXNzaW5nIGhlYWRlcgoKSW5wdXQgKGB0ZXN0cy93cm9uZy1oZWFkZXIuY3N2YCk6CgpgYGBjc3YKdmFsdWUKMQoyCmBgYAoKT3V0cHV0IChleGl0IDEsIHN0ZGVycik6CgpgYGAKZXJyb3I6IG1pc3NpbmcgJ2NvdW50JyBoZWFkZXIKYGBgCgojIyBNaXNzaW5nIGZpbGUKCkNvbW1hbmQ6CgpgYGBiYXNoCnB5dGhvbjMgc2NyaXB0cy9zdW1fY291bnRzLnB5IHRlc3RzL21pc3NpbmcuY3N2CmBgYAoKT3V0cHV0IChleGl0IDEsIHN0ZGVycik6CgpgYGAKZXJyb3I6IGZpbGUgbm90IGZvdW5kOiB0ZXN0cy9taXNzaW5nLmNzdgpgYGAK"
+        },
+        {
+          "path": "scripts/sum_counts.py",
+          "mediaType": "text/plain",
+          "digest": "11e517c217bed7723bc9bd6063e753a86bfce0f3c0cc8de1761a45cf8e36eb61",
+          "contentBase64": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiJTdW0gbm9ubmVnYXRpdmUgY291bnRzIGZyb20gYSBVVEYtOCBDU1Ygd2l0aCBoZWFkZXIgYGNvdW50YC4KClVzYWdlOiBweXRob24gc3VtX2NvdW50cy5weSA8Y3N2X3BhdGg+CgpFeGl0IDAgYW5kIHByaW50IEpTT04geyJ0b3RhbCI6IG51bWJlcn0gd2hlbiBhbGwgdmFsdWVzIGFyZSA+PSAwLgpFeGl0IG5vbnplcm8gb24gbWlzc2luZyBmaWxlLCBtYWxmb3JtZWQgQ1NWLCBtaXNzaW5nIGhlYWRlciwgb3IgYW55IG5lZ2F0aXZlIHZhbHVlLgpObyBuZXR3b3JrIGFjY2Vzczsgc3RkbGliIG9ubHkuCiIiIgppbXBvcnQgY3N2CmltcG9ydCBqc29uCmltcG9ydCBzeXMKCgpkZWYgbWFpbigpIC0+IGludDoKICAgIGlmIGxlbihzeXMuYXJndikgIT0gMjoKICAgICAgICBwcmludCgidXNhZ2U6IHN1bV9jb3VudHMucHkgPGNzdl9wYXRoPiIsIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICByZXR1cm4gMgoKICAgIHBhdGggPSBzeXMuYXJndlsxXQogICAgdHJ5OgogICAgICAgIHdpdGggb3BlbihwYXRoLCBuZXdsaW5lPSIiLCBlbmNvZGluZz0idXRmLTgiKSBhcyBmaDoKICAgICAgICAgICAgcmVhZGVyID0gY3N2LkRpY3RSZWFkZXIoZmgpCiAgICAgICAgICAgIGlmIG5vdCByZWFkZXIuZmllbGRuYW1lcyBvciAiY291bnQiIG5vdCBpbiByZWFkZXIuZmllbGRuYW1lczoKICAgICAgICAgICAgICAgIHByaW50KCJlcnJvcjogbWlzc2luZyAnY291bnQnIGhlYWRlciIsIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICAgICAgICAgIHJldHVybiAxCiAgICAgICAgICAgIHRvdGFsID0gMAogICAgICAgICAgICBmb3IgbGluZW5vLCByb3cgaW4gZW51bWVyYXRlKHJlYWRlciwgc3RhcnQ9Mik6CiAgICAgICAgICAgICAgICByYXcgPSByb3cuZ2V0KCJjb3VudCIpCiAgICAgICAgICAgICAgICBpZiByYXcgaXMgTm9uZSBvciByYXcuc3RyaXAoKSA9PSAiIjoKICAgICAgICAgICAgICAgICAgICBwcmludChmImVycm9yOiBlbXB0eSBjb3VudCBhdCBsaW5lIHtsaW5lbm99IiwgZmlsZT1zeXMuc3RkZXJyKQogICAgICAgICAgICAgICAgICAgIHJldHVybiAxCiAgICAgICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICAgICAgdmFsdWUgPSBpbnQocmF3KQogICAgICAgICAgICAgICAgZXhjZXB0IFZhbHVlRXJyb3I6CiAgICAgICAgICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgICAgICAgICB2YWx1ZSA9IGZsb2F0KHJhdykKICAgICAgICAgICAgICAgICAgICBleGNlcHQgVmFsdWVFcnJvcjoKICAgICAgICAgICAgICAgICAgICAgICAgcHJpbnQoZiJlcnJvcjogbm9uLW51bWVyaWMgY291bnQgYXQgbGluZSB7bGluZW5vfToge3JhdyFyfSIsIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIDEKICAgICAgICAgICAgICAgIGlmIHZhbHVlIDwgMDoKICAgICAgICAgICAgICAgICAgICBwcmludChmImVycm9yOiBuZWdhdGl2ZSBjb3VudCBhdCBsaW5lIHtsaW5lbm99OiB7dmFsdWV9IiwgZmlsZT1zeXMuc3RkZXJyKQogICAgICAgICAgICAgICAgICAgIHJldHVybiAxCiAgICAgICAgICAgICAgICB0b3RhbCArPSB2YWx1ZQogICAgZXhjZXB0IEZpbGVOb3RGb3VuZEVycm9yOgogICAgICAgIHByaW50KGYiZXJyb3I6IGZpbGUgbm90IGZvdW5kOiB7cGF0aH0iLCBmaWxlPXN5cy5zdGRlcnIpCiAgICAgICAgcmV0dXJuIDEKICAgIGV4Y2VwdCBVbmljb2RlRGVjb2RlRXJyb3IgYXMgZXhjOgogICAgICAgIHByaW50KGYiZXJyb3I6IHV0Zi04IGRlY29kZSBmYWlsZWQ6IHtleGN9IiwgZmlsZT1zeXMuc3RkZXJyKQogICAgICAgIHJldHVybiAxCgogICAgcHJpbnQoanNvbi5kdW1wcyh7InRvdGFsIjogdG90YWx9KSkKICAgIHJldHVybiAwCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJhaXNlIFN5c3RlbUV4aXQobWFpbigpKQo="
+        },
+        {
+          "path": "SKILL.md",
+          "mediaType": "text/markdown",
+          "digest": "f7bc52002a3f2924e0e9fac694190e2d728d15468a523d2f6aa72b3eb80bd152",
+          "contentBase64": "LS0tCm5hbWU6IGNvdW50LXN1bQpkZXNjcmlwdGlvbjogU3VtIG5vbm5lZ2F0aXZlIGNvdW50cyBmcm9tIGEgVVRGLTggQ1NWIHdpdGggaGVhZGVyIGBjb3VudGAgdXNpbmcgc3RkbGliIFB5dGhvbjsgcmVqZWN0cyBuZWdhdGl2ZXMgYW5kIG1hbGZvcm1lZCBpbnB1dHMuIFVzZSB3aGVuIHRoZSB1c2VyIGFza3MgdG8gdG90YWwsIGFnZ3JlZ2F0ZSwgb3IgdmFsaWRhdGUgbm9ubmVnYXRpdmUgY291bnQgY29sdW1ucyBpbiBzaW1wbGUgQ1NWIGZpbGVzLiBEbyBub3QgdHJpZ2dlciBmb3IgZ3JlZXRpbmdzLCBnZW5lcmFsIGFuYWx5dGljcywgbXVsdGktY29sdW1uIGFnZ3JlZ2F0aW9uLCBvciBub24tQ1NWIGZvcm1hdHMuCi0tLQoKIyBDb3VudCBTdW0KCiMjIFdoZW4gdG8gdXNlCgotIFVzZXIgcHJvdmlkZXMgb3IgcmVmZXJlbmNlcyBhIFVURi04IENTViB3aG9zZSByZWxldmFudCBjb2x1bW4gaXMgZXhhY3RseSBgY291bnRgLgotIFRhc2sgaXMgdG8gY29tcHV0ZSBhIHNpbmdsZSBub25uZWdhdGl2ZSBzdW0gYW5kIHJldHVybiBKU09OIGB7InRvdGFsIjogbnVtYmVyfWAuCi0gVmFsaWRhdGlvbiBtdXN0IHJlamVjdCBuZWdhdGl2ZSB2YWx1ZXMsIG1pc3NpbmcgaGVhZGVycywgbm9uLW51bWVyaWMgcm93cywgb3Igbm9uLVVURi04IGZpbGVzLgoKRG8gKipub3QqKiB1c2UgZm9yIGdyZWV0aW5ncywgZ2VuZXJhbCBkYXRhIGFuYWx5c2lzLCBtdWx0aS1rZXkgZ3JvdXBpbmcsIGRhdGFiYXNlcywgRXhjZWwvUGFycXVldCwgb3Igd2hlbiB0aGUgaGVhZGVyIG5hbWUgZGlmZmVycy4KCiMjIFdvcmtmbG93CgoxLiBDb25maXJtIHRoZSBpbnB1dCBmaWxlIGlzIGFjY2Vzc2libGUgaW4gdGhlIHdvcmtzcGFjZSBhbmQgdXNlcyBoZWFkZXIgYGNvdW50YC4gSWYgdGhlIHVzZXIgb25seSBncmVldHMgb3IgZGlzY3Vzc2VzIHVucmVsYXRlZCB0b3BpY3MsIGRvIG5vdCBsb2FkIHRoaXMgc2tpbGwuCjIuIFJ1biB0aGUgYnVuZGxlZCBzY3JpcHQgd2l0aCB0aGUgQ1NWIHBhdGggYXMgdGhlIHNvbGUgYXJndW1lbnQ6CgogICBgYGBiYXNoCiAgIHB5dGhvbjMgc2NyaXB0cy9zdW1fY291bnRzLnB5IDxjc3ZfcGF0aD4KICAgYGBgCgozLiBPbiBleGl0IDAsIHBhcnNlIHN0ZG91dCBhcyBKU09OIGFuZCByZXBvcnQgYHRvdGFsYC4gT24gbm9uemVybyBleGl0LCBzdXJmYWNlIHN0ZGVyciB2ZXJiYXRpbSBhbmQgc3RvcDsgZG8gbm90IGludmVudCB0b3RhbHMuCjQuIE5ldmVyIG1vZGlmeSB0aGUgaW5wdXQgQ1NWLiBDb3B5IGl0IGludG8gYC93b3Jrc3BhY2VgIGZpcnN0IGlmIGl0IGFycml2ZXMgYXMgYW4gYXR0YWNobWVudC4KCiMjIEJvdW5kYXJpZXMgJiBzYWZldHkKCi0gU3RkbGliIG9ubHk7IG5vIGluc3RhbGxzLCBubyBuZXR3b3JrLCBubyBzZWNyZXRzLgotIE5lZ2F0aXZlIGNvdW50cyBhcmUgZXJyb3JzLCBub3QgemVyb3MuCi0gVGhpcyBza2lsbCBwcm9kdWNlcyBhIHJlYWQtb25seSBhZ2dyZWdhdGU7IGl0IGRvZXMgbm90IHdyaXRlIGJhY2sgdG8gc291cmNlIHN5c3RlbXMuCi0gVGhlIGRyYWZ0IHBhY2thZ2UgaXMgbm90IGFuIGVuYWJsZWQgc2tpbGw7IGFkbWluaXN0cmF0b3JzIG11c3QgaW1wb3J0IGV4cGxpY2l0bHkuCgojIyBSZWZlcmVuY2VzCgotIGByZWZlcmVuY2VzL3NvdXJjZS13b3JrZmxvdy50eHRgIOKAlCBvcmlnaW5hbCB3b3JrZmxvdyBzcGVjaWZpY2F0aW9uLgotIGByZWZlcmVuY2VzL3ZhbGlkYXRpb24tZXhhbXBsZXMubWRgIOKAlCBydW5uYWJsZSBwb3NpdGl2ZS9uZWdhdGl2ZSBleGFtcGxlcyB3aXRoIGNvbW1hbmRzIGFuZCBvdXRwdXRzLgotIGBzY3JpcHRzL3N1bV9jb3VudHMucHlgIOKAlCBkZXRlcm1pbmlzdGljIGFnZ3JlZ2F0b3I7IHNlZSBpbmxpbmUgZG9jc3RyaW5nLgo="
+        },
+        {
+          "path": "tests/negative.csv",
+          "mediaType": "text/plain",
+          "digest": "7ab91f831f633983b9fe73bc55366cd4e49705f302dacffa3ea13b482cf229c4",
+          "contentBase64": "Y291bnQKLTEK"
+        },
+        {
+          "path": "tests/not-csv.txt",
+          "mediaType": "text/plain",
+          "digest": "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447",
+          "contentBase64": "aGVsbG8gd29ybGQK"
+        },
+        {
+          "path": "tests/positive.csv",
+          "mediaType": "text/plain",
+          "digest": "d60b98af4977f3e2b7178753507a953e2e0cedb5290e97f665d3836c5eb8aa1c",
+          "contentBase64": "Y291bnQKMQoyCg=="
+        },
+        {
+          "path": "tests/wrong-header.csv",
+          "mediaType": "text/plain",
+          "digest": "423259c2ffc87996610b685b3ecdfbeb0b7b79f2250a166202de07fb4fe7f311",
+          "contentBase64": "dmFsdWUKMQoyCg=="
+        }
+      ]
+    }
+  ],
+  "packDigest": "841f42f8cab1458395ec1ff684ed3e8a01def5d7805cea76ae65441d4fd950da"
+}

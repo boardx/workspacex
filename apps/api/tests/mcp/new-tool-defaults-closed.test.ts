@@ -108,7 +108,7 @@ describe("F129 · discoverMcpTools 端到端：新增工具落库时 authScope �
         fullName: "mcp:reg.search_regulation",
         serverId: "mcp-reg",
         signature: "search_regulation(q: string) -> Regulation[]",
-        schemaFingerprint: "old",
+        schemaFingerprint: toContractTool("mcp-reg", { name: "search_regulation", signature: "search_regulation(q: string) -> Regulation[]", sideEffect: "只读" }, "全体成员").schemaFingerprint,
         sideEffect: "只读",
         authScope: "全体成员",
       }),

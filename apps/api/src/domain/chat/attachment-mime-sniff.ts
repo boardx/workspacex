@@ -17,7 +17,7 @@
  */
 
 /** 契约白名单每个 MIME 归属的「字节族」。同族 = 字节与声明一致。 */
-type MimeFamily = "pdf" | "png" | "jpeg" | "webp" | "zip" | "text";
+type MimeFamily = "pdf" | "png" | "jpeg" | "webp" | "zip" | "text" | "wav" | "mp3";
 
 const MIME_TO_FAMILY: Readonly<Record<string, MimeFamily>> = {
   "application/pdf": "pdf",
@@ -27,6 +27,10 @@ const MIME_TO_FAMILY: Readonly<Record<string, MimeFamily>> = {
   "text/plain": "text",
   "text/markdown": "text",
   "text/csv": "text",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/wave": "wav",
+  "audio/mpeg": "mp3",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "zip",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "zip",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "zip",
@@ -62,6 +66,10 @@ export function sniffMimeFamily(bytes: Uint8Array): MimeFamily | null {
   if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8)) {
     return "webp";
   }
+  // WAV = RIFF....WAVE. Full PCM/container validation belongs to the sandbox decoder.
+  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x41, 0x56, 0x45], 8)) return "wav";
+  // ID3 or MPEG audio frame sync (nonzero layer distinguishes ADTS AAC).
+  if(startsWith(bytes,[0x49,0x44,0x33])||(bytes.length>=4&&bytes[0]===0xff&&(bytes[1]!&0xe0)===0xe0&&(bytes[1]!&0x06)!==0))return "mp3";
   // ZIP 局部文件头（OOXML docx/xlsx/pptx 都是这个）
   if (startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])) return "zip";
   if (looksLikeText(bytes)) return "text";

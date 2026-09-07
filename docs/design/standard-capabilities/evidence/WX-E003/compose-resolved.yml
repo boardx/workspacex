@@ -1,0 +1,35 @@
+name: wx-e003
+services:
+  skill-sandbox-sessions:
+    build:
+      context: /private/tmp/workspacex-standard-capabilities/apps/skill-sandbox
+      dockerfile: Dockerfile
+    cap_drop:
+      - ALL
+    cpus: 1
+    environment:
+      SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
+      SKILL_SANDBOX_SESSIONS_ONLY: "1"
+      SKILL_SANDBOX_SOCKET: /run/sessions/skill-sandbox.sock
+      TMPDIR: /tmp
+    image: workspacex-skill-sandbox:e003
+    mem_limit: "1073741824"
+    memswap_limit: "1073741824"
+    network_mode: none
+    pids_limit: 128
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./security/docker-seccomp.json
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+    user: node
+    volumes:
+      - type: volume
+        source: sessions_socket
+        target: /run/sessions
+        volume: {}
+volumes:
+  sessions_socket:
+    name: wx-e003_sessions_socket

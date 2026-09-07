@@ -1,0 +1,84 @@
+import {expect,it,vi} from 'vitest';
+import {createHash,randomUUID} from 'node:crypto';
+import {DefaultStandardDocumentService} from '../../src/infrastructure/agent-run/standard-document-service';
+import {NativeSessionResolved} from '@repo/contracts/native-session-binding';
+import type {NativeSessionOwner} from '../../src/application/agent-run/native-session-owner';
+import {toOrgId} from '../../src/domain/org-id';
+import type {ToolExecutionAuthority} from '../../src/application/agent-run/tool-execution-authority';
+import type {DocumentSession} from '../../src/application/agent-run/standard-document-tools';
+const bytes=Buffer.from('name,value\n甲,10\n');
+const sha=(b:Buffer)=>createHash('sha256').update(b).digest('hex');
+const path='/inputs/'+'a'.repeat(64)+'/source.csv';
+const source={attachmentId:'a1',filename:'source.csv',path,mediaType:'text/csv',sizeBytes:bytes.length,digest:sha(bytes)};
+const context={orgId:toOrgId('org'),parentRunId:'run',attemptId:'run:0',leaseEpoch:1,bindingId:randomUUID(),toolCallId:'real-call'};
+function setup(mediaType=source.mediaType){
+ const resolvedSource={...source,mediaType};
+ const bound=NativeSessionResolved.parse({sessionId:randomUUID(),token:'b'.repeat(64),expiresAt:Date.now()+60000,packageDigest:'c'.repeat(64),interruptOn:{},inputs:[resolvedSource]});
+ const owner={resolve:vi.fn(async()=>bound)} as unknown as NativeSessionOwner;
+ const inputs={read:vi.fn(async()=>({manifest:[resolvedSource],files:[{path,contentBase64:bytes.toString('base64')}]}))};
+ const authority={check:vi.fn<ToolExecutionAuthority['check']>().mockResolvedValue({allowed:true})};
+ const output=Buffer.from('| name | value |\n|---|---|\n| 甲 | 10 |\n');
+ const session={read:vi.fn(async(p:string)=>{const b=p===path?bytes:output;return {path:p,sizeBytes:b.length,contentBase64:b.toString('base64')};}),
+  execute:vi.fn<DocumentSession['execute']>().mockImplementation(async input=>({executionId:input.executionId,exitCode:0,output:'',truncated:false,timedOut:false,cancelled:false}))};
+ const service=new DefaultStandardDocumentService(owner,inputs,()=>session,authority);
+ return {service,session,inputs,owner,authority,output};
+}
+it('binds actual arguments, quotes fixed CLI argv and verifies output hashes',async()=>{
+ const f=setup(),result=await f.service.parse(context,{workspacePath:path});
+ expect(result.sourceHash).toBe(source.digest);expect(result.textHash).toBe(sha(f.output));expect(result.warnings).toContain('ocr_not_performed');
+ expect(f.authority.check).toHaveBeenCalledWith({...context,toolName:'wx_document_parse',toolArgs:{workspacePath:path}});
+ expect(f.session.execute.mock.calls[0]![0].command).toContain("'node' '/opt/sandbox/node_modules/@firecrawl/anydoc/cli.js' '"+path+"' '--format' 'csv' '--output'");
+ expect(f.inputs.read).toHaveBeenCalledTimes(2);
+});
+it('does not run denied, forged, changed or unsupported requests',async()=>{
+ const f=setup();f.authority.check.mockResolvedValueOnce({allowed:false,reason:'approval_required'});
+ await expect(f.service.parse(context,{workspacePath:path})).rejects.toThrow('denied');expect(f.owner.resolve).not.toHaveBeenCalled();
+ await expect(f.service.parse(context,{workspacePath:'/inputs/forged.csv'})).rejects.toThrow('not_bound');
+ f.inputs.read.mockResolvedValueOnce({manifest:[{...source,digest:'f'.repeat(64)}],files:[]});
+ await expect(f.service.parse(context,{workspacePath:path})).rejects.toThrow('changed');
+ await expect(f.service.parse(context,{workspacePath:path,ocr:true} as never)).rejects.toThrow();
+ expect(f.session.execute).not.toHaveBeenCalled();
+});
+it('returns no reference on timeout, bad output or revocation after execution',async()=>{
+ const f=setup();f.session.execute.mockResolvedValueOnce({executionId:randomUUID(),exitCode:null,output:'',truncated:false,timedOut:true,cancelled:false});
+ await expect(f.service.parse(context,{workspacePath:path})).rejects.toThrow('no_replay');
+ const g=setup();g.session.read.mockImplementation(async p=>({path:p,sizeBytes:bytes.length,contentBase64:(p===path?bytes:Buffer.from([255])).toString('base64')}));
+ await expect(g.service.parse(context,{workspacePath:path})).rejects.toThrow();
+ const h=setup();h.inputs.read.mockResolvedValueOnce({manifest:[source],files:[]}).mockRejectedValueOnce(new Error('current source revoked'));
+ await expect(h.service.parse(context,{workspacePath:path})).rejects.toThrow('revoked');
+});
+
+it('returns verified native Office chunks while preserving source and permission checks',async()=>{
+ const structure={schemaVersion:1,engine:{name:'python-docx',version:'1.2.0'},sourceFormat:'docx',coordinateSpace:'ooxml_native',chunks:[{type:'docx_paragraph',text:'董事会摘要',locator:{paragraphIndex:0}},{type:'docx_table_cell',text:'120',locator:{tableIndex:0,rowIndex:1,columnIndex:1}}]};
+ const f=setup('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+ const read=f.session.read.getMockImplementation()!;
+ f.session.read.mockImplementation(async p=>{if(!p.endsWith('structure.json'))return read(p);const data=Buffer.from(JSON.stringify(structure));return {path:p,sizeBytes:data.length,contentBase64:data.toString('base64')};});
+ const result=await f.service.parse(context,{workspacePath:path,outputMode:'chunks'});
+ if(!('structureHash' in result))throw new Error('missing native structure');
+ expect(result.structureHash).toBe(sha(Buffer.from(JSON.stringify(structure))));
+ expect(result.source.mediaType).toContain('wordprocessingml');
+ expect(result.warnings).toContain('docx_page_numbers_unavailable');
+ expect(f.session.execute.mock.calls[0]![0].command).toContain("'python3' '/usr/local/lib/workspacex/structure-document.py'");
+ expect(f.inputs.read).toHaveBeenCalledTimes(2);
+});
+
+it('rejects chunks for formats without defensible native locations',async()=>{
+ const f=setup();
+ await expect(f.service.parse(context,{workspacePath:path,outputMode:'chunks'})).rejects.toThrow('structure_format_unsupported');
+ expect(f.session.execute).not.toHaveBeenCalled();
+});
+
+it('OCR returns verified real structure and rejects invalid coordinates or oversized claims',async()=>{
+ const structure={engine:'tesseract',coordinateSpace:'rendered_page_pixels',pages:[{pageNumber:1,width:100,height:100,words:[{text:'中文',bbox:{x:1,y:2,width:30,height:20},confidence:95}]}]};
+ const f=setup('application/pdf');
+ const read=f.session.read.getMockImplementation()!;
+ f.session.read.mockImplementation(async p=>{if(!p.endsWith('structure.json'))return read(p);const data=Buffer.from(JSON.stringify(structure));return {path:p,sizeBytes:data.length,contentBase64:data.toString('base64')};});
+ const result=await f.service.parse(context,{workspacePath:path,ocr:true});
+ if(!('structureHash' in result))throw new Error('missing OCR structure');
+ expect(result.structureHash).toBe(sha(Buffer.from(JSON.stringify(structure))));expect(result.structurePath).toMatch(/structure.json$/);expect(result.warnings).toEqual(['ocr_may_misrecognize_text','tables_may_lose_layout']);
+ expect(f.session.execute.mock.calls[0]![0].command).toContain("'python3' '/usr/local/lib/workspacex/ocr-document.py'");
+ structure.pages[0]!.words[0]!.bbox.width=101;
+ await expect(f.service.parse(context,{workspacePath:path,ocr:true})).rejects.toThrow('structure_invalid');
+ structure.pages[0]!.words[0]!.bbox.width=30;structure.pages[0]!.pageNumber=2;
+ await expect(f.service.parse(context,{workspacePath:path,ocr:true})).rejects.toThrow('structure_invalid');
+});

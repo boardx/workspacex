@@ -487,7 +487,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     try {
       return await undiciFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
-        signal: abort.signal,
+        signal: input.signal ? AbortSignal.any([abort.signal, input.signal]) : abort.signal,
         dispatcher: this.dispatcher(),
         headers: {
           "content-type": "application/json",
@@ -531,7 +531,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   }
 
   async complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
+    { readonly text: string; readonly finalMessageId?: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
   > {
     const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {

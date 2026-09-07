@@ -1,0 +1,103 @@
+[stack-admission] load1=3.31 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtql0d8d-f337d736-90bca91344a7 db=wsx_90bca91344a78304e953 compose=wsx-90bca91344a78304e953 pg=23155 redis=28155 sandbox=53155
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_90bca91344a78304e953 capacity=100 current=6 required=32
+ ❯ tests/mcp/mcp-execution-snapshot-real-db.test.ts (4 tests | 4 failed) 2954ms
+   × real review rejects non-admin and self review; persists exact approved tool schemas 20ms
+     → duplicate key value violates unique constraint "org_memberships_pkey"
+   × empty fixed tool_policy is not permission: only actual trusted whitelist becomes a frozen run snapshot 18ms
+     → expected [] to deeply equal [ 'mcp__fixture__search' ]
+   × shared real authority denies first, grant allows once; receipts refuse replay with changed args or unknown outcome 17ms
+     → mcp_capability_revoked
+   × current whitelist removal and endpoint/schema scope changes revoke frozen tools 49ms
+     → expected +0 to be 2 // Object.is equality
+ ✓ tests/mcp/mcp-execution-worker-real-protocol.test.ts (4 tests) 12550ms
+   ✓ official SDK worker really lists, fingerprints and executes HTTPS tool with structured output 4117ms
+   ✓ schema mutation and invalid arguments refuse without reporting tool success 4035ms
+   ✓ production DNS gate rejects loopback and worker deadline settles, leaving slots reusable 386ms
+   ✓ bounded worker concurrency refuses excess calls and waits for terminated workers before reuse 4010ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/mcp/mcp-execution-snapshot-real-db.test.ts > real review rejects non-admin and self review; persists exact approved tool schemas
+error: duplicate key value violates unique constraint "org_memberships_pkey"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ asApp tests/support/db.ts:195:17
+    193|     await c.query("BEGIN");
+    194|     if (orgId !== null) await c.query("SELECT set_config('app.current_…
+    195|     const out = await fn(c);
+       |                 ^
+    196|     await c.query("COMMIT");
+    197|     return out;
+ ❯ Module.addOrgMember tests/support/db.ts:332:3
+ ❯ tests/mcp/mcp-execution-snapshot-real-db.test.ts:43:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/mcp/mcp-execution-snapshot-real-db.test.ts > empty fixed tool_policy is not permission: only actual trusted whitelist becomes a frozen run snapshot
+AssertionError: expected [] to deeply equal [ 'mcp__fixture__search' ]
+
+- Expected
++ Received
+
+- Array [
+-   "mcp__fixture__search",
+- ]
++ Array []
+
+ ❯ tests/mcp/mcp-execution-snapshot-real-db.test.ts:50:86
+     48| it('empty fixed tool_policy is not permission: only actual trusted whi…
+     49|  await asApp(org,c=>c.query('UPDATE agents SET tool_whitelist=$3::json…
+     50|  const snapshot=await service.capture(context);expect(snapshot.tools.m…
+       |                                                                                      ^
+     51|  expect(await service.resolve(context)).toEqual(snapshot);
+     52|  await expect(service.resolve({...context,leaseEpoch:2})).rejects.toTh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/mcp/mcp-execution-snapshot-real-db.test.ts > shared real authority denies first, grant allows once; receipts refuse replay with changed args or unknown outcome
+Error: mcp_capability_revoked
+ ❯ PgMcpExecutionSnapshot.invoke src/infrastructure/mcp/pg-mcp-execution-snapshot.ts:82:166
+
+ ❯ tests/mcp/mcp-execution-snapshot-real-db.test.ts:59:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/mcp/mcp-execution-snapshot-real-db.test.ts > current whitelist removal and endpoint/schema scope changes revoke frozen tools
+AssertionError: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/mcp/mcp-execution-snapshot-real-db.test.ts:69:85
+     67|  await asApp(org,c=>c.query('UPDATE mcp_servers SET endpoint=$2 WHERE …
+     68|  await asApp(org,c=>c.query("UPDATE agents SET tool_whitelist='[]' WHE…
+     69|  await expect(service.invoke(run,input())).rejects.toThrow('revoked');…
+       |                                                                                     ^
+     70| });
+     71| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 4 passed (8)
+   Start at  09:48:27
+   Duration  18.23s (transform 326ms, setup 0ms, collect 558ms, tests 15.50s, environment 0ms, prepare 46ms)
+
+[db-isolation] db=wsx_90bca91344a78304e953 peak_connections=2
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/mcp/mcp-execution-worker-real-protocol.test.ts tests/mcp/mcp-execution-snapshot-real-db.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/mcp/mcp-execution-worker-real-protocol.test.ts tests/mcp/mcp-execution-snapshot-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：19s

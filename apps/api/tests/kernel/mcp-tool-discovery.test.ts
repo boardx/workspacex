@@ -182,11 +182,11 @@ describe("🔴 F130 ⑶：sideEffect 变化必须当场重跑封顶并收紧", (
       {
         toolFullName: "mcp:crm.query_contact",
         fromAuthScope: "全体成员",
-        toAuthScope: "需人工确认每次",
+        toAuthScope: "未开放",
         newSideEffect: "写入外部",
       },
     ]);
-    expect(r.tools[0]!.authScope).toBe("需人工确认每次");
+    expect(r.tools[0]!.authScope).toBe("未开放"); // WX-E005 changed fingerprint requires reauthorization.
     expect(AR.checkToolScopeCap({ sideEffect: "写入外部", authScope: r.tools[0]!.authScope }).ok).toBe(true);
   });
 

@@ -1,0 +1,10 @@
+{
+  "file": "report.docx",
+  "parts": {
+    "word/document.xml": "合成项目简报 项目名称：晨星（Morning Star） 目标：本项目为文档测试用途的合成项目，用于验证文档生成流程。 里程碑计划 里程碑 / Milestone 中文说明 English Description 需求确认 确认项目需求与范围 Confirm requirements & scope 原型验证 完成原型并验证可行性 Complete prototype & validate feasibility 预算说明 本项目当前预算状态为\"未知\"，尚未获得具体拨款或经费数字。在正式预算获批之前，所有费用相关决策均暂不执行。请勿将\"未知\"理解为任何具体金额。 Synthetic Project Brief Project Name: Morning Star Objective: This is a synthetic project created solely for document testing purposes, to validate the document generation workflow. Milestone Plan 里程碑 / Milestone 中文说明 English Description 需求确认 确认项目需求与范围 Confirm requirements & scope 原型验证 完成原型并验证可行性 Complete prototype & validate feasibility Budget Notice The budget for this project is currently UNKNOWN. No specific funding amount has been allocated or approved. All financial decisions are on hold until an official budget is confirmed. Do NOT interpret \"unknown\" as any numerical value.",
+    "word/header1.xml": "晨星测试",
+    "word/header2.xml": "晨星测试"
+  },
+  "formulas": [],
+  "visualReviewStillRequired": true
+}

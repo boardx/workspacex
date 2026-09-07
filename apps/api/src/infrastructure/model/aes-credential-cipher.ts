@@ -6,8 +6,9 @@
  * `CredentialCipher` declares `encrypt` and nothing else (`domain/model/credential-vault.ts`
  * header). This class implements exactly that surface. AES-256-GCM is reversible
  * mathematics, so the guarantee is NOT "the bytes cannot be recovered" -- it is that no
- * code path in `apps/api/src` performs the recovery, which `credential-never-echoed.test.ts`
- * asserts by scanning for a declared reader.
+ * model-vault code path performs the recovery. MCP reuses this envelope format but has
+ * a separately gated, module-private inverse in its outbound Worker; the credential
+ * scan exempts only that exact module and dedicated AST/protocol tests guard it.
  *
  * When the outbound provider gateway arrives (phase-1 has none -- `domain.md` 四, and
  * `routeModelCall` is its single entry point) it needs its own module, its own key handle

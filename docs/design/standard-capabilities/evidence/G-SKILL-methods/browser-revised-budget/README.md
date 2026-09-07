@@ -1,0 +1,5 @@
+# S013 revised method, actual budget failure
+
+Wrapper 70741 exited 1 and automatically cleaned its database in 131 seconds (peak 3 connections). Real browser desktop/mobile Add/Reset/snapshots/screenshots worked. The model reached the existing 25 model-call budget after creating six workspace files, before publication. No budget was increased and no writeback is claimed. The tested pre-release pack bytes are retained as tested-pack.json; a later working 1.1.2 method adjustment must not inherit this run's digest.
+
+Actual workspace readbacks preserve all six files. Original-detail visual inspection of desktop.png (1280×720) and mobile.png (390×844) found bilingual title/buttons/hint readable without clipping or tofu. This human inspection is distinct from the model's report: the model accurately marked visual/geometric checks, stale-ref rejection and network rejection as not_tested, fixing the prior unsupported claims. No actual negative network/stale-ref model probe occurred. Test-record and report are unpublished drafts.

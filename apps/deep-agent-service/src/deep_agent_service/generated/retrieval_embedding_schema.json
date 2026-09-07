@@ -1,0 +1,66 @@
+{
+  "limits": {
+    "maxArtifactBytes": 4194304,
+    "maxSegments": 256,
+    "maxTextBytes": 32768,
+    "maxBatch": 32,
+    "maxRequestBytes": 1048576,
+    "maxResponseBytes": 4194304,
+    "maxDimensions": 8192,
+    "deadlineMs": 30000
+  },
+  "input": {
+    "type": "object",
+    "properties": {
+      "texts": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "maxItems": 32
+      }
+    },
+    "required": [
+      "texts"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "model": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "modelVersion": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "vectors": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "maxItems": 8192
+        },
+        "minItems": 1,
+        "maxItems": 32
+      }
+    },
+    "required": [
+      "model",
+      "modelVersion",
+      "vectors"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

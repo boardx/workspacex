@@ -1,0 +1,5 @@
+# S013 bounded-method repeat — still incomplete
+
+Wrapper 81266 exited 1 and automatically cleaned its DB stack in 149 seconds. The unchanged synthetic prompt ran with the unchanged 25 model-call budget. Method guidance permitted batching independent file work and publishing, but the actual model still spent its budget producing/validating workspace files and did not publish them. Actual last AI message: `Model call limits exceeded: run limit (25/25)`. This is an actual model-call limit, not the previously fixed middleware recursion limit. No cap was raised and no publication was fabricated.
+
+Actual workspace readbacks and tested pack bytes are retained. The current package remains a method/component increment, not a completed S013 quality gate. Prior failure evidence remains separate: browser-first (missing HTML MIME) and browser-revised-budget (first budget failure). Core beta should keep S013 incomplete; strict HTML attachment support itself has independent real PostgreSQL/HTTP proof in WX-T020/html-download. All owned DB/session/relay processes were cleaned; wx-document-real container and volume were removed.

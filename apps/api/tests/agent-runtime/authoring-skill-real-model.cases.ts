@@ -1,0 +1,4 @@
+export const authoringScenarios=[{id:'S015',packId:'standard-authoring',packVersion:'1.0.0',skill:'skill-authoring',filename:'workflow.txt',
+ source:'Workflow: sum nonnegative counts from a UTF-8 CSV with header count. The Python standard-library script takes the CSV path as argv[1], prints JSON {"total": number}, and exits nonzero for any negative number. No runtime installs or network. Positive: count\\n1\\n2 gives total 3. Negative: count\\n-1 must be rejected. A plain greeting is not a trigger. Create an editable draft, not a published skill.',
+ prompt:'选择适合技能，把附件工作流制作成完整技能草稿，stableName=count-sum，含SKILL.md、scripts/sum_counts.py、必要reference及正反例。实际运行脚本正反例，使用真实草稿工具保存，发布完整JSON草稿包及验证说明report.md。这是草稿，不能发布或启用技能，也不要调用管理员接口。',
+ required:[/草稿|draft/i,/3/,/负|negative/i,/未发布|尚未发布|not published|未启用/i],forbidden:[/已发布技能|已经启用|管理员已导入/]}];

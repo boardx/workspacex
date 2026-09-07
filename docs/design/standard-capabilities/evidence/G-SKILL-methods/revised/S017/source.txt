@@ -1,0 +1,1 @@
+Create a static Chinese poster. Exact text: 开放日 / 欢迎体验. Width 800 pixels, height 600 pixels. Do not invent a date, price or location. Use only installed fonts and drawn shapes, no third-party assets or remote image provider.

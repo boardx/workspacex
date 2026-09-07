@@ -1,3 +1,4 @@
+import {AGENT_ARTIFACT_DELIVERY_SOURCE,type AgentArtifactDeliverySource} from "../../application/files/agent-artifact-delivery-source";
 /**
  * F32's three delivery routes. Protocol adaptation only -- every judgement is in `application`.
  *
@@ -33,7 +34,7 @@
  *   it is unmet, and saying so is better than a comment implying otherwise.
  */
 import {
-  Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
+  Optional, StreamableFile, Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
   ConflictException, GoneException, UnprocessableEntityException,
 } from "@nestjs/common";
 import { files as C } from "@repo/contracts";
@@ -73,7 +74,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 export const PREVIEW_SCHEMA = C.operations.previewArtifactVersion.in;
 export const ISSUE_DOWNLOAD_SCHEMA = C.operations.issueDownloadUrl.in;
 
-/** What the redemption route returns. Bytes are the object store's job, not this route's. */
+/** Legacy file-domain metadata response. Native Agent grants return verified attachment bytes. */
 export interface RedeemResponse {
   readonly objectKey: string;
   readonly artifactId: string;
@@ -100,10 +101,12 @@ export class FilesDeliveryController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(ID_FACTORY) private readonly idFactory: IdFactory,
     @Inject(PROVENANCE_WRITER) private readonly provenance: ProvenanceWriter,
+    @Optional() @Inject(AGENT_ARTIFACT_DELIVERY_SOURCE) private readonly agentArtifacts?: AgentArtifactDeliverySource,
   ) {}
 
   private get deps(): DeliveryDeps {
     return {
+      agentArtifacts: this.agentArtifacts,
       repo: this.repo,
       ids: this.ids,
       grants: this.grants,
@@ -154,7 +157,8 @@ export class FilesDeliveryController {
   }
 
   /**
-   * Redeem. Authenticated, because the grant is bound to a principal.
+   * Redeem. Authenticated, because the grant is bound to a principal. Native Agent
+   * sources return verified bytes; the legacy file-domain JSON response stays compatible.
    *
    * ⚠ The RAW token never reaches the application layer -- it is hashed here and only the
    * hash travels inward. Same treatment as a session token: the fewer frames a bearer
@@ -164,7 +168,7 @@ export class FilesDeliveryController {
   async redeem(
     @CurrentPrincipal() principal: Principal,
     @Param("token") token: string,
-  ): Promise<RedeemResponse> {
+  ): Promise<RedeemResponse | StreamableFile> {
     assertPrincipal(principal);
     const result = await this.mapErrors(() =>
       redeemDownloadUrl(this.deps, {
@@ -173,6 +177,7 @@ export class FilesDeliveryController {
         tokenHash: hashDownloadToken(token),
       }),
     );
+    if (result.bytes) return new StreamableFile(Buffer.from(result.bytes), {type: result.mime ?? "application/octet-stream",disposition: "attachment",length:result.bytes.length});
     return { ...result, contentDisposition: "attachment" };
   }
 

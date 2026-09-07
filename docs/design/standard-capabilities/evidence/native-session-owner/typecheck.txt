@@ -1,0 +1,5 @@
+tests/agent-runtime/native-output-staging-real-db.test.ts(47,83): error TS2345: Argument of type '{ hasGrant: () => Promise<true>; }' is not assignable to parameter of type 'ToolPermissionGrantStore'.
+  Type '{ hasGrant: () => Promise<true>; }' is missing the following properties from type 'ToolPermissionGrantStore': grantForRun, grantStanding, revokeAllForRun
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 2: tsc --noEmit

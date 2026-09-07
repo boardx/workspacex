@@ -34,6 +34,9 @@ jobs:
     environment: devapp-trusted-scripts
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
       - name: 更新前的 sha256（留底，便于对比"到底换没换"）
         shell: bash
         run: |
@@ -55,13 +58,11 @@ jobs:
         # 上一步自己打印了 sha256，但那是它自报的。这里从 origin/main 独立算一遍再比——
         # 一个只会说"我成功了"的步骤，正是这次事故里那种"绿但没生效"的形态。
         run: |
-          cd /opt/workspacex/app
-          git fetch --quiet origin main
           fail=0
           check() {
             local repo_path=$1 installed=$2
             local want have
-            want=$(git show "origin/main:${repo_path}" | sha256sum | cut -d' ' -f1)
+            want=$(git show "HEAD:${repo_path}" | sha256sum | cut -d' ' -f1)
             have=$(sha256sum "$installed" | cut -d' ' -f1)
             if [ "$want" != "$have" ]; then
               echo "✗ ${installed} 与 origin/main 的 ${repo_path} 不一致"

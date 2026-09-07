@@ -1,0 +1,16 @@
+..........                                                               [100%]
+=============================== warnings summary ===============================
+apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+tests/test_native_file_delegation.py::test_two_explicit_official_tasks_read_backend_values[False]
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/.venv/lib/python3.14/site-packages/trustcall/_base.py:46: LangGraphDeprecatedSinceV10: Importing Send from langgraph.constants is deprecated. Please use 'from langgraph.types import Send' instead. Deprecated in LangGraph V1.0 to be removed in V2.0.
+    from langgraph.constants import Send
+
+tests/test_native_file_delegation.py::test_two_explicit_official_tasks_read_backend_values[False]
+  /private/tmp/workspacex-standard-capabilities/apps/deep-agent-service/src/deep_agent_service/standard_sql_database.py:9: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.
+    from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+10 passed, 3 warnings in 2.51s

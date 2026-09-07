@@ -1,0 +1,22 @@
+[stack-admission] load1=2.71 cores=10 perCore=0.27 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqkx9fs-12f937f3-42083e324d66 db=wsx_42083e324d6693ed9b34 compose=wsx-42083e324d6693ed9b34 pg=21466 redis=26466 sandbox=51466
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_42083e324d6693ed9b34 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/bailian-image-bounds.test.ts (8 tests) 136ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  09:46:03
+   Duration  2.24s (transform 45ms, setup 0ms, collect 20ms, tests 136ms, environment 0ms, prepare 31ms)
+
+[db-isolation] db=wsx_42083e324d6693ed9b34 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/bailian-image-bounds.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：0s
+  总计：3s
