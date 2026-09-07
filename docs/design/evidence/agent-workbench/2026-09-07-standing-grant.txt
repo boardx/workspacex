@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/api
+
+[db-isolation] db=wsx_workbench_acceptance_2867 capacity=100 current=7 required=32
+ ✓ tests/agent-run/standing-grant-cross-run-pg.test.ts (1 test) 7058ms
+   ✓ real forever decision authorizes a second run only within org/tool scope, with deny taking priority 3437ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:21:58
+   Duration  14.38s (transform 1.18s, setup 0ms, collect 894ms, tests 7.06s, environment 2ms, prepare 1.64s)
+
+[db-isolation] db=wsx_workbench_acceptance_2867 peak_connections=3
