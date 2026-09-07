@@ -36,7 +36,7 @@ flowchart TD
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
   MCPSchema --> MCP[WX-E005 anonymous, isolation and credential broker: 41d60d32f]:::verified
   MCP -.复用准入与审批.-> Peer
-  MCP --> Browser[W10 浏览器交互与网页产物]
+  MCP --> Browser[W10 组件bd61f17ec；真实浏览器失败修复待验]:::active
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
   E4 --> Context[W07 项目与检索：35fc834dc；四项Skill：ce3399822]:::verified
   E3 --> Parse[W08 原件解析7d1126261、OCR50c6eac90；跨页表格待做]:::active
@@ -65,7 +65,7 @@ flowchart TD
   Browser --> Gate
   Research --> Gate
   Context --> Index[组织索引与审核入口：be6dd0c23]:::verified
-  Index --> Hybrid[多通道检索与重排：生产 HTTP 验收中]:::active
+  Index --> Hybrid[多通道检索与重排：58587bae5，65项DB/HTTP通过]:::verified
   Hybrid --> Gate
   Index --> Gate
   T11 --> NativeForms[T011–13 native 交互入口：4cc047087]:::verified
@@ -83,11 +83,14 @@ flowchart TD
   SQL --> Gate
   MethodDelivery --> Gate
   Gate --> Commits[每个任务独立commit]
-  Commits --> Migration[迁移重放修复：e4b8e9b34，本地202项重放通过]:::verified
-  Migration --> Push[已授权公开推送；远端检查点414aca176]:::active
+  Data --> S007[S007真实模型：报告+CSV+Python源码，51c85cf7f]:::verified
+  Media --> S009[S009真实模型及语义核对：1.1.1，d3d5baf2d]:::verified
+  Media --> ASR[S016真实ASR：等待配置]:::blocked
+  Commits --> Migration[迁移与数据指纹重放：9a4f280f8，228项通过]:::verified
+  Migration --> Push[已授权公开推送；远端检查点b8352e879]:::active
   Push --> PR[Draft PR #2869；CI 修复与新 SHA 验证中]:::active
   PR --> Main[等待后续整合main]
-  Resource[本地3路：Skill验收、索引入口、native交互；云端并行]:::active -.影响未完成工作.-> Gate
+  Resource[本地3路：两组真实Skill验收、下载/状态/取消；云端并行]:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -97,14 +100,16 @@ flowchart TD
 
 ## Current delivery boundary
 
-Local verified checkpoint: 4cc047087. Last successful public push: 414aca176. PR #2869 remains unmerged. The [three-round plan](three-round-delivery-plan.md) is active. Green nodes refer only to the exact verified scope printed inside each node, never all 75 requirements or harness passing.
+Local committed checkpoint: 51c85cf7f. Public checkpoint: b8352e879. PR #2869 remains draft and unmerged. Green means only the exact bounded behavior inside a node; it does not imply all 75 requirements or harness passing. The [three-round plan](three-round-delivery-plan.md) remains active.
 
-Recent independent commits: notifications 8ec487b2c, organization FTS e56bb54aa, FFmpeg 3a36038c3, delegated file access db2dd434a, long-audio chain 4a3582ab0, persisted engine recovery f5fbf35f4, CI stream fixtures 1d57982aa, reviewed indexing entry be6dd0c23, platform audio packs a101d0029, native interactions 4cc047087.
+At public b8352e879, all four backend test shards, runtime gates, full compilation and control-plane checks passed. Core-loop and fullstack smoke failed; the Python job was still running at inspection. Real CI traces identify an overflowing Skill picker. The peer owns its UI correction and will provide a reviewed commit; force clicks and timeout inflation are not accepted fixes.
 
-The indexing entry passed 32 real database/HTTP tests. Native interactions passed 53 Python and 6 real database tests. E008 profile routing passed 12 targeted tests. CI fixture regression passed 24/26 initially; the remaining two cases and platform pack delivery passed the subsequent 11-test run. The current API typecheck passed. A stronger explicit migration-file replay and populated-data fingerprint from cloud PR #2907 are applied locally and await final local evidence.
+Hybrid retrieval passed 65 real database/HTTP and 14 Python tests (58587bae5). Migration fresh/replay covered 228 files and populated-data fingerprints; the workbench replay passed 8 tests (9a4f280f8). Persistent tool snapshot/browser registration is committed in b8352e879.
 
-Remaining work includes hybrid production HTTP acceptance, cloud Office locator patch transfer and local acceptance, browser runtime/egress/receipt integration, remaining native adapters, complete per-Skill real-model acceptance, and current-SHA CI. Browser component tests passed 6 cases; real Chromium acceptance has not run yet. Cloud output alone is not integrated or verified production behavior.
+S009 passed a real-model scenario and full semantic review with immutable meeting-minutes 1.1.1 (d3d5baf2d). Earlier false rejection wording remains recorded as a failed run. S007 published actual report, CSV and executable Python source through artifact writeback (51c85cf7f); the reviewed result and bounded fixture-specific limitations are retained in evidence/g-skill-batch/S007. These are bounded acceptance cases, not general model reliability claims.
 
-S009 real-model technical delivery reached persisted Markdown, but semantic review caught an unsupported rejection claim. The strict semantic gate remains yellow while an immutable 1.1.1 Skill revision is retested. S016 real ASR success requires provider configuration; fixture success does not satisfy that gate.
+Browser component tests passed, but actual Chromium exposed form-value and screenshot-path failures. Cloud fixes, isolated preview and runtime security integration require local review and rerun. Office locator changes are transferring as private patches. Download/status/cancel native adapters are being verified against real authorization and persisted artifacts. Remaining Skills require individual actual-model evidence. S016 live ASR requires provider configuration; deterministic protocol fixtures do not establish recognition quality.
 
-Three local workers remain assigned to hybrid retrieval, native snapshot compatibility/browser wiring, and real-model Skill acceptance. Cloud workers handle independent adapters and reviews. Database-heavy suites use one owned stack at a time. No merge into main is authorized.
+The [W07 scope audit](w07-scope-audit.md) removes an unnecessary new graph seed resolver and universal interview-index project from the implementation plan. The original capability requirements remain intact; graph requests are explicitly rejected rather than simulated.
+
+Three local workers coordinate one owned database stack at a time. No merge into main is authorized.
