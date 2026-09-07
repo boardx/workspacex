@@ -8,6 +8,6 @@
   },
   "env": ".env",
   "http": {
-    "app": "./src/deep_agent_service/retrieval_embeddings.py:app"
+    "app": "deep_agent_service.retrieval_embeddings:app"
   }
 }
