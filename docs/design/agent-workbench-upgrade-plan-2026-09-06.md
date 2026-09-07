@@ -4,7 +4,7 @@
 
 ## 开发进度图（更新于 2026-09-07 09:50 Asia/Shanghai）
 
-本图是本升级项目的进度展示入口。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。当前三路 subagent 已停笔，根协调者正在收束完整 E2E 与联合验收；S0–S12 尚未全部达到 PR/CI/联合验收门，不能按代码量虚报完成。
+本图是本升级项目的进度展示入口。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。当前三路 subagent 正在逐项核对节点验收；绿色表示节点验收完成，紫色另表示通过 PR 交付。节点验收与仓库 feature passing 状态分开记录，不按代码量虚报完成。
 
 ```mermaid
 flowchart TB
@@ -65,8 +65,9 @@ flowchart TB
   R4 -.回归基线.-> S11
   S11 --> S12["S12 后续导入旅程迁移\ncommit a83730fcb / a47ef0a55\n进度 commit 3e50354c7\nPR2890 · review 32/32通过"]:::active
 
-  subgraph LEGEND["颜色规则（完成必须有验收与交付证据）"]
-    LG["绿色：已完成"]:::done
+  subgraph LEGEND["颜色规则（验收完成与 PR 交付分开）"]
+    LG["绿色：验收完成"]:::done
+    LP["紫色：已通过 PR 交付"]:::delivered
     LY["黄色：待验收 / 评审"]:::verify
     LB["蓝色：开发 / 修复中"]:::active
     LR["红色：阻塞，注明原因"]:::blocked
@@ -79,6 +80,7 @@ flowchart TB
   classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
   classDef verify fill:#fef3c7,stroke:#d97706,color:#78350f;
   classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d;
+  classDef delivered fill:#f3e8ff,stroke:#9333ea,color:#581c87;
   classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
 ```
 
@@ -87,8 +89,8 @@ flowchart TB
 ### 如何使用本图更新进度
 
 1. 保持 S0–S12 节点 ID 稳定。正式 feature 创建后，在对应实施步骤下记录 feature/issue/PR/evidence 引用；本图只投影状态，`feature_list.json` 经 harness 读取的状态及实际 PR/CI 仍为权威。
-2. 使用统一颜色：白色 `未开始`；蓝色 `开发/修复中`；黄色 `待验收/评审`；绿色 `已完成`；红色 `阻塞`；灰色 `已有能力复用`。阻塞须写具体原因和下一动作；灰色不计本次新增完成。绿色须符合该节点的完成定义，实施节点的验收及 PR/CI 门未过不能标绿，不能因 coding Agent 返回 done 就标绿。图例是颜色说明，不是开发任务，因此不绑定实现 commit。
-3. 工作包包含多条 feature 时：任一开工则显示进行中；全部实现但验证或 PR 门未过显示待验证/评审；全部达到仓库完成定义才显示已完成。发布节点另需实际发布和发布后证据。
+2. 使用统一颜色：白色 `未开始`；蓝色 `开发/修复中`；黄色 `待验收/评审`；绿色 `验收完成`；紫色 `已通过 PR 交付`；红色 `阻塞`；灰色 `已有能力复用`。按用户最新指令，节点验收通过即可标绿，不要求先完成 PR。紫色须有对应 PR 已合入且合入时 CI 通过的证据。绿色不等于 harness feature passing，不代改功能清单。图例不是开发任务，不绑定实现 commit。
+3. 工作包包含多项验收时，全部必需项通过才显示绿色；有未通过项保持黄色，正在修复显示蓝色。验证记录写明被测 SHA、命令与实际结果；不能因 coding Agent 返回 done 或总 CI 绿就替代节点专项验收。发布节点仍按其实际发布验收要求判断。
 4. 每次认领、完成实现、验证结束、评审结论、合并或阻塞变化时更新本节 Mermaid 标签/class，并追加下面变更记录。每个节点必须写实际 commit ID；未提交直接标未提交，验收同时标被测 SHA 与未提交增量边界。对外汇报复用这张图，不维护另一个手工百分比看板。
 5. 变更记录写实际消耗的输入/输出/缓存 Token（运行时能提供才填）；没有计量就写未采集，不能由代码行数估出“已消耗”。可据首批任务校准剩余预算。
 6. 本次已启动三个执行 subagent，根协调者统一测试及提交。此图随实际证据更新，不会自己读取 GitHub。
