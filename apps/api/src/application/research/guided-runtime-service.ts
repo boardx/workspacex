@@ -75,8 +75,8 @@ function invalidate(state: ResearchRuntime, node: Node) {
   state.proposal = null;
   if (index < 1) state.directions = [];
   if (index < 2) state.outline = [];
-  if (index < 3) { state.tasks = []; state.sources = []; }
-  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; }
+  if (index < 3) { state.tasks = []; state.sources = []; state.researchPlan = null; }
+  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportCheckpoint = null; state.reportSourceAliases = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
   validateRuntimeDraft(state, draft);
@@ -109,6 +109,7 @@ export class GuidedRuntimeService {
     }, { requestId: command.requestId, observe });
     try {
       await this.perform(state, command, persist);
+      state.progress = null;
     } catch (error) {
       if (state.reportStream) state.reportStream.status = "failed";
       state.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE";
@@ -141,11 +142,11 @@ export class GuidedRuntimeService {
       evidenceGaps: state.reportPartial ? state.tasks.filter((task) => task.status === "failed").map(({ sectionId, query, errorCode }) => ({ sectionId, query, errorCode })) : [],
       reportPartial: state.reportPartial ?? false, messages: state.messages.slice(-20) };
   }
-  private async generate(state: ResearchRuntime, node: Node, persist: RuntimePersistence, instruction?: string) {
+  private async generate(state: ResearchRuntime, node: Node, persist: RuntimePersistence, instruction?: string, resume = false) {
     if (node === "research") { await this.plan(state, persist); return; }
     if (node === "report") { acceptPendingSources(state); this.requireResearchBasis(state, Boolean(state.reportPartial)); }
     if (node === "report" && !state.sources.some((source) => source.decision === "accepted")) throw new ResearchRuntimeError("RESEARCH_SOURCES_REQUIRED");
-    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
+    const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction, resume) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${shapes[node]}. ${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { ...this.context(state), instruction }, persist, (generated) => {
       const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateGeneratedResearchDesign(node, candidate.data.value);
@@ -158,31 +159,49 @@ export class GuidedRuntimeService {
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
   }
   private async plan(state: ResearchRuntime, persist: RuntimePersistence) {
-    const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"tasks":[{"sectionId":existingOutlineId,"query":string}]}. Cover every enabled section and its subsection questions, prioritize decision-critical evidence gaps and hypotheses, and use specific queries for official/primary sources, comparative data and conflicting evidence. Respect the brief geography and time range; deduplicate equivalent queries and use at most 60 queries.', this.context(state), persist);
+    state.progress = { stage: "planning", completed: 0, total: 1 };
+    await persist();
+    const raw = await this.completeJson(state, "research", 'Create a concrete web research plan for the confirmed outline. Return {"overview":string,"optimizedQuestion":string,"tasks":[{"sectionId":existingOutlineId,"title":string,"objective":string,"deliverables":string[],"query":string}]}. Clarify the research question using the confirmed brief without expanding scope. Give each task a specific objective and expected evidence or analytical output. Cover every enabled section and its subsection questions, prioritize decision-critical evidence gaps and hypotheses, and use specific queries for official/primary sources, comparative data and conflicting evidence. Respect the brief geography and time range; deduplicate equivalent queries and use at most 60 queries.', this.context(state), persist, (value) => {
+      const parsed = C.GuidedResearchPlanModelOutput.safeParse(value);
+      const sections = state.outline.filter((item) => item.enabled);
+      if (!parsed.success || parsed.data.tasks.some((task) => !sections.some((section) => section.id === task.sectionId))
+        || sections.some((section) => !parsed.data.tasks.some((task) => task.sectionId === section.id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+    });
     const result = C.GuidedResearchPlanModelOutput.safeParse(raw);
     const ids = state.outline.filter((item) => item.enabled).map((item) => item.id);
     if (!result.success || result.data.tasks.some((task) => !ids.includes(task.sectionId)) || ids.some((id) => !result.data.tasks.some((task) => task.sectionId === id))) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     invalidate(state, "research");
     state.sources = [];
+    state.researchPlan = { overview: result.data.overview, optimizedQuestion: result.data.optimizedQuestion };
     state.tasks = result.data.tasks.map((task) => ({ ...task, id: randomUUID(), status: "pending", attempts: 0, errorCode: null }));
     if (!state.generatedNodes.includes("research")) state.generatedNodes.push("research");
     await persist();
   }
   private async executeSearch(state: ResearchRuntime, persist: RuntimePersistence) {
     if (!state.tasks.length) await this.plan(state, persist);
-    for (const task of state.tasks) {
-      if (task.status === "succeeded") continue;
-      task.status = "running"; task.attempts += 1; task.errorCode = null;
-      await persist();
-      try {
-        const hits = await this.search.search(task.query);
-        if (!hits.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_EMPTY");
-        for (const hit of hits) {
-          if (!state.sources.some((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url))) state.sources.push(C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, retrievedAt: new Date().toISOString(), decision: "accepted" }));
-        }
-        task.status = "succeeded";
-      } catch (error) { task.status = "failed"; task.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE"; }
-      await persist();
+    const remaining = state.tasks.filter((task) => task.status !== "succeeded");
+    const updateProgress = () => { state.progress = { stage: "searching", completed: state.tasks.filter((task) => task.status === "succeeded" || task.status === "failed").length, total: state.tasks.length }; };
+    // Only provider calls run concurrently. State changes and durable writes are serialized.
+    for (let offset = 0; offset < remaining.length; offset += 3) {
+      const batch = remaining.slice(offset, offset + 3);
+      for (const task of batch) { task.status = "running"; task.attempts += 1; task.errorCode = null; }
+      updateProgress(); await persist();
+      const results = await Promise.allSettled(batch.map((task) => this.search.search(task.query)));
+      for (const [index, task] of batch.entries()) {
+        try {
+          const result = results[index]!;
+          if (result.status === "rejected") throw result.reason;
+          if (!result.value.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_EMPTY");
+          for (const hit of result.value) {
+            const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
+            if (existing) {
+              existing.taskIds = [...new Set([existing.taskId, ...(existing.taskIds ?? []), task.id])];
+            } else state.sources.push(C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" }));
+          }
+          task.status = "succeeded";
+        } catch (error) { task.status = "failed"; task.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_SEARCH_UNAVAILABLE"; }
+        updateProgress(); await persist();
+      }
     }
     if (state.tasks.some((task) => task.status === "failed")) throw new ResearchRuntimeError("RESEARCH_SEARCH_PARTIAL_FAILURE");
   }
@@ -268,7 +287,7 @@ export class GuidedRuntimeService {
     }
     if (action === "generate" || (action === "retry" && node !== "research")) {
       if (command.draft) applyDraft(state, command.draft);
-      await this.generate(state, node, persist, command.message); return;
+      await this.generate(state, node, persist, command.message, action === "retry"); return;
     }
     if ((action === "start" || action === "retry") && node === "research") { await this.executeSearch(state, persist); return; }
     if (action === "confirm" || action === "complete") {

@@ -58,6 +58,8 @@ test("research persists all five model-backed steps through the real UI, API and
     await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   }
   await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toBeVisible();
+  await page.getByTestId("research-plan-details").locator("summary").click();
+  await expect(page.getByText("核对并网政策与执行差异", { exact: true })).toBeVisible();
   const sourceLink = page.getByRole("link", { name: "Research E2E policy evidence" });
   const sourceUrl = await sourceLink.getAttribute("href");
   await expect(page.getByRole("combobox")).toHaveCount(0);
@@ -100,6 +102,11 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
   expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 2);
+  expect(runtime.researchPlan.optimizedQuestion).toBe("哪些并网政策证据支持进入决策？");
+  expect(runtime.tasks[0]).toMatchObject({ objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"] });
+  expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
+  expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
+  expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
   expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report").every((call: { status: string }) => call.status === "succeeded")).toBe(true);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));

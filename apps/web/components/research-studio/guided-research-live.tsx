@@ -12,6 +12,7 @@ import { researchReportDocument, researchReportMarkdown } from "@/lib/research-r
 import { GuidedResearchReportDocument } from "./guided-research-report-document";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { ResearchDirectionsEditor, ResearchOutlineEditor, ResearchDesignPreview } from "./guided-research-design-editor";
+import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guided-research-runtime-progress";
 import { GuidedResearchSources } from "./guided-research-sources";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import { getResearchRuntime, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
@@ -140,7 +141,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     responseEpoch.current += 1; commandVersion.current = state.version + 1; setPending(true); setError(null);
     try {
       const input = { sessionId, node, action, requestId: crypto.randomUUID(), expectedVersion: state.version, ...extra };
-      const streamsReport = following === "report" || (node === "report" && approvedAction === "generate");
+      const streamsReport = following === "report" || (node === "report" && (approvedAction === "generate" || approvedAction === "retry"));
       const controller = streamsReport ? new AbortController() : null;
       streamController.current = controller;
       const received = streamsReport ? await executeResearchRuntime(input, (event) => {
@@ -149,6 +150,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         if (event.type === "snapshot") {
           if (event.state.sessionId !== sessionId || event.state.version < input.expectedVersion + 1) return;
           const next = newestSnapshot(event.state, current);
+          responseEpoch.current += 1;
           snapshotRef.current = next; setState(next);
         } else if (event.type === "report_delta") {
           if (!current || event.sessionId !== sessionId || event.requestId !== input.requestId || event.version !== input.expectedVersion + 1 || current.version !== event.version || !current.busy) return;
@@ -247,10 +249,13 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     {(error || (node === state.currentNode && state.errorCode)) && <p role="alert" className="rounded-md border border-destructive p-3 text-12 text-destructive">{error ?? errors[state.errorCode!] ?? "上次处理失败，请重试。"}</p>}
     {state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
+        <GuidedResearchRuntimeProgress state={state} />
         {reportVisible && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
-        {reportVisible && state.reportStream && <GuidedResearchReportPreview state={state} interrupted={expired} />}
-        {waiting ? (reportVisible && state.reportStream ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
+        {reportVisible && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}
+        {waiting && (loadingNode ?? node) === "research" && <GuidedResearchPlanDetails state={state} errors={errors} />}
+        {waiting ? (reportVisible && (state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
         <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}{state.completed && node === "report" ? " · 已完成" : ""}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "重新生成研究计划" : "重新生成本步骤"}</Button></div>
+        {node === "report" && state.reportCheckpoint && (state.errorCode || expired) && <Button variant="primary" disabled={busy} onClick={() => void run("retry")}>继续生成剩余章节</Button>}
         {state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {processing && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}
@@ -259,7 +264,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {node === "research" && <>
           <div className="flex gap-2"><Button variant="primary" disabled={busy} onClick={() => void run("start")}>开始真实检索</Button><Button variant="outline" disabled={busy || !state.tasks.some((task) => task.status === "failed" || (expired && task.status === "running"))} onClick={() => void run("retry")}>重试失败任务</Button></div>
           <Card data-testid="research-search-summary"><CardContent className="space-y-2 p-4"><h2 className="font-semibold">研究检索进度</h2><p className="text-12">已完成 {state.tasks.filter((task) => task.status === "succeeded").length} / {state.tasks.length} 项任务</p><p className="text-12 text-muted-foreground" data-testid="research-current-query">{state.tasks.find((task) => task.status === "running" || task.status === "pending")?.query ?? (state.tasks.length ? "本轮检索已结束" : "请先生成研究计划或开始检索")}</p></CardContent></Card>
-          <details className="rounded-lg border border-border bg-card p-4"><summary className="cursor-pointer text-12 font-medium">检索任务明细 · {state.tasks.length} 项</summary><div className="mt-3 space-y-2">{state.tasks.map((task) => <Card key={task.id}><CardContent className="p-3 text-12"><p>{task.query}</p><p className="mt-1 text-muted-foreground">{{ pending: "等待检索", running: "正在检索", succeeded: "已完成", failed: "检索失败" }[task.status]} · 尝试 {task.attempts} 次</p>{task.errorCode && <p className="mt-1 text-destructive">{errors[task.errorCode] ?? "任务执行失败，请重试。"}</p>}</CardContent></Card>)}</div></details>
+          <GuidedResearchPlanDetails state={state} errors={errors} />
           <GuidedResearchSources sources={state.sources} disabled={busy} onAdd={(sourceUrl) => run("add_source", { sourceUrl })} onRemove={(sourceId) => void run("remove_source", { sourceId })} />
         </>}
         {node === "report" && state.report && <div className="space-y-4" data-testid="research-report" data-layout="full-width-report"><nav aria-label="报告目录" className="rounded-lg border border-border p-4"><h2 className="font-semibold">目录</h2><ul className="mt-2 space-y-1 text-12">{state.report.sections.map((section, index) => <li key={section.sectionId}><a className="text-primary underline" href={`#research-report-section-${index}`}>{state.outline.find((item) => item.id === section.sectionId)?.title}</a></li>)}</ul></nav><GuidedResearchReportDocument document={researchReportDocument(state.report, state.sources, state.outline)} /><Button variant="outline" onClick={downloadReport}>下载报告（Markdown）</Button></div>}
