@@ -1,15 +1,18 @@
 import { parentCancelRequestId, type ParentCancellation, type ChildCancellationResult } from "../../application/agent-run/parent-run-control";
-import { randomUUID } from "node:crypto";
+import { createHash,randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
 import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
 import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState } from "../../application/agent-run/subtask-run-queue";
+import type {RunOutputFile} from '../../application/agent-run/ports';
 
-type Row = { cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
+type Row = { output_policy:unknown;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string;artifact_refs:unknown;output_manifest:unknown;cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
   status: SubtaskRun["status"]; result: string | null; error: string | null; created_at: Date; updated_at: Date };
 const decode = (r: Row): SubtaskRun => ({ ...(r.cancel_requested_at && r.cancellation_state ? {cancellation:{requestedAt:r.cancel_requested_at.toISOString(),state:r.cancellation_state}} : {}), id: r.id, parentRunId: r.parent_run_id,
-  description: r.description, context: r.context, status: r.status, result: r.result,
+  description: r.description, context: r.context,...(r.output_policy?{outputFiles:r.output_policy as SubtaskRun['outputFiles']}:{}),
+  snapshot:{agentVersionId:r.agent_version_id,skillVersionIds:r.skill_version_ids as string[],modelProvider:r.model_provider,modelId:r.model_id},
+  artifactRefs:r.artifact_refs as SubtaskRun['artifactRefs'],status: r.status, result: r.result,
   error: r.error, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() });
 
 /** Durable queue with separate cancellation facts. Stale executions fail; they are never automatically replayed
@@ -20,18 +23,21 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
 
   enqueue(orgId: OrgId, input: EnqueueSubtaskRunInput): Promise<SubtaskRun> {
     return this.db.withTenant(orgId, async (s) => {
-      const parent = await s.query<{ cancel_requested_at: Date | null }>(
-        "SELECT cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId,input.parentRunId]);
+      const parent = await s.query<{ cancel_requested_at: Date | null;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string }>(
+        "SELECT cancel_requested_at,agent_version_id,skill_version_ids,model_provider,model_id FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId,input.parentRunId]);
       if (!parent.rows[0]) throw new Error("subtask_parent_unavailable");
       if (parent.rows[0].cancel_requested_at !== null) throw new SubtaskParentCancelledError();
-      const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id,parent_run_id,description,context,idempotency_key)
-        VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING *`,
-        [randomUUID(), orgId, input.parentRunId, input.description, input.context ?? null,input.idempotencyKey ?? null]);
+      const snapshot={agentVersionId:parent.rows[0].agent_version_id,skillVersionIds:parent.rows[0].skill_version_ids as string[],modelProvider:parent.rows[0].model_provider,modelId:parent.rows[0].model_id};
+      if(input.snapshot&&JSON.stringify(input.snapshot)!==JSON.stringify(snapshot))throw new SubtaskIdempotencyConflictError("subtask_snapshot_changed");
+      const r = await s.query<Row>(`INSERT INTO subtask_runs(id,org_id,parent_run_id,description,context,idempotency_key,output_policy,agent_version_id,skill_version_ids,model_provider,model_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9::jsonb,$10,$11) ON CONFLICT DO NOTHING RETURNING *`,
+        [randomUUID(), orgId, input.parentRunId, input.description, input.context ?? null,input.idempotencyKey ?? null,input.outputFiles?JSON.stringify(input.outputFiles):null,snapshot.agentVersionId,JSON.stringify(snapshot.skillVersionIds),snapshot.modelProvider,snapshot.modelId]);
       if (r.rows[0]) return decode(r.rows[0]);
       const existing = await s.query<Row>("SELECT * FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND idempotency_key=$3",
         [orgId,input.parentRunId,input.idempotencyKey]);
       const row = existing.rows[0];
-      if (!row || row.description !== input.description || row.context !== (input.context ?? null)) {
+      if (!row || row.description !== input.description || row.context !== (input.context ?? null)
+        || JSON.stringify(row.output_policy)!==JSON.stringify(input.outputFiles??null)) {
         throw new SubtaskIdempotencyConflictError("subtask_idempotency_conflict");
       }
       return decode(row);
@@ -116,6 +122,38 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
 
   complete(orgId: OrgId, id: string, result: string): Promise<void> {
     return this.finish(orgId, id, "completed", result, null);
+  }
+  async completeWithArtifacts(orgId:OrgId,id:string,result:string,files:readonly RunOutputFile[]):Promise<void>{
+    await this.db.withTenant(orgId,async s=>{
+      const initial=(await s.query<Row>('SELECT * FROM subtask_runs WHERE org_id=$1 AND id=$2',[orgId,id])).rows[0];
+      if(!initial)return;
+      const parent=(await s.query<{thread_id:string;cancel_requested_at:Date|null}>('SELECT thread_id,cancel_requested_at FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE',[orgId,initial.parent_run_id])).rows[0];
+      const row=(await s.query<Row>('SELECT * FROM subtask_runs WHERE org_id=$1 AND id=$2 FOR UPDATE',[orgId,id])).rows[0];
+      if(!parent||!row||row.status!=='running')return;
+      if(parent.cancel_requested_at||row.cancel_requested_at){
+        await s.query(`UPDATE subtask_runs SET status='cancelled',result=NULL,error=NULL,artifact_refs='[]'::jsonb,
+          cancel_requested_at=COALESCE(cancel_requested_at,$3,now()),cancellation_state='confirmed',updated_at=now() WHERE org_id=$1 AND id=$2`,[orgId,id,parent.cancel_requested_at]);return;
+      }
+      const policy=row.output_policy as {mediaTypes:string[];maxFiles:number;maxTotalBytes:number}|null;
+      if(!policy)throw new Error('subtask_file_output_not_authorized');
+      const total=files.reduce((sum,file)=>sum+file.sizeBytes,0);
+      if(files.length>policy.maxFiles||total>policy.maxTotalBytes||files.some(file=>!policy.mediaTypes.includes(file.mime)))throw new Error('subtask_file_output_limit');
+      const step=(await s.query<{id:string}>('SELECT id FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq DESC LIMIT 1',[orgId,row.parent_run_id])).rows[0];
+      if(!step)throw new Error('subtask_artifact_parent_step_unavailable');
+      const refs:{artifactId:string;versionId:string}[]=[],manifest:{artifactId:string;versionId:string;objectKey:string;sha256:string;mime:string;sizeBytes:number}[]=[];
+      for(const file of files){
+        const sha256=file.objectKey.split('/')[2];if(!sha256||!/^[a-f0-9]{64}$/.test(sha256))throw new Error('subtask_artifact_hash_unavailable');
+        const artifactId='subtask-artifact-'+createHash('sha256').update(`${id}\0${file.name}`).digest('hex');
+        const versionId=`${artifactId}-v1`,extension=file.name.split('.').at(-1)?.toLowerCase();
+        const kind=extension&&['pdf','docx','png'].includes(extension)?extension:'other';
+        await s.query('INSERT INTO agent_artifacts(id,org_id,thread_id,name,kind) VALUES($1,$2,$3,$4,$5)',[artifactId,orgId,parent.thread_id,file.name,kind]);
+        await s.query(`INSERT INTO agent_artifact_versions(id,org_id,artifact_id,version,produced_by_run_id,produced_by_step_id,change_note,storage_key,size_bytes)
+          VALUES($1,$2,$3,1,$4,$5,$6,$7,$8)`,[versionId,orgId,artifactId,row.parent_run_id,step.id,`Durable subtask ${id}`,file.objectKey,file.sizeBytes]);
+        refs.push({artifactId,versionId});
+        manifest.push({artifactId,versionId,objectKey:file.objectKey,sha256,mime:file.mime,sizeBytes:file.sizeBytes});
+      }
+      await s.query("UPDATE subtask_runs SET status='completed',result=$3,error=NULL,artifact_refs=$4::jsonb,output_manifest=$5::jsonb,updated_at=now() WHERE org_id=$1 AND id=$2 AND status='running'",[orgId,id,result,JSON.stringify(refs),JSON.stringify(manifest)]);
+    });
   }
   fail(orgId: OrgId, id: string, error: string): Promise<void> {
     return this.finish(orgId, id, "failed", null, error);

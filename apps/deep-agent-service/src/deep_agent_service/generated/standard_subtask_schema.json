@@ -26,11 +26,54 @@
         },
         "maxItems": 8
       },
+      "outputFiles": {
+        "type": "object",
+        "properties": {
+          "mediaTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "application/pdf",
+                "image/png",
+                "image/jpeg",
+                "text/plain",
+                "text/html",
+                "text/markdown",
+                "text/csv",
+                "application/json",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 12
+          },
+          "maxFiles": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "maxTotalBytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25165824
+          }
+        },
+        "required": [
+          "mediaTypes",
+          "maxFiles",
+          "maxTotalBytes"
+        ],
+        "additionalProperties": false,
+        "description": "Explicit governed file budget. Omission keeps the child text-only."
+      },
       "idempotencyKey": {
         "type": "string",
         "minLength": 1,
         "maxLength": 256,
-        "description": "Stable logical dispatch key; reuse only for the identical description and context references."
+        "description": "Stable logical dispatch key; reuse only for the identical description, context references, and output policy."
       }
     },
     "required": [
@@ -90,11 +133,54 @@
             },
             "maxItems": 8
           },
+          "outputFiles": {
+            "type": "object",
+            "properties": {
+              "mediaTypes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "application/pdf",
+                    "image/png",
+                    "image/jpeg",
+                    "text/plain",
+                    "text/html",
+                    "text/markdown",
+                    "text/csv",
+                    "application/json",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 12
+              },
+              "maxFiles": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              },
+              "maxTotalBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 25165824
+              }
+            },
+            "required": [
+              "mediaTypes",
+              "maxFiles",
+              "maxTotalBytes"
+            ],
+            "additionalProperties": false,
+            "description": "Explicit governed file budget. Omission keeps the child text-only."
+          },
           "idempotencyKey": {
             "type": "string",
             "minLength": 1,
             "maxLength": 256,
-            "description": "Stable logical dispatch key; reuse only for the identical description and context references."
+            "description": "Stable logical dispatch key; reuse only for the identical description, context references, and output policy."
           }
         },
         "required": [

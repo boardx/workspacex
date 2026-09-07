@@ -20,10 +20,18 @@
  * 同批次其它子任务）。取消先记录请求，确认后转 `cancelled`；未知结果为 `failed` + cancellation.unknown。终态结果不再发布。
  */
 import { z } from "zod";
+import { RunArtifactRef } from "./standard-run-status";
+import { NativeArtifactPublishInput } from "./native-artifact-publish";
+import { limits as sandboxLimits } from "./sandbox-session";
 
 /** 子任务 run 的状态机，见本文件头注。 */
 export const SubtaskRunStatus = z.enum(["pending", "running", "completed", "failed", "cancelled"]);
 export type SubtaskRunStatus = z.infer<typeof SubtaskRunStatus>;
+export const SubtaskOutputFilesPolicy=z.object({
+  mediaTypes:z.array(NativeArtifactPublishInput.shape.mediaType).min(1).max(12),
+  maxFiles:z.number().int().min(1).max(sandboxLimits.maxFiles),
+  maxTotalBytes:z.number().int().min(1).max(sandboxLimits.maxRequestBytes),
+}).strict();
 
 /**
  * 一条子任务 run 记录。
@@ -46,6 +54,9 @@ export const SubtaskRun = z.object({
   description: z.string(),
   /** 子任务需要的额外上下文（父对话摘录、约束条件等）。可选——不是每个子任务都需要。 */
   context: z.string().nullable(),
+  outputFiles: SubtaskOutputFilesPolicy.optional(),
+  snapshot: z.object({agentVersionId:z.string(),skillVersionIds:z.array(z.string()),modelProvider:z.string(),modelId:z.string()}).strict(),
+  artifactRefs: z.array(RunArtifactRef),
   status: SubtaskRunStatus,
   result: z.string().nullable(),
   error: z.string().nullable(),
@@ -61,6 +72,9 @@ export const EnqueueSubtaskRunInput = z.object({
   parentRunId: z.string(),
   description: z.string().min(1),
   context: z.string().nullable().optional(),
+  outputFiles: SubtaskOutputFilesPolicy.optional(),
+  /** Retry copies the original immutable snapshot; a mismatch with the parent fails closed. */
+  snapshot: SubtaskRun.shape.snapshot.optional(),
 });
 export type EnqueueSubtaskRunInput = z.infer<typeof EnqueueSubtaskRunInput>;
 

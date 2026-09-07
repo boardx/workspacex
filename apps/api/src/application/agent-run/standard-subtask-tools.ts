@@ -52,7 +52,7 @@ export class DefaultStandardSubtaskService implements StandardSubtaskService {
   const check=async()=>{if(!(await this.authority.check({...context,toolName:STANDARD_SUBTASK_TOOL,toolArgs:input})).allowed)throw new Error('subtask_spawn_denied');await this.owner.resolve(context.bindingId,context);};
   await check();await this.sources.read(context.orgId,context.parentRunId,refs);await check();
   const envelope=NativeSubtaskContext.parse({refs});
-  const run=await this.store.enqueue(context.orgId,{parentRunId:context.parentRunId,description:input.description,idempotencyKey:input.idempotencyKey,context:NATIVE_SUBTASK_CONTEXT_PREFIX+JSON.stringify(envelope)});
+  const run=await this.store.enqueue(context.orgId,{parentRunId:context.parentRunId,description:input.description,idempotencyKey:input.idempotencyKey,context:NATIVE_SUBTASK_CONTEXT_PREFIX+JSON.stringify(envelope),...(input.outputFiles?{outputFiles:input.outputFiles}:{})});
   this.executor.kick(context.orgId);
   return SubtaskSpawnOutput.parse({childRunId:run.id,status:run.status==='pending'?'queued':run.status});
  }

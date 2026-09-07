@@ -1660,7 +1660,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: SUBTASK_RUN_EXECUTOR,
-      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver) => {
+      useFactory: (store: PgSubtaskRunStore, db: DatabasePort, model: ModelCallPort, logger: LoggerPort, engine: EngineRunController, contexts: StandardSubtaskContextResolver, outputs:NativeOutputStaging|null,runs:AgentRunStore) => {
         const configured = readModelProviderConfig();
         const deadlines = new Map<string, number>([[DEEP_AGENT_PROVIDER_NAME, readDeepAgentProviderConfig().timeoutMs]]);
         // Reserved names resolve to their dedicated adapters, not the generic HTTP adapter.
@@ -1668,9 +1668,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           deadlines.set(configured.provider, configured.timeoutMs);
         }
         return new SubtaskRunExecutor(store, db, model, logger,
-          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts);
+          process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", deadlines, engine, contexts, outputs??undefined,runs);
       },
-      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER],
+      inject: [SUBTASK_RUN_STORE, DATABASE_PORT, MODEL_CALL_PORT, LOGGER_PORT, ENGINE_RUN_CONTROLLER, SUBTASK_CONTEXT_RESOLVER,NATIVE_OUTPUT_STAGING,AGENT_RUN_STORE],
     },
     /**
      * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供

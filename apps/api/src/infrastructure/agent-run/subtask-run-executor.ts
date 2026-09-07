@@ -5,11 +5,12 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS, SubtaskCancellationPendingError } from "../../application/agent-run/subtask-run-queue";
-import type { ModelCallPort } from "../../application/agent-run/ports";
+import type { AgentRunStore,ModelCallPort } from "../../application/agent-run/ports";
 import { executeQueuedSubtaskRuns, type SubtaskRunStore, type SubtaskRun, type SubtaskExecutionState } from "../../application/agent-run/subtask-run-queue";
 import type { EngineRunController } from '../../application/plan-control/engine-run-controller-port';
 import { deriveRemoteThreadId } from './deep-agent-model-provider';
 import type { OrgId } from "../../domain/org-id";
+import type {NativeOutputStaging} from '../../application/agent-run/native-output-staging';
 
 /** Same tenant kick lifecycle. Recovery only interrupts persisted remote identities;
  * it never recreates a model run or claims that HTTP abort stopped vendor compute. */
@@ -20,7 +21,9 @@ export class SubtaskRunExecutor {
     private readonly autostart: boolean,
     private readonly executionTimeouts: ReadonlyMap<string, number> = new Map(),
     private readonly engine?:EngineRunController,
-    private readonly contexts?:SubtaskContextResolver) {}
+    private readonly contexts?:SubtaskContextResolver,
+    private readonly outputs?:Pick<NativeOutputStaging,'listFiles'>,
+    private readonly pins?:Pick<AgentRunStore,'readPinnedSkills'>) {}
 
   private async stopRemote(orgId:OrgId,state:SubtaskExecutionState):Promise<void>{
     if(!state.remoteRunId||state.remoteThreadId!==deriveRemoteThreadId(state.run.id)||!this.engine){
@@ -51,16 +54,16 @@ export class SubtaskRunExecutor {
     }
     return executed;
   }
-  private async execute(orgId:OrgId,run:SubtaskRun):Promise<string>{
+  private async execute(orgId:OrgId,run:SubtaskRun):Promise<string|{text:string;files:readonly import('../../application/agent-run/ports').RunOutputFile[]}>{
     const parent = await this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ model_provider: string; model_id: string; instructions: string }>(
-        `SELECT r.model_provider,r.model_id,v.instructions FROM agent_runs r
-         JOIN agent_versions v ON v.id=r.agent_version_id AND v.org_id=r.org_id
-         WHERE r.org_id=$1 AND r.id=$2 AND v.published_at IS NOT NULL`, [orgId,run.parentRunId]);
+      const r = await s.query<{ instructions: string }>(
+        `SELECT v.instructions FROM agent_runs r
+         JOIN agent_versions v ON v.id=$3 AND v.org_id=r.org_id AND v.agent_id=r.agent_id
+         WHERE r.org_id=$1 AND r.id=$2 AND v.published_at IS NOT NULL`, [orgId,run.parentRunId,run.snapshot.agentVersionId]);
       return r.rows[0];
     });
     if (!parent) throw new Error("subtask_parent_snapshot_unavailable");
-    const timeout = this.executionTimeouts.get(parent.model_provider);
+    const timeout = this.executionTimeouts.get(run.snapshot.modelProvider);
     if (timeout === undefined || !Number.isFinite(timeout) || timeout <= 0
       || timeout + 60_000 >= SUBTASK_STALE_RUNNING_THRESHOLD_MS) {
       throw new Error("subtask_provider_timeout_or_execution_mode_unsupported");
@@ -100,12 +103,14 @@ export class SubtaskRunExecutor {
     try{
       if(run.context?.startsWith(NATIVE_SUBTASK_CONTEXT_PREFIX)&&!this.contexts)throw new Error('subtask_context_resolver_unavailable');
       const executionContext=this.contexts?await this.contexts.prepare(orgId,run):run.context;
+      const skills=this.pins?await this.pins.readPinnedSkills(orgId,run.snapshot.skillVersionIds):[];
+      if(skills.length!==run.snapshot.skillVersionIds.length||skills.some((skill,index)=>skill.versionId!==run.snapshot.skillVersionIds[index]))throw new Error('subtask_skill_snapshot_unavailable_or_changed');
       if(local.signal.aborted)throw new SubtaskCancellationPendingError();
-      const completion=await this.model.complete({modelProvider:parent.model_provider,
-        modelId:parent.model_id,system:parent.instructions,
+      const completion=await this.model.complete({modelProvider:run.snapshot.modelProvider,
+        modelId:run.snapshot.modelId,system:parent.instructions,
         user:executionContext?`${run.description}\n\nContext:\n${executionContext}`:run.description,
-        history:[],skills:[],orgId:String(orgId),executionMode:"text-only",signal:local.signal,
-        ...(parent.model_provider==='deep-agent'?{threadId:run.id,onRemoteRunStarted:async(remoteRunId:string,remoteThreadId?:string)=>{
+        history:[],skills,orgId:String(orgId),executionMode:"text-only",signal:local.signal,
+        ...(run.snapshot.modelProvider==='deep-agent'?{threadId:run.id,onRemoteRunStarted:async(remoteRunId:string,remoteThreadId?:string)=>{
           if(remoteThreadId!==deriveRemoteThreadId(run.id))throw new Error('subtask_remote_identity_mismatch');
           await this.store.bindRemoteRun(orgId,run.id,remoteRunId,remoteThreadId);
           const state=await this.store.readExecution(orgId,run.id);
@@ -120,6 +125,10 @@ export class SubtaskRunExecutor {
       }
       if(current?.run.status!=='running')throw new SubtaskCancellationPendingError();
       // complete() below rechecks parent/child cancellation under the write lock.
+      if(run.outputFiles){
+        if(!this.outputs)throw new Error('subtask_artifact_staging_unavailable');
+        return {text:completion.text,files:await this.outputs.listFiles(orgId,run.id)};
+      }
       return completion.text;
     }catch(error){
       await cancellation;

@@ -26,8 +26,9 @@ test("counterproof: a second tenant table is not included in the exception", () 
   assert.notEqual(inspect(storePath,store.replace("SELECT * FROM subtask_runs","SELECT * FROM chat_messages")).length,0);
 });
 test("counterproof: unpinned or cross-org parent version join fails", () => {
-  assert.notEqual(inspect(executorPath,executor.replace("v.id=r.agent_version_id","v.agent_id=r.agent_id")).length,0);
+  assert.notEqual(inspect(executorPath,executor.replace("v.id=$3","v.agent_id=r.agent_id")).length,0);
   assert.notEqual(inspect(executorPath,executor.replace("v.org_id=r.org_id","TRUE")).length,0);
+  assert.notEqual(inspect(executorPath,executor.replace("run.snapshot.agentVersionId","run.parentRunId")).length,0);
 });
 test("counterproof: missing parent authorization before list or retry fails", () => {
   for (const write of [false,true]) {

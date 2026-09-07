@@ -8,6 +8,7 @@ import type { OrgId } from "../../domain/org-id";
 import type {
   EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState,
 } from "../../application/agent-run/subtask-run-queue";
+import type {RunOutputFile} from '../../application/agent-run/ports';
 
 interface Row extends SubtaskRun {
   readonly orgId: string;
@@ -24,7 +25,8 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     const key = input.idempotencyKey === undefined ? undefined : JSON.stringify([orgId,input.parentRunId,input.idempotencyKey]);
     const existing = key === undefined ? undefined : this.rows.get(this.idempotency.get(key) ?? "");
     if (existing) {
-      if (existing.description !== input.description || existing.context !== (input.context ?? null)) {
+      if (existing.description !== input.description || existing.context !== (input.context ?? null)
+        || JSON.stringify(existing.outputFiles??null)!==JSON.stringify(input.outputFiles??null)) {
         throw new SubtaskIdempotencyConflictError("subtask_idempotency_conflict");
       }
       return stripOrg(existing);
@@ -36,6 +38,9 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
       parentRunId: input.parentRunId,
       description: input.description,
       context: input.context ?? null,
+      ...(input.outputFiles?{outputFiles:input.outputFiles}:{}),
+      snapshot:input.snapshot??{agentVersionId:"in-memory",skillVersionIds:[],modelProvider:"in-memory",modelId:"in-memory"},
+      artifactRefs:[],
       status: "pending",
       result: null,
       error: null,
@@ -75,6 +80,12 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
 
   async complete(orgId: OrgId, id: string, result: string): Promise<void> {
     this.transition(orgId, id, { status: "completed", result, error: null });
+  }
+  async completeWithArtifacts(orgId:OrgId,id:string,result:string,files:readonly RunOutputFile[]){
+    const row=this.rows.get(id);if(!row||row.orgId!==String(orgId)||row.status!=='running')return;
+    if(!row.outputFiles||files.length>row.outputFiles.maxFiles||files.reduce((n,f)=>n+f.sizeBytes,0)>row.outputFiles.maxTotalBytes||files.some(f=>!row.outputFiles!.mediaTypes.includes(f.mime as never)))throw new Error('subtask_file_output_limit');
+    if(row.cancellation){this.transition(orgId,id,{status:'completed',result,error:null});return;}
+    this.rows.set(id,{...row,status:'completed',result,error:null,artifactRefs:files.map((_,index)=>({artifactId:`subtask-artifact-${id}-${index}`,versionId:`subtask-artifact-${id}-${index}-v1`})),updatedAt:new Date().toISOString()});
   }
 
   async fail(orgId: OrgId, id: string, error: string): Promise<void> {

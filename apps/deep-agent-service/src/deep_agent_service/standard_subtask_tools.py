@@ -41,4 +41,4 @@ def spawn_async_task_tool():
     async def run(runtime:ToolRuntime,**kwargs):return await _parse(runtime,kwargs)
     def sync(runtime:ToolRuntime,**kwargs):return asyncio.run(_parse(runtime,kwargs))
     return StructuredTool(name=_SCHEMA['toolName'],args_schema=_SCHEMA['toolInput'],func=sync,coroutine=run,
-        description='Queue a durable text-only child task. contextRefs must be exact JSON strings with sourceId and versionId from knowledge results, optionally projectId; no copied source bodies. All references are checked now and again before execution. Reuse idempotencyKey for the same logical request. Returns the actual child status, not a completed artifact.')
+        description='Queue a durable child task. It is text-only unless outputFiles explicitly delegates bounded MIME types, file count, and total bytes. contextRefs must be exact JSON strings with sourceId and versionId from knowledge results. Reuse idempotencyKey only for the identical request. Returns the actual child status; completed queries expose artifact references rather than private bytes.')

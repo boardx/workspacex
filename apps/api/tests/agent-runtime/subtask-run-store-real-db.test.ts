@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { SUBTASK_RUN_STORE } from "../../src/application/agent-run/subtask-run-queue";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { addOrgMember, asApp, ensureDatabase, migrateOnce, seedOrg } from "../support/db";
+import { addOrgMember, asApp,asOwner, ensureDatabase, migrateOnce, seedOrg } from "../support/db";
 import { addChatMessage, addChatThread } from "../support/chat-db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -12,6 +12,10 @@ import { PgSubtaskRunStore } from "../../src/infrastructure/agent-run/pg-subtask
 import { SubtaskRunExecutor } from "../../src/infrastructure/agent-run/subtask-run-executor";
 import { SubtaskRunController } from "../../src/interface/controllers/subtask-run.controller";
 import type { ModelCallInput } from "../../src/application/agent-run/ports";
+import {FsObjectStore} from '../../src/infrastructure/storage/fs-object-store';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 
 // Counterexample: the CI merge shortened the peer main-run deadline to two minutes.
 // Derived tasks must still accept their independently bounded 180-second provider.
@@ -49,6 +53,32 @@ beforeAll(async () => { await ensureDatabase(); await migrateOnce(); db = new Pg
 afterAll(async () => { await db?.close(); });
 
 describe("WX-T042 durable queue", () => {
+  it('replays the artifact handoff migration without weakening RLS',async()=>{
+    const sql=await readFile(new URL('../../migrations/20260910010000_subtask_artifact_handoff.sql',import.meta.url),'utf8');
+    await asOwner(async c=>{await c.query(sql);await c.query(sql);const state=await c.query("SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid='subtask_runs'::regclass");expect(state.rows[0]).toEqual({relrowsecurity:true,relforcerowsecurity:true});});
+  });
+  it('pins the child snapshot and atomically publishes verified file references',async()=>{
+    const scope=toOrgId(`org-artifact-${randomUUID()}`),parentId=`parent-artifact-${randomUUID()}`;await seed(scope,parentId);
+    const store=new PgSubtaskRunStore(db),root=await mkdtemp(join(tmpdir(),'t042-artifacts-')),objects=new FsObjectStore(root);
+    try{
+      const run=await store.enqueue(scope,{parentRunId:parentId,description:'write report',idempotencyKey:'artifact-contract',outputFiles:{mediaTypes:['text/markdown'],maxFiles:1,maxTotalBytes:1024}});
+      expect(run.snapshot).toEqual({agentVersionId:`version-${scope}`,skillVersionIds:[],modelProvider:'test-provider',modelId:'pinned-model'});
+      await expect(store.enqueue(scope,{parentRunId:parentId,description:'write report',idempotencyKey:'artifact-contract',outputFiles:{mediaTypes:['text/markdown'],maxFiles:1,maxTotalBytes:1024},snapshot:{...run.snapshot,modelId:'changed'}})).rejects.toThrow('subtask_snapshot_changed');
+      await store.claimQueued(scope,1);
+      await asApp(scope,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now()) ON CONFLICT DO NOTHING",[randomUUID(),scope,parentId]));
+      const bytes=Buffer.from('# durable child\n','utf8'),hash=createHash('sha256').update(bytes).digest('hex'),objectKey=`agent-run-outputs/run/${hash}/report.md`;
+      await objects.putOnce(objectKey,bytes,'text/markdown');
+      await store.completeWithArtifacts(scope,run.id,'report ready',[{name:'report.md',mime:'text/markdown',sizeBytes:bytes.length,objectKey}]);
+      const completed=await store.get(scope,run.id);expect(completed).toMatchObject({status:'completed',result:'report ready'});expect(completed?.artifactRefs).toHaveLength(1);
+      const version=await db.withTenant(scope,s=>s.query<{storage_key:string}>('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND id=$2',[scope,completed!.artifactRefs[0]!.versionId]));
+      const downloaded=await objects.get(version.rows[0]!.storage_key);expect(createHash('sha256').update(downloaded!).digest('hex')).toBe(hash);
+      const env={WORKSPACEX_OBJECT_ROOT:root,KERNEL_ALLOW_TEST_PRINCIPAL:'1',KERNEL_QUIET:'1',KERNEL_AGENT_RUN_AUTOSTART:'0'},old=Object.fromEntries(Object.keys(env).map(key=>[key,process.env[key]]));Object.assign(process.env,env);
+      const app=await (await import('../../src/main')).createApp();try{await app.listen(0,'127.0.0.1');const url=`${await app.getUrl()}/artifacts/${completed!.artifactRefs[0]!.artifactId}/versions/1/content`;
+        const response=await fetch(url,{headers:{'x-kernel-test-principal':`actor:${scope}`}});expect(response.status).toBe(200);expect(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex')).toBe(hash);
+        expect((await fetch(url,{headers:{'x-kernel-test-principal':`intruder:${scope}`}})).status).toBe(404);expect((await fetch(url,{headers:{'x-kernel-test-principal':`actor:${other}`}})).status).toBe(404);
+      }finally{await app.close();for(const[key,value]of Object.entries(old)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
+    }finally{await rm(root,{recursive:true,force:true});}
+  });
   it("survives adapter restart and claims each job once across competing workers", async () => {
     const first = new PgSubtaskRunStore(db);
     const jobs = await Promise.all(Array.from({ length: 8 }, (_, i) => first.enqueue(org, { parentRunId: parent, description: `job ${i}` })));
@@ -252,6 +282,16 @@ it('W16 parent cancellation suppresses a late completed child result',async()=>{
   await store.complete(org,run.id,'must never publish');
   expect(await store.get(org,run.id)).toMatchObject({status:'cancelled',result:null,error:null});
  }finally{await asApp(org,c=>c.query('UPDATE agent_runs SET cancel_requested_at=NULL WHERE org_id=$1 AND id=$2',[org,parent]));}
+});
+
+it('parent cancellation fences late file publication before any artifact/version row exists',async()=>{
+ const scope=toOrgId(`org-late-file-${randomUUID()}`),parentId=`parent-late-file-${randomUUID()}`;await seed(scope,parentId);
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(scope,{parentRunId:parentId,description:'late file',outputFiles:{mediaTypes:['text/markdown'],maxFiles:1,maxTotalBytes:100}});
+ await store.claimQueued(scope,1);
+ await asApp(scope,async c=>{await c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,1,'context_built','succeeded',now(),now())",[randomUUID(),scope,parentId]);await c.query('UPDATE agent_runs SET cancel_requested_at=now() WHERE org_id=$1 AND id=$2',[scope,parentId]);});
+ await store.completeWithArtifacts(scope,run.id,'must not publish',[{name:'late.md',mime:'text/markdown',sizeBytes:4,objectKey:'immutable/late'}]);
+ expect(await store.get(scope,run.id)).toMatchObject({status:'cancelled',result:null,artifactRefs:[]});
+ const rows=await db.withTenant(scope,s=>s.query('SELECT id FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[scope,parentId]));expect(rows.rows).toEqual([]);
 });
 
 it('W16 cancels the actual local HTTP request across stores without claiming vendor cessation',async()=>{

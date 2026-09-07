@@ -4,7 +4,7 @@ import ts from "typescript";
 export function checkSubtaskPermissionBoundary(path, source, controller, authorization) {
   const errors = [];
   const executor = path.endsWith("subtask-run-executor.ts");
-  const allowed = new Set(executor ? ["agent_runs", "agent_versions"] : ["subtask_runs", "agent_runs"]);
+  const allowed = new Set(executor ? ["agent_runs", "agent_versions"] : ["subtask_runs", "agent_runs", "agent_run_steps", "agent_artifacts", "agent_artifact_versions"]);
   const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const refs = /\b(?:FROM|JOIN|INTO|UPDATE)\s+(\w+)/gi;
   let statements = 0;
@@ -27,11 +27,11 @@ export function checkSubtaskPermissionBoundary(path, source, controller, authori
             errors.push("child store must not write parent lifecycle");
           }
           if (!executor && /\bFROM\s+agent_runs\b/i.test(sql.text)
-            && (!/\bSELECT (?:id,)?cancel_requested_at FROM agent_runs/i.test(sql.text)
+            && (!/\bSELECT (?:(?:id,)?cancel_requested_at|cancel_requested_at,agent_version_id,skill_version_ids,model_provider,model_id|thread_id,cancel_requested_at) FROM agent_runs/i.test(sql.text)
               || !/\bid\s*(?:=\s*\$2|IN\s*\()/i.test(sql.text))) {
             errors.push("parent read must only inspect scoped cancellation identity");
           }
-          if (executor && !/v\.id\s*=\s*r\.agent_version_id\s+AND\s+v\.org_id\s*=\s*r\.org_id/i.test(sql.text)) {
+          if (executor && (!/v\.id\s*=\s*\$3\s+AND\s+v\.org_id\s*=\s*r\.org_id\s+AND\s+v\.agent_id\s*=\s*r\.agent_id/i.test(sql.text)||!source.includes('run.snapshot.agentVersionId'))) {
             errors.push("parent version join must be pinned and tenant-matched");
           }
         }
