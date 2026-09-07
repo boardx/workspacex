@@ -34,7 +34,7 @@ jobs:
     environment: devapp-trusted-scripts
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
       - name: 更新前的 sha256（留底，便于对比"到底换没换"）

@@ -274,7 +274,7 @@ describe("#448 post-restart readiness", () => {
     const deploy = readFileSync(DEPLOY, "utf8");
     const provision = readFileSync(PROVISION, "utf8");
     const workflow = readFileSync(WORKFLOW, "utf8");
-    expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v4[\s\S]*deploy-gate\.sh/);
+    expect(workflow).toMatch(/deploy:\n[\s\S]*actions\/checkout@v5[\s\S]*deploy-gate\.sh/);
     expect(workflow).toContain(
       "DEPLOY_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview && github.sha || github.ref_name }}",
     );
