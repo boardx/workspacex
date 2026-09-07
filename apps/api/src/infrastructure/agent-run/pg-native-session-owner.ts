@@ -1,3 +1,4 @@
+import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
 import { createCipheriv,createDecipheriv,createHash,randomBytes,randomUUID } from "node:crypto";
 import { NativeSessionResolved,NativeInputManifest,canonicalNativeInputs,canonicalNativePackageSet } from "@repo/contracts/native-session-binding";
 import { TrustedSkillPackage } from "@repo/contracts/standard-capabilities";
@@ -44,9 +45,13 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
   const row=await this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{
    const id=randomUUID();const inserted=await s.query<Row>(`INSERT INTO native_session_bindings(id,org_id,run_id,status,package_digest,interrupt_on,input_manifest,input_digest) VALUES($1,$2,$3,'provisioning',$4,$5::jsonb,$6::jsonb,$7) ON CONFLICT(org_id,run_id) DO NOTHING RETURNING *`,[id,context.orgId,context.parentRunId,digest,JSON.stringify(policy),JSON.stringify(inputManifest),inputDigest]);
    if(inserted.rows[0])return {...inserted.rows[0],fresh:true};
-   const existing=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2',[context.orgId,context.parentRunId])).rows[0]!;
-   if((existing.input_digest??hash(canonicalNativeInputs([])))!==inputDigest||canonicalNativeInputs(NativeInputManifest.parse(existing.input_manifest))!==canonicalNativeInputs(inputManifest)||existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest||JSON.stringify(Object.entries(existing.interrupt_on).sort())!==JSON.stringify(Object.entries(policy).sort()))throw new Error('native_session_existing_binding_unavailable');
-   return {...existing,fresh:false};
+   const existing=(await s.query<Row>('SELECT * FROM native_session_bindings WHERE org_id=$1 AND run_id=$2 FOR UPDATE',[context.orgId,context.parentRunId])).rows[0]!;
+   if((existing.input_digest??hash(canonicalNativeInputs([])))!==inputDigest||canonicalNativeInputs(NativeInputManifest.parse(existing.input_manifest))!==canonicalNativeInputs(inputManifest)||existing.status!=='ready'||Number(existing.expires_at)<=Date.now()||existing.package_digest!==digest)throw new Error('native_session_existing_binding_unavailable');
+   const changed=[...new Set([...Object.keys(existing.interrupt_on),...Object.keys(policy)])].filter(key=>existing.interrupt_on[key]!==policy[key]);
+   const interactions:readonly string[]=Object.values(AGENT_INTERRUPTS_TOOL_NAMES);
+   if(changed.some(key=>!interactions.includes(key)||policy[key]!==true))throw new Error('native_session_existing_binding_unavailable');
+   if(changed.length)await s.query("UPDATE native_session_bindings SET interrupt_on=$3::jsonb WHERE org_id=$1 AND run_id=$2 AND id=$4",[context.orgId,context.parentRunId,JSON.stringify(policy),existing.id]);
+   return {...existing,interrupt_on:policy,fresh:false};
   }));
   if(row.fresh){
    let known: {sessionId:string;token:string;expiresAt:number}|undefined;

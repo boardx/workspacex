@@ -205,7 +205,7 @@ def _coerce_list(value: object) -> list | None:
 
 
 
-def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
+def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> list[Callable[..., str]]:
     """Bind the two tools to a concrete chat model (dependency injection, not a module-level
     singleton) -- this is what makes `tools.py` testable without a real `deepagents`/network
     dependency: tests pass a fake `BaseChatModel` and inspect what `call_skill` sends it.
@@ -350,6 +350,10 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
                     chosen_title = option.get("title", selectedOptionId)
                     break
         return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
+
+    # Native entry reuses these exact bodies without enabling legacy skill execution or async dispatch.
+    if interactions_only:
+        return [confirm_task_intent, fill_run_params, choose_execution_option]
 
     @tool
     def spawn_async_task(description: str, config: RunnableConfig,

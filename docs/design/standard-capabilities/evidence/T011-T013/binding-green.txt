@@ -1,0 +1,22 @@
+[stack-admission] load1=4.05 cores=10 perCore=0.41 running=0/2
+[test-isolation] id=run-mtqt5m9z-4b88693d-5066772dfa2a db=wsx_5066772dfa2a688759f3 compose=wsx-5066772dfa2a688759f3 pg=22461 redis=27461 sandbox=52461
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_5066772dfa2a688759f3 capacity=100 current=6 required=32
+ ✓ tests/agent-run/native-interaction-authority.test.ts (4 tests) 8844ms
+ ✓ tests/agent-runtime/native-interaction-binding.test.ts (2 tests) 459ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  13:36:29
+   Duration  12.06s (transform 359ms, setup 0ms, collect 494ms, tests 9.30s, environment 0ms, prepare 72ms)
+
+[db-isolation] db=wsx_5066772dfa2a688759f3 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-runtime/native-interaction-binding.test.ts tests/agent-run/native-interaction-authority.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：0s
+  总计：13s
