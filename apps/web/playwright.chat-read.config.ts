@@ -602,12 +602,6 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env,
-        // The full Chat route graph can make `next dev` retain more than 3 GB while
-        // Playwright compiles dynamic routes. On shared agent hosts the OS then kills
-        // the web server and every scenario reports a misleading connection refusal.
-        // Keep the test server inside a deterministic heap budget; production builds
-        // are validated by their own lane.
-        NODE_OPTIONS: "--max-old-space-size=2048",
         NEXT_FONT_GOOGLE_MOCKED_RESPONSES: path.resolve(__dirname, "e2e/support/google-fonts-mock.cjs"),
       },
     },
