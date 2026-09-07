@@ -103,3 +103,9 @@ jobs:
           journalctl -u workspacex-api --since "-30min" 2>&1 | grep -iE "personal|thread" | grep -iE "error|5[0-9][0-9]|exception|fail" | tail -30 || echo "（无匹配行）"
           echo "── API 日志：最近 30 分钟内 5xx 总数（正样本：日志本身可读）──"
           journalctl -u workspacex-api --since "-30min" 2>&1 | grep -c '"statusCode":5' || true
+          echo "── org_memberships：usam@boardx.us 在 org-2e5de17f74b8731f（切换器里选中的「boardx」）的角色行是否存在、org_role 是否合法 ──"
+          $PSQL "SELECT user_id, org_id, org_role, team_id FROM org_memberships WHERE user_id='u-f43693f453ca98f43e9b628d260a41ea' AND org_id='org-2e5de17f74b8731f'" 2>&1 | head -5
+          echo "── organizations 表：该 org 行本身是否存在、id 精确比对（排除大小写/前后空格差异）──"
+          $PSQL "SELECT id, length(id) FROM organizations WHERE id LIKE 'org-2e5de17f74b8731f%'" 2>&1 | head -5
+          echo "── 最近 15 分钟 API 日志：GET /chat/threads 请求与响应（个人对话列表的真实端点，看请求是否到达、返回什么）──"
+          journalctl -u workspacex-api --since "-15min" 2>&1 | grep -F "/chat/threads" | grep -v "/chat/threads/" | tail -20 || echo "（无匹配行——说明前端根本没发出这个请求，或访问日志不含路径，需要换一种抓法）"
