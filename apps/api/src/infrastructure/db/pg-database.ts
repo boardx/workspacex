@@ -8,6 +8,8 @@
  * silently reading someone else's rows.
  */
 import pg from "pg";
+import { ConsoleLogger } from "../logging/console-logger";
+import type { LoggerPort } from "../../application/ports/logger.port";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { currentRunLease, RunLeaseLostError } from "../../application/agent-run/run-lease";
 import type { DatabasePort, QueryResult, TenantSession } from "../../application/ports/database.port";
@@ -19,15 +21,36 @@ export class PgDatabase implements DatabasePort {
   private readonly pool: pg.Pool;
   private readonly activeSession = new AsyncLocalStorage<{orgId:OrgId|null;session:TenantSession}>();
 
-  constructor(cfg: PgConfig) {
+  private readonly connectionErrors = new WeakMap<pg.PoolClient, Error>();
+
+  constructor(cfg: PgConfig, private readonly logger: LoggerPort = new ConsoleLogger()) {
     this.pool = new pg.Pool({ ...cfg, max: 5 });
+    // Install once at creation, before checkout/BEGIN; keep it through release and
+    // socket teardown. pg removes its own idle listener while a client is borrowed.
+    this.pool.on("connect", client => client.on("error", error => {
+      if (!this.connectionErrors.has(client)) this.connectionErrors.set(client, error);
+      this.logConnectionError(error);
+    }));
+    // pg evicts failed idle clients itself. Never retry the interrupted transaction.
+    this.pool.on("error", error => this.logConnectionError(error));
+  }
+
+  private logConnectionError(error: Error): void {
+    const code = (error as Error & {code?: unknown}).code;
+    this.logger.info("database_connection_error", {
+      traceId: "database", code: typeof code === "string" && /^[A-Z0-9]{5}$/.test(code) ? code : "unknown",
+    });
   }
 
   private async inTx<T>(orgId: OrgId | null, fn: (s: TenantSession) => Promise<T>): Promise<T> {
     const nested=this.activeSession.getStore();
     if(nested){if(nested.orgId!==orgId)throw new RunLeaseLostError();return fn(nested.session);}
     const client = await this.pool.connect();
+    const connectionErrors = this.connectionErrors;
+    const assertConnected = () => { const error = connectionErrors.get(client); if (error) throw error; };
+    let failure: unknown;
     try {
+      assertConnected();
       await client.query("BEGIN");
       if (orgId !== null) {
         // Must be transaction-local. Parameterised set_config rather than string concatenation.
@@ -35,7 +58,9 @@ export class PgDatabase implements DatabasePort {
       }
       const session: TenantSession = {
         async query<R = Record<string, unknown>>(sql: string, params: readonly unknown[] = []) {
+          assertConnected();
           const r = await client.query(sql, params as unknown[]);
+          assertConnected();
           return { rows: r.rows as R[] } satisfies QueryResult<R>;
         },
       };
@@ -47,13 +72,17 @@ export class PgDatabase implements DatabasePort {
         if(!ownership.rows.length)throw new RunLeaseLostError();
       }
       const out = await this.activeSession.run({orgId,session},()=>fn(session));
+      assertConnected();
       await client.query("COMMIT");
+      assertConnected();
       return out;
     } catch (e) {
+      failure = connectionErrors.get(client) ?? e;
       await client.query("ROLLBACK").catch(() => undefined);
-      throw e;
+      throw failure;
     } finally {
-      client.release();
+      try { client.release(connectionErrors.get(client)); }
+      catch (releaseError) { if (!failure) throw releaseError; }
     }
   }
 
