@@ -294,6 +294,14 @@ export const DESIGN_PROJECTS = [
         ],
       },
     ]),
+    // 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系。签核前后端不发这个
+    // 字段，夹具先给——UI 先行材料（预览模式 / 画板连线 / 属性面板跳转下拉）靠它拍。id 是
+    // `withIds` 按遍历序补出来的（n2 对话页 navbar、n16/n19/n21 历史会话页、n34 用量页 bottomnav）。
+    frameLinks: [
+      [{ from: "n2", item: 0, to: 1 }],                                   // 对话：☰ → 历史会话
+      [{ from: "n16", item: 0, to: 0 }, { from: "n19", item: 0, to: 0 }, { from: "n21", to: 0 }], // 历史会话：返回 / 第一条 / 开始新对话 → 对话
+      [{ from: "n34", item: 0, to: 0 }, { from: "n34", item: 1, to: 1 }], // 用量：底部导航 聊天 / 历史
+    ],
     pushed: false, pushedAt: null, linkedFeedbackId: null,
     githubIssueUrl: null, githubIssueNumber: null,
     chat: [
@@ -343,6 +351,7 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
   //   三评 D4 判 0 的根因：v1 预览画布上出现了比当前版本还多的控件）。
   const projects = empty ? [] : DESIGN_PROJECTS.map((p) => ({
     ...p, chat: [...p.chat], prototype: structuredClone(p.prototype), frameNotes: [...p.frameNotes],
+    ...(p.frameLinks !== undefined ? { frameLinks: structuredClone(p.frameLinks) } : {}),
   }));
   // 版本日志是 append-only 的快照，写入那一刻拍下当时的树——不从活树事后倒推。
   const versions = new Map(projects.map((p) => [p.id, p.id !== "proj-chat-ui" ? [] : [

@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | V10 | 合法 `prototype` ⇒ frames + prototype 原子写回，画布渲染树 | `designWorkbench.appendProjectChat`（`DesignChatWriteback.prototype`；`DesignProject.prototype`） | `design-detail-phone-tree` / `design-detail-chat-applied` | ✅ |
 | V11 | 切页看对应树 | `DesignProject.prototype[i]` ↔ `frames[i]` | `design-detail-frame-{i}` → `design-detail-phone-tree` | ✅ |
-| V12 | 只改标签 ⇒ 树清空 | `DesignProjectPatch.frames`（仓储 CASE） | `design-detail-phone-placeholder` | ✅ |
+| V12 | 只改标签：等长保留树、不等长才清；会改页数的 frames-only 写回被拒（#2900 起） | `DesignProjectPatch.frames`（仓储 CASE 按长度判）/ `framesKeepPagesAligned` | `design-detail-phone-tree`（保留）/ `design-detail-phone-placeholder`（清空） | ✅ |
 | V13 | 超限/非法 ⇒ 字段级拒绝 | `PrototypeScreen.refine` / `parseWriteback` | 「已更新」不含原型画布 | ✅ |
 | V14 | 生成中提示；失败退固定回执 | `appendProjectChat`（`reply.source`） | `design-detail-generating` / `design-detail-turn-fallback` | ✅ |
 | V15 | 导出设计文档 | 无接口（客户端 `lib/design-doc-markdown.ts`） | `design-detail-export-doc` | ✅ |

@@ -11,23 +11,67 @@
 import * as React from "react";
 import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PrototypeNode } from "@/lib/live-design-workbench";
+import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
 
 /**
  * 迭代 2：选中态。`selectedId` 当前选中的节点 id；`onSelect(id | null)` 点节点/点空白。
  * 用 context 而不是逐层传 prop：树是递归渲染的，每一层都要它。
  */
-const SelectionCtx = React.createContext<{ selectedId: string | null; onSelect: ((id: string | null) => void) | null }>({ selectedId: null, onSelect: null });
+/**
+ * 迭代 11（design-delta `prototype-navigation`，待签核）：画布有两种模式。
+ * - `edit`（现状）：点节点 = 选中它去改。
+ * - `preview`：点**有跳转关系**的节点 = 跳到目标页（`onNavigate(to)`）；没有的节点点了没反应，也**不**选中。
+ * `links` 是本页的跳转表，键 `${from}#${item ?? 0}`——多项原语按项、navbar 左 0 右 1、其余恒 0。
+ */
+export type PrototypeCanvasMode = "edit" | "preview";
+export const linkKey = (from: string, item?: number): string => `${from}#${item ?? 0}`;
+/** 本页 `links[]` → 查表。只此一处把数组变成 Map，画布与画板连线共用。 */
+export function linkMapOf(links: readonly PrototypeLink[] | undefined): ReadonlyMap<string, number> {
+  return new Map((links ?? []).map((l) => [linkKey(l.from, l.item), l.to]));
+}
+
+const SelectionCtx = React.createContext<{
+  selectedId: string | null;
+  onSelect: ((id: string | null) => void) | null;
+  mode: PrototypeCanvasMode;
+  links: ReadonlyMap<string, number>;
+  onNavigate: ((to: number) => void) | null;
+}>({ selectedId: null, onSelect: null, mode: "edit", links: new Map(), onNavigate: null });
+
+/** 预览模式下「某个可点位」要挂的属性：有跳转 ⇒ 真正的控件 + 点击跳转；没有 ⇒ 什么都不挂。 */
+function useLinkTap(id: string | undefined, item?: number) {
+  const { mode, links, onNavigate } = React.useContext(SelectionCtx);
+  if (mode !== "preview" || id === undefined) return { linked: false, props: {} as const };
+  const to = links.get(linkKey(id, item));
+  if (to === undefined || onNavigate === null) return { linked: false, props: {} as const };
+  const go = () => onNavigate(to);
+  return {
+    linked: true,
+    props: {
+      "data-link-to": to,
+      role: "button" as const,
+      tabIndex: 0,
+      onClick: (e: React.MouseEvent) => { e.stopPropagation(); go(); },
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); go(); }
+      },
+    } as const,
+  };
+}
 
 /** 每个节点根元素要挂的属性：id、选中标记、点击选中（冒泡到父节点前停住，父子重叠时选最内层）。 */
 function useTap(node: PrototypeNode) {
-  const { selectedId, onSelect } = React.useContext(SelectionCtx);
+  const { selectedId, onSelect, mode } = React.useContext(SelectionCtx);
   const id = node.id;
-  const interactive = onSelect !== null && id !== undefined;
+  // 单目标原语在预览模式下的跳转（多项原语与 navbar 由各自的项挂 `useLinkTap`，这里 item 恒 0 会查不到，正好）。
+  const link = useLinkTap(id);
+  // 预览模式下选中语义整个关掉：没跳转的节点点了没反应，也不选中（delta V29 的反证就是这一行）。
+  const interactive = mode === "edit" && onSelect !== null && id !== undefined;
   const toggle = () => { if (interactive) onSelect(id === selectedId ? null : id); };
   return {
     "data-node-id": id,
     "data-selected": id !== undefined && id === selectedId ? "true" : undefined,
+    "data-linked": link.linked ? "true" : undefined,
     // 可选中时是一个真正的控件：role/tabIndex/aria-pressed + Enter/Space 触发（Codex P2：不能只挂 onClick）。
     ...(interactive
       ? {
@@ -39,8 +83,20 @@ function useTap(node: PrototypeNode) {
             if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggle(); }
           },
         }
-      : {}),
+      : link.props),
   } as const;
+}
+
+/** 多项原语 / navbar 的第 `item` 项要挂的属性（预览模式下有跳转才是控件）。 */
+function ItemTap({ id, item, children, className, as: Tag = "span" }: {
+  id: string | undefined; item: number; children: React.ReactNode; className?: string; as?: "span" | "li";
+}) {
+  const link = useLinkTap(id, item);
+  return (
+    <Tag className={className} data-link-item={id !== undefined ? linkKey(id, item) : undefined} data-linked={link.linked ? "true" : undefined} {...link.props}>
+      {children}
+    </Tag>
+  );
 }
 
 const GAP: Record<"none" | "sm" | "md" | "lg", string> = { none: "gap-0", sm: "gap-1", md: "gap-2", lg: "gap-4" };
@@ -117,9 +173,9 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
     case "navbar":
       return (
         <div className="flex h-9 items-center justify-between border-b border-border px-1 text-12" data-proto="navbar" {...tap}>
-          <span className="w-10 truncate text-muted-foreground">{node.props.left ?? ""}</span>
+          <ItemTap id={node.id} item={0} className="w-10 truncate text-muted-foreground">{node.props.left ?? ""}</ItemTap>
           <span className="truncate font-semibold">{node.props.title}</span>
-          <span className="w-10 truncate text-right text-primary">{node.props.right ?? ""}</span>
+          <ItemTap id={node.id} item={1} className="w-10 truncate text-right text-primary">{node.props.right ?? ""}</ItemTap>
         </div>
       );
     case "text": {
@@ -168,12 +224,12 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <ul className="flex w-full flex-col divide-y divide-border" data-proto="list" {...tap}>
           {node.props.items.map((item, i) => (
-            <li key={i} className="flex items-center gap-2 py-1.5 text-12">
+            <ItemTap key={i} as="li" id={node.id} item={i} className="flex items-center gap-2 py-1.5 text-12">
               {lead === "dot" && <Circle aria-hidden className="h-1.5 w-1.5 shrink-0 fill-current text-muted-foreground" />}
               {lead === "check" && <Check aria-hidden className="h-3 w-3 shrink-0 text-success" />}
               {lead === "avatar" && <span aria-hidden className="h-5 w-5 shrink-0 rounded-full bg-panel" />}
               <span className="truncate">{item}</span>
-            </li>
+            </ItemTap>
           ))}
         </ul>
       );
@@ -187,7 +243,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return (
         <div className="flex w-full gap-1 border-b border-border text-11" data-proto="tabs" {...tap}>
           {node.props.items.map((t, i) => (
-            <span key={i} className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground")}>{t}</span>
+            <ItemTap key={i} id={node.id} item={i} className={cn("px-2 pb-1", i === active ? "border-b-2 border-primary font-medium" : "text-muted-foreground")}>{t}</ItemTap>
           ))}
         </div>
       );
@@ -216,10 +272,10 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
           {node.props.items.map((item, i) => {
             const Icon = NAV_ICONS[i % NAV_ICONS.length]!;
             return (
-              <span key={i} className={cn("flex flex-1 flex-col items-center gap-0.5 py-1 text-10", i === active ? "text-primary" : "text-muted-foreground")}>
+              <ItemTap key={i} id={node.id} item={i} className={cn("flex flex-1 flex-col items-center gap-0.5 py-1 text-10", i === active ? "text-primary" : "text-muted-foreground")}>
                 <Icon aria-hidden className="h-4 w-4" />
                 <span className="truncate">{item}</span>
-              </span>
+              </ItemTap>
             );
           })}
         </nav>
@@ -283,9 +339,11 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex,
+  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex, mode = "edit", links, onNavigate = null,
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
+  mode?: PrototypeCanvasMode; links?: readonly PrototypeLink[]; onNavigate?: ((to: number) => void) | null;
   /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
   frameIndex?: number;
   /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。主题跟随页面 `.dark`——globals.css 没有独立的 `.light` 类，不另造第二份 token。 */
@@ -293,9 +351,10 @@ export function PrototypeCanvas({
 }) {
   const { Icon } = DEVICE[device];
   const size = DEVICE_SIZE[device];
+  const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   return (
-    <SelectionCtx.Provider value={{ selectedId, onSelect }}>
-    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex}>
+    <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate }}>
+    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex} data-mode={mode}>
       <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
         <Icon aria-hidden className="h-3 w-3" /> {label}
       </div>
@@ -312,11 +371,13 @@ export function PrototypeCanvas({
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-hidden p-2 text-card-foreground [&>*]:min-h-0 [&>[data-proto=stack]]:flex-1",
             // 选中态：静态 arbitrary variant（Tailwind 扫得到），选中节点描边 + 可点节点显示手型。
-            onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
+            mode === "edit" && onSelect !== null && "[&_[data-node-id]]:cursor-pointer [&_[data-node-id]:hover]:outline [&_[data-node-id]:hover]:outline-1 [&_[data-node-id]:hover]:outline-primary/40",
             "[&_[data-selected=true]]:outline [&_[data-selected=true]]:outline-2 [&_[data-selected=true]]:outline-primary [&_[data-selected=true]]:outline-offset-1",
+            // 迭代 11 预览态：只有带跳转的可点位显示手型 + 悬停描边；其余节点没有任何可点暗示。
+            mode === "preview" && "[&_[data-linked=true]]:cursor-pointer [&_[data-linked=true]:hover]:outline [&_[data-linked=true]:hover]:outline-2 [&_[data-linked=true]:hover]:outline-primary [&_[data-linked=true]:hover]:outline-offset-1",
           )}
           data-testid="design-detail-phone-tree"
-          onClick={() => onSelect?.(null)}
+          onClick={() => { if (mode === "edit") onSelect?.(null); }}
         >
           <Node node={root} />
         </div>

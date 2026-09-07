@@ -18,8 +18,12 @@
 ## 2. 不变量（能写成断言的）
 
 - **I-8 位置对应。** `prototype.length ∈ {0, frames.length}`；`prototype[i]` 属于 `frames[i]`。
-  契约 `DesignProject.superRefine` + 仓储 `update` 的 CASE（只改 `frames` ⇒ `prototype := []`）
-  + 读出时 `toPrototype` 长度不等 ⇒ 按「还没生成」处理。三处都守，任一处漏了另两处兜底。
+  契约 `DesignProject.superRefine` + 仓储 `update` 的 CASE + 读出时 `toPrototype` 长度不等 ⇒ 按
+  「还没生成」处理。三处都守，任一处漏了另两处兜底。
+  ⚠ **#2900（2026-09-07）改了守法方式**：此前是「只改 `frames` ⇒ `prototype := []`」，用户实测
+  「增加设置页」时模型只回了标签，三页画好的原型当场全没。现在是**等长保留、不等长才清**，
+  且应用层 `framesKeepPagesAligned` 直接拒掉会改页数的 frames-only 写回（同 I-10：宁可不写，
+  也不写坏）。追认见 `design-deltas/prototype-navigation/design-signoff.md`。
 - **I-9 整页原子。** `prototype` 写回时 `frames`（标签）与 `prototype`（树）在**同一条** UPDATE
   里更新；不存在「标签是新的、树是旧的」中间态。`applied` 同时列 `frames` 与 `prototype`。
 - **I-10 字段级拒绝。** 任一页超限（深度 > 8 / 节点 > 300）或有非法节点 ⇒ **整个** `prototype`
@@ -28,7 +32,7 @@
 - **I-11 只经契约 patch 写回，永远重验。**（迭代 5 改写；原文「只能经模型写回」）写 `prototype` 只有两条路：
   模型写回（`appendProjectChat`）与人直接改（`patchPrototype`），两条都走 `applyPrototypePatch` / 整页契约重验，
   `createProject`/`updateProject` 仍不收它，新建恒为 `[]`。
-- **I-19 说明与标签同命。**（迭代 8）`frameNotes[i]` 属于 `frames[i]`；只改标签 ⇒ 清空（同 `prototype`）；随版本快照并在恢复时一起写回。
+- **I-19 说明与标签同命。**（迭代 8）`frameNotes[i]` 属于 `frames[i]`；只改标签且等长 ⇒ 保留、不等长 ⇒ 清空（同 `prototype`，#2900 起）；随版本快照并在恢复时一起写回。
 - **I-18 修复至多一轮。**（迭代 7）被拒的只可能是 `prototype`/`patch`，修复轮把契约原话理由喂回去、只发一次；
   纠偏只修机械格式（不猜缺失必填、不删未知键）。用户取消只是前端放弃等待，服务端不回滚。
 - **I-17 容器闭集单源。**（迭代 6）有 `children` 的类型只在 `PROTOTYPE_CONTAINER_TYPES` 声明一次，所有遍历（度量 / 补 id / patch / 路径 / 大纲）只认 `isPrototypeContainer`。
@@ -70,8 +74,13 @@
 - ✅ 迭代 8：每页交互说明 + 导出菜单（md / json / png / 复制）。
 - ✅ 迭代 9：对话质量（设计原则 + few-shot / 建议 chips / 起手模板）。
 - ✅ 迭代 10：主链路 e2e + 响应式场景 + 保真评分卡（`fidelity-rubric.md`，≥ 9 由 rev-uiux 判）。
+- ⬜ 迭代 11（**待人类签核，UI 先行材料已出**）：可点击原型——模型自动连跳转关系 + 预览模式 + 画板流程连线。
+  规范、验收与三处取舍见 design-delta **`design-deltas/prototype-navigation/`**（`contract.md` /
+  `verification.md` / `design-signoff.md`，status pending）；评估与拆解见 issue #2917。
 
 ## 5. 与 Claude Design 的已知差距（登记，不掩盖）
 流式生成（token 级）、画布 light/dark 主题、节点拖拽重排/多选/复制粘贴、像素级样式自定义——
 前两条有明确理由（单次补全 + 修复轮；globals.css 无 `.light`），后两条是下一轮的事。
+**可点击/可走通流程**（页与页之间的跳转关系）也是差距之一——现在画布上点节点是「选中去改」，
+不是跳转；已登记为迭代 11（issue #2917），取舍「模型自动连」已由人类拍板（2026-09-07）。
 - 流式生成 / 取消。

@@ -2,7 +2,7 @@
 
 > ## 自检（可机械核对）
 >
-> **本文件引用 11 张截图，目录下实际 11 张。N == M，无死链、无多列、无遗漏。**
+> **本文件引用 14 张截图，目录下实际 14 张。N == M，无死链、无多列、无遗漏。**
 >
 > 这一行由 `.harness/scripts/lint-ui-material.mjs` 双向对账（引用集合 == 实存集合）。
 
@@ -25,6 +25,9 @@
 | [detail-prototype-page3-dark.png](../../ui-preview/design-prototype/detail-prototype-page3-dark.png) | 迭代 6：第三页「用量」 | 八种新原语一屏：hero 头图（标题/副标题/CTA）、grid 2 列里的 stat 指标卡、progress、row 里的 chip、switch、checkbox、页底 bottomnav（当前项高亮）。设备尺寸由模板派生（mobile 手机 300 / wireframe 平板 440 / ui 桌面 720），画板「适应」按设备算 |
 | [detail-prototype-inspector-dark.png](../../ui-preview/design-prototype/detail-prototype-inspector-dark.png) | 迭代 5：选中「停止」按钮、把文案改成「停止生成」但尚未应用的草稿态 | 面包屑路径、按类型的字段（文案 / 样式 / 通栏）、「应用」只在有改动时可点、「删除」（根节点没有）；提交是一条 `setProps` patch，走与模型同一条重验路径；400 的 detail 原样显示 |
 | [detail-prototype-history-dark.png](../../ui-preview/design-prototype/detail-prototype-history-dark.png) | 迭代 3：点「历史」打开版本面板，再点 v1 | 右侧一栏列出每一版（序号 / 来源 模型·手改·恢复 / 时间 / 一句话摘要）；点一版进预览：画布左上横幅「正在预览 v1，画布未改动」+ 退出预览，页标签切成那一版的；预览态画布不可点选；owner 见「恢复到这一版」 |
+| [detail-prototype-preview-dark.png](../../ui-preview/design-prototype/detail-prototype-preview-dark.png) | 迭代 11（**待签核**，UI 先行）：单页视图切到「预览」，鼠标悬停在带跳转的「开始新对话」上 | 顶栏视图切换旁多一组「编辑 / 预览」；预览下只有带跳转的可点位显示手型 + 描边，其余节点没有任何可点暗示；属性面板与焦点 chip 收起。点它 ⇒ 切到「对话」页 |
+| [detail-prototype-links-dark.png](../../ui-preview/design-prototype/detail-prototype-links-dark.png) | 迭代 11：画板视图，三页之间的跳转连线 | 从源可点位右缘（目标在左则左缘）到目标页画板边缘的贝塞尔箭头，随平移缩放一起变换；夹具 6 条：☰→历史、返回/第一条/开始新对话→对话、底部导航 聊天/历史 |
+| [detail-prototype-inspector-link-dark.png](../../ui-preview/design-prototype/detail-prototype-inspector-link-dark.png) | 迭代 11：编辑模式选中用量页的底部导航 ⇒ 属性面板多一块「跳转」 | 多项原语按项各一个「→」下拉（各页 + 无，本页除外）；单目标原语一个「点击后跳转到」；navbar 左右各一个。签核前改动只在本地，`setLinks` 接线是签核后的事 |
 | [detail-prototype-generating-dark.png](../../ui-preview/design-prototype/detail-prototype-generating-dark.png) | 发送后等待模型（真实等待，夹具晚 3s 才回） | 迭代 7：对话面板底部按已等待时长给阶段文案 + 秒数 + 「取消」；输入框与发送键禁用；失败后错误条带「重试」 |
 
 ⚠ 未产出：占位块 + 引导语的空态特写（`design-detail-phone-placeholder`）——与 `design-workbench`

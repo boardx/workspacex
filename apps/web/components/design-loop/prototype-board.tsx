@@ -12,8 +12,8 @@
 import * as React from "react";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PrototypeCanvas, DEVICE_SIZE, type PrototypeDevice } from "./prototype-canvas";
-import type { PrototypeNode } from "@/lib/live-design-workbench";
+import { PrototypeCanvas, DEVICE_SIZE, linkKey, type PrototypeCanvasMode, type PrototypeDevice } from "./prototype-canvas";
+import { linkSlotsOf, findPrototypeNodePath, type PrototypeLink, type PrototypeNode } from "@/lib/live-design-workbench";
 
 const MIN = 0.25;
 const MAX = 2.5;
@@ -23,7 +23,7 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone",
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone", links = [], mode = "edit", onNavigate = null,
 }: {
   frames: readonly string[];
   prototype: readonly PrototypeNode[];
@@ -32,6 +32,10 @@ export function PrototypeBoard({
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
   device?: PrototypeDevice;
+  /** 迭代 11：每页出发的跳转关系（`links[i]` 属于第 i 页）；编辑/预览；预览点跳转 ⇒ `onNavigate`。 */
+  links?: readonly (readonly PrototypeLink[])[];
+  mode?: PrototypeCanvasMode;
+  onNavigate?: ((to: number) => void) | null;
 }) {
   // 每块画板占位宽高（与 `PrototypeCanvas` 的设备尺寸一致，+ 标题行），用于「适应」的估算。
   const BOARD_W = DEVICE_SIZE[device].w;
@@ -55,6 +59,54 @@ export function PrototypeBoard({
 
   // 首次与页数变化时适应一次；jsdom 里 clientWidth 为 0，fit 会把 k 夹到 MIN——测试不依赖具体值。
   React.useEffect(() => { fit(); }, [fit]);
+
+  /**
+   * 迭代 11：页与页之间的连线。画在 stage 里（随平移缩放一起变换），坐标按 stage 的**未缩放**坐标系：
+   * 从 DOM 量到的 rect 都带着 `scale(k)`，除回去即可。源点 = 可点位的右缘中点（目标在左边则取左缘），
+   * 终点 = 目标页画板的左缘中点（或右缘）。jsdom 里所有 rect 都是 0 ⇒ 路径退化成点，但**数量仍等于
+   * 合法 link 数**——V30 断言的正是数量，不是几何。
+   */
+  const [paths, setPaths] = React.useState<readonly { key: string; d: string }[]>([]);
+  const kRef = React.useRef(view.k);
+  kRef.current = view.k;
+  const measure = React.useCallback(() => {
+    const stage = stageRef.current;
+    if (stage === null) return;
+    const sr = stage.getBoundingClientRect();
+    const k = kRef.current || 1;
+    const rel = (r: DOMRect) => ({ x1: (r.left - sr.left) / k, y1: (r.top - sr.top) / k, x2: (r.right - sr.left) / k, y2: (r.bottom - sr.top) / k });
+    const out: { key: string; d: string }[] = [];
+    links.forEach((pageLinks, i) => {
+      // 用专门的 data 属性定位，不借 testid（lint-design D-35：testid 不携带业务数据/不当查询键）。
+      const frameEl = stage.querySelector(`[data-board-frame="${i}"]`);
+      if (frameEl === null) return;
+      for (const l of pageLinks) {
+        const hit = findPrototypeNodePath(prototype, l.from);
+        const multi = hit !== null && linkSlotsOf(hit.path[hit.path.length - 1]!) > 1;
+        const srcEl = frameEl.querySelector(multi ? `[data-link-item="${linkKey(l.from, l.item)}"]` : `[data-node-id="${l.from}"]`);
+        const dstEl = stage.querySelector(`[data-board-frame="${l.to}"]`);
+        if (srcEl === null || dstEl === null) continue;
+        const a = rel(srcEl.getBoundingClientRect());
+        const b = rel(dstEl.getBoundingClientRect());
+        const rightward = l.to > i;
+        const sx = rightward ? a.x2 : a.x1;
+        const sy = (a.y1 + a.y2) / 2;
+        const tx = rightward ? b.x1 : b.x2;
+        const ty = (b.y1 + b.y2) / 2;
+        const dx = Math.max(24, Math.abs(tx - sx) / 2) * (rightward ? 1 : -1);
+        out.push({ key: `${i}:${linkKey(l.from, l.item)}→${l.to}`, d: `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}` });
+      }
+    });
+    setPaths(out);
+  }, [links, prototype]);
+  React.useLayoutEffect(() => {
+    measure();
+    // 画板/页面尺寸变了（字体加载、窗口变化）要重量；jsdom 没有 ResizeObserver，量一次即可。
+    if (typeof ResizeObserver === "undefined" || stageRef.current === null) return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(stageRef.current);
+    return () => ro.disconnect();
+  }, [measure, frames, device, view.k]);
 
   const zoomAt = (factor: number, cx?: number, cy?: number) => {
     setView((v) => {
@@ -118,7 +170,7 @@ export function PrototypeBoard({
         data-testid="design-detail-board-stage"
       >
         {frames.map((label, i) => (
-          <div key={`${i}-${label}`} className="flex flex-col gap-1.5" data-testid={`design-detail-board-frame-${i}`}>
+          <div key={`${i}-${label}`} className="flex flex-col gap-1.5" data-testid={`design-detail-board-frame-${i}`} data-board-frame={i}>
             <button
               type="button"
               data-board-title
@@ -138,10 +190,25 @@ export function PrototypeBoard({
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
                 device={device}
                 frameIndex={i}
+                mode={mode}
+                links={links[i]}
+                onNavigate={onNavigate}
               />
             </div>
           </div>
         ))}
+        {paths.length > 0 && (
+          <svg className="pointer-events-none absolute left-0 top-0 h-full w-full overflow-visible" aria-hidden data-testid="design-detail-board-links">
+            <defs>
+              <marker id="proto-link-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 8 4 L 0 8 z" className="fill-primary" />
+              </marker>
+            </defs>
+            {paths.map((p) => (
+              <path key={p.key} d={p.d} className="fill-none stroke-primary/70" strokeWidth={2} markerEnd="url(#proto-link-arrow)" data-testid="design-detail-board-link" />
+            ))}
+          </svg>
+        )}
       </div>
       <div className="absolute bottom-3 right-3 flex items-center gap-0.5 rounded-card border border-border bg-card p-0.5 text-11 shadow-lg" data-testid="design-detail-board-zoom" data-board-controls>
         <button type="button" aria-label="缩小" onClick={() => zoomAt(1 / STEP)} className="rounded-control p-1 transition-colors duration-fast hover:bg-panel" data-testid="design-detail-zoom-out"><Minus aria-hidden className="h-3.5 w-3.5" /></button>
