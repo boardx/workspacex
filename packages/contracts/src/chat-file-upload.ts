@@ -47,7 +47,7 @@ export const ATTACHMENT_LIMITS = {
 
 /**
  * 允许上传的 MIME 白名单（**唯一事实源**）。签核值：PDF / 纯文本·markdown / 常见图片 /
- * 常见 Office / csv。服务端**必须**按它拒绝白名单外的类型（`FILE_TYPE_REJECTED`），
+ * 常见 Office / csv / WAV（标准音频工具原件入口）。服务端**必须**按它拒绝白名单外的类型（`FILE_TYPE_REJECTED`），
  * 且不信任客户端声明的 `mime`——须由服务端从字节/扩展名核验后再比对（防伪造 MIME）。
  */
 export const ATTACHMENT_MIME_ALLOWLIST = [
@@ -55,6 +55,9 @@ export const ATTACHMENT_MIME_ALLOWLIST = [
   "text/plain",
   "text/markdown",
   "text/csv",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/wave",
   "image/png",
   "image/jpeg",
   "image/webp",

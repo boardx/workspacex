@@ -51,3 +51,6 @@ describe("planExtraction", () => {
     expect(planExtraction("application/x-msdownload")).toEqual({ kind: "unsupported", reason: "unknown-type" });
   });
 });
+it('audio originals do not trigger automatic document or external vision extraction',()=>{
+ for(const mime of ['audio/wav','audio/x-wav','audio/wave'])expect(planExtraction(mime)).toEqual({kind:'unsupported',reason:'unknown-type'});
+});

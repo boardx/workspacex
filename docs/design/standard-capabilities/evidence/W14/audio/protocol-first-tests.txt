@@ -1,0 +1,25 @@
+[stack-admission] load1=11.17 cores=10 perCore=1.12 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqncqkw-25ce1642-cf1513c74fbf db=wsx_cf1513c74fbf747ff24b compose=wsx-cf1513c74fbf747ff24b pg=20031 redis=25031 sandbox=50031
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_cf1513c74fbf747ff24b capacity=100 current=6 required=32
+ ✓ tests/recording/configured-realtime-asr-provider.test.ts (11 tests) 364ms
+ ✓ tests/recording/file-asr-manual.test.ts (1 test) 67ms
+ ✓ tests/recording/configured-realtime-asr-events.test.ts (6 tests) 11ms
+ ✓ tests/agent-runtime/audio-final-collector.test.ts (3 tests) 5ms
+
+ Test Files  4 passed (4)
+      Tests  21 passed (21)
+   Start at  10:54:05
+   Duration  16.04s (transform 1.27s, setup 0ms, collect 2.05s, tests 447ms, environment 1ms, prepare 588ms)
+
+[db-isolation] db=wsx_cf1513c74fbf747ff24b peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/recording/configured-realtime-asr-events.test.ts tests/recording/configured-realtime-asr-provider.test.ts tests/recording/file-asr-manual.test.ts tests/agent-runtime/audio-final-collector.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：1s
+  总计：19s

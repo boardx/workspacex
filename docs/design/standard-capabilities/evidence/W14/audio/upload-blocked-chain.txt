@@ -1,0 +1,57 @@
+[stack-admission] load1=16.09 cores=10 perCore=1.61 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtqo5pqe-7ccdc10e-b4de5e47af59 db=wsx_b4de5e47af59e343f249 compose=wsx-b4de5e47af59e343f249 pg=22007 redis=27007 sandbox=52007
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_b4de5e47af59e343f249 capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/standard-audio-tools.test.ts (4 tests) 183ms
+ ✓ tests/recording/file-asr-manual.test.ts (2 tests) 209ms
+ ✓ tests/agent-runtime/audio-production-di.test.ts (1 test) 86965ms
+   ✓ production kernel binds audio service only when native ownership and provider credentials are configured 38145ms
+
+ Test Files  3 passed (3)
+      Tests  7 passed (7)
+   Start at  11:16:40
+   Duration  115.62s (transform 22.74s, setup 0ms, collect 6.20s, tests 87.36s, environment 1ms, prepare 1.17s)
+
+[db-isolation] db=wsx_b4de5e47af59e343f249 peak_connections=3
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/apps/api
+
+[db-isolation] db=wsx_b4de5e47af59e343f249 capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/native-full-chain.test.ts (1 test | 1 failed) 1613ms
+   × official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback 358ms
+     → FILE_TYPE_REJECTED
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/native-full-chain.test.ts > official Python factory crosses real UDS isolated sandbox and PG authority into durable artifact writeback
+AttachmentUploadError: FILE_TYPE_REJECTED
+ ❯ Module.uploadAttachment src/application/chat/upload-attachment.ts:141:22
+    139|   const byteLen = input.bytes.byteLength;
+    140|   const typeErr = checkAttachmentBytesAndType({ bytes: byteLen, mime: …
+    141|   if (typeErr) throw new AttachmentUploadError(typeErr);
+       |                      ^
+    142| 
+    143|   // ③ 数量（该线程 pending 数）——租户表读经 permission-filter 出门，…
+ ❯ tests/agent-runtime/native-full-chain.test.ts:135:49
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  11:18:38
+   Duration  8.57s (transform 2.51s, setup 0ms, collect 4.57s, tests 1.61s, environment 0ms, prepare 211ms)
+
+[db-isolation] db=wsx_b4de5e47af59e343f249 peak_connections=2
+undefined
+/private/tmp/workspacex-standard-capabilities/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+[timing] bash -ec pnpm --filter @repo/api exec vitest run tests/agent-runtime/standard-audio-tools.test.ts tests/agent-runtime/audio-production-di.test.ts tests/recording/file-asr-manual.test.ts; pnpm --filter @repo/api exec vitest run --config vitest.native-chain.config.ts tests/agent-runtime/native-full-chain.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m12s
+  清理：2s
+  总计：2m14s

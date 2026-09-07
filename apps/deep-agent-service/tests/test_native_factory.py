@@ -161,6 +161,6 @@ def test_factory_registers_actual_schedule_tools(monkeypatch):
         async with factory.native_graph_context(value): pass
     asyncio.run(run())
     registered={t.name:t for t in build.call_args.kwargs['tools']}
-    for name in ['wx_schedule_create','wx_schedule_list','wx_schedule_cancel','wx_image_generate']:
+    for name in ['wx_schedule_create','wx_schedule_list','wx_schedule_cancel','wx_image_generate','wx_audio_transcribe']:
         assert registered[name].coroutine is not None
         assert registered[name].args_schema['type']=='object'

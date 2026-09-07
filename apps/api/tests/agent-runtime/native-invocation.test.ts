@@ -15,7 +15,7 @@ function fixture(completion: ModelCallCompletion = { text: "done" }) {
 it("binds the trusted attempt once and releases after terminal completion without any script replay", async () => {
   const f = fixture(); expect(await f.run()).toEqual({ text: "done" });
   expect(f.owner.provision).toHaveBeenCalledTimes(1);
-  expect(f.owner.provision).toHaveBeenCalledWith({ orgId: "org", parentRunId: "run", attemptId: "run:1", leaseEpoch: 1 }, [], expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: true, wx_memory_search: false, wx_memory_write: true, wx_memory_delete: true, wx_schedule_create: true, wx_schedule_list: true, wx_schedule_cancel: true, wx_image_generate: true }));
+  expect(f.owner.provision).toHaveBeenCalledWith({ orgId: "org", parentRunId: "run", attemptId: "run:1", leaseEpoch: 1 }, [], expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: true, wx_memory_search: false, wx_memory_write: true, wx_memory_delete: true, wx_schedule_create: true, wx_schedule_list: true, wx_schedule_cancel: true, wx_image_generate: true, wx_audio_transcribe: true }));
   expect(f.model.complete).toHaveBeenCalledWith(expect.objectContaining({ nativeSession: binding }));
   expect(f.model.complete).toHaveBeenCalledTimes(1);
   expect(f.owner.release).toHaveBeenCalledWith(binding.bindingId, "org", "run");

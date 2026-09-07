@@ -34,6 +34,9 @@ export interface AsrAudioFormat {
  *   在这里填一个 `1.0` 等于替策略层做了一个没人签核过的决定。
  */
 export interface AsrTranscript {
+  /** Optional upstream identities, never synthesized from transcript text. */
+  readonly itemId?: string;
+  readonly eventId?: string;
   readonly text: string;
   readonly confidence: number | null;
 }
@@ -65,9 +68,11 @@ export interface AsrSession {
 }
 
 export interface AsrProviderPort {
+  /** Configured model identity; absent providers cannot serve durable file transcription. */
+  readonly modelRef?: string;
   /** 提供方是否已配置。未配置时 `open()` 会抛，界面据此显示「未配置转写」。 */
   isConfigured(): boolean;
-  open(handlers: AsrSessionHandlers, audio: AsrAudioFormat): Promise<AsrSession>;
+  open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection: "manual"; readonly signal?: AbortSignal}): Promise<AsrSession>;
 }
 
 export class AsrNotConfiguredError extends Error {

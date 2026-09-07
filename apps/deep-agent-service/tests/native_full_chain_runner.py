@@ -23,6 +23,9 @@ class InputAwareModel(ScriptedModel):
   if messages[-1].type=='tool' and messages[-1].name=='wx_skill_create_draft':
    draft=json.loads(messages[-1].content)
    return ChatResult(generations=[ChatGeneration(message=AIMessage(content='',tool_calls=[{'id':'publish-draft','name':'wx_artifact_publish','args':{'workspacePath':draft['workspacePath'],'title':'draft.json','mediaType':'application/json','idempotencyKey':'draft-v1'}}]))])
+  if messages[-1].type=='tool' and messages[-1].name=='wx_audio_transcribe':
+   generated=json.loads(messages[-1].content)
+   return ChatResult(generations=[ChatGeneration(message=AIMessage(content='',tool_calls=[{'id':'publish-audio','name':'wx_artifact_publish','args':{'workspacePath':generated['workspacePath'],'title':'transcript.json','mediaType':'application/json','idempotencyKey':'transcript-v1'}}]))])
   if messages[-1].type=='tool' and messages[-1].name=='wx_image_generate':
    generated=json.loads(messages[-1].content)
    return ChatResult(generations=[ChatGeneration(message=AIMessage(content='',tool_calls=[{'id':'publish-image','name':'wx_artifact_publish','args':{'workspacePath':generated['workspacePath'],'title':'generated.png','mediaType':generated['mime'],'idempotencyKey':'generated-image-v1'}}]))])
@@ -34,6 +37,7 @@ model=InputAwareModel(messages=iter([
  AIMessage(content='',tool_calls=[{'id':'create-draft','name':'wx_skill_create_draft','args':{'stableName':'generated-example','name':'Generated example','description':'Use a script to print verified output.','semanticVersion':'1.0.0','files':[{'workspacePath':'/workspace/draft-SKILL.md','packagePath':'SKILL.md'},{'workspacePath':'/workspace/draft-script.py','packagePath':'scripts/report.py'}],'inputSchema':{},'outputSchema':{},'dependencies':[{'runtime':'python','packages':[]}]}}]),
  AIMessage(content='',tool_calls=[{'id':'publish-report','name':'wx_artifact_publish','args':{'workspacePath':'/workspace/report.txt','title':'report.txt','mediaType':'text/plain','idempotencyKey':'report-v1'}}]),
  AIMessage(content='',tool_calls=[{'id':'generate-image','name':'wx_image_generate','args':{'prompt':'Create a square image with clear typography.','sizeProfile':'square','idempotencyKey':'image-v1'}}]),
+ AIMessage(content='',tool_calls=[{'id':'transcribe-audio','name':'wx_audio_transcribe','args':{'attachmentId':os.environ['WX_AUDIO_ATTACHMENT_ID']}}]),
  AIMessage(content='',tool_calls=[{'id':'search-source','name':'web_search','args':{'query':'Evidence source 中文','limit':1}}]),
  AIMessage(content='',tool_calls=[{'id':'fetch-source','name':'fetch_url','args':{'url':os.environ['WX_WEB_TEST_URL']}}]),
  AIMessage(content='Report staged for writeback.')]))
@@ -60,5 +64,7 @@ async def run():
  assert fixture_verified
  image=json.loads(next(m.content for m in messages if m.type=='tool' and m.name=='wx_image_generate'))
  assert image['status']=='generated' and 'artifactId' not in image and 'url' not in image
- print(json.dumps({'generatedImage':image,'draftFixtureVerified':fixture_verified,'draft':draft,'documentParsed':document_parsed,'document':document,'inputsVerified':inputs_verified,'inputPromptVerified':seen_input_prompt,'webSourceLinked':linked,'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
+ audio=json.loads(next(m.content for m in messages if m.type=='tool' and m.name=='wx_audio_transcribe'))
+ assert 'transcriptId' not in audio
+ print(json.dumps({'audio':audio,'generatedImage':image,'draftFixtureVerified':fixture_verified,'draft':draft,'documentParsed':document_parsed,'document':document,'inputsVerified':inputs_verified,'inputPromptVerified':seen_input_prompt,'webSourceLinked':linked,'skillStages':stages,'tools':tools,'final':messages[-1].content},ensure_ascii=False))
 asyncio.run(run())

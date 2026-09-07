@@ -1300,7 +1300,7 @@
         "WX-E006"
       ],
       "input_summary": "attachmentId:string,language?:string,diarization?:boolean",
-      "output_summary": "transcriptId,segments:[id,startMs,endMs,text,speaker?],warnings",
+      "output_summary": "workspacePath,sha256,sourceHash,segments:[id,startMs,endMs,text],warnings；文件经wx_artifact_publish与最终writeback；不创建虚构transcriptId",
       "acceptance_criteria": [
         "中英文录音返回有时间范围的片段；无法识别片段明确标注。",
         "无录音权限不能转录；说话人未知不猜；重试不产生重复transcript。"

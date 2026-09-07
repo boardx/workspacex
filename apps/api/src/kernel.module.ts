@@ -1,3 +1,6 @@
+import { STANDARD_AUDIO_SERVICE } from "./application/agent-run/standard-audio-tools";
+import { DefaultStandardAudioService } from "./infrastructure/agent-run/standard-audio-service";
+import { StandardAudioController } from "./interface/controllers/standard-audio.controller";
 import { McpCredentialExecutionBroker, mcpCredentialBrokerFromEnv } from "./infrastructure/mcp/mcp-credential-execution-broker";
 import { STANDARD_IMAGE_SERVICE } from "./application/agent-run/standard-image-tools";
 import { DefaultStandardImageService } from "./infrastructure/agent-run/standard-image-service";
@@ -860,7 +863,7 @@ import {
   UuidRecordingIdGenerator,
 } from "./infrastructure/recording/pg-recording-repository";
 import { EnvTranscriptionPolicyProvider } from "./infrastructure/recording/env-transcription-policy";
-import { ASR_PROVIDER } from "./application/recording/asr-ports";
+import { ASR_PROVIDER, type AsrProviderPort } from "./application/recording/asr-ports";
 import { ConfiguredRealtimeAsrProvider } from "./infrastructure/recording/configured-realtime-asr-provider";
 import { RecordingController } from "./interface/controllers/recording.controller";
 import type { IdGenerator as RecordingIdGenerator } from "./application/recording/ports";
@@ -923,7 +926,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
+    StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
@@ -1835,6 +1838,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, authority: ToolExecutionAuthority, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, broker: McpCredentialExecutionBroker | null) =>
         new PgMcpExecutionSnapshot(db, new PgParentRunControlReader(db), authority, {repo,ids,chat}, createHttpMcpExecution(), broker ?? undefined),
       inject: [DATABASE_PORT, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, McpCredentialExecutionBroker],
+    },
+    {
+      provide: STANDARD_AUDIO_SERVICE,
+      useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore, provider: AsrProviderPort) => {
+        const socketPath = process.env.NATIVE_SESSION_SOCKET;
+        if (!owner || !socketPath || !provider.isConfigured() || !provider.modelRef) return null;
+        return new DefaultStandardAudioService(owner, new PgNativeRunInputs(db, objects, {repo, ids, chat}),
+          bound => ({...createNativeDraftSession({socketPath, ...bound}), execute: createNativeDocumentSession({socketPath, ...bound}).execute}),
+          authority, repo, objects, provider);
+      },
+      inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY,
+        DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE, ASR_PROVIDER],
     },
     {
       provide: STANDARD_IMAGE_SERVICE,

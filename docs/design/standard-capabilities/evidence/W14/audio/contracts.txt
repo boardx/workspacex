@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-standard-capabilities/packages/contracts
+
+ ✓ tests/standard-audio-tools.test.ts (2 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  11:09:07
+   Duration  444ms (transform 115ms, setup 0ms, collect 127ms, tests 6ms, environment 0ms, prepare 106ms)
+

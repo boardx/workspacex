@@ -4,7 +4,7 @@ import { ModelCallError, type ModelCallInput } from "./ports";
 import type { NativeSessionOwner } from "./native-session-owner";
 
 /** Profile membership, not a second permission classification. Unknown tools remain L2. */
-const NATIVE_PROFILE_TOOLS = ["ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate"] as const;
+const NATIVE_PROFILE_TOOLS = ["ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate", "wx_audio_transcribe"] as const;
 export async function bindNativeInvocation(owner: NativeSessionOwner, input: ModelCallInput) {
   if (input.modelProvider !== "deep-agent" || !input.orgId || !input.runId || !input.executionAttemptId
     || !Number.isInteger(input.executionLeaseEpoch) || input.executionLeaseEpoch! < 1 || input.executionMode !== undefined

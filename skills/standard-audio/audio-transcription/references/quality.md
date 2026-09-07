@@ -1,0 +1,3 @@
+# Review checklist
+
+Check original filename/hash, segment order and source ranges; keep gaps and no-recognized-speech warnings visible. Repeated phrases may be real speech, so do not deduplicate by text. Proper names, figures and dates need original-audio verification before claiming accuracy. Provider confidence is not calibrated accuracy. Never invent a speaker, word timestamp or missing phrase. Distinguish a corrected editorial transcript from raw ASR. Preserve the original transcript alongside substantive corrections. A protocol fixture is not evidence of external ASR accuracy or live-model G-SKILL.
