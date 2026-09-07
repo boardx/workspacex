@@ -11,8 +11,8 @@ type Chapter = NonNullable<ResearchRuntime["report"]>["sections"][number];
 type Section = ResearchRuntime["outline"][number];
 const invalid = () => new ResearchRuntimeError("RESEARCH_CONTENT_REFERENCE_INVALID");
 export function inlineReportSources(text: string): string[] {
-  const ids = [...text.matchAll(/\[\[source:([^\]\s]+)\]\]/g)].map((match) => match[1]!);
-  if (text.replace(/\[\[source:([^\]\s]+)\]\]/g, "").includes("[[source:")) throw invalid();
+  const ids: string[] = [];
+  try { C.mapGuidedResearchCitations(text, (id) => { ids.push(id); return `[[source:${id}]]`; }, () => { throw invalid(); }); } catch { throw invalid(); }
   return [...new Set(ids)];
 }
 export function validateGeneratedChapter(value: unknown, section: Section, allowed: ReadonlySet<string>, checkStructure = true): Chapter {
@@ -92,7 +92,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       if (index) framing = ",";
       const evidenceGaps = state.tasks.filter((task) => task.sectionId === section.id && task.status !== "succeeded").map(({ query, status, errorCode }) => ({ query, status, errorCode }));
       const input = { modelProvider: config.provider, modelId: config.id,
-        system: `${system} Write ONLY the specified chapter as {"sectionId":${JSON.stringify(section.id)},"body":string,"sourceIds":string[]}. Follow subsectionPlan exact titles as ### headings and answer their questions, retaining the chapter's objective, analysisApproach and expectedOutput. For a legacy plan add at least three meaningful analytical subheadings. Aim for 400–700 Chinese characters per substantive subsection and roughly 2000–3500 per chapter (equivalent depth in the user's language), but never pad or invent facts to reach a quota. Each subsection needs substantive prose explaining evidence, comparisons or causal reasoning, uncertainty, decision implications and concrete actions. Base facts on verified quotes; extraction insights are interpretation, not independently proven facts. Context-only excerpts do not answer missing direct evidence: explicitly identify unanswered questions, consequences and verification needed. Do not claim snippets are complete website text. Do not just repeat questions or list findings. Prefer stable S-number aliases from sources.alias in inline [[source:S1]] markers and sourceIds; canonical sources.id is also valid. Never invent aliases. sourceIds must exactly match distinct inline citation IDs in body. Separate headings and prose paragraphs with blank lines.`,
+        system: `${system} Write ONLY the specified chapter as {"sectionId":${JSON.stringify(section.id)},"body":string,"sourceIds":string[]}. Follow subsectionPlan exact titles as ### headings and answer their questions, retaining the chapter's objective, analysisApproach and expectedOutput. For a legacy plan add at least three meaningful analytical subheadings. Aim for 400–700 Chinese characters per substantive subsection and roughly 2000–3500 per chapter (equivalent depth in the user's language), but never pad or invent facts to reach a quota. Develop a formal analytical narrative specific to this chapter, with a clear argument connecting its subsections. Avoid repeating a generic evidence/implications/recommendations template in every chapter. Use the exact planned headings, but vary the analysis to fit each question. Across the chapter explain evidence, comparisons or causal reasoning, uncertainty and decision implications; place actions where they follow from the analysis. Base facts on verified quotes; extraction insights are interpretation, not independently proven facts. Context-only excerpts do not answer missing direct evidence: explicitly identify unanswered questions, consequences and verification needed. Do not claim snippets are complete website text. Do not just repeat questions or list findings. Prefer stable S-number aliases from sources.alias in inline [[source:S1]] markers and sourceIds; canonical sources.id is also valid. Never invent aliases. sourceIds must exactly match distinct inline citation IDs in body. Separate headings and prose paragraphs with blank lines.`,
         user: JSON.stringify({ reportStage: "chapter", brief: state.brief, section, subsectionPlan: subsectionPlan(section), sources, evidenceByQuestion, evidenceGaps, reportPartial: Boolean(state.reportPartial), instruction: effectiveInstruction }) };
       let chapter: Chapter | undefined;
       let rawOutput = "";
@@ -144,28 +144,31 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       body: chapter.body.length > perChapterLimit ? `${chapter.body.slice(0, Math.floor((perChapterLimit - omitted.length) * 0.65))}${omitted}${chapter.body.slice(-Math.floor((perChapterLimit - omitted.length) * 0.35))}` : chapter.body,
       excerpted: chapter.body.length > perChapterLimit }));
     const synthesisInput = { modelProvider: config.provider, modelId: config.id,
-      system: `${system} Use a citation-free title. Synthesize the already validated chapters into exactly {"title":string,"summary":string}. Do not produce sections again. Write a substantive executive summary connecting the main findings, decision priorities, risks, evidence limitations and next actions. Preserve uncertainty and missing coverage. Cite only source IDs already used in chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
+      system: `${system} Use a citation-free title. Synthesize the already validated chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Cite only source IDs already used in chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
       user: JSON.stringify({ reportStage: "synthesis", brief: state.brief, chapters: synthesisChapters, sourceAliases: aliases.filter((item) => cited.has(item.sourceId)), reportPartial: Boolean(state.reportPartial), instruction: effectiveInstruction }) };
-    let summary: { title: string; summary: string } | undefined;
+    let summary: ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse> | undefined;
     let summaryRaw = "";
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) { await restoreApproved(); framing = "],"; opened = false; framingInvalid = false; }
       try {
-        summary = await audited(attempt ? { ...synthesisInput, user: JSON.stringify({ ...JSON.parse(synthesisInput.user), reportStage: "synthesis_revision", rawOutput: summaryRaw.slice(0, 15000), repairInstruction: "Repair strict JSON and citation IDs using only the provided chapter citations; do not invent or silently discard unsupported findings." }) } : synthesisInput, (text) => {
+        summary = await audited(attempt ? { ...synthesisInput, user: JSON.stringify({ ...JSON.parse(synthesisInput.user), reportStage: "synthesis_revision", rawOutput: summaryRaw.slice(0, 50000), repairInstruction: "Repair strict JSON and citation IDs using only the provided chapter citations; do not invent or silently discard unsupported findings." }) } : synthesisInput, (text) => {
           summaryRaw = text;
           if (framingInvalid) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
 
-          let raw: Record<string, unknown>;
-          try { raw = JSON.parse(text) as Record<string, unknown>; } catch { throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"); }
-          if (!raw || Object.keys(raw).sort().join(",") !== "summary,title") throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-          const parsed = C.GuidedResearchReport.safeParse({ ...raw, sections: chapters });
+          let raw: unknown;
+          try { raw = JSON.parse(text); } catch { throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"); }
+          const parsed = C.GuidedResearchReportSynthesisModelOutput.safeParse(raw);
           if (!parsed.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
-          const summaryText = canonicalReportText(parsed.data.summary, resolve);
           if (inlineReportSources(parsed.data.title).length) throw invalid();
-          if (inlineReportSources(summaryText).some((id) => !cited.has(id)) || /https?:\/\//i.test(summaryText)) throw invalid();
-          return { title: parsed.data.title, summary: summaryText };
+          const result = { ...parsed.data };
+          for (const field of ["summary", "introduction", "conclusion"] as const) {
+            result[field] = canonicalReportText(result[field], resolve);
+            if (inlineReportSources(result[field]).some((id) => !cited.has(id)) || /https?:\/\//i.test(result[field])) throw invalid();
+          }
+          if (new Set([result.summary.trim(), result.introduction.trim(), result.conclusion.trim()]).size !== 3) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
+          return result;
 
-        }, synthesisDelta) as { title: string; summary: string };
+        }, synthesisDelta) as ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse>;
         break;
       } catch (error) {
         if (!(error instanceof ResearchRuntimeError) || !["RESEARCH_NODE_STATE_INVALID", "RESEARCH_CONTENT_REFERENCE_INVALID"].includes(error.reasonCode) || attempt === 1) { await restoreApproved(); throw error; }

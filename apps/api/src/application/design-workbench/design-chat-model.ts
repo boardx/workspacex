@@ -92,14 +92,21 @@ export const DESIGN_PRINCIPLES =
   " 设计原则（每次生成/修改都要遵守）：①每页只有一个主操作（primary 按钮），其余用 secondary/ghost；" +
   "②手机页从上到下：navbar → 内容 → 底部操作/bottomnav，内容区用 fill 的 stack 撑满；③层级靠 text.variant（title/subtitle/body/caption），不靠堆 spacer；" +
   "④列表 ≥ 3 项才用 list，否则用 card；⑤每页至少考虑一种非理想态（空态/加载/错误）并在 notes 里说明；" +
-  "⑥文案用用户会说的话，按钮是动词；⑦别一次塞超过 5 个功能块，超了就分页。";
+  "⑥文案用用户会说的话，按钮是动词；⑦别一次塞超过 5 个功能块，超了就分页；" +
+  "⑧每页的主操作都要有去处：用 links 把它连到对应的页；底部导航每一项都连到它那一页，别留死按钮。";
 
 /** 迭代 9：一个极短的 few-shot——让模型看见「整页」与「patch」各长什么样，而不只是读规则。 */
 export const DESIGN_FEW_SHOT =
-  ' 示例 1（还没有原型，用户说「做一个待办 App」）→ {"reply":"先画了首页：顶部标题，中间待办列表，底部新增按钮。","suggestions":["加一个完成筛选","设计新增待办页"],' +
+  // 迭代 11：示例 1 带上 links——few-shot 是模型真正照抄的地方，只在规则里写"要连线"而例子里
+  // 不连，模型多半也不连。这里同时演示了"想连线就自己给节点写 id"。
+  ' 示例 1（还没有原型，用户说「做一个待办 App」）→ {"reply":"画了两页：待办首页、新增待办页，点「新增待办」会进第二页。","suggestions":["加一个完成筛选","给新增页加提醒时间"],' +
   '"writeback":{"prototype":[{"frame":"待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"我的待办"}},' +
-  '{"type":"stack","props":{"fill":true},"children":[{"type":"list","props":{"items":["买牛奶","写周报","订机票"],"leading":"check"}}]},{"type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
-  '"notes":"首页列出未完成待办；空态显示「还没有待办」和新增按钮。"}]}}。' +
+  '{"type":"stack","props":{"fill":true},"children":[{"type":"list","props":{"items":["买牛奶","写周报","订机票"],"leading":"check"}}]},' +
+  '{"id":"add","type":"button","props":{"label":"新增待办","variant":"primary","full":true}}]},' +
+  '"notes":"首页列出未完成待办；空态显示「还没有待办」和新增按钮。","links":[{"from":"add","to":1}]},' +
+  '{"frame":"新增待办","root":{"type":"stack","props":{"direction":"column","gap":"sm"},"children":[{"type":"navbar","props":{"title":"新增待办","left":"返回"}},' +
+  '{"type":"input","props":{"label":"内容","placeholder":"要做什么？"}},{"type":"button","props":{"label":"保存","variant":"primary","full":true}}]},' +
+  '"notes":"填内容后保存回到首页；内容为空时保存不可点。","links":[{"from":"n7","item":0,"to":0}]}]}}。' +
   ' 示例 2（已有原型，节点 n5 是按钮「新增待办」，用户说「按钮改成加号图标风格的文案」）→ {"reply":"改成了「＋ 新增」。","suggestions":["把按钮固定在底部"],"writeback":{"patch":[{"op":"setProps","id":"n5","props":{"label":"＋ 新增"}}]}}。';
 
 export const DESIGN_CHAT_SYSTEM_PROMPT =
@@ -305,7 +312,18 @@ export class ModelDesignChatReplier implements DesignChatModel {
     try {
       raw = extractJsonObject(text);
     } catch {
-      this.deps.log("design chat: model output was not JSON, using it verbatim without writeback", {});
+      /**
+       * ⚠ 2026-09-07 用户实测：这条分支曾把**整坨 JSON 泼进对话框**。原意是"模型用大白话答的、
+       * 没给 JSON ⇒ 原样显示"，但模型一次整页重画 5 页时输出被截断，JSON 没闭合、parse 失败，
+       * 于是半截 JSON 被当成聊天回复显示出来。
+       *
+       * 所以要分两种：真·大白话（不以 `{` 开头）照旧原样显示；看着是 JSON 却解析不了 ⇒ 判失败。
+       * **不救里面那句 `reply` 拿来显示**——它往往写着"已在各页补充了跳转逻辑"，而写回一个字
+       * 都没生效，那正是本迭代反复在修的"界面声称的事情没有真的发生"。
+       */
+      const looksLikeJson = text.trimStart().startsWith("{");
+      this.deps.log("design chat: model output was not parseable JSON", { looksLikeJson, length: text.length });
+      if (looksLikeJson) return fallbackWith("MODEL_BAD_JSON");
       return { text: text.trim().slice(0, 4000), source: "model", writeback: {}, suggestions: [] };
     }
     const obj = raw as Record<string, unknown>;

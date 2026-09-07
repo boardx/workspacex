@@ -23,9 +23,10 @@ import * as React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
-const { listThreadArtifacts, getThreadArtifactSource } = vi.hoisted(() => ({
+const { listThreadArtifacts, getThreadArtifactSource, markdownToCanvas } = vi.hoisted(() => ({
   listThreadArtifacts: vi.fn(),
   getThreadArtifactSource: vi.fn(),
+  markdownToCanvas: vi.fn(),
 }));
 
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
@@ -64,7 +65,7 @@ vi.mock("@/lib/canvas/canvas-fence", async (importOriginal) => {
 // 与本文件要验的「savedSource 有没有被自动查回来」无关，换成不碰真实 DOM 的桩。
 vi.mock("@repo/fabric-markdown", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/fabric-markdown")>();
-  return { ...actual, markdownToCanvas: vi.fn().mockResolvedValue({ model: null }), fitToContent: vi.fn() };
+  return { ...actual, markdownToCanvas, fitToContent: vi.fn() };
 });
 vi.mock("fabric", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fabric")>();
@@ -89,6 +90,7 @@ describe("挂载滚入视口即读回（不必先点最大化）", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mermaidParse.mockClear().mockResolvedValue(true);
+    markdownToCanvas.mockResolvedValue({ model: null });
   });
 
   describe("A · mermaid 图 · ChatDiagramFabric", () => {
@@ -168,6 +170,46 @@ describe("挂载滚入视口即读回（不必先点最大化）", () => {
       await waitFor(() => expect(listThreadArtifacts).toHaveBeenCalledWith("t", "p", "b"));
       await waitFor(() => expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "a-new", "p", "b"));
       await waitFor(() => expect(checkCanvasFence).toHaveBeenLastCalledWith(SAVED_BODY, "canvas"));
+    });
+
+    it("同一消息的两个不同模板各自读回匹配的保存版并独立渲染", async () => {
+      const SAVED_PERSONA = ["模板: persona", "姓名: 保存版用户", "## 用户描述", "- 保存版画像"].join("\n");
+      const SAVED_JOURNEY = ["模板: journey-map", "标题: 保存版旅程", "## 阶段", "- 保存版路径"].join("\n");
+      listThreadArtifacts.mockResolvedValue({
+        items: [
+          item({ artifactId: "a-persona" }),
+          item({ artifactId: "a-journey" }),
+        ],
+      });
+      getThreadArtifactSource.mockImplementation(async (_threadId: string, artifactId: string) => ({
+        markdown: artifactId === "a-persona" ? SAVED_PERSONA : SAVED_JOURNEY,
+        version: null,
+        savedAt: "2026-09-07T01:00:00.000Z",
+        savedBy: "u1",
+      }));
+
+      const { ChatCanvasFabric } = await import("@/components/chat/chat-canvas-fabric");
+      render(
+        <>
+          <ChatCanvasFabric
+            code={["模板: persona", "姓名: 原始用户", "## 用户描述", "- 原始画像"].join("\n")}
+            lang="canvas" threadId="t" messageId="m-1" bearer="b" projectId="p"
+          />
+          <ChatCanvasFabric
+            code={["模板: journey-map", "标题: 原始旅程", "## 阶段", "- 原始路径"].join("\n")}
+            lang="canvas" threadId="t" messageId="m-1" bearer="b" projectId="p"
+          />
+        </>,
+      );
+
+      await waitFor(() => expect(screen.getAllByTestId("chat-canvas-fabric")).toHaveLength(2));
+      await waitFor(() => {
+        const renderedSources = markdownToCanvas.mock.calls.map(([markdown]) => markdown as string);
+        expect(renderedSources.some((markdown) => markdown.includes(SAVED_PERSONA))).toBe(true);
+        expect(renderedSources.some((markdown) => markdown.includes(SAVED_JOURNEY))).toBe(true);
+      });
+      expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "a-persona", "p", "b");
+      expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "a-journey", "p", "b");
     });
   });
 });

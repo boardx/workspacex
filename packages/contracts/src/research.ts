@@ -1,3 +1,4 @@
+export { mapGuidedResearchCitations } from "./guided-research-citations";
 /**
  * 契约束 `research` — ③ API 契约（**唯一事实源**）
  *
@@ -894,8 +895,11 @@ export const GuidedResearchChapterReviewModelOutput = z.object({
   supported: z.boolean(), analysisDepth: z.enum(["adequate", "shallow"]), issues: z.array(z.string().trim().min(1).max(1000)).max(30),
 }).strict();
 
-export const GuidedResearchReport = z.object({
+export const GuidedResearchReportSynthesisModelOutput = z.object({
   title: z.string().trim().min(1).max(200), summary: z.string().trim().min(1).max(10000),
+  introduction: z.string().trim().min(1).max(10000), conclusion: z.string().trim().min(1).max(15000),
+}).strict();
+export const GuidedResearchReport = GuidedResearchReportSynthesisModelOutput.partial({ introduction: true, conclusion: true }).extend({
   sections: z.array(z.object({
     sectionId: z.string().min(1), body: z.string().trim().min(1).max(20000),
     // An evidence-gap chapter must not invent a citation to an unrelated source.

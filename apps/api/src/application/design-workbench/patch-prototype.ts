@@ -16,6 +16,15 @@ import {
   type DesignProjectView,
 } from "./project-shared";
 
+/**
+ * 迭代 11：把行上的平行视图（`prototype` + `frameLinks`）拼回 `applyPrototypePatch` 要的屏。
+ * 库里已经是一列 `screens` 了，这一步是**用例层**的适配——`DesignProjectRow` 对外仍然是
+ * 平行视图（契约 `DesignProject` 的形状，改它会波及整个 web 面，不在本 delta 范围内）。
+ */
+export function screensOf(row: { readonly prototype: readonly designPrototype.PrototypeNode[]; readonly frameLinks: readonly (readonly designPrototype.PrototypeLink[])[] }) {
+  return row.prototype.map((root, i) => ({ root, links: row.frameLinks[i] ?? [] }));
+}
+
 export class PrototypePatchRejectedError extends Error {
   /**
    * `reason` 是契约闭集 `PrototypePatchRejectReason`（经全局过滤器回到前端）；`nodeId` 是它指的节点；
@@ -36,16 +45,20 @@ export async function patchPrototype(
   if (current.ownerId !== input.ownerId) throw new DesignProjectNotOwnerError();
   if (current.prototype.length === 0) throw new PrototypePatchRejectedError("NO_PROTOTYPE", "project has no prototype yet");
 
-  let next: readonly designPrototype.PrototypeNode[];
+  // 迭代 11：patch 作用在**屏**上（`setLinks` 改的是屏级 links，且删节点要让指向它的 link 失效）。
+  let next: readonly { readonly root: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[];
   try {
-    next = designPrototype.applyPrototypePatch(current.prototype, input.ops);
+    next = designPrototype.applyPrototypePatch(screensOf(current), input.ops);
   } catch (e) {
     if (e instanceof designPrototype.PrototypePatchError) throw new PrototypePatchRejectedError(e.reason, e.message, e.nodeId);
     throw new PrototypePatchRejectedError("INVALID_NODE", e instanceof Error ? e.message : "patch rejected");
   }
 
   // 与 UPDATE 同一事务落一条 user 版本（Codex：历史不能与当前原型分叉）。
-  const written = await deps.projects.update(input.projectId, input.ownerId, { prototype: next }, {
+  const written = await deps.projects.update(input.projectId, input.ownerId, {
+    prototype: next.map((s) => s.root),
+    frameLinks: next.map((s) => [...(s.links ?? [])]),
+  }, {
     source: "user",
     summary: (input.summary ?? "").trim().slice(0, 120) || `手改 ${input.ops.length} 处`,
   });

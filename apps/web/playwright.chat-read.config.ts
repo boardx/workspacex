@@ -31,6 +31,8 @@ const modelProviderPort = String(Number(webPort) + 5_000);
  * 不会撞上 pg/redis/api/web/上一个 provider 任何一段。
  */
 const deepAgentProviderPort = String(Number(webPort) + 6_000);
+/** issue #2919：补参恢复后生成持久 PDF 的确定性执行端。复用既有 loopback sandbox。 */
+const skillSandboxPort = String(Number(webPort) + 7_000);
 /**
  * #728 P8 —— 确定性 ASR 替身的端口（`loopback-asr-provider.ts`，与
  * `playwright.fullstack-smoke.config.ts` 同一支脚本，不是新写的第二份实现）。
@@ -238,7 +240,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
     },
     {
       /**
@@ -428,6 +430,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
         LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
+        LOOPBACK_DEEP_AGENT_CLARIFICATION_TRIGGER: CHAT_READ_E2E.deepAgentClarificationTrigger,
+        LOOPBACK_DEEP_AGENT_CLARIFICATION_ARTIFACT_NAME: CHAT_READ_E2E.deepAgentClarificationArtifactName,
+        LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER: CHAT_READ_E2E.deepAgentConfirmIntentTrigger,
+        LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER: CHAT_READ_E2E.deepAgentChooseOptionTrigger,
         LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER: CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
         // DA-19g —— 多轮上下文取证开关，见 `CHAT_READ_E2E.deepAgentFollowupContextTrigger`
         // 自己的头注。
@@ -439,6 +445,16 @@ export default defineConfig({
         // 一对（`chat-agent-skill-context.spec.ts` 既有），两条轨道断言同一个事实。
         LOOPBACK_DEEP_AGENT_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
+      },
+    },
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-skill-sandbox.ts",
+      url: `http://127.0.0.1:${skillSandboxPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_SKILL_SANDBOX_PORT: skillSandboxPort,
       },
     },
     {
@@ -559,6 +575,7 @@ export default defineConfig({
         // 的判 0 依据就是「b1-stream 相邻帧正文字数相同」——这行 + loopback 的
         // stream 端点让那个判据在取证环境可以翻正。
         KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
+        KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
         // #728 P8 —— 确定性 ASR 上游。不配它，WS 面以 `ASR_NOT_CONFIGURED` 诚实失败
         // （`chat-live-recording-error` 显示「本组织尚未配置转写服务」），不会冒出
         // 一段编造的转录。逐字抄 `playwright.fullstack-smoke.config.ts` 的

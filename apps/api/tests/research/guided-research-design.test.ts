@@ -26,3 +26,11 @@ describe("model proposal metadata preservation", () => {
     expect(preserveResearchDesign("outline", [{ id: "o", title: "Revised" }], [{ id: "o", objective: "Compare", subsections }])).toEqual([{ id: "o", title: "Revised", objective: "Compare", subsections }]);
   });
 });
+
+
+describe("formal report proposal preservation", () => {
+  it("retains omitted front matter while respecting explicit replacements", () => {
+    const prior = { title: "Report", summary: "Old summary", introduction: "Scope", conclusion: "Decisions" };
+    expect(preserveResearchDesign("report", { title: "Revised", summary: "New summary", conclusion: "Revised decisions" }, prior)).toEqual({ title: "Revised", summary: "New summary", introduction: "Scope", conclusion: "Revised decisions" });
+  });
+});

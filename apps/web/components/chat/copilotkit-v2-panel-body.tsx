@@ -696,6 +696,28 @@ export function CopilotKitV2PanelBody({
         registerHydrated(restored.map((m) => ({ id: m.id, rateable: m.rateable })));
         const framed = restored.map((m) => ({ id: m.id, role: m.role, content: m.content }));
         if (framed.length > 0) agent.setMessages([...agent.messages, ...framed]);
+        // A HITL decision resumes in the background through the durable run worker. That
+        // continuation has no live AG-UI response stream on which `file_created` can arrive,
+        // so restoring only the assistant message leaves a truthful "file generated" reply
+        // with no download card until the next full-page refresh. Re-read the same durable
+        // attachment rows used by the mount-time hydration above and attach only files owned
+        // by the newly restored assistant messages.
+        const restoredMessageIds = new Set(restored.filter((m) => m.role === "assistant").map((m) => m.id));
+        if (restoredMessageIds.size > 0) {
+          const attachments = await listThreadAttachments(threadId, projectId, bearer);
+          hydrateActiveFiles(attachments.items
+            .filter((item) => restoredMessageIds.has(item.messageId))
+            .map((item) => ({
+              uri: `vfs://attachment/${item.id}`,
+              name: item.filename,
+              mime: item.mime,
+              source: "agent_run_output" as const,
+              bytes: item.bytes,
+              messageId: item.messageId,
+              content: "",
+              nextSequence: 0,
+            })));
+        }
         setPendingRunId(null);
         onMessageSent?.();
       } catch {
@@ -709,7 +731,7 @@ export function CopilotKitV2PanelBody({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, onMessageSent, registerHydrated]);
+  }, [agent, hydrateActiveFiles, onMessageSent, projectId, registerHydrated]);
   const runRestore = useCopilotKitV2RunRestore(
     pendingRunId,
     getStoredSessionToken() ?? undefined,

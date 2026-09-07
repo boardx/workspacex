@@ -7,6 +7,7 @@ export default defineConfig({
   test:{
     include:[
       'tests/agent-runtime/standard-document-tools.test.ts',
+      'tests/agent-runtime/chat-skill-script-execution.test.ts',
       'tests/chat/anydoc-attachment-to-markdown.test.ts',
     ],
     environment:'node',

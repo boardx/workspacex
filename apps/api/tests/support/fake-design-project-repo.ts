@@ -57,6 +57,7 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     const at = this.stamp();
     this.rows.set(project.id, {
       ...project,
+      frameLinks: [],
       pushed: false,
       pushedAt: null,
       pushNote: null,
@@ -105,13 +106,16 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
         : patch.frames !== undefined && patch.frames.length !== r.prototype.length ? { prototype: [] } : {}),
       ...(patch.frameNotes !== undefined ? { frameNotes: [...patch.frameNotes] }
         : patch.frames !== undefined && patch.frames.length !== r.frameNotes.length ? { frameNotes: [] } : {}),
+      // 迭代 11：links 挂在屏上，跟着 prototype 走——给了就换，只改标签且页数变了就清。
+      ...(patch.frameLinks !== undefined ? { frameLinks: patch.frameLinks.map((l) => [...l]) }
+        : patch.frames !== undefined && patch.frames.length !== r.frameLinks.length ? { frameLinks: [] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
     if (version !== undefined) {
       // 同真实仓储：与 UPDATE 同一步落版本，frames/prototype 取更新后的行。
       const seq = this.versions.filter((v) => v.projectId === projectId).length + 1;
-      const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...next.frames], prototype: [...next.prototype], notes: [...next.frameNotes], createdAt: this.stamp() };
+      const row: PrototypeVersionRow = { id: `${projectId}-v${seq}`, projectId, seq, ...version, frames: [...next.frames], prototype: [...next.prototype], notes: [...next.frameNotes], links: next.frameLinks.map((l) => [...l]), createdAt: this.stamp() };
       this.versions.push(row);
       const { prototype: _p, ...rest } = row;
       this.lastVersion = rest;
@@ -213,6 +217,7 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     template: "wireframe",
     problem: "",
     criteria: [],
+    frameLinks: [],
     frames: [],
     prototype: [],
     frameNotes: [],

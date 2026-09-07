@@ -1,5 +1,5 @@
 import * as React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 const registered = vi.hoisted(() => ({} as Record<string, { render: (...args: unknown[]) => unknown }>));
 vi.mock("@copilotkit/react-core/v2", () => ({ useHumanInTheLoop: (tool: { name: string; render: (...args: unknown[]) => unknown }) => { registered[tool.name] = tool; } }));
@@ -49,6 +49,21 @@ describe("durable interrupt presentation", () => {
     expect(screen.queryByTestId("agent-interrupt-fill-params-applied-ledger-only")).toBeNull();
     fireEvent.click(screen.getByTestId("agent-interrupt-fill-params-submit"));
     expect(decide).toHaveBeenCalledWith("edit", { fields: [{ name: "baseline", value: "环比" }] });
+  });
+  it("keeps required blank parameters waiting and labels the resume action clearly", async () => {
+    const decide = vi.fn().mockResolvedValue(undefined);
+    render(<RestoredInterruptForm interrupt={{ toolName: "fill_run_params", args: { requestId: "r", fields: [{ name: "topic", label: "主题", aiGuess: null, rationale: null, required: true, currentValue: null }] } }} pending={false} decide={decide} />);
+    expect(screen.getByTestId("agent-interrupt-fill-params-submit")).toHaveTextContent("提交并继续");
+    fireEvent.click(screen.getByTestId("agent-interrupt-fill-params-submit"));
+    expect(decide).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId("agent-interrupt-fill-params-input-topic")).toHaveAttribute("aria-invalid", "true"));
+  });
+  it("lets users accept a visible AI suggestion without retyping it", () => {
+    const decide = vi.fn().mockResolvedValue(undefined);
+    render(<RestoredInterruptForm interrupt={{ toolName: "fill_run_params", args: { requestId: "r", fields: [{ name: "audience", label: "受众", aiGuess: "项目团队", rationale: "来自当前项目", required: true, currentValue: null }] } }} pending={false} decide={decide} />);
+    expect(screen.getByTestId("agent-interrupt-fill-params-input-audience")).toHaveValue("项目团队");
+    fireEvent.click(screen.getByTestId("agent-interrupt-fill-params-submit"));
+    expect(decide).toHaveBeenCalledWith("approve");
   });
   it("can reject both proposed options", () => {
     const decide = vi.fn().mockResolvedValue(undefined);

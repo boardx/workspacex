@@ -290,7 +290,7 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
 export const PROTOTYPE_MAX_PATCH_OPS = 50;
 
 /**
- * 四种 patch 操作，全部按节点 id 寻址（id 在项目内唯一，所以不带页）：
+ * 五种 patch 操作。前四种按节点 id 寻址（id 在项目内唯一，所以不带页）：
  *   · `replace`  用 `node` 整体替换 `id` 那棵子树（可以换类型）；新子树里没 id 的节点由服务端补。
  *   · `setProps` 把 `props` **浅合并**进 `id` 节点现有 props（改一句文案不用重写整个节点）；键值 `null` = 删该键。
  *   · `insert`   把 `node` 插进容器 `parentId` 的 `children[index]`（缺省追加到末尾）。
@@ -304,6 +304,12 @@ export const PrototypePatchOp = z.discriminatedUnion("op", [
   z.object({ op: z.literal("setProps"), id: PrototypeNodeId, props: z.record(z.unknown()) }).strict(),
   z.object({ op: z.literal("insert"), parentId: PrototypeNodeId, index: z.number().int().min(0).optional(), node: PrototypeNode }).strict(),
   z.object({ op: z.literal("remove"), id: PrototypeNodeId }).strict(),
+  /**
+   * 迭代 11：整体替换某页的跳转关系。**按页序号寻址**（不是节点 id）——links 是屏级的，
+   * 不属于任何一个节点。人改（属性面板）与模型改走同一个 op（I-11）；不设 link/unlink 两个
+   * op，一个整体替换够用、校验只写一次（design-delta §3）。
+   */
+  z.object({ op: z.literal("setLinks"), screen: z.number().int().min(0), links: z.array(PrototypeLink).max(PROTOTYPE_MAX_LINKS) }).strict(),
 ]);
 export type PrototypePatchOp = z.infer<typeof PrototypePatchOp>;
 export const DesignPrototypePatch = z.array(PrototypePatchOp).min(1).max(PROTOTYPE_MAX_PATCH_OPS);
@@ -424,6 +430,9 @@ export function prototypeIdsUnique(prototype: readonly PrototypeNode[]): boolean
  */
 export const PrototypePatchRejectReason = z.enum([
   "UNKNOWN_NODE", "DUPLICATE_ID", "ROOT_REMOVE", "NOT_CONTAINER", "INVALID_NODE", "LIMITS", "NO_PROTOTYPE",
+  // 迭代 11：`setLinks` 的 `screen` 越界。与 UNKNOWN_NODE 分开——那条说的是"节点没找到"，
+  // 这条说的是"页没找到"，屏上给用户的下一步不同。
+  "UNKNOWN_SCREEN",
 ]);
 export type PrototypePatchRejectReason = z.infer<typeof PrototypePatchRejectReason>;
 
@@ -435,13 +444,30 @@ export class PrototypePatchError extends Error {
 }
 
 /**
- * 顺序应用一批 patch，返回**新的** `prototype`（不改入参）。每一步的结果都重新过 `PrototypeNode`
+ * 顺序应用一批 patch，返回**新的**屏数组（不改入参）。每一步的结果都重新过 `PrototypeNode`
  * 契约与整页上限；任何一步不合法抛 `PrototypePatchError`（调用方据此整批拒绝）。
  * 结果里新增的节点由 `ensurePrototypeIds` 补 id。
+ *
+ * 迭代 11 起入参是**屏**而不是裸树：`setLinks` 改的是屏级的 links，不属于任何节点；且删掉一个
+ * 有 link 指向它的节点后，那条 link 必须跟着失效。泛型 `T` 让 `frame`/`notes` 原样穿过去——
+ * 这个函数不需要知道它们存在。
+ *
+ * 收尾统一过一次 `validateLinks`：**逐条丢**悬空的跳转、页面保留（design-delta §2 取舍 ①）。
+ * 所以「删了源节点」「patch 后页数变了」这类间接失效不需要调用方自己收拾。
  */
-export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: readonly PrototypePatchOp[]): readonly PrototypeNode[] {
-  let current: readonly PrototypeNode[] = prototype;
+export function applyPrototypePatch<T extends { readonly root: PrototypeNode; readonly links?: readonly PrototypeLink[] }>(
+  screens: readonly T[],
+  ops: readonly PrototypePatchOp[],
+): readonly (T & { readonly links: readonly PrototypeLink[] })[] {
+  let current: readonly T[] = screens;
   ops.forEach((op, i) => {
+    if (op.op === "setLinks") {
+      if (op.screen >= current.length) {
+        throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `no screen at index ${op.screen} (have ${current.length})`);
+      }
+      current = current.map((s, k) => (k === op.screen ? { ...s, links: op.links } : s));
+      return;
+    }
     let hit = 0;
     const visit = (n: PrototypeNode): PrototypeNode | null => {
       if (op.op === "setProps" && n.id === op.id) {
@@ -484,21 +510,25 @@ export function applyPrototypePatch(prototype: readonly PrototypeNode[], ops: re
       return n;
     };
     const next: PrototypeNode[] = [];
-    for (const root of current) {
-      const r = visit(root);
-      if (r === null) throw new PrototypePatchError(i, "ROOT_REMOVE", `cannot remove page root ${root.id ?? ""}`, root.id);
+    for (const s of current) {
+      const r = visit(s.root);
+      if (r === null) throw new PrototypePatchError(i, "ROOT_REMOVE", `cannot remove page root ${s.root.id ?? ""}`, s.root.id);
       next.push(r);
     }
     const target = op.op === "insert" ? op.parentId : op.id;
     if (hit === 0) throw new PrototypePatchError(i, "UNKNOWN_NODE", `no node with id ${target}`, target);
     if (hit > 1) throw new PrototypePatchError(i, "DUPLICATE_ID", `id ${target} is not unique`, target);
-    current = ensurePrototypeIds(next);
+    const withIds = ensurePrototypeIds(next);
+    current = current.map((s, k) => ({ ...s, root: withIds[k]! }));
   });
-  for (const [k, root] of current.entries()) {
-    if (!withinPrototypeLimits(root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
+  for (const [k, s] of current.entries()) {
+    if (!withinPrototypeLimits(s.root)) throw new PrototypePatchError(ops.length, "LIMITS", `page ${k + 1} exceeds limits after patch`);
   }
-  if (!prototypeIdsUnique(current)) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
-  return current;
+  if (!prototypeIdsUnique(current.map((s) => s.root))) throw new PrototypePatchError(ops.length, "DUPLICATE_ID", "ids not unique after patch");
+  const cleaned = validateLinks(current);
+  // 返回类型显式带上 links：入参里它是可选的，但**出参一定有**（收尾统一清洗过），
+  // 调用方不该再为它写一次 `?? []`。
+  return current.map((s, k) => ({ ...s, links: cleaned.links[k]! }));
 }
 
 /**
@@ -613,4 +643,10 @@ export const PROTOTYPE_SCHEMA_GUIDE =
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
   "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
-  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。`;
+  `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
+  // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。
+  `每页还可带 links（≤ ${PROTOTYPE_MAX_LINKS} 条）：这页点了之后去哪。形如 {"from":"节点 id","to":目标页序号}；` +
+  "多项原语（list/tabs/bottomnav）和 navbar 的左右按钮要多给一个 item（第几项，0 起；navbar 左 0 右 1）。" +
+  "to 是**页序号**（0 起，按你给出的页顺序），不是页标签。" +
+  "想连线就**自己给那个节点写 id**——id 允许你写，不写的由服务端补，那样你就指不到它。" +
+  "指向不存在的页、自己指自己、指向本页没有的节点：那一条会被丢掉，其余照常生效，不影响这一页。";

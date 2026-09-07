@@ -60,6 +60,13 @@ describe("durable approval", () => {
     fireEvent.click(screen.getByRole("button", { name: "打开待确认请求" }));
     expect(await screen.findByRole("dialog")).toBeVisible();
   });
+  it("restores missing task parameters as a visible clarification dialog", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "params-id", toolName: "fill_run_params", interrupt: { toolName: "fill_run_params", args: { requestId: "params", fields: [{ name: "topic", label: "主题", aiGuess: null, rationale: null, required: true, currentValue: null }] } } } });
+    render(<RestoredRunApproval runId="run" />);
+    expect(await screen.findByRole("heading", { name: "等待你补充信息" })).toBeVisible();
+    expect(screen.getByText("任务已暂停。补充这些信息后，Agent 会从当前步骤继续。")).toBeVisible();
+    expect(screen.getByTestId("agent-interrupt-fill-params-input-topic")).toBeVisible();
+  });
   it("terminal authority removes a stale streaming fallback", async () => {
     calls.read.mockResolvedValue({ status: "cancelled", pendingApproval: null });
     render(<RestoredRunApproval runId="run" fallbackInterrupt={{ toolName: "confirm_task_intent", args: { requestId: "old", understanding: "Old goal", assumptions: [] } }} />);

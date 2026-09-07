@@ -78,3 +78,18 @@ def test_system_prompt_keeps_the_no_fabrication_rule(monkeypatch):  # noqa: ANN0
     prompt = graph.SYSTEM_PROMPT
 
     assert "不要凭技能的名字或已有印象直接编答案" in prompt
+
+
+def test_system_prompt_clarifies_underspecified_document_generation_before_execution(monkeypatch):  # noqa: ANN001, ANN201
+    """A format choice is not enough information to invent a document's content."""
+    graph = _import_graph_with_fake_model_env(monkeypatch)
+    prompt = graph.SYSTEM_PROMPT
+
+    assert "文档生成任务" in prompt
+    assert "主题" in prompt
+    assert "内容来源" in prompt
+    assert "fill_run_params" in prompt
+    assert "同一次回复只能调用 fill_run_params" in prompt
+    assert "示例" in prompt and "你决定" in prompt
+    assert "已有对话和附件" in prompt
+    assert "不能把格式选择当成内容需求" in prompt

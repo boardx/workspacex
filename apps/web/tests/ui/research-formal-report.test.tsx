@@ -1,0 +1,52 @@
+import * as React from "react";
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
+import { researchReportPreview } from "@/lib/research-report-preview";
+import { GuidedResearchReportDocument } from "@/components/research-studio/guided-research-report-document";
+import { GuidedResearchReportPreview } from "@/components/research-studio/guided-research-report-preview";
+import { runtimeFixture } from "../guided-runtime-fixture";
+const runtime = runtimeFixture("report");
+const uuid = "550e8400-e29b-41d4-a716-446655440000";
+const sources = [{ ...runtime.sources[0]!, id: uuid }, { ...runtime.sources[0]!, id: "second", title: "Secondary", url: "https://example.org/second" }];
+describe("formal research report", () => {
+  it("renders a numbered reading document and exports the same ordered synthesis and references", () => {
+    const doc = researchReportDocument({ title: "欧洲储能市场进入研究", summary: "核心判断[[source:second]]", introduction: `覆盖2026年欧洲市场，交叉核验政策[[${uuid}]]`, sections: [{ sectionId: "o1", body: `### 准入要求\n\n- 核实并网[${uuid}]`, sourceIds: [uuid] }], conclusion: "优先开展试点[[source:second]]" }, sources, runtime.outline);
+    render(<GuidedResearchReportDocument document={doc} />);
+    const reader = screen.getByTestId("research-report-document");
+    expect(reader).toHaveClass("max-w-4xl");
+    expect(screen.getByRole("heading", { name: "欧洲储能市场进入研究" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "1. 政策章节" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "研究范围与方法" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "综合结论" })).toBeInTheDocument();
+    const toc = within(screen.getByRole("navigation", { name: "报告目录" }));
+    expect(toc.getByRole("link", { name: "1. 政策章节" })).toHaveAttribute("href", "#research-report-section-0");
+    expect(screen.getAllByTestId("research-inline-citation").map((link) => link.textContent)).toEqual(["1", "2", "2", "1"]);
+    expect(reader).not.toHaveTextContent(uuid);
+    const markdown = researchReportMarkdown(doc);
+    expect(markdown).toContain("## 执行摘要\n\n核心判断[^1]");
+    expect(markdown).toContain("## 研究范围与方法");
+    expect(markdown).toContain("## 1. 政策章节");
+    expect(markdown).toContain("## 综合结论\n\n优先开展试点[^1]");
+    expect(markdown).toContain("[^2]: [Official policy]");
+    expect(markdown).not.toContain(uuid);
+  });
+  it("shows the research topic as a draft title and never equates received chapters with completion", () => {
+    const state = { ...runtime, report: null, progress: { stage: "synthesizing" as const, completed: 0, total: 1 }, reportCheckpoint: { basis: "basis", chapters: runtime.report!.sections }, reportStream: { requestId: "request", sequence: 1, status: "streaming" as const, text: JSON.stringify({ sections: runtime.report!.sections }) } };
+    render(<GuidedResearchReportPreview state={state} />);
+    expect(screen.getByRole("heading", { name: runtime.brief.topic })).toBeInTheDocument();
+    expect(screen.getByText("研究报告 · 草稿")).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已校验并保存 1 / 1 个章节。报告尚未完成");
+    expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /完成|下载/ })).not.toBeInTheDocument();
+  });
+  it("parses streamed introduction and conclusion and redacts pending unknown identifiers", () => {
+    const preview = researchReportPreview('{"sections":[],"introduction":"范围与方法","conclusion":"建议开展试点');
+    expect(preview.introduction).toBe("范围与方法"); expect(preview.conclusion).toBe("建议开展试点");
+    const doc = researchReportDocument({ ...preview, summary: "已知[S1]，未知[[550e8400-e29b-41d4-a716-446655440099]]，未收完[[550e8400" }, sources, runtime.outline, { provisional: true, aliases: [{ alias: "S1", sourceId: uuid }] });
+    expect(doc.references).toHaveLength(1); expect(doc.unresolvedReferences).toBe(2);
+    expect(doc.summary).not.toContain("550e8400");
+    const final = researchReportDocument({ title: "Report", summary: "未知[[550e8400-e29b-41d4-a716-446655440099]]", sections: [] }, sources, runtime.outline);
+    expect(final.summary).toBe("未知〔来源不可用〕");
+  });
+});

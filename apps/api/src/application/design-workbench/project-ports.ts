@@ -26,6 +26,8 @@ export const DESIGN_PROJECT_REPOSITORY = Symbol("DesignProjectRepository");
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
 export type PrototypeNode = z.infer<typeof designPrototype.PrototypeNode>;
+/** 迭代 11：跳转关系，契约派生（`design-prototype.ts` 单源）。 */
+export type PrototypeLink = z.infer<typeof designPrototype.PrototypeLink>;
 
 export interface DesignProjectRow {
   readonly id: string;
@@ -39,6 +41,8 @@ export interface DesignProjectRow {
   readonly prototype: readonly PrototypeNode[];
   /** 迭代 8：每页交互说明，与 `frames` 同长或空。 */
   readonly frameNotes: readonly string[];
+  /** 迭代 11：每页出发的跳转关系，与 `frames` 同长或空（`frameLinks[i]` 属于第 i 页）。 */
+  readonly frameLinks: readonly (readonly PrototypeLink[])[];
   readonly pushed: boolean;
   readonly pushedAt: string | null;
   readonly pushNote: string | null;
@@ -65,6 +69,8 @@ export interface PrototypeVersionRow {
   readonly frames: readonly string[];
   readonly prototype: readonly PrototypeNode[];
   readonly notes: readonly string[];
+  /** 迭代 11：那一版的跳转关系，恢复时一起写回。 */
+  readonly links: readonly (readonly PrototypeLink[])[];
   readonly createdAt: string;
 }
 
@@ -107,6 +113,8 @@ export interface DesignProjectPatch {
   readonly prototype?: readonly PrototypeNode[];
   /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
   readonly frameNotes?: readonly string[];
+  /** 迭代 11：与 `frames`/`prototype` 一起给的跳转关系；不给 ⇒ 沿用库里已有的那份。 */
+  readonly frameLinks?: readonly (readonly PrototypeLink[])[];
 }
 
 /**

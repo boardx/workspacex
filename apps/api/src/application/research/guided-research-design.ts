@@ -27,6 +27,11 @@ export function validateGeneratedResearchDesign(node: string, value: unknown): v
 }
 
 export function preserveResearchDesign(node: string, value: unknown, previous: unknown): unknown {
+  if (node === "report" && value && typeof value === "object" && !Array.isArray(value) && previous && typeof previous === "object" && !Array.isArray(previous)) {
+    const prior = previous as Record<string, unknown>;
+    const retained = Object.fromEntries(["introduction", "conclusion"].filter((field) => !(field in value) && prior[field] !== undefined).map((field) => [field, prior[field]]));
+    return { ...retained, ...value };
+  }
   if ((node !== "directions" && node !== "outline") || !Array.isArray(value) || !Array.isArray(previous)) return value;
   const fields = node === "directions" ? ["decisionQuestions", "hypotheses", "comparisonDimensions", "evidenceNeeds"] : ["objective", "analysisApproach", "expectedOutput", "subsections"];
   return value.map((item: unknown) => {

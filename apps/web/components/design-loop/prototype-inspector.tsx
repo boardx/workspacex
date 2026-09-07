@@ -30,6 +30,7 @@ const REJECT_TEXT: Record<designPrototype.PrototypePatchRejectReason, string> = 
   NOT_CONTAINER: "目标不是容器，放不进子节点。",
   INVALID_NODE: "改完的属性不符合这种节点的规则，检查一下取值。",
   LIMITS: "这一页节点太多或嵌套太深了。",
+  UNKNOWN_SCREEN: "这一页已经不存在了，画布可能刚被整页重画。刷新一下再试。",
   NO_PROTOTYPE: "还没有原型，先让模型画一版。",
 };
 
@@ -93,12 +94,13 @@ export function PrototypeInspector({
   /**
    * 迭代 11（design-delta `prototype-navigation`，待签核）：「点击后跳转到」。
    * `links` 是**本页**的跳转表；改动交给 `onSetLinks(本页新的完整 links)`——对应 delta §3 的
-   * `setLinks` op（整体替换一页的 links）。签核前只有 UI：父组件先在本地更新，不发请求。
+   * `setLinks` op（整体替换一页的 links）。父组件真发请求，与模型走同一条写回路径（I-11）；
+   * 这里只负责把失败如实显示出来，不吞。
    */
   frames?: readonly string[];
   frameIndex?: number;
   links?: readonly PrototypeLink[];
-  onSetLinks?: (links: readonly PrototypeLink[]) => void;
+  onSetLinks?: (links: readonly PrototypeLink[]) => void | Promise<void>;
 }) {
   const [draft, setDraft] = React.useState<Draft>(() => toDraft(node));
   const [busy, setBusy] = React.useState(false);

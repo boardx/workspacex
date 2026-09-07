@@ -45,7 +45,8 @@ describe("research chapter document", () => {
     const document = researchReportDocument({ title: "Report", summary: "[[source:excluded]][[source:pending]][[source:unsafe]][[source:missing]]", sections: [] }, sources, runtime.outline);
     expect(document.references).toHaveLength(0);
     render(<GuidedResearchReportDocument document={document} />);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("research-inline-citation")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link").every((link) => link.getAttribute("href")?.startsWith("#"))).toBe(true);
     expect(screen.getByText(/来源不可用/)).toBeInTheDocument();
   });
   it("keeps legacy section source IDs as superscripts and exports the exact same numbering", () => {
@@ -64,7 +65,8 @@ describe("research chapter document", () => {
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByRole("heading", { name: "已生成章节" })).toBeInTheDocument();
     expect(screen.getByText("正在综合")).toBeInTheDocument();
-    expect(screen.getByText("已接收 1 / 1 个章节的内容")).toBeInTheDocument();
+    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已校验并保存 0 / 1 个章节");
+    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("尚未完成");
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
     expect(screen.queryByRole("button", { name: /下载/ })).not.toBeInTheDocument();

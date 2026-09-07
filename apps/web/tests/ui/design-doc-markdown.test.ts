@@ -41,6 +41,31 @@ describe("buildDesignDocMarkdown", () => {
     expect(outlinePrototype({ type: "bottomnav", props: { items: ["聊天", "用量"], active: 1 } })).toEqual(["- 底部导航：聊天 / [用量]"]);
     expect(outlinePrototype({ type: "hero", props: { title: "T", cta: "Go" } })).toEqual(["- 头图「T」，按钮「Go」"]);
   });
+  /**
+   * 迭代 11：跳转关系要进交付物——工程照着它接路由。写「哪个控件 → 第几页（标签）」而不是
+   * 裸的节点 id：文档的读者是人。
+   */
+  it("迭代 11：设计文档每页多一节「跳转」，JSON 规格带 links", () => {
+    // ⚠ 节点必须**真的带 id**，否则 `findPrototypeNodePath` 找不到、标签回落成裸 id，
+    //   这条断言就会以错误的理由通过（人话标签那半边等于没测）。
+    const withLinks = {
+      ...base,
+      prototype: [
+        { type: "stack" as const, id: "n1", children: [{ type: "navbar" as const, id: "n2", props: { title: "ChatGPT" } }, { type: "button" as const, id: "n3", props: { label: "发送", variant: "primary" as const } }] },
+        base.prototype[1]!,
+      ],
+      frameLinks: [[{ from: "n3", to: 1 }], []],
+    };
+    const md = buildDesignDocMarkdown(withLinks, NOW);
+    expect(md).toContain("跳转：");
+    expect(md).toContain("- 按钮「发送」 → 第 2 页「设置」"); // 人话标签，不是裸 id
+    const spec = JSON.parse(buildPrototypeSpecJson(withLinks)) as { screens: { links: unknown[] }[] };
+    expect(spec.screens[0]!.links).toEqual([{ from: "n3", to: 1 }]);
+    expect(spec.screens[1]!.links).toEqual([]);
+    // 没有跳转的项目不该凭空多出一个空的「跳转」小节
+    expect(buildDesignDocMarkdown(base, NOW)).not.toContain("跳转：");
+  });
+
   it("outlinePrototype 深度缩进；文件名去掉不安全字符并带日期", () => {
     expect(outlinePrototype({ type: "card", props: { title: "T" }, children: [{ type: "divider" }] })).toEqual(["- 卡片「T」", "  - 分隔线"]);
     expect(designDocFileName(base, NOW)).toBe("UI-2026-09-06.md"); // 非 ASCII 去掉（Chromium 会把中文 download 名退成「download」）

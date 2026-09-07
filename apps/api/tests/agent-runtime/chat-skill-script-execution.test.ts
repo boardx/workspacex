@@ -78,6 +78,46 @@ describe("T3 触发判据：三条同时成立才执行", () => {
     expect(out.text).toBe(SCRIPT_REPLY);
   });
 
+  it("同一轮的 Word 和 PPT 技能脚本都执行并交付", async () => {
+    const docx = SCRIPT_REPLY.replace("deck.pptx", "report.docx");
+    const calls: string[] = [];
+    const sandbox: SkillSandboxPort = {
+      run: async ({ script }) => {
+        calls.push(script);
+        const name = script.includes("report.docx") ? "report.docx" : "deck.pptx";
+        return okResult({
+          files: [{ name, contentBase64: Buffer.from("PK\u0003\u0004fake").toString("base64"), sizeBytes: 7 }],
+        });
+      },
+    };
+    const spy = storeSpy();
+    const out = await maybeRunSkillScript(
+      deps({ sandbox, objects: spy.store as never }),
+      { runId: "run_multi_office", pinnedSkillCount: 2, reply: PROSE_REPLY, scriptSources: [docx, SCRIPT_REPLY] },
+    );
+
+    expect(out.kind).toBe("succeeded");
+    if (out.kind !== "succeeded") throw new Error("unreachable");
+    expect(calls).toHaveLength(2);
+    expect(out.files.map((file) => file.name)).toEqual(["report.docx", "deck.pptx"]);
+    expect(spy.keys).toEqual([
+      "agent-run-outputs/run_multi_office/report.docx",
+      "agent-run-outputs/run_multi_office/deck.pptx",
+    ]);
+    expect(out.attempts).toBe(2);
+  });
+
+  it("编排回复重复了工具脚本时只执行一次", async () => {
+    const sb = countingSandbox(okResult());
+    const spy = storeSpy();
+    const out = await maybeRunSkillScript(
+      deps({ sandbox: sb.port, objects: spy.store as never }),
+      { runId: "run_deduped", pinnedSkillCount: 1, reply: SCRIPT_REPLY, scriptSources: [SCRIPT_REPLY] },
+    );
+    expect(out.kind).toBe("succeeded");
+    expect(sb.calls()).toBe(1);
+  });
+
   it("挂了 skill 但回复里没有脚本块 ⇒ 沙箱一次都不被调用", async () => {
     const sb = countingSandbox(okResult());
     const spy = storeSpy();

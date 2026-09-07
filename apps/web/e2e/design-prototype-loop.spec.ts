@@ -107,4 +107,41 @@ test.describe("原型画布主链路（迭代 10）", () => {
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toContain('"screens"');
   });
+
+  /**
+   * 迭代 11（V29 / V30）——「可点击」的唯一硬证据只能在真浏览器里取：jsdom 里既没有
+   * 真实的 hover/cursor，也没有 SVG 的几何。这里点的是夹具里 `frameLinks` 连好的那条
+   * 「☰ → 历史会话」。
+   */
+  test("预览模式：点有跳转的节点真的换页；没跳转的点了不动也不选中；画板画出连线", async ({ page }) => {
+    await open(page, "detail-prototype");
+    await page.getByTestId("design-detail-view-single").click();
+    await expect(page.getByTestId("design-detail-frame-0")).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByTestId("design-detail-mode-preview").click();
+    // 预览不是编辑：焦点 chip 与属性面板都不该在
+    await expect(page.getByTestId("design-detail-focus")).toHaveCount(0);
+
+    // 有跳转的节点（对话页 navbar 左键「☰」）⇒ 换到第 2 页
+    await page.locator('[data-proto="navbar"]').first().click();
+    await expect(page.getByTestId("design-detail-frame-1")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("design-detail-phone-tree")).toContainText("历史会话");
+
+    // 没跳转的节点点了不换页，也不进选中态（预览就是预览）
+    const before = await page.getByTestId("design-detail-phone-tree").innerText();
+    await page.locator('[data-proto="input"]').first().click();
+    await expect(page.getByTestId("design-detail-frame-1")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("design-detail-focus")).toHaveCount(0);
+    expect(await page.getByTestId("design-detail-phone-tree").innerText()).toBe(before);
+
+    // 切回编辑：点节点恢复选中语义
+    await page.getByTestId("design-detail-mode-edit").click();
+    await page.locator('[data-proto="input"]').first().click();
+    await expect(page.getByTestId("design-detail-focus")).toBeVisible();
+
+    // 画板视图：连线真的画出来了（夹具共 6 条合法 link）
+    await page.getByTestId("design-detail-view-board").click();
+    await expect(page.getByTestId("design-detail-board-links")).toBeVisible();
+    expect(await page.getByTestId("design-detail-board-link").count()).toBe(6);
+  });
 });

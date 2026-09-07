@@ -197,6 +197,10 @@ function PlanControlSession(
     void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
 
+  // Completed history belongs to the durable execution trace beside the result.
+  // Keeping the editable plan above the composer duplicates that same run state.
+  if (["done", "cancelled"].includes(ledger.phase) && !hasPlanAction) return null;
+
   // A checkpoint belongs to the run, including runs that never wrote a plan.
   // Do not invent a step/progress fraction just to expose its resume command.
   if (pausedWithoutPlan) return <div className="flex items-center gap-2 text-13">
