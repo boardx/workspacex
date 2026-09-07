@@ -38,6 +38,7 @@ real_model_load_env_file() {
     echo "[real-model-env] 未找到 env 文件（$env_file）——改用已导出的环境变量。"
     echo "[real-model-env] 换一个路径：WORKSPACEX_ENV_FILE=/path/to/.env.local"
   fi
+  real_model_alias_deployment_credentials
 }
 
 # 逐个点名缺失的必需变量。**一次列全**，不是发现一个报一个——
@@ -64,6 +65,38 @@ real_model_require_vars() {
     return 1
   fi
   echo "[real-model-env] [$context] 必需变量齐了（$# 个，值不回显）"
+}
+
+# 部署 env 文件（`/opt/workspacex/deploy.env`）用的是**运行时**命名 `KERNEL_MODEL_*`，
+# 而真实模型通道用的是**凭据来源**命名 `DASHSCOPE_*`——`e2e-up.sh` 正是把后者派生成
+# 前者（`KERNEL_MODEL_API_KEY="$DASHSCOPE_API_KEY"` 等）。自建 runner 上只有部署文件，
+# 于是同一套 DashScope 凭据在那台机器上「存在但叫另一个名字」，真实验收因此红了两次
+# （issue #2930，run 34142454336）。
+#
+# 这里补的是那条派生的**反方向**，让两种命名共用同一份凭据，而不是把同一个 key 在
+# deploy.env 里再抄一份 —— 抄一份就是「同一事实声明在两处」，两边迟早漂移。
+#
+# 三条硬约束：
+#   ① 只填**尚未设置**的变量。显式给了 `DASHSCOPE_*` 的机器行为逐字不变。
+#   ② 只在 `KERNEL_MODEL_PROVIDER=dashscope` 时映射。别的 provider 一律不碰——
+#      否则会把另一家的 base_url/key 冒充成 DashScope 凭据，是比缺变量更坏的失败。
+#   ③ 不回显任何值，与本文件其余部分同一承诺。
+real_model_alias_deployment_credentials() {
+  [ "${KERNEL_MODEL_PROVIDER:-}" = "dashscope" ] || return 0
+  local mapped=()
+  _alias_one() {
+    local target="$1" source="$2"
+    [ -z "${!target:-}" ] && [ -n "${!source:-}" ] || return 0
+    export "$target=${!source}"
+    mapped+=("$target←$source")
+  }
+  _alias_one DASHSCOPE_API_KEY  KERNEL_MODEL_API_KEY
+  _alias_one DASHSCOPE_BASE_URL KERNEL_MODEL_BASE_URL
+  _alias_one DASHSCOPE_MODEL    KERNEL_DEFAULT_AGENT_MODEL_ID
+  unset -f _alias_one
+  if [ ${#mapped[@]} -gt 0 ]; then
+    echo "[real-model-env] 由部署命名派生（provider=dashscope，值不回显）：${mapped[*]}"
+  fi
 }
 
 # 隔离外壳注进来的那一套。缺了它们说明没经过 `with-test-isolation.ts`，
