@@ -2,7 +2,7 @@
 
 日期：2026-09-06。状态：实施中；2026-09-07 用户直接授权独立 worktree、并行 subagent、逐单元 commit、最终一个 PR。跟踪 issue：#2867；不代改设计签核状态。
 
-## 开发进度图（更新于 2026-09-07 09:50 Asia/Shanghai）
+## 开发进度图（更新于 2026-09-07 10:06 Asia/Shanghai）
 
 本图是本升级项目的进度展示入口。灰色表示已有代码可复用，不等于本次验收通过；绿色只用于有证据的已完成项。当前三路 subagent 正在逐项核对节点验收；绿色表示节点验收完成，紫色另表示通过 PR 交付。节点验收与仓库 feature passing 状态分开记录，不按代码量虚报完成。
 
@@ -58,12 +58,21 @@ flowchart TB
   S4 -.成果事件接入.-> S10
   S7 -.交互接入.-> S9
 
-  S9 --> S11["S11 当前代码SHA完整链CI全绿\ncommit 76a44a546\nfullstack-smoke 19分25秒通过\n待PR及联合验收"]:::verify
+  S9 --> S11["S11 修复刷新定位不稳定\ncommit 76a44a546\nCI绿：76通过 / 1重试通过 / 1跳过\n专项验收未全部完成"]:::active
   S11 --> RM["实模待授权：DashScope外发审批\n测试 commit 8a896dd19\n未运行，不以回环替代"]:::blocked
   S10 --> S11
   S7 --> S11
   R4 -.回归基线.-> S11
   S11 --> S12["S12 后续导入旅程迁移\ncommit a83730fcb / a47ef0a55\n进度 commit 3e50354c7\nPR2890 · review 32/32通过"]:::active
+
+  subgraph ACCEPTED["已完成的专项验收（不替代上级节点全部要求）"]
+    VJ["Journal 序号/回放/取消竞争\n被测 commit 31b2c2452\n真实 PG 18/18"]:::done
+    VP["父控制与授权范围\n被测 commit 31b2c2452\n真实 PG 13/13"]:::done
+    VF["插话持久 FIFO\n被测 commit 31b2c2452\n真实 PG 3/3"]:::done
+  end
+  S3 -.专项证据.-> VJ
+  S7 -.专项证据.-> VP
+  S6 -.专项证据.-> VF
 
   subgraph LEGEND["颜色规则（验收完成与 PR 交付分开）"]
     LG["绿色：验收完成"]:::done
@@ -99,6 +108,7 @@ flowchart TB
 
 | 日期 | 节点 | 变化与证据 | 下一动作 | 实测 Token |
 |---|---|---|---|---|
+| 2026-09-07 10:06 | S3 / S6 / S7 / S11 | 颜色规则 `31b2c2452`：绿色为节点验收完成，紫色为已通过 PR 交付。该 SHA 的真实 PG 专项 34/34 通过，详见 [日志](evidence/agent-workbench/2026-09-07-node-pg.txt)，新增绿色验收子项。上级节点仍按全部要求逐项验证。核读 `76a44a546` 全栈日志发现实际为 76 通过、1 重试通过、1 跳过；重试项刷新后按旧线程标题定位超时，S11 转蓝修复 | 补 S2 HTTP 矩阵，修复刷新定位，并补 S5–S7 浏览器专项 | 未采集 |
 | 2026-09-07 09:50 | S11–S12 | 进度与 peer 契约更新已提交并推送为 `3e50354c7`；该提交只改两份文档，pre-push 13/13 通过。其新一轮 CI 已有 pytest、merge-gate、gates-fast、gates-runtime、verify-control-plane 通过，其余运行中。Mermaid 将 `76a44a546` 明确写为当前代码 SHA，避免文档提交触发 CI 后把旧代码验证错误表述为最新文档 HEAD 验证 | 跟进 `3e50354c7` 文档提交 CI；不因文档复验覆盖 `76a44a546` 的完整代码链证据 | 未采集 |
 | 2026-09-07 09:45 | S4 / S9–S12 | PR #2890 当前提交 `76a44a546` 的核心 E2E、pytest、四个 API 分片、运行时门禁、完整编译、受影响范围、控制平面及 `fullstack-smoke` 全部通过；全栈 smoke 用时 19 分 25 秒。独立 UI review 对默认折叠、流式与终稿分离、journal 回放去重、Skill 阶段区分、录音 owner 隔离复验 5 文件 32/32，通过且无 P0/P1/P2。peer 独立提交 `50b9d9a409` 已在暂停结算为 cancelled 时释放 native session，提交证据为 6 文件 41 项；peer 当前整个工作区仍不干净，因此不把其 HEAD 记为联合完成 | 提交并推送进度/契约记录；等待 peer 干净整合 SHA 后完成真实 Skill/取消联合链；DashScope 仍待明确外发授权 | 未采集 |
 | 2026-09-07 09:23 | S4 / S9 / S11–S12 | 生产 `31a0862d7`＋测试 `a83730fcb` 的完整单 worker 验证为 76 通过、1 失败、1 跳过；唯一失败是 Skill 旅程复用前序已挂载技能的未开始线程。`a47ef0a55` 已保留零挂载反证并建立独立持久线程，子智能体复核无 P0/P1/P2。`bd392b6ca` 已绑定录音停止异步结果与 session owner，组件 20/20、类型与 lint 通过。当前 HEAD 干净构建复验在本机高负载下超出 webServer 240 秒启动窗口，测试用例未开始；另一次同 HEAD 干净构建启动成功且前 14 项通过后 runner 无断言输出退出，均不冒充完整链结果。peer `0e2bdb411`/`045f48ae5` 的真实 Skill emitter/native 链已提交但尚未联合 | 推送当前提交，使用独立 CI runner 完成当前 HEAD 全链；按符号合入 peer 干净整合 SHA，保留 `446b03557` deny 优先和 `d78a0790d` 取消优先 | 未采集 |
