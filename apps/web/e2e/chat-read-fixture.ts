@@ -71,6 +71,18 @@ export const CHAT_READ_E2E = {
    */
   deepAgentApprovalTrigger: "取证：请触发人工审批",
   /**
+   * issue #2919 —— 宽泛文档请求先补全主题与内容来源，再在同一个 run 上继续。
+   * 这组值同时供浏览器断言、deep-agent loopback 剧本与 chat-read config 使用，
+   * 避免三处各写一份触发词或产物名后静默漂移。
+   */
+  deepAgentClarificationTrigger: "生成中文 PDF",
+  deepAgentClarificationTopic: "WorkspaceX Agent 工作台升级说明",
+  deepAgentClarificationContentSource: "根据当前对话整理一页产品说明",
+  deepAgentClarificationArtifactName: "WorkspaceX-Agent-工作台说明.pdf",
+  /** issue #2919：三类结构化 HITL 必须都走同一持久 decision/resume 通路。 */
+  deepAgentConfirmIntentTrigger: "取证：请确认任务意图",
+  deepAgentChooseOptionTrigger: "取证：请让我选择执行方案",
+  /**
    * DA-19g —— 多轮上下文取证（chat-ux-acceptance-criteria.md 第 6 项）。替身对这句
    * 触发词逐字引用「这条线程上一次收到的用户消息」，命中的前提是 Chat 线程真的被续接
    * （`copilotkit-v2-panel.tsx` 回传 `forwardedProps.chatThreadId`）——没有续接就没有

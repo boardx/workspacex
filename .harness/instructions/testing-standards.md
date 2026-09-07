@@ -72,6 +72,10 @@ config 覆盖，否则 `lint-spec-gate-coverage.mjs` 会挡：一个没人跑的
 纯取证/截图脚本（不承担 gate 职责）可以登记进该脚本的 `EXEMPTIONS` 并写明理由
 （先例：`chat-main-shots.spec.ts` / `vz-fabric-shots.spec.ts`）。
 
+Chat Agent 的延迟、流式连续性、HITL 恢复、轨迹和画布性能门控统一见
+[`chat-agent-performance-acceptance.md`](./chat-agent-performance-acceptance.md)。相关测试不得在
+各 spec 内另写一套冲突阈值。
+
 **登录/账号**：新 spec 若不需要断言严格权限边界矩阵、也不需要与其它 feature 隔离账号，
 优先用开发模式预设账号（`pnpm harness dev-mode seed` 种一次 + `apps/web/e2e/dev-mode-login.ts`
 的 `loginAsDevRole(page, role)`），不要在文件里再复制一份 `loginAs(page, email, password)`。

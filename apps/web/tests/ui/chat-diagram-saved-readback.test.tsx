@@ -93,6 +93,31 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
     });
     expect(saved).toBeNull();
   });
+
+  it("同一消息有两个不同画布时，按围栏身份取各自最新保存版", async () => {
+    listThreadArtifacts.mockResolvedValue({
+      items: [
+        item({ artifactId: "canvas-persona" }),
+        item({ artifactId: "canvas-journey" }),
+      ],
+    });
+    getThreadArtifactSource.mockImplementation(async (_threadId: string, artifactId: string) => ({
+      markdown: artifactId === "canvas-persona"
+        ? "模板: persona\n## 目标\n- 保存后的画像"
+        : "模板: journey-map\n## 阶段\n- 保存后的旅程",
+      version: null,
+      savedAt: artifactId === "canvas-persona" ? "2026-09-07T01:00:00.000Z" : "2026-09-07T02:00:00.000Z",
+      savedBy: "u1",
+    }));
+
+    const persona = await fetchLatestSavedDiagramSource({
+      threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
+      accepts: (markdown) => markdown.startsWith("模板: persona\n"),
+    });
+
+    expect(persona?.markdown).toContain("保存后的画像");
+    expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "canvas-persona", "p", "b");
+  });
 });
 
 const ORIGINAL_CODE = "flowchart TD\n  a-->b";

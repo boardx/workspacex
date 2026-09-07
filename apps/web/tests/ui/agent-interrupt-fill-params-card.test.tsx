@@ -44,17 +44,17 @@ describe("F214 · 默认态：AI 猜测字段高亮 + 徽标 + 依据文案（I-
   });
 });
 
-describe("F214 · 提交按钮文案随改动切换：未改→接受(approve)，有改动→应用(edit)", () => {
-  it("初始未改动：按钮文案是「接受」", () => {
+describe("F214 · 提交按钮清楚说明会恢复当前任务", () => {
+  it("初始未改动：按钮文案是「提交并继续」", () => {
     render(<FillParamsCard fields={MOCK_FILL_PARAMS} state="default" canWrite />);
-    expect(screen.getByTestId(`${TID}-submit`).textContent).toBe("接受");
+    expect(screen.getByTestId(`${TID}-submit`).textContent).toBe("提交并继续");
   });
 
-  it("改动任意一个字段后：按钮文案变成「应用」，且出现 appliedTo 二选一", () => {
+  it("改动任意一个字段后：继续使用同一提交文案，且出现 appliedTo 二选一", () => {
     render(<FillParamsCard fields={MOCK_FILL_PARAMS} state="default" canWrite />);
     const textField = MOCK_FILL_PARAMS.find((f) => f.kind === "text")!;
     fireEvent.change(screen.getByTestId(`${TID}-input-${textField.name}`), { target: { value: "新值" } });
-    expect(screen.getByTestId(`${TID}-submit`).textContent).toBe("应用");
+    expect(screen.getByTestId(`${TID}-submit`).textContent).toBe("提交并继续");
     expect(screen.getByTestId(`${TID}-applied-full-rerun`)).toBeTruthy();
     expect(screen.getByTestId(`${TID}-applied-ledger-only`)).toBeTruthy();
   });

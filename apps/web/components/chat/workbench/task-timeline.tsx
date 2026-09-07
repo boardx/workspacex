@@ -15,7 +15,13 @@ function ExecutionTool({ entry }: { entry: TraceEntry }): React.ReactNode {
     toolMessage: entry.result === undefined ? undefined : { id: `${entry.id}:result`, role: "tool", toolCallId: entry.id, content: typeof entry.result === "string" ? entry.result : JSON.stringify(entry.result) ?? "" },
   });
 }
-const renderExecutionTool = (entry: TraceEntry) => isDecisionTool(entry.kind === "skill" ? "call_skill" : entry.text) ? null : <ExecutionTool entry={entry} />;
+const renderExecutionTool = (entry: TraceEntry) => {
+  const toolName = entry.kind === "skill" ? "call_skill" : entry.text;
+  // write_todos is already projected as the single durable plan ledger. Keep its
+  // trace row, arguments and status for audit, but do not turn every journal
+  // snapshot into another full plan card inside the expanded trace.
+  return isDecisionTool(toolName) || toolName === "write_todos" ? null : <ExecutionTool entry={entry} />;
+};
 type TraceContext = { events: TraceStore; messageRuns: Readonly<Record<string, string>>; expanded?: Record<string, boolean>; toggle?: (runId: string, value: boolean) => void };
 const TraceContext = React.createContext<TraceContext>({ events: {}, messageRuns: {} });
 function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantMessage>): JSX.Element {
