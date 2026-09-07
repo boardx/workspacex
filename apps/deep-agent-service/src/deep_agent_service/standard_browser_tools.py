@@ -1,6 +1,7 @@
 """Run-bound canonical browser tools backed by WorkspaceX's Playwright MCP adapter."""
 import asyncio
 import json
+import sys
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -20,6 +21,7 @@ class StandardBrowserError(RuntimeError):
 
 
 async def _invoke(name, args, runtime):
+    status = None
     try:
         tool_input, output = _TOOLS[name]
         tool_input.validate(args)
@@ -28,7 +30,7 @@ async def _invoke(name, args, runtime):
         base = callback['base_url'].rstrip('/')
         parsed = urlsplit(base)
         if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or not callback['key']:
-            raise ValueError()
+            raise ValueError('callback_endpoint_shape')
         body = {
             'orgId': callback['org_id'],
             'attemptId': callback['attempt_id'],
@@ -46,17 +48,33 @@ async def _invoke(name, args, runtime):
         async with asyncio.timeout(deadline):
             async with httpx.AsyncClient(timeout=deadline, follow_redirects=False, trust_env=False) as client:
                 async with client.stream('POST', url, headers={'x-deep-agent-internal-key': callback['key'], 'accept-encoding': 'identity'}, json=body) as response:
-                    if response.status_code != 200 or response.headers.get('content-encoding', 'identity') != 'identity':
-                        raise ValueError()
+                    status = response.status_code
+                    if status != 200 or response.headers.get('content-encoding', 'identity') != 'identity':
+                        raise ValueError('upstream_status_or_encoding')
                     content = bytearray()
                     async for chunk in response.aiter_raw():
                         if len(content) + len(chunk) > _SCHEMA['limits']['maxResponseBytes']:
-                            raise ValueError()
+                            raise ValueError('response_too_large')
                         content.extend(chunk)
                     result = json.loads(content)
                     output.validate(result)
                     return result
-    except Exception:
+    except Exception as cause:
+        # #2930 —— 模型看到的那句话**逐字不变**：对模型不可区分是设计（见类 docstring），
+        # 它阻止模型自动重试。没有设计理由的是**运维视角也瞎**：`from None` 丢掉了每一个
+        # 原因，于是陈旧引用被拒(403)、上游 5xx、超时、响应超限、输出 schema 违规在日志里
+        # 长得一模一样。S013 已有两轮排查死在这上面（issue #2930）。
+        #
+        # 这里只往 stderr 打**有界且无密**的一行：异常类型 + 内部标签 + HTTP 状态码。
+        # 刻意不打 str(cause) 与响应体——`test_failure_is_sanitized_and_not_retried`
+        # 钉着凭据不得出现在错误里，那条纪律同样适用于这行日志。
+        detail = type(cause).__name__
+        tag = cause.args[0] if isinstance(cause, ValueError) and cause.args and isinstance(cause.args[0], str) else None
+        if tag:
+            detail += f' [{tag}]'
+        if status is not None:
+            detail += f' http_status={status}'
+        print(f'[standard-browser] {name} refused or failed: {detail}', file=sys.stderr, flush=True)
         raise StandardBrowserError('Browser action refused, failed, or has an unknown outcome; do not retry automatically') from None
 
 
