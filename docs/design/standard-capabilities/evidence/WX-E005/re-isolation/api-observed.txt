@@ -1,0 +1,14 @@
+Observed tool-session output excerpt, not a full raw log.
+Command: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/mcp/mcp-isolation-real-db.test.ts tests/mcp/mcp-execution-snapshot-real-db.test.ts
+Tool session: 75515
+Exit code: 0
+Isolation DB: wsx_4f0e8969ce703852c453
+✓ tests/mcp/mcp-execution-snapshot-real-db.test.ts (10 tests) 17229ms
+✓ tests/mcp/mcp-isolation-real-db.test.ts (4 tests) 3934ms
+Test Files 2 passed (2)
+Tests 14 passed (14)
+Start at 10:39:26
+Duration 25.58s
+peak_connections=6
+Command execution: 26s; cleanup: 1s; total: 27s.
+Expected HTTP 401/400/503/403 negative-test logs appeared; tests passed.

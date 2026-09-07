@@ -1,5 +1,7 @@
 {
   "limits": {
+    "cancelPollMs": 200,
+    "cancelAckGraceMs": 2000,
     "maxConcurrentExecutions": 2,
     "workerHeapMb": 128,
     "maxTools": 64,

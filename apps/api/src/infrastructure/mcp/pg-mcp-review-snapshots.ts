@@ -42,7 +42,7 @@ export class PgMcpReviewSnapshots {
     const updated=await s.query('UPDATE mcp_tools SET auth_scope=$4 WHERE org_id=$1 AND server_id=$2 AND full_name=$3 AND schema_fingerprint=$5 RETURNING full_name',[orgId,input.serverId,tool.fullName,input.authScope,tool.schemaFingerprint]);
     if(updated.rows.length!==1)throw new Error('mcp_review_changed');
    }
-   await s.query('UPDATE mcp_servers SET review_status=$3,connection_status=$4,auth_scope=$5,current_review_id=$6 WHERE org_id=$1 AND server_id=$2',[orgId,input.serverId,result.reviewStatus,result.connectionStatus,input.verdict==='维持隔离'?'未开放':input.authScope,result.reviewId]);
+   await s.query('UPDATE mcp_servers SET review_status=$3,connection_status=$4,auth_scope=$5,current_review_id=$6,isolation_mode=NULL WHERE org_id=$1 AND server_id=$2',[orgId,input.serverId,result.reviewStatus,result.connectionStatus,input.verdict==='维持隔离'?'未开放':input.authScope,result.reviewId]);
    return ReviewRecord.parse(record);
   });
  }

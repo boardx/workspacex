@@ -1,0 +1,236 @@
+TAP version 13
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+ok 1 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts real boundary
+  ---
+  duration_ms: 140.463
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+ok 2 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects !member||
+  ---
+  duration_ms: 9.455209
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+ok 3 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects this.identity.findOrgMembership
+  ---
+  duration_ms: 40.218375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+ok 4 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewMcpServer({
+  ---
+  duration_ms: 8.991334
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+ok 5 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects reviewerId,verdict:input.verdict
+  ---
+  duration_ms: 12.436125
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+ok 6 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects WHERE org_id=$1 AND server_id=$2 FOR UPDATE
+  ---
+  duration_ms: 46.926167
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+ok 7 - src/infrastructure/mcp/pg-mcp-review-snapshots.ts rejects [orgId,input.serverId
+  ---
+  duration_ms: 8.884208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+ok 8 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts real boundary
+  ---
+  duration_ms: 66.928
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+ok 9 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await this.recheck(context,frozen);
+  ---
+  duration_ms: 80.147208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+ok 10 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state?.active||state.cancelRequested
+  ---
+  duration_ms: 116.174709
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+ok 11 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects !state.leaseValid
+  ---
+  duration_ms: 12.341041
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+ok 12 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects this.authority.check(context)
+  ---
+  duration_ms: 109.824459
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+ok 13 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects await resolveVisibility(
+  ---
+  duration_ms: 8.641875
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+ok 14 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects m.thread_id=r.thread_id AND m.author_kind='human'
+  ---
+  duration_ms: 13.554917
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+ok 15 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects v.agent_id=r.agent_id
+  ---
+  duration_ms: 12.133375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+ok 16 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects record.authScopeSet!==server.auth_scope
+  ---
+  duration_ms: 18.275083
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+ok 17 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects tool.authScope!==record.authScopeSet||!whitelistEntryGrants(entry)
+  ---
+  duration_ms: 21.40775
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+ok 18 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects frozen.reviewId!==current.reviewId
+  ---
+  duration_ms: 9.411917
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects server.credential_configured||server.involves_customer_data
+ok 19 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects server.credential_configured||server.involves_customer_data
+  ---
+  duration_ms: 13.684416
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+ok 20 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects prior.status!=='succeeded'
+  ---
+  duration_ms: 178.313
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+ok 21 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects private async facts
+  ---
+  duration_ms: 251.936125
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+ok 22 - src/infrastructure/mcp/pg-mcp-execution-snapshot.ts rejects [org,run]
+  ---
+  duration_ms: 9.814834
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts real boundary
+ok 23 - src/infrastructure/mcp/pg-mcp-isolation.ts real boundary
+  ---
+  duration_ms: 9.230584
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects member.orgRole!=='admin'
+ok 24 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects member.orgRole!=='admin'
+  ---
+  duration_ms: 2.866375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects await this.authorize(orgId,userId);
+ok 25 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects await this.authorize(orgId,userId);
+  ---
+  duration_ms: 1.955834
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects mode==='interrupt'
+not ok 26 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects mode==='interrupt'
+  ---
+  duration_ms: 18.786292
+  type: 'test'
+  location: '/private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/mcp-execution-boundary.test.mjs:13:40'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(checkMcpExecutionBoundary(path,source.replace(before,after)).length)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: 0
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/mcp-execution-boundary.test.mjs:13:116)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: src/infrastructure/mcp/pg-mcp-isolation.ts rejects WHERE org_id=$1 AND server_id=$2 AND status='pending'
+not ok 27 - src/infrastructure/mcp/pg-mcp-isolation.ts rejects WHERE org_id=$1 AND server_id=$2 AND status='pending'
+  ---
+  duration_ms: 5.341375
+  type: 'test'
+  location: '/private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/mcp-execution-boundary.test.mjs:13:40'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(checkMcpExecutionBoundary(path,source.replace(before,after)).length)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: 0
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///private/tmp/workspacex-standard-capabilities/apps/api/scripts/tests/mcp-execution-boundary.test.mjs:13:116)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts real boundary
+ok 28 - src/infrastructure/mcp/mcp-inflight-control.ts real boundary
+  ---
+  duration_ms: 2.703375
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects row.status!=='pending'
+ok 29 - src/infrastructure/mcp/mcp-inflight-control.ts rejects row.status!=='pending'
+  ---
+  duration_ms: 2.010208
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects AND isolation_request_id IS NOT NULL
+ok 30 - src/infrastructure/mcp/mcp-inflight-control.ts rejects AND isolation_request_id IS NOT NULL
+  ---
+  duration_ms: 2.147958
+  type: 'test'
+  ...
+# Subtest: src/infrastructure/mcp/mcp-inflight-control.ts rejects await pending;
+ok 31 - src/infrastructure/mcp/mcp-inflight-control.ts rejects await pending;
+  ---
+  duration_ms: 1.341584
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 29
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5391.535167

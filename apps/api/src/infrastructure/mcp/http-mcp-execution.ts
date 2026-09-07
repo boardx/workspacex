@@ -2,7 +2,7 @@ import {Worker} from 'node:worker_threads';
 import {createRequire} from 'node:module';
 import {McpFrozenTool,McpInvokeOutput,McpRuntimeTool,MCP_EXECUTION_LIMITS as L} from '@repo/contracts/mcp-execution-snapshot';
 import type {z} from 'zod';
-export type McpExecutionCall=(tool:z.infer<typeof McpFrozenTool>,args:Record<string,unknown>)=>Promise<z.infer<typeof McpInvokeOutput>>;
+export type McpExecutionCall=(tool:z.infer<typeof McpFrozenTool>,args:Record<string,unknown>,control?:{signal:AbortSignal})=>Promise<z.infer<typeof McpInvokeOutput>>;
 /** Infrastructure-only TLS/DNS seams for real protocol tests, never accepted by an HTTP route. */
 export interface McpExecutionOptions {extraTrustedCa?:string;timeoutMs?:number;testNetwork?:{lookupAddress:string;allowPrivateAddress?:boolean};}
 const require=createRequire(import.meta.url);
@@ -22,15 +22,17 @@ const {parentPort,workerData}=require('node:worker_threads');
  if(Buffer.byteLength(JSON.stringify(result))>workerData.maxBytes)throw Error('limit');
  parentPort.postMessage({result});
 })().catch(()=>parentPort.postMessage({failed:true}));`;
-async function runWorker(payload:Record<string,unknown>,options:McpExecutionOptions):Promise<unknown>{
+async function runWorker(payload:Record<string,unknown>,options:McpExecutionOptions,signal?:AbortSignal):Promise<unknown>{
+ if(signal?.aborted)throw new Error('mcp_execution_unconfirmed');
  if(active>=L.maxConcurrentExecutions)throw new Error('mcp_execution_unavailable');
  const timeout=Math.min(options.timeoutMs??L.deadlineMs,L.deadlineMs);
  if(!Number.isFinite(timeout)||timeout<=0)throw new Error('mcp_execution_unavailable');
  active++;
- let worker:Worker|undefined,timer:ReturnType<typeof setTimeout>|undefined;
+ let worker:Worker|undefined,timer:ReturnType<typeof setTimeout>|undefined;let onAbort:(()=>void)|undefined;
  try{
   worker=new Worker(program,{eval:true,workerData:{loader:require.resolve('tsx/esm/api'),module:new URL('./http-mcp-execution-core.ts',import.meta.url).href,parent:import.meta.url,...payload,options:{...options,timeoutMs:timeout},maxBytes:L.maxResultBytes},resourceLimits:{maxOldGenerationSizeMb:L.workerHeapMb}});
   const result=await new Promise<unknown>((resolve,reject)=>{
+   onAbort=()=>reject(new Error('mcp_execution_unconfirmed'));signal?.addEventListener('abort',onAbort,{once:true});if(signal?.aborted)onAbort();
    timer=setTimeout(()=>reject(new Error('mcp_execution_unconfirmed')),timeout);
    worker!.once('message',(message:unknown)=>{if(!message||typeof message!=='object'||!('result'in message))reject(new Error('mcp_execution_unconfirmed'));else resolve(message.result);});
    worker!.once('error',()=>reject(new Error('mcp_execution_unconfirmed')));
@@ -39,14 +41,14 @@ async function runWorker(payload:Record<string,unknown>,options:McpExecutionOpti
   if(Buffer.byteLength(JSON.stringify(result))>L.maxResultBytes)throw new Error('mcp_execution_unconfirmed');
   return result;
  }catch{throw new Error('mcp_execution_unconfirmed');}
- finally{if(timer)clearTimeout(timer);try{if(worker)await worker.terminate();}finally{active--;}}
+ finally{if(onAbort)signal?.removeEventListener('abort',onAbort);if(timer)clearTimeout(timer);try{if(worker)await worker.terminate();}finally{active--;}}
 }
 /** A worker bounds SDK schema compilation as well as network/body processing. No retry. */
 export function createHttpMcpExecution(options:McpExecutionOptions={}):McpExecutionCall {
- return async(raw,args)=>{
+ return async(raw,args,control)=>{
   const tool=McpFrozenTool.parse(raw);
   if(Buffer.byteLength(JSON.stringify(args))>L.maxArgsBytes||Buffer.byteLength(JSON.stringify(tool))>L.maxResultBytes)throw new Error('mcp_execution_unavailable');
-  return McpInvokeOutput.parse(await runWorker({tool,args},options));
+  return McpInvokeOutput.parse(await runWorker({tool,args},options,control?.signal));
  };
 }
 /** Review compiles the entire bounded batch with the same official validator, without network access. */
