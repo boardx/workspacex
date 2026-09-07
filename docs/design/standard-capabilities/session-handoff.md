@@ -8,46 +8,18 @@ identity waiver and aggregate PR exception remain in effect; do not invent regis
 
 ## Current state
 
-Read development-flow.md for scoped component progress and capability-catalog.json for
-all 75 original requirements. Progress colours do not mean harness passing or deployment.
-Latest committed implementation at this snapshot: 587f72955. Last successfully pushed:
-3943e9780e815348649f15f64c637b7c54a1e7cd. That push passed 13 local checks. Main was integrated into this feature branch in 03b8361e7. The only Dockerfile conflict
-preserves frozen dependency installation and upstream no-reload/concurrency flags.
-Frozen pnpm installation and actual langgraph CLI option checks passed. New commits
-still need pushing and current-head CI; no merge of this PR into main occurred.
+Latest main d30ac48e8 (peer PR #2890) integrated in 02f6b5c8c. Independent increments: credential broker 41d60d32f; running cancellation with real LangGraph confirmation 5068ecb0a; uploaded WAV to artifact chain e2cb7a80a; CI Python/TLS/scheduler fixes 246b2d9f4. Last successful push f1ecb4734; later commits need pushing and current-head CI. No merge into main.
 
-Native factory/session persistence and recovery, actual Skill events, per-tool authority,
-readonly authorized attachment inputs and output staging/writeback are implemented.
-W12 uses LangMem and a persistent Postgres Store with identity, visibility and cancellation
-checks. E005 anonymous approved MCP execution is now integrated (0872c9b3d); credential
-broker and isolation acknowledgements remain in development. These replace the older
-handoff's assertions that there was no native production path or memory/MCP consumer.
-
-Recent committed components: W17 official SQL and cancellation 7d42283e3; W08 text
-7d1126261 and bounded OCR 50c6eac90; platform complete-pack seed 5aba6a788/d3c1c8c03;
-JSON artifact staging a1dcaf4dc; full Skill draft/artifact/admin import chain f51283005.
-Evidence directories preserve actual commands and limits. No real-model or full UI
-acceptance is implied by scripted-model and DB/HTTP component chains.
+Integrated working-tree API typecheck and 58 tests passed; see evidence/ci/main-d30ac48e8 for pending increments present in that run. All own root DB resources cleaned.
 
 ## Active work and ownership
 
-Root owns git staging/commits/push, progress documents, platform seed, and main integration.
-Three parallel workers share this worktree; never revert another worker's edits.
-- claude_research: image tool committed1f1eee8cf and visual pack seed587f72955; now
-  audio transcription using existing ASR provider, then fixed FFmpeg conversion and audio Skills.
-- current_runtime_audit: MCP isolation committed47f11e590 with14 real API and31 AST
-  tests. Now restricted credential broker; browser follows. Migration070000 reserved.
-- langchain_research: scheduler committed1d86b1200, including actual lifecycle and
-  cancellation-lock proof. Durable notifier remains absent. Now W16 running subtask
-  cancellation, late-output fencing and honest unknown outcomes; coordinates shared
-  ModelCallInput/ConfiguredModelProvider signal changes. No peer main-run/UI changes.
-Root owns shared kernel/factory composition again. DB slot is free after visual seed
-regression; workers request a slot before wrappers. All prior owned stacks cleaned.
+Root owns git, shared kernel/factory, docs and integration. All three workers are active:
+- claude_research: committed WAV chain; now FFmpeg image/decoder and real 60-minute probe.
+- current_runtime_audit: committed credential broker; now organization indexed FTS/citations with explicit coverage and per-source authorization.
+- langchain_research: committed running cancellation; now scheduler notification API/UI/delivery integration.
 
-Remaining requirements include running subtask cancellation and public events, delegated
-file authority, broader retrieval, cross-page tables and Office locators, audio Skills,
-compatibility/deployment verification, joint real-model E2E and current-head CI/review.
-S015 and S017 platform seed releases are committed and real DB/API verified.
+Workers coordinate the DB slot directly. New independent work continues while root reviews/commits. Never revert another worker's changes. Remaining browser, delegated file access, full retrieval/rerank, document locators, audio duration/formats, compatibility, live-model acceptance and final CI are not complete.
 
 ## Peer
 

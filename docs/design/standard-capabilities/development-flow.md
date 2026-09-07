@@ -31,10 +31,10 @@ flowchart TD
   E6 -.接入统一契约.-> Peer
   T42 --> PendingCancel[WX-T042 单个pending取消：352a506ba]:::verified
   PendingCancel --> T42Join[WX-T042 父取消与晚到入队阻断：4ef787b83]:::verified
-  T42Join --> RunningCancel[WX-T042 running取消与公共事件待接入]
+  T42Join --> RunningCancel[WX-T042 running cancel: 5068ecb0a]:::verified
   T42Join -.复用统一控制契约.-> Peer
   E2 --> MCPSchema[WX-E005 完整schema及变更授权：53658daf1]:::verified
-  MCPSchema --> MCP[WX-E005 匿名桥0872c9b3d、隔离47f11e590；凭据开发中]:::active
+  MCPSchema --> MCP[WX-E005 anonymous, isolation and credential broker: 41d60d32f]:::verified:::active
   MCP -.复用准入与审批.-> Peer
   MCP --> Browser[W10 浏览器交互与网页产物]
   E4 --> Research[W06 搜索抓取：85f56f1a1；研究包：086155098]:::verified
@@ -47,8 +47,8 @@ flowchart TD
   E2 --> MemoryScope[W12 可信个人scope：1f2735a71]:::verified
   MemoryScope --> Memory[W12 持久Store、撤权、取消回滚及生产DI：b91057172]:::verified
   E2 --> Schedule[W13 持久调度接线1d86b1200；通知待接]:::active
-  Schedule --> Notify[持久通知接口待接入]:::blocked
-  E6 --> Media[W14 图片1f1eee8cf、视觉包587f72955；音频开发中]:::active
+  Schedule --> Notify[Persistent notification API verified; UI integration active]:::active:::blocked
+  E6 --> Media[W14 image and WAV chain e2cb7a80a; long audio active]:::active:::active
   E4 --> Author[W15 草稿到产物再导入完整链：f51283005]:::verified
   E3 --> SQL[W17 官方SQL与取消反证：7d42283e3]:::verified
   E4 --> Methods[W19 两项方法包及导入源校验：ffbf307a2]:::verified
@@ -77,10 +77,10 @@ flowchart TD
   MethodDelivery --> Gate
   Gate --> Commits[每个任务独立commit]
   Commits --> Migration[迁移重放修复：e4b8e9b34，本地202项重放通过]:::verified
-  Migration --> Push[已授权公开推送；远端检查点3943e9780]:::active
-  Push --> PR[汇总Draft PR #2869：main已整合03b8361e7；待新SHA CI]:::active
+  Migration --> Push[已授权公开推送；远端检查点f1ecb4734]:::active
+  Push --> PR[Draft PR #2869; latest main integrated 02f6b5c8c; CI pending]:::active:::active
   PR --> Main[等待后续整合main]
-  Resource[3个并行agent：音频、MCP凭据、running子任务取消]:::active -.影响未完成工作.-> Gate
+  Resource[3 active agents: long audio, organization retrieval, notifications]:::active:::active -.影响未完成工作.-> Gate
   classDef default fill:#eef0f3,stroke:#88909c,color:#20242a;
   classDef verified fill:#dcfce7,stroke:#15803d,color:#14532d;
   classDef active fill:#fef3c7,stroke:#d97706,color:#78350f;
@@ -100,11 +100,11 @@ W17 官方 SQL Toolkit、独立只读角色、取消与超时反证已提交 7d4
 
 MCP 匿名工具已具备不可变审查与运行快照、逐调用审批和权限重验、隔离 Worker 与实际 ToolNode 接线，提交 0872c9b3d。凭据代理、治理中断确认和浏览器接入仍在开发，不能把匿名链的通过当作 E005 全部完成。
 
-W15 完整草稿包、JSON 产物发布写回与管理员导入链已提交 f51283005；实际脚本验证和完整文件摘要均有测试。标准包发布已有跨组织普通用户 API 可见性证据，S015 平台发布提交3943e9780；W14 图片工具完整链提交1f1eee8cf，视觉包发布提交587f72955。
+W15 完整草稿包、JSON 产物发布写回与管理员导入链已提交 f51283005；实际脚本验证和完整文件摘要均有测试。标准包发布已有跨组织普通用户 API 可见性证据，S015 平台发布提交f1ecb4734；W14 图片工具完整链提交1f1eee8cf，视觉包发布提交587f72955。
 
 ## 最新交付边界
 
-- 本快照最新实现587f72955；最后成功推送3943e9780，正常门控13/13通过。随后提交图片1f1eee8cf、MCP重隔离47f11e590、调度1d86b1200及视觉包587f72955，待推送取得新SHA CI。
+- 本快照最新实现587f72955；最后成功推送f1ecb4734，正常门控13/13通过。随后提交图片1f1eee8cf、MCP重隔离47f11e590、调度1d86b1200及视觉包587f72955，待推送取得新SHA CI。
 - main已整合为开发分支上的03b8361e7；唯一Dockerfile冲突保留冻结依赖安装及main的no-reload/并发参数，锁文件安装和实际CLI参数检查通过。没有把本PR合入main。
 - MCP重隔离真实数据库/HTTP/Worker 14项、权限AST31项通过。只确认实际本地停止，远端结果保持unknown；凭据代理仍在开发。
 - W13生产生命周期和父取消竞争反证通过，同一数据库事务连接覆盖授权与调度写入；持久通知适配器仍缺失，create明确拒绝，不宣称全用户调度可用。
@@ -112,3 +112,9 @@ W15 完整草稿包、JSON 产物发布写回与管理员导入链已提交 f512
 - 与peer初始接口协调已收到回复；后续任务工具Transport closed，未声称新消息送达。工作台与主run控制继续由peer负责。
 - 三个并行agent继续音频、凭据、运行中子任务取消；DB测试按单栈串行。浏览器、文件委派、完整检索/表格定位、真实模型联合验收及最终CI仍未完成。
 - 全部75项backlog尚未完成；绿色仅覆盖明确验证范围，不以提交数量估算百分比。
+
+## Integration update: 2026-09-07
+
+Latest main d30ac48e8 includes peer PR #2890 and is integrated in 02f6b5c8c. Credential broker 41d60d32f, running cancellation 5068ecb0a and WAV full chain e2cb7a80a are separately committed. Integrated working-tree API typecheck and 58 tests passed; evidence/ci/main-d30ac48e8 states which pending increments were present. CI repair is 246b2d9f4. Last successful push remains f1ecb4734; new-head CI is pending.
+
+All three workers are active on long audio, organization retrieval and notifications. Root handles integration and commits without holding completed workers idle. Full browser, delegated files, complete retrieval/locators, live-model acceptance and final CI remain outstanding. Earlier narrative is historical; this update and scoped nodes state the latest verified boundary. No merge into main or complete 75-item claim.
