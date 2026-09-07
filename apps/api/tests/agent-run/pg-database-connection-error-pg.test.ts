@@ -9,7 +9,9 @@ it("terminating only its own borrowed backend rejects the waiting transaction wi
   // No provisioning or service control: root supplies an existing isolated test DB.
   const database = process.env.WORKSPACEX_DB;
   expect(database).toBeTruthy();
-  expect(database).not.toBe("workspacex");
+  // db-global-setup already applies assertIsolatedDatabase. In particular,
+  // an explicitly declared workspacex DB is valid on an isolated CI runner.
+  // The termination below is independently restricted to our exact PID/marker.
   expect(appConfig().database).toBe(database);
   const marker = `disconnect-test-${randomUUID()}`;
   let observed!: () => void;
