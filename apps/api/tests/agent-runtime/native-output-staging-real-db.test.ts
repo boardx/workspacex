@@ -46,7 +46,7 @@ beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase
 });
 afterAll(async()=>{await db?.close();await resetOrgs(org);await rm(root,{recursive:true,force:true});});
 it('stages actual bytes, refuses changed content, replays once and existing writeback creates one artifact version',async()=>{
- let bytes=Buffer.from('actual UTF8 文件');const path='/workspace/a.txt';const objects=new FsObjectStore(root);
+ let bytes=Buffer.from('actual UTF8 文件');let path='/workspace/a.txt';const objects=new FsObjectStore(root);
  const ctx={orgId:org,parentRunId:parent,attemptId:parent+':0',leaseEpoch:1,bindingId:randomUUID(),toolCallId:'publish-call'};
  const reader=new PgParentRunControlReader(db);
  const authority=new ToolExecutionAuthority(reader,{readPinnedSkills:async()=>[]},{hasGrant:async()=>true,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{}});
@@ -77,11 +77,17 @@ it('stages actual bytes, refuses changed content, replays once and existing writ
  await expect(staging.stage({...ctx,orgId:toOrgId('other')},input)).rejects.toThrow('denied');
  bytes=Buffer.from('changed');await expect(staging.stage(ctx,input)).rejects.toThrow('conflict');bytes=Buffer.from('actual UTF8 文件');
  await expect(staging.stage(ctx,{...input,title:'another.txt'})).rejects.toThrow('conflict');
- const files=await staging.listFiles(org,parent);expect(files).toHaveLength(1);expect(await objects.get(files[0]!.objectKey)).toEqual(new Uint8Array(bytes));
+ let files=await staging.listFiles(org,parent);expect(files).toHaveLength(1);expect(await objects.get(files[0]!.objectKey)).toEqual(new Uint8Array(bytes));
+ path='/workspace/draft.json';bytes=Buffer.from('{"files":[],"title":"草稿"}');
+ const draft={workspacePath:path,title:'draft.json',mediaType:'application/json' as const,idempotencyKey:'draft'};
+ const receipt=await staging.stage({...ctx,toolCallId:'draft-call'},draft);
+ expect(await staging.stage({...ctx,toolCallId:'draft-call'},draft)).toEqual(receipt);
+ files=await staging.listFiles(org,parent);expect(files).toHaveLength(2);
+ const draftFile=files.find(file=>file.name==='draft.json')!;expect(draftFile.mime).toBe('application/json');expect(await objects.get(draftFile.objectKey)).toEqual(new Uint8Array(bytes));
  const repo=new PgAgentRunRepository(db);await repo.storeOutputAwaitingWriteback(org,parent,{text:'file staged',finalStepSeq:1,files});
  const pending=(await repo.claimWritebackPending(org,1))[0]!;
  const write={runId:parent,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files};
  await repo.commitWriteback(org,write);await repo.commitWriteback(org,write);
- const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(1);
- const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(1);
+ const versions=await db.withTenant(org,s=>s.query('SELECT storage_key FROM agent_artifact_versions WHERE org_id=$1 AND produced_by_run_id=$2',[org,parent]));expect(versions.rows).toHaveLength(2);
+ const attachments=await db.withTenant(org,s=>s.query('SELECT a.id FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,parent]));expect(attachments.rows).toHaveLength(2);
 });

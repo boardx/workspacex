@@ -17,7 +17,7 @@ export interface NativeOutputStaging {
 }
 const TYPES:Record<string,{mime:string;kind:string}>={
  pdf:{mime:'application/pdf',kind:'pdf'},png:{mime:'image/png',kind:'png'},jpg:{mime:'image/jpeg',kind:'jpeg'},jpeg:{mime:'image/jpeg',kind:'jpeg'},
- txt:{mime:'text/plain',kind:'text'},md:{mime:'text/markdown',kind:'text'},csv:{mime:'text/csv',kind:'text'},
+ json:{mime:'application/json',kind:'text'},txt:{mime:'text/plain',kind:'text'},md:{mime:'text/markdown',kind:'text'},csv:{mime:'text/csv',kind:'text'},
  docx:{mime:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',kind:'zip'},xlsx:{mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',kind:'zip'},pptx:{mime:'application/vnd.openxmlformats-officedocument.presentationml.presentation',kind:'zip'},
 };
 export async function validateNativeArtifactBytes(input:PublishInput,bytes:Uint8Array):Promise<void>{
@@ -25,7 +25,7 @@ export async function validateNativeArtifactBytes(input:PublishInput,bytes:Uint8
  const ext=input.workspacePath.split('.').at(-1)?.toLowerCase()??'';
  const type=TYPES[ext];
  if(!type||type.mime!==input.mediaType||input.title.split('.').at(-1)?.toLowerCase()!==ext||sniffAndCheck(input.title,bytes,[type.kind]).mismatch)throw new Error('native_output_mime_mismatch');
- if(type.kind==='text'){try{new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Error('native_output_mime_mismatch');}}
+ if(type.kind==='text'){try{const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(ext==='json')JSON.parse(text);}catch{throw new Error('native_output_mime_mismatch');}}
  if(type.kind==='zip'){
   const check=await inspectZipForBomb(bytes,{maxEntries:UPLOAD_LIMITS.maxZipEntries,maxDecompressedBytes:UPLOAD_LIMITS.maxDecompressedBytes,maxNestingDepth:UPLOAD_LIMITS.maxZipNestingDepth});
   if(!check.ok)throw new Error('native_output_archive_invalid');

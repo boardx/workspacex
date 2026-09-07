@@ -21,3 +21,10 @@ it('supports PNG JPEG UTF8 and rejects binary text',async()=>{
  }
  await expect(validateNativeArtifactBytes({workspacePath:'/workspace/a.txt',title:'a.txt',mediaType:'text/plain',idempotencyKey:'x'},Buffer.from([255,255]))).rejects.toThrow();
 });
+
+it('admits JSON artifacts as data only and rejects malformed or non-UTF8 bytes',async()=>{
+ const input=NativeArtifactPublishInput.parse({workspacePath:'/workspace/draft.json',title:'draft.json',mediaType:'application/json',idempotencyKey:'draft'});
+ await expect(validateNativeArtifactBytes(input,Buffer.from('{"files":[],"title":"草稿"}'))).resolves.toBeUndefined();
+ for(const bytes of [Buffer.from('{"broken":'),Buffer.from([255,255]),Buffer.from('<script>invalid JSON</script>')])await expect(validateNativeArtifactBytes(input,bytes)).rejects.toThrow();
+ await expect(validateNativeArtifactBytes({...input,title:'draft.txt'},Buffer.from('{}'))).rejects.toThrow();
+});

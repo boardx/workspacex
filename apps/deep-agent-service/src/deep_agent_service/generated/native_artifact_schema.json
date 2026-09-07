@@ -23,6 +23,7 @@
           "text/plain",
           "text/markdown",
           "text/csv",
+          "application/json",
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -95,6 +96,7 @@
               "text/plain",
               "text/markdown",
               "text/csv",
+              "application/json",
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               "application/vnd.openxmlformats-officedocument.presentationml.presentation"
