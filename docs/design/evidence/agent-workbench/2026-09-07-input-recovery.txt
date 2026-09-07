@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.worktrees/codex-agent-workbench/apps/web
+
+ ✓ tests/ui/workbench-composer-draft.test.tsx (5 tests) 100ms
+ ✓ tests/ui/workbench-readonly-attachments.test.tsx (2 tests) 197ms
+ ✓ tests/ui/chat-recording-panel-active-card.test.tsx (22 tests) 675ms
+
+ Test Files  3 passed (3)
+      Tests  29 passed (29)
+   Start at  10:38:28
+   Duration  4.62s (transform 1.46s, setup 1.10s, collect 4.51s, tests 972ms, environment 4.86s, prepare 367ms)
+
