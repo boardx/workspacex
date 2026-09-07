@@ -1,3 +1,4 @@
+import { preservePreviousReport } from "./guided-report-history";
 import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
 import { generateReportChapters, inlineReportSources } from "./guided-report-chapters";
 import { type RuntimePersistence } from "./guided-report-stream";
@@ -68,6 +69,7 @@ export function validateRuntimeDraft(state: ResearchRuntime, draft: RuntimeDraft
 }
 function invalidate(state: ResearchRuntime, node: Node) {
   const index = nodes.indexOf(node);
+  if (index < 4) preservePreviousReport(state);
   state.generatedNodes = state.generatedNodes.filter((item) => nodes.indexOf(item) <= index);
   state.availableNodes = nodes.slice(0, index + 1);
   state.currentNode = node;
@@ -77,7 +79,7 @@ function invalidate(state: ResearchRuntime, node: Node) {
   if (index < 1) state.directions = [];
   if (index < 2) state.outline = [];
   if (index < 3) { state.tasks = []; state.sources = []; state.researchPlan = null; }
-  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportCheckpoint = null; state.reportSourceAliases = []; state.progress = null; }
+  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
   validateRuntimeDraft(state, draft);

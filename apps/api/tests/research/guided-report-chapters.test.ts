@@ -1,3 +1,4 @@
+import { ModelCallError } from "../../src/application/agent-run/ports";
 import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
 import { validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
 import { describe, expect, it, vi } from "vitest";
@@ -359,6 +360,69 @@ describe("chapter-based report generation", () => {
     await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(attempts).toBe(2); expect(f.state.report).toBeNull();
     expect(f.state.reportCheckpoint?.chapters).toHaveLength(1);
+  });
+
+  it.each(["chapter", "synthesis"])("retries a recoverable %s stream from the approved prefix", async (target) => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let failed = false; let attempts = 0;
+    const model: ModelCallPort = {
+      complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+      completeStream: async (input, emit) => {
+        const context = JSON.parse(input.user); const text = JSON.stringify(answer(context));
+        if (context.reportStage === target) {
+          attempts++;
+          if (!failed) { failed = true; await emit(text.slice(0, 30)); throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure (ECONNRESET)"); }
+        }
+        await emit(text); return { text };
+      },
+    };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(attempts).toBe(2); expect(report.sections).toHaveLength(1);
+    expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
+    expect(f.state.modelCalls.filter((call) => call.status === "failed")).toHaveLength(1);
+  });
+  it("does not retry an observer error wrapped by the provider as a transport failure", async () => {
+    const f = fixture(); let calls = 0; const failure = new Error("observer failure");
+    f.persist.observe = (event) => { if (event.type === "report_delta") throw failure; };
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }), completeStream: async (input, emit) => {
+      calls++;
+      try { await emit(JSON.stringify(answer(JSON.parse(input.user))).repeat(20)); }
+      catch { throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure (ECONNRESET)"); }
+      return { text: "unreachable" };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBe(failure);
+    expect(calls).toBe(1);
+  });
+
+  it.each([[503, 2], [401, 1]])("bounds provider HTTP %s attempts at %s", async (status, expected) => {
+    const f = fixture(); let calls = 0;
+    const model: ModelCallPort = { complete: async () => { calls++; throw new ModelCallError("MODEL_CALL_FAILED", `model provider responded with HTTP ${status}`); } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBeInstanceOf(ModelCallError);
+    expect(calls).toBe(expected); expect(f.state.modelCalls).toHaveLength(expected);
+  });
+  it("does not retry a durable write failure before the model call", async () => {
+    const f = fixture(); let calls = 0; let writes = 0; const failure = new Error("database offline");
+    const persist: RuntimePersistence = Object.assign(async () => { writes++; if (writes >= 2) throw failure; }, { requestId: "persist-failure", observe: f.persist.observe });
+    const model: ModelCallPort = { complete: async () => { calls++; return { text: "{}" }; } };
+    await expect(generateReportChapters(f.state, model, config, persist)).rejects.toBe(failure);
+    expect(calls).toBe(0);
+  });
+
+  it("retains formal report A when partial attempt B fails and resumes under the same basis", async () => {
+    const f = fixture();
+    f.state.report = { title: "Report A", summary: "Prior findings", introduction: "Prior scope", conclusion: "Prior decisions", sections: [{ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }] };
+    let fail = true;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (fail && context.reportStage === "chapter" && context.section.id === "a") throw new Error("B interrupted");
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("B interrupted");
+    expect(f.state.reportPrevious?.report?.title).toBe("Report A");
+    expect(f.state.reportCheckpoint?.chapters.map((chapter) => chapter.sectionId)).toEqual(["b"]);
+    const prior = structuredClone(f.state.reportPrevious);
+    fail = false; f.state.report = null;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(f.state.reportPrevious).toEqual(prior);
   });
 
 });

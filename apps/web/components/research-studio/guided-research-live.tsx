@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ResearchProgress, ResearchLoading, researchSteps as steps, researchStepLabels as labels } from "./guided-research-presentation";
 import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
 import { GuidedResearchReportDocument } from "./guided-research-report-document";
+import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./guided-research-report-history";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { ResearchDirectionsEditor, ResearchOutlineEditor, ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guided-research-runtime-progress";
@@ -209,7 +210,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   function navigate(next: Command["node"]) { if (state && !busy) { setNode(next); setDraft(draftOf(state, next)); setError(null); } }
   function downloadReport() {
     if (!state?.report) return;
-    const content = researchReportMarkdown(researchReportDocument(state.report, state.sources, state.outline), state.reportPartial);
+    const content = researchReportMarkdown(researchReportDocument(state.report, state.sources, state.outline), state.reportPartial, state.reportEvidenceWarnings?.length ?? 0);
     const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "research-report.md"; anchor.click(); URL.revokeObjectURL(url);
   }
@@ -250,6 +251,8 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
     {state.legacyCheckpoint && <details className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-12 text-muted-foreground"><summary>历史记录已保留 · 查看迁移说明</summary><p className="mt-2">原会话状态：{state.legacyCheckpoint.status === "completed" ? "已完成" : "进行中"}。原方向与大纲已导入；旧版检索和报告没有可验证的来源记录，需要重新检索后生成报告。</p><p>原研究主题：{state.legacyCheckpoint.brief.topic}</p><ul>{state.legacyCheckpoint.directions.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.description}</li>)}</ul><ul>{state.legacyCheckpoint.outline.versions.at(-1)?.items.map((item) => <li key={item.id}>{item.title}：{item.questions.join("；")}</li>)}</ul></details>}
     {expired && <p role="alert" className="text-12 text-destructive">上次执行已中断。已保存的结果仍可用，请重试。</p>}
         <GuidedResearchRuntimeProgress state={state} />
+        {reportVisible && <GuidedResearchEvidenceWarning state={state} />}
+        {reportVisible && <GuidedResearchReportHistory state={state} />}
         {reportVisible && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
         {reportVisible && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}
         {waiting && (loadingNode ?? node) === "research" && <GuidedResearchPlanDetails state={state} errors={errors} />}
