@@ -28,6 +28,10 @@ const chatScreen: dp.PrototypeNode = {
   ],
 };
 
+/** 迭代 11：`applyPrototypePatch` 收的是屏（`{root, links}`），这两个小工具把既有用例的裸树用法接过去。 */
+const asScreens = (roots: readonly dp.PrototypeNode[]) => roots.map((root) => ({ root }));
+const rootsOf = (screens: readonly { readonly root: dp.PrototypeNode }[]) => screens.map((s) => s.root);
+
 describe("PrototypeNode", () => {
   it("正例：容器含叶子", () => {
     expect(dp.PrototypeNode.safeParse(chatScreen).success).toBe(true);
@@ -110,10 +114,10 @@ describe("迭代 5 属性面板元数据（单源门控）", () => {
   });
   it("setProps 里 null = 删键；拒绝原因是闭集且带 nodeId", () => {
     const base = dp.ensurePrototypeIds([{ type: "stack", children: [{ type: "button", props: { label: "x", variant: "danger" } }] }]);
-    const out = dp.applyPrototypePatch(base, [{ op: "setProps", id: "n2", props: { variant: null } }]);
-    expect((out[0] as { children: readonly dp.PrototypeNode[] }).children[0]).toEqual({ id: "n2", type: "button", props: { label: "x" } });
+    const out = dp.applyPrototypePatch(asScreens(base), [{ op: "setProps", id: "n2", props: { variant: null } }]);
+    expect((out[0]!.root as { children: readonly dp.PrototypeNode[] }).children[0]).toEqual({ id: "n2", type: "button", props: { label: "x" } });
     try {
-      dp.applyPrototypePatch(base, [{ op: "remove", id: "zzz" }]);
+      dp.applyPrototypePatch(asScreens(base), [{ op: "remove", id: "zzz" }]);
       throw new Error("should throw");
     } catch (e) {
       expect(e).toBeInstanceOf(dp.PrototypePatchError);
@@ -164,8 +168,8 @@ describe("迭代 6 原语扩充", () => {
     // patch 能进 grid
     const withIds = dp.ensurePrototypeIds([page]);
     const gridId = (withIds[0] as { children: readonly dp.PrototypeNode[] }).children[1]!.id!;
-    const out = dp.applyPrototypePatch(withIds, [{ op: "insert", parentId: gridId, node: { type: "stat", props: { label: "新", value: "1" } } }]);
-    expect(dp.measurePrototype(out[0]!).nodes).toBe(10);
+    const out = dp.applyPrototypePatch(asScreens(withIds), [{ op: "insert", parentId: gridId, node: { type: "stat", props: { label: "新", value: "1" } } }]);
+    expect(dp.measurePrototype(out[0]!.root).nodes).toBe(10);
   });
 });
 
@@ -213,13 +217,13 @@ describe("applyPrototypePatch", () => {
   // ids: n1(stack) n2(navbar) n3(stack) n4(text) n5(button)
 
   it("setProps 浅合并；replace 换子树并保留 id；insert 按 index；remove 删子树；新节点补 id", () => {
-    const out = dp.applyPrototypePatch(base, [
+    const out = dp.applyPrototypePatch(asScreens(base), [
       { op: "setProps", id: "n5", props: { variant: "danger" } },
       { op: "replace", id: "n4", node: { type: "text", props: { content: "hello" } } },
       { op: "insert", parentId: "n3", index: 0, node: { type: "badge", props: { label: "新" } } },
       { op: "remove", id: "n2" },
     ]);
-    const root = out[0]!;
+    const root = out[0]!.root;
     if (root.type !== "stack") throw new Error("root");
     expect(root.children.map((c) => c.id)).toEqual(["n3", "n5"]);
     expect(root.children[1]).toMatchObject({ type: "button", props: { label: "发送", variant: "danger" } });
@@ -228,22 +232,22 @@ describe("applyPrototypePatch", () => {
     expect(inner.children.map((c) => [c.type, c.id])).toEqual([["badge", "n6"], ["text", "n4"]]);
     expect(inner.children[1]).toMatchObject({ props: { content: "hello" } });
     // replace 时 node 自带的 id 被忽略，沿用被替换节点的 id；同批后续 op 仍能按原 id 寻址
-    const kept = dp.applyPrototypePatch(base, [
+    const kept = dp.applyPrototypePatch(asScreens(base), [
       { op: "replace", id: "n4", node: { id: "custom", type: "badge", props: { label: "x" } } },
       { op: "setProps", id: "n4", props: { tone: "info" } },
     ]);
-    const k = kept[0]!; if (k.type !== "stack") throw new Error();
+    const k = kept[0]!.root; if (k.type !== "stack") throw new Error();
     const ki = k.children[1]!; if (ki.type !== "stack") throw new Error();
     expect(ki.children[0]).toMatchObject({ id: "n4", type: "badge", props: { label: "x", tone: "info" } });
     expect(base[0]).toBe(base[0]); // 入参未改
-    expect(dp.prototypeIdsUnique(out)).toBe(true);
+    expect(dp.prototypeIdsUnique(rootsOf(out))).toBe(true);
   });
 
   it("失败整批抛：未知 id / 删根 / 往叶子里 insert / setProps 造出非法节点", () => {
-    expect(() => dp.applyPrototypePatch(base, [{ op: "remove", id: "nope" }])).toThrow(dp.PrototypePatchError);
-    expect(() => dp.applyPrototypePatch(base, [{ op: "remove", id: "n1" }])).toThrow(/page root/);
-    expect(() => dp.applyPrototypePatch(base, [{ op: "insert", parentId: "n5", node: { type: "divider" } }])).toThrow(/not a container/);
-    expect(() => dp.applyPrototypePatch(base, [{ op: "setProps", id: "n5", props: { variant: "neon" } }])).toThrow(/invalid node/);
+    expect(() => dp.applyPrototypePatch(asScreens(base), [{ op: "remove", id: "nope" }])).toThrow(dp.PrototypePatchError);
+    expect(() => dp.applyPrototypePatch(asScreens(base), [{ op: "remove", id: "n1" }])).toThrow(/page root/);
+    expect(() => dp.applyPrototypePatch(asScreens(base), [{ op: "insert", parentId: "n5", node: { type: "divider" } }])).toThrow(/not a container/);
+    expect(() => dp.applyPrototypePatch(asScreens(base), [{ op: "setProps", id: "n5", props: { variant: "neon" } }])).toThrow(/invalid node/);
   });
 
   it("契约：patch 数组 1–50 条；PATCH_GUIDE 提到四种 op", () => {
@@ -311,5 +315,50 @@ describe("迭代 11 跳转关系 validateLinks：逐条丢、不整页拒", () =
       createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z" };
     expect(dw.DesignProject.safeParse({ ...base, frameLinks: [[], []] }).success).toBe(true);
     expect(dw.DesignProject.safeParse({ ...base, frameLinks: [[]] }).success).toBe(false);
+  });
+});
+
+/**
+ * 迭代 11（V27 契约半边）—— `setLinks` 是唯一改 links 的 op，人改与模型改共用它（I-11）。
+ * 收尾统一过 `validateLinks`，所以"删掉源节点"这类**间接**失效不需要调用方自己收拾。
+ */
+describe("迭代 11 setLinks op", () => {
+  const two = () => dp.ensurePrototypeIds([
+    { type: "stack", children: [{ type: "button", props: { label: "去第二页" } }] },
+    { type: "stack", children: [{ type: "divider" }] },
+  ]).map((root) => ({ root }));
+
+  it("整体替换某页 links；其余页不动；frame/notes 这类附加字段原样穿过去", () => {
+    const screens = two().map((s, i) => ({ ...s, frame: `第${i + 1}页`, notes: `说明${i + 1}` }));
+    const out = dp.applyPrototypePatch(screens, [{ op: "setLinks", screen: 0, links: [{ from: "n2", to: 1 }] }]);
+    expect(out[0]!.links).toEqual([{ from: "n2", to: 1 }]);
+    expect(out[1]!.links).toEqual([]);
+    // 泛型让 frame/notes 穿过去——这个函数不需要知道它们存在
+    expect([out[0]!.frame, out[0]!.notes]).toEqual(["第1页", "说明1"]);
+    expect(Object.hasOwn(screens[0]!, "links")).toBe(false); // 入参未被改（没被就地塞上 links）
+  });
+
+  it("screen 越界 ⇒ UNKNOWN_SCREEN（闭集里与 UNKNOWN_NODE 分开：说的是页没找到，不是节点）", () => {
+    try {
+      dp.applyPrototypePatch(two(), [{ op: "setLinks", screen: 5, links: [] }]);
+      throw new Error("should throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(dp.PrototypePatchError);
+      expect(e).toMatchObject({ reason: "UNKNOWN_SCREEN" });
+      expect(dp.PrototypePatchRejectReason.options).toContain("UNKNOWN_SCREEN");
+    }
+  });
+
+  it("悬空的那条被丢、其余生效（不整批拒）——V27 最后一行", () => {
+    const out = dp.applyPrototypePatch(two(), [
+      { op: "setLinks", screen: 0, links: [{ from: "n2", to: 1 }, { from: "n2", item: 3, to: 9 }] },
+    ]);
+    expect(out[0]!.links).toEqual([{ from: "n2", to: 1 }]);
+  });
+
+  it("删掉 link 的源节点 ⇒ 那条 link 跟着失效（收尾的 validateLinks 兜住间接失效）", () => {
+    const linked = dp.applyPrototypePatch(two(), [{ op: "setLinks", screen: 0, links: [{ from: "n2", to: 1 }] }]);
+    const out = dp.applyPrototypePatch(linked, [{ op: "remove", id: "n2" }]);
+    expect(out[0]!.links).toEqual([]);
   });
 });

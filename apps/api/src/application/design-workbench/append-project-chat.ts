@@ -41,6 +41,8 @@ import {
   type DesignProjectView,
 } from "./project-shared";
 import { ownerNamesFor } from "./project-shared";
+// 迭代 11：把行的平行视图拼回屏（`applyPrototypePatch` 的入参形状），与人改那条路共用一份。
+import { screensOf } from "./patch-prototype";
 
 type DesignChatReply = z.infer<typeof designAiCollab.DesignChatReply>;
 type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
@@ -96,24 +98,43 @@ export async function appendProjectChat(
   });
 
   const screens = ai.writeback.prototype;
-  let patched: readonly designPrototype.PrototypeNode[] | undefined;
+  let patched: readonly { readonly root: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[] | undefined;
   if (screens === undefined && ai.writeback.patch !== undefined) {
     if (current.prototype.length === 0) {
       deps.logger?.info("design chat: patch rejected, project has no prototype yet", { projectId: input.projectId, traceId: deps.traceId ?? "" });
     } else {
       try {
-        patched = designPrototype.applyPrototypePatch(current.prototype, ai.writeback.patch);
+        patched = designPrototype.applyPrototypePatch(screensOf(current), ai.writeback.patch);
       } catch (e) {
         deps.logger?.info("design chat: patch rejected", { projectId: input.projectId, traceId: deps.traceId ?? "", detail: e instanceof Error ? e.message : "unknown" });
       }
     }
   }
+  /**
+   * 迭代 11：整页写回里的 `links` 要看整份 screens 才判得了（目标页存不存在），所以在这里过
+   * `validateLinks`——**逐条丢、不整页拒**（delta §2 取舍 ①）：悬空的跳转不至于让整页作废。
+   * 丢了要记日志：静默丢会让"模型说连好了、屏上点不动"看起来像模型抽风，而不是一条门控。
+   */
+  const linkCheck = screens === undefined ? undefined : designPrototype.validateLinks(
+    screens.map((s) => ({ root: s.root, links: s.links })),
+  );
+  if (linkCheck !== undefined && linkCheck.dropped.length > 0) {
+    deps.logger?.info("design chat: links dropped", {
+      projectId: input.projectId, traceId: deps.traceId ?? "",
+      dropped: linkCheck.dropped.map((d) => `p${d.screen}:${d.link.from}->${d.link.to}:${d.reason}`).join(","),
+    });
+  }
   const patch: DesignProjectPatch = {
     ...(ai.writeback.problem !== undefined ? { problem: ai.writeback.problem } : {}),
     ...(ai.writeback.criteria !== undefined ? { criteria: ai.writeback.criteria } : {}),
     ...(screens !== undefined
-      ? { frames: screens.map((s) => s.frame), prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)), frameNotes: screens.map((s) => (s.notes ?? "").trim()) }
-      : patched !== undefined ? { prototype: patched }
+      ? {
+          frames: screens.map((s) => s.frame),
+          prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)),
+          frameNotes: screens.map((s) => (s.notes ?? "").trim()),
+          frameLinks: linkCheck?.links.map((l) => [...l]) ?? [],
+        }
+      : patched !== undefined ? { prototype: patched.map((s) => s.root), frameLinks: patched.map((s) => [...(s.links ?? [])]) }
       : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
         ? { frames: ai.writeback.frames } : {}),
   };

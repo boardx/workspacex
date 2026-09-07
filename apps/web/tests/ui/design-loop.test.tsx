@@ -1925,9 +1925,18 @@ describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => 
     expect(screen.queryByTestId("design-detail-board-links")).toBeNull();
   });
 
-  it("V31（前端半边）属性面板「跳转」：单目标一个下拉；选目标 ⇒ 本页 links 本地更新、画板多一条连线", async () => {
-    apiRequest.mockImplementation(async (path: string) => {
+  it("V31 属性面板「跳转」：单目标一个下拉；选目标 ⇒ 发 setLinks（与模型同一条路），回包的 links 上画板", async () => {
+    // 迭代 11 接线后：改跳转**不是本地更新**，而是一条 `setLinks` patch——人改与模型改同一条
+    // 写回路径（I-11），所以它同样过 `validateLinks`、同样记一条 user 版本。
+    // 用同文件已有的 `linked()` 夹具：它的 from 是真实存在的节点 id（"go"）——
+    // 画板只画得出源节点找得到的线，编一个 id 会让这条断言变成假绿。
+    const calls: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
       if (path === "/pm-designs") return { items: [project({ frames: ["A", "B"], prototype: [treeA, treeB], frameLinks: [[], []] })] };
+      if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+        calls.push(opts.body);
+        return { project: linked() };
+      }
       throw new Error(`unexpected ${path}`);
     });
     render(<DesignDetailScreen projectId="p1" />);
@@ -1937,6 +1946,8 @@ describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => 
     const select = await screen.findByTestId("design-inspector-link-0");
     expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["无", "2 · B"]); // 本页 A 不在选项里
     fireEvent.change(select, { target: { value: "1" } });
-    expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toMatchObject({ ops: [{ op: "setLinks", screen: 0 }] });
+    await waitFor(() => expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1));
   });
 });

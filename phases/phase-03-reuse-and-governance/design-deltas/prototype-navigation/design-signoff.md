@@ -3,7 +3,7 @@ status: confirmed
 bundle: prototype-navigation
 base_bundle: design-prototype
 scope: clickable-prototype-model-authored-links-preview-mode-board-connectors
-covers: []
+covers: [F50, F51, F52]
 confirmed_by: "usamshen"
 confirmed_at: "2026-09-07T10:30:00Z"
 confirmed_via: "PR #2918"

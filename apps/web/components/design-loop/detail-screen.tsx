@@ -13,6 +13,7 @@ import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
+  patchPrototype,
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
@@ -36,6 +37,7 @@ const FALLBACK_REASON_TEXT: Record<DesignChatFallbackReason, string> = {
   MODEL_CALL_FAILED: "调用 AI 模型失败（网络或鉴权）。可以重试一次；一直失败就让运维看部署日志。",
   MODEL_TIMEOUT: "这次画的东西太大，AI 没能在时限内画完。试试少要几页、或把要求说得更具体一点再发一次。",
   MODEL_EMPTY_OUTPUT: "AI 模型这次返回了空结果。换个说法再试一次通常就好了。",
+  MODEL_BAD_JSON: "AI 这次的输出太长被截断了，画布没有更新。把要求拆小一点再试——比如一次只改一两页，或者只让它把页面连起来。",
   MODEL_NO_REPLY_TEXT: "AI 模型这次没给出可用的回复文本；如果画布有变化，那部分已经生效。",
 };
 
@@ -164,13 +166,14 @@ export function DesignDetailScreen({
   // 预览旧版本时不画连线：版本快照里还没有 links（存储形状是 delta §5 要人类拍板的取舍 ②）。
   const frameLinks = React.useMemo(() => (preview === null ? project?.frameLinks : undefined) ?? [], [preview, project]);
   /**
-   * 迭代 11 · UI 先行：属性面板改跳转目标 ⇒ 先只在本地更新 `frameLinks`，**不发请求**——
-   * `setLinks` op 属于签核后的服务端工作（delta §3）。签核落地后这里改成 `patchPrototype([{op:"setLinks",…}])`。
+   * 迭代 11：属性面板改跳转目标 ⇒ 发一条 `setLinks`（delta §3）——**与模型走同一条写回路径**
+   * （I-11），所以人手连的线同样会过 `validateLinks`、同样记一条 `user` 版本。
+   * 失败不吞：把服务端的拒绝原因交给属性面板显示（它已有 `REJECT_TEXT` 那套人话映射）。
    */
-  const setPageLinks = (pageIndex: number, links: readonly PrototypeLink[]) => {
+  const setPageLinks = async (pageIndex: number, links: readonly PrototypeLink[]) => {
     if (project === null) return;
-    const next = Array.from({ length: project.frames.length }, (_, i) => (i === pageIndex ? [...links] : [...(project.frameLinks?.[i] ?? [])]));
-    setLoad({ kind: "ready", project: { ...project, frameLinks: next } });
+    const out = await patchPrototype(project.id, [{ op: "setLinks", screen: pageIndex, links: [...links] }], "改了跳转");
+    setLoad({ kind: "ready", project: out.project });
   };
 
   React.useEffect(() => {
@@ -431,6 +434,9 @@ export function DesignDetailScreen({
                     key={f}
                     type="button"
                     onClick={() => setFrame(i)}
+                    // 迭代 11：这排页签是一组互斥的"当前页"选择，读屏得知道哪一个是选中的
+                    // （同顶栏视图/模式切换的既有做法）。e2e 也据此断言预览模式真的换了页。
+                    aria-pressed={frame === i}
                     data-testid={`design-detail-frame-${i}`}
                     className={cn(
                       "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

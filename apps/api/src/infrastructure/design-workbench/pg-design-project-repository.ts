@@ -37,6 +37,11 @@ interface ProjectDbRow {
   /** B5.3：jsonb 数组，每项一棵树——迁移 `20260906160000_uc178_b53_design_prototype.sql` */
   readonly prototype: unknown;
   readonly frame_notes: unknown;
+  /**
+   * 迭代 11（delta §5 取舍 ②A）：一屏一项 `{frame, root?, notes?, links?}`——**事实源**。
+   * 上面三列旧数据保留一个版本供回滚，本版本双写；读一律从这里来。
+   */
+  readonly screens: unknown;
   readonly pushed: boolean;
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
@@ -64,6 +69,75 @@ function toStringArray(raw: unknown): readonly string[] {
 function toNotes(raw: unknown, frames: readonly string[]): readonly string[] {
   const arr = toStringArray(raw);
   return arr.length === frames.length ? arr : [];
+}
+
+/**
+ * 迭代 11：一屏一项——`{frame, root?, notes?, links?}`，`root` 缺 = 这页还没生成树
+ * （新建项目只有页标签，是合法初始状态）。这是**唯一**的解析入口，四份派生视图都从它来，
+ * 所以「对不上」这种状态在读侧不可能出现——delta §5 说的"长度不变量消失"落在这里。
+ */
+interface StoredScreen {
+  readonly frame: string;
+  readonly root?: PrototypeNode;
+  readonly notes?: string;
+  readonly links?: readonly designPrototype.PrototypeLink[];
+}
+
+function toScreens(raw: unknown): readonly StoredScreen[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StoredScreen[] = [];
+  for (const item of raw) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) return [];
+    const o = item as Record<string, unknown>;
+    if (typeof o.frame !== "string" || o.frame === "") return [];
+    let root: PrototypeNode | undefined;
+    if (o.root !== undefined && o.root !== null) {
+      // 库里只可能有当时过了契约的树，但契约会演进（原语闭集加减）——一页不合法整份按
+      // 「还没生成」处理，而不是渲染半套。同 `toPrototype` 此前的纪律。
+      const parsed = designPrototype.PrototypeNode.safeParse(o.root);
+      if (!parsed.success) return [];
+      root = parsed.data;
+    }
+    const links = designPrototype.PrototypeLink.array().safeParse(o.links ?? []);
+    out.push({
+      frame: o.frame,
+      ...(root === undefined ? {} : { root }),
+      ...(typeof o.notes === "string" ? { notes: o.notes } : {}),
+      links: links.success ? links.data : [],
+    });
+  }
+  return out;
+}
+
+/**
+ * 迭代 11：把一次 `DesignProjectPatch` 合进 `screens`。**纯函数**，所以它可以被单测直接钉住——
+ * 上一版这套合并逻辑住在 SQL 的 CASE 里，本机没有 Postgres 就验不了，而它出错的代价是
+ * 用户整份原型消失（#2900）。
+ *
+ * 规则（`screens` 是一列之后，"长度对不上"这种状态在读侧不再存在，这里是唯一可能造出它的地方）：
+ * - 给了 `frames`：页数以它为准。页数不变 ⇒ 逐位保留 root/notes/links（纯改标签）；
+ *   页数变了 ⇒ 新增的页没有 root（回到"还没生成"），多出来的页连同其 root/links 一起丢。
+ * - 给了 `prototype` / `frameNotes` / `frameLinks`：按位置覆盖；没给的保持原样。
+ */
+export function mergeScreens(current: readonly StoredScreen[], patch: DesignProjectPatch): readonly StoredScreen[] {
+  const frames = patch.frames ?? current.map((x) => x.frame);
+  return frames.map((frame, i) => {
+    const keep = patch.frames === undefined || patch.frames.length === current.length ? current[i] : undefined;
+    const root = patch.prototype !== undefined ? patch.prototype[i] : keep?.root;
+    const notes = patch.frameNotes !== undefined ? patch.frameNotes[i] : keep?.notes;
+    const links = patch.frameLinks !== undefined ? patch.frameLinks[i] : keep?.links;
+    return {
+      frame,
+      ...(root === undefined ? {} : { root }),
+      ...(notes === undefined || notes === "" ? {} : { notes }),
+      links: [...(links ?? [])],
+    };
+  });
+}
+
+/** 全部页都有树才算「有原型」——与既有语义一致（要么空、要么与页数等长）。 */
+function prototypeOf(screens: readonly StoredScreen[]): readonly PrototypeNode[] {
+  return screens.length > 0 && screens.every((s) => s.root !== undefined) ? screens.map((s) => s.root!) : [];
 }
 
 /**
@@ -101,9 +175,21 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
     template: row.template as ProjectTemplate,
     problem: row.problem,
     criteria: toStringArray(row.criteria),
-    frames: toStringArray(row.frames),
-    prototype: toPrototype(row.prototype, toStringArray(row.frames)),
-    frameNotes: toNotes(row.frame_notes, toStringArray(row.frames)),
+    // 迭代 11：`screens` 是事实源；为空时回落旧三列——部署窗口里旧代码可能刚写过一行，
+    // 迁移的回填只跑一次。回落不是长期路径，旧三列下个版本删掉时这一支一起删。
+    ...(() => {
+      const screens = toScreens(row.screens);
+      if (screens.length === 0) {
+        const frames = toStringArray(row.frames);
+        return { frames, prototype: toPrototype(row.prototype, frames), frameNotes: toNotes(row.frame_notes, frames), frameLinks: [] };
+      }
+      return {
+        frames: screens.map((x) => x.frame),
+        prototype: prototypeOf(screens),
+        frameNotes: screens.some((x) => (x.notes ?? "") !== "") ? screens.map((x) => x.notes ?? "") : [],
+        frameLinks: screens.some((x) => (x.links ?? []).length > 0) ? screens.map((x) => [...(x.links ?? [])]) : [],
+      };
+    })(),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
@@ -117,7 +203,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
 }
 
 const SELECT_COLUMNS = `
-  id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes,
+  id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at`;
 
@@ -130,6 +216,8 @@ interface VersionDbRow {
   readonly frames: unknown;
   readonly prototype?: unknown;
   readonly notes: unknown;
+  /** 迭代 11：同 `design_projects.screens`，那一版的屏（含 links）。 */
+  readonly screens?: unknown;
   readonly created_at: Date | string;
 }
 
@@ -140,8 +228,18 @@ function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototy
     seq: row.seq,
     source: row.source === "user" || row.source === "restore" ? row.source : "model",
     summary: row.summary,
-    frames: toStringArray(row.frames),
-    notes: toNotes(row.notes, toStringArray(row.frames)),
+    ...(() => {
+      const screens = toScreens(row.screens);
+      if (screens.length === 0) {
+        const frames = toStringArray(row.frames);
+        return { frames, notes: toNotes(row.notes, frames), links: [] };
+      }
+      return {
+        frames: screens.map((x) => x.frame),
+        notes: screens.some((x) => (x.notes ?? "") !== "") ? screens.map((x) => x.notes ?? "") : [],
+        links: screens.some((x) => (x.links ?? []).length > 0) ? screens.map((x) => [...(x.links ?? [])]) : [],
+      };
+    })(),
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -167,8 +265,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO design_projects
-           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)`,
+           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb)`,
         [
           project.id,
           this.orgId,
@@ -179,6 +277,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           JSON.stringify(project.criteria),
           JSON.stringify(project.frames),
           project.linkedFeedbackId,
+          // 迭代 11：新项目只有页标签、还没有树——`screens` 每项只带 frame，`root` 缺位就是
+          // 「这页还没生成」。在 TS 里算好整份传下去，SQL 里不做 zip（同 update 的理由）。
+          JSON.stringify(project.frames.map((frame) => ({ frame, links: [] }))),
         ],
       );
     });
@@ -195,8 +296,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows: inserted } = await s.query<{ id: string }>(
         `INSERT INTO design_projects
-           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)
+           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb)
          ON CONFLICT (org_id, linked_feedback_id) WHERE linked_feedback_id IS NOT NULL DO NOTHING
          RETURNING id`,
         [
@@ -209,6 +310,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           JSON.stringify(project.criteria),
           JSON.stringify(project.frames),
           project.linkedFeedbackId,
+          // 迭代 11：新项目只有页标签、还没有树——`screens` 每项只带 frame，`root` 缺位就是
+          // 「这页还没生成」。在 TS 里算好整份传下去，SQL 里不做 zip（同 update 的理由）。
+          JSON.stringify(project.frames.map((frame) => ({ frame, links: [] }))),
         ],
       );
 
@@ -278,36 +382,42 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async update(projectId: string, ownerId: string, patch: DesignProjectPatch, version?: NewPrototypeVersionMeta): Promise<DesignProjectRow | null> {
     this.lastVersion = null;
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      /**
+       * 迭代 11：`screens` 是事实源，但**在 TS 里算**再整份写下去，不在 SQL 里 zip。
+       * 上一版把三份数组的合并写成了一条嵌套 `jsonb_to_recordset` + `WITH ORDINALITY` 的
+       * 表达式——本机没有 Postgres 验证不了，而这条路径上一次出错就丢了用户整份原型（#2900）。
+       * 先锁行读出当前 screens，合并后一次写回：可读、可单测，行锁还顺带把同项目的版本 seq 串行化。
+       */
+      const { rows: locked } = await s.query<{ readonly screens: unknown }>(
+        `SELECT screens FROM design_projects
+          WHERE org_id = $1 AND owner_id = $2 AND id = $3
+          FOR UPDATE`,
+        [this.orgId, ownerId, projectId],
+      );
+      if (locked[0] === undefined) return null;
+      const nextScreens = mergeScreens(toScreens(locked[0].screens), patch);
+      // 旧三列（frames/prototype/frame_notes）保留一个版本供回滚（delta §5）：从 screens
+      // 派生着一起写，不再是事实源；下个版本删列时这三个参数一并去掉。
       const { rows } = await s.query<ProjectDbRow>(
         `UPDATE design_projects
             SET name       = COALESCE($4, name),
                 template   = COALESCE($5, template),
                 problem    = COALESCE($6, problem),
                 criteria   = COALESCE($7::jsonb, criteria),
-                frames     = COALESCE($8::jsonb, frames),
-                prototype  = CASE
-                               WHEN $9::jsonb IS NOT NULL THEN $9::jsonb
-                               WHEN $8::jsonb IS NOT NULL
-                                 AND jsonb_array_length($8::jsonb) <> jsonb_array_length(prototype)
-                                 THEN '[]'::jsonb
-                               ELSE prototype
-                             END,
-                frame_notes = CASE
-                               WHEN $10::jsonb IS NOT NULL THEN $10::jsonb
-                               WHEN $8::jsonb IS NOT NULL
-                                 AND jsonb_array_length($8::jsonb) <> jsonb_array_length(frame_notes)
-                                 THEN '[]'::jsonb
-                               ELSE frame_notes
-                             END,
+                screens    = $8::jsonb,
+                frames     = $9::jsonb,
+                prototype  = $10::jsonb,
+                frame_notes = $11::jsonb,
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
         [
           this.orgId, ownerId, projectId, patch.name ?? null, patch.template ?? null, patch.problem ?? null,
           patch.criteria === undefined ? null : JSON.stringify(patch.criteria),
-          patch.frames === undefined ? null : JSON.stringify(patch.frames),
-          patch.prototype === undefined ? null : JSON.stringify(patch.prototype),
-          patch.frameNotes === undefined ? null : JSON.stringify(patch.frameNotes),
+          JSON.stringify(nextScreens),
+          JSON.stringify(nextScreens.map((x) => x.frame)),
+          JSON.stringify(prototypeOf(nextScreens)),
+          JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
         ],
       );
       const row = rows[0];
@@ -316,12 +426,17 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
         // 同一事务：上面的 UPDATE 已锁住项目行，同项目的 MAX(seq)+1 在并发写回之间串行。
         const id = `${projectId}-v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { rows: vrows } = await s.query<VersionDbRow>(
-          `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype, notes)
-           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb
+          `INSERT INTO design_project_prototype_versions (id, org_id, project_id, seq, source, summary, frames, prototype, notes, screens)
+           SELECT $1, $2, $3, COALESCE(MAX(seq), 0) + 1, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb
              FROM design_project_prototype_versions
             WHERE org_id = $2 AND project_id = $3
-           RETURNING id, project_id, seq, source, summary, frames, notes, created_at`,
-          [id, this.orgId, projectId, version.source, version.summary, JSON.stringify(toStringArray(row.frames)), JSON.stringify(toPrototype(row.prototype, toStringArray(row.frames))), JSON.stringify(toNotes(row.frame_notes, toStringArray(row.frames)))],
+           RETURNING id, project_id, seq, source, summary, frames, notes, screens, created_at`,
+          // 快照取 UPDATE 之后的那份 `screens`（事实源）；旧三列同样派生着写，供回滚。
+          [id, this.orgId, projectId, version.source, version.summary,
+            JSON.stringify(nextScreens.map((x) => x.frame)),
+            JSON.stringify(prototypeOf(nextScreens)),
+            JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
+            JSON.stringify(nextScreens)],
         );
         const v = vrows[0];
         if (v === undefined) throw new Error("design-workbench: inserted version vanished within the same transaction");
@@ -336,7 +451,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async listVersions(projectId: string): Promise<readonly Omit<PrototypeVersionRow, "prototype">[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<VersionDbRow>(
-        `SELECT id, project_id, seq, source, summary, frames, notes, created_at
+        `SELECT id, project_id, seq, source, summary, frames, notes, screens, created_at
            FROM design_project_prototype_versions
           WHERE org_id = $1 AND project_id = $2
           ORDER BY seq DESC`,
@@ -349,7 +464,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async getVersion(projectId: string, versionId: string): Promise<PrototypeVersionRow | null> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<VersionDbRow>(
-        `SELECT id, project_id, seq, source, summary, frames, prototype, notes, created_at
+        `SELECT id, project_id, seq, source, summary, frames, prototype, notes, screens, created_at
            FROM design_project_prototype_versions
           WHERE org_id = $1 AND project_id = $2 AND id = $3`,
         [this.orgId, projectId, versionId],
@@ -357,7 +472,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       const row = rows[0];
       if (row === undefined) return null;
       const summary = toVersionSummary(row);
-      return { ...summary, prototype: toPrototype(row.prototype, summary.frames) };
+      // 迭代 11：树同样优先从 `screens` 取（事实源），旧列只是回落。
+      const screens = toScreens(row.screens);
+      return { ...summary, prototype: screens.length > 0 ? prototypeOf(screens) : toPrototype(row.prototype, summary.frames) };
     });
   }
 

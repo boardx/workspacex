@@ -22,7 +22,7 @@ export type PrototypeVersionSummaryView = Omit<PrototypeVersionRow, "prototype" 
 export type PrototypeVersionView = Omit<PrototypeVersionRow, "projectId">;
 
 function summaryView(v: Omit<PrototypeVersionRow, "prototype">): PrototypeVersionSummaryView {
-  return { id: v.id, seq: v.seq, source: v.source, summary: v.summary, frames: [...v.frames], notes: [...v.notes], createdAt: v.createdAt };
+  return { id: v.id, seq: v.seq, source: v.source, summary: v.summary, frames: [...v.frames], notes: [...v.notes], links: v.links.map((l) => [...l]), createdAt: v.createdAt };
 }
 
 export async function listPrototypeVersions(deps: DesignProjectDeps, input: { readonly projectId: string }): Promise<{ readonly items: readonly PrototypeVersionSummaryView[] }> {

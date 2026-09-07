@@ -82,6 +82,9 @@ export type DesignChatWriteback = z.infer<typeof DesignChatWriteback>;
  * - `MODEL_TIMEOUT`：在超时预算内没画完——2026-09-07 线上实测最常见的一种，与"打不通"
  *   的下一步完全不同（少画几页 / 让运维放宽预算，而不是重试同一个必然超时的请求）。
  * - `MODEL_EMPTY_OUTPUT`：调通了但输出为空。
+ * - `MODEL_BAD_JSON`：输出看着是 JSON 但解析不了——2026-09-07 用户实测最常见的成因是**被截断**
+ *   （一次整页重画多页，输出超了上限）。这种输出**不能原样显示给用户**：那会把一坨 JSON 泼在
+ *   对话框里，而且里面那句 `reply` 往往声称"已经改好了"，实际一个字都没写回。
  * - `MODEL_NO_REPLY_TEXT`：输出是 JSON 但没有可用的 `reply`（写回可能仍然生效）。
  */
 export const DesignChatFallbackReason = z.enum([
@@ -89,6 +92,7 @@ export const DesignChatFallbackReason = z.enum([
   "MODEL_CALL_FAILED",
   "MODEL_TIMEOUT",
   "MODEL_EMPTY_OUTPUT",
+  "MODEL_BAD_JSON",
   "MODEL_NO_REPLY_TEXT",
 ]);
 export type DesignChatFallbackReason = z.infer<typeof DesignChatFallbackReason>;

@@ -227,7 +227,7 @@ describe("退路必须说明原因（DesignChatReply）", () => {
   it("原因是闭集，未知值拒绝", () => {
     expect(ai.DesignChatReply.safeParse({ ...base, source: "fallback", fallbackReason: "WHATEVER" }).success).toBe(false);
     expect(ai.DesignChatFallbackReason.options).toEqual([
-      "MODEL_NOT_CONFIGURED", "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_NO_REPLY_TEXT",
+      "MODEL_NOT_CONFIGURED", "MODEL_CALL_FAILED", "MODEL_TIMEOUT", "MODEL_EMPTY_OUTPUT", "MODEL_BAD_JSON", "MODEL_NO_REPLY_TEXT",
     ]);
   });
   it("退路文案不再承诺「稍后会更新」——它不会兑现", () => {
