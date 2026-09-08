@@ -650,7 +650,7 @@ test("#925 ② 发送后不闪烁：软重读不清空消息、不弹加载骨�
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
 
   // 监听整个发送→重读期间，加载骨架屏一次都不该出现（以前发送走 replace 会清空+弹骨架=闪烁）。
@@ -712,12 +712,21 @@ test("V5（PROP-CHAT-10ITER-001）jump-to-latest button appears on scroll-up and
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
 
-  // 夹具有几十条消息 ⇒ 消息区溢出可滚。程序化把 scrollTop 置 0 会触发 scroll 事件，
-  // 让「不在底部」判定成立、按钮出现。v2 里滚动容器与消息列表是同一个元素
+  // 夹具有几十条消息 ⇒ 消息区溢出可滚。v2 里滚动容器与消息列表是同一个元素
   // （`copilotkit-v2-messages`，`relative flex-1 overflow-y-auto`），旧屏那侧是
   // `chat-message-scroll` 包着 `chat-message-list` 两层——合成一层不改变本用例
   // 要证的行为：离开底部 ⇒ 按钮出现 ⇒ 点它 ⇒ 回到底部且按钮消失。
-  await page.getByTestId("copilotkit-v2-messages").evaluate((el) => { el.scrollTop = 0; });
+  //
+  // ⚠ issue #2997 实测踩到：**不能再用 `el.scrollTop = 0` 了**。v2 的
+  // `use-timeline-scroll.ts` 有一个 `programmaticScrollRef` —— 自动跟随到底那次
+  // 滚动是组件自己发起的，在它落定之前收到的 `scroll` 事件一律被当成"我们自己那次
+  // 滚动还在路上"直接忽略（`handleMessagesScroll` 的第一个分支），`isAtBottom` 因此
+  // 不会翻转，按钮永远不出现。解除这个标记的唯一途径是**用户真实介入**
+  // （`handleUserScrollIntent` 挂在 wheel/touch/key/pointerdown 上）。
+  // 所以这里改用真实滚轮——这比直接写 `scrollTop` **更贴近**本用例要证的
+  // "用户上滚看历史"，不是绕过判据。
+  await page.getByTestId("copilotkit-v2-messages").hover();
+  await page.mouse.wheel(0, -20_000);
   await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toBeVisible();
 
   await page.getByTestId("copilotkit-v2-scroll-to-bottom").click();
@@ -833,8 +842,11 @@ test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送�
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
 
-  // 先上滚到顶（离开底部，V1 本会「尊重上滚」不自动跟随）
-  await page.getByTestId("copilotkit-v2-messages").evaluate((el) => { el.scrollTop = 0; });
+  // 先上滚到顶（离开底部，V1 本会「尊重上滚」不自动跟随）。用真实滚轮而不是写
+  // `scrollTop`，理由与 V5 那条用例里的长注释相同（`programmaticScrollRef` 会吞掉
+  // 非用户发起的滚动事件）。
+  await page.getByTestId("copilotkit-v2-messages").hover();
+  await page.mouse.wheel(0, -20_000);
   await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toBeVisible();
 
   // 发送——显式意图，应无条件拽回底部（覆盖 V1 尊重上滚）

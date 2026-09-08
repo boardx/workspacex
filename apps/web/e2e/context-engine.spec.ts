@@ -87,7 +87,30 @@ async function sendAndAwaitReply(page: Page, threadId: string, text: string) {
   return page.getByTestId("copilot-assistant-message").filter({ hasText: reply.text.slice(0, 40) }).last();
 }
 
-test("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的模型输入", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ *
+ * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
+ * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
+ * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
+ * 「某一层上下文真的到达了模型输入」的哨兵串。
+ *
+ * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
+ * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
+ * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
+ *
+ * 真栈实测（2026-09-08）：
+ * ```
+ * Expected substring: "[loopback]"
+ * Received string:    "[skill:]MOUNTPROOF-9317 根据查询结果回答你：…"   ← deep-agent 的剧本
+ * ```
+ *
+ * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
+ * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
+ * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ */
+test.fixme("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的模型输入", async ({ page }) => {
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.l2CheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.l2CheckThreadId}`))
@@ -132,7 +155,30 @@ test("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的�
   // 按人类裁决（方案 B）**不删断言、不改宽**，原文保留在文件末尾的 `test.fixme` 里。
 });
 
-test("F190：跨 run 的历史工具调用轨迹真的回喂进了浏览器发起的下一次 run", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ *
+ * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
+ * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
+ * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
+ * 「某一层上下文真的到达了模型输入」的哨兵串。
+ *
+ * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
+ * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
+ * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
+ *
+ * 真栈实测（2026-09-08）：
+ * ```
+ * Expected substring: "[loopback]"
+ * Received string:    "[skill:]MOUNTPROOF-9317 根据查询结果回答你：…"   ← deep-agent 的剧本
+ * ```
+ *
+ * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
+ * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
+ * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ */
+test.fixme("F190：跨 run 的历史工具调用轨迹真的回喂进了浏览器发起的下一次 run", async ({ page }) => {
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.toolTraceCheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.toolTraceCheckThreadId}`))

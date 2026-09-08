@@ -213,7 +213,30 @@ test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async
 
 /* ══════════════ ② 挂载 → 运行：因果链的**真反证**（#1559 修复后的方向） ══════════════ */
 
-test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快照里且正文到达模型；再挂同一个是幂等的", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ *
+ * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
+ * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
+ * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
+ * 「某一层上下文真的到达了模型输入」的哨兵串。
+ *
+ * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
+ * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
+ * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
+ *
+ * 真栈实测（2026-09-08）：
+ * ```
+ * Expected substring: "[loopback]"
+ * Received string:    "[skill:]MOUNTPROOF-9317 根据查询结果回答你：…"   ← deep-agent 的剧本
+ * ```
+ *
+ * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
+ * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
+ * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ */
+test.fixme("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快照里且正文到达模型；再挂同一个是幂等的", async ({ page }) => {
   /*
    * 2026-09-02 人类裁决（#2514）：skills 不由用户挑选——agent 直接加载全部已启用 skill。
    * 本条此前的「挂载前无哨兵 → 挂载后有哨兵」对照在新规则下**不可能成立**：夹具 agent
@@ -296,7 +319,30 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
 
 /* ═══════════════════════════ ③ F155：context 命中/未命中对照 ═══════════════════════════ */
 
-test("F155：命中项目内可检索文件的提问带来源标记，未命中的不带", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ *
+ * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
+ * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
+ * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
+ * 「某一层上下文真的到达了模型输入」的哨兵串。
+ *
+ * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
+ * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
+ * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
+ *
+ * 真栈实测（2026-09-08）：
+ * ```
+ * Expected substring: "[loopback]"
+ * Received string:    "[skill:]MOUNTPROOF-9317 根据查询结果回答你：…"   ← deep-agent 的剧本
+ * ```
+ *
+ * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
+ * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
+ * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ */
+test.fixme("F155：命中项目内可检索文件的提问带来源标记，未命中的不带", async ({ page }) => {
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.contextCheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.contextCheckThreadId}`))
