@@ -2,11 +2,15 @@
  * UC-17.8 B5.2 —— `ModelDesignChatReplier` 与 `parseWriteback` 的正反例。fake port，不打真网络。
  */
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { designWorkbench as C } from "@repo/contracts";
-import { ModelCallError } from "../../src/application/agent-run/ports";
+import { MODEL_CALL_IMAGE_MIMES, ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
+  DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
   DESIGN_OUTLINE_SYSTEM_PROMPT,
+  DESIGN_PRINCIPLES,
   ModelDesignChatReplier,
   parseSuggestions,
   parseWriteback,
@@ -223,16 +227,20 @@ describe("迭代 12：分页生成", () => {
   });
 
   it("V38 第 3 页失败 ⇒ 只损失第 3 页，其余照常写回，回复里说清是哪一页", async () => {
+    // 迭代 12 补：截断会给这一页**第二次机会**（降级重试），所以要让 C 两次都失败，
+    // 这条才真的在测「一页彻底失败」而不是「第一次没成」。
     const frames = ["A", "B", "C", "D"];
-    let n = 0;
-    const { r } = replier(async () => {
-      n += 1;
-      if (n === 1) return { text: outlineJson(frames) };
-      if (n === 4) return { text: screenJson("C"), truncated: true } as never;  // 第 3 页被截断
-      return { text: screenJson(frames[n - 2]!) };
+    let done = 0;
+    const { r } = replier(async (input) => {
+      if (input.system === DESIGN_OUTLINE_SYSTEM_PROMPT) return { text: outlineJson(frames) };
+      const which = input.user.match(/现在只画第 (\d+) 页/)?.[1];
+      if (which === "2") return { text: screenJson("C"), truncated: true } as never;  // 第 3 页（序号 2）两次都截断
+      done += 1;
+      return { text: screenJson(frames[Number(which)]!) };
     });
     const out = await r.reply(EMPTY);
     expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "B", "D"]);
+    expect(done).toBe(3);
     expect(out.source).toBe("model");           // 不是整段退路——已经画好的三页是真的
     expect(out.text).toContain("C");
     expect(out.text).toContain("没画出来");
@@ -269,5 +277,203 @@ describe("迭代 12：分页生成", () => {
     // 输出**可以**解析（没坏），但 provider 说它被长度切断了——旧实现会当成一次成功的写回。
     const { r } = replier(async () => ({ text: '{"reply":"好了。"}', truncated: true } as never));
     expect(await r.reply(CTX)).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+  });
+});
+
+/**
+ * 2026-09-08 人类实测：提交需求后**一页都没生成**，屏上只有「没说完就被长度截断了」。
+ * 分页解耦的是"输出量 vs 页数"，没解决"**单页**就超预算"——桌面站一页的组件树，
+ * 在 provider 默认输出上限（dashscope/qwen 常见 2048）下照样装不下，于是每页都截断、
+ * 颗粒无收。修法：某页截断就换一个**要求更简单**的请求再来一次。
+ */
+describe("迭代 12 补：单页截断后降级重试", () => {
+  const EMPTY: DesignChatContext = { ...CTX, prototype: [], frames: [] };
+  const screenJson = (frame: string) =>
+    `{"frame":"${frame}","root":{"type":"stack","children":[{"type":"text","props":{"content":"${frame}"}}]}}`;
+  const outlineJson = (frames: readonly string[]) =>
+    `{"reply":"拆成${frames.length}页。","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}`;
+
+  it("某页截断 ⇒ 同一页再问一次并要求画简单点；这一次成了就照常落库", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(["首页"]) };
+      if (n === 2) return { text: '{"frame":"首页","root":{"type":"stack","chil', truncated: true } as never;
+      return { text: screenJson("首页") };
+    });
+    const out = await r.reply(EMPTY);
+    expect(model.complete).toHaveBeenCalledTimes(3);            // 骨架 + 首轮 + 降级重试
+    const retry = model.complete.mock.calls[2]?.[0]?.user ?? "";
+    // ⭐ 反证锚点：重试若不追加"画简单点"，就是原样重试一个必然再次超预算的请求。
+    expect(retry).toContain("更简单");
+    expect(retry).toContain("完整输出");
+    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["首页"]);
+    expect(out.source).toBe("model");
+  });
+
+  it("降级重试仍然截断 ⇒ 才算这一页失败，不无限重试", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      return n === 1 ? { text: outlineJson(["首页", "详情"]) } : ({ text: "{", truncated: true } as never);
+    });
+    const out = await r.reply(EMPTY);
+    // 两页 × (首轮 + 一次降级) + 骨架 = 5；不能更多
+    expect(model.complete).toHaveBeenCalledTimes(5);
+    expect(out).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+  });
+
+  it("provider 没报截断但 JSON 不完整 ⇒ 同样走降级重试（不是直接判这一页死）", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(["首页"]) };
+      if (n === 2) return { text: '{"frame":"首页","root":{"type":"sta' };   // 没有 truncated 标记
+      return { text: screenJson("首页") };
+    });
+    const out = await r.reply(EMPTY);
+    expect(model.complete).toHaveBeenCalledTimes(3);
+    expect(out.writeback.prototype).toHaveLength(1);
+  });
+});
+
+/**
+ * issue #3125 —— 人类实测「现在出来的页面很不专业」。根因：`.agents/skills/frontend-design/SKILL.md`
+ * 就在仓库里，而这条链路完全没引用它；原来的八条设计原则全是布局结构，一个字没讲视觉。
+ * 这组用例钉住"视觉判据真的进了模型的约束"，以及"它只在一处声明"。
+ */
+describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是两份", () => {
+  const P = DESIGN_PRINCIPLES;
+
+  it("三组视觉约束都在：视觉重点唯一 / 字号级差 / 间距成体系", () => {
+    expect(P).toContain("一个视觉重点");
+    expect(P).toContain("title 一页最多一次");
+    expect(P).toContain("最多用两档");
+    // ⭐ 反证锚点：删掉其中任一条，这里就红——它们各自是 skill 里一条判据的翻译。
+  });
+
+  it("「结构装置编码信息而非装饰」落成了可核对的三句", () => {
+    for (const s of ["divider 只在真的分隔", "card 只在真的成组", "数字编号只在内容真的是有序步骤"]) {
+      expect(P).toContain(s);
+    }
+  });
+
+  it("skill 里点名的「一眼看出是生成的」套路逐条禁掉", () => {
+    for (const s of ["全大写", "中点", "破折号标签", "→", "一个词换成另一种 variant"]) {
+      expect(P).toContain(s);
+    }
+  });
+
+  it("文案判据：按钮说清后果、同名、错误不含糊、空态是邀请", () => {
+    expect(P).toContain("保存修改");
+    expect(P).toContain("全流程同名");
+    expect(P).toContain("空态是一句邀请");
+    expect(P).not.toContain("暂无数据…");   // 反例本身要出现在"不要这样"的位置
+  });
+
+  it("系统提示词真的带上了它（不是只导出一个没人用的常量）", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(P);
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(P);
+  });
+
+  /**
+   * V67 的**另一半**：「只在一处」。
+   *
+   * 上面几条只证明了判据**在** `DESIGN_PRINCIPLES` 里，没有任何东西阻止有人哪天顺手
+   * 把同一批判据也抄回 SKILL.md —— 那正是本仓五次漂移的形态，而 SKILL.md 里只有一句
+   * 「不要在本文再写一份」的**注释**。仓库自己的话：没有脚本的规范条目视为未落地。
+   *
+   * 判法：那批判据里**措辞独特**的短语（不是"字号""间距"这种任何设计文档都会出现的通用词）
+   * 一个都不许出现在 SKILL.md 里；同时那条指回 `DESIGN_PRINCIPLES` 的指针必须在。
+   */
+  const SKILL_PATH = join(import.meta.dirname, "..", "..", "..", "..", ".agents", "skills", "frontend-design", "SKILL.md");
+
+  it("SKILL.md 只留一条指针，不重复声明任何一条视觉判据", () => {
+    const skill = readFileSync(SKILL_PATH, "utf8");
+    // 非空转：文件真的读到了，且指针真的在。
+    expect(skill.length).toBeGreaterThan(500);
+    expect(skill).toContain("DESIGN_PRINCIPLES");
+    expect(skill).toContain("不要");
+
+    // 这些短语是 `DESIGN_PRINCIPLES` 里那批判据的**原话**——出现在 SKILL.md 里就是第二份。
+    const OWNED_BY_PRINCIPLES = [
+      "title 一页最多一次",
+      "divider 只在真的分隔",
+      "card 只在真的成组",
+      "数字编号只在内容真的是有序步骤",
+      "全流程同名",
+      "空态是一句邀请",
+      "破折号标签",
+    ];
+    const leaked = OWNED_BY_PRINCIPLES.filter((phrase) => skill.includes(phrase));
+    // ⭐ 反证：把其中任一句抄进 SKILL.md ⇒ 这条红。这就是那条「只在一处」的门。
+    expect(leaked, `这些判据在 SKILL.md 里出现了第二份：\n${leaked.join("\n")}`).toEqual([]);
+
+    // 而它们确实都在 DESIGN_PRINCIPLES 里——否则上面那条会因为"两边都没有"而假绿。
+    for (const phrase of OWNED_BY_PRINCIPLES) expect(P, `DESIGN_PRINCIPLES 里没有「${phrase}」`).toContain(phrase);
+  });
+});
+
+/**
+ * 迭代 13（delta `design-chat-inputs` §1）—— V52 / V53 / V54。
+ * 参考图随**每一轮**发；模型看不了图时**不发图且在回复里说出来**。
+ */
+describe("迭代 13：参考图", () => {
+  const IMG = { filename: "ref.png", mime: "image/png" as const, bytes: new Uint8Array([1, 2, 3]) };
+  const WITH_IMG: DesignChatContext = { ...CTX, refImages: [IMG] };
+  const EMPTY_WITH_IMG: DesignChatContext = { ...CTX, prototype: [], frames: [], refImages: [IMG] };
+
+  /** 带 supportsVision 的 replier（既有 `replier` 的模型替身没有这个方法 ⇒ 视作看不了图）。 */
+  const seeing = (complete: (i: { system: string; user: string }) => Promise<{ text: string }>) => {
+    const log = vi.fn();
+    const model = { complete: vi.fn(complete), supportsVision: () => true };
+    return { r: new ModelDesignChatReplier({ model: model as never, chatModel: { provider: "p", modelId: "m" }, log }), model };
+  };
+
+  it("V52 图片类型闭集与端口**集合相等**，不是包含", () => {
+    // 端口那边只是再导出契约的那一份（迭代 13 起）。两处各写一份的话，端口加一种格式
+    // 设计这边会静默不支持——所以断言集合相等，而不是「设计的 ⊆ 端口的」。
+    expect([...MODEL_CALL_IMAGE_MIMES].sort()).toEqual([...C.IMAGE_MIMES].sort());
+    expect(C.isImageMime("image/png")).toBe(true);
+    expect(C.isImageMime("image/gif")).toBe(false);
+  });
+
+  it("V53 分页生成时**每一轮**都带图（骨架轮 + 每页轮），不是只发第一轮", async () => {
+    const frames = ["首页", "详情", "设置"];
+    let n = 0;
+    const { r, model } = seeing(async () => {
+      n += 1;
+      return n === 1
+        ? { text: `{"reply":"好","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}` }
+        : { text: `{"frame":"${frames[n - 2]}","root":{"type":"stack","children":[{"type":"text","props":{"content":"x"}}]}}` };
+    });
+    await r.reply(EMPTY_WITH_IMG);
+    expect(model.complete).toHaveBeenCalledTimes(1 + 3);
+    // ⭐ 反证锚点：只在骨架轮带图 ⇒ 后三条红（"照着这张画"在第 3 页就失效了）。
+    for (const call of model.complete.mock.calls) {
+      expect((call[0] as { images?: unknown[] }).images).toHaveLength(1);
+    }
+  });
+
+  it("V54 模型看不了图 ⇒ 请求体不含 images，且回复里**说出来**", async () => {
+    // 既有 `replier` 的替身没有 supportsVision ⇒ 看不了图
+    const { r, model } = replier(async () => ({ text: '{"reply":"画好了。"}' }));
+    const out = await r.reply(WITH_IMG);
+    expect(model.complete.mock.calls[0]?.[0]).not.toHaveProperty("images");
+    // ⭐ 这是本 delta 最重要的一条：静默丢图会让界面显示"已上传"而模型没看过。
+    expect(out.text).toContain("看不了图");
+    expect(out.text).toContain("画好了。");
+  });
+
+  it("V54 看得了图 ⇒ 带 images，且**不**画蛇添足地加那句提示", async () => {
+    const { r, model } = seeing(async () => ({ text: '{"reply":"照着画好了。"}' }));
+    const out = await r.reply(WITH_IMG);
+    expect((model.complete.mock.calls[0]?.[0] as { images?: unknown[] }).images).toHaveLength(1);
+    expect(out.text).not.toContain("看不了图");
+  });
+
+  it("没传图 ⇒ 不管模型能不能看图，都不加那句提示", async () => {
+    const { r } = replier(async () => ({ text: '{"reply":"好的。"}' }));
+    expect((await r.reply(CTX)).text).not.toContain("看不了图");
   });
 });

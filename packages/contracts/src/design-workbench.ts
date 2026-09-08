@@ -91,11 +91,124 @@ export const DESIGN_PROJECT_INITIAL_CRITERIA: readonly string[] = [
   "列出验收标准供工程对齐",
 ];
 
+/* ─────────── 迭代 13：参考图（design-delta `design-chat-inputs` §1） ─────────── */
+
 /**
- * 画布页标签默认值（R4.4：画布 Tab 下的横向标签条）。新建项目时服务端填入，B5.3 之前
- * 画布内容本身是占位块，标签就是「页」这个概念此刻唯一的载体。
+ * 能交给模型去看的图片类型**闭集**。
+ *
+ * ⚠ 这里是**唯一声明处**。它原先住在 `apps/api` 的 `agent-run/ports.ts`，但设计工作台
+ * 的参考图与 agent-run 的图片输入必须是同一个集合——两处各写一份，端口那边加一种格式时
+ * 设计这边就会静默不支持（V52 用「集合相等」而不是「包含」钉住这件事）。
+ * 契约是最内层，api 侧改成从这里再导出。
  */
-export const DESIGN_PROJECT_INITIAL_FRAMES: readonly string[] = ["草稿页 1", "草稿页 2", "草稿页 3"];
+export const IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
+export type ImageMime = (typeof IMAGE_MIMES)[number];
+export function isImageMime(mime: string): mime is ImageMime {
+  return (IMAGE_MIMES as readonly string[]).includes(mime);
+}
+
+/**
+ * 一个设计项目最多挂几张参考图。
+ *
+ * 视觉输入按张计费且贵；一次给三张已经足够说清「照这个画」。不设上限等于把成本敞口
+ * 交给用户手滑（delta §1.2，取舍 ①=A）。
+ */
+export const PROTOTYPE_MAX_REF_IMAGES = 3;
+/** 单张参考图的字节上限。 */
+export const PROTOTYPE_REF_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+
+/** 参考图的元信息——**不含字节**：列表接口带上字节会被撑爆（V55）。 */
+export const RefImage = z
+  .object({
+    id: z.string(),
+    name: z.string().min(1).max(200),
+    size: z.number().int().min(1),
+    mime: z.enum(IMAGE_MIMES),
+    createdAt: z.string(),
+  })
+  .strict();
+export type RefImage = z.infer<typeof RefImage>;
+
+/* ─────────── 迭代 13：引导式澄清（design-delta `design-chat-inputs` §3） ─────────── */
+
+/**
+ * 新建设计前的**澄清问答**。
+ *
+ * 在此之前「新建」是三个字段：类别 / 名称 / 背景（可选）。背景那行的占位符写着
+ * 「想解决的问题、谁会用、现在怎么绕过去的」——**这已经是在提示该收集哪些数据了，
+ * 只是把它塞进一行灰字，而且可选**。结果是大多数项目带着一句话甚至空背景就进了画布，
+ * 模型只能靠猜。
+ *
+ * 改成：写一句 brief ⇒ 模型据此生成**针对这个产品**的问题 ⇒ 逐条回答（每条都能跳过）
+ * ⇒ 汇成一份可编辑的「设计指导原则」⇒ 确认后创建。
+ *
+ * ⚠ **不新增存储**：问题在前端内存里，答案随 `createProject` 一次交上来，落地形态就是
+ *   既有的 `problem` / `criteria`。指导原则**不是第四种事实源**。
+ */
+export const INTAKE_MIN_QUESTIONS = 3;
+export const INTAKE_MAX_QUESTIONS = 6;
+export const IntakeQuestion = z
+  .object({
+    /** 问给用户看的话。是模型按 brief 生成的，不是固定问卷念一遍。 */
+    text: z.string().min(1).max(200),
+    /** 这条问题对应 §3.5 六维里的哪一维——前端按它排序与配图标，不用再猜。 */
+    dimension: z.enum(["who", "problem", "task", "constraint", "reference", "success"]),
+    /** 一句示例答案，降低"不知道该说什么"的门槛；可省略。 */
+    hint: z.string().max(200).optional(),
+  })
+  .strict();
+export type IntakeQuestion = z.infer<typeof IntakeQuestion>;
+
+/** 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。 */
+export const IntakeAnswer = z
+  .object({ question: z.string().min(1).max(200), answer: z.string().min(1).max(1000) })
+  .strict();
+export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
+
+/* ─────────── 迭代 13：从已有对话导入（design-delta `design-chat-inputs` §2） ─────────── */
+
+/**
+ * 一次导入最多读线程里**最近**多少条消息。
+ *
+ * 有上限不是为了省钱（虽然也省），是因为一条聊了三个月的线程里，前面那些早已被后面推翻的
+ * 需求会把摘要带偏——「最近 N 条」比「全部」更接近用户说「照那个做」时脑子里的那段。
+ * 超出时**必须留痕说明截断了**（见 `importThread` 头注）：静默截断会让用户以为模型看过
+ * 那段它其实没看过的对话，这是本仓反复栽过的形态。
+ */
+export const IMPORT_THREAD_MAX_MESSAGES = 40;
+
+/**
+ * 一次导入的**留痕**：这一刻从哪条线程读了多少条。
+ *
+ * ⚠ 它是**事实记录，不是订阅句柄**（delta §2.1 取舍 ③=A）。项目不长期挂靠线程：
+ *   `threadId` 留在这里只是为了半年后还答得出「这个项目的背景是从哪来的」，
+ *   没有任何读路径会拿它回头再读一次线程。选 B（长期挂靠、每轮实时读）会让
+ *   「这个设计是照什么做的」变成一个会变的东西，而设计评审要的恰恰是一个定住的输入。
+ */
+export const ImportedThread = z
+  .object({
+    threadId: z.string(),
+    /** 线程标题——**服务端从线程读出来的**，不是前端传上来的（前端那份不可信）。 */
+    title: z.string(),
+    /** 本次真的读进摘要的条数（截断之后的数，不是线程总条数）。 */
+    messageCount: z.number().int().nonnegative(),
+    at: z.string(),
+  })
+  .strict();
+export type ImportedThread = z.infer<typeof ImportedThread>;
+
+/**
+ * 画布页标签默认值。**空数组**（2026-09-08 人类实测反馈：「不要默认三个页面，有点奇怪」）。
+ *
+ * R4.4 当初填三个「草稿页」是因为 B5.3 之前画布内容本身就是占位块，标签是「页」这个概念
+ * 唯一的载体——没有标签就什么都看不见。B5.3 之后画布画的是真组件树，页数应当由模型按
+ * 用户描述的产品来定；预填三个空页会让新项目一打开就摆着三块永远不会被用到的占位屏，
+ * 而且模型看到「画布页标签：["草稿页 1","草稿页 2","草稿页 3"]」还会以为这是要保留的页面划分。
+ *
+ * 空数组是合法状态：`DesignProject` 的不变量是 `prototype.length === 0 || === frames.length`，
+ * 两者同时为 0 满足它。界面在 0 页时画空态（「还没有页面，在左边描述你要的产品」）。
+ */
+export const DESIGN_PROJECT_INITIAL_FRAMES: readonly string[] = [];
 
 /**
  * 对话面板空状态引导语（R4.4：「无历史时一条默认引导语」）。**展示层文案，不落库**——
@@ -161,6 +274,20 @@ export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
  * ⚠ B5.3：`prototype[i]` 是 `frames[i]` 那一页的组件树。不变量：长度为 0（还没生成，画布显示
  *   占位块）或恰等于 `frames.length`——由下方 `superRefine` 机械门控，任何一端违反都解析失败。
  */
+/**
+ * 迭代 13（delta §4）—— 项目标签。
+ *
+ * 上限 8 是**成本以外**的判断：卡片上放得下、过滤 chip 一行放得下；再多就不是"标签"
+ * 而是第二套目录结构了。单个 20 字同理——超过就是把标签当描述用。
+ *
+ * ⚠ 标签**不另建一张表**：它是项目的属性，"有哪些标签"从现有项目派生（V66）。
+ *   独立的标签表会留下没有任何项目引用的孤儿标签，然后长出"清理孤儿标签"这件事。
+ */
+export const DESIGN_PROJECT_MAX_TAGS = 8;
+export const DESIGN_PROJECT_TAG_MAX_CHARS = 20;
+export const DesignProjectTag = z.string().trim().min(1).max(DESIGN_PROJECT_TAG_MAX_CHARS);
+export const DesignProjectTags = z.array(DesignProjectTag).max(DESIGN_PROJECT_MAX_TAGS);
+
 export const DesignProject = z
   .object({
     id: z.string(),
@@ -173,6 +300,17 @@ export const DesignProject = z
     prototype: z.array(PrototypeNode),
     /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
     frameNotes: z.array(z.string()),
+    /** 迭代 13（delta §1）：项目挂着的参考图，只有元信息不含字节。 */
+    refImages: z.array(RefImage).max(PROTOTYPE_MAX_REF_IMAGES).default([]),
+    /**
+     * 迭代 13（delta §5.2）：**原型自己的**明暗主题，与后台页面的主题无关——
+     * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
+     * 缺省 `dark` = 这个字段出现之前的行为（画布跟随后台，而后台是深色）。
+     * 导出的 HTML / PDF 跟随**它**，不是导出时后台碰巧是什么色。
+     */
+    theme: z.enum(["light", "dark"]).default("dark"),
+    /** 迭代 13（delta §4）：项目标签，用于首页过滤。老行没有这一列 ⇒ 空数组。 */
+    tags: DesignProjectTags.default([]),
     /**
      * 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系，`frameLinks[i]` 属于
      * `frames[i]`。可省略（服务端接线前不发；UI 先行阶段由夹具提供）。存储形状见 delta §5。
@@ -232,6 +370,12 @@ export const DesignWorkbenchError = z.enum([
   "DEPENDENCY_UNAVAILABLE",
   /** 迭代 3：原型版本不存在（或不属于该项目） */
   "VERSION_NOT_FOUND",
+  /**
+   * 迭代 13：参考图被拒——类型不在闭集、超过单张上限、或这个项目已经挂满 3 张。
+   * 三种情形合成一个码：屏上给用户的下一步是同一句「换一张小一点的 PNG/JPEG/WebP」，
+   * 分成三个码只会让前端多写两条一模一样的文案。具体是哪一种进日志。
+   */
+  "REF_IMAGE_REJECTED",
   /** 迭代 5：人直接改画布的 patch 没通过（未知 id / 删根 / 结果不合法 / 还没有原型）——`detail` 说明哪一条 */
   "PROTOTYPE_PATCH_REJECTED",
   /**
@@ -302,6 +446,95 @@ export const operations = {
    *   实现，不是前端直接传任意 id）传入；首页新建弹窗不传，恒为 `null`。契约层不校验这个 id
    *   指向的反馈是否存在/属于同一组织——那是 B4.3 用例层的职责（含回写 `resolvedByDesignId`）。
    */
+  /**
+   * 迭代 13：按一句 brief 生成澄清问题。**不落库、不建项目**——纯粹一次模型调用。
+   * 模型不可用时**不失败**，回退到 §3.5 的通用六问并把 `fallback` 置真，让界面能说
+   * 「AI 没能生成针对性的问题，先按通用的问一遍」。新建流程不能因为模型挂了就堵死。
+   */
+  intakeQuestions: {
+    method: "POST",
+    path: "/pm-designs/intake-questions",
+    in: z.object({ brief: z.string().min(1).max(2000) }).strict(),
+    out: z.object({ questions: z.array(IntakeQuestion).min(INTAKE_MIN_QUESTIONS).max(INTAKE_MAX_QUESTIONS), fallback: z.boolean() }).strict(),
+    err: [] as const,
+  },
+  /**
+   * 迭代 13：上传一张参考图。字节走 multipart，**类型按字节嗅探**不信 Content-Type
+   * （与反馈附件同一条纪律，V51）。
+   */
+  uploadRefImage: {
+    method: "POST",
+    path: "/pm-designs/:projectId/ref-images",
+    in: z.object({ projectId: z.string() }).strict(),
+    /**
+     * 连**整个项目**一起回——与 `deleteRefImage` 同形。只回 `image` 的话，前端要自己把它
+     * 拼进手上那份 `project.refImages`，也就是在客户端维护第二份「现在有哪几张」；
+     * 上传失败重试、两个标签页同时传，两份就会分叉。服务端那份是唯一的事实源，直接给回来。
+     */
+    out: z.object({ image: RefImage, project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "REF_IMAGE_REJECTED"] as const,
+  },
+  deleteRefImage: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/ref-images/:imageId",
+    in: z.object({ projectId: z.string(), imageId: z.string() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER"] as const,
+  },
+  /**
+   * 迭代 13（delta §2）：把一个**已有对话线程**这一刻的内容抽成摘要，作为这个设计项目的背景。
+   *
+   * ## 语义是一次性导入，不是持续订阅
+   *
+   * 选中 ⇒ 这一刻抽一段摘要 ⇒ 用户可编辑 ⇒ 确认才写进 `problem`。线程**后来变了，
+   * 项目的 `problem` 不跟着变**（delta §2.1 取舍 ③=A）。所以这里没有任何"挂靠"字段：
+   * `ImportedThread` 只是留痕，不是句柄。
+   *
+   * ## 两个阶段，一条操作
+   *
+   * 契约 delta §2.2 写的入参是 `{ threadId }`，§2.3 又要求「**不确认不写**」——直接写会
+   * 覆盖用户已经写好的 `problem`。两者只能靠 `problem` 这个**可选**入参同时成立：
+   *
+   *   · **不给 `problem`** ⇒ 预览：判权、读线程、摘要，`summary` 回传给前端渲染成可编辑
+   *     的预览框。**项目一个字不改**（返回的 `project` 就是当前这一份）。
+   *   · **给了 `problem`** ⇒ 确认：写进项目，并在 `chat` 里追加一条 `source: "system"` 的
+   *     留痕。写进去的是**用户在预览里编辑之后**的这段文本，不是服务端重新摘要一遍——
+   *     重新摘要会把他的修改冲掉，而那正是这两个阶段存在的理由。
+   *
+   * ⚠ 确认阶段**照样**重新判权、重新读线程：`title`/`messageCount` 是要写进留痕的事实，
+   *   信前端传上来的那份等于让留痕可以被伪造。
+   *
+   * ## 只读调用者自己有权读的线程
+   *
+   * 走 `chat` 束 `getThread` 的**同一条**鉴权路径（`resolveVisibility` → 守卫读路径），
+   * 不新开一条直接查库的读。看不见的线程与不存在的线程是**同一个出口**（`chat` 束 I-3
+   * 的 404，不带 `reasonCode`）——所以这里的 `err` 闭集里没有它：那不是设计工作台的
+   * 错误码，是对话束的既有拒绝，连标题都不该泄露。
+   */
+  importThread: {
+    method: "POST",
+    path: "/pm-designs/:projectId/import-thread",
+    in: z
+      .object({
+        projectId: z.string(),
+        threadId: z.string(),
+        /** 见头注「两个阶段」：省略 = 预览（不写）；给出 = 确认写入这段（用户编辑后的）文本。 */
+        problem: z.string().max(4000).optional(),
+      })
+      .strict(),
+    out: z
+      .object({
+        /** 预览阶段是**未改动**的当前项目；确认阶段是写入之后的。 */
+        project: DesignProject,
+        imported: ImportedThread,
+        /** 预览阶段：模型生成的摘要正文（给用户编辑）。确认阶段：本次真正写进 `problem` 的那段。 */
+        summary: z.string(),
+        /** 线程长于 `IMPORT_THREAD_MAX_MESSAGES` ⇒ 真。屏上与留痕都要说出来，不许静默截断。 */
+        truncated: z.boolean(),
+      })
+      .strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
   createProject: {
     method: "POST",
     path: "/pm-designs",
@@ -311,6 +544,16 @@ export const operations = {
         template: ProjectTemplate,
         problem: z.string().max(4000).optional(),
         linkedFeedbackId: z.string().optional(),
+        /** 迭代 13：新建时就能定主题；缺省 `dark`。 */
+        theme: z.enum(["light", "dark"]).optional(),
+        /**
+         * 迭代 13：澄清问答的结果。给出即由服务端汇进 `problem`（可验收的条目进 `criteria`）。
+         * 与 `problem` 同时给出时：`problem` 是用户在预览里**编辑过**的最终文本，以它为准；
+         * `intake` 只用来补 `criteria`——否则用户在预览里的修改会被重新汇总覆盖掉。
+         */
+        intake: z.array(IntakeAnswer).max(INTAKE_MAX_QUESTIONS).optional(),
+        /** 迭代 13（delta §4）：新建时就能打标签。 */
+        tags: DesignProjectTags.optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),
@@ -327,7 +570,13 @@ export const operations = {
   listMyProjects: {
     method: "GET",
     path: "/pm-designs",
-    in: z.object({ q: z.string().max(200).optional() }).strict(),
+    /**
+     * 迭代 13（delta §4）：`tags` 过滤取**交集**——选了「后台」和「移动端」是"两者都有"，
+     * 不是"有其一"。并集在标签数一多时等于没过滤。
+     * 排序恒为 `updatedAt` 倒序，**在服务端**（V65）：放前端排，将来一分页就乱。
+     * 它不是参数——"最近改过的排最前"是这个列表唯一有意义的顺序，给个选项只会让人纠结。
+     */
+    in: z.object({ q: z.string().max(200).optional(), tags: DesignProjectTags.optional() }).strict(),
     out: z.object({ items: z.array(DesignProject) }).strict(),
     err: ["DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -348,6 +597,14 @@ export const operations = {
         name: z.string().min(1).max(200).optional(),
         template: ProjectTemplate.optional(),
         problem: z.string().max(4000).optional(),
+        /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
+        theme: z.enum(["light", "dark"]).optional(),
+        /**
+         * 迭代 13（delta §4）：标签是**整份替换**，不是增删两个动作。
+         * 一个 8 个上限的短列表，PATCH 一整份比 add/remove 两条路径少一半状态，
+         * 也没有"同时加又删"的顺序问题。
+         */
+        tags: DesignProjectTags.optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),
@@ -380,6 +637,11 @@ export const operations = {
       .object({
         projectId: z.string(),
         text: z.string().min(1).max(4000),
+        /**
+         * 迭代 13（delta §1.2）：这一句要参考哪几张图。图属于**项目**不属于某条消息——
+         * 同一张参考图往往要在好几轮里反复被指着说，所以这里传 id 而不是重新上传。
+         */
+        refImageIds: z.array(z.string()).max(PROTOTYPE_MAX_REF_IMAGES).optional(),
         /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
         focusNodeId: PrototypeNodeId.optional(),
       })

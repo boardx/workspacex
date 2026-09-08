@@ -55,6 +55,14 @@ export type PrototypeNodeId = z.infer<typeof PrototypeNodeId>;
 const Id = PrototypeNodeId.optional();
 
 const Scale = z.enum(["none", "sm", "md", "lg"]);
+/**
+ * 迭代 13（delta §6）—— 圆角与尺寸的档位。
+ *
+ * 档位而不是像素：给了 px 输入，人和模型就会造出 13px / 7px 这种落在设计系统之外的值，
+ * 而这套原语能看起来像一个产品，靠的正是"只有这几档"。四档已经够表达层级差别。
+ */
+const Radius = z.enum(["none", "sm", "md", "lg", "full"]);
+const Size = z.enum(["sm", "md", "lg"]);
 const Label = z.string().min(1).max(200);
 const Items = z.array(Label).min(1).max(30);
 
@@ -66,7 +74,7 @@ const StackProps = z.object({
   /** 占满父容器剩余空间（聊天消息流那种「中间可滚动区」）。 */
   fill: z.boolean().optional(),
 }).strict();
-const CardProps = z.object({ title: Label.optional() }).strict();
+const CardProps = z.object({ title: Label.optional(), radius: Radius.optional(), padding: Scale.optional() }).strict();
 const NavbarProps = z.object({ title: Label, left: Label.optional(), right: Label.optional() }).strict();
 const TextProps = z.object({
   content: z.string().min(1).max(1000),
@@ -78,6 +86,8 @@ const ButtonProps = z.object({
   label: Label,
   variant: z.enum(["primary", "secondary", "ghost", "danger"]).optional(),
   full: z.boolean().optional(),
+  size: Size.optional(),
+  radius: Radius.optional(),
 }).strict();
 const InputProps = z.object({
   placeholder: Label.optional(),
@@ -93,7 +103,7 @@ const indexWithin = <T extends { items: readonly string[]; active?: number }>(p:
 const TabsPropsBase = z.object({ items: Items, active: z.number().int().min(0).optional() }).strict();
 const TabsProps = TabsPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const BadgeProps = z.object({ label: Label, tone: z.enum(["neutral", "info", "success", "warning", "danger"]).optional() }).strict();
-const AvatarProps = z.object({ name: Label }).strict();
+const AvatarProps = z.object({ name: Label, size: Size.optional() }).strict();
 const BottomNavPropsBase = z.object({ items: z.array(Label).min(2).max(6), active: z.number().int().min(0).optional() }).strict();
 const BottomNavProps = BottomNavPropsBase.refine(indexWithin, { message: "active must index an existing item", path: ["active"] });
 const SwitchProps = z.object({ label: Label, on: z.boolean().optional() }).strict();
@@ -239,16 +249,61 @@ export const PROTOTYPE_PROPS_SCHEMAS = {
 } as const satisfies Record<PrototypeNodeType, z.ZodObject<z.ZodRawShape> | null>;
 
 export type PrototypeFieldKind = "text" | "multiline" | "lines" | "bool" | "number" | "enum";
+
+/**
+ * 迭代 13（delta §6）—— 字段分两组：**内容**（写什么）与**视觉**（长什么样）。
+ *
+ * 分组的意义不是排版：属性面板要像 Figma 那样"能调设计"，但**简化**——简化的形态是
+ * 把视觉那几档收进一个默认折叠的区，让常用的改文案不被十个下拉淹掉，
+ * 同时视觉那些档位随手就能翻出来。
+ *
+ * ⚠ 视觉字段**一律是 `enum`**，永远不给自由数值（V70 机械门控）。给了 px 输入，
+ *   模型和人就会造出 13px / 7px 这种落在设计系统之外的值，而整套原语的一致性
+ *   正是靠"只有这几档"维持的。这条不是风格偏好，是这套东西能看起来像一个产品的原因。
+ */
+export type PrototypeFieldGroup = "content" | "visual";
+
+/**
+ * 哪些 key 算视觉。按 key 判而不是逐类型标注：同名的 key 在各类型里是同一件事
+ * （`gap` 在 stack 和 grid 里都是间距），逐类型标一遍就是同一事实标 21 次，
+ * 漏标一处的表现是"某个类型的间距跑到内容组里去了"。
+ */
+const VISUAL_FIELD_KEYS: ReadonlySet<string> = new Set([
+  "gap", "padding", "align", "direction", "fill", "variant", "tone", "ratio",
+  "leading", "size", "radius", "full", "muted", "columns",
+]);
+
+export const prototypeFieldGroup = (key: string): PrototypeFieldGroup =>
+  VISUAL_FIELD_KEYS.has(key) ? "visual" : "content";
+
 export interface PrototypeField {
   readonly key: string;
   readonly label: string;
   readonly kind: PrototypeFieldKind;
   /** `kind === "enum"` 时的闭集；由对应 `z.enum` 的 `options` 派生，不手抄。 */
   readonly options?: readonly string[];
+  /** 迭代 13：内容组 / 视觉组。由 `prototypeFieldGroup(key)` 派生，不逐个手标。 */
+  readonly group: PrototypeFieldGroup;
+  /**
+   * 迭代 13：`kind === "enum"` 但取值在 schema 里是**数字**（目前只有 `grid.columns`：
+   * `z.union([z.literal(2), z.literal(3)])`）。
+   *
+   * 为什么不干脆让它当 `number`：`columns` 本来就是闭集（2 或 3），做成数字输入框
+   * 就是给视觉组开了一个"自由数值"的口子——而 V70 那条门挡的正是这个。
+   * 为什么不把 schema 改成字符串枚举：那会让已存的原型里的 `columns: 2` 全部失效，
+   * 为了一条命名上的整齐去动用户的数据不划算。
+   * 所以：**展示上是档位、存储上是数字**，由这个标记把两者接起来，属性面板据它回转。
+   */
+  readonly numeric?: true;
 }
 
 const SCALE_OPTIONS = Scale.options;
-const F = (key: string, label: string, kind: PrototypeFieldKind, options?: readonly string[]): PrototypeField => ({ key, label, kind, ...(options !== undefined ? { options } : {}) });
+const F = (key: string, label: string, kind: PrototypeFieldKind, options?: readonly string[]): PrototypeField =>
+  ({ key, label, kind, group: prototypeFieldGroup(key), ...(options !== undefined ? { options } : {}) });
+
+/** 数字取值的档位字段（见 `PrototypeField.numeric`）。 */
+const FNum = (key: string, label: string, options: readonly string[]): PrototypeField =>
+  ({ ...F(key, label, "enum", options), numeric: true });
 
 /**
  * 属性面板字段表：**每个类型的 key 集合 == 对应 `*Props` 的 shape 键集合**（契约测试锁定），枚举 options 直接
@@ -260,13 +315,16 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
     F("gap", "间距", "enum", SCALE_OPTIONS), F("padding", "内边距", "enum", SCALE_OPTIONS),
     F("align", "对齐", "enum", StackProps.shape.align.unwrap().options), F("fill", "填满剩余空间", "bool"),
   ],
-  card: [F("title", "标题", "text")],
+  card: [F("title", "标题", "text"), F("radius", "圆角", "enum", Radius.options), F("padding", "内边距", "enum", SCALE_OPTIONS)],
   navbar: [F("title", "标题", "text"), F("left", "左侧", "text"), F("right", "右侧", "text")],
   text: [
     F("content", "文案", "multiline"), F("variant", "样式", "enum", TextProps.shape.variant.unwrap().options),
     F("muted", "弱化", "bool"), F("align", "对齐", "enum", TextProps.shape.align.unwrap().options),
   ],
-  button: [F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options), F("full", "通栏", "bool")],
+  button: [
+    F("label", "文案", "text"), F("variant", "样式", "enum", ButtonProps.shape.variant.unwrap().options),
+    F("full", "通栏", "bool"), F("size", "尺寸", "enum", Size.options), F("radius", "圆角", "enum", Radius.options),
+  ],
   input: [F("placeholder", "占位文字", "text"), F("label", "标签", "text"), F("value", "已填内容", "text"), F("multiline", "多行", "bool")],
   image: [F("alt", "说明", "text"), F("ratio", "比例", "enum", ImageProps.shape.ratio.unwrap().options)],
   list: [F("items", "条目（一行一项）", "lines"), F("leading", "前缀", "enum", ListProps.shape.leading.unwrap().options)],
@@ -274,7 +332,7 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   spacer: [F("size", "高度", "enum", SCALE_OPTIONS)],
   tabs: [F("items", "标签（一行一项）", "lines"), F("active", "当前项（从 0 起）", "number")],
   badge: [F("label", "文案", "text"), F("tone", "色调", "enum", BadgeProps.shape.tone.unwrap().options)],
-  avatar: [F("name", "名字", "text")],
+  avatar: [F("name", "名字", "text"), F("size", "尺寸", "enum", Size.options)],
   bottomnav: [F("items", "项（一行一项，2–6）", "lines"), F("active", "当前项（从 0 起）", "number")],
   switch: [F("label", "文案", "text"), F("on", "打开", "bool")],
   checkbox: [F("label", "文案", "text"), F("checked", "已选", "bool")],
@@ -282,7 +340,7 @@ export const PROTOTYPE_FIELDS: Record<PrototypeNodeType, readonly PrototypeField
   progress: [F("value", "进度（0–100）", "number"), F("label", "说明", "text")],
   stat: [F("label", "指标名", "text"), F("value", "数值", "text"), F("delta", "变化", "text"), F("tone", "色调", "enum", StatProps.shape.tone.unwrap().options)],
   hero: [F("title", "标题", "text"), F("subtitle", "副标题", "multiline"), F("cta", "按钮文案", "text")],
-  grid: [F("columns", "列数（2 或 3）", "number"), F("gap", "间距", "enum", SCALE_OPTIONS)],
+  grid: [FNum("columns", "列数", ["2", "3"]), F("gap", "间距", "enum", SCALE_OPTIONS)],
 };
 
 /* ─────────────────────────── 迭代 1：增量修改（patch） ─────────────────────────── */
@@ -700,13 +758,13 @@ export const PROTOTYPE_PATCH_GUIDE =
 export const PROTOTYPE_SCHEMA_GUIDE =
   "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
-  "card{title?}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align?}；" +
-  "button{label, variant:primary|secondary|ghost|danger, full?}；input{placeholder?, label?, value?, multiline?}；" +
+  "card{title?, radius:none|sm|md|lg|full, padding:none|sm|md|lg}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align:start|center|end}；" +
+  "button{label, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
   "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
-  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}；" +
+  "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
   "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
-  "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
+  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
   `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
   // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。

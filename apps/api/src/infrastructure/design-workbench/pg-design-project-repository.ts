@@ -10,7 +10,9 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
-import { designPrototype } from "@repo/contracts";
+import { designPrototype, designWorkbench } from "@repo/contracts";
+import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
+import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -42,6 +44,12 @@ interface ProjectDbRow {
    * 上面三列旧数据保留一个版本供回滚，本版本双写；读一律从这里来。
    */
   readonly screens: unknown;
+  /** 迭代 13（delta §5.2）：原型自己的明暗主题；旧行由迁移的 DEFAULT 填成 'dark'。 */
+  readonly theme: string | null;
+  /** 迭代 13（delta §4）：项目标签的 jsonb 数组；老行由迁移的 DEFAULT 填成 `[]`。 */
+  readonly tags: unknown;
+  /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
+  readonly ref_images: unknown;
   readonly pushed: boolean;
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
@@ -50,6 +58,16 @@ interface ProjectDbRow {
   readonly github_issue_number: number | null;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
+}
+
+/** 迭代 13：参考图元信息行。字节不在库里（见 `SELECT_COLUMNS` 头注）。 */
+interface RefImageDbRow {
+  readonly id: string;
+  readonly name: string;
+  readonly object_key: string;
+  readonly content_type: string;
+  readonly size_bytes: string | number;
+  readonly created_at: Date | string;
 }
 
 interface ChatDbRow {
@@ -167,6 +185,41 @@ function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {
   }));
 }
 
+/**
+ * 逐条过契约 `RefImage`。不合法的丢掉而不是整份返回空——一张读不出来的参考图不该让
+ * 项目打不开（同 `toPrototype` 对坏树的态度）。
+ */
+function toRefImages(raw: unknown): readonly designWorkbench.RefImage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: designWorkbench.RefImage[] = [];
+  for (const item of raw) {
+    const parsed = designWorkbench.RefImage.safeParse(
+      item !== null && typeof item === "object" && "createdAt" in item
+        ? { ...item, createdAt: new Date((item as { createdAt: string }).createdAt).toISOString() }
+        : item,
+    );
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
+/**
+ * `content_type` 在库里有 CHECK 约束，但读侧仍然过一遍契约的判定：迁移可以被回滚、
+ * 约束可以被后来的迁移放宽，而**读到一个不合法的 mime 会一路传到模型调用那一层**。
+ * 读不出来的行跳过而不是整次列表失败——少一张参考图不该让项目打不开。
+ */
+function toRefImageRow(row: RefImageDbRow): RefImageRow | null {
+  if (!designWorkbench.isImageMime(row.content_type)) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    objectKey: row.object_key,
+    mime: row.content_type,
+    size: Number(row.size_bytes),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
 function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow {
   return {
     id: row.id,
@@ -190,6 +243,9 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
         frameLinks: screens.some((x) => (x.links ?? []).length > 0) ? screens.map((x) => [...(x.links ?? [])]) : [],
       };
     })(),
+    theme: row.theme === "light" ? "light" : "dark",
+    tags: toStringArray(row.tags),
+    refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
@@ -202,10 +258,28 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
   };
 }
 
+/**
+ * 迭代 13：参考图的**元信息**随项目一次读出来（不含字节）。做成 `SELECT_COLUMNS` 里的子查询，
+ * 而不是让用例层再查一次仓储：`DesignProject` 的每条读路径（list / get / update 的 RETURNING）
+ * 都要带上它，分开查意味着四处各写一次"别忘了补 refImages"，漏一处的表现是
+ * 「传了图、刷新就没了」。
+ *
+ * ⚠ 这个字符串是模板字面量：里面**不许**出现反引号——它会提前终止字符串，
+ *   而报错点会落在几行之后，看起来像是别的地方写错了。SQL 注释就写普通的话。
+ */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
+  theme, tags,
   pushed, pushed_at, push_note, linked_feedback_id,
-  github_issue_url, github_issue_number, created_at, updated_at`;
+  github_issue_url, github_issue_number, created_at, updated_at,
+  COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+             'id', r.id, 'name', r.name, 'size', r.size_bytes,
+             'mime', r.content_type, 'createdAt', r.created_at)
+             ORDER BY r.created_at ASC, r.id ASC)
+      FROM design_project_ref_images r
+     WHERE r.org_id = design_projects.org_id AND r.project_id = design_projects.id
+  ), '[]'::jsonb) AS ref_images`;
 
 interface VersionDbRow {
   readonly id: string;
@@ -244,7 +318,18 @@ function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototy
   };
 }
 
-class ScopedPgDesignProjectRepository implements DesignProjectRepository {
+/**
+ * 迭代 13：参考图的三条语句**并进这个类**，而不是另开一个 `pg-ref-image-repository.ts`。
+ *
+ * 两条理由，第二条是决定性的：
+ * ① 参考图属于设计项目这个聚合——可见性完全跟随项目，没有自己的 ACL 判定。
+ * ② 另开一个文件就要在 `lint-permission-paths` 的 allowlist 上多一条，而那份 allowlist
+ *   有一道**棘轮**（`permission-propagation-six-paths.test.ts`：条目数 − 边界规则数 ≤ 90）。
+ *   2026-09-08 CI 实测 91 > 90 判红。正确反应是**让这条豁免不必存在**，不是把上限调到 91
+ *   ——棘轮存在的意义就是让"再加一条豁免"这件事有成本。这个类已经在 allowlist 上，
+ *   而它的 guard 测试逐条断言了它能碰哪些表、每条语句怎么收窄，参考图这三条一并被它守住。
+ */
+class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefImageRepository {
   constructor(
     private readonly db: DatabasePort,
     private readonly orgId: string,
@@ -265,8 +350,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO design_projects
-           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb)`,
+           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens, tags)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb)`,
         [
           project.id,
           this.orgId,
@@ -280,6 +365,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           // 迭代 11：新项目只有页标签、还没有树——`screens` 每项只带 frame，`root` 缺位就是
           // 「这页还没生成」。在 TS 里算好整份传下去，SQL 里不做 zip（同 update 的理由）。
           JSON.stringify(project.frames.map((frame) => ({ frame, links: [] }))),
+          JSON.stringify(project.tags ?? []),
         ],
       );
     });
@@ -340,7 +426,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async listForOrg(): Promise<readonly DesignProjectRow[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<ProjectDbRow>(
-        `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 ORDER BY created_at ASC, id ASC`,
+        // 迭代 13（V65）：排序在**服务端**，`updated_at` 倒序——"最近改过的排最前"。
+        // `id` 作次序键是为了同一毫秒的两行有稳定顺序（否则翻页/刷新时顺序会跳）。
+        `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 ORDER BY updated_at DESC, id DESC`,
         [this.orgId],
       );
       const out: DesignProjectRow[] = [];
@@ -408,6 +496,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                 frames     = $9::jsonb,
                 prototype  = $10::jsonb,
                 frame_notes = $11::jsonb,
+                theme      = COALESCE($12, theme),
+                tags       = COALESCE($13::jsonb, tags),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -418,6 +508,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           JSON.stringify(nextScreens.map((x) => x.frame)),
           JSON.stringify(prototypeOf(nextScreens)),
           JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
+          patch.theme ?? null,
+          patch.tags === undefined ? null : JSON.stringify(patch.tags),
         ],
       );
       const row = rows[0];
@@ -628,12 +720,51 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       return toRow(row, await this.chatFor(s, row.id));
     });
   }
+
+  async listByProject(projectId: string): Promise<readonly RefImageRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<RefImageDbRow>(
+        `SELECT id, name, object_key, content_type, size_bytes, created_at
+           FROM design_project_ref_images
+          WHERE org_id = $1 AND project_id = $2
+          ORDER BY created_at ASC, id ASC`,
+        [this.orgId, projectId],
+      );
+      return rows.map(toRefImageRow).filter((r): r is RefImageRow => r !== null);
+    });
+  }
+
+  async insert(row: RefImageRow & { readonly projectId: string; readonly uploadedBy: string; readonly sha256: string }): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `INSERT INTO design_project_ref_images
+           (id, org_id, project_id, uploaded_by, name, object_key, content_type, size_bytes, sha256)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [row.id, this.orgId, row.projectId, row.uploadedBy, row.name, row.objectKey, row.mime, row.size, row.sha256],
+      );
+    });
+  }
+
+  async remove(projectId: string, imageId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `DELETE FROM design_project_ref_images
+          WHERE org_id = $1 AND project_id = $2 AND id = $3 RETURNING id`,
+        [this.orgId, projectId, imageId],
+      );
+      return rows.length > 0;
+    });
+  }
 }
 
-export class PgDesignProjectRepository implements DesignProjectRepositoryFactory {
+/**
+ * 同一个工厂同时供两个 DI 令牌（`DESIGN_PROJECT_REPOSITORY` / `DESIGN_REF_IMAGE_REPOSITORY`）：
+ * 端口在应用层仍是两个窄接口（用例只依赖它需要的那个），实现是同一个类。
+ */
+export class PgDesignProjectRepository implements DesignProjectRepositoryFactory, DesignRefImageRepositoryFactory {
   constructor(private readonly db: DatabasePort) {}
 
-  forOrg(orgId: string): DesignProjectRepository {
+  forOrg(orgId: string): DesignProjectRepository & RefImageRepository {
     return new ScopedPgDesignProjectRepository(this.db, orgId);
   }
 }

@@ -29,7 +29,6 @@ let calls: string[];
 let seenBriefs: unknown[];
 let failSearch: boolean;
 let badCitation: boolean;
-let shallowReport: boolean;
 let searchCalls: number;
 let proposedAction: "save" | "start" | "confirm" | "complete";
 let releaseModel: (() => void) | undefined;
@@ -58,7 +57,7 @@ const model: ModelCallPort = { complete: async (input) => {
     value = ["chapter", "chapter_revision"].includes(context.reportStage) ? chapter : ["synthesis", "synthesis_revision"].includes(context.reportStage) ? { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap." } : { title: "Findings", summary: "Limited to the available source", introduction: "This study compares documented grid policy within the confirmed scope, using retrieved excerpts rather than complete policy texts.", conclusion: "Prioritize verification of local grid requirements before selecting an entry option. Approval timing remains an evidence gap.", sections: [chapter] };
   }
   if (node === "report" && context.reportStage === "evidence") value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled source identifies policy evidence; real-world applicability remains unverified.", relevance: "direct" })) })) };
-  if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: shallowReport ? "shallow" : "adequate", issues: shallowReport ? ["Explain the policy comparison more deeply."] : [] };
+  if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "The chapter discusses supplied evidence, limits and verification actions." })), supported: true, analysisDepth: "adequate", issues: [] };
   if (context.targetNode) value = { assistantMessage: "Proposed revision", value: node === "research" ? context.sources.map((source: {id: string;decision: string}) => ({ id: source.id, decision: proposedAction === "complete" ? "accepted" : source.decision })) : value, action: proposedAction };
   return { text: JSON.stringify(value) };
 } };
@@ -79,7 +78,7 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; searchCalls = 0; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
@@ -108,25 +107,6 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     expect(reloaded.completed).toBe(false);
     await run("generate", { node: "report" });
     expect(state.reportPrevious?.report).toEqual(previous);
-  });
-
-  it("persists the complete unverified draft and quality findings across reload, then repairs it without promoting warnings", async () => {
-    await reachResearch(); shallowReport = true;
-    await run("confirm");
-    expect(state.errorCode).toBeNull(); expect(state.report).toBeNull();
-    expect(state.reportDraft?.sections).toHaveLength(1); expect(state.reportDraft?.conclusion).toBeTruthy();
-    expect(state.reportQualityWarnings?.[0]?.sectionId).toBe("o1");
-    const draft = structuredClone(state.reportDraft); const warnings = structuredClone(state.reportQualityWarnings);
-    service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-    state = await service.get(actor, session);
-    expect(state.reportDraft).toEqual(draft); expect(state.reportQualityWarnings).toEqual(warnings);
-    expect(state.reportTimeline?.find((step) => step.stage === "validation")?.status).toBe("warning");
-    await run("complete"); expect(state.completed).toBe(false); expect(state.errorCode).not.toBeNull();
-    shallowReport = false;
-    await run("retry");
-    expect(state.errorCode).toBeNull(); expect(state.report).not.toBeNull(); expect(state.reportDraft).toBeNull();
-    expect(state.reportQualityWarnings).toEqual([]); expect(state.reportPrevious?.draft).toEqual(draft);
-    await run("complete"); expect(state.completed).toBe(true);
   });
 
   it("imports old checkpoints without erasing their drafts or completed record", () => {

@@ -57,6 +57,7 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     const at = this.stamp();
     this.rows.set(project.id, {
       ...project,
+      tags: [...(project.tags ?? [])],
       frameLinks: [],
       pushed: false,
       pushedAt: null,
@@ -81,8 +82,16 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
     return { project: row, created: true };
   }
 
+  /**
+   * 迭代 13（V65）：顺序**必须与真实仓储一致**——`updated_at DESC`，`id` 作稳定次序键。
+   * 这个 fake 之前按 `createdAt` 升序返回，那是它自己的顺序，不是产品的顺序：
+   * 用它跑「最近改过的排最前」会得到一个与生产相反的结论，而且是绿的。
+   * 排序在仓储这一层，`listMyProjects` 只过滤不排序（放前端或用例层排会是第二处声明）。
+   */
   async listForOrg(): Promise<readonly DesignProjectRow[]> {
-    return [...this.rows.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return [...this.rows.values()].sort(
+      (a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id),
+    );
   }
 
   async get(projectId: string): Promise<DesignProjectRow | null> {
@@ -109,6 +118,9 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       // 迭代 11：links 挂在屏上，跟着 prototype 走——给了就换，只改标签且页数变了就清。
       ...(patch.frameLinks !== undefined ? { frameLinks: patch.frameLinks.map((l) => [...l]) }
         : patch.frames !== undefined && patch.frames.length !== r.frameLinks.length ? { frameLinks: [] } : {}),
+      // 迭代 13：主题与标签都是整份替换（同 pg 仓储的 COALESCE 语义：不给 ⇒ 保持原值）。
+      ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
+      ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
       updatedAt: this.stamp(),
     };
     this.rows.set(projectId, next);
@@ -218,6 +230,7 @@ export function designProjectRow(over: Partial<DesignProjectRow> = {}): DesignPr
     problem: "",
     criteria: [],
     frameLinks: [],
+    tags: [],
     frames: [],
     prototype: [],
     frameNotes: [],

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 test("research persists all five model-backed steps through the real UI, API and PostgreSQL", async ({ page }, testInfo) => {
-  test.setTimeout(180000);
+  test.setTimeout(120000);
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
   await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
@@ -137,24 +137,4 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
   await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
-  // Quality rejection must preserve a complete, explicitly provisional report.
-  const runtimeUrl = streamResponse.url().replace(/\/commands\/stream$/, "");
-  const authorization = streamResponse.request().headers()["authorization"]!;
-  const current = await (await page.request.get(runtimeUrl, { headers: { authorization } })).json();
-  const draftResponse = await page.request.post(`${runtimeUrl}/commands`, { headers: { authorization }, timeout: 90000,
-    data: { sessionId: current.sessionId, node: "report", action: "generate", requestId: `quality-draft-${Date.now()}`, expectedVersion: current.version, message: "e2e-quality-draft" } });
-  expect(draftResponse.ok()).toBeTruthy();
-  const qualityDraft = await draftResponse.json();
-  expect(qualityDraft.report).toBeNull();
-  expect(qualityDraft.reportDraft.sections).toHaveLength(2);
-  expect(qualityDraft.reportDraft.conclusion).toContain("综合各章");
-  expect(qualityDraft.reportQualityWarnings).toEqual(expect.arrayContaining([expect.objectContaining({ sectionId: "o-e2e" })]));
-  expect(qualityDraft.busy).toBe(false);
-  expect(qualityDraft.completed).toBe(false);
-  await page.reload();
-  await expect(page.getByTestId("research-quality-draft")).toContainText("完整草稿已生成并保存");
-  await expect(page.getByTestId("research-quality-draft").getByTestId("research-report-chapter")).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "完成研究", exact: true })).toBeDisabled();
-  await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
-
 });

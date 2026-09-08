@@ -6,6 +6,12 @@ license: Complete terms in LICENSE.txt
 
 # Frontend Design
 
+> ⚠ **原型画布（PM 设计工作台）那条链路不读本文。** 它的输出受限于一套 21 个原语的闭集，
+> 本文关于字体选择、CSS、动效编排的建议在那里无法表达。那条链路的视觉约束是本文判据的
+> **翻译版**，唯一事实源在 `apps/api/src/application/design-workbench/design-chat-model.ts`
+> 的 `DESIGN_PRINCIPLES`——改视觉约束请改那里，**不要**在本文再写一份（issue #3125）。
+
+
 Approach this as the design lead at a design studio known for giving every client a distinct visual identity that is not mistaken for anyone else's. This client has already rejected proposals that felt cliché or templated, and is paying for a distinctive point of view: make deliberate, opinionated choices about palette, typography, and layout that are specific to this brief, and take aesthetic risk if justified.
 
 ## Ground your designs in the subject matter

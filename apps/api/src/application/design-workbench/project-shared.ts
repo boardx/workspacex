@@ -50,6 +50,13 @@ export function projectDesignProject(row: DesignProjectRow, ownerName: string | 
     frames: [...row.frames],
     prototype: [...row.prototype],
     frameNotes: [...row.frameNotes],
+    // 迭代 13：原型自己的明暗主题。行里没有（这个字段之前建的项目）⇒ `dark`，
+    // 与它出现之前的行为逐字相同。
+    theme: row.theme ?? "dark",
+    // 迭代 13（delta §4）：老行没有这一列 ⇒ 空数组。
+    tags: [...(row.tags ?? [])],
+    // 迭代 13：参考图的元信息（不含字节）；老行没有这一列 ⇒ 空数组。
+    refImages: [...(row.refImages ?? [])],
     pushed: row.pushed,
     pushedAt: row.pushedAt,
     linkedFeedbackId: row.linkedFeedbackId,

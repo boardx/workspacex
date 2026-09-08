@@ -608,3 +608,75 @@ it("editing input from a collapsed failure opens its real editing form", async (
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
   expect(screen.getAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(2);
 });
+
+/*
+ * issue #3132 —— 两条缺陷的反证。撤掉修复中的任一处，这里对应的用例必红。
+ */
+describe("issue #3132：失败态一定有可操作入口 + 六态指示器真的挂在真实 chat 上", () => {
+  beforeEach(() => {
+    for (const fn of Object.values(api)) fn.mockReset();
+    api.planControlErrorCode.mockReturnValue(null);
+  });
+
+  // 反证一：`PlanPhaseIndicator` 从来没有被挂进 `/chat`（消费方只有单测与 /preview）。
+  // 撤掉 `copilotkit-v2-plan-control.tsx` 里的 `indicator` 挂载 → 本条红。
+  it("新线程（空账本、idle）也渲染阶段指示器，data-phase 来自账本直出", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({ steps: [], phase: "preparing", gate: { required: false, reason: "no-plan" } }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-3132-a" />);
+    const indicator = await screen.findByTestId("chat-task-workbench-phase-indicator");
+    expect(indicator.getAttribute("data-phase")).toBe("preparing");
+    // 空账本仍然不造计划面板（#3099/#2999 的语义不被放宽）。
+    expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
+  });
+
+  // 反证二（本 issue 的核心）：**无计划步骤的 failed run**。
+  // 撤掉 `steps.length === 0 && !runLive && !hasPlanAction` 那条门上的 `phase !== "failed"`
+  // 例外，或撤掉 `PlanFailureRecovery` 渲染门上的 `failedStep` 放宽 → 本条红。
+  it("无计划步骤的 failed run 仍渲染恢复入口，「重试」调用 retryPlanStep({ planStepId: null })", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        steps: [], phase: "failed", runStatus: "failed", activeRunId: null,
+        failedStepId: null, errorCode: "MODEL_CALL_FAILED",
+        gate: { required: false, reason: "no-plan" },
+        progress: { completed: 0, total: 0, elapsedMs: 0 },
+      }),
+    );
+    api.retryPlanStep.mockResolvedValue({ runId: "run-retry", auditEventId: "a" });
+    render(<CopilotKitV2PlanControl threadId="t-3132-b" />);
+
+    expect((await screen.findByTestId("chat-task-workbench-phase-indicator")).getAttribute("data-phase"))
+      .toBe("failed");
+    const retry = await screen.findByTestId("chat-task-workbench-failure-retry-step");
+    expect(screen.getByTestId("chat-task-workbench-failure-edit-input")).toBeTruthy();
+    // 不编造一个不存在的步骤序号。
+    expect(screen.queryByText(/第 \d+ 步/)).toBeNull();
+
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(api.retryPlanStep).toHaveBeenCalledWith("t-3132-b", { planStepId: null }, undefined),
+    );
+  });
+
+  // 「修改输入」在无计划时不得是点了没反应的假按钮：把焦点交回 composer。
+  it("无计划的 failed run 点「修改输入」把焦点交回 composer（不是打开空的编辑态）", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        steps: [], phase: "failed", runStatus: "failed", activeRunId: null,
+        failedStepId: null, gate: { required: false, reason: "no-plan" },
+        progress: { completed: 0, total: 0, elapsedMs: 0 },
+      }),
+    );
+    const composer = document.createElement("textarea");
+    composer.setAttribute("data-testid", "copilotkit-v2-input");
+    document.body.appendChild(composer);
+    try {
+      render(<CopilotKitV2PlanControl threadId="t-3132-c" />);
+      fireEvent.click(await screen.findByTestId("chat-task-workbench-failure-edit-input"));
+      expect(document.activeElement).toBe(composer);
+    } finally {
+      composer.remove();
+    }
+  });
+});

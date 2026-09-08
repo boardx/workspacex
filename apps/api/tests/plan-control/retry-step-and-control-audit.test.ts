@@ -266,6 +266,43 @@ describe("UC-10 retryPlanStep：该 step 及其后续置回 pending，起新一�
     )).rejects.toMatchObject({ code: "PLAN_STEP_NOT_FOUND" });
   });
 
+  // issue #3132 反证：**这条 run 从未产出过计划步骤**（账本为空）。改动前
+  // `getLatestWithin === null` 一律抛 PLAN_STEP_NOT_FOUND，于是这种失败在
+  // 契约层面就没有任何恢复动作可调用——用户遇到失败没有入口。
+  it("失败的 run + 账本为空 + planStepId=null：不抛错，直接起一轮新 run（整轮重试）", async () => {
+    await seedRun("failed");
+    expect(await planLedger.getLatest(toOrgId(ORG), THREAD)).toBeNull();
+
+    const beforeCount = deepAgent.runBodies.length;
+    const out = await retryPlanStep(
+      { db, repo: planLedger, runs: planLedger, runCreator }, provenance,
+      { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR, planStepId: null },
+    );
+    expect(out.runId).toBeTruthy();
+    expect(out.auditEventId).toBeTruthy();
+    await waitForNewRunBody(beforeCount);
+  }, 30_000);
+
+  it("失败的 run + 有计划 + planStepId=null：全部步骤回 pending（从头重试整轮）", async () => {
+    const ingested = await ingestEnginePlanSnapshot(planLedger, {
+      orgId: toOrgId(ORG), threadId: THREAD,
+      todos: [
+        { content: "第一步", status: "completed" },
+        { content: "第二步", status: "pending" },
+      ],
+    });
+    await seedRun("failed");
+    const beforeCount = deepAgent.runBodies.length;
+    await retryPlanStep(
+      { db, repo: planLedger, runs: planLedger, runCreator }, provenance,
+      { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR, planStepId: null },
+    );
+    const after = await planLedger.getLatest(toOrgId(ORG), THREAD);
+    expect(after!.revision).toBe(ingested.revision + 1);
+    expect(after!.steps.map((s) => s.status)).toEqual(["pending", "pending"]);
+    await waitForNewRunBody(beforeCount);
+  }, 30_000);
+
   it("没有失败的 run（run 还在跑）-> NO_ACTIVE_RUN", async () => {
     await ingestEnginePlanSnapshot(planLedger, {
       orgId: toOrgId(ORG), threadId: THREAD, todos: [{ content: "唯一一步", status: "pending" }],

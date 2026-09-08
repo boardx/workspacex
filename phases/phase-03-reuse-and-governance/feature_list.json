@@ -1294,6 +1294,152 @@
         "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
       ],
       "evidence": ""
+    },
+    {
+      "id": "F59",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "引导式澄清：新建从填表改成问答",
+      "user_visible_behavior": "点「新建设计」先写一句想做什么，AI 据此生成 3–6 个针对这个产品的问题；逐条回答（每条都能跳过，也能整段跳过），汇成一份可编辑的设计指导原则，确认后创建项目直接进画布。模型不可用时退回通用问卷并说明是兜底。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§3",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/intake-questions.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F60",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "参考图输入：按钮 / 拖拽 / 粘贴三种方式",
+      "user_visible_behavior": "对话面板可以拖进图片、点「＋ 参考图」选图、或直接 ⌘V 粘贴截图；缩略图显示在输入框上方可删除，随每一轮对话发给模型。模型看不了图时不发图，并在回复里明说。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§1",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts tests/design-workbench/ref-image-upload.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=design-prototype-loop -g '拖一张参考图'"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F61",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "从已有对话导入上下文",
+      "user_visible_behavior": "对话面板顶部「从对话导入」选一个自己的聊天线程，看到可编辑的摘要预览，确认后写进项目背景，并在对话里留一条「从线程《X》导入了 N 条消息」的记录。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§2",
+      "depends_on": [
+        "p3:F59"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F62",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "工作台列表：最新在前 + 标签过滤",
+      "user_visible_behavior": "设计列表按最近改动倒序，刚改过的排最前；卡片可以打标签，列表顶部按标签过滤（多选取交集）；顶部三张模板卡片移除，主入口是「新建设计」。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§4",
+      "depends_on": [
+        "p3:F59"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F63",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-AI",
+      "title": "视觉判据进设计原则：接上 frontend-design skill",
+      "user_visible_behavior": "生成的原型有清晰的字号级差、间距成体系、不再每张卡都配 badge / 每段都加标签行这类一眼看出是生成的套路；内容是真实文案不是占位符。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§5.1",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F64",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "原型主题切换：白天 / 黑夜，与后台主题互不影响",
+      "user_visible_behavior": "画布顶栏可以把原型切成浅色或深色，后台自己的主题不跟着变；导出的 HTML 与 PDF 跟随原型的主题。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§5.2",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/prototype-export-html.test.tsx"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F65",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "属性面板加视觉组：间距 / 尺寸 / 圆角 / 色调 / 对齐",
+      "user_visible_behavior": "选中一个元素，右边面板除了改文案，还能调它的间距、尺寸、圆角、色调、对齐——只在设计系统给定的档位里选，不给自由数值；视觉组默认折叠。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§5.3",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter contracts exec vitest run tests/design-prototype.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
+      ],
+      "evidence": ""
     }
   ]
 }

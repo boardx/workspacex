@@ -135,7 +135,8 @@ export async function resumePlanRun(threadId: string, projectId?: string | null)
 export type RetryPlanStepOutput = z.infer<typeof planControl.retryPlanStep.out>;
 
 export async function retryPlanStep(
-  threadId: string, input: { planStepId: string }, projectId?: string | null,
+  // issue #3132 —— `planStepId: null` = 重试整轮任务（失败的 run 没有计划步骤时）。
+  threadId: string, input: { planStepId: string | null }, projectId?: string | null,
 ): Promise<RetryPlanStepOutput> {
   const raw = await apiRequest<unknown>(`/plan-control/threads/${threadId}/steps/retry`, {
     method: "POST", body: input, query: { projectId: projectId ?? undefined },

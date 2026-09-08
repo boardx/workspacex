@@ -28,7 +28,7 @@
  * ⚠ 首次引导语**不**在这里插入——展示层文案，见契约【待确认点 2】。
  */
 import type { z } from "zod";
-import { designAiCollab, designPrototype } from "@repo/contracts";
+import { designAiCollab, designPrototype, type designWorkbench } from "@repo/contracts";
 
 const designAiCollabFields = designAiCollab.DesignWritebackField.options;
 import type { DesignChatModel } from "./design-chat-model";
@@ -80,7 +80,19 @@ function focusFor(row: { readonly frames: readonly string[]; readonly prototype:
 
 export async function appendProjectChat(
   deps: AppendProjectChatDeps,
-  input: { readonly projectId: string; readonly ownerId: string; readonly text: string; readonly focusNodeId?: string },
+  input: {
+    readonly projectId: string;
+    readonly ownerId: string;
+    readonly text: string;
+    readonly focusNodeId?: string;
+    /**
+     * 迭代 13：这一轮带给模型看的参考图**字节**。由 controller 用 `loadRefImageBytes` 取好传进来——
+     * 本用例不认识对象存储，也不该为了几张图长出一个存储依赖。
+     * 模型看不了图时由 `ModelDesignChatReplier` 自己在回复里如实说明（`BLIND_MODEL_NOTICE`），
+     * 不在这里静默丢掉。
+     */
+    readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
+  },
 ): Promise<{ readonly project: DesignProjectView; readonly reply: DesignChatReply }> {
   const current = await deps.projects.get(input.projectId);
   if (current === null) throw new DesignProjectNotFoundError();
@@ -94,6 +106,7 @@ export async function appendProjectChat(
     frames: current.frames,
     prototype: current.prototype,
     ...focusFor(current, input.focusNodeId),
+    ...(input.refImages !== undefined && input.refImages.length > 0 ? { refImages: input.refImages } : {}),
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 

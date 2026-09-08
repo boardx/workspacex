@@ -478,10 +478,16 @@ export const planControl = {
   /**
    * UC-10：重试某一步（判据六①）。把该步及后续置回 pending，经送达路径起新一轮 run。
    * 不是引擎级"从那个节点继续"——那需要 checkpoint，本轮不做（裁决 (c)）。
+   *
+   * issue #3132 —— `planStepId` 放宽为可空：**失败的 run 不保证产出过计划步骤**
+   * （模型一次 `write_todos` 都没调就死了），此前"重试"只能以某一步为参数，于是
+   * 这种 run 在契约层面就没有恢复动作可调用。`planStepId === null` 表示「重试整轮
+   * 任务」：账本存在时把全部步骤置回 pending，账本为空时不写账本，两者都经同一条
+   * 送达路径起新一轮 run。仍然**不是** checkpoint 恢复（裁决 (c) 未被推翻）。
    */
   retryPlanStep: {
     method: "POST", path: "/plan-control/threads/:threadId/steps/retry",
-    in: z.object({ threadId: z.string(), planStepId: z.string() }).strict(),
+    in: z.object({ threadId: z.string(), planStepId: z.string().nullable() }).strict(),
     out: z.object({ runId: z.string(), auditEventId: z.string() }).strict(),
     err: [
       "NOT_VISIBLE", "NO_WRITE_ROLE", "PLAN_STEP_NOT_FOUND", "NO_ACTIVE_RUN",

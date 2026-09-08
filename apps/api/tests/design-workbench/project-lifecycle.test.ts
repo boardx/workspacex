@@ -14,6 +14,11 @@ import {
   restorePrototypeVersion,
 } from "../../src/application/design-workbench/prototype-versions";
 import { deleteProject } from "../../src/application/design-workbench/delete-project";
+import {
+  DesignThreadSummaryUnavailableError,
+  importThread,
+} from "../../src/application/design-workbench/import-thread";
+import { ThreadNotVisibleError } from "../../src/application/chat/get-thread";
 import { PrototypePatchRejectedError, patchPrototype } from "../../src/application/design-workbench/patch-prototype";
 import { pushToInbox } from "../../src/application/design-workbench/push-to-inbox";
 import {
@@ -24,6 +29,12 @@ import {
 } from "../../src/application/design-workbench/project-shared";
 import { toOrgId } from "../../src/domain/org-id";
 import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
+import {
+  FakeChatThreadSource,
+  FakeIdentityDirectory,
+  fakeDecisionIds,
+  personalThread,
+} from "../support/fake-chat-thread-source";
 import { designPrototype, designWorkbench as C } from "@repo/contracts";
 import type { DesignChatContext, DesignChatModel, DesignChatReplyResult } from "../../src/application/design-workbench/design-chat-model";
 
@@ -118,6 +129,103 @@ describe("listMyProjects", () => {
 
     const mine = await listMyProjects(deps(repo), { ownerId: "u-1" });
     expect(mine.map((p) => p.id)).toEqual(["dp-mine"]);
+  });
+
+  /**
+   * 迭代 13（delta §4）—— V65。排序在**仓储**那一层，`listMyProjects` 只过滤不排序。
+   * 断言写在这里是因为它是用户能看见的行为；实现位置由下面那条「不二次排序」钉住。
+   */
+  it("V65 按 updatedAt 倒序：最近改过的排最前", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-old", ownerId: "u-1", updatedAt: "2026-09-01T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-new", ownerId: "u-1", updatedAt: "2026-09-08T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-mid", ownerId: "u-1", updatedAt: "2026-09-05T00:00:00.000Z" }));
+
+    const out = await listMyProjects(deps(repo), { ownerId: "u-1" });
+    // ⭐ 反证：改成 createdAt 倒序 ⇒ 这条红（三行的 createdAt 都是夹具默认值，同一个时刻）。
+    expect(out.map((p) => p.id)).toEqual(["dp-new", "dp-mid", "dp-old"]);
+  });
+
+  it("V65 用例层**不**二次排序：仓储给什么顺序就是什么顺序", async () => {
+    const repo = new FakeDesignProjectRepo();
+    // ⚠ 这两行的 id 与 updatedAt 是**反向**排的（a 最新、b 最旧），所以期望顺序
+    //   `[dp-b, dp-a]` 既不是 id 升序、也不是 updatedAt 倒序——用例层无论按哪个字段
+    //   补一次 sort，都会把它改掉。第一版这里用的是 id 与时间同向的数据，
+    //   于是"加一句 sort"这个变异**没能让它转红**（实测），它是为错误理由通过的。
+    repo.seed(designProjectRow({ id: "dp-a", ownerId: "u-1", updatedAt: "2026-09-08T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-b", ownerId: "u-1", updatedAt: "2026-09-01T00:00:00.000Z" }));
+    // 仓储被换成一个**故意乱序**的实现：如果用例层自己排了序，下面这条就会被"修正"。
+    const scrambled = { ...repo, listForOrg: async () => [...(await repo.listForOrg())].reverse() };
+    const out = await listMyProjects(deps(scrambled as unknown as FakeDesignProjectRepo), { ownerId: "u-1" });
+    // ⭐ 反证：在 `listMyProjects` 里加一句 sort（按 id 或按 updatedAt 都算）⇒ 这条红。
+    //   顺序只该由 SQL 的 ORDER BY 决定，否则将来一分页，页内重排会让整体顺序看起来是随机的。
+    expect(out.map((p) => p.id)).toEqual(["dp-b", "dp-a"]);
+  });
+
+  describe("V66 标签：过滤取交集，集合从现有项目派生", () => {
+    const seeded = () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-both", ownerId: "u-1", tags: ["后台", "移动端"] }));
+      repo.seed(designProjectRow({ id: "dp-one", ownerId: "u-1", tags: ["后台"] }));
+      repo.seed(designProjectRow({ id: "dp-none", ownerId: "u-1", tags: [] }));
+      return repo;
+    };
+
+    it("选两个标签 ⇒ 只返回**同时**有这两个的项目（不是并集）", async () => {
+      const out = await listMyProjects(deps(seeded()), { ownerId: "u-1", tags: ["后台", "移动端"] });
+      // ⭐ 反证：过滤实现成 `some`（并集）⇒ dp-one 会混进来，这条红。
+      expect(out.map((p) => p.id)).toEqual(["dp-both"]);
+    });
+
+    it("选一个标签 ⇒ 带这个标签的都返回；不选 ⇒ 全返回", async () => {
+      const repo = seeded();
+      expect((await listMyProjects(deps(repo), { ownerId: "u-1", tags: ["后台"] })).map((p) => p.id).sort())
+        .toEqual(["dp-both", "dp-one"]);
+      expect(await listMyProjects(deps(repo), { ownerId: "u-1", tags: [] })).toHaveLength(3);
+    });
+
+    it("标签与 `q` 一起用是**并且**，不是二选一", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "登录改版", tags: ["后台"] }));
+      repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1", name: "结算流程", tags: ["后台"] }));
+      const out = await listMyProjects(deps(repo), { ownerId: "u-1", q: "登录", tags: ["后台"] });
+      expect(out.map((p) => p.id)).toEqual(["dp-1"]);
+    });
+
+    it("新建带标签：去空白、丢空串、去重", async () => {
+      const repo = new FakeDesignProjectRepo();
+      const out = await createProject(
+        { ...deps(repo), newProjectId: () => "dp-1" },
+        { ownerId: "u-1", name: "带标签", template: "ui", tags: ["  后台 ", "后台", "", "   ", "移动端"] },
+      );
+      expect(out.project.tags).toEqual(["后台", "移动端"]);
+    });
+
+    it("改标签是**整份替换**，不是往上加", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", tags: ["旧一", "旧二"] }));
+      const out = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tags: ["新的"] });
+      // ⭐ 反证：实现成并集/追加 ⇒ 这条红（那样就永远删不掉一个标签）。
+      expect(out.project.tags).toEqual(["新的"]);
+      const cleared = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tags: [] });
+      expect(cleared.project.tags).toEqual([]);
+    });
+
+    it("不给 tags ⇒ 原样保留（PATCH 语义，不是清空）", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", tags: ["保留我"] }));
+      const out = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", name: "改个名" });
+      expect(out.project.tags).toEqual(["保留我"]);
+    });
+
+    it("上限与长度由契约的同一份 schema 判，不是应用层第二套阈值", () => {
+      const ok = Array.from({ length: C.DESIGN_PROJECT_MAX_TAGS }, (_, i) => `t${i}`);
+      expect(C.DesignProjectTags.safeParse(ok).success).toBe(true);
+      expect(C.DesignProjectTags.safeParse([...ok, "多一个"]).success).toBe(false);
+      expect(C.DesignProjectTags.safeParse(["x".repeat(C.DESIGN_PROJECT_TAG_MAX_CHARS + 1)]).success).toBe(false);
+      // ⭐ 反证：在用例层另写一个 `if (tags.length > 8)` ⇒ 阈值就有两处，改一处不改另一处
+      //   的表现是"契约说能存 10 个、界面说只能 8 个"。这条断言指的是契约那一份。
+    });
   });
 
   it("`q` 按名称过滤（大小写不敏感）", async () => {
@@ -581,5 +689,191 @@ describe("pushToInbox 可观测性（B6.4）", () => {
       DesignProjectNotOwnerError,
     );
     expect(logger.info).not.toHaveBeenCalled();
+  });
+});
+
+/* ───────── 迭代 13（delta `design-chat-inputs` §2）：从已有对话导入 —— V56 / V57 ───────── */
+
+/**
+ * ## 这几条用例的 fake 边界在哪，为什么在那里
+ *
+ * `FakeChatThreadSource` / `FakeIdentityDirectory` fake 的只是**数据源**（线程与消息在哪、
+ * 谁是组织成员）。判权跑的是真的那一份：`resolveVisibility` → `decidePersonalThreadRead`
+ * → 守卫读路径。所以 V56 的反证成立——把 `import-thread.ts` 里的 `resolveVisibility` 拿掉、
+ * 直接 `findMessages`，「导入别人的线程」那条当场变红。
+ */
+const importDeps = (
+  projects: FakeDesignProjectRepo,
+  chat: FakeChatThreadSource,
+  complete: (input: { system: string; user: string }) => Promise<{ text: string }> = async () => ({ text: "摘要：门店会员在线下单，省掉排队。" }),
+) => {
+  const model = { complete: vi.fn(complete) };
+  const log = vi.fn();
+  return {
+    d: {
+      ...deps(projects),
+      chat: chat as never,
+      repo: new FakeIdentityDirectory(new Set(["u-owner", "u-other"])) as never,
+      ids: fakeDecisionIds(),
+      model: model as never,
+      chatModel: { provider: "p", modelId: "m" },
+      log,
+    },
+    model,
+    log,
+  };
+};
+
+describe("V56 导入线程：只读得到自己有权读的线程", () => {
+  it("别人的个人线程 ⇒ 与 getThread 同一个出口（ThreadNotVisibleError），且不泄露标题", async () => {
+    const projects = new FakeDesignProjectRepo();
+    projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner", problem: "我自己写的背景" }));
+    const chat = new FakeChatThreadSource();
+    chat.seed(personalThread({ threadId: "th-secret", createdBy: "u-other", title: "别人的私密线程标题" }));
+
+    const { d } = importDeps(projects, chat);
+    const err = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-secret" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ThreadNotVisibleError);
+    // 拒绝里连标题都不许出现（I-3：拒绝不泄露存在性，更不泄露内容）。
+    expect(JSON.stringify({ message: (err as Error).message })).not.toContain("别人的私密线程标题");
+    // 拒绝就是拒绝：项目一个字没改，也没留下任何痕迹。
+    expect(projects.rows.get("dp-1")!.problem).toBe("我自己写的背景");
+    expect(projects.rows.get("dp-1")!.chat).toEqual([]);
+  });
+
+  it("不存在的线程与看不见的线程是同一个错误——调用方分不出来", async () => {
+    const projects = new FakeDesignProjectRepo();
+    projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner" }));
+    const chat = new FakeChatThreadSource();
+    chat.seed(personalThread({ threadId: "th-secret", createdBy: "u-other" }));
+    const { d } = importDeps(projects, chat);
+
+    const invisible = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-secret" }).catch((e: unknown) => e);
+    const missing = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-nope" }).catch((e: unknown) => e);
+    expect((invisible as Error).constructor).toBe((missing as Error).constructor);
+    expect((invisible as Error).message).toBe((missing as Error).message);
+  });
+
+  it("不是项目 owner ⇒ NOT_PROJECT_OWNER，且**根本没去读线程**", async () => {
+    const projects = new FakeDesignProjectRepo();
+    projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner" }));
+    const chat = new FakeChatThreadSource();
+    chat.seed(personalThread({ threadId: "th-1", createdBy: "u-other" }));
+    const { d } = importDeps(projects, chat);
+
+    await expect(importThread(d, { projectId: "dp-1", ownerId: "u-other", threadId: "th-1" }))
+      .rejects.toBeInstanceOf(DesignProjectNotOwnerError);
+    // owner 门在最前面：不是 owner 的调用不该因为这次请求去读任何线程正文。
+    expect(chat.messageReads).toEqual([]);
+  });
+});
+
+describe("V57 导入是一次性的，且留痕", () => {
+  const seeded = () => {
+    const projects = new FakeDesignProjectRepo();
+    projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner", problem: "用户已经写好的背景" }));
+    const chat = new FakeChatThreadSource();
+    chat.seed(personalThread({ threadId: "th-1", createdBy: "u-owner", title: "会员下单那条线" }));
+    return { projects, chat };
+  };
+
+  it("预览（不给 problem）⇒ 摘要回传，但项目一个字没写", async () => {
+    const { projects, chat } = seeded();
+    const { d, model } = importDeps(projects, chat);
+
+    const out = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1" });
+
+    expect(out.summary).toContain("门店会员");
+    expect(out.imported).toEqual({ threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: expect.any(String) });
+    expect(model.complete).toHaveBeenCalledTimes(1);
+    // ⭐ 反证锚点（V58 的服务端半边）：把「不给 problem 就不写」改成选中即写 ⇒ 这两条红。
+    expect(projects.rows.get("dp-1")!.problem).toBe("用户已经写好的背景");
+    expect(projects.rows.get("dp-1")!.chat).toEqual([]);
+    expect(out.project.problem).toBe("用户已经写好的背景");
+  });
+
+  it("确认（给了 problem）⇒ 写入的是**传进来的那段**，不是重新摘要一遍", async () => {
+    const { projects, chat } = seeded();
+    const { d, model } = importDeps(projects, chat);
+
+    const out = await importThread(d, {
+      projectId: "dp-1", ownerId: "u-owner", threadId: "th-1",
+      problem: "我在预览里改过的版本：门店会员在线下单，首屏直接下单。",
+    });
+
+    expect(projects.rows.get("dp-1")!.problem).toBe("我在预览里改过的版本：门店会员在线下单，首屏直接下单。");
+    expect(out.project.problem).toBe("我在预览里改过的版本：门店会员在线下单，首屏直接下单。");
+    // 确认阶段不调模型——调了就会把用户刚才的修改重新摘要覆盖掉。
+    expect(model.complete).not.toHaveBeenCalled();
+    // 但**重新读了线程**：留痕里的标题与条数必须是服务端自己读到的事实，不能信前端。
+    expect(chat.messageReads).toEqual(["th-1"]);
+  });
+
+  it("确认后 chat 里多一条 source:\"system\" 的留痕，记「从线程《X》导入了 N 条」", async () => {
+    const { projects, chat } = seeded();
+    const { d } = importDeps(projects, chat);
+
+    await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1", problem: "写入的背景" });
+
+    const turns = projects.rows.get("dp-1")!.chat;
+    expect(turns).toHaveLength(1);
+    // ⭐ 反证锚点：删掉留痕那一步 ⇒ 这条红（半年后没人知道背景是从哪来的）。
+    expect(turns[0]!.source).toBe("system");
+    expect(turns[0]!.text).toContain("会员下单那条线");
+    expect(turns[0]!.text).toContain("3 条");
+    // 它不是一次模型回合，所以不许标成 fallback——那个标记的含义是「模型本该说话却没说成」。
+    expect(turns[0]!.source).not.toBe("fallback");
+  });
+
+  it("导入之后线程又聊了几句 ⇒ 项目的 problem **不变**（一次性，不是订阅）", async () => {
+    const { projects, chat } = seeded();
+    const { d } = importDeps(projects, chat);
+
+    await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1", problem: "导入当时的背景" });
+    chat.append("th-1", "另外我们还想加一个社交分享");
+    chat.append("th-1", "对，社交分享很重要");
+
+    // 没有任何东西会因为线程变了而回头改项目——读一次库就是最终答案。
+    expect(projects.rows.get("dp-1")!.problem).toBe("导入当时的背景");
+    const view = await listMyProjects(deps(projects), { ownerId: "u-owner" });
+    // ⭐ 反证锚点：改成"每轮实时读线程" ⇒ 这条红。
+    expect(view[0]!.problem).toBe("导入当时的背景");
+    expect(view[0]!.problem).not.toContain("社交分享");
+  });
+
+  it("线程太长 ⇒ 按最近 N 条截断，truncated 为真，且**留痕里写明截断了**", async () => {
+    const projects = new FakeDesignProjectRepo();
+    projects.seed(designProjectRow({ id: "dp-1", ownerId: "u-owner" }));
+    const chat = new FakeChatThreadSource();
+    const long = Array.from({ length: C.IMPORT_THREAD_MAX_MESSAGES + 5 }, (_, i) => `第 ${i} 句`);
+    chat.seed(personalThread({ threadId: "th-long", createdBy: "u-owner", title: "很长的线", bodies: long }));
+    const { d, model } = importDeps(projects, chat);
+
+    const preview = await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-long" });
+    expect(preview.truncated).toBe(true);
+    expect(preview.imported.messageCount).toBe(C.IMPORT_THREAD_MAX_MESSAGES);
+    // 取的是**最近** N 条：最早那几句不在喂给模型的正文里，最后一句在。
+    const prompt = model.complete.mock.calls[0]![0]!.user;
+    expect(prompt).not.toContain("第 0 句");
+    expect(prompt).toContain(`第 ${long.length - 1} 句`);
+
+    await importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-long", problem: "截断后的背景" });
+    // ⭐ 反证锚点：静默截断（留痕里不写）⇒ 这条红。用户会以为模型看过它其实没看过的那段。
+    expect(projects.rows.get("dp-1")!.chat[0]!.text).toContain("只读了最近");
+  });
+
+  it("摘要做不出来 ⇒ 报 DEPENDENCY_UNAVAILABLE 那一类，不给一段假摘要，项目不变", async () => {
+    const { projects, chat } = seeded();
+    const { d } = importDeps(projects, chat, async () => { throw new Error("model down"); });
+
+    await expect(importThread(d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1" }))
+      .rejects.toBeInstanceOf(DesignThreadSummaryUnavailableError);
+    expect(projects.rows.get("dp-1")!.problem).toBe("用户已经写好的背景");
+
+    const empty = importDeps(projects, chat, async () => ({ text: "   " }));
+    await expect(importThread(empty.d, { projectId: "dp-1", ownerId: "u-owner", threadId: "th-1" }))
+      .rejects.toBeInstanceOf(DesignThreadSummaryUnavailableError);
   });
 });

@@ -106,9 +106,18 @@ describe("迭代 5 属性面板元数据（单源门控）", () => {
       expect([type, dp.PROTOTYPE_FIELDS[type].map((f) => f.key).sort()]).toEqual([type, keys]);
       for (const f of dp.PROTOTYPE_FIELDS[type]) {
         if (f.kind !== "enum" || schema === null) continue;
-        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly string[] } } | undefined;
-        const opts = z?.unwrap?.().options;
-        if (opts !== undefined) expect([type, f.key, f.options]).toEqual([type, f.key, opts]);
+        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly unknown[] } } | undefined;
+        // ⚠ `z.enum` 的 `.options` 是**值**，`z.union([z.literal(2), …])` 的 `.options` 是
+        //   ZodLiteral **对象**——直接 `String()` 会得到 "[object Object]"，而那样的比对
+        //   两边都是它，会静悄悄地通过。所以对象要先取 `.value`。
+        const opts = z?.unwrap?.().options?.map((o) =>
+          typeof o === "object" && o !== null && "value" in o ? (o as { value: unknown }).value : o,
+        ) as readonly (string | number)[] | undefined;
+        // 迭代 13：`numeric: true` 的档位字段在 schema 里是数字字面量的 union（`grid.columns`），
+        // 面板里展示为字符串档位——比对时按 `String` 折一次，仍然是**同一份** zod 派生的闭集。
+        if (opts !== undefined) {
+          expect([type, f.key, f.options]).toEqual([type, f.key, f.numeric === true ? opts.map(String) : opts]);
+        }
       }
     }
   });
@@ -439,5 +448,105 @@ describe("迭代 12：addScreen / removeScreen 与跳转索引平移", () => {
     const { links } = dp.validateLinks(withHole);
     expect(links[0]).toEqual([{ from: "b0", to: 1 }]);  // 指向未生成页 ⇒ 保留（那页迟早会生成）
     expect(links[1]).toEqual([]);                        // 从未生成页出发 ⇒ 丢（没有节点可寻址）
+  });
+});
+
+
+/**
+ * 迭代 13（delta §6）—— V70。属性面板的**视觉组只给档位，不给自由数值**。
+ *
+ * 这条门是给未来的自己看的：加一个 `width: number` 这种"就这一次"的字段特别自然，
+ * 而它一旦进来，整套原语就不再是一套设计系统，是一堆各写各的内联样式。
+ */
+describe("V70 视觉组：全是 enum，且分组从 key 派生", () => {
+  const allFields = Object.values(dp.PROTOTYPE_FIELDS).flat();
+
+  it("每个字段都带 group，且 group == prototypeFieldGroup(key)", () => {
+    expect(allFields.length).toBeGreaterThan(20);
+    for (const f of allFields) expect(f.group).toBe(dp.prototypeFieldGroup(f.key));
+  });
+
+  it("视觉组的字段 kind **全部**是 enum 或 bool——没有一个是 number/text", () => {
+    const visual = allFields.filter((f) => f.group === "visual");
+    expect(visual.length).toBeGreaterThan(10);
+    // ⚠ `numeric: true` 的档位字段（`grid.columns`）**也算 enum**：它展示为档位、存储为数字，
+    //   不是自由输入框（见 `PrototypeField.numeric` 头注）。
+    const offenders = visual.filter((f) => f.kind !== "enum" && f.kind !== "bool");
+    // ⭐ 反证：把 gap 做成 number（px 输入）⇒ 这条红。
+    expect(offenders.map((f) => `${f.key}:${f.kind}`)).toEqual([]);
+    // 数字档位仍然是闭集：options 必须列全
+    const num = visual.filter((f) => f.numeric === true);
+    expect(num.map((f) => f.key)).toEqual(["columns"]);
+    expect(num[0]!.options).toEqual(["2", "3"]);
+    // enum 的 options 必须来自 zod（非空）——手抄一份会漏掉后来新增的档位。
+    for (const f of visual.filter((x) => x.kind === "enum")) expect((f.options ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("迭代 13 新增的 size / radius 真的在表里，且是 enum", () => {
+    const byKey = (k: string) => allFields.filter((f) => f.key === k);
+    for (const k of ["size", "radius"]) {
+      expect(byKey(k).length).toBeGreaterThan(0);
+      for (const f of byKey(k)) {
+        expect(f.kind).toBe("enum");
+        expect(f.group).toBe("visual");
+      }
+    }
+  });
+
+  it("内容组里没有混进视觉字段（分组是全集划分，不是两张各写各的表）", () => {
+    const content = allFields.filter((f) => f.group === "content");
+    expect(content.some((f) => f.key === "gap" || f.key === "variant" || f.key === "radius")).toBe(false);
+    // 文案类字段确实在内容组
+    expect(content.some((f) => f.key === "label" || f.key === "title" || f.key === "content")).toBe(true);
+  });
+});
+
+
+/**
+ * 迭代 13 —— 加了 props 却忘了告诉模型，是一种**安静的半成品**：
+ * 属性面板里能调，模型永远不会主动用，于是生成出来的东西看着就是"没人调过样式"。
+ * 这条门把「加 props」与「改 guide」绑在一起。
+ */
+describe("PROTOTYPE_SCHEMA_GUIDE 覆盖每一个 props 键", () => {
+  /**
+   * ⚠ 必须**按类型切段**再查，不能在整份 guide 里 `includes(key)`：
+   *   `radius` 同时出现在 button 和 card 上，全局查的话把 card 那份删掉照样绿——
+   *   实测过，第一版就是这么写的，反证变异一条也没抓住。
+   */
+  const segmentOf = (type: string): string => {
+    // 前面必须是非字母，否则 `switch` 会匹配到别的词里去；guide 里各段之间是「；」，
+    // 而第一段前面是「类型与 props：」——所以别写死分隔符，只要求"不是字母"。
+    const m = new RegExp(`(?:^|[^A-Za-z])${type}\\{([^}]*)\\}`).exec(dp.PROTOTYPE_SCHEMA_GUIDE);
+    return m?.[1] ?? "";
+  };
+
+  it("guide 里真的能切出每种类型的那一段（否则下面两条会空跑）", () => {
+    for (const type of dp.PrototypeNodeType.options) {
+      const fields = dp.PROTOTYPE_FIELDS[type];
+      if (fields.length === 0) continue; // divider 没有 props
+      expect(segmentOf(type), `guide 里找不到 ${type}{...} 这一段`).not.toBe("");
+    }
+  });
+
+  it("每种类型的每个字段名都在**它自己那一段**里", () => {
+    const missing: string[] = [];
+    for (const type of dp.PrototypeNodeType.options) {
+      const seg = segmentOf(type);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) if (!seg.includes(f.key)) missing.push(`${type}.${f.key}`);
+    }
+    // ⭐ 反证：把 card 的 radius 从 guide 里删掉 ⇒ 这条红（即使 button 那段还留着它）。
+    expect(missing).toEqual([]);
+  });
+
+  it("视觉档位的**取值**也写在那一段里（只说键名，模型不知道能填什么）", () => {
+    const missing: string[] = [];
+    for (const type of dp.PrototypeNodeType.options) {
+      const seg = segmentOf(type);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) {
+        if (f.group !== "visual" || f.kind !== "enum") continue;
+        for (const o of f.options ?? []) if (!seg.includes(o)) missing.push(`${type}.${f.key}=${o}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

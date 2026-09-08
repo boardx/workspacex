@@ -20,7 +20,11 @@ export interface RetryPlanStepInput {
   readonly orgId: OrgId;
   readonly threadId: string;
   readonly actorId: string;
-  readonly planStepId: string;
+  /**
+   * issue #3132 —— `null` = 重试整轮任务（失败的 run 从未产出过计划步骤时唯一可用的
+   * 恢复动作）。非空时是原语义：该步及其后续置回 pending。
+   */
+  readonly planStepId: string | null;
 }
 
 export interface RetryPlanStepOutput {
@@ -33,6 +37,8 @@ export interface RetryPlanStepDeps extends PlanEditDeps {
 }
 
 const RETRY_MESSAGE_TEXT = "（用户已请求重试失败步骤，请从计划中标记为待办的步骤继续执行。）";
+/** issue #3132 —— 整轮重试（无 planStepId）：没有"某一步"可指，如实说重来一次。 */
+const RETRY_RUN_MESSAGE_TEXT = "（用户已请求重试这次失败的任务，请重新执行。）";
 
 export async function retryPlanStep(
   deps: RetryPlanStepDeps, provenance: ProvenanceWriter, input: RetryPlanStepInput,
@@ -47,8 +53,17 @@ export async function retryPlanStep(
     deps.db, input.orgId, input.threadId,
     async (session) => {
       const latest = await deps.repo.getLatestWithin(session, input.threadId);
-      if (latest === null) throw new PlanEditError("PLAN_STEP_NOT_FOUND");
-      const idx = latest.steps.findIndex((s) => s.planStepId === input.planStepId);
+      // issue #3132 —— 整轮重试（planStepId === null）且这条线程一份账本都没有：
+      // 没有账本可写，直接进到起 run 那一步。这正是"失败的 run 从未产出过计划"
+      // 的形状，此前它在这里抛 PLAN_STEP_NOT_FOUND，用户因此没有任何恢复入口。
+      if (latest === null) {
+        if (input.planStepId === null) return 0;
+        throw new PlanEditError("PLAN_STEP_NOT_FOUND");
+      }
+      // `idx = 0` 即"从头重试整轮"——两条分支共用同一个下标语义，不各写一套。
+      const idx = input.planStepId === null
+        ? 0
+        : latest.steps.findIndex((s) => s.planStepId === input.planStepId);
       if (idx === -1) throw new PlanEditError("PLAN_STEP_NOT_FOUND");
 
       // 该 step 及其后续（数组下标之后的全部）置回 pending——I-4：下标即执行顺序，
@@ -67,7 +82,7 @@ export async function retryPlanStep(
   try {
     const created = await deps.runCreator.createConfirmedRun({
       orgId: input.orgId, threadId: input.threadId, actorId: input.actorId,
-      messageText: RETRY_MESSAGE_TEXT,
+      messageText: input.planStepId === null ? RETRY_RUN_MESSAGE_TEXT : RETRY_MESSAGE_TEXT,
     });
     runId = created.runId;
   } catch {

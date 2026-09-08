@@ -105,8 +105,8 @@ export class PgChatRepository implements ChatRepository {
 
   async findThreadPresentation(orgId: OrgId, threadId: string): Promise<ThreadPresentation | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<ThreadDbRow>(
-        `SELECT phase, last_activity_at, version
+      const r = await s.query<ThreadDbRow & { title: string }>(
+        `SELECT phase, last_activity_at, version, title
            FROM chat_threads WHERE id = $1 AND org_id = $2`,
         [threadId, orgId],
       );
@@ -116,6 +116,7 @@ export class PgChatRepository implements ChatRepository {
         phase: row.phase as ThreadPresentation["phase"],
         lastActivityAt: row.last_activity_at.toISOString(),
         version: row.version,
+        title: row.title,
       };
     });
   }

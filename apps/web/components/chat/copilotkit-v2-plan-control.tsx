@@ -8,6 +8,7 @@ import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
 import { PlanRunProgress, PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
 import { deriveRunControls } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
+import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import {
   addPlanConstraint, confirmPlan, confirmProposedPlan, deletePlanStep, pausePlanRun,
   planControlErrorCode, removePlanConstraint, reorderPlanStep, resumePlanRun, retryPlanStep,
@@ -179,7 +180,7 @@ function PlanControlSession(
   const runLive = runControls.canPause || runControls.canResume;
   const hasPlanAction = ledger !== null && ((ledger.phase === "planning" && ledger.gate.required)
     || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0);
-  if (threadId === null || ledger === null || (ledger.steps.length === 0 && !runLive && !hasPlanAction)) return null;
+  if (threadId === null || ledger === null) return null;
 
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
@@ -228,9 +229,36 @@ function PlanControlSession(
   const handleResume = (): void => {
     void runAction(() => resumePlanRun(tid, projectId));
   };
-  const handleRetryStep = (planStepId: string): void => {
+  // issue #3132 —— `planStepId === null` = 重试整轮任务（这条 run 从未产出过计划步骤）。
+  const handleRetryStep = (planStepId: string | null): void => {
     void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
+  // issue #3132 —— 「修改输入」在有计划时是进编辑态；**没有计划步骤时编辑态是空的**，
+  // 那就成了点了没有任何效果的假按钮。无计划时改为把焦点交回 composer，让用户就地
+  // 改写这次输入重发——这是这种失败形状下"修改输入"唯一真实存在的动作。
+  const handleEditInput = (): void => {
+    if (ledger.steps.length > 0) { setCollapsed(false); setEditing(true); return; }
+    const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
+    composer?.scrollIntoView?.({ block: "nearest" });
+    composer?.focus();
+  };
+
+  /*
+   * issue #3132 —— 六态指示器此前**从来没有被挂进 /chat**（消费方只有单测与
+   * `/preview`），`chat-task-workbench-phase-indicator` 在真实页面上不存在。
+   * 它读的是 `getPlanLedger.phase` 直出（I-7，前端不重算），因此挂在这里、
+   * 在所有分支之前——包括"什么都还没发生"的新线程（phase: preparing）。
+   */
+  const indicator = <PlanPhaseIndicator phase={ledger.phase} />;
+
+  /*
+   * issue #3132 —— 原先这里（连同上面的 threadId/ledger 判空）整块 `return null`。
+   * 于是「失败但从未产出计划的 run」——steps 为空、终态所以 `runLive===false`、
+   * failed 态下 `hasPlanAction` 也为 false——三条同时成立，用户拿不到任何恢复入口。
+   * 失败态因此显式排除在这条卸载门之外：**失败一定要有可操作入口**（coordinator
+   * 裁决 ②）。其余"无事发生"的形状仍只留一行阶段指示器，不凭空造计划面板。
+   */
+  if (ledger.steps.length === 0 && !runLive && !hasPlanAction && ledger.phase !== "failed") return indicator;
 
   // issue #2999 —— run 结束（done/cancelled）后**保留只读账本**，不再整块 return null。
   //
@@ -255,7 +283,8 @@ function PlanControlSession(
   // （`pausedWithoutPlan`），于是「正在跑且无计划」——也就是想暂停的那一刻——
   // 反而没有入口。两态用同一个控件，testid 与 `PlanRunProgress` 里那对一致，
   // 断言不需要知道这一轮模型有没有产出计划。
-  if (ledger.steps.length === 0 && runLive) return <div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control">
+  if (ledger.steps.length === 0 && runLive) return <><div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control">
+    {indicator}
     <span role="status">{ledger.pausedAt ? "任务已暂停" : ledger.pauseRequestedAt ? "正在暂停" : "执行中"}</span>
     {runControls.canResume ? (
       <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
@@ -267,7 +296,7 @@ function PlanControlSession(
       >{ledger.pauseRequestedAt ? "暂停中…" : "暂停"}</Button>
     )}
     {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
-  </div>;
+  </div></>;
 
   const runningStepIndex = ledger.steps.findIndex((s) => s.status !== "completed");
   const currentStepIndex = runningStepIndex === -1 ? ledger.steps.length : runningStepIndex + 1;
@@ -292,6 +321,7 @@ function PlanControlSession(
 
   return (
     <div data-testid="chat-task-workbench-plan-control" className="flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64">
+      {indicator}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -327,16 +357,22 @@ function PlanControlSession(
         </p>
       )}
 
-      {canWrite && ledger.phase === "failed" && failedStep && (
+      {/*
+        * issue #3132 —— 门从 `failed && failedStep` 放宽为 `failed`：`failedStep` 只能
+        * 从非空 steps 算出，于是"没有计划的失败 run"落进了一个没有恢复动作的空洞。
+        * 缺步骤时不编造步骤序号（`PlanFailureRecovery` 两个 props 可选，缺就只说
+        * "这次任务执行失败"），重试走 UC-10 的整轮重试（planStepId: null）。
+        */}
+      {canWrite && ledger.phase === "failed" && (
         <PlanFailureRecovery
-          failedStepIndex={failedStepDisplayIndex}
-          failedStepLabel={failedStep.content}
+          failedStepIndex={failedStep ? failedStepDisplayIndex : undefined}
+          failedStepLabel={failedStep?.content}
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
           reason={describePlanFailureReason(ledger.errorCode)}
-          onRetryStep={() => handleRetryStep(failedStep.planStepId)}
-          onEditInput={() => { setCollapsed(false); setEditing(true); }}
+          onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
+          onEditInput={handleEditInput}
         />
       )}
 

@@ -1,4 +1,5 @@
 import type { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import { designWorkbench } from "@repo/contracts";
 import type { ExecutionEvent, ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
  * Ports for the minimal no-tool AgentRun (Wave 2 delta §5, #414).
@@ -799,13 +800,17 @@ export interface ModelCallProgressEvent {
  * 因为这里的字节还要 base64 展开进一个 JSON 请求体（约 4/3 膨胀）；张数 4 是保守起步值——
  * 它不是任何上游文档里的硬限制，是本部署为「一次请求体不至于失控」定的自有边界。
  */
-export const MODEL_CALL_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
+/**
+ * ⚠ 2026-09-08（迭代 13）：这个闭集**搬去了契约包**（`designWorkbench.IMAGE_MIMES`），
+ * 这里只是再导出。原因：设计工作台的参考图与 agent-run 的图片输入必须是同一个集合，
+ * 两处各写一份的话，这边加一种格式那边会静默不支持。契约是最内层，放那里两边都能读。
+ * 别在这里改值——改契约那一处。
+ */
+export const MODEL_CALL_IMAGE_MIMES = designWorkbench.IMAGE_MIMES;
 
-export type ModelCallImageMime = (typeof MODEL_CALL_IMAGE_MIMES)[number];
+export type ModelCallImageMime = designWorkbench.ImageMime;
 
-export function isModelCallImageMime(mime: string): mime is ModelCallImageMime {
-  return (MODEL_CALL_IMAGE_MIMES as readonly string[]).includes(mime);
-}
+export const isModelCallImageMime = designWorkbench.isImageMime;
 
 /** 单张图送进模型的原始字节上限（base64 之前）。 */
 export const MODEL_CALL_MAX_IMAGE_BYTES = 8 * 1024 * 1024;

@@ -2,8 +2,8 @@ import * as React from "react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { GuidedResearchLive } from "@/components/research-studio/guided-research-live";
-import { executeResearchRuntime, getResearchRuntime, getResearchRuntimeProgress, type GuidedResearchRuntime as Runtime } from "@/lib/guided-research-api";
-vi.mock("@/lib/guided-research-api", async (original) => ({ ...await original<typeof import("@/lib/guided-research-api")>(), getResearchRuntime: vi.fn(), getResearchRuntimeProgress: vi.fn(), executeResearchRuntime: vi.fn() }));
+import { executeResearchRuntime, getResearchRuntime, type GuidedResearchRuntime as Runtime } from "@/lib/guided-research-api";
+vi.mock("@/lib/guided-research-api", () => ({ getResearchRuntime: vi.fn(), executeResearchRuntime: vi.fn() }));
 const initial: Runtime = {
   sessionId: "session-stream", version: 7, revision: 1, currentNode: "research", availableNodes: ["brief", "directions", "outline", "research"],
   brief: { topic: "Storage", goal: "Entry strategy", timeRange: "2026", region: "Europe", focus: "Grid" },
@@ -12,10 +12,6 @@ const initial: Runtime = {
   sources: [{ id: "src1", taskId: "t1", title: "Official source", url: "https://example.org/policy", content: "Retrieved source", retrievedAt: "2026-09-05", decision: "accepted" }],
   report: null, completed: false, busy: false, leaseUntil: null, errorCode: null, generatedNodes: [], messages: [], proposal: null, modelCalls: [],
 };
-function progressOf(state: Runtime) {
-  return { sessionId: state.sessionId, version: state.version, revision: state.revision, currentNode: state.currentNode, availableNodes: state.availableNodes, busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode, completed: state.completed,
-    stream: state.reportStream ? { ...state.reportStream, offset: 0, delta: state.reportStream.text } : null };
-}
 const streaming = (requestId = "request"): Runtime => ({ ...initial, version: 8, currentNode: "report", availableNodes: [...initial.availableNodes, "report"], busy: true, leaseUntil: "2099-01-01T00:00:00.000Z", reportStream: { requestId, sequence: 0, text: "", status: "streaming" } });
 beforeEach(() => { vi.resetAllMocks(); vi.mocked(getResearchRuntime).mockResolvedValue(initial); });
 afterEach(() => vi.useRealTimers());
@@ -57,8 +53,7 @@ describe("research report stream UI", () => {
   });
   it.each(["older", "empty"])("restores persisted partial text and ignores a %s poll", async (kind) => {
     const restored = { ...streaming(), reportStream: { requestId: "request", sequence: 2, text: '{"summary":"已保存正文', status: "streaming" as const } };
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored);
-    vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf({ ...restored, reportStream: kind === "empty" ? null : { ...restored.reportStream, sequence: 1, text: '{"summary":"旧' } }));
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored).mockResolvedValue({ ...restored, reportStream: kind === "empty" ? null : { ...restored.reportStream, sequence: 1, text: '{"summary":"旧' } });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
     expect(screen.getByText("已保存正文")).toBeInTheDocument();
@@ -68,8 +63,7 @@ describe("research report stream UI", () => {
   });
   it("accepts a higher-sequence server reset when a provider cannot stream tokens", async () => {
     const restored = { ...streaming(), reportStream: { requestId: "request", sequence: 2, text: '{"summary":"待替换草稿', status: "streaming" as const } };
-    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored);
-    vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf({ ...restored, reportStream: { ...restored.reportStream, sequence: 3, text: "" } }));
+    vi.mocked(getResearchRuntime).mockResolvedValueOnce(restored).mockResolvedValue({ ...restored, reportStream: { ...restored.reportStream, sequence: 3, text: "" } });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />); });
     expect(screen.getByText("待替换草稿")).toBeInTheDocument();
@@ -98,29 +92,4 @@ describe("research report stream UI", () => {
     expect(screen.getByTestId("research-report-preview")).toHaveTextContent("尚未完成");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
   });
-});
-
-it("polls lightweight progress, loads terminal state once and stops", async () => {
-  vi.mocked(getResearchRuntime).mockResolvedValueOnce(streaming()).mockResolvedValue({ ...initial, currentNode: "report", version: 8, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED" });
-  vi.mocked(getResearchRuntimeProgress).mockResolvedValue({ sessionId: initial.sessionId, version: 8, revision: 1, currentNode: "report", availableNodes: ["report"], busy: false, leaseUntil: null, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED", completed: false, stream: null });
-  render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(1));
-  await waitFor(() => expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(1), { timeout: 3500 });
-  await waitFor(() => expect(getResearchRuntime).toHaveBeenCalledTimes(2));
-  await new Promise((resolve) => setTimeout(resolve, 2200));
-  expect(getResearchRuntimeProgress).toHaveBeenCalledTimes(1);
-  expect(executeResearchRuntime).not.toHaveBeenCalled();
-});
-
-it("unlocks when progress is terminal even if the POST never closes", async () => {
-  let signal!: AbortSignal;
-  vi.mocked(executeResearchRuntime).mockImplementation(async (input, callback, observerSignal) => { signal = observerSignal!; callback!({ type: "snapshot", state: streaming(input.requestId) }); return new Promise(() => undefined); });
-  render(<GuidedResearchLive sessionId={initial.sessionId} onBack={vi.fn()} />);
-  fireEvent.click(await screen.findByRole("button", { name: "确认并继续" }));
-  const terminal = { ...streaming(), busy: false, leaseUntil: null, errorCode: "RESEARCH_REPORT_QUALITY_REJECTED" };
-  vi.mocked(getResearchRuntimeProgress).mockResolvedValue(progressOf(terminal));
-  vi.mocked(getResearchRuntime).mockResolvedValue(terminal);
-  await waitFor(() => expect(signal.aborted).toBe(true), { timeout: 3500 });
-  expect(screen.getByRole("button", { name: "生成完整报告" })).toBeEnabled();
-  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
 });

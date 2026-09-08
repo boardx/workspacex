@@ -1,9 +1,7 @@
-import { createHash } from "node:crypto";
-import { runtimeProgress } from "./guided-research-progress";
 import type { Response } from "express";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, Res, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -49,14 +47,6 @@ export class GuidedResearchController {
     catch (error) { this.runtimeError(error); }
   }
 
-  @Get(C.operations.getGuidedResearchRuntimeProgress.path)
-  async getRuntimeProgress(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Query() query: unknown) {
-    const input = C.operations.getGuidedResearchRuntimeProgress.in.safeParse({ ...(query as object), sessionId });
-    if (!input.success) throw new BadRequestException();
-    const state = await this.getRuntime(principal, sessionId);
-    return runtimeProgress(state!, input.data.requestId, input.data.offset, input.data.digest);
-  }
-
   @Post(C.operations.executeGuidedResearchRuntime.path)
   async executeRuntime(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
     assertPrincipal(principal);
@@ -80,24 +70,11 @@ export class GuidedResearchController {
     let connected = true;
     const detach = () => { connected = false; };
     response.on("close", detach);
-    let initialized = false;
-    let cursor: { requestId?: string; text: string } = { text: "" };
     const send = (event: import("../../application/research/guided-runtime-ports").RuntimeStreamEvent) => {
       if (!connected || response.destroyed) return;
       // Bound a slow observer's output buffer; recovery reads the durable snapshot.
       if (response.writableLength > 1048576) { connected = false; response.end(); return; }
-      if (event.type === "snapshot" && !initialized) {
-        initialized = true;
-        cursor = { requestId: event.state.reportStream?.requestId, text: event.state.reportStream?.text ?? "" };
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-      } else if (event.type === "snapshot") {
-        const state = runtimeProgress(event.state, cursor.requestId, cursor.text.length, createHash("sha256").update(cursor.text).digest("hex"));
-        if (state.stream) cursor = { requestId: state.stream.requestId, text: (state.stream.offset ? cursor.text : "") + state.stream.delta };
-        response.write(`data: ${JSON.stringify({ type: "progress", state })}\n\n`);
-      } else {
-        if (event.type === "report_delta") cursor = { requestId: event.requestId, text: cursor.text + event.delta };
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-      }
+      response.write(`data: ${JSON.stringify(event)}\n\n`);
     };
     const heartbeat = setInterval(() => { if (connected && !response.destroyed) response.write(": keepalive\n\n"); }, 15000);
     try { await this.runtime.execute({ orgId: principal.orgId, userId: principal.userId, sessionId }, session, input.data, send); }
