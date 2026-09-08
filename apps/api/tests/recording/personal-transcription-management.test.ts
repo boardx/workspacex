@@ -27,7 +27,7 @@ beforeAll(async () => {
   app = await createApp();
   repository = app.get(PERSONAL_TRANSCRIPTION_REPOSITORY);
   usage = app.get(ASR_USAGE_METER);
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const address = app.getHttpServer().address();
   baseUrl = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 });

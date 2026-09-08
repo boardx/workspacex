@@ -59,7 +59,7 @@ beforeAll(async () => {
   app = await createApp();
   // Port 0 -- the OS picks a free one. Same reasoning as contract-response.test.ts: a
   // derived port number collides, and a run that died holding one wedges the next.
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 });

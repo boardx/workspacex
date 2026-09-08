@@ -60,7 +60,7 @@ beforeAll(async () => {
   app = await createApp();
   // Port 0 -- the kernel assigns a free one. Deriving a port from a hash collides across
   // runs, which CI hit on its second run.
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 });

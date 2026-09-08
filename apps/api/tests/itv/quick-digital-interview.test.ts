@@ -34,7 +34,7 @@ beforeAll(async () => {
   providerBase = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
   process.env.KERNEL_MODEL_PROVIDER = PROVIDER; process.env.KERNEL_MODEL_BASE_URL = providerBase;
   process.env.KERNEL_MODEL_API_KEY = "test-key";
-  const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0);
+  const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0, "127.0.0.1");
   const address = app.getHttpServer().address(); base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 }, 180_000);
 

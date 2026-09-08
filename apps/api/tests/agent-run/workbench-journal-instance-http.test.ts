@@ -16,7 +16,7 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce();
   const { createApp } = await import("../../src/main");
   for (let i = 0; i < 2; i++) {
-    const app = await createApp(); apps.push(app); await app.listen(0);
+    const app = await createApp(); apps.push(app); await app.listen(0, "127.0.0.1");
     const address = app.getHttpServer().address();
     bases.push(`http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`);
   }
@@ -45,7 +45,7 @@ it("resumes a durable cursor on another instance and rejects subsequent tail rea
   expect(first.nextSeq).toBe(first.events.at(-1)?.seq);
   await apps[0]!.close();
   const { createApp } = await import("../../src/main");
-  const rebuilt = await createApp(); apps[0] = rebuilt; await rebuilt.listen(0);
+  const rebuilt = await createApp(); apps[0] = rebuilt; await rebuilt.listen(0, "127.0.0.1");
   const rebuiltAddress = rebuilt.getHttpServer().address();
   bases[0] = `http://127.0.0.1:${typeof rebuiltAddress === "object" && rebuiltAddress ? rebuiltAddress.port : 0}`;
   await append("after disconnect");

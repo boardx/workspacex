@@ -10,7 +10,7 @@ process.env.KERNEL_ASR_API_KEY="test-key";
 process.env.KERNEL_ASR_MODEL="qwen3-asr-flash-realtime";
 const ORG="org-realtime-asr-ticket",PROJECT="project-realtime-asr-ticket",USER="user-realtime-asr-ticket";
 const auth={"x-kernel-test-principal":`${USER}:${ORG}`};let app:NestExpressApplication,baseUrl:string;
-beforeAll(async()=>{ensureDatabase();await migrateOnce();const {createApp}=await import("../../src/main");app=await createApp();await app.listen(0);
+beforeAll(async()=>{ensureDatabase();await migrateOnce();const {createApp}=await import("../../src/main");app=await createApp();await app.listen(0, "127.0.0.1");
   const address=app.getHttpServer().address();baseUrl=`http://127.0.0.1:${typeof address==="object"&&address?address.port:0}`;});
 afterAll(async()=>{await app?.close();await resetOrgs(ORG);});
 beforeEach(async()=>{await resetOrgs(ORG);const f=await seedOrg({orgId:ORG,projectId:PROJECT});await addOrgMember(ORG,USER,"consultant",f.teams.energy!);});

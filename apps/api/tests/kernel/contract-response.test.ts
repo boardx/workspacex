@@ -60,7 +60,7 @@ beforeAll(async () => {
   // died mid-test holding a port the next run wants.
   //
   // Asking for 0 removes the whole class: there is no number to collide on.
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 });
