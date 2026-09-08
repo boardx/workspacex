@@ -1065,6 +1065,164 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     expect(Object.keys(bodies[0] as object).sort()).toEqual(["name", "problem", "template"]);
   });
 
+  /**
+   * 迭代 13（delta `design-chat-inputs` §1）—— V59。参考图三条入口一条上传路径，
+   * 且**每一轮对话都带上项目当前的全部参考图**（它是"贴在墙上的参考"，不是某句话的附件）。
+   */
+  describe("V59 参考图：按钮 / 拖拽 / 粘贴，并随每轮对话发出", () => {
+    const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "参考.png", { type: "image/png" });
+    const withImage = (over: Partial<DesignProject> = {}) =>
+      project({ id: "p1", refImages: [{ id: "ri1", name: "参考.png", size: 4, mime: "image/png", createdAt: "2026-09-08T00:00:00.000Z" }], ...over });
+
+    /** 上传走 multipart（原生 fetch），不经 apiRequest——所以这里两条 mock 都要有。 */
+    const stubUpload = (status = 201) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: status < 400,
+        status,
+        text: async () =>
+          status < 400
+            ? JSON.stringify({ image: withImage().refImages[0], project: withImage() })
+            : JSON.stringify({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: "SIZE" }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    };
+
+    it("选文件后 POST 到本项目的 ref-images，条上出现这张图", async () => {
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      const fetchMock = stubUpload();
+      try {
+        render(<DesignDetailScreen projectId="p1" />);
+        await screen.findByTestId("design-ref-images");
+        expect(screen.queryAllByTestId("design-ref-image")).toHaveLength(0);
+        fireEvent.change(screen.getByTestId("design-ref-image-file"), { target: { files: [png()] } });
+        await waitFor(() => expect(screen.getAllByTestId("design-ref-image")).toHaveLength(1));
+        const [url, init] = fetchMock.mock.calls[0] as [string, { method: string; body: FormData }];
+        expect(url).toContain("/pm-designs/p1/ref-images");
+        expect(init.method).toBe("POST");
+        // ⚠ 绝不手设 Content-Type：fetch 要自己带 multipart boundary。
+        expect((init as { headers: Record<string, string> }).headers["Content-Type"]).toBeUndefined();
+        expect((init.body as FormData).get("file")).toBeInstanceOf(File);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("拖进来与粘贴截图走同一条上传路径", async () => {
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      const fetchMock = stubUpload();
+      try {
+        render(<DesignDetailScreen projectId="p1" />);
+        const strip = await screen.findByTestId("design-ref-images");
+        // 拖拽悬停时放置区高亮，离开消失（V59 逐字要求的那一半）。
+        fireEvent.dragOver(strip);
+        expect(strip.className).toContain("border-primary");
+        fireEvent.dragLeave(strip);
+        expect(strip.className).not.toContain("border-primary");
+
+        fireEvent.dragOver(strip);
+        fireEvent.drop(strip, { dataTransfer: { files: [png()] } });
+        expect(strip.className).not.toContain("border-primary");
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+        cleanup();
+        vi.mocked(fetchMock).mockClear();
+        render(<DesignDetailScreen projectId="p1" />);
+        await screen.findByTestId("design-ref-images");
+        // 粘贴挂在 window 上：截图后焦点常常不在输入框里（见 ref-image-strip.tsx 头注）。
+        const evt = new Event("paste", { bubbles: true, cancelable: true }) as Event & { clipboardData: unknown };
+        Object.defineProperty(evt, "clipboardData", {
+          value: { items: [{ kind: "file", getAsFile: () => png() }] },
+        });
+        window.dispatchEvent(evt);
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+        // ⭐ 反证：把监听挂到 textarea 上 ⇒ 这条红（事件是从 window 派发的）。
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("发消息时带上项目当前的全部参考图 id", async () => {
+      const bodies: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [withImage()] };
+        if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+          bodies.push(opts.body);
+          return { project: withImage(), reply: { source: "model", applied: [], suggestions: [] } };
+        }
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-input");
+      fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "照着这张画" } });
+      fireEvent.click(screen.getByTestId("design-detail-send"));
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      // ⭐ 反证：实现若不带 refImageIds，模型永远看不到用户传的图——这条红。
+      expect(bodies[0]).toEqual({ text: "照着这张画", refImageIds: ["ri1"] });
+    });
+
+    it("服务端拒绝时说清是哪一种拒绝，不是一句「失败了」", async () => {
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1" })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      stubUpload(400);
+      try {
+        render(<DesignDetailScreen projectId="p1" />);
+        await screen.findByTestId("design-ref-images");
+        fireEvent.change(screen.getByTestId("design-ref-image-file"), { target: { files: [png()] } });
+        // rejectReason=SIZE ⇒ 说的是"太大"，而不是笼统的失败文案
+        const err = await screen.findByTestId("design-ref-image-error");
+        expect(err.textContent).toContain("4MB");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("已满 3 张时加号禁用，且不发请求", async () => {
+      const three = Array.from({ length: 3 }, (_, i) => ({
+        id: `ri${i}`, name: `p${i}.png`, size: 4, mime: "image/png" as const, createdAt: "2026-09-08T00:00:00.000Z",
+      }));
+      apiRequest.mockImplementation(async (path: string) => {
+        if (path === "/pm-designs") return { items: [project({ id: "p1", refImages: three })] };
+        throw new Error(`unexpected ${path}`);
+      });
+      const fetchMock = stubUpload();
+      try {
+        render(<DesignDetailScreen projectId="p1" />);
+        await screen.findByTestId("design-ref-images");
+        expect(screen.getAllByTestId("design-ref-image")).toHaveLength(3);
+        expect((screen.getByTestId("design-ref-image-add") as HTMLButtonElement).disabled).toBe(true);
+        // 拖进来也不该发：上限是前端就知道的事，白跑一次往返只会让用户等一下再被拒。
+        fireEvent.drop(screen.getByTestId("design-ref-images"), { dataTransfer: { files: [png()] } });
+        await waitFor(() => expect(screen.getByTestId("design-ref-image-error")).toBeTruthy());
+        expect(fetchMock).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("删除后条上少一张，且用的是服务端回来的那份项目", async () => {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [withImage()] };
+        if (path === "/pm-designs/p1/ref-images/ri1" && opts?.method === "DELETE") {
+          return { project: project({ id: "p1", refImages: [] }) };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-ref-image");
+      fireEvent.click(screen.getByTestId("design-ref-image-delete"));
+      await waitFor(() => expect(screen.queryAllByTestId("design-ref-image")).toHaveLength(0));
+    });
+  });
+
   it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
     const bodies: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {

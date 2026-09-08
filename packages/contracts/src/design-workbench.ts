@@ -418,7 +418,12 @@ export const operations = {
     method: "POST",
     path: "/pm-designs/:projectId/ref-images",
     in: z.object({ projectId: z.string() }).strict(),
-    out: z.object({ image: RefImage }).strict(),
+    /**
+     * 连**整个项目**一起回——与 `deleteRefImage` 同形。只回 `image` 的话，前端要自己把它
+     * 拼进手上那份 `project.refImages`，也就是在客户端维护第二份「现在有哪几张」；
+     * 上传失败重试、两个标签页同时传，两份就会分叉。服务端那份是唯一的事实源，直接给回来。
+     */
+    out: z.object({ image: RefImage, project: DesignProject }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "REF_IMAGE_REJECTED"] as const,
   },
   deleteRefImage: {

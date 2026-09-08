@@ -20,7 +20,7 @@
  */
 import { designAiCollab, designWorkbench, designPrototype } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
@@ -92,10 +92,84 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string, signal?: AbortSignal): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(
+  projectId: string,
+  text: string,
+  focusNodeId?: string,
+  signal?: AbortSignal,
+  /** 迭代 13：这一轮要让模型看的参考图。空数组与不传等价——服务端不认空数组以外的差别。 */
+  refImageIds?: readonly string[],
+): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) }, signal },
+    {
+      method: "POST",
+      body: {
+        text,
+        ...(focusNodeId !== undefined ? { focusNodeId } : {}),
+        ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
+      },
+      signal,
+    },
+  );
+}
+
+/* ── 迭代 13：参考图（delta `design-chat-inputs` §1）── */
+
+export type RefImage = z.infer<typeof designWorkbench.RefImage>;
+export type UploadRefImageOut = z.infer<typeof designWorkbench.operations.uploadRefImage.out>;
+export type DeleteRefImageOut = z.infer<typeof designWorkbench.operations.deleteRefImage.out>;
+
+/** 契约常量原样再导出，界面上的提示语从这里取——不在组件里手写 "3 张" 和 "4MB"。 */
+export const PROTOTYPE_MAX_REF_IMAGES = designWorkbench.PROTOTYPE_MAX_REF_IMAGES;
+export const PROTOTYPE_REF_IMAGE_MAX_BYTES = designWorkbench.PROTOTYPE_REF_IMAGE_MAX_BYTES;
+export const isImageMime = designWorkbench.isImageMime;
+
+const refImagePath = (tpl: string, projectId: string, imageId?: string): string =>
+  tpl.replace(":projectId", encodeURIComponent(projectId)).replace(":imageId", encodeURIComponent(imageId ?? ""));
+
+/**
+ * 参考图上传走 `multipart/form-data`，同 `live-feedback.ts` 的 `uploadFeedbackAttachment`
+ * （`apiRequest` 只封装 JSON body）。`contentType` 只是**声明**——服务端按 magic byte 判，
+ * 声明与字节不符照样拒。绝不手设 `Content-Type`：fetch 会从 `FormData` 自带 boundary。
+ */
+export async function uploadRefImage(projectId: string, file: File): Promise<UploadRefImageOut> {
+  const form = new FormData();
+  form.set("contentType", file.type);
+  form.set("file", file, file.name);
+
+  const token = getStoredSessionToken();
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(apiUrl(refImagePath(designWorkbench.operations.uploadRefImage.path, projectId)), {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: form,
+  });
+  const text = await res.text();
+  // 同 `uploadFeedbackAttachment` 的既有纪律：非 JSON 的错误正文不得抛原始 SyntaxError。
+  let json: unknown;
+  try {
+    json = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(res.status, null, undefined, text.slice(0, 512));
+  }
+  if (!res.ok) {
+    const reasonCode =
+      typeof json === "object" && json !== null && "reasonCode" in json
+        ? ((json as { reasonCode: unknown }).reasonCode as string | null)
+        : null;
+    throw new ApiError(res.status, reasonCode, json);
+  }
+  return json as UploadRefImageOut;
+}
+
+export async function deleteRefImage(projectId: string, imageId: string): Promise<DeleteRefImageOut> {
+  return apiRequest<DeleteRefImageOut>(
+    refImagePath(designWorkbench.operations.deleteRefImage.path, projectId, imageId),
+    { method: "DELETE" },
   );
 }
 /* ── 迭代 3：原型版本历史 ── */

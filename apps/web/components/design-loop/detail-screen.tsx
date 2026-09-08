@@ -8,11 +8,14 @@ import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
+import { RefImageStrip } from "./ref-image-strip";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
+  uploadRefImage,
+  deleteRefImage,
   patchPrototype,
   updateProject,
   listMyProjects,
@@ -250,7 +253,15 @@ export function DesignDetailScreen({
     const started = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
     try {
-      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
+      const { project: updated, reply } = await apiAppendProjectChat(
+        project.id,
+        value,
+        focus !== null ? selectedId ?? undefined : undefined,
+        controller.signal,
+        // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
+        // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
+        project.refImages.map((r) => r.id),
+      );
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
       setFallbackReason(reply.fallbackReason ?? null);
@@ -403,6 +414,18 @@ export function DesignDetailScreen({
               <button type="button" onClick={() => { setChatError(null); setRetryText(null); }} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-destructive-foreground/10"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
+          <RefImageStrip
+            images={project.refImages}
+            disabled={sending}
+            onUpload={async (file) => {
+              const out = await uploadRefImage(project.id, file);
+              setLoad({ kind: "ready", project: out.project });
+            }}
+            onDelete={async (imageId) => {
+              const out = await deleteRefImage(project.id, imageId);
+              setLoad({ kind: "ready", project: out.project });
+            }}
+          />
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
           {focus !== null && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
