@@ -197,9 +197,22 @@ function PlanControlSession(
     void runAction(() => retryPlanStep(tid, { planStepId }, projectId));
   };
 
-  // Completed history belongs to the durable execution trace beside the result.
-  // Keeping the editable plan above the composer duplicates that same run state.
-  if (["done", "cancelled"].includes(ledger.phase) && !hasPlanAction) return null;
+  // issue #2999 —— run 结束（done/cancelled）后**保留只读账本**，不再整块 return null。
+  //
+  // #2927（f9afc3d63）在这里加过 `return null`，理由是"完成历史属于持久执行轨迹"。
+  // 但同一提交把 `workbench/task-timeline.tsx` 的 `write_todos` 也渲染成 null——
+  // 那条轨迹从此不再画计划。两处相加 = run 结束后计划痕迹归零，而且 #2451 那条
+  // `chat-task-workbench-plan-done-incomplete-notice`（`phase === "done"` 门控）
+  // 结构上不可达。coordinator 裁决（#2999）：这是回归，不是设计。
+  //
+  // 恢复的是**展示**，不是控制：#2927 真正要挡的"任务已结束、界面却和执行前长得
+  // 一模一样（还能勾选/编辑/确认）"仍然被挡住——下面 `readOnlyLedger` 为真时
+  // 不渲染「编辑计划」开关、强制走 `PlanPanelReadOnly`；`PlanConfirmGate` 只在
+  // `phase === "planning"`、`PlanRunProgress` 只在 `phase === "executing"` 渲染，
+  // 本来就不会在结束态出现。`hasPlanAction`（待应用改动 / 孤儿约束）为真时，
+  // 结束态仍有真实可做的操作，因此不算只读。
+  const readOnlyLedger = ["done", "cancelled"].includes(ledger.phase) && !hasPlanAction;
+  const canOperate = canWrite && !readOnlyLedger;
 
   // A checkpoint belongs to the run, including runs that never wrote a plan.
   // Do not invent a step/progress fraction just to expose its resume command.
@@ -244,10 +257,10 @@ function PlanControlSession(
           {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
           <span data-testid="chat-task-workbench-plan-summary">执行计划 · {stateLabel}{ledger.steps.length > 0 ? ` · ${completed}/${ledger.steps.length} 步已标记完成` : ""}</span>
         </button>
-        {!collapsed && ledger.phase !== "failed" && ledger.steps.length > 0 && (
+        {!collapsed && !readOnlyLedger && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
             size="xs"
-            disabled={!canWrite}
+            disabled={!canOperate}
             variant={editing ? "primary" : "outline"}
             className="ml-auto"
             data-testid={PLAN_CONTROL_EDIT_TOGGLE_TESTID}
@@ -315,7 +328,7 @@ function PlanControlSession(
 
       {ledger.pendingApplyAtNextRun && <fieldset disabled={!canWrite || busy} className="min-w-0"><PlanPendingApplyBanner onPauseNow={handlePause} /></fieldset>}
 
-      {!collapsed && ledger.steps.length > 0 && (editing && canWrite ? (
+      {!collapsed && ledger.steps.length > 0 && (editing && canOperate ? (
         <PlanPanelEdit
           steps={ledger.steps}
           onReorder={handleReorder}
