@@ -36,13 +36,13 @@ test("real streaming chat uses a collapsed butterfly trace without a duplicate p
 test("mobile plan is absent without steps and compact/collapsible with steps; paused controls remain reachable", async ({ page }, testInfo) => {
   let ledger: PlanLedgerView = { revision: 1, engineEpoch: 1, origin: "engine", steps: [], orphanedConstraints: [],
     phase: "preparing", gate: { required: false, reason: "no-plan" }, progress: { completed: 0, total: 0, elapsedMs: 0 },
-    pendingApplyAtNextRun: false, activeRunId: null, errorCode: null, failedStepId: null,
+    pendingApplyAtNextRun: false, runStatus: "idle", activeRunId: null, errorCode: null, failedStepId: null,
     cancelRequestedAt: null, pausedAt: null, pauseRequestedAt: null };
   await page.route(/\/plan-control\/threads\/[^/]+\/ledger(?:\?|$)/, route => route.fulfill({ json: ledger }));
   await openFreshThread(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId("chat-task-workbench-plan-control")).toHaveCount(0);
-  ledger = { ...ledger, phase: "executing", activeRunId: "ui-plan-run", pausedAt: "2026-09-07T00:00:00Z",
+  ledger = { ...ledger, phase: "executing", runStatus: "interrupted", activeRunId: "ui-plan-run", pausedAt: "2026-09-07T00:00:00Z",
     steps: [{ planStepId: "ui-step", content: "检查真实计划布局", status: "in_progress", constraints: [] }],
     progress: { completed: 0, total: 1, elapsedMs: 1000 } };
   await page.reload();

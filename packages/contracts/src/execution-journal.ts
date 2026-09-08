@@ -17,14 +17,29 @@ import { StandardCapabilityDescriptor } from "./standard-capabilities";
 /** Durable public execution activity; never contains private model reasoning. */
 export const AGUI_EXECUTION_EVENT_NAME = "execution_event" as const;
 const base = { source: z.literal("legacy").optional(), attemptId: z.string().optional(), runId: z.string().min(1), seq: z.number().int().nonnegative(), emittedAt: z.string() };
+/**
+ * 一次工具调用在账本里的两半（`tool_start` / `tool_end`）的字段本体，**提为具名常量而不是
+ * 内联进 union**——`packages/contracts/src/subtask-run.ts` 的子任务工具明细（issue #3100 D6）
+ * 要复用同一批字段名与校验规则，而 AGENTS.md「同一事实不得声明在两处」禁止在那边照抄一份。
+ * 这里只是把原本内联的对象字面量抬出来，union 成员的形状逐字不变。
+ */
+export const ToolCallStartFields = {
+  toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(),
+  capability: StandardCapabilityDescriptor.optional(), args: z.unknown(),
+  planningNote: z.string().max(4000).optional(), skillDisplayName: z.string().min(1).max(200).optional(),
+} as const;
+export const ToolCallEndFields = {
+  toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(),
+  capability: StandardCapabilityDescriptor.optional(), result: z.unknown(), ok: z.boolean(),
+} as const;
 export const ExecutionEvent = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("skill_activity"), fact: SkillActivityFact }),
   z.object({ ...base, kind: z.literal("interjection"), interjectionId: z.string(), text: z.string(), status: InterjectionStatus }),
   z.object({ ...base, kind: z.literal("status"), status: z.enum(["running", "succeeded", "failed", "paused", "cancelled", "awaiting_tool_permission"]) }),
   z.object({ ...base, kind: z.literal("final_message"), messageId: z.string().min(1) }),
   z.object({ ...base, kind: z.literal("text_delta"), messageId: z.string().min(1), delta: z.string() }),
-  z.object({ ...base, kind: z.literal("tool_start"), toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(), capability: StandardCapabilityDescriptor.optional(), args: z.unknown(), planningNote: z.string().max(4000).optional(), skillDisplayName: z.string().min(1).max(200).optional() }),
-  z.object({ ...base, kind: z.literal("tool_end"), toolCallId: z.string().min(1), sourceToolCallId: z.string().min(1).optional(), toolName: z.string(), capability: StandardCapabilityDescriptor.optional(), result: z.unknown(), ok: z.boolean() }),
+  z.object({ ...base, kind: z.literal("tool_start"), ...ToolCallStartFields }),
+  z.object({ ...base, kind: z.literal("tool_end"), ...ToolCallEndFields }),
 ]);
 export type ExecutionEvent = z.infer<typeof ExecutionEvent>;
 export type ExecutionEventInput = ExecutionEvent extends infer E ? E extends ExecutionEvent ? Omit<E, "runId" | "seq" | "emittedAt"> : never : never;

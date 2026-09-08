@@ -190,7 +190,12 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
   }
 });
 
-test("TW-P1-5：暂停 / 恢复 / 重试单步 / 检查点恢复四个控制动作真实可点", async ({ page }) => {
+// issue #3099 / coordinator 裁决（#3081 ①）：第四个锚点
+// `chat-task-workbench-failure-restore-checkpoint` 的断言已删除——人类 2026-08-26
+// 裁决 (c) 明确移除了「检查点恢复」这个能力，`plan-failure-recovery.tsx` 与
+// `tests/ui/plan-control-gate-and-recovery.test.tsx:95-97` 正面断言它**不存在**。
+// 相对裁决过时的是这条 spec，不是产品；本轮只删这一条，其余业务断言一个字没动。
+test("TW-P1-5：暂停 / 恢复 / 重试单步三个控制动作真实可点", async ({ page }) => {
   await openFreshThread(page);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
@@ -200,5 +205,4 @@ test("TW-P1-5：暂停 / 恢复 / 重试单步 / 检查点恢复四个控制动�
   await expectAnchor(page, "chat-task-workbench-run-resume", "TW-P1-5", "暂停后不能恢复", 20_000);
 
   await expectAnchor(page, "chat-task-workbench-failure-retry-step", "TW-P1-5", "不能重试单步", 20_000);
-  await expectAnchor(page, "chat-task-workbench-failure-restore-checkpoint", "TW-P1-5", "不能恢复到检查点", 20_000);
 });

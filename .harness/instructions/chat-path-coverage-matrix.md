@@ -45,7 +45,7 @@
 | B5 刷新恢复 | 刷新后恢复同一个 permissionRequestId，旧请求重放得 409 | `copilotkit-v2-hitl` | 已覆盖 | chat-read |
 | B6 重复裁决防护 | 继续操作只提交一次，旧请求不能重复裁决 | `agent-task-planning-hitl` | 已覆盖 | chat-read |
 | B7 条件性确认门 | 复杂任务先确认计划，简单问题直答不加门槛 | `chat-task-workbench-workflow-states` | 当前红 | chat-task-workbench |
-| C1 画布围栏渲染 | 模型产出的 canvas 围栏真渲染成工作坊画布 | `chat-canvas-guidance-render` | 已覆盖 | chat-read |
+| C1 画布围栏渲染 | 模型产出的 canvas 围栏真渲染成工作坊画布 | `chat-canvas-guidance-render`（#3080 迁 v2 锚点后恢复执行） | 已覆盖 | chat-read |
 | C2 画布编辑往返 | 最大化编辑 → 保存 → reload 重开看到保存版 → 可回到原始版 | `chat-diagram-save-reopen-roundtrip` | 已覆盖 | chat-read |
 | C3 画布模板全生命周期 | 管理员建模板 → 发布 → 引导师绑定 → 该项目 chat 可达 | `core-journey-04-canvas-template-lifecycle-chat` | 已覆盖 | e2e-full |
 | C4 一次生成两个模板 | 同一轮请求产出两个画布且都可用、不互相覆盖 | `chat-path-c4-two-canvases-one-turn` | 已覆盖 | chat-read |
@@ -491,13 +491,27 @@ Error: 断网期间就已经拿到最终回答的话，这条用例根本没有�
 
 ## 机械门控
 
-`pnpm run lint:chat-path-coverage`（`.harness/scripts/lint-chat-path-coverage.mjs`）检查四条：
+`pnpm run lint:chat-path-coverage`（`.harness/scripts/lint-chat-path-coverage.mjs`）检查五条：
 
 1. 表里每一行的编号唯一、格式合法（`A1`…`F7` 这样的字母+数字）。
 2. 每个 `chat-path-*.spec.ts` 的 `test()` 标题里都有 `@path:<编号>` 标签，且该编号在表里存在。
 3. 表里凡是被 `chat-path-*` spec 覆盖的行，仓库里真有一条带对应标签的用例。
 4. 每个 `chat-path-*.spec.ts` 都被 `playwright.chat-read.config.ts` 的
    `chat-path-coverage` testMatch 捞得到——「写了但没人跑」（#512）在本车道内先挡一道。
+5. **凡标 `已覆盖` 的行，它点名的每个 spec 文件里至少有一条会真实执行的 `test(`**
+   （`test.fixme` / `test.skip` 都不算，且**不限于** `chat-path-*` 文件）。issue **#3080** 补。
+
+### 第 5 条是补的：C1 曾经在「已覆盖」状态下零断言执行
+
+第 2/3 条只看 `chat-path-*` 文件，且刻意把 `test.fixme(` 也算作有效标签（理由见脚本头注：
+停放中的断言与矩阵之间**仍然**有机械联系）。两件事叠起来正好留了一个洞：
+`chat-canvas-guidance-render.spec.ts` 被 #3035 整个文件降成一条 `test.fixme`，C1 行却一直写着
+`已覆盖`——它既不叫 `chat-path-*`（第 2/3 条够不着），`fixme` 又被当作有效（够得着也不红）。
+
+第 5 条与第 2 条对 `test.fixme` 的态度不同，不是自相矛盾：第 2 条问「这条 spec 与矩阵有没有
+机械联系」（停放中的断言也有），第 5 条问「`已覆盖` 这个词是不是真的」（停放中的断言不算跑过）。
+**停放是正当处置，但它对应的覆盖态是 `未覆盖`**，并在「已知缺口」一节写清阻塞于哪个 issue——
+A3 行就是这么写的，那是先例。
 
 **它挡不到什么（写清楚，免得有人以为这道门比实际更强）**：存量 spec（`copilotkit-v2-*`、
 `agent-*` 等）没有 `@path:` 标签——给 25 个既有文件改测试标题是一次跨文件的大范围改动，

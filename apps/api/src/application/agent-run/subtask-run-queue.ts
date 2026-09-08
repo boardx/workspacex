@@ -39,6 +39,61 @@ import type { RunOutputFile } from "./ports";
 export type SubtaskRun = SubtaskRunContract.SubtaskRun;
 export type SubtaskRunStatus = SubtaskRunContract.SubtaskRunStatus;
 export type EnqueueSubtaskRunInput = SubtaskRunContract.EnqueueSubtaskRunInput;
+export type SubtaskToolCall = SubtaskRunContract.SubtaskToolCall;
+
+/** 引擎上报的一次工具调用观察（`ModelCallProgressEvent` 的子集，见 `foldSubtaskToolCall`）。 */
+export interface SubtaskToolCallObservation {
+  readonly toolCallId: string;
+  readonly toolName: string;
+  readonly argsSummary: string | null;
+  readonly resultSummary: string | null;
+  /** `"in_progress"` = 刚宣布调用，结果未知；`"complete"` = 已拿到结果。 */
+  readonly phase: "in_progress" | "complete";
+  readonly ok: boolean | null;
+  /** 观察发生的时刻（ISO），由调用方给出——本函数不读时钟，便于测试确定性。 */
+  readonly at: string;
+}
+
+/**
+ * 把引擎逐个上报的工具事件折叠进子任务已有的工具明细列表（issue #3100 D6）。
+ *
+ * **唯一实现**：`InMemorySubtaskRunStore` 与 `PgSubtaskRunStore` 都调它，不各写一遍
+ * （AGENTS.md「同一事实不得声明在两处」）。同一 `toolCallId` 的第二次上报合并进原条目：
+ * `startedAt` 恒为**首次**观察时刻，`durationMs` 只在拿到结果那一刻由两个时刻算出——
+ * 进行中态一律 `null`，不许用 0 冒充"耗时零"。摘要为 `null` 的后续上报不覆盖已有值
+ * （provider 的 `complete` 事件常常不重复 args 摘要）。
+ */
+export function foldSubtaskToolCall(
+  existing: readonly SubtaskToolCall[],
+  observation: SubtaskToolCallObservation,
+): SubtaskToolCall[] {
+  const index = existing.findIndex((call) => call.toolCallId === observation.toolCallId);
+  const complete = observation.phase === "complete";
+  if (index < 0) {
+    return [...existing, {
+      toolCallId: observation.toolCallId, toolName: observation.toolName,
+      argsSummary: observation.argsSummary, resultSummary: observation.resultSummary,
+      ok: complete ? observation.ok : null,
+      startedAt: observation.at,
+      durationMs: complete ? 0 : null,
+    }];
+  }
+  const prior = existing[index]!;
+  const started = Date.parse(prior.startedAt), ended = Date.parse(observation.at);
+  const merged: SubtaskToolCall = {
+    ...prior,
+    toolName: observation.toolName || prior.toolName,
+    argsSummary: observation.argsSummary ?? prior.argsSummary,
+    resultSummary: observation.resultSummary ?? prior.resultSummary,
+    ok: complete ? observation.ok : prior.ok,
+    durationMs: complete
+      ? (Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, ended - started) : prior.durationMs)
+      : prior.durationMs,
+  };
+  const next = [...existing];
+  next[index] = merged;
+  return next;
+}
 
 /**
  * 子任务 run 的持久化端口——生产使用 `PgSubtaskRunStore`，测试可用
@@ -69,6 +124,11 @@ export interface SubtaskRunStore {
    * 让每一条都走到 `complete`/`fail` 之一，不能放在原地不管。
    */
   claimQueued(orgId: OrgId, limit: number): Promise<readonly SubtaskRun[]>;
+  /**
+   * 记录引擎上报的一次工具调用（issue #3100 D6）。可选——不实现等价于"这个部署不上报
+   * 工具明细"，前端如实显示缺失，不是造一份假的。
+   */
+  recordToolCall?(orgId: OrgId, id: string, observation: SubtaskToolCallObservation): Promise<void>;
   /** 把一条 `running` 的子任务 run 标记为 `completed`，写入真实结果文本。 */
   complete(orgId: OrgId, id: string, result: string): Promise<void>;
   /** Atomically fences cancellation and publishes already verified immutable output objects. */

@@ -166,17 +166,20 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
  * `loopback-model-provider.ts`）—— 画布指引与 L2/L3 那几个回显开关都长在它身上，
  * deep-agent 那条替身没有它们。
  *
- * ## 顺序不能反：先切 agent，再建线程
+ * ## 顺序：先切 agent，再建线程
  *
- * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`：切 agent 会**卸载当前对话并
- * 开一条全新的**（新 threadId、空消息）。所以线程 id 必须在切换**之后**才取，
- * 否则拿到的是切换前那条、随后所有权威读都读错线程。
+ * 历史原因（**已于 issue #3028 解除**）：`copilotkit-v2-panel.tsx` 曾挂
+ * `key={selectedAgentId}`，切 agent 会**卸载当前对话并开一条全新的**（新 threadId、
+ * 空消息），所以线程 id 必须在切换**之后**才取，否则拿到的是切换前那条。
  *
- * ⚠ 这也是 issue **#3028** 的同一条机制：它让「深链进一条种好历史的线程」与
- * 「切到回显 agent」在 v2 上互斥。需要**种好的历史**的用例（本车道的 A3）因此
- * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
- * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
- * 完全成立。
+ * #3028（2026-09-08）去掉了那个 `key`：换 agent 现在在同一条线程里发生，历史不清空，
+ * 这条顺序约束因此不再是硬性的。需要**种好的历史**的用例（本车道的 A3）也因此
+ * 不再需要 `test.fixme`，见那条 spec 的头注。
+ *
+ * 本函数在 #3118 之后改成**先建线程、再切 agent**：线程由权威端口建出来后要
+ * `goto` 深链进去，导航前选的 agent 会随页面重载丢掉，所以切换只能在导航之后做
+ * （与 `openFreshDeepAgentThreadOnAuthedPage` 同一个次序）。#3028 之后这不再影响
+ * 历史——换 agent 留在同一条线程里。
  *
  * ## issue #3118：不再点「新建对话」按钮
  *
@@ -184,8 +187,8 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
  * `E2E-CANVAS-GUIDANCE-6031` 出现在 D4 的断言目标里），根因就是这颗按钮按设计
  * 复用顶部的空线程。改走权威端口后，`openAuthoritativeFreshThread` 深链进一条
  * 属于本用例自己的线程，随后再切 agent——次序与
- * `openFreshDeepAgentThreadOnAuthedPage` 一致：`key={selectedAgentId}` 的卸载只影响
- * `/chat` 空状态那条客户端生成的线程，深链页的 threadId 来自路由，重挂载不会换线程。
+ * `openFreshDeepAgentThreadOnAuthedPage` 一致：深链页的 threadId 来自路由，
+ * 页面重挂载不会换线程。
  */
 export async function openFreshEchoAgentThread(page: Page): Promise<string> {
   await openChatEmptyState(page);

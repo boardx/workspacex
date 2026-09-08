@@ -118,7 +118,7 @@ export function SubtaskRunPanel({
             <span className="font-medium text-card-foreground">输入</span>
             <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.description}{run.context ? ` · ${run.context}` : ""}</li>)}</ul>
           </div>
-          <p data-testid="chat-task-workbench-subagent-detail-tools"><span className="font-medium text-card-foreground">工具明细</span> · 当前运行记录尚未提供</p>
+          <SubtaskToolDetail runs={runs} />
           <p data-testid="chat-task-workbench-subagent-detail-duration"><span className="font-medium text-card-foreground">耗时</span> · {durationSeconds} 秒</p>
           <div data-testid="chat-task-workbench-subagent-detail-result">
             <span className="font-medium text-card-foreground">结果</span>
@@ -147,6 +147,36 @@ export function SubtaskRunPanel({
               onRetry={onRetry ? () => onRetry(run) : undefined}
               retrying={retryingId === run.id}
             />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 「工具」一项（issue #3100 D6）。**没有数据时说没有，不造假**：`toolCalls` 缺席或为空
+ * 数组一律等价于"引擎没上报"（见 `packages/contracts/src/subtask-run.ts` 的字段头注），
+ * 此时渲染一条明确的缺失说明，而不是编一个工具名或用 0 秒冒充耗时。
+ */
+function SubtaskToolDetail({ runs }: { runs: SubtaskRunView[] }) {
+  const calls = runs.flatMap((run) => (run.toolCalls ?? []).map((call) => ({ run, call })));
+  return (
+    <div data-testid="chat-task-workbench-subagent-detail-tools">
+      <span className="font-medium text-card-foreground">工具明细</span>
+      {calls.length === 0 ? (
+        <p className="mt-1" data-testid="chat-subtask-tools-empty">引擎尚未上报工具调用</p>
+      ) : (
+        <ul className="mt-1 list-disc space-y-1 pl-4">
+          {calls.map(({ run, call }) => (
+            <li key={`${run.id}:${call.toolCallId}`} data-testid="chat-subtask-tool-call" data-tool-call-id={call.toolCallId}>
+              <span className="text-card-foreground">{call.toolName}</span>
+              {call.argsSummary ? ` · ${call.argsSummary}` : ""}
+              {" · "}
+              {call.durationMs === null ? "进行中" : `${(call.durationMs / 1000).toFixed(1)} 秒`}
+              {call.ok === null ? "" : call.ok ? " · 成功" : " · 失败"}
+              {call.resultSummary ? ` · ${call.resultSummary}` : ""}
+            </li>
           ))}
         </ul>
       )}

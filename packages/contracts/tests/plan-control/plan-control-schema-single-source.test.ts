@@ -20,6 +20,7 @@ import {
   planControl,
   evaluatePlanGate,
   derivePlanPhase,
+  deriveRunControls,
   PLAN_APPROVAL_TOOL_WHITELIST,
 } from "../../src/plan-control";
 import { AguiPlanTodoStatus } from "../../src/agui-state-events";
@@ -176,6 +177,9 @@ describe("F972 · 11 个独立操作（design-signoff.md 3.1 已裁决 A，不�
       gate: { required: false, reason: "no-plan" },
       progress: { completed: 0, total: 0, elapsedMs: 0 },
       pendingApplyAtNextRun: false, activeRunId: null,
+      // issue #3099 —— runStatus 同理：新增的声明字段（运行级控制的唯一判据），
+      // base 跟着 schema 补全。
+      runStatus: "idle",
       // issue #2451 —— errorCode/failedStepId 都是新增的声明字段（真实失败原因/
       // 真实失败步骤，见该 issue），不是这条反证要挡的"多余字段"；base 必须跟着
       // schema 补全，否则这条正向断言（safeParse(base).success===true）会假红，
@@ -271,5 +275,28 @@ describe("F972 · XC-59 反证 —— PlanPhase='approving' 只认既有 call_sk
       runStatus: "idle", ledgerEmpty: true, hasFailedStep: false, pendingToolCalls: [],
     });
     expect(phase).toBe("preparing");
+  });
+});
+
+describe("deriveRunControls（issue #3099：运行级控制与计划级视图解耦）", () => {
+  it.each([
+    ["running", { canPause: true, canResume: false }],
+    ["interrupted", { canPause: false, canResume: true }],
+    ["idle", { canPause: false, canResume: false }],
+    ["succeeded", { canPause: false, canResume: false }],
+    ["failed", { canPause: false, canResume: false }],
+    ["cancelled", { canPause: false, canResume: false }],
+  ] as const)("runStatus=%s ⇒ %o", (runStatus, expected) => {
+    expect(deriveRunControls({ runStatus })).toEqual(expected);
+  });
+
+  it("计划账本是否为空与运行级控制无关——这正是 #3099 的缺陷所在", () => {
+    // 同一个正在跑的 run：没有计划时 phase 落在 preparing（与 idle 线程不可区分），
+    // 有计划时才是 executing。运行级控制在两种情况下必须一致。
+    const emptyPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: true, hasFailedStep: false, pendingToolCalls: [] });
+    const fullPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: false, hasFailedStep: false, pendingToolCalls: [] });
+    expect(emptyPhase).toBe("preparing");
+    expect(fullPhase).toBe("executing");
+    expect(deriveRunControls({ runStatus: "running" })).toEqual({ canPause: true, canResume: false });
   });
 });

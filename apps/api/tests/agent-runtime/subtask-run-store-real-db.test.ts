@@ -229,6 +229,26 @@ describe("WX-T042 durable queue", () => {
     }
   });
 
+  // issue #3100 D6 —— 工具明细列：迁移可重放、默认空数组、折叠后经 listByParentRun 读回。
+  // 反证：把 recordToolCall 的 UPDATE 去掉 ⇒ 本例读回空数组，红。
+  it('records engine-reported tool calls on the child row and replays its migration',async()=>{
+    const sql=await readFile(new URL('../../migrations/20260911010000_subtask_tool_calls.sql',import.meta.url),'utf8');
+    await asOwner(async c=>{await c.query(sql);await c.query(sql);});
+    const store=new PgSubtaskRunStore(db);
+    const run=await store.enqueue(org,{parentRunId:parent,description:'tool detail'});
+    expect(run.toolCalls).toEqual([]);
+    await store.recordToolCall(org,run.id,{toolCallId:'t-1',toolName:'web_search',argsSummary:'q',
+      resultSummary:null,phase:'in_progress',ok:null,at:'2026-09-08T10:00:00.000Z'});
+    await store.recordToolCall(org,run.id,{toolCallId:'t-1',toolName:'web_search',argsSummary:null,
+      resultSummary:'8 条',phase:'complete',ok:true,at:'2026-09-08T10:00:01.500Z'});
+    const listed=(await store.listByParentRun(org,parent)).find(r=>r.id===run.id)!;
+    expect(listed.toolCalls).toEqual([{toolCallId:'t-1',toolName:'web_search',argsSummary:'q',
+      resultSummary:'8 条',ok:true,startedAt:'2026-09-08T10:00:00.000Z',durationMs:1500}]);
+    // 跨租户不可见：另一个 org 的 store 读不到这条明细。
+    expect(await store.listByParentRun(other,parent)).toEqual([]);
+    // 不给后续用例留下活跃子任务（它们断言这个父 run 下的 pending/running 集合）。
+    expect((await store.cancel(org,parent,run.id)).kind).toBe('cancelled');
+  });
 });
 
 describe("parent cancellation handshake", () => {

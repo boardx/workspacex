@@ -2,7 +2,8 @@
  * `SubtaskRunStore` 的内存测试实现。WX-T042 生产绑定已切到 PgSubtaskRunStore，
  * 此类保留便于应用层测试；重启/多进程持久化只由 Postgres adapter 提供。
  */
-import { SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
+import { SubtaskIdempotencyConflictError, foldSubtaskToolCall } from "../../application/agent-run/subtask-run-queue";
+import type { SubtaskToolCallObservation } from "../../application/agent-run/subtask-run-queue";
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
@@ -41,6 +42,7 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
       ...(input.outputFiles?{outputFiles:input.outputFiles}:{}),
       snapshot:input.snapshot??{agentVersionId:"in-memory",skillVersionIds:[],modelProvider:"in-memory",modelId:"in-memory"},
       artifactRefs:[],
+      toolCalls: [],
       status: "pending",
       result: null,
       error: null,
@@ -76,6 +78,12 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
       claimed.push(running);
     }
     return claimed.map(stripOrg);
+  }
+
+  async recordToolCall(orgId: OrgId, id: string, observation: SubtaskToolCallObservation): Promise<void> {
+    const row = this.rows.get(id);
+    if (!row || row.orgId !== String(orgId)) return;
+    this.rows.set(id, { ...row, toolCalls: foldSubtaskToolCall(row.toolCalls ?? [], observation) });
   }
 
   async complete(orgId: OrgId, id: string, result: string): Promise<void> {

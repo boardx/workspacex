@@ -36,6 +36,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { awaitAssistantReply, bearerOf, snapshotMessageIds, V2_SEND_WIRE } from "./chat-v2-send";
+import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
 
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
@@ -88,14 +89,14 @@ async function sendAndAwaitReply(page: Page, threadId: string, text: string) {
 }
 
 /**
- * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ * issue #2997 / **#3028**（历史）—— 本用例曾在 v2 工作台上**跑不起来，不是断言写错了**。
  *
  * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
  * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
  * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
  * 「某一层上下文真的到达了模型输入」的哨兵串。
  *
- * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * 当时 v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
  * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
  * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
  * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
@@ -108,13 +109,19 @@ async function sendAndAwaitReply(page: Page, threadId: string, text: string) {
  *
  * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
  * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
- * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ * ✅ **#3028 已补上（2026-09-08）**：`copilotkit-v2-panel.tsx` 那个
+ * `key={selectedAgentId}` 已经去掉，换 agent 发生在**同一条线程**里、历史不清空
+ * （恢复旧屏 `AgentPicker` 一直就有的行为）。上面那两件事因此可以同时成立，本条
+ * 从 `test.fixme` 改回 `test`；正文只多了一行 `selectWorkbenchAgent(...)`——就是
+ * 「在这条种好历史的线程里改用回显 agent」这一步本身，断言一个字未改、未改宽。
  */
-test.fixme("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的模型输入", async ({ page }) => {
+test("L2：滚动摘要伪消息真的到达了浏览器发起的这次 run 的模型输入", async ({ page }) => {
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.l2CheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.l2CheckThreadId}`))
     .toContainText("L2 rolling summary check fixture thread");
+  // issue #3028 —— 留在这条线程里改用确定性回显上游（`CHAT_READ_E2E.agentId`）。
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
 
   /*
    * 这条线程种了一条带代号的"早期事实" + 30 条撑满字符预算的填充轮次（见种子脚本），
@@ -156,14 +163,14 @@ test.fixme("L2：滚动摘要伪消息真的到达了浏览器发起的这次 ru
 });
 
 /**
- * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ * issue #2997 / **#3028**（历史）—— 本用例曾在 v2 工作台上**跑不起来，不是断言写错了**。
  *
  * 它要证的事需要两件同时成立：① 在**种好历史的那条线程**里跑；② 这一轮走
  * `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游——只有它会回显
  * `l2SummaryEchoPrefix` / `toolTraceEchoPrefix` / `retrievalEchoPrefix` 这些
  * 「某一层上下文真的到达了模型输入」的哨兵串。
  *
- * v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
+ * 当时 v2 上这两件事互斥（#3028）：深链进那条线程 ⇒ 用的是服务端默认 agent
  * （`COPILOTKIT_V2_AGENT_ID` → deep-agent，回显的是它自己的剧本）；切到
  * `agentId` ⇒ `copilotkit-v2-panel.tsx:274` 的 `key={selectedAgentId}` 会卸载
  * 当前对话、开一条全新的（新 threadId、空消息），种好的历史随之消失。
@@ -176,13 +183,16 @@ test.fixme("L2：滚动摘要伪消息真的到达了浏览器发起的这次 ru
  *
  * 按人类裁决（方案 B）：**不删断言、不改宽**。锚点已经迁完（下面的正文就是迁移后的
  * 版本，`chat-v2-send.ts` 那套取证也已接上），差的只是 #3028 那条产品能力；
- * #3028 一旦补上，把 `test.fixme` 改回 `test` 即可，正文不需要再动。
+ * ✅ **#3028 已补上（2026-09-08）**：见上面 L2 那条同一段说明。本条同样从
+ * `test.fixme` 改回 `test`，正文只多了一行 `selectWorkbenchAgent(...)`。
  */
-test.fixme("F190：跨 run 的历史工具调用轨迹真的回喂进了浏览器发起的下一次 run", async ({ page }) => {
+test("F190：跨 run 的历史工具调用轨迹真的回喂进了浏览器发起的下一次 run", async ({ page }) => {
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.toolTraceCheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.toolTraceCheckThreadId}`))
     .toContainText("Tool trace cross-run check fixture thread");
+  // issue #3028 —— 留在这条线程里改用确定性回显上游（`CHAT_READ_E2E.agentId`）。
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
 
   /*
    * 这条线程种了一轮"历史工具调用"（`tool_name`/`tool_result_summary` 落在

@@ -117,3 +117,42 @@ describe("SubtaskRunPanel -- 后台任务角标 + 三态卡片（issue #2666）"
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe("SubtaskRunPanel -- 工具明细（issue #3100 D6）", () => {
+  it("有工具调用时渲染真值：工具名 / 参数摘要 / 耗时 / 结果，且不出现占位文案", () => {
+    const withTools = runs().map((r, i) => (i === 0 ? {
+      ...r,
+      toolCalls: [
+        { toolCallId: "call-1", toolName: "web_search", argsSummary: "巴伐利亚 并网 审批",
+          resultSummary: "命中 8 条", ok: true, startedAt: "2026-09-04T14:32:10.000Z", durationMs: 2400 },
+        { toolCallId: "call-2", toolName: "call_skill", argsSummary: null,
+          resultSummary: null, ok: null, startedAt: "2026-09-04T14:32:13.000Z", durationMs: null },
+      ],
+    } : r));
+    render(<SubtaskRunPanel parentRunId="run-mock-1" runs={withTools} defaultOpen />);
+
+    const tools = screen.getByTestId("chat-task-workbench-subagent-detail-tools");
+    expect(tools).toBeVisible();
+    expect(screen.queryByTestId("chat-subtask-tools-empty")).not.toBeInTheDocument();
+    const items = within(tools).getAllByTestId("chat-subtask-tool-call");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("web_search");
+    expect(items[0]).toHaveTextContent("巴伐利亚 并网 审批");
+    expect(items[0]).toHaveTextContent("2.4 秒");
+    expect(items[0]).toHaveTextContent("命中 8 条");
+    // 结果未回来的那一条如实显示「进行中」，不用 0 秒冒充耗时。
+    expect(items[1]).toHaveTextContent("call_skill");
+    expect(items[1]).toHaveTextContent("进行中");
+    expect(items[1]).not.toHaveTextContent("0.0 秒");
+  });
+
+  it("引擎没上报（字段缺席或空数组）时如实说缺失，绝不造假数据", () => {
+    const noTools = runs().map((r, i) => (i === 0 ? { ...r, toolCalls: [] } : r));
+    render(<SubtaskRunPanel parentRunId="run-mock-1" runs={noTools} defaultOpen />);
+
+    const tools = screen.getByTestId("chat-task-workbench-subagent-detail-tools");
+    expect(tools).toBeVisible();
+    expect(within(tools).queryAllByTestId("chat-subtask-tool-call")).toHaveLength(0);
+    expect(screen.getByTestId("chat-subtask-tools-empty")).toHaveTextContent("引擎尚未上报工具调用");
+  });
+});
