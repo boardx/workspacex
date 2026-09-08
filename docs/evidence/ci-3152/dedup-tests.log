@@ -1,0 +1,20 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-ci-strategy
+
+ ✓ .harness/scripts/fullstack-smoke.test.ts (15 tests) 3929ms
+   ✓ #387 trusted full-stack gate contract > successful child runs one successful scoped down -v and preserves the child outcome 726ms
+   ✓ #387 trusted full-stack gate contract > failed child runs one successful scoped down -v and preserves the child outcome 538ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM runs one successful scoped down -v and preserves the child outcome 568ms
+   ✓ #387 trusted full-stack gate contract > successful child fails closed when its only scoped down -v fails 497ms
+   ✓ #387 trusted full-stack gate contract > failed child fails closed when its only scoped down -v fails 505ms
+   ✓ #387 trusted full-stack gate contract > SIGINT fails closed when its only scoped down -v fails 559ms
+   ✓ #387 trusted full-stack gate contract > SIGTERM fails closed when its only scoped down -v fails 503ms
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (28 tests) 83ms
+ ✓ .harness/scripts/lint-ci-workflow-concurrency.test.ts (4 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  47 passed (47)
+   Start at  01:42:22
+   Duration  4.39s (transform 32ms, setup 0ms, collect 73ms, tests 4.01s, environment 0ms, prepare 65ms)
+

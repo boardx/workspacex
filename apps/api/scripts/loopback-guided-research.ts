@@ -27,6 +27,7 @@ export function guidedResearchReply(system: string, user: string): string | null
       `建议逐项核对本章研究问题，查阅政策原文并记录适用范围与发布日期，再根据核实结果评估实施风险；本测试材料仅用于验证报告生成链路。[[source:${id}]]`,
     ].join("\n\n"), sourceIds: [id] };
   }
+  if (node === "report" && ["chapter", "chapter_revision"].includes(context.reportStage) && context.instruction === "e2e-quality-draft" && context.section.id === "o-e2e") (value as { body: string }).body += "\n\nE2E 待核验章节。";
   if (node === "report" && ["synthesis", "synthesis_revision"].includes(context.reportStage)) value = { introduction: "本研究核对已确认范围内的政策证据，依据检索摘要比较政策要求及实施约束，并说明尚未覆盖的政策原文与审批数据。", conclusion: "综合各章，应优先核验目标地区接入条件，再比较进入方案。后续补充政策原文与审批数据，以判断实施周期和风险。", title: "并网政策报告", summary: "根据各章分析，应先核对政策原文与适用范围，再评估实施风险；检索摘要尚不能支持具体审批时间的判断。" };
   if (node === "report" && ["evidence", "evidence_revision"].includes(context.reportStage)) value = { evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "测试摘要说明并网政策证据，具体适用范围仍需核实。", relevance: "direct" })) })) };
   // Exercise automatic evidence repair through HTTP in the five-step full-stack scenario.
@@ -34,6 +35,7 @@ export function guidedResearchReply(system: string, user: string): string | null
     value = { evaluations: [{ sourceId: "unknown-e2e-source", chunkId: context.chunks[0].chunkId, irrelevant: true, matches: [] }] };
   }
   if (node === "report" && context.reportStage === "quality") value = { questions: context.evidenceByQuestion.map((question: { questionId: string; gap: boolean }) => ({ questionId: question.questionId, status: question.gap ? "gap" : "answered", rationale: "章节包含证据局限、影响分析与验证建议。" })), supported: true, analysisDepth: "adequate", issues: [] };
+  if (node === "report" && context.reportStage === "quality" && context.chapter.body.includes("E2E 待核验章节")) Object.assign(value as object, { analysisDepth: "shallow", issues: ["需要补充政策适用范围证据"] });
   if (context.targetNode) value = { assistantMessage: `已根据“${context.instruction}”生成建议。`, value };
   return JSON.stringify(value);
 }
