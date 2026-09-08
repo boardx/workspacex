@@ -1,6 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "../chat-read-fixture";
 import { openChatEmptyState, openFreshThread } from "../chat-task-workbench-fixture";
+import {
+  createThreadViaApi,
+  openAuthoritativeFreshThread,
+  sessionHeaders,
+} from "./authoritative-thread";
 import { selectWorkbenchAgent } from "./workbench-run-evidence";
 
 /**
@@ -47,11 +52,11 @@ export async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
     .toBe(200);
 }
 
-export async function sessionHeaders(page: Page): Promise<Record<string, string>> {
-  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
-  expect(token, "登录后应有会话令牌；没有说明登录这一步本身就没成功").toBeTruthy();
-  return { Authorization: `Bearer ${token}` };
-}
+/**
+ * `sessionHeaders` / `createThreadViaApi` 现在住在 `support/authoritative-thread.ts`
+ * （issue #3118：两条车道共用同一个建线程入口，本文件只再导出，不留第二份实现）。
+ */
+export { sessionHeaders, createThreadViaApi };
 
 export interface StoredMessage {
   readonly id: string;
@@ -117,6 +122,10 @@ export async function storedRun(page: Page, runId: string): Promise<StoredRun> {
  * 一条真实断言都没跑到。既有的 `agent-chat-core-paths.spec.ts` 从来就是直接调
  * `openFreshThread`，是本车道第一版多加了那一步。
  */
+/*
+ * issue #3118：`openFreshThread` 本身已改走权威端口（见
+ * `support/authoritative-thread.ts`），这里不再需要单独处理「点新建可能复用旧线程」。
+ */
 export async function openFreshDeepAgentThread(page: Page): Promise<string> {
   const threadId = await openFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
@@ -147,31 +156,9 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
  */
 export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
   await warmUpCopilotRuntimeRoute(page);
-  const threadId = await createThreadViaApi(page);
-  await page.goto(`/chat/${threadId}`);
-  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  const threadId = await openAuthoritativeFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId;
-}
-
-/**
- * 权威建线程：直接打 `mutateThread`（`op: "create"`，契约见
- * `packages/contracts/src/chat.ts`），返回服务端分配的 threadId。
- *
- * 这是 UI「新建对话」按钮背后**同一个**端口（`copilotkit-v2-shell.tsx` 的
- * `handleCreate` → `createWorkbenchThread` → `createPersonalThread`），不是第二条
- * 建线程的路子；只是不经过那颗按钮上叠着的复用语义。
- */
-export async function createThreadViaApi(page: Page): Promise<string> {
-  const response = await page.request.post("/chat/threads/mutate", {
-    headers: await sessionHeaders(page),
-    data: {
-      op: "create", projectId: null, threadId: null, groupId: null,
-      title: null, visibilityScope: "private", expectedVersion: null, reason: null,
-    },
-  });
-  expect(response.ok(), `建线程失败：${response.status()} ${await response.text()}`).toBe(true);
-  return (await response.json() as { threadId: string }).threadId;
 }
 
 /**
@@ -190,15 +177,21 @@ export async function createThreadViaApi(page: Page): Promise<string> {
  * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
  * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
  * 完全成立。
+ *
+ * ## issue #3118：不再点「新建对话」按钮
+ *
+ * C4 与 D4 搬进阻塞车道 `chat-read` 后落到同一条线程互相污染（C4 的哨兵
+ * `E2E-CANVAS-GUIDANCE-6031` 出现在 D4 的断言目标里），根因就是这颗按钮按设计
+ * 复用顶部的空线程。改走权威端口后，`openAuthoritativeFreshThread` 深链进一条
+ * 属于本用例自己的线程，随后再切 agent——次序与
+ * `openFreshDeepAgentThreadOnAuthedPage` 一致：`key={selectedAgentId}` 的卸载只影响
+ * `/chat` 空状态那条客户端生成的线程，深链页的 threadId 来自路由，重挂载不会换线程。
  */
 export async function openFreshEchoAgentThread(page: Page): Promise<string> {
   await openChatEmptyState(page);
+  const threadId = await openAuthoritativeFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
-  await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
-  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
-  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
-  return threadId as string;
+  return threadId;
 }
 
 /**

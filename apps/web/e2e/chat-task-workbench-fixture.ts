@@ -1,5 +1,6 @@
 import { expect, type Page, type Locator } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
 
 /**
  * issue #2068 —— 「Chat 任务工作台」验收用例的共享外壳。
@@ -102,14 +103,22 @@ export async function openChatEmptyState(page: Page): Promise<void> {
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
 }
 
-/** 登录 + 焐热 + 新建一条持久化线程，返回 threadId（TW-P0-3/6/7 的共同起点）。 */
+/**
+ * 登录 + 焐热 + 新建一条持久化线程，返回 threadId（TW-P0-3/6/7 的共同起点）。
+ *
+ * ## issue #3118：这里此前点的是「新建对话」按钮
+ *
+ * 旧实现点 `chat-thread-create` 然后 `waitForURL(/\/chat\/…/)`——**恢复出来的旧线程
+ * 同样匹配那个正则**，它判的是「URL 变了」而不是「线程是新的」。而该按钮按产品设计
+ * 在列表顶部已是 `not-started` 空线程时复用那一条（#2094 裁决）。于是本车道 ~48 个
+ * 调用点全都可能落到别的用例刚建出来的线程上。
+ *
+ * 现在改走权威端口，并由 `openAuthoritativeFreshThread` **在 helper 内部**断言
+ * 「是新的 + 是空的」。理由与例外清单逐字见 `support/authoritative-thread.ts` 头注。
+ */
 export async function openFreshThread(page: Page): Promise<string> {
   await openChatEmptyState(page);
-  await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
-  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
-  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
-  return threadId as string;
+  return await openAuthoritativeFreshThread(page);
 }
 
 /** 发一条消息并等到 run 落定（不断言回复内容，那是 chat-ux 卡的事）。 */
