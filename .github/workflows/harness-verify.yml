@@ -186,6 +186,14 @@ jobs:
       # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
       # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
       # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      # 标准 skill 包的发货版本（ensure-standard-skill-packs.ts 的 STANDARD_PLATFORM_PACKS）
+      # 必须等于构建版本（skills/<pack>/scripts/build.ts）。两处一直是手写、从没被比对过。
+      # 2026-09-09 实测漂移：standard-web 发货 1.1.1、构建 1.1.2，starter-packs/1.1.2.json
+      # 躺在仓库里从没被 seed，而两版内容确有差异（web-artifact 1.0.1 vs 1.0.2）。
+      # 只读源码文本，毫秒级；skills/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到，必须显式跑。
+      - name: 标准包发货版本 == 构建版本（单一事实源）
+        run: node .harness/scripts/lint-shipped-pack-version.mjs
+
       - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
         run: node .harness/scripts/lint-third-artifact.mjs
 
