@@ -58,8 +58,14 @@ import { CopilotKitV2PanelBody } from "@/components/chat/copilotkit-v2-panel-bod
  *
  * 做的这一半——`AgentPicker` 接进来，选中后**发起新对话**（`CopilotKitV2PanelBody`
  * 用 `key={selectedAgentId}` 强制整个子树随选择重新挂载：新 `threadId`、新
- * `useAgent` 实例、空消息列表——"切换 agent" 与"这个面板打开时已经会做的事"是
- * 同一个语义单元，不是发明一套"迁移历史到新 agent"的机制）。
+ * `useAgent` 实例、空消息列表）。
+ *
+ * ⚠ **issue #3028（2026-09-08）已推翻这一句，勿再据此认为「换 agent = 开新对话」**：
+ *   那个 `key` 已经去掉了。换 agent 现在**不动线程、不清历史**，后续消息发给新选的
+ *   agent —— 恢复的是旧屏 `chat-live-message-panel.tsx` 的 `AgentPicker` 一直就有的
+ *   行为（选择只决定「下一条消息发给谁」）。生效通道是 `<CopilotKit headers>` 的
+ *   per-request 覆盖，不是 remount，完整理由见下面 `CopilotKitV2PanelBody` 那处注释。
+ *   本节保留原文是为了记住「当时为什么是 remount」，不是描述今天的状态。
  *
  * 候选列表复用 `personal-chat-screen.tsx` 已验证过的 `listCapabilities(orgId,
  * "agent")` 读端口，不新建列表接口（任务说明明确要求）——同样继承那个组件文件头
@@ -267,14 +273,15 @@ import { CopilotKitV2PanelBody } from "@/components/chat/copilotkit-v2-panel-bod
 
 /**
  * issue #2023（差距清单第 4 项）—— 导出的外层组件。负责"选哪个 agent"这件事本身
- * （候选列表、选中状态、切换即开新对话），真正的对话状态机（`useAgent`/流式渲染/
+ * （候选列表、选中状态），真正的对话状态机（`useAgent`/流式渲染/
  * HITL/语音输入……）全部留在下面 `CopilotKitV2PanelBody`（原来这个文件唯一的组件，
  * 改了个名字，内部逻辑一行未动）。
  *
- * `key={selectedAgentId}` 是这里唯一的"新机制"：换 agent = 卸载旧的 body、挂载全新
- * 一份（新的随机 `threadId`、新的 `useAgent` 实例、空 `agent.messages`）——与文件头注
- * "issue #2023 Agent 选择/切换"一节说的"切换 agent 就是发起新对话"是同一件事，不是
- * 另外发明一套"迁移历史到新 agent"的机制（那件事需要差距 #1 的持久化线程才谈得上）。
+ * issue #3028（2026-09-08）—— 此前这里挂着 `key={selectedAgentId}`：换 agent = 卸载
+ * 旧的 body、挂载全新一份（新的随机 `threadId`、新的 `useAgent` 实例、空
+ * `agent.messages`）。**已去掉**：换 agent 现在在**同一条线程**里发生，历史不清空，
+ * 后续消息发给新选的 agent —— 恢复旧屏行为，理由与反证见 `CopilotKitV2PanelBody`
+ * 渲染处的注释。
  */
 /**
  * `SCROLL_BOTTOM_THRESHOLD_PX`/`isScrolledNearBottom` 现在都在
@@ -423,17 +430,31 @@ export function CopilotKitV2Panel({
           只断言它「可见」+ 读 innerText，不断言它在页面里的位置，搬家不影响这两条）。 */}
       <div className="min-h-0 flex-1">
         {/* 未选择（`null`）也照常渲染——这时请求不带选择 header，服务端用
-            `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。
-            key 里的 `"__server_default__"` 只是 React 重挂载边界的占位段，不会出现在
-            任何请求里（header 由 `selectedAgentId === null` 时不设置来保证）。 */}
-        {/* ⚠ key 只含 agent 选择，刻意**不含** `initialChatThreadId`——首轮发消息后
-            外壳经 `onThreadResolved` 拿到新线程 id 时，如果 key 跟着变，Body 会在
-            run 仍在途时被整个重挂载：SSE 被杀、`agent.messages` 清空（2026-08-25
-            合成 #2021×#2023 时实测 4 条 e2e 全红抓到的真回归）。#2021 用
+            `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。 */}
+        {/* ⚠ issue #3028（2026-09-08）—— 这里「没有 `key`」，是刻意的，不是漏写。
+            此前挂着 `key={selectedAgentId ?? "__server_default__"}`，换 agent =
+            卸载整个 Body、挂载全新一份（新的本地 `threadId`、新的 `useAgent` 实例、
+            空 `agent.messages`、在飞的 SSE 被杀），用户没法在一条既有对话里改用另一个
+            agent。恢复的是旧屏 `chat-live-message-panel.tsx` 的 `AgentPicker`
+            一直就有的行为（只改「下一条消息发给谁」，对话本身不动，同一条线程里
+            可以逐轮换 agent），不是发明一套「迁移历史到新 agent」的新语义。
+
+            不需要 remount 就能让选择生效：`selectedAgentId` 由
+            `CopilotKitV2AgentSelectionProvider` 提到 `<CopilotKit headers>`
+            （`copilotkit-v2-providers.tsx` 的 `useMemo`，依赖数组里就有它），
+            prop 一变 provider 就整体覆盖一次 headers——这正是该文件头注实测记录过、
+            `Authorization` 轮换一直在用的同一条 per-request 通道，下一次
+            `runAgent` 自然带上新的 `x-workspacex-copilotkit-v2-agent-id`。
+            反证测试：`tests/ui/copilotkit-v2-panel-agent-switch-keeps-thread.test.tsx`
+            （把 key 加回来，消息子树的真挂载计数从 1 变 2，用例回红）。
+
+            同样刻意「不含」 `initialChatThreadId`——首轮发消息后外壳经
+            `onThreadResolved` 拿到新线程 id 时，如果 key 跟着变，Body 会在 run 仍在途
+            时被整个重挂载：SSE 被杀、`agent.messages` 清空（2026-08-25 合成
+            #2021×#2023 时实测 4 条 e2e 全红抓到的真回归）。#2021 用
             `history.replaceState` 而非 router 状态正是为了避开这次重渲染；线程
             切换走 `[threadId]` 路由级重挂载，天然新 mount，不需要 key 参与。 */}
         <CopilotKitV2PanelBody
-          key={selectedAgentId ?? "__server_default__"}
           chatThreadId={initialChatThreadId}
           observedRunId={observedRunId}
           projectId={projectId}

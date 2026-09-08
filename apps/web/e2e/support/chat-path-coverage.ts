@@ -179,17 +179,17 @@ export async function createThreadViaApi(page: Page): Promise<string> {
  * `loopback-model-provider.ts`）—— 画布指引与 L2/L3 那几个回显开关都长在它身上，
  * deep-agent 那条替身没有它们。
  *
- * ## 顺序不能反：先切 agent，再建线程
+ * ## 顺序：先切 agent，再建线程
  *
- * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`：切 agent 会**卸载当前对话并
- * 开一条全新的**（新 threadId、空消息）。所以线程 id 必须在切换**之后**才取，
- * 否则拿到的是切换前那条、随后所有权威读都读错线程。
+ * 历史原因（**已于 issue #3028 解除**）：`copilotkit-v2-panel.tsx` 曾挂
+ * `key={selectedAgentId}`，切 agent 会**卸载当前对话并开一条全新的**（新 threadId、
+ * 空消息），所以线程 id 必须在切换**之后**才取，否则拿到的是切换前那条。
  *
- * ⚠ 这也是 issue **#3028** 的同一条机制：它让「深链进一条种好历史的线程」与
- * 「切到回显 agent」在 v2 上互斥。需要**种好的历史**的用例（本车道的 A3）因此
- * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
- * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
- * 完全成立。
+ * #3028（2026-09-08）去掉了那个 `key`：换 agent 现在在同一条线程里发生，历史不清空，
+ * 这条顺序约束因此不再是硬性的。本函数保持原顺序不动——它本来就正确，而且
+ * 「先选好这一轮要用的上游、再开线程」读起来更贴合它的名字；改顺序只会引入一次
+ * 没有理由的行为变更。需要**种好的历史**的用例（本车道的 A3）也因此不再需要
+ * `test.fixme`，见那条 spec 的头注。
  */
 export async function openFreshEchoAgentThread(page: Page): Promise<string> {
   await openChatEmptyState(page);
