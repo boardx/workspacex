@@ -7,6 +7,10 @@ export function initializeReportTimeline(state: ResearchRuntime, approved: reado
   const done = new Set(approved.map((chapter) => chapter.sectionId));
   const item = (stage: Stage, sectionId?: string, completed = false): Item => ({ id: reportTimelineId(stage, sectionId), stage, ...(sectionId ? { sectionId } : {}), status: completed ? "completed" : "pending", attempts: 0 });
   state.reportTimeline = [item("evidence", undefined, sections.length === done.size), ...sections.flatMap((section) => [item("chapter", section.id, done.has(section.id)), item("review", section.id, done.has(section.id))]), item("synthesis"), item("validation")];
+  for (const warning of state.reportQualityWarnings ?? []) {
+    const review = state.reportTimeline.find((entry) => entry.stage === "review" && entry.sectionId === warning.sectionId && done.has(warning.sectionId));
+    if (review) { review.status = "warning"; review.reasonCode = "RESEARCH_REPORT_QUALITY_INSUFFICIENT"; }
+  }
   if (sections.length === done.size && state.reportEvidenceWarnings?.length) {
     state.reportTimeline[0]!.status = "warning";
     state.reportTimeline[0]!.reasonCode = "RESEARCH_CONTENT_REFERENCE_INVALID";

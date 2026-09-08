@@ -27,21 +27,23 @@ describe("live research workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", draft: { node: "brief", value: { ...initial.brief, topic: "Updated scope" } } })));
   });
-  it("ignores a slower old poll even when both snapshots share the command version", async () => {
+  it("serializes slow polls and stops after receiving the terminal snapshot", async () => {
     const busy = { ...initial, busy: true, leaseUntil: "2099-01-01T00:00:00.000Z" };
-    let older!: (value: GuidedResearchRuntime) => void;
-    let newer!: (value: GuidedResearchRuntime) => void;
+    let finishPoll!: (value: GuidedResearchRuntime) => void;
     vi.mocked(getResearchRuntime).mockResolvedValueOnce(busy)
-      .mockImplementationOnce(() => new Promise((resolve) => { older = resolve; }))
-      .mockImplementationOnce(() => new Promise((resolve) => { newer = resolve; }));
+      .mockImplementationOnce(() => new Promise((resolve) => { finishPoll = resolve; }))
+      .mockResolvedValue({ ...busy, busy: false, brief: { ...initial.brief, topic: "Newer progress" } });
     vi.useFakeTimers();
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
     expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
-    await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
-    await act(async () => { newer({ ...busy, busy: false, brief: { ...initial.brief, topic: "Newer progress" } }); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+    expect(getResearchRuntime).toHaveBeenCalledTimes(2);
+    await act(async () => { finishPoll(busy); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.getByDisplayValue("Newer progress")).toBeInTheDocument();
-    await act(async () => { older(busy); });
-    expect(screen.getByDisplayValue("Newer progress")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+    expect(getResearchRuntime).toHaveBeenCalledTimes(3);
   });
   it("keeps a newer collaborator snapshot when an older command response arrives late", async () => {
     let finish!: (value: GuidedResearchRuntime) => void;
@@ -52,7 +54,9 @@ describe("live research workspace", () => {
     await act(async () => { render(<GuidedResearchLive sessionId="session-live" onBack={vi.fn()} />); });
     fireEvent.click(screen.getByRole("button", { name: "重新生成本步骤" }));
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
-    expect(screen.getByTestId("research-step-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("research-step-loading")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Collaborator update")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新生成本步骤" })).toBeEnabled();
     await act(async () => { finish({ ...initial, version: 8, brief: { ...initial.brief, topic: "Older command" } }); });
     expect(screen.getByDisplayValue("Collaborator update")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("Older command")).not.toBeInTheDocument();
