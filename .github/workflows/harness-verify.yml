@@ -59,6 +59,14 @@ on:
         description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench，11 个设计上会红的验收断言，仅供打分）"
         type: boolean
         default: false
+      # 路径覆盖车道的开关（`.harness/instructions/chat-path-coverage-matrix.md`）。
+      # 默认 false 的理由与上面那条**不同**：这批不是记分牌，红是意外状态；默认关掉
+      # 只是因为它们还没在 CI 上跑绿过、尚未搬进阻塞车道（矩阵文档「首跑与搬家」一节）。
+      # 搬家之后这个开关连同下面的 job 一起删掉，别留着。
+      run_chat_path_coverage:
+        description: "跑 Chat 路径覆盖车道（chat-path-coverage，矩阵里此前零覆盖的那批路径）"
+        type: boolean
+        default: false
 
 # 2026-09-03：本 workflow 一直没有 concurrency 块（见下方 e2e-full job 里那条旧注释
 # 「与并发组无关（本 workflow 没有 concurrency: 块）」——那条注释描述的是事实，不是
@@ -599,6 +607,43 @@ jobs:
   # webServer 编排完全复用 `playwright.chat-read.config.ts`（真登录 + 真 Postgres + 真
   # API + 真 web + 确定性 deep-agent 替身）——`--project=chat-task-workbench` 只切换
   # testMatch，不新起任何进程，见该 config 文件头注 issue #2114 那一段。
+  # 路径覆盖车道（`.harness/instructions/chat-path-coverage-matrix.md`）。**不阻塞任何
+  # 合并路径**：只在人类显式 `workflow_dispatch` 且勾选 `run_chat_path_coverage` 时跑。
+  #
+  # 为什么独立成 job（而不是塞进 `e2e-full` 再加一步）：与下面 `chat-task-workbench`
+  # 那条理由的**前两点相同**（必须能独立触发、且默认不跑，混进同一 job 做不到），
+  # 第三点不同——那批红是预期，这批红是意外，混进阻塞 job 会让一次意外的红看起来像
+  # `e2e-full` 自己坏了。
+  #
+  # webServer 编排完全复用 `playwright.chat-read.config.ts`，`--project=chat-path-coverage`
+  # 只切换 testMatch，不新起任何进程。跑绿两次之后按矩阵文档「首跑与搬家」把 spec 挪进
+  # `chat-read` 车道，并删掉本 job 与它的 dispatch 开关。
+  chat-path-coverage:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute chat path coverage lane (own isolation scope)
+        run: pnpm run verify:chat-path-coverage
+      - name: Upload chat-path-coverage evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-chat-path-coverage-evidence-${{ github.run_id }}
+          path: |
+            apps/web/test-results/
+            apps/web/e2e/__evidence__/chat-path-coverage/
+          if-no-files-found: warn
+
   chat-task-workbench:
     if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
     runs-on: ubuntu-latest

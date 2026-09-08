@@ -43,6 +43,7 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
+import { buildDeepAgentSkillCatalogBlock } from "../src/application/agent-run/skill-catalog";
 
 const port = Number(process.env.LOOPBACK_DEEP_AGENT_PROVIDER_PORT ?? "");
 if (!Number.isInteger(port) || port <= 0) {
@@ -172,6 +173,43 @@ const conversationLog = new Map<string, string[]>();
  */
 const SKILL_SENTINEL = process.env.LOOPBACK_DEEP_AGENT_SKILL_SENTINEL || null;
 const SKILL_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX || null;
+/**
+ * 路径矩阵 D4（skill 三态区分）—— **默认关闭**的第三个 skill 开关：
+ * 「这个 skill 在 system prompt 的**目录**里被看见」这一态。
+ *
+ * 与上面 `SKILL_SENTINEL`（正文经 `config.configurable.org_skills` 到达）是**两个不同
+ * 的信号**，#2534 之后在协议上就是两条独立通道：目录只有 `stable_name + 一行摘要`，
+ * 全文只在 `org_skills` 里。此前只有后者被任何测试观察过——一个把目录条目当成"正文
+ * 到了"的实现会全绿，而那正是这条路径要挡的混淆。
+ *
+ * 目录块的**头一行**从产品源码取（`buildDeepAgentSkillCatalogBlock`），不在这里抄第二份
+ * 字面量：抄一份就等于给"目录格式变了但替身没跟着变"留一条静默假绿的路（同本文件
+ * `APPROVAL_TOOL_NAME` 从契约取、不吃环境变量覆盖的既有教训）。
+ */
+const SKILL_CATALOG_STABLE_NAME = process.env.LOOPBACK_DEEP_AGENT_SKILL_CATALOG_STABLE_NAME || null;
+const SKILL_CATALOG_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_SKILL_CATALOG_ECHO_PREFIX || null;
+const SKILL_CATALOG_HEADER_LINE = buildDeepAgentSkillCatalogBlock([]).split("\n")[0] ?? "";
+
+/**
+ * 路径矩阵 F7（上游断流）—— 命中这个触发词时，`/stream` 先正常发几片正文，然后
+ * **直接销毁 socket**（不发 EOF、不把 `statusPolls` 推到终态），随后的状态轮询一律
+ * 答 `error`。
+ *
+ * 与 `FAILURE_TRIGGER` 不是同一条路径：那条是"上游规规矩矩地报了一个失败终态"，
+ * 走的是 `pollToTerminal` 读到 `error`；这条是"流在半路断了"，走的是
+ * `deep-agent-model-provider.ts` 的 `tryStreamRun` catch 分支（注释原话「流中途断：
+ * run 还在服务端跑，调用方落回轮询」）再由轮询读出真实终态。两条分支在产品代码里
+ * 是两段不同的代码，一条绿不能替另一条作证。
+ */
+const STREAM_ABORT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER;
+
+/** system prompt 的 skill **目录**里真的出现了这个 stable_name 吗。开关未给全时恒 `false`。 */
+function skillCatalogReachedUpstream(body: CreateRunBody): boolean {
+  if (SKILL_CATALOG_STABLE_NAME === null || SKILL_CATALOG_ECHO_PREFIX === null) return false;
+  const system = (body.input?.messages ?? []).find((m) => m.role === "system")?.content;
+  if (typeof system !== "string") return false;
+  return system.includes(SKILL_CATALOG_HEADER_LINE) && system.includes(`- ${SKILL_CATALOG_STABLE_NAME}:`);
+}
 
 /**
  * #2534 更新：哨兵改在 `config.configurable.org_skills[].content` 里看，**不再看
@@ -190,7 +228,9 @@ function mountedSkillReachedUpstream(body: CreateRunBody): boolean {
 /** 见 `mountedSkillReachedUpstream`——`/stream` 与 `/state` 两个端点共用同一份拼接，
  *  不各自维护第二份（DA-19g「两个端点漂移」的真根因教训）。 */
 function skillEcho(record: RunRecord): string {
-  return record.skillSentinelSeen ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} ` : "";
+  const catalog = record.skillCatalogSeen ? `${SKILL_CATALOG_ECHO_PREFIX}${SKILL_CATALOG_STABLE_NAME} ` : "";
+  const body = record.skillSentinelSeen ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} ` : "";
+  return `${catalog}${body}`;
 }
 const MARKDOWN_REPLY = [
   "## 分析结果",
@@ -240,6 +280,9 @@ interface RunRecord {
   /** issue #2020 / #2534：这一轮的 `org_skills` 里真的出现了 skill 哨兵——
    *  见 `mountedSkillReachedUpstream`。开关未给全时恒 `false`。 */
   skillSentinelSeen?: boolean;
+  /** 路径矩阵 D4：这一轮的 system prompt **目录**里真的出现了那个 stable_name——
+   *  见 `skillCatalogReachedUpstream`。与上一行是两个独立信号，不许互相替代。 */
+  skillCatalogSeen?: boolean;
 }
 
 function approvalReply(record: RunRecord): string {
@@ -447,6 +490,8 @@ const server = createServer((req, res) => {
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
         // 轮次 system 里没有哨兵、挂载后的轮次才有，前后对照正是 e2e 的判据。
         skillSentinelSeen: mountedSkillReachedUpstream(parsed),
+        // 路径矩阵 D4：同一条纪律——只看这一轮请求真实收到的字节，不缓存跨轮。
+        skillCatalogSeen: skillCatalogReachedUpstream(parsed),
       });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
@@ -491,7 +536,8 @@ const server = createServer((req, res) => {
     // （那条直接 `failRun`，从不 resume）——F06 的 `deny`（`decideToolPermission`）会把
     // run 收回 `queued` 再 resume，真的会走到这里，见下方 state 分支的处理。
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
-    const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
+    const isAbort = STREAM_ABORT_TRIGGER !== undefined && record.userText === STREAM_ABORT_TRIGGER;
+    const status = (FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER) || isAbort ? "error" : "success";
     sendJson(res, 200, { status });
     return;
   }
@@ -525,8 +571,23 @@ const server = createServer((req, res) => {
         ?? `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
     const pieces: string[] = [];
     for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
+    /*
+     * 路径矩阵 F7 —— 断流点。发满这么多片之后直接销毁 socket：不 `res.end()`（那是
+     * 正常 EOF），也**不**把 `statusPolls` 推到终态（那是"流正常读完"才有的语义）。
+     * 取 2 片而不是 0 片：0 片等于"流根本没打开"，走的是 `tryStreamRun` 里另一条
+     * 分支（HTTP 非 2xx / 连不上）；这条路径要证的是"已经发过正文、看起来在跑，然后
+     * 半路断了"——它与"一开始就连不上"在 UI 上的表现本来就该不同。
+     */
+    const abortAfterPieces = STREAM_ABORT_TRIGGER !== undefined && record.userText === STREAM_ABORT_TRIGGER
+      ? Math.min(2, pieces.length)
+      : null;
     let idx = 0;
     const timer = setInterval(() => {
+      if (abortAfterPieces !== null && idx >= abortAfterPieces) {
+        clearInterval(timer);
+        res.destroy();
+        return;
+      }
       if (idx >= pieces.length) {
         clearInterval(timer);
         // LangGraph's join stream closes only after the remote run has settled. Mirror that

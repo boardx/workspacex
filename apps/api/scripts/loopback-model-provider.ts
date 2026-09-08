@@ -190,14 +190,37 @@ const TOOL_TRACE_ECHO_PREFIX = process.env.LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX
  * 弱得多，随便一条空壳伪消息也能让它恒真。
  */
 const TOOL_TRACE_SENTINEL = process.env.LOOPBACK_MODEL_TOOL_TRACE_SENTINEL ?? null;
+/**
+ * 路径矩阵 A3（长会话压缩）—— **默认关闭**的第三个 L2 开关：期望在 L2 摘要伪消息的
+ * **正文**里看到的那个早期事实代号（种子脚本埋进这条线程最早一条消息里的那个）。
+ *
+ * 与上面 `L2_SUMMARY_ECHO_PREFIX` 是**两件不同的事**，不是它的更严格版本的替代：
+ * 那一条只问「摘要伪消息这个结构在不在」，一个把历史压成空话的摘要器照样让它绿；
+ * 这一条问「被挤出 L1 的那个具体事实有没有活着穿过压缩层」。同 `TOOL_TRACE_SENTINEL`
+ * 的既有纪律（只回显"确实看到了这个具体代号"，不是"看到了某条随便什么样子的伪消息"）。
+ */
+const L2_FACT_SENTINEL = process.env.LOOPBACK_MODEL_L2_FACT_SENTINEL ?? null;
+const L2_FACT_ECHO_PREFIX = process.env.LOOPBACK_MODEL_L2_FACT_ECHO_PREFIX ?? null;
 
-function l2SummaryReachedModel(messages: CompletionRequest["messages"]): boolean {
-  if (L2_SUMMARY_ECHO_PREFIX === null) return false;
-  return (messages ?? []).some((message) => (
+function l2SummaryMessage(messages: CompletionRequest["messages"]): string | null {
+  const hit = (messages ?? []).find((message) => (
     message.role === "assistant"
     && typeof message.content === "string"
     && message.content.startsWith(L2_SUMMARY_MESSAGE_HEADER_PREFIX)
   ));
+  return typeof hit?.content === "string" ? hit.content : null;
+}
+
+function l2SummaryReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (L2_SUMMARY_ECHO_PREFIX === null) return false;
+  return l2SummaryMessage(messages) !== null;
+}
+
+/** 摘要伪消息的正文里真的带着那个早期事实代号吗。开关未给全时恒 `false`（短路）。 */
+function l2FactSurvivedCompaction(messages: CompletionRequest["messages"]): boolean {
+  if (L2_FACT_SENTINEL === null || L2_FACT_ECHO_PREFIX === null) return false;
+  const summary = l2SummaryMessage(messages);
+  return summary !== null && summary.includes(L2_FACT_SENTINEL);
 }
 
 function toolTraceReachedModel(messages: CompletionRequest["messages"]): boolean {
@@ -321,6 +344,13 @@ const CANVAS_TEMPLATE_KEY = process.env.LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY || nu
 const CANVAS_HEADER_FIELD_NAME = process.env.LOOPBACK_MODEL_CANVAS_HEADER_FIELD_NAME || null;
 const CANVAS_SECTION_NAME = process.env.LOOPBACK_MODEL_CANVAS_SECTION_NAME || null;
 const CANVAS_GUIDANCE_SENTINEL = process.env.LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL || null;
+/**
+ * 路径矩阵 C4（一次生成两个画布）—— 第二个哨兵，**只加不换**：命中画布分支的条件仍是
+ * `canvasGuidanceReachedModel`（system prompt 两个信号 + `CANVAS_GUIDANCE_SENTINEL`），
+ * 这个哨兵只多说一句「这一轮回两个围栏，不是一个」。默认关闭：未设置时下面那个判断
+ * 恒 false，画布回复逐字节等同改动前。
+ */
+const CANVAS_DUAL_SENTINEL = process.env.LOOPBACK_MODEL_CANVAS_DUAL_SENTINEL || null;
 
 function canvasGuidanceReachedModel(messages: CompletionRequest["messages"], userText: string): boolean {
   if (CANVAS_TEMPLATE_KEY === null || CANVAS_GUIDANCE_SENTINEL === null) return false;
@@ -346,8 +376,7 @@ function canvasGuidanceReachedModel(messages: CompletionRequest["messages"], use
  *   `extractMermaidBlocks` 只认**行首**的围栏分隔符——见 `template-simulate-dialog.tsx`
  *   同名坑的头注。这条分支直接替换 `fullText`，不参与 `REPLY_PREFIX` 拼接，天然满足。
  */
-function canvasGuidanceReply(userText: string): string {
-  const value = userText.replace(/[`\n]/g, "").trim().slice(0, 80) || "loopback canvas";
+function canvasFence(value: string): readonly string[] {
   return [
     "```canvas",
     `模板: ${CANVAS_TEMPLATE_KEY}`,
@@ -355,7 +384,20 @@ function canvasGuidanceReply(userText: string): string {
     `## ${CANVAS_SECTION_NAME}`,
     `- ${value}`,
     "```",
-  ].join("\n");
+  ];
+}
+
+function canvasGuidanceReply(userText: string): string {
+  const value = userText.replace(/[`\n]/g, "").trim().slice(0, 80) || "loopback canvas";
+  /*
+   * 路径矩阵 C4 —— 两个围栏的表头字段值必须**互不相同**，否则「两个都渲染出来了」与
+   * 「同一个被挂载了两遍」在断言侧无法区分，而后者正是这条路径要防的失效形态
+   * （连续/并列产物互相覆盖、重复挂载）。后缀取一/二，不是随机值：断言方要引用它。
+   */
+  if (CANVAS_DUAL_SENTINEL !== null && userText.includes(CANVAS_DUAL_SENTINEL)) {
+    return [...canvasFence(`${value} 之一`), "", ...canvasFence(`${value} 之二`)].join("\n");
+  }
+  return canvasFence(value).join("\n");
 }
 
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
@@ -462,11 +504,13 @@ const server = createServer((req, res) => {
     // context-engine 浏览器 e2e —— 两个开关都未设置时恒为 ""（短路），拼出来的字符串
     // 与改动前逐字节相同（同 `retrievalEcho`/`skillEcho` 既有纪律）。
     const l2Echo = l2SummaryReachedModel(parsed.messages) ? `${L2_SUMMARY_ECHO_PREFIX} ` : "";
+    // 路径矩阵 A3 —— 开关未给全时恒 ""（短路），拼出来的字符串与改动前逐字节相同。
+    const l2FactEcho = l2FactSurvivedCompaction(parsed.messages) ? `${L2_FACT_ECHO_PREFIX}${L2_FACT_SENTINEL} ` : "";
     const toolTraceEcho = toolTraceReachedModel(parsed.messages) ? `${TOOL_TRACE_ECHO_PREFIX} ` : "";
     // F962：试跑协议要求恰好一个 ```run_script 围栏，与下面「回显原文」的通用分支
     // 互斥——见 `isTrialRunRequest` 头注。命中时其余回显前缀/开关全部让路，因为
     // `extractScript` 只认围栏内容，混进去的前缀文字只会污染脚本语法。
-    const chatEcho = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
+    const chatEcho = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${l2FactEcho}${toolTraceEcho}${echoed}`;
     // #2514：agent 默认加载组织全部已启用 skill 之后，任何一个有已启用 skill 的组织、
     // 任何一次接了沙箱的 chat run 都带着 `RUN_SCRIPT_PROTOCOL_PROMPT`——这条分支不再
     // 只在"试跑"场景命中，core-loop 8b / fullstack-smoke 那种普通聊天也会走进来。
