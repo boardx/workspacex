@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { expect, it } from "vitest";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
+import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 import { buildDeepAgentSkillCatalogBlock } from "../../src/application/agent-run/skill-catalog";
 
 /** Exercise the actual fixture handler without creating a listener, process or Docker. */
@@ -25,6 +26,9 @@ function fixture(extraEnv: Record<string, string> = {}) {
       // 字面量（同上面 `DEEP_AGENT_HITL_TOOL_NAME` 那条既有理由：允许分叉就等于允许静默
       // 假绿）。这个 shim 是白名单，新增依赖必须显式列进来——本条正是那个显式动作。
       if (name === "../src/application/agent-run/skill-catalog") return {buildDeepAgentSkillCatalogBlock};
+      // issue #3132（B7）：替身要演计划确认门，工具名同样从契约取，不在替身里抄第二份
+      // 字面量——与上面两条同一条理由。这一行就是白名单要求的那个显式动作。
+      if (name === "@repo/contracts/plan-control") return {PLAN_CONFIRMATION_TOOL_NAME};
       throw new Error(`unexpected fixture dependency: ${name}`);
     },
   });
