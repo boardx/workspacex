@@ -40,14 +40,15 @@ test("@path:C5 连续三轮各产一个画布：逐轮累加、互不覆盖、�
   const fabrics = page.locator('[data-testid="chat-canvas-fabric"]');
   for (let turn = 1; turn <= TURNS; turn += 1) {
     /*
-     * 等的串是「```canvas」而不是 `SERIAL-${turn}`。四跑实测（run 34190269467）：
-     * 后者**通用回显分支也满足**（回显里就带着用户原文）⇒ 这一步在没产出任何围栏时
-     * 照样通过，红被推迟到下面那条数量断言上，`sendInV2AndAwaitStoredReply` 的诊断
-     * （摘出真实落库回复）因此一次都没打印出来。等待条件必须是**只有被测分支才满足**
-     * 的那个串，否则诊断永远轮不到说话。
-     * 轮次标记仍然逐轮核对，在下面那段权威读里——它不是被删掉，是挪到了该断言的地方。
+     * 判据要同时具备两个性质，缺一个这一步都会**提前返回**，把红推到后面去：
+     *   · 只有被测分支才满足 —— 四跑（run 34190269467）判据写 `SERIAL-${turn}` 时，
+     *     通用回显分支也满足（回显带着用户原文），没产出围栏照样通过；
+     *   · 只有**本轮**才满足 —— 五跑（run 34197984548）改成 "```canvas" 后，第 2、3 轮
+     *     的等待被**第 1 轮**那条回复满足，于是「第 3 轮回复没到」与「第 3 轮回复到了
+     *     但画布没挂」在那条数量红里仍然分不开。
+     * 两个性质合起来才是本轮的身份：本轮的轮次标记 ∧ 画布围栏。
      */
-    await sendInV2AndAwaitStoredReply(page, threadId, proofFor(turn), "```canvas");
+    await sendInV2AndAwaitStoredReply(page, threadId, proofFor(turn), ["```canvas", `SERIAL-${turn}`]);
 
     // 线程里累计恰好 N 个：少了 = 前面的被覆盖/卸载；多了 = 重复挂载。
     await expect(
