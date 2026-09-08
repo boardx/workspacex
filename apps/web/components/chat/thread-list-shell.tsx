@@ -49,14 +49,13 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
  */
 export function SidebarBrandHeader(): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-2 px-3 pt-3" data-testid="chat-sidebar-brand-header">
-      {/* issue #2703——`h-4`(16px) 配上源图当时不对称的透明留白（见
-          `workspacex-logo.tsx` 头注新增记录），有效字形只剩约 13px 且视觉重心偏下，
-          人类直接反馈"logo 太小、对不齐"。源图已裁成对称留白（`workspace-logo` 相关
-          脚本记录见 git 历史），这里配合把渲染高度提到 `h-5`(20px)，让 wordmark 与
-          旁边 `⌘K` 徽标的视觉分量相称，不再是行内最不起眼的元素。 */}
-      <WorkspaceXWordmark className="h-5 w-auto" />
-      <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
+    <div className="relative flex items-center justify-center px-3 pt-3" data-testid="chat-sidebar-brand-header">
+      {/* 2026-09-08 人类直接指令：「workspacex 的图标应该居中，放大一点」——logo 独占一行居中，
+          渲染高度从 `h-5` 提到 `h-8`；`⌘K` 徽标绝对定位靠右，不再和 logo 抢同一根 flex 轴
+          （否则 justify-between 会把 logo 挤到左边）。它现在是真快捷键，见
+          `copilotkit-v2-shell.tsx` 的 keydown 监听。 */}
+      <WorkspaceXWordmark className="h-8 w-auto" />
+      <kbd className="absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground" title="⌘K / Ctrl+K 搜索对话">⌘K</kbd>
     </div>
   );
 }

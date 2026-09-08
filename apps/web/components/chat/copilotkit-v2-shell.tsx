@@ -971,6 +971,22 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
 
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
+  /** 2026-09-08 人类反馈「CMD+K 不工作」——⌘K / Ctrl+K 此前只是侧栏里的视觉徽标。
+   *  现在是真快捷键：聚焦对话搜索框（并在移动端把列表拉出来）。 */
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setMobileListOpen(true);
+        const input = searchRef.current;
+        input?.focus();
+        input?.select();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row">
@@ -999,12 +1015,9 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
             仍用 `ThreadListHeader`，不跟着这里改——那是另一个决定，本次没有被
             要求覆盖它们。 */}
         <SidebarBrandHeader />
-        {session && <TaskNotifications
-          sessionToken={bearer ?? undefined}
-          scopeKey={`${session.currentOrgId}:${session.userId}:${projectId ?? "personal"}`}
-          cards={threads ? threads.groups.flatMap((group) => group.cards) : null}
-          activeThreadId={selectedThreadId} onOpenThread={selectThread} onRefresh={reloadThreads}
-        />}
+        {/* 2026-09-08 人类直接指令：任务提醒改成全局通知中心（服务端 `/notifications`），
+            不再靠本地对比对话列表快照——所以这里不再喂 cards / activeThreadId。 */}
+        {session && <TaskNotifications sessionToken={bearer ?? undefined} onOpenThread={selectThread} onRefresh={reloadThreads} />}
         <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
@@ -1018,6 +1031,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
               理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
           <Input
+            ref={searchRef}
             type="search"
             data-testid="chat-task-workbench-thread-search"
             aria-label="搜索对话"

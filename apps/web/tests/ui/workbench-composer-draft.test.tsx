@@ -2,11 +2,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
 import { useRunningReply } from "@/lib/chat-workbench/use-running-reply";
-import { useTaskNotifications } from "@/lib/chat-workbench/use-task-notifications";
-import type { NotificationThread } from "@/lib/chat-workbench/task-notifications";
+import { useNotificationCenter } from "@/lib/notifications/use-notification-center";
 import type { AbstractAgent } from "@ag-ui/client";
-const { interject } = vi.hoisted(() => ({ interject: vi.fn() }));
+const { interject, apiRequest } = vi.hoisted(() => ({ interject: vi.fn(), apiRequest: vi.fn() }));
 vi.mock("@/lib/agent-kernel-interject", async (original) => ({ ...await original<typeof import("@/lib/agent-kernel-interject")>(), interjectAgentRun: interject }));
+vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), apiRequest }));
 const scope = { orgId: "org", userId: "user", projectId: "project", threadId: "a" as string | null };
 beforeEach(() => { sessionStorage.clear(); interject.mockReset(); });
 it("restores A after B and isolates user/org/project drafts, including remount", () => {
@@ -72,25 +72,25 @@ it("does not let an old task's late ACK erase a remounted draft", async () => {
 });
 
 it("keeps three running task drafts while background outcomes update without navigation", async () => {
-  localStorage.clear();
-  const cards: NotificationThread[] = ["a", "b", "c"].map(id => ({ id, title: id, status: "running", lastActivityAt: "start" }));
-  const hook = renderHook(({ active, cards }) => ({
+  const notice = (id: string, title: string) => ({ id: `00000000-0000-4000-8000-00000000000${id}`, kind: "task", title, body: "", threadId: id, createdAt: "2026-09-08T00:00:00.000Z", readAt: null });
+  apiRequest.mockResolvedValue({ notifications: [], unreadCount: 0 });
+  const hook = renderHook(({ active }) => ({
     draft: useComposerDraft({ ...scope, threadId: active }),
-    alerts: useTaskNotifications("s9-three-tasks", cards, active),
-  }), { initialProps: { active: "a", cards } });
+    alerts: useNotificationCenter("token", { pollMs: 50 }),
+  }), { initialProps: { active: "a" } });
   for (const active of ["a", "b", "c"]) {
-    hook.rerender({ active, cards });
+    hook.rerender({ active });
     act(() => hook.result.current.draft.setText(`draft ${active}`));
   }
   const beforeUrl = window.location.href;
   const focus = document.createElement("input"); document.body.append(focus); focus.focus();
-  const settled: NotificationThread[] = cards.map((card, i) => ({ ...card, status: (["done", "failed", "awaiting-approval"] as const)[i]!, lastActivityAt: "finished" }));
-  hook.rerender({ active: "c", cards: settled });
-  await waitFor(() => expect(hook.result.current.alerts.notices.map(n => [n.threadId, n.status])).toEqual([["a", "done"], ["b", "failed"]]));
+  apiRequest.mockResolvedValue({ notifications: [notice("1", "a · 已完成"), notice("2", "b · 执行失败")], unreadCount: 2 });
+  hook.rerender({ active: "c" });
+  await waitFor(() => expect(hook.result.current.alerts.items.map(n => n.title)).toEqual(["a · 已完成", "b · 执行失败"]));
   expect(hook.result.current.draft.text).toBe("draft c");
   expect(window.location.href).toBe(beforeUrl); expect(document.activeElement).toBe(focus);
   for (const active of ["a", "b", "c"]) {
-    hook.rerender({ active, cards: settled });
+    hook.rerender({ active });
     expect(hook.result.current.draft.text).toBe(`draft ${active}`);
   }
   focus.remove();

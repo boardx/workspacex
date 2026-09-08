@@ -34,6 +34,19 @@ describe("server queue transport", () => {
     expect(result.current.items).toEqual([]);
     expect(result.current.error).toBeNull();
   });
+  it("edits a pending item in place and surfaces a conflict without dropping the queue", async () => {
+    request.mockResolvedValue({ items: [item] });
+    const { result } = renderHook(() => useThreadMessageQueue("thread", "agent", "token"));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    request.mockResolvedValue({ ...item, text: "edited" });
+    await act(async () => { expect(await result.current.edit(id, "edited")).toBe(true); });
+    expect(request).toHaveBeenLastCalledWith(`/chat/threads/thread/queued-messages/${id}`, expect.objectContaining({ method: "PATCH", body: { text: "edited" } }));
+    expect(result.current.items[0]?.text).toBe("edited");
+    request.mockRejectedValue(new Error("queue_item_conflict"));
+    await act(async () => { expect(await result.current.edit(id, "too late")).toBe(false); });
+    expect(result.current.items[0]?.text).toBe("edited");
+    expect(result.current.error).toBe("queue_item_conflict");
+  });
   it("clears an old read error after the authoritative poll recovers", async () => {
     vi.useFakeTimers();
     request.mockRejectedValue(new Error("offline"));
