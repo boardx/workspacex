@@ -47,3 +47,7 @@ API 进程自带一个 **debug recorder**：每个 HTTP 请求的结果与耗时
 与 `error_logs`（`GET /system/error-logs`）的分工：那边只有「炸了」那一刻；这边是炸之前、炸周围、以及**根本
 没炸只是不返回**的那些。设计与权限边界见 `apps/api/src/application/ports/debug-trace.port.ts` 头注与迁移
 `20260910040000_debug_events.sql`。
+
+**要改这块之前先读交付记录** → `.harness/state/issue-3082-debug-recorder-delivery.md`：关键设计决定的
+理由、验证怎么复现、以及往 `apps/api` 加「表 + 契约 + 端口」时会撞到的三道机械门（本节只讲怎么用，
+不复述那边的内容）。
