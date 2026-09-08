@@ -164,7 +164,16 @@ function createDatabaseIfMissing(): void {
  * a tenant-scoped cleanup would leave rows behind -- and a row left over from a previous
  * test is how a cross-tenant assertion accidentally passes.
  */
-export async function resetOrgs(...orgIds: string[]): Promise<void> {
+/*
+ * Two shapes on purpose (#2990): the variadic one requires at least one org, so a bare
+ * `resetOrgs()` -- which used to be a silent no-op that read like "clean the slate" -- is
+ * now a compile error. Callers that accumulate ids at runtime pass the array instead, and
+ * an empty array there is a legitimate "nothing was seeded" no-op.
+ */
+export async function resetOrgs(first: string, ...rest: string[]): Promise<void>;
+export async function resetOrgs(orgIds: readonly string[]): Promise<void>;
+export async function resetOrgs(first: string | readonly string[], ...rest: string[]): Promise<void> {
+  const orgIds = Array.isArray(first) ? [...(first as readonly string[])] : [first as string, ...rest];
   if (orgIds.length === 0) return;
   const c = new pg.Client(migrationConfig());
   await c.connect();

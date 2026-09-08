@@ -39,5 +39,5 @@ it('exposes the published standard package through the actual Skills API to ordi
       expect(result.items[0]).toMatchObject({name:'组织知识问答',status:'已启用'});expect(result.items[0]!.currentVersionId).toBeTruthy();ids.push(result.items[0]!.skillId);
     }
     expect(ids[0]).toBe(ids[1]);
-  }finally{await app.close();for(const [k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await resetOrgs(...orgs);}
+  }finally{await app.close();for(const [k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await resetOrgs(orgs);}
 },120000);

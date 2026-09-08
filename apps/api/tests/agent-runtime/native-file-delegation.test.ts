@@ -56,7 +56,7 @@ async function seed(scope: typeof org, id: string) {
 
 const scopes:string[]=[];
 beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());});
-afterAll(async()=>{await db?.close();await resetOrgs(...scopes);});
+afterAll(async()=>{await db?.close();await resetOrgs(scopes);});
 async function verifyDelegatedInputs(includeRuntime:boolean){
  const org=toOrgId('file-proof-'+randomUUID()),parent='run-'+randomUUID();scopes.push(org);await seed(org,parent);
  await asApp(org,c=>c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '10 minutes' WHERE id=$1",[parent]));
