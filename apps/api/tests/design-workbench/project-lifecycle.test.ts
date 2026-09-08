@@ -120,6 +120,103 @@ describe("listMyProjects", () => {
     expect(mine.map((p) => p.id)).toEqual(["dp-mine"]);
   });
 
+  /**
+   * 迭代 13（delta §4）—— V65。排序在**仓储**那一层，`listMyProjects` 只过滤不排序。
+   * 断言写在这里是因为它是用户能看见的行为；实现位置由下面那条「不二次排序」钉住。
+   */
+  it("V65 按 updatedAt 倒序：最近改过的排最前", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-old", ownerId: "u-1", updatedAt: "2026-09-01T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-new", ownerId: "u-1", updatedAt: "2026-09-08T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-mid", ownerId: "u-1", updatedAt: "2026-09-05T00:00:00.000Z" }));
+
+    const out = await listMyProjects(deps(repo), { ownerId: "u-1" });
+    // ⭐ 反证：改成 createdAt 倒序 ⇒ 这条红（三行的 createdAt 都是夹具默认值，同一个时刻）。
+    expect(out.map((p) => p.id)).toEqual(["dp-new", "dp-mid", "dp-old"]);
+  });
+
+  it("V65 用例层**不**二次排序：仓储给什么顺序就是什么顺序", async () => {
+    const repo = new FakeDesignProjectRepo();
+    // ⚠ 这两行的 id 与 updatedAt 是**反向**排的（a 最新、b 最旧），所以期望顺序
+    //   `[dp-b, dp-a]` 既不是 id 升序、也不是 updatedAt 倒序——用例层无论按哪个字段
+    //   补一次 sort，都会把它改掉。第一版这里用的是 id 与时间同向的数据，
+    //   于是"加一句 sort"这个变异**没能让它转红**（实测），它是为错误理由通过的。
+    repo.seed(designProjectRow({ id: "dp-a", ownerId: "u-1", updatedAt: "2026-09-08T00:00:00.000Z" }));
+    repo.seed(designProjectRow({ id: "dp-b", ownerId: "u-1", updatedAt: "2026-09-01T00:00:00.000Z" }));
+    // 仓储被换成一个**故意乱序**的实现：如果用例层自己排了序，下面这条就会被"修正"。
+    const scrambled = { ...repo, listForOrg: async () => [...(await repo.listForOrg())].reverse() };
+    const out = await listMyProjects(deps(scrambled as unknown as FakeDesignProjectRepo), { ownerId: "u-1" });
+    // ⭐ 反证：在 `listMyProjects` 里加一句 sort（按 id 或按 updatedAt 都算）⇒ 这条红。
+    //   顺序只该由 SQL 的 ORDER BY 决定，否则将来一分页，页内重排会让整体顺序看起来是随机的。
+    expect(out.map((p) => p.id)).toEqual(["dp-b", "dp-a"]);
+  });
+
+  describe("V66 标签：过滤取交集，集合从现有项目派生", () => {
+    const seeded = () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-both", ownerId: "u-1", tags: ["后台", "移动端"] }));
+      repo.seed(designProjectRow({ id: "dp-one", ownerId: "u-1", tags: ["后台"] }));
+      repo.seed(designProjectRow({ id: "dp-none", ownerId: "u-1", tags: [] }));
+      return repo;
+    };
+
+    it("选两个标签 ⇒ 只返回**同时**有这两个的项目（不是并集）", async () => {
+      const out = await listMyProjects(deps(seeded()), { ownerId: "u-1", tags: ["后台", "移动端"] });
+      // ⭐ 反证：过滤实现成 `some`（并集）⇒ dp-one 会混进来，这条红。
+      expect(out.map((p) => p.id)).toEqual(["dp-both"]);
+    });
+
+    it("选一个标签 ⇒ 带这个标签的都返回；不选 ⇒ 全返回", async () => {
+      const repo = seeded();
+      expect((await listMyProjects(deps(repo), { ownerId: "u-1", tags: ["后台"] })).map((p) => p.id).sort())
+        .toEqual(["dp-both", "dp-one"]);
+      expect(await listMyProjects(deps(repo), { ownerId: "u-1", tags: [] })).toHaveLength(3);
+    });
+
+    it("标签与 `q` 一起用是**并且**，不是二选一", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "登录改版", tags: ["后台"] }));
+      repo.seed(designProjectRow({ id: "dp-2", ownerId: "u-1", name: "结算流程", tags: ["后台"] }));
+      const out = await listMyProjects(deps(repo), { ownerId: "u-1", q: "登录", tags: ["后台"] });
+      expect(out.map((p) => p.id)).toEqual(["dp-1"]);
+    });
+
+    it("新建带标签：去空白、丢空串、去重", async () => {
+      const repo = new FakeDesignProjectRepo();
+      const out = await createProject(
+        { ...deps(repo), newProjectId: () => "dp-1" },
+        { ownerId: "u-1", name: "带标签", template: "ui", tags: ["  后台 ", "后台", "", "   ", "移动端"] },
+      );
+      expect(out.project.tags).toEqual(["后台", "移动端"]);
+    });
+
+    it("改标签是**整份替换**，不是往上加", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", tags: ["旧一", "旧二"] }));
+      const out = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tags: ["新的"] });
+      // ⭐ 反证：实现成并集/追加 ⇒ 这条红（那样就永远删不掉一个标签）。
+      expect(out.project.tags).toEqual(["新的"]);
+      const cleared = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", tags: [] });
+      expect(cleared.project.tags).toEqual([]);
+    });
+
+    it("不给 tags ⇒ 原样保留（PATCH 语义，不是清空）", async () => {
+      const repo = new FakeDesignProjectRepo();
+      repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", tags: ["保留我"] }));
+      const out = await updateProject(deps(repo), { projectId: "dp-1", ownerId: "u-1", name: "改个名" });
+      expect(out.project.tags).toEqual(["保留我"]);
+    });
+
+    it("上限与长度由契约的同一份 schema 判，不是应用层第二套阈值", () => {
+      const ok = Array.from({ length: C.DESIGN_PROJECT_MAX_TAGS }, (_, i) => `t${i}`);
+      expect(C.DesignProjectTags.safeParse(ok).success).toBe(true);
+      expect(C.DesignProjectTags.safeParse([...ok, "多一个"]).success).toBe(false);
+      expect(C.DesignProjectTags.safeParse(["x".repeat(C.DESIGN_PROJECT_TAG_MAX_CHARS + 1)]).success).toBe(false);
+      // ⭐ 反证：在用例层另写一个 `if (tags.length > 8)` ⇒ 阈值就有两处，改一处不改另一处
+      //   的表现是"契约说能存 10 个、界面说只能 8 个"。这条断言指的是契约那一份。
+    });
+  });
+
   it("`q` 按名称过滤（大小写不敏感）", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", name: "Login Redesign" }));

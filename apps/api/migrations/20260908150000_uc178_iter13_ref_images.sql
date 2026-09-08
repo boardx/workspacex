@@ -61,3 +61,22 @@ CREATE POLICY design_project_ref_images_org_isolation ON design_project_ref_imag
 ALTER TABLE design_projects
   ADD COLUMN IF NOT EXISTS theme text NOT NULL DEFAULT 'dark'
   CHECK (theme IN ('light', 'dark'));
+
+/*
+ * 迭代 13（delta §4）—— 项目标签。
+ *
+ * ## 为什么是一列 jsonb 而不是一张 design_project_tags 表
+ *
+ * 标签是**项目的属性**，不是独立实体：没有名字以外的字段、没有自己的生命周期、
+ * 「有哪些标签」应当从现有项目派生（V66 逐字要求）。独立的表会留下没有任何项目引用的
+ * 孤儿标签，然后长出「清理孤儿标签」这件本来不存在的事。
+ *
+ * 上限（8 个、单个 20 字）不在这里写 CHECK：那要写一段 jsonb 遍历的表达式，比应用层
+ * 一行 zod 更容易出错，而它挡的是同一件事。契约的 `DesignProjectTags` 是权威。
+ */
+ALTER TABLE design_projects
+  ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- 按标签过滤是「包含这几个」的查询；GIN 是 jsonb 包含判定的索引类型。
+CREATE INDEX IF NOT EXISTS design_projects_tags_idx
+  ON design_projects USING gin (tags jsonb_path_ops);

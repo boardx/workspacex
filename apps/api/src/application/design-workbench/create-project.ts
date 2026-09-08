@@ -24,6 +24,10 @@ export interface CreateProjectInput {
   readonly intake?: readonly designWorkbench.IntakeAnswer[];
   /** 「成功长什么样」那一维问了哪几句——只有它们的答案进 `criteria`。 */
   readonly successQuestions?: readonly string[];
+  /** 迭代 13（delta §4）：项目标签。 */
+  readonly tags?: readonly string[];
+  /** 迭代 13（delta §5.2）：新建时就能定原型主题；不给 ⇒ 库里的默认 `dark`。 */
+  readonly theme?: "light" | "dark";
 }
 
 export async function createProject(
@@ -47,8 +51,16 @@ export async function createProject(
     frames: designWorkbench.DESIGN_PROJECT_INITIAL_FRAMES,
     prototype: [],
     frameNotes: [],
+    // 规范化与 `updateProject` 同一套：去空白、丢空串、去重（见那边的注释）。
+    tags: [...new Set((input.tags ?? []).map((t) => t.trim()).filter((t) => t !== ""))],
     linkedFeedbackId: input.linkedFeedbackId ?? null,
   });
+
+  // 主题不在 `create` 的入参里（库里有 DEFAULT）——新建时指定了非默认值才补一次 update，
+  // 而不是给 INSERT 多加一列只为一个几乎总是默认的字段。
+  if (input.theme !== undefined && input.theme !== "dark") {
+    await deps.projects.update(projectId, input.ownerId, { theme: input.theme });
+  }
 
   return { project: await loadProjectView(deps, projectId) };
 }

@@ -242,6 +242,20 @@ export type DesignProjectChatTurn = z.infer<typeof DesignProjectChatTurn>;
  * ⚠ B5.3：`prototype[i]` 是 `frames[i]` 那一页的组件树。不变量：长度为 0（还没生成，画布显示
  *   占位块）或恰等于 `frames.length`——由下方 `superRefine` 机械门控，任何一端违反都解析失败。
  */
+/**
+ * 迭代 13（delta §4）—— 项目标签。
+ *
+ * 上限 8 是**成本以外**的判断：卡片上放得下、过滤 chip 一行放得下；再多就不是"标签"
+ * 而是第二套目录结构了。单个 20 字同理——超过就是把标签当描述用。
+ *
+ * ⚠ 标签**不另建一张表**：它是项目的属性，"有哪些标签"从现有项目派生（V66）。
+ *   独立的标签表会留下没有任何项目引用的孤儿标签，然后长出"清理孤儿标签"这件事。
+ */
+export const DESIGN_PROJECT_MAX_TAGS = 8;
+export const DESIGN_PROJECT_TAG_MAX_CHARS = 20;
+export const DesignProjectTag = z.string().trim().min(1).max(DESIGN_PROJECT_TAG_MAX_CHARS);
+export const DesignProjectTags = z.array(DesignProjectTag).max(DESIGN_PROJECT_MAX_TAGS);
+
 export const DesignProject = z
   .object({
     id: z.string(),
@@ -263,6 +277,8 @@ export const DesignProject = z
      * 导出的 HTML / PDF 跟随**它**，不是导出时后台碰巧是什么色。
      */
     theme: z.enum(["light", "dark"]).default("dark"),
+    /** 迭代 13（delta §4）：项目标签，用于首页过滤。老行没有这一列 ⇒ 空数组。 */
+    tags: DesignProjectTags.default([]),
     /**
      * 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系，`frameLinks[i]` 属于
      * `frames[i]`。可省略（服务端接线前不发；UI 先行阶段由夹具提供）。存储形状见 delta §5。
@@ -450,6 +466,8 @@ export const operations = {
          * `intake` 只用来补 `criteria`——否则用户在预览里的修改会被重新汇总覆盖掉。
          */
         intake: z.array(IntakeAnswer).max(INTAKE_MAX_QUESTIONS).optional(),
+        /** 迭代 13（delta §4）：新建时就能打标签。 */
+        tags: DesignProjectTags.optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),
@@ -466,7 +484,13 @@ export const operations = {
   listMyProjects: {
     method: "GET",
     path: "/pm-designs",
-    in: z.object({ q: z.string().max(200).optional() }).strict(),
+    /**
+     * 迭代 13（delta §4）：`tags` 过滤取**交集**——选了「后台」和「移动端」是"两者都有"，
+     * 不是"有其一"。并集在标签数一多时等于没过滤。
+     * 排序恒为 `updatedAt` 倒序，**在服务端**（V65）：放前端排，将来一分页就乱。
+     * 它不是参数——"最近改过的排最前"是这个列表唯一有意义的顺序，给个选项只会让人纠结。
+     */
+    in: z.object({ q: z.string().max(200).optional(), tags: DesignProjectTags.optional() }).strict(),
     out: z.object({ items: z.array(DesignProject) }).strict(),
     err: ["DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -489,6 +513,12 @@ export const operations = {
         problem: z.string().max(4000).optional(),
         /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
         theme: z.enum(["light", "dark"]).optional(),
+        /**
+         * 迭代 13（delta §4）：标签是**整份替换**，不是增删两个动作。
+         * 一个 8 个上限的短列表，PATCH 一整份比 add/remove 两条路径少一半状态，
+         * 也没有"同时加又删"的顺序问题。
+         */
+        tags: DesignProjectTags.optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),

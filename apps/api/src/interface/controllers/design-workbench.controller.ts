@@ -219,6 +219,8 @@ export class DesignWorkbenchController {
           linkedFeedbackId: body.linkedFeedbackId,
           intake: body.intake,
           successQuestions: (body.intake ?? []).map((a) => a.question),
+          tags: body.tags,
+          theme: body.theme,
         },
       );
     } catch (e) {
@@ -227,9 +229,21 @@ export class DesignWorkbenchController {
   }
 
   @Get("/pm-designs")
-  async list(@CurrentPrincipal() principal: Principal, @Query("q") q: string | undefined) {
+  async list(
+    @CurrentPrincipal() principal: Principal,
+    @Query("q") q: string | undefined,
+    /**
+     * 迭代 13（delta §4）：`?tags=a&tags=b`（重复参数）或 `?tags=a,b`。
+     * Express 对重复的 query key 给数组、对单个给字符串——两种都要吃，
+     * 只处理一种的表现是"选一个标签能过滤、选两个就没反应"。
+     */
+    @Query("tags") tags: string | string[] | undefined,
+  ) {
     assertPrincipal(principal);
-    const items = await listMyProjects(this.deps(principal), { ownerId: principal.userId, q });
+    const wanted = (Array.isArray(tags) ? tags : tags === undefined ? [] : tags.split(","))
+      .map((t) => t.trim())
+      .filter((t) => t !== "");
+    const items = await listMyProjects(this.deps(principal), { ownerId: principal.userId, q, tags: wanted });
     return { items };
   }
 
@@ -248,6 +262,7 @@ export class DesignWorkbenchController {
         template: body.template,
         problem: body.problem,
         theme: body.theme,
+        tags: body.tags,
       });
     } catch (e) {
       throw mapProjectError(e) ?? e;

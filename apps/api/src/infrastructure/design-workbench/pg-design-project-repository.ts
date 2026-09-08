@@ -44,6 +44,8 @@ interface ProjectDbRow {
   readonly screens: unknown;
   /** 迭代 13（delta §5.2）：原型自己的明暗主题；旧行由迁移的 DEFAULT 填成 'dark'。 */
   readonly theme: string | null;
+  /** 迭代 13（delta §4）：项目标签的 jsonb 数组；老行由迁移的 DEFAULT 填成 `[]`。 */
+  readonly tags: unknown;
   /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
   readonly ref_images: unknown;
   readonly pushed: boolean;
@@ -213,6 +215,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
       };
     })(),
     theme: row.theme === "light" ? "light" : "dark",
+    tags: toStringArray(row.tags),
     refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
@@ -237,7 +240,7 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
  */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
-  theme,
+  theme, tags,
   pushed, pushed_at, push_note, linked_feedback_id,
   github_issue_url, github_issue_number, created_at, updated_at,
   COALESCE((
@@ -307,8 +310,8 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO design_projects
-           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb)`,
+           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id, screens, tags)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb)`,
         [
           project.id,
           this.orgId,
@@ -322,6 +325,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           // 迭代 11：新项目只有页标签、还没有树——`screens` 每项只带 frame，`root` 缺位就是
           // 「这页还没生成」。在 TS 里算好整份传下去，SQL 里不做 zip（同 update 的理由）。
           JSON.stringify(project.frames.map((frame) => ({ frame, links: [] }))),
+          JSON.stringify(project.tags ?? []),
         ],
       );
     });
@@ -382,7 +386,9 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
   async listForOrg(): Promise<readonly DesignProjectRow[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<ProjectDbRow>(
-        `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 ORDER BY created_at ASC, id ASC`,
+        // 迭代 13（V65）：排序在**服务端**，`updated_at` 倒序——"最近改过的排最前"。
+        // `id` 作次序键是为了同一毫秒的两行有稳定顺序（否则翻页/刷新时顺序会跳）。
+        `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 ORDER BY updated_at DESC, id DESC`,
         [this.orgId],
       );
       const out: DesignProjectRow[] = [];
@@ -451,6 +457,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                 prototype  = $10::jsonb,
                 frame_notes = $11::jsonb,
                 theme      = COALESCE($12, theme),
+                tags       = COALESCE($13::jsonb, tags),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -462,6 +469,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           JSON.stringify(prototypeOf(nextScreens)),
           JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
           patch.theme ?? null,
+          patch.tags === undefined ? null : JSON.stringify(patch.tags),
         ],
       );
       const row = rows[0];

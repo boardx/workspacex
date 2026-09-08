@@ -83,7 +83,20 @@ describe("DesignProject -- 正例", () => {
 
 describe("DesignProject -- 反例", () => {
   it("strict：多一个未声明的键即拒", () => {
-    expect(dw.DesignProject.safeParse({ ...project, tags: [] }).success).toBe(false);
+    // ⚠ 探针要用一个**永远不会**成为真字段的名字。原来用的是 `tags`，迭代 13 把它加成了
+    //   真字段，这条于是转红——那是它该有的反应（它证明 strict 真的在判），但如果当时
+    //   顺手把断言改成 `toBe(true)`，这条就变成一条什么都不守的测试了。
+    expect(dw.DesignProject.safeParse({ ...project, __definitelyNotAField: 1 }).success).toBe(false);
+    // 而 `tags` 现在是真字段：给合法值要能过。
+    expect(dw.DesignProject.safeParse({ ...project, tags: ["后台"] }).success).toBe(true);
+  });
+
+  it("tags：最多 8 个，单个最长 20 字", () => {
+    const ok = Array.from({ length: dw.DESIGN_PROJECT_MAX_TAGS }, (_, i) => `t${i}`);
+    expect(dw.DesignProject.safeParse({ ...project, tags: ok }).success).toBe(true);
+    expect(dw.DesignProject.safeParse({ ...project, tags: [...ok, "t8"] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...project, tags: ["x".repeat(dw.DESIGN_PROJECT_TAG_MAX_CHARS + 1)] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...project, tags: [""] }).success).toBe(false);
   });
   it("name 为空拒；超过 200 字拒", () => {
     expect(dw.DesignProject.safeParse({ ...project, name: "" }).success).toBe(false);
