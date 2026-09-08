@@ -6,6 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { getInboxCounts } from "../../src/application/inbox/get-inbox-counts";
 import type { GetInboxCountsDeps } from "../../src/application/inbox/get-inbox-counts";
 import { InboxPermissionRevokedError } from "../../src/application/inbox/list-inbox";
+import type { InboxTagRepository } from "../../src/application/inbox/inbox-tags.port";
+
+function fakeInboxTags(stored: ReadonlyMap<string, readonly string[]> = new Map()): InboxTagRepository {
+  return { getTags: async () => stored, setTags: async () => undefined };
+}
 import type { FeedbackRow, ProductFeedbackRepository } from "../../src/application/feedback/ports";
 import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports/error-log.port";
 import { guard } from "../../src/application/security/permission-filter";
@@ -44,7 +49,7 @@ function errorLogItem(over: Partial<ErrorLogListItem> = {}): ErrorLogListItem {
   return {
     id: "1",
     traceId: "t",
-    msg: "boom",
+    msg: `boom ${over.id ?? "1"}`,
     detail: null,
     createdAt: "2026-09-01T00:00:00.000Z",
     aiTitle: null,
@@ -84,6 +89,7 @@ function deps(
       orgId: toOrgId("org-1"),
       submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
     },
+    tags: fakeInboxTags(),
   };
 }
 
@@ -113,6 +119,29 @@ describe("getInboxCounts 聚合", () => {
     expect(out.total).toBe(5);
     expect(out.byKind).toEqual({ feedback: 3, exception: 2, design: 0 });
     expect(out.byStage).toEqual({ backlog: 2, doing: 1, done: 1, archived: 1 });
+  });
+
+  it("2026-09-08：已归档不进 byStage/byKind/total，单独给 archived；byTag 按条数倒序、同数按字典序", async () => {
+    const rows = [
+      feedbackRow({ id: "fb-1", status: "已归档" }),
+      feedbackRow({ id: "fb-2", status: "不做", statusReason: "重复" }),
+      feedbackRow({ id: "fb-3", status: "待处理" }),
+    ];
+    const stored = new Map<string, readonly string[]>([
+      ["feedback:fb-1", ["归档里的标签"]],
+      ["feedback:fb-2", ["b", "a"]],
+      ["feedback:fb-3", ["a"]],
+    ]);
+    const out = await getInboxCounts({ ...deps(rows, [errorLogItem({ id: "1", tags: ["b"] })]), tags: fakeInboxTags(stored) }, admin);
+    expect(out.archived).toBe(1);
+    expect(out.total).toBe(3);
+    expect(out.byStage).toEqual({ backlog: 2, doing: 0, done: 0, archived: 1 });
+    expect(out.byTag).toEqual([{ tag: "a", count: 2 }, { tag: "b", count: 2 }]);
+  });
+
+  it("同一 msg 的系统异常折叠后只计一条", async () => {
+    const out = await getInboxCounts(deps([], [errorLogItem({ id: "1", msg: "x" }), errorLogItem({ id: "2", msg: "x" })]), admin);
+    expect(out.byKind.exception).toBe(1);
   });
 
   it("没有已推送的设计项目时 design 为 0", async () => {

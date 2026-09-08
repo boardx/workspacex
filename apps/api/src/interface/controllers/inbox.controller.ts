@@ -42,6 +42,8 @@ import { getInboxCounts } from "../../application/inbox/get-inbox-counts";
 import { InboxPermissionRevokedError, listInbox } from "../../application/inbox/list-inbox";
 import { reorderInboxItem } from "../../application/inbox/reorder-inbox-item";
 import { INBOX_ORDER_REPOSITORY, type InboxOrderRepositoryFactory } from "../../application/inbox/inbox-order.port";
+import { INBOX_TAG_REPOSITORY, type InboxTagRepositoryFactory } from "../../application/inbox/inbox-tags.port";
+import { setInboxItemTags } from "../../application/inbox/set-inbox-item-tags";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -49,6 +51,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 
 export const LIST_INBOX_SCHEMA = C.operations.listInbox.in;
 export const REORDER_INBOX_ITEM_SCHEMA = C.operations.reorderInboxItem.in;
+export const SET_INBOX_ITEM_TAGS_SCHEMA = C.operations.setInboxItemTags.in;
 
 @Controller()
 export class InboxController {
@@ -63,6 +66,7 @@ export class InboxController {
     @Inject(PLATFORM_ADMIN_REPOSITORY) private readonly platformAdmins: PlatformAdminRepository,
     @Inject(DESIGN_PROJECT_REPOSITORY) private readonly designProjects: DesignProjectRepositoryFactory,
     @Inject(INBOX_ORDER_REPOSITORY) private readonly orders: InboxOrderRepositoryFactory,
+    @Inject(INBOX_TAG_REPOSITORY) private readonly tags: InboxTagRepositoryFactory,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
@@ -97,6 +101,8 @@ export class InboxController {
     @Query("excludeKind") excludeKind: string | undefined,
     @Query("stage") stage: string | undefined,
     @Query("q") q: string | undefined,
+    @Query("tag") tag: string | undefined,
+    @Query("view") view: string | undefined,
     @Query("limit") limitParam: string | undefined,
     @Query("cursor") cursor: string | undefined,
   ) {
@@ -107,6 +113,8 @@ export class InboxController {
       excludeKind,
       stage,
       q,
+      tag,
+      view,
       limit: parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       cursor,
     });
@@ -126,6 +134,7 @@ export class InboxController {
           errorLog: await this.errorLogForRequestor(principal),
           design: this.designDeps(principal),
           orders: this.orders.forOrg(principal.orgId),
+          tags: this.tags.forOrg(principal.orgId),
           logger: this.logger,
           traceId: traceIdOf(req),
         },
@@ -137,6 +146,8 @@ export class InboxController {
           excludeKind: parsed.data.excludeKind,
           stage: parsed.data.stage,
           q: parsed.data.q,
+          tag: parsed.data.tag,
+          view: parsed.data.view,
           limit: parsed.data.limit ?? C.INBOX_LIST_DEFAULT_LIMIT,
           cursor: parsed.data.cursor,
         },
@@ -163,6 +174,7 @@ export class InboxController {
           },
           errorLog: await this.errorLogForRequestor(principal),
           design: this.designDeps(principal),
+          tags: this.tags.forOrg(principal.orgId),
           logger: this.logger,
           traceId: traceIdOf(req),
         },
@@ -189,6 +201,29 @@ export class InboxController {
       return await reorderInboxItem(
         { orders: this.orders.forOrg(principal.orgId) },
         { viewerOrgRole: orgRole, stage: parsed.data.stage, orderedIds: parsed.data.orderedIds },
+      );
+    } catch (e) {
+      if (e instanceof InboxPermissionRevokedError) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+      throw e;
+    }
+  }
+
+  /**
+   * 2026-09-08——反馈 / 设计方案打标签，见契约 `setInboxItemTags` 头注。鉴权同 `reorder`。
+   * 系统异常不走这里（schema 的 `kind` 没有 `exception`）——写 `error_logs.tags` 的入口是
+   * `PUT /system/error-logs/:id`。
+   */
+  @Put("/inbox/tags")
+  async setTags(@CurrentPrincipal() principal: Principal, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const parsed = SET_INBOX_ITEM_TAGS_SCHEMA.safeParse(body);
+    if (!parsed.success) throw new BadRequestException("validation_failed");
+
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      return await setInboxItemTags(
+        { tags: this.tags.forOrg(principal.orgId) },
+        { viewerOrgRole: orgRole, kind: parsed.data.kind, id: parsed.data.id, tags: parsed.data.tags },
       );
     } catch (e) {
       if (e instanceof InboxPermissionRevokedError) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });

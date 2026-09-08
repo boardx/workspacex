@@ -43,6 +43,7 @@ import {
   buildExceptionInboxItems,
   buildDesignInboxItems,
   applyBoardOrder,
+  applyTags,
   compareInboxDesc,
   decodeInboxCursor,
   encodeInboxCursor,
@@ -51,6 +52,7 @@ import {
 } from "./inbox-projection";
 import { aggregateInboxSources, logInboxAggregation, type InboxObservabilityDeps } from "./aggregate-inbox-sources";
 import type { InboxOrderRepository } from "./inbox-order.port";
+import type { InboxTagRepository } from "./inbox-tags.port";
 
 export type InboxItemView = z.infer<typeof C.InboxItem>;
 export type InboxSourcesView = z.infer<typeof C.InboxSources>;
@@ -72,6 +74,8 @@ export interface ListInboxDeps extends InboxObservabilityDeps {
   readonly design: DesignProjectDeps;
   /** 2026-09-06——列内排序值的落库端口，见契约 `InboxItem.boardOrder` 头注。 */
   readonly orders: InboxOrderRepository;
+  /** 2026-09-08——反馈 / 设计方案标签侧表，见契约 `InboxItem` 头注「`tags`」。 */
+  readonly tags: InboxTagRepository;
 }
 
 export interface ListInboxInput extends Pick<ListFeedbackInput, "viewerId" | "viewerOrgRole" | "viewerTeamId"> {
@@ -80,6 +84,10 @@ export interface ListInboxInput extends Pick<ListFeedbackInput, "viewerId" | "vi
   readonly excludeKind?: z.infer<typeof C.InboxKind>;
   readonly stage?: z.infer<typeof C.InboxStage>;
   readonly q?: string;
+  /** 契约 `tag`：只列带这个标签的条目 */
+  readonly tag?: string;
+  /** 契约 `view`：省略 = `active`（不含已归档）；`archived` = 只看已归档 */
+  readonly view?: z.infer<typeof C.InboxView>;
   readonly limit: number;
   readonly cursor?: string;
 }
@@ -102,16 +110,24 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
   const startedAt = Date.now();
   const { feedbackItems, exceptionItems, designItems, sources, stats } = await aggregateInboxSources(deps, input);
 
-  const orders = await deps.orders.getOrders();
-  let all = applyBoardOrder(
-    [
-      ...buildFeedbackInboxItems(feedbackItems),
-      ...buildExceptionInboxItems(exceptionItems),
-      ...buildDesignInboxItems(designItems),
-    ],
-    orders,
+  const [orders, tags] = await Promise.all([deps.orders.getOrders(), deps.tags.getTags()]);
+  let all = applyTags(
+    applyBoardOrder(
+      [
+        ...buildFeedbackInboxItems(feedbackItems),
+        ...buildExceptionInboxItems(exceptionItems),
+        ...buildDesignInboxItems(designItems),
+      ],
+      orders,
+    ),
+    tags,
   );
 
+  // 2026-09-08——归档箱是独立视图（契约 `isArchivedInboxItem` 头注）：默认不含已归档，
+  // `view: "archived"` 只含已归档。**在分页之前**过滤，同 `excludeKind` 的理由。
+  const archivedView = input.view === "archived";
+  all = all.filter((i) => C.isArchivedInboxItem(i.item) === archivedView);
+  if (input.tag !== undefined) all = all.filter((i) => i.item.tags.includes(input.tag!));
   if (input.kind !== undefined) all = all.filter((i) => i.item.kind === input.kind);
   if (input.excludeKind !== undefined) all = all.filter((i) => i.item.kind !== input.excludeKind);
   if (input.stage !== undefined) all = all.filter((i) => i.item.stage === input.stage);
@@ -144,6 +160,8 @@ export async function listInbox(deps: ListInboxDeps, input: ListInboxInput): Pro
     excludeKind: input.excludeKind ?? null,
     stage: input.stage ?? null,
     qPresent: input.q !== undefined && input.q.trim() !== "",
+    tagPresent: input.tag !== undefined,
+    view: archivedView ? "archived" : "active",
     limit: input.limit,
   });
 

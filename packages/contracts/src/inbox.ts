@@ -228,28 +228,41 @@ export const InboxGithubRef = z
 export type InboxGithubRef = z.infer<typeof InboxGithubRef>;
 
 /**
- * 系统异常特有的元信息（R4.3 drawer：位置 / 次数 / 影响用户 / 开发备注 / 标签）。
+ * 系统异常特有的元信息（R4.3 drawer：位置 / 次数 / 影响用户 / 开发备注 / 发生记录）。
  *
  *   · `location`：发生位置——前端上报的 `url`，或后端异常的请求路径；取不到为 `null`。
  *   · `count`：同一条 `msg` 在 `error_logs` 里的出现次数（含本条），`>= 1`。`severe` 的依据。
  *   · `affectedUsers`：受影响的不同用户数。⚠ `error_logs` 今天**没有用户列**（很多异常发生在
  *     租户上下文确定之前），所以本轮恒 `null`——`null` = 「源说不出来」，**不是** 0。
- *   · `devNote` / `tags`：见下方「2026-09-05 补投影」。
+ *   · `devNote`：见下方「2026-09-05 补投影」。
+ *   · `lastSeenAt` / `occurrences`：见下方「2026-09-08 同一异常只显示一条」。
  *
- * ## 2026-09-05 补投影：`devNote` / `tags`
+ * ## 2026-09-05 补投影：`devNote`（`tags` 已于 2026-09-08 上提到 `InboxItem.tags`）
  *
- * 这两个字段**不是本次新造的能力**——`system-error-logs.ts` 的 `SystemErrorLogItem`
- * 早就有它们，`updateSystemErrorLifecycle` 也早就能写（`devNote` 独立于状态可随时编辑、
- * `tags` 供筛选）。缺的是**收件箱这条读路径**：`buildExceptionInboxItems` 把源行的这两个
- * 字段丢了，于是收件箱 drawer 里看不到、也无从编辑，「转入开发」只剩一个状态标签，
- * 拿不到任何"转给谁、要怎么修"的上下文。补上投影 = 让已经存在的写能力在唯一的运维入口
- * 上可见可改，**没有**新增任何源能力，也**没有**第二份事实源（写仍然只走
- * `updateSystemErrorLifecycle` 那一条 `PUT /system/error-logs/:id`）。
+ * 这个字段**不是本次新造的能力**——`system-error-logs.ts` 的 `SystemErrorLogItem`
+ * 早就有它，`updateSystemErrorLifecycle` 也早就能写（`devNote` 独立于状态可随时编辑）。
+ * 缺的是**收件箱这条读路径**：`buildExceptionInboxItems` 把源行的这个字段丢了，于是收件箱
+ * drawer 里看不到、也无从编辑。补上投影 = 让已经存在的写能力在唯一的运维入口上可见可改，
+ * **没有**新增任何源能力，也**没有**第二份事实源（写仍然只走 `updateSystemErrorLifecycle`）。
  *
- * ⚠ 只有 `kind === "exception"` 的条目有这两个字段（`InboxExceptionMeta` 整体就只挂在
- *   异常上）。反馈的等价物是 GitHub issue 正文与评论区，设计方案今天没有等价物——
- *   不要把这两个字段泛化到另外两类上，那会让"同一个词在三种来源下含义不同"。
+ * ## 2026-09-08 同一异常只显示一条（人类指令）
+ *
+ * 同一条 `msg` 在 `error_logs` 里反复出现（一次接口故障 = 几十上百行），此前每一行都投影成
+ * 一张卡片，看板「待处理」列被同一句话刷屏（截图实证：E-193…E-200 八张同题卡）。现在
+ * **服务端按 `msg` 折叠**：同一条 `msg` 的所有行只投影成**一条**收件箱条目——
+ *   · 代表行 = **最早**的那一行（`createdAt` 最小，同刻按 id）。选最早而不是最新，是为了让
+ *     这条条目的 `id` / `code` / 状态 / 标签 / 排序值在新的重复行不断到来时**保持稳定**——
+ *     选最新的话每来一行代表就换一个 id，昨天转「不做」的今天又以新 id 回到「待处理」。
+ *   · `count` = 折叠进来的行数；`lastSeenAt` = 最近一次发生时刻；`occurrences` = 最近
+ *     `INBOX_EXCEPTION_OCCURRENCES_LIMIT` 次发生时刻（倒序，含代表行自身），drawer 用它渲染
+ *     「发生记录」——这就是"通过发生日期看重复次数"的那个地方，不再需要重复卡片。
+ *   · 状态迁移 / 备注 / 标签都作用在代表行上（`InboxItem.id` 就是它）；其它同 `msg` 行的
+ *     生命周期字段不再单独可见——它们是同一件事的重复采样，不是各自独立的工单。
+ *   ⚠ 已知取舍：`error_logs` 有 30 天留存，代表行过期被清掉后下一最早行接任代表，状态回到
+ *     它自己的（通常是「待处理」）。折叠只在 `INBOX_EXCEPTION_FETCH_CAP` 窗口内做。
  */
+export const INBOX_EXCEPTION_OCCURRENCES_LIMIT = 20;
+
 export const InboxExceptionMeta = z
   .object({
     location: z.string().nullable(),
@@ -257,8 +270,10 @@ export const InboxExceptionMeta = z
     affectedUsers: z.number().int().nonnegative().nullable(),
     /** 「转开发」时人类填的说明（转给谁 / 怎么复现 / 已知线索）。未填为 `null`。 */
     devNote: z.string().nullable(),
-    /** 自由文本标签，供筛选与搜索。未打标签为 `[]`（**不是** `null`）。 */
-    tags: z.array(z.string()),
+    /** 同一条 `msg` 最近一次发生的时刻（ISO）。只有一次时等于 `createdAt`。 */
+    lastSeenAt: z.string(),
+    /** 最近 `INBOX_EXCEPTION_OCCURRENCES_LIMIT` 次发生时刻，倒序（最新在前），长度 `>= 1`。 */
+    occurrences: z.array(z.string()).min(1).max(INBOX_EXCEPTION_OCCURRENCES_LIMIT),
   })
   .strict();
 export type InboxExceptionMeta = z.infer<typeof InboxExceptionMeta>;
@@ -343,9 +358,33 @@ export const InboxItem = z
      *   升序展示；拖拽/上下移动的落库操作见 `operations.reorderInboxItem`。
      */
     boardOrder: z.number(),
+    /** 2026-09-08——自由文本标签，三类统一，见头注「`tags`」。未打为 `[]`。 */
+    tags: z.array(z.string()),
   })
   .strict();
 export type InboxItem = z.infer<typeof InboxItem>;
+
+/**
+ * 「已归档」判定的**唯一实现**（2026-09-08）：只有反馈有 `已归档` 这个源状态。
+ *
+ * `stageOf` 把 `已归档` 与 `不做` 一起映射到 `archived` 列（issue #2681），但人类要求
+ * 「归档的 ticket 要有一个地方可以查看」——归档的语义是「离开看板、可以回头查」，与
+ * 「不做」（留在看板上作为一条结论）不同。所以 `listInbox` 默认（`view` 省略 / `active`）
+ * **不含**已归档条目，`view: "archived"` 只列已归档条目；看板「不做」列只剩真正的「不做」。
+ * `getInboxCounts.byStage/byKind/total` 同样只算活跃条目，`archived` 单独给数。
+ * api 与 web 都只调这一个函数，不许各写一份 `sourceStatus === "已归档"`。
+ */
+export function isArchivedInboxItem(item: { readonly kind: InboxKind; readonly sourceStatus: string }): boolean {
+  return item.kind === "feedback" && item.sourceStatus === "已归档";
+}
+
+/** 标签的形状约束：单个标签 1–32 字符（去掉首尾空白后），一条条目最多 20 个。只在这里声明一次。 */
+export const INBOX_TAG_MAX_LENGTH = 32;
+export const INBOX_TAGS_MAX_COUNT = 20;
+export const InboxTag = z.string().trim().min(1).max(INBOX_TAG_MAX_LENGTH);
+/** 列表 / 计数视图：`active`（默认）= 看板上的活跃条目；`archived` = 只看已归档（见 `isArchivedInboxItem`）。 */
+export const InboxView = z.enum(["active", "archived"]);
+export type InboxView = z.infer<typeof InboxView>;
 
 /**
  * 来源可见性。`withheld` = 请求者不是平台超管，系统异常那一半**没有被查询**——不是查了为空。
@@ -392,6 +431,10 @@ export const operations = {
         excludeKind: InboxKind.optional(),
         stage: InboxStage.optional(),
         q: z.string().max(200).optional(),
+        /** 2026-09-08——只列带这个标签的条目（精确匹配，服务端过滤，分页之前）。 */
+        tag: InboxTag.optional(),
+        /** 2026-09-08——省略 = `active`。见 `isArchivedInboxItem` 头注。 */
+        view: InboxView.optional(),
         /** 默认 `INBOX_LIST_DEFAULT_LIMIT`（50），最大 `INBOX_LIST_MAX_LIMIT`（200） */
         limit: z.number().int().min(1).max(INBOX_LIST_MAX_LIMIT).optional(),
         cursor: z.string().min(1).optional(),
@@ -439,8 +482,45 @@ export const operations = {
             design: z.number().int().nonnegative(),
           })
           .strict(),
+        /** 活跃条目总数（不含已归档，见 `isArchivedInboxItem`） */
         total: z.number().int().nonnegative(),
+        /** 2026-09-08——已归档条目数（归档箱入口的徽标）。`byStage`/`byKind`/`total` 都不含它们。 */
+        archived: z.number().int().nonnegative(),
+        /** 2026-09-08——活跃条目里每个标签的条数，按条数倒序、同数按标签字典序；顶部标签筛选 Chip 读它。 */
+        byTag: z.array(z.object({ tag: z.string(), count: z.number().int().positive() }).strict()),
         sources: InboxSources,
+      })
+      .strict(),
+    err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 2026-09-08——给一条**反馈 / 设计方案**条目整体设置标签（覆盖式：传的就是最终集合）。
+   *
+   * ⚠ `kind` **没有 `exception`**：系统异常的标签住在 `error_logs.tags`，写路径是
+   *   `systemErrorLogs.operations.updateSystemErrorLifecycle`（只带 `tags`）——本操作不替它
+   *   开第二个入口（见 `InboxItem` 头注「`tags`」）。前端按 `kind` 选路径。
+   * ⚠ 鉴权同 `reorderInboxItem`：只挡「不是本组织成员」——打标签不是分诊。
+   * ⚠ 服务端去重 + 去首尾空白；不校验 `id` 是否真的存在于源表（同 `reorderInboxItem`
+   *   不校验 `orderedIds`——侧表按 `(org, kind, id)` 寻址，一条指向不存在条目的标签行
+   *   只是一行没人读的数据，不会产生错误状态）。
+   */
+  setInboxItemTags: {
+    method: "PUT",
+    path: "/inbox/tags",
+    in: z
+      .object({
+        kind: z.enum(["feedback", "design"]),
+        id: z.string().min(1),
+        tags: z.array(InboxTag).max(INBOX_TAGS_MAX_COUNT),
+      })
+      .strict(),
+    out: z
+      .object({
+        kind: z.enum(["feedback", "design"]),
+        id: z.string(),
+        /** 去重、去空白后实际落库的集合 */
+        tags: z.array(z.string()),
       })
       .strict(),
     err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,

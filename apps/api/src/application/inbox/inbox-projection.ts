@@ -60,6 +60,22 @@ export function applyBoardOrder(
   });
 }
 
+/**
+ * 2026-09-08——把侧表 `inbox_item_tags` 的标签合并进反馈 / 设计方案条目的 `tags`
+ * （系统异常的 `tags` 已在 `buildExceptionInboxItems` 里从源行带出，这里**不碰**——
+ * 见契约 `InboxItem` 头注「`tags`」：两个来源、两处存储、一个投影字段）。
+ */
+export function applyTags(
+  keyed: readonly InboxKeyed[],
+  tags: ReadonlyMap<string, readonly string[]>,
+): InboxKeyed[] {
+  return keyed.map(({ item, key }) => {
+    if (item.kind === "exception") return { item, key };
+    const stored = tags.get(boardOrderKeyOf(item.kind, item.id));
+    return { item: { ...item, tags: stored === undefined ? [] : [...stored] }, key };
+  });
+}
+
 /** 排序/游标用的复合键——`createdAt` 倒序，同刻按 `kind`+`id`（契约头注原话）。 */
 export interface InboxSortKey {
   readonly createdAt: string;
@@ -168,6 +184,7 @@ export function buildFeedbackInboxItems(rows: readonly FeedbackItemView[]): Inbo
       // 占位——真实值由 `list-inbox.ts`/`get-inbox-counts.ts` 用 `InboxOrderRepository`
       // 的结果覆盖（见 `applyBoardOrder`）。这里必须先给一个数字满足 `.strict()` 形状。
       boardOrder: 0,
+      tags: [], // 占位——真实值由 `applyTags` 从侧表合并。
     };
     return { item, key: { createdAt: row.createdAt, kind: "feedback", id: row.id } };
   });
@@ -183,18 +200,28 @@ function deriveExceptionLocation(detail: unknown): string | null {
 }
 
 export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): InboxKeyed[] {
-  const codes = assignCodes(rows, "E");
+  // 2026-09-08——同一条 `msg` 只显示一条（契约 `InboxExceptionMeta` 头注「同一异常只显示一条」）：
+  // 按 `msg` 分组，代表行 = 组内最早的一行（id/code/状态/标签/排序值因此稳定），其余行只贡献
+  // `count` / `lastSeenAt` / `occurrences`。计数仍是 `INBOX_EXCEPTION_FETCH_CAP` 窗口内的精确值
+  // （见 `list-inbox.ts` 文件头「分页的取舍」：`error_logs` 没有按 msg 分组计数的只读端口）。
+  const groups = new Map<string, ErrorLogListItem[]>();
+  for (const row of rows) {
+    const g = groups.get(row.msg);
+    if (g === undefined) groups.set(row.msg, [row]);
+    else g.push(row);
+  }
+  const representatives: { row: ErrorLogListItem; occurrences: string[] }[] = [];
+  for (const g of groups.values()) {
+    const sorted = [...g].sort(compareCreatedAsc);
+    const representative = sorted[0]!;
+    const occurrences = sorted.map((r) => r.createdAt).reverse().slice(0, C.INBOX_EXCEPTION_OCCURRENCES_LIMIT);
+    representatives.push({ row: representative, occurrences: occurrences.length === 0 ? [representative.createdAt] : occurrences });
+  }
+  // 编号在**折叠后**的代表行上连续赋值（E-1..E-n），不给被折叠的重复行留空号。
+  const codes = assignCodes(representatives.map((r) => r.row), "E");
 
-  // `severe` 的依据是"同一条 msg 出现的次数"——在这批已经拉取到的行里分组统计
-  // （见 `list-inbox.ts` 文件头「分页的取舍」：这是 `INBOX_EXCEPTION_FETCH_CAP`
-  // 窗口内的精确计数，不是全表聚合；`error_logs` 没有一个可以按 msg 分组计数的
-  // 只读端口，加一个需要新的 SECURITY DEFINER 函数——超出本轮范围，此处诚实地
-  // 只在拉到的窗口内计数，而不是假装是全表精确值）。
-  const countByMsg = new Map<string, number>();
-  for (const row of rows) countByMsg.set(row.msg, (countByMsg.get(row.msg) ?? 0) + 1);
-
-  return rows.map((row) => {
-    const count = countByMsg.get(row.msg) ?? 1;
+  return representatives.map(({ row, occurrences }) => {
+    const count = groups.get(row.msg)?.length ?? 1;
     const item: InboxItemView = {
       id: row.id,
       kind: "exception",
@@ -217,19 +244,21 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
       attachments: [],
       linkedFeedbackId: null,
       resolvedByDesignId: null,
-      // `devNote`/`tags` 原样透传源行（见契约 `InboxExceptionMeta` 头注「2026-09-05 补投影」）：
-      // 写路径仍然只有 `updateSystemErrorLifecycle` 一条，这里只是把源上早就存在、
-      // 此前被这个投影丢掉的两个字段送到唯一的运维入口上。
+      // `devNote` 原样透传源行（见契约 `InboxExceptionMeta` 头注「2026-09-05 补投影」）：
+      // 写路径仍然只有 `updateSystemErrorLifecycle` 一条。
       exception: {
         location: deriveExceptionLocation(row.detail),
         count,
         affectedUsers: null,
         devNote: row.devNote,
-        tags: [...row.tags],
+        lastSeenAt: occurrences[0]!,
+        occurrences,
       },
       submittedByMe: false,
       votedByMe: false,
       boardOrder: 0, // 占位，见 `buildFeedbackInboxItems` 同名字段注释。
+      // 系统异常的标签住在源行 `error_logs.tags`——这里直接带出，`applyTags` 不覆盖它。
+      tags: [...row.tags],
     };
     return { item, key: { createdAt: row.createdAt, kind: "exception", id: row.id } };
   });
@@ -288,6 +317,7 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       submittedByMe: false,
       votedByMe: false,
       boardOrder: 0, // 占位，见 `buildFeedbackInboxItems` 同名字段注释。
+      tags: [], // 占位，同上。
     };
     return { item, key: { createdAt: row.createdAt, kind: "design", id: row.id } };
   });

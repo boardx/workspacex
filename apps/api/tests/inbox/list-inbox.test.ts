@@ -12,6 +12,15 @@ import { guard } from "../../src/application/security/permission-filter";
 import { toOrgId } from "../../src/domain/org-id";
 import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
 import type { InboxOrderRepository } from "../../src/application/inbox/inbox-order.port";
+import type { InboxTagRepository } from "../../src/application/inbox/inbox-tags.port";
+
+/** 空标签仓储——测试不关心 `tags` 时用它。 */
+function fakeInboxTags(stored: ReadonlyMap<string, readonly string[]> = new Map()): InboxTagRepository {
+  return {
+    getTags: async () => stored,
+    setTags: async () => undefined,
+  };
+}
 
 /** 空排序仓储——测试不关心 `boardOrder` 时用它:所有条目都回退到默认序（`defaultBoardOrder`）。 */
 function fakeInboxOrders(stored: ReadonlyMap<string, number> = new Map()): InboxOrderRepository {
@@ -68,7 +77,9 @@ function errorLogItem(over: Partial<ErrorLogListItem> = {}): ErrorLogListItem {
   return {
     id: "1",
     traceId: "trace-1",
-    msg: "boom",
+    // 2026-09-08 起同一条 msg 折叠成一条（见契约 `InboxExceptionMeta` 头注）——默认给每条
+    // 不同的 msg，让"多条独立异常"的既有测试语义不变；要测折叠的用例显式传同一个 msg。
+    msg: `boom ${over.id ?? "1"}`,
     detail: { raw: "boom" },
     createdAt: "2026-09-01T00:00:00.000Z",
     aiTitle: null,
@@ -114,6 +125,7 @@ function baseDeps(
       submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
     },
     orders: fakeInboxOrders(),
+    tags: fakeInboxTags(),
   };
 }
 
@@ -259,19 +271,80 @@ describe("listInbox 系统异常 devNote / tags 投影（2026-09-05 补）", () 
   it("源行的 devNote / tags 原样出现在 exception 元信息里", async () => {
     const deps = baseDeps([], [errorLogItem({ id: "1", devNote: "转给 @a：回调拿不到 code", tags: ["auth", "P1"] })]);
     const out = await listInbox(deps, { ...adminInput, limit: 50 });
-    expect(out.items[0]!.exception).toMatchObject({ devNote: "转给 @a：回调拿不到 code", tags: ["auth", "P1"] });
+    expect(out.items[0]!.exception).toMatchObject({ devNote: "转给 @a：回调拿不到 code" });
+    expect(out.items[0]!.tags).toEqual(["auth", "P1"]);
   });
 
   it("源行没填 ⇒ devNote 为 null、tags 为 []（不是 null，见契约头注）", async () => {
     const deps = baseDeps([], [errorLogItem({ id: "1" })]);
     const out = await listInbox(deps, { ...adminInput, limit: 50 });
-    expect(out.items[0]!.exception).toMatchObject({ devNote: null, tags: [] });
+    expect(out.items[0]!.exception).toMatchObject({ devNote: null });
+    expect(out.items[0]!.tags).toEqual([]);
   });
 
   it("反馈条目不带 exception 元信息（这两个字段不泛化到别的来源）", async () => {
     const deps = baseDeps([feedbackRow({ id: "fb-1" })], []);
     const out = await listInbox(deps, { ...adminInput, limit: 50 });
     expect(out.items[0]!.exception).toBeNull();
+  });
+});
+
+describe("listInbox 同一异常只显示一条（2026-09-08）", () => {
+  it("同一 msg 的多行折叠成一条：代表行 = 最早一行，count/lastSeenAt/occurrences 汇总，编号连续", async () => {
+    const rows = [
+      errorLogItem({ id: "3", msg: "重复", createdAt: "2026-09-03T00:00:00.000Z" }),
+      errorLogItem({ id: "1", msg: "重复", createdAt: "2026-09-01T00:00:00.000Z", tags: ["p1"], status: "已转入开发" }),
+      errorLogItem({ id: "2", msg: "重复", createdAt: "2026-09-02T00:00:00.000Z" }),
+      errorLogItem({ id: "9", msg: "另一条", createdAt: "2026-09-04T00:00:00.000Z" }),
+    ];
+    const out = await listInbox(baseDeps([], rows), { ...adminInput, limit: 50 });
+    expect(out.items.map((i) => i.id)).toEqual(["9", "1"]);
+    const dup = out.items.find((i) => i.id === "1")!;
+    expect(dup.code).toBe("E-1");
+    expect(out.items.find((i) => i.id === "9")!.code).toBe("E-2");
+    expect(dup.stage).toBe("doing");
+    expect(dup.tags).toEqual(["p1"]);
+    expect(dup.exception).toMatchObject({
+      count: 3,
+      lastSeenAt: "2026-09-03T00:00:00.000Z",
+      occurrences: ["2026-09-03T00:00:00.000Z", "2026-09-02T00:00:00.000Z", "2026-09-01T00:00:00.000Z"],
+    });
+  });
+
+  it("occurrences 最多 INBOX_EXCEPTION_OCCURRENCES_LIMIT 条，count 仍是全部", async () => {
+    const rows = Array.from({ length: 25 }, (_, i) =>
+      errorLogItem({ id: `${i + 1}`, msg: "刷屏", createdAt: `2026-09-01T00:${String(i).padStart(2, "0")}:00.000Z` }),
+    );
+    const out = await listInbox(baseDeps([], rows), { ...adminInput, limit: 50 });
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]!.exception!.count).toBe(25);
+    expect(out.items[0]!.exception!.occurrences).toHaveLength(20);
+  });
+});
+
+describe("listInbox 归档箱与标签筛选（2026-09-08）", () => {
+  it("默认视图不含 已归档；view=archived 只含 已归档（不做 仍留在默认视图）", async () => {
+    const rows = [
+      feedbackRow({ id: "fb-a", status: "已归档" }),
+      feedbackRow({ id: "fb-b", status: "不做", statusReason: "重复" }),
+      feedbackRow({ id: "fb-c", status: "待处理" }),
+    ];
+    const active = await listInbox(baseDeps(rows, []), { ...adminInput, limit: 50 });
+    expect(active.items.map((i) => i.id).sort()).toEqual(["fb-b", "fb-c"]);
+    const archived = await listInbox(baseDeps(rows, []), { ...adminInput, limit: 50, view: "archived" });
+    expect(archived.items.map((i) => i.id)).toEqual(["fb-a"]);
+  });
+
+  it("侧表标签合并进反馈 / 设计方案的 tags；tag 过滤跨三源精确匹配", async () => {
+    const stored = new Map<string, readonly string[]>([["feedback:fb-1", ["登录", "P1"]]]);
+    const deps: ListInboxDeps = { ...baseDeps([feedbackRow({ id: "fb-1" }), feedbackRow({ id: "fb-2" })], [errorLogItem({ id: "1", tags: ["P1"] })]), tags: fakeInboxTags(stored) };
+    const all = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(all.items.find((i) => i.id === "fb-1")!.tags).toEqual(["登录", "P1"]);
+    expect(all.items.find((i) => i.id === "fb-2")!.tags).toEqual([]);
+    const p1 = await listInbox(deps, { ...adminInput, limit: 50, tag: "P1" });
+    expect(p1.items.map((i) => i.id).sort()).toEqual(["1", "fb-1"]);
+    const none = await listInbox(deps, { ...adminInput, limit: 50, tag: "P" });
+    expect(none.items).toEqual([]);
   });
 });
 
