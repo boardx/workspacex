@@ -2,7 +2,9 @@
 import * as React from "react";
 import type { AbstractAgent } from "@ag-ui/client";
 import {
+  AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  parseAguiAssistantMessageReplacedValue,
   parseAguiChatMessageIdValue,
 } from "@repo/contracts/agui-state-events";
 
@@ -45,6 +47,15 @@ import {
  *
  * 流式那半不需要这个判断：能收到 `chat_message_id` 回显，就意味着这条消息是这一轮
  * run 写回的，`agent_run_id` 必然非空。
+ *
+ * ## ⚠ 第三件事：撤回被替换掉的气泡（issue #3069）
+ *
+ * 同一条 `onCustomEvent` 通道还带来 `assistant_message_replaced`：后端 relay 走不到身份
+ * 路径时会**替换**而不是追加——先作废已流出的 assistant 正文，再以同一个气泡 id 重发
+ * 落库正文。AG-UI 的 `TEXT_MESSAGE_*` 只有追加语义，所以「作废」必须在这里落实：把这些
+ * id 从 `agent.messages` 里移除，随后的 `TEXT_MESSAGE_START` 会重建它。不做这件事，视图
+ * 里会出现两条同 id、正文互相矛盾的气泡。契约与理由见
+ * `@repo/contracts/agui-state-events` 的 `AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME`。
  *
  * ## 为什么是 state 而不是 ref
  *
@@ -107,7 +118,23 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
-      onCustomEvent: ({ event }) => {
+      onCustomEvent: ({ event, messages }) => {
+        // issue #3069 —— relay 的回放兜底是**替换**：已经流出去的 assistant 气泡带的是
+        // 与落库行对不上的「预告」正文，后端在重新呈现落库正文之前发这一帧把它们作废。
+        // 这里把它们从 `agent.messages` 里移除（以订阅者 mutation 的形式返回，不直接
+        // 改冻结的入参）；紧随其后的 `TEXT_MESSAGE_START` 会以同一个
+        // `replacementMessageId` 重建这条气泡，内容是落库正文。不移除的话，那个
+        // START 会在视图里压出**第二条同 id 的消息**（AG-UI 的 TEXT_MESSAGE_* 只有
+        // 追加语义，没有原地覆盖）——正是这条协议要消掉的「两条互相矛盾的气泡」。
+        if (event?.name === AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME) {
+          const replaced = parseAguiAssistantMessageReplacedValue(event.value);
+          // 同下：解析失败即这一帧不可信，丢弃——不猜要撤回哪些气泡。
+          if (replaced === null) return;
+          const drop = new Set(replaced.replacedMessageIds);
+          const kept = messages.filter((m) => !drop.has(m.id));
+          if (kept.length === messages.length) return;
+          return { messages: kept };
+        }
         if (event?.name !== AGUI_CHAT_MESSAGE_ID_EVENT_NAME) return;
         const parsed = parseAguiChatMessageIdValue(event.value);
         // 解析失败：这一帧不可信，丢弃。不退化成"拿 streamingMessageId 顶上"——
