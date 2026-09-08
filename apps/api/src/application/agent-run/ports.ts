@@ -961,6 +961,20 @@ export interface ModelCallInput {
    */
   readonly hitlSkillNames?: readonly string[];
   /**
+   * issue #3132（B7）—— 计划确认门的阈值：本次 run 里，模型首次写入 >= 这么多条 todos
+   * 的计划时，内核在 `write_todos` **执行前** interrupt，等用户确认。
+   *
+   * 值的权威是契约 `PLAN_CONFIRM_MIN_STEPS`（由 `evaluatePlanGate` 的判定表派生），
+   * 键名的权威是契约 `PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY`；本层只负责投影，
+   * 不自己决定阈值。
+   *
+   * ⚠ 缺席的语义与 `hitlSkillNames` **方向相反**：那个字段缺席 ⇒ 内核 fail-closed
+   * （每次 `call_skill` 都问）；这个字段缺席 ⇒ 内核 **fail-open**（一次都不拦）。
+   * 理由见 `harness.py` 的 `_write_todos_requires_plan_confirmation` 头注：多问一次
+   * 批准是安全的，多拦一次计划却会给简单问答凭空加一道门。
+   */
+  readonly planConfirmMinSteps?: number;
+  /**
    * P2（#1561）—— 本轮真的要让模型**看到像素**的图片。
    *
    * **必须是可选的**，理由与上面 `history` / `skills` 逐字同一条，不是新纪律：缺席表示

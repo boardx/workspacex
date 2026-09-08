@@ -83,6 +83,22 @@ export const CHAT_READ_E2E = {
    */
   deepAgentApprovalTrigger: "取证：请触发人工审批",
   /**
+   * issue #3132（B7）—— **计划确认门**的取证触发词。
+   *
+   * 替身收到它之后在 `/state` 里放一个**未配对**的 `write_todos` 工具调用（一份 3 步的
+   * 提案计划）并回 `interrupted`，于是 run 真的落到 `awaiting_tool_permission`、
+   * `pending_tool_name = write_todos` —— 与真实引擎被
+   * `_write_todos_requires_plan_confirmation` 谓词拦下时逐字同形。
+   *
+   * ⚠ 为什么不复用 `deepAgentMultiStepTrigger`：那条剧本从不返回 `interrupted`，它
+   * 演的是「计划已生效、正在逐步执行」。拿它去断言确认门，等于对着一个**结构上
+   * 产不出该中断**的夹具要求一个中断——那正是 #3132 里「确认门永不渲染」被误读成
+   * 「spec 有问题」的来源。两条剧本各演各的，不混用。
+   */
+  deepAgentPlanConfirmTrigger: "取证：请先确认计划再执行",
+  /** 上面那条剧本提案计划的步骤数。>= 契约 `PLAN_CONFIRM_MIN_STEPS`（2）才会有门。 */
+  deepAgentPlanConfirmSteps: 3,
+  /**
    * issue #2919 —— 宽泛文档请求先补全主题与内容来源，再在同一个 run 上继续。
    * 这组值同时供浏览器断言、deep-agent loopback 剧本与 chat-read config 使用，
    * 避免三处各写一份触发词或产物名后静默漂移。

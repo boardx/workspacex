@@ -15,6 +15,7 @@
  */
 import { apiRequest, ApiError } from "@/lib/api-client";
 import { PlanControlError, planControl } from "@repo/contracts/plan-control";
+import { planPermissions } from "@repo/contracts";
 import type { z } from "zod";
 
 export type PlanLedgerView = z.infer<typeof planControl.getPlanLedger.out>;
@@ -90,6 +91,31 @@ export async function confirmPlan(
     method: "POST", body: input, query: { projectId: projectId ?? undefined },
   });
   return planControl.confirmPlan.out.parse(raw);
+}
+
+/**
+ * issue #3132（B7）—— 确认门的「确认并执行」。
+ *
+ * ⚠ **不是 `confirmPlan`。** 两个动作名字像，语义完全不同，走错分支会**多起一条 run**：
+ * - `confirmPlan`（UC-7）= `createConfirmedRun`：把**账本里已有的**计划交给一条**新的**
+ *   run 去执行。服务的是「用户改完账本后另起一轮」那条路径。
+ * - 本函数 = `decidePermissionRequest(once)`：**恢复停住的那条 run**。计划确认门下
+ *   run 正停在 `write_todos` 的中断上（`awaiting_tool_permission`），账本还是空的，
+ *   提案从未生效——要的是让它接着往下跑，不是另开一条。
+ *
+ * 人类 2026-09-08 裁决 O-2 明确切开这两个入口。走的是既有的
+ * `decideToolPermission → approveAndRequeue → Command(resume=...)` 链路，一条新边都不加。
+ */
+export async function confirmProposedPlan(
+  runId: string, permissionRequestId: string, decision: "once" | "deny" = "once",
+): Promise<{ runId: string; permissionRequestId: string }> {
+  const raw = await apiRequest<unknown>(
+    planPermissions.operations.decidePermissionRequest.path
+      .replace(":runId", encodeURIComponent(runId))
+      .replace(":permissionRequestId", encodeURIComponent(permissionRequestId)),
+    { method: "POST", body: { decision } },
+  );
+  return planPermissions.operations.decidePermissionRequest.out.parse(raw);
 }
 
 export type PausePlanRunOutput = z.infer<typeof planControl.pausePlanRun.out>;

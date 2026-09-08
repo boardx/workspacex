@@ -194,10 +194,10 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
   async getLatestRun(orgId: OrgId, threadId: string): Promise<PlanRunSnapshot | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
-        id: string; status: string; pending_tool_name: string | null; created_at: Date; agent_id: string;
+        id: string; status: string; pending_tool_name: string | null; pending_args_summary: string | null; pending_permission_request_id: string | null; created_at: Date; agent_id: string;
         remote_run_id: string | null; paused_at: Date | null; error_code: string | null; model_provider: string; pause_requested_at: Date | null; cancel_requested_at: Date | null;
       }>(
-        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at, error_code, model_provider, pause_requested_at, cancel_requested_at
+        `SELECT id, status, pending_tool_name, pending_args_summary, pending_permission_request_id, created_at, agent_id, remote_run_id, paused_at, error_code, model_provider, pause_requested_at, cancel_requested_at
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -213,6 +213,11 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         cancelRequestedAt: row.cancel_requested_at?.toISOString() ?? null,
         status: toRunStatusForPhase(row.status),
         pendingToolName: row.status === "awaiting_tool_permission" ? row.pending_tool_name : null,
+        // issue #3132 —— 与 `pendingToolName` 同一条门：不在 `awaiting_tool_permission`
+        // 状态时这一列可能是上一次中断的残留，透传它会让读模型据一份过期的提案计划
+        // 把 phase 判成 `planning`。两个字段必须同生同灭。
+        pendingArgsSummary: row.status === "awaiting_tool_permission" ? row.pending_args_summary : null,
+        pendingPermissionRequestId: row.status === "awaiting_tool_permission" ? row.pending_permission_request_id : null,
         createdAt: row.created_at.toISOString(),
         agentId: row.agent_id,
         remoteRunId: row.remote_run_id,

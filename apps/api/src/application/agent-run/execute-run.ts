@@ -80,7 +80,8 @@ import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persis
 import { record } from "./record-run-step";
 import { skillDisplayNameField } from "./called-skill-display-name";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
-import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
+import { resolveSkillRiskLevels, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
+import { buildDeepAgentKernelFields } from "./deep-agent-kernel-fields";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
@@ -1145,13 +1146,9 @@ async function executeClaimed(
         history,
         // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
         skills: toolSkills,
-        // issue #2767 -- 只有 deep-agent run 会真的经过 `call_skill`/interrupt_on，
-        // 非 deep-agent run 不填这个字段。`toolSkills.length === 0`（没挂任何
-        // skill）时同样不填——键缺席在内核侧是"每次都问"的保守默认（fail-closed，
-        // 与本 feature之前逐字相同，T2 锁：`deep-agent-produces-files.test.ts`）；
-        // 只要挂了至少一个 skill，就该投影真实计算结果（哪怕是空数组——"挂的全是
-        // L0/L1，一个都不用问"本身就是一个真实、该被投影的结论，不是"没算"）。
-        ...(isDeepAgentRun && toolSkills.length > 0 ? { hitlSkillNames: selectL2SkillNames(skillRisks) } : {}),
+        // deep-agent 专属字段（`hitlSkillNames` #2767 / `planConfirmMinSteps` #3132）的
+        // 判定住在 `deep-agent-kernel-fields.ts`，网关只负责摊开——同 `invokeKernel`。
+        ...buildDeepAgentKernelFields({ isDeepAgentRun, mountedSkillCount: toolSkills.length, skillRisks }),
         // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
         // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
         ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
