@@ -74,9 +74,19 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
    *   `deepAgentSlowHoldMs`=12s 才开始发正文），run 在这段时间里是真的 `running`。
    */
   const marker = CHAT_READ_E2E.deepAgentSlowTrigger;
+  /*
+   * issue #3000 —— 这里等的是"这一轮的权威读回来了"，判据是**非终态**，不是逐字
+   * `"running"`。trace 取证（run 34201215623）：外壳对 `/agent-runs/:id` 只发**两次**
+   * ——刚建起来那一次（t=989.1，`status: "queued"`，`steps` 只有 `accepted`）和收尾之后
+   * 那一次（t=1013.7，`succeeded`）。它没有周期性轮询，所以"恰好读到 running"是撞运气；
+   * 旧判据只认 `running`，在慢触发词下第一发读到的是 `queued`，于是等满 60s。
+   * `queued`/`running` 都是"这一轮还没写回"，正是本用例要的前提。
+   */
+  const NONTERMINAL = new Set(["queued", "running"]);
   const initialRunResponse = page.waitForResponse(async response => {
     if (!response.ok() || !/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname)) return false;
-    return (await response.json()).status === "running";
+    const value = await response.json();
+    return NONTERMINAL.has(value.status) && value.resultMessageId === null;
   }, { timeout: 60_000 });
   await page.getByTestId("copilotkit-v2-input").fill(marker);
   await page.getByTestId("copilotkit-v2-send").click();
@@ -136,7 +146,9 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   const restoringRun = page.waitForResponse(async response => {
     if (!response.ok() || response.url() !== runResponse.url()) return false;
     const value = await response.json();
-    return value.status === "running" && value.resultMessageId === null;
+    // 同上：非终态即"还没写回"。这道门挡的是"切回来时它其实早就跑完了、恢复路径
+    // 根本没被走到"那种空转，与状态字面量是 queued 还是 running 无关。
+    return NONTERMINAL.has(value.status) && value.resultMessageId === null;
   }, { timeout: 30_000 });
   const settledRun = page.waitForResponse(async response => {
     if (!response.ok() || response.url() !== runResponse.url()) return false;

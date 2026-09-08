@@ -114,12 +114,27 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
 
   await trigger.click();
 
-  // 失败横幅若出现，直接把 reasonCode 暴露在失败信息里（不让它静默）。
+  /*
+   * 失败横幅若出现，直接把 reasonCode 暴露在失败信息里（不让它静默）。
+   *
+   * ⚠ issue #3000 —— "收尾"有**两种**形态，只认其中一种的旧判据永远等不到收尾：
+   *   2026-08-30 重设计之后，画像**成功**的可见后果是这条 chip 从建议行里**消失**
+   *   （`personaGeneratedOnce` 把它过滤掉，见 `use-template-recommendations.ts`），
+   *   而不是"文案从『生成画像中…』变回原样"。旧判据只读 `trigger.textContent()`：
+   *   chip 一消失这一发就变成对不存在元素的读、超时抛错，`expect.poll` 拿不到新值，
+   *   于是永远停在最后一次读到的 "running" 直到 120s 耗尽。
+   *   trace 取证（run 34201215623）：`POST …/persona-summary` **200**、mindmap 也已经
+   *   画进 canvas（快照里 `fabric 渲染 · 只读预览` 在场、persona chip 已不在），
+   *   这一轮是成功之后被判据自己判红的。
+   *   ⇒ chip 不在场 = 已收尾。它不放宽任何业务断言：真正的结果由紧随其后那条
+   *   `chat-diagram-fabric` 计数（以及刷新之后仍在）把关。
+   */
   const failure = page.getByTestId("chat-persona-summary-error");
   await expect
     .poll(
       async () => {
         if (await failure.isVisible()) return `FAILED:${await failure.textContent()}`;
+        if (await trigger.count() === 0) return "settled";
         return (await trigger.textContent())?.includes("生成画像中") === true ? "running" : "settled";
       },
       { timeout: 120_000, intervals: [1_000, 2_000, 3_000] },
