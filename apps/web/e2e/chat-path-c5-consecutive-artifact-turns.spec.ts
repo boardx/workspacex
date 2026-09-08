@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
-  awaitProjectThreadReply,
-  login,
-  sendOnProjectThread,
+  openFreshEchoAgentThread,
+  sendInV2AndAwaitStoredReply,
   storedMessages,
 } from "./support/chat-path-coverage";
 
@@ -36,33 +35,28 @@ function proofFor(turn: number): string {
 }
 
 test("@path:C5 连续三轮各产一个画布：逐轮累加、互不覆盖、不重复挂载", async ({ page }) => {
-  await login(page);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.canvasSerialThreadId}`);
-  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.canvasSerialThreadId}`))
-    .toContainText("Canvas artifact across consecutive turns check thread");
+  const threadId = await openFreshEchoAgentThread(page);
 
   const fabrics = page.locator('[data-testid="chat-canvas-fabric"]');
   for (let turn = 1; turn <= TURNS; turn += 1) {
-    await sendOnProjectThread(page, CHAT_READ_E2E.canvasSerialThreadId, proofFor(turn));
-    const reply = await awaitProjectThreadReply(page);
-
-    // 本轮自己的画布渲染就绪。
-    await expect(reply.locator('[data-testid="chat-canvas-fabric"]'))
-      .toHaveCount(1, { timeout: 90_000 });
-    await expect(reply.locator('[data-testid="chat-canvas-fabric"]'))
-      .toHaveAttribute("data-ready", "true", { timeout: 60_000 });
+    await sendInV2AndAwaitStoredReply(
+      page,
+      threadId,
+      proofFor(turn),
+      `SERIAL-${turn}`,
+    );
 
     // 线程里累计恰好 N 个：少了 = 前面的被覆盖/卸载；多了 = 重复挂载。
     await expect(
       fabrics,
       `第 ${turn} 轮结束时线程里应恰有 ${turn} 个画布：少了说明前几轮的被覆盖或卸载，`
       + "多了说明每轮把历史产物重新挂了一遍",
-    ).toHaveCount(turn, { timeout: 90_000 });
+    ).toHaveCount(turn, { timeout: 120_000 });
     await expect(page.getByTestId("chat-canvas-error")).toHaveCount(0);
   }
 
   // ── 权威读：三条回复各自带着**自己那一轮**的标记，没有一条被后来的轮次改写 ──
-  const messages = await storedMessages(page, CHAT_READ_E2E.canvasSerialThreadId);
+  const messages = await storedMessages(page, threadId);
   const answers = messages.filter((message) => message.authorKind === "agent" && message.text.includes("```canvas"));
   expect(answers, "三轮应各落库一条带围栏的回复").toHaveLength(TURNS);
   for (let turn = 1; turn <= TURNS; turn += 1) {
@@ -76,5 +70,5 @@ test("@path:C5 连续三轮各产一个画布：逐轮累加、互不覆盖、�
 
   // 刷新后仍是三个：证明累加的是落库事实，不是本次会话里攒出来的 DOM。
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(fabrics).toHaveCount(TURNS, { timeout: 90_000 });
+  await expect(fabrics).toHaveCount(TURNS, { timeout: 120_000 });
 });

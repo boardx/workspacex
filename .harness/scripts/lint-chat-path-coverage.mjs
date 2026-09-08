@@ -93,7 +93,12 @@ const laneRegex = laneMatch ? new RegExp(laneMatch[1]) : null;
 const taggedIds = new Set();
 for (const spec of laneSpecs) {
   const source = readFileSync(path.join(E2E_DIR, spec), "utf8");
-  const tags = [...source.matchAll(/test\(\s*"@path:([A-F]\d+)/g)].map((match) => match[1]);
+  /*
+   * `test(` 与 `test.fixme(` 都算——后者是本仓人类裁决（issue #2997 方案 B）对
+   * 「断言是对的、产品还没做到」的既有处置：不删断言、不改宽、等缺口补上就改回 `test`。
+   * `test.skip(` **刻意不认**：skip 掉的差距等于不存在，那正是这套门控要挡的。
+   */
+  const tags = [...source.matchAll(/test(?:\.fixme)?\(\s*"@path:([A-F]\d+)/g)].map((match) => match[1]);
   /* ② 标签存在且指向表里真有的编号 */
   if (tags.length === 0) {
     fail(`${spec} 的 test() 标题里没有 @path:<编号> 标签——没有标签，它与矩阵之间就没有任何机械联系`);

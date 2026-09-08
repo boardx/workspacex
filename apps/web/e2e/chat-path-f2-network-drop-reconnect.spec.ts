@@ -38,17 +38,20 @@ test.setTimeout(300_000);
 test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面自己续上，不重复不空转", async ({ page, context }) => {
   const threadId = await openFreshDeepAgentThread(page);
 
-  // 用多步剧本让这次 run 真的跑一段时间（`MULTISTEP_MIN_STATUS_POLLS`），
-  // 好让"断网"落在 run 的中途而不是它早已结束之后——同
-  // `copilotkit-v2-run-restore-after-switch.spec.ts` 让 run 跑久一点的既有手法。
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  /*
+   * 用**十步滚动剧本**（`deepAgentScrollAcceptanceTrigger`，替身要 20 次状态轮询才终态）
+   * 而不是多步剧本：二跑实测，多步剧本在 5 秒的断网等待窗口内就已经跑完，本条于是红在
+   * 自己的自检上（"断网期间就已经拿到最终回答"）——那说明这条用例当时根本没测到重连。
+   * 同一条教训的另一半：断网动作**紧跟发送**，不再先等 5 秒。
+   */
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-messages"))
-    .toContainText(CHAT_READ_E2E.deepAgentMultiStepTrigger, { timeout: 60_000 });
+    .toContainText(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger, { timeout: 60_000 });
 
   // ── 真实断网：浏览器这一侧的请求全部失败，服务端的 run 不受影响 ──
   await context.setOffline(true);
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(3_000);
   // 断网期间界面不许自己宣布成功：这一刻它**不可能**知道 run 的终态。
   const messagesDuringOutage = await page.getByTestId("copilotkit-v2-messages").innerText();
 
@@ -59,17 +62,17 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
     page.getByTestId("copilotkit-v2-messages"),
     "网络恢复后，这一页必须自己把 run 的最终结果续上——需要用户手动刷新才看得到，"
     + "等于把断线重连这条路径的成本转嫁给了用户",
-  ).toContainText("多步依赖链已完整执行", { timeout: 180_000 });
+  ).toContainText("十步滚动验收执行完成", { timeout: 180_000 });
   await expectSendNotBlockedOnRun(page, 60_000);
 
   // ── 判据②：续上的是 journal 的续播，不是从头重放——落库消息不重复 ──
   const messages = await storedMessages(page, threadId);
   const humanTurns = messages.filter(
-    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentMultiStepTrigger,
+    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
   );
   expect(humanTurns, "这一轮用户消息只应落库一条——断线重连不得把请求重发一遍").toHaveLength(1);
   const agentTurns = messages.filter(
-    (message) => message.authorKind === "agent" && message.text.includes("多步依赖链已完整执行"),
+    (message) => message.authorKind === "agent" && message.text.includes("十步滚动验收执行完成"),
   );
   expect(agentTurns, "最终回答只应落库一条——从 seq 0 重放会写出第二条").toHaveLength(1);
   expect(
@@ -79,7 +82,7 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
 
   // 断网那一刻界面确实还没拿到最终回答（否则上面的等待是恒真的，本条没测到东西）。
   expect(
-    messagesDuringOutage.includes("多步依赖链已完整执行"),
+    messagesDuringOutage.includes("十步滚动验收执行完成"),
     "断网期间就已经拿到最终回答的话，这条用例根本没有测到重连——请把多步剧本调得更慢",
   ).toBe(false);
 });

@@ -1,6 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { openFreshDeepAgentThread, storedMessages } from "./support/chat-path-coverage";
+import {
+  openFreshDeepAgentThread,
+  openFreshDeepAgentThreadOnAuthedPage,
+  storedMessages,
+} from "./support/chat-path-coverage";
 
 /**
  * 路径矩阵 **F6 · 并发双 run**（判据见 `.harness/instructions/chat-path-coverage-matrix.md`）。
@@ -32,17 +36,17 @@ function markerFor(lane: string): string {
   return `CONCURRENT-${lane}-${Date.now()}：请原样回显这句`;
 }
 
-async function prepare(page: Page): Promise<string> {
-  return await openFreshDeepAgentThread(page);
-}
+
 
 test("@path:F6 两条线程同时跑：事件不串线、落库不互相覆盖", async ({ page, context }) => {
   const second = await context.newPage();
   try {
     // 顺序建线程（新建动作本身不是被测对象，且 Next dev 的按需编译会把并发建线程
     // 变成一次与被测路径无关的超时），随后**同时**发消息——并发发生在 run 上。
-    const threadA = await prepare(page);
-    const threadB = await prepare(second);
+    const threadA = await openFreshDeepAgentThread(page);
+    // 第二个 page 与第一个共享 context ⇒ 已经是已登录态，再走一次登录会被重定向走
+    // （二跑实测：`login-email` 等到 300s 超时）。见该 helper 自己的头注。
+    const threadB = await openFreshDeepAgentThreadOnAuthedPage(second);
     expect(threadA, "两条线程必须是不同的线程，否则这条用例测的是同一条线程的两轮").not.toBe(threadB);
 
     const markerA = markerFor("A");

@@ -335,20 +335,17 @@ export const CHAT_READ_E2E = {
   l2FactEchoPrefix: "[l2-fact-seen:]",
 
   /**
-   * C4 一次生成两个画布 —— 专属线程 + 第二个哨兵。
-   *
-   * 线程独立的理由同上面每一条：`chat-canvas-guidance-render.spec.ts` 对
-   * `canvasGuidanceThreadId` 里的围栏数量与 `.last()` 有断言，往那条线程里再写两轮
-   * 会把它顶红（本仓「专属线程互相污染」已有案底，见 `attachmentPreviewThreadId` 头注）。
+   * C4 一次生成两个画布 —— 第二个哨兵。
    *
    * 哨兵是**第二个**、不是替换：`canvasGuidanceSentinel` 继续作为「这次请求确实要走
    * 画布分支」的判定信号，`canvasDualSentinel` 只多说一句「这一轮要两个围栏」。
+   *
+   * ⚠ 这里**没有**专属线程：v2 上切 agent 会重挂面板并开一条新对话（issue #3028），
+   * 深链进一条种好的线程再切 agent 拿到的其实是另一条空线程。画布指引只依赖「组织有
+   * 已发布模板」+「用户正文里带哨兵」，与线程是谁无关，所以 C4/C5 用**新建线程**，
+   * 天然与别的用例隔离。曾经种过的两条专属线程随之删掉——留着就是没人用的死夹具。
    */
-  canvasDualThreadId: "thread-chat-read-e2e-canvas-dual",
   canvasDualSentinel: "E2E-CANVAS-DUAL-4417",
-
-  /** C5 连续多轮产物 —— 专属线程（理由同 C4：不与既有画布线程共写）。 */
-  canvasSerialThreadId: "thread-chat-read-e2e-canvas-serial",
 
   /**
    * D4 skill 三态 —— 「目录里看得见它」这一态的回显前缀。
