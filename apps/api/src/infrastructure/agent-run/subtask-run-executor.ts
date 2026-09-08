@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS, SubtaskCancellationPendingError } from "../../application/agent-run/subtask-run-queue";
-import type { AgentRunStore,ModelCallPort } from "../../application/agent-run/ports";
+import type { AgentRunStore,ModelCallPort,ModelCallProgressEvent } from "../../application/agent-run/ports";
 import { executeQueuedSubtaskRuns, type SubtaskRunStore, type SubtaskRun, type SubtaskExecutionState } from "../../application/agent-run/subtask-run-queue";
 import type { EngineRunController } from '../../application/plan-control/engine-run-controller-port';
 import { deriveRemoteThreadId } from './deep-agent-model-provider';
@@ -140,8 +140,17 @@ export class SubtaskRunExecutor {
             onSkillActivity:async()=>{},...(run.snapshot.modelProvider==='deep-agent'?{}:{onRemoteRunStarted})})
         : undefined;
       let completion;
+      const modelInput=bound?bound.input:{...base,executionMode:"text-only" as const};
       try{
-        completion=await this.model.complete(bound?bound.input:{...base,executionMode:"text-only"});
+        // issue #3100 D6 —— 子任务此前只走 `complete()`，于是"用了哪些工具"这件事在整条
+        // 链路上根本没有被观察过（前端只能写死占位文案）。这里改走 provider 已有的
+        // `completeWithProgress`——它与 `complete()` 是**同一次远程执行的同一个轮询循环**
+        // （见 `deep-agent-model-provider.ts` 头注：complete 在需要观察时自己就转调它），
+        // 不是第二次模型调用；provider 不支持进度、或本部署的 store 不承载工具明细时，
+        // 逐字退回原来的 `complete()`（S1=B 双轨纪律）。
+        completion=this.reportsToolCalls(run.snapshot.modelProvider)
+          ? await this.model.completeWithProgress!(modelInput,event=>this.recordToolCall(orgId,run.id,event))
+          : await this.model.complete(modelInput);
       }finally{
         if(bound)await bound.release().catch(()=>{});
       }
@@ -169,6 +178,18 @@ export class SubtaskRunExecutor {
     }finally{
       clearTimeout(deadline);done.abort();await watch;this.active.delete(run.id);
     }
+  }
+  /** 三个条件都成立才观察：provider 报进度、store 承载明细、路由确认这次 provider 支持。 */
+  private reportsToolCalls(modelProvider:string):boolean{
+    return Boolean(this.model.completeWithProgress)&&Boolean(this.store.recordToolCall)
+      &&this.model.supportsProgress?.(modelProvider)!==false;
+  }
+  /** `onProgress` 的拒绝会让整次调用失败——与端口文档「不是 best effort」一致，不吞异常。 */
+  private async recordToolCall(orgId:OrgId,id:string,event:ModelCallProgressEvent):Promise<void>{
+    const toolCallId=event.toolCallId??`${event.toolName}:${event.phase??'complete'}`;
+    await this.store.recordToolCall!(orgId,id,{toolCallId,toolName:event.toolName,
+      argsSummary:event.toolArgsSummary,resultSummary:event.toolResultSummary,
+      phase:event.phase??'complete',ok:event.ok??null,at:new Date().toISOString()});
   }
   kick(orgId: OrgId): void {
     if (!this.autostart) return;

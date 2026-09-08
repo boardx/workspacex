@@ -23,6 +23,7 @@ import { z } from "zod";
 import { RunArtifactRef } from "./standard-run-status";
 import { NativeArtifactPublishInput } from "./native-artifact-publish";
 import { limits as sandboxLimits } from "./sandbox-session";
+import { ToolCallStartFields, ToolCallEndFields } from "./execution-journal";
 
 /** 子任务 run 的状态机，见本文件头注。 */
 export const SubtaskRunStatus = z.enum(["pending", "running", "completed", "failed", "cancelled"]);
@@ -43,6 +44,34 @@ export const SubtaskOutputFilesPolicy=z.object({
  * `result`/`error` 互斥：终态为 `completed` 时 `result` 非 null、`error` 为 null；终态为
  * `failed` 时相反；`pending`/`running`/`cancelled` 两者都为 null。
  */
+/**
+ * 子任务执行期间的一次工具调用（issue #3100 D6）。
+ *
+ * ⚠ **不是第二套工具事件模型**：字段名与校验规则直接取自父 run 账本
+ * （`execution-journal.ts` 的 `ToolCallStartFields`/`ToolCallEndFields`），这里只是把
+ * 「同一 `toolCallId` 的 start + end 两行」折叠成 UI 要的一条记录——父 run 仍然只有账本
+ * 一个事实源，子任务 run 因为不写 `agent_run_steps`/执行账本（它没有自己的 `agent_runs`
+ * 行），才需要把这份折叠随子任务记录一起持久化。折叠规则的唯一实现在
+ * `apps/api/src/application/agent-run/subtask-run-queue.ts` 的 `foldSubtaskToolCall`。
+ *
+ * `argsSummary`/`resultSummary` 是**摘要**（provider 侧 `ModelCallProgressEvent.
+ * toolArgsSummary`/`toolResultSummary` 已截断的那两个值），不是完整入参/结果——
+ * 子任务面板只展示"用了哪些工具"，不承担完整取证。
+ *
+ * `ok`/`durationMs` 在工具刚宣布调用、结果还没回来时为 `null`——展示层据此显示"进行中"，
+ * 不许拿 0 冒充耗时。
+ */
+export const SubtaskToolCall = z.object({
+  toolCallId: ToolCallStartFields.toolCallId,
+  toolName: ToolCallStartFields.toolName,
+  argsSummary: z.string().nullable(),
+  resultSummary: z.string().nullable(),
+  ok: ToolCallEndFields.ok.nullable(),
+  startedAt: z.string(),
+  durationMs: z.number().int().nonnegative().nullable(),
+}).strict();
+export type SubtaskToolCall = z.infer<typeof SubtaskToolCall>;
+
 export const SubtaskCancellation = z.object({
   requestedAt: z.string().datetime(), state: z.enum(["pending", "confirmed", "unknown"]),
 }).strict();
@@ -57,6 +86,14 @@ export const SubtaskRun = z.object({
   outputFiles: SubtaskOutputFilesPolicy.optional(),
   snapshot: z.object({agentVersionId:z.string(),skillVersionIds:z.array(z.string()),modelProvider:z.string(),modelId:z.string()}).strict(),
   artifactRefs: z.array(RunArtifactRef),
+  /**
+   * 这条子任务执行期间上报的工具调用，按首次出现顺序（issue #3100 D6）。
+   *
+   * **可选，且"缺席"与"空数组"是同一件事：引擎没上报**——不是"没用工具"。持久化层
+   * （`PgSubtaskRunStore`）永远给出数组（列默认 `'[]'`），旧行与不报进度的 provider
+   * 因此给出空数组；展示层必须诚实说"引擎尚未上报"，不许造假。
+   */
+  toolCalls: z.array(SubtaskToolCall).optional(),
   status: SubtaskRunStatus,
   result: z.string().nullable(),
   error: z.string().nullable(),

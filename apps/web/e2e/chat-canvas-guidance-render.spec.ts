@@ -4,11 +4,40 @@
  * 拿到 `buildCanvasTemplateGuidance` 注入的指引后，模型是否真的产出可解析的 `canvas`
  * 围栏，前端是否真的把它渲染成 `ChatCanvasFabric`。
  *
+ * 覆盖矩阵 **C1 · 画布围栏渲染**（判据的唯一事实源：
+ * `.harness/instructions/chat-path-coverage-matrix.md`）。
+ *
+ * ## issue #3080：这条用例为什么曾经整个文件是 `test.fixme`，以及为什么现在恢复了
+ *
+ * #3035（旧屏锚点迁 v2）把本文件整条 `test` 降成 `test.fixme`，理由记在那份 PR 里：
+ * 「深链进一条**种好历史**的线程」与「切到确定性回显 agent」在 v2 上互斥（#3028：
+ * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`，切 agent 会卸载当前对话并开
+ * 一条新的）。
+ *
+ * 那条理由对 A3（真的需要种好的历史）成立，**对本用例不成立**：画布指引只依赖
+ * 「组织有已发布模板」+「用户正文里带哨兵」，与线程是谁、线程里有没有历史**无关**
+ * ——本文件自己的头注一直这么写着。同一条链路上的 C4
+ * （`chat-path-c4-two-canvases-one-turn.spec.ts`，一轮两个围栏）正是用「新建线程 +
+ * 切回显 agent」这条路跑绿的，而它对上游那一段的要求比本用例**更强**（要一轮两个围栏
+ * 且互不覆盖）。即：#3028 从来不是 C1 的阻塞项，本文件停放的是**过期的旧屏锚点**
+ * （`/login` 后直接深链 + `chat-message-submit` + 等 `POST /chat/threads/:id/messages`
+ * 的 202），不是缺一条产品能力。#3080 报的「矩阵说已覆盖、文件里零个 `test()`」因此
+ * 是**测试侧**的债，本次按 C4 的既有做法迁锚点并恢复真实 `test()`。
+ *
  * ## 与 `canvas-template-simulate-smoke.spec.ts` 验的是两件不同的事
  *
  * 那条走后台专用的只读端点 `POST /canvas/templates/:key/simulate`，完全不经过
  * `execute-run.ts`/`buildCanvasTemplateGuidance` 这条真实 agent-run 注入链路——两条链路
  * 在生产代码里不共享执行路径，那条绿不能替这条作证，见该文件文件头。
+ *
+ * ## 与 C4 验的也是两件不同的事
+ *
+ * C4 读的是**落库正文**（两个围栏、内容互不相同），因为 fabric 位图里没有可断言的文本；
+ * 它对「围栏能不能被用户打开、编辑、存回去」一个字都没说。本用例补的正是这一段：
+ * `data-template-source="org-generated"`（真实从库里读出的组织自建模板，不是内置 19 个
+ * key 的写死几何兜底，issue #2221 治理的同一条判定路径）、点开最大化进
+ * `canvas-stage.tsx` 编辑器、存回去后从 `chat-canvas-saved-source` 把围栏源读出来逐项
+ * 核对。两条都在，C1 与 C4 才各自成立。
  *
  * ## 「回显即证明」——不是手填假数据
  *
@@ -18,21 +47,22 @@
  * 才把这条消息的原文回显进 canvas 围栏的表头字段与分区要点——链上任何一环断掉（指引没
  * 注入、模型没看到、前端没解析、没渲染成 `ChatCanvasFabric`），证明串都不会在保存的
  * 围栏源里出现，断言如实红。
- *
- * `data-template-source="org-generated"`（`ensureCanvasFenceTemplate`，issue #2221 治理
- * 的同一条判定路径）额外证明这条渲染走的是真实从库里读出的组织自建模板，不是内置 19
- * 个 key 的写死几何兜底——呼应 5 点要求第④条「任何组织都可以使用这个能力」：本用例的
- * 组织不是任何特殊组织，模板也不是内置模板，key 不在 `BUILTIN_CANVAS_TEMPLATES` 里。
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { V2_SEND_WIRE, awaitAssistantReply, bearerOf, snapshotMessageIds } from "./chat-v2-send";
+import {
+  openFreshEchoAgentThread,
+  sendInV2AndAwaitStoredReply,
+} from "./support/chat-path-coverage";
 
 /**
  * issue #2295 —— 证明串**必须**带上 `CHAT_READ_E2E.canvasGuidanceSentinel`：这是
- * `loopback-model-provider.ts` 的 `canvasGuidanceReachedModel` 判定这条请求确实来自
- * 本专属线程的第三个信号（唯一事实源在 `chat-read-fixture.ts`），不是随手嵌进正文的
+ * `loopback-model-provider.ts` 的 `canvasGuidanceReachedModel` 判定这条请求确实要走
+ * 画布分支的第三个信号（唯一事实源在 `chat-read-fixture.ts`），不是随手嵌进正文的
  * 装饰性代号——少了它，这条分支不会命中，会退回通用回显分支。
+ *
+ * ⚠ 刻意**不**带 `canvasDualSentinel`：那是 C4 的信号，带上就变成一轮两个围栏，
+ *   与本用例的单围栏判据撞车。
  */
 const PROOF_TEXT = `帮我记一下这次负责人信息，代号 ${CHAT_READ_E2E.canvasGuidanceSentinel}`;
 
@@ -58,73 +88,32 @@ async function clickMaximizeUntilModalVisible(canvasFence: Locator, page: Page):
   await expect(modal).toBeVisible();
 }
 
-/**
- * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
- *
- * 它要证的是「一句自然语言 → 模型产出 canvas 围栏 → 真的渲染成工作坊画布」。产出
- * 围栏的是 `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游的剧本；v2 上深链
- * 进这条线程用的是服务端默认 agent（deep-agent），它的剧本只做用户原话回显，压根
- * 不产 canvas 围栏，而 v2 又**没法在既有对话里换 agent**（换 agent = 开新对话，
- * 见 #3028）。
- *
- * 真栈实测（2026-09-08 第二轮）：`[data-testid="chat-canvas-fabric"]` 60s 内从未出现，
- * 助手回复是 deep-agent 的 `[skill:]MOUNTPROOF-… 根据查询结果回答你：…`。
- *
- * 按人类裁决（方案 B）**不删断言、不改宽**。锚点已经迁完（下面就是迁移后的版本），
- * 差的只是 #3028 那条产品能力；#3028 补上之后把 `test.fixme` 改回 `test` 即可。
- */
-test.fixme("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成工作坊画布", async ({ page }) => {
+test("@path:C1 真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成工作坊画布", async ({ page }) => {
   test.setTimeout(180_000);
 
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
-  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
-  await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
-
-  await page.goto(
-    `/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.canvasGuidanceThreadId}`,
-  );
-  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.canvasGuidanceThreadId}`))
-    .toContainText("Canvas guidance in real chat check thread");
-
-  const bearer = await bearerOf(page);
-  const knownIds = await snapshotMessageIds(page, CHAT_READ_E2E.canvasGuidanceThreadId, bearer);
+  // 新建线程 + 切确定性回显 agent（顺序不能反，理由见 `openFreshEchoAgentThread` 头注）。
+  const threadId = await openFreshEchoAgentThread(page);
 
   // ── 发一条自然语言消息（不是手填围栏）——「基于上下文生成可视化」验的正是这条转换 ──
-  // issue #2997 —— 锚点由旧屏迁到 v2 工作台（`#2890` 之后 `/chat?projectId=` 渲染
-  // 的是 CopilotKit v2；旧屏已无可达路由）。换的只是输入框/发送按钮这两个承载物，
-  // 本用例要证的「自然语言 → 模型产出 canvas 围栏 → 真的渲染成工作坊画布」一字未动：
-  // 围栏渲染那一半（`chat-canvas-fabric` / `chat-canvas-modal` / `canvas-fabric-surface`）
-  // 出自 `markdown-message.tsx`，而 v2 的 `assistantMessage` slot 正是渲染
-  // `MarkdownMessage`（`copilotkit-v2-assistant-message.tsx`），两屏同一份实现。
-  const input = page.getByTestId("copilotkit-v2-input");
-  await input.fill(PROOF_TEXT);
-  // issue #2997 —— v2 的发送线路见 `chat-v2-send.ts` 头注；判据从"202 被接收"
-  // 换成"上行 run 请求真的带着这句提示词发了出去"，证的仍是"这一轮真的发出去了"。
-  const accepted = page.waitForRequest(
-    (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
-    { timeout: 60_000 },
-  );
-  await page.getByTestId("copilotkit-v2-send").click();
-  expect(JSON.stringify((await accepted).postDataJSON())).toContain(PROOF_TEXT);
-
-  // 等这条消息触发的 AgentRun 到终态。
   //
-  // issue #2997 —— 原写法轮询 `GET /agent-runs/:id`，那是**旧屏**的状态源；v2 拿的
-  // 是 AG-UI 事件流，整轮不发这条请求，原写法会挂死在 120s 超时上（不是变红，是等不到）。
-  // 换成"这一轮真的落库了一条带 `agentRunId` 的 assistant 回复"——同样是终态信号，
-  // 而且更强：它顺带证明写回事务真的提交了。理由见 `chat-v2-send.ts` 头注。
-  await awaitAssistantReply(page, CHAT_READ_E2E.canvasGuidanceThreadId, bearer, knownIds, 120_000);
+  // 判据是「同一条回复里三个都要有」：```canvas（真的是围栏）+ 模板 key（走的是本组织
+  // 那个已发布模板，不是别的）+ `PROOF_TEXT`（内容确实随这次请求变化，不是写死的固定
+  // 串）。少任何一个，通用回显分支都可能把等待提前满足——`sendInV2AndAwaitStoredReply`
+  // 头注记的正是这个坑。
+  await sendInV2AndAwaitStoredReply(page, threadId, PROOF_TEXT, [
+    "```canvas",
+    CHAT_READ_E2E.canvasTemplateKey,
+    PROOF_TEXT,
+  ]);
 
   // ── 结构性证明①：围栏真的解析成功、渲染就绪，且走的是真实组织模板（非内置兜底）──
   //
   // ⚠ 真栈 E2E 实测踩出的坑（同 `chat-diagram-save-reopen-roundtrip.spec.ts` 头注那条
-  //   既有教训）：run 落终态那一刻，`chat-live-message-panel.tsx` 会软刷新消息流，
-  //   这条围栏对应的 DOM 节点在那一瞬间会被摘下重挂。`scrollIntoViewIfNeeded` 是
-  //   **一次性动作**，不会像 `expect(...).toHaveAttribute` 那样在软刷新的间隙里重试，
-  //   一撞上那个瞬间就是 `Element is not attached to the DOM`。先用会自动重试的属性
-  //   断言等软刷新的窗口过去、DOM 稳定下来，再滚动/点击——顺序不能反。
+  //   既有教训）：run 落终态那一刻消息流会软刷新，这条围栏对应的 DOM 节点在那一瞬间
+  //   会被摘下重挂。`scrollIntoViewIfNeeded` 是**一次性动作**，不会像
+  //   `expect(...).toHaveAttribute` 那样在软刷新的间隙里重试，一撞上那个瞬间就是
+  //   `Element is not attached to the DOM`。先用会自动重试的属性断言等软刷新的窗口过去、
+  //   DOM 稳定下来，再滚动/点击——顺序不能反。
   const canvasFence = page.locator('[data-testid="chat-canvas-fabric"]').last();
   await expect(canvasFence).toHaveAttribute("data-ready", "true", { timeout: 60_000 });
   await expect(canvasFence).toHaveAttribute("data-template-source", "org-generated");

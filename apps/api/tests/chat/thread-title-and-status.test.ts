@@ -99,6 +99,33 @@ describe("threadCardStatus —— 线程卡状态（#2094）", () => {
       .toBe("not-started");
   });
 
+  /**
+   * 🔴 issue #3120 反证 —— 没有可见消息、但 run **还在飞**时必须**不是** `not-started`。
+   *
+   * 前端「新建对话」拿 `not-started` 当复用判据（`copilotkit-v2-shell.tsx`
+   * `handleCreate`：顶部卡片是 `not-started` 就进那一条）。首条用户消息落库与 run
+   * 起飞之间的窗口里，旧实现让这种线程显示「还没开始」，于是用户被丢回一条**正在
+   * 跑的**会话，下一句话变成插话。run 34222901107 的 `agent-task-planning-hitl.spec.ts:64`
+   * 就是这么红的。
+   *
+   * 反证纪律：先把这五个取值逐个钉死，再把上面那条终态反证留在原地——两条同时绿，
+   * 才说明收窄的只有活跃 run 那一支。
+   */
+  it.each([
+    ["queued", "running"],
+    ["running", "running"],
+    ["writeback_pending", "running"],
+    ["awaiting_tool_permission", "awaiting-approval"],
+    ["paused", "paused"],
+  ] as const)("没有可见消息但 run 仍在飞（%s）⇒ %s，不是 not-started", (runStatus, expected) => {
+    expect(threadCardStatus({ hasMessages: false, latestRunStatus: runStatus })).toBe(expected);
+  });
+
+  /** 终态 run 留下的无消息线程照旧可复用 —— 上面那条 `succeeded` 反证的另外两个取值。 */
+  it.each(["failed", "cancelled"] as const)("没有可见消息、run 已终态（%s）⇒ 仍是 not-started", (runStatus) => {
+    expect(threadCardStatus({ hasMessages: false, latestRunStatus: runStatus })).toBe("not-started");
+  });
+
   it("有消息、从没跑过 run ⇒ done", () => {
     expect(threadCardStatus({ hasMessages: true, latestRunStatus: null })).toBe("done");
   });

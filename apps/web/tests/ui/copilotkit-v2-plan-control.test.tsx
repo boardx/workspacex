@@ -56,6 +56,9 @@ function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerVie
     gate: { required: true, reason: "multi-step" },
     progress: { completed: 0, total: 2, elapsedMs: 0 },
     pendingApplyAtNextRun: false,
+    // issue #3099 —— 运行级控制只看这个字段（`deriveRunControls`），不看 `phase`。
+    // 夹具默认 `idle`（没有在跑的 run），需要"能暂停/能恢复"的用例各自显式声明。
+    runStatus: "idle",
     activeRunId: null,
     errorCode: null,
     failedStepId: null,
@@ -76,7 +79,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
   });
 
   it("没有计划步骤的暂停任务仍可通过既有 checkpoint 接口继续", async () => {
-    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", pausedAt: "2026-09-07T00:00:00Z" }));
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", runStatus: "interrupted", pausedAt: "2026-09-07T00:00:00Z" }));
     api.resumePlanRun.mockResolvedValue({ runId: "run-paused" });
     render(<CopilotKitV2PlanControl threadId="t-paused" projectId="project-a" />);
     fireEvent.click(await screen.findByTestId(PLAN_RUN_RESUME_TESTID));
@@ -85,7 +88,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
   });
 
   it("无步骤暂停任务的只读访问者不能继续", async () => {
-    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", pausedAt: "2026-09-07T00:00:00Z" }));
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({ steps: [], phase: "preparing", runStatus: "interrupted", pausedAt: "2026-09-07T00:00:00Z" }));
     render(<CopilotKitV2PlanControl threadId="t-paused" canWrite={false} />);
     expect((await screen.findByTestId(PLAN_RUN_RESUME_TESTID)) as HTMLButtonElement).toHaveProperty("disabled", true);
     expect(api.resumePlanRun).not.toHaveBeenCalled();
@@ -160,7 +163,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
   it("phase='executing' 渲染执行进度条，点击「暂停」真的调用 pausePlanRun", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
-        phase: "executing", activeRunId: "run-1",
+        phase: "executing", runStatus: "running", activeRunId: "run-1",
         steps: [
           { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
           { planStepId: "s2", content: "起草方案初稿", status: "in_progress", constraints: [] },
@@ -275,7 +278,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       api.fetchPlanLedger.mockResolvedValue(
-        ledgerWithSteps({ phase: "executing", gate: { required: false, reason: "no-plan" }, activeRunId: "run-1" }),
+        ledgerWithSteps({ phase: "executing", runStatus: "running", gate: { required: false, reason: "no-plan" }, activeRunId: "run-1" }),
       );
       render(<CopilotKitV2PlanControl threadId="t-10" />);
       await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
@@ -376,7 +379,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
   it("refetchSignal 变化：立即重取账本（不用等 3 秒轮询），且在追上前暂停/恢复按钮禁用并提示", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
-        phase: "executing", activeRunId: "run-1",
+        phase: "executing", runStatus: "running", activeRunId: "run-1",
         steps: [
           { planStepId: "s1", content: "调研竞品定价", status: "in_progress", constraints: [] },
           { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
@@ -479,7 +482,7 @@ describe("compact plan presentation", () => {
     expect(api.resumePlanRun).not.toHaveBeenCalled();
   });
   it("keeps a paused plan resume visible with details initially collapsed", async () => {
-    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"executing",pausedAt:"2026-09-07T00:00:00Z"}));
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"executing",runStatus:"interrupted",pausedAt:"2026-09-07T00:00:00Z"}));
     render(<CopilotKitV2PlanControl threadId="paused" canWrite={false} />);
     const toggle=await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -495,6 +498,44 @@ it("zero-step pending changes remain visible and cannot be acted on by read-only
   expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
   expect(banner.closest("fieldset")).toHaveAttribute("disabled");
 });
+
+/*
+ * issue #3099 —— 本组的两条是这次解耦的**反证**：把 `runLive` 换回
+ * `ledger.phase === "executing"`（改动前的写法），第一条立刻回红——`derivePlanPhase`
+ * 在账本为空时恒给 `"preparing"`，暂停按钮整块不渲染。第二条钉住不能顺手把
+ * 「run 结束后没有控制操作」（#2927）一起放宽。
+ */
+it("run 在跑但模型还没产出 write_todos（账本为空）：暂停按钮仍然可见可点", async () => {
+  api.fetchPlanLedger.mockResolvedValue(
+    ledgerWithSteps({ steps: [], phase: "preparing", runStatus: "running", activeRunId: "run-live", gate: { required: false, reason: "no-plan" } }),
+  );
+  api.pausePlanRun.mockResolvedValue({ runId: "run-live", pausedAtStepId: null, auditEventId: "a" });
+  render(<CopilotKitV2PlanControl threadId="t-no-todos" />);
+
+  const pause = await screen.findByTestId("chat-task-workbench-run-pause");
+  expect((pause as HTMLButtonElement).disabled).toBe(false);
+  // 不编造步骤序号/进度分数：账本里没有步骤，就不假装知道"第几步"。
+  expect(screen.queryByText(/当前步骤/)).toBeNull();
+  fireEvent.click(pause);
+  await waitFor(() => expect(api.pausePlanRun).toHaveBeenCalledWith("t-no-todos", undefined));
+});
+
+it.each(["succeeded", "failed", "cancelled"] as const)(
+  "run 已结束（runStatus=%s）：仍然没有任何运行级控制（#2927 只读态不被本次解耦放宽）",
+  async (runStatus) => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        steps: [], runStatus, activeRunId: null,
+        phase: runStatus === "succeeded" ? "done" : runStatus === "failed" ? "failed" : "cancelled",
+        gate: { required: false, reason: "no-plan" },
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId={`t-terminal-${runStatus}`} />);
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-run-pause")).toBeNull();
+    expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
+  },
+);
 
 it("editing input from a collapsed failure opens its real editing form", async () => {
   api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"failed",failedStepId:"s1"}));

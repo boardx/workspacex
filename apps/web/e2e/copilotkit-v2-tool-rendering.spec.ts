@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { TRACE_SAMPLER, judgeLiveness, toBrowserClock, type TraceBaseline, type TraceSample } from "./support/trace-liveness";
 
 /**
  * DA-19c 工具可见性（框架版 Gap 1/4，backlog `DA-19c`）—— 证明 `/chat`
@@ -240,29 +241,63 @@ test("工作台旧入口保留项目和线程参数", async ({ request }) => {
   expect(location.searchParams.get("projectId")).toBe(CHAT_READ_E2E.projectId);
   expect(location.searchParams.get("thread")).toBe(CHAT_READ_E2E.threadId);
 });
+/**
+ * 轨迹「活性」怎么取证（issue #3103，run 34210666232 产物定案）
+ *
+ * 判据本意是「活动不是等 run 结束后一次性灌进来的」。此前写成
+ * `expect(streamFinished).toBe(false)`：要求「等面板出现 → 断言默认折叠 → 点一次 toggle
+ * → 等条目可见」这一串 Playwright 往返全部赶在 run 流结束**之前**跑完。
+ * 回环车道上这是一场跑不赢的赛跑——产物实测：`POST /api/copilotkit/agent/default/run`
+ * 的响应体总时长 **1597ms**，这 1.6 秒里 SSE 已经完整跑完 3 个 step、3 次工具调用、
+ * 23 条执行事件。回环模型没有真实模型的思考时延，run 比那串往返本身还短。
+ * 「个人」实例赢下这场赛跑只因为它落在空线程上、渲染更轻；「项目」实例落在壳恢复出来的
+ * 一条已有历史的线程上（产物里 `forwardedProps.chatThreadId = thr-4f8d8a03…`），水化更重就输。
+ * 差别是**页面重量**，不是项目态少了什么能力。
+ *
+ * 换成带时间戳的取证：发送前就在页面里装 `MutationObserver`，逐次记下每个
+ * `run-trace-panel`（按 `data-run-id` 分）里的条目数与 `Date.now()`。
+ *
+ * ⚠ issue #3122：第一版取证数的是**全页面**条目、且第 0 个样本发生在**点发送之前**，
+ * 而「项目」档落在已有历史的线程上、折叠态条目也在 DOM 里（`run-trace-body` 只是 `hidden`），
+ * 于是「存在早于 streamFinishedAt 且条目数 ≥1 的样本」**恒真**——本轮一条轨迹不渲染也绿。
+ * 现在判据只数**本轮新增**（装采样器那一刻的每 panel 存量记为 baseline，只统计增量），
+ * 且采样窗口从**点发送之后**开始，见 `support/trace-liveness.ts` 与其三场景反证
+ * （`tests/ui/trace-liveness-counterproof.test.tsx`：live-render 绿 / buffered 红 / never-render 红）。
+ * 语义不变：**工具活动在运行流结束前就可见**。「默认折叠 / 展开后可见 / 刷新后可回放」三句一句不删。
+ */
+
 for (const projectId of [null, CHAT_READ_E2E.projectId]) {
 test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
   await page.goto(projectId ? `/chat?projectId=${projectId}` : "/chat", { waitUntil: "domcontentloaded" });
-  let streamFinished = false;
+  let streamFinishedAt: number | null = null;
   const runResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes("/api/copilotkit/") && response.url().includes("/run"));
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  const clockSkew = (await page.evaluate(() => Date.now())) - Date.now();
+  await page.evaluate(TRACE_SAMPLER);
+  const sendAt = toBrowserClock(Date.now(), clockSkew);
   await page.getByTestId("copilotkit-v2-send").click();
   const response = await runResponse;
-  void response.finished().then(() => { streamFinished = true; });
+  void response.finished().then(() => { streamFinishedAt = Date.now(); });
   const panel = page.getByTestId("run-trace-panel").last();
   const toggle = panel.getByTestId("run-trace-toggle");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(panel.getByTestId("run-trace-body")).toBeHidden();
   await toggle.click();
   await expect(panel.getByTestId("run-trace-entry").first()).toBeVisible();
-  expect(streamFinished, "活动必须在运行流结束前可见").toBe(false);
   await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(1);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => streamFinished, { timeout: 60_000 }).toBe(true);
+  await expect.poll(() => streamFinishedAt, { timeout: 60_000 }).not.toBeNull();
+  // ── 活性反证：条目在 run 流**还开着**的时候就已经进 DOM，不是结束后一次性灌进来的 ──
   const runId = await panel.getAttribute("data-run-id");
+  const { samples, baseline } = await page.evaluate(() => {
+    const scope = window as unknown as { __traceSamples: TraceSample[]; __traceBaseline: TraceBaseline };
+    return { samples: scope.__traceSamples, baseline: scope.__traceBaseline };
+  });
+  const verdict = judgeLiveness(samples, baseline, runId, sendAt, toBrowserClock(streamFinishedAt!, clockSkew));
+  expect(verdict.live, verdict.message).toBe(true);
   const count = await panel.getByTestId("run-trace-entry").count();
   await page.reload({ waitUntil: "domcontentloaded" });
   const restored = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);

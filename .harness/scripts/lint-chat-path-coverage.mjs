@@ -20,6 +20,12 @@
  *    是这套设计的目的地，把车道写死等于让搬家永远过不了这道门。车道列因此既是记录，
  *    也是判据——改了列而没改 config（或反过来）都会红。
  * 5.（表里点名的其余 spec 文件）文件存在性——改名/删除后表里那格会指空。
+ * 6. 标 `已覆盖` 的行，它点名的每个 spec 文件里至少有一个**会真实执行**的 `test(`
+ *    （`test.fixme`/`test.skip` 不算）。issue #3080 补，理由见该条自己的头注。
+ *
+ * ⚠ 第 6 条与第 2 条对 `test.fixme` 的态度不同，不是自相矛盾：第 2 条问的是
+ *    「这条 spec 与矩阵有没有机械联系」（停放中的断言也有），第 6 条问的是
+ *    「`已覆盖` 这个词是不是真的」（停放中的断言不算跑过）。
  *
  * ## 它**挡不到**什么
  *
@@ -77,6 +83,50 @@ for (const row of rows) {
 for (const [spec, ids] of namedSpecs) {
   if (!existsSync(path.join(E2E_DIR, `${spec}.spec.ts`))) {
     fail(`矩阵第 ${ids.join("/")} 行点名的 spec 不存在：apps/web/e2e/${spec}.spec.ts（改名或删除后没人回来补表）`);
+  }
+}
+
+/**
+ * ⑥ 标 `已覆盖` 的行，它点名的每个 spec 文件里**至少有一个会真实执行的 `test(`**。
+ *
+ * ## 这一条为什么是补的（issue #3080）
+ *
+ * 上面第 ②/③ 条只看 `chat-path-*` 文件，而且**刻意把 `test.fixme(` 也算作有效标签**
+ * （见下面那段既有注释的理由）。两件事叠起来留了一个正好的洞：
+ * `chat-canvas-guidance-render.spec.ts` 整个文件只有一条 `test.fixme`（#3035 迁锚点时
+ * 停放的），矩阵 C1 行却写着 `已覆盖`，而它既不叫 `chat-path-*`（②/③ 够不着）、
+ * `fixme` 又被当作有效（即便够得着也不红）⇒ **一条零断言执行的路径在门控眼里是绿的**。
+ *
+ * 本条不区分文件名前缀（全表生效），也不区分 `fixme`/`skip`：`已覆盖` 这个词的含义就是
+ * 「有断言在跑」。**停放**（断言原文保留、等产品补缺口）是正当处置，但它对应的覆盖态是
+ * `未覆盖`，要在「已知缺口」一节写清阻塞于哪个 issue——A3 行就是这么写的，那是先例，
+ * 不是例外。
+ */
+/**
+ * 会真实执行的 `test(` 计数：`test.fixme(`/`test.skip(`/`test.setTimeout(` 都不算。
+ *
+ * ⚠ **必须先剥注释**——本条门控自己的反证第一次就栽在这上面：本仓 spec 的头注写得很长，
+ * 里面引用 `` `test()` `` 这种字面串是常态（本次修的 C1 spec 头注就在解释「文件里零个
+ * `test()`」）。不剥注释时，一个整文件 `test.fixme` 的 spec 会因为**注释里提到过
+ * `test()`** 而被判成有断言在跑 —— 门控存在、但恒绿，正是它要挡的那种东西。
+ */
+function executingTestCount(source) {
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  return [...code.matchAll(/(^|[^.\w])test\s*\(/g)].length;
+}
+for (const [spec, ids] of namedSpecs) {
+  const file = path.join(E2E_DIR, `${spec}.spec.ts`);
+  if (!existsSync(file)) continue; // ⑤ 已经报过了
+  const claimedCovered = ids.some((id) => rows.find((row) => row.id === id)?.coverage === "已覆盖");
+  if (!claimedCovered) continue;
+  if (executingTestCount(readFileSync(file, "utf8")) === 0) {
+    fail(
+      `矩阵第 ${ids.join("/")} 行标「已覆盖」，但 apps/web/e2e/${spec}.spec.ts 里一个会执行的 `
+      + "`test(` 都没有（只有 `test.fixme(`/`test.skip(`）——覆盖态与实际不符。"
+      + "停放中的路径应标 `未覆盖` 并在「已知缺口」一节写清阻塞于哪个 issue（见 A3 行的先例）。",
+    );
   }
 }
 

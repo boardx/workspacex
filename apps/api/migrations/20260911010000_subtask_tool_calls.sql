@@ -1,0 +1,11 @@
+-- issue #3100 D6 —— 子 Agent 折叠树的「工具」一项此前是写死的占位文案，根因是
+-- `subtask_runs` 没有任何承载工具调用的列：子任务没有自己的 `agent_runs` 行，也就
+-- 不写执行账本（`agent_run_steps` / execution events），父 run 那条通路对它不存在。
+--
+-- 这里只加一列承载**折叠后**的工具明细（同一 toolCallId 的 start+end 合成一条，
+-- 字段名取自 `packages/contracts/src/execution-journal.ts` 的 ToolCall*Fields，
+-- 不新造第二套事件模型）。默认 '[]' ⇒ 旧行与不上报进度的 provider 给出空数组，
+-- 展示层据此如实说「引擎尚未上报」。
+--
+-- Append-only：新文件，不改已应用的迁移（见 #2954）；重复执行幂等。
+ALTER TABLE subtask_runs ADD COLUMN IF NOT EXISTS tool_calls jsonb NOT NULL DEFAULT '[]'::jsonb;
