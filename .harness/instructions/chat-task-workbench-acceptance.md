@@ -130,14 +130,22 @@
 4. **确认门是条件性的**：复杂任务先确认计划，简单问题直接回答。
    反证要求：一个简单提问不得被加上一道确认门（否则判 0.3 封顶）。
 5. 执行态显示：当前步骤、完成比例、耗时、**可暂停**。
-6. 失败态说明失败步骤，并给出三个恢复动作：重试该步 / 修改输入 / 恢复检查点。
+6. 失败态说明失败原因，并给出**两个**恢复动作：重试该步 / 修改输入。
+   ⚠ 「恢复检查点」这第三个动作**已被人类 2026-08-26 裁决 (c) 移除**（需要引擎级
+   checkpoint，本轮不做）；本条此前仍写着三个，是裁决之后没跟着改的过时文档，
+   2026-09-08 按 coordinator 裁决 ①（issue #3132）更正为两个。实现方
+   `plan-failure-recovery.tsx` 从未把 `...-restore-checkpoint` 写进 JSX，那是对的。
+   ⚠ 失败的 run **不保证产出过计划步骤**（模型一次 `write_todos` 都没调就失败）：
+   这种形状下仍必须给出这两个动作（重试整轮 / 改写输入），不得因为"没有计划"
+   就没有恢复入口（issue #3132 裁决 ②）。
 
 **用例**：`chat-task-workbench-workflow-states.spec.ts`
 **锚点**：`chat-task-workbench-phase-indicator`（`data-phase` ∈ 六态）、
 `chat-task-workbench-plan-panel`、`chat-task-workbench-plan-step`、
 `...-plan-step-reorder`/`-delete`/`-add-constraint`、
 `chat-task-workbench-plan-confirm`、`chat-task-workbench-run-progress`、
-`chat-task-workbench-run-pause`、`chat-task-workbench-failure-{retry-step|edit-input|restore-checkpoint}`
+`chat-task-workbench-run-pause`、`chat-task-workbench-failure-{retry-step|edit-input}`（`...-restore-checkpoint`
+**不存在且不应存在**，见判据 6 的裁决说明）
 
 ### TW-P0-4 右栏动态 Inspector
 

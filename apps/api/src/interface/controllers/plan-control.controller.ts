@@ -230,14 +230,15 @@ export class PlanControlController {
   async retry(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
-    @Body() body: { planStepId: string },
+    // issue #3132 —— `planStepId` 可空（整轮重试）；字段缺失也按 null 处理。
+    @Body() body: { planStepId: string | null },
     @Query("projectId") projectId?: string,
   ) {
     assertPrincipal(principal);
     await this.assertWritable(principal, threadId, projectId);
     return this.runPlanEdit(() => retryPlanStep(
       { ...this.planEditDeps, runCreator: this.runCreator }, this.provenance,
-      { orgId: toOrgId(principal.orgId), threadId, actorId: principal.userId, planStepId: body.planStepId },
+      { orgId: toOrgId(principal.orgId), threadId, actorId: principal.userId, planStepId: body.planStepId ?? null },
     ));
   }
 

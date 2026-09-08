@@ -17,6 +17,12 @@ import { PLAN_PHASE_LABEL_ZH, type PlanPhase } from "@repo/contracts/plan-contro
  *   ② `aria-current="step"`（辅助技术能读出「当前所在这一步」）
  *   ③ `role="status"` 播报当前态中文文案（screen reader 主动播报，不需要用户去找）
  * 去掉 CSS 后仍能靠 DOM 结构（`aria-current` + `sr-only` 文本）读出在哪一态。
+ *
+ * issue #3132 —— 每一格加 `data-phase-step`（值 = `PlanPhase` 枚举值本身，不另造
+ * 第二套命名），让 e2e 能机械判定"这条线上到底列了哪几态"，而不是靠中文文案反查。
+ * `aria-current="step"` 仍然只落在**当前那一格**上
+ * （不上移到根节点：根节点带上它就等于说"整条线都是当前步"，也会让"恰好一个
+ * aria-current" 这条既有断言失真）。
  */
 const PHASE_LINE: readonly PlanPhase[] = ["preparing", "planning", "executing", "approving", "done"];
 
@@ -54,6 +60,7 @@ export function PlanPhaseIndicator({ phase }: PlanPhaseIndicatorProps): React.JS
         <React.Fragment key={p}>
           {i > 0 && <span aria-hidden className="text-11 text-muted-foreground">›</span>}
           <span
+            data-phase-step={p}
             // ② aria-current：辅助技术定位当前步骤。
             aria-current={p === phase ? "step" : undefined}
             className={cn(
