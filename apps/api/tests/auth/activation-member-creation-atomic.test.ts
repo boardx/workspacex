@@ -1,3 +1,5 @@
+// @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
+//   本文件自己用带前缀的 `DELETE FROM credentials WHERE ...` 收敛写进去的行。
 /**
  * 不变量 I-1（V9）：**核销令牌 + 建账号 + 建 org_membership + 标 used 是一个事务。
  * 任何一步失败 ⇒ 全回滚 ⇒ 令牌仍未核销。**

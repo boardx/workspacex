@@ -1,3 +1,6 @@
+// @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
+//   本文件是**共享夹具**：写入由调用方通过 `resetCredentials`/带前缀的 DELETE 收敛，
+//   `ON CONFLICT DO NOTHING` 保证重复调用不炸。新调用方必须自己清理自己的 user_id/email。
 /**
  * Shared setup for tests that need a real database.
  *

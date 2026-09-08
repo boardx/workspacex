@@ -1,3 +1,7 @@
+// @global-scope-fixture seeder:backfillPlatformSkills: 写 `org-platform` 名下的平台 skill 行。跨 org 可见是产品事实
+//   （`pg-skill-contract-repository` 的 `OR sk.org_id = PLATFORM_ORG_ID`），`resetOrgs(<自己的 org>)`
+//   碰不到它、`wave2_skill_immutable_trg` 又挡着删除 ⇒ **没有文件能收敛它**。断言侧一律按归属
+//   过滤（`withoutPlatformOwnedSkills`），不要按名字——见 issue #2982 / PR #2978。
 /**
  * design-delta `platform-owned-skills` —— 四个官方 skill 对所有 org 默认可见/可挂载/
  * 可执行，真栈门控（`verification.md` V1-V6；V7 是真实浏览器路径，见该文件）。
