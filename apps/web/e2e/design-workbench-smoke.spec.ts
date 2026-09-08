@@ -101,7 +101,10 @@ test.describe("设计工作台端到端：新建/深化 → 详情 → 推送 �
     const created = page.waitForResponse(
       (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/pm-designs`),
     );
-    await page.getByTestId("project-dialog-submit").click();
+    // 迭代 13：新建走三步问答（brief → 问题 → 指导原则），`project-dialog-submit` 在第三步。
+    // 这条 e2e 测的是「新建 → 详情 → 推送 → 收件箱」这条链路，不是问答本身，
+    // 所以走等价的一步创建路径「跳过，直接创建」——问答另有 V61–V63 覆盖。
+    await page.getByTestId("intake-skip-all").click();
     const createdResponse = await created;
     expect(createdResponse.status(), "新建设计项目应该 201").toBe(201);
 
