@@ -15,6 +15,10 @@ describe("bounded report progress projection", () => {
     expect(result).not.toHaveProperty("sources"); expect(result).not.toHaveProperty("messages"); expect(result).not.toHaveProperty("reportPrevious");
     expect(runtimeProgress(state, "r", 6, createHash("sha256").update("第一章第二章").digest("hex")).stream?.delta).toBe("");
   });
+  it("publishes actionable quality warnings while later chapters are running", () => {
+    const warnings = [{ sectionId: "chapter-1", issues: ["补充政策适用范围证据"] }];
+    expect(runtimeProgress({ ...state, reportQualityWarnings: warnings }).reportQualityWarnings).toEqual(warnings);
+  });
   it("resets a foreign or out of bounds cursor instead of losing text", () => {
     expect(runtimeProgress(state, "r", 3, createHash("sha256").update("old").digest("hex")).stream?.offset).toBe(0);
     expect(runtimeProgress(state, "old", 3).stream).toMatchObject({ offset: 0, delta: "第一章第二章" });

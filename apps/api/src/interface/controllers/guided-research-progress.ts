@@ -10,7 +10,7 @@ export function runtimeProgress(state: ResearchRuntime, requestId?: string, offs
     currentNode: state.currentNode, availableNodes: state.availableNodes,
     busy: state.busy, leaseUntil: state.leaseUntil, errorCode: state.errorCode,
     completed: state.completed, progress: state.progress, reportTimeline: state.reportTimeline,
-    reportPartial: state.reportPartial, reportSourceAliases: state.reportSourceAliases,
+    reportPartial: state.reportPartial, reportSourceAliases: state.reportSourceAliases, reportQualityWarnings: state.reportQualityWarnings ?? [],
     stream: stream ? { requestId: stream.requestId, sequence: stream.sequence, offset: start,
       delta: stream.text.slice(start), status: stream.status } : null,
   });

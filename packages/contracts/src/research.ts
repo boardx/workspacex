@@ -988,7 +988,7 @@ export const GuidedResearchRuntimeCommand = z.object({
 export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
   sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
   busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true,
-  reportTimeline: true, reportPartial: true, reportSourceAliases: true,
+  reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
 }).extend({
   stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
     offset: z.number().int().nonnegative(), delta: z.string().max(1048576),
