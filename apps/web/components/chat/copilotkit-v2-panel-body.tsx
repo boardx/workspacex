@@ -1239,15 +1239,30 @@ export function CopilotKitV2PanelBody({
   );
 
   // Template recommendations retain the existing persisted-evidence and permission gates.
+  /*
+   * issue #3000 —— 这里读的必须是**当前生效的**线程 id，不是挂载时那个。
+   *
+   * `initialChatThreadId` 是挂载时 URL 里的值，裸 `/chat` 落地时是 `null`，而首轮发完
+   * 消息后它**不会**变成新线程 id：#2021 刻意用 `history.replaceState` 而不是路由状态，
+   * 正是为了不让 Body 在 run 在途时被重挂载（见 `copilotkit-v2-panel.tsx` 里 `key` 那段
+   * 注释记录的真回归）。于是本 hook 的 `initialChatThreadId === null` 早退分支永远命中，
+   * 同一次页面加载内**模板/画像建议一条都不会出现**——`copilotkit-v2-persona-archived.spec.ts:86`
+   * 等 `chat-persona-summary-trigger` 30s 找不到，就是这条：不是权限（`capabilities` 含
+   * `artifact.land`）没下发，是推荐根本没去取。
+   *
+   * `resolvedChatThreadId` 就是为这类"首轮之后才知道线程 id"的消费方准备的 state
+   * （`serverQueue` / `useRunTraceTail` / landing 都已经读它），换过来不引入任何重挂载。
+   */
+  const effectiveChatThreadId = resolvedChatThreadId ?? initialChatThreadId;
   const personaThreadHasPersistedEvidence =
-    initialChatThreadId !== null
+    effectiveChatThreadId !== null
     && ((hydratedEvidence !== null
-      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.threadId === effectiveChatThreadId
       && hydratedEvidence.hasMessages)
-      || resolvedThreadIdsRef.current.has(initialChatThreadId));
+      || resolvedThreadIdsRef.current.has(effectiveChatThreadId));
   const { templateRecommendations, personaGeneratedOnce, personaRunning, personaFailure,
     dismissedTemplateKeys, dismissTemplateSuggestion, runPersonaSummary } = useTemplateRecommendations({
-      agent, initialChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
+      agent, initialChatThreadId: effectiveChatThreadId, projectId, archived, personaThreadHasPersistedEvidence, onMessageSent,
     });
 
   const { messagesContainerRef, messagesContentRef, isAtBottom, handleMessagesScroll,
@@ -1362,12 +1377,14 @@ export function CopilotKitV2PanelBody({
   const personaAlreadyGenerated =
     personaGeneratedOnce
     || (hydratedEvidence !== null
-      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.threadId === effectiveChatThreadId
       && hydratedEvidence.hasPersonaArtifact);
   const templateSuggestions: readonly LocalSuggestionChip[] = templateRecommendations
     .filter((t) => !dismissedTemplateKeys.has(t.key))
-    .filter((t) => initialChatThreadId === null
-      || !readTemplateSuggestionDismissed(initialChatThreadId, t.key))
+    // 同上：忽略/已生成这两条本地偏好也按**当前生效**的线程 id 读，否则首轮之后
+    // 读的是 `null`（等于对新线程一律不过滤），与推荐来源不是同一条线程。
+    .filter((t) => effectiveChatThreadId === null
+      || !readTemplateSuggestionDismissed(effectiveChatThreadId, t.key))
     .filter((t) => t.key !== "persona" || (canGeneratePersona && !personaAlreadyGenerated))
     .map((t) => {
       const isPersona = t.key === "persona";

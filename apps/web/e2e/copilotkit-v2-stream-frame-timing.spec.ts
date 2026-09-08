@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { expectAssistantTurnSettled } from "./support/chat-path-coverage";
 
 /**
  * DA-19g 评分循环第 4 轮 —— chat-ux-acceptance-criteria.md 第 1 项"流式反馈"的
@@ -69,24 +70,6 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
 interface StreamSample {
   readonly t: number;
   readonly len: number;
-}
-
-/**
- * issue #2175 复核 —— `isDisabled()===false` 隐含"没有别的原因会让按钮 disabled"这条
- * 假设，在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 `send()` 成功
- * 清空后只剩"输入为空"这条独立、合法的禁用理由（`sendDisabledReason`），与"run 是否
- * 已经落定"无关——原判据在这条门上永远等不到 `false`，本文件真正要验的流式采样断言
- * 因此从未被跑到过（本轮独立复验：换成这条判据后，下面的流式断言真的执行且全部通过，
- * 证明这条从来不是流式渲染本身的缺陷，是这道等待门选错了信号源）。
- */
-const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
-async function expectSendNotBlockedOnRun(
-  page: import("@playwright/test").Page,
-  timeoutMs = 30_000,
-): Promise<void> {
-  await expect
-    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
-    .not.toBe(RUNNING_DISABLED_REASON);
 }
 
 test.setTimeout(120_000);
@@ -166,10 +149,20 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  // 等这段回复真的落定：`agent.isRunning` 回到 false（不直接判发送按钮
-  // `isDisabled()===false`——issue #2175 复核：composer 此时已清空，"输入为空"是
-  // 独立的合法禁用理由，见 `expectSendNotBlockedOnRun` 头注），不是固定 sleep 猜时序。
-  await expectSendNotBlockedOnRun(page);
+  /*
+   * issue #3000（A 类根因）—— 这道等待门原来判的是「发送按钮 `title` 不等于
+   * "Agent 正在处理上一条消息，请稍候…"」。2026-09-06「agent 还在生成时也要能回复 A/B」
+   * 之后产品**删掉了这条禁用理由**（`copilotkit-v2-panel-body.tsx` 的 `sendDisabledReason`
+   * 里只剩注释），判据因此恒真：run 还没起来就"通过"，第一次采样即返回。
+   * 于是 click 之后不到 1s 就去读采样序列，拿到 `[0]`，下面反证① 判红——
+   * 这是**假红**，流式渲染本身没坏。用例耗时稳定 8.3s / 8.8s（上限 120s）就是"根本没等"
+   * 的直接证据。
+   *
+   * 换成 `expectAssistantTurnSettled`：先等 assistant 正文容器真的渲出非空文本，再等
+   * 运行态（`data-send-state`）落定。它观测的是会随状况改变的信号——真的没产出时会
+   * 如实红满超时，不会一秒钟"通过"。
+   */
+  await expectAssistantTurnSettled(page);
   // 再给最后一帧的 DOM 提交留一点余量。
   await page.waitForTimeout(500);
 

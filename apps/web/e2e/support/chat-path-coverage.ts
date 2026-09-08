@@ -240,3 +240,37 @@ export async function expectSendNotBlockedOnRun(page: Page, timeoutMs = 60_000):
     .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"), { timeout: timeoutMs })
     .not.toBe("running");
 }
+
+/**
+ * 「这一轮 assistant 回合真的产出并落定了」——**非空洞**的等待门（issue #3000 A 类根因）。
+ *
+ * ## 为什么必须新加一个，而不是继续用上面那个 `expectSendNotBlockedOnRun`
+ *
+ * 上面那个判的是「不等于 running」。点下发送之后有一段窗口 `agent.isRunning` 还是
+ * false（run 还没建立），`data-send-state` 仍是 `ready`/`disabled`——这条判据在
+ * **第一次采样**就满足，于是「等这一轮跑完」退化成「不等」。同一个坑
+ * `real-model-pdf-smoke.spec.ts` 已经用 `sawRunning` 标记堵过一次（见那份头注）。
+ *
+ * 更糟的是 `copilotkit-v2-stream-frame-timing.spec.ts` / `copilotkit-v2-runtime-adapter.spec.ts`
+ * 里各自抄了一份读 `title` 的旧版本，判的是 `title !== "Agent 正在处理上一条消息，请稍候…"`；
+ * 而 2026-09-06「agent 还在生成时也要能回复 A/B」之后，`sendDisabledReason`
+ * （`copilotkit-v2-panel-body.tsx`）已经**没有**这条理由了——那句文案在产品代码里
+ * 只剩注释。判据因此**恒真**：run 从未开始也满足，第一次采样就返回。
+ *
+ * 这里改判**会随状况改变的信号**：先等 assistant 正文容器真的渲出非空文本
+ * （run 压根没起来 / 没产出时这条会如实红，不会一秒钟"通过"），再等运行态落定。
+ * 用"产出物"而不是"转瞬即逝的 running 态"当第一道门，不依赖采样频率恰好抓到那一帧。
+ */
+export async function expectAssistantTurnSettled(page: Page, timeoutMs = 90_000): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const node = page.getByTestId("chat-ai-markdown").last();
+        if ((await node.count()) === 0) return 0;
+        return (await node.innerText().catch(() => "")).trim().length;
+      },
+      { timeout: timeoutMs, intervals: [250, 500, 1_000] },
+    )
+    .toBeGreaterThan(0);
+  await expectSendNotBlockedOnRun(page, timeoutMs);
+}
