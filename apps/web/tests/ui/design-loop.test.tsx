@@ -1384,6 +1384,341 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
   });
 
+  /**
+   * 迭代 14 —— 预览时换设备镜头。核心取舍：**镜头不写库**（它是"我现在用什么尺寸看"，
+   * 不是"这稿是给什么设备的"），以及机身真的画出来（模拟的意义在于比例与外观是真的）。
+   */
+  describe("迭代 14 设备模拟", () => {
+    const mount = async (template: "mobile" | "ui" | "wireframe" = "mobile") => {
+      const bodies: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") {
+          return { items: [project({ id: "p1", template, frames: ["首页"], frameLinks: [[]],
+            prototype: [{ id: "root", type: "stack", children: [{ id: "b1", type: "button", props: { label: "发送" } }] }] })] };
+        }
+        if (opts?.method === "PATCH") { bodies.push(opts.body); return { project: project({ id: "p1", template }) }; }
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      return bodies;
+    };
+
+    it("默认镜头跟项目模板走；切换后画板尺寸与机身形态都变", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().getAttribute("data-device")).toBe("iphone");
+      expect(frame().getAttribute("data-chrome")).toBe("phone");
+      expect(frame().style.width).toBe("393px");
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
+      expect(frame().getAttribute("data-device")).toBe("laptop");
+      expect(frame().getAttribute("data-chrome")).toBe("browser");
+      expect(frame().style.width).toBe("1280px");
+      // ⭐ 反证：尺寸若还从旧的 DEVICE_SIZE 三档来 ⇒ 宽度不会是 1280，这条红。
+    });
+
+    it("换镜头**不写库**——一次 PATCH 都不发", async () => {
+      const bodies = await mount("mobile");
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "ipad" } });
+      fireEvent.click(screen.getByTestId("design-detail-rotate"));
+      await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("ipad"));
+      // ⭐ 反证：把镜头做成 DesignProject 的字段（像 theme 那样 PATCH）⇒ 这条红。
+      //   那会让「这稿是给 iPhone 的」和「我现在用 iPhone 尺寸看」混成同一件事。
+      expect(bodies).toEqual([]);
+    });
+
+    it("旋转交换宽高；桌面浏览器的旋转按钮禁用", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().style.width).toBe("393px");
+      fireEvent.click(screen.getByTestId("design-detail-rotate"));
+      expect(frame().style.width).toBe("852px");
+      expect(frame().getAttribute("data-landscape")).toBe("true");
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "desktop" } });
+      expect((screen.getByTestId("design-detail-rotate") as HTMLButtonElement).disabled).toBe(true);
+      // 不可旋转的镜头即便 landscape 状态还留着，也不该被转过来
+      expect(frame().getAttribute("data-landscape")).toBe("false");
+      expect(frame().style.width).toBe("1440px");
+    });
+
+    it("机身 chrome 真的画出来了：手机有灵动岛 + home 条，浏览器有工具栏", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().querySelector('[data-chrome="island"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="status"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="home"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="browser"]')).toBeNull();
+
+      // iPhone SE 是上下额头，不是灵动岛——两者靠形状区分，不是同一个东西
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "iphone-se" } });
+      expect(frame().querySelector('[data-chrome="notch"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="island"]')).toBeNull();
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
+      expect(frame().querySelector('[data-chrome="browser"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="home"]')).toBeNull();
+      // ⭐ 反证：chrome 若只是换个圆角、不画状态栏/工具栏 ⇒ 这一组全红。"模拟"就剩个空壳。
+    });
+
+    it("chrome 是装饰：不进原语树，选不中", async () => {
+      await mount("mobile");
+      const tree = screen.getByTestId("design-detail-phone-tree");
+      // 状态栏/灵动岛都在树**外面**——否则属性面板会多出一批用户根本改不了的目标
+      expect(tree.querySelector('[data-chrome]')).toBeNull();
+      expect(tree.querySelectorAll('[data-proto]').length).toBeGreaterThan(0);
+    });
+  });
+
+  /**
+   * 迭代 15 —— 画布上的直接操作（图层面板 / 复制 / 重排 / 键盘）。
+   * 三个入口共用 `lib/prototype-node-actions` 那一份纯逻辑，这里验的是**接线**：
+   * 点了真的发出正确的 op，且走的是与模型同一条 patchPrototype。
+   */
+  describe("迭代 15 画布直接操作", () => {
+    const treeProject = () => project({
+      id: "p1", frames: ["首页"], frameLinks: [[]],
+      prototype: [{ id: "root", type: "stack", children: [
+        { id: "a", type: "button", props: { label: "甲" } },
+        { id: "b", type: "card", props: { title: "乙" }, children: [{ id: "b1", type: "text", props: { content: "丙" } }] },
+      ] }],
+    });
+
+    const mount = async () => {
+      const posted: { ops: unknown[]; summary?: string }[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [treeProject()] };
+        if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+          posted.push(opts.body as { ops: unknown[]; summary?: string });
+          return { project: treeProject() };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      return posted;
+    };
+
+    it("图层面板列出整棵树、按层级缩进，点一行就选中", async () => {
+      await mount();
+      const layers = await screen.findByTestId("design-layers");
+      expect(layers.textContent).toContain("纵向布局");
+      expect(layers.textContent).toContain("按钮「甲」");
+      expect(layers.textContent).toContain("卡片「乙」");
+      // 层级靠 depth 表达：root=0，它的孩子=1，卡片的孩子=2
+      expect(screen.getByTestId("design-layer-root").getAttribute("data-depth")).toBe("0");
+      expect(screen.getByTestId("design-layer-a").getAttribute("data-depth")).toBe("1");
+      expect(screen.getByTestId("design-layer-b1").getAttribute("data-depth")).toBe("2");
+      // ⭐ 反证：摊平时不带 depth ⇒ 一列平铺，"外面那个容器"仍然分不出来，这三条红。
+
+      fireEvent.click(screen.getByTestId("design-layer-b"));
+      await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("卡片「乙」"));
+    });
+
+    it("复制：发 insert 到原节点后面，且副本不带 id", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-layer-a"));
+      fireEvent.click(await screen.findByTestId("design-inspector-duplicate"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]!.ops).toEqual([{ op: "insert", parentId: "root", index: 1, node: { type: "button", props: { label: "甲" } } }]);
+    });
+
+    it("上移/下移：到头了按钮禁用，不发空请求", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-layer-a"));
+      await screen.findByTestId("design-inspector-move-up");
+      // a 是第一个 ⇒ 上移禁用；下移可用
+      expect((screen.getByTestId("design-inspector-move-up") as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId("design-inspector-move-down") as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getByTestId("design-inspector-move-down"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      // ⭐ 反证：移动做成"只发 insert 不发 remove" ⇒ 会多出一个节点而不是移动，这条红。
+      expect(posted[0]!.ops).toEqual([
+        { op: "remove", id: "a" },
+        { op: "insert", parentId: "root", index: 1, node: { id: "a", type: "button", props: { label: "甲" } } },
+      ]);
+    });
+
+    it("键盘：方向键在树里走，Esc 取消选中，⌘D 复制", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-layer-a"));
+      await screen.findByTestId("design-inspector");
+
+      fireEvent.keyDown(window, { key: "ArrowRight" });  // a → b（兄弟）
+      await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("卡片「乙」"));
+      fireEvent.keyDown(window, { key: "ArrowDown" });   // b → b1（第一个孩子）
+      await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("文本「丙」"));
+      fireEvent.keyDown(window, { key: "ArrowUp" });     // b1 → b（父）
+      await waitFor(() => expect(screen.getByTestId("design-inspector").textContent).toContain("卡片「乙」"));
+
+      fireEvent.keyDown(window, { key: "d", metaKey: true });
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect((posted[0]!.ops[0] as { op: string }).op).toBe("insert");
+
+      fireEvent.keyDown(window, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByTestId("design-inspector")).toBeNull());
+    });
+
+    it("**在输入框里打字时快捷键不生效**——否则删一个字会删掉一个节点", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-layer-a"));
+      await screen.findByTestId("design-inspector");
+      const input = screen.getByTestId("design-detail-input");
+      // 从输入框派发：Delete 与 ⌘D 都必须被忽略
+      fireEvent.keyDown(input, { key: "Delete" });
+      fireEvent.keyDown(input, { key: "d", metaKey: true });
+      await new Promise((r) => setTimeout(r, 20));
+      // ⭐ 反证：不判 target 是不是输入框 ⇒ 这条红。这是这类快捷键最常见的翻车方式。
+      expect(posted).toEqual([]);
+      expect(screen.getByTestId("design-inspector")).toBeTruthy();  // 选中也还在
+    });
+
+    it("预览态不显示图层面板（那时候没有「选中」这回事）", async () => {
+      await mount();
+      expect(screen.getByTestId("design-layers")).toBeTruthy();
+      fireEvent.click(screen.getByTestId("design-detail-mode-preview"));
+      await waitFor(() => expect(screen.queryByTestId("design-layers")).toBeNull());
+    });
+  });
+
+  /**
+   * 迭代 16 —— 页管理与一键撤销。
+   * `addScreen`/`removeScreen` 从迭代 12 起就在契约里，但**从来没有 UI 够得着**：
+   * 模型能加删页，用户不能。这一组验的是那条接线，外加新增的 `renameScreen`。
+   */
+  describe("迭代 16 页管理 + 撤销", () => {
+    const twoPages = () => project({
+      id: "p1", frames: ["首页", "设置"], frameLinks: [[], []],
+      prototype: [
+        { id: "r0", type: "stack", children: [{ id: "a", type: "button", props: { label: "甲" } }] },
+        { id: "r1", type: "stack", children: [] },
+      ],
+    });
+
+    const mount = async (proj = twoPages) => {
+      const posted: { ops: unknown[]; summary?: string }[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [proj()] };
+        if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+          posted.push(opts.body as { ops: unknown[]; summary?: string });
+          return { project: proj() };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      // ⚠ 默认是画板视图，两页 ⇒ 两个 `design-detail-phone-tree`。等单个会抛
+      // "Found multiple elements"，所以先切单页。
+      await screen.findByTestId("design-detail-view-single");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      await screen.findByTestId("design-detail-phone-tree");
+      return posted;
+    };
+
+    it("加页：插在**当前页之后**，不是追加到末尾", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-detail-frame-0"));  // 停在第 1 页
+      fireEvent.click(screen.getByTestId("design-detail-page-add"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      // ⭐ 反证：写成 at: frames.length（追加末尾）⇒ 这条红。在第 1 页点"加一页"，
+      //   新页该出现在它旁边，而不是跑到最后。
+      expect(posted[0]!.ops).toEqual([{ op: "addScreen", at: 1, frame: "新页面 3" }]);
+    });
+
+    it("复制整页：带上这一页的树，且树里的 id **去掉**", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+      fireEvent.click(screen.getByTestId("design-detail-page-duplicate"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      const op = posted[0]!.ops[0] as { op: string; at: number; frame: string; root: { id?: string; children: { id?: string }[] } };
+      expect([op.op, op.at, op.frame]).toEqual(["addScreen", 1, "首页 副本"]);
+      // ⭐ 反证：不去 id ⇒ 两页里各有一个 id="a"，之后按 id 寻址一律命中第一页。
+      expect(op.root.id).toBeUndefined();
+      expect(op.root.children[0]?.id).toBeUndefined();
+    });
+
+    it("删页：只剩一页时禁用（契约也会拒，但不该让用户点了才知道）", async () => {
+      const posted = await mount();
+      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+      fireEvent.click(screen.getByTestId("design-detail-page-remove"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]!.ops).toEqual([{ op: "removeScreen", screen: 1 }]);
+    });
+
+    it("只有一页时删页按钮禁用", async () => {
+      await mount(() => project({ id: "p1", frames: ["唯一一页"], frameLinks: [[]],
+        prototype: [{ id: "r0", type: "stack", children: [] }] }));
+      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("双击页签改名：发 renameScreen，只动一个字段", async () => {
+      const posted = await mount();
+      const prompt = vi.spyOn(window, "prompt").mockReturnValue("首屏");
+      try {
+        fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        await waitFor(() => expect(posted).toHaveLength(1));
+        // ⭐ 反证：用 removeScreen + addScreen 拼改名 ⇒ 这条红。那样会丢掉这一页的 notes，
+        //   而且 shiftLinkTargets 先 -1 再 +1，中间那步已经改掉了指向本页的跳转。
+        expect(posted[0]!.ops).toEqual([{ op: "renameScreen", screen: 0, frame: "首屏" }]);
+      } finally { prompt.mockRestore(); }
+    });
+
+    it("改名取消 / 没改动 ⇒ 不发请求", async () => {
+      const posted = await mount();
+      const prompt = vi.spyOn(window, "prompt");
+      try {
+        fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue(null);           // 用户点了取消
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue("首页");          // 原样不变
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue("   ");          // 只有空白
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        await new Promise((r) => setTimeout(r, 20));
+        expect(posted).toEqual([]);
+      } finally { prompt.mockRestore(); }
+    });
+
+    it("撤销：回到**上一版**（不是最后一版，那就是现在这份）", async () => {
+      const restored: string[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [twoPages()] };
+        if (path === "/pm-designs/p1/versions" && (opts?.method ?? "GET") === "GET") {
+          return { items: [
+            { id: "v1", seq: 1, source: "model", summary: "画好了", frames: ["首页"], notes: [], createdAt: "2026-09-08T01:00:00.000Z" },
+            { id: "v2", seq: 2, source: "user", summary: "改了按钮", frames: ["首页"], notes: [], createdAt: "2026-09-08T02:00:00.000Z" },
+            { id: "v3", seq: 3, source: "user", summary: "又改了一下", frames: ["首页"], notes: [], createdAt: "2026-09-08T03:00:00.000Z" },
+          ] };
+        }
+        if (/\/versions\/(.+)\/restore$/.test(path) && opts?.method === "POST") {
+          restored.push(path.split("/")[4]!);
+          return { project: twoPages() };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-undo");
+      fireEvent.click(screen.getByTestId("design-detail-undo"));
+      // ⭐ 反证：取 `.at(-1)`（最后一版）⇒ 恢复到"现在这份"，点了等于什么都没发生。
+      await waitFor(() => expect(restored).toEqual(["v2"]));
+    });
+
+    it("没有可回退的版本时说一句，而不是静默", async () => {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [twoPages()] };
+        if (path === "/pm-designs/p1/versions") return { items: [{ id: "v1", seq: 1, source: "model", summary: "只有一版", frames: ["首页"], notes: [], createdAt: "2026-09-08T01:00:00.000Z" }] };
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      fireEvent.click(await screen.findByTestId("design-detail-undo"));
+      expect((await screen.findByTestId("design-detail-chat-error")).textContent).toContain("没有可回退的版本");
+    });
+  });
+
   it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
     const bodies: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
@@ -1895,7 +2230,10 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     for (const t of ["本月用量", "升级套餐", "对话数", "1,284", "+12%", "配额", "68%", "本周", "提醒", "含测试", "聊天", "用量"]) expect(tree.textContent).toContain(t);
     expect(tree.querySelector('[data-proto="grid"]')?.className).toContain("grid-cols-3");
     expect(tree.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("68");
-    expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("desktop"); // template ui ⇒ 桌面
+    // 迭代 14：设备预设取代了 phone|tablet|desktop 三档——template ui ⇒ 笔记本镜头（浏览器壳）。
+    const frame = screen.getByTestId("design-detail-phone");
+    expect(frame.getAttribute("data-device")).toBe("laptop");
+    expect(frame.getAttribute("data-chrome")).toBe("browser");
     // 属性面板认识新类型
     fireEvent.click(tree.querySelector('[data-node-id="s"]') as HTMLElement);
     expect(screen.getByTestId("design-inspector").textContent).toContain("指标「对话数」");
