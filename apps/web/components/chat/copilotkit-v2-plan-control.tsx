@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly";
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
-import { PlanRunProgress, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
+import { PlanRunProgress, PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
+import { deriveRunControls } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import {
   addPlanConstraint, confirmPlan, deletePlanStep, pausePlanRun,
@@ -164,10 +165,21 @@ function PlanControlSession(
     }
   }
 
-  const pausedWithoutPlan = Boolean(ledger?.pausedAt && ledger.steps.length === 0 && !["done", "failed", "cancelled"].includes(ledger.phase));
+  // issue #3099 —— **运行级控制与计划级视图解耦**。判据只有一个：run 现在还在不在
+  // （`deriveRunControls`，契约里的单一事实源），与「模型有没有产出 `write_todos`」无关。
+  //
+  // 改动前这里读的是 `phase`：`derivePlanPhase` 先判 `ledgerEmpty` 再判 `running`，
+  // 于是「正在跑但还没有计划的 run」（大量普通对话）和「什么都没发生的线程」
+  // 都是 `"preparing"`——整块 return null，用户没有任何暂停入口。这不是把渲染门
+  // 「放宽」，是它此前问错了问题：暂停是 run 级动作，不该由计划账本的存在性决定。
+  //
+  // ⚠ 终态（done/cancelled/failed）不受影响：`deriveRunControls` 对终态返回全 false，
+  // #2927 的「run 结束后没有控制操作」与 #2999 的只读账本两条都不变。
+  const runControls = deriveRunControls({ runStatus: ledger?.runStatus ?? "idle" });
+  const runLive = runControls.canPause || runControls.canResume;
   const hasPlanAction = ledger !== null && ((ledger.phase === "planning" && ledger.gate.required)
     || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0);
-  if (threadId === null || ledger === null || (ledger.steps.length === 0 && !pausedWithoutPlan && !hasPlanAction)) return null;
+  if (threadId === null || ledger === null || (ledger.steps.length === 0 && !runLive && !hasPlanAction)) return null;
 
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
@@ -214,11 +226,23 @@ function PlanControlSession(
   const readOnlyLedger = ["done", "cancelled"].includes(ledger.phase) && !hasPlanAction;
   const canOperate = canWrite && !readOnlyLedger;
 
-  // A checkpoint belongs to the run, including runs that never wrote a plan.
-  // Do not invent a step/progress fraction just to expose its resume command.
-  if (pausedWithoutPlan) return <div className="flex items-center gap-2 text-13">
-    <span role="status">任务已暂停</span>
-    <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
+  // issue #3099 —— run 在跑、但账本里一个步骤都没有（模型没调 `write_todos`）：
+  // 渲染**只有运行级控制**的一行，不编造步骤序号/进度分数（那是计划级的东西，
+  // 这里没有真实数据支撑它）。原先这里只处理"已暂停且无计划"一种情况
+  // （`pausedWithoutPlan`），于是「正在跑且无计划」——也就是想暂停的那一刻——
+  // 反而没有入口。两态用同一个控件，testid 与 `PlanRunProgress` 里那对一致，
+  // 断言不需要知道这一轮模型有没有产出计划。
+  if (ledger.steps.length === 0 && runLive) return <div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control">
+    <span role="status">{ledger.pausedAt ? "任务已暂停" : ledger.pauseRequestedAt ? "正在暂停" : "执行中"}</span>
+    {runControls.canResume ? (
+      <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
+    ) : (
+      <Button
+        size="sm" variant="outline" data-testid={PLAN_RUN_PAUSE_TESTID}
+        disabled={!canWrite || busy || hasRecentError || Boolean(ledger.pauseRequestedAt)}
+        onClick={handlePause}
+      >{ledger.pauseRequestedAt ? "暂停中…" : "暂停"}</Button>
+    )}
     {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
   </div>;
 
@@ -293,7 +317,13 @@ function PlanControlSession(
         />
       )}
 
-      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && ledger.phase === "executing" && currentStep && (
+      {/*
+        * issue #3099 —— 门控从 `phase === "executing"` 换成 `runLive`（`deriveRunControls`）。
+        * 两者在"有计划的 run"上等价（`phase` 在 ledger 非空 + running/interrupted 时正是
+        * `"executing"`），差别只在于 `runLive` 不再受账本存在性影响，与上面那个无计划分支
+        * 用的是同一个判据——「run 在跑就能暂停」在两条分支上只声明一次。
+        */}
+      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && runLive && currentStep && (
         <PlanRunProgress
           currentStepLabel={currentStep.content}
           stepIndex={currentStepIndex}
