@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScale } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { PrototypeLayers } from "./prototype-layers";
-import { duplicateOps, moveOps, navigate } from "@/lib/prototype-node-actions";
+import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
@@ -20,6 +20,8 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  listPrototypeVersions,
+  restorePrototypeVersion,
   type PrototypePatchOp,
   updateProject,
   listMyProjects,
@@ -216,6 +218,59 @@ export function DesignDetailScreen({
     } catch (err) {
       setChatError(`没能${summary}（${describeFailure(err)}）`);
       window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
+   * 迭代 16：页级动作。契约的 `addScreen`/`removeScreen` 从迭代 12 起就在，
+   * 但**从来没有 UI 够得着**——模型能加删页，用户不能。这里接上。
+   * 与节点动作共用 `runNodeOps`：同一条 patchPrototype，同一套失败提示。
+   */
+  const pageCount = project?.frames.length ?? 0;
+  const addPage = () => void runNodeOps(
+    [{ op: "addScreen", at: frame + 1, frame: `新页面 ${pageCount + 1}` }], "加一页",
+  ).then(() => setFrame(frame + 1));
+  const duplicatePage = () => {
+    const root = project?.prototype[frame];
+    void runNodeOps(
+      // 复制整页要**去掉树里的 id**，理由同复制节点：id 项目内唯一，
+      // 带原 id 插进去会造出两页同 id 的节点，之后按 id 寻址一律命中第一页。
+      [{ op: "addScreen", at: frame + 1, frame: `${project?.frames[frame] ?? "页面"} 副本`,
+         ...(root === undefined ? {} : { root: stripIds(root) }) }],
+      "复制这一页",
+    ).then(() => setFrame(frame + 1));
+  };
+  const removePage = () => void runNodeOps(
+    [{ op: "removeScreen", screen: frame }], "删掉这一页",
+  ).then(() => setFrame(Math.max(0, frame - 1)));
+  const renamePage = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed === "" || trimmed === project?.frames[frame]) return;
+    void runNodeOps([{ op: "renameScreen", screen: frame, frame: trimmed }], "给这一页改名");
+  };
+
+  /**
+   * 迭代 16：一键撤销 —— 回到上一版。
+   * 此前要开历史面板、找条目、点恢复，三步。而"刚才那下改坏了"是最常见的需求。
+   * 复用既有的 `restorePrototypeVersion`，不另造一条回滚路径。
+   */
+  const [undoing, setUndoing] = React.useState(false);
+  const undoLast = async () => {
+    if (project === null) return;
+    setUndoing(true);
+    try {
+      const { items: versions } = await listPrototypeVersions(project.id);
+      // 版本按 seq 升序；"上一版"是倒数第二个——最后一个就是现在这份。
+      const target = [...versions].sort((a, b) => a.seq - b.seq).at(-2);
+      if (target === undefined) { setChatError("没有可回退的版本了。"); window.setTimeout(() => setChatError(null), 3000); return; }
+      const out = await restorePrototypeVersion(project.id, target.id);
+      setLoad({ kind: "ready", project: out.project });
+      setSelectedId(null);
+    } catch (err) {
+      setChatError(`没能撤销（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -607,10 +662,38 @@ export function DesignDetailScreen({
                       "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       frame === i ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                     )}
+                    onDoubleClick={() => {
+                      // 双击页签改名：就地编辑，不弹窗——改一个词不值得一个 Dialog。
+                      if (i !== frame || canvasMode !== "edit") return;
+                      const name = window.prompt("页面名字", f);
+                      if (name !== null) renamePage(name);
+                    }}
+                    title={i === frame && canvasMode === "edit" ? "双击改名" : undefined}
                   >
                     {f}
                   </button>
                 ))}
+                {/*
+                  * 迭代 16：页管理。契约的 addScreen/removeScreen 从迭代 12 起就在，
+                  * 但从来没有 UI 够得着——模型能加删页，用户不能。
+                  */}
+                {canvasMode === "edit" && preview === null && (
+                  <span className="flex items-center gap-0.5" data-testid="design-detail-pages">
+                    <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
+                      <Plus aria-hidden className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={duplicatePage} title="复制这一页" data-testid="design-detail-page-duplicate"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
+                      <Copy aria-hidden className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={removePage} disabled={pageCount <= 1} title={pageCount <= 1 ? "只剩一页了，删不得" : "删掉这一页"}
+                      data-testid="design-detail-page-remove"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground">
+                      <Trash2 aria-hidden className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
                 <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
                   <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
@@ -680,6 +763,17 @@ export function DesignDetailScreen({
                     <RotateCw aria-hidden className="h-3 w-3" />
                   </button>
                 </div>
+                {/* 迭代 16：一键撤销。此前要开历史面板、找条目、点恢复——三步。 */}
+                <button
+                  type="button"
+                  onClick={() => void undoLast()}
+                  disabled={undoing || preview !== null}
+                  data-testid="design-detail-undo"
+                  title="回到上一版"
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+                >
+                  {undoing ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Undo2 aria-hidden className="h-3 w-3" />} 撤销
+                </button>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}

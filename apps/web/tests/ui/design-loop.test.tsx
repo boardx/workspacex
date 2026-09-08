@@ -1584,6 +1584,141 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
   });
 
+  /**
+   * 迭代 16 —— 页管理与一键撤销。
+   * `addScreen`/`removeScreen` 从迭代 12 起就在契约里，但**从来没有 UI 够得着**：
+   * 模型能加删页，用户不能。这一组验的是那条接线，外加新增的 `renameScreen`。
+   */
+  describe("迭代 16 页管理 + 撤销", () => {
+    const twoPages = () => project({
+      id: "p1", frames: ["首页", "设置"], frameLinks: [[], []],
+      prototype: [
+        { id: "r0", type: "stack", children: [{ id: "a", type: "button", props: { label: "甲" } }] },
+        { id: "r1", type: "stack", children: [] },
+      ],
+    });
+
+    const mount = async (proj = twoPages) => {
+      const posted: { ops: unknown[]; summary?: string }[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [proj()] };
+        if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+          posted.push(opts.body as { ops: unknown[]; summary?: string });
+          return { project: proj() };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      // ⚠ 默认是画板视图，两页 ⇒ 两个 `design-detail-phone-tree`。等单个会抛
+      // "Found multiple elements"，所以先切单页。
+      await screen.findByTestId("design-detail-view-single");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      await screen.findByTestId("design-detail-phone-tree");
+      return posted;
+    };
+
+    it("加页：插在**当前页之后**，不是追加到末尾", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-detail-frame-0"));  // 停在第 1 页
+      fireEvent.click(screen.getByTestId("design-detail-page-add"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      // ⭐ 反证：写成 at: frames.length（追加末尾）⇒ 这条红。在第 1 页点"加一页"，
+      //   新页该出现在它旁边，而不是跑到最后。
+      expect(posted[0]!.ops).toEqual([{ op: "addScreen", at: 1, frame: "新页面 3" }]);
+    });
+
+    it("复制整页：带上这一页的树，且树里的 id **去掉**", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+      fireEvent.click(screen.getByTestId("design-detail-page-duplicate"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      const op = posted[0]!.ops[0] as { op: string; at: number; frame: string; root: { id?: string; children: { id?: string }[] } };
+      expect([op.op, op.at, op.frame]).toEqual(["addScreen", 1, "首页 副本"]);
+      // ⭐ 反证：不去 id ⇒ 两页里各有一个 id="a"，之后按 id 寻址一律命中第一页。
+      expect(op.root.id).toBeUndefined();
+      expect(op.root.children[0]?.id).toBeUndefined();
+    });
+
+    it("删页：只剩一页时禁用（契约也会拒，但不该让用户点了才知道）", async () => {
+      const posted = await mount();
+      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+      fireEvent.click(screen.getByTestId("design-detail-page-remove"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]!.ops).toEqual([{ op: "removeScreen", screen: 1 }]);
+    });
+
+    it("只有一页时删页按钮禁用", async () => {
+      await mount(() => project({ id: "p1", frames: ["唯一一页"], frameLinks: [[]],
+        prototype: [{ id: "r0", type: "stack", children: [] }] }));
+      expect((screen.getByTestId("design-detail-page-remove") as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("双击页签改名：发 renameScreen，只动一个字段", async () => {
+      const posted = await mount();
+      const prompt = vi.spyOn(window, "prompt").mockReturnValue("首屏");
+      try {
+        fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        await waitFor(() => expect(posted).toHaveLength(1));
+        // ⭐ 反证：用 removeScreen + addScreen 拼改名 ⇒ 这条红。那样会丢掉这一页的 notes，
+        //   而且 shiftLinkTargets 先 -1 再 +1，中间那步已经改掉了指向本页的跳转。
+        expect(posted[0]!.ops).toEqual([{ op: "renameScreen", screen: 0, frame: "首屏" }]);
+      } finally { prompt.mockRestore(); }
+    });
+
+    it("改名取消 / 没改动 ⇒ 不发请求", async () => {
+      const posted = await mount();
+      const prompt = vi.spyOn(window, "prompt");
+      try {
+        fireEvent.click(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue(null);           // 用户点了取消
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue("首页");          // 原样不变
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        prompt.mockReturnValue("   ");          // 只有空白
+        fireEvent.doubleClick(screen.getByTestId("design-detail-frame-0"));
+        await new Promise((r) => setTimeout(r, 20));
+        expect(posted).toEqual([]);
+      } finally { prompt.mockRestore(); }
+    });
+
+    it("撤销：回到**上一版**（不是最后一版，那就是现在这份）", async () => {
+      const restored: string[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [twoPages()] };
+        if (path === "/pm-designs/p1/versions" && (opts?.method ?? "GET") === "GET") {
+          return { items: [
+            { id: "v1", seq: 1, source: "model", summary: "画好了", frames: ["首页"], notes: [], createdAt: "2026-09-08T01:00:00.000Z" },
+            { id: "v2", seq: 2, source: "user", summary: "改了按钮", frames: ["首页"], notes: [], createdAt: "2026-09-08T02:00:00.000Z" },
+            { id: "v3", seq: 3, source: "user", summary: "又改了一下", frames: ["首页"], notes: [], createdAt: "2026-09-08T03:00:00.000Z" },
+          ] };
+        }
+        if (/\/versions\/(.+)\/restore$/.test(path) && opts?.method === "POST") {
+          restored.push(path.split("/")[4]!);
+          return { project: twoPages() };
+        }
+        throw new Error(`unexpected ${path} ${opts?.method}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-undo");
+      fireEvent.click(screen.getByTestId("design-detail-undo"));
+      // ⭐ 反证：取 `.at(-1)`（最后一版）⇒ 恢复到"现在这份"，点了等于什么都没发生。
+      await waitFor(() => expect(restored).toEqual(["v2"]));
+    });
+
+    it("没有可回退的版本时说一句，而不是静默", async () => {
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [twoPages()] };
+        if (path === "/pm-designs/p1/versions") return { items: [{ id: "v1", seq: 1, source: "model", summary: "只有一版", frames: ["首页"], notes: [], createdAt: "2026-09-08T01:00:00.000Z" }] };
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      fireEvent.click(await screen.findByTestId("design-detail-undo"));
+      expect((await screen.findByTestId("design-detail-chat-error")).textContent).toContain("没有可回退的版本");
+    });
+  });
+
   it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
     const bodies: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
