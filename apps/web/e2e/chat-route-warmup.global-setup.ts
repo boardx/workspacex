@@ -27,6 +27,8 @@
  * 头部："`/chat` 首编译实测要 2-3 分钟"），不是拍脑袋。超时即抛：预热失败必须让
  * 整轮红在这里，而不是退化成 22 个 spec 各自超时的噪声。
  */
+import { revokeAllStandingToolGrants } from "./standing-tool-grant-cleanup";
+
 const WEB_PORT = process.env.WORKSPACEX_WEB_PORT;
 
 /** 逐条编译预热的路由。每条都是一次真实 HTTP GET，触发 Next dev 的路由编译。 */
@@ -71,5 +73,22 @@ export default async function warmUpChatRoutes(): Promise<void> {
       }
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
+  }
+
+  /**
+   * issue #3072 ③ / #3068 —— 开跑前清一次残留的组织级常驻授权（`scope='forever'`）。
+   *
+   * 上一轮 run 若在 `copilotkit-v2-hitl.spec.ts` 的 forever 用例中途被杀（超时、CI
+   * 取消、进程崩），它的 `afterEach` 撤销就没跑成，那条授权会跨轮次留在这个**共享**
+   * 组织里，让此后每一轮的审批弹层用例（`copilotkit-v2-uiux-shots.spec.ts`）都因为
+   * `hasGrant` 自动放行而看不到弹层。这里做的是夹具卫生，不是放宽判据：被清的是
+   * 上一轮留下的污染，任何断言都没有变松。走 PR #3075 的产品端点，不直连库。
+   *
+   * 失败即抛：清不掉就说明这一轮的审批相关用例判据不可信，宁可红在这里，也好过让
+   * 它们以"弹层没出现"的形状红在 22 个 spec 里。
+   */
+  const revoked = await revokeAllStandingToolGrants(base);
+  if (revoked.length > 0) {
+    console.log(`[standing-grant-cleanup] 清掉 ${revoked.length} 条跨轮残留的 forever 授权：${revoked.join(", ")}`);
   }
 }
