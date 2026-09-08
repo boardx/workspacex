@@ -240,28 +240,64 @@ test("工作台旧入口保留项目和线程参数", async ({ request }) => {
   expect(location.searchParams.get("projectId")).toBe(CHAT_READ_E2E.projectId);
   expect(location.searchParams.get("thread")).toBe(CHAT_READ_E2E.threadId);
 });
+/**
+ * 轨迹「活性」怎么取证（issue #3103，run 34210666232 产物定案）
+ *
+ * 判据本意是「活动不是等 run 结束后一次性灌进来的」。此前写成
+ * `expect(streamFinished).toBe(false)`：要求「等面板出现 → 断言默认折叠 → 点一次 toggle
+ * → 等条目可见」这一串 Playwright 往返全部赶在 run 流结束**之前**跑完。
+ * 回环车道上这是一场跑不赢的赛跑——产物实测：`POST /api/copilotkit/agent/default/run`
+ * 的响应体总时长 **1597ms**，这 1.6 秒里 SSE 已经完整跑完 3 个 step、3 次工具调用、
+ * 23 条执行事件。回环模型没有真实模型的思考时延，run 比那串往返本身还短。
+ * 「个人」实例赢下这场赛跑只因为它落在空线程上、渲染更轻；「项目」实例落在壳恢复出来的
+ * 一条已有历史的线程上（产物里 `forwardedProps.chatThreadId = thr-4f8d8a03…`），水化更重就输。
+ * 差别是**页面重量**，不是项目态少了什么能力。
+ *
+ * 换成带时间戳的取证：发送前就在页面里装 `MutationObserver`，把
+ * `[data-testid="run-trace-entry"]` 的数量与 `Date.now()` 逐次记下来；run 流结束那一刻
+ * 记 `streamFinishedAt`，最后断言**存在一个时间戳早于 `streamFinishedAt` 的样本**其条目数 ≥ 1。
+ * 这比原判据**更强**：原判据只证明「点击成功时流还没结束」，新判据直接证明「条目是在流还
+ * 开着的时候就已经渲染出来的」。条目在折叠态也在 DOM 里（`run-trace-body` 只是 `hidden`），
+ * 所以这条取证与展开与否无关。「默认折叠 / 展开后可见 / 刷新后可回放」三句一句不删。
+ */
+const TRACE_SAMPLER = `(() => {
+  const samples = [];
+  const sample = () => samples.push({ at: Date.now(), count: document.querySelectorAll('[data-testid="run-trace-entry"]').length });
+  sample();
+  new MutationObserver(sample).observe(document.body, { childList: true, subtree: true });
+  window.__traceSamples = samples;
+})()`;
+
 for (const projectId of [null, CHAT_READ_E2E.projectId]) {
 test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
   await page.goto(projectId ? `/chat?projectId=${projectId}` : "/chat", { waitUntil: "domcontentloaded" });
-  let streamFinished = false;
+  let streamFinishedAt: number | null = null;
   const runResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes("/api/copilotkit/") && response.url().includes("/run"));
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  await page.evaluate(TRACE_SAMPLER);
   await page.getByTestId("copilotkit-v2-send").click();
   const response = await runResponse;
-  void response.finished().then(() => { streamFinished = true; });
+  void response.finished().then(() => { streamFinishedAt = Date.now(); });
   const panel = page.getByTestId("run-trace-panel").last();
   const toggle = panel.getByTestId("run-trace-toggle");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(panel.getByTestId("run-trace-body")).toBeHidden();
   await toggle.click();
   await expect(panel.getByTestId("run-trace-entry").first()).toBeVisible();
-  expect(streamFinished, "活动必须在运行流结束前可见").toBe(false);
   await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(1);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => streamFinished, { timeout: 60_000 }).toBe(true);
+  await expect.poll(() => streamFinishedAt, { timeout: 60_000 }).not.toBeNull();
+  // ── 活性反证：条目在 run 流**还开着**的时候就已经进 DOM，不是结束后一次性灌进来的 ──
+  const samples = await page.evaluate(() => (window as unknown as { __traceSamples: { at: number; count: number }[] }).__traceSamples);
+  const liveSamples = samples.filter((entry) => entry.at < streamFinishedAt!);
+  expect(
+    liveSamples.some((entry) => entry.count >= 1),
+    `活动必须在运行流结束前进入 DOM——流结束于 ${streamFinishedAt}，`
+    + `之前共 ${liveSamples.length} 次采样，最大条目数 ${Math.max(0, ...liveSamples.map((entry) => entry.count))}`,
+  ).toBe(true);
   const runId = await panel.getAttribute("data-run-id");
   const count = await panel.getByTestId("run-trace-entry").count();
   await page.reload({ waitUntil: "domcontentloaded" });
