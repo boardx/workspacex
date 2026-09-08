@@ -3,9 +3,27 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
+import { revokeAllStandingToolGrants } from "./standing-tool-grant-cleanup";
 
 const OUT = resolve(process.env.COPILOTKIT_V2_HITL_OUT ?? ".copilotkit-v2-hitl");
 test.setTimeout(150_000);
+
+/**
+ * issue #3072 ③ / #3068 —— 本文件的 forever 用例点一次「以后都允许」，就往**共享**的
+ * chat-read e2e 组织写下一条 `scope='forever'`、跨 run、无过期的授权；此后同组织所有
+ * 同类调用被 `hasGrant` 自动放行，`copilotkit-v2-uiux-shots.spec.ts` 的审批弹层截图
+ * 用例再也等不到 `chat-tool-permission-dialog`（页面直接是「正在执行技能脚本」）。
+ *
+ * 收尾走 PR #3075 的产品端点撤销（列出 → 逐条 DELETE，组织 admin 身份），不直连库——
+ * `tool_permission_grants` 只授 SELECT/INSERT，这也是 coordinator 在 #3072 的裁决。
+ *
+ * 放在 `afterEach`（而不是 forever 用例末尾的一行）的理由：用例在点击之后、断言之中
+ * 失败时授权**已经写下**，那正是最需要清掉的一次；只有 afterEach 覆盖得到失败路径。
+ * 其余用例（once/deny/刷新）本来就不写常驻授权，对它们这一步是空操作。
+ */
+test.afterEach(async ({ baseURL }) => {
+  await revokeAllStandingToolGrants(baseURL!);
+});
 
 type PendingRun = { runId: string; threadId: string; status: string; pendingApproval: { permissionRequestId: string; toolName: string; argsSummary: string | null } };
 async function triggerApproval(page: Page): Promise<{ run: PendingRun; runUrl: string; headers: Record<string, string> }> {
