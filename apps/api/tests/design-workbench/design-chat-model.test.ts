@@ -2,6 +2,8 @@
  * UC-17.8 B5.2 —— `ModelDesignChatReplier` 与 `parseWriteback` 的正反例。fake port，不打真网络。
  */
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { designWorkbench as C } from "@repo/contracts";
 import { MODEL_CALL_IMAGE_MIMES, ModelCallError } from "../../src/application/agent-run/ports";
 import {
@@ -372,6 +374,43 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
   it("系统提示词真的带上了它（不是只导出一个没人用的常量）", () => {
     expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(P);
     expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(P);
+  });
+
+  /**
+   * V67 的**另一半**：「只在一处」。
+   *
+   * 上面几条只证明了判据**在** `DESIGN_PRINCIPLES` 里，没有任何东西阻止有人哪天顺手
+   * 把同一批判据也抄回 SKILL.md —— 那正是本仓五次漂移的形态，而 SKILL.md 里只有一句
+   * 「不要在本文再写一份」的**注释**。仓库自己的话：没有脚本的规范条目视为未落地。
+   *
+   * 判法：那批判据里**措辞独特**的短语（不是"字号""间距"这种任何设计文档都会出现的通用词）
+   * 一个都不许出现在 SKILL.md 里；同时那条指回 `DESIGN_PRINCIPLES` 的指针必须在。
+   */
+  const SKILL_PATH = join(import.meta.dirname, "..", "..", "..", "..", ".agents", "skills", "frontend-design", "SKILL.md");
+
+  it("SKILL.md 只留一条指针，不重复声明任何一条视觉判据", () => {
+    const skill = readFileSync(SKILL_PATH, "utf8");
+    // 非空转：文件真的读到了，且指针真的在。
+    expect(skill.length).toBeGreaterThan(500);
+    expect(skill).toContain("DESIGN_PRINCIPLES");
+    expect(skill).toContain("不要");
+
+    // 这些短语是 `DESIGN_PRINCIPLES` 里那批判据的**原话**——出现在 SKILL.md 里就是第二份。
+    const OWNED_BY_PRINCIPLES = [
+      "title 一页最多一次",
+      "divider 只在真的分隔",
+      "card 只在真的成组",
+      "数字编号只在内容真的是有序步骤",
+      "全流程同名",
+      "空态是一句邀请",
+      "破折号标签",
+    ];
+    const leaked = OWNED_BY_PRINCIPLES.filter((phrase) => skill.includes(phrase));
+    // ⭐ 反证：把其中任一句抄进 SKILL.md ⇒ 这条红。这就是那条「只在一处」的门。
+    expect(leaked, `这些判据在 SKILL.md 里出现了第二份：\n${leaked.join("\n")}`).toEqual([]);
+
+    // 而它们确实都在 DESIGN_PRINCIPLES 里——否则上面那条会因为"两边都没有"而假绿。
+    for (const phrase of OWNED_BY_PRINCIPLES) expect(P, `DESIGN_PRINCIPLES 里没有「${phrase}」`).toContain(phrase);
   });
 });
 
