@@ -544,7 +544,7 @@ function TextBlockTile({
           onEditText(section.sectionId, ref.current.textContent ?? "");
         }}
         onClick={(e) => { if (selected) e.stopPropagation(); }}
-        className="w-full outline-none"
+        className="w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         style={{
           color: section.color ?? undefined,
           fontSize: `${section.fontSize}px`,
