@@ -88,11 +88,35 @@ test("宽泛 PDF 请求补参后在同一个持久 run 上恢复，并只显示�
 
   const journal = await page.request.get(`${runUrl}/execution-events?afterSeq=-1`, { headers });
   expect(journal.ok()).toBe(true);
-  const events = (await journal.json()).events as Array<{ kind: string; status?: string; toolName?: string; toolCallId?: string }>;
+  const events = (await journal.json()).events as Array<{ kind: string; status?: string; toolName?: string; toolCallId?: string; sourceToolCallId?: string }>;
   expect(events.filter((event) => event.kind === "status" && event.status === "succeeded")).toHaveLength(1);
   expect(events.some((event) => event.kind === "status" && event.status === "failed")).toBe(false);
-  expect(events.filter((event) => event.kind === "tool_start" && event.toolName === "fill_run_params")).toHaveLength(1);
-  expect(events.filter((event) => event.kind === "tool_start" && event.toolName === "call_skill")).toHaveLength(1);
+  /*
+   * issue #2999 C 组 —— 这里原本写的是 `toHaveLength(1)`，在基线上稳定红（实际 2 条：
+   * 同一个 `sourceToolCallId`、两个不同 `attemptId` 前缀）。逐层查证后判定为 **(b) 断言
+   * 层次写错了，不是产品缺陷**：
+   *
+   * `/agent-runs/:id/execution-events` 是**按 attempt 忠实记账的追加日志**——补参裁决把
+   * run 收回 `queued` 后由一次新的 execution attempt 恢复，那次 attempt 会把同一个远端
+   * tool call 再上报一次，`execute-run.ts:1191` 因此给它打上
+   * `toolCallId = ${attemptId}:${sourceToolCallId}` 并原样保留 `sourceToolCallId`。
+   * **去重是投影层的职责，且已经实现**：`apps/web/lib/chat-workbench/run-trace.ts:86-92`
+   * 用 `tool:${runId}:${sourceToolCallId}` 做 key，第二次 tool_start 只是把新的 attemptId
+   * 并进同一条 entry（`previous.attemptIds`），不新增轨迹条目——`sourceToolCallId` 这个字段
+   * 存在的唯一理由就是这件事。
+   *
+   * 所以这条 spec 该锁的用户可见不变量是"**逻辑上只有一次 fill_run_params 调用**"，
+   * 而不是"日志里只有一条事件"。后者会把"日志如实记了两次 attempt"当成缺陷，
+   * 并且和上面第 72-73 行已经锁住的 `run-trace-panel` 计数（真正的用户可见判据）重复。
+   * 这不是放宽：条数断言换成了**更强**的同一性断言（不同 attempt 必须指向同一个
+   * `sourceToolCallId`，只要恢复真的开了第二个逻辑调用，这条立刻红）。
+   */
+  const fillStarts = events.filter((event) => event.kind === "tool_start" && event.toolName === "fill_run_params");
+  expect(fillStarts.length).toBeGreaterThan(0);
+  expect(new Set(fillStarts.map((event) => event.sourceToolCallId ?? event.toolCallId)).size).toBe(1);
+  const skillStarts = events.filter((event) => event.kind === "tool_start" && event.toolName === "call_skill");
+  expect(skillStarts.length).toBeGreaterThan(0);
+  expect(new Set(skillStarts.map((event) => event.sourceToolCallId ?? event.toolCallId)).size).toBe(1);
   const toolStarts = events.filter((event) => event.kind === "tool_start").map((event) => event.toolCallId);
   expect(new Set(toolStarts).size).toBe(toolStarts.length);
 });

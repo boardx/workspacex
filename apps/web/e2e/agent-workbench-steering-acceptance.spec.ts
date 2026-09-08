@@ -37,13 +37,22 @@ test("running composer accepts direction without cancelling the active tool or s
   };
   await input.fill("后续整理请突出 B 方向，保留当前步骤的执行结果");
   let activeToolId: string | undefined;
+  // issue #2999 —— 这条轮询超时时原本只报 `expected true, received false`，看不出到底是
+  // 「run 压根没被 executor 领走」还是「工具调用来了又太快结束」。两种成因的修法完全
+  // 不同（前者是共享栈争用/排队，后者才是本 spec 声称观测的时序）。这里把最后一次
+  // 观测到的日志形态带进失败信息里——不放宽任何判据，只让红有证据。
+  let lastJournalNote = "journal never read";
   await expect.poll(async () => {
     const events = await readJournal();
     const ended = new Set(events.filter(event => event.kind === "tool_end").map(event => event.toolCallId));
     const active = events.find(event => event.kind === "tool_start" && !ended.has(event.toolCallId));
     activeToolId = active?.kind === "tool_start" ? active.toolCallId : undefined;
+    const kinds = events.reduce<Record<string, number>>((acc, event) => ({ ...acc, [event.kind]: (acc[event.kind] ?? 0) + 1 }), {});
+    lastJournalNote = `events=${String(events.length)} kinds=${JSON.stringify(kinds)} ended=${String(ended.size)}`;
     return Boolean(activeToolId);
-  }, { timeout: 30_000, intervals: [100] }).toBe(true);
+  }, { timeout: 30_000, intervals: [100] }).toBe(true).catch((error: unknown) => {
+    throw new Error(`活动中的 tool_start 未在 30s 内出现；最后一次日志观测：${lastJournalNote}\n${String(error)}`);
+  });
   await expect(input).toBeEnabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
   const receiptResponse = page.waitForResponse(value => value.request().method() === "POST" && value.url().includes(`/agent-runs/${runId}/interject`));
