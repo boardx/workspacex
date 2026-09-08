@@ -8,7 +8,8 @@
  * 列表类字段（list.items / tabs.items）用多行文本，一行一项。
  */
 import * as React from "react";
-import { Loader2, Trash2, Check, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { duplicateOps, moveOps } from "@/lib/prototype-node-actions";
+import { Loader2, Trash2, Check, SlidersHorizontal, ChevronRight, Copy, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,8 +89,16 @@ const summaryOf = (prefix: string, node: PrototypeNode): string => `${prefix}${p
 
 export function PrototypeInspector({
   projectId, node, path, onSaved, onDeleted, frames = [], frameIndex = 0, links = [], onSetLinks,
+  prototype = [], onNodeOps,
 }: {
   projectId: string;
+  /**
+   * 迭代 15：整页的树 + 动作入口。复制/上移/下移的 op 由 `lib/prototype-node-actions`
+   * 算，执行交给父组件的 `onNodeOps`——与图层面板、键盘快捷键**同一条路**，
+   * 三处不各写一遍。这里只负责按"走不走得动"禁用按钮。
+   */
+  prototype?: readonly PrototypeNode[];
+  onNodeOps?: (ops: readonly designPrototype.PrototypePatchOp[] | null, summary: string) => void | Promise<void>;
   node: PrototypeNode;
   /** 从页根到该节点的路径（含自身），用作面包屑。 */
   path: readonly PrototypeNode[];
@@ -250,6 +259,26 @@ export function PrototypeInspector({
         <Button variant="primary" size="sm" onClick={() => void apply()} disabled={busy || !dirty || id === undefined} data-testid="design-inspector-apply">
           {busy ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Check aria-hidden className="h-3 w-3" />} 应用
         </Button>
+        {/* 迭代 15：复制 / 上移 / 下移。到头了按钮禁用，而不是发一个什么都不做的请求。 */}
+        {id !== undefined && path.length > 1 && onNodeOps !== undefined && (
+          <>
+            <Button variant="ghost" size="icon" className="h-6 w-6" title="复制这个节点（⌘D）"
+              onClick={() => void onNodeOps(duplicateOps(prototype, id), "复制这个节点")}
+              disabled={busy || duplicateOps(prototype, id) === null} data-testid="design-inspector-duplicate">
+              <Copy aria-hidden className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" title="上移一格"
+              onClick={() => void onNodeOps(moveOps(prototype, id, -1), "上移这个节点")}
+              disabled={busy || moveOps(prototype, id, -1) === null} data-testid="design-inspector-move-up">
+              <ArrowUp aria-hidden className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" title="下移一格"
+              onClick={() => void onNodeOps(moveOps(prototype, id, 1), "下移这个节点")}
+              disabled={busy || moveOps(prototype, id, 1) === null} data-testid="design-inspector-move-down">
+              <ArrowDown aria-hidden className="h-3 w-3" />
+            </Button>
+          </>
+        )}
         {path.length > 1 && (
           <Button variant="ghost" size="sm" onClick={() => void remove()} disabled={busy || id === undefined} className="ml-auto text-destructive" data-testid="design-inspector-remove">
             <Trash2 aria-hidden className="h-3 w-3" /> 删除
