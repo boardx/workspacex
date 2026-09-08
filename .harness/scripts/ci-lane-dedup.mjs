@@ -8,10 +8,23 @@ export const LANES = {
     upload: 'Upload runtime evidence (success or failure)',
     artifact: 'phase-01-fullstack-smoke-evidence-',
   },
-  'e2e-full': {
-    execute: ['Execute uncached trusted full gate', 'Execute Chat read/write journey (own isolation scope)', 'Execute self-service profile journey (own isolation scope)'],
+  'full-regression-core': {
+    fullRegression: true,
+    execute: ['Execute uncached trusted full gate'],
     upload: 'Upload E2E evidence (success or failure)',
     artifact: 'phase-01-e2e-full-evidence-',
+  },
+  'chat-read': {
+    fullRegression: true,
+    execute: ['Execute Chat read/write journey (own isolation scope)'],
+    upload: 'Upload chat-read evidence (success or failure)',
+    artifact: 'phase-01-chat-read-evidence-',
+  },
+  'self-service-profile': {
+    fullRegression: true,
+    execute: ['Execute self-service profile journey (own isolation scope)'],
+    upload: 'Upload self-service-profile evidence (success or failure)',
+    artifact: 'phase-01-self-service-profile-evidence-',
   },
   'chat-path-coverage': {
     execute: ['Execute chat path coverage lane (own isolation scope)'],

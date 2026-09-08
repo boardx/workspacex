@@ -26,7 +26,7 @@
 #     backend-gates.yml 的 `e2e-core-loop` job 里跑（deploy 的前置条件），
 #     理由与 5 分钟合并→上线 SLA 直接相关，见该 job 注释。
 #   - 全量浏览器 e2e(e2e-full)：**不在 PR 上跑**（2026-08-05 人类指令：提高速度）。
-#     它在 tag 发布、main push、每 3 小时定时、以及手动触发时跑。
+#     它在 tag 发布、main push、以及手动触发时跑；三个独立任务汇总为 e2e-full。
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
 
 name: harness-verify
@@ -473,109 +473,14 @@ jobs:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
-  e2e-full:
-    # 2026-08-05 人类指令：「只有 tag 发布的时候才做，PR 的时候先不做，以提高速度」。
-    #
-    # ⚠ 摘掉的是**这一个** job，不是 PR 的门控。PR 上仍然跑：
-    #   · `verify`          —— 受影响模块的 typecheck/lint/test + 全部 harness 门控；
-    #   · `fullstack-smoke` —— 真浏览器 + 真 docker 栈，`seeded` project（5 个非
-    #                          core-loop 的 spec），信息性、不阻塞（见该 job 注释）。
-    #   人类八步的进度板 `core-loop.spec.ts`（2026-08-06 起，#633）**不在** PR 上跑，
-    #   只在 backend-gates.yml 的 `e2e-core-loop` job 里跑，作为发布前置条件——
-    #   「八步有没有退化」现在是发布门，不是 PR 门。
-    #
-    # ⚠ 代价要说清楚：**PR 上不再跑全量单测**（4500+ 条）。一个只被 e2e-full 覆盖的
-    #   回归，现在最早在 tag 发布或下一个 3 小时定时才会暴露，而不是在 PR 上。
-    #   这是刻意换来的速度，不是疏忽 —— 谁要改回去，改这一行即可。
-    #
-    # ⚠ 2026-08-26（#2084）：补上第三段——让 `workflow_dispatch` 的 `run_e2e_full`
-    # 输入**真的起作用**。在此之前它是个**不通电的开关**：有名字、有描述、有
-    # `default: true`，但全文没有任何 `if:` 读它（`grep -n run_e2e_full` 只命中它
-    # 自己的声明那一行）。dispatch 能满足本条件，纯粹是因为它既不是 `pull_request`
-    # 也不是 `schedule` —— **把框勾掉照跑**。
-    #
-    # 为什么是"接上"而不是"删掉"：dispatch 上只有两个 job 会跑（其余四个都带
-    # `!= 'workflow_dispatch'` 或 `== 'pull_request'`，实测 run 32913279810 印证：
-    # 只有 `e2e-full` 与 `fullstack-smoke` 执行）。所以关掉 `e2e-full` 之后**还剩
-    # `fullstack-smoke`（实测 ~7 min）** —— 那是一个真能力：「在我自己分支上只跑
-    # 7 分钟 smoke，不付 60 分钟的 e2e-full」。删掉 input 等于把这个能力一起删了。
-    #
-    # ⚠⚠ 必须用 `inputs.run_e2e_full`，**不能**写成 `github.event.inputs.run_e2e_full`：
-    # 后者对 `type: boolean` 返回的是**字符串** `"false"`，而非空字符串在 `if` 里是
-    # **truthy** ⇒ 条件照样恒真 ⇒ **改完的行为和没改一模一样，但看起来改过了**。
-    # 这个修复自带假绿陷阱，改本行前先读这段。反证见 #2084：不是验"设 true 会跑"
-    # （那和现状一样，什么都证明不了），而是**在真实 dispatch 上验"设 false 真的不跑"**。
-    if: >-
-      github.event_name != 'pull_request' &&
-      (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *') &&
-      (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+  # #2084: independent budgets and artifacts; verify:full remains serial internally.
+  # Public journey commands each create and clean their own database isolation scope.
+  full-regression-core:
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
     runs-on: ubuntu-latest
-    # ⚠ 2026-08-26（#2084）：35 → 75。**这不是"给它多一点余量"，是 35 从来就没有可行过。**
-    #
-    # 实测预算（run 32913279810，workflow_dispatch，逐步骤取 startedAt/completedAt）：
-    #   步骤 1-6  checkout/setup/install/playwright install     ~1.5 min
-    #   步骤 7    未缓存的 trusted full gate（TURBO_FORCE=true
-    #             pnpm run verify:full）                        24.1 min（另一次实测 32.1 min）
-    #   步骤 8    verify:chat-read（108 条）                      被杀时跑到第 60 条，耗时 14.4 min
-    #             ⇒ 108 条外推 ≈ 26 min
-    #   步骤 9    verify:self-service-profile                    ~1.4 min
-    #   ────────────────────────────────────────────────────────────────
-    #   跑完一趟绿所需 ≈ 1.5 + 32 + 26 + 1.4 ≈ 61 min，而预算是 35。
-    #
-    # ⇒ **光是步骤 1-7 就吃掉 26/35 = 四分之三预算**，`verify:chat-read` 还没开始就只剩
-    #   9 分钟。它不是"偶尔超时"，是结构上跑不完：main push 上 10/10 被 SIGTERM（exit 143）
-    #   杀掉，与并发组无关（2026-09-03 起本 workflow 有 `concurrency:` 块，但 main
-    #   push 的 cancel-in-progress 恒为 false，这条 job 从不会被同组的新 run 顶掉）。
-    #
-    # 为什么这件事藏了 39 小时：GitHub 对 job 超时的语义是 **cancel**，于是这些 run 的
-    # conclusion 是 `cancelled` —— 读起来像「有人手动取消了」，没有人想到要去点开。
-    # （⚠ 不是"没有日志"：cancelled 丢的只是 artifact 上传，原始 Actions job 日志一直可取，
-    #   `gh api .../actions/jobs/<id>/logs` 退出 0。是语义骗人，不是无从查证。）
-    #
-    # 75 的取法：61 min 实测 + 托管 runner 抖动余量。超时上限本身不花钱（公开仓库免费），
-    # 定得偏松的代价只是"真卡死时晚一点被杀"，而定得偏紧的代价是**每一次都把结论丢掉**。
-    #
-    # ⚠ 这只是止血，不是终局。真正的问题是步骤 7 与本 job 其余部分共用同一个时钟，而它
-    # 与 `verify-full-compile`（全仓 typecheck/lint/build）、`fullstack-smoke`
-    # （同一条 verify:fullstack-smoke）、`backend-gates` 的 `gates-test`（api 全套）
-    # 大面积重叠——重复的门把**唯一**跑 chat-read / self-service 的那部分挤死了。
-    # 拆 job 的结构性修法见 #2084；拆之前必须同步改
-    # `.harness/scripts/fullstack-smoke.test.ts`，它断言本文件里
-    # `if: always()` + `upload-artifact` 恰好出现 **2** 次、且存在名为 `e2e-full` 的 job。
-    #
-    # ⚠ 2026-09-08（#3001）：75 → 100。**上限设错了，不是车道太慢。**
-    #
-    # 实测预算（三次 main 上的真实 run，逐步骤取 startedAt/completedAt）：
-    #
-    #   | 步骤 | 34155551896(938d16bf) | 34159494041(94f6dda0) | 34148221220(76f7fb12) |
-    #   |---|---|---|---|
-    #   | 1-8 checkout/setup/install/pw/uv | 1m47s | 2m48s | 6m08s |
-    #   | 9  未缓存 trusted full gate      | 29m49s | **47m15s** | **49m50s** |
-    #   | 10 verify:chat-read             | **30m44s** | 30m01s(被杀) | 27m07s(被杀) |
-    #   | 11 verify:self-service-profile  | 0m55s | skipped | skipped |
-    #   | 12 上传证据                      | 1s | skipped | skipped |
-    #   | **job 总计**                    | **63m21s（跑完）** | 80m00s（cancelled） | 80m01s（cancelled） |
-    #
-    # ⇒ 步骤 9 的实测区间是 **29m49s ~ 49m50s**（同一条命令，TURBO_FORCE 无缓存，
-    #   托管 runner 抖动），步骤 10 跑完要 **30m44s**。最坏组合
-    #   6 + 50 + 31 + 1 ≈ **89 min** —— 75 连一次都装不下最坏组合，100 留 ~11 min 余量。
-    #
-    # ⚠ 两次 cancelled 都死在 **80 分钟**而不是 75：GitHub 在 75 分钟发取消信号，再给
-    #   5 分钟宽限期强杀。宽限期里步骤 11、12 的 conclusion 是 **skipped** ——
-    #   `if: always()` 挡不住 job 级取消 ⇒ **一次超时不只丢结论，连证据 artifact 一起丢**。
-    #   这正是 #3002 的另一半：那条修的是产物被覆盖，这条修的是产物根本没机会上传。
-    #
-    # 已排除的提速方案（#3001 有实测数据，别重做）：并行化非 DB 包（那些包合计 3.9 min，
-    # `@repo/skill-sandbox` + `@repo/api` 占 92.5%）；分片 e2e-full（会丢顺序依赖检测，
-    # PR #2978 正是"单独跑绿、串行跑全量才红"的反例）；修 skill-sandbox 的 docker build
-    # （本机 600s，CI 上只有 133s，本机特有）；缓存 pnpm store / node_modules（净收益≈0）。
-    # ⇒ `@repo/api#test` 一个包占 40% 且**必须串行**（串行正是抓顺序依赖的手段），
-    #   这 40 分钟里没有便宜可捡。超时上限本身不花钱（公开仓库免费），定紧的代价是
-    #   **每一次都把结论和证据一起丢掉**。结构性修法（拆 job）仍见 #2084。
-    timeout-minutes: 100
-    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    timeout-minutes: 90
     concurrency:
-      group: harness-lane-e2e-full-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      group: harness-lane-full-regression-core-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
       cancel-in-progress: false
       queue: max
     steps:
@@ -618,6 +523,7 @@ jobs:
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
       - name: Execute uncached trusted full gate
+        timeout-minutes: 80
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -634,35 +540,6 @@ jobs:
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
           exit "$status"
-      # Chat 读写链路（#405 的 spec，#512 把它接进门控）。
-      #
-      # ⚠ 为什么是**本 job 里的一步**，而不是新 job、也不是塞进 `verify:full`：
-      #   · 新 job → 全仓只有一台自建 runner，多一个 job 就是多一份排队，硬瓶颈。
-      #   · 塞进 `verify:full:raw` → `verify:full` 整条链共用**一个**隔离作用域，而
-      #     chat-read 的 webServer 启动链里有 `createdb "$WORKSPACEX_DB"`；库已被
-      #     fullstack-smoke 那一段建过 ⇒ createdb 非零退出 ⇒ `&&` 链断在这里，
-      #     红的原因会是「库已存在」而不是「Chat 坏了」。所以它要**自己的**隔离作用域，
-      #     由 `pnpm run verify:chat-read`（自带 with-test-isolation 外壳）提供。
-      #   · 合进 playwright.fullstack-smoke.config.ts 的 project 也做不到：chat-read 要求
-      #     API 进程带 `KERNEL_ALLOW_TEST_PRINCIPAL=1` + `KERNEL_AGENT_CATALOG_SCHEMA=
-      #     chat_wave2_fixture` 启动（apps/api/src/kernel.module.ts:610-613 在**合成时**读一次），
-      #     而 webServer 是 config 级的 ⇒ 打开它就等于把整轮 smoke 的 PUBLISHED_AGENT_READER
-      #     全部改指 fixture schema，包括 #492 的八步闭环——那是人类交付验收的唯一机械依据。
-      #
-      # `if: always()` 让它不被上一步的红吞掉：两条链路各自的红都要能被看见。
-      - name: Execute Chat read/write journey (own isolation scope)
-        if: always() && steps.dedup.outputs.run == 'true'
-        run: pnpm run verify:chat-read
-
-      # 用户个人资料自助服务 + 组织团队管理（#638/#639）。同上一步同一个理由要**自己的**
-      # 隔离作用域：它的 webServer 链也带 `createdb`，共用 `verify:full` 的作用域会撞上
-      # 「库已存在」；而且这条 spec 会真的改掉登录密码（见
-      # `e2e/self-service-profile-fixture.ts` 文件头），不能跟任何共享种子账号的 spec
-      # 挤在同一个 org/DB 里跑。
-      - name: Execute self-service profile journey (own isolation scope)
-        if: always() && steps.dedup.outputs.run == 'true'
-        run: pnpm run verify:self-service-profile
-
       - name: Upload E2E evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
@@ -678,36 +555,123 @@ jobs:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
-  # issue #2114 —— Chat 任务工作台记分牌车道。**不阻塞任何合并路径**：不在
-  # `pull_request` / `push` / `schedule` 上跑，只在人类显式 `workflow_dispatch` 且勾选
-  # `run_chat_task_workbench` 时跑（默认 false，见上面 workflow_dispatch.inputs 的注释）。
-  #
-  # 为什么独立成一个 job 而不是塞进 `e2e-full` 里再加一步（`e2e-full` 内 chat-read /
-  # self-service 那两步是"塞进同一 job"的先例）：
-  #   · 那两步是**阻塞门的组成部分**，本来就要和 `e2e-full` 同生共死；这批 spec 恰恰
-  #     相反——**必须能独立于 `e2e-full` 触发**，且默认不跑，混进同一个 job 做不到
-  #     "默认不跑"这件事（`e2e-full` 一旦被 dispatch 就会跑完整个 job 体）。
-  #   · 这批 spec 是记分牌，红是预期状态；`e2e-full` 的 chat-read/self-service 两步是
-  #     回归门，红是意外状态——两种"红"的含义不同，混在同一个 job 的日志/artifact 里
-  #     会让人误以为 `e2e-full` 真的坏了。
-  #   · 本仓其余 job 都跑在 `ubuntu-latest` 托管 runner 上（`e2e-full` 头注提到的"自建
-  #     runner 单一瓶颈"是历史论据，当前 `runs-on` 全部是托管机；新 job 由 GitHub
-  #     另起一台 VM，不与 `e2e-full` 排队），加一个 job 不复制这里说的排队顾虑。
-  #
-  # webServer 编排完全复用 `playwright.chat-read.config.ts`（真登录 + 真 Postgres + 真
-  # API + 真 web + 确定性 deep-agent 替身）——`--project=chat-task-workbench` 只切换
-  # testMatch，不新起任何进程，见该 config 文件头注 issue #2114 那一段。
-  # 路径覆盖车道（`.harness/instructions/chat-path-coverage-matrix.md`）。**不阻塞任何
-  # 合并路径**：只在人类显式 `workflow_dispatch` 且勾选 `run_chat_path_coverage` 时跑。
-  #
-  # 为什么独立成 job（而不是塞进 `e2e-full` 再加一步）：与下面 `chat-task-workbench`
-  # 那条理由的**前两点相同**（必须能独立触发、且默认不跑，混进同一 job 做不到），
-  # 第三点不同——那批红是预期，这批红是意外，混进阻塞 job 会让一次意外的红看起来像
-  # `e2e-full` 自己坏了。
-  #
-  # webServer 编排完全复用 `playwright.chat-read.config.ts`，`--project=chat-path-coverage`
-  # 只切换 testMatch，不新起任何进程。跑绿两次之后按矩阵文档「首跑与搬家」把 spec 挪进
-  # `chat-read` 车道，并删掉本 job 与它的 dispatch 开关。
+  chat-read:
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: harness-lane-chat-read-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
+      - name: Execute Chat read/write journey (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
+        timeout-minutes: 50
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run verify:chat-read 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log
+      - name: Upload chat-read evidence (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-chat-read-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/chat-read.log
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  self-service-profile:
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: harness-lane-self-service-profile-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
+      - name: Execute self-service profile journey (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run verify:self-service-profile 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
+      - name: Upload self-service-profile evidence (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-self-service-profile-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/self-service-profile.log
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
+  e2e-full:
+    if: always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
+    needs: [full-regression-core, chat-read, self-service-profile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require every full regression lane
+        env:
+          CI_LANE_RESULTS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-full-regression.mjs
+
+  # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
+  # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
     if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
     runs-on: ubuntu-latest
