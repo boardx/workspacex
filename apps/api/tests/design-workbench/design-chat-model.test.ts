@@ -6,7 +6,9 @@ import { designWorkbench as C } from "@repo/contracts";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
+  DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
   DESIGN_OUTLINE_SYSTEM_PROMPT,
+  DESIGN_PRINCIPLES,
   ModelDesignChatReplier,
   parseSuggestions,
   parseWriteback,
@@ -330,5 +332,45 @@ describe("迭代 12 补：单页截断后降级重试", () => {
     const out = await r.reply(EMPTY);
     expect(model.complete).toHaveBeenCalledTimes(3);
     expect(out.writeback.prototype).toHaveLength(1);
+  });
+});
+
+/**
+ * issue #3125 —— 人类实测「现在出来的页面很不专业」。根因：`.agents/skills/frontend-design/SKILL.md`
+ * 就在仓库里，而这条链路完全没引用它；原来的八条设计原则全是布局结构，一个字没讲视觉。
+ * 这组用例钉住"视觉判据真的进了模型的约束"，以及"它只在一处声明"。
+ */
+describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是两份", () => {
+  const P = DESIGN_PRINCIPLES;
+
+  it("三组视觉约束都在：视觉重点唯一 / 字号级差 / 间距成体系", () => {
+    expect(P).toContain("一个视觉重点");
+    expect(P).toContain("title 一页最多一次");
+    expect(P).toContain("最多用两档");
+    // ⭐ 反证锚点：删掉其中任一条，这里就红——它们各自是 skill 里一条判据的翻译。
+  });
+
+  it("「结构装置编码信息而非装饰」落成了可核对的三句", () => {
+    for (const s of ["divider 只在真的分隔", "card 只在真的成组", "数字编号只在内容真的是有序步骤"]) {
+      expect(P).toContain(s);
+    }
+  });
+
+  it("skill 里点名的「一眼看出是生成的」套路逐条禁掉", () => {
+    for (const s of ["全大写", "中点", "破折号标签", "→", "一个词换成另一种 variant"]) {
+      expect(P).toContain(s);
+    }
+  });
+
+  it("文案判据：按钮说清后果、同名、错误不含糊、空态是邀请", () => {
+    expect(P).toContain("保存修改");
+    expect(P).toContain("全流程同名");
+    expect(P).toContain("空态是一句邀请");
+    expect(P).not.toContain("暂无数据…");   // 反例本身要出现在"不要这样"的位置
+  });
+
+  it("系统提示词真的带上了它（不是只导出一个没人用的常量）", () => {
+    expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(P);
+    expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(P);
   });
 });
