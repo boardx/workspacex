@@ -53,7 +53,7 @@
 | C6 Office 产物 | chat 里请求 docx / xlsx / pptx，产出可下载且可重新打开 | `apps/api` 侧有 pptx real-stack；chat 侧无 | 部分 | — |
 | C7 PDF 产物 | chat 里请求 PDF，页数与逐页渲染可核 | `real-model-pdf-smoke` | 已覆盖 | real-model-smoke |
 | C8 子任务产物写回 | durable subtask 产出文件回到父会话，可下载 | — | 未覆盖 | — |
-| D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
+| D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖（曾 `当前红`，根因见下节，#3166 修） | chat-read |
 | D2 轨迹折叠与回放 | 默认折叠、运行中展开实时更新、刷新后可回放 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
 | D3 会话内挂载 skill | 临时挂载落库、刷新仍在、重复挂载幂等 | `chat-agent-skill-context` | 已覆盖 | chat-read |
 | D4 skill 三态区分 | 「目录可见 / 正文送达 / 真的执行过」三者不得混为一谈 | `chat-path-d4-skill-three-states` | 已覆盖 | chat-read |
@@ -641,6 +641,87 @@ Error: 断网期间就已经拿到最终回答的话，这条用例根本没有�
 
 `:278` 覆盖的正是「整页 reload 后**不点最大化**，气泡只读预览仍是编辑后的版本」那一段——
 即 C2 判据里此前被认为缺失的部分。C2 无需补齐。
+
+## D1：定制卡片渲染在 legacy 分组里，因为工具调用消息从来没绑上 run（2026-09-09，#3166）
+
+### 取证（CI 硬事实）
+
+run [34248851944](https://github.com/boardx/workspacex/actions/runs/34248851944) job
+`102137780214`（`e2e-full` 的 `chat-read`），实测 SHA `ca0bffd3b`：
+
+```
+✘ 109 [chat-read] › copilotkit-v2-tool-rendering.spec.ts:166:5 › DA-19c search_documents 定制卡片…… (16.9s)
+  Error: 定制卡片不在任何 run-trace-panel 里（legacy 工具调用分组祖先 1 个），
+         说明这条消息没有绑定到本轮 run，同一次工具调用被渲染了两份——见 #3137。
+```
+
+`#3137` 加的那条快速失败诊断把答案直接说出来了：**卡片挂上了**（不是「没渲染」），
+它只是挂在 `copilotkit-v2-tool-calls-group`（legacy 通道）里，祖先里没有 `run-trace-panel`。
+
+### 根因（逐层，两层之间那道缝）
+
+1. 服务端 `copilotkit-agui.controller.ts` 的 `writeToolCallStep` 发出的
+   `TOOL_CALL_START` **不带 `parentMessageId`**——该字段在那个文件的 `AguiEvent`
+   联合类型里逐字不存在。wire 实测：`apps/web/.copilotkit-v2-tool-rendering/
+   wire-known-limitation-3-evidence.txt` 第 31/49/67 行三个 `TOOL_CALL_START` 都只有
+   `toolCallId` + `toolCallName`。
+2. `@ag-ui/client` 0.0.57 收到不带 `parentMessageId` 的 `TOOL_CALL_START` 时**新造**一条
+   assistant 消息，并把 **`toolCallId` 本身当成这条消息的 id**
+   （`{ id: toolCallId, role: "assistant", toolCalls: [] }`）。
+3. 前端 `lib/chat-workbench/use-run-trace.ts` 的绑定却写着
+   `if (!event.parentMessageId) return;` ⇒ 在本仓这条分支**一次都没被执行过**，
+   `bind()` 形同虚设，那条合成消息永远进不了 `messageRuns`。
+4. `workbench/task-timeline.tsx` 的 `TraceAssistant` 因此把它判成 legacy
+   （`RunTraceCoveredContext` 为 `false`）⇒ `V2ToolCallsView` 渲出
+   `copilotkit-v2-tool-calls-group`，定制卡片落在里面；而 durable 轨迹面板在别处
+   另渲一份 ⇒ **同一次工具调用被渲染两份**，正是 `use-run-trace.ts` 自己的注释
+   预告过、却没堵住的那个形态。
+
+⚠ **为什么单测层全绿**：`tests/ui/workbench-trace-acceptance.test.tsx` 三条用例都
+**手喂** `parentMessageId`，`tests/ui/workbench-task-timeline.test.tsx` 则手写
+`messages` + `messageRuns`，从来没有出现过客户端合成的那条消息。
+替身说了上游不说的方言——与「CRLF vs LF」那次同形。
+
+### 修法（不动判据）
+
+`use-run-trace.ts`：`bind(event.parentMessageId ?? event.toolCallId)`。
+按客户端自己的回退规则绑那条合成消息，不改 wire、不改产品语义。
+
+### 反证
+
+| 层 | 用例 | 改动前 | 改动后 |
+| --- | --- | --- | --- |
+| hook | `workbench-trace-acceptance.test.tsx`「binds the synthetic assistant message…」 | 红：`expected {} to deeply equal { 'tool-call-1': 'business-run' }` | 绿 |
+| 组件 | `workbench-task-timeline.test.tsx`「renders the client-minted tool-call message…」 | 未绑定分支逐字复现 CI 首错（卡片在 group 里、`closest(run-trace-panel)` 为 `null`） | 绑定分支：group 消失，卡片在 panel 内 |
+
+两条既有夹具同时改成 wire 的真实形状（`TOOL_CALL_START` 只有 `toolCallId`），
+另留一条带 `parentMessageId` 的用例覆盖「上游哪天开始发它」。
+
+⚠ **诚实边界**：同一文件里 D2 的两条（`:282` 个人 / 项目）另有各自的红
+（个人：轨迹条目在 run 流结束后才进 DOM；项目：`run-trace-panel` 30s 内没出现），
+**不在本次范围内**，未被本改动断言覆盖。
+
+## F6：记录在案的红是前置条件红，且修法合入后 CI 一次都没再执行过（2026-09-09）
+
+最后一次**真的执行**过 F6 的 job 是 run
+[34246633771](https://github.com/boardx/workspacex/actions/runs/34246633771) job
+`102130196308`，实测 SHA `9de57821e`：
+
+```
+✘ 3 [chat-path-coverage] › chat-path-f6-concurrent-runs.spec.ts:41:5 › @path:F6 … (21.5s)
+  Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window'
+```
+
+**红在前置条件，不是业务断言**（21.5s 就死在 setup）。而 `9de57821e` 这棵树里
+`ensureAuthedPageOrigin` **不存在**（`git cat-file -p 9de57821e:apps/web/e2e/support/
+chat-path-coverage.ts | grep -c ensureAuthedPageOrigin` = 0）；修法由
+`c1a871ed6`（#3130）与 `a42c3bfdd`（#3143）合入 main。
+
+此后扫过的 120 次 `harness-verify`，`chat-path-coverage` 车道要么 `skipped`
+要么 `cancelled` ⇒ **修法从未被执行过一次**。所以现在既不能说 F6 绿，也不能说它
+仍然红——只能说它欠一次判决。确定性反证已在
+`apps/web/tests/e2e-authed-page-origin.test.ts`（7 条，本轮复跑全绿），
+它同时断言「旧次序真的抛 SecurityError」，不是只断言新次序好。
 
 ## 机械门控
 
