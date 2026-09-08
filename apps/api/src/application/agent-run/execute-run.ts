@@ -1236,12 +1236,17 @@ async function executeClaimed(
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
     // The provider's own words live here and stop here. `detail` never reaches a response;
     // the run's terminal `error` is the enumerated code above.
+    // #3033：非 ModelCallError（如 PgNativeSessionOwner 抛的裸 `Error('native_session_*')`）
+    // 以前一律记成 "unexpected model call failure"，线上排障时看不到任何原因——只记
+    // 异常名与 message（仍只进日志，不进响应；invariant 不变：响应里只有枚举 code）。
     deps.log("agent run model call failed", {
       runId: run.runId,
       modelProvider: run.modelProvider,
       modelId: run.modelId,
       code,
-      detail: e instanceof ModelCallError ? e.detail : "unexpected model call failure",
+      detail: e instanceof ModelCallError ? e.detail
+        : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
+        : "unexpected model call failure",
     });
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
