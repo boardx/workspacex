@@ -2606,3 +2606,115 @@ describe("迭代 11 · 可点击原型（UI 先行，后端未接线）", () => 
     await waitFor(() => expect(screen.getAllByTestId("design-detail-board-link")).toHaveLength(1));
   });
 });
+
+/* ─────────── 迭代 13（delta `design-chat-inputs` §2）：从对话导入 —— V58 ─────────── */
+
+/**
+ * 这一组断的是**写入的时机**，不是接口能不能通：
+ * 选中线程只该产生一次**预览**请求（body 里没有 `problem`），项目一个字不变；
+ * 只有点了确认才发第二次、带上用户**编辑之后**的文本。
+ *
+ * 直接写会覆盖用户已经写好的 `problem`，而这一步没有撤销——这正是本组存在的理由。
+ */
+describe("V58 从对话导入：不确认不写，写的是改后的文本", () => {
+  const threadCard = (over: Partial<{ id: string; title: string }> = {}) => ({
+    id: over.id ?? "th-1",
+    title: over.title ?? "会员下单那条线",
+    subtitle: "",
+    badges: [],
+    status: "done" as const,
+    artifactCount: 0,
+    lastActivityAt: "2026-09-08T02:00:00.000Z",
+    visibilityScope: "plenary" as const,
+    pinned: false,
+  });
+
+  /** 预览回一段服务端摘要；确认回写好之后的项目。两次都是同一条路由，靠 body 区分。 */
+  const stubImport = (initial = project({ id: "p1", problem: "用户已经写好的背景" })) => {
+    const bodies: Record<string, unknown>[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/pm-designs") return { items: [initial] };
+      if (path === "/chat/threads") return { groups: [{ label: "今天", cards: [threadCard()] }], capabilities: [] };
+      if (path === "/pm-designs/p1/import-thread" && opts?.method === "POST") {
+        bodies.push(opts.body ?? {});
+        const problem = opts.body?.problem;
+        if (problem === undefined) {
+          return {
+            project: initial,
+            imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
+            summary: "服务端摘出来的背景",
+            truncated: false,
+          };
+        }
+        return {
+          project: project({ id: "p1", problem: String(problem) }),
+          imported: { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" },
+          summary: String(problem),
+          truncated: false,
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    return bodies;
+  };
+
+  it("选中线程 ⇒ 出现可编辑的预览；不点确认 ⇒ 一次写入请求都没有", async () => {
+    const bodies = stubImport();
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+
+    const preview = (await screen.findByTestId("import-thread-preview")) as HTMLTextAreaElement;
+    expect(preview.value).toBe("服务端摘出来的背景");
+    // 预览框必须是可编辑的——只读的预览等于"你只能接受或放弃"。
+    expect(preview.readOnly).toBe(false);
+    expect(screen.getByTestId("import-thread-source").textContent).toContain("会员下单那条线");
+
+    // 反悔：直接关掉。
+    fireEvent.click(screen.getByTestId("import-thread-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
+
+    // ⭐ 反证锚点：改成"选中即写" ⇒ 这两条红。
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toEqual({ threadId: "th-1" });
+    expect(Object.keys(bodies[0]!)).not.toContain("problem");
+    // 屏上的背景仍是用户自己写的那份。
+    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("用户已经写好的背景");
+  });
+
+  it("改了预览再确认 ⇒ 写入的是**改后**的文本，且对话里出现系统留痕", async () => {
+    const bodies = stubImport();
+    render(<DesignDetailScreen projectId="p1" />);
+    fireEvent.click(await screen.findByTestId("design-detail-import-thread"));
+    fireEvent.click(await screen.findByTestId("import-thread-item-th-1"));
+    const preview = await screen.findByTestId("import-thread-preview");
+    fireEvent.change(preview, { target: { value: "我改过的背景：首屏直接下单" } });
+    fireEvent.click(screen.getByTestId("import-thread-confirm"));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    // ⭐ 反证锚点：确认时把服务端那份 summary 交回去（而不是编辑框里的值）⇒ 这条红。
+    expect(bodies[1]).toEqual({ threadId: "th-1", problem: "我改过的背景：首屏直接下单" });
+    await waitFor(() => expect(screen.queryByTestId("import-thread-dialog")).toBeNull());
+    fireEvent.click(screen.getByTestId("design-detail-tab-spec"));
+    expect((await screen.findByTestId("design-detail-spec")).textContent).toContain("我改过的背景");
+  });
+
+  it("system 留痕在对话里标「系统」，不标成模型的「未生成」", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") {
+        return {
+          items: [project({
+            id: "p1",
+            chat: [{ role: "ai" as const, text: "从线程《会员下单那条线》导入了 3 条消息作为背景。", at: "2026-09-08T03:00:00.000Z", source: "system" as const }],
+          })],
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    // ⭐ 反证锚点：把 system 也渲染成 fallback 的「未生成」⇒ 这两条红。
+    expect(await screen.findByTestId("design-detail-turn-system")).toBeTruthy();
+    expect(screen.queryByTestId("design-detail-turn-fallback")).toBeNull();
+  });
+});

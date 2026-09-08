@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { RefImageStrip } from "./ref-image-strip";
+import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
@@ -140,6 +141,11 @@ export function DesignDetailScreen({
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
+  /**
+   * 迭代 13（delta §2）：「从对话导入」弹窗。**不确认不写**——弹窗自己只在确认那一步
+   * 才调写入，这里拿到的 `project` 已经是写入之后的那一份（见 `import-thread-dialog.tsx`）。
+   */
+  const [importing, setImporting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
@@ -332,7 +338,19 @@ export function DesignDetailScreen({
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
         <div className="flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel md:max-h-none md:w-[360px] md:border-b-0 md:border-r">
-          <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
+            <span>设计协作</span>
+            {/* 迭代 13（delta §2.3）：入口在对话面板顶部——「已经在别处聊过了」是**开工之前**
+                的动作，放在输入框旁边等于要求用户先想起来自己还有那条对话。 */}
+            <button
+              type="button"
+              onClick={() => setImporting(true)}
+              className="ml-auto flex items-center gap-1 rounded-control border border-border px-1.5 py-0.5 text-10 font-normal text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="design-detail-import-thread"
+            >
+              <Import aria-hidden className="h-3 w-3" /> 从对话导入
+            </button>
+          </div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
             {project.chat.length === 0 && (
               <div className="flex max-w-[90%] flex-col gap-2 self-start">
@@ -361,6 +379,13 @@ export function DesignDetailScreen({
                 )}
               >
                 {turn.text}
+                {/* 迭代 13（delta §2）：`source: "system"` 不是一次模型回合，是服务端留下的痕迹。
+                    标成「系统」而不是「未生成」——后者的含义是"模型本该说话却没说成"，这里模型压根没被叫过。 */}
+                {turn.role === "ai" && turn.source === "system" && (
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-system">
+                    系统
+                  </span>
+                )}
                 {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
                 {turn.role === "ai" && turn.source === "fallback" && (
                   <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-fallback">
@@ -691,6 +716,14 @@ export function DesignDetailScreen({
         <span>{TEMPLATE_LABEL[project.template]}</span>
         <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
       </footer>
+
+      {importing && (
+        <ImportThreadDialog
+          projectId={project.id}
+          onClose={() => setImporting(false)}
+          onImported={(next) => setLoad({ kind: "ready", project: next })}
+        />
+      )}
 
       {confirming && (
         <PushConfirm
