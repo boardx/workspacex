@@ -37,7 +37,18 @@ import {
 
 test.setTimeout(240_000);
 
-const SIX_PHASES = ["preparing", "planning", "executing", "awaiting-approval", "completed", "failed"];
+/*
+ * issue #3132 —— 态名以**契约枚举 `PlanPhase` 为准**（`packages/contracts/src/plan-control.ts`，
+ * `domain.md` 一·5），不是本文件另起的一套（原先写的 `awaiting-approval` / `completed`
+ * 在实现里并不存在，对应的真名是 `approving` / `done`）。同一事实不得声明在两处。
+ */
+const SIX_PHASES = ["preparing", "planning", "executing", "approving", "done", "failed"];
+/*
+ * 指示器这条线上**只列五格**：签核过的 `contracts/plan-control/ui.md` 2.3 明确写
+ * 「`failed` 态不出现在这条线上（它不是第六格），而是替换整条为一行失败摘要 → S6」。
+ * 因此这里断言的是那五格；`failed` 由 TW-P0-3⑥ 用 `data-phase="failed"` 断言。
+ */
+const PHASE_LINE = ["preparing", "planning", "executing", "approving", "done"];
 
 test("TW-P0-3①：存在显式六态工作流指示器（准备/计划/执行/审批/完成/失败）", async ({ page }) => {
   await openFreshThread(page);
@@ -61,7 +72,7 @@ test("TW-P0-3①：存在显式六态工作流指示器（准备/计划/执行/�
   // 而不是只看到一个孤立的当前值。
   const steps = indicator.locator("[data-phase-step]");
   const rendered = await steps.evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-phase-step")));
-  for (const phase of SIX_PHASES) {
+  for (const phase of PHASE_LINE) {
     expect(
       rendered,
       gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", `六态指示器缺少 ${phase} 这一态`),
@@ -69,7 +80,8 @@ test("TW-P0-3①：存在显式六态工作流指示器（准备/计划/执行/�
   }
 
   // 状态不能只靠颜色（与 TW-A11Y-6 同源的可达性要求）：当前态须有可读文本。
-  await expect(indicator).toHaveAttribute("aria-current", /step|true/);
+  // `aria-current` 落在**当前那一格**上，不是整条线的根节点（判据一 ②）。
+  await expect(indicator.locator('[aria-current="step"]')).toHaveCount(1);
 });
 
 test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束", async ({ page }) => {

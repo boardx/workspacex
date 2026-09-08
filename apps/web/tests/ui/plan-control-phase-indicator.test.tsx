@@ -70,3 +70,22 @@ describe("单一事实源：文案取自 @repo/contracts 的 PLAN_PHASE_LABEL_ZH
     }
   });
 });
+
+/*
+ * issue #3132 —— 这条线上到底列了哪几态，必须机械可判（e2e TW-P0-3① 读
+ * `data-phase-step`），不靠中文文案反查。值 = `PlanPhase` 枚举值本身，不另造一套命名。
+ * `failed` **不在**这条线上（`ui.md` 2.3：它替换整条），这里一并钉住。
+ */
+describe("issue #3132：每一格带 data-phase-step，值与 PlanPhase 枚举逐字相同", () => {
+  it("非 failed 态：线上恰好是 preparing/planning/executing/approving/done 五格", () => {
+    const { container } = render(<PlanPhaseIndicator phase="preparing" />);
+    const rendered = Array.from(container.querySelectorAll("[data-phase-step]"))
+      .map((n) => n.getAttribute("data-phase-step"));
+    expect(rendered).toEqual(["preparing", "planning", "executing", "approving", "done"]);
+  });
+
+  it("failed 态：整条被替换，线上没有任何 data-phase-step 格", () => {
+    const { container } = render(<PlanPhaseIndicator phase="failed" />);
+    expect(container.querySelectorAll("[data-phase-step]").length).toBe(0);
+  });
+});
