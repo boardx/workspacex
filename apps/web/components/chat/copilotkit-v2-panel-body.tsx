@@ -61,7 +61,7 @@ import { useAguiPlanTodos } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
+import { ComposerVoiceControl, formatElapsed } from "@/components/chat/chat-composer-voice-control";
 import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
 import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
 import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
@@ -1363,6 +1363,11 @@ export function CopilotKitV2PanelBody({
   const [attachOpen, setAttachOpen] = React.useState(false);
   React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
   const [emptySendHint, setEmptySendHint] = React.useState(false);
+  /** 底部状态行只在有话要说时出现（2026-09-08 人类指令去掉常驻的快捷键/麦克风提示）。 */
+  const composerFooterVisible =
+    queuedReply !== null || runningReplyAck !== null
+    || (sendDisabledReason !== null && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) && !attach.hasUploading)
+    || voice.phase === "listening" || voice.phase === "connecting";
   const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashEmptySendHint = React.useCallback(() => {
     setEmptySendHint(true);
@@ -2029,7 +2034,7 @@ export function CopilotKitV2PanelBody({
           <ChildCancellationNotice text={cancellation.childNotice} />
           <QueuedMessagesPanel {...serverQueue} canWrite={canWrite} />
         </div>
-        <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
+        <div className={cn("flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground", composerFooterVisible ? "mt-2" : "hidden")}>
           {queuedReply !== null ? (
             <span data-testid="chat-task-workbench-composer-queued-reply" className="flex min-w-0 items-center gap-2">
               <span className="truncate">{queuedFailed ? "本地待发内容已保留，请重试发送" : queuedReplyCopy(queuedReply)}</span>
@@ -2050,12 +2055,11 @@ export function CopilotKitV2PanelBody({
             <span data-testid="chat-task-workbench-composer-send-disabled-reason">{sendDisabledReason}</span>
           ) : voice.phase === "listening" || voice.phase === "connecting" ? (
             <span>按 Esc 停止录音</span>
-          ) : (
-            <span>Enter 发送 · Shift+Enter 换行</span>
-          )}
-          <span className="truncate" data-testid="chat-task-workbench-composer-mic-device-label">
-            麦克风：{describeVoiceDevice(micDevices.devices, micDevices.selectedDeviceId)}
-          </span>
+          ) : null}
+          {/* 2026-09-08 人类直接指令：去掉常驻的「Enter 发送 · Shift+Enter 换行」和
+              「麦克风：xxx」这一行——太占空间。这一行现在只在真有话要说时出现
+              （待发内容 / 发送被禁用的原因 / 录音中），否则整行不渲染。
+              快捷键说明留在发送按钮的 title 里；麦克风设备仍在录音按钮旁的下拉里选。 */}
         </div>
         <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
         </div>

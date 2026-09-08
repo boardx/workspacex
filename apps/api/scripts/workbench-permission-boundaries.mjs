@@ -60,6 +60,8 @@ export const workbenchBoundaries = new Map([
     checks:[[null,/async list\([\s\S]*?await this\.authorize\(orgId,userId,threadId\);/],
       [null,/async enqueue\([\s\S]*?await this\.authorize\(orgId,userId,threadId,true\);/],
       [null,/async cancel\([\s\S]*?await this\.authorize\(orgId,userId,threadId,true\);/],
+      [null,/async update\([\s\S]*?await this\.authorize\(orgId,userId,threadId,true\);/],
+      [null,/SET body=\$5 WHERE org_id=\$1 AND thread_id=\$2 AND actor_id=\$3 AND id=\$4::uuid AND status='pending'/],
       [null,/resolveVisibility\(this\.deps,\{orgId,userId,threadId,projectId:facts\.projectId\}\)/],
       [null,/WHERE org_id=\$1 AND thread_id=\$2 AND actor_id=\$3/],
       [null,/await acceptHumanMessage\(this\.deps,\{orgId,userId:row\.actor_id,threadId:row\.thread_id/]],

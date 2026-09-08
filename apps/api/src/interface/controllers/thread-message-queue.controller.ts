@@ -1,6 +1,6 @@
-import { BadRequestException, Body, ConflictException, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Post, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, HttpCode, Inject, NotFoundException, Param, Patch, Post, UnprocessableEntityException } from "@nestjs/common";
 import { z } from "zod";
-import { EnqueueMessage } from "@repo/contracts/thread-message-queue";
+import { EnqueueMessage, UpdateQueuedMessage } from "@repo/contracts/thread-message-queue";
 import { THREAD_MESSAGE_QUEUE, type ThreadMessageQueuePort, QueueNotVisibleError, QueueConflictError } from "../../application/chat/thread-message-queue";
 import { AgentNotPublishedError } from "../../application/chat/message-roundtrip";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -34,5 +34,13 @@ export class ThreadMessageQueueController {
     assertPrincipal(principal);
     if(!z.string().uuid().safeParse(id).success) throw new BadRequestException("invalid_queue_id");
     return this.guarded(()=>this.queue.cancel(toOrgId(principal.orgId),principal.userId,threadId,id));
+  }
+  @Patch("/chat/threads/:threadId/queued-messages/:id")
+  update(@CurrentPrincipal() principal:Principal,@Param("threadId") threadId:string,@Param("id") id:string,@Body() body:unknown) {
+    assertPrincipal(principal);
+    if(!z.string().uuid().safeParse(id).success) throw new BadRequestException("invalid_queue_id");
+    const parsed=UpdateQueuedMessage.safeParse(body);
+    if(!parsed.success) throw new BadRequestException("invalid_queued_message");
+    return this.guarded(()=>this.queue.update(toOrgId(principal.orgId),principal.userId,threadId,id,parsed.data));
   }
 }

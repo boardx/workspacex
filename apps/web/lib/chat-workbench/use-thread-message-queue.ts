@@ -57,5 +57,15 @@ export function useThreadMessageQueue(threadId: string | null, agentId: string |
     } catch (cause) { if (current.current === source) setError(cause instanceof Error ? cause.message : "撤回失败，消息可能已开始执行"); }
     finally { if (current.current === source) setCancelling(null); }
   }, [threadId, bearer, path, source, setError, setCancelling]);
-  return { items, enqueue, cancel, cancelling, error };
+  /** 只改还在 pending 的正文；服务端 409（已派发/已撤回）时把原因印回队列面板。 */
+  const edit = React.useCallback(async (id: string, text: string): Promise<boolean> => {
+    if (!threadId || !bearer) return false;
+    try {
+      const body = operations.update.in.parse({ text });
+      const item = operations.update.out.parse(await apiRequest(`${path}/${encodeURIComponent(id)}`, { method: "PATCH", body, sessionToken: bearer }));
+      if (current.current === source) { revision.current += 1; setSnapshot((previous) => ({ source, items: previous.items.map((value) => value.id === id ? item : value) })); setError(null); }
+      return true;
+    } catch (cause) { if (current.current === source) setError(cause instanceof Error ? cause.message : "修改失败，消息可能已开始执行"); return false; }
+  }, [threadId, bearer, path, source, setError]);
+  return { items, enqueue, cancel, edit, cancelling, error };
 }

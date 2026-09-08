@@ -139,7 +139,7 @@ import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error
 import {
   CLOCK, CREDENTIAL_REPOSITORY, LOGIN_ATTEMPT_REPOSITORY, MAILER, PASSWORD_HASHER,
   RESET_TOKEN_REPOSITORY, SESSION_TOKEN_STORE, TOKEN_FACTORY,
-  type SessionTokenStore,
+  type CredentialRepository, type SessionTokenStore,
 } from "./application/auth/ports";
 import { BcryptPasswordHasher } from "./infrastructure/auth/bcrypt-password-hasher";
 import {
@@ -467,6 +467,11 @@ import { PgArtifactContinuationReader } from "./infrastructure/artifacts-steerin
 import { AcceptMessageArtifactRunLauncher } from "./infrastructure/artifacts-steering/accept-message-artifact-run-launcher";
 import { THREAD_MESSAGE_QUEUE, ThreadMessageQueue } from "./infrastructure/chat-queue/thread-message-queue";
 import { ThreadMessageQueueController } from "./interface/controllers/thread-message-queue.controller";
+import { NotificationsController } from "./interface/controllers/notifications.controller";
+import { NOTIFICATION_CENTER, type NotificationPublisher } from "./application/notifications/notification-center";
+import { PgNotificationCenter } from "./infrastructure/notifications/pg-notification-center";
+import { NotifyingRunEventBus } from "./infrastructure/notifications/notifying-run-event-bus";
+import { NotifyingMailTransport } from "./infrastructure/notifications/notifying-mail-transport";
 import { RUN_RECOVERY } from "./application/agent-run/run-recovery";
 import { PgRunRecovery } from "./infrastructure/agent-run/pg-run-recovery";
 import type { DefaultAgentResolver } from "./application/chat/message-command-ports";
@@ -968,6 +973,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,
     ThreadMessageQueueController,
+    NotificationsController,
     // issue #2664/#2666 -- deep-agent-service 的 spawn_async_task 回调入口 + 前端轮询查询。
     SubtaskRunController,
     CopilotkitAguiController,
@@ -1648,9 +1654,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
      * 另一侧永远看不到。与 `SUBTASK_RUN_STORE` 同一条既有先例（`useValue`，同一份已知
      * 取舍：进程重启丢缓冲、多副本不共享，见 `run-event-bus.ts` 头注"为什么现在用内存"）。
      */
+    /** 全局通知中心（contracts/notifications.ts）：任何模块 publish，前端 list/markRead。 */
+    {
+      provide: NOTIFICATION_CENTER,
+      useFactory: (db: DatabasePort) => new PgNotificationCenter(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: RUN_EVENT_BUS,
-      useValue: new InMemoryRunEventBus(),
+      // 2026-09-08：包一层 `NotifyingRunEventBus`——run 的 status_change 除了照常广播给 WS，
+      // 还推一条"任务已完成/失败/暂停"到发起人的通知中心（之前的"任务提醒"只靠浏览器本地
+      // 对比列表快照，刷新/换设备就丢，人类反馈"不工作"）。仍然是进程内单例。
+      useFactory: (db: DatabasePort, notifications: NotificationPublisher, logger: LoggerPort) =>
+        new NotifyingRunEventBus(new InMemoryRunEventBus(), db, notifications, (message, detail) =>
+          logger.error(message, { traceId: randomUUID(), err: detail.err ?? message, ...detail })),
+      inject: [DATABASE_PORT, NOTIFICATION_CENTER, LOGGER_PORT],
     },
     /** WX-T042: one durable tenant queue shared across processes and restarts. */
     {
@@ -2700,8 +2718,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: TRANSACTIONAL_MAIL_TRANSPORT,
-      useFactory: (config: TransactionalMailConfig) => new CloudflareTransactionalEmailTransport(config),
-      inject: [TRANSACTIONAL_MAIL_CONFIG],
+      // 2026-09-08：每封发给注册用户的邮件同时推一条 `email` 通知到通知中心（只带主题，不带正文）。
+      useFactory: (config: TransactionalMailConfig, credentials: CredentialRepository, notifications: NotificationPublisher, logger: LoggerPort) =>
+        new NotifyingMailTransport(new CloudflareTransactionalEmailTransport(config), credentials, notifications, (message, detail) =>
+          logger.error(message, { traceId: randomUUID(), err: detail.err ?? message, ...detail })),
+      inject: [TRANSACTIONAL_MAIL_CONFIG, CREDENTIAL_REPOSITORY, NOTIFICATION_CENTER, LOGGER_PORT],
     },
     // 2026-09-03：反馈闭环反向对账（定时把已关闭的 GitHub issue 同步回反馈状态 +
     // 通知提交人）。`FeedbackGithubIssuePollWorker` 复用上面已经注册的

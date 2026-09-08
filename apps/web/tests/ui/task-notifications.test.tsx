@@ -2,26 +2,33 @@ import * as React from "react";
 import {render,screen,fireEvent,waitFor} from "@testing-library/react";
 import {describe,it,expect,vi,beforeEach} from "vitest";
 import {TaskNotifications} from "@/components/chat/workbench/task-notifications";
-import type {NotificationThread} from "@/lib/chat-workbench/task-notifications";
-const card:NotificationThread={id:"t",title:"Report",status:"running",lastActivityAt:"today"};
-beforeEach(()=>localStorage.clear());
-describe("background task notification navigation",()=>{
-  it("opens the actual thread and persists read state across remount",async()=>{
-    const open=vi.fn();const props={scopeKey:"org:user:project",activeThreadId:null,onOpenThread:open,onRefresh:vi.fn()};
-    const view=render(<TaskNotifications {...props} cards={[card]}/>);
-    await waitFor(()=>expect(localStorage.getItem("workspacex.task-notices.v1:org:user:project")).toContain("running"));
-    view.rerender(<TaskNotifications {...props} cards={[{...card,status:"done"}]}/>);
-    fireEvent.click(await screen.findByText("Report · 已完成"));
+const request=vi.hoisted(()=>vi.fn());
+vi.mock("@/lib/api-client",()=>({apiRequest:request}));
+const notice=(id:string,kind:"task"|"email",title:string,threadId:string|null)=>({id:`00000000-0000-4000-8000-00000000000${id}`,kind,title,body:"",threadId,createdAt:"2026-09-08T00:00:00.000Z",readAt:null});
+beforeEach(()=>{request.mockReset();});
+describe("global notification center",()=>{
+  it("lists server-pushed task and email notices, opens the thread and marks it read",async()=>{
+    request.mockImplementation(async(path:string,opts?:{method?:string})=>{
+      if(path==="/notifications")return {notifications:[notice("1","task","Report · 已完成","t"),notice("2","email","邮件：重置密码",null)],unreadCount:2};
+      if(path==="/notifications/read"&&opts?.method==="POST")return {read:1};
+      if(String(path).startsWith("/schedule-notifications"))return {notifications:[]};
+      throw new Error(`unexpected ${String(path)}`);
+    });
+    const open=vi.fn();
+    render(<TaskNotifications sessionToken="token" onOpenThread={open}/>);
+    await screen.findByText("2 条未读");
+    expect(screen.getByText("邮件：重置密码")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Report · 已完成"));
     expect(open).toHaveBeenCalledWith("t");
-    await waitFor(()=>expect(screen.getByText("0 条未读")).toBeInTheDocument());
-    view.unmount();render(<TaskNotifications {...props} cards={[{...card,status:"done"}]}/>);
-    await waitFor(()=>expect(screen.getByText("0 条未读")).toBeInTheDocument());
+    await waitFor(()=>expect(request).toHaveBeenCalledWith("/notifications/read",expect.objectContaining({method:"POST",body:{ids:["00000000-0000-4000-8000-000000000001"]}})));
+    await waitFor(()=>expect(screen.getByText("1 条未读")).toBeInTheDocument());
   });
-  it("hides previous account notices synchronously on scope changes",async()=>{
-    const props={activeThreadId:null,onOpenThread:vi.fn(),onRefresh:vi.fn()};
-    const view=render(<TaskNotifications {...props} scopeKey="first" cards={[{...card,status:"paused"}]}/>);
-    await screen.findByText("Report · 已暂停");
-    view.rerender(<TaskNotifications {...props} scopeKey="second" cards={null}/>);
-    expect(screen.queryByText("Report · 已暂停")).toBeNull();
+  it("shows nothing from a previous session token",async()=>{
+    request.mockImplementation(async(path:string)=>path==="/notifications"?{notifications:[notice("1","task","Old · 已完成","t")],unreadCount:1}:{notifications:[]});
+    const view=render(<TaskNotifications sessionToken="first" onOpenThread={vi.fn()}/>);
+    await screen.findByText("Old · 已完成");
+    view.rerender(<TaskNotifications sessionToken={undefined} onOpenThread={vi.fn()}/>);
+    expect(screen.queryByText("Old · 已完成")).toBeNull();
+    expect(screen.getByText("0 条未读")).toBeInTheDocument();
   });
 });

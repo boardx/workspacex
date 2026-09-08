@@ -62,6 +62,13 @@ export class ThreadMessageQueue implements OnModuleInit, OnModuleDestroy {
       if(!row) throw new QueueConflictError(); return project(row);
     });
   }
+  async update(orgId:OrgId,userId:string,threadId:string,id:string,input:{text:string}) {
+    await this.authorize(orgId,userId,threadId,true);
+    return this.deps.db.withTenant(orgId,async s => {
+      const row=(await s.query<Row>(`UPDATE thread_message_queue SET body=$5 WHERE org_id=$1 AND thread_id=$2 AND actor_id=$3 AND id=$4::uuid AND status='pending' RETURNING *`,[orgId,threadId,userId,id,input.text])).rows[0];
+      if(!row) throw new QueueConflictError(); return project(row);
+    });
+  }
   async pump():Promise<void> {
     if(this.pumping || this.stopped) return;
     this.pumping=true;

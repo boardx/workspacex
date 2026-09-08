@@ -40,6 +40,7 @@ import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/arti
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
+import { NOTIFICATION_CENTER_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
@@ -502,6 +503,15 @@ for (const root of ROOTS) {
     if (MCP_EXECUTION_BOUNDARIES.has(rel)) {
       const errors = checkMcpExecutionBoundary(rel, body);
       if (!existsSync(join(API, "scripts/tests/mcp-execution-boundary.test.mjs"))) errors.push("MCP authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === NOTIFICATION_CENTER_PATH || rel === NOTIFYING_RUN_EVENT_BUS_PATH) {
+      // 全局通知中心（2026-09-08）：`user_notifications` 背后没有 ACL 对象——一条通知就是推给某个人的
+      // 收据，披露规则只有"收件人本人"，由 SQL 谓词 `user_id=$1` 表达；run 状态推送只查这次 run 的
+      // 发起人，不带任何消息正文。反证在 scripts/tests/notification-center-boundary.test.mjs。
+      const errors = rel === NOTIFICATION_CENTER_PATH ? checkNotificationCenter(body) : checkNotifyingRunEventBus(body);
+      if (!existsSync(join(API, "scripts/tests/notification-center-boundary.test.mjs"))) errors.push("notification center authorization counterexamples missing");
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

@@ -28,12 +28,12 @@ export function checkWorkbenchPermissionBoundary(path, source) {
     if (tenantSql.length) errors.push('database boundary gained another row query');
     return errors;
   }
-  for (const name of methods.keys()) if (!['constructor','onModuleInit','onModuleDestroy','authorize','list','enqueue','cancel','pump'].includes(name)) errors.push(`new queue method requires review: ${name}`);
+  for (const name of methods.keys()) if (!['constructor','onModuleInit','onModuleDestroy','authorize','list','enqueue','cancel','update','pump'].includes(name)) errors.push(`new queue method requires review: ${name}`);
   const auth = methods.get('authorize') ?? '';
   if (!/await resolveVisibility\(this.deps,\{orgId,userId,threadId,projectId:facts.projectId\}\)/.test(auth)
       || !/access.kind!=="allow"/.test(auth) || !/access.actor.projectRole==="observer"/.test(auth)
       || !/access.thread.archived/.test(auth) || !/throw new QueueNotVisibleError\(\)/.test(auth)) errors.push('queue visibility/write decision missing');
-  for (const method of ['list','enqueue','cancel']) {
+  for (const method of ['list','enqueue','cancel','update']) {
     const body = methods.get(method) ?? '';
     const expected = `await this.authorize(orgId,userId,threadId${method === 'list' ? '' : ',true'});`;
     if (!body.trimStart().startsWith('{\n    ' + expected)) errors.push(`${method} must authorize before any operation`);
