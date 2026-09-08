@@ -643,3 +643,47 @@ fi
     expect(r.stderr).not.toContain("API not reachable");
   });
 });
+
+/**
+ * 2026-09-08（#3033）—— KERNEL_SUBTASK_CALLBACK_BASE_URL 必须被投影进 API env。
+ * 漏它的后果不是「某个功能缺失」，是 KERNEL_NATIVE_RUNTIME=1 之下每条 chat 瞬间失败。
+ */
+describe("native_runtime_ensure_callback_base_url — API 侧回调地址投影", () => {
+  const base = "http://workspacex-api-host:3200";
+  function ensure(initial: string, serviceBase = base) {
+    const temp = tempDir();
+    const envFile = join(temp, "deploy.env");
+    writeFileSync(envFile, initial);
+    const r = runLib(`native_runtime_ensure_callback_base_url '${envFile}' '${serviceBase}'`);
+    return { ...r, envFile, content: readFileSync(envFile, "utf8") };
+  }
+  it("缺失时补上，值 = 投影给 Deep Agent 的同一个 host-gateway 地址", () => {
+    const r = ensure("APP_API_PORT=3200\nKERNEL_NATIVE_RUNTIME=1\n");
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.content).toContain(`KERNEL_SUBTASK_CALLBACK_BASE_URL=${base}`);
+    expect(r.stdout).toContain("GENERATED");
+  });
+  it("反证（最重要）：已有值一个字符都不许被改写，且幂等", () => {
+    const initial = "KERNEL_SUBTASK_CALLBACK_BASE_URL=http://other-host:9999\n";
+    const first = ensure(initial);
+    expect(first.status).toBe(0);
+    expect(first.content).toBe(initial);
+    expect(first.stdout).toContain("PRESENT");
+    const second = runLib(`native_runtime_ensure_callback_base_url '${first.envFile}' '${base}'`);
+    expect(second.status).toBe(0);
+    expect(readFileSync(first.envFile, "utf8")).toBe(initial);
+  });
+  it("拒绝畸形值而不是猜：service_base 非 http://host:port，或已有值畸形", () => {
+    expect(ensure("", "https://x/").status).not.toBe(0);
+    const r = ensure("KERNEL_SUBTASK_CALLBACK_BASE_URL=not a url\n");
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("KERNEL_SUBTASK_CALLBACK_BASE_URL is invalid");
+  });
+  it("deploy.sh 在 5c 必需 env 校验之前调用它（否则 DI 硬门抓不到）", () => {
+    const deploy = readFileSync(DEPLOY, "utf8");
+    const call = deploy.indexOf("native_runtime_ensure_callback_base_url \"$ENV_FILE\"");
+    const gate = deploy.indexOf('step "5c.');
+    expect(call).toBeGreaterThan(0);
+    expect(gate).toBeGreaterThan(call);
+  });
+});

@@ -2063,6 +2063,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, objects: ObjectStore, repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, mcp: McpExecutionSnapshot) => {
         const socket=process.env.NATIVE_SESSION_SOCKET, key=process.env.NATIVE_SESSION_BINDING_KEY;
         if (process.env.KERNEL_NATIVE_RUNTIME === "1" && (!socket || !key)) throw new Error("native_runtime_configuration_missing");
+        // #3033：native 准入开着，就必须有 API→Deep Agent 的回调地址。它在 provider 配置里
+        // 是可选的（`subtaskCallbackBaseUrl?`），所以此前 5c 放行、到运行时 `runControlConfig`
+        // 才发现 `supportsLiveInterjections()` 为 false——每条 chat 瞬间 MODEL_CALL_FAILED，
+        // 0 秒 0 工具。在 DI 层抛，且措辞用 verify-required-env.ts 的 EXTRACTORS 认得的形状
+        // （`missing env var X`），让 5c 在重启前点名它，而不是让用户在聊天框里发现。
+        if (process.env.KERNEL_NATIVE_RUNTIME === "1" && !(process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL ?? "").trim()) throw new Error("missing env var KERNEL_SUBTASK_CALLBACK_BASE_URL");
         return socket && key ? new PgNativeSessionOwner(db,new PgParentRunControlReader(db),createNativeSessionTransport(socket),key,new PgNativeRunInputs(db,objects,{repo,ids,chat}),mcp) : null;
       },
       inject: [DATABASE_PORT, OBJECT_STORE, IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY, MCP_EXECUTION_SNAPSHOT],
