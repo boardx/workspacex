@@ -23,6 +23,18 @@ export function useTimelineScroll(messages: unknown) {
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = React.useState(true);
   /**
+   * issue #3145 —— `isAtBottom` 的**同步**镜像。两个自动跟随的 effect（新消息跟随、
+   * 内容长高跟随）都通过它判定，而不是只看那个 state。
+   *
+   * 为什么不能只看 state：`setIsAtBottom(false)` 是异步的，而流式期间**每一个 delta**
+   * 都会让跟随 effect 重跑一次。用户滚轮翻上去之后、React 提交那次 state 之前到达的
+   * delta，跟随 effect 读到的还是**旧的** `isAtBottom === true`，于是把人一把拽回底部；
+   * `ResizeObserver` 那条更糟——它的回调闭包是在贴底那次渲染里建的，只要还没重新
+   * 注册，内容每长高一次就拽一次。ref 在事件处理器里同步写，两条路径都读它，
+   * 这个窗口就不存在了。
+   */
+  const isAtBottomRef = React.useRef(true);
+  /**
    * 2026-09-02 人类实测反馈："滚到底部的那个箭头的逻辑是错误的"。两处根因：
    *
    * ① 按钮此前是滚动容器（`overflow-y-auto`）自己的 `absolute` 子节点。绝对定位的
@@ -48,6 +60,23 @@ export function useTimelineScroll(messages: unknown) {
   const messagesContentRef = React.useRef<HTMLDivElement | null>(null);
   const programmaticScrollRef = React.useRef(false);
   const programmaticScrollTimerRef = React.useRef<number | null>(null);
+  /**
+   * issue #3145 —— 最近一次"用户亲手介入"的时刻。**用户意图压过程序化标记**：这个
+   * 窗口内到达的 `scroll` 事件一律按用户滚动处理，哪怕 `programmaticScrollRef` 是 true。
+   *
+   * 没有它时，解除只有一次机会、还得赢一场竞态：滚轮触发 `onWheel` 清掉标记，但浏览器
+   * 的 `scroll` 事件要晚一拍才到；流式期间下一个 delta 在这一拍里把标记**重新**置位，
+   * 于是用户那次滚动的 `scroll` 事件被当成"程序化滚动途中"直接吞掉，`isAtBottom`
+   * 永远翻不成 false，跟随 effect 继续把人按在底部——真栈 e2e（S8）逐字复现的就是
+   * 这一幕：`page.mouse.wheel(0, -100000)` 之后 30 秒内 `scrollTop` 从未回到 0
+   * （实测停在 1146 / 7206，两趟不同 SHA 相同形状）。
+   *
+   * 窗口取 150ms：一次滚轮/触摸/按键引发的 `scroll` 事件必然在这之内到达，而它远短于
+   * 平滑滚动动画（`PROGRAMMATIC_SCROLL_MAX_MS` = 1000ms），不会把动画途中的中间位置
+   * 误判成用户离开底部——那正是 ② 当初要挡的东西。
+   */
+  const userScrollIntentAtRef = React.useRef(0);
+  const USER_SCROLL_INTENT_WINDOW_MS = 150;
 
   /**
    * PR #2530 review（exact-SHA reviewer 第 1 条）—— 这个标记不能只靠"抵达底部的
@@ -81,6 +110,7 @@ export function useTimelineScroll(messages: unknown) {
     if (el === null || typeof el.scrollTo !== "function") return;
     setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior });
+    isAtBottomRef.current = true;
     setIsAtBottom(true);
   }, [setProgrammaticScroll]);
 
@@ -94,17 +124,23 @@ export function useTimelineScroll(messages: unknown) {
     const el = messagesContainerRef.current;
     if (el === null) return;
     const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
-    if (programmaticScrollRef.current) {
+    // #3145：用户刚亲手介入过 ⇒ 这次滚动就是他的，程序化标记不得吞掉它（见
+    // `userScrollIntentAtRef` 的头注：吞掉一次就再也没有第二次机会）。
+    const userDriven = Date.now() - userScrollIntentAtRef.current <= USER_SCROLL_INTENT_WINDOW_MS;
+    if (programmaticScrollRef.current && !userDriven) {
       // 我们自己发起的滚动还在路上：中间位置不算"用户离开了底部"。抵达即解除标记。
       if (nearBottom) clearProgrammaticScroll();
       return;
     }
+    if (userDriven) clearProgrammaticScroll();
+    isAtBottomRef.current = nearBottom;
     setIsAtBottom(nearBottom);
   }, [clearProgrammaticScroll]);
 
   // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
   // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
   const handleUserScrollIntent = React.useCallback(() => {
+    userScrollIntentAtRef.current = Date.now();
     clearProgrammaticScroll();
   }, [clearProgrammaticScroll]);
 
@@ -120,7 +156,9 @@ export function useTimelineScroll(messages: unknown) {
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
   // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
   React.useEffect(() => {
-    if (!isAtBottom) return;
+    // #3145：`isAtBottomRef` 是同步真相，`isAtBottom` 只是触发重跑的依赖——这一拍读到的
+    // state 可能还是用户滚轮之前的旧值（见该 ref 的头注）。
+    if (!isAtBottom || !isAtBottomRef.current) return;
     const el = messagesContainerRef.current;
     if (el === null || typeof el.scrollTo !== "function") return;
     setProgrammaticScroll();
@@ -134,6 +172,9 @@ export function useTimelineScroll(messages: unknown) {
     const el = messagesContainerRef.current;
     if (content === null || el === null || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
+      // #3145：这个闭包是在贴底那次渲染里建的，注销要等 effect 重跑；用户已经翻上去
+      // 之后内容再长高一次，就会被它拽回底部。同步真相在 ref 上。
+      if (!isAtBottomRef.current) return;
       if (typeof el.scrollTo !== "function") return;
       setProgrammaticScroll();
       el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
