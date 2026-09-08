@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
+import { listPersistedMessages } from "./chat-v2-send";
 
 /**
  * issue #2997 —— 本文件的锚点在 2026-09-08 由旧屏迁到 CopilotKit v2 工作台。
@@ -216,7 +217,25 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   // issue #2997 —— v2 无「加载更早」按钮（理由见本用例上方那段），软重读/流式
   // 都会把新消息带进 `agent.messages`，直接断言它到位即可。
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Browser durable message", { timeout: 60_000 });
-  await expect(page.getByText("Browser durable message")).toHaveCount(1);
+  /*
+   * issue #2997 —— 「这条消息只出现一次，没有被重复渲染/重复落库」这条不变量换了
+   * 数法。原写法数的是页面上出现该串的次数；在 v2 上这个数天然大于 1，而且**不是
+   * bug**：默认 deep-agent 替身会把用户原话逐字回显进回复，执行轨迹面板里也会带上，
+   * 实测一次发送后页面上出现 9 次。继续数页面文本等于把断言绑死在"替身回不回显"上。
+   *
+   * 换成在**落库投影**上数（这才是"重复"真正有害的地方：同一条消息被写进去两次），
+   * 外加在**用户气泡**上数一次（前端乐观插入 + hydration 回读若去重失败，这里会是 2）。
+   * 两条合起来比原来那条更贴近它本来要防的东西。
+   */
+  const persistedAll = await listPersistedMessages(page, CHAT_READ_E2E.threadId, bearer!);
+  expect(
+    persistedAll.filter((m) => m.text === "Browser durable message"),
+    "同一条消息不该被写进库两次",
+  ).toHaveLength(1);
+  await expect(
+    page.getByTestId("copilot-user-message").filter({ hasText: "Browser durable message" }),
+    "用户气泡不该重复渲染同一条消息（乐观插入与 hydration 回读必须按 id 去重）",
+  ).toHaveCount(1);
 
   /**
    * issue #2233（D5 回归钉子）—— `#1705`/PR #1764 同时接线了 D2（编制区第一行，

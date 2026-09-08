@@ -193,8 +193,11 @@ test(
     // issue #2997 —— 附件在 v2 上不在消息气泡里；「这个附件真的落在这条线程上」
     // 改由契约读端口取证（比"界面上画出来了"更接近这条断言的本意：它测的是落库，
     // 不是像素）。气泡内展示那条断言原文保留在文件末尾的 `test.fixme` 里。
+    // ⚠ `projectId` 是必带的：`listThreadAttachments` 的 controller 把缺失的
+    //   `projectId` 归一成 `null`（= 个人线程），对这条项目线程会判 NOT_VISIBLE。
+    //   实测第三轮踩到一次（`res.ok()` 为 false）。
     const persistedAttachments = await page.request.get(
-      `/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments`,
+      `/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments?projectId=${CHAT_READ_E2E.restructureProjectId}`,
       { headers: { Authorization: `Bearer ${bearer}` } },
     );
     expect(persistedAttachments.ok()).toBe(true);

@@ -207,8 +207,19 @@ test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async
    * 了"那一半，没有动。
    */
   await expect(panel).toBeAttached();
-  // 前提：现在一个都没挂。没有这条，下面「挂上了」的断言可能一开始就是真的。
-  await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+  /*
+   * 前提：现在一个都没挂。没有这条，下面「挂上了」的断言可能一开始就是真的。
+   *
+   * issue #2997 —— 锚点从「空态文案」换成「面板自陈的挂载数」。`chat-skill-mount-empty`
+   * （"还没有挂载任何 skill"）只在**非** headless 那个 `<section>` 分支里渲染
+   * （`chat-skill-mount-panel.tsx` 的 `return <section>` 一支）；v2 走的是 headless
+   * 的 `variant="composer"` 分支，那一支只渲染已挂载 chip + 浮层，没有这句文案。
+   *
+   * 但**同一个容器把挂载数当属性挂了出来**（`data-mounted-count={mounts.length}`），
+   * 两个分支都有。换成断言它等于 "0" —— 判据没有放宽，反而更精确：原来靠一句文案
+   * 间接推断"零挂载"，现在直接读那个数。
+   */
+  await expect(panel).toHaveAttribute("data-mounted-count", "0");
 
   await mountSkill(page, CHAT_READ_E2E.skillMountThreadId);
 
