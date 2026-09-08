@@ -101,14 +101,17 @@ test("research persists all five model-backed steps through the real UI, API and
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
-  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 2);
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
   expect(runtime.researchPlan.optimizedQuestion).toBe("哪些并网政策证据支持进入决策？");
   expect(runtime.tasks[0]).toMatchObject({ objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"] });
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
   expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
-  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report").every((call: { status: string }) => call.status === "succeeded")).toBe(true);
+  // One deliberately invalid evidence response is repaired automatically without a second UI command.
+  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
+  expect(runtime.errorCode).toBeNull();
+  expect(runtime.reportEvidenceWarnings).toEqual([]);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   expect(runtime.report.introduction).toContain("检索摘要");
   expect(runtime.report.conclusion).toContain("综合各章");
