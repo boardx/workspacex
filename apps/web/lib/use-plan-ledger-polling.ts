@@ -32,7 +32,15 @@ import { fetchPlanLedger, type PlanLedgerView } from "@/lib/plan-control-api";
  * 两次几乎同时的读，差值在毫秒级），不会像修复前那样永久停在两个矛盾的值上
  * （SSE 通路对续跑运行永远不会更新，是无界的陈旧，不是有界的轮询窗口）。
  */
-const POLL_INTERVAL_MS = 3000;
+/**
+ * issue #3081 —— 导出，不再是本文件私有常量。运行级控制锚点
+ * （`chat-task-workbench-run-pause`）能不能在 e2e 里被观测到，取决于
+ * 「替身让 run 活着的时长」与「这个采样周期」的关系——那是一条**跨两层**的不变量，
+ * 此前两层都各自正确、没人拥有它，于是断言从未被求值一次（见
+ * `tests/e2e-support/run-live-window.test.ts`）。
+ */
+export const PLAN_LEDGER_POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = PLAN_LEDGER_POLL_INTERVAL_MS;
 
 export interface UsePlanLedgerPollingResult {
   readonly ledger: PlanLedgerView | null;
