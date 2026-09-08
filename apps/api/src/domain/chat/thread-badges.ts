@@ -171,13 +171,55 @@ export function toContractBadges(state: ThreadBadgeState): MessageBadge[] {
  *   焊死在一处，而那正是 `0 个 agent` 当年的形状：文案漂在自由字符串里，
  *   没有任何门控看得见它。文案映射的唯一一处在 web 侧的 `THREAD_STATUS_LABEL`。
  */
+/**
+ * 「这条线程上有一个还没落定的 run」。取值域引用 `AgentRunStatus` 契约的同一个类型，
+ * 判定用 `switch` 而不是数组 `includes`——枚举加了第六个值时，这里是编译期的红
+ * （与下面 `threadCardStatus` 那一行 `never` 同一条纪律），而 `includes` 只会静悄悄
+ * 把新取值判成「不活跃」。
+ */
+function hasLiveRun(status: AgentRunStatusFact | null): boolean {
+  switch (status) {
+    case "queued":
+    case "running":
+    case "writeback_pending":
+    case "awaiting_tool_permission":
+    case "paused":
+      return true;
+    case "succeeded":
+    case "failed":
+    case "cancelled":
+    case null:
+    case undefined:
+      return false;
+    default: {
+      const exhaustive: never = status;
+      return exhaustive;
+    }
+  }
+}
+
 export function threadCardStatus(input: {
   /** 该线程有没有任何可见消息。 */
   readonly hasMessages: boolean;
   /** 该线程最近一次 `agent_runs` 的 status；从来没跑过则为 `null`。 */
   readonly latestRunStatus: AgentRunStatusFact | null;
 }): ThreadCardStatus {
-  if (!input.hasMessages) return "not-started";
+  // 🔴 issue #3120 —— `hasMessages` 为假**不足以**判 `not-started`：还得没有活跃 run。
+  //
+  // 这个取值有两个消费者，语义被重载成了两件事：列表上「还没开始」的显示，以及
+  // 前端「新建对话」的**复用判据**（`copilotkit-v2-shell.tsx` 的 `handleCreate`：
+  // 顶部卡片是 `not-started` 就直接进那一条，不建新的）。首条用户消息落库
+  // （`acceptHumanMessage`）与 run 起飞之间有一个真实窗口，线程在窗口里
+  // 「有一个正在跑的 run，却还没有可见消息」——旧实现在这里短路返回
+  // `not-started`，于是「新建对话」把用户丢回**正在跑的那条会话**，他的下一句话
+  // 变成对上一轮的插话（「本轮未应用」）。run 34222901107 的
+  // `agent-task-planning-hitl.spec.ts:64` 就是这么红的：用例的多步触发词作为插话
+  // 排队，从没作为新 run 的输入抵达上游，账本里于是是别人那轮的默认计划。
+  //
+  // 收窄的只有**活跃 run** 那一支。终态 run（succeeded/failed/cancelled）留下的
+  // 无消息线程照旧是 `not-started`——它显示「还没开始」是对的，复用它也是安全的，
+  // `thread-title-and-status.test.ts` 那条反证逐字不变。
+  if (!input.hasMessages && !hasLiveRun(input.latestRunStatus)) return "not-started";
   switch (input.latestRunStatus) {
     case "queued":
     case "running":
