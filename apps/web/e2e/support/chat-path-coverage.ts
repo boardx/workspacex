@@ -136,23 +136,44 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
   /*
-   * ⚠ 三跑实测：这里**不能**用 `waitForURL(/\/chat\/[^/]+$/)` 当"新建成功"的信号。
-   * 第二个 page `goto("/chat")` 之后，壳会恢复到最近一条线程（就是第一个 page 刚建的
-   * 那条），URL 当场就已经匹配那个正则 ⇒ `waitForURL` 立即返回、取到的是**别人**那条
-   * 线程 id。实测后果：`threadA === threadB`，并发用例退化成"同一条线程的两轮"，
-   * 而它自己的那条前置断言正是这么把自己拦下来的。
-   * 正确的信号是「URL 变成了一条与点击前**不同**的线程」。
+   * ⚠ 这里的"新建成功"信号被实测推翻过**两次**，两次都让 `threadA === threadB`，
+   * 两次都是同一件事的不同近似：**拿 URL 当创建结果读，而 URL 也会被别的东西改。**
+   *
+   * · 三跑：用 `waitForURL(/\/chat\/[^/]+$/)`。第二个 page `goto("/chat")` 之后壳会
+   *   恢复到最近一条线程（正是第一个 page 刚建的那条），URL 当场就匹配 ⇒ 立即返回。
+   * · 四跑（run 34190269467）：改成"等 URL 变成一条与点击前**不同**的线程"，仍然红。
+   *   因为那次恢复是**异步**的：`before` 快照取在恢复落地之前（此时还是裸 `/chat`，
+   *   `before` 为 null），随后满足"变成了不同的线程"的正是那次**恢复**，不是我们的创建。
+   *
+   * 两次近似都想用"变化"去指代"新建"，而这条 URL 上至少有两个东西会让它变化。
+   * 唯一不会被恢复动作满足的信号是**这条线程此前不存在**——所以先用权威读把点击前
+   * 已存在的线程 id 全取回来，再等 URL 落在一个**不在这个集合里**的 id 上。恢复只能
+   * 恢复到已存在的线程，因此它无论早到晚到都无法满足这个判据。
    */
-  const before = threadIdFromUrl(page.url());
+  const existing = new Set(await storedThreadIds(page));
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL((url) => {
     const current = threadIdFromUrl(url.toString());
-    return current !== null && current !== before;
+    return current !== null && !existing.has(current);
   }, { timeout: 60_000 });
   const threadId = threadIdFromUrl(page.url());
-  expect(threadId, "新建线程后 URL 应带上一个与点击前不同的 threadId").toBeTruthy();
+  expect(threadId, "新建线程后 URL 应落在一条点击前并不存在的线程上").toBeTruthy();
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId as string;
+}
+
+/**
+ * 权威读：当前用户此刻**已经存在**的全部个人线程 id。
+ *
+ * 只有一个用途：把「这条线程是我刚建的」与「壳把我恢复到了一条旧线程」分开——见
+ * `openFreshDeepAgentThreadOnAuthedPage` 里那段头注记的两次实测。
+ */
+async function storedThreadIds(page: Page): Promise<string[]> {
+  const response = await page.request.get("/chat/threads", { headers: await sessionHeaders(page) });
+  expect(response.ok(), "读线程列表失败——没有它就分不出「新建的」与「恢复到的」").toBe(true);
+  // 形状是契约里的 `listThreads.out`：按「今天/本周/更早」分组，线程在每组的 `cards` 里。
+  const body = await response.json() as { groups?: { cards?: { id: string }[] }[] };
+  return (body.groups ?? []).flatMap((group) => (group.cards ?? []).map((card) => card.id));
 }
 
 /** `/chat/<threadId>` 里的线程 id；裸 `/chat`、`/chat?…` 与 warmup 占位段一律返回 null。 */

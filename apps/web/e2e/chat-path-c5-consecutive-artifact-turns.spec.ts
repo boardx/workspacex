@@ -39,12 +39,15 @@ test("@path:C5 连续三轮各产一个画布：逐轮累加、互不覆盖、�
 
   const fabrics = page.locator('[data-testid="chat-canvas-fabric"]');
   for (let turn = 1; turn <= TURNS; turn += 1) {
-    await sendInV2AndAwaitStoredReply(
-      page,
-      threadId,
-      proofFor(turn),
-      `SERIAL-${turn}`,
-    );
+    /*
+     * 等的串是「```canvas」而不是 `SERIAL-${turn}`。四跑实测（run 34190269467）：
+     * 后者**通用回显分支也满足**（回显里就带着用户原文）⇒ 这一步在没产出任何围栏时
+     * 照样通过，红被推迟到下面那条数量断言上，`sendInV2AndAwaitStoredReply` 的诊断
+     * （摘出真实落库回复）因此一次都没打印出来。等待条件必须是**只有被测分支才满足**
+     * 的那个串，否则诊断永远轮不到说话。
+     * 轮次标记仍然逐轮核对，在下面那段权威读里——它不是被删掉，是挪到了该断言的地方。
+     */
+    await sendInV2AndAwaitStoredReply(page, threadId, proofFor(turn), "```canvas");
 
     // 线程里累计恰好 N 个：少了 = 前面的被覆盖/卸载；多了 = 重复挂载。
     await expect(

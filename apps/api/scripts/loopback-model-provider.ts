@@ -521,12 +521,37 @@ const server = createServer((req, res) => {
     // 围栏，前面多一行回显不影响它。
     const researchSystem = parsed.messages?.find((message) => message.role === "system")?.content;
     const researchReply = guidedResearchReply(typeof researchSystem === "string" ? researchSystem : "", echoed);
-    const fullText = researchReply ?? (isTrialRunRequest(parsed.messages)
-      ? `${chatEcho}\n\n${trialRunScriptReply(echoed)}`
-      : isFollowUpSuggestionsRequest(parsed.messages)
+    /*
+     * ## 分支顺序按「判定条件有多specific」排，不是按写下来的先后
+     *
+     * 路径矩阵四跑实测（C4/C5，run 34190269467）钉死的一件事：`isTrialRunRequest` 自
+     * #2514 起**对任何一次接了沙箱的普通聊天都成立**（它自己的头注就是这么写的），
+     * 而画布分支原先排在它后面 ⇒ 画布分支在这套装配下**根本到不了**。当时 C4 的诊断
+     * 摘回来的落库回复是 `[loopback] [skill:]MOUNTPROOF-… <原文>⏎⏎```run_script…`：
+     * 回复来了、agent 也对，只是命中了试跑分支。
+     *
+     * 画布分支的判定要三个信号同时成立，其中一个是**只出现在这次请求正文里的哨兵**
+     * （`CANVAS_GUIDANCE_SENTINEL`，见 `canvasGuidanceReachedModel` 头注 / issue #2295）；
+     * 试跑分支的判定则是一个环境级的常态条件。specific 的判定压过 ambient 的判定，
+     * 否则后者会把前者永久遮住——这就是本次调序的全部理由。
+     *
+     * ⚠ **仍排在 `isFollowUpSuggestionsRequest` 之后**，不是排到最前：追问建议那次调用
+     * 会把对话历史一起送上来，`echoed` 取的是其中的用户消息，因此**含有同一个哨兵**。
+     * 把画布分支提到它前面，会让追问建议请求被画布分支劫走。
+     *
+     * 「追问建议」与「试跑」的相对次序因此也跟着换了（原先试跑在前）。这一换是**空操作**，
+     * 有据可查：追问建议那次调用的 system prompt 由 `generate-followup-suggestions.ts`
+     * 整条替换成 `FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT`，而 `RUN_SCRIPT_PROTOCOL_PROMPT`
+     * 只由 `execute-run.ts` 往 agent-run 的 system prompt 尾部拼——两者不可能同时成立。
+     *
+     * 影响面：正文里不带那个哨兵的请求，走到的分支与改动前逐字节相同。
+     */
+    const fullText = researchReply ?? (isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
       : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)
+      : isTrialRunRequest(parsed.messages)
+      ? `${chatEcho}\n\n${trialRunScriptReply(echoed)}`
       : chatEcho);
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
