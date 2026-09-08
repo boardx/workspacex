@@ -164,3 +164,31 @@ GitHub 同一 group 只保留**一个 pending**（这条规律该文件第 80 �
 
 ⚠ 顺带记一笔：这个测试用**真实计时**断死 2000ms 上界，在满载 runner 上天生脆。
 如果它再红，值得单开一个 issue 让它用假时钟，而不是继续靠重跑糊过去。
+
+### 21:24 复查更新 —— 上一节的判断错了一半，这里是订正
+
+重跑**同样红、同一条用例、同样 60s**。按我自己写下的判据，它就不是 flake。往下查的结果：
+
+**根因不在我的 PR，但也不是「机器压住了」——是 main 上的一个真 bug，而且已经修好了。**
+
+- `readBoundedJson(response)` 不收 `AbortSignal`。`generateImage` 造的
+  `AbortSignal.timeout` 只传给了 `fetch`，而 `fetch` 在**响应头一到就 resolve**；
+  之后 `reader.read()` 能不能被打断，完全取决于底层 transport 肯不肯销毁 body 流。
+  活性被外包给了 transport 的善意 —— 于是「100ms deadline」的用例能挂满 60s。
+- **main 上同一条用例在 run 34257392836 就红过**，已由 **PR #3176**（`c73cee81`，
+  已合入 main）修复：signal 传进 `readBoundedJson`，读循环每轮与 abort 竞速。
+
+处置（按 drive-to-green「修法已存在就 port 进来」那一条）：
+`git cherry-pick -x c73cee81` 进 `claude/iter16-page-management`。等 main 合进来时它自动 no-op。
+
+验证（本地都真跑了，不是推断）：
+- `git diff 442fc417 HEAD` 与 `git show c73cee81` **逐字节相同**——cherry-pick 没夹带别的。
+- 隔离跑该文件（绕开需要 docker 的 globalSetup）：**9/9 绿，297ms**。
+- **反证**：只把 provider 源码退回修复前、保留新测试 → 新增的
+  「enforces its own deadline when the transport ignores the abort signal」
+  红在 `Test timed out`，与 CI 上一模一样的签名；装回 → 9/9 绿。
+  这条 port 是有承重的，不是摆设。
+
+⚠ 订正上一节：我当时把它归给「满载 runner 上定时器被争用」。那个解释是错的——
+真相是 promise 从来没 settle。**「卡满整个超时」和「计时被争用打飞」形状不同**，
+前者是死等，后者会晚一点点但仍会 settle。我当时没有区分这两种形状就下了结论。
