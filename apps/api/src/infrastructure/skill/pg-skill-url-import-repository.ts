@@ -51,7 +51,7 @@
  * -repository.ts` 早就有这一行（"the same transaction so the UI can never see a Skill
  * definition without its row"），URL 导入这条姊妹路径漏了同一步。
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
 import type {
@@ -105,16 +105,29 @@ function slugifyForStableName(name: string): string {
   // （"AI 转型洞察报告" 音译只剩 "ai"，反而比原名更不可读），保留原文、只把空白
   // 折成连字符：用户自己填的名字本身就是「人类可读」，不需要被翻译成拼音，
   // 见文件头 G2「用户填的名字才是人类可读，id 从来不是」。
+  // #3033（第二半）：`stable_name` 是工具身份，必须满足契约 `StableName`
+  // （`^[a-z0-9][a-z0-9-]*$`）与原生 package set 更严的 `^[a-z0-9]+(-[a-z0-9]+)*$`。
+  // 之前这里对非 ASCII 展示名"原样保留"（G2 的可读性考虑），结果中文名 skill 一旦
+  // 启用，该组织每条原生 run 在调模型前就 `native_invalid_skill_stable_name` 失败
+  // （DevApp 2026-09-08 实测）。可读性由 `name` 承担、展示层去读 `name`；身份字段
+  // 一律合规 slug，音译不出东西时退回 `skill-<8 位 hex>`——稳定、唯一、不会让 run 炸。
+  const fallback = () => `skill-${createHash("sha256").update(trimmed).digest("hex").slice(0, 8)}`;
+  // 含非 ASCII（中文/日文…）时不取 ASCII 残片（"AI 转型洞察报告" 只剩 "ai"，比内部 id
+  // 还误导）——直接按名字确定性生成 `skill-<8 位 hex>`。这里与 G2 的取向不同：G2 让
+  // 身份字段承担可读性，但身份字段的正则（契约 + 原生 package set）本来就容不下非
+  // ASCII；可读性回到 `name`，身份只保证合规、稳定、不撞。
   // eslint-disable-next-line no-control-regex -- 判定"是否纯 ASCII"需要这个范围。
-  if (!/^[\x00-\x7F]*$/.test(trimmed)) return trimmed.replace(/\s+/g, "-");
+  if (!/^[\x00-\x7F]*$/.test(trimmed)) return fallback();
   const ascii = trimmed
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return ascii === "" ? trimmed : ascii;
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+  return ascii === "" ? fallback() : ascii;
 }
+export const NATIVE_STABLE_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
   constructor(private readonly db: DatabasePort) {}
