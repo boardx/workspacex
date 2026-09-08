@@ -247,6 +247,34 @@ export function parseAguiFilePatchAppliedValue(value: unknown): AguiFilePatchApp
  * 同一套「`value` 在协议层是 `unknown`，前端用本文件导出的 zod schema 原地再校验一次」
  * 的解析纪律。解析失败 → 丢弃这一帧，前端就当没拿到真实 id（于是不画依赖它的按钮），
  * 不退化成「拿临时 id 顶上」。
+ *
+ * ## ⚠ relay 走不到身份路径时的承诺（issue #3069，coordinator 裁决）
+ *
+ * `execution-journal-relay.ts` 的 `finish()` 有两条路径：**身份路径**（账本给出了
+ * `final_message`，且那条气泡在本连接上流全了）与**回放兜底**（身份不成立时，把落库
+ * 终稿整段重新呈现一遍）。本事件的承诺只覆盖前者的形状，后者此前无承诺，于是退化成
+ * `streamingMessageId === chatMessageId` 的**自映射**——携带的信息量为零，而消费端
+ * （`copilotkit-v2-message-identity.ts`）恰恰只认这一个入口，落地按钮因此拿不到真实主键。
+ *
+ * 现在两条路径共用同一条承诺：
+ *
+ *   1. **只允许把「正文与落库行完全一致」的流式气泡映射到落库主键。** 一条正文与
+ *      `chat_messages` 那行对不上的气泡不得出现在 `streamingMessageId` 上——那等于把
+ *      用户看到的字和库里的行对错。回放兜底因此必须先**替换**（撤回已流出的正文，
+ *      在同一个气泡 id 上重新呈现落库正文），替换之后该气泡才有资格被映射。
+ *      撤回用 `AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME`（见下）。
+ *   2. **不得为了凑齐这个事件而制造自映射。** #3069 的直接形态就是这个：回放兜底另起
+ *      一条以落库主键为 id 的气泡，`streamingMessageId === chatMessageId` 于是恒成立，
+ *      事件携带的信息量为零，而消费端只认这一个入口 ⇒ 落地按钮永远拿不到主键。
+ *      第 1 条的「替换」把这条路堵死：有流式气泡时映射一定指向那条气泡的 id。
+ *
+ *      ⚠ `streamingMessageId === chatMessageId` **本身**并不都是退化：非流式完成
+ *      （provider 不支持流式、整段一次性返回）的 wire 气泡 id 天然就是那一行的主键，
+ *      此时它是一句**真话**，而且是消费端唯一能据以认出「这条气泡真实存在」的信号——
+ *      `agui-bridge-sse.test.ts:252` 逐字记着这条路径。所以承诺是「不得制造」，
+ *      不是「一律不发」：一刀切地不发会把那条路径上本来能用的落地按钮悄悄拿掉。
+ *      （coordinator 裁决原文写的是「不得发自映射」；实现时发现一刀切会造成上述回归，
+ *      按此收窄，已在 issue #3069 上留档待复核。）
  */
 export const AGUI_CHAT_MESSAGE_ID_EVENT_NAME = "chat_message_id" as const;
 
@@ -260,6 +288,62 @@ export type AguiChatMessageIdValue = z.infer<typeof AguiChatMessageIdValue>;
 
 export function parseAguiChatMessageIdValue(value: unknown): AguiChatMessageIdValue | null {
   const result = AguiChatMessageIdValue.safeParse(value);
+  return result.success ? result.data : null;
+}
+
+/**
+ * issue #3069 —— **撤回本轮已流出的 assistant 正文**，让回放兜底成为「替换」而不是「追加」。
+ *
+ * ## 它修的是什么（wire 原文取证，不是推测）
+ *
+ * `execution-journal-relay.ts` 的 `accept()` 在 `tool_start` 上把 `finalMessageId` 置回
+ * `null`。当一轮里「工具调用之前先流了一段预告正文、工具跑完后账本再没有 `final_message`」
+ * 时，`finish()` 走回放兜底，把落库终稿**另起一条气泡**发出去。基线 e2e 抓到的原文是：
+ *
+ * ```
+ * TEXT_MESSAGE_START <流式 id>      ← 预告：「…已查询当前时间，详情见工具结果。」
+ * TEXT_MESSAGE_END   <流式 id>
+ * TEXT_MESSAGE_START <落库主键>     ← 终稿：「…已查询：当前时间 2026-…」
+ * TEXT_MESSAGE_END   <落库主键>
+ * ```
+ *
+ * 一轮对话在 wire 上出现**两条互相矛盾的 assistant 正文**；映射事件同时退化成自映射。
+ *
+ * ## 事件形态与消费方式
+ *
+ * 生产者在回放兜底里、且**在**替换用的 `TEXT_MESSAGE_START` 之前发这一帧：
+ * `replacedMessageIds` 列出本轮已经流出去、现在作废的全部 assistant 气泡 id；
+ * `replacementMessageId` 是紧接着要重新呈现的那一条（取 `replacedMessageIds` 的**第一条**，
+ * 于是 wire 上「第一个 `TEXT_MESSAGE_START` 的 id」这条不变量不被替换动作改写）。
+ *
+ * 消费端（`copilotkit-v2-message-identity.ts`）收到后，把 `replacedMessageIds` 里的消息
+ * 从 `agent.messages` 里**移除**；随后到达的 `TEXT_MESSAGE_START`/`_CONTENT`/`_END` 以
+ * 同一个 `replacementMessageId` 重建这条气泡，内容是落库正文。结果是唯一一条 assistant
+ * 气泡、内容与 `chat_messages` 那行逐字一致，`chat_message_id` 也因此重新有资格映射它。
+ *
+ * ## 为什么复用 `CUSTOM` 通道而不是引入第二套协议
+ *
+ * AG-UI 的 `TEXT_MESSAGE_*` 只有「追加」语义，`MESSAGES_SNAPSHOT` 则要求生产者给出整轮
+ * 权威消息列表（本 relay 手里没有用户消息与历史，给不出真值）。本仓既有的
+ * `chat_thread_id` / `chat_message_id` / `run_phase` / `file_created` 全部走同一条
+ * `CUSTOM` + 「zod 在消费端原地再校验一次」的通道，这里沿用同一条，不新造第二套。
+ */
+export const AGUI_ASSISTANT_MESSAGE_REPLACED_EVENT_NAME = "assistant_message_replaced" as const;
+
+export const AguiAssistantMessageReplacedValue = z.object({
+  /** 本轮已流出、现在作废的 assistant 气泡 id（顺序即它们上 wire 的顺序）。 */
+  replacedMessageIds: z.array(z.string().min(1)).min(1),
+  /** 紧接着以落库正文重新呈现的那一条气泡 id；必须是 `replacedMessageIds` 的成员。 */
+  replacementMessageId: z.string().min(1),
+}).refine((v) => v.replacedMessageIds.includes(v.replacementMessageId), {
+  message: "replacementMessageId must be one of replacedMessageIds",
+});
+export type AguiAssistantMessageReplacedValue = z.infer<typeof AguiAssistantMessageReplacedValue>;
+
+export function parseAguiAssistantMessageReplacedValue(
+  value: unknown,
+): AguiAssistantMessageReplacedValue | null {
+  const result = AguiAssistantMessageReplacedValue.safeParse(value);
   return result.success ? result.data : null;
 }
 
