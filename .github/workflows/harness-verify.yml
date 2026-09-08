@@ -93,8 +93,14 @@ on:
 #   - main / tag / schedule / workflow_dispatch 上必须 false —— 那里每次 run 对应
 #     一个已经发生的事件（已合入的 commit、一次定时全量 e2e、一次人工 dispatch），
 #     掐掉等于让它永远没被验证过。
+# ⚠ 2026-09-08（#3038）：上面「main/dispatch 上 cancel-in-progress: false 就不会被掐」
+# 是错的——GitHub 对同一 group 只保留 **一个 pending**，新 run 入队时旧的 pending 直接
+# cancel，与 cancel-in-progress 无关。runner 排满时 main 的 run 一直 pending，合并一密集
+# 就被无限顶掉：实测 03:02Z–03:55Z 连续 8 个 run（含 2 次手动派 e2e-full）0 个 job 跑过。
+# 所以只有 PR 共用 ref 组（要的就是顶掉旧轮）；push / tag / schedule / dispatch 每个 run
+# 自成一组（run_id 唯一），互不排挤——「每次 run 对应一个已经发生的事件」才真正成立。
 concurrency:
-  group: harness-verify-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && format('harness-verify-{0}', github.ref) || format('harness-verify-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
