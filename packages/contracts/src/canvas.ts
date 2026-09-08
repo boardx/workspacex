@@ -249,8 +249,15 @@ export const CanvasError = z.enum([
 /**
  * 分区的数据类型——决定它在画布上怎么渲染：便利贴列表 → 每条一张方形贴纸；
  * 短文本 → 单行；长文本 → 段落框。见 `Design.pdf` §2.1 Field。
+ *
+ * `文本对象`（issue 用户直接交办，2026-09-08）——画布上一块**静态**标题/文本，不是
+ * AI 要填的数据分区：与前三档不同，它不绑定 `{{key}}`、不进 AI 输出结构、不算进
+ * 模板体检的字段计数，是使用者在编辑器里拖出来的纯装帧文字（同 `title`/`footer`
+ * 是装帧，不是 `sections` 内容——区别是这个装帧块位置可以自由拖拽，`title`/`footer`
+ * 固定在纸面顶/底）。`content`/`color`/`fontSize`/`fontWeight` 四个字段只在
+ * `type === "文本对象"` 时有意义，见各自字段文档。
  */
-export const SectionFieldType = z.enum(["便利贴列表", "短文本", "长文本"]);
+export const SectionFieldType = z.enum(["便利贴列表", "短文本", "长文本", "文本对象"]);
 
 /**
  * 分区在画布上的显式布局——2026-08-25，**设计增量、待人类补签**（同 `updateTemplateDraft`
@@ -326,6 +333,24 @@ export const SectionDef = z.object({
   capacity: z.number().int().positive().nullable(),
   /** `null`/缺失 = 未放置到画布上（沿用既有自动布局兜底渲染）。 */
   layout: SectionLayout.nullable().optional(),
+  /**
+   * 「文本对象」（`type === "文本对象"`）的文字内容——直接展示，不经过 `{{key}}` 占位符
+   * 替换。其它类型不用这个字段，全部 `.optional()`：与上面四栏同一条纯增量纪律。
+   */
+  content: z.string().optional(),
+  /** 「文本对象」的字色（CSS 颜色值，如 `#14130F`）。`null`/缺失 = 用编辑器默认色。 */
+  color: z.string().nullable().optional(),
+  /** 「文本对象」的字号（px）。缺省时编辑器/渲染各自兜底默认值。 */
+  fontSize: z.number().positive().optional(),
+  /** 「文本对象」的粗细——`"normal"`/`"bold"`，或 CSS 数值权重（如 `"700"`）的字符串形式。 */
+  fontWeight: z.string().optional(),
+  /**
+   * 数据绑定型分区（便利贴列表/短文本/长文本）的显示选项——隐藏区块标题
+   * （`{{key}}` 提示行与区块名），只渲染内容本身（issue 用户直接交办，2026-09-08，
+   * 编辑器右栏「③显示方式 · 隐藏字段名」）。缺省/`false` = 照旧显示标题，
+   * 与改动前的既有模板逐字节兼容。
+   */
+  hideFieldTitle: z.boolean().optional(),
 }).strict();
 
 /**

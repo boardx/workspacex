@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import type { SectionDraft } from "./template-editor-model";
+import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
 import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
@@ -50,7 +50,7 @@ const {
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
   title, footer, paperSize = "A1",
-  onSelect, onPlace, onMove,
+  onSelect, onPlace, onMove, onEditText,
 }: {
   readonly sections: readonly SectionDraft[];
   readonly gridCols: 6 | 12;
@@ -78,6 +78,12 @@ export function TemplateCanvasGrid({
   readonly onPlace: (sectionId: string, col: number, row: number) => void;
   /** 拖动一个已放置的区块换位置。 */
   readonly onMove: (sectionId: string, col: number, row: number) => void;
+  /**
+   * 「文本对象」在画布上就地编辑（用户直接交办，2026-09-08：「一旦放置在canvas上面就
+   * 可以编辑」）——`contentEditable` 失焦时把最新文字写回草稿。可选：其它调用方
+   * （无文本对象场景，如既有单测）不必都传。
+   */
+  readonly onEditText?: (sectionId: string, content: string) => void;
 }) {
   const [dragging, setDragging] = React.useState<{ id: string; kind: "field" | "block" } | null>(null);
   /**
@@ -211,6 +217,24 @@ export function TemplateCanvasGrid({
       >
         {placed.map((s) => {
           const layout = s.layout!;
+          if (s.type === "文本对象") {
+            return (
+              <TextBlockTile
+                key={s.sectionId}
+                section={s}
+                layout={layout}
+                selected={selectedId === s.sectionId}
+                editable={editable}
+                onSelect={() => onSelect(s.sectionId)}
+                onDragStartBlock={(e) => {
+                  e.dataTransfer.setData("application/x-tpl-drag", JSON.stringify({ id: s.sectionId, kind: "block" }));
+                  setDragging({ id: s.sectionId, kind: "block" });
+                }}
+                onDragEndBlock={() => setDragging(null)}
+                onEditText={onEditText}
+              />
+            );
+          }
           const geom = sectionGeometryMmOf(s, gridCols, paperSize);
           const isList = s.type === "便利贴列表";
           /**
@@ -281,35 +305,42 @@ export function TemplateCanvasGrid({
                   横排本来就放不下，只会从竖排变成溢出。真正的修法是「分行」——参照设计里
                   （PESTEL / 用户画像 / AI 战略画布）标题也都是独占一行、说明文字在它下面。
               */}
-              <div className="flex min-w-0 flex-col" style={{ gap: `${BLOCK_TITLE_GAP_CQW}cqw` }}>
-                <span
-                  className="truncate font-bold"
-                  style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
-                  title={s.name || "未命名"}
-                >
-                  {s.name || "未命名"}
-                </span>
-                <div className="flex min-w-0 items-baseline" style={{ gap: `${BLOCK_HEADER_GAP_CQW}cqw` }}>
+              {/*
+                「隐藏字段名」（用户直接交办，2026-09-08）：只隐藏标题/`{{key}}` 提示行，
+                内容（贴纸/文本框）照常渲染——同「③显示方式」右栏那颗开关的唯一事实源
+                （`s.hideFieldTitle`），不是本组件另判一次。
+              */}
+              {!s.hideFieldTitle && (
+                <div className="flex min-w-0 flex-col" style={{ gap: `${BLOCK_TITLE_GAP_CQW}cqw` }} data-testid={`tpladmin-editor-block-title-${s.sectionId}`}>
                   <span
-                    className="truncate font-mono text-primary"
-                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
-                    title={`{{${s.key}${isList ? "[]" : ""}}}`}
+                    className="truncate font-bold"
+                    style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
+                    title={s.name || "未命名"}
                   >
-                    {`{{${s.key}${isList ? "[]" : ""}}}`}
+                    {s.name || "未命名"}
                   </span>
-                  <span
-                    className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
-                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
-                    data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
-                  >
-                    {overflowed
-                      ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
-                      : isList
-                        ? `${layout.cols} 列 · ${layout.max} 条`
-                        : "文本"}
-                  </span>
+                  <div className="flex min-w-0 items-baseline" style={{ gap: `${BLOCK_HEADER_GAP_CQW}cqw` }}>
+                    <span
+                      className="truncate font-mono text-primary"
+                      style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
+                      title={`{{${s.key}${isList ? "[]" : ""}}}`}
+                    >
+                      {`{{${s.key}${isList ? "[]" : ""}}}`}
+                    </span>
+                    <span
+                      className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                      style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
+                      data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
+                    >
+                      {overflowed
+                        ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
+                        : isList
+                          ? `${layout.cols} 列 · ${layout.max} 条`
+                          : "文本"}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
               <div
                 className="grid flex-1 content-start overflow-hidden"
                 style={{
@@ -460,4 +491,69 @@ function sampleTextFor(s: SectionDraft, index: number): string {
   if (s.type === "便利贴列表") return `${s.name || "条目"} 示例 ${index + 1}`;
   if (s.type === "长文本") return `${s.name || "段落"} 的示例段落文字……`;
   return `${s.name || "字段"} 示例`;
+}
+
+/**
+ * 「文本对象」的画布瓦片（用户直接交办，2026-09-08）——像标题元素一样拖到画布上、
+ * 就地可编辑，右栏控制颜色/字号/粗细。与数据字段的瓦片分开实现（不是共用同一段
+ * JSX 加一堆 `if`）：它没有 `{{key}}`/列数/贴纸这些概念，硬塞进同一段渲染逻辑
+ * 只会让两者都更难读。
+ *
+ * `contentEditable` 而不是 `<textarea>`：文本对象要"看起来就是画在纸上的字"，
+ * 输入框的边框/内边距会破坏这种观感；失焦（`onBlur`）才写回草稿，避免逐字击键
+ * 都触发一次 `setSections`（那会让光标在受控 re-render 里跳位）。
+ */
+function TextBlockTile({
+  section, layout, selected, editable, onSelect, onDragStartBlock, onDragEndBlock, onEditText,
+}: {
+  readonly section: SectionDraft;
+  readonly layout: SectionLayoutDraft;
+  readonly selected: boolean;
+  readonly editable: boolean;
+  readonly onSelect: () => void;
+  readonly onDragStartBlock: (e: React.DragEvent) => void;
+  readonly onDragEndBlock: () => void;
+  readonly onEditText?: (sectionId: string, content: string) => void;
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  return (
+    <div
+      draggable={editable}
+      onDragStart={onDragStartBlock}
+      onDragEnd={onDragEndBlock}
+      onClick={onSelect}
+      className="flex cursor-pointer items-center overflow-hidden rounded-card"
+      style={{
+        gridColumn: `${layout.col} / span ${layout.w}`,
+        gridRow: `${layout.row} / span ${layout.h}`,
+        border: selected ? `${BLOCK_BORDER_CQW}cqw dashed #1F5FD0` : `${BLOCK_BORDER_CQW}cqw dashed transparent`,
+        padding: `${BLOCK_PAD_CQW}cqw`,
+      }}
+      data-testid={`tpladmin-editor-block-${section.sectionId}`}
+    >
+      <div
+        ref={ref}
+        // 只有已选中且可编辑时才真的能敲字——未选中时点一下先选中（同其它区块的
+        // 交互约定），不能一点进画布就意外改到别的文本对象的内容。
+        contentEditable={editable && selected}
+        suppressContentEditableWarning
+        onBlur={() => {
+          if (!editable || !onEditText || !ref.current) return;
+          // `textContent`，不是 `innerText`——后者依赖布局引擎（jsdom 测试环境
+          // 不实现，恒为 `undefined`），前者是纯 DOM 树读取，两个环境行为一致。
+          onEditText(section.sectionId, ref.current.textContent ?? "");
+        }}
+        onClick={(e) => { if (selected) e.stopPropagation(); }}
+        className="w-full outline-none"
+        style={{
+          color: section.color ?? undefined,
+          fontSize: `${section.fontSize}px`,
+          fontWeight: section.fontWeight === "bold" || Number(section.fontWeight) >= 700 ? 700 : 400,
+        }}
+        data-testid={`tpladmin-editor-text-content-${section.sectionId}`}
+      >
+        {section.content}
+      </div>
+    </div>
+  );
 }

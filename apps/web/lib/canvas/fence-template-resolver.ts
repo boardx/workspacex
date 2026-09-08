@@ -193,13 +193,22 @@ export async function ensureCanvasFenceTemplate(input: {
         ...framing,
         gridCols: 12,
         sections: row.sections.map((s) => (
-          { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
+          {
+            sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
+            content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
+            hideFieldTitle: s.hideFieldTitle,
+          }
         )),
       })
       : buildAutoTemplateSpec({
         key,
         ...framing,
-        sections: row.sections,
+        // 自动布局算法不认识「文本对象」（它没有 capacity/自动排版的概念，本就只在
+        // 拖拽版显式布局里出现）——过滤掉，不喂进一个它不懂的类型。`filter` 本身不
+        // 收窄联合类型的字面量成员，显式断言掉已经排除的那一档。
+        sections: row.sections
+          .filter((s) => s.type !== "文本对象")
+          .map((s) => ({ ...s, type: s.type as "便利贴列表" | "短文本" | "长文本" | undefined })),
       });
     registerTemplate(spec);
     AUTO_OWNER.set(key, owner);
