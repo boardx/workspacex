@@ -469,6 +469,10 @@ DEEP_AGENT_NATIVE_SOCKET=/run/native-sessions/skill-sandbox.sock
 DEEP_AGENT_NATIVE_SERVICE_BASE="http://workspacex-api-host:${APP_API_PORT}"
 deep_agent_project_native_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
   "$DEEP_AGENT_NATIVE_SOCKET" "$DEEP_AGENT_NATIVE_SERVICE_BASE"
+# API 侧的孪生变量（#3033）：Deep Agent 收到的 run_control_callback.base_url 就是它，
+# 必须与上面投影给容器的 NATIVE_SESSION_SERVICE_BASE_URL 同值。放在 5c 之前，
+# 这样 kernel.module 的 DI 硬门（native 准入开着却缺它 ⇒ 拒绝启动）能在重启前被 5c 抓到。
+native_runtime_ensure_callback_base_url "$ENV_FILE" "$DEEP_AGENT_NATIVE_SERVICE_BASE"
 
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 

@@ -111,3 +111,42 @@ describe("verify-required-env: fail-closed before the restart, missing var named
     await expect(probeRequiredEnv(0)).rejects.toThrow(/never booted clean/);
   });
 });
+
+/**
+ * #3033 —— native 准入开着却缺 API→Deep Agent 回调地址，此前不在必需清单里：
+ * `subtaskCallbackBaseUrl?` 是可选的，DI 不抛，5c 放行，到运行时 `runControlConfig()`
+ * 才 throw MODEL_CALL_FAILED——于是 DevApp 上每一条 chat 0 秒 0 工具地死在用户面前。
+ * 这条钉住：DI 硬门存在，且措辞让 5c 能**点名**这个变量，而不是一句「启动失败」。
+ */
+describe("#3033 verify-required-env 必须点名 KERNEL_SUBTASK_CALLBACK_BASE_URL（native 准入开着时）", () => {
+  const NATIVE_VARS = ["KERNEL_NATIVE_RUNTIME", "NATIVE_SESSION_SOCKET", "NATIVE_SESSION_BINDING_KEY", "KERNEL_SUBTASK_CALLBACK_BASE_URL"] as const;
+  const saved = new Map<string, string | undefined>();
+  afterEach(() => {
+    for (const name of NATIVE_VARS) {
+      const prior = saved.get(name);
+      if (prior === undefined) delete process.env[name]; else process.env[name] = prior;
+    }
+    saved.clear();
+  });
+  function armNativeRuntimeWithoutCallback(): void {
+    for (const name of NATIVE_VARS) saved.set(name, process.env[name]);
+    process.env.KERNEL_NATIVE_RUNTIME = "1";
+    process.env.NATIVE_SESSION_SOCKET = "/run/workspacex-native-sessions/skill-sandbox.sock";
+    process.env.NATIVE_SESSION_BINDING_KEY = "a".repeat(64);
+    delete process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL;
+  }
+
+  it("准入=1 且缺回调地址 ⇒ 探测失败并点名 KERNEL_SUBTASK_CALLBACK_BASE_URL", async () => {
+    armNativeRuntimeWithoutCallback();
+    const result = await probeRequiredEnv();
+    expect(result.ok).toBe(false);
+    expect(result.missingVars).toContain("KERNEL_SUBTASK_CALLBACK_BASE_URL");
+  });
+
+  it("对照：准入=1 且回调地址在 ⇒ 不再因它失败", async () => {
+    armNativeRuntimeWithoutCallback();
+    process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = "http://workspacex-api-host:3200";
+    const result = await probeRequiredEnv();
+    expect(result.missingVars).not.toContain("KERNEL_SUBTASK_CALLBACK_BASE_URL");
+  });
+});

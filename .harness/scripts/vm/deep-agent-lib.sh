@@ -269,6 +269,34 @@ native_runtime_assert_api_env_file() {
   fi
 }
 
+# 2026-09-08（#3033）：API 侧把 run_control_callback.base_url 交给 Deep Agent 时读的是
+# KERNEL_SUBTASK_CALLBACK_BASE_URL；它在 DI 层是可选的，所以 5c 的必需 env 校验会放行，
+# 到运行时 `runControlConfig` 才发现 `supportsLiveInterjections()` 为 false，于是
+# KERNEL_NATIVE_RUNTIME=1 之下**每一条** chat 瞬间以 MODEL_CALL_FAILED 结束（0 秒、0 工具，
+# 用户看到「模型这次没能返回可用结果」）。#2929 投影了 Deep Agent 侧的
+# NATIVE_SESSION_SERVICE_BASE_URL，却漏了 API 侧这个孪生变量——两者必须是同一个值：
+# 容器内可解析的 host-gateway 地址。这里补上，纪律与 ensure_deploy_env 相同：只填缺失、
+# 绝不改写已有值、值不回显。
+native_runtime_ensure_callback_base_url() {
+  local file=$1 service_base=$2 existing
+  [ -f "$file" ] || { echo "✗ native runtime env file missing: ${file}" >&2; return 1; }
+  [[ "$service_base" =~ ^http://[a-zA-Z0-9.-]+:[0-9]+$ ]] || {
+    echo "✗ native runtime callback base URL is invalid" >&2
+    return 1
+  }
+  existing=$(read_env_value "$file" KERNEL_SUBTASK_CALLBACK_BASE_URL)
+  if [ -z "$existing" ]; then
+    printf 'KERNEL_SUBTASK_CALLBACK_BASE_URL=%s\n' "$service_base" >> "$file"
+    echo "  KERNEL_SUBTASK_CALLBACK_BASE_URL=GENERATED（API→Deep Agent 回调地址，与 NATIVE_SESSION_SERVICE_BASE_URL 同值）"
+    return 0
+  fi
+  [[ "$existing" =~ ^http://[a-zA-Z0-9.-]+:[0-9]+$ ]] || {
+    echo "✗ native runtime KERNEL_SUBTASK_CALLBACK_BASE_URL is invalid" >&2
+    return 1
+  }
+  echo "  KERNEL_SUBTASK_CALLBACK_BASE_URL=PRESENT"
+}
+
 # Deep Agent must have exactly one host bind: the native UDS directory, read-only. The
 # in-container probe validates env presence, absence of the binding encryption key, and an
 # actual HTTP health exchange through that socket without printing any secret.
