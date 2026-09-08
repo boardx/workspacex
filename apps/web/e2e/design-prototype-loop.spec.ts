@@ -149,6 +149,45 @@ test.describe("原型画布主链路（迭代 10）", () => {
    * 2026-09-07 人类指令：回车直接发、Shift+Enter 换行。这条只能在真浏览器里验——
    * jsdom 的 `fireEvent.keyDown` 不会真的往 textarea 里插入换行，也没有真实的 IME。
    */
+  /**
+   * 迭代 13（delta §1）—— V60。真浏览器里拖一张图进对话面板：
+   * 参考图条出现缩略图，发送时请求体带 `refImageIds`。
+   *
+   * 拖拽在 jsdom 里只能靠 `fireEvent.drop` 造一个假 dataTransfer；这里用真的
+   * `DataTransfer` + 真的 drop 事件，验的是浏览器那条路（jsdom 那条已由单测覆盖）。
+   */
+  test("拖一张参考图进对话面板 ⇒ 条上出现缩略图，发送时带 refImageIds", async ({ page }) => {
+    await open(page, "detail-prototype");
+    const bodies: unknown[] = [];
+    await page.route((url) => /\/pm-designs\/[^/]+\/chat$/.test(new URL(url).pathname), async (route) => {
+      bodies.push(route.request().postDataJSON());
+      await route.fallback();
+    });
+
+    const strip = page.getByTestId("design-ref-images");
+    await expect(strip).toBeVisible();
+    await expect(page.getByTestId("design-ref-image")).toHaveCount(0);
+
+    // 真 DataTransfer：在页面里造一个 File 塞进去，再派发真的 dragover/drop。
+    await strip.evaluate((el) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "参考.png", { type: "image/png" }));
+      el.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+      el.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    });
+    await expect(page.getByTestId("design-ref-image")).toHaveCount(1);
+
+    await page.getByTestId("design-detail-input").fill("照着这张参考图改配色");
+    await page.getByTestId("design-detail-send").click();
+    await expect.poll(() => bodies.length).toBeGreaterThan(0);
+    // ⭐ 反证：前端拿到文件却不传 refImageIds ⇒ 这条红（图上传了，但模型这一轮看不到）。
+    expect((bodies[0] as { refImageIds?: string[] }).refImageIds).toEqual(["ri-1"]);
+
+    // 删掉之后，下一轮就不再带它
+    await page.getByTestId("design-ref-image-delete").click();
+    await expect(page.getByTestId("design-ref-image")).toHaveCount(0);
+  });
+
   test("回车发送、Shift+Enter 换行（真键盘）", async ({ page }) => {
     await open(page, "detail-prototype");
     const input = page.getByTestId("design-detail-input");

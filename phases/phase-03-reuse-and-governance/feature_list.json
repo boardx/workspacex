@@ -1332,8 +1332,9 @@
       "sprint": null,
       "owner": null,
       "verification": [
-        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts",
-        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '拖一张参考图进对话面板'"
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts tests/design-workbench/ref-image-upload.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=design-prototype-loop -g '拖一张参考图'"
       ],
       "evidence": ""
     },

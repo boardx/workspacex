@@ -216,6 +216,9 @@ export const DESIGN_PROJECTS = [
       { role: "user", text: "运营现在要在多个屏之间来回切才能看到一条反馈的处理状态，希望有一个统一看板。", at: "2026-09-03T02:00:00.000Z" },
       { role: "ai", text: DESIGN_WORKBENCH_CHAT_REPLY, at: "2026-09-03T02:00:05.000Z" },
     ],
+    // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
+    // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
+    theme: "dark", tags: [], refImages: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-03T02:00:00.000Z", updatedAt: "2026-09-03T02:05:00.000Z",
   },
@@ -224,6 +227,9 @@ export const DESIGN_PROJECTS = [
     problem: "", criteria: ["明确问题与目标范围", "给出交互方案与边界情况处理", "列出验收标准供工程对齐"],
     frames: ["草稿页 1", "草稿页 2", "草稿页 3"], prototype: [], frameNotes: [],
     pushed: true, pushedAt: "2026-09-02T10:00:00.000Z", linkedFeedbackId: null, chat: [],
+    // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
+    // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
+    theme: "dark", tags: [], refImages: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-02T10:00:00.000Z",
   },
@@ -308,6 +314,9 @@ export const DESIGN_PROJECTS = [
       { role: "user", text: "给我设计一个 chat 的 UI，模拟 chatgpt", at: "2026-09-06T02:00:00.000Z" },
       { role: "ai", text: "画好了三页：「聊天」是消息流 + 输入区（含生成中的停止按钮），「历史会话」是可搜索的会话列表，「用量」是本月配额与进度。要改哪里直接说。", at: "2026-09-06T02:00:40.000Z", source: "model" },
     ],
+    // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
+    // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
+    theme: "dark", tags: [], refImages: [],
     ownerId: "u-pm-1", ownerName: "苏木 · PM",
     createdAt: "2026-09-06T02:00:00.000Z", updatedAt: "2026-09-06T02:00:40.000Z",
   },
@@ -376,7 +385,10 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
         id: "proj-new", name: body.name, template: body.template ?? "mobile",
         problem: body.problem ?? "", criteria: DESIGN_PROJECTS[0].criteria, frames: DESIGN_PROJECTS[0].frames,
         pushed: false, pushedAt: null, linkedFeedbackId: body.linkedFeedbackId ?? null, chat: [],
-        ownerId: "u-pm-1", ownerName: "苏木 · PM",
+        // 迭代 13：契约保证这三个字段恒在（有 default），夹具也必须给——少了它们前端会在
+    // `refImages.map` / `tags.length` 上直接炸，而那是夹具的问题不是产品的问题。
+    theme: "dark", tags: [], refImages: [],
+    ownerId: "u-pm-1", ownerName: "苏木 · PM",
         createdAt: NOW, updatedAt: NOW,
       };
       return json(route, { project }, 201);
@@ -423,6 +435,30 @@ export async function routeDesignWorkbench(page, { empty = false, slow = false, 
     });
     // suggestions 是"下一步"，不能是刚做完的那两件——否则助手说"加好了"，紧跟着建议"去加一下"。
     return json(route, { project, reply: { source: "model", applied: ["prototype"], suggestions: ["把发送键做成图标", "给历史会话加分组", "设计设置页"] } });
+  });
+
+  /**
+   * 迭代 13（V60）：参考图上传/删除。**真的把它挂到项目上**（不是回显一个 200）——
+   * 回显的话屏上不会出现缩略图，e2e 就在验一个不存在的行为。
+   * 上传走 multipart，`route.request().postDataJSON()` 在这里用不了，取不到也不需要：
+   * 夹具只关心"传了一张"。
+   */
+  await page.route((url) => /^\/pm-designs\/[^/]+\/ref-images$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const project = projects.find((p) => p.id === id);
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    if (project.refImages.length >= 3) return json(route, { reasonCode: "REF_IMAGE_REJECTED", rejectReason: "TOO_MANY" }, 400);
+    const image = { id: `ri-${project.refImages.length + 1}`, name: "参考图.png", size: 1024, mime: "image/png", createdAt: NOW };
+    project.refImages = [...project.refImages, image];
+    project.updatedAt = NOW;
+    return json(route, { image, project }, 201);
+  });
+  await page.route((url) => /^\/pm-designs\/[^/]+\/ref-images\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const parts = new URL(route.request().url()).pathname.split("/");
+    const project = projects.find((p) => p.id === decodeURIComponent(parts[2]));
+    if (!project) return json(route, { reasonCode: "PROJECT_NOT_FOUND" }, 404);
+    project.refImages = project.refImages.filter((r) => r.id !== decodeURIComponent(parts[4]));
+    return json(route, { project });
   });
 
   // 迭代 5：人直接改画布——夹具按 nodeId 真的把 setProps 合进树里（不是回显）。
