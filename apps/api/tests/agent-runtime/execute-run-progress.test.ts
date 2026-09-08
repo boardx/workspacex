@@ -202,6 +202,38 @@ describe("#742 executeClaimed: completeWithProgress branch", () => {
     expect(store.output).toBeNull();
   });
 
+  it("#3033 a non-ModelCallError from the provider path is logged with its name and message, not swallowed", async () => {
+    // PgNativeSessionOwner throws bare `Error('native_session_*')` before the Deep Agent is ever
+    // reached; before #3033 the log said only "unexpected model call failure" and production
+    // triage had nothing to go on. The response-side invariant is untouched: still the enum code.
+    const run = baseRun();
+    const store = fakeStore(run);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: async () => { throw new Error("native_session_provision_failed_no_replay"); },
+    };
+    const d = deps(store, model);
+
+    await executeQueuedRuns(d, { orgId: ORG });
+
+    expect(store.failedWith).toBe("MODEL_CALL_FAILED");
+    const entry = (d.log as ReturnType<typeof vi.fn>).mock.calls.find(([msg]) => msg === "agent run model call failed");
+    expect(entry).toBeDefined();
+    expect((entry![1] as { detail: string }).detail).toBe(
+      "unexpected model call failure: Error: native_session_provision_failed_no_replay",
+    );
+    // 反证：ModelCallError 的 detail 仍原样透传，没有被新前缀污染
+    const model2: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: async () => { throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run ended with status \"error\""); },
+    };
+    const store2 = fakeStore(baseRun());
+    const d2 = deps(store2, model2);
+    await executeQueuedRuns(d2, { orgId: ORG });
+    const entry2 = (d2.log as ReturnType<typeof vi.fn>).mock.calls.find(([msg]) => msg === "agent run model call failed");
+    expect((entry2![1] as { detail: string }).detail).toBe("deep agent run ended with status \"error\"");
+  });
+
   it("completeWithProgress takes priority over completeStream when a provider (hypothetically) had both", async () => {
     const run = baseRun();
     const store = fakeStore(run);
