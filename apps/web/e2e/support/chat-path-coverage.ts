@@ -133,6 +133,14 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
 }
 
 /**
+ * 给一个还停在 `about:blank` 的 page 一个真实 origin——**读 `localStorage` 之前必须先做**
+ * （issue #3129；理由见下面那个 helper 的头注）。登录态由 context 共享，这里不登录。
+ */
+export async function ensureAuthedPageOrigin(page: Page): Promise<void> {
+  await page.goto("/chat");
+}
+
+/**
  * 同上，但用于**同一 browser context 里的第二个 page**：不再走登录，且**不点
  * 「新建对话」按钮**——线程用权威端口建出来，页面直接深链进去。
  *
@@ -153,8 +161,22 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
  *
  * ⚠ 两个 page 仍共享 context（真实用户开两个标签页），登录态因此已经有了——再
  * `goto("/login")` 会被重定向走，`login-email` 永不出现（二跑实测烧掉 300s）。
+ *
+ * ## 为什么第一句必须是 `ensureAuthedPageOrigin`（issue #3129）
+ *
+ * `context.newPage()` 出来的 page 停在 `about:blank`（opaque origin），在它上面
+ * `page.evaluate(() => localStorage.getItem(...))` 被浏览器直接拒绝：
+ * `SecurityError: Failed to read the 'localStorage' property from 'Window'`。
+ * 取会话令牌（`sessionHeaders`）正是这么读的，于是权威建线程的第一步就抛，
+ * **F6 的断言一条都没执行**（run 34227339184 / SHA `817a2b17b`，18.6s 就死）。
+ *
+ * `warmUpCopilotRuntimeRoute` 走 `page.request.get`，**不改变页面的 document/origin**，
+ * 救不了这一步；`openAuthoritativeFreshThread` 里的 `goto(/chat/:id)` 排在读 token
+ * 之后，也救不了。所以这里先 `goto("/chat")` **只为拿到真实 origin**——
+ * 线程仍由权威端口建（#3101 修掉的按钮复用语义不会回来）。
  */
 export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
+  await ensureAuthedPageOrigin(page);
   await warmUpCopilotRuntimeRoute(page);
   const threadId = await openAuthoritativeFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
