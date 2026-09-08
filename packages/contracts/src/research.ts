@@ -917,14 +917,9 @@ export const GuidedResearchEvidenceWarning = z.object({
   batchIndex: z.number().int().nonnegative(), sourceIds: z.array(z.string().min(1)).max(8),
   questionIds: z.array(z.string().min(1)).max(256), reason: z.literal("invalid_model_evidence"),
 }).strict();
-export const GuidedResearchQualityWarning = z.object({
-  sectionId: z.string().min(1), issues: z.array(z.string().min(1).max(2000)).min(1).max(100),
-}).strict();
 // Read-only previous attempt: never reusable as the current validated report.
 export const GuidedResearchPreviousReport = z.object({
   title: z.string(), createdAt: z.string(), report: GuidedResearchReport.nullable(),
-  qualityWarnings: z.array(GuidedResearchQualityWarning).max(30).optional(),
-  draft: GuidedResearchReport.nullable().optional(),
   partial: z.boolean().optional(), evidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
   text: z.string().max(1048576), chapters: GuidedResearchReport.shape.sections.min(0),
   sources: z.array(GuidedResearchSource), outline: z.array(GuidedResearchOutlineSection),
@@ -950,8 +945,6 @@ export const GuidedResearchRuntime = z.object({
   reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
   reportPartial: z.boolean().optional(),
   reportTimeline: z.array(GuidedResearchReportTimelineStep).max(63).optional(),
-  reportDraft: GuidedResearchReport.nullable().optional(),
-  reportQualityWarnings: z.array(GuidedResearchQualityWarning).max(30).optional(),
   reportPrevious: GuidedResearchPreviousReport.nullable().optional(),
   reportEvidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),
@@ -984,32 +977,14 @@ export const GuidedResearchRuntimeCommand = z.object({
     return !command.sourceUrl && !command.sourceId;
   }, "source commands require the research node and exactly one source reference");
 
-// Progress responses never include source excerpts, messages, history or whole report bodies.
-export const GuidedResearchRuntimeProgress = GuidedResearchRuntime.pick({
-  sessionId: true, version: true, revision: true, currentNode: true, availableNodes: true,
-  busy: true, leaseUntil: true, errorCode: true, completed: true, progress: true,
-  reportTimeline: true, reportPartial: true, reportSourceAliases: true, reportQualityWarnings: true,
-}).extend({
-  stream: z.object({ requestId: z.string(), sequence: z.number().int().nonnegative(),
-    offset: z.number().int().nonnegative(), delta: z.string().max(1048576),
-    status: z.enum(["streaming", "failed"]),
-  }).strict().nullable(),
-}).strict();
-
 export const GuidedResearchRuntimeStreamEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("snapshot"), state: GuidedResearchRuntime }).strict(),
-  z.object({ type: z.literal("progress"), state: GuidedResearchRuntimeProgress }).strict(),
   z.object({ type: z.literal("report_delta"), sessionId: z.string(), requestId: z.string(), version: z.number().int().nonnegative(), sequence: z.number().int().positive(), delta: z.string().max(1048576) }).strict(),
   z.object({ type: z.literal("result"), state: GuidedResearchRuntime }).strict(),
   z.object({ type: z.literal("error"), reasonCode: z.string() }).strict(),
 ]);
 
 export const operations = {
-  getGuidedResearchRuntimeProgress: {
-    method: "GET", path: "/research/guided-sessions/:sessionId/runtime/progress",
-    in: z.object({ sessionId: z.string().min(1), requestId: z.string().max(200).optional(), digest: z.string().regex(/^[a-f0-9]{64}$/).optional(), offset: z.coerce.number().int().min(0).max(1048576).optional() }).strict(),
-    out: GuidedResearchRuntimeProgress, err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
-  },
   streamGuidedResearchRuntime: {
     method: "POST", path: "/research/guided-sessions/:sessionId/runtime/commands/stream",
     in: GuidedResearchRuntimeCommand, out: GuidedResearchRuntimeStreamEvent, err: guidedWorkflowErrors,

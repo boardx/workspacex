@@ -47,21 +47,12 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       if (!parsed.success || parsed.data.length > sections.length) throw invalid();
       approved = parsed.data.map((chapter, index) => {
         if (chapter.sourceIds.some((id) => !canonicalIds.has(id))) throw invalid();
-        return validateGeneratedChapter(chapter, sections[index]!, new Set(chapter.sourceIds), !state.reportQualityWarnings?.some((warning) => warning.sectionId === chapter.sectionId));
+        return validateGeneratedChapter(chapter, sections[index]!, new Set(chapter.sourceIds));
       });
     } catch { approved = []; }
   }
-  const reusable = new Map<string, Chapter>();
-  if (state.reportDraft && approved.length === sections.length && state.reportQualityWarnings?.length) {
-    preservePreviousReport(state);
-    const warned = new Set(state.reportQualityWarnings.map((warning) => warning.sectionId));
-    for (const chapter of approved) if (!warned.has(chapter.sectionId)) reusable.set(chapter.sectionId, chapter);
-    approved = approved.slice(0, approved.findIndex((chapter) => warned.has(chapter.sectionId)));
-  }
-  state.reportQualityWarnings = (state.reportQualityWarnings ?? []).filter((warning) => approved.some((chapter) => chapter.sectionId === warning.sectionId));
-  state.reportDraft = null;
-  initializeReportTimeline(state, [...approved, ...reusable.values()]);
-  if (!approved.length && !reusable.size) state.reportEvidenceWarnings = [];
+  initializeReportTimeline(state, approved);
+  if (!approved.length) state.reportEvidenceWarnings = [];
   state.reportSourceAliases = aliases;
   state.reportCheckpoint = { basis, chapters: structuredClone(approved), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) };
   await persist();
@@ -121,7 +112,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       framing = chapters.length ? "," : (live && state.reportStream?.text ? "" : '{"sections":[');
     };
     if (chapters.length) await restoreApproved();
-    const remaining = sections.slice(chapters.length).filter((section) => !reusable.has(section.id));
+    const remaining = sections.slice(chapters.length);
     if (remaining.length) { updateReportTimeline(state, "evidence", "running"); await persistTimeline(); }
     const extracted = remaining.length ? await extractReportEvidence(state, config, audited, new Set(remaining.map((section) => section.id)), aliases)
       : { questions: [], sources: canonicalEvidenceSources(state), matches: new Map() };
@@ -132,13 +123,6 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     }
     for (const [index, section] of sections.entries()) {
       if (index < approved.length) continue;
-      const reused = reusable.get(section.id);
-      if (reused) {
-        chapters.push(reused);
-        state.reportCheckpoint = { basis, chapters: structuredClone(chapters), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) };
-        await persist(); await restoreApproved();
-        continue;
-      }
       const evidenceByQuestion = selectQuestionEvidence(extracted, section);
       const ids = new Set(evidenceByQuestion.flatMap((question) => question.evidence.map((item) => item.sourceId)));
       const sources = extracted.sources.filter((source) => ids.has(source.id)).map((source) => ({ id: source.id, alias: aliases.find((item) => item.sourceId === source.id)!.alias, title: source.title.slice(0, 300),
@@ -169,15 +153,6 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         } catch (error) {
           const repairable = error instanceof ResearchRuntimeError && ["RESEARCH_NODE_STATE_INVALID", "RESEARCH_CONTENT_REFERENCE_INVALID", "RESEARCH_REPORT_QUALITY_INSUFFICIENT"].includes(error.reasonCode);
           if (!repair) repair = { issues: [error instanceof ResearchRuntimeError ? error.reasonCode : "Provider failure"] };
-          if (attempt === 1 && chapter && error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_REPORT_QUALITY_INSUFFICIENT") {
-            // Citation-valid content remains visibly unverified; never promote this to a formal report.
-            const issues = repair && typeof repair === "object" && "issues" in repair && Array.isArray(repair.issues) ? repair.issues : ["Chapter quality could not be verified."];
-            state.reportQualityWarnings ??= [];
-            state.reportQualityWarnings.push({ sectionId: section.id, issues: issues.map(String).filter(Boolean).slice(0, 100).map((issue) => issue.slice(0, 2000)) });
-            updateReportTimeline(state, "review", "warning", { sectionId: section.id, reasonCode: error.reasonCode });
-            await persistTimeline();
-            break;
-          }
           if (!repairable || attempt === 1) { await restoreApproved(); throw error; }
           updateReportTimeline(state, "review", "pending", { sectionId: section.id });
           updateReportTimeline(state, "chapter", "retrying", { sectionId: section.id }); await persistTimeline();
@@ -211,8 +186,8 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       body: chapter.body.length > perChapterLimit ? `${chapter.body.slice(0, Math.floor((perChapterLimit - omitted.length) * 0.65))}${omitted}${chapter.body.slice(-Math.floor((perChapterLimit - omitted.length) * 0.35))}` : chapter.body,
       excerpted: chapter.body.length > perChapterLimit }));
     const synthesisInput = { modelProvider: config.provider, modelId: config.id,
-      system: `${system} Use a citation-free title. Synthesize the citation-validated chapters. Chapters in qualityWarnings are unverified drafts: explicitly identify their unresolved limitations and do not present their findings as verified. Synthesize the supplied chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Explicitly explain evidenceCoverageWarnings in the introduction and relevant conclusions; invalid extractions were excluded and cannot establish complete source coverage. Cite only source IDs already used in chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
-      user: JSON.stringify({ reportStage: "synthesis", qualityWarnings: state.reportQualityWarnings ?? [], brief: state.brief, chapters: synthesisChapters, sourceAliases: aliases.filter((item) => cited.has(item.sourceId)), reportPartial: Boolean(state.reportPartial), evidenceCoverageWarnings: state.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
+      system: `${system} Use a citation-free title. Synthesize the already validated chapters into exactly {"title":string,"summary":string,"introduction":string,"conclusion":string}. Do not produce sections again. Write three distinct formal report components: summary is a concise executive overview of the central findings; introduction explains the research question, scope, method, source coverage and evidence limitations; conclusion integrates cross-chapter comparisons, competing options and tradeoffs into justified priorities, actionable next steps and remaining uncertainty. Do not mechanically repeat the summary in the introduction or conclusion. Use connected analytical prose, not a checklist of chapter summaries. Preserve uncertainty and missing coverage. Explicitly explain evidenceCoverageWarnings in the introduction and relevant conclusions; invalid extractions were excluded and cannot establish complete source coverage. Cite only source IDs already used in chapters. Do not introduce new facts or sources. Chapter bodies may be bounded excerpts; do not infer omitted claims.`,
+      user: JSON.stringify({ reportStage: "synthesis", brief: state.brief, chapters: synthesisChapters, sourceAliases: aliases.filter((item) => cited.has(item.sourceId)), reportPartial: Boolean(state.reportPartial), evidenceCoverageWarnings: state.reportEvidenceWarnings ?? [], instruction: effectiveInstruction }) };
     let summary: ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse> | undefined;
     let summaryRaw = "";
     for (let attempt = 0; attempt < 2; attempt++) {
