@@ -9,6 +9,10 @@ import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { KernelModule } from "./kernel.module";
 import { traceMiddleware } from "./interface/middleware/trace";
+import { DEBUG_REQUEST_RECORDER, type DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
+import { DEBUG_TRACE_PORT } from "./application/ports/debug-trace.port";
+import type { DebugRecorder } from "./application/diagnostics/debug-recorder";
+import { sweepDebugEvents } from "./infrastructure/diagnostics/pg-debug-event-store";
 import { attachAsrGateway } from "./interface/ws/asr-stream.gateway";
 import { attachAsrDraftGateway } from "./interface/ws/asr-draft.gateway";
 import { attachPersonalRealtimeAsrGateway } from "./interface/ws/personal-realtime-asr.gateway";
@@ -63,6 +67,9 @@ export async function createApp(): Promise<NestExpressApplication> {
   // Must sit outermost, ahead of the Guard: rejected requests need a traceId too
   // (see middleware/trace.ts).
   app.use(traceMiddleware);
+  // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
+  app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
+  app.get<DebugRecorder>(DEBUG_TRACE_PORT).start();
   return app;
 }
 
@@ -211,6 +218,11 @@ if (isProcessEntry()) {
   const swept = await sweepExpiredErrorLogs(app.get(DATABASE_PORT));
   if (!swept.ok) {
     console.error("error_logs retention sweep failed (will retry on next boot or write cadence):", swept.error);
+  }
+  // issue #3082 —— debug_events 同一节奏：启动裁一次，之后按 flush 次数顺手裁。
+  const sweptDebug = await sweepDebugEvents(app.get(DATABASE_PORT));
+  if (!sweptDebug.ok) {
+    console.error("debug_events retention sweep failed (will retry on flush cadence):", sweptDebug.error);
   }
   // issue #2860 —— 幽灵 run 回收：启动时一次（上一个进程死时正在跑的 run 此刻心跳已停），
   // 之后每分钟一次（本进程活着但某个 run 的执行链意外断掉——理论上 executeQueuedRuns 的

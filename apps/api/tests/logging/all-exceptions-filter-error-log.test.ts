@@ -94,3 +94,27 @@ describe("AllExceptionsFilter -- ErrorLogPort is called for exactly the unhandle
     expect(res.json).toHaveBeenCalledWith({ error: "internal_error", traceId: "trace-double-outage" });
   });
 });
+
+describe("AllExceptionsFilter -- DebugTracePort (issue #3082) mirrors exactly the unhandled branch", () => {
+  it("records exception.unhandled for a truly unhandled exception, nothing for HttpException", () => {
+    const debugRecord = vi.fn();
+    const debugTrace = { record: debugRecord, query: vi.fn(), getTrace: vi.fn(), recent: vi.fn(), stats: vi.fn(), flush: vi.fn() };
+    const errorLog: ErrorLogPort = { record: vi.fn().mockResolvedValue(undefined), list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn(), appendStatusEvent: vi.fn() };
+    const filter = new AllExceptionsFilter(fakeLogger(), errorLog, debugTrace);
+
+    filter.catch(new NotFoundException(), fakeHost("t-404").host);
+    expect(debugRecord).not.toHaveBeenCalled();
+
+    filter.catch(new Error("Connection is closed."), fakeHost("t-500").host);
+    expect(debugRecord).toHaveBeenCalledOnce();
+    expect(debugRecord.mock.calls[0]![0]).toMatchObject({ traceId: "t-500", kind: "exception.unhandled", level: "error" });
+  });
+
+  it("without a DebugTracePort injected the filter behaves exactly as before", () => {
+    const errorLog: ErrorLogPort = { record: vi.fn().mockResolvedValue(undefined), list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn(), appendStatusEvent: vi.fn() };
+    const filter = new AllExceptionsFilter(fakeLogger(), errorLog);
+    const { host, res } = fakeHost("t-1");
+    expect(() => filter.catch(new Error("x"), host)).not.toThrow();
+    expect(res.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+  });
+});
