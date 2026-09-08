@@ -2,11 +2,9 @@ import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
   expectSendNotBlockedOnRun,
-  login,
   openFreshDeepAgentThread,
   storedMessages,
   storedRun,
-  warmUpCopilotRuntimeRoute,
 } from "./support/chat-path-coverage";
 
 /**
@@ -34,8 +32,6 @@ import {
 test.setTimeout(240_000);
 
 test("@path:F7 上游流式半路断开：UI 诚实收场，不假装还在跑，之后仍可继续对话", async ({ page }) => {
-  await login(page);
-  await warmUpCopilotRuntimeRoute(page);
   const threadId = await openFreshDeepAgentThread(page);
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentStreamAbortTrigger);

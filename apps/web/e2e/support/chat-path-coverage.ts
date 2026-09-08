@@ -87,6 +87,13 @@ export async function storedRun(page: Page, runId: string): Promise<StoredRun> {
 /**
  * 新建一条空线程并选中确定性 deep-agent —— v2 面板那几条路径的共同起点，
  * 手法逐字取自 `agent-chat-core-paths.spec.ts`（同一条真实链路，不是第二种起法）。
+ *
+ * ⚠ **调用它之前不要再自己 `login()` 或 `warmUpCopilotRuntimeRoute()`**：
+ * `openChatEmptyState` 里两件都已经各做一次。已登录之后再 `goto("/login")`，应用会把
+ * 这一跳重定向走，`login-email` 永远不出现，于是 `fill()` 一路等到测试超时——
+ * 2026-09-08 本车道首跑，D4/F2/F6/F7 四条**全部**以这个形态各烧掉 4–5 分钟，
+ * 一条真实断言都没跑到。既有的 `agent-chat-core-paths.spec.ts` 从来就是直接调
+ * `openFreshThread`，是本车道第一版多加了那一步。
  */
 export async function openFreshDeepAgentThread(page: Page): Promise<string> {
   const threadId = await openFreshThread(page);
@@ -94,10 +101,26 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
   return threadId;
 }
 
-/** 老聊天屏（项目内线程）的发送动作：填入 → 提交 → 断言服务端已受理（202）。 */
+/**
+ * 老聊天屏（项目内线程）的发送动作：填入 → 提交 → 断言服务端已受理（202）。
+ *
+ * 输入框等不到时**先把消息面板自己的错误态读出来再红**：2026-09-08 首跑里 A3/C4/C5
+ * 三条都以「`消息内容` 30s 内没出现」收场，而线程列表已经正确渲染——光凭那条断言
+ * 分不出「面板报了错」「还在加载」「输入框真的没渲染」，三种处置完全不同。把面板
+ * 的 `chat-message-list-error` 正文拼进失败信息，是让下一次红自带诊断，不是放宽判据
+ * （输入框仍然必须可见，否则照样红）。
+ */
 export async function sendOnProjectThread(page: Page, threadId: string, text: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "消息内容" });
-  await expect(input).toBeVisible();
+  const panelError = page.getByTestId("chat-message-list-error");
+  try {
+    await expect(input).toBeVisible();
+  } catch (failure) {
+    const detail = (await panelError.count()) > 0
+      ? `消息面板处于错误态：${(await panelError.first().innerText()).trim()}`
+      : "消息面板没有错误态——输入框是「没渲染」或「还没加载完」，不是「加载失败」";
+    throw new Error(`${failure instanceof Error ? failure.message : String(failure)}\n\n【诊断】${detail}`);
+  }
   await input.fill(text);
   const accepted = page.waitForResponse((response) => (
     response.request().method() === "POST"

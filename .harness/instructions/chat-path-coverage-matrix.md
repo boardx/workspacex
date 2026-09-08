@@ -118,6 +118,22 @@ C7（PDF）之所以有覆盖，是因为它跑在 `real-model-smoke` 那条**�
 首跑若为红：先判断红的是**被测路径**还是**用例本身**——前者按红的内容开 issue（那正是
 这批用例的价值），后者就地修用例，两者都不许改成 `test.skip`。
 
+## 首跑记录（2026-09-08，run 34182537257）
+
+第一次真跑（手动 dispatch `run_chat_path_coverage=true`，2 workers）：**1 通过 / 7 失败，
+且 7 条里没有一条红在被测路径的判据上**——全部死在前置步骤。逐条归因如下，方法是读
+job 日志的时间线（谁在什么时刻失败、失败在哪一行），不是猜。
+
+| 路径 | 首跑结果 | 归因 |
+| --- | --- | --- |
+| A5 | 通过（22.2s） | — |
+| D4 / F2 / F6 / F7 | 失败（各烧掉 4–5 分钟） | **用例自己的 bug**：spec 里先 `login()`，随后 `openFreshDeepAgentThread` → `openChatEmptyState` 又登录一次；已登录状态下 `goto("/login")` 会被重定向走，`login-email` 永远不出现，`fill()` 一路等到超时。既有的 `agent-chat-core-paths.spec.ts` 从来是直接调 `openFreshThread`。已修（删掉多余那一步），并在 `openFreshDeepAgentThread` 头注里写死这条禁忌。 |
+| A3 / C4 / C5 | 失败（30s 等不到输入框） | **未定**：线程列表已正确渲染（页面与 API 都活着），但老聊天屏的 `消息内容` 输入框 30s 没出现。光凭这条断言分不出「面板报错 / 还在加载 / 输入框真没渲染」。已给 `sendOnProjectThread` 加诊断（把面板错误态正文拼进失败信息），下一跑的红会自带答案。 |
+
+⚠ 这份记录本身就是这条车道存在的理由：**没跑过的断言不算数**。首跑没能给出任何一条
+路径的结论，但它给出了三条用例级缺陷——这正是「先在非阻塞车道跑，绿了再搬进阻塞车道」
+要买的东西。
+
 ## 机械门控
 
 `pnpm run lint:chat-path-coverage`（`.harness/scripts/lint-chat-path-coverage.mjs`）检查四条：

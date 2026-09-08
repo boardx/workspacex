@@ -2,10 +2,8 @@ import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
   expectSendNotBlockedOnRun,
-  login,
   openFreshDeepAgentThread,
   storedMessages,
-  warmUpCopilotRuntimeRoute,
 } from "./support/chat-path-coverage";
 
 /**
@@ -38,8 +36,6 @@ import {
 test.setTimeout(300_000);
 
 test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面自己续上，不重复不空转", async ({ page, context }) => {
-  await login(page);
-  await warmUpCopilotRuntimeRoute(page);
   const threadId = await openFreshDeepAgentThread(page);
 
   // 用多步剧本让这次 run 真的跑一段时间（`MULTISTEP_MIN_STATUS_POLLS`），

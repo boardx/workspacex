@@ -1,11 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
-  login,
   openFreshDeepAgentThread,
   sessionHeaders,
   storedMessages,
-  warmUpCopilotRuntimeRoute,
 } from "./support/chat-path-coverage";
 
 /**
@@ -57,8 +55,6 @@ async function journalToolNames(page: Page, runId: string): Promise<string[]> {
 }
 
 test("@path:D4 skill 三态：目录可见 / 正文送达 / 真的执行过，三者各自独立可判", async ({ page }) => {
-  await login(page);
-  await warmUpCopilotRuntimeRoute(page);
   const threadId = await openFreshDeepAgentThread(page);
 
   // ── 一轮普通提问：不要求它用任何 skill ──
