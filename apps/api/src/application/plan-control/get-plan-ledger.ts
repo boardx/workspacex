@@ -15,6 +15,7 @@
 import {
   derivePlanPhase, evaluatePlanGate,
   type OrphanedConstraint, type PlanGateDecision, type PlanOrigin, type PlanPhase, type PlanStep,
+  type RunStatusForPhase,
 } from "@repo/contracts/plan-control";
 import type { OrgId } from "../../domain/org-id";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "./ports";
@@ -32,6 +33,10 @@ export interface GetPlanLedgerOutput {
   readonly gate: PlanGateDecision;
   readonly progress: { readonly completed: number; readonly total: number; readonly elapsedMs: number };
   readonly pendingApplyAtNextRun: boolean;
+  /** issue #3099 —— 派生 `phase` 用的同一个 `runStatus`，原样下发给前端做运行级控制
+   *  判定（`deriveRunControls`）。不是第二份事实：这里下发的就是下面喂给
+   *  `derivePlanPhase` 的那一个值，不重算。 */
+  readonly runStatus: RunStatusForPhase;
   readonly activeRunId: string | null;
   /** issue #2451 —— 真实失败原因（`agent_runs.error_code` 原样透传），终态非
    *  `failed` 时恒为 `null`。前端用它替换写死的失败占位文案（`describeAgentRunError`）。 */
@@ -119,6 +124,7 @@ export async function getPlanLedger(
     gate,
     progress: { completed, total, elapsedMs },
     pendingApplyAtNextRun,
+    runStatus,
     activeRunId,
     errorCode: runStatus === "failed" ? run?.errorCode ?? null : null,
     failedStepId,

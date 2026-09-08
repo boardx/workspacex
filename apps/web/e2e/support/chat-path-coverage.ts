@@ -124,62 +124,54 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
 }
 
 /**
- * 同上，但用于**同一 browser context 里的第二个 page**：不走登录，且**不点"新建会话"**。
+ * 同上，但用于**同一 browser context 里的第二个 page**：不再走登录，且**不点
+ * 「新建对话」按钮**——线程用权威端口建出来，页面直接深链进去。
  *
- * ## 为什么这一条改用权威写入建线程，而不是点按钮
+ * ## 为什么不点那颗按钮（issue #3101，run 34210719166 产物定案）
  *
- * 三跑到八跑，这个 helper 用四种不同写法去点 `chat-thread-create`，四次都拿不到新线程：
- * 等 URL 匹配正则（拿到的是壳恢复的那条）、等 URL 变成不同的线程（异步恢复满足了它）、
- * 等 URL 落在一个此前不存在的 id 上（点击没生效）、外加最多重试 4 次的点击。
- * 八跑（run 34220982582）加的差集诊断给出了终局答案：
+ * 「新建对话」在本仓**不保证创建新线程**：`copilotkit-v2-shell.tsx` 的 `handleCreate`
+ * 在列表最上面那条已经是 `not-started` 空线程时，直接进那一条（issue #2094 +
+ * 2026-08-30 人类实测反馈的裁决，防空线程无限累积）。而 F6 里 page A 刚建出的线程
+ * 正好就是那条空线程 ⇒ page B 点「新建」按设计复用它 ⇒ `threadA === threadB`。
  *
- *     【诊断】点击前 3 条线程，点击后权威列表里新增 0 条（无）
+ * 这个夹具此前七跑全部红在同一个错误假设上（「点新建 ⇒ 一定多一条线程」），每跑只是
+ * 换一种近似信号去指代「新建成功」。产物取证：那一跑的 trace 里 `/chat/threads` **全是
+ * GET，零 POST**——前端压根没发创建请求，不是导航没跟上。
  *
- * **服务端一条都没多**——所以不是"建了但界面没切过去"那种产品缺陷（那会是新增 ≥1 条），
- * 而是这一页上那次点击自始至终没生效。
+ * 并发建线程本来就不是 F6 的被测对象（spec 自己的注释逐字这么写），被测对象是两条
+ * 线程上**同时跑的两个 run**。所以这里换成权威端口建线程：它必然给出一条属于这个
+ * page 自己的线程，不依赖按钮上叠的任何复用/导航语义。
  *
- * 到此为止继续加固点击已经不划算，也偏离了本用例的被测对象：**F6 测的是"两条线程同时跑
- * 时事件不串线"，不是"第二个标签页能不能点出新线程"**。前置条件改用权威写入
- * （`POST /chat/threads/mutate`，与产品新建走同一个端口），把不确定性从前置里彻底移走；
- * 被测的并发行为一个字都没放宽。
- *
- * ⚠ 如果哪天要证"第二个标签页点新建会话真的可用"，那是**另一条路径**、该有自己的用例，
- * 不该继续挂在 F6 的前置里——把两件事绑在一起，正是它拖了五跑的原因。
+ * ⚠ 两个 page 仍共享 context（真实用户开两个标签页），登录态因此已经有了——再
+ * `goto("/login")` 会被重定向走，`login-email` 永不出现（二跑实测烧掉 300s）。
  */
 export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
   await warmUpCopilotRuntimeRoute(page);
-  const response = await page.request.post("/chat/threads/mutate", {
-    headers: await sessionHeaders(page),
-    data: {
-      op: "create",
-      projectId: null,
-      threadId: null,
-      groupId: null,
-      title: `F6 并发线程 ${Date.now()}`,
-      visibilityScope: null,
-      expectedVersion: null,
-      reason: null,
-    },
-  });
-  expect(response.ok(), `新建线程失败：${response.status()} ${await response.text()}`).toBe(true);
-  const threadId = (await response.json() as { threadId: string }).threadId;
-  expect(threadId, "权威写入应返回新线程 id").toBeTruthy();
-
+  const threadId = await createThreadViaApi(page);
   await page.goto(`/chat/${threadId}`);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
-  expect(
-    threadIdFromUrl(page.url()),
-    "深链进新线程后 URL 应停在这条线程上",
-  ).toBe(threadId);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId;
 }
 
-
-/** `/chat/<threadId>` 里的线程 id；裸 `/chat`、`/chat?…` 与 warmup 占位段一律返回 null。 */
-function threadIdFromUrl(url: string): string | null {
-  const matched = /\/chat\/(?!warmup-)([^/?#]+)/.exec(url);
-  return matched?.[1] ?? null;
+/**
+ * 权威建线程：直接打 `mutateThread`（`op: "create"`，契约见
+ * `packages/contracts/src/chat.ts`），返回服务端分配的 threadId。
+ *
+ * 这是 UI「新建对话」按钮背后**同一个**端口（`copilotkit-v2-shell.tsx` 的
+ * `handleCreate` → `createWorkbenchThread` → `createPersonalThread`），不是第二条
+ * 建线程的路子；只是不经过那颗按钮上叠着的复用语义。
+ */
+export async function createThreadViaApi(page: Page): Promise<string> {
+  const response = await page.request.post("/chat/threads/mutate", {
+    headers: await sessionHeaders(page),
+    data: {
+      op: "create", projectId: null, threadId: null, groupId: null,
+      title: null, visibilityScope: "private", expectedVersion: null, reason: null,
+    },
+  });
+  expect(response.ok(), `建线程失败：${response.status()} ${await response.text()}`).toBe(true);
+  return (await response.json() as { threadId: string }).threadId;
 }
 
 /**
@@ -187,17 +179,17 @@ function threadIdFromUrl(url: string): string | null {
  * `loopback-model-provider.ts`）—— 画布指引与 L2/L3 那几个回显开关都长在它身上，
  * deep-agent 那条替身没有它们。
  *
- * ## 顺序不能反：先切 agent，再建线程
+ * ## 顺序：先切 agent，再建线程
  *
- * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`：切 agent 会**卸载当前对话并
- * 开一条全新的**（新 threadId、空消息）。所以线程 id 必须在切换**之后**才取，
- * 否则拿到的是切换前那条、随后所有权威读都读错线程。
+ * 历史原因（**已于 issue #3028 解除**）：`copilotkit-v2-panel.tsx` 曾挂
+ * `key={selectedAgentId}`，切 agent 会**卸载当前对话并开一条全新的**（新 threadId、
+ * 空消息），所以线程 id 必须在切换**之后**才取，否则拿到的是切换前那条。
  *
- * ⚠ 这也是 issue **#3028** 的同一条机制：它让「深链进一条种好历史的线程」与
- * 「切到回显 agent」在 v2 上互斥。需要**种好的历史**的用例（本车道的 A3）因此
- * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
- * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
- * 完全成立。
+ * #3028（2026-09-08）去掉了那个 `key`：换 agent 现在在同一条线程里发生，历史不清空，
+ * 这条顺序约束因此不再是硬性的。本函数保持原顺序不动——它本来就正确，而且
+ * 「先选好这一轮要用的上游、再开线程」读起来更贴合它的名字；改顺序只会引入一次
+ * 没有理由的行为变更。需要**种好的历史**的用例（本车道的 A3）也因此不再需要
+ * `test.fixme`，见那条 spec 的头注。
  */
 export async function openFreshEchoAgentThread(page: Page): Promise<string> {
   await openChatEmptyState(page);
