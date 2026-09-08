@@ -95,6 +95,32 @@ mock 视觉模型响应 ⇒ 拖拽一张图到对话面板 ⇒ 参考图条出�
 三张卡片；主入口是一个「新建设计」按钮。类别在澄清之后由模型建议、用户可改。
 ⚠ 反证：卡片留着 ⇒ 这条红。
 
+## V67 — 视觉判据真的进了模型的约束，且与 skill 不是两份
+`apps/api/tests/design-workbench/design-chat-model.test.ts` + `packages/contracts` 门控：
+`DESIGN_PRINCIPLES` 含 §5.1 那张表的每一条判据（字号级差 / 结构装置编码信息 /
+避免生成感套路 / 间距最多两档）；`frontend-design/SKILL.md` 含一行指回 `DESIGN_PRINCIPLES`。
+⚠ 反证：把视觉判据也在 SKILL.md 里写一遍 ⇒ 「只在一处」的门红（这正是两处漂移的形态）。
+⚠ 反证：删掉任一条判据 ⇒ 对应断言红。
+
+## V68 — 原型主题与后台主题**互不影响**
+`apps/web/tests/ui/design-loop.test.tsx`：项目 `theme: "light"` 而页面是 `.dark` ⇒
+画布子树按浅色渲染、后台其余部分仍是深色；切换原型主题 ⇒ 后台不变。
+⚠ 反证：实现成切换页面全局 `.dark` ⇒ 「后台其余部分仍是深色」红。
+**这条是本节的核心**：两者不能分开的话，这个功能等于没加。
+
+## V69 — 导出跟随**原型的** theme
+`apps/web/tests/ui/prototype-export-html.test.tsx`：项目 `theme: "light"` ⇒ 导出产物是
+浅色，与导出时后台碰巧是什么色无关。
+⚠ 反证：导出时读页面的 `.dark` ⇒ 这条红。
+
+## V70 — 属性面板的视觉组：只给档位，不给自由数值
+`packages/contracts/tests/design-prototype.test.ts` + `design-loop.test.tsx`：
+新增的 size / radius / tone / align 字段 **kind 全部是 `enum`**，options 来自既有 zod
+枚举（不手抄）；面板里视觉组默认折叠，内容组默认展开。
+⚠ 反证：任一视觉字段做成 `number`（px 输入）⇒ 「全部是 enum」红——自由数值会造出
+设计系统之外的值，让原型更乱而不是更好。
+⚠ 反证：options 手抄一份 ⇒ 既有的「PROTOTYPE_FIELDS 的 key 集合 == *Props shape 键」门控红。
+
 ---
 
 ## 门控（与既有一致，不复述规则）

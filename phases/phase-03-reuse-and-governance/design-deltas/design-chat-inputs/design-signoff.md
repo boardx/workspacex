@@ -3,7 +3,7 @@ status: draft
 bundle: design-chat-inputs
 base_bundle: design-prototype
 scope: guided-intake-reference-images-thread-import-and-workbench-list-ordering-tags
-covers: [F59, F60, F61, F62]
+covers: [F59, F60, F61, F62, F63, F64, F65]
 confirmed_by: ""
 confirmed_at: ""
 confirmed_via: ""
@@ -34,6 +34,14 @@ confirmed_via: ""
 用户还没说清要做什么，就先被要求选一个设备形态。而设备形态本该是**澄清完之后**的结论。
 
 **另外两件（第 5、6 条）是不同主题**，见 contract §4：列表最新在前、卡片标签与过滤。
+
+**再加三件（第 7–9 条，issue #3125）**，见 contract §5——人类实测后的原话是
+「现在出来的页面很不专业」。核实下来是三件事：
+① **`frontend-design` skill 就在仓库里，但设计对话的 prompt 完全没引用它**——
+现用的 `DESIGN_PRINCIPLES` 八条全是布局结构，**一个字没讲视觉**；
+② 原型不能独立切白天/黑夜（跟随后台主题）；
+③ 属性面板只能改内容，不能调视觉。
+
 并进同一个 delta 只是为了一次交付，评审时可以分开看。
 
 **好消息是不用从零造**：视觉输入（`ModelCallInput.images` + `visionModelIds` 门控）、
@@ -102,10 +110,11 @@ confirmed_via: ""
 | ② | 模型不支持视觉时 | **A** 不发图 + 回复里明说 | B 直接拒绝这次请求 |
 | ③ | 导入线程的语义 | **A** 一次性摘要进 `problem`，可编辑 | B 长期挂靠该线程实时读 |
 | ④ | 澄清问答能否整段跳过 | **A** 能，且跳过后不再拦 | B 至少答前两条才放行 |
+| ⑤ | 属性面板的视觉调节 | **A** 只给设计系统的档位（枚举） | B 也给自由数值（px 输入框） |
 
 签核时若与建议不同，把选择写在下面这行，agent 按它实现：
 
-> 人类选择：① ＿ ② ＿ ③ ＿ ④ ＿
+> 人类选择：① ＿ ② ＿ ③ ＿ ④ ＿ ⑤ ＿
 
 **②③④值得你多花两分钟：**
 
