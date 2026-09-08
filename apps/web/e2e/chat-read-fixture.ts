@@ -61,6 +61,18 @@ export const CHAT_READ_E2E = {
    * `playwright.chat-read.config.ts` 下发给替身进程。
    */
   deepAgentMultiStepTrigger: "取证：请展示多步执行",
+  /**
+   * issue #3000 —— 「这一轮真的跑一段时间」的触发词，只服务
+   * `copilotkit-v2-run-restore-after-switch.spec.ts`：替身收到它之后先把 `/stream` 的
+   * 响应头发出去、再等 `deepAgentSlowHoldMs` 才发正文，于是这一轮在切走/切回的整个
+   * 过程中都真的停在 `running`（见替身 `SLOW_TRIGGER` 头注里的 trace 实测证据：借用
+   * 多步触发词时这一轮 1.2 秒就跑完了，恢复路径一次都没被走到）。
+   * 与其余触发词同一套接线纪律：唯一事实源在本文件，`playwright.chat-read.config.ts`
+   * 下发给替身进程。
+   */
+  deepAgentSlowTrigger: "取证：请把这一轮慢慢跑完",
+  /** 上面那条触发词的停留时长（毫秒）。同一份值下发给替身，用例不另写一份。 */
+  deepAgentSlowHoldMs: 12_000,
   deepAgentScrollAcceptanceTrigger: "取证：请展示十步滚动验收",
   /**
    * UX-9 D4 前端接入取证（gap 清单第 3 条，「Edit, then continue」HITL 模式）：

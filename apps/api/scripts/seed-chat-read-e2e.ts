@@ -30,6 +30,7 @@ import { PgIdentityRepository } from "../src/infrastructure/identity/pg-identity
 import { PgCanvasTemplateRepository } from "../src/infrastructure/canvas/pg-canvas-template-repository";
 import { createTemplate } from "../src/application/canvas/create-template";
 import { publishTemplate } from "../src/application/canvas/publish-template";
+import { backfillCanvasBuiltinTemplates } from "./backfill-canvas-builtin-templates";
 import { toOrgId } from "../src/domain/org-id";
 
 if (process.env.CHAT_E2E_FIXTURE !== "1") {
@@ -788,6 +789,24 @@ await asOwner(async (client) => {
     await db.close();
   }
 }
+
+/*
+ * issue #3000 —— 内置 `persona` 模板：CK-P6「生成用户画像」那条 chip 的**存在前提**。
+ *
+ * 自 issue #2825 起，建议行里的每一条（含画像）都由服务端 `recommendCanvasTemplates`
+ * 从该组织**已发布的画布模板库**里算出来（`domain/canvas/template-recommendation.ts`）：
+ * 库里没有 `persona` 这一行 ⇒ `chat-persona-summary-trigger` 在任何页面上都不会渲染。
+ * 本夹具组织此前只种了上面那一张自建模板，于是
+ * `copilotkit-v2-persona-archived.spec.ts:86` 的入口断言恒红——那不是权限没下发
+ * （`capabilities` 里 `artifact.land` 一直在），是这条推荐根本不存在。
+ *
+ * 走的是**生产同一条** backfill 路径（`backfillCanvasBuiltinTemplates`，内部仍是
+ * `createTemplate`/`publishTemplate` 真实用例），不在这里另拼一份 persona 的
+ * sections——那会是同一份内置配置的第二处副本。只灌 `persona` 这一张：灌全部 19 张会
+ * 把本组织每一次 run 的 system prompt（`buildCanvasTemplateGuidance` 列全部已发布模板）
+ * 撑大，影响同车道其余用例的模型输入。
+ */
+await backfillCanvasBuiltinTemplates(ORG_ID, ["persona"]);
 
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `

@@ -28,6 +28,9 @@ const DATABASE = `wsx_tplseed_${process.pid}_${Date.now()}`;
 const ORG_WITH_ADMIN = "org-tplseed-with-admin";
 const ADMIN_USER = "u-tplseed-admin";
 const ORG_NO_ADMIN = "org-tplseed-no-admin";
+/** issue #3000 —— `onlyKeys` 的专属组织：与上面那个"灌全部 19 张"的组织隔开，否则数不清。 */
+const ORG_ONLY_KEYS = "org-tplseed-only-keys";
+const ONLY_KEYS_ADMIN = "u-tplseed-only-keys-admin";
 
 function ownerConfig(database: string) {
   return { ...migrationConfig(), database };
@@ -67,6 +70,14 @@ beforeAll(async () => {
     await owner.query(
       "INSERT INTO organizations (id, name, kind) VALUES ($1, '没有管理员的组织', 'organization')",
       [ORG_NO_ADMIN],
+    );
+    await owner.query(
+      "INSERT INTO organizations (id, name, kind) VALUES ($1, '只灌一张的组织', 'organization')",
+      [ORG_ONLY_KEYS],
+    );
+    await owner.query(
+      "INSERT INTO org_memberships (user_id, org_id, org_role, team_id) VALUES ($1, $2, 'admin', NULL)",
+      [ONLY_KEYS_ADMIN, ORG_ONLY_KEYS],
     );
   } finally {
     await owner.end();
@@ -132,6 +143,41 @@ describe("backfillCanvasBuiltinTemplates：给一个明确指定的组织加载 
     expect(second.created).toBe(0);
     expect(second.published).toBe(0);
     expect(second.alreadyExisted).toBe(19);
+  });
+
+  /*
+   * issue #3000 —— `onlyKeys`：测试夹具（`seed-chat-read-e2e.ts`）只需要 `persona` 这一张
+   * （chat 建议行里的画像 chip 由 `recommendCanvasTemplates` 从已发布模板库里算出来，
+   * 库里没有这一行那条 chip 就永远不出现），灌全部 19 张会把该组织每一次 run 的
+   * system prompt 撑大。
+   *
+   * 反证：**只灌一张**必须真的只落一行——把过滤写成恒真（不过滤）时这条会红在
+   * `toHaveLength(1)` 上；拼错 key 时必须当场抛，不是静默灌 0 张自称完成。
+   */
+  it("onlyKeys：只灌指定的那一张；非内置 key 当场抛，不静默灌 0 张", async () => {
+    const { backfillCanvasBuiltinTemplates } = await import("../../scripts/backfill-canvas-builtin-templates");
+
+    const report = await backfillCanvasBuiltinTemplates(ORG_ONLY_KEYS, ["persona"]);
+    expect(report.total).toBe(1);
+    expect(report.created).toBe(1);
+    expect(report.published).toBe(1);
+
+    const owner = new pg.Client(ownerConfig(DATABASE));
+    await owner.connect();
+    try {
+      const rows = await owner.query<{ key: string; status: string }>(
+        "SELECT key, status FROM canvas_templates WHERE org_id = $1",
+        [ORG_ONLY_KEYS],
+      );
+      expect(rows.rows).toHaveLength(1);
+      expect(rows.rows[0]!.key).toBe("persona");
+      expect(rows.rows[0]!.status).toBe("published");
+    } finally {
+      await owner.end();
+    }
+
+    await expect(backfillCanvasBuiltinTemplates(ORG_ONLY_KEYS, ["persona", "not-a-builtin-key"]))
+      .rejects.toThrow(/非内置 key/);
   });
 
   it("没有 admin 的组织：如实抛错，不是静默跳过（脚本只对调用方指定的那一个组织负责）", async () => {
