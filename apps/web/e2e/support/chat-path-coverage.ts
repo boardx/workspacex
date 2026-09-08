@@ -184,11 +184,28 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
     }
   }
   const threadId = threadIdFromUrl(page.url());
-  expect(
-    threadId !== null && !existing.has(threadId),
-    "新建线程后 URL 应落在一条点击前并不存在的线程上——落在已存在的线程上说明拿到的是"
-    + "壳恢复的那条，不是我们建的那条",
-  ).toBe(true);
+  if (threadId === null || existing.has(threadId)) {
+    /*
+     * 七跑（run 34209889817）：点了 4 次、跨 60s，URL 仍停在一条**已存在**的线程上。
+     * 光凭这条红分不出两件性质完全不同的事：
+     *   ① 服务端**根本没有**新线程 ⇒ 点击被吞了（用例侧问题，继续加固点击）；
+     *   ② 服务端**真的多了**一条新线程，只是这一页的 URL 没跟过去 ⇒ 那是**产品缺陷**
+     *      （第二个标签页里点"新建会话"，会话建了但界面不切过去），要开 issue，不是改用例。
+     * 所以失败时再读一次权威列表做差集，把答案写进失败信息——同 C4/C5 那条诊断的纪律：
+     * 让下一跑的红自带结论，而不是让人对着超时猜。
+     */
+    const after = await storedThreadIds(page);
+    const created = after.filter((id) => !existing.has(id));
+    expect(
+      false,
+      "新建线程后 URL 应落在一条点击前并不存在的线程上——落在已存在的线程上说明拿到的是"
+      + "壳恢复的那条，不是我们建的那条。\n"
+      + `【诊断】点击前 ${existing.size} 条线程，点击后权威列表里新增 ${created.length} 条`
+      + `（${created.join(", ") || "无"}），当前 URL 线程 = ${threadId ?? "无"}。`
+      + "新增 0 条 ⇒ 点击根本没生效（用例侧）；新增 ≥1 条 ⇒ 线程建出来了但这一页没切过去"
+      + "（产品缺陷：第二个标签页新建会话不跳转，按矩阵规则开 issue）",
+    ).toBe(true);
+  }
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId as string;
 }
