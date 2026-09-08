@@ -51,6 +51,18 @@ CREATE POLICY design_project_ref_images_org_isolation ON design_project_ref_imag
   WITH CHECK (org_id = current_setting('app.current_org', true));
 
 /*
+ * ⚠ RLS 策略**不等于**授权：建了表、开了 RLS、写了策略，`app_rw` 依然连 SELECT 都不能做
+ * （42501 permission denied）。少了下面这一句，表现不是"读到别人的数据"，而是这张表上
+ * 每一次查询都直接报错——包括 `rls-cross-tenant-zero-leak` 那个遍历所有带 org_id 的表
+ * 逐张验隔离的用例（2026-09-08 CI 实测，本机无 Postgres 复现不了）。
+ *
+ * 没有 UPDATE：参考图只有传和删两种动作，元信息一旦写下就不再改。少授一个权限，
+ * 就少一条"某天有人顺手 UPDATE 了 object_key"的路径。
+ */
+REVOKE ALL ON design_project_ref_images FROM app_rw;
+GRANT SELECT, INSERT, DELETE ON design_project_ref_images TO app_rw;
+
+/*
  * 迭代 13（delta §5.2）—— 原型自己的明暗主题。
  *
  * 它是**原型的属性**，不是"看的人后台开了哪个色"：同一份原型给谁看都该是设计者定的那个色，
@@ -80,3 +92,7 @@ ALTER TABLE design_projects
 -- 按标签过滤是「包含这几个」的查询；GIN 是 jsonb 包含判定的索引类型。
 CREATE INDEX IF NOT EXISTS design_projects_tags_idx
   ON design_projects USING gin (tags jsonb_path_ops);
+
+-- ⚠ 必须是**整个文件的最后一句**：它按当前的表/策略状态重建冻结策略，
+--   放在后面还有 DDL 的位置上，后面那些表就没被它覆盖到。
+SELECT kernel_apply_org_freeze_policies();
