@@ -305,9 +305,13 @@ function main() {
   const { rows, invoked, staleExemptions } = auditSpecGateCoverage();
   console.log("被 CI 真正调用的 playwright config：");
   for (const c of invoked) console.log(`  · ${c.configPath}`);
-  console.log("\nspec 覆盖判定：");
+  // #3094：这是**静态注册审计**，不是执行结果。旧版对 covered 打 `✅`，
+  // 而 2026-09-08 那趟 e2e-full 里这几条 spec 一条都没执行（前置 lane 红把它们
+  // 短路掉了），只读这行的人会得出「跑了且绿」的相反结论。这里改成中性符号
+  // 并逐字写明语义，避免同一行被两种方式读。
+  console.log("\nspec 门控注册判定（静态：只看有没有被某条 config 接住，不代表本趟已执行）：");
   for (const row of rows) {
-    const mark = { covered: "✅", exempt: "🟡", unrun: "❌", "covered-but-exempt": "❌" }[row.verdict];
+    const mark = { covered: "🧾", exempt: "🟡", unrun: "❌", "covered-but-exempt": "❌" }[row.verdict];
     console.log(`  ${mark} ${row.spec}  [${row.verdict}]${row.by.length ? ` ← ${row.by.join(", ")}` : ""}`);
   }
 
@@ -334,7 +338,10 @@ function main() {
     for (const f of failures) console.error(`  - ${f}`);
     process.exit(1);
   }
-  console.log("\n✅ 每一条 spec 都被某条 CI 门控跑到（或有署名豁免）");
+  console.log(
+    "\n✅ 每一条 spec 都已注册进某条 CI 门控（或有署名豁免）——" +
+      "注册 ≠ 本趟执行，执行结果看 verify:full 的 lane 汇总",
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
