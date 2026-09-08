@@ -9,7 +9,7 @@
  * 渲染表按 `PrototypeNodeType` 穷举：契约加了新原语这里编译不过，不会静默渲染成空。
  */
 import * as React from "react";
-import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare } from "lucide-react";
+import { Check, Circle, ImageIcon, Smartphone, Tablet, Monitor, Home, Search, Bell, User, Settings, Square, CheckSquare, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrototypeLink, PrototypeNode } from "@/lib/live-design-workbench";
 
@@ -139,21 +139,17 @@ const BADGE_TONE: Record<"neutral" | "info" | "success" | "warning" | "danger", 
 };
 const NAV_ICONS = [Home, Search, Bell, User, Settings] as const;
 /** 迭代 6：设备尺寸——由项目模板派生（mobile → 手机，ui → 桌面，wireframe → 平板）；画布内同一套原语按宽度自适应。 */
-export type PrototypeDevice = "phone" | "tablet" | "desktop";
-export const DEVICE_SIZE: Record<PrototypeDevice, { readonly w: number; readonly h: number }> = {
-  phone: { w: 300, h: 560 },
-  tablet: { w: 440, h: 560 },
-  desktop: { w: 720, h: 480 },
-};
-/** 图标与名字；尺寸只在 `DEVICE_SIZE` 一处（Codex：不再有 Tailwind 类那第二份数字），渲染用 inline style。 */
-const DEVICE: Record<PrototypeDevice, { Icon: typeof Smartphone; label: string }> = {
-  phone: { Icon: Smartphone, label: "手机" },
-  tablet: { Icon: Tablet, label: "平板" },
-  desktop: { Icon: Monitor, label: "桌面" },
-};
-/** 项目模板 → 设备：mobile 手机；ui 桌面；wireframe 平板（线框图常在中等宽度上推敲结构）。 */
-export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevice {
-  return template === "mobile" ? "phone" : template === "ui" ? "desktop" : "tablet";
+/**
+ * 迭代 14：设备尺寸与外观**都从 `lib/prototype-devices` 那张预设表来**，这里不再自己声明。
+ * 原来的 `PrototypeDevice`（phone|tablet|desktop）与 `DEVICE_SIZE` 已删除——那是第二份尺寸。
+ */
+import { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale, type PrototypeDevicePreset, type PrototypeChrome } from "@/lib/prototype-devices";
+export { DEVICE_PRESETS, presetById, defaultPresetFor, rotated, fitScale };
+export type { PrototypeDevicePreset, PrototypeChrome };
+
+/** 兼容旧调用点：按项目模板取默认镜头。 */
+export function deviceOf(template: "mobile" | "ui" | "wireframe"): PrototypeDevicePreset {
+  return defaultPresetFor(template);
 }
 const RATIO: Record<"square" | "video" | "wide" | "portrait", string> = { square: "aspect-square", video: "aspect-video", wide: "aspect-[3/1]", portrait: "aspect-[3/4]" };
 
@@ -363,16 +359,80 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 }
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
+/**
+ * 迭代 14 —— 机身外观。**只画壳，不参与布局**：状态栏/灵动岛/home 条都是绝对定位或
+ * 固定高度的兄弟节点，原型内容仍占满剩余空间。
+ *
+ * ⚠ 这些是**装饰**，不是原语。它们不进 `data-proto`、不可选中、不进导出的 class 比对
+ * （V47 比的是原语树）——把它们做成可选中的节点会让「选中一个节点去改」多出一批
+ * 用户根本改不了的目标。
+ */
+function StatusBar({ label }: { label: string }) {
+  return (
+    <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 text-9 font-medium text-card-foreground/80" aria-hidden data-chrome="status">
+      <span>9:41</span>
+      <span className="truncate px-2 text-card-foreground/45">{label}</span>
+      <span className="flex items-center gap-0.5">
+        <span className="inline-block h-1.5 w-2.5 rounded-sm bg-current opacity-70" />
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+        <span className="inline-block h-1.5 w-3 rounded-sm border border-current opacity-70" />
+      </span>
+    </div>
+  );
+}
+
+/** 灵动岛（新机型）/ 听筒条（旧机型）。两者都是黑色，靠形状区分。 */
+function PhoneNotch({ island }: { island: boolean }) {
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-1 flex justify-center" aria-hidden data-chrome={island ? "island" : "notch"}>
+      <span className={cn("bg-black", island ? "h-4 w-20 rounded-full" : "h-3.5 w-32 rounded-b-xl")} />
+    </div>
+  );
+}
+
+/** 底部的 home 指示条。iPad 也有。 */
+function HomeIndicator() {
+  return (
+    <div className="flex shrink-0 justify-center pb-1.5 pt-1" aria-hidden data-chrome="home">
+      <span className="h-1 w-24 rounded-full bg-card-foreground/30" />
+    </div>
+  );
+}
+
+/** 浏览器壳：红黄绿 + 地址栏。地址栏里放页标签——它就是这一页的"标题"。 */
+function BrowserBar({ label }: { label: string }) {
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel px-2.5 py-1.5" data-chrome="browser">
+      {/*
+        * 交通灯用**语义 token** 而不是 macOS 那三个字面色值：色相语义正好对得上
+        * （危险/警告/成功），而字面色值在浅色/深色两套主题下都不会跟着变——
+        * 模拟要的是"像个浏览器窗口"，不是"像素级复刻 macOS"。
+        */}
+      <span className="flex gap-1" aria-hidden>
+        <span className="h-2 w-2 rounded-full bg-destructive" />
+        <span className="h-2 w-2 rounded-full bg-warning" />
+        <span className="h-2 w-2 rounded-full bg-success" />
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-1 rounded-full bg-background px-2 py-0.5 text-9 text-muted-foreground">
+        <Lock aria-hidden className="h-2 w-2 shrink-0" />
+        <span className="truncate">{label}</span>
+      </span>
+    </div>
+  );
+}
+
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
   mode?: PrototypeCanvasMode; links?: readonly PrototypeLink[]; onNavigate?: ((to: number) => void) | null;
   /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
   frameIndex?: number;
-  /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。 */
-  device?: PrototypeDevice;
+  /** 迭代 14：设备预设（尺寸 + 外观）。默认由项目模板派生，预览时可切换（见 `lib/prototype-devices`）。 */
+  device?: PrototypeDevicePreset;
+  /** 迭代 14：横过来看。不可旋转的预设（桌面浏览器）忽略它。 */
+  landscape?: boolean;
   /**
    * 迭代 13（delta §5.2）：**原型自己的**明暗主题，与后台页面的主题无关。
    *
@@ -385,24 +445,27 @@ export function PrototypeCanvas({
    */
   theme?: "light" | "dark";
 }) {
-  const { Icon } = DEVICE[device];
-  const size = DEVICE_SIZE[device];
+  const size = rotated(device, landscape);
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate }}>
     <div
       className={cn(
-        "flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg",
+        // `relative` 给灵动岛定位用；`overflow-hidden` 让内容被机身圆角裁掉——
+        // 少了它，内容的直角会从圆角机身里探出来，一眼假。
+        "relative flex shrink-0 flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-lg",
         // 深色页面里的浅色孤岛 / 浅色页面里的深色孤岛——两个方向都要能开，
         // 否则「原型主题与后台主题互不影响」只成立一半。
         theme === "light" ? "wx-light" : "dark",
       )}
-      style={{ width: size.w, height: size.h }}
-      data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
+      style={{ width: size.w, height: size.h, borderRadius: device.radius }}
+      data-testid="design-detail-phone" data-device={device.id} data-chrome={device.chrome}
+      data-landscape={landscape && device.rotatable ? "true" : "false"}
+      data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
     >
-      <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
-        <Icon aria-hidden className="h-3 w-3" /> {label}
-      </div>
+      {/* 迭代 14：按机身形态画壳。手机/平板是状态栏 + home 条，浏览器是工具栏。 */}
+      {device.chrome === "browser" ? <BrowserBar label={label} /> : <StatusBar label={label} />}
+      {device.chrome === "phone" && <PhoneNotch island={device.island === true} />}
       {root === null ? (
         <div className="flex flex-1 flex-col gap-2 p-3" data-testid="design-detail-phone-placeholder">
           <div className="h-8 rounded-control bg-panel" aria-hidden />
@@ -427,6 +490,7 @@ export function PrototypeCanvas({
           <Node node={root} />
         </div>
       )}
+      {device.chrome !== "browser" && <HomeIndicator />}
     </div>
     </SelectionCtx.Provider>
   );

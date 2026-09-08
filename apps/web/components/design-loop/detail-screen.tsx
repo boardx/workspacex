@@ -1,13 +1,15 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw, Plus, Copy, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScale } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
+import { PrototypeLayers } from "./prototype-layers";
+import { duplicateOps, moveOps, navigate, stripIds } from "@/lib/prototype-node-actions";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
@@ -18,6 +20,9 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  listPrototypeVersions,
+  restorePrototypeVersion,
+  type PrototypePatchOp,
   updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
@@ -140,7 +145,16 @@ export function DesignDetailScreen({
    * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
+  /**
+   * 迭代 14：预览用的**镜头**——设备预设与横竖。刻意**不写库**：它是"我现在用什么尺寸看"，
+   * 不是"这稿是给什么设备的"（后者由项目 template 决定，见 `lib/prototype-devices` 头注）。
+   * `null` = 跟随项目模板的默认镜头；用户切过之后才有值。
+   */
+  const [deviceId, setDeviceId] = React.useState<string | null>(null);
+  const [landscape, setLandscape] = React.useState(false);
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const [stage, setStage] = React.useState({ w: 0, h: 0 });
   /**
    * 迭代 13（delta §2）：「从对话导入」弹窗。**不确认不写**——弹窗自己只在确认那一步
    * 才调写入，这里拿到的 `project` 已经是写入之后的那一份（见 `import-thread-dialog.tsx`）。
@@ -168,6 +182,10 @@ export function DesignDetailScreen({
   }, [reload]);
 
   const project = load.kind === "ready" ? load.project : null;
+  /** 迭代 14：当前镜头 = 用户选的，没选过就跟项目模板走。 */
+  const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
+  const lensSize = rotated(lens, landscape);
+  const scale = fitScale(stage, { w: lensSize.w, h: lensSize.h + 40 });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
     () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
@@ -188,6 +206,75 @@ export function DesignDetailScreen({
   };
 
   /**
+   * 迭代 15：节点动作的**唯一入口**。属性面板的按钮、图层面板、键盘快捷键都调它，
+   * 三处不各写一遍"复制是什么意思"（op 怎么算见 `lib/prototype-node-actions`）。
+   * 走的是与模型写回同一条 `patchPrototype`（I-11）。
+   */
+  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string) => {
+    if (project === null || ops === null || ops.length === 0) return;
+    try {
+      const out = await patchPrototype(project.id, [...ops], summary);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setChatError(`没能${summary}（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
+   * 迭代 16：页级动作。契约的 `addScreen`/`removeScreen` 从迭代 12 起就在，
+   * 但**从来没有 UI 够得着**——模型能加删页，用户不能。这里接上。
+   * 与节点动作共用 `runNodeOps`：同一条 patchPrototype，同一套失败提示。
+   */
+  const pageCount = project?.frames.length ?? 0;
+  const addPage = () => void runNodeOps(
+    [{ op: "addScreen", at: frame + 1, frame: `新页面 ${pageCount + 1}` }], "加一页",
+  ).then(() => setFrame(frame + 1));
+  const duplicatePage = () => {
+    const root = project?.prototype[frame];
+    void runNodeOps(
+      // 复制整页要**去掉树里的 id**，理由同复制节点：id 项目内唯一，
+      // 带原 id 插进去会造出两页同 id 的节点，之后按 id 寻址一律命中第一页。
+      [{ op: "addScreen", at: frame + 1, frame: `${project?.frames[frame] ?? "页面"} 副本`,
+         ...(root === undefined ? {} : { root: stripIds(root) }) }],
+      "复制这一页",
+    ).then(() => setFrame(frame + 1));
+  };
+  const removePage = () => void runNodeOps(
+    [{ op: "removeScreen", screen: frame }], "删掉这一页",
+  ).then(() => setFrame(Math.max(0, frame - 1)));
+  const renamePage = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed === "" || trimmed === project?.frames[frame]) return;
+    void runNodeOps([{ op: "renameScreen", screen: frame, frame: trimmed }], "给这一页改名");
+  };
+
+  /**
+   * 迭代 16：一键撤销 —— 回到上一版。
+   * 此前要开历史面板、找条目、点恢复，三步。而"刚才那下改坏了"是最常见的需求。
+   * 复用既有的 `restorePrototypeVersion`，不另造一条回滚路径。
+   */
+  const [undoing, setUndoing] = React.useState(false);
+  const undoLast = async () => {
+    if (project === null) return;
+    setUndoing(true);
+    try {
+      const { items: versions } = await listPrototypeVersions(project.id);
+      // 版本按 seq 升序；"上一版"是倒数第二个——最后一个就是现在这份。
+      const target = [...versions].sort((a, b) => a.seq - b.seq).at(-2);
+      if (target === undefined) { setChatError("没有可回退的版本了。"); window.setTimeout(() => setChatError(null), 3000); return; }
+      const out = await restorePrototypeVersion(project.id, target.id);
+      setLoad({ kind: "ready", project: out.project });
+      setSelectedId(null);
+    } catch (err) {
+      setChatError(`没能撤销（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    } finally {
+      setUndoing(false);
+    }
+  };
+
+  /**
    * 迭代 13（delta §5.2）：切**原型自己的**明暗主题。走 `updateProject`，与改名同一条路径。
    * 乐观更新——切主题是纯视觉的，等一次往返会让开关手感发黏；失败就回滚并说一声。
    */
@@ -204,6 +291,61 @@ export function DesignDetailScreen({
       window.setTimeout(() => setChatError(null), 3000);
     }
   };
+
+  /**
+   * 迭代 14：量画布可用空间，好把 1280 宽的笔记本缩进来。
+   * jsdom 没有 `ResizeObserver` 也量不出尺寸 ⇒ stage 保持 0，`fitScale` 返回 1，
+   * 测试里按原尺寸渲染（这正是它对 0 尺寸返回 1 的理由）。
+   */
+  React.useEffect(() => {
+    const el = stageRef.current;
+    if (el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const r = entry?.contentRect;
+      if (r !== undefined) setStage({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /**
+   * 迭代 15：画布快捷键。**只在编辑态、且不在输入框里**时生效——
+   * 少了后面那个判断，用户在对话框里按 Delete 会把选中的节点删掉，
+   * 而他只是想删一个字。这是这类快捷键最常见的翻车方式。
+   */
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const typing = t !== null && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      if (typing || canvasMode !== "edit" || preview !== null) return;
+      if (e.key === "Escape") { setSelectedId(null); return; }
+      if (selectedId === null || project === null) return;
+      const tree = project.prototype;
+      const NAV: Record<string, "up" | "down" | "prev" | "next"> = {
+        ArrowUp: "up", ArrowDown: "down", ArrowLeft: "prev", ArrowRight: "next",
+      };
+      const dir = NAV[e.key];
+      if (dir !== undefined) {
+        const next = navigate(tree, selectedId, dir);
+        // 走不动就保持原选中——按一下方向键选中就没了，比没反应更让人困惑。
+        if (next !== null) { e.preventDefault(); setSelectedId(next); }
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        void runNodeOps([{ op: "remove", id: selectedId }], "删掉这个节点");
+        setSelectedId(null);
+        return;
+      }
+      // ⌘D / Ctrl+D 复制——与 Figma 一致
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        void runNodeOps(duplicateOps(tree, selectedId), "复制这个节点");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -520,10 +662,38 @@ export function DesignDetailScreen({
                       "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       frame === i ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60",
                     )}
+                    onDoubleClick={() => {
+                      // 双击页签改名：就地编辑，不弹窗——改一个词不值得一个 Dialog。
+                      if (i !== frame || canvasMode !== "edit") return;
+                      const name = window.prompt("页面名字", f);
+                      if (name !== null) renamePage(name);
+                    }}
+                    title={i === frame && canvasMode === "edit" ? "双击改名" : undefined}
                   >
                     {f}
                   </button>
                 ))}
+                {/*
+                  * 迭代 16：页管理。契约的 addScreen/removeScreen 从迭代 12 起就在，
+                  * 但从来没有 UI 够得着——模型能加删页，用户不能。
+                  */}
+                {canvasMode === "edit" && preview === null && (
+                  <span className="flex items-center gap-0.5" data-testid="design-detail-pages">
+                    <button type="button" onClick={addPage} title="加一页" data-testid="design-detail-page-add"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
+                      <Plus aria-hidden className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={duplicatePage} title="复制这一页" data-testid="design-detail-page-duplicate"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-background-foreground">
+                      <Copy aria-hidden className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={removePage} disabled={pageCount <= 1} title={pageCount <= 1 ? "只剩一页了，删不得" : "删掉这一页"}
+                      data-testid="design-detail-page-remove"
+                      className="rounded-control px-1 py-1 text-muted-foreground transition-colors duration-fast hover:bg-card hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground">
+                      <Trash2 aria-hidden className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
                 <div className="ml-auto inline-flex rounded-control border border-border p-0.5" role="group" aria-label="画布视图">
                   <button type="button" onClick={() => setViewMode("board")} aria-pressed={viewMode === "board"} data-testid="design-detail-view-board" title="画板：所有页并排，可平移缩放"
                     className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast", viewMode === "board" ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}>
@@ -564,6 +734,46 @@ export function DesignDetailScreen({
                     </button>
                   ))}
                 </div>
+                {/*
+                  * 迭代 14：设备镜头。**不写库** —— 换设备只改画板尺寸，原型没有断点，
+                  * 内容按 flex 自适应；title 里如实说清楚，免得有人以为切过去就看到了响应式结果。
+                  */}
+                <div className="flex items-center gap-0.5 rounded-control bg-panel p-0.5" data-testid="design-detail-devices">
+                  <select
+                    value={lens.id}
+                    onChange={(e) => setDeviceId(e.target.value)}
+                    data-testid="design-detail-device"
+                    title="换个设备尺寸看。原型没有断点，换设备只改画板尺寸，内容按 flex 自适应。"
+                    className="h-6 rounded-control border-0 bg-transparent px-1 text-10 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {DEVICE_PRESETS.map((d) => (
+                      <option key={d.id} value={d.id}>{d.label} {d.w}×{d.h}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setLandscape((v) => !v)}
+                    disabled={!lens.rotatable}
+                    aria-pressed={landscape && lens.rotatable}
+                    data-testid="design-detail-rotate"
+                    title={lens.rotatable ? "横过来看" : "这个尺寸没有竖屏一说"}
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
+                      landscape && lens.rotatable ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
+                  >
+                    <RotateCw aria-hidden className="h-3 w-3" />
+                  </button>
+                </div>
+                {/* 迭代 16：一键撤销。此前要开历史面板、找条目、点恢复——三步。 */}
+                <button
+                  type="button"
+                  onClick={() => void undoLast()}
+                  disabled={undoing || preview !== null}
+                  data-testid="design-detail-undo"
+                  title="回到上一版"
+                  className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-card/60 disabled:bg-disabled disabled:text-disabled-foreground"
+                >
+                  {undoing ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" /> : <Undo2 aria-hidden className="h-3 w-3" />} 撤销
+                </button>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
@@ -608,34 +818,66 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      device={deviceOf(project.template)}
+                      device={lens}
+                      landscape={landscape}
                       links={frameLinks}
                       mode={canvasMode}
                       theme={project.theme}
                       onNavigate={setFrame}
                     />
                   ) : (
+                    /*
+                     * 迭代 14：画板按**逻辑分辨率**渲染，再整体缩放塞进可用空间。
+                     * `transform: scale` 而不是改宽高——改宽高等于换了个更小的设备，
+                     * 那就不是"在 1280 的笔记本上长什么样"了。`origin-top` 让它从顶部往下缩，
+                     * 与人看设备的习惯一致（不是从中心散开）。
+                     */
+                    <div
+                      ref={stageRef}
+                      className="flex min-h-0 flex-1 justify-center overflow-auto p-4"
+                      data-testid="design-detail-stage"
+                      data-scale={scale.toFixed(3)}
+                    >
+                      <div style={{ transform: `scale(${scale})`, transformOrigin: "top center", width: lensSize.w, height: lensSize.h }}>
                     <PrototypeCanvas
                       label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      device={deviceOf(project.template)}
+                      device={lens}
+                      landscape={landscape}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                       theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={setFrame}
                     />
+                      </div>
+                    </div>
                   )}
                 </div>
                 {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
                 {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
-                {(historyOpen || (focus !== null && preview === null)) && (
+                {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
+                {(historyOpen || (preview === null && canvasMode === "edit") || (focus !== null && preview === null)) && (
                   <div className="absolute inset-y-0 right-0 z-10 flex w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:max-w-none md:bg-card/40" data-testid="design-detail-side">
+                    {/*
+                      * 迭代 15：图层面板。一个 stack 套 stack 在画板上分不出层级，
+                      * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。
+                      * 预览态不显示：那时候没有"选中"这回事。
+                      */}
+                    {preview === null && canvasMode === "edit" && (
+                      <PrototypeLayers
+                        root={project.prototype[Math.min(frame, project.frames.length - 1)] ?? null}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                      />
+                    )}
                     {focus !== null && preview === null && (
                       <PrototypeInspector
                         projectId={project.id}
+                        prototype={project.prototype}
+                        onNodeOps={runNodeOps}
                         node={focus.path[focus.path.length - 1]!}
                         path={focus.path}
                         onSaved={(p) => setLoad({ kind: "ready", project: p })}

@@ -376,6 +376,15 @@ export const PrototypePatchOp = z.discriminatedUnion("op", [
    */
   z.object({ op: z.literal("addScreen"), at: z.number().int().min(0), frame: Label, root: PrototypeNode.optional() }).strict(),
   z.object({ op: z.literal("removeScreen"), screen: z.number().int().min(0) }).strict(),
+  /**
+   * 迭代 15（delta `canvas-direct-manipulation`）：只改页标签，树与 notes 一个字不动。
+   *
+   * ⚠ 为什么不用 `removeScreen` + `addScreen` 拼出来：那样会丢掉这一页的 `notes`
+   * （`addScreen` 只带 frame/root/links），而且 `shiftLinkTargets` 会先 -1 再 +1，
+   * 中间那一步已经把指向本页的跳转改掉了，两步之后不保证还原。改名是**只动一个字段**
+   * 的操作，就该是一个只动一个字段的 op。
+   */
+  z.object({ op: z.literal("renameScreen"), screen: z.number().int().min(0), frame: Label }).strict(),
 ]);
 export type PrototypePatchOp = z.infer<typeof PrototypePatchOp>;
 export const DesignPrototypePatch = z.array(PrototypePatchOp).min(1).max(PROTOTYPE_MAX_PATCH_OPS);
@@ -579,6 +588,14 @@ export function applyPrototypePatch<T extends { readonly root?: PrototypeNode; r
       current = merged.map((s, k) => (byKey.has(k) ? { ...s, root: byKey.get(k)! } : s));
       return;
     }
+    if (op.op === "renameScreen") {
+      if (op.screen >= current.length) {
+        throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `no screen at index ${op.screen} (have ${current.length})`);
+      }
+      // 只换 frame，其余字段（root / notes / links）原样带过——这正是它存在的理由。
+      current = current.map((s, k) => (k === op.screen ? { ...s, frame: op.frame } : s));
+      return;
+    }
     if (op.op === "removeScreen") {
       if (op.screen >= current.length) throw new PrototypePatchError(i, "UNKNOWN_SCREEN", `no screen at index ${op.screen} (have ${current.length})`);
       if (current.length === 1) throw new PrototypePatchError(i, "LIMITS", "cannot remove the only screen");
@@ -749,7 +766,17 @@ export const PROTOTYPE_PATCH_GUIDE =
   "局部修改用 writeback.patch（数组，按顺序执行，≤ " + PROTOTYPE_MAX_PATCH_OPS + " 条），按节点 id 寻址（当前原型里每个节点都有 id）：" +
   '{"op":"setProps","id":"n3","props":{...只给要改的键}}；{"op":"replace","id":"n3","node":{完整节点}}；' +
   '{"op":"insert","parentId":"n1","index":0,"node":{...}}（index 缺省追加末尾）；{"op":"remove","id":"n7"}。' +
-  "只改一处文案/加一个按钮/删一块 ⇒ 用 patch；新页面、整页重排、用户要求重画 ⇒ 用 prototype 整页给出。二者不要同时给。";
+  // 迭代 15：**页级 op 从迭代 12 起就在契约里，这段说明却从没提过它们**，而下面那句
+  // 原本写的是「新页面 ⇒ 用 prototype 整页给出」——等于教模型为了加一页把所有页重画一遍，
+  // 正是「单页超输出预算」那条根因的推手。加页/删页/改页名各有便宜的 op，必须让模型知道。
+  '按**页**改：{"op":"addScreen","at":2,"frame":"设置","node 可选 root":{...}}（at=插入位置，0..页数）；' +
+  '{"op":"removeScreen","screen":2}；{"op":"renameScreen","screen":0,"frame":"新名字"}。' +
+  "指向这些页的跳转会由服务端自动跟着偏移，你不用重算 links。" +
+  // 同一个洞的第二例：`setLinks` 从迭代 11 起就在契约里，这段说明同样没提过——
+  // 模型只会在整页写回时给 links，想单独改一条跳转就只能整页重画。这条门一并抓到了它。
+  '只改跳转：{"op":"setLinks","screen":0,"links":[{"from":"节点 id","to":目标页序号}]}（整页替换这一页的跳转表）。' +
+  "只改一处文案/加一个按钮/删一块 ⇒ 用 patch；**加一页也用 patch 的 addScreen，不要为此重画所有页**；" +
+  "只有整页重排、用户明确要求重画时才用 prototype 整页给出。二者不要同时给。";
 
 /**
  * 给模型看的原语说明——**唯一**一份，`DESIGN_CHAT_SYSTEM_PROMPT` 拼它，不另抄。
