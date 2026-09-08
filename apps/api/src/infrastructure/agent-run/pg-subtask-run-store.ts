@@ -3,16 +3,19 @@ import { createHash,randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import { SUBTASK_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/subtask-run-queue";
-import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError } from "../../application/agent-run/subtask-run-queue";
+import { SubtaskParentCancelledError, SubtaskIdempotencyConflictError, foldSubtaskToolCall } from "../../application/agent-run/subtask-run-queue";
+import type { SubtaskToolCall, SubtaskToolCallObservation } from "../../application/agent-run/subtask-run-queue";
 import type { EnqueueSubtaskRunInput, SubtaskRun, SubtaskRunStore, CancelSubtaskOutcome, SubtaskExecutionState } from "../../application/agent-run/subtask-run-queue";
 import type {RunOutputFile} from '../../application/agent-run/ports';
 
-type Row = { execution_attempt_id:string|null;lease_epoch:number;output_policy:unknown;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string;artifact_refs:unknown;output_manifest:unknown;cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
+type Row = { tool_calls:unknown;execution_attempt_id:string|null;lease_epoch:number;output_policy:unknown;agent_version_id:string;skill_version_ids:unknown;model_provider:string;model_id:string;artifact_refs:unknown;output_manifest:unknown;cancel_requested_at: Date | null; cancellation_state: "pending" | "confirmed" | "unknown" | null; remote_run_id: string | null; remote_thread_id: string | null; id: string; parent_run_id: string; description: string; context: string | null;
   status: SubtaskRun["status"]; result: string | null; error: string | null; created_at: Date; updated_at: Date };
 const decode = (r: Row): SubtaskRun => ({ ...(r.cancel_requested_at && r.cancellation_state ? {cancellation:{requestedAt:r.cancel_requested_at.toISOString(),state:r.cancellation_state}} : {}), id: r.id, parentRunId: r.parent_run_id,
   description: r.description, context: r.context,...(r.output_policy?{outputFiles:r.output_policy as SubtaskRun['outputFiles']}:{}),
   snapshot:{agentVersionId:r.agent_version_id,skillVersionIds:r.skill_version_ids as string[],modelProvider:r.model_provider,modelId:r.model_id},
-  artifactRefs:r.artifact_refs as SubtaskRun['artifactRefs'],status: r.status, result: r.result,
+  artifactRefs:r.artifact_refs as SubtaskRun['artifactRefs'],
+  toolCalls:(Array.isArray(r.tool_calls)?r.tool_calls:[]) as SubtaskToolCall[],
+  status: r.status, result: r.result,
   error: r.error, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString() });
 
 /** Durable queue with separate cancellation facts. Stale executions fail; they are never automatically replayed
@@ -118,6 +121,18 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
       if(unknown.rows.length)return {kind:"unavailable"};
       const active=await s.query<{id:string;status:string}>("SELECT id,status FROM subtask_runs WHERE org_id=$1 AND parent_run_id=$2 AND status IN ('pending','running') ORDER BY id",[orgId,input.parentRunId]);
       return active.rows.length ? {kind:"pending",runningChildIds:active.rows.filter(row=>row.status==='running').map(row=>row.id)} : {kind:"confirmed"};
+    });
+  }
+
+  /** Append-only fold of engine-reported tool activity; never touches lifecycle columns. */
+  recordToolCall(orgId: OrgId, id: string, observation: SubtaskToolCallObservation): Promise<void> {
+    return this.db.withTenant(orgId, async s => {
+      const locked = await s.query<Row>("SELECT * FROM subtask_runs WHERE org_id=$1 AND id=$2 FOR UPDATE",[orgId,id]);
+      const row = locked.rows[0];
+      if (!row) return;
+      const existing = (Array.isArray(row.tool_calls) ? row.tool_calls : []) as SubtaskToolCall[];
+      await s.query("UPDATE subtask_runs SET tool_calls=$3::jsonb WHERE org_id=$1 AND id=$2",
+        [orgId,id,JSON.stringify(foldSubtaskToolCall(existing,observation))]);
     });
   }
 
