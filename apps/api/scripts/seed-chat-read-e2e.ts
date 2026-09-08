@@ -94,6 +94,13 @@ const MOUNTABLE_SKILL_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_NAME");
  * 各写一份字面量的下场见 `loopback-model-provider.ts` 里 REPLY_PREFIX 那段头注。
  */
 const MOUNTABLE_SKILL_SENTINEL = required("CHAT_E2E_MOUNTABLE_SKILL_SENTINEL");
+/**
+ * 路径矩阵 D4 —— 这个 `stable_name` 此前只写死在本文件里，断言方无从引用；D4 要在
+ * 替身收到的**目录块**里找的正是这个字符串，于是它必须与断言方共用同一个事实源
+ * （`chat-read-fixture.ts` 的 `mountableSkillStableName`），本仓「同一事实不得声明在
+ * 两处」那条纪律。
+ */
+const MOUNTABLE_SKILL_STABLE_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_STABLE_NAME");
 const RETRIEVAL_ATTACHMENT_FILENAME = required("CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME");
 const RETRIEVAL_EXCERPT = required("CHAT_E2E_RETRIEVAL_EXCERPT");
 /**
@@ -142,6 +149,15 @@ const TOOL_TRACE_RESULT_CODE = required("CHAT_E2E_TOOL_TRACE_RESULT_CODE");
  * `chat-read-fixture.ts` 同名字段头注：与后台 chat 模拟验的是两条不共享执行路径的链路）。
  */
 const CANVAS_GUIDANCE_THREAD_ID = required("CHAT_E2E_CANVAS_GUIDANCE_THREAD_ID");
+/**
+ * 路径矩阵 C4/C5（`.harness/instructions/chat-path-coverage-matrix.md`）—— 两条各自
+ * 独立的画布线程。**不复用** `CANVAS_GUIDANCE_THREAD_ID`：那条线程上
+ * `chat-canvas-guidance-render.spec.ts` 对围栏数量与 `.last()` 有断言，多写两轮会把
+ * 它顶红（本仓「专属线程互相污染」已有案底，见 `chat-read-fixture.ts` 的
+ * `attachmentPreviewThreadId` 头注）。
+ */
+const CANVAS_DUAL_THREAD_ID = required("CHAT_E2E_CANVAS_DUAL_THREAD_ID");
+const CANVAS_SERIAL_THREAD_ID = required("CHAT_E2E_CANVAS_SERIAL_THREAD_ID");
 const CANVAS_TEMPLATE_KEY = required("CHAT_E2E_CANVAS_TEMPLATE_KEY");
 const CANVAS_TEMPLATE_DISPLAY_NAME = required("CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME");
 const CANVAS_HEADER_FIELD_NAME = required("CHAT_E2E_CANVAS_HEADER_FIELD_NAME");
@@ -238,6 +254,8 @@ for (const [id, title] of [
   [KEYBOARD_THREAD_A_ID, "Keyboard reachability check thread A"],
   [KEYBOARD_THREAD_B_ID, "Keyboard reachability check thread B"],
   [CANVAS_GUIDANCE_THREAD_ID, "Canvas guidance in real chat check thread"],
+  [CANVAS_DUAL_THREAD_ID, "Canvas dual fence in one turn check thread"],
+  [CANVAS_SERIAL_THREAD_ID, "Canvas artifact across consecutive turns check thread"],
 ] as const) {
   await addChatThread({
     orgId: ORG_ID,
@@ -387,6 +405,10 @@ await asApp(ORG_ID, async (client) => {
     // 永久 disabled——不是网络抖动，是本条线程从未进过编制，180s 超时如实反映了
     // 「这条线程发不出消息」这件事，不是本仓其余部分的锅。
     CANVAS_GUIDANCE_THREAD_ID,
+    // 路径矩阵 C4/C5 —— 同一条实测教训：漏种这一行，编制里没有在场 agent，
+    // 发送按钮永久 disabled，用例会以超时的形式红在一个与被测路径无关的地方。
+    CANVAS_DUAL_THREAD_ID,
+    CANVAS_SERIAL_THREAD_ID,
   ]) {
     await client.query(
       "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
@@ -534,7 +556,7 @@ await asApp(ORG_ID, async (client) => {
       `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
        VALUES ($1,$2,$3,$4,'enabled',$5,now(),now())
        ON CONFLICT (id) DO NOTHING`,
-      [MOUNTABLE_SKILL_ID, ORG_ID, "chat-read-e2e-hypothesis-tree", MOUNTABLE_SKILL_NAME, USER_ID],
+      [MOUNTABLE_SKILL_ID, ORG_ID, MOUNTABLE_SKILL_STABLE_NAME, MOUNTABLE_SKILL_NAME, USER_ID],
     );
     // `published = true` 是硬条件：`loadMountableRow` 的 wave2 分支只挑**已发布**版本
     // 作为 `currentVersionId`（挂载把它钉进 `ThreadSkillMount.versionId`），而

@@ -264,6 +264,31 @@ export default defineConfig({
     },
     {
       /**
+       * 路径矩阵车道（`.harness/instructions/chat-path-coverage-matrix.md`）——
+       * 把矩阵里此前**零覆盖**的路径逐条补成断言的那批 `chat-path-*.spec.ts`。
+       *
+       * ## 为什么是第三个 project，而不是塞进 `chat-read`
+       *
+       * `chat-read` 是**阻塞 `e2e-full`** 的回归门。这批用例第一次落地时还没有在
+       * CI 上跑绿过（本机没有 docker daemon，整套真栈起不来，见 PR 正文的诚实边界），
+       * 直接塞进阻塞车道等于拿别人的合并路径赌自己的新断言——本仓对「恒红的门」有
+       * 案底（#848：恒红的门比没有门更糟）。同一个 config、同一套已经起好的 webServer，
+       * 只切 testMatch，做法逐字沿用 issue #2114 摘出记分牌车道那次。
+       *
+       * ## 它与 `chat-task-workbench` 车道的区别（两者都不阻塞，含义不同）
+       *
+       * 那批是**记分牌**：红是预期状态，收敛路径是实现能力。这批是**回归门**：红是
+       * 意外状态，一条在 CI 上跑绿之后就该被搬进 `chat-read` 车道去阻塞 `e2e-full`
+       * ——搬家动作本身由矩阵文档的「车道」列跟踪，不靠人记。
+       *
+       * ⚠ 同上面那条警告：这条 testMatch 白名单是手写的，新 spec 不加进来就是
+       *   「写了但没人跑」（#512 同一个失效模式）。
+       */
+      name: "chat-path-coverage",
+      testMatch: /chat-path-(a3-long-session-fact-survival|a5-cold-start-first-paint|c4-two-canvases-one-turn|c5-consecutive-artifact-turns|d4-skill-three-states|f2-network-drop-reconnect|f6-concurrent-runs|f7-upstream-stream-abort)\.spec\.ts$/,
+    },
+    {
+      /**
        * issue #2114 —— 记分牌车道。只被 `pnpm run verify:chat-task-workbench`
        * （`--project=chat-task-workbench`）与 workflow_dispatch 的
        * `chat-task-workbench` job 显式点名，不在 `chat-read` 默认项目里，因此不会
@@ -430,6 +455,14 @@ export default defineConfig({
          * 组织下对同组织其余用例的请求恒为真，会把它们的回复整体顶成画布围栏。
          */
         LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL: CHAT_READ_E2E.canvasGuidanceSentinel,
+        /**
+         * 路径矩阵 A3 / C4 —— 两个**默认关闭**的回显/剧本开关，同上面每一条的既有纪律：
+         * 唯一事实源在 `chat-read-fixture.ts`，`fullstack-smoke` / `core-loop` 不下发它们，
+         * 那两条链路行为逐字节不变。
+         */
+        LOOPBACK_MODEL_L2_FACT_SENTINEL: CHAT_READ_E2E.l2EarlyFactCodeWord,
+        LOOPBACK_MODEL_L2_FACT_ECHO_PREFIX: CHAT_READ_E2E.l2FactEchoPrefix,
+        LOOPBACK_MODEL_CANVAS_DUAL_SENTINEL: CHAT_READ_E2E.canvasDualSentinel,
       },
     },
     /**
@@ -465,6 +498,13 @@ export default defineConfig({
         // 一对（`chat-agent-skill-context.spec.ts` 既有），两条轨道断言同一个事实。
         LOOPBACK_DEEP_AGENT_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
+        /**
+         * 路径矩阵 D4 / F7 —— 目录态回显与断流剧本，同一套「默认关闭的开关」纪律
+         * （见 `loopback-deep-agent-provider.ts` 里各自的头注）。
+         */
+        LOOPBACK_DEEP_AGENT_SKILL_CATALOG_STABLE_NAME: CHAT_READ_E2E.mountableSkillStableName,
+        LOOPBACK_DEEP_AGENT_SKILL_CATALOG_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillCatalogEchoPrefix,
+        LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER: CHAT_READ_E2E.deepAgentStreamAbortTrigger,
       },
     },
     {
@@ -511,6 +551,8 @@ export default defineConfig({
         // #1559 —— 哨兵串的唯一事实源在 `chat-read-fixture.ts`：种子把它写进
         // `SKILL.md` 正文，上游替身在 system prompt 里找它，断言方断言它出现。
         CHAT_E2E_MOUNTABLE_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
+        // 路径矩阵 D4 —— stable_name 从此只有一个事实源，种子与断言方共用（见夹具头注）。
+        CHAT_E2E_MOUNTABLE_SKILL_STABLE_NAME: CHAT_READ_E2E.mountableSkillStableName,
         CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME: CHAT_READ_E2E.retrievalAttachmentFilename,
         CHAT_E2E_RETRIEVAL_EXCERPT: CHAT_READ_E2E.retrievalExcerpt,
         // #1324 —— 三条专属线程（挂载持久化 / 因果对照 / 检索命中对照），见
@@ -543,6 +585,9 @@ export default defineConfig({
         // 发布画布模板，唯一事实源在 `chat-read-fixture.ts`，种子脚本 / 替身进程 / 断言方
         // 三处共用同一份（同上面每一条专属线程的接线方式）。
         CHAT_E2E_CANVAS_GUIDANCE_THREAD_ID: CHAT_READ_E2E.canvasGuidanceThreadId,
+        // 路径矩阵 C4/C5 —— 两条各自独立的画布线程（不与上面那条共写，见种子脚本头注）。
+        CHAT_E2E_CANVAS_DUAL_THREAD_ID: CHAT_READ_E2E.canvasDualThreadId,
+        CHAT_E2E_CANVAS_SERIAL_THREAD_ID: CHAT_READ_E2E.canvasSerialThreadId,
         CHAT_E2E_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
         CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME: CHAT_READ_E2E.canvasTemplateDisplayName,
         CHAT_E2E_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,

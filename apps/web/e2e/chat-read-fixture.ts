@@ -311,4 +311,66 @@ export const CHAT_READ_E2E = {
    * 的是这次请求的范围，不是替代前两者。
    */
   canvasGuidanceSentinel: "E2E-CANVAS-GUIDANCE-6031",
+
+  /* ══════════ 路径覆盖矩阵（`.harness/instructions/chat-path-coverage-matrix.md`）══════════
+   *
+   * 下面这一组只服务 `chat-path-*.spec.ts` 那批新增用例——把矩阵里此前**零覆盖**的
+   * 路径逐条转成可判定的断言。每一条的纪律与上面每一组逐字相同：唯一事实源在本文件，
+   * `playwright.chat-read.config.ts` 同时下发给种子脚本与确定性替身，断言方引用同一个
+   * 常量，三处不各写一份。
+   *
+   * ⚠ 这批用例跑在**独立 project 车道** `chat-path-coverage` 上（同 config、同一套已经
+   *   起好的 webServer，只切 testMatch），不在阻塞 `e2e-full` 的 `chat-read` 车道里——
+   *   理由与 issue #2114 摘出记分牌车道那次逐字相同，见该 config 对应段落。
+   */
+
+  /**
+   * A3 长会话压缩 —— 早期事实**穿过压缩层活下来**。
+   *
+   * 与 `context-engine.spec.ts` 那条 L2 断言不是同一件事，也不是它的副本：那条证的是
+   * 「摘要伪消息这个**结构**真的到达了模型输入」（`l2SummaryEchoPrefix`），压缩把内容
+   * 丢光了它照样绿；这条证的是「被挤出 L1 的那个**具体事实**（`l2EarlyFactCodeWord`）
+   * 真的还在摘要正文里」。结构在 ≠ 事实在，这正是长会话压缩唯一会伤到用户的失效形态。
+   */
+  l2FactEchoPrefix: "[l2-fact-seen:]",
+
+  /**
+   * C4 一次生成两个画布 —— 专属线程 + 第二个哨兵。
+   *
+   * 线程独立的理由同上面每一条：`chat-canvas-guidance-render.spec.ts` 对
+   * `canvasGuidanceThreadId` 里的围栏数量与 `.last()` 有断言，往那条线程里再写两轮
+   * 会把它顶红（本仓「专属线程互相污染」已有案底，见 `attachmentPreviewThreadId` 头注）。
+   *
+   * 哨兵是**第二个**、不是替换：`canvasGuidanceSentinel` 继续作为「这次请求确实要走
+   * 画布分支」的判定信号，`canvasDualSentinel` 只多说一句「这一轮要两个围栏」。
+   */
+  canvasDualThreadId: "thread-chat-read-e2e-canvas-dual",
+  canvasDualSentinel: "E2E-CANVAS-DUAL-4417",
+
+  /** C5 连续多轮产物 —— 专属线程（理由同 C4：不与既有画布线程共写）。 */
+  canvasSerialThreadId: "thread-chat-read-e2e-canvas-serial",
+
+  /**
+   * D4 skill 三态 —— 「目录里看得见它」这一态的回显前缀。
+   *
+   * `buildDeepAgentSkillCatalogBlock` 只把 `stable_name + 一行摘要` 放进 system prompt，
+   * 全文经 `config.configurable.org_skills` 送达（`mountedSkillSentinel` 那条判据）。
+   * 两者是**两个不同的信号**，此前只有后者被断言过——一个把目录条目当成「正文到了」的
+   * 实现会全绿。这个前缀让前者单独可观察，三态才谈得上区分。
+   */
+  mountedSkillCatalogEchoPrefix: "[skill-catalog-seen:]",
+  /**
+   * 那条可挂载 skill 的 `stable_name`。此前只写死在 `seed-chat-read-e2e.ts` 里，
+   * 断言方无从引用——D4 要在替身收到的目录块里找的正是这个字符串，于是它必须是
+   * 单一事实源（本仓「同一事实不得声明在两处」那条纪律）。
+   */
+  mountableSkillStableName: "chat-read-e2e-hypothesis-tree",
+
+  /**
+   * F7 上游断流 —— 触发词命中时，确定性 deep-agent 替身在 `/stream` 上先正常发几片
+   * 正文，然后**直接销毁 socket**（不是回一个规整的错误终态：那条路径已由
+   * `deepAgentFailureTrigger` + `copilotkit-v2-error-banner.spec.ts` 覆盖）。
+   * 要证的是「上游半路断了，界面诚实收场，不假装还在跑」。
+   */
+  deepAgentStreamAbortTrigger: "取证：请在流式过程中断开上游",
 } as const;
