@@ -109,5 +109,15 @@ describe("durable approval", () => {
     expect(calls.request).toHaveBeenCalledTimes(1);
     await act(async () => { finish(); });
   });
+  it("renders the permission card for any non-form L2 tool, not only call_skill", async () => {
+    calls.read.mockResolvedValue({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "canvas-id", toolName: "wx_canvas_update", argsSummary: "canvas args" } });
+    calls.request.mockResolvedValue({ runId: "run", permissionRequestId: "canvas-id" });
+    render(<RestoredRunApproval runId="run" />);
+    await screen.findByTestId("chat-task-workbench-approval-card");
+    expect(screen.queryByText("确认请求暂时无法恢复，请重新加载任务后重试。")).toBeNull();
+    expect(screen.getByTestId("perm-intent")).toHaveTextContent("调用工具 wx_canvas_update");
+    fireEvent.click(await screen.findByRole("button", { name: "仅本次允许" }));
+    await waitFor(() => expect(calls.request).toHaveBeenCalledWith("/agent-runs/run/permission-requests/canvas-id/decision", expect.objectContaining({ body: { decision: "once" } })));
+  });
 
 });
