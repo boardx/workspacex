@@ -100,12 +100,24 @@ async function login(page: import("@playwright/test").Page): Promise<void> {
   await page.waitForURL(/\/projects$/, { waitUntil: "domcontentloaded" });
 }
 
+/**
+ * issue #3137 —— 这个 helper 曾经**直接**对 `ancestor::run-trace-panel` 下的 toggle 调
+ * `getAttribute()`。祖先不存在时该 locator 永远不解析，`getAttribute` 就一路等到
+ * 180s 用例超时——红得毫无信息，且**下面那两条业务断言一次都没执行过**。
+ * 现在先用 `count()` 判定祖先是否真的存在：存在才展开，不存在就直接抛出一条
+ * 指名道姓的错误（卡片挂在哪个容器里、面板一共有几个），红在 1 秒内、说清是什么。
+ */
 async function expandToolDetails(card: import("@playwright/test").Locator): Promise<void> {
   const panel = card.locator('xpath=ancestor::*[@data-testid="run-trace-panel"][1]');
+  if (await panel.count() === 0) {
+    const group = await card.locator('xpath=ancestor::*[@data-testid="copilotkit-v2-tool-calls-group"][1]').count();
+    throw new Error(`定制卡片不在任何 run-trace-panel 里（legacy 工具调用分组祖先 ${group} 个），`
+      + "说明这条消息没有绑定到本轮 run，同一次工具调用被渲染了两份——见 #3137。");
+  }
   const toggle = panel.getByTestId("run-trace-toggle");
   if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
   const details = card.locator("xpath=ancestor::details[1]");
-  if (await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
+  if (await details.count() > 0 && await details.getAttribute("open") === null) await details.locator(":scope > summary").click();
 }
 
 /** 与 `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同的预热手法——见该文件头注。 */
