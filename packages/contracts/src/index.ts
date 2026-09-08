@@ -63,6 +63,7 @@ export * as board from "./board";
 
 /* ── 系统异常自动捕获（平台超管只读 + 前端上报） ─────────────────────── */
 export * as systemErrorLogs from "./system-error-logs";
+export * as systemDebugTrace from "./system-debug-trace";
 
 /* ── 异步子任务派发（issue #2664）+ 后台任务面板（issue #2666）────────── */
 export * as subtaskRun from "./subtask-run";

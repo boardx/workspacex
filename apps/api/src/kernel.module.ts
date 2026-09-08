@@ -122,6 +122,11 @@ import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-confi
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
+import { DEBUG_TRACE_PORT } from "./application/ports/debug-trace.port";
+import { DebugRecorder, debugRecorderOptionsFromEnv } from "./application/diagnostics/debug-recorder";
+import { PgDebugEventStore } from "./infrastructure/diagnostics/pg-debug-event-store";
+import { DEBUG_REQUEST_RECORDER, DebugRequestRecorder } from "./interface/middleware/debug-request-recorder";
+import { SystemDebugTraceController } from "./interface/controllers/system-debug-trace.controller";
 import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
 import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
 import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
@@ -988,6 +993,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     MessageRatingController,
     FeedbackController,
     SystemErrorLogController,
+    SystemDebugTraceController,
     InboxController,
     DesignWorkbenchController,
     SystemMailController,
@@ -1023,6 +1029,24 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
       }),
       inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
+    },
+    // issue #3082 —— debug recorder：写 app_rw、读 app_diag_ro，同 ERROR_LOG_PORT 的两池分工。
+    {
+      provide: DEBUG_TRACE_PORT,
+      useFactory: (db: DatabasePort, readDb: DatabasePort, logger: LoggerPort) =>
+        new DebugRecorder(new PgDebugEventStore(db, readDb), {
+          ...debugRecorderOptionsFromEnv(),
+          onFlushError: (err) => logger.error("debug recorder flush failed (events stay buffered)", { traceId: "debug-recorder", err }),
+        }),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, LOGGER_PORT],
+    },
+    {
+      provide: DEBUG_REQUEST_RECORDER,
+      useFactory: (trace: DebugRecorder) => new DebugRequestRecorder(trace, {
+        slowMs: Number(process.env.DEBUG_TRACE_SLOW_MS) || undefined,
+        stallMs: Number(process.env.DEBUG_TRACE_STALL_MS) || undefined,
+      }),
+      inject: [DEBUG_TRACE_PORT],
     },
     {
       provide: RATE_LIMITER_PORT,

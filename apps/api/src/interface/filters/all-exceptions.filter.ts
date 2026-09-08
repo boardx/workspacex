@@ -19,6 +19,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Optional,
 } from "@nestjs/common";
 import {
   agentRuntime,
@@ -46,6 +47,7 @@ import {
 import type { Response } from "express";
 import { errorDetailOf, LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
+import { DEBUG_TRACE_PORT, type DebugTracePort } from "../../application/ports/debug-trace.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
 import { traceIdOf } from "../middleware/trace";
 
@@ -578,6 +580,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
   constructor(
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
     @Inject(ERROR_LOG_PORT) private readonly errorLog: ErrorLogPort,
+    /**
+     * issue #3082 —— 未处理异常同时记一条 `exception.unhandled` 到 debug recorder，让
+     * `GET /system/debug/traces/:traceId` 在同一条链路里既看到请求也看到异常。可选注入：
+     * 测试里不提供它时行为与此前逐字节相同。`record()` 同步、不抛（见端口头注）。
+     */
+    @Optional() @Inject(DEBUG_TRACE_PORT) private readonly debugTrace?: DebugTracePort,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -618,6 +626,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     //   specifically (not the `HttpException`/`ContractValidationError` branches above) is the
     //   one that gets persisted.
     void this.errorLog.record({ traceId, msg: "unhandled exception", detail: errorDetailOf(exception) }).catch(() => undefined);
+    this.debugTrace?.record({ traceId, kind: "exception.unhandled", level: "error", msg: "unhandled exception", data: errorDetailOf(exception) });
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: "internal_error", traceId });
   }
 }
