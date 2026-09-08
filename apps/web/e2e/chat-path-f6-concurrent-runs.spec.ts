@@ -58,11 +58,52 @@ test("@path:F6 两条线程同时跑：事件不串线、落库不互相覆盖",
       second.getByTestId("copilotkit-v2-send").click(),
     ]);
 
-    // ── 判据①：两条线程各自看到自己的回答 ──
-    await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(markerA, { timeout: 180_000 });
-    await expect(second.getByTestId("copilotkit-v2-messages")).toContainText(markerB, { timeout: 180_000 });
+    /*
+     * ── ① 先等**两条线程各自的 agent 回复真的落库** ──
+     *
+     * ⚠ 十跑（run 34244825704）暴露了原来这一步的两个空洞，一并修掉：
+     *
+     * · 原判据①写的是「两条线程各自看到自己的回答」，实际断言却是
+     *   `messages` 容器**包含 markerA**——而**用户自己刚发的那条消息**就含 markerA，
+     *   它在发送的一瞬间就满足了。这道门从来没有真的等到过"回答"。
+     *   （同 #3000 A 类根因那批"恒真的等待门"：判据写得对，断言落在了别的东西上。）
+     * · 原判据②「各自没有对方的标记」紧跟其后。在什么都还没到达时它**恒真**——
+     *   于是这条用例最核心的那句断言，可能在两个 run 都还没产出任何东西时就通过了。
+     *
+     * 改成先用**权威读**等到两条线程各自的 agent 回复落库：不满足就不往下走，
+     * 后面那两条"互不污染"的断言因此永远是在**双方都真的答过**的前提下判的。
+     */
+    const answered = async (p: typeof page, threadId: string, marker: string): Promise<boolean> => {
+      const messages = await storedMessages(p, threadId);
+      return messages.some((message) => message.authorKind === "agent" && message.text.includes(marker));
+    };
+    try {
+      await expect
+        .poll(async () => (await answered(page, threadA, markerA)) && (await answered(second, threadB, markerB)), {
+          timeout: 180_000,
+          intervals: [1_000, 2_000, 5_000],
+        })
+        .toBe(true);
+    } catch (failure) {
+      /*
+       * 等不到时，"A 的回答根本没产生"与"A 的回答落进了 B 那条线程"（=本用例要抓的串线）
+       * 从超时里分不出来。把两条线程的落库内容都摘进失败信息，让下一跑的红自带答案。
+       */
+      const dump = async (p: typeof page, threadId: string, name: string): Promise<string> => {
+        const messages = await storedMessages(p, threadId);
+        const lines = messages.map((m) => `    · [${m.authorKind}] run=${m.agentRunId ?? "-"} ${m.text.slice(0, 120).replace(/\n/g, "⏎")}`);
+        return `  线程 ${name}（${threadId}）落库 ${messages.length} 条：\n${lines.join("\n") || "    （空）"}`;
+      };
+      throw new Error(
+        `${failure instanceof Error ? failure.message : String(failure)}\n\n`
+        + `【诊断】等不到两条线程各自的 agent 回复。\n`
+        + `${await dump(page, threadA, "A")}\n${await dump(second, threadB, "B")}\n`
+        + "  A 的标记出现在 B 的线程里（或反之）⇒ 并发串线，是本用例要抓的路径缺陷；\n"
+        + "  两边都只有 human 没有 agent ⇒ 两个 run 都没产出，是环境/上游问题，不是串线。",
+      );
+    }
 
-    // ── 判据②：各自**没有**对方的东西（串线在①下恒绿，这一条才是本用例的核心）──
+    // ── 判据②：各自**没有**对方的东西（本用例的核心；此刻双方都已真的答过）──
     await expect(
       page.getByTestId("copilotkit-v2-messages"),
       "A 线程里出现了 B 线程的标记 = 并发时事件流按 agent 而不是按 thread 归拢",
