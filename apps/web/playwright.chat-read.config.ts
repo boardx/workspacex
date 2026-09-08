@@ -319,8 +319,12 @@ export default defineConfig({
        * 本轮（2026-09-08）依据的两趟：
        *   趟 1 = run 34210929521 job 102011484968（branch `verify/acceptance-303d00224`，
        *          34 passed / 13 failed）
-       *   趟 2 = run 34226380391（`main` 上 `workflow_dispatch -f run_chat_task_workbench=true`，
-       *          本 PR 为取证专门派发的一趟）
+       *   趟 2 = run 34226380391 job 102061423988（`main` 上
+       *          `workflow_dispatch -f run_chat_task_workbench=true -f run_e2e_full=false`，
+       *          本 PR 为取证专门派发的一趟，35 passed / 12 failed）
+       *
+       * 两趟差异本身就是证据：`approval` 与 `a11y` 两个文件的失败集合在两趟之间发生了
+       * 移动（A11Y-5 趟 1 红、趟 2 绿），这就是 #3047 说的顺序相关红——**一趟绿不能判稳定**。
        *
        * 本轮**搬进 `chat-read`（阻塞 `e2e-full`）**的 6 个 spec 文件（两趟中每一条用例都绿）：
        *   empty-state / capability-cards / composer / copy / polish / scroll-overshoot
@@ -342,9 +346,14 @@ export default defineConfig({
        *   - `inspector`        TW-P0-4② Inspector 按任务阶段自动切换页签。
        *   - `approval`         TW-P0-6③ 风险分级生效（纯读操作不得弹审批，反证面）。
        *   - `a11y`             TW-A11Y-5 审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处。
-       *                        ⚠ 这个文件里另外 7 条两趟都绿——但 `testMatch` 的粒度是
-       *                        **文件**，不是用例，所以整个文件只能等 A11Y-5 一起搬。想更早
-       *                        搬走那 7 条，正确动作是把 A11Y-5 拆成独立 spec 文件，不是在
+       *                        ⚠ **这一条正是「为什么要两趟」的活样本**：A11Y-5 趟 1 红、
+       *                        趟 2 绿（同一个 SHA 段、同一套替身，只是执行顺序不同），
+       *                        即 #3047 那 ~25% 顺序相关红。只看趟 2 会把整个 a11y 判成
+       *                        稳定绿搬进阻塞车道，然后它会在 main 上随机把 `e2e-full`
+       *                        打红——恰好是本裁决要避免的那种「恒红/随机红的门」。
+       *                        该文件另外 7 条两趟都绿，但 `testMatch` 的粒度是**文件**、
+       *                        不是用例，所以整个文件一起等。想更早搬走那 7 条，正确动作是
+       *                        把 A11Y-5 拆成独立 spec 文件（或先修掉它的顺序依赖），不是在
        *                        这里加一条按用例名过滤的第二套匹配器（第二套匹配器 = 同一
        *                        事实两处声明）。
        *
