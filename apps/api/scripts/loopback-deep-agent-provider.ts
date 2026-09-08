@@ -63,6 +63,24 @@ const TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_TOOL_NAME ?? "lookup_time";
 const STATUS_POLLS_BEFORE_DONE = Number(process.env.LOOPBACK_DEEP_AGENT_STATUS_POLLS ?? "2");
 const STREAM_GAP_MS = Number(process.env.LOOPBACK_DEEP_AGENT_STREAM_GAP_MS ?? "80");
 /**
+ * 十步滚动剧本每个「半步」之间的间隔（20 个半步 = 10 对工具调用）。
+ *
+ * ⚠ 这个旋钮存在的理由，是 2026-09-08 的一次实测反转（issue #3069）。在此之前
+ * 该剧本的推进游标是 `record.statusPolls`，而 `/stream` 在 EOF 时把 `statusPolls`
+ * 直接推到 `Number.MAX_SAFE_INTEGER`——于是十对工具调用**从不按剧本推进**，而是在
+ * 流结束后由 provider 的一次兜底 state 读**一次性全部吐出来**。基线 run
+ * 34198904439 的 trace 逐字取证：整轮 776ms，十个 `tool_start` 挤在 135ms 内。
+ *
+ * 那让两条 spec 断言的是替身根本不具备的性质：
+ *   · `agent-workbench-scroll-acceptance` 的「活动必须先于响应结束可见」；
+ *   · `agent-workbench-steering-acceptance` 的「轮询要抓到一个进行中的工具」。
+ * 两条都不是产品缺陷，是**替身的方言与上游不同**（同一类坑见
+ * `.harness/instructions/static-trace-vs-live-fact.md` 的 CRLF 案例）。
+ */
+const SCROLL_STEP_MS = Number(process.env.LOOPBACK_DEEP_AGENT_SCROLL_STEP_MS ?? "300");
+/** 十步剧本的半步总数：`index*2` 宣布第 index 个调用，`(index+1)*2` 落地它的回执。 */
+const SCROLL_TOTAL_HALF_STEPS = 20;
+/**
  * #742 Gap 1 取证旋钮——多步剧本默认（`STATUS_POLLS_BEFORE_DONE=2`）在第二次状态轮询
  * 就终态，`/state` 从第一次读起就是"完整"的（文件头注原话）：三次工具调用连同各自的
  * `ToolMessage` 结果同时出现，账本里 `in_progress` 行与终态行几乎在同一毫秒内落地，
@@ -289,6 +307,10 @@ interface RunRecord {
   readonly started: boolean;
   /** Per execution, retained by the existing resume branch and every state poll. */
   readonly scrollExecutionId?: string;
+  /** 十步滚动剧本的推进游标（半步数，0..`SCROLL_TOTAL_HALF_STEPS`）。
+   *  由 `/stream` 的定时器按 `SCROLL_STEP_MS` 推进，`/state` 只读它——**不再**复用
+   *  `statusPolls`，见 `SCROLL_STEP_MS` 头注记录的那次反转。 */
+  scrollHalfStep: number;
   readonly userText: string;
   statusPolls: number;
   /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
@@ -457,7 +479,7 @@ const server = createServer((req, res) => {
         requested = undefined;
       }
       const threadId = requested ?? randomUUID();
-      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, decision: null });
+      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, scrollHalfStep: 0, decision: null });
       sendJson(res, 200, { thread_id: threadId });
     });
     return;
@@ -504,6 +526,7 @@ const server = createServer((req, res) => {
         started: true,
         userText: lastUserText,
         scrollExecutionId: SCROLL_ACCEPTANCE_TRIGGER !== undefined && lastUserText === SCROLL_ACCEPTANCE_TRIGGER ? randomUUID() : undefined,
+        scrollHalfStep: 0,
         statusPolls: 0,
         decision: null,
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
@@ -613,6 +636,27 @@ const server = createServer((req, res) => {
         return;
       }
       if (idx >= pieces.length) {
+        // 十步滚动剧本：正文发完**流不结束**——真实 LangGraph 的 join 流在图还在跑
+        // 工具节点时保持打开，工具落地逐个以 `event: updates` 的 `{"tools": ...}` patch
+        // 发出来（形状锚点见 `deep-agent-model-provider.ts` `tryStreamRun` 头注引用的
+        // `01-sse-stream.txt` 实测采集）。此前这里直接 EOF + 把 `statusPolls` 推到
+        // MAX，十对调用于是全落到流后那一次兜底 state 读里一次性出现——见
+        // `SCROLL_STEP_MS` 头注。
+        if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+          && record.scrollHalfStep < SCROLL_TOTAL_HALF_STEPS) {
+          if (Date.now() < streamOpenedAt + holdMs + (record.scrollHalfStep + 1) * SCROLL_STEP_MS) return;
+          record.scrollHalfStep += 1;
+          // 半步为奇数 = 宣布第 index 个调用，偶数 = 它的回执落地。两者都是「tools
+          // 节点更新了 messages」，都该发一帧——`emitNewToolEvents` 自己按 `emitted`
+          // 去重，这里不替它判该不该记账。
+          const index = Math.floor((record.scrollHalfStep - 1) / 2);
+          const id = `scroll-${record.scrollExecutionId}-${index}`;
+          const message = record.scrollHalfStep % 2 === 1
+            ? { type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] }
+            : { type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` };
+          res.write(`event: updates\ndata: ${JSON.stringify({ tools: { messages: [message] } })}\n\n`);
+          return;
+        }
         clearInterval(timer);
         // LangGraph's join stream closes only after the remote run has settled. Mirror that
         // contract: the provider performs one authoritative status read immediately after
@@ -656,10 +700,14 @@ const server = createServer((req, res) => {
       const messages: unknown[] = [{ type: "human", content: record.userText }];
       for (let index = 0; index < 10; index += 1) {
         const id = `scroll-${record.scrollExecutionId}-${index}`;
-        if (record.statusPolls >= index * 2) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
-        if (record.statusPolls >= (index + 1) * 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
+        // 一个半步恰好落地一条新 message：奇数半步宣布第 index 个调用，紧接的偶数
+        // 半步落地它的回执。于是「宣布了但还没回执」这个状态真的存在整整一个
+        // `SCROLL_STEP_MS` 窗口——steering spec 的轮询要抓的正是它。此前的
+        // `index*2` / `(index+1)*2` 让两件事挤在同一个半步上，那个窗口宽度是 0。
+        if (record.scrollHalfStep >= index * 2 + 1) messages.push({ type: "ai", content: "", tool_calls: [{ id, name: "read_document", args: { path: `scroll-${index}.md` } }] });
+        if (record.scrollHalfStep >= index * 2 + 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
       }
-      if (record.statusPolls >= 20) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      if (record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
       sendJson(res, 200, { values: { messages } });
       return;
     }
