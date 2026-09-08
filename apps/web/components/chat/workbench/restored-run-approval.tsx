@@ -82,7 +82,11 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     <p role="status">{error ?? "等待服务端确认此请求，确认后即可继续。"}</p>
     <fieldset disabled><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>
   </section>;
-  if (request && request.toolName !== CALL_SKILL_TOOL_NAME) return <p role="alert">确认请求暂时无法恢复，请重新加载任务后重试。</p>;
+  // 任何没有可恢复表单（三个具名中断）的 L2 工具——`call_skill`、`wx_canvas_update`、
+  // `task` 等按 `tool-risk-tier.ts` 兜底为 L2 的工具——都走下面的授权卡。此前这里只放行
+  // `call_skill`，其余工具只渲染一句"无法恢复"的 alert（还挂在线程顶部），run 停在
+  // `awaiting_tool_permission` 却没有任何人能裁决；服务端 `decidePermissionRequest`
+  // 本来就接受所有非表单工具。
   if (!error && (run?.status !== "awaiting_tool_permission" || !request)) return null;
   return <section
     data-testid="restored-run-approval"
