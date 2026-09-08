@@ -1170,6 +1170,10 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-inbox-order-repository.ts` 的 ALLOWLIST 条目——`inbox_item_order` 一行只有
     // 「这个组织的这个 (kind,item_id) 排第几」这一个整数，不携带任何 D3 门控过的正文，
     // 豁免理由与前提见该条目自身注释，配套 `tests/inbox/inbox-order-repo-guard.test.ts`。
+    // ⚠ Raised 89 -> 90 by 2026-09-08（运营收件箱标签）：新增
+    // `pg-inbox-tag-repository.ts` 的 ALLOWLIST 条目——`inbox_item_tags` 一行只有
+    // 「这个组织的这个 (kind,item_id) 打了哪几个自由文本标签」，不携带任何 D3 门控过的正文，
+    // 形状与 `inbox_item_order` 完全一致，配套 `tests/inbox/inbox-tag-repo-guard.test.ts`。
     // Workbench entries are not bare exemptions: their source predicates are checked
     // by the production gate. Keep the existing bare-entry ceiling unchanged.
     const boundaryAudit = JSON.parse(execFileSync("node", ["--input-type=module", "-e", `
@@ -1196,7 +1200,7 @@ describe("lint-permission-paths: counter-proof", () => {
     }
     const total = Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1);
     expect(total).toBeGreaterThanOrEqual(boundaryAudit.rules.length);
-    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(89);
+    expect(total - boundaryAudit.rules.length).toBeLessThanOrEqual(90);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -35,6 +35,7 @@
  * `repo.updateLifecycle` 返回 `null`，这里抛 `SystemErrorConcurrentUpdateError`，
  * 由调用方（前端）刷新后重试——不是静默按一个已经过期的旧状态覆盖。
  */
+import { normalizeInboxTags } from "../../domain/inbox/tags";
 import { randomUUID } from "node:crypto";
 import type { ErrorLogPort, ErrorLogStatus } from "../ports/error-log.port";
 
@@ -119,7 +120,8 @@ export async function updateSystemErrorLifecycle(
     status: changingStatus ? (input.status as ErrorLogStatus) : undefined,
     statusReason: nextStatusReason,
     devNote: input.devNote,
-    tags: input.tags,
+    // 2026-09-08——与收件箱侧表共用同一条标签归一化规则（去空白/去空/去重）。
+    tags: input.tags === undefined ? undefined : normalizeInboxTags(input.tags),
   });
   if (written === null) throw new SystemErrorConcurrentUpdateError();
 

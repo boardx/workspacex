@@ -85,6 +85,7 @@ const feedbackItem: inbox.InboxItem = {
   submittedByMe: false,
   votedByMe: true,
   boardOrder: 0,
+  tags: [],
 };
 
 const exceptionItem: inbox.InboxItem = {
@@ -106,10 +107,14 @@ const exceptionItem: inbox.InboxItem = {
   attachments: [],
   linkedFeedbackId: null,
   resolvedByDesignId: null,
-  exception: { location: "/auth/callback", count: 12, affectedUsers: null, devNote: null, tags: [] },
+  exception: {
+    location: "/auth/callback", count: 12, affectedUsers: null, devNote: null,
+    lastSeenAt: "2026-09-04T09:00:00.000Z", occurrences: ["2026-09-04T09:00:00.000Z", "2026-09-04T08:00:00.000Z"],
+  },
   submittedByMe: false,
   votedByMe: false,
   boardOrder: 0,
+  tags: [],
 };
 
 describe("InboxItem -- 正例", () => {
@@ -122,7 +127,8 @@ describe("InboxItem -- 正例", () => {
   it("系统异常：devNote 有值、tags 非空仍合法（2026-09-05 补投影）", () => {
     const r = inbox.InboxItem.safeParse({
       ...exceptionItem,
-      exception: { ...exceptionItem.exception, devNote: "转给 @a：登录回调拿不到 code", tags: ["auth", "P1"] },
+      exception: { ...exceptionItem.exception, devNote: "转给 @a：登录回调拿不到 code" },
+      tags: ["auth", "P1"],
     });
     expect(r.success).toBe(true);
   });
@@ -149,7 +155,7 @@ describe("InboxItem -- 正例", () => {
 
 describe("InboxItem -- 反例", () => {
   it("strict：多一个未声明的键即拒", () => {
-    expect(inbox.InboxItem.safeParse({ ...feedbackItem, tags: [] }).success).toBe(false);
+    expect(inbox.InboxItem.safeParse({ ...feedbackItem, extra: [] }).success).toBe(false);
   });
   it("code 前缀不在 B/R/E/D 闭集里即拒；缺连字符即拒", () => {
     expect(inbox.InboxItem.safeParse({ ...feedbackItem, code: "X-1" }).success).toBe(false);
@@ -174,14 +180,40 @@ describe("InboxItem -- 反例", () => {
         .success,
     ).toBe(false);
   });
-  it("exception.tags 必须是数组、devNote 必须显式给出（未打标签是 []，不是省略/null）", () => {
+  it("tags 必须是数组、devNote 必须显式给出（未打标签是 []，不是省略/null）", () => {
     const { devNote: _d, ...noDevNote } = exceptionItem.exception!;
     expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noDevNote }).success).toBe(false);
-    const { tags: _t, ...noTags } = exceptionItem.exception!;
-    expect(inbox.InboxItem.safeParse({ ...exceptionItem, exception: noTags }).success).toBe(false);
+    const { tags: _t, ...noTags } = exceptionItem;
+    expect(inbox.InboxItem.safeParse(noTags).success).toBe(false);
+    expect(inbox.InboxItem.safeParse({ ...exceptionItem, tags: null }).success).toBe(false);
+  });
+  it("exception.occurrences 至少 1 条、最多 INBOX_EXCEPTION_OCCURRENCES_LIMIT 条", () => {
     expect(
-      inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, tags: null } }).success,
+      inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, occurrences: [] } }).success,
     ).toBe(false);
+    const tooMany = Array.from({ length: inbox.INBOX_EXCEPTION_OCCURRENCES_LIMIT + 1 }, () => "2026-09-04T08:00:00.000Z");
+    expect(
+      inbox.InboxItem.safeParse({ ...exceptionItem, exception: { ...exceptionItem.exception, occurrences: tooMany } }).success,
+    ).toBe(false);
+  });
+  it("isArchivedInboxItem：只有反馈的 已归档 为真（不做 / 系统异常都不是归档）", () => {
+    expect(inbox.isArchivedInboxItem({ kind: "feedback", sourceStatus: "已归档" })).toBe(true);
+    expect(inbox.isArchivedInboxItem({ kind: "feedback", sourceStatus: "不做" })).toBe(false);
+    expect(inbox.isArchivedInboxItem({ kind: "exception", sourceStatus: "不做" })).toBe(false);
+  });
+  it("setInboxItemTags.in：kind 不许是 exception；标签去空白后非空、≤ 32 字符、≤ 20 个", () => {
+    const op = inbox.operations.setInboxItemTags.in;
+    expect(op.safeParse({ kind: "feedback", id: "fb-1", tags: [" auth ", "P1"] }).success).toBe(true);
+    expect(op.safeParse({ kind: "exception", id: "1", tags: [] }).success).toBe(false);
+    expect(op.safeParse({ kind: "feedback", id: "fb-1", tags: ["  "] }).success).toBe(false);
+    expect(op.safeParse({ kind: "feedback", id: "fb-1", tags: ["x".repeat(33)] }).success).toBe(false);
+    expect(op.safeParse({ kind: "feedback", id: "fb-1", tags: Array.from({ length: 21 }, (_, i) => `t${i}`) }).success).toBe(false);
+  });
+  it("listInbox.in：view 只认 active/archived，tag 走 InboxTag 约束", () => {
+    const op = inbox.operations.listInbox.in;
+    expect(op.safeParse({ view: "archived", tag: "auth" }).success).toBe(true);
+    expect(op.safeParse({ view: "all" }).success).toBe(false);
+    expect(op.safeParse({ tag: "" }).success).toBe(false);
   });
   it("votes 不许为负；github.number 必须为正整数", () => {
     expect(inbox.InboxItem.safeParse({ ...feedbackItem, votes: -1 }).success).toBe(false);
@@ -265,9 +297,12 @@ describe("操作形状", () => {
       byStage: { backlog: 1, doing: 2, done: 3, archived: 4 },
       byKind: { feedback: 10, exception: 0, design: 0 },
       total: 10,
+      archived: 2,
+      byTag: [{ tag: "auth", count: 3 }],
       sources: { exception: "included" },
     };
     expect(out.safeParse(ok).success).toBe(true);
+    expect(out.safeParse({ ...ok, byTag: [{ tag: "auth", count: 0 }] }).success).toBe(false);
     expect(out.safeParse({ ...ok, byStage: { backlog: 1, doing: 2, done: 3 } }).success).toBe(false);
   });
 });

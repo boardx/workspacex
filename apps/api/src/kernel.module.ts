@@ -543,6 +543,8 @@ import { SystemErrorLogController } from "./interface/controllers/system-error-l
 import { InboxController } from "./interface/controllers/inbox.controller";
 import { INBOX_ORDER_REPOSITORY } from "./application/inbox/inbox-order.port";
 import { PgInboxOrderRepository } from "./infrastructure/inbox/pg-inbox-order-repository";
+import { INBOX_TAG_REPOSITORY } from "./application/inbox/inbox-tags.port";
+import { PgInboxTagRepository } from "./infrastructure/inbox/pg-inbox-tag-repository";
 import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
@@ -2646,6 +2648,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: INBOX_ORDER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgInboxOrderRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 2026-09-08——收件箱反馈 / 设计方案标签侧表，同上按组织构造。
+    {
+      provide: INBOX_TAG_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInboxTagRepository(db),
       inject: [DATABASE_PORT],
     },
     // 2026-08-30："转开发"建 GitHub issue + 任意分诊转移发状态变更邮件（ADR-108）。

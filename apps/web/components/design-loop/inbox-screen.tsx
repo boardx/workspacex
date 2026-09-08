@@ -1,50 +1,35 @@
 "use client";
 import * as React from "react";
-import {
-  LayoutList, Columns3, Search, X, Sparkles, Play, Check, Undo2, Ban, ShieldAlert, PlugZap, Loader2, Lock, Github,
-  MoreHorizontal, Eye, Paperclip, MessageSquare, Mail, ChevronUp, ChevronDown,
-} from "lucide-react";
+import { LayoutList, Columns3, Search, ShieldAlert, PlugZap, Lock, Eye, ChevronUp, ChevronDown, Archive, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Menu, MenuTrigger, MenuContent, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
-import { ApiError } from "@/lib/api-client";
 import {
   getInboxCounts,
   listInbox,
   reorderInboxItem,
+  setInboxItemTags,
   INBOX_KIND_LABEL,
   INBOX_KIND_OPTIONS,
   INBOX_STAGE_LABEL,
   INBOX_STAGE_ORDER,
+  isArchivedInboxItem,
   type GetInboxCountsOut,
-  type InboxGithubRef,
   type InboxItem,
   type InboxKind,
   type InboxStage,
+  type InboxView,
 } from "@/lib/live-inbox";
 import { canArchiveInboxItem, moveAdjacent, reorderIds, sortByBoardOrder } from "./board-reorder";
-import {
-  triageFeedback,
-  listFeedbackStatusEvents,
-  getFeedbackGithubIssue,
-  listFeedbackGithubIssueComments,
-  commentOnFeedbackGithubIssue,
-  deepenFeedback,
-  type FeedbackStatus,
-  type FeedbackStatusEvent,
-  type FeedbackGithubIssueStatus,
-  type FeedbackIssueDraft,
-  type GithubIssueComment,
-} from "@/lib/live-feedback";
+import { triageFeedback, getFeedbackGithubIssue, deepenFeedback, type FeedbackStatus, type FeedbackIssueDraft } from "@/lib/live-feedback";
 import { createDesignGithubIssue } from "@/lib/live-design-workbench";
-import { STRUCTURED_FIELDS } from "@/components/feedback/feedback-structured";
 import { updateSystemErrorLifecycle, type SystemErrorStatus } from "@/lib/live-system-errors";
-import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
-import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
-import { useDialogFocus } from "./use-dialog-focus";
+import { GithubBadge, SevereBadge } from "./badges";
+import { CardMeta, ExceptionRecurrence, HIGHLIGHT_CLASS, KindLabel, LoadMoreBar, QuickActionMenu, describeFailure, type NavigateLink } from "./inbox-shared";
+import { InboxDrawer } from "./inbox-drawer";
+import { InboxListView, type StageFilter } from "./inbox-list-view";
+import { TagEditor } from "./inbox-tags";
 
 /**
  * UC-17.8 B3.4 —— 运营收件箱，**真栈**（契约 `inbox`：`listInbox` / `getInboxCounts`）。
@@ -107,10 +92,22 @@ import { useDialogFocus } from "./use-dialog-focus";
  *     拖拽能做而按钮没有的边（如 done → doing）在服务端本来就是 `ILLEGAL_TRANSITION`，
  *     拖过去只会回滚——所以按钮集**不是**拖拽的子集，是合法边的全集。
  *     `tests/ui/design-loop.test.tsx` ⑪ 逐格断言这张表，改状态机请同步。
+ *   · **2026-09-08 五条人类指令（截图复盘）**：
+ *       ① 同一系统异常只显示一条——服务端按 `msg` 折叠（契约 `InboxExceptionMeta` 头注），卡片上
+ *          显示「×N · 最近 <时间>」，drawer 里有「发生记录」；前端不再为重复行各画一张卡。
+ *       ② 列高与卡片一致——看板容器 `min-h-0` 吃满剩余高度，**每一列自己滚动**（列头固定），
+ *          卡片永远在列的底色之内，不会堆出列的范围；四列等高。
+ *       ③ 归档有处可看——`已归档` 的反馈离开看板（服务端默认视图不含它，见契约
+ *          `isArchivedInboxItem`），工具条的「归档箱」按钮切到 `view: "archived"` 的列表视图，
+ *          「重新打开」把它送回待处理。
+ *       ④ 列表视图重做——见 `inbox-list-view.tsx` 头注。
+ *       ⑤ 标签——卡片 / 行 / drawer 三处同一份 `TagEditor` 增删（写路径按 `kind` 选：异常走
+ *          `updateSystemErrorLifecycle`，反馈 / 设计方案走 `setInboxItemTags`），工具条下方按
+ *          `counts.byTag` 渲染标签筛选 Chip，点卡片上的标签也能筛（服务端 `tag` 参数，分页之前）。
+ *     文件按 2000 行纪律拆成 `inbox-shared.tsx` / `inbox-drawer.tsx` / `inbox-list-view.tsx` / `inbox-tags.tsx`。
  */
 
 type KindFilter = "all" | InboxKind;
-type StageFilter = "all" | InboxStage;
 
 const KIND_FILTERS: readonly KindFilter[] = ["all", ...INBOX_KIND_OPTIONS];
 const SEARCH_DEBOUNCE_MS = 300;
@@ -123,14 +120,8 @@ export const INBOX_REFRESH_MS = 2 * 60 * 1000;
 /** 附件上传警告是"issue 建了但文件没带过去"这种要人处理的事，比一般提示停留更久。 */
 const WARNING_NOTICE_MS = 12000;
 
-/** B3.7——关联跳转回调：`targetId` 是契约 `InboxItem.id`，`label` 只用于提示文案。 */
-type NavigateLink = (targetId: string, label: string) => void;
-
-function describeFailure(err: unknown): string {
-  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
-  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return String(err);
-}
+/** 工具条下方标签筛选 Chip 最多展示这么多个（其余在「更多」里），避免标签多了把工具条挤成两屏。 */
+const TAG_CHIP_LIMIT = 12;
 
 /** 拖拽落点换算成源状态机的目标状态；`null` = 这条边不存在（前端不发请求）。 */
 function feedbackStatusForStage(stage: InboxStage): FeedbackStatus | null {
@@ -187,6 +178,12 @@ export function DesignLoopInboxScreen({
   const [showExceptionsInAll, setShowExceptionsInAll] = React.useState(false);
   const hidingExceptions = kindFilter === "all" && !showExceptionsInAll;
   const [stageFilter, setStageFilter] = React.useState<StageFilter>("all");
+  /** 2026-09-08 ③——`archived` = 归档箱（服务端 `view`），只有列表视图。 */
+  const [inboxView, setInboxView] = React.useState<InboxView>("active");
+  const archivedView = inboxView === "archived";
+  /** 2026-09-08 ⑤——标签筛选（服务端 `tag`），`null` = 不筛。 */
+  const [tagFilter, setTagFilter] = React.useState<string | null>(null);
+  const [showAllTags, setShowAllTags] = React.useState(false);
   const [queryInput, setQueryInput] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
@@ -229,13 +226,15 @@ export function DesignLoopInboxScreen({
         kind: kindFilter === "all" ? undefined : kindFilter,
         excludeKind: hidingExceptions ? "exception" : undefined,
         q: query === "" ? undefined : query,
+        tag: tagFilter ?? undefined,
+        view: inboxView,
         limit: PAGE_LIMIT,
       });
       setLoad({ kind: "ready", items: [...out.items], nextCursor: out.nextCursor, sources: out.sources });
     } catch (err) {
       setLoad({ kind: "failed", reason: describeFailure(err) });
     }
-  }, [kindFilter, hidingExceptions, query]);
+  }, [kindFilter, hidingExceptions, query, tagFilter, inboxView]);
 
   const reloadCounts = React.useCallback(async () => {
     try {
@@ -262,7 +261,14 @@ export function DesignLoopInboxScreen({
   const refreshSilently = React.useCallback(async () => {
     try {
       const [out, nextCounts] = await Promise.all([
-        listInbox({ kind: kindFilter === "all" ? undefined : kindFilter, q: query === "" ? undefined : query, limit: PAGE_LIMIT }),
+        listInbox({
+          kind: kindFilter === "all" ? undefined : kindFilter,
+          excludeKind: hidingExceptions ? "exception" : undefined,
+          q: query === "" ? undefined : query,
+          tag: tagFilter ?? undefined,
+          view: inboxView,
+          limit: PAGE_LIMIT,
+        }),
         getInboxCounts().catch(() => null),
       ]);
       setLoad((prev) => {
@@ -277,7 +283,7 @@ export function DesignLoopInboxScreen({
     } catch {
       /* 定时刷新是锦上添花：这一轮失败就等下一轮，不打断用户正在做的事 */
     }
-  }, [kindFilter, query]);
+  }, [kindFilter, hidingExceptions, query, tagFilter, inboxView]);
 
   React.useEffect(() => {
     if (state !== "default") return;
@@ -293,6 +299,8 @@ export function DesignLoopInboxScreen({
         kind: kindFilter === "all" ? undefined : kindFilter,
         excludeKind: hidingExceptions ? "exception" : undefined,
         q: query === "" ? undefined : query,
+        tag: tagFilter ?? undefined,
+        view: inboxView,
         limit: PAGE_LIMIT,
         cursor: load.nextCursor,
       });
@@ -319,8 +327,19 @@ export function DesignLoopInboxScreen({
   const onlyExceptionsHidden = hidingExceptions && query === "" && (counts?.byKind.exception ?? 0) > 0;
 
   const filtered = visibleItems.filter(
-    (i) => stageFilter === "all" || i.stage === stageFilter,
+    (i) => archivedView || stageFilter === "all" || i.stage === stageFilter,
   );
+  /** 标签 Chip 的来源是 `counts.byTag`（活跃条目全集，服务端算），当前筛选中的标签即使不在前 N 也要显示。 */
+  const tagChips = React.useMemo(() => {
+    const all = counts?.byTag ?? [];
+    const shown = showAllTags ? all : all.slice(0, TAG_CHIP_LIMIT);
+    if (tagFilter !== null && !shown.some((t) => t.tag === tagFilter)) {
+      const found = all.find((t) => t.tag === tagFilter);
+      return [...shown, found ?? { tag: tagFilter, count: 0 }];
+    }
+    return shown;
+  }, [counts, showAllTags, tagFilter]);
+  const hiddenTagCount = Math.max(0, (counts?.byTag.length ?? 0) - TAG_CHIP_LIMIT);
   // drawer 按 id 查找仍然在完整 `items` 里找——已经打开的一条不该因为开关状态变化而消失。
   const open = items.find((i) => i.id === openId) ?? null;
 
@@ -354,6 +373,24 @@ export function DesignLoopInboxScreen({
 
   const replaceItem = (id: string, patch: Partial<InboxItem>) =>
     setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: prev.items.map((i) => (i.id === id ? { ...i, ...patch } : i)) } : prev));
+
+  /** 条目离开当前视图（归档 / 从归档箱重新打开）：本地直接移除，不等下一次轮询。 */
+  const removeItem = (id: string) =>
+    setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: prev.items.filter((i) => i.id !== id) } : prev));
+
+  /** 归档箱条数乐观跟随（`counts.archived` 与 `byStage`/`total` 互斥，见契约 `getInboxCounts` 头注）。 */
+  const bumpArchived = (delta: number, activeStage: InboxStage) =>
+    setCounts((prev) =>
+      prev === null
+        ? prev
+        : {
+            ...prev,
+            archived: Math.max(0, prev.archived + delta),
+            total: Math.max(0, prev.total - delta),
+            byKind: { ...prev.byKind, feedback: Math.max(0, prev.byKind.feedback - delta) },
+            byStage: { ...prev.byStage, [activeStage]: Math.max(0, prev.byStage[activeStage] - delta) },
+          },
+    );
 
   /** 列头数字乐观跟随：拿到 `getInboxCounts` 之后，挪列/不做时本地同步 -1/+1，不用等下一次轮询。 */
   const bumpStageCount = (from: InboxStage, to: InboxStage) =>
@@ -389,8 +426,16 @@ export function DesignLoopInboxScreen({
     }
     const status = item.kind === "feedback" ? feedbackStatusForStage(targetStage) : exceptionStatusForStage(targetStage);
     if (status === null) return;
-    replaceItem(item.id, { stage: targetStage });
-    bumpStageCount(prevStage, targetStage);
+    // 2026-09-08 ③——归档箱里「重新打开」：这条会离开归档箱回到看板，本地直接移除 + 计数跟随；
+    // 失败时把它放回列表（`items` 是按 id 合并的，放回原对象即可）。
+    const leavingArchive = isArchivedInboxItem(item);
+    if (leavingArchive) {
+      removeItem(item.id);
+      bumpArchived(-1, targetStage);
+    } else {
+      replaceItem(item.id, { stage: targetStage });
+      bumpStageCount(prevStage, targetStage);
+    }
     setBusyId(item.id);
     try {
       if (item.kind === "feedback") {
@@ -398,10 +443,16 @@ export function DesignLoopInboxScreen({
       } else {
         await updateSystemErrorLifecycle(item.id, { status: status as SystemErrorStatus });
       }
-      flashSaved(`已移动到「${INBOX_STAGE_LABEL[targetStage]}」`);
+      flashSaved(leavingArchive ? `已重新打开，回到「${INBOX_STAGE_LABEL[targetStage]}」` : `已移动到「${INBOX_STAGE_LABEL[targetStage]}」`);
+      if (leavingArchive) setOpenId(null);
     } catch (err) {
-      replaceItem(item.id, { stage: prevStage });
-      bumpStageCount(targetStage, prevStage);
+      if (leavingArchive) {
+        setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [item, ...prev.items] } : prev));
+        bumpArchived(1, targetStage);
+      } else {
+        replaceItem(item.id, { stage: prevStage });
+        bumpStageCount(targetStage, prevStage);
+      }
       setDragError(`没能移动这条（${describeFailure(err)}），已恢复原状态`);
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
@@ -516,16 +567,19 @@ export function DesignLoopInboxScreen({
   const archiveItem = async (item: InboxItem) => {
     if (!canArchiveInboxItem(item)) return;
     const prevStage = item.stage;
-    replaceItem(item.id, { stage: "archived" });
-    bumpStageCount(prevStage, "archived");
+    // 2026-09-08 ③——归档 = 离开看板进「归档箱」（服务端默认视图不含已归档，见契约
+    // `isArchivedInboxItem`），不再挪到「不做」列；本地直接移除 + 归档箱计数 +1。
+    removeItem(item.id);
+    bumpArchived(1, prevStage);
+    if (openId === item.id) setOpenId(null);
     setBusyId(item.id);
     try {
       await triageFeedback(item.id, "已归档", null, null);
-      flashSaved("已归档");
+      flashSaved("已归档，可在「归档箱」里查看");
     } catch (err) {
-      replaceItem(item.id, { stage: prevStage });
-      bumpStageCount("archived", prevStage);
-      setDragError(`没能归档（${describeFailure(err)}）`);
+      setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [item, ...prev.items] } : prev));
+      bumpArchived(-1, prevStage);
+      setDragError(`没能归档（${describeFailure(err)}），已恢复`);
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
@@ -564,38 +618,62 @@ export function DesignLoopInboxScreen({
   };
 
   /**
-   * 2026-09-05——系统异常的「开发备注 / 标签」保存。
+   * 2026-09-05——系统异常的「开发备注」保存。
    *
    * 写路径**复用**已经存在的 `updateSystemErrorLifecycle`（`PUT /system/error-logs/:id`），
-   * 不新增操作：契约头注写明「`status` 省略 = 不改状态，只改 `devNote`/`tags`」，这正是
-   * 这里要的那一种调用。⚠ 一定不能顺手带上 `statusReason`——契约的 `REASON_REQUIRES_STATUS`
-   * 会拒（理由只属于「不做」那一个状态，见 `update-system-error-lifecycle.ts` 头注①），
-   * 而且这个入口本来也不是改状态的地方。
-   *
-   * 乐观更新同 `applyTransition`：先落本地，失败回滚成调用前的值（不是回滚成 `null`——
-   * 那会把用户上一次已经保存成功的备注抹掉）。
+   * 不新增操作：契约头注写明「`status` 省略 = 不改状态，只改 `devNote`/`tags`」。⚠ 一定不能
+   * 顺手带上 `statusReason`——契约的 `REASON_REQUIRES_STATUS` 会拒。
+   * 乐观更新同 `applyTransition`：先落本地，失败回滚成调用前的值。
    */
-  const saveExceptionDev = async (item: InboxItem, patch: { devNote?: string | null; tags?: readonly string[] }) => {
+  const saveExceptionDev = async (item: InboxItem, patch: { devNote?: string | null }) => {
     if (item.kind !== "exception" || item.exception === null) return;
-    const before = { devNote: item.exception.devNote, tags: item.exception.tags };
+    const before = item.exception;
     setBusyId(item.id);
     try {
       await updateSystemErrorLifecycle(item.id, patch);
-      replaceItem(item.id, {
-        exception: {
-          ...item.exception,
-          devNote: patch.devNote !== undefined ? patch.devNote : before.devNote,
-          tags: patch.tags !== undefined ? [...patch.tags] : before.tags,
-        },
-      });
-      flashSaved(patch.tags !== undefined ? "标签已保存" : "开发备注已保存");
+      replaceItem(item.id, { exception: { ...before, devNote: patch.devNote !== undefined ? patch.devNote : before.devNote } });
+      flashSaved("开发备注已保存");
     } catch (err) {
-      replaceItem(item.id, { exception: { ...item.exception, ...before } });
+      replaceItem(item.id, { exception: before });
       setDragError(`没能保存（${describeFailure(err)}）`);
       window.setTimeout(() => setDragError(null), 3000);
     } finally {
       setBusyId(null);
     }
+  };
+
+  /**
+   * 2026-09-08 ⑤——标签保存，三类共用一个入口、**按 `kind` 选写路径**（契约 `InboxItem` 头注「`tags`」）：
+   * 系统异常 → `updateSystemErrorLifecycle(id, { tags })`（`error_logs.tags`）；
+   * 反馈 / 设计方案 → `setInboxItemTags(kind, id, tags)`（侧表 `inbox_item_tags`）。
+   * 乐观更新 + 失败回滚；成功后重拉一次计数，让工具条的标签 Chip 立刻出现新标签。
+   */
+  const saveTags = async (item: InboxItem, tags: readonly string[]) => {
+    const before = item.tags;
+    replaceItem(item.id, { tags: [...tags] });
+    setBusyId(item.id);
+    try {
+      if (item.kind === "exception") {
+        await updateSystemErrorLifecycle(item.id, { tags });
+      } else {
+        const out = await setInboxItemTags(item.kind, item.id, tags);
+        replaceItem(item.id, { tags: [...out.tags] });
+      }
+      flashSaved("标签已保存");
+      void reloadCounts();
+    } catch (err) {
+      replaceItem(item.id, { tags: before });
+      setDragError(`没能保存标签（${describeFailure(err)}）`);
+      window.setTimeout(() => setDragError(null), 3000);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /** 点卡片 / 行 / drawer / Chip 上的标签 ⇒ 按它筛选（再点一次同一个 = 取消）。 */
+  const filterByTag = (tag: string | null) => {
+    setTagFilter((prev) => (prev === tag ? null : tag));
+    setOpenId(null);
   };
 
   /**
@@ -690,11 +768,11 @@ export function DesignLoopInboxScreen({
           {warning}
         </div>
       )}
-      {/* 工具条：视图切换 + 类型 chip + 搜索 */}
+      {/* 工具条：视图切换 + 类型 chip + 归档箱 + 搜索 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
         <div className="flex items-center gap-0.5 rounded-control border border-border p-0.5">
-          <ViewToggle active={view === "board"} onClick={() => setView("board")} testid="inbox-view-board" icon={Columns3} label="看板" />
-          <ViewToggle active={view === "list"} onClick={() => setView("list")} testid="inbox-view-list" icon={LayoutList} label="列表" />
+          <ViewToggle active={view === "board" && !archivedView} disabled={archivedView} onClick={() => setView("board")} testid="inbox-view-board" icon={Columns3} label="看板" />
+          <ViewToggle active={view === "list" || archivedView} onClick={() => setView("list")} testid="inbox-view-list" icon={LayoutList} label="列表" />
         </div>
         <div className="flex flex-wrap items-center gap-1" role="group" aria-label="类型筛选">
           {KIND_FILTERS.map((f) => {
@@ -719,7 +797,7 @@ export function DesignLoopInboxScreen({
                 >
                   {disabled && <Lock aria-hidden className="h-3 w-3" />}
                   {f === "all" ? "全部" : INBOX_KIND_LABEL[f]}
-                  {count !== null && <span className="text-10 opacity-70">{count}</span>}
+                  {count !== null && !archivedView && <span className="text-10 opacity-70">{count}</span>}
                 </button>
               </span>
             );
@@ -731,7 +809,7 @@ export function DesignLoopInboxScreen({
           )}
           {/* issue #2752 ①——「全部」视图默认滤掉系统异常，这个开关是唯一的显式切回入口。
               只在 kindFilter === "all" 时有意义：单独选中「系统异常」chip 已经是另一种「切换查看」。 */}
-          {kindFilter === "all" && exceptionWithheld !== true && (
+          {kindFilter === "all" && exceptionWithheld !== true && !archivedView && (
             <button
               type="button"
               aria-pressed={showExceptionsInAll}
@@ -749,6 +827,21 @@ export function DesignLoopInboxScreen({
             </button>
           )}
         </div>
+        {/* 2026-09-08 ③——归档箱入口：切到 `view: "archived"`（只有列表视图），徽标是 `counts.archived`。 */}
+        <button
+          type="button"
+          aria-pressed={archivedView}
+          onClick={() => { setInboxView((v) => (v === "archived" ? "active" : "archived")); setOpenId(null); }}
+          data-testid="inbox-toggle-archived"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-control border px-2.5 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            archivedView ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted",
+          )}
+        >
+          <Archive aria-hidden className="h-3 w-3" />
+          归档箱
+          {counts !== null && <span className="text-10 opacity-70" data-testid="inbox-archived-count">{counts.archived}</span>}
+        </button>
         <div className="relative ml-auto">
           <Search aria-hidden className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -760,15 +853,57 @@ export function DesignLoopInboxScreen({
           />
         </div>
       </div>
+      {/* 2026-09-08 ⑤——标签筛选：来源是 `counts.byTag`（活跃条目全集）。没有任何标签时整行不渲染。 */}
+      {(tagChips.length > 0 || tagFilter !== null) && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2" role="group" aria-label="标签筛选" data-testid="inbox-tag-filter">
+          <Tag aria-hidden className="mr-0.5 h-3.5 w-3.5 text-muted-foreground" />
+          {tagChips.map(({ tag, count }) => (
+            <button
+              key={tag}
+              type="button"
+              aria-pressed={tagFilter === tag}
+              onClick={() => filterByTag(tag)}
+              data-testid={`inbox-tag-filter-${tag}`}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-control border px-2 py-0.5 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                tagFilter === tag ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted",
+              )}
+            >
+              {tag}
+              <span className="text-10 opacity-70">{count}</span>
+            </button>
+          ))}
+          {hiddenTagCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllTags((v) => !v)}
+              data-testid="inbox-tag-filter-more"
+              className="rounded-control px-1.5 py-0.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {showAllTags ? "收起" : `还有 ${hiddenTagCount} 个…`}
+            </button>
+          )}
+          {tagFilter !== null && (
+            <button
+              type="button"
+              onClick={() => filterByTag(null)}
+              data-testid="inbox-tag-filter-clear"
+              className="ml-1 inline-flex items-center gap-0.5 rounded-control px-1.5 py-0.5 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X aria-hidden className="h-3 w-3" /> 清除标签筛选
+            </button>
+          )}
+        </div>
+      )}
 
-      {items.length === 0 && !onlyExceptionsHidden ? (
+      {items.length === 0 && !onlyExceptionsHidden && !archivedView ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty">
           <p className="text-14 font-medium">收件箱是空的</p>
           <p className="text-12 text-muted-foreground">
-            {kindFilter !== "all" || query !== "" ? "没有符合当前筛选的条目。" : "用户提交需求 / 缺陷反馈或推送设计方案后，都会汇总到这里；系统异常单独查看。"}
+            {kindFilter !== "all" || query !== "" || tagFilter !== null ? "没有符合当前筛选的条目。" : "用户提交需求 / 缺陷反馈或推送设计方案后，都会汇总到这里；系统异常单独查看。"}
           </p>
         </div>
-      ) : visibleItems.length === 0 ? (
+      ) : visibleItems.length === 0 && !archivedView ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1 p-16 text-center" data-testid="empty-hidden-exceptions">
           <p className="text-14 font-medium">当前只有系统异常，已默认隐藏</p>
           <button
@@ -780,18 +915,19 @@ export function DesignLoopInboxScreen({
             显示系统异常
           </button>
         </div>
-      ) : view === "board" ? (
-        <div className="flex flex-1 flex-col overflow-hidden">
+      ) : view === "board" && !archivedView ? (
+        <div className="flex min-h-0 flex-1 flex-col">
           {/* B6.5 无障碍：拖拽的键盘替代说明（视觉隐藏）。每张卡片 aria-describedby 指到它——
               拖拽本身没有键盘等价操作，等价操作是「打开详情 → 操作按钮」，得告诉读屏用户去哪。 */}
           <p id="inbox-drag-hint" className="sr-only">
             拖动卡片到另一列可以改变状态。键盘用户：按 Enter 或空格打开详情，详情里的操作按钮提供同样的状态迁移。
           </p>
-          {/* B6.5 响应式（U8）：md 以下四列横向可滚（列容器自己 overflow-x-auto，页面不横向溢出），
-              md 及以上四列并排——375 下四列并排每列只剩 ~75px，编号/类型/徽标全挤成竖条，不算"能看"。
-              这里的横向滚动是写出来的设计（data-allow-x-scroll），不是从 computed style 猜的放行。 */}
+          {/* 2026-09-08 ②——看板容器 `min-h-0 flex-1` 吃满屏幕剩余高度，四列等高；**每一列自己滚动**
+              （列头固定在列顶），卡片再多也只在列的底色范围内滚，不会堆出列外。
+              B6.5 响应式（U8）：md 以下四列横向可滚（列容器自己 overflow-x-auto，页面不横向溢出），
+              md 及以上四列并排——这里的横向滚动是写出来的设计（data-allow-x-scroll），不是从 computed style 猜的放行。 */}
           <div
-            className="flex flex-1 gap-3 overflow-x-auto overflow-y-auto p-4 md:grid md:grid-cols-4"
+            className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4 md:grid md:grid-cols-4"
             data-testid="inbox-board"
             data-allow-x-scroll="看板四列在 md 以下横向滚动是设计，不是内容被裁"
           >
@@ -800,7 +936,7 @@ export function DesignLoopInboxScreen({
               // 不动这个值,所以刚被拖进来的卡片仍按它旧的 `boardOrder` 落座,不是恒在列尾/列首。
               const colItems = sortByBoardOrder(filtered.filter((i) => i.stage === col));
               const colIds = colItems.map((i) => i.id);
-              const colCount = counts === null || hidingExceptions ? colItems.length : counts.byStage[col];
+              const colCount = counts === null || hidingExceptions || tagFilter !== null ? colItems.length : counts.byStage[col];
               /** 同列内拖拽 = 排序；跨列拖拽 = 状态迁移。`beforeId===null` 表示拖到列尾（空白处）。 */
               const dropInColumn = (draggedId: string, beforeId: string | null) => {
                 const dragged = items.find((i) => i.id === draggedId);
@@ -830,33 +966,42 @@ export function DesignLoopInboxScreen({
                     dropInColumn(id, null);
                   }}
                   className={cn(
-                    "flex min-h-32 w-64 shrink-0 flex-col gap-2 rounded-card border border-transparent bg-panel p-2 transition-colors duration-fast md:w-auto",
+                    "flex min-h-0 w-64 shrink-0 flex-col rounded-card border border-transparent bg-panel transition-colors duration-fast md:w-auto",
                     dragOver === col && "border-primary bg-ai-tint/30",
                   )}
                 >
-                  <div className="flex items-center justify-between px-1 pt-0.5">
+                  <div className="flex shrink-0 items-center justify-between px-3 pb-1.5 pt-2.5">
                     <span className="text-11 font-medium text-muted-foreground">{INBOX_STAGE_LABEL[col]}</span>
-                    <span className="text-11 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
+                    <span className="rounded-control bg-card px-1.5 py-0.5 text-10 text-muted-foreground" data-testid={`inbox-column-count-${col}`}>{colCount}</span>
                   </div>
-                  {colItems.map((item, idx) => (
-                    <BoardCard
-                      key={item.id}
-                      item={item}
-                      busy={busyId === item.id}
-                      highlighted={highlightId === item.id}
-                      onOpen={() => setOpenId(item.id)}
-                      onNavigateLink={navigateToLinked}
-                      onQuickAction={(target) => void applyTransition(item, target)}
-                      onArchive={() => void archiveItem(item)}
-                      // B6.5：拖拽的非拖拽等价操作——列首/列尾对应方向禁用。
-                      canMoveUp={idx > 0}
-                      canMoveDown={idx < colItems.length - 1}
-                      onMoveUp={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "up"))}
-                      onMoveDown={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "down"))}
-                      // 落到这张卡片上 ⇒ 插到它前面（同列）或触发跨列迁移（不同列）。
-                      onDropOnCard={(draggedId) => dropInColumn(draggedId, item.id)}
-                    />
-                  ))}
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2" data-testid={`inbox-column-body-${col}`}>
+                    {colItems.length === 0 && (
+                      <p className="rounded-card border border-dashed border-border-subtle px-2 py-4 text-center text-11 text-muted-foreground">
+                        {dragOver === col ? "松开放到这里" : "暂无条目"}
+                      </p>
+                    )}
+                    {colItems.map((item, idx) => (
+                      <BoardCard
+                        key={item.id}
+                        item={item}
+                        busy={busyId === item.id}
+                        highlighted={highlightId === item.id}
+                        onOpen={() => setOpenId(item.id)}
+                        onNavigateLink={navigateToLinked}
+                        onQuickAction={(target) => void applyTransition(item, target)}
+                        onArchive={() => void archiveItem(item)}
+                        onSaveTags={(tags) => void saveTags(item, tags)}
+                        onFilterTag={(tag) => filterByTag(tag)}
+                        // B6.5：拖拽的非拖拽等价操作——列首/列尾对应方向禁用。
+                        canMoveUp={idx > 0}
+                        canMoveDown={idx < colItems.length - 1}
+                        onMoveUp={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "up"))}
+                        onMoveDown={() => applyReorder(col, colIds, moveAdjacent(colIds, item.id, "down"))}
+                        // 落到这张卡片上 ⇒ 插到它前面（同列）或触发跨列迁移（不同列）。
+                        onDropOnCard={(draggedId) => dropInColumn(draggedId, item.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -864,7 +1009,7 @@ export function DesignLoopInboxScreen({
           <LoadMoreBar nextCursor={load.kind === "ready" ? load.nextCursor : null} loading={loadingMore} onLoadMore={() => void loadMore()} />
         </div>
       ) : (
-        <ListView
+        <InboxListView
           items={filtered}
           stageFilter={stageFilter}
           onStageFilter={setStageFilter}
@@ -873,6 +1018,10 @@ export function DesignLoopInboxScreen({
           onNavigateLink={navigateToLinked}
           busyId={busyId}
           onQuickAction={(item, target) => void applyTransition(item, target)}
+          onArchive={(item) => void archiveItem(item)}
+          onSaveTags={(item, tags) => void saveTags(item, tags)}
+          onFilterTag={(tag) => filterByTag(tag)}
+          archivedView={archivedView}
           nextCursor={load.kind === "ready" ? load.nextCursor : null}
           loadingMore={loadingMore}
           onLoadMore={() => void loadMore()}
@@ -894,33 +1043,25 @@ export function DesignLoopInboxScreen({
           onDeepen={() => void deepen(open)}
           onOpenWorkbench={() => onOpenWorkbench?.(open.code)}
           onSaveExceptionDev={(patch) => void saveExceptionDev(open, patch)}
+          onSaveTags={(tags) => void saveTags(open, tags)}
+          onFilterTag={(tag) => filterByTag(tag)}
         />
       )}
     </div>
   );
 }
 
-function LoadMoreBar({ nextCursor, loading, onLoadMore }: { nextCursor: string | null; loading: boolean; onLoadMore: () => void }) {
-  if (nextCursor === null) return null;
-  return (
-    <div className="flex justify-center border-t border-border p-3">
-      <Button size="sm" variant="outline" disabled={loading} onClick={onLoadMore} data-testid="inbox-load-more">
-        {loading && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-        加载更多
-      </Button>
-    </div>
-  );
-}
-
-function ViewToggle({ active, onClick, testid, icon: Icon, label }: { active: boolean; onClick: () => void; testid: string; icon: typeof Columns3; label: string }) {
+function ViewToggle({ active, disabled, onClick, testid, icon: Icon, label }: { active: boolean; disabled?: boolean; onClick: () => void; testid: string; icon: typeof Columns3; label: string }) {
   return (
     <button
       type="button"
       aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
       data-testid={testid}
+      title={disabled ? "归档箱只有列表视图" : undefined}
       className={cn(
-        "inline-flex items-center gap-1 rounded-control px-2 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex items-center gap-1 rounded-control px-2 py-1 text-12 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
         active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
       )}
     >
@@ -930,109 +1071,8 @@ function ViewToggle({ active, onClick, testid, icon: Icon, label }: { active: bo
   );
 }
 
-function KindLabel({ item }: { item: InboxItem }) {
-  const text = item.kind === "feedback" && item.feedbackKind !== null ? item.feedbackKind : INBOX_KIND_LABEL[item.kind];
-  return <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{text}</span>;
-}
-
-/** 关联标：反馈 → 「已生成方案」（目标 = 设计条目 id），设计 → 「源自反馈」（目标 = 反馈 id）。 */
-function CardMeta({ item, onNavigateLink }: { item: InboxItem; onNavigateLink: NavigateLink }) {
-  return (
-    <>
-      {item.resolvedByDesignId !== null && (
-        <LinkBadge text="已生成方案" testid={`link-generated-${item.code}`} onClick={() => onNavigateLink(item.resolvedByDesignId!, "设计方案")} />
-      )}
-      {item.linkedFeedbackId !== null && (
-        <LinkBadge text="源自反馈" testid={`link-from-${item.code}`} onClick={() => onNavigateLink(item.linkedFeedbackId!, "反馈")} />
-      )}
-    </>
-  );
-}
-
-/** B3.7 高亮态：卡片/行共用，用 `ring-primary` token，不硬编码颜色。 */
-const HIGHLIGHT_CLASS = "ring-2 ring-primary ring-offset-1 ring-offset-background";
-
-/**
- * issue #2752 ③——hover 卡片/行时缺一个不用先点开详情就能做的操作动作（比如关闭）。
- * 复用 `applyTransition`（footer 按钮同一套逻辑，含「不做」落点到 drawer 理由表单、
- * 系统异常没有「已完成」这条边会被拒绝的规则），这里只挑"当前状态能一键做"的几条
- * 摆进菜单，不重造第二套状态机判断。`item.kind === "design"` 没有对应源操作，不渲染。
- */
-function QuickActionMenu({
-  item, busy, onQuickAction, onArchive, testidPrefix,
-}: {
-  item: InboxItem;
-  busy: boolean;
-  onQuickAction: (target: InboxStage) => void;
-  /** 2026-09-06——归档动作，`undefined` 时不渲染这个入口（列表视图暂不需要，board 才传）。 */
-  onArchive?: () => void;
-  testidPrefix: string;
-}) {
-  if (item.kind === "design") return null;
-  return (
-    <Menu>
-      <MenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="更多操作"
-          disabled={busy}
-          data-testid={`${testidPrefix}-menu-${item.code}`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex h-5 w-5 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
-        </button>
-      </MenuTrigger>
-      <MenuContent align="end" onClick={(e) => e.stopPropagation()} data-testid={`${testidPrefix}-menu-content-${item.code}`}>
-        {item.stage === "backlog" && (
-          <MenuItem onSelect={() => onQuickAction("doing")} data-testid={`${testidPrefix}-menu-start-${item.code}`}>
-            开始处理
-          </MenuItem>
-        )}
-        {item.stage === "doing" && item.kind === "feedback" && (
-          <MenuItem onSelect={() => onQuickAction("done")} data-testid={`${testidPrefix}-menu-done-${item.code}`}>
-            标记已修复
-          </MenuItem>
-        )}
-        {item.stage === "doing" && (
-          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-back-${item.code}`}>
-            退回待处理
-          </MenuItem>
-        )}
-        {(item.stage === "done" || item.stage === "archived") && (
-          <MenuItem onSelect={() => onQuickAction("backlog")} data-testid={`${testidPrefix}-menu-reopen-${item.code}`}>
-            重新打开
-          </MenuItem>
-        )}
-        {(item.stage === "backlog" || item.stage === "doing") && (
-          <>
-            <MenuSeparator />
-            <MenuItem
-              onSelect={() => onQuickAction("archived")}
-              data-testid={`${testidPrefix}-menu-close-${item.code}`}
-              className="text-destructive focus:text-destructive"
-            >
-              关闭（不做）…
-            </MenuItem>
-          </>
-        )}
-        {onArchive !== undefined && canArchiveInboxItem(item) && (
-          <>
-            <MenuSeparator />
-            {/* 2026-09-06——沿用「不做」列，触发已有的「已归档」状态，不需要理由
-                （只有转「不做」才要理由，见契约 `TRIAGE_REASON_REQUIRED`），所以直接点即生效。 */}
-            <MenuItem onSelect={onArchive} data-testid={`${testidPrefix}-menu-archive-${item.code}`}>
-              归档
-            </MenuItem>
-          </>
-        )}
-      </MenuContent>
-    </Menu>
-  );
-}
-
 function BoardCard({
-  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction, onArchive,
+  item, busy, highlighted, onOpen, onNavigateLink, onQuickAction, onArchive, onSaveTags, onFilterTag,
   canMoveUp, canMoveDown, onMoveUp, onMoveDown, onDropOnCard,
 }: {
   item: InboxItem;
@@ -1042,6 +1082,9 @@ function BoardCard({
   onNavigateLink: NavigateLink;
   onQuickAction: (target: InboxStage) => void;
   onArchive: () => void;
+  /** 2026-09-08 ⑤——卡片上的标签增删 / 点标签筛选（同一份 `TagEditor`，见 `inbox-tags.tsx`）。 */
+  onSaveTags: (tags: readonly string[]) => void;
+  onFilterTag: (tag: string) => void;
   /** B6.5：拖拽（列内排序）的非拖拽等价操作——见 `board-reorder.ts` 的 `moveAdjacent`。 */
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -1053,9 +1096,11 @@ function BoardCard({
   /** B6.5：拖拽进行中的可访问状态（`aria-grabbed`，ARIA 1.1 起标记 deprecated 但仍是允许的全局属性，
    *  今天没有替代品能表达"正被抓起"；读屏用户看的是 `aria-describedby` 那句键盘替代说明）。 */
   const [grabbed, setGrabbed] = React.useState(false);
+  // 标签输入框打开时关掉拖拽——否则在输入框里拖选文字会变成拖动整张卡片。
+  const [editingTags, setEditingTags] = React.useState(false);
   return (
     <div
-      draggable={!busy}
+      draggable={!busy && !editingTags}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", item.id);
         setGrabbed(true);
@@ -1120,857 +1165,22 @@ function BoardCard({
         {item.severe && <SevereBadge />}
       </div>
       <p className="line-clamp-2 text-12 font-medium">{item.title}</p>
-      <div className="flex flex-wrap items-center gap-1">
-        <CardMeta item={item} onNavigateLink={onNavigateLink} />
-        {item.github !== null && <GithubBadge {...item.github} />}
-      </div>
-    </div>
-  );
-}
-
-function ListView({
-  items, stageFilter, onStageFilter, onOpen, highlightId, onNavigateLink, busyId, onQuickAction, nextCursor, loadingMore, onLoadMore,
-}: {
-  items: InboxItem[];
-  stageFilter: StageFilter;
-  onStageFilter: (s: StageFilter) => void;
-  onOpen: (id: string) => void;
-  highlightId: string | null;
-  onNavigateLink: NavigateLink;
-  busyId: string | null;
-  onQuickAction: (item: InboxItem, target: InboxStage) => void;
-  nextCursor: string | null;
-  loadingMore: boolean;
-  onLoadMore: () => void;
-}) {
-  const subFilters: { value: StageFilter; label: string }[] = [
-    { value: "all", label: "全部" },
-    ...INBOX_STAGE_ORDER.map((s) => ({ value: s as StageFilter, label: INBOX_STAGE_LABEL[s] })),
-  ];
-  return (
-    <div className="flex flex-1 flex-col overflow-hidden" data-testid="inbox-list">
-      <div className="flex items-center gap-1 border-b border-border px-4 py-2">
-        {subFilters.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            aria-pressed={stageFilter === f.value}
-            onClick={() => onStageFilter(f.value)}
-            data-testid={`inbox-status-${f.value}`}
-            className={cn(
-              "rounded-control px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              stageFilter === f.value ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      {/* B6.5（U8）：五列表格在 375 下横向可滚是设计（宽表格），不让单元格挤成一字一行。 */}
-      <div className="flex-1 overflow-y-auto overflow-x-auto" data-allow-x-scroll="列表视图的五列宽表格在窄视口横向滚动是设计">
-        <table className="w-full min-w-[36rem] text-12">
-          <thead className="sticky top-0 bg-card">
-            <tr className="border-b border-border text-left text-11 text-muted-foreground">
-              <th className="px-4 py-2 font-medium">状态</th>
-              <th className="px-4 py-2 font-medium">标题</th>
-              <th className="px-4 py-2 font-medium">类型</th>
-              <th className="px-4 py-2 font-medium">GitHub</th>
-              <th className="px-4 py-2 font-medium">数量 / 时间</th>
-              <th className="px-4 py-2 font-medium" aria-label="操作" />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr
-                key={item.id}
-                onClick={() => onOpen(item.id)}
-                data-testid={`inbox-row-${item.code}`}
-                data-highlighted={highlightId === item.id ? "true" : undefined}
-                className={cn(
-                  "group cursor-pointer border-b border-border-subtle transition-colors duration-fast hover:bg-muted",
-                  highlightId === item.id && cn(HIGHLIGHT_CLASS, "ring-inset bg-ai-tint/30"),
-                )}
-              >
-                <td className="px-4 py-2"><StatusBadge stage={item.stage} /></td>
-                <td className="px-4 py-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-mono text-10 text-muted-foreground">{item.code}</span>
-                    <span className="font-medium">{item.title}</span>
-                    {item.severe && <SevereBadge />}
-                    <CardMeta item={item} onNavigateLink={onNavigateLink} />
-                  </div>
-                </td>
-                <td className="px-4 py-2"><KindLabel item={item} /></td>
-                <td className="px-4 py-2">{item.github !== null ? <GithubBadge {...item.github} /> : <span className="text-muted-foreground">—</span>}</td>
-                <td className="px-4 py-2 text-11 text-muted-foreground">
-                  {item.kind === "exception" && item.exception !== null
-                    ? `${item.exception.count} 次${item.exception.affectedUsers !== null ? ` · ${item.exception.affectedUsers} 人` : ""}`
-                    : new Date(item.createdAt).toLocaleDateString("zh-CN")}
-                </td>
-                <td className="px-2 py-2 text-right">
-                  <div className="inline-flex invisible transition-opacity duration-fast group-hover:visible group-focus-within:visible">
-                    <QuickActionMenu
-                      item={item}
-                      busy={busyId === item.id}
-                      onQuickAction={(target) => onQuickAction(item, target)}
-                      testidPrefix="inbox-row"
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {items.length === 0 && (
-          <p className="p-8 text-center text-12 text-muted-foreground" data-testid="inbox-list-empty">没有符合当前筛选的条目。</p>
-        )}
-        <LoadMoreBar nextCursor={nextCursor} loading={loadingMore} onLoadMore={onLoadMore} />
-      </div>
-    </div>
-  );
-}
-
-/** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
-const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
-
-/** 附件 MIME → 人能看的类型名（表单附件清单 + issue 正文附件清单共用）。 */
-const ATTACHMENT_MIME_LABEL: Record<string, string> = {
-  "image/png": "PNG 图片",
-  "image/jpeg": "JPEG 图片",
-  "image/webp": "WebP 图片",
-  "application/pdf": "PDF",
-  "text/plain": "文本",
-  "text/markdown": "Markdown",
-};
-function attachmentLabel(mime: string): string {
-  return ATTACHMENT_MIME_LABEL[mime] ?? mime;
-}
-
-/**
- * 2026-09-05——issue 草稿**整合反馈的全部字段**（人类指令「提交的内容要整合 issues 的所有字段」）：
- * 编号 / 类型 / 正文 / 结构化字段 / 提交人 / 提交时间 / 票数 / 附件清单 / 回到收件箱的链接。
- * 结构化字段的「哪几项、叫什么」复用 `STRUCTURED_FIELDS`（唯一字段表），不在这里再抄一份。
- * 附件在这里只列**清单**（数量 / 类型 / 附件 id）——真正的文件由服务端 `triageFeedback` 推到
- * GitHub 并把图片 `![]()` / 文件链接追加到正文末尾，这里不编造一个前端拿不到的公开 URL。
- * `inboxUrl`：当前页面 `?open=<id>`，让 issue 里的人能一键回到这条反馈；SSR/测试没有 `window` 时省略。
- */
-export function buildInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
-  // GitHub 正文是 Markdown，这里的加粗是给 GitHub 渲染的，不是 JSX 文案（lint-design 的 MD 规则只盯 JSX）。
-  const B = "**";
-  const bold = (t: string) => `${B}${t}${B}`;
-  const lines: string[] = [];
-  const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
-  lines.push(detail.trim(), "");
-  if (item.feedbackKind !== null && item.structured != null) {
-    const rows = STRUCTURED_FIELDS[item.feedbackKind]
-      .map((f) => ({ f, v: (item.structured as Record<string, string | undefined>)[f.key] }))
-      .filter((x): x is { f: (typeof STRUCTURED_FIELDS)[typeof item.feedbackKind][number]; v: string } => typeof x.v === "string" && x.v.trim() !== "");
-    if (rows.length > 0) {
-      lines.push("### 结构化信息");
-      for (const { f, v } of rows) lines.push(f.multiline ? `${bold(f.label)}\n${v.trim()}\n` : `- ${bold(f.label)}：${v.trim()}`);
-      lines.push("");
-    }
-  }
-  lines.push("### 反馈信息");
-  lines.push(`- ${bold("编号")}：${item.code}`);
-  lines.push(`- ${bold("类型")}：${item.feedbackKind ?? INBOX_KIND_LABEL[item.kind]}`);
-  lines.push(`- ${bold("提交人")}：${item.reporter ?? "（不可见）"}`);
-  lines.push(`- ${bold("提交时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
-  lines.push(`- ${bold("票数")}：${item.votes}`);
-  lines.push(`- ${bold("当前状态")}：${item.sourceStatus}`);
-  if (item.attachments.length > 0) {
-    lines.push("", `### 附件（${item.attachments.length} 个，随 issue 上传）`);
-    for (const a of item.attachments) lines.push(`- ${attachmentLabel(a.mime)} · ${a.id}`);
-  }
-  const inboxUrl =
-    typeof window !== "undefined" && window.location !== undefined
-      ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
-      : null;
-  lines.push("", "---", `来源：运营收件箱 · 反馈 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
-  return {
-    title: item.title,
-    body: lines.join("\n"),
-    labels: ["user-feedback", ...(item.feedbackKind !== null ? [INBOX_KIND_ISSUE_LABEL[item.feedbackKind]] : [])],
-  };
-}
-
-/**
- * 2026-09-05「转开发」——设计方案的 issue 草稿。
- *
- * 与 `buildInboxIssueDraft`（反馈那侧）分开写而不是加分支：两者的正文骨架**没有一行是共享的**
- * ——反馈那份讲的是"谁报的、多少人投票、怎么复现"，方案这份讲的是"要做成什么样、验收标准是
- * 什么、源自哪条反馈"。硬塞进一个函数会变成一串 `item.kind === ...` 的三元表达式，
- * 两边的措辞都会被对方拖住。
- *
- * ⚠ 能放进来的只有**收件箱条目身上有的字段**：`criteria`/`frames` 住在 `DesignProject` 上，
- *   收件箱投影没有带它们（契约 `InboxItem` 的"仅某类"字段表里 design 那几行是"—"）。
- *   正文里因此写了一句"验收标准见方案详情页"并附上回链，而不是编造几条读不到的验收标准。
- */
-export function buildDesignIssueDraft(item: InboxItem): FeedbackIssueDraft {
-  const B = "**";
-  const bold = (t: string) => `${B}${t}${B}`;
-  const lines: string[] = [];
-  lines.push(item.body ?? "（这个方案没有填写背景说明。）", "");
-  lines.push("### 方案信息");
-  lines.push(`- ${bold("编号")}：${item.code}`);
-  lines.push(`- ${bold("负责人")}：${item.reporter ?? "（不可见）"}`);
-  lines.push(`- ${bold("创建时间")}：${new Date(item.createdAt).toLocaleString("zh-CN")}`);
-  if (item.linkedFeedbackId !== null) lines.push(`- ${bold("源自反馈")}：${item.linkedFeedbackId}`);
-  const inboxUrl =
-    typeof window !== "undefined" && window.location !== undefined
-      ? `${window.location.origin}${window.location.pathname}?open=${encodeURIComponent(item.id)}`
-      : null;
-  lines.push("", "验收标准与原型画布页见方案详情页（下方链接）。");
-  lines.push("", "---", `来源：PM 设计工作台 · 方案 ID ${item.id}${inboxUrl !== null ? ` · ${inboxUrl}` : ""}`);
-  return { title: item.title, body: lines.join("\n"), labels: ["design-handoff"] };
-}
-
-/**
- * issue #2752 ②——系统异常转「不做」每次都要手填理由，量一大就是重复劳动。反馈类
- * 保持空白（每条反馈的「不做」理由都该是具体的、针对这条反馈的），只给系统异常
- * 一个可编辑的默认模板，省下"每次现想怎么写"这一步，不是不让改。
- */
-const DEFAULT_EXCEPTION_DECLINE_REASON = "系统自动生成的异常，评估后判定为已知噪音或不影响用户的低优先级问题，本轮不做单独处理。";
-
-/**
- * drawer 现查回来的 GitHub 状态换算成要展示的徽标——契约头注的派生规则（`inbox.ts`
- * `InboxGithubRef` 头注）：`linkedPullRequestsAvailable` 且非空 ⇒ 取
- * `merged` > `open` > `closed` 优先级的第一条，升级成 PR；否则用现查回来的 issue
- * 真实开关覆盖列表推断值。`check` 为 `null`（还没查/查失败）时调用方自己决定退回
- * 列表推断值，这个函数不处理那一半。
- */
-function upgradeGithubBadge(status: FeedbackGithubIssueStatus): InboxGithubRef {
-  if (status.linkedPullRequestsAvailable && status.linkedPullRequests.length > 0) {
-    const priority = ["merged", "open", "closed"] as const;
-    for (const state of priority) {
-      const pr = status.linkedPullRequests.find((p) => p.state === state);
-      if (pr) return { kind: "pr", number: pr.number, url: pr.url, state: pr.state };
-    }
-  }
-  return { kind: "issue", number: status.number, url: status.url, state: status.state };
-}
-
-type GithubCheck =
-  | { kind: "n/a" }
-  | { kind: "loading" }
-  | { kind: "ready"; status: FeedbackGithubIssueStatus }
-  | { kind: "failed" };
-
-/** 贴边详情 drawer：top:54px 贴导航栏下方，right:0 到视口底部，左侧遮罩关闭。 */
-function InboxDrawer({
-  item, busy, openDecline, openIssueForm, onClose, onStatus, onArchive, onCreateIssue, onDeepen, onOpenWorkbench, onNavigateLink,
-  onSaveExceptionDev,
-}: {
-  item: InboxItem;
-  busy: boolean;
-  /** B3.7——drawer 里的关联标点击后换成目标条目的 drawer。 */
-  onNavigateLink: NavigateLink;
-  /** 从看板拖到「不做」列打开：直接展开理由表单，不用再点一次「不做…」。 */
-  openDecline: boolean;
-  /** 2026-09-05——从「开始处理」/拖进「进行中」进来的、尚无 issue 的反馈：直接展开 issue 确认表单。 */
-  openIssueForm: boolean;
-  onClose: () => void;
-  onStatus: (s: InboxStage) => void;
-  onArchive: (reason: string) => void;
-  /** B3.5——建 issue 编辑器确认后调用，走 `triageFeedback(id, "已进入迭代", null, issueDraft)`。 */
-  onCreateIssue: (issueDraft: FeedbackIssueDraft) => void;
-  onDeepen: () => void;
-  onOpenWorkbench: () => void;
-  /** 2026-09-05——系统异常的开发备注/标签保存（只对 `kind === "exception"` 有意义）。 */
-  onSaveExceptionDev: (patch: { devNote?: string | null; tags?: readonly string[] }) => void;
-}) {
-  const [declining, setDeclining] = React.useState(openDecline);
-  const [reason, setReason] = React.useState(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
-  const canConfirm = reason.trim() !== "";
-  const canDeepen = item.kind === "feedback" && (item.stage === "backlog" || item.stage === "doing") && item.resolvedByDesignId === null;
-  /** 见文件头：转入开发要先建 issue，只对 `backlog` 且尚无 issue 的反馈成立（`doing → doing` 不会建 issue）。 */
-  const needsIssueBeforeDoing = item.kind === "feedback" && item.stage === "backlog" && item.github === null;
-
-  const [events, setEvents] = React.useState<
-    { kind: "loading" } | { kind: "ready"; items: readonly FeedbackStatusEvent[] } | { kind: "failed" } | { kind: "n/a" }
-  >(item.kind === "feedback" ? { kind: "loading" } : { kind: "n/a" });
-
-  React.useEffect(() => {
-    if (item.kind !== "feedback") return;
-    let cancelled = false;
-    setEvents({ kind: "loading" });
-    void listFeedbackStatusEvents(item.id)
-      .then((rows) => { if (!cancelled) setEvents({ kind: "ready", items: rows }); })
-      .catch(() => { if (!cancelled) setEvents({ kind: "failed" }); });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, item.kind]);
-
-  /** B3.5——drawer 展开且这条反馈挂着 github 时现查升级，见文件头。看板/列表卡片不现查。 */
-  const githubPresent = item.kind === "feedback" && item.github !== null;
-  const [githubCheck, setGithubCheck] = React.useState<GithubCheck>(githubPresent ? { kind: "loading" } : { kind: "n/a" });
-
-  React.useEffect(() => {
-    if (item.kind !== "feedback" || item.github === null) {
-      setGithubCheck({ kind: "n/a" });
-      return;
-    }
-    let cancelled = false;
-    setGithubCheck({ kind: "loading" });
-    void getFeedbackGithubIssue(item.id)
-      .then((status) => { if (!cancelled) setGithubCheck({ kind: "ready", status }); })
-      .catch(() => { if (!cancelled) setGithubCheck({ kind: "failed" }); });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, item.kind, githubPresent]);
-
-  const displayedGithub: InboxGithubRef | null =
-    item.github === null ? null : githubCheck.kind === "ready" ? upgradeGithubBadge(githubCheck.status) : item.github;
-
-  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(() =>
-    openIssueForm && needsIssueBeforeDoing ? buildInboxIssueDraft(item) : null,
-  );
-  const [labelsText, setLabelsText] = React.useState(() => (issueDraft === null ? "" : issueDraft.labels.join(", ")));
-  const openIssueDraftForm = () => {
-    const draft = item.kind === "design" ? buildDesignIssueDraft(item) : buildInboxIssueDraft(item);
-    setIssueDraft(draft);
-    setLabelsText(draft.labels.join(", "));
-  };
-
-  /** 评论区（见文件头）：仅挂着 issue 的反馈；`n/a` 时整块不渲染。 */
-  const [comments, setComments] = React.useState<
-    { kind: "n/a" } | { kind: "loading" } | { kind: "ready"; items: readonly GithubIssueComment[] } | { kind: "failed" }
-  >(githubPresent ? { kind: "loading" } : { kind: "n/a" });
-  const [commentBody, setCommentBody] = React.useState("");
-  const [commentBusy, setCommentBusy] = React.useState(false);
-  const [commentError, setCommentError] = React.useState<string | null>(null);
-  const loadComments = React.useCallback(async () => {
-    setComments({ kind: "loading" });
-    try {
-      const rows = await listFeedbackGithubIssueComments(item.id);
-      setComments({ kind: "ready", items: rows });
-    } catch {
-      setComments({ kind: "failed" });
-    }
-  }, [item.id]);
-  React.useEffect(() => {
-    if (!githubPresent) {
-      setComments({ kind: "n/a" });
-      return;
-    }
-    let cancelled = false;
-    setComments({ kind: "loading" });
-    void listFeedbackGithubIssueComments(item.id)
-      .then((rows) => { if (!cancelled) setComments({ kind: "ready", items: rows }); })
-      .catch(() => { if (!cancelled) setComments({ kind: "failed" }); });
-    return () => { cancelled = true; };
-  }, [item.id, githubPresent]);
-  const submitComment = async () => {
-    const body = commentBody.trim();
-    if (body === "") return;
-    setCommentBusy(true);
-    setCommentError(null);
-    try {
-      await commentOnFeedbackGithubIssue(item.id, body);
-      setCommentBody("");
-      await loadComments();
-    } catch (err) {
-      setCommentError(`评论没发出去（${describeFailure(err)}）`);
-    } finally {
-      setCommentBusy(false);
-    }
-  };
-
-  /** B6.5：打开时焦点进 drawer、Esc 关闭、关闭后焦点回到触发卡片（见 `use-dialog-focus.ts`）。 */
-  const panelRef = React.useRef<HTMLElement>(null);
-  useDialogFocus(panelRef, onClose);
-
-  return (
-    <>
-      <div className="fixed inset-x-0 bottom-0 top-[54px] z-40 bg-inverse/30" onClick={onClose} aria-hidden data-testid="inbox-drawer-scrim" />
-      {/* 宽度：28rem 上限 + max-w-full ⇒ 375 下自然全宽（U8，不另写断点）。 */}
-      <aside
-        ref={panelRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${item.code} ${item.title}`}
-        data-testid="inbox-drawer"
-        className="fixed bottom-0 right-0 top-[54px] z-40 flex w-[28rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <header className="flex items-start justify-between gap-2 border-b border-border p-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-11 text-muted-foreground">{item.code}</span>
-              <StatusBadge stage={item.stage} />
-              <KindLabel item={item} />
-              {item.severe && <SevereBadge />}
-            </div>
-            <h3 className="mt-1.5 text-16 font-semibold leading-snug">{item.title}</h3>
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭详情" data-testid="inbox-drawer-close">
-            <X aria-hidden className="h-4 w-4" />
-          </Button>
-        </header>
-
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
-          {item.body === null ? (
-            <p className="whitespace-pre-wrap text-13 italic text-muted-foreground" data-testid="inbox-drawer-body-withheld">
-              正文仅组织管理员与提交人可见。
-            </p>
-          ) : (
-            <p className="whitespace-pre-wrap text-13 text-card-foreground">{item.body}</p>
-          )}
-          {/* UC-17.8 D1：反馈类条目的结构化字段。 */}
-          {item.kind === "feedback" && item.structured != null && item.feedbackKind !== null && (
-            <FeedbackStructuredView
-              kind={item.feedbackKind}
-              structured={item.structured}
-              testid={`inbox-drawer-structured-${item.id}`}
-            />
-          )}
-
-          <dl className="grid grid-cols-2 gap-2 text-11">
-            {item.kind === "exception" ? (
-              <>
-                <Meta label="发生位置" value={item.exception?.location ?? "—"} />
-                <Meta label="发生次数" value={`${item.exception?.count ?? 0} 次`} />
-                <Meta label="影响用户" value={item.exception?.affectedUsers !== null && item.exception?.affectedUsers !== undefined ? `${item.exception.affectedUsers} 人` : "—"} />
-              </>
-            ) : (
-              <>
-                <Meta label="提交人" value={item.reporter ?? "—"} />
-                <Meta label="提交时间" value={new Date(item.createdAt).toLocaleString("zh-CN")} />
-                <Meta label="票数" value={String(item.votes)} />
-              </>
-            )}
-          </dl>
-
-          <div className="flex flex-wrap items-center gap-1.5" data-testid="inbox-drawer-github">
-            <CardMeta item={item} onNavigateLink={onNavigateLink} />
-            {item.github !== null && (
-              githubCheck.kind === "loading" ? (
-                <span className="h-4 w-24 animate-pulse rounded-control bg-muted" data-testid="inbox-drawer-github-loading" />
-              ) : (
-                <>
-                  {displayedGithub !== null && <GithubBadge {...displayedGithub} />}
-                  {/* 徽标升级成 PR 后 issue 本体也要能点开；每条关联 PR 各一枚可点的徽标（见文件头）。 */}
-                  {githubCheck.kind === "ready" && displayedGithub?.kind === "pr" && (
-                    <GithubBadge kind="issue" number={githubCheck.status.number} url={githubCheck.status.url} state={githubCheck.status.state} />
-                  )}
-                  {githubCheck.kind === "ready" &&
-                    githubCheck.status.linkedPullRequests
-                      .filter((pr) => !(displayedGithub?.kind === "pr" && displayedGithub.number === pr.number))
-                      .map((pr) => <GithubBadge key={pr.number} kind="pr" number={pr.number} url={pr.url} state={pr.state} />)}
-                </>
-              )
-            )}
-            {githubCheck.kind === "failed" && (
-              <span className="text-10 text-muted-foreground" data-testid="inbox-drawer-github-check-failed">
-                GitHub 状态现查失败，显示为列表推断值
-              </span>
-            )}
-          </div>
-
-          {item.statusReason !== null && (
-            <div className="rounded-card border border-border-subtle bg-panel p-2.5" data-testid="inbox-drawer-reason">
-              <p className="text-10 font-medium text-muted-foreground">不做的理由</p>
-              <p className="mt-0.5 text-12">{item.statusReason}</p>
-            </div>
-          )}
-
-          {/* 2026-09-05——系统异常的开发备注与标签（见契约 `InboxExceptionMeta` 头注）。
-              异常没有提交人、没有 issue、没有时间线，「转入开发」此前只留下一个状态标签，
-              看不出转给谁、要怎么修；这一块是异常这条线上唯一能承载那份上下文的地方。 */}
-          {item.kind === "exception" && item.exception !== null && (
-            <ExceptionDevPanel
-              devNote={item.exception.devNote}
-              tags={item.exception.tags}
-              busy={busy}
-              onSave={onSaveExceptionDev}
-            />
-          )}
-
-          {/* 时间线：仅反馈有对应源操作（见文件头），系统异常今天没有等价接口。 */}
-          {item.kind === "feedback" && (
-            <div>
-              <p className="mb-1.5 text-10 font-medium text-muted-foreground">时间线</p>
-              {events.kind === "loading" && <p className="text-11 text-muted-foreground">读取中…</p>}
-              {events.kind === "failed" && <p className="text-11 text-muted-foreground" data-testid="inbox-drawer-timeline-failed">时间线没读到，稍后重试。</p>}
-              {events.kind === "ready" && (
-                <ol className="flex flex-col gap-2 border-l border-border pl-3" data-testid="inbox-drawer-timeline">
-                  {events.items.length === 0 && <li className="text-11 text-muted-foreground">还没有状态变更记录。</li>}
-                  {events.items.map((e, i) => (
-                    <li key={i} className="text-11">
-                      <span className="text-card-foreground">{e.toStatus}</span>
-                      <span className="ml-1.5 text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("zh-CN")}</span>
-                      {e.notified && (
-                        <span className="ml-1.5 inline-flex items-center gap-0.5 text-muted-foreground" title={e.emailSubject ?? undefined} data-testid="inbox-drawer-timeline-notified">
-                          <Mail aria-hidden className="h-3 w-3" /> 已邮件通知提交人
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          )}
-
-          {/* issue 评论区（见文件头）：看得到开发那边在 issue 上写了什么，也能直接回。 */}
-          {comments.kind !== "n/a" && (
-            <div data-testid="inbox-github-comments">
-              <p className="mb-1.5 flex items-center gap-1 text-10 font-medium text-muted-foreground">
-                <MessageSquare aria-hidden className="h-3 w-3" /> GitHub Issue 评论
-              </p>
-              {comments.kind === "loading" && <p className="text-11 text-muted-foreground">读取中…</p>}
-              {comments.kind === "failed" && (
-                <p className="text-11 text-muted-foreground" data-testid="inbox-github-comments-failed">
-                  评论没读到。<button type="button" className="underline underline-offset-2" onClick={() => void loadComments()}>重试</button>
-                </p>
-              )}
-              {comments.kind === "ready" && (
-                <ol className="flex flex-col gap-2" data-testid="inbox-github-comments-list">
-                  {comments.items.length === 0 && <li className="text-11 text-muted-foreground">issue 下还没有评论。</li>}
-                  {comments.items.map((c) => (
-                    <li key={c.id} className="rounded-card border border-border-subtle bg-panel p-2" data-testid={`inbox-github-comment-${c.id}`}>
-                      <div className="flex items-center justify-between gap-2 text-10 text-muted-foreground">
-                        <span>{c.author ?? "（未知账号）"}</span>
-                        <a href={c.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors duration-fast hover:text-card-foreground hover:underline">
-                          {new Date(c.createdAt).toLocaleString("zh-CN")}
-                        </a>
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-12 text-card-foreground">{c.body}</p>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              <div className="mt-2 flex flex-col gap-1.5">
-                <Textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  rows={2}
-                  maxLength={4000}
-                  placeholder="在 GitHub issue 下发一条评论…"
-                  aria-label="GitHub issue 评论"
-                  data-testid="inbox-github-comment-input"
-                />
-                {commentError !== null && <p className="text-10 text-destructive" data-testid="inbox-github-comment-error">{commentError}</p>}
-                <div className="flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={commentBusy || commentBody.trim() === ""}
-                    onClick={() => void submitComment()}
-                    data-testid="inbox-github-comment-submit"
-                  >
-                    {commentBusy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                    发评论
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+      {(item.resolvedByDesignId !== null || item.linkedFeedbackId !== null || item.github !== null || (item.exception !== null && item.exception.count > 1)) && (
+        <div className="flex flex-wrap items-center gap-1">
+          <CardMeta item={item} onNavigateLink={onNavigateLink} />
+          {item.github !== null && <GithubBadge {...item.github} />}
+          <ExceptionRecurrence item={item} testid={`inbox-card-recurrence-${item.code}`} />
         </div>
-
-        {/* 操作区：随状态显示可用动作 */}
-        <footer className="flex flex-col gap-2 border-t border-border p-4">
-          {issueDraft !== null ? (
-            <div className="flex flex-col gap-1.5" data-testid="inbox-issue-form">
-              <p className="text-11 font-medium text-muted-foreground">
-                转入开发会同时在 boardx/workspacex 建一个 GitHub issue，请确认内容后提交（可编辑）：
-              </p>
-              {/* 附件清单只对反馈有意义：设计方案没有附件这个概念（`design_projects` 没有附件表）。 */}
-              {item.kind !== "design" && (
-              <div className="rounded-card border border-border-subtle bg-panel p-2 text-11" data-testid="inbox-issue-attachments">
-                <p className="flex items-center gap-1 font-medium text-muted-foreground">
-                  <Paperclip aria-hidden className="h-3 w-3" />
-                  {item.attachments.length === 0
-                    ? "这条反馈没有附件。"
-                    : `${item.attachments.length} 个附件将随 issue 上传到 GitHub：`}
-                </p>
-                {item.attachments.length > 0 && (
-                  <ul className="mt-1 flex flex-col gap-0.5 text-muted-foreground">
-                    {item.attachments.map((a) => (
-                      <li key={a.id} className="font-mono text-10" data-testid={`inbox-issue-attachment-${a.id}`}>
-                        {attachmentLabel(a.mime)} · {a.id}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              )}
-              <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">标题</span>
-                <input
-                  value={issueDraft.title}
-                  onChange={(e) => setIssueDraft({ ...issueDraft, title: e.target.value })}
-                  data-testid="inbox-issue-title"
-                  className="h-8 rounded-control border border-border-subtle bg-card px-2 text-12"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">正文</span>
-                <Textarea
-                  value={issueDraft.body}
-                  onChange={(e) => setIssueDraft({ ...issueDraft, body: e.target.value })}
-                  rows={5}
-                  data-testid="inbox-issue-body"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">标签（逗号分隔）</span>
-                <input
-                  value={labelsText}
-                  onChange={(e) => {
-                    setLabelsText(e.target.value);
-                    setIssueDraft({
-                      ...issueDraft,
-                      labels: e.target.value.split(",").map((l) => l.trim()).filter((l) => l !== ""),
-                    });
-                  }}
-                  data-testid="inbox-issue-labels"
-                  className="h-8 rounded-control border border-border-subtle bg-card px-2 font-mono text-12"
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setIssueDraft(null); setLabelsText(""); }}>取消</Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={busy || issueDraft.title.trim() === ""}
-                  onClick={() => onCreateIssue(issueDraft)}
-                  data-testid="inbox-issue-submit"
-                >
-                  {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  确认转入开发，创建 issue
-                </Button>
-              </div>
-            </div>
-          ) : declining ? (
-            <div className="flex flex-col gap-2" data-testid="inbox-decline-form">
-              <label htmlFor="inbox-decline-reason" className="text-11 font-medium text-muted-foreground">
-                为什么不做？理由会记入时间线，团队以后能查到。
-              </label>
-              <Textarea
-                id="inbox-decline-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={3}
-                placeholder="例如：与即将上线的能力重叠，本轮不单独做。"
-                data-testid="inbox-decline-reason"
-              />
-              {!canConfirm && (
-                <p className="text-10 text-muted-foreground" data-testid="err-reason">不做必须写清理由，否则无法确认。</p>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDeclining(false);
-                    setReason(item.kind === "exception" ? DEFAULT_EXCEPTION_DECLINE_REASON : "");
-                  }}
-                >
-                  取消
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={!canConfirm || busy}
-                  onClick={() => onArchive(reason.trim())}
-                  data-testid="inbox-decline-confirm"
-                >
-                  {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  确认不做
-                </Button>
-              </div>
-            </div>
-          ) : item.kind === "design" ? (
-            <div className="flex flex-wrap gap-2">
-              {item.github === null ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={busy}
-                  onClick={openIssueDraftForm}
-                  data-testid="inbox-action-design-handoff"
-                >
-                  <Github aria-hidden className="h-3.5 w-3.5" /> 转入开发（建 GitHub Issue）
-                </Button>
-              ) : (
-                <p className="text-11 text-muted-foreground" data-testid="inbox-design-handed-off">
-                  已转入开发，见上方 issue 徽标。
-                </p>
-              )}
-              {/* ⚠ 文案如实：`onOpenWorkbench` 落到 `/platform-admin/design-workbench`（工作台首页），
-                  不带方案 id——写"打开方案详情"会承诺一个这个回调今天做不到的跳转。 */}
-              <Button variant="outline" size="sm" onClick={onOpenWorkbench} data-testid="inbox-action-open-design-self">
-                去设计工作台
-              </Button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {item.stage === "backlog" && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => (needsIssueBeforeDoing ? openIssueDraftForm() : onStatus("doing"))}
-                  data-testid="inbox-action-start"
-                >
-                  {needsIssueBeforeDoing ? <Github aria-hidden className="h-3.5 w-3.5" /> : <Play aria-hidden className="h-3.5 w-3.5" />}
-                  {needsIssueBeforeDoing ? "转入开发（建 GitHub Issue）" : "开始处理"}
-                </Button>
-              )}
-              {item.stage === "doing" && (
-                <>
-                  {item.kind === "feedback" && (
-                    <Button variant="primary" size="sm" disabled={busy} onClick={() => onStatus("done")} data-testid="inbox-action-done">
-                      <Check aria-hidden className="h-3.5 w-3.5" /> 标记已修复
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" disabled={busy} onClick={() => onStatus("backlog")} data-testid="inbox-action-back">
-                    <Undo2 aria-hidden className="h-3.5 w-3.5" /> 退回待处理
-                  </Button>
-                </>
-              )}
-              {(item.stage === "done" || item.stage === "archived") && (
-                <Button variant="outline" size="sm" disabled={busy} onClick={() => onStatus("backlog")} data-testid="inbox-action-reopen">
-                  <Undo2 aria-hidden className="h-3.5 w-3.5" /> 重新打开
-                </Button>
-              )}
-              {canDeepen && (
-                <Button variant="ai" size="sm" onClick={onDeepen} data-testid="inbox-action-deepen">
-                  <Sparkles aria-hidden className="h-3.5 w-3.5" /> 用 PM 设计工作台深化
-                </Button>
-              )}
-              {item.resolvedByDesignId !== null && (
-                <Button variant="outline" size="sm" onClick={onOpenWorkbench} data-testid="inbox-action-open-design">
-                  查看方案
-                </Button>
-              )}
-              {(item.stage === "backlog" || item.stage === "doing") && (
-                <Button variant="ghost" size="sm" className="text-destructive" disabled={busy} onClick={() => setDeclining(true)} data-testid="inbox-action-decline">
-                  <Ban aria-hidden className="h-3.5 w-3.5" /> 不做…
-                </Button>
-              )}
-            </div>
-          )}
-        </footer>
-      </aside>
-    </>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-card-foreground">{value}</dd>
-    </div>
-  );
-}
-
-/**
- * 系统异常的「开发备注 / 标签」编辑块（2026-09-05）。
- *
- * ## 为什么是两个独立的保存动作而不是一个「保存」按钮
- *
- * 备注是长文本（写完再存），标签是逐个增删（每次操作就是一次完整意图）。合成一个提交
- * 按钮会让"删掉一个标签"这种明确动作停在未保存态，看起来已经删了、刷新又回来——
- * 这类"界面说成了、服务端没有"的假象是本仓反复栽过的坑。两者各自调用一次
- * `updateSystemErrorLifecycle`（契约允许只带 `devNote` 或只带 `tags` 的局部更新）。
- *
- * ## 备注只在改动后才允许保存
- *
- * `dirty` 为假时按钮禁用——避免把一次没有改动的点击变成一次真实写入（`updated_at` 会动，
- * 时间线上看起来像"有人改过"，实际没有）。
- */
-function ExceptionDevPanel({
-  devNote, tags, busy, onSave,
-}: {
-  devNote: string | null;
-  tags: readonly string[];
-  busy: boolean;
-  onSave: (patch: { devNote?: string | null; tags?: readonly string[] }) => void;
-}) {
-  const [draft, setDraft] = React.useState(devNote ?? "");
-  const [tagDraft, setTagDraft] = React.useState("");
-  // 服务端回写（乐观更新落地或回滚）之后，把编辑框拉回权威值——除非用户正在编辑。
-  const [touched, setTouched] = React.useState(false);
-  React.useEffect(() => {
-    if (!touched) setDraft(devNote ?? "");
-  }, [devNote, touched]);
-
-  const trimmed = draft.trim();
-  const dirty = trimmed !== (devNote ?? "").trim();
-
-  const addTag = () => {
-    const t = tagDraft.trim();
-    // 重复标签直接忽略：标签是集合语义，两个同名标签没有任何额外含义。
-    if (t === "" || tags.includes(t)) { setTagDraft(""); return; }
-    onSave({ tags: [...tags, t] });
-    setTagDraft("");
-  };
-
-  return (
-    <div className="rounded-card border border-border-subtle bg-panel p-2.5" data-testid="inbox-drawer-exception-dev">
-      <p className="text-10 font-medium text-muted-foreground">开发备注</p>
-      <Textarea
-        value={draft}
-        onChange={(e) => { setTouched(true); setDraft(e.target.value); }}
-        rows={3}
-        placeholder="转给谁 / 怎么复现 / 已知线索"
-        aria-label="开发备注"
-        disabled={busy}
-        className="mt-1 text-12"
-        data-testid="inbox-drawer-devnote-input"
+      )}
+      <TagEditor
+        tags={item.tags}
+        onChange={onSaveTags}
+        onFilter={onFilterTag}
+        busy={busy}
+        testidPrefix={`inbox-card-${item.code}`}
+        compact
+        onEditingChange={setEditingTags}
       />
-      <div className="mt-1.5 flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy || !dirty}
-          onClick={() => { setTouched(false); onSave({ devNote: trimmed === "" ? null : trimmed }); }}
-          data-testid="inbox-drawer-devnote-save"
-        >
-          保存备注
-        </Button>
-      </div>
-
-      <p className="mt-3 text-10 font-medium text-muted-foreground">标签</p>
-      <div className="mt-1 flex flex-wrap items-center gap-1" data-testid="inbox-drawer-tags">
-        {tags.length === 0 && <span className="text-11 text-muted-foreground">还没有标签</span>}
-        {tags.map((t) => (
-          <span
-            key={t}
-            className="inline-flex items-center gap-0.5 rounded-control border border-border bg-card px-1.5 py-0.5 text-10"
-            data-testid={`inbox-drawer-tag-${t}`}
-          >
-            {t}
-            <button
-              type="button"
-              aria-label={`移除标签 ${t}`}
-              disabled={busy}
-              onClick={() => onSave({ tags: tags.filter((x) => x !== t) })}
-              className="rounded-control text-muted-foreground transition-colors hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
-              data-testid={`inbox-drawer-tag-remove-${t}`}
-            >
-              <X aria-hidden className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="mt-1.5 flex gap-1.5">
-        <Input
-          value={tagDraft}
-          onChange={(e) => setTagDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-          placeholder="加标签后回车"
-          aria-label="新标签"
-          disabled={busy}
-          className="h-7 text-12"
-          data-testid="inbox-drawer-tag-input"
-        />
-        <Button size="sm" variant="outline" disabled={busy || tagDraft.trim() === ""} onClick={addTag} data-testid="inbox-drawer-tag-add">
-          添加
-        </Button>
-      </div>
     </div>
   );
 }

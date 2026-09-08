@@ -39,13 +39,26 @@ export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
   design: "设计方案",
 };
 
-export { stageOf, INBOX_EXCEPTION_SEVERE_COUNT_THRESHOLD } from "@repo/contracts/inbox";
+export type InboxView = z.infer<typeof inbox.InboxView>;
+export type SetInboxItemTagsOut = z.infer<typeof inbox.operations.setInboxItemTags.out>;
+
+export {
+  stageOf,
+  isArchivedInboxItem,
+  INBOX_EXCEPTION_SEVERE_COUNT_THRESHOLD,
+  INBOX_TAG_MAX_LENGTH,
+  INBOX_TAGS_MAX_COUNT,
+} from "@repo/contracts/inbox";
 
 export async function listInbox(input?: {
   readonly kind?: InboxKind;
   readonly excludeKind?: InboxKind;
   readonly stage?: InboxStage;
   readonly q?: string;
+  /** 2026-09-08——只列带这个标签的条目（服务端过滤） */
+  readonly tag?: string;
+  /** 2026-09-08——省略 = 活跃条目；`archived` = 归档箱（见契约 `isArchivedInboxItem`） */
+  readonly view?: InboxView;
   readonly limit?: number;
   readonly cursor?: string;
 }): Promise<ListInboxOut> {
@@ -55,6 +68,8 @@ export async function listInbox(input?: {
       excludeKind: input?.excludeKind,
       stage: input?.stage,
       q: input?.q !== undefined && input.q.trim() !== "" ? input.q.trim() : undefined,
+      tag: input?.tag,
+      view: input?.view,
       limit: input?.limit !== undefined ? String(input.limit) : undefined,
       cursor: input?.cursor,
     },
@@ -78,5 +93,21 @@ export async function reorderInboxItem(
   return apiRequest<ReorderInboxItemOut>(inbox.operations.reorderInboxItem.path, {
     method: "PUT",
     body: { stage, orderedIds },
+  });
+}
+
+/**
+ * 2026-09-08——反馈 / 设计方案打标签（覆盖式），见契约 `setInboxItemTags` 头注。
+ * ⚠ 系统异常**不走这里**：它的标签在 `error_logs.tags`，写路径是 `live-system-errors.ts` 的
+ *   `updateSystemErrorLifecycle(id, { tags })`——`inbox-screen.tsx` 的 `saveTags` 按 `kind` 选路径。
+ */
+export async function setInboxItemTags(
+  kind: "feedback" | "design",
+  id: string,
+  tags: readonly string[],
+): Promise<SetInboxItemTagsOut> {
+  return apiRequest<SetInboxItemTagsOut>(inbox.operations.setInboxItemTags.path, {
+    method: "PUT",
+    body: { kind, id, tags },
   });
 }
