@@ -10,6 +10,43 @@ health_payload_is_trustworthy() {
     [[ "$payload" == *'"appRoleIsOwner":false'* ]]
 }
 
+# issue #3073 —— 在跑的 Caddyfile 与 provision.sh 里那份模板之间的漂移门。
+#
+# 为什么需要它：deploy.sh 一个字节都不碰 /etc/caddy/Caddyfile，只有人手动重跑
+# provision.sh 才会重写它。#2795 把 agent-run 事件 WS 的 handle 补进模板、CI 钉住了
+# 模板、deploy 全绿——而机器上跑的仍是旧配置，那条 WS 面照旧落进兜底 handle 打到
+# Next.js，Upgrade 请求在那断了（2026-09-08 devapp 复现，与 2026-08-08/08-14 三次
+# 事故同一签名）。「模板里有」是静态痕迹，不是「在跑的有」。
+#
+# 比对的是**路由集合**，不是文件字节：模板里带 ${APP_API_PORT} 这类变量与实际域名，
+# 逐字比对必然假红。缺任何一条模板声明的 handle 路径就红，并指名缺的是哪一条。
+caddy_route_patterns() {
+  # `handle {`（兜底，无路径）不产出路径 token——第二个字段是 `{`，在这里过滤掉。
+  grep -Eo '^[[:space:]]*handle(_path)?[[:space:]]+[^[:space:]]+[[:space:]]*\{' "$1" \
+    | awk '{ if ($2 != "{") print $2 }' \
+    | sort -u
+}
+
+assert_caddy_routes_current() {
+  local template=$1 live=$2 pattern missing=0 live_patterns
+  [ -r "$template" ] || { echo "✗ 读不到 Caddyfile 模板：$template" >&2; return 1; }
+  [ -r "$live" ] || { echo "✗ 读不到在跑的 Caddyfile：$live" >&2; return 1; }
+  live_patterns=$(caddy_route_patterns "$live")
+  while IFS= read -r pattern; do
+    [ -n "$pattern" ] || continue
+    printf '%s\n' "$live_patterns" | grep -qxF -- "$pattern" || {
+      echo "✗ 在跑的 Caddyfile 缺路由：$pattern" >&2
+      missing=1
+    }
+  done <<< "$(caddy_route_patterns "$template")"
+  ((missing == 0)) || {
+    echo "  在跑的反代配置落后于 ${template} 的模板。修法（在目标机器上以 root 跑一次）：" >&2
+    echo "    PUBLIC_DOMAIN=<域名> DEPLOY_KEY_PATH=<部署密钥> ${APP_DIR:-/opt/workspacex/app}/.harness/scripts/vm/provision.sh" >&2
+    return 1
+  }
+  return 0
+}
+
 redact_deploy_diagnostics() {
   sed -E \
     -e 's/(AUTHORIZATION|Authorization|authorization|TOKEN|Token|token|PASSWORD|Password|password|COOKIE|Cookie|cookie)=[^[:space:]]+/\1=<redacted>/g' \
