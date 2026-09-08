@@ -100,3 +100,17 @@ def test_real_body_writer_failure_propagates_without_retry(monkeypatch):
         with pytest.raises(activity.SkillActivityError):
             graph.invoke({'messages':[{'role':'user','content':'read'}]},config={'configurable':{'disable_task_auto_classify':True}})
         assert seen==['metadata_discovered','body_read']
+
+
+def test_frontmatter_name_mismatch_on_trusted_path_is_not_fatal_but_unknown_path_still_refuses(monkeypatch, caplog):
+    # #3033 第三层：URL 导入 skill 的 SKILL.md `name:` 由上游作者写，与 stable_name 不等是常态。
+    # 身份由路径 + 包摘要钉死；不等只记 warning，事实流里的 skillStableName 仍是可信包的名字。
+    facts=[]; monkeypatch.setattr(activity,'get_stream_writer',lambda: facts.append)
+    reporter=activity.NativeSkillActivity(pinned_skill_package())
+    with caplog.at_level('WARNING'):
+        reporter.metadata_discovered([{'path':'/skills/example/SKILL.md','name':'PDF Creator (upstream name)'}])
+    assert len(facts)==1 and facts[0]['fact']['skillStableName']=='example' and facts[0]['fact']['stage']=='metadata_discovered'
+    assert any('frontmatter name differs' in r.getMessage() for r in caplog.records)
+    # 反证：路径不在可信包集合里，仍然拒绝——放宽的只是 name 相等，不是身份
+    with pytest.raises(activity.SkillActivityError):
+        reporter.metadata_discovered([{'path':'/skills/other/SKILL.md','name':'example'}])
