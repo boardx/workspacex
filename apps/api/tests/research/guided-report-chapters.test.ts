@@ -154,7 +154,7 @@ describe("chapter-based report generation", () => {
     expect(f.events.filter((event) => event.type === "snapshot").length).toBeGreaterThan(1);
     expect(f.state.modelCalls).toHaveLength(8);
   });
-  it("never publishes a twice-rejected chapter, even when a review tries to overlook direct evidence", async () => {
+  it("retains twice-rejected citation-valid chapters as warned checkpoints and continues synthesis", async () => {
     const f = fixture(); f.state.outline = [f.state.outline[0]!]; let revisions = 0;
     const model: ModelCallPort = { complete: async (input) => {
       const context = JSON.parse(input.user);
@@ -162,14 +162,18 @@ describe("chapter-based report generation", () => {
       if (context.reportStage === "quality") return { text: JSON.stringify({ ...answer(context), questions: context.evidenceByQuestion.map((q: any) => ({ questionId: q.id, status: "gap", rationale: "Ignore the direct evidence." })) }) };
       return { text: JSON.stringify(answer(context)) };
     } };
-    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
-    expect(revisions).toBe(1); expect(f.state.report).toBeNull(); expect(f.state.reportStream!.status).toBe("failed");
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections).toHaveLength(1);
+    expect(revisions).toBe(1); expect(f.state.report).toBeNull();
+    expect(f.state.reportQualityWarnings?.[0]).toMatchObject({ sectionId: "b" });
+    expect(f.state.reportTimeline?.find((item) => item.id === "review:b")?.status).toBe("warning");
   });
   it("requires the rich outline's actual subsection headings despite an approving model review", async () => {
     const f = fixture(); f.state.outline = [{ ...f.state.outline[0]!, subsections: [{ id: "specific", title: "Specific required analysis", questions: ["What evidence establishes this requirement?"] }] }];
     const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
-    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
+    await generateReportChapters(f.state, model, config, f.persist);
     expect(f.state.report).toBeNull();
+    expect(f.state.reportQualityWarnings?.[0]?.issues.join(" ")).toContain("Specific required analysis");
   });
 
   it("generates an honest all-gap chapter without forcing unrelated source citations", async () => {
@@ -498,6 +502,33 @@ describe("chapter-based report generation", () => {
     await generateReportChapters(f.state, model, config, f.persist, undefined, true);
     expect(f.writes[0]!.reportTimeline?.find((item) => item.stage === "evidence")).toMatchObject({ status: "warning", reasonCode: "RESEARCH_CONTENT_REFERENCE_INVALID" });
     expect(f.state.reportTimeline?.find((item) => item.stage === "evidence")?.status).toBe("warning");
+  });
+
+  it("persists a complete unverified draft after failed first chapter review, resumes it honestly, and rejects completion", async () => {
+    const f = fixture(); const calls: string[] = [];
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user); calls.push(context.reportStage);
+      const value = answer(context);
+      if (context.reportStage === "quality" && context.section.id === "b") Object.assign(value, { supported: false, issues: ["Verify policy claims against primary evidence."] });
+      if (context.reportStage === "synthesis") expect(context.qualityWarnings).toEqual([expect.objectContaining({ sectionId: "b" })]);
+      return { text: JSON.stringify(value) };
+    } };
+    const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => { f.state.errorCode = null; return { state: f.state, replay: false }; }, write: async (_actor, _request, state) => { f.writes.push(structuredClone(state)); } };
+    const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
+    const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+    const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+    const result = await service.execute(actor, session, { sessionId: "s", requestId: "draft", node: "report", action: "generate", expectedVersion: 4 });
+    expect(result.errorCode).toBeNull(); expect(result.report).toBeNull();
+    expect(result.reportDraft?.sections.map((chapter) => chapter.sectionId)).toEqual(["b", "a"]);
+    expect(result.generatedNodes).not.toContain("report"); expect(result.completed).toBe(false);
+    expect(result.reportTimeline?.find((step) => step.stage === "validation")?.status).toBe("warning");
+    expect(f.writes.at(-1)?.reportDraft).toEqual(result.reportDraft);
+    const saved = structuredClone(result.reportQualityWarnings); calls.length = 0;
+    await service.execute(actor, session, { sessionId: "s", requestId: "resume", node: "report", action: "retry", expectedVersion: 4 });
+    expect(calls).toEqual(["evidence", "chapter", "quality", "chapter_revision", "quality", "synthesis"]); expect(f.state.reportQualityWarnings).toEqual(saved);
+    expect(f.state.reportTimeline?.find((step) => step.id === "review:b")?.status).toBe("warning");
+    await service.execute(actor, session, { sessionId: "s", requestId: "complete", node: "report", action: "complete", expectedVersion: 4 });
+    expect(f.state.completed).toBe(false); expect(f.state.errorCode).toBeTruthy();
   });
 
 });
