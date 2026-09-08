@@ -1,3 +1,4 @@
+import { LANES } from "./ci-lane-dedup.mjs";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -201,7 +202,7 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toContain("pnpm run verify:fullstack-smoke");
     expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
-    for (const name of ["fullstack-smoke", "e2e-full", "chat-path-coverage", "chat-task-workbench"]) {
+    for (const name of Object.keys(LANES)) {
       const job = parse(workflow).jobs[name];
       expect(job.steps.some((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(true);
       for (const step of job.steps ?? []) {
