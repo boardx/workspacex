@@ -135,7 +135,10 @@ beforeAll(async () => {
   await migrateOnce();
   const { createApp, attachStreamingSurfaces } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
+  // ⚠ 必须绑回环：下面 BASE/WS_BASE 都指向 127.0.0.1，而裸 `listen(0)` 绑的是 0.0.0.0——
+  //   抽到的临时端口可能已被别的进程占在 127.0.0.1 上，请求就打到那个进程去了（issue #2992，
+  //   机械门 `lint-test-listen-loopback`）。bind 哪个地址就 fetch 哪个地址，冲突当场 EADDRINUSE。
+  await app.listen(0, "127.0.0.1");
   // 与 `main.ts` 的生产进程入口逐字同一个顺序（先 listen 再 attach）——WS 面挂在同一个
   // HTTP server 的 `upgrade` 事件上，顺序换了这条测试就不是在测生产装配。
   attachStreamingSurfaces(app);
