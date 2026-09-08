@@ -79,6 +79,43 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   const run = await runResponse.json() as {runId: string; threadId: string};
   expect(run.threadId).toBe(firstThreadId);
 
+  /*
+   * issue #3000 —— **切走之前**必须先确认这一轮已经在库里留下"待恢复"的痕迹。
+   *
+   * 切回来之后能不能触发恢复，唯一依据是 `findPendingRunId`（`lib/agent-run.ts`）：
+   * 已落库消息里最后一条带 `agentRunId` 的人类消息、且还没有任何消息 `replyToMessageId`
+   * 指回它。内存态在切走时全丢，库里没有这条痕迹 ⇒ 挂载时 `pendingRunId === null` ⇒
+   * 恢复路径**根本不会被触发**，一次 `GET /agent-runs/:runId` 都不会发。
+   *
+   * 这正是本次红的实况（trace 取证，run 34185270399）：send 在 t=980.3s，
+   * `chat-thread-create` 在 t=980.8s——**0.5 秒**之后就切走了，人类消息还没落库；
+   * 切回来之后网络记录里对该 run 一次 GET 都没有，于是下面那道
+   * `status==="running" && resultMessageId===null` 的门等满 30s 超时。
+   * 换句话说这条红不是"恢复坏了"，是这条用例从来没走到恢复。
+   *
+   * 这一等也不会把用例变成空转：多步剧本要求至少 `MULTISTEP_MIN_STATUS_POLLS`(=6)
+   * 轮状态轮询才终态（`apps/api/scripts/loopback-deep-agent-provider.ts`），落库一条
+   * 人类消息远早于此；而"切回时它必须还在途"由紧随其后那道 `restoringRun` 断言
+   * 机械把关，与文件头注第 ① 条纪律一致。
+   */
+  const sessionToken = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  expect(sessionToken).toBeTruthy();
+  const runApiBase = new URL(runResponse.url()).origin;
+  await expect
+    .poll(async () => {
+      const stored = await page.request.get(
+        `${runApiBase}/chat/threads/${firstThreadId}/messages?limit=100`,
+        { headers: { Authorization: `Bearer ${sessionToken}` } },
+      );
+      if (!stored.ok()) return false;
+      const messages = (await stored.json()).messages as ReadonlyArray<{
+        id: string; authorKind: string; agentRunId: string | null; replyToMessageId: string | null;
+      }>;
+      const human = messages.find((m) => m.authorKind === "human" && m.agentRunId === run.runId);
+      return human !== undefined && !messages.some((m) => m.replyToMessageId === human.id);
+    }, { timeout: 60_000, intervals: [250, 500, 1_000] })
+    .toBe(true);
+
   // 切到另一条会话：真实路由导航，面板整体卸载——内存里的在途 run 状态到此全丢。
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL(/\/chat\/[^/]+$/);

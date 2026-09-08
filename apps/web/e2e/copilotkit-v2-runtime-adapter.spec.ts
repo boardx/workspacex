@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { expectAssistantTurnSettled } from "./support/chat-path-coverage";
 
 /**
  * DA-19 CopilotRuntime 后端适配器（issue #1967/#1968）—— 证明浏览器经
@@ -103,23 +104,6 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
       { timeout: 60_000, intervals: [500, 1_000, 2_000] },
     )
     .toBe(200);
-}
-
-/**
- * issue #2175 复核 —— `isDisabled()===false` 隐含"没有别的原因会让按钮 disabled"这条
- * 假设，在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 `send()` 成功
- * 清空后只剩"输入为空"这条独立、合法的禁用理由（`sendDisabledReason`），与"第一轮 run
- * 是否已经落定"无关——原判据在这道"发第二轮之前先等第一轮落定"的门上永远等不到
- * `false`。见 `copilotkit-v2-hitl.spec.ts` 里同名 helper 的头注。
- */
-const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
-async function expectSendNotBlockedOnRun(
-  page: import("@playwright/test").Page,
-  timeoutMs = 30_000,
-): Promise<void> {
-  await expect
-    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
-    .not.toBe(RUNNING_DISABLED_REASON);
 }
 
 test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的回复文字可核对", async ({ page }) => {
@@ -419,9 +403,19 @@ test("DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户�
   await page.getByTestId("copilotkit-v2-send").click();
   // 等第一轮真正落定（气泡出现），再发第二轮——不依赖固定 sleep 猜时序。
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(firstTurnText, { timeout: 20_000 });
-  // issue #2175 -- composer is empty here (cleared by the first `send()`); only assert
-  // "not stuck on run", not raw `isDisabled()===false`. See `expectSendNotBlockedOnRun`'s doc.
-  await expectSendNotBlockedOnRun(page);
+  /*
+   * issue #3000（B 类根因）—— 这里必须等第一轮**真的跑完**再发第二轮，原来那道门
+   * （`title !== "Agent 正在处理上一条消息，请稍候…"`）自 2026-09-06 起恒真：产品
+   * 已经不再用这句话当禁用理由（`copilotkit-v2-panel-body.tsx` 的 `sendDisabledReason`
+   * 里只剩注释）。于是第二轮在用户气泡刚出现的那一瞬就发了出去——此时第一轮 run 还在
+   * 运行，composer 走的是 `sendWhileRunning()`（插话/排队，2026-09-06「agent 还在生成时
+   * 也要能回复 A/B」），**不会开启第二轮 run**，第二轮的用户原话因此连气泡都不落。
+   * 日志实况：56 次轮询看到的都只有第一轮的完整内容。
+   *
+   * 换成 `expectAssistantTurnSettled`（先等 assistant 正文非空、再等运行态落定）——
+   * 它在 run 没起来/没产出时会如实红，不会一秒钟"通过"。
+   */
+  await expectAssistantTurnSettled(page);
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFollowupContextTrigger);
   await page.getByTestId("copilotkit-v2-send").click();

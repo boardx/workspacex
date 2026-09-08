@@ -44,6 +44,25 @@ async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
     .toBe(200);
 }
 
+/**
+ * 新建/切换到一条**空线程**之后，等这块面板真的可以接收输入了再打字。
+ *
+ * issue #3000（B 类，trace 取证）—— `chat-thread-create` 点完 `waitForURL` 一 resolve
+ * 就 `fill` + `click`，trace 里三步落在**同一个 0.1 秒**内（1347.0 / 1347.0 / 1347.1）。
+ * 那一刻新线程的 Body 刚重挂载：`isReady` 还是 false、历史回读还没跑完。产品刻意
+ * **不**把 `!isReady` 写进 `sendDisabledReason`（见 `copilotkit-v2-panel-body.tsx` 那段
+ * 头注，为的是不给慢机器制造竞态红），所以按钮是可点的，但这一发 `send()` 落在还没
+ * 就绪的 agent 上，静默丢失：之后 118 次轮询看到的都是空态首屏，用户原话连气泡都没落。
+ *
+ * `copilotkit-v2-empty`（空态首屏）是这里唯一**够格**的就绪信号：它的渲染前提是
+ * `historyLoading === false`，而 `historyLoading` 只会在那段 hydration effect 里被清掉，
+ * 那段 effect 自己第一行就是 `if (… || !isReady …) return`。⇒ 空态可见 ⟹ `isReady` 为真
+ * 且历史回读已收尾。不是猜一个 `waitForTimeout`。
+ */
+async function waitForEmptyThreadReady(page: Page): Promise<void> {
+  await expect(page.getByTestId("copilotkit-v2-empty")).toBeVisible({ timeout: 60_000 });
+}
+
 /** 发一条消息并等到消息区里出现该原文（用户气泡先到，早于 assistant 回复）。 */
 async function sendAndWaitEcho(page: Page, text: string): Promise<void> {
   await page.getByTestId("copilotkit-v2-input").fill(text);
@@ -90,6 +109,7 @@ test("新建对话→线程列表出现两条→切换回第一条→历史正�
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL(/\/chat\/[^/]+$/);
   await expect(page).not.toHaveURL(firstThreadUrl);
+  await waitForEmptyThreadReady(page);
 
   const secondMarker = `DA-2021-线程二-${Date.now()}`;
   await sendAndWaitEcho(page, secondMarker);
@@ -173,6 +193,7 @@ test("已选中某条线程时切换到另一条 ⇒ 不发生整页硬导航，
 
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL(/\/chat\/[^/]+$/);
+  await waitForEmptyThreadReady(page);
   const secondMarker = `DA-2402-左栏B-${Date.now()}`;
   await sendAndWaitEcho(page, secondMarker);
   const secondThreadUrl = page.url();
