@@ -106,9 +106,18 @@ describe("迭代 5 属性面板元数据（单源门控）", () => {
       expect([type, dp.PROTOTYPE_FIELDS[type].map((f) => f.key).sort()]).toEqual([type, keys]);
       for (const f of dp.PROTOTYPE_FIELDS[type]) {
         if (f.kind !== "enum" || schema === null) continue;
-        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly string[] } } | undefined;
-        const opts = z?.unwrap?.().options;
-        if (opts !== undefined) expect([type, f.key, f.options]).toEqual([type, f.key, opts]);
+        const z = (schema.shape as Record<string, unknown>)[f.key] as { unwrap?: () => { options?: readonly unknown[] } } | undefined;
+        // ⚠ `z.enum` 的 `.options` 是**值**，`z.union([z.literal(2), …])` 的 `.options` 是
+        //   ZodLiteral **对象**——直接 `String()` 会得到 "[object Object]"，而那样的比对
+        //   两边都是它，会静悄悄地通过。所以对象要先取 `.value`。
+        const opts = z?.unwrap?.().options?.map((o) =>
+          typeof o === "object" && o !== null && "value" in o ? (o as { value: unknown }).value : o,
+        ) as readonly (string | number)[] | undefined;
+        // 迭代 13：`numeric: true` 的档位字段在 schema 里是数字字面量的 union（`grid.columns`），
+        // 面板里展示为字符串档位——比对时按 `String` 折一次，仍然是**同一份** zod 派生的闭集。
+        if (opts !== undefined) {
+          expect([type, f.key, f.options]).toEqual([type, f.key, f.numeric === true ? opts.map(String) : opts]);
+        }
       }
     }
   });
@@ -439,5 +448,55 @@ describe("迭代 12：addScreen / removeScreen 与跳转索引平移", () => {
     const { links } = dp.validateLinks(withHole);
     expect(links[0]).toEqual([{ from: "b0", to: 1 }]);  // 指向未生成页 ⇒ 保留（那页迟早会生成）
     expect(links[1]).toEqual([]);                        // 从未生成页出发 ⇒ 丢（没有节点可寻址）
+  });
+});
+
+
+/**
+ * 迭代 13（delta §6）—— V70。属性面板的**视觉组只给档位，不给自由数值**。
+ *
+ * 这条门是给未来的自己看的：加一个 `width: number` 这种"就这一次"的字段特别自然，
+ * 而它一旦进来，整套原语就不再是一套设计系统，是一堆各写各的内联样式。
+ */
+describe("V70 视觉组：全是 enum，且分组从 key 派生", () => {
+  const allFields = Object.values(dp.PROTOTYPE_FIELDS).flat();
+
+  it("每个字段都带 group，且 group == prototypeFieldGroup(key)", () => {
+    expect(allFields.length).toBeGreaterThan(20);
+    for (const f of allFields) expect(f.group).toBe(dp.prototypeFieldGroup(f.key));
+  });
+
+  it("视觉组的字段 kind **全部**是 enum 或 bool——没有一个是 number/text", () => {
+    const visual = allFields.filter((f) => f.group === "visual");
+    expect(visual.length).toBeGreaterThan(10);
+    // ⚠ `numeric: true` 的档位字段（`grid.columns`）**也算 enum**：它展示为档位、存储为数字，
+    //   不是自由输入框（见 `PrototypeField.numeric` 头注）。
+    const offenders = visual.filter((f) => f.kind !== "enum" && f.kind !== "bool");
+    // ⭐ 反证：把 gap 做成 number（px 输入）⇒ 这条红。
+    expect(offenders.map((f) => `${f.key}:${f.kind}`)).toEqual([]);
+    // 数字档位仍然是闭集：options 必须列全
+    const num = visual.filter((f) => f.numeric === true);
+    expect(num.map((f) => f.key)).toEqual(["columns"]);
+    expect(num[0]!.options).toEqual(["2", "3"]);
+    // enum 的 options 必须来自 zod（非空）——手抄一份会漏掉后来新增的档位。
+    for (const f of visual.filter((x) => x.kind === "enum")) expect((f.options ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("迭代 13 新增的 size / radius 真的在表里，且是 enum", () => {
+    const byKey = (k: string) => allFields.filter((f) => f.key === k);
+    for (const k of ["size", "radius"]) {
+      expect(byKey(k).length).toBeGreaterThan(0);
+      for (const f of byKey(k)) {
+        expect(f.kind).toBe("enum");
+        expect(f.group).toBe("visual");
+      }
+    }
+  });
+
+  it("内容组里没有混进视觉字段（分组是全集划分，不是两张各写各的表）", () => {
+    const content = allFields.filter((f) => f.group === "content");
+    expect(content.some((f) => f.key === "gap" || f.key === "variant" || f.key === "radius")).toBe(false);
+    // 文案类字段确实在内容组
+    expect(content.some((f) => f.key === "label" || f.key === "title" || f.key === "content")).toBe(true);
   });
 });

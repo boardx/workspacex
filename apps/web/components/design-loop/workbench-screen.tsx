@@ -15,6 +15,8 @@ import {
   deleteProject as apiDeleteProject,
   intakeQuestions,
   listMyProjects,
+  DESIGN_PROJECT_MAX_TAGS,
+  DESIGN_PROJECT_TAG_MAX_CHARS,
   updateProject as apiUpdateProject,
   PROJECT_TEMPLATE_OPTIONS,
   type DesignProject,
@@ -81,6 +83,15 @@ export function DesignWorkbenchHome({
   const [generating, setGenerating] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  /**
+   * 迭代 13（delta §4）：选中的过滤标签（交集）。
+   *
+   * `vocabulary` 是 chip 列表的取值来源，只在**没有选任何标签**的那次加载时刷新——
+   * 因为过滤后的结果里当然只剩被选中的那些标签，拿它当词表会让 chip 一点就只剩自己，
+   * 用户再也点不到第二个。词表是「我所有项目上出现过的标签」，不是「当前结果里的」。
+   */
+  const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
+  const [vocabulary, setVocabulary] = React.useState<readonly string[]>([]);
 
   React.useEffect(() => {
     const t = window.setTimeout(() => setQuery(queryInput.trim()), SEARCH_DEBOUNCE_MS);
@@ -90,12 +101,15 @@ export function DesignWorkbenchHome({
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
     try {
-      const out = await listMyProjects(query === "" ? undefined : query);
+      const out = await listMyProjects(query === "" ? undefined : query, selectedTags);
       setLoad({ kind: "ready", items: [...out.items] });
+      if (selectedTags.length === 0) {
+        setVocabulary([...new Set(out.items.flatMap((p) => p.tags))].sort((a, b) => a.localeCompare(b, "zh-CN")));
+      }
     } catch (err) {
       setLoad({ kind: "failed", reason: describeFailure(err) });
     }
-  }, [query]);
+  }, [query, selectedTags]);
 
   React.useEffect(() => {
     if (state !== "default") return;
@@ -138,7 +152,7 @@ export function DesignWorkbenchHome({
 
   const startCreate = (template: ProjectTemplate) => setDialog({ mode: "create", template });
 
-  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => {
+  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly { question: string; answer: string }[] }) => {
     setDialog(null);
     setActionError(null);
     setGenerating(input.name);
@@ -149,6 +163,9 @@ export function DesignWorkbenchHome({
         problem: input.problem === "" ? undefined : input.problem,
         // 迭代 13：跳过的题不在数组里；空数组不发，省得服务端多判一次。
         ...(input.intake !== undefined && input.intake.length > 0 ? { intake: input.intake } : {}),
+        // 同上：没打标签就不发这个键（`createProject.in` 是 .strict()，但空数组是合法的，
+        // 不发只是少一次无意义的往返内容）。
+        ...(input.tags.length > 0 ? { tags: [...input.tags] } : {}),
       });
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [project, ...prev.items] } : prev));
       setGenerating(null);
@@ -160,10 +177,12 @@ export function DesignWorkbenchHome({
     }
   };
 
-  const handleSave = async (projectId: string, input: { name: string; template: ProjectTemplate; problem: string }) => {
+  const handleSave = async (projectId: string, input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[] }) => {
     setBusyId(projectId);
     try {
-      const { project } = await apiUpdateProject(projectId, input);
+      // ⚠ 标签**总是**发：编辑弹窗里清空标签框就是"把标签全删掉"，不发这个键会让
+      //   PATCH 的语义变成"保持原值"，于是删不掉最后一个标签。
+      const { project } = await apiUpdateProject(projectId, { ...input, tags: [...input.tags] });
       setLoad((prev) =>
         prev.kind === "ready" ? { ...prev, items: prev.items.map((p) => (p.id === projectId ? project : p)) } : prev,
       );
@@ -237,6 +256,36 @@ export function DesignWorkbenchHome({
         </div>
       </div>
 
+      {vocabulary.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 px-6 pt-2" data-testid="workbench-tag-filter">
+          {vocabulary.map((t) => {
+            const on = selectedTags.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setSelectedTags((prev) => (on ? prev.filter((x) => x !== t) : [...prev, t]))}
+                data-testid={`workbench-tag-${t}`}
+                className={`rounded-control px-2 py-0.5 text-11 transition-colors duration-fast ${on ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-background-foreground"}`}
+              >
+                {t}
+              </button>
+            );
+          })}
+          {selectedTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedTags([])}
+              className="text-11 text-muted-foreground underline-offset-2 transition-colors duration-fast hover:text-background-foreground hover:underline"
+              data-testid="workbench-tag-clear"
+            >
+              清除筛选
+            </button>
+          )}
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center" data-testid="empty">
           <p className="text-14 font-medium">还没有设计项目。</p>
@@ -259,7 +308,9 @@ export function DesignWorkbenchHome({
 
       {dialog !== null && (
         <ProjectDialog
-          initial={dialog.mode === "edit" ? { name: dialog.project.name, template: dialog.project.template, problem: dialog.project.problem } : { template: dialog.template }}
+          initial={dialog.mode === "edit"
+            ? { name: dialog.project.name, template: dialog.project.template, problem: dialog.project.problem, tags: dialog.project.tags }
+            : { template: dialog.template }}
           editing={dialog.mode === "edit"}
           busy={dialog.mode === "edit" ? busyId === dialog.project.id : false}
           onClose={() => setDialog(null)}
@@ -290,6 +341,13 @@ function ProjectCard({
         <span className="text-11 text-muted-foreground">
           {TEMPLATE_LABEL[project.template]} · {new Date(project.updatedAt).toLocaleDateString("zh-CN")}
         </span>
+        {project.tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1" data-testid={`project-tags-${project.id}`}>
+            {project.tags.map((t) => (
+              <span key={t} className="rounded-control bg-panel px-1.5 py-0.5 text-10 text-muted-foreground">{t}</span>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-1">
           {project.linkedFeedbackId !== null && <LinkBadge text={`源自反馈`} testid={`project-link-${project.id}`} />}
           {project.pushed ? (
@@ -316,17 +374,29 @@ function ProjectCard({
 function ProjectDialog({
   initial, editing, busy, onClose, onCreate, onSave,
 }: {
-  initial: { name?: string; template: ProjectTemplate; problem?: string };
+  initial: { name?: string; template: ProjectTemplate; problem?: string; tags?: readonly string[] };
   editing: boolean;
   busy: boolean;
   onClose: () => void;
-  onCreate: (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => void;
+  onCreate: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[]; intake?: readonly { question: string; answer: string }[] }) => void;
   /** 编辑走 `updateProject`（.strict()，没有 intake）——所以这里的入参**不含** intake，类型上就不给带。 */
-  onSave: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
+  onSave: (input: { name: string; template: ProjectTemplate; problem: string; tags: readonly string[] }) => void;
 }) {
   const [name, setName] = React.useState(initial.name ?? "");
   const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
   const [problem, setProblem] = React.useState(initial.problem ?? "");
+  /**
+   * 迭代 13（delta §4）：标签在弹窗里编辑，整份提交。
+   * 用一个逗号分隔的输入框而不是 chip 编辑器：8 个上限的短列表，打字比点按钮快，
+   * 也省掉一套「按回车确认这一个」的交互（那套交互的常见 bug 是最后一个没按回车就丢了）。
+   */
+  const [tagsInput, setTagsInput] = React.useState((initial.tags ?? []).join("，"));
+  const tags = React.useMemo(
+    () => [...new Set(tagsInput.split(/[,，]/).map((t) => t.trim()).filter((t) => t !== ""))]
+      .slice(0, DESIGN_PROJECT_MAX_TAGS)
+      .map((t) => t.slice(0, DESIGN_PROJECT_TAG_MAX_CHARS)),
+    [tagsInput],
+  );
   const canSubmit = name.trim() !== "" && !busy;
 
   /*
@@ -436,13 +506,30 @@ function ProjectDialog({
           </div>
         )}
 
+        {(editing || step === "brief" || step === "review") && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="project-tags" className="text-11 font-medium text-muted-foreground">
+              标签（逗号分隔，最多 {DESIGN_PROJECT_MAX_TAGS} 个）
+            </label>
+            <Input id="project-tags" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="后台，移动端" data-testid="project-tags-input" />
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1" data-testid="project-tags-preview">
+                {tags.map((t) => (
+                  <span key={t} className="rounded-control bg-panel px-1.5 py-0.5 text-10 text-muted-foreground">{t}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
           {!editing && step === "brief" && (
             <>
               {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}
               <Button variant="ghost" size="sm" disabled={!canSubmit} data-testid="intake-skip-all"
-                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim() })}>
+                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim(), tags })}>
                 跳过，直接创建
               </Button>
               <Button variant="primary" size="sm" disabled={!canSubmit || asking} data-testid="intake-ask"
@@ -465,8 +552,8 @@ function ProjectDialog({
                 editing
                   // ⚠ 编辑走 `updateProject`，它的入参是 .strict() 且**没有** intake——
                   // 把空数组也捎上会被服务端判 400（e2e 实测，2026-09-08）。
-                  ? onSave({ name: name.trim(), template, problem: problem.trim() })
-                  : onCreate({ name: name.trim(), template, problem: problem.trim(), intake: answered() })
+                  ? onSave({ name: name.trim(), template, problem: problem.trim(), tags })
+                  : onCreate({ name: name.trim(), template, problem: problem.trim(), tags, intake: answered() })
               }
             >
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}

@@ -69,6 +69,8 @@ export async function createProject(input: {
   readonly linkedFeedbackId?: string;
   /** 迭代 13：澄清问答的结果；跳过的题不在数组里。 */
   readonly intake?: readonly { readonly question: string; readonly answer: string }[];
+  /** 迭代 13（delta §4）：新建时就能打的标签。 */
+  readonly tags?: readonly string[];
 }): Promise<CreateProjectOut> {
   return apiRequest<CreateProjectOut>(designWorkbench.operations.createProject.path, {
     method: "POST",
@@ -76,15 +78,34 @@ export async function createProject(input: {
   });
 }
 
-export async function listMyProjects(q?: string): Promise<ListMyProjectsOut> {
+/**
+ * 迭代 13（delta §4）：`tags` 过滤取交集，且**排序在服务端**（V65）——调用方拿到什么顺序
+ * 就照什么顺序渲染，不要在组件里再 sort 一次。
+ * 多个标签用逗号连成一个 query 参数（服务端两种形式都吃）。
+ */
+export async function listMyProjects(q?: string, tags?: readonly string[]): Promise<ListMyProjectsOut> {
+  const wanted = (tags ?? []).map((t) => t.trim()).filter((t) => t !== "");
   return apiRequest<ListMyProjectsOut>(designWorkbench.operations.listMyProjects.path, {
-    query: { q: q !== undefined && q.trim() !== "" ? q.trim() : undefined },
+    query: {
+      q: q !== undefined && q.trim() !== "" ? q.trim() : undefined,
+      tags: wanted.length > 0 ? wanted.join(",") : undefined,
+    },
   });
 }
 
+export const DESIGN_PROJECT_MAX_TAGS = designWorkbench.DESIGN_PROJECT_MAX_TAGS;
+export const DESIGN_PROJECT_TAG_MAX_CHARS = designWorkbench.DESIGN_PROJECT_TAG_MAX_CHARS;
+
 export async function updateProject(
   projectId: string,
-  patch: { readonly name?: string; readonly template?: ProjectTemplate; readonly problem?: string; readonly theme?: "light" | "dark" },
+  patch: {
+    readonly name?: string;
+    readonly template?: ProjectTemplate;
+    readonly problem?: string;
+    readonly theme?: "light" | "dark";
+    /** 迭代 13（delta §4）：**整份替换**标签。 */
+    readonly tags?: readonly string[];
+  },
 ): Promise<UpdateProjectOut> {
   return apiRequest<UpdateProjectOut>(
     designWorkbench.operations.updateProject.path.replace(":projectId", encodeURIComponent(projectId)),

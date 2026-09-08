@@ -108,6 +108,22 @@ const ALIGN: Record<"start" | "center" | "end" | "between", string> = {
 const TEXT_VARIANT: Record<"title" | "subtitle" | "body" | "caption" | "label", string> = {
   title: "text-16 font-semibold", subtitle: "text-13 font-medium", body: "text-12", caption: "text-10", label: "text-10 font-medium uppercase tracking-wide",
 };
+/**
+ * 迭代 13（delta §6）—— 圆角与尺寸的档位表。
+ *
+ * ⚠ 与契约的 `Radius` / `Size` 枚举一一对应；`Record<...>` 的键类型让**新增一档而忘了
+ *   在这里给样式**变成一个 TS 错误，而不是运行时静悄悄地落到默认值上。
+ */
+const RADIUS: Record<"none" | "sm" | "md" | "lg" | "full", string> = {
+  none: "rounded-none", sm: "rounded-sm", md: "rounded-control", lg: "rounded-card", full: "rounded-full",
+};
+const BTN_SIZE: Record<"sm" | "md" | "lg", string> = {
+  sm: "h-6 px-2 text-11", md: "h-8 px-3 text-12", lg: "h-10 px-5 text-13",
+};
+const AVATAR_SIZE: Record<"sm" | "md" | "lg", string> = {
+  sm: "h-5 w-5 text-9", md: "h-7 w-7 text-10", lg: "h-10 w-10 text-12",
+};
+
 const BUTTON_VARIANT: Record<"primary" | "secondary" | "ghost" | "danger", string> = {
   primary: "bg-primary text-primary-foreground",
   secondary: "bg-panel text-panel-foreground border border-border",
@@ -163,13 +179,18 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
         </div>
       );
     }
-    case "card":
+    case "card": {
+      const p = node.props;
       return (
-        <div className="flex flex-col gap-1.5 rounded-card border border-border bg-panel p-2" data-proto="card" {...tap}>
+        <div
+          className={cn("flex flex-col gap-1.5 border border-border bg-panel", RADIUS[p?.radius ?? "lg"], PAD[p?.padding ?? "md"])}
+          data-proto="card" {...tap}
+        >
           {node.props?.title !== undefined && <p className="text-12 font-medium">{node.props.title}</p>}
           {node.children.map((c, i) => <Node key={i} node={c} />)}
         </div>
       );
+    }
     case "navbar":
       return (
         <div className="flex h-9 items-center justify-between border-b border-border px-1 text-12" data-proto="navbar" {...tap}>
@@ -194,7 +215,11 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       const p = node.props;
       return (
         <span
-          className={cn("inline-flex h-8 shrink-0 items-center justify-center rounded-control px-3 text-12 font-medium", BUTTON_VARIANT[p.variant ?? "primary"], p.full === true && "w-full")}
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center font-medium",
+            BTN_SIZE[p.size ?? "md"], RADIUS[p.radius ?? "md"],
+            BUTTON_VARIANT[p.variant ?? "primary"], p.full === true && "w-full",
+          )}
           data-proto="button" {...tap}
         >
           {p.label}
@@ -252,7 +277,7 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
       return <span className={cn("inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-10", BADGE_TONE[node.props.tone ?? "neutral"])} data-proto="badge" {...tap}>{node.props.label}</span>;
     case "avatar":
       return (
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-panel text-10 font-medium" data-proto="avatar" {...tap} title={node.props.name}>
+        <span className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-panel font-medium", AVATAR_SIZE[node.props.size ?? "md"])} data-proto="avatar" {...tap} title={node.props.name}>
           {node.props.name.slice(0, 1)}
         </span>
       );

@@ -4,7 +4,7 @@ import { buildDesignDocMarkdown, buildPrototypeSpecJson, designDocFileName, outl
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const base: DesignProject = {
-  id: "p1", name: "聊天 UI/改版", template: "ui", theme: "dark", refImages: [], problem: "对话入口太深", criteria: ["首屏可发消息"],
+  id: "p1", name: "聊天 UI/改版", template: "ui", theme: "dark", tags: [], refImages: [], problem: "对话入口太深", criteria: ["首屏可发消息"],
   frames: ["聊天", "设置"],
   frameNotes: ["首屏即可发消息；生成中可停止。", ""],
   prototype: [

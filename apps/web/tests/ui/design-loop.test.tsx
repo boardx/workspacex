@@ -954,6 +954,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
+    tags: [],
     refImages: [],
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
@@ -1062,7 +1063,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     fireEvent.click(screen.getByTestId("project-dialog-submit"));
     await waitFor(() => expect(bodies).toHaveLength(1));
     // ⭐ 反证锚点：把 intake 塞回编辑路径 ⇒ 这条红（服务端 .strict() 会判 400）。
-    expect(Object.keys(bodies[0] as object).sort()).toEqual(["name", "problem", "template"]);
+    // 迭代 13：`tags` 进了这个集合——它**总是**发（清空标签框 = 全删，不发就删不掉最后一个）。
+    expect(Object.keys(bodies[0] as object).sort()).toEqual(["name", "problem", "tags", "template"]);
   });
 
   /**
@@ -1100,11 +1102,11 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
         expect(screen.queryAllByTestId("design-ref-image")).toHaveLength(0);
         fireEvent.change(screen.getByTestId("design-ref-image-file"), { target: { files: [png()] } });
         await waitFor(() => expect(screen.getAllByTestId("design-ref-image")).toHaveLength(1));
-        const [url, init] = fetchMock.mock.calls[0] as [string, { method: string; body: FormData }];
+        const [url, init] = fetchMock.mock.calls[0] as [string, { method: string; body: FormData; headers: Record<string, string> }];
         expect(url).toContain("/pm-designs/p1/ref-images");
         expect(init.method).toBe("POST");
         // ⚠ 绝不手设 Content-Type：fetch 要自己带 multipart boundary。
-        expect((init as { headers: Record<string, string> }).headers["Content-Type"]).toBeUndefined();
+        expect(init.headers["Content-Type"]).toBeUndefined();
         expect((init.body as FormData).get("file")).toBeInstanceOf(File);
       } finally {
         vi.unstubAllGlobals();
@@ -1220,6 +1222,165 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       await screen.findByTestId("design-ref-image");
       fireEvent.click(screen.getByTestId("design-ref-image-delete"));
       await waitFor(() => expect(screen.queryAllByTestId("design-ref-image")).toHaveLength(0));
+    });
+  });
+
+  /** 迭代 13（delta §4）—— V66 的前端一半：chip 词表从项目派生，过滤走服务端参数。 */
+  describe("V66 标签过滤（前端）", () => {
+    // ⚠ dp-4 的「设计系统」是**只有它带**的标签：按「移动端」过滤会把 dp-4 整个排除，
+    //   于是"从当前结果派生词表"的实现会让这个 chip 消失。第一版夹具里没有这样一个标签，
+    //   那条断言于是**抓不住**这个变异（实测：改成从结果派生，5 条全绿）。
+    const seeded = (tags?: readonly string[]) => [
+      project({ id: "dp-1", name: "后台项目", tags: ["后台", "移动端"] }),
+      project({ id: "dp-2", name: "只有后台", tags: ["后台"] }),
+      project({ id: "dp-3", name: "没标签", tags: [] }),
+      project({ id: "dp-4", name: "设计系统", tags: ["设计系统"] }),
+    ].filter((p) => (tags ?? []).every((t) => p.tags.includes(t)));
+
+    const mockList = () => {
+      const queries: (Record<string, string | undefined> | undefined)[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, string | undefined> }) => {
+        if (path !== "/pm-designs") throw new Error(`unexpected ${path}`);
+        queries.push(opts?.query);
+        const tags = opts?.query?.tags;
+        return { items: seeded(tags === undefined ? [] : tags.split(",")) };
+      });
+      return queries;
+    };
+
+    it("chip 词表是**我所有项目**上出现过的标签，去重且不随过滤结果缩水", async () => {
+      mockList();
+      render(<DesignWorkbenchHome state="default" />);
+      await screen.findByTestId("workbench-tag-filter");
+      expect(screen.getByTestId("workbench-tag-后台")).toBeTruthy();
+      expect(screen.getByTestId("workbench-tag-移动端")).toBeTruthy();
+
+      fireEvent.click(screen.getByTestId("workbench-tag-移动端"));
+      await waitFor(() => expect(screen.queryByTestId("project-card-dp-2")).toBeNull());
+      // ⭐ 反证：词表若取自"当前结果里的标签"，点一下「移动端」之后「后台」还在（dp-1 有它），
+      //   但只要再点一个只有一个项目带的标签，词表就会塌成只剩自己，再也点不到第二个。
+      //   这里钉住：过滤后词表**一个都不少**——包括当前结果里已经没有的「设计系统」。
+      expect(screen.getByTestId("workbench-tag-后台")).toBeTruthy();
+      expect(screen.getByTestId("workbench-tag-移动端")).toBeTruthy();
+      expect(screen.queryByTestId("project-card-dp-4")).toBeNull();
+      expect(screen.getByTestId("workbench-tag-设计系统")).toBeTruthy();
+    });
+
+    it("选两个标签 ⇒ 一个请求带上两个（交集在服务端判，前端不本地过滤）", async () => {
+      const queries = mockList();
+      render(<DesignWorkbenchHome state="default" />);
+      await screen.findByTestId("workbench-tag-后台");
+      fireEvent.click(screen.getByTestId("workbench-tag-后台"));
+      fireEvent.click(await screen.findByTestId("workbench-tag-移动端"));
+      await waitFor(() => expect(queries[queries.length - 1]?.tags).toBe("后台,移动端"));
+      // ⭐ 反证：改成前端本地过滤 ⇒ 请求里永远没有 tags，这条红。
+      expect(screen.getByTestId("project-card-dp-1")).toBeTruthy();
+      expect(screen.queryByTestId("project-card-dp-2")).toBeNull();
+    });
+
+    it("「清除筛选」把 tags 参数拿掉，不是发一个空串", async () => {
+      const queries = mockList();
+      render(<DesignWorkbenchHome state="default" />);
+      await screen.findByTestId("workbench-tag-后台");
+      fireEvent.click(screen.getByTestId("workbench-tag-后台"));
+      await screen.findByTestId("workbench-tag-clear");
+      fireEvent.click(screen.getByTestId("workbench-tag-clear"));
+      await waitFor(() => expect(screen.getByTestId("project-card-dp-3")).toBeTruthy());
+      expect(queries[queries.length - 1]?.tags).toBeUndefined();
+    });
+
+    it("卡片上显示标签；没有标签的卡片不渲染空的标签行", async () => {
+      mockList();
+      render(<DesignWorkbenchHome state="default" />);
+      await screen.findByTestId("project-tags-dp-1");
+      expect(screen.getByTestId("project-tags-dp-1").textContent).toContain("移动端");
+      expect(screen.queryByTestId("project-tags-dp-3")).toBeNull();
+    });
+
+    it("弹窗里逗号分隔输入：中英文逗号都认，去空白去重，超上限截断", async () => {
+      mockList();
+      render(<DesignWorkbenchHome state="default" />);
+      fireEvent.click(await screen.findByTestId("workbench-new"));
+      const input = await screen.findByTestId("project-tags-input");
+      fireEvent.change(input, { target: { value: " 后台 ，后台, 移动端 ,,, " } });
+      const preview = screen.getByTestId("project-tags-preview");
+      expect([...preview.children].map((c) => c.textContent)).toEqual(["后台", "移动端"]);
+    });
+  });
+
+  /**
+   * 迭代 13（delta §6）—— V70 的前端一半：视觉组默认折叠、内容组默认展开，
+   * 且视觉档位改完真的发得出去（含数字档位的回转）。
+   */
+  describe("V70 属性面板的视觉组", () => {
+    const gridProject = () => project({
+      id: "p1",
+      frames: ["首页"],
+      prototype: [{ id: "root", type: "stack", children: [{ id: "g1", type: "grid", props: { columns: 3 }, children: [] }] }],
+      frameLinks: [[]],
+    });
+
+    const mount = async () => {
+      const posted: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [gridProject()] };
+        if (path === "/pm-designs/p1/prototype/patch" && opts?.method === "POST") {
+          posted.push(opts.body);
+          return { project: gridProject() };
+        }
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      fireEvent.click(screen.getByTestId("design-detail-phone-tree").querySelector('[data-node-id="g1"]') as HTMLElement);
+      await screen.findByTestId("design-inspector");
+      return posted;
+    };
+
+    it("视觉组默认折叠，展开后才出现；折叠时视觉字段一个都不渲染", async () => {
+      await mount();
+      expect(screen.queryByTestId("design-inspector-visual")).toBeNull();
+      expect(screen.queryByTestId("design-inspector-gap")).toBeNull();
+      const toggle = screen.getByTestId("design-inspector-visual-toggle");
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(toggle);
+      expect(screen.getByTestId("design-inspector-visual")).toBeTruthy();
+      expect(screen.getByTestId("design-inspector-gap")).toBeTruthy();
+      // ⭐ 反证：视觉组默认展开 ⇒ 第一条红。「像 Figma 但简化」的简化就落在这里。
+    });
+
+    it("视觉字段全是下拉，没有一个是自由输入的数字框", async () => {
+      await mount();
+      fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
+      const visual = screen.getByTestId("design-inspector-visual");
+      const inputs = [...visual.querySelectorAll("input")];
+      // ⭐ 反证：把 gap 做成 px 输入 ⇒ 这条红。自由数值会造出落在设计系统之外的值。
+      expect(inputs.filter((i) => i.type === "number")).toHaveLength(0);
+      expect(visual.querySelectorAll("select").length).toBeGreaterThan(0);
+    });
+
+    it("数字档位（grid.columns）显示的是当前值，改完发出去的是**数字**不是字符串", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
+      const sel = screen.getByTestId("design-inspector-columns") as HTMLSelectElement;
+      // ⭐ 反证：把它当普通 enum 读 ⇒ 这里会是 ""（"明明是 3 列，面板里显示（默认）"）。
+      expect(sel.value).toBe("3");
+      fireEvent.change(sel, { target: { value: "2" } });
+      fireEvent.click(screen.getByTestId("design-inspector-apply"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      // ⭐ 反证：不回转成数字 ⇒ 发出去的是 "2"，被服务端 .strict() 的 props schema 判拒。
+      expect((posted[0] as { ops: { props: unknown }[] }).ops[0]!.props).toEqual({ columns: 2 });
+    });
+
+    it("清掉一个视觉档位发的是 null（删该键），不是被 JSON 丢掉的 undefined", async () => {
+      const posted = await mount();
+      fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
+      fireEvent.change(screen.getByTestId("design-inspector-columns"), { target: { value: "" } });
+      fireEvent.click(screen.getByTestId("design-inspector-apply"));
+      await waitFor(() => expect(posted).toHaveLength(1));
+      // ⭐ 反证：onChange 写 undefined ⇒ 这条红，且现象是"点了应用什么都没发生"（静默失效）。
+      expect((posted[0] as { ops: { props: unknown }[] }).ops[0]!.props).toEqual({ columns: null });
     });
   });
 
@@ -1683,6 +1844,10 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     expect(inspector.textContent).toContain("按钮「发送」");
     expect((screen.getByTestId("design-inspector-apply") as HTMLButtonElement).disabled).toBe(true); // 没改不能应用
     fireEvent.change(screen.getByTestId("design-inspector-label"), { target: { value: "停止" } });
+    // 迭代 13（V70）：`variant` 是**视觉**字段，默认收在折叠的「外观」组里——要先展开。
+    // 内容字段（label）则一直可见，不需要展开。
+    expect(screen.queryByTestId("design-inspector-variant")).toBeNull();
+    fireEvent.click(screen.getByTestId("design-inspector-visual-toggle"));
     fireEvent.change(screen.getByTestId("design-inspector-variant"), { target: { value: "danger" } });
     fireEvent.click(screen.getByTestId("design-inspector-apply"));
     await waitFor(() => expect(posted).toHaveLength(1));

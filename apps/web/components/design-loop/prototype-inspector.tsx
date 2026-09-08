@@ -8,7 +8,7 @@
  * 列表类字段（list.items / tabs.items）用多行文本，一行一项。
  */
 import * as React from "react";
-import { Loader2, Trash2, Check, SlidersHorizontal } from "lucide-react";
+import { Loader2, Trash2, Check, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +48,10 @@ function toDraft(node: PrototypeNode): Draft {
     if (f.kind === "lines") d[f.key] = Array.isArray(v) ? (v as string[]).join("\n") : "";
     else if (f.kind === "bool") d[f.key] = v === true;
     else if (f.kind === "number") d[f.key] = typeof v === "number" ? v : undefined;
+    // 迭代 13：`numeric` 的档位字段存的是数字（`grid.columns`）——原样带上，
+    // 下拉靠 `String(...)` 显示。当成普通 enum 走 else 分支会把它读成 ""，
+    // 表现是"明明是 3 列，面板里显示（默认）"。
+    else if (f.numeric === true) d[f.key] = typeof v === "number" ? v : "";
     else d[f.key] = typeof v === "string" ? v : "";
   }
   return d;
@@ -110,6 +114,15 @@ export function PrototypeInspector({
   const changes = diff(node, draft);
   const dirty = Object.keys(changes).length > 0;
   const fields = FIELDS[node.type];
+  /**
+   * 迭代 13（delta §6）——「像 Figma，但**简化**」的形态：内容组默认展开（改文案是最常做的事），
+   * 视觉组默认折叠（十个下拉一次全摊开，常用的那一个就被淹掉了）。
+   * 折叠状态跟着**节点类型**走而不是跟着节点：连着调三个按钮的圆角时，
+   * 不该每选一个就重新展开一次。
+   */
+  const [visualOpen, setVisualOpen] = React.useState(false);
+  const contentFields = fields.filter((f) => f.group === "content");
+  const visualFields = fields.filter((f) => f.group === "visual");
   const id = node.id;
 
   const apply = async () => {
@@ -157,6 +170,38 @@ export function PrototypeInspector({
   const fieldId = (k: string) => `proto-field-${k}`;
   const control = "h-8 w-full rounded-control border border-input bg-background px-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+  /**
+   * 一个字段一种控件。内容组与视觉组**共用这一个**渲染器——两边各写一遍的话，
+   * 新增一种 kind 就要改两处，而漏改的那一处会静悄悄地渲染成空白。
+   */
+  const renderField = (f: (typeof fields)[number]) => (
+        <div key={f.key} className={cn("flex gap-1", f.kind === "bool" ? "flex-row items-center justify-between" : "flex-col")}>
+          <label htmlFor={fieldId(f.key)} className="text-10 font-medium text-muted-foreground">{f.label}</label>
+          {f.kind === "text" && <Input id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {(f.kind === "multiline" || f.kind === "lines") && <Textarea id={fieldId(f.key)} rows={f.kind === "lines" ? 4 : 3} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
+          {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
+          {f.kind === "enum" && (
+            <select
+              id={fieldId(f.key)}
+              value={String(draft[f.key] ?? "")}
+              // ⚠ `numeric` 的档位字段（`grid.columns`）在 schema 里是数字：这里回转，
+              //   否则会把 "2" 这个字符串发给服务端，被 `.strict()` 的 props schema 判拒。
+              // ⚠ 清空必须留 `""`（`diff` 把它翻成 `null` = 删该键）；写 `undefined` 会被
+              //   JSON 丢掉，于是"清掉这个属性"变成一次什么都没发生的请求——静默失效。
+              //   `numeric` 的档位字段（`grid.columns`）在 schema 里是数字，非空时回转。
+              onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? "" : f.numeric === true ? Number(e.target.value) : e.target.value })}
+              disabled={busy}
+              className={control}
+              data-testid={`design-inspector-${f.key}`}
+            >
+              <option value="">（默认）</option>
+              {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+        </div>
+  );
+
   return (
     <section className="flex flex-col gap-2 border-b border-border p-3" data-testid="design-inspector">
       <div className="flex items-center gap-1.5 text-12 font-medium">
@@ -165,21 +210,27 @@ export function PrototypeInspector({
       </div>
       <p className="truncate text-10 text-muted-foreground" data-testid="design-inspector-path">{path.map(prototypeNodeLabel).join(" › ")}</p>
       {fields.length === 0 && <p className="text-11 text-muted-foreground">这种节点没有可改的属性。</p>}
-      {fields.map((f) => (
-        <div key={f.key} className={cn("flex gap-1", f.kind === "bool" ? "flex-row items-center justify-between" : "flex-col")}>
-          <label htmlFor={fieldId(f.key)} className="text-10 font-medium text-muted-foreground">{f.label}</label>
-          {f.kind === "text" && <Input id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
-          {(f.kind === "multiline" || f.kind === "lines") && <Textarea id={fieldId(f.key)} rows={f.kind === "lines" ? 4 : 3} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
-          {f.kind === "number" && <Input id={fieldId(f.key)} type="number" min={0} value={draft[f.key] === undefined ? "" : String(draft[f.key])} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value === "" ? undefined : Number(e.target.value) })} disabled={busy} data-testid={`design-inspector-${f.key}`} />}
-          {f.kind === "bool" && <input id={fieldId(f.key)} type="checkbox" checked={draft[f.key] === true} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.checked })} disabled={busy} className="h-3.5 w-3.5 accent-primary" data-testid={`design-inspector-${f.key}`} />}
-          {f.kind === "enum" && (
-            <select id={fieldId(f.key)} value={String(draft[f.key] ?? "")} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} disabled={busy} className={control} data-testid={`design-inspector-${f.key}`}>
-              <option value="">（默认）</option>
-              {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+      {contentFields.map(renderField)}
+
+      {visualFields.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border pt-2">
+          <button
+            type="button"
+            onClick={() => setVisualOpen((v) => !v)}
+            aria-expanded={visualOpen}
+            className="flex items-center gap-1 text-10 font-medium uppercase tracking-wide text-muted-foreground transition-colors duration-fast hover:text-background-foreground"
+            data-testid="design-inspector-visual-toggle"
+          >
+            <ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-fast", visualOpen && "rotate-90")} />
+            外观（{visualFields.length}）
+          </button>
+          {visualOpen && (
+            <div className="flex flex-col gap-2" data-testid="design-inspector-visual">
+              {visualFields.map(renderField)}
+            </div>
           )}
         </div>
-      ))}
+      )}
       {onSetLinks !== undefined && id !== undefined && slots > 0 && (
         <div className="flex flex-col gap-1.5 border-t border-border pt-2" data-testid="design-inspector-links">
           <p className="text-10 font-medium uppercase tracking-wide text-muted-foreground">跳转</p>
