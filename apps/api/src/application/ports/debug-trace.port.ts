@@ -17,9 +17,12 @@
  * 3. **读回来的只给平台运营准入**：`query()`/`getTrace()` 走 `app_diag_ro` 凭据，与
  *    `error_logs` 同一条边界，见迁移 `debug_events.sql` 头注。
  */
+import type { z } from "zod";
+import { systemDebugTrace as C } from "@repo/contracts";
 import { redactErrorMessage } from "./error-log.port";
 
-export type DebugEventLevel = "info" | "warn" | "error";
+/** 单源在契约（ADR-020）；这里只是 infer，不再写一遍字面量。 */
+export type DebugEventLevel = z.infer<typeof C.DebugEventLevel>;
 
 export interface DebugEventInput {
   readonly traceId: string;
