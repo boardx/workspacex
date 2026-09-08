@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "../chat-read-fixture";
-import { openFreshThread } from "../chat-task-workbench-fixture";
+import { openChatEmptyState, openFreshThread } from "../chat-task-workbench-fixture";
 import { selectWorkbenchAgent } from "./workbench-run-evidence";
 
 /**
@@ -102,66 +102,74 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
 }
 
 /**
- * 老聊天屏（项目内线程）的发送动作：填入 → 提交 → 断言服务端已受理（202）。
+ * 同上，但用于**同一 browser context 里的第二个 page**：不再走登录。
  *
- * 输入框等不到时**先把消息面板自己的错误态读出来再红**：2026-09-08 首跑里 A3/C4/C5
- * 三条都以「`消息内容` 30s 内没出现」收场，而线程列表已经正确渲染——光凭那条断言
- * 分不出「面板报了错」「还在加载」「输入框真的没渲染」，三种处置完全不同。把面板
- * 的 `chat-message-list-error` 正文拼进失败信息，是让下一次红自带诊断，不是放宽判据
- * （输入框仍然必须可见，否则照样红）。
+ * 二跑实测（F6）：同一 context 的两个 page 共享 origin 存储，第一个 page 登录之后，
+ * 第二个 page 已经是已登录态 ⇒ `openChatEmptyState` 里的 `goto("/login")` 被重定向走，
+ * `login-email` 永远不出现，又是首跑那个形态的第二种来源。并发用例恰恰**需要**共享
+ * 登录态（真实用户开两个标签页），所以修的是"别再登一次"，不是"换成两个 context"。
  */
-export async function sendOnProjectThread(page: Page, threadId: string, text: string): Promise<void> {
-  const input = page.getByRole("textbox", { name: "消息内容" });
-  const panelError = page.getByTestId("chat-message-list-error");
-  try {
-    await expect(input).toBeVisible();
-  } catch (failure) {
-    const detail = (await panelError.count()) > 0
-      ? `消息面板处于错误态：${(await panelError.first().innerText()).trim()}`
-      : "消息面板没有错误态——输入框是「没渲染」或「还没加载完」，不是「加载失败」";
-    throw new Error(`${failure instanceof Error ? failure.message : String(failure)}\n\n【诊断】${detail}`);
-  }
-  await input.fill(text);
-  const accepted = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${threadId}/messages`)
-  ));
-  await page.getByTestId("chat-message-submit").click();
-  expect((await accepted).status()).toBe(202);
+export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
+  return threadId as string;
 }
 
 /**
- * 老聊天屏：等这一轮 run 成功落定，返回它写回的那条消息所在行。
+ * 新建一条空线程并选中**回显 agent**（`CHAT_READ_E2E.agentId`，走
+ * `loopback-model-provider.ts`）—— 画布指引与 L2/L3 那几个回显开关都长在它身上，
+ * deep-agent 那条替身没有它们。
  *
- * 读的是 `chat-live-agent-run-status` 上的两个属性（run 状态 + 写回消息 id），手法逐字
- * 取自 `context-engine.spec.ts` 的同名 helper——包括它头注记的那条坑：必须同时锚
- * `chat-message-row`，`data-message-id` 在同一条消息里挂在三个元素上，只按它选会
- * strict mode violation。
+ * ## 顺序不能反：先切 agent，再建线程
+ *
+ * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`：切 agent 会**卸载当前对话并
+ * 开一条全新的**（新 threadId、空消息）。所以线程 id 必须在切换**之后**才取，
+ * 否则拿到的是切换前那条、随后所有权威读都读错线程。
+ *
+ * ⚠ 这也是 issue **#3028** 的同一条机制：它让「深链进一条种好历史的线程」与
+ * 「切到回显 agent」在 v2 上互斥。需要**种好的历史**的用例（本车道的 A3）因此
+ * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
+ * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
+ * 完全成立。
  */
-export async function awaitProjectThreadReply(page: Page) {
-  const status = page.getByTestId("chat-live-agent-run-status");
-  await expect.poll(async () => status.getAttribute("data-run-status"), { timeout: 120_000 }).toBe("succeeded");
-  await expect
-    .poll(async () => status.getAttribute("data-result-message-id"), { timeout: 60_000 })
-    .not.toBeNull();
-  const resultMessageId = await status.getAttribute("data-result-message-id");
-  expect(resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
-  return page.locator(`[data-testid="chat-message-row"][data-message-id="${resultMessageId}"]`);
+export async function openFreshEchoAgentThread(page: Page): Promise<string> {
+  await openChatEmptyState(page);
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
+  return threadId as string;
 }
 
-/** 等这条线程上刚发出的那次 run 走到终态（成功或失败都算落定）。 */
-export async function waitForRunSettled(page: Page, timeout = 120_000): Promise<void> {
-  await page.waitForResponse(async (response) => {
-    if (response.request().method() !== "GET" || !/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname)) {
-      return false;
-    }
-    try {
-      const body = await response.json() as { status?: string };
-      return body.status === "succeeded" || body.status === "failed";
-    } catch {
-      return false;
-    }
-  }, { timeout });
+/**
+ * v2 面板：发一条消息，等到**落库**的 agent 回复里出现期待的串。
+ *
+ * 等的是权威读（`GET /chat/threads/:id/messages`）而不是 DOM 文本——回复气泡的渲染
+ * 时机与落库时机是两件事，混着等会把「渲染慢」误判成「没答」。手法取自
+ * `agent-chat-core-paths.spec.ts` 的 `sendAndWaitStoredReply`。
+ */
+export async function sendInV2AndAwaitStoredReply(
+  page: Page,
+  threadId: string,
+  text: string,
+  expectedInReply: string,
+): Promise<void> {
+  await page.getByTestId("copilotkit-v2-input").fill(text);
+  await page.getByTestId("copilotkit-v2-send").click();
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text, { timeout: 60_000 });
+  await expect
+    .poll(async () => {
+      const messages = await storedMessages(page, threadId);
+      return messages.some((m) => m.authorKind === "agent" && m.text.includes(expectedInReply));
+    }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
+    .toBe(true);
 }
 
 /**

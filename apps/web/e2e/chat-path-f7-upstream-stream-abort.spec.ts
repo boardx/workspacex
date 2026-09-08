@@ -39,7 +39,27 @@ test("@path:F7 上游流式半路断开：UI 诚实收场，不假装还在跑�
   await expect(page.getByTestId("copilotkit-v2-messages"))
     .toContainText(CHAT_READ_E2E.deepAgentStreamAbortTrigger, { timeout: 60_000 });
 
-  // ── ① 人类可读的失败提示 ──
+  /*
+   * ── ① 先把「服务端确实以失败收场」钉死，再问 UI 诚不诚实 ──
+   *
+   * 二跑实测教训：本条当时直接断言横幅，红成 `copilotkit-v2-error` 0 个，
+   * 而"替身没让 run 真的失败"与"run 失败了但 UI 不说"这两种完全不同的结论，
+   * 从那条红里分不出来。断言顺序因此固定为：先权威读，再判界面。
+   */
+  const messages = await storedMessages(page, threadId);
+  const humanTurn = messages.find(
+    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentStreamAbortTrigger,
+  );
+  expect(humanTurn, "用户那条消息必须已落库").toBeDefined();
+  expect(humanTurn!.agentRunId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
+  await expect
+    .poll(async () => (await storedRun(page, humanTurn!.agentRunId!)).status, {
+      timeout: 120_000,
+      intervals: [1_000, 2_000, 5_000],
+    })
+    .toBe("failed");
+
+  // ── ② 人类可读的失败提示 ──
   const banner = page.getByTestId("copilotkit-v2-error");
   await expect(
     banner,
@@ -48,22 +68,8 @@ test("@path:F7 上游流式半路断开：UI 诚实收场，不假装还在跑�
   const bannerText = (await banner.innerText()).trim();
   expect(bannerText.length, `失败横幅渲染出来了但是空的："${bannerText}"`).toBeGreaterThan(0);
 
-  // ── ② 不再假装还在跑 ──
+  // ── ③ 不再假装还在跑 ──
   await expectSendNotBlockedOnRun(page, 60_000);
-
-  // ── ③ 权威读：库里这次 run 真的是失败态（UI 与库不许各说各话）──
-  const messages = await storedMessages(page, threadId);
-  const humanTurn = messages.find(
-    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentStreamAbortTrigger,
-  );
-  expect(humanTurn, "用户那条消息必须已落库").toBeDefined();
-  expect(humanTurn!.agentRunId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
-  const run = await storedRun(page, humanTurn!.agentRunId!);
-  expect(
-    run.status,
-    "上游断流且随后的权威状态是 error 时，这次 run 必须落成 failed——"
-    + "库里还挂着 running 说明轮询兜底那条路没走通",
-  ).toBe("failed");
 
   // ── ④ 失败之后界面仍可用 ──
   const secondTurn = `断流之后的第二轮 ${Date.now()}`;

@@ -585,9 +585,6 @@ export default defineConfig({
         // 发布画布模板，唯一事实源在 `chat-read-fixture.ts`，种子脚本 / 替身进程 / 断言方
         // 三处共用同一份（同上面每一条专属线程的接线方式）。
         CHAT_E2E_CANVAS_GUIDANCE_THREAD_ID: CHAT_READ_E2E.canvasGuidanceThreadId,
-        // 路径矩阵 C4/C5 —— 两条各自独立的画布线程（不与上面那条共写，见种子脚本头注）。
-        CHAT_E2E_CANVAS_DUAL_THREAD_ID: CHAT_READ_E2E.canvasDualThreadId,
-        CHAT_E2E_CANVAS_SERIAL_THREAD_ID: CHAT_READ_E2E.canvasSerialThreadId,
         CHAT_E2E_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
         CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME: CHAT_READ_E2E.canvasTemplateDisplayName,
         CHAT_E2E_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
