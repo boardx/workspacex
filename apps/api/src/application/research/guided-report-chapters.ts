@@ -52,11 +52,12 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     } catch { approved = []; }
   }
   const reusable = new Map<string, Chapter>();
-  if (state.reportDraft && approved.length === sections.length && state.reportQualityWarnings?.length) {
+  const firstWarned = approved.findIndex((chapter) => state.reportQualityWarnings?.some((warning) => warning.sectionId === chapter.sectionId));
+  if (firstWarned >= 0) {
     preservePreviousReport(state);
-    const warned = new Set(state.reportQualityWarnings.map((warning) => warning.sectionId));
+    const warned = new Set(state.reportQualityWarnings!.map((warning) => warning.sectionId));
     for (const chapter of approved) if (!warned.has(chapter.sectionId)) reusable.set(chapter.sectionId, chapter);
-    approved = approved.slice(0, approved.findIndex((chapter) => warned.has(chapter.sectionId)));
+    approved = approved.slice(0, firstWarned);
   }
   state.reportQualityWarnings = (state.reportQualityWarnings ?? []).filter((warning) => approved.some((chapter) => chapter.sectionId === warning.sectionId));
   state.reportDraft = null;

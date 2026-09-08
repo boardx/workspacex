@@ -531,4 +531,25 @@ describe("chapter-based report generation", () => {
     expect(f.state.completed).toBe(false); expect(f.state.errorCode).toBeTruthy();
   });
 
+  it.each(["chapter", "synthesis"])("re-reviews warned checkpoints on the first retry after interruption during %s", async (interruption) => {
+    const f = fixture(); let retry = false; const calls: string[] = [];
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      calls.push(`${context.reportStage}:${context.section?.id ?? ""}`);
+      if (!retry && (interruption === "synthesis" ? context.reportStage === "synthesis" : context.reportStage === "chapter" && context.section.id === "a")) throw new Error("interrupted");
+      const value = answer(context);
+      if (!retry && context.reportStage === "quality" && context.section.id === "b") Object.assign(value, { supported: false, issues: ["Verify policy claims."] });
+      return { text: JSON.stringify(value) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("interrupted");
+    expect(f.state.reportDraft).toBeFalsy();
+    expect(f.state.reportQualityWarnings).toEqual([expect.objectContaining({ sectionId: "b" })]);
+    retry = true; calls.length = 0;
+    const report = await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(calls).toContain("chapter:b"); expect(calls).toContain("quality:b");
+    if (interruption === "synthesis") expect(calls).not.toContain("chapter:a");
+    expect(report.sections.map((chapter) => chapter.sectionId)).toEqual(["b", "a"]);
+    expect(f.state.reportQualityWarnings).toEqual([]);
+  });
+
 });
