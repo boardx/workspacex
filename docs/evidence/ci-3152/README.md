@@ -13,3 +13,5 @@ Validation:
 - Independent review found and verified fixes for newer-failure fallback and PR merge-SHA reuse; no remaining false-green blocker.
 
 Live duplicate-dispatch evidence will be added after branch validation. No branch rules or production deployment were changed by this patch.
+
+Live follow-up: producer 34256842458 executed smoke and uploaded non-expired artifact 10068559343. Duplicate 34256866540 was canceled by the GitHub account before receiving a runner (annotation saved by the reviewer). This exposed an overly conservative invalidation: an unstarted canceled request is not a new measurement. The resolver now ignores only an explicit runner_id=0 plus empty steps cancellation; unknown runner metadata and in-flight cancellation still invalidate reuse. A real API probe using patched resolver returned producer 34256842458/success for the repeated request. Full workflow reuse remains to be reconfirmed at the final revision.

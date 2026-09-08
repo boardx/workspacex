@@ -103,3 +103,14 @@ it('repeated references to a failed producer retain its failure without alternat
   });
   expect(await lookup(api)).toMatchObject({ source: source.html_url, result: 'failure' });
 });
+
+
+it.each([0, 17, null])('a cancelled request invalidates evidence only after execution started (runner %i)', async runner_id => {
+  const api = apiFor({
+    '/actions/workflows/7/runs?head_sha=abc&per_page=100&page=1': { total_count: 2, workflow_runs: [{ ...source, id: 15, created_at: '2026-09-08T23:30:00Z' }, source] },
+    '/actions/runs/15/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'cancelled', runner_id, steps: runner_id ? [{ ...steps[0], conclusion: 'cancelled' }] : [] }] },
+  });
+  const result = await lookup(api);
+  if (runner_id !== 0) expect(result).toBeNull();
+  else expect(result).toMatchObject({ source: source.html_url, result: 'success' });
+});

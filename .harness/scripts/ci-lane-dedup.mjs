@@ -52,6 +52,8 @@ export async function findReusableLane({ api, sha, runId, lane, now = Date.now()
     const jobs = await pages(api, `/actions/runs/${run.id}/jobs?filter=latest`, 'jobs');
     const job = jobs.find(j => j.name === lane);
     if (!job || job.conclusion === 'skipped') continue;
+    // A pending request canceled before receiving a runner did not make a new measurement.
+    if (job.conclusion === 'cancelled' && job.runner_id === 0 && Array.isArray(job.steps) && job.steps.length === 0) continue;
     if (job.status !== 'completed' || !['success', 'failure'].includes(job.conclusion)) return null;
     // A reused verdict points back to an actual producer. A new failed attempt invalidates old success.
     if (job.steps?.some(s => s.name === 'Preserve reused verification verdict' && ['success', 'failure'].includes(s.conclusion))) continue;
