@@ -35,6 +35,7 @@ function ledger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
     gate: { required: true, reason: "multi-step" },
     progress: { completed: 1, total: 3, elapsedMs: 12_000 },
     pendingApplyAtNextRun: false,
+    runStatus: "running",
     activeRunId: "run-1",
     pausedAt: null,
     pauseRequestedAt: null,

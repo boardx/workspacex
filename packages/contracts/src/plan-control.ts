@@ -229,6 +229,12 @@ export type PlanControlError = z.infer<typeof PlanControlError>;
  * 三、API 操作（`usecases.md` UC-1…UC-10 + UC-12；A 独立操作集，见 3.1 已裁决）
  * ────────────────────────────────────────────────────────────────────── */
 
+/** run 的粗粒度状态——`derivePlanPhase` 只需要区分这几档，不需要引擎的全部状态机。
+ *  （issue #3099 起 `getPlanLedger.out.runStatus` 也用它，因此定义提到这里——
+ *  `planControl` 是 const 初始化时求值的对象，引用一个后面才声明的 const 会 TDZ 报错。） */
+export const RunStatusForPhase = z.enum(["idle", "running", "succeeded", "failed", "interrupted", "cancelled"]);
+export type RunStatusForPhase = z.infer<typeof RunStatusForPhase>;
+
 const CommonPre = { threadId: z.string() };
 
 export const planControl = {
@@ -252,6 +258,14 @@ export const planControl = {
         elapsedMs: z.number().int().nonnegative(),
       }).strict(),
       pendingApplyAtNextRun: z.boolean(),
+      /**
+       * issue #3099 —— run 的粗粒度状态，原样下发给前端做**运行级控制**的判定
+       * （`deriveRunControls`）。此前前端只有 `phase`，而 `phase` 把「正在跑但还没
+       * 有计划」和「什么都没发生」都压成 `"preparing"`，暂停入口因此消失。
+       * `activeRunId` 不能替代它：暂停后 `runStatus` 变 `"interrupted"`、
+       * `activeRunId` 就是 `null` 了，可它恰恰是最该给出「恢复」按钮的时刻。
+       */
+      runStatus: RunStatusForPhase,
       activeRunId: z.string().nullable(),
       pausedAt: z.string().nullable().default(null),
       pauseRequestedAt: z.string().nullable().default(null),
@@ -574,10 +588,6 @@ export const PendingToolCall = z.object({
 }).strict();
 export type PendingToolCall = z.infer<typeof PendingToolCall>;
 
-/** run 的粗粒度状态——`derivePlanPhase` 只需要区分这几档，不需要引擎的全部状态机。 */
-export const RunStatusForPhase = z.enum(["idle", "running", "succeeded", "failed", "interrupted", "cancelled"]);
-export type RunStatusForPhase = z.infer<typeof RunStatusForPhase>;
-
 /**
  * `PlanPhase` 派生纯函数（I-7）：由 `(runStatus, ledgerEmpty, pendingToolCalls,
  * hasFailedStep)` 唯一决定，不落库、不可写。
@@ -604,4 +614,41 @@ export function derivePlanPhase(input: {
   if (input.ledgerEmpty) return "preparing";
   if (input.runStatus === "running" || input.runStatus === "interrupted") return "executing";
   return "planning";
+}
+
+/**
+ * issue #3099 —— **运行级控制**（暂停/恢复）的可用性判定，与**计划级视图**
+ * （步骤列表、账本）解耦后的单一事实源。
+ *
+ * ## 为什么不能继续用 `derivePlanPhase` 判「能不能暂停」
+ *
+ * 上面那个函数里 `ledgerEmpty` 优先于 `running`：模型没调 `write_todos` 的 run
+ * （大量普通对话）阶段恒为 `"preparing"`，而 `"preparing"` 同时也是 idle 线程的阶段
+ * ——**一个正在跑的 run 和一个什么都没发生的线程，在 `phase` 上不可区分**。前端据此
+ * 做的渲染门（`copilotkit-v2-plan-control.tsx` 的 `phase === "executing" && currentStep`）
+ * 于是把「run 在跑」读成「没在跑」，整张运行进度卡片不渲染，用户没有任何暂停入口。
+ *
+ * 这不是给 `derivePlanPhase` 调换两行判定顺序能解决的：`phase` 描述的是**计划**处在
+ * 哪一段，暂停/恢复针对的是 **run** 本身，两者本就是两个维度（一个 run 可以在没有
+ * 任何计划的情况下跑）。本函数只看 `runStatus`——计划账本有没有步骤与它无关。
+ * `derivePlanPhase` 的语义因此**一个字没动**，它的既有消费方全部不受影响。
+ *
+ * ## 边界（不要放宽）
+ *
+ * - 终态（`succeeded`/`failed`/`cancelled`）一律 `false`：#2927 的意图「run 结束后
+ *   没有控制操作」不变，结束态仍然只读。
+ * - `idle`（该线程没有 run）也一律 `false`：没有可暂停的对象。
+ * - `interrupted` ⇔ 已暂停（`get-plan-ledger.ts` 里 `pausedAt` 非空时把 `runStatus`
+ *   记成 `interrupted`），因此这一档给的是「可恢复」，不是「可暂停」。
+ *
+ * 「正在暂停中」（`pauseRequestedAt` 已写、`pausedAt` 还没落）不在这里判：那是同一个
+ * 「可暂停」里的一个**呈现**态（按钮转成「暂停中…」且禁用），不是另一种可用性。
+ */
+export function deriveRunControls(input: { runStatus: RunStatusForPhase }): {
+  readonly canPause: boolean;
+  readonly canResume: boolean;
+} {
+  if (input.runStatus === "running") return { canPause: true, canResume: false };
+  if (input.runStatus === "interrupted") return { canPause: false, canResume: true };
+  return { canPause: false, canResume: false };
 }
