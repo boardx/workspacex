@@ -2,6 +2,7 @@
 import * as React from "react";
 import type { AbstractAgent } from "@ag-ui/client";
 import { AGUI_RUN_PHASE_EVENT_NAME, parseAguiRunPhaseValue } from "@repo/contracts/agui-state-events";
+import { AGUI_EXECUTION_EVENT_NAME, parseExecutionEvent } from "@repo/contracts/execution-journal";
 import {
   phaseLabelForKind, phaseLabelForToolName, phaseLabelForCallSkillArgs, phaseLabelForRunPhase,
   CALL_SKILL_TOOL_NAME,
@@ -104,12 +105,19 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
   // `ToolCallArgsEventSchema`), not the tool's name; remember it from the matching
   // `TOOL_CALL_START` so we know whether an incoming args delta is worth parsing.
   const toolCallNameByIdRef = React.useRef(new Map<string, string>());
+  // issue #3063 -- the readable skill name for a `call_skill` hop, taken from the journal's
+  // own `tool_start` event (`skillDisplayName`, resolved server-side from the run's pinned
+  // skills). The relay writes that CUSTOM `execution_event` frame BEFORE this hop's
+  // TOOL_CALL_START/ARGS (see `execution-journal-relay.ts`'s `accept`), so by the time the
+  // args delta arrives the name is already here. Absent ⇒ fall back to `stable_name`.
+  const skillDisplayNameByToolCallIdRef = React.useRef(new Map<string, string>());
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: () => {
         setStartedAt(Date.now());
         toolCallNameByIdRef.current.clear();
+        skillDisplayNameByToolCallIdRef.current.clear();
         // "accepted" 是旧轨道 run 生命周期里的第一条 step，语义与 `RUN_STARTED`
         // 对应（服务端受理了这一轮），取同一句词。
         setPhaseLabel(phaseLabelForKind("accepted"));
@@ -129,7 +137,10 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
           const parsed: unknown = JSON.parse(event.delta);
           const skillStableName = (parsed as { skill_stable_name?: unknown } | null)?.skill_stable_name;
           if (typeof skillStableName === "string" && skillStableName.trim() !== "") {
-            setPhaseLabel(phaseLabelForCallSkillArgs(skillStableName));
+            setPhaseLabel(phaseLabelForCallSkillArgs(
+              skillStableName,
+              skillDisplayNameByToolCallIdRef.current.get(event.toolCallId) ?? null,
+            ));
           }
         } catch {
           // 非 JSON / 形状不对：保留 START 时已经设好的通用文案，不猜、不报错。
@@ -139,6 +150,15 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
       // 桥接层的 `CUSTOM {name:"run_phase"}`。只在还没进入工具/回复阶段时改文案：
       // 这两个事件是"更早"的信号，绝不能把已经在显示的工具名/回复态倒退回去。
       onCustomEvent: ({ event }) => {
+        // issue #3063 -- 同一条 CUSTOM 通道上的执行事件：只取 `call_skill` 那一跳的
+        // 展示名快照，不在这里改任何文案（文案仍由紧随其后的 TOOL_CALL_ARGS 决定）。
+        if (event.name === AGUI_EXECUTION_EVENT_NAME) {
+          const parsed = parseExecutionEvent(event.value);
+          if (parsed?.kind === "tool_start" && parsed.skillDisplayName) {
+            skillDisplayNameByToolCallIdRef.current.set(parsed.toolCallId, parsed.skillDisplayName);
+          }
+          return;
+        }
         if (event.name !== AGUI_RUN_PHASE_EVENT_NAME) return;
         const parsed = parseAguiRunPhaseValue(event.value);
         if (parsed === null) return;

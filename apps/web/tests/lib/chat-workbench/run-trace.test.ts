@@ -5,6 +5,19 @@ const base = { runId: "run-1", emittedAt: "2026-09-07T00:00:00Z" };
 const text = (seq: number, delta: string, messageId = "progress"): ExecutionEvent => ({ ...base, seq, kind: "text_delta", messageId, delta });
 const start: ExecutionEvent = { ...base, seq: 2, kind: "tool_start", toolCallId: "call-1", toolName: "call_skill", args: { skill_stable_name: "research" } };
 describe("durable run trace", () => {
+  // issue #3063 —— #3058 之后 stable_name 是合规 slug（中文名 ⇒ skill-<8 位 hex>），
+  // 轨迹节点必须显示 run 侧写下的展示名快照，不再把身份字段给人看。
+  it("call_skill 节点显示 skillDisplayName，缺席才回显 stable_name", () => {
+    const withName: ExecutionEvent = {
+      ...base, seq: 2, kind: "tool_start", toolCallId: "call-9", toolName: "call_skill",
+      args: { skill_stable_name: "skill-9f3a1b7c" }, skillDisplayName: "会议纪要整理",
+    };
+    const [entry] = traceEntries([withName]);
+    expect(entry?.text).toBe("会议纪要整理");
+    expect(entry?.text).not.toContain("skill-9f3a1b7c");
+    expect(traceEntries([start])[0]?.text).toBe("research");
+  });
+
   it("replaces legacy projections with the real journal and ignores late legacy responses", () => {
     const legacy: ExecutionEvent = { ...text(0, "旧记录"), source: "legacy" };
     const initial = reduceTrace({}, [legacy]);

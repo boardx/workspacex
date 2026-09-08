@@ -23,6 +23,7 @@ import type {
 } from "../../src/application/agent-run/ports";
 import { ModelCallError } from "../../src/application/agent-run/ports";
 import type { Guarded } from "../../src/application/security/permission-filter";
+import type { ExecutionEventInput } from "@repo/contracts/execution-journal";
 
 const ORG = toOrgId("org-i742-progress");
 
@@ -45,11 +46,13 @@ function fakeStore(
   pinnedSkills: readonly PinnedSkillContent[] = [SKILL],
 ): AgentRunStore & {
   readonly steps: AppendedRunStep[];
+  readonly executionEvents: ExecutionEventInput[];
   readonly output: { text: string; finalStepSeq: number } | null;
   readonly failedWith: RunFailureCode | null;
 } {
   const state = {
     steps: [] as AppendedRunStep[],
+    executionEvents: [] as ExecutionEventInput[],
     output: null as { text: string; finalStepSeq: number } | null,
     failedWith: null as RunFailureCode | null,
   };
@@ -58,6 +61,10 @@ function fakeStore(
   };
   return {
     get steps() { return state.steps; },
+    get executionEvents() { return state.executionEvents; },
+    appendExecutionEvent: async (_orgId, _runId, event: ExecutionEventInput) => {
+      state.executionEvents.push(event);
+    },
     get output() { return state.output; },
     get failedWith() { return state.failedWith; },
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
@@ -153,6 +160,64 @@ describe("#742 executeClaimed: completeWithProgress branch", () => {
 
     const modelCalledStep = store.steps.find((s) => s.kind === "model_called");
     expect(modelCalledStep).toMatchObject({ seq: 5, status: "succeeded" });
+  });
+
+  /**
+   * #3063 反证 —— #3058 之后 `stable_name` 是合规 slug（中文展示名 ⇒ `skill-<8 位 hex>`），
+   * 线上唯一带身份的字符串再也不能直接给人看。run 侧本来就把这批 skill 读进来了
+   * （`readPinnedSkills` 的 `name`），这里证明它把展示名快照进了 `tool_start` 事件。
+   * 撤掉 `execute-run.ts` 里的 `skillDisplayNameField(...)` 展开，本用例立刻红。
+   */
+  it("#3063 call_skill 的 tool_start 事件带上展示名快照（中文名 + skill-xxxxxxxx 身份）", async () => {
+    const chineseSkill: PinnedSkillContent = {
+      versionId: "skill-version-zh", content: "# 会议纪要", stableName: "skill-9f3a1b7c", name: "会议纪要整理",
+    };
+    const run = baseRun({ skillVersionIds: [chineseSkill.versionId] });
+    const store = fakeStore(run, [chineseSkill]);
+    // `tool_start` 执行事件只由 `phase: "in_progress"` 那一帧产生（工具刚被宣布调用），
+    // 所以按真实 provider 的两帧节奏来：宣布 → 结果。
+    const model = progressProvider([
+      {
+        toolName: "call_skill", phase: "in_progress", toolCallId: "call-1",
+        toolArgsSummary: '{"skill_stable_name":"skill-9f3a1b7c","task":"整理会议纪要"}',
+        toolResultSummary: null, planningNote: null,
+      },
+      {
+        toolName: "call_skill", phase: "complete", toolCallId: "call-1",
+        toolArgsSummary: '{"skill_stable_name":"skill-9f3a1b7c","task":"整理会议纪要"}',
+        toolResultSummary: "已整理", planningNote: null,
+      },
+      // 非 call_skill 的一跳：绝不能被塞进一个它根本没有的技能名。
+      {
+        toolName: "read_file", phase: "in_progress", toolCallId: "call-2",
+        toolArgsSummary: '{"path":"/a.md"}', toolResultSummary: null, planningNote: null,
+      },
+    ], "已经帮你整理好会议纪要了。");
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    const starts = store.executionEvents.filter((e) => e.kind === "tool_start");
+    expect(starts).toHaveLength(2);
+    expect(starts[0]).toMatchObject({ toolName: "call_skill", skillDisplayName: "会议纪要整理" });
+    expect(starts[1]).not.toHaveProperty("skillDisplayName");
+  });
+
+  it("#3063 挂的 skill 里找不到这个 stable_name ⇒ 不猜名字，键缺席（展示层退回原样回显）", async () => {
+    const run = baseRun();
+    const store = fakeStore(run, [SKILL]);
+    const model = progressProvider([
+      {
+        toolName: "call_skill", phase: "in_progress", toolCallId: "call-1",
+        toolArgsSummary: '{"skill_stable_name":"skill-deadbeef","task":"x"}',
+        toolResultSummary: null, planningNote: null,
+      },
+    ], "好了。");
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    const start = store.executionEvents.find((e) => e.kind === "tool_start");
+    expect(start).toMatchObject({ toolName: "call_skill" });
+    expect(start).not.toHaveProperty("skillDisplayName");
   });
 
   it("zero progress events is a valid run -- the final answer alone is enough", async () => {

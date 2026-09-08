@@ -99,13 +99,24 @@ export function phaseLabelForToolName(toolName: string | null): string {
  * 原样回显，不额外维护一张"stable_name → 人类可读名"的第二张表（那张表会漂移，
  * 参照文件头「写死映射表」那条纪律：只回显观测到的事实，不猜一个可能过时的译名）。
  *
+ * issue #3063 —— 但「原样回显」现在会露出一串没意义的字符：#3058 把 `stable_name`
+ * 收回为合规 slug（契约 `StableName` 容不下下划线/非 ASCII，中文名 ⇒
+ * `skill-<8 位 hex>`），身份字段不再可读。可读性改由**展示名**承担：`displayName`
+ * 是 run 侧在这一跳发生时从本轮已 pin 的 skill 里解析出的 `skills.name` 快照
+ * （`tool_start` 执行事件的 `skillDisplayName`，见
+ * `apps/api/src/application/agent-run/called-skill-display-name.ts`），仍然是一段
+ * **真实观测到的事实**，不是本地编的译名——这里没有新增任何映射表，前端只是把
+ * 线上已经带着的那个字段显示出来。缺席（老事件、没挂上、非 `call_skill`）时逐字
+ * 退回原来的 `stable_name` 回显。
+ *
  * `CALL_SKILL_TOOL_NAME` 与上面 `TOOL_PHASE_BY_NAME.call_skill` 的 key 必须是
  * 同一个字符串——这里用常量而不是重复字面量，避免这张表改名时这条分支悄悄失配。
  */
 export const CALL_SKILL_TOOL_NAME = "call_skill";
 
-export function phaseLabelForCallSkillArgs(skillStableName: string): string {
-  const trimmed = skillStableName.trim();
+export function phaseLabelForCallSkillArgs(skillStableName: string, displayName?: string | null): string {
+  const readable = displayName?.trim();
+  const trimmed = readable !== undefined && readable !== "" ? readable : skillStableName.trim();
   return trimmed === "" ? TOOL_PHASE_BY_NAME[CALL_SKILL_TOOL_NAME] ?? DEFAULT_TOOL_PHASE
     : `正在执行技能脚本（${trimmed}）…`;
 }

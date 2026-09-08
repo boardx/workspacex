@@ -78,6 +78,7 @@ import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/
 import type { RunEventBusPort } from "./run-event-bus";
 import { forwardToolCallProgress, publishStatusChange, publishTokenDelta, persistToolPlan } from "./execute-run-events";
 import { record } from "./record-run-step";
+import { skillDisplayNameField } from "./called-skill-display-name";
 import { handleInterruptedToolCall } from "./tool-permission-gate";
 import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
@@ -1188,7 +1189,7 @@ async function executeClaimed(
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
-          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
+          ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
           : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
         if (status === "succeeded" && !(deps.model.supportsLiveInterjections?.(run.modelProvider) && deps.interjections?.pollForKernel)) await checkPendingInterjection(deps, orgId, run.runId, seqCursor);
       },

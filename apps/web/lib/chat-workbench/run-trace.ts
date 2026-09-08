@@ -94,7 +94,11 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
       const skill = event.toolName === "call_skill";
       const entry: TraceEntry = {
         id: toolKey, kind: skill ? "skill" : "tool",
-        text: skill && typeof args?.skill_stable_name === "string" ? args.skill_stable_name : event.toolName,
+        // issue #3063 -- 展示名优先（run 侧写下的 `skillDisplayName` 快照），缺席才回显
+        // `stable_name`：#3058 之后身份字段是合规 slug，中文名 skill 显示成 `skill-xxxxxxxx`。
+        text: skill
+          ? event.skillDisplayName ?? (typeof args?.skill_stable_name === "string" ? args.skill_stable_name : event.toolName)
+          : event.toolName,
         status: "running", args: event.args, attemptIds: event.attemptId ? [event.attemptId] : [],
       };
       tools.set(toolKey, entry);
