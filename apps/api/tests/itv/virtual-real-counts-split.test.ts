@@ -66,7 +66,7 @@ beforeAll(async () => {
   await migrateOnce();
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
   // ⚠ 显式 hook 超时，与 F80 两个文件同因：hookTimeout 默认 10s，而这里要拉容器 + 跑迁移

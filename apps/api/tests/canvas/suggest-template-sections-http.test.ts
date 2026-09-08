@@ -83,7 +83,7 @@ beforeAll(async () => {
   await migrateOnce();
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const appAddress = app.getHttpServer().address();
   base = `http://127.0.0.1:${typeof appAddress === "object" && appAddress ? appAddress.port : 0}`;
 }, 120_000);

@@ -49,7 +49,7 @@ class FakeAsrProvider implements AsrProviderPort {
 
 function listen(server: Server): Promise<number> {
   return new Promise((resolve) => {
-    server.listen(0, () => resolve((server.address() as AddressInfo).port));
+    server.listen(0, "127.0.0.1", () => resolve((server.address() as AddressInfo).port));
   });
 }
 

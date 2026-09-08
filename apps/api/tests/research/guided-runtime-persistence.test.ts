@@ -64,7 +64,7 @@ const model: ModelCallPort = { complete: async (input) => {
 const search = { search: async () => { searchCalls++; if (failSearch) throw new Error("provider unavailable"); return [{ title: "Official policy", url: "https://energy.ec.europa.eu/topics/energy-storage_en", content: "A policy source returned by the controlled search test double." }]; } };
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); db = new PgDatabase(appConfig());
-  const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0); base = await app.getUrl();
+  const { createApp } = await import("../../src/main"); app = await createApp(); await app.listen(0, "127.0.0.1"); base = await app.getUrl();
 }, 120000);
 afterAll(async () => { await app?.close(); await resetOrgs(orgId); await db?.close(); });
 beforeEach(async () => {
