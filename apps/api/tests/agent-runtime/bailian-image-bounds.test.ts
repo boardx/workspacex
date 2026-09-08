@@ -32,3 +32,23 @@ it.each(['oversize','redirect','task-path','task-type','result-url'])('rejects %
  });
  await expect(p.generateImage('a tree')).rejects.toThrow('MODEL_CALL_FAILED');expect(requests).toBe(mode==='result-url'?2:1);
 });
+/**
+ * #3175 的回归门。上面那条 'deadline aborts a stalled submission body' 用的是**真的
+ * 本地 http server**——它能不能红，取决于本机 undici 肯不肯在 signal 触发时销毁 body。
+ * macOS 上 550 次一次没红，Linux CI 上卡满 60002ms 被判超时；也就是说，那条断言在
+ * 一半的机器上根本测不到"deadline 是我们自己保证的"这件事，它只是在替 transport 打分。
+ *
+ * 这条把 transport 换成一个**明确不理会 signal** 的替身（body 是永不 enqueue、永不
+ * close、永不 error 的 `ReadableStream`）。于是"能不能在 deadline 内 reject"只剩下
+ * 一个可能的来源：`readBoundedJson` 自己的读循环。它在每台机器上都是确定性的。
+ */
+it('enforces its own deadline when the transport ignores the abort signal',async()=>{
+ const realFetch=globalThis.fetch;
+ globalThis.fetch=(async()=>new Response(new ReadableStream({start(){/* never yields */}}),{status:200,headers:{'content-type':'application/json'}})) as typeof fetch;
+ try{
+  const p=new BailianImageProvider({apiKey:'test-only-secret',modelId:'fixed-image-model',baseUrl:'http://127.0.0.1:9',timeoutMs:100,pollIntervalMs:1});
+  const started=Date.now();
+  await expect(p.generateImage('a tree')).rejects.toThrow('MODEL_CALL_FAILED');
+  expect(Date.now()-started).toBeLessThan(2000);
+ } finally {globalThis.fetch=realFetch;}
+},10_000);
