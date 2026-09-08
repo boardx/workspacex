@@ -953,6 +953,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
+    theme: "dark",
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,
@@ -1035,6 +1036,38 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
    * 迭代 13（delta §3）—— V63 / §3.6。引导是**帮忙不是关卡**：跳过之后不再拦。
    * 三张模板卡片已删：它让「挑模板」成了流程第一步，而设备形态本该是澄清完之后的结论。
    */
+
+  /**
+   * 迭代 13（delta §5.2）—— V68。**这是本节的核心**：原型主题与后台主题不能分开的话，
+   * 这个功能等于没加（做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色）。
+   */
+  it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
+    const bodies: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project({ id: "p1", theme: "dark" })] };
+      if (opts?.method === "PATCH") {
+        bodies.push(opts.body);
+        return { project: project({ id: "p1", theme: "light" }) };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    // 后台整体是深色（真实形态：html 上挂 .dark）
+    document.documentElement.classList.add("dark");
+    render(<DesignDetailScreen projectId="p1" state="default" />);
+    const phone = await screen.findByTestId("design-detail-phone");
+    expect(phone.className).toContain("dark");
+
+    fireEvent.click(screen.getByTestId("design-detail-theme-light"));
+    await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-theme")).toBe("light"));
+    // 画布拿到浅色作用域
+    expect(screen.getByTestId("design-detail-phone").className).toContain("wx-light");
+    // ⭐ 反证锚点：实现若去切页面全局的 .dark，这条红——那就把后台一起改了。
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    // 改的是原型不是别的字段
+    expect(bodies).toEqual([{ theme: "light" }]);
+    document.documentElement.classList.remove("dark");
+  });
+
   it("V63 整段跳过 ⇒ 直接创建，一次问题都不生成；提交体里没有 intake", async () => {
     const calls: { path: string; body?: unknown }[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {

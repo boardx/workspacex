@@ -84,7 +84,7 @@ export async function listMyProjects(q?: string): Promise<ListMyProjectsOut> {
 
 export async function updateProject(
   projectId: string,
-  patch: { readonly name?: string; readonly template?: ProjectTemplate; readonly problem?: string },
+  patch: { readonly name?: string; readonly template?: ProjectTemplate; readonly problem?: string; readonly theme?: "light" | "dark" },
 ): Promise<UpdateProjectOut> {
   return apiRequest<UpdateProjectOut>(
     designWorkbench.operations.updateProject.path.replace(":projectId", encodeURIComponent(projectId)),

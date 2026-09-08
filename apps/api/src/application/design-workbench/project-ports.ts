@@ -41,6 +41,8 @@ export interface DesignProjectRow {
   readonly prototype: readonly PrototypeNode[];
   /** 迭代 8：每页交互说明，与 `frames` 同长或空。 */
   readonly frameNotes: readonly string[];
+  /** 迭代 13：原型自己的明暗主题；老行为空。 */
+  readonly theme?: "light" | "dark";
   /** 迭代 11：每页出发的跳转关系，与 `frames` 同长或空（`frameLinks[i]` 属于第 i 页）。 */
   readonly frameLinks: readonly (readonly PrototypeLink[])[];
   readonly pushed: boolean;
@@ -113,6 +115,7 @@ export interface DesignProjectPatch {
   readonly prototype?: readonly PrototypeNode[];
   /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
   readonly frameNotes?: readonly string[];
+  readonly theme?: "light" | "dark";
   /** 迭代 11：与 `frames`/`prototype` 一起给的跳转关系；不给 ⇒ 沿用库里已有的那份。 */
   readonly frameLinks?: readonly (readonly PrototypeLink[])[];
 }

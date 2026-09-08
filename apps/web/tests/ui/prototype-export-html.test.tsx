@@ -12,7 +12,7 @@ import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-ca
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const PROJECT: DesignProject = {
-  id: "p1", name: "订阅管理", template: "mobile", problem: "退订找不到", criteria: ["三步内退订"],
+  id: "p1", name: "订阅管理", template: "mobile", theme: "dark", problem: "退订找不到", criteria: ["三步内退订"],
   frames: ["对话", "设置"],
   frameNotes: ["首屏即可发消息。", ""],
   prototype: [
@@ -102,5 +102,34 @@ describe("V48 PDF 打印视图：界面一节每页图文齐全", () => {
     expect(html.match(/<h3>跳转<\/h3>/g)).toHaveLength(PROJECT.frames.length);
     // 没写说明的页也要出小节（写「还没写」），不能整节消失
     expect(html).toContain("（还没写）");
+  });
+});
+
+/**
+ * 迭代 13（delta §5.2）—— V69。导出跟随**原型的** theme，
+ * 与导出时后台碰巧是什么色无关。
+ */
+describe("V69 导出跟随原型主题", () => {
+  const buildWith = async (theme: "light" | "dark") => {
+    const p = { ...PROJECT, theme };
+    const screens = await renderScreensToMarkup(p);
+    return buildPrototypeExportHtml({ project: p, screens, css: "", now: NOW });
+  };
+
+  it("浅色项目导出浅色；深色项目导出深色", async () => {
+    const light = await buildWith("light");
+    const dark = await buildWith("dark");
+    expect(light).toContain('class="wx-light"');
+    expect(light).toContain("color-scheme:light");
+    expect(dark).toContain('class="dark"');
+    expect(dark).toContain("color-scheme:dark");
+    // ⭐ 反证锚点：导出时去读页面的 .dark（而不是项目的 theme）⇒ 两者会一样，这条红。
+    expect(light).not.toBe(dark);
+  });
+
+  it("每块画板自己也带上主题作用域（不是只有最外层）", async () => {
+    const markup = (await renderScreensToMarkup({ ...PROJECT, theme: "light" }))[0]!.markup;
+    expect(markup).toContain("wx-light");
+    expect(markup).toContain('data-theme="light"');
   });
 });

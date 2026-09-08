@@ -217,6 +217,13 @@ export const DesignProject = z
     /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
     frameNotes: z.array(z.string()),
     /**
+     * 迭代 13（delta §5.2）：**原型自己的**明暗主题，与后台页面的主题无关——
+     * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
+     * 缺省 `dark` = 这个字段出现之前的行为（画布跟随后台，而后台是深色）。
+     * 导出的 HTML / PDF 跟随**它**，不是导出时后台碰巧是什么色。
+     */
+    theme: z.enum(["light", "dark"]).default("dark"),
+    /**
      * 迭代 11（design-delta `prototype-navigation`，待签核）：每页出发的跳转关系，`frameLinks[i]` 属于
      * `frames[i]`。可省略（服务端接线前不发；UI 先行阶段由夹具提供）。存储形状见 delta §5。
      */
@@ -366,6 +373,8 @@ export const operations = {
         template: ProjectTemplate,
         problem: z.string().max(4000).optional(),
         linkedFeedbackId: z.string().optional(),
+        /** 迭代 13：新建时就能定主题；缺省 `dark`。 */
+        theme: z.enum(["light", "dark"]).optional(),
         /**
          * 迭代 13：澄清问答的结果。给出即由服务端汇进 `problem`（可验收的条目进 `criteria`）。
          * 与 `problem` 同时给出时：`problem` 是用户在预览里**编辑过**的最终文本，以它为准；
@@ -409,6 +418,8 @@ export const operations = {
         name: z.string().min(1).max(200).optional(),
         template: ProjectTemplate.optional(),
         problem: z.string().max(4000).optional(),
+        /** 迭代 13：切原型的明暗主题。改的是**原型**，不是后台。 */
+        theme: z.enum(["light", "dark"]).optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),

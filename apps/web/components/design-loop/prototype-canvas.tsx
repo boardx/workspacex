@@ -339,22 +339,42 @@ function Node({ node }: { node: PrototypeNode }): React.ReactElement {
 
 /** 居中手机屏：有树渲染树；没有（还没生成）显示占位块，与 B4.5 之前的外观一致。 */
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex, mode = "edit", links, onNavigate = null,
+  label, root, selectedId = null, onSelect = null, device = "phone", frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
   mode?: PrototypeCanvasMode; links?: readonly PrototypeLink[]; onNavigate?: ((to: number) => void) | null;
   /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
   frameIndex?: number;
-  /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。主题跟随页面 `.dark`——globals.css 没有独立的 `.light` 类，不另造第二份 token。 */
+  /** 迭代 6：设备尺寸（由项目模板派生，见 `deviceOf`）。 */
   device?: PrototypeDevice;
+  /**
+   * 迭代 13（delta §5.2）：**原型自己的**明暗主题，与后台页面的主题无关。
+   *
+   * 迭代 6 当时的注释写着「主题跟随页面 `.dark`，globals.css 没有独立的 `.light` 类，
+   * 不另造第二份 token」——那条结论建立在「画布只跟随页面」这个前提上，前提已经变了：
+   * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
+   *
+   * `.wx-light` 是 globals.css 里由 `scripts/gen-light-scope.mjs` **从 `:root` 生成**的
+   * 浅色作用域（不是手抄的第二份 token，`--check` 在 lint 里守着）。
+   */
+  theme?: "light" | "dark";
 }) {
   const { Icon } = DEVICE[device];
   const size = DEVICE_SIZE[device];
   const linkMap = React.useMemo(() => linkMapOf(links), [links]);
   return (
     <SelectionCtx.Provider value={{ selectedId, onSelect, mode, links: linkMap, onNavigate }}>
-    <div className="flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg" style={{ width: size.w, height: size.h }} data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex} data-mode={mode}>
+    <div
+      className={cn(
+        "flex shrink-0 flex-col rounded-container border border-border bg-card text-card-foreground shadow-lg",
+        // 深色页面里的浅色孤岛 / 浅色页面里的深色孤岛——两个方向都要能开，
+        // 否则「原型主题与后台主题互不影响」只成立一半。
+        theme === "light" ? "wx-light" : "dark",
+      )}
+      style={{ width: size.w, height: size.h }}
+      data-testid="design-detail-phone" data-device={device} data-frame-index={frameIndex} data-mode={mode} data-theme={theme}
+    >
       <div className="flex items-center justify-center gap-1 border-b border-border py-1.5 text-10 text-muted-foreground">
         <Icon aria-hidden className="h-3 w-3" /> {label}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
   patchPrototype,
+  updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
@@ -175,6 +176,24 @@ export function DesignDetailScreen({
     if (project === null) return;
     const out = await patchPrototype(project.id, [{ op: "setLinks", screen: pageIndex, links: [...links] }], "改了跳转");
     setLoad({ kind: "ready", project: out.project });
+  };
+
+  /**
+   * 迭代 13（delta §5.2）：切**原型自己的**明暗主题。走 `updateProject`，与改名同一条路径。
+   * 乐观更新——切主题是纯视觉的，等一次往返会让开关手感发黏；失败就回滚并说一声。
+   */
+  const changeTheme = async (theme: "light" | "dark") => {
+    if (project === null || project.theme === theme) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, theme } });
+    try {
+      const out = await updateProject(project.id, { theme });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能切换主题，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
   };
 
   React.useEffect(() => {
@@ -478,6 +497,25 @@ export function DesignDetailScreen({
                     <Play aria-hidden className="h-3 w-3" /> 预览
                   </button>
                 </div>
+                {/*
+                 * 迭代 13（delta §5.2）：切**原型自己的**明暗，后台主题不跟着变——
+                 * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
+                 */}
+                <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="原型主题">
+                  {(["light", "dark"] as const).map((t) => (
+                    <button
+                      key={t} type="button" data-testid={`design-detail-theme-${t}`}
+                      aria-pressed={project.theme === t}
+                      title={t === "light" ? "原型按浅色渲染（不影响后台）" : "原型按深色渲染（不影响后台）"}
+                      onClick={() => void changeTheme(t)}
+                      className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast",
+                        project.theme === t ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
+                    >
+                      {t === "light" ? <Sun aria-hidden className="h-3 w-3" /> : <Moon aria-hidden className="h-3 w-3" />}
+                      {t === "light" ? "白天" : "黑夜"}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
@@ -525,6 +563,7 @@ export function DesignDetailScreen({
                       device={deviceOf(project.template)}
                       links={frameLinks}
                       mode={canvasMode}
+                      theme={project.theme}
                       onNavigate={setFrame}
                     />
                   ) : (
@@ -535,6 +574,7 @@ export function DesignDetailScreen({
                       onSelect={preview === null ? setSelectedId : null}
                       device={deviceOf(project.template)}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
+                      theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={setFrame}

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint --max-warnings 0 && ./scripts/lint-design.sh",
+    "lint": "next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh",
     "lint:design": "./scripts/lint-design.sh",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
