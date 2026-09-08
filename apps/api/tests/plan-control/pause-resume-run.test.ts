@@ -31,7 +31,9 @@ import type {
   ChatMessageCommandRepository, EnabledSkillVersionReader, PublishedAgentReader, ThreadMountedSkillReader,
 } from "../../src/application/chat/message-command-ports";
 import { AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
-import type { AgentRunExecutorPort, AgentRunStore, ModelCallPort } from "../../src/application/agent-run/ports";
+import type { AgentRunExecutorPort, AgentRunStore, ModelCallPort, RunProjection } from "../../src/application/agent-run/ports";
+import { discloseDecided, isDisclosed } from "../../src/application/security/permission-filter";
+import type { PermissionDecision } from "../../src/domain/identity/permission-decision";
 import { LOGGER_PORT } from "../../src/application/ports/logger.port";
 import type { LoggerPort } from "../../src/application/ports/logger.port";
 import { THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig } from "../../src/application/chat/generate-thread-title";
@@ -331,4 +333,78 @@ describe("UC-13 resumePlanRun（暂停的配对动作）", () => {
       { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR },
     )).rejects.toMatchObject({ code: "NO_PAUSED_STATE" });
   });
+});
+
+/**
+ * #3099 / PR #3111 —— coordinator 有条件接受「`approving` 态下也渲染暂停控件」时要求的
+ * 交叉证明。
+ *
+ * 两条状态机在这里第一次相交：
+ *  ① HITL 审批（`pending_permission_request_id` 由 `awaiting_tool_permission` 那条路写下，
+ *     B5 `copilotkit-v2-hitl.spec.ts` 断言的是「刷新后恢复同一个 permissionRequestId」）；
+ *  ② 暂停/恢复（`pauseAtCheckpoint` / `resumeCheckpoint`，另一条迁移）。
+ * 解耦后 run 在 `running` 且已挂着待裁决审批时也能被暂停，所以必须钉住：
+ * **暂停不吃掉待裁决的审批请求，恢复后仍是逐字同一个 `permissionRequestId`。**
+ *
+ * 为什么在 store 层收尾而不是走 `resumePlanRun`：后者尾部 `executor.kick()` 是
+ * fire-and-forget，恢复后的那一轮会真的去打替身并可能把 pending 清掉——断言就变成
+ * 和 executor 赛跑。这里要证的是**暂停/恢复这对迁移本身**对 pending 列做了什么，
+ * 用户侧的暂停请求仍走真 use case（`pausePlanRun`）。
+ */
+describe("#3099 暂停/恢复 × 待裁决审批（两条状态机的交叉点）", () => {
+  const PENDING_TOOL = "call_skill";
+  /** 恒允许，只为拆开 `Guarded` 的封套——判权本身由 permission-filter 自己的测试覆盖。 */
+  const ALLOW_ALL_FOR_UNWRAP = { allowed: true, decisionId: "decision-3099" } as unknown as PermissionDecision;
+
+  async function seedRunningWithPendingApproval(): Promise<{ runId: string; permissionRequestId: string }> {
+    const runId = await seedRun("running");
+    const permissionRequestId = randomUUID();
+    await asApp(ORG, (c) =>
+      c.query(
+        `UPDATE agent_runs SET pending_permission_request_id=$3, pending_tool_name=$4,
+           pending_args_summary=$5, pending_tool_call_id=$6, pending_decision=NULL
+         WHERE org_id=$1 AND id=$2`,
+        [ORG, runId, permissionRequestId, PENDING_TOOL, '{"skill":"pdf-create"}', `call-${randomUUID()}`],
+      ),
+    );
+    return { runId, permissionRequestId };
+  }
+
+  async function readPendingApproval(runId: string): Promise<RunProjection["pendingApproval"]> {
+    const guarded = await app.get<AgentRunStore>(AGENT_RUN_STORE).readRun(toOrgId(ORG), runId);
+    expect(guarded).not.toBeNull();
+    const disclosed = discloseDecided(guarded!, ALLOW_ALL_FOR_UNWRAP);
+    if (!isDisclosed(disclosed)) throw new Error("run projection withheld");
+    return disclosed.payload.pendingApproval;
+  }
+
+  it("等审批时暂停再恢复：pendingApproval 仍在，permissionRequestId 逐字未变", async () => {
+    const { runId, permissionRequestId } = await seedRunningWithPendingApproval();
+    const before = await readPendingApproval(runId);
+    expect(before?.permissionRequestId).toBe(permissionRequestId);
+
+    // ① 用户按暂停（真 use case）：只落 pause_requested_at，审批不受影响。
+    await pausePlanRun(pauseDeps(), { orgId: toOrgId(ORG), threadId: THREAD, actorId: ACTOR });
+    expect(await readPendingApproval(runId)).toMatchObject({ permissionRequestId, toolName: PENDING_TOOL });
+
+    // ② executor 在安全边界确认暂停。
+    await confirmBoundaryPause(runId);
+    const paused = await asApp(ORG, c =>
+      c.query<{ status: string; pending_permission_request_id: string | null }>(
+        "SELECT status,pending_permission_request_id FROM agent_runs WHERE org_id=$1 AND id=$2", [ORG, runId]));
+    expect(paused.rows[0]!.status).toBe("paused");
+    expect(paused.rows[0]!.pending_permission_request_id).toBe(permissionRequestId);
+    expect(await readPendingApproval(runId)).toMatchObject({ permissionRequestId, toolName: PENDING_TOOL });
+
+    // ③ 恢复同一条 logical run。
+    const resumed = await app.get<AgentRunStore>(AGENT_RUN_STORE).resumeCheckpoint!(toOrgId(ORG), runId);
+    expect(resumed).toBe(true);
+
+    const after = await readPendingApproval(runId);
+    expect(after).not.toBeNull();
+    // 逐字相同——不是「又有一个审批」，是同一个。
+    expect(after?.permissionRequestId).toBe(permissionRequestId);
+    expect(after?.toolName).toBe(PENDING_TOOL);
+    expect(after?.permissionRequestId).toBe(before?.permissionRequestId);
+  }, 30_000);
 });
