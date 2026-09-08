@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScale } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
+import { PrototypeLayers } from "./prototype-layers";
+import { duplicateOps, moveOps, navigate } from "@/lib/prototype-node-actions";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
@@ -18,6 +20,7 @@ import {
   uploadRefImage,
   deleteRefImage,
   patchPrototype,
+  type PrototypePatchOp,
   updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
@@ -201,6 +204,22 @@ export function DesignDetailScreen({
   };
 
   /**
+   * 迭代 15：节点动作的**唯一入口**。属性面板的按钮、图层面板、键盘快捷键都调它，
+   * 三处不各写一遍"复制是什么意思"（op 怎么算见 `lib/prototype-node-actions`）。
+   * 走的是与模型写回同一条 `patchPrototype`（I-11）。
+   */
+  const runNodeOps = async (ops: readonly PrototypePatchOp[] | null, summary: string) => {
+    if (project === null || ops === null || ops.length === 0) return;
+    try {
+      const out = await patchPrototype(project.id, [...ops], summary);
+      setLoad({ kind: "ready", project: out.project });
+    } catch (err) {
+      setChatError(`没能${summary}（${describeFailure(err)}）`);
+      window.setTimeout(() => setChatError(null), 3000);
+    }
+  };
+
+  /**
    * 迭代 13（delta §5.2）：切**原型自己的**明暗主题。走 `updateProject`，与改名同一条路径。
    * 乐观更新——切主题是纯视觉的，等一次往返会让开关手感发黏；失败就回滚并说一声。
    */
@@ -233,6 +252,45 @@ export function DesignDetailScreen({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  /**
+   * 迭代 15：画布快捷键。**只在编辑态、且不在输入框里**时生效——
+   * 少了后面那个判断，用户在对话框里按 Delete 会把选中的节点删掉，
+   * 而他只是想删一个字。这是这类快捷键最常见的翻车方式。
+   */
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const typing = t !== null && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      if (typing || canvasMode !== "edit" || preview !== null) return;
+      if (e.key === "Escape") { setSelectedId(null); return; }
+      if (selectedId === null || project === null) return;
+      const tree = project.prototype;
+      const NAV: Record<string, "up" | "down" | "prev" | "next"> = {
+        ArrowUp: "up", ArrowDown: "down", ArrowLeft: "prev", ArrowRight: "next",
+      };
+      const dir = NAV[e.key];
+      if (dir !== undefined) {
+        const next = navigate(tree, selectedId, dir);
+        // 走不动就保持原选中——按一下方向键选中就没了，比没反应更让人困惑。
+        if (next !== null) { e.preventDefault(); setSelectedId(next); }
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        void runNodeOps([{ op: "remove", id: selectedId }], "删掉这个节点");
+        setSelectedId(null);
+        return;
+      }
+      // ⌘D / Ctrl+D 复制——与 Figma 一致
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        void runNodeOps(duplicateOps(tree, selectedId), "复制这个节点");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -706,11 +764,26 @@ export function DesignDetailScreen({
                 </div>
                 {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
                 {/* md 以下：右栏盖在画布上（absolute），不把 375px 撑出横向溢出（B6.5 同一纪律）；md 及以上并排 */}
-                {(historyOpen || (focus !== null && preview === null)) && (
+                {/* 迭代 15：编辑态下侧栏常驻（图层面板），不再只有选中时才出现 */}
+                {(historyOpen || (preview === null && canvasMode === "edit") || (focus !== null && preview === null)) && (
                   <div className="absolute inset-y-0 right-0 z-10 flex w-64 max-w-[85%] shrink-0 flex-col border-l border-border bg-card/95 md:static md:max-w-none md:bg-card/40" data-testid="design-detail-side">
+                    {/*
+                      * 迭代 15：图层面板。一个 stack 套 stack 在画板上分不出层级，
+                      * 想选中"外面那个容器"只能反复试点——摊平成可点的一列是最直接的解法。
+                      * 预览态不显示：那时候没有"选中"这回事。
+                      */}
+                    {preview === null && canvasMode === "edit" && (
+                      <PrototypeLayers
+                        root={project.prototype[Math.min(frame, project.frames.length - 1)] ?? null}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                      />
+                    )}
                     {focus !== null && preview === null && (
                       <PrototypeInspector
                         projectId={project.id}
+                        prototype={project.prototype}
+                        onNodeOps={runNodeOps}
                         node={focus.path[focus.path.length - 1]!}
                         path={focus.path}
                         onSaved={(p) => setLoad({ kind: "ready", project: p })}
