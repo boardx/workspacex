@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
+  awaitStoredHumanMessage,
   expectSendNotBlockedOnRun,
   openFreshDeepAgentThread,
-  storedMessages,
   storedRun,
 } from "./support/chat-path-coverage";
 
@@ -46,7 +46,7 @@ test("@path:F7 上游流式半路断开：UI 诚实收场，不假装还在跑�
    * 而"替身没让 run 真的失败"与"run 失败了但 UI 不说"这两种完全不同的结论，
    * 从那条红里分不出来。断言顺序因此固定为：先权威读，再判界面。
    */
-  const messages = await storedMessages(page, threadId);
+  const messages = await awaitStoredHumanMessage(page, threadId, CHAT_READ_E2E.deepAgentStreamAbortTrigger);
   const humanTurn = messages.find(
     (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentStreamAbortTrigger,
   );

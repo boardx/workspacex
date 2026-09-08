@@ -37,7 +37,7 @@
 | A2 多轮同线程 | 第二轮引用第一轮输入，两个 run 各自持久化 | `agent-chat-core-paths` | 已覆盖 | chat-read |
 | A3 长会话压缩 | 早期事实被挤出 L1 后，仍活着穿过 L2 摘要层 | `chat-path-a3-long-session-fact-survival`（`test.fixme`，阻塞于 #3028） | 未覆盖 | chat-path-coverage |
 | A4 线程切换 | 切走再切回不整页硬导航、不出骨架屏，历史正确恢复 | `copilotkit-v2-thread-persistence` | 已覆盖 | chat-read |
-| A5 冷启动首屏 | 首次进 `/chat` 走到可输入，不停在骨架屏 | `chat-path-a5-cold-start-first-paint` | 已覆盖 | chat-path-coverage |
+| A5 冷启动首屏 | 首次进 `/chat` 走到可输入，不停在骨架屏 | `chat-path-a5-cold-start-first-paint` | 已覆盖 | chat-read |
 | B1 确认意图 | `confirm_task_intent` 可改假设并恢复同一 run | `agent-task-planning-hitl` | 已覆盖 | chat-read |
 | B2 选执行方案 | `choose_execution_option` 按 optionId 选，"都不要"诚实结束为拒绝态 | `agent-task-planning-hitl` | 已覆盖 | chat-read |
 | B3 补参澄清 | 宽泛请求补参后在同一持久 run 恢复，只显示一条轨迹一个产物 | `agent-task-clarification-result` | 已覆盖 | chat-read |
@@ -56,7 +56,7 @@
 | D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
 | D2 轨迹折叠与回放 | 默认折叠、运行中展开实时更新、刷新后可回放 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
 | D3 会话内挂载 skill | 临时挂载落库、刷新仍在、重复挂载幂等 | `chat-agent-skill-context` | 已覆盖 | chat-read |
-| D4 skill 三态区分 | 「目录可见 / 正文送达 / 真的执行过」三者不得混为一谈 | `chat-path-d4-skill-three-states` | 已覆盖 | chat-path-coverage |
+| D4 skill 三态区分 | 「目录可见 / 正文送达 / 真的执行过」三者不得混为一谈 | `chat-path-d4-skill-three-states` | 已覆盖 | chat-read |
 | D5 切换 agent | wire 上的 header 与回复来源都换了；不选时默认路径完好 | `copilotkit-v2-agent-switch` | 已覆盖 | chat-read |
 | D6 子 Agent 折叠树 | 展开可见输入 / 工具 / 耗时 / 结果 | `chat-task-workbench-tool-events` | 当前红 | chat-task-workbench |
 | E1 语音输入 | 麦克风实时转录进输入框、可编辑、发送后成为消息 | `copilotkit-v2-voice-input` | 已覆盖 | chat-read |
@@ -166,6 +166,28 @@ rewrite，chat-read 车道 24 条旧屏断言一次性全红，人类裁决走**
 - **不需要历史**（C4/C5）：画布指引只依赖「组织有已发布模板」+「用户正文里带哨兵」，
   改用**新建线程 + 回显 agent**完全成立，顺带天然与别的用例隔离。曾为它们种的两条专属
   线程随之删掉——留着就是没人用的死夹具。
+
+## 三跑记录（2026-09-08，run 34187412631）
+
+**3 通过 / 4 失败 / 1 skipped**（首跑 1/7 → 二跑 2/6 → 三跑 3/4）。
+
+| 路径 | 三跑结果 | 处置 |
+| --- | --- | --- |
+| A5 | 通过（连续第 3 次） | **已搬进 `chat-read` 阻塞车道**（见下）。 |
+| D4 | 通过（连续第 2 次） | **已搬进 `chat-read` 阻塞车道**。 |
+| **F2** | **通过（首次）** | 路径结论成立：网络中断后 run 在服务端继续，网络恢复后**不刷新**界面自己续上，且用户消息与最终回答各只落库一条、挂在同一次 run 上。二跑那条自检（"断网期间就已经拿到最终回答"）换成十步滚动剧本之后不再命中，说明这一跑真的跨过了断网窗口。 |
+| A3 | skipped | `test.fixme`，阻塞于 #3028，见上。 |
+| F6 | 失败：`threadA === threadB` | **用例 bug**：第二个 page `goto("/chat")` 之后壳会恢复到最近一条线程（正是第一个 page 刚建的那条），URL 当场就匹配 `waitForURL` 的正则 ⇒ 立即返回、取到别人的线程 id。已改成「等 URL 变成一条与点击前**不同**的线程」。⚠ 值得记一笔：把它拦下来的正是这条用例**自己**的前置断言（"两条线程必须是不同的线程"）——没有它，这一跑会以"并发不串线"的假绿收场。 |
+| F7 | 失败：`humanTurn` 为 undefined | **用例竞态**：UI 上出现那句话 ≠ 它已经写进库，而本条发送后直接读库。已新增 `awaitStoredHumanMessage`——要读库就先等库。 |
+| C4 / C5 | 失败：180s 等不到画布围栏 / 第 1 轮就 0 个画布 | **尚不能判定**：等不到期待的串时，「这一轮根本没有回复」「回复来自另一个 agent（#3028 换 agent 开新对话）」「回复来了但没命中画布分支」三者从超时里分不出来。已给 `sendInV2AndAwaitStoredReply` 加诊断：失败时把该线程**真实落库的 agent 回复**摘进失败信息。判据没有放宽。 |
+
+### 搬家：A5 与 D4 已进阻塞车道
+
+按上面「首跑与搬家」定的条件（连续两次 CI 跑绿），A5（三跑三绿）与 D4（二跑、三跑连绿）
+已从 `chat-path-coverage` 的 testMatch 移进 `chat-read`，本表「车道」列同步改成 `chat-read`。
+门控第 ④ 条也随之改成**按本表车道列判定**（而不是写死 `chat-path-coverage`）——把车道写死
+等于让搬家永远过不了这道门。改了列没改 config、或反过来，都会红：本次搬家时它就先红了一次
+（config 改完、车道列没改），随后才绿。
 
 ## 机械门控
 

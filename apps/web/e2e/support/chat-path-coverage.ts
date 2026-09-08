@@ -62,6 +62,28 @@ export interface StoredMessage {
 }
 
 /** 权威读：直接问 API 这条线程**落库**的消息，不看渲染出来的那一帧。 */
+/**
+ * 等这条线程上**指定那条用户消息**真的落库，返回落库后的全量消息。
+ *
+ * 三跑实测教训（F7）：发送后 UI 上出现那句话 ≠ 它已经写进库。F7 当时只等 UI 就直接读
+ * 库，`humanTurn` 为 `undefined`，红在一条与被测路径无关的地方。UI 与落库是两个时刻，
+ * 要读库就得等库。
+ */
+export async function awaitStoredHumanMessage(
+  page: Page,
+  threadId: string,
+  text: string,
+): Promise<StoredMessage[]> {
+  await expect
+    .poll(async () => (await storedMessages(page, threadId))
+      .some((m) => m.authorKind === "human" && m.text === text), {
+      timeout: 60_000,
+      intervals: [500, 1_000, 2_000],
+    })
+    .toBe(true);
+  return await storedMessages(page, threadId);
+}
+
 export async function storedMessages(page: Page, threadId: string): Promise<StoredMessage[]> {
   const response = await page.request.get(`/chat/threads/${threadId}/messages?limit=200`, {
     headers: await sessionHeaders(page),
@@ -113,12 +135,30 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  /*
+   * ⚠ 三跑实测：这里**不能**用 `waitForURL(/\/chat\/[^/]+$/)` 当"新建成功"的信号。
+   * 第二个 page `goto("/chat")` 之后，壳会恢复到最近一条线程（就是第一个 page 刚建的
+   * 那条），URL 当场就已经匹配那个正则 ⇒ `waitForURL` 立即返回、取到的是**别人**那条
+   * 线程 id。实测后果：`threadA === threadB`，并发用例退化成"同一条线程的两轮"，
+   * 而它自己的那条前置断言正是这么把自己拦下来的。
+   * 正确的信号是「URL 变成了一条与点击前**不同**的线程」。
+   */
+  const before = threadIdFromUrl(page.url());
   await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
-  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
-  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
+  await page.waitForURL((url) => {
+    const current = threadIdFromUrl(url.toString());
+    return current !== null && current !== before;
+  }, { timeout: 60_000 });
+  const threadId = threadIdFromUrl(page.url());
+  expect(threadId, "新建线程后 URL 应带上一个与点击前不同的 threadId").toBeTruthy();
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId as string;
+}
+
+/** `/chat/<threadId>` 里的线程 id；裸 `/chat`、`/chat?…` 与 warmup 占位段一律返回 null。 */
+function threadIdFromUrl(url: string): string | null {
+  const matched = /\/chat\/(?!warmup-)([^/?#]+)/.exec(url);
+  return matched?.[1] ?? null;
 }
 
 /**
@@ -164,12 +204,31 @@ export async function sendInV2AndAwaitStoredReply(
   await page.getByTestId("copilotkit-v2-input").fill(text);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text, { timeout: 60_000 });
-  await expect
-    .poll(async () => {
-      const messages = await storedMessages(page, threadId);
-      return messages.some((m) => m.authorKind === "agent" && m.text.includes(expectedInReply));
-    }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
-    .toBe(true);
+  try {
+    await expect
+      .poll(async () => {
+        const messages = await storedMessages(page, threadId);
+        return messages.some((m) => m.authorKind === "agent" && m.text.includes(expectedInReply));
+      }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
+      .toBe(true);
+  } catch (failure) {
+    /*
+     * 三跑实测教训（C4/C5）：等不到期待的串时，光看「180s 超时」分不出三件事——
+     * 这一轮**根本没有回复**（run 失败/没跑）、**回复来自另一个 agent**（v2 换 agent
+     * 会开新对话，见 #3028）、还是**回复来了但内容不对**（例如上游没命中画布分支，
+     * 退回通用回显）。三者的处置完全不同，所以把这一轮真实落库的 agent 回复摘进
+     * 失败信息。**不放宽判据**：期待的串仍然必须出现，否则照样红。
+     */
+    const all = await storedMessages(page, threadId);
+    const replies = all.filter((m) => m.authorKind === "agent");
+    const detail = replies.length === 0
+      ? "这条线程上一条 agent 回复都没有落库——这一轮 run 没跑、失败了，或者消息进了另一条线程"
+      : replies.map((m) => `· ${m.text.slice(0, 200).replace(/\n/g, "⏎")}`).join("\n");
+    throw new Error(
+      `${failure instanceof Error ? failure.message : String(failure)}\n\n`
+      + `【诊断】期待回复里含「${expectedInReply}」，线程 ${threadId} 实际落库的 agent 回复：\n${detail}`,
+    );
+  }
 }
 
 /**

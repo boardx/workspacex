@@ -260,7 +260,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-d4-skill-three-states)\.spec\.ts$/,
     },
     {
       /**
@@ -275,6 +275,12 @@ export default defineConfig({
        * 案底（#848：恒红的门比没有门更糟）。同一个 config、同一套已经起好的 webServer，
        * 只切 testMatch，做法逐字沿用 issue #2114 摘出记分牌车道那次。
        *
+       * ## 搬家已经发生过一次（2026-09-08）
+       *
+       * `chat-path-a5-cold-start-first-paint`（三跑三绿）与 `chat-path-d4-skill-three-states`
+       * （二跑、三跑连绿）已按矩阵文档「首跑与搬家」的条件搬进上面的 `chat-read` 车道，
+       * 从此阻塞 `e2e-full`。这条车道就是这么用的：**跑绿了就走，不在这里养老**。
+       *
        * ## 它与 `chat-task-workbench` 车道的区别（两者都不阻塞，含义不同）
        *
        * 那批是**记分牌**：红是预期状态，收敛路径是实现能力。这批是**回归门**：红是
@@ -285,7 +291,7 @@ export default defineConfig({
        *   「写了但没人跑」（#512 同一个失效模式）。
        */
       name: "chat-path-coverage",
-      testMatch: /chat-path-(a3-long-session-fact-survival|a5-cold-start-first-paint|c4-two-canvases-one-turn|c5-consecutive-artifact-turns|d4-skill-three-states|f2-network-drop-reconnect|f6-concurrent-runs|f7-upstream-stream-abort)\.spec\.ts$/,
+      testMatch: /chat-path-(a3-long-session-fact-survival|c4-two-canvases-one-turn|c5-consecutive-artifact-turns|f2-network-drop-reconnect|f6-concurrent-runs|f7-upstream-stream-abort)\.spec\.ts$/,
     },
     {
       /**
