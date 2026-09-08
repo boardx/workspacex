@@ -1,11 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import {
-  login,
-  openFreshDeepAgentThread,
-  storedMessages,
-  warmUpCopilotRuntimeRoute,
-} from "./support/chat-path-coverage";
+import { openFreshDeepAgentThread, storedMessages } from "./support/chat-path-coverage";
 
 /**
  * 路径矩阵 **F6 · 并发双 run**（判据见 `.harness/instructions/chat-path-coverage-matrix.md`）。
@@ -38,8 +33,6 @@ function markerFor(lane: string): string {
 }
 
 async function prepare(page: Page): Promise<string> {
-  await login(page);
-  await warmUpCopilotRuntimeRoute(page);
   return await openFreshDeepAgentThread(page);
 }
 
