@@ -112,3 +112,22 @@ GitHub 同一 group 只保留**一个 pending**（这条规律该文件第 80 �
 - **issue #3138**：三个 playwright project 从未在 CI 上跑过。这三轮新写的 e2e 同样落在那里。
 - **`harness readiness` 队列顶部 #2307 已经关闭了**（8/28 由 PR #2309 合并关闭）。
   「唯一取活口」指着一件做完的活——队列没有校验 issue 的当前状态。我记下来了，没深查。
+
+## 三个 PR 的 CI 状态（2026-09-08 18:5x 收尾时实测）
+
+**没有一个是红的。** 逐个：
+
+- **#3173（iteration 15，base = `claude/iter14-devices-only` @ `a65c03f9`）**：进行中，
+  已完成的全绿——`merge-gate` / `gates-runtime` / `gates-fast` / `verify-affected` /
+  `verify-full-compile` 全 success，`fullstack-smoke`、`verify-control-plane` 在跑，
+  gates-test ×4 / e2e-core-loop / native-* 还在排队。0 个 failure。
+- **#3174（iteration 16）**：18:43–18:44 刚起，17 个 check 里 3 个 skipped、其余排队。还没有结论。
+- **#3162（被污染的 `claude/iter14-device-simulation`）**：所有 check 在 18:29–18:30
+  被 **cancelled**（不是失败）——被后续 push 的并发组挤掉。这个 PR 本来就要按上面第 1 条处理。
+
+另外一条对早上 review 有用的事实：**base 提交 `a65c03f9`（纯 iteration 14）已经单独跑完
+一整轮 CI 并且 `conclusion: success`**（`claude/iter14-device-simulation` 的 run #2775）。
+也就是说三个叠放 PR 的最底层已经被独立验证过一次绿。
+
+⚠ 排队中的 check 会继续跑完，早上看到的结论可能与此处不同——**以你打开 PR 时的实际状态为准**，
+这一节只是「我离开时没有红」的存档。按人类指令，我没有合并其中任何一个。
