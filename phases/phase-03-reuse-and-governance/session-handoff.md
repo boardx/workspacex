@@ -192,3 +192,37 @@ GitHub 同一 group 只保留**一个 pending**（这条规律该文件第 80 �
 ⚠ 订正上一节：我当时把它归给「满载 runner 上定时器被争用」。那个解释是错的——
 真相是 promise 从来没 settle。**「卡满整个超时」和「计时被争用打飞」形状不同**，
 前者是死等，后者会晚一点点但仍会 settle。我当时没有区分这两种形状就下了结论。
+
+### 22:19 复查更新 —— 三个 PR 的局面变了
+
+复查时发现 CI 状态一直停在旧 head，查下去是因为**PR 本身变了**，不是 CI 卡住：
+
+| PR | 现状 |
+|---|---|
+| **#3173（迭代 15）** | **已 squash 合并**进 `claude/iter14-devices-only`（19:57:59，`874484e9`） |
+| **#3174（迭代 16）** | **被自动关闭**（19:58:01，未合并） |
+| #3162（污染分支） | 仍 open，head 还是 `46fd8591` |
+
+**#3174 不是被否掉的。** #3173 合并时删掉了它的 base 分支
+`claude/iter15-canvas-direct-manipulation`（`git ls-remote` 实测：该分支已不存在），
+GitHub 把 base 消失的 PR 自动关闭。PR 上零条评论，没有任何人表达过反对。
+
+处置：把迭代 16 的提交 rebase 到新 base（`claude/iter14-devices-only`），
+开 **PR #3184** 接替。**没有合并任何东西。**
+
+校验（做完才开的 PR）：
+- `git diff 1abbf557 eef2f336` **为空**——rebase 后的树与旧 PR head 逐字节相同，
+  也就顺带证明了 #3173 的 squash 内容与原分支一致。
+- 新 diff 只有 9 个文件：迭代 16 自己 + port 进来的 #3176 修复 + 本 handoff。
+  迭代 15 的文件不再出现（它已经在 base 里了）。
+- contracts 622 全绿；`design-loop` UI 150 全绿；两包 tsc/lint 干净。
+
+⚠ 早上要注意的：
+1. `claude/iter16-page-management`（旧分支，`1abbf557`）和
+   `claude/iter16-page-management-rebased`（`eef2f336`）内容相同，**只合新的那个**。
+2. #3162 现在**已经没有意义了**——它的 head `46fd8591` 是那个被污染的提交，
+   而迭代 14 已经通过 `claude/iter14-devices-only` 独立走线并且 #3173 已经合进去了。
+   建议直接关掉它。
+3. 迭代 14 + 15 现在都在 `claude/iter14-devices-only` 上，但**那个分支还没有合进 main**。
+   最终要有一个 PR 把它送进 main，否则这三轮对 devapp 上的用户仍然不存在
+   （完成定义第 6 条）。
