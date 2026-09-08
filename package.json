@@ -43,7 +43,7 @@
     "shots:project-results:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=project-results-shots",
     "verify:fullstack-anti-vacuity": "pnpm exec tsx .harness/scripts/verify-fullstack-anti-vacuity.ts",
     "verify:full": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:full:raw",
-    "verify:full:raw": "pnpm run verify:base:raw && pnpm run verify:fullstack-smoke:raw",
+    "verify:full:raw": "pnpm exec tsx .harness/scripts/run-verify-lanes.ts",
     "test": "vitest run",
     "lint:rewrite-coverage": "pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs",
     "lint:templates-doctor": "pnpm exec tsx .harness/scripts/cli.ts templates doctor",
