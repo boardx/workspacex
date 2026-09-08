@@ -150,14 +150,44 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
    * 已存在的线程 id 全取回来，再等 URL 落在一个**不在这个集合里**的 id 上。恢复只能
    * 恢复到已存在的线程，因此它无论早到晚到都无法满足这个判据。
    */
+  /*
+   * 五跑（run 34197984548）：这条判据**是对的，被它挡下来的是另一件事**。失败日志里
+   * 整个 60s 只有一次导航——`navigated to /chat/thr-239c4580…`，而那个 id 在
+   * `existing` 里 ⇒ 判据如实拒绝。也就是说：那次导航是**恢复**，我们的创建点击
+   * 什么都没产生。判据没错，错的是**点击时机**：`copilotkit-v2-input` 可见只说明
+   * 输入框挂上了，壳的「恢复到最近一条线程」还在路上，点击落在这个窗口里会被吞掉。
+   *
+   * 所以分两步：① 先等恢复**落定**（URL 上真的出现一条线程 id）——第一个 page 已经
+   * 建过线程，这条恢复必然会发生；② 再点，并允许**重试点击本身**。第 ② 条取自本仓
+   * 既有做法（`chat-canvas-guidance-render.spec.ts` 的 `clickMaximizeUntilModalVisible`：
+   * 被软刷新吞掉的点击要重试，不是只重试断言）。
+   */
+  await expect
+    .poll(() => threadIdFromUrl(page.url()) !== null, { timeout: 60_000, intervals: [200, 500, 1_000] })
+    .toBe(true);
+
   const existing = new Set(await storedThreadIds(page));
-  await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL((url) => {
-    const current = threadIdFromUrl(url.toString());
+  const landedOnNewThread = async (): Promise<boolean> => {
+    const current = threadIdFromUrl(page.url());
     return current !== null && !existing.has(current);
-  }, { timeout: 60_000 });
+  };
+  for (let attempt = 0; attempt < 4 && !(await landedOnNewThread()); attempt += 1) {
+    await page.getByTestId("chat-thread-create").click();
+    try {
+      await page.waitForURL((url) => {
+        const current = threadIdFromUrl(url.toString());
+        return current !== null && !existing.has(current);
+      }, { timeout: 15_000 });
+    } catch {
+      // 这一次点击被恢复/软刷新吞了：再点一次。
+    }
+  }
   const threadId = threadIdFromUrl(page.url());
-  expect(threadId, "新建线程后 URL 应落在一条点击前并不存在的线程上").toBeTruthy();
+  expect(
+    threadId !== null && !existing.has(threadId),
+    "新建线程后 URL 应落在一条点击前并不存在的线程上——落在已存在的线程上说明拿到的是"
+    + "壳恢复的那条，不是我们建的那条",
+  ).toBe(true);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId as string;
 }
@@ -215,13 +245,25 @@ export async function openFreshEchoAgentThread(page: Page): Promise<string> {
  * 等的是权威读（`GET /chat/threads/:id/messages`）而不是 DOM 文本——回复气泡的渲染
  * 时机与落库时机是两件事，混着等会把「渲染慢」误判成「没答」。手法取自
  * `agent-chat-core-paths.spec.ts` 的 `sendAndWaitStoredReply`。
+ *
+ * ## `expectedInReply` 传数组时是「同一条回复里全都要有」
+ *
+ * ⚠ 多轮用例必须传一个**能把本轮与前几轮分开**的组合。五跑实测（C5）栽在这上面：
+ * 判据只写 `"```canvas"` 时，第 2、3 轮的等待被**第 1 轮**那条回复满足 ⇒ 这一步在
+ * 本轮回复其实还没落库时就返回，红被推到后面的画布数量断言上，而「第 3 轮回复没到」
+ * 与「第 3 轮回复到了但画布没挂」在那条红里分不出来。
+ *
+ * 这与四跑修掉的那个缺陷是**同一个形状**（当时判据是 `SERIAL-<轮次>`，被通用回显分支
+ * 满足）：判据必须同时具备「只有被测分支才满足」和「只有本轮才满足」两个性质，
+ * 少一个都会让等待提前返回。传数组正是为了把这两个性质拼起来。
  */
 export async function sendInV2AndAwaitStoredReply(
   page: Page,
   threadId: string,
   text: string,
-  expectedInReply: string,
+  expectedInReply: string | readonly string[],
 ): Promise<void> {
+  const expected = typeof expectedInReply === "string" ? [expectedInReply] : expectedInReply;
   await page.getByTestId("copilotkit-v2-input").fill(text);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text, { timeout: 60_000 });
@@ -229,7 +271,7 @@ export async function sendInV2AndAwaitStoredReply(
     await expect
       .poll(async () => {
         const messages = await storedMessages(page, threadId);
-        return messages.some((m) => m.authorKind === "agent" && m.text.includes(expectedInReply));
+        return messages.some((m) => m.authorKind === "agent" && expected.every((one) => m.text.includes(one)));
       }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
       .toBe(true);
   } catch (failure) {
@@ -247,7 +289,8 @@ export async function sendInV2AndAwaitStoredReply(
       : replies.map((m) => `· ${m.text.slice(0, 200).replace(/\n/g, "⏎")}`).join("\n");
     throw new Error(
       `${failure instanceof Error ? failure.message : String(failure)}\n\n`
-      + `【诊断】期待回复里含「${expectedInReply}」，线程 ${threadId} 实际落库的 agent 回复：\n${detail}`,
+      + `【诊断】期待同一条回复里同时含「${expected.join("」「")}」，`
+      + `线程 ${threadId} 实际落库的 agent 回复：\n${detail}`,
     );
   }
 }
