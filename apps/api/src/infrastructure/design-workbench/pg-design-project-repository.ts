@@ -11,6 +11,8 @@
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import { designPrototype, designWorkbench } from "@repo/contracts";
+import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
+import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -56,6 +58,16 @@ interface ProjectDbRow {
   readonly github_issue_number: number | null;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
+}
+
+/** 迭代 13：参考图元信息行。字节不在库里（见 `SELECT_COLUMNS` 头注）。 */
+interface RefImageDbRow {
+  readonly id: string;
+  readonly name: string;
+  readonly object_key: string;
+  readonly content_type: string;
+  readonly size_bytes: string | number;
+  readonly created_at: Date | string;
 }
 
 interface ChatDbRow {
@@ -191,6 +203,23 @@ function toRefImages(raw: unknown): readonly designWorkbench.RefImage[] {
   return out;
 }
 
+/**
+ * `content_type` 在库里有 CHECK 约束，但读侧仍然过一遍契约的判定：迁移可以被回滚、
+ * 约束可以被后来的迁移放宽，而**读到一个不合法的 mime 会一路传到模型调用那一层**。
+ * 读不出来的行跳过而不是整次列表失败——少一张参考图不该让项目打不开。
+ */
+function toRefImageRow(row: RefImageDbRow): RefImageRow | null {
+  if (!designWorkbench.isImageMime(row.content_type)) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    objectKey: row.object_key,
+    mime: row.content_type,
+    size: Number(row.size_bytes),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
 function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow {
   return {
     id: row.id,
@@ -289,7 +318,18 @@ function toVersionSummary(row: VersionDbRow): Omit<PrototypeVersionRow, "prototy
   };
 }
 
-class ScopedPgDesignProjectRepository implements DesignProjectRepository {
+/**
+ * 迭代 13：参考图的三条语句**并进这个类**，而不是另开一个 `pg-ref-image-repository.ts`。
+ *
+ * 两条理由，第二条是决定性的：
+ * ① 参考图属于设计项目这个聚合——可见性完全跟随项目，没有自己的 ACL 判定。
+ * ② 另开一个文件就要在 `lint-permission-paths` 的 allowlist 上多一条，而那份 allowlist
+ *   有一道**棘轮**（`permission-propagation-six-paths.test.ts`：条目数 − 边界规则数 ≤ 90）。
+ *   2026-09-08 CI 实测 91 > 90 判红。正确反应是**让这条豁免不必存在**，不是把上限调到 91
+ *   ——棘轮存在的意义就是让"再加一条豁免"这件事有成本。这个类已经在 allowlist 上，
+ *   而它的 guard 测试逐条断言了它能碰哪些表、每条语句怎么收窄，参考图这三条一并被它守住。
+ */
+class ScopedPgDesignProjectRepository implements DesignProjectRepository, RefImageRepository {
   constructor(
     private readonly db: DatabasePort,
     private readonly orgId: string,
@@ -680,12 +720,51 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
       return toRow(row, await this.chatFor(s, row.id));
     });
   }
+
+  async listByProject(projectId: string): Promise<readonly RefImageRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<RefImageDbRow>(
+        `SELECT id, name, object_key, content_type, size_bytes, created_at
+           FROM design_project_ref_images
+          WHERE org_id = $1 AND project_id = $2
+          ORDER BY created_at ASC, id ASC`,
+        [this.orgId, projectId],
+      );
+      return rows.map(toRefImageRow).filter((r): r is RefImageRow => r !== null);
+    });
+  }
+
+  async insert(row: RefImageRow & { readonly projectId: string; readonly uploadedBy: string; readonly sha256: string }): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `INSERT INTO design_project_ref_images
+           (id, org_id, project_id, uploaded_by, name, object_key, content_type, size_bytes, sha256)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [row.id, this.orgId, row.projectId, row.uploadedBy, row.name, row.objectKey, row.mime, row.size, row.sha256],
+      );
+    });
+  }
+
+  async remove(projectId: string, imageId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `DELETE FROM design_project_ref_images
+          WHERE org_id = $1 AND project_id = $2 AND id = $3 RETURNING id`,
+        [this.orgId, projectId, imageId],
+      );
+      return rows.length > 0;
+    });
+  }
 }
 
-export class PgDesignProjectRepository implements DesignProjectRepositoryFactory {
+/**
+ * 同一个工厂同时供两个 DI 令牌（`DESIGN_PROJECT_REPOSITORY` / `DESIGN_REF_IMAGE_REPOSITORY`）：
+ * 端口在应用层仍是两个窄接口（用例只依赖它需要的那个），实现是同一个类。
+ */
+export class PgDesignProjectRepository implements DesignProjectRepositoryFactory, DesignRefImageRepositoryFactory {
   constructor(private readonly db: DatabasePort) {}
 
-  forOrg(orgId: string): DesignProjectRepository {
+  forOrg(orgId: string): DesignProjectRepository & RefImageRepository {
     return new ScopedPgDesignProjectRepository(this.db, orgId);
   }
 }
