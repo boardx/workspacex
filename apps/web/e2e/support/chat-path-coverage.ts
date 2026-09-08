@@ -124,105 +124,57 @@ export async function openFreshDeepAgentThread(page: Page): Promise<string> {
 }
 
 /**
- * 同上，但用于**同一 browser context 里的第二个 page**：不再走登录。
+ * 同上，但用于**同一 browser context 里的第二个 page**：不走登录，且**不点"新建会话"**。
  *
- * 二跑实测（F6）：同一 context 的两个 page 共享 origin 存储，第一个 page 登录之后，
- * 第二个 page 已经是已登录态 ⇒ `openChatEmptyState` 里的 `goto("/login")` 被重定向走，
- * `login-email` 永远不出现，又是首跑那个形态的第二种来源。并发用例恰恰**需要**共享
- * 登录态（真实用户开两个标签页），所以修的是"别再登一次"，不是"换成两个 context"。
+ * ## 为什么这一条改用权威写入建线程，而不是点按钮
+ *
+ * 三跑到八跑，这个 helper 用四种不同写法去点 `chat-thread-create`，四次都拿不到新线程：
+ * 等 URL 匹配正则（拿到的是壳恢复的那条）、等 URL 变成不同的线程（异步恢复满足了它）、
+ * 等 URL 落在一个此前不存在的 id 上（点击没生效）、外加最多重试 4 次的点击。
+ * 八跑（run 34220982582）加的差集诊断给出了终局答案：
+ *
+ *     【诊断】点击前 3 条线程，点击后权威列表里新增 0 条（无）
+ *
+ * **服务端一条都没多**——所以不是"建了但界面没切过去"那种产品缺陷（那会是新增 ≥1 条），
+ * 而是这一页上那次点击自始至终没生效。
+ *
+ * 到此为止继续加固点击已经不划算，也偏离了本用例的被测对象：**F6 测的是"两条线程同时跑
+ * 时事件不串线"，不是"第二个标签页能不能点出新线程"**。前置条件改用权威写入
+ * （`POST /chat/threads/mutate`，与产品新建走同一个端口），把不确定性从前置里彻底移走；
+ * 被测的并发行为一个字都没放宽。
+ *
+ * ⚠ 如果哪天要证"第二个标签页点新建会话真的可用"，那是**另一条路径**、该有自己的用例，
+ * 不该继续挂在 F6 的前置里——把两件事绑在一起，正是它拖了五跑的原因。
  */
 export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat");
+  const response = await page.request.post("/chat/threads/mutate", {
+    headers: await sessionHeaders(page),
+    data: {
+      op: "create",
+      projectId: null,
+      threadId: null,
+      groupId: null,
+      title: `F6 并发线程 ${Date.now()}`,
+      visibilityScope: null,
+      expectedVersion: null,
+      reason: null,
+    },
+  });
+  expect(response.ok(), `新建线程失败：${response.status()} ${await response.text()}`).toBe(true);
+  const threadId = (await response.json() as { threadId: string }).threadId;
+  expect(threadId, "权威写入应返回新线程 id").toBeTruthy();
+
+  await page.goto(`/chat/${threadId}`);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
-  /*
-   * ⚠ 这里的"新建成功"信号被实测推翻过**两次**，两次都让 `threadA === threadB`，
-   * 两次都是同一件事的不同近似：**拿 URL 当创建结果读，而 URL 也会被别的东西改。**
-   *
-   * · 三跑：用 `waitForURL(/\/chat\/[^/]+$/)`。第二个 page `goto("/chat")` 之后壳会
-   *   恢复到最近一条线程（正是第一个 page 刚建的那条），URL 当场就匹配 ⇒ 立即返回。
-   * · 四跑（run 34190269467）：改成"等 URL 变成一条与点击前**不同**的线程"，仍然红。
-   *   因为那次恢复是**异步**的：`before` 快照取在恢复落地之前（此时还是裸 `/chat`，
-   *   `before` 为 null），随后满足"变成了不同的线程"的正是那次**恢复**，不是我们的创建。
-   *
-   * 两次近似都想用"变化"去指代"新建"，而这条 URL 上至少有两个东西会让它变化。
-   * 唯一不会被恢复动作满足的信号是**这条线程此前不存在**——所以先用权威读把点击前
-   * 已存在的线程 id 全取回来，再等 URL 落在一个**不在这个集合里**的 id 上。恢复只能
-   * 恢复到已存在的线程，因此它无论早到晚到都无法满足这个判据。
-   */
-  /*
-   * 五跑（run 34197984548）：这条判据**是对的，被它挡下来的是另一件事**。失败日志里
-   * 整个 60s 只有一次导航——`navigated to /chat/thr-239c4580…`，而那个 id 在
-   * `existing` 里 ⇒ 判据如实拒绝。也就是说：那次导航是**恢复**，我们的创建点击
-   * 什么都没产生。判据没错，错的是**点击时机**：`copilotkit-v2-input` 可见只说明
-   * 输入框挂上了，壳的「恢复到最近一条线程」还在路上，点击落在这个窗口里会被吞掉。
-   *
-   * 所以只加一件事：**允许重试点击本身**（取自本仓既有做法
-   * `chat-canvas-guidance-render.spec.ts` 的 `clickMaximizeUntilModalVisible`——被软刷新
-   * 吞掉的点击要重试，不是只重试断言）。判据本身不用改：恢复只会落在**已存在**的线程上，
-   * 因此它无论早到晚到都满足不了"不在 existing 里"。
-   *
-   * ⚠ 六跑（run 34204114526）删掉过一个多余的前置门：当时先等"恢复落定（URL 上出现
-   * 线程 id）"再点击，结果那一跑第二个 page 压根**没有发生恢复**，这道门自己 60s 超时。
-   * 教训与本文件其它几处同形：不要把"通常会发生的事"写成前置条件——判据只依赖
-   * **必然为真**的东西（这条线程此前不存在），不依赖壳恰好恢复。
-   */
-  const existing = new Set(await storedThreadIds(page));
-  const landedOnNewThread = async (): Promise<boolean> => {
-    const current = threadIdFromUrl(page.url());
-    return current !== null && !existing.has(current);
-  };
-  for (let attempt = 0; attempt < 4 && !(await landedOnNewThread()); attempt += 1) {
-    await page.getByTestId("chat-thread-create").click();
-    try {
-      await page.waitForURL((url) => {
-        const current = threadIdFromUrl(url.toString());
-        return current !== null && !existing.has(current);
-      }, { timeout: 15_000 });
-    } catch {
-      // 这一次点击被恢复/软刷新吞了：再点一次。
-    }
-  }
-  const threadId = threadIdFromUrl(page.url());
-  if (threadId === null || existing.has(threadId)) {
-    /*
-     * 七跑（run 34209889817）：点了 4 次、跨 60s，URL 仍停在一条**已存在**的线程上。
-     * 光凭这条红分不出两件性质完全不同的事：
-     *   ① 服务端**根本没有**新线程 ⇒ 点击被吞了（用例侧问题，继续加固点击）；
-     *   ② 服务端**真的多了**一条新线程，只是这一页的 URL 没跟过去 ⇒ 那是**产品缺陷**
-     *      （第二个标签页里点"新建会话"，会话建了但界面不切过去），要开 issue，不是改用例。
-     * 所以失败时再读一次权威列表做差集，把答案写进失败信息——同 C4/C5 那条诊断的纪律：
-     * 让下一跑的红自带结论，而不是让人对着超时猜。
-     */
-    const after = await storedThreadIds(page);
-    const created = after.filter((id) => !existing.has(id));
-    expect(
-      false,
-      "新建线程后 URL 应落在一条点击前并不存在的线程上——落在已存在的线程上说明拿到的是"
-      + "壳恢复的那条，不是我们建的那条。\n"
-      + `【诊断】点击前 ${existing.size} 条线程，点击后权威列表里新增 ${created.length} 条`
-      + `（${created.join(", ") || "无"}），当前 URL 线程 = ${threadId ?? "无"}。`
-      + "新增 0 条 ⇒ 点击根本没生效（用例侧）；新增 ≥1 条 ⇒ 线程建出来了但这一页没切过去"
-      + "（产品缺陷：第二个标签页新建会话不跳转，按矩阵规则开 issue）",
-    ).toBe(true);
-  }
+  expect(
+    threadIdFromUrl(page.url()),
+    "深链进新线程后 URL 应停在这条线程上",
+  ).toBe(threadId);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
-  return threadId as string;
+  return threadId;
 }
 
-/**
- * 权威读：当前用户此刻**已经存在**的全部个人线程 id。
- *
- * 只有一个用途：把「这条线程是我刚建的」与「壳把我恢复到了一条旧线程」分开——见
- * `openFreshDeepAgentThreadOnAuthedPage` 里那段头注记的两次实测。
- */
-async function storedThreadIds(page: Page): Promise<string[]> {
-  const response = await page.request.get("/chat/threads", { headers: await sessionHeaders(page) });
-  expect(response.ok(), "读线程列表失败——没有它就分不出「新建的」与「恢复到的」").toBe(true);
-  // 形状是契约里的 `listThreads.out`：按「今天/本周/更早」分组，线程在每组的 `cards` 里。
-  const body = await response.json() as { groups?: { cards?: { id: string }[] }[] };
-  return (body.groups ?? []).flatMap((group) => (group.cards ?? []).map((card) => card.id));
-}
 
 /** `/chat/<threadId>` 里的线程 id；裸 `/chat`、`/chat?…` 与 warmup 占位段一律返回 null。 */
 function threadIdFromUrl(url: string): string | null {
