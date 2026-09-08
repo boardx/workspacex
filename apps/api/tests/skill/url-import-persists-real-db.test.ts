@@ -183,7 +183,7 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
     expect(listing.enabled).toBe(true);
   });
 
-  it("展示名含中文 ⇒ stable_name 保留原名，不音译成裸 ascii 残片、也不是内部 id", async () => {
+  it("展示名含中文 ⇒ stable_name 是合规的 skill-<hex>（不是中文原名、不是 ascii 残片、不是内部 id）——#3033 原生 run 必须能吃", async () => {
     handler = (_req, res) => {
       res.writeHead(200, { "content-type": "text/markdown" });
       res.end("# imported skill\n");
@@ -199,8 +199,14 @@ describe("URL 导入的产物真的落进模型 A 的三张表", () => {
       { identities: ADMIN, fetch: fetcher(true), repository, policy: { localOnlyOrg: false } },
     );
     const stored = await readBack(result.versionId);
-    expect(stored.stableName).toBe("AI-转型洞察报告");
+    // #3033：2026-09-08 DevApp 实测，非 ASCII 的 stable_name 让该组织每条原生 run 在
+    // 调模型前就 `native_invalid_skill_stable_name` 失败。身份字段只保证合规+稳定，
+    // 可读性由 name 承担（G2 的诉求改由展示层读 name 满足）。
+    expect(stored.stableName).toMatch(/^skill-[0-9a-f]{8}$/);
+    expect(stored.stableName).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(stored.stableName).not.toBe("ai");
     expect(stored.stableName).not.toBe(stored.skillId);
+    expect(stored.skillName).toBe("AI 转型洞察报告");
   });
 
   it("stable_name 撞车（重复导入同名 skill）⇒ 追加数字后缀，不是唯一约束报错", async () => {
