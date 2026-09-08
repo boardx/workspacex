@@ -147,7 +147,7 @@ export class BailianImageProvider implements ModelCallPort {
     } catch {
       throw new ModelCallError("MODEL_CALL_FAILED", "image provider transport failure");
     }
-    const body = await readBoundedJson(response) as SubmitResponse;
+    const body = await readBoundedJson(response,signal) as SubmitResponse;
     if (!response.ok || typeof body.output?.task_id !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(body.output.task_id)) {
       throw new ModelCallError("MODEL_CALL_FAILED", `image task submission failed with HTTP ${response.status}`);
     }
@@ -168,7 +168,7 @@ export class BailianImageProvider implements ModelCallPort {
       await response.body?.cancel();
       throw new ModelCallError("MODEL_CALL_FAILED", `image task status read failed with HTTP ${response.status}`);
     }
-    const body = await readBoundedJson(response) as TaskResponse;
+    const body = await readBoundedJson(response,signal) as TaskResponse;
     return {
       status: body.output?.task_status ?? "UNKNOWN",
       url: body.output?.results?.[0]?.url ?? null,
@@ -182,16 +182,49 @@ function truncateForAlt(prompt: string): string {
   return cleaned.length < prompt.length ? `${cleaned}…` : cleaned;
 }
 
-async function readBoundedJson(response:Response):Promise<unknown> {
+/**
+ * 2026-09-09（issue #3175，main 上 `gates-test (3)` 卡满 60s 的那条红）：这个读循环
+ * **必须自己拿着 deadline**，不能指望 `fetch` 的 `signal` 替它把 body 流销毁掉。
+ *
+ * 原来的形状是 `readBoundedJson(response)`——不收 signal。`generateImage` 造的
+ * `AbortSignal.timeout(timeoutMs)` 只传给了 `fetch`，而 fetch 在**响应头一到**就
+ * resolve；此后 `reader.read()` 能不能被打断，100% 取决于底层 transport 是否愿意在
+ * signal 触发时去销毁 body。实测（body 为永不 enqueue 的 `ReadableStream` 的替身
+ * transport）：signal 到点触发了、abort 监听器也跑了，读循环**纹丝不动**——这个函数
+ * 身上没有任何一条能让它自己停下来的路径。CI 上的表现正是这个签名：断言写的是
+ * 「2000ms 内必须 reject」，实际卡满 60002ms 被 vitest 判超时——**卡满 = promise
+ * 从没 settle**，不是计时被争用打飞（同 shard 前后脚的文件都是 4-6ms）。
+ *
+ * ⚠ 别把「本机复现不出来」读成「没有缺陷」：macOS + Node 22 上 550 次（含 CPU 争用、
+ *   含扫 1-40ms 竞态窗口）一次没卡——那里的 undici 恰好肯销毁 body。缺陷在于
+ *   **这条路径的活性被外包给了 transport 的善意**，触不触发只是运气。
+ *
+ * `finally` 里的 `reader.cancel()` 同理不再 `await`：它属于清理，不该成为第二个能让
+ * 函数活过 deadline 的地方（实测流已 error 时 `cancel()` 会带着流的错误 reject，本来
+ * 就被 `.catch` 吃掉；"等它"只是白白多一处活性风险）。
+ */
+async function readBoundedJson(response:Response,signal:AbortSignal):Promise<unknown> {
   if(response.headers.get('content-encoding') && response.headers.get('content-encoding')!=='identity') {
     await response.body?.cancel();throw new Error('unsupported provider encoding');
   }
   if(!response.body)throw new Error('empty provider response');
   const reader=response.body.getReader();const chunks:Uint8Array[]=[];let size=0;
   try {
-    while(true){const {done,value}=await reader.read();if(done)break;
+    while(true){const {done,value}=await abortable(reader.read(),signal);if(done)break;
       size+=value.length;if(size>65536)throw new Error('provider response too large');chunks.push(value);
     }
     return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
-  } finally {await reader.cancel().catch(()=>{});reader.releaseLock();}
+  } finally {void reader.cancel().catch(()=>{});}
+}
+
+/** Reject as soon as `signal` fires, whatever the underlying promise decides to do. */
+function abortable<T>(promise:Promise<T>,signal:AbortSignal):Promise<T> {
+  if(signal.aborted)return Promise.reject(signal.reason);
+  return new Promise<T>((resolve,reject)=>{
+    const onAbort=()=>reject(signal.reason);
+    signal.addEventListener('abort',onAbort,{once:true});
+    // `then` 顺带承担了"给那条可能永远悬着的 read() 挂上 handler"的职责——否则它日后
+    // 若 reject 会变成 unhandled rejection 打死进程。
+    promise.then(resolve,reject).finally(()=>signal.removeEventListener('abort',onAbort));
+  });
 }

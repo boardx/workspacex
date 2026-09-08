@@ -29,13 +29,20 @@ description: >
 
 ## 交付契约（本阶段的硬约定）
 
-| 要求 | 说明 |
-|------|------|
-| **真实组件，非丢弃原型** | 直接写在 `apps/web` 里（`components/…` / 路由页），不是独立 mockup。人类确认后，feature 开发 = 把这些 UI 接上真逻辑，**UI 复用不重写**。 |
-| **只用 mock 数据，不接后端** | 用本地假数据/固定桩渲染，**不写 API、不连 DB、不接状态同步**。这一步只交付「看得见的界面」。 |
-| **可观测锚点** | 关键元素带稳定 `data-testid`，供后续 `feature_list.json` 的 `verification` 与 e2e spec 锚定（e2e 只认 `data-testid`，不锚文案/结构）。 |
-| **严格类型** | 组件与 mock 数据全程 TypeScript 严格模式，**禁 `any`**（含后续 e2e fixture：用 `Page`、`PlaywrightWorkerArgs["playwright"]` 等真实类型，不写 `(page: any)`）。 |
-| **截图存证** | 每块界面截图存 `phases/<phase>/ui-preview/`，在束级 `contracts/<束>/ui.md` 里贴相对链接。 |
+**单一事实源：[`.harness/instructions/ui-prototyper-hard-rules.md`](../../../.harness/instructions/ui-prototyper-hard-rules.md)。动手前完整读一遍。**
+
+八条硬规则依次是：① 不许自己改 `design-signoff.md` / `design-coherence.md` 的 `status`
+② 用真实组件（非丢弃原型）③ 只用 mock 数据、不接后端 ④ 每个可交互元素必带 `data-testid`
+⑤ 七种状态都要能看到 ⑥ 与既有设计语言一致 ⑦ 危险动作要显式 ⑧ 严格类型禁 `any`。
+
+规则原文只在那个文件里——**本文件故意不复述**。抽出前规则 ① 在
+`.harness/agents/ui-prototyper.yaml` / 本文件 / 根 `AGENTS.md` **三处**手写，
+②③④ 在前两者各一份；两侧读者都需要这几条（yaml 决定 subagent 被派出去时带什么
+系统提示，本文件决定主线程按需加载时读到什么），所以收敛方式是抽单源 + 两边引用，
+不是删掉一边。由 `node .harness/scripts/lint-ui-prototyper-single-source.mjs` 机械核对。
+
+本 skill 自己负责的那部分（不在硬规则里、属于「这一步怎么走」）：
+截图存 `phases/<phase>/ui-preview/`，并在束级 `contracts/<束>/ui.md` 里贴相对链接。
 
 ## 能力清单（这个 skill 让你具备的动作）
 
@@ -101,10 +108,8 @@ requirements/*.md ──▶ ui-prototyper（本 skill）──▶ 人类确认(�
   "这部分已就绪可实现"的确认点，而不是让开发者自己去猜哪些是定稿的——本仓把这个
   验收时刻收敛成束级 `design-signoff.md` 的单一时刻（ADR-023），而不是像通用实践里
   那样可能散落在多次沟通中。
-- **为什么"只用 mock、不接后端"是硬边界**：本仓已发生过 mock 手写、顺手创造出
-  从未被评审的后端契约的先例（模型路由规则、组织类型策略、丢弃原因枚举都曾经
-  只活在 `lib/mock/*.ts` 里）。UI 阶段接触真实契约会重演这个模式——所以"不接后端"
-  不是效率考虑，是防止契约在没有评审的地方被发明。
+- **为什么"只用 mock、不接后端"是硬边界**：理由（含本仓的三个真实先例）写在硬规则 ③，
+  见 [`ui-prototyper-hard-rules.md`](../../../.harness/instructions/ui-prototyper-hard-rules.md)。
 
 参照：
 [Figma development-first components](https://figma.com/best-practices/tips-and-tricks/make-your-design-system-work-better-for-everyone/development-first-components)、
@@ -124,11 +129,10 @@ requirements/*.md ──▶ ui-prototyper（本 skill）──▶ 人类确认(�
 
 ## 硬边界（这一步绝对不做）
 
-- ❌ **不写 `feature_list.json`**：那是人类确认后 [requirement-author] 的活。
-- ❌ **不接后端/不写业务逻辑/不做真实持久化**：只交付 mock 数据的界面。
-- ❌ **不自己改 `design-signoff.md` / `design-coherence.md` 的 `status`**：确认是**人类工程师**的动作，不是 agent 的。
-- ❌ **不跑 `new-sprint`**：束未签核时 `new-sprint` 与 `claim` 都会被门控拒绝（ADR-023），这是设计如此。
-  `has_ui: true` 却没有 `contracts/` 目录的阶段同样被拒——先切束，别绕。
+这一节的内容属于硬规则 ①（不写 `feature_list.json` / 不接后端 / 不改签核 `status` /
+不跑 `new-sprint`），原文见
+[`ui-prototyper-hard-rules.md`](../../../.harness/instructions/ui-prototyper-hard-rules.md)
+的第 ① ③ 条。本文件不再复述——同一事实两处手写，本仓已五次因此漂移。
 
 ## 交接给谁
 
@@ -147,6 +151,9 @@ requirements/*.md ──▶ ui-prototyper（本 skill）──▶ 人类确认(�
    一次：phase 级 `ui-signoff.md` → 束级 `design-signoff.md` 第①节），
    本文件必须同步更新，且旧机制要显式标记停用（如本文件顶部的停用提示），
    不能留一份看似仍然有效但实际上脚本已经不读的说明。
-3. **不复制视觉/交互标准的具体规则**：任何"这个组件该长什么样""该用哪个 token"
+3. **硬规则改动只改单源文件**：`.harness/instructions/ui-prototyper-hard-rules.md`
+   是八条硬规则的唯一副本，本文件与 `.harness/agents/ui-prototyper.yaml` 只引用它。
+   往本文件里重新抄一条规则原文会被 `lint-ui-prototyper-single-source.mjs` 判红。
+4. **不复制视觉/交互标准的具体规则**：任何"这个组件该长什么样""该用哪个 token"
    类的问题，答案永远在 `uiux-standards.md`，本文件只讲"UI 先行"这一步骤本身怎么走
    ——重新抄一份规则等于制造第二份副本，本仓已因此漂移过至少一次。
