@@ -5,7 +5,7 @@ base_bundle: design-prototype
 scope: guided-intake-reference-images-thread-import-and-workbench-list-ordering-tags
 covers: [F59, F60, F61, F62, F63, F64, F65]
 confirmed_by: "usamshen"
-confirmed_at: "	2026-09-06T01:00:00+08:00Z"
+confirmed_at: "2026-09-08T13:00:00+08:00"
 confirmed_via: "file"
 ---
 
