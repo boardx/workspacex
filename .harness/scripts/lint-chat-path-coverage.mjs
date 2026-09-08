@@ -15,8 +15,10 @@
  * 1. 表里每一行编号唯一、形如 `A1`/`F7`。
  * 2. 每个 `chat-path-*.spec.ts` 的 `test()` 标题带 `@path:<编号>`，且编号在表里存在。
  * 3. 表里「现有 spec」列点名了某个 `chat-path-*` spec 的行，仓库里真有带对应标签的用例。
- * 4. 每个 `chat-path-*.spec.ts` 都被 `playwright.chat-read.config.ts` 的
- *    `chat-path-coverage` 项目 testMatch 捞得到。
+ * 4. 每个 `chat-path-*.spec.ts` 都被**矩阵里它那一行声明的车道**对应的 testMatch 捞得到。
+ *    ⚠ 不是写死 `chat-path-coverage`：矩阵的「搬家」条件（连续两次绿就移进阻塞车道）
+ *    是这套设计的目的地，把车道写死等于让搬家永远过不了这道门。车道列因此既是记录，
+ *    也是判据——改了列而没改 config（或反过来）都会红。
  * 5.（表里点名的其余 spec 文件）文件存在性——改名/删除后表里那格会指空。
  *
  * ## 它**挡不到**什么
@@ -83,12 +85,26 @@ const laneSpecs = readdirSync(E2E_DIR).filter((name) => name.startsWith("chat-pa
 if (laneSpecs.length === 0) fail("一个 chat-path-*.spec.ts 都没有——这道门本身失去了对象，是不是被整体删了？");
 
 const configText = readFileSync(CONFIG, "utf8");
-const laneBlock = configText.slice(configText.indexOf(`name: "${LANE_PROJECT}"`));
-const laneMatch = /testMatch:\s*\/(.+?)\/,/s.exec(laneBlock);
-if (!laneMatch) {
+
+/** 读某个 playwright project 的 testMatch 正则。找不到 ⇒ null（调用方负责报错）。 */
+function testMatchOf(project) {
+  const at = configText.indexOf(`name: "${project}"`);
+  if (at < 0) return null;
+  const matched = /testMatch:\s*\/(.+?)\/,/s.exec(configText.slice(at));
+  return matched ? new RegExp(matched[1]) : null;
+}
+
+const laneRegex = testMatchOf(LANE_PROJECT);
+if (laneRegex === null) {
   fail(`没在 ${path.relative(REPO_ROOT, CONFIG)} 里找到 ${LANE_PROJECT} 项目的 testMatch——车道没了，这批 spec 就没人跑`);
 }
-const laneRegex = laneMatch ? new RegExp(laneMatch[1]) : null;
+/** spec 基名 → 矩阵里它那一行声明的车道。 */
+const declaredLane = new Map();
+for (const row of rows) {
+  for (const match of row.specCell.matchAll(/`(chat-path-[a-z0-9-]+)`/g)) {
+    declaredLane.set(match[1], row.lane);
+  }
+}
 
 const taggedIds = new Set();
 for (const spec of laneSpecs) {
@@ -107,9 +123,19 @@ for (const spec of laneSpecs) {
     if (!seen.has(tag)) fail(`${spec} 标了 @path:${tag}，但矩阵里没有这一行——标签指向了一条不存在的路径`);
     taggedIds.add(tag);
   }
-  /* ④ 真的被本车道捞得到 */
-  if (laneRegex && !laneRegex.test(spec)) {
-    fail(`${spec} 不在 ${LANE_PROJECT} 的 testMatch 里——「写了但没人跑」（#512 同一个失效模式）`);
+  /* ④ 真的被**矩阵声明的那条车道**捞得到 */
+  const base = spec.replace(/\.spec\.ts$/, "");
+  const lane = declaredLane.get(base) ?? LANE_PROJECT;
+  const projects = lane.split("+").map((one) => one.trim()).filter(Boolean);
+  for (const project of projects) {
+    const regex = testMatchOf(project);
+    if (regex === null) {
+      fail(`矩阵把 ${base} 记在车道 ${project}，但 config 里没有这个 project——车道列与 config 对不上`);
+      continue;
+    }
+    if (!regex.test(spec)) {
+      fail(`${spec} 不在 ${project} 的 testMatch 里（矩阵声称它跑在那条车道）——「写了但没人跑」（#512 同一个失效模式）`);
+    }
   }
 }
 
