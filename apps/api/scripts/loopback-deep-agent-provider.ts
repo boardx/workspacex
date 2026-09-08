@@ -43,6 +43,7 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
+import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 import { buildDeepAgentSkillCatalogBlock } from "../src/application/agent-run/skill-catalog";
 
 const port = Number(process.env.LOOPBACK_DEEP_AGENT_PROVIDER_PORT ?? "");
@@ -150,6 +151,39 @@ const CLARIFICATION_ARTIFACT_NAME = process.env.LOOPBACK_DEEP_AGENT_CLARIFICATIO
   ?? "WorkspaceX-Agent-report.pdf";
 const CONFIRM_INTENT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER;
 const CHOOSE_OPTION_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER;
+/**
+ * issue #3132（B7）—— 计划确认门的剧本触发词。
+ *
+ * 对这句话，替身在第一次到达状态阈值时回 `interrupted`，并在 `/state` 里放一个**未配对**
+ * 的 `write_todos` 工具调用（args 是一份 3 步的提案计划）——与真实引擎被
+ * `_write_todos_requires_plan_confirmation` 谓词拦下时**逐字同形**：同一个工具名、同一个
+ * `{todos:[{content,status}]}` args 形状、同样是「宣布了但没有配对 ToolMessage」。
+ *
+ * ⚠ 工具名从契约 `PLAN_CONFIRMATION_TOOL_NAME` 取，**没有任何字面量兜底**（不写 `??` 默认值），
+ * 也不吃环境变量覆盖——「替身的方言 ≠ 上游的方言」是 #2017 与 CRLF/LF 那两次的原话教训：
+ * 替身与前端对齐、真实引擎却发另一个名字，结果是 e2e 恒绿、生产恒红。
+ *
+ * resume 之后（`record.decision` 非 null）走终态分支，`/state` 里补上配对的 ToolMessage
+ * 与终稿——也就是「确认后这条 run 真的继续跑完」，而不是前端自己把卡片藏起来。
+ */
+const PLAN_CONFIRM_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_PLAN_CONFIRM_TRIGGER;
+
+/**
+ * 提案计划的步骤数可调（默认 3，>= 契约 `PLAN_CONFIRM_MIN_STEPS` 的 2）。
+ * 判据 (b)「简单问答不加门槛」那条正向反证要造一份**只有 1 步**的计划来证明门不出现，
+ * 靠的就是把这个值设成 1。
+ */
+const PLAN_CONFIRM_STEP_COUNT = Number.parseInt(
+  process.env.LOOPBACK_DEEP_AGENT_PLAN_CONFIRM_STEPS ?? "3", 10,
+);
+
+/**
+ * 计划确认之后，同一条 run 里**第二次** `write_todos`（把第一步标 `in_progress`）。
+ * 这是「同一条 run 里第二次及以后的 write_todos 不得再次中断」那条专门反证的取证点：
+ * 替身在 resume 后就把它连同配对的 ToolMessage 一起落进 state，run 一路走到 `success`
+ * ——若引擎侧谓词错写成「每次 write_todos 都拦」，真实链路在这里会再停一次。
+ */
+const PLAN_CONFIRM_TOOL_NAME = PLAN_CONFIRMATION_TOOL_NAME;
 /**
  * ⚠ **替身必须与真实引擎发同一个工具名**，所以这里从契约取，不再有
  * `?? "send_email"` 兜底，也不再吃 `LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME`
@@ -572,6 +606,12 @@ const server = createServer((req, res) => {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
+    // issue #3132（B7）：计划确认触发词且还没被裁决 → 停在 interrupted，让真实 DA-07b
+    // 轮询循环把 run 落到 `awaiting_tool_permission`，`pending_tool_name` = write_todos。
+    if (PLAN_CONFIRM_TRIGGER !== undefined && record.userText === PLAN_CONFIRM_TRIGGER && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     // issue #2767 -- 这条状态轮询分支本身与裁决类型无关（走到这里说明 `record.decision`
     // 已非 null，`/threads/:id/runs/:runId/state` 那条分支才区分 approve/edit/reject 的
     // 内容），旧注释"reject 永远不会被观察到"只对旧 `decideAgentRun` 的 reject 成立
@@ -768,6 +808,81 @@ const server = createServer((req, res) => {
     // UX-9 D4 前端接入取证（gap 清单第 3 条）：审批触发词的剧本。原始参数（裁决前
     // `readPendingApproval` 读到、渲染进审批面板的那份）与裁决后落进 state 的工具结果
     // 是两件事——`editedArgs`（若有）必须能在终稿里被肉眼核对，不是「按了编辑就白按」。
+    if (PLAN_CONFIRM_TRIGGER !== undefined && record.userText === PLAN_CONFIRM_TRIGGER) {
+      const planCallId = `plan-confirm-${threadId}`;
+      // 提案计划：形状逐字等于真实 `write_todos` 的 args（`{todos:[{content,status}]}`）。
+      // 全部 `pending` —— 提案还没执行，一步都没跑。
+      const proposedTodos = Array.from({ length: Math.max(1, PLAN_CONFIRM_STEP_COUNT) }, (_, i) => ({
+        content: `提案步骤 ${i + 1}`,
+        status: "pending",
+      }));
+      const planAnnounced = {
+        id: `plan-confirm-${threadId}:pending`,
+        type: "ai",
+        content: "",
+        tool_calls: [{ id: planCallId, name: PLAN_CONFIRM_TOOL_NAME, args: { todos: proposedTodos } }],
+      };
+      if (record.decision === null) {
+        // 未裁决：工具调用**没有**配对的 ToolMessage —— `readPendingApproval` 靠这个
+        // 找到「待决的那一个」，与真实 HumanInTheLoopMiddleware 的 interrupt 语义一致。
+        sendJson(res, 200, {
+          values: { messages: [{ type: "human", content: record.userText }, planAnnounced] },
+        });
+        return;
+      }
+      if (record.decision.type === "reject") {
+        // UC-P6：取消 —— run 不直接失败，内核收到拒绝后自行收敛；账本仍为空（提案从未生效）。
+        sendJson(res, 200, {
+          values: {
+            messages: [
+              { type: "human", content: record.userText },
+              planAnnounced,
+              { type: "tool", tool_call_id: planCallId, content: "用户取消了这份计划，未执行。" },
+              { id: `plan-confirm-${threadId}:final`, type: "ai", content: "已按你的要求取消，这份计划没有执行。" },
+            ],
+          },
+        });
+        return;
+      }
+      // UC-P2/UC-P7：确认（或改后确认）⇒ 同一条 run 继续跑。用的是裁决后的 args
+      // ——`edit` 时终稿里能肉眼核对提交的确实是编辑后的值。
+      const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+        ? record.decision.editedArgs
+        : { todos: proposedTodos };
+      const usedTodos = Array.isArray((usedArgs as { todos?: unknown }).todos)
+        ? (usedArgs as { todos: { content?: unknown }[] }).todos
+        : proposedTodos;
+      const secondCallId = `plan-confirm-${threadId}:progress`;
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            { ...planAnnounced, tool_calls: [{ id: planCallId, name: PLAN_CONFIRM_TOOL_NAME, args: usedArgs }] },
+            { type: "tool", tool_call_id: planCallId, content: "todos updated" },
+            // ⚠ 同一条 run 里的**第二次** `write_todos`（把第一步标 in_progress）。
+            // 真实引擎在这里绝不能再停一次——见 `PLAN_CONFIRM_TOOL_NAME` 头注。
+            {
+              id: `plan-confirm-${threadId}:progress-ai`,
+              type: "ai",
+              content: "",
+              tool_calls: [{
+                id: secondCallId,
+                name: PLAN_CONFIRM_TOOL_NAME,
+                args: {
+                  todos: usedTodos.map((t, i) => ({
+                    content: typeof t.content === "string" ? t.content : `提案步骤 ${i + 1}`,
+                    status: i === 0 ? "in_progress" : "pending",
+                  })),
+                },
+              }],
+            },
+            { type: "tool", tool_call_id: secondCallId, content: "todos updated" },
+            { id: `plan-confirm-${threadId}:final`, type: "ai", content: "计划已确认并执行完毕。" },
+          ],
+        },
+      });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER) {
       const approvalCallId = `approval-${threadId}`;
       // 形状必须是 `call_skill` 的真实参数（契约 `DeepAgentHitlToolArgs`），不是 send_email

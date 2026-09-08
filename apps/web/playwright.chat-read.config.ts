@@ -553,6 +553,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_SLOW_TRIGGER: CHAT_READ_E2E.deepAgentSlowTrigger,
         LOOPBACK_DEEP_AGENT_SLOW_HOLD_MS: String(CHAT_READ_E2E.deepAgentSlowHoldMs),
         LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
+        // issue #3132（B7）：计划确认门的剧本触发词与提案步骤数，同一套下发纪律
+        //（值的唯一事实源在 `chat-read-fixture.ts`，这里只转发，不另写一份字面量）。
+        LOOPBACK_DEEP_AGENT_PLAN_CONFIRM_TRIGGER: CHAT_READ_E2E.deepAgentPlanConfirmTrigger,
+        LOOPBACK_DEEP_AGENT_PLAN_CONFIRM_STEPS: String(CHAT_READ_E2E.deepAgentPlanConfirmSteps),
         LOOPBACK_DEEP_AGENT_CLARIFICATION_TRIGGER: CHAT_READ_E2E.deepAgentClarificationTrigger,
         LOOPBACK_DEEP_AGENT_CLARIFICATION_ARTIFACT_NAME: CHAT_READ_E2E.deepAgentClarificationArtifactName,
         LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER: CHAT_READ_E2E.deepAgentConfirmIntentTrigger,

@@ -394,7 +394,12 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
         input: { messages: { role: string; content: string }[] };
       };
       // 协议这个键**根本不出现**——不是出现一个空串。
-      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "wsx_memory_scope"]);
+      // issue #3132（B7）—— `plan_confirm_min_steps` 从此出现在**每一条** deep-agent run
+      // 的 configurable 里（`execute-run.ts` 无条件为 deep-agent run 投影它）：计划确认门
+      // 管的是「模型产出多步计划后停下等确认」，与本轮挂了哪些 skill 无关，所以它不像
+      // `hitl_skill_names` 那样以「挂没挂 skill」为条件。T2 锁的意义不变——它锁的是
+      // 「configurable 的键集是被显式声明的，不会悄悄多出东西」，而不是这个集合永不变化。
+      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "plan_confirm_min_steps", "wsx_memory_scope"]);
       expect(body.config.configurable.org_skills).toEqual([]);
       // system prompt 里也一个字都没多。
       const system = body.input.messages.find((m) => m.role === "system");
@@ -416,7 +421,7 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       // 也一并出现（值是空数组：没有 L2 skill 需要拦；缺省 stableName "pptx" 未声明
       // `risk_level` frontmatter ⇒ `SKILL_RISK_DEFAULT_LEVEL` L1）。挂了 skill 就该
       // 投影真实计算结果，不是"挂了 skill 也不算"。
-      expect(Object.keys(body.config.configurable).sort()).toEqual(["hitl_skill_names", "org_skills", "script_protocol", "wsx_memory_scope"]);
+      expect(Object.keys(body.config.configurable).sort()).toEqual(["hitl_skill_names", "org_skills", "plan_confirm_min_steps", "script_protocol", "wsx_memory_scope"]);
       expect(body.input.messages.find((m) => m.role === "system")?.content).toContain("run_script");
     } finally {
       await deepAgent.close();
@@ -440,7 +445,7 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       // issue #2767 -- 同上一条用例：挂了 skill（缺省 L1）⇒ `hitl_skill_names` 一并
       // 出现（空数组）。`script_protocol` 这一条本身不受影响，仍然按 `withSandbox`
       // 决定出不出现——这条用例本来就是在验证"不送协议"，不是"不送 hitl 名单"。
-      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "hitl_skill_names", "wsx_memory_scope"]);
+      expect(Object.keys(body.config.configurable)).toEqual(["org_skills", "hitl_skill_names", "plan_confirm_min_steps", "wsx_memory_scope"]);
     } finally {
       await deepAgent.close();
     }

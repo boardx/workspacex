@@ -28,7 +28,7 @@ function readerFor(run: PlanRunSnapshot | null): PlanRunStatusReader {
 
 function runSnapshot(overrides: Partial<PlanRunSnapshot> = {}): PlanRunSnapshot {
   return {
-    runId: "run-1", status: "running", pausedAt: null, pauseRequestedAt: null, pendingToolName: null,
+    runId: "run-1", status: "running", pausedAt: null, pauseRequestedAt: null, pendingToolName: null, pendingArgsSummary: null, pendingPermissionRequestId: null,
     createdAt: "2026-09-07T00:00:00Z", agentId: "agent", remoteRunId: null, errorCode: null,
     ...overrides,
   };

@@ -132,7 +132,16 @@ test("TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条�
   await openFreshThread(page);
 
   // (a) 复杂任务 → 必须先出确认门。
-  await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  //
+  // issue #3132（B7）：触发词换成 `deepAgentPlanConfirmTrigger`。此前这里用的是
+  // `deepAgentMultiStepTrigger`，而那条剧本**从不返回 `interrupted`** ——它演的是
+  // 「计划已生效、正在逐步执行」，结构上产不出计划确认中断。对着它要求一道门，
+  // 门永远不会出现，红了也读不出真实缺口在哪。两条剧本从此各演各的。
+  //
+  // ⚠ 这里**不用** `sendAndSettle`：那个 helper 等 `copilotkit-v2-running-indicator`
+  // 归零，而这一轮的正确行为恰恰是**停住不结束**。用它等于要求这道门不要生效。
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentPlanConfirmTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
   await expectAnchor(
     page,
     "chat-task-workbench-plan-confirm",
@@ -140,6 +149,63 @@ test("TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条�
     "复杂多步任务没有「确认计划后再执行」这道门",
     60_000,
   );
+
+  // (a2) ⚠ **引擎侧真的停住了** —— 人类原话：「不能只是 UI 上显示了一个卡片」。
+  //
+  // 一张渲染出来的卡片证明不了任何事：run 可能在卡片旁边一路跑完。这一段在确认门
+  // 出现后**持续观察一段时间**，断言三件事同时成立：
+  //   (i)   仍停在 planning（确认门的渲染门就是 `phase === "planning"`，见
+  //         `copilotkit-v2-plan-control.tsx`——门还在 ⇔ 阶段还是 planning，
+  //         这不是间接证据，是同一个判定）；
+  //   (ii)  没有新的工具调用产生；
+  //   (iii) 没有执行进度卡（`phase === "executing"` 才渲染）。
+  //
+  // 撤掉引擎侧的 `when` 谓词 ⇒ 门根本不出现，上面 (a) 先红；把谓词改成「拦了但不
+  // 真的停」⇒ (i)(ii)(iii) 在这里红。两种做假各有一条会红的断言接着。
+  //
+  // ⚠ 刻意**不**依赖 `chat-task-workbench-phase-indicator`：那个组件挂进 /chat 是
+  // F4（`fix/3132-failure-state-entry`）的范围，不在本 PR 里。借它做断言会让这条
+  // 用例的红绿取决于另一条分支有没有合入——那是在读一个不属于本改动的信号。
+  const confirmGate = page.getByTestId("chat-task-workbench-plan-confirm");
+  const toolGroups = page.getByTestId("copilotkit-v2-tool-calls-group");
+  const toolGroupsBefore = await toolGroups.count();
+  const HOLD_MS = 6_000;
+  const deadline = Date.now() + HOLD_MS;
+  while (Date.now() < deadline) {
+    await expect(
+      confirmGate,
+      [
+        "【差距 TW-P0-3④】确认门出现了，但引擎侧并没有真的停住——阶段已经离开 planning。",
+        "判据：run 必须停在 awaiting_tool_permission 直到用户确认，不是画一张卡片给用户看。",
+        `判据见 ${ACCEPTANCE_DOC} 的 TW-P0-3 一节。`,
+      ].join("\n"),
+    ).toHaveCount(1);
+    expect(
+      await toolGroups.count(),
+      "【差距 TW-P0-3④】等待确认期间引擎又发起了新的工具调用——它没有真的停住。",
+    ).toBe(toolGroupsBefore);
+    expect(
+      await page.getByTestId("chat-task-workbench-run-progress").count(),
+      "【差距 TW-P0-3④】等待确认期间出现了执行进度卡——计划在用户确认之前就开始执行了。",
+    ).toBe(0);
+    await page.waitForTimeout(1_000);
+  }
+
+  // (a3) 确认之后**执行真的继续** —— 否则这道门就成了一个死锁，比没有门更坏。
+  // 确认走的是 `decideToolPermission → Command(resume=…)`（恢复停住的那条 run，
+  // 人类裁决 O-2），不是 `confirmPlan` 新起一条。
+  await page.getByTestId("chat-task-workbench-plan-confirm-run").click();
+  await expect(
+    confirmGate,
+    [
+      "【差距 TW-P0-3④】点了「确认并执行」之后确认门仍在——这一轮没有真的往下走。",
+      "确认必须真的恢复停住的那条 run，而不是一个点了没反应的按钮。",
+    ].join("\n"),
+  ).toHaveCount(0, { timeout: 60_000 });
+  await expect(
+    page.getByTestId("copilotkit-v2-running-indicator"),
+    "【差距 TW-P0-3④】确认之后这一轮始终没有落定——恢复的那条 run 没有跑完。",
+  ).toHaveCount(0, { timeout: 120_000 });
 
   // (b) 简单问题 → **不得**被加上同一道门。这是反证面：审计原话
   //     「不许每次都加一道门槛」。做成无条件确认门同样判不达标。

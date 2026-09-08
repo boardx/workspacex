@@ -84,6 +84,7 @@ import { resolveSkillRiskLevels, selectL2SkillNames, type SkillRiskEntry } from 
 import type { ToolPermissionGrantStore } from "./tool-permission-grants";
 import { checkPendingInterjection, takeInterjectionForKernel } from "./interjection-handling";
 import type { InterjectionStore } from "./interjection-store";
+import { PLAN_CONFIRM_MIN_STEPS } from "@repo/contracts/plan-control";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -1152,6 +1153,11 @@ async function executeClaimed(
         // 只要挂了至少一个 skill，就该投影真实计算结果（哪怕是空数组——"挂的全是
         // L0/L1，一个都不用问"本身就是一个真实、该被投影的结论，不是"没算"）。
         ...(isDeepAgentRun && toolSkills.length > 0 ? { hitlSkillNames: selectL2SkillNames(skillRisks) } : {}),
+        // issue #3132（B7）—— 计划确认门：只有 deep-agent run 里才有 `write_todos`
+        // 这个工具，非 deep-agent run 不填。与上面 `hitlSkillNames` 不同，这里**不**看
+        // 挂没挂 skill：这道门管的是「模型产出多步计划后停下等确认」，与本轮挂了哪些
+        // skill 无关。阈值取契约常量，不在这里重新决定一个数字。
+        ...(isDeepAgentRun ? { planConfirmMinSteps: PLAN_CONFIRM_MIN_STEPS } : {}),
         // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
         // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
         ...(scriptProtocol === undefined ? {} : { scriptProtocol }),

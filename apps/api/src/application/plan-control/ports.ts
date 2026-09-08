@@ -42,6 +42,29 @@ export interface PlanRunSnapshot {
   readonly status: RunStatusForPhase;
   /** DA-07b `awaiting_tool_permission` 期间非空；映射 `derivePlanPhase` 的 `pendingToolCalls`。 */
   readonly pendingToolName: string | null;
+  /**
+   * issue #3132（B7）—— `agent_runs.pending_args_summary` **原样透传**，DB 无新列。
+   *
+   * 待决工具是 `PLAN_CONFIRMATION_TOOL_NAME`（`write_todos`）时，这串 JSON 里装的就是
+   * 用户此刻要确认的那份**提案计划**（`{"todos":[...]}`）——`getPlanLedger` 解析它，
+   * 把提案步骤当作 `steps` 下发，因为此时引擎账本必然还是空的（`write_todos` 尚未执行）。
+   *
+   * ⚠ **截断陷阱**（#2017 已经踩过一次，不重踩）：这一列的产地是
+   * `deep-agent-model-provider.ts` 的 `summarizeProgressText`，默认按
+   * `PROGRESS_SUMMARY_MAX_CHARS = 500` 截断并在尾部接 `…`——那会把 JSON 截成非法串。
+   * `write_todos` 已经在该文件里享有 4000 字符豁免（与 `DEEP_AGENT_HITL_ARGS_MAX_CHARS`
+   * 同一档），本字段**依赖**那条豁免；有一条「长计划 args 不被截断」的会红用例守着它。
+   */
+  readonly pendingArgsSummary: string | null;
+  /**
+   * issue #3132（B7）—— `agent_runs.pending_permission_request_id` 原样透传，DB 无新列。
+   *
+   * 用户在确认门上点「确认并执行」时，前端要用 `(runId, permissionRequestId)` 调既有的
+   * `decidePermissionRequest`（人类裁决 O-2：**resume 停住的那条 run**，不走
+   * `confirmPlan` ——那个用例的语义是 `createConfirmedRun`，会**新起一条 run**）。
+   * 没有这个 id 前端就凑不出请求，确认门只能是个摆设。
+   */
+  readonly pendingPermissionRequestId: string | null;
   readonly createdAt: string;
   /** F975 UC-7 `confirmPlan`：续跑用哪个 agent，取自「产出这份计划的那次 run」用的 agent。 */
   readonly agentId: string;

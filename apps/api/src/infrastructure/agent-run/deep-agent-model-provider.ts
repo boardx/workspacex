@@ -104,6 +104,7 @@ import type { kernelGateway as KG } from "@repo/contracts";
 import { standardCapabilities as SC } from "@repo/contracts";
 import { KERNEL_INTERJECTION_CONFIGURABLE_KEY } from "@repo/contracts/artifacts-steering";
 import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "@repo/contracts/plan-permissions";
+import { PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY } from "@repo/contracts/plan-control";
 
 import type {
   ModelCallCompletion,
@@ -1118,6 +1119,11 @@ export class DeepAgentModelProvider implements ModelCallPort {
               ...(input.hitlSkillNames === undefined ? {} : {
                 [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames,
               }),
+              // issue #3132 —— resume 同理：计划确认阈值必须跟着投影，否则用户确认后
+              // 续跑的那一段内核又会退回「这道门没启用」。⚠ 缺席时这个键不出现。
+              ...(input.planConfirmMinSteps === undefined ? {} : {
+                [PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY]: input.planConfirmMinSteps,
+              }),
             },
           },
         }),
@@ -1216,6 +1222,16 @@ export class DeepAgentModelProvider implements ModelCallPort {
             ...(input.hitlSkillNames === undefined
               ? {}
               : { [KERNEL_HITL_SKILLS_CONFIGURABLE_KEY]: input.hitlSkillNames }),
+            /*
+             * issue #3132（B7）—— 计划确认门的阈值，键名 = 契约
+             * `PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY`。`harness.py` 的
+             * `_write_todos_requires_plan_confirmation` 谓词读它决定首次 `write_todos`
+             * 要不要 interrupt。⚠ 缺席时内核 **fail-open**（一次都不拦），与上面
+             * `hitl_skill_names` 的方向相反——见 `ModelCallInput.planConfirmMinSteps` 头注。
+             */
+            ...(input.planConfirmMinSteps === undefined
+              ? {}
+              : { [PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY]: input.planConfirmMinSteps }),
             /*
              * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
              * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥

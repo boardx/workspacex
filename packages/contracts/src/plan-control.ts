@@ -280,6 +280,18 @@ export const planControl = {
        *  开始前就死了，`write_todos` 还没来得及标）时退回`null`，前端自己决定怎么兜底，
        *  不在这里假装有答案。非失败终态时恒为 `null`（get-plan-ledger.ts 头注）。 */
       failedStepId: z.string().nullable(),
+      /**
+       * issue #3132（B7）—— `steps` 里装的是**提案**（run 停在计划确认中断上、尚未
+       * 生效）还是已生效账本。只在 `phase === "planning"` 时为 `true`。
+       *
+       * `.default(false)` 是给**老客户端读新服务端**之外的那个方向留的兼容：本仓
+       * `apps/web` 与 API 同版本部署，但契约的消费方不止一处，缺省成「不是提案」
+       * 与本 feature 之前的行为逐字相同。
+       */
+      stepsAreProposal: z.boolean().default(false),
+      /** issue #3132（B7）—— 确认门「确认并执行」要提交到的待决裁决 id；
+       *  只在 `stepsAreProposal === true` 时非空。见 `get-plan-ledger.ts` 同名字段头注。 */
+      pendingPermissionRequestId: z.string().nullable().default(null),
     }).strict(),
     err: ["NOT_VISIBLE"] as const,
   },
@@ -581,6 +593,46 @@ export function evaluatePlanGate(input: {
  */
 export const PLAN_APPROVAL_TOOL_WHITELIST: readonly string[] = ["call_skill"];
 
+/**
+ * issue #3132 —— 计划确认门（B7）中断挂在**哪个工具**上的单一事实源。
+ *
+ * 人类 2026-09-08 裁决 O-1 = A1：中断由**引擎强制**挂在 `write_todos` 上，不新增一个
+ * 需要模型自愿调用的 `confirm_plan` 虚拟工具。理由是 #3132 本身的教训——一道门如果
+ * 依赖模型「记得去调那个工具」，漏调就是静默失效，而这正是本 issue 要修的那个形态。
+ *
+ * 这个字面量只在这里出现一次：`harness.py` 的 `build_interrupt_on` 用它注册 `when`
+ * 谓词，`get-plan-ledger.ts` 用它识别「待决的这次中断是计划确认」，假上游
+ * （`apps/api/scripts/loopback-deep-agent-provider.ts`）用它发出同形的中断。
+ * 任何一侧都**不许**写 `?? "write_todos"` 兜底——同 `deep-agent-hitl.ts` 已定的纪律。
+ */
+export const PLAN_CONFIRMATION_TOOL_NAME = "write_todos";
+
+/**
+ * `write_todos` 计划确认谓词的阈值投影进 LangGraph `config.configurable` 时用的键名。
+ *
+ * 阈值本身不是新事实：它就是 `evaluatePlanGate` 那张表的分界（`todoCount >= 2` 才需要
+ * 确认），见 `PLAN_CONFIRM_MIN_STEPS`。之所以要投影而不是在 Python 里硬编码一个 2，
+ * 是因为本仓已五次因「同一事实声明在两处」漂移——判定表的权威在契约里，Python 侧只是
+ * 执行它。键名字面量在 Python 侧只出现在 `harness.py` 的 `_PLAN_CONFIRM_CONFIG_KEY`，
+ * 由跨语言 parity 门控测试读 `.py` 源文本机械比对（同 `KERNEL_HITL_SKILLS_CONFIGURABLE_KEY`
+ * 的既有做法）。
+ *
+ * ⚠ 语义方向：键**缺席 ⇒ 不拦**（fail-open）。这与 `hitl_skill_names` 缺席时
+ * fail-closed 的方向**相反**，是有意的，理由见 `harness.py`
+ * `_write_todos_requires_plan_confirmation` 的头注。
+ */
+export const PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY = "plan_confirm_min_steps";
+
+/**
+ * 计划确认门的步骤数阈值 —— 从 `evaluatePlanGate` 那张表**派生**，不是第二份声明。
+ *
+ * `evaluatePlanGate` 对 `todoCount` 的判定是 `0 → 不需要`、`1 → 不需要`、`>=2 → 需要`，
+ * 因此「需要确认」的最小步骤数就是 2。下面这个常量由一条断言式的推导得到而不是直接
+ * 写 `2`：改了 `evaluatePlanGate` 的表却忘了改这里，`plan-confirm-gate` 的契约测试会红。
+ */
+export const PLAN_CONFIRM_MIN_STEPS = 2;
+
+
 /** `derivePlanPhase` 的入参：一个待决工具调用（可能是审批中断，也可能不是）。 */
 export const PendingToolCall = z.object({
   toolName: z.string(),
@@ -602,6 +654,16 @@ export function derivePlanPhase(input: {
   ledgerEmpty: boolean;
   pendingToolCalls: readonly PendingToolCall[];
   hasFailedStep: boolean;
+  /**
+   * issue #3132 —— 这条 run 此刻是否**停在计划确认中断上**（待决工具名 ===
+   * `PLAN_CONFIRMATION_TOOL_NAME`）。由 `get-plan-ledger.ts` 从
+   * `agent_runs.pending_tool_name` 判出后传进来，本函数不自己去猜。
+   *
+   * ⚠ **必填，不给默认值**：#3132 的根因就是「`planning` 这个态在真实链路里结构性
+   * 不可达」。若这里给一个 `?? false` 的默认，任何一个忘记传的调用方都会静默退回到
+   * 那个不可达的世界，而且**看起来一切正常**。必填让编译器替我们发现漏传。
+   */
+  hasPendingPlanConfirmation: boolean;
 }): PlanPhase {
   const hasPendingApproval = input.pendingToolCalls.some(
     (call) => call.awaitingApproval && PLAN_APPROVAL_TOOL_WHITELIST.includes(call.toolName),
@@ -610,6 +672,24 @@ export function derivePlanPhase(input: {
   if (input.runStatus === "cancelled") return "cancelled";
   if (input.runStatus === "succeeded") return "done";
   if (input.hasFailedStep || input.runStatus === "failed") return "failed";
+  /*
+   * issue #3132 —— `planning` 真正可达的那一处。
+   *
+   * **插入位置是设计的一部分，不许上移**：它排在 `cancelled`/`done`/`failed` 三个终态
+   * **之后**。于是一条已经结束的 run 即使数据库里还留着 `pending_tool_name`（例如
+   * 被取消时中断尚未清理），也绝不会因为这条新分支重新回到 `planning` ——#2927
+   * 「run 结束后没有控制操作」与 #3079「done/cancelled 只读账本」两条既有语义
+   * 因此不可能被这条新分支绕过。
+   *
+   * 排在 `approving` **之前**：两者的待决工具名互斥（`write_todos` 不在
+   * `PLAN_APPROVAL_TOOL_WHITELIST` 里，见该常量头注），所以先后其实不产生行为差异，
+   * 写成这个顺序只是让「计划确认」读起来紧跟三个终态、与设计文档的判定链逐字一致。
+   *
+   * 排在 `ledgerEmpty` **之前**是必须的：计划确认中断发生在 `write_todos` 真正执行
+   * **之前**，账本此刻必然是空的（提案还没生效）。若让 `ledgerEmpty` 先判，这个态会
+   * 恒被读成 `preparing` ——那正是 #3132 描述的「确认门永不渲染」。
+   */
+  if (input.hasPendingPlanConfirmation) return "planning";
   if (hasPendingApproval) return "approving";
   if (input.ledgerEmpty) return "preparing";
   if (input.runStatus === "running" || input.runStatus === "interrupted") return "executing";

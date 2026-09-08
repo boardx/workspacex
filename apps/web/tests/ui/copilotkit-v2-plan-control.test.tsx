@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   addPlanConstraint: vi.fn(),
   removePlanConstraint: vi.fn(),
   confirmPlan: vi.fn(),
+  confirmProposedPlan: vi.fn(),
   pausePlanRun: vi.fn(),
   resumePlanRun: vi.fn(),
   retryPlanStep: vi.fn(),
@@ -47,6 +48,8 @@ function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerVie
     revision: 3,
     engineEpoch: 1,
     origin: "engine",
+    stepsAreProposal: false,
+    pendingPermissionRequestId: null,
     steps: [
       { planStepId: "s1", content: "调研竞品定价", status: "pending", constraints: [] },
       { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
@@ -70,6 +73,63 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
   beforeEach(() => {
     for (const fn of Object.values(api)) fn.mockReset();
     api.planControlErrorCode.mockReturnValue(null);
+  });
+
+  /**
+   * issue #3132（B7）—— 人类裁决 O-2 的机械门控：确认门上的「确认并执行」在
+   * **提案态**下必须**恢复停住的那条 run**（`confirmProposedPlan` →
+   * `decidePermissionRequest`），而不是 `confirmPlan`（`createConfirmedRun`，
+   * 会**多起一条 run**）。两条路径都存在、都是对的，走错就是多一条 run。
+   *
+   * 撤掉 `handleConfirm` 里的 `stepsAreProposal` 分支 ⇒ 第一条红（调了 confirmPlan）。
+   */
+  const proposalLedger = () => ledgerWithSteps({
+    phase: "planning",
+    runStatus: "running",
+    revision: 0,
+    stepsAreProposal: true,
+    activeRunId: "run-stopped",
+    pendingPermissionRequestId: "9f1d2c3b-4a5e-4f6a-8b7c-0d1e2f3a4b5c",
+    gate: { required: true, reason: "multi-step" },
+  });
+
+  it("提案态点确认 ⇒ 恢复停住的那条 run，绝不新起一条（裁决 O-2）", async () => {
+    api.fetchPlanLedger.mockResolvedValue(proposalLedger());
+    api.confirmProposedPlan.mockResolvedValue({ runId: "run-stopped", permissionRequestId: "9f1d2c3b-4a5e-4f6a-8b7c-0d1e2f3a4b5c" });
+    render(<CopilotKitV2PlanControl threadId="t-proposal" />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONFIRM_RUN_TESTID));
+    await waitFor(() => expect(api.confirmProposedPlan).toHaveBeenCalledWith(
+      "run-stopped", "9f1d2c3b-4a5e-4f6a-8b7c-0d1e2f3a4b5c",
+    ));
+    expect(api.confirmPlan).not.toHaveBeenCalled();
+  });
+
+  it("提案态渲染「提案」标记 —— 与已生效账本视觉可区分（设计 ① 的硬要求）", async () => {
+    api.fetchPlanLedger.mockResolvedValue(proposalLedger());
+    render(<CopilotKitV2PlanControl threadId="t-proposal-badge" />);
+    expect(await screen.findByTestId("chat-task-workbench-plan-proposal-badge")).toBeTruthy();
+  });
+
+  it("非提案态（账本里已有计划）点确认 ⇒ 仍走既有 confirmPlan，语义逐字不变", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({
+      phase: "planning", runStatus: "idle", stepsAreProposal: false,
+      gate: { required: true, reason: "multi-step" },
+    }));
+    api.confirmPlan.mockResolvedValue({ runId: "run-new" });
+    render(<CopilotKitV2PlanControl threadId="t-ledger" projectId="p1" />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONFIRM_RUN_TESTID));
+    await waitFor(() => expect(api.confirmPlan).toHaveBeenCalledWith("t-ledger", { basedOnRevision: 3 }, "p1"));
+    expect(api.confirmProposedPlan).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("chat-task-workbench-plan-proposal-badge")).toBeNull();
+  });
+
+  it("提案态但缺 permissionRequestId ⇒ 报错，绝不悄悄回退到新起一条 run", async () => {
+    api.fetchPlanLedger.mockResolvedValue(proposalLedger());
+    api.fetchPlanLedger.mockResolvedValue({ ...proposalLedger(), pendingPermissionRequestId: null });
+    render(<CopilotKitV2PlanControl threadId="t-missing-id" />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONFIRM_RUN_TESTID));
+    await waitFor(() => expect(api.confirmPlan).not.toHaveBeenCalled());
+    expect(api.confirmProposedPlan).not.toHaveBeenCalled();
   });
 
   it("threadId 为 null（新对话尚未发出第一条消息）时不渲染，也不发起任何请求", () => {
