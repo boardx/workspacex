@@ -12,7 +12,7 @@ import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-ca
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 const PROJECT: DesignProject = {
-  id: "p1", name: "订阅管理", template: "mobile", theme: "dark", problem: "退订找不到", criteria: ["三步内退订"],
+  id: "p1", name: "订阅管理", template: "mobile", theme: "dark", refImages: [], problem: "退订找不到", criteria: ["三步内退订"],
   frames: ["对话", "设置"],
   frameNotes: ["首屏即可发消息。", ""],
   prototype: [

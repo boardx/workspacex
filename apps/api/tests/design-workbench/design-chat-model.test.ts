@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { designWorkbench as C } from "@repo/contracts";
-import { ModelCallError } from "../../src/application/agent-run/ports";
+import { MODEL_CALL_IMAGE_MIMES, ModelCallError } from "../../src/application/agent-run/ports";
 import {
   DESIGN_CHAT_SYSTEM_PROMPT,
   DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
@@ -372,5 +372,69 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
   it("系统提示词真的带上了它（不是只导出一个没人用的常量）", () => {
     expect(DESIGN_CHAT_SYSTEM_PROMPT).toContain(P);
     expect(DESIGN_ONE_SCREEN_SYSTEM_PROMPT).toContain(P);
+  });
+});
+
+/**
+ * 迭代 13（delta `design-chat-inputs` §1）—— V52 / V53 / V54。
+ * 参考图随**每一轮**发；模型看不了图时**不发图且在回复里说出来**。
+ */
+describe("迭代 13：参考图", () => {
+  const IMG = { filename: "ref.png", mime: "image/png" as const, bytes: new Uint8Array([1, 2, 3]) };
+  const WITH_IMG: DesignChatContext = { ...CTX, refImages: [IMG] };
+  const EMPTY_WITH_IMG: DesignChatContext = { ...CTX, prototype: [], frames: [], refImages: [IMG] };
+
+  /** 带 supportsVision 的 replier（既有 `replier` 的模型替身没有这个方法 ⇒ 视作看不了图）。 */
+  const seeing = (complete: (i: { system: string; user: string }) => Promise<{ text: string }>) => {
+    const log = vi.fn();
+    const model = { complete: vi.fn(complete), supportsVision: () => true };
+    return { r: new ModelDesignChatReplier({ model: model as never, chatModel: { provider: "p", modelId: "m" }, log }), model };
+  };
+
+  it("V52 图片类型闭集与端口**集合相等**，不是包含", () => {
+    // 端口那边只是再导出契约的那一份（迭代 13 起）。两处各写一份的话，端口加一种格式
+    // 设计这边会静默不支持——所以断言集合相等，而不是「设计的 ⊆ 端口的」。
+    expect([...MODEL_CALL_IMAGE_MIMES].sort()).toEqual([...C.IMAGE_MIMES].sort());
+    expect(C.isImageMime("image/png")).toBe(true);
+    expect(C.isImageMime("image/gif")).toBe(false);
+  });
+
+  it("V53 分页生成时**每一轮**都带图（骨架轮 + 每页轮），不是只发第一轮", async () => {
+    const frames = ["首页", "详情", "设置"];
+    let n = 0;
+    const { r, model } = seeing(async () => {
+      n += 1;
+      return n === 1
+        ? { text: `{"reply":"好","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}` }
+        : { text: `{"frame":"${frames[n - 2]}","root":{"type":"stack","children":[{"type":"text","props":{"content":"x"}}]}}` };
+    });
+    await r.reply(EMPTY_WITH_IMG);
+    expect(model.complete).toHaveBeenCalledTimes(1 + 3);
+    // ⭐ 反证锚点：只在骨架轮带图 ⇒ 后三条红（"照着这张画"在第 3 页就失效了）。
+    for (const call of model.complete.mock.calls) {
+      expect((call[0] as { images?: unknown[] }).images).toHaveLength(1);
+    }
+  });
+
+  it("V54 模型看不了图 ⇒ 请求体不含 images，且回复里**说出来**", async () => {
+    // 既有 `replier` 的替身没有 supportsVision ⇒ 看不了图
+    const { r, model } = replier(async () => ({ text: '{"reply":"画好了。"}' }));
+    const out = await r.reply(WITH_IMG);
+    expect(model.complete.mock.calls[0]?.[0]).not.toHaveProperty("images");
+    // ⭐ 这是本 delta 最重要的一条：静默丢图会让界面显示"已上传"而模型没看过。
+    expect(out.text).toContain("看不了图");
+    expect(out.text).toContain("画好了。");
+  });
+
+  it("V54 看得了图 ⇒ 带 images，且**不**画蛇添足地加那句提示", async () => {
+    const { r, model } = seeing(async () => ({ text: '{"reply":"照着画好了。"}' }));
+    const out = await r.reply(WITH_IMG);
+    expect((model.complete.mock.calls[0]?.[0] as { images?: unknown[] }).images).toHaveLength(1);
+    expect(out.text).not.toContain("看不了图");
+  });
+
+  it("没传图 ⇒ 不管模型能不能看图，都不加那句提示", async () => {
+    const { r } = replier(async () => ({ text: '{"reply":"好的。"}' }));
+    expect((await r.reply(CTX)).text).not.toContain("看不了图");
   });
 });

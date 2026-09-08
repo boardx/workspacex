@@ -91,6 +91,44 @@ export const DESIGN_PROJECT_INITIAL_CRITERIA: readonly string[] = [
   "列出验收标准供工程对齐",
 ];
 
+/* ─────────── 迭代 13：参考图（design-delta `design-chat-inputs` §1） ─────────── */
+
+/**
+ * 能交给模型去看的图片类型**闭集**。
+ *
+ * ⚠ 这里是**唯一声明处**。它原先住在 `apps/api` 的 `agent-run/ports.ts`，但设计工作台
+ * 的参考图与 agent-run 的图片输入必须是同一个集合——两处各写一份，端口那边加一种格式时
+ * 设计这边就会静默不支持（V52 用「集合相等」而不是「包含」钉住这件事）。
+ * 契约是最内层，api 侧改成从这里再导出。
+ */
+export const IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
+export type ImageMime = (typeof IMAGE_MIMES)[number];
+export function isImageMime(mime: string): mime is ImageMime {
+  return (IMAGE_MIMES as readonly string[]).includes(mime);
+}
+
+/**
+ * 一个设计项目最多挂几张参考图。
+ *
+ * 视觉输入按张计费且贵；一次给三张已经足够说清「照这个画」。不设上限等于把成本敞口
+ * 交给用户手滑（delta §1.2，取舍 ①=A）。
+ */
+export const PROTOTYPE_MAX_REF_IMAGES = 3;
+/** 单张参考图的字节上限。 */
+export const PROTOTYPE_REF_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+
+/** 参考图的元信息——**不含字节**：列表接口带上字节会被撑爆（V55）。 */
+export const RefImage = z
+  .object({
+    id: z.string(),
+    name: z.string().min(1).max(200),
+    size: z.number().int().min(1),
+    mime: z.enum(IMAGE_MIMES),
+    createdAt: z.string(),
+  })
+  .strict();
+export type RefImage = z.infer<typeof RefImage>;
+
 /* ─────────── 迭代 13：引导式澄清（design-delta `design-chat-inputs` §3） ─────────── */
 
 /**
@@ -216,6 +254,8 @@ export const DesignProject = z
     prototype: z.array(PrototypeNode),
     /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
     frameNotes: z.array(z.string()),
+    /** 迭代 13（delta §1）：项目挂着的参考图，只有元信息不含字节。 */
+    refImages: z.array(RefImage).max(PROTOTYPE_MAX_REF_IMAGES).default([]),
     /**
      * 迭代 13（delta §5.2）：**原型自己的**明暗主题，与后台页面的主题无关——
      * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
@@ -282,6 +322,12 @@ export const DesignWorkbenchError = z.enum([
   "DEPENDENCY_UNAVAILABLE",
   /** 迭代 3：原型版本不存在（或不属于该项目） */
   "VERSION_NOT_FOUND",
+  /**
+   * 迭代 13：参考图被拒——类型不在闭集、超过单张上限、或这个项目已经挂满 3 张。
+   * 三种情形合成一个码：屏上给用户的下一步是同一句「换一张小一点的 PNG/JPEG/WebP」，
+   * 分成三个码只会让前端多写两条一模一样的文案。具体是哪一种进日志。
+   */
+  "REF_IMAGE_REJECTED",
   /** 迭代 5：人直接改画布的 patch 没通过（未知 id / 删根 / 结果不合法 / 还没有原型）——`detail` 说明哪一条 */
   "PROTOTYPE_PATCH_REJECTED",
   /**
@@ -363,6 +409,24 @@ export const operations = {
     in: z.object({ brief: z.string().min(1).max(2000) }).strict(),
     out: z.object({ questions: z.array(IntakeQuestion).min(INTAKE_MIN_QUESTIONS).max(INTAKE_MAX_QUESTIONS), fallback: z.boolean() }).strict(),
     err: [] as const,
+  },
+  /**
+   * 迭代 13：上传一张参考图。字节走 multipart，**类型按字节嗅探**不信 Content-Type
+   * （与反馈附件同一条纪律，V51）。
+   */
+  uploadRefImage: {
+    method: "POST",
+    path: "/pm-designs/:projectId/ref-images",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z.object({ image: RefImage }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "REF_IMAGE_REJECTED"] as const,
+  },
+  deleteRefImage: {
+    method: "DELETE",
+    path: "/pm-designs/:projectId/ref-images/:imageId",
+    in: z.object({ projectId: z.string(), imageId: z.string() }).strict(),
+    out: z.object({ project: DesignProject }).strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER"] as const,
   },
   createProject: {
     method: "POST",
@@ -452,6 +516,11 @@ export const operations = {
       .object({
         projectId: z.string(),
         text: z.string().min(1).max(4000),
+        /**
+         * 迭代 13（delta §1.2）：这一句要参考哪几张图。图属于**项目**不属于某条消息——
+         * 同一张参考图往往要在好几轮里反复被指着说，所以这里传 id 而不是重新上传。
+         */
+        refImageIds: z.array(z.string()).max(PROTOTYPE_MAX_REF_IMAGES).optional(),
         /** 迭代 2：用户在画布上选中的节点——这句话优先针对它。服务端按 id 在当前 `prototype` 里找路径喂给模型；找不到（已被上一轮删掉）就当没选。 */
         focusNodeId: PrototypeNodeId.optional(),
       })

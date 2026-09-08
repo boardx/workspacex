@@ -43,6 +43,8 @@ export interface DesignProjectRow {
   readonly frameNotes: readonly string[];
   /** 迭代 13：原型自己的明暗主题；老行为空。 */
   readonly theme?: "light" | "dark";
+  /** 迭代 13：参考图元信息（不含字节）；老行为空。 */
+  readonly refImages?: readonly designWorkbench.RefImage[];
   /** 迭代 11：每页出发的跳转关系，与 `frames` 同长或空（`frameLinks[i]` 属于第 i 页）。 */
   readonly frameLinks: readonly (readonly PrototypeLink[])[];
   readonly pushed: boolean;

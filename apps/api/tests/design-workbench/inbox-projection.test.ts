@@ -12,6 +12,7 @@ function designView(over: Partial<DesignProjectView> = {}): DesignProjectView {
     name: "项目 A",
     template: "wireframe",
     theme: "dark",
+    refImages: [],
     problem: "",
     criteria: [],
     frames: [],

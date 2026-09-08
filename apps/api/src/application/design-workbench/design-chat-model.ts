@@ -58,6 +58,11 @@ const REPAIRABLE_FIELDS = new Set(["prototype", "patch"]);
 
 /** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
 export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat"> & {
+  /**
+   * 迭代 13（delta §1.3）：这一轮要给模型看的参考图（字节已由调用方取好）。
+   * **随每一轮发**，不是只发第一轮——「照着这张画」在第 4 页仍然成立（V53）。
+   */
+  readonly refImages?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[];
   /** 迭代 2：用户选中的节点（已解析成路径）；没选 / 找不到 ⇒ 不带。 */
   readonly focus?: { readonly id: string; readonly frame: string; readonly path: readonly string[]; readonly node: unknown };
 };
@@ -294,6 +299,12 @@ export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
 export interface OutlineEntry { readonly frame: string; readonly intent: string; }
 
 /** 某页被截断之后，重试那一页时追加的要求。只改输出**体量**，不改这一页要做什么。 */
+/**
+ * V54：模型看不了图时，**在给用户的那句话里说出来**。
+ * 不说的话，界面显示"图已上传"而模型根本没看过——用户会以为它照着画了。
+ */
+export const BLIND_MODEL_NOTICE = "\n\n⚠ 这个部署的 AI 模型看不了图，你传的参考图它没有看到，上面是按你的文字描述画的。";
+
 export const SIMPLER_SCREEN_HINT =
   "\n\n⚠ 你上一次的输出没写完就被长度限制截断了。这一次请把这一页画得**更简单**：" +
   "节点数控制在 30 个以内、嵌套不超过 3 层，只保留这一页最核心的结构与主操作，" +
@@ -362,7 +373,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
    *   任何用户可见的东西。
    */
   private async generatePaged(ctx: DesignChatContext): Promise<DesignChatReplyResult> {
-    const outlineText = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_OUTLINE_SYSTEM_PROMPT);
+    const outlineText = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_OUTLINE_SYSTEM_PROMPT, ctx.refImages);
     if (outlineText.truncated) return this.fallback("MODEL_OUTPUT_TRUNCATED");
     let outlineRaw: unknown;
     try {
@@ -390,7 +401,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
         `\n\n现在只画第 ${i} 页「${entry.frame}」。links 的 to 用上面的页序号。`;
       let one: { text: string; truncated: boolean };
       try {
-        one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT);
+        // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
+        one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
       } catch (e) {
         this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
         failed.push(entry.frame);
@@ -405,6 +417,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
             context + SIMPLER_SCREEN_HINT,
             DESIGN_CHAT_REPAIR_TIMEOUT_MS,
             DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
+            ctx.refImages,
           );
         } catch (e) {
           this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
@@ -445,9 +458,10 @@ export class ModelDesignChatReplier implements DesignChatModel {
     const reply = typeof obj.reply === "string" && obj.reply.trim() !== ""
       ? obj.reply.trim()
       : `画了 ${done.length} 页：${done.map((d) => d.frame).join("、")}。`;
-    const text = failed.length === 0
+    const text = (failed.length === 0
       ? reply
-      : `${reply}\n\n还有 ${failed.length} 页没画出来：${failed.join("、")}。已经画好的都留着了，可以让我单独把没画的那几页补上。`;
+      : `${reply}\n\n还有 ${failed.length} 页没画出来：${failed.join("、")}。已经画好的都留着了，可以让我单独把没画的那几页补上。`)
+      + this.blindNotice(ctx);
     return {
       text: text.slice(0, 4000),
       source: "model",
@@ -457,11 +471,31 @@ export class ModelDesignChatReplier implements DesignChatModel {
     };
   }
 
+  /** 传了图但模型看不了 ⇒ 那句提示；没传图或看得了 ⇒ 空串。 */
+  private blindNotice(ctx: DesignChatContext): string {
+    return (ctx.refImages ?? []).length > 0 && !this.canSeeImages() ? BLIND_MODEL_NOTICE : "";
+  }
+
   private fallback(reason: designAiCollab.DesignChatFallbackReason): DesignChatReplyResult {
     return { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback: {}, suggestions: [], fallbackReason: reason };
   }
 
-  private async callModel(user: string, timeoutMs: number, system: string = DESIGN_CHAT_SYSTEM_PROMPT): Promise<{ text: string; truncated: boolean }> {
+  /**
+   * 迭代 13（V54，**本 delta 最重要的一条**）：这个部署的模型能不能看图。
+   *
+   * 不能看时**不发** `images`，并且**在回复里说出来**。静默丢弃是本仓反复栽过的形态：
+   * 界面显示"图已上传"，模型根本没看过，用户还以为它照着画了。
+   */
+  private canSeeImages(): boolean {
+    return this.deps.model.supportsVision?.(this.deps.chatModel.provider, this.deps.chatModel.modelId) === true;
+  }
+
+  private async callModel(
+    user: string,
+    timeoutMs: number,
+    system: string = DESIGN_CHAT_SYSTEM_PROMPT,
+    images?: readonly { readonly filename: string; readonly mime: designWorkbench.ImageMime; readonly bytes: Uint8Array }[],
+  ): Promise<{ text: string; truncated: boolean }> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const completion = await Promise.race([
@@ -470,6 +504,8 @@ export class ModelDesignChatReplier implements DesignChatModel {
           modelId: this.deps.chatModel.modelId,
           system,
           user,
+          // 看不了图的 provider 永远收不到 `images`（端口头注的既有纪律）。
+          ...(images !== undefined && images.length > 0 && this.canSeeImages() ? { images: [...images] } : {}),
         }),
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(() => reject(new Error(MODEL_TIMEOUT_MESSAGE)), timeoutMs);
@@ -531,7 +567,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     let text: string;
     let truncated = false;
     try {
-      const first = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS);
+      const first = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_CHAT_SYSTEM_PROMPT, ctx.refImages);
       text = first.text;
       truncated = first.truncated;
     } catch (e) {
@@ -594,6 +630,6 @@ export class ModelDesignChatReplier implements DesignChatModel {
       // JSON 里没有可用的 reply：写回仍可能有效，但给用户看的那句退回固定回执并如实标记。
       return { text: designWorkbench.DESIGN_WORKBENCH_CHAT_REPLY, source: "fallback", writeback, suggestions, fallbackReason: "MODEL_NO_REPLY_TEXT" };
     }
-    return { text: reply.slice(0, 4000), source: "model", writeback, suggestions };
+    return { text: (reply.slice(0, 4000) + this.blindNotice(ctx)).slice(0, 4200), source: "model", writeback, suggestions };
   }
 }

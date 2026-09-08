@@ -954,6 +954,7 @@ describe("issue #2752 ③：hover 卡片/行的快捷操作菜单", () => {
 function project(over: Partial<DesignProject> = {}): DesignProject {
   return {
     theme: "dark",
+    refImages: [],
     id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
     criteria: ["a"], frames: ["草稿页 1"], prototype: [], frameNotes: [], pushed: false, pushedAt: null,
     linkedFeedbackId: null, githubIssueUrl: null, githubIssueNumber: null,

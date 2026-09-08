@@ -27,6 +27,7 @@ const project: dw.DesignProject = {
   name: "反馈导出流程重设计",
   template: "wireframe",
   theme: "dark",
+  refImages: [],
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
   criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
   frames: [...dw.DESIGN_PROJECT_INITIAL_FRAMES],
