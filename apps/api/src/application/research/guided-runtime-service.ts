@@ -80,9 +80,10 @@ function invalidate(state: ResearchRuntime, node: Node) {
   if (index < 1) state.directions = [];
   if (index < 2) state.outline = [];
   if (index < 3) { state.tasks = []; state.sources = []; state.researchPlan = null; }
-  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
+  if (index < 4) { state.report = null; state.reportDraft = null; state.reportQualityWarnings = []; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
+  if (draft.node === "report" && state.reportQualityWarnings?.length) throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT");
   validateRuntimeDraft(state, draft);
   invalidate(state, draft.node);
   if (draft.node === "brief") state.brief = draft.value;
@@ -92,7 +93,7 @@ function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
     const decision = draft.value.find((item) => item.id === source.id)?.decision ?? source.decision;
     return { ...source, decision: decision === "pending" && source.decision === "excluded" ? "excluded" : decision };
   });
-  if (draft.node === "report") { state.report = draft.value; state.reportStream = null; }
+  if (draft.node === "report") { state.reportDraft = null; state.report = draft.value; state.reportStream = null; }
 }
 export class GuidedRuntimeService {
   constructor(private readonly store: GuidedRuntimeStore, private readonly model: ModelCallPort, private readonly search: GuidedSearchPort,
@@ -122,13 +123,13 @@ export class GuidedRuntimeService {
     state.busy = false;
     state.leaseUntil = null;
     const validation = state.reportTimeline?.find((item) => item.stage === "validation");
-    const committingReport = validation?.status === "running" && Boolean(state.report) && !state.errorCode;
-    if (committingReport) updateReportTimeline(state, "validation", "completed");
+    const committingReport = validation?.status === "running" && Boolean(state.report || state.reportDraft) && !state.errorCode;
+    if (committingReport) updateReportTimeline(state, "validation", state.reportDraft ? "warning" : "completed", state.reportDraft ? { reasonCode: "RESEARCH_REPORT_QUALITY_INSUFFICIENT" } : {});
     try { await this.store.write(actor, command.requestId, state, true); }
     catch (error) {
       if (committingReport) {
         updateReportTimeline(state, "validation", "failed", { reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
-        state.report = null; state.completed = false;
+        state.report = null; state.reportDraft = null; state.completed = false;
         state.generatedNodes = state.generatedNodes.filter((node) => node !== "report");
       }
       throw error;
@@ -171,6 +172,14 @@ export class GuidedRuntimeService {
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);
+    if (node === "report" && draft.data.node === "report" && state.reportQualityWarnings?.length) {
+      validateRuntimeDraft(state, draft.data);
+      invalidate(state, "report");
+      state.reportDraft = draft.data.value;
+      state.report = null; state.reportStream = null; state.completed = false;
+      state.generatedNodes = state.generatedNodes.filter((item) => item !== "report");
+      return;
+    }
     applyDraft(state, draft.data);
     if (node === "report") state.reportStream = null;
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
