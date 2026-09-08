@@ -23,7 +23,9 @@ import {FsObjectStore} from '../../src/infrastructure/storage/fs-object-store';
 import {extractedObjectKey} from '../../src/application/chat/attachment-extraction-worker';
 import {DefaultStandardSubtaskService,StandardSubtaskContextResolver} from '../../src/application/agent-run/standard-subtask-tools';
 import {toOrgId} from '../../src/domain/org-id';
-const org=toOrgId('native-child-'+randomUUID()),parent='parent',thread='thread';
+// #2989: `agent_runs.id` is a GLOBAL primary key (org_id is not part of it), so a hardcoded
+// run id collides with any other file that picks the same literal, however different the org.
+const org=toOrgId('native-child-'+randomUUID()),parent='parent-'+randomUUID(),thread='thread-'+randomUUID();
 let db:PgDatabase,root:string,store:PgSubtaskRunStore,sources:StandardSubtaskContextResolver,service:DefaultStandardSubtaskService;
 const text='Private source: synthetic revenue 42';
 const reference={sourceId:'chat-attachment:original',versionId:'sha256:'+createHash('sha256').update(text).digest('hex')};
