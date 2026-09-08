@@ -315,6 +315,10 @@ export default {
       // 两条都需要，否则 Next 会把请求接成 404 HTML，客户端表现为 Unexpected token '<'。
       { source: `${prefix}/interviews`, destination: `${apiOrigin}/interviews` },
       { source: `${prefix}/interviews/:path*`, destination: `${apiOrigin}/interviews/:path*` },
+      // 2026-09-08 全局通知中心（contracts/notifications.ts）：裸路径 + 子路径双条目，
+      // 少任一条都会被 Next 接成 404 HTML（`lint-rewrite-coverage` 门控实测抓到）。
+      { source: `${prefix}/notifications`, destination: `${apiOrigin}/notifications` },
+      { source: `${prefix}/notifications/:path*`, destination: `${apiOrigin}/notifications/:path*` },
       // ⚠ 2026-08-25（issue #2021 实测抓到）：这里原来是一条 `/chat/:path*` 兜底——
       // Next 的 afterFiles rewrites 在**动态路由之前**匹配（官方文档明写的顺序：
       // afterFiles = after pages/public files, BEFORE dynamic routes），于是新增的
