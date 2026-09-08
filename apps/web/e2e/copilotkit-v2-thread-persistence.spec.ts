@@ -201,15 +201,37 @@ test("已选中某条线程时切换到另一条 ⇒ 不发生整页硬导航，
   await expect(page.getByTestId(`chat-thread-${firstThreadId}`)).toBeVisible();
 
   // 探针：只有真的没发生整页硬导航，这几个标记才会原样存活到点击之后。
+  /*
+   * issue #3000 —— 骨架屏探针必须**限定在左栏**，不能扫全 `document`。
+   *
+   * `data-testid="loading"` 在页面上有**两处**：左栏线程列表的骨架屏
+   * （`copilotkit-v2-shell.tsx`）和右侧消息区的历史回读骨架屏
+   * （`copilotkit-v2-panel-body.tsx`）。切换线程时右侧那块**本来就应该**出现一下
+   * ——那正是"只有右侧内容面板应该切换"这句判据里被允许的一半。原探针扫的是
+   * `document.body`，把右侧那次合法出现也记成一次，`__wsxLoadingSeen === 1`。
+   *
+   * ⚠ 这不是把判据放宽：本用例（#2402）要证明的是**左栏**没有被重新挂载/重新进入
+   * loading 态，右侧出不出现骨架屏不在它的判据里（且"没发生整页硬导航"由旁边那个
+   * `__wsxNavProbe` 独立守着，不依赖这一条）。把观测范围收到左栏 `<aside>`，判的才是
+   * 它自己声称在判的那件事。
+   */
   await page.evaluate(() => {
     (window as unknown as Record<string, unknown>).__wsxNavProbe = true;
     (window as unknown as Record<string, unknown>).__wsxLoadingSeen = 0;
+    if (document.querySelector('[data-testid="copilotkit-v2-thread-sidebar"]') === null) {
+      throw new Error("left thread sidebar not mounted");
+    }
+    // ⚠ 每次回调都**重新**从 document 查起，不缓存那个 `<aside>` 节点：左栏被整体
+    // 替换（正是本用例要抓的那种重挂载）时，缓存下来的是已经脱离文档的旧节点，
+    // 新节点里的骨架屏反而会被漏掉——那就成了一条抓不到目标缺陷的探针。
     const observer = new MutationObserver(() => {
-      if (document.querySelector('[data-testid="loading"]')) {
+      if (document.querySelector('[data-testid="copilotkit-v2-thread-sidebar"] [data-testid="loading"]')) {
         const w = window as unknown as Record<string, number>;
         w.__wsxLoadingSeen = (w.__wsxLoadingSeen ?? 0) + 1;
       }
     });
+    // `document.body` 仍是订阅源：整页硬导航会连同这个 observer 一起消失，
+    // 而左栏被**整体替换**（不是内部改动）时，只观测 `sidebar` 自身会漏掉。
     observer.observe(document.body, { childList: true, subtree: true });
     (window as unknown as Record<string, unknown>).__wsxObserver = observer;
   });
