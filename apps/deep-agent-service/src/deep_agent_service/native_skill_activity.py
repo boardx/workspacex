@@ -1,12 +1,15 @@
 """Observed native Skill discovery/reads, never inferred execution success."""
 from contextvars import ContextVar
 import hashlib
+import logging
 import json
 from pathlib import Path
 
 from jsonschema import Draft7Validator
 from langchain.agents.middleware import AgentMiddleware
 from langgraph.config import get_stream_writer
+
+logger = logging.getLogger(__name__)
 
 _ARTIFACT = json.loads((Path(__file__).parent / 'generated/skill_activity_schema.json').read_text())
 _VALIDATOR = Draft7Validator(_ARTIFACT['schema'])
@@ -85,8 +88,17 @@ class NativeSkillActivity(AgentMiddleware):
         writer = get_stream_writer()
         for entry in metadata:
             identity = self._by_path.get(entry['path'])
-            if identity is None or identity['skillStableName'] != entry['name']:
+            if identity is None:
                 raise SkillActivityError('Discovered skill does not match trusted package identity')
+            # #3033（第三层）：身份由路径（/skills/<stable_name>/SKILL.md）+ 包内容摘要钉死；
+            # SKILL.md 前言里的 `name:` 是上游作者写的（URL 导入的 skill 尤其如此），与
+            # stable_name 不等是常态，不是篡改——以前在这里直接炸，让组织只要启用一个
+            # URL 导入的 skill，每条原生 run 都在 SkillsMiddleware.before_agent 死掉
+            # （DevApp 2026-09-08 实测）。不等只记日志；事实流里的身份仍取可信包的 stableName。
+            if identity['skillStableName'] != entry.get('name'):
+                logger.warning('skill frontmatter name differs from trusted stable name',
+                               extra={'path': entry['path'], 'frontmatter_name': entry.get('name'),
+                                      'stable_name': identity['skillStableName']})
             self._emit(identity, 'metadata_discovered', writer)
 
     def body_read(self, path, call_id, writer):
