@@ -192,36 +192,82 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
     JSON.stringify(distinctLenPoints.map((s) => s.len)),
   );
 
-  // ── 反证① assistant 正文最终真的渲染出了非空内容 ──────────────────────────
-  const finalLen = distinctLenPoints[distinctLenPoints.length - 1]?.len ?? 0;
-  expect(finalLen).toBeGreaterThan(0);
+  /*
+   * issue #3000 第二轮 —— 修好等待门之后，流式断言**第一次真的跑到了**，实测序列
+   * `[0,24,72,112,152,190,0]`（run 34191848662）：五级真实增长，然后**最后一个采样点
+   * 掉回 0**。
+   *
+   * 那个 0 不是"正文没渲染出来"，是这个观测点自己的读法造成的：`record()` 用的是
+   * `document.querySelector('[data-testid="chat-ai-markdown"]')`——**第一个**匹配节点。
+   * run 收尾时这条 assistant 消息会被换成落库版本（也可能在它上面插进一条新的
+   * markdown 容器），换的那一瞬第一个匹配节点是新挂载、还没填内容的那个，读到 0。
+   * 拿这个瞬时值当 `finalLen` 判"正文是否非空"，判的是换节点的那一帧，不是最终状态。
+   *
+   * 修法**不是**把这个 0 丢掉了事——那样"正文最后真的消失了"这种真缺陷也会被一起
+   * 丢掉。改成两件事分开判：
+   *   · 增长过程（②③④）在**增长段**（到峰值为止）上判——那正是"流式是不是真的逐步
+   *     展开"这个问题所在的区间；
+   *   · 终态另外从**活的 DOM** 读一次（下面反证① / ⑤），要求它非空、且不低于采样到的
+   *     峰值。真的掉内容会在这里如实红，比原来那句只看最后一个采样点更严。
+   */
+  const peakIndex = distinctLenPoints.reduce(
+    (best, s, i) => (s.len > distinctLenPoints[best]!.len ? i : best),
+    0,
+  );
+  const growthPhase = distinctLenPoints.slice(0, peakIndex + 1);
+  const peakLen = growthPhase[growthPhase.length - 1]?.len ?? 0;
+  const sequenceText = JSON.stringify(distinctLenPoints.map((s) => s.len));
 
-  // ── 反证② 长度序列单调不减 ───────────────────────────────────────────────
-  for (let i = 1; i < distinctLenPoints.length; i += 1) {
+  // ── 反证① assistant 正文最终真的渲染出了非空内容（读活的 DOM，不是最后一个采样点）──
+  /*
+   * 取**所有** `chat-ai-markdown` 节点里最长的那条，不是 `.last()`：一条 assistant 回合
+   * 会渲出不止一个 markdown 容器（计划说明 / 进展摘要各自一条），谁是最后一个不稳定；
+   * 而观测点 `record()` 读的是**第一个**匹配节点。两边取"最长的那条"才是同一口径，
+   * 否则下面反证⑤ 会拿两个不同节点比长短，制造一条与流式渲染无关的假红。
+   */
+  const liveFinalLen = await page.evaluate(() =>
+    Math.max(
+      0,
+      ...Array.from(document.querySelectorAll('[data-testid="chat-ai-markdown"]')).map(
+        (node) => (node.textContent ?? "").trim().length,
+      ),
+    ),
+  );
+  expect(liveFinalLen, `assistant 正文在落定后仍然是空的 -- full sequence: ${sequenceText}`)
+    .toBeGreaterThan(0);
+
+  // ── 反证② 增长段的长度序列单调不减 ───────────────────────────────────────
+  for (let i = 1; i < growthPhase.length; i += 1) {
     expect(
-      distinctLenPoints[i]!.len,
-      `sample ${i} (${distinctLenPoints[i]!.len}) shrank below sample ${i - 1} (${distinctLenPoints[i - 1]!.len}) -- full sequence: ${JSON.stringify(distinctLenPoints.map((s) => s.len))}`,
-    ).toBeGreaterThanOrEqual(distinctLenPoints[i - 1]!.len);
+      growthPhase[i]!.len,
+      `sample ${i} (${growthPhase[i]!.len}) shrank below sample ${i - 1} (${growthPhase[i - 1]!.len}) -- full sequence: ${sequenceText}`,
+    ).toBeGreaterThanOrEqual(growthPhase[i - 1]!.len);
   }
 
   // ── 反证③ 有足够多的中间观测点，不是"从 0 直接跳到最终长度"的一两步 ──────────
   // 阈值 ≥4 依据 2026-08-25 实测的真实合批粒度设定，见文件头"一个真实、值得记录的
   // 发现"一节——不是为了让测试通过而放宽，这就是客户端真实的渲染节奏。
   expect(
-    distinctLenPoints.length,
-    `too few distinct DOM-length observations -- full sequence: ${JSON.stringify(distinctLenPoints.map((s) => s.len))}`,
+    growthPhase.length,
+    `too few distinct DOM-length observations -- full sequence: ${sequenceText}`,
   ).toBeGreaterThanOrEqual(4);
 
   // ── 反证④ 没有一次跳变吃掉超过 60% 的总增量 —— 排除"wire 分片、UI 一次性倾倒"这种假流式 ──
-  const totalGrowth = finalLen - (distinctLenPoints[0]?.len ?? 0);
+  const totalGrowth = peakLen - (growthPhase[0]?.len ?? 0);
   let maxJump = 0;
-  for (let i = 1; i < distinctLenPoints.length; i += 1) {
-    maxJump = Math.max(maxJump, distinctLenPoints[i]!.len - distinctLenPoints[i - 1]!.len);
+  for (let i = 1; i < growthPhase.length; i += 1) {
+    maxJump = Math.max(maxJump, growthPhase[i]!.len - growthPhase[i - 1]!.len);
   }
   expect(
     maxJump,
     `a single DOM update jumped by ${maxJump} chars out of ${totalGrowth} total growth -- ` +
-      `this looks like batched rendering, not real progressive streaming. full sequence: ` +
-      `${JSON.stringify(distinctLenPoints.map((s) => s.len))}`,
+      `this looks like batched rendering, not real progressive streaming. full sequence: ${sequenceText}`,
   ).toBeLessThanOrEqual(Math.ceil(totalGrowth * 0.6));
+
+  // ── 反证⑤ 落定后的正文不比流式过程中观测到的峰值短 —— 把"内容最后被吞掉"判红 ──
+  // 这条是本轮新增的：②只看增长段，若没有它，收尾时真把正文清空/截短就没人管了。
+  expect(
+    liveFinalLen,
+    `落定后的正文（${liveFinalLen} 字）短于流式过程中的峰值（${peakLen} 字）-- full sequence: ${sequenceText}`,
+  ).toBeGreaterThanOrEqual(peakLen);
 });
