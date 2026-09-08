@@ -46,7 +46,39 @@ import { expect, type Page } from "@playwright/test";
 /** 本 worker 进程里已经发出去过的 threadId——用来机械证明「每次拿到的都是新的」。 */
 const handedOutThreadIds = new Set<string>();
 
+/**
+ * 本模块所有函数的**前置条件**：`page` 必须已经处在应用自己的 document 上
+ * （`http(s)://…`），因为取会话令牌要读 `localStorage`。
+ *
+ * ## 为什么是「抛」而不是「helper 自己补一次 goto」（issue #3129）
+ *
+ * #3127 把 `sessionHeaders` / `createThreadViaApi` 收敛成约 55 个调用点的唯一入口之后，
+ * 「调用前该 page 已导航过同源文档」变成了这个共享 helper 的**隐式**前置条件；
+ * `context.newPage()` 出来的 page 停在 `about:blank`（opaque origin），读 `localStorage`
+ * 被浏览器直接拒绝，冒出来的是 `SecurityError`——它指向浏览器 API，不指向这条前置条件
+ * （F6 就这么死过，run 34246633771 / SHA `9de57821e`）。
+ *
+ * 那为什么不在这里顺手 `goto` 补上？因为 `sessionHeaders` **不只在建线程时被调用**：
+ * `storedMessages` / `storedRun` / `journalToolNames` 都在测试跑到一半、页面正停在被测
+ * 线程上时反复调它（`expect.poll` 每 0.5~2s 一次）。在那里偷偷导航会把被测页面冲掉，
+ * 把一条「读后端事实」的旁路变成会改页面状态的东西——**沉默的副作用比清晰的报错更贵**。
+ * 所以这里只做**零副作用的检查**：已在同源文档上时一次导航都不发，不在时抛一条指名
+ * 该前置条件、并说明修法的错误。单个调用点该怎么满足它，由调用点自己决定
+ * （`openFreshDeepAgentThreadOnAuthedPage` 用 `ensureAuthedPageOrigin`，#3130）。
+ */
+export function assertPageOnAppOrigin(page: Page, caller = "sessionHeaders"): void {
+  const url = page.url();
+  if (/^https?:\/\//i.test(url)) return;
+  throw new Error(
+    `${caller}() 的前置条件未满足：page 必须已经导航到应用的同源文档，才能读 localStorage 里的会话令牌；` +
+      `当前 page.url() 是 "${url}"。` +
+      `这通常发生在 context.newPage() 之后直接建线程——page.request.*（如 warmUpCopilotRuntimeRoute）不改变 document/origin，救不了。` +
+      `修法：先 await ensureAuthedPageOrigin(page)（或任何一次到应用页面的 goto），再调用本模块。（issue #3129）`,
+  );
+}
+
 export async function sessionHeaders(page: Page): Promise<Record<string, string>> {
+  assertPageOnAppOrigin(page);
   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
   expect(token, "登录后应有会话令牌；没有说明登录这一步本身就没成功").toBeTruthy();
   return { Authorization: `Bearer ${token}` };

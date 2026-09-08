@@ -179,7 +179,7 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
   await ensureAuthedPageOrigin(page);
   await warmUpCopilotRuntimeRoute(page);
   /*
-   * ⚠ 先落到应用同源页面，再去建线程——这一行不是"顺手预热"，删掉必红。
+   * ⚠ 上面第一句 `ensureAuthedPageOrigin` 不是"顺手预热"，删掉必红。
    *
    * 九跑实测（run 34235867250）：
    *     SecurityError: Failed to read the 'localStorage' property from 'Window':
@@ -187,13 +187,20 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
    *       at sessionHeaders → createThreadViaApi → openFreshDeepAgentThreadOnAuthedPage
    *
    * 第二个 page 是 `context.newPage()` 现开的，此刻还停在 `about:blank`；
-   * `warmUpCopilotRuntimeRoute` 走的是 `page.request`（不导航），所以直到这里这一页
+   * `warmUpCopilotRuntimeRoute` 走的是 `page.request`（不导航），所以在拿 origin 之前这一页
    * **从未进入过应用的 origin** ⇒ 读 `localStorage` 被浏览器直接拒绝，取不到会话头。
    *
    * 第一个 page 不会撞上，是因为它先走了 `openChatEmptyState`（含登录 + `goto("/chat")`）。
    * 这条差别只在"同 context 的第二个 page"这种形状下才存在——F6 正是唯一这么用的用例。
+   *
+   * issue #3129（更大形态）：同源守卫现在也钉在共享 helper `sessionHeaders` 里
+   * （`assertPageOnAppOrigin`），下一个忘了导航的调用方拿到的是指名该前置条件的错误，
+   * 不再是指向浏览器 API 的 `SecurityError`。这里保留 `ensureAuthedPageOrigin` 作为
+   * 本路径**满足**该前置条件的方式——守卫只判不导航，两者不重复。
+   *
+   * 原先这里还有第二次 `await page.goto("/chat")`，与 `ensureAuthedPageOrigin` 完全重复，
+   * 已删（多余导航会白白冲一次页面状态）。
    */
-  await page.goto("/chat");
   const threadId = await openAuthoritativeFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId;
