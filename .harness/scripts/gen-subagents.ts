@@ -3,13 +3,14 @@
 // Codex:       .codex/agents/<name>.toml (TOML format)
 // 原则：规格只写一次，两种格式从同一来源生成，行为不漂移。
 
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { HARNESS_DIR, REPO_ROOT } from "./lib/paths";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import { KIND_TO_LAYER, checkSpecialistWorkerSpecs, type RawAgentSpec } from "./lib/agent-spec-shape";
+import { findOrphanArtifacts } from "./lib/subagent-orphans";
 
 interface AgentSpec {
   name: string;
@@ -336,6 +337,7 @@ export function genSubagents(_args: Args): void {
   }
 
   let generated = 0;
+  const generatedNames: string[] = [];
   for (const file of yamlFiles) {
     const raw = readFileSync(join(AGENTS_DIR, file), "utf8");
     const spec = parse(raw) as AgentSpec;
@@ -355,6 +357,7 @@ export function genSubagents(_args: Args): void {
     writeFileSync(codexPath, generateCodexToml(spec), "utf8");
     log.ok(`Codex:   ${codexPath}`);
 
+    generatedNames.push(spec.name);
     generated++;
   }
 
@@ -375,8 +378,23 @@ export function genSubagents(_args: Args): void {
       const codexPath = join(CODEX_AGENTS_DIR, `${parsed.name}.toml`);
       writeFileSync(codexPath, generatePersistentCodexToml(parsed), "utf8");
       log.ok(`Codex role:  ${codexPath}`);
+      generatedNames.push(parsed.name);
       generated++;
     }
+  }
+
+  // 孤儿方向：源 yaml 被删掉时，上一轮留下的生成物不会自己消失，而 CI 的
+  // `git diff --exit-code .claude/agents .codex/agents` 只看得见「已跟踪文件被
+  // 改写」——生成物原封不动，门控照样全绿，仓库里就多了一份没有单一事实源的
+  // 手写副本。这里主动删掉，让那次删除出现在 diff 里、门控真的变红。
+  const orphans = findOrphanArtifacts({
+    expectedNames: generatedNames,
+    claudeFiles: readdirSync(CLAUDE_AGENTS_DIR),
+    codexFiles: readdirSync(CODEX_AGENTS_DIR),
+  });
+  for (const orphan of orphans) {
+    rmSync(join(REPO_ROOT, orphan.path));
+    log.warn(`删除孤儿生成物 ${orphan.path}（${orphan.name}.yaml 已不在 .harness/agents/）`);
   }
 
   log.info(`\n共生成 ${generated} 个 agent（每个 2 种格式）`);
