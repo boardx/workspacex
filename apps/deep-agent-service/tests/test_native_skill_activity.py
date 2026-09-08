@@ -1,5 +1,6 @@
 from native_sandbox_fixture import FakeAuthority
 import asyncio
+import base64
 import hashlib
 import json
 from types import SimpleNamespace
@@ -114,3 +115,37 @@ def test_frontmatter_name_mismatch_on_trusted_path_is_not_fatal_but_unknown_path
     # 反证：路径不在可信包集合里，仍然拒绝——放宽的只是 name 相等，不是身份
     with pytest.raises(activity.SkillActivityError):
         reporter.metadata_discovered([{'path':'/skills/other/SKILL.md','name':'example'}])
+
+
+def test_real_native_upstream_frontmatter_name_does_not_kill_the_run():
+    """#3052 车道：URL 导入 skill 的 SKILL.md 前言 name 由上游作者写，与 stable_name 不等。
+
+    与上面那条纯单元用例的区别是**发现来自真实沙箱**：SKILL.md 真的挂进隔离会话容器，
+    `SkillsMiddleware.before_agent` 真的去发现它、真的解析出上游的 `name:`。DevApp
+    2026-09-08 第三层（#3065）挂的就是这一跳——那时组织里有 7 个 URL 导入的 skill，
+    每条原生 run 都死在 `SkillActivityError: Discovered skill does not match trusted
+    package identity`。撤掉 #3065 的修复本用例红；纯单元那条不需要容器，本条需要，
+    所以它只在 backend-gates 的 native-runtime-lane 里真的跑（别处 skip）。
+    """
+    upstream = (b"---\nname: PDF Creator (upstream author's name)\n"
+                b"description: Imported from a third-party URL.\n---\n"
+                b"Run python3 /skills/example/scripts/report.py.\n")
+    script = b"from pathlib import Path\nPath('/workspace/report.txt').write_text('OK')\n"
+    files = {"SKILL.md": upstream, "scripts/report.py": script}
+    pins = [{"stable_name": "example", "package": {"skillId": "s1", "versionId": "v1", "files": [
+        {"path": path, "contentBase64": base64.b64encode(content).decode(), "mediaType": "text/plain",
+         "digest": hashlib.sha256(content).hexdigest()} for path, content in files.items()]}}]
+    with real_native_session(pins) as (adapter, resolved):
+        model = ScriptedModel(messages=iter([
+            AIMessage(content='', tool_calls=[{'id': 'read-upstream', 'name': 'read_file',
+                                               'args': {'file_path': '/skills/example/SKILL.md'}}]),
+            AIMessage(content='read the upstream skill')]))
+        graph = create_native_graph(model, sandbox=adapter, pinned_skills=resolved,
+                                    tool_authority=FakeAuthority(), interrupt_on={})
+        events = list(graph.stream({'messages': [{'role': 'user', 'content': 'Read the instructions.'}]},
+                                   config={'configurable': {'disable_task_auto_classify': True}},
+                                   stream_mode='custom'))
+    facts = [event['fact'] for event in events if event.get('type') == 'skill_activity']
+    # 身份取可信包的 stableName，不是前言里那串上游文案——放宽的只是"相等"这道多余的门。
+    assert [fact['stage'] for fact in facts] == ['metadata_discovered', 'body_read']
+    assert all(fact['skillStableName'] == 'example' for fact in facts)

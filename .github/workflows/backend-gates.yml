@@ -257,6 +257,78 @@ jobs:
           docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes
           sudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions
 
+  # #3052 —— DevApp 唯一真实路径（`KERNEL_NATIVE_RUNTIME=1`）此前在 CI 里零覆盖。
+  #
+  # 2026-09-08：三层根因（#3051 重名 / #3058 非法 stable_name / #3065 前言名不等）在
+  # **所有门全绿**的情况下把 DevApp 打挂一整天。#3033 的复盘把原因写死了两条：
+  #   ① 全仓 workflow/compose 里没有一处 `KERNEL_NATIVE_RUNTIME`；
+  #   ② CI 真栈里没有"组织在 4j 补种之前自己装过同名 skill"这类遗留数据形态。
+  # 本 job 两条一起补：开准入变量、跑 4i/4j、再往库里种出那三种坏行。
+  #
+  # 为什么是 backend-gates 的新 job，不是 e2e-full 的新 playwright project：
+  #   · 前置（真沙箱会话容器 + AppArmor + 隔离 PG + uv）与紧邻的 native-document-chain
+  #     完全重合，照它加一个兄弟 job 与现有编排冲突最小；
+  #   · e2e-full 那条要把整套 chat-read 真栈再拉一遍，与 #3091 的 runner 队列压力冲突；
+  #   · deploy 门挂在本文件上——原生路径挂了还照样部署，正是 2026-09-08 那一天。
+  # 边界（issue #3052 自己写的）：不改 DevApp 部署行为，也不把原生准入开进任何**现有**
+  # lane——沙箱/会话容器会拖慢全部 e2e。本 job 只跑必要用例：一个 vitest 文件 + 一个
+  # pytest 文件，实测 ~9 分钟（其中约 4 分钟是沙箱镜像 build）。
+  native-runtime-lane:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 25
+    env:
+      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_native_runtime
+      WX_NATIVE_SANDBOX_CONTAINER: wx-native-runtime-skill-sandbox-sessions-1
+      # 这一行就是 #3052 的全部要点。deploy.sh L76 在 DevApp 上强制它是 1；
+      # 在这里之前，没有任何 CI 车道设过它。
+      KERNEL_NATIVE_RUNTIME: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@v7.0.0
+        with:
+          version: "0.12.5"
+      - run: uv sync --frozen --extra dev
+        working-directory: apps/deep-agent-service
+      - name: Load dedicated session AppArmor policy
+        run: |
+          sudo apparmor_parser -r -W apps/skill-sandbox/security/docker-apparmor-sessions
+      - name: 起真实的隔离原生会话沙箱容器
+        run: |
+          docker compose -p wx-native-runtime -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml up -d --build
+          for attempt in $(seq 1 30); do
+            if docker exec "$WX_NATIVE_SANDBOX_CONTAINER" test -S /run/sessions/skill-sandbox.sock; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: 起隔离 PostgreSQL
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+      # 4i/4j 由用例自己在 beforeAll 里调（`backfillPlatformOrg`/`backfillPlatformSkills`
+      # 与 deploy.sh 引的是同两个导出），不在这里另起一步——补种必须发生在"组织自己的
+      # 同名遗留行"之后才复现得出 #3051 的次序，workflow 层做不到这个次序。
+      - name: 原生准入下的真实 pins → 真实沙箱会话（#3051 / #3058 的数据形态）
+        run: pnpm --filter @repo/api exec vitest run --config vitest.native-runtime-lane.config.ts
+      - name: 真实沙箱发现上游前言名的 skill（#3065 的数据形态）
+        working-directory: apps/deep-agent-service
+        run: uv run --extra dev pytest tests/test_native_skill_activity.py -v
+      - name: Capture bounded AppArmor denials
+        if: failure()
+        run: sudo dmesg | grep 'apparmor="DENIED"' | tail -40 || true
+      - name: Release owned infrastructure
+        if: always()
+        run: |
+          docker compose -p wx-native-runtime -f apps/skill-sandbox/docker-compose.sessions.yml -f apps/skill-sandbox/security/compose.apparmor-ci.yml down --volumes
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel exec -T postgres \
+            psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
+          docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes
+          sudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions
+
   gates-runtime:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -355,7 +427,7 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain]
+    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane]
     # ⚠ 2026-08-06：人类直接要求「消除人工打 tag 这一步」——merge 到 main 就该自动部署，
     # 不再等人记得去打一个 tag。旧注释说「标签是人的显式动作，满足『有 CD 的目标不手动
     # 部署』」——那句话本身没错，但「显式动作」现在改成了 merge 本身（PR review + merge
@@ -367,6 +439,7 @@ jobs:
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
       needs.native-document-chain.result == 'success' &&
+      needs.native-runtime-lane.result == 'success' &&
       ((startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
         github.ref == 'refs/heads/codex/standard-capabilities'))
