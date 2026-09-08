@@ -18,7 +18,7 @@ function clampTo(v: number, lo: number, hi: number): number {
 import * as React from "react";
 import { Minus, Plus, Maximize2, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PrototypeCanvas, DEVICE_SIZE, linkKey, type PrototypeCanvasMode, type PrototypeDevice } from "./prototype-canvas";
+import { PrototypeCanvas, rotated, linkKey, type PrototypeCanvasMode, type PrototypeDevicePreset } from "./prototype-canvas";
 import { linkSlotsOf, findPrototypeNodePath, type PrototypeLink, type PrototypeNode } from "@/lib/live-design-workbench";
 
 const MIN = 0.25;
@@ -29,14 +29,16 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone", links = [], mode = "edit", onNavigate = null, theme = "dark",}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark",}: {
   frames: readonly string[];
   prototype: readonly PrototypeNode[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;
   onSelect: ((id: string | null) => void) | null;
-  device?: PrototypeDevice;
+  device: PrototypeDevicePreset;
+  /** 迭代 14：横过来看，与画布同一个开关。 */
+  landscape?: boolean;
   /** 迭代 11：每页出发的跳转关系（`links[i]` 属于第 i 页）；编辑/预览；预览点跳转 ⇒ `onNavigate`。 */
   links?: readonly (readonly PrototypeLink[])[];
   mode?: PrototypeCanvasMode;
@@ -45,8 +47,10 @@ export function PrototypeBoard({
   onNavigate?: ((to: number) => void) | null;
 }) {
   // 每块画板占位宽高（与 `PrototypeCanvas` 的设备尺寸一致，+ 标题行），用于「适应」的估算。
-  const BOARD_W = DEVICE_SIZE[device].w;
-  const BOARD_H = DEVICE_SIZE[device].h + 30;
+  // 迭代 14：画板格子按**当前镜头**的尺寸算——换设备后并排的间距要跟着变，
+  // 否则 iPad 会挤在按 iPhone 宽度算好的格子里互相重叠。
+  const BOARD_W = rotated(device, landscape).w;
+  const BOARD_H = rotated(device, landscape).h + 30;
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const stageRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: GAP, y: GAP / 2, k: 1 });
@@ -140,7 +144,7 @@ export function PrototypeBoard({
     const ro = new ResizeObserver(() => measure());
     ro.observe(stageRef.current);
     return () => ro.disconnect();
-  }, [measure, frames, device, view.k]);
+  }, [measure, frames, device, landscape, view.k]);
 
   const zoomAt = (factor: number, cx?: number, cy?: number) => {
     setView((v) => {
@@ -224,6 +228,7 @@ export function PrototypeBoard({
                 selectedId={selectedId}
                 onSelect={onSelect === null ? null : (id) => { onFocusFrame(i); onSelect(id); }}
                 device={device}
+                landscape={landscape}
                 frameIndex={i}
                 mode={mode}
                 links={links[i]}
