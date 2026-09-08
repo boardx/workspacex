@@ -1,3 +1,5 @@
+// @global-scope-fixture table:invite_codes: 邀请码表没有 org_id 列。本文件写入的码由同文件的
+//   `DELETE FROM invite_codes WHERE code = ANY(...)` 按码收敛，不留全局残留。
 /**
  * Fixtures for the `auth` bundle (F19, and whatever F20/F21/F22 need next).
  *

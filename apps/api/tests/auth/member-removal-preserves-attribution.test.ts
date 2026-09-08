@@ -1,3 +1,5 @@
+// @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
+//   本文件自己用带前缀的 `DELETE FROM credentials WHERE ...` 收敛写进去的行。
 /**
  * F11 — 移除组织成员：停用访问，不删产出（O-29 ② / I-8）。
  * phase-01 `org-admin` · usecases.md `RemoveOrgMember`。

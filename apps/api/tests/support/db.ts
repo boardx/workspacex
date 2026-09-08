@@ -1,3 +1,6 @@
+// @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
+//   本文件是**共享夹具**：写入由调用方通过 `resetCredentials`/带前缀的 DELETE 收敛，
+//   `ON CONFLICT DO NOTHING` 保证重复调用不炸。新调用方必须自己清理自己的 user_id/email。
 /**
  * Shared setup for tests that need a real database.
  *
@@ -164,7 +167,16 @@ function createDatabaseIfMissing(): void {
  * a tenant-scoped cleanup would leave rows behind -- and a row left over from a previous
  * test is how a cross-tenant assertion accidentally passes.
  */
-export async function resetOrgs(...orgIds: string[]): Promise<void> {
+/*
+ * Two shapes on purpose (#2990): the variadic one requires at least one org, so a bare
+ * `resetOrgs()` -- which used to be a silent no-op that read like "clean the slate" -- is
+ * now a compile error. Callers that accumulate ids at runtime pass the array instead, and
+ * an empty array there is a legitimate "nothing was seeded" no-op.
+ */
+export async function resetOrgs(first: string, ...rest: string[]): Promise<void>;
+export async function resetOrgs(orgIds: readonly string[]): Promise<void>;
+export async function resetOrgs(first: string | readonly string[], ...rest: string[]): Promise<void> {
+  const orgIds = Array.isArray(first) ? [...(first as readonly string[])] : [first as string, ...rest];
   if (orgIds.length === 0) return;
   const c = new pg.Client(migrationConfig());
   await c.connect();

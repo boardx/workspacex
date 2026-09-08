@@ -1,3 +1,5 @@
+// @global-scope-fixture table:credentials: 认证凭据表没有 org_id 列，删 org 不会级联带走它。
+//   本文件自己用带前缀的 `DELETE FROM credentials WHERE ...` 收敛写进去的行。
 /**
  * F10 主流程（UC-1.6）：**邀请 → 待激活行 → 激活 → 入场即带组织角色 + 团队**。
  *

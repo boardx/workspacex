@@ -1,3 +1,11 @@
+// @global-scope-fixture platform-org-write: 写 `org-platform` 名下的平台 skill 行。跨 org 可见是产品事实
+//   （`pg-skill-contract-repository` 的 `OR sk.org_id = PLATFORM_ORG_ID`），`resetOrgs(<自己的 org>)`
+//   碰不到它、`wave2_skill_immutable_trg` 又挡着删除 ⇒ **没有文件能收敛它**。断言侧一律按归属
+//   过滤（`withoutPlatformOwnedSkills`），不要按名字——见 issue #2982 / PR #2978。
+// @global-scope-fixture seeder:ensurePlatformSkillCatalogSeeded: 写 `org-platform` 名下的平台 skill 行。跨 org 可见是产品事实
+//   （`pg-skill-contract-repository` 的 `OR sk.org_id = PLATFORM_ORG_ID`），`resetOrgs(<自己的 org>)`
+//   碰不到它、`wave2_skill_immutable_trg` 又挡着删除 ⇒ **没有文件能收敛它**。断言侧一律按归属
+//   过滤（`withoutPlatformOwnedSkills`），不要按名字——见 issue #2982 / PR #2978。
 /**
  * issue #2343 —— `ensurePlatformSkillCatalogSeeded` 的反证：真实 devapp 场景里
  * `deploy.sh` 4i/4j 两步依赖的"部署脚本已刷新"这个前提从未成立过，`pdf-create`
