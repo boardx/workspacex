@@ -90,8 +90,16 @@ test("刷新和切换后仍处理同一持久审批请求", async ({ page }) => 
   await page.goto(taskUrl);
   const card = page.getByTestId("restored-run-approval");
   await expect(card).toBeVisible({ timeout: 60000 });
+  // #2999 A 组：裁决按钮住在 Radix `Dialog` 里（#2890/#2909/#2948 定下的模态审批形态），
+  // `DialogContent` portal 到 `body`，因此**不是** `restored-run-approval` 的后代。
+  // 锚点搬到弹窗自己的 testid，选项按组件声明的 `perm-*` 定位（展示文案改过一次：
+  // 「本任务内允许」→「本 run 内都允许」，判据不该跟着文案漂移）。
+  // 本条要保证的业务语义一条没放宽：切走再切回后，**恢复出来的仍是同一个
+  // permissionRequestId**（上一行已断言），且在它上面裁决能把同一个 run 推到 succeeded。
+  const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
+  await expect(permissionDialog).toBeVisible({ timeout: 60000 });
   const decision = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith(`/permission-requests/${run.pendingApproval.permissionRequestId}/decision`));
-  await card.getByRole("button", { name: "仅本次允许", exact: true }).click();
+  await permissionDialog.getByTestId("perm-once").click();
   expect((await decision).status()).toBe(200);
   await expect.poll(async () => ((await (await page.request.get(url, { headers })).json()) as Run).status, { timeout: 60000 }).toBe("succeeded");
   await expect(card).toHaveCount(0);
