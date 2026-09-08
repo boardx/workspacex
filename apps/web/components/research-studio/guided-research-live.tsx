@@ -12,13 +12,12 @@ import { ResearchProgress, ResearchLoading, researchSteps as steps, researchStep
 import { researchReportDocument, researchReportMarkdown } from "@/lib/research-report-document";
 import { GuidedResearchReportDocument } from "./guided-research-report-document";
 import { GuidedResearchReportHistory, GuidedResearchEvidenceWarning } from "./guided-research-report-history";
-import { GuidedResearchQualityDraft } from "./guided-research-quality-draft";
 import { GuidedResearchReportPreview } from "./guided-research-report-preview";
 import { ResearchDirectionsEditor, ResearchOutlineEditor, ResearchDesignPreview } from "./guided-research-design-editor";
 import { GuidedResearchRuntimeProgress, GuidedResearchPlanDetails } from "./guided-research-runtime-progress";
 import { GuidedResearchSources } from "./guided-research-sources";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
-import { getResearchRuntime, getResearchRuntimeProgress, mergeResearchProgress, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
+import { getResearchRuntime, executeResearchRuntime, type GuidedResearchRuntime as Runtime, type GuidedResearchRuntimeCommand as Command, type GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 function newestSnapshot(incoming: Runtime, current: Runtime | null): Runtime {
   if (current?.sessionId === incoming.sessionId && current.version === incoming.version && current.reportStream && incoming.busy && (!incoming.reportStream || (current.reportStream.requestId === incoming.reportStream.requestId && current.reportStream.sequence > incoming.reportStream.sequence))) return current;
   return current && current.sessionId === incoming.sessionId && (current.version > incoming.version || (current.version === incoming.version && !current.busy && incoming.busy)) ? current : incoming;
@@ -106,44 +105,28 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
   }, [sessionId, initialNode, loadAttempt]);
   const expired = Boolean(state?.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   React.useEffect(() => {
-    if ((!pending && (!state?.busy || expired)) || (!state?.busy && (state?.version ?? -1) >= commandVersion.current && pending)) return;
+    if (!pending && (!state?.busy || expired)) return;
     let active = true;
     const minimumVersion = pending ? commandVersion.current : 0;
-    let inFlight = false;
     const timer = window.setInterval(() => {
-      if (inFlight) return;
-      inFlight = true;
       const epoch = responseEpoch.current; const ticket = ++pollIssued.current;
-      const baseline = snapshotRef.current;
-      const read = baseline?.currentNode === "report"
-        ? getResearchRuntimeProgress(sessionId, baseline.reportStream).then(async (update) => {
-          if (!update.busy) return getResearchRuntime(sessionId);
-          return mergeResearchProgress(snapshotRef.current ?? baseline, update);
-        }) : getResearchRuntime(sessionId);
-      read.then((next) => {
+      getResearchRuntime(sessionId).then((next) => {
         const current = snapshotRef.current;
         if (!active || epoch !== responseEpoch.current || ticket < pollAccepted.current || next.version < minimumVersion || (current && (next.version < current.version || (next.version === current.version && !current.busy && next.busy)))) return;
         if (newestSnapshot(next, current) !== next) return;
         pollAccepted.current = ticket; snapshotRef.current = next;
         setState(next);
-        if (!next.busy && pending) {
-          // Durable terminal state wins even when the POST connection never closes.
-          sessionGeneration.current += 1;
-          streamController.current?.abort(); streamController.current = null;
-          setPending(false); setLoadingNode(null);
-          if (next.errorCode) setError(errors[next.errorCode] ?? "处理失败，已保存当前进度，请重试。");
-        }
         if (!recoveryRef.current) {
           // A restored server-owned command can advance after this page mounts.
           // Follow that operation, while leaving idle historical browsing alone.
-          const target = current?.busy && (!pending || !next.busy) ? next.currentNode : nodeRef.current;
+          const target = !pending && current?.busy ? next.currentNode : nodeRef.current;
           if (target !== nodeRef.current) setNode(target);
           setDraft(draftOf(next, target));
         }
-      }).catch(() => { /* Retry this read without replaying the command. */ }).finally(() => { inFlight = false; });
+      }).catch(() => { /* The command response or next polling attempt resolves a transient network failure. */ });
     }, 2000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [pending, state?.busy, state?.version, expired, sessionId]);
+  }, [pending, state?.busy, expired, sessionId]);
   const processing = pending || Boolean(state?.busy && !expired);
   const busy = processing || Boolean(recovery);
   async function run(action: Command["action"], extra: Partial<Command> = {}) {
@@ -166,11 +149,7 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
       const received = streamsReport ? await executeResearchRuntime(input, (event) => {
         if (!isCurrent()) return;
         const current = snapshotRef.current;
-        if (event.type === "progress") {
-          if (!current || event.state.version < input.expectedVersion + 1) return;
-          const next = mergeResearchProgress(current, event.state);
-          snapshotRef.current = next; setState(next);
-        } else if (event.type === "snapshot") {
+        if (event.type === "snapshot") {
           if (event.state.sessionId !== sessionId || event.state.version < input.expectedVersion + 1) return;
           const next = newestSnapshot(event.state, current);
           responseEpoch.current += 1;
@@ -276,12 +255,11 @@ export function GuidedResearchLive({ sessionId, onBack, initialNode }: { session
         {reportVisible && <GuidedResearchEvidenceWarning state={state} />}
         {reportVisible && <GuidedResearchReportHistory state={state} />}
         {reportVisible && state.reportPartial && <p className="rounded-md border border-border bg-muted/30 p-3 text-12" data-testid="research-report-evidence-gap">本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
-        {reportVisible && <GuidedResearchQualityDraft state={state} />}
-        {reportVisible && !state.reportDraft && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}
+        {reportVisible && (state.reportStream || (!state.report && state.reportCheckpoint)) && <GuidedResearchReportPreview state={state} interrupted={expired} />}
         {waiting && (loadingNode ?? node) === "research" && <GuidedResearchPlanDetails state={state} errors={errors} />}
         {waiting ? (reportVisible && (state.reportTimeline?.length || state.reportStream || (!state.report && state.reportCheckpoint)) ? null : <ResearchLoading node={loadingNode ?? node} />) : <>
         <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-24 font-semibold">{labels[node]}{state.completed && node === "report" ? " · 已完成" : ""}</h1><Button variant="outline" disabled={busy || Boolean(draft && !validDraft)} onClick={() => void run("generate", validDraft && draft ? { draft } : {})}><Sparkles className="size-4" aria-hidden />{node === "research" ? "重新生成研究计划" : "重新生成本步骤"}</Button></div>
-        {node === "report" && (state.errorCode || expired || state.reportDraft) && <Button variant="primary" disabled={busy} onClick={() => void run("retry")}>生成完整报告</Button>}
+        {node === "report" && (state.errorCode || expired) && <Button variant="primary" disabled={busy} onClick={() => void run("retry")}>生成完整报告</Button>}
         {state.currentNode !== node && <p className="text-12 text-muted-foreground">重新确认此步骤会使后续研究结果失效，并按当前内容重新生成。</p>}
         {processing && !(reportVisible && state.reportTimeline?.length) && <p role="status" className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden />正在处理，进度会自动保存…</p>}
         {draft?.node === "brief" && <Card><CardContent className="space-y-3 p-4">{(["topic", "goal", "timeRange", "region", "focus"] as const).map((field) => <label key={field} className="block text-12">{{ topic: "研究主题", goal: "研究目标", timeRange: "时间范围", region: "研究区域", focus: "重点关注" }[field]}<Textarea disabled={busy} value={draft.value[field]} onChange={(event) => setDraft({ ...draft, value: { ...draft.value, [field]: event.target.value } })} /></label>)}</CardContent></Card>}

@@ -24,7 +24,7 @@ export async function streamResearchCommand(input: GuidedResearchRuntimeCommand,
         if (!data) continue;
         const event = research.GuidedResearchRuntimeStreamEvent.parse(JSON.parse(data));
         if (event.type === "error") throw new ApiError(409, event.reasonCode, event);
-        if ((event.type === "snapshot" || event.type === "result" || event.type === "progress") && event.state.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STREAM_INVALID", null);
+        if ((event.type === "snapshot" || event.type === "result") && event.state.sessionId !== input.sessionId) throw new ApiError(502, "RESEARCH_STREAM_INVALID", null);
         if (event.type === "report_delta" && (event.sessionId !== input.sessionId || event.requestId !== input.requestId || event.version !== input.expectedVersion + 1)) continue;
         onEvent(event);
         if (event.type === "result") return event.state;

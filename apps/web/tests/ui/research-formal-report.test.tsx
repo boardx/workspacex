@@ -36,7 +36,7 @@ describe("formal research report", () => {
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByRole("heading", { name: runtime.brief.topic })).toBeInTheDocument();
     expect(screen.getByText("研究报告 · 草稿")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 1 / 1 个章节。章节核验状态见生成过程；报告尚未完成");
+    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已校验并保存 1 / 1 个章节。报告尚未完成");
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /完成|下载/ })).not.toBeInTheDocument();
   });
