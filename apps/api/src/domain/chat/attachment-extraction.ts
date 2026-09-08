@@ -1,3 +1,5 @@
+import { designWorkbench as DW } from "@repo/contracts";
+
 /**
  * #946 · F153/W1（V9-b）—— 附件抽取的**纯**领域决策：一个附件的 MIME 决定它怎么变成文本。
  *
@@ -51,7 +53,7 @@ export type ExtractionPlan =
   | { readonly kind: "unsupported"; readonly reason: "unknown-type" };
 
 /** 走 vision 路径的图片 MIME（白名单子集；上传侧白名单的单源仍是契约常量）。 */
-export type ImageMime = "image/png" | "image/jpeg" | "image/webp";
+export type ImageMime = DW.ImageMime;
 
 /**
  * MIME → 抽取计划。白名单外的 MIME 不该走到这里（上传时已被 `checkAttachmentBytesAndType`

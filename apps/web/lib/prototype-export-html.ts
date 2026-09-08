@@ -81,7 +81,7 @@ const escapeHtml = (s: string): string =>
  * 本函数不认识 React，这样它可以在 jsdom 里被直接单测。
  */
 export function buildPrototypeExportHtml(input: {
-  readonly project: Pick<DesignProject, "name" | "frames" | "frameNotes"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] };
+  readonly project: Pick<DesignProject, "name" | "frames" | "frameNotes" | "theme"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] };
   readonly screens: readonly { readonly markup: string }[];
   readonly css: string;
   readonly now?: Date;
@@ -118,11 +118,11 @@ export function buildPrototypeExportHtml(input: {
   const linkTable = JSON.stringify((project.frameLinks ?? []).map((ls) => ls.map((l) => ({ f: l.from, i: l.item ?? null, t: l.to }))));
 
   return `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN" class="${project.theme === "light" ? "wx-light" : "dark"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(project.name)} · 可点击原型</title>
 <style>
 ${css}
-body{margin:0;font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#0b0b0c;color:#e8e8ea}
+body{margin:0;color-scheme:${project.theme};font:14px/1.6 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:${project.theme === "light" ? "#fbfbfa" : "#0b0b0c"};color:${project.theme === "light" ? "#17171a" : "#e8e8ea"}}
 .wx-shell{max-width:1000px;margin:0 auto;padding:24px}
 .wx-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
 .wx-tab{cursor:pointer;border:1px solid #33343a;background:#17181c;color:inherit;border-radius:999px;padding:6px 14px;font:inherit}

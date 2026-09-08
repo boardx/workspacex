@@ -20,7 +20,7 @@
  */
 import { designAiCollab, designWorkbench, designPrototype } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type ProjectTemplate = z.infer<typeof designWorkbench.ProjectTemplate>;
 export type DesignProjectChatTurn = z.infer<typeof designWorkbench.DesignProjectChatTurn>;
@@ -53,11 +53,24 @@ export const DESIGN_WORKBENCH_CHAT_REPLY = designWorkbench.DESIGN_WORKBENCH_CHAT
 /** 2026-09-07：退路原因闭集——前端按它给一句人话（`detail-screen.tsx` 的 `FALLBACK_REASON_TEXT`）。 */
 export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatFallbackReason>;
 
+/** 迭代 13：按一句 brief 生成澄清问题。**从不失败**——模型不可用时服务端回退通用六问并置 `fallback`。 */
+export type IntakeQuestionsOut = z.infer<typeof designWorkbench.operations.intakeQuestions.out>;
+export async function intakeQuestions(brief: string): Promise<IntakeQuestionsOut> {
+  return apiRequest<IntakeQuestionsOut>(designWorkbench.operations.intakeQuestions.path, {
+    method: "POST",
+    body: { brief },
+  });
+}
+
 export async function createProject(input: {
   readonly name: string;
   readonly template: ProjectTemplate;
   readonly problem?: string;
   readonly linkedFeedbackId?: string;
+  /** 迭代 13：澄清问答的结果；跳过的题不在数组里。 */
+  readonly intake?: readonly { readonly question: string; readonly answer: string }[];
+  /** 迭代 13（delta §4）：新建时就能打的标签。 */
+  readonly tags?: readonly string[];
 }): Promise<CreateProjectOut> {
   return apiRequest<CreateProjectOut>(designWorkbench.operations.createProject.path, {
     method: "POST",
@@ -65,15 +78,34 @@ export async function createProject(input: {
   });
 }
 
-export async function listMyProjects(q?: string): Promise<ListMyProjectsOut> {
+/**
+ * 迭代 13（delta §4）：`tags` 过滤取交集，且**排序在服务端**（V65）——调用方拿到什么顺序
+ * 就照什么顺序渲染，不要在组件里再 sort 一次。
+ * 多个标签用逗号连成一个 query 参数（服务端两种形式都吃）。
+ */
+export async function listMyProjects(q?: string, tags?: readonly string[]): Promise<ListMyProjectsOut> {
+  const wanted = (tags ?? []).map((t) => t.trim()).filter((t) => t !== "");
   return apiRequest<ListMyProjectsOut>(designWorkbench.operations.listMyProjects.path, {
-    query: { q: q !== undefined && q.trim() !== "" ? q.trim() : undefined },
+    query: {
+      q: q !== undefined && q.trim() !== "" ? q.trim() : undefined,
+      tags: wanted.length > 0 ? wanted.join(",") : undefined,
+    },
   });
 }
 
+export const DESIGN_PROJECT_MAX_TAGS = designWorkbench.DESIGN_PROJECT_MAX_TAGS;
+export const DESIGN_PROJECT_TAG_MAX_CHARS = designWorkbench.DESIGN_PROJECT_TAG_MAX_CHARS;
+
 export async function updateProject(
   projectId: string,
-  patch: { readonly name?: string; readonly template?: ProjectTemplate; readonly problem?: string },
+  patch: {
+    readonly name?: string;
+    readonly template?: ProjectTemplate;
+    readonly problem?: string;
+    readonly theme?: "light" | "dark";
+    /** 迭代 13（delta §4）：**整份替换**标签。 */
+    readonly tags?: readonly string[];
+  },
 ): Promise<UpdateProjectOut> {
   return apiRequest<UpdateProjectOut>(
     designWorkbench.operations.updateProject.path.replace(":projectId", encodeURIComponent(projectId)),
@@ -81,10 +113,110 @@ export async function updateProject(
   );
 }
 
-export async function appendProjectChat(projectId: string, text: string, focusNodeId?: string, signal?: AbortSignal): Promise<AppendProjectChatOut> {
+export async function appendProjectChat(
+  projectId: string,
+  text: string,
+  focusNodeId?: string,
+  signal?: AbortSignal,
+  /** 迭代 13：这一轮要让模型看的参考图。空数组与不传等价——服务端不认空数组以外的差别。 */
+  refImageIds?: readonly string[],
+): Promise<AppendProjectChatOut> {
   return apiRequest<AppendProjectChatOut>(
     designWorkbench.operations.appendProjectChat.path.replace(":projectId", encodeURIComponent(projectId)),
-    { method: "POST", body: { text, ...(focusNodeId !== undefined ? { focusNodeId } : {}) }, signal },
+    {
+      method: "POST",
+      body: {
+        text,
+        ...(focusNodeId !== undefined ? { focusNodeId } : {}),
+        ...(refImageIds !== undefined && refImageIds.length > 0 ? { refImageIds: [...refImageIds] } : {}),
+      },
+      signal,
+    },
+  );
+}
+
+/* ── 迭代 13：从已有对话导入（delta `design-chat-inputs` §2）── */
+
+export type ImportThreadOut = z.infer<typeof designWorkbench.operations.importThread.out>;
+/** 一次导入的留痕元信息——契约派生，前端不手写这四个字段名。 */
+export type ImportedThread = z.infer<typeof designWorkbench.ImportedThread>;
+export const IMPORT_THREAD_MAX_MESSAGES = designWorkbench.IMPORT_THREAD_MAX_MESSAGES;
+
+/**
+ * 两个阶段一条路由（契约 `importThread` 头注）：
+ *   · `problem` 不传 ⇒ **预览**：服务端摘要一段回来给用户改，项目一个字不写。
+ *   · `problem` 传了 ⇒ **确认**：写入用户编辑之后的这段文本，并在 `chat` 里留痕。
+ *
+ * ⚠ 界面上「选中线程」只能走前者。选中即调后者 = 选中即写，会覆盖用户已经写好的
+ *   `problem`（V58）——这不是一个可以"顺手省一次往返"的地方。
+ */
+export async function importThread(
+  projectId: string,
+  threadId: string,
+  problem?: string,
+): Promise<ImportThreadOut> {
+  return apiRequest<ImportThreadOut>(
+    designWorkbench.operations.importThread.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: { threadId, ...(problem !== undefined ? { problem } : {}) } },
+  );
+}
+
+/* ── 迭代 13：参考图（delta `design-chat-inputs` §1）── */
+
+export type RefImage = z.infer<typeof designWorkbench.RefImage>;
+export type UploadRefImageOut = z.infer<typeof designWorkbench.operations.uploadRefImage.out>;
+export type DeleteRefImageOut = z.infer<typeof designWorkbench.operations.deleteRefImage.out>;
+
+/** 契约常量原样再导出，界面上的提示语从这里取——不在组件里手写 "3 张" 和 "4MB"。 */
+export const PROTOTYPE_MAX_REF_IMAGES = designWorkbench.PROTOTYPE_MAX_REF_IMAGES;
+export const PROTOTYPE_REF_IMAGE_MAX_BYTES = designWorkbench.PROTOTYPE_REF_IMAGE_MAX_BYTES;
+export const isImageMime = designWorkbench.isImageMime;
+
+const refImagePath = (tpl: string, projectId: string, imageId?: string): string =>
+  tpl.replace(":projectId", encodeURIComponent(projectId)).replace(":imageId", encodeURIComponent(imageId ?? ""));
+
+/**
+ * 参考图上传走 `multipart/form-data`，同 `live-feedback.ts` 的 `uploadFeedbackAttachment`
+ * （`apiRequest` 只封装 JSON body）。`contentType` 只是**声明**——服务端按 magic byte 判，
+ * 声明与字节不符照样拒。绝不手设 `Content-Type`：fetch 会从 `FormData` 自带 boundary。
+ */
+export async function uploadRefImage(projectId: string, file: File): Promise<UploadRefImageOut> {
+  const form = new FormData();
+  form.set("contentType", file.type);
+  form.set("file", file, file.name);
+
+  const token = getStoredSessionToken();
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(apiUrl(refImagePath(designWorkbench.operations.uploadRefImage.path, projectId)), {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: form,
+  });
+  const text = await res.text();
+  // 同 `uploadFeedbackAttachment` 的既有纪律：非 JSON 的错误正文不得抛原始 SyntaxError。
+  let json: unknown;
+  try {
+    json = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(res.status, null, undefined, text.slice(0, 512));
+  }
+  if (!res.ok) {
+    const reasonCode =
+      typeof json === "object" && json !== null && "reasonCode" in json
+        ? ((json as { reasonCode: unknown }).reasonCode as string | null)
+        : null;
+    throw new ApiError(res.status, reasonCode, json);
+  }
+  return json as UploadRefImageOut;
+}
+
+export async function deleteRefImage(projectId: string, imageId: string): Promise<DeleteRefImageOut> {
+  return apiRequest<DeleteRefImageOut>(
+    refImagePath(designWorkbench.operations.deleteRefImage.path, projectId, imageId),
+    { method: "DELETE" },
   );
 }
 /* ── 迭代 3：原型版本历史 ── */

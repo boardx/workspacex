@@ -13,7 +13,8 @@ describe("常量", () => {
     expect(dw.DESIGN_PROJECT_INITIAL_CRITERIA).toHaveLength(3);
   });
   it("画布页默认三页", () => {
-    expect(dw.DESIGN_PROJECT_INITIAL_FRAMES).toEqual(["草稿页 1", "草稿页 2", "草稿页 3"]);
+    // 2026-09-08 人类实测：新建项目不再预填「草稿页 1/2/3」——页数由模型按产品定。
+    expect(dw.DESIGN_PROJECT_INITIAL_FRAMES).toEqual([]);
   });
   it("引导语与回执非空", () => {
     expect(dw.DESIGN_WORKBENCH_CHAT_INTRO.length).toBeGreaterThan(0);
@@ -25,6 +26,9 @@ const project: dw.DesignProject = {
   id: "dp-1",
   name: "反馈导出流程重设计",
   template: "wireframe",
+  theme: "dark",
+  tags: [],
+  refImages: [],
   problem: "导出按钮点击无响应，需要重新设计交互反馈",
   criteria: [...dw.DESIGN_PROJECT_INITIAL_CRITERIA],
   frames: [...dw.DESIGN_PROJECT_INITIAL_FRAMES],
@@ -80,7 +84,20 @@ describe("DesignProject -- 正例", () => {
 
 describe("DesignProject -- 反例", () => {
   it("strict：多一个未声明的键即拒", () => {
-    expect(dw.DesignProject.safeParse({ ...project, tags: [] }).success).toBe(false);
+    // ⚠ 探针要用一个**永远不会**成为真字段的名字。原来用的是 `tags`，迭代 13 把它加成了
+    //   真字段，这条于是转红——那是它该有的反应（它证明 strict 真的在判），但如果当时
+    //   顺手把断言改成 `toBe(true)`，这条就变成一条什么都不守的测试了。
+    expect(dw.DesignProject.safeParse({ ...project, __definitelyNotAField: 1 }).success).toBe(false);
+    // 而 `tags` 现在是真字段：给合法值要能过。
+    expect(dw.DesignProject.safeParse({ ...project, tags: ["后台"] }).success).toBe(true);
+  });
+
+  it("tags：最多 8 个，单个最长 20 字", () => {
+    const ok = Array.from({ length: dw.DESIGN_PROJECT_MAX_TAGS }, (_, i) => `t${i}`);
+    expect(dw.DesignProject.safeParse({ ...project, tags: ok }).success).toBe(true);
+    expect(dw.DesignProject.safeParse({ ...project, tags: [...ok, "t8"] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...project, tags: ["x".repeat(dw.DESIGN_PROJECT_TAG_MAX_CHARS + 1)] }).success).toBe(false);
+    expect(dw.DesignProject.safeParse({ ...project, tags: [""] }).success).toBe(false);
   });
   it("name 为空拒；超过 200 字拒", () => {
     expect(dw.DesignProject.safeParse({ ...project, name: "" }).success).toBe(false);
@@ -239,5 +256,38 @@ describe("退路必须说明原因（DesignChatReply）", () => {
   });
   it("退路文案不再承诺「稍后会更新」——它不会兑现", () => {
     expect(dw.DESIGN_WORKBENCH_CHAT_REPLY).not.toMatch(/稍后会更新/);
+  });
+});
+
+/**
+ * 迭代 13（delta `design-chat-inputs` §2）—— 导入线程的语义是**一次性摘要**，不是订阅。
+ *
+ * 这一组守的是契约**形状**上的那半边：`imported` 里只有"当时读到了什么"，没有任何
+ * 能让后续读路径回头再读一次线程的东西（取舍 ③=A）。行为那半边由
+ * `apps/api/tests/design-workbench/project-lifecycle.test.ts` 的 V57 断。
+ */
+describe("迭代 13：从对话导入的契约形状", () => {
+  it("imported 只记「当时读到了什么」，不含任何订阅/挂靠开关", () => {
+    const ok = { threadId: "th-1", title: "会员下单那条线", messageCount: 3, at: "2026-09-08T03:00:00.000Z" };
+    expect(dw.ImportedThread.safeParse(ok).success).toBe(true);
+    // ⭐ 反证锚点：给它加一个 `subscribed` / `live` 之类的开关 ⇒ 这条红。`.strict()` 在这里
+    //    不是形式主义：多一个这样的字段就是把 §2.1 的 B 方案（长期挂靠）从后门放进来。
+    expect(dw.ImportedThread.safeParse({ ...ok, subscribed: true }).success).toBe(false);
+  });
+
+  it("留痕那条对话记录的 source 是 system，与 fallback 分得开", () => {
+    // `fallback` 的含义是「模型本该说话却没说成」；导入留痕压根不是模型的回合。
+    expect(ai.AiReplySource.options).toContain("system");
+    const turn = { role: "ai", text: "从线程《X》导入了 3 条消息作为背景。", at: "2026-09-08T03:00:00.000Z", source: "system" } as const;
+    expect(dw.DesignProjectChatTurn.safeParse(turn).success).toBe(true);
+  });
+
+  it("importThread 的错误闭集里没有「线程看不见」——那是 chat 束的裸 404，连码都不给", () => {
+    // 给它一个专属错误码，等于告诉调用方「这条线程存在但你不能看」，而 chat 束 I-3
+    // 要求「看不见」与「不存在」在响应上分不开。
+    expect([...dw.operations.importThread.err]).toEqual(["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"]);
+    for (const code of dw.operations.importThread.err) {
+      expect(dw.DesignWorkbenchError.options).toContain(code);
+    }
   });
 });

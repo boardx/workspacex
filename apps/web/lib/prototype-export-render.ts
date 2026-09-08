@@ -14,7 +14,7 @@ import { PrototypeCanvas, deviceOf } from "@/components/design-loop/prototype-ca
 import type { DesignProject } from "@/lib/live-design-workbench";
 
 export async function renderScreensToMarkup(
-  project: Pick<DesignProject, "frames" | "prototype" | "template"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
+  project: Pick<DesignProject, "frames" | "prototype" | "template" | "theme"> & { readonly frameLinks?: readonly (readonly { from: string; item?: number; to: number }[])[] },
 ): Promise<readonly { readonly markup: string }[]> {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const device = deviceOf(project.template);
@@ -27,6 +27,8 @@ export async function renderScreensToMarkup(
         frameIndex: i,
         // 导出产物里没有"选中去改"这回事：用预览语义渲染，且不接任何回调。
         mode: "preview" as const,
+        // 迭代 13：跟随**原型的** theme，不是导出时后台碰巧是什么色（delta §5.2，V69）。
+        theme: project.theme,
         links: project.frameLinks?.[i] ?? [],
       }),
     ),

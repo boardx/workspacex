@@ -560,6 +560,7 @@ import { PgInboxTagRepository } from "./infrastructure/inbox/pg-inbox-tag-reposi
 import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
+import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -2744,6 +2745,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // UC-17.8 B4.3：设计项目仓储按组织构造（`forOrg`），同 `FEEDBACK_DRAFT_REPOSITORY` 的理由。
     {
       provide: DESIGN_PROJECT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 迭代 13：参考图元信息仓储——**同一个实现类**（参考图属于设计项目这个聚合，
+    // 可见性完全跟随项目）。端口在应用层仍是两个窄接口，用例只依赖它需要的那一个。
+    {
+      provide: DESIGN_REF_IMAGE_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
       inject: [DATABASE_PORT],
     },

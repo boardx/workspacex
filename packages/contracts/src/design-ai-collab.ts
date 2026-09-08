@@ -36,8 +36,13 @@ import { DesignPrototypePatch, DesignPrototypeWriteback } from "./design-prototy
  * 记录都没有这个键。
  *   · `model`    —— 由模型按上下文生成。
  *   · `fallback` —— 模型不可用/超时/输出不可解析，退回固定回执（文案仍是各束自己的常量）。
+ *   · `system`   —— 迭代 13（delta `design-chat-inputs` §2）：**不是一次对话**，是服务端在
+ *     对话流里留下的一条痕迹（今天唯一的产生者是「从线程导入」）。它与 `fallback` 必须分开：
+ *     `fallback` 的含义是「模型本该说点什么但没说成」，而这条压根不是模型的回合——
+ *     混用会让"这一轮模型到底在不在"这个复盘判据失真，而那正是 `AiReplySource` 存在的理由。
+ *     前端据此渲染成系统备注而不是一句 AI 回复。
  */
-export const AiReplySource = z.enum(["model", "fallback"]);
+export const AiReplySource = z.enum(["model", "fallback", "system"]);
 export type AiReplySource = z.infer<typeof AiReplySource>;
 
 /**

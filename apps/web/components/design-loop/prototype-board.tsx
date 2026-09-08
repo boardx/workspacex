@@ -29,8 +29,7 @@ const GAP = 48;
 const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 
 export function PrototypeBoard({
-  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone", links = [], mode = "edit", onNavigate = null,
-}: {
+  frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device = "phone", links = [], mode = "edit", onNavigate = null, theme = "dark",}: {
   frames: readonly string[];
   prototype: readonly PrototypeNode[];
   activeFrame: number;
@@ -41,6 +40,8 @@ export function PrototypeBoard({
   /** 迭代 11：每页出发的跳转关系（`links[i]` 属于第 i 页）；编辑/预览；预览点跳转 ⇒ `onNavigate`。 */
   links?: readonly (readonly PrototypeLink[])[];
   mode?: PrototypeCanvasMode;
+  /** 迭代 13：原型自己的明暗主题，透传给每块画板。 */
+  theme?: "light" | "dark";
   onNavigate?: ((to: number) => void) | null;
 }) {
   // 每块画板占位宽高（与 `PrototypeCanvas` 的设备尺寸一致，+ 标题行），用于「适应」的估算。
@@ -217,6 +218,7 @@ export function PrototypeBoard({
             </button>
             <div className={cn("rounded-container transition-shadow duration-fast", i === activeFrame && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background")}>
               <PrototypeCanvas
+              theme={theme}
                 label={label}
                 root={prototype[i] ?? null}
                 selectedId={selectedId}

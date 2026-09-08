@@ -33,13 +33,21 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
   UnprocessableEntityException,
   ConflictException,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { designWorkbench as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
 import { createProject } from "../../application/design-workbench/create-project";
+import { generateIntakeQuestions } from "../../application/design-workbench/intake-questions";
+import {
+  DesignThreadSummaryUnavailableError,
+  importThread,
+} from "../../application/design-workbench/import-thread";
 import { listMyProjects } from "../../application/design-workbench/list-my-projects";
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
@@ -67,13 +75,36 @@ import {
   type DesignProjectRepositoryFactory,
 } from "../../application/design-workbench/project-ports";
 import {
+  RefImageRejectedError,
+  deleteRefImage,
+  loadRefImageBytes,
+  uploadRefImage,
+} from "../../application/design-workbench/ref-images";
+import {
+  DESIGN_REF_IMAGE_REPOSITORY,
+  type DesignRefImageRepositoryFactory,
+} from "../../application/design-workbench/ref-image-ports";
+import { OBJECT_STORE, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
+import {
   DesignProjectNameRequiredError,
   DesignProjectNotFoundError,
   DesignProjectNotOwnerError,
+  loadProjectView,
   type DesignProjectDeps,
 } from "../../application/design-workbench/project-shared";
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
+// 迭代 13（delta §2）：导入线程走 `chat` 束**既有**的鉴权读路径，所以这三个端口是那条路径
+// 自己的依赖（`ResolveVisibilityDeps`），不是设计工作台新造的读路径。
+import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
+import {
+  DECISION_ID_FACTORY,
+  IDENTITY_REPOSITORY,
+  type DecisionIdFactory,
+  type IdentityRepository,
+} from "../../application/identity/ports";
+import { ThreadNotVisibleError } from "../../application/chat/get-thread";
+import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
 import {
   FEEDBACK_STRUCTURE_MODEL_CONFIG,
   type FeedbackStructureModelConfig,
@@ -87,8 +118,12 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
+export const INTAKE_QUESTIONS_SCHEMA = C.operations.intakeQuestions.in;
+type IntakeQuestionsBody = ReturnType<typeof INTAKE_QUESTIONS_SCHEMA.parse>;
 export const UPDATE_PROJECT_SCHEMA = C.operations.updateProject.in.omit({ projectId: true });
 export const APPEND_PROJECT_CHAT_SCHEMA = C.operations.appendProjectChat.in.omit({ projectId: true });
+export const IMPORT_THREAD_SCHEMA = C.operations.importThread.in.omit({ projectId: true });
+type ImportThreadBody = ReturnType<typeof IMPORT_THREAD_SCHEMA.parse>;
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
@@ -109,6 +144,20 @@ function mapProjectError(e: unknown): Error | null {
     return new BadRequestException({ reasonCode: "PROTOTYPE_PATCH_REJECTED", patchReason: e.reason, ...(e.nodeId !== undefined ? { nodeId: e.nodeId } : {}) });
   }
   if (e instanceof DesignProjectNameRequiredError) return new UnprocessableEntityException({ reasonCode: "NAME_REQUIRED" });
+  /**
+   * 迭代 13（delta §2）——导入线程的两条出口：
+   *   · 线程不可见/不存在 ⇒ **与 `getThread` 逐字同一个拒绝**：裸 404，不带 `reasonCode`。
+   *     不映射成 `PROJECT_NOT_FOUND`（那说的是设计项目）、更不带上标题——chat 束 I-3
+   *     要求「看不见」与「不存在」在响应上分不开，连一个专属错误码都算泄露。
+   *   · 判定依赖不可用 ⇒ 503，同 `chat.controller.ts` 对 `AuthzUnavailableError` 的映射
+   *     （唯一「依赖失败时直接拒绝而不放行」的地方，见 `resolve-visibility.ts` 头注）。
+   *   · 摘要没做出来 ⇒ 503 `DEPENDENCY_UNAVAILABLE`（delta §8：不新增错误码）。
+   */
+  if (e instanceof ThreadNotVisibleError) return new NotFoundException();
+  if (e instanceof AuthzUnavailableError) return new ServiceUnavailableException("authz_unavailable");
+  if (e instanceof DesignThreadSummaryUnavailableError) {
+    return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+  }
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
   //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：
   //     输入形状没问题，是这个方案还不到能转开发的时候。
@@ -138,6 +187,13 @@ export class DesignWorkbenchController {
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
     // 2026-09-05「转开发」——与 `feedback.controller.ts` 建 issue 用的是同一个端口实现，不另配。
     @Inject(GITHUB_ISSUE_CREATOR) private readonly githubIssues: GithubIssueCreator,
+    // 迭代 13：参考图——元信息仓储 + 字节的对象存储，与反馈附件用的是同一个 `ObjectStore`。
+    @Inject(DESIGN_REF_IMAGE_REPOSITORY) private readonly refImages: DesignRefImageRepositoryFactory,
+    @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    // 迭代 13（delta §2）：`resolveVisibility` 那条既有读路径的三个依赖，见上方 import 处的注释。
+    @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
+    @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(DECISION_ID_FACTORY) private readonly decisionIds: DecisionIdFactory,
   ) {}
 
   private designChat(): ModelDesignChatReplier {
@@ -148,6 +204,10 @@ export class DesignWorkbenchController {
     });
   }
 
+  private refImageDeps(principal: Principal) {
+    return { ...this.deps(principal), store: this.objectStore, refImages: this.refImages.forOrg(principal.orgId) };
+  }
+
   private deps(principal: Principal): DesignProjectDeps {
     return {
       projects: this.projects.forOrg(principal.orgId),
@@ -156,6 +216,24 @@ export class DesignWorkbenchController {
       mail: this.mail,
       logger: this.logger,
     };
+  }
+
+  /**
+   * 迭代 13：按一句 brief 生成澄清问题。**不落库、不建项目**。
+   * ⚠ 路由要排在 `POST /pm-designs` **之前**——Nest 按声明顺序匹配，
+   * 反过来的话这条静态子路径会被上面那条吃掉。
+   */
+  @Post("/pm-designs/intake-questions")
+  async intakeQuestions(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(INTAKE_QUESTIONS_SCHEMA)) body: IntakeQuestionsBody,
+  ) {
+    assertPrincipal(principal);
+    // 从不抛：模型不可用时回退通用六问并把 fallback 置真（见用例头注）。
+    return await generateIntakeQuestions(
+      { model: this.modelCall, chatModel: this.chatModel, log: (m, f) => this.logger.info(m, { ...f, traceId: "design-workbench-intake" }) },
+      { brief: body.brief },
+    );
   }
 
   @HttpCode(HttpStatus.CREATED)
@@ -174,6 +252,10 @@ export class DesignWorkbenchController {
           template: body.template,
           problem: body.problem,
           linkedFeedbackId: body.linkedFeedbackId,
+          intake: body.intake,
+          successQuestions: (body.intake ?? []).map((a) => a.question),
+          tags: body.tags,
+          theme: body.theme,
         },
       );
     } catch (e) {
@@ -182,9 +264,21 @@ export class DesignWorkbenchController {
   }
 
   @Get("/pm-designs")
-  async list(@CurrentPrincipal() principal: Principal, @Query("q") q: string | undefined) {
+  async list(
+    @CurrentPrincipal() principal: Principal,
+    @Query("q") q: string | undefined,
+    /**
+     * 迭代 13（delta §4）：`?tags=a&tags=b`（重复参数）或 `?tags=a,b`。
+     * Express 对重复的 query key 给数组、对单个给字符串——两种都要吃，
+     * 只处理一种的表现是"选一个标签能过滤、选两个就没反应"。
+     */
+    @Query("tags") tags: string | string[] | undefined,
+  ) {
     assertPrincipal(principal);
-    const items = await listMyProjects(this.deps(principal), { ownerId: principal.userId, q });
+    const wanted = (Array.isArray(tags) ? tags : tags === undefined ? [] : tags.split(","))
+      .map((t) => t.trim())
+      .filter((t) => t !== "");
+    const items = await listMyProjects(this.deps(principal), { ownerId: principal.userId, q, tags: wanted });
     return { items };
   }
 
@@ -202,6 +296,8 @@ export class DesignWorkbenchController {
         name: body.name,
         template: body.template,
         problem: body.problem,
+        theme: body.theme,
+        tags: body.tags,
       });
     } catch (e) {
       throw mapProjectError(e) ?? e;
@@ -216,9 +312,59 @@ export class DesignWorkbenchController {
   ) {
     assertPrincipal(principal);
     try {
+      /**
+       * 迭代 13：这一轮要带上的参考图**字节**在这里取。前端传来的 id 不可信——
+       * `loadRefImageBytes` 只认确实属于这个项目的那些（见其头注）。
+       * 取不到字节的跳过而不是整轮失败：少一张参考图不该让这次对话作废。
+       */
+      const refImages = await loadRefImageBytes(
+        { store: this.objectStore, refImages: this.refImages.forOrg(principal.orgId) },
+        projectId,
+        body.refImageIds ?? [],
+      );
       return await appendProjectChat(
         { ...this.deps(principal), ai: this.designChat() },
-        { projectId, ownerId: principal.userId, text: body.text, ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}) },
+        {
+          projectId, ownerId: principal.userId, text: body.text,
+          ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          ...(refImages.length > 0 ? { refImages } : {}),
+        },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /**
+   * 迭代 13（delta §2）：把一个已有对话线程导入为本项目的背景。
+   *
+   * 两个阶段一条路由，由 body 里给不给 `problem` 决定（契约 `importThread` 头注）：
+   * 不给 = 预览（判权 + 摘要，**不写**），给了 = 确认写入用户编辑后的那段。
+   */
+  @Post("/pm-designs/:projectId/import-thread")
+  async importThread(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(IMPORT_THREAD_SCHEMA)) body: ImportThreadBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await importThread(
+        {
+          ...this.deps(principal),
+          chat: this.chat,
+          repo: this.identity,
+          ids: this.decisionIds,
+          model: this.modelCall,
+          chatModel: this.chatModel,
+          log: (m, f) => this.logger.info(m, { ...f, traceId: "design-workbench-import-thread" }),
+        },
+        {
+          projectId,
+          ownerId: principal.userId,
+          threadId: body.threadId,
+          ...(body.problem !== undefined ? { problem: body.problem } : {}),
+        },
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;
@@ -297,6 +443,71 @@ export class DesignWorkbenchController {
         { ...this.deps(principal), logger: this.logger, traceId: traceIdOf(req) },
         { projectId, ownerId: principal.userId, note: body.note },
       );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 迭代 13：参考图（delta `design-chat-inputs` §1）── */
+
+  /**
+   * `multipart/form-data`，同 `feedback.controller.ts` 的附件上传：`file` 字段是二进制，
+   * `contentType` 字段是声明的类型。声明只用来**对照**字节，不作数——真正判类型的是
+   * magic byte（用例层 `sniffDeclaredType`）。
+   *
+   * 400 `REF_IMAGE_REJECTED` 带 `rejectReason`（TYPE / SIZE / TOO_MANY）：三种情形合成
+   * 一个错误码，因为屏上给用户的下一步是同一句话「换一张图」；`rejectReason` 让文案能说得更准。
+   */
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/pm-designs/:projectId/ref-images")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      // ⚠ multer 这道限只是**先挡一手**，省得 4MB 以上的字节全读进内存才被拒。
+      //   真正的判定在用例层（同一个契约常量），multer 这里放宽一点以免它先于用例层
+      //   用一个没有 reasonCode 的 500 把请求打掉。
+      limits: { fileSize: C.PROTOTYPE_REF_IMAGE_MAX_BYTES + 1024, files: 1 },
+    }),
+  )
+  async uploadRefImage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @UploadedFile() file: { buffer: Buffer; originalname?: string } | undefined,
+    @Body("contentType") contentType: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    if (!file || typeof contentType !== "string") {
+      throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: "TYPE" });
+    }
+    try {
+      const { image } = await uploadRefImage(this.refImageDeps(principal), {
+        orgId: toOrgId(principal.orgId),
+        projectId,
+        ownerId: principal.userId,
+        name: file.originalname ?? "参考图",
+        declaredContentType: contentType,
+        bytes: new Uint8Array(file.buffer),
+      });
+      return { image, project: await loadProjectView(this.deps(principal), projectId) };
+    } catch (e) {
+      if (e instanceof RefImageRejectedError) {
+        throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: e.reason });
+      }
+      if (e instanceof ObjectStoreUnavailableError) {
+        throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Delete("/pm-designs/:projectId/ref-images/:imageId")
+  async deleteRefImage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("imageId") imageId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await deleteRefImage(this.refImageDeps(principal), { projectId, ownerId: principal.userId, imageId });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

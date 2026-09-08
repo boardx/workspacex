@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -8,12 +8,17 @@ import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
 import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
+import { RefImageStrip } from "./ref-image-strip";
+import { ImportThreadDialog } from "./import-thread-dialog";
 import { PrototypeBoard } from "./prototype-board";
 import { PrototypeInspector } from "./prototype-inspector";
 import { PrototypeExportMenu } from "./prototype-export";
 import {
   appendProjectChat as apiAppendProjectChat,
+  uploadRefImage,
+  deleteRefImage,
   patchPrototype,
+  updateProject,
   listMyProjects,
   pushToInbox as apiPushToInbox,
   DESIGN_WORKBENCH_CHAT_INTRO,
@@ -136,6 +141,11 @@ export function DesignDetailScreen({
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
+  /**
+   * 迭代 13（delta §2）：「从对话导入」弹窗。**不确认不写**——弹窗自己只在确认那一步
+   * 才调写入，这里拿到的 `project` 已经是写入之后的那一份（见 `import-thread-dialog.tsx`）。
+   */
+  const [importing, setImporting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [pushBusy, setPushBusy] = React.useState(false);
   const [pushError, setPushError] = React.useState<string | null>(null);
@@ -175,6 +185,24 @@ export function DesignDetailScreen({
     if (project === null) return;
     const out = await patchPrototype(project.id, [{ op: "setLinks", screen: pageIndex, links: [...links] }], "改了跳转");
     setLoad({ kind: "ready", project: out.project });
+  };
+
+  /**
+   * 迭代 13（delta §5.2）：切**原型自己的**明暗主题。走 `updateProject`，与改名同一条路径。
+   * 乐观更新——切主题是纯视觉的，等一次往返会让开关手感发黏；失败就回滚并说一声。
+   */
+  const changeTheme = async (theme: "light" | "dark") => {
+    if (project === null || project.theme === theme) return;
+    const before = project;
+    setLoad({ kind: "ready", project: { ...project, theme } });
+    try {
+      const out = await updateProject(project.id, { theme });
+      setLoad({ kind: "ready", project: out.project });
+    } catch {
+      setLoad({ kind: "ready", project: before });
+      setChatError("没能切换主题，稍后再试。");
+      window.setTimeout(() => setChatError(null), 3000);
+    }
   };
 
   React.useEffect(() => {
@@ -231,7 +259,15 @@ export function DesignDetailScreen({
     const started = Date.now();
     const tick = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
     try {
-      const { project: updated, reply } = await apiAppendProjectChat(project.id, value, focus !== null ? selectedId ?? undefined : undefined, controller.signal);
+      const { project: updated, reply } = await apiAppendProjectChat(
+        project.id,
+        value,
+        focus !== null ? selectedId ?? undefined : undefined,
+        controller.signal,
+        // 迭代 13：项目当前的**全部**参考图随每一轮发出去——它是"贴在墙上的参考"，
+        // 不是某一句话的附件（理由见 `ref-image-strip.tsx` 头注）。
+        project.refImages.map((r) => r.id),
+      );
       setLoad({ kind: "ready", project: updated });
       setLastApplied(reply.applied);
       setFallbackReason(reply.fallbackReason ?? null);
@@ -302,7 +338,19 @@ export function DesignDetailScreen({
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {/* 左：对话面板 360px（md+）；md 以下全宽、限高 */}
         <div className="flex max-h-[40dvh] shrink-0 flex-col border-b border-border bg-panel md:max-h-none md:w-[360px] md:border-b-0 md:border-r">
-          <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
+          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-12 font-medium">
+            <span>设计协作</span>
+            {/* 迭代 13（delta §2.3）：入口在对话面板顶部——「已经在别处聊过了」是**开工之前**
+                的动作，放在输入框旁边等于要求用户先想起来自己还有那条对话。 */}
+            <button
+              type="button"
+              onClick={() => setImporting(true)}
+              className="ml-auto flex items-center gap-1 rounded-control border border-border px-1.5 py-0.5 text-10 font-normal text-muted-foreground transition-colors duration-fast hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              data-testid="design-detail-import-thread"
+            >
+              <Import aria-hidden className="h-3 w-3" /> 从对话导入
+            </button>
+          </div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
             {project.chat.length === 0 && (
               <div className="flex max-w-[90%] flex-col gap-2 self-start">
@@ -331,6 +379,13 @@ export function DesignDetailScreen({
                 )}
               >
                 {turn.text}
+                {/* 迭代 13（delta §2）：`source: "system"` 不是一次模型回合，是服务端留下的痕迹。
+                    标成「系统」而不是「未生成」——后者的含义是"模型本该说话却没说成"，这里模型压根没被叫过。 */}
+                {turn.role === "ai" && turn.source === "system" && (
+                  <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-system">
+                    系统
+                  </span>
+                )}
                 {/* B5.2：模型不可用时服务端退回固定回执并标 source=fallback——如实显示，不装成模型说的 */}
                 {turn.role === "ai" && turn.source === "fallback" && (
                   <span className="ml-1.5 rounded-control border border-border px-1 text-10 text-muted-foreground" data-testid="design-detail-turn-fallback">
@@ -384,6 +439,18 @@ export function DesignDetailScreen({
               <button type="button" onClick={() => { setChatError(null); setRetryText(null); }} aria-label="关闭" className="shrink-0 rounded-control p-0.5 transition-colors duration-fast hover:bg-destructive-foreground/10"><X aria-hidden className="h-3 w-3" /></button>
             </div>
           )}
+          <RefImageStrip
+            images={project.refImages}
+            disabled={sending}
+            onUpload={async (file) => {
+              const out = await uploadRefImage(project.id, file);
+              setLoad({ kind: "ready", project: out.project });
+            }}
+            onDelete={async (imageId) => {
+              const out = await deleteRefImage(project.id, imageId);
+              setLoad({ kind: "ready", project: out.project });
+            }}
+          />
           {/* 迭代 2：焦点 chip——告诉用户「这句话会针对它」，可一键清除 */}
           {focus !== null && (
             <div className="mx-3 mb-1 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="design-detail-focus">
@@ -478,6 +545,25 @@ export function DesignDetailScreen({
                     <Play aria-hidden className="h-3 w-3" /> 预览
                   </button>
                 </div>
+                {/*
+                 * 迭代 13（delta §5.2）：切**原型自己的**明暗，后台主题不跟着变——
+                 * 做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色。
+                 */}
+                <div className="inline-flex rounded-control border border-border p-0.5" role="group" aria-label="原型主题">
+                  {(["light", "dark"] as const).map((t) => (
+                    <button
+                      key={t} type="button" data-testid={`design-detail-theme-${t}`}
+                      aria-pressed={project.theme === t}
+                      title={t === "light" ? "原型按浅色渲染（不影响后台）" : "原型按深色渲染（不影响后台）"}
+                      onClick={() => void changeTheme(t)}
+                      className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast",
+                        project.theme === t ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
+                    >
+                      {t === "light" ? <Sun aria-hidden className="h-3 w-3" /> : <Moon aria-hidden className="h-3 w-3" />}
+                      {t === "light" ? "白天" : "黑夜"}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
@@ -500,7 +586,21 @@ export function DesignDetailScreen({
                       <Button variant="ghost" size="sm" onClick={() => setPreview(null)} data-testid="design-detail-preview-exit">退出预览</Button>
                     </div>
                   )}
-                  {viewMode === "board" ? (
+                  {(preview ?? project).frames.length === 0 ? (
+                    /*
+                     * 2026-09-08：新建项目不再预填三个「草稿页」（人类实测：「不要默认三个页面，
+                     * 有点奇怪」）。0 页时看板视图会 map 出空数组 ⇒ 整块画布全白，比原来更糟——
+                     * 所以两种视图共用这一个空态，把"下一步该干什么"直接说出来。
+                     */
+                    <div className="grid h-full place-items-center p-8 text-center" data-testid="design-detail-canvas-empty">
+                      <div className="max-w-sm space-y-2">
+                        <p className="text-13 font-medium">还没有页面</p>
+                        <p className="text-12 text-muted-foreground">
+                          在左边描述你要做的产品，我会先拆出页面划分，再一页页把界面画出来。
+                        </p>
+                      </div>
+                    </div>
+                  ) : viewMode === "board" ? (
                     <PrototypeBoard
                       frames={(preview ?? project).frames}
                       prototype={(preview ?? project).prototype}
@@ -511,6 +611,7 @@ export function DesignDetailScreen({
                       device={deviceOf(project.template)}
                       links={frameLinks}
                       mode={canvasMode}
+                      theme={project.theme}
                       onNavigate={setFrame}
                     />
                   ) : (
@@ -521,6 +622,7 @@ export function DesignDetailScreen({
                       onSelect={preview === null ? setSelectedId : null}
                       device={deviceOf(project.template)}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
+                      theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={setFrame}
@@ -614,6 +716,14 @@ export function DesignDetailScreen({
         <span>{TEMPLATE_LABEL[project.template]}</span>
         <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
       </footer>
+
+      {importing && (
+        <ImportThreadDialog
+          projectId={project.id}
+          onClose={() => setImporting(false)}
+          onImported={(next) => setLoad({ kind: "ready", project: next })}
+        />
+      )}
 
       {confirming && (
         <PushConfirm
