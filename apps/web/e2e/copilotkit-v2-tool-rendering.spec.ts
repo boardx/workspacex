@@ -120,76 +120,35 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
-/**
- * issue #2999 B 组 —— 这条用例原本断言 `copilotkit-v2-tool-write-todos` 这张定制卡片。
- * PR #2927（`f9afc3d63`）**主动删掉了它**：`copilotkit-v2-assistant-message.tsx` 与
- * `workbench/task-timeline.tsx` 两处都把 `write_todos` 过滤掉，理由是「计划以持久 plan
- * ledger 为唯一投影，避免同一份计划出现两张卡片」（回指 #2451）。那个方向站得住，
- * 所以这里**不是把卡片加回来**，而是把同一条判据（"write_todos 的真实计划条目在界面上
- * 可见，不是只写在代码里"）搬到那个「唯一投影」上：持久 plan ledger 面板。
+/*
+ * issue #2999 B 组 —— 这里**曾经**有一条
+ * `test("DA-19c write_todos 定制卡片——进行中/完成两态真实渲染出计划条目")`，
+ * 断言 `copilotkit-v2-tool-write-todos` 这张定制卡片。**它已删除，理由如下。**
  *
- * ⚠ 本用例只覆盖 **run 进行中** 这一段。#2927 同时给
- * `copilotkit-v2-plan-control.tsx` 加了
- * `if (["done","cancelled"].includes(ledger.phase) && !hasPlanAction) return null;`，
- * 于是「本轮结束后界面上还剩什么计划痕迹」目前是 **零**（卡片被删、账本自己收掉，
- * 而 `task-timeline.tsx` 对 `write_todos` 的 `renderExecutionTool` 返回 `null`，
- * 那条"完成后的历史归执行轨迹所有"的理由没有对应实现）。这是产品取舍问题，
- * 不是 worker 能单方面裁的（#2927 自带 5 条单测正面锁住"done 不渲染"），
- * 已在 issue #2999 上摆证据请 coordinator 裁决；裁决前本用例**不**断言结束态，
- * 也不假装那一段是绿的。
+ * PR #2927（`f9afc3d63`）主动把 `write_todos` 从两条渲染路径里过滤掉了
+ * （`copilotkit-v2-assistant-message.tsx:73` 的 `V2ToolCallsView`、
+ * `workbench/task-timeline.tsx:23` 的 `renderExecutionTool`），改以持久 plan ledger
+ * 作为计划的唯一投影（回指 #2451）。于是那个 testid 在**任何**路径下都不再挂载
+ * （`copilotkit-v2-tool-renderers.tsx:124` 的渲染器成了不可达代码），
+ * 首错逐字是 `copilotkit-v2-tool-write-todos never attached`——**测试过期，不是回归**。
+ *
+ * 接管这条判据的现存验收（本次实测在同一趟 CI 里绿）：
+ *   · `agent-task-planning-hitl.spec.ts:64` —— write_todos 真的被持久化成一份计划：
+ *     直接读 `/plan-control/threads/:id/ledger`，逐字比对三条 step 的 content，
+ *     并断言完成后只剩折叠执行轨迹。
+ *   · `tests/ui/copilotkit-v2-tool-calls-group.test.tsx` / `workbench-task-timeline.test.tsx`
+ *     从正面锁住「这张卡片不再出现」。
+ * 所以删掉它不是丢覆盖，是去掉一份已经被更权威的账本断言取代的重复。
+ *
+ * ⚠ 但登记一条**真实的覆盖缺口**（连同 B 组的产品取舍一起交给 coordinator，见 #2999）：
+ * 全仓 e2e 里对 `chat-task-workbench-plan-control` 的断言**只有 `toHaveCount(0)` 三处**
+ * （本文件、`agent-workbench-ui-refinement.spec.ts`、`agent-task-planning-hitl.spec.ts` ×2），
+ * **没有任何一条断言这个面板曾经渲染给用户看过**。本轮我写过一条"运行中面板必须可见"
+ * 的用例，实测 4 次重试全部 `chat-task-workbench-plan-control never attached`
+ * （run 34203843732），既可能是我用了裸 `/chat`（`plan-control.tsx:170` 要求 threadId 非空），
+ * 也可能是这个"唯一投影"根本没有被证明渲染过——在 #2999 的 done 态取舍定下来之前，
+ * 我不用一条会跟着取舍一起改的用例去猜，只如实登记这个缺口。
  */
-test("DA-19c write_todos 投影到持久计划账本——执行中真实渲染出计划条目", async ({ page }) => {
-  mkdirSync(OUT, { recursive: true });
-  await login(page);
-
-  const MAX_ATTEMPTS = 4;
-  let rendered = false;
-  let lastNote = "";
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat");
-    await page.getByTestId("copilotkit-v2-input").fill("DA-19c 取证：随便问一句触发默认剧本");
-    await page.getByTestId("copilotkit-v2-send").click();
-
-    const errorBanner = page.getByTestId("copilotkit-v2-error");
-    const panel = page.getByTestId("chat-task-workbench-plan-control");
-    const steps = page.getByTestId("chat-task-workbench-plan-step");
-
-    const appeared = await panel
-      .waitFor({ state: "attached", timeout: 30_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!appeared) {
-      lastNote = (await errorBanner.count()) > 0
-        ? `attempt ${attempt}: error banner present: ${await errorBanner.first().textContent()}`
-        : `attempt ${attempt}: chat-task-workbench-plan-control never attached`;
-      continue;
-    }
-
-    // ── 反证：真实计划条目文本可见，不是一个空壳面板。默认剧本的 write_todos
-    //    宣布三步（理解用户问题 / 查询当前时间 / 组织最终回答），账本至少有一条。
-    const appearedSteps = await steps
-      .first()
-      .waitFor({ state: "visible", timeout: 20_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!appearedSteps) {
-      lastNote = `attempt ${attempt}: plan panel attached but no plan step rendered`;
-      continue;
-    }
-    const texts = await steps.allInnerTexts();
-    expect(texts.length, "计划账本必须有条目").toBeGreaterThan(0);
-    expect(texts.join("\n").trim().length, "计划条目必须有真实文本，不能是空壳").toBeGreaterThan(0);
-
-    writeFileSync(resolve(OUT, "write-todos-attempts.txt"), `succeeded on attempt ${attempt}/${MAX_ATTEMPTS}; steps=${String(texts.length)}`, "utf8");
-    await page.screenshot({ path: resolve(OUT, "copilotkit-v2-write-todos.png") });
-    rendered = true;
-    break;
-  }
-
-  expect(rendered, `all ${MAX_ATTEMPTS} attempts failed; last: ${lastNote}`).toBe(true);
-});
 
 test("DA-19c search_documents 定制卡片——检索词参数真实渲染、状态机走到终态（result 文本断言见文件头已知限制③）", async ({ page }) => {
   mkdirSync(OUT, { recursive: true });
