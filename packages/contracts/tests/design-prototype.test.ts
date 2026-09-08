@@ -550,3 +550,30 @@ describe("PROTOTYPE_SCHEMA_GUIDE 覆盖每一个 props 键", () => {
     expect(missing).toEqual([]);
   });
 });
+
+
+/**
+ * 迭代 15 —— 契约里有的 op，**必须在给模型看的说明里出现**。
+ *
+ * 这条门是从一个真实的洞长出来的：`addScreen` / `removeScreen` 从迭代 12 起就在契约里，
+ * 而 `PROTOTYPE_PATCH_GUIDE` 三轮都没提过它们——模型不知道有这条便宜路，
+ * 于是为了加一页把所有页重画一遍，正好撞上「单页超输出预算」。
+ * 能力存在但没人告诉使用者，等于不存在。
+ */
+describe("PROTOTYPE_PATCH_GUIDE 覆盖每一个 patch op", () => {
+  it("每个 op 名都出现在说明里", () => {
+    const names = dp.PrototypePatchOp.options.map((o) => {
+      const shape = (o as unknown as { shape: { op: { value: string } } }).shape;
+      return shape.op.value;
+    });
+    expect(names.length).toBeGreaterThanOrEqual(7);
+    const missing = names.filter((n) => !dp.PROTOTYPE_PATCH_GUIDE.includes(n));
+    // ⭐ 反证：把 addScreen 从说明里删掉 ⇒ 这条红。它正是这条门当初漏掉的那一个。
+    expect(missing).toEqual([]);
+  });
+
+  it("说明里明确告诉模型「加一页用 addScreen，不要重画所有页」", () => {
+    // 光列出 op 名不够——原来那句「新页面 ⇒ 用 prototype 整页给出」会把模型推回老路。
+    expect(dp.PROTOTYPE_PATCH_GUIDE).toContain("不要为此重画所有页");
+  });
+});
