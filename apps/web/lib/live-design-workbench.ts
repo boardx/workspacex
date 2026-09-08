@@ -53,11 +53,22 @@ export const DESIGN_WORKBENCH_CHAT_REPLY = designWorkbench.DESIGN_WORKBENCH_CHAT
 /** 2026-09-07：退路原因闭集——前端按它给一句人话（`detail-screen.tsx` 的 `FALLBACK_REASON_TEXT`）。 */
 export type DesignChatFallbackReason = z.infer<typeof designAiCollab.DesignChatFallbackReason>;
 
+/** 迭代 13：按一句 brief 生成澄清问题。**从不失败**——模型不可用时服务端回退通用六问并置 `fallback`。 */
+export type IntakeQuestionsOut = z.infer<typeof designWorkbench.operations.intakeQuestions.out>;
+export async function intakeQuestions(brief: string): Promise<IntakeQuestionsOut> {
+  return apiRequest<IntakeQuestionsOut>(designWorkbench.operations.intakeQuestions.path, {
+    method: "POST",
+    body: { brief },
+  });
+}
+
 export async function createProject(input: {
   readonly name: string;
   readonly template: ProjectTemplate;
   readonly problem?: string;
   readonly linkedFeedbackId?: string;
+  /** 迭代 13：澄清问答的结果；跳过的题不在数组里。 */
+  readonly intake?: readonly { readonly question: string; readonly answer: string }[];
 }): Promise<CreateProjectOut> {
   return apiRequest<CreateProjectOut>(designWorkbench.operations.createProject.path, {
     method: "POST",

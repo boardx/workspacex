@@ -6,6 +6,7 @@
  * ⚠ `chat` 恒为 `[]`：首次引导语是展示层文案，不落库（契约【待确认点 2】）。
  */
 import { designWorkbench } from "@repo/contracts";
+import { foldIntakeIntoCriteria, foldIntakeIntoProblem } from "./intake-questions";
 import { DesignProjectNameRequiredError, loadProjectView, type DesignProjectDeps, type DesignProjectView } from "./project-shared";
 import type { ProjectTemplate } from "./project-ports";
 
@@ -19,6 +20,10 @@ export interface CreateProjectInput {
   readonly template: ProjectTemplate;
   readonly problem?: string;
   readonly linkedFeedbackId?: string;
+  /** 迭代 13：澄清问答的结果（跳过的题不在数组里）。 */
+  readonly intake?: readonly designWorkbench.IntakeAnswer[];
+  /** 「成功长什么样」那一维问了哪几句——只有它们的答案进 `criteria`。 */
+  readonly successQuestions?: readonly string[];
 }
 
 export async function createProject(
@@ -33,8 +38,12 @@ export async function createProject(
     ownerId: input.ownerId,
     name: input.name,
     template: input.template,
-    problem: input.problem ?? "",
-    criteria: designWorkbench.DESIGN_PROJECT_INITIAL_CRITERIA,
+    // ⚠ `problem` 与 `intake` 同时给出时以 `problem` 为准：那是用户在预览里**编辑过**的
+    // 最终文本，重新汇总会把他的修改覆盖掉。`intake` 这时只用来补 `criteria`。
+    problem: (input.problem ?? "").trim() !== ""
+      ? input.problem!
+      : foldIntakeIntoProblem("", input.intake ?? []),
+    criteria: foldIntakeIntoCriteria(input.intake ?? [], input.successQuestions ?? []),
     frames: designWorkbench.DESIGN_PROJECT_INITIAL_FRAMES,
     prototype: [],
     frameNotes: [],

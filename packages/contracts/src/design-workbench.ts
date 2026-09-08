@@ -91,6 +91,42 @@ export const DESIGN_PROJECT_INITIAL_CRITERIA: readonly string[] = [
   "列出验收标准供工程对齐",
 ];
 
+/* ─────────── 迭代 13：引导式澄清（design-delta `design-chat-inputs` §3） ─────────── */
+
+/**
+ * 新建设计前的**澄清问答**。
+ *
+ * 在此之前「新建」是三个字段：类别 / 名称 / 背景（可选）。背景那行的占位符写着
+ * 「想解决的问题、谁会用、现在怎么绕过去的」——**这已经是在提示该收集哪些数据了，
+ * 只是把它塞进一行灰字，而且可选**。结果是大多数项目带着一句话甚至空背景就进了画布，
+ * 模型只能靠猜。
+ *
+ * 改成：写一句 brief ⇒ 模型据此生成**针对这个产品**的问题 ⇒ 逐条回答（每条都能跳过）
+ * ⇒ 汇成一份可编辑的「设计指导原则」⇒ 确认后创建。
+ *
+ * ⚠ **不新增存储**：问题在前端内存里，答案随 `createProject` 一次交上来，落地形态就是
+ *   既有的 `problem` / `criteria`。指导原则**不是第四种事实源**。
+ */
+export const INTAKE_MIN_QUESTIONS = 3;
+export const INTAKE_MAX_QUESTIONS = 6;
+export const IntakeQuestion = z
+  .object({
+    /** 问给用户看的话。是模型按 brief 生成的，不是固定问卷念一遍。 */
+    text: z.string().min(1).max(200),
+    /** 这条问题对应 §3.5 六维里的哪一维——前端按它排序与配图标，不用再猜。 */
+    dimension: z.enum(["who", "problem", "task", "constraint", "reference", "success"]),
+    /** 一句示例答案，降低"不知道该说什么"的门槛；可省略。 */
+    hint: z.string().max(200).optional(),
+  })
+  .strict();
+export type IntakeQuestion = z.infer<typeof IntakeQuestion>;
+
+/** 用户的回答。跳过的题**不出现在数组里**，不是给一个空串——"没答"和"答了空"是两件事。 */
+export const IntakeAnswer = z
+  .object({ question: z.string().min(1).max(200), answer: z.string().min(1).max(1000) })
+  .strict();
+export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
+
 /**
  * 画布页标签默认值。**空数组**（2026-09-08 人类实测反馈：「不要默认三个页面，有点奇怪」）。
  *
@@ -309,6 +345,18 @@ export const operations = {
    *   实现，不是前端直接传任意 id）传入；首页新建弹窗不传，恒为 `null`。契约层不校验这个 id
    *   指向的反馈是否存在/属于同一组织——那是 B4.3 用例层的职责（含回写 `resolvedByDesignId`）。
    */
+  /**
+   * 迭代 13：按一句 brief 生成澄清问题。**不落库、不建项目**——纯粹一次模型调用。
+   * 模型不可用时**不失败**，回退到 §3.5 的通用六问并把 `fallback` 置真，让界面能说
+   * 「AI 没能生成针对性的问题，先按通用的问一遍」。新建流程不能因为模型挂了就堵死。
+   */
+  intakeQuestions: {
+    method: "POST",
+    path: "/pm-designs/intake-questions",
+    in: z.object({ brief: z.string().min(1).max(2000) }).strict(),
+    out: z.object({ questions: z.array(IntakeQuestion).min(INTAKE_MIN_QUESTIONS).max(INTAKE_MAX_QUESTIONS), fallback: z.boolean() }).strict(),
+    err: [] as const,
+  },
   createProject: {
     method: "POST",
     path: "/pm-designs",
@@ -318,6 +366,12 @@ export const operations = {
         template: ProjectTemplate,
         problem: z.string().max(4000).optional(),
         linkedFeedbackId: z.string().optional(),
+        /**
+         * 迭代 13：澄清问答的结果。给出即由服务端汇进 `problem`（可验收的条目进 `criteria`）。
+         * 与 `problem` 同时给出时：`problem` 是用户在预览里**编辑过**的最终文本，以它为准；
+         * `intake` 只用来补 `criteria`——否则用户在预览里的修改会被重新汇总覆盖掉。
+         */
+        intake: z.array(IntakeAnswer).max(INTAKE_MAX_QUESTIONS).optional(),
       })
       .strict(),
     out: z.object({ project: DesignProject }).strict(),

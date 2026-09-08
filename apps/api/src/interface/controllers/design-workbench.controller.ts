@@ -40,6 +40,7 @@ import {
 import { designWorkbench as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
 import { createProject } from "../../application/design-workbench/create-project";
+import { generateIntakeQuestions } from "../../application/design-workbench/intake-questions";
 import { listMyProjects } from "../../application/design-workbench/list-my-projects";
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
@@ -87,6 +88,8 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 
 export const CREATE_PROJECT_SCHEMA = C.operations.createProject.in;
+export const INTAKE_QUESTIONS_SCHEMA = C.operations.intakeQuestions.in;
+type IntakeQuestionsBody = ReturnType<typeof INTAKE_QUESTIONS_SCHEMA.parse>;
 export const UPDATE_PROJECT_SCHEMA = C.operations.updateProject.in.omit({ projectId: true });
 export const APPEND_PROJECT_CHAT_SCHEMA = C.operations.appendProjectChat.in.omit({ projectId: true });
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
@@ -158,6 +161,24 @@ export class DesignWorkbenchController {
     };
   }
 
+  /**
+   * 迭代 13：按一句 brief 生成澄清问题。**不落库、不建项目**。
+   * ⚠ 路由要排在 `POST /pm-designs` **之前**——Nest 按声明顺序匹配，
+   * 反过来的话这条静态子路径会被上面那条吃掉。
+   */
+  @Post("/pm-designs/intake-questions")
+  async intakeQuestions(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(INTAKE_QUESTIONS_SCHEMA)) body: IntakeQuestionsBody,
+  ) {
+    assertPrincipal(principal);
+    // 从不抛：模型不可用时回退通用六问并把 fallback 置真（见用例头注）。
+    return await generateIntakeQuestions(
+      { model: this.modelCall, chatModel: this.chatModel, log: (m, f) => this.logger.info(m, { ...f, traceId: "design-workbench-intake" }) },
+      { brief: body.brief },
+    );
+  }
+
   @HttpCode(HttpStatus.CREATED)
   @Post("/pm-designs")
   async create(
@@ -174,6 +195,8 @@ export class DesignWorkbenchController {
           template: body.template,
           problem: body.problem,
           linkedFeedbackId: body.linkedFeedbackId,
+          intake: body.intake,
+          successQuestions: (body.intake ?? []).map((a) => a.question),
         },
       );
     } catch (e) {

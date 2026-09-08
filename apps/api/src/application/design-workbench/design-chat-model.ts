@@ -179,7 +179,8 @@ function describeProject(ctx: DesignChatContext): string {
   return lines.join("\n");
 }
 
-function extractJsonObject(text: string): unknown {
+/** 迭代 13：`intake-questions.ts` 也要解析模型的 JSON 输出，导出复用而不是抄第二份。 */
+export function extractJsonObject(text: string): unknown {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) throw new Error("no JSON object found in model output");

@@ -1030,6 +1030,95 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     expect(await screen.findByTestId("project-card-p1")).toBeTruthy();
   });
 
+
+  /**
+   * 迭代 13（delta §3）—— V63 / §3.6。引导是**帮忙不是关卡**：跳过之后不再拦。
+   * 三张模板卡片已删：它让「挑模板」成了流程第一步，而设备形态本该是澄清完之后的结论。
+   */
+  it("V63 整段跳过 ⇒ 直接创建，一次问题都不生成；提交体里没有 intake", async () => {
+    const calls: { path: string; body?: unknown }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      calls.push({ path, body: opts?.body });
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: { ...PROJECT, id: "p9", name: "跳过建的" } };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" onOpenProject={vi.fn()} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "跳过建的" } });
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
+    await waitFor(() => expect(calls.some((c) => c.path === "/pm-designs" && c.body !== undefined)).toBe(true));
+    // ⭐ 反证锚点：实现若在跳过后仍去生成问题（或再拦一次），这两条红。
+    expect(calls.some((c) => c.path === "/pm-designs/intake-questions")).toBe(false);
+    const created = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as Record<string, unknown>;
+    expect(created).not.toHaveProperty("intake");
+  });
+
+  it("V61/V63 走完问答：只有答了的题进 intake，跳过的不进", async () => {
+    const calls: { path: string; body?: unknown }[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      calls.push({ path, body: opts?.body });
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") {
+        return { fallback: false, questions: [
+          { dimension: "who", text: "会员分几档？", hint: "例：两档" },
+          { dimension: "task", text: "最想省掉哪一步？" },
+          { dimension: "success", text: "几步算合格？" },
+        ] };
+      }
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: { ...PROJECT, id: "p8" } };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" onOpenProject={vi.fn()} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "牙膏站" } });
+    fireEvent.change(screen.getByTestId("project-dialog-problem"), { target: { value: "会员在线下单" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+    await screen.findByTestId("intake-questions");
+    // brief 真的发出去了（问题是按它生成的，不是固定问卷）
+    expect((calls.find((c) => c.path === "/pm-designs/intake-questions")?.body as { brief: string }).brief).toBe("会员在线下单");
+    fireEvent.change(screen.getByTestId("intake-answer-who"), { target: { value: "两档：普通与金卡" } });
+    // task 那条**故意不答** —— 它不该出现在 intake 里
+    fireEvent.click(screen.getByTestId("intake-next"));
+    const guideline = await screen.findByTestId("intake-guideline");
+    expect((guideline as HTMLTextAreaElement).value).toContain("两档：普通与金卡");
+    fireEvent.click(screen.getByTestId("project-dialog-submit"));
+    await waitFor(() => expect(calls.some((c) => c.path === "/pm-designs" && c.body !== undefined)).toBe(true));
+    const body = calls.find((c) => c.path === "/pm-designs" && c.body !== undefined)?.body as { intake: { question: string }[] };
+    expect(body.intake.map((x) => x.question)).toEqual(["会员分几档？"]);
+  });
+
+  it("V62 模型没能生成针对性问题 ⇒ 界面如实说是兜底", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs/intake-questions") {
+        return { fallback: true, questions: [
+          { dimension: "who", text: "谁会用这个东西？" }, { dimension: "problem", text: "现在怎么绕过去的？" }, { dimension: "success", text: "做成什么样算做对了？" },
+        ] };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" onOpenProject={vi.fn()} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "随便" } });
+    fireEvent.click(screen.getByTestId("intake-ask"));
+    // ⭐ 静默用兜底而不说，会让用户以为这就是"针对他"的问题。
+    await screen.findByTestId("intake-fallback-notice");
+  });
+
+  it("§3.6 三张模板卡片已删，主入口是「新建设计」", async () => {
+    apiRequest.mockImplementation(async () => ({ items: [] }));
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("empty");
+    for (const t of ["mobile", "ui", "wireframe"]) {
+      expect(screen.queryByTestId(`workbench-template-${t}`)).toBeNull();
+    }
+    expect(screen.getByTestId("workbench-new")).toBeTruthy();
+  });
+
   it("新建：生成中过渡等待真实 createProject 返回才导航（不是固定超时）", async () => {
     const onOpenProject = vi.fn();
     let resolveCreate!: (v: unknown) => void;
@@ -1044,7 +1133,8 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     await screen.findByTestId("empty");
     fireEvent.click(screen.getByTestId("workbench-new"));
     fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新设计" } });
-    fireEvent.click(screen.getByTestId("project-dialog-submit"));
+    // 迭代 13：新建走三步问答，「跳过，直接创建」是等价的一步创建路径（提交按钮在第三步）。
+    fireEvent.click(screen.getByTestId("intake-skip-all"));
     // 请求还没返回：仍在生成中过渡，没有导航。
     expect(screen.getByTestId("workbench-generating")).toBeTruthy();
     expect(onOpenProject).not.toHaveBeenCalled();

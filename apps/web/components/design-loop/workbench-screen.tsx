@@ -13,12 +13,16 @@ import { useDialogFocus } from "./use-dialog-focus";
 import {
   createProject as apiCreateProject,
   deleteProject as apiDeleteProject,
+  intakeQuestions,
   listMyProjects,
   updateProject as apiUpdateProject,
   PROJECT_TEMPLATE_OPTIONS,
   type DesignProject,
   type ProjectTemplate,
 } from "@/lib/live-design-workbench";
+import type { designWorkbench } from "@repo/contracts";
+
+type IntakeQuestion = designWorkbench.IntakeQuestion;
 
 /**
  * UC-17.8 B4.5 —— PM 设计工作台首页，**真栈**（契约 `designWorkbench`：
@@ -45,11 +49,6 @@ const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
   mobile: "📱",
   ui: "🎨",
   wireframe: "🧩",
-};
-const TEMPLATE_HINT: Record<ProjectTemplate, string> = {
-  mobile: "手机为先的交互与布局",
-  ui: "高保真界面与视觉稿",
-  wireframe: "低保真结构与信息架构",
 };
 const TEMPLATE_OPTIONS = PROJECT_TEMPLATE_OPTIONS.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
 
@@ -139,7 +138,7 @@ export function DesignWorkbenchHome({
 
   const startCreate = (template: ProjectTemplate) => setDialog({ mode: "create", template });
 
-  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string }) => {
+  const handleCreate = async (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => {
     setDialog(null);
     setActionError(null);
     setGenerating(input.name);
@@ -148,6 +147,8 @@ export function DesignWorkbenchHome({
         name: input.name,
         template: input.template,
         problem: input.problem === "" ? undefined : input.problem,
+        // 迭代 13：跳过的题不在数组里；空数组不发，省得服务端多判一次。
+        ...(input.intake !== undefined && input.intake.length > 0 ? { intake: input.intake } : {}),
       });
       setLoad((prev) => (prev.kind === "ready" ? { ...prev, items: [project, ...prev.items] } : prev));
       setGenerating(null);
@@ -215,22 +216,12 @@ export function DesignWorkbenchHome({
         </div>
       )}
 
-      {/* 三张模板入口。B6.5（U8）：sm 以下单列堆叠——375 下三列并排每张只剩 ~100px，提示语一字一行。 */}
-      <div className="grid grid-cols-1 gap-3 px-6 py-4 sm:grid-cols-3">
-        {PROJECT_TEMPLATE_OPTIONS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => startCreate(t)}
-            data-testid={`workbench-template-${t}`}
-            className="flex flex-col items-start gap-1 rounded-card border border-border bg-card p-4 text-left transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span aria-hidden className="text-24">{TEMPLATE_EMOJI[t]}</span>
-            <span className="text-13 font-medium">{TEMPLATE_LABEL[t]}</span>
-            <span className="text-11 text-muted-foreground">{TEMPLATE_HINT[t]}</span>
-          </button>
-        ))}
-      </div>
+      {/*
+       * 迭代 13（delta §3.6）：三张模板卡片已删。理由不是"占地方"——「类别」在新建对话框里
+       * 已经是一个下拉，两处入口做同一件事；更要紧的是它让**挑模板成了流程第一步**：
+       * 用户还没说清要做什么，就先被要求选一个设备形态。而设备形态本该是澄清完之后的结论。
+       * 主入口现在是下面那个「新建设计」按钮，走问答流程。
+       */}
 
       {/* 我的设计项目 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-6 pt-2">
@@ -329,13 +320,49 @@ function ProjectDialog({
   editing: boolean;
   busy: boolean;
   onClose: () => void;
-  onCreate: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
-  onSave: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
+  onCreate: (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => void;
+  onSave: (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => void;
 }) {
   const [name, setName] = React.useState(initial.name ?? "");
   const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
   const [problem, setProblem] = React.useState(initial.problem ?? "");
   const canSubmit = name.trim() !== "" && !busy;
+
+  /*
+   * 迭代 13（delta §3）：新建从「填表」改成「问答」。三步：
+   *   brief（写一句想做什么）→ questions（逐条回答，都能跳过）→ review（可编辑的指导原则）
+   * 编辑既有项目仍是原来那张表——那时上下文早就有了，再问一遍是打扰。
+   */
+  const [step, setStep] = React.useState<"brief" | "questions" | "review">("brief");
+  const [questions, setQuestions] = React.useState<readonly IntakeQuestion[]>([]);
+  const [answers, setAnswers] = React.useState<Record<string, string>>({});
+  const [asking, setAsking] = React.useState(false);
+  const [fallbackQs, setFallbackQs] = React.useState(false);
+
+  const answered = () =>
+    questions
+      .map((q) => ({ question: q.text, answer: (answers[q.text] ?? "").trim() }))
+      // 跳过的题**不进数组**，不是给一个空串——"没答"和"答了空"是两件事。
+      .filter((a) => a.answer !== "");
+
+  const ask = async () => {
+    setAsking(true);
+    try {
+      const out = await intakeQuestions(problem.trim() === "" ? name.trim() : problem.trim());
+      setQuestions(out.questions);
+      setFallbackQs(out.fallback);
+      setStep("questions");
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const toReview = () => {
+    const a = answered();
+    const lines = [problem.trim(), ...(a.length > 0 ? ["", ...a.map((x) => `- ${x.question}：${x.answer}`)] : [])];
+    setProblem(lines.join("\n").trim());
+    setStep("review");
+  };
 
   /** B6.5：焦点进弹窗 / Esc 关闭 / 关闭后焦点回到「新建设计」或模板卡（见 `use-dialog-focus.ts`）。 */
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -345,32 +372,100 @@ function ProjectDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="project-dialog">
       <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
       <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={editing ? "编辑设计" : "新建设计"} className="relative flex w-full max-w-md flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <h3 className="text-16 font-semibold">{editing ? "编辑设计" : "新建设计"}</h3>
-        <div className="flex flex-col gap-1">
-          <span className="text-11 font-medium text-muted-foreground">类别</span>
-          <Select options={TEMPLATE_OPTIONS} value={template} onValueChange={(v) => setTemplate(v as ProjectTemplate)} data-testid="project-dialog-template" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">名称</label>
-          <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="给这个设计起个名字" data-testid="project-dialog-name" />
-          {name.trim() === "" && <p className="text-10 text-muted-foreground" data-testid="err-name">名称必填，起个名字才能创建。</p>}
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="project-problem" className="text-11 font-medium text-muted-foreground">背景 / 上下文（可选）</label>
-          <Textarea id="project-problem" value={problem} onChange={(e) => setProblem(e.target.value)} rows={3} placeholder="想解决的问题、谁会用、现在怎么绕过去的" data-testid="project-dialog-problem" />
-        </div>
+        <h3 className="text-16 font-semibold">
+          {editing ? "编辑设计" : step === "brief" ? "新建设计" : step === "questions" ? "再问你几个问题" : "确认设计指导原则"}
+        </h3>
+
+        {(editing || step === "brief") && (
+          <>
+            <div className="flex flex-col gap-1">
+              <span className="text-11 font-medium text-muted-foreground">类别</span>
+              <Select options={TEMPLATE_OPTIONS} value={template} onValueChange={(v) => setTemplate(v as ProjectTemplate)} data-testid="project-dialog-template" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="project-name" className="text-11 font-medium text-muted-foreground">名称</label>
+              <Input id="project-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="给这个设计起个名字" data-testid="project-dialog-name" />
+              {name.trim() === "" && <p className="text-10 text-muted-foreground" data-testid="err-name">名称必填，起个名字才能创建。</p>}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="project-problem" className="text-11 font-medium text-muted-foreground">
+                {editing ? "背景 / 上下文（可选）" : "想做什么？"}
+              </label>
+              <Textarea
+                id="project-problem" value={problem} onChange={(e) => setProblem(e.target.value)} rows={3}
+                placeholder={editing ? "想解决的问题、谁会用、现在怎么绕过去的" : "一句话也行，我会再问你几个问题"}
+                data-testid="project-dialog-problem"
+              />
+            </div>
+          </>
+        )}
+
+        {!editing && step === "questions" && (
+          <div className="flex max-h-[50vh] flex-col gap-3 overflow-y-auto" data-testid="intake-questions">
+            {fallbackQs && (
+              <p className="text-11 text-muted-foreground" data-testid="intake-fallback-notice">
+                AI 没能生成针对性的问题，先按通用的问一遍。
+              </p>
+            )}
+            {questions.map((q) => (
+              <div key={q.text} className="flex flex-col gap-1">
+                <label className="text-12 font-medium">{q.text}</label>
+                <Textarea
+                  rows={2}
+                  value={answers[q.text] ?? ""}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [q.text]: e.target.value }))}
+                  placeholder={q.hint ?? "答不上来就留空，跳过这条"}
+                  data-testid={`intake-answer-${q.dimension}`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!editing && step === "review" && (
+          <div className="flex flex-col gap-1">
+            <label htmlFor="project-guideline" className="text-11 font-medium text-muted-foreground">
+              设计指导原则（可以改，改完就是这个项目的背景）
+            </label>
+            <Textarea
+              id="project-guideline" rows={8} value={problem}
+              onChange={(e) => setProblem(e.target.value)}
+              data-testid="intake-guideline"
+            />
+          </div>
+        )}
+
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!canSubmit}
-            data-testid="project-dialog-submit"
-            onClick={() => (editing ? onSave : onCreate)({ name: name.trim(), template, problem: problem.trim() })}
-          >
-            {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-            {editing ? "保存" : "创建并进入设计"}
-          </Button>
+          {!editing && step === "brief" && (
+            <>
+              {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}
+              <Button variant="ghost" size="sm" disabled={!canSubmit} data-testid="intake-skip-all"
+                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim() })}>
+                跳过，直接创建
+              </Button>
+              <Button variant="primary" size="sm" disabled={!canSubmit || asking} data-testid="intake-ask"
+                onClick={() => void ask()}>
+                {asking && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+                下一步：让 AI 问几个问题
+              </Button>
+            </>
+          )}
+          {!editing && step === "questions" && (
+            <Button variant="primary" size="sm" data-testid="intake-next" onClick={toReview}>下一步</Button>
+          )}
+          {(editing || step === "review") && (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!canSubmit}
+              data-testid="project-dialog-submit"
+              onClick={() => (editing ? onSave : onCreate)({ name: name.trim(), template, problem: problem.trim(), intake: answered() })}
+            >
+              {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+              {editing ? "保存" : "创建并进入设计"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
