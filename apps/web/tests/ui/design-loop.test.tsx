@@ -1040,7 +1040,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
       calls.push({ path, body: opts?.body });
       if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
-      if (path === "/pm-designs" && opts?.method === "POST") return { project: { ...PROJECT, id: "p9", name: "跳过建的" } };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p9", name: "跳过建的" }) };
       throw new Error(`unexpected ${path}`);
     });
     render(<DesignWorkbenchHome state="default" onOpenProject={vi.fn()} />);
@@ -1067,7 +1067,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
           { dimension: "success", text: "几步算合格？" },
         ] };
       }
-      if (path === "/pm-designs" && opts?.method === "POST") return { project: { ...PROJECT, id: "p8" } };
+      if (path === "/pm-designs" && opts?.method === "POST") return { project: project({ id: "p8" }) };
       throw new Error(`unexpected ${path}`);
     });
     render(<DesignWorkbenchHome state="default" onOpenProject={vi.fn()} />);
