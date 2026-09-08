@@ -1,3 +1,4 @@
+import { parse } from "yaml";
 import { spawn } from "node:child_process";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -199,22 +200,16 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-smoke");
     expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:full");
-    // 本条要的是「每个真正的证据上传步骤在失败时也跑」。此前写成 `if: always()` 在全文里
-    // 恰好出现 2 次 —— 那是意图的代用品，而不是意图本身：#512 给 e2e-full 加了一个
-    // 独立信号步骤（Chat 链路，同样要 always()），代用品当场误报，而真正要守的两个
-    // 上传步骤一个都没动。改成把 always() 直接绑在 upload-artifact 上，比数数更严。
-    //
-    // 2026-08-26（issue #2114）：3 —— 新增第三个 job `chat-task-workbench`（记分牌车道，
-    // 只在 workflow_dispatch 手动勾选时跑，不在 pull_request/push/schedule 上跑），
-    // 它自己的证据上传步骤同样需要 always()（记分牌红了也要能看到 test-results 截图），
-    // 是真实新增的第三个「always() + upload-artifact」配对，不是漂移或误加。
-    //
-    // 2026-09-08（issue #3026）：4 —— 新增第四个 job `chat-path-coverage`（路径覆盖车道，
-    // 同样只在 workflow_dispatch 手动勾选时跑）。它的证据上传步骤同样要 always()：
-    // 这批用例首跑很可能红，而红的时候恰恰最需要 test-results 里的截图/trace 与 A5 落下的
-    // 冷启动基线（见 `.harness/instructions/chat-path-coverage-matrix.md`）。
-    // 真实新增的第四个配对，不是漂移。
-    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v6/g)).toHaveLength(4);
+    // Executed lanes upload after failures; reused lanes keep the source artifact link.
+    for (const name of ["fullstack-smoke", "e2e-full", "chat-path-coverage", "chat-task-workbench"]) {
+      const job = parse(workflow).jobs[name];
+      expect(job.steps.some((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(true);
+      for (const step of job.steps ?? []) {
+        if (step.uses?.startsWith("actions/upload-artifact@")) {
+          expect(step.if).toBe("always() && steps.dedup.outputs.run == 'true'");
+        }
+      }
+    }
     expect(workflow).toContain("phase-01-fullstack-smoke-evidence");
     expect(workflow).toContain("phase-01-e2e-full-evidence");
     expect(workflow).toContain("phase-01-chat-task-workbench-evidence");
