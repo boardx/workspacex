@@ -46,6 +46,10 @@ on:
   # 3 小时才知道结果，验证成本高到没人验证——这正是它连红 12 次无人察觉的一环。
   workflow_dispatch:
     inputs:
+      fresh_run:
+        description: "重新执行，忽略同 SHA 已有验证证据"
+        type: boolean
+        default: false
       run_e2e_full:
         description: "跑全量浏览器 e2e（e2e-full）"
         type: boolean
@@ -99,6 +103,12 @@ on:
 # 就被无限顶掉：实测 03:02Z–03:55Z 连续 8 个 run（含 2 次手动派 e2e-full）0 个 job 跑过。
 # 所以只有 PR 共用 ref 组（要的就是顶掉旧轮）；push / tag / schedule / dispatch 每个 run
 # 自成一组（run_id 唯一），互不排挤——「每次 run 对应一个已经发生的事件」才真正成立。
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+  issues: read
+
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('harness-verify-{0}', github.ref) || format('harness-verify-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -186,6 +196,17 @@ jobs:
       # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
       # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
       # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      # 标准 skill 的 stable_name/version/capability_id 在 SKILL.md frontmatter 与
+      # scripts/build.ts 各写一遍（15+ 个 skill，8 个两处都写、7 个只写一处），从没被比对过。
+      # ui-prototyper 的八条硬规则此前在 yaml/SKILL.md/AGENTS.md 三处手写，同样从没被比对过。
+      # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
+      # 覆盖不到，必须显式跑。
+      - name: 标准 skill 元数据两处逐字一致（约定债务只减不增）
+        run: node .harness/scripts/lint-skill-metadata-source.mjs
+
+      - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
+        run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
+
       - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
         run: node .harness/scripts/lint-third-artifact.mjs
 
@@ -406,17 +427,33 @@ jobs:
     # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
     # `e2e-core-loop`（deploy 前置条件）。
     continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-fullstack-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
       - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
       - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
       - name: Execute trusted full-stack smoke
+        if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
@@ -433,7 +470,7 @@ jobs:
           fi
           exit "$status"
       - name: Upload runtime evidence (success or failure)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: phase-01-fullstack-smoke-evidence-${{ github.run_id }}
@@ -441,6 +478,11 @@ jobs:
             phases/phase-01-run-a-project/evidence/ci/
             apps/web/test-results/
           if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   e2e-full:
     # 2026-08-05 人类指令：「只有 tag 发布的时候才做，PR 的时候先不做，以提高速度」。
@@ -542,16 +584,31 @@ jobs:
     #   这 40 分钟里没有便宜可捡。超时上限本身不花钱（公开仓库免费），定紧的代价是
     #   **每一次都把结论和证据一起丢掉**。结构性修法（拆 job）仍见 #2084。
     timeout-minutes: 100
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-e2e-full-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
       - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
       - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
       # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
       # @repo/api 的默认 vitest 套件，而其中 4 个文件（standard-memory-real-db /
       # standard-scheduler-service / standard-sql-database / standard-sql-source-real-db）
@@ -564,12 +621,15 @@ jobs:
       #   版本/参数与 `gates-test` 保持逐字一致，避免两条车道的 Python 运行时漂移。
       #   `lint-ci-python-runtime.test.ts` 机械守住"跑 api 默认套件的 job 必须装它"。
       - uses: astral-sh/setup-uv@v7.0.0
+        if: steps.dedup.outputs.run == 'true'
         with:
           version: "0.12.5"
       - name: Install locked Python runtime for cross-language API integration tests
+        if: steps.dedup.outputs.run == 'true'
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
       - name: Execute uncached trusted full gate
+        if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
@@ -602,7 +662,7 @@ jobs:
       #
       # `if: always()` 让它不被上一步的红吞掉：两条链路各自的红都要能被看见。
       - name: Execute Chat read/write journey (own isolation scope)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         run: pnpm run verify:chat-read
 
       # 用户个人资料自助服务 + 组织团队管理（#638/#639）。同上一步同一个理由要**自己的**
@@ -611,11 +671,11 @@ jobs:
       # `e2e/self-service-profile-fixture.ts` 文件头），不能跟任何共享种子账号的 spec
       # 挤在同一个 org/DB 里跑。
       - name: Execute self-service profile journey (own isolation scope)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         run: pnpm run verify:self-service-profile
 
       - name: Upload E2E evidence (success or failure)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: phase-01-e2e-full-evidence-${{ github.run_id }}
@@ -623,6 +683,11 @@ jobs:
             phases/phase-01-run-a-project/evidence/ci/
             apps/web/test-results/
           if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   # issue #2114 —— Chat 任务工作台记分牌车道。**不阻塞任何合并路径**：不在
   # `pull_request` / `push` / `schedule` 上跑，只在人类显式 `workflow_dispatch` 且勾选
@@ -658,20 +723,36 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-chat-path-coverage-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
       - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
       - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
       - name: Execute chat path coverage lane (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
         run: pnpm run verify:chat-path-coverage
       - name: Upload chat-path-coverage evidence (success or failure)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: phase-01-chat-path-coverage-evidence-${{ github.run_id }}
@@ -679,27 +760,53 @@ jobs:
             apps/web/test-results/
             apps/web/e2e/__evidence__/chat-path-coverage/
           if-no-files-found: warn
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-task-workbench:
     if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-chat-task-workbench-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
       - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
       - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
       - run: pnpm --filter web exec playwright install --with-deps chromium
+        if: steps.dedup.outputs.run == 'true'
       - name: Execute Chat task workbench scorecard (own isolation scope)
+        if: steps.dedup.outputs.run == 'true'
         run: pnpm run verify:chat-task-workbench
       - name: Upload chat-task-workbench evidence (success or failure)
-        if: always()
+        if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: phase-01-chat-task-workbench-evidence-${{ github.run_id }}
           path: apps/web/test-results/
           if-no-files-found: error
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict

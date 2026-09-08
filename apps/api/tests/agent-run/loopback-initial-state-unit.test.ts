@@ -1,58 +1,6 @@
-import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { Readable } from "node:stream";
-import { runInNewContext } from "node:vm";
-import ts from "typescript";
 import { expect, it } from "vitest";
-import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
-import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
-import { buildDeepAgentSkillCatalogBlock } from "../../src/application/agent-run/skill-catalog";
+import { fixture } from "./loopback-deep-agent-fixture";
 
-/** Exercise the actual fixture handler without creating a listener, process or Docker. */
-function fixture(extraEnv: Record<string, string> = {}) {
-  let handle: (request: unknown, response: unknown) => void;
-  const server = { listen: () => {}, close: () => {} };
-  const source = readFileSync(new URL("../../scripts/loopback-deep-agent-provider.ts", import.meta.url), "utf8");
-  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
-    // 替身用 `setInterval` 驱动 SSE 帧节奏（十步滚动剧本的推进游标就挂在上面），
-    // vm 上下文默认没有计时器——不给它就等于把「节奏」这件事从被测面里删掉。
-    setInterval, clearInterval, setTimeout, clearTimeout, Date, JSON, Math,
-    exports: {}, process: {env: {LOOPBACK_DEEP_AGENT_PROVIDER_PORT: "9999", LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: "multistep", ...extraEnv}, once: () => {}},
-    require: (name: string) => {
-      if (name === "node:http") return {createServer: (callback: typeof handle) => { handle = callback; return server; }};
-      if (name === "node:crypto") return {randomUUID};
-      if (name === "@repo/contracts/deep-agent-hitl") return {DEEP_AGENT_HITL_TOOL_NAME};
-      // 路径矩阵 D4：替身判定「skill 目录块」时从产品源码取那一行头，不在替身里抄第二份
-      // 字面量（同上面 `DEEP_AGENT_HITL_TOOL_NAME` 那条既有理由：允许分叉就等于允许静默
-      // 假绿）。这个 shim 是白名单，新增依赖必须显式列进来——本条正是那个显式动作。
-      if (name === "../src/application/agent-run/skill-catalog") return {buildDeepAgentSkillCatalogBlock};
-      // issue #3132（B7）：替身要演计划确认门，工具名同样从契约取，不在替身里抄第二份
-      // 字面量——与上面两条同一条理由。这一行就是白名单要求的那个显式动作。
-      if (name === "@repo/contracts/plan-control") return {PLAN_CONFIRMATION_TOOL_NAME};
-      throw new Error(`unexpected fixture dependency: ${name}`);
-    },
-  });
-  const request = (method: string, url: string, body?: unknown): Promise<any> => new Promise(resolve => {
-    const incoming = Object.assign(Readable.from(body === undefined ? [] : [JSON.stringify(body)]), {method, url});
-    const response = {writeHead: () => response, end: (text: string) => resolve(JSON.parse(text))};
-    handle(incoming, response);
-  });
-  /** SSE 形态的响应替身：帧留在数组里，流不结束也能被观察——正是本文件要证的那件事。 */
-  const openStream = (url: string) => {
-    const frames: string[] = [];
-    let ended = false;
-    const incoming = Object.assign(Readable.from([]), {method: "GET", url, on: () => incoming});
-    const response = {
-      writeHead: () => response,
-      write: (chunk: string) => { frames.push(chunk); return true; },
-      end: () => { ended = true; },
-      destroy: () => { ended = true; },
-    };
-    handle(incoming, response);
-    return {frames, isEnded: () => ended};
-  };
-  return Object.assign(request, {openStream});
-}
 it("new empty thread has no fabricated future tool history; ensureThread preserves real completed history", async () => {
   const request = fixture();
   await request("POST", "/threads", {thread_id: "thread"});
@@ -69,7 +17,10 @@ it("exact multistep trigger keeps run nonterminal across the early status polls"
   const request = fixture();
   await request("POST", "/threads", {thread_id: "thread"});
   await request("POST", "/threads/thread/runs", {input: {messages: [{role: "user", content: "multistep"}]}});
-  for (let i = 0; i < 5; i += 1) expect(await request("GET", "/threads/thread/runs/thread")).toEqual({status: "pending"});
+  // issue #3100 D6：剧本多了 `spawn_async_task` 一步（宣布 + 回执各占一个半步），终稿
+  // 落在第 8 个半步，`MULTISTEP_MIN_STATUS_POLLS` 随之从 6 抬到 8——这里的 7/8 不是
+  // 魔数，是"终稿之前一律 pending、终稿那一刻才 success"这同一条判据在新剧本长度上的值。
+  for (let i = 0; i < 7; i += 1) expect(await request("GET", "/threads/thread/runs/thread")).toEqual({status: "pending"});
   expect(await request("GET", "/threads/thread/runs/thread")).toEqual({status: "success"});
 });
 
