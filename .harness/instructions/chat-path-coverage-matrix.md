@@ -35,7 +35,7 @@
 | --- | --- | --- | --- | --- |
 | A1 单轮文本 | 一问一答落真库，刷新后恢复同一条回复 | `agent-chat-core-paths` | 已覆盖 | chat-read |
 | A2 多轮同线程 | 第二轮引用第一轮输入，两个 run 各自持久化 | `agent-chat-core-paths` | 已覆盖 | chat-read |
-| A3 长会话压缩 | 早期事实被挤出 L1 后，仍活着穿过 L2 摘要层 | `chat-path-a3-long-session-fact-survival`（`test.fixme`，阻塞于 #3028） | 未覆盖 | chat-path-coverage |
+| A3 长会话压缩 | 早期事实被挤出 L1 后，仍活着穿过 L2 摘要层 | `chat-path-a3-long-session-fact-survival`（#3028 已修，2026-09-08 起真跑；尚未绿过） | 未覆盖 | chat-path-coverage |
 | A4 线程切换 | 切走再切回不整页硬导航、不出骨架屏，历史正确恢复 | `copilotkit-v2-thread-persistence` | 已覆盖 | chat-read |
 | A5 冷启动首屏 | 首次进 `/chat` 走到可输入，不停在骨架屏 | `chat-path-a5-cold-start-first-paint` | 已覆盖 | chat-read |
 | B1 确认意图 | `confirm_task_intent` 可改假设并恢复同一 run | `agent-task-planning-hitl` | 已覆盖 | chat-read |
@@ -336,6 +336,15 @@ F2 在阻塞车道两跑两红、在本车道这一跑绿——**这正是"依�
 七跑就写明：把断网窗口从 DOM 渲染缩到权威读只是拉大了窗口，没把竞态变成因果。
 按本表新加的搬家条件（连续两次绿是必要不充分，判据依赖时序运气的先改成由构造保证），
 **它不因为这次绿而搬家**。要由构造保证，仍是那条：让替身扣住最后一段直到客户端重连。
+
+### A3 解除阻塞：#3028 已在 main 上修掉
+
+`d5a0759`（PR #3116）落地了「v2 工作台换 agent 留在同一条对话里，不再卸载线程开新对话」，
+A3 的阻塞因此解除，spec 已由 `test.fixme` 改回 `test`（正文一个字未动——这正是当初按
+#2997 方案 B 挂 fixme、而不是删断言或 `test.skip` 换来的东西：缺口补上的那一刻它自己就能跑）。
+
+本表 A3 行随之改成「#3028 已修，2026-09-08 起真跑；尚未绿过」，**覆盖列仍是 `未覆盖`**——
+它从来没有绿过一次，按本表自己的语义还不能算已覆盖。第九跑起它会真正参与计数。
 
 ### F6：差集诊断排除了产品缺陷；真正的机制由 #3101 给出（并已在 main 上修掉）
 
