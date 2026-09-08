@@ -61,7 +61,7 @@ async function expectRunStatus(
   }, { timeout: 90_000 }).toBe(status);
 }
 
-test("复杂任务把 write_todos 持久化为一份计划，完成后只保留折叠执行轨迹", async ({ page }) => {
+test("复杂任务把 write_todos 持久化为一份计划，完成后保留只读账本与折叠执行轨迹", async ({ page }) => {
   const threadId = await openFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
 
@@ -99,9 +99,17 @@ test("复杂任务把 write_todos 持久化为一份计划，完成后只保留�
   // Terminal runs deliberately expose no live control identity.
   expect(ledger.activeRunId).toBeNull();
 
-  // The composer-level plan is an action surface only. Completed history belongs to
-  // the run trace so the same write_todos snapshot is not rendered twice.
-  await expect(page.getByTestId("chat-task-workbench-plan-control")).toHaveCount(0);
+  // issue #2999 —— run 结束后计划账本以**只读**形态保留：#2927 曾让它整块消失，
+  // 与同一提交里 task-timeline 对 `write_todos` 返回 null 相加 = 计划痕迹归零。
+  // 恢复的是展示不是控制：面板在、默认折叠、展开能看到三步，但没有「编辑计划」。
+  const planPanel = page.getByTestId("chat-task-workbench-plan-control");
+  await expect(planPanel).toHaveCount(1);
+  const planToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle");
+  await expect(planToggle).toHaveAttribute("aria-expanded", "false");
+  await planToggle.click();
+  await expect(page.getByTestId("chat-task-workbench-plan-step")).toHaveCount(3);
+  await expect(page.getByTestId("chat-task-workbench-plan-edit-toggle")).toHaveCount(0);
+  await planToggle.click();
   const trace = page.locator(`[data-testid="run-trace-panel"][data-run-id="${completed.runId}"]`);
   await expect(trace).toHaveCount(1);
   await expect(trace.getByTestId("run-trace-toggle")).toHaveAttribute("aria-expanded", "false");
@@ -126,7 +134,11 @@ test("复杂任务把 write_todos 持久化为一份计划，完成后只保留�
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("copilotkit-v2-tool-write-todos")).toHaveCount(0);
   await expect(page.locator(`[data-testid="run-trace-panel"][data-run-id="${completed.runId}"]`)).toHaveCount(1);
-  await expect(page.getByTestId("chat-task-workbench-plan-control")).toHaveCount(0);
+  // 刷新后只读账本仍在（持久，不是本次渲染的残留），展开后仍然没有控制操作。
+  await expect(page.getByTestId("chat-task-workbench-plan-control")).toHaveCount(1);
+  await page.getByTestId("chat-task-workbench-plan-collapse-toggle").click();
+  await expect(page.getByTestId("chat-task-workbench-plan-step")).toHaveCount(3);
+  await expect(page.getByTestId("chat-task-workbench-plan-edit-toggle")).toHaveCount(0);
 });
 
 test("confirm_task_intent 支持修改假设并恢复同一个 run", async ({ page }) => {

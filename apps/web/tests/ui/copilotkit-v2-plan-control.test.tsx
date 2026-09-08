@@ -219,7 +219,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByText("第 1 步「调研竞品定价」失败")).toBeNull();
   });
 
-  it("phase='done'（任务已跑完）不再渲染计划面板——即使 gate.required 仍是 true", async () => {
+  it("phase='done'（任务已跑完）渲染只读账本、但不再渲染确认门——即使 gate.required 仍是 true", async () => {
     // ⚠ 这不是假设：`evaluatePlanGate` 按契约只看 `todoCount`（UC-8），todoCount
     // 从确认前到跑完都没变过，所以真实后端在 phase='done' 时 gate.required 仍是
     // true。这条用例钉的正是「组件层面要不要拿它来渲染」，不是重新定义契约本身。
@@ -236,9 +236,19 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     );
     render(<CopilotKitV2PlanControl threadId="t-9" />);
 
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
-    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    // issue #2999 —— #2927 把这条改成「整块不渲染」，与同一提交里 task-timeline 对
+    // `write_todos` 返回 null 相加 = run 结束后计划痕迹归零。coordinator 裁决恢复
+    // 只读账本：本用例原本钉的判据（确认门不能出现）**一字未放宽**，只是不再
+    // 顺带要求整个面板消失。
+    await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+    expect(screen.getByTestId("chat-task-workbench-plan-control")).toBeTruthy();
     expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+    // 只读：展开后没有「编辑计划」开关，也没有任何编辑态控件。
+    fireEvent.click(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
+    expect(screen.queryByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toBeNull();
+    expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
+    expect(screen.queryAllByTestId(PLAN_STEP_REORDER_TESTID)).toHaveLength(0);
   });
 
   it("待确认计划自动展开；折叠详情仍保留确认操作", async () => {
@@ -293,7 +303,10 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     }
   });
 
-  it("phase='done' 但 progress.completed < progress.total：仍由执行轨迹保留历史，不显示可编辑计划", async () => {
+  // issue #2451 —— 真实截图抓到的矛盾：phase="done" 但账本里还有步骤没被标记完成。
+  // issue #2999 —— #2927 让 done 态整块 return null，这条提示因此结构上不可达；
+  // 恢复只读账本后提示重新可达，判据回到 #2451 的原样，另加只读钉子。
+  it("phase='done' 但 progress.completed < progress.total：渲染如实提示，不伪造步骤已完成，且面板只读", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "done",
@@ -306,11 +319,18 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-11" />);
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
-    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+
+    const notice = await screen.findByTestId("chat-task-workbench-plan-done-incomplete-notice");
+    expect(notice.textContent).toContain("1");
+    // 步骤列表本身没被悄悄改写——第二步仍然如实显示 pending，不是伪造成 completed。
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)[1]).toHaveAttribute("data-plan-status", "pending");
+    // 只读：结束态没有把这份"还差一步"的账本变回可编辑/可确认的界面。
+    expect(screen.queryByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toBeNull();
+    expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
   });
 
-  it("phase='done' 且所有步骤都 completed：不渲染计划面板", async () => {
+  it("phase='done' 且所有步骤都 completed：不渲染提示（沿用 #2451 的行为），账本仍只读可见", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "done",
@@ -323,9 +343,10 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-12" />);
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
-    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
     expect(screen.queryByTestId("chat-task-workbench-plan-done-incomplete-notice")).toBeNull();
+    expect(screen.queryByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toBeNull();
   });
 
   it("phase='failed' 且 errorCode='MODEL_CALL_FAILED'：失败原因用真实文案，不是写死占位句", async () => {
@@ -400,12 +421,47 @@ describe("compact plan presentation", () => {
     expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
     expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
   });
-  it("hides completed plans because the execution trace owns completed history", async () => {
+  // issue #2999 —— 恢复 #2927 之前的"默认折叠成一行事实摘要"，并加钉只读：
+  // 结束态账本可见（计划痕迹不归零），但没有任何控制操作。
+  it("keeps a completed plan as a read-only ledger: factual summary, steps on expand, no controls", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({phase:"done",progress:{completed:0,total:2,elapsedMs:100}}));
     render(<CopilotKitV2PlanControl threadId="ordinary" />);
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
-    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("0/2 步已标记完成");
+    expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
+    expect(screen.queryByText("当前计划")).toBeNull();
+    expect(screen.queryByText("Plan")).toBeNull();
     expect(screen.queryByText("编辑计划")).toBeNull();
+  });
+  // issue #2999 反证：done/cancelled 两态都必须「可见且只读」。撤掉产品修复
+  // （把 `readOnlyLedger` 换回 `return null`）时这条会红在第一条可见性断言上。
+  it.each(["done", "cancelled"] as const)("%s 态账本只读：步骤可见，编辑/删除/调序/确认/暂停一个都没有", async phase => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps({
+      phase,
+      gate: { required: true, reason: "multi-step" },
+      steps: [
+        { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+        { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
+      ],
+      progress: { completed: 1, total: 2, elapsedMs: 8000 },
+    }));
+    render(<CopilotKitV2PlanControl threadId={`readonly-${phase}`} />);
+    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+    // 可见：这正是 #2927 两处 null 相加之后归零的那份计划痕迹。
+    expect(screen.getByTestId(PLAN_PANEL_TESTID)).toBeTruthy();
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
+    // 只读：#2927「结束后没有控制操作」的意图完整保留。
+    expect(screen.queryByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toBeNull();
+    expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
+    expect(screen.queryAllByTestId(PLAN_STEP_REORDER_TESTID)).toHaveLength(0);
+    expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+    expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
+    expect(screen.queryByTestId("chat-task-workbench-run-pause")).toBeNull();
+    // 步骤状态如实透传，不因为"结束了"就伪造成全完成。
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)[1]).toHaveAttribute("data-plan-status", "pending");
   });
   it("resets editing and expansion on thread changes, ignoring late old-thread reads", async () => {
     let resolveOld!: (ledger: PlanLedgerView) => void;
@@ -416,10 +472,9 @@ describe("compact plan presentation", () => {
     view.rerender(<CopilotKitV2PlanControl threadId="first" projectId="project" refetchSignal={1} />);
     await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledTimes(2));
     view.rerender(<CopilotKitV2PlanControl threadId="second" projectId="project" />);
-    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalledTimes(3));
-    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("false"));
     resolveOld(ledgerWithSteps({phase:"failed"}));
-    await waitFor(() => expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).textContent).toContain("本轮已结束"));
     expect(screen.queryAllByTestId(PLAN_STEP_DELETE_TESTID)).toHaveLength(0);
     expect(api.resumePlanRun).not.toHaveBeenCalled();
   });
