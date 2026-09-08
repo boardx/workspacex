@@ -72,4 +72,45 @@ export default async function warmUpChatRoutes(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
   }
+
+  await waitForApiReadable(base);
+}
+
+/**
+ * issue #2997 —— 光把 Next 的路由编译热起来**不够**：worker 起来之后第一件事是登录、
+ * 紧接着读线程列表，这两跳都要打到真实 API（经 `CHAT_READ_E2E_API_ORIGIN` 同源代理）。
+ *
+ * ## 为什么补这一段（实测，不是防御性编程）
+ *
+ * 本轮跑 8 个 spec 文件（5 个 worker 同时起）时**连续三轮**复现同一个形状：第一波
+ * 5 条用例整整齐齐在 ~51s / ~59s 全红，错误分成两种——
+ *   · `getByTestId('chat-thread-<id>')` element(s) not found（线程列表是空的）
+ *   · 登录页停在 `/login`，页面上印着「登录服务暂时不可用，请稍后重试」
+ * 后续同一 worker 的第二、三条用例全部通过。也就是说不是这些用例坏了，是它们撞上了
+ * **API 还没起完**的窗口：webServer 的健康检查只保证进程在听端口，不保证迁移/连接池
+ * 已经能服务一次真实的鉴权读。
+ *
+ * 跑整条 91 条的车道时这件事被稀释了（第一波之后就热了），所以此前没被单独看见；
+ * 只跑子集时它每次都在。
+ *
+ * 这里补一次**真实的鉴权读**探测：打一条需要鉴权的真实 API 路径，等到它不再是
+ * 连接层失败/5xx 为止（401/403 都算"API 已经能应答"——我们要的是可达性，不是权限）。
+ * 与上面路由预热同一条纪律：同一个事实只预热一次，不在每个 spec 里复制 N 份等待。
+ */
+async function waitForApiReadable(base: string): Promise<void> {
+  const deadline = Date.now() + WARMUP_BUDGET_MS;
+  let lastOutcome = "never attempted";
+  for (;;) {
+    try {
+      const response = await fetch(`${base}/chat/threads`, { redirect: "manual" });
+      if (response.status < 500) return;
+      lastOutcome = `HTTP ${response.status}`;
+    } catch (failure) {
+      lastOutcome = failure instanceof Error ? failure.message : String(failure);
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`[chat-route-warmup] API 在 ${WARMUP_BUDGET_MS}ms 内没有变得可读：${lastOutcome}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
 }
