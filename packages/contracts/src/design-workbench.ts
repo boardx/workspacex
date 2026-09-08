@@ -165,6 +165,38 @@ export const IntakeAnswer = z
   .strict();
 export type IntakeAnswer = z.infer<typeof IntakeAnswer>;
 
+/* ─────────── 迭代 13：从已有对话导入（design-delta `design-chat-inputs` §2） ─────────── */
+
+/**
+ * 一次导入最多读线程里**最近**多少条消息。
+ *
+ * 有上限不是为了省钱（虽然也省），是因为一条聊了三个月的线程里，前面那些早已被后面推翻的
+ * 需求会把摘要带偏——「最近 N 条」比「全部」更接近用户说「照那个做」时脑子里的那段。
+ * 超出时**必须留痕说明截断了**（见 `importThread` 头注）：静默截断会让用户以为模型看过
+ * 那段它其实没看过的对话，这是本仓反复栽过的形态。
+ */
+export const IMPORT_THREAD_MAX_MESSAGES = 40;
+
+/**
+ * 一次导入的**留痕**：这一刻从哪条线程读了多少条。
+ *
+ * ⚠ 它是**事实记录，不是订阅句柄**（delta §2.1 取舍 ③=A）。项目不长期挂靠线程：
+ *   `threadId` 留在这里只是为了半年后还答得出「这个项目的背景是从哪来的」，
+ *   没有任何读路径会拿它回头再读一次线程。选 B（长期挂靠、每轮实时读）会让
+ *   「这个设计是照什么做的」变成一个会变的东西，而设计评审要的恰恰是一个定住的输入。
+ */
+export const ImportedThread = z
+  .object({
+    threadId: z.string(),
+    /** 线程标题——**服务端从线程读出来的**，不是前端传上来的（前端那份不可信）。 */
+    title: z.string(),
+    /** 本次真的读进摘要的条数（截断之后的数，不是线程总条数）。 */
+    messageCount: z.number().int().nonnegative(),
+    at: z.string(),
+  })
+  .strict();
+export type ImportedThread = z.infer<typeof ImportedThread>;
+
 /**
  * 画布页标签默认值。**空数组**（2026-09-08 人类实测反馈：「不要默认三个页面，有点奇怪」）。
  *
@@ -448,6 +480,60 @@ export const operations = {
     in: z.object({ projectId: z.string(), imageId: z.string() }).strict(),
     out: z.object({ project: DesignProject }).strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER"] as const,
+  },
+  /**
+   * 迭代 13（delta §2）：把一个**已有对话线程**这一刻的内容抽成摘要，作为这个设计项目的背景。
+   *
+   * ## 语义是一次性导入，不是持续订阅
+   *
+   * 选中 ⇒ 这一刻抽一段摘要 ⇒ 用户可编辑 ⇒ 确认才写进 `problem`。线程**后来变了，
+   * 项目的 `problem` 不跟着变**（delta §2.1 取舍 ③=A）。所以这里没有任何"挂靠"字段：
+   * `ImportedThread` 只是留痕，不是句柄。
+   *
+   * ## 两个阶段，一条操作
+   *
+   * 契约 delta §2.2 写的入参是 `{ threadId }`，§2.3 又要求「**不确认不写**」——直接写会
+   * 覆盖用户已经写好的 `problem`。两者只能靠 `problem` 这个**可选**入参同时成立：
+   *
+   *   · **不给 `problem`** ⇒ 预览：判权、读线程、摘要，`summary` 回传给前端渲染成可编辑
+   *     的预览框。**项目一个字不改**（返回的 `project` 就是当前这一份）。
+   *   · **给了 `problem`** ⇒ 确认：写进项目，并在 `chat` 里追加一条 `source: "system"` 的
+   *     留痕。写进去的是**用户在预览里编辑之后**的这段文本，不是服务端重新摘要一遍——
+   *     重新摘要会把他的修改冲掉，而那正是这两个阶段存在的理由。
+   *
+   * ⚠ 确认阶段**照样**重新判权、重新读线程：`title`/`messageCount` 是要写进留痕的事实，
+   *   信前端传上来的那份等于让留痕可以被伪造。
+   *
+   * ## 只读调用者自己有权读的线程
+   *
+   * 走 `chat` 束 `getThread` 的**同一条**鉴权路径（`resolveVisibility` → 守卫读路径），
+   * 不新开一条直接查库的读。看不见的线程与不存在的线程是**同一个出口**（`chat` 束 I-3
+   * 的 404，不带 `reasonCode`）——所以这里的 `err` 闭集里没有它：那不是设计工作台的
+   * 错误码，是对话束的既有拒绝，连标题都不该泄露。
+   */
+  importThread: {
+    method: "POST",
+    path: "/pm-designs/:projectId/import-thread",
+    in: z
+      .object({
+        projectId: z.string(),
+        threadId: z.string(),
+        /** 见头注「两个阶段」：省略 = 预览（不写）；给出 = 确认写入这段（用户编辑后的）文本。 */
+        problem: z.string().max(4000).optional(),
+      })
+      .strict(),
+    out: z
+      .object({
+        /** 预览阶段是**未改动**的当前项目；确认阶段是写入之后的。 */
+        project: DesignProject,
+        imported: ImportedThread,
+        /** 预览阶段：模型生成的摘要正文（给用户编辑）。确认阶段：本次真正写进 `problem` 的那段。 */
+        summary: z.string(),
+        /** 线程长于 `IMPORT_THREAD_MAX_MESSAGES` ⇒ 真。屏上与留痕都要说出来，不许静默截断。 */
+        truncated: z.boolean(),
+      })
+      .strict(),
+    err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
   },
   createProject: {
     method: "POST",

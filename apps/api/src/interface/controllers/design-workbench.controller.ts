@@ -44,6 +44,10 @@ import { designWorkbench as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
 import { createProject } from "../../application/design-workbench/create-project";
 import { generateIntakeQuestions } from "../../application/design-workbench/intake-questions";
+import {
+  DesignThreadSummaryUnavailableError,
+  importThread,
+} from "../../application/design-workbench/import-thread";
 import { listMyProjects } from "../../application/design-workbench/list-my-projects";
 import { updateProject } from "../../application/design-workbench/update-project";
 import { appendProjectChat } from "../../application/design-workbench/append-project-chat";
@@ -90,6 +94,17 @@ import {
 } from "../../application/design-workbench/project-shared";
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
+// 迭代 13（delta §2）：导入线程走 `chat` 束**既有**的鉴权读路径，所以这三个端口是那条路径
+// 自己的依赖（`ResolveVisibilityDeps`），不是设计工作台新造的读路径。
+import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
+import {
+  DECISION_ID_FACTORY,
+  IDENTITY_REPOSITORY,
+  type DecisionIdFactory,
+  type IdentityRepository,
+} from "../../application/identity/ports";
+import { ThreadNotVisibleError } from "../../application/chat/get-thread";
+import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
 import {
   FEEDBACK_STRUCTURE_MODEL_CONFIG,
   type FeedbackStructureModelConfig,
@@ -107,6 +122,8 @@ export const INTAKE_QUESTIONS_SCHEMA = C.operations.intakeQuestions.in;
 type IntakeQuestionsBody = ReturnType<typeof INTAKE_QUESTIONS_SCHEMA.parse>;
 export const UPDATE_PROJECT_SCHEMA = C.operations.updateProject.in.omit({ projectId: true });
 export const APPEND_PROJECT_CHAT_SCHEMA = C.operations.appendProjectChat.in.omit({ projectId: true });
+export const IMPORT_THREAD_SCHEMA = C.operations.importThread.in.omit({ projectId: true });
+type ImportThreadBody = ReturnType<typeof IMPORT_THREAD_SCHEMA.parse>;
 export const PATCH_PROTOTYPE_SCHEMA = C.operations.patchPrototype.in.omit({ projectId: true });
 type PatchPrototypeBody = ReturnType<typeof PATCH_PROTOTYPE_SCHEMA.parse>;
 export const PUSH_TO_INBOX_SCHEMA = C.operations.pushToInbox.in.omit({ projectId: true });
@@ -127,6 +144,20 @@ function mapProjectError(e: unknown): Error | null {
     return new BadRequestException({ reasonCode: "PROTOTYPE_PATCH_REJECTED", patchReason: e.reason, ...(e.nodeId !== undefined ? { nodeId: e.nodeId } : {}) });
   }
   if (e instanceof DesignProjectNameRequiredError) return new UnprocessableEntityException({ reasonCode: "NAME_REQUIRED" });
+  /**
+   * 迭代 13（delta §2）——导入线程的两条出口：
+   *   · 线程不可见/不存在 ⇒ **与 `getThread` 逐字同一个拒绝**：裸 404，不带 `reasonCode`。
+   *     不映射成 `PROJECT_NOT_FOUND`（那说的是设计项目）、更不带上标题——chat 束 I-3
+   *     要求「看不见」与「不存在」在响应上分不开，连一个专属错误码都算泄露。
+   *   · 判定依赖不可用 ⇒ 503，同 `chat.controller.ts` 对 `AuthzUnavailableError` 的映射
+   *     （唯一「依赖失败时直接拒绝而不放行」的地方，见 `resolve-visibility.ts` 头注）。
+   *   · 摘要没做出来 ⇒ 503 `DEPENDENCY_UNAVAILABLE`（delta §8：不新增错误码）。
+   */
+  if (e instanceof ThreadNotVisibleError) return new NotFoundException();
+  if (e instanceof AuthzUnavailableError) return new ServiceUnavailableException("authz_unavailable");
+  if (e instanceof DesignThreadSummaryUnavailableError) {
+    return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+  }
   // 2026-09-05「转开发」——四个错误码的 HTTP 语义：
   //   · 未推送 = 请求本身在当前状态下不合法（前置条件不满足）⇒ 409，不是 422：
   //     输入形状没问题，是这个方案还不到能转开发的时候。
@@ -159,6 +190,10 @@ export class DesignWorkbenchController {
     // 迭代 13：参考图——元信息仓储 + 字节的对象存储，与反馈附件用的是同一个 `ObjectStore`。
     @Inject(DESIGN_REF_IMAGE_REPOSITORY) private readonly refImages: DesignRefImageRepositoryFactory,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
+    // 迭代 13（delta §2）：`resolveVisibility` 那条既有读路径的三个依赖，见上方 import 处的注释。
+    @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
+    @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
+    @Inject(DECISION_ID_FACTORY) private readonly decisionIds: DecisionIdFactory,
   ) {}
 
   private designChat(): ModelDesignChatReplier {
@@ -293,6 +328,42 @@ export class DesignWorkbenchController {
           projectId, ownerId: principal.userId, text: body.text,
           ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
           ...(refImages.length > 0 ? { refImages } : {}),
+        },
+      );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /**
+   * 迭代 13（delta §2）：把一个已有对话线程导入为本项目的背景。
+   *
+   * 两个阶段一条路由，由 body 里给不给 `problem` 决定（契约 `importThread` 头注）：
+   * 不给 = 预览（判权 + 摘要，**不写**），给了 = 确认写入用户编辑后的那段。
+   */
+  @Post("/pm-designs/:projectId/import-thread")
+  async importThread(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(IMPORT_THREAD_SCHEMA)) body: ImportThreadBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await importThread(
+        {
+          ...this.deps(principal),
+          chat: this.chat,
+          repo: this.identity,
+          ids: this.decisionIds,
+          model: this.modelCall,
+          chatModel: this.chatModel,
+          log: (m, f) => this.logger.info(m, { ...f, traceId: "design-workbench-import-thread" }),
+        },
+        {
+          projectId,
+          ownerId: principal.userId,
+          threadId: body.threadId,
+          ...(body.problem !== undefined ? { problem: body.problem } : {}),
         },
       );
     } catch (e) {

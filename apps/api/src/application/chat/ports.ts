@@ -30,6 +30,15 @@ export interface ThreadPresentation {
   readonly phase: "onsite" | "research";
   readonly lastActivityAt: string;
   readonly version: number;
+  /**
+   * 迭代 13（design-delta `design-chat-inputs` §2）：线程标题。
+   *
+   * 它落在**这里**而不是 `ThreadFacts`，是因为标题从来不参与可见性判定——把它加进
+   * `ThreadFacts` 就等于让判定路径拿到一段它不需要、却可能被顺手带进拒绝响应里的正文
+   * （I-3：拒绝不许泄露标题）。这个接口的既有定义就是「判定通过之后才取的展示字段」，
+   * 标题正是其中之一，所以不为它新开一个只查一列的读方法。
+   */
+  readonly title: string;
 }
 
 /**

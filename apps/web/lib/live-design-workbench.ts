@@ -135,6 +135,32 @@ export async function appendProjectChat(
   );
 }
 
+/* ── 迭代 13：从已有对话导入（delta `design-chat-inputs` §2）── */
+
+export type ImportThreadOut = z.infer<typeof designWorkbench.operations.importThread.out>;
+/** 一次导入的留痕元信息——契约派生，前端不手写这四个字段名。 */
+export type ImportedThread = z.infer<typeof designWorkbench.ImportedThread>;
+export const IMPORT_THREAD_MAX_MESSAGES = designWorkbench.IMPORT_THREAD_MAX_MESSAGES;
+
+/**
+ * 两个阶段一条路由（契约 `importThread` 头注）：
+ *   · `problem` 不传 ⇒ **预览**：服务端摘要一段回来给用户改，项目一个字不写。
+ *   · `problem` 传了 ⇒ **确认**：写入用户编辑之后的这段文本，并在 `chat` 里留痕。
+ *
+ * ⚠ 界面上「选中线程」只能走前者。选中即调后者 = 选中即写，会覆盖用户已经写好的
+ *   `problem`（V58）——这不是一个可以"顺手省一次往返"的地方。
+ */
+export async function importThread(
+  projectId: string,
+  threadId: string,
+  problem?: string,
+): Promise<ImportThreadOut> {
+  return apiRequest<ImportThreadOut>(
+    designWorkbench.operations.importThread.path.replace(":projectId", encodeURIComponent(projectId)),
+    { method: "POST", body: { threadId, ...(problem !== undefined ? { problem } : {}) } },
+  );
+}
+
 /* ── 迭代 13：参考图（delta `design-chat-inputs` §1）── */
 
 export type RefImage = z.infer<typeof designWorkbench.RefImage>;
