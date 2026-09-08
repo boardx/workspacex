@@ -35,3 +35,33 @@ it("requires remote identity persistence before creating native resources", asyn
   const f = fixture(); await expect(f.run({ ...input, onRemoteRunStarted: undefined })).rejects.toMatchObject({ detail: "native_execution_context_unavailable" });
   expect(f.owner.provision).not.toHaveBeenCalled();
 });
+
+// #3033 —— DevApp 全挂根因：组织级遗留副本与平台官方 skill 同 stableName 一起进 pins。
+const file = { path: "SKILL.md", contentBase64: Buffer.from("# x").toString("base64"), mediaType: "text/markdown",
+  digest: "0".repeat(64) };
+function pkg(skillId: string) { return { skillId, versionId: `${skillId}-v1`, files: [file] }; }
+function pinned(skillId: string, stableName: string) {
+  return { versionId: `${skillId}-v1`, stableName, name: stableName, content: "# x", package: pkg(skillId) };
+}
+it("#3033 dedupes an org-level legacy copy against the platform copy of the same stableName -- platform wins, provision sees one pin", async () => {
+  const f = fixture();
+  await f.run({ ...input, skills: [pinned("skill-org-old-pdf", "pdf-create"), pinned("skill-platform-pdf-create", "pdf-create"), pinned("skill-org-x", "my-skill")] });
+  const pins = f.owner.provision.mock.calls[0]![1] as { stableName: string; package: { skillId: string } }[];
+  expect(pins.map(p => [p.stableName, p.package.skillId])).toEqual([["pdf-create", "skill-platform-pdf-create"], ["my-skill", "skill-org-x"]]);
+  // 反证：顺序反过来（平台副本先到）结果相同——去重不依赖 readPinnedSkills 的返回顺序
+  const g = fixture();
+  await g.run({ ...input, skills: [pinned("skill-platform-pdf-create", "pdf-create"), pinned("skill-org-old-pdf", "pdf-create")] });
+  expect((g.owner.provision.mock.calls[0]![1] as { package: { skillId: string } }[]).map(p => p.package.skillId)).toEqual(["skill-platform-pdf-create"]);
+});
+it("#3033 two non-platform copies of one stableName fail with a named ModelCallError before provision", async () => {
+  const f = fixture();
+  await expect(f.run({ ...input, skills: [pinned("skill-org-a", "pdf-create"), pinned("skill-org-b", "pdf-create")] }))
+    .rejects.toMatchObject({ code: "MODEL_CALL_FAILED", detail: "native_duplicate_skill_stable_name:pdf-create" });
+  expect(f.owner.provision).not.toHaveBeenCalled();
+});
+it("#3033 a stableName the package-set canonicaliser would reject fails with a named ModelCallError, not a bare Error", async () => {
+  const f = fixture();
+  await expect(f.run({ ...input, skills: [pinned("skill-org-c", "Bad_Name")] }))
+    .rejects.toMatchObject({ code: "MODEL_CALL_FAILED", detail: "native_invalid_skill_stable_name:Bad_Name" });
+  expect(f.owner.provision).not.toHaveBeenCalled();
+});
