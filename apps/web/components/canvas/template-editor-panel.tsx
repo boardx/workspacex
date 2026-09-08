@@ -19,7 +19,8 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  collidesWithOthers, FIELD_TYPES,
+  collidesWithOthers, FIELD_TYPES, newTextDraft,
+  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -294,6 +295,8 @@ export function TemplateEditorPanel({
       sectionId: `s${Date.now()}`,
       key, name, type: newField.type, aiHint: null,
       order: prev.length, required: false, capacity: null, layout: null,
+      content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
+      hideFieldTitle: false,
     }]);
     setNewField({ key: "", name: "", type: newField.type });
     setStep(2);
@@ -306,9 +309,21 @@ export function TemplateEditorPanel({
         sectionId: `s${Date.now()}-${i}`,
         key: f.key, name: f.name, type: f.type, aiHint: f.why,
         order: prev.length + i, required: false, capacity: null, layout: null,
+        content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
+        hideFieldTitle: false,
       }));
       return [...prev, ...add];
     });
+  }
+
+  /**
+   * 新建一个「文本对象」草稿（用户直接交办的新功能，2026-09-08）——与数据绑定字段
+   * 分开的入口：不进「① 字段」侧栏的拖拽列表，落在自己的一小节里（同一套拖拽/落点
+   * 机制复用 `onPlace`，两者的 payload 形状完全相同，`onPlace` 本就不关心 `type`）。
+   */
+  function addTextBlock(): void {
+    setSections((prev) => [...prev, newTextDraft(prev.length)]);
+    setStep(2);
   }
 
   /**
@@ -605,7 +620,11 @@ export function TemplateEditorPanel({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto px-3.5 pb-3">
-            {sections.map((s, i) => {
+            {/*
+              「文本对象」不是数据绑定字段（不产出 `{{key}}`），不与它们混在同一份
+              拖拽列表里——单独一节，避免使用者以为它也会出现在 AI 输出 JSON 里。
+            */}
+            {sections.filter((s) => s.type !== "文本对象").map((s, i) => {
               const isPlaced = s.layout !== null;
               return (
                 <div
@@ -687,6 +706,73 @@ export function TemplateEditorPanel({
                 还没有字段 —— 点右上角「提示词」，写清要 AI 干什么，再从提示词里提取字段。
               </p>
             )}
+          </div>
+
+          {/*
+            「标题 / 文本对象」——与数据绑定字段分开的拖拽入口（用户直接交办，
+            2026-09-08）。拖到画布上像标题元素一样落位；点「＋ 添加」直接新建一个
+            未放置的文本草稿，随后同数据字段一样拖到画布上（复用 `onPlace`）。
+          */}
+          <div className="flex flex-none flex-col gap-1.5 border-t border-border px-3.5 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-11 font-bold">标题 / 文本对象</span>
+              {editable && (
+                <Button size="xs" variant="outline" className="ml-auto" onClick={addTextBlock} data-testid="tpladmin-editor-add-text">
+                  ＋ 添加
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {sections.filter((s) => s.type === "文本对象").map((s) => {
+                const isPlaced = s.layout !== null;
+                return (
+                  <div
+                    key={s.sectionId}
+                    draggable={editable && !isPlaced}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-tpl-drag", JSON.stringify({ id: s.sectionId, kind: "field" }));
+                      setStep(2);
+                    }}
+                    onClick={() => { setSelectedId(s.sectionId); if (isPlaced) setStep(3); }}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-card border p-2 transition-colors duration-fast"
+                    style={{
+                      borderColor: isPlaced ? "var(--border, #E3E1DA)" : "#E6C765",
+                      background: selectedId === s.sectionId ? "#FBF7DC" : "var(--card, #fff)",
+                    }}
+                    data-testid={`tpladmin-editor-text-${s.sectionId}`}
+                  >
+                    <GripVertical aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-11" style={{ color: s.color ?? undefined, fontWeight: s.fontWeight === "bold" ? 700 : 400 }}>
+                      {s.content || "（空文本）"}
+                    </span>
+                    <span
+                      className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-9 font-semibold"
+                      style={{
+                        background: isPlaced ? "#E7F0E8" : "#FBF3D4",
+                        color: isPlaced ? "#33603F" : "#8a6a12",
+                      }}
+                    >
+                      {isPlaced ? "已放置" : "未放置"}
+                    </span>
+                    {editable && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground transition-colors duration-fast hover:text-destructive"
+                        aria-label="删除文本对象"
+                        onClick={(e) => { e.stopPropagation(); setSections((prev) => prev.filter((x) => x.sectionId !== s.sectionId)); if (selectedId === s.sectionId) setSelectedId(null); }}
+                      >
+                        <X aria-hidden className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {sections.filter((s) => s.type === "文本对象").length === 0 && (
+                <p className="text-10 leading-relaxed text-muted-foreground">
+                  独立于数据字段的标题/文字块——拖到画布上，可编辑文字、颜色、字号、粗细。
+                </p>
+              )}
+            </div>
           </div>
 
           {/* 底部常驻「＋ 新增字段」快捷表单（§4.1 末条）。 */}
@@ -985,6 +1071,7 @@ export function TemplateEditorPanel({
                 onSelect={(id) => { setSelectedId(id); setStep(3); }}
                 onPlace={place}
                 onMove={move}
+                onEditText={(id, content) => patchSection(id, { content })}
               />
             </div>
           </div>
@@ -1030,6 +1117,7 @@ export function TemplateEditorPanel({
             editable={editable}
             paperSize={paperSize}
             onPatch={(patch) => { if (selectedId) patchLayout(selectedId, patch); }}
+            onPatchSection={(patch) => { if (selectedId) patchSection(selectedId, patch); }}
             onRemove={() => {
               if (!selectedId) return;
               // 「从画布移除（字段保留）」——§4.3 原话：只删 block，不删 field。

@@ -23,6 +23,7 @@ function field(key: string, over: Partial<SectionDraft> = {}): SectionDraft {
     sectionId: `s-${key}`, key, name: key, type: "便利贴列表", aiHint: null,
     order: 0, required: false, capacity: null,
     layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+    content: "", color: null, fontSize: 24, fontWeight: "normal", hideFieldTitle: false,
     ...over,
   };
 }

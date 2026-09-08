@@ -24,7 +24,19 @@ import {
 // 它们改 import 路径，只搬定义、不搬用法。
 export { TONE_COLORS };
 
-export type SectionFieldType = "便利贴列表" | "短文本" | "长文本";
+export type SectionFieldType = "便利贴列表" | "短文本" | "长文本" | "文本对象";
+
+/** 「文本对象」的粗细候选——契约 `fontWeight` 是自由字符串，编辑器只暴露这两档。 */
+export const FONT_WEIGHT_OPTIONS = ["normal", "bold"] as const;
+export type TextFontWeight = (typeof FONT_WEIGHT_OPTIONS)[number];
+
+/** 「文本对象」新建时的默认值——编辑器落到画布的第一眼，不是"空白等你填"。 */
+export const DEFAULT_TEXT_CONTENT = "标题文字";
+export const DEFAULT_TEXT_COLOR = "#14130F";
+export const DEFAULT_TEXT_FONT_SIZE = 24;
+export const DEFAULT_TEXT_FONT_WEIGHT: TextFontWeight = "bold";
+export const TEXT_FONT_SIZE_MIN = 8;
+export const TEXT_FONT_SIZE_MAX = 72;
 
 export interface SectionLayoutDraft {
   col: number;
@@ -48,6 +60,16 @@ export interface SectionDraft {
   capacity: number | null;
   /** `null` = 未放置到画布上。 */
   layout: SectionLayoutDraft | null;
+  /** 「文本对象」的文字内容——其它类型不用，恒为空串。 */
+  content: string;
+  /** 「文本对象」的字色——其它类型不用，恒为 `null`（渲染时兜底默认色）。 */
+  color: string | null;
+  /** 「文本对象」的字号（px）——其它类型不用，恒为 `DEFAULT_TEXT_FONT_SIZE`。 */
+  fontSize: number;
+  /** 「文本对象」的粗细——其它类型不用，恒为 `DEFAULT_TEXT_FONT_WEIGHT`。 */
+  fontWeight: string;
+  /** 隐藏区块标题（`{{key}}` 提示行 + 区块名），只显示内容——数据绑定型分区专用。 */
+  hideFieldTitle: boolean;
 }
 
 /**
@@ -110,7 +132,37 @@ export function toDraft(row: CanvasTemplate): SectionDraft[] {
     required: s.required,
     capacity: s.capacity,
     layout: s.layout ? { ...s.layout } : null,
+    content: s.content ?? "",
+    color: s.color ?? null,
+    fontSize: s.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
+    fontWeight: s.fontWeight ?? DEFAULT_TEXT_FONT_WEIGHT,
+    hideFieldTitle: s.hideFieldTitle ?? false,
   }));
+}
+
+/**
+ * 新建一个「文本对象」草稿（未放置，落在字段列表之外的独立入口，见
+ * `template-editor-panel.tsx` 的「标题 / 文本对象」栏）。`sectionId` 用时间戳而不是
+ * 序号——同 `addField`/`addExtracted` 既有的生成方式，保证在同一次会话里不撞车。
+ */
+export function newTextDraft(order: number): SectionDraft {
+  const id = `text${Date.now()}`;
+  return {
+    sectionId: id,
+    key: id,
+    name: "文本",
+    type: "文本对象",
+    aiHint: null,
+    order,
+    required: false,
+    capacity: null,
+    layout: null,
+    content: DEFAULT_TEXT_CONTENT,
+    color: DEFAULT_TEXT_COLOR,
+    fontSize: DEFAULT_TEXT_FONT_SIZE,
+    fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
+    hideFieldTitle: false,
+  };
 }
 
 function fallbackKey(sectionId: string, index: number): string {
@@ -132,6 +184,10 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
       required: d.required,
       capacity: d.capacity,
       layout: d.layout ? { ...d.layout } : null,
+      ...(d.type === "文本对象"
+        ? { content: d.content, color: d.color, fontSize: d.fontSize, fontWeight: d.fontWeight }
+        : {}),
+      ...(d.hideFieldTitle ? { hideFieldTitle: true } : {}),
     }));
 }
 
@@ -141,7 +197,7 @@ export function defaultLayoutAt(
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
   const w = Math.min(gridCols === 12 ? 6 : 3, gridCols - col + 1);
-  // 列表型默认高 3 行、短文本 1 行。
+  // 列表型默认高 3 行、短文本/文本对象 1 行。
   const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
   return {
     col, row, w, h,
@@ -461,27 +517,34 @@ export function checkTemplateHealth(
   drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "", size: PaperSizeKey = "A1",
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
-  const unplaced = named.filter((d) => d.layout === null);
+  // 「文本对象」是静态装帧文字，不绑定 `{{key}}`、不进 AI 输出结构——字段计数/
+  // key 唯一性/占位符校验都只看数据绑定型分区（同 `canvas-template-guidance.ts`
+  // 的 `bodySections` 排除法，两处判据一致）。放置检查（`unplaced`）与网格重叠检查
+  // 仍然覆盖文本对象——它也占画布空间，摆漏了/叠在别的区块上同样是要报的问题。
+  const dataFields = named.filter((d) => d.type !== "文本对象");
+  // `unplaced`（发布前置检查「N 个字段没放到画布上」）只看数据字段——文本对象没有
+  // "AI 生成后被丢弃"这回事，混进这句提示会说不通。
+  const unplaced = dataFields.filter((d) => d.layout === null);
   const overflowing: { section: SectionDraft; max: number; fits: number }[] = [];
-  for (const d of named) {
+  for (const d of dataFields) {
     if (!d.layout || d.type !== "便利贴列表") continue;
     const geom = sectionGeometryMmOf(d, gridCols, size);
     if (d.layout.max > geom.fits) overflowing.push({ section: d, max: d.layout.max, fits: geom.fits });
   }
   const seen = new Set<string>();
   const duplicateKeys: string[] = [];
-  for (const d of named) {
+  for (const d of dataFields) {
     if (seen.has(d.key)) duplicateKeys.push(d.key);
     seen.add(d.key);
   }
   // §6 规则③：提示词里提到、字段表里没有的占位符（见 `danglingPlaceholders` 文档）。
-  const knownKeys = new Set(named.map((d) => d.key));
+  const knownKeys = new Set(dataFields.map((d) => d.key));
   const danglingPlaceholders = extractPromptPlaceholders(promptText).filter((k) => !knownKeys.has(k));
   const overlapping = findOverlappingSections(named);
 
   return {
-    fieldCount: named.length,
-    placedCount: named.length - unplaced.length,
+    fieldCount: dataFields.length,
+    placedCount: dataFields.length - dataFields.filter((d) => d.layout === null).length,
     unplaced,
     overflowing,
     duplicateKeys,

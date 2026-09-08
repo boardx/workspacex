@@ -90,6 +90,67 @@ describe("computeExplicitLayout —— px 几何", () => {
   });
 
   /**
+   * 「文本对象」（用户直接交办，2026-09-08）——静态标题/文字块，不进 `spec.sections`
+   * （不是贴纸分区框），走 `decorations` 里的一个 `shape:'text'` 节点，颜色/字号/粗细
+   * 原样带过去；vendor（`fabric-objects.ts`）早就认识这个 shape，不需要改
+   * `packages/fabric-markdown` 一个字（VENDOR.md 纪律）。
+   */
+  it("「文本对象」进 decorations，不进 sections；内容/颜色/字号/粗细原样带过去", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        section("a", 1, 1, 6, 4),
+        {
+          sectionId: "title1", name: "文本", type: "文本对象",
+          layout: { col: 7, row: 1, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          content: "画布大标题", color: "#FF0000", fontSize: 30, fontWeight: "bold",
+        },
+      ],
+      gridCols: 12,
+    });
+    // 只有数据字段进 sections——文本对象不是要贴便签的分区框。
+    expect(spec.sections).toHaveLength(1);
+    expect(spec.sections[0]!.name).toBe("分区-a");
+    expect(spec.decorations).toHaveLength(1);
+    const deco = spec.decorations![0]!;
+    expect(deco.shape).toBe("text");
+    expect(deco.label).toBe("画布大标题");
+    expect(deco.data).toMatchObject({ fontSize: 30, bold: true, color: "#FF0000" });
+  });
+
+  it("「文本对象」粗细为 normal 时 decorations 的 bold 是 false", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [{
+        sectionId: "title1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "副标题", color: null, fontSize: 14, fontWeight: "normal",
+      }],
+      gridCols: 12,
+    });
+    expect(spec.decorations![0]!.data).toMatchObject({ fontSize: 14, bold: false });
+  });
+
+  /**
+   * 「隐藏字段名」（用户直接交办，2026-09-08）——只隐藏标题，贴纸内容不受影响。
+   * 渲染引擎（`template-engine.ts`）把 `TemplateSection.name` 当标题字符串直接画，
+   * 置空就是空标题，不需要改 vendor、也不需要一个新的 spec 字段。
+   */
+  it("hideFieldTitle=true 时该分区的 TemplateSection.name 置空；其它分区不受影响", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        section("a", 1, 1, 6, 4, {}),
+        { ...section("b", 7, 1, 6, 4), hideFieldTitle: true },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.sections.find((s) => s.x === spec.sections[0]!.x)?.name).toBe("分区-a");
+    const hidden = spec.sections[1]!;
+    expect(hidden.name).toBe("");
+  });
+
+  /**
    * issue #2372：此前 `buildExplicitTemplateSpec` 只产出 name/x/y/w/h/fill，`layout.cols`
    * （列数）与 `layout.tone`（贴纸颜色）从没进过 `TemplateSpec`——不是本函数没算，是从
    * 没写出来过。这两条断言钉住"现在确实写出来了"，对应 vendor 侧新增的

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
   classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH,
+  FONT_WEIGHT_OPTIONS, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -16,7 +17,7 @@ import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-temp
  * `Design.pdf` §5 开头那句「所有 mm 换算必须与屏幕渲染同源，不能两套数」。
  */
 export function TemplateDisplayPanel({
-  section, sections, gridCols, health, editable, onPatch, onRemove, paperSize = "A1",
+  section, sections, gridCols, health, editable, onPatch, onPatchSection, onRemove, paperSize = "A1",
 }: {
   readonly section: SectionDraft | null;
   /**
@@ -29,6 +30,11 @@ export function TemplateDisplayPanel({
   readonly health: TemplateHealth;
   readonly editable: boolean;
   readonly onPatch: (patch: Partial<SectionLayoutDraft>) => void;
+  /**
+   * 改分区自身的字段（非 `layout`）——「文本对象」的文字内容/颜色/字号/粗细、
+   * 数据字段的「隐藏字段名」都落在这里，不是 `onPatch`（那个只碰 `layout`）。
+   */
+  readonly onPatchSection: (patch: Partial<SectionDraft>) => void;
   readonly onRemove: () => void;
   /** 纸张尺寸——决定这里显示的 mm 数。缺省 `"A1"`，兼容既有调用方。 */
   readonly paperSize?: PaperSizeKey;
@@ -95,6 +101,90 @@ export function TemplateDisplayPanel({
   }
 
   const layout = section.layout;
+
+  // 「文本对象」是静态装帧文字，没有数据来源/列数/最多条数/超出策略这些概念——
+  // 自成一套右栏（用户直接交办，2026-09-08：文字内容/颜色/字号/粗细四项），
+  // 只与数据字段共用「在 A1 上占多大」（下面单独渲染）与移除按钮。
+  if (section.type === "文本对象") {
+    return (
+      <div className="flex flex-1 flex-col gap-3.5 overflow-auto p-3.5" data-testid="tpladmin-editor-display-text">
+        <Group label="文本内容">
+          <textarea
+            className="min-h-[64px] rounded-card border border-border bg-background px-2 py-1.5 text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+            value={section.content}
+            disabled={!editable}
+            onChange={(e) => onPatchSection({ content: e.target.value })}
+            data-testid="tpladmin-editor-text-content-input"
+          />
+        </Group>
+        <Group label="颜色">
+          <input
+            type="color"
+            className="h-8 w-14 cursor-pointer rounded-control border border-border bg-background disabled:cursor-default"
+            value={section.color ?? "#14130F"}
+            disabled={!editable}
+            onChange={(e) => onPatchSection({ color: e.target.value })}
+            data-testid="tpladmin-editor-text-color"
+          />
+        </Group>
+        <Group label="字号">
+          <div className="flex items-center gap-2">
+            <Stepper
+              value={section.fontSize} min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} editable={editable}
+              onChange={(fontSize) => onPatchSection({ fontSize })} testIdPrefix="tpladmin-editor-text-fontsize"
+            />
+            <span className="text-11 text-muted-foreground">px</span>
+          </div>
+        </Group>
+        <Group label="粗细">
+          <Chips
+            options={FONT_WEIGHT_OPTIONS}
+            value={(section.fontWeight === "bold" ? "bold" : "normal") as (typeof FONT_WEIGHT_OPTIONS)[number]}
+            editable={editable}
+            onPick={(fontWeight) => onPatchSection({ fontWeight })}
+            format={(v) => (v === "bold" ? "粗体" : "常规")}
+            testIdPrefix="tpladmin-editor-text-weight"
+          />
+        </Group>
+
+        {layout && (
+          <Group label="在 A1 上占多大">
+            <div className="flex items-center gap-2">
+              <span className="w-6 text-11 text-muted-foreground">宽</span>
+              <Stepper
+                value={layout.w} min={1}
+                max={maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols)}
+                editable={editable}
+                onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-6 text-11 text-muted-foreground">高</span>
+              <Stepper
+                value={layout.h} min={1}
+                max={maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w)}
+                editable={editable}
+                onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
+              />
+            </div>
+          </Group>
+        )}
+
+        {editable && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-auto border-destructive/40 text-destructive"
+            onClick={onRemove}
+            data-testid="tpladmin-editor-remove-block"
+          >
+            从画布移除
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const isList = section.type === "便利贴列表";
   const geom = sectionGeometryMmOf(section, gridCols, paperSize);
   const sizeClass = classifyNoteSize(geom.noteMm);
@@ -197,6 +287,25 @@ export function TemplateDisplayPanel({
                 />
               ))}
             </div>
+          </Group>
+
+          {/*
+            「隐藏字段名」（用户直接交办，2026-09-08）——列表型（行为/触点/痛点/机会……）
+            专属：只隐藏区块标题/`{{key}}` 提示行，贴纸内容照常渲染。渲染端唯一事实源
+            是 `section.hideFieldTitle`，`template-canvas-grid.tsx`/`explicit-template-layout.ts`
+            都只读它，这里只负责写。
+          */}
+          <Group label="标题显示">
+            <label className="flex cursor-pointer items-center gap-2 text-11">
+              <input
+                type="checkbox"
+                checked={section.hideFieldTitle}
+                disabled={!editable}
+                onChange={(e) => onPatchSection({ hideFieldTitle: e.target.checked })}
+                data-testid="tpladmin-editor-hide-field-title"
+              />
+              隐藏字段名（只显示内容）
+            </label>
           </Group>
         </>
       )}

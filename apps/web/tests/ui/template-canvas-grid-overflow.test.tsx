@@ -27,6 +27,7 @@ function listSection(overflow: SectionLayoutDraft["overflow"], max: number): Sec
     // TITLE_RESERVE_MM 的具体取值（那个值会因为标题区排版改动而变，见
     // `explicit-template-layout.ts` 的同名常量文档）。
     layout: { col: 1, row: 1, w: 3, h: 8, cols: 1, max, tone: 0, overflow },
+    content: "", color: null, fontSize: 24, fontWeight: "normal", hideFieldTitle: false,
   };
 }
 

@@ -110,7 +110,9 @@ export function thumbBoxesOf(template: CanvasTemplate): ThumbBox[] {
         topPct: ((l.row - 1) / 8) * 100,
         widthPct: (l.w / 12) * 100,
         heightPct: (l.h / 8) * 100,
-        color: isList ? TONE_COLORS[l.tone] ?? TONE_COLORS[0] : TEXT_BLOCK_COLOR,
+        // 「文本对象」有自己选的字色但没有 tone——缩略图用它的字色兜底浅灰，
+        // 至少能看出"这一块是有颜色态度的文字"而不是一律灰块。
+        color: isList ? TONE_COLORS[l.tone] ?? TONE_COLORS[0] : s.type === "文本对象" ? (s.color ?? TEXT_BLOCK_COLOR) : TEXT_BLOCK_COLOR,
       };
     });
   }

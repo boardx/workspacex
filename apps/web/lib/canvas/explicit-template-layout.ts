@@ -85,7 +85,14 @@ export interface ExplicitLayoutSectionInput {
    * （`template-engine.ts`）把这些值放进 `fields` map，但 spec 没有
    * `fields`/`headerRect`，值被静默丢弃。见 `buildExplicitTemplateSpec` 下方注释。
    */
-  readonly type?: "便利贴列表" | "短文本" | "长文本";
+  readonly type?: "便利贴列表" | "短文本" | "长文本" | "文本对象";
+  /** 「文本对象」的文字内容/颜色/字号/粗细——其它类型不用。见契约 `SectionDef` 文档。 */
+  readonly content?: string;
+  readonly color?: string | null;
+  readonly fontSize?: number;
+  readonly fontWeight?: string;
+  /** 数据绑定型分区隐藏标题——见契约 `SectionDef.hideFieldTitle` 文档。 */
+  readonly hideFieldTitle?: boolean;
 }
 
 export interface ExplicitLayoutCell {
@@ -322,6 +329,9 @@ function stickyWidthOverride(cellW: number, cols: number): { w?: number } {
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const rawLayout = computeExplicitLayout(input.sections, input.gridCols);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
+  // 「文本对象」（用户直接交办，2026-09-08）需要各自的文字/颜色/字号/粗细，`typeById`
+  // 只记类型不够用，另建一份按 sectionId 索引的完整输入。
+  const infoById = new Map(input.sections.map((s) => [s.sectionId, s] as const));
   const headerCells = rawLayout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
 
   // 表头带长高超出它自己的网格格子多少（见文件头 2026-09-02 注释）；没有表头时为 0。
@@ -346,18 +356,63 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
       bounds: { ...rawLayout.bounds, bottom: rawLayout.bounds.bottom + headerShift },
     }
     : rawLayout;
-  const bodyCells = layout.cells.filter((c) => typeById.get(c.sectionId) !== "短文本");
+  // 「文本对象」是静态装帧文字，不是要贴便签的分区框——单独摘出来，走 `decorations`
+  // 而不是 `sections`（见下方 `textDecorations` 的理由）。
+  const bodyCells = layout.cells.filter((c) => {
+    const t = typeById.get(c.sectionId);
+    return t !== "短文本" && t !== "文本对象";
+  });
+  const textCells = layout.cells.filter((c) => typeById.get(c.sectionId) === "文本对象");
 
-  const sections: TemplateSection[] = bodyCells.map((c) => ({
-    name: c.name,
-    x: c.x,
-    y: c.y,
-    w: c.w,
-    h: c.h,
-    fill: PAPER,
-    sticky: { perRow: c.layout.cols, ...stickyWidthOverride(c.w, c.layout.cols), ...stickyHeightOverride(c.h) },
-    stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
-  }));
+  const sections: TemplateSection[] = bodyCells.map((c) => {
+    // 「隐藏字段名」（用户直接交办，2026-09-08）：置空 `name` 让引擎的标题条画出来
+    // 但没有文字——不改 `titleBars`（那是整份 spec 的全局开关，会连累其它区块），
+    // 也不需要 vendor 侧的新分支（`template-engine.ts` 528 行原样把 `sec.name` 当
+    // 标题字符串画，空串就是空标题，`packages/fabric-markdown` 一个字不改）。
+    const hideTitle = infoById.get(c.sectionId)?.hideFieldTitle === true;
+    return {
+      name: hideTitle ? "" : c.name,
+      x: c.x,
+      y: c.y,
+      w: c.w,
+      h: c.h,
+      fill: PAPER,
+      sticky: { perRow: c.layout.cols, ...stickyWidthOverride(c.w, c.layout.cols), ...stickyHeightOverride(c.h) },
+      stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
+    };
+  });
+
+  /**
+   * 「文本对象」→ `decorations` 里的一个 `shape:'text'` 节点——vendor
+   * （`fabric-objects.ts` 415 行起）早就支持这个 shape：`data.data` 读
+   * `fontSize`/`bold`/`color`/`align`，不需要改 `packages/fabric-markdown` 一个字
+   * （VENDOR.md 纪律）。`fontWeight` 是契约里的自由字符串（`"normal"`/`"bold"`/
+   * 数值权重），这里按 vendor 只认 boolean `bold` 的形状换算：`"bold"` 或数值
+   * ≥700 都算粗体，其余算常规。
+   */
+  // 元素类型从 `TemplateSpec['decorations']` 结构派生，不 import vendor 的
+  // `DiagramNode`（未从 `@repo/fabric-markdown` 公开导出）——同一条 VENDOR.md
+  // 纪律：包外拼数据，不碰包内一个字，也不需要包去多导出一个类型才能拼。
+  const textDecorations: NonNullable<TemplateSpec["decorations"]> = textCells.map((c) => {
+    const info = infoById.get(c.sectionId);
+    const weight = info?.fontWeight ?? "";
+    const bold = weight === "bold" || Number(weight) >= 700;
+    return {
+      id: `text-${c.sectionId}`,
+      label: info?.content ?? "",
+      shape: "text",
+      x: c.x,
+      y: c.y,
+      width: c.w,
+      height: c.h,
+      data: {
+        fontSize: info?.fontSize ?? 24,
+        bold,
+        color: info?.color ?? undefined,
+        align: "left",
+      },
+    };
+  });
 
   let headerFields:
     | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
@@ -390,7 +445,7 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
       ...(headerFields ?? {}),
       sections,
       titleBars: true,
-      decorations: [],
+      decorations: textDecorations,
     },
     layout,
   };

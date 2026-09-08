@@ -217,7 +217,8 @@
                       "enum": [
                         "便利贴列表",
                         "短文本",
-                        "长文本"
+                        "长文本",
+                        "文本对象"
                       ]
                     },
                     "aiHint": {
@@ -309,6 +310,25 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "content": {
+                      "type": "string"
+                    },
+                    "color": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fontSize": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "fontWeight": {
+                      "type": "string"
+                    },
+                    "hideFieldTitle": {
+                      "type": "boolean"
                     }
                   },
                   "required": [

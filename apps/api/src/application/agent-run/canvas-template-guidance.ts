@@ -169,7 +169,9 @@ export function buildCanvasTemplateGuidance(
       // 表头 vs 正文的**唯一**切分处。判据是分区自己的 `type`（库里的事实），
       // 不是另一份清单——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
       const header = t.sections.filter((s) => s.type === "短文本").map((s) => s.name);
-      const bodySections = t.sections.filter((s) => s.type !== "短文本");
+      // 「文本对象」（标题/固定文案块）是设计时静态装帧，不是要 AI 填的正文分区
+      // （同 `SectionDef.content` 文档），不进 `bodySections`，也不要求 AI 产出它的内容。
+      const bodySections = t.sections.filter((s) => s.type !== "短文本" && s.type !== "文本对象");
       // 每个正文分区后面标出它配置的条数上限（`layout.max`，template-admin 里
       // 「N 列 · M 条」的 M）——没配置（老模板、没走过布局回填）的分区不标注，
       // 沿用下面那句通用的「3~6 条」区间，行为与本次改动前一致。

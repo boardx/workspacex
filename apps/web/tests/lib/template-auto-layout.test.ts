@@ -20,6 +20,7 @@ function draft(id: string, type: SectionFieldType, name = id): SectionDraft {
     sectionId: id, key: id, name, type,
     required: false, capacity: null, aiHint: "", order: 0,
     layout: null,
+    content: "", color: null, fontSize: 24, fontWeight: "normal", hideFieldTitle: false,
   };
 }
 

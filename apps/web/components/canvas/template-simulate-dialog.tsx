@@ -235,16 +235,22 @@ export function TemplateSimulateDialog({
               footer,
               gridCols,
               sections: sections.map((s) => (
-                { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
+                {
+                  sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
+                  content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
+                  hideFieldTitle: s.hideFieldTitle,
+                }
               )),
             })
             : buildAutoTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
               footer,
-              sections: sections.map((s) => ({
+              // 自动布局算法不认识「文本对象」，理由同 `fence-template-resolver.ts`
+              // 同名过滤处的注释。
+              sections: sections.filter((s) => s.type !== "文本对象").map((s) => ({
                 sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
-                type: s.type,
+                type: s.type as "便利贴列表" | "短文本" | "长文本",
               })),
             });
           registerTemplate(spec);
