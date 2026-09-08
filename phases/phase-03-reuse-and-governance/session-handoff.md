@@ -226,3 +226,19 @@ GitHub 把 base 消失的 PR 自动关闭。PR 上零条评论，没有任何人
 3. 迭代 14 + 15 现在都在 `claude/iter14-devices-only` 上，但**那个分支还没有合进 main**。
    最终要有一个 PR 把它送进 main，否则这三轮对 devapp 上的用户仍然不存在
    （完成定义第 6 条）。
+
+### 23:13 复查更新 —— #3184 全绿
+
+**18 个 check 全部完成，没有一个红。** 关键那条：
+
+- **`gates-test (3)`：success**（22:29:01 → 22:39:24，真跑了 10 分钟）。
+  port 进来的 #3176 修复解决了连红两跑的那条用例。
+  ⚠ 特意核过它**不是「同 SHA 车道复用裁决」**——那种 job 的 Execute 步是 skipped、
+  几秒就完事。这条真的执行了。
+- 其余 success：gates-test 1/2/4、gates-fast、gates-runtime、e2e-core-loop、
+  native-runtime-lane、native-document-chain、merge-gate、fullstack-smoke、
+  verify-affected / -full-compile / -control-plane。
+- skipped：deploy（PR 分支本就不部署）、e2e-full / chat-path-coverage /
+  chat-task-workbench（本 PR 不触发这几条车道）。
+
+**按人类指令没有合并。** 早上直接 review 即可。
