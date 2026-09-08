@@ -49,3 +49,15 @@ DROP POLICY IF EXISTS design_project_ref_images_org_isolation ON design_project_
 CREATE POLICY design_project_ref_images_org_isolation ON design_project_ref_images
   USING (org_id = current_setting('app.current_org', true))
   WITH CHECK (org_id = current_setting('app.current_org', true));
+
+/*
+ * 迭代 13（delta §5.2）—— 原型自己的明暗主题。
+ *
+ * 它是**原型的属性**，不是"看的人后台开了哪个色"：同一份原型给谁看都该是设计者定的那个色，
+ * 导出的 HTML 也跟随它（V69）。所以进项目行，而不是进浏览器的偏好存储。
+ *
+ * 默认 'dark' 与这一列出现之前的行为逐字相同——旧行读出来是 dark，屏上不会因为这次迁移变色。
+ */
+ALTER TABLE design_projects
+  ADD COLUMN IF NOT EXISTS theme text NOT NULL DEFAULT 'dark'
+  CHECK (theme IN ('light', 'dark'));

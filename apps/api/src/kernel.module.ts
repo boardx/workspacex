@@ -560,6 +560,8 @@ import { PgInboxTagRepository } from "./infrastructure/inbox/pg-inbox-tag-reposi
 import { DesignWorkbenchController } from "./interface/controllers/design-workbench.controller";
 import { DESIGN_PROJECT_REPOSITORY } from "./application/design-workbench/project-ports";
 import { PgDesignProjectRepository } from "./infrastructure/design-workbench/pg-design-project-repository";
+import { DESIGN_REF_IMAGE_REPOSITORY } from "./application/design-workbench/ref-image-ports";
+import { PgRefImageRepository } from "./infrastructure/design-workbench/pg-ref-image-repository";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -2745,6 +2747,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: DESIGN_PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgDesignProjectRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // 迭代 13：参考图元信息仓储，同上按组织构造。
+    {
+      provide: DESIGN_REF_IMAGE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgRefImageRepository(db),
       inject: [DATABASE_PORT],
     },
     {

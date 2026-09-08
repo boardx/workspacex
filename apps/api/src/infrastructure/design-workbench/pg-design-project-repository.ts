@@ -10,7 +10,7 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
-import { designPrototype } from "@repo/contracts";
+import { designPrototype, designWorkbench } from "@repo/contracts";
 import type {
   CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
@@ -42,6 +42,10 @@ interface ProjectDbRow {
    * 上面三列旧数据保留一个版本供回滚，本版本双写；读一律从这里来。
    */
   readonly screens: unknown;
+  /** 迭代 13（delta §5.2）：原型自己的明暗主题；旧行由迁移的 DEFAULT 填成 'dark'。 */
+  readonly theme: string | null;
+  /** 迭代 13：`SELECT_COLUMNS` 里那个子查询聚出来的 jsonb 数组，形状即契约 `RefImage`。 */
+  readonly ref_images: unknown;
   readonly pushed: boolean;
   readonly pushed_at: Date | string | null;
   readonly push_note: string | null;
@@ -167,6 +171,24 @@ function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {
   }));
 }
 
+/**
+ * 逐条过契约 `RefImage`。不合法的丢掉而不是整份返回空——一张读不出来的参考图不该让
+ * 项目打不开（同 `toPrototype` 对坏树的态度）。
+ */
+function toRefImages(raw: unknown): readonly designWorkbench.RefImage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: designWorkbench.RefImage[] = [];
+  for (const item of raw) {
+    const parsed = designWorkbench.RefImage.safeParse(
+      item !== null && typeof item === "object" && "createdAt" in item
+        ? { ...item, createdAt: new Date((item as { createdAt: string }).createdAt).toISOString() }
+        : item,
+    );
+    if (parsed.success) out.push(parsed.data);
+  }
+  return out;
+}
+
 function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow {
   return {
     id: row.id,
@@ -190,6 +212,8 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
         frameLinks: screens.some((x) => (x.links ?? []).length > 0) ? screens.map((x) => [...(x.links ?? [])]) : [],
       };
     })(),
+    theme: row.theme === "light" ? "light" : "dark",
+    refImages: toRefImages(row.ref_images),
     pushed: row.pushed,
     pushedAt: row.pushed_at === null ? null : new Date(row.pushed_at).toISOString(),
     pushNote: row.push_note,
@@ -202,10 +226,28 @@ function toRow(row: ProjectDbRow, chat: readonly ChatDbRow[]): DesignProjectRow 
   };
 }
 
+/**
+ * 迭代 13：参考图的**元信息**随项目一次读出来（不含字节）。做成 `SELECT_COLUMNS` 里的子查询，
+ * 而不是让用例层再查一次仓储：`DesignProject` 的每条读路径（list / get / update 的 RETURNING）
+ * 都要带上它，分开查意味着四处各写一次"别忘了补 refImages"，漏一处的表现是
+ * 「传了图、刷新就没了」。
+ *
+ * ⚠ 这个字符串是模板字面量：里面**不许**出现反引号——它会提前终止字符串，
+ *   而报错点会落在几行之后，看起来像是别的地方写错了。SQL 注释就写普通的话。
+ */
 const SELECT_COLUMNS = `
   id, owner_id, name, template, problem, criteria, frames, prototype, frame_notes, screens,
+  theme,
   pushed, pushed_at, push_note, linked_feedback_id,
-  github_issue_url, github_issue_number, created_at, updated_at`;
+  github_issue_url, github_issue_number, created_at, updated_at,
+  COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+             'id', r.id, 'name', r.name, 'size', r.size_bytes,
+             'mime', r.content_type, 'createdAt', r.created_at)
+             ORDER BY r.created_at ASC, r.id ASC)
+      FROM design_project_ref_images r
+     WHERE r.org_id = design_projects.org_id AND r.project_id = design_projects.id
+  ), '[]'::jsonb) AS ref_images`;
 
 interface VersionDbRow {
   readonly id: string;
@@ -408,6 +450,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
                 frames     = $9::jsonb,
                 prototype  = $10::jsonb,
                 frame_notes = $11::jsonb,
+                theme      = COALESCE($12, theme),
                 updated_at = now()
           WHERE org_id = $1 AND owner_id = $2 AND id = $3
           RETURNING ${SELECT_COLUMNS}`,
@@ -418,6 +461,7 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           JSON.stringify(nextScreens.map((x) => x.frame)),
           JSON.stringify(prototypeOf(nextScreens)),
           JSON.stringify(nextScreens.some((x) => (x.notes ?? "") !== "") ? nextScreens.map((x) => x.notes ?? "") : []),
+          patch.theme ?? null,
         ],
       );
       const row = rows[0];

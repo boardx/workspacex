@@ -33,10 +33,13 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
   UnprocessableEntityException,
   ConflictException,
   ServiceUnavailableException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { designWorkbench as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
 import { createProject } from "../../application/design-workbench/create-project";
@@ -68,9 +71,21 @@ import {
   type DesignProjectRepositoryFactory,
 } from "../../application/design-workbench/project-ports";
 import {
+  RefImageRejectedError,
+  deleteRefImage,
+  loadRefImageBytes,
+  uploadRefImage,
+} from "../../application/design-workbench/ref-images";
+import {
+  DESIGN_REF_IMAGE_REPOSITORY,
+  type DesignRefImageRepositoryFactory,
+} from "../../application/design-workbench/ref-image-ports";
+import { OBJECT_STORE, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
+import {
   DesignProjectNameRequiredError,
   DesignProjectNotFoundError,
   DesignProjectNotOwnerError,
+  loadProjectView,
   type DesignProjectDeps,
 } from "../../application/design-workbench/project-shared";
 import { FEEDBACK_SUBMITTER_DIRECTORY, type FeedbackSubmitterDirectory } from "../../application/feedback/notification-ports";
@@ -141,6 +156,9 @@ export class DesignWorkbenchController {
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
     // 2026-09-05「转开发」——与 `feedback.controller.ts` 建 issue 用的是同一个端口实现，不另配。
     @Inject(GITHUB_ISSUE_CREATOR) private readonly githubIssues: GithubIssueCreator,
+    // 迭代 13：参考图——元信息仓储 + 字节的对象存储，与反馈附件用的是同一个 `ObjectStore`。
+    @Inject(DESIGN_REF_IMAGE_REPOSITORY) private readonly refImages: DesignRefImageRepositoryFactory,
+    @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
   ) {}
 
   private designChat(): ModelDesignChatReplier {
@@ -149,6 +167,10 @@ export class DesignWorkbenchController {
       chatModel: this.chatModel,
       log: (message, detail) => this.logger.info(message, { ...detail, traceId: "design-workbench-chat" }),
     });
+  }
+
+  private refImageDeps(principal: Principal) {
+    return { ...this.deps(principal), store: this.objectStore, refImages: this.refImages.forOrg(principal.orgId) };
   }
 
   private deps(principal: Principal): DesignProjectDeps {
@@ -225,6 +247,7 @@ export class DesignWorkbenchController {
         name: body.name,
         template: body.template,
         problem: body.problem,
+        theme: body.theme,
       });
     } catch (e) {
       throw mapProjectError(e) ?? e;
@@ -239,9 +262,23 @@ export class DesignWorkbenchController {
   ) {
     assertPrincipal(principal);
     try {
+      /**
+       * 迭代 13：这一轮要带上的参考图**字节**在这里取。前端传来的 id 不可信——
+       * `loadRefImageBytes` 只认确实属于这个项目的那些（见其头注）。
+       * 取不到字节的跳过而不是整轮失败：少一张参考图不该让这次对话作废。
+       */
+      const refImages = await loadRefImageBytes(
+        { store: this.objectStore, refImages: this.refImages.forOrg(principal.orgId) },
+        projectId,
+        body.refImageIds ?? [],
+      );
       return await appendProjectChat(
         { ...this.deps(principal), ai: this.designChat() },
-        { projectId, ownerId: principal.userId, text: body.text, ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}) },
+        {
+          projectId, ownerId: principal.userId, text: body.text,
+          ...(body.focusNodeId !== undefined ? { focusNodeId: body.focusNodeId } : {}),
+          ...(refImages.length > 0 ? { refImages } : {}),
+        },
       );
     } catch (e) {
       throw mapProjectError(e) ?? e;
@@ -320,6 +357,71 @@ export class DesignWorkbenchController {
         { ...this.deps(principal), logger: this.logger, traceId: traceIdOf(req) },
         { projectId, ownerId: principal.userId, note: body.note },
       );
+    } catch (e) {
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  /* ── 迭代 13：参考图（delta `design-chat-inputs` §1）── */
+
+  /**
+   * `multipart/form-data`，同 `feedback.controller.ts` 的附件上传：`file` 字段是二进制，
+   * `contentType` 字段是声明的类型。声明只用来**对照**字节，不作数——真正判类型的是
+   * magic byte（用例层 `sniffDeclaredType`）。
+   *
+   * 400 `REF_IMAGE_REJECTED` 带 `rejectReason`（TYPE / SIZE / TOO_MANY）：三种情形合成
+   * 一个错误码，因为屏上给用户的下一步是同一句话「换一张图」；`rejectReason` 让文案能说得更准。
+   */
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/pm-designs/:projectId/ref-images")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      // ⚠ multer 这道限只是**先挡一手**，省得 4MB 以上的字节全读进内存才被拒。
+      //   真正的判定在用例层（同一个契约常量），multer 这里放宽一点以免它先于用例层
+      //   用一个没有 reasonCode 的 500 把请求打掉。
+      limits: { fileSize: C.PROTOTYPE_REF_IMAGE_MAX_BYTES + 1024, files: 1 },
+    }),
+  )
+  async uploadRefImage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @UploadedFile() file: { buffer: Buffer; originalname?: string } | undefined,
+    @Body("contentType") contentType: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    if (!file || typeof contentType !== "string") {
+      throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: "TYPE" });
+    }
+    try {
+      const { image } = await uploadRefImage(this.refImageDeps(principal), {
+        orgId: toOrgId(principal.orgId),
+        projectId,
+        ownerId: principal.userId,
+        name: file.originalname ?? "参考图",
+        declaredContentType: contentType,
+        bytes: new Uint8Array(file.buffer),
+      });
+      return { image, project: await loadProjectView(this.deps(principal), projectId) };
+    } catch (e) {
+      if (e instanceof RefImageRejectedError) {
+        throw new BadRequestException({ reasonCode: "REF_IMAGE_REJECTED", rejectReason: e.reason });
+      }
+      if (e instanceof ObjectStoreUnavailableError) {
+        throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      throw mapProjectError(e) ?? e;
+    }
+  }
+
+  @Delete("/pm-designs/:projectId/ref-images/:imageId")
+  async deleteRefImage(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Param("imageId") imageId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await deleteRefImage(this.refImageDeps(principal), { projectId, ownerId: principal.userId, imageId });
     } catch (e) {
       throw mapProjectError(e) ?? e;
     }

@@ -18,6 +18,8 @@ export interface UpdateProjectInput {
   readonly name?: string;
   readonly template?: ProjectTemplate;
   readonly problem?: string;
+  /** 迭代 13（delta §5.2）：原型的明暗主题——是原型的属性，不是看的人的偏好。 */
+  readonly theme?: "light" | "dark";
 }
 
 export async function updateProject(
@@ -34,6 +36,7 @@ export async function updateProject(
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.template !== undefined ? { template: input.template } : {}),
     ...(input.problem !== undefined ? { problem: input.problem } : {}),
+    ...(input.theme !== undefined ? { theme: input.theme } : {}),
   });
   if (updated === null) throw new DesignProjectNotOwnerError();
 
