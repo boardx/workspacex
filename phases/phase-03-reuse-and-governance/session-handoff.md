@@ -139,3 +139,28 @@ GitHub 同一 group 只保留**一个 pending**（这条规律该文件第 80 �
 - **#3174**：13 个已完成、**全 success**（含 gates-test 1/3/4、e2e-core-loop、fullstack-smoke、
   verify-*、merge-gate），`native-document-chain` 在跑、`gates-test (2)` 排队。0 failure。
 - #3162 无变化（cancelled，早上处理）。
+
+### 20:35 复查更新
+
+- **#3173：17 个 check 全部完成、全绿。**（`deploy` 是 skipped——PR 分支本来就不部署。）
+- **#3174：`gates-test (3)` 红了一次**，其余 16 个全绿。失败的是
+  `apps/api/tests/agent-runtime/bailian-image-bounds.test.ts >
+  「deadline aborts a stalled submission body and does not resubmit」`，
+  报 `Test timed out in 60000ms`，同 shard 另外 238 个文件 / 1951 条用例全过。
+
+  判断依据（不是「大概是 flake」）：
+  1. 这个文件测的是**百炼图片 provider 的超时/取消边界**，跟这三轮改的
+     design-workbench 没有任何调用关系——迭代 16 的 diff 一行都没碰 agent-runtime。
+  2. 用例自己给 provider 的 deadline 是 **100ms**、断言 `< 2000ms`，却卡到 60s 超时。
+     这是「机器被压住、定时器没按时跑」的形状，不是断言失败的形状。
+  3. **#3173 的同一个 shard（gates-test (3)）跑同一份 agent-runtime 代码是绿的。**
+  4. 本地复现不了——**这个远程会话没有 docker daemon**，`tests/support/db-global-setup.ts`
+     起不来（`failed to connect to the docker API at unix:///var/run/docker.sock`）。
+     所以我没有「本地也绿」这条证据，只有上面三条。
+
+  处置：按 drive-to-green 的规则用掉**唯一那一次**重跑（`rerun_failed_jobs`，
+  run 34271233835）。**如果重跑还红，那它就不是 flake，是真问题，要当成真问题查**——
+  下一次复查会看结果。
+
+⚠ 顺带记一笔：这个测试用**真实计时**断死 2000ms 上界，在满载 runner 上天生脆。
+如果它再红，值得单开一个 issue 让它用假时钟，而不是继续靠重跑糊过去。
