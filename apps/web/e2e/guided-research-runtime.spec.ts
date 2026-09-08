@@ -91,6 +91,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   const streamResponse = await reportResponse;
   expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
+  await expect(page.getByTestId("research-report-timeline")).toBeVisible();
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 30000 });
   await expect(page.getByTestId("research-report")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
@@ -112,6 +113,10 @@ test("research persists all five model-backed steps through the real UI, API and
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
+  expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
+  expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
+  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
+  await expect(page.getByRole("button", { name: "继续生成剩余章节", exact: true })).toHaveCount(0);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   expect(runtime.report.introduction).toContain("检索摘要");
   expect(runtime.report.conclusion).toContain("综合各章");

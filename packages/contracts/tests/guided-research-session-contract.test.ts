@@ -433,3 +433,12 @@ describe("detailed research design compatibility", () => {
 it("allows an honest evidence-gap chapter without fabricating a source reference", () => {
   expect(research.GuidedResearchReport.parse({ title: "Coverage limitations", summary: "Further research required", sections: [{ sectionId: "gap", body: "No relevant evidence supports an answer yet.", sourceIds: [] }] }).sections[0]?.sourceIds).toEqual([]);
 });
+
+describe("report timeline contract", () => {
+  it("accepts server-authored recovery progress and rejects unknown states or negative counters", () => {
+    const step = { id: "evidence", stage: "evidence", status: "retrying", attempts: 2, completed: 4, total: 12 };
+    expect(research.GuidedResearchReportTimelineStep.parse(step)).toEqual(step);
+    expect(research.GuidedResearchReportTimelineStep.safeParse({ ...step, status: "pretend_done" }).success).toBe(false);
+    expect(research.GuidedResearchReportTimelineStep.safeParse({ ...step, attempts: -1 }).success).toBe(false);
+  });
+});
