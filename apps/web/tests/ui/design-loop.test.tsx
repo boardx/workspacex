@@ -1053,7 +1053,7 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
     // 后台整体是深色（真实形态：html 上挂 .dark）
     document.documentElement.classList.add("dark");
-    render(<DesignDetailScreen projectId="p1" state="default" />);
+    render(<DesignDetailScreen projectId="p1" />);
     const phone = await screen.findByTestId("design-detail-phone");
     expect(phone.className).toContain("dark");
 
