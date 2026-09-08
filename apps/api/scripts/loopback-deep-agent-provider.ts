@@ -91,7 +91,9 @@ const SCROLL_TOTAL_HALF_STEPS = 20;
  * 一轮，好让真实的 `in_progress` 记账行有机会被前端真的轮询到、真的渲染出来。
  * 不影响其它触发词/默认路径（读取时判空/判等）。
  */
-const MULTISTEP_MIN_STATUS_POLLS = Number(process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_MIN_POLLS ?? "6");
+// issue #3100 D6：剧本从三步（todos/search/read）变成四步（多了 spawn_async_task），
+// 终稿落在第 8 个半步——阈值必须跟着抬，否则非流式路径会在终稿揭示之前就判终态。
+const MULTISTEP_MIN_STATUS_POLLS = Number(process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_MIN_POLLS ?? "8");
 /**
  * #728 P9 —— 确定性失败触发词。用户消息**逐字等于**这个值时，本进程让 run 走到
  * `error` 终态而不是 `success`，供取证脚本构造一次真实失败并截图——不是在前端
@@ -358,6 +360,15 @@ interface RunRecord {
   /** 路径矩阵 D4：这一轮的 system prompt **目录**里真的出现了那个 stable_name——
    *  见 `skillCatalogReachedUpstream`。与上一行是两个独立信号，不许互相替代。 */
   skillCatalogSeen?: boolean;
+  /**
+   * issue #3100 D6 —— `spawn_async_task` 这一轮真的派发出去之后，TS 侧回给的那条
+   * 子任务 run id（`POST /internal/subtask-runs` 响应体的 `subtaskRunId`）。
+   * `null` = 这一轮没有派发（未命中剧本 / 没配通路 / 派发失败），`/state` 据此决定
+   * 要不要揭示那半个工具调用——**没派成功就不揭示**，不编一个 id 骗前端。
+   */
+  spawnedSubtaskRunId?: string | null;
+  /** 派发失败时真实工具会回的那句话（含异常类名），供 `/state` 原样当 ToolMessage 用。 */
+  spawnFailureText?: string | null;
 }
 
 function approvalReply(record: RunRecord): string {
@@ -476,10 +487,88 @@ function computeSpecialTurnReply(threadId: string, record: RunRecord): string | 
   return null;
 }
 
+/**
+ * issue #3100 D6 —— 多步剧本派发的那个子任务的目标与背景。两处用到（`POST /threads/:id/runs`
+ * 真的派发时、`/state` 揭示工具 args 时），所以是模块常量而不是各写一份字面量。
+ */
+const SPAWN_SUBTASK_DESCRIPTION = "并行核对 A.md 里引用的外部数据源，整理成一段可引用的结论。";
+const SPAWN_SUBTASK_CONTEXT = "父任务已确认：检索命中 A.md/B.md/C.md，其中 A.md 最相关。";
+/** 一次派发对应一个稳定的 tool_call id —— 真实工具把它当 `idempotencyKey` 用。 */
+const spawnCallIdFor = (threadId: string): string => `spawn-${threadId}`;
+
+/**
+ * issue #3100 D6 —— `spawn_async_task` 的**真实派发动作**，逐字照
+ * `apps/deep-agent-service/src/deep_agent_service/tools.py::spawn_async_task` 的线格式复写：
+ *
+ *   POST `<subtask_callback_base_url>/internal/subtask-runs`
+ *   headers: `content-type: application/json` + `x-deep-agent-internal-key: <subtask_callback_key>`
+ *            （key 为空串时**不带**这个头——真实工具就是这么判的）
+ *   body:    `{orgId, parentRunId, description, context, idempotencyKey}`
+ *   ok:      响应体 `{subtaskRunId}`，非空字符串才算派发成功
+ *
+ * 这里**不是**在替身里造一条假的子任务记录：它打的是 `apps/api` 真实的
+ * `SubtaskRunController.enqueue`，落的是真实的 `subtask_runs` 行，随后由真实的
+ * `SubtaskRunExecutor` 真的执行、真的把工具明细写回去。替身只负责"模型这一轮决定派发
+ * 一个子任务"这一件事——与真实部署里 Python 侧承担的职责完全一致。
+ *
+ * 四个 configurable 键任一缺席 ⇒ 返回降级说明（与真实工具同一条判据、同一句措辞），
+ * **不**静默假装派发成功。
+ */
+async function spawnAsyncTask(parsed: CreateRunBody, description: string, context: string | null,
+  toolCallId: string): Promise<{ subtaskRunId: string } | { failure: string }> {
+  const configurable = parsed.config?.configurable ?? {};
+  const baseUrlRaw = configurable.subtask_callback_base_url;
+  const orgId = configurable.org_id;
+  const parentRunId = configurable.parent_run_id;
+  if (typeof baseUrlRaw !== "string" || baseUrlRaw.trim() === ""
+    || typeof orgId !== "string" || orgId.trim() === ""
+    || typeof parentRunId !== "string" || parentRunId.trim() === "") {
+    return {
+      failure: "无法派发异步子任务：本次运行没有配置好异步派发通路"
+        + "（缺少 subtask_callback_base_url/org_id/parent_run_id 之一）。"
+        + "请改用 task 工具委托给具名子代理，或自己继续处理这个子任务。",
+    };
+  }
+  const key = typeof configurable.subtask_callback_key === "string" ? configurable.subtask_callback_key : "";
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (key !== "") headers["x-deep-agent-internal-key"] = key;
+  try {
+    const response = await fetch(`${baseUrlRaw.replace(/\/+$/, "")}/internal/subtask-runs`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ orgId, parentRunId, description, context, idempotencyKey: toolCallId }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`HTTPStatusError:${response.status}`);
+    const body = (await response.json()) as { subtaskRunId?: unknown };
+    const subtaskRunId = typeof body.subtaskRunId === "string" ? body.subtaskRunId.trim() : "";
+    if (subtaskRunId === "") throw new Error("ValueError");
+    return { subtaskRunId };
+  } catch (error) {
+    const name = error instanceof Error ? error.message.split(":")[0]! : "Exception";
+    return { failure: `派发子任务失败（${name}），未能加入后台队列，请改为同步处理这个子任务。` };
+  }
+}
+
 interface CreateRunBody {
   readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown }[] };
   /** #2534：`deep-agent-model-provider.ts` 的 `toWireSkills` 形状——skill 全文只经这里到远端。 */
-  readonly config?: { readonly configurable?: { readonly org_skills?: readonly { readonly content?: unknown }[] } };
+  readonly config?: {
+    readonly configurable?: {
+      readonly org_skills?: readonly { readonly content?: unknown }[];
+      /**
+       * issue #3100 D6 —— `spawn_async_task` 的异步派发通路。这四个键由
+       * `deep-agent-model-provider.ts::subtaskConfig()` 写进 `configurable`，真实
+       * `deep_agent_service/tools.py::_read_subtask_callback` 读的就是它们（同名、同大小写、
+       * 同"四者任一缺席即降级"的判据）。本替身**从请求字节里读**，不从自己的环境变量
+       * 另开一份事实源——「替身的方言 ≠ 上游的方言」那条纪律要求的正是这个。
+       */
+      readonly subtask_callback_base_url?: unknown;
+      readonly subtask_callback_key?: unknown;
+      readonly org_id?: unknown;
+      readonly parent_run_id?: unknown;
+    };
+  };
   /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
    *  只在裁决请求里出现——首次创建 run 不带 `command`。 */
   readonly command?: {
@@ -522,7 +611,7 @@ const server = createServer((req, res) => {
   const runsMatch = /^\/threads\/([^/]+)\/runs$/.exec(url);
   if (req.method === "POST" && runsMatch) {
     const threadId = runsMatch[1]!;
-    void readBody(req).then((raw) => {
+    void readBody(req).then(async (raw) => {
       const existing = runs.get(threadId);
       if (!existing) { sendJson(res, 404, { error: "unknown thread" }); return; }
       let parsed: CreateRunBody;
@@ -569,6 +658,23 @@ const server = createServer((req, res) => {
         // 路径矩阵 D4：同一条纪律——只看这一轮请求真实收到的字节，不缓存跨轮。
         skillCatalogSeen: skillCatalogReachedUpstream(parsed),
       });
+      /*
+       * issue #3100 D6 —— 多步剧本这一轮真的派发一个异步子任务。
+       *
+       * 时序照真实链路：`spawn_async_task` 是在**这一次模型运行内部**同步调用 TS 侧入队
+       * 端点的（见 `tools.py` 里那段 `httpx.post`），所以这里也在 run 创建应答之前 await
+       * 它——不是事后补一条。派发结果记进 record，`/state` 只在派发**真的成功**之后才把
+       * 那半个工具调用揭示出来（失败时揭示的是失败那句话），替身不替 TS 侧编 id。
+       */
+      if (MULTISTEP_TRIGGER !== undefined && lastUserText === MULTISTEP_TRIGGER) {
+        const outcome = await spawnAsyncTask(parsed, SPAWN_SUBTASK_DESCRIPTION, SPAWN_SUBTASK_CONTEXT,
+          spawnCallIdFor(threadId));
+        const record = runs.get(threadId);
+        if (record !== undefined) {
+          record.spawnedSubtaskRunId = "subtaskRunId" in outcome ? outcome.subtaskRunId : null;
+          record.spawnFailureText = "failure" in outcome ? outcome.failure : null;
+        }
+      }
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -797,11 +903,42 @@ const server = createServer((req, res) => {
        * （对应终态行）。真实 `execute-run.ts` 的 `completeWithProgress` 循环会在这个
        * 过程中真的把 `in_progress` 行写进 `agent_run_steps`，前端真的有机会轮询到它。
        */
+      /*
+       * issue #3100 D6 —— 派发异步子任务这一步。args 形状逐字等于真实工具签名
+       * （`description` + 可选 `context`），ToolMessage 正文逐字等于真实工具的返回串
+       * （`tools.py::spawn_async_task` 的两条 return 分支），子任务 id 是 TS 侧
+       * `POST /internal/subtask-runs` 真的回给的那一个——见 `spawnAsyncTask` 头注。
+       *
+       * ⚠ 没派成功（`spawnedSubtaskRunId` 为 null）时揭示的是**失败那句话**，不是
+       * 一条编出来的成功回执：前端的后台任务面板此时也确实查不到任何子任务行，
+       * 界面与账本两边一致。
+       */
+      const spawnCallId = spawnCallIdFor(threadId);
+      const spawnAnnounced = {
+        type: "ai",
+        content: "这件事可以并行处理，我把它派发到后台去跑。",
+        tool_calls: [{
+          id: spawnCallId,
+          name: "spawn_async_task",
+          args: { description: SPAWN_SUBTASK_DESCRIPTION, context: SPAWN_SUBTASK_CONTEXT },
+        }],
+      };
+      const spawnAnswered = {
+        type: "tool",
+        tool_call_id: spawnCallId,
+        content: record.spawnedSubtaskRunId
+          ? `子任务已派发（subtaskRunId=${record.spawnedSubtaskRunId}），正在后台异步执行，`
+            + "不需要等待它完成，请继续处理对话的其它部分。"
+          : record.spawnFailureText ?? "无法派发异步子任务：本次运行没有配置好异步派发通路"
+            + "（缺少 subtask_callback_base_url/org_id/parent_run_id 之一）。"
+            + "请改用 task 工具委托给具名子代理，或自己继续处理这个子任务。",
+      };
       const polls = record.statusPolls;
       const messages: unknown[] = [human, todosAnnounced];
       if (polls >= 2) messages.push(todosAnswered, searchAnnounced);
-      if (polls >= 4) messages.push(searchAnswered, readAnnounced);
-      if (polls >= 6) messages.push(readAnswered, finalReply);
+      if (polls >= 4) messages.push(searchAnswered, spawnAnnounced);
+      if (polls >= 6) messages.push(spawnAnswered, readAnnounced);
+      if (polls >= 8) messages.push(readAnswered, finalReply);
       sendJson(res, 200, { values: { messages } });
       return;
     }
