@@ -7,10 +7,10 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
   if (!previous) return null;
   const streamed = researchReportPreview(previous.text);
   const sections = [...previous.chapters, ...streamed.sections.filter((section) => !previous.chapters.some((saved) => saved.sectionId === section.sectionId))];
-  const content = previous.report ?? { ...streamed, title: streamed.title || previous.title, sections };
+  const content = previous.report ?? previous.draft ?? { ...streamed, title: streamed.title || previous.title, sections };
   const document = researchReportDocument(content, previous.sources, previous.outline, { provisional: !previous.report, aliases: previous.aliases });
   const current = researchReportPreview(state.reportStream?.text ?? "");
-  const currentHasContent = Boolean(state.report || state.reportCheckpoint?.chapters.length || current.summary || current.introduction || current.conclusion || current.sections.some((section) => section.body));
+  const currentHasContent = Boolean(state.report || state.reportDraft || state.reportCheckpoint?.chapters.length || current.summary || current.introduction || current.conclusion || current.sections.some((section) => section.body));
   const expired = Boolean(state.leaseUntil && Date.parse(state.leaseUntil) <= Date.now());
   const fallback = !currentHasContent || Boolean(state.errorCode) || expired;
   return <details key={fallback ? "fallback" : "archive"} open={fallback} className="rounded-xl border border-border bg-muted/20 p-4" data-testid="research-report-history">
@@ -18,6 +18,7 @@ export function GuidedResearchReportHistory({ state }: { state: GuidedResearchRu
     <div className="mt-4 space-y-3"><p className="text-12 text-muted-foreground">上一轮内容独立保留，仅供回顾。保存时间：<time dateTime={previous.createdAt}>{previous.createdAt}</time></p>
       {previous.partial && <p className="text-12 text-muted-foreground" data-testid="previous-report-evidence-gap">上一轮报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。</p>}
       {!!previous.evidenceWarnings?.length && <p className="text-12 text-muted-foreground" data-testid="previous-report-evidence-warning">上一轮有 {previous.evidenceWarnings.length} 批证据包含未通过校验的内容，已排除无效部分。历史内容的证据覆盖可能不完整。</p>}
+      {!!previous.qualityWarnings?.length && <p className="text-12 text-muted-foreground">上一轮草稿有 {previous.qualityWarnings.length} 个章节尚未通过质量核验。</p>}
       <GuidedResearchReportDocument document={document} provisional={!previous.report} historical idPrefix="previous-" />
       {!!document.unresolvedReferences && <p className="text-12 text-muted-foreground">{document.unresolvedReferences} 处历史草稿引用待核对。</p>}
     </div>
