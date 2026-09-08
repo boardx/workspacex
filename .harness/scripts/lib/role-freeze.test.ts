@@ -65,3 +65,58 @@ describe("findUnregisteredRoles", () => {
     expect(findings[0]!.sourceFile).toBe("roles/b.yaml");
   });
 });
+
+/* ── findRoleMetadataDrift 的反证（2026-09-09 加）──────────────────────
+ * kind/areas/reports_to 在 registry.yaml 与 roles/*.yaml 各写一遍，此前只核对
+ * name 在不在。每条断言先造一种漂移确认它会红，最后一组是反向反证 + 真仓库取证。
+ * ──────────────────────────────────────────────────────────────────── */
+import { findRoleMetadataDrift, type RoleMetadata, type RoleMetadataFile } from "./role-freeze";
+
+const file = (over: Partial<RoleMetadataFile> = {}): RoleMetadataFile => ({
+  sourceFile: ".harness/agents/roles/r.yaml",
+  name: "r",
+  kind: "worker",
+  areas: ["a", "b"],
+  reports_to: "coord-main",
+  ...over,
+});
+const reg = (over: Partial<RoleMetadata> = {}): ReadonlyMap<string, RoleMetadata> =>
+  new Map([["r", { kind: "worker", areas: ["a", "b"], reports_to: "coord-main", ...over }]]);
+
+describe("findRoleMetadataDrift", () => {
+  it("kind 漂移 ⇒ FAIL 并同时打印两侧的值", () => {
+    const f = findRoleMetadataDrift([file()], reg({ kind: "coordinator" }));
+    expect(f).toHaveLength(1);
+    expect(f[0]!.severity).toBe("FAIL");
+    expect(f[0]!.message).toContain("kind 两处不一致");
+    expect(f[0]!.message).toContain("role 文件写 worker");
+    expect(f[0]!.message).toContain("registry.yaml 写 coordinator");
+  });
+
+  it("areas 多一项 / 少一项 / 只是顺序不同，都算漂移", () => {
+    expect(findRoleMetadataDrift([file({ areas: ["a", "b", "c"] })], reg())).toHaveLength(1);
+    expect(findRoleMetadataDrift([file({ areas: ["a"] })], reg())).toHaveLength(1);
+    expect(findRoleMetadataDrift([file({ areas: ["b", "a"] })], reg())).toHaveLength(1);
+  });
+
+  it("reports_to 漂移 ⇒ FAIL", () => {
+    expect(findRoleMetadataDrift([file()], reg({ reports_to: "coord-other" }))).toHaveLength(1);
+  });
+
+  it("缺省与显式 null 等价——coord-main 在 registry 里没有 reports_to 键，role 文件写 null", () => {
+    expect(findRoleMetadataDrift([file({ reports_to: null })], reg({ reports_to: null }))).toEqual([]);
+  });
+
+  it("三个字段都一致 ⇒ 零 finding（反向反证：永远红的门控等于没有）", () => {
+    expect(findRoleMetadataDrift([file()], reg())).toEqual([]);
+  });
+
+  it("一次报出多条漂移，不在第一条就停", () => {
+    expect(findRoleMetadataDrift([file()], reg({ kind: "coordinator", areas: ["x"] }))).toHaveLength(2);
+  });
+
+  it("未登记 / 无 name 的角色不在这里报——同一个缺口不许有两个严重度", () => {
+    expect(findRoleMetadataDrift([file({ name: "unregistered" })], reg())).toEqual([]);
+    expect(findRoleMetadataDrift([file({ name: null })], reg())).toEqual([]);
+  });
+});
