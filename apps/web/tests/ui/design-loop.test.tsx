@@ -1384,6 +1384,94 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
     });
   });
 
+  /**
+   * 迭代 14 —— 预览时换设备镜头。核心取舍：**镜头不写库**（它是"我现在用什么尺寸看"，
+   * 不是"这稿是给什么设备的"），以及机身真的画出来（模拟的意义在于比例与外观是真的）。
+   */
+  describe("迭代 14 设备模拟", () => {
+    const mount = async (template: "mobile" | "ui" | "wireframe" = "mobile") => {
+      const bodies: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") {
+          return { items: [project({ id: "p1", template, frames: ["首页"], frameLinks: [[]],
+            prototype: [{ id: "root", type: "stack", children: [{ id: "b1", type: "button", props: { label: "发送" } }] }] })] };
+        }
+        if (opts?.method === "PATCH") { bodies.push(opts.body); return { project: project({ id: "p1", template }) }; }
+        throw new Error(`unexpected ${path}`);
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail-phone-tree");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      return bodies;
+    };
+
+    it("默认镜头跟项目模板走；切换后画板尺寸与机身形态都变", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().getAttribute("data-device")).toBe("iphone");
+      expect(frame().getAttribute("data-chrome")).toBe("phone");
+      expect(frame().style.width).toBe("393px");
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
+      expect(frame().getAttribute("data-device")).toBe("laptop");
+      expect(frame().getAttribute("data-chrome")).toBe("browser");
+      expect(frame().style.width).toBe("1280px");
+      // ⭐ 反证：尺寸若还从旧的 DEVICE_SIZE 三档来 ⇒ 宽度不会是 1280，这条红。
+    });
+
+    it("换镜头**不写库**——一次 PATCH 都不发", async () => {
+      const bodies = await mount("mobile");
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "ipad" } });
+      fireEvent.click(screen.getByTestId("design-detail-rotate"));
+      await waitFor(() => expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("ipad"));
+      // ⭐ 反证：把镜头做成 DesignProject 的字段（像 theme 那样 PATCH）⇒ 这条红。
+      //   那会让「这稿是给 iPhone 的」和「我现在用 iPhone 尺寸看」混成同一件事。
+      expect(bodies).toEqual([]);
+    });
+
+    it("旋转交换宽高；桌面浏览器的旋转按钮禁用", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().style.width).toBe("393px");
+      fireEvent.click(screen.getByTestId("design-detail-rotate"));
+      expect(frame().style.width).toBe("852px");
+      expect(frame().getAttribute("data-landscape")).toBe("true");
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "desktop" } });
+      expect((screen.getByTestId("design-detail-rotate") as HTMLButtonElement).disabled).toBe(true);
+      // 不可旋转的镜头即便 landscape 状态还留着，也不该被转过来
+      expect(frame().getAttribute("data-landscape")).toBe("false");
+      expect(frame().style.width).toBe("1440px");
+    });
+
+    it("机身 chrome 真的画出来了：手机有灵动岛 + home 条，浏览器有工具栏", async () => {
+      await mount("mobile");
+      const frame = () => screen.getByTestId("design-detail-phone");
+      expect(frame().querySelector('[data-chrome="island"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="status"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="home"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="browser"]')).toBeNull();
+
+      // iPhone SE 是上下额头，不是灵动岛——两者靠形状区分，不是同一个东西
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "iphone-se" } });
+      expect(frame().querySelector('[data-chrome="notch"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="island"]')).toBeNull();
+
+      fireEvent.change(screen.getByTestId("design-detail-device"), { target: { value: "laptop" } });
+      expect(frame().querySelector('[data-chrome="browser"]')).toBeTruthy();
+      expect(frame().querySelector('[data-chrome="home"]')).toBeNull();
+      // ⭐ 反证：chrome 若只是换个圆角、不画状态栏/工具栏 ⇒ 这一组全红。"模拟"就剩个空壳。
+    });
+
+    it("chrome 是装饰：不进原语树，选不中", async () => {
+      await mount("mobile");
+      const tree = screen.getByTestId("design-detail-phone-tree");
+      // 状态栏/灵动岛都在树**外面**——否则属性面板会多出一批用户根本改不了的目标
+      expect(tree.querySelector('[data-chrome]')).toBeNull();
+      expect(tree.querySelectorAll('[data-proto]').length).toBeGreaterThan(0);
+    });
+  });
+
   it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
     const bodies: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
@@ -1895,7 +1983,10 @@ describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / push
     for (const t of ["本月用量", "升级套餐", "对话数", "1,284", "+12%", "配额", "68%", "本周", "提醒", "含测试", "聊天", "用量"]) expect(tree.textContent).toContain(t);
     expect(tree.querySelector('[data-proto="grid"]')?.className).toContain("grid-cols-3");
     expect(tree.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("68");
-    expect(screen.getByTestId("design-detail-phone").getAttribute("data-device")).toBe("desktop"); // template ui ⇒ 桌面
+    // 迭代 14：设备预设取代了 phone|tablet|desktop 三档——template ui ⇒ 笔记本镜头（浏览器壳）。
+    const frame = screen.getByTestId("design-detail-phone");
+    expect(frame.getAttribute("data-device")).toBe("laptop");
+    expect(frame.getAttribute("data-chrome")).toBe("browser");
     // 属性面板认识新类型
     fireEvent.click(tree.querySelector('[data-node-id="s"]') as HTMLElement);
     expect(screen.getByTestId("design-inspector").textContent).toContain("指标「对话数」");

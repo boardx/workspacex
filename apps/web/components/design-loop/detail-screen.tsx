@@ -1,12 +1,12 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Loader2, PlugZap, Crosshair, X, History, LayoutGrid, Smartphone, MessageSquareText, Play, Sun, Moon, Import, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { PrototypeCanvas, deviceOf } from "./prototype-canvas";
+import { PrototypeCanvas, deviceOf, DEVICE_PRESETS, presetById, rotated, fitScale } from "./prototype-canvas";
 import { PrototypeHistoryPanel } from "./prototype-history";
 import { RefImageStrip } from "./ref-image-strip";
 import { ImportThreadDialog } from "./import-thread-dialog";
@@ -140,7 +140,16 @@ export function DesignDetailScreen({
    * 没跳转的节点点了没反应也不选中；属性面板与焦点 chip 收起（预览不是编辑）。
    */
   const [canvasMode, setCanvasMode] = React.useState<"edit" | "preview">("edit");
+  /**
+   * 迭代 14：预览用的**镜头**——设备预设与横竖。刻意**不写库**：它是"我现在用什么尺寸看"，
+   * 不是"这稿是给什么设备的"（后者由项目 template 决定，见 `lib/prototype-devices` 头注）。
+   * `null` = 跟随项目模板的默认镜头；用户切过之后才有值。
+   */
+  const [deviceId, setDeviceId] = React.useState<string | null>(null);
+  const [landscape, setLandscape] = React.useState(false);
   const [preview, setPreview] = React.useState<PrototypeVersion | null>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const [stage, setStage] = React.useState({ w: 0, h: 0 });
   /**
    * 迭代 13（delta §2）：「从对话导入」弹窗。**不确认不写**——弹窗自己只在确认那一步
    * 才调写入，这里拿到的 `project` 已经是写入之后的那一份（见 `import-thread-dialog.tsx`）。
@@ -168,6 +177,10 @@ export function DesignDetailScreen({
   }, [reload]);
 
   const project = load.kind === "ready" ? load.project : null;
+  /** 迭代 14：当前镜头 = 用户选的，没选过就跟项目模板走。 */
+  const lens = deviceId === null ? deviceOf(project?.template ?? "mobile") : presetById(deviceId);
+  const lensSize = rotated(lens, landscape);
+  const scale = fitScale(stage, { w: lensSize.w, h: lensSize.h + 40 });
   // 迭代 2：选中节点在当前树里的路径；节点被上一轮删掉/整页重生成后找不到 ⇒ 视为未选中（不留悬空引用）。
   const focus = React.useMemo(
     () => (project !== null && selectedId !== null && canvasMode === "edit" ? findPrototypeNodePath(project.prototype, selectedId) : null),
@@ -204,6 +217,22 @@ export function DesignDetailScreen({
       window.setTimeout(() => setChatError(null), 3000);
     }
   };
+
+  /**
+   * 迭代 14：量画布可用空间，好把 1280 宽的笔记本缩进来。
+   * jsdom 没有 `ResizeObserver` 也量不出尺寸 ⇒ stage 保持 0，`fitScale` 返回 1，
+   * 测试里按原尺寸渲染（这正是它对 0 尺寸返回 1 的理由）。
+   */
+  React.useEffect(() => {
+    const el = stageRef.current;
+    if (el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const r = entry?.contentRect;
+      if (r !== undefined) setStage({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   React.useEffect(() => {
     // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
@@ -564,6 +593,35 @@ export function DesignDetailScreen({
                     </button>
                   ))}
                 </div>
+                {/*
+                  * 迭代 14：设备镜头。**不写库** —— 换设备只改画板尺寸，原型没有断点，
+                  * 内容按 flex 自适应；title 里如实说清楚，免得有人以为切过去就看到了响应式结果。
+                  */}
+                <div className="flex items-center gap-0.5 rounded-control bg-panel p-0.5" data-testid="design-detail-devices">
+                  <select
+                    value={lens.id}
+                    onChange={(e) => setDeviceId(e.target.value)}
+                    data-testid="design-detail-device"
+                    title="换个设备尺寸看。原型没有断点，换设备只改画板尺寸，内容按 flex 自适应。"
+                    className="h-6 rounded-control border-0 bg-transparent px-1 text-10 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {DEVICE_PRESETS.map((d) => (
+                      <option key={d.id} value={d.id}>{d.label} {d.w}×{d.h}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setLandscape((v) => !v)}
+                    disabled={!lens.rotatable}
+                    aria-pressed={landscape && lens.rotatable}
+                    data-testid="design-detail-rotate"
+                    title={lens.rotatable ? "横过来看" : "这个尺寸没有竖屏一说"}
+                    className={cn("inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
+                      landscape && lens.rotatable ? "bg-card text-card-foreground" : "text-muted-foreground hover:bg-card/60")}
+                  >
+                    <RotateCw aria-hidden className="h-3 w-3" />
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setHistoryOpen((o) => !o); if (historyOpen) setPreview(null); }}
@@ -608,25 +666,42 @@ export function DesignDetailScreen({
                       onFocusFrame={setFrame}
                       selectedId={preview === null && focus !== null ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      device={deviceOf(project.template)}
+                      device={lens}
+                      landscape={landscape}
                       links={frameLinks}
                       mode={canvasMode}
                       theme={project.theme}
                       onNavigate={setFrame}
                     />
                   ) : (
+                    /*
+                     * 迭代 14：画板按**逻辑分辨率**渲染，再整体缩放塞进可用空间。
+                     * `transform: scale` 而不是改宽高——改宽高等于换了个更小的设备，
+                     * 那就不是"在 1280 的笔记本上长什么样"了。`origin-top` 让它从顶部往下缩，
+                     * 与人看设备的习惯一致（不是从中心散开）。
+                     */
+                    <div
+                      ref={stageRef}
+                      className="flex min-h-0 flex-1 justify-center overflow-auto p-4"
+                      data-testid="design-detail-stage"
+                      data-scale={scale.toFixed(3)}
+                    >
+                      <div style={{ transform: `scale(${scale})`, transformOrigin: "top center", width: lensSize.w, height: lensSize.h }}>
                     <PrototypeCanvas
                       label={(preview ?? project).frames[Math.min(frame, (preview ?? project).frames.length - 1)] ?? ""}
                       root={(preview ?? project).prototype[Math.min(frame, (preview ?? project).frames.length - 1)] ?? null}
                       selectedId={preview === null && focus !== null && focus.frameIndex === frame ? selectedId : null}
                       onSelect={preview === null ? setSelectedId : null}
-                      device={deviceOf(project.template)}
+                      device={lens}
+                      landscape={landscape}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                       theme={project.theme}
                       mode={canvasMode}
                       links={frameLinks[Math.min(frame, (preview ?? project).frames.length - 1)]}
                       onNavigate={setFrame}
                     />
+                      </div>
+                    </div>
                   )}
                 </div>
                 {/* 迭代 5：右栏——选中节点时顶部是属性面板（预览态不显示），下方按需是版本历史 */}
