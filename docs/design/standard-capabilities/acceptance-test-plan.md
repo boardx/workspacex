@@ -70,7 +70,15 @@
 
 ## 4. /chat 路径全集与三维映射
 
-覆盖状态来自仓库现有 spec 与当前验收输入。状态含义：**已覆盖**为存在真实行为 spec；**部分/当前红**为仅覆盖一层或现有 lane 未通过；**未覆盖**为没有对应端到端 spec。阈值只引用 `.harness/instructions/chat-agent-performance-acceptance.md`，本表不复制数字。
+覆盖状态来自仓库现有 spec 与当前验收输入。状态含义：
+
+- **已覆盖**：存在真实行为 spec，且该 spec 所在 lane 是回归门控。
+- **部分**：只覆盖了其中一层（例如 API 有真栈、`/chat` 没有）。
+- **当前红**：门控 lane 里真实未通过，属于要清的存量红线。
+- **记分牌红**：spec 位于 `chat-task-workbench` project，**设计上就是红的**——红 = 已登记的能力缺口，不是回归失败，不进红线队列。判据单一事实源见 `.harness/instructions/chat-task-workbench-acceptance.md`，处置方式见 §14.1。
+- **未覆盖**：没有对应端到端 spec。
+
+阈值只引用 `.harness/instructions/chat-agent-performance-acceptance.md`，本表不复制数字。
 
 | Path ID | 用户可见路径 | 当前覆盖 / spec | 能力映射 | 性能映射 |
 |---|---|---|---|---|
@@ -85,7 +93,7 @@
 | P-B4 | once/deny/forever 的真实服务端语义 | 已覆盖 · `copilotkit-v2-hitl` | E002/E006、受控 Tool | HITL 出现/继续 |
 | P-B5 | 刷新恢复同一 permissionRequestId | 已覆盖 · `copilotkit-v2-hitl` | E006、T040 | HITL 刷新恢复 |
 | P-B6 | 继续只提交一次，旧请求不可重复裁决 | 已覆盖 · `agent-task-planning-hitl` | E006、T011-T013 | 当前无独立 SLO |
-| P-B7 | 复杂任务先确认，简单问题直接回答 | 当前红 · `chat-task-workbench-workflow-states` | T009/T011、Agent route | 当前无独立 SLO |
+| P-B7 | 复杂任务先确认，简单问题直接回答 | 记分牌红 · `chat-task-workbench-workflow-states` | T009/T011、Agent route | 当前无独立 SLO |
 | P-C1 | canvas 围栏渲染为可用工作坊画布 | 已覆盖 · `chat-canvas-guidance-render` | T029/T030、S012、C001-C019 | 画布内嵌/放大 |
 | P-C2 | 最大化编辑→保存→reload→原始版 | 已覆盖 · `chat-diagram-save-reopen-roundtrip` | T029/T030、S012 | 画布刷新读回 |
 | P-C3 | 管理员建模板→发布→项目绑定→chat 可达 | 已覆盖 · `core-journey-04` | T029/T030、C020-C024 | 缺生命周期耗时 |
@@ -99,7 +107,7 @@
 | P-D3 | 会话挂载 Skill，刷新保留且幂等 | 已覆盖 · `chat-agent-skill-context` | E004、S001-S020 | 当前无独立 SLO |
 | P-D4 | 发现元数据、读取正文、执行成功三态可区分 | 未覆盖 | E004、S001-S020 | 当前无独立 SLO |
 | P-D5 | 切换 Agent 后 header 与回复来源一致 | 已覆盖 · `copilotkit-v2-agent-switch` | E002/E004 | 当前无独立 SLO |
-| P-D6 | 子 Agent 折叠树显示输入、工具、耗时、结果 | 当前红 · `chat-task-workbench-tool-events` | T010/T042 | 工具事件/轨迹展开 |
+| P-D6 | 子 Agent 折叠树显示输入、工具、耗时、结果 | 记分牌红 · `chat-task-workbench-tool-events` | T010/T042 | 工具事件/轨迹展开 |
 | P-E1 | 麦克风转录进输入框，可编辑并发送 | 已覆盖 · `copilotkit-v2-voice-input` | T037、S016 | 缺首段转录延迟 |
 | P-E2 | 图片进模型；能力缺席时诚实降级 | 已覆盖 · `chat-vision-honest-degrade` | T018/T038、S017 | 当前无独立 SLO |
 | P-E3 | 附件上传后可预览、下载且授权正确 | 已覆盖 · `chat-attachment-preview-download` | T018-T021 | 当前无独立 SLO |
@@ -107,12 +115,12 @@
 | P-F1 | 真实失败显示可读横幅，界面仍可使用 | 已覆盖 · `copilotkit-v2-error-banner` | E006 | 当前无独立 SLO |
 | P-F2 | 网络中断后 SSE/WS 重连并从 journal 续上 | 未覆盖 | E006、T040 | 缺重连恢复时间 |
 | P-F3 | 暂停、恢复、取消、重试单步真实生效 | 当前红 · `agent-workbench-control-acceptance` | T040/T041 | 运行中刷新恢复 |
-| P-F4 | 失败步骤可重试或修改输入 | 当前红 · `chat-task-workbench-workflow-states` | E006、T040 | 当前无独立 SLO |
+| P-F4 | 失败步骤可重试或修改输入 | 记分牌红 · `chat-task-workbench-workflow-states` | E006、T040 | 当前无独立 SLO |
 | P-F5 | 父取消传播，子任务无晚到产物 | 部分 · API 有，chat 无 | T041/T042/T020 | 当前无独立 SLO |
 | P-F6 | 两线程并发 run，事件不串线 | 未覆盖 | E002/E006、T040/T042 | 缺并发劣化指标 |
 | P-F7 | 模型超时/断流后 UI 诚实结束 | 未覆盖 | E006 | 缺失败收敛时间 |
 
-路径覆盖计数基线：22 条已覆盖、7 条部分覆盖或当前红、8 条未覆盖，共 37 条。机械门控落地后由脚本计算，文档中的数字仅作为首次导入基线。
+路径覆盖计数基线：22 条已覆盖、7 条部分覆盖 / 当前红 / 记分牌红（其中 P-B7、P-D6、P-F4 三条是记分牌红，不计入红线队列）、8 条未覆盖，共 37 条。机械门控落地后由脚本计算，文档中的数字仅作为首次导入基线。
 
 ## 5. 平台前置验收（9 项）
 
@@ -291,42 +299,135 @@ Office、PDF、网页、视觉和图表 Skill 的产物验收必须使用对应�
 
 ## 10. 可执行测试套件
 
-先运行静态和组件层：
+本节每条命令都在一台干净 worktree 上实测过（见本节各条下的实测计数）。
+**判定纪律**：跑完必须核对 runner 打印的 `Test Files` / `Tests` 计数非零。
+只看退出码分不出「断言红了」和「一条都没收集到」——后者是 §11 列为故障注入负对照
+的信号，不能出现在验收路径上。
+
+### 10.0 前置（缺一条就会把「跑法错了」伪装成「能力没实现」）
 
 ```bash
 pnpm install --frozen-lockfile
+(cd apps/deep-agent-service && uv sync --frozen --extra dev)
+pnpm --filter web exec playwright install --with-deps chromium   # 只有 §10.3 需要
+```
+
+⚠ `init.sh` **不装** deep-agent-service 的 Python 依赖。不装它，跨语言用例会以
+`spawn <repo>/apps/deep-agent-service/.venv/bin/python ENOENT` 失败——实测 5 条：
+`standard-memory-real-db`（2）、`standard-scheduler-service`、`standard-sql-database`、
+`standard-sql-source-real-db`。这是环境缺失，不是能力缺失，不得记成 `FAIL`。
+
+### 10.1 静态与包级组件层（不连数据库）
+
+```bash
 pnpm run lint:skills-doctor
 pnpm --filter @repo/contracts test
 pnpm --filter @repo/fabric-markdown exec vitest run
 pnpm --filter @repo/fabric-markdown exec tsc --noEmit
-pnpm --filter api exec vitest run tests/kernel tests/mcp tests/skill
-pnpm --filter api exec vitest run tests/agent-runtime tests/agent-run
-pnpm --filter api exec vitest run tests/canvas
 pnpm --filter skill-sandbox test
-```
-
-需要数据库和完整应用的测试统一经过隔离包装：
-
-```bash
-pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
-  pnpm --filter api exec vitest run \
-  tests/skill/*real-db.test.ts \
-  tests/agent-runtime/*real-db.test.ts
-
-pnpm run verify:fullstack-smoke
-pnpm run verify:core-loop
-pnpm run verify:chat-task-workbench
 node .harness/scripts/lint-spec-gate-coverage.mjs
 ```
 
-真实模型和供应商能力只在 main、trusted self-hosted runner 执行。工作流必须绑定执行时的完整 main SHA，并对日志脱敏：
+实测：contracts 55 文件 / 573 用例全绿；fabric-markdown 16 文件 / 240 用例全绿；
+skill-sandbox 16 文件 / 72 通过 + 1 skipped；三条 lint 退 0。
+`pnpm --filter skill-sandbox test` 会起自己的容器做网络隔离反证，属预期。
+
+### 10.2 `apps/api` 的全部 vitest：一律走隔离外壳
+
+`apps/api/vitest.config.ts` 的 `globalSetup`（`tests/support/db-global-setup.ts`）
+**第一行**就 `assertIsolatedDatabase`，所以 `apps/api` 里**不存在「不连库的组件层」**：
+裸跑任何一条 `pnpm --filter api exec vitest run …` 都会在 globalSetup 里抛
+「未在隔离外壳里运行」，一条用例都不收集。
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+  pnpm --filter api exec vitest run tests/kernel tests/mcp tests/skill
+
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+  pnpm --filter api exec vitest run tests/agent-runtime tests/agent-run
+
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- \
+  pnpm --filter api exec vitest run tests/canvas
+```
+
+实测（前置齐备后）：kernel/mcp/skill 127 文件 / 1292 用例；
+agent-runtime + agent-run 173 文件 / 984 用例；canvas 40 文件 / 448 用例。
+
+⚠ **`*real-db.test.ts` 不是独立车道，不要单独过滤。** 它们与其它文件共用同一份
+`include: ["tests/**/*.test.ts"]`，没有单独的 config、单独的 lane 或单独的跑法。
+
+而且 vitest 的位置参数是**路径子串过滤器，不是 glob**。`tests/skill/*real-db.test.ts`
+这种写法在仓库根（文档给的工作目录）实测有两种死法，都不产生任何断言：
+
+- bash：`tests/skill/` 在根目录不存在，`*` 原样传给 vitest，vitest 拿它当子串匹配 →
+  `No test files found, exiting with code 1`。零收集，却是非零退出码，看起来像「有东西红了」。
+- zsh：`no matches found: tests/skill/*real-db.test.ts`，命令根本没被执行。
+
+需要更窄范围时用子串，并且**先用 `vitest list` 确认它真的匹配到文件**
+（`list` 不跑 globalSetup，所以不需要隔离外壳）：
+
+```bash
+pnpm --filter api exec vitest list real-db --filesOnly   # 实测 28 个文件
+```
+
+⚠ **目录切片不是全量，别拿它当包级结论。** `apps/api/tests/` 下共 934 个 `*.test.ts`
+（实测 `find tests -name '*.test.ts' | wc -l`），上面三条命令覆盖的六个目录只有 340 个，
+约 1/3；`tests/auth`、`tests/capability`、`tests/chat`、`tests/files`、`tests/itv`、
+`tests/tpl`、`tests/project` 等都不在内，而 `real-db` 文件也散落在 `tests/itv/`、
+`tests/mcp/`、`tests/tpl/` 里。目录切片只用来定位和缩短反馈环；
+**包级 PASS 必须以全量为准**：
+
+```bash
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api test
+```
+
+⚠ `standard-sql-source-real-db.test.ts` 与 `standard-sql-database.test.ts` 要求
+`COMPOSE_PROJECT_NAME` 以 `wsx-` 开头，且该 project 名下真有一个自己的 postgres 容器
+（`apps/api/tests/support/standard-sql-tls.ts`，它会 `ALTER SYSTEM SET ssl=on`）。
+隔离外壳会起这个自有栈并在退出时 `docker compose down -v`；把连接指到别人已在跑的
+postgres 上，这两个文件必红——**不能复用共享库跑它们**。
+
+⚠ 独占段 `tests/recording/personal-transcription-persistence.test.ts` 被默认 config
+`exclude` 掉（DDL 重放拿重量级锁，不能与他人并行），只在 `vitest.exclusive.config.ts`
+里串行补跑。上面三条目录命令**不覆盖它**；`pnpm --filter api test` 覆盖（= 主套件 + 独占段）。
+
+⚠ 已知不稳定：`tests/kernel/local-export-copy-not-move.test.ts` 在三目录并行下实测
+3 次中红 1 次（2 条断言 `expected 0 to be greater than 0`），同一 SHA 上单独跑该文件 9 条断言全绿。
+按跑法问题分诊，不要记成能力 `FAIL`；追踪见 PR 正文。
+
+### 10.3 浏览器 E2E 门控 lane
+
+```bash
+pnpm run verify:fullstack-smoke
+pnpm run verify:core-loop
+```
+
+`verify:chat-task-workbench` **不属于这里**——它是记分牌车道，设计上就是红的，
+取分数而非取绿灯，处置方式见 §14.1。
+
+### 10.4 真实模型与供应商 lane（main + trusted self-hosted runner）
+
+工作流必须绑定执行时的完整 main SHA，并对日志脱敏：
 
 ```bash
 SHA=$(gh api repos/boardx/workspacex/commits/main --jq .sha)
-gh workflow run real-model-chat-evidence --repo boardx/workspacex --ref main -f exact_sha="$SHA"
 gh workflow run s013-real-model-evidence --repo boardx/workspacex --ref main -f exact_sha="$SHA"
-gh workflow run s016-asr-real-evidence --repo boardx/workspacex --ref main -f exact_sha="$SHA"
+gh workflow run s016-asr-real-evidence  --repo boardx/workspacex --ref main -f exact_sha="$SHA"
+
+# 这条没有 exact_sha 输入，多传会被 GitHub 以 422 拒掉
+gh workflow run real-model-chat-evidence --repo boardx/workspacex --ref main
 ```
+
+⚠ 三条工作流的输入 schema 不同，别照抄同一行。核对过 main 上的定义：
+`s013-real-model-evidence.yml` / `s016-asr-real-evidence.yml` 都声明了 `exact_sha`
+（required，必须等于当前 main HEAD）；`real-model-chat-evidence.yml` 只有
+`prompt` / `run_timeout_ms` / `expect_kind`，**没有 `exact_sha`**——它对着 DevApp
+当前部署跑，SHA 由证据里回填的 `git log -1` 给出。给它传 `-f exact_sha=…` 会直接
+`Unexpected inputs provided` 失败，一条断言都不会执行。
+
+这三条会在 main 上花真实模型的钱并向线上账号写入，因此本方案只做了**输入 schema 的静态核对**
+（`gh api repos/boardx/workspacex/contents/.github/workflows/<name>.yml?ref=main`），
+没有实际 dispatch；派工时由持有授权的人触发，并把 run URL 写进 §12 的 manifest。
 
 在 Office、SQL、画布真实 lane 尚未成为 main 上的受信工作流前，对应项只能标 `PARTIAL` 或 `BLOCKED`。
 
@@ -397,20 +498,45 @@ flowchart LR
 1. P0 前置、P0 Tools、P0 Skills 全部 `PASS`。
 2. P1 项不存在未登记的 `FAIL`；允许延期的项必须有独立 issue、风险和 owner。
 3. 19 个内置模板集合、组织模板生命周期、跨组织反证全部通过。
-4. backend-gates、harness-verify、fullstack smoke 全绿。
+4. backend-gates、harness-verify、fullstack smoke 全绿。**`harness-verify` 的 `chat-task-workbench` job 不计入「全绿」**——它默认不跑，且设计上就是红的（§14.1）；把它算进发布门禁等于永远发不出去。
 5. DevApp 当前 main SHA 与 evidence SHA 相同，部署和数据库迁移成功。
 6. 独立 reviewer 从 artifact 重放至少一个正向、一个越权反证和一个文件/画布产物。
 
 ## 14. 执行顺序与机械门控
 
-1. **先清存量红线**：`chat-task-workbench` 与 `e2e-full` 的现有失败先分诊；记录基线 run，不允许用新增 spec 掩盖。
+### 14.1 先分清红线与记分牌，再清红线
+
+`e2e-full` 与 `chat-task-workbench` 都会输出失败，但它们**是两类完全不同的东西**，
+处置方式相反。把它们并成一句「先清存量红线」，直接后果是派人去「修」一批本来就在
+追踪的能力缺口。
+
+| | `e2e-full`（含 `chat-read` project） | `chat-task-workbench` project |
+|---|---|---|
+| 性质 | **回归门控**，绿是常态 | **记分牌**，红是设计意图 |
+| 红的含义 | 真的坏了，或真的没实现却曾经绿过 | 已登记的能力缺口，红一条 = 少一分 |
+| CI 默认 | 跑 | **不跑**（`harness-verify.yml` 的 `run_chat_task_workbench` 默认 `false`，要显式勾选） |
+| 处置 | 逐条分诊、修到绿；记录基线 run，不允许用新增 spec 掩盖 | 记录当前分数作为基线，把每条红断言映射到 §15 的 QA 任务或 §4 的路径缺口 |
+| 禁止 | —— | 当成存量红线派人「修绿」；用 `test.skip` 让它变绿——skip 掉的差距等于不存在 |
+
+`chat-task-workbench` 的逐条判据、spec 清单与分数口径，单一事实源是
+`.harness/instructions/chat-task-workbench-acceptance.md`；spec 数量以
+`playwright --list` 的真实输出为准。**本方案不复述任何一条判据，也不复述数量**——
+这份文档里出现的第二份副本就是下一次漂移。
+
+对应地，§4 覆盖表里 P-B7 / P-D6 / P-F4 标的是「记分牌红」，不进红线队列；
+P-F3（`agent-workbench-control-acceptance`，位于门控 `chat-read` project）标的是
+「当前红」，属于本步要清的存量红线。
+
+### 14.2 其余执行顺序
+
+1. **清 `e2e-full` 存量红线**：按 §14.1 左列执行，记录基线 run。
 2. **补九条零覆盖路径**：优先 P-F2、P-C8、P-C5、P-F6，再做 P-C4、P-A3、P-F7、P-D4、P-A5。
 3. **补性能映射**：PERF-01 至 PERF-10 每项独立 issue/PR，在既有性能事实源加行并添加采样 spec。
 4. **建立路径标签门控**：E2E spec 使用 `@path:P-C8` 形式标注；脚本校验未知标签、重复权威、矩阵无 spec、spec 无路径四类漂移。
 5. **做能力交集报告**：每次 CI 从 trace 生成 Path×Capability 矩阵，任何 P0 WX 能力没有正向和反向证据即失败。
 6. **真实模型对照**：loopback 全绿后，以获授权的合成提示和合成文件运行关键路径；证据脱敏并绑定 main SHA。
 
-B7、D6、F3、F4 涉及统一工作台控制面。实施测试前先读取 peer 已合入的契约符号，禁止另建并行状态机让测试“变绿”。
+B7、D6、F3、F4 涉及统一工作台控制面。实施测试前先读取 peer 已合入的契约符号，禁止另建并行状态机让测试“变绿”。其中 B7/D6/F4 的现有断言在记分牌车道里，收敛路径是**实现能力**——不是改断言，也不是把车道调绿。
 
 ## 15. 当前已知缺口及拆分建议
 
