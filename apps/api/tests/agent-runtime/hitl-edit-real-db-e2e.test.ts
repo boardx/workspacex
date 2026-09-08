@@ -331,6 +331,42 @@ describe("UX-9 D4 HITL edit：真实持久化往返（真 Postgres + 真 HTTP，
     expect(finalRun.error).toBeNull();
   });
 
+  /**
+   * issue #2999 C 组 —— reject 是终态边，但 `decidePermissionRequest` 此前只清
+   * `pending_decision`，把 `pending_tool_name` / `pending_permission_request_id` /
+   * `pending_interrupt` 原样留在行上；`PgAgentRunRepository.readRun` 只看
+   * `pending_tool_name` 是否为 null 来决定 `pendingApproval`，于是 `GET /agent-runs/:id`
+   * 在 run 已经 `failed(HITL_REJECTED)` 之后**仍然回一个非空 pendingApproval**，
+   * 前端据此继续弹"等你确认"。`agent-task-planning-hitl.spec.ts:230` 断言的就是这条。
+   * 这里用真库 + 真 HTTP 把它锁在单测层，不依赖那条 96 条共享栈的 e2e 车道。
+   */
+  it("reject ⇒ run 落 failed(HITL_REJECTED) 且 pendingApproval 被清空——已死的请求不许继续追着用户问", async () => {
+    const { agentRunId } = await postMessage("触发人工审批");
+    await tick();
+    const awaiting = await readRun(agentRunId);
+    expect(awaiting.status).toBe("awaiting_tool_permission");
+    expect(awaiting.pendingApproval?.permissionRequestId).toEqual(expect.any(String));
+
+    const decideResponse = await decide(agentRunId, {
+      permissionRequestId: awaiting.pendingApproval!.permissionRequestId,
+      decision: "reject",
+    });
+    expect(decideResponse.status).toBe(200);
+
+    const finalRun = await readRun(agentRunId);
+    expect(finalRun.status).toBe("failed");
+    expect(finalRun.error).toBe("HITL_REJECTED");
+    // 这一条是本用例的全部意义：清空发生在同一条 UPDATE 里，不是靠后续某次轮询顺带擦掉。
+    expect(finalRun.pendingApproval).toBeNull();
+
+    // 反证：同一个（已被清掉的）请求再裁一次必须冲突，不能因为清空而变成"另一个待批请求"。
+    const stale = await decide(agentRunId, {
+      permissionRequestId: awaiting.pendingApproval!.permissionRequestId,
+      decision: "reject",
+    });
+    expect(stale.status).toBe(409);
+  });
+
   it("反证：approve（不编辑）时上游收到的仍是原始参数——证明上面的『相等』不是恒真", async () => {
     const { agentRunId } = await postMessage("触发人工审批");
     await tick();

@@ -560,11 +560,29 @@ export class PgAgentRunRepository implements AgentRunStore {
   async decidePermissionRequest(orgId: OrgId, runId: string, permissionRequestId: string,
     decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
+      // issue #2999 C 组 —— `reject` 是终态边（status→failed, error_code→HITL_REJECTED），
+      // 但此前它只清 `pending_decision`，把 `pending_tool_name` / `pending_args_summary` /
+      // `pending_permission_request_id` / `pending_interrupt` 原样留在行上。`readRun`
+      // （本文件 `pendingApproval:` 那段）**只看 `pending_tool_name` 是否为 null**，于是
+      // 一个已经 failed 的 run 在 `GET /agent-runs/:id` 上仍然回一个非空 `pendingApproval`：
+      // 前端据此继续渲染"等你确认"的表单，用户拒绝完还被同一个已死的请求追着问。
+      // （`agent-task-planning-hitl.spec.ts:230` 断言的就是这条。）
+      // 只在 reject 分支清：approve / edit / deny 会把 run 收回 `queued` 再执行，
+      // executor 的 `claimQueued` 仍要读这几列去恢复那次工具调用（本文件 :177），
+      // 在那些分支清掉等于把恢复所需的权威信息删了。
+      // `RETURNING pending_tool_name` 因此在 reject 分支回 NULL——下面只有
+      // run/forever 授权分支用它，reject 永远走不到那里。
       const updated = await s.query<{ pending_tool_name: string }>(
         `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
            pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
            error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
-           ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END
+           ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
+           pending_tool_name=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_name END,
+           pending_args_summary=CASE WHEN $4='reject' THEN NULL ELSE pending_args_summary END,
+           pending_permission_request_id=CASE WHEN $4='reject' THEN NULL ELSE pending_permission_request_id END,
+           pending_interrupt=CASE WHEN $4='reject' THEN NULL ELSE pending_interrupt END,
+           pending_tool_call_id=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_call_id END,
+           pending_tool_args_digest=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_args_digest END
          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
            AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name`,
         [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null],
