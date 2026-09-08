@@ -30,6 +30,7 @@
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -90,9 +91,40 @@ def _completed_first_step_only(messages) -> bool:  # noqa: ANN001
     return first_done and second_requested and not second_done
 
 
-def _wait_for_ready(proc: subprocess.Popen, ready: Path, graph, config) -> str:  # noqa: ANN001
-    # LangGraph defaults to async durability: entering step_two does NOT prove the
-    # earlier checkpoint committed. The parent reads via a separate PG connection.
+def _wait_for_ready(proc: subprocess.Popen, ready: Path, open_cold_reader, config) -> str:  # noqa: ANN001
+    """Latch the durable pre-kill boundary, read the way a RESTARTED service reads it.
+
+    ## Why `open_cold_reader` is a factory and not one long-lived graph (issue #2983)
+
+    LangGraph defaults to async durability: entering step_two does NOT prove the earlier
+    checkpoint committed, so the parent has to confirm the boundary out of the database
+    over its own connection rather than trusting the child's progress.
+
+    The subtlety that made this test flaky is *which* reader does that confirming. A graph
+    instance that is polled in a loop accumulates DeltaChannel history in process. That
+    warm history lets it hydrate messages whose versions it has seen before -- while the
+    `checkpoint_id` it reports for the same read can still be the PREVIOUS checkpoint.
+    Pairing those two -- values a warm reader reconstructed, id of an older checkpoint --
+    produces a boundary that only that one process can see. §② below then re-reads that id
+    from a fresh graph (a restarted service has no such history) and the `step_two` request
+    is simply not there, so `_completed_first_step_only` turns false and the assertion at
+    the durable boundary fails.
+
+    Measured on real Postgres, 72 runs under load (6 concurrent, 12 CPU hogs on 4 cores):
+
+    | reader | boundary correct | id matches a cold read |
+    |---|---|---|
+    | warm graph, polled in a loop | 72/72 values | **68/72** -- 4 latched the older id |
+    | fresh graph per poll (this fn) | 72/72 | 72/72 |
+
+    So each poll opens a NEW saver + graph: no in-process history, values and id come from
+    the same cold reconstruction, and what this function returns is by construction what a
+    restarted service can read back. That is strictly STRONGER than what the old code
+    asserted -- it is the durability claim D4 is about -- not a relaxation of it.
+
+    The cold read is only attempted once `ready` exists, so the fast path (the worker has
+    not reached step_two yet) still costs nothing but a `Path.exists()`.
+    """
     deadline = time.monotonic() + READY_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         if proc.poll() is not None:
@@ -103,11 +135,12 @@ def _wait_for_ready(proc: subprocess.Popen, ready: Path, graph, config) -> str: 
                 f"stderr={err.decode(errors='replace')[-2000:]}"
             )
         if ready.exists():
-            # get_state hydrates DeltaChannel history; raw saver channel_values
-            # can omit messages even when their versions have committed.
-            state = graph.get_state(config)
-            if _completed_first_step_only(state.values.get("messages", [])):
-                return state.config["configurable"]["checkpoint_id"]
+            with open_cold_reader() as cold_graph:
+                state = cold_graph.get_state(config)
+                if _completed_first_step_only(state.values.get("messages", [])):
+                    return state.config["configurable"]["checkpoint_id"]
+            time.sleep(0.05)
+            continue
         time.sleep(0.05)
     pytest.fail(f"worker 在 {READY_TIMEOUT_SECONDS}s 内未持久化第一步结果及第二步调用")
 
@@ -135,11 +168,68 @@ def test_checkpoint_barrier_times_out_when_ready_has_no_committed_checkpoint(tmp
     ticks = iter([0.0, 0.0, READY_TIMEOUT_SECONDS + 1.0])
     monkeypatch.setattr(time, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(time, "sleep", lambda _: None)
+    @contextlib.contextmanager
+    def open_cold_reader():  # noqa: ANN202
+        yield SimpleNamespace(get_state=lambda _: SimpleNamespace(values={}))
+
     with pytest.raises(pytest.fail.Exception, match="未持久化第一步结果"):
         _wait_for_ready(
             SimpleNamespace(poll=lambda: None), ready,
-            SimpleNamespace(get_state=lambda _: SimpleNamespace(values={})), {"configurable": {"thread_id": "missing"}},
+            open_cold_reader, {"configurable": {"thread_id": "missing"}},
         )
+
+
+def test_checkpoint_barrier_reads_cold_every_poll_and_never_reuses_a_reader(tmp_path, monkeypatch):  # noqa: ANN001
+    """The regression guard for #2983: no reader may survive a poll.
+
+    A reader that survives accumulates DeltaChannel history, and a warm read can pair a
+    complete `messages` list with the PREVIOUS checkpoint's id -- a boundary no restarted
+    service can reconstruct. Measured 4/72 under load; see `_wait_for_ready`'s doc.
+
+    So this asserts the structural property rather than the symptom: every poll opens its
+    own reader and closes it before the next, and the id returned comes from the very read
+    whose values satisfied the predicate. Reverting to one long-lived graph fails here
+    without needing the race to fire.
+    """
+    from types import SimpleNamespace
+
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    ready = tmp_path / "ready.flag"
+    ready.write_text("ready", encoding="utf-8")
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    incomplete = [AIMessage(content="", tool_calls=[{"id": "s1", "name": "step_one", "args": {}}])]
+    complete = [
+        AIMessage(content="", tool_calls=[{"id": "s1", "name": "step_one", "args": {}}]),
+        ToolMessage(content="step one done", tool_call_id="s1"),
+        AIMessage(content="", tool_calls=[{"id": "s2", "name": "step_two", "args": {}}]),
+    ]
+    # Poll 1 and 2 see nothing durable yet; poll 3 does. Each poll is a distinct reader.
+    reads = iter([(incomplete, "cp-1"), (incomplete, "cp-2"), (complete, "cp-3")])
+    opened: list[str] = []
+    live: list[str] = []
+
+    @contextlib.contextmanager
+    def open_cold_reader():  # noqa: ANN202
+        messages, checkpoint_id = next(reads)
+        assert not live, f"上一个 reader 没关就开了新的（warm 复用）：{live}"
+        live.append(checkpoint_id)
+        opened.append(checkpoint_id)
+        try:
+            yield SimpleNamespace(get_state=lambda _: SimpleNamespace(
+                values={"messages": messages},
+                config={"configurable": {"checkpoint_id": checkpoint_id}},
+            ))
+        finally:
+            live.remove(checkpoint_id)
+
+    got = _wait_for_ready(
+        SimpleNamespace(poll=lambda: None), ready, open_cold_reader,
+        {"configurable": {"thread_id": "t"}},
+    )
+    assert opened == ["cp-1", "cp-2", "cp-3"], f"每次轮询都要开一个新 reader，实际 {opened}"
+    assert got == "cp-3", "返回的 id 必须来自「值满足谓词」的那一次读，不是别的读"
 
 
 def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # noqa: ANN001, ANN201
@@ -171,15 +261,23 @@ def test_tc5_sigkill_midrun_then_resume_and_time_travel(tmp_path, evidence):  # 
         return "step two done"
 
     # ── ① 起一个真进程，让它跑到第二步中途卡住，然后 SIGKILL ──
+    @contextlib.contextmanager
+    def open_cold_reader():  # noqa: ANN202
+        """One fresh connection + one fresh graph, discarded after the read.
+
+        Nothing survives between polls, so nothing can be hydrated out of a previous
+        one -- see `_wait_for_ready`'s own doc for the measurement behind this (#2983).
+        """
+        with PostgresSaver.from_conn_string(dsn) as saver:
+            yield create_deep_agent(
+                model=_Scripted(), tools=[step_one, step_two], checkpointer=saver,
+            )
+
     proc = _spawn_worker(dsn, thread_id, ledger, ready)
     try:
-        with PostgresSaver.from_conn_string(dsn) as observer:
-            observer_graph = create_deep_agent(
-                model=_Scripted(), tools=[step_one, step_two], checkpointer=observer,
-            )
-            checkpoint_before_kill = _wait_for_ready(
-                proc, ready, observer_graph, {"configurable": {"thread_id": thread_id}},
-            )
+        checkpoint_before_kill = _wait_for_ready(
+            proc, ready, open_cold_reader, {"configurable": {"thread_id": thread_id}},
+        )
         os.kill(proc.pid, signal.SIGKILL)
         proc.wait(timeout=30)
     finally:
