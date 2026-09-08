@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -580,5 +580,110 @@ describe("#2929 native runtime deployment env — persistent owner with admissio
     expect(deploy).toContain("native_runtime_ensure_deploy_env");
     expect(provision).toContain("native_runtime_ensure_deploy_env");
     expect(deploy.indexOf("native_runtime_ensure_deploy_env")).toBeLessThan(deploy.indexOf("export $(grep"));
+  });
+});
+
+/**
+ * 2026-09-08 —— 回调探针必须先等 API 就绪，且「没起来」与「契约不对」要能分开。
+ *
+ * 根因形态：探针紧跟 `systemctl restart` 之后立刻开火、3 秒超时，而 NestJS+tsx 冷启动
+ * 要好几秒。自 #2929 加入这个探针起，19 次部署全部死在这里，失败信息又与拓扑断裂
+ * 一模一样——运维看到的是「回调探针失败」，实际是「还没起来」。
+ *
+ * 假 docker 用一个计数文件模拟「前 N 次 healthz 失败、之后成功」；resolve 探针的
+ * 返回码由 FAKE_RESOLVE_STATUS 控制。python 脚本文本里含 "healthz" 与否用来区分两种调用。
+ */
+describe("native_runtime_assert_deep_agent_api_callback readiness wait", () => {
+  function fakeDocker(dir: string, healthzFailuresBeforeOk: number, resolveStatus: number): string {
+    const counter = join(dir, "healthz-calls");
+    writeFileSync(counter, "0");
+    const bin = join(dir, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "docker"), `#!/usr/bin/env bash
+# args: exec <container> python -c <script>
+script="\${@: -1}"
+if [[ "$script" == *healthz* ]]; then
+  n=$(cat '${counter}'); n=$((n+1)); echo "$n" > '${counter}'
+  (( n > ${healthzFailuresBeforeOk} )) && exit 0 || exit 1
+fi
+# resolve probe：模拟 assert r.status_code==400
+(( ${resolveStatus} == 400 )) && exit 0 || exit 1
+`);
+    chmodSync(join(bin, "docker"), 0o755);
+    return bin;
+  }
+  const call = (bin: string) => runLib(
+    "native_runtime_assert_deep_agent_api_callback fake-container",
+    { WX_NATIVE_PROBE_ATTEMPTS: "5", WX_NATIVE_PROBE_INTERVAL_SECONDS: "0" },
+    bin,
+  );
+  const calls = (dir: string) => Number(readFileSync(join(dir, "healthz-calls"), "utf8"));
+
+  it("API 起得慢：前 3 次 healthz 失败、第 4 次成功 ⇒ 探针通过，且确实等了 4 次", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 3, 400));
+    expect(r.status, r.stderr).toBe(0);
+    expect(calls(dir)).toBe(4);
+  });
+
+  it("反证：API 一直起不来 ⇒ 用「就绪」信息失败，而不是「回调探针失败」，且探针根本没打", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 999, 400));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("API not reachable from Deep Agent");
+    expect(r.stderr).not.toContain("authenticated callback probe failed");
+    expect(calls(dir)).toBe(5); // 用满了 WX_NATIVE_PROBE_ATTEMPTS
+  });
+
+  it("API 已就绪但契约不对（resolve 非 400）⇒ 仍是原来的探针失败信息，两种失败可区分", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 0, 503));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("authenticated callback probe failed");
+    expect(r.stderr).not.toContain("API not reachable");
+  });
+});
+
+/**
+ * 2026-09-08（#3033）—— KERNEL_SUBTASK_CALLBACK_BASE_URL 必须被投影进 API env。
+ * 漏它的后果不是「某个功能缺失」，是 KERNEL_NATIVE_RUNTIME=1 之下每条 chat 瞬间失败。
+ */
+describe("native_runtime_ensure_callback_base_url — API 侧回调地址投影", () => {
+  const base = "http://workspacex-api-host:3200";
+  function ensure(initial: string, serviceBase = base) {
+    const temp = tempDir();
+    const envFile = join(temp, "deploy.env");
+    writeFileSync(envFile, initial);
+    const r = runLib(`native_runtime_ensure_callback_base_url '${envFile}' '${serviceBase}'`);
+    return { ...r, envFile, content: readFileSync(envFile, "utf8") };
+  }
+  it("缺失时补上，值 = 投影给 Deep Agent 的同一个 host-gateway 地址", () => {
+    const r = ensure("APP_API_PORT=3200\nKERNEL_NATIVE_RUNTIME=1\n");
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.content).toContain(`KERNEL_SUBTASK_CALLBACK_BASE_URL=${base}`);
+    expect(r.stdout).toContain("GENERATED");
+  });
+  it("反证（最重要）：已有值一个字符都不许被改写，且幂等", () => {
+    const initial = "KERNEL_SUBTASK_CALLBACK_BASE_URL=http://other-host:9999\n";
+    const first = ensure(initial);
+    expect(first.status).toBe(0);
+    expect(first.content).toBe(initial);
+    expect(first.stdout).toContain("PRESENT");
+    const second = runLib(`native_runtime_ensure_callback_base_url '${first.envFile}' '${base}'`);
+    expect(second.status).toBe(0);
+    expect(readFileSync(first.envFile, "utf8")).toBe(initial);
+  });
+  it("拒绝畸形值而不是猜：service_base 非 http://host:port，或已有值畸形", () => {
+    expect(ensure("", "https://x/").status).not.toBe(0);
+    const r = ensure("KERNEL_SUBTASK_CALLBACK_BASE_URL=not a url\n");
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain("KERNEL_SUBTASK_CALLBACK_BASE_URL is invalid");
+  });
+  it("deploy.sh 在 5c 必需 env 校验之前调用它（否则 DI 硬门抓不到）", () => {
+    const deploy = readFileSync(DEPLOY, "utf8");
+    const call = deploy.indexOf("native_runtime_ensure_callback_base_url \"$ENV_FILE\"");
+    const gate = deploy.indexOf('step "5c.');
+    expect(call).toBeGreaterThan(0);
+    expect(gate).toBeGreaterThan(call);
   });
 });

@@ -106,7 +106,7 @@ async function runOnce(deps: {
 beforeAll(async () => {
   await ensureDatabase();
   await migrateOnce();
-  await resetOrgs();
+  await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: "prj-f962-trial-run" });
   db = new PgDatabase(appConfig());
   store = new PgSkillTrialRunStore(db);

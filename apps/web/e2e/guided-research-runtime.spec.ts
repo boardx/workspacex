@@ -91,6 +91,7 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   const streamResponse = await reportResponse;
   expect(streamResponse.headers()["content-type"]).toContain("text/event-stream");
+  await expect(page.getByTestId("research-report-timeline")).toBeVisible();
   await expect(page.getByTestId("research-report-preview-text")).toContainText("本章分析", { timeout: 30000 });
   await expect(page.getByTestId("research-report")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("research-report-streaming.png"), fullPage: true });
@@ -101,14 +102,21 @@ test("research persists all five model-backed steps through the real UI, API and
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();
   const runtime = await runtimeResponse.json();
-  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 2);
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
   expect(runtime.researchPlan.optimizedQuestion).toBe("哪些并网政策证据支持进入决策？");
   expect(runtime.tasks[0]).toMatchObject({ objective: "比较官方并网政策与实际执行", deliverables: ["政策依据和执行限制"] });
   expect(runtime.reportSourceAliases.length).toBeGreaterThan(0);
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
   expect(runtime.outline[0].objective).toBe("核实政策适用范围与实施约束");
-  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report").every((call: { status: string }) => call.status === "succeeded")).toBe(true);
+  // One deliberately invalid evidence response is repaired automatically without a second UI command.
+  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
+  expect(runtime.errorCode).toBeNull();
+  expect(runtime.reportEvidenceWarnings).toEqual([]);
+  expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
+  expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
+  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
+  await expect(page.getByRole("button", { name: "继续生成剩余章节", exact: true })).toHaveCount(0);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   expect(runtime.report.introduction).toContain("检索摘要");
   expect(runtime.report.conclusion).toContain("综合各章");

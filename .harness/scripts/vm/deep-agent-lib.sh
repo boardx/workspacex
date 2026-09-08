@@ -269,6 +269,34 @@ native_runtime_assert_api_env_file() {
   fi
 }
 
+# 2026-09-08（#3033）：API 侧把 run_control_callback.base_url 交给 Deep Agent 时读的是
+# KERNEL_SUBTASK_CALLBACK_BASE_URL；它在 DI 层是可选的，所以 5c 的必需 env 校验会放行，
+# 到运行时 `runControlConfig` 才发现 `supportsLiveInterjections()` 为 false，于是
+# KERNEL_NATIVE_RUNTIME=1 之下**每一条** chat 瞬间以 MODEL_CALL_FAILED 结束（0 秒、0 工具，
+# 用户看到「模型这次没能返回可用结果」）。#2929 投影了 Deep Agent 侧的
+# NATIVE_SESSION_SERVICE_BASE_URL，却漏了 API 侧这个孪生变量——两者必须是同一个值：
+# 容器内可解析的 host-gateway 地址。这里补上，纪律与 ensure_deploy_env 相同：只填缺失、
+# 绝不改写已有值、值不回显。
+native_runtime_ensure_callback_base_url() {
+  local file=$1 service_base=$2 existing
+  [ -f "$file" ] || { echo "✗ native runtime env file missing: ${file}" >&2; return 1; }
+  [[ "$service_base" =~ ^http://[a-zA-Z0-9.-]+:[0-9]+$ ]] || {
+    echo "✗ native runtime callback base URL is invalid" >&2
+    return 1
+  }
+  existing=$(read_env_value "$file" KERNEL_SUBTASK_CALLBACK_BASE_URL)
+  if [ -z "$existing" ]; then
+    printf 'KERNEL_SUBTASK_CALLBACK_BASE_URL=%s\n' "$service_base" >> "$file"
+    echo "  KERNEL_SUBTASK_CALLBACK_BASE_URL=GENERATED（API→Deep Agent 回调地址，与 NATIVE_SESSION_SERVICE_BASE_URL 同值）"
+    return 0
+  fi
+  [[ "$existing" =~ ^http://[a-zA-Z0-9.-]+:[0-9]+$ ]] || {
+    echo "✗ native runtime KERNEL_SUBTASK_CALLBACK_BASE_URL is invalid" >&2
+    return 1
+  }
+  echo "  KERNEL_SUBTASK_CALLBACK_BASE_URL=PRESENT"
+}
+
 # Deep Agent must have exactly one host bind: the native UDS directory, read-only. The
 # in-container probe validates env presence, absence of the binding encryption key, and an
 # actual HTTP health exchange through that socket without printing any secret.
@@ -310,6 +338,27 @@ assert b" 200 " in status' >/dev/null 2>&1 || {
 # means the host-gateway topology is broken.
 native_runtime_assert_deep_agent_api_callback() {
   local container=$1
+  # 2026-09-08：`systemctl is-active` 只证明 systemd 起了进程，不证明 NestJS 已绑端口——
+  # tsx 冷启动要好几秒，而下面的探针 3 秒超时且紧跟 restart 之后立刻开火。结果是这个
+  # 探针自 #2929 加入起**一次都没通过过**（19 次部署全红），失败信息又与「拓扑断了」
+  # 无法区分。这里先从容器内轮询 /healthz——走的正是探针同一条 host-gateway 路径——
+  # 直到 200 为止；超时时给出**区别于契约失败**的诊断。间隔/次数可配，测试里设成 0。
+  local attempts=${WX_NATIVE_PROBE_ATTEMPTS:-60} interval=${WX_NATIVE_PROBE_INTERVAL_SECONDS:-1} i ready=0
+  for ((i = 1; i <= attempts; i++)); do
+    if docker exec "$container" python -c 'import os,httpx
+base=os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL", "").rstrip("/")
+assert base
+r=httpx.get(base+"/healthz",timeout=3,follow_redirects=False,trust_env=False)
+assert r.status_code==200' >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep "$interval"
+  done
+  if ((ready != 1)); then
+    echo "✗ native runtime API not reachable from Deep Agent within $((attempts * interval))s（/healthz 未返回 200——不是契约问题，是 API 没起来或 host-gateway 不通）" >&2
+    return 1
+  fi
   docker exec "$container" python -c 'import os,httpx
 base=os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL", "").rstrip("/")
 key=os.environ.get("NATIVE_SESSION_SERVICE_KEY", "")

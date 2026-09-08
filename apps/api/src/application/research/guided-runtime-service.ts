@@ -1,3 +1,5 @@
+import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
+import { preservePreviousReport } from "./guided-report-history";
 import { researchDesignShapes, researchDesignInstruction, validateGeneratedResearchDesign, preserveResearchDesign } from "./guided-research-design";
 import { generateReportChapters, inlineReportSources } from "./guided-report-chapters";
 import { type RuntimePersistence } from "./guided-report-stream";
@@ -68,6 +70,7 @@ export function validateRuntimeDraft(state: ResearchRuntime, draft: RuntimeDraft
 }
 function invalidate(state: ResearchRuntime, node: Node) {
   const index = nodes.indexOf(node);
+  if (index < 4) preservePreviousReport(state);
   state.generatedNodes = state.generatedNodes.filter((item) => nodes.indexOf(item) <= index);
   state.availableNodes = nodes.slice(0, index + 1);
   state.currentNode = node;
@@ -77,7 +80,7 @@ function invalidate(state: ResearchRuntime, node: Node) {
   if (index < 1) state.directions = [];
   if (index < 2) state.outline = [];
   if (index < 3) { state.tasks = []; state.sources = []; state.researchPlan = null; }
-  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportCheckpoint = null; state.reportSourceAliases = []; state.progress = null; }
+  if (index < 4) { state.report = null; state.reportStream = null; state.reportPartial = false; state.reportEvidenceWarnings = []; state.reportCheckpoint = null; state.reportSourceAliases = []; state.reportTimeline = []; state.progress = null; }
 }
 function applyDraft(state: ResearchRuntime, draft: RuntimeDraft) {
   validateRuntimeDraft(state, draft);
@@ -112,12 +115,24 @@ export class GuidedRuntimeService {
       await this.perform(state, command, persist);
       state.progress = null;
     } catch (error) {
+      failActiveReportTimeline(state, error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE");
       if (state.reportStream) state.reportStream.status = "failed";
       state.errorCode = error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE";
     }
     state.busy = false;
     state.leaseUntil = null;
-    await this.store.write(actor, command.requestId, state, true);
+    const validation = state.reportTimeline?.find((item) => item.stage === "validation");
+    const committingReport = validation?.status === "running" && Boolean(state.report) && !state.errorCode;
+    if (committingReport) updateReportTimeline(state, "validation", "completed");
+    try { await this.store.write(actor, command.requestId, state, true); }
+    catch (error) {
+      if (committingReport) {
+        updateReportTimeline(state, "validation", "failed", { reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
+        state.report = null; state.completed = false;
+        state.generatedNodes = state.generatedNodes.filter((node) => node !== "report");
+      }
+      throw error;
+    }
     observe({ type: "result", state: structuredClone(state) });
     return state;
   }
@@ -152,6 +167,7 @@ export class GuidedRuntimeService {
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
       validateGeneratedResearchDesign(node, candidate.data.value);
     });
+    if (node === "report") { updateReportTimeline(state, "validation", "running", { attempt: true }); await persist(); }
     const draft = C.GuidedResearchRuntimeDraft.safeParse({ node, value });
     if (!draft.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
     validateGeneratedResearchDesign(node, draft.data.value);

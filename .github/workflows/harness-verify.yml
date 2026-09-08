@@ -59,6 +59,14 @@ on:
         description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench，11 个设计上会红的验收断言，仅供打分）"
         type: boolean
         default: false
+      # 路径覆盖车道的开关（`.harness/instructions/chat-path-coverage-matrix.md`）。
+      # 默认 false 的理由与上面那条**不同**：这批不是记分牌，红是意外状态；默认关掉
+      # 只是因为它们还没在 CI 上跑绿过、尚未搬进阻塞车道（矩阵文档「首跑与搬家」一节）。
+      # 搬家之后这个开关连同下面的 job 一起删掉，别留着。
+      run_chat_path_coverage:
+        description: "跑 Chat 路径覆盖车道（chat-path-coverage，矩阵里此前零覆盖的那批路径）"
+        type: boolean
+        default: false
 
 # 2026-09-03：本 workflow 一直没有 concurrency 块（见下方 e2e-full job 里那条旧注释
 # 「与并发组无关（本 workflow 没有 concurrency: 块）」——那条注释描述的是事实，不是
@@ -85,8 +93,14 @@ on:
 #   - main / tag / schedule / workflow_dispatch 上必须 false —— 那里每次 run 对应
 #     一个已经发生的事件（已合入的 commit、一次定时全量 e2e、一次人工 dispatch），
 #     掐掉等于让它永远没被验证过。
+# ⚠ 2026-09-08（#3038）：上面「main/dispatch 上 cancel-in-progress: false 就不会被掐」
+# 是错的——GitHub 对同一 group 只保留 **一个 pending**，新 run 入队时旧的 pending 直接
+# cancel，与 cancel-in-progress 无关。runner 排满时 main 的 run 一直 pending，合并一密集
+# 就被无限顶掉：实测 03:02Z–03:55Z 连续 8 个 run（含 2 次手动派 e2e-full）0 个 job 跑过。
+# 所以只有 PR 共用 ref 组（要的就是顶掉旧轮）；push / tag / schedule / dispatch 每个 run
+# 自成一组（run_id 唯一），互不排挤——「每次 run 对应一个已经发生的事件」才真正成立。
 concurrency:
-  group: harness-verify-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && format('harness-verify-{0}', github.ref) || format('harness-verify-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -497,7 +511,37 @@ jobs:
     # 拆 job 的结构性修法见 #2084；拆之前必须同步改
     # `.harness/scripts/fullstack-smoke.test.ts`，它断言本文件里
     # `if: always()` + `upload-artifact` 恰好出现 **2** 次、且存在名为 `e2e-full` 的 job。
-    timeout-minutes: 75
+    #
+    # ⚠ 2026-09-08（#3001）：75 → 100。**上限设错了，不是车道太慢。**
+    #
+    # 实测预算（三次 main 上的真实 run，逐步骤取 startedAt/completedAt）：
+    #
+    #   | 步骤 | 34155551896(938d16bf) | 34159494041(94f6dda0) | 34148221220(76f7fb12) |
+    #   |---|---|---|---|
+    #   | 1-8 checkout/setup/install/pw/uv | 1m47s | 2m48s | 6m08s |
+    #   | 9  未缓存 trusted full gate      | 29m49s | **47m15s** | **49m50s** |
+    #   | 10 verify:chat-read             | **30m44s** | 30m01s(被杀) | 27m07s(被杀) |
+    #   | 11 verify:self-service-profile  | 0m55s | skipped | skipped |
+    #   | 12 上传证据                      | 1s | skipped | skipped |
+    #   | **job 总计**                    | **63m21s（跑完）** | 80m00s（cancelled） | 80m01s（cancelled） |
+    #
+    # ⇒ 步骤 9 的实测区间是 **29m49s ~ 49m50s**（同一条命令，TURBO_FORCE 无缓存，
+    #   托管 runner 抖动），步骤 10 跑完要 **30m44s**。最坏组合
+    #   6 + 50 + 31 + 1 ≈ **89 min** —— 75 连一次都装不下最坏组合，100 留 ~11 min 余量。
+    #
+    # ⚠ 两次 cancelled 都死在 **80 分钟**而不是 75：GitHub 在 75 分钟发取消信号，再给
+    #   5 分钟宽限期强杀。宽限期里步骤 11、12 的 conclusion 是 **skipped** ——
+    #   `if: always()` 挡不住 job 级取消 ⇒ **一次超时不只丢结论，连证据 artifact 一起丢**。
+    #   这正是 #3002 的另一半：那条修的是产物被覆盖，这条修的是产物根本没机会上传。
+    #
+    # 已排除的提速方案（#3001 有实测数据，别重做）：并行化非 DB 包（那些包合计 3.9 min，
+    # `@repo/skill-sandbox` + `@repo/api` 占 92.5%）；分片 e2e-full（会丢顺序依赖检测，
+    # PR #2978 正是"单独跑绿、串行跑全量才红"的反例）；修 skill-sandbox 的 docker build
+    # （本机 600s，CI 上只有 133s，本机特有）；缓存 pnpm store / node_modules（净收益≈0）。
+    # ⇒ `@repo/api#test` 一个包占 40% 且**必须串行**（串行正是抓顺序依赖的手段），
+    #   这 40 分钟里没有便宜可捡。超时上限本身不花钱（公开仓库免费），定紧的代价是
+    #   **每一次都把结论和证据一起丢掉**。结构性修法（拆 job）仍见 #2084。
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
@@ -599,6 +643,43 @@ jobs:
   # webServer 编排完全复用 `playwright.chat-read.config.ts`（真登录 + 真 Postgres + 真
   # API + 真 web + 确定性 deep-agent 替身）——`--project=chat-task-workbench` 只切换
   # testMatch，不新起任何进程，见该 config 文件头注 issue #2114 那一段。
+  # 路径覆盖车道（`.harness/instructions/chat-path-coverage-matrix.md`）。**不阻塞任何
+  # 合并路径**：只在人类显式 `workflow_dispatch` 且勾选 `run_chat_path_coverage` 时跑。
+  #
+  # 为什么独立成 job（而不是塞进 `e2e-full` 再加一步）：与下面 `chat-task-workbench`
+  # 那条理由的**前两点相同**（必须能独立触发、且默认不跑，混进同一 job 做不到），
+  # 第三点不同——那批红是预期，这批红是意外，混进阻塞 job 会让一次意外的红看起来像
+  # `e2e-full` 自己坏了。
+  #
+  # webServer 编排完全复用 `playwright.chat-read.config.ts`，`--project=chat-path-coverage`
+  # 只切换 testMatch，不新起任何进程。跑绿两次之后按矩阵文档「首跑与搬家」把 spec 挪进
+  # `chat-read` 车道，并删掉本 job 与它的 dispatch 开关。
+  chat-path-coverage:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute chat path coverage lane (own isolation scope)
+        run: pnpm run verify:chat-path-coverage
+      - name: Upload chat-path-coverage evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-chat-path-coverage-evidence-${{ github.run_id }}
+          path: |
+            apps/web/test-results/
+            apps/web/e2e/__evidence__/chat-path-coverage/
+          if-no-files-found: warn
+
   chat-task-workbench:
     if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
     runs-on: ubuntu-latest

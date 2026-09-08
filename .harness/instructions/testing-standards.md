@@ -30,6 +30,27 @@
 唯一线索只有一行 `db=workspacex`(共享库名),看起来跟正常输出一模一样,
 不是"跑起来没报错"就等于"跑对了"。
 
+### 夹具 id 与全局作用域（#2989 / #2990 / #2982 的三次实测）
+
+数据库测试的隔离靠两条,两条都会被安静地绕过:
+
+1. **夹具 id 必须本文件唯一。** `agent_runs` / `agents` / `agent_versions` /
+   `subtask_runs` / `chat_threads` 这些表的主键**只有 `id` 一列**,`org_id` 不在里面。
+   org 随机化了但 run id 写死成 `'parent'`,就会跟任何挑了同一个字面量的文件撞
+   `duplicate key`,**冲突是确定性的、受害者是随机的**(谁先插谁赢由 vitest 调度决定),
+   所以它在 CI 上表现成 flake。别用"上一轮它是绿的"判断这颗雷不存在。
+2. **写到自己 org 之外的夹具必须显式声明。** `resetOrgs(<自己的 org>)` 清不掉
+   `org-platform` 名下的行,也清不掉没有 `org_id` 列的表。这类写入决定了"哪个文件
+   先跑"就决定了"后面的文件看见什么" —— 失败长成『单独跑绿、全量跑红』的样子,
+   是本仓最难归因的一类。由 `apps/api/scripts/lint-global-scope-test-fixtures.mjs`
+   机械门控(已挂进 `pnpm --filter api run lint`):写全局作用域就得留一行
+   `// @global-scope-fixture <key>: <谁收敛它>`,声明过期同样判红。
+   当前清单 `node apps/api/scripts/lint-global-scope-test-fixtures.mjs --list`。
+
+断言侧配套:平台自有的 skill 一律**按归属**(`org_id = 'org-platform'`,用
+`tests/support/platform-owned-skills.ts`)排除,不要按名字——按名字是同一事实的第二份
+副本,第 5 个平台 skill 出现时就已经失效。
+
 ## 新增顶层页面必须验证"能被导航到"，不能只验证"URL 直达能用"
 
 `pnpm harness verify` 通过只证明"给定这个 URL/接口，行为符合预期"，**不证明用户能从

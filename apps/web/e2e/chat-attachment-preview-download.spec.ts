@@ -9,14 +9,33 @@
  *      内联渲染出真实幻灯片内容（2026-08-24 黑屏回归修复后的行为，见下方该用例头注）。
  *
  * 全部走真实上传（`<input type=file>` setInputFiles）→ 真实 `POST .../attachments`
- * （201）→ 真实发消息 → 消息气泡里点击真实渲染出来的附件条 → 真实认证过的
+ * （201）→ 真实发消息 → 点击真实渲染出来的附件条 → 真实认证过的
  * `fetch`（`useAuthedImageSrc`）拉字节 → `URL.createObjectURL` 喂给 `<img>`/`<iframe>`。
  * 不 mock 任何一跳。
+ *
+ * ## issue #2997 —— 入口从「消息气泡里的附件条」改为「右栏『材料』页签」
+ *
+ * `#2890`（`d30ac48e8`）之后 `/chat?projectId=` 渲染 CopilotKit v2 工作台，旧屏
+ * 已无可达路由。核对结果：
+ *   · **弹窗本体有对等实现，而且是同一个组件** —— `ChatAttachmentPreviewModal`
+ *     被 `chat-materials-panel.tsx:108` 渲染，而 `ChatMaterialsPanel` 由
+ *     `chat-task-inspector.tsx:317`（v2 右栏「材料」页签）挂载。本文件断言的
+ *     `chat-attachment-preview-*` 全套 testid 因此一字不用改，行为语义
+ *     （真拉字节、内联渲染、下载按钮、关闭）也一字不改。
+ *   · **消息气泡里的附件条没有对等实现** —— `MessageAttachments`
+ *     （`chat-composer-attachments.tsx:584`，产出 `chat-message-attachment-<id>`）
+ *     的唯一消费者是旧屏 `chat-live-message-panel.tsx:1311`；v2 的消息气泡
+ *     （`copilotkit-v2-assistant-message.tsx` / `copilotkit-v2-user-message.tsx`）
+ *     完全不渲染附件。**这是一处真实的功能退化，已开产品缺口 issue #3019**，不在这里
+ *     假装它还在。
+ * 所以本文件把「点开预览」的入口换成 v2 上真实存在的那一个（右栏材料列表），
+ * 保住的是这个文件真正要证的东西（#1584 的标题就是「附件预览/下载弹窗」）。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { V2_SEND_WIRE } from "./chat-v2-send";
 
 /** 70 字节的合法最小 PNG（1x1 红色像素），与 #1560 P1 e2e 同一份。 */
 const MINIMAL_PNG_BASE64 =
@@ -84,24 +103,71 @@ async function uploadAndSend(
   await page.getByTestId("chat-attach-material-confirm").click();
   await expect(page.getByTestId("chat-attach-material-portal")).toHaveCount(0);
 
-  const input = page.getByRole("textbox", { name: "消息内容" });
+  const input = page.getByTestId("copilotkit-v2-input");
   await input.fill(text);
-  const messageResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.attachmentPreviewThreadId}/messages`)
-  ));
-  await page.getByTestId("chat-message-submit").click();
-  const messageResponse = await messageResponsePromise;
-  expect(messageResponse.status()).toBe(202);
+  // issue #2997 —— v2 的发送线路是 `POST /api/copilotkit/agent/:id/run`
+  //（实测取证见 `chat-v2-send.ts` 头注）；旧屏那条 `POST …/messages` 浏览器不再发。
+  // 断言的事没变：这一轮真的被发了出去，且上行请求体带着本轮附件 id。
+  const runRequestPromise = page.waitForRequest(
+    (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("copilotkit-v2-send").click();
+  const runRequest = await runRequestPromise;
+  expect(
+    JSON.stringify(runRequest.postDataJSON()),
+    "本轮上行 run 请求必须带着刚上传的那个附件 id（`forwardedProps.attachmentIds`）",
+  ).toContain(uploaded.id);
 
   // 回归防线：一次 setInputFiles 只该触发一次真实上传。等一拍让"第二次"（如果 bug 复发）
   // 有机会真的发出去，不是只看到第一次就提前判过。
   await page.waitForTimeout(300);
   expect(uploadCount, "一次选择文件只应触发一次真实上传（StrictMode 双调用回归防线）").toBe(1);
 
-  await expect(page.getByTestId(`chat-message-attachment-${uploaded.id}`)).toBeVisible();
   return uploaded.id;
 }
+
+/**
+ * 打开右栏「材料」页签，点开这个附件的预览弹窗。
+ *
+ * 先整页刷新一次再打开：右栏材料列表是在选中线程时由 `loadRightPanel()` 读的
+ * （`copilotkit-v2-shell.tsx`），刷新让它必然重新走一次真实
+ * `listThreadAttachments` —— 顺带把"这个附件真的落库了"也证掉，比在内存态列表里
+ * 点一下更强，不是为了绕过时序。
+ */
+async function openPreviewFromMaterials(page: Page, threadId: string, attachmentId: string): Promise<void> {
+  await page.reload();
+  await expect(page.getByTestId(`chat-thread-${threadId}`)).toBeVisible({ timeout: 60_000 });
+  const tab = page.getByTestId("chat-task-workbench-inspector-tab-materials");
+  await expect(tab).toBeVisible({ timeout: 60_000 });
+  await tab.click();
+  await expect(page.getByTestId("chat-materials-panel")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId(`chat-material-${attachmentId}`).click();
+}
+
+/**
+ * issue #2997 —— **原文保留的断言：消息气泡里的附件条。v2 上没有对等实现。**
+ *
+ * 迁移前这条断言写在 `uploadAndSend` 末尾（"发出去之后，这条附件真的作为一个可点的
+ * 附件条渲染在消息气泡里"）。v2 的消息气泡不渲染附件（取证见文件头注），把它删掉
+ * 就是把退化藏起来，所以原样搬到这里用 `test.fixme` 钉住：断言是对的，产品还没做到；
+ * 产品补上之后它会因为**意外通过**而提醒人来撤标。产品缺口 issue：**#3019**。
+ */
+test.fixme("#1584 消息气泡里的附件条可点开预览（v2 尚无对等实现，issue #2997 缺口）", async ({ page }) => {
+  await login(page);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.attachmentPreviewThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.attachmentPreviewThreadId}`)).toBeVisible();
+
+  const attachmentId = await uploadAndSend(
+    page,
+    { name: "bubble-chip.png", mimeType: "image/png", buffer: Buffer.from(MINIMAL_PNG_BASE64, "base64") },
+    "气泡里应该有一条可点的附件条",
+  );
+
+  await expect(page.getByTestId(`chat-message-attachment-${attachmentId}`)).toBeVisible();
+  await page.getByTestId(`chat-message-attachment-${attachmentId}`).click();
+  await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
+});
 
 test.describe("#1584 附件预览/下载弹窗", () => {
   test("image/png：弹窗内联 <img>，真的拉到字节，下载按钮可用", async ({ page }) => {
@@ -115,7 +181,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
       "预览一下这张图",
     );
 
-    await page.getByTestId(`chat-message-attachment-${attachmentId}`).click();
+    await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
     await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
 
     // 真的拉到字节，不是占位图：等 loading/failed 两种过渡态都消失，图片元素出现。
@@ -151,7 +217,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
       "预览一下这份 PDF",
     );
 
-    await page.getByTestId(`chat-message-attachment-${attachmentId}`).click();
+    await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
     await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
     await expect(page.getByTestId("chat-attachment-preview-loading")).toHaveCount(0);
     await expect(page.getByTestId("chat-attachment-preview-failed")).toHaveCount(0);
@@ -181,7 +247,7 @@ test.describe("#1584 附件预览/下载弹窗", () => {
       "预览一下这份 PPT",
     );
 
-    await page.getByTestId(`chat-message-attachment-${attachmentId}`).click();
+    await openPreviewFromMaterials(page, CHAT_READ_E2E.attachmentPreviewThreadId, attachmentId);
     await expect(page.getByTestId("chat-attachment-preview-portal")).toBeVisible();
 
     // 加载态：pptx-preview 需要真的下载 chunk + 解析 zip，给足时间，不在骨架屏阶段断言失败。

@@ -15,9 +15,29 @@
  * fixture.ts` 头注）：独立于共享的 51 条消息线程、也独立于 #1324 三条专属线程，
  * 不会互相污染断言。两条线程都种在 `restructureProjectId`（不是 `projectId`）——
  * `chat-read.spec.ts:41` 断言 `projectId` 下恰好一条会话，塞进去会顶掉那个数字。
+ *
+ * ## issue #2997 —— 锚点迁到 v2 工作台，验的核心任务逐字未变
+ *
+ * `#2890`（`d30ac48e8`）之后 `/chat?projectId=` 深链渲染的是 CopilotKit v2 工作台，
+ * 旧屏（`chat-live-message-panel.tsx`）已无可达路由。本文件因此把两处旧屏锚点换成
+ * v2 的对等物，**要证的两条核心任务、以及「不许抄近路直接 focus 输入框」这条纪律
+ * 一字未动**：
+ *   · `chat-message-input`  → `copilotkit-v2-input`（`copilotkit-v2-panel-body.tsx:1817`
+ *     的 `<textarea>`，同样是 composer 的唯一文本载体、同样 Enter 发送 /
+ *     Shift+Enter 换行，见该处 `onKeyDown`）
+ *   · `chat-message-list`   → `copilotkit-v2-messages`（`copilotkit-v2-panel-body.tsx:1484`
+ *     的消息滚动容器，同样是「已发出的消息真的出现在消息区」的唯一容器锚点）
+ * 会话卡本身（`chat-thread-<id>`、`aria-current="page"`）是 `thread-list-shell.tsx`
+ * 的共用组件，两屏同一份实现，无需改动。
+ *
+ * ⚠ 第二条用例的 URL 判据从 `?thread=<id>` 改成路径段 `/chat/<id>`：v2 选中线程走
+ * `router.push(workbenchThreadPath(id, projectId))`（`lib/chat-workbench/project-scope.ts`），
+ * 产出 `/chat/<id>?projectId=<pid>`。这是被测实现真实的导航形态变化，不是把判据放宽——
+ * 「切换真的落到了地址栏」这件事仍然被钉住，且 `projectId` 作用域也一并断言没丢。
  */
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { V2_SEND_WIRE } from "./chat-v2-send";
 
 async function loginByKeyboard(page: import("@playwright/test").Page) {
   await page.goto("/login");
@@ -45,27 +65,30 @@ test.describe("keyboard chat：chat 核心任务全键盘可达", () => {
     for (let step = 0; step < 40; step += 1) {
       await page.keyboard.press("Tab");
       const activeTestId = await page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null);
-      if (activeTestId === "chat-message-input") {
+      if (activeTestId === "copilotkit-v2-input") {
         reachedComposer = true;
         break;
       }
     }
-    expect(reachedComposer, "从会话卡开始，Tab 走查应在有限步数内到达消息输入框（chat-message-input）").toBe(true);
-    await expect(page.getByTestId("chat-message-input")).toBeFocused();
+    expect(reachedComposer, "从会话卡开始，Tab 走查应在有限步数内到达消息输入框（copilotkit-v2-input）").toBe(true);
+    await expect(page.getByTestId("copilotkit-v2-input")).toBeFocused();
 
     const messageText = "Keyboard-only durable message";
     await page.keyboard.type(messageText);
 
-    const responsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST"
-      && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.keyboardThreadAId}/messages`)
-    ));
-    // Enter 发送（Shift+Enter 换行，`handleComposerKeyDown` 已有的行为）——不点「发送」按钮。
+    // issue #2997 —— v2 的发送线路是 `POST /api/copilotkit/agent/:id/run`，不是旧屏
+    // 那条 `POST /chat/threads/:id/messages`（实测取证见 `chat-v2-send.ts` 头注）。
+    // 断言的事没变：**只按 Enter** 真的把这一轮发了出去，且发的是刚敲的那句。
+    const requestPromise = page.waitForRequest(
+      (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+      { timeout: 60_000 },
+    );
+    // Enter 发送（Shift+Enter 换行，`copilotkit-v2-panel-body.tsx` 的 `onKeyDown`）——不点「发送」按钮。
     await page.keyboard.press("Enter");
-    const response = await responsePromise;
-    expect(response.status()).toBe(202);
+    const runRequest = await requestPromise;
+    expect(JSON.stringify(runRequest.postDataJSON())).toContain(messageText);
 
-    await expect(page.getByTestId("chat-message-list")).toContainText(messageText);
+    await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(messageText);
     // 消息发出去之后焦点不应该丢到 <body> 或不可见元素上——composer 本身仍是可继续输入的焦点载体。
     const activeAfterSend = await page.evaluate(() => document.activeElement?.tagName ?? null);
     expect(activeAfterSend, "发送后焦点不应丢失到 body/不可见元素").not.toBe("BODY");
@@ -100,10 +123,13 @@ test.describe("keyboard chat：chat 核心任务全键盘可达", () => {
 
     await page.keyboard.press("Enter");
 
-    await expect(page).toHaveURL(new RegExp(`thread=${CHAT_READ_E2E.keyboardThreadBId}`));
+    // v2 的线程选中走路径段（见文件头注最后一段）：`/chat/<B>?projectId=<pid>`。
+    // 两段都断言：换了线程 **且** 项目作用域没有在导航里被丢掉。
+    await expect(page).toHaveURL(new RegExp(`/chat/${CHAT_READ_E2E.keyboardThreadBId}`));
+    await expect(page).toHaveURL(new RegExp(`projectId=${CHAT_READ_E2E.restructureProjectId}`));
     await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.keyboardThreadBId}`)).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.keyboardThreadAId}`)).not.toHaveAttribute("aria-current", "page");
     // 切换后的会话详情真的加载了（不是只换了高亮态）：composer 仍可达、可继续操作。
-    await expect(page.getByTestId("chat-message-input")).toBeVisible();
+    await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   });
 });

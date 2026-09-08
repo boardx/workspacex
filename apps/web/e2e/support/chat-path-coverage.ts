@@ -1,0 +1,183 @@
+import { expect, type Page } from "@playwright/test";
+import { CHAT_READ_E2E } from "../chat-read-fixture";
+import { openChatEmptyState, openFreshThread } from "../chat-task-workbench-fixture";
+import { selectWorkbenchAgent } from "./workbench-run-evidence";
+
+/**
+ * 路径矩阵车道（`chat-path-*.spec.ts`）的共享外壳。
+ *
+ * ## 为什么是一个模块，不是每个 spec 各抄一份
+ *
+ * 与 `chat-task-workbench-fixture.ts` 头注那条理由逐字相同：本轮一次新增 8 个 spec，
+ * 登录 / 焐热 / 取会话头 / 读落库消息这四件事在既有 spec 里已经被抄过至少五份
+ * （`context-engine.spec.ts`、`chat-canvas-guidance-render.spec.ts`、
+ * `copilotkit-v2-error-banner.spec.ts` 各有一份自己的 `login`/`warmUp`）。那是历史，
+ * 不是规矩——再抄 8 份等于把「同一事实声明在多处」主动复现一次。
+ *
+ * ⚠ 本文件**不是** spec：文件名不以 `.spec.ts` 结尾，不会被任何 config 的 `testMatch`
+ * 捞进去（同 `chat-read-fixture.ts` / `chat-task-workbench-fixture.ts` 的既有做法）。
+ *
+ * ## 路径标签（`@path:XX`）
+ *
+ * 每个 spec 的 `test()` 标题里都带一个 `@path:<矩阵编号>` 标签。它不是装饰：
+ * `.harness/scripts/lint-chat-path-coverage.mjs` 用它把「矩阵里写了什么」与「仓库里
+ * 真有什么 spec」机械对上——矩阵说有覆盖却找不到标签、或者标签指向矩阵里不存在的
+ * 编号，都红。矩阵会腐烂（新增路径没人补表）是本仓那条「规范早就有、门控一直没有」
+ * 的同一种病，这个标签是让它红的唯一机制。
+ */
+
+/** 矩阵文档——判据的唯一事实源，spec 只引用编号，不在这里复述判据本身。 */
+export const PATH_MATRIX_DOC = ".harness/instructions/chat-path-coverage-matrix.md";
+
+export async function login(page: Page): Promise<void> {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+}
+
+/** 同既有 spec：先把 CopilotRuntime 路由焐热（Next dev 按需编译，见既有各处头注）。 */
+export async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
+  await expect
+    .poll(async () => (await page.request.get("/api/copilotkit/info")).status(), {
+      timeout: 60_000,
+      intervals: [500, 1_000, 2_000],
+    })
+    .toBe(200);
+}
+
+export async function sessionHeaders(page: Page): Promise<Record<string, string>> {
+  const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
+  expect(token, "登录后应有会话令牌；没有说明登录这一步本身就没成功").toBeTruthy();
+  return { Authorization: `Bearer ${token}` };
+}
+
+export interface StoredMessage {
+  readonly id: string;
+  readonly text: string;
+  readonly authorKind: "human" | "agent";
+  readonly agentRunId: string | null;
+  readonly createdAt: string;
+}
+
+/** 权威读：直接问 API 这条线程**落库**的消息，不看渲染出来的那一帧。 */
+export async function storedMessages(page: Page, threadId: string): Promise<StoredMessage[]> {
+  const response = await page.request.get(`/chat/threads/${threadId}/messages?limit=200`, {
+    headers: await sessionHeaders(page),
+  });
+  expect(response.ok()).toBe(true);
+  return (await response.json() as { messages: StoredMessage[] }).messages;
+}
+
+export interface StoredRun {
+  readonly status: string;
+  readonly resultMessageId?: string | null;
+  readonly error?: string | null;
+}
+
+export async function storedRun(page: Page, runId: string): Promise<StoredRun> {
+  const response = await page.request.get(`/agent-runs/${runId}`, {
+    headers: await sessionHeaders(page),
+  });
+  expect(response.ok()).toBe(true);
+  return await response.json() as StoredRun;
+}
+
+/**
+ * 新建一条空线程并选中确定性 deep-agent —— v2 面板那几条路径的共同起点，
+ * 手法逐字取自 `agent-chat-core-paths.spec.ts`（同一条真实链路，不是第二种起法）。
+ *
+ * ⚠ **调用它之前不要再自己 `login()` 或 `warmUpCopilotRuntimeRoute()`**：
+ * `openChatEmptyState` 里两件都已经各做一次。已登录之后再 `goto("/login")`，应用会把
+ * 这一跳重定向走，`login-email` 永远不出现，于是 `fill()` 一路等到测试超时——
+ * 2026-09-08 本车道首跑，D4/F2/F6/F7 四条**全部**以这个形态各烧掉 4–5 分钟，
+ * 一条真实断言都没跑到。既有的 `agent-chat-core-paths.spec.ts` 从来就是直接调
+ * `openFreshThread`，是本车道第一版多加了那一步。
+ */
+export async function openFreshDeepAgentThread(page: Page): Promise<string> {
+  const threadId = await openFreshThread(page);
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
+  return threadId;
+}
+
+/**
+ * 同上，但用于**同一 browser context 里的第二个 page**：不再走登录。
+ *
+ * 二跑实测（F6）：同一 context 的两个 page 共享 origin 存储，第一个 page 登录之后，
+ * 第二个 page 已经是已登录态 ⇒ `openChatEmptyState` 里的 `goto("/login")` 被重定向走，
+ * `login-email` 永远不出现，又是首跑那个形态的第二种来源。并发用例恰恰**需要**共享
+ * 登录态（真实用户开两个标签页），所以修的是"别再登一次"，不是"换成两个 context"。
+ */
+export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
+  return threadId as string;
+}
+
+/**
+ * 新建一条空线程并选中**回显 agent**（`CHAT_READ_E2E.agentId`，走
+ * `loopback-model-provider.ts`）—— 画布指引与 L2/L3 那几个回显开关都长在它身上，
+ * deep-agent 那条替身没有它们。
+ *
+ * ## 顺序不能反：先切 agent，再建线程
+ *
+ * `copilotkit-v2-panel.tsx` 的 `key={selectedAgentId}`：切 agent 会**卸载当前对话并
+ * 开一条全新的**（新 threadId、空消息）。所以线程 id 必须在切换**之后**才取，
+ * 否则拿到的是切换前那条、随后所有权威读都读错线程。
+ *
+ * ⚠ 这也是 issue **#3028** 的同一条机制：它让「深链进一条种好历史的线程」与
+ * 「切到回显 agent」在 v2 上互斥。需要**种好的历史**的用例（本车道的 A3）因此
+ * 暂时跑不起来，按 #2997 方案 B 的既有先例挂 `test.fixme` 等 #3028；不需要历史的
+ * 用例（C4/C5：画布指引只依赖组织已发布模板 + 用户正文里的哨兵）走这条新建线程的路
+ * 完全成立。
+ */
+export async function openFreshEchoAgentThread(page: Page): Promise<string> {
+  await openChatEmptyState(page);
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.agentId);
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  expect(threadId, "新建线程后 URL 应带上 threadId").toBeTruthy();
+  return threadId as string;
+}
+
+/**
+ * v2 面板：发一条消息，等到**落库**的 agent 回复里出现期待的串。
+ *
+ * 等的是权威读（`GET /chat/threads/:id/messages`）而不是 DOM 文本——回复气泡的渲染
+ * 时机与落库时机是两件事，混着等会把「渲染慢」误判成「没答」。手法取自
+ * `agent-chat-core-paths.spec.ts` 的 `sendAndWaitStoredReply`。
+ */
+export async function sendInV2AndAwaitStoredReply(
+  page: Page,
+  threadId: string,
+  text: string,
+  expectedInReply: string,
+): Promise<void> {
+  await page.getByTestId("copilotkit-v2-input").fill(text);
+  await page.getByTestId("copilotkit-v2-send").click();
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text, { timeout: 60_000 });
+  await expect
+    .poll(async () => {
+      const messages = await storedMessages(page, threadId);
+      return messages.some((m) => m.authorKind === "agent" && m.text.includes(expectedInReply));
+    }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
+    .toBe(true);
+}
+
+/**
+ * 「这次 run 不再卡在运行中」的唯一读法——与 `copilotkit-v2-error-banner.spec.ts` 的
+ * 同名 helper 同一条理由（`toBeEnabled()` 在 composer 清空后不再等价，见那份头注）。
+ */
+export async function expectSendNotBlockedOnRun(page: Page, timeoutMs = 60_000): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"), { timeout: timeoutMs })
+    .not.toBe("running");
+}

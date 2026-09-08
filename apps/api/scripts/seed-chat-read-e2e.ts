@@ -94,6 +94,13 @@ const MOUNTABLE_SKILL_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_NAME");
  * 各写一份字面量的下场见 `loopback-model-provider.ts` 里 REPLY_PREFIX 那段头注。
  */
 const MOUNTABLE_SKILL_SENTINEL = required("CHAT_E2E_MOUNTABLE_SKILL_SENTINEL");
+/**
+ * 路径矩阵 D4 —— 这个 `stable_name` 此前只写死在本文件里，断言方无从引用；D4 要在
+ * 替身收到的**目录块**里找的正是这个字符串，于是它必须与断言方共用同一个事实源
+ * （`chat-read-fixture.ts` 的 `mountableSkillStableName`），本仓「同一事实不得声明在
+ * 两处」那条纪律。
+ */
+const MOUNTABLE_SKILL_STABLE_NAME = required("CHAT_E2E_MOUNTABLE_SKILL_STABLE_NAME");
 const RETRIEVAL_ATTACHMENT_FILENAME = required("CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME");
 const RETRIEVAL_EXCERPT = required("CHAT_E2E_RETRIEVAL_EXCERPT");
 /**
@@ -534,7 +541,7 @@ await asApp(ORG_ID, async (client) => {
       `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
        VALUES ($1,$2,$3,$4,'enabled',$5,now(),now())
        ON CONFLICT (id) DO NOTHING`,
-      [MOUNTABLE_SKILL_ID, ORG_ID, "chat-read-e2e-hypothesis-tree", MOUNTABLE_SKILL_NAME, USER_ID],
+      [MOUNTABLE_SKILL_ID, ORG_ID, MOUNTABLE_SKILL_STABLE_NAME, MOUNTABLE_SKILL_NAME, USER_ID],
     );
     // `published = true` 是硬条件：`loadMountableRow` 的 wave2 分支只挑**已发布**版本
     // 作为 `currentVersionId`（挂载把它钉进 `ThreadSkillMount.versionId`），而

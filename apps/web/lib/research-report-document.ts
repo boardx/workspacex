@@ -66,10 +66,11 @@ export function researchReportDocument(report: ReportContent, sources: Source[],
 }
 
 function escapeMarkdown(text: string): string { return text.replace(/[\\`*_[\]<>]/g, "\\$&").replace(/[\r\n]+/g, " "); }
-export function researchReportMarkdown(document: ReportDocument, partial = false): string {
+export function researchReportMarkdown(document: ReportDocument, partial = false, excludedEvidenceBatches = 0): string {
   const footnotes = (text: string) => outsideCode(text, (part) => part.replace(/\[(\d+)\]\(#research-reference-\1\)/g, (_match, number: string) => `[^${number}]`));
   const blocks = [`# ${escapeMarkdown(document.title)}`];
   if (partial) blocks.push("> 本报告基于已有来源生成，部分检索任务未成功，相关证据可能存在缺口。");
+  if (excludedEvidenceBatches > 0) blocks.push(`> 本轮有 ${excludedEvidenceBatches} 批证据包含未通过校验的内容，已排除无效部分，使用其余有效证据生成。证据覆盖可能不完整，请留意相关问题的证据缺口。`);
   if (document.summary) blocks.push("## 执行摘要", footnotes(document.summary));
   if (document.introduction) blocks.push("## 研究范围与方法", footnotes(document.introduction));
   document.sections.forEach((section, index) => blocks.push(`## ${index + 1}. ${escapeMarkdown(section.title)}`, footnotes(section.body)));

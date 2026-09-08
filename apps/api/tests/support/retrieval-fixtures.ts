@@ -1,3 +1,7 @@
+// @global-scope-fixture table:embedding_models: 模型注册表没有 org_id 列，**没有任何文件清理它**。
+//   写入是 `ON CONFLICT (model, model_version) DO UPDATE`，所以它对执行顺序不敏感：先跑后跑
+//   都收敛到同一行。⚠ 如果将来要在这里放随每次运行变化的值，就必须改成本文件自己的模型名
+//   并负责清理，否则会复现 issue #2982 描述的顺序依赖。
 /**
  * Fixtures for the F10 retrieval tests.
  *
