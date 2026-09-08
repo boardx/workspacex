@@ -96,6 +96,8 @@ import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permiss
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
+/** 2026-09-08 人类反馈「默认有一行就可以了」：composer 自动增高的封顶（约 8 行 text-16），超出后内部滚动。 */
+const COMPOSER_MAX_HEIGHT_PX = 200;
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
@@ -919,6 +921,14 @@ export function CopilotKitV2PanelBody({
     syncComposerMirrorScroll();
   }, [syncComposerMirrorScroll]);
   const voiceActive = speech.listening || speech.connecting;
+  // 默认 1 行（`rows={1}`），内容变多时按 scrollHeight 长高、封顶后内部滚动。
+  // 先把 height 归零再量 scrollHeight，删行时才会缩回去。
+  React.useEffect(() => {
+    const ta = composerInputRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+  }, [inputDraft, voiceActive, speech.baseText, speech.committedText, speech.partialText]);
   // 每次开录都重新跟随（上一段录音里用户往上翻过，不该影响下一段）。
   React.useEffect(() => {
     if (voiceActive) voiceFollowRef.current = true;
@@ -1761,7 +1771,9 @@ export function CopilotKitV2PanelBody({
         <div
           className={[
             "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt focus-within:border-primary/60",
+            // 2026-09-08 人类反馈（真栈截图）「选中的时候，不要有新的边框出来，就保持就可以了」——
+            // 去掉 `focus-within:border-primary/60`：聚焦前后外框颜色一致，光标本身就是焦点提示。
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt",
           ].join(" ")}
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}
@@ -1815,18 +1827,16 @@ export function CopilotKitV2PanelBody({
               <textarea
                 ref={composerInputRef}
                 data-testid="copilotkit-v2-input"
-                rows={3}
+                // 2026-09-08 人类反馈「这个框的高度，默认有一行就可以了」——默认 1 行，
+                // 内容变多时由 `syncComposerHeight` 按 scrollHeight 自动长高（封顶
+                // `COMPOSER_MAX_HEIGHT_PX`，超出后内部滚动）。
+                rows={1}
                 className={[
-                  // 2026-09-03 人类反馈（真栈截图）「输入框不要黑色的 border，浅一点」——
-                  // 外层卡片（`chat-task-workbench-composer`）已经用
-                  // `focus-within:border-primary/60` 承担聚焦提示；这个内层 `<textarea>`
-                  // 原来又叠一圈 `ring-2 ring-ring`（`--ring` 近黑，同 `--primary`，
-                  // 不透明），两圈聚焦提示叠在一起就是用户看到的"黑色边框"。
-                  // ⚠ 不能整条删掉（`lint-design.sh` U7b：`outline-none` 必须配一个
-                  // `focus-visible:ring-*` 替代，否则键盘用户看不见焦点在哪）——改成
-                  // `ring-1`（更细）+ `ring-ring/30`（30% 不透明度，浅灰而不是实心黑），
-                  // 聚焦仍然可见，只是不再是一块生硬的黑框。
-                  "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
+                  // 2026-09-08 人类反馈「选中的时候，不要有新的边框出来」——内层
+                  // `<textarea>` 聚焦不再画任何 ring（`focus-visible:ring-0`），焦点由
+                  // 外层卡片常驻边框 + 光标承载；`ring-0` 同时满足 `lint-design.sh`
+                  // U7b（`outline-none` 须与 `focus-visible:ring-*` 同行）的机械判据。
+                  "block w-full min-w-0 resize-none overflow-y-auto rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={!canWrite || archived}
