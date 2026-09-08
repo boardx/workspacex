@@ -1294,6 +1294,89 @@
         "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
       ],
       "evidence": ""
+    },
+    {
+      "id": "F59",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "引导式澄清：新建从填表改成问答",
+      "user_visible_behavior": "点「新建设计」先写一句想做什么，AI 据此生成 3–6 个针对这个产品的问题；逐条回答（每条都能跳过，也能整段跳过），汇成一份可编辑的设计指导原则，确认后创建项目直接进画布。模型不可用时退回通用问卷并说明是兜底。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§3",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/intake-questions.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F60",
+      "priority": 1,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "参考图输入：按钮 / 拖拽 / 粘贴三种方式",
+      "user_visible_behavior": "对话面板可以拖进图片、点「＋ 参考图」选图、或直接 ⌘V 粘贴截图；缩略图显示在输入框上方可删除，随每一轮对话发给模型。模型看不了图时不发图，并在回复里明说。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§1",
+      "depends_on": [
+        "p3:F53"
+      ],
+      "points": 8,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/design-chat-model.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.fullstack-smoke.config.ts -g '拖一张参考图进对话面板'"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F61",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "从已有对话导入上下文",
+      "user_visible_behavior": "对话面板顶部「从对话导入」选一个自己的聊天线程，看到可编辑的摘要预览，确认后写进项目背景，并在对话里留一条「从线程《X》导入了 N 条消息」的记录。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§2",
+      "depends_on": [
+        "p3:F59"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "F62",
+      "priority": 2,
+      "area": "design",
+      "capability": "CAP-UI",
+      "title": "工作台列表：最新在前 + 标签过滤",
+      "user_visible_behavior": "设计列表按最近改动倒序，刚改过的排最前；卡片可以打标签，列表顶部按标签过滤（多选取交集）；顶部三张模板卡片移除，主入口是「新建设计」。",
+      "spec_ref": "design-deltas/design-chat-inputs/contract.md#§4",
+      "depends_on": [
+        "p3:F59"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/design-workbench/project-lifecycle.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/design-loop.test.tsx"
+      ],
+      "evidence": ""
     }
   ]
 }

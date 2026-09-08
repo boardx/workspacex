@@ -7,7 +7,7 @@
 | 00 | 共享内核 | in_progress | 0 | 1 | 0 | 22 |
 | 01 | 能跑完一场项目 | in_progress | 20 | 4 | 0 | 209 |
 | 02 | 让推演与成果可见 | not_started | 46 | 0 | 0 | 0 |
-| 03 | 跨项目复用与治理 | not_started | 58 | 0 | 0 | 0 |
+| 03 | 跨项目复用与治理 | not_started | 62 | 0 | 0 | 0 |
 | 04 | 数字专家访谈 Studio | in_progress | 1 | 1 | 0 | 5 |
 | 05 | Studio style unification | not_started | 0 | 1 | 0 | 0 |
 | 06 | 深度研究 | not_started | 6 | 0 | 0 | 0 |
@@ -20,4 +20,4 @@
 | 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
 | 14 | agent-kernel-unification | in_progress | 0 | 0 | 0 | 15 |
 
-_最近聚合:2026-09-07T20:00:18.151Z_
+_最近聚合:2026-09-08T12:43:40.665Z_
