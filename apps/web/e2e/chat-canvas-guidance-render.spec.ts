@@ -26,6 +26,7 @@
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { V2_SEND_WIRE, awaitAssistantReply, bearerOf, snapshotMessageIds } from "./chat-v2-send";
 
 /**
  * issue #2295 —— 证明串**必须**带上 `CHAT_READ_E2E.canvasGuidanceSentinel`：这是
@@ -72,24 +73,34 @@ test("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.canvasGuidanceThreadId}`))
     .toContainText("Canvas guidance in real chat check thread");
 
-  // ── 发一条自然语言消息（不是手填围栏）——「基于上下文生成可视化」验的正是这条转换 ──
-  const input = page.getByRole("textbox", { name: "消息内容" });
-  await input.fill(PROOF_TEXT);
-  const accepted = page.waitForResponse((r) =>
-    r.request().method() === "POST"
-    && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.canvasGuidanceThreadId}/messages`));
-  await page.getByTestId("chat-message-submit").click();
-  expect((await accepted).status()).toBe(202);
+  const bearer = await bearerOf(page);
+  const knownIds = await snapshotMessageIds(page, CHAT_READ_E2E.canvasGuidanceThreadId, bearer);
 
-  // 等这条消息触发的 AgentRun 到终态——同 `chat-diagram-save-reopen-roundtrip.spec.ts`
-  // 既有手法，不猜固定延时。
-  await page.waitForResponse(async (r) => {
-    if (r.request().method() !== "GET" || !/\/agent-runs\/[^/]+$/.test(r.url())) return false;
-    try {
-      const body = await r.json() as { status?: string };
-      return body.status === "succeeded" || body.status === "failed";
-    } catch { return false; }
-  }, { timeout: 120_000 });
+  // ── 发一条自然语言消息（不是手填围栏）——「基于上下文生成可视化」验的正是这条转换 ──
+  // issue #2997 —— 锚点由旧屏迁到 v2 工作台（`#2890` 之后 `/chat?projectId=` 渲染
+  // 的是 CopilotKit v2；旧屏已无可达路由）。换的只是输入框/发送按钮这两个承载物，
+  // 本用例要证的「自然语言 → 模型产出 canvas 围栏 → 真的渲染成工作坊画布」一字未动：
+  // 围栏渲染那一半（`chat-canvas-fabric` / `chat-canvas-modal` / `canvas-fabric-surface`）
+  // 出自 `markdown-message.tsx`，而 v2 的 `assistantMessage` slot 正是渲染
+  // `MarkdownMessage`（`copilotkit-v2-assistant-message.tsx`），两屏同一份实现。
+  const input = page.getByTestId("copilotkit-v2-input");
+  await input.fill(PROOF_TEXT);
+  // issue #2997 —— v2 的发送线路见 `chat-v2-send.ts` 头注；判据从"202 被接收"
+  // 换成"上行 run 请求真的带着这句提示词发了出去"，证的仍是"这一轮真的发出去了"。
+  const accepted = page.waitForRequest(
+    (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("copilotkit-v2-send").click();
+  expect(JSON.stringify((await accepted).postDataJSON())).toContain(PROOF_TEXT);
+
+  // 等这条消息触发的 AgentRun 到终态。
+  //
+  // issue #2997 —— 原写法轮询 `GET /agent-runs/:id`，那是**旧屏**的状态源；v2 拿的
+  // 是 AG-UI 事件流，整轮不发这条请求，原写法会挂死在 120s 超时上（不是变红，是等不到）。
+  // 换成"这一轮真的落库了一条带 `agentRunId` 的 assistant 回复"——同样是终态信号，
+  // 而且更强：它顺带证明写回事务真的提交了。理由见 `chat-v2-send.ts` 头注。
+  await awaitAssistantReply(page, CHAT_READ_E2E.canvasGuidanceThreadId, bearer, knownIds, 120_000);
 
   // ── 结构性证明①：围栏真的解析成功、渲染就绪，且走的是真实组织模板（非内置兜底）──
   //

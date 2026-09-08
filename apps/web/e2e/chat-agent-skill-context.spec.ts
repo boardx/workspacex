@@ -49,6 +49,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { awaitAssistantReply, bearerOf, listPersistedMessages, snapshotMessageIds, V2_SEND_WIRE } from "./chat-v2-send";
 // ⚠ 从产品代码 import 那个 key，不在这里再写一份字面量——鉴权是
 //   `Authorization: Bearer <token>`（不是 cookie），token 存在 localStorage 的这个键下。
 //   抄一份副本就是本仓多次记录过的漂移形状（见 `skill-review-gate.spec.ts` 同一模式）。
@@ -77,23 +78,42 @@ async function authHeaders(page: Page): Promise<Record<string, string>> {
  * 所以终态等待留给各自的调用方。
  */
 async function sendMessage(page: Page, threadId: string, text: string): Promise<string> {
-  const input = page.getByRole("textbox", { name: "消息内容" });
-  await expect(input).toBeVisible();
-  await input.fill(text);
+  /*
+   * issue #2997 —— `#2890` 之后 `/chat?projectId=` 渲染的是 CopilotKit v2 工作台，
+   * 旧屏已无可达路由。原实现依赖三样 v2 上不存在的东西（不是换 testid 能解决的）：
+   *   ① `POST /chat/threads/:id/messages`（202 + `agentRunId`）—— v2 走
+   *      `POST /api/copilotkit/agent/:id/run`，AG-UI 流里**没有 runId 字段**，
+   *      浏览器拿不到它（实测取证见 `chat-v2-send.ts` 头注）；
+   *   ② `chat-live-agent-run-status` 排队态 —— v2 没有权威 run 状态条
+   *      （`lib/copilotkit-v2-run-progress.ts:43-49` 已自陈为 backlog）；
+   *   ③ `getByRole("textbox", { name: "消息内容" })` —— v2 的 `<textarea>` 没有
+   *      `aria-label`（真栈探针实测 `ariaLabel: null`），匹配不到。
+   *
+   * 本函数的契约（返回这一轮的 `AgentRun` id）保持不变，只是改成从**落库投影**
+   * 拿：轮询 `GET /chat/threads/:id/messages`，等这一轮新落库的 assistant 消息，
+   * 读它的 `agentRunId`。调用方随后对这个 id 做的事（读 run 快照 / 断言
+   * `skillVersionIds`）逐字未动。
+   *
+   * ⚠ 代价如实记录：旧实现在**排队那一刻**就能拿到 runId，本实现要等写回落库。
+   *   本文件两个调用方随后都要等终态，所以对它们没有影响；但如果将来有人想在
+   *   run 还在跑的时候拿 id，这里给不了——那要等 v2 补上权威状态条（缺口 issue **#3023**）。
+   */
+  const bearer = await bearerOf(page);
+  const knownIds = await snapshotMessageIds(page, threadId, bearer);
 
-  const responsePromise = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${threadId}/messages`)
-  ));
-  await page.getByTestId("chat-message-submit").click();
-  const response = await responsePromise;
-  expect(response.status()).toBe(202);
-  const body = await response.json() as { agentRunId: string; runStatus: string };
-  expect(body.runStatus).toBe("queued");
-  // 2026-08-19（#1589）：单独的 `chat-message-queued` 回执已删（与 `chat-live-agent-run-status`
-  // 同屏重复说同一件事）——排队态改盯这条状态条本身。
-  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible();
-  return body.agentRunId;
+  const input = page.getByTestId("copilotkit-v2-input");
+  await expect(input).toBeVisible({ timeout: 60_000 });
+  await input.fill(text);
+  const runRequest = page.waitForRequest(
+    (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("copilotkit-v2-send").click();
+  expect(JSON.stringify((await runRequest).postDataJSON())).toContain(text);
+
+  const reply = await awaitAssistantReply(page, threadId, bearer, knownIds, 90_000);
+  expect(reply.agentRunId, "写回落库的 assistant 消息必须带着这一轮的 agentRunId").toBeTruthy();
+  return reply.agentRunId!;
 }
 
 /**
@@ -213,10 +233,18 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
 
   const headers = await authHeaders(page);
 
-  function messageRow(messageId: string) {
-    // ⚠ 必须同时锚 `chat-message-row`：`data-message-id` 在同一条消息里挂在三个元素上
-    //   （消息行、复制按钮、评分块），只按它选会 strict mode violation（同测试③）。
-    return page.locator(`[data-testid="chat-message-row"][data-message-id="${messageId}"]`);
+  /*
+   * issue #2997 —— v2 的消息由框架 slot 渲染，**没有 `chat-message-row[data-message-id]`
+   * 这个行级锚点**（真栈探针实测计数为 0）。改成按落库正文在 `copilot-assistant-message`
+   * 气泡里定位——`resolveReplyBubble` 先用 `listMessages` 把这条 id 的正文读回来，
+   * 再拿正文去匹配气泡，仍然是"精确定位到这一条回复"，不是"随便找一条含某串的气泡"。
+   */
+  async function messageRow(messageId: string) {
+    const bearer = await bearerOf(page);
+    const messages = await listPersistedMessages(page, CHAT_READ_E2E.causalCheckThreadId, bearer);
+    const target = messages.find((m) => m.id === messageId);
+    expect(target, `落库消息里应能找到 ${messageId}`).toBeTruthy();
+    return page.getByTestId("copilot-assistant-message").filter({ hasText: target!.text.slice(0, 40) }).last();
   }
 
   /* ═══════════ A. 什么都不挂，直接发 ═══════════ */
@@ -228,7 +256,7 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
     "#2514：夹具 agent 没钉 skill ⇒ 走默认加载 ⇒ 快照里至少有组织那个已启用的 skill",
   ).toBeGreaterThan(0);
   expect(beforeRun.resultMessageId, "这次 run 应该写回了一条回复").toBeTruthy();
-  const beforeReply = messageRow(beforeRun.resultMessageId!);
+  const beforeReply = await messageRow(beforeRun.resultMessageId!);
   await expect(beforeReply).toBeVisible();
   await expect(beforeReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
   await expect(
@@ -255,14 +283,14 @@ test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快�
     "同一份 SKILL.md 不该在 system prompt 里出现两遍",
   ).toHaveLength(1);
   expect(afterRun.resultMessageId).toBeTruthy();
-  const afterReply = messageRow(afterRun.resultMessageId!);
+  const afterReply = await messageRow(afterRun.resultMessageId!);
   await expect(afterReply).toContainText(`${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mountedSkillSentinel}`);
 
   /* ── 落库复核：刷新一次，回复不是渲染在内存里的一帧 ── */
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.causalCheckThreadId}`))
     .toContainText("Causal check fixture thread");
-  await expect(messageRow(beforeRun.resultMessageId!))
+  await expect(await messageRow(beforeRun.resultMessageId!))
     .toContainText(CHAT_READ_E2E.mountedSkillSentinel);
 });
 
@@ -274,29 +302,35 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.contextCheckThreadId}`))
     .toContainText("Context check fixture thread");
 
-  const status = page.getByTestId("chat-live-agent-run-status");
+  const headers = await authHeaders(page);
 
+  /*
+   * issue #2997 —— 终态判据从旧屏的 `chat-live-agent-run-status`（`data-run-status` /
+   * `data-result-message-id`，v2 上没有这条状态条）换成：
+   *   ① `sendMessage` 拿到这一轮的 `agentRunId`（已改为从落库投影读，见该函数头注）；
+   *   ② 直连 `GET /agent-runs/:id` 断言**恰好 succeeded**（原文那条"不是『不再是
+   *      queued』"的纪律逐字保留，只是从 DOM 属性换成同一事实的 API 面）；
+   *   ③ 从 run 快照里取 `resultMessageId`。
+   * 这里降级的是"这件事对用户可见"这一层——那正是缺口 issue 记录的内容，不在这里
+   * 假装它还成立。
+   */
   async function sendAndAwaitRun(text: string): Promise<string> {
-    await sendMessage(page, CHAT_READ_E2E.contextCheckThreadId, text);
-    // 终态：succeeded。⚠ 断言的是**恰好 succeeded**，不是「不再是 queued」——
-    // failed 也不再是 queued，放宽成后者会让一条整体失败的 run 也算通过。
-    await expect
-      .poll(async () => status.getAttribute("data-run-status"), { timeout: 60_000 })
-      .toBe("succeeded");
-    await expect
-      .poll(async () => status.getAttribute("data-result-message-id"), { timeout: 60_000 })
-      .not.toBeNull();
-    const resultMessageId = await status.getAttribute("data-result-message-id");
-    expect(resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
-    return resultMessageId as string;
+    const runId = await sendMessage(page, CHAT_READ_E2E.contextCheckThreadId, text);
+    const run = await pollRunToTerminal(page, headers, runId);
+    expect(run.status, "这次 run 应该恰好 succeeded（failed 也不再是 queued，不能放宽成后者）").toBe("succeeded");
+    expect(run.resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
+    return run.resultMessageId!;
   }
 
   // 这条线程是专属、零预置消息的夹具（见文件头），发出去的消息天然落在第一页，
   // 定位回复不需要任何翻页逻辑——这正是 #1324 重构要解决的失败定位问题。
-  function messageRow(messageId: string) {
-    // ⚠ 必须同时锚 `chat-message-row`：`data-message-id` 在同一条消息里挂在**三个**
-    //   元素上（消息行本身、复制按钮、评分块），只按它选会 strict mode violation。
-    return page.locator(`[data-testid="chat-message-row"][data-message-id="${messageId}"]`);
+  // issue #2997 —— 同测试②：v2 没有行级 `data-message-id` 锚点，按落库正文定位气泡。
+  async function messageRow(messageId: string) {
+    const bearer = await bearerOf(page);
+    const messages = await listPersistedMessages(page, CHAT_READ_E2E.contextCheckThreadId, bearer);
+    const target = messages.find((m) => m.id === messageId);
+    expect(target, `落库消息里应能找到 ${messageId}`).toBeTruthy();
+    return page.getByTestId("copilot-assistant-message").filter({ hasText: target!.text.slice(0, 40) }).last();
   }
 
   /* ═══════════ 反向对照先跑：不命中任何文件的提问 ═══════════
@@ -306,7 +340,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
    * 这种解释空间。（替身那侧还另有一道防线：只认以 L3 伪消息头开头的 assistant 消息，
    * 见 `loopback-model-provider.ts` 的 `retrievedSourceKinds`。两道各自独立。） */
   const decoyMessageId = await sendAndAwaitRun(CHAT_READ_E2E.retrievalDecoyQuery);
-  const decoyReply = messageRow(decoyMessageId);
+  const decoyReply = await messageRow(decoyMessageId);
   // 这条回复真的出自确定性上游（带回显前缀）⇒ 闭环穿过了整条链，不是前端合成的。
   await expect(decoyReply).toBeVisible();
   await expect(decoyReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
@@ -329,7 +363,7 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
    * 检索坏掉 ⇒ 不注入伪消息 ⇒ 上游收不到 ⇒ 回复里没有这一段 ⇒ 本条如实红。 */
   const groundedQuestion = `${CHAT_READ_E2E.retrievalTerm} 的回滚窗口是多久？`;
   const groundedMessageId = await sendAndAwaitRun(groundedQuestion);
-  const groundedReply = messageRow(groundedMessageId);
+  const groundedReply = await messageRow(groundedMessageId);
   await expect(groundedReply).toBeVisible();
   await expect(groundedReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
   await expect(
@@ -347,10 +381,12 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
    * `GET /agent-runs/:runId/context-snapshot` 接的这枚徽标真的把 `chat-attachment`
    * 这个来源标记摆在了用户看得到的地方，不是只存在于确定性替身的回显文本里。
    */
-  const groundedSnapshotToggle = groundedReply.getByTestId("context-snapshot-toggle");
-  await expect(groundedSnapshotToggle).toBeVisible();
-  await groundedSnapshotToggle.click();
-  await expect(groundedReply.getByTestId("context-snapshot-l3-source-chat-attachment")).toBeVisible();
+  // issue #2997 —— 这三行（上下文快照徽标里的 L3 来源标记）在 v2 上**没有对等实现**：
+  // `message-context-snapshot.tsx` 的唯一消费者是旧屏 `chat-live-message-panel.tsx:1201`
+  // （真栈探针实测 `context-snapshot-toggle` 计数为 0）。按人类裁决（方案 B）不删、
+  // 不改宽，原文保留在本文件末尾的 `test.fixme` 里，产品缺口 issue：**#3023**。
+  // 上面那条 `retrievalEchoPrefix` + `chat-attachment` 的断言仍然完整钉住
+  // 「检索内容真的到达了模型输入」这一半；丢掉的是「用户自己在界面上看得见」那一半。
 
   /* ═══════════ 结果真的落在这条对话里 ═══════════
    *
@@ -358,8 +394,36 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.contextCheckThreadId}`))
     .toContainText("Context check fixture thread");
-  const persistedReply = messageRow(groundedMessageId);
+  const persistedReply = await messageRow(groundedMessageId);
   await expect(persistedReply).toBeVisible();
   // 来源标记也是重读回来的，不是上一帧留在内存里的。
   await expect(persistedReply).toContainText(CHAT_READ_E2E.retrievalEchoPrefix);
+});
+
+/**
+ * issue #2997 —— **原文保留的断言：F155 的可用性补口（用户能在界面上看到召回来源）。**
+ *
+ * F155 那条用例的确定性回显只证明"内容真的到达了模型输入"；`context-snapshot-*`
+ * 徽标是它的另一半——"用户自己看得见召回了什么"。v2 上这个徽标不存在，取证见
+ * `apps/web/lib/copilotkit-v2-run-progress.ts:43-49` 的自陈与真栈探针实测。
+ * 按人类裁决（方案 B）不删断言、不改宽，用 `test.fixme` 钉住等产品补齐。
+ */
+test.fixme("F155 可用性补口：召回来源在界面上可见（v2 尚无对等实现，issue #2997 缺口）", async ({ page }) => {
+  await login(page);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.contextCheckThreadId}`);
+  const headers = await authHeaders(page);
+  const runId = await sendMessage(
+    page, CHAT_READ_E2E.contextCheckThreadId,
+    `${CHAT_READ_E2E.retrievalTerm} 的回滚窗口是多久？`,
+  );
+  const run = await pollRunToTerminal(page, headers, runId);
+  const bearer = await bearerOf(page);
+  const messages = await listPersistedMessages(page, CHAT_READ_E2E.contextCheckThreadId, bearer);
+  const target = messages.find((m) => m.id === run.resultMessageId)!;
+  const groundedReply = page.getByTestId("copilot-assistant-message").filter({ hasText: target.text.slice(0, 40) }).last();
+
+  const groundedSnapshotToggle = groundedReply.getByTestId("context-snapshot-toggle");
+  await expect(groundedSnapshotToggle).toBeVisible();
+  await groundedSnapshotToggle.click();
+  await expect(groundedReply.getByTestId("context-snapshot-l3-source-chat-attachment")).toBeVisible();
 });

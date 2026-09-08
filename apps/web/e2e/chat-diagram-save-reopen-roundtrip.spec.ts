@@ -24,6 +24,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { V2_SEND_WIRE, awaitAssistantReply, bearerOf, snapshotMessageIds } from "./chat-v2-send";
 // ⚠ 从产品代码 import 那个 key，不在这里再写一份字面量——鉴权是
 //   `Authorization: Bearer <token>`（不是 cookie），token 存在 localStorage 的这个键下。
 //   见 `chat-agent-skill-context.spec.ts` 同一模式。
@@ -83,6 +84,14 @@ async function triggerPersonaSummary(
  * 在但翻页过程中瞬时 detach」（重试外壳，每轮重新定位再点，吃掉瞬时 detach）两种
  * 情况——不能再假设按钮必然会出现一次。
  */
+/*
+ * issue #2997 —— `#2890` 之后 `/chat?projectId=` 渲染的是 CopilotKit v2 工作台，
+ * v2 **没有「加载更早」按钮**：它在 hydration 里用同一条 `listMessages` 游标一路
+ * 读到 `nextCursor === null`（`copilotkit-v2-panel-body.tsx:482` 一带），整段历史
+ * 一次到位。于是本 helper 在 v2 上恒走 `count()===0` 那条早退分支、变成 no-op ——
+ * 这**正是它头注里已经处理过的第一种情况**（"按钮从未出现过，不算失败"），不是
+ * 为本次迁移新开的口子，所以原样保留：哪天分页 UI 回来了它照旧工作。
+ */
 async function loadAllMessagePages(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const button = page.getByTestId("chat-messages-load-more");
@@ -109,23 +118,30 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
 
   // ── 种画像素材：persona 文本语法逐字进线程正文（发真实消息，不注入 DB）──
-  const input = page.getByRole("textbox", { name: "消息内容" });
+  // issue #2997 —— 锚点迁到 v2 工作台。本用例要证的「生成画像 → 最大化编辑保存 →
+  // reload 重开看到保存版 → 回到原始版」一字未动：画布那一半
+  // （`chat-diagram-fabric` / `chat-diagram-canvas-modal`）出自 `markdown-message.tsx`，
+  // 而 v2 的 `assistantMessage` slot 渲染的正是 `MarkdownMessage`，两屏同一份实现。
+  const input = page.getByTestId("copilotkit-v2-input");
   await input.fill("姓名: 陈静\n## 目标和需求\n- 确保订单准时交付率稳定在95%以上");
-  const accepted = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/messages`));
-  await page.getByTestId("chat-message-submit").click();
-  expect((await accepted).status()).toBe(202);
-
-  // 等这条消息触发的 AgentRun 到终态再往下走：run 落定时面板会软刷新消息流并把
-  // 分页重置回第一页——不等它，后面定位到的图会在刷新那一刻从 DOM 上被拆下
-  // （首轮实测：element was detached from the DOM，点「最大化」卡到超时）。
-  await page.waitForResponse(async (r) => {
-    if (r.request().method() !== "GET" || !/\/agent-runs\/[^/]+$/.test(r.url())) return false;
-    try {
-      const body = await r.json() as { status?: string };
-      return body.status === "succeeded" || body.status === "failed";
-    } catch { return false; }
-  }, { timeout: 120_000 });
+  /*
+   * issue #2997 —— 两处传输层等待一起换掉，理由见 `chat-v2-send.ts` 头注：
+   *   ① 旧屏那条 `POST /chat/threads/:id/messages`（202）浏览器不再发——v2 走
+   *      `POST /api/copilotkit/agent/:id/run`。
+   *   ② 旧屏靠轮询 `GET /agent-runs/:id` 等终态；v2 拿的是 AG-UI 事件流，
+   *      **整轮没有这条轮询**，原写法会挂死在 120s 超时上。
+   * 判据换成"这一轮真的落库了一条带 `agentRunId` 的 assistant 回复"——同样是终态
+   * 信号，而且更强：它顺带证明了写回事务真的提交了，不只是 run 状态翻了个标志位。
+   */
+  const bearer = await bearerOf(page);
+  const knownIds = await snapshotMessageIds(page, CHAT_READ_E2E.diagramRoundtripThreadId, bearer);
+  const accepted = page.waitForRequest(
+    (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+    { timeout: 60_000 },
+  );
+  await page.getByTestId("copilotkit-v2-send").click();
+  expect(JSON.stringify((await accepted).postDataJSON())).toContain("陈静");
+  await awaitAssistantReply(page, CHAT_READ_E2E.diagramRoundtripThreadId, bearer, knownIds, 120_000);
 
   // ── G2：触发「生成用户画像」——composer 按钮已下线（占一整行、人类实测判定为
   // 误操作入口），直连背后仍保留的端点（见文件头注 `triggerPersonaSummary`）。
@@ -192,7 +208,7 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   // 本用例自己发的第一条真实消息，而不是共享夹具线程才有的
   // "Controlled fixture message 01"。
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
-  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("陈静");
   // 整页 reload 后是全新挂载（前端内存态清零）：分页从第一页重新开始，还没有任何
   // 软重读追新过，按钮这次理应存在——仍用 `loadAllMessagePages` 而不是裸
   // `.click()`，翻页过程中偶发的瞬时 detach 由它的重试外壳吃掉。
@@ -272,7 +288,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   // 这条专属线程从零预置消息开始，跨用例状态在同一 spec 文件内持久（issue #1610
   // 隔离的是「与别的 spec 文件共写」，不是「同一 spec 文件内的用例互相独立」）——
   // 上面那条用例已经把画像素材种进了这条线程，这里可以直接复用。
-  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("陈静");
 
   // ── G2：再触发一次「生成用户画像」，产出一条新的 mindmap 消息（可编辑保存）──
   // composer 按钮已下线，直连端点（见文件头注 `triggerPersonaSummary`），reload
@@ -342,7 +358,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   // 预置消息线程之后，reload 时线程消息数很少，这张图**在初始渲染时就已经在
   // 视口内**（`IntersectionObserver` `rootMargin: 200px` 立即命中），不需要
   // `loadAllMessagePages` 翻页/点击才能把它带进视口——`GET .../artifacts/:id/
-  // source` 可能在 `page.reload()` 触发的这次导航刚完成、`chat-message-list`
+  // source` 可能在 `page.reload()` 触发的这次导航刚完成、`copilotkit-v2-messages`
   // 断言刚轮询到文本命中的那一瞬间就已经发出甚至已经收到响应，比上面 2026-08-22
   // 那次修复把监听器放的位置（`page.reload()` 之后两个 `expect` 之后）还要早。
   // 旧的共享夹具线程有 51+ 条消息，这张图天然要靠 `loadAllMessagePages` 的多轮
@@ -355,7 +371,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
 
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
-  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("陈静");
 
   await loadAllMessagePages(page);
 
