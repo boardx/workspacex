@@ -93,6 +93,25 @@ const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
  * 触发词唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentMultiStepTrigger`。
  */
 const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
+/**
+ * issue #3000 —— 「这一轮要真的跑一段时间」的触发词。
+ *
+ * `copilotkit-v2-run-restore-after-switch.spec.ts` 要验的是「切走时 run **还在途**、
+ * 切回来时事件流不可用、恢复靠权威读收尾」。它此前借用多步触发词，理由写的是
+ * 「多步剧本至少要 `MULTISTEP_MIN_STATUS_POLLS`(=6) 轮状态轮询才终态」——**这条理由
+ * 在流式路径上不成立**：`KERNEL_DEEP_AGENT_STREAM_ENABLED=1` 时终态来自 `/stream` 的
+ * EOF（下面那段把 `statusPolls` 直接推到 MAX），状态轮询那道闸根本不参与。实测证据
+ * （run 34191848662 的 trace）：该 run `createdAt` 06:58:29.494、`chat_writeback`
+ * 06:58:30.661 —— **1.2 秒**就跑完了，而"新建会话 → 等路由 → 切回来"要 2 秒以上，
+ * 于是切回来时 run 早已终态、`findPendingRunId` 为 null，恢复路径一次都没被走到。
+ *
+ * 这里给的是一条**确定性的慢**：命中这个触发词时，`/stream` 先把响应头发出去（连接
+ * 真的建立、真的在跑），再等 `SLOW_HOLD_MS` 才开始发正文片段。run 在这段时间里是真的
+ * `running`（agent_run 行、`GET /agent-runs/:id` 都如实这么说），不是 sleep 出来的假象。
+ * 单独一个触发词、不改多步剧本的时序：那条剧本上挂着别的用例的断言。
+ */
+const SLOW_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SLOW_TRIGGER;
+const SLOW_HOLD_MS = Number(process.env.LOOPBACK_DEEP_AGENT_SLOW_HOLD_MS ?? "12000");
 const SCROLL_ACCEPTANCE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER;
 const SCROLL_ACCEPTANCE_REPLY = "十份文档已经逐一读取，十步滚动验收执行完成。";
 /**
@@ -551,6 +570,7 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+    const streamOpenedAt = Date.now();
     // 多步剧本的流式正文要与 state 的终稿同一口径——否则截图里会出现
     // 「已查询当前时间」这句与多步剧本（从不查时间）自相矛盾的话。
     // DA-19g 真根因修复：`FOLLOWUP_CONTEXT_TRIGGER`/`MARKDOWN_TRIGGER` 两个特殊分支改走
@@ -582,7 +602,11 @@ const server = createServer((req, res) => {
       ? Math.min(2, pieces.length)
       : null;
     let idx = 0;
+    // issue #3000：慢触发词——响应头已经发出（连接真的建立），正文推迟到 hold 之后再发。
+    // 期间这一轮 run 真的停在 `running`，切走再切回时恢复路径才有东西可恢复。
+    const holdMs = SLOW_TRIGGER !== undefined && record.userText === SLOW_TRIGGER ? SLOW_HOLD_MS : 0;
     const timer = setInterval(() => {
+      if (holdMs > 0 && Date.now() < streamOpenedAt + holdMs) return;
       if (abortAfterPieces !== null && idx >= abortAfterPieces) {
         clearInterval(timer);
         res.destroy();

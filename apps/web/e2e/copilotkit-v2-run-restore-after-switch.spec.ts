@@ -59,11 +59,21 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
 
   await page.goto("/chat");
 
-  // 多步剧本让这一轮 run 真的跑一段时间——切走再切回时它必须**还在途**，否则挂载
-  // hydration 直接读到已经写回的回复（`findPendingRunId` 为 null），这条恢复路径
-  // 根本不会被触发，整条用例会变成一条什么都没验证的"绿"。下面第 ① 条断言正是
-  // 为了机械地挡住这种空转。
-  const marker = CHAT_READ_E2E.deepAgentMultiStepTrigger;
+  /*
+   * issue #3000 —— 这一轮必须**真的**跑一段时间：切走再切回时它得**还在途**，否则挂载
+   * hydration 直接读到已经写回的回复（`findPendingRunId` 为 null），恢复路径根本不会被
+   * 触发，整条用例会变成一条什么都没验证的"绿"。下面第 ① 条断言正是为了机械地挡住它。
+   *
+   * ⚠ 此前这里借用的是**多步触发词**，理由写的是「多步剧本至少要 6 轮状态轮询才终态」。
+   *   那条理由在流式路径上不成立：`KERNEL_DEEP_AGENT_STREAM_ENABLED=1` 时终态来自
+   *   `/stream` 的 EOF，状态轮询那道闸根本不参与。trace 实测（run 34191848662）：该 run
+   *   `createdAt` 06:58:29.494、`chat_writeback` 06:58:30.661——**1.2 秒**跑完，而
+   *   「新建会话 → 等路由 → 切回来」要 2 秒以上，于是切回来时 run 早已终态，
+   *   `GET /agent-runs/:runId` 读到的是 `succeeded`，下面那道 `restoringRun` 等满 30s 超时。
+   *   现在用的是替身里一条**确定性的慢**触发词（`deepAgentSlowTrigger`，停留
+   *   `deepAgentSlowHoldMs`=12s 才开始发正文），run 在这段时间里是真的 `running`。
+   */
+  const marker = CHAT_READ_E2E.deepAgentSlowTrigger;
   const initialRunResponse = page.waitForResponse(async response => {
     if (!response.ok() || !/\/agent-runs\/[^/?]+$/.test(new URL(response.url()).pathname)) return false;
     return (await response.json()).status === "running";
@@ -93,10 +103,10 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
    * `status==="running" && resultMessageId===null` 的门等满 30s 超时。
    * 换句话说这条红不是"恢复坏了"，是这条用例从来没走到恢复。
    *
-   * 这一等也不会把用例变成空转：多步剧本要求至少 `MULTISTEP_MIN_STATUS_POLLS`(=6)
-   * 轮状态轮询才终态（`apps/api/scripts/loopback-deep-agent-provider.ts`），落库一条
-   * 人类消息远早于此；而"切回时它必须还在途"由紧随其后那道 `restoringRun` 断言
-   * 机械把关，与文件头注第 ① 条纪律一致。
+   * 这一等也不会把用例变成空转：慢触发词让这一轮在替身里停留 `deepAgentSlowHoldMs`
+   * （12s）才开始发正文（`SLOW_TRIGGER`，`apps/api/scripts/loopback-deep-agent-provider.ts`），
+   * 而落库一条人类消息发生在 run 刚建起来的那一刻，远早于此；"切回时它必须还在途"
+   * 仍由紧随其后那道 `restoringRun` 断言机械把关，与文件头注第 ① 条纪律一致。
    */
   const sessionToken = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
   expect(sessionToken).toBeTruthy();
@@ -149,7 +159,9 @@ test("提交任务→切走→切回：run 事件流不可用时，恢复仍靠�
   expect(stored.ok()).toBe(true);
   const finalMessage = (await stored.json()).messages.find((message: {id: string}) => message.id === final.resultMessageId);
   expect(finalMessage?.agentRunId).toBe(run.runId);
-  expect(finalMessage?.text).toContain("多步依赖链已完整执行");
+  // 慢触发词走替身的默认回复模板（它不是多步剧本）——正文里逐字回显用户原话，
+  // 这就是"写回的那条确实是这一轮的产出"的可判形态。
+  expect(finalMessage?.text).toContain(`根据查询结果回答你："${marker}"`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(finalMessage.text, { timeout: 30_000 });
 
   // The run's authoritative recovery succeeded above. Journal replay remains

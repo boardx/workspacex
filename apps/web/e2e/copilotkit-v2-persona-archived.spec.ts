@@ -91,8 +91,19 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
   const marker = `CK-P6-画像-${Date.now()}`;
   const threadUrl = await sendFirstTurn(page, marker);
 
-  // 入口的渲染依据是服务端真实下发的 `capabilities`（个人线程含 artifact.land），
-  // 不是前端写死——外壳的 getThread 读回之后它才出现。
+  /*
+   * 入口的渲染依据有**两条**，缺一不出现（issue #3000 才把第二条查清楚）：
+   *   ① 服务端真实下发的 `capabilities`（个人线程含 `artifact.land`）——外壳 getThread
+   *      读回之后 `canGeneratePersona` 才为真；
+   *   ② 服务端 `recommendCanvasTemplates` 这一轮的推荐里**含 `persona` 这一条**。
+   *      自 issue #2825 起画像不再是写死的一条 chip，而是从该组织**已发布画布模板库**
+   *      里算出来的一条推荐（`domain/canvas/template-recommendation.ts`）。
+   *
+   * 本夹具组织此前只种了一张自建模板、没有 `persona` 行，于是这条断言恒红（trace 取证
+   * run 34191848662：建议行里只渲染了「生成会话画布验收模板」一条）。现在
+   * `seed-chat-read-e2e.ts` 走生产同一条 backfill 路径把内置 `persona` 模板种进这个组织，
+   * 与真实组织（`backfill-canvas-builtin-templates.ts`）的状态一致。
+   */
   const trigger = page.getByTestId("chat-persona-summary-trigger");
   await expect(trigger).toBeVisible({ timeout: 30_000 });
   await expect(trigger).toBeEnabled({ timeout: 30_000 });

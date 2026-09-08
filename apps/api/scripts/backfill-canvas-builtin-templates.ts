@@ -176,7 +176,22 @@ export function pickCurrentRowByKey<T extends { readonly key: string; readonly s
   return byKey;
 }
 
-export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<CanvasTemplateBackfillReport> {
+/**
+ * @param onlyKeys 只灌这几个内置 key（`undefined` = 全部 19 个，脚本入口的既有语义）。
+ *
+ * 加这个参数是为了让**测试夹具**能只灌它真正需要的那几张，而不是自己另写一条建模板的
+ * 路径——`seed-chat-read-e2e.ts` 需要 `persona` 这一张（chat 建议行里「生成用户画像」
+ * 那条 chip 自 issue #2825 起由 `recommendCanvasTemplates` 从**已发布模板库**里算出来，
+ * 库里没有 `persona` 行 ⇒ 那条 chip 在任何页面上都不会出现）。灌全部 19 张会把该组织
+ * 每一次 run 的 system prompt（`buildCanvasTemplateGuidance` 列出全部已发布模板）撑大、
+ * 影响同车道其它用例的输入，所以给的是"选哪几张"而不是"要不要灌"。
+ *
+ * ⚠ 传进来的 key 必须真的是内置 key；拼错了会静默灌 0 张，所以这里当场抛。
+ */
+export async function backfillCanvasBuiltinTemplates(
+  orgId: string,
+  onlyKeys?: readonly string[],
+): Promise<CanvasTemplateBackfillReport> {
   // 找这个组织最早的 admin 作为 actor —— 与 `backfill-default-agents.ts` 同一个理由：
   // 跨租户读（谁是这个组织的 admin）RLS 对 app 角色故意封，只有 OWNER 连接能读。
   const owner = new pg.Pool({ ...migrationConfig(), max: 2 });
@@ -206,7 +221,20 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
     const templates = new PgCanvasTemplateRepository(db);
     const org = toOrgId(orgId);
 
-    const specs = listTemplates();
+    const allSpecs = listTemplates();
+    if (onlyKeys !== undefined) {
+      const known = new Set(allSpecs.map((s) => s.key));
+      const unknown = onlyKeys.filter((k) => !known.has(k));
+      if (unknown.length > 0) {
+        throw new Error(
+          `[backfill-canvas-builtin-templates] onlyKeys 里有非内置 key：${unknown.join(", ")}——` +
+          `内置 key 的唯一事实源是 fabric-markdown 的模板注册表。`,
+        );
+      }
+    }
+    const specs = onlyKeys === undefined
+      ? allSpecs
+      : allSpecs.filter((s) => onlyKeys.includes(s.key));
     let created = 0;
     let published = 0;
     let upgraded = 0;
