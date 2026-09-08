@@ -5,6 +5,7 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { expect, it } from "vitest";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
+import { buildDeepAgentSkillCatalogBlock } from "../../src/application/agent-run/skill-catalog";
 
 /** Exercise the actual fixture handler without creating a listener, process or Docker. */
 function fixture() {
@@ -17,6 +18,10 @@ function fixture() {
       if (name === "node:http") return {createServer: (callback: typeof handle) => { handle = callback; return server; }};
       if (name === "node:crypto") return {randomUUID};
       if (name === "@repo/contracts/deep-agent-hitl") return {DEEP_AGENT_HITL_TOOL_NAME};
+      // 路径矩阵 D4：替身判定「skill 目录块」时从产品源码取那一行头，不在替身里抄第二份
+      // 字面量（同上面 `DEEP_AGENT_HITL_TOOL_NAME` 那条既有理由：允许分叉就等于允许静默
+      // 假绿）。这个 shim 是白名单，新增依赖必须显式列进来——本条正是那个显式动作。
+      if (name === "../src/application/agent-run/skill-catalog") return {buildDeepAgentSkillCatalogBlock};
       throw new Error(`unexpected fixture dependency: ${name}`);
     },
   });
