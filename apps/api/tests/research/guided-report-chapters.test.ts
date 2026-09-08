@@ -494,6 +494,10 @@ describe("chapter-based report generation", () => {
     expect(f.state.reportTimeline?.find((item) => item.stage === "evidence")).toMatchObject({ status: "warning", attempts: 2, completed: 1, total: 1 });
     expect(f.state.reportTimeline?.find((item) => item.stage === "synthesis")?.status).toBe("completed");
     expect(f.state.reportTimeline?.some((item) => item.status === "failed")).toBe(false);
+    f.writes.length = 0;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(f.writes[0]!.reportTimeline?.find((item) => item.stage === "evidence")).toMatchObject({ status: "warning", reasonCode: "RESEARCH_CONTENT_REFERENCE_INVALID" });
+    expect(f.state.reportTimeline?.find((item) => item.stage === "evidence")?.status).toBe("warning");
   });
 
 });
