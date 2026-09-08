@@ -186,6 +186,17 @@ jobs:
       # verify-uc-coverage exit 0 且打印「✅ 覆盖矩阵完整」。
       # 与上面两步同源的理由：它只读 phases/** 与 packages/contracts/src/**，毫秒级；
       # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
+      # 标准 skill 的 stable_name/version/capability_id 在 SKILL.md frontmatter 与
+      # scripts/build.ts 各写一遍（15+ 个 skill，8 个两处都写、7 个只写一处），从没被比对过。
+      # ui-prototyper 的八条硬规则此前在 yaml/SKILL.md/AGENTS.md 三处手写，同样从没被比对过。
+      # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
+      # 覆盖不到，必须显式跑。
+      - name: 标准 skill 元数据两处逐字一致（约定债务只减不增）
+        run: node .harness/scripts/lint-skill-metadata-source.mjs
+
+      - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
+        run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
+
       - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
         run: node .harness/scripts/lint-third-artifact.mjs
 

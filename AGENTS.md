@@ -127,6 +127,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **模块活知识库（做某模块的活之前先读）** → `.agents/skills/mod-<模块名>/SKILL.md`（模块清单见 project/PROJECT.md；新模块复制 `mod-_template/`；经验回流规则见各文件末尾）
 - 编码规范 → `.harness/instructions/coding-standards.md`
 - UIUX 规范 → `.harness/instructions/uiux-standards.md`
+- **ui-prototyper 硬规则（八条，单一事实源）** → `.harness/instructions/ui-prototyper-hard-rules.md`（原文只在这一份；`.harness/agents/ui-prototyper.yaml` 与 `.agents/skills/ui-prototyper/SKILL.md` 只引用不复述，由 `lint-ui-prototyper-single-source.mjs` 机械核对）
 - 端到端验证标准 → `.harness/instructions/testing-standards.md`
 - **真实模型 e2e（86 个 spec 全跑在回环模型上，真实模型链路的那一条另加 lane）** → `.harness/instructions/real-model-e2e.md`（issue #2802；devapp 手动触发 `real-model-chat-evidence` workflow，本地 `pnpm run e2e:real-model-smoke`）
 - **反馈闭环验收手册（前台用户 × 后台管理员两角色走完 提反馈→分诊建 issue→深化→设计→推收件箱→关 issue→回流邮件）** → `.harness/instructions/feedback-loop-acceptance.md`
