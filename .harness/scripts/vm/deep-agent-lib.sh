@@ -310,6 +310,27 @@ assert b" 200 " in status' >/dev/null 2>&1 || {
 # means the host-gateway topology is broken.
 native_runtime_assert_deep_agent_api_callback() {
   local container=$1
+  # 2026-09-08：`systemctl is-active` 只证明 systemd 起了进程，不证明 NestJS 已绑端口——
+  # tsx 冷启动要好几秒，而下面的探针 3 秒超时且紧跟 restart 之后立刻开火。结果是这个
+  # 探针自 #2929 加入起**一次都没通过过**（19 次部署全红），失败信息又与「拓扑断了」
+  # 无法区分。这里先从容器内轮询 /healthz——走的正是探针同一条 host-gateway 路径——
+  # 直到 200 为止；超时时给出**区别于契约失败**的诊断。间隔/次数可配，测试里设成 0。
+  local attempts=${WX_NATIVE_PROBE_ATTEMPTS:-60} interval=${WX_NATIVE_PROBE_INTERVAL_SECONDS:-1} i ready=0
+  for ((i = 1; i <= attempts; i++)); do
+    if docker exec "$container" python -c 'import os,httpx
+base=os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL", "").rstrip("/")
+assert base
+r=httpx.get(base+"/healthz",timeout=3,follow_redirects=False,trust_env=False)
+assert r.status_code==200' >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep "$interval"
+  done
+  if ((ready != 1)); then
+    echo "✗ native runtime API not reachable from Deep Agent within $((attempts * interval))s（/healthz 未返回 200——不是契约问题，是 API 没起来或 host-gateway 不通）" >&2
+    return 1
+  fi
   docker exec "$container" python -c 'import os,httpx
 base=os.environ.get("NATIVE_SESSION_SERVICE_BASE_URL", "").rstrip("/")
 key=os.environ.get("NATIVE_SESSION_SERVICE_KEY", "")
