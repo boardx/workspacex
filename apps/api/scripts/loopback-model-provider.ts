@@ -492,7 +492,20 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify({ error: "invalid json" }));
       return;
     }
-    const user = parsed.messages?.find((message) => message.role === "user")?.content;
+    /*
+     * ⚠ 取**最后一条** user 消息，不是第一条。
+     *
+     * 六跑实测（C5，run 34204114526）：原来这里是 `find(...)`，返回的是数组里**第一条**
+     * user 消息。单轮线程上 first === last，所以本仓此前每一条 spec 都没察觉；C5 是本车道
+     * 第一条**多轮**用例，于是第 2、3 轮的请求（正文是 [system, user(第1轮), assistant,
+     * user(第2轮)]）全部回显**第 1 轮**的原文——落库里出现两条一模一样、都写着 SERIAL-1
+     * 的回复，看起来像"产物被复制到了别的轮次"这种产品缺陷，实际是替身认错了"这一轮"。
+     *
+     * "回显真收到的东西"这条取证纪律，指的是**这一轮**真收到的东西。
+     * （追问建议分支不受影响：它有自己的 `followUpSuggestionsReply`，按固定形状取倒数第二条。）
+     */
+    const userTurns = (parsed.messages ?? []).filter((message) => message.role === "user");
+    const user = userTurns.length > 0 ? userTurns[userTurns.length - 1]!.content : undefined;
     const echoed = typeof user === "string" ? user : "";
     // #1310 —— 开关未设置时 `kinds` 恒为空数组（短路），拼出来的字符串与改动前逐字节相同。
     const kinds = RETRIEVAL_ECHO_PREFIX === null ? [] : retrievedSourceKinds(parsed.messages);
