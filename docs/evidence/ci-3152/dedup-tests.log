@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-ci-strategy
+
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (25 tests) 247ms
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  01:22:00
+   Duration  939ms (transform 78ms, setup 0ms, collect 178ms, tests 247ms, environment 0ms, prepare 96ms)
+
