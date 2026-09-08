@@ -138,7 +138,7 @@ beforeAll(async () => {
   const { createApp } = await import("../../src/main");
   app = await createApp();
   // 端口 0：OS 挑一个空闲的，并行的测试文件不会互撞，也不会被上一次没退干净的进程占住。
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const address = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 });

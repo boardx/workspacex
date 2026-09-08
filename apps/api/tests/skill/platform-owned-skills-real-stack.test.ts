@@ -125,7 +125,7 @@ beforeAll(async () => {
 
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   BASE = `http://127.0.0.1:${String((app.getHttpServer().address() as AddressInfo).port)}`;
 }, 180_000);
 

@@ -331,7 +331,7 @@ beforeAll(async () => {
   process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
   const { createApp } = await import("../../src/main");
   app = await createApp();
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
   // Installed once per file, after the migrations it depends on. Scoped to this org and
@@ -879,7 +879,7 @@ describe("acceptance kicks execution when autostart is enabled", () => {
     process.env.KERNEL_AGENT_RUN_AUTOSTART = "1";
     const { createApp } = await import("../../src/main");
     const live = await createApp();
-    await live.listen(0);
+    await live.listen(0, "127.0.0.1");
     const addr = live.getHttpServer().address();
     const liveBase = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
     try {

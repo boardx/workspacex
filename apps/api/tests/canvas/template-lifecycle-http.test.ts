@@ -155,7 +155,7 @@ beforeAll(async () => {
   app = await createApp();
   // Port 0 -- the OS picks a free one, so parallel test files cannot collide and a run that
   // died holding a fixed port does not wedge the next one.
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const address = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 });

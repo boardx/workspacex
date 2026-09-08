@@ -38,7 +38,7 @@ beforeAll(async () => {
   // Port 0: the OS assigns a free one. Deriving a port from a hash of the database name
   // was the previous approach and collided in CI (EADDRINUSE) -- there is no number to
   // collide on here.
-  await app.listen(0);
+  await app.listen(0, "127.0.0.1");
   const addr = app.getHttpServer().address();
   BASE = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;
 }, 120_000);
