@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -580,5 +580,66 @@ describe("#2929 native runtime deployment env — persistent owner with admissio
     expect(deploy).toContain("native_runtime_ensure_deploy_env");
     expect(provision).toContain("native_runtime_ensure_deploy_env");
     expect(deploy.indexOf("native_runtime_ensure_deploy_env")).toBeLessThan(deploy.indexOf("export $(grep"));
+  });
+});
+
+/**
+ * 2026-09-08 —— 回调探针必须先等 API 就绪，且「没起来」与「契约不对」要能分开。
+ *
+ * 根因形态：探针紧跟 `systemctl restart` 之后立刻开火、3 秒超时，而 NestJS+tsx 冷启动
+ * 要好几秒。自 #2929 加入这个探针起，19 次部署全部死在这里，失败信息又与拓扑断裂
+ * 一模一样——运维看到的是「回调探针失败」，实际是「还没起来」。
+ *
+ * 假 docker 用一个计数文件模拟「前 N 次 healthz 失败、之后成功」；resolve 探针的
+ * 返回码由 FAKE_RESOLVE_STATUS 控制。python 脚本文本里含 "healthz" 与否用来区分两种调用。
+ */
+describe("native_runtime_assert_deep_agent_api_callback readiness wait", () => {
+  function fakeDocker(dir: string, healthzFailuresBeforeOk: number, resolveStatus: number): string {
+    const counter = join(dir, "healthz-calls");
+    writeFileSync(counter, "0");
+    const bin = join(dir, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "docker"), `#!/usr/bin/env bash
+# args: exec <container> python -c <script>
+script="\${@: -1}"
+if [[ "$script" == *healthz* ]]; then
+  n=$(cat '${counter}'); n=$((n+1)); echo "$n" > '${counter}'
+  (( n > ${healthzFailuresBeforeOk} )) && exit 0 || exit 1
+fi
+# resolve probe：模拟 assert r.status_code==400
+(( ${resolveStatus} == 400 )) && exit 0 || exit 1
+`);
+    chmodSync(join(bin, "docker"), 0o755);
+    return bin;
+  }
+  const call = (bin: string) => runLib(
+    "native_runtime_assert_deep_agent_api_callback fake-container",
+    { WX_NATIVE_PROBE_ATTEMPTS: "5", WX_NATIVE_PROBE_INTERVAL_SECONDS: "0" },
+    bin,
+  );
+  const calls = (dir: string) => Number(readFileSync(join(dir, "healthz-calls"), "utf8"));
+
+  it("API 起得慢：前 3 次 healthz 失败、第 4 次成功 ⇒ 探针通过，且确实等了 4 次", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 3, 400));
+    expect(r.status, r.stderr).toBe(0);
+    expect(calls(dir)).toBe(4);
+  });
+
+  it("反证：API 一直起不来 ⇒ 用「就绪」信息失败，而不是「回调探针失败」，且探针根本没打", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 999, 400));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("API not reachable from Deep Agent");
+    expect(r.stderr).not.toContain("authenticated callback probe failed");
+    expect(calls(dir)).toBe(5); // 用满了 WX_NATIVE_PROBE_ATTEMPTS
+  });
+
+  it("API 已就绪但契约不对（resolve 非 400）⇒ 仍是原来的探针失败信息，两种失败可区分", () => {
+    const dir = tempDir();
+    const r = call(fakeDocker(dir, 0, 503));
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("authenticated callback probe failed");
+    expect(r.stderr).not.toContain("API not reachable");
   });
 });
