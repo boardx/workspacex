@@ -106,17 +106,37 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
        * 头注里那个「只在不存在时创建」的坑同源——对**内容会变的东西**，这种幂等
        * 把「没更新」伪装成「已经是最新」。
        *
-       * ## 判据：升级目标 = 本 org 名下同 `stable_name` 的既有 skill 行
+       * ## 判据：升级目标 = **这个包自己上一次装进去的那些 skill**
+       *
+       * 光看「本 org 同 `stable_name`」是**不够窄的**——那会把用户自建的、URL 导入的、
+       * 以及**另一个包**里同名的 skill 一并当成升级目标，让 A 包的正文悄悄盖掉 B 包
+       * （或用户自己写）的 skill。`tests/skills/explicit-starter-import.test.ts` 的
+       * 「rejects a name conflict visibly and never overwrites user/imported content」
+       * 守的正是这条：另一个 `conflicting-pack` 带着同名 skill 进来必须 409。
+       * 我第一版就是按「同 org 同 stable_name」写的，被这条测试逐字抓住（expected 201 to be 409）。
+       *
+       * 所以判据取**血统**，不取名字：`starter_pack_imports` 里本 org、**同一个
+       * `pack_id`**、`status='succeeded'` 的那几次导入，其 `result_json->'skillIds'`
+       * 记着它们当初铸出来的 skill id——只有这些行才是「这个包的上一版」，才可以升级。
+       *
+       * 于是三件事同时成立：
+       *   · `standard-web` 1.1.1 → 1.1.2：同一个 `pack_id`，升级；
+       *   · 另一个包带同名 skill 进来：血统对不上，照旧 409；
+       *   · 用户自建/URL 导入的同名 skill：从不出现在任何导入的 `skillIds` 里，照旧 409。
        *
        * 只认 `org_id = input.orgId` 自己的行。平台组织（`PLATFORM_ORG_ID`）的行对
-       * 每个 org 可见但**不属于**它，别的 org 写不了，也不该被当成升级目标——那种
-       * 情况仍然是货真价实的重名冲突，下面的检查照旧挡住。
+       * 每个 org 可见但**不属于**它，别的 org 写不了，也不该被当成升级目标。
        */
       const upgradeRows = await session.query<{ id: string; stable_name: string; name: string }>(
-        `SELECT id, stable_name, name FROM skills
-          WHERE org_id = $1 AND stable_name = ANY($2::text[])
+        `SELECT s.id, s.stable_name, s.name FROM skills s
+          WHERE s.org_id = $1 AND s.stable_name = ANY($2::text[])
+            AND EXISTS (
+              SELECT 1 FROM starter_pack_imports i
+               WHERE i.org_id = $1 AND i.pack_id = $3 AND i.status = 'succeeded'
+                 AND i.result_json -> 'skillIds' @> to_jsonb(s.id)
+            )
           FOR UPDATE`,
-        [input.orgId, stableNames],
+        [input.orgId, stableNames, input.pack.packId],
       );
       const upgradeTargets = new Map(upgradeRows.rows.map((row) => [row.stable_name, row]));
       const upgradeIds = upgradeRows.rows.map((row) => row.id);
