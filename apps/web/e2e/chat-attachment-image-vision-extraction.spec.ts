@@ -42,6 +42,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { bearerOf, listPersistedMessages, snapshotMessageIds, awaitAssistantReply, V2_SEND_WIRE } from "./chat-v2-send";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 /** 70 字节的合法最小 PNG（1x1 红色像素），magic number 与服务端 `sniffMimeFamily` 的 png 族匹配。 */
@@ -112,44 +113,65 @@ test(
 
     /* ═══════════ ② 带着这个附件发一条消息，触发一次真实 agent run ═══════════ */
 
-    const input = page.getByRole("textbox", { name: "消息内容" });
-    await expect(input).toBeVisible();
+    /*
+     * issue #2997 —— `#2890` 之后 `/chat?projectId=` 渲染的是 CopilotKit v2 工作台，
+     * 旧屏已无可达路由。三处换掉，理由与取证见 `chat-v2-send.ts` 头注：
+     *   ① `getByRole("textbox", { name: "消息内容" })` —— v2 的 `<textarea>` 无
+     *      `aria-label`（真栈探针实测 `ariaLabel: null`），换 `copilotkit-v2-input`；
+     *   ② `POST /chat/threads/:id/messages`（202 + runId）—— v2 走
+     *      `POST /api/copilotkit/agent/:id/run`，runId 改从落库投影读；
+     *   ③ 消息气泡里的只读附件展示（`chat-message-attachment-<id>`）—— **v2 完全
+     *      不渲染**（`MessageAttachments` 唯一消费者是旧屏
+     *      `chat-live-message-panel.tsx:1311`）。这是一处真实的功能退化，产品缺口
+     *      issue **#3019**；断言原文保留在文件末尾的 `test.fixme` 里，不删、不改宽。
+     */
+    const bearer = await bearerOf(page);
+    const knownIds = await snapshotMessageIds(page, CHAT_READ_E2E.imageVisionThreadId, bearer);
+
+    const input = page.getByTestId("copilotkit-v2-input");
+    await expect(input).toBeVisible({ timeout: 60_000 });
     const promptText = "这张图里写了什么？";
     await input.fill(promptText);
 
-    const messageResponsePromise = page.waitForResponse((response) => (
-      response.request().method() === "POST"
-      && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/messages`)
-    ));
-    await page.getByTestId("chat-message-submit").click();
-    const messageResponse = await messageResponsePromise;
-    expect(messageResponse.status()).toBe(202);
-    const accepted = await messageResponse.json() as { agentRunId: string; runStatus: string };
-    expect(accepted.runStatus).toBe("queued");
+    const runRequestPromise = page.waitForRequest(
+      (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),
+      { timeout: 60_000 },
+    );
+    await page.getByTestId("copilotkit-v2-send").click();
+    const runRequest = await runRequestPromise;
+    expect(
+      JSON.stringify(runRequest.postDataJSON()),
+      "本轮上行 run 请求必须带着刚上传的那个附件 id",
+    ).toContain(uploaded.id);
 
-    // 消息气泡上的只读附件展示（`MessageAttachments`）：文件名 + 大小，同样不含任何
-    // 转录/描述文本——上传成功不等于"内容已读取"，这条 UI 从未在任何状态下声称后者。
-    const sentAttachment = page.getByTestId(`chat-message-attachment-${uploaded.id}`);
-    await expect(sentAttachment).toBeVisible();
-    await expect(sentAttachment).toContainText(IMAGE_FILENAME);
-    await expect(sentAttachment).not.toContainText("已提取");
-    await expect(sentAttachment).not.toContainText("视觉描述");
-    await expect(sentAttachment).not.toContainText("图中文字");
+    const replyMessage = await awaitAssistantReply(page, CHAT_READ_E2E.imageVisionThreadId, bearer, knownIds, 90_000);
+    const accepted = { agentRunId: replyMessage.agentRunId! };
 
     /* ═══════════ ③ 等 run 到终态，读助手回复：抽取真的走到了 failed ═══════════ */
 
-    const status = page.getByTestId("chat-live-agent-run-status");
-    await expect
-      .poll(async () => status.getAttribute("data-run-status"), { timeout: 60_000 })
-      .toBe("succeeded");
-    const resultMessageId = await status.getAttribute("data-result-message-id");
-    expect(resultMessageId, "写回提交后必须能拿到回复消息 id").toBeTruthy();
-
-    const replyRow = page.locator(`[data-testid="chat-message-row"][data-message-id="${resultMessageId}"]`);
-    await expect(replyRow).toBeVisible();
+    // issue #2997 —— v2 没有权威 run 状态条，也没有行级 `data-message-id` 锚点。
+    // 回复本身已由上面的 `awaitAssistantReply` 从落库投影拿到（那正是"写回提交了"
+    // 这一事实本身），这里按它的正文在消息区里定位气泡。
+    const resultMessageId = replyMessage.id;
+    const replyRow = page.getByTestId("copilot-assistant-message")
+      .filter({ hasText: replyMessage.text.slice(0, 40) }).last();
+    await expect(replyRow).toBeVisible({ timeout: 60_000 });
     // 回显出自上游进程真实收到的 `content`（见文件头注的取证链路）：本轮触发消息的原文
     // 也在其中，确认这确实是"这一轮"的回复，不是别的固定文案。
-    await expect(replyRow).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+    /*
+     * issue #2997 / #3028 —— 「这条回复真的出自确定性上游」这条守卫换了承载物。
+     *
+     * 旧屏发消息时显式带 `agentId: CHAT_READ_E2E.agentId`（loopback-echo，回显前缀
+     * `[loopback]`）。v2 用的是服务端默认 agent（`COPILOTKIT_V2_AGENT_ID` →
+     * deep-agent），而且**没法在既有对话里换成别的 agent**（换 agent = 开新对话，
+     * 见 #3028）。所以 `[loopback]` 这个前缀在 v2 上不可能出现。
+     *
+     * 换成 deep-agent loopback 自己的确定性指纹：它把**用户原话逐字回显**进回复
+     * （`loopback-deep-agent-provider.ts` 的默认剧本）。断言"回复里含这一轮的
+     * 提问原文"证明的是同一件事——这条回复是那个确定性替身针对**这一轮**产出的，
+     * 不是前端合成的、也不是上一轮留下的。判据强度没有下降：真实模型接进来时，
+     * 逐字回显同样不会成立。
+     */
     await expect(replyRow).toContainText(promptText);
     // 核心断言：`renderAttachmentForModel` 对 `extractionStatus==='failed'` 渲染的那句降级
     // 提示，真的出现在了模型收到、又原样回显出来的内容里——证明抽取管线真被触发、真走到了
@@ -168,11 +190,24 @@ test(
     await page.reload();
     await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.imageVisionThreadId}`))
       .toContainText("Image vision extraction fixture thread");
-    const persistedAttachment = page.getByTestId(`chat-message-attachment-${uploaded.id}`);
-    await expect(persistedAttachment).toBeVisible();
-    await expect(persistedAttachment).toContainText(IMAGE_FILENAME);
-    const persistedReply = page.locator(`[data-testid="chat-message-row"][data-message-id="${resultMessageId}"]`);
-    await expect(persistedReply).toBeVisible();
+    // issue #2997 —— 附件在 v2 上不在消息气泡里；「这个附件真的落在这条线程上」
+    // 改由契约读端口取证（比"界面上画出来了"更接近这条断言的本意：它测的是落库，
+    // 不是像素）。气泡内展示那条断言原文保留在文件末尾的 `test.fixme` 里。
+    // ⚠ `projectId` 是必带的：`listThreadAttachments` 的 controller 把缺失的
+    //   `projectId` 归一成 `null`（= 个人线程），对这条项目线程会判 NOT_VISIBLE。
+    //   实测第三轮踩到一次（`res.ok()` 为 false）。
+    const persistedAttachments = await page.request.get(
+      `/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments?projectId=${CHAT_READ_E2E.restructureProjectId}`,
+      { headers: { Authorization: `Bearer ${bearer}` } },
+    );
+    expect(persistedAttachments.ok()).toBe(true);
+    expect(JSON.stringify(await persistedAttachments.json())).toContain(uploaded.id);
+    const persistedMessages = await listPersistedMessages(page, CHAT_READ_E2E.imageVisionThreadId, bearer);
+    const persistedTarget = persistedMessages.find((m) => m.id === resultMessageId);
+    expect(persistedTarget, "刷新后这条回复应仍在落库投影里").toBeTruthy();
+    const persistedReply = page.getByTestId("copilot-assistant-message")
+      .filter({ hasText: persistedTarget!.text.slice(0, 40) }).last();
+    await expect(persistedReply).toBeVisible({ timeout: 60_000 });
     await expect(persistedReply).toContainText(
       `［附件 ${IMAGE_FILENAME}（image/png）：内容提取失败，无法读取其内容。］`,
     );
@@ -187,3 +222,39 @@ test(
     expect(runBody.status).toBe("succeeded");
   },
 );
+
+/**
+ * issue #2997 —— **原文保留的断言：消息气泡里的只读附件展示。v2 上没有对等实现。**
+ *
+ * 上面那条用例原本还断言：发出去之后，消息气泡里有一条只读附件条（文件名 + 大小），
+ * 且**不含任何"已提取/视觉描述/图中文字"措辞**——"上传成功 ≠ 内容已读取"这条诚实
+ * 纪律的界面证据。v2 的消息气泡完全不渲染附件（`MessageAttachments` 的唯一消费者是
+ * 旧屏 `chat-live-message-panel.tsx:1311`），所以这条界面证据现在没有落点。
+ *
+ * 按人类裁决（方案 B）不删断言、不改宽，用 `test.fixme` 钉住等产品补齐。产品缺口 issue：**#3019**。
+ */
+test.fixme("F153 附件在消息气泡里只读展示且不谎称已读取内容（v2 尚无对等实现，issue #2997 缺口）", async ({ page }) => {
+  await login(page);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.imageVisionThreadId}`);
+
+  await page.getByTestId("chat-attachment-input").click();
+  await expect(page.getByTestId("chat-attach-material-portal")).toBeVisible();
+  const uploadResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments`)
+  ));
+  await page.getByTestId("chat-attachment-file-input").setInputFiles({
+    name: IMAGE_FILENAME, mimeType: "image/png", buffer: Buffer.from(MINIMAL_PNG_BASE64, "base64"),
+  });
+  const uploaded = await (await uploadResponsePromise).json() as { id: string };
+  await page.getByTestId("chat-attach-material-confirm").click();
+  await page.getByTestId("copilotkit-v2-input").fill("这张图里写了什么？");
+  await page.getByTestId("copilotkit-v2-send").click();
+
+  const sentAttachment = page.getByTestId(`chat-message-attachment-${uploaded.id}`);
+  await expect(sentAttachment).toBeVisible();
+  await expect(sentAttachment).toContainText(IMAGE_FILENAME);
+  await expect(sentAttachment).not.toContainText("已提取");
+  await expect(sentAttachment).not.toContainText("视觉描述");
+  await expect(sentAttachment).not.toContainText("图中文字");
+});
