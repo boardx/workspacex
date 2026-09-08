@@ -1041,6 +1041,29 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
    * 迭代 13（delta §5.2）—— V68。**这是本节的核心**：原型主题与后台主题不能分开的话，
    * 这个功能等于没加（做深色 app 的人要看浅色稿，不该被迫把整个后台切成浅色）。
    */
+
+  /**
+   * 2026-09-08 CI 实测：编辑改名回 400。原因是 F59 之后编辑路径把 `intake: []` 也捎进了
+   * PATCH 体，而 `updateProject.in` 是 .strict()、没有这个字段。
+   * 现在类型上就不给带，这条用真实请求体钉住——本地能红，不用等六分钟的 e2e。
+   */
+  it("编辑保存的 PATCH 体只含可改字段，不夹带 intake", async () => {
+    const bodies: unknown[] = [];
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project({ id: "p1", name: "旧名" })] };
+      if (opts?.method === "PATCH") { bodies.push(opts.body); return { project: project({ id: "p1", name: "新名" }) }; }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.click(screen.getByTestId("project-edit-p1"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新名" } });
+    fireEvent.click(screen.getByTestId("project-dialog-submit"));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    // ⭐ 反证锚点：把 intake 塞回编辑路径 ⇒ 这条红（服务端 .strict() 会判 400）。
+    expect(Object.keys(bodies[0] as object).sort()).toEqual(["name", "problem", "template"]);
+  });
+
   it("V68 切原型主题只改画布，后台的 .dark 一动不动", async () => {
     const bodies: unknown[] = [];
     apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {

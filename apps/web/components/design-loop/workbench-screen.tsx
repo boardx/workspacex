@@ -321,7 +321,8 @@ function ProjectDialog({
   busy: boolean;
   onClose: () => void;
   onCreate: (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => void;
-  onSave: (input: { name: string; template: ProjectTemplate; problem: string; intake?: readonly { question: string; answer: string }[] }) => void;
+  /** 编辑走 `updateProject`（.strict()，没有 intake）——所以这里的入参**不含** intake，类型上就不给带。 */
+  onSave: (input: { name: string; template: ProjectTemplate; problem: string }) => void;
 }) {
   const [name, setName] = React.useState(initial.name ?? "");
   const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
@@ -460,7 +461,13 @@ function ProjectDialog({
               size="sm"
               disabled={!canSubmit}
               data-testid="project-dialog-submit"
-              onClick={() => (editing ? onSave : onCreate)({ name: name.trim(), template, problem: problem.trim(), intake: answered() })}
+              onClick={() =>
+                editing
+                  // ⚠ 编辑走 `updateProject`，它的入参是 .strict() 且**没有** intake——
+                  // 把空数组也捎上会被服务端判 400（e2e 实测，2026-09-08）。
+                  ? onSave({ name: name.trim(), template, problem: problem.trim() })
+                  : onCreate({ name: name.trim(), template, problem: problem.trim(), intake: answered() })
+              }
             >
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
               {editing ? "保存" : "创建并进入设计"}
