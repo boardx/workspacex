@@ -64,7 +64,7 @@
 | E3 附件预览下载 | 上传后可预览、可下载、授权正确 | `chat-attachment-preview-download` | 已覆盖 | chat-read |
 | E4 运行中插话 | steering 排队到下一安全步骤，不打断当前原子步骤 | `agent-workbench-steering-acceptance` | 已覆盖 | chat-read |
 | F1 错误横幅 | 真实失败出现人类可读横幅，横幅之后界面仍可用 | `copilotkit-v2-error-banner` | 已覆盖 | chat-read |
-| F2 断线重连 | 网络中断（非刷新）后事件流重连并从 journal 续上，不重复不空转 | `chat-path-f2-network-drop-reconnect` | 已覆盖 | chat-path-coverage |
+| F2 断线重连 | 网络中断（非刷新）后事件流重连并从 journal 续上，不重复不空转 | `chat-path-f2-network-drop-reconnect` | 已覆盖 | chat-read |
 | F3 暂停 / 恢复 / 重试单步 | 四个控制都可点且真生效 | `agent-workbench-control-acceptance` | 当前红 | chat-read |
 | F4 失败态修复 | 显示失败步骤，可重试该步 / 修改输入 | `chat-task-workbench-workflow-states` | 当前红 | chat-task-workbench |
 | F5 取消传播到子任务 | 父取消后子任务不再产出、不发布晚到产物 | `apps/api` 侧有；chat 侧无 | 部分 | — |
@@ -188,6 +188,62 @@ rewrite，chat-read 车道 24 条旧屏断言一次性全红，人类裁决走**
 门控第 ④ 条也随之改成**按本表车道列判定**（而不是写死 `chat-path-coverage`）——把车道写死
 等于让搬家永远过不了这道门。改了列没改 config、或反过来，都会红：本次搬家时它就先红了一次
 （config 改完、车道列没改），随后才绿。
+
+## 四跑记录（2026-09-08，run 34190269467）
+
+**2 通过 / 3 失败 / 1 skipped**（首跑 1/7 → 二跑 2/6 → 三跑 3/4 → 四跑 2/3；分母在缩小是因为
+绿了的两条已经搬去阻塞车道，不再在本车道计数）。这一跑第一次让**每一条红都指向一个确定的
+结论**——三跑埋的两处诊断都兑现了。
+
+| 路径 | 四跑结果 | 处置 |
+| --- | --- | --- |
+| **F7** | **通过（首次）** | 三跑那条「`humanTurn` 为 undefined」确认是用例竞态，`awaitStoredHumanMessage` 修掉了。路径结论成立：上游 SSE 发过正文后直接销毁 socket（既无 EOF 也无错误终态），`tryStreamRun` 的 catch 真的落回轮询问到权威状态，run 落 `failed`、界面出可读横幅、发送态解除、下一轮还能发出去——**没有出现「界面假装还在跑」**。距搬家还差一次绿。 |
+| **F2** | **通过（连续第 2 次）** | **已搬进 `chat-read` 阻塞车道**（testMatch 与本表车道列同步改）。 |
+| A3 | skipped | `test.fixme`，阻塞于 #3028，未变。 |
+| **C4 / C5** | 失败，**诊断给出了确定答案** | 见下节——是**替身的分支次序**问题，既不是产品缺陷也不是断言写错。 |
+| F6 | 失败：`threadA === threadB`（**第二次**） | 三跑的修法只是换了个近似，还是被同一件事绕过——见下节。 |
+
+### C4 / C5：诊断兑现，根因是替身的分支次序（已修）
+
+三跑给 `sendInV2AndAwaitStoredReply` 埋的诊断这一跑直接把答案打了出来。C4 那条线程真实
+落库的 agent 回复是：
+
+```
+[loopback] [skill:]MOUNTPROOF-9317 帮我并排出两张图，代号 E2E-CANVAS-GUIDANCE-6031 E2E-CANVAS-DUAL-4417⏎⏎```run_script⏎const pptxgenjs = require('pptxgenjs');…
+```
+
+三种可能就此分开：**有回复**（不是 run 没跑）、**来自对的 agent**（`[loopback]` 前缀 =
+回显 agent，说明 `openFreshEchoAgentThread` 那条绕开 #3028 的路子成立）、**没命中画布分支**
+（回的是试跑脚本围栏）。
+
+根因在 `loopback-model-provider.ts` 的分支链次序：`isTrialRunRequest` 自 #2514 起
+**对任何一次接了沙箱的普通聊天都成立**（它自己的头注就是这么写的），而画布分支排在它
+后面 ⇒ 在这套装配下**画布分支根本到不了**。画布分支的判定要三个信号同时成立、其中一个
+是只出现在本次请求正文里的哨兵（#2295）——specific 的判定被 ambient 的判定永久遮住了。
+
+已把画布分支移到试跑分支之前（仍排在追问建议之后：追问建议那次调用会把对话历史一起送上来，
+`echoed` 因此含同一个哨兵，提到它前面会被劫走）。「追问建议 vs 试跑」的相对次序跟着换了，
+这一换有据可查是空操作：追问建议的 system prompt 由 `generate-followup-suggestions.ts`
+整条替换，`RUN_SCRIPT_PROTOCOL_PROMPT` 只由 `execute-run.ts` 往 agent-run 的 system prompt
+尾部拼，两者不可能同时成立。**正文不带那个哨兵的请求，走到的分支与改动前逐字节相同。**
+
+⚠ 顺带修掉 C5 一个会让诊断失声的缺陷：它等的串是 `SERIAL-<轮次>`，而**通用回显分支也满足**
+（回显里就带着用户原文）⇒ 没产出任何围栏时这一步照样通过，红被推迟到后面的数量断言上，
+诊断一次都没打印。等待条件必须是**只有被测分支才满足**的那个串。轮次标记仍逐轮核对，只是
+挪到了后面那段权威读里。
+
+### F6：同一件事的第二个近似，改用「这条线程此前不存在」
+
+三跑把信号从「URL 匹配线程正则」改成「URL 变成一条**不同**的线程」，四跑照样红。因为壳的
+「恢复到最近一条线程」是**异步**的：`before` 快照取在恢复落地之前（此时还是裸 `/chat`，
+`before` 为 null），随后满足「变成了不同的线程」的正是那次**恢复**，不是我们的创建。
+
+两次近似都在用「变化」指代「新建」，而这条 URL 上至少有两个东西会让它变化。改法是换一个
+**恢复动作无论早到晚到都无法满足**的判据：先用权威读（`GET /chat/threads`）取回点击前已存在
+的全部线程 id，再等 URL 落在一个**不在这个集合里**的 id 上——恢复只能恢复到已存在的线程。
+
+⚠ 与三跑同一句话值得再记一次：两跑都是这条用例**自己的前置断言**把自己拦下来的。没有它，
+这两跑都会以「并发不串线」的假绿收场。
 
 ## 机械门控
 

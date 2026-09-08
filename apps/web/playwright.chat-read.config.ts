@@ -260,7 +260,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-d4-skill-three-states)\.spec\.ts$/,
+      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-d4-skill-three-states|chat-path-f2-network-drop-reconnect)\.spec\.ts$/,
     },
     {
       /**
@@ -291,7 +291,7 @@ export default defineConfig({
        *   「写了但没人跑」（#512 同一个失效模式）。
        */
       name: "chat-path-coverage",
-      testMatch: /chat-path-(a3-long-session-fact-survival|c4-two-canvases-one-turn|c5-consecutive-artifact-turns|f2-network-drop-reconnect|f6-concurrent-runs|f7-upstream-stream-abort)\.spec\.ts$/,
+      testMatch: /chat-path-(a3-long-session-fact-survival|c4-two-canvases-one-turn|c5-consecutive-artifact-turns|f6-concurrent-runs|f7-upstream-stream-abort)\.spec\.ts$/,
     },
     {
       /**
