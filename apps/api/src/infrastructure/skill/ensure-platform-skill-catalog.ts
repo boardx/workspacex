@@ -121,12 +121,22 @@ const CONTENT_BY_STABLE_NAME: Readonly<Record<string, string>> = {
 
 /** 四个官方 skill 的定义——唯一事实源（规格部分见 `PLATFORM_SKILL_CATALOG`）。
  *  id 写死，幂等靠"同一个 id 第二次 `ON CONFLICT DO NOTHING`"。 */
-export const OFFICIAL_SKILLS: readonly OfficialSkillSpec[] = PLATFORM_SKILL_CATALOG.map((spec) => ({
-  skillId: spec.skillId,
-  stableName: spec.stableName,
-  displayName: spec.displayName,
-  content: CONTENT_BY_STABLE_NAME[spec.stableName]!,
-}));
+export const OFFICIAL_SKILLS: readonly OfficialSkillSpec[] = PLATFORM_SKILL_CATALOG.map((spec) => {
+  /** issue #3161 —— 这里原本是 `CONTENT_BY_STABLE_NAME[spec.stableName]!`。`!` 只活在类型层，
+   *  运行时会被抹除：往 `PLATFORM_SKILL_CATALOG`（domain 层）加一条目录项而忘了在本文件补正文，
+   *  该 skill 会带着 `content: undefined` 被静默 seed 进库，没有任何一处会红。改成显式抛错，
+   *  让「规格表和正文表不同步」在模块加载时就 fail closed，而不是变成库里一条空正文的官方 skill。 */
+  const content = CONTENT_BY_STABLE_NAME[spec.stableName];
+  if (typeof content !== "string" || content.length === 0) {
+    throw new Error(`platform_skill_content_missing:${spec.stableName}`);
+  }
+  return {
+    skillId: spec.skillId,
+    stableName: spec.stableName,
+    displayName: spec.displayName,
+    content,
+  };
+});
 
 export interface PlatformSkillsBackfillReport {
   readonly created: readonly string[];
