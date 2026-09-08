@@ -758,13 +758,13 @@ export const PROTOTYPE_PATCH_GUIDE =
 export const PROTOTYPE_SCHEMA_GUIDE =
   "节点形如 {\"type\":..., \"props\":{...}, \"children\":[...]}（只有 stack/card/grid 有 children）。类型与 props：" +
   "stack{direction:row|column, gap/padding:none|sm|md|lg, align:start|center|end|between, fill:bool}；" +
-  "card{title?}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align?}；" +
-  "button{label, variant:primary|secondary|ghost|danger, full?}；input{placeholder?, label?, value?, multiline?}；" +
+  "card{title?, radius:none|sm|md|lg|full, padding:none|sm|md|lg}；navbar{title, left?, right?}；text{content, variant:title|subtitle|body|caption|label, muted?, align:start|center|end}；" +
+  "button{label, variant:primary|secondary|ghost|danger, full?, size:sm|md|lg, radius:none|sm|md|lg|full}；input{placeholder?, label?, value?, multiline?}；" +
   "image{alt, ratio:square|video|wide|portrait}；list{items:[..], leading:none|dot|check|avatar}；divider{}；" +
-  "spacer{size?}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name}；" +
+  "spacer{size:none|sm|md|lg}；tabs{items:[..], active?}；badge{label, tone:neutral|info|success|warning|danger}；avatar{name, size:sm|md|lg}；" +
   "bottomnav{items:[2–6 项], active?}（放页面最底部）；switch{label, on?}；checkbox{label, checked?}；chip{label, selected?}（常放 row stack 里）；" +
   "progress{value:0–100, label?}；stat{label, value, delta?, tone:neutral|success|danger}（KPI 卡）；hero{title, subtitle?, cta?}（头图区）；" +
-  "grid{columns:2|3, gap?}（有 children 的网格容器，放 stat/card 等）。" +
+  "grid{columns:2|3, gap:none|sm|md|lg}（有 children 的网格容器，放 stat/card 等）。" +
   `每页根节点通常是 stack(column)。每页 ≤ ${PROTOTYPE_MAX_NODES} 节点、深度 ≤ ${PROTOTYPE_MAX_DEPTH}，不要给出这里没有的 type 或 props。` +
   `每页可带 notes（≤ ${PROTOTYPE_NOTES_MAX} 字）：这页做什么、主要交互、空态/加载/错误怎么处理——给工程看的交互说明，会进设计文档。` +
   // 迭代 11：不教模型连线，"可点击原型"就只剩人手一条条连——那正是人类要的相反面。

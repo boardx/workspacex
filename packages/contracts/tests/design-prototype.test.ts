@@ -500,3 +500,53 @@ describe("V70 视觉组：全是 enum，且分组从 key 派生", () => {
     expect(content.some((f) => f.key === "label" || f.key === "title" || f.key === "content")).toBe(true);
   });
 });
+
+
+/**
+ * 迭代 13 —— 加了 props 却忘了告诉模型，是一种**安静的半成品**：
+ * 属性面板里能调，模型永远不会主动用，于是生成出来的东西看着就是"没人调过样式"。
+ * 这条门把「加 props」与「改 guide」绑在一起。
+ */
+describe("PROTOTYPE_SCHEMA_GUIDE 覆盖每一个 props 键", () => {
+  /**
+   * ⚠ 必须**按类型切段**再查，不能在整份 guide 里 `includes(key)`：
+   *   `radius` 同时出现在 button 和 card 上，全局查的话把 card 那份删掉照样绿——
+   *   实测过，第一版就是这么写的，反证变异一条也没抓住。
+   */
+  const segmentOf = (type: string): string => {
+    // 前面必须是非字母，否则 `switch` 会匹配到别的词里去；guide 里各段之间是「；」，
+    // 而第一段前面是「类型与 props：」——所以别写死分隔符，只要求"不是字母"。
+    const m = new RegExp(`(?:^|[^A-Za-z])${type}\\{([^}]*)\\}`).exec(dp.PROTOTYPE_SCHEMA_GUIDE);
+    return m?.[1] ?? "";
+  };
+
+  it("guide 里真的能切出每种类型的那一段（否则下面两条会空跑）", () => {
+    for (const type of dp.PrototypeNodeType.options) {
+      const fields = dp.PROTOTYPE_FIELDS[type];
+      if (fields.length === 0) continue; // divider 没有 props
+      expect(segmentOf(type), `guide 里找不到 ${type}{...} 这一段`).not.toBe("");
+    }
+  });
+
+  it("每种类型的每个字段名都在**它自己那一段**里", () => {
+    const missing: string[] = [];
+    for (const type of dp.PrototypeNodeType.options) {
+      const seg = segmentOf(type);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) if (!seg.includes(f.key)) missing.push(`${type}.${f.key}`);
+    }
+    // ⭐ 反证：把 card 的 radius 从 guide 里删掉 ⇒ 这条红（即使 button 那段还留着它）。
+    expect(missing).toEqual([]);
+  });
+
+  it("视觉档位的**取值**也写在那一段里（只说键名，模型不知道能填什么）", () => {
+    const missing: string[] = [];
+    for (const type of dp.PrototypeNodeType.options) {
+      const seg = segmentOf(type);
+      for (const f of dp.PROTOTYPE_FIELDS[type]) {
+        if (f.group !== "visual" || f.kind !== "enum") continue;
+        for (const o of f.options ?? []) if (!seg.includes(o)) missing.push(`${type}.${f.key}=${o}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+});
