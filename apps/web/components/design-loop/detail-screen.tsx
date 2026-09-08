@@ -500,7 +500,21 @@ export function DesignDetailScreen({
                       <Button variant="ghost" size="sm" onClick={() => setPreview(null)} data-testid="design-detail-preview-exit">退出预览</Button>
                     </div>
                   )}
-                  {viewMode === "board" ? (
+                  {(preview ?? project).frames.length === 0 ? (
+                    /*
+                     * 2026-09-08：新建项目不再预填三个「草稿页」（人类实测：「不要默认三个页面，
+                     * 有点奇怪」）。0 页时看板视图会 map 出空数组 ⇒ 整块画布全白，比原来更糟——
+                     * 所以两种视图共用这一个空态，把"下一步该干什么"直接说出来。
+                     */
+                    <div className="grid h-full place-items-center p-8 text-center" data-testid="design-detail-canvas-empty">
+                      <div className="max-w-sm space-y-2">
+                        <p className="text-13 font-medium">还没有页面</p>
+                        <p className="text-12 text-muted-foreground">
+                          在左边描述你要做的产品，我会先拆出页面划分，再一页页把界面画出来。
+                        </p>
+                      </div>
+                    </div>
+                  ) : viewMode === "board" ? (
                     <PrototypeBoard
                       frames={(preview ?? project).frames}
                       prototype={(preview ?? project).prototype}

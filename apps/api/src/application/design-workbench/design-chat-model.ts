@@ -261,6 +261,22 @@ export const DESIGN_ONE_SCREEN_SYSTEM_PROMPT =
 
 export interface OutlineEntry { readonly frame: string; readonly intent: string; }
 
+/** 某页被截断之后，重试那一页时追加的要求。只改输出**体量**，不改这一页要做什么。 */
+export const SIMPLER_SCREEN_HINT =
+  "\n\n⚠ 你上一次的输出没写完就被长度限制截断了。这一次请把这一页画得**更简单**：" +
+  "节点数控制在 30 个以内、嵌套不超过 3 层，只保留这一页最核心的结构与主操作，" +
+  "列表最多 3 项，去掉次要的装饰性区块。宁可简单也要**完整输出**。";
+
+/** JSON 能不能解析——截断判据的另一半（provider 没报 finish_reason 时靠它）。 */
+function canParse(text: string): boolean {
+  try {
+    extractJsonObject(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 骨架轮的输出解析。逐条过 `Label`（页标签的既有上限），不合法的丢掉。 */
 export function parseOutline(raw: unknown): readonly OutlineEntry[] {
   if (!Array.isArray(raw)) return [];
@@ -348,10 +364,26 @@ export class ModelDesignChatReplier implements DesignChatModel {
         failed.push(entry.frame);
         continue;
       }
-      if (one.truncated) {
-        this.deps.log("design chat: screen round truncated", { index: i });
-        failed.push(entry.frame);
-        continue;
+      // 截断 / JSON 不完整 ⇒ 同一页再来一次，但**要求画简单一点**（换了个请求，不是原样重试）。
+      const needsSimpler = one.truncated || !canParse(one.text);
+      if (needsSimpler) {
+        this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
+        try {
+          one = await this.callModel(
+            context + SIMPLER_SCREEN_HINT,
+            DESIGN_CHAT_REPAIR_TIMEOUT_MS,
+            DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
+          );
+        } catch (e) {
+          this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
+          failed.push(entry.frame);
+          continue;
+        }
+        if (one.truncated) {
+          this.deps.log("design chat: smaller retry still truncated", { index: i });
+          failed.push(entry.frame);
+          continue;
+        }
       }
       let parsed: unknown;
       try {

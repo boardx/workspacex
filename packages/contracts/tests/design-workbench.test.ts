@@ -13,7 +13,8 @@ describe("常量", () => {
     expect(dw.DESIGN_PROJECT_INITIAL_CRITERIA).toHaveLength(3);
   });
   it("画布页默认三页", () => {
-    expect(dw.DESIGN_PROJECT_INITIAL_FRAMES).toEqual(["草稿页 1", "草稿页 2", "草稿页 3"]);
+    // 2026-09-08 人类实测：新建项目不再预填「草稿页 1/2/3」——页数由模型按产品定。
+    expect(dw.DESIGN_PROJECT_INITIAL_FRAMES).toEqual([]);
   });
   it("引导语与回执非空", () => {
     expect(dw.DESIGN_WORKBENCH_CHAT_INTRO.length).toBeGreaterThan(0);

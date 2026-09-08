@@ -223,16 +223,20 @@ describe("迭代 12：分页生成", () => {
   });
 
   it("V38 第 3 页失败 ⇒ 只损失第 3 页，其余照常写回，回复里说清是哪一页", async () => {
+    // 迭代 12 补：截断会给这一页**第二次机会**（降级重试），所以要让 C 两次都失败，
+    // 这条才真的在测「一页彻底失败」而不是「第一次没成」。
     const frames = ["A", "B", "C", "D"];
-    let n = 0;
-    const { r } = replier(async () => {
-      n += 1;
-      if (n === 1) return { text: outlineJson(frames) };
-      if (n === 4) return { text: screenJson("C"), truncated: true } as never;  // 第 3 页被截断
-      return { text: screenJson(frames[n - 2]!) };
+    let done = 0;
+    const { r } = replier(async (input) => {
+      if (input.system === DESIGN_OUTLINE_SYSTEM_PROMPT) return { text: outlineJson(frames) };
+      const which = input.user.match(/现在只画第 (\d+) 页/)?.[1];
+      if (which === "2") return { text: screenJson("C"), truncated: true } as never;  // 第 3 页（序号 2）两次都截断
+      done += 1;
+      return { text: screenJson(frames[Number(which)]!) };
     });
     const out = await r.reply(EMPTY);
     expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "B", "D"]);
+    expect(done).toBe(3);
     expect(out.source).toBe("model");           // 不是整段退路——已经画好的三页是真的
     expect(out.text).toContain("C");
     expect(out.text).toContain("没画出来");
@@ -269,5 +273,62 @@ describe("迭代 12：分页生成", () => {
     // 输出**可以**解析（没坏），但 provider 说它被长度切断了——旧实现会当成一次成功的写回。
     const { r } = replier(async () => ({ text: '{"reply":"好了。"}', truncated: true } as never));
     expect(await r.reply(CTX)).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+  });
+});
+
+/**
+ * 2026-09-08 人类实测：提交需求后**一页都没生成**，屏上只有「没说完就被长度截断了」。
+ * 分页解耦的是"输出量 vs 页数"，没解决"**单页**就超预算"——桌面站一页的组件树，
+ * 在 provider 默认输出上限（dashscope/qwen 常见 2048）下照样装不下，于是每页都截断、
+ * 颗粒无收。修法：某页截断就换一个**要求更简单**的请求再来一次。
+ */
+describe("迭代 12 补：单页截断后降级重试", () => {
+  const EMPTY: DesignChatContext = { ...CTX, prototype: [], frames: [] };
+  const screenJson = (frame: string) =>
+    `{"frame":"${frame}","root":{"type":"stack","children":[{"type":"text","props":{"content":"${frame}"}}]}}`;
+  const outlineJson = (frames: readonly string[]) =>
+    `{"reply":"拆成${frames.length}页。","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}`;
+
+  it("某页截断 ⇒ 同一页再问一次并要求画简单点；这一次成了就照常落库", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(["首页"]) };
+      if (n === 2) return { text: '{"frame":"首页","root":{"type":"stack","chil', truncated: true } as never;
+      return { text: screenJson("首页") };
+    });
+    const out = await r.reply(EMPTY);
+    expect(model.complete).toHaveBeenCalledTimes(3);            // 骨架 + 首轮 + 降级重试
+    const retry = model.complete.mock.calls[2]?.[0]?.user ?? "";
+    // ⭐ 反证锚点：重试若不追加"画简单点"，就是原样重试一个必然再次超预算的请求。
+    expect(retry).toContain("更简单");
+    expect(retry).toContain("完整输出");
+    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["首页"]);
+    expect(out.source).toBe("model");
+  });
+
+  it("降级重试仍然截断 ⇒ 才算这一页失败，不无限重试", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      return n === 1 ? { text: outlineJson(["首页", "详情"]) } : ({ text: "{", truncated: true } as never);
+    });
+    const out = await r.reply(EMPTY);
+    // 两页 × (首轮 + 一次降级) + 骨架 = 5；不能更多
+    expect(model.complete).toHaveBeenCalledTimes(5);
+    expect(out).toMatchObject({ source: "fallback", fallbackReason: "MODEL_OUTPUT_TRUNCATED" });
+  });
+
+  it("provider 没报截断但 JSON 不完整 ⇒ 同样走降级重试（不是直接判这一页死）", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => {
+      n += 1;
+      if (n === 1) return { text: outlineJson(["首页"]) };
+      if (n === 2) return { text: '{"frame":"首页","root":{"type":"sta' };   // 没有 truncated 标记
+      return { text: screenJson("首页") };
+    });
+    const out = await r.reply(EMPTY);
+    expect(model.complete).toHaveBeenCalledTimes(3);
+    expect(out.writeback.prototype).toHaveLength(1);
   });
 });
