@@ -264,7 +264,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f7-upstream-stream-abort)\.spec\.ts$/,
+      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort)\.spec\.ts$/,
     },
     {
       /**
@@ -295,7 +295,7 @@ export default defineConfig({
        *   「写了但没人跑」（#512 同一个失效模式）。
        */
       name: "chat-path-coverage",
-      testMatch: /chat-path-(f2-network-drop-reconnect|f6-concurrent-runs)\.spec\.ts$/,
+      testMatch: /chat-path-(f2-network-drop-reconnect)\.spec\.ts$/,
     },
     {
       /**
@@ -339,8 +339,10 @@ export default defineConfig({
        *                        路径通」，这正是本仓「静态痕迹 ≠ 动态事实」那条纪律。等的是
        *                        把这两件接进 /chat 真实渲染路径。
        *   - `tool-events`      TW-P0-7① 事件行面向用户的措辞、TW-P0-7③ 子 Agent 可折叠树。
-       *                        后者是真缺口（子任务工具调用没有契约字段），正在 #3100 的
-       *                        `feat/3100-subtask-tool-events` 分支实现。
+       *                        ⚠ 2026-09-09（#3100 D6）：TW-P0-7③ 那条链路已补齐——替身
+       *                        真的调 `spawn_async_task`、真的打 `POST /internal/subtask-runs`、
+       *                        面板从折叠区里挪出来。本条目留在记分牌等一趟 CI 判决，
+       *                        「一趟绿不能判稳定」那条纪律照旧适用，别凭本地绿就搬车道。
        *   - `p1-efficiency`    TW-P1-3 工具事件/子 Agent 摘要刷新后持久化、TW-P1-4 产物四件
        *                        （预览/来源/版本/导出）、TW-P1-5 暂停/恢复/重试单步/检查点恢复。
        *   - `inspector`        TW-P0-4② Inspector 按任务阶段自动切换页签。
@@ -711,6 +713,19 @@ export default defineConfig({
         // 的判 0 依据就是「b1-stream 相邻帧正文字数相同」——这行 + loopback 的
         // stream 端点让那个判据在取证环境可以翻正。
         KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
+        /*
+         * issue #3100 D6 —— 异步子任务派发通路。这两个变量此前**在本车道从未配过**，于是
+         * `DeepAgentModelProvider.subtaskConfig()` 恒返回 `{}`、`configurable` 里根本没有
+         * `subtask_callback_*`，`spawn_async_task`（真实 Python 侧与本车道的确定性替身同理）
+         * 只能走"没有配好异步派发通路"的诚实降级分支——子任务一行都不会入库，前端的后台
+         * 任务面板自然永远没有数据。这是 TW-P0-7③ 恒红的第一道闸。
+         *
+         * base url 指向本 config 已经起好的 API 进程自己（回调端点就在它身上）；
+         * key 与 `SubtaskRunController.enqueue` 校验的是**同一个环境变量**——它 fail closed
+         * （不配 = 整个端点拒绝所有请求），所以两边必须一起配、配同一个值。
+         */
+        KERNEL_SUBTASK_CALLBACK_BASE_URL: `http://127.0.0.1:${apiPort}`,
+        DEEP_AGENT_SERVICE_INTERNAL_KEY: "chat-read-subtask-callback-key-not-a-secret",
         KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
         // #728 P8 —— 确定性 ASR 上游。不配它，WS 面以 `ASR_NOT_CONFIGURED` 诚实失败
         // （`chat-live-recording-error` 显示「本组织尚未配置转写服务」），不会冒出

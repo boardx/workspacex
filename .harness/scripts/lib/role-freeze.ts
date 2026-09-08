@@ -64,3 +64,86 @@ export function findUnregisteredRoles(
   }
   return findings;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 角色元数据两处手写的一致性判定（2026-09-09 加）
+ *
+ * 现状：`kind` / `areas` / `reports_to` 在 `.harness/agents/registry.yaml` 与
+ * `.harness/agents/roles/<name>.yaml` **各写一遍**，6 个 role 全部如此，而上面
+ * 那条 `findUnregisteredRoles` 只核对 `name` 在不在——两份副本的**内容**从来
+ * 没有被任何脚本比对过。同一事实声明在两处，本仓已五次因此漂移。
+ *
+ * 本函数只做**一致性断言**（不一致 ⇒ FAIL，不是 WARN：与 name 未登记不同，
+ * 元数据漂移会让派工按错误的 areas/kind 走，是会直接产生错误行为的）。
+ * 真正的收敛（registry 作单源、roles/*.yaml 由生成器产出）另案走 ADR。
+ *
+ * 语义细则（都是实测形状，不是假设）：
+ *  · `reports_to` 缺省与显式 `null` 等价——coord-main 在 registry 里没有这个
+ *    键、在 role 文件里写 `reports_to: null`，两者说的是同一件事。
+ *  · `areas` 逐项按顺序比对：顺序不同也算漂移。两边都是人手写的短列表，
+ *    要求顺序一致比"集合相等"更容易发现是谁改了一边忘了另一边。
+ *  · role 文件的 name 不在 registry 里 ⇒ 不在这里报（那是 findUnregisteredRoles
+ *    的 WARN 职责，重复报会让同一个缺口有两个严重度）。
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** 参与比对的字段值：kind/reports_to 是标量，areas 是列表。 */
+export interface RoleMetadata {
+  kind: string | null;
+  areas: readonly string[] | null;
+  reports_to: string | null;
+}
+
+export interface RoleMetadataFile extends RoleMetadata {
+  sourceFile: string;
+  name: string | null;
+}
+
+export interface RoleMetadataFinding {
+  code: "ROLE-METADATA-DRIFT";
+  severity: "FAIL";
+  sourceFile: string;
+  message: string;
+}
+
+const METADATA_FIELDS = ["kind", "areas", "reports_to"] as const;
+
+function render(value: RoleMetadata[keyof RoleMetadata]): string {
+  return value === null ? "（未声明）" : Array.isArray(value) ? `[${value.join(", ")}]` : String(value);
+}
+
+function equal(a: RoleMetadata[keyof RoleMetadata], b: RoleMetadata[keyof RoleMetadata]): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    return a.length === b.length && a.every((v, i) => v === b[i]);
+  }
+  return a === b;
+}
+
+/**
+ * 逐字段比对 roles/*.yaml 与 registry.yaml 的同名身份。
+ * `registry` 是 id → 元数据 的映射；role 文件在 registry 里找不到时跳过（见上）。
+ */
+export function findRoleMetadataDrift(
+  roleFiles: readonly RoleMetadataFile[],
+  registry: ReadonlyMap<string, RoleMetadata>,
+): RoleMetadataFinding[] {
+  const findings: RoleMetadataFinding[] = [];
+  for (const file of roleFiles) {
+    if (file.name === null) continue; // 已由 findUnregisteredRoles 报
+    const entry = registry.get(file.name);
+    if (entry === undefined) continue; // 未登记：同上
+    for (const field of METADATA_FIELDS) {
+      if (equal(file[field], entry[field])) continue;
+      findings.push({
+        code: "ROLE-METADATA-DRIFT",
+        severity: "FAIL",
+        sourceFile: file.sourceFile,
+        message:
+          `${file.name} 的 ${field} 两处不一致——role 文件写 ${render(file[field])}，` +
+          `registry.yaml 写 ${render(entry[field])}。同一事实不得声明在两处且漂移；` +
+          `registry.yaml 是身份的单一事实源，改一边必须改另一边`,
+      });
+    }
+  }
+  return findings;
+}

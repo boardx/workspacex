@@ -1,9 +1,11 @@
 ---
 name: session-closer
 description: >
-  激活条件：用户提到 收尾、关闭会话、结束、done、交接、下一轮、干净状态、
-  写 handoff、progress 等关键词时触发。
-  按 clean-state-checklist 干净收尾，写 handoff，确保下一轮全新上下文能仅靠仓库续上。
+  激活条件：要**逐项检查**能不能收尾时触发——用户说「可以收尾了吗」「关闭会话」
+  「结束这一轮」「状态干净吗」「该清理什么」，或你要在收尾前过一遍 checklist。
+  按 clean-state-checklist 逐项核对（验证是否仍绿、功能清单是否真实、
+  docker 栈/worktree 是否释放、还差哪几项才能收尾）并给出结论。
+  ⚠ 不负责「交接文档内容怎么写」——那是 session-handoff 的方法论与模板。
 ---
 
 # Session Closer Skill

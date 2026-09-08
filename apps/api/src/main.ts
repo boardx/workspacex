@@ -197,11 +197,24 @@ if (isProcessEntry()) {
    */
   const seed = await ensurePlatformSkillCatalogSeeded();
   if (seed.ok) {
-    const { org, skills } = seed.report;
+    const { org, skills, standardPacks } = seed.report;
     process.stdout.write(
       `platform skill catalog: org ${org.orgCreated ? "created" : "already existed"}, ` +
       `skills created=[${skills.created.join(",")}] alreadyExisted=[${skills.alreadyExisted.join(",")}]\n`,
     );
+    /**
+     * 单包隔离（`ensureStandardSkillPacksSeeded`）让一个包的失败不再掀翻其余八个，
+     * 但那也意味着它**不再冒泡到 `seed.ok === false`**。若这里不显式把失败的包打
+     * 出来，「九个包全挂」就会被换成「一个包静默消失」——后者更难查，不是更好。
+     * 隔离爆炸半径的前提是失败仍然看得见。
+     */
+    const failedPacks = standardPacks.filter((pack) => !pack.ok);
+    for (const pack of failedPacks) {
+      console.error(
+        `standard skill pack seed failed (will retry on next boot): ${pack.packId}@${pack.packVersion}`,
+        pack.error,
+      );
+    }
   } else {
     console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
   }

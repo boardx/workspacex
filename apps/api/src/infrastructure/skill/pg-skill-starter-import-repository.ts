@@ -83,6 +83,64 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
 
       const stableNames = input.pack.skills.map((skill) => skill.stableName);
       const names = input.pack.skills.map((skill) => skill.name.toLocaleLowerCase());
+
+      /**
+       * 同一个 `stable_name` 的**新版本**是升级，不是重名冲突。
+       *
+       * ## 事故形态（issue：标准包无升级路径）
+       *
+       * `ensureStandardSkillPacksSeeded` 的幂等键是
+       * `platform-builtin:<packId>:<packVersion>`——**版本在键里**。所以把某个包
+       * 的发货版本 bump 一格，键就变成新的，`findExisting` 返回 `missing`，走的是
+       * **完整导入**路径；而完整导入此前只会 `INSERT INTO skills`，于是撞上
+       * `stable_name` 冲突检查 ⇒ `name-conflict` ⇒ `SkillStarterPackConflictError`。
+       *
+       * 真实 Postgres 实测（先按 1.1.1 种一轮，再把 `standard-web` bump 到 1.1.2
+       * 重跑同一个库）：
+       *   · `starter_pack_imports` 多出一行
+       *     `platform-builtin:standard-web:1.1.2 / failed / SKILL_STARTER_PACK_CONFLICT`；
+       *   · `web-artifact` 的 SKILL.md 仍是旧正文（3384 字节、`semantic_label=1.0.1`），
+       *     新版那 5439 字节一个也没落库。
+       *
+       * 也就是说：**发货内容改了，组织永远拿不到**。与 `ensurePlatformSkillsSeeded`
+       * 头注里那个「只在不存在时创建」的坑同源——对**内容会变的东西**，这种幂等
+       * 把「没更新」伪装成「已经是最新」。
+       *
+       * ## 判据：升级目标 = **这个包自己上一次装进去的那些 skill**
+       *
+       * 光看「本 org 同 `stable_name`」是**不够窄的**——那会把用户自建的、URL 导入的、
+       * 以及**另一个包**里同名的 skill 一并当成升级目标，让 A 包的正文悄悄盖掉 B 包
+       * （或用户自己写）的 skill。`tests/skills/explicit-starter-import.test.ts` 的
+       * 「rejects a name conflict visibly and never overwrites user/imported content」
+       * 守的正是这条：另一个 `conflicting-pack` 带着同名 skill 进来必须 409。
+       * 我第一版就是按「同 org 同 stable_name」写的，被这条测试逐字抓住（expected 201 to be 409）。
+       *
+       * 所以判据取**血统**，不取名字：`starter_pack_imports` 里本 org、**同一个
+       * `pack_id`**、`status='succeeded'` 的那几次导入，其 `result_json->'skillIds'`
+       * 记着它们当初铸出来的 skill id——只有这些行才是「这个包的上一版」，才可以升级。
+       *
+       * 于是三件事同时成立：
+       *   · `standard-web` 1.1.1 → 1.1.2：同一个 `pack_id`，升级；
+       *   · 另一个包带同名 skill 进来：血统对不上，照旧 409；
+       *   · 用户自建/URL 导入的同名 skill：从不出现在任何导入的 `skillIds` 里，照旧 409。
+       *
+       * 只认 `org_id = input.orgId` 自己的行。平台组织（`PLATFORM_ORG_ID`）的行对
+       * 每个 org 可见但**不属于**它，别的 org 写不了，也不该被当成升级目标。
+       */
+      const upgradeRows = await session.query<{ id: string; stable_name: string; name: string }>(
+        `SELECT s.id, s.stable_name, s.name FROM skills s
+          WHERE s.org_id = $1 AND s.stable_name = ANY($2::text[])
+            AND EXISTS (
+              SELECT 1 FROM starter_pack_imports i
+               WHERE i.org_id = $1 AND i.pack_id = $3 AND i.status = 'succeeded'
+                 AND i.result_json -> 'skillIds' @> to_jsonb(s.id)
+            )
+          FOR UPDATE`,
+        [input.orgId, stableNames, input.pack.packId],
+      );
+      const upgradeTargets = new Map(upgradeRows.rows.map((row) => [row.stable_name, row]));
+      const upgradeIds = upgradeRows.rows.map((row) => row.id);
+
       // ⚠ 同时对着 `PLATFORM_ORG_ID` 查——四个官方 skill（`skill-platform-*`）在
       // `listAll()`/`GET /skills` 里对每个组织都可见（design-delta `platform-owned-skills`
       // 的 `OR org_id = PLATFORM_ORG_ID` 兜底），但这条冲突检查此前只查了 `org_id = $1`
@@ -91,16 +149,24 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
       // 官方 skill 同名的 skill，`GET /skills` 把两条拼在一起返回、互不去重，chat 的
       // `#` 挂载列表与 `/skill` 目录里就会看到同一个名字出现两次，且都能被独立挂载。
       // 这里把平台组织也纳入冲突判定，从源头挡住这种新的同名重复。
+      //
+      // `id <> ALL($5)` 是升级路径唯一放宽的地方：**升级目标自己那几行**不算冲突。
+      // 它精确到行 id，不是把整条检查改宽——任何**别的** skill 撞了 stable_name 或
+      // 显示名（含平台组织那几行、含本 org 里同名的另一个 skill），照样判冲突。
+      // `capability_listings` 侧同样按 id 排除：pack 导入时两张表写的是同一个 id
+      // （见下方 `INSERT INTO capability_listings ... VALUES ($1` 用的就是 skillId）。
       const conflicts = await session.query<{ present: boolean }>(
         `SELECT EXISTS (
            SELECT 1 FROM skills
             WHERE (org_id = $1 OR org_id = $4)
               AND (stable_name = ANY($2::text[]) OR lower(name) = ANY($3::text[]))
+              AND id <> ALL($5::text[])
            UNION ALL
            SELECT 1 FROM capability_listings
             WHERE (org_id = $1 OR org_id = $4) AND kind = 'skill' AND lower(name) = ANY($3::text[])
+              AND id <> ALL($5::text[])
          ) AS present`,
-        [input.orgId, stableNames, names, PLATFORM_ORG_ID],
+        [input.orgId, stableNames, names, PLATFORM_ORG_ID, upgradeIds],
       );
       if (conflicts.rows[0]?.present) {
         await session.query(
@@ -115,6 +181,110 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
       const skillIds: string[] = [];
       const versionIds: string[] = [];
       for (const skill of input.pack.skills) {
+        const existingSkill = upgradeTargets.get(skill.stableName);
+        const digest = skillContentDigest(skill);
+
+        if (existingSkill) {
+          /**
+           * 升级路径。三件事，顺序是语义的一部分：
+           *
+           * ① **正文没变就什么都不做**——`content_digest` 命中一条已发布版本时复用
+           *    它的 id。否则每跑一次种子就堆一个新版本，且会去 publish 一个已发布的
+           *    版本而报错。这条同时是 ② 的反证方向：实现若退回「只在不存在时创建」，
+           *    ② 会红；若变成「每次都插新版本」，① 会红，两条互相夹住。
+           * ② **正文变了就发一个新版本**——历史版本一行都不动（`skill_versions` 的
+           *    `skill_versions_immutable_trg` 在 `published` 时挡掉 UPDATE/DELETE，
+           *    想改也改不了）。`listAll()` 取的是「最新一条 published」，新版本落库
+           *    即自动成为生效版本，没有第二个指针要维护。
+           * ③ 显示名跟着发货内容走（`skills.name` 与 `capability_listings.name`
+           *    两张投影表一起改，不留下一张说旧名字的表）。
+           */
+          const reusable = await session.query<{ id: string }>(
+            `SELECT id FROM skill_versions
+              WHERE org_id = $1 AND skill_id = $2 AND content_digest = $3 AND published
+              ORDER BY created_at DESC, id DESC LIMIT 1`,
+            [input.orgId, existingSkill.id, digest],
+          );
+          const reusableId = reusable.rows[0]?.id;
+          skillIds.push(existingSkill.id);
+
+          if (reusableId !== undefined) {
+            versionIds.push(reusableId);
+            continue;
+          }
+
+          /**
+           * `skill_versions_semantic_uniq (org_id, skill_id, semantic_label)` 是一条
+           * 诚实的约束：同一个语义版本号不能指向两份不同的正文。发货包若改了正文却
+           * 忘了 bump 该 skill 自己的 `semanticVersion`，这里必须**明确报出来**，
+           * 而不是让它变成一条谁都看不懂的 23505。
+           */
+          const labelTaken = await session.query<{ present: boolean }>(
+            `SELECT EXISTS (
+               SELECT 1 FROM skill_versions
+                WHERE org_id = $1 AND skill_id = $2 AND semantic_label = $3
+             ) AS present`,
+            [input.orgId, existingSkill.id, skill.semanticVersion],
+          );
+          if (labelTaken.rows[0]?.present) {
+            await session.query(
+              `UPDATE starter_pack_imports
+                  SET status = 'failed', failure_code = 'SKILL_STARTER_PACK_VERSION_LABEL_REUSED'
+                WHERE id = $1 AND org_id = $2`,
+              [importId, input.orgId],
+            );
+            return { kind: "version-label-reused", stableName: skill.stableName, semanticVersion: skill.semanticVersion };
+          }
+
+          const upgradeVersionId = `skill-version-${randomUUID()}`;
+          versionIds.push(upgradeVersionId);
+          await session.query(
+            `INSERT INTO skill_versions
+              (id, org_id, skill_id, semantic_label, content_digest, manifest, creator_id,
+               created_at, published)
+             VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,false)`,
+            [
+              upgradeVersionId,
+              input.orgId,
+              existingSkill.id,
+              skill.semanticVersion,
+              digest,
+              JSON.stringify(skill.manifest),
+              input.actorId,
+              importedAt,
+            ],
+          );
+          for (const file of skill.files) {
+            await session.query(
+              `INSERT INTO skill_version_files
+                (org_id, version_id, path, content, media_type, digest)
+               VALUES ($1,$2,$3,$4,$5,$6)`,
+              [
+                input.orgId,
+                upgradeVersionId,
+                file.path,
+                Buffer.from(file.contentBase64, "base64"),
+                file.mediaType,
+                file.digest,
+              ],
+            );
+          }
+          await session.query("SELECT wave2_publish_skill_version($1, $2)", [input.orgId, upgradeVersionId]);
+
+          if (existingSkill.name !== skill.name) {
+            await session.query(
+              `UPDATE skills SET name = $3, updated_at = $4 WHERE id = $1 AND org_id = $2`,
+              [existingSkill.id, input.orgId, skill.name, importedAt],
+            );
+            await session.query(
+              `UPDATE capability_listings SET name = $3
+                WHERE id = $1 AND org_id = $2 AND kind = 'skill'`,
+              [existingSkill.id, input.orgId, skill.name],
+            );
+          }
+          continue;
+        }
+
         const skillId = `skill-${randomUUID()}`;
         const versionId = `skill-version-${randomUUID()}`;
         skillIds.push(skillId);
@@ -136,7 +306,7 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
             input.orgId,
             skillId,
             skill.semanticVersion,
-            skillContentDigest(skill),
+            digest,
             JSON.stringify(skill.manifest),
             input.actorId,
             importedAt,

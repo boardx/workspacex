@@ -30,9 +30,24 @@ describe("run trace disclosure", () => {
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
     const spawn: ExecutionEvent = { ...base, seq: 1, kind: "tool_start", toolCallId: "tool-sub", toolName: "spawn_async_task", args: { description: "检索资料" } };
     render(<RunTracePanel runId="run-1" events={[spawn]} />);
+    /*
+     * issue #3100 D6 —— 「有子任务在后台跑」这件事**不许**被埋在执行过程的折叠区里。
+     * 面板此前挂在 `run-trace-body` 内，而那个区块默认 `hidden`：TW-P0-7③ 要断言的
+     * 「子 Agent 节点默认是收起的摘要态」在真实浏览器里根本不可见，用户不点开执行
+     * 过程就看不到后台任务。这两行就是那道闸的会红断言——把面板挪回折叠区内，
+     * 第二行立刻红。
+     */
+    expect(screen.getByTestId("run-trace-body")).not.toBeVisible();
+    expect(screen.getByTestId("subtask-live")).toBeVisible();
+    expect(screen.getByTestId("subtask-live")).toHaveTextContent("run-1");
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
     expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("正在派发后台任务");
-    expect(screen.getByTestId("subtask-live")).toHaveTextContent("run-1");
+  });
+
+  it("keeps the subtask projection unmounted when no dispatch was recorded", () => {
+    render(<RunTracePanel runId="run-1" events={[start]} />);
+    // 反面：挂载条件没有被放宽成"总是挂"——没派发过就一个都不挂。
+    expect(screen.queryByTestId("subtask-live")).toBeNull();
   });
   it("shows a status-only disclosure and uses durable pause timestamps without a running spinner", () => {
     vi.useFakeTimers();
