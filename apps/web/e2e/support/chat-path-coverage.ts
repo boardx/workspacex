@@ -157,15 +157,16 @@ export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<
    * 什么都没产生。判据没错，错的是**点击时机**：`copilotkit-v2-input` 可见只说明
    * 输入框挂上了，壳的「恢复到最近一条线程」还在路上，点击落在这个窗口里会被吞掉。
    *
-   * 所以分两步：① 先等恢复**落定**（URL 上真的出现一条线程 id）——第一个 page 已经
-   * 建过线程，这条恢复必然会发生；② 再点，并允许**重试点击本身**。第 ② 条取自本仓
-   * 既有做法（`chat-canvas-guidance-render.spec.ts` 的 `clickMaximizeUntilModalVisible`：
-   * 被软刷新吞掉的点击要重试，不是只重试断言）。
+   * 所以只加一件事：**允许重试点击本身**（取自本仓既有做法
+   * `chat-canvas-guidance-render.spec.ts` 的 `clickMaximizeUntilModalVisible`——被软刷新
+   * 吞掉的点击要重试，不是只重试断言）。判据本身不用改：恢复只会落在**已存在**的线程上，
+   * 因此它无论早到晚到都满足不了"不在 existing 里"。
+   *
+   * ⚠ 六跑（run 34204114526）删掉过一个多余的前置门：当时先等"恢复落定（URL 上出现
+   * 线程 id）"再点击，结果那一跑第二个 page 压根**没有发生恢复**，这道门自己 60s 超时。
+   * 教训与本文件其它几处同形：不要把"通常会发生的事"写成前置条件——判据只依赖
+   * **必然为真**的东西（这条线程此前不存在），不依赖壳恰好恢复。
    */
-  await expect
-    .poll(() => threadIdFromUrl(page.url()) !== null, { timeout: 60_000, intervals: [200, 500, 1_000] })
-    .toBe(true);
-
   const existing = new Set(await storedThreadIds(page));
   const landedOnNewThread = async (): Promise<boolean> => {
     const current = threadIdFromUrl(page.url());

@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import {
+  awaitStoredHumanMessage,
   expectSendNotBlockedOnRun,
   openFreshDeepAgentThread,
   storedMessages,
+  storedRun,
 } from "./support/chat-path-coverage";
 
 /**
@@ -46,11 +48,42 @@ test("@path:F2 断线重连：网络中断后 run 继续，网络恢复后界面
    */
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-messages"))
-    .toContainText(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger, { timeout: 60_000 });
+
+  /*
+   * ⚠ 断网**必须**紧跟发送，中间只能插「这次 run 真的起来了」这一件事。
+   *
+   * 六跑前的版本在这里先等 `copilotkit-v2-messages` 渲出用户原文（超时 60s），才去断网。
+   * 那一等把断网推后了不确定的一段时间——2026-09-08 阻塞车道首跑（run 34197980964）
+   * 整条用例只花 16.5s，剧本在断网之前就已经跑完，本条于是红在自己的自检上。
+   * 头注里"断网动作紧跟发送"那句当时已经写着，代码却和它相反。
+   *
+   * 现在等的是**权威读**：人类消息落库并挂上 runId。它证明请求已经到达服务端（断网不会
+   * 把这一发打掉），且通常在毫秒级完成，不会像 DOM 渲染那样把窗口拖长。
+   */
+  const beforeOutage = await awaitStoredHumanMessage(page, threadId, CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+  const humanTurn = beforeOutage.find(
+    (message) => message.authorKind === "human" && message.text === CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
+  );
+  expect(humanTurn, "用户那条消息必须已落库").toBeDefined();
+  expect(humanTurn!.agentRunId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
 
   // ── 真实断网：浏览器这一侧的请求全部失败，服务端的 run 不受影响 ──
   await context.setOffline(true);
+
+  /*
+   * 断网这一刻 run 若已终态，本条这一跑就**测不到重连**——不是断言写错，是这套确定性
+   * 上游在这台机器上跑得比断网窗口还快。把它作为一条独立判据写在这里（而不是只靠末尾
+   * 那条自检事后发现），是为了让失败信息直接指向"instrument 太快"，而不是让人以为
+   * 重连坏了。彻底消除这个竞态要让替身**扣住最后一段**直到客户端重连，那是下一步；
+   * 在那之前本条留在非阻塞车道。
+   */
+  const statusAtOutage = (await storedRun(page, humanTurn!.agentRunId!)).status;
+  expect(
+    ["succeeded", "failed", "cancelled"].includes(statusAtOutage),
+    `断网时这次 run 已是终态（${statusAtOutage}）——十步滚动剧本在这台机器上比断网窗口还快，`
+    + "本跑测不到重连。要修的是让替身扣住最后一段直到重连，不是放宽下面的判据",
+  ).toBe(false);
+
   await page.waitForTimeout(3_000);
   // 断网期间界面不许自己宣布成功：这一刻它**不可能**知道 run 的终态。
   const messagesDuringOutage = await page.getByTestId("copilotkit-v2-messages").innerText();
