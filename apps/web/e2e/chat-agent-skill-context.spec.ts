@@ -192,7 +192,21 @@ test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async
     .toContainText("Skill mount check fixture thread");
 
   const panel = page.getByTestId("chat-skill-mount-panel");
-  await expect(panel).toBeVisible();
+  /*
+   * issue #2997 —— `toBeVisible()` → `toBeAttached()`。
+   *
+   * v2 用的是同一个 `ChatSkillMountPanel`，但走 `variant="composer"` 的 headless
+   * 分支（触发器搬进了 composer 的「+」那一排）。该分支**没挂任何 skill 且浮层没开
+   * 时是零尺寸容器**——这不是本次迁移发明的判据，是组件自己头注里就写着的：
+   * 「没挂任何 skill 且浮层没开时零尺寸——e2e 判"面板已就位"用 `toBeAttached()`」
+   * （`chat-skill-mount-panel.tsx:502-504`）。
+   *
+   * 本用例这一行要证的是「面板已就位」，不是「面板有像素」——真栈实测这行拿到的
+   * 正是那个零尺寸容器（`data-mounted-count="0"`，`Received: hidden`），元素在、
+   * 只是没内容。下面紧接着的 `chat-skill-mount-empty` 可见性断言才是"空态真的画出来
+   * 了"那一半，没有动。
+   */
+  await expect(panel).toBeAttached();
   // 前提：现在一个都没挂。没有这条，下面「挂上了」的断言可能一开始就是真的。
   await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
 

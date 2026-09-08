@@ -58,7 +58,22 @@ async function clickMaximizeUntilModalVisible(canvasFence: Locator, page: Page):
   await expect(modal).toBeVisible();
 }
 
-test("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成工作坊画布", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3028** —— 本用例在 v2 工作台上**跑不起来，不是断言写错了**。
+ *
+ * 它要证的是「一句自然语言 → 模型产出 canvas 围栏 → 真的渲染成工作坊画布」。产出
+ * 围栏的是 `CHAT_READ_E2E.agentId`（loopback-echo）那个确定性上游的剧本；v2 上深链
+ * 进这条线程用的是服务端默认 agent（deep-agent），它的剧本只做用户原话回显，压根
+ * 不产 canvas 围栏，而 v2 又**没法在既有对话里换 agent**（换 agent = 开新对话，
+ * 见 #3028）。
+ *
+ * 真栈实测（2026-09-08 第二轮）：`[data-testid="chat-canvas-fabric"]` 60s 内从未出现，
+ * 助手回复是 deep-agent 的 `[skill:]MOUNTPROOF-… 根据查询结果回答你：…`。
+ *
+ * 按人类裁决（方案 B）**不删断言、不改宽**。锚点已经迁完（下面就是迁移后的版本），
+ * 差的只是 #3028 那条产品能力；#3028 补上之后把 `test.fixme` 改回 `test` 即可。
+ */
+test.fixme("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成工作坊画布", async ({ page }) => {
   test.setTimeout(180_000);
 
   await page.goto("/login");

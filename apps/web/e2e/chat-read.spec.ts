@@ -133,8 +133,17 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   // 上面那三段关于"为什么不按前缀数、为什么不把 1 改成 4"的推理逐条仍然适用——
   // 会话卡本身（`chat-thread-<id>`）与卡内菜单触发器（`chat-thread-card-menu-trigger`）
   // 都出自共用的 `thread-list-shell.tsx`，两屏同一份实现。
+  //
+  // ⚠ 真栈实测（issue #2997 第二轮）：v2 的会话卡比旧屏多一个**置顶**按钮
+  // （`chat-task-workbench-thread-pin`，issue #2075 TW-P2-6 加的，`thread-list-shell.tsx`），
+  // 所以只排掉「更多操作」触发器数出来是 2 不是 1。修法**仍然是收窄到真实出口，
+  // 不是把 1 改成 2**——那正是上面三段反复警告过的错误修法（把断言绑死在"当前
+  // 恰好有几个按钮"上）。这里把置顶按钮也显式排掉：它同样有自己独立的 testid，
+  // 排掉之后剩下的就只有卡片自己那颗"打开这条会话"的按钮。多列出一条会话仍然会红。
   await expect(
-    page.getByTestId("copilotkit-v2-thread-list").locator('button:not([data-testid="chat-thread-card-menu-trigger"])'),
+    page.getByTestId("copilotkit-v2-thread-list").locator(
+      'button:not([data-testid="chat-thread-card-menu-trigger"]):not([data-testid="chat-task-workbench-thread-pin"])',
+    ),
   ).toHaveCount(1);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   await page.getByTestId("copilotkit-v2-input").fill("Browser durable message");
@@ -832,7 +841,22 @@ test("发送后 thinking 等待动画（非流式/deep-agent 情形）—— 提
   await expect(waiting).toHaveCount(0, { timeout: 60_000 });
 });
 
-test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送也拽回最新", async ({ page }) => {
+/**
+ * ⚠ issue #2997 / **#3032** —— 本用例在 v2 工作台上**如实失败，是产品退化不是测试问题**。
+ *
+ * 要证的行为：「发送 = 显式意图，即使之前上滚看历史也无条件拽回最新」（`#925 ③`
+ * 的产品决定）。v2 没有这条：`use-timeline-scroll.ts` 的自动跟随 effect 第一行就是
+ * `if (!isAtBottom) return;`，而唯一能把 `isAtBottom` 重新置真的
+ * `scrollMessagesToBottom()` 全仓只有两个调用点——「回到最新」按钮与 `Ctrl/Cmd+End`
+ * 快捷键，**`send()` 从不调用它**。
+ *
+ * 真栈实测（2026-09-08 第二轮）：上滚到顶 → 发一条 → 轮询 30s，离底部距离恒为
+ * 3766px（判据 ≤ 80px）。
+ *
+ * 按人类裁决（方案 B）**不删断言、不改宽**：锚点已经迁完（下面就是迁移后的版本），
+ * 差的是 #3032 那一行产品修复；补上之后把 `test.fixme` 改回 `test` 即可。
+ */
+test.fixme("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送也拽回最新", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);

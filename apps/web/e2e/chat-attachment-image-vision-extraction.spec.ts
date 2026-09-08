@@ -158,7 +158,20 @@ test(
     await expect(replyRow).toBeVisible({ timeout: 60_000 });
     // 回显出自上游进程真实收到的 `content`（见文件头注的取证链路）：本轮触发消息的原文
     // 也在其中，确认这确实是"这一轮"的回复，不是别的固定文案。
-    await expect(replyRow).toContainText(CHAT_READ_E2E.agentReplyPrefix);
+    /*
+     * issue #2997 / #3028 —— 「这条回复真的出自确定性上游」这条守卫换了承载物。
+     *
+     * 旧屏发消息时显式带 `agentId: CHAT_READ_E2E.agentId`（loopback-echo，回显前缀
+     * `[loopback]`）。v2 用的是服务端默认 agent（`COPILOTKIT_V2_AGENT_ID` →
+     * deep-agent），而且**没法在既有对话里换成别的 agent**（换 agent = 开新对话，
+     * 见 #3028）。所以 `[loopback]` 这个前缀在 v2 上不可能出现。
+     *
+     * 换成 deep-agent loopback 自己的确定性指纹：它把**用户原话逐字回显**进回复
+     * （`loopback-deep-agent-provider.ts` 的默认剧本）。断言"回复里含这一轮的
+     * 提问原文"证明的是同一件事——这条回复是那个确定性替身针对**这一轮**产出的，
+     * 不是前端合成的、也不是上一轮留下的。判据强度没有下降：真实模型接进来时，
+     * 逐字回显同样不会成立。
+     */
     await expect(replyRow).toContainText(promptText);
     // 核心断言：`renderAttachmentForModel` 对 `extractionStatus==='failed'` 渲染的那句降级
     // 提示，真的出现在了模型收到、又原样回显出来的内容里——证明抽取管线真被触发、真走到了
