@@ -250,8 +250,17 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   // 这里退到 v2 确实提供的那一半：这条回复真的出自夹具 agent 的确定性上游
   // （回显前缀），也就是"这条回复不是前端合成的"——`agentReplyPrefix` 这条断言
   // 在旧屏那侧本来就由 `messageRow` 的兄弟断言承担，不是本次新造的判据。
+  /*
+   * issue #2997 / #3028 —— 「这条回复真的出自确定性上游」这条守卫换了承载物。
+   * 旧屏发消息显式带 `agentId: CHAT_READ_E2E.agentId`（loopback-echo，前缀 `[loopback]`）；
+   * v2 用的是服务端默认 agent（deep-agent），而且**换不了**（换 agent = 开新对话，#3028），
+   * 所以 `[loopback]` 在 v2 上不可能出现（真栈实测：该 filter 60s 匹配不到任何元素）。
+   * 换成 deep-agent loopback 自己的确定性指纹——它把用户原话逐字回显进回复。断言
+   * 「助手气泡里含这一轮的原话」证明的是同一件事：这条回复是确定性替身针对**这一轮**
+   * 产出的，不是前端合成的、也不是上一轮留下的。真实模型接进来时逐字回显同样不成立。
+   */
   const agentReplyBubble = page.getByTestId("copilot-assistant-message")
-    .filter({ hasText: CHAT_READ_E2E.agentReplyPrefix }).first();
+    .filter({ hasText: "Browser durable message" }).first();
   await expect(agentReplyBubble).toBeVisible({ timeout: 60_000 });
 
   /**
