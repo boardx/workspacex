@@ -37,11 +37,11 @@ on:
     branches: [main]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
     tags: ["v*"]
-  schedule:
-    # 每小时检查 main 是否有新合并（新 PR 落地即产生新 commit），有则跑全栈烟测。
-    - cron: "0 * * * *"
-    # 全量浏览器 e2e 每 3 小时跑一次。
-    - cron: "30 */3 * * *"
+  # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
+  # 摘掉——它和人工 `workflow_dispatch` 撞车会在同一 SHA 上重复跑一遍完整门控，纯
+  # 浪费跑道（实测一次撞车：手动那条已经 6/7 job 跑完，定时那条才刚起步就被砍）。
+  # main push 本身仍会跑（见上面 `push.branches`），e2e-full 需要覆盖率时用
+  # `workflow_dispatch` 手动勾选 `run_e2e_full` 触发，不再依赖 3 小时定时兜底。
   # 手动触发 e2e-full（#665）：它此前只在 `30 */3` 那个 cron 跑，改动它的人要等最多
   # 3 小时才知道结果，验证成本高到没人验证——这正是它连红 12 次无人察觉的一环。
   workflow_dispatch:
