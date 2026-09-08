@@ -402,6 +402,19 @@ pnpm run verify:fullstack-smoke
 pnpm run verify:core-loop
 ```
 
+实测：`verify:core-loop` **14 passed**（本地 7m33s / CI 4m24s，两处一致）；
+`verify:fullstack-smoke` **77 passed**（CI 7m0s）。这两条与 CI 的 `e2e-core-loop`
+（`backend-gates.yml`）和 `fullstack-smoke`（`harness-verify.yml`）job 跑的是**逐字同一条命令**，
+所以 PR 的 CI run 本身就是这两条的权威计数。
+
+⚠ 在有别的 agent 在跑的共享机器上，两条命令会卡在 `next build`：默认
+`webServer.timeout` 是 240s，超了会以 `Timed out waiting 240000ms from config.webServer`
+或 `next build` 被 OOM `Killed: 9` 退出——**这两种都不是断言失败**，一条 spec 都没跑。
+用 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 放宽（实测 `FULLSTACK_E2E_SERVER_TIMEOUT_MS=900000`
+可以跑完），或等机器空下来。同理，本地跑出的
+`expect(page).toHaveURL(/\/projects$/)` 超时停在 `/login`，是登录在 5s 内没完成，
+按「没跑到」分诊（见 §14.2 第 1 步），不是能力 `FAIL`。
+
 `verify:chat-task-workbench` **不属于这里**——它是记分牌车道，设计上就是红的，
 取分数而非取绿灯，处置方式见 §14.1。
 
