@@ -131,3 +131,11 @@ GitHub 同一 group 只保留**一个 pending**（这条规律该文件第 80 �
 
 ⚠ 排队中的 check 会继续跑完，早上看到的结论可能与此处不同——**以你打开 PR 时的实际状态为准**，
 这一节只是「我离开时没有红」的存档。按人类指令，我没有合并其中任何一个。
+
+### 19:49 复查更新
+
+- **#3173**：17 个 check 里 16 个已完成、**全 success**（含 e2e-core-loop、fullstack-smoke、
+  native-*、gates-test 1/2/4），只剩 `gates-test (3)` 在跑。仍然 0 failure。
+- **#3174**：13 个已完成、**全 success**（含 gates-test 1/3/4、e2e-core-loop、fullstack-smoke、
+  verify-*、merge-gate），`native-document-chain` 在跑、`gates-test (2)` 排队。0 failure。
+- #3162 无变化（cancelled，早上处理）。
