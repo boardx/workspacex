@@ -295,3 +295,87 @@ describe("#448 post-restart readiness", () => {
     );
   });
 });
+
+/**
+ * issue #3073 —— 「模板里有这条路由」是**静态痕迹**，不是「在跑的 Caddy 有这条路由」。
+ *
+ * #2795 把 agent-run 事件 WS 那条 handle 补进了 provision.sh 的 Caddyfile 模板，上面那条
+ * 用例也钉住了它——然后 2026-09-08 devapp 上仍然复现同一个签名（"WebSocket is closed
+ * before the connection is established"，回落轮询才拿到结果）。原因是模板与在跑的
+ * `/etc/caddy/Caddyfile` 之间**没有任何一条会红的门**：deploy.sh 一个字节都不碰 Caddyfile，
+ * 只有人手动重跑 provision.sh 才会重写它。于是「合入 main + CI 全绿 + deploy 成功」
+ * 对机器上真正在跑的反代配置没有任何影响——与 #2833 记录的 trusted-copy 漂移同一类缝。
+ *
+ * 这道门比对的是**路由集合**，不是整份文件的字节：模板里带 `${APP_API_PORT}` 之类的
+ * 变量，逐字比对必然假红。缺任何一条模板声明的 handle 路径就红，并打印缺的那一条。
+ */
+describe("#3073 live Caddyfile route drift", () => {
+  function runDrift(live: string) {
+    const temp = mkdtempSync(join(tmpdir(), "caddy-drift-"));
+    temps.push(temp);
+    const liveFile = join(temp, "Caddyfile");
+    writeFileSync(liveFile, live);
+    return spawnSync(
+      "bash",
+      ["-c", 'source "$1"; assert_caddy_routes_current "$2" "$3"', "--", HELPER, PROVISION, liveFile],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+  }
+
+  /** 从 provision.sh 的模板里取出该有的路由集合——与被测函数同一条提取规则的独立实现。 */
+  function templateRoutes(): string[] {
+    return [...readFileSync(PROVISION, "utf8").matchAll(/^[ \t]*handle(?:_path)?[ \t]+(\S+)[ \t]*\{/gm)]
+      .map((m) => m[1] as string);
+  }
+
+  function liveFrom(routes: string[]): string {
+    const blocks = routes
+      .map((route) => `\thandle ${route} {\n\t\treverse_proxy 127.0.0.1:3200\n\t}`)
+      .join("\n");
+    return `example.test {\n${blocks}\n\thandle {\n\t\treverse_proxy 127.0.0.1:3100\n\t}\n}\n`;
+  }
+
+  it("模板里的 handle 路径集合非空，且包含本 issue 的 WS 面", () => {
+    expect(templateRoutes()).toContain("/agent-runs/*/events");
+    expect(templateRoutes().length).toBeGreaterThan(4);
+  });
+
+  it("在跑的 Caddyfile 覆盖模板全部路由时通过", () => {
+    const result = runDrift(liveFrom(templateRoutes()));
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  });
+
+  // 反证：门必须对**这一次真实事故**的那条缺失路由变红，而不是只在空文件上变红。
+  it("缺 /agent-runs/*/events 这一条就红，并指名缺的是哪一条", () => {
+    const result = runDrift(liveFrom(templateRoutes().filter((route) => route !== "/agent-runs/*/events")));
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("/agent-runs/*/events");
+    // 其它路由都在，不许连坐误报。
+    expect(result.stderr).not.toContain("/chat/asr-draft");
+  });
+
+  it("缺任意其它 WS 面同样红（不是只硬编码了 agent-runs 一条）", () => {
+    const result = runDrift(liveFrom(templateRoutes().filter((route) => route !== "/chat/asr-draft")));
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("/chat/asr-draft");
+  });
+
+  it("读不到在跑的 Caddyfile 时红，不静默放行", () => {
+    const result = spawnSync(
+      "bash",
+      ["-c", 'source "$1"; assert_caddy_routes_current "$2" "$3"', "--", HELPER, PROVISION, "/nonexistent/Caddyfile"],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+    expect(result.status).not.toBe(0);
+  });
+
+  it("deploy.sh 在重启服务之前调用这道门", () => {
+    const deploy = readFileSync(DEPLOY, "utf8");
+    const gateIndex = deploy.indexOf("assert_caddy_routes_current");
+    const restartIndex = deploy.indexOf("systemctl restart workspacex-api");
+    expect(gateIndex).toBeGreaterThan(-1);
+    expect(restartIndex).toBeGreaterThan(-1);
+    expect(gateIndex).toBeLessThan(restartIndex);
+  });
+});
