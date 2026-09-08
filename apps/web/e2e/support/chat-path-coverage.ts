@@ -178,6 +178,22 @@ export async function ensureAuthedPageOrigin(page: Page): Promise<void> {
 export async function openFreshDeepAgentThreadOnAuthedPage(page: Page): Promise<string> {
   await ensureAuthedPageOrigin(page);
   await warmUpCopilotRuntimeRoute(page);
+  /*
+   * ⚠ 先落到应用同源页面，再去建线程——这一行不是"顺手预热"，删掉必红。
+   *
+   * 九跑实测（run 34235867250）：
+   *     SecurityError: Failed to read the 'localStorage' property from 'Window':
+   *     Access is denied for this document.
+   *       at sessionHeaders → createThreadViaApi → openFreshDeepAgentThreadOnAuthedPage
+   *
+   * 第二个 page 是 `context.newPage()` 现开的，此刻还停在 `about:blank`；
+   * `warmUpCopilotRuntimeRoute` 走的是 `page.request`（不导航），所以直到这里这一页
+   * **从未进入过应用的 origin** ⇒ 读 `localStorage` 被浏览器直接拒绝，取不到会话头。
+   *
+   * 第一个 page 不会撞上，是因为它先走了 `openChatEmptyState`（含登录 + `goto("/chat")`）。
+   * 这条差别只在"同 context 的第二个 page"这种形状下才存在——F6 正是唯一这么用的用例。
+   */
+  await page.goto("/chat");
   const threadId = await openAuthoritativeFreshThread(page);
   await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
   return threadId;
