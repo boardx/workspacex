@@ -318,10 +318,21 @@ test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fa
       continue;
     }
 
-    // 已知限制①命中时，`chat-ai-markdown` 容器可能压根没有挂载（assistant 消息 content
-    // 为空，`MarkdownMessage`/`V2MarkdownRenderer` 从未被喂到任何文本）——这不是本次
-    // 重试要打的靶子，跳过重试下一轮，不是判失败。
-    const markdownNode = page.getByTestId("chat-ai-markdown").first();
+    /*
+     * issue #3072 —— 这里原本读 `.first()`，于是这条用例在干净基线 run 34198904439 上
+     * **稳定**红在 `chat-ai-markdown mounted but empty text`（4 次重试全耗尽），被误当成
+     * 上面头注登记的「已知限制①」。trace 的 DOM 快照推翻了那个归因：失败时刻页面上有
+     * **4 个** `chat-ai-markdown` 节点，前三个是 `onStep` 为 planningNote / todos /
+     * tool-call 各自开的 assistant 消息壳（`data-message-id` 形如 `…:1:assistant` /
+     * `…:1:todos-…` / `…:1:call-…`），正文为空；主回答是**最后**那个独立 uuid 消息，
+     * `<h2>分析结果`、行内 `<code>`、代码块、blockquote、fabric 图**全都渲染好了**。
+     * 也就是说产品渲染一直是对的，`.first()` 每次都读到空壳 ⇒ 必然耗尽重试。
+     *
+     * 改读 `.last()`——与 `support/chat-path-coverage.ts` 的 `expectAssistantTurnSettled`
+     * 同一读法（那里也是 `.last()`，理由相同），不是发明第二份判据。
+     * 下面所有反证断言一条未放宽：主回答仍必须真的渲成结构化 DOM 与 fabric canvas。
+     */
+    const markdownNode = page.getByTestId("chat-ai-markdown").last();
     if ((await markdownNode.count()) === 0) {
       lastNote = `attempt ${attempt}: no chat-ai-markdown node mounted yet (known limitation① candidate)`;
       continue;

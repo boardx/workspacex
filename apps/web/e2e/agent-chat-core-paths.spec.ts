@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshThread } from "./chat-task-workbench-fixture";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
+import { expectSendNotBlockedOnRun } from "./support/chat-path-coverage";
 
 /**
  * issue #2919 —— Chat 核心路径的真栈回归。
@@ -57,6 +58,20 @@ async function sendAndWaitStoredReply(
       (message) => message.authorKind === "agent" && message.text.includes(expectedReplyText),
     );
   }, { timeout: 120_000, intervals: [250, 500, 1_000] }).toBe(true);
+  /*
+   * issue #3072 —— 「回复已落库」**不等于**「这一轮 run 已经落定」：`chat_writeback` 发生
+   * 在 run 终态之前，两者之间有一段窗口。第二轮如果落在这段窗口里发出，composer 走的是
+   * `sendWhileRunning()` 插话通道（2026-09-06「agent 还在生成时也要能回复 A/B」）——
+   * 它**不开第二轮 run**，第二轮的用户原话因此连气泡都不落，上面那句 `toContainText`
+   * 在第二次调用时耗满 60s。干净基线 run 34198904439 的日志实况：120 次轮询看到的全部
+   * 只有第一轮的内容。与 `runtime-adapter:407` 逐字同一签名（#3000，已由 PR #3050 修）。
+   *
+   * 所以在返回前多等一道「这次 run 不再卡在运行中」——读 `data-send-state`，
+   * 用 `support/chat-path-coverage.ts` 里那份唯一实现，不在本文件再抄一份判据。
+   * ⚠ 不能读 `title !== "Agent 正在处理上一条消息，请稍候…"`：产品自 2026-09-06 起
+   * 已删掉这条禁用理由，那条判据恒真（#3000 A 类根因）。
+   */
+  await expectSendNotBlockedOnRun(page);
 }
 
 test("简单聊天：一轮问答落入真实数据库，刷新后仍恢复同一条回复", async ({ page }) => {
