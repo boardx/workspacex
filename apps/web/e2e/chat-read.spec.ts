@@ -790,11 +790,14 @@ test("V5（PROP-CHAT-10ITER-001）jump-to-latest button appears on scroll-up and
  * 长高，只会在三行的窗口里滚——旧屏有、v2 没有的能力。
  *
  * 按人类裁决（issue #2997 方案 B）：**不许把断言删掉、也不许改宽让它变绿**——那是
- * 把退化藏起来。这里保留断言原文一字不动，用 `test.fixme` 标成"已知缺陷、待修"，
- * 并开产品缺口 issue 跟踪（**#3022**）。`fixme` 与 `skip` 的区别是判据上的：`fixme` 声明的是
- * "这条断言是对的，产品还没做到"，产品补上之后它会因为**意外通过**而提醒人来撤标。
+ * 把退化藏起来。当时保留断言原文一字不动，用 `test.fixme` 标成"已知缺陷、待修"，
+ * 并开产品缺口 issue 跟踪（**#3022**）。
+ *
+ * 2026-09-08 撤标：v2 composer 已改为 `rows={1}` + 按 `scrollHeight` 自增高、
+ * `COMPOSER_MAX_HEIGHT_PX`（200px）封顶（人类反馈「默认有一行就可以了」），断言原文
+ * 仍一字不动，只把 `test.fixme` 改回 `test`。
  */
-test.fixme("V7（PROP-CHAT-10ITER-001）composer auto-grows with multi-line input, capped", async ({ page }) => {
+test("V7（PROP-CHAT-10ITER-001）composer auto-grows with multi-line input, capped", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
