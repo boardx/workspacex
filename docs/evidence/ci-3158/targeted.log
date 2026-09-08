@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-ci-policy
+
+ ✓ .harness/scripts/lib/pr-queue.test.ts (40 tests) 17ms
+ ✓ .harness/scripts/doctor-pr-green.test.ts (19 tests) 77745ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 合入时 required FAILURE → 报出来，理由带 PR 号与 check 名 5327ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前失败、合入前 rerun 成功 → 不报（同名取最晚，不会永远违反） 4725ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入时绿、合入后被 rerun 打红 → 不报（合入后的 run 无关） 4425ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前最后一次红、合入后才 rerun 绿 → 仍报（合入时就是红的） 4332ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 合入前开始、合入后才 SUCCESS 完成 → 报（合入时 required 还没结论，不是绿） 3022ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前绿 + 更新的 rerun 合入时仍在跑 → 报（合入时 GitHub 显示的是 pending，不退回旧的绿） 3092ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 旧 attempt 合入前红 + 更新的 rerun 合入前完成绿 → 不报（最新 attempt 胜出） 3170ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效后关闭 + 没有已合入的 PR → 报「没有任何已合入的 PR」 4329ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 生效前关闭的存量 → 不倒查（即使 PR 是红的） 4155ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到（graphql 失败）+ --strict → FAIL 级（问不到不等于绿，不 fail-open） 4213ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 关掉 issue 的 PR 在第二页（>100 个引用）→ 翻页到底后照样报出 PR #900 的红 3982ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > 第二页拿不到 + --strict → FAIL「查不到」（半份清单不放行） 3063ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > graphql 回包不带 pageInfo → 不知道有没有下一页，按「查不到」处理（strict FAIL） 2591ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > check run 全绿、但合入前打上的 commit status `coord/andon` 是 failure → 报（rollup 不只有 CheckRun） 2228ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 五个 state（REST 小写）：error 报、pending / expected / success 不报（非必需 context）、未知取值报 14784ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入前 failure、合入前又打成 success → 不报（合入前最后一次 state 说了算） 2582ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > commit status 合入后才打成 failure → 不报（合入后的观测无关） 2303ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > statuses 端点拿不到 + --strict → FAIL「查不到」（只有 check run 那一半不放行） 2102ms
+   ✓ doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义第 7 条 > gh 问不到 + 非 strict（pre-push）→ WARN 级 3316ms
+ ✓ .harness/scripts/lib/pr-green.test.ts (24 tests) 10ms
+ ✓ .harness/scripts/doctor-closing-prs-pagination.test.ts (5 tests) 5ms
+ ✓ .harness/scripts/lib/ci-check-policy.test.ts (3 tests) 4ms
+
+ Test Files  5 passed (5)
+      Tests  91 passed (91)
+   Start at  02:09:15
+   Duration  79.38s (transform 213ms, setup 0ms, collect 323ms, tests 77.78s, environment 1ms, prepare 344ms)
+
