@@ -256,11 +256,15 @@ export default defineConfig({
    * `.github/workflows/harness-verify.yml` 的 `chat-task-workbench` job 与根
    * `package.json` 的 `verify:chat-task-workbench` 脚本）。两个 project 共享本文件
    * 下面的 webServer 数组，互不重复起进程。
+   *
+   * ⚠ **上面这段描述的是 #2114 当时的分法，已被人类 2026-09-08 裁决取代。**
+   * 「记分牌里是哪几条」的当前事实源只有一处：下面 `chat-task-workbench` project
+   * 自己的 testMatch 与它头上的注释。别拿这一段推断今天的车道成分。
    */
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-c4-two-canvases-one-turn|chat-path-d4-skill-three-states|chat-path-f7-upstream-stream-abort)\.spec\.ts$/,
+      testMatch: /(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-c4-two-canvases-one-turn|chat-path-d4-skill-three-states|chat-path-f7-upstream-stream-abort)\.spec\.ts$/,
     },
     {
       /**
@@ -299,9 +303,58 @@ export default defineConfig({
        * （`--project=chat-task-workbench`）与 workflow_dispatch 的
        * `chat-task-workbench` job 显式点名，不在 `chat-read` 默认项目里，因此不会
        * 随 `verify:chat-read`（`e2e-full` 阻塞路径）一起跑。
+       *
+       * ⚠ **人类 2026-09-08 裁决：本车道改为「逐条升门控」。**（出处：该裁决直接
+       * 针对 #2114 这条「设计上允许恒红」的记分牌车道下达。）原文口径：**已实现且
+       * 稳定绿的用例搬进阻塞车道成为真回归防线；未实现能力的用例留在记分牌，等实现
+       * 完成再搬。** 全绿是渐进达成的——不把「尚未实现的能力」变成永久红线，也不把
+       * 「已经实现的能力」继续养在没人拦的车道里（后者正是 #512 的失效模式：绿了但
+       * 没有任何东西会因为它变红而拦住合并，于是它随时可以被静默改坏）。
+       *
+       * 搬家的判据（**不看验收报告，看 CI 的真实执行结果**）：该 spec 文件里的**全部**
+       * 用例，在 `chat-task-workbench` job 的**连续两趟**执行中都通过。要求两趟而不是
+       * 一趟，是因为本车道实测有约 25% 的顺序相关红（#3047 已重开）——一趟绿不足以
+       * 与「这一趟恰好排到了好顺序」区分开。
+       *
+       * 本轮（2026-09-08）依据的两趟：
+       *   趟 1 = run 34210929521 job 102011484968（branch `verify/acceptance-303d00224`，
+       *          34 passed / 13 failed）
+       *   趟 2 = run 34226380391（`main` 上 `workflow_dispatch -f run_chat_task_workbench=true`，
+       *          本 PR 为取证专门派发的一趟）
+       *
+       * 本轮**搬进 `chat-read`（阻塞 `e2e-full`）**的 6 个 spec 文件（两趟中每一条用例都绿）：
+       *   empty-state / capability-cards / composer / copy / polish / scroll-overshoot
+       *
+       * 本轮**留在记分牌**的 6 个 spec 文件，以及各自在等哪个能力落地：
+       *   - `workflow-states`  六态工作流指示器 + 计划面板可编辑 + 条件性确认门 +
+       *                        执行态进度/暂停 + 失败态恢复（TW-P0-3①②③④⑤⑥ 六条全红）。
+       *                        ⚠ 注意：`evaluatePlanGate`（`packages/contracts/src/plan-control.ts`）
+       *                        与 `PlanFailureRecovery`（`apps/web/components/plan-control/
+       *                        plan-failure-recovery.tsx`）**契约与组件层确已存在**（#3100），
+       *                        但 e2e 两趟都红——「代码里有这个符号」不等于「/chat 上这条
+       *                        路径通」，这正是本仓「静态痕迹 ≠ 动态事实」那条纪律。等的是
+       *                        把这两件接进 /chat 真实渲染路径。
+       *   - `tool-events`      TW-P0-7① 事件行面向用户的措辞、TW-P0-7③ 子 Agent 可折叠树。
+       *                        后者是真缺口（子任务工具调用没有契约字段），正在 #3100 的
+       *                        `feat/3100-subtask-tool-events` 分支实现。
+       *   - `p1-efficiency`    TW-P1-3 工具事件/子 Agent 摘要刷新后持久化、TW-P1-4 产物四件
+       *                        （预览/来源/版本/导出）、TW-P1-5 暂停/恢复/重试单步/检查点恢复。
+       *   - `inspector`        TW-P0-4② Inspector 按任务阶段自动切换页签。
+       *   - `approval`         TW-P0-6③ 风险分级生效（纯读操作不得弹审批，反证面）。
+       *   - `a11y`             TW-A11Y-5 审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处。
+       *                        ⚠ 这个文件里另外 7 条两趟都绿——但 `testMatch` 的粒度是
+       *                        **文件**，不是用例，所以整个文件只能等 A11Y-5 一起搬。想更早
+       *                        搬走那 7 条，正确动作是把 A11Y-5 拆成独立 spec 文件，不是在
+       *                        这里加一条按用例名过滤的第二套匹配器（第二套匹配器 = 同一
+       *                        事实两处声明）。
+       *
+       * ⚠ 与上面每条车道同样的警告：**这两条 testMatch 白名单都是手写的**。搬家 =
+       * 从下面这条正则里删名字 **且** 往上面 `chat-read` 那条里加名字，两边各改一次；
+       * 只删不加 = 那条 spec 从此没人跑（#512），只加不删 = 同一条 spec 在两个 project
+       * 里各跑一遍、白付一份自建 runner 的钱。
        */
       name: "chat-task-workbench",
-      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy|scroll-overshoot)\.spec\.ts$/,
+      testMatch: /chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)\.spec\.ts$/,
     },
   ],
   fullyParallel: false,

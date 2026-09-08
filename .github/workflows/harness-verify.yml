@@ -56,7 +56,7 @@ on:
       # 关掉，免得每次为 e2e-full 手动 dispatch 的人顺带多付这一趟钱；真要拿分数时
       # 显式勾选。
       run_chat_task_workbench:
-        description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench，11 个设计上会红的验收断言，仅供打分）"
+        description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench：尚未实现能力的验收断言，设计上会红，仅供打分；条数以 playwright.chat-read.config.ts 的 testMatch 为准，别在这里再声明一份）"
         type: boolean
         default: false
       # 路径覆盖车道的开关（`.harness/instructions/chat-path-coverage-matrix.md`）。
