@@ -208,10 +208,17 @@ describe("#387 trusted full-stack gate contract", () => {
     // 只在 workflow_dispatch 手动勾选时跑，不在 pull_request/push/schedule 上跑），
     // 它自己的证据上传步骤同样需要 always()（记分牌红了也要能看到 test-results 截图），
     // 是真实新增的第三个「always() + upload-artifact」配对，不是漂移或误加。
-    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v6/g)).toHaveLength(3);
+    //
+    // 2026-09-08（issue #3026）：4 —— 新增第四个 job `chat-path-coverage`（路径覆盖车道，
+    // 同样只在 workflow_dispatch 手动勾选时跑）。它的证据上传步骤同样要 always()：
+    // 这批用例首跑很可能红，而红的时候恰恰最需要 test-results 里的截图/trace 与 A5 落下的
+    // 冷启动基线（见 `.harness/instructions/chat-path-coverage-matrix.md`）。
+    // 真实新增的第四个配对，不是漂移。
+    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v6/g)).toHaveLength(4);
     expect(workflow).toContain("phase-01-fullstack-smoke-evidence");
     expect(workflow).toContain("phase-01-e2e-full-evidence");
     expect(workflow).toContain("phase-01-chat-task-workbench-evidence");
+    expect(workflow).toContain("phase-01-chat-path-coverage-evidence");
     expect(read(".harness/scripts/verify-readiness-evidence.ts")).toContain("manifest.commit !== target");
   });
 
