@@ -86,6 +86,29 @@ async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeComma
 }
 async function reachResearch() { for (const node of ["brief", "directions", "outline"] as const) { expect(state.currentNode).toBe(node); await run("confirm"); expect(state.errorCode).toBeNull(); } }
 describe("durable research runtime with real PostgreSQL and controlled provider doubles", () => {
+  it("keeps the previous report after regeneration fails and reloads it without treating history as current", async () => {
+    await reachResearch();
+    await run("confirm");
+    expect(state.report).not.toBeNull();
+    expect(state.reportTimeline?.map((step) => step.stage)).toEqual(["evidence", "chapter", "review", "synthesis", "validation"]);
+    expect(state.reportTimeline?.every((step) => step.status === "completed")).toBe(true);
+    const previous = structuredClone(state.report);
+    failModelNode = "report";
+    await run("generate", { node: "report" });
+    expect(state.errorCode).not.toBeNull();
+    expect(state.report).toBeNull();
+    expect(state.reportPrevious?.report).toEqual(previous);
+    expect(state.reportTimeline?.find((step) => step.stage === "evidence")?.status).toBe("failed");
+    expect(state.reportTimeline?.find((step) => step.stage === "validation")?.status).toBe("pending");
+    const reloaded = await new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" }).get(actor, session);
+    expect(reloaded.reportPrevious?.report).toEqual(previous);
+    expect(reloaded.reportTimeline).toEqual(state.reportTimeline);
+    expect(reloaded.reportCheckpoint?.chapters).toHaveLength(0);
+    expect(reloaded.completed).toBe(false);
+    await run("generate", { node: "report" });
+    expect(state.reportPrevious?.report).toEqual(previous);
+  });
+
   it("imports old checkpoints without erasing their drafts or completed record", () => {
     const date = new Date().toISOString();
     const legacy = C.GuidedResearchSession.parse({ ...session, stage: "report", resumeStage: "report", status: "completed", reportId: "old-report",

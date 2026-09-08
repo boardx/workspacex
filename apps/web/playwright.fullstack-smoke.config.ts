@@ -224,6 +224,26 @@ const modelProviderEnv = {
 
 export default defineConfig({
   testDir: "./e2e",
+  /**
+   * #3002 —— **每条 journey 必须有自己的 outputDir**，否则 CI 上取不到失败产物。
+   *
+   * Playwright 在每次 run 开始时会**整个删掉** outputDir（`createRemoveOutputDirsTask`，
+   * playwright/lib/runner/index.js `removeFolders([outputDir])`，除非 `--preserve-output`）。
+   * `harness-verify.yml` 的 `e2e-full` job 里**顺序**跑三趟 playwright：
+   *   ① `verify:full` → `verify:fullstack-smoke:raw`
+   *   ② `verify:chat-read`
+   *   ③ `verify:self-service-profile`
+   * 三份 config 此前都用默认 outputDir（`apps/web/test-results`）⇒ 后一趟开跑就把前一趟的
+   * `error-context.md` / `trace.zip` / 失败截图删干净。上传步骤在最后，只可能看见第③趟的产物；
+   * 而第③趟通常是绿的、产物为空 ⇒ artifact 里只剩 `evidence/ci/e2e.log`。
+   * 这正是 #3000 调查「卡死在没有 trace、只能靠猜、猜出一个被反证推翻的假设」的原因。
+   *
+   * 放在 `test-results/` **子目录**下：删除只作用于自己这一层（`removeFolders` 收的是
+   * 具体 outputDir，不碰兄弟目录），同时仍被 `.gitignore` 里覆盖 test-results 的那条规则与
+   * workflow 的 `path: apps/web/test-results/` 一起罩住，上传路径不用改。
+   * 机械门控见 `.harness/scripts/lint-e2e-artifact-isolation.test.ts`。
+   */
+  outputDir: "test-results/fullstack-smoke",
   // #458 的写路径门控单独成文件（原因见该文件头），与 #387 共用同一套 webServer 与同一个库。
   // #492 的 `core-loop.spec.ts` 是核心闭环八步的验收规格**兼进度板**：未实现的步骤用
   // `test.fail()` 显式红着，不许 skip —— skip 会制造「闭环已通」的错觉。

@@ -497,7 +497,37 @@ jobs:
     # 拆 job 的结构性修法见 #2084；拆之前必须同步改
     # `.harness/scripts/fullstack-smoke.test.ts`，它断言本文件里
     # `if: always()` + `upload-artifact` 恰好出现 **2** 次、且存在名为 `e2e-full` 的 job。
-    timeout-minutes: 75
+    #
+    # ⚠ 2026-09-08（#3001）：75 → 100。**上限设错了，不是车道太慢。**
+    #
+    # 实测预算（三次 main 上的真实 run，逐步骤取 startedAt/completedAt）：
+    #
+    #   | 步骤 | 34155551896(938d16bf) | 34159494041(94f6dda0) | 34148221220(76f7fb12) |
+    #   |---|---|---|---|
+    #   | 1-8 checkout/setup/install/pw/uv | 1m47s | 2m48s | 6m08s |
+    #   | 9  未缓存 trusted full gate      | 29m49s | **47m15s** | **49m50s** |
+    #   | 10 verify:chat-read             | **30m44s** | 30m01s(被杀) | 27m07s(被杀) |
+    #   | 11 verify:self-service-profile  | 0m55s | skipped | skipped |
+    #   | 12 上传证据                      | 1s | skipped | skipped |
+    #   | **job 总计**                    | **63m21s（跑完）** | 80m00s（cancelled） | 80m01s（cancelled） |
+    #
+    # ⇒ 步骤 9 的实测区间是 **29m49s ~ 49m50s**（同一条命令，TURBO_FORCE 无缓存，
+    #   托管 runner 抖动），步骤 10 跑完要 **30m44s**。最坏组合
+    #   6 + 50 + 31 + 1 ≈ **89 min** —— 75 连一次都装不下最坏组合，100 留 ~11 min 余量。
+    #
+    # ⚠ 两次 cancelled 都死在 **80 分钟**而不是 75：GitHub 在 75 分钟发取消信号，再给
+    #   5 分钟宽限期强杀。宽限期里步骤 11、12 的 conclusion 是 **skipped** ——
+    #   `if: always()` 挡不住 job 级取消 ⇒ **一次超时不只丢结论，连证据 artifact 一起丢**。
+    #   这正是 #3002 的另一半：那条修的是产物被覆盖，这条修的是产物根本没机会上传。
+    #
+    # 已排除的提速方案（#3001 有实测数据，别重做）：并行化非 DB 包（那些包合计 3.9 min，
+    # `@repo/skill-sandbox` + `@repo/api` 占 92.5%）；分片 e2e-full（会丢顺序依赖检测，
+    # PR #2978 正是"单独跑绿、串行跑全量才红"的反例）；修 skill-sandbox 的 docker build
+    # （本机 600s，CI 上只有 133s，本机特有）；缓存 pnpm store / node_modules（净收益≈0）。
+    # ⇒ `@repo/api#test` 一个包占 40% 且**必须串行**（串行正是抓顺序依赖的手段），
+    #   这 40 分钟里没有便宜可捡。超时上限本身不花钱（公开仓库免费），定紧的代价是
+    #   **每一次都把结论和证据一起丢掉**。结构性修法（拆 job）仍见 #2084。
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }

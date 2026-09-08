@@ -1,9 +1,10 @@
+import { ModelCallError } from "../../src/application/agent-run/ports";
 import { reportBasis, reportSourceAliases, canonicalReportText, aliasResolver } from "../../src/application/research/guided-report-checkpoint";
-import { validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
+import { GuidedRuntimeService, validateRuntimeDraft } from "../../src/application/research/guided-runtime-service";
 import { describe, expect, it, vi } from "vitest";
 import { generateReportChapters, validateGeneratedChapter } from "../../src/application/research/guided-report-chapters";
 import type { RuntimePersistence } from "../../src/application/research/guided-report-stream";
-import type { ResearchRuntime, RuntimeStreamEvent } from "../../src/application/research/guided-runtime-ports";
+import type { ResearchRuntime, RuntimeStreamEvent, GuidedRuntimeStore, RuntimeActor } from "../../src/application/research/guided-runtime-ports";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 const section = (id: string, title: string, order: number, enabled = true) => ({ id, title, order, enabled, questions: [`What does ${id} establish?`] });
 const body = (id: string) => `### Evidence\n\nThe source describes a limited policy requirement, supporting this comparison while leaving implementation uncertain. [[source:${id}]]\n\n### Decision implications\n\nThe requirement may affect entry timing and verification effort; this is an inference, not proof of profitability.\n\n### Recommended next steps\n\nVerify the unanswered implementation questions with local primary sources before making an irreversible investment decision.`;
@@ -359,6 +360,140 @@ describe("chapter-based report generation", () => {
     await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("RESEARCH_NODE_STATE_INVALID");
     expect(attempts).toBe(2); expect(f.state.report).toBeNull();
     expect(f.state.reportCheckpoint?.chapters).toHaveLength(1);
+  });
+
+  it.each(["chapter", "synthesis"])("retries a recoverable %s stream from the approved prefix", async (target) => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!]; let failed = false; let attempts = 0;
+    const model: ModelCallPort = {
+      complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+      completeStream: async (input, emit) => {
+        const context = JSON.parse(input.user); const text = JSON.stringify(answer(context));
+        if (context.reportStage === target) {
+          attempts++;
+          if (!failed) { failed = true; await emit(text.slice(0, 30)); throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure (ECONNRESET)"); }
+        }
+        await emit(text); return { text };
+      },
+    };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(attempts).toBe(2); expect(report.sections).toHaveLength(1);
+    expect(f.writes.some((state) => state.reportTimeline?.some((item) => item.stage === target && item.status === "retrying"))).toBe(true);
+    expect(JSON.parse(f.state.reportStream!.text)).toEqual(report);
+    expect(f.state.modelCalls.filter((call) => call.status === "failed")).toHaveLength(1);
+  });
+  it("does not retry an observer error wrapped by the provider as a transport failure", async () => {
+    const f = fixture(); let calls = 0; const failure = new Error("observer failure");
+    f.persist.observe = (event) => { if (event.type === "report_delta") throw failure; };
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }), completeStream: async (input, emit) => {
+      calls++;
+      try { await emit(JSON.stringify(answer(JSON.parse(input.user))).repeat(20)); }
+      catch { throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure (ECONNRESET)"); }
+      return { text: "unreachable" };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBe(failure);
+    expect(calls).toBe(1);
+  });
+
+  it.each([[503, 2], [401, 1]])("bounds provider HTTP %s attempts at %s", async (status, expected) => {
+    const f = fixture(); let calls = 0;
+    const model: ModelCallPort = { complete: async () => { calls++; throw new ModelCallError("MODEL_CALL_FAILED", `model provider responded with HTTP ${status}`); } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toBeInstanceOf(ModelCallError);
+    expect(calls).toBe(expected); expect(f.state.modelCalls).toHaveLength(expected);
+  });
+  it("does not retry a durable write failure before the model call", async () => {
+    const f = fixture(); let calls = 0; let writes = 0; const failure = new Error("database offline");
+    const persist: RuntimePersistence = Object.assign(async () => { writes++; if (writes >= 2) throw failure; }, { requestId: "persist-failure", observe: f.persist.observe });
+    const model: ModelCallPort = { complete: async () => { calls++; return { text: "{}" }; } };
+    await expect(generateReportChapters(f.state, model, config, persist)).rejects.toBe(failure);
+    expect(calls).toBe(0);
+  });
+
+  it("retains formal report A when partial attempt B fails and resumes under the same basis", async () => {
+    const f = fixture();
+    f.state.report = { title: "Report A", summary: "Prior findings", introduction: "Prior scope", conclusion: "Prior decisions", sections: [{ sectionId: "b", body: body("source-b"), sourceIds: ["source-b"] }] };
+    let fail = true;
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (fail && context.reportStage === "chapter" && context.section.id === "a") throw new Error("B interrupted");
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("B interrupted");
+    expect(f.state.reportPrevious?.report?.title).toBe("Report A");
+    expect(f.state.reportCheckpoint?.chapters.map((chapter) => chapter.sectionId)).toEqual(["b"]);
+    const prior = structuredClone(f.state.reportPrevious);
+    fail = false; f.state.report = null;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(f.state.reportPrevious).toEqual(prior);
+  });
+
+  it("persists ordered running/completed timeline steps and leaves final validation to the service", async () => {
+    const f = fixture();
+    const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
+    await generateReportChapters(f.state, model, config, f.persist);
+    expect(f.state.reportTimeline?.map((item) => item.id)).toEqual(["evidence", "chapter:b", "review:b", "chapter:a", "review:a", "synthesis", "validation"]);
+    expect(f.state.reportTimeline?.slice(0, -1).every((item) => item.status === "completed")).toBe(true);
+    expect(f.state.reportTimeline?.at(-1)?.status).toBe("pending");
+    for (const id of ["evidence", "chapter:b", "review:b", "synthesis"]) expect(f.writes.some((snapshot) => snapshot.reportTimeline?.some((item) => item.id === id && item.status === "running"))).toBe(true);
+  });
+  it("marks only the chapter failed when review recovery encounters a provider failure", async () => {
+    const f = fixture();
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage === "chapter_revision") throw new Error("provider stopped");
+      const result = answer(context);
+      if (context.reportStage === "quality" && context.section.id === "a") Object.assign(result, { analysisDepth: "shallow" });
+      return { text: JSON.stringify(result) };
+    } };
+    await expect(generateReportChapters(f.state, model, config, f.persist)).rejects.toThrow("provider stopped");
+    expect(f.state.reportTimeline?.filter((item) => item.status === "failed").map((item) => item.id)).toEqual(["chapter:a"]);
+    expect(f.state.reportTimeline?.find((item) => item.id === "review:a")?.status).toBe("pending");
+    expect(f.state.reportTimeline?.find((item) => item.id === "chapter:b")?.status).toBe("completed");
+    expect(f.state.reportTimeline?.some((item) => ["running", "retrying"].includes(item.status))).toBe(false);
+  });
+  it("only commits final validation with the durable service result", async () => {
+    for (const failFinal of [false, true]) {
+      const f = fixture(); const snapshots: ResearchRuntime[] = []; const events: RuntimeStreamEvent[] = [];
+      const store: GuidedRuntimeStore = { read: async () => f.state, claim: async () => ({ state: f.state, replay: false }), write: async (_actor, _request, state, done) => { if (done && failFinal) throw new Error("final write failed"); snapshots.push(structuredClone(state)); } };
+      const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
+      const service = new GuidedRuntimeService(store, model, { search: async () => [] }, config);
+      const actor = { sessionId: "s", userId: "u", orgId: "org" } as RuntimeActor;
+      const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
+      const execution = service.execute(actor, session, { sessionId: "s", requestId: "req", node: "report", action: "generate", expectedVersion: 4 }, (event) => events.push(event));
+      if (failFinal) {
+        await expect(execution).rejects.toThrow("final write failed");
+        expect(snapshots.some((state) => state.reportTimeline?.at(-1)?.status === "completed")).toBe(false);
+        expect(events.some((event) => event.type === "result")).toBe(false); expect(f.state.report).toBeNull();
+      } else {
+        const result = await execution;
+        expect(result.reportTimeline?.every((item) => item.status === "completed")).toBe(true);
+        expect(snapshots.at(-1)?.reportTimeline?.at(-1)?.status).toBe("completed");
+      }
+    }
+  });
+
+  it("rebuilds timeline from approved checkpoints and resets it when the basis changes", async () => {
+    const f = fixture(); const model: ModelCallPort = { complete: async (input) => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }) };
+    await generateReportChapters(f.state, model, config, f.persist); f.writes.length = 0;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(f.writes[0]!.reportTimeline?.filter((item) => ["chapter", "review"].includes(item.stage)).every((item) => item.status === "completed" && item.attempts === 0)).toBe(true);
+    expect(f.writes[0]!.reportTimeline?.find((item) => item.stage === "synthesis")?.status).toBe("pending");
+    f.state.brief.goal += " Changed"; f.writes.length = 0;
+    await generateReportChapters(f.state, model, config, f.persist, undefined, true);
+    expect(f.writes[0]!.reportTimeline?.every((item) => item.status === "pending" && item.attempts === 0)).toBe(true);
+  });
+
+  it("keeps evidence exclusions as a warning while later report stages continue", async () => {
+    const f = fixture(); f.state.outline = [f.state.outline[0]!];
+    const model: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user);
+      if (context.reportStage.startsWith("evidence")) return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: any, index: number) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: any) => ({ questionId: question.id, quote: index === 0 ? chunk.content : "Fabricated quote", insight: "Limited evidence", relevance: "direct" })) })) }) };
+      return { text: JSON.stringify(answer(context)) };
+    } };
+    const report = await generateReportChapters(f.state, model, config, f.persist);
+    expect(report.sections).toHaveLength(1);
+    expect(f.state.reportTimeline?.find((item) => item.stage === "evidence")).toMatchObject({ status: "warning", attempts: 2, completed: 1, total: 1 });
+    expect(f.state.reportTimeline?.find((item) => item.stage === "synthesis")?.status).toBe("completed");
+    expect(f.state.reportTimeline?.some((item) => item.status === "failed")).toBe(false);
   });
 
 });
