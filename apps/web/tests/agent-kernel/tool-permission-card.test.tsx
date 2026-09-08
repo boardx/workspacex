@@ -107,4 +107,22 @@ describe("issue #2767 -- ToolPermissionCard 受控化：/chat 宿主接线所需
     render(<ToolPermissionCard request={REQUEST} decided="run" />);
     expect(screen.getByTestId("saved")).toHaveTextContent("本次 run 内同类操作将不再打断你");
   });
+
+  /**
+   * issue #3068 —— 「以后都允许」的收尾文案曾经写着「可在下次弹出时改选拒绝以撤销」。
+   * 那条授权是组织级、跨 run、无过期的：写下之后同类操作被自动放行，**弹层再也不会
+   * 出现**，所以那句话承诺的撤销方式在结构上不可能发生。这个用例钉住"不再承诺一个不
+   * 存在的行为"，并要求文案指向真实存在的那个入口。
+   */
+  it("always 的收尾文案不再承诺「下次弹出改选拒绝」，而是指向真实的撤销入口", () => {
+    render(<ToolPermissionCard request={REQUEST} decided="always" />);
+    const saved = screen.getByTestId("saved");
+    expect(saved).toHaveTextContent("本组织同类操作以后不再询问");
+    // 承诺一个不会再发生的动作 —— 这正是本 issue 的病灶，不许回来。
+    expect(saved.textContent ?? "").not.toContain("下次弹出");
+    expect(saved.textContent ?? "").not.toContain("改选拒绝");
+    // 指向的入口必须是真实存在的那一个（`StandingToolGrantsSection`，挂在组织资料屏）。
+    expect(saved).toHaveTextContent("长期工具授权");
+    expect(saved).toHaveTextContent("撤销");
+  });
 });

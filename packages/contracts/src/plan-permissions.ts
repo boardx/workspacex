@@ -109,8 +109,14 @@ export const ToolPermissionDecisionError = z.enum([
 export type ToolPermissionDecisionError = z.infer<typeof ToolPermissionDecisionError>;
 
 /**
- * 「以后都允许」的运行时持久化记录（R5：组织同类操作运行时持久化，无后台管理界面——
- * 本 phase 只做写入与生效判断，不含查看/撤销/批量管理，见 00-overview Out of Scope）。
+ * 「以后都允许」的运行时持久化记录（R5：组织同类操作运行时持久化）。
+ *
+ * ⚠ issue #3068 更正：F06 落地时这里写的是「不含查看/撤销/批量管理」，而
+ * `tool-permission-card.tsx` 同时告诉用户「可在下次弹出时改选拒绝以撤销」——组织级
+ * 授权一旦落下那个弹层就再也不会出现，那句话承诺的撤销方式在结构上不可能发生，
+ * 一次点击等于永久且不可达。coordinator 裁决 C1（加撤销路径）后，本束新增
+ * `listStandingToolGrants` / `revokeStandingToolGrant` 两个操作，均为组织 admin 面
+ * （见下方 operations）。批量管理仍不在范围内。
  */
 export const StandingToolGrant = z.object({
   orgId: z.string(),
@@ -119,6 +125,33 @@ export const StandingToolGrant = z.object({
   grantedAt: z.string(),
 }).strict();
 export type StandingToolGrant = z.infer<typeof StandingToolGrant>;
+
+/**
+ * issue #3068 —— 组织级授权清单的一行（`listStandingToolGrants.out` 的元素）。
+ * 比 `StandingToolGrant` 多一个 `grantId`：撤销必须按行 id 寻址，按 `toolName` 撤
+ * 在并发下会撤掉"另一次批准写下的同名那条"。
+ */
+export const StandingToolGrantListItem = z.object({
+  grantId: z.string().min(1),
+  toolName: z.string().min(1),
+  /** 谁批的；历史行可能缺（F06 只在 `forever` 档记批准人）。 */
+  grantedByUserId: z.string().nullable(),
+  grantedAt: z.string(),
+}).strict();
+export type StandingToolGrantListItem = z.infer<typeof StandingToolGrantListItem>;
+
+export const RevokeStandingToolGrantInput = z.object({
+  grantId: z.string().min(1),
+}).strict();
+export type RevokeStandingToolGrantInput = z.infer<typeof RevokeStandingToolGrantInput>;
+
+export const StandingToolGrantError = z.enum([
+  /** 组织 admin 面：与模型池同一条判据（`registerModel.err` 的同名值）。 */
+  "NOT_ORG_ADMIN",
+  /** 该授权不存在，或已被另一位管理员撤销——两者对调用方是同一件事。 */
+  "GRANT_NOT_FOUND",
+]);
+export type StandingToolGrantError = z.infer<typeof StandingToolGrantError>;
 
 /* ── 三之二、`call_skill` 的风险按目标 skill 判定（#2767）──────────────── */
 
@@ -214,5 +247,24 @@ export const operations = {
     in: DecideToolPermissionInput,
     out: z.object({ runId: z.string(), toolCallId: z.string() }).strict(),
     err: ["NOT_VISIBLE", "RUN_NOT_AWAITING_TOOL_PERMISSION", "TOOL_CALL_ALREADY_DECIDED"] as const,
+  },
+  /**
+   * issue #3068 —— 「以后都允许」的撤销路径。两个操作都是**组织**面而不是 run 面：
+   * 这条授权本来就跨 run、无过期，挂在某一次 run 的路由下就等于把撤销入口绑在一个
+   * 已经结束的 run 上——那正是今天这个洞的形状。
+   */
+  listStandingToolGrants: {
+    method: "GET",
+    path: "/tool-permission-grants",
+    in: z.object({}).strict(),
+    out: z.array(StandingToolGrantListItem),
+    err: ["NOT_ORG_ADMIN"] as const,
+  },
+  revokeStandingToolGrant: {
+    method: "DELETE",
+    path: "/tool-permission-grants/:grantId",
+    in: RevokeStandingToolGrantInput,
+    out: z.object({ grantId: z.string() }).strict(),
+    err: ["NOT_ORG_ADMIN", "GRANT_NOT_FOUND"] as const,
   },
 };

@@ -50,7 +50,7 @@ it('production SQL source provider and controller are registered',async()=>{
 });
 it('real Python native tools cross HTTP source authority into a separate TLS read-only database',async()=>{
  let grant=false;
- const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>grant,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{}});
+ const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>grant,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{},listStanding:async()=>[],revokeStanding:async()=>false});
  const source=new PgStandardSqlSource(db,authority,{chat:new PgChatRepository(db),repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()}});
  class TestModule{};Module({controllers:[StandardSqlSourceController],providers:[{provide:STANDARD_SQL_SOURCE,useValue:source}]})(TestModule);
  const app=await NestFactory.create(TestModule,{logger:false});await app.listen(0,'127.0.0.1');

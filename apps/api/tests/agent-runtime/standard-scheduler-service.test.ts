@@ -56,7 +56,7 @@ beforeAll(async()=>{ensureDatabase();await migrateOnce();await setupPgBossSchedu
 afterAll(async()=>{await db?.close();await resetOrgs(org);});
 function components(){
  let grant=true;const notifications:unknown[]=[],kicks:string[]=[],errors:string[]=[];
- const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>grant,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{}});
+ const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>grant,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{},listStanding:async()=>[],revokeStanding:async()=>false});
  const visibility={chat:new PgChatRepository(db),repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()},runs:new PgAgentRunRepository(db)};
  const commands=new PgChatMessageCommandRepository(db);
  const gateway=new ScheduledChatRunGateway({...visibility,commands,publishedAgents:new PgPublishedAgentReader(db),threadMounts:new PgThreadMountedSkillReader(db),enabledSkills:new PgEnabledSkillVersionReader(db),model:{complete:async()=>({text:'Scheduled task'})},titleModel:{provider:'fake',modelId:'fake'},log:()=>{}},orgId=>kicks.push(orgId));

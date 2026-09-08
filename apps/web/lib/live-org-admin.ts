@@ -20,7 +20,7 @@
  *   `inviteOrgMember` 仍保留 `teamId` 入参（契约未变、`org_memberships.team_id` 列未删），
  *   调用方现在恒传空串（不分团队）——见 `org-admin-screen.tsx` 里 `NO_TEAM` 的注释。
  */
-import { identity, orgAdmin } from "@repo/contracts";
+import { identity, orgAdmin, planPermissions } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken } from "./api-client";
 
@@ -444,4 +444,23 @@ export async function revokeSkillReviewerFunction(
 export async function listSkillReviewerFunctions(orgId: string): Promise<ListSkillReviewerFunctionsOut> {
   return apiRequest<ListSkillReviewerFunctionsOut>(
     path(orgAdmin.operations.listSkillReviewerFunctions.path, { orgId }), { method: "GET" });
+}
+
+/* ── issue #3068：「以后都允许」的组织级授权，查看与撤销 ─────────────────── */
+
+export type StandingToolGrantsOut =
+  z.infer<typeof planPermissions.operations.listStandingToolGrants.out>;
+
+/** 本组织现存的 forever 授权。组织 admin 面，非 admin 收到真实 403（不隐藏入口）。 */
+export async function listStandingToolGrants(): Promise<StandingToolGrantsOut> {
+  return apiRequest<StandingToolGrantsOut>(
+    planPermissions.operations.listStandingToolGrants.path, { method: "GET" });
+}
+
+/** 撤销一条。撤销后同组织下一次同类操作重新弹审批。 */
+export async function revokeStandingToolGrant(grantId: string): Promise<{ grantId: string }> {
+  return apiRequest<{ grantId: string }>(
+    path(planPermissions.operations.revokeStandingToolGrant.path, { grantId }),
+    { method: "DELETE" },
+  );
 }
