@@ -43,7 +43,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { inspectPptx } from "@repo/skill-sandbox/ooxml";
 import {
-  addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
+  addOrgMember, addProjectMember, asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 import { addChatThread } from "../support/chat-db";
 import {
@@ -54,7 +54,7 @@ import {
   LOOPBACK_REAL_STDERR, startLoopbackSkillSandbox,
   type LoopbackSandboxHandle,
 } from "../../scripts/loopback-skill-sandbox-behavior";
-import { toOrgId } from "../../src/domain/org-id";
+import { PLATFORM_ORG_ID, toOrgId } from "../../src/domain/org-id";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -440,6 +440,27 @@ describe("T3 触发判据：不满足时沙箱一次都不被调用", () => {
     // 「没有任何 skill 可用 ⇒ 沙箱不被调用」，所以把组织的 skill 临时停用（走与
     // `disable-skill.ts` 同一列 `skills.status`），跑完恢复，后面各条不受影响。
     await asApp(ORG, (c) => c.query(`UPDATE skills SET status = 'disabled' WHERE org_id = $1`, [ORG]));
+    // #2995 —— 上面那一行**不足以**建立本条的前提。`org-platform` 名下的 skill 对
+    // 每一个 org 可见（`pg-enabled-skill-version-reader.ts` 的 `OR sk.org_id = $2`，
+    // 与 `pg-thread-mounted-skill-reader.ts` 同一条 design-delta `platform-owned-skills`），
+    // `resetOrgs(ORG)` 删的是 `ORG` 那一行、碰不到它们，`WHERE org_id = ORG` 同样碰不到。
+    // 它们由**别的测试文件**（`ensure-platform-skill-catalog.test.ts` /
+    // `standard-platform-packs.test.ts` / `office-full-packages.test.ts` …）种进同一个
+    // 共享隔离库——api 的 vitest 是 `maxWorkers: 1`，同库串行，所以这是**文件顺序**
+    // 决定的确定性污染，不是随机 flake：单跑本文件时平台目录是空的（全绿），
+    // e2e-full 里只要任一种子文件排在前面，run 的快照就带上 20 个平台 skill 版本，
+    // 「一个 skill 都没有」这个前提根本不成立，脚本被**正确地**执行一次 ⇒ `expected 1 to be 0`。
+    // 这与 `tests/support/platform-owned-skills.ts` 头注记录的「9 条空态断言集体变红」
+    // 是同一族事故：那次修的是列表断言，这条运行期前提当时漏掉了。
+    // 前提要真成立，平台那一半必须一起放倒，并在 finally 原样还原（只还原本条真正
+    // 改过的那些行，不把别的文件停用过的行顺手打开）。
+    const platformDisabled = await asOwner(async (c) => {
+      const { rows } = await c.query<{ id: string }>(
+        `UPDATE skills SET status = 'disabled' WHERE org_id = $1 AND status = 'enabled' RETURNING id`,
+        [PLATFORM_ORG_ID],
+      );
+      return rows.map((row) => row.id);
+    });
     let outcome: { result: string; runs: number };
     try {
       outcome = await countedSandboxRuns(async () => {
@@ -449,9 +470,22 @@ describe("T3 触发判据：不满足时沙箱一次都不被调用", () => {
       });
     } finally {
       await asApp(ORG, (c) => c.query(`UPDATE skills SET status = 'enabled' WHERE org_id = $1`, [ORG]));
+      if (platformDisabled.length > 0) {
+        await asOwner((c) => c.query(
+          `UPDATE skills SET status = 'enabled' WHERE org_id = $1 AND id = ANY($2::text[])`,
+          [PLATFORM_ORG_ID, platformDisabled],
+        ));
+      }
     }
     const { result: runId, runs } = outcome;
 
+    // 前提先自证，再断言结论：这次 run 的快照真的一个 skill 都没有。少了这一句，
+    // 前提被污染时红在 `runs` 上——那条消息（`expected 1 to be 0`）只说「沙箱被调了」，
+    // 完全不指向「前提没建立」，#2995 因此查了三轮才定位到 `org-platform`。
+    const snapshot = await asApp(ORG, (c) => c.query<{ skill_version_ids: readonly string[] }>(
+      `SELECT skill_version_ids FROM agent_runs WHERE id = $1`, [runId],
+    ));
+    expect(snapshot.rows[0]!.skill_version_ids, "前提：这次 run 一个 skill 都没挂上").toEqual([]);
     expect(runs).toBe(0);
     const run = await readRunRow(runId);
     expect(run.status).toBe("succeeded");
