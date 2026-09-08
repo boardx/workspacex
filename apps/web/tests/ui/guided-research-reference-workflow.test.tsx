@@ -59,7 +59,7 @@ describe("reference research workflow", () => {
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
     expect(await screen.findByText("已经保存的章节")).toBeInTheDocument();
     expect(screen.getByTestId("research-runtime-progress")).toHaveTextContent("已暂停");
-    fireEvent.click(screen.getByRole("button", { name: "继续生成剩余章节" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成完整报告" }));
     await waitFor(() => expect(executeResearchRuntime).toHaveBeenCalledTimes(1));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "retry", node: "report", expectedVersion: state.version }), expect.any(Function), expect.any(AbortSignal));
   });
@@ -68,7 +68,7 @@ describe("reference research workflow", () => {
     const state = { ...initial, report: null, busy: true, leaseUntil: "2000-01-01T00:00:00.000Z", errorCode: null, reportCheckpoint: { basis: "basis", chapters: [{ sectionId: "o1", body: "重启前保存的章节", sourceIds: ["source1"] }] } };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    const resume = await screen.findByRole("button", { name: "继续生成剩余章节" });
+    const resume = await screen.findByRole("button", { name: "生成完整报告" });
     expect(resume).toBeEnabled();
     expect(screen.getByText("重启前保存的章节")).toBeInTheDocument();
     fireEvent.click(resume);

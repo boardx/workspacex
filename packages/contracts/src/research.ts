@@ -925,6 +925,14 @@ export const GuidedResearchPreviousReport = z.object({
   sources: z.array(GuidedResearchSource), outline: z.array(GuidedResearchOutlineSection),
   aliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()),
 }).strict();
+// Server-authored logical report steps; timestamps/counters reflect persisted execution only.
+export const GuidedResearchReportTimelineStep = z.object({
+  id: z.string().min(1), stage: z.enum(["evidence", "chapter", "review", "synthesis", "validation"]),
+  sectionId: z.string().min(1).optional(),
+  status: z.enum(["pending", "running", "retrying", "completed", "warning", "failed"]),
+  attempts: z.number().int().nonnegative(), completed: z.number().int().nonnegative().optional(), total: z.number().int().nonnegative().optional(),
+  startedAt: z.string().optional(), finishedAt: z.string().optional(), reasonCode: z.string().optional(),
+}).strict();
 export const GuidedResearchRuntime = z.object({
   sessionId: z.string(), version: z.number().int().nonnegative(), revision: z.number().int().positive(),
   currentNode: ResearchNode, availableNodes: z.array(ResearchNode),
@@ -936,6 +944,7 @@ export const GuidedResearchRuntime = z.object({
   reportCheckpoint: z.object({ basis: z.string().min(1), instruction: z.string().max(10000).optional(), chapters: GuidedResearchReport.shape.sections.min(0) }).strict().nullable().optional(),
   reportSourceAliases: z.array(z.object({ alias: z.string().min(1), sourceId: z.string().min(1) }).strict()).optional(),
   reportPartial: z.boolean().optional(),
+  reportTimeline: z.array(GuidedResearchReportTimelineStep).max(63).optional(),
   reportPrevious: GuidedResearchPreviousReport.nullable().optional(),
   reportEvidenceWarnings: z.array(GuidedResearchEvidenceWarning).max(256).optional(),
   legacyCheckpoint: GuidedResearchSession.nullable().optional(),

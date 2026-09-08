@@ -69,7 +69,7 @@ describe("research report stream UI", () => {
     expect(screen.getByText("待替换草稿")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
     expect(screen.queryByText("待替换草稿")).not.toBeInTheDocument();
-    expect(screen.getByText("正在组织报告内容…")).toBeInTheDocument();
+    expect(screen.getByText("正在组织报告内容，正文返回后将实时显示。")).toBeInTheDocument();
     expect(executeResearchRuntime).not.toHaveBeenCalled();
   });
   it("offers explicit partial evidence generation only when failed tasks are terminal", async () => {

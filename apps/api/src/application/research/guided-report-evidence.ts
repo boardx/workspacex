@@ -1,3 +1,4 @@
+import { updateReportTimeline } from "./guided-report-timeline";
 import { research as C } from "@repo/contracts";
 import type { ModelCallInput } from "../agent-run/ports";
 import { ResearchRuntimeError, type ResearchRuntime } from "./guided-runtime-ports";
@@ -100,7 +101,7 @@ export async function extractReportEvidence(state: ResearchRuntime, config: { pr
         break;
       } catch (error) {
         if (!validationFailed || !(error instanceof ResearchRuntimeError) || error.reasonCode !== "RESEARCH_CONTENT_REFERENCE_INVALID") throw error;
-        if (!attempt) continue;
+        if (!attempt) { updateReportTimeline(state, "evidence", "retrying"); continue; }
         // Only the final response's individually verified evidence can survive a failed batch.
         hadInvalidBatch = true;
         const warning = { batchIndex, sourceIds: [...new Set(batch.map((chunk) => chunk.sourceId))], questionIds: questions.map((question) => question.id), reason: "invalid_model_evidence" as const };
