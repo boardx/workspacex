@@ -75,12 +75,44 @@ describe("issue #3129 · 第二个 page 的 origin 必须先于读 token", () =>
     __resetHandedOutThreadIdsForTest();
   });
 
-  test("修复前的次序：about:blank 上取会话令牌抛 SecurityError", async () => {
+  test("替身仍逐字实现浏览器那条规则：about:blank 上读 localStorage 抛 SecurityError", async () => {
     const page = new AboutBlankPage();
-    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/SecurityError/);
+    // 这是 helper 加守卫之前 F6 真正撞上的东西（run 34246633771 / SHA `9de57821e`）：
+    // 未经守卫地直接读 ⇒ 浏览器抛 SecurityError，错误指向浏览器 API，不指向前置条件。
+    await expect(
+      (page.asPage() as unknown as { evaluate: () => Promise<string> }).evaluate(),
+    ).rejects.toThrow(/SecurityError/);
+    expect(page.navigations, "读 localStorage 这件事本身不会导航").toEqual([]);
+  });
+
+  test("守卫之后：about:blank 上调 sessionHeaders 抛的是指名前置条件的错，不是 SecurityError", async () => {
+    const page = new AboutBlankPage();
+    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/前置条件未满足/);
+    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/ensureAuthedPageOrigin/);
+    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/issue #3129/);
+    await expect(sessionHeaders(page.asPage())).rejects.not.toThrow(/SecurityError/);
     // 这正是 F6 死在的那一步：建线程的第一件事就是取 token。
-    await expect(acquireFreshThread(page.asPage())).rejects.toThrow(/SecurityError/);
-    expect(page.navigations, "修复前这个 page 从没导航过，所以一直是 opaque origin").toEqual([]);
+    await expect(acquireFreshThread(page.asPage())).rejects.toThrow(/前置条件未满足/);
+    expect(
+      page.navigations,
+      "守卫零副作用：它只判 url、不替调用点导航（storedMessages 之类会在 poll 里反复调它）",
+    ).toEqual([]);
+  });
+
+  test("已在同源文档上时守卫不产生任何多余导航", async () => {
+    const page = new AboutBlankPage();
+    await ensureAuthedPageOrigin(page.asPage());
+    const afterOrigin = [...page.navigations];
+
+    await sessionHeaders(page.asPage());
+    await sessionHeaders(page.asPage());
+    await acquireFreshThread(page.asPage());
+
+    expect(
+      page.navigations,
+      "守卫在 page 已处于同源文档时必须一次导航都不发——多余导航会冲掉调用方的页面状态",
+    ).toEqual(afterOrigin);
+    expect(page.navigations).toEqual(["/chat"]);
   });
 
   test("修复后的次序：先 ensureAuthedPageOrigin，再取 token 就拿得到", async () => {
@@ -101,12 +133,23 @@ describe("issue #3129 · 第二个 page 的 origin 必须先于读 token", () =>
     await (page.asPage() as unknown as { request: { get: (u: string) => Promise<unknown> } })
       .request.get("/api/copilotkit/info");
     expect(page.url()).toBe("about:blank");
-    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/SecurityError/);
+    await expect(sessionHeaders(page.asPage())).rejects.toThrow(/前置条件未满足/);
   });
 });
 
 describe("issue #3129 · 次序在源码里也被钉住", () => {
   const source = readFileSync(`${HERE}../e2e/support/chat-path-coverage.ts`, "utf8");
+
+  test("sessionHeaders 第一句就是 origin 守卫（约 55 个调用方的唯一防线）", () => {
+    const helper = readFileSync(`${HERE}../e2e/support/authoritative-thread.ts`, "utf8");
+    const body = /export async function sessionHeaders[\s\S]*?\n}\n/.exec(helper)?.[0];
+    expect(body, "找不到 sessionHeaders 的函数体").toBeTruthy();
+    const guardAt = body!.indexOf("assertPageOnAppOrigin(page)");
+    const readAt = body!.indexOf("localStorage.getItem");
+    expect(guardAt, "共享 helper 自己必须带守卫，不能只靠某一个调用点记得先导航（issue #3129）")
+      .toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(readAt);
+  });
 
   test("openFreshDeepAgentThreadOnAuthedPage 里 ensureAuthedPageOrigin 排在建线程之前", () => {
     const body = /export async function openFreshDeepAgentThreadOnAuthedPage[\s\S]*?\n}\n/.exec(source)?.[0];

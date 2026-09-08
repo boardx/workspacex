@@ -92,6 +92,8 @@ class FakeChatBackend {
   asPage(): Page {
     const backend = this;
     return {
+      // 这个替身模拟的是「已登录、已在应用页面上」的 page——#3129 的 origin 守卫据此放行。
+      url: () => "http://127.0.0.1:3000/chat",
       evaluate: async () => "fake-session-token",
       request: {
         post: async (url: string) => {
