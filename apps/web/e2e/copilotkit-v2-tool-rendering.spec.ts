@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { TRACE_SAMPLER, judgeLiveness, toBrowserClock, type TraceBaseline, type TraceSample } from "./support/trace-liveness";
 
 /**
  * DA-19c 工具可见性（框架版 Gap 1/4，backlog `DA-19c`）—— 证明 `/chat`
@@ -253,20 +254,17 @@ test("工作台旧入口保留项目和线程参数", async ({ request }) => {
  * 一条已有历史的线程上（产物里 `forwardedProps.chatThreadId = thr-4f8d8a03…`），水化更重就输。
  * 差别是**页面重量**，不是项目态少了什么能力。
  *
- * 换成带时间戳的取证：发送前就在页面里装 `MutationObserver`，把
- * `[data-testid="run-trace-entry"]` 的数量与 `Date.now()` 逐次记下来；run 流结束那一刻
- * 记 `streamFinishedAt`，最后断言**存在一个时间戳早于 `streamFinishedAt` 的样本**其条目数 ≥ 1。
- * 这比原判据**更强**：原判据只证明「点击成功时流还没结束」，新判据直接证明「条目是在流还
- * 开着的时候就已经渲染出来的」。条目在折叠态也在 DOM 里（`run-trace-body` 只是 `hidden`），
- * 所以这条取证与展开与否无关。「默认折叠 / 展开后可见 / 刷新后可回放」三句一句不删。
+ * 换成带时间戳的取证：发送前就在页面里装 `MutationObserver`，逐次记下每个
+ * `run-trace-panel`（按 `data-run-id` 分）里的条目数与 `Date.now()`。
+ *
+ * ⚠ issue #3122：第一版取证数的是**全页面**条目、且第 0 个样本发生在**点发送之前**，
+ * 而「项目」档落在已有历史的线程上、折叠态条目也在 DOM 里（`run-trace-body` 只是 `hidden`），
+ * 于是「存在早于 streamFinishedAt 且条目数 ≥1 的样本」**恒真**——本轮一条轨迹不渲染也绿。
+ * 现在判据只数**本轮新增**（装采样器那一刻的每 panel 存量记为 baseline，只统计增量），
+ * 且采样窗口从**点发送之后**开始，见 `support/trace-liveness.ts` 与其三场景反证
+ * （`tests/ui/trace-liveness-counterproof.test.tsx`：live-render 绿 / buffered 红 / never-render 红）。
+ * 语义不变：**工具活动在运行流结束前就可见**。「默认折叠 / 展开后可见 / 刷新后可回放」三句一句不删。
  */
-const TRACE_SAMPLER = `(() => {
-  const samples = [];
-  const sample = () => samples.push({ at: Date.now(), count: document.querySelectorAll('[data-testid="run-trace-entry"]').length });
-  sample();
-  new MutationObserver(sample).observe(document.body, { childList: true, subtree: true });
-  window.__traceSamples = samples;
-})()`;
 
 for (const projectId of [null, CHAT_READ_E2E.projectId]) {
 test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }) => {
@@ -277,7 +275,9 @@ test(`工作台执行过程默认折叠，运行中展开实时更新，刷新�
   const runResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes("/api/copilotkit/") && response.url().includes("/run"));
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  const clockSkew = (await page.evaluate(() => Date.now())) - Date.now();
   await page.evaluate(TRACE_SAMPLER);
+  const sendAt = toBrowserClock(Date.now(), clockSkew);
   await page.getByTestId("copilotkit-v2-send").click();
   const response = await runResponse;
   void response.finished().then(() => { streamFinishedAt = Date.now(); });
@@ -291,14 +291,13 @@ test(`工作台执行过程默认折叠，运行中展开实时更新，刷新�
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect.poll(() => streamFinishedAt, { timeout: 60_000 }).not.toBeNull();
   // ── 活性反证：条目在 run 流**还开着**的时候就已经进 DOM，不是结束后一次性灌进来的 ──
-  const samples = await page.evaluate(() => (window as unknown as { __traceSamples: { at: number; count: number }[] }).__traceSamples);
-  const liveSamples = samples.filter((entry) => entry.at < streamFinishedAt!);
-  expect(
-    liveSamples.some((entry) => entry.count >= 1),
-    `活动必须在运行流结束前进入 DOM——流结束于 ${streamFinishedAt}，`
-    + `之前共 ${liveSamples.length} 次采样，最大条目数 ${Math.max(0, ...liveSamples.map((entry) => entry.count))}`,
-  ).toBe(true);
   const runId = await panel.getAttribute("data-run-id");
+  const { samples, baseline } = await page.evaluate(() => {
+    const scope = window as unknown as { __traceSamples: TraceSample[]; __traceBaseline: TraceBaseline };
+    return { samples: scope.__traceSamples, baseline: scope.__traceBaseline };
+  });
+  const verdict = judgeLiveness(samples, baseline, runId, sendAt, toBrowserClock(streamFinishedAt!, clockSkew));
+  expect(verdict.live, verdict.message).toBe(true);
   const count = await panel.getByTestId("run-trace-entry").count();
   await page.reload({ waitUntil: "domcontentloaded" });
   const restored = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
