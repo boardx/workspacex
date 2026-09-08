@@ -46,6 +46,7 @@ import type { ExecuteAgentRunDeps } from "./execute-run";
 import { record } from "./record-run-step";
 import { publishStatusChange } from "./execute-run-events";
 import { checkPendingInterjection } from "./interjection-handling";
+import { PLAN_CONFIRMATION_TOOL_NAME } from "@repo/contracts/plan-control";
 
 export interface InterruptedToolCall {
   readonly toolCallId?: string;
@@ -85,12 +86,41 @@ export async function handleInterruptedToolCall(
   const seqCursor = { value: ledger.seq };
   await checkPendingInterjection(deps, orgId, runId, seqCursor);
 
+  /*
+   * issue #3132（B7）—— **计划确认中断不走风险分级这条路**。
+   *
+   * ⚠ 这里有一个会静默吞掉整道门的陷阱，写清楚以免被"简化"掉：`write_todos` 在
+   * `tool-risk-tier.ts` 里是 **L0**（记账工具，不改变任何用户可见的外部状态——那个
+   * 分级是对的，不该为了本 feature 去改它）。而下面的判定是「非 L2 ⇒ 已授权 ⇒
+   * 自动放行并重新入队」。于是引擎明明停下来等用户确认计划了，网关会**立刻替用户
+   * 点了确认**，run 一路跑完，前端连一帧 `planning` 都看不到——#3132 的同一种形态，
+   * 只是搬到了这一层。
+   *
+   * 两个判定问的**不是同一个问题**，所以不能共用一条路径：
+   * - 风险分级问「这次调用会不会造成不可逆/高风险副作用，需不需要授权」；
+   * - 计划确认问「用户认不认这份计划」——它与副作用无关，`write_todos` 本来就没有
+   *   副作用。
+   *
+   * 把 `write_todos` 挪进 L2 是错的修法：那会让**执行期**每一次标 `in_progress` /
+   * `completed` 的调用都要人批准，同时把 phase 判成 `approving`（`call_skill` 的
+   * 语义），确认门（只认 `planning`）又一次永不渲染。
+   *
+   * 正确的边界：引擎侧的 `_write_todos_requires_plan_confirmation` 谓词**已经**做完了
+   * 全部判定（是不是首次实质性写入、步骤数够不够阈值）。中断能到达这里，就说明那个
+   * 谓词说了「要停」。网关不该再问第二遍，更不该反悔——一律停进
+   * `awaiting_tool_permission`。
+   *
+   * 「以后都允许」的常驻授权同样不适用：那是对**工具权限**的授权，不是对未来每一份
+   * 计划的预先批准。所以这条分支直接跳过 `hasGrant`。
+   */
+  const isPlanConfirmation = interrupted.toolName === PLAN_CONFIRMATION_TOOL_NAME;
+
   const risk = classifyToolCallRisk(
     { toolName: interrupted.toolName, skillStableName: interrupted.skillStableName },
     skillRisks,
   );
-  const authorized = risk !== "L2"
-    || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, interrupted.toolName) ?? false);
+  const authorized = !isPlanConfirmation && (risk !== "L2"
+    || (await deps.toolPermissionGrants?.hasGrant(orgId, runId, interrupted.toolName) ?? false));
 
   if (authorized) {
     // R4 A2：已授权同类操作不再触发确认，直接执行——但完整信息仍然进账本（I-3），
@@ -109,7 +139,9 @@ export async function handleInterruptedToolCall(
   await record(deps, orgId, {
     runId, seq: seqCursor.value, kind: "model_called", startedAt: ledger.modelStartedAt,
     inputDigest: ledger.systemDigest, outputDigest: null, failureCode: null,
-    planningNote: `等待人工批准：${interrupted.toolName}`,
+    planningNote: isPlanConfirmation
+      ? "等待用户确认计划后再执行"
+      : `等待人工批准：${interrupted.toolName}`,
     // Phase 14 F15 -- 模型看到了什么（`system`）。此刻尚未产出完整回复，`outputFullContent`
     // 留空，与 `outputDigest: null` 同一个事实（无输出可摘）。
     inputFullContent: ledger.system,

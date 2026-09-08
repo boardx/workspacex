@@ -10,7 +10,7 @@ import { deriveRunControls } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import {
-  addPlanConstraint, confirmPlan, deletePlanStep, pausePlanRun,
+  addPlanConstraint, confirmPlan, confirmProposedPlan, deletePlanStep, pausePlanRun,
   planControlErrorCode, removePlanConstraint, reorderPlanStep, resumePlanRun, retryPlanStep,
 } from "@/lib/plan-control-api";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
@@ -197,7 +197,30 @@ function PlanControlSession(
   const handleRemoveConstraint = (constraintId: string): void => {
     void runAction(() => removePlanConstraint(tid, { basedOnRevision: revision, constraintId }, projectId));
   };
+  /**
+   * issue #3132（B7）—— 「确认并执行」有**两条**语义不同的路径，按 `stepsAreProposal`
+   * 分流。走错分支会多起一条 run（人类 2026-09-08 裁决 O-2 明确切开）：
+   *
+   * - `stepsAreProposal === true`（run 正停在 `write_todos` 计划确认中断上，账本为空）：
+   *   **恢复停住的那条 run** —— `decidePermissionRequest(once)`。
+   * - 否则（账本里已有计划、run 已结束或从未起过）：沿用既有 `confirmPlan`
+   *   （`createConfirmedRun`，新起一条 run 去执行账本里的计划），语义逐字不变。
+   *
+   * ⚠ `pendingPermissionRequestId` / `activeRunId` 任一为空时**不回退到 `confirmPlan`**：
+   * 那会在「引擎正停着等确认」的时刻悄悄另起一条 run，是比按钮无反应更坏的形态。
+   * 这里如实报一个失败码，让用户看见「这次确认没送出去」。
+   */
   const handleConfirm = (): void => {
+    if (ledger.stepsAreProposal) {
+      const requestId = ledger.pendingPermissionRequestId;
+      const runId = ledger.activeRunId;
+      if (requestId === null || runId === null) {
+        setActionErrorCode("PLAN_ACTION_FAILED");
+        return;
+      }
+      void runAction(() => confirmProposedPlan(runId, requestId));
+      return;
+    }
     void runAction(() => confirmPlan(tid, { basedOnRevision: revision }, projectId));
   };
   const handlePause = (): void => {
@@ -438,6 +461,17 @@ function PlanControlSession(
        */}
       {ledger.phase === "planning" && ledger.gate.required && (
         <fieldset disabled={!canWrite || busy} className="min-w-0">
+        {/*
+          * issue #3132（B7）—— 「提案」标记：这份步骤列表**尚未生效**（引擎账本 revision
+          * 仍是 0，`write_todos` 还没执行）。与已生效账本视觉可区分是设计 ① 的硬要求——
+          * 不标的话，用户看到的提案和一份真实计划长得一模一样，无从判断确认按钮到底
+          * 在确认什么。判据来自读模型的 `stepsAreProposal`，不在这里拿 phase 自己推。
+          */}
+        {ledger.stepsAreProposal && (
+          <p data-testid="chat-task-workbench-plan-proposal-badge" className="mb-2 text-xs text-muted-foreground">
+            以下是待确认的<strong>提案计划</strong>，确认后才会开始执行。
+          </p>
+        )}
         <PlanConfirmGate
           gate={ledger.gate}
           onConfirmRun={handleConfirm}

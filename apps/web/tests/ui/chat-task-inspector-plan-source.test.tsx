@@ -25,6 +25,8 @@ function ledger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
     revision: 5,
     engineEpoch: 1,
     origin: "engine",
+    stepsAreProposal: false,
+    pendingPermissionRequestId: null,
     steps: [
       { planStepId: "s1", content: "理解需求", status: "completed", constraints: [] },
       { planStepId: "s2", content: "对比竞品", status: "in_progress", constraints: [] },

@@ -117,3 +117,26 @@ export async function executeResearchRuntime(input: GuidedResearchRuntimeCommand
   const op = research.operations.executeGuidedResearchRuntime;
   return research.GuidedResearchRuntime.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method, body: input }));
 }
+
+export type ResearchRuntimeProgress = z.infer<typeof research.GuidedResearchRuntimeProgress>;
+export async function getResearchRuntimeProgress(sessionId: string, stream?: GuidedResearchRuntime["reportStream"]): Promise<ResearchRuntimeProgress> {
+  const op = research.operations.getGuidedResearchRuntimeProgress;
+  const digest = stream ? Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(stream.text)))).map((byte) => byte.toString(16).padStart(2, "0")).join("") : "";
+  const query = new URLSearchParams(stream ? { requestId: stream.requestId, offset: String(stream.text.length), digest } : {});
+  return op.out.parse(await apiRequest(`${op.path.replace(":sessionId", encodeURIComponent(sessionId))}?${query}`));
+}
+export function mergeResearchProgress(current: GuidedResearchRuntime, update: ResearchRuntimeProgress): GuidedResearchRuntime {
+  if (current.sessionId !== update.sessionId || update.version < current.version || (update.version === current.version && !current.busy && update.busy)) return current;
+  const { stream, ...metadata } = update;
+  let reportStream = current.reportStream;
+  if (stream) {
+    const previous = reportStream?.requestId === stream.requestId ? reportStream : null;
+    if (!previous || stream.sequence >= previous.sequence) {
+      if (stream.offset === 0 || previous?.text.length === stream.offset) {
+        reportStream = { requestId: stream.requestId, sequence: stream.sequence, status: stream.status,
+          text: (stream.offset === 0 ? "" : previous!.text) + stream.delta };
+      }
+    }
+  } else reportStream = null;
+  return { ...current, ...metadata, ...(update.busy && update.currentNode === "report" ? { report: null, reportDraft: null, reportCheckpoint: null } : {}), reportStream };
+}

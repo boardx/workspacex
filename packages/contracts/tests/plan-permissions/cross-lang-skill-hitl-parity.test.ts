@@ -15,10 +15,14 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { KERNEL_HITL_SKILLS_CONFIGURABLE_KEY } from "../../src/plan-permissions";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "../../src/deep-agent-hitl";
+import {
+  PLAN_CONFIRMATION_TOOL_NAME, PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY,
+} from "../../src/plan-control";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HARNESS_PY = resolve(HERE, "../../../../apps/deep-agent-service/src/deep_agent_service/harness.py");
 const PROVIDER_TS = resolve(HERE, "../../../../apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts");
+const LOOPBACK_TS = resolve(HERE, "../../../../apps/api/scripts/loopback-deep-agent-provider.ts");
 
 function readSrc(path: string): string {
   const src = readFileSync(path, "utf8");
@@ -72,5 +76,52 @@ describe("#2767 TS 侧投影用的是契约常量，不是手写字符串", () =
 describe("#2767 契约本身", () => {
   it("KERNEL_HITL_SKILLS_CONFIGURABLE_KEY 的值逐字是 hitl_skill_names", () => {
     expect(KERNEL_HITL_SKILLS_CONFIGURABLE_KEY).toBe("hitl_skill_names");
+  });
+});
+
+/**
+ * issue #3132（B7）—— 计划确认门的同一条跨语言门控。
+ *
+ * 与上面 `hitl_skill_names` 完全同一手法：Python 侧没有 zod，只能写常量，本组测试读
+ * `harness.py` 的源文本机械比对。改一侧不改另一侧就红——「同一事实不得声明在两处」
+ * 在跨语言边界上唯一可执行的形态。
+ */
+describe("#3132 跨语言门控：计划确认门的键名与工具名两侧逐字一致", () => {
+  const harness = readSrc(HARNESS_PY);
+
+  it("configurable 键名：_PLAN_CONFIRM_CONFIG_KEY = PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY", () => {
+    expect(pyStringConst(harness, "_PLAN_CONFIRM_CONFIG_KEY")).toBe(PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY);
+  });
+
+  it("中断挂载的工具名：_PLAN_CONFIRMATION_TOOL_NAME = PLAN_CONFIRMATION_TOOL_NAME", () => {
+    expect(pyStringConst(harness, "_PLAN_CONFIRMATION_TOOL_NAME")).toBe(PLAN_CONFIRMATION_TOOL_NAME);
+  });
+
+  it("谓词存在、被 when 引用，且 write_todos 以 InterruptOnConfig 注册（不是裸 True）", () => {
+    expect(harness).toMatch(/def _write_todos_requires_plan_confirmation\(/);
+    expect(harness).toMatch(/when=_write_todos_requires_plan_confirmation/);
+    expect(harness).toMatch(/result\[_PLAN_CONFIRMATION_TOOL_NAME\]\s*=\s*InterruptOnConfig\(/);
+  });
+
+  it("write_todos 绝不能混进 DEFAULT_HITL_TOOL_NAMES（那份清单是无条件 True）", () => {
+    const block = /DEFAULT_HITL_TOOL_NAMES:[^=]*=\s*\(([^)]*)\)/.exec(harness);
+    expect(block, "harness.py 里找不到 DEFAULT_HITL_TOOL_NAMES 的定义").not.toBeNull();
+    expect(block?.[1] ?? "").not.toContain(PLAN_CONFIRMATION_TOOL_NAME);
+  });
+
+  it("TS 侧投影用的是契约常量，不是手写字符串", () => {
+    const provider = readSrc(PROVIDER_TS);
+    expect(provider).toMatch(
+      /import\s*\{\s*PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY\s*\}\s*from\s*"@repo\/contracts\/plan-control"/,
+    );
+    expect(provider).toContain("[PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY]");
+  });
+
+  it("假上游从契约取工具名，没有 `?? \"write_todos\"` 兜底（替身的方言 ≠ 上游的方言）", () => {
+    const loopback = readSrc(LOOPBACK_TS);
+    expect(loopback).toMatch(
+      /import\s*\{\s*PLAN_CONFIRMATION_TOOL_NAME\s*\}\s*from\s*"@repo\/contracts\/plan-control"/,
+    );
+    expect(loopback).not.toMatch(/\?\?\s*"write_todos"/);
   });
 });

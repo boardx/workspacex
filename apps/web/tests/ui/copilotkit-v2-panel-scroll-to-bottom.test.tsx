@@ -150,6 +150,41 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
     expect(button.parentElement).toBe(container.parentElement);
   });
 
+  /**
+   * issue #3145（真栈 e2e S8 三趟同 SHA 全红的根因）—— 用户意图必须压过程序化标记。
+   *
+   * 上一条测的是"程序化滚动途中的中间位置不算离开底部"，它成立的**前提**是那个标记
+   * 迟早会被"抵达底部的 scroll"解除。流式期间这个前提不成立：每个 delta 都让自动跟随
+   * 重新置位标记（还带 1000ms 续期），而用户滚轮引发的 `scroll` 事件晚一拍才到——正好
+   * 落在被重新置位的窗口里，被当成"程序化滚动途中"直接吞掉。解除只有一次机会、还得赢
+   * 一场竞态，输了就再也翻不上去：S8 里 `page.mouse.wheel(0, -100000)` 之后 30 秒内
+   * `scrollTop` 从未回到 0（CI 实测停在 1146 / 7206）。
+   *
+   * 所以本条**不**给"抵达底部"那一步：标记始终置位，只有用户滚轮介入。
+   */
+  it("程序化标记仍置位时，用户滚轮引发的滚动不得被吞掉（#3145：流式期间往上翻会被拽回底部）", async () => {
+    mount();
+    const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
+    fireEvent.scroll(container);
+    await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
+
+    // ① 用户滚轮介入（`onWheel` 会清掉程序化标记）。
+    fireEvent.wheel(container);
+    // ② 浏览器的 `scroll` 事件晚一拍才到——就在这一拍里，一次自动跟随把标记**重新**
+    //    置位。流式期间这是每个 delta 都在做的事；这里用同一条置位入口（点按钮）
+    //    确定性地制造那一拍，置位来源是谁不改变竞态的形状。
+    fireEvent.click(screen.getByTestId("copilotkit-v2-scroll-to-bottom"));
+    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull());
+    // ③ 用户那次滚轮引发的 `scroll` 事件现在才到，位置在顶部。
+    (container as HTMLElement & { scrollTop: number }).scrollTop = 0;
+    fireEvent.scroll(container);
+
+    // 修复前：这次 scroll 被程序化分支吞掉，isAtBottom 恒 true，按钮不出现，
+    // 自动跟随继续把人按在底部。
+    expect(await screen.findByTestId("copilotkit-v2-scroll-to-bottom")).toBeInTheDocument();
+  });
+
   it("程序化滚动（点按钮/自动跟随）途中的 scroll 事件不把贴底态翻回去；用户滚轮介入后才算离开底部", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));

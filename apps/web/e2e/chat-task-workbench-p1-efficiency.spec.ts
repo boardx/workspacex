@@ -195,14 +195,53 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
 // 裁决 (c) 明确移除了「检查点恢复」这个能力，`plan-failure-recovery.tsx` 与
 // `tests/ui/plan-control-gate-and-recovery.test.tsx:95-97` 正面断言它**不存在**。
 // 相对裁决过时的是这条 spec，不是产品；本轮只删这一条，其余业务断言一个字没动。
-test("TW-P1-5：暂停 / 恢复 / 重试单步三个控制动作真实可点", async ({ page }) => {
+test("TW-P1-5a：暂停 / 恢复——run 真的在跑的时候控件真实可点", async ({ page }) => {
   await openFreshThread(page);
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  /**
+   * ⚠ issue #3081 —— 触发词从 `deepAgentMultiStepTrigger` 换成 `deepAgentSlowTrigger`，
+   * 这**不是**换一句好通过的输入，是这条断言此前**根本没有机会被求值**。
+   *
+   * `run-pause` 的唯一门是 `deriveRunControls({runStatus})`，数据来自
+   * `usePlanLedgerPolling` 的 **3 秒**轮询（`use-plan-ledger-polling.ts:35`）。
+   * 多步剧本靠 `record.statusPolls` 分阶段揭示，看起来"要跑好几轮"——但
+   * `KERNEL_DEEP_AGENT_STREAM_ENABLED=1`（本 lane 恒开，见
+   * `playwright.chat-read.config.ts` 的 web server env）时终态来自 `/stream` 的 EOF，
+   * 替身在 EOF 处把 `statusPolls` 直接推到 `MAX_SAFE_INTEGER`
+   * （`loopback-deep-agent-provider.ts:665`）——**那道 6 轮闸根本不参与**。
+   *
+   * 本地实测（直连替身进程，不起真栈）：多步触发词 `/stream` EOF 在 **974ms**，
+   * 紧接着的权威状态读就是 `success`；慢触发词 EOF 在 **12554ms**。
+   * 也就是说多步剧本给出的"run 在跑"窗口 < 1 秒，而账本轮询周期是 3 秒 ——
+   * `runStatus` 落进 `running` 的采样次数期望是 **0**。锚点不是没实现
+   * （`copilotkit-v2-plan-control.tsx` 的 `steps.length===0 && runLive` 分支在树上，
+   * 单测七处断言全绿），是这条路径上的**替身时序**这一层横切规则让它永不可达。
+   *
+   * `deepAgentSlowTrigger` 是 issue #3000 为**这个同一个问题**造的确定性慢：先把响应头
+   * 发出去（连接真的建立、run 真的是 `running`），再等 12 秒才发正文。它给出 ≥4 次
+   * 轮询采样。判据一个字没放松——仍然要求真实可点的暂停、点完真的翻成恢复。
+   */
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentSlowTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
   const pause = await expectAnchor(page, "chat-task-workbench-run-pause", "TW-P1-5", "运行中不能暂停", 60_000);
   await pause.click();
   await expectAnchor(page, "chat-task-workbench-run-resume", "TW-P1-5", "暂停后不能恢复", 20_000);
+});
 
-  await expectAnchor(page, "chat-task-workbench-failure-retry-step", "TW-P1-5", "不能重试单步", 20_000);
+test("TW-P1-5b：重试单步——失败态必须有可操作的恢复入口", async ({ page }) => {
+  /**
+   * ⚠ issue #3081 —— 拆成独立一条，因为原来那条把它挂在**同一个 run** 上是结构上
+   * 不可能绿的：`chat-task-workbench-failure-retry-step` 的门是
+   * `canWrite && ledger.phase === "failed"`（`copilotkit-v2-plan-control.tsx`），而
+   * 前两个锚点要求的是一个**活着**的 run（`runLive`）。暂停一个健康的 run 永远不会让
+   * 它变成 `failed`——`deriveRunControls` 把暂停映射成 `interrupted`，不是失败。
+   * 两组锚点要的是互斥的 run 状态，一条链上串不出来。
+   *
+   * 失败态走 `deepAgentFailureTrigger`（替身让 run 走到真实 `error` 终态，不是前端
+   * 伪造一个失败组件），fresh thread 起一轮。
+   */
+  await openFreshThread(page);
+  await sendAndSettle(page, CHAT_READ_E2E.deepAgentFailureTrigger);
+
+  await expectAnchor(page, "chat-task-workbench-failure-retry-step", "TW-P1-5", "失败后不能重试单步", 60_000);
 });

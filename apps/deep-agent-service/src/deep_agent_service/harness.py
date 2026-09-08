@@ -1149,6 +1149,79 @@ def _call_skill_requires_hitl(request: ToolCallRequest) -> bool:
     return isinstance(stable_name, str) and stable_name in allowed
 
 
+# issue #3132（B7）—— 计划确认门：`write_todos` 的第一次实质性计划写入前停下等用户确认。
+#
+# 键名单一事实源在契约 `packages/contracts/src/plan-control.ts` 的
+# `PLAN_CONFIRM_MIN_STEPS_CONFIGURABLE_KEY`；阈值本身来自契约 `evaluatePlanGate` 那张
+# 判定表（`todoCount >= 2` 才需要确认），不在这里另写一份。跨语言 parity 门控测试读本
+# 文件源文本机械比对这个字面量（同 `_HITL_SKILLS_CONFIG_KEY` 的既有手法）。
+_PLAN_CONFIRM_CONFIG_KEY = "plan_confirm_min_steps"
+
+# 契约 `PLAN_CONFIRMATION_TOOL_NAME` 的 Python 侧对应项（同一条跨语言 parity 门控比对）。
+_PLAN_CONFIRMATION_TOOL_NAME = "write_todos"
+
+
+def _write_todos_requires_plan_confirmation(request: ToolCallRequest) -> bool:
+    """`write_todos` 的 `InterruptOnConfig.when` 谓词 —— 本轮首次实质性计划写入时中断。
+
+    ⚠⚠ **fail 方向与上面的 `_call_skill_requires_hitl` 正好相反，这是有意的。**
+    照抄那边的方向会做错，所以这里逐字写清楚为什么：
+
+    - 那边（`call_skill`）配置缺失 ⇒ `True`（fail-closed）。多问一次批准是**安全**的：
+      最坏结果是用户多点一下，没有任何东西被误执行。
+    - 这里（`write_todos`）配置缺失 ⇒ `False`（fail-open）。多拦一次**不是**安全的：
+      它给一个本该直答的简单问答凭空加了一道确认门，**直接违反** B7 判据 (b)
+      「简单问题直答，不加门槛」。把一道产品门加在不该加的地方，与漏掉一次批准是
+      两种不同的错，不能用同一个方向去防。
+
+    因此本谓词的每一条不确定分支都返回 `False`：读不到 config、键缺席、键形状不对、
+    args 形状不对——一律放行。真正会拦的只有「所有条件都明确满足」这一条路径。
+
+    三个必须同时成立的条件：
+    1. `configurable[_PLAN_CONFIRM_CONFIG_KEY]` 是一个 >= 1 的整数（网关明确启用了这道门）；
+    2. 当前图状态里的 `todos` 为空——即这是**本轮首次**实质性计划写入。`write_todos`
+       在执行期会被反复调用把步骤标 `in_progress`/`completed`，无条件拦会把执行切成
+       一步一确认；这一条正是「同一条 run 里第二次及以后的 `write_todos` 不再中断」
+       的实现点（有专门的会红反证）。
+       ⚠ 已知边界：判据读的是图状态而不是「run id 变了没」，所以同一条线程里第二轮
+       用户提问触发的重规划，若上一轮的 todos 仍在状态里，不会再次触发确认门。这是
+       设计阶段明确接受的取舍（B7 设计 §C-3），不是漏实现——`TurnWindowMiddleware`
+       之外没有可靠的「本轮」信号，而按 todos 是否为空判定至少永远不会把执行期的
+       状态更新误判成新计划。
+    3. 这次调用要写入的 todos 条数 >= 阈值（契约 `evaluatePlanGate` 的同一条分界）。
+    """
+    try:
+        config = get_config()
+    except RuntimeError:
+        # 不在 runnable 上下文里（理论上不会发生在真实图执行期间）。方向见头注：放行。
+        return False
+    configurable = config.get("configurable") or {}
+    if _PLAN_CONFIRM_CONFIG_KEY not in configurable:
+        # 老网关/没投影这个键的调用方 ⇒ 行为与本 feature 之前逐字相同：不拦。
+        return False
+    threshold = configurable.get(_PLAN_CONFIRM_CONFIG_KEY)
+    # `bool` 是 `int` 的子类，必须显式排除，否则 `True` 会被当成阈值 1。
+    if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
+        _logger.warning(
+            "configurable.%s 不是 >= 1 的整数，按『这道门没启用』处理（不拦）：%r",
+            _PLAN_CONFIRM_CONFIG_KEY,
+            threshold,
+        )
+        return False
+
+    state = request.state
+    existing_todos = state.get("todos") if isinstance(state, dict) else getattr(state, "todos", None)
+    if existing_todos:
+        # 本轮已经有计划了 ⇒ 这次是执行期的状态更新，不是新计划。放行。
+        return False
+
+    args = request.tool_call.get("args") or {}
+    todos = args.get("todos") if isinstance(args, dict) else None
+    if not isinstance(todos, list):
+        return False
+    return len(todos) >= threshold
+
+
 def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     """DA-07（#1749，rubric D6 人在环）：敏感工具调用前暂停待人批。
 
@@ -1174,6 +1247,16 @@ def build_interrupt_on() -> dict[str, bool | InterruptOnConfig]:
     result["call_skill"] = InterruptOnConfig(
         allowed_decisions=["approve", "edit", "reject", "respond"],
         when=_call_skill_requires_hitl,
+    )
+    # issue #3132（B7）：计划确认门。`write_todos` **不在** `DEFAULT_HITL_TOOL_NAMES`
+    # 里——它不是「敏感工具」，绝大多数调用（执行期标 in_progress/completed）必须一路
+    # 放行，是否中断完全由 `_write_todos_requires_plan_confirmation` 谓词决定，且该谓词
+    # 在网关没有显式启用这道门时恒返回 False（fail-open，见其头注的方向说明）。
+    # `respond` 不在允许决策里：让人替 `write_todos` 直接编一个「工具结果」没有语义，
+    # 用户的三个真实选择是确认（approve）/ 改计划（edit）/ 取消（reject）。
+    result[_PLAN_CONFIRMATION_TOOL_NAME] = InterruptOnConfig(
+        allowed_decisions=["approve", "edit", "reject"],
+        when=_write_todos_requires_plan_confirmation,
     )
     return result
 

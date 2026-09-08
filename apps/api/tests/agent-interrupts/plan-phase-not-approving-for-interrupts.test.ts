@@ -35,7 +35,7 @@ describe("F216 XC-59 反证 —— 仅 agent-interrupts 中断待决时，PlanPh
       const phase = derivePlanPhase({
         runStatus: "running",
         ledgerEmpty: false,
-        hasFailedStep: false,
+        hasFailedStep: false, hasPendingPlanConfirmation: false,
         pendingToolCalls: [{ toolName, awaitingApproval: true }],
       });
       expect(phase).not.toBe("approving");
@@ -47,7 +47,7 @@ describe("F216 XC-59 反证 —— 仅 agent-interrupts 中断待决时，PlanPh
     const phase = derivePlanPhase({
       runStatus: "running",
       ledgerEmpty: false,
-      hasFailedStep: false,
+      hasFailedStep: false, hasPendingPlanConfirmation: false,
       pendingToolCalls: AGENT_INTERRUPTS_TOOL_NAME_LIST.map((toolName) => ({ toolName, awaitingApproval: true })),
     });
     expect(phase).not.toBe("approving");
@@ -57,7 +57,7 @@ describe("F216 XC-59 反证 —— 仅 agent-interrupts 中断待决时，PlanPh
     const phase = derivePlanPhase({
       runStatus: "running",
       ledgerEmpty: false,
-      hasFailedStep: false,
+      hasFailedStep: false, hasPendingPlanConfirmation: false,
       pendingToolCalls: [{ toolName: "call_skill", awaitingApproval: true }],
     });
     expect(phase).toBe("approving");
@@ -67,7 +67,7 @@ describe("F216 XC-59 反证 —— 仅 agent-interrupts 中断待决时，PlanPh
     const phase = derivePlanPhase({
       runStatus: "running",
       ledgerEmpty: false,
-      hasFailedStep: false,
+      hasFailedStep: false, hasPendingPlanConfirmation: false,
       pendingToolCalls: [
         { toolName: "call_skill", awaitingApproval: true },
         { toolName: AGENT_INTERRUPTS_TOOL_NAME_LIST[0]!, awaitingApproval: true },

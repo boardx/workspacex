@@ -37,6 +37,7 @@ test("mobile plan is absent without steps and compact/collapsible with steps; pa
   let ledger: PlanLedgerView = { revision: 1, engineEpoch: 1, origin: "engine", steps: [], orphanedConstraints: [],
     phase: "preparing", gate: { required: false, reason: "no-plan" }, progress: { completed: 0, total: 0, elapsedMs: 0 },
     pendingApplyAtNextRun: false, runStatus: "idle", activeRunId: null, errorCode: null, failedStepId: null,
+    stepsAreProposal: false, pendingPermissionRequestId: null,
     cancelRequestedAt: null, pausedAt: null, pauseRequestedAt: null };
   await page.route(/\/plan-control\/threads\/[^/]+\/ledger(?:\?|$)/, route => route.fulfill({ json: ledger }));
   await openFreshThread(page);

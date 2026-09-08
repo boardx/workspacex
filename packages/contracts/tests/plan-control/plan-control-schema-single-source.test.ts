@@ -222,7 +222,7 @@ describe("F972 · XC-59 反证 —— PlanPhase='approving' 只认既有 call_sk
     }
   });
 
-  const BASE = { runStatus: "running" as const, ledgerEmpty: false, hasFailedStep: false };
+  const BASE = { runStatus: "running" as const, ledgerEmpty: false, hasFailedStep: false, hasPendingPlanConfirmation: false };
 
   it.each([
     { name: "confirm_task_intent", other: [] as string[] },
@@ -264,7 +264,7 @@ describe("F972 · XC-59 反证 —— PlanPhase='approving' 只认既有 call_sk
   it("hasFailedStep 优先于待决审批（failed 态最高优先级）", () => {
     const phase = derivePlanPhase({
       ...BASE,
-      hasFailedStep: true,
+      hasFailedStep: true, hasPendingPlanConfirmation: false,
       pendingToolCalls: [{ toolName: "call_skill", awaitingApproval: true }],
     });
     expect(phase).toBe("failed");
@@ -272,7 +272,7 @@ describe("F972 · XC-59 反证 —— PlanPhase='approving' 只认既有 call_sk
 
   it("零计划态：ledgerEmpty 且无待决审批 ⇒ preparing", () => {
     const phase = derivePlanPhase({
-      runStatus: "idle", ledgerEmpty: true, hasFailedStep: false, pendingToolCalls: [],
+      runStatus: "idle", ledgerEmpty: true, hasFailedStep: false, hasPendingPlanConfirmation: false, pendingToolCalls: [],
     });
     expect(phase).toBe("preparing");
   });
@@ -293,8 +293,8 @@ describe("deriveRunControls（issue #3099：运行级控制与计划级视图解
   it("计划账本是否为空与运行级控制无关——这正是 #3099 的缺陷所在", () => {
     // 同一个正在跑的 run：没有计划时 phase 落在 preparing（与 idle 线程不可区分），
     // 有计划时才是 executing。运行级控制在两种情况下必须一致。
-    const emptyPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: true, hasFailedStep: false, pendingToolCalls: [] });
-    const fullPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: false, hasFailedStep: false, pendingToolCalls: [] });
+    const emptyPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: true, hasFailedStep: false, hasPendingPlanConfirmation: false, pendingToolCalls: [] });
+    const fullPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: false, hasFailedStep: false, hasPendingPlanConfirmation: false, pendingToolCalls: [] });
     expect(emptyPhase).toBe("preparing");
     expect(fullPhase).toBe("executing");
     expect(deriveRunControls({ runStatus: "running" })).toEqual({ canPause: true, canResume: false });
