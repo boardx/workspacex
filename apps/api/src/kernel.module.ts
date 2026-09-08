@@ -473,6 +473,8 @@ import type { DefaultAgentResolver } from "./application/chat/message-command-po
 import { AgentArtifactController } from "./interface/controllers/agent-artifact.controller";
 import { PgInterjectionStore } from "./infrastructure/agent-run/pg-interjection-store";
 import { RunInterjectionController } from "./interface/controllers/run-interjection.controller";
+// issue #3068 —— 「以后都允许」的查看/撤销（组织 admin 面），见该文件头注。
+import { ToolPermissionGrantController } from "./interface/controllers/tool-permission-grant.controller";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { SubtaskRunController } from "./interface/controllers/subtask-run.controller";
 import { SUBTASK_RUN_STORE, SUBTASK_RUN_EXECUTOR } from "./application/agent-run/subtask-run-queue";
@@ -966,6 +968,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     RunInterjectionController,
+    ToolPermissionGrantController,
     StandardArtifactDownloadController, StandardRunStatusController, StandardRunCancelController,
     ArtifactIndexingController, NativeFileDelegationController, ScheduleNotificationsController, StandardAudioController, StandardImageController, StandardScheduleController, SkillDraftController, SkillArtifactImportController, McpExecutionSnapshotController, NativeSessionController, NativeOutputStagingController, StandardWebToolsController, StandardBrowserToolsController, StandardMemoryProofController, StandardContextToolsController, StandardCanvasToolsController, StandardDocumentToolsController, StandardSubtaskToolsController, StandardSqlSourceController,
     AgentArtifactController,

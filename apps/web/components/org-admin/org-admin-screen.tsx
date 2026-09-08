@@ -20,6 +20,7 @@ import { buildActivationLink } from "@/lib/activation-link";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
+import { StandingToolGrantsSection } from "@/components/org-admin/standing-tool-grants";
 import { cn } from "@/lib/utils";
 import {
   listOrgMembers, listOrgInvites,
@@ -155,6 +156,10 @@ export function OrgProfileScreen() {
   return (
     <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
       {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
+      {/* issue #3068 —— 「以后都允许」此前无任何撤销路径，卡片文案却承诺"下次弹出改选
+          拒绝以撤销"（那个弹层再也不会出现）。这里是那句文案现在指向的真实入口；
+          放在组织资料屏而不是新开导航项的理由见该组件头注。 */}
+      <StandingToolGrantsSection />
     </OrgAdminShell>
   );
 }

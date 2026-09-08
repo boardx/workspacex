@@ -354,6 +354,12 @@ export default {
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
+      // issue #3068：「以后都允许」的组织级授权清单与撤销。`ToolPermissionGrantController`
+      // 同样是 `@Controller()`（空前缀），路径是裸的 `/tool-permission-grants` —— 与上面
+      // `/agent-runs` 同一个形状、同一个坑，`lint-rewrite-coverage` 已经把这两条标红。
+      // 裸路径与 `:path*` 各一条：前者匹配不到子路径为空的清单读。
+      { source: `${prefix}/tool-permission-grants`, destination: `${apiOrigin}/tool-permission-grants` },
+      { source: `${prefix}/tool-permission-grants/:path*`, destination: `${apiOrigin}/tool-permission-grants/:path*` },
       // #654 阶段1b：AG-UI SSE 桥接端点。`CopilotkitAguiController` 是 `@Controller()`
       // （空前缀），路径是裸的 `POST /copilotkit/agui` —— 与上面 `/agent-runs`、
       // `/threads` 同一个形状、同一个坑（第九次）。`lint-rewrite-coverage` 已经把这条

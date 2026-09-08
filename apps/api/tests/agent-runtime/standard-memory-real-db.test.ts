@@ -53,7 +53,7 @@ it('production kernel exposes the real memory proof provider and controller',asy
 });
 it('real HTTP proof binds requester and live source visibility, denies missing authority and changed lease',async()=>{
  let granted=false;
- const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>granted,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{}});
+ const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>granted,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{},listStanding:async()=>[],revokeStanding:async()=>false});
  const proof=new PgStandardMemoryProof(db,authority,{chat:new PgChatRepository(db),repo:new PgIdentityRepository(db),ids:{next:()=>randomUUID()}});
  class TestModule{};Module({controllers:[StandardMemoryProofController],providers:[{provide:STANDARD_MEMORY_PROOF,useValue:proof}]})(TestModule);
  const app=await NestFactory.create(TestModule,{logger:false});await app.listen(0,'127.0.0.1');
