@@ -77,8 +77,14 @@ on:
 # 前两次的验证结果已经没人要了，掐掉省队列也省时延。main / tag 上必须保持 false ——
 # 那里每一次 run 对应一个**已经合入**的 commit，掐掉等于让那个 commit 永远没被验证过，
 # 而且 `deploy` 挂在同一条 workflow 上，掐掉可能掐掉一次真实部署。
+# ⚠ 2026-09-08（#3038 同款）：同一 group 只保留一个 pending，与 cancel-in-progress 无关。
+# runner 排满时 main 的 run 一直 pending，下一次 merge 一来就被顶掉——实测 04:56Z–05:11Z
+# 连续 3 个 main run（43fd37a87 / 92b06a316 / 61f8fb130）cancelled，0 job，含 deploy 的
+# 那条链根本没跑。PR 仍按 ref 成组（要的就是顶掉旧轮）；push / tag / dispatch 每个 run
+# 自成一组。deploy job 自己有 `workspacex-devapp-deploy` 组（cancel-in-progress: false），
+# 多个 main run 到了部署那一步仍串行，不会并发写同一台机器。
 concurrency:
-  group: backend-gates-${{ github.ref }}
+  group: ${{ github.event_name == 'pull_request' && format('backend-gates-{0}', github.ref) || format('backend-gates-{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
