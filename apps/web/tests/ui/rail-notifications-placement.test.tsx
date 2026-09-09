@@ -147,7 +147,7 @@ describe("#3246 老位置确实空了", () => {
     expect(shell).not.toContain('from "@/components/chat/workbench/task-notifications"');
     // 铃铛顺带承担的 10s / 回焦刷新不许跟着搬走——否则对话列表从此不再自动刷新，
     // 而没有任何断言会红。
-    expect(shell).toContain("useIntervalFocusRefresh(reloadThreads)");
+    expect(shell).toContain("useIntervalFocusRefresh(session ? reloadThreads : undefined)");
     const railSrc = readFileSync(path.join(process.cwd(), "components/shell/rail-notifications.tsx"), "utf8");
     expect(railSrc).toContain('variant="rail"');
   });

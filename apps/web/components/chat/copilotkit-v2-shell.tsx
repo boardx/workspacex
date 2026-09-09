@@ -973,11 +973,16 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   /**
    * 对话列表保鲜（状态点 / 排序）：每 10 秒 + 窗口回焦各刷一次。
    *
-   * ⚠ 这条节奏此前**寄生在 `TaskNotifications` 的 `onRefresh` 上**。#3246 把铃铛搬去
+   * ⚠ 这条节奏此前**寄生在铃铛组件的 `onRefresh` 上**。#3246 把铃铛搬去
    * 图标导航栏之后，它必须留在聊天外壳——否则会随铃铛一起搬走，对话列表从此不再自动
    * 刷新，而没有任何测试会红（老位置的组件还在，只是不在这一屏）。
    */
-  useIntervalFocusRefresh(reloadThreads);
+  /*
+   * ⚠ `session ?` 这个门要跟着一起搬：老位置的挂载点本身带着 `session &&` 这个条件
+   * （铃铛只在有会话时才渲染），没有会话时这条轮询根本不起。去掉门就是在无会话的渲染路径上凭空多出一条 10 秒定时器 + 一次 focus 订阅，
+   * 而 `reloadThreads` 没有 bearer 只会打出注定 401 的请求。搬家要连门一起搬。
+   */
+  useIntervalFocusRefresh(session ? reloadThreads : undefined);
 
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
   /** 2026-09-08 人类反馈「CMD+K 不工作」——⌘K / Ctrl+K 此前只是侧栏里的视觉徽标。
