@@ -19,7 +19,7 @@ function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
   const [agentId, setAgentId] = useState("");
   const [target, setTarget] = useState<SkillSnapshot | null>(null);
   const [current, setCurrent] = useState<AgentSkillPins | null>(null);
-  const [previous, setPrevious] = useState<string[] | null>(null);
+  const [previous, setPrevious] = useState<{ agentId: string; versionIds: string[] } | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,8 +44,8 @@ function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
     return () => { epoch.current = attempt + 1; };
   }, [agentId, skillId, reload]);
   const apply = async (restore: boolean) => {
-    if (!current || !target || !confirmed || pending.current || restore && previous === null) return;
-    const replacements = restore ? previous! : [target.versionId];
+    if (!current || !target || !confirmed || pending.current || restore && (!previous || previous.agentId !== agentId)) return;
+    const replacements = restore ? previous!.versionIds : [target.versionId];
     const requested = replaceSkillPins(current.pins, skillId, replacements);
     if (JSON.stringify(requested) === JSON.stringify(current.pins.map(pin => pin.versionId))) return;
     const before = current.pins.filter(pin => pin.skillId === skillId).map(pin => pin.versionId);
@@ -54,7 +54,7 @@ function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
     try {
       const result = await setAgentSkillPins(agentId, current.publishedVersionId, requested);
       if (epoch.current !== attempt) return;
-      saved = true; setPrevious(before); setCurrent(null);
+      saved = true; setPrevious({ agentId, versionIds: before }); setCurrent(null);
       setNotice(`Agent 新版本 ${result.versionId} 已发布。正在重新读取真实固定清单。`);
       const refreshed = await getAgentSkillPins(agentId);
       if (epoch.current !== attempt) return;
@@ -63,7 +63,7 @@ function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
     } catch (reason) {
       if (epoch.current === attempt) {
         const rejected = reason instanceof ApiError && [400, 401, 403, 404, 409, 422].includes(reason.status);
-        if (!saved && !rejected) { setPrevious(before); setCurrent(null); setError(`写入结果未确认，可能已发布。已保留本页原绑定供恢复，请重新读取后再操作。${describe(reason)}`); return; }
+        if (!saved && !rejected) { setPrevious({ agentId, versionIds: before }); setCurrent(null); setError(`写入结果未确认，可能已发布。已保留本页原绑定供恢复，请重新读取后再操作。${describe(reason)}`); return; }
         setError(`${saved ? "写入已成功，但重新读取失败。请刷新确认；不要把读取失败当作写入失败。" : ""}${describe(reason)}`); if (reason instanceof ApiError && reason.status === 409) setCurrent(null); }
     } finally { if (epoch.current === attempt) { pending.current = false; setBusy(false); } }
   };
@@ -78,7 +78,7 @@ function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
     {current && <section className="space-y-3 rounded-container border border-border p-4" data-testid="current-agent-pins"><h2 className="text-16 font-semibold">完整固定清单</h2><p className="break-all text-12">Agent 版本 {current.publishedVersionId}</p>{current.pins.length ? <ol className="list-inside list-decimal space-y-2 text-13">{current.pins.map((pin, index) => <li key={`${index}-${pin.versionId}`} className="break-all">{pin.skillId} · {pin.versionId}{pin.skillId === skillId ? " · 本次目标 Skill" : " · 保留"}</li>)}</ol> : <p className="text-13">当前没有固定项，运行时自动加载全部已启用 Skill。固定后将仅加载完整固定清单中的 Skill。</p>}
       <label className="flex items-start gap-2 text-13"><input type="checkbox" checked={confirmed} disabled={busy || !target} onChange={event => setConfirmed(event.target.checked)} />我已核对目标版本与完整清单，确认发布新的 Agent 版本；已有运行不切换快照。</label>
       <Button variant="primary" disabled={busy || !target || !confirmed || targetAlreadyPinned} onClick={() => apply(false)}>固定所示 Skill 版本</Button>
-      {previous !== null && <div className="space-y-2 border-t border-border pt-3"><p className="break-all text-12">本页上次变更前，该 Skill 固定项：{previous.length ? previous.join("、") : "无"}。恢复只更新本 Skill，其余项按当前清单保留；恢复后完整清单为空时恢复组织默认 Skill 选择（自动加载全部启用 Skill）。刷新页面后此快捷恢复记录不保留。</p><Button variant="outline" disabled={busy || !confirmed} onClick={() => apply(true)}>恢复本页上次 Skill 固定项</Button></div>}
+      {previous !== null && previous.agentId === agentId && <div className="space-y-2 border-t border-border pt-3"><p className="break-all text-12">本页上次变更前，该 Skill 固定项：{previous.versionIds.length ? previous.versionIds.join("、") : "无"}。恢复只更新本 Skill，其余项按当前清单保留；恢复后完整清单为空时恢复组织默认 Skill 选择（自动加载全部启用 Skill）。刷新页面后此快捷恢复记录不保留。</p><Button variant="outline" disabled={busy || !confirmed} onClick={() => apply(true)}>恢复本页上次 Skill 固定项</Button></div>}
     </section>}
   </main>;
 }
