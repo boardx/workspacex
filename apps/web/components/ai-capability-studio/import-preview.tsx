@@ -43,6 +43,7 @@ export function CapabilityImportPreview() {
       <Link href="/preview/ai-capability-studio/workbench" className="inline-flex items-center gap-2 text-13 text-muted-foreground" data-testid="import-back"><ArrowLeft className="h-4 w-4" aria-hidden />工作台交互示例</Link>
       <header><p className="text-12 text-primary">能力库 / 导入方案</p><h1 className="mt-2 text-28 font-semibold">从已有方案开始</h1><p className="mt-2 text-13 text-muted-foreground">选择来源、检查文件，创建自己的工作草稿。</p></header>
       <div className="rounded-control border border-border bg-muted p-3 text-12" role="note">交互原型 · 来源预览和任务结果均为契约校验后的演示数据。不联网、不上传、不保存真实草稿。</div>
+      <Link href="/preview/ai-capability-studio/adapt" className="inline-block text-13 text-primary" data-testid="import-adaptation-example">没有 SKILL.md？查看普通仓库适配示例</Link>
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-4 rounded-container border border-border bg-card p-5">
           <h2 className="text-16 font-semibold">1. 选择来源</h2>

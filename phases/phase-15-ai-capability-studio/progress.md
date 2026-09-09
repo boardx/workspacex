@@ -35,3 +35,7 @@ MCP逐工具改用既有ToolAuthScope五值，复用checkToolScopeCap/checkToolS
 ## 2026-09-09 23:32 verification
 
 Latest combined UI 41/41, contracts 33/33; isolated MCP API discovery 23/23, resource cleanup complete. Types and web lint pass. See session-handoff.md for exact latest scope, review corrections and unresolved historical merge-gate violation on #3241. New governance controls remain preview-only; no production completion or human signoff claimed.
+
+## 2026-09-10 00:17 continued development
+
+Governance review corrections are pushed at154a541d6; targeted31 UI tests pass after red counterexamples. Ordinary repository assessment contract4 tests and adaptation UI2 tests now exist. New personal GitHub connection lifecycle draft4 tests passes, with no real OAuth or permission claim. Current UI/type/lint and contracts type checks pass. Coverage findings remain open until exact-SHA independent review and complete UI/UC/API integration. RegistrationPR stillOPEN; latest remote8cb138f0. DesignPR current154a541d6 has queued/running CI and no reported failure in last snapshot.

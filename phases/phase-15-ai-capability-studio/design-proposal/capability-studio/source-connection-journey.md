@@ -32,3 +32,13 @@
 3. 撤销连接不破坏已保存的来源血缘与已发布版本；后续检查上游显示“需恢复来源连接”。
 4. 上传ZIP不依赖GitHub授权，仍执行上传归属/资源限制；HTTPS单文件不得把GitHub令牌转发到任意域名或重定向目的地。
 5. 对跨组织连接、CSRF、回调重放、撤销后重试、仓库范围缩小和敏感日志分别做HTTP/数据库/出站计数反例。
+
+## 2026-09-10 可执行草案增量
+
+`packages/contracts/src/skill-source-connections.ts`已定义个人只读来源连接与10项操作，未加入生产index。第一版采用“当前组织内、仅本人使用”的连接提案；不因组织admin角色默认继承他人的GitHub安装范围。前文共享连接的授权交集是未来若支持共享时的额外设计要求，本草案scope只允许personal。需在同一次签核中确认这项默认；不自动改变现有业务权限。
+
+授权事务经过pending→select-repositories→completed；GitHub回调只能进入选仓或失败，不能替用户完成选择。没有安装/无仓库权限时保留明确失败出口，不能用installation token替代用户已失效授权。取消为明确终态，重连与撤销带版本。令牌、verifier和安装凭据不进入客户端输入/返回。
+
+授权URL校验GitHub精确origin/path、state存在和S256 challenge；服务端仍必须验证它是本事务生成的URL、注册的redirect_uri、一次性state/PKCE、当前会话/用户/组织及真实仓库范围。结构测试不证明CSRF或权限已经实现。参考GitHub官方用户授权流程：https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app 。
+
+读连接、读事务、确认/取消和撤销的请求/响应对有标识校验；正式服务还必须将用户选仓与持久化授权清单精确比对，仓库范围变化不能静默扩大。新错误集合须随接口接入统一HTTP reasonCode映射，并对回调code/state查询串做日志脱敏。当前4项测试只证明结构拒绝和关联边界。
