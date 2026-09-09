@@ -12,6 +12,7 @@
  * Error codes come from a CLOSED mapping off the status code, never from the exception
  * message -- using messages as codes turns internal strings into a public contract.
  */
+import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
 import {
   type ArgumentsHost,
   Catch,
@@ -113,10 +114,19 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * no matter what an exception carries. Adding a third enum here should be a deliberate act;
  * adding a free string must never be one.
  */
-function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
+function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
+  const skillFileEdit = SkillFileEditError.safeParse(raw);
+  if (skillFileEdit.success) {
+    // Project only the reviewed conflict fields. SQL/debug/other exception data never leaks.
+    const conflict = SkillFileEditConflict.safeParse({ reasonCode: raw,
+      currentVersionId: (body as { currentVersionId?: unknown }).currentVersionId });
+    if (exception.getStatus() === HttpStatus.CONFLICT && conflict.success) return conflict.data;
+    return { reasonCode: skillFileEdit.data };
+  }
+
   const subtaskEnqueue = subtaskRun.EnqueueSubtaskRunFailure.safeParse(raw);
   if (subtaskEnqueue.success) return { reasonCode: subtaskEnqueue.data };
   const subtaskCancellation = subtaskRun.CancelSubtaskRunFailure.safeParse(raw);
