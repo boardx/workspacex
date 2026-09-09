@@ -7,6 +7,8 @@ import { SkillAgentPinsPanel } from "@/components/admin/skill-agent-pins-panel";
 import { replaceSkillPins } from "@/lib/live-agent-skill-pins";
 import { ApiError } from "@/lib/api-client";
 vi.mock("@/components/admin/skill-multi-file-editor", () => ({ SkillMultiFileEditor: () => <div>Real editor slot</div> }));
+const identity = vi.hoisted(() => ({ status: "authenticated", userId: "user-1", currentOrgId: "org-1", sessionToken: "token-1" }));
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ status: identity.status, session: identity.status === "anonymous" ? null : { userId: identity.userId, currentOrgId: identity.currentOrgId, sessionToken: identity.sessionToken } }) }));
 const m = vi.hoisted(() => ({ list: vi.fn(), directory: vi.fn(), snapshot: vi.fn(), get: vi.fn(), set: vi.fn() }));
 vi.mock("@/lib/agent-definition", () => ({ listAgents: m.list }));
 vi.mock("@/lib/asset-directory", () => ({ getAssetDirectory: m.directory }));
@@ -18,7 +20,7 @@ const select = () => fireEvent.change(screen.getByLabelText("选择 Agent"), { t
 const agree = () => fireEvent.click(screen.getByRole("checkbox", { name: /我已核对/ }));
 const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 const ready = async () => { render(<SkillAgentPinsPanel skillId="skill-1" />); await screen.findByText(/Agent One/); select(); await screen.findByTestId("current-agent-pins"); };
-beforeEach(() => { vi.clearAllMocks(); m.list.mockResolvedValue([{ agentId: "agent-1", name: "Agent One" }]); m.directory.mockResolvedValue({ currentVersionId: "skill-new" }); m.snapshot.mockResolvedValue({ skillId: "skill-1", versionId: "skill-new", semanticLabel: "v2" }); m.get.mockResolvedValue(before); });
+beforeEach(() => { Object.assign(identity, { status: "authenticated", userId: "user-1", currentOrgId: "org-1", sessionToken: "token-1" }); vi.clearAllMocks(); m.list.mockResolvedValue([{ agentId: "agent-1", name: "Agent One" }]); m.directory.mockResolvedValue({ currentVersionId: "skill-new" }); m.snapshot.mockResolvedValue({ skillId: "skill-1", versionId: "skill-new", semanticLabel: "v2" }); m.get.mockResolvedValue(before); });
 describe("real Agent Skill pin controls", () => {
   it("connects the real Skill editor to an existing binding route", () => {
     render(<SkillContentEditorSection id="editor" row={{ id:"skill-1", orgId:"org-1", kind:"skill", name:"Skill One", scope:"org-wide", enabled:true, endpoint:null, disabledReason:null, duty:null, abbr:null }} />);
@@ -61,6 +63,32 @@ describe("real Agent Skill pin controls", () => {
     agree(); click("恢复本页上次 Skill 固定项");
     await waitFor(() => expect(m.set).toHaveBeenLastCalledWith("agent-1", "agent-v3", ["keep-1", "skill-old", "keep-2", "must-preserve"]));
   });
+  it("isolates an in-flight write when the authenticated organization changes", async () => {
+    let finish!: (value: unknown) => void; m.set.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const view = render(<SkillAgentPinsPanel skillId="skill-1" />); await screen.findByText(/Agent One/); select(); await screen.findByTestId("current-agent-pins"); agree(); click("固定所示 Skill 版本");
+    identity.currentOrgId = "org-2"; identity.userId = "user-2"; identity.sessionToken = "token-2";
+    view.rerender(<SkillAgentPinsPanel skillId="skill-1" />);
+    expect(screen.queryByTestId("current-agent-pins")).not.toBeInTheDocument();
+    m.get.mockResolvedValue({ ...before, publishedVersionId: "new-identity-head", pins: [] });
+    await screen.findByText(/Agent One/); select(); await screen.findByTestId("current-agent-pins");
+    await act(async () => { finish({ agentId: "agent-1", versionId: "old-identity-late-write", skillVersionIds: ["skill-new"] }); });
+    expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("new-identity-head");
+    expect(screen.queryByText(/old-identity-late-write/)).not.toBeInTheDocument(); expect(screen.queryByRole("button", { name: "恢复本页上次 Skill 固定项" })).not.toBeInTheDocument();
+  });
+  it("hides all prior pins immediately on logout and rejects delayed reads", async () => {
+    let finish!: (value: unknown) => void; m.get.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const view = render(<SkillAgentPinsPanel skillId="skill-1" />); await screen.findByText(/Agent One/); select();
+    identity.status = "anonymous"; view.rerender(<SkillAgentPinsPanel skillId="skill-1" />);
+    expect(screen.queryByLabelText("选择 Agent")).not.toBeInTheDocument();
+    await act(async () => { finish(before); });
+    expect(screen.queryByTestId("current-agent-pins")).not.toBeInTheDocument(); expect(screen.getByRole("status")).toHaveTextContent("请登录");
+  });
+  it("retains a recovery intent and requires re-read when a successful write response cannot be confirmed", async () => {
+    await ready(); m.set.mockRejectedValue(new Error("invalid response after 201")); agree(); click("固定所示 Skill 版本");
+    expect(await screen.findByRole("alert")).toHaveTextContent("写入结果未确认"); expect(screen.queryByTestId("current-agent-pins")).not.toBeInTheDocument();
+    m.get.mockResolvedValue(after); click("重新读取 Agent 绑定"); await screen.findByTestId("current-agent-pins");
+    expect(screen.getByText(/本页上次变更前/)).toHaveTextContent("skill-old"); expect(screen.getByRole("checkbox", { name: /我已核对/ })).not.toBeChecked();
+  });
   it("does not mistake a successful write followed by failed read for an unapplied change", async () => {
     await ready(); m.set.mockResolvedValue({ agentId: "agent-1", versionId: "agent-v2", skillVersionIds: ["keep-1", "skill-new", "keep-2"] }); m.get.mockRejectedValue(new Error("read outage"));
     agree(); click("固定所示 Skill 版本"); expect(await screen.findByRole("alert")).toHaveTextContent("写入已成功，但重新读取失败"); expect(screen.queryByTestId("current-agent-pins")).not.toBeInTheDocument();
@@ -70,6 +98,7 @@ describe("real Agent Skill pin controls", () => {
     let finish!: (value: unknown) => void; m.set.mockReturnValue(new Promise(resolve => { finish = resolve; }));
     const view = render(<SkillAgentPinsPanel skillId="skill-1" />); await screen.findByText(/Agent One/); select(); await screen.findByTestId("current-agent-pins"); agree(); click("固定所示 Skill 版本");
     m.get.mockResolvedValue({ ...before, publishedVersionId: "other-skill-head" }); view.rerender(<SkillAgentPinsPanel skillId="skill-2" />);
+    await screen.findByText(/Agent One/); select();
     await waitFor(() => expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("other-skill-head"));
     await act(async () => { finish({ agentId: "agent-1", versionId: "late-head", skillVersionIds: [] }); });
     expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("other-skill-head"); expect(screen.queryByText(/late-head/)).not.toBeInTheDocument();
