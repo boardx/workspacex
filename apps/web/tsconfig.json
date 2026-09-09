@@ -43,7 +43,8 @@
     ".next-fullstack-e2e/types/**/*.ts",
     ".next-self-service-profile-e2e/types/**/*.ts",
     ".next-lc/types/**/*.ts",
-    ".next-real-model-e2e/types/**/*.ts"
+    ".next-real-model-e2e/types/**/*.ts",
+    ".next-audit/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

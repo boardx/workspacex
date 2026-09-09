@@ -50,9 +50,26 @@
 ## 怎么跑
 
 ```bash
-pnpm --filter web dev            # 另开一个终端
-BASE=http://localhost:3187 OUT=/tmp/audit node apps/web/scripts/prototype-audit.mjs
+pnpm run verify:prototype-audit          # 服务由 playwright 的 webServer 自己起
+AUDIT_THRESHOLD=95 pnpm run verify:prototype-audit   # 临时收紧，用来验证它真的会红
 ```
 
-截图与 `audit.json` 落在 `OUT`。模型软判：把 `OUT` 里的 PNG 交给视觉模型，按上表主观项
-打 0–100 并列扣分项，结论连同机器分一起写进交付说明。
+截图与逐项 JSON 落在 `apps/web/test-results/prototype-audit/`（CI 上作为 artifact 上传）。
+
+⚠ **不做成「先手动起服务的独立脚本」**：CI 上没有人去手动起服务。本仓 issue #3138 已经有
+三个 playwright 车道从来没在 CI 上跑过，再加一条跑不起来的等于假门。
+
+## 在 CI 上的位置
+
+`backend-gates.yml` 的 `prototype-audit` job，**并且进了 `backend-required` 的聚合**。
+
+⚠ 只把 job 加进 workflow 的 `needs` 是不够的：`ci-backend-required.mjs` 判的是
+`.harness/config/ci-check-policy.json` 的 `aggregates`，不是 `needs`。只改一处 = 这个 job
+会跑、会红，但**不拦合并**——一道「量了但不判」的门，比没有门更坏，因为它看起来是有的。
+两处不许漂移由 `.harness/scripts/ci-aggregate-consistency.test.ts` 机械钉住。
+
+## 模型软判怎么落
+
+把 `test-results/prototype-audit/` 里的 PNG 交给视觉模型，按上表主观项打 0–100 并列扣分项，
+结论连同机器分一起写进交付说明。⚠ 这一半目前**是流程约定、没有脚本门控**——按本仓
+「没有脚本的规范条目视为未落地」，它只算半落地；机器那一半是真的会红的。
