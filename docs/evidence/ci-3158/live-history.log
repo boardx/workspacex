@@ -1,0 +1,17 @@
+{
+  "policies": [
+    {
+      "pr": 3148,
+      "version": 1,
+      "required": [
+        "verify-control-plane",
+        "verify-affected",
+        "verify-full-compile"
+      ]
+    }
+  ],
+  "verdict": {
+    "kind": "ok",
+    "pr": 3148
+  }
+}

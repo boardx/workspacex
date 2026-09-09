@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-ci-policy
+
+ ✓ .harness/scripts/lib/ci-check-policy.test.ts (7 tests) 11ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  02:28:59
+   Duration  183ms (transform 25ms, setup 0ms, collect 50ms, tests 11ms, environment 0ms, prepare 24ms)
+
