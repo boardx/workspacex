@@ -403,6 +403,44 @@ export const AgentRunError = z.enum([
   "RUN_INTERRUPTED",
 ]);
 
+/**
+ * issue #3211 ① —— **为什么**失败。`AgentRunError` 说的是「哪一类终态」，粒度粗到
+ * `MODEL_CALL_FAILED` 一个码同时承载「模型返回空」「远端 run 报错」「远端超时」
+ * 「我们自己的执行器抛异常」四件互不相同、可行动性完全不同的事。人类 2026-09-09 在
+ * devapp 实测报告的那一条（8 分钟、6 次工具调用、零产出）就死在这里：界面只说
+ * 「模型这次没能返回可用结果」，而那句话是客户端由枚举码译出来的，服务端算出的真实
+ * `detail` 按 `execute-run.ts` 自己的注释「never reaches a response」，只进日志。
+ *
+ * ⚠ 这一层**只上枚举**，不上 provider 原话——原话可能含 prompt 片段或上游正文。
+ * 认不出的成因一律 `unknown`：说得含糊好过编一个具体但错误的原因（形态同 #3216 的
+ * `StandardWebFailureReason`）。
+ *
+ * ⚠ 这个枚举与 `agent_runs_failure_reason_check` 是同一件事，靠
+ * `tests/agent-run/run-failure-reason.test.ts` 读 `pg_constraint` 断言集合相等来钉住。
+ */
+export const AgentRunFailureReason = z.enum([
+  /** 调用返回了，但既没有文本也没有进度事件 / 远端 run 成功却无 assistant 消息。 */
+  "provider_returned_empty",
+  /** 远端 deep-agent run 自己走到了错误终态。 */
+  "provider_rejected",
+  /** 远端 run 没能在内核预算（`KERNEL_DEEP_AGENT_TIMEOUT_MS`）内到达终态。 */
+  "provider_timeout",
+  /** 与内核/模型之间的 HTTP 或传输层失败——请求发出去了，没拿回可用响应。 */
+  "provider_transport_failed",
+  /** 本部署自己的依赖缺失/未配置，调用根本没能正常发起。 */
+  "runtime_unavailable",
+  /**
+   * **我们自己的缺陷**：执行器抛了未预期的异常（`execute-run.ts` 的
+   * "agent run executor defect" 分支）。此前它与「模型没返回内容」共用同一个码、
+   * 同一句文案——线上没人能把「我们的 bug」和「模型的问题」分开。
+   */
+  "executor_defect",
+  /** 卡死回收器把一条久无心跳的 `running` 收成终态（issue #2860 那条路径）。 */
+  "run_reaped",
+  /** 认不出来。**不许**为了好看猜成上面任何一个。 */
+  "unknown",
+]);
+
 export const AgentRunStep = z.object({
   kind: AgentRunStepKind,
   status: AgentRunStepStatus,
@@ -449,6 +487,12 @@ export const AgentRunView = z.object({
   modelId: z.string(),
   status: AgentRunStatus,
   error: AgentRunError.nullable(),
+  /**
+   * issue #3211 ① —— 终态失败的**成因**，与 `error`（哪一类终态）是两件事，见
+   * `AgentRunFailureReason` 头注。非失败终态恒为 `null`。
+   * optional：老快照/老客户端缺这个字段不炸。
+   */
+  failureReason: AgentRunFailureReason.nullable().optional(),
   /** Non-null only once #413's writeback transaction has committed. */
   resultMessageId: z.string().nullable(),
   steps: z.array(AgentRunStep),

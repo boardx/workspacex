@@ -27,6 +27,8 @@ import type { Guarded } from "../security/permission-filter";
 
 /** Derived from the contract's enums, never restated (ADR-020). */
 export type RunFailureCode = z.infer<typeof C.AgentRunError>;
+/** issue #3211 ①：失败**成因**（与 `RunFailureCode` 的「哪一类终态」正交）。 */
+export type RunFailureReason = z.infer<typeof C.AgentRunFailureReason>;
 export type RunStepKind = z.infer<typeof C.AgentRunStepKind>;
 export type RunLifecycleStatus = z.infer<typeof C.AgentRunStatus>;
 /** #742 Gap 1 -- `"succeeded" | "failed" | "in_progress"`, derived from the contract's own
@@ -298,6 +300,8 @@ export interface RunDelta {
 
 /** What `GET /agent-runs/:runId` projects, once the requester has been cleared. */
 export interface RunProjection {
+  /** issue #3211 ①：终态失败的成因枚举；非失败或读不到时 `null`。 */
+  readonly failureReason?: RunFailureReason | null;
   readonly recoveryDiagnostic?: string | null;
   readonly cancelRequestedAt?: string | null;
   readonly runId: string;
@@ -435,7 +439,11 @@ export interface AgentRunStore {
   ): Promise<void>;
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
-  failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void>;
+  /**
+   * issue #3211 ①：`reason` 是**为什么**（有界枚举，见契约 `AgentRunFailureReason`），
+   * 与 `code`（哪一类终态）是两件事。缺省不写 —— 老调用点行为不变。
+   */
+  failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason): Promise<void>;
 
   /**
    * DA-07b：running → awaiting_tool_permission，同时落等待裁决的工具摘要。

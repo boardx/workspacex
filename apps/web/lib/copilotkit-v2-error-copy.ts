@@ -28,7 +28,7 @@
  * 两类之外的未知码给一句诚实但不带原始枚举字面量的兜底文案——不是因为"藏起来"，
  * 是因为裸枚举值本来就不是人话，露出来只会让用户以为自己该认得这串大写下划线。
  */
-import { describeAgentRunError, type AgentRunError } from "./agent-run";
+import { describeAgentRunError, describeAgentRunFailure, type AgentRunError, type AgentRunFailureReason } from "./agent-run";
 import { wave2Runtime } from "@repo/contracts";
 
 const AGENT_RUN_ERROR_CODES = new Set<string>(wave2Runtime.AgentRunError.options);
@@ -62,12 +62,20 @@ const TRANSPORT_ERROR_TEXT: Record<string, string> = {
  * 未登记的陌生值时，给一句诚实但不带原始字面量的兜底——不在界面上原样印一个只有
  * 排障时才有意义的常量名。
  */
-export function describeCopilotkitV2RunError(code: string | null | undefined): string {
+export function describeCopilotkitV2RunError(
+  code: string | null | undefined,
+  /**
+   * issue #3211 ①：run 视图上的失败**成因**（`AgentRunView.failureReason`）。缺席时
+   * 逐字回落到只按 code 说话的旧文案——不编成因。传输层码不受影响（它们不是 run 的
+   * 终态码，天然没有 `failureReason`）。
+   */
+  reason?: AgentRunFailureReason | null,
+): string {
   if (code === null || code === undefined || code.trim() === "") {
     return "执行失败，原因未知";
   }
   if (AGENT_RUN_ERROR_CODES.has(code)) {
-    return describeAgentRunError(code as AgentRunError);
+    return describeAgentRunFailure(code as AgentRunError, reason ?? null);
   }
   return TRANSPORT_ERROR_TEXT[code] ?? classifyTransportFailureMessage(code) ?? "这次执行没有成功，请重试或联系管理员";
 }

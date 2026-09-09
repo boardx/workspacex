@@ -1,3 +1,5 @@
+import { withAttachmentNotice } from "./attachment-notice";
+export { withAttachmentNotice } from "./attachment-notice";
 import { dependenciesForRuntimeProfile } from "./runtime-profile-routing";
 import type { NativeOutputStaging } from "./native-output-staging";
 import type { NativeSessionOwner } from "./native-session-owner";
@@ -47,11 +49,12 @@ import { nativeToolProvenance } from "@repo/contracts/native-tool-identities";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
-  AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, RunFailureCode, RunStepKind, RunStepStatus,
+  AgentRunClock, AgentRunStore, ClaimedAgentRun, ModelCallPort,
+  PinnedSkillContent, RunFailureCode, RunFailureReason, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
+import { classifyModelCallFailureReason } from "../../domain/agent-run/model-call-failure-reason";
 import { withRunHeartbeat } from "./run-heartbeat";
 import type { ModelCallImage } from "./ports";
 import {
@@ -173,50 +176,6 @@ export function trimHistoryToBudget(
  *   保证总量不超预算，且**近几轮优先**（摘要挤不下时缩的是更旧的保留轮，不是最近的）。
  * - 摘要只是 `role/content` 伪消息，`ModelCallInput` 与 `ModelCallPort` 形状不变。
  */
-/**
- * V9-b 前置 A（#970）—— 把一轮的附件元数据渲染成模型能读到的一行提示，拼到该轮文本末尾。
- *
- * 为什么落进 content 字符串：`ModelCallPort`/各 provider 只认 `{ role, content }`，不读
- * `ThreadHistoryMessage.attachments`。要让模型*知道*有附件，附件必须进 content。
- *
- * 渲染成**中性、诚实**的一行：模型据此可以说「你传了 X（image/png），但我还读不了它的内容」，
- * 而不是矢口否认有附件。附件**内容**进上下文是 B（F153/anydoc），不在这里。
- *
- * 无附件 → 原样返回，不加任何噪声（保持既有 run 的 prompt 逐字节不变，不惊动既有断言）。
- */
-export function withAttachmentNotice(
-  content: string,
-  attachments: readonly HistoryAttachmentMeta[] | undefined,
-): string {
-  if (!attachments || attachments.length === 0) return content;
-  // 逐个附件按抽取状态渲染——一条消息里不同附件状态可能不同（有的抽好了、有的是图片、有的还在抽）。
-  const notice = attachments.map(renderAttachmentForModel).join("\n\n");
-  return content.length > 0 ? `${content}\n\n${notice}` : notice;
-}
-
-/**
- * V9-b（F153）—— 按抽取状态把单个附件渲染成模型能读到的一段：
- *   - extracted   → 折进**抽取内容摘录**（模型真能读文件了）。
- *   - unsupported → 明说抽不出文本（图片无文字层）。
- *   - failed      → 明说提取失败。
- *   - pending/缺省 → 明说内容正在提取、暂不可读（A 阶段的诚实兜底，也覆盖旧数据）。
- */
-function renderAttachmentForModel(a: HistoryAttachmentMeta): string {
-  const head = `${a.filename}（${a.mime}）`;
-  switch (a.extractionStatus) {
-    case "extracted":
-      return a.extractedExcerpt && a.extractedExcerpt.length > 0
-        ? `［附件 ${head} 的内容如下：\n${a.extractedExcerpt}\n］`
-        : `［附件 ${head}：已解析，但未提取到文本内容。］`;
-    case "unsupported":
-      return `［附件 ${head}：无法提取文本内容（例如图片没有文字层）。你知道用户上传了它，但读不到里面的文字。］`;
-    case "failed":
-      return `［附件 ${head}：内容提取失败，无法读取其内容。］`;
-    default:
-      return `［附件 ${head}：内容正在提取中，暂时还读不到——你只知道用户上传了这个文件。］`;
-  }
-}
-
 /**
  * P2（#1561）—— 本轮图像输入的全部决策，一处做完：**送不送、送几张、没送的怎么如实交代**。
  *
@@ -1232,6 +1191,18 @@ async function executeClaimed(
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
+    /*
+     * issue #3211 ① —— 下面那句注释（"`detail` never reaches a response"）在 #3033 时
+     * 为真，也正是人类 2026-09-09 实测那一条无法诊断的原因：真实成因只进了日志，产品面
+     * 上「模型返回空」「远端 run 报错」「远端超时」「我们自己的执行器抛异常」四件事共用
+     * 同一句「模型这次没能返回可用结果」。这里把 detail **分类成有界枚举**再落库——
+     * 上的是枚举，不是 provider 原话（原话可能含 prompt 片段/上游正文，那是拿泄漏换
+     * 可分辨性）。认不出来落 `unknown`，不猜。
+     */
+    const detail = e instanceof ModelCallError ? e.detail
+      : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
+      : "unexpected model call failure";
+    const reason: RunFailureReason = classifyModelCallFailureReason(detail);
     // The provider's own words live here and stop here. `detail` never reaches a response;
     // the run's terminal `error` is the enumerated code above.
     // #3033：非 ModelCallError（如 PgNativeSessionOwner 抛的裸 `Error('native_session_*')`）
@@ -1242,9 +1213,8 @@ async function executeClaimed(
       modelProvider: run.modelProvider,
       modelId: run.modelId,
       code,
-      detail: e instanceof ModelCallError ? e.detail
-        : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
-        : "unexpected model call failure",
+      reason,
+      detail,
     });
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
@@ -1261,7 +1231,7 @@ async function executeClaimed(
      * 上传过来——报了就如实记，没报才是 0。
      */
     await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
-    await deps.runs.failRun(orgId, run.runId, code);
+    await deps.runs.failRun(orgId, run.runId, code, reason);
     publishStatusChange(deps, orgId, run.runId, "failed");
     return;
   }
@@ -1376,7 +1346,9 @@ export async function executeQueuedRuns(
         runId: outcome.run.runId,
         detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
-      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED"),outcome.run.leaseEpoch);
+      // issue #3211 ①：这是**我们自己的** bug，不是模型的问题。此前它与「模型没返回内容」
+      // 共用同一个码同一句文案，线上分不开——现在带上 `executor_defect`。
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED","executor_defect"),outcome.run.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
     }
   }
