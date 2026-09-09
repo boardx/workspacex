@@ -22,6 +22,7 @@
  *   文件头）：把它挪到后面，等于允许一个非 admin 用探测响应差异去打听
  *   agent/skill 是否存在，即使最终不落库。
  */
+import { agentRuntime as C } from "@repo/contracts";
 import type { IdentityRepository } from "../identity/ports";
 import { toOrgId } from "../../domain/org-id";
 import {
@@ -30,7 +31,11 @@ import {
   type SetAgentSkillPinsResult,
 } from "./set-agent-skill-pins-draft";
 
+export type CurrentAgentSkillPins = ReturnType<typeof C.operations.getAgentSkillPins.out.parse>;
 export interface AgentSkillPinsRepository {
+  readPins(input: { orgId: string; agentId: string }): Promise<
+    { kind: "ok"; result: CurrentAgentSkillPins } | { kind: "agent-not-found" } |
+    { kind: "agent-not-published" } | { kind: "skill-version-not-found" }>;
   /**
    * 一次原子操作：校验 + 发布新版本。**不是**分成"先查再写"两步——
    * 并发判定（`expectedVersion`）与 skill 版本存在性校验都必须在
@@ -92,4 +97,17 @@ export async function setAgentSkillPins(
     case "skill-version-not-found":
       throw new SetAgentSkillPinsError("SKILL_VERSION_NOT_FOUND");
   }
+}
+
+/** Read authorization precedes all head and pin lookups, just like publishing. */
+export async function getAgentSkillPins(
+  input: { orgId: string; actorId: string; agentId: string }, deps: SetAgentSkillPinsDeps,
+): Promise<CurrentAgentSkillPins> {
+  const membership = await deps.identities.findOrgMembership(input.actorId, toOrgId(input.orgId));
+  if (!membership || membership.orgRole !== "admin") throw new SetAgentSkillPinsError("ROLE_INSUFFICIENT");
+  const result = await deps.repository.readPins(input);
+  if (result.kind === "agent-not-found") throw new SetAgentSkillPinsError("AGENT_NOT_FOUND");
+  if (result.kind === "agent-not-published") throw new SetAgentSkillPinsError("AGENT_NOT_PUBLISHED");
+  if (result.kind === "skill-version-not-found") throw new SetAgentSkillPinsError("SKILL_VERSION_NOT_FOUND");
+  return result.result;
 }

@@ -1,0 +1,21 @@
+# Local real-model Skill package evidence — 2026-09-10
+
+Executed via the standard isolation wrapper and `scripts/studio-real-model-trial.mts`. The script was uncommitted at execution; the recorded checkout HEAD was `c17f027b35220f9a778b47ee24d2b1e5927daa34`. This does not assert a clean working tree or acceptance of all files in that commit.
+
+Real DashScope provider and a real Node permission sandbox executed one trial. A public GitHub Skill was imported, then its root and a new nested reference were atomically saved as an immutable 19-file version. The random value existed only in the reference, never the root instructions or sample input. The trial's exact stdout matched those saved file bytes: one attempt, 2,036 ms, 442 tokens. A subsequent exact-version GET verified persistence. Receipts contain no authentication token, password or model key.
+
+This result covers local API/authentication, immutable package persistence, real model script generation and sandbox file reading. It is **not devapp acceptance**, **not chat evidence**, and did not use deep-agent. A separate real native Agent/chat run completed below. The self-owned API/sandbox processes and isolated Compose project were cleaned after this run.
+
+## Real native Agent/chat — completed
+
+The separate chat-only run used an isolated local organization, real login, public GitHub imports, atomic file save and an Agent published/pinned through the real API. It then created a private chat thread and sent a message containing only the reference path, never the random reference value.
+
+Run `7a37cbdb-d64f-48f6-bc8d-c2376edfd5c0` succeeded with provider `deep-agent`, Agent version `agent-version-81d5021b-8c4c-4b9b-b131-4c099e447c8e`, and exactly Skill version `sv_0b4ffafc-ca4f-494e-9cd8-c44b58f17a55`. The durable ledger contains a successful `read_file` of SKILL.md and then a matching start/end pair for the nested reference. The reference tool result matches the receipt SHA-256 and the persisted assistant answer contains that value. No human message contains it.
+
+The real deep-agent process used the existing installed Python environment and current checkout source. Native execution ran in the existing Linux sandbox image with current sandbox code compiled into a read-only mount. The standard sessions Compose profile retained network:none, non-root, read-only rootfs, dropped capabilities, no-new-privileges and dedicated seccomp. A test-owned stdio relay bridged macOS UDS to the container UDS without exposing a TCP service or Docker socket inside the sandbox. A fixed-command Linux execution probe passed before the model call. This does not claim Linux-host AppArmor enforcement on Docker Desktop.
+
+Evidence: `chat-result.json` (real API run, events and messages), `chat-receipt.json`, and `chat-provenance.json`. The checkout head was verified from reflog as `245decbd8a5a552ad37137464aa64c71650b5c94`; the verifier script was uncommitted. Total command 34 seconds, wrapper 35 seconds; all owned processes, relay, containers and session volume were cleaned. This remains local API/chat evidence, not devapp or a browser chat interaction.
+
+Earlier preparation attempts are not successes: one driver omitted required pin agentId (HTTP 400); macOS-native Bubblewrap correctly rejected execution (503); one container startup connection race required readiness polling. None is presented as a successful chat or bypassed by a fake executor.
+
+Post-run verifier hardening (no additional model calls): inherited credential/provider environment variables are removed before child-process construction; only API/deep-agent receive the explicitly selected model values. Native compose teardown failure now writes a failure receipt and exits unsuccessfully instead of printing cleanup success. The verifier parses execution events and requires a successful `read_file` end event matching the reference read's tool call ID, and checks the persisted answer's `text` field. A TypeScript transpilation check, synthetic inherited-key rejection check (while retaining isolation database/port variables), and offline assertions against the recorded successful chat passed. These checks do not claim a second end-to-end execution of the hardened verifier.
