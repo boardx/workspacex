@@ -1,12 +1,12 @@
 ---
-status: pending
+status: confirmed
 bundle: canvas-direct-manipulation
 base_bundle: design-prototype
 scope: layers-duplicate-reorder-keyboard-page-management-undo-patch-guide-coverage
 covers: []
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-09T02:40:00Z"
+confirmed_via: "PR #3185"
 ---
 
 # design delta 签核 · 画布直接操作 + 页管理与撤销（迭代 15 / 16）
