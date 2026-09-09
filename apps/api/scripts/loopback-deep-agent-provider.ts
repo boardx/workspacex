@@ -311,6 +311,86 @@ const SKILL_CATALOG_HEADER_LINE = buildDeepAgentSkillCatalogBlock([]).split("\n"
  */
 const STREAM_ABORT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER;
 
+/**
+ * 路径矩阵 **C1/C5 · 一轮 run 分步产出多个画布**（issue #3243 / PR #3248 的真实形状）。
+ *
+ * ## 为什么已有的画布剧本证不了这件事
+ *
+ * `loopback-model-provider.ts` 的画布分支（C4 用的那条）产出的是**一条** AI 消息、
+ * 里面并排两个围栏。而 #3243 人类实测那条缺陷只在**一轮里有多条顶层 AI 消息**时才
+ * 存在：流式把本轮**每一条**顶层 AI 消息喂给 `onDelta`（画布就是这样一个一个画出来
+ * 的），而落库此前只取**最后一条**非空 AI 消息——那条恰恰是纯文字总结，零个围栏。
+ * 一条消息的剧本里「每一条」与「最后一条」是同一条，判据因此**无法被证伪**。
+ *
+ * 这条剧本刻意长成缺陷需要的那个形状：前 N 条 AI 消息各带一个围栏，**最后一条是
+ * 零围栏的纯文字总结**。修复前落库正文里围栏数为 0、流式里为 N；修复后两处都是 N。
+ *
+ * ⚠ 默认关闭：未设触发词时下面每个判断恒 false，本文件行为逐字节等同改动前。
+ */
+const MULTI_CANVAS_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTI_CANVAS_TRIGGER;
+const MULTI_CANVAS_TEMPLATE_KEY = process.env.LOOPBACK_DEEP_AGENT_CANVAS_TEMPLATE_KEY || null;
+const MULTI_CANVAS_HEADER_FIELD_NAME = process.env.LOOPBACK_DEEP_AGENT_CANVAS_HEADER_FIELD_NAME || null;
+const MULTI_CANVAS_SECTION_NAME = process.env.LOOPBACK_DEEP_AGENT_CANVAS_SECTION_NAME || null;
+const MULTI_CANVAS_COUNT = Number(process.env.LOOPBACK_DEEP_AGENT_MULTI_CANVAS_COUNT ?? "3");
+/**
+ * 最后那条总结**必须一个围栏都没有**——它就是 #3243 里那句「所有画布模板现已完整
+ * 交付」：交付物确实产出过，只是从没被写进任何持久记录。带上围栏就等于把缺陷需要的
+ * 那个形状抹掉，判据当场退化成恒真。
+ */
+const MULTI_CANVAS_SUMMARY = process.env.LOOPBACK_DEEP_AGENT_MULTI_CANVAS_SUMMARY
+  ?? "以上画布模板现已完整交付，可以直接使用。";
+
+/**
+ * 围栏格式逐字照 `buildCanvasTemplateGuidance` 写给模型的那份说明产出，真实解析器
+ * （`checkCanvasFence` / `ensureCanvasFenceTemplate`）拿它当真实模型产出解析，
+ * 不为测试放宽任何格式。表头字段值带**本轮序号**：两个围栏内容相同时，「都挂出来了」
+ * 与「同一个挂了两遍」在断言侧分不开，而后者正是这条路径要防的失效。
+ */
+function multiCanvasFence(index: number, userText: string): string {
+  const value = `${userText.replace(/[`\n]/g, "").trim().slice(0, 60)} 第${index}张`;
+  return [
+    "```canvas",
+    `模板: ${MULTI_CANVAS_TEMPLATE_KEY}`,
+    ...(MULTI_CANVAS_HEADER_FIELD_NAME ? [`${MULTI_CANVAS_HEADER_FIELD_NAME}: ${value}`] : []),
+    `## ${MULTI_CANVAS_SECTION_NAME}`,
+    `- ${value}`,
+    "```",
+  ].join("\n");
+}
+
+/** 本轮**每一条**顶层 AI 消息的正文，按顺序。最后一条零围栏——见 `MULTI_CANVAS_SUMMARY`。 */
+function multiCanvasBodies(userText: string): string[] {
+  const count = Number.isFinite(MULTI_CANVAS_COUNT) && MULTI_CANVAS_COUNT > 0 ? MULTI_CANVAS_COUNT : 3;
+  const fences = Array.from({ length: count }, (_, i) => multiCanvasFence(i + 1, userText));
+  return [...fences, MULTI_CANVAS_SUMMARY];
+}
+
+const isMultiCanvasTurn = (record: RunRecord): boolean =>
+  MULTI_CANVAS_TRIGGER !== undefined
+  && MULTI_CANVAS_TEMPLATE_KEY !== null
+  && record.userText === MULTI_CANVAS_TRIGGER;
+
+/**
+ * 路径矩阵 **D1 · 工具卡终态**——让**一次工具调用**真的失败（不是让整条 run 失败）。
+ *
+ * 与 `FAILURE_TRIGGER` 是两条完全不同的路径：那条把 run 的终态推成 `error`，走
+ * `MODEL_CALL_FAILED`，一次 `tool_call` 步骤都不会落地；这条让 run **正常收尾**，
+ * 只有其中一次工具调用的 ToolMessage 带 `status: "error"`——这正是
+ * `deep-agent-model-provider.ts` 读 `ok: message.status !== "error"` 的那个字段，
+ * 也是「外层折叠行写失败、内层工具卡发绿勾」那条缺陷唯一能被复现出来的形状。
+ *
+ * ⚠ 同一轮里**成功与失败各一次**：只有失败一次时，「卡片正确显示失败」与「卡片把
+ * 所有调用都显示成失败」在断言侧分不开。
+ */
+const TOOL_FAILURE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_TOOL_FAILURE_TRIGGER;
+const TOOL_FAILURE_MESSAGE = process.env.LOOPBACK_DEEP_AGENT_TOOL_FAILURE_MESSAGE
+  ?? "读取失败：目标文档不存在或没有权限。";
+const TOOL_FAILURE_REPLY = process.env.LOOPBACK_DEEP_AGENT_TOOL_FAILURE_REPLY
+  ?? "其中一份文档没能读到，我用能读到的那份作答。";
+
+const isToolFailureTurn = (record: RunRecord): boolean =>
+  TOOL_FAILURE_TRIGGER !== undefined && record.userText === TOOL_FAILURE_TRIGGER;
+
 /** system prompt 的 skill **目录**里真的出现了这个 stable_name 吗。开关未给全时恒 `false`。 */
 function skillCatalogReachedUpstream(body: CreateRunBody): boolean {
   if (SKILL_CATALOG_STABLE_NAME === null || SKILL_CATALOG_ECHO_PREFIX === null) return false;
@@ -792,6 +872,16 @@ const server = createServer((req, res) => {
     const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
+      /*
+       * 路径矩阵 C1 —— 流式正文 = 本轮**每一条**顶层 AI 消息正文按序拼起来，与
+       * `/state` 里那 N+1 条是同一批事实（真实 LangGraph 的 messages-tuple 流正是
+       * 逐条把它们喂出来的）。用户看见的 N 个围栏就出自这里；落库该不该也有这
+       * N 个，是被测判据本身，不由替身决定。
+       */
+      : isMultiCanvasTurn(record)
+      ? multiCanvasBodies(record.userText).join("\n\n")
+      : isToolFailureTurn(record)
+      ? TOOL_FAILURE_REPLY
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
         // 只拼在默认模板上：特殊剧本各有既有断言盯着措辞，不动它们。
@@ -878,6 +968,54 @@ const server = createServer((req, res) => {
     };
     // UI 评分第 4 项：多步依赖链剧本。第二个工具（read_document）的 args.path 逐字
     // 取自第一个工具（search_documents）结果里的文件名——链条本身就是证据。
+    /*
+     * 路径矩阵 C1 —— 一轮里**多条**顶层 AI 消息，前 N 条各带一个画布围栏，最后一条
+     * 是零围栏的纯文字总结。形状说明见 `MULTI_CANVAS_TRIGGER` 头注。
+     *
+     * ⚠ 每条 AI 消息都是 `messages` 数组里**独立的一项**，不是拼进同一条的正文——
+     * 「每一条」与「最后一条」必须真的不是同一条，否则被测缺陷无法被证伪。
+     */
+    if (isMultiCanvasTurn(record)) {
+      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      for (const body of multiCanvasBodies(record.userText)) {
+        messages.push({ type: "ai", content: body });
+      }
+      sendJson(res, 200, { values: { messages } });
+      return;
+    }
+    /*
+     * 路径矩阵 D1 —— 同一轮里成功与失败的工具调用各一次。失败那条 ToolMessage 带
+     * `status: "error"`，正是 `deep-agent-model-provider.ts` 读的
+     * `ok: message.status !== "error"` 那个字段。run 本身**正常收尾**（不是
+     * `FAILURE_TRIGGER` 那条把整条 run 推成 error 的路径）。
+     */
+    if (isToolFailureTurn(record)) {
+      const okCallId = `toolok-${threadId}`;
+      const failCallId = `toolfail-${threadId}`;
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            {
+              type: "ai",
+              content: "我先读第一份文档。",
+              tool_calls: [{ id: okCallId, name: "read_document", args: { path: "ok.md" } }],
+            },
+            { type: "tool", tool_call_id: okCallId, content: "ok.md 内容：这一份读到了。" },
+            {
+              type: "ai",
+              content: "再读第二份文档。",
+              tool_calls: [{ id: failCallId, name: "read_document", args: { path: "missing.md" } }],
+            },
+            // ⚠ `status: "error"` 是这条剧本存在的全部理由——去掉它，这一轮就退化成
+            //   两次普通成功调用，D1 的判据当场恒真。
+            { type: "tool", tool_call_id: failCallId, content: TOOL_FAILURE_MESSAGE, status: "error" },
+            { type: "ai", content: TOOL_FAILURE_REPLY },
+          ],
+        },
+      });
+      return;
+    }
     if (SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER) {
       // Protocol-level fixture, like the three-step fixture below: production
       // polling, journal persistence and rendering must observe every receipt.

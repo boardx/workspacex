@@ -400,14 +400,44 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   // 都与最初原始版截图不相等（内容真的变了，不是巧合）。
   expect(afterReloadNoClickScreenshot.equals(originalScreenshot)).toBe(false);
   expect(afterSaveNoReloadScreenshot.equals(originalScreenshot)).toBe(false);
-  // 「保存后不刷新」与「reload 后不点最大化」两张截图不要求逐字节相等——同一份
-  // mermaid 源两次独立渲染，画布容器宽度会因侧边栏/消息列表在两次快照之间的
-  // 滚动条状态差 1-2px 而重算（`chat-diagram-fabric.tsx` 按
-  // `container.getBoundingClientRect().width` 定宽），逐字节比对在真实浏览器里
-  // 偏脆（首轮实测已踩过一次）。改用字节体量做近似——同一张图两次渲染，PNG
-  // 体量应该高度接近；体量差远超合理阈值就说明画的根本不是同一份内容。
-  const sizeRatio =
-    Math.abs(afterReloadNoClickScreenshot.length - afterSaveNoReloadScreenshot.length)
-    / Math.max(afterReloadNoClickScreenshot.length, afterSaveNoReloadScreenshot.length);
-  expect(sizeRatio).toBeLessThan(0.15);
+  /*
+   * ⚠ 这里原来比的是**两张 PNG 的字节体量**（`sizeRatio < 0.15`），2026-09-10 换掉。
+   *
+   * 它两头都不成立：
+   *   · **抓不到想抓的**——「reload 后看到的是不是保存版」这件事，PNG 体量根本不判。
+   *     画成另一份内容而体量恰好落在 15% 以内，它照样绿；这正是本仓「不拿痕迹当业务
+   *     断言」那条纪律说的形态。
+   *   · **会被自己承认的噪声打红**——它上面那段注释自己写着容器宽度会差 1–2px 而重算，
+   *     实测比值 0.158 已经越过 0.15。一条既漏判又假红的阈值，两边都不该留着。
+   *
+   * 换成**读回内容**：reload 之后这张图实际画的那份源，必须逐字含第 2 步加进去的
+   * 「新节点」——而且这份源来自对象存储的保存字节（`GET .../artifacts/:id/source`
+   * 就是上面 `autoSourceRequest` 等到的那一次），不是消息原文。同一份事实在两处必须
+   * 恒等：**网络上读回的字节** 与 **modal 里回显的源**。
+   *
+   * 「不点最大化也生效」那一半不靠这段判——它由上面 `autoSourceRequest` 的 200 断言
+   * 钉住（挂载即读回真的发生了），这里补的是"读回的内容是对的"。
+   */
+  const autoSourceBody = await (await autoSourceRequest).json() as { markdown?: string };
+  expect(
+    autoSourceBody.markdown,
+    "挂载即读回拿到的必须是保存版的字节——不含「新节点」说明读回的是原始消息文本，"
+    + "或者读到了别的保存版",
+  ).toContain("新节点");
+
+  await diagram2.getByTestId("chat-diagram-maximize").click();
+  await expect(page.getByTestId("chat-diagram-canvas-modal")).toBeVisible();
+  await expect(
+    page.getByTestId("chat-diagram-loaded-saved"),
+    "reload 后重开，读回提示条必须在——用户要知道自己看的是保存版，不是被静默替换",
+  ).toBeVisible();
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("chat-diagram-save").click();
+  await expect(page.getByTestId("chat-diagram-saved")).toBeVisible();
+  expect(
+    await page.getByTestId("chat-diagram-saved-source").textContent(),
+    "modal 里回显的源与网络上读回的字节必须是同一份事实——两处不等就是"
+    + "「同一语义值声明在两处」的漂移",
+  ).toContain("新节点");
+  await page.getByTestId("chat-diagram-close").click();
 });
