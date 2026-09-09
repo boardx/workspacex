@@ -23,39 +23,13 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+// Shared with API F52 to prevent two credential scanning implementations drifting.
+import { collectKeys, SECRET_KEY_RE, secretRenderSinks } from "../../../../../packages/contracts/tests/helpers/credential-boundary";
 import * as AR from "@repo/contracts/agent-runtime";
 import { mcpEndpointHint } from "@/lib/mcp-endpoint-hint";
 
 /* ───────────────────── schema 键的递归扫描器 ───────────────────── */
 
-/** 收集一个 zod schema 里出现的**全部**键名（递归穿透 array/optional/nullable/object/union） */
-function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
-  if (depth > 14) return [];
-  const def = (schema as unknown as { _def: Record<string, unknown> })._def;
-  switch (def.typeName as string) {
-    case "ZodObject": {
-      const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
-      return Object.entries(shape).flatMap(([k, v]) => [k, ...collectKeys(v as z.ZodTypeAny, depth + 1)]);
-    }
-    case "ZodArray":
-      return collectKeys(def.type as z.ZodTypeAny, depth + 1);
-    case "ZodOptional":
-    case "ZodNullable":
-    case "ZodDefault":
-      return collectKeys(def.innerType as z.ZodTypeAny, depth + 1);
-    case "ZodEffects":
-      return collectKeys(def.schema as z.ZodTypeAny, depth + 1);
-    case "ZodUnion":
-    case "ZodDiscriminatedUnion":
-      return ((def.options as z.ZodTypeAny[]) ?? []).flatMap((o) => collectKeys(o, depth + 1));
-    case "ZodRecord":
-      return collectKeys(def.valueType as z.ZodTypeAny, depth + 1);
-    default:
-      return [];
-  }
-}
-
-const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
 const ENDPOINT_KEY_RE = /^endpoint$/i;
 
 /**
@@ -72,6 +46,27 @@ describe("扫描器本身不是空转", () => {
   it("能从嵌套结构里挖出键", () => {
     const nested = z.object({ a: z.object({ b: z.array(z.object({ c: z.string() })) }) });
     expect(collectKeys(nested).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("穿透深层、lazy、intersection、tuple、pipeline、brand，并终止真实递归", () => {
+    const secret = z.object({ accessToken: z.string(), privateKey: z.string(), tokens: z.number() });
+    let deep: z.ZodTypeAny = secret;
+    for (let i = 0; i < 20; i++) deep = z.object({ nested: deep });
+    let recursive: z.ZodTypeAny;
+    recursive = z.lazy(() => z.object({ child: recursive.optional(), credential: z.string() }));
+    const wrappers = [deep, z.lazy(() => secret), z.intersection(z.object({}), secret),
+      z.tuple([z.string()]).rest(secret), z.unknown().pipe(secret), secret.brand("safe"),
+      secret.readonly(), secret.catch({ accessToken: "", privateKey: "", tokens: 0 })];
+    for (const wrapper of wrappers) {
+      expect(collectKeys(wrapper).filter(key => SECRET_KEY_RE.test(key))).toEqual(["accessToken", "privateKey"]);
+    }
+    expect(collectKeys(z.object({}).pipe(secret))).toContain("privateKey");
+    expect(collectKeys(z.object({}).catchall(secret))).toContain("accessToken");
+    expect(["tokens", "tokenCount"].some(key => SECRET_KEY_RE.test(key))).toBe(false);
+    expect(collectKeys(recursive)).toEqual(["child", "credential"]);
+    expect(collectKeys(z.unknown())).toEqual([]); // No declared keys, not a runtime safety assertion.
+    expect(collectKeys(z.any())).toEqual([]);
+    expect(() => collectKeys({ _def: { typeName: "FutureWrapper" } } as unknown as z.ZodTypeAny)).toThrow();
   });
 
   it("确实扫到了操作（0 个操作会让下面每条断言恒真）", () => {
@@ -253,10 +248,53 @@ describe("界面侧：端点原值只出现在管理员/评审人能看到的分
     expect(body).toContain("仅组织管理员可见");
   });
 
-  it("凭据字面量不出现在任何组件里（`凭据失效` 是连接状态，不算）", () => {
-    const offenders = files
-      .filter(([, body]) => /credential/i.test(body))
-      .map(([f]) => f);
-    expect(offenders, `这些组件里出现了 credential：${offenders.join(", ")}`).toEqual([]);
+  it("credential 及局部初始化别名的直接回显只允许经核实的 password 输入值", () => {
+    const offenders = files.flatMap(([file]) => secretRenderSinks(readFileSync(join(COMPONENTS, file), "utf8"))
+      .map(sink => `${file}: ${sink}`));
+    expect(offenders).toEqual([]);
   });
+
+  it("反证：接受写入输入，拒绝文本、属性、字符串键和改成明文的输入", () => {
+    expect(secretRenderSinks('import { Input } from "@/components/ui/input"; <Input type="password" value={credential} onChange={e => setCredential(e.target.value)} />')).toEqual([]);
+    for (const broken of ['<p>{credential}</p>', '<p>{server.credential}</p>',
+      '<p>{server["credential"]}</p>', '<p title={credential} />', '<input type="text" value={credential} />', '<>{ready && <p>{credential}</p>}</>']) {
+      expect(secretRenderSinks(broken), broken).toHaveLength(1);
+    }
+  });
+  it("tracks local alias chains and blocks shadowed/custom Input exemptions", () => {
+    const prefix = 'import { Input } from "@/components/ui/input";';
+    expect(secretRenderSinks(`${prefix} <Input type={'password'} value={credential} />`)).toEqual([]);
+    expect(secretRenderSinks('import { Input as SafeInput } from "@/components/ui/input"; <SafeInput type="password" value={credential} />')).toEqual([]);
+    expect(secretRenderSinks('<input type={"password"} value={credential} />')).toEqual([]);
+    for (const broken of [
+      'function View() { const displayed = credential; const second = displayed; return <p>{second}</p>; }',
+      'const Input = props => <span>{props.value}</span>; <Input type="password" value={credential} />',
+      `${prefix} function View(Input) { return <Input type="password" value={credential} />; }`,
+      `${prefix} function View() { const Input = p => <span>{p.value}</span>; return <Input type="password" value={credential} />; }`,
+      'import { Input } from "./untrusted"; <Input type="password" value={credential} />',
+      `${prefix} const kind = "password"; <Input type={kind} value={credential} />`,
+      '<PasswordInput value={credential} />',
+    ]) expect(secretRenderSinks(broken), broken).toHaveLength(1);
+    expect(secretRenderSinks('function A() { const displayed = credential; return null; } function B() { const displayed = "safe"; return <p>{displayed}</p>; }')).toEqual([]);
+  });
+
+  it("tracks destructured aliases and assignments, and does not trust destructured/class Input shadows", () => {
+    const prefix = 'import { Input } from "@/components/ui/input";';
+    for (const broken of [
+      'const { credential: displayed } = server; <p>{displayed}</p>',
+      'const { nested: { credential: displayed } } = server; <p>{displayed}</p>',
+      'function View({ credential: displayed }) { return <p>{displayed}</p>; }',
+      'function View({ nested: { credential: displayed } }) { return <p>{displayed}</p>; }',
+      'const { ["credential"]: displayed } = server; <p>{displayed}</p>',
+      'let displayed; displayed = credential; <p>{displayed}</p>',
+      'let displayed; let other; other = credential; displayed = other; <p>{displayed}</p>',
+      `${prefix} function View() { const { Input } = customControls; return <Input type="password" value={credential} />; }`,
+      `${prefix} function View({ Input }) { return <Input type="password" value={credential} />; }`,
+      `${prefix} function View() { class Input {} return <Input type="password" value={credential} />; }`,
+      '<p>{Boolean(credential)}</p>', // No generic function-call sanitization exemption.
+    ]) expect(secretRenderSinks(broken), broken).toHaveLength(1);
+    expect(secretRenderSinks('let displayed; displayed = "safe"; <p>{displayed}</p>')).toEqual([]);
+    expect(secretRenderSinks('function A() { let displayed; displayed = credential; } function B() { let displayed; displayed = "safe"; return <p>{displayed}</p>; }')).toEqual([]);
+  });
+
 });
