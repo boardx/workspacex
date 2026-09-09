@@ -610,51 +610,63 @@ export class DeepAgentModelProvider implements ModelCallPort {
     const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
     if (input.onSkillActivity !== undefined || (this.config.streamEnabled === true && onDelta !== undefined)) {
-      // Text-only delivery may fall back to polling. Required Skill journal facts
-      // must use a valid stream and cannot silently downgrade or resubmit the run.
-      const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
-        async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-        async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity);
-      if (streamed) {
-        const status = await this.readRunStatus(baseUrl, threadId, runId);
-        if (status === "success") {
-          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
-          /* ⚠ 走 `readCompletion` 而不是只读终稿文本：#1747 起返回体要带
-             `scriptCandidates`（`call_skill` 的工具结果里可能含脚本块）。
-             这条**流式**分支若只返回 `{ text }`，脚本候选会被静默丢掉——
-             症状是"挂了 skill 但没产出文件"，与 #1747 修的正是同一个形状。 */
-          return await this.readCompletion(baseUrl, threadId, completionTurnKey(input.runId));
-        }
-        if (status === "interrupted") {
-          // DA-07b：停在 interrupt_on 等人裁决——不是失败。读 state 找出待批的调用。
-          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
-          return this.readInterruptedCompletion(baseUrl, threadId);
-        }
-        if (status === "error" || status === "timeout") {
-          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
-          throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
-        }
-        // Text deltas may fall back to polling; required Skill facts cannot.
-      }
       /*
-       * ⚠ 只在**流根本没建立起来**时 fail closed（`streamed === false`：fetch 抛 / HTTP 非
-       * 2xx / content-type 不是 text/event-stream）。此前这里不看 `streamed`——而
-       * `execute-run.ts` 给**每一条 run** 都传 `onSkillActivity`（见该文件 `invokeKernel`
-       * 调用点，不是"挂了 skill 才传"），于是「流正常读完、但这一次状态读到的还是
-       * `pending`」这个**完全健康**的状态被当成"技能事实投递不可用"，整条 run 当场炸成
-       * `MODEL_CALL_FAILED`，永远走不到下面那个轮询循环。
+       * ⚠ 这里有**两个**不变量，缺一条都会变成静默降级：
+       *   (I) 流根本没建立起来（`streamed === false`：fetch 抛 / HTTP 非 2xx /
+       *       content-type 不是 text/event-stream）→ 必须 fail closed，逐字不变；
+       *   (II) 流**干净地结束了、但这一次读到的状态还不是终态**——这两件事字节层面
+       *       无法区分：可能是状态端点还没翻，也可能是**代理 / LB 在一个干净的帧边界
+       *       上把 SSE 掐了、而图还在继续产生 skill 事实**。此前这里落回下面那个轮询
+       *       循环，而 `onSkillActivity` **全仓只被 `tryStreamRun` 消费**（轮询路径的
+       *       `emitNewToolEvents` 只提取 tool 事件），后果是 run 报 success、技能事实
+       *       册子缺页、没有任何人知道。所以落回的动作是**重开流**，不是只轮询：
+       *       事实还在产生就接着收，流仍然打不开就落回 (I) 照旧抛。
+       * 反证见 `tests/agent-runtime/workbench-skill-activity.test.ts` 的
+       * "re-opens the stream instead of silently polling…"（撤掉本段即红：只收到 fact1）。
        *
-       * LangGraph 的 join 流在图还在跑时就可能关闭（本文件 `tryStreamRun` 头注引用的
-       * 真实采集就是这个形状），"流结束"从来不等于"run 落终态"。
-       *
-       * fail-closed 的那条不变量原样保留、一处不少：
-       *   · 流中途出错 / 帧解析不出 / 收尾残留半帧 → `tryStreamRun` 自己抛（本文件
-       *     `skill_activity_stream_invalid` / `_incomplete` / 884 行那条），不经过这里；
-       *   · 流压根没打开（`streamed === false`）→ 就是下面这一句，逐字不变。
-       * 变的只有「流好好读完了」这一种情形：那时该做的是落回轮询，不是宣布失败。
+       * 重开的代价与安全性对真实上游取过证（2026-09-10，langgraph-api 0.12.4 +
+       * langgraph-runtime-inmem 0.32.4，本仓 `uv.lock` pin 的同一版本，真进程、非替身）：
+       * 对一条**已落终态**的 run 重开 join 流 → HTTP 200 / text/event-stream /
+       * **0 帧** / ~0.5s 后关闭（`ops.py` `Runs.Stream.join` 的静默超时分支重读 run、
+       * 见到非 pending/running 即 break），**不重放历史事件** ⇒ 重开不会把已投递的事实
+       * 投第二遍，也不会挂住。
        */
-      if (!streamed && input.onSkillActivity) {
-        throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+      while (true) {
+        const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
+          async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
+          async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity);
+        if (streamed) {
+          const status = await this.readRunStatus(baseUrl, threadId, runId);
+          if (status === "success") {
+            await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+            /* ⚠ 走 `readCompletion` 而不是只读终稿文本：#1747 起返回体要带
+               `scriptCandidates`（`call_skill` 的工具结果里可能含脚本块）。
+               这条**流式**分支若只返回 `{ text }`，脚本候选会被静默丢掉——
+               症状是"挂了 skill 但没产出文件"，与 #1747 修的正是同一个形状。 */
+            return await this.readCompletion(baseUrl, threadId, completionTurnKey(input.runId));
+          }
+          if (status === "interrupted") {
+            // DA-07b：停在 interrupt_on 等人裁决——不是失败。读 state 找出待批的调用。
+            await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+            return this.readInterruptedCompletion(baseUrl, threadId);
+          }
+          if (status === "error" || status === "timeout") {
+            await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+            throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
+          }
+          // 干净 EOF + 非终态 = 上面 (II)。需要 skill 事实的 run 重开流继续收；
+          // 只要文本 delta 的 run 维持既有语义（落回轮询，终稿不会丢）。
+          // deadline 由下面的轮询循环统一判——重开只在还没到点时进行，
+          // 不会把活性外包给上游的善意。
+          if (input.onSkillActivity !== undefined && Date.now() < deadline) {
+            await sleep(pollIntervalMs);
+            continue;
+          }
+        }
+        if (!streamed && input.onSkillActivity) {
+          throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+        }
+        break;
       }
     }
 
