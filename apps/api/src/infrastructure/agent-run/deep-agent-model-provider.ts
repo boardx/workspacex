@@ -515,7 +515,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
       const boundary=logicalRunId?allMessages.findIndex(message=>message.id===turnMessageId(logicalRunId,"user")):-1;
       if(logicalRunId&&boundary<0)return {kind:"uncertain",diagnostic:"checkpoint_turn_boundary_unverified"};
       const messages=boundary<0?allMessages:allMessages.slice(boundary+1);
-      const text=readFinalReply(messages);
+      // #3243 —— 与 `readCompletion` 同一个正文构造：这里已经切到本轮，`joinTurnAssistantBodies`
+      // 直接对切好的消息取全部助手正文（再传 turnKey 会重复找一次锚点）。
+      const text=boundary<0?readFinalReply(messages):joinTurnAssistantBodies(messages);
       if(!text.trim())return {kind:"uncertain",diagnostic:"checkpoint_has_no_final_reply"};
       const scriptCandidates=collectScriptCandidates(messages);
       if(runtimeProfile!=="native-v1"&&scriptCandidates.length)return {kind:"failed",diagnostic:"output_execution_requires_review_no_replay"};
@@ -558,7 +560,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (input.onSkillActivity) return this.completeWithProgress(input, async () => {});
       const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
       await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
-      return this.readCompletion(baseUrl, threadId);
+      return this.readCompletion(baseUrl, threadId, completionTurnKey(input.runId));
     });
   }
 
@@ -621,7 +623,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
              `scriptCandidates`（`call_skill` 的工具结果里可能含脚本块）。
              这条**流式**分支若只返回 `{ text }`，脚本候选会被静默丢掉——
              症状是"挂了 skill 但没产出文件"，与 #1747 修的正是同一个形状。 */
-          return await this.readCompletion(baseUrl, threadId);
+          return await this.readCompletion(baseUrl, threadId, completionTurnKey(input.runId));
         }
         if (status === "interrupted") {
           // DA-07b：停在 interrupt_on 等人裁决——不是失败。读 state 找出待批的调用。
@@ -667,7 +669,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // closes it the identical way -- it never introduces a new race, only catches up.
     await emitNewEvents();
 
-    return this.readCompletion(baseUrl, threadId);
+    return this.readCompletion(baseUrl, threadId, completionTurnKey(input.runId));
   }
 
   /**
@@ -676,10 +678,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 一次读而不是两次：两次分别读会拿到两个可能不同的快照，于是「回复」与「产生它的
    * 工具结果」可能来自不同时刻——那正是本仓一再栽的「同一事实取自两处」。
    */
-  private async readCompletion(baseUrl: string, threadId: string): Promise<ModelCallCompletion> {
+  private async readCompletion(
+    baseUrl: string, threadId: string, turnKey?: string,
+  ): Promise<ModelCallCompletion> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
-    const text = readFinalReply(messages);
+    const text = readTurnReply(messages, turnKey);
     if (text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
     }
@@ -1311,6 +1315,67 @@ export class DeepAgentModelProvider implements ModelCallPort {
 
 /** 最后一条非空 `AIMessage` 的正文。#1747 把它从方法改成纯函数：`readCompletion` 要在
  * **同一份** state 快照上同时取回复与候选来源，再读一次 HTTP 就是取自两个时刻。 */
+/**
+ * issue #3243 —— **一轮 run 的助手正文只有一份事实。**
+ *
+ * 人类 2026-09-09 devapp 实测：要求生成 10 个画布模板，生成过程中一个一个都看见了，
+ * run 一结束画布全部消失，刷新后一个也没有，而最后那句「所有 10 个画布模板现已完整
+ * 交付」是真的——交付物确实产出过。
+ *
+ * 根因是这条通路上「助手这一轮说了什么」被算了两遍，两遍算的不是同一件事：
+ *
+ *  ① **用户看见的**：`tryStreamRun` 把远端 messages-tuple 流里**本轮每一条顶层 AI
+ *     消息**的 token 喂给 `onDelta`（嵌套子图按 `checkpoint_ns` 显式排除——「Nested
+ *     graphs belong to their task/tool trace, never the parent answer」）。分步产出的
+ *     10 个画布就是这样一个一个画出来的。
+ *  ② **落库的**：`readCompletion` 此前取 `readFinalReply` —— 只有**最后一条**非空 AI
+ *     消息。那条恰恰是纯文字总结，一个 ```canvas 围栏都没有。
+ *
+ * 于是前端 `restoreFinalMessages` 在 run 收尾时用 ② 顶替 ①，画布当场消失；刷新读
+ * `chat_messages` 同样什么都没有（`chat_messages` 行本来就要等 writeback 才写，
+ * 见 `writeback.ts`）。**修法不是让两处各自算对，是收敛成一处**：落库正文由
+ * **同一批消息**构造——用户看见哪些，就落库哪些。
+ *
+ * 本轮的边界用 `turnMessageId(turnKey, "user")` 这个锚点确定（`reconcileExistingRun`
+ * 早就在用同一个锚点，不是新造的判据）。**锚点找不到就退回旧行为**（最后一条 AI
+ * 消息）——那时无法区分本轮与历史轮，把历史回复也拼进来会让上一轮的答案凭空重现，
+ * 比少拼更坏。这是诚实降级，不是猜。
+ */
+export function readTurnReply(messages: readonly ThreadMessage[], turnKey?: string): string {
+  if (turnKey === undefined) return readFinalReply(messages);
+  const anchor = messages.findIndex((message) => message.id === turnMessageId(turnKey, "user"));
+  if (anchor < 0) return readFinalReply(messages);
+  return joinTurnAssistantBodies(messages.slice(anchor + 1));
+}
+
+/**
+ * 已经切到本轮的消息 → 助手正文。取**全部**非空顶层 AI 消息，判据与 `tryStreamRun`
+ * 喂给 `onDelta` 的那一条逐字对应（`type` 是 AI 侧、`content` 是非空字符串）。
+ * 逐字重复的正文只留一条：编排器可能把某段内容在终稿里再说一遍，那不是两次产出。
+ */
+export function joinTurnAssistantBodies(messages: readonly ThreadMessage[]): string {
+  const bodies: string[] = [];
+  const seen = new Set<string>();
+  for (const message of messages) {
+    if (message?.type !== "ai") continue;
+    if (typeof message.content !== "string") continue;
+    const body = message.content.trim();
+    if (body === "" || seen.has(body)) continue;
+    seen.add(body);
+    bodies.push(body);
+  }
+  return bodies.join("\n\n");
+}
+
+/**
+ * `turnMessageKey` 在 `runId` 缺席时会造一个随机 key——那与 `buildBody` 当时用的那个
+ * 不是同一个，拿它去找锚点必然落空。所以这里只在**真的有 runId** 时给出 turn key，
+ * 其余情况显式返回 `undefined` 走上面那条诚实降级，不用一个注定对不上的值假装有据。
+ */
+function completionTurnKey(runId: string | undefined): string | undefined {
+  return runId !== undefined && runId !== "" ? runId : undefined;
+}
+
 function readFinalReply(messages: readonly ThreadMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];

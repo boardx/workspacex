@@ -37,7 +37,7 @@ const PLAN_PHASE_INDICATOR_TESTID = "chat-task-workbench-plan-summary";
 import { PLAN_PANEL_TESTID, PLAN_STEP_TESTID } from "@/components/plan-control/plan-panel-readonly";
 import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/plan-control/plan-panel-edit";
 import { PLAN_CONFIRM_RUN_TESTID } from "@/components/plan-control/plan-confirm-gate";
-import { PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
+import { PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
 import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } from "@/components/chat/copilotkit-v2-plan-control";
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
@@ -690,5 +690,97 @@ describe("issue #3132：失败态一定有可操作入口 + 六态指示器真�
     } finally {
       composer.remove();
     }
+  });
+});
+
+/**
+ * issue #3245① —— 结束态的折叠头（`执行计划 · 本轮已结束 · N/N 步已标记完成`）不再常驻。
+ *
+ * **按态双向断言**：该不在的态断言确实不在，该在的态断言确实在。只写「不在」那一半
+ * 会退化成「元素本来就没渲染 ⇒ 静默假绿」——本仓反复栽的形态。每一条「不在」的用例
+ * 都紧跟一条只改**一个**字段就重新出现的阳性对照。
+ */
+describe("#3245① 结束且账本跑满时不常驻，其余态照旧", () => {
+  const DONE_TESTIDS = ["chat-task-workbench-plan-control", PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID, PLAN_PHASE_INDICATOR_TESTID];
+  const settledDone = (overrides: Partial<PlanLedgerView> = {}) => ledgerWithSteps({
+    phase: "done",
+    runStatus: "idle",
+    activeRunId: null,
+    gate: { required: false, reason: "no-plan" },
+    steps: [
+      { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+      { planStepId: "s2", content: "起草方案初稿", status: "completed", constraints: [] },
+    ],
+    progress: { completed: 2, total: 2, elapsedMs: 12_000 },
+    ...overrides,
+  });
+
+  async function renderLedger(ledger: PlanLedgerView, threadId: string) {
+    api.fetchPlanLedger.mockResolvedValue(ledger);
+    render(<CopilotKitV2PlanControl threadId={threadId} />);
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+  }
+
+  it("done 且 2/2 全部标记完成 ⇒ 整块不渲染（人类截图里的那一行）", async () => {
+    await renderLedger(settledDone(), "t-3245-done");
+    // 等一轮真实结算，别把"还没渲染出来"读成"正确地没有渲染"。
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    for (const id of DONE_TESTIDS) expect(screen.queryByTestId(id), `${id} 在结束态仍然常驻`).toBeNull();
+    // 能力面：这一态本来就没有暂停/继续（run 已结束），确认这条门没有顺手吞掉别的东西。
+    expect(screen.queryByTestId(PLAN_RUN_RESUME_TESTID)).toBeNull();
+  });
+
+  it("阳性对照：同一份账本只把 completed 从 2 改回 1 ⇒ 折叠头立刻回来（#2451 那条矛盾要有出口）", async () => {
+    await renderLedger(
+      settledDone({
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
+        ],
+        progress: { completed: 1, total: 2, elapsedMs: 12_000 },
+      }),
+      "t-3245-done-incomplete",
+    );
+    expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
+    expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toHaveTextContent("1/2 步已标记完成");
+  });
+
+  it("阳性对照：还在跑（runStatus running）⇒ 面板在，且暂停入口可达（#3081 不许被这条门弄回不可触达）", async () => {
+    await renderLedger(
+      settledDone({ phase: "executing", runStatus: "running", activeRunId: "run-1" }),
+      "t-3245-running",
+    );
+    const toggle = await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+    expect(toggle).toBeInTheDocument();
+    // 面板默认折叠，暂停入口在展开之后——本条只钉「这条卸载门没有把它变成不可触达」。
+    fireEvent.click(toggle);
+    expect(await screen.findByTestId(PLAN_RUN_PAUSE_TESTID)).toBeInTheDocument();
+  });
+
+  it("阳性对照：已暂停 ⇒ 面板在，且「继续执行」可达", async () => {
+    await renderLedger(
+      settledDone({ phase: "executing", runStatus: "interrupted", activeRunId: "run-1", pausedAt: "2026-09-10T00:00:00.000Z" }),
+      "t-3245-paused",
+    );
+    expect(await screen.findByTestId(PLAN_RUN_RESUME_TESTID)).toBeInTheDocument();
+  });
+
+  it("阳性对照：done 但还有待应用的编辑 / 孤儿约束 ⇒ 面板在（还有事等用户处理）", async () => {
+    await renderLedger(settledDone({ pendingApplyAtNextRun: true }), "t-3245-pending-apply");
+    expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
+    cleanup();
+    await renderLedger(
+      settledDone({ orphanedConstraints: [{ constraintId: "c1", text: "只用公开资料", orphanedAtRevision: 3, formerStepContent: "调研竞品定价" }] }),
+      "t-3245-orphan",
+    );
+    expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
+  });
+
+  it("阳性对照：failed ⇒ 面板在（失败一定要有可操作入口）", async () => {
+    await renderLedger(
+      settledDone({ phase: "failed", runStatus: "failed", failedStepId: "s2", errorCode: "MODEL_CALL_FAILED" }),
+      "t-3245-failed",
+    );
+    expect(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeInTheDocument();
   });
 });

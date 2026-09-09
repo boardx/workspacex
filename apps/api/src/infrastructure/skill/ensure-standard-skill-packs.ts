@@ -10,7 +10,7 @@ import { PgSkillStarterImportRepository } from './pg-skill-starter-import-reposi
 export const STANDARD_PLATFORM_PACKS = [
   {packId:'standard-web',packVersion:'1.1.2'},
   {packId:'data-workflows',packVersion:'1.0.0'},
-  {packId:'standard-methods',packVersion:'1.0.1'},
+  {packId:'standard-methods',packVersion:'1.1.0'},
   {packId:'standard-context',packVersion:'1.1.0'},
   {packId:'standard-canvas',packVersion:'1.0.0'},
   {packId:'standard-document',packVersion:'1.2.0'},
