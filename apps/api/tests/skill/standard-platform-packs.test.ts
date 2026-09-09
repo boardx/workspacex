@@ -49,3 +49,44 @@ it('exposes the published standard package through the actual Skills API to ordi
     expect(ids[0]).toBe(ids[1]);
   }finally{await app.close();for(const [k,v]of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}await resetOrgs(orgs);}
 },120000);
+
+/**
+ * 发货版本 = 组织**实际收到的正文**，不是一个版本号字符串。
+ *
+ * #3150 的裁决是把 `standard-web` 的发货版本从 1.1.1 升到 1.1.2。1.1.2 相对 1.1.1 的
+ * 唯一实质差异在 `web-artifact`：`SKILL.md` 从 **3384** 字节（semanticVersion 1.0.1）
+ * 变成 **5439** 字节（1.0.2，多出有界执行计划 / HTML 必须按 `text/html` 发布 / 证据
+ * 措辞硬边界三节）。所以这条断言直接钉**平台组织里生效版本的字节数**——只钉版本号
+ * 会在「号升了、正文没下发」时照样绿，那正是 #3181 之前的故障形态
+ * （`platform-builtin:standard-web:1.1.2 | failed | SKILL_STARTER_PACK_CONFLICT`
+ * 而 `web-artifact` 停在 3384 字节）。
+ *
+ * ⚠ 反证记录（本 PR 落地时实测）：把 `STANDARD_PLATFORM_PACKS` 的 `standard-web`
+ *   改回 1.1.1，这条用例红在 `expected 3384 to be 5439`——它确实在测正文，不是在
+ *   复述常量。
+ *
+ * 后半段钉「其余八个包不受影响」：九个包全部 `ok`，一个都没被 standard-web 的升级
+ * 连累（#3181 的 per-pack 隔离在真实发货清单上的体现）。
+ */
+it('ships standard-web 1.1.2 content: the platform org actually receives the 5439-byte web-artifact, and the other eight packs are untouched', async () => {
+  ensureDatabase(); await migrateOnce();
+  const seeded = await ensurePlatformSkillCatalogSeeded();
+  expect(seeded.ok).toBe(true);
+  if (!seeded.ok) throw seeded.error;
+
+  // 九个包逐个成功——升级 standard-web 没有把别的包带下水。
+  expect(seeded.report.standardPacks.map(p => p.packId)).toEqual(STANDARD_PLATFORM_PACKS.map(p => p.packId));
+  expect(seeded.report.standardPacks.filter(p => !p.ok)).toEqual([]);
+
+  const rows = await asApp(PLATFORM_ORG_ID, c => c.query<{ semantic_label: string; bytes: number }>(
+    `SELECT v.semantic_label, octet_length(f.content)::int AS bytes
+       FROM skills s
+       JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id
+       JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id AND f.path = 'SKILL.md'
+      WHERE s.org_id = $1 AND s.stable_name = 'web-artifact' AND v.published = true
+      ORDER BY v.created_at DESC, v.id DESC
+      LIMIT 1`, [PLATFORM_ORG_ID]));
+  expect(rows.rows).toHaveLength(1);
+  expect(rows.rows[0]!.bytes).toBe(5439);
+  expect(rows.rows[0]!.semantic_label).toBe('1.0.2');
+}, 300000);

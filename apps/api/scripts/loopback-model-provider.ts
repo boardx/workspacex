@@ -259,8 +259,58 @@ function isTrialRunRequest(messages: CompletionRequest["messages"]): boolean {
   return typeof system === "string" && system.includes(RUN_SCRIPT_PROTOCOL_PROMPT);
 }
 
+/**
+ * 路径矩阵 C6（chat 侧 Office 产物）—— **用户正文里点名了 `<名字>.docx` / `<名字>.xlsx`
+ * 时，改写这一档的脚本**，让它产出对应格式、对应文件名的产物。
+ *
+ * ## 为什么把信号放在用户正文里，而不是新开一个环境变量触发词
+ *
+ * #2295 那条纪律：判定要用**只出现在本次请求正文里**的信号，不要用 ambient 的信号
+ * （`isTrialRunRequest` 自己就是被 ambient 化之后把画布分支永久遮住的那一个，见
+ * 路径矩阵四跑记录）。「用户这一轮点名要一个 .docx」正是这样一个 per-request 信号，
+ * 而且它同时是**真实用户会说的话**——不需要发明一个只有测试知道的暗号。
+ *
+ * ## 行为边界（逐字节不变的部分）
+ *
+ * 正文里没有 `.docx`/`.xlsx` 的请求，走到的仍是原来那段 pptx 脚本，**逐字节相同**。
+ * 三档互斥且一次只写一个文件——沙箱替身按扩展名分档，脚本里混进第二种扩展名会让
+ * 它抓错档（见 `loopback-skill-sandbox-behavior.ts` 里 xlsx 那条否定前瞻的头注）。
+ */
+const OFFICE_REQUEST = /([\w\-\u3400-\u9fff]+\.(?:docx|xlsx|pptx))(?![\w.])/u;
+
 function trialRunScriptReply(sampleInput: string): string {
   const text = sampleInput.replace(/[`\\]/g, "").slice(0, 200) || "loopback trial run";
+  const office = OFFICE_REQUEST.exec(sampleInput)?.[1];
+  if (office?.endsWith(".docx")) {
+    return [
+      "```run_script",
+      "const { Document, Packer, Paragraph } = require('docx');",
+      `const doc = new Document({ sections: [{ children: [new Paragraph('${text}')] }] });`,
+      "Packer.toBuffer(doc).then((buf) => {",
+      "  require('fs').writeFileSync(",
+      `    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, '${office}'),`,
+      "    buf,",
+      "  );",
+      "});",
+      "```",
+    ].join("\n");
+  }
+  if (office?.endsWith(".xlsx")) {
+    return [
+      "```run_script",
+      "const ExcelJS = require('exceljs');",
+      "const wb = new ExcelJS.Workbook();",
+      "const sheet = wb.addWorksheet('Sheet1');",
+      `sheet.addRow(['${text}']);`,
+      "wb.xlsx.writeBuffer().then((buf) => {",
+      "  require('fs').writeFileSync(",
+      `    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, '${office}'),`,
+      "    buf,",
+      "  );",
+      "});",
+      "```",
+    ].join("\n");
+  }
   return [
     "```run_script",
     "const pptxgenjs = require('pptxgenjs');",
@@ -269,7 +319,8 @@ function trialRunScriptReply(sampleInput: string): string {
     `pres.addSlide().addText('${text}', { x: 0.5, y: 0.5, fontSize: 28, bold: true });`,
     "pres.write({ outputType: 'nodebuffer' }).then((buf) => {",
     "  require('fs').writeFileSync(",
-    "    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, 'deck.pptx'),",
+    // 用户正文点名了 `<名字>.pptx` 就用它，否则仍是 `deck.pptx`——不点名时逐字节不变。
+    `    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, '${office ?? "deck.pptx"}'),`,
     "    buf,",
     "  );",
     "});",

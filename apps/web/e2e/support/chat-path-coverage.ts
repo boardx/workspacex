@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "../chat-read-fixture";
-import { openChatEmptyState, openFreshThread } from "../chat-task-workbench-fixture";
+import { login, openChatEmptyState, openFreshThread } from "../chat-task-workbench-fixture";
 import {
   createThreadViaApi,
   openAuthoritativeFreshThread,
@@ -34,13 +34,14 @@ import { selectWorkbenchAgent } from "./workbench-run-evidence";
 /** 矩阵文档——判据的唯一事实源，spec 只引用编号，不在这里复述判据本身。 */
 export const PATH_MATRIX_DOC = ".harness/instructions/chat-path-coverage-matrix.md";
 
-export async function login(page: Page): Promise<void> {
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
-  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
-  await page.getByTestId("login-submit").click();
-  await expect(page).toHaveURL(/\/projects$/);
-}
+/**
+ * ⚠ 这里**不再留第二份 `login` 实现**（本仓那条「同一事实不得声明在两处」）：
+ * 原先这个模块自己抄了一遍登录步骤，与 `chat-task-workbench-fixture.ts` 的那份逐行
+ * 重复，只是结尾一个用 `toHaveURL` 一个用 `waitForURL`。重复的代价是真的：
+ * 「已登录时不要再 login」的守卫只加在其中一份上，另一份就继续静默烧 240s。
+ * 现在两条路径共用同一个实现，守卫因此对所有调用点都生效。
+ */
+export { login };
 
 /** 同既有 spec：先把 CopilotRuntime 路由焐热（Next dev 按需编译，见既有各处头注）。 */
 export async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
