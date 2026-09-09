@@ -1,7 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-// @ts-expect-error -- .mjs 夹具没有类型声明（供 shot-* 脚本与本用例共用，见 lib 头注）
 import { routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
 import { machineScore, type AuditSample } from "../scripts/lib/prototype-audit-metrics.mjs";
 
