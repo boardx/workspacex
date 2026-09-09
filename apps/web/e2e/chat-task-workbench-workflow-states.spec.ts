@@ -89,6 +89,30 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
   // 确定性替身的多步剧本：真实走 DeepAgentModelProvider，会真的产出 write_todos。
   await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
 
+  /*
+   * issue #3132 —— **先展开，再锚面板**。
+   *
+   * 判决 run 34293903801 的 error-context 逐字给出了当时的 DOM：面板在场，
+   * 但呈现为折叠摘要 `执行计划 · 本轮已结束 · 0/3 步已标记完成`。
+   * `chat-task-workbench-plan-panel` 与 `chat-task-workbench-plan-edit-toggle`
+   * 两个锚点在 `copilotkit-v2-plan-control.tsx` 里**都**挂在 `!collapsed` 之下，
+   * 而面板按产品设计默认折叠（`collapsed` 初值 true，只有 needsDecision 由 false
+   * 翻 true 时自动展开——`done` 态不满足）。这条用例此前从不点展开，于是等的是一段
+   * 结构上到不了的 DOM：60s 走满、一条业务断言都没跑到。
+   *
+   * ⚠ 这是**判据修正，不是放宽**：TW-P0-3②③ 评的是"面板文案面向用户 + 三个编辑
+   * 能力真实可用"，从来不含"默认必须展开"（默认折叠是 ui.md 的既有设计）。三条
+   * 业务断言与反伪造的删除断言一个字未动。
+   */
+  const collapseToggle = await expectAnchor(
+    page,
+    "chat-task-workbench-plan-collapse-toggle",
+    "TW-P0-3②",
+    "没有用户可读的计划面板（连折叠摘要都没有）",
+    60_000,
+  );
+  if ((await collapseToggle.getAttribute("aria-expanded")) !== "true") await collapseToggle.click();
+
   const panel = await expectAnchor(
     page,
     "chat-task-workbench-plan-panel",
@@ -97,8 +121,7 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
     60_000,
   );
 
-  // 计划默认折叠；需要调整时由用户显式进入编辑态。完成态计划已经进入执行轨迹，
-  // 不会继续在 composer 上方重复渲染。
+  // 展开后才由用户显式进入编辑态。
   const editToggle = page.getByTestId("chat-task-workbench-plan-edit-toggle");
   await expect(editToggle).toBeVisible({ timeout: 10_000 });
   await editToggle.click();
@@ -239,6 +262,15 @@ test("TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可�
   await openFreshThread(page);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
+
+  /*
+   * issue #3132 —— 同 ②③ 那段：`PlanRunProgress` 的渲染门是
+   * `(!collapsed || pausedAt || pauseRequestedAt) && runLive && currentStep`，
+   * 折叠态下这张卡不在 DOM 里。先展开，再要求它出现。
+   */
+  const collapseToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle");
+  await expect(collapseToggle).toBeVisible({ timeout: 60_000 });
+  if ((await collapseToggle.getAttribute("aria-expanded")) !== "true") await collapseToggle.click();
 
   const progress = await expectAnchor(
     page,
