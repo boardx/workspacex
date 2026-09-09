@@ -33,3 +33,15 @@ for (const [name, addition] of [
  ['default', 'export default (input: any, deps: any) => deps.repository.read(input);'],
  ['class', 'export class Unguarded { read(input: any, deps: any) { return deps.repository.read(input); } }'],
 ]) test(`rejects added use-case ${name} export`, () => assert.ok(checkSkillFileEditBoundary(repo, `${app}\n${addition}`).length));
+
+test('rejects public repository database constructor property', () => {
+ const changed = repo.replace('private readonly db', 'public readonly db');
+ assert.notEqual(changed, repo);
+ assert.ok(checkSkillFileEditBoundary(changed, app).length);
+});
+test('rejects runtime reader added to exported error class', () => {
+ const needle = 'export class SkillFileEditError extends Error {';
+ const changed = app.replace(needle, `${needle}\n read(input: Parameters<SkillFileEditRepository["read"]>[0], deps: SkillFileEditDeps) { return deps.repository.read(input); }`);
+ assert.notEqual(changed, app);
+ assert.ok(checkSkillFileEditBoundary(repo, changed).length);
+});
