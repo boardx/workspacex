@@ -104,7 +104,7 @@ describe("总分", () => {
     ];
     const r = machineScore({ frame: { w: 1280, h: 800 }, nodes });
     expect(r.total).toBeLessThan(80);
-    expect(r.parts.fill.score).toBeLessThan(20);
+    expect(r.parts.fill?.score).toBeLessThan(20);
   });
 });
 
