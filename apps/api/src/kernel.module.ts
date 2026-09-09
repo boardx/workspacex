@@ -1954,8 +1954,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // once/forever 写入）共用同一个，不各自 `new` 一份。
     {
       provide: CHILD_RUN_CANCELLER,
-      useFactory: (db: DatabasePort) => new PgChildRunCanceller(db),
-      inject: [DATABASE_PORT],
+      // 执行器可选注入：父 run 取消后立刻 kick 一次，让子任务的停远端+对账在本次请求之后
+      // 就跑起来，而不是等下一次碰巧发生的 tick（见 PgChildRunCanceller 头注）。
+      useFactory: (db: DatabasePort, executor: SubtaskRunExecutor | null) => new PgChildRunCanceller(db, executor ?? undefined),
+      inject: [DATABASE_PORT, { token: SUBTASK_RUN_EXECUTOR, optional: true }],
     },
     {
       provide: STANDARD_WEB_SERVICE,

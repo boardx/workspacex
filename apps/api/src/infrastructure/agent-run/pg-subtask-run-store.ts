@@ -219,9 +219,12 @@ export class PgSubtaskRunStore implements SubtaskRunStore {
       const current=await this.readExecution(orgId,id);
       if(!current?.run.cancellation)return;
       if(state==='confirmed'&&(remoteRunId===undefined||current.remoteRunId!==remoteRunId))throw new Error('subtask_cancel_identity_unverified');
-      await s.query(`UPDATE subtask_runs SET cancellation_state=$3,
-        status=CASE WHEN status='running' THEN $4 ELSE status END,result=NULL,
-        error=CASE WHEN status='running' THEN $5 WHEN $3='confirmed' AND cancellation_state='unknown' THEN 'subtask_cancelled_after_reconciliation' ELSE error END,updated_at=now()
+      // 确认取消 ⇒ 终态就是 `cancelled`，不论进来时是 `running` 还是停在 `failed`+unknown
+      // 的待对账态（旧写法的 CASE 只允许 running->cancelled，对账因此把 failed 留在原地，
+      // 用户主动取消与真出错在界面上分不开）。WHERE 与上面的 `cancellation` 判空一起保证：
+      // 取消之前就真失败的子任务没有 cancellation 记录，走不到这条 UPDATE。
+      // `subtask_runs_check` 同时在库层保证 cancelled 行不带 error。
+      await s.query(`UPDATE subtask_runs SET cancellation_state=$3,status=$4,result=NULL,error=$5,updated_at=now()
         WHERE org_id=$1 AND id=$2 AND (status='running' OR cancellation_state='unknown')`,
         [orgId,id,state,state==='confirmed'?'cancelled':'failed',state==='confirmed'?null:'subtask_cancel_unknown']);
     });

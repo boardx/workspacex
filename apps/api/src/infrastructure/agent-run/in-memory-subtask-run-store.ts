@@ -112,9 +112,12 @@ export class InMemorySubtaskRunStore implements SubtaskRunStore {
     const row=this.rows.get(id);if(!row||row.orgId!==String(orgId)||!row.cancellation)return;
     if(state==='confirmed'&&(remoteRunId===undefined||(this.remotes.get(id)?.remoteRunId??null)!==remoteRunId))throw new Error('subtask_cancel_identity_unverified');
     if(row.status!=='running'&&row.cancellation.state!=='unknown')return;
+    // 确认取消 ⇒ 终态就是 `cancelled`，不论进来时是 `running` 还是停在 `failed`+unknown 的
+    // 待对账态。这一跳只对"已记录取消请求"的行生效（上面两个 guard），取消之前就真失败的
+    // 子任务没有 cancellation 记录，永远走不到这里，保持它自己的 `failed` 与错因。
     this.rows.set(id,{...row,cancellation:{...row.cancellation,state},result:null,
-      status:row.status==='running'?(state==='confirmed'?'cancelled':'failed'):row.status,
-      error:row.status==='running'?(state==='confirmed'?null:'subtask_cancel_unknown'):(state==='confirmed'?'subtask_cancelled_after_reconciliation':row.error)});
+      status:state==='confirmed'?'cancelled':'failed',
+      error:state==='confirmed'?null:'subtask_cancel_unknown'});
   }
   async listCancellationRecovery(orgId:OrgId,limit:number):Promise<readonly SubtaskExecutionState[]>{
     const rows=[...this.rows.values()].filter(r=>r.orgId===String(orgId)&&r.cancellation&&(r.status==='running'||r.cancellation.state==='unknown')).slice(0,Math.min(20,limit));

@@ -17,7 +17,11 @@
  *
  * `pending`（已入队，尚未被领取）→ `running`（已被 `claimQueued` 领取，正在执行）
  * → `completed`（执行成功，`result` 非空）| `failed`（执行失败，`error` 非空，不影响
- * 同批次其它子任务）。取消先记录请求，确认后转 `cancelled`；未知结果为 `failed` + cancellation.unknown。终态结果不再发布。
+ * 同批次其它子任务）。取消先记录请求；停机结果**未知**时落 `failed` + cancellation.unknown
+ * （此刻还没有证据说它是被取消停下的），**对账确认取消之后终态转 `cancelled`**——
+ * `cancelled` 是数据上的终态，不是展示层翻译出来的显示态，用户主动取消与真出错据此可分辨。
+ * 取消请求到达**之前**就已因别的原因失败的子任务没有 cancellation 记录，永远保持 `failed`
+ * 与它自己的错因。终态结果不再发布。
  */
 import { z } from "zod";
 import { RunArtifactRef } from "./standard-run-status";
