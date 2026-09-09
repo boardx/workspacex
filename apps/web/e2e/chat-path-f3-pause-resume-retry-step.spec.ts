@@ -81,6 +81,24 @@ test("@path:F3 暂停真的停下来、界面真的翻成恢复；恢复之后�
   const runId = humanTurn!.agentRunId;
   expect(runId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
 
+  /*
+   * ── 前置：先把计划面板展开 ─────────────────────────────────────────────────
+   *
+   * `copilotkit-v2-plan-control.tsx` 里那对暂停/恢复按钮（`PlanRunProgress`）的渲染门是
+   * `(!collapsed || pausedAt || pauseRequestedAt) && runLive && currentStep`，而
+   * `collapsed` 的初值是 `true`。这条 spec 此前从头到尾没展开过它 ⇒ 暂停按钮**在构造上
+   * 不可能出现** ⇒ 红在「run 在跑的时候必须给得出暂停入口」这句前置上，下面①②两条
+   * 业务判据（服务端真的进暂停态 / 界面真的翻面）一次都没被求值。失败快照里那句
+   * 「任务检查器」正是收起状态。
+   *
+   * ⚠ 这是补一步**用户本来就要做的操作**，不是放宽判据：展开之后按钮仍然必须出现、
+   * 必须可点、点了必须真的让服务端进暂停态——下面每一条断言逐字不变。
+   */
+  const planToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle").last();
+  await expect(planToggle, "计划面板的折叠头必须在——没有它就无从展开").toBeVisible({ timeout: 60_000 });
+  if ((await planToggle.getAttribute("aria-expanded")) !== "true") await planToggle.click();
+  await expect(planToggle, "展开动作必须真的生效").toHaveAttribute("aria-expanded", "true", { timeout: 30_000 });
+
   // ── 前置：暂停控制出现（这是**前置条件**，不是本条的业务判据） ───────────────
   const pauseButton = page.getByTestId(PAUSE);
   await expect(pauseButton, "run 在跑的时候必须给得出暂停入口").toHaveCount(1, { timeout: 60_000 });
