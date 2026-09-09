@@ -38,6 +38,29 @@ interface VersionRow {
 export class PgAgentSkillPinsRepository implements AgentSkillPinsRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  async readPins(input: Parameters<AgentSkillPinsRepository["readPins"]>[0]): ReturnType<AgentSkillPinsRepository["readPins"]> {
+    return this.db.withTenant(toOrgId(input.orgId), async session => {
+      // Capture the pointer and immutable version together; a concurrent publish cannot
+      // mix a new head with an old pin array. Mapping below uses these exact version IDs.
+      const head = (await session.query<{ published_version_id: string | null; version_id: string | null; skill_version_ids: string[] | null }>(
+        `SELECT a.published_version_id, v.id AS version_id, v.skill_version_ids
+         FROM agents a LEFT JOIN agent_versions v
+           ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id AND v.published_at IS NOT NULL
+         WHERE a.org_id=$1 AND a.id=$2`, [input.orgId, input.agentId])).rows[0];
+      if (!head) return { kind: "agent-not-found" as const };
+      if (!head.published_version_id || !head.version_id || !Array.isArray(head.skill_version_ids)) return { kind: "agent-not-published" as const };
+      const versions = (await session.query<{ id: string; skill_id: string }>(
+        "SELECT id,skill_id FROM skill_versions WHERE org_id=$1 AND id=ANY($2::text[]) AND published=true",
+        [input.orgId, head.skill_version_ids])).rows;
+      const mapping = new Map(versions.map(version => [version.id, version.skill_id]));
+      // Never truncate an invalid pin: doing so would cause an eventual whole-list write
+      // to silently discard a binding which this reader could not safely resolve.
+      if (head.skill_version_ids.some(id => !mapping.has(id))) return { kind: "skill-version-not-found" as const };
+      return { kind: "ok" as const, result: { agentId: input.agentId, publishedVersionId: head.published_version_id,
+        pins: head.skill_version_ids.map(versionId => ({ skillId: mapping.get(versionId)!, versionId })) } };
+    });
+  }
+
   async publishPins(
     input: Parameters<AgentSkillPinsRepository["publishPins"]>[0],
   ): ReturnType<AgentSkillPinsRepository["publishPins"]> {
