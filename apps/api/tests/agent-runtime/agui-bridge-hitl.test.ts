@@ -22,6 +22,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
 import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
@@ -174,7 +175,7 @@ async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
     port: (server.address() as AddressInfo).port,
     runBodies,
     streamReads:()=>streamReads,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () => closeHttpServerDeterministically(server),
   };
 }
 
@@ -262,7 +263,7 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
+  await closeAppDeterministically(app);
   await deepAgent?.close();
 });
 
