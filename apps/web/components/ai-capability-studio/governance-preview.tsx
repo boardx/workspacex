@@ -4,8 +4,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { operations } from "@repo/contracts/capability-admin-deltas";
-import { admissionItems, governanceReducer, initialGovernancePreview, missingAdmission } from "./governance-preview-model";
+import { governanceReducer, initialGovernancePreview, missingAdmission } from "./governance-preview-model";
 import { ModelConfigurationPreview } from "./model-configuration-preview";
+import { ModelAdmissionPreview } from "./model-admission-preview";
 
 export function CapabilityGovernancePreview() {
   const [state, dispatch] = useReducer(governanceReducer, undefined, initialGovernancePreview);
@@ -15,6 +16,7 @@ export function CapabilityGovernancePreview() {
   const [endpoint, setEndpoint] = useState(state.endpoint);
   const [credential, setCredential] = useState("");
   const [connectionError, setConnectionError] = useState("");
+  const reconnectBlocked = (mutation === "clear" && !confirm) || (mutation === "replace" && !credential.trim()) || (mutation === "keep" && !state.credentialConfigured);
   const reconnect = (success: boolean) => {
     if ((mutation === "clear" && !confirm) || (mutation === "keep" && !state.credentialConfigured)) return;
     const parsed = operations.discoverRemoteMcpTools.in.safeParse({ serverId: "demo-mcp", endpoint,
@@ -36,16 +38,10 @@ export function CapabilityGovernancePreview() {
           <h2 className="text-16 font-semibold">Model · 研究模型</h2>
           <p className="text-13" data-testid="model-status">{state.status} · 配置 r{state.revision}</p>
           <ModelConfigurationPreview revision={state.revision} onSaved={expectedRevision => dispatch({ type: "configure", expectedRevision })} onConflictChange={setConfigConflict} />
-          <ul className="space-y-3">{admissionItems.map(item => {
-            const latest = state.evidence.filter(record => record.item === item && record.revision === state.revision).at(-1);
-            return <li key={item} className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-3">
-              <span className="text-13">{item} · {latest?.verdict ?? "待测试"}</span>
-              <div className="flex gap-2"><Button disabled={configConflict} variant="outline" data-testid={`model-test-${item}`} onClick={() => dispatch({ type: "test", item, revision: state.revision, verdict: "通过" })}>模拟通过</Button><Button disabled={configConflict} variant="ghost" onClick={() => dispatch({ type: "test", item, revision: state.revision, verdict: "不通过" })}>模拟失败</Button></div>
-            </li>;
-          })}</ul>
+          <ModelAdmissionPreview revision={state.revision} blocked={configConflict} evidence={state.evidence} onRecord={record => dispatch({ type: "test", ...record })} />
           <p className="text-12">{missing.length ? `还需通过：${missing.join("、")}` : "当前配置的五项测试已通过（演示）。"}</p>
           <div className="flex gap-2"><Button variant="primary" data-testid="model-enable" disabled={configConflict || missing.length > 0 || state.status === "已启用"} onClick={() => dispatch({ type: "enable", expectedRevision: state.revision })}>启用演示模型</Button><Button variant="outline" disabled={state.status !== "已启用"} onClick={() => dispatch({ type: "disable" })}>模拟停用</Button></div>
-          <details className="text-12"><summary>测试历史 · {state.evidence.length} 条</summary><ul>{state.evidence.map((record, index) => <li key={index}>r{record.revision} · {record.item} · {record.verdict}</li>)}</ul></details>
+          <details className="text-12"><summary>测试历史 · {state.evidence.length} 条</summary><ul>{state.evidence.map((record, index) => <li key={index}>r{record.revision} · {record.item} · {record.verdict} · {record.evidence}</li>)}</ul></details>
         </section>
         <section id="mcp" className="space-y-4 rounded-container border border-border bg-card p-5">
           <h2 className="text-16 font-semibold">MCP · 资料工具</h2>
@@ -57,7 +53,7 @@ export function CapabilityGovernancePreview() {
           {mutation === "replace" && <label className="block text-12" htmlFor="mcp-credential">新凭据（仅填写演示文本）<Input id="mcp-credential" data-testid="mcp-credential" type="password" autoComplete="off" value={credential} onChange={event => setCredential(event.target.value)} /></label>}
           {mutation === "clear" && <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />我确认：匿名连接成功后清除已保存凭据；失败则保留。</label>}
           {connectionError && <p role="alert" className="text-12 text-destructive">{connectionError}</p>}
-          <div className="flex flex-wrap gap-2"><Button variant="primary" data-testid="mcp-connect-success" disabled={(mutation === "clear" && !confirm) || (mutation === "replace" && !credential.trim())} onClick={() => reconnect(true)}>模拟连接成功</Button><Button variant="outline" data-testid="mcp-connect-failure" onClick={() => reconnect(false)}>模拟鉴权失败</Button></div>
+          <div className="flex flex-wrap gap-2"><Button variant="primary" data-testid="mcp-connect-success" disabled={reconnectBlocked} onClick={() => reconnect(true)}>模拟连接成功</Button><Button variant="outline" data-testid="mcp-connect-failure" disabled={reconnectBlocked} onClick={() => reconnect(false)}>模拟鉴权失败</Button></div>
           <h3 className="text-13 font-semibold">发现的工具</h3><ul className="space-y-3">{state.discoveredTools.map(tool => <li key={tool} className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-3"><span className="text-13">{tool} · {state.grantedTools.includes(tool) ? "演示范围已授权" : "未授权"}</span><Button variant="outline" onClick={() => dispatch({ type: "grant", tool })}>{state.grantedTools.includes(tool) ? "撤销演示授权" : "明确授权此工具"}</Button></li>)}</ul>
           <p className="text-12 text-muted-foreground">实际调用还需同时满足组织权限、服务器范围、工具范围及 Agent 白名单。</p>
         </section>

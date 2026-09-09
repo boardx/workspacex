@@ -18,13 +18,15 @@ export function ModelConfigurationPreview({ revision, onSaved, onConflictChange 
   const [credential, setCredential] = useState("");
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   useEffect(() => {
     if (open && revision !== loadedRevision) {
-      setCredential(""); setConflict(true); onConflictChange(true);
+      setCredential(""); setReviewed(false); setConflict(true); onConflictChange(true);
       setError("配置已由其他操作修改。保留了你的非敏感输入，凭据输入已清空；请加载最新配置或重新审阅修改。");
     }
   }, [open, revision, loadedRevision, onConflictChange]);
   const resolve = (keepDraft: boolean) => {
+    if (keepDraft && !reviewed) return;
     if (!keepDraft) setDraft(savedConfig);
     setLoadedRevision(revision); setCredential(""); setConflict(false); onConflictChange(false); setError("");
   };
@@ -50,7 +52,7 @@ export function ModelConfigurationPreview({ revision, onSaved, onConflictChange 
           <label className="block text-12" htmlFor="model-credential">替换凭据（仅使用演示文本）<Input id="model-credential" data-testid="model-credential" type="password" autoComplete="off" value={credential} onChange={event => setCredential(event.target.value)} /></label>
           <p className="text-12 text-muted-foreground">留空保留原凭据。提交、冲突或关闭后清空输入；运行配置变化后重新完成准入测试。</p>
           {error && <p role="alert" data-testid="model-config-error" className="text-12 text-destructive">{error}</p>}
-          {conflict && <div className="space-y-2 rounded-control border border-warning p-3"><p className="text-13">载入 r{loadedRevision}，当前 r{revision}</p><div className="flex flex-wrap gap-2"><Button variant="outline" data-testid="model-load-latest" onClick={() => resolve(false)}>加载最新配置</Button><Button variant="outline" data-testid="model-reapply" onClick={() => resolve(true)}>按最新版本重新审阅我的修改</Button></div></div>}
+          {conflict && <div className="space-y-2 rounded-control border border-warning p-3"><p className="text-13">载入 r{loadedRevision}，当前 r{revision}</p><table className="w-full text-12" data-testid="model-conflict-comparison"><thead><tr><th>字段</th><th>最新配置</th><th>我的修改</th></tr></thead><tbody>{(Object.keys(initialConfig) as (keyof typeof initialConfig)[]).map(key => <tr key={key}><th>{key}</th><td className="break-all">{savedConfig[key]}</td><td className="break-all">{draft[key]}</td></tr>)}</tbody></table><label className="flex gap-2 text-12"><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} />已比较最新配置与我的修改，确认继续使用我的值</label><div className="flex flex-wrap gap-2"><Button variant="outline" data-testid="model-load-latest" onClick={() => resolve(false)}>加载最新配置</Button><Button variant="outline" data-testid="model-reapply" disabled={!reviewed} onClick={() => resolve(true)}>确认比较并重新应用我的修改</Button></div></div>}
           <Button variant="ghost" data-testid="model-simulate-conflict" disabled={conflict} onClick={() => { setSavedConfig({ ...savedConfig, upstreamModelId: "research-upstream-updated" }); onSaved(revision); }}>模拟另一管理员保存</Button>
         </div>
         <DialogFooter><Button variant="primary" data-testid="model-config-save" disabled={conflict || revision !== loadedRevision} onClick={save}>保存演示配置并重测</Button></DialogFooter>

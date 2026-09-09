@@ -65,7 +65,7 @@ export const operations = {
     in: existing.discoverRemoteMcpTools.in.omit({ credential: true }).extend({
       credentialMutation: McpCredentialMutation, expectedConfigRevision: ConfigRevision,
     }).strict(),
-    out: existing.discoverRemoteMcpTools.out.extend({ credentialConfigured: z.boolean(), configRevision: ConfigRevision }).strict(),
+    out: existing.discoverRemoteMcpTools.out.extend({ serverId: existing.discoverRemoteMcpTools.in.shape.serverId, credentialConfigured: z.boolean(), configRevision: ConfigRevision }).strict(),
     err: [...existing.discoverRemoteMcpTools.err, "VERSION_CHANGED", ...McpAdminError.options] as const,
     errorContract: CapabilityAdminError },
 } as const;
@@ -82,3 +82,10 @@ export const modelEvidenceExchanges = {
     .refine(({ request, response }) => request.modelId === response.modelId && request.expectedVersion === response.configRevision && response.status === "已启用",
       "enable response must identify the enabled requested configuration"),
 } as const;
+
+/** Reconnect may advance the revision, but must never return another server's discovery. */
+export const mcpDiscoveryExchange = z.object({ request: operations.discoverRemoteMcpTools.in, response: operations.discoverRemoteMcpTools.out }).strict()
+  .refine(({ request, response }) => request.serverId === response.serverId && response.tools.every(tool => tool.serverId === request.serverId) &&
+    [...response.tools.map(tool => tool.fullName), ...response.added, ...response.removed, ...response.signatureChanged, ...response.tightenedByCapRecheck.map(tool => tool.toolFullName)]
+      .every(name => name.startsWith(`mcp:${request.serverId}.`) && name.length > `mcp:${request.serverId}.`.length),
+    "discovery result and every tool must belong to the requested server");

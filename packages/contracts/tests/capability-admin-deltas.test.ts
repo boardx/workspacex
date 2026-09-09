@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { CapabilityAdminError, modelEvidenceExchanges, operations } from "../src/capability-admin-deltas";
+import { CapabilityAdminError, mcpDiscoveryExchange, modelEvidenceExchanges, operations } from "../src/capability-admin-deltas";
 import { AgentRuntimeError, operations as existing } from "../src/agent-runtime";
 
 describe("proposed administration operation deltas", () => {
+  it("correlates reconnect results even when the server has no tools", () => {
+    const request = { serverId: "server-1", endpoint: "https://example.test/mcp", credentialMutation: { action: "clear" }, expectedConfigRevision: "cfg-1" };
+    const response = { serverId: "server-1", configRevision: "cfg-2", credentialConfigured: false, tools: [], added: [], removed: [], signatureChanged: [], tightenedByCapRecheck: [] };
+    expect(mcpDiscoveryExchange.safeParse({ request, response }).success).toBe(true);
+    expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, serverId: "server-2" } }).success).toBe(false);
+    expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, serverId: undefined } }).success).toBe(false);
+    for (const field of ["added", "removed", "signatureChanged"] as const) expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, [field]: ["mcp:server-2.search"] } }).success).toBe(false);
+    const toolFields = existing.discoverRemoteMcpTools.out.shape.tools.element.shape;
+    const tool = { serverId: "server-2", fullName: "mcp:server-2.search", signature: "search", schemaFingerprint: "fingerprint", sideEffect: toolFields.sideEffect.options[0], authScope: toolFields.authScope.options[0] };
+    expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, tools: [tool] } }).success).toBe(false);
+    expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, tools: [{ ...tool, serverId: "server-1", fullName: "mcp:server-1.search" }] } }).success).toBe(true);
+  });
   it("rejects model evidence returned for a different model or revision", () => {
     const probe = { request: { modelId: "pool-1", configRevision: "cfg-1" }, response: { reachable: true, latencyMs: 1, failureKind: null, modelConfigRef: { capabilityModelId: "pool-1", configRevision: "cfg-1" } } };
     expect(modelEvidenceExchanges.probeConnectivity.safeParse(probe).success).toBe(true);

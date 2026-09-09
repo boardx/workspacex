@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { admissionItems, governanceReducer, initialGovernancePreview, missingAdmission } from "../../components/ai-capability-studio/governance-preview-model";
 
 describe("governance preview dependency recovery", () => {
+  it("rejects admission judgments without evidence", () => {
+    const initial = initialGovernancePreview();
+    const result = governanceReducer(initial, { type: "test", item: admissionItems[0], revision: 1, verdict: "通过", evidence: " " });
+    expect(result.evidence).toHaveLength(0);
+    expect(missingAdmission(result)).toHaveLength(5);
+  });
   it("changes connection CAS when an endpoint changes without rotating a kept credential", () => {
     const initial = initialGovernancePreview();
     const changed = governanceReducer(initial, { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true, endpoint: "https://new.example.test/mcp" });
@@ -12,20 +18,20 @@ describe("governance preview dependency recovery", () => {
   });
   it("requires all five current-revision tests and rejects old configuration evidence", () => {
     let state = initialGovernancePreview();
-    for (const item of admissionItems) state = governanceReducer(state, { type: "test", item, revision: 1, verdict: "通过" });
+    for (const item of admissionItems) state = governanceReducer(state, { type: "test", item, revision: 1, verdict: "通过", evidence: "demo-evidence" });
     expect(missingAdmission(state)).toEqual([]);
     state = governanceReducer(state, { type: "enable", expectedRevision: 1 });
     expect(state.status).toBe("已启用");
     state = governanceReducer(state, { type: "configure", expectedRevision: 1 });
     expect(state.status).toBe("待测试");
     expect(missingAdmission(state)).toHaveLength(5);
-    const stale = governanceReducer(state, { type: "test", item: admissionItems[0], revision: 1, verdict: "通过" });
+    const stale = governanceReducer(state, { type: "test", item: admissionItems[0], revision: 1, verdict: "通过", evidence: "demo-evidence" });
     expect(stale.evidence).toBe(state.evidence);
     expect(governanceReducer(stale, { type: "enable", expectedRevision: 2 }).status).toBe("待测试");
   });
   it("does not accept not-applicable as passed or stale writes", () => {
     let state = initialGovernancePreview();
-    state = governanceReducer(state, { type: "test", item: admissionItems[0], revision: 1, verdict: "不适用" });
+    state = governanceReducer(state, { type: "test", item: admissionItems[0], revision: 1, verdict: "不适用", evidence: "demo-evidence" });
     expect(missingAdmission(state)).toHaveLength(5);
     expect(governanceReducer(state, { type: "configure", expectedRevision: 0 }).revision).toBe(1);
     expect(governanceReducer(state, { type: "enable", expectedRevision: 0 }).status).toBe("待测试");

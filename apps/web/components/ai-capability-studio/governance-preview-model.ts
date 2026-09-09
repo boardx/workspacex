@@ -7,7 +7,7 @@ type Verdict = z.infer<typeof AdmissionVerdict>;
 export type GovernancePreview = {
   revision: number;
   status: z.infer<typeof ModelStatus>;
-  evidence: { item: TestItem; revision: number; verdict: Verdict }[];
+  evidence: { item: TestItem; revision: number; verdict: Verdict; evidence: string }[];
   credentialRevision: number;
   configRevision: number;
   endpoint: string;
@@ -28,7 +28,7 @@ export function missingAdmission(state: GovernancePreview) {
 }
 export type GovernanceAction =
   | { type: "configure"; expectedRevision: number }
-  | { type: "test"; item: TestItem; revision: number; verdict: Verdict }
+  | { type: "test"; item: TestItem; revision: number; verdict: Verdict; evidence: string }
   | { type: "enable"; expectedRevision: number }
   | { type: "disable" }
   | { type: "reconnect"; mutation: "keep" | "replace" | "clear"; expectedRevision: number; success: boolean; endpoint?: string }
@@ -39,8 +39,9 @@ export function governanceReducer(state: GovernancePreview, action: GovernanceAc
       return action.expectedRevision !== state.revision ? { ...state, notice: "配置已变化，请重新读取后保存。" } :
         { ...state, revision: state.revision + 1, status: "待测试", notice: "配置已保存；旧测试保留在历史中，当前配置需要重新测试。" };
     case "test":
+      if (!action.evidence.trim()) return { ...state, notice: "请填写本次判读的证据或说明。" };
       return action.revision !== state.revision ? { ...state, notice: "测试期间配置已变化，此结果不能用于启用当前配置。" } :
-        { ...state, evidence: [...state.evidence, { item: action.item, revision: action.revision, verdict: action.verdict }], notice: `${action.item}：${action.verdict}（演示结果）` };
+        { ...state, evidence: [...state.evidence, { item: action.item, revision: action.revision, verdict: action.verdict, evidence: action.evidence.trim() }], notice: `${action.item}：${action.verdict}（演示结果）` };
     case "enable":
       if (action.expectedRevision !== state.revision) return { ...state, notice: "配置已变化，请重新读取后启用。" };
       if (missingAdmission(state).length) return { ...state, notice: `还需通过：${missingAdmission(state).join("、")}。` };
