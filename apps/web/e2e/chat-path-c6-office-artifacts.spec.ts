@@ -61,7 +61,6 @@ test.setTimeout(240_000);
  */
 import { inspectDocx, inspectPptx, inspectXlsx } from "../../skill-sandbox/src/ooxml";
 import {
-  login,
   openFreshEchoAgentThread,
   sendInV2AndAwaitStoredReply,
   sessionHeaders,
@@ -156,7 +155,16 @@ async function assertOfficeArtifactRoundTrip(
   page: import("@playwright/test").Page,
   format: "pptx" | "docx" | "xlsx",
 ): Promise<void> {
-  await login(page);
+  /*
+   * ⚠ 这里**不再自己 `login(page)`**：`openFreshEchoAgentThread` → `openChatEmptyState` 里已经登录过一次（见 `support/chat-path-coverage.ts` 头注
+   * 那条逐字警告）。多登一次不是"多做一遍无害的事"，是一个**赛跑**：
+   * `LoginSessionGate`（`components/entry/login-session-gate.tsx`）在
+   * `useSession()` 的 `status` 还是初始值 `"loading"` 时渲染登录表单，等会话恢复完
+   * 翻成 `"authenticated"` 就 `router.replace` 走掉、改渲 `login-session-loading`。
+   * 于是「已登录后再 goto('/login')」能不能看见 `login-email`，取决于第二次登录跑赢
+   * 会话恢复没有——赢了就绿，输了 `fill()` 一路等到 240s 超时，**一条业务断言都不执行**。
+   * 首跑（run 34311571065）C6/F2 赢了、F5 输了，正是这个形状。
+   */
   const threadId = await openFreshEchoAgentThread(page);
 
   // 本轮唯一标识。文件名与哨兵共用它 ⇒ 上一轮/别的用例的产物都不可能满足判据。
