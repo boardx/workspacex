@@ -17,13 +17,14 @@ export type GovernancePreview = {
   toolScopes: Record<string, ToolAuthScopeT>;
   toolEffects: Record<string, ToolSideEffectT>;
   discoveryChanged: boolean;
+  removedTools: string[];
   discoveredTools: string[];
   notice: string;
 };
 export const admissionItems = AdmissionTestItem.options;
 export function initialGovernancePreview(): GovernancePreview {
   return { revision: 1, probe: null, status: "待测试", evidence: [], credentialRevision: 1, configRevision: 1, endpoint: "https://example.test/mcp",
-    credentialConfigured: true, connectionStatus: "凭据失效", toolScopes: { search: "仅某团队", legacy_search: "仅某团队" }, toolEffects: { search: "只读", legacy_search: "只读" }, discoveryChanged: false,
+    credentialConfigured: true, connectionStatus: "凭据失效", toolScopes: { search: "仅某团队", legacy_search: "仅某团队" }, toolEffects: { search: "只读", legacy_search: "只读" }, discoveryChanged: false, removedTools: [],
     discoveredTools: ["search", "legacy_search"], notice: "演示配置尚未完成准入测试。" };
 }
 export function missingAdmission(state: GovernancePreview) {
@@ -53,23 +54,27 @@ export function governanceReducer(state: GovernancePreview, action: GovernanceAc
       if (missingAdmission(state).length) return { ...state, notice: `还需通过：${missingAdmission(state).join("、")}。` };
       return { ...state, status: "已启用", notice: "演示模型已启用，可供新任务选择。" };
     case "disable": return { ...state, status: "已停用", notice: "演示模型已停用；新任务应返回依赖修复入口。" };
-    case "reconnect":
+    case "reconnect": {
       if (action.expectedRevision !== state.configRevision) return { ...state, notice: "连接配置已变化，请重载后再连接。" };
       if (!action.success) return { ...state, notice: "本次候选连接失败；已保存连接的状态、凭据与工具授权均保留。" };
       if (action.mutation === "keep" && !state.credentialConfigured) return { ...state, notice: "没有可保留的凭据，请选择替换或匿名连接。" };
+      const changed = action.mutation !== "keep" || (action.endpoint !== undefined && action.endpoint !== state.endpoint);
       return { ...state, credentialConfigured: action.mutation === "clear" ? false : state.credentialConfigured || action.mutation === "replace",
         endpoint: action.endpoint ?? state.endpoint,
-        configRevision: state.configRevision + (action.mutation !== "keep" || (action.endpoint !== undefined && action.endpoint !== state.endpoint) ? 1 : 0),
+        configRevision: state.configRevision + (changed ? 1 : 0),
         credentialRevision: state.credentialRevision + (action.mutation === "keep" ? 0 : 1), connectionStatus: "已连接",
-        discoveredTools: [...new Set([...state.discoveredTools, "export_report"])],
-        toolScopes: { export_report: "未开放", ...state.toolScopes }, toolEffects: { ...state.toolEffects, export_report: "对外发送" },
-        notice: "演示连接成功；新发现的 export_report 尚未授权。" };
+        discoveredTools: changed ? ["search", "export_report"] : [...new Set([...state.discoveredTools, "export_report"])],
+        discoveryChanged: false, removedTools: [],
+        toolScopes: changed ? { search: "未开放", export_report: "未开放" } : { export_report: "未开放", ...state.toolScopes },
+        toolEffects: changed ? { search: "只读", export_report: "对外发送" } : { ...state.toolEffects, export_report: "对外发送" },
+        notice: changed ? "演示新配置已连接；旧工具授权不迁移，当前工具需要重新确认范围。" : "演示连接成功；新增工具未授权，旧发现差异已清空。" };
+    }
     case "discover-changes":
       if (state.connectionStatus !== "已连接") return { ...state, notice: "先恢复连接，再重新发现工具。" };
-      return { ...state, discoveryChanged: true, discoveredTools: ["search", "export_report"],
+      return { ...state, discoveryChanged: true, removedTools: state.discoveredTools.filter(tool => !["search", "export_report"].includes(tool)), discoveredTools: ["search", "export_report"],
         toolEffects: { search: "对外发送", export_report: "对外发送" },
         toolScopes: { search: state.toolScopes.search === "未开放" ? "未开放" : "需人工确认每次", export_report: state.toolScopes.export_report ?? "未开放" },
-        notice: "演示发现完成：legacy_search已移除，原引用显示依赖失败；search签名及副作用变化，范围已按封顶收紧。" };
+        notice: state.discoveredTools.includes("legacy_search") ? "演示发现完成：legacy_search已移除，原引用显示依赖失败；search签名及副作用变化，范围已按封顶收紧。" : "演示发现完成：本轮没有移除工具；search签名及副作用变化，范围按封顶复查。" };
     case "grant":
       if (!state.discoveredTools.includes(action.tool)) return state;
       if (!checkToolScopeCap({ sideEffect: state.toolEffects[action.tool]!, authScope: action.scope }).ok ||

@@ -10,6 +10,15 @@ beforeEach(() => { sessionStorage.clear(); navigation.push.mockClear(); });
 const click = (id: string) => fireEvent.click(screen.getByTestId(id));
 
 describe("capability preview rendered interaction boundaries", () => {
+  it("retains historical run context without replacing the current draft or trusting arbitrary IDs", () => {
+    const { rerender } = render(<CapabilityStudioPreview state="default" fromRun="run-preview-01" />);
+    expect(screen.getByTestId("studio-origin-run")).toHaveTextContent("agent-version-1");
+    expect(screen.getByTestId("studio-origin-run")).toHaveTextContent("不自动覆盖当前草稿或重放运行");
+    expect(screen.getByTestId("studio-version-status")).toHaveTextContent("工作草稿 r3");
+    rerender(<CapabilityStudioPreview state="default" fromRun="other-private-run" />);
+    expect(screen.getByTestId("studio-origin-run")).toHaveTextContent("不可访问或不存在");
+    expect(screen.getByTestId("studio-origin-run")).not.toHaveTextContent("other-private-run");
+  });
   it("cannot restart a failed item while confirming the next import batch", () => {
     render(<CapabilityImportPreview />);
     click("import-inspect"); click("import-candidate-research-brief"); click("import-candidate-meeting-notes");

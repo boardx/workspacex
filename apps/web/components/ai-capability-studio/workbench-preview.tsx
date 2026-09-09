@@ -11,6 +11,8 @@ import { StateShell, StatePreviewSwitcher } from "@/components/state/state-shell
 import type { UiState } from "@/lib/ui-state";
 import { initialStudioPreview, studioReducer, trialIsCurrent, validPreviewPath, StudioPreviewSchema, STUDIO_PREVIEW_SESSION_KEY } from "./preview-model";
 
+import { runFailureFixture } from "./run-failure-preview";
+
 type Panel = "files" | "tests" | "versions" | "upstream" | "activity";
 type Modal = "import" | "create" | "rename" | "delete" | "ai" | "publish" | "model" | "mcp" | "agent" | "rollback" | "leave" | null;
 const sections = [
@@ -21,7 +23,7 @@ const sections = [
   { key: "activity", label: "开发记录", icon: ShieldCheck },
 ] as const;
 
-export function CapabilityStudioPreview({ state }: { state: UiState }) {
+export function CapabilityStudioPreview({ state, fromRun }: { state: UiState; fromRun?: string }) {
   const router = useRouter();
   const [pendingHref, setPendingHref] = useState("");
   const [studio, dispatch] = useReducer(studioReducer, undefined, initialStudioPreview);
@@ -87,6 +89,7 @@ export function CapabilityStudioPreview({ state }: { state: UiState }) {
       <div className="flex items-center gap-2 text-12"><Puzzle className="h-4 w-4 text-primary" aria-hidden /><strong>能力开发工作台</strong><span className="text-muted-foreground">交互原型 · 仅演示数据，不连接服务</span></div>
       <div className="flex flex-wrap items-center gap-3"><Link href="/preview/ai-capability-studio/import" className="text-12 text-primary underline" data-testid="studio-full-import">完整导入向导示例</Link><Link href="/preview/ai-capability-studio/governance" className="text-12 text-primary underline" data-testid="studio-governance-link">Model / MCP 依赖修复示例</Link><StatePreviewSwitcher current={state} /></div>
     </div>
+    {fromRun && <aside className="mx-4 my-3 rounded-control border border-border bg-card p-3 text-12" data-testid="studio-origin-run">{fromRun === runFailureFixture.runId ? <>历史定位（演示）：{runFailureFixture.runId} · Agent {runFailureFixture.agentVersionId} · Skill {runFailureFixture.skillVersionIds.join("、")}。仅保留定位，不自动覆盖当前草稿或重放运行；历史开发副本需服务端另行创建。</> : "来源运行不可访问或不存在；当前草稿保持原样。"}</aside>}
     <StateShell state={state} emptyHint="从 GitHub 导入一个方案，或创建你的第一个 Skill。" onCreate={() => open("import")}
       errors={{ source: "来源无法识别，请检查仓库或目录地址。" }} depFailure={{ what: "示例模型连接中断，重新连接后可继续测试。", retry: () => open("model") }}
       denial={{ layer: "organization", reason: "需要此组织的能力开发权限，请联系组织管理员。" }} successMessage="工作草稿已保存；发布需要单独确认。">

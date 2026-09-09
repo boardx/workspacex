@@ -42,3 +42,11 @@ Agent复用已接线的setAgentSkillPins：输入有序skillVersionIds及expecte
 | 从历史失败开发 | 副本来源匹配 run 快照；跨租户 run 拒绝且无副本；重复点击不重复创建 |
 
 上述新操作已在skill-development.ts形成独立、未导出的可执行草案，新增两组各4项契约测试。上传策略由服务端返回，multipart元数据不接受客户端digest/validated证明；完整接收后创建预检job，只有成功结果携带archiveDigest。失败派生草稿结果校验来源版本在原run中且草稿血缘匹配。尚无controller、持久化、队列或对象存储接线；Model/MCP操作delta与权限增量仍待闭合，覆盖工作表不能标为完全通过。
+
+## 普通仓库兼容分类与适配增量（2026-09-10，待签核）
+
+新增review-only `skill-source-assessment.ts`，先以assessSkillImportSource/getSkillSourceAssessment得到compatible / needs-adaptation / unsupported。compatible携带既有SkillImportPreview；普通代码仓库无需伪造candidate即可返回固定pin、文件清单、许可证证据路径、依赖/脚本清单和缺失要求。
+
+createSkillAdaptationDraft只接收assessment引用、摘要、名称和明确所选文件；服务端读取原评估并校验权限/有效期。skillAdaptationExchange拒绝非适配来源、错评估/摘要/来源pin、清单外文件。输出必须为revision1、无发布血缘、带固定来源pin的新草稿；原源码仅进入references/imported/，生成SKILL.md及待完成说明，不执行源码、不自动AI读取或发布。原有SkillImportPreview仍表示确有候选的导入预览，未放松为任意“成功空候选”。
+
+4项契约反例通过，尚未接业务API、存储或完整适配编辑器。许可表达式null表示未识别，不能推断为可自由再分发；选择和保留许可证的最终流程需与UI一起签核。新错误闭集需在正式接线时接入HTTP映射，不能只改schema。

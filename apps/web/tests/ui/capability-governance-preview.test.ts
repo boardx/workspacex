@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { admissionItems, governanceReducer, initialGovernancePreview, missingAdmission } from "../../components/ai-capability-studio/governance-preview-model";
 
 describe("governance preview dependency recovery", () => {
+  it("invalidates grants and discovery differences when a new configuration succeeds", () => {
+    let state = governanceReducer(initialGovernancePreview(), { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true });
+    state = governanceReducer(state, { type: "discover-changes" });
+    expect(state.discoveryChanged).toBe(true);
+    const changed = governanceReducer(state, { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true, endpoint: "https://different.example.test/mcp" });
+    expect(changed.configRevision).toBe(2);
+    expect(changed.toolScopes.search).toBe("未开放");
+    expect(changed.toolScopes.export_report).toBe("未开放");
+    expect(changed.discoveryChanged).toBe(false);
+    const rotated = governanceReducer(initialGovernancePreview(), { type: "reconnect", mutation: "replace", expectedRevision: 1, success: true });
+    expect(rotated.toolScopes.search).toBe("未开放");
+  });
   it("applies server and side-effect caps and preserves removed-tool failure visibility", () => {
     const connected = governanceReducer(initialGovernancePreview(), { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true });
     expect(governanceReducer(connected, { type: "grant", tool: "search", scope: "全体成员" }).toolScopes.search).toBe("仅某团队");

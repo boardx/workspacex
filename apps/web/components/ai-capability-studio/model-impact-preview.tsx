@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { operations } from "@repo/contracts/capability-admin-deltas";
 import { DisableDialog } from "@/components/admin/disable-dialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ export function ModelImpactPreview({ revision, enabled, onDisable }: { revision:
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState("");
   const [outcome, setOutcome] = useState("");
+  useEffect(() => { if (enabled) { setReferences(null); setOutcome(""); setOpen(false); } }, [enabled]);
   const current = references?.modelConfigRef.configRevision === String(revision);
   const read = () => {
     setReferences(operations.listModelReferences.out.parse({ referenceSnapshotId: `preview-references-${revision}`, agents: ["研究助手"], skills: ["研究摘要 v1"], blueprintPolicies: [], activeProjects: ["演示研究项目"], inFlightCalls: 2, modelConfigRef: { capabilityModelId: "research-model", configRevision: String(revision) } }));
@@ -25,7 +26,7 @@ export function ModelImpactPreview({ revision, enabled, onDisable }: { revision:
     {!references ? <p role={failed ? "alert" : undefined} data-testid="model-references-unknown" className="text-12">{failed ? "引用读取失败" : "尚未读取引用"}：影响数量未知，不能按 0 个处理。读取成功后才能确认停用。</p> : <div className="space-y-1 text-12" data-testid="model-references"><p>快照配置 r{references.modelConfigRef.configRevision} · 当前 r{revision}{!current && " · 快照已过期，请重新读取"}</p><p>Agent：{references.agents.join("、") || "无"}</p><p>Skill：{references.skills.join("、") || "无"}</p><p>蓝图策略：{references.blueprintPolicies.join("、") || "无"}</p><p>活跃项目：{references.activeProjects.join("、") || "无"}</p><p>进行中调用：{references.inFlightCalls}</p></div>}
     <Button variant="outline" data-testid="model-disable-review" disabled={!enabled || !current} onClick={() => setOpen(true)}>查看停用方式并确认</Button>
     {open && references && current && enabled && <DisableDialog testid="model-disable-dialog" verb="演示停用" capabilityName="research-model" inFlight={references.inFlightCalls} onCancel={() => setOpen(false)} onConfirm={mode => {
-      setOpen(false); setSelection(""); onDisable();
+      setOpen(false); setSelection(""); setReferences(null); onDisable();
       setOutcome(mode === "interrupt" ? `演示结果：${references.inFlightCalls} 个进行中调用被中断；拒绝新调用。` : `演示结果：${references.inFlightCalls} 个进行中调用继续当前一轮；拒绝新调用。`);
     }} />}
     {outcome && <p className="text-12" data-testid="model-disable-outcome">{outcome} 原有引用标记为依赖失败，保留原模型，不自动替换。</p>}

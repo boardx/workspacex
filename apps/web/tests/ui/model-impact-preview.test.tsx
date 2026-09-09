@@ -31,5 +31,10 @@ describe("model impact preview", () => {
     rerender(<ModelImpactPreview revision={1} enabled={false} onDisable={onDisable} />);
     expect(screen.getByTestId("model-new-task-selector")).toBeDisabled();
     expect(screen.getByTestId("model-composite-members")).toHaveTextContent("不可用，阻塞组合模型启用");
+    rerender(<ModelImpactPreview revision={1} enabled onDisable={onDisable} />);
+    expect(screen.getByTestId("model-disable-review")).toBeDisabled();
+    expect(screen.queryByTestId("model-disable-outcome")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("读取演示引用清单"));
+    expect(screen.getByTestId("model-disable-review")).not.toBeDisabled();
   });
 });
