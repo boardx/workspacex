@@ -3,7 +3,7 @@ import * as React from "react";
 import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
-import { traceEntries, type TraceEntry } from "@/lib/chat-workbench/run-trace";
+import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 
 function detail(value: unknown): string {
@@ -13,6 +13,13 @@ const skillStageLabels: Record<string, string> = {
   metadata_discovered: "发现技能元数据", body_read: "读取技能正文",
   execution_started: "技能执行中", execution_succeeded: "技能执行成功", execution_failed: "技能执行失败",
 };
+/** issue #3218 —— 折叠行只改措辞与层级，成员一条不少地留在展开层里。 */
+const skillGroupLabels: Record<string, (count: number) => string> = {
+  metadata_discovered: (count) => `已发现 ${count} 个技能`,
+};
+function groupLabel(stage: string, count: number): string {
+  return skillGroupLabels[stage]?.(count) ?? `${skillStageLabels[stage] ?? "技能活动"} · ${count} 项`;
+}
 function eventLabel(entry: TraceEntry): string {
   if (entry.activityStage) return `${skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
   if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? "正在调用技能" : "已调用技能"} · ${entry.text}`;
@@ -32,6 +39,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const setExpanded = onExpandedChange ?? setLocalExpanded;
   const id = React.useId();
   const entries = React.useMemo(() => traceEntries(events), [events]);
+  const rows = React.useMemo(() => groupTraceRows(entries), [entries]);
   const [now, setNow] = React.useState(Date.now);
   const status = [...events].reverse().find((event) => event.kind === "status");
   const legacy = events.every((event) => event.source === "legacy");
@@ -61,7 +69,22 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
     </button>
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
-        {entries.map((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status}>
+        {rows.map((row) => row.kind === "skill-group"
+          ? <li key={row.id} data-testid="run-trace-entry" data-kind="skill-group" data-status="observed" data-member-count={row.members.length}>
+              <details className="min-w-0">
+                <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="inline-flex items-center gap-2">
+                    <Sparkles aria-hidden className="h-3.5 w-3.5" />
+                    <span data-testid="chat-task-workbench-event-row">{groupLabel(row.stage, row.members.length)}</span>
+                    <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" />
+                  </span>
+                </summary>
+                <ul className="space-y-1 pl-4 pt-1">
+                  {row.members.map((member) => <li key={member.id} data-testid="run-trace-group-member" data-status={member.status}>{member.text}</li>)}
+                </ul>
+              </details>
+            </li>
+          : ((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status}>
           {entry.kind === "progress" ? <div className="whitespace-pre-wrap break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span>{entry.text}</div> :
             <details className="min-w-0">
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -78,7 +101,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 {entry.result !== undefined ? <div><span>结果</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.result)}</pre></div> : null}
               </div>
             </details>}
-        </li>)}
+        </li>)(row.entry))}
       </ol>
     </div>
     {/*
