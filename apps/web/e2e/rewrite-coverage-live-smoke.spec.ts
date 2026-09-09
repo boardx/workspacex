@@ -32,6 +32,21 @@ test.describe("#2490 rewrite 运行时可达：Next 同源代理把路由交给 
     });
   }
 
+  for (const route of [
+    { method: "GET", path: "/schedule-notifications" },
+    { method: "POST", path: "/schedule-notifications/read" },
+  ] as const) {
+    test(`#3282 ${route.method} ${route.path} reaches authenticated API JSON`, async ({ request }) => {
+      const res = await request.fetch(`${API}${route.path}`, {
+        method: route.method, maxRedirects: 0,
+        ...(route.method === "POST" ? { data: {} } : {}),
+      });
+      expect([401, 403]).toContain(res.status());
+      expect(res.headers()["content-type"]).toMatch(/application\/json/);
+      expect(typeof await res.json()).toBe("object");
+    });
+  }
+
   test("反空转：没接 rewrite 的路径确实被 Next 接成 404 HTML", async ({ request }) => {
     const res = await request.get(`${API}/no-such-route-2490`, { maxRedirects: 0 });
     expect(res.status()).toBe(404);
