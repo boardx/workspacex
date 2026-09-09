@@ -119,17 +119,25 @@ test("TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run
   await expect(indicator).toHaveAttribute("data-phase", new RegExp(`^(${SIX_PHASES.join("|")})$`));
 
   // 确认放行，让这条 run 跑完，别把一条停住的 run 留在替身上。
-  await page.getByTestId("chat-task-workbench-plan-confirm-run").click();
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 120_000 });
+  const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
+  await expect(permissionDialog).toBeVisible();
+  await permissionDialog.getByRole("button", { name: "仅本次允许", exact: true }).click();
+  await expect(indicator).toHaveAttribute("data-phase", "done", { timeout: 120_000 });
 
-  // (c) 跑完之后（done/preparing，按裁决不常驻）⇒ 不常驻，但折叠头能把它调出来。
+  // (c) 完成态（done）在折叠时不常驻，展开后仍可触达。
   const collapseToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle");
   await expect(collapseToggle).toBeVisible({ timeout: 30_000 });
+  // Planning opened the panel; completion preserves that expanded state.
+  // Verify the collapsed contract explicitly before reopening it.
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "true");
+  await collapseToggle.click();
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "false");
   expect(
     await indicator.count(),
     gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", "本轮结束后阶段条仍常驻——与同屏折叠头摘要重复"),
   ).toBe(0);
-  if ((await collapseToggle.getAttribute("aria-expanded")) !== "true") await collapseToggle.click();
+  await collapseToggle.click();
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "true");
   await expect(
     indicator,
     [
