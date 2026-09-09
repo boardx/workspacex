@@ -246,34 +246,34 @@ export async function discoverSkillsFromUrl(
     fileCount: number;
   }[] = [];
 
-  /**
-   * ⚠ 只在**子目录**里找 `SKILL.md`，从不把 `walk` 的起点本身当成候选——
-   *   本用例的整个存在理由是"一个仓库/目录里有好几个 skill"；如果起点自己
-   *   就是恰好一个 skill 目录，既有的单目录导入（`fetchGithubDirectoryFiles`）
-   *   早就覆盖了这条路径，用户直接把那个目录 URL 交给 `importSkillFromUrl` 即可。
-   */
+  async function addCandidate(path: string, entries: readonly GithubContentEntry[]): Promise<boolean> {
+    const skillMd = entries.find((entry) => entry.type === "file" && entry.name === "SKILL.md");
+    if (skillMd === undefined) return false;
+    // 已识别为 Skill 后，不再把它的 scripts/resources 当作独立候选。
+    if (skillMd.download_url === null) return true;
+    const fetched = await deps.fetch(skillMd.download_url, deps.policy);
+    const meta = parseSkillFrontmatter(fetched.body.toString("utf8"));
+    skills.push({
+      dirPath: path,
+      treeUrl: treeUrlFor(path),
+      name: meta.name ?? (path.split("/").filter(Boolean).pop() ?? path),
+      description: meta.description ?? "",
+      fileCount: await approximateFileCount(entries),
+    });
+    if (skills.length > MAX_DISCOVERY_SKILLS) {
+      throw new DiscoverSkillsFromUrlError("IMPORT_TOO_MANY_SKILLS_FOUND");
+    }
+    return true;
+  }
+
   async function walk(path: string, depth: number): Promise<void> {
     const entries = await listDir(path);
+    // #3240：用户粘贴的 Skill 子目录本身也应可被扫描入口识别。
+    // 仓库根的空 dirPath 不在既有候选契约内，仍按多目录发现处理。
+    if (depth === 0 && path !== "" && await addCandidate(path, entries)) return;
     for (const dir of entries.filter((e) => e.type === "dir")) {
       const dirEntries = await listDir(dir.path);
-      const skillMd = dirEntries.find((e) => e.type === "file" && e.name === "SKILL.md");
-      if (skillMd !== undefined) {
-        if (skillMd.download_url === null) continue;
-        const fetched = await deps.fetch(skillMd.download_url, deps.policy);
-        const meta = parseSkillFrontmatter(fetched.body.toString("utf8"));
-        const fileCount = await approximateFileCount(dirEntries);
-        skills.push({
-          dirPath: dir.path,
-          treeUrl: treeUrlFor(dir.path),
-          name: meta.name ?? (dir.path.split("/").filter(Boolean).pop() ?? dir.path),
-          description: meta.description ?? "",
-          fileCount,
-        });
-        if (skills.length > MAX_DISCOVERY_SKILLS) {
-          throw new DiscoverSkillsFromUrlError("IMPORT_TOO_MANY_SKILLS_FOUND");
-        }
-        continue; // 一个 skill 目录自己的子目录（scripts/、resources/…）不再继续找 SKILL.md
-      }
+      if (await addCandidate(dir.path, dirEntries)) continue;
       if (depth + 1 < MAX_DISCOVERY_DEPTH) await walk(dir.path, depth + 1);
     }
   }
