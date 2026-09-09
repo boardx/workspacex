@@ -12,6 +12,9 @@ const scheduleCalls=()=>api.mock.calls.filter(([path])=>String(path).startsWith(
 const center={notifications:[],unreadCount:0};
 beforeEach(()=>{api.mockReset();localStorage.clear();});
 describe('server backed schedule notices on existing task surface',()=>{
+ /** #3223 起提醒列表在弹层里，断言前先点开图标，否则"查不到"会是假绿。 */
+ const openPopover=()=>fireEvent.click(screen.getByTestId('task-notifications-trigger'));
+
  it('shows fixed failure facts and only removes them after durable read acknowledgment',async()=>{
   let read=false,fail=true;
   api.mockImplementation(async(path,options)=>{
@@ -20,6 +23,7 @@ describe('server backed schedule notices on existing task surface',()=>{
    expect(options?.sessionToken).toBe('test-token');return {notifications:read?[]:[fact]};
   });
   const view=render(<TaskNotifications {...props}/>);
+  openPopover();
   await screen.findByText('定时任务已停止：访问权限已撤销');
   fireEvent.click(screen.getByRole('button',{name:'标为已读'}));
   await screen.findByText('定时任务提醒暂时无法同步，请稍后重试。');
@@ -27,6 +31,7 @@ describe('server backed schedule notices on existing task surface',()=>{
   fail=false;fireEvent.click(screen.getByRole('button',{name:'标为已读'}));
   await waitFor(()=>expect(screen.queryByTestId('schedule-notification')).toBeNull());
   view.unmount();render(<TaskNotifications {...props}/>);
+  openPopover();
   await waitFor(()=>expect(scheduleCalls()).toBe(4));expect(screen.queryByTestId('schedule-notification')).toBeNull();
   expect(props.onOpenThread).not.toHaveBeenCalled();
  });
@@ -35,6 +40,7 @@ describe('server backed schedule notices on existing task surface',()=>{
   api.mockImplementation(async(path,options)=>path==='/notifications'?center:options?.sessionToken==='test-token'?await new Promise(resolve=>{finish=resolve;}):{notifications:[]});
   const view=render(<TaskNotifications {...props}/>);
   view.rerender(<TaskNotifications {...props} sessionToken='other-token'/>);
+  openPopover();
   finish({notifications:[fact]});
   await waitFor(()=>expect(scheduleCalls()).toBe(2));
   expect(screen.queryByTestId('schedule-notification')).toBeNull();

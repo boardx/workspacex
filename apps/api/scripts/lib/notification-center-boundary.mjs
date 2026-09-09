@@ -1,6 +1,7 @@
 import ts from 'typescript';
 export const NOTIFICATION_CENTER_PATH='src/infrastructure/notifications/pg-notification-center.ts';
 export const NOTIFYING_RUN_EVENT_BUS_PATH='src/infrastructure/notifications/notifying-run-event-bus.ts';
+export const NOTIFICATION_MIGRATION_PATH='migrations/20260910040000_user_notifications.sql';
 function parse(path,source){
  const ast=ts.createSourceFile(path,source,ts.ScriptTarget.Latest,true),methods=new Map();
  const compact=n=>n?.getText(ast).replace(/\s+/g,'');
@@ -47,5 +48,20 @@ export function checkNotifyingRunEventBus(source){
  if(compact(q[0].arguments[1])!=='[orgId,runId]')errors.push('exact run binding required');
  if(!compact(methods.get('notify'))?.includes('userId:row.author_id,kind:"task"'))errors.push('recipient must be the run author');
  if(/m\.body|r\.output|text/.test(sql))errors.push('message content must not enter a notification');
+ return errors;
+}
+/**
+ * `publish` 的 `INSERT ... ON CONFLICT DO NOTHING` **不带冲突目标**——它能去重，唯一依靠是
+ * `user_notifications` 上那条部分唯一索引。索引一旦被删/改窄，这句 SQL 就静默退化成
+ * "永远插入成功"：同一个 run 的同一个状态能落进 N 行，用户看到 N 条逐字相同的提醒，
+ * 而上面 `checkNotificationCenter` 里那条 `ONCONFLICTDONOTHING` 断言照样是绿的（#3224）。
+ * 所以把索引本身也钉住，别让这个门被上游悄悄吞掉。
+ */
+export function checkNotificationDedupIndex(sql){
+ const errors=[];
+ const line=sql.split('\n').find(l=>l.includes('UNIQUE INDEX')&&l.includes('ON user_notifications'));
+ if(!line){errors.push('publish 的 ON CONFLICT DO NOTHING 需要一条唯一索引兜底，migration 里找不到');return errors;}
+ if(!line.replace(/\s+/g,'').includes('ONuser_notifications(user_id,source_key)'))errors.push('去重索引必须正好建在 (user_id,source_key) 上');
+ if(!line.includes('WHERE source_key IS NOT NULL'))errors.push('去重索引必须是部分索引，否则 source_key 为空的通知会互相挤掉');
  return errors;
 }
