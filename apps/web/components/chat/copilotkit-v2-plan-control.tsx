@@ -169,10 +169,14 @@ function PlanControlSession(
   // issue #3099 —— **运行级控制与计划级视图解耦**。判据只有一个：run 现在还在不在
   // （`deriveRunControls`，契约里的单一事实源），与「模型有没有产出 `write_todos`」无关。
   //
-  // 改动前这里读的是 `phase`：`derivePlanPhase` 先判 `ledgerEmpty` 再判 `running`，
+  // 改动前这里读的是 `phase`：当时 `derivePlanPhase` 先判 `ledgerEmpty` 再判 `running`，
   // 于是「正在跑但还没有计划的 run」（大量普通对话）和「什么都没发生的线程」
   // 都是 `"preparing"`——整块 return null，用户没有任何暂停入口。这不是把渲染门
   // 「放宽」，是它此前问错了问题：暂停是 run 级动作，不该由计划账本的存在性决定。
+  //
+  // ⚠ #3208 已把那条顺序修正（在途 run 的 `phase` 现在是 `"executing"`），但**这里
+  // 仍然只读 `deriveRunControls`**：run 的在途性只许有一个事实源。不要因为 `phase`
+  // 现在"也对了"就把门改回读 `phase`——那就是把同一事实重新声明到第二处。
   //
   // ⚠ 终态（done/cancelled/failed）不受影响：`deriveRunControls` 对终态返回全 false，
   // #2927 的「run 结束后没有控制操作」与 #2999 的只读账本两条都不变。
