@@ -29,6 +29,7 @@ import {
   ToolAuthScope,
   checkToolScopeCap,
   mcpToolFullName,
+  serverSlugOf,
 } from "@repo/contracts/agent-runtime";
 import type { DiscoveredTool, McpGateway, McpToolStore } from "./ports";
 
@@ -65,9 +66,7 @@ export interface DiscoverMcpToolsResult {
  * `mcp-crm` -> `crm`. The prefix belongs to the contract; this only strips the id's own
  * convention so the namespace does not read `mcp:mcp-crm.x`.
  */
-export function serverSlugOf(serverId: string): string {
-  return serverId.replace(/^mcp-/, "");
-}
+export { serverSlugOf } from "@repo/contracts/agent-runtime";
 
 /**
  * Versioned fingerprint over the complete schema, description, signature and side effect.

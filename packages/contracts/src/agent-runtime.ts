@@ -213,6 +213,11 @@ export const RESERVED_TOOL_NAMESPACE_PREFIXES = ["graph.", "brain."] as const;
  */
 export const MCP_TOOL_FULL_NAME_RE = /^mcp:[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9_]*$/;
 
+/** Existing server-id convention shared by discovery and response correlation. */
+export function serverSlugOf(serverId: string): string {
+  return serverId.replace(/^mcp-/, "");
+}
+
 /** 唯一构造入口。别在别处拼字符串——拼出来的第二份规则不会有人守。 */
 export function mcpToolFullName(serverSlug: string, toolName: string): string {
   const full = `${MCP_TOOL_NAMESPACE_PREFIX}${serverSlug}.${toolName}`;

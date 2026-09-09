@@ -54,10 +54,13 @@ describe("governance preview rendered controls", () => {
     expect(screen.getByTestId("model-conflict-comparison")).toHaveTextContent("research-upstream-updated");
     expect(screen.getByTestId("model-conflict-comparison")).toHaveTextContent("my-pending-model");
     fireEvent.click(screen.getByRole("checkbox", { name: "已比较最新配置与我的修改，确认继续使用我的值" }));
+    fireEvent.change(screen.getByTestId("model-upstream"), { target: { value: "my-pending-model-v2" } });
+    expect(screen.getByTestId("model-reapply")).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "已比较最新配置与我的修改，确认继续使用我的值" }));
     fireEvent.click(screen.getByTestId("model-reapply"));
     expect(screen.getByTestId("model-current-mapping")).toHaveTextContent("research-upstream-updated");
     fireEvent.click(screen.getByTestId("model-config-save"));
-    expect(screen.getByTestId("model-current-mapping")).toHaveTextContent("my-pending-model");
+    expect(screen.getByTestId("model-current-mapping")).toHaveTextContent("my-pending-model-v2");
     expect(screen.getByTestId("model-status")).toHaveTextContent("配置 r3");
   });
   it("loading the latest model discards only explicitly abandoned edits and clears credentials on close", () => {
@@ -72,6 +75,18 @@ describe("governance preview rendered controls", () => {
     fireEvent.click(screen.getByTestId("model-configure"));
     expect(screen.getByTestId("model-credential")).toHaveValue("");
   });
+  it("keeps security review independent and disables authorization beyond both caps", () => {
+    render(<CapabilityGovernancePreview />);
+    expect(screen.getByRole("radio", { name: "search 全体成员" })).toBeDisabled();
+    fireEvent.click(screen.getByTestId("mcp-connect-success"));
+    expect(screen.getByTestId("mcp-review-status")).toHaveTextContent("待安全评审 · 连接事实：已连接");
+    expect(screen.getByRole("radio", { name: "export_report 仅某团队" })).toBeDisabled();
+    fireEvent.click(screen.getByText("模拟重新发现差异"));
+    expect(screen.getByTestId("mcp-discovery-diff")).toHaveTextContent("工具已不存在");
+    expect(screen.getByRole("radio", { name: "search 需人工确认每次" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "search 仅某团队" })).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: "legacy_search 仅某团队" })).not.toBeInTheDocument();
+  });
   it("requires clear confirmation and leaves newly discovered tools ungranted", () => {
     render(<CapabilityGovernancePreview />);
     fireEvent.click(screen.getByRole("radio", { name: "清除凭据，尝试匿名连接" }));
@@ -83,8 +98,8 @@ describe("governance preview rendered controls", () => {
     expect(screen.getByRole("radio", { name: "保留并使用现有凭据" })).toBeDisabled();
     expect(screen.getByRole("radio", { name: "替换凭据（演示）" })).toBeChecked();
     expect(screen.getByText("export_report · 未授权")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "明确授权此工具" }));
-    expect(screen.getByText("export_report · 演示范围已授权")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "export_report 需人工确认每次" }));
+    expect(screen.getByText("export_report · 演示范围：需人工确认每次")).toBeInTheDocument();
   });
   it("failed MCP replacement preserves endpoint and grants while clearing the submitted credential", () => {
     render(<CapabilityGovernancePreview />);
@@ -98,6 +113,6 @@ describe("governance preview rendered controls", () => {
     expect(screen.getByTestId("mcp-status")).toHaveTextContent("已配置凭据 · 配置 r1");
     expect(screen.getByTestId("mcp-credential")).toHaveValue("");
     expect(screen.getByTestId("mcp-endpoint")).toHaveValue("https://new.example.test/mcp");
-    expect(screen.getByText("search · 演示范围已授权")).toBeInTheDocument();
+    expect(screen.getByText("search · 演示范围：仅某团队")).toBeInTheDocument();
   });
 });

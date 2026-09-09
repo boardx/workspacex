@@ -46,9 +46,9 @@ export function ModelConfigurationPreview({ revision, onSaved, onConflictChange 
         <DialogTitle>模型配置 · research-model</DialogTitle>
         <DialogDescription>单模型 · 当前 r{revision} / 载入 r{loadedRevision}。交互演示，不发送或保存真实凭据。</DialogDescription>
         <div className="space-y-4 overflow-y-auto">
-          <label className="block text-12" htmlFor="model-provider">Provider 标识<Input id="model-provider" data-testid="model-provider" value={draft.providerKey} onChange={event => setDraft({ ...draft, providerKey: event.target.value })} /></label>
-          <label className="block text-12" htmlFor="model-upstream">上游模型标识<Input id="model-upstream" data-testid="model-upstream" value={draft.upstreamModelId} onChange={event => setDraft({ ...draft, upstreamModelId: event.target.value })} /></label>
-          <label className="block text-12" htmlFor="model-endpoint">连接端点<Input id="model-endpoint" value={draft.endpoint} onChange={event => setDraft({ ...draft, endpoint: event.target.value })} /></label>
+          <label className="block text-12" htmlFor="model-provider">Provider 标识<Input id="model-provider" data-testid="model-provider" value={draft.providerKey} onChange={event => { setReviewed(false); setDraft({ ...draft, providerKey: event.target.value }); }} /></label>
+          <label className="block text-12" htmlFor="model-upstream">上游模型标识<Input id="model-upstream" data-testid="model-upstream" value={draft.upstreamModelId} onChange={event => { setReviewed(false); setDraft({ ...draft, upstreamModelId: event.target.value }); }} /></label>
+          <label className="block text-12" htmlFor="model-endpoint">连接端点<Input id="model-endpoint" value={draft.endpoint} onChange={event => { setReviewed(false); setDraft({ ...draft, endpoint: event.target.value }); }} /></label>
           <label className="block text-12" htmlFor="model-credential">替换凭据（仅使用演示文本）<Input id="model-credential" data-testid="model-credential" type="password" autoComplete="off" value={credential} onChange={event => setCredential(event.target.value)} /></label>
           <p className="text-12 text-muted-foreground">留空保留原凭据。提交、冲突或关闭后清空输入；运行配置变化后重新完成准入测试。</p>
           {error && <p role="alert" data-testid="model-config-error" className="text-12 text-destructive">{error}</p>}

@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { operations } from "@repo/contracts/capability-admin-deltas";
 import { governanceReducer, initialGovernancePreview, missingAdmission } from "./governance-preview-model";
 import { ModelConfigurationPreview } from "./model-configuration-preview";
+import { RunFailurePreview } from "./run-failure-preview";
+import { McpToolsPreview } from "./mcp-tools-preview";
+import { ModelImpactPreview } from "./model-impact-preview";
 import { ModelAdmissionPreview } from "./model-admission-preview";
 
 export function CapabilityGovernancePreview() {
@@ -38,9 +41,10 @@ export function CapabilityGovernancePreview() {
           <h2 className="text-16 font-semibold">Model · 研究模型</h2>
           <p className="text-13" data-testid="model-status">{state.status} · 配置 r{state.revision}</p>
           <ModelConfigurationPreview revision={state.revision} onSaved={expectedRevision => dispatch({ type: "configure", expectedRevision })} onConflictChange={setConfigConflict} />
-          <ModelAdmissionPreview revision={state.revision} blocked={configConflict} evidence={state.evidence} onRecord={record => dispatch({ type: "test", ...record })} />
+          <ModelAdmissionPreview probe={state.probe} onProbe={probe => dispatch({ type: "probe", ...probe })} revision={state.revision} blocked={configConflict} evidence={state.evidence} onRecord={record => dispatch({ type: "test", ...record })} />
           <p className="text-12">{missing.length ? `还需通过：${missing.join("、")}` : "当前配置的五项测试已通过（演示）。"}</p>
-          <div className="flex gap-2"><Button variant="primary" data-testid="model-enable" disabled={configConflict || missing.length > 0 || state.status === "已启用"} onClick={() => dispatch({ type: "enable", expectedRevision: state.revision })}>启用演示模型</Button><Button variant="outline" disabled={state.status !== "已启用"} onClick={() => dispatch({ type: "disable" })}>模拟停用</Button></div>
+          <ModelImpactPreview revision={state.revision} enabled={state.status === "已启用"} onDisable={() => dispatch({ type: "disable" })} />
+          <div className="flex gap-2"><Button variant="primary" data-testid="model-enable" disabled={configConflict || missing.length > 0 || state.status === "已启用"} onClick={() => dispatch({ type: "enable", expectedRevision: state.revision })}>启用演示模型</Button></div>
           <details className="text-12"><summary>测试历史 · {state.evidence.length} 条</summary><ul>{state.evidence.map((record, index) => <li key={index}>r{record.revision} · {record.item} · {record.verdict} · {record.evidence}</li>)}</ul></details>
         </section>
         <section id="mcp" className="space-y-4 rounded-container border border-border bg-card p-5">
@@ -54,11 +58,11 @@ export function CapabilityGovernancePreview() {
           {mutation === "clear" && <label className="flex items-start gap-2 text-12"><input type="checkbox" checked={confirm} onChange={event => setConfirm(event.target.checked)} />我确认：匿名连接成功后清除已保存凭据；失败则保留。</label>}
           {connectionError && <p role="alert" className="text-12 text-destructive">{connectionError}</p>}
           <div className="flex flex-wrap gap-2"><Button variant="primary" data-testid="mcp-connect-success" disabled={reconnectBlocked} onClick={() => reconnect(true)}>模拟连接成功</Button><Button variant="outline" data-testid="mcp-connect-failure" disabled={reconnectBlocked} onClick={() => reconnect(false)}>模拟鉴权失败</Button></div>
-          <h3 className="text-13 font-semibold">发现的工具</h3><ul className="space-y-3">{state.discoveredTools.map(tool => <li key={tool} className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-border p-3"><span className="text-13">{tool} · {state.grantedTools.includes(tool) ? "演示范围已授权" : "未授权"}</span><Button variant="outline" onClick={() => dispatch({ type: "grant", tool })}>{state.grantedTools.includes(tool) ? "撤销演示授权" : "明确授权此工具"}</Button></li>)}</ul>
+          <McpToolsPreview state={state} dispatch={dispatch} />
           <p className="text-12 text-muted-foreground">实际调用还需同时满足组织权限、服务器范围、工具范围及 Agent 白名单。</p>
         </section>
       </div>
-      <section className="space-y-3 rounded-container border border-border bg-card p-5"><h2 className="text-16 font-semibold">从失败记录返回</h2><p className="text-13">演示任务 run-preview-01 · Skill v1。修复依赖后回到草稿重新试跑，不会自动重放失败任务。</p><div className="flex flex-wrap gap-3"><a href="#model" className="text-13 text-primary">模型不可用 → 查看模型配置</a><a href="#mcp" className="text-13 text-primary">工具鉴权失败 → 重连 MCP</a><Link href="/preview/ai-capability-studio/workbench" className="text-13 text-primary">返回 Skill 工作台重新试跑</Link></div></section>
+      <RunFailurePreview currentModelRevision={state.revision} />
     </div>
   </main>;
 }

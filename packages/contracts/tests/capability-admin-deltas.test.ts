@@ -10,8 +10,15 @@ describe("proposed administration operation deltas", () => {
     expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, serverId: "server-2" } }).success).toBe(false);
     expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, serverId: undefined } }).success).toBe(false);
     for (const field of ["added", "removed", "signatureChanged"] as const) expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, [field]: ["mcp:server-2.search"] } }).success).toBe(false);
+    for (const field of ["added", "removed", "signatureChanged"] as const) {
+      expect(mcpDiscoveryExchange.safeParse({ request: { ...request, serverId: "mcp-crm" }, response: { ...response, serverId: "mcp-crm", [field]: ["mcp:crm.search"] } }).success).toBe(true);
+      expect(mcpDiscoveryExchange.safeParse({ request: { ...request, serverId: "mcp-crm" }, response: { ...response, serverId: "mcp-crm", [field]: ["mcp:other.search"] } }).success).toBe(false);
+    }
     const toolFields = existing.discoverRemoteMcpTools.out.shape.tools.element.shape;
     const tool = { serverId: "server-2", fullName: "mcp:server-2.search", signature: "search", schemaFingerprint: "fingerprint", sideEffect: toolFields.sideEffect.options[0], authScope: toolFields.authScope.options[0] };
+    const canonical = { request: { ...request, serverId: "mcp-crm" }, response: { ...response, serverId: "mcp-crm", tools: [{ ...tool, serverId: "mcp-crm", fullName: "mcp:crm.search" }], tightenedByCapRecheck: [{ toolFullName: "mcp:crm.search", fromAuthScope: "全体成员", toAuthScope: "需人工确认每次", newSideEffect: "对外发送" }] } };
+    expect(mcpDiscoveryExchange.safeParse(canonical).success).toBe(true);
+    expect(mcpDiscoveryExchange.safeParse({ ...canonical, response: { ...canonical.response, tightenedByCapRecheck: [{ ...canonical.response.tightenedByCapRecheck[0], toolFullName: "mcp:other.search" }] } }).success).toBe(false);
     expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, tools: [tool] } }).success).toBe(false);
     expect(mcpDiscoveryExchange.safeParse({ request, response: { ...response, tools: [{ ...tool, serverId: "server-1", fullName: "mcp:server-1.search" }] } }).success).toBe(true);
   });

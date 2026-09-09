@@ -1,6 +1,6 @@
 /** Review-only deltas over existing operations. No production export or route replacement. */
 import { z } from "zod";
-import { AgentRuntimeError, operations as existing } from "./agent-runtime";
+import { AgentRuntimeError, serverSlugOf, operations as existing } from "./agent-runtime";
 import { CapabilityModelConfigRef, CapabilityModelRuntimeBinding, McpCredentialMutation } from "./capability-runtime-policy";
 
 const ConfigRevision = CapabilityModelConfigRef.shape.configRevision;
@@ -87,5 +87,5 @@ export const modelEvidenceExchanges = {
 export const mcpDiscoveryExchange = z.object({ request: operations.discoverRemoteMcpTools.in, response: operations.discoverRemoteMcpTools.out }).strict()
   .refine(({ request, response }) => request.serverId === response.serverId && response.tools.every(tool => tool.serverId === request.serverId) &&
     [...response.tools.map(tool => tool.fullName), ...response.added, ...response.removed, ...response.signatureChanged, ...response.tightenedByCapRecheck.map(tool => tool.toolFullName)]
-      .every(name => name.startsWith(`mcp:${request.serverId}.`) && name.length > `mcp:${request.serverId}.`.length),
+      .every(name => name.startsWith(`mcp:${serverSlugOf(request.serverId)}.`) && name.length > `mcp:${serverSlugOf(request.serverId)}.`.length),
     "discovery result and every tool must belong to the requested server");

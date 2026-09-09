@@ -1,11 +1,12 @@
 /** Interactive design fixture only; no provider, credential or database calls. */
-import { AdmissionTestItem, AdmissionVerdict, ModelStatus, McpConnectionStatus } from "@repo/contracts/agent-runtime";
+import { AdmissionTestItem, AdmissionVerdict, ModelStatus, McpConnectionStatus, ToolAuthScopeT, ToolSideEffectT, checkToolScopeCap, checkToolScopeWithinServer } from "@repo/contracts/agent-runtime";
 import { z } from "zod";
 
 type TestItem = z.infer<typeof AdmissionTestItem>;
 type Verdict = z.infer<typeof AdmissionVerdict>;
 export type GovernancePreview = {
   revision: number;
+  probe: { revision: number; reachable: boolean } | null;
   status: z.infer<typeof ModelStatus>;
   evidence: { item: TestItem; revision: number; verdict: Verdict; evidence: string }[];
   credentialRevision: number;
@@ -13,28 +14,33 @@ export type GovernancePreview = {
   endpoint: string;
   credentialConfigured: boolean;
   connectionStatus: z.infer<typeof McpConnectionStatus>;
-  grantedTools: string[];
+  toolScopes: Record<string, ToolAuthScopeT>;
+  toolEffects: Record<string, ToolSideEffectT>;
+  discoveryChanged: boolean;
   discoveredTools: string[];
   notice: string;
 };
 export const admissionItems = AdmissionTestItem.options;
 export function initialGovernancePreview(): GovernancePreview {
-  return { revision: 1, status: "待测试", evidence: [], credentialRevision: 1, configRevision: 1, endpoint: "https://example.test/mcp",
-    credentialConfigured: true, connectionStatus: "凭据失效", grantedTools: ["search"],
-    discoveredTools: ["search"], notice: "演示配置尚未完成准入测试。" };
+  return { revision: 1, probe: null, status: "待测试", evidence: [], credentialRevision: 1, configRevision: 1, endpoint: "https://example.test/mcp",
+    credentialConfigured: true, connectionStatus: "凭据失效", toolScopes: { search: "仅某团队", legacy_search: "仅某团队" }, toolEffects: { search: "只读", legacy_search: "只读" }, discoveryChanged: false,
+    discoveredTools: ["search", "legacy_search"], notice: "演示配置尚未完成准入测试。" };
 }
 export function missingAdmission(state: GovernancePreview) {
-  return admissionItems.filter(item => state.evidence.filter(record => record.item === item && record.revision === state.revision).at(-1)?.verdict !== "通过");
+  return admissionItems.filter(item => (item === "连通性" && state.probe?.revision === state.revision && !state.probe.reachable) || state.evidence.filter(record => record.item === item && record.revision === state.revision).at(-1)?.verdict !== "通过");
 }
 export type GovernanceAction =
+  | { type: "probe"; revision: number; reachable: boolean }
   | { type: "configure"; expectedRevision: number }
   | { type: "test"; item: TestItem; revision: number; verdict: Verdict; evidence: string }
   | { type: "enable"; expectedRevision: number }
   | { type: "disable" }
   | { type: "reconnect"; mutation: "keep" | "replace" | "clear"; expectedRevision: number; success: boolean; endpoint?: string }
-  | { type: "grant"; tool: string };
+  | { type: "grant"; tool: string; scope: ToolAuthScopeT }
+  | { type: "discover-changes" };
 export function governanceReducer(state: GovernancePreview, action: GovernanceAction): GovernancePreview {
   switch (action.type) {
+    case "probe": return { ...state, probe: { revision: action.revision, reachable: action.reachable }, notice: action.reachable ? "演示探测成功，仍需人工判读。" : "本次探测失败：当前版本暂不能启用，请修复连接并重新探测。" };
     case "configure":
       return action.expectedRevision !== state.revision ? { ...state, notice: "配置已变化，请重新读取后保存。" } :
         { ...state, revision: state.revision + 1, status: "待测试", notice: "配置已保存；旧测试保留在历史中，当前配置需要重新测试。" };
@@ -49,16 +55,25 @@ export function governanceReducer(state: GovernancePreview, action: GovernanceAc
     case "disable": return { ...state, status: "已停用", notice: "演示模型已停用；新任务应返回依赖修复入口。" };
     case "reconnect":
       if (action.expectedRevision !== state.configRevision) return { ...state, notice: "连接配置已变化，请重载后再连接。" };
-      if (!action.success) return { ...state, connectionStatus: "凭据失效", notice: "演示连接失败，原凭据与工具授权均保留。" };
+      if (!action.success) return { ...state, notice: "本次候选连接失败；已保存连接的状态、凭据与工具授权均保留。" };
       if (action.mutation === "keep" && !state.credentialConfigured) return { ...state, notice: "没有可保留的凭据，请选择替换或匿名连接。" };
       return { ...state, credentialConfigured: action.mutation === "clear" ? false : state.credentialConfigured || action.mutation === "replace",
         endpoint: action.endpoint ?? state.endpoint,
         configRevision: state.configRevision + (action.mutation !== "keep" || (action.endpoint !== undefined && action.endpoint !== state.endpoint) ? 1 : 0),
         credentialRevision: state.credentialRevision + (action.mutation === "keep" ? 0 : 1), connectionStatus: "已连接",
         discoveredTools: [...new Set([...state.discoveredTools, "export_report"])],
+        toolScopes: { export_report: "未开放", ...state.toolScopes }, toolEffects: { ...state.toolEffects, export_report: "对外发送" },
         notice: "演示连接成功；新发现的 export_report 尚未授权。" };
+    case "discover-changes":
+      if (state.connectionStatus !== "已连接") return { ...state, notice: "先恢复连接，再重新发现工具。" };
+      return { ...state, discoveryChanged: true, discoveredTools: ["search", "export_report"],
+        toolEffects: { search: "对外发送", export_report: "对外发送" },
+        toolScopes: { search: state.toolScopes.search === "未开放" ? "未开放" : "需人工确认每次", export_report: state.toolScopes.export_report ?? "未开放" },
+        notice: "演示发现完成：legacy_search已移除，原引用显示依赖失败；search签名及副作用变化，范围已按封顶收紧。" };
     case "grant":
-      return !state.discoveredTools.includes(action.tool) ? state : { ...state, grantedTools: state.grantedTools.includes(action.tool) ?
-        state.grantedTools.filter(tool => tool !== action.tool) : [...state.grantedTools, action.tool], notice: "演示工具授权已更新；实际调用仍需检查 Agent 白名单与组织权限。" };
+      if (!state.discoveredTools.includes(action.tool)) return state;
+      if (!checkToolScopeCap({ sideEffect: state.toolEffects[action.tool]!, authScope: action.scope }).ok ||
+          !checkToolScopeWithinServer({ serverScope: "仅某团队", toolScope: action.scope }).ok) return { ...state, notice: "授权范围超过服务器上限或工具副作用限制。" };
+      return { ...state, toolScopes: { ...state.toolScopes, [action.tool]: action.scope }, notice: "演示工具范围已更新；实际调用仍需检查评审状态、Agent白名单与组织权限。" };
   }
 }

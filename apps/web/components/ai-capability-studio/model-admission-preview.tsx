@@ -28,17 +28,19 @@ function JudgmentCard({ item, revision, blocked, latest, onRecord }: {
   </li>;
 }
 
-export function ModelAdmissionPreview({ revision, blocked, evidence, onRecord }: {
+export function ModelAdmissionPreview({ revision, blocked, evidence, onRecord, probe, onProbe }: {
   revision: number; blocked: boolean; evidence: RecordInput[]; onRecord: (record: RecordInput) => void;
+  probe: { revision: number; reachable: boolean } | null; onProbe: (probe: { revision: number; reachable: boolean }) => void;
 }) {
-  const [probe, setProbe] = useState<{ revision: number; reachable: boolean } | null>(null);
+
   return <div className="space-y-4">
     <section className="space-y-3 rounded-control border border-border p-3" aria-label="连接探测与人工判读分离">
       <h3 className="text-13 font-semibold">1. 连通性探测</h3>
       <p className="text-12 text-muted-foreground">探测结果只作为证据，不自动判定五项测试通过。</p>
-      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={blocked} data-testid="model-probe-success" onClick={() => setProbe({ revision, reachable: true })}>模拟连通成功</Button><Button variant="outline" disabled={blocked} onClick={() => setProbe({ revision, reachable: false })}>模拟凭据失败</Button></div>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={blocked} data-testid="model-probe-success" onClick={() => onProbe({ revision, reachable: true })}>模拟连通成功</Button><Button variant="outline" disabled={blocked} onClick={() => onProbe({ revision, reachable: false })}>模拟凭据失败</Button></div>
       {probe && <p className="text-12" data-testid="model-probe-result">r{probe.revision} · {probe.reachable ? "连通成功（演示）" : "凭据失败（演示）"}{probe.revision !== revision ? " · 已过期，未应用到当前配置" : " · 等待人工判读"}</p>}
     </section>
+    {probe?.revision === revision && !probe.reachable && <p role="alert" className="text-12 text-destructive">本版本探测失败与人工通过结论冲突：保留判读记录，但禁止启用；请修复连接并重新探测成功。</p>}
     <h3 className="text-13 font-semibold">2. 准入判读与证据</h3>
     <ul className="space-y-3">{AdmissionTestItem.options.map(item => <JudgmentCard key={item} item={item} revision={revision} blocked={blocked}
       latest={evidence.filter(record => record.item === item && record.revision === revision).at(-1)?.verdict} onRecord={onRecord} />)}</ul>

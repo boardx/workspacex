@@ -23,3 +23,11 @@
 模型冲突现在并列显示最新配置与本地修改，明确勾选比较后才可重新应用。MCP两个结果模拟按钮共享提交前置，未确认clear或空replace都禁用。新代码待提交后的独立复审与浏览器验证。
 
 #3241远端3975ff7b的fullstack-smoke失败日志证明GitHub403额度耗尽，已在23:03:49重置后重跑run34363590624的失败job，attempt2排队中；未判绿或合并。Mac锁屏与身份凭据未解除。Mermaid保持生产紫色、设计黄色、外部阻塞红色，并将设计工作量复估增加1.5人日，总46人日。
+
+## 2026-09-09 23:26：管理影响与权限原型，合入时间审计
+
+ModelImpactPreview复用DisableDialog，加入引用未知/失败/过期禁确认、四类引用、两种停用方式、新选择移除、组合成员只读阻塞。3项交互测试通过。共享弹窗的reason目前不会传给onConfirm，正式生产接线必须修正这条审计数据链；本原型不发送停用请求、不产生真实审计。
+
+MCP逐工具改用既有ToolAuthScope五值，复用checkToolScopeCap/checkToolScopeWithinServer；发现演示展示四类差异、移除旧引用失败和副作用变化后的即时收紧，连接不自动改变评审。治理状态7项和组件7项通过，web类型检查/lint通过。
+
+#3241已合入6fd11c5964bda2c5a6eb8d118011be6ed09cb0e5，head3975ff7b当前CI全绿。但合入23:04:21早于重跑成功23:22:17。读取全部34条check历史/commit statuses和merge第一父0bfbb0af的真实策略，judgeClosingPrGreen返回violation（合入时fullstack-smoke FAILURE）。已在PR评论交回协调者；不将事后绿当合入时绿，不自行改passing或回滚业务修复。
