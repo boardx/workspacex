@@ -73,3 +73,44 @@ export const DEFAULT_RUN_POLL_INTERVAL_MS = 400;
  *  证据那节：必须覆盖"一次模型调用（300s）+ 完整一轮沙箱重试循环（3×120s=360s）"，
  *  不是只覆盖模型调用本身。 */
 export const DEFAULT_RUN_MAX_POLLS = 2250;
+
+/**
+ * ## 2026-09-09 —— 这个预算把「上游卡住」翻译成了「测试超时」（issue: agui-bridge 30s）
+ *
+ * 上面两节把预算一路提到 900s，理由都成立（真实 devapp 里 run 确实要跑那么久）。
+ * 但它同时产生了一个没人算过的副作用：**这一层没有任何调节口**——控制器从不传
+ * `maxPolls`，所以任何进程里的中继都是 900s，包括测试进程。
+ *
+ * `apps/api` 的 agui-bridge 系列测试每条用例自己钉的上限是 30s（真实耗时 0.5–1.1s，
+ * 30 倍余量）。于是任何一次 run 没能走到终态，链条是确定的：
+ *   1. 服务端老老实实按 900s 继续轮询，SSE 响应体一直不结束；
+ *   2. 测试里 `await response.text()` **没有自己的 deadline**，它把活性外包给了
+ *      服务端的耐心 —— 报 `Test timed out in 30000ms`，不说是谁卡住；
+ *   3. vitest 的超时不会掐掉那条 undici 连接，socket 还开着，于是 `afterAll` 的
+ *      `app.close()` 等在这条连着的连接上 —— 再报一条 `Hook timed out in 120000ms`，
+ *      **整个文件**连同其余全部通过的用例一起判红。
+ * 这正是 CI 上观察到的成对签名（实测复现：30109ms + 120000ms，总时长 156.8s），
+ * 也正是它一直被当成抖动重跑掉的原因：症状是「整文件红」，重跑就绿。
+ *
+ * ⇒ 预算保持不变，但**可被环境变量收窄**。测试进程把它设成秒级，卡住的 run 就会
+ *   走 `agui-bridge.ts` 自己的 `{ kind: "timeout" }` 分支，在测试预算内产出一条
+ *   **指名道姓的** RUN_ERROR 断言失败，而不是一条什么都不说的 `Test timed out`。
+ *   注意这不是「调超时把问题藏起来」的反面操作：默认值一个字节没动，改的是
+ *   「测试进程愿不愿意等一刻钟」。
+ */
+export const RUN_RELAY_MAX_WAIT_MS_ENV = "KERNEL_RUN_RELAY_MAX_WAIT_MS";
+
+/**
+ * 中继愿意等一个 run 走到终态的最长时间，换算成轮询次数。
+ * 默认 `DEFAULT_RUN_POLL_INTERVAL_MS × DEFAULT_RUN_MAX_POLLS`（900s，与上面两节一致）；
+ * 只有显式设了合法正整数的 `KERNEL_RUN_RELAY_MAX_WAIT_MS` 才收窄。
+ */
+export function resolveRunMaxPolls(pollIntervalMs: number = DEFAULT_RUN_POLL_INTERVAL_MS): number {
+  const raw = process.env[RUN_RELAY_MAX_WAIT_MS_ENV];
+  if (raw === undefined || raw.trim() === "") return DEFAULT_RUN_MAX_POLLS;
+  const ms = Number(raw);
+  // 坏值 fail open 回默认值而不是静默变成 0 轮询——一个打错的环境变量不该把每个
+  // run 都变成「立刻超时」。
+  if (!Number.isFinite(ms) || ms <= 0) return DEFAULT_RUN_MAX_POLLS;
+  return Math.max(1, Math.ceil(ms / Math.max(1, pollIntervalMs)));
+}
