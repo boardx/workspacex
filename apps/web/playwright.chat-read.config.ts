@@ -646,7 +646,26 @@ export default defineConfig({
         "docker compose -f ../api/docker-compose.dev.yml -p \"$COMPOSE_PROJECT_NAME\" exec -T postgres createdb -U postgres \"$WORKSPACEX_DB\"",
         "pnpm --filter @repo/api migrate",
         "pnpm --filter @repo/api exec tsx scripts/seed-chat-read-e2e.ts",
-        "pnpm --filter @repo/api start",
+        /*
+         * 取证缺口（run 34409361606 / job 102659917921 的分诊结论第 ③ 条）——**这条车道
+         * 此前不采集 api 进程自己的输出**。那一跑七条红里有三条（A/B 三条 HITL 连续性）
+         * 的真实成因是一次服务端抛错，而 `MODEL_CALL_FAILED` 这个码在整份 job 日志里
+         * 出现 **0 次**：它只活在 run 视图的 JSON 里，api 进程的 stdout/stderr 谁都没留。
+         * 于是「红在哪一层」只能靠读代码猜——本仓那条「没有证据 = 没有完成」的反面。
+         *
+         * `2>&1 | tee` 而不是把 Playwright 的 `stdout: "pipe"` 打开：后者只把输出转印到
+         * 终端（还是只在 job 日志里，且与 22 个 spec 的输出交织），落不了盘、进不了
+         * evidence artifact。这里写进的正是 workflow 已经在上传的那个目录
+         * （`.github/workflows/harness-verify.yml` 的 "Upload chat-path-coverage evidence"
+         * 步骤逐字列了 `apps/web/e2e/__evidence__/chat-path-coverage/`），不新增上传路径。
+         *
+         * ⚠ 每轮先清空（`tee` 不带 `-a`）：上一轮的产物留在里面，会让一个失败 run 的证据包
+         * 看起来像成功的那一份（fd9c6fb 同日的教训，`ae7d40d9` 已在真实模型证据包上修过
+         * 同一个形状）。webServer 的 cwd 是本 config 所在目录 `apps/web`，与上面那几条
+         * `-f ../api/docker-compose.dev.yml` 是同一个相对基准。
+         */
+        "mkdir -p e2e/__evidence__/chat-path-coverage",
+        "pnpm --filter @repo/api start 2>&1 | tee e2e/__evidence__/chat-path-coverage/api-server.log",
       ].join(" && "),
       url: `http://127.0.0.1:${apiPort}/healthz`,
       timeout: 120_000,
