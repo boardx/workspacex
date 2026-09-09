@@ -464,7 +464,7 @@ jobs:
   # Stable merge check: matrix gates-test reports success only when every shard passes.
   # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
   backend-required:
-    if: always() && github.event_name == 'pull_request'
+    if: always() && !cancelled() && github.event_name == 'pull_request'
     needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
