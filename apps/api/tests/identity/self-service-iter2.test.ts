@@ -77,7 +77,7 @@ async function uploadAvatar(token: string, bytes: Buffer, contentType: string): 
     "meta",
     JSON.stringify({ filename: "avatar.png", sizeBytes: bytes.byteLength, sha256: "irrelevant-for-server-check", contentType }),
   );
-  form.set("file", new Blob([bytes], { type: contentType }), "avatar.png");
+  form.set("file", new Blob([new Uint8Array(bytes)], { type: contentType }), "avatar.png");
   return fetch(`${BASE}/identity/me/avatar`, {
     method: "POST",
     headers: { authorization: `Bearer ${token}` },
