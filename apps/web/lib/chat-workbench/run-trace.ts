@@ -111,3 +111,35 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
   }
   return entries;
 }
+
+export type TraceRow =
+  | { kind: "entry"; id: string; entry: TraceEntry }
+  | { kind: "skill-group"; id: string; stage: string; members: readonly TraceEntry[] };
+/**
+ * issue #3218 —— 呈现层折叠，**不是**事实层去重。
+ *
+ * 首轮一次问答真的会发生 20 次 `metadata_discovered`（组织内可见技能的全量发现），
+ * 事实流如实记录每一条是对的；把 20 行平铺给用户看不是。这里把**相邻的**同阶段
+ * 发现事实归成一行可展开的条目，成员一条不少地留在展开层里。
+ *
+ * 计数只有一处：面板顶部的「技能活动 N 项」仍然数 `traceEntries` 的事实条目，
+ * 不数分组行——分组是从同一个 `entries` 派生出来的视图，不是第二份事实源。
+ */
+const GROUPED_STAGES = new Set(["metadata_discovered"]);
+export function groupTraceRows(entries: readonly TraceEntry[]): TraceRow[] {
+  const rows: TraceRow[] = [];
+  for (const entry of entries) {
+    const groupable = entry.kind === "skill" && entry.activityStage !== undefined && GROUPED_STAGES.has(entry.activityStage);
+    const previous = rows.at(-1);
+    if (groupable && previous?.kind === "skill-group" && previous.stage === entry.activityStage) {
+      rows[rows.length - 1] = { ...previous, members: [...previous.members, entry] };
+      continue;
+    }
+    if (groupable && previous?.kind === "entry" && previous.entry.kind === "skill" && previous.entry.activityStage === entry.activityStage) {
+      rows[rows.length - 1] = { kind: "skill-group", id: `group:${previous.entry.id}`, stage: entry.activityStage!, members: [previous.entry, entry] };
+      continue;
+    }
+    rows.push({ kind: "entry", id: entry.id, entry });
+  }
+  return rows;
+}
