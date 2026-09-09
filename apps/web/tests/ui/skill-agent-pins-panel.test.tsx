@@ -63,6 +63,34 @@ describe("real Agent Skill pin controls", () => {
     agree(); click("恢复本页上次 Skill 固定项");
     await waitFor(() => expect(m.set).toHaveBeenLastCalledWith("agent-1", "agent-v3", ["keep-1", "skill-old", "keep-2", "must-preserve"]));
   });
+  it("never offers Agent A recovery after switching to Agent B", async () => {
+    m.list.mockResolvedValue([{ agentId: "agent-1", name: "Agent One" }, { agentId: "agent-2", name: "Agent Two" }]);
+    await ready(); m.set.mockResolvedValue({ agentId: "agent-1", versionId: "agent-v2", skillVersionIds: ["keep-1", "skill-new", "keep-2"] }); m.get.mockResolvedValue(after);
+    agree(); click("固定所示 Skill 版本"); await screen.findByRole("button", { name: "恢复本页上次 Skill 固定项" });
+    m.get.mockResolvedValue({ agentId: "agent-2", publishedVersionId: "b-head", pins: [{ skillId: "skill-1", versionId: "b-old" }] });
+    fireEvent.change(screen.getByLabelText("选择 Agent"), { target: { value: "agent-2" } });
+    await waitFor(() => expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("b-head"));
+    expect(screen.queryByRole("button", { name: "恢复本页上次 Skill 固定项" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/skill-old/)).not.toBeInTheDocument();
+    agree(); click("固定所示 Skill 版本");
+    await waitFor(() => expect(m.set).toHaveBeenLastCalledWith("agent-2", "b-head", ["skill-new"]));
+  });
+  it("ignores an Agent A write resolving after a forced Agent selection change", async () => {
+    m.list.mockResolvedValue([{ agentId: "agent-1", name: "Agent One" }, { agentId: "agent-2", name: "Agent Two" }]);
+    let finish!: (value: unknown) => void; m.set.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    await ready(); agree(); click("固定所示 Skill 版本");
+    expect(screen.getByLabelText("选择 Agent")).toBeDisabled();
+    // Deliberately exercise the async boundary even though ordinary user switching is disabled while saving.
+    m.get.mockResolvedValue({ agentId: "agent-2", publishedVersionId: "b-head", pins: [] });
+    fireEvent.change(screen.getByLabelText("选择 Agent"), { target: { value: "agent-2" } });
+    await waitFor(() => expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("b-head"));
+    const reads = m.get.mock.calls.length;
+    await act(async () => { finish({ agentId: "agent-1", versionId: "a-late-head", skillVersionIds: ["skill-new"] }); });
+    expect(m.get).toHaveBeenCalledTimes(reads);
+    expect(screen.getByTestId("current-agent-pins")).toHaveTextContent("b-head");
+    expect(screen.queryByRole("button", { name: "恢复本页上次 Skill 固定项" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/a-late-head/)).not.toBeInTheDocument();
+  });
   it("isolates an in-flight write when the authenticated organization changes", async () => {
     let finish!: (value: unknown) => void; m.set.mockReturnValue(new Promise(resolve => { finish = resolve; }));
     const view = render(<SkillAgentPinsPanel skillId="skill-1" />); await screen.findByText(/Agent One/); select(); await screen.findByTestId("current-agent-pins"); agree(); click("固定所示 Skill 版本");
