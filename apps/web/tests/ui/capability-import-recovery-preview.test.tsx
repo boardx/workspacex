@@ -1,0 +1,67 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { ImportRecoveryPreview } from "@/components/ai-capability-studio/import-recovery-preview";
+const record = (id: string) => within(screen.getByTestId(`upload-${id}`));
+const click = (id: string, name: string) => fireEvent.click(record(id).getByRole("button", { name }));
+const agree = (id: string) => fireEvent.click(record(id).getByRole("checkbox"));
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+describe("upload retention recovery demonstration", () => {
+  it("cancels active preflight and rejects a late completion without resurrecting it", () => {
+    render(<ImportRecoveryPreview />);
+    expect(record("research").getByText("预检进行中")).toBeVisible();
+    expect(record("research").getByText("归档保留中")).toBeVisible();
+    expect(record("research").queryByRole("checkbox")).not.toBeInTheDocument();
+    click("research", "取消预检（演示）");
+    expect(record("research").getByText("已取消")).toBeVisible();
+    expect(screen.getByTestId("upload-research")).toHaveTextContent("记录版本 2");
+    click("research", "模拟旧预检完成");
+    expect(record("research").getByRole("status")).toHaveTextContent("旧预检结果已拒绝");
+    expect(record("research").getByText("已取消")).toBeVisible();
+    expect(screen.getByTestId("upload-research")).toHaveTextContent("记录版本 2");
+  });
+  it("requires discard consent and own-worker release even after cancellation", () => {
+    render(<ImportRecoveryPreview />);
+    click("research", "取消预检（演示）");
+    expect(record("research").getByRole("button", { name: "确认丢弃归档（演示）" })).toBeDisabled();
+    agree("research"); click("research", "确认丢弃归档（演示）");
+    expect(record("research").getByRole("status")).toHaveTextContent("来源仍被占用");
+    expect(record("research").getByText("归档保留中")).toBeVisible();
+    expect(record("research").getByRole("checkbox")).not.toBeChecked();
+    click("research", "模拟预检释放占用");
+    agree("research"); click("research", "确认丢弃归档（演示）");
+    expect(record("research").getByText("归档已丢弃")).toBeVisible();
+    expect(record("research").getByText("已取消")).toBeVisible();
+    expect(screen.getByTestId("upload-research")).toHaveTextContent("记录版本 3");
+    expect(record("research").queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+  it("keeps expired metadata visible but unusable, and protects referenced drafts from discard", () => {
+    render(<ImportRecoveryPreview />);
+    expect(record("archive").getByText("预检成功")).toBeVisible();
+    expect(record("archive").getByText("归档已过期")).toBeVisible();
+    expect(record("archive").getByRole("button", { name: "使用此归档（演示）" })).toBeDisabled();
+    const draftBefore = screen.getByTestId("import-batch-history").textContent;
+    agree("archive"); click("archive", "确认丢弃归档（演示）");
+    expect(record("archive").getByRole("status")).toHaveTextContent("已有草稿保持原样");
+    expect(record("archive").getByText("归档已过期")).toBeVisible();
+    click("archive", "模拟其他读取释放占用");
+    agree("archive"); click("archive", "确认丢弃归档（演示）");
+    expect(record("archive").getByText("归档已丢弃")).toBeVisible();
+    expect(record("archive").getByText("预检成功")).toBeVisible();
+    expect(screen.getByTestId("import-batch-history").textContent).toBe(draftBefore);
+    expect(screen.getByTestId("import-batch-history")).toHaveTextContent("research-draft");
+  });
+  it("labels fixed limits and resets on remount without network or Web Storage writes", () => {
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const storage = vi.spyOn(Storage.prototype, "setItem");
+    const view = render(<ImportRecoveryPreview />);
+    expect(screen.getByText(/并非真实生产配置/)).toBeVisible();
+    expect(screen.getByText(/刷新页面会重置/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "返回导入向导示例" })).toHaveAttribute("href", "/preview/ai-capability-studio/import");
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    click("research", "取消预检（演示）");
+    view.unmount(); render(<ImportRecoveryPreview />);
+    expect(record("research").getByText("预检进行中")).toBeVisible();
+    expect(screen.getByTestId("upload-research")).toHaveTextContent("记录版本 1");
+    expect(fetch).not.toHaveBeenCalled(); expect(storage).not.toHaveBeenCalled();
+  });
+});

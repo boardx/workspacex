@@ -50,12 +50,18 @@ export function SourceConnectionsPreview() {
     sourceConnectionExchanges.revokeSourceConnection.parse({ request: { connectionId: connection.connectionId, expectedRevision: connection.revision }, response });
     setConnection(response); setTransaction(null); setGranted([]); setNotice("演示连接已撤销。后续读取不可用，已有草稿内容保持原样。");
   };
+  const expireConnection = () => {
+    if (!connection || active || connection.status !== "active") return;
+    setConnection(GithubSourceConnection.parse({ ...connection, revision: connection.revision + 1, status: "reauthorization-required" }));
+    setTransaction(null);
+    setNotice("演示连接已失效，需要重新授权；已有仓库清单保留供核对，目前不可读取。");
+  };
   const returnTarget = transaction?.returnTarget.kind ?? target;
   return <main className="min-h-screen bg-background p-6 text-background-foreground"><div className="mx-auto max-w-4xl space-y-5">
     <Link href="/preview/ai-capability-studio/import" className="text-13 text-primary">返回导入向导示例</Link>
     <header><h1 className="text-28 font-semibold">连接私有来源</h1><p className="mt-2 text-13 text-muted-foreground">独立演示 · 不调用真实授权或生产 API，不持久化。刷新页面会重置全部演示状态。</p></header>
     <section className="space-y-3 rounded-container border border-border bg-card p-5"><h2 className="text-16 font-semibold">个人 GitHub 连接</h2><p className="text-12">连接仅供本人读取明确选择的仓库，不自动授予组织其他成员。取消、失败或撤销均不修改已有草稿。</p>
-      {connection ? <div data-testid="source-current-connection" className="space-y-2 text-13"><p>{connection.displayName} · {connection.status === "active" ? "可读取" : "已撤销"}</p><p>{connection.connectionId} · 版本 {connection.revision}</p>{granted.length > 0 && <ul>{repositories.filter(repo => granted.includes(repo.repositoryId)).map(repo => <li key={repo.repositoryId}>{repo.fullName} · 只读</li>)}</ul>}<Button variant="outline" disabled={active || connection.status === "revoked"} onClick={revoke}>撤销演示连接</Button></div> : <p className="text-13">还没有来源连接。先完成演示授权，再选择仓库。</p>}
+      {connection ? <div data-testid="source-current-connection" className="space-y-2 text-13"><p>{connection.displayName} · {{ active: "可读取", "reauthorization-required": "需要重新授权", revoked: "已撤销" }[connection.status]}</p><p>{connection.connectionId} · 版本 {connection.revision}</p>{granted.length > 0 && <ul>{repositories.filter(repo => granted.includes(repo.repositoryId)).map(repo => <li key={repo.repositoryId}>{repo.fullName} · {connection.status === "active" ? "只读" : "当前不可读取"}</li>)}</ul>}<div className="flex flex-wrap gap-2"><Button variant="outline" disabled={active || connection.status === "revoked"} onClick={revoke}>撤销演示连接</Button><Button variant="outline" disabled={active || connection.status !== "active"} onClick={expireConnection}>模拟连接失效</Button></div></div> : <p className="text-13">还没有来源连接。先完成演示授权，再选择仓库。</p>}
       <fieldset disabled={active} className="space-y-2"><legend className="text-13">完成后返回</legend>{([["import", "导入向导"], ["upstream", "草稿来源修复"], ["connections", "连接管理"]] as const).map(([value, label]) => <label key={value} className="flex gap-2 text-12"><input type="radio" name="source-return" value={value} checked={target === value} onChange={() => { setTarget(value); setTransaction(null); }} />{label}</label>)}</fieldset>
       <Button variant="primary" disabled={active} onClick={begin}>{connection ? "重新授权（演示）" : "开始连接（演示）"}</Button>
     </section>

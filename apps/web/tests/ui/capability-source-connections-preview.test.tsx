@@ -7,6 +7,19 @@ const click = (name: string) => fireEvent.click(screen.getByRole("button", { nam
 const select = () => fireEvent.click(screen.getByRole("checkbox", { name: /private-research/ }));
 const connect = () => { click("开始连接（演示）"); click("模拟授权成功回调"); select(); click("确认所选仓库（演示）"); };
 describe("personal source connection demonstration", () => {
+  it("distinguishes an expired connection from an expired authorization transaction", () => {
+    render(<SourceConnectionsPreview />); connect();
+    click("模拟连接失效");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("需要重新授权");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("版本 2");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("当前不可读取");
+    expect(screen.getByTestId("source-current-connection")).not.toHaveTextContent("已撤销");
+    click("重新授权（演示）"); click("模拟授权过期");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("需要重新授权");
+    click("重新授权（演示）"); click("模拟授权成功回调"); select(); click("确认所选仓库（演示）");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("可读取");
+    expect(screen.getByTestId("source-current-connection")).toHaveTextContent("版本 3");
+  });
   it("requires an explicit selection after the simulated callback and never links to real authorization", () => {
     render(<SourceConnectionsPreview />);
     expect(screen.getByText(/刷新页面会重置/)).toBeVisible();

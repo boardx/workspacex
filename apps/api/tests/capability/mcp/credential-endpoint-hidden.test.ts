@@ -3,6 +3,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+// Shared with the web suite; F52 must exercise the same schema/JSX boundary implementation.
+import { collectKeys, SECRET_KEY_RE, secretRenderSinks } from "../../../../../packages/contracts/tests/helpers/credential-boundary";
 import { agentRuntime as A } from "@repo/contracts";
 
 /**
@@ -26,7 +28,7 @@ import { agentRuntime as A } from "@repo/contracts";
  *
  * ## 为什么界面那一段也在 api 侧
  *
- * 它**不是 DOM 断言**（没有 jsdom、没有 render），是对渲染源的 fs + 正则结构扫描，
+ * 它**不是 DOM 断言**（没有 jsdom、没有 render），是对渲染源的 fs + 共享 AST / 声明键结构扫描，
  * 所以在 api 的 node 环境里照跑不误。放在这里是因为 **F52 的验收命令只跑 api**——
  * 把这条守在 web 侧，等于「验收通过」与「端点没泄露」之间没有关系，
  * 而 `mcp-policy-screen.tsx` 那处泄露**本来就是真的存在过**。
@@ -35,34 +37,6 @@ import { agentRuntime as A } from "@repo/contracts";
 
 /* ───────────────────── schema 键的递归扫描器 ───────────────────── */
 
-/** 收集一个 zod schema 里出现的**全部**键名（递归穿透 array/optional/nullable/object/union） */
-function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
-  if (depth > 14) return [];
-  const def = (schema as unknown as { _def: Record<string, unknown> })._def;
-  switch (def.typeName as string) {
-    case "ZodObject": {
-      const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
-      return Object.entries(shape).flatMap(([k, v]) => [k, ...collectKeys(v as z.ZodTypeAny, depth + 1)]);
-    }
-    case "ZodArray":
-      return collectKeys(def.type as z.ZodTypeAny, depth + 1);
-    case "ZodOptional":
-    case "ZodNullable":
-    case "ZodDefault":
-      return collectKeys(def.innerType as z.ZodTypeAny, depth + 1);
-    case "ZodEffects":
-      return collectKeys(def.schema as z.ZodTypeAny, depth + 1);
-    case "ZodUnion":
-    case "ZodDiscriminatedUnion":
-      return ((def.options as z.ZodTypeAny[]) ?? []).flatMap((o) => collectKeys(o, depth + 1));
-    case "ZodRecord":
-      return collectKeys(def.valueType as z.ZodTypeAny, depth + 1);
-    default:
-      return [];
-  }
-}
-
-const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
 const ENDPOINT_KEY_RE = /^endpoint$/i;
 
 /**
@@ -243,8 +217,16 @@ describe("F52 I-6 · 界面侧：端点原值只出现在管理员/评审人能�
     expect(body).toContain("仅组织管理员可见");
   });
 
-  it("凭据字面量不出现在任何组件里（`凭据失效` 是连接状态，不算）", () => {
-    const offenders = files.filter(([, body]) => /credential/i.test(body)).map(([f]) => f);
-    expect(offenders, `这些组件里出现了 credential：${offenders.join(", ")}`).toEqual([]);
+  it("credential 及局部别名的直接回显只允许经核实的 password 输入值", () => {
+    const offenders = files.flatMap(([file]) => secretRenderSinks(readFileSync(join(COMPONENTS, file), "utf8"))
+      .map(sink => `${file}: ${sink}`));
+    expect(offenders).toEqual([]);
+  });
+
+  it("共享检查拒绝局部别名回显，允许已知 password 写入面", () => {
+    expect(secretRenderSinks('const { credential: shown } = server; <p>{shown}</p>')).toHaveLength(1);
+    expect(secretRenderSinks('import { Input } from "@/components/ui/input"; <Input type={"password"} value={credential} />')).toEqual([]);
+    expect(collectKeys(z.lazy(() => z.object({ accessToken: z.string(), tokens: z.number() })))
+      .filter(key => SECRET_KEY_RE.test(key))).toEqual(["accessToken"]);
   });
 });

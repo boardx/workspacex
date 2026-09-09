@@ -1,5 +1,13 @@
 # 实施交接
 
+## 当前状态：2026-09-10 01:55
+
+下一批包含来源绑定/上传恢复原型、私库连接失效恢复、试运行产物读取与下载关联提案，以及 API/web 共用凭据扫描 helper。来源修复返回工作台链接已修正，真实路由存在断言已补；恢复 UI 13/13 通过。共享 guard web157/157、标准隔离API143/143通过且隔离资源清理；web/API/contracts types通过。产物读/下载14/14通过，已拒绝重复稳定artifactId而保留缺ID legacy不可下载状态。
+
+远端仍为8f26c8a23a00515c6c5652e539f62e929e08b887；其CI gates-test(1)失败来自API测试内残留旧扫描副本，本批统一helper修复。未宣称远端CI已绿。三个本地worker后续审计任务遭账号usage limit；已交付修改保留，尚未完成的baseline与draft trial缺口审计待继续。生产接线、正式签核、身份注册与完整E2E仍未完成。
+
+以下记录含历史状态，以顶部最新状态与实时信号为准。浏览器锁屏已解除，旧tab4已关闭，不要按历史锁屏段落操作。
+
 目标与范围见 requirements/00-overview.md，总工单 #3234。持续推进直到完整交付，不以原型或PR创建作为完成。
 
 主设计工作区 /private/tmp/workspacex-studio-design，分支 codex/ai-capability-studio-design，PR #3239。主任务拥有 apps/web/components/ai-capability-studio、对应preview路由和阶段材料。云端工作台任务已撤销这些路径所有权，改为评审。

@@ -2,9 +2,11 @@
  * Preserve actor-scoped 404 before reading input, stderr or artifacts. No new route. */
 import { z } from "zod";
 import { operations as existing, TrialRun } from "./skills";
+import { PublicSkillTrialRun, StoredSkillTrialArtifacts, projectSkillTrialArtifact } from "./skill-trial-artifact-download";
 
-const Subject = TrialRun.pick({ trialRunId: true, versionId: true, input: true }).strict();
+const Subject = TrialRun.pick({ trialRunId: true, versionId: true, input: true }).extend({ artifacts: StoredSkillTrialArtifacts }).strict();
 const Result = existing.getTrialRun.out.extend({
+  trialRun: PublicSkillTrialRun.nullable(),
   versionId: TrialRun.shape.versionId,
   input: TrialRun.shape.input,
 }).strict().superRefine((value, context) => {
@@ -26,5 +28,14 @@ export const skillTrialReadExchange = z.object({
   stored: Subject,
   response: Result,
 }).strict().refine(({ request, stored, response }) => request.trialRunId === stored.trialRunId &&
-  response.trialRunId === stored.trialRunId && response.versionId === stored.versionId && response.input === stored.input,
+  response.trialRunId === stored.trialRunId && response.versionId === stored.versionId && response.input === stored.input &&
+  (response.trialRun === null || response.trialRun.artifacts.length === stored.artifacts.length &&
+    response.trialRun.artifacts.every((artifact, index) => {
+      const expected = projectSkillTrialArtifact(stored.artifacts[index]!);
+      return artifact.availability === expected.availability && artifact.name === expected.name &&
+        artifact.mime === expected.mime && artifact.sizeBytes === expected.sizeBytes &&
+        (artifact.availability === "downloadable" && expected.availability === "downloadable"
+          ? artifact.artifactId === expected.artifactId && artifact.sha256 === expected.sha256
+          : artifact.availability === "unavailable" && expected.availability === "unavailable" && artifact.reason === expected.reason);
+    })),
 "all lifecycle states retain the authorized stored version and original input");
