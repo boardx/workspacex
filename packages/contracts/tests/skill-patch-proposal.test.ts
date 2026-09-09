@@ -33,4 +33,12 @@ describe("AI patch proposal draft contracts", () => {
     expect(operations.createSkillDraft.in.safeParse(request).success).toBe(true);
     expect(operations.createSkillDraft.in.safeParse({ ...request, publish: true, agentId: "agent-1" }).success).toBe(false);
   });
+  it("blank creation starts at revision one without imported or historical lineage", () => {
+    const draft = { skillId: "skill-1", draftId: "draft-1", revision: 1, snapshotDigest: digest, manifestPath: "SKILL.md", files: [{ path: "SKILL.md", digest, sizeBytes: 1 }], sourcePin: null, basedOnPublishedVersionId: null, updatedAt: now };
+    expect(operations.createSkillDraft.out.safeParse(draft).success).toBe(true);
+    const sourcePin = { source: { kind: "zip", uploadId: "upload-1", archiveDigest: digest }, sourceDigest: digest };
+    for (const patch of [{ revision: 7 }, { sourcePin }, { basedOnPublishedVersionId: "sv-existing" }]) {
+      expect(operations.createSkillDraft.out.safeParse({ ...draft, ...patch }).success).toBe(false);
+    }
+  });
 });

@@ -11,3 +11,5 @@
 - 尚未生成正式feature/sprint、签核、发布或部署。design-proposal仍为提案，不能进入claim。
 
 后续增量：新增空白创建、AI差异生成/查询/应用、临时ZIP上传策略/预检查询、从失败运行派生草稿的可执行草案；23项契约测试通过。用户原始需求保持原样，新增requirements/01-development-journey.md提供R1–R12锚点。独立复审确认sourcePin、单文件和来源恢复关闭，终态确认/重试交错另补先红后绿回归。当前UI测试共26项；浏览器仍待解锁，不宣称原生导航验收完成。
+
+22:30续进：修复独立审发现的空白草稿响应血缘，补Model列表/选择/路由/停用版本delta，定向契约累计30项。#3241当前SHA f6ac3bb9全部检查通过仓库判定器，已交coord-main最终合并，仍未合入。#3235远端新SHA c9f0a543检查重跑，无失败。最新具体证据与后续动作以session-handoff及review-resolutions为准。

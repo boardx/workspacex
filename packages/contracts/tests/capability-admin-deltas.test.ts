@@ -3,6 +3,22 @@ import { operations } from "../src/capability-admin-deltas";
 import { operations as existing } from "../src/agent-runtime";
 
 describe("proposed administration operation deltas", () => {
+  it("freezes the actual routed target and rejects partial model selections", () => {
+    const request = { callId: "call-1", contextPackId: "context-1", requestedModelId: "pool-1", requestedConfigRevision: "cfg-1", taskKind: existing.routeModelCall.in.shape.taskKind.options[0] };
+    expect(operations.routeModelCall.in.safeParse(request).success).toBe(true);
+    expect(operations.routeModelCall.in.safeParse({ ...request, requestedConfigRevision: null }).success).toBe(false);
+    expect(operations.routeModelCall.in.safeParse({ ...request, requestedModelId: null }).success).toBe(false);
+    const result = { selectedModelId: "pool-1", decisionId: "decision-1", degradedTo: "pool-2", modelBinding: { shape: "single", capabilityModelId: "pool-2", configRevision: "cfg-2", providerKey: "demo", upstreamModelId: "upstream-2" } };
+    expect(operations.routeModelCall.out.safeParse(result).success).toBe(true);
+    expect(operations.routeModelCall.out.safeParse({ ...result, modelBinding: { ...result.modelBinding, capabilityModelId: "pool-1" } }).success).toBe(false);
+    expect(operations.routeModelCall.out.safeParse({ ...result, modelBinding: { ...result.modelBinding, providerKey: "Unsupported Provider!" } }).success).toBe(false);
+  });
+  it("adds revision to consumer listings without leaking provider details", () => {
+    const row = { modelId: "pool-1", displayName: "Demo", kind: existing.registerModel.in.shape.kind.options[0], shape: "single", complianceAttrs: [], configRevision: "cfg-1" };
+    expect(operations.listSelectableModels.out.safeParse([row]).success).toBe(true);
+    expect(operations.listSelectableModels.out.safeParse([{ ...row, configRevision: undefined }]).success).toBe(false);
+    expect(operations.listSelectableModels.out.safeParse([{ ...row, providerKey: "demo" }]).success).toBe(false);
+  });
   it("requires mapping on single models and forbids it on composite models", () => {
     const base = { kind: existing.registerModel.in.shape.kind.options[0], shape: "single", vendor: "demo", displayName: "Demo", capabilityTags: [], contextWindow: 1000, unitPrice: 0, complianceAttrs: [], credential: null, endpoint: null, members: [] };
     expect(operations.registerModel.in.safeParse(base).success).toBe(false);

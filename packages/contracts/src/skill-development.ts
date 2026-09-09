@@ -131,6 +131,10 @@ export const PublishedSkillVersion = z
   })
   .strict();
 
+/** Empty creation has no inherited source or published lineage. */
+export const NewBlankSkillDraft = SkillDraft.refine(draft => draft.revision === 1 && draft.sourcePin === null && draft.basedOnPublishedVersionId === null,
+  { message: "blank draft must start at revision one without source or published lineage" });
+
 export const ImportFailureCode = z.enum([
   "DEPENDENCY_UNAVAILABLE", "SOURCE_MOVED", "PREVIEW_EXPIRED", "VALIDATION_FAILED",
   "IMPORT_LIMIT_EXCEEDED", "PERMISSION_REVOKED", "CREDENTIAL_UNAVAILABLE", "REVISION_CONFLICT",
@@ -386,7 +390,7 @@ export const operations = {
     method: "POST",
     path: "/admin/skill-development/skills",
     in: z.object({ name: z.string().trim().min(1).max(200), description: z.string().max(4000), idempotencyKey: IdempotencyKey }).strict(),
-    out: SkillDraft,
+    out: NewBlankSkillDraft,
     errors: z.union([Unauthenticated, PermissionDenied, ValidationError, IdempotencyConflict, DependencyUnavailable]),
   }),
   proposeSkillDraftPatch: defineOperation({

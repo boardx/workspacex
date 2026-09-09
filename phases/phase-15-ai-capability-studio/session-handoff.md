@@ -17,3 +17,7 @@ Mac锁屏，CUA明确报告自动解锁失败；已异步请求用户解锁，�
 #3241最新判定以classifyChecks读取：f6ac3bb9当时无changes/blocked，但backend-required尚未出现，waitingCi。不能只看前端rollup无红就合并；等待最终聚合后交coord-main。当前PR仍OPEN。
 
 又补capability-admin-deltas.ts与4项测试（全部契约定向累计27项）：现有Model注册/配置/探测/准入/启用与MCP重连的继承草案，未改原接口。下一步补列表/路由/停用增量，核对独立云审对c946a429的返回；不要把该后续delta当作已独立审过。UI reviewer已确认c946a429中的终态确认/重试交错问题关闭。
+
+2026-09-09 22:30续进：独立审对c946a429运行23/23并指出空白创建响应血缘问题，已新增反例先红后绿；NewBlankSkillDraft现限定revision1、sourcePin和历史版本血缘均null。列表/路由/停用delta也已补齐，provider/upstream收敛复用运行时schema；定向契约合计30项（10+5+5+4+6）。下一步等待云任务3对a0126b62初组管理delta的审查（后续改动需重新提供新SHA），完善Model/MCP完整表单、权限和feature覆盖。
+
+#3241 f6ac3bb9已由classifyChecks实测blocked/changes/waitingCi均空，仍OPEN/BEHIND；已在PR评论明确交coord-main执行正式review/更新/合并门禁。本worker不自行合并。注册#3235又被其他执行者合main更新到c9f0a543，CI重跑；不要基于旧SHA推断通过。Mac解锁请求尚无回复。

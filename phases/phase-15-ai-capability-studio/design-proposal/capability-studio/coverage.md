@@ -31,3 +31,5 @@
 剩余设计缺口：组织开发权限的具体操作增量、Model/MCP既有操作的可执行字段增量、完整UI与feature四元组覆盖。上传限额值与对象保留周期仍须纳入同一次签核。具体流程见development-operation-deltas.md；Model/MCP操作与UI规格见runtime-operation-deltas.md、runtime-ui-interactions.md与composite-model-mapping.md。覆盖表尚不能标为闭合。
 
 Model/MCP第一组可执行delta已加入capability-admin-deltas.ts：继承现有register/configure/probe/admission/enable/discoverRemote操作，补配置版本、single映射与显式凭据变更；4项定向测试和contracts typecheck通过。仍需列表/路由/停用操作的字段增量及完整端到端验证；文件未导出为生产入口，现有接口继续拒绝新字段。
+
+后续已补listModelPool、listSelectableModels、routeModelCall、listModelReferences、disableModel可执行delta；路由输入的模型与revision必须成对，返回binding必须匹配degradedTo或selectedModelId的实际目标。管理与运行绑定共享provider/upstream校验。该文件增至6项测试。仍需独立review、完整UI、权限与feature覆盖、生产持久化/路由证据，不能以schema通过宣称闭环完成。
