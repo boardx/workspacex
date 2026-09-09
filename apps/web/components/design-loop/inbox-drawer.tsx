@@ -1,5 +1,9 @@
 "use client";
 import * as React from "react";
+import { TagInput, commitDraft } from "@/components/ui/tag-input";
+
+/** issue 标签没有「已有标签」这份数据可聚合（GitHub 侧的，前端拿不到）——空候选集。 */
+const EMPTY_KNOWN_TAGS: ReadonlyMap<string, number> = new Map();
 import { X, Sparkles, Play, Check, Undo2, Ban, Loader2, Github, Paperclip, MessageSquare, Mail, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -226,11 +230,16 @@ export function InboxDrawer({
   const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(() =>
     openIssueForm && needsIssueBeforeDoing ? buildInboxIssueDraft(item) : null,
   );
-  const [labelsText, setLabelsText] = React.useState(() => (issueDraft === null ? "" : issueDraft.labels.join(", ")));
+  /**
+   * ⚠ 草稿初值必须是空串。旧版这里是 `labels.join(", ")`，因为那时标签就是这个文本框的
+   * 内容；换成胶囊之后标签已经在 `issueDraft.labels` 里了，再把它们塞回草稿，提交时
+   * `commitDraft` 会把整串当成**第三个标签**追加进去（本次改动实测踩到，测试当场判红）。
+   */
+  const [labelsText, setLabelsText] = React.useState("");
   const openIssueDraftForm = () => {
     const draft = item.kind === "design" ? buildDesignIssueDraft(item) : buildInboxIssueDraft(item);
     setIssueDraft(draft);
-    setLabelsText(draft.labels.join(", "));
+    setLabelsText("");
   };
 
   /** 评论区（见文件头）：仅挂着 issue 的反馈；`n/a` 时整块不渲染。 */
@@ -537,18 +546,16 @@ export function InboxDrawer({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-10 text-muted-foreground">标签（逗号分隔）</span>
-                <input
-                  value={labelsText}
-                  onChange={(e) => {
-                    setLabelsText(e.target.value);
-                    setIssueDraft({
-                      ...issueDraft,
-                      labels: e.target.value.split(",").map((l) => l.trim()).filter((l) => l !== ""),
-                    });
-                  }}
-                  data-testid="inbox-issue-labels"
-                  className="h-8 rounded-control border border-border-subtle bg-card px-2 font-mono text-12"
+                <span className="text-10 text-muted-foreground">标签</span>
+                {/* 与模板库、设计工作台同一个 `TagInput`（2026-09-09「统一体验」）。 */}
+                <TagInput
+                  value={issueDraft.labels}
+                  onChange={(labels) => setIssueDraft({ ...issueDraft, labels: [...labels] })}
+                  knownTags={EMPTY_KNOWN_TAGS}
+                  draft={labelsText}
+                  onDraftChange={setLabelsText}
+                  testIdPrefix="inbox-issue-labels"
+                  emptyHint="输入标签，回车确认"
                 />
               </label>
               <div className="flex justify-end gap-2">
@@ -557,7 +564,7 @@ export function InboxDrawer({
                   variant="primary"
                   size="sm"
                   disabled={busy || issueDraft.title.trim() === ""}
-                  onClick={() => onCreateIssue(issueDraft)}
+                  onClick={() => onCreateIssue({ ...issueDraft, labels: [...commitDraft(issueDraft.labels, labelsText)] })}
                   data-testid="inbox-issue-submit"
                 >
                   {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}

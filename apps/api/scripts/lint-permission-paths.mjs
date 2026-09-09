@@ -40,7 +40,7 @@ import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/arti
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
-import { NOTIFICATION_CENTER_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
+import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
 import { checkSubtaskPermissionBoundary } from "./lib/subtask-permission-boundary.mjs";
 
@@ -516,6 +516,12 @@ for (const root of ROOTS) {
       // 发起人，不带任何消息正文。反证在 scripts/tests/notification-center-boundary.test.mjs。
       const errors = rel === NOTIFICATION_CENTER_PATH ? checkNotificationCenter(body) : checkNotifyingRunEventBus(body);
       if (!existsSync(join(API, "scripts/tests/notification-center-boundary.test.mjs"))) errors.push("notification center authorization counterexamples missing");
+      // publish 的幂等不在这个文件里，在 migration 的唯一索引上（#3224）——一并判。
+      if (rel === NOTIFICATION_CENTER_PATH) {
+        const migration = join(API, NOTIFICATION_MIGRATION_PATH);
+        if (!existsSync(migration)) errors.push(`${NOTIFICATION_MIGRATION_PATH} missing`);
+        else errors.push(...checkNotificationDedupIndex(readFileSync(migration, "utf8")));
+      }
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

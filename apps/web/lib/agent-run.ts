@@ -27,6 +27,7 @@ import { apiRequest } from "./api-client";
 export type AgentRunView = z.infer<typeof wave2Runtime.AgentRunView>;
 export type AgentRunStatus = z.infer<typeof wave2Runtime.AgentRunStatus>;
 export type AgentRunError = z.infer<typeof wave2Runtime.AgentRunError>;
+export type AgentRunFailureReason = z.infer<typeof wave2Runtime.AgentRunFailureReason>;
 
 /**
  * UX-9 track B 第 7 项修复（2026-08-23 回归）—— run 的终态错误码此前被原样印给用户
@@ -56,6 +57,44 @@ const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
 export function describeAgentRunError(code: AgentRunError | null): string {
   if (code === null) return "执行失败，原因未知";
   return AGENT_RUN_ERROR_TEXT[code] ?? `执行失败（${code}）`;
+}
+
+/**
+ * issue #3211 ① —— 失败**成因**的人读文案。
+ *
+ * `describeAgentRunError` 说的是「哪一类终态」，粒度粗到 `MODEL_CALL_FAILED` 一个码
+ * 同时承载「模型返回空」「远端 run 报错」「远端超时」「我们自己的执行器抛异常」四件
+ * 可行动性完全不同的事——人类 2026-09-09 实测那一条（8 分钟、6 次工具调用、零产出）
+ * 就死在「模型这次没能返回可用结果」这句话上：它没有说错，但它不可诊断。
+ *
+ * ⚠ 这个 Record 的 key 集合与契约 `AgentRunFailureReason` 是同一件事——新增枚举值时
+ * TypeScript 会在这里报「缺 key」，不会静默漏译。
+ * ⚠ `unknown` 也有自己的一句话：「读不到成因」和「成因归不了类」是两件事，前者是
+ * 老 run / 老快照，后者是我们的分类器没覆盖到，排障时要分得开。
+ */
+const AGENT_RUN_FAILURE_REASON_TEXT: Record<AgentRunFailureReason, string> = {
+  provider_returned_empty: "模型这一轮既没有给出文本，也没有给出下一步动作",
+  provider_rejected: "执行任务的智能体服务自己报错退出了",
+  provider_timeout: "执行任务的智能体服务在预算时间内没有跑完",
+  provider_transport_failed: "与执行任务的智能体服务之间的连接失败了",
+  runtime_unavailable: "这次执行依赖的服务未配置或不可用，调用没能发出去",
+  executor_defect: "这是我们服务端的缺陷，不是模型的问题，请把这次的任务编号报给管理员",
+  run_reaped: "执行它的服务进程中途没了，这条任务被系统收尾了",
+  unknown: "未能识别出具体原因，请把这次的任务编号报给管理员",
+};
+
+/**
+ * 终态错误码 + 成因 → 一行人读文案。成因缺席（老 run、或该失败路径尚未带成因）时
+ * 逐字回落到 `describeAgentRunError` 的原文案——**不**编一个成因出来。
+ */
+export function describeAgentRunFailure(
+  code: AgentRunError | null,
+  reason?: AgentRunFailureReason | null,
+): string {
+  const head = describeAgentRunError(code);
+  if (reason === null || reason === undefined) return head;
+  const tail = AGENT_RUN_FAILURE_REASON_TEXT[reason];
+  return tail === undefined ? head : `${head}：${tail}`;
 }
 
 /**

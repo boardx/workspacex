@@ -50,38 +50,101 @@ const SIX_PHASES = ["preparing", "planning", "executing", "approving", "done", "
  */
 const PHASE_LINE = ["preparing", "planning", "executing", "approving", "done"];
 
-test("TW-P0-3①：存在显式六态工作流指示器（准备/计划/执行/审批/完成/失败）", async ({ page }) => {
+/*
+ * issue #3208（裁决：方案 A「按需渲染 + 收进折叠头」）+ #3214 —— **本用例从
+ * 「恒在」改为「按态」。**
+ *
+ * 原写法：开一个全新线程，然后要求 `chat-task-workbench-phase-indicator` 存在、
+ * 线上恰好五格。裁决之后指示器默认隐藏（`preparing`/`executing`/`done` 三态与
+ * 同屏进度卡纯重复，`preparing` 更是 #3214 报的「空白会话也显示准备」），原写法
+ * 会退化成「元素不存在 ⇒ 断言无从执行 ⇒ 静默假绿」——本仓反复栽的
+ * 「红 ≠ 跑过 / 绿 ≠ 跑过」形态。**因此不是删掉它，而是把它拆成两个方向：**
+ *
+ *   (a) **不该出现**：全新空白会话（根本没有 run）⇒ 指示器不在 DOM 里（#3214）。
+ *       用阳性对照证明这条不是"等得不够久"：同一页面在 (b) 里必须真的看得见它。
+ *   (b) **该出现**：`planning`（停在计划确认门上，需要用户动作）⇒ 指示器在、
+ *       `data-phase="planning"`、线上恰好五格、恰好一个 `aria-current="step"`。
+ *   (c) **收起后仍可触达**：简单提问跑完（`done`/`preparing`，指示器不常驻）后，
+ *       展开折叠头 ⇒ 指示器回来。这条挡住"把它藏成永远拿不到"的做法。
+ *
+ * 把渲染条件改成"永不显示" ⇒ (b)(c) 红；改回"无条件显示" ⇒ (a) 红。两个方向
+ * 各有一条会红的断言。七态里另外四态（approving/failed/cancelled 与 executing
+ * 的折叠/展开）由 `apps/web/tests/ui/plan-phase-indicator-on-demand.test.tsx`
+ * 逐态穷举——那里能确定性地摆出每一个 phase，e2e 只钉真链路上确定可达的这三段。
+ */
+test("TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run 时不在、收起后仍可触达", async ({ page }) => {
   await openFreshThread(page);
+  const indicator = page.getByTestId("chat-task-workbench-phase-indicator");
 
-  const indicator = await expectAnchor(
-    page,
-    "chat-task-workbench-phase-indicator",
-    "TW-P0-3①",
-    "没有六态工作流指示器（当前只有一行自由文本 copilotkit-v2-thinking-phase）",
-    30_000,
-  );
-
-  // 当前态必须是六态之一的**枚举值**，不是自由文本——自由文本无法被用户或机器
-  // 可靠判断「现在到哪一步了」。
-  await expect(
-    indicator,
-    gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", "当前态不是六态枚举"),
-  ).toHaveAttribute("data-phase", new RegExp(`^(${SIX_PHASES.join("|")})$`));
-
-  // 指示器必须把六态全部呈现出来（stepper 语义），用户才知道自己在整条链的哪里，
-  // 而不是只看到一个孤立的当前值。
-  const steps = indicator.locator("[data-phase-step]");
-  const rendered = await steps.evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-phase-step")));
-  for (const phase of PHASE_LINE) {
+  // (a) #3214：空白会话（引导态、没有任何 run）⇒ 不该有阶段条。
+  //     持续观察一段时间，避免"只是还没渲染出来"被读成"正确地没有渲染"。
+  const NO_RUN_HOLD_MS = 5_000;
+  const noRunDeadline = Date.now() + NO_RUN_HOLD_MS;
+  while (Date.now() < noRunDeadline) {
     expect(
-      rendered,
-      gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", `六态指示器缺少 ${phase} 这一态`),
-    ).toContain(phase);
+      await indicator.count(),
+      [
+        "【差距 #3214】全新空白会话（还没有任何 run）底部仍显示阶段条。",
+        "裁决（#3208 方案 A）：无 run 时正确行为是不显示，不是显示一条高亮着「准备」的线。",
+      ].join("\n"),
+    ).toBe(0);
+    await page.waitForTimeout(500);
   }
 
-  // 状态不能只靠颜色（与 TW-A11Y-6 同源的可达性要求）：当前态须有可读文本。
-  // `aria-current` 落在**当前那一格**上，不是整条线的根节点（判据一 ②）。
+  // (b) planning（停在计划确认门上，需要用户动作）⇒ 必须出现，且五格齐全。
+  //     这同时是 (a) 的阳性对照：同一个页面、同一个 locator 真的能看见它。
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentPlanConfirmTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
+  await expectAnchor(
+    page,
+    "chat-task-workbench-plan-confirm",
+    "TW-P0-3①",
+    "复杂多步任务没有停在计划确认门上（本用例的 planning 态无从构造）",
+    60_000,
+  );
+  await expect(
+    indicator,
+    gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", "需要用户确认计划时没有阶段指示器"),
+  ).toHaveAttribute("data-phase", "planning", { timeout: 30_000 });
+
+  const rendered = await indicator.locator("[data-phase-step]")
+    .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-phase-step")));
+  expect(
+    rendered,
+    gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", `六态指示器的线不是 ${PHASE_LINE.join("/")} 五格`),
+  ).toEqual(PHASE_LINE);
+  // 状态不能只靠颜色（与 TW-A11Y-6 同源）：`aria-current` 落在**当前那一格**上。
   await expect(indicator.locator('[aria-current="step"]')).toHaveCount(1);
+  // 当前态必须是枚举值而不是自由文本——自由文本无法被用户或机器可靠判断。
+  await expect(indicator).toHaveAttribute("data-phase", new RegExp(`^(${SIX_PHASES.join("|")})$`));
+
+  // 确认放行，让这条 run 跑完，别把一条停住的 run 留在替身上。
+  const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
+  await expect(permissionDialog).toBeVisible();
+  await permissionDialog.getByRole("button", { name: "仅本次允许", exact: true }).click();
+  await expect(indicator).toHaveAttribute("data-phase", "done", { timeout: 120_000 });
+
+  // (c) 完成态（done）在折叠时不常驻，展开后仍可触达。
+  const collapseToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle");
+  await expect(collapseToggle).toBeVisible({ timeout: 30_000 });
+  // Planning opened the panel; completion preserves that expanded state.
+  // Verify the collapsed contract explicitly before reopening it.
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "true");
+  await collapseToggle.click();
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "false");
+  expect(
+    await indicator.count(),
+    gapMessage("TW-P0-3①", "chat-task-workbench-phase-indicator", "本轮结束后阶段条仍常驻——与同屏折叠头摘要重复"),
+  ).toBe(0);
+  await collapseToggle.click();
+  await expect(collapseToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    indicator,
+    [
+      "【差距 #3208】展开计划面板之后仍看不到阶段指示器——按需渲染被做成了「永远拿不到」。",
+      "裁决第 4 条：收起后仍要可触达，折叠头就是那个入口。",
+    ].join("\n"),
+  ).toHaveCount(1, { timeout: 15_000 });
 });
 
 test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束", async ({ page }) => {

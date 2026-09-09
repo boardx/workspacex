@@ -1,5 +1,5 @@
 import * as React from "react";
-import {render,screen,fireEvent,waitFor} from "@testing-library/react";
+import {render,screen,fireEvent,waitFor,within} from "@testing-library/react";
 import {describe,it,expect,vi,beforeEach} from "vitest";
 import {TaskNotifications} from "@/components/chat/workbench/task-notifications";
 const request=vi.hoisted(()=>vi.fn());
@@ -17,6 +17,9 @@ describe("global notification center",()=>{
     const open=vi.fn();
     render(<TaskNotifications sessionToken="token" onOpenThread={open}/>);
     await screen.findByText("2 条未读");
+    // #3223 起通知正文只在弹层里，侧边栏上只有图标 + 角标。
+    fireEvent.click(screen.getByTestId("task-notifications-trigger"));
+    await screen.findByTestId("task-notifications-popover");
     expect(screen.getByText("邮件：重置密码")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Report · 已完成"));
     expect(open).toHaveBeenCalledWith("t");
@@ -26,9 +29,13 @@ describe("global notification center",()=>{
   it("shows nothing from a previous session token",async()=>{
     request.mockImplementation(async(path:string)=>path==="/notifications"?{notifications:[notice("1","task","Old · 已完成","t")],unreadCount:1}:{notifications:[]});
     const view=render(<TaskNotifications sessionToken="first" onOpenThread={vi.fn()}/>);
+    await waitFor(()=>expect(screen.getByTestId("task-notifications-trigger")).toHaveAccessibleName("任务提醒，1 条未读"));
+    fireEvent.click(screen.getByTestId("task-notifications-trigger"));
     await screen.findByText("Old · 已完成");
     view.rerender(<TaskNotifications sessionToken={undefined} onOpenThread={vi.fn()}/>);
-    expect(screen.queryByText("Old · 已完成")).toBeNull();
+    // 弹层仍开着，但换 token 后里面必须是空的——不是靠"弹层关了"蒙混过去。
+    expect(within(screen.getByTestId("task-notifications-popover")).queryByText("Old · 已完成")).toBeNull();
+    expect(screen.getByText("暂无未读提醒")).toBeInTheDocument();
     expect(screen.getByText("0 条未读")).toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
 import { PlanRunProgress, PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
-import { deriveRunControls } from "@repo/contracts/plan-control";
+import { deriveRunControls, shouldSurfacePlanPhaseIndicator } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import {
@@ -169,10 +169,14 @@ function PlanControlSession(
   // issue #3099 —— **运行级控制与计划级视图解耦**。判据只有一个：run 现在还在不在
   // （`deriveRunControls`，契约里的单一事实源），与「模型有没有产出 `write_todos`」无关。
   //
-  // 改动前这里读的是 `phase`：`derivePlanPhase` 先判 `ledgerEmpty` 再判 `running`，
+  // 改动前这里读的是 `phase`：当时 `derivePlanPhase` 先判 `ledgerEmpty` 再判 `running`，
   // 于是「正在跑但还没有计划的 run」（大量普通对话）和「什么都没发生的线程」
   // 都是 `"preparing"`——整块 return null，用户没有任何暂停入口。这不是把渲染门
   // 「放宽」，是它此前问错了问题：暂停是 run 级动作，不该由计划账本的存在性决定。
+  //
+  // ⚠ #3208 已把那条顺序修正（在途 run 的 `phase` 现在是 `"executing"`），但**这里
+  // 仍然只读 `deriveRunControls`**：run 的在途性只许有一个事实源。不要因为 `phase`
+  // 现在"也对了"就把门改回读 `phase`——那就是把同一事实重新声明到第二处。
   //
   // ⚠ 终态（done/cancelled/failed）不受影响：`deriveRunControls` 对终态返回全 false，
   // #2927 的「run 结束后没有控制操作」与 #2999 的只读账本两条都不变。
@@ -246,10 +250,28 @@ function PlanControlSession(
   /*
    * issue #3132 —— 六态指示器此前**从来没有被挂进 /chat**（消费方只有单测与
    * `/preview`），`chat-task-workbench-phase-indicator` 在真实页面上不存在。
-   * 它读的是 `getPlanLedger.phase` 直出（I-7，前端不重算），因此挂在这里、
-   * 在所有分支之前——包括"什么都还没发生"的新线程（phase: preparing）。
+   * 它读的是 `getPlanLedger.phase` 直出（I-7，前端不重算）。
+   *
+   * issue #3208（裁决：方案 A「按需渲染 + 收进折叠头」）+ #3214 —— 挂载**不再无条件**。
+   *
+   * #3132 那句"挂在所有分支之前，包括什么都还没发生的新线程（phase: preparing）"
+   * 正是 #3214 的现场：全新空白会话（没有任何 run）底部照样显示一条高亮着「准备」
+   * 的阶段条。#3208 ① 把 `preparing` 的含义收窄为「无在途 run 且无计划」之后，空白
+   * 会话**仍然**落在 `preparing`——所以那条修正救不了这里，只能由渲染条件解决。
+   *
+   * 判据只有一个输入：`ledger.phase`，也就是指示器自己要显示的那个值
+   * （`shouldSurfacePlanPhaseIndicator`，契约里的单一事实源）。**刻意不再从
+   * `runStatus` / `steps.length` 另推一次"现在算不算需要"**——那就是把同一事实
+   * 声明到第二处，本仓今晚已因此出过五次事故（#3207/#3220 同一形态）。
+   *
+   * ⚠ 隐藏的只是**常驻**，不是可触达性：下面主面板里 `!collapsed` 时照样渲染，
+   * 折叠头（`PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID`，那行 `执行计划 · <stateLabel>`）
+   * 就是用户随时把它调出来的入口。能力面（暂停/继续执行）一个字没动，仍在原处
+   * ——#3081/F3 刚把暂停修到第一次真的可点，不许由这次改动带回不可触达。
    */
-  const indicator = <PlanPhaseIndicator phase={ledger.phase} />;
+  const phaseIndicator = <PlanPhaseIndicator phase={ledger.phase} />;
+  const pinIndicator = shouldSurfacePlanPhaseIndicator(ledger.phase);
+  const indicator = pinIndicator ? phaseIndicator : null;
 
   /*
    * issue #3132 —— 原先这里（连同上面的 threadId/ledger 判空）整块 `return null`。
@@ -321,7 +343,8 @@ function PlanControlSession(
 
   return (
     <div data-testid="chat-task-workbench-plan-control" className="flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64">
-      {indicator}
+      {/* #3208 方案 A —— 常驻四态，或用户展开折叠头时（"收起后仍可触达"那一半）。 */}
+      {pinIndicator || !collapsed ? phaseIndicator : null}
       <div className="flex items-center gap-2">
         <button
           type="button"

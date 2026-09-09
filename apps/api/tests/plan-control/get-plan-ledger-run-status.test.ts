@@ -4,9 +4,10 @@
  * 前端的运行级控制（暂停/恢复）判定 `deriveRunControls` 只看这一个字段。此前读模型
  * 只下发 `phase`，而 `phase` 把「正在跑但账本为空」和「什么都没发生」都压成
  * `"preparing"`——前端因此无从知道 run 还在不在，暂停入口消失。
+ * （那条顺序缺陷已由 #3208 修掉：在途 run 的 `phase` 现在是 `"executing"`。）
  *
- * 本文件钉住两件事：① 账本为空的运行中 run，`phase==="preparing"` 而
- * `runStatus==="running"`（两者确实不同，`runStatus` 不是 `phase` 的复述）；
+ * 本文件钉住两件事：① 账本为空的运行中 run 也如实下发 `runStatus==="running"`，
+ * 而不是让前端从 `phase` 反推——`runStatus` 不是 `phase` 的复述，两者各管一个维度；
  * ② `pausedAt` 非空时 `runStatus` 是 `"interrupted"`（= 可恢复），
  * ③ 终态一律不继承活的控制信号。
  */
@@ -35,10 +36,11 @@ function runSnapshot(overrides: Partial<PlanRunSnapshot> = {}): PlanRunSnapshot 
 }
 
 describe("getPlanLedger.runStatus（#3099）", () => {
-  it("账本为空但 run 在跑：phase 是 preparing，runStatus 仍如实是 running ⇒ 可暂停", async () => {
+  it("账本为空但 run 在跑：runStatus 如实是 running ⇒ 可暂停（phase 自 #3208 起为 executing）", async () => {
     const out = await getPlanLedger(emptyRepo, readerFor(runSnapshot()), { orgId: toOrgId("org"), threadId: "t" });
     expect(out.steps).toHaveLength(0);
-    expect(out.phase).toBe("preparing"); // 这正是旧渲染门读到的、看不出 run 在跑的那个值
+    // #3208：在途性优先于「账本是否为空」，阶段不再与右侧「执行中」文案自相矛盾。
+    expect(out.phase).toBe("executing");
     expect(out.runStatus).toBe("running");
     expect(deriveRunControls({ runStatus: out.runStatus })).toEqual({ canPause: true, canResume: false });
   });

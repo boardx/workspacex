@@ -618,15 +618,27 @@ describe("issue #3132：失败态一定有可操作入口 + 六态指示器真�
     api.planControlErrorCode.mockReturnValue(null);
   });
 
-  // 反证一：`PlanPhaseIndicator` 从来没有被挂进 `/chat`（消费方只有单测与 /preview）。
-  // 撤掉 `copilotkit-v2-plan-control.tsx` 里的 `indicator` 挂载 → 本条红。
-  it("新线程（空账本、idle）也渲染阶段指示器，data-phase 来自账本直出", async () => {
+  /*
+   * 反证一：`PlanPhaseIndicator` 从来没有被挂进 `/chat`（消费方只有单测与 /preview）。
+   * 撤掉 `copilotkit-v2-plan-control.tsx` 里的 `indicator` 挂载 → 本条红。
+   *
+   * ⚠ **本条原来的写法是「新线程（空账本、idle）也渲染阶段指示器 … toBe("preparing")」**
+   * ——那正是 #3214 报的缺陷（全新空白会话、根本没有 run，底部却显示一条高亮着
+   * 「准备」的阶段条），被当成期望值写进了测试，于是 CI 一直全绿地守护着它。
+   * 现在改成钉 #3132 真正要钉的那件事：**指示器确实挂进了真实 chat 渲染树**，
+   * 用一个按裁决**应当常驻**的态（`planning`）来证明；空白会话那一面由
+   * `plan-phase-indicator-on-demand.test.tsx` 反向断言（它必须不在）。
+   * 挂载点被撤掉时，这里与那边会一起红，两个方向都还在。
+   */
+  it("真实 chat 渲染树里确实挂了阶段指示器（planning 常驻态），data-phase 来自账本直出", async () => {
     api.fetchPlanLedger.mockResolvedValue(
-      ledgerWithSteps({ steps: [], phase: "preparing", gate: { required: false, reason: "no-plan" } }),
+      ledgerWithSteps({ steps: [], phase: "planning", runStatus: "running", activeRunId: "r1",
+        stepsAreProposal: true, pendingPermissionRequestId: "9f1d2c3b-4a5e-4f6a-8b7c-0d1e2f3a4b5c",
+        gate: { required: true, reason: "multi-step" } }),
     );
     render(<CopilotKitV2PlanControl threadId="t-3132-a" />);
     const indicator = await screen.findByTestId("chat-task-workbench-phase-indicator");
-    expect(indicator.getAttribute("data-phase")).toBe("preparing");
+    expect(indicator.getAttribute("data-phase")).toBe("planning");
     // 空账本仍然不造计划面板（#3099/#2999 的语义不被放宽）。
     expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
   });

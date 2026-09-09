@@ -10,6 +10,51 @@
     "maxParseWorkers": 2,
     "maxSnippetChars": 8000
   },
+  "failure": {
+    "body": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "const": "standard_web_unavailable_or_refused"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "upstream_refused",
+            "upstream_unreachable",
+            "timeout",
+            "blocked_by_policy",
+            "unsupported_content",
+            "no_content",
+            "too_large",
+            "unknown"
+          ]
+        },
+        "upstreamStatus": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        }
+      },
+      "required": [
+        "error",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "guidance": {
+      "upstream_refused": "The site returned HTTP {status}; no content was confirmed. This status alone does not establish why access failed or whether a later request could succeed. Do not cite this failed source; choose another authorized public source.",
+      "upstream_unreachable": "The site could not be reached (DNS or connection failure); no response was received. Do not cite this source; choose another authorized public source.",
+      "timeout": "The request timed out before the site responded; no content was received. One retry is reasonable, otherwise choose another authorized public source.",
+      "blocked_by_policy": "This URL was blocked by the outbound access policy, not by the site. Retrying the same URL will not help; choose another authorized public source.",
+      "unsupported_content": "The response was not HTML or UTF-8 text, so no content could be read. Do not cite this source; choose another authorized public source.",
+      "no_content": "The site responded but no readable text could be extracted (often a script-only or interstitial page). Do not cite this source; choose another authorized public source.",
+      "too_large": "The response exceeded the size limit and was discarded; no content confirmed. Do not cite this source; choose another authorized public source.",
+      "unknown": "Web source unavailable or refused; no content confirmed. Do not cite this failed source. You may choose another authorized public source."
+    }
+  },
   "input": {
     "anyOf": [
       {

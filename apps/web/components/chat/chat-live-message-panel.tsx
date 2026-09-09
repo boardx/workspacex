@@ -30,7 +30,7 @@ import {
   type GetAgentPanelOut,
 } from "@/lib/live-chat";
 import {
-  describeAgentRunError,
+  describeAgentRunFailure,
   findPendingRunId,
   getAgentRun,
   isTerminalRunStatus,
@@ -1395,7 +1395,7 @@ export function ChatLiveMessagePanel({
                       data-testid="chat-run-process-failure"
                     >
                       <p className="text-11 text-destructive" title={runObservation.view.error ?? undefined}>
-                        {describeAgentRunError(runObservation.view.error)}
+                        {describeAgentRunFailure(runObservation.view.error, runObservation.view.failureReason ?? null)}
                       </p>
                       <Button
                         size="xs"

@@ -37,15 +37,25 @@ export async function fetchLatestSavedDiagramSource(input: {
     // 就是这么红的）。字节本体每次落地都有（materializeArtifact 的 content.md）。
     const candidates = list.items.filter((i) => i.messageId === input.messageId);
     const candidatesToRead = input.accepts ? [...candidates].reverse() : candidates.slice(-1);
-    let soleCandidateSource: SavedDiagramSource | null = null;
     for (const candidate of candidatesToRead) {
       try {
         const source = await getThreadArtifactSource(
           input.threadId, candidate.artifactId, input.projectId, input.bearer,
         );
-        if (candidates.length === 1) {
-          soleCandidateSource = { markdown: source.markdown, savedAt: source.savedAt };
-        }
+        // issue #3230 —— 这里此前还有一条 `candidates.length === 1` 的旁路：只有一条
+        // 保存版时，即便 `accepts` 判否也照样把它返回。它的注释说这是「保留单图的历史
+        // 行为」，但**不传 `accepts` 的路径根本走不到那段代码**（下面这个 return 会先
+        // 命中），所以那条旁路唯一的实际作用就是**绕过身份判定**。
+        //
+        // 后果是刷新恢复时的「先出现、随后消失」：一条助手消息里有 N 个画布围栏，而这
+        // 条消息名下只要存在**任意一条**已落地产物（最常见是「落地为产物（草稿）」把
+        // 整条消息正文落成一条 artifact，或只保存过其中一个围栏），每个围栏挂载即读回
+        // 都会拿到同一份不属于自己的 markdown ⇒ `previewCode` 被换掉 ⇒ 外层
+        // `key={savedSource.markdown}` 变化 ⇒ 已经画好的 fabric 整棵重挂 ⇒ 新内容过不了
+        // `checkCanvasFence` ⇒ 画布先出现、随后变成错误框。
+        //
+        // 调用方传 `accepts` 就是在声明「这份源必须属于这个围栏」；候选数量是 1 不改变
+        // 这句话，判否就返回 null，由调用方退回原始消息文本（本来就存在的诚实降级）。
         if (!input.accepts || input.accepts(source.markdown)) {
           return { markdown: source.markdown, savedAt: source.savedAt };
         }
@@ -54,10 +64,7 @@ export async function fetchLatestSavedDiagramSource(input: {
         // invisible outcome. A different visible save may still match this fence.
       }
     }
-    // A single saved artifact keeps the historical behavior even when its source is
-    // malformed: the renderer must surface that saved error instead of silently showing
-    // the older message body. Identity filtering is only needed when siblings compete.
-    return soleCandidateSource;
+    return null;
   } catch {
     return null;
   }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { RefreshCw } from "lucide-react";
-import { describeAgentRunError, type AgentRunStatus, type AgentRunView } from "@/lib/agent-run";
+import { describeAgentRunFailure, type AgentRunStatus, type AgentRunView } from "@/lib/agent-run";
 import { derivePlanTodos } from "@/components/chat/agent-plan-panel";
 import type { DurableMessage, GetAgentPanelOut } from "@/lib/live-chat";
 import type { ThreadSkillMount } from "@/lib/live-skill-mount";
@@ -264,12 +264,13 @@ export function AgentRunStatus({
       {/*
         UI 评分 2026-08-23 第 7 项修复——这里此前直接印 `view.error` 的原值
         （如「（MODEL_CALL_FAILED）」），是仅供排障的稳定枚举，不是给用户看的话。
-        `describeAgentRunError` 换成人读文案，原始 code 仍在 `title`（悬停/读屏可达，
+        `describeAgentRunFailure` 换成人读文案（issue #3211 ① 起附带失败成因，
+        别让四件不同的事共用同一句话），原始 code 仍在 `title`（悬停/读屏可达，
         不是被抹掉）。完整的失败呈现（含重试入口）在消息流那条 agent 行本身
         （`chat-run-process-failure`），这里是扫读摘要，两处不重复渲染重试按钮。
       */}
       {view?.error ? (
-        <span className="text-destructive" title={view.error}>（{describeAgentRunError(view.error)}）</span>
+        <span className="text-destructive" title={view.error}>（{describeAgentRunFailure(view.error, view.failureReason ?? null)}）</span>
       ) : null}
       {timedOut ? (
         // 超时 ≠ 失败。run 可能还在服务端跑，界面只说自己没等到。
