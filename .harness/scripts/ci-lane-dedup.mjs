@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 export const LANES = {
   'fullstack-smoke': {
-    execute: ['Execute trusted full-stack smoke'],
+    execute: ['Execute trusted full-stack smoke', 'Execute trace disclosure geometry'],
     upload: 'Upload runtime evidence (success or failure)',
     artifact: 'phase-01-fullstack-smoke-evidence-',
   },
