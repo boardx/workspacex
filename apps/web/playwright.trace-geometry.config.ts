@@ -6,6 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  * 挂 webServer 只会把一条 200ms 的断言变成 2 分钟且随负载假红。
  */
 export default defineConfig({
+  outputDir: "test-results/trace-geometry",
   testDir: "./e2e",
   testMatch: /chat-trace-disclosure-geometry\.spec\.ts/,
   forbidOnly: !!process.env.CI,
