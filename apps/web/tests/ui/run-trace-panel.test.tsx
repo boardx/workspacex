@@ -73,4 +73,52 @@ describe("run trace disclosure", () => {
     expect(screen.getByText("旧公开记录")).toBeVisible();
   });
 
+
+  /*
+   * issue #3218 —— 首轮真的发生了 20 次 metadata_discovered，事实流如实记录是对的；
+   * 平铺 20 行给用户看不是。这一条断言的是**结构事实**（顶层条目数、分组条目的
+   * data-kind），不是截图字节数、不是元素存在与否——#3213 之前那种「PNG 体积比」
+   * 判据既抓不到想抓的、又会被 1–2px 噪声打红。
+   * 反证：把 `groupTraceRows` 换回 `entries.map(...)` 平铺，第一行立刻从 1 变 20。
+   */
+  it("collapses a burst of skill discoveries into one expandable row without dropping a single fact", () => {
+    const names = Array.from({ length: 20 }, (_, index) => `skill-${index}`);
+    const events: ExecutionEvent[] = names.map((name, index) => ({
+      ...base, seq: index + 1, kind: "skill_activity" as const,
+      fact: {
+        contractVersion: 1 as const, stage: "metadata_discovered" as const, factId: `fact-${index}`,
+        skillId: `id-${index}`, skillStableName: name, skillVersion: "1.0.0", packageDigest: "a".repeat(64),
+      },
+    }));
+    render(<RunTracePanel runId="run-1" events={events} />);
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    // ① 顶层只有一条，不是 20 条。
+    expect(screen.getAllByTestId("run-trace-entry")).toHaveLength(1);
+    expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-kind", "skill-group");
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已发现 20 个技能");
+    // ② 20 条事实一条不少，只是收在展开层里。
+    const members = screen.getAllByTestId("run-trace-group-member");
+    expect(members).toHaveLength(20);
+    expect(members.map((node) => node.textContent)).toEqual(names);
+    expect(members[0]).not.toBeVisible();
+    fireEvent.click(screen.getByText("已发现 20 个技能"));
+    expect(screen.getAllByTestId("run-trace-group-member")[0]).toBeVisible();
+    // ③ 顶部摘要仍数事实（20），不数分组行——计数与明细同一来源。
+    expect(screen.getByTestId("run-trace-toggle")).toHaveTextContent("技能活动 20 项");
+  });
+
+  it("never groups a lone discovery into a group row", () => {
+    const events: ExecutionEvent[] = [{
+      ...base, seq: 1, kind: "skill_activity",
+      fact: {
+        contractVersion: 1 as const, stage: "metadata_discovered" as const, factId: "fact-solo",
+        skillId: "id-solo", skillStableName: "solo", skillVersion: "1.0.0", packageDigest: "b".repeat(64),
+      },
+    }];
+    render(<RunTracePanel runId="run-1" events={events} />);
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-kind", "skill");
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("发现技能元数据 · solo");
+  });
+
 });
