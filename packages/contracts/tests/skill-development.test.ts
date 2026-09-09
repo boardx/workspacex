@@ -8,6 +8,15 @@ const head = { skillId: "skill-1", draftId: "draft-1", expectedRevision: 3, expe
 const key = "request-1";
 
 describe("skill development proposed trust boundaries", () => {
+  it("requires successful imported drafts to retain the job source digest", () => {
+    const now = "2026-09-09T00:00:00Z";
+    const pin = { source: { ...source, resolvedCommit: "c".repeat(40) }, sourceDigest: digest };
+    const result = { skillId: "skill-1", draftId: "draft-1", revision: 1, snapshotDigest: digest, manifestPath: "SKILL.md", files: [{ path: "SKILL.md", digest, sizeBytes: 1 }], sourcePin: pin, basedOnPublishedVersionId: null, updatedAt: now };
+    const job = { jobId: "job-1", submittedAt: now, completedAt: now, idempotencyKey: key, candidateId: "candidate-1", previewId: "preview-1", sourceDigest: digest, attempt: 1, previousAttemptJobId: null, status: "succeeded", result };
+    expect(ImportJob.safeParse(job).success).toBe(true);
+    expect(ImportJob.safeParse({ ...job, result: { ...result, sourcePin: null } }).success).toBe(false);
+    expect(ImportJob.safeParse({ ...job, result: { ...result, sourcePin: { ...pin, sourceDigest: "b".repeat(64) } } }).success).toBe(false);
+  });
   it("separates client source intent from server-resolved immutable provenance", () => {
     expect(SkillImportRequestSource.safeParse(source).success).toBe(true);
     expect(SkillImportSource.safeParse(source).success).toBe(false);

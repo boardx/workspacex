@@ -217,7 +217,7 @@ flowchart TB
     subgraph DESIGN["设计材料并行准备（原 C 节点合计 3 人日）"]
         C1["Skill开发与批量导入原型及组件验证<br/>预计 0.75 人日 · 已完成，非生产实现"]
         Y["复审修正的真实浏览器复验<br/>预计 0.25 人日 + 解锁等待<br/>受阻：Mac已锁屏"]
-        C2["Model/MCP管理体验与失败返回<br/>预计 0.5 人日 · 待补齐"]
+        C2["Model/MCP管理体验与失败返回<br/>预计 0.5 人日 · 原型与6项测试已加入"]
         C3["用例与可执行API契约草案<br/>预计 1 人日 · 进行中"]
         C4["功能覆盖与统一签核材料<br/>预计 0.5 人日 · 正常等待前置材料"]
         C1 --> Y --> C4
@@ -282,9 +282,9 @@ flowchart TB
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,stroke-width:2px;
     classDef pending fill:#f3e8ff,stroke:#7e22ce,color:#581c87,stroke-width:2px;
     class A,C1,LG done;
-    class B,C3,LY active;
+    class B,C2,C3,LY active;
     class X,Y,LR blocked;
-    class C2,C4,G,D,I,U,M,P,F,E,T,R,H,V,J,K,L,Z,LP pending;
+    class C4,G,D,I,U,M,P,F,E,T,R,H,V,J,K,L,Z,LP pending;
 ```
 
 **估算口径（2026-09-09 开工快照）**：1 人日 = 8 小时有效工作；节点数字是该工作包的总投入，不是每个参与者都花这么多，也不是承诺完成日期。图中业务与交付节点合计 44 人日，加身份接入 0.5 人日，初估 44.5 人日；基线恢复后须按实际代码缺口重估。四个执行席位受依赖、共享文件、评审容量约束，建议先预留约 4–5 个工作周，并另计人工签核等待时间；这是容量规划，不是实测工期或 Agent 运行时长承诺。
@@ -408,6 +408,6 @@ flowchart TB
 
 三个云端任务已确认仓库可读。主任务已接管工作台原型并完成本地运行、7项状态测试和浏览器主路径/七态验证，截图索引见阶段 design-proposal/capability-studio/ui.md。云端任务继续处理导入契约一致性、导入交互矩阵和独立PR审查。原型与schema草案仍未接生产API，因此总图C3保持黄色，生产功能节点不提前标绿。
 
-既有GitHub目录导入缺陷已作为独立修复提交 #3241（关联 #3240）：定向17项测试、API编译/lint通过，CI及review未完结。该修复不等于新导入系统完成。
+既有GitHub目录导入缺陷已作为独立修复提交 #3241（关联 #3240）：修正独立review发现的空下载地址回归后，定向18项测试、API编译/lint通过；远端合入最新main后重新运行CI，正式review未完结。该修复不等于新导入系统完成。
 
 协调凭据和租约仍未完成；tick 检查明确报网关环境未配置。readiness 队列已读取，本次用户直接交办的队列外原因见 #3234。所有已完成本地测试均不代表生产功能已交付。

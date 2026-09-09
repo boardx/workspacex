@@ -4,6 +4,7 @@ const PreviewFile = z.object({ path: z.string().min(1), content: z.string() }).s
 const PreviewTrial = z.object({ revision: z.number().int().positive(), dependencyRevision: z.number().int().positive(), passed: z.boolean(), sampleInput: z.string() }).strict();
 const PreviewRelease = z.object({ number: z.number().int().positive(), revision: z.number().int().positive(), files: z.array(PreviewFile).min(1) }).strict();
 export const StudioPreviewSchema = z.object({
+  importedSource: z.string().url(),
   files: z.array(PreviewFile).min(1), selected: z.string(), revision: z.number().int().positive(), dirty: z.boolean(),
   dependencyRevision: z.number().int().positive(), modelEnabled: z.boolean(), toolGranted: z.boolean(),
   testInput: z.string(), trial: PreviewTrial.nullable(), releases: z.array(PreviewRelease).min(1), boundRelease: z.number().int().positive().nullable(),
@@ -25,7 +26,7 @@ export const demoFiles: StudioFile[] = [
 ];
 export function initialStudioPreview(): StudioPreview {
   const files = demoFiles.map(file => ({ ...file }));
-  return { files, selected: "SKILL.md", revision: 3, dirty: false, dependencyRevision: 1,
+  return { importedSource: "https://github.com/example/research-brief", files, selected: "SKILL.md", revision: 3, dirty: false, dependencyRevision: 1,
     modelEnabled: true, toolGranted: true, testInput: "sample task", trial: null,
     releases: [{ number: 1, revision: 2, files: files.map(file => ({ ...file })) }], boundRelease: 1 };
 }
@@ -43,7 +44,7 @@ export type StudioAction =
   | { type: "create"; path: string } | { type: "delete" } | { type: "rename"; path: string }
   | { type: "save" } | { type: "trial"; passed: boolean; sampleInput: string } | { type: "publish" }
   | { type: "bind"; release: number } | { type: "model" } | { type: "tool" }
-  | { type: "ai-instructions" } | { type: "import" } | { type: "upstream" } | { type: "rollback"; release: number };
+  | { type: "ai-instructions" } | { type: "import"; source?: string } | { type: "upstream" } | { type: "rollback"; release: number };
 export function studioReducer(s: StudioPreview, a: StudioAction): StudioPreview {
   switch (a.type) {
     case "restore": return a.state;
@@ -64,7 +65,7 @@ export function studioReducer(s: StudioPreview, a: StudioAction): StudioPreview 
     case "model": return { ...s, modelEnabled: !s.modelEnabled, dependencyRevision: s.dependencyRevision + 1 };
     case "tool": return { ...s, toolGranted: !s.toolGranted, dependencyRevision: s.dependencyRevision + 1 };
     case "ai-instructions": return { ...s, dirty: true, selected: "SKILL.md", files: s.files.map(f => f.path === "SKILL.md" ? { ...f, content: `${f.content}\n输出前逐条核对来源；信息不足时明确列出限制。\n` } : f) };
-    case "import": return { ...s, files: demoFiles.map(f => ({ ...f })), selected: "SKILL.md", revision: s.revision + 1, dirty: false, trial: null };
+    case "import": return { ...s, importedSource: a.source ?? s.importedSource, files: demoFiles.map(f => ({ ...f })), selected: "SKILL.md", revision: s.revision + 1, dirty: false, trial: null };
     case "upstream": return { ...s, dirty: true, selected: "SKILL.md", files: s.files.map(f => f.path === "SKILL.md" ? { ...f, content: `${f.content}\n5. 新增上游要求：输出研究限制。\n` } : f) };
     case "rollback": {
       const release = s.releases.find(r => r.number === a.release);

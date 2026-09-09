@@ -152,6 +152,9 @@ export const ImportJob = z.discriminatedUnion("status", [
   z.object({ ...ImportJobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: ImportFailure }).strict(),
   z.object({ ...ImportJobBase, status: z.literal("cancelled"), completedAt: IsoDateTime }).strict(),
  ]).superRefine((job, context) => {
+  if (job.status === "succeeded" && (!job.result.sourcePin || job.result.sourcePin.sourceDigest !== job.sourceDigest)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["result", "sourcePin"], message: "imported draft must retain the job source digest" });
+  }
   if ((job.attempt === 1) !== (job.previousAttemptJobId === null) || job.previousAttemptJobId === job.jobId) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["previousAttemptJobId"], message: "first attempt has no predecessor; retries require a distinct predecessor" });
   }

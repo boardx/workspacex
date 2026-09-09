@@ -10,6 +10,29 @@ beforeEach(() => { sessionStorage.clear(); navigation.push.mockClear(); });
 const click = (id: string) => fireEvent.click(screen.getByTestId(id));
 
 describe("capability preview rendered interaction boundaries", () => {
+  it("starts another import explicitly while preserving terminal batch results", () => {
+    render(<CapabilityImportPreview />);
+    click("import-inspect"); click("import-candidate-research-brief"); click("import-submit-batch");
+    expect(screen.queryByTestId("import-new-batch")).toBeNull();
+    click("import-complete"); click("import-new-batch");
+    expect(screen.getByTestId("import-url")).toBeDisabled();
+    click("import-confirm-new");
+    expect(screen.getByTestId("import-url")).toBeEnabled();
+    expect(screen.getByTestId("import-history")).toHaveTextContent("draft-research-brief");
+    expect(screen.queryByTestId("import-batch")).toBeNull();
+    click("import-inspect");
+    expect(screen.getByTestId("import-submit-batch")).toBeDisabled();
+  });
+  it("recovers the imported source together with the draft after remount", () => {
+    const first = render(<CapabilityStudioPreview state="default" />);
+    click("studio-import");
+    fireEvent.change(screen.getByTestId("studio-source"), { target: { value: "https://github.com/another/skill" } });
+    click("studio-preview-source"); click("studio-confirm-import");
+    first.unmount();
+    render(<CapabilityStudioPreview state="default" />);
+    fireEvent.click(screen.getByRole("button", { name: "来源与更新" }));
+    expect(screen.getByTestId("studio-upstream-panel")).toHaveTextContent("https://github.com/another/skill");
+  });
   it("carries the selected historical release into the binding confirmation", () => {
     render(<CapabilityStudioPreview state="default" />);
     click("studio-open-tests"); click("studio-run-pass"); click("studio-publish"); click("studio-confirm-publish");

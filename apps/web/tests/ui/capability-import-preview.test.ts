@@ -7,6 +7,9 @@ describe("contract-backed import preview transitions", () => {
   it("single-file sources do not invent sibling candidates", () => {
     const single = makeImportPreview({ kind: "https-file", url: "https://example.test/SKILL.md", authConnectionId: null });
     expect(single.candidates.map(candidate => candidate.candidateId)).toEqual(["research-brief"]);
+    expect(single.candidates[0]!.files.map(file => file.path)).toEqual(["SKILL.md"]);
+    const github = makeImportPreview({ kind: "github", repositoryUrl: "https://github.com/example/skills", requestedRef: "main", selection: "single-file", path: "examples/SKILL.md", authConnectionId: null });
+    expect(github.candidates[0]!.files.map(file => file.path)).toEqual(["SKILL.md"]);
   });
   it("only retries failed items while preserving successful drafts and immutable source pins", () => {
     const queued = makeImportBatch(preview, preview.candidates.map(candidate => candidate.candidateId));

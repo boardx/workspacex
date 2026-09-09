@@ -21,7 +21,7 @@
 
 - `packages/contracts/src/skill-development.ts`：来源请求与服务端解析快照分离；候选列表、批次/单项查询、单项重试/取消；新建批次与覆盖草稿CAS分开；多文件原子保存和文件读取；精确草稿试跑；按服务端run ID发布；上游冲突选择；恢复历史文件为草稿。
 - `packages/contracts/src/capability-runtime-policy.ts`：模型池ID与provider/upstream映射、配置版本、试跑依赖快照、凭据keep/clear/replace、运行失败归因引用。Skill草案直接引用依赖快照，不复制一套模型/MCP定义。
-- 草案定向验证：13项通过；不代表任务持久化、授权、SSRF、发布事务、重试幂等或真实模型执行已经实现。上述性质必须由后续application/API/数据库测试证明。
+- 草案定向验证：14项通过；不代表任务持久化、授权、SSRF、发布事务、重试幂等或真实模型执行已经实现。上述性质必须由后续application/API/数据库测试证明。
 - 已有签核契约与生产路由未被这些草案替换。新增草案尚未index导出；正式束形成时需明确导出和OpenAPI/前端消费点。
 
-剩余设计缺口：上传操作/预检额度、AI候选差异基线、Model/MCP现有操作的精确delta、Agent配置/绑定CAS与失败运行派生草稿、组织开发权限。覆盖表尚不能标为闭合。
+剩余设计缺口：上传操作/预检额度、AI候选差异基线、Agent配置/绑定CAS与失败运行派生草稿、组织开发权限的可执行schema。具体流程见development-operation-deltas.md；Model/MCP操作delta见runtime-operation-deltas.md与composite-model-mapping.md。覆盖表尚不能标为闭合。
