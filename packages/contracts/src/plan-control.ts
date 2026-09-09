@@ -753,3 +753,42 @@ export function deriveRunControls(input: { runStatus: RunStatusForPhase }): {
   if (input.runStatus === "interrupted") return { canPause: false, canResume: true };
   return { canPause: false, canResume: false };
 }
+
+/**
+ * issue #3208（签核人 2026-09-09 裁决：方案 A「按需渲染 + 收进折叠头」）+ #3214 ——
+ * **阶段指示器该不该常驻**的单一判据。
+ *
+ * ## 为什么这条判据必须与 `phase` 同源、且写在契约里
+ *
+ * 裁决原话是「先保留这个吧，但是只有需要的时候弹出来，不要一直显示」。要把「需要
+ * 的时候」变成可机械判定的东西，只有一个合法的输入：**指示器自己正在显示的那个
+ * `phase`**（`getPlanLedger.phase`，I-7 服务端派生）。任何"再从 `runStatus` /
+ * 有没有步骤 / 有没有 run 另推一次"的写法，都是把同一事实声明到第二处——本仓今晚
+ * 已因这个形态出过五次事故（#3207/#3220 的根因逐字相同：提醒读权威 REST、弹窗只读
+ * 事件流，两处结论相反）。放在契约里而不是组件里，是为了让"哪几态常驻"只有一份
+ * 副本，前端、单测、e2e 读的是同一个函数。
+ *
+ * ## 判据（四态常驻，三态不常驻）
+ *
+ * 同一屏此刻已经有两处在讲"现在到哪一步"：`PlanRunProgress` 运行进度卡与折叠头
+ * 那行 `执行计划 · <stateLabel>`。阶段条只在**它提供新增信息**时常驻：
+ *
+ * - `planning` / `approving`：**需要用户动作**（确认门 / 审批），且进度卡此刻不渲染。
+ * - `failed` / `cancelled`：终态，`deriveRunControls` 全 false ⇒ 进度卡已卸载，
+ *   这条一行摘要是屏幕上唯一说明"这轮怎么收场"的东西。
+ * - `preparing`：**没有在途 run**（#3208 ① 修正后它的含义已收窄为「无在途 run 且
+ *   无计划」）。#3214 的空白会话正落在这里——此时正确行为是**什么都不显示**，
+ *   不是显示一条高亮着「准备」的阶段条。
+ * - `executing` / `done`：与同屏进度卡 / 折叠头摘要纯重复。
+ *
+ * ⚠ **"不常驻" ≠ "不可触达"**：宿主组件在用户展开折叠头时仍然渲染它
+ * （见 `copilotkit-v2-plan-control.tsx`）。本函数只回答"要不要**常驻**"，
+ * 不回答"能不能看到"——后者是折叠头的职责，两件事不要合并成一个布尔。
+ */
+export const PLAN_PHASE_INDICATOR_PINNED_PHASES: readonly PlanPhase[] = Object.freeze([
+  "planning", "approving", "failed", "cancelled",
+] as const);
+
+export function shouldSurfacePlanPhaseIndicator(phase: PlanPhase): boolean {
+  return PLAN_PHASE_INDICATOR_PINNED_PHASES.includes(phase);
+}
