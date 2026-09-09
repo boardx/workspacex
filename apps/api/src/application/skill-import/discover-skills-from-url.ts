@@ -246,11 +246,11 @@ export async function discoverSkillsFromUrl(
     fileCount: number;
   }[] = [];
 
-  async function addCandidate(path: string, entries: readonly GithubContentEntry[]): Promise<boolean> {
+  async function addCandidate(path: string, entries: readonly GithubContentEntry[]): Promise<"absent" | "unavailable" | "added"> {
     const skillMd = entries.find((entry) => entry.type === "file" && entry.name === "SKILL.md");
-    if (skillMd === undefined) return false;
-    // 已识别为 Skill 后，不再把它的 scripts/resources 当作独立候选。
-    if (skillMd.download_url === null) return true;
+    if (skillMd === undefined) return "absent";
+    // 有标记不等于已经加入候选；起点不可下载时仍须检查它的子目录。
+    if (skillMd.download_url === null) return "unavailable";
     const fetched = await deps.fetch(skillMd.download_url, deps.policy);
     const meta = parseSkillFrontmatter(fetched.body.toString("utf8"));
     skills.push({
@@ -263,17 +263,18 @@ export async function discoverSkillsFromUrl(
     if (skills.length > MAX_DISCOVERY_SKILLS) {
       throw new DiscoverSkillsFromUrlError("IMPORT_TOO_MANY_SKILLS_FOUND");
     }
-    return true;
+    return "added";
   }
 
   async function walk(path: string, depth: number): Promise<void> {
     const entries = await listDir(path);
     // #3240：用户粘贴的 Skill 子目录本身也应可被扫描入口识别。
     // 仓库根的空 dirPath 不在既有候选契约内，仍按多目录发现处理。
-    if (depth === 0 && path !== "" && await addCandidate(path, entries)) return;
+    if (depth === 0 && path !== "" && await addCandidate(path, entries) === "added") return;
     for (const dir of entries.filter((e) => e.type === "dir")) {
       const dirEntries = await listDir(dir.path);
-      if (await addCandidate(dir.path, dirEntries)) continue;
+      // 保留既有子目录边界：有 SKILL.md 的包不把资源目录再当作独立候选。
+      if (await addCandidate(dir.path, dirEntries) !== "absent") continue;
       if (depth + 1 < MAX_DISCOVERY_DEPTH) await walk(dir.path, depth + 1);
     }
   }

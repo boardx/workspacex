@@ -24,3 +24,9 @@ pnpm turbo run typecheck lint --filter=@repo/api
 ## 验证限制
 
 没有调用 GitHub 公网进行手工导入；未证明新 Phase 15 全旅程。首次直接运行 API tsc 因冷工作区缺少 fabric-markdown dist 类型而失败；使用标准 Turbo 依赖构建后通过，未放宽后端 DOM 配置。PR CI 和独立评审完成前不宣称交付。
+
+## 独立审查修正
+
+审查 exact SHA cc695a3bc 发现：起点 SKILL.md 的 download_url 为 null 时，布尔返回值把“有标记”误当成“候选加入成功”，提前返回并漏掉有效子 Skill。新增真实 HTTPS fixture 反证：修改前1项失败（IMPORT_NO_SKILLS_FOUND）、9项通过。
+
+修正为 absent/unavailable/added 三种结果：起点只有实际added才结束；子目录沿用原有包边界。修复后同一隔离命令18/18通过（发现用例10项、HTTP路由8项），数据库 wsx_c880605a920f5a891e0d，隔离栈退出时已清理。权限检查和SSRF取回链未改动。新SHA仍需CI与独立复审，未自行合并。
