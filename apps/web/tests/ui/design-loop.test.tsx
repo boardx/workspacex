@@ -1297,14 +1297,53 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
       expect(screen.queryByTestId("project-tags-dp-3")).toBeNull();
     });
 
-    it("弹窗里逗号分隔输入：中英文逗号都认，去空白去重，超上限截断", async () => {
+    /**
+     * 2026-09-09 人类指令「统一体验」：这里换成全仓共用的 `TagInput`（胶囊 + 回车/逗号
+     * 确认），判据一条没放宽——中英文逗号仍要认、仍去空白、仍去重。
+     */
+    it("弹窗里的标签输入：中英文逗号与回车都确认，去空白，重复的不再加一遍", async () => {
       mockList();
       render(<DesignWorkbenchHome state="default" />);
       fireEvent.click(await screen.findByTestId("workbench-new"));
       const input = await screen.findByTestId("project-tags-input");
-      fireEvent.change(input, { target: { value: " 后台 ，后台, 移动端 ,,, " } });
-      const preview = screen.getByTestId("project-tags-preview");
-      expect([...preview.children].map((c) => c.textContent)).toEqual(["后台", "移动端"]);
+
+      fireEvent.change(input, { target: { value: " 后台 " } });
+      fireEvent.keyDown(input, { key: "，" });          // 中文逗号
+      fireEvent.change(input, { target: { value: "后台" } });
+      fireEvent.keyDown(input, { key: "," });           // 英文逗号，且是重复的
+      fireEvent.change(input, { target: { value: "移动端" } });
+      fireEvent.keyDown(input, { key: "Enter" });       // 回车
+
+      expect(screen.getByTestId("project-tags-chip-后台")).toBeTruthy();
+      expect(screen.getByTestId("project-tags-chip-移动端")).toBeTruthy();
+      expect(screen.getAllByTestId(/^project-tags-chip-/)).toHaveLength(2);
+    });
+
+    /**
+     * ⚠ 这条钉的是**换控件本身带来的风险**。迭代 13 当初拒绝用 chip 编辑器的唯一理由
+     * 写在代码注释里：「常见 bug 是最后一个没按回车就丢了」。换成 chip 就必须堵死它，
+     * 否则是拿一个 bug 换另一个。反证：把 `submitTags()` 改回 `tags`，本条即红。
+     */
+    it("打完标签没按回车就直接保存：那个标签不许丢", async () => {
+      mockList();
+      const created: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+        if (path === "/pm-designs" && opts?.method === "POST") {
+          created.push(opts.body);
+          return { project: project({ id: "new" }) };
+        }
+        return {};
+      });
+      render(<DesignWorkbenchHome state="default" />);
+      fireEvent.click(await screen.findByTestId("workbench-new"));
+      fireEvent.change(await screen.findByTestId("project-dialog-name"), { target: { value: "chat" } });
+      // 打进去但**不按回车**
+      fireEvent.change(screen.getByTestId("project-tags-input"), { target: { value: "移动端" } });
+      fireEvent.click(screen.getByTestId("intake-skip-all"));
+
+      expect(created).toHaveLength(1);
+      expect((created[0] as { tags?: readonly string[] }).tags).toEqual(["移动端"]);
     });
   });
 
