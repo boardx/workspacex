@@ -62,10 +62,33 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
     .toContain(CHAT_READ_E2E.asrTranscriptPrefix);
   const midRecordingValue = await input.inputValue();
 
-  // 再等一下让假音频源多产出几块，证明不是只更新一帧就不动了（字节数持续增长）。
-  await page.waitForTimeout(1_000);
-  const laterValue = await input.inputValue();
-  expect(laterValue.length).toBeGreaterThanOrEqual(midRecordingValue.length);
+  /*
+   * 证明"不是只更新一帧就不动了"。
+   *
+   * ⚠ 这里此前写的是 `laterValue.length >= midRecordingValue.length`，**那条断言
+   * 不可能红**：`>=` 被"完全没有增长"满足，而它旁边的注释却写着"字节数持续增长"。
+   * 更糟的是即便改成 `>`，用**长度**当信号也是错的——确定性 ASR 替身回的正文是
+   * `[loopback-asr] <累计字节数>`（见 `loopback-asr-provider.ts`），1024 → 2048
+   * 位数相同、长度一模一样，于是"转录卡在第一帧"这个要抓的失效照样漏过去。
+   *
+   * 真正会随"还在实时转录"而变的信号是那个**累计字节数本身**，它由替身按收到的每
+   * 一块音频单调累加，因此只要录音还在继续就一定严格增长——是由构造保证的因果，
+   * 不是"等一秒钟大概会变"的时序运气。
+   */
+  /* 前缀取自 `CHAT_READ_E2E`（同一份下发给替身的值），不在本文件里再写死一遍。 */
+  const bytesPattern = new RegExp(
+    `${CHAT_READ_E2E.asrTranscriptPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+(\\d+)`,
+  );
+  const transcribedBytes = async (): Promise<number> => {
+    const matched = bytesPattern.exec(await input.inputValue());
+    return matched === null ? -1 : Number(matched[1]);
+  };
+  const midRecordingBytes = await transcribedBytes();
+  expect(midRecordingBytes, `录音中的输入框正文里没有解析出累计字节数："${midRecordingValue}"`)
+    .toBeGreaterThan(0);
+  await expect
+    .poll(transcribedBytes, { timeout: 20_000, intervals: [200, 500] })
+    .toBeGreaterThan(midRecordingBytes);
 
   // ── ③ 停止录音：转录文字仍在（不是被清空），且可编辑 ──────────────────
   await micButton.click();
@@ -74,7 +97,13 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
 
   const stoppedValue = await input.inputValue();
   expect(stoppedValue).toContain(CHAT_READ_E2E.asrTranscriptPrefix);
-  expect(stoppedValue.length).toBeGreaterThan(0);
+  /*
+   * 停止录音之后，转录**不许倒退**——被清空、被截断成第一帧、或被 commit 那条
+   * `.completed` 覆盖成一个更小的快照，都是这条路径上真实存在的失效形态，而它们
+   * 在原来那句 `stoppedValue.length > 0` 底下全部可以过。
+   */
+  expect(await transcribedBytes(), "停止录音后转录内容倒退了——收尾覆盖掉了已经转出来的正文")
+    .toBeGreaterThanOrEqual(midRecordingBytes);
 
   // 可编辑：追加一段人类手打文字，证明转录结果不是只读展示。
   const editedSuffix = " ——人工追加编辑";
