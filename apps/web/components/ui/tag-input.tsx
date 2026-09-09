@@ -57,6 +57,7 @@ export function TagInput({
   readonly testIdPrefix?: string;
   readonly emptyHint?: string;
 }) {
+  const composing = React.useRef(false);
   const [uncontrolled, setUncontrolled] = React.useState("");
   const text = onDraftChange === undefined ? uncontrolled : draft;
   const setText = onDraftChange ?? setUncontrolled;
@@ -75,6 +76,8 @@ export function TagInput({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
+    // IME confirmation belongs to the composition session, not to chip editing.
+    if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
     // 回车或逗号（中文输入法下打出的是「，」）直接确认。
     if ((e.key === "Enter" || e.key === "," || e.key === "，") && trimmed.length > 0) {
       e.preventDefault();
@@ -133,6 +136,8 @@ export function TagInput({
           disabled={disabled || full}
           maxLength={maxTagLength}
           onChange={(e) => setText(e.target.value)}
+          onCompositionStart={() => { composing.current = true; }}
+          onCompositionEnd={() => { composing.current = false; }}
           onKeyDown={onKeyDown}
           aria-label="添加标签"
           data-testid={`${testIdPrefix}-input`}
