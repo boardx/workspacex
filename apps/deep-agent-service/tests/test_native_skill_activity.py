@@ -69,7 +69,7 @@ def test_real_native_metadata_and_body_are_distinct_custom_stream_facts(asynchro
         assert all(fact['skillVersion']=='v1' for fact in facts)
 
 
-def test_real_recovery_replays_discovery_and_read_ids_without_execution_claim():
+def test_real_cached_turn_preserves_read_id_without_rediscovery_or_execution_claim():
     from langgraph.checkpoint.memory import InMemorySaver
     with real_native_session() as (adapter,pins):
         model=ScriptedModel(messages=iter([
@@ -83,8 +83,12 @@ def test_real_recovery_replays_discovery_and_read_ids_without_execution_claim():
         for _ in range(2):
             events=list(graph.stream({'messages':[{'role':'user','content':'Read instructions'}]},config=config,stream_mode='custom'))
             batches.append([e['fact'] for e in events if e.get('type')=='skill_activity'])
-        assert batches[0]==batches[1]
         assert [f['stage'] for f in batches[0]]==['metadata_discovered','body_read']
+        # This is a second turn on the same checkpoint, not a replay of before_agent.
+        # Cached metadata is not a fresh discovery; the actual repeated body read
+        # keeps its stable fact identity and never claims script execution.
+        assert [f['stage'] for f in batches[1]]==['body_read']
+        assert batches[1][0]==batches[0][1]
 
 
 def test_real_body_writer_failure_propagates_without_retry(monkeypatch):
