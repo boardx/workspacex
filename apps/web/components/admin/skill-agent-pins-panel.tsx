@@ -5,10 +5,16 @@ import { listAgents, type AgentListRow } from "@/lib/agent-definition";
 import { getAssetDirectory } from "@/lib/asset-directory";
 import { getSkillFileSnapshot, type SkillSnapshot } from "@/lib/live-skill-files";
 import { getAgentSkillPins, setAgentSkillPins, replaceSkillPins, type AgentSkillPins } from "@/lib/live-agent-skill-pins";
+import { useAuthenticatedSessionScope } from "@/lib/authenticated-session-scope";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 const describe = (reason: unknown) => reason instanceof ApiError && reason.status === 409 ? "Agent 已有更新，未覆盖其他人的绑定。请重新读取，核对完整清单后再确认。" : reason instanceof Error ? reason.message : "请求失败，请重试。";
 export function SkillAgentPinsPanel({ skillId }: { skillId: string }) {
+  const scope = useAuthenticatedSessionScope();
+  if (scope === null) return <p role="status" className="text-13">请登录并完成组织身份验证后继续。</p>;
+  return <SkillAgentPinsPanelSession key={`${scope}:${skillId}`} skillId={skillId} />;
+}
+function SkillAgentPinsPanelSession({ skillId }: { skillId: string }) {
   const [agents, setAgents] = useState<readonly AgentListRow[]>([]);
   const [agentId, setAgentId] = useState("");
   const [target, setTarget] = useState<SkillSnapshot | null>(null);
@@ -55,7 +61,10 @@ export function SkillAgentPinsPanel({ skillId }: { skillId: string }) {
       setCurrent(refreshed);
       setNotice(refreshed.publishedVersionId === result.versionId ? `已${restore ? "恢复" : "固定"}该 Skill 版本并发布 Agent ${result.versionId}；其他 Skill 绑定保留。新会话使用当前绑定，已有运行保留原快照。` : "写入已成功，但 Agent 随后又有更新。当前展示重新读取的最新清单，请重新审阅。");
     } catch (reason) {
-      if (epoch.current === attempt) { setError(`${saved ? "写入已成功，但重新读取失败。请刷新确认；不要把读取失败当作写入失败。" : ""}${describe(reason)}`); if (reason instanceof ApiError && reason.status === 409) setCurrent(null); }
+      if (epoch.current === attempt) {
+        const rejected = reason instanceof ApiError && [400, 401, 403, 404, 409, 422].includes(reason.status);
+        if (!saved && !rejected) { setPrevious(before); setCurrent(null); setError(`写入结果未确认，可能已发布。已保留本页原绑定供恢复，请重新读取后再操作。${describe(reason)}`); return; }
+        setError(`${saved ? "写入已成功，但重新读取失败。请刷新确认；不要把读取失败当作写入失败。" : ""}${describe(reason)}`); if (reason instanceof ApiError && reason.status === 409) setCurrent(null); }
     } finally { if (epoch.current === attempt) { pending.current = false; setBusy(false); } }
   };
   const targetAlreadyPinned = !!target && !!current && current.pins.filter(pin => pin.skillId === skillId).length === 1 && current.pins.some(pin => pin.skillId === skillId && pin.versionId === target.versionId);
