@@ -59,3 +59,90 @@ def test_unknown_transport_failure_is_not_projected_or_retried(monkeypatch):
         asyncio.run(web._invoke('fetch_url', {'url': 'https://example.com'}, runtime))
     assert 'private-key' not in str(error.value)
     assert len(requests) == 1
+
+
+# ⚠ 必须在任何 monkeypatch 之前抓住真的 `httpx.AsyncClient`：同一个测试里连续打两次桩时
+#   `httpx.AsyncClient` 已经是上一次的 lambda，再拿它当 `original` 会把 transport 传两遍
+#   ——第一版就是这么红的，且红在"工具整体失败"上，看起来像被测代码坏了。
+_REAL_ASYNC_CLIENT = httpx.AsyncClient
+
+
+def json_client(monkeypatch, body):
+    """网关的 503 现在带成因（issue #3204 ②）。"""
+    requests = []
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(503, json=body)
+    monkeypatch.setattr(web.httpx, 'AsyncClient', lambda **kwargs: _REAL_ASYNC_CLIENT(transport=httpx.MockTransport(handle), **kwargs))
+    return requests
+
+
+def text_client(monkeypatch):
+    """旧网关形状：503 但正文不是可识别的 JSON。"""
+    requests = []
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(503, text='private-key upstream-sensitive-content')
+    monkeypatch.setattr(web.httpx, 'AsyncClient', lambda **kwargs: _REAL_ASYNC_CLIENT(transport=httpx.MockTransport(handle), **kwargs))
+    return requests
+
+
+async def _content(monkeypatch, body):
+    json_client(monkeypatch, body)
+    runtime = SimpleNamespace(config=config(), tool_call_id='call-web')
+    message = await web._invoke('fetch_url', {'url': 'https://openai.com/index/navier-stokes-solution/'}, runtime)
+    return message.content
+
+
+def failure(reason, **extra):
+    return {'error': 'standard_web_unavailable_or_refused', 'reason': reason, **extra}
+
+
+@pytest.mark.parametrize("status", [403, 429, 503])
+def test_upstream_failure_preserves_status_without_inventing_cause_or_retry_policy(monkeypatch, status):
+    """人类实测的那一条：openai.com 返回 HTTP/2 403 + cf-mitigated: challenge。
+
+    修复前任意 503 都是同一句 'Web source unavailable or refused'，模型没法判断该不该换源。
+    """
+    content = asyncio.run(_content(monkeypatch, failure('upstream_refused', upstreamStatus=status)))
+    assert f'HTTP {status}' in content
+    assert 'no content was confirmed' in content
+    assert 'declined automated access' not in content
+    assert 'Retrying will not help' not in content
+    assert 'Do not cite this failed source' in content
+
+
+def test_the_four_causes_are_actually_distinguishable(monkeypatch):
+    """这条才是"可分辨"本身——修复前这四句逐字相同。"""
+    texts = [
+        asyncio.run(_content(monkeypatch, failure('upstream_refused', upstreamStatus=403))),
+        asyncio.run(_content(monkeypatch, failure('upstream_unreachable'))),
+        asyncio.run(_content(monkeypatch, failure('timeout'))),
+        asyncio.run(_content(monkeypatch, failure('blocked_by_policy'))),
+    ]
+    assert len(set(texts)) == 4
+    # 被出站策略挡下 ≠ 网站拒绝了你：不许把我们自己的门说成上游行为。
+    assert 'outbound access policy' in texts[3] and 'refused this request' not in texts[3]
+
+
+def test_unrecognized_reason_falls_back_to_the_vague_sentence(monkeypatch):
+    """认不出来就说得含糊——好过编一个具体的原因（反面用例）。"""
+    content = asyncio.run(_content(monkeypatch, failure('not-a-real-reason')))
+    assert 'Web source unavailable or refused' in content
+
+
+def test_non_json_failure_body_keeps_the_old_sentence_and_leaks_nothing(monkeypatch):
+    """旧网关形状（503 + 非 JSON 正文）不许把上游正文当成因读出来。"""
+    requests = text_client(monkeypatch)
+    runtime = SimpleNamespace(config=config(), tool_call_id='call-web')
+    content = asyncio.run(web._invoke('fetch_url', {'url': 'https://example.com'}, runtime)).content
+    assert 'Web source unavailable or refused' in content
+    assert 'private-key' not in content and 'upstream-sensitive-content' not in content
+    assert len(requests) == 1
+
+
+def test_reason_never_carries_upstream_body_or_headers(monkeypatch):
+    """可分辨不等于把上游内容透出去——网关塞进来的多余字段一律不进 ToolMessage。"""
+    content = asyncio.run(_content(monkeypatch, failure('upstream_refused', upstreamStatus=403,
+                                                        detail='private-key upstream-sensitive-content')))
+    assert 'private-key' not in content and 'upstream-sensitive-content' not in content

@@ -10,6 +10,33 @@ from langchain_core.tools import StructuredTool
 from langchain_core.messages import ToolMessage
 _SCHEMA=json.loads((Path(__file__).parent/'generated/standard_web_schema.json').read_text())
 class StandardWebError(RuntimeError):pass
+_GUIDANCE=_SCHEMA['failure']['guidance']
+async def _failure_text(response):
+    """issue #3204 ② —— 把网关给出的失败成因如实说出来（被拒 / 不可达 / 超时 / 被策略挡下）。
+
+    此前任意 503 都映射成同一句 'Web source unavailable or refused'——人类实测
+    `fetch_url https://openai.com/...` 时，上游其实是 `HTTP/2 403` +
+    `cf-mitigated: challenge`（Cloudflare 挑战页，上游真拒绝），但产品说不出是哪一种，
+    模型与用户都无从判断该不该换源。措辞的**单一**来源是契约生成的
+    `generated/standard_web_schema.json` 的 `failure.guidance`，这里只做 `{status}` 替换。
+
+    ⚠ 只读网关自己的枚举与数字状态码，绝不回显上游正文或响应头。
+    ⚠ 网关给不出可识别的成因（旧版本、非 JSON 正文）就回落到原来那句 `unknown`——
+      认不出来时说得含糊，好过编一个具体的原因。
+    """
+    reason='unknown'
+    upstream=None
+    try:
+        body=json.loads(await response.aread())
+        if isinstance(body,dict) and body.get('error')=='standard_web_unavailable_or_refused':
+            candidate=body.get('reason')
+            if isinstance(candidate,str) and candidate in _GUIDANCE:reason=candidate
+            status=body.get('upstreamStatus')
+            if isinstance(status,int) and 100<=status<=599:upstream=status
+    except Exception:
+        reason='unknown'
+    return _GUIDANCE[reason].replace('{status}',str(upstream) if upstream is not None else 'an error status')
+
 async def _invoke(name,args,runtime):
     try:
         callback=runtime.config['configurable']['run_control_callback']
@@ -24,7 +51,7 @@ async def _invoke(name,args,runtime):
             async with httpx.AsyncClient(timeout=deadline,follow_redirects=False,trust_env=False) as client:
                 async with client.stream('POST',url,headers={'x-deep-agent-internal-key':callback['key'],'accept-encoding':'identity'},json=body) as response:
                     if response.status_code==503:
-                        return ToolMessage(content='Web source unavailable or refused; no content confirmed. Do not cite this failed source. You may choose another authorized public source.',tool_call_id=runtime.tool_call_id,name=name,status='error')
+                        return ToolMessage(content=await _failure_text(response),tool_call_id=runtime.tool_call_id,name=name,status='error')
                     if response.status_code!=200 or response.headers.get('content-encoding','identity')!='identity':raise ValueError()
                     content=bytearray()
                     async for chunk in response.aiter_raw():
