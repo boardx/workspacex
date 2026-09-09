@@ -22,6 +22,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
 import { AGUI_RUN_PHASE_EVENT_NAME } from "@repo/contracts/agui-state-events";
+import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
@@ -170,8 +171,8 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
-  await new Promise<void>((resolve) => providerServer.close(() => resolve()));
+  await closeAppDeterministically(app);
+  await closeHttpServerDeterministically(providerServer);
   delete process.env.KERNEL_MODEL_STREAM_ENABLED;
 });
 

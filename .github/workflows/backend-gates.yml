@@ -426,11 +426,46 @@ jobs:
             apps/web/test-results/
           if-no-files-found: error
 
+  prototype-audit:
+    runs-on: ubuntu-latest
+    # 与其它 gates job 对齐的 fork PR 守卫。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # 截图审计（机器硬判 80 分）。**不需要 postgres/docker**：被审页面的数据全部由
+      # `page.route` 夹具提供，服务由 config 的 `webServer` 自己起（本地与 CI 同一条命令）。
+      #
+      # ⚠ 这道门是补「所有既有的门看的都是代码对不对，没有一道看它长得像不像个东西」——
+      # 迭代 14 交付时 22 条 check 全绿，而用户打开看到的是移动端内容塞进笔记本画板。
+      - name: 原型截图审计（机器硬判 ≥ 80）
+        run: pnpm run verify:prototype-audit
+
+      - name: Upload prototype audit screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: prototype-audit-${{ github.run_id }}
+          path: apps/web/test-results/prototype-audit/
+          if-no-files-found: error
+
   # Stable merge check: matrix gates-test reports success only when every shard passes.
   # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
   backend-required:
-    if: always() && github.event_name == 'pull_request'
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime]
+    if: always() && !cancelled() && github.event_name == 'pull_request'
+    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

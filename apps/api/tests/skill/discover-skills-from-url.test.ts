@@ -83,6 +83,11 @@ const LISTINGS: Record<string, RawEntry[]> = {
   docx: [{ type: "file", name: "SKILL.md", path: "docx/SKILL.md" }],
   xlsx: [{ type: "file", name: "SKILL.md", path: "xlsx/SKILL.md" }],
   notes: [{ type: "file", name: "todo.txt", path: "notes/todo.txt" }],
+  unavailable: [
+    { type: "file", name: "SKILL.md", path: "unavailable/SKILL.md" },
+    { type: "dir", name: "child", path: "unavailable/child" },
+  ],
+  "unavailable/child": [{ type: "file", name: "SKILL.md", path: "unavailable/child/SKILL.md" }],
 };
 
 const RAW_FILES: Record<string, string> = {
@@ -92,6 +97,7 @@ const RAW_FILES: Record<string, string> = {
   "xlsx/SKILL.md": SKILL_MD_NO_FRONTMATTER,
   "notes/todo.txt": "buy milk\n",
   "README.md": "# fixture repo\n",
+  "unavailable/child/SKILL.md": SKILL_MD_DOCX,
 };
 
 beforeAll(async () => {
@@ -125,7 +131,7 @@ beforeAll(async () => {
       }
       const withUrls = listing.map((entry) => ({
         ...entry,
-        download_url: entry.type === "file" ? `https://github.com:${port}/raw/${entry.path}` : null,
+        download_url: entry.type === "file" && entry.path !== "unavailable/SKILL.md" ? `https://github.com:${port}/raw/${entry.path}` : null,
       }));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(withUrls));
@@ -219,20 +225,43 @@ describe("扫描一个多 skill 仓库", () => {
     expect(result.skills.map((s) => s.dirPath).sort()).toEqual(["docx", "pptx", "xlsx"]);
   });
 
-  it("直接把某个 skill 子目录当起点：不误报兄弟目录，也不把起点自己算成候选", async () => {
-    // pptx 自己没有 SKILL.md 之外的子目录含 SKILL.md（scripts/ 没有）——起点本身
-    // 不算候选（见用例文件头：起点是不是恰好一个 skill 目录，由既有单目录导入负责），
-    // ⇒ 一个都没找到，落到与"整个仓库没有 skill"同一条 `IMPORT_NO_SKILLS_FOUND`。
-    await expect(
-      discoverSkillsFromUrl(
-        {
-          orgId: "org-1865",
-          actorId: "u-1865-admin",
-          sourceUrl: `https://github.com:${port}/${OWNER}/${REPO}/tree/${BRANCH}/pptx`,
-        },
-        depsFor("admin"),
-      ),
-    ).rejects.toMatchObject({ code: "IMPORT_NO_SKILLS_FOUND" });
+  it("直接输入 Skill 子目录时返回起点本身，不误报兄弟目录", async () => {
+    const result = await discoverSkillsFromUrl(
+      {
+        orgId: "org-1865", actorId: "u-1865-admin",
+        sourceUrl: `https://github.com:${port}/${OWNER}/${REPO}/tree/${BRANCH}/pptx`,
+      },
+      depsFor("admin"),
+    );
+    expect(result.skills).toEqual([{
+      dirPath: "pptx",
+      treeUrl: `https://github.com/${OWNER}/${REPO}/tree/${BRANCH}/pptx`,
+      name: "pptx-skill", description: "Create and edit PowerPoint decks", fileCount: 2,
+    }]);
+  });
+
+  it("起点 SKILL.md 无下载地址时继续发现可下载的子 Skill", async () => {
+    const result = await discoverSkillsFromUrl(
+      { orgId: "org-1865", actorId: "u-1865-admin", sourceUrl: `https://github.com:${port}/${OWNER}/${REPO}/tree/${BRANCH}/unavailable` },
+      depsFor("admin"),
+    );
+    expect(result.skills.map(skill => skill.dirPath)).toEqual(["unavailable/child"]);
+    expect(result.skills[0]!.name).toBe("docx-skill");
+  });
+
+  it("起点 Skill 没有 frontmatter 时沿用目录名兜底", async () => {
+    const result = await discoverSkillsFromUrl(
+      {
+        orgId: "org-1865", actorId: "u-1865-admin",
+        sourceUrl: `https://github.com:${port}/${OWNER}/${REPO}/tree/${BRANCH}/xlsx`,
+      },
+      depsFor("admin"),
+    );
+    expect(result.skills).toEqual([{
+      dirPath: "xlsx",
+      treeUrl: `https://github.com/${OWNER}/${REPO}/tree/${BRANCH}/xlsx`,
+      name: "xlsx", description: "", fileCount: 1,
+    }]);
   });
 });
 

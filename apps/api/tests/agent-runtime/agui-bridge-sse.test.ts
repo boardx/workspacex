@@ -26,6 +26,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
   AGUI_RUN_PHASE_EVENT_NAME,
@@ -187,8 +188,8 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
-  await new Promise<void>((resolve) => providerServer.close(() => resolve()));
+  await closeAppDeterministically(app);
+  await closeHttpServerDeterministically(providerServer);
 });
 
 beforeEach(async () => {

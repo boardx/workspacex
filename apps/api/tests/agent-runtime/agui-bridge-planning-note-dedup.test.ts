@@ -30,6 +30,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
@@ -226,8 +227,8 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
-  await new Promise<void>((resolve) => langgraphServer.close(() => resolve()));
+  await closeAppDeterministically(app);
+  await closeHttpServerDeterministically(langgraphServer);
   delete process.env.KERNEL_DEEP_AGENT_STREAM_ENABLED;
 });
 
