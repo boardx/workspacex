@@ -38,7 +38,9 @@ describe("formal research report", () => {
     expect(screen.getByText("研究报告 · 草稿")).toBeInTheDocument();
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 1 / 1 个章节。章节核验状态见生成过程；报告尚未完成");
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /完成|下载/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /完成/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    expect(screen.getByText(/当前导出为未完成草稿/)).toBeInTheDocument();
   });
   it("parses streamed introduction and conclusion and redacts pending unknown identifiers", () => {
     const preview = researchReportPreview('{"sections":[],"introduction":"范围与方法","conclusion":"建议开展试点');

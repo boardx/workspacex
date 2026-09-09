@@ -65,10 +65,11 @@ describe("research chapter document", () => {
     render(<GuidedResearchReportPreview state={state} />);
     expect(screen.getByRole("heading", { name: "已生成章节" })).toBeInTheDocument();
     expect(screen.getByText("正在综合")).toBeInTheDocument();
-    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已保存 0 / 1 个章节");
+    expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("已显示 1 个章节，保存状态正在同步");
     expect(screen.getByTestId("research-report-validation-status")).toHaveTextContent("尚未完成");
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
-    expect(screen.queryByRole("button", { name: /下载/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
+    expect(screen.getByText(/当前导出为未完成草稿/)).toBeInTheDocument();
   });
 });

@@ -80,7 +80,8 @@ describe("reference research workflow", () => {
     const state = { ...initial, report: null, errorCode: "RESEARCH_WORKFLOW_UNAVAILABLE", reportCheckpoint: { basis: "basis", chapters: initial.report!.sections } };
     vi.mocked(getResearchRuntime).mockResolvedValue(state); vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
     render(<GuidedResearchLive sessionId={state.sessionId} onBack={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "重新生成本步骤" }));
+    fireEvent.click(await screen.findByText("更多操作"));
+    fireEvent.click(screen.getByRole("button", { name: "重新生成报告" }));
     expect(executeResearchRuntime).toHaveBeenCalledWith(expect.objectContaining({ action: "generate", node: "report" }), expect.any(Function), expect.any(AbortSignal));
   });
 });
