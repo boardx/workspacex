@@ -3,6 +3,7 @@ import { PLATFORM_SKILL_CATALOG } from "../../domain/skill/platform-skill-catalo
 import { STANDARD_RUN_STATUS_TOOL } from "@repo/contracts/standard-run-status";
 import { STANDARD_RUN_CANCEL_TOOL } from "@repo/contracts/standard-run-cancel";
 import { STANDARD_BROWSER_TOOLS } from "@repo/contracts/standard-browser-tools";
+import { STANDARD_SUBTASK_TOOL } from "@repo/contracts/standard-subtask-tools";
 import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
 import { classifyToolRisk } from "../../domain/agent-run/tool-risk-tier";
 import { toOrgId } from "../../domain/org-id";
@@ -10,7 +11,18 @@ import { ModelCallError, type ModelCallInput } from "./ports";
 import type { NativeSessionOwner } from "./native-session-owner";
 
 /** Profile membership, not a second permission classification. Unknown tools remain L2. */
-export const NATIVE_PROFILE_TOOLS = [STANDARD_ARTIFACT_DOWNLOAD_TOOL, STANDARD_RUN_STATUS_TOOL, STANDARD_RUN_CANCEL_TOOL, ...STANDARD_BROWSER_TOOLS, ...Object.values(AGENT_INTERRUPTS_TOOL_NAMES), "ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate", "wx_audio_transcribe"] as const;
+export const NATIVE_PROFILE_TOOLS = [STANDARD_ARTIFACT_DOWNLOAD_TOOL, STANDARD_RUN_STATUS_TOOL, STANDARD_RUN_CANCEL_TOOL, ...STANDARD_BROWSER_TOOLS, ...Object.values(AGENT_INTERRUPTS_TOOL_NAMES), "ls", "read_file", "write_file", "edit_file", "delete", "glob", "grep", "execute", "task", "write_todos", "wx_artifact_publish", "web_search", "fetch_url", "wx_memory_search", "wx_memory_write", "wx_memory_delete", "wx_project_list", "wx_project_read", "wx_knowledge_search", "wx_knowledge_read", "wx_canvas_read", "wx_canvas_update", "wx_document_parse", "sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "sql_db_query", "wx_skill_create_draft", "wx_schedule_create", "wx_schedule_list", "wx_schedule_cancel", "wx_image_generate", "wx_audio_transcribe", STANDARD_SUBTASK_TOOL] as const;
+/**
+ * 准入表 → `interrupt_on` 的**唯一一次**计算。跨语言边界（`generated/native_profile_tools.json`，
+ * 由 `scripts/generate-native-profile-tools.ts` 生成）和真实 provision 必须是同一个表达式算出来的：
+ * 一旦在别处再写一遍 `classifyToolRisk(name) === "L2"`，两份就会各自漂移，而 Python 侧
+ * `native_factory` 正是用这张表**静默过滤**掉未登记的工具（#3159 里 `spawn_async_task`
+ * 就是这么消失的——构造了，没登记，一行日志都没有）。
+ */
+export function nativeInterruptOn(): Record<string, boolean> {
+  return Object.fromEntries(NATIVE_PROFILE_TOOLS.map(name => [name, classifyToolRisk(name) === "L2"]));
+}
+
 /**
  * #3033 —— DevApp 上 `KERNEL_NATIVE_RUNTIME=1` 之下每条 chat 瞬间失败的真因：
  * `canonicalNativePackageSet` 要求 package set 里 `stableName` 唯一且匹配
@@ -53,7 +65,7 @@ export async function bindNativeInvocation(owner: NativeSessionOwner, input: Mod
   const pins = dedupeNativePins(input.skills ?? []);
   const context = { orgId: toOrgId(input.orgId), parentRunId: input.runId,
     attemptId: input.executionAttemptId, leaseEpoch: input.executionLeaseEpoch! };
-  const interruptOn = Object.fromEntries(NATIVE_PROFILE_TOOLS.map(name => [name, classifyToolRisk(name) === "L2"]));
+  const interruptOn = nativeInterruptOn();
   const binding = await owner.provision(context, pins, interruptOn);
   return { input: { ...input, nativeSession: binding },
     release: () => owner.release(binding.bindingId, context.orgId, context.parentRunId) };
