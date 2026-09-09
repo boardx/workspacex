@@ -33,6 +33,8 @@ describe("business submission acknowledgement", () => {
     expect(result.current.messageRuns).toEqual({ "message-1": "business-run", "message-2": "business-run" });
     act(() => subscriber.onToolCallStartEvent({ event: { toolCallId: "tc-2", parentMessageId: "message-3" } }));
     expect(result.current.messageRuns["message-3"]).toBe("business-run");
+    // 上游哪天开始发 `parentMessageId` 时绑的是真实气泡，它本来就该当锚点——不进排除集合。
+    expect([...result.current.toolCallMessageIds]).toEqual([]);
   });
 
   /**
@@ -59,6 +61,11 @@ describe("business submission acknowledgement", () => {
     // run id 已知之后到达的工具调用同样要绑上。
     act(() => subscriber.onToolCallStartEvent({ event: { toolCallId: "tool-call-2" } }));
     expect(result.current.messageRuns["tool-call-2"]).toBe("business-run");
+    /* D2 回归（#3168 引入，见 `use-run-trace.ts` 的 `onToolCallStartEvent` 注）：
+     * 这两条合成气泡**绑**到 run 是对的，但它们排在本轮回答正文之前，绝不能被
+     * `TaskTimeline` 选成执行轨迹面板的锚点。hook 如实记下它们的身份，供
+     * `resolveTraceAnchors` 排除；带 `parentMessageId` 的那条（真实气泡）不进这个集合。 */
+    expect([...result.current.toolCallMessageIds].sort()).toEqual(["tool-call-1", "tool-call-2"]);
   });
 
   it("does not carry messages of an abandoned run into the next one", () => {
