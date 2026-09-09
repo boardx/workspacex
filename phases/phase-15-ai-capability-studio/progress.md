@@ -31,3 +31,7 @@ ModelImpactPreview复用DisableDialog，加入引用未知/失败/过期禁确�
 MCP逐工具改用既有ToolAuthScope五值，复用checkToolScopeCap/checkToolScopeWithinServer；发现演示展示四类差异、移除旧引用失败和副作用变化后的即时收紧，连接不自动改变评审。治理状态7项和组件7项通过，web类型检查/lint通过。
 
 #3241已合入6fd11c5964bda2c5a6eb8d118011be6ed09cb0e5，head3975ff7b当前CI全绿。但合入23:04:21早于重跑成功23:22:17。读取全部34条check历史/commit statuses和merge第一父0bfbb0af的真实策略，judgeClosingPrGreen返回violation（合入时fullstack-smoke FAILURE）。已在PR评论交回协调者；不将事后绿当合入时绿，不自行改passing或回滚业务修复。
+
+## 2026-09-09 23:32 verification
+
+Latest combined UI 41/41, contracts 33/33; isolated MCP API discovery 23/23, resource cleanup complete. Types and web lint pass. See session-handoff.md for exact latest scope, review corrections and unresolved historical merge-gate violation on #3241. New governance controls remain preview-only; no production completion or human signoff claimed.

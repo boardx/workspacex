@@ -45,3 +45,13 @@ ModelImpactPreview复用DisableDialog，加入引用未知/失败/过期禁确�
 MCP逐工具改用既有ToolAuthScope五值，复用checkToolScopeCap/checkToolScopeWithinServer；发现演示展示四类差异、移除旧引用失败和副作用变化后的即时收紧，连接不自动改变评审。治理状态7项和组件7项通过，web类型检查/lint通过。
 
 #3241已合入6fd11c5964bda2c5a6eb8d118011be6ed09cb0e5，head3975ff7b当前CI全绿。但合入23:04:21早于重跑成功23:22:17。读取全部34条check历史/commit statuses和merge第一父0bfbb0af的真实策略，judgeClosingPrGreen返回violation（合入时fullstack-smoke FAILURE）。已在PR评论交回协调者；不将事后绿当合入时绿，不自行改passing或回滚业务修复。
+
+## 2026-09-09 23:32 validation and next steps
+
+UI: 41/41 across 7 files. Contracts: 33/33 across 5 files. Web/contracts/API typechecks and web lint pass. API bare invocation was correctly refused by isolation gate; rerun through with-test-isolation passed 23/23 MCP discovery tests and cleaned the isolated database.
+
+Latest code 9ea6cdbb4 includes model impact confirmation, five-value MCP scopes using shared cap functions, failure attribution references, and review corrections: edits revoke conflict confirmation; failed candidate credentials preserve saved connection status; current failed probe prevents enable until successful reprobe. serverSlugOf is extracted without behavior change into existing contracts and re-exported by discovery; canonical mcp-crm namespace tests now pass. Production operation/DTO adoption remains pending.
+
+RunFailurePreview compares run/current revisions, shows MCP snapshot reference only, hides absent or unauthorized navigation, never fabricates historical configuration or replays a run. Browser verification remains blocked by lock screen. Registration #3235 still open. Formal signoff pending, feature list empty, coverage incomplete. Next: exact-SHA independent review, complete operation/UC/permission mapping, then reviewable human signoff bundle. Do not claim production complete.
+
+#3241 is merged and current checks pass, but historical judgeClosingPrGreen returns violation: merged at 15:04:21Z with fullstack-smoke FAILURE, retry passed at 15:22:17Z. Evidence and coordinator follow-up: https://github.com/boardx/workspacex/pull/3241#issuecomment-5604384865 . No self-merge or retroactive passing.

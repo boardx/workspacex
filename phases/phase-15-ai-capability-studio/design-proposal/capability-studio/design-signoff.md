@@ -15,7 +15,7 @@ confirmed_at: ""
 
 ## ① UI
 
-见 [ui.md](ui.md)。必须有真实组件可运行预览与截图，当前待工作台 worker 交付及本地核验。
+见 [ui.md](ui.md)。Skill/导入已有截图；管理原型可运行，最新管理页和原生历史/键盘复验仍待 Mac 解锁。
 
 ## ② 用例
 
@@ -23,11 +23,11 @@ confirmed_at: ""
 
 ## ③ API 契约
 
-待集成 packages/contracts 中的可执行 skill-development 与 capability-runtime-policy 草案，并逐条核对已有 skills、agent-runtime、MCP 操作的复用与 design delta。当前文字提案不能替代可执行 schema。
+已加入 skill-development、capability-runtime-policy 与 capability-admin-deltas 可执行草案，33 项定向契约测试通过。完整 API→用例→权限→feature 映射仍未收口；schema 测试不能替代生产 API 与数据库证据。
 
 ## 未就绪项
 
-- 新原型及七态截图尚未本地验证。
-- 两份共享 schema 尚待取回、类型检查、拒绝用例测试及 API→UC 对照。
+- Skill/导入已有历史截图；管理页及历史/键盘浏览器复验仍缺证据。
+- schema 已完成类型检查和反例测试；完整 API→UC→权限→feature 覆盖仍待收口。
 - feature 清单未定稿，covers 尚未映射；不能进入 claim/new-sprint。
 - 身份与远端租约未就绪，注册 PR 等 CI 和独立评审。
