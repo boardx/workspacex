@@ -123,7 +123,12 @@ describe("Phase 14 F06 -- classifyToolRisk（固定白名单，I-1 没有例外�
   it("L0：只读工具", () => {
     expect(classifyToolRisk("read_file")).toBe("L0");
     expect(classifyToolRisk("grep")).toBe("L0");
-    expect(classifyToolRisk("web_fetch")).toBe("L0");
+    // #3160 / #3186：这里原本写的是 `web_fetch` —— 一个内核从未注册过的名字。这条断言
+    // 因此年年绿着，而真实的取网页工具 `fetch_url` 落进默认 L2，每次都要人工批准。
+    // 同理 `write_todos`（规划记账）：注释说它在 L0，集合里从来没有。名字层面的机械
+    // 门控在 `tool-risk-tier-names-are-real.test.ts`。
+    expect(classifyToolRisk("fetch_url")).toBe("L0");
+    expect(classifyToolRisk("write_todos")).toBe("L0");
     expect(classifyToolRisk("list_org_skills")).toBe("L0");
   });
 
@@ -133,7 +138,9 @@ describe("Phase 14 F06 -- classifyToolRisk（固定白名单，I-1 没有例外�
   });
 
   it("L2：不可逆/高风险", () => {
-    expect(classifyToolRisk("bash_exec")).toBe("L2");
+    // 命令执行工具的真名是 `execute`（`bash_exec` 同样是死名字，只是它错的方向与
+    // 「未登记 ⇒ 默认 L2」同向，所以没造成事故）。
+    expect(classifyToolRisk("execute")).toBe("L2");
     expect(classifyToolRisk("call_skill")).toBe("L2");
   });
 
