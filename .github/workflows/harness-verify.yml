@@ -293,6 +293,14 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # #3205: real browser geometry, without an application server or Docker.
+      # Keep it in the existing required lane so layout regressions fail PR verification.
+      - name: Install Chromium for trace geometry
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Verify trace disclosure geometry
+        run: pnpm --filter web run e2e:trace-geometry
+
       # 2026-09-08（#2972）：本 job 下面那步在 **fork PR** 上会把 @repo/api 留在
       # `--affected` 集合里跑（因为 `gates-test` 对 fork PR 整体跳过），而 @repo/api 的
       # 默认套件里有 4 个跨语言取证文件要 spawn `apps/deep-agent-service/.venv/bin/python`。

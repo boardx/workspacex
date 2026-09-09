@@ -1,0 +1,128 @@
+被 CI 真正调用的 playwright config：
+  · apps/devportal/playwright.config.ts
+  · apps/web/playwright.chat-read.config.ts
+  · apps/web/playwright.fullstack-smoke.config.ts
+  · apps/web/playwright.real-model-smoke.config.ts
+  · apps/web/playwright.self-service-profile.config.ts
+  · apps/web/playwright.trace-geometry.config.ts
+
+spec 门控注册判定（静态：只看有没有被某条 config 接住，不代表本趟已执行）：
+  🧾 apps/devportal/e2e/p30/auth-gray.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/devportal/e2e/p30/enroll.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/devportal/e2e/p30/join-approve.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/devportal/e2e/p30/me-workbench.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/devportal/e2e/p30/onboard.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/devportal/e2e/p30/workspace-authz.spec.ts  [covered] ← apps/devportal/playwright.config.ts
+  🧾 apps/web/e2e/agenda-segment-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/agent-chat-core-paths.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-task-clarification-result.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-task-planning-hitl.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-control-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-scroll-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-steering-acceptance.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/agent-workbench-ui-refinement.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/axe-image-alt.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/axe-keyboard-focus.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/blueprint-contract-gap-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/blueprint-designer-16-panels.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-library-design.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/canvas-template-simulate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/canvas-tpl-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/canvas-tpl-sticky-not-clipped.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/capability-mutate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/chat-agent-skill-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-attachment-preview-download.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟡 apps/web/e2e/chat-behavior-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/chat-canvas-guidance-render.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🟡 apps/web/e2e/chat-main-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/chat-path-a3-long-session-fact-survival.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-a5-cold-start-first-paint.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c4-two-canvases-one-turn.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c5-consecutive-artifact-turns.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c6-office-artifacts.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-c8-subtask-artifact-writeback.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-d4-skill-three-states.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f2-network-drop-reconnect.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f6-concurrent-runs.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-path-f7-upstream-stream-abort.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-read.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-skill-picker-viewport.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-a11y.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-approval.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-capability-cards.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-composer.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-copy.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-empty-state.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-inspector.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-polish.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-scroll-overshoot.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-tool-events.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-task-workbench-workflow-states.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/chat-trace-disclosure-geometry.spec.ts  [covered] ← apps/web/playwright.trace-geometry.config.ts
+  🧾 apps/web/e2e/chat-vision-honest-degrade.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/composite-primitives-kitchen-sink.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/context-engine.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-agui-state-snapshot.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-active-file-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-agent-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-agent-switch.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-attachments.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-default-agent.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-error-banner.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-hitl.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-message-actions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-persona-archived.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-right-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-roster-landing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-run-restore-after-switch.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-runtime-adapter.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-skill-mount.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-stream-frame-timing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-suggestions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-thread-persistence.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-tool-rendering.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-uiux-shots.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/copilotkit-v2-voice-input.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
+  🧾 apps/web/e2e/core-journey-01-registration.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-02-org-management.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/core-loop.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/design-loop-responsive.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/design-prototype-loop.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/design-workbench-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/feedback-drafts-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/feedback-loop-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/fullstack-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/guided-research-runtime.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/icon-rail-short-viewport.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/inbox-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/interview-subjects-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/live-collab-orchestration-shots.spec.ts  [exempt]
+  🧾 apps/web/e2e/motion-orchestration-reduced-motion.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/org-admin-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/overlay-primitives-keyboard.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/overlay-primitives-kitchen-sink.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/profile-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/profile-org-fidelity.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/project-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/project-results-shots.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/real-model-pdf-smoke.spec.ts  [covered] ← apps/web/playwright.real-model-smoke.config.ts
+  🟡 apps/web/e2e/responsive.spec.ts  [exempt]
+  🧾 apps/web/e2e/rewrite-coverage-live-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/save-as-org-template-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/self-service-profile.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
+  🧾 apps/web/e2e/skill-agent-import-usecase-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/skill-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🧾 apps/web/e2e/skill-review-gate.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
+  🟡 apps/web/e2e/vz-fabric-shots.spec.ts  [exempt]
+
+✅ 每一条 spec 都已注册进某条 CI 门控（或有署名豁免）——注册 ≠ 本趟执行，执行结果看 verify:full 的 lane 汇总

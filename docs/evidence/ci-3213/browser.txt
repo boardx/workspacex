@@ -1,0 +1,12 @@
+
+> web@0.1.0 e2e:trace-geometry /private/tmp/wsx-3213-geometry/apps/web
+> playwright test --config playwright.trace-geometry.config.ts
+
+
+Running 1 test using 1 worker
+
+(node:26147) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/chat-trace-disclosure-geometry.spec.ts:44:5 › #3205：展开的工具卡片与它上面那条折叠行之间必须有净空，两个盒子不得互相穿插 (1.8s)
+
+  1 passed (2.7s)
