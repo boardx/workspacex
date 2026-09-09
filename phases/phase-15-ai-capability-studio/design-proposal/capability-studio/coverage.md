@@ -33,3 +33,7 @@
 Model/MCP第一组可执行delta已加入capability-admin-deltas.ts：继承现有register/configure/probe/admission/enable/discoverRemote操作，补配置版本、single映射与显式凭据变更；4项定向测试和contracts typecheck通过。仍需列表/路由/停用操作的字段增量及完整端到端验证；文件未导出为生产入口，现有接口继续拒绝新字段。
 
 后续已补listModelPool、listSelectableModels、routeModelCall、listModelReferences、disableModel可执行delta；路由输入的模型与revision必须成对，返回binding必须匹配degradedTo或selectedModelId的实际目标。管理与运行绑定共享provider/upstream校验。该文件增至6项测试。仍需独立review、完整UI、权限与feature覆盖、生产持久化/路由证据，不能以schema通过宣称闭环完成。
+
+## 2026-09-09 23:37 当前覆盖补充
+
+逐操作权限矩阵见 permission-coverage.md，覆盖27个Skill开发操作及Model/MCP/既有运行链。默认提案沿用组织admin开发，普通成员的发布版本运行权限不扩张到草稿。私库来源连接生命周期、发布审核映射、完整feature四元组和真实浏览器仍是明确缺口。最新测试计数与执行边界以session-handoff.md最新记录为准，不将历史段落计数作为当前完成率。
