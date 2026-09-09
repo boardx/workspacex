@@ -57,6 +57,32 @@ export async function expectAnchor(
 
 export async function login(page: Page): Promise<void> {
   await page.goto("/login");
+  /*
+   * ⚠ **已登录时再调本函数，这里立刻红并说明原因**——而不是等 `fill()` 超时。
+   *
+   * `LoginSessionGate`（`components/entry/login-session-gate.tsx`）在 `useSession()`
+   * 的 `status` 还是初始值 `"loading"` 时渲染登录表单，等会话恢复完翻成
+   * `"authenticated"` 就 `router.replace` 走掉、改渲 `login-session-loading`。所以
+   * 「已登录之后再 goto('/login')」看不看得见 `login-email` 是一场**赛跑**：赢了就绿，
+   * 输了 `fill()` 一路等到用例超时（240s），**一条业务断言都不执行**。
+   * run 34311571065 首跑 C6/F2 赢了、F5 输了，就是这个形状；早前 D4/F2/F6/F7 四条
+   * 也各以同一形态烧掉 4–5 分钟（见 `support/chat-path-coverage.ts` 头注）。
+   *
+   * 那条「不要在 `openFresh*Thread` 之前再 `login()`」的规矩此前只写在注释里——
+   * 「没有脚本的规范条目视为未落地」，本仓已为此栽了两轮。这个 race 把它变成会红的东西：
+   * 输了赛跑 ⇒ 这里给出指名根因的错误；赢了赛跑 ⇒ 照旧登录（不改变任何既有行为）。
+   */
+  const gate = await Promise.race([
+    page.getByTestId("login-email").waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "form" as const),
+    page.getByTestId("login-session-loading").waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "already-authed" as const),
+  ]).catch(() => "form" as const);
+  expect(
+    gate,
+    "这个 page 已经登录了：`/login` 被 LoginSessionGate 重定向走，`login-email` 永远不会出现。"
+      + "不要在 `openChatEmptyState` / `openFresh*Thread` 之前再自己 `login()`——它们内部已经登录过一次。",
+  ).toBe("form");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
