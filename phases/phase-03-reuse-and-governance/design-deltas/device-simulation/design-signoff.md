@@ -1,12 +1,12 @@
 ---
-status: pending
+status: confirmed
 bundle: device-simulation
 base_bundle: design-prototype
 scope: preview-device-simulation-lens-phone-tablet-laptop-desktop-rotation
 covers: []
-confirmed_by: ""
-confirmed_at: ""
-confirmed_via: ""
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-09T02:40:00Z"
+confirmed_via: "PR #3185"
 ---
 
 # design delta 签核 · 预览时切换模拟设备（迭代 14）
