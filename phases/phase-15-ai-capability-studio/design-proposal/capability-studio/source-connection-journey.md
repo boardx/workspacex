@@ -42,3 +42,8 @@
 授权URL校验GitHub精确origin/path、state存在和S256 challenge；服务端仍必须验证它是本事务生成的URL、注册的redirect_uri、一次性state/PKCE、当前会话/用户/组织及真实仓库范围。结构测试不证明CSRF或权限已经实现。参考GitHub官方用户授权流程：https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app 。
 
 读连接、读事务、确认/取消和撤销的请求/响应对有标识校验；正式服务还必须将用户选仓与持久化授权清单精确比对，仓库范围变化不能静默扩大。新错误集合须随接口接入统一HTTP reasonCode映射，并对回调code/state查询串做日志脱敏。当前4项测试只证明结构拒绝和关联边界。
+# 私有来源交互与恢复补充（2026-09-10）
+
+`/preview/ai-capability-studio/connections` 是独立fixture，由导入页明确标为演示的链接进入。流程为开始→模拟回调→默认无选择→确认仓库→个人连接。拒绝、过期、取消可重新开始；重授权失败不替换已有连接，成功以相同ID的下一个revision和本次明确选择替换范围。撤销只影响后续来源读取，不删除已有草稿。返回工作台使用真实 `/workbench` 路由，不传递演示授权状态。4项组件测试及实际浏览器已验证主要路径；本轮浏览器记录见 browser-review-2026-09-10.md。
+
+复审补强：事务revision与连接revision分离，callback绑定服务端未核销state、先前authorization URL中的state及请求state，统一32–512长度；confirm/cancel精确CAS。所有元数据关联校验只是adapter采用前的契约要求，不能替代真实OAuth会话校验、数据库原子核销、仓库授权快照校验或凭据加密存储。

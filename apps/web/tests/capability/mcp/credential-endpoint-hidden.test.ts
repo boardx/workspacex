@@ -29,34 +29,38 @@ import { mcpEndpointHint } from "@/lib/mcp-endpoint-hint";
 
 /* ───────────────────── schema 键的递归扫描器 ───────────────────── */
 
-/** 收集一个 zod schema 里出现的**全部**键名（递归穿透 array/optional/nullable/object/union） */
-function collectKeys(schema: z.ZodTypeAny, depth = 0): string[] {
-  if (depth > 14) return [];
-  const def = (schema as unknown as { _def: Record<string, unknown> })._def;
+/** Traverse known Zod 3 schemas; cycles terminate by identity, unknown types fail closed. */
+function collectKeys(schema: z.ZodTypeAny, visited = new Set<z.ZodTypeAny>()): string[] {
+  if (visited.has(schema)) return [];
+  visited.add(schema);
+  const def = schema._def;
+  const scan = (child: z.ZodTypeAny) => collectKeys(child, visited);
   switch (def.typeName as string) {
-    case "ZodObject": {
-      const shape = (schema as z.ZodObject<z.ZodRawShape>).shape;
-      return Object.entries(shape).flatMap(([k, v]) => [k, ...collectKeys(v as z.ZodTypeAny, depth + 1)]);
-    }
-    case "ZodArray":
-      return collectKeys(def.type as z.ZodTypeAny, depth + 1);
-    case "ZodOptional":
-    case "ZodNullable":
-    case "ZodDefault":
-      return collectKeys(def.innerType as z.ZodTypeAny, depth + 1);
-    case "ZodEffects":
-      return collectKeys(def.schema as z.ZodTypeAny, depth + 1);
-    case "ZodUnion":
-    case "ZodDiscriminatedUnion":
-      return ((def.options as z.ZodTypeAny[]) ?? []).flatMap((o) => collectKeys(o, depth + 1));
-    case "ZodRecord":
-      return collectKeys(def.valueType as z.ZodTypeAny, depth + 1);
-    default:
-      return [];
+    case "ZodObject": return [...Object.entries((schema as z.AnyZodObject).shape)
+      .flatMap(([key, child]) => [key, ...scan(child as z.ZodTypeAny)]), ...scan(def.catchall)];
+    case "ZodArray": case "ZodBranded": return scan(def.type);
+    case "ZodOptional": case "ZodNullable": case "ZodDefault": case "ZodCatch": case "ZodReadonly": return scan(def.innerType);
+    case "ZodEffects": return scan(def.schema);
+    case "ZodLazy": return scan(def.getter());
+    case "ZodUnion": case "ZodDiscriminatedUnion": return (def.options as z.ZodTypeAny[]).flatMap(scan);
+    case "ZodIntersection": return [...scan(def.left), ...scan(def.right)];
+    case "ZodPipeline": return [...scan(def.in), ...scan(def.out)];
+    case "ZodTuple": return [...(def.items as z.ZodTypeAny[]).flatMap(scan), ...(def.rest ? scan(def.rest) : [])];
+    case "ZodRecord": case "ZodMap": return [...scan(def.keyType), ...scan(def.valueType)];
+    case "ZodSet": return scan(def.valueType);
+    case "ZodPromise": return scan(def.type);
+    case "ZodFunction": return [...scan(def.args), ...scan(def.returns)];
+    case "ZodString": case "ZodNumber": case "ZodNaN": case "ZodBigInt": case "ZodBoolean":
+    case "ZodDate": case "ZodSymbol": case "ZodUndefined": case "ZodNull": case "ZodVoid":
+    case "ZodNever": case "ZodLiteral": case "ZodEnum": case "ZodNativeEnum": return [];
+    // Known opaque leaves have no declared keys. This declaration scan does NOT establish
+    // runtime content safety for MCP JSON schemas/records or arbitrary unknown payloads.
+    case "ZodAny": case "ZodUnknown": return [];
+    default: throw new Error(`Cannot establish response key safety for ${String(def.typeName)}`);
   }
 }
 
-const SECRET_KEY_RE = /credential|secret|password|apikey|api_key/i;
+const SECRET_KEY_RE = /credential|secret|password|apikey|api_key|^(access_?token|refresh_?token|private_?key)$/i;
 const ENDPOINT_KEY_RE = /^endpoint$/i;
 
 /**
@@ -73,6 +77,27 @@ describe("扫描器本身不是空转", () => {
   it("能从嵌套结构里挖出键", () => {
     const nested = z.object({ a: z.object({ b: z.array(z.object({ c: z.string() })) }) });
     expect(collectKeys(nested).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("穿透深层、lazy、intersection、tuple、pipeline、brand，并终止真实递归", () => {
+    const secret = z.object({ accessToken: z.string(), privateKey: z.string(), tokens: z.number() });
+    let deep: z.ZodTypeAny = secret;
+    for (let i = 0; i < 20; i++) deep = z.object({ nested: deep });
+    let recursive: z.ZodTypeAny;
+    recursive = z.lazy(() => z.object({ child: recursive.optional(), credential: z.string() }));
+    const wrappers = [deep, z.lazy(() => secret), z.intersection(z.object({}), secret),
+      z.tuple([z.string()]).rest(secret), z.unknown().pipe(secret), secret.brand("safe"),
+      secret.readonly(), secret.catch({ accessToken: "", privateKey: "", tokens: 0 })];
+    for (const wrapper of wrappers) {
+      expect(collectKeys(wrapper).filter(key => SECRET_KEY_RE.test(key))).toEqual(["accessToken", "privateKey"]);
+    }
+    expect(collectKeys(z.object({}).pipe(secret))).toContain("privateKey");
+    expect(collectKeys(z.object({}).catchall(secret))).toContain("accessToken");
+    expect(["tokens", "tokenCount"].some(key => SECRET_KEY_RE.test(key))).toBe(false);
+    expect(collectKeys(recursive)).toEqual(["child", "credential"]);
+    expect(collectKeys(z.unknown())).toEqual([]); // No declared keys, not a runtime safety assertion.
+    expect(collectKeys(z.any())).toEqual([]);
+    expect(() => collectKeys({ _def: { typeName: "FutureWrapper" } } as unknown as z.ZodTypeAny)).toThrow();
   });
 
   it("确实扫到了操作（0 个操作会让下面每条断言恒真）", () => {
@@ -254,31 +279,74 @@ describe("界面侧：端点原值只出现在管理员/评审人能看到的分
     expect(body).toContain("仅组织管理员可见");
   });
 
-  /** Inspect direct render sinks, not write-only state/request identifiers. This is not a taint analyser;
-   * runtime canary tests additionally cover actual text, attributes, Web Storage, fetch and logs.
-   * The identifier scope remains credential (as in the original guard); aliases need runtime coverage. */
+  /** Local variable-initializer aliases and direct JSX sinks only: not cross-file/call-graph taint analysis.
+   * Only native input or the named shared Input import gets a literal-password exemption.
+   * Dynamic/custom password components are conservatively rejected; runtime canaries cover
+   * actual text, attributes, Web Storage, fetch and logs on the demonstrated UI paths. */
   function secretRenderSinks(body: string): string[] {
     const source = ts.createSourceFile("component.tsx", body, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const sinks: string[] = [];
-    const containsSecret = (node: ts.Node): boolean =>
-      // Nested JSX is checked independently; a conditional rendering a password field is not an echo.
-      !(ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) &&
-      ((ts.isIdentifier(node) && /^credential$/i.test(node.text)) ||
-      (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) &&
-        /^credential$/i.test(node.argumentExpression.text)) ||
-      (ts.forEachChild(node, child => containsSecret(child) || undefined) === true));
+    const bindings = new Map<ts.Node, Map<string, ts.Node>>();
+    const scopeOf = (node: ts.Node): ts.Node => {
+      let current = node.parent;
+      while (current && !ts.isBlock(current) && !ts.isSourceFile(current) && !ts.isFunctionLike(current)) current = current.parent;
+      return current ?? source;
+    };
+    const collect = (node: ts.Node) => {
+      if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isImportSpecifier(node) || ts.isFunctionDeclaration(node)) && node.name && ts.isIdentifier(node.name)) {
+        const scope = ts.isImportSpecifier(node) ? source : scopeOf(node);
+        if (!bindings.has(scope)) bindings.set(scope, new Map());
+        bindings.get(scope)!.set(node.name.text, node);
+      }
+      ts.forEachChild(node, collect);
+    };
+    collect(source);
+    const resolve = (name: string, node: ts.Node): ts.Node | undefined => {
+      for (let current: ts.Node | undefined = node; current; current = current.parent) {
+        const declaration = bindings.get(current)?.get(name);
+        if (declaration) return declaration;
+      }
+    };
+    const containsSecret = (node: ts.Node, seen = new Set<ts.Node>()): boolean => {
+      if (seen.has(node) || ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) return false;
+      seen.add(node);
+      // Function bodies are not their rendered value; no call-graph analysis is claimed.
+      if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return false;
+      // Boolean projections reveal presence/comparison, not credential bytes.
+      if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) return false;
+      if (ts.isBinaryExpression(node) && [ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken,
+        ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken,
+        ts.SyntaxKind.LessThanToken, ts.SyntaxKind.LessThanEqualsToken,
+        ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.GreaterThanEqualsToken].includes(node.operatorToken.kind)) return false;
+      if (ts.isIdentifier(node)) {
+        if (/^credential$/i.test(node.text)) return true;
+        const declaration = resolve(node.text, node);
+        if (declaration && ts.isVariableDeclaration(declaration) && declaration.initializer && containsSecret(declaration.initializer, seen)) return true;
+      }
+      if (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) && /^credential$/i.test(node.argumentExpression.text)) return true;
+      return ts.forEachChild(node, child => containsSecret(child, seen) || undefined) === true;
+    };
+    const trustedInput = (tag: ts.JsxTagNameExpression): boolean => {
+      if (tag.getText(source) === "input") return true;
+      if (!ts.isIdentifier(tag)) return false;
+      const declaration = resolve(tag.text, tag);
+      if (!declaration || !ts.isImportSpecifier(declaration) || (declaration.propertyName ?? declaration.name).text !== "Input") return false;
+      const imported = declaration.parent.parent.parent;
+      return ts.isImportDeclaration(imported) && ts.isStringLiteral(imported.moduleSpecifier) && imported.moduleSpecifier.text === "@/components/ui/input";
+    };
+    const literalPassword = (initializer: ts.JsxAttributeValue | undefined): boolean => {
+      const value = initializer && ts.isJsxExpression(initializer) ? initializer.expression : initializer;
+      return !!value && ts.isStringLiteral(value) && value.text === "password";
+    };
     const visit = (node: ts.Node) => {
       if (ts.isJsxExpression(node) && node.expression && containsSecret(node.expression)) {
         const attr = ts.isJsxAttribute(node.parent) ? node.parent : null;
         const name = attr?.name.getText(source);
         const element = attr?.parent.parent;
         const passwordValue = name === "value" && element &&
-          (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) &&
-          ["input", "Input"].includes(element.tagName.getText(source)) &&
+          (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) && trustedInput(element.tagName) &&
           element.attributes.properties.some(property => ts.isJsxAttribute(property) &&
-            property.name.getText(source) === "type" && property.initializer &&
-            ts.isStringLiteral(property.initializer) && property.initializer.text === "password");
-        // Event functions consume write input; their bodies aren't rendered values.
+            property.name.getText(source) === "type" && literalPassword(property.initializer));
         const eventHandler = name?.startsWith("on") &&
           (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression));
         if (!passwordValue && !eventHandler) sinks.push(node.getText(source));
@@ -289,17 +357,34 @@ describe("界面侧：端点原值只出现在管理员/评审人能看到的分
     return sinks;
   }
 
-  it("凭据只能作为 password 输入值，不能直接回显为文本或其他属性", () => {
+  it("credential 及局部初始化别名的直接回显只允许经核实的 password 输入值", () => {
     const offenders = files.flatMap(([file]) => secretRenderSinks(readFileSync(join(COMPONENTS, file), "utf8"))
       .map(sink => `${file}: ${sink}`));
     expect(offenders).toEqual([]);
   });
 
   it("反证：接受写入输入，拒绝文本、属性、字符串键和改成明文的输入", () => {
-    expect(secretRenderSinks('<Input type="password" value={credential} onChange={e => setCredential(e.target.value)} />')).toEqual([]);
+    expect(secretRenderSinks('import { Input } from "@/components/ui/input"; <Input type="password" value={credential} onChange={e => setCredential(e.target.value)} />')).toEqual([]);
     for (const broken of ['<p>{credential}</p>', '<p>{server.credential}</p>',
       '<p>{server["credential"]}</p>', '<p title={credential} />', '<input type="text" value={credential} />', '<>{ready && <p>{credential}</p>}</>']) {
       expect(secretRenderSinks(broken), broken).toHaveLength(1);
     }
   });
+  it("tracks local alias chains and blocks shadowed/custom Input exemptions", () => {
+    const prefix = 'import { Input } from "@/components/ui/input";';
+    expect(secretRenderSinks(`${prefix} <Input type={'password'} value={credential} />`)).toEqual([]);
+    expect(secretRenderSinks('import { Input as SafeInput } from "@/components/ui/input"; <SafeInput type="password" value={credential} />')).toEqual([]);
+    expect(secretRenderSinks('<input type={"password"} value={credential} />')).toEqual([]);
+    for (const broken of [
+      'function View() { const displayed = credential; const second = displayed; return <p>{second}</p>; }',
+      'const Input = props => <span>{props.value}</span>; <Input type="password" value={credential} />',
+      `${prefix} function View(Input) { return <Input type="password" value={credential} />; }`,
+      `${prefix} function View() { const Input = p => <span>{p.value}</span>; return <Input type="password" value={credential} />; }`,
+      'import { Input } from "./untrusted"; <Input type="password" value={credential} />',
+      `${prefix} const kind = "password"; <Input type={kind} value={credential} />`,
+      '<PasswordInput value={credential} />',
+    ]) expect(secretRenderSinks(broken), broken).toHaveLength(1);
+    expect(secretRenderSinks('function A() { const displayed = credential; return null; } function B() { const displayed = "safe"; return <p>{displayed}</p>; }')).toEqual([]);
+  });
+
 });

@@ -66,6 +66,11 @@ describe("source connection server-record correlation", () => {
     const response = { ...base, status: "select-repositories", transactionRevision: 2, repositorySelectionRevision: 1 };
     const exchange = { request: { state: "s".repeat(32), code: "server-exchanges-code" }, stored: { state: "s".repeat(32), consumed: false, transaction: pending }, response };
     expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse(exchange).success).toBe(true);
+    expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse({ ...exchange, request: { ...exchange.request, state: "x".repeat(32) }, stored: { ...exchange.stored, state: "x".repeat(32) } }).success).toBe(false);
+    const tooLongState = "s".repeat(513);
+    expect(GithubSourceConnectionTransaction.safeParse({ ...pending, authorizationUrl: pending.authorizationUrl.replace("s".repeat(32), tooLongState) }).success).toBe(false);
+    expect(operations.acceptGithubSourceCallback.in.safeParse({ ...exchange.request, state: tooLongState }).success).toBe(false);
+    expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse({ ...exchange, stored: { ...exchange.stored, state: tooLongState } }).success).toBe(false);
     expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse({ ...exchange, stored: { ...exchange.stored, consumed: true } }).success).toBe(false);
     expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse({ ...exchange, request: { ...exchange.request, state: "x".repeat(32) } }).success).toBe(false);
     for (const delta of [{ transactionRevision: 3 }, { transactionId: "other" }]) expect(sourceConnectionExchanges.acceptGithubSourceCallback.safeParse({ ...exchange, response: { ...response, ...delta } }).success).toBe(false);

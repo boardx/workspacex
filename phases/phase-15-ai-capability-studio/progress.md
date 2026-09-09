@@ -1,5 +1,15 @@
 # Phase 15 进度
 
+## 当前状态：2026-09-10 01:14
+
+PR #3239 已推送967a372a0；后续一组私库连接原型、上传恢复与试跑失败输入提案、state及凭据扫描复审修复准备提交。当前专项web14文件227/227、全contracts67文件693/693通过；types/lint通过。前次全web执行因沙箱端口/IPC限制有3文件失败，其后在获准环境重跑3文件44/44通过，不冒称原调用exit0。CI尚在运行。
+
+浏览器现已可操作，实际验证私库明确选择与失败保留、返回workbench、原生back/forward、Space/Enter/Escape、治理模型启停与MCP同配置差异保留。详情见browser-review-2026-09-10.md；新截图仅在会话内，完整视觉/响应式证据尚待补齐。Mermaid Y由红转黄，C33/C35/C36均已开始，生产节点仍未完成。
+
+注册PR #3235 最新3ed6baac仍OPEN，自己的enroll/token/lease未取得。设计签核仍pending；无feature passing，无发布/部署。#3241已合入，但合入时CI历史审计violation仍保留并已交协调者，不以事后重跑绿追认。
+
+## 以下为历史增量记录
+
 2026-09-09，总工单 #3234，设计提案 PR #3239。本文件记录验证边界，不代替 GitHub 实时检查状态。
 
 - 工作台与导入原型的审查修复已推送6617dceef，17项UI测试、14项契约测试和3次mutation反证通过。浏览器验证与23张截图见 design-proposal/capability-studio/ui.md；最新修复的原生后退与键盘复验因Mac锁屏待补。
