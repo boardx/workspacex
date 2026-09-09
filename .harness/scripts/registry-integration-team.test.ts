@@ -94,6 +94,8 @@ describe("#407 minimal integration team registry projection", () => {
     // 2026-08-13：rev-e2e 改回 active——2026-08-04 的"没有在跑会话"是静态快照，
     // 此后它真实评分并合入 #855/#885/#899，registry 一直没跟上（同 issue #422
     // 的收编先例：过期裁决不能一直被当成现状引用），coord-main 按活信号更正。
+    // 2026-09-09：用户授权新增 dev-ai-capability-studio（#3234 / PR #3235），
+    // 专用于后台升级，仍为向 coord-main 汇报的普通 worker，无合并权。
     const staffed = allEntries().filter((entry) => entry.active).map((entry) => entry.id).sort();
     expect(staffed, `在编名单变了就必须在 PR 里说明理由，实得 ${staffed.join(", ")}`).toEqual([
       "coord-agent-auth",
@@ -107,6 +109,7 @@ describe("#407 minimal integration team registry projection", () => {
       "coord-survey",
       "coord-user-research",
       "coord-voice",
+      "dev-ai-capability-studio",
       "dev-studio-asr",
       "rev-e2e",
     ]);
