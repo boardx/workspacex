@@ -15,10 +15,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
+/**
+ * issue #3212 —— 待批 `call_skill` 到底要调哪个技能，服务端已经在 `argsSummary` 里如实
+ * 给了（`{skill_stable_name, task}` 的 JSON，`deep-agent-model-provider.ts` 写下）。
+ * 此前卡片把它丢掉，intent 恒为「调用一个需要授权的技能」——于是**每一次**授权弹窗
+ * 逐像素相同：用户既分不清这次问的是哪个技能，也分不清"又弹了一次"是新请求还是
+ * 上次点击没生效（#3186 的「点了没反应」正是这样与真实机理混同的）。
+ *
+ * 只读展示，不参与任何授权判定：解析失败一律回落到原文案，绝不因为读不出名字而放行。
+ */
+function calledSkillStableName(argsSummary: string | null): string | null {
+  if (!argsSummary) return null;
+  try {
+    const parsed: unknown = JSON.parse(argsSummary);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const name = (parsed as Record<string, unknown>).skill_stable_name;
+    return typeof name === "string" && name.length > 0 ? name : null;
+  } catch { return null; }
+}
+
 function permissionCardRequest(toolName: string, argsSummary: string | null): ToolPermissionCardRequest {
+  const skill = toolName === CALL_SKILL_TOOL_NAME ? calledSkillStableName(argsSummary) : null;
   return {
     risk: "L2",
-    intent: toolName === CALL_SKILL_TOOL_NAME ? "调用一个需要授权的技能" : `调用工具 ${toolName}`,
+    intent: toolName === CALL_SKILL_TOOL_NAME
+      ? (skill ? `调用技能「${skill}」（需要授权）` : "调用一个需要授权的技能")
+      : `调用工具 ${toolName}`,
     rationale: "该操作被运行时判定为高风险，可能产生不可逆或外部可见的影响。",
     command: argsSummary ?? "服务端尚未提供参数摘要。",
     affects: "服务端尚未提供更具体的影响对象；如范围不明确，请拒绝此次执行。",
@@ -35,6 +57,15 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [permissionOpen, setPermissionOpen] = React.useState(true);
+  /**
+   * issue #3212 —— 「我已经批复了 webresearch，后来还弹出来」。实测（`tool-permission-gate.ts`
+   * + `permission-grant-scopes.test.ts`）：`run`/`forever` 两档的写入键与查询键逐字一致，
+   * 授权**没有丢**；会再问一次的只有「仅本次允许」——那一档按 I-4 本来就不落授权记录，
+   * 下一次同类调用再问是**正确**的。所以这里修的不是授权判定（一个字都不动，放宽即安全
+   * 倒退），而是"用户看不出为什么又问"：记下本 run 内已经做过几次裁决、上一次选了哪档，
+   * 在第二次及以后的弹窗上如实说明。纯展示态，不进入任何请求体。
+   */
+  const [history, setHistory] = React.useState<{ count: number; last: "once" | "run" | "forever" | "deny" | "approve" | "edit" | "reject" | null }>({ count: 0, last: null });
   // 同 InterruptDecisionDialog：这个弹窗也是挂载即打开、没有用户 trigger（TW-A11Y-5）。
   const returnPermissionFocus = useDialogReturnFocus(permissionOpen);
   React.useEffect(() => {
@@ -56,6 +87,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     try {
       await apiRequest(planPermissions.operations.decidePermissionRequest.path.replace(":runId", encodeURIComponent(runId)).replace(":permissionRequestId", encodeURIComponent(request.permissionRequestId)), { method: "POST", body: { decision }, sessionToken: bearer });
       setConsumedRequestId(request.permissionRequestId);
+      setHistory((prev) => ({ count: prev.count + 1, last: decision }));
       setRun(await getAgentRun(runId, bearer));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
     finally { inFlight.current = false; setPending(false); }
@@ -100,6 +132,18 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
         <DialogDescription className="sr-only">检查操作范围与参数，然后选择授权范围或拒绝。</DialogDescription>
         {error ? <p role="alert">{error}</p> : null}
         {!request?.permissionRequestId ? <p className="text-sm">等待服务端恢复审批请求。</p> : null}
+        {history.count > 0 && request?.permissionRequestId ? <p
+          role="status"
+          data-testid="perm-repeat-notice"
+          className="mb-2 rounded-control bg-muted p-2 text-12 text-muted-foreground"
+        >
+          这是本次任务里第 {history.count + 1} 次请求授权，是一次新的请求，不是上一次没生效。
+          {history.last === "once"
+            ? "你上次选的是「仅本次允许」——那一档只对那一次调用生效，所以这次要重新确认。想一次性放行，可选「本 run 内都允许」。"
+            : history.last === "deny"
+              ? "你上次选的是「拒绝」——agent 据此换了做法，这是它提出的另一个操作。"
+              : "上一次的授权不覆盖这次的操作，因此需要你再确认一次。"}
+        </p> : null}
         {request ? <fieldset
           data-testid="chat-task-workbench-approval-card"
           data-risk="L2"
