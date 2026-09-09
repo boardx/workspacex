@@ -48,10 +48,11 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, RunFailureCode, RunStepKind, RunStepStatus,
+  PinnedSkillContent, RunFailureCode, RunFailureReason, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
+import { classifyModelCallFailureReason } from "../../domain/agent-run/model-call-failure-reason";
 import { withRunHeartbeat } from "./run-heartbeat";
 import type { ModelCallImage } from "./ports";
 import {
@@ -1232,6 +1233,18 @@ async function executeClaimed(
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
+    /*
+     * issue #3211 ① —— 下面那句注释（"`detail` never reaches a response"）在 #3033 时
+     * 为真，也正是人类 2026-09-09 实测那一条无法诊断的原因：真实成因只进了日志，产品面
+     * 上「模型返回空」「远端 run 报错」「远端超时」「我们自己的执行器抛异常」四件事共用
+     * 同一句「模型这次没能返回可用结果」。这里把 detail **分类成有界枚举**再落库——
+     * 上的是枚举，不是 provider 原话（原话可能含 prompt 片段/上游正文，那是拿泄漏换
+     * 可分辨性）。认不出来落 `unknown`，不猜。
+     */
+    const detail = e instanceof ModelCallError ? e.detail
+      : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
+      : "unexpected model call failure";
+    const reason: RunFailureReason = classifyModelCallFailureReason(detail);
     // The provider's own words live here and stop here. `detail` never reaches a response;
     // the run's terminal `error` is the enumerated code above.
     // #3033：非 ModelCallError（如 PgNativeSessionOwner 抛的裸 `Error('native_session_*')`）
@@ -1242,9 +1255,8 @@ async function executeClaimed(
       modelProvider: run.modelProvider,
       modelId: run.modelId,
       code,
-      detail: e instanceof ModelCallError ? e.detail
-        : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
-        : "unexpected model call failure",
+      reason,
+      detail,
     });
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
@@ -1261,7 +1273,7 @@ async function executeClaimed(
      * 上传过来——报了就如实记，没报才是 0。
      */
     await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
-    await deps.runs.failRun(orgId, run.runId, code);
+    await deps.runs.failRun(orgId, run.runId, code, reason);
     publishStatusChange(deps, orgId, run.runId, "failed");
     return;
   }
@@ -1376,7 +1388,9 @@ export async function executeQueuedRuns(
         runId: outcome.run.runId,
         detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
-      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED"),outcome.run.leaseEpoch);
+      // issue #3211 ①：这是**我们自己的** bug，不是模型的问题。此前它与「模型没返回内容」
+      // 共用同一个码同一句文案，线上分不开——现在带上 `executor_defect`。
+      await withRunHeartbeat(deps.runs,deps.log,input.orgId,outcome.run.runId,()=>deps.runs.failRun(input.orgId,outcome.run.runId,"MODEL_CALL_FAILED","executor_defect"),outcome.run.leaseEpoch);
       publishStatusChange(deps, input.orgId, outcome.run.runId, "failed");
     }
   }

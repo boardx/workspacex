@@ -35,7 +35,7 @@ import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
-  PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunOutputFile,
+  PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunFailureReason, RunLifecycleStatus, RunOutputFile,
   RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
   TranscriptContentCipher, TranscriptStep,
 } from "../../application/agent-run/ports";
@@ -55,6 +55,8 @@ interface ClaimRow {
 
 interface RunRow {
   recovery_diagnostic?: string | null;
+  /** issue #3211 ①：终态失败成因（有界枚举，见契约 `AgentRunFailureReason`）。 */
+  failure_reason?: string | null;
   cancel_requested_at?: Date | null;
   id: string; thread_id: string; project_id: string; input_message_id: string;
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
@@ -530,12 +532,14 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
-  async failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void> {
+  // issue #3211 ①：`reason` 是「为什么」，与 `code`「哪一类终态」正交。缺席写 NULL——
+  // 老调用点不写理由时，界面回落到只按 code 说话，与改动前逐字相同。
+  async failRun(orgId: OrgId, runId: string, code: RunFailureCode, reason?: RunFailureReason): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(
-        `UPDATE agent_runs SET status='failed', error_code=$3, ended_at=now()
+        `UPDATE agent_runs SET status='failed', error_code=$3, failure_reason=$4, ended_at=now()
           WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed','cancelled')`,
-        [orgId, runId, code],
+        [orgId, runId, code, reason ?? null],
       );
     });
   }
@@ -882,7 +886,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
+                r.status, r.error_code, r.failure_reason, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
                 r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
@@ -945,6 +949,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       status: found.row.status as RunLifecycleStatus,
       cancelRequestedAt: found.row.cancel_requested_at?.toISOString() ?? null,
       recoveryDiagnostic: found.row.recovery_diagnostic ?? null,
+      failureReason: (found.row.failure_reason as RunFailureReason | null) ?? null,
       error: found.row.error_code as RunFailureCode | null,
       resultMessageId: found.row.result_message_id,
       steps: found.steps.map((step) => ({

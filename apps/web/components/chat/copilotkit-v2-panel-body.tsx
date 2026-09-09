@@ -677,7 +677,8 @@ export function CopilotKitV2PanelBody({
     }
     setRecoveryDiagnostic(outcome.view.recoveryDiagnostic ?? null);
     if (outcome.view.status === "failed") {
-      setError(describeCopilotkitV2RunError(outcome.view.error));
+      // issue #3211 ①：run 视图带成因，横幅就说得出「为什么」，不只是「失败了」。
+      setError(describeCopilotkitV2RunError(outcome.view.error, outcome.view.failureReason ?? null));
     }
     let cancelled = false;
     (async () => {
