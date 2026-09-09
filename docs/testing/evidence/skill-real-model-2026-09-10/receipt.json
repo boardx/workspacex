@@ -1,0 +1,19 @@
+{
+  "gitHead": "c17f027b35220f9a778b47ee24d2b1e5927daa34",
+  "local": true,
+  "deepAgentExecuted": false,
+  "modelExecuted": true,
+  "skillId": "sk_15ef350a-8684-493c-b856-4b4cb2166ab9",
+  "originalVersionId": "sv_5d6086f8-c212-4b6d-8ff5-b2b8ebb8e208",
+  "savedVersionId": "sv_139b0db2-6df6-4061-8e96-84474fb0c154",
+  "trialRunId": "tr_563cea1b-5f7c-4ef4-81d6-9e052304d19f",
+  "referencePath": "references/probe-4447270d-991f-4545-ba73-9809592241d3.txt",
+  "referenceDigest": "4561d46c2440c2d6d0bde2cd4b21add023a320591dde6a4a1f369059a77b4a8f",
+  "fileCount": 19,
+  "stdoutMatchedReferenceOnlyCanary": true,
+  "canaryAbsentFromInstructions": true,
+  "durationMs": 2036,
+  "tokens": 442,
+  "compose": "wsx-6a008deac806b1027307",
+  "database": "wsx_6a008deac806b1027307"
+}

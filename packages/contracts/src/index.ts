@@ -93,3 +93,6 @@ export * as artifactsSteering from "./artifacts-steering";
 export * as errorObservability from "./error-observability";
 export * as sandboxSession from "./sandbox-session";
 export * as standardBrowserTools from "./standard-browser-tools";
+
+/** Live atomic Skill package editing, user-approved five-hour test release (#3249). */
+export * as skillFileEdit from "./skill-file-edit";

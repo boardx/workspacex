@@ -25,9 +25,24 @@
  * ③ 后台测试（试跑）
  * ④ chat 里 `/` 调用
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 import { createNamedWorkbenchThread } from "./support/workbench-journey";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
+import { skills } from "@repo/contracts";
+
+function matchesSnapshot(response: Response, skillId: string, origin: string): boolean {
+  const url = new URL(response.url());
+  const path = fileOperations.getSkillFileSnapshot.path.replace(":skillId", encodeURIComponent(skillId));
+  return response.request().method() === "GET" && url.origin === origin
+    && url.pathname === `/__fullstack_api${path}` && Boolean(url.searchParams.get("versionId"));
+}
+function matchesTrial(response: Response, versionId: string, origin: string): boolean {
+  const url = new URL(response.url());
+  const path = skills.operations.runTrialRun.path.replace(":versionId", encodeURIComponent(versionId));
+  return response.request().method() === "POST" && url.origin === origin
+    && url.pathname === `/__fullstack_api${path}`;
+}
 
 const GITHUB_SKILL_DIR_URL = "https://github.com/anthropics/skills/tree/main/skills/skill-creator";
 /**
@@ -127,35 +142,26 @@ test("② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录
   const importedName = FULLSTACK_E2E.skillName + "_GITHUB_IMPORT";
   await expect(page.getByText(importedName).first()).toBeVisible({ timeout: 15_000 });
   const row = page.locator('[data-testid^="admin-skill-row-"]').filter({ hasText: importedName });
-  // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是本页内联展开——
-  // 点击后等新页面加载完，内容面板直接可见（不再需要"查看/编辑源码"这一次额外点击，
-  // 那个折叠开关随整页跳转一起删掉了）。
+  await expect(row).toHaveCount(1);
+  const skillId = (await row.getAttribute("data-testid"))!.replace(/^admin-skill-row-/, "");
+  const origin = new URL(page.url()).origin;
+  const snapshotResponse = page.waitForResponse(response => matchesSnapshot(response, skillId, origin));
   await row.getByRole("link", { name: "编辑" }).click();
   await expect(page.getByTestId("admin-skill-edit-page")).toBeVisible();
-  const editor = page.locator('[data-testid$="-content-editor"]');
-  await expect(editor).toBeVisible();
+  const response = await snapshotResponse;
+  expect(response.ok(), "文件列表必须来自真实固定版本快照").toBe(true);
+  const snapshot = SkillFileSnapshot.parse(await response.json());
+  expect(snapshot.skillId).toBe(skillId);
+  expect(snapshot.versionId).toBe(new URL(response.url()).searchParams.get("versionId"));
+  const editor = page.getByTestId("skill-multi-file-editor");
+  await expect(editor.getByTestId("skill-file-version")).toContainText(snapshot.versionId);
+  expect(snapshot.files.length, "GitHub 目录应有根文件之外的文件").toBeGreaterThan(1);
+  for (const file of snapshot.files) await expect(editor.getByRole("button", { name: file.path, exact: true })).toBeVisible();
+  const nonRoot = snapshot.files.find(file => file.path !== "SKILL.md" && /\.(md|txt|py|js|json|yaml|yml|sh)$/.test(file.path) && Buffer.from(file.contentBase64, "base64").length > 0);
+  expect(nonRoot, "目录必须有可核对真实内容的非根文本文件").toBeTruthy();
+  await editor.getByRole("button", { name: nonRoot!.path, exact: true }).click();
+  await expect(editor.getByRole("textbox", { name: "文件内容", exact: true })).toHaveValue(Buffer.from(nonRoot!.contentBase64, "base64").toString("utf8"));
 
-  // 真实数据态徽标——不是"预览态 mock"。
-  await expect(editor.locator('[data-testid$="-data-source"]')).toContainText("真实数据");
-
-  const fileTree = editor.locator('[data-testid$="-tree"]');
-  const fileEntries = fileTree.locator('[data-testid$="-file"]');
-  const fileCount = await fileEntries.count();
-  expect(fileCount, "GitHub 导入的目录应该有不止一个文件（SKILL.md 之外还有别的）").toBeGreaterThan(1);
-
-  // 点开一个非 SKILL.md 的文件，断言不是占位符文案。
-  let openedNonRoot = false;
-  for (let i = 0; i < fileCount; i += 1) {
-    const entry = fileEntries.nth(i);
-    const text = await entry.innerText();
-    if (text.includes("SKILL.md")) continue;
-    await entry.click();
-    openedNonRoot = true;
-    break;
-  }
-  expect(openedNonRoot, "本次导入的目录里应该存在至少一个非 SKILL.md 的文件可点").toBe(true);
-  const code = editor.locator('[data-testid$="-code"]');
-  await expect(code).not.toContainText("原型态：仅根文件展示完整内容");
 });
 
 /**
@@ -248,30 +254,32 @@ test("③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实
   const importedName = FULLSTACK_E2E.skillName + "_GITHUB_IMPORT";
   await expect(page.getByText(importedName).first()).toBeVisible({ timeout: 15_000 });
   const row = page.locator('[data-testid^="admin-skill-row-"]').filter({ hasText: importedName });
-  // 人类反馈（2026-08-17）：「编辑」现在打开独立页面；试跑此前是一个"展开/收起"
-  // 开关，现在改成与"代码"互斥的 tab（`-editortab-trialrun`），点它就切过去，
-  // 不再需要先点开内容面板的折叠开关（那个开关已随整页跳转删掉）。
+  await expect(row).toHaveCount(1);
+  const skillId = (await row.getAttribute("data-testid"))!.replace(/^admin-skill-row-/, "");
+  const origin = new URL(page.url()).origin;
+  const snapshotResponse = page.waitForResponse(response => matchesSnapshot(response, skillId, origin));
   await row.getByRole("link", { name: "编辑" }).click();
   await expect(page.getByTestId("admin-skill-edit-page")).toBeVisible();
-  const editor = page.locator('[data-testid$="-content-editor"]');
-
-  const tryRunTab = editor.locator('[data-testid$="-editortab-trialrun"]');
-  await expect(tryRunTab).toBeEnabled();
-  await tryRunTab.click();
-
-  const panel = editor.locator('[data-testid$="-trialrun-panel"]');
-  await expect(panel).toBeVisible();
-  await panel.locator('[data-testid$="-trialrun-input"]').fill("这是一条试跑样例输入");
-
-  const trialRunResponse = page.waitForResponse((response) => (
-    response.request().method() === "POST" && response.url().includes("/trial-run")
-  ));
-  await panel.locator('[data-testid$="-trialrun-run"]').click();
+  const snapshotHttp = await snapshotResponse;
+  expect(snapshotHttp.ok()).toBe(true);
+  const snapshot = SkillFileSnapshot.parse(await snapshotHttp.json());
+  expect(snapshot.skillId).toBe(skillId);
+  expect(snapshot.versionId).toBe(new URL(snapshotHttp.url()).searchParams.get("versionId"));
+  const editor = page.getByTestId("skill-multi-file-editor");
+  await expect(editor.getByTestId("skill-file-version")).toContainText(snapshot.versionId);
+  await editor.getByText("试跑当前已保存版本", { exact: true }).click();
+  await editor.getByRole("textbox", { name: "试跑输入", exact: true }).fill("这是一条试跑样例输入");
+  const trialRunResponse = page.waitForResponse(response => matchesTrial(response, snapshot.versionId, origin));
+  await editor.getByRole("button", { name: "试跑已保存版本", exact: true }).click();
   const response = await trialRunResponse;
   expect(response.ok(), "试跑请求应当被服务端接受（若这里 503，先看 KERNEL_SKILL_TRIALRUN_MODEL_ID 有没有配）").toBe(true);
+  expect(response.request().postDataJSON().versionId).toBe(snapshot.versionId);
+  const result = editor.getByTestId("skill-file-trial-result");
+  await expect(result).toBeVisible({ timeout: 30_000 });
+  await expect(result).toContainText(snapshot.versionId);
+  expect((await result.innerText()).replace(`版本 ${snapshot.versionId}`, "").trim(), "试跑必须产出非空真实输出").not.toBe("");
+  await expect(editor.getByRole("alert")).toHaveCount(0);
 
-  await expect(panel.locator('[data-testid$="-trialrun-output"]')).toBeVisible({ timeout: 15_000 });
-  await expect(panel.locator('[data-testid$="-trialrun-error"]')).toHaveCount(0);
 });
 
 /**

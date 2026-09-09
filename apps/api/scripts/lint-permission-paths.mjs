@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { SKILL_FILE_EDIT_PATH, checkSkillFileEditBoundary } from "./lib/skill-file-edit-boundary.mjs";
 import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
  * lint-permission-paths.mjs -- the structural half of R7 "permission travels along the
@@ -564,6 +565,15 @@ for (const root of ROOTS) {
     if (WORKBENCH_BOUNDARIES.has(rel)) {
       const errors = checkWorkbenchPermissionBoundary(rel, body);
       if (!existsSync(join(API, "scripts/tests/workbench-permission-boundary.test.mjs"))) errors.push("boundary counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    // #3249: like the admin model-pool GET, this is administrator governance,
+    // not ACL visibility. The exact exception is conditional on mechanical checks.
+    if (rel === SKILL_FILE_EDIT_PATH) {
+      const errors = checkSkillFileEditBoundary(body, readFileSync(join(API, "src/application/skill/edit-skill-files.ts"), "utf8"));
+      if (!existsSync(join(API, "scripts/tests/skill-file-edit-boundary.test.mjs"))) errors.push("permission counterexamples missing");
+      if (!existsSync(join(API, "tests/skill/skill-file-edit-authorization.test.ts"))) errors.push("administrator runtime counterexamples missing");
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }
