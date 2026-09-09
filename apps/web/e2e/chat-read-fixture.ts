@@ -62,6 +62,23 @@ export const CHAT_READ_E2E = {
    */
   deepAgentMultiStepTrigger: "取证：请展示多步执行",
   /**
+   * 路径矩阵 **F5 / C8** —— 子任务那次模型调用要挺过多少次状态轮询才终态。
+   *
+   * 这个数字**必须**同时满足两个方向，写在这里是为了让它可被算清（矩阵 F3 的教训：
+   * 两层各自都对、窗口乘起来是 0）：
+   *
+   * · **够长** —— 从「父 run 派发出子任务」到「测试点下取消、取消传到子任务」这段
+   *   要落在窗口内。派发发生在父 run 的第一次模型往返里；子任务由 `SubtaskRunExecutor`
+   *   的 tick 领走后才开始轮询，轮询周期是 provider 侧的状态轮询间隔。60 次留出的
+   *   余量远大于「点一下取消 + 一次 250ms 的 watch 循环采样」。
+   * · **有限** —— 没有取消时子任务会在这么多轮之后**正常完成**。F5 因此可以等过这个
+   *   点再复查一次：「取消没传播」会以 `completed` / 有结果现形，而不是靠"它一直没
+   *   完成"这种和"卡住了"分不开的弱信号。
+   *
+   * 见 `loopback-deep-agent-provider.ts` 的 `SUBTASK_HOLD_POLLS` 头注。
+   */
+  deepAgentSubtaskHoldPolls: 60,
+  /**
    * issue #3000 —— 「这一轮真的跑一段时间」的触发词，只服务
    * `copilotkit-v2-run-restore-after-switch.spec.ts`：替身收到它之后先把 `/stream` 的
    * 响应头发出去、再等 `deepAgentSlowHoldMs` 才发正文，于是这一轮在切走/切回的整个

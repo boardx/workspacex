@@ -295,7 +295,12 @@ export default defineConfig({
        *   「写了但没人跑」（#512 同一个失效模式）。
        */
       name: "chat-path-coverage",
-      testMatch: /chat-path-(f2-network-drop-reconnect)\.spec\.ts$/,
+      /*
+       * 2026-09-09（本 PR）新增三条：**C6 / C8 / F5**——矩阵里这三条 chat 侧此前
+       * 一条 spec 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞
+       * 车道**，连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
+       */
+      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask)\.spec\.ts$/,
     },
     {
       /**
@@ -552,6 +557,8 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
+        // 路径矩阵 F5 / C8 —— 见 `deepAgentSubtaskHoldPolls` 与替身侧 `SUBTASK_HOLD_POLLS` 头注。
+        LOOPBACK_DEEP_AGENT_SUBTASK_HOLD_POLLS: String(CHAT_READ_E2E.deepAgentSubtaskHoldPolls),
         LOOPBACK_DEEP_AGENT_SLOW_TRIGGER: CHAT_READ_E2E.deepAgentSlowTrigger,
         LOOPBACK_DEEP_AGENT_SLOW_HOLD_MS: String(CHAT_READ_E2E.deepAgentSlowHoldMs),
         LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
