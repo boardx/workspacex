@@ -29,6 +29,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { EventType } from "@ag-ui/core";
 import { AGUI_RUN_PHASE_EVENT_NAME } from "@repo/contracts/agui-state-events";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { closeAppDeterministically, closeHttpServerDeterministically } from "../support/close-app";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
@@ -218,8 +219,8 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await app?.close();
-  await new Promise<void>((resolve) => langgraphServer.close(() => resolve()));
+  await closeAppDeterministically(app);
+  await closeHttpServerDeterministically(langgraphServer);
 });
 
 beforeEach(async () => {
