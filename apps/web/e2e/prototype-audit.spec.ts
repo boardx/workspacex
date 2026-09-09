@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { routeDesignWorkbench } from "../scripts/lib/design-loop-fixtures.mjs";
-import { machineScore, type AuditSample } from "../scripts/lib/prototype-audit-metrics.mjs";
+import { machineScore, assertNoClipping, type AuditSample } from "../scripts/lib/prototype-audit-metrics.mjs";
 
 /**
  * 原型截图审计——**机器硬判**那一半，`< 80` 判红（2026-09-09 人类指令：
@@ -86,7 +86,12 @@ function measureInPage({ frameSelector, nodeSelector }: { frameSelector: string;
       return {
         x: r.x - fr.x, y: r.y - fr.y, w: r.width, h: r.height,
         fontSize: parseFloat(cs.fontSize) || 0,
-        clipped: el.scrollWidth > el.clientWidth + 1 && cs.textOverflow !== "ellipsis",
+        // Scrollable/visible overflow remains accessible. Ellipsis only excuses
+        // horizontal truncation; it cannot disclose hidden vertical lines.
+        clipped: (["hidden", "clip"].includes(cs.overflowX)
+          && el.scrollWidth > el.clientWidth + 1 && cs.textOverflow !== "ellipsis")
+          || (["hidden", "clip"].includes(cs.overflowY)
+          && el.scrollHeight > el.clientHeight + 1),
         tag: el.getAttribute("data-proto") ?? el.tagName.toLowerCase(),
       };
     })
@@ -134,7 +139,29 @@ test.describe("原型截图审计（机器硬判）", () => {
       writeFileSync(join(OUT, `${c.id}.json`), JSON.stringify({ ...m, frame: sample.frame, nodes: sample.nodes.length }, null, 2));
       // 分数与扣分理由都进 CI 日志——红了要能直接看出扣在哪，不用去翻 artifact。
       console.log(`[prototype-audit] ${c.id} = ${String(m.total)} 分 · ${detail}`);
+      assertNoClipping(sample);
       expect(m.total, `${c.id} 机器分 ${String(m.total)} < ${String(THRESHOLD)}：${detail}`).toBeGreaterThanOrEqual(THRESHOLD);
+    });
+  }
+});
+
+// Exercise the production collector in Chromium, not a duplicate predicate.
+test.describe("clipping collector", () => {
+  for (const scenario of [
+    { id: "horizontal", style: "width:60px;white-space:nowrap;overflow:hidden", text: "a long line that must be clipped", clipped: true },
+    { id: "vertical", style: "width:60px;height:15px;overflow:hidden", text: "several words wrapping into many lines", clipped: true },
+    { id: "vertical-ellipsis", style: "width:60px;height:15px;overflow:hidden;text-overflow:ellipsis", text: "several words wrapping into many lines", clipped: true },
+    { id: "ellipsis", style: "width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis", text: "a long line with an intentional ellipsis", clipped: false },
+    { id: "scroll", style: "width:60px;height:15px;overflow:auto", text: "several words available by scrolling", clipped: false },
+    { id: "visible", style: "width:60px;white-space:nowrap;overflow:visible", text: "a long line allowed to overflow", clipped: false },
+  ]) {
+    test(scenario.id, async ({ page }) => {
+      await page.setContent(`<div id="frame" style="width:400px;height:300px"><div data-proto style="${scenario.style}">${scenario.text}</div></div>`);
+      const sample = await page.evaluate(measureInPage, { frameSelector: "#frame", nodeSelector: "[data-proto]" });
+      expect(sample.nodes).toHaveLength(1);
+      expect(sample.nodes[0]!.clipped).toBe(scenario.clipped);
+      if (scenario.clipped) expect(() => assertNoClipping(sample)).toThrow("零裁切门失败");
+      else expect(() => assertNoClipping(sample)).not.toThrow();
     });
   }
 });

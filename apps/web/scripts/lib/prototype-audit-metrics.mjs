@@ -156,3 +156,10 @@ export function machineScore(sample, only = null) {
 }
 
 function pct(r) { return `${String(Math.round(r * 100))}%`; }
+
+/** Clipping is a hard defect; other metrics cannot compensate for it. */
+export function assertNoClipping(sample) {
+  if (sample.nodes.length === 0) throw new Error("没有节点——拒绝下判断");
+  const count = sample.nodes.filter((node) => node.clipped).length;
+  if (count > 0) throw new Error(`零裁切门失败：${count} 处内容被容器裁掉`);
+}

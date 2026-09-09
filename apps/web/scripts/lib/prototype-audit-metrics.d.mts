@@ -29,3 +29,5 @@ export function scoreClipping(sample: AuditSample): MetricResult;
 export function scoreTypeScale(sample: AuditSample): MetricResult;
 export function scoreAlignment(sample: AuditSample): MetricResult;
 export function machineScore(sample: AuditSample, only?: readonly string[] | null): MachineScore;
+
+export function assertNoClipping(sample: AuditSample): void;

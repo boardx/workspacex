@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  contentFillRatio, scoreFill, scoreClipping, scoreTypeScale, scoreAlignment, machineScore,
+  assertNoClipping, contentFillRatio, scoreFill, scoreClipping, scoreTypeScale, scoreAlignment, machineScore,
 } from "../../scripts/lib/prototype-audit-metrics.mjs";
 
 /**
@@ -125,5 +125,23 @@ describe("clipped 判据：省略号是告知，不是缺陷", () => {
   });
   it("没溢出 ⇒ 不算缺陷（1px 容差躲子像素）", () => {
     expect(isClipped({ scrollWidth: 196, clientWidth: 195, textOverflow: "clip" })).toBe(false);
+  });
+});
+
+describe("zero clipping cannot be compensated by other metrics", () => {
+  const good = [
+    node({ x: 16, y: 0, w: 360, h: 40, fontSize: 20 }),
+    node({ x: 16, y: 48, w: 360, h: 300, fontSize: 14 }),
+    node({ x: 16, y: 360, w: 360, h: 400, fontSize: 11 }),
+    node({ x: 16, y: 765, w: 360, h: 20, fontSize: 11 }),
+  ];
+  it.each([1, 4])("rejects %s clipped nodes even with a passing weighted score", (count) => {
+    const sample = { frame: { w: 393, h: 800 }, nodes: good.map((n, i) => ({ ...n, clipped: i < count })) };
+    expect(machineScore(sample).total).toBeGreaterThanOrEqual(80);
+    expect(() => assertNoClipping(sample)).toThrow("零裁切门失败");
+  });
+  it("accepts intact content and rejects an empty sample", () => {
+    expect(() => assertNoClipping({ frame: { w: 393, h: 800 }, nodes: good })).not.toThrow();
+    expect(() => assertNoClipping({ frame: { w: 393, h: 800 }, nodes: [] })).toThrow();
   });
 });
