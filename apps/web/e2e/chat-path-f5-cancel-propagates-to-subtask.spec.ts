@@ -53,7 +53,7 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { login, openFreshDeepAgentThread, sessionHeaders } from "./support/chat-path-coverage";
+import { openFreshDeepAgentThread, sessionHeaders } from "./support/chat-path-coverage";
 
 test.setTimeout(300_000);
 
@@ -83,7 +83,17 @@ async function threadArtifactCount(page: Page, threadId: string): Promise<number
 }
 
 test("@path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物", async ({ page }) => {
-  await login(page);
+  /*
+   * ⚠ 这里**不再自己 `login(page)`**：`openFreshDeepAgentThread` → `openFreshThread`
+   * → `openChatEmptyState` 里已经登录过一次（见 `support/chat-path-coverage.ts` 头注
+   * 那条逐字警告）。多登一次不是"多做一遍无害的事"，是一个**赛跑**：
+   * `LoginSessionGate`（`components/entry/login-session-gate.tsx`）在
+   * `useSession()` 的 `status` 还是初始值 `"loading"` 时渲染登录表单，等会话恢复完
+   * 翻成 `"authenticated"` 就 `router.replace` 走掉、改渲 `login-session-loading`。
+   * 于是「已登录后再 goto('/login')」能不能看见 `login-email`，取决于第二次登录跑赢
+   * 会话恢复没有——赢了就绿，输了 `fill()` 一路等到 240s 超时，**一条业务断言都不执行**。
+   * 首跑（run 34311571065）C6/F2 赢了、F5 输了，正是这个形状。
+   */
   const threadId = await openFreshDeepAgentThread(page);
 
   /*
