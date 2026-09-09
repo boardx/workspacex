@@ -41,13 +41,15 @@ process.env.KERNEL_QUIET = "1";
 const PROVIDER = "i-platform-skills-loopback";
 const MODEL = "i-platform-skills-model";
 /**
- * ⚠ V2/V3 的执行门控用 pptx-create（不是 docx-create）——`loopback-skill-sandbox-
- * behavior.ts` 是"确定性执行替身"，它的"其它情况"分支永远回一个**真实合法**的
- * .pptx（pptxgenjs 本体生成），不真的解释脚本内容，从脚本里的 `addText(...)`
- * 字面量取文本、从 `xxx.pptx` 取文件名。挂 docx-create 之后模型写 docx 脚本，
- * 这个替身**依然**只会回一个 pptx——测出来的会是"这个替身不懂 docx"，不是
- * "平台机制哪里坏了"。用 pptx-create 让"挂载→执行→产出真实文件"这条链路的断言
- * 落在与替身能力匹配的组合上；docx-create/xlsx-create/pdf-create 的真实沙箱执行
+ * ⚠ V2/V3 的执行门控用 pptx-create（不是 docx-create）。`loopback-skill-sandbox-
+ * behavior.ts` 是"确定性执行替身"，不真的解释脚本内容：按脚本里出现的产物扩展名分档，
+ * 从字面量取文本、从 `xxx.<ext>` 取文件名。
+ *
+ * ⚠⚠ **2026-09-09 订正**：本注原先写着"这个替身**依然**只会回一个 pptx"——那句话
+ * 已经不成立了。路径矩阵 C6（chat 侧 Office 产物）给该替身补了 docx / xlsx 两档，
+ * 各自用 `docx` / `exceljs` **本体**生成真实合法的字节。本文件继续用 pptx-create
+ * 不再是"替身只懂 pptx"，而是**本文件测的是"平台可见性"这一段，没必要为它多铺一种
+ * 格式**；docx-create/xlsx-create/pdf-create 的真实沙箱执行
  * 已经在 F979 的 `apps/skill-sandbox/tests/produces-real-*.test.ts` 里用真沙箱、
  * 真 docx/exceljs/pdf-lib 依赖测过——本文件不重复测那一段，只测"平台可见性"这一段。
  */

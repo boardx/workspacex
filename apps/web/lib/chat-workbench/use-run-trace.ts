@@ -17,6 +17,11 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
     return next;
   }, []);
   const [messageRuns, setMessageRuns] = React.useState<Record<string, string>>({});
+  /** Ids of the assistant bubbles `@ag-ui/client` mints for a `TOOL_CALL_START` that carries no
+   * `parentMessageId` — the bubble's id *is* the `toolCallId`. They are bound to their run like any
+   * other message, but they must never become the run trace panel's anchor: see the note on
+   * `onToolCallStartEvent` below. */
+  const [toolCallMessageIds, setToolCallMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
   const currentRun = React.useRef<string | null>(null);
   /** Message ids whose run was not yet known when their first event arrived.
    * `currentRun` is established by the durable execution events, and a tool call
@@ -37,7 +42,7 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
     generation.current += 1;
     currentRun.current = null;
     storeRef.current = {};
-    setEvents({}); setMessageRuns({}); unbound.current = [];
+    setEvents({}); setMessageRuns({}); setToolCallMessageIds(new Set()); unbound.current = [];
     return () => { for (const controller of activeControllers) controller.abort(); activeControllers.clear(); };
   }, [agent, threadId]);
   const bind = React.useCallback((messageId: string) => {
@@ -62,9 +67,48 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
         if (parsed.kind === "text_delta") setMessageRuns((previous) => ({ ...previous, [parsed.messageId]: parsed.runId }));
         ingest([parsed]);
       },
+      /*
+       * issue #3137 的**真正**形态（本仓 wire 实测，见 `.copilotkit-v2-tool-rendering/
+       * wire-known-limitation-3-evidence.txt`）：本仓服务端 `copilotkit-agui.controller.ts`
+       * 的 `writeToolCallStep` 发出的 `TOOL_CALL_START` **从来不带 `parentMessageId`**
+       * ——那个字段在该文件的 `AguiEvent` 联合类型里逐字不存在。
+       *
+       * `@ag-ui/client` 收到不带 `parentMessageId` 的 `TOOL_CALL_START` 时，会**新造**一条
+       * assistant 消息，并把 **`toolCallId` 本身当作这条消息的 id**（0.0.57 的 `applyEvents`：
+       * `{ id: toolCallId, role: "assistant", toolCalls: [] }`）。于是旧代码那句
+       * `if (!event.parentMessageId) return;` 让 `bind` 在本仓**一次都没被调用过**——
+       * 这条合成消息永远进不了 `messageRuns`，`TraceAssistant` 把它当 legacy，
+       * 于是同一次工具调用被渲染两份：一份在 `copilotkit-v2-tool-calls-group` 里、
+       * 一份在 `run-trace-panel` 里，而定制卡片挂在**前者**下面。
+       * DA-19c（矩阵 D1）在 CI 上稳定红的逐字错误就是这个：
+       * 「定制卡片不在任何 run-trace-panel 里（legacy 工具调用分组祖先 1 个）」。
+       *
+       * ⚠ 为什么单测没拦住：`tests/ui/workbench-trace-acceptance.test.tsx` 三条用例都
+       * **手喂** `parentMessageId`——替身说的是上游不说的方言。本次同时把夹具改成 wire 的
+       * 真实形状（只有 `toolCallId`），并保留一条带 `parentMessageId` 的用例覆盖
+       * 「上游哪天开始发它」的情形。
+       */
       onToolCallStartEvent: ({ event }) => {
-        if (!event.parentMessageId) return;
-        bind(event.parentMessageId);
+        /*
+         * D2 回归（#3168 引入）：绑是对的，**当锚点**是错的。
+         * `parentMessageId` 缺席时绑的是 `@ag-ui/client` **新造**的那条气泡
+         * （id 就是 `toolCallId`）。它在 `agent.messages` 里的位置远早于本轮回答正文
+         * ——`execution-journal-relay.ts` 的 `finish()` 会用
+         * `assistant_message_replaced` 把已流出的正文气泡撤回、再追加到**队尾**，
+         * 于是「第一条绑到本 run 的 assistant 消息」从队尾的回答正文变成了队首的
+         * 合成工具气泡。`TaskTimeline` 正是拿这一条当执行轨迹面板的锚点，面板因此
+         * 从回答上方跳到用户提问正下方；线程一长（e2e 「项目」档带历史）锚点落在
+         * 虚拟化窗口之外不再绘制，而抑制 fallback 槽的 `displayed` 仍然算得到这个 run
+         * ⇒ 两条渲染路径同时熄火，整页一个 `run-trace-panel` 都不剩。
+         *
+         * 所以这里把「合成气泡」的身份**如实记下来**（不靠形状猜），交给
+         * `TaskTimeline` 把它排除在锚点候选之外：绑定照旧（D1 要的是这条气泡被
+         * `messageRuns` 覆盖，好让 legacy 分组消失、定制卡片落进面板），锚点回到
+         * 本轮真实的回答气泡上——也就是 #3168 之前的位置。
+         */
+        if (event.parentMessageId) { bind(event.parentMessageId); return; }
+        setToolCallMessageIds((previous) => previous.has(event.toolCallId) ? previous : new Set(previous).add(event.toolCallId));
+        bind(event.toolCallId);
       },
       onTextMessageStartEvent: ({ event }) => { bind(event.messageId); },
     });
@@ -121,5 +165,5 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
   const bindMessages = React.useCallback((messages: readonly { id: string; agentRunId?: string | null }[]) => {
     setMessageRuns((previous) => ({ ...previous, ...Object.fromEntries(messages.filter((message) => message.agentRunId).map((message) => [message.id, message.agentRunId!])) }));
   }, []);
-  return { events, messageRuns, hydrate, acceptedRunEpoch, append, bindMessages };
+  return { events, messageRuns, toolCallMessageIds, hydrate, acceptedRunEpoch, append, bindMessages };
 }

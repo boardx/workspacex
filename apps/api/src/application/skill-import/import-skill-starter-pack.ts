@@ -14,6 +14,12 @@ import type {
 export class SkillStarterPackNotFoundError extends Error {}
 export class SkillStarterPackInvalidError extends Error {}
 export class SkillStarterPackConflictError extends Error {}
+/** 发货包改了正文却重用了同一个 `semanticVersion`——发货内容的错，不是数据库抖动。 */
+export class SkillStarterPackVersionLabelReusedError extends Error {
+  constructor(readonly stableName: string, readonly semanticVersion: string) {
+    super(`starter pack skill "${stableName}" reuses semantic version ${semanticVersion} for different content`);
+  }
+}
 export class SkillStarterImportIdempotencyConflictError extends Error {}
 export class SkillStarterImportAdminRequiredError extends Error {}
 
@@ -101,6 +107,9 @@ export async function importSkillStarterPack(
   if (outcome.kind === "created") return { created: true, result: outcome.result };
   if (outcome.kind === "replayed") return { created: false, result: outcome.result };
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();
+  if (outcome.kind === "version-label-reused") {
+    throw new SkillStarterPackVersionLabelReusedError(outcome.stableName, outcome.semanticVersion);
+  }
   if (outcome.kind === "idempotency-conflict") {
     throw new SkillStarterImportIdempotencyConflictError();
   }
@@ -123,6 +132,9 @@ function throwRecordedFailure(failureCode: string): never {
   }
   if (failureCode === "SKILL_STARTER_PACK_CONFLICT") {
     throw new SkillStarterPackConflictError();
+  }
+  if (failureCode === "SKILL_STARTER_PACK_VERSION_LABEL_REUSED") {
+    throw new SkillStarterPackVersionLabelReusedError("<recorded>", "<recorded>");
   }
   throw new SkillStarterPackInvalidError();
 }

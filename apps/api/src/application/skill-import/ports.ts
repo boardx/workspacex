@@ -15,6 +15,13 @@ export type PersistVerifiedImportOutcome =
   | { readonly kind: "created"; readonly result: SkillStarterImportResult }
   | { readonly kind: "replayed"; readonly result: SkillStarterImportResult }
   | { readonly kind: "name-conflict" }
+  /**
+   * 发货包改了某个 skill 的正文却没有 bump 它自己的 `semanticVersion`。
+   * `skill_versions_semantic_uniq` 会拒绝这次写入——把它折成一个具名结果，
+   * 让调用方（和日志）看到的是「哪个 skill 的哪个版本号被重用了」，
+   * 而不是一条裸的 23505。
+   */
+  | { readonly kind: "version-label-reused"; readonly stableName: string; readonly semanticVersion: string }
   | { readonly kind: "idempotency-conflict" }
   | { readonly kind: "previous-failure"; readonly failureCode: string };
 

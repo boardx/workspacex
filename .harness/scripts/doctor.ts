@@ -1,3 +1,4 @@
+import { loadCommitPolicy } from "./lib/ci-check-policy.mjs";
 // doctor.ts — 审计链一致性体检（ADR-012）。
 // 背景：p23 交付（PR #517）连续三轮被 Block，根因不是代码，而是审计链断裂——
 // evidence 是裸时间戳、派生视图与 feature_list 矛盾、passing feature 挂在 sprint:null
@@ -451,7 +452,7 @@ function syncRepo(): string | null {
 
 /** GraphQL closedByPullRequestsReferences 一页的形状 */
 interface ClosingRefsPage {
-  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string }>;
+  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string; mergeCommit?: { parents?: { nodes?: Array<{ oid: string }> } } | null }>;
   pageInfo: { hasNextPage: boolean; endCursor: string | null };
 }
 /** 分页上限：超过就当问不到（null）。一个 issue 被 2000 个 PR 关闭不是现实，是数据坏了，坏数据不放行。 */
@@ -497,7 +498,7 @@ export function fetchClosingPrs(
     const args = cursor === null ? "first:100,includeClosedPrs:true" : "first:100,after:$c,includeClosedPrs:true";
     const query =
       `query($o:String!,$r:String!,$n:Int!${cursor === null ? "" : ",$c:String!"}){repository(owner:$o,name:$r){issue(number:$n){` +
-      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid} pageInfo{hasNextPage endCursor}}}}}`;
+      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid mergeCommit{parents(first:1){nodes{oid}}}} pageInfo{hasNextPage endCursor}}}}}`;
     const r = exec(
       // 查询串必须用**单引号**交给 bash：双引号会把 `$o/$r/$n` 展开成空串，gh 收到 `query(:String!…)`
       // 直接 400（Expected VAR_SIGN），fetch 恒回 null → --strict 下每个 passing feature 都红（2026-09-05 实测）。
@@ -559,7 +560,11 @@ export function fetchClosingPrs(
         createdAt: row.created_at ?? null,
       }));
     }
-    out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs });
+    try {
+      const parent = node.mergeCommit?.parents?.nodes?.[0]?.oid;
+      const policy = loadCommitPolicy(parent, exec);
+      out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs, policy });
+    } catch { return null; }
   }
   return out;
 }

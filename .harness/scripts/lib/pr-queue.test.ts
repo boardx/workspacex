@@ -358,7 +358,7 @@ describe("#451 文档与代码共用同一份状态枚举", () => {
   });
 
   it("REQUIRED_CHECKS 里的每个名字都是 harness-verify.yml 里真实存在的 job——防改名后门禁静默失效", () => {
-    const wf = readFileSync(join(REPO_ROOT, ".github", "workflows", "harness-verify.yml"), "utf8");
+    const wf = ["harness-verify.yml", "backend-gates.yml"].map(file => readFileSync(join(REPO_ROOT, ".github", "workflows", file), "utf8")).join("\n");
     // 该 workflow 由 `on: pull_request` 触发（改掉就等于所有 required check 不再跑）
     expect(wf).toMatch(/^on:\n(?:.*\n)*?\s{2}pull_request:/m);
     const jobsBlock = wf.slice(wf.indexOf("\njobs:"));
@@ -372,7 +372,7 @@ describe("#451 文档与代码共用同一份状态枚举", () => {
     // 每个 PR 都恒判 MERGE_BLOCKED 长达五天，所有人转而绕过 pr-queue 直接合。
     // 静态存在是痕迹，「这次 PR 上会不会真的跑」才是事实——见
     // `.harness/instructions/static-trace-vs-live-fact.md`。
-    const wf = readFileSync(join(REPO_ROOT, ".github", "workflows", "harness-verify.yml"), "utf8");
+    const wf = ["harness-verify.yml", "backend-gates.yml"].map(file => readFileSync(join(REPO_ROOT, ".github", "workflows", file), "utf8")).join("\n");
     const jobsBlock = wf.slice(wf.indexOf("\njobs:"));
     for (const name of REQUIRED_CHECKS) {
       const start = jobsBlock.indexOf(`\n  ${name}:`);
