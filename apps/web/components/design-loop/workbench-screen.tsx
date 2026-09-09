@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { TagInput, commitDraft } from "@/components/ui/tag-input";
 import { Plus, Search, Pencil, Trash2, Check, Loader2, ShieldAlert, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,6 +150,17 @@ export function DesignWorkbenchHome({
   }
 
   const items = load.kind === "ready" ? load.items : [];
+  /**
+   * 已有标签及用量——候选来自真实数据，不是写死的枚举（同模板库那份的判据）。
+   * ⚠ 不用 `useMemo`：这一段在「读不到」的提前 return **之后**，套 hook 会违反
+   * hooks 调用顺序（eslint `rules-of-hooks` 当场判红）。项目列表是几十条的量级，
+   * 每次渲染直接数一遍比把 hook 挪上去改动更小、也更不容易出错。
+   */
+  const knownTags: ReadonlyMap<string, number> = (() => {
+    const counts = new Map<string, number>();
+    for (const p of items) for (const t of p.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    return new Map([...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN")));
+  })();
 
   const startCreate = (template: ProjectTemplate) => setDialog({ mode: "create", template });
 
@@ -313,6 +325,7 @@ export function DesignWorkbenchHome({
             : { template: dialog.template }}
           editing={dialog.mode === "edit"}
           busy={dialog.mode === "edit" ? busyId === dialog.project.id : false}
+          knownTags={knownTags}
           onClose={() => setDialog(null)}
           onCreate={(input) => void handleCreate(input)}
           onSave={(input) => {
@@ -372,9 +385,11 @@ function ProjectCard({
 }
 
 function ProjectDialog({
-  initial, editing, busy, onClose, onCreate, onSave,
+  initial, editing, busy, knownTags, onClose, onCreate, onSave,
 }: {
   initial: { name?: string; template: ProjectTemplate; problem?: string; tags?: readonly string[] };
+  /** `标签 → 有多少个设计在用`，由调用方从真实项目列表聚合——本弹窗不持有标签清单。 */
+  knownTags: ReadonlyMap<string, number>;
   editing: boolean;
   busy: boolean;
   onClose: () => void;
@@ -386,17 +401,17 @@ function ProjectDialog({
   const [template, setTemplate] = React.useState<ProjectTemplate>(initial.template);
   const [problem, setProblem] = React.useState(initial.problem ?? "");
   /**
-   * 迭代 13（delta §4）：标签在弹窗里编辑，整份提交。
-   * 用一个逗号分隔的输入框而不是 chip 编辑器：8 个上限的短列表，打字比点按钮快，
-   * 也省掉一套「按回车确认这一个」的交互（那套交互的常见 bug 是最后一个没按回车就丢了）。
+   * 标签用**全仓共用的** `TagInput`（2026-09-09 人类指令「统一体验」）。
+   *
+   * 迭代 13 这里原本是逗号分隔的纯文本框，理由写在当时的注释里：「chip 交互的常见 bug
+   * 是最后一个没按回车就丢了」。那个担心是真的，所以换成 chip 的同时把它堵死——
+   * 草稿由本组件持有，提交前一律走 `commitDraft` 并进去（见 `submitTags()`）。
+   * 只换控件不堵这个洞，等于拿一个 bug 换另一个。
    */
-  const [tagsInput, setTagsInput] = React.useState((initial.tags ?? []).join("，"));
-  const tags = React.useMemo(
-    () => [...new Set(tagsInput.split(/[,，]/).map((t) => t.trim()).filter((t) => t !== ""))]
-      .slice(0, DESIGN_PROJECT_MAX_TAGS)
-      .map((t) => t.slice(0, DESIGN_PROJECT_TAG_MAX_CHARS)),
-    [tagsInput],
-  );
+  const [tags, setTags] = React.useState<readonly string[]>(initial.tags ?? []);
+  const [tagDraft, setTagDraft] = React.useState("");
+  const submitTags = (): readonly string[] =>
+    commitDraft(tags, tagDraft, { maxTags: DESIGN_PROJECT_MAX_TAGS, maxTagLength: DESIGN_PROJECT_TAG_MAX_CHARS });
   const canSubmit = name.trim() !== "" && !busy;
 
   /*
@@ -508,18 +523,21 @@ function ProjectDialog({
 
         {(editing || step === "brief" || step === "review") && (
           <div className="flex flex-col gap-1">
-            <label htmlFor="project-tags" className="text-11 font-medium text-muted-foreground">
-              标签（逗号分隔，最多 {DESIGN_PROJECT_MAX_TAGS} 个）
-            </label>
-            <Input id="project-tags" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="后台，移动端" data-testid="project-tags-input" />
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1" data-testid="project-tags-preview">
-                {tags.map((t) => (
-                  <span key={t} className="rounded-control bg-panel px-1.5 py-0.5 text-10 text-muted-foreground">{t}</span>
-                ))}
-              </div>
-            )}
+            <span className="text-11 font-medium text-muted-foreground">
+              标签（最多 {DESIGN_PROJECT_MAX_TAGS} 个）
+            </span>
+            <TagInput
+              value={tags}
+              onChange={setTags}
+              knownTags={knownTags}
+              noteFor={(n) => `${String(n)} 个设计在用`}
+              maxTags={DESIGN_PROJECT_MAX_TAGS}
+              maxTagLength={DESIGN_PROJECT_TAG_MAX_CHARS}
+              draft={tagDraft}
+              onDraftChange={setTagDraft}
+              testIdPrefix="project-tags"
+              emptyHint="输入即搜索已有标签，回车新建一个——设计列表可按它们筛选"
+            />
           </div>
         )}
 
@@ -529,7 +547,7 @@ function ProjectDialog({
             <>
               {/* 整段跳过：引导是帮忙不是关卡，跳过之后不再拦（delta §3.3 / 取舍 ④=A）。 */}
               <Button variant="ghost" size="sm" disabled={!canSubmit} data-testid="intake-skip-all"
-                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim(), tags })}>
+                onClick={() => onCreate({ name: name.trim(), template, problem: problem.trim(), tags: submitTags() })}>
                 跳过，直接创建
               </Button>
               <Button variant="primary" size="sm" disabled={!canSubmit || asking} data-testid="intake-ask"
@@ -552,8 +570,8 @@ function ProjectDialog({
                 editing
                   // ⚠ 编辑走 `updateProject`，它的入参是 .strict() 且**没有** intake——
                   // 把空数组也捎上会被服务端判 400（e2e 实测，2026-09-08）。
-                  ? onSave({ name: name.trim(), template, problem: problem.trim(), tags })
-                  : onCreate({ name: name.trim(), template, problem: problem.trim(), tags, intake: answered() })
+                  ? onSave({ name: name.trim(), template, problem: problem.trim(), tags: submitTags() })
+                  : onCreate({ name: name.trim(), template, problem: problem.trim(), tags: submitTags(), intake: answered() })
               }
             >
               {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
