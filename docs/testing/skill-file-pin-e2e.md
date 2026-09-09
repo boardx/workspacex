@@ -14,7 +14,7 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-ski
 
 需要 Docker、已安装的 pnpm 依赖与 Playwright Chromium，以及服务端可以访问公开 GitHub 的网络。runner 用标准准入分配端口、数据库和 Compose project，仅起自己的 PostgreSQL/Redis/MinIO、API 和独立 dist 的 Next dev。它执行真实迁移、标准 dev-mode seed，并经 `/auth/login` 使用预设 admin；没有测试 principal 注入。
 
-单 worker 专用配置为 `apps/web/playwright.skill-files.config.ts`。runner 设置 `STUDIO_LANE=1`，并要求报告恰好一个通过测试；all-skipped 不会当成功。Git HEAD、环境概要、receipt、截图和日志写入系统临时目录下 `studio-browser-<compose-project>`。API 加密 key 仅在进程内随机生成，不输出。不会写 auth token 到日志或录制含认证请求头的 trace。
+单 worker 专用配置为 `apps/web/playwright.skill-files.config.ts`。runner 设置 `STUDIO_LANE=1`，并读取本轮独有目录的 Playwright JSON 报告：expected=1、passed=1、skipped=0、failed=0，无重试或全局错误；缺失或损坏报告一律失败。日志文本不参与通过判定。Git HEAD、环境概要、receipt、截图和日志写入系统临时目录下 `studio-browser-<compose-project>-<unique-suffix>`。API 加密 key 仅在进程内随机生成，不输出。不会写 auth token 到日志或录制含认证请求头的 trace。
 
 退出时只结束自己的进程组、删除自己的 Next dist 及自动 tsconfig include；外层 isolation wrapper 清理自己的 Compose 资源。不要脱离外壳运行 runner。
 
@@ -29,3 +29,5 @@ STUDIO_LANE=1 pnpm --filter web exec playwright test --config playwright.skill-f
 此模式**不要设置** `STUDIO_LOCAL_DEV_MODE`。测试会在目标组织真实创建专用 Skill 和 Agent，再恢复该测试 Agent 的空 pins；请使用获授权的验收组织。未获得实际会话或凭据时，不能用本地 dev-mode 冒充 devapp 验证。
 
 可通过 `STUDIO_SKILL_SOURCE_URL`、`STUDIO_AGENT_SOURCE_URL` 使用已批准的 GitHub 来源；缺省复用仓库现有 GitHub 导入测试来源。公网可用性失败会真实报错，不回退 mock。
+
+隔离拒绝与报告反证（无 Docker / 数据库副作用）：`pnpm exec vitest run scripts/tests/studio-skill-files-guards.test.ts`。runner 与 init 在任何命令前调用标准 `assertIsolatedDatabase`，并按标准派生身份核对实际 migrationConfig、数据库与 Compose project；仅手填四个端口/名字不能启栈。

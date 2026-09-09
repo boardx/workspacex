@@ -1,19 +1,20 @@
 import { randomBytes } from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdir, open, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, open, writeFile, readFile, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import 'tsx/esm';
 const root=resolve(dirname(fileURLToPath(import.meta.url)), '..');
-for(const key of ['COMPOSE_PROJECT_NAME','PGDATABASE','WORKSPACEX_API_PORT','WORKSPACEX_WEB_PORT']) if(!process.env[key]) throw new Error(`${key} required: use with-test-isolation`);
-const evidence=join(tmpdir(),`studio-browser-${process.env.COMPOSE_PROJECT_NAME}`);
-const distName=`.next-studio-${process.env.COMPOSE_PROJECT_NAME}`;
-await mkdir(evidence,{recursive:true});
+const { withStudioIsolation, assertStudioReport } = await import('./studio-skill-files-guards.ts');
+await withStudioIsolation(async () => {
+const evidence=await mkdtemp(join(tmpdir(),`studio-browser-${process.env.COMPOSE_PROJECT_NAME}-`));
+const distName=`.next-studio-${process.env.COMPOSE_PROJECT_NAME}-${randomBytes(4).toString('hex')}`;
 const children=[]; const logs=[];
 const gitHead=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
 const env={...process.env, STUDIO_GIT_HEAD:gitHead, STUDIO_LANE:'1', WORKSPACEX_DEV_MODE:'1', MODEL_CREDENTIAL_KEY:randomBytes(32).toString('hex'), KERNEL_ALLOW_TEST_PRINCIPAL:'0', KERNEL_AGENT_RUN_AUTOSTART:'0', KERNEL_QUIET:'1', NEXT_TELEMETRY_DISABLED:'1'};
 function processCommand(cmd,args,name,cwd=root, extra={}) {
-  return open(`${evidence}/${name}.log`,'a').then(log=>{
+  return open(`${evidence}/${name}.log`,'wx').then(log=>{
     logs.push(log); const child=spawn(cmd,args,{cwd,env:{...env,...extra},detached:true,stdio:['ignore',log.fd,log.fd]});
     children.push(child); return child;
   });
@@ -62,8 +63,9 @@ try {
   await run('pnpm',['exec','playwright','test','--config','playwright.skill-files.config.ts'],'browser',`${root}/apps/web`,{
     E2E_BASE_URL:webOrigin,STUDIO_API_BASE_URL:apiOrigin,STUDIO_LOCAL_DEV_MODE:'1',STUDIO_EVIDENCE_DIR:`${evidence}/results`,
   });
-  // The explicit lane must execute the named test, never report an all-skipped success.
-  const resultLog=await readFile(join(evidence,'browser.log'),'utf8');
-  if(!/1 passed/.test(resultLog)||/\b[1-9]\d* skipped\b/.test(resultLog))throw new Error('STUDIO lane did not execute exactly one passing test');
+  const report=JSON.parse(await readFile(join(evidence,'results','playwright-report.json'),'utf8'));
+  assertStudioReport(report);
   console.log(`BROWSER_PASS ${evidence}`);
 }finally {await cleanup();console.log(`OWNED_PROCESSES_CLEANED ${evidence}`);}
+
+});
