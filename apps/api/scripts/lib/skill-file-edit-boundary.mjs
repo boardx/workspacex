@@ -9,6 +9,12 @@ const compact = node => node?.getText().replace(/\s+/g, "");
 export function checkSkillFileEditBoundary(repository, useCase) {
   const errors = [], queries = [], methods = [], tenants = [];
   const ast = ts.createSourceFile("repo.ts", repository, ts.ScriptTarget.Latest, true);
+  const classes = ast.statements.filter(ts.isClassDeclaration);
+  if (classes.length !== 1 || classes[0].name?.text !== "PgSkillFileEditRepository") errors.push("only reviewed repository class allowed");
+  for (const member of classes.flatMap(node => [...node.members])) {
+    if (!ts.isConstructorDeclaration(member) && !ts.isMethodDeclaration(member)) errors.push("unreviewed repository member kind");
+    if (member.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.StaticKeyword)) errors.push("static repository access path forbidden");
+  }
   function visit(node) {
     if (ts.isMethodDeclaration(node)) methods.push(node.name.getText());
     if (ts.isPropertyDeclaration(node)) errors.push("unreviewed repository field/access path");
@@ -26,6 +32,16 @@ export function checkSkillFileEditBoundary(repository, useCase) {
   if (JSON.stringify(actual) !== JSON.stringify(QUERIES)) errors.push("reviewed tenant SQL and bound parameters changed");
   const app = ts.createSourceFile("app.ts", useCase, ts.ScriptTarget.Latest, true);
   const functions = app.statements.filter(ts.isFunctionDeclaration);
+  const exported = node => node.modifiers?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword);
+  const exportedFunctions = functions.filter(exported).map(node => node.name?.text);
+  if (JSON.stringify(exportedFunctions) !== JSON.stringify(["getSkillFileSnapshot", "saveSkillFiles"])) errors.push("only reviewed exported use cases allowed");
+  for (const node of app.statements) {
+    if (ts.isExportAssignment(node) || (ts.isExportDeclaration(node) && !node.isTypeOnly)) errors.push("unreviewed use-case runtime re-export");
+    if (!exported(node) || ts.isFunctionDeclaration(node) || ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) continue;
+    if (ts.isClassDeclaration(node) && node.name?.text === "SkillFileEditError") continue;
+    if (ts.isVariableStatement(node) && node.declarationList.declarations.length === 1 && compact(node.declarationList.declarations[0]) === 'SKILL_FILE_EDIT_REPOSITORY=Symbol("SkillFileEditRepository")') continue;
+    errors.push("unreviewed use-case runtime export");
+  }
   const auth = functions.find(node => node.name?.text === "authorize");
   if (!auth || digest(auth.getText()) !== "468af92170ef84abb9561e849aa1ace6718437f14502868627a4da474e6d84dc") errors.push("identity-backed administrator authorization changed");
   for (const name of ["getSkillFileSnapshot", "saveSkillFiles"]) {

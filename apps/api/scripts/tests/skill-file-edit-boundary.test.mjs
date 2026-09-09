@@ -11,6 +11,9 @@ for (const [name, before, after] of [
  ['false tenant argument', '[version.id, version.org_id]', '[version.id, input.actorId]'],
  ['unscoped session', 'this.db.withTenant', 'this.db.withoutTenant'],
  ['new read method', '  async read(', '  async leak() { return []; }\n  async read('],
+ ['getter database escape', '  async read(', '  get unguardedDatabase() { return this.db; }\n  async read('],
+ ['setter database escape', '  async read(', '  set unguardedDatabase(db) { this.db = db; }\n  async read('],
+ ['static block escape', '  async read(', '  static { globalThis.leak = this; }\n  async read('],
  ['new arrow read', '  async read(', '  leak = async () => [];\n  async read('],
  ['extra SQL', '      const rows =', '      await session.query("SELECT * FROM credentials");\n      const rows ='],
 ]) test(`rejects ${name}`, () => { assert.ok(repo.includes(before)); assert.ok(checkSkillFileEditBoundary(repo.replace(before, after), app).length); });
@@ -22,3 +25,11 @@ test('rejects authorization removed from read or write independently', () => {
   assert.ok(checkSkillFileEditBoundary(repo, app.slice(0, at) + app.slice(at + needle.length)).length);
  }
 });
+
+for (const [name, addition] of [
+ ['function', 'export async function unguardedSnapshot(input: any, deps: any) { return deps.repository.read(input); }'],
+ ['arrow', 'export const unguardedSnapshot = (input: any, deps: any) => deps.repository.read(input);'],
+ ['alias', 'export { authorize as unguardedSnapshot };'],
+ ['default', 'export default (input: any, deps: any) => deps.repository.read(input);'],
+ ['class', 'export class Unguarded { read(input: any, deps: any) { return deps.repository.read(input); } }'],
+]) test(`rejects added use-case ${name} export`, () => assert.ok(checkSkillFileEditBoundary(repo, `${app}\n${addition}`).length));
