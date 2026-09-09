@@ -1087,6 +1087,37 @@ export function CopilotKitV2PanelBody({
     restore: { runId: runRestore.runId, status: runRestore.status },
   });
   const traceStatus = activeTrace?.[1].slice().reverse().find((event) => event.kind === "status");
+  /*
+   * issue #3207 —— 「左上角出现了任务提醒，但确认弹窗没有在窗口里弹出来」。
+   *
+   * 「这条线程现在有没有一个等人裁决的工具审批」是**一个**事实，此前被声明在两处：
+   * 左上角提醒读 `runRestore.status`（#2825 之后是切回来先做的**权威读**），审批弹窗
+   * 的挂载条件只读 `activeTrace`（事件流投影 `runTrace.events`）。中断发生在这次挂载
+   * 建立订阅之前（刷新 / 切走再切回 / 订阅晚于中断）时，那条 `awaiting_tool_permission`
+   * 的 status 事件在这次挂载上**永远不会再来**——提醒显示了，弹窗永不挂载，用户知道
+   * 「有事要我确认」却没有可确认的界面。
+   *
+   * 收敛成这一个派生值：事件流优先，事件流沉默时回落到权威读。
+   *
+   * key 只按 runId（issue #3212）——此前带上 `traceStatus.seq`，于是同一个 run 里的**第二次**
+   * 中断会把审批组件整个重挂，它刚记下的「本 run 内已经问过几次、上次选了哪档」随之清零，
+   * 第二次弹窗因此与第一次逐像素相同。同一条 run 的审批是**一段连续会话**，不是每条 status
+   * 事件一个新组件；组件内部本来就按 `permissionRequestId` 分辨新请求
+   * （`restored-run-approval.tsx` 的 `consumedRequestId`），不需要靠换 key 来刷新。
+   *
+   * ⚠ 这里**只放宽"从哪知道该渲染"，不放宽任何授权判断**——是否需要裁决
+   * 仍然由服务端 `tool-permission-gate.ts` 决定，弹窗自己还会用 `getAgentRun` 的
+   * `pendingApproval` 做一次权威核对（`restored-run-approval.tsx`），run 若已不在
+   * `awaiting_tool_permission` 它自己就返回 null。
+   */
+  const tracePendingPermission = activeTrace && traceStatus?.kind === "status"
+    && traceStatus.status === "awaiting_tool_permission"
+    ? { runId: activeTrace[0], key: activeTrace[0] }
+    : null;
+  const pendingPermission = tracePendingPermission
+    ?? (runRestore.status === "awaiting_tool_permission" && runRestore.runId
+      ? { runId: runRestore.runId, key: runRestore.runId }
+      : null);
   const interjectionRun = activeTrace && traceStatus?.kind === "status"
     ? { runId: activeTrace[0], status: traceStatus.status }
     : connectedInterjectionRun;
@@ -1575,8 +1606,8 @@ export function CopilotKitV2PanelBody({
                   <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
                     <ProducedFilesCtx.Provider value={producedFilesContextValue}>
                       <InterruptRenderContext.Provider value={{ bearer: sessionToken ?? undefined, canWrite: canDecide,
-                        pendingRunId: activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? activeTrace[0] : null }}>
-                      {activeTrace && traceStatus?.kind === "status" && traceStatus.status === "awaiting_tool_permission" ? <RestoredRunApproval canWrite={canDecide} key={`${activeTrace[0]}:${traceStatus.seq}`} runId={activeTrace[0]} bearer={sessionToken ?? undefined} /> : null}
+                        pendingRunId: pendingPermission?.runId ?? null }}>
+                      {pendingPermission ? <RestoredRunApproval canWrite={canDecide} key={pendingPermission.key} runId={pendingPermission.runId} bearer={sessionToken ?? undefined} /> : null}
                       <TaskTimeline
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}
