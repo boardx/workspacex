@@ -94,6 +94,41 @@ const SCROLL_TOTAL_HALF_STEPS = 20;
 // issue #3100 D6：剧本从三步（todos/search/read）变成四步（多了 spawn_async_task），
 // 终稿落在第 8 个半步——阈值必须跟着抬，否则非流式路径会在终稿揭示之前就判终态。
 const MULTISTEP_MIN_STATUS_POLLS = Number(process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_MIN_POLLS ?? "8");
+/** issue #3100 D6 —— 一次派发的子任务描述。**声明提前到这里**：下面 F5/C8 那个旋钮的
+ *  `isSpawnedSubtaskRun` 要用它认出子任务那次模型调用（原先声明在 `/threads` 路由附近）。 */
+const SPAWN_SUBTASK_DESCRIPTION = "并行核对 A.md 里引用的外部数据源，整理成一段可引用的结论。";
+
+/**
+ * 路径矩阵 **F5（取消传播到子任务）/ C8** 的取证旋钮 —— **让子任务自己那次模型调用
+ * 停在"还在跑"上足够久**。
+ *
+ * ## 它要消除的是一个「窗口乘起来是 0」的构造性竞态
+ *
+ * 子任务的模型调用打的是本替身**同一个进程**（`SubtaskRunExecutor` 把父 run 的
+ * `model_provider` 原样复制给子任务，deep-agent 就还是 deep-agent），`threadId` 是
+ * `deriveRemoteThreadId(subtaskRunId)`，`userText` 以子任务 description 开头。它命不中
+ * 任何触发词 ⇒ 走默认的 `STATUS_POLLS_BEFORE_DONE`（=2），也就是**一两次轮询就终态**。
+ *
+ * 于是「父取消 → 子任务不再产出」这条判据在默认配置下**永远命中不到**：等测试从
+ * 界面点下取消，子任务早已 completed。这与矩阵 F3 那条「状态窗口 974ms 短于轮询周期
+ * 3000ms，两层各自都对、乘起来是 0」是同一个形状的坑。
+ *
+ * 旋钮把子任务的终态推迟到至少这么多次状态轮询之后，取消动作因此**由构造**落在
+ * 子任务仍在运行的窗口里，不是"跑得够快"。
+ *
+ * ⚠ 刻意做成**有限**的 hold，不是"挂到天荒地老"：没有取消时子任务会在这么多轮之后
+ * 正常完成。F5 的断言因此可以等过这个点再复查一次——「取消没传播」的失效形态会以
+ * 「子任务变成 completed / 有结果」现形，而不是靠"它一直没完成"这种弱信号。
+ *
+ * 未设置时恒为 `undefined`，这条分支短路，行为与改动前逐字节相同。
+ */
+const SUBTASK_HOLD_POLLS = process.env.LOOPBACK_DEEP_AGENT_SUBTASK_HOLD_POLLS === undefined
+  ? undefined
+  : Number(process.env.LOOPBACK_DEEP_AGENT_SUBTASK_HOLD_POLLS);
+/** 子任务那次模型调用的 `user` 以 description 开头（`SubtaskRunExecutor` 拼的），据此认出它。 */
+const isSpawnedSubtaskRun = (userText: string): boolean =>
+  SUBTASK_HOLD_POLLS !== undefined && Number.isFinite(SUBTASK_HOLD_POLLS)
+  && userText.startsWith(SPAWN_SUBTASK_DESCRIPTION);
 /**
  * #728 P9 —— 确定性失败触发词。用户消息**逐字等于**这个值时，本进程让 run 走到
  * `error` 终态而不是 `success`，供取证脚本构造一次真实失败并截图——不是在前端
@@ -491,7 +526,6 @@ function computeSpecialTurnReply(threadId: string, record: RunRecord): string | 
  * issue #3100 D6 —— 多步剧本派发的那个子任务的目标与背景。两处用到（`POST /threads/:id/runs`
  * 真的派发时、`/state` 揭示工具 args 时），所以是模块常量而不是各写一份字面量。
  */
-const SPAWN_SUBTASK_DESCRIPTION = "并行核对 A.md 里引用的外部数据源，整理成一段可引用的结论。";
 const SPAWN_SUBTASK_CONTEXT = "父任务已确认：检索命中 A.md/B.md/C.md，其中 A.md 最相关。";
 /** 一次派发对应一个稳定的 tool_call id —— 真实工具把它当 `idempotencyKey` 用。 */
 const spawnCallIdFor = (threadId: string): string => `spawn-${threadId}`;
@@ -699,7 +733,11 @@ const server = createServer((req, res) => {
       return;
     }
     // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
-    const requiredPolls = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
+    const requiredPolls = isSpawnedSubtaskRun(record.userText)
+      // 路径矩阵 F5/C8 —— 见 `SUBTASK_HOLD_POLLS` 头注。排在最前：子任务的正文不会
+      // 逐字等于任何一个触发词，但把它排在后面只会让人误以为次序无关。
+      ? Math.max(STATUS_POLLS_BEFORE_DONE, SUBTASK_HOLD_POLLS!)
+      : SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, 20)
       : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS)
