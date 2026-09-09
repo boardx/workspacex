@@ -34,6 +34,7 @@ import { listThreadAttachments } from "../../src/application/chat/list-thread-at
 import { buildFileCreatedEvents } from "../../src/application/agent-run/agui-file-events";
 import { toOrgId } from "../../src/domain/org-id";
 
+import { closeAppDeterministically } from "../support/close-app";
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
@@ -72,7 +73,7 @@ beforeAll(async () => {
   await addChatThread({ orgId: ORG, id: THREAD, projectId: null, visibilityScope: "private", createdBy: ACTOR });
 }, 60_000);
 
-afterAll(async () => { await app?.close(); });
+afterAll(async () => { await closeAppDeterministically(app); });
 
 describe("DA-16 -- listThreadAttachments + buildFileCreatedEvents（真 Postgres）", () => {
   it("一条真实 chat_message_attachments 行 → 一个校验通过的 file_created payload，字段与 DB 行一一对应", async () => {
