@@ -896,10 +896,12 @@ const server = createServer((req, res) => {
            *
            * ⚠ 游标在这里**归零**（只对这两个剧本，其余剧本一行不动）。此前写的是
            * `statusPolls + HOLD_POLLS`，而第一条流 EOF 已经把 `statusPolls` 推成
-           * `Number.MAX_SAFE_INTEGER`——`MAX_SAFE_INTEGER + 8` 在 IEEE754 下**吃掉了
-           * 那个 8**（仍是 9007199254740992 量级、且 `statusPolls < holdUntilPoll` 恒
-           * 假/恒真两头不靠）。于是窗口宽度要么是 0、要么永不结束，两种都不是"由构造
-           * 撑开的一段有界窗口"。
+           * `Number.MAX_SAFE_INTEGER`。真实机理是**追不上**，不是"那个 8 被吃掉"
+           * （实测 `9007199254740991 + 8 === 9007199254741000`，加法没丢）：
+           * `holdUntilPoll` 停在 `...741000`，而 `statusPolls` 每轮 `+1` 在
+           * `9007199254740992` 就**饱和**（实测 `(M+1) + 1 === M+1`），永远走不到
+           * `...741000`，于是 `statusPolls < holdUntilPoll` **恒真** —— 窗口永不结束，
+           * 不是"由构造撑开的一段有界窗口"。
            *
            * 上面那句「resume 绝不重置 statusPolls」的理由是"别让轮询重新走一遍 pending
            * 阈值"——而这两个剧本要的**正是**一段 pending，重新走一遍就是它的定义。
