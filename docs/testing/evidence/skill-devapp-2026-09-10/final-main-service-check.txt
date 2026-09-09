@@ -1,0 +1,14 @@
+Wed Sep  9 23:05:06 UTC 2026
+8e08a8f98ce5e9b3c3d57c6d888d85726744fab2
+Id=workspacex-api.service
+ActiveState=active
+SubState=running
+MainPID=3871734
+ExecMainStartTimestamp=Thu 2026-09-10 07:03:28 CST
+
+Id=workspacex-web.service
+ActiveState=active
+SubState=running
+MainPID=3871735
+ExecMainStartTimestamp=Thu 2026-09-10 07:03:28 CST
+{"migrationVersion":"20260911020000_agent_run_failure_reason.sql","rlsForced":true,"appRoleIsOwner":false,"trustworthy":true}image=deep-agent-service:8e08a8f9 image_id=sha256:68acb583e759ced3e53d74e028319a4e1503648641a282cdbc4092550a7a7125 started=2026-09-09T22:58:44.509921831Z running=true

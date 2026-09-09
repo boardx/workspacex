@@ -1,3 +1,11 @@
+# Final main deployment confirmed at23:05Z
+
+[Deployment attempt2](https://github.com/boardx/workspacex/actions/runs/34413017866/attempts/2) succeeded for `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2`. [Fresh server observation](./final-main-service-check.txt) confirms this checkout, API/Web active since07:03:28CST, running Agent image8e08a8f9 and healthy RLS/trust assertions. HTTPS login returned200. The final main tree equals the reviewed PR and tested synthetic merge trees.
+
+Attempt1 failed at native environment sampling about52ms after active. The identical root-owned assertion and native callback assertion passed on the stable process. Attempt2 succeeded without relaxed checks. Follow-up#3294 records the startup sampling risk. Authenticated human acceptance remains pending because the Mac is locked.
+
+All observations below are historical and superseded by this final main deployment.
+
 # Devapp deployment observations — historical success, current candidate displaced
 
 **Latest observation (2026-09-09T22:14Z): the shared devapp checkout is main `f95a1fadf7eb2046ad8e9a6f1bf99a5c49a70f7a`, not the complete frozen candidate. API/Web were active with start time 06:11:42 CST (22:11:42Z).** The recovery deployment attempt 2 had succeeded, but a later main deployment replaced it again. Neither successful attempt establishes that the full candidate is currently stable on devapp. This update records the coordinator's latest read-only SSH observation; the earlier attached snapshot below remains a historical receipt.

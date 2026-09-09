@@ -1,6 +1,6 @@
 # Skill 多文件与 Agent 绑定：人工验收
 
-目标环境：[devapp](https://devapp.boardx.us/skill)。候选 `c3e1cb929e33ed45db8d84ce14ba133683de0c2d` 已于 2026-09-10 05:46（上海时间）部署，服务健康及登录入口检查通过；以下登录后的人工操作仍待执行。22:14 UTC 的复查发现后续 main 自动部署已覆盖候选；完整整合 PR #3272 正在验证，验收前必须由交付者重新核对完整功能已部署。请使用测试组织管理员账号；本地测试生成的 Skill / Agent 不代表 devapp 已有同名对象。
+Target: [devapp](https://devapp.boardx.us/skill). Final main `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2` deployed successfully. At 2026-09-10 07:05 CST, server identity, API/Web, Agent service and HTTPS login checks passed. Authenticated human acceptance remains pending because the Mac is locked. Use a test-organization administrator account.
 
 如果没有专用已发布 Agent，可先到 [Agent 后台](https://devapp.boardx.us/platform-admin/agent)，点击“新建 / 导入 Agent”，选择 URL 导入。使用公开模板 `https://raw.githubusercontent.com/anthropics/skills/main/template/SKILL.md`，命名为本组织内唯一的“多文件验收 Agent”。导入后将指令改为“根据已固定的 Skill 读取参考文件并回答用户问题”，点击“保存指令”，再点击“发布”，确认按钮显示“已发布”。记录这个 Agent 名称，后续绑定和聊天都使用它。
 

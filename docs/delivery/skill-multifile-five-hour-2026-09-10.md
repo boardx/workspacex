@@ -18,11 +18,11 @@
 | 跨项整合与交付 | 主任务 | contracts index、kernel.module注册、提交/PR/CI与交付记录 |
 | 独立验收 | history_content | 只读审计、devapp/模型环境探针、独立真实链路测试证据 |
 
-## 当前交付状态（截至22:39Z）
+## Current delivery status at23:05Z
 
-最终产品 PR #3272 于22:35:58Z合入main，提交 `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2`。这是squash合并；整树与已审head `ab859a6976ce4e421068fd3a04bf7aa84523fcd8` 无差异。所有产品检查已通过，专用Skill lane由协作方重跑后22:34:01Z成功，早于合并。
+Final product PR #3272 merged into main `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2`. Its tree equals reviewed head ab859 and the successful browser test checkout. Final fullstack79passed/1existing skip; dedicated file-save/pin-restore1passed/0skip. All product checks passed before merge.
 
-main自动部署run34413017866正在运行，尚未确认部署成功。早先c3e候选已被其他main部署覆盖，不能用历史成功证明当前完整版本在线。人工管理员登录仍阻塞；本地和CI证据不能替代devapp登录后验收。
+Main deployment run34413017866 attempt2 succeeded. Fresh server identity, API/Web, Agent image, RLS/trust assertions and HTTPS login verified. The full version is ready for human testing. The Mac is still locked, so authenticated human acceptance remains pending. Earlier candidate displacement and attempt1 transient environment assertion failure remain recorded below; stable strict checks and unchanged retry succeeded. Follow-up#3294 records startup sampling robustness.
 
 ## 动态记录
 
@@ -70,7 +70,7 @@ flowchart TD
  class H done
  class R done
  class L,J blocked
- class I active
+ class I done
  class K pending
 ```
 
@@ -99,3 +99,5 @@ flowchart TD
 22:20Z：最终整合head ab859a6976ce4e421068fd3a04bf7aa84523fcd8 已推送，pre-push13/13和独立blob复核通过。CI在运行，validate出现/me请求ECONNRESET（23通过、3跳过）后原head单次重跑；专用Skill lane失败正在分诊，不将旧候选绿算作最终head绿。
 
 22:39Z：最终产品已合main8e08a8f98（树与ab859一致）。专用Skill lane attempt2于22:34:01Z通过，root22:35:50的重跑请求未执行；成功重跑由协作方先完成，不重复计数。main自动部署进行中，人工登录仍阻塞。
+
+23:05Z FINAL DEPLOYMENT: main 8e08a8f98ce5e9b3c3d57c6d888d85726744fab2 deployed via run34413017866 attempt2 SUCCESS. Fresh server identity, API/Web active since07:03:28CST, Agent image8e08a8f9, health assertions and HTTPS200 verified. Earlier deployment-pending statements are historical. Human authenticated acceptance still pending (Mac locked). Attempt1 failed during immediate startup environment sampling; stable strict assertion and callback checks passed, unchanged retry succeeded. Follow-up #3294 records robustness work.
