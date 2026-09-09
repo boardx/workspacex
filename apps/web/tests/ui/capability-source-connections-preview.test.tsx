@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { SourceConnectionsPreview } from "@/components/ai-capability-studio/source-connections-preview";
+import SourceConnectionsPage from "@/app/preview/ai-capability-studio/connections/page";
+import SourceBindingPage from "@/app/preview/ai-capability-studio/source/page";
 const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 const select = () => fireEvent.click(screen.getByRole("checkbox", { name: /private-research/ }));
 const connect = () => { click("开始连接（演示）"); click("模拟授权成功回调"); select(); click("确认所选仓库（演示）"); };
@@ -64,13 +66,34 @@ describe("personal source connection demonstration", () => {
     const view = render(<SourceConnectionsPreview />);
     fireEvent.click(screen.getByRole("radio", { name: "草稿来源修复" }));
     click("开始连接（演示）"); click("取消本次授权");
-    expect(screen.getByRole("link", { name: /返回草稿来源修复示例/ })).toHaveAttribute("href", "/preview/ai-capability-studio/workbench");
+    expect(screen.getByRole("link", { name: /返回草稿来源修复示例/ })).toHaveAttribute("href", "/preview/ai-capability-studio/source?skillId=demo-skill&draftId=demo-source-draft");
     for (const link of screen.getAllByRole("link")) {
       const href = link.getAttribute("href")!;
-      expect(existsSync(resolve(process.cwd(), "app", href.slice(1), "page.tsx")), `return route exists: ${href}`).toBe(true);
+      expect(existsSync(resolve(process.cwd(), "app", new URL(href, "http://preview.local").pathname.slice(1), "page.tsx")), `return route exists: ${href}`).toBe(true);
     }
     click("开始连接（演示）"); click("模拟授权成功回调"); select(); click("确认所选仓库（演示）");
     view.unmount(); render(<SourceConnectionsPreview />);
     expect(screen.queryByTestId("source-current-connection")).not.toBeInTheDocument();
   });
+});
+
+it("starts source recovery with the exact fixed draft return target", () => {
+  render(<SourceConnectionsPreview initialTarget="upstream" />);
+  expect(screen.getByRole("radio", { name: "草稿来源修复" })).toBeChecked();
+  click("开始连接（演示）"); click("模拟拒绝授权");
+  const url = new URL(screen.getByRole("link", { name: /返回草稿来源修复示例/ }).getAttribute("href")!, "http://preview.local");
+  expect(url.pathname).toBe("/preview/ai-capability-studio/source");
+  expect(url.searchParams.get("skillId")).toBe("demo-skill");
+  expect(url.searchParams.get("draftId")).toBe("demo-source-draft");
+});
+
+it("routes source entry context and rejects an unrelated draft instead of opening the demo", () => {
+  const view = render(<SourceConnectionsPage searchParams={{ returnTo: "source", skillId: "demo-skill", draftId: "demo-source-draft" }} />);
+  expect(screen.getByRole("radio", { name: "草稿来源修复" })).toBeChecked();
+  view.unmount();
+  const invalid = render(<SourceConnectionsPage searchParams={{ returnTo: "source", skillId: "other", draftId: "other" }} />);
+  expect(screen.getByRole("heading", { name: "来源修复上下文不可用" })).toBeInTheDocument();
+  invalid.unmount();
+  render(<SourceBindingPage searchParams={{ skillId: "other", draftId: "other" }} />);
+  expect(screen.getByRole("heading", { name: "来源修复上下文不可用" })).toBeInTheDocument();
 });

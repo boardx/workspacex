@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { GithubSourceConnection, GithubSourceConnectionTransaction, operations, sourceConnectionExchanges } from "@repo/contracts/skill-source-connections";
+import { sourcePreviewIdentity, sourcePreviewHref } from "./source-preview-navigation";
 import { Button } from "@/components/ui/button";
 
 type Transaction = ReturnType<typeof GithubSourceConnectionTransaction.parse>;
@@ -9,16 +10,16 @@ type Connection = ReturnType<typeof GithubSourceConnection.parse>;
 const repositories = [{ repositoryId: "demo-research", fullName: "example/private-research", contentsPermission: "read" as const }, { repositoryId: "demo-skills", fullName: "example/team-skills", contentsPermission: "read" as const }];
 const transactionBase = (t: Transaction) => ({ transactionId: t.transactionId, transactionRevision: t.transactionRevision + 1, expiresAt: t.expiresAt, returnTarget: t.returnTarget, reconnect: t.reconnect });
 const state = "demo-state".repeat(4);
-export function SourceConnectionsPreview() {
+export function SourceConnectionsPreview({ initialTarget = "import" }: { initialTarget?: "import" | "upstream" }) {
   const [connection, setConnection] = useState<Connection | null>(null);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [selection, setSelection] = useState<string[]>([]);
   const [granted, setGranted] = useState<string[]>([]);
-  const [target, setTarget] = useState<"import" | "upstream" | "connections">("import");
+  const [target, setTarget] = useState<"import" | "upstream" | "connections">(initialTarget);
   const [notice, setNotice] = useState("");
   const active = transaction?.status === "pending" || transaction?.status === "select-repositories";
   const begin = () => {
-    const request = operations.beginGithubSourceConnection.in.parse({ returnTarget: target === "upstream" ? { kind: target, skillId: "demo-skill", draftId: "demo-draft" } : { kind: target }, reconnect: connection ? { connectionId: connection.connectionId, expectedRevision: connection.revision } : null });
+    const request = operations.beginGithubSourceConnection.in.parse({ returnTarget: target === "upstream" ? { kind: target, ...sourcePreviewIdentity } : { kind: target }, reconnect: connection ? { connectionId: connection.connectionId, expectedRevision: connection.revision } : null });
     const response = operations.beginGithubSourceConnection.out.parse({ ...request, transactionId: "demo-transaction", transactionRevision: 1, expiresAt: "2026-12-31T00:00:00Z", status: "pending", authorizationUrl: `https://github.com/login/oauth/authorize?client_id=demo&state=${state}&code_challenge_method=S256&code_challenge=${"a".repeat(43)}` });
     sourceConnectionExchanges.beginGithubSourceConnection.parse({ request, response });
     setTransaction(response); setSelection([]); setNotice("演示授权已开始。下一步只模拟回调，不会打开 GitHub。");
@@ -69,6 +70,6 @@ export function SourceConnectionsPreview() {
     {transaction?.status === "select-repositories" && <section className="space-y-3 rounded-container border border-border p-5"><h2 className="text-16 font-semibold">选择允许读取的仓库</h2><fieldset className="space-y-2"><legend className="mb-2 text-12">仅所选仓库会加入本次连接；重新授权以本次选择替换原清单。</legend>{repositories.map(repo => <label key={repo.repositoryId} className="flex gap-2 text-13"><input type="checkbox" checked={selection.includes(repo.repositoryId)} onChange={event => setSelection(ids => event.target.checked ? [...ids, repo.repositoryId] : ids.filter(id => id !== repo.repositoryId))} />{repo.fullName} · 只读</label>)}</fieldset><Button variant="primary" disabled={!selection.length} onClick={confirm}>确认所选仓库（演示）</Button></section>}
     {active && <Button variant="outline" onClick={cancel}>取消本次授权</Button>}
     <p role="status" className="text-13">{notice}</p>
-    {transaction && !active && <Link className="text-13 text-primary" href={returnTarget === "import" ? "/preview/ai-capability-studio/import" : returnTarget === "upstream" ? "/preview/ai-capability-studio/workbench" : "/preview/ai-capability-studio/connections"}>返回{returnTarget === "import" ? "导入向导" : returnTarget === "upstream" ? "草稿来源修复示例" : "连接管理"}（独立示例，不传递演示连接）</Link>}
+    {transaction && !active && <Link className="text-13 text-primary" href={returnTarget === "import" ? "/preview/ai-capability-studio/import" : returnTarget === "upstream" ? sourcePreviewHref : "/preview/ai-capability-studio/connections"}>返回{returnTarget === "import" ? "导入向导" : returnTarget === "upstream" ? "草稿来源修复示例" : "连接管理"}（独立示例，不传递演示连接）</Link>}
   </div></main>;
 }

@@ -1,5 +1,11 @@
 # 实施交接
 
+## 最新增量：2026-09-10 02:07
+
+已推送 da4ecce43；云审确认其产物读/下载提案的关联闭合（静态，未运行Vitest/生产下载）。来源云审指出授权回跳、upstream授权错误、幂等重放三项，本轮已修：固定示例身份单源与上下文回跳、既有check错误增量、actor/org/action/key收据重放。来源UI11/11、来源契约7/7及types通过；真实浏览器从来源进入连接默认选修复、拒绝后返回携带同一skill/draft的/source路径。原型跨页仍不传递内存数据，未声称真实草稿持久化。
+
+远端 da4 的两个前置浏览器安装失败为 Google apt Hash Sum mismatch，job重试暂被GitHub拒绝，其他job当时仍在执行。下一次提交会重新触发CI，不降低校验。来源基线和草稿试运行执行链细化于 design-proposal/capability-studio/remaining-runtime-closures.md，尚未实现。
+
 ## 当前状态：2026-09-10 01:55
 
 下一批包含来源绑定/上传恢复原型、私库连接失效恢复、试运行产物读取与下载关联提案，以及 API/web 共用凭据扫描 helper。来源修复返回工作台链接已修正，真实路由存在断言已补；恢复 UI 13/13 通过。共享 guard web157/157、标准隔离API143/143通过且隔离资源清理；web/API/contracts types通过。产物读/下载14/14通过，已拒绝重复稳定artifactId而保留缺ID legacy不可下载状态。

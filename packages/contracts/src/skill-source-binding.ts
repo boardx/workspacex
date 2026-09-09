@@ -33,9 +33,10 @@ const CheckResult = z.union([
 /** Replacement shapes on existing paths, not duplicate endpoints. Every check is tied to
  * the exact requested draft. Baseline-required reports no inferred unchanged/fast-forward.
  */
+const UpstreamCheckErrors = z.union([...development.checkSkillUpstream.errors.options, z.object({ code: z.literal("SOURCE_ACCESS_DENIED"), message: z.string().min(1).max(2000), retryable: z.literal(false) }).strict()]);
 export const existingOperationDeltas = {
   getSkillDraft: { ...development.getSkillDraft, out: SkillSourceBoundDraft },
-  checkSkillUpstream: { ...development.checkSkillUpstream, out: z.object({ baseline: ExactDraft, result: CheckResult }).strict() },
+  checkSkillUpstream: { ...development.checkSkillUpstream, err: UpstreamCheckErrors.options.map(error => error.shape.code.value), errors: UpstreamCheckErrors, out: z.object({ baseline: ExactDraft, result: CheckResult }).strict() },
 } as const;
 const same = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
@@ -86,3 +87,18 @@ export const sourceBindingExchanges = {
  */
 export const sourceBindingMergeEligibility = z.object({ request: development.mergeSkillUpstream.in, stored: SkillSourceBoundDraft }).strict().refine(({ request, stored }) =>
   stored.sourceBinding.state === "established" && matchesDraft(request, stored.draft), "detached or baseline-required sources cannot merge; stale draft evidence cannot be reused");
+
+/** Server-owned receipt loaded by organization, actor, action and idempotency key.
+ * Resolve an exact receipt before fresh CAS evaluation: a lost response must replay
+ * the committed result, even if the current draft subsequently advanced. The adapter
+ * atomically commits receipt + mutation; mismatched key payload is a conflict.
+ */
+export const sourceBindingReplay = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("detach"), request: operations.detachSkillSource.in, response: SkillSourceBoundDraft,
+    storedReceipt: z.object({ action: z.literal("detach"), request: operations.detachSkillSource.in, response: SkillSourceBoundDraft }).strict() }).strict(),
+  z.object({ action: z.literal("rebind"), request: operations.rebindSkillSource.in, response: SkillSourceBoundDraft,
+    storedReceipt: z.object({ action: z.literal("rebind"), request: operations.rebindSkillSource.in, response: SkillSourceBoundDraft }).strict() }).strict(),
+]).refine(({ action, request, response, storedReceipt }) => same(request, storedReceipt.request) && same(response, storedReceipt.response) &&
+  request.skillId === response.draft.skillId && request.draftId === response.draft.draftId && response.draft.revision === request.expectedRevision + 1 &&
+  (action === "detach" ? response.sourceBinding.state === "detached" : response.sourceBinding.state === "baseline-required"),
+"replay must return the same actor-scoped committed action and result without a second mutation");

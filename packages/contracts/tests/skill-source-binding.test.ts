@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { operations, sourceBindingExchanges, sourceBindingMergeEligibility, SkillSourceBoundDraft } from "../src/skill-source-binding";
+import { operations, existingOperationDeltas, sourceBindingReplay, sourceBindingExchanges, sourceBindingMergeEligibility, SkillSourceBoundDraft } from "../src/skill-source-binding";
 const digest = "a".repeat(64), nextDigest = "b".repeat(64);
 const now = "2026-09-10T00:00:00Z";
 const pin = { source: { kind: "github", repositoryUrl: "https://github.com/example/skills", selection: "repository-root", path: null, requestedRef: "main", resolvedCommit: "c".repeat(40), authConnectionId: "my-connection" }, sourceDigest: digest };
@@ -43,4 +43,16 @@ describe("source binding review-only boundary", () => {
     expect(sourceBindingMergeEligibility.safeParse({ request: { ...merge, expectedRevision: 4, expectedSnapshotDigest: nextDigest }, stored: response }).success).toBe(false);
     expect(sourceBindingMergeEligibility.safeParse({ request: merge, stored: { ...current, draft: { ...draft, revision: 4 } } }).success).toBe(false);
   });
+});
+
+it("declares source authorization recovery on the inherited upstream check", () => {
+  expect(existingOperationDeltas.checkSkillUpstream.err).toContain("SOURCE_ACCESS_DENIED");
+  expect(existingOperationDeltas.checkSkillUpstream.errors.safeParse({ code: "SOURCE_ACCESS_DENIED", message: "Reconnect your source", retryable: false }).success).toBe(true);
+});
+it("replays committed binding results without requiring the original draft to remain current", () => {
+  const replay = { action: "rebind", request, response, storedReceipt: { action: "rebind", request, response } };
+  expect(sourceBindingReplay.safeParse(replay).success).toBe(true);
+  for (const change of [{ reason: "different" }, { idempotencyKey: "other" }, { candidateId: "other" }]) expect(sourceBindingReplay.safeParse({ ...replay, request: { ...request, ...change } }).success).toBe(false);
+  expect(sourceBindingReplay.safeParse({ ...replay, response: { ...response, draft: { ...response.draft, revision: 5 } } }).success).toBe(false);
+  expect(sourceBindingReplay.safeParse({ ...replay, storedReceipt: { ...replay.storedReceipt, action: "detach" } }).success).toBe(false);
 });

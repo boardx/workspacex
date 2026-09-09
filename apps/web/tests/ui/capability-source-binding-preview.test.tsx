@@ -50,11 +50,11 @@ describe("source binding recovery demonstration", () => {
       expect(screen.getByText(/刷新页面会重置/)).toBeVisible();
       expect(screen.getByRole("link", { name: "返回开发工作台" })).toHaveAttribute("href", "/preview/ai-capability-studio/workbench");
       expect(screen.getByRole("link", { name: "返回导入向导" })).toHaveAttribute("href", "/preview/ai-capability-studio/import");
-      expect(screen.getByRole("link", { name: "管理个人来源连接" })).toHaveAttribute("href", "/preview/ai-capability-studio/connections");
+      expect(screen.getByRole("link", { name: "管理个人来源连接" })).toHaveAttribute("href", "/preview/ai-capability-studio/connections?returnTo=source&skillId=demo-skill&draftId=demo-source-draft");
       for (const link of screen.getAllByRole("link")) {
         const href = link.getAttribute("href")!;
         expect(href.startsWith("/preview/ai-capability-studio/")).toBe(true);
-        expect(existsSync(resolve(process.cwd(), "app", href.slice(1), "page.tsx")), `navigation route exists: ${href}`).toBe(true);
+        expect(existsSync(resolve(process.cwd(), "app", new URL(href, "http://preview.local").pathname.slice(1), "page.tsx")), `navigation route exists: ${href}`).toBe(true);
       }
       reason(); confirm(); click("解绑当前来源（演示）"); view.unmount(); render(<SourceBindingPreview />);
       expect(screen.getByTestId("source-binding-current")).toHaveTextContent("r3");
