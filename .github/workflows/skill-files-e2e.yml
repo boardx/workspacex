@@ -1,0 +1,35 @@
+name: Skill files and Agent pins
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: skill-files-e2e-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  skill-files-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run isolated real import, save and pin recovery
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts
+      - name: Retain structured browser evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: skill-files-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/studio-browser-*/
+          if-no-files-found: error
