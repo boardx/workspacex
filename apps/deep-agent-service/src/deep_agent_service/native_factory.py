@@ -111,6 +111,23 @@ def _input_prompt(inputs):
             + json.dumps(inputs, ensure_ascii=True, separators=(',', ':')))
 
 
+def native_candidate_tools(model, interactions, mcp_snapshot=None):
+    """本进程**构造出来**的全部工具（过滤之前）。
+
+    抽成具名函数不是为了好看：下面那句 `if tool.name in interrupt_on` 是**静默过滤**
+    ——服务端准入表（`NATIVE_PROFILE_TOOLS`）里没登记的名字会被无声丢掉，没有日志、
+    没有异常、模型侧看不见。`spawn_async_task` 就这样构造了却从不出现（#3159）。
+    只有"构造集合"本身可被测试拿到，`tests/test_native_tool_admission.py` 才能机械地
+    断言"构造了但没被准入的集合为空"；否则测试只能再手抄一份清单，而手抄的副本正是
+    这一类漂移的成因本身。
+    """
+    return [*interactions, spawn_async_task_tool(), artifact_download_tool(), run_status_tool(), run_cancel_tool(),
+            artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(),
+            *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model),
+            *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(),
+            *(mcp_snapshot_tools(mcp_snapshot) if mcp_snapshot else [])]
+
+
 @asynccontextmanager
 async def native_graph_context(config):
     """Official LangGraph factory context: close transport, leave lifecycle to gateway."""
@@ -139,5 +156,7 @@ async def native_graph_context(config):
         # These tools describe a human decision; even an older binding cannot skip its form.
         interrupt_on={**resolved['interruptOn'], **{tool.name:True for tool in interactions}}
         graph=await asyncio.to_thread(create_native_graph,model,sandbox=adapter,pinned_skills=pins,
-            binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []), tools=[tool for tool in [*interactions, spawn_async_task_tool(), artifact_download_tool(), run_status_tool(), run_cancel_tool(), artifact_publish_tool(), *standard_web_tools(), *standard_browser_tools(), *standard_memory_tools(), *standard_context_tools(), *standard_canvas_tools(), document_parse_tool(), *standard_sql_tools(model), *standard_schedule_tools(), image_generate_tool(), audio_transcribe_tool(), skill_draft_tool(), *(mcp_snapshot_tools(resolved['mcpSnapshot']) if resolved.get('mcpSnapshot') else [])] if tool.name in interrupt_on],tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
+            binding_guard=binding_guard, system_prompt=input_prompt, inputs=resolved.get('inputs', []),
+            tools=[tool for tool in native_candidate_tools(model, interactions, resolved.get('mcpSnapshot')) if tool.name in interrupt_on],
+            tool_snapshot=frozenset(interrupt_on),interrupt_on=interrupt_on,tool_authority=HttpNativeToolAuthority(),checkpointer=checkpointer)
         yield graph.with_config({'callbacks':callbacks})
