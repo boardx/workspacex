@@ -1,0 +1,15 @@
+{
+  "local": true,
+  "modelExecuted": true,
+  "deepAgentExecuted": true,
+  "runtime": "native",
+  "agentId": "agent-mtujqk0d-1-d48btm",
+  "agentVersionId": "agent-version-81d5021b-8c4c-4b9b-b131-4c099e447c8e",
+  "savedSkillVersionId": "sv_0b4ffafc-ca4f-494e-9cd8-c44b58f17a55",
+  "threadId": "thr-664b7c1a-8538-42d1-8adb-f9e9ede72fc6",
+  "agentRunId": "7a37cbdb-d64f-48f6-bc8d-c2376edfd5c0",
+  "canaryAbsentFromPrompt": true,
+  "answerMatchedReferenceOnlyCanary": true,
+  "actualReadFileEvent": true,
+  "referenceDigest": "e66288c2b2582b9888b1d0692333d692cf9ee2fd3dc00f4c76b9162be4cbde09"
+}

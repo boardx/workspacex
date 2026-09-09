@@ -1,0 +1,16 @@
+{
+  "trialRunId": "tr_563cea1b-5f7c-4ef4-81d6-9e052304d19f",
+  "status": "succeeded",
+  "trialRun": {
+    "trialRunId": "tr_563cea1b-5f7c-4ef4-81d6-9e052304d19f",
+    "versionId": "sv_139b0db2-6df6-4061-8e96-84474fb0c154",
+    "input": "Execute the Skill instructions: read the named immutable reference file with fs and print its exact contents. Do not print the path or a guessed value.",
+    "output": "file-only-04d047e6e6c4ba25dda6327c5e89c7c5b614e4223a39b734",
+    "durationMs": 2036,
+    "tokens": 442,
+    "hitDataScope": [],
+    "artifacts": [],
+    "attempts": 1
+  },
+  "failure": null
+}
