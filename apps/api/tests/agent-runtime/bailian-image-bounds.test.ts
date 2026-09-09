@@ -13,10 +13,27 @@ it('returns a structured existing-provider result without duplicate submission',
  const p=await provider((req,res)=>{res.setHeader('content-type','application/json');if(req.method==='POST'){submits++;res.end(JSON.stringify({output:{task_id:'one-task'}}));}else{polls++;res.end(JSON.stringify({output:polls===1?{task_status:'RUNNING'}:{task_status:'SUCCEEDED',results:[{url:'https://example.com/result.png'}]}}));}});
  expect(await p.generateImage('a tree')).toEqual({url:'https://example.com/result.png',taskId:'one-task',modelRef:'fixed-image-model'});expect(submits).toBe(1);expect(polls).toBe(2);
 });
+/**
+ * #3175/#3176 之后仍在 gates-test shard 3/4 上以 60000ms 假红重现（见 #3163/#3168/#3162
+ * 的 PR 合并 SOP 记录）：这条原来用**真的本地 http server** 制造"响应头到了、body 永远
+ * 不 end"，能不能在 2000ms 内 reject 取决于本机 undici 肯不肯在 deadline 到点时把连接
+ * 销毁掉——同 45 行那条 `enforces its own deadline` 的注释所诊断的一模一样，只是当时
+ * 只把注释加在了下面那条新增的确定性用例上，没把这条本身也换掉。
+ *
+ * 换成和 45 行同样的手法：stub `fetch` 直接返回"headers 已到、body 永不 enqueue/close"
+ * 的 `ReadableStream`，不再依赖真实 socket 与 undici 的 abort 行为。"不重复提交"这条断言
+ * 换成对 stub fetch 调用次数计数——同样不依赖真实 server。
+ */
 it('deadline aborts a stalled submission body and does not resubmit',async()=>{
- let submits=0;const p=await provider((_req,res)=>{submits++;res.writeHead(200);res.write('{');},100);
- const started=Date.now();await expect(p.generateImage('a tree')).rejects.toThrow('MODEL_CALL_FAILED');expect(Date.now()-started).toBeLessThan(2000);expect(submits).toBe(1);
-});
+ const realFetch=globalThis.fetch;let calls=0;
+ globalThis.fetch=(async()=>{calls++;return new Response(new ReadableStream({start(){/* never yields */}}),{status:200,headers:{'content-type':'application/json'}});}) as typeof fetch;
+ try{
+  const p=new BailianImageProvider({apiKey:'test-only-secret',modelId:'fixed-image-model',baseUrl:'http://127.0.0.1:9',timeoutMs:100,pollIntervalMs:1});
+  const started=Date.now();
+  await expect(p.generateImage('a tree')).rejects.toThrow('MODEL_CALL_FAILED');
+  expect(Date.now()-started).toBeLessThan(2000);expect(calls).toBe(1);
+ } finally {globalThis.fetch=realFetch;}
+},10_000);
 it('caller cancellation aborts polling and stops future requests',async()=>{
  const abort=new AbortController();let polls=0;
  const p=await provider((req,res)=>{if(req.method==='POST')res.end(JSON.stringify({output:{task_id:'one-task'}}));else{polls++;res.writeHead(200);res.write('{');abort.abort();}});
