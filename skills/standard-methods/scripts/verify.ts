@@ -6,10 +6,14 @@ import { verifySkillStarterPack } from '../../../apps/api/src/domain/skill/start
 async function main(){
 const root=resolve(import.meta.dirname,'..');
 const source=new FileSkillStarterPackSource(resolve(root,'../starter-packs'));
-const pack=verifySkillStarterPack(await source.load('standard-methods','1.0.1'),{packId:'standard-methods',packVersion:'1.0.1'});
-assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.0.1'),null);
+const pack=verifySkillStarterPack(await source.load('standard-methods','1.1.0'),{packId:'standard-methods',packVersion:'1.1.0'});
+assert.equal(await new FileSkillStarterPackSource(undefined).load('standard-methods','1.1.0'),null);
 assert.equal(await source.load('standard-methods','missing'),null);
-const previous=verifySkillStarterPack(await source.load('standard-methods','1.0.0'),{packId:'standard-methods',packVersion:'1.0.0'});assert.equal(previous.packDigest,'fdbf33f44187940aa88c9a5d43d16e5904d576dfd88efdc7a5bac61d4dea5c47');assert.deepEqual(pack.skills.find(s=>s.stableName==='interview-synthesis'),previous.skills.find(s=>s.stableName==='interview-synthesis'));
+const previous=verifySkillStarterPack(await source.load('standard-methods','1.0.1'),{packId:'standard-methods',packVersion:'1.0.1'});assert.equal(previous.packDigest,'57388744be5b621047578e07843351787c8e83d55038543d785bc87085ab7fdb');
+// 1.1.0 只新增 maau-canvas：前一版已有的两个 skill 必须逐字节不变（新增不得顺手改动
+// 已发货的条目——这条断言就是「我验证了 X」，不要求复核者自己去比对）。
+for(const stableName of ['interview-synthesis','user-research-planning'])assert.deepEqual(pack.skills.find(s=>s.stableName===stableName),previous.skills.find(s=>s.stableName===stableName));
+assert.ok(pack.skills.some(s=>s.stableName==='maau-canvas'));assert.equal(previous.skills.some(s=>s.stableName==='maau-canvas'),false);
 for(const skill of pack.skills){
  assert.equal(skill.files.length,2);
  for(const file of skill.files)assert.deepEqual(Buffer.from(file.contentBase64,'base64'),readFileSync(resolve(root,skill.stableName,file.path)));
@@ -18,8 +22,8 @@ for(const skill of pack.skills){
  assert.match(entry,/工具|能力/);assert.match(entry,/不可用|未配置|缺/);
 }
 const changed=structuredClone(pack);changed.skills[0]!.files[0]!.contentBase64=Buffer.from('tampered').toString('base64');
-assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.0.1'}));
-console.log('PASS: real FileSkillStarterPackSource reads both complete packages; per-file bytes/digests and pack digest verified; missing deployment root/version fail closed; tampering rejected.');
+assert.throws(()=>verifySkillStarterPack(changed,{packId:'standard-methods',packVersion:'1.1.0'}));
+console.log('PASS: real FileSkillStarterPackSource reads shipped 1.1.0 and superseded 1.0.1; three skills verified per-file against the editing sources; 1.1.0 adds only maau-canvas and leaves the two shipped skills byte-identical; missing deployment root/version fail closed; tampering rejected.');
 
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
