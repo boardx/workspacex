@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { downloadResearchWord, printResearchPdf } from "@/lib/research-report-export";
 import ReactMarkdown from "react-markdown";
@@ -32,7 +32,7 @@ function chapterBody(body: string, title: string) {
   return heading && heading[1]!.trim() === title.trim() ? body.slice(heading[0].length) : body;
 }
 
-export function GuidedResearchReportDocument({ document, provisional = false, historical = false, idPrefix = "", limitations }: { document: ReportDocument; provisional?: boolean; historical?: boolean; idPrefix?: string; limitations?: string }) {
+export function GuidedResearchReportDocument({ document, provisional = false, historical = false, idPrefix = "", limitations, validationNotice }: { document: ReportDocument; provisional?: boolean; historical?: boolean; idPrefix?: string; limitations?: string; validationNotice?: ReactNode }) {
   const root = useRef<HTMLElement>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
@@ -47,6 +47,7 @@ export function GuidedResearchReportDocument({ document, provisional = false, hi
   ];
   return <div className="space-y-3">{!historical && <div className="flex flex-wrap justify-end gap-2"><Button variant="outline" disabled={exporting} onClick={() => void word()}>{exporting ? "正在导出…" : "下载 Word"}</Button><Button variant="outline" onClick={() => { if (root.current) { try { printResearchPdf(root.current); } catch { setExportError("无法打开打印窗口，请重试。"); } } }}>导出 PDF</Button><span className="w-full text-right text-12 text-muted-foreground">PDF 在打印窗口中选择“另存为 PDF”{provisional ? " · 当前导出为未完成草稿" : ""}</span>{exportError && <p role="alert" className="text-12 text-destructive">{exportError}</p>}</div>}<article ref={root} className="mx-auto w-full min-w-0 max-w-4xl space-y-8 rounded-xl border border-border bg-card px-5 py-7 text-card-foreground sm:px-8 sm:py-10" data-testid={anchorId(provisional ? "research-report-preview-text" : "research-report-document")}>
     <header className="space-y-4 border-b border-border pb-6"><p className="text-12 font-medium tracking-wide text-muted-foreground">研究报告{historical ? " · 历史内容（非本轮结果）" : provisional ? " · 草稿" : ""}</p><h2 className="text-24 font-semibold leading-relaxed tracking-tight sm:text-28">{document.title || "研究报告"}</h2>{(provisional || historical) && <p className="text-12 text-muted-foreground">{historical ? "上一轮保存的内容，仅供查看，不属于本轮报告。" : "内容仍在生成或校验中，不代表最终报告。"}</p>}{limitations && <p className="text-12 text-muted-foreground">{limitations}</p>}</header>
+    {validationNotice}
     {anchors.length > 0 && <nav aria-label="报告目录" className="rounded-lg bg-muted/30 p-4 sm:p-5"><h3 className="text-14 font-semibold">目录</h3><ol className="mt-3 space-y-2 text-13">{anchors.map((anchor) => <li key={anchor.id}><a href={`#${anchorId(anchor.id)}`} className="text-primary transition-colors hover:underline">{anchor.title}</a></li>)}</ol></nav>}
     {document.summary && <section id={anchorId("research-report-summary")} className="space-y-3 rounded-lg bg-muted/20 p-4 sm:p-5"><h3 className="text-18 font-semibold">执行摘要</h3><ResearchReportMarkdown text={document.summary} references={document.references} /></section>}
     {document.introduction && <section id={anchorId("research-report-introduction")} className="space-y-3" data-testid="research-report-introduction"><h3 className="text-20 font-semibold">研究范围与方法</h3><ResearchReportMarkdown text={document.introduction} references={document.references} /></section>}
