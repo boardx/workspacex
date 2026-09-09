@@ -395,6 +395,39 @@ export const CHAT_READ_E2E = {
   canvasDualSentinel: "E2E-CANVAS-DUAL-4417",
 
   /**
+   * C1 一轮 run 分步产出多个画布 —— **deep-agent** 侧的触发词（不是 `canvas*Sentinel`
+   * 那条回显 agent 的路）。
+   *
+   * ⚠ 为什么必须另起一条、不能复用 C4 那条：C4 产出的是**一条** AI 消息里并排两个
+   * 围栏，而 #3243（人类 2026-09-09 devapp 实测「刷新后 10 个画布全部消失」）那条缺陷
+   * 只在**一轮里有多条顶层 AI 消息**时才存在——流式喂的是每一条，落库此前只取最后
+   * 一条（那条恰是零围栏的纯文字总结）。一条消息的剧本里「每一条」与「最后一条」是
+   * 同一条，判据无法被证伪；复用 C4 等于写一条对该缺陷恒绿的用例。
+   */
+  deepAgentMultiCanvasTrigger: "取证：请分步产出多张画布",
+  /** 这一轮产出几个围栏。3 是能同时区分「只留最后一个」「全丢」「重复挂载」的最小数。 */
+  deepAgentMultiCanvasCount: 3,
+  /**
+   * 最后那条总结的正文——**必须一个围栏都没有**，它就是 #3243 里那句
+   * 「所有画布模板现已完整交付」：交付物确实产出过，只是从没被写进任何持久记录。
+   * 断言方引用它来证明「落库的确实是本轮全部正文，不只是这句总结」。
+   */
+  deepAgentMultiCanvasSummary: "以上画布模板现已完整交付，可以直接使用。",
+
+  /**
+   * D1 工具卡终态 —— 让**一次工具调用**真的失败的触发词。
+   *
+   * 与 `deepAgentFailureTrigger` 是两条不同路径：那条把整条 run 推成失败终态、一次
+   * `tool_call` 步骤都不落地；这条让 run 正常收尾，只有其中一次调用的 ToolMessage 带
+   * `status: "error"`。「外层折叠行写失败、内层工具卡发绿勾」（issue #3204 ①）那条
+   * 缺陷只有在这个形状下才能被复现。
+   */
+  deepAgentToolFailureTrigger: "取证：请让一次工具调用失败",
+  /** 失败那次调用的结果正文——断言方据此确认红的是**那一次**，不是随便哪一次。 */
+  deepAgentToolFailureMessage: "读取失败：目标文档不存在或没有权限。",
+  deepAgentToolFailureReply: "其中一份文档没能读到，我用能读到的那份作答。",
+
+  /**
    * D4 skill 三态 —— 「目录里看得见它」这一态的回显前缀。
    *
    * `buildDeepAgentSkillCatalogBlock` 只把 `stable_name + 一行摘要` 放进 system prompt，

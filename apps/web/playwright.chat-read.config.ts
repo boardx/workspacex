@@ -296,11 +296,20 @@ export default defineConfig({
        */
       name: "chat-path-coverage",
       /*
-       * 2026-09-09（本 PR）新增三条：**C6 / C8 / F5**——矩阵里这三条 chat 侧此前
-       * 一条 spec 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞
-       * 车道**，连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
+       * 2026-09-09 新增三条：**C6 / C8 / F5**——矩阵里这三条 chat 侧此前一条 spec
+       * 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞车道**，
+       * 连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
+       *
+       * 2026-09-10 再新增三条，全部对着人类 devapp 人肉验收报出来的真实缺陷：
+       *   · **C1** `c1-canvas-survives-run-finalization` —— #3243「生成过程中一个一个
+       *     都看见了，run 一结束全部消失、刷新后一个也没有」。PR #3248 修了它，但修它
+       *     的是一条单元测试；这是它在浏览器这一层的门。
+       *   · **C2** `c2-canvas-fence-identity` —— #3252 同一消息内两个同模板画布互相
+       *     认领保存版。**当前未修**，按既有先例挂 `test.fixme`（不删、不改宽、不 skip）。
+       *   · **D1** `d1-failed-tool-card-status` —— #3204 ① 失败工具卡发绿勾。轨迹面板
+       *     那一半已修（这条是回归门），实时消息流那一半仍在（挂 `test.fixme`）。
        */
-      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask)\.spec\.ts$/,
+      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status)\.spec\.ts$/,
     },
     {
       /**
@@ -588,6 +597,21 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_SKILL_CATALOG_STABLE_NAME: CHAT_READ_E2E.mountableSkillStableName,
         LOOPBACK_DEEP_AGENT_SKILL_CATALOG_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillCatalogEchoPrefix,
         LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER: CHAT_READ_E2E.deepAgentStreamAbortTrigger,
+        /*
+         * 路径矩阵 C1 / D1 —— 两条新剧本的开关，同一套「默认关闭」纪律：不下发时
+         * 替身里对应判断恒 false，行为逐字节等同改动前（见替身里各自的头注）。
+         * 画布三件（模板 key / 表头字段 / 分区名）与 `LOOPBACK_MODEL_CANVAS_*` 取自
+         * **同一批常量**——同一事实不在两处各写一份（根 AGENTS.md）。
+         */
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_TRIGGER: CHAT_READ_E2E.deepAgentMultiCanvasTrigger,
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_COUNT: String(CHAT_READ_E2E.deepAgentMultiCanvasCount),
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_SUMMARY: CHAT_READ_E2E.deepAgentMultiCanvasSummary,
+        LOOPBACK_DEEP_AGENT_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
+        LOOPBACK_DEEP_AGENT_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
+        LOOPBACK_DEEP_AGENT_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentToolFailureTrigger,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_MESSAGE: CHAT_READ_E2E.deepAgentToolFailureMessage,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_REPLY: CHAT_READ_E2E.deepAgentToolFailureReply,
       },
     },
     {
