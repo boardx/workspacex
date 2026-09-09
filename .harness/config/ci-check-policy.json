@@ -13,7 +13,8 @@
       "gates-test",
       "native-document-chain",
       "native-runtime-lane",
-      "gates-runtime"
+      "gates-runtime",
+      "prototype-audit"
     ]
   },
   "allowedMergeMethods": [
