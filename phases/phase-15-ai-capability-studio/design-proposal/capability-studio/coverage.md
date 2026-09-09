@@ -24,4 +24,8 @@
 - 草案定向验证：14项通过；不代表任务持久化、授权、SSRF、发布事务、重试幂等或真实模型执行已经实现。上述性质必须由后续application/API/数据库测试证明。
 - 已有签核契约与生产路由未被这些草案替换。新增草案尚未index导出；正式束形成时需明确导出和OpenAPI/前端消费点。
 
-剩余设计缺口：上传操作/预检额度、AI候选差异基线、Agent配置/绑定CAS与失败运行派生草稿、组织开发权限的可执行schema。具体流程见development-operation-deltas.md；Model/MCP操作delta见runtime-operation-deltas.md与composite-model-mapping.md。覆盖表尚不能标为闭合。
+新增空白草稿与AI差异操作草案：createSkillDraft、proposeSkillDraftPatch、getSkillDraftPatchJob、applySkillDraftPatchProposal。生成与应用分离，结果基线交叉校验，应用仅接收服务端proposal引用及草稿CAS；4项定向测试通过。最新可执行契约测试合计19项（10+5+4）。不证明模型实际生成或草稿事务已接线。
+
+后续新增上传策略/接收/预检查询及createSkillDraftFromRun草案，4项测试通过，最新契约共23项。失败归因引用复用RuntimeFailureAttributionRefs，派生草稿校验来源版本属于run且血缘一致。Agent pin核对后复用已有setAgentSkillPins及expectedVersion，不另造一套版本锁。
+
+剩余设计缺口：组织开发权限的具体操作增量、Model/MCP既有操作的可执行字段增量、完整UI与feature四元组覆盖。上传限额值与对象保留周期仍须纳入同一次签核。具体流程见development-operation-deltas.md；Model/MCP操作与UI规格见runtime-operation-deltas.md、runtime-ui-interactions.md与composite-model-mapping.md。覆盖表尚不能标为闭合。

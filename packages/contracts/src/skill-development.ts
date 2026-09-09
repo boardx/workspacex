@@ -7,7 +7,7 @@
 import { z } from "zod";
 import { McpRunSnapshotRef } from "./mcp-runtime-snapshot";
 import { AgentRunError } from "./wave2-runtime";
-import { CapabilityModelConfigRef, CapabilityTrialRunDependencySnapshot } from "./capability-runtime-policy";
+import { CapabilityModelConfigRef, CapabilityTrialRunDependencySnapshot, RuntimeFailureAttributionRefs } from "./capability-runtime-policy";
 
 const Id = z.string().trim().min(1).max(200);
 const Revision = z.number().int().positive();
@@ -283,6 +283,52 @@ const DraftMutation = z.discriminatedUnion("kind", [
 ]);
 
 const ExactDraft = z.object({ skillId: Id, draftId: Id, expectedRevision: Revision, expectedSnapshotDigest: Sha256 });
+/** Policy is server-owned; values are reviewed separately and never duplicated in the UI. */
+export const SkillImportUploadPolicy = z.object({
+  policyRevision: Id,
+  maxArchiveBytes: z.number().int().positive(),
+  maxExtractedBytes: z.number().int().positive(),
+  maxEntries: z.number().int().positive().max(1000),
+  maxPathDepth: z.number().int().positive(),
+  maxCompressionRatio: z.number().positive(),
+  expiresAfterSeconds: z.number().int().positive(),
+}).strict();
+const UploadFailure = z.object({ code: z.enum(["FILE_TOO_LARGE", "FILE_TYPE_REJECTED", "ARCHIVE_BOMB_DETECTED", "MALWARE_DETECTED", "MIME_MISMATCH", "VALIDATION_FAILED", "DEPENDENCY_UNAVAILABLE"]),
+  message: z.string().min(1).max(2000), retryable: z.boolean() }).strict();
+const UploadJobBase = { ...JobBase, uploadId: Id, filename: z.string().min(1).max(255), policyRevision: Id } as const;
+/** Transfer has completed before this preflight job is created. No resumable-byte claim. */
+export const SkillImportUploadJob = z.discriminatedUnion("status", [
+  z.object({ ...UploadJobBase, status: z.literal("queued") }).strict(),
+  z.object({ ...UploadJobBase, status: z.literal("running"), startedAt: IsoDateTime }).strict(),
+  z.object({ ...UploadJobBase, status: z.literal("succeeded"), completedAt: IsoDateTime, archiveDigest: Sha256,
+    actualBytes: z.number().int().positive(), expiresAt: IsoDateTime }).strict(),
+  z.object({ ...UploadJobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: UploadFailure }).strict(),
+  z.object({ ...UploadJobBase, status: z.literal("cancelled"), completedAt: IsoDateTime }).strict(),
+]);
+export const DraftFromRunResult = z.object({ draft: SkillDraft, origin: RuntimeFailureAttributionRefs, sourceVersionId: Id }).strict()
+  .refine(result => result.origin.skillVersionIds.includes(result.sourceVersionId) && result.draft.basedOnPublishedVersionId === result.sourceVersionId,
+    { path: ["sourceVersionId"], message: "new draft must derive from a skill version present in the failed run" });
+/** Server-created reviewable proposal. Generating it never mutates the referenced draft. */
+export const SkillPatchProposal = z.object({
+  proposalId: Id,
+  baseline: ExactDraft.strict(),
+  mutations: z.array(DraftMutation).min(1).max(1000),
+  summary: z.string().trim().min(1).max(4000),
+  createdAt: IsoDateTime,
+  expiresAt: IsoDateTime,
+}).strict();
+const PatchJobBase = { ...JobBase, baseline: ExactDraft.strict() } as const;
+export const SkillPatchJob = z.discriminatedUnion("status", [
+  z.object({ ...PatchJobBase, status: z.literal("queued") }).strict(),
+  z.object({ ...PatchJobBase, status: z.literal("running"), startedAt: IsoDateTime }).strict(),
+  z.object({ ...PatchJobBase, status: z.literal("succeeded"), completedAt: IsoDateTime, proposal: SkillPatchProposal }).strict(),
+  z.object({ ...PatchJobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: TrialFailure }).strict(),
+  z.object({ ...PatchJobBase, status: z.literal("cancelled"), completedAt: IsoDateTime }).strict(),
+]).superRefine((job, context) => {
+  if (job.status === "succeeded" && (Object.keys(job.baseline) as Array<keyof typeof job.baseline>).some(key => job.baseline[key] !== job.proposal.baseline[key])) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["proposal", "baseline"], message: "patch proposal must preserve its generation baseline" });
+  }
+});
 /** The server loads this run within the caller's scope and compares all frozen dependencies. */
 const PublishInput = ExactDraft.extend({ idempotencyKey: IdempotencyKey, trialRunId: Id }).strict();
 
@@ -312,6 +358,64 @@ function defineOperation<const Definition extends { errors: { options: readonly 
 }
 
 export const operations = {
+  getSkillImportUploadPolicy: defineOperation({
+    method: "GET", path: "/admin/skill-development/import-upload-policy",
+    in: z.object({}).strict(), out: SkillImportUploadPolicy,
+    errors: z.union([Unauthenticated, PermissionDenied, DependencyUnavailable]),
+  }),
+  uploadSkillImportArchive: defineOperation({
+    method: "POST", path: "/admin/skill-development/import-uploads",
+    /** Multipart metadata; archive bytes are a separate part, verified by the server. */
+    in: z.object({ filename: z.string().min(1).max(255), declaredBytes: z.number().int().positive(), expectedPolicyRevision: Id, idempotencyKey: IdempotencyKey }).strict(),
+    out: SkillImportUploadJob,
+    errors: z.union([Unauthenticated, PermissionDenied, ValidationError, IdempotencyConflict,
+      SimpleError("FILE_TOO_LARGE", false), SimpleError("POLICY_CHANGED", false), DependencyUnavailable]),
+  }),
+  getSkillImportUploadJob: defineOperation({
+    method: "GET", path: "/admin/skill-development/import-uploads/:uploadId",
+    in: z.object({ uploadId: Id }).strict(), out: SkillImportUploadJob,
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, SimpleError("UPLOAD_EXPIRED", false), DependencyUnavailable]),
+  }),
+  createSkillDraftFromRun: defineOperation({
+    method: "POST", path: "/admin/skill-development/drafts-from-runs",
+    in: z.object({ runId: Id, sourceVersionId: Id, idempotencyKey: IdempotencyKey }).strict(),
+    out: DraftFromRunResult,
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, ValidationError, IdempotencyConflict, DependencyUnavailable]),
+  }),
+  createSkillDraft: defineOperation({
+    method: "POST",
+    path: "/admin/skill-development/skills",
+    in: z.object({ name: z.string().trim().min(1).max(200), description: z.string().max(4000), idempotencyKey: IdempotencyKey }).strict(),
+    out: SkillDraft,
+    errors: z.union([Unauthenticated, PermissionDenied, ValidationError, IdempotencyConflict, DependencyUnavailable]),
+  }),
+  proposeSkillDraftPatch: defineOperation({
+    method: "POST",
+    path: "/admin/skill-development/skills/:skillId/draft-patch-jobs",
+    in: ExactDraft.extend({
+      instruction: z.string().trim().min(1).max(100_000),
+      contextPaths: z.array(RelativePath).min(1).max(1000).refine(paths => new Set(paths).size === paths.length, "context paths must be unique"),
+      model: TrialModelSelection,
+      idempotencyKey: IdempotencyKey,
+    }).strict(),
+    out: SkillPatchJob,
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, ValidationError, IdempotencyConflict, ModelUnavailable, DependencyUnavailable]),
+  }),
+  getSkillDraftPatchJob: defineOperation({
+    method: "GET",
+    path: "/admin/skill-development/draft-patch-jobs/:jobId",
+    in: z.object({ jobId: Id }).strict(),
+    out: SkillPatchJob,
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, DependencyUnavailable]),
+  }),
+  applySkillDraftPatchProposal: defineOperation({
+    method: "POST",
+    path: "/admin/skill-development/skills/:skillId/draft-patch-applications",
+    in: ExactDraft.extend({ proposalId: Id, idempotencyKey: IdempotencyKey }).strict(),
+    out: SkillDraft,
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, ValidationError, IdempotencyConflict,
+      SimpleError("PROPOSAL_EXPIRED", false), DependencyUnavailable]),
+  }),
   createImportPreview: defineOperation({
     method: "POST",
     path: "/admin/skill-development/import-previews",

@@ -10,6 +10,19 @@ beforeEach(() => { sessionStorage.clear(); navigation.push.mockClear(); });
 const click = (id: string) => fireEvent.click(screen.getByTestId(id));
 
 describe("capability preview rendered interaction boundaries", () => {
+  it("cannot restart a failed item while confirming the next import batch", () => {
+    render(<CapabilityImportPreview />);
+    click("import-inspect"); click("import-candidate-research-brief"); click("import-candidate-meeting-notes");
+    click("import-submit-batch"); click("import-partial"); click("import-new-batch");
+    expect(screen.getByTestId("import-retry")).toBeDisabled();
+    click("import-retry");
+    expect(screen.getByTestId("import-result-meeting-notes")).toHaveTextContent("第 1 次尝试");
+    fireEvent.click(screen.getByRole("button", { name: "继续查看当前结果" }));
+    click("import-retry");
+    expect(screen.getByTestId("import-result-meeting-notes")).toHaveTextContent("第 2 次尝试");
+    expect(screen.queryByTestId("import-confirm-new")).toBeNull();
+    expect(screen.getByTestId("import-url")).toBeDisabled();
+  });
   it("starts another import explicitly while preserving terminal batch results", () => {
     render(<CapabilityImportPreview />);
     click("import-inspect"); click("import-candidate-research-brief"); click("import-submit-batch");
