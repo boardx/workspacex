@@ -1580,6 +1580,7 @@ export function CopilotKitV2PanelBody({
                       <TaskTimeline
                         events={runTrace.events}
                         messageRuns={runTrace.messageRuns}
+                        toolCallMessageIds={runTrace.toolCallMessageIds}
                         messages={agent.messages}
                         isRunning={agent.isRunning}
                         assistantMessage={V2AssistantMessage}
