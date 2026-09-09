@@ -28,7 +28,7 @@
 //
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
-import { classifyChecks, statusContextToCheck, type RequiredCheck } from "./pr-queue";
+import { classifyChecks, statusContextToCheck, type RequiredCheck, type CheckPolicy } from "./pr-queue";
 
 /** 第 7 条生效时刻 = 规则 PR（#2541）开出的时刻。此前关闭的 issue 不判。 */
 export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";
@@ -71,6 +71,8 @@ export interface ClosingPr {
   /** head 上的**全部**观测：check run（含 rerun 与合入后追加的）+ commit status（经 commitStatusToObservation），
    *  由 reconstructMergeTimeChecks 筛。GitHub rollup 混着 CheckRun 与 StatusContext 两种，只重建其一就是漏看红。 */
   runs: CheckRunObservation[];
+  /** Policy from the first parent of the merge commit; never from today. */
+  policy?: CheckPolicy;
 }
 
 function ts(iso: string | null): number | null {
@@ -144,7 +146,8 @@ export function judgeClosingPrGreen(input: {
     if (!pr.mergedAt || Number.isNaN(Date.parse(pr.mergedAt))) {
       return { kind: "unknown", reason: `PR #${pr.number} 标记为已合入却没有 mergedAt，无法重建合入时刻的 check` };
     }
-    const gaps = classifyChecks(reconstructMergeTimeChecks(pr.runs, pr.mergedAt));
+    if (!pr.policy) return { kind: "unknown", reason: `PR #${pr.number} 缺少合入前的 CI 策略，不能用当前策略追溯判定` };
+    const gaps = classifyChecks(reconstructMergeTimeChecks(pr.runs, pr.mergedAt), pr.policy);
     for (const r of [...gaps.blocked, ...gaps.changes, ...gaps.waitingCi]) reasons.push(`PR #${pr.number}@${pr.headSha.slice(0, 8)}（合入于 ${pr.mergedAt}）：${r}`);
   }
   if (reasons.length > 0) return { kind: "violation", reasons };

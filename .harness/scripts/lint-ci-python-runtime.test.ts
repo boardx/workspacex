@@ -92,7 +92,7 @@ describe("跑 apps/api 默认套件的 CI job 必须自带 Python 运行时（#2
     // 反空转：`e2e-full`（verify:full）、`verify-affected`（turbo run test --affected）、
     // `gates-test`（--filter api exec vitest run）三条是已知必须被命中的。
     const names = covered.map(([, job]) => job);
-    expect(names).toContain("e2e-full");
+    expect(names).toContain("full-regression-core");
     expect(names).toContain("verify-affected");
     expect(names).toContain("gates-test");
   });

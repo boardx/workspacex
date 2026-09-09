@@ -1,9 +1,11 @@
 ---
 name: session-handoff
 description: >
-  激活条件：用户提到收尾、交接、下一轮、session、handoff、会话结束、
-  干净状态、progress、session-handoff 等关键词时触发。
-  提供干净会话收尾的完整方法论和写作模板。
+  激活条件：要**写**交接文档时触发——用户问「handoff 怎么写」「交接里该写什么」
+  「progress.md / session-handoff.md 写点啥」「下一轮 agent 需要知道什么」，
+  或你已经决定收尾、正要动笔写那两份文件。
+  提供交接内容的方法论与写作模板（写什么、怎么写、什么算写够了）。
+  ⚠ 不负责「收尾前该检查哪些项」——那是 session-closer 的清单。
 ---
 
 # Session Handoff Skill

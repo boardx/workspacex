@@ -53,7 +53,7 @@
 | C6 Office 产物 | chat 里请求 docx / xlsx / pptx，产出可下载且可重新打开 | `apps/api` 侧有 pptx real-stack；chat 侧无 | 部分 | — |
 | C7 PDF 产物 | chat 里请求 PDF，页数与逐页渲染可核 | `real-model-pdf-smoke` | 已覆盖 | real-model-smoke |
 | C8 子任务产物写回 | durable subtask 产出文件回到父会话，可下载 | — | 未覆盖 | — |
-| D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
+| D1 工具卡片渲染 | `write_todos` / `search_documents` 定制卡片走到终态 | `copilotkit-v2-tool-rendering` | 已覆盖（曾 `当前红`，根因见下节，#3166 修） | chat-read |
 | D2 轨迹折叠与回放 | 默认折叠、运行中展开实时更新、刷新后可回放 | `copilotkit-v2-tool-rendering` | 已覆盖 | chat-read |
 | D3 会话内挂载 skill | 临时挂载落库、刷新仍在、重复挂载幂等 | `chat-agent-skill-context` | 已覆盖 | chat-read |
 | D4 skill 三态区分 | 「目录可见 / 正文送达 / 真的执行过」三者不得混为一谈 | `chat-path-d4-skill-three-states` | 已覆盖 | chat-read |
@@ -68,7 +68,7 @@
 | F3 暂停 / 恢复 / 重试单步 | 四个控制都可点且真生效 | **无**（详见「已知缺口」；`agent-workbench-control-acceptance` 断言的是审批仲裁 / 取消 / 刷新恢复，**不是**这条判据） | 未覆盖 | — |
 | F4 失败态修复 | 显示失败步骤，可重试该步 / 修改输入 | `chat-task-workbench-workflow-states` | 当前红 | chat-task-workbench |
 | F5 取消传播到子任务 | 父取消后子任务不再产出、不发布晚到产物 | `apps/api` 侧有；chat 侧无 | 部分 | — |
-| F6 并发双 run | 两个线程同时跑，事件不串线、不互相覆盖 | `chat-path-f6-concurrent-runs` | 已覆盖 | chat-path-coverage |
+| F6 并发双 run | 两个线程同时跑，事件不串线、不互相覆盖 | `chat-path-f6-concurrent-runs` | 已覆盖 | chat-read |
 | F7 上游超时 / 断流 | 模型侧断流后 UI 诚实结束，不假装还在跑 | `chat-path-f7-upstream-stream-abort` | 已覆盖 | chat-read |
 
 ## 已知缺口（表里 `未覆盖` / `部分` 的逐条理由）
@@ -318,6 +318,81 @@ rewrite，chat-read 车道 24 条旧屏断言一次性全红，人类裁决走**
 （撤销理由是它自己的实测反证，不是本车道的事）。所以从六跑起，本车道会恢复成 2 workers、
 两条用例并发打同一套真栈。记在这里是因为**跑次之间的可比性变了**：若六跑出现本跑没有的
 新红，先查是不是这个变量，不要直接归因到用例改动上。
+
+## 十二跑记录（2026-09-08，run 34269951010）——F6 连绿第 2 次，搬进阻塞车道
+
+**2 通过 / 0 失败**：F2 ✓（39.9s）、**F6 ✓（50.1s，连续第 2 次）**。
+
+⚠ **这一跑差点被一个假信号骗过去**：同一个 run 里 `fullstack-smoke` 那个 job 走的是
+「同 SHA 同车道复用既有裁决」——`Execute` 步骤 skipped、只留下一句
+`Preserve reused verification verdict`。**复用的裁决不是一次新的执行**，拿它当"第二次绿"
+就是本仓那条「静态痕迹 ≠ 动态事实」。逐 job 核对后确认：`chat-path-coverage` 这个 job
+**真的执行了**（19:44:19→19:47:50，测试净耗时 3m30s，复用那一步是 skipped），所以 F6 这次
+绿是真的。**下次读跑次结论时，先看那个 job 有没有真的跑，再看 conclusion。**
+
+### F6 搬进 `chat-read` 阻塞车道
+
+连续两次绿 ∧ 判据不依赖时序（它等的是**权威读**——两条线程各自落库了一条含自己标记的
+agent 回复，不是"等 N 秒"也不是"比谁快"），符合本表新加的搬家条件。testMatch 与本表车道
+列同步改。
+
+**至此本车道只剩 F2 一条。** 它的路径结论早已成立（三跑），留下的是**用例的构造性竞态**：
+断网窗口与十步滚动剧本在赛跑。要消除它得让确定性替身**扣住最后一段直到客户端重连**——
+那时"断网期间拿不到最终回答"从"跑得够慢"变成"因果上不可能"。这是一件要改替身协议的
+独立的活，本批不做，如实留在这里。
+
+## 十一跑记录（2026-09-08，run 34257715384）——**本车道首次全绿**
+
+**2 通过 / 0 失败。** F6 ✓（53.8s，**首绿**）、F2 ✓（44.1s）。
+
+### F6 路径结论：两条线程同时跑，事件不串线、落库不互相覆盖
+
+十跑把两道恒真门换成权威读之后，F6 第一次在**判据真的生效**的前提下通过。它证成的是：
+两条线程并发各跑一个 run 时，**各自都真的落库了一条属于自己的 agent 回复**（不是"用户
+消息渲染出来了"就算数），**各自都没有对方的标记**（UI 与落库两侧都查），且两条回复挂在
+**两个不同的 `agentRunId`** 上。它要防的失效——并发时事件流按 agent 而不是按 thread
+归拢——由此被排除。
+
+⚠ 按搬家条件，F6 目前是**第 1 次绿**，还要再绿一次才够；F2 虽已多次绿，但竞态未由构造
+消除，**不搬**。两条都继续留在非阻塞车道。
+
+## 整体小结：本车道为 37 条路径做完了什么（截至 2026-09-08）
+
+这张表最初列出 **9 条零覆盖路径**。十一跑之后的状态：
+
+| 路径 | 结论 | 车道 |
+| --- | --- | --- |
+| A5 冷启动首屏 | ✅ 结论成立：全新会话第一次进 `/chat` 就能输入，不停在骨架屏 | chat-read |
+| D4 skill 三态 | ✅ 结论成立：目录可见 / 正文送达 / 真的执行过，三个信号**各自独立**，前两个不蕴含第三个 | chat-read |
+| C4 一轮两画布 | ✅ 结论成立：两个围栏都挂出、内容互不相同、刷新后仍在 | chat-read |
+| C5 连续多轮产物 | ✅ 结论成立：第 N 轮恰有 N 个，各带自己那一轮的标记，不覆盖不重复挂载 | chat-read |
+| F7 上游断流 | ✅ 结论成立：run 落 failed、界面出可读横幅、发送态解除、仍可继续对话——**没有"假装还在跑"** | chat-read |
+| A3 长会话压缩 | ✅ 结论成立：被挤出 L1 的**那个具体事实**真的活着穿过摘要层（不只是摘要结构到达） | chat-read |
+| **F6 并发双 run** | ✅ **结论成立**（十一跑首绿）：事件不串线、落库不互相覆盖、两次 run 独立 | chat-path-coverage（待第 2 次绿） |
+| F2 断线重连 | ✅ 路径结论成立（三跑）；⚠ **用例尚未由构造保证**——断网窗口与剧本快慢在赛跑，阻塞车道两跑两红 | chat-path-coverage |
+| C8 子任务产物写回 | ⛔ 未覆盖：需要 native 会话 + 沙箱编排，属新增 CI 预算的决策 | — |
+
+另外两件由本车道之外的事实带来的订正：
+
+- **C6 / F5（chat 侧）** 与 C8 撞同一堵墙（本车道没有 native 会话），如实记在「已知缺口」。
+- **F3 暂停/恢复/重试单步**：独立验收（#3081）查实本表原先指错了 spec 且标成「当前红」，
+  已订正为「无 / 未覆盖 / —」。**「当前红」比「未覆盖」更有害**——前者会被当成已知欠账
+  放着，后者才会被排期。
+
+### 这十一跑真正买到的东西
+
+**没有一跑是白跑的**，而且大部分收获不是"路径有没有坏"，是**用例本身骗不骗人**：
+
+1. **判据必须同时具备「只有被测分支才满足」∧「只有本轮才满足」**——C5 为此红了三跑，
+   我在同一个形状上犯了两遍。
+2. **恒真的等待门**：F6 的「看到自己的回答」实际断言的是"容器包含 markerA"，而用户自己
+   刚发的消息就含它 ⇒ 从没等到过回答；其后那条"没有对方的标记"因此在空态下恒真。
+   与 #3000 那批 A 类根因同形。
+3. **诊断给出的事实 ≠ 我对事实的解释**：F6「新增 0 条线程」这个事实是对的，我据此推断的
+   「点击被吞了」是错的——真机制是产品按设计复用空线程（#3101）。
+4. **「连续两次绿」不是充分条件**：F2 在非阻塞车道连绿、进阻塞车道两跑两红。判据里带
+   「等 N 秒 / 在窗口内完成 / 比谁快」的用例，要先改成由构造保证再谈搬家。
+5. **不删断言换来了 A3**：它挂了八跑 `test.fixme`，#3028 一补上，正文一个字没改就绿了。
 
 ## 十跑记录（2026-09-08，run 34244825704）
 
@@ -641,6 +716,87 @@ Error: 断网期间就已经拿到最终回答的话，这条用例根本没有�
 
 `:278` 覆盖的正是「整页 reload 后**不点最大化**，气泡只读预览仍是编辑后的版本」那一段——
 即 C2 判据里此前被认为缺失的部分。C2 无需补齐。
+
+## D1：定制卡片渲染在 legacy 分组里，因为工具调用消息从来没绑上 run（2026-09-09，#3166）
+
+### 取证（CI 硬事实）
+
+run [34248851944](https://github.com/boardx/workspacex/actions/runs/34248851944) job
+`102137780214`（`e2e-full` 的 `chat-read`），实测 SHA `ca0bffd3b`：
+
+```
+✘ 109 [chat-read] › copilotkit-v2-tool-rendering.spec.ts:166:5 › DA-19c search_documents 定制卡片…… (16.9s)
+  Error: 定制卡片不在任何 run-trace-panel 里（legacy 工具调用分组祖先 1 个），
+         说明这条消息没有绑定到本轮 run，同一次工具调用被渲染了两份——见 #3137。
+```
+
+`#3137` 加的那条快速失败诊断把答案直接说出来了：**卡片挂上了**（不是「没渲染」），
+它只是挂在 `copilotkit-v2-tool-calls-group`（legacy 通道）里，祖先里没有 `run-trace-panel`。
+
+### 根因（逐层，两层之间那道缝）
+
+1. 服务端 `copilotkit-agui.controller.ts` 的 `writeToolCallStep` 发出的
+   `TOOL_CALL_START` **不带 `parentMessageId`**——该字段在那个文件的 `AguiEvent`
+   联合类型里逐字不存在。wire 实测：`apps/web/.copilotkit-v2-tool-rendering/
+   wire-known-limitation-3-evidence.txt` 第 31/49/67 行三个 `TOOL_CALL_START` 都只有
+   `toolCallId` + `toolCallName`。
+2. `@ag-ui/client` 0.0.57 收到不带 `parentMessageId` 的 `TOOL_CALL_START` 时**新造**一条
+   assistant 消息，并把 **`toolCallId` 本身当成这条消息的 id**
+   （`{ id: toolCallId, role: "assistant", toolCalls: [] }`）。
+3. 前端 `lib/chat-workbench/use-run-trace.ts` 的绑定却写着
+   `if (!event.parentMessageId) return;` ⇒ 在本仓这条分支**一次都没被执行过**，
+   `bind()` 形同虚设，那条合成消息永远进不了 `messageRuns`。
+4. `workbench/task-timeline.tsx` 的 `TraceAssistant` 因此把它判成 legacy
+   （`RunTraceCoveredContext` 为 `false`）⇒ `V2ToolCallsView` 渲出
+   `copilotkit-v2-tool-calls-group`，定制卡片落在里面；而 durable 轨迹面板在别处
+   另渲一份 ⇒ **同一次工具调用被渲染两份**，正是 `use-run-trace.ts` 自己的注释
+   预告过、却没堵住的那个形态。
+
+⚠ **为什么单测层全绿**：`tests/ui/workbench-trace-acceptance.test.tsx` 三条用例都
+**手喂** `parentMessageId`，`tests/ui/workbench-task-timeline.test.tsx` 则手写
+`messages` + `messageRuns`，从来没有出现过客户端合成的那条消息。
+替身说了上游不说的方言——与「CRLF vs LF」那次同形。
+
+### 修法（不动判据）
+
+`use-run-trace.ts`：`bind(event.parentMessageId ?? event.toolCallId)`。
+按客户端自己的回退规则绑那条合成消息，不改 wire、不改产品语义。
+
+### 反证
+
+| 层 | 用例 | 改动前 | 改动后 |
+| --- | --- | --- | --- |
+| hook | `workbench-trace-acceptance.test.tsx`「binds the synthetic assistant message…」 | 红：`expected {} to deeply equal { 'tool-call-1': 'business-run' }` | 绿 |
+| 组件 | `workbench-task-timeline.test.tsx`「renders the client-minted tool-call message…」 | 未绑定分支逐字复现 CI 首错（卡片在 group 里、`closest(run-trace-panel)` 为 `null`） | 绑定分支：group 消失，卡片在 panel 内 |
+
+两条既有夹具同时改成 wire 的真实形状（`TOOL_CALL_START` 只有 `toolCallId`），
+另留一条带 `parentMessageId` 的用例覆盖「上游哪天开始发它」。
+
+⚠ **诚实边界**：同一文件里 D2 的两条（`:282` 个人 / 项目）另有各自的红
+（个人：轨迹条目在 run 流结束后才进 DOM；项目：`run-trace-panel` 30s 内没出现），
+**不在本次范围内**，未被本改动断言覆盖。
+
+## F6：记录在案的红是前置条件红，且修法合入后 CI 一次都没再执行过（2026-09-09）
+
+最后一次**真的执行**过 F6 的 job 是 run
+[34246633771](https://github.com/boardx/workspacex/actions/runs/34246633771) job
+`102130196308`，实测 SHA `9de57821e`：
+
+```
+✘ 3 [chat-path-coverage] › chat-path-f6-concurrent-runs.spec.ts:41:5 › @path:F6 … (21.5s)
+  Error: page.evaluate: SecurityError: Failed to read the 'localStorage' property from 'Window'
+```
+
+**红在前置条件，不是业务断言**（21.5s 就死在 setup）。而 `9de57821e` 这棵树里
+`ensureAuthedPageOrigin` **不存在**（`git cat-file -p 9de57821e:apps/web/e2e/support/
+chat-path-coverage.ts | grep -c ensureAuthedPageOrigin` = 0）；修法由
+`c1a871ed6`（#3130）与 `a42c3bfdd`（#3143）合入 main。
+
+此后扫过的 120 次 `harness-verify`，`chat-path-coverage` 车道要么 `skipped`
+要么 `cancelled` ⇒ **修法从未被执行过一次**。所以现在既不能说 F6 绿，也不能说它
+仍然红——只能说它欠一次判决。确定性反证已在
+`apps/web/tests/e2e-authed-page-origin.test.ts`（7 条，本轮复跑全绿），
+它同时断言「旧次序真的抛 SecurityError」，不是只断言新次序好。
 
 ## 机械门控
 

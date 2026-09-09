@@ -1,3 +1,4 @@
+import { CURRENT_POLICY } from "./ci-check-policy.mjs";
 // pr-queue.ts — coord-main 的 PR 队列状态机（#451）。**唯一事实源**：本文件的
 // `PR_QUEUE_STATES` 是枚举权威，`coordinator-sop.md` 的状态表由 pr-queue.test.ts
 // 机械比对——文档写多一个/少一个状态，测试当场红（AGENTS.md「同一事实不得声明在两处」）。
@@ -93,9 +94,9 @@ const VACUOUS_CONCLUSIONS = new Set(["SKIPPED", "NEUTRAL", "CANCELLED", "STALE"]
 const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS"]);
 
 /**
- * **必需 check 的唯一声明处。**
+ * **必需 check 声明的入口：版本化 ci-check-policy.json。**
  *
- * 本仓 `main` **没有开 GitHub branch protection**（`GET /branches/main/protection`
+ * 初版清单建立时，`main` 没有 GitHub branch protection（`GET /branches/main/protection`
  * 返回 404 Branch not protected），所以"哪些 check 是必需的"在 GitHub 侧根本不存在
  * ——`statusCheckRollup` 把条件跳过的 job 和真正的门禁混在一起返回。把所有 check
  * 一律当必需会得到假阳性（`check-new-merges` 条件不满足时 SKIPPED 是正常的），
@@ -133,7 +134,8 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  * pr-queue.test.ts 的机械核对走：先跑测试确认真的会红（复现 #848 那类"改名后
  * 门禁静默失效"），改完这行再确认转绿——不是先改代码再回头补测试。
  */
-export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected", "verify-full-compile"] as const;
+export const REQUIRED_CHECKS: readonly string[] = CURRENT_POLICY.requiredChecks;
+export interface CheckPolicy { version: number; requiredChecks: readonly string[]; }
 
 /**
  * 2026-08-16（人类第二次裁决，同一天）：独立 approve 检查（"verdict label 必须
@@ -218,11 +220,11 @@ export function statusContextToCheck(context: string, state: string | null | und
   return { name: context, status: "UNKNOWN", conclusion: `UNKNOWN_STATE(${state ?? "null"})` };
 }
 
-export function classifyChecks(checks: RequiredCheck[]): { blocked: string[]; changes: string[]; waitingCi: string[] } {
+export function classifyChecks(checks: RequiredCheck[], policy: CheckPolicy = CURRENT_POLICY): { blocked: string[]; changes: string[]; waitingCi: string[] } {
   const blocked: string[] = [];
   const changes: string[] = [];
   const waitingCi: string[] = [];
-  const required = new Set<string>(REQUIRED_CHECKS);
+  const required = new Set<string>(policy.requiredChecks);
   const seen = new Set<string>();
   for (const check of checks) {
     const isRequired = required.has(check.name);
@@ -253,14 +255,14 @@ export function classifyChecks(checks: RequiredCheck[]): { blocked: string[]; ch
     // 未知取值一律不放行——不管是不是必需的。非必需的未知结论静默放过就是 fail-open（独立审 #2541 六轮）。
     blocked.push(`${label} \`${check.name}\` 结论 ${conclusion} 不在已知取值内——未知一律不放行`);
   }
-  for (const name of REQUIRED_CHECKS) {
+  for (const name of policy.requiredChecks) {
     // 缺席 ≠ 通过。三态纪律与 module-lock 的 queryActiveClaim 一致：问不到不等于空闲。
     if (!seen.has(name)) waitingCi.push(`required check \`${name}\` 根本没有出现在这个 PR 上——没跑不等于绿`);
   }
   return { blocked, changes, waitingCi };
 }
 
-export function classifyPr(facts: PrFacts): PrClassification {
+export function classifyPr(facts: PrFacts, policy: CheckPolicy = CURRENT_POLICY): PrClassification {
   const blocked: string[] = [];
   const waitingWorker: string[] = [];
   const changes: string[] = [];
@@ -303,7 +305,7 @@ export function classifyPr(facts: PrFacts): PrClassification {
   // ── 4. checks ────────────────────────────────────────────────────────────
   // 语义在 classifyChecks（与 doctor 的完成定义第 7 条共用同一份，#2540）。
   {
-    const gaps = classifyChecks(facts.checks);
+    const gaps = classifyChecks(facts.checks, policy);
     blocked.push(...gaps.blocked);
     changes.push(...gaps.changes);
     waitingCi.push(...gaps.waitingCi);

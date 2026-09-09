@@ -101,10 +101,14 @@ function jobsWithConfigs(): { workflow: string; job: string; configs: string[] }
 }
 
 describe("同一 job 内的多趟 playwright 不得共用 outputDir（#3002）", () => {
-  it("e2e-full 真的跑了不止一份 config —— 前提本身不成立就没什么好守的", () => {
-    const e2eFull = jobsWithConfigs().find((j) => j.workflow === "harness-verify.yml" && j.job === "e2e-full");
-    expect(e2eFull, "harness-verify.yml 里应存在 e2e-full job 且能解析出它跑的 config").toBeDefined();
-    expect(e2eFull!.configs.length).toBeGreaterThanOrEqual(2);
+  it("split journeys still resolve their real Playwright configs", () => {
+    const jobs = jobsWithConfigs().filter(j => j.workflow === "harness-verify.yml");
+    for (const name of ["chat-read", "self-service-profile"]) {
+      expect(jobs.find(j => j.job === name)?.configs.length).toBeGreaterThan(0);
+    }
+    // Keep the collision detector live even after moving journeys onto separate runners.
+    expect(covers("test-results", "test-results/chat-read")).toBe(true);
+    expect(covers("test-results/chat-read", "test-results/self-service-profile")).toBe(false);
   });
 
   it("每个跑多份 config 的 job，其 outputDir 互不覆盖", () => {

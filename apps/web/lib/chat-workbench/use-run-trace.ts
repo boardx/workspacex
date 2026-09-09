@@ -62,10 +62,28 @@ export function useRunTrace(agent: AbstractAgent, threadId: string | null) {
         if (parsed.kind === "text_delta") setMessageRuns((previous) => ({ ...previous, [parsed.messageId]: parsed.runId }));
         ingest([parsed]);
       },
-      onToolCallStartEvent: ({ event }) => {
-        if (!event.parentMessageId) return;
-        bind(event.parentMessageId);
-      },
+      /*
+       * issue #3137 的**真正**形态（本仓 wire 实测，见 `.copilotkit-v2-tool-rendering/
+       * wire-known-limitation-3-evidence.txt`）：本仓服务端 `copilotkit-agui.controller.ts`
+       * 的 `writeToolCallStep` 发出的 `TOOL_CALL_START` **从来不带 `parentMessageId`**
+       * ——那个字段在该文件的 `AguiEvent` 联合类型里逐字不存在。
+       *
+       * `@ag-ui/client` 收到不带 `parentMessageId` 的 `TOOL_CALL_START` 时，会**新造**一条
+       * assistant 消息，并把 **`toolCallId` 本身当作这条消息的 id**（0.0.57 的 `applyEvents`：
+       * `{ id: toolCallId, role: "assistant", toolCalls: [] }`）。于是旧代码那句
+       * `if (!event.parentMessageId) return;` 让 `bind` 在本仓**一次都没被调用过**——
+       * 这条合成消息永远进不了 `messageRuns`，`TraceAssistant` 把它当 legacy，
+       * 于是同一次工具调用被渲染两份：一份在 `copilotkit-v2-tool-calls-group` 里、
+       * 一份在 `run-trace-panel` 里，而定制卡片挂在**前者**下面。
+       * DA-19c（矩阵 D1）在 CI 上稳定红的逐字错误就是这个：
+       * 「定制卡片不在任何 run-trace-panel 里（legacy 工具调用分组祖先 1 个）」。
+       *
+       * ⚠ 为什么单测没拦住：`tests/ui/workbench-trace-acceptance.test.tsx` 三条用例都
+       * **手喂** `parentMessageId`——替身说的是上游不说的方言。本次同时把夹具改成 wire 的
+       * 真实形状（只有 `toolCallId`），并保留一条带 `parentMessageId` 的用例覆盖
+       * 「上游哪天开始发它」的情形。
+       */
+      onToolCallStartEvent: ({ event }) => { bind(event.parentMessageId ?? event.toolCallId); },
       onTextMessageStartEvent: ({ event }) => { bind(event.messageId); },
     });
     return unsubscribe;
