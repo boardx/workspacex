@@ -90,3 +90,40 @@ it('ships standard-web 1.1.2 content: the platform org actually receives the 543
   expect(rows.rows[0]!.bytes).toBe(5439);
   expect(rows.rows[0]!.semantic_label).toBe('1.0.2');
 }, 300000);
+
+/**
+ * 人类直接指令（2026-09-10）：「新建一个 skill 叫做 MAAU 模板……我可以在 chat 里面说
+ * 生成 MAAU 模板，就可以触发这个技能」。这条用例钉的是那句话里的**「在 chat 里面能看到」**
+ * ——不是「build.ts 里加了一行」，也不是「starter-pack JSON 里有这个名字」。
+ *
+ * 与上面 standard-web 那条同一套纪律：钉**平台组织里生效版本的真实字节**，不钉版本号。
+ * `standard-methods` 从 1.0.1 升到 1.1.0 的唯一实质差异就是新增 `maau-canvas`
+ * （前两个 skill 逐字节不变，由 `skills/standard-methods/scripts/verify.ts` 断言），
+ * 所以「号升了、正文没下发」在这里会红在字节数上，而不是悄悄绿掉。
+ *
+ * ⚠ 反证记录（本次落地实测）：把 `STANDARD_PLATFORM_PACKS` 的 `standard-methods`
+ *   改回 1.0.1，这条用例红在 `expected [] to have a length of 2 but got +0`（平台组织里根本
+ *   查不到 `maau-canvas` 的任何一行）——它确实在测下发结果，不是在复述常量。
+ */
+it('ships standard-methods 1.1.0 content: the platform org actually receives the maau-canvas skill with both files', async () => {
+  ensureDatabase(); await migrateOnce();
+  const seeded = await ensurePlatformSkillCatalogSeeded();
+  expect(seeded.ok).toBe(true);
+  if (!seeded.ok) throw seeded.error;
+  expect(seeded.report.standardPacks.filter(p => !p.ok)).toEqual([]);
+
+  const rows = await asApp(PLATFORM_ORG_ID, c => c.query<{ name: string; semantic_label: string; path: string; bytes: number }>(
+    `SELECT s.name, v.semantic_label, f.path, octet_length(f.content)::int AS bytes
+       FROM skills s
+       JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id
+       JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id
+      WHERE s.org_id = $1 AND s.stable_name = 'maau-canvas' AND v.published = true
+      ORDER BY f.path COLLATE "C"`, [PLATFORM_ORG_ID]));
+  expect(rows.rows).toHaveLength(2);
+  // 目录里显示的名字就是用户会说出口的那四个字——它是模型匹配这个技能的抓手。
+  expect(rows.rows.every(r => r.name === 'MAAU 模板' && r.semantic_label === '1.0.0')).toBe(true);
+  expect(rows.rows.map(r => [r.path, r.bytes])).toEqual([
+    ['SKILL.md', 5034],
+    ['references/canvas-template.md', 4743],
+  ]);
+}, 300000);
