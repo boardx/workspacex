@@ -71,7 +71,12 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                   {entry.status === "observed" ? <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 aria-label={running ? "执行中" : "未收到完成状态"} className={running ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
               </summary>
-              <div className="space-y-2 pl-4">
+              {/* issue #3205 —— `mt-1.5` 不是留白偏好，是净空约束：全局 :focus-visible
+                  （app/globals.css）是 ring-2 + ring-offset-2，焦点环画在 summary 盒子
+                  外面 4px。此前这里净空为 0，那一圈描边整个落进下面卡片的矩形里，被卡片
+                  不透明的 bg-card 后画盖掉——人类在 devapp 上看到的「fetch_url 卡片盖住
+                  上面那一行」。几何门控见 e2e/chat-trace-disclosure-geometry.spec.ts。 */}
+              <div className="mt-1.5 space-y-2 pl-4">
                 {entry.activityStage ? null : renderTool?.(entry)}
                 {(entry.attemptIds?.length ?? 0) > 1 ? <p>调用在 {entry.attemptIds!.length} 次运行尝试中有记录，合并展示一次。</p> : null}
                 {entry.args !== undefined ? <div><span>输入</span><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-control bg-muted p-2 text-11">{detail(entry.args)}</pre></div> : null}

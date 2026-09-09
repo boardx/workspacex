@@ -1,0 +1,14 @@
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * issue #3205 —— 组件盒模型的几何门控，**不起应用**。
+ * 被测对象是 `RunTracePanel` 的布局，真组件 + 真编译样式即可判定；
+ * 挂 webServer 只会把一条 200ms 的断言变成 2 分钟且随负载假红。
+ */
+export default defineConfig({
+  testDir: "./e2e",
+  testMatch: /chat-trace-disclosure-geometry\.spec\.ts/,
+  forbidOnly: !!process.env.CI,
+  reporter: "list",
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+});
