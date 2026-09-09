@@ -68,7 +68,21 @@ test("@path:D1 执行轨迹里失败的工具调用：外层与内层工具卡�
 
   // ── 前置：这一轮真的既有失败一步、也有成功一步（判据要判的是「区分」）─────────
   const failedRow = body.locator('[data-testid="run-trace-entry"][data-status="failed"]');
-  const okRow = body.locator('[data-testid="run-trace-entry"][data-status="succeeded"]');
+  /*
+   * ⚠ `succeeded` 的**工具**调用，不是 `succeeded` 的**任何** entry。
+   *
+   * 执行轨迹里除了工具调用还有别的 entry —— 这一轮实际渲染出来的是
+   * `Thinking · 进展摘要` 那一行，它同样 `data-status="succeeded"`，于是这条前置
+   * 期望 1 实得 2，**红在前置上**，下面两条真正的业务判据（内外一致 / 失败可读）
+   * 一次都没被求值。
+   *
+   * 收窄成「含工具卡的那种 entry」，不是把 `toHaveCount(1)` 放宽：上面那句注释
+   * 「≥2 步 = 剧本变了，断言方要跟着改」说的正是这件事——剧本里成功的**工具**调用
+   * 就是一次，多一次仍然必须红。
+   */
+  const okRow = body
+    .locator('[data-testid="run-trace-entry"][data-status="succeeded"]')
+    .filter({ has: page.locator('[data-testid="copilotkit-v2-tool-generic"]') });
   await expect(
     failedRow,
     "这一轮应恰有一步失败。0 步 = 替身没让那次调用真的失败（`status: \"error\"` 没到），"
