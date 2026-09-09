@@ -226,3 +226,46 @@ GitHub 把 base 消失的 PR 自动关闭。PR 上零条评论，没有任何人
 3. 迭代 14 + 15 现在都在 `claude/iter14-devices-only` 上，但**那个分支还没有合进 main**。
    最终要有一个 PR 把它送进 main，否则这三轮对 devapp 上的用户仍然不存在
    （完成定义第 6 条）。
+
+### 23:13 复查更新 —— #3184 全绿
+
+**18 个 check 全部完成，没有一个红。** 关键那条：
+
+- **`gates-test (3)`：success**（22:29:01 → 22:39:24，真跑了 10 分钟）。
+  port 进来的 #3176 修复解决了连红两跑的那条用例。
+  ⚠ 特意核过它**不是「同 SHA 车道复用裁决」**——那种 job 的 Execute 步是 skipped、
+  几秒就完事。这条真的执行了。
+- 其余 success：gates-test 1/2/4、gates-fast、gates-runtime、e2e-core-loop、
+  native-runtime-lane、native-document-chain、merge-gate、fullstack-smoke、
+  verify-affected / -full-compile / -control-plane。
+- skipped：deploy（PR 分支本就不部署）、e2e-full / chat-path-coverage /
+  chat-task-workbench（本 PR 不触发这几条车道）。
+
+**按人类指令没有合并。** 早上直接 review 即可。
+
+## 最终状态（02:00 收尾）—— 三轮都合进了 `claude/iter14-devices-only`，但还没进 main
+
+| PR | 内容 | 结果 |
+|---|---|---|
+| #3162 | 迭代 14（被污染的分支，含 14+15+16） | **仍 open，已被取代，建议关掉** |
+| #3173 | 迭代 15 | 已合进 `claude/iter14-devices-only` |
+| #3174 | 迭代 16 | 被 base 分支删除**连带关闭**，不是被否 |
+| **#3184** | 迭代 16（接替 #3174） | **已合并**（22:44，18/18 全绿） |
+
+⚠ **完成定义第 6 条还没满足**：`claude/iter14-devices-only` 里有迭代 14/15/16 的全部实现，
+但它**不在 main 的血统里**（`merge-base --is-ancestor` 实测为否）。代码只停在分支上，
+对 devapp 上的用户就等于不存在。所以本文件顺带开了一个 `→ main` 的 PR 收口。
+
+⚠ **订正我 01:00 那条判断**：我当时说 head 上「零 CI run」是 GitHub 事件投递异常。
+**错了。** 真相平淡得多：#3184 在 22:44 就已经合并，而我 23:14 才推那条文档提交——
+PR 已关闭的分支上再推送，本来就不会产生 `pull_request` 事件。
+我当时查了 workflow 的 paths/types 过滤（确实没有过滤），**却没查 PR 自己的状态**——
+又一次「读了一个不会变的痕迹，没读会随状况改变的信号」。这是本仓那条
+`static-trace-vs-live-fact.md` 今晚的第二次实例（第一次是 20:35 那条把死等误判成计时争用）。
+
+## 早上的建议顺序（更新）
+
+1. review 并合并 `→ main` 的收口 PR（三轮迭代一起进 main）。
+2. 关掉 #3162（已被取代，head 是那个被污染的提交）。
+3. 补签两份 delta 的 `design-signoff.md`（`design-deltas/` 下，agent 不许代签）。
+4. 部署链路修好后在 devapp 上实测这三轮：设备模拟 / 图层与直接操作 / 页管理与撤销。
