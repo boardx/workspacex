@@ -19,8 +19,30 @@ export const operations = {
   getSkillVersionFile: { method: "GET", path: "/admin/skill-development/skills/:skillId/versions/:versionId/files", in: VersionRef.extend({ path: Path, expectedFileDigest: Digest }).strict(), out: z.object({ version: VersionRef, path: Path, digest: Digest, contentBase64: Content }).strict(), err: SkillHistoryContentError.options },
   getSkillUpstreamFile: { method: "GET", path: "/admin/skill-development/skills/:skillId/upstream-files", in: UpstreamFileSelection, out: z.object({ selection: UpstreamFileSelection, file: FileResult }).strict(), err: SkillHistoryContentError.options },
 } as const;
+/** Server-only exchange context, never client input. Adapters must load these records
+ * from authorized immutable storage, including manifest membership. These schemas
+ * correlate metadata; adapters must also hash the returned bytes against the digest.
+ */
+const StoredVersionEntry = z.object({ version: VersionRef, entry: SkillManifestEntry }).strict();
+const StoredUpstreamManifest = operations.listSkillUpstreamFiles.out;
+const sameVersion = (a: z.infer<typeof VersionRef>, b: z.infer<typeof VersionRef>) =>
+  a.skillId === b.skillId && a.versionId === b.versionId && a.snapshotDigest === b.snapshotDigest;
+const sameReview = (a: z.infer<typeof UpstreamReviewRef>, b: z.infer<typeof UpstreamReviewRef>) =>
+  a.skillId === b.skillId && a.draftId === b.draftId && a.expectedRevision === b.expectedRevision &&
+  a.expectedSnapshotDigest === b.expectedSnapshotDigest && a.checkedSourceDigest === b.checkedSourceDigest;
 export const skillHistoryContentExchanges = {
-  listSkillUpstreamFiles: z.object({ request: operations.listSkillUpstreamFiles.in, response: operations.listSkillUpstreamFiles.out }).strict().refine(({ request, response }) => JSON.stringify(request) === JSON.stringify(response.review), "manifest must belong to the exact merge review"),
-  getSkillVersionFile: z.object({ request: operations.getSkillVersionFile.in, response: operations.getSkillVersionFile.out }).strict().refine(({ request, response }) => request.skillId === response.version.skillId && request.versionId === response.version.versionId && request.snapshotDigest === response.version.snapshotDigest && request.path === response.path && request.expectedFileDigest === response.digest, "version file must match the requested immutable manifest entry"),
-  getSkillUpstreamFile: z.object({ request: operations.getSkillUpstreamFile.in, response: operations.getSkillUpstreamFile.out }).strict().refine(({ request, response }) => JSON.stringify(request) === JSON.stringify(response.selection) && (request.expectedFileDigest === null ? response.file.kind === "absent" : response.file.kind === "present" && response.file.digest === request.expectedFileDigest), "three-way file must identify the exact requested draft, upstream check, path and side"),
+  listSkillUpstreamFiles: z.object({ request: operations.listSkillUpstreamFiles.in, response: operations.listSkillUpstreamFiles.out }).strict().refine(({ request, response }) => sameReview(request, response.review), "manifest must belong to the exact merge review"),
+  getSkillVersionFile: z.object({ stored: StoredVersionEntry, request: operations.getSkillVersionFile.in, response: operations.getSkillVersionFile.out }).strict().refine(({ stored, request, response }) =>
+    sameVersion(stored.version, request) && sameVersion(stored.version, response.version) &&
+    stored.entry.path === request.path && stored.entry.path === response.path &&
+    stored.entry.digest === request.expectedFileDigest && stored.entry.digest === response.digest,
+  "version file must match the server-loaded immutable manifest entry"),
+  getSkillUpstreamFile: z.object({ stored: StoredUpstreamManifest, request: operations.getSkillUpstreamFile.in, response: operations.getSkillUpstreamFile.out }).strict().refine(({ stored, request, response }) => {
+    const entry = stored.entries.find(row => row.path === request.path);
+    if (!entry || !sameReview(stored.review, request) || !sameReview(stored.review, response.selection) ||
+      request.path !== response.selection.path || request.side !== response.selection.side) return false;
+    const digest = entry[`${request.side}Digest`];
+    return request.expectedFileDigest === digest && response.selection.expectedFileDigest === digest &&
+      (digest === null ? response.file.kind === "absent" : response.file.kind === "present" && response.file.digest === digest);
+  }, "three-way file must match the server-loaded review manifest, path and side"),
 } as const;

@@ -75,3 +75,13 @@ UI独立审154a541d6确认上一轮主要四项关闭，另发现同配置重连
 适配契约独立审提出首次评估来源串联、根manifest原文件复制、未选择LICENSE自动加入。已补sourceAssessmentExchanges、generated-template provenance/摘要检查与严格selectedPaths闭包。结构校验不替代writer生成字节和服务器授权；测试6项通过。该修正待新SHA复审。
 
 最新整组：UI8文件46/46，契约8文件46/46；相关web/contracts类型检查与web lint通过。真实浏览器和生产接线未完成。
+
+## 2026-09-10 第十轮：服务端关联与凭据防护
+
+ff1f7597 的云端只读复审确认普通仓库适配三项关联修复、同配置 MCP 重连与适配原型的限定范围问题关闭；未独立执行浏览器测试。历史读取剩余问题是客户端与响应可共同伪造 digest；本轮 exchange 强制带服务端存储记录，历史版本绑定 manifest entry，三方读取由服务端 review manifest 的 path/side 派生摘要。5项测试包含假摘要、假 absent 以及客户端不能提交 stored。
+
+私库事务增加独立 revision，保留不可变 reconnect 和返回目标；回调绑定服务端 state 对应待授权事务，确认与取消使用 CAS，完成结果保留明确仓库集合。分页绑定事务/连接，重连和撤销精确推进一个版本。OAuth URL 采用查询参数白名单并拒绝重复参数。9项测试通过；原子事务、会话/租户、注册 redirect 校验仍是生产 adapter 的责任，schema 不冒称已经实施。
+
+CI verify-affected 与 gates-test (1) 均由 credential 变量名扫描失败，未发现两个不同根因。原检查把合法 password 写入、布尔配置标记也当成回显。保留全部响应 schema 防护，将组件检查改为直接 JSX 输出检查，并加入文本/属性/明文输入反证；9项动态 canary 检查当前演示的输入清空、DOM、Web Storage、fetch 和日志。相关测试161/161、web types/两文件 lint通过。未改名或搬走业务代码来规避检查；此检查不是完整污点分析，演示路径也不证明未来 HTTP 服务安全。
+
+新增 Model 准入历史读取提案及4项测试，细则见 existing-read-api-map.md；旧配置版本保持未知，翻页固定序号上界。所有修复仍待新 SHA 独立复审和 CI，不能标记生产完成。

@@ -23,6 +23,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import ts from "typescript";
 import * as AR from "@repo/contracts/agent-runtime";
 import { mcpEndpointHint } from "@/lib/mcp-endpoint-hint";
 
@@ -253,10 +254,52 @@ describe("界面侧：端点原值只出现在管理员/评审人能看到的分
     expect(body).toContain("仅组织管理员可见");
   });
 
-  it("凭据字面量不出现在任何组件里（`凭据失效` 是连接状态，不算）", () => {
-    const offenders = files
-      .filter(([, body]) => /credential/i.test(body))
-      .map(([f]) => f);
-    expect(offenders, `这些组件里出现了 credential：${offenders.join(", ")}`).toEqual([]);
+  /** Inspect direct render sinks, not write-only state/request identifiers. This is not a taint analyser;
+   * runtime canary tests additionally cover actual text, attributes, Web Storage, fetch and logs.
+   * The identifier scope remains credential (as in the original guard); aliases need runtime coverage. */
+  function secretRenderSinks(body: string): string[] {
+    const source = ts.createSourceFile("component.tsx", body, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const sinks: string[] = [];
+    const containsSecret = (node: ts.Node): boolean =>
+      // Nested JSX is checked independently; a conditional rendering a password field is not an echo.
+      !(ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) &&
+      ((ts.isIdentifier(node) && /^credential$/i.test(node.text)) ||
+      (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression) &&
+        /^credential$/i.test(node.argumentExpression.text)) ||
+      (ts.forEachChild(node, child => containsSecret(child) || undefined) === true));
+    const visit = (node: ts.Node) => {
+      if (ts.isJsxExpression(node) && node.expression && containsSecret(node.expression)) {
+        const attr = ts.isJsxAttribute(node.parent) ? node.parent : null;
+        const name = attr?.name.getText(source);
+        const element = attr?.parent.parent;
+        const passwordValue = name === "value" && element &&
+          (ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)) &&
+          ["input", "Input"].includes(element.tagName.getText(source)) &&
+          element.attributes.properties.some(property => ts.isJsxAttribute(property) &&
+            property.name.getText(source) === "type" && property.initializer &&
+            ts.isStringLiteral(property.initializer) && property.initializer.text === "password");
+        // Event functions consume write input; their bodies aren't rendered values.
+        const eventHandler = name?.startsWith("on") &&
+          (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression));
+        if (!passwordValue && !eventHandler) sinks.push(node.getText(source));
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+    return sinks;
+  }
+
+  it("凭据只能作为 password 输入值，不能直接回显为文本或其他属性", () => {
+    const offenders = files.flatMap(([file]) => secretRenderSinks(readFileSync(join(COMPONENTS, file), "utf8"))
+      .map(sink => `${file}: ${sink}`));
+    expect(offenders).toEqual([]);
+  });
+
+  it("反证：接受写入输入，拒绝文本、属性、字符串键和改成明文的输入", () => {
+    expect(secretRenderSinks('<Input type="password" value={credential} onChange={e => setCredential(e.target.value)} />')).toEqual([]);
+    for (const broken of ['<p>{credential}</p>', '<p>{server.credential}</p>',
+      '<p>{server["credential"]}</p>', '<p title={credential} />', '<input type="text" value={credential} />', '<>{ready && <p>{credential}</p>}</>']) {
+      expect(secretRenderSinks(broken), broken).toHaveLength(1);
+    }
   });
 });

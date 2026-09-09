@@ -229,7 +229,7 @@ flowchart TB
         C33["试跑日志/输入/产物与失败详情读取<br/>预计 0.75 人日 · 未开始"]
         C34["三方文件内容/历史恢复/来源修复<br/>预计 0.75 人日 · 读取契约已补，修复写入待补"]
         C35["上传历史/限制详情/临时对象处理<br/>预计 0.5 人日 · 未开始"]
-        C36["管理历史读取/首次连接与凭据一致性<br/>预计 0.5 人日 · 未开始"]
+        C36["管理历史读取/首次连接与凭据一致性<br/>预计 0.5 人日 · 契约补充中"]
         C30 --> C31 --> C3
         C30 --> C32 --> C34 --> C3
         C30 --> C33 --> C3
@@ -296,9 +296,9 @@ flowchart TB
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d,stroke-width:2px;
     classDef pending fill:#f3e8ff,stroke:#7e22ce,color:#581c87,stroke-width:2px;
     class A,C1,C30,LG done;
-    class B,C2,C3,C4,C31,C32,C34,LY active;
+    class B,C2,C3,C4,C31,C32,C34,C36,LY active;
     class X,Y,LR blocked;
-    class C33,C35,C36,G,D,I,U,M,P,F,E,T,R,H,V,J,K,L,Z,LP pending;
+    class C33,C35,G,D,I,U,M,P,F,E,T,R,H,V,J,K,L,Z,LP pending;
 ```
 
 **估算口径（2026-09-10 00:06复估）**：1 人日 = 8 小时有效工作；节点数字是该工作包的总投入，不是每个参与者都花这么多，也不是承诺完成日期。图中业务与交付节点合计 51 人日，加身份接入 0.5 人日，复估 51.5 人日；基线恢复后须按实际代码缺口重估。四个执行席位受依赖、共享文件、评审容量约束，建议先预留约 5–6 个工作周，并另计人工签核等待时间；这是容量规划，不是实测工期或 Agent 运行时长承诺。

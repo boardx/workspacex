@@ -25,3 +25,11 @@
 C33对应：既有getRunFailure实施+归因、Skill trial失败输入、trial产物下载、必要的run-scoped MCP历史快照。新开发草稿试跑仍需明确自身job到实际运行结果/产物的关联；不能把只支持发布版本的getTrialRun直接接到draftId。
 
 C36对应：Model admission历史GET、MCP现有列表审计字段与CAS增量。MCP保密信息仍只返回credentialConfigured；若需精确端点输出，单列权限与脱敏决策。以上字段复用现有record/enum，不创建第二套Model/MCP状态。
+
+## Model 准入历史读取提案（2026-09-10）
+
+`packages/contracts/src/model-admission-history.ts` 新增只读提案 `listModelAdmissionTests`，复用 AdmissionTestRecord，追加存储序号 seq 与可空 configRevision。旧数据库记录没有配置版本，必须显示“版本未知”，不得补成当前版本，也不能据此允许当前版本启用。
+
+首次请求 afterSeq=0、snapshotSeq=null，服务端在组织及模型范围内获取实际 MAX(seq)，无记录时为0；随后页面固定此上界，按 seq ASC 读取，每页最多100项。新判读可以追加但不混入当前翻页快照，刷新开始新快照。末页 nextAfterSeq=null 且必须抵达上界；空末页仅在 afterSeq 等于上界时成立。adapter 需要多查一项来决定是否还有记录，schema 不证明数据库查询完整性。
+
+授权仍为组织管理员，租户从会话派生，先授权后读仓储。不新增修改/删除历史入口，不回传凭据或端点。五项反证测试覆盖版本未知、重复/串模型记录、翻页上界变化、提前结束和额外敏感字段。此提案未接入 controller、数据库迁移或页面请求，首次 MCP 连接与审计投影仍待补齐，C36仅进行中。
