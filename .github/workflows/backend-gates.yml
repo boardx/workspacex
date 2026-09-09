@@ -63,6 +63,14 @@ on:
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
     inputs:
+      deploy_skill_files_preview:
+        description: 'Deploy the authorized Skill multi-file test candidate to devapp after gates pass'
+        type: boolean
+        default: false
+      expected_skill_files_sha:
+        description: 'Exact reviewed candidate SHA; must equal this workflow run SHA'
+        type: string
+        default: ''
       deploy_capabilities_preview:
         description: 'Deploy the authorized standard-capabilities core preview to devapp after gates pass'
         type: boolean
@@ -491,7 +499,10 @@ jobs:
       needs.native-runtime-lane.result == 'success' &&
       ((startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
-        github.ref == 'refs/heads/codex/standard-capabilities'))
+        github.ref == 'refs/heads/codex/standard-capabilities') ||
+       (github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview &&
+        github.ref == 'refs/heads/codex/ai-capability-studio-live' &&
+        inputs.expected_skill_files_sha == github.sha))
     concurrency:
       group: workspacex-devapp-deploy
       cancel-in-progress: false
@@ -508,6 +519,12 @@ jobs:
           # 后果不是「多一条红」——deploy job 的条件是 needs: gates，所以 **tag 触发的部署
           # 从来就不可能成功**，devapp 因此长期落后 main 且无人发现（见 #483 / #499）。
           fetch-depth: 0
+
+      - name: Verify exact authorized Skill preview checkout
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview }}
+        env:
+          EXPECTED_SKILL_FILES_SHA: ${{ inputs.expected_skill_files_sha }}
+        run: bash .harness/scripts/vm/verify-skill-preview-ref.sh
 
       - name: 部署并冒烟
         # 走 /usr/local/bin 的副本，不是仓库里那份——sudoers 只许这一条路径。
