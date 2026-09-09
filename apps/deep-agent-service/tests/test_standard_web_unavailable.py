@@ -98,15 +98,18 @@ def failure(reason, **extra):
     return {'error': 'standard_web_unavailable_or_refused', 'reason': reason, **extra}
 
 
-def test_upstream_refusal_names_the_status_and_says_retrying_will_not_help(monkeypatch):
+@pytest.mark.parametrize("status", [403, 429, 503])
+def test_upstream_failure_preserves_status_without_inventing_cause_or_retry_policy(monkeypatch, status):
     """人类实测的那一条：openai.com 返回 HTTP/2 403 + cf-mitigated: challenge。
 
     修复前任意 503 都是同一句 'Web source unavailable or refused'，模型没法判断该不该换源。
     """
-    content = asyncio.run(_content(monkeypatch, failure('upstream_refused', upstreamStatus=403)))
-    assert '403' in content
-    assert 'refused this request' in content
-    assert 'Retrying will not help' in content
+    content = asyncio.run(_content(monkeypatch, failure('upstream_refused', upstreamStatus=status)))
+    assert f'HTTP {status}' in content
+    assert 'no content was confirmed' in content
+    assert 'declined automated access' not in content
+    assert 'Retrying will not help' not in content
+    assert 'Do not cite this failed source' in content
 
 
 def test_the_four_causes_are_actually_distinguishable(monkeypatch):

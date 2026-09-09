@@ -33,7 +33,7 @@ export const StandardWebInvocation=z.discriminatedUnion('toolName',[
 export const StandardWebFailureReason=z.enum(['upstream_refused','upstream_unreachable','timeout','blocked_by_policy','unsupported_content','no_content','too_large','unknown']);
 /** 给模型看的措辞——单一事实源，Python 侧只做 `{status}` 替换，不另写一份。 */
 export const STANDARD_WEB_FAILURE_GUIDANCE={
- upstream_refused:'The site refused this request (HTTP {status}); the page may exist but the server declined automated access. Retrying will not help. Do not cite this source; choose another authorized public source.',
+ upstream_refused:'The site returned HTTP {status}; no content was confirmed. This status alone does not establish why access failed or whether a later request could succeed. Do not cite this failed source; choose another authorized public source.',
  upstream_unreachable:'The site could not be reached (DNS or connection failure); no response was received. Do not cite this source; choose another authorized public source.',
  timeout:'The request timed out before the site responded; no content was received. One retry is reasonable, otherwise choose another authorized public source.',
  blocked_by_policy:'This URL was blocked by the outbound access policy, not by the site. Retrying the same URL will not help; choose another authorized public source.',
