@@ -63,7 +63,7 @@ export function PlanPanelReadOnly({ steps, compact = false }: PlanPanelReadOnlyP
      * 宿主 `copilotkit-v2-plan-control.tsx` 的根是 `flex flex-col max-h-48/64
      * overflow-y-auto`。本卡片在那个 flex 列里是一个 flex item，默认 `flex-shrink:1`；
      * 而它自己带 `overflow-hidden`，这会把 CSS 的「自动最小尺寸」（`min-height:auto`）
-     * 解析成 0 —— 于是浏览器认为它可以被压缩到任意矮，**压到正好等于容器高度**，
+     * 解析成 0 —— 于是浏览器认为它可以被压缩到任意矮，压到正好等于容器高度，
      * 容器因此永远算不出溢出：真浏览器实测 `scrollHeight === clientHeight === 256`、
      * `scrollTop` 推不动，而第 12 步的底边在 990px（容器底边 800px）。
      * 人类看到的「计划多的时候不能上下滚动、看不到后面的步骤」就是这个。
