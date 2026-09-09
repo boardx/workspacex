@@ -32,9 +32,11 @@ export const SkillSourceAssessment = z.discriminatedUnion("compatibility", [
 
 export const SkillAdaptationResult = z.object({ assessmentId: Id, assessmentDigest: Digest, draft: SkillDraft,
   attachments: z.array(z.object({ sourcePath: Path, draftPath: Path.refine(path => path.startsWith("references/imported/"), "source files are inert references"), digest: Digest }).strict()).min(1).max(1000),
+  manifestProvenance: z.object({ kind: z.literal("generated-template"), templateId: z.literal("skill-adaptation-v1"), contentDigest: Digest }).strict(),
   remainingWork: z.array(z.string().trim().min(1).max(1000)).min(1).max(100),
 }).strict().superRefine((result, context) => {
   if (result.draft.manifestPath !== "SKILL.md" || result.draft.revision !== 1 || result.draft.sourcePin === null || result.draft.basedOnPublishedVersionId !== null) context.addIssue({ code: z.ZodIssueCode.custom, message: "adaptation creates a new source-pinned draft, never a published or inherited version" });
+  if (!result.draft.files.some(file => file.path === "SKILL.md" && file.digest === result.manifestProvenance.contentDigest)) context.addIssue({ code: z.ZodIssueCode.custom, message: "generated manifest digest mismatch" });
   const paths = new Set<string>();
   const sources = new Set<string>();
   for (const attachment of result.attachments) {
@@ -56,7 +58,21 @@ export const skillAdaptationExchange = z.object({ assessment: SkillSourceAssessm
     assessment.assessmentId === request.assessmentId && response.assessmentId === request.assessmentId &&
     assessment.assessmentDigest === request.expectedAssessmentDigest && response.assessmentDigest === request.expectedAssessmentDigest &&
     JSON.stringify(assessment.pin) === JSON.stringify(response.draft.sourcePin) &&
+    assessment.inventory.files.every(file => file.digest !== response.manifestProvenance.contentDigest) &&
     request.selectedPaths.every(path => assessment.inventory.files.some(file => file.path === path)) &&
     request.selectedPaths.every(path => response.attachments.some(file => file.sourcePath === path)) &&
-    response.attachments.every(file => (request.selectedPaths.includes(file.sourcePath) || assessment.inventory.license.path === file.sourcePath) && assessment.inventory.files.some(source => source.path === file.sourcePath && source.digest === file.digest)),
+    response.attachments.every(file => request.selectedPaths.includes(file.sourcePath) && assessment.inventory.files.some(source => source.path === file.sourcePath && source.digest === file.digest)),
     "adaptation must preserve selected files from the authorized exact source assessment");
+
+/** Match client source intent before adding server-resolved commit/content digests. */
+export function sourceAssessmentMatchesRequest(request: z.infer<typeof SkillImportRequestSource>, pin: z.infer<typeof SkillSourcePin>): boolean {
+  const source = pin.source;
+  if (request.kind === "github" && source.kind === "github") return request.repositoryUrl === source.repositoryUrl && request.selection === source.selection && request.path === source.path && request.requestedRef === source.requestedRef && request.authConnectionId === source.authConnectionId;
+  if (request.kind === "zip" && source.kind === "zip") return request.uploadId === source.uploadId;
+  if (request.kind === "https-file" && source.kind === "https-file") return request.url === source.url && request.authConnectionId === source.authConnectionId;
+  return false;
+}
+export const sourceAssessmentExchanges = {
+  assessSkillImportSource: z.object({ request: operations.assessSkillImportSource.in, response: SkillSourceAssessment }).strict().refine(({ request, response }) => sourceAssessmentMatchesRequest(request.source, response.pin), "assessment must preserve every source selection field"),
+  getSkillSourceAssessment: z.object({ request: operations.getSkillSourceAssessment.in, response: SkillSourceAssessment }).strict().refine(({ request, response }) => request.assessmentId === response.assessmentId, "assessment identity mismatch"),
+} as const;

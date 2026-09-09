@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { admissionItems, governanceReducer, initialGovernancePreview, missingAdmission } from "../../components/ai-capability-studio/governance-preview-model";
 
 describe("governance preview dependency recovery", () => {
+  it("preserves the same-configuration discovery snapshot and accurately reports existing grants", () => {
+    let state = governanceReducer(initialGovernancePreview(), { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true });
+    state = governanceReducer(state, { type: "discover-changes" });
+    state = governanceReducer(state, { type: "grant", tool: "export_report", scope: "需人工确认每次" });
+    const again = governanceReducer(state, { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true });
+    expect(again.discoveryChanged).toBe(true);
+    expect(again.removedTools).toBe(state.removedTools);
+    expect(again.toolScopes.export_report).toBe("需人工确认每次");
+    expect(again.notice).toContain("保留现有发现差异与工具范围");
+  });
   it("invalidates grants and discovery differences when a new configuration succeeds", () => {
     let state = governanceReducer(initialGovernancePreview(), { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true });
     state = governanceReducer(state, { type: "discover-changes" });

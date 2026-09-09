@@ -50,3 +50,11 @@ Agent复用已接线的setAgentSkillPins：输入有序skillVersionIds及expecte
 createSkillAdaptationDraft只接收assessment引用、摘要、名称和明确所选文件；服务端读取原评估并校验权限/有效期。skillAdaptationExchange拒绝非适配来源、错评估/摘要/来源pin、清单外文件。输出必须为revision1、无发布血缘、带固定来源pin的新草稿；原源码仅进入references/imported/，生成SKILL.md及待完成说明，不执行源码、不自动AI读取或发布。原有SkillImportPreview仍表示确有候选的导入预览，未放松为任意“成功空候选”。
 
 4项契约反例通过，尚未接业务API、存储或完整适配编辑器。许可表达式null表示未识别，不能推断为可自由再分发；选择和保留许可证的最终流程需与UI一起签核。新错误闭集需在正式接线时接入HTTP映射，不能只改schema。
+
+## 第九轮关联修正与历史内容读取（2026-09-10）
+
+sourceAssessmentExchanges将首次请求的repo/ref/范围/path/连接，或ZIP uploadId/HTTPS URL关联到评估pin，并校验查询assessmentId。适配根SKILL.md声明generated-template来源及内容digest，要求与根manifest一致且不同于任何源文件digest；生产writer仍必须亲自从固定模板生成字节并计算摘要，不能只信声明。所有参考附件必须来自selectedPaths，LICENSE也不能被悄悄追加，UI需明确选择。该文件6项测试。
+
+新增review-only skill-history-content.ts：listSkillUpstreamFiles返回固定草稿/checkedSourceDigest下的base/local/upstream逐文件摘要；getSkillUpstreamFile按对应side和expectedFileDigest读取存在或不存在（空内容与不存在不同）；getSkillVersionFile依据versionId/snapshotDigest/path/expectedFileDigest读取历史内容。请求响应对检查全部引用；错版本、错side、重复或全空清单行拒绝，3项测试通过。
+
+这仍不证明存储内容匹配所报digest：正式存储适配器必须计算返回字节摘要，对比原始不可变manifest，并验证租户/资源可见性、检查记录有效期和source连接权限。来源重绑/显式脱离上游的写语义尚待收口，不能把这3个读取操作当整个上游恢复流程完成。

@@ -64,10 +64,10 @@ export function governanceReducer(state: GovernancePreview, action: GovernanceAc
         configRevision: state.configRevision + (changed ? 1 : 0),
         credentialRevision: state.credentialRevision + (action.mutation === "keep" ? 0 : 1), connectionStatus: "已连接",
         discoveredTools: changed ? ["search", "export_report"] : [...new Set([...state.discoveredTools, "export_report"])],
-        discoveryChanged: false, removedTools: [],
+        discoveryChanged: changed ? false : state.discoveryChanged, removedTools: changed ? [] : state.removedTools,
         toolScopes: changed ? { search: "未开放", export_report: "未开放" } : { export_report: "未开放", ...state.toolScopes },
         toolEffects: changed ? { search: "只读", export_report: "对外发送" } : { ...state.toolEffects, export_report: "对外发送" },
-        notice: changed ? "演示新配置已连接；旧工具授权不迁移，当前工具需要重新确认范围。" : "演示连接成功；新增工具未授权，旧发现差异已清空。" };
+        notice: changed ? "演示新配置已连接；旧工具授权不迁移，当前工具需要重新确认范围。" : state.discoveredTools.includes("export_report") ? "配置未变化；保留现有发现差异与工具范围。" : "配置未变化；原范围保留，本次新增export_report未开放。" };
     }
     case "discover-changes":
       if (state.connectionStatus !== "已连接") return { ...state, notice: "先恢复连接，再重新发现工具。" };
