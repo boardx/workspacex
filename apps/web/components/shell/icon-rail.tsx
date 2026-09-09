@@ -7,6 +7,7 @@ import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
+import { RailNotifications } from "./rail-notifications";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
@@ -23,6 +24,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
  *   「组织管理」项上，仍然是唯一的组织管理入口，只是从「点击直达」变成
  *   「点开菜单 → 点组织管理」；顶栏原独立组织切换器同轮删除（同一功能不许两个入口）。
  */
+/**
+ * nav / 底部段的盒模型只声明一次：`e2e/chat-rail-notifications-geometry.spec.ts`
+ * 的夹具引用这两个常量量真几何，不另抄一份 class 串。
+ */
+export const RAIL_NAV_CLASS =
+  "flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5";
+export const RAIL_BOTTOM_CLASS = "flex w-full shrink-0 flex-col items-center border-t border-border pt-1";
+
 export function IconRail({
   identity, organizations, onSwitchOrganization, switching, avatarInitial, onLogout,
 }: {
@@ -39,7 +48,11 @@ export function IconRail({
     <nav
       data-testid="shell-rail"
       aria-label="主导航"
-      className="flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-rail py-3.5"
+      /* ⚠ 这里**不能**是 `overflow-hidden`（#3246）：底部通知弹层向右展开在 nav 盒子
+         外面，`overflow-hidden` 会把它整个裁掉。栏内的滚动由中段 `rail-scroll` 自己
+         的 `overflow-y-auto` 承担，nav 本身从来不需要滚（`icon-rail-short-viewport`
+         的「nav 自身不滚动」断言仍然成立）。 */
+      className={RAIL_NAV_CLASS}
     >
       {/*
         2026-09-03 一度改成黑底 9 宫格图标（推翻同一天早些时候的「衬线体 W 字标」
@@ -129,7 +142,19 @@ export function IconRail({
           它是对整个产品说话。D2 的原话是「反馈这件事一旦要多点两下就没人提了」——
           所以它常驻，而不是折进某个菜单。
       */}
-      <div className="flex w-full shrink-0 flex-col items-center" data-testid="rail-bottom">
+      {/*
+        #3246 —— 通知铃铛（原在会话列表栏顶部）钉在这一段：**导航栏底部、与目的地列表
+        之间一条分隔线**。理由与 `FeedbackButton` 同一条：通知不是一个「目的地页面」，
+        是随时会变的瞬时面板。混进 `NAV_SEGMENTS` 会拿到 `aria-current="page"` 的高亮
+        逻辑（一个动作永远不是当前页），还会随中段滚走——而未读提醒恰恰要随时可达。
+
+        与 coordinator 给的取舍的**一处偏离**：弹层不与 trigger 顶端对齐，而是**锚底边、
+        向上生长**。trigger 就钉在栏底，顶端对齐等于让面板向下长再夹逼回视口内；锚底边
+        + `max-h` 上限在结构上就不可能被视口底边裁掉，少一层运行时计算。向右展开这一条
+        照办（左栏很窄且贴屏幕最左）。
+      */}
+      <div className={RAIL_BOTTOM_CLASS} data-testid="rail-bottom">
+        <RailNotifications />
         <FeedbackButton
           target={{ kind: "product" }}
           targetLabel={null}

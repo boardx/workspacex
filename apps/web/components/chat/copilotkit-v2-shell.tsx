@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
-import { TaskNotifications } from "@/components/chat/workbench/task-notifications";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +21,7 @@ import {
   type ListThreadAttachmentsOut, type ListThreadsOut, type ThreadCard,
 } from "@/lib/live-chat";
 import { createWorkbenchThread, listWorkbenchThreads, workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
+import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 
@@ -970,6 +970,15 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
 
+  /**
+   * 对话列表保鲜（状态点 / 排序）：每 10 秒 + 窗口回焦各刷一次。
+   *
+   * ⚠ 这条节奏此前**寄生在 `TaskNotifications` 的 `onRefresh` 上**。#3246 把铃铛搬去
+   * 图标导航栏之后，它必须留在聊天外壳——否则会随铃铛一起搬走，对话列表从此不再自动
+   * 刷新，而没有任何测试会红（老位置的组件还在，只是不在这一屏）。
+   */
+  useIntervalFocusRefresh(reloadThreads);
+
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
   /** 2026-09-08 人类反馈「CMD+K 不工作」——⌘K / Ctrl+K 此前只是侧栏里的视觉徽标。
    *  现在是真快捷键：聚焦对话搜索框（并在移动端把列表拉出来）。 */
@@ -1015,9 +1024,10 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
             仍用 `ThreadListHeader`，不跟着这里改——那是另一个决定，本次没有被
             要求覆盖它们。 */}
         <SidebarBrandHeader />
-        {/* 2026-09-08 人类直接指令：任务提醒改成全局通知中心（服务端 `/notifications`），
-            不再靠本地对比对话列表快照——所以这里不再喂 cards / activeThreadId。 */}
-        {session && <TaskNotifications sessionToken={bearer ?? undefined} onOpenThread={selectThread} onRefresh={reloadThreads} />}
+        {/* 2026-09-08 人类直接指令：任务提醒改成全局通知中心（服务端 `/notifications`）。
+            issue #3246（2026-09-10 人类原话「这个 notification icon 放在左边的 navbar 吧」）
+            起，铃铛不在这里了——它挂在全局图标导航栏底部（`components/shell/rail-notifications.tsx`）。
+            铃铛顺带承担的「对话列表保鲜」那半边留在本文件：它属于聊天外壳，不该跟着搬走。 */}
         <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——

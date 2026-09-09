@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   outputDir: "test-results/trace-geometry",
   testDir: "./e2e",
-  testMatch: /chat-trace-disclosure-geometry\.spec\.ts/,
+  testMatch: /-geometry\.spec\.ts$/,
   forbidOnly: !!process.env.CI,
   reporter: "list",
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
