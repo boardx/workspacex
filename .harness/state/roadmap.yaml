@@ -104,3 +104,10 @@ phases:
     status: in_progress
     depends_on: []
     has_ui: true
+  - id: "15"
+    slug: ai-capability-studio
+    name: ai-capability-studio
+    goal: "Agent、Skill、MCP、Model 后台统一升级：导入、开发、验证、发布、真实使用与反馈闭环"
+    status: not_started
+    depends_on: []
+    has_ui: true

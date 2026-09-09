@@ -19,5 +19,6 @@
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |
 | 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
 | 14 | agent-kernel-unification | in_progress | 0 | 0 | 0 | 15 |
+| 15 | ai-capability-studio | not_started | 0 | 0 | 0 | 0 |
 
-_最近聚合:2026-09-08T12:49:27.811Z_
+_最近聚合:2026-09-09T11:28:07.216Z_
