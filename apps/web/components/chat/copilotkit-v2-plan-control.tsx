@@ -387,6 +387,10 @@ function PlanControlSession(
           currentStepLabel={currentStep.content}
           stepIndex={currentStepIndex}
           stepTotal={ledger.steps.length}
+          // issue #3132 —— 完成数取账本自己数出来的 `progress.completed`（读模型单一
+          // 事实源），不是 `currentStepIndex - 1`：后者是"跑到第几步"的推算，与真实
+          // 已完成数在跳步/收尾补标时并不相等。
+          completedCount={ledger.progress.completed}
           elapsedMs={ledger.progress.elapsedMs}
           isPaused={Boolean(ledger.pausedAt)}
           isPauseRequested={!ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}

@@ -30,6 +30,16 @@ export interface PlanRunProgressProps {
   readonly stepIndex: number;
   readonly stepTotal: number;
   readonly elapsedMs: number;
+  /**
+   * issue #3132 —— **已标记完成的步骤数**，与 `stepIndex`（"现在跑到第几步"）不是
+   * 同一件事：跑到第 3 步不等于前 2 步都已 `completed`（引擎可能跳步、也可能收尾
+   * 时才补标）。判据 TW-P0-3⑤ 要的是"完成比例"，唯一诚实的来源是账本自己数出来的
+   * `getPlanLedger.progress.completed`，不是从当前步号推。
+   *
+   * ⚠ 只经 `data-completed` 暴露，不新增第二段可见文案——可见的 `x/y` 说的是"当前
+   * 步/总步"，两句话摆在一起只会让用户以为界面自相矛盾。
+   */
+  readonly completedCount: number;
   readonly isPaused: boolean;
   readonly isPauseRequested?: boolean;
   readonly onPause?: () => void;
@@ -50,11 +60,23 @@ export interface PlanRunProgressProps {
 export function PlanRunProgress(
   {
     currentStepLabel, stepIndex, stepTotal, elapsedMs, isPaused, onPause, onResume,
-    hasRecentError = false, isPauseRequested = false,
+    completedCount, hasRecentError = false, isPauseRequested = false,
   }: PlanRunProgressProps,
 ): React.JSX.Element {
   return (
-    <Card data-testid={PLAN_RUN_PROGRESS_TESTID}>
+    /*
+     * issue #3132 —— 三个机器可读属性。此前这张卡只有给人看的文案（"2/3 · 已用 5秒"），
+     * 判据 TW-P0-3⑤ 要求的"完成比例 / 耗时可被判定"在 DOM 上**没有任何载体**：
+     * `chat-task-workbench-run-progress` 即使渲染出来，`data-completed` / `data-total` /
+     * `data-elapsed-ms` 三条断言也必红。属性值与上面那行可见文案同源（`stepTotal` /
+     * `elapsedMs` 各只有一个来处），不是第二份事实。
+     */
+    <Card
+      data-testid={PLAN_RUN_PROGRESS_TESTID}
+      data-completed={String(completedCount)}
+      data-total={String(stepTotal)}
+      data-elapsed-ms={String(elapsedMs)}
+    >
       <CardContent className="flex flex-col gap-2 py-3">
         <div className="flex items-center gap-2">
           <CircleDot aria-hidden className="h-4 w-4 text-primary" />
