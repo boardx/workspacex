@@ -657,7 +657,7 @@ jobs:
 
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
-    if: always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
+    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
     needs: [full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
