@@ -300,7 +300,7 @@ export default defineConfig({
        * 一条 spec 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞
        * 车道**，连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
        */
-      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask)\.spec\.ts$/,
+      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|f1-failure-cause-distinguishable|f3-pause-resume-retry-step)\.spec\.ts$/,
     },
     {
       /**
@@ -555,6 +555,8 @@ export default defineConfig({
         ...process.env,
         LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
         LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
+        // 路径矩阵 F1 —— 第二个**成因不同**的失败触发词，见 `deepAgentEmptyReplyTrigger` 头注。
+        LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER: CHAT_READ_E2E.deepAgentEmptyReplyTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
         // 路径矩阵 F5 / C8 —— 见 `deepAgentSubtaskHoldPolls` 与替身侧 `SUBTASK_HOLD_POLLS` 头注。
@@ -715,6 +717,10 @@ export default defineConfig({
         CHAT_E2E_DEEP_AGENT_MODEL_ID: CHAT_READ_E2E.deepAgentModelId,
         CHAT_E2E_DEEP_AGENT_DISPLAY_NAME: CHAT_READ_E2E.deepAgentDisplayName,
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // 与产品默认值相同（`deep-agent-model-provider.ts` 的 2000），显式下发只为把
+        // F5 判据 3 的窗口从"猜一个常数"改成"由轮数 × 周期算出来"。见
+        // `deepAgentSubtaskPollIntervalMs` 头注。
+        KERNEL_DEEP_AGENT_POLL_INTERVAL_MS: String(CHAT_READ_E2E.deepAgentSubtaskPollIntervalMs),
         // UI 评分第 1 项（流式反馈）的取证前提：开关开着，loopback 的 /stream
         // SSE 端点逐片发正文，前端 streamingText 才有增量可渲染。评分员 2026-08-23
         // 的判 0 依据就是「b1-stream 相邻帧正文字数相同」——这行 + loopback 的

@@ -102,6 +102,16 @@ export interface StoredRun {
   readonly status: string;
   readonly resultMessageId?: string | null;
   readonly error?: string | null;
+  /**
+   * issue #3211 ① / PR #3229 —— 终态失败**成因**（有界枚举，契约
+   * `wave2Runtime.AgentRunFailureReason`）。`GET /agent-runs/:runId` 直接把
+   * `AgentRunView` 摊平下发（`agent-run.controller.ts:146-154`），所以这一列
+   * 是**权威读**，不是从界面反推的。
+   *
+   * ⚠ 老 run / 尚未带成因的失败路径上它是 `null`——那与「成因归不了类」（`unknown`）
+   * 是两件事，断言时不要混。
+   */
+  readonly failureReason?: string | null;
 }
 
 export async function storedRun(page: Page, runId: string): Promise<StoredRun> {

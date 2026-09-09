@@ -79,6 +79,23 @@ export const CHAT_READ_E2E = {
    */
   deepAgentSubtaskHoldPolls: 60,
   /**
+   * 上面那个轮数对应的**状态轮询周期**（毫秒）。
+   *
+   * ## 为什么要把一个"本来就是默认值"的数写出来
+   *
+   * `deep-agent-model-provider.ts` 的 `KERNEL_DEEP_AGENT_POLL_INTERVAL_MS` 默认就是
+   * 2000，本 config 此前**没有下发它**。于是 F5 判据 3 的等待窗口（当时写死 90 秒）
+   * 与它真正要等过的那个点（60 轮 × 2000ms = **120 秒**）之间差了 30 秒——
+   * 窗口比它要盖住的事件短，"等过它本该自然完成的那个点"这句话在实现上从来没成立过，
+   * 而两层各自都对（60 是对的、90 也没写错），**乘起来是 0**。这与矩阵里 F3 那条
+   * 「974ms 窗口 vs 3000ms 轮询」是同一个形状。
+   *
+   * 修法不是把 90 改成 121，那只是换一个猜得更准的常数：把周期**显式下发**，
+   * 让用例用 `轮数 × 周期` 算出窗口。显式下发的值与产品默认值相同，因此这次改动
+   * 对所有既有用例的时序**逐字节无影响**——变的只是"这个数从此有单一事实源"。
+   */
+  deepAgentSubtaskPollIntervalMs: 2_000,
+  /**
    * issue #3000 —— 「这一轮真的跑一段时间」的触发词，只服务
    * `copilotkit-v2-run-restore-after-switch.spec.ts`：替身收到它之后先把 `/stream` 的
    * 响应头发出去、再等 `deepAgentSlowHoldMs` 才发正文，于是这一轮在切走/切回的整个
@@ -417,4 +434,17 @@ export const CHAT_READ_E2E = {
    * 要证的是「上游半路断了，界面诚实收场，不假装还在跑」。
    */
   deepAgentStreamAbortTrigger: "取证：请在流式过程中断开上游",
+
+  /**
+   * F1 失败成因可分辨 —— 触发词命中时，替身把 run 的状态答成 **`success`**，但
+   * `/state` 一条 assistant 消息都不给，于是产品侧
+   * `deep-agent-model-provider.ts:688` 抛
+   * `deep agent run succeeded but produced no assistant message`，
+   * `classifyModelCallFailureReason` 把它分类成 **`provider_returned_empty`**。
+   *
+   * 与 `deepAgentFailureTrigger`（终态 `error` ⇒ `provider_rejected`）刻意成因不同：
+   * F1 的判据是「四件可行动性不同的事不再共用一句话」，只有拿到**两个不同的成因**
+   * 才谈得上证伪它。见替身侧 `EMPTY_REPLY_TRIGGER` 头注。
+   */
+  deepAgentEmptyReplyTrigger: "取证：请让这次执行空手而归",
 } as const;

@@ -311,6 +311,33 @@ const SKILL_CATALOG_HEADER_LINE = buildDeepAgentSkillCatalogBlock([]).split("\n"
  */
 const STREAM_ABORT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER;
 
+/**
+ * 路径矩阵 **F1（失败成因可分辨）** —— 命中这个触发词时，run 的状态轮询一路答
+ * `success`（**不是** `error`），但 `/threads/:id/state` 只回那条 human 消息、
+ * **一条 assistant 消息都不给**。
+ *
+ * ## 为什么要第三个失败触发词
+ *
+ * `FAILURE_TRIGGER` 与 `STREAM_ABORT_TRIGGER` 在替身里是两段不同的代码，但它们
+ * 落到产品面的**成因**是同一个：两条最终都把 run 的状态答成 `error`，于是
+ * `deep-agent-model-provider.ts` 抛的 detail 都形如 `run ended with status ...`，
+ * 经 `classifyModelCallFailureReason` 都分类成 `provider_rejected`。**两个触发词
+ * 证不出"不同的失败在界面上说的是不同的话"**——而那正是 issue #3211 ① / PR #3229
+ * 要修的那件事（四件可行动性完全不同的事共用「模型这次没能返回可用结果」一句话）。
+ *
+ * 这条走的是 `deep-agent-model-provider.ts:688` 那段：远端 run **成功**了，但
+ * `readTurnReply` 读不出任何 assistant 正文 ⇒ 抛
+ * `deep agent run succeeded but produced no assistant message` ⇒ 分类成
+ * `provider_returned_empty`。与 `provider_rejected` 是**不同的枚举值、不同的那句话**，
+ * 于是"可分辨"这条判据第一次有了可以被证伪的对象。
+ *
+ * ⚠ 刻意不用「让执行器抛异常」来造 `executor_defect`：那要在产品代码里埋一个只为
+ * 测试存在的故障注入点，是把被测物改成替身。这条只用替身自己合法的响应形状
+ * （`{ values: { messages: [...] } }`，与上面 `!record.started` 那支回空数组同形），
+ * 产品侧一行都不用改。
+ */
+const EMPTY_REPLY_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER;
+
 /** system prompt 的 skill **目录**里真的出现了这个 stable_name 吗。开关未给全时恒 `false`。 */
 function skillCatalogReachedUpstream(body: CreateRunBody): boolean {
   if (SKILL_CATALOG_STABLE_NAME === null || SKILL_CATALOG_ECHO_PREFIX === null) return false;
@@ -763,6 +790,9 @@ const server = createServer((req, res) => {
     // run 收回 `queued` 再 resume，真的会走到这里，见下方 state 分支的处理。
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
     const isAbort = STREAM_ABORT_TRIGGER !== undefined && record.userText === STREAM_ABORT_TRIGGER;
+    // F1：空回复那条**不进**这个三元——它的终态就是 `success`，失败发生在读正文那一步
+    // （`readCompletion` 读不出 assistant 消息才抛）。把它答成 `error` 会让它与
+    // `FAILURE_TRIGGER` 落到同一个成因，这条触发词就白加了。
     const status = (FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER) || isAbort ? "error" : "success";
     sendJson(res, 200, { status });
     return;
@@ -863,6 +893,13 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
     if (!record.started) { sendJson(res, 200, { values: { messages: [] } }); return; }
+    // F1（见 `EMPTY_REPLY_TRIGGER` 头注）：远端 run 成功收场，但这一轮没有任何
+    // assistant 正文。排在所有剧本分支**之前**——否则下面任意一支都会先给出正文，
+    // 这条触发词就永远到不了（C4 的「specific 判定被 ambient 判定永久遮住」同形）。
+    if (EMPTY_REPLY_TRIGGER !== undefined && record.userText === EMPTY_REPLY_TRIGGER) {
+      sendJson(res, 200, { values: { messages: [{ type: "human", content: record.userText }] } });
+      return;
+    }
     const toolCallId = `call-${threadId}`;
     // DA-06 取证扩展（#1749，UI 主卡第 2 项「规划步骤」）：剧本先发一次 write_todos
     // ——与真 deepagents TodoListMiddleware 的调用形状一致（args.todos 数组），

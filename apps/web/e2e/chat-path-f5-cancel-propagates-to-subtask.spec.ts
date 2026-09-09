@@ -55,7 +55,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshDeepAgentThread, sessionHeaders } from "./support/chat-path-coverage";
 
-test.setTimeout(300_000);
+/*
+ * 判据 3 的等待窗口从 90 秒改成 `60 轮 × 2000ms + 30 秒余量 = 150 秒`（见该处头注），
+ * 整条用例因此多花约一分钟——预算同步抬高，否则修好的窗口会被用例级超时重新截断，
+ * 等于换一种方式让那条判据继续求值不到。
+ */
+test.setTimeout(420_000);
 
 interface SubtaskRunView {
   readonly id: string;
@@ -157,12 +162,21 @@ test("@path:F5 父 run 取消之后，它派出去的子任务停下来，且不
 
   // ── 判据 3：等过"它本该自然完成"的那个点，确认没有晚到的产物 ────────────────
   /*
-   * 60 次状态轮询在 hold 之内；这里等的这段时间要**盖过**那个点，否则"没有晚到产物"
-   * 只是"还没到发布的时候"。轮询周期是 provider 侧的状态轮询间隔（秒级），60 轮
-   * 因此是几十秒量级——等 90 秒并在其间持续复查，比只在末尾看一眼更能抓住"中途冒出来
-   * 又被抹掉"这种形态。
+   * 这段等待要**盖过**"子任务本该自然完成"的那个点，否则"没有晚到产物"只是
+   * "还没到发布的时候"——判据 3 就退化成一句永远为真的话。
+   *
+   * ⚠ 这个窗口此前写死 90 秒，而它要盖住的点是 `60 轮 × 2000ms = 120 秒`：
+   * **窗口比事件短 30 秒，这条判据从落地起就没有真正被求值过。** 两层各自都对
+   * （轮数是对的、90 秒也不是笔误），乘起来是 0——与矩阵里 F3 那条
+   * 「974ms 窗口 vs 3000ms 轮询」同形。
+   *
+   * 改法不是换一个更大的常数（那只是猜得准一点），是**由构造算出来**：两个因子
+   * 现在都由 `chat-read-fixture.ts` 单点声明并下发给被测进程，谁改了哪一个，
+   * 这里的窗口都会自动跟着变。末尾那 30 秒是给轮询抖动与写回留的余量。
    */
-  const settleUntil = Date.now() + 90_000;
+  const naturalCompletionMs =
+    CHAT_READ_E2E.deepAgentSubtaskHoldPolls * CHAT_READ_E2E.deepAgentSubtaskPollIntervalMs;
+  const settleUntil = Date.now() + naturalCompletionMs + 30_000;
   while (Date.now() < settleUntil) {
     const one = (await listSubtasks(page, parentRunId)).find((each) => each.id === subtaskId);
     expect(one, `子任务 ${subtaskId} 从列表里消失了——取消不该删掉这条记录`).toBeDefined();
