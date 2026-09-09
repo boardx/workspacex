@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /private/tmp/wsx-3213-geometry
+
+ ✓ .harness/scripts/lint-e2e-artifact-isolation.test.ts (2 tests) 55ms
+ ✓ .harness/scripts/ci-lane-dedup.test.ts (30 tests) 109ms
+ ✓ .harness/scripts/lint-spec-gate-coverage.test.ts (11 tests) 5121ms
+   ✓ 真实仓库 > 当前仓库没有 unrun 的 spec 2564ms
+   ✓ 真实仓库 > 门控脚本本身以 0 退出 2517ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  17:13:19
+   Duration  5.37s (transform 165ms, setup 0ms, collect 238ms, tests 5.29s, environment 0ms, prepare 100ms)
+
