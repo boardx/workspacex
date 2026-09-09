@@ -57,7 +57,22 @@ export interface PlanPanelReadOnlyProps {
 
 export function PlanPanelReadOnly({ steps, compact = false }: PlanPanelReadOnlyProps): React.JSX.Element {
   return (
-    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className={cn("w-full overflow-hidden", compact && "border-0 bg-transparent shadow-none")}>
+    /*
+     * issue #3245② —— `shrink-0` 不是装饰，是这块能不能滚的开关。
+     *
+     * 宿主 `copilotkit-v2-plan-control.tsx` 的根是 `flex flex-col max-h-48/64
+     * overflow-y-auto`。本卡片在那个 flex 列里是一个 flex item，默认 `flex-shrink:1`；
+     * 而它自己带 `overflow-hidden`，这会把 CSS 的「自动最小尺寸」（`min-height:auto`）
+     * 解析成 0 —— 于是浏览器认为它可以被压缩到任意矮，**压到正好等于容器高度**，
+     * 容器因此永远算不出溢出：真浏览器实测 `scrollHeight === clientHeight === 256`、
+     * `scrollTop` 推不动，而第 12 步的底边在 990px（容器底边 800px）。
+     * 人类看到的「计划多的时候不能上下滚动、看不到后面的步骤」就是这个。
+     *
+     * 加 `shrink-0` 之后同一夹具实测 `scrollHeight 458 > clientHeight 256`、
+     * `scrollTop` 推到 202、末步底边 788 落回容器内。判据见
+     * `e2e/chat-plan-panel-scroll-geometry.spec.ts`。
+     */
+    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className={cn("w-full shrink-0 overflow-hidden", compact && "border-0 bg-transparent shadow-none")}>
       {/*
         issue #2476 —— 卡头改成独立的、`--accent` 浅底的标题区，跟下面的步骤列表
         分层：卡头只回答"这是什么计划"，不跟步骤内容混排。复用既有 `--accent`

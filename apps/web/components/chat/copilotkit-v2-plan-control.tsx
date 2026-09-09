@@ -77,6 +77,12 @@ import { describePlanFailureReason } from "@/lib/plan-control-copy";
  */
 
 export const PLAN_CONTROL_EDIT_TOGGLE_TESTID = "chat-task-workbench-plan-edit-toggle";
+/**
+ * 计划面板的滚动容器盒模型只声明一次——`e2e/fixtures/plan-panel-scroll-fixture.tsx`
+ * 引用它量真几何，不抄第二份（抄一份的话夹具会永远量到"旧的正确答案"）。
+ */
+export const PLAN_CONTROL_SCROLLER_CLASS =
+  "flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64";
 export const PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID = "chat-task-workbench-plan-collapse-toggle";
 
 export interface CopilotKitV2PlanControlProps {
@@ -342,7 +348,7 @@ function PlanControlSession(
     : ledger.phase === "executing" ? "执行中" : ledger.gate.required ? "等待确认" : "待执行";
 
   return (
-    <div data-testid="chat-task-workbench-plan-control" className="flex max-h-48 shrink-0 flex-col gap-2 overflow-y-auto overscroll-contain md:max-h-64">
+    <div data-testid="chat-task-workbench-plan-control" className={PLAN_CONTROL_SCROLLER_CLASS}>
       {/* #3208 方案 A —— 常驻四态，或用户展开折叠头时（"收起后仍可触达"那一半）。 */}
       {pinIndicator || !collapsed ? phaseIndicator : null}
       <div className="flex items-center gap-2">
