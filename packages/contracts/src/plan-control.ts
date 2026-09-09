@@ -697,8 +697,25 @@ export function derivePlanPhase(input: {
    */
   if (input.hasPendingPlanConfirmation) return "planning";
   if (hasPendingApproval) return "approving";
-  if (input.ledgerEmpty) return "preparing";
+  /*
+   * issue #3208 —— **在途性优先于「账本有没有步骤」，这两行的顺序不许换回去。**
+   *
+   * 原顺序是 `ledgerEmpty` 先判，于是任何一条没写过计划的 run（大量普通对话）阶段
+   * 恒为 `preparing`：#3187 记录的 44 次 ledger 请求全部返回
+   * `phase:"preparing" / runStatus:"running" / steps:0`，而 `copilotkit-v2-plan-control.tsx`
+   * 同一行右侧由 `runStatus` 推出「执行中」——同一屏两处自相矛盾（#3208 的验收现场）。
+   *
+   * 换句话说：**run 的在途性此前被声明在两处**（`phase` 一处、`deriveRunControls`/
+   * `runStatus` 一处），且两处结论相反。收敛的方向只能是让 `phase` 与 run 的事实一致，
+   * 不是让前端各自打补丁。修正后 `preparing` 的含义收窄为**没有在途 run 且没有计划**
+   * （idle / 新线程），不再与「正在跑」重叠。
+   *
+   * 仍排在三个终态、`planning`、`approving` **之后**：终态优先（#2927 / #3079）、
+   * 计划确认门优先（#3132）、`call_skill` 待审批优先（XC-59）三条既有优先级
+   * 一条未动，本次只交换最后两行。
+   */
   if (input.runStatus === "running" || input.runStatus === "interrupted") return "executing";
+  if (input.ledgerEmpty) return "preparing";
   return "planning";
 }
 
@@ -708,16 +725,14 @@ export function derivePlanPhase(input: {
  *
  * ## 为什么不能继续用 `derivePlanPhase` 判「能不能暂停」
  *
- * 上面那个函数里 `ledgerEmpty` 优先于 `running`：模型没调 `write_todos` 的 run
- * （大量普通对话）阶段恒为 `"preparing"`，而 `"preparing"` 同时也是 idle 线程的阶段
- * ——**一个正在跑的 run 和一个什么都没发生的线程，在 `phase` 上不可区分**。前端据此
- * 做的渲染门（`copilotkit-v2-plan-control.tsx` 的 `phase === "executing" && currentStep`）
+ * 当时 `derivePlanPhase` 里 `ledgerEmpty` 优先于 `running`：模型没调 `write_todos` 的
+ * run（大量普通对话）阶段恒为 `"preparing"`，与 idle 线程不可区分，前端据此做的渲染门
  * 于是把「run 在跑」读成「没在跑」，整张运行进度卡片不渲染，用户没有任何暂停入口。
  *
- * 这不是给 `derivePlanPhase` 调换两行判定顺序能解决的：`phase` 描述的是**计划**处在
- * 哪一段，暂停/恢复针对的是 **run** 本身，两者本就是两个维度（一个 run 可以在没有
- * 任何计划的情况下跑）。本函数只看 `runStatus`——计划账本有没有步骤与它无关。
- * `derivePlanPhase` 的语义因此**一个字没动**，它的既有消费方全部不受影响。
+ * ⚠ 那条顺序缺陷已在 #3208 修掉（`running`/`interrupted` 现在优先于 `ledgerEmpty`），
+ * 但**本函数依然不该由 `phase` 代劳**：`phase` 描述的是**计划**处在哪一段，暂停/恢复
+ * 针对的是 **run** 本身，两者是两个维度（一个 run 可以在没有任何计划的情况下跑，一个
+ * 已 `done` 的 run 也仍有计划可看）。本函数只看 `runStatus`——计划账本有没有步骤与它无关。
  *
  * ## 边界（不要放宽）
  *

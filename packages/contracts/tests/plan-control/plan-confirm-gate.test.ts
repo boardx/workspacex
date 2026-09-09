@@ -29,14 +29,16 @@ const BASE = {
 describe("B7 · derivePlanPhase 的 planning 分支真的可达", () => {
   it("run 在跑 + 账本为空 + 停在计划确认中断 ⇒ planning（#3132 的核心修复点）", () => {
     // 撤掉 `if (input.hasPendingPlanConfirmation) return "planning";` ⇒ 这条落回
-    // "preparing"（`ledgerEmpty` 先判），正是 #3132 描述的「确认门永不渲染」。
+    // `executing`（#3208 之前是 `preparing`），确认门同样永不渲染——#3132 的形状不变，
+    // 只是被它压过的那个分支换了名字。
     expect(derivePlanPhase({
       ...BASE, runStatus: "running", hasPendingPlanConfirmation: true,
     })).toBe("planning");
   });
 
-  it("没有计划确认中断时，既有判定逐字不变（本改动不放宽任何既有分支）", () => {
-    expect(derivePlanPhase({ ...BASE, runStatus: "running" })).toBe("preparing");
+  it("没有计划确认中断时，既有判定不变（本改动不放宽任何既有分支）", () => {
+    // #3208：run 在跑 ⇒ executing（原为 preparing，那是被修掉的顺序缺陷本身）。
+    expect(derivePlanPhase({ ...BASE, runStatus: "running" })).toBe("executing");
     expect(derivePlanPhase({ ...BASE, runStatus: "running", ledgerEmpty: false })).toBe("executing");
     expect(derivePlanPhase({ ...BASE, runStatus: "idle", ledgerEmpty: false })).toBe("planning");
   });

@@ -291,11 +291,12 @@ describe("deriveRunControls（issue #3099：运行级控制与计划级视图解
   });
 
   it("计划账本是否为空与运行级控制无关——这正是 #3099 的缺陷所在", () => {
-    // 同一个正在跑的 run：没有计划时 phase 落在 preparing（与 idle 线程不可区分），
-    // 有计划时才是 executing。运行级控制在两种情况下必须一致。
+    // 同一个正在跑的 run：#3208 修正顺序后，有没有计划都落在 executing
+    // （在途性优先于账本是否为空）。运行级控制在两种情况下必须一致——这是 #3099 的点，
+    // 它不依赖 phase 取什么值，因此下面两条随契约更新、断言本身一条没删。
     const emptyPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: true, hasFailedStep: false, hasPendingPlanConfirmation: false, pendingToolCalls: [] });
     const fullPhase = derivePlanPhase({ runStatus: "running", ledgerEmpty: false, hasFailedStep: false, hasPendingPlanConfirmation: false, pendingToolCalls: [] });
-    expect(emptyPhase).toBe("preparing");
+    expect(emptyPhase).toBe("executing");
     expect(fullPhase).toBe("executing");
     expect(deriveRunControls({ runStatus: "running" })).toEqual({ canPause: true, canResume: false });
   });
