@@ -52,6 +52,7 @@ let providerServer: Server;
 let providerBase = "";
 let nextReplyText = "durable AG-UI reply from the loopback provider";
 let providerCalls = 0;
+let providerMode: "stall" | "error" = "stall";
 
 async function startProvider(): Promise<void> {
   providerServer = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -59,6 +60,11 @@ async function startProvider(): Promise<void> {
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
       providerCalls += 1;
+      if (providerMode === "error") {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "counterproof: immediate upstream rejection" } }));
+        return;
+      }
       void res; void nextReplyText; // stand-in: accepts the request, never answers.
     });
   });
@@ -186,6 +192,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   providerCalls = 0;
+  providerMode = "stall";
   nextReplyText = "durable AG-UI reply from the loopback provider";
   await resetOrgs(ORG, OTHER_ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
@@ -197,6 +204,13 @@ beforeEach(async () => {
 });
 
 
+function expectRelayTimeout(events: ParsedSseEvent[]): void {
+  expect(providerCalls).toBeGreaterThan(0);
+  expect(events.filter((event) => event.type === EventType.RUN_ERROR)).toEqual([
+    expect.objectContaining({ code: "AGENT_RUN_TIMEOUT" }),
+  ]);
+}
+
 describe("counterproof: a stalled upstream", () => {
   it("fails with a NAMED relay timeout inside the test budget, not a naked Test timeout", async () => {
     const started = Date.now();
@@ -204,7 +218,19 @@ describe("counterproof: a stalled upstream", () => {
     const elapsedMs = Date.now() - started;
     console.log(`[counterproof] elapsedMs=${elapsedMs} types=${JSON.stringify(r.events.map((e) => e.type))}`);
     expect(r.status).toBe(200);
-    expect(r.events.map((e) => e.type)).toContain(EventType.RUN_ERROR);
+    expectRelayTimeout(r.events);
     expect(elapsedMs).toBeLessThan(30_000);
+  }, 30_000);
+
+  it("rejects an immediate upstream error as evidence of the relay timeout", async () => {
+    providerMode = "error";
+    const r = await postBridgeTurn({ text: "reject immediately" });
+    expect(r.status).toBe(200);
+    expect(providerCalls).toBeGreaterThan(0);
+    const errors = r.events.filter((event) => event.type === EventType.RUN_ERROR);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.code).not.toBe("AGENT_RUN_TIMEOUT");
+    // This response passed the old assertion (any RUN_ERROR); the timeout oracle must reject it.
+    expect(() => expectRelayTimeout(r.events)).toThrow();
   }, 30_000);
 });
