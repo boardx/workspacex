@@ -73,3 +73,35 @@ for (const mode of ["headers-hang", "body-never-closes"] as const) it(`bounds re
   expect(Date.now()-begun).toBeLessThan(1000);
   expect(starts).toBe(1);
 });
+
+/**
+ * 反证（#3292 复核 §4 (d)）：代理 / LB 在一个**干净的帧边界**上掐断 SSE，图还在继续
+ * 产生 skill 事实。字节层面它与「join 流正常关闭」完全一样（都是干净 EOF + 状态非终态），
+ * 而轮询路径**一条 skill 事实都不投递**（`emitNewToolEvents` 只提取 tool 事件）。
+ * 若落回时只轮询，结果就是 run 报 success、事实册子缺 `fact2`、没有任何人知道。
+ */
+it("re-opens the stream instead of silently polling when a clean EOF leaves the run non-terminal", async () => {
+  const fact2 = { ...fact, factId: "fact2", stage: "body_read" as const };
+  let streamOpens = 0, starts = 0, statusReads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/stream")) {
+      streamOpens++;
+      const payload = streamOpens === 1 ? fact : streamOpens === 2 ? fact2 : null;
+      // 干净的帧边界上结束：没有半帧残留，`tryStreamRun` 返回 true。
+      return new Response(payload === null ? "" : `event: custom\ndata: ${JSON.stringify({type:"skill_activity",version:1,fact:payload})}\n\n`,
+        {headers:{"content-type":"text/event-stream"}});
+    }
+    if (init?.method === "POST" && url.endsWith("/runs")) { starts++; return Response.json({run_id:"remote"}); }
+    if (url.endsWith("/state")) return Response.json({values:{messages:[{type:"ai",id:"final",content:"done"}]}});
+    if (url.endsWith("/runs/remote")) { statusReads++; return Response.json({status: statusReads === 1 ? "pending" : "success"}); }
+    return Response.json({thread_id:"thread",status:"idle"});
+  }));
+  const seen: string[] = [];
+  const provider = new DeepAgentModelProvider({baseUrl:"http://kernel.invalid",streamEnabled:false,timeoutMs:2000,pollIntervalMs:1});
+  await provider.completeWithProgress({modelProvider:"deep-agent",modelId:"test",system:"",user:"hi",threadId:"thread",
+    onSkillActivity:async(f)=>{seen.push(f.factId);}}, async()=>{});
+  // 掐断之后那条事实必须仍然到账——不许 run 报成功而册子缺页。
+  expect(seen).toEqual(["fact1","fact2"]);
+  expect(streamOpens).toBe(2);
+  expect(starts).toBe(1); // 重开流，不是重投 run
+});
