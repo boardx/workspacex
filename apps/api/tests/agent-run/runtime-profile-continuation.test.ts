@@ -88,7 +88,7 @@ it("native checkpoint continuation never falls back when native deployment is un
   const store=fakeStore(run); const complete=vi.fn(async()=>({text:"unexpected legacy replay"}));
   await executeQueuedRuns(deps(store,{complete}),{orgId:ORG});
   expect(complete).not.toHaveBeenCalled();
-  expect(store.failRun).toHaveBeenCalledWith(ORG,run.runId,"MODEL_CALL_FAILED");
+  expect(store.failRun).toHaveBeenCalledWith(ORG,run.runId,"MODEL_CALL_FAILED","runtime_unavailable");
 });
 
 it("legacy approval continuation stays legacy after native rollout is enabled", async () => {

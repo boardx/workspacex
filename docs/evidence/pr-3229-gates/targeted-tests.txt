@@ -1,0 +1,23 @@
+[stack-admission] load1=5.95 cores=10 perCore=0.59 running=0/2
+[test-isolation] id=run-mttx4oz4-37b55ce1-bbb1dcb5d1bb db=wsx_bbb1dcb5d1bb0aad47ed compose=wsx-bbb1dcb5d1bb0aad47ed pg=20765 redis=25765 sandbox=50765
+
+ RUN  v2.1.9 /private/tmp/wsx-3229-gates/apps/api
+
+[db-isolation] db=wsx_bbb1dcb5d1bb0aad47ed capacity=100 current=6 required=32
+ ✓ tests/agent-runtime/attachment-notice-in-context.test.ts (7 tests) 4ms
+ ✓ tests/agent-run/runtime-profile-continuation.test.ts (3 tests) 4ms
+ ✓ tests/agent-run/execute-run-thin-gateway.test.ts (6 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  17:51:03
+   Duration  4.04s (transform 347ms, setup 0ms, collect 595ms, tests 9ms, environment 0ms, prepare 68ms)
+
+[db-isolation] db=wsx_bbb1dcb5d1bb0aad47ed peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/agent-run/runtime-profile-continuation.test.ts tests/agent-run/execute-run-thin-gateway.test.ts tests/agent-runtime/attachment-notice-in-context.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：5s
