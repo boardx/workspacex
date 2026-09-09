@@ -15,3 +15,5 @@ Mac锁屏，CUA明确报告自动解锁失败；已异步请求用户解锁，�
 最新已推送c946a4295c3aaef7e5db946ffe1bfc97b8760bab。Skill草案已补上传policy/job、AIproposal、空白创建、失败run派生草稿，契约23项通过；UI26项通过，标准pre-push11任务通过。云任务1正在复核新增契约，云任务2复核终态确认/重试竞态，云任务3已返回Model/MCP完整交互规格（runtime-ui-interactions.md）。优先吸收具体审查反例，再完成Model/MCP可执行delta与权限/feature覆盖。不要因既有setAgentSkillPins注释写“草案”就忽略其真实controller接线。
 
 #3241最新判定以classifyChecks读取：f6ac3bb9当时无changes/blocked，但backend-required尚未出现，waitingCi。不能只看前端rollup无红就合并；等待最终聚合后交coord-main。当前PR仍OPEN。
+
+又补capability-admin-deltas.ts与4项测试（全部契约定向累计27项）：现有Model注册/配置/探测/准入/启用与MCP重连的继承草案，未改原接口。下一步补列表/路由/停用增量，核对独立云审对c946a429的返回；不要把该后续delta当作已独立审过。UI reviewer已确认c946a429中的终态确认/重试交错问题关闭。
