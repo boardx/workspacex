@@ -69,7 +69,7 @@ def test_real_native_metadata_and_body_are_distinct_custom_stream_facts(asynchro
         assert all(fact['skillVersion']=='v1' for fact in facts)
 
 
-def test_real_recovery_replays_discovery_and_read_ids_without_execution_claim():
+def test_real_cached_turn_preserves_read_id_without_rediscovery_or_execution_claim():
     from langgraph.checkpoint.memory import InMemorySaver
     with real_native_session() as (adapter,pins):
         model=ScriptedModel(messages=iter([
@@ -83,8 +83,12 @@ def test_real_recovery_replays_discovery_and_read_ids_without_execution_claim():
         for _ in range(2):
             events=list(graph.stream({'messages':[{'role':'user','content':'Read instructions'}]},config=config,stream_mode='custom'))
             batches.append([e['fact'] for e in events if e.get('type')=='skill_activity'])
-        assert batches[0]==batches[1]
         assert [f['stage'] for f in batches[0]]==['metadata_discovered','body_read']
+        # This is a second turn on the same checkpoint, not a replay of before_agent.
+        # Cached metadata is not a fresh discovery; the actual repeated body read
+        # keeps its stable fact identity and never claims script execution.
+        assert [f['stage'] for f in batches[1]]==['body_read']
+        assert batches[1][0]==batches[0][1]
 
 
 def test_real_body_writer_failure_propagates_without_retry(monkeypatch):
@@ -149,3 +153,64 @@ def test_real_native_upstream_frontmatter_name_does_not_kill_the_run():
     # 身份取可信包的 stableName，不是前言里那串上游文案——放宽的只是"相等"这道多余的门。
     assert [fact['stage'] for fact in facts] == ['metadata_discovered', 'body_read']
     assert all(fact['skillStableName'] == 'example' for fact in facts)
+
+
+def _listing_sandbox(pins):
+    """MockTransport session that also answers the official `ls` used by skill discovery."""
+    import httpx, json as _json
+    from uuid import uuid4
+    from deep_agent_service.sandbox_backend import HttpSessionSandbox
+    mounted = {f"/skills/{s['stable_name']}/{f['path']}": f["contentBase64"]
+               for s in pins for f in s["package"]["files"]}
+    entries = "\n".join(_json.dumps({"path": f"/skills/{s['stable_name']}", "is_dir": True}) for s in pins)
+
+    def handler(request):
+        if request.method == "GET":
+            path = request.url.params["path"]
+            encoded = mounted[path]
+            return httpx.Response(200, json={"path": path, "contentBase64": encoded,
+                                             "sizeBytes": len(base64.b64decode(encoded))})
+        body = _json.loads(request.content)
+        output = entries if "os.scandir" in body["command"] else ""
+        return httpx.Response(200, json={"executionId": body["executionId"], "exitCode": 0, "output": output,
+                                         "truncated": False, "timedOut": False, "cancelled": False})
+    return HttpSessionSandbox(str(uuid4()), "a" * 64,
+                              httpx.Client(transport=httpx.MockTransport(handler), base_url="http://sandbox"))
+
+
+def _many_pins(count):
+    pins = []
+    for index in range(count):
+        name = f"skill-{index:02d}"
+        body = (f"---\nname: {name}\ndescription: Pinned skill {index}.\n---\nInstructions.\n").encode()
+        pins.append({"stable_name": name, "package": {"skillId": f"s{index}", "versionId": "v1", "files": [
+            {"path": "SKILL.md", "contentBase64": base64.b64encode(body).decode(), "mediaType": "text/plain",
+             "digest": hashlib.sha256(body).hexdigest()}]}})
+    return pins
+
+
+def test_cached_metadata_is_not_replayed_as_a_fresh_discovery_every_turn():
+    """#3206：同一 chat thread 的第二轮，官方 loader 一个字节都没读，就不许再报 20 条发现。
+
+    人类 2026-09-09 在 devapp 看到「技能活动 20 项 / 发现技能元数据 ×20」出现在一次
+    「总结这个网页」的轨迹里。实测（.measure/measure_3206.py，20 个真实包）：首轮
+    1 次 ls + 20 次 SKILL.md 下载 = 21 次沙箱往返；第二轮 0 次往返，却照样 20 条事实
+    ——每条都是一次 `appendExecutionEvent` 的串行 Postgres 事务，外加 20 行用户可见轨迹。
+    把 `(update or state)` 换成 `update`（None = 命中 checkpoint 缓存）本用例即绿；
+    换回去立刻红（反证已跑）。
+    """
+    from langgraph.checkpoint.memory import MemorySaver
+    pins = _many_pins(20)
+    graph = create_native_graph(ScriptedModel(messages=iter([AIMessage(content="a"), AIMessage(content="b")])),
+                                sandbox=_listing_sandbox(pins), pinned_skills=pins,
+                                tool_authority=FakeAuthority(), interrupt_on={}, checkpointer=MemorySaver())
+    config = {"configurable": {"thread_id": "t-3206", "disable_task_auto_classify": True}}
+
+    def turn(text):
+        events = list(graph.stream({"messages": [{"role": "user", "content": text}]},
+                                   config=config, stream_mode="custom"))
+        return [e["fact"] for e in events if isinstance(e, dict) and e.get("type") == "skill_activity"]
+
+    first = turn("总结这个网页: https://example.com")
+    assert [f["stage"] for f in first] == ["metadata_discovered"] * 20
+    assert turn("再总结一个: https://example.org") == []
