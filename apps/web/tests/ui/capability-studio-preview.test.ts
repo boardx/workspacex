@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { initialStudioPreview, studioReducer, trialIsCurrent, validPreviewPath } from "../../components/ai-capability-studio/preview-model";
+import { initialStudioPreview, studioReducer, trialIsCurrent, validPreviewPath, StudioPreviewSchema } from "../../components/ai-capability-studio/preview-model";
 
 describe("capability studio preview version boundaries", () => {
+  it("restores serializable draft edits without trusting broken browser-storage references", () => {
+    const dirty = studioReducer(initialStudioPreview(), { type: "edit", content: "recover this edit" });
+    const restored = StudioPreviewSchema.parse(JSON.parse(JSON.stringify(dirty)));
+    expect(studioReducer(initialStudioPreview(), { type: "restore", state: restored })).toEqual(dirty);
+    expect(StudioPreviewSchema.safeParse({ ...dirty, selected: "missing.py" }).success).toBe(false);
+    expect(StudioPreviewSchema.safeParse({ ...dirty, files: [] }).success).toBe(false);
+  });
   it("saving several files never publishes or moves the Agent binding", () => {
     let state = initialStudioPreview();
     const published = state.releases;
@@ -16,22 +23,22 @@ describe("capability studio preview version boundaries", () => {
     expect(state.files.filter(file => file.content.includes("updated"))).toHaveLength(2);
   });
   it("editing or changing dependencies makes old trial evidence unusable", () => {
-    const tested = studioReducer(initialStudioPreview(), { type: "trial", passed: true });
+    const tested = studioReducer(initialStudioPreview(), { type: "trial", passed: true, sampleInput: "sample task" });
     expect(trialIsCurrent(tested)).toBe(true);
-    for (const action of [{ type: "edit", content: "changed" }, { type: "model" }, { type: "tool" }] as const) {
+    for (const action of [{ type: "edit", content: "changed" }, { type: "model" }, { type: "tool" }, { type: "test-input", value: "different sample" }] as const) {
       const changed = studioReducer(tested, action);
       expect(trialIsCurrent(changed)).toBe(false);
       expect(studioReducer(changed, { type: "publish" }).releases).toHaveLength(1);
     }
   });
   it("a failed or unsaved trial cannot enable publishing", () => {
-    const failed = studioReducer(initialStudioPreview(), { type: "trial", passed: false });
+    const failed = studioReducer(initialStudioPreview(), { type: "trial", passed: false, sampleInput: "sample task" });
     expect(trialIsCurrent(failed)).toBe(false);
     const dirty = studioReducer(failed, { type: "edit", content: "pending change" });
-    expect(studioReducer(dirty, { type: "trial", passed: true })).toBe(dirty);
+    expect(studioReducer(dirty, { type: "trial", passed: true, sampleInput: "sample task" })).toBe(dirty);
   });
   it("publish creates one immutable snapshot; binding is a separate explicit action", () => {
-    const tested = studioReducer(initialStudioPreview(), { type: "trial", passed: true });
+    const tested = studioReducer(initialStudioPreview(), { type: "trial", passed: true, sampleInput: "sample task" });
     const published = studioReducer(tested, { type: "publish" });
     expect(published.releases).toHaveLength(2);
     expect(published.boundRelease).toBe(1);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { operations, SkillImportRequestSource, SkillImportSource, SkillDraft, FrozenTrialDependencies, ImportBatch, summarizeImportBatch } from "../src/skill-development";
+import { operations, SkillImportRequestSource, SkillImportSource, SkillDraft, FrozenTrialDependencies, ImportBatch, ImportJob, PublicationResult, RestoredDraftResult, summarizeImportBatch } from "../src/skill-development";
 import { CapabilityTrialRunDependencySnapshot } from "../src/capability-runtime-policy";
 
 const digest = "a".repeat(64);
@@ -48,7 +48,7 @@ describe("skill development proposed trust boundaries", () => {
   });
   it("restores historical files as a draft, never bypassing the publication operation", () => {
     expect(operations.rollbackSkillVersion.in.safeParse({ ...head, targetVersionId: "version-1", targetSnapshotDigest: digest, reason: "restore", idempotencyKey: key }).success).toBe(true);
-    expect(operations.rollbackSkillVersion.out).toBe(SkillDraft);
+    expect(operations.rollbackSkillVersion.out).toBe(RestoredDraftResult);
     expect(FrozenTrialDependencies).toBe(CapabilityTrialRunDependencySnapshot);
   });
   it("requires explicit candidate selection and keeps new imports separate from draft replacement", () => {
@@ -62,7 +62,7 @@ describe("skill development proposed trust boundaries", () => {
   it("retains independently completed items and rejects cross-preview or duplicate batch items", () => {
     const base = { jobId: "job-1", submittedAt: "2026-09-09T00:00:00Z", idempotencyKey: key, candidateId: "candidate-1", previewId: "preview-1", sourceDigest: digest, attempt: 1, previousAttemptJobId: null };
     const queued = { ...base, status: "queued" };
-    const failed = { ...base, status: "failed", completedAt: "2026-09-09T00:00:01Z", failure: { code: "UPSTREAM_TIMEOUT", message: "retry available", retryable: true } };
+    const failed = { ...base, status: "failed", completedAt: "2026-09-09T00:00:01Z", failure: { code: "DEPENDENCY_UNAVAILABLE", message: "retry available", retryable: true } };
     const cancelled = { ...base, jobId: "job-2", candidateId: "candidate-2", status: "cancelled", completedAt: "2026-09-09T00:00:01Z" };
     const batch = (items: unknown[]) => ImportBatch.parse({ batchId: "batch-1", previewId: "preview-1", items });
     expect(summarizeImportBatch(batch([queued]))).toBe("queued");
@@ -72,5 +72,30 @@ describe("skill development proposed trust boundaries", () => {
     expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "preview-1", items: [queued, queued] }).success).toBe(false);
     expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "other", items: [queued] }).success).toBe(false);
     expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "preview-1", items: [queued, { ...cancelled, sourceDigest: "b".repeat(64) }] }).success).toBe(false);
+    expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "preview-1", items: [queued, { ...cancelled, jobId: queued.jobId }] }).success).toBe(false);
+    expect(ImportJob.safeParse({ ...queued, attempt: 2 }).success).toBe(false);
+    expect(ImportJob.safeParse({ ...queued, previousAttemptJobId: "earlier" }).success).toBe(false);
+    expect(ImportJob.safeParse({ ...queued, attempt: 2, previousAttemptJobId: queued.jobId }).success).toBe(false);
+    expect(ImportJob.safeParse({ ...queued, attempt: 2, previousAttemptJobId: "earlier" }).success).toBe(true);
+    expect(ImportJob.safeParse({ ...failed, failure: { ...failed.failure, code: "SECRET_INTERNAL_EXCEPTION" } }).success).toBe(false);
+  });
+  it("rejects publications and restored drafts with contradictory version evidence", () => {
+    const now = "2026-09-09T00:00:00Z";
+    const published = { skillId: "skill-1", versionId: "version-1", versionNumber: 1, draftId: "draft-1", draftRevision: 3, snapshotDigest: digest, manifestPath: "SKILL.md", publishedAt: now };
+    const evidence = { trialRunId: "trial-1", draftRevision: 3, snapshotDigest: digest, passedAt: now,
+      dependencySnapshot: { dependencySnapshotId: "00000000-0000-4000-8000-000000000001", capturedAt: now,
+        subject: { kind: "skill-draft", skillId: "skill-1", draftId: "draft-1", draftRevision: 3, snapshotDigest: digest },
+        modelBinding: { shape: "single", capabilityModelId: "model-1", configRevision: "cfg-1", providerKey: "demo", upstreamModelId: "demo" }, mcpSnapshotRef: null } };
+    const result = { published, archivedVersionId: null, evidence };
+    expect(PublicationResult.safeParse(result).success).toBe(true);
+    for (const patch of [{ skillId: "other" }, { draftId: "other" }, { draftRevision: 2 }, { snapshotDigest: "b".repeat(64) }]) {
+      expect(PublicationResult.safeParse({ ...result, published: { ...published, ...patch } }).success).toBe(false);
+    }
+    const draft = SkillDraft.parse({ skillId: "skill-1", draftId: "draft-1", revision: 4, snapshotDigest: digest, manifestPath: "SKILL.md",
+      files: [{ path: "SKILL.md", digest, sizeBytes: 1 }], sourcePin: null, basedOnPublishedVersionId: "version-1", updatedAt: now });
+    const restored = { draft, restoredFrom: { versionId: "version-1", snapshotDigest: digest } };
+    expect(RestoredDraftResult.safeParse(restored).success).toBe(true);
+    expect(RestoredDraftResult.safeParse({ ...restored, restoredFrom: { ...restored.restoredFrom, versionId: "wrong-target" } }).success).toBe(false);
+    expect(operations.getSkillVersion.out.safeParse({ version: published, files: draft.files }).success).toBe(true);
   });
 });

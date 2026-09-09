@@ -44,7 +44,7 @@ export function advanceImportBatch(batch: ImportBatchView, preview: ImportPrevie
     if (action === "start") return { ...base, status: "running", startedAt: now };
     if (action === "cancel") return { ...base, status: "cancelled", completedAt: now };
     if (action === "partial" && index === batch.items.length - 1) return { ...base, status: "failed", completedAt: now,
-      failure: { code: "SOURCE_TEMPORARILY_UNAVAILABLE", message: "示例读取暂时失败，可重试此项。", retryable: true } };
+      failure: { code: "DEPENDENCY_UNAVAILABLE", message: "示例读取暂时失败，可重试此项。", retryable: true } };
     const candidate = preview.candidates.find(entry => entry.candidateId === item.candidateId);
     if (!candidate) throw new Error("demo candidate missing");
     return { ...base, status: "succeeded", completedAt: now, result: SkillDraft.parse({

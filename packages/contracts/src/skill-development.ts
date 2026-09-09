@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import { McpRunSnapshotRef } from "./mcp-runtime-snapshot";
+import { AgentRunError } from "./wave2-runtime";
 import { CapabilityModelConfigRef, CapabilityTrialRunDependencySnapshot } from "./capability-runtime-policy";
 
 const Id = z.string().trim().min(1).max(200);
@@ -122,15 +123,22 @@ export const PublishedSkillVersion = z
     skillId: Id,
     versionId: Id,
     versionNumber: z.number().int().positive(),
+    draftId: Id,
+    draftRevision: Revision,
     snapshotDigest: Sha256,
     manifestPath: RelativePath,
     publishedAt: IsoDateTime,
   })
   .strict();
 
-const JobFailure = z
-  .object({ code: z.string().min(1).max(100), message: z.string().min(1).max(2000), retryable: z.boolean() })
-  .strict();
+export const ImportFailureCode = z.enum([
+  "DEPENDENCY_UNAVAILABLE", "SOURCE_MOVED", "PREVIEW_EXPIRED", "VALIDATION_FAILED",
+  "IMPORT_LIMIT_EXCEEDED", "PERMISSION_REVOKED", "CREDENTIAL_UNAVAILABLE", "REVISION_CONFLICT",
+]);
+const ImportFailure = z.object({ code: ImportFailureCode, message: z.string().min(1).max(2000), retryable: z.boolean() }).strict();
+const TrialFailure = ImportFailure.extend({ code: z.union([AgentRunError, z.enum([
+  "DEPENDENCY_UNAVAILABLE", "PERMISSION_REVOKED", "MODEL_UNAVAILABLE", "MCP_SNAPSHOT_UNAVAILABLE", "VALIDATION_FAILED",
+])]) }).strict();
 const JobBase = { jobId: Id, submittedAt: IsoDateTime, idempotencyKey: IdempotencyKey } as const;
 
 const ImportJobBase = {
@@ -141,9 +149,13 @@ export const ImportJob = z.discriminatedUnion("status", [
   z.object({ ...ImportJobBase, status: z.literal("queued") }).strict(),
   z.object({ ...ImportJobBase, status: z.literal("running"), startedAt: IsoDateTime }).strict(),
   z.object({ ...ImportJobBase, status: z.literal("succeeded"), completedAt: IsoDateTime, result: SkillDraft }).strict(),
-  z.object({ ...ImportJobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: JobFailure }).strict(),
+  z.object({ ...ImportJobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: ImportFailure }).strict(),
   z.object({ ...ImportJobBase, status: z.literal("cancelled"), completedAt: IsoDateTime }).strict(),
-]);
+ ]).superRefine((job, context) => {
+  if ((job.attempt === 1) !== (job.previousAttemptJobId === null) || job.previousAttemptJobId === job.jobId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["previousAttemptJobId"], message: "first attempt has no predecessor; retries require a distinct predecessor" });
+  }
+});
 /** Each candidate has one current attempt; successful items survive sibling failure/cancellation. */
 export const ImportBatch = z.object({
   batchId: Id,
@@ -151,11 +163,13 @@ export const ImportBatch = z.object({
   items: z.array(ImportJob).min(1).max(100),
 }).strict().superRefine((batch, context) => {
   const candidates = new Set<string>();
+  const jobs = new Set<string>();
   batch.items.forEach((item, index) => {
-    if (item.previewId !== batch.previewId || item.sourceDigest !== batch.items[0]?.sourceDigest || candidates.has(item.candidateId)) {
+    if (item.previewId !== batch.previewId || item.sourceDigest !== batch.items[0]?.sourceDigest || candidates.has(item.candidateId) || jobs.has(item.jobId)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["items", index], message: "batch items require the same preview and unique candidate IDs" });
     }
     candidates.add(item.candidateId);
+    jobs.add(item.jobId);
   });
 });
 export function summarizeImportBatch(batch: z.infer<typeof ImportBatch>) {
@@ -191,11 +205,23 @@ export const TrialEvidence = z
     }
   });
 
+export const PublicationResult = z.object({ published: PublishedSkillVersion, archivedVersionId: Id.nullable(), evidence: TrialEvidence }).strict()
+  .superRefine((result, context) => {
+    const subject = result.evidence.dependencySnapshot.subject;
+    if (subject.kind !== "skill-draft" || subject.skillId !== result.published.skillId || subject.draftId !== result.published.draftId ||
+      subject.draftRevision !== result.published.draftRevision || subject.snapshotDigest !== result.published.snapshotDigest) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["published"], message: "publication must match the tested draft identity and snapshot" });
+    }
+  });
+export const RestoredDraftResult = z.object({ draft: SkillDraft, restoredFrom: z.object({ versionId: Id, snapshotDigest: Sha256 }).strict() }).strict()
+  .refine(result => result.draft.basedOnPublishedVersionId === result.restoredFrom.versionId && result.draft.snapshotDigest === result.restoredFrom.snapshotDigest,
+    { path: ["restoredFrom"], message: "restored draft must retain the historical version lineage and content" });
+
 export const TrialJob = z.discriminatedUnion("status", [
   z.object({ ...JobBase, status: z.literal("queued") }).strict(),
   z.object({ ...JobBase, status: z.literal("running"), startedAt: IsoDateTime }).strict(),
   z.object({ ...JobBase, status: z.literal("succeeded"), completedAt: IsoDateTime, evidence: TrialEvidence }).strict(),
-  z.object({ ...JobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: JobFailure }).strict(),
+  z.object({ ...JobBase, status: z.literal("failed"), completedAt: IsoDateTime, failure: TrialFailure }).strict(),
   z.object({ ...JobBase, status: z.literal("cancelled"), completedAt: IsoDateTime }).strict(),
 ]);
 
@@ -385,7 +411,7 @@ export const operations = {
     method: "POST",
     path: "/admin/skill-development/skills/:skillId/publications",
     in: PublishInput,
-    out: z.object({ published: PublishedSkillVersion, archivedVersionId: Id.nullable(), evidence: TrialEvidence }).strict(),
+    out: PublicationResult,
     errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, TrialRequired, TrialMismatch, IdempotencyConflict, DependencyUnavailable]),
   }),
   checkSkillUpstream: defineOperation({
@@ -411,11 +437,26 @@ export const operations = {
     out: SkillDraft,
     errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, SourceMoved, UpstreamConflict, IdempotencyConflict, DependencyUnavailable]),
   }),
+  listSkillVersions: defineOperation({
+    method: "GET",
+    path: "/admin/skill-development/skills/:skillId/versions",
+    in: z.object({ skillId: Id, cursor: Id.nullable(), limit: z.number().int().min(1).max(100) }).strict(),
+    out: z.object({ versions: z.array(PublishedSkillVersion).max(100), nextCursor: Id.nullable() }).strict(),
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, DependencyUnavailable]),
+  }),
+  getSkillVersion: defineOperation({
+    method: "GET",
+    path: "/admin/skill-development/skills/:skillId/versions/:versionId",
+    in: z.object({ skillId: Id, versionId: Id }).strict(),
+    out: z.object({ version: PublishedSkillVersion, files: SkillManifestFiles }).strict()
+      .superRefine((result, context) => requireManifestFile({ manifestPath: result.version.manifestPath, files: result.files }, context)),
+    errors: z.union([Unauthenticated, PermissionDenied, NotFound, DependencyUnavailable]),
+  }),
   rollbackSkillVersion: defineOperation({
     method: "POST",
     path: "/admin/skill-development/skills/:skillId/rollbacks",
     in: RollbackInput,
-    out: SkillDraft,
+    out: RestoredDraftResult,
     errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, IdempotencyConflict, DependencyUnavailable]),
   }),
 } as const;

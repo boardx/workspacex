@@ -23,11 +23,14 @@ export const CapabilityModelConfigRef = z
   .strict();
 
 /**
- * Resolves the model-pool identity to the deployed adapter and upstream model identifier.
+ * Resolves a single model-pool identity to the deployed adapter and upstream model identifier.
  * It deliberately has no status or credential fields: status stays in `ModelStatus`, and
- * credentials remain write-only in the existing model-management boundary.
+ * credentials remain write-only in the existing model-management boundary. The current executor
+ * accepts one provider call: composite admission must fail until an executor can freeze and run
+ * every ordered member. A composite pool row cannot masquerade as its first member here.
  */
 export const CapabilityModelRuntimeBinding = CapabilityModelConfigRef.extend({
+  shape: z.literal("single"),
   providerKey: z
     .string()
     .trim()

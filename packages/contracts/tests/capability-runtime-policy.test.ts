@@ -15,6 +15,7 @@ const UUID_B = "00000000-0000-4000-8000-000000000002";
 const DIGEST = "a".repeat(64);
 
 const modelBinding = {
+  shape: "single" as const,
   capabilityModelId: "mdl-1",
   providerKey: "deep-agent",
   upstreamModelId: "gpt-5.6",
@@ -33,6 +34,7 @@ describe("capability runtime policy proposal", () => {
     ).toBe(false);
     expect(CapabilityModelRuntimeBinding.safeParse({ ...modelBinding, providerKey: "Deep Agent" }).success).toBe(false);
     expect(CapabilityModelRuntimeBinding.safeParse({ ...modelBinding, status: "已启用" }).success).toBe(false);
+    expect(CapabilityModelRuntimeBinding.safeParse({ ...modelBinding, shape: "composite", members: [] }).success).toBe(false);
   });
 
   it("pins a trial run to one draft revision, model config, and existing MCP snapshot ref", () => {
