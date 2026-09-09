@@ -37,3 +37,5 @@ Model/MCP第一组可执行delta已加入capability-admin-deltas.ts：继承现�
 ## 2026-09-09 23:37 当前覆盖补充
 
 逐操作权限矩阵见 permission-coverage.md，覆盖27个Skill开发操作及Model/MCP/既有运行链。默认提案沿用组织admin开发，普通成员的发布版本运行权限不扩张到草稿。私库来源连接生命周期、发布审核映射、完整feature四元组和真实浏览器仍是明确缺口。最新测试计数与执行边界以session-handoff.md最新记录为准，不将历史段落计数作为当前完成率。
+
+2026-09-10：管理/运行精确读取复用已由独立审定位，见existing-read-api-map.md。聊天输入、journal、线程产物和MCP当前详情已有读取链，不新增平行接口；缺口缩为既有失败接口实施、试跑失败输入/字节下载、历史MCP快照和准入历史。此映射是代码审查，不是线上HTTP验收。
