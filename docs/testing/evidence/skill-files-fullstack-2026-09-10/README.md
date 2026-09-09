@@ -19,3 +19,9 @@ The new-organization first-chat reply also passed once in **7,959 ms**. These re
 This CI lane uses the standard loopback model and sandbox providers. Its trial assertions verify the application/API flow; they are **not paid-model execution or devapp acceptance evidence**. The separate multi-file save and Agent-pin recovery lane has its own evidence. No raw traces, authentication headers, credentials or session tokens are included here.
 
 This historical candidate receipt does not replace the final integration head CI or a fresh devapp deployment and authenticated acceptance check.
+
+## Final integration head
+
+Independent structured verification of [run 34411307674 / job 102666235254](https://github.com/boardx/workspacex/actions/runs/34411307674/job/102666235254) at exact head `ab859a6976ce4e421068fd3a04bf7aa84523fcd8` confirms **79 passed, 0 failed, 0 flaky and 1 existing inbox fixme skipped**. All five Skill audit cases ran once and passed: import 4,162 ms, full file editor 2,636 ms, Agent import/publish/trial 5,017 ms, Skill trial 3,371 ms, and slash mounting 2,981 ms. First-chat reply passed once in 7,658 ms.
+
+[final-integration-results.json](./final-integration-results.json) preserves the exact-head statistics and selected results separately from the earlier candidate evidence above. This uses standard loopback providers; it is not a new paid-model call or devapp SHA verification. The dedicated multi-file save/pin recovery lane has its own result and is not certified by this report.
