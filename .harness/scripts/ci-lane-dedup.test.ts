@@ -19,10 +19,10 @@ function lookup(api = apiFor()) { return findReusableLane({ api, sha: 'abc', run
 describe('CI lane reuse preserves verification identity and verdict', () => {
   it('reuses an executed lane with retained artifacts', async () => { expect(await lookup()).toMatchObject({ result: 'success', source: source.html_url }); });
   it.each(['skipped', 'cancelled', null])('never reuses an unexecuted step (%s)', async conclusion => {
-    expect(await lookup(apiFor({ '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'success', steps: [{ ...steps[0], conclusion }, steps[1]] }] } }))).toBeNull();
+    expect(await lookup(apiFor({ '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'success', steps: [{ ...steps[0], conclusion }, ...steps.slice(1)] }] } }))).toBeNull();
   });
   it('preserves failed execution even when job continue-on-error reports success', async () => {
-    expect(await lookup(apiFor({ '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'success', steps: [{ ...steps[0], conclusion: 'failure' }, steps[1]] }] } }))).toMatchObject({ result: 'failure' });
+    expect(await lookup(apiFor({ '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'success', steps: [{ ...steps[0], conclusion: 'failure' }, ...steps.slice(1)] }] } }))).toMatchObject({ result: 'failure' });
   });
   it.each([{ ...source, head_sha: 'other' }, { ...source, id: 20 }, { ...source, created_at: '2026-09-07T00:00:00Z' }, { ...source, workflow_id: 8 }, { ...source, event: 'pull_request' }])('rejects different identity, own run, or stale evidence', async run => {
     expect(await lookup(apiFor({ '/actions/workflows/7/runs?head_sha=abc&per_page=100&page=1': { total_count: 1, workflow_runs: [run] } }))).toBeNull();
@@ -99,7 +99,7 @@ it('repeated references to a failed producer retain its failure without alternat
   const api = apiFor({
     '/actions/workflows/7/runs?head_sha=abc&per_page=100&page=1': { total_count: 2, workflow_runs: [{ ...source, id: 15, created_at: '2026-09-08T23:30:00Z' }, source] },
     '/actions/runs/15/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'failure', steps: [{ name: 'Preserve reused verification verdict', conclusion: 'failure' }] }] },
-    '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'failure', steps: [{ ...steps[0], conclusion: 'failure' }, steps[1]] }] },
+    '/actions/runs/10/jobs?filter=latest&per_page=100&page=1': { total_count: 1, jobs: [{ name: 'fullstack-smoke', status: 'completed', conclusion: 'failure', steps: [{ ...steps[0], conclusion: 'failure' }, ...steps.slice(1)] }] },
   });
   expect(await lookup(api)).toMatchObject({ source: source.html_url, result: 'failure' });
 });

@@ -456,6 +456,14 @@ jobs:
               --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
           fi
           exit "$status"
+      # #3205: reuse this lane's browser installation and retain independent output.
+      - name: Execute trace disclosure geometry
+        if: always() && steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
