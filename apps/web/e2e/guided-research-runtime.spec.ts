@@ -134,6 +134,11 @@ test("research persists all five model-backed steps through the real UI, API and
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("research-report-chapters-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载 Word", exact: true }).click();
+  expect((await downloadPromise).suggestedFilename()).toMatch(/\.docx$/);
+  await expect(page.getByRole("button", { name: "导出 PDF", exact: true })).toBeVisible();
+  await expect(page.getByTestId("research-report-timeline")).not.toHaveAttribute("open", "");
   await page.getByRole("button", { name: "完成研究", exact: true }).click();
   await expect(page.getByRole("heading", { name: "研究报告 · 已完成" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-completed.png"), fullPage: true });
@@ -154,7 +159,8 @@ test("research persists all five model-backed steps through the real UI, API and
   await page.reload();
   await expect(page.getByTestId("research-quality-draft")).toContainText("完整草稿已生成并保存");
   await expect(page.getByTestId("research-quality-draft").getByTestId("research-report-chapter")).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "完成研究", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "完成研究", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "下载 Word", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("research-quality-complete-draft.png"), fullPage: true });
 
 });

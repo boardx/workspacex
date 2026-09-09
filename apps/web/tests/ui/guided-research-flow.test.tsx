@@ -97,7 +97,7 @@ describe("guided research session routing and lifecycle", () => {
     render(<GuidedResearchFlow step="report" sessionId="grs-live" />);
     expect(await screen.findByRole("alert")).toHaveTextContent("不可用的来源");
     expect(screen.queryByTestId("research-report")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "完成研究" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "完成研究" })).not.toBeInTheDocument();
   });
   it("blocks edits and duplicate generation while a persisted operation is running", async () => {
     const state = runtimeFixture("brief"); state.busy = true; state.leaseUntil = new Date(Date.now()+60000).toISOString();

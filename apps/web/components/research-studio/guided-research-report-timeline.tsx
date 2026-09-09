@@ -5,8 +5,9 @@ const statuses = { pending: "等待处理", running: "正在处理", retrying: "
 export function GuidedResearchReportTimeline({ state, interrupted = false }: { state: GuidedResearchRuntime; interrupted?: boolean }) {
   if (!state.reportTimeline?.length) return null;
   const finished = Boolean(state.report && !state.busy && !state.errorCode && !interrupted && state.reportTimeline.some((step) => step.stage === "validation" && step.status === "completed"));
-  return <section className="rounded-xl border border-border bg-card p-5" data-testid="research-report-timeline" aria-label="报告生成过程">
-    <h2 className="text-16 font-semibold">报告生成过程</h2>
+  const collapsed = finished || Boolean(state.reportDraft && !state.busy) || interrupted || Boolean(state.errorCode && !state.busy);
+  return <details key={collapsed ? "settled" : "active"} open={!collapsed} className="rounded-xl border border-border bg-card p-5" data-testid="research-report-timeline" aria-label="报告生成过程">
+    <summary className="cursor-pointer text-16 font-semibold">报告生成过程{collapsed ? " · 查看详情" : ""}</summary>
     <p className="mt-2 text-12 text-muted-foreground">{finished ? "报告已生成并保存。" : state.reportDraft && !state.busy ? "完整草稿已保存，部分章节仍需核验。" : interrupted ? "执行已中断，已保存的进度仍可继续。" : state.errorCode ? "本次生成已暂停，请查看错误后重试。" : "各阶段连续处理，进度自动保存。"}</p>
     <ol className="mt-4 space-y-4">{state.reportTimeline.map((item) => {
       const active = item.status === "running" || item.status === "retrying";
@@ -17,5 +18,5 @@ export function GuidedResearchReportTimeline({ state, interrupted = false }: { s
         <div className="min-w-0 space-y-1"><p className="break-words font-medium">{stages[item.stage]}{title ? ` · ${title}` : ""}</p><p className="text-muted-foreground">{interrupted && active ? "执行中断" : item.status === "warning" && item.stage !== "evidence" ? "已生成，待质量核验" : statuses[item.status]}{item.attempts > 1 ? (item.stage === "evidence" ? ` · 已调用模型 ${item.attempts} 次` : ` · 第 ${item.attempts} 次尝试`) : ""}{item.total !== undefined && item.completed !== undefined ? ` · ${item.completed} / ${item.total}` : ""}</p></div>
       </li>;
     })}</ol>
-  </section>;
+  </details>;
 }
