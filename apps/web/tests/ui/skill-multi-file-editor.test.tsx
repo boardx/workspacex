@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SkillMultiFileEditor } from "@/components/admin/skill-multi-file-editor";
 import { ApiError } from "@/lib/api-client";
+const identity = vi.hoisted(() => ({ status: "authenticated", userId: "user-1", currentOrgId: "org-1", sessionToken: "token-1" }));
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ status: identity.status, session: identity.status === "anonymous" ? null : { userId: identity.userId, currentOrgId: identity.currentOrgId, sessionToken: identity.sessionToken } }) }));
 const mocks = vi.hoisted(() => ({ directory: vi.fn(), snapshot: vi.fn(), save: vi.fn(), trial: vi.fn(), poll: vi.fn() }));
 vi.mock("@/lib/asset-directory", () => ({ getAssetDirectory: mocks.directory }));
 vi.mock("@/lib/live-skill-files", () => ({ getSkillFileSnapshot: mocks.snapshot, saveSkillFiles: mocks.save }));
@@ -12,7 +14,7 @@ const click = (name: string) => fireEvent.click(screen.getByRole("button", { nam
 const edit = (text: string) => fireEvent.change(screen.getByRole("textbox", { name: "文件内容" }), { target: { value: text } });
 const consent = () => fireEvent.click(screen.getByRole("checkbox", { name: "确认统一保存全部修改并发布新版本" }));
 const ready = async () => { render(<SkillMultiFileEditor skillId="skill-real" />); await screen.findByRole("textbox", { name: "文件内容" }); };
-beforeEach(() => { vi.clearAllMocks(); mocks.directory.mockResolvedValue({ currentVersionId: "version-1" }); mocks.snapshot.mockResolvedValue(baseline); });
+beforeEach(() => { Object.assign(identity, { status: "authenticated", userId: "user-1", currentOrgId: "org-1", sessionToken: "token-1" }); vi.clearAllMocks(); mocks.directory.mockResolvedValue({ currentVersionId: "version-1" }); mocks.snapshot.mockResolvedValue(baseline); });
 describe("real Skill multi-file editor", () => {
   it("loads the exact returned version and sends one atomic batch for added, edited and deleted files", async () => {
     await ready(); expect(mocks.snapshot).toHaveBeenCalledWith("skill-real", "version-1");
@@ -65,6 +67,20 @@ describe("real Skill multi-file editor", () => {
     await act(async () => { complete({ ...baseline, versionId: "late-old-version" }); });
     expect(screen.getByTestId("skill-file-version")).toHaveTextContent("other-version");
     expect(screen.getByRole("textbox", { name: "文件内容" })).toHaveValue("other Skill content");
+  });
+  it("clears old identity buffers immediately and ignores a delayed save across an organization switch", async () => {
+    let finish!: (value: typeof baseline) => void; mocks.save.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const view = render(<SkillMultiFileEditor skillId="skill-real" />); await screen.findByRole("textbox", { name: "文件内容" }); edit("private old organization"); consent(); click("保存全部文件并发布");
+    identity.currentOrgId = "org-2"; identity.sessionToken = "token-2";
+    mocks.snapshot.mockResolvedValue({ ...baseline, versionId: "other-org-version", files: [file("SKILL.md", "new organization content")] });
+    view.rerender(<SkillMultiFileEditor skillId="skill-real" />);
+    expect(screen.queryByRole("textbox", { name: "文件内容" })).not.toBeInTheDocument();
+    await screen.findByRole("textbox", { name: "文件内容" });
+    await act(async () => { finish({ ...baseline, versionId: "old-late-version" }); });
+    expect(screen.getByRole("textbox", { name: "文件内容" })).toHaveValue("new organization content");
+    expect(screen.getByTestId("skill-file-version")).toHaveTextContent("other-org-version");
+    identity.status = "anonymous"; view.rerender(<SkillMultiFileEditor skillId="skill-real" />);
+    expect(screen.queryByRole("textbox", { name: "文件内容" })).not.toBeInTheDocument(); expect(screen.getByRole("status")).toHaveTextContent("请登录");
   });
   it("prompts before leaving through a real page navigation link with unsaved files", async () => {
     const ask = vi.spyOn(window, "confirm").mockReturnValue(false);
