@@ -296,11 +296,26 @@ export default defineConfig({
        */
       name: "chat-path-coverage",
       /*
-       * 2026-09-09（本 PR）新增三条：**C6 / C8 / F5**——矩阵里这三条 chat 侧此前
-       * 一条 spec 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞
-       * 车道**，连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
+       * 2026-09-09 新增三条：**C6 / C8 / F5**——矩阵里这三条 chat 侧此前一条 spec
+       * 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞车道**，
+       * 连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
+       *
+       * 2026-09-10 再新增三条，全部对着人类 devapp 人肉验收报出来的真实缺陷：
+       *   · **C1** `c1-canvas-survives-run-finalization` —— #3243「生成过程中一个一个
+       *     都看见了，run 一结束全部消失、刷新后一个也没有」。PR #3248 修了它，但修它
+       *     的是一条单元测试；这是它在浏览器这一层的门。
+       *   · **C2** `c2-canvas-fence-identity` —— #3252 同一消息内两个同模板画布互相
+       *     认领保存版。**当前未修**，按既有先例挂 `test.fixme`（不删、不改宽、不 skip）。
+       *   · **D1** `d1-failed-tool-card-status` —— #3204 ① 失败工具卡发绿勾。轨迹面板
+       *     那一半已修（这条是回归门），实时消息流那一半仍在（挂 `test.fixme`）。
        */
-      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask)\.spec\.ts$/,
+      /*
+       * 2026-09-10 再新增一条：`chat-path-ab-hitl-continuity`（A4/A5/B1/B4/B5/B6）。
+       * 同样按「首跑与搬家」的规矩先进这条**非阻塞**车道，连绿两次再谈搬家——它断言的
+       * 三条真实缺陷（#3186 / #3207 / #3244 ①）里有一条至今未修，首跑很可能红，
+       * 那正是这条车道存在的意义（红是意外，但意外要能被看见）。
+       */
+      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity)\.spec\.ts$/,
     },
     {
       /**
@@ -555,6 +570,8 @@ export default defineConfig({
         ...process.env,
         LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
         LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
+        // 路径矩阵 F1 —— 第二个**成因不同**的失败触发词，见 `deepAgentEmptyReplyTrigger` 头注。
+        LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER: CHAT_READ_E2E.deepAgentEmptyReplyTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
         // 路径矩阵 F5 / C8 —— 见 `deepAgentSubtaskHoldPolls` 与替身侧 `SUBTASK_HOLD_POLLS` 头注。
@@ -570,6 +587,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_CLARIFICATION_ARTIFACT_NAME: CHAT_READ_E2E.deepAgentClarificationArtifactName,
         LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER: CHAT_READ_E2E.deepAgentConfirmIntentTrigger,
         LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER: CHAT_READ_E2E.deepAgentChooseOptionTrigger,
+        // 路径矩阵 B1/B4/B5/B6 —— 二次中断剧本，同一套下发纪律（值在 fixture 里）。
+        LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_TRIGGER: CHAT_READ_E2E.deepAgentTwoInterruptTrigger,
+        LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_HOLD_POLLS: String(CHAT_READ_E2E.deepAgentTwoInterruptHoldPolls),
+        LOOPBACK_DEEP_AGENT_TWO_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentTwoApprovalTrigger,
         LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER: CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
         // DA-19g —— 多轮上下文取证开关，见 `CHAT_READ_E2E.deepAgentFollowupContextTrigger`
         // 自己的头注。
@@ -588,6 +609,21 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_SKILL_CATALOG_STABLE_NAME: CHAT_READ_E2E.mountableSkillStableName,
         LOOPBACK_DEEP_AGENT_SKILL_CATALOG_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillCatalogEchoPrefix,
         LOOPBACK_DEEP_AGENT_STREAM_ABORT_TRIGGER: CHAT_READ_E2E.deepAgentStreamAbortTrigger,
+        /*
+         * 路径矩阵 C1 / D1 —— 两条新剧本的开关，同一套「默认关闭」纪律：不下发时
+         * 替身里对应判断恒 false，行为逐字节等同改动前（见替身里各自的头注）。
+         * 画布三件（模板 key / 表头字段 / 分区名）与 `LOOPBACK_MODEL_CANVAS_*` 取自
+         * **同一批常量**——同一事实不在两处各写一份（根 AGENTS.md）。
+         */
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_TRIGGER: CHAT_READ_E2E.deepAgentMultiCanvasTrigger,
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_COUNT: String(CHAT_READ_E2E.deepAgentMultiCanvasCount),
+        LOOPBACK_DEEP_AGENT_MULTI_CANVAS_SUMMARY: CHAT_READ_E2E.deepAgentMultiCanvasSummary,
+        LOOPBACK_DEEP_AGENT_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
+        LOOPBACK_DEEP_AGENT_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
+        LOOPBACK_DEEP_AGENT_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentToolFailureTrigger,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_MESSAGE: CHAT_READ_E2E.deepAgentToolFailureMessage,
+        LOOPBACK_DEEP_AGENT_TOOL_FAILURE_REPLY: CHAT_READ_E2E.deepAgentToolFailureReply,
       },
     },
     {
@@ -715,6 +751,10 @@ export default defineConfig({
         CHAT_E2E_DEEP_AGENT_MODEL_ID: CHAT_READ_E2E.deepAgentModelId,
         CHAT_E2E_DEEP_AGENT_DISPLAY_NAME: CHAT_READ_E2E.deepAgentDisplayName,
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // 与产品默认值相同（`deep-agent-model-provider.ts` 的 2000），显式下发只为把
+        // F5 判据 3 的窗口从"猜一个常数"改成"由轮数 × 周期算出来"。见
+        // `deepAgentSubtaskPollIntervalMs` 头注。
+        KERNEL_DEEP_AGENT_POLL_INTERVAL_MS: String(CHAT_READ_E2E.deepAgentSubtaskPollIntervalMs),
         // UI 评分第 1 项（流式反馈）的取证前提：开关开着，loopback 的 /stream
         // SSE 端点逐片发正文，前端 streamingText 才有增量可渲染。评分员 2026-08-23
         // 的判 0 依据就是「b1-stream 相邻帧正文字数相同」——这行 + loopback 的

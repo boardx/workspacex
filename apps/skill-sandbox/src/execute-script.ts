@@ -34,7 +34,7 @@ import { parseInputFiles, type SandboxInputFile } from "./input-files.js";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /** 回喂给模型的 stdout/stderr 上限——contract §7 要求「截断后的 stdout/stderr」。 */
 export const OUTPUT_CAPTURE_LIMIT_BYTES = 64 * 1024;
@@ -104,35 +104,36 @@ export async function executeScript(options: ExecuteScriptOptions): Promise<Exec
    */
   const inputFiles = parseInputFiles(options.inputFiles);
   const root = await realpath(await mkdtemp(join(tmpdir(), "skill-sandbox-")));
-  const workdir = join(root, "work");
-  const outdir = join(workdir, "out");
-  await mkdir(outdir, { recursive: true });
-  const inputdir = join(workdir, "input");
-  await mkdir(inputdir);
-  for (const file of inputFiles) {
-    await writeFile(join(inputdir, file.name), Buffer.from(file.contentBase64, "base64"), { mode: 0o444 });
-  }
-
-  /**
-   * CommonJS,不是 ESM。两个理由:
-   * ① pptx skill 原文给的脚本用的是 `require('pptxgenjs')`;
-   * ② `NODE_PATH` 只对 CommonJS 解析生效,对 ESM 完全无效——早先那版把脚本写成
-   *    `.mjs` 并指望 `NODE_PATH` 能让 `require` 找到预装依赖,是**两处同时错**
-   *    (`.mjs` 里根本没有 `require`)。现在改成:显式 `package.json` 钉死
-   *    `"type":"commonjs"`(不让 Node 往上游目录找到别人的 package.json 而误判),
-   *    并在 workdir 下软链一个 `node_modules` 指向预装目录,走 Node 正常的
-   *    逐级上溯解析,不依赖任何环境变量。
-   */
-  await writeFile(join(workdir, "package.json"), JSON.stringify({ type: "commonjs" }), "utf8");
-  if (options.preinstalledModulesDir) {
-    await symlink(options.preinstalledModulesDir, join(workdir, "node_modules"), "dir");
-  }
-
-  const scriptPath = join(workdir, "script.js");
-  await writeFile(scriptPath, options.script, "utf8");
-
-  const startedAt = Date.now();
   try {
+    const workdir = join(root, "work");
+    const outdir = join(workdir, "out");
+    await mkdir(outdir, { recursive: true });
+    const inputdir = join(workdir, "input");
+    await mkdir(inputdir);
+    for (const file of inputFiles) {
+      await mkdir(dirname(join(inputdir, file.name)), { recursive: true });
+      await writeFile(join(inputdir, file.name), Buffer.from(file.contentBase64, "base64"), { mode: 0o444 });
+    }
+
+    /**
+     * CommonJS,不是 ESM。两个理由:
+     * ① pptx skill 原文给的脚本用的是 `require('pptxgenjs')`;
+     * ② `NODE_PATH` 只对 CommonJS 解析生效,对 ESM 完全无效——早先那版把脚本写成
+     *    `.mjs` 并指望 `NODE_PATH` 能让 `require` 找到预装依赖,是**两处同时错**
+     *    (`.mjs` 里根本没有 `require`)。现在改成:显式 `package.json` 钉死
+     *    `"type":"commonjs"`(不让 Node 往上游目录找到别人的 package.json 而误判),
+     *    并在 workdir 下软链一个 `node_modules` 指向预装目录,走 Node 正常的
+     *    逐级上溯解析,不依赖任何环境变量。
+     */
+    await writeFile(join(workdir, "package.json"), JSON.stringify({ type: "commonjs" }), "utf8");
+    if (options.preinstalledModulesDir) {
+      await symlink(options.preinstalledModulesDir, join(workdir, "node_modules"), "dir");
+    }
+
+    const scriptPath = join(workdir, "script.js");
+    await writeFile(scriptPath, options.script, "utf8");
+
+    const startedAt = Date.now();
     return await runOnce(options, { root, workdir, outdir, scriptPath, startedAt });
   } finally {
     await rm(root, { recursive: true, force: true });

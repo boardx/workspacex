@@ -20,7 +20,12 @@ import {
 import { ADMIN_NAV_TESTID } from "@/components/admin/asset-kind-nav";
 import { PLATFORM_ADMIN_ROUTES, platformAdminHref } from "@/lib/platform-admin-routes";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+// `IconRail` 底部挂了 `RailNotifications`（#3246），它用 `useRouter` 做跳转。
+// 补全这个 stub 是补一个缺失的桩，不是放宽任何断言。
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
+  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {}, back: () => {}, forward: () => {} }),
+}));
 
 afterEach(() => cleanup());
 

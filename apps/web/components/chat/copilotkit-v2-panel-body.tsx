@@ -31,6 +31,7 @@ import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, Paperclip, Pause, Pe
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
+import { describeFailedRunBanner, resolveLiveRunFailureBanner } from "@/lib/copilotkit-v2-failure-banner";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
@@ -196,6 +197,11 @@ export function CopilotKitV2PanelBody({
   const sendFailedRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
   const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
+  /**
+   * issue #3261 —— 当前横幅说的是**哪一轮 run** 的失败。失败当场那条路径要异步补一次
+   * 权威读才知道成因，这个 ref 保证那句迟到的文案只会盖回它自己那一轮的横幅。
+   */
+  const bannerRunRef = React.useRef<string | null>(null);
   // Keep the latest run context for stable framework error subscriptions.
   const runReportContextRef = React.useRef<{
     runId: string | null; threadId: string | null; phase: RunStage | null;
@@ -329,6 +335,26 @@ export function CopilotKitV2PanelBody({
         console.error("[copilotkit-v2] agent run failed", { code: code_, context: errorContext });
         sendFailedRef.current = true;
         setError(describeCopilotkitV2RunError(code_));
+        /*
+         * issue #3261 —— 上面这句只按 wire 上那个枚举码说话，说不出**为什么**失败：
+         * `RUN_ERROR` 事件里没有成因的位置。成因的单一事实源是 `agent_runs.failure_reason`
+         * （PR #3229），刷新后走的 `handleRunRestored` 一直在读它——此前活路径没读，
+         * 于是同一个失败刷新前后是两句话。这里补上**同一次**权威读、走**同一个**
+         * 文案函数（`describeFailedRunBanner`），把两条路径收敛到一个来源。
+         *
+         * ⚠ 先 `setError` 再补读：横幅立刻出现（不让用户对着一个安静的界面等网络），
+         * 读回来只是把它换成更具体的一句。读不到就保持旧文案，不编成因。
+         * ⚠ `bannerRunRef` 挡住迟到的覆盖：这次读返回时若面板已经在处理**另一轮**
+         * run 的失败，这句迟到的文案不许盖上去。
+         */
+        const causeRunId = runReportContextRef.current.runId;
+        bannerRunRef.current = causeRunId;
+        void resolveLiveRunFailureBanner({
+          runId: causeRunId, code: code_, bearer: getStoredSessionToken() ?? undefined,
+        }).then((text) => {
+          if (bannerRunRef.current !== causeRunId) return;
+          setError(text);
+        });
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
         // runId/时间范围查询,不必再等用户手动截图 DevTools。fire-and-forget,失败
         // 静默降级(见 `report-client-error.ts` 文件头),绝不在这条路径上新增一个
@@ -678,7 +704,10 @@ export function CopilotKitV2PanelBody({
     setRecoveryDiagnostic(outcome.view.recoveryDiagnostic ?? null);
     if (outcome.view.status === "failed") {
       // issue #3211 ①：run 视图带成因，横幅就说得出「为什么」，不只是「失败了」。
-      setError(describeCopilotkitV2RunError(outcome.view.error, outcome.view.failureReason ?? null));
+      // issue #3261：这句话的算法搬进 `describeFailedRunBanner`——失败当场那条路径
+      // 补完权威读之后用的是**同一个**函数，两条路径不再各算一遍。
+      bannerRunRef.current = outcome.view.runId ?? null;
+      setError(describeFailedRunBanner(outcome.view));
     }
     let cancelled = false;
     (async () => {

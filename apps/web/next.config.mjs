@@ -358,6 +358,9 @@ export default {
       // 实测就是这么红了一次（步骤 8b，2026-08-05）。
       { source: `${prefix}/agent-runs/:path*`, destination: `${apiOrigin}/agent-runs/:path*` },
       { source: `${prefix}/agent-artifacts/:path*`, destination: `${apiOrigin}/agent-artifacts/:path*` },
+      // #3282: the E2E notification center must reach the API collection and read action.
+      { source: `${prefix}/schedule-notifications`, destination: `${apiOrigin}/schedule-notifications` },
+      { source: `${prefix}/schedule-notifications/:path*`, destination: `${apiOrigin}/schedule-notifications/:path*` },
       // issue #3068：「以后都允许」的组织级授权清单与撤销。`ToolPermissionGrantController`
       // 同样是 `@Controller()`（空前缀），路径是裸的 `/tool-permission-grants` —— 与上面
       // `/agent-runs` 同一个形状、同一个坑，`lint-rewrite-coverage` 已经把这两条标红。
