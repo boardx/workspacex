@@ -12,6 +12,19 @@ developers:
     role: contributor
 
 agents:
+  # 用户于 2026-09-09 授权创建，专用于 #3234 的后台统一升级。
+  - id: dev-ai-capability-studio
+    active: true
+    kind: worker
+    model: configured-default
+    owner: 2325074+usamshen@users.noreply.github.com
+    areas: [ai-runtime, agents, skills, mcp, model, admin]
+    reports_to: coord-main
+    responsibilities:
+      - 实现 #3234 Agent、Skill、MCP、Model 后台端到端统一升级
+      - 维护导入、开发草稿、验证、发布及上游更新链路的证据
+      - 每次只认领一个 feature，独立评审后交 coord-main 合并
+
   # ── 主协调者（唯一，合并权归它）─────────────────────────────
   - id: coord-main
     active: true
