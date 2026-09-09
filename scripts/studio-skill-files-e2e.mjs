@@ -5,6 +5,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import 'tsx/esm';
+const suppliedCommand=process.argv.slice(2);
+const browserCommand=['pnpm','--filter','web','exec','playwright','test','--config','playwright.skill-files.config.ts'];
+if(suppliedCommand.length && JSON.stringify(suppliedCommand)!==JSON.stringify(['--',...browserCommand])) throw new Error('Only the fixed skill-files browser command is supported');
 const root=resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { withStudioIsolation, assertStudioReport } = await import('./studio-skill-files-guards.ts');
 await withStudioIsolation(async () => {
@@ -60,7 +63,7 @@ try {
   });
   await ready(`${webOrigin}/login`,web);
   await writeFile(`${evidence}/environment.json`,JSON.stringify({gitHead,apiOrigin,webOrigin,compose:env.COMPOSE_PROJECT_NAME,database:env.PGDATABASE,modelExecuted:false},null,2));
-  await run('pnpm',['exec','playwright','test','--config','playwright.skill-files.config.ts'],'browser',`${root}/apps/web`,{
+  await run(browserCommand[0],browserCommand.slice(1),'browser',root,{
     E2E_BASE_URL:webOrigin,STUDIO_API_BASE_URL:apiOrigin,STUDIO_LOCAL_DEV_MODE:'1',STUDIO_EVIDENCE_DIR:`${evidence}/results`,
   });
   const report=JSON.parse(await readFile(join(evidence,'results','playwright-report.json'),'utf8'));
