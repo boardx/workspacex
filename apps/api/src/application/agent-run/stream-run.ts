@@ -33,7 +33,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { ResolveVisibilityDeps } from "../chat/resolve-visibility";
 import type { AgentRunStore } from "./ports";
 import { readAgentRun } from "./read-run";
-import { DEFAULT_RUN_POLL_INTERVAL_MS, DEFAULT_RUN_MAX_POLLS } from "./poll-budget";
+import { DEFAULT_RUN_POLL_INTERVAL_MS, resolveRunMaxPolls } from "./poll-budget";
 
 export interface StreamRunDeps extends ResolveVisibilityDeps {
   readonly runs: AgentRunStore;
@@ -66,7 +66,7 @@ export async function streamAgentRunDeltas(
   // See `poll-budget.ts` -- matches `chat-live-message-panel.tsx`'s own `RUN_POLL_BUDGET_MS`,
   // so switching a client from polling to this relay does not silently change how long it
   // is willing to wait before giving up. `agui-bridge.ts` shares this same budget.
-  const maxPolls = input.maxPolls ?? DEFAULT_RUN_MAX_POLLS;
+  const maxPolls = input.maxPolls ?? resolveRunMaxPolls(pollIntervalMs);
   let lastSeenDeltaSeq = -1;
 
   // ⚠ 2026-08-08 —— 与 `agui-bridge.ts` 的 `runAguiBridgeTurn` 同一个坑，同一个修法
