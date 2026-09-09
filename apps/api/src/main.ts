@@ -3,6 +3,9 @@
  * `kernel.module.ts` about why the composition root belongs to no layer.
  */
 import "reflect-metadata";
+import { json, type Request, type Response, type NextFunction } from "express";
+import { PayloadTooLargeException } from "@nestjs/common";
+import { operations as skillFileEdit, SKILL_FILE_EDIT_BODY_MAX_BYTES } from "@repo/contracts/skill-file-edit";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NestFactory } from "@nestjs/core";
@@ -69,6 +72,17 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
+  // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.
+  // Register before Nest installs its default parser; other routes retain their limit.
+  const skillFileParser = json({ limit: SKILL_FILE_EDIT_BODY_MAX_BYTES });
+  app.getHttpAdapter().getInstance().post(skillFileEdit.saveSkillFiles.path,
+    (req: Request, res: Response, next: NextFunction) => skillFileParser(req, res, (error?: unknown) => {
+      if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+        next(new PayloadTooLargeException()); return;
+      }
+      next(error);
+    }));
+
   app.get<DebugRecorder>(DEBUG_TRACE_PORT).start();
   return app;
 }

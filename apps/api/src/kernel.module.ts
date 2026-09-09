@@ -237,6 +237,9 @@ import { AgentSkillPinsController } from "./interface/controllers/agent-skill-pi
 import { SKILL_VERSION_EDIT_REPOSITORY } from "./application/skill/edit-skill-version-content";
 import { PgSkillVersionEditRepository } from "./infrastructure/skill/pg-skill-version-edit-repository";
 import { SkillVersionEditController } from "./interface/controllers/skill-version-edit.controller";
+import { SKILL_FILE_EDIT_REPOSITORY } from "./application/skill/edit-skill-files";
+import { PgSkillFileEditRepository } from "./infrastructure/skill/pg-skill-file-edit-repository";
+import { SkillFileEditController } from "./interface/controllers/skill-file-edit.controller";
 import { ProvenanceController } from "./interface/controllers/provenance.controller";
 import { ArtifactBindingController } from "./interface/controllers/artifact-binding.controller";
 import { ArtifactReferenceController } from "./interface/controllers/artifact-reference.controller";
@@ -940,6 +943,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentStarterImportController,
     AgentSkillPinsController,
     SkillVersionEditController,
+    SkillFileEditController,
     LocalOrgController,
     LocalExportController,
     ArtifactBindingController,
@@ -1378,6 +1382,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: AGENT_SKILL_PINS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgAgentSkillPinsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_FILE_EDIT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSkillFileEditRepository(db),
       inject: [DATABASE_PORT],
     },
     {
