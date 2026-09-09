@@ -25,6 +25,7 @@
     "verify:quick": "pnpm exec tsx .harness/scripts/verify-quick.ts",
     "verify:fullstack-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:fullstack-smoke:raw",
     "verify:fullstack-smoke:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import",
+    "verify:prototype-audit": "pnpm --filter web exec playwright test --config playwright.prototype-audit.config.ts",
     "verify:core-loop": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:core-loop:raw",
     "verify:core-loop:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=core-loop-empty-db",
     "verify:chat-read": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:chat-read:raw",
