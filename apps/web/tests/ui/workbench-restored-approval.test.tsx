@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
 const calls = vi.hoisted(() => ({ read: vi.fn(), request: vi.fn() }));
@@ -118,6 +118,45 @@ describe("durable approval", () => {
     expect(screen.getByTestId("perm-intent")).toHaveTextContent("调用工具 wx_canvas_update");
     fireEvent.click(await screen.findByRole("button", { name: "仅本次允许" }));
     await waitFor(() => expect(calls.request).toHaveBeenCalledWith("/agent-runs/run/permission-requests/canvas-id/decision", expect.objectContaining({ body: { decision: "once" } })));
+  });
+
+  /*
+   * issue #3244 ① —— 人类原话：「提交以后在 chat 上又看到了这个界面」。
+   *
+   * 下面两条是一对，缺任何一条另一条就变成恒真门：
+   *   - 第一条钉「已裁决之后不得再问」；
+   *   - 第二条（对照）钉「真正没被持久化过的窗口必须照旧问」。
+   * 实测：把第 113 行改成无条件 `return null`（也就是「前端干脆不渲染」这种掩盖式修法），
+   * 第一条会绿而**第二条会红**——这对判据确实能分辨修法对不对，不是走过场。
+   */
+  const CONFIRM_R1 = { toolName: "confirm_task_intent" as const, args: { requestId: "r1", understanding: "生成一个用户画像", assumptions: [] } };
+
+  it("#3244 ①: a decided confirmation is kept as a finished record, never re-asked", async () => {
+    calls.read
+      .mockResolvedValueOnce({ status: "awaiting_tool_permission", pendingApproval: { permissionRequestId: "p1", toolName: "confirm_task_intent", argsSummary: null, interrupt: CONFIRM_R1 } })
+      .mockResolvedValue({ status: "running", pendingApproval: null });
+    calls.request.mockResolvedValue({});
+    render(<RestoredRunApproval runId="run" fallbackInterrupt={CONFIRM_R1} />);
+    const dialog = await screen.findByRole("dialog");
+    // ⚠ 必须在弹窗稳定之后重新取一次按钮：Radix 会把内容 portal 到新节点上，先前那次
+    //   查询拿到的可能已经是被卸下的旧树，点了不会有任何事发生（点不动 ≠ 被禁用，
+    //   `button.disabled` 仍是 false）——本条最初就假红在这个形状上，断言一次都没跑到。
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    fireEvent.click(within(dialog).getByTestId("agent-interrupt-confirm-intent-continue"));
+    await waitFor(() => expect(calls.request).toHaveBeenCalledTimes(1));
+    // 前提：权威读此刻 pendingApproval 为 null——服务端没有在等任何确认。
+    await waitFor(() => expect(screen.queryByTestId("interrupt-awaiting-persistence")).toBeNull());
+    // 但记录要留下，且不可再裁决：留痕，不是抹掉。
+    await screen.findByRole("group", { name: "已结束的确认记录" });
+    expect(screen.getByTestId("agent-interrupt-confirm-intent-continue")).toBeDisabled();
+    expect(calls.request).toHaveBeenCalledTimes(1);
+  });
+
+  it("#3244 ① control: an interrupt never seen as pending still waits for persistence", async () => {
+    calls.read.mockResolvedValue({ status: "running", pendingApproval: null });
+    render(<RestoredRunApproval runId="run" fallbackInterrupt={CONFIRM_R1} />);
+    expect(await screen.findByTestId("interrupt-awaiting-persistence")).toBeVisible();
+    expect(calls.request).not.toHaveBeenCalled();
   });
 
 });

@@ -58,6 +58,17 @@ const TRANSPORT_ERROR_TEXT: Record<string, string> = {
 };
 
 /**
+ * 这个码是不是 run 的**终态**错误码（`AgentRunError` 枚举里的一个）——只有它们在
+ * `agent_runs` 上有对应的 `failure_reason`。传输层码与原始网络异常文案都不是。
+ *
+ * issue #3261：活路径据此决定「要不要为这次失败补一次权威读」，避免给每一种错误
+ * 都加一次网络请求。判据取自同一个 zod 枚举，不另开一份码表。
+ */
+export function isAgentRunTerminalErrorCode(code: string | null | undefined): boolean {
+  return typeof code === "string" && AGENT_RUN_ERROR_CODES.has(code);
+}
+
+/**
  * 把一个可能来自 wire 的稳定枚举码译成人读文案。`code` 传 `undefined`/空字符串/
  * 未登记的陌生值时，给一句诚实但不带原始字面量的兜底——不在界面上原样印一个只有
  * 排障时才有意义的常量名。

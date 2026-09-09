@@ -53,6 +53,27 @@ export function RestoredRunApproval(props: { runId: string; bearer?: string; can
 function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt }): JSX.Element | null {
   const [run, setRun] = React.useState<AgentRunView | null>(null);
   const [consumedRequestId, setConsumedRequestId] = React.useState<string | null>(null);
+  /**
+   * issue #3244 ① —— 「提交以后在 chat 上又看到了这个界面」。
+   *
+   * 事件流里那条中断的 tool call 在裁决之后并不会翻成 `complete`（裁决走的是 REST
+   * `decision`，不是 CopilotKit 的 tool result），于是 `copilotkit-v2-agent-interrupts.tsx`
+   * 那条 `status !== "complete"` 会一直把**同一个已被消费的中断**当 `fallbackInterrupt`
+   * 交下来。下面第 113 行原本无条件把它演成「等待服务端确认此请求，确认后即可继续。」——
+   * 而此刻权威读的 `pendingApproval` 是 `null`：**服务端根本没有在等任何确认**。
+   * 界面因此对用户说了一句假话，用户只能理解成「我刚才那次没生效」。
+   *
+   * 修的不是「别再渲染」（那会连同真正的未持久化窗口一起吞掉，属于用「前端不渲染」
+   * 掩盖问题）。修的是**分清两种 `pendingApproval === null`**：
+   *   - 从来没被持久化过（中断事件早于 run 记录落库）⇒ 「等待服务端确认」是真话，照旧；
+   *   - 曾经被权威读确认存在、现在消失了 ⇒ 它**已被裁决**，应当以「已结束的确认记录」
+   *     的形态留痕（与第 110 行同一形态），而不是再问一次。
+   *
+   * 判据是权威读自己给过的事实，不是界面痕迹：只有当某次 `getAgentRun` 的
+   * `pendingApproval.interrupt` 与这个 `fallbackInterrupt` **逐字同一**（toolName +
+   * requestId）时才置位。置位之后不再回落——同一个 requestId 不会二次进入待决。
+   */
+  const [fallbackWasPending, setFallbackWasPending] = React.useState(false);
   const inFlight = React.useRef(false);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -80,6 +101,13 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     return () => { controller.abort(); clearTimeout(timer); };
   }, [runId, bearer]);
   const request = run?.pendingApproval;
+  React.useEffect(() => {
+    if (!fallbackInterrupt || fallbackWasPending) return;
+    const pendingInterrupt = run?.pendingApproval?.interrupt;
+    if (!pendingInterrupt) return;
+    if (pendingInterrupt.toolName === fallbackInterrupt.toolName
+      && pendingInterrupt.args.requestId === fallbackInterrupt.args.requestId) setFallbackWasPending(true);
+  }, [run, fallbackInterrupt, fallbackWasPending]);
   const decide = async (decision: "once" | "run" | "forever" | "deny") => {
     if (!canWrite || !request?.permissionRequestId || inFlight.current) return;
     inFlight.current = true;
@@ -110,6 +138,8 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   if (fallbackInterrupt && request?.interrupt && (fallbackInterrupt.toolName !== request.interrupt.toolName || fallbackInterrupt.args.requestId !== request.interrupt.args.requestId)) return <fieldset disabled aria-label="已结束的确认记录"><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>;
   if (request?.permissionRequestId && request.permissionRequestId === consumedRequestId) return null;
   if (request?.interrupt && run?.status === "awaiting_tool_permission") return <section data-testid="restored-run-approval">{error ? <p role="alert">{error}</p> : null}{request.permissionRequestId ? <InterruptDecisionDialog key={request.permissionRequestId} interrupt={request.interrupt} pending={!canWrite || pending} decide={decideForm} /> : <fieldset disabled><RestoredInterruptForm interrupt={request.interrupt} pending={false} decide={async () => {}} /></fieldset>}</section>;
+  // issue #3244 ①：已被裁决的那一份，只留痕、不再问（判据见 `fallbackWasPending` 头注）。
+  if (fallbackInterrupt && !request?.interrupt && fallbackWasPending) return <fieldset disabled aria-label="已结束的确认记录"><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>;
   if (fallbackInterrupt && !request?.interrupt) return <section data-testid="interrupt-awaiting-persistence">
     <p role="status">{error ?? "等待服务端确认此请求，确认后即可继续。"}</p>
     <fieldset disabled><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>
