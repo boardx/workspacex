@@ -1,0 +1,19 @@
+{
+  "gitHeadVerifiedFromReflog": "245decbd8a5a552ad37137464aa64c71650b5c94",
+  "headTimestamp": "2026-09-09T20:15:42Z",
+  "runStartedAt": "2026-09-09T20:23:54.935Z",
+  "scriptWasUncommitted": true,
+  "executedScriptSha256": "29d8f14534322c5a29cfc6acb07c8b0c0123ca3b4a111eac7a89307f6ca90d04",
+  "nativeSandboxImage": "workspacex-skill-sandbox:e003",
+  "nativeSandboxCode": "current checkout compiled with tsconfig.build.json into per-run temporary dist and mounted read-only",
+  "nativeTransport": "host UDS to docker-exec stdio to container UDS; container network:none retained",
+  "modelCredentialSource": "explicit STUDIO_MODEL_ENV_FILE; only necessary model variables passed to API/deep-agent",
+  "postRunChecks": {
+    "exactAgentAndSkillVersions": true,
+    "matchedSuccessfulReferenceReadToolCall": true,
+    "referenceSha256MatchesReceipt": true,
+    "canaryAbsentFromHumanMessage": true,
+    "answerContainsReferenceCanary": true
+  },
+  "devappExecuted": false
+}

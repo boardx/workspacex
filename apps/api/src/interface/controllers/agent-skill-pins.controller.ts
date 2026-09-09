@@ -15,6 +15,7 @@
  */
 import {
   Body,
+  Get,
   ConflictException,
   Controller,
   ForbiddenException,
@@ -30,6 +31,7 @@ import type { Response } from "express";
 import { agentRuntime as C } from "@repo/contracts";
 import {
   setAgentSkillPins,
+  getAgentSkillPins,
   AGENT_SKILL_PINS_REPOSITORY,
   type AgentSkillPinsRepository,
 } from "../../application/agent-skill-pins/set-agent-skill-pins";
@@ -56,6 +58,24 @@ export class AgentSkillPinsController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(AGENT_SKILL_PINS_REPOSITORY) private readonly repository: AgentSkillPinsRepository,
   ) {}
+
+  @Get(C.operations.getAgentSkillPins.path)
+  async read(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string) {
+    assertPrincipal(principal);
+    try {
+      const result = await getAgentSkillPins({ orgId: principal.orgId, actorId: principal.userId, agentId },
+        { identities: this.identities, repository: this.repository });
+      return C.operations.getAgentSkillPins.out.parse(result);
+    } catch (error) {
+      if (error instanceof SetAgentSkillPinsError) {
+        const status = ERROR_STATUS[error.code];
+        if (status === HttpStatus.FORBIDDEN) throw new ForbiddenException({ reasonCode: error.code });
+        if (status === HttpStatus.NOT_FOUND) throw new NotFoundException({ reasonCode: error.code });
+        throw new UnprocessableEntityException({ reasonCode: error.code });
+      }
+      throw error;
+    }
+  }
 
   @Post("/admin/agents/:agentId/skill-pins")
   async pin(

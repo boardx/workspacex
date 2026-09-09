@@ -28,6 +28,7 @@
  *   `AgentRuntimeError` 的每一个成员都在下方某个操作的 `err` 里出现。
  */
 import { z } from "zod";
+import { getAgentSkillPins } from "./agent-skill-pins";
 import { ArtifactError } from "./artifact";
 import { PermissionReason } from "./identity";
 
@@ -1717,14 +1718,15 @@ export const operations = {
    * `published_version_id` 提交，服务端发现已经变了就拒（`VERSION_CHANGED`），
    * ⛔ 不静默覆盖别人并发做的修改。
    */
+  getAgentSkillPins,
   setAgentSkillPins: {
     method: "POST",
     path: "/admin/agents/:agentId/skill-pins",
     in: z
       .object({
         agentId: z.string(),
-        /** 整体替换，非追加；见上方说明。⚠ 顺序即 system prompt 拼接顺序。 */
-        skillVersionIds: z.array(z.string()).min(1),
+        /** 整体替换；顺序即 system prompt 顺序。#3260 空数组恢复组织默认技能，不代表禁用所有技能。 */
+        skillVersionIds: z.array(z.string()),
         expectedVersion: z.string(),
       })
       .strict(),

@@ -21,7 +21,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, cleanup, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
 
 // #1884：编辑区从 `<textarea>` 换成 Monaco 之后接的替身——见该文件头注，
 // 真实 Monaco 在 jsdom 下无法渲染，替身只接管「怎么画」，本文件仍然测「接线对不对」。
@@ -31,7 +31,8 @@ const sessionState = vi.hoisted(() => ({ currentOrgId: "org-848", orgRole: "admi
 
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
-    session: { currentOrgId: sessionState.currentOrgId },
+    status: "authenticated",
+    session: { currentOrgId: sessionState.currentOrgId, userId: "admin-test", sessionToken: "session-test" },
     identity: {
       org: { id: sessionState.currentOrgId, name: "真实组织" },
       orgRole: sessionState.orgRole,
@@ -57,6 +58,8 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
   getStoredSessionToken,
 }));
 
+const { getSkillFileSnapshot, saveSkillFiles } = vi.hoisted(() => ({ getSkillFileSnapshot: vi.fn(), saveSkillFiles: vi.fn() }));
+vi.mock("@/lib/live-skill-files", () => ({ getSkillFileSnapshot, saveSkillFiles }));
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 
@@ -89,15 +92,17 @@ beforeEach(() => {
   getStoredSessionToken.mockReturnValue("token-848");
   readAssetFile.mockResolvedValue({ body: SERVER_BODY, sizeBytes: 42 });
   writeAssetFile.mockResolvedValue({ sizeBytes: 99, dirty: true });
+  getSkillFileSnapshot.mockResolvedValue({ skillId: SKILL_ROW.id, versionId: "version-848", semanticLabel: "v1", readOnly: false, files: [{ path: "SKILL.md", contentBase64: Buffer.from(SERVER_BODY).toString("base64"), mediaType: "text/markdown", sizeBytes: Buffer.byteLength(SERVER_BODY) }] });
+  saveSkillFiles.mockImplementation(async (_id, _version, mutations) => ({ skillId: SKILL_ROW.id, versionId: "version-849", semanticLabel: "v2", readOnly: false, files: mutations.filter((m: {kind:string}) => m.kind === "put").map((m: {path:string;contentBase64:string;mediaType:string}) => ({ path:m.path,contentBase64:m.contentBase64,mediaType:m.mediaType,sizeBytes:Buffer.from(m.contentBase64,"base64").length })) }));
   getAssetDirectory.mockResolvedValue({
-    files: [{ path: "SKILL.md", sizeBytes: 42, badge: "MD" }],
+    files: [{ path: "SKILL.md", sizeBytes: 42, badge: "MD" }], currentVersionId: "version-848",
   });
 });
 
 afterEach(() => cleanup());
 
 describe("F848 · 独立编辑页面接真实后端的内容面板", () => {
-  it("编辑页加载后：getAssetDirectory / readAssetFile 打的是这一行真实的 assetId（row.id），不是写死的示例 slug", async () => {
+  it("编辑页加载后：getAssetDirectory / getSkillFileSnapshot 打的是这一行真实的 assetId（row.id），不是写死的示例 slug", async () => {
     listCapabilities.mockResolvedValue([SKILL_ROW]);
     render(
       <CapabilityEditPage
@@ -111,13 +116,13 @@ describe("F848 · 独立编辑页面接真实后端的内容面板", () => {
     expect(getAssetDirectory).toHaveBeenCalledWith("skill", SKILL_ROW.id);
     expect(getAssetDirectory).not.toHaveBeenCalledWith("skill", "mece-decomposition");
 
-    await waitFor(() => expect(readAssetFile).toHaveBeenCalledWith("skill", SKILL_ROW.id, "SKILL.md"));
+    await waitFor(() => expect(getSkillFileSnapshot).toHaveBeenCalledWith(SKILL_ROW.id, "version-848"));
 
     // 展示的是这行真实 skill 的名字，不是 `AgSkillEditor` 内部写死的示例名字。
     expect(await screen.findAllByText(SKILL_ROW.name)).not.toHaveLength(0);
   });
 
-  it("改动内容并保存：writeAssetFile 带的是这一行真实的 assetId 与改后的正文", async () => {
+  it("改动内容并保存：批量 API 携带真实 skillId、基线版本与改后的正文", async () => {
     listCapabilities.mockResolvedValue([SKILL_ROW]);
     render(
       <CapabilityEditPage
@@ -127,22 +132,15 @@ describe("F848 · 独立编辑页面接真实后端的内容面板", () => {
       />,
     );
 
-    // `ag-skill-code` 现在是 `AssetCodeEditor` 的外层 wrapper div（Monaco 挂载点），
-    // 真正接收输入的是替身渲染在它里面的 `<textarea>`——见 `monaco-editor-stub.tsx`。
-    await waitFor(() => {
-      expect(screen.getByTestId("ag-skill-code")).toBeInTheDocument();
-    });
-    const codeBox = () =>
-      within(screen.getByTestId("ag-skill-code")).getByTestId("monaco-mock-editor") as HTMLTextAreaElement;
-    await waitFor(() => expect(codeBox().value).toBe(SERVER_BODY));
-
+    const codeBox = await screen.findByRole("textbox", { name: "文件内容" });
+    expect(codeBox).toHaveValue(SERVER_BODY);
     const EDITED = SERVER_BODY + "改过一行\n";
-    fireEvent.change(codeBox(), { target: { value: EDITED } });
-    fireEvent.click(screen.getByTestId("ag-skill-publish-trigger"));
-    fireEvent.click(screen.getByTestId("ag-skill-publish-confirm"));
-
-    await waitFor(() => expect(writeAssetFile).toHaveBeenCalledTimes(1));
-    expect(writeAssetFile).toHaveBeenCalledWith("skill", SKILL_ROW.id, "SKILL.md", EDITED);
+    fireEvent.change(codeBox, { target: { value: EDITED } });
+    fireEvent.click(screen.getByRole("checkbox", { name: "确认统一保存全部修改并发布新版本" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存全部文件并发布" }));
+    await waitFor(() => expect(saveSkillFiles).toHaveBeenCalledTimes(1));
+    expect(saveSkillFiles).toHaveBeenCalledWith(SKILL_ROW.id, "version-848", [{ kind: "put", path: "SKILL.md", contentBase64: Buffer.from(EDITED).toString("base64"), mediaType: "text/markdown" }]);
+    expect(writeAssetFile).not.toHaveBeenCalled();
   });
 
   it("kind === agent 的编辑页不出现内容面板——后端对 agent 仍是 fixture，接了会显示假数据", async () => {
