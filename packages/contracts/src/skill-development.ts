@@ -2,7 +2,7 @@
  * Review-only contract draft for Skill import and version development.
  *
  * This file is intentionally not exported from `src/index.ts` and does not alter the frozen
- * `POST /skills` route. Consumers may import the package subpath only after UC/API sign-off.
+ * `POST /skills` route. Preview fixtures may validate against it; production adoption requires UC/API sign-off.
  */
 import { z } from "zod";
 import { McpRunSnapshotRef } from "./mcp-runtime-snapshot";
@@ -152,7 +152,7 @@ export const ImportBatch = z.object({
 }).strict().superRefine((batch, context) => {
   const candidates = new Set<string>();
   batch.items.forEach((item, index) => {
-    if (item.previewId !== batch.previewId || candidates.has(item.candidateId)) {
+    if (item.previewId !== batch.previewId || item.sourceDigest !== batch.items[0]?.sourceDigest || candidates.has(item.candidateId)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ["items", index], message: "batch items require the same preview and unique candidate IDs" });
     }
     candidates.add(item.candidateId);
@@ -419,4 +419,3 @@ export const operations = {
     errors: z.union([Unauthenticated, PermissionDenied, NotFound, RevisionConflict, IdempotencyConflict, DependencyUnavailable]),
   }),
 } as const;
-

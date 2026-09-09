@@ -71,5 +71,6 @@ describe("skill development proposed trust boundaries", () => {
     expect(summarizeImportBatch(batch([queued, cancelled]))).toBe("running");
     expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "preview-1", items: [queued, queued] }).success).toBe(false);
     expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "other", items: [queued] }).success).toBe(false);
+    expect(ImportBatch.safeParse({ batchId: "batch-1", previewId: "preview-1", items: [queued, { ...cancelled, sourceDigest: "b".repeat(64) }] }).success).toBe(false);
   });
 });

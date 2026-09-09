@@ -1,5 +1,7 @@
 "use client";
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, Bot, Check, ChevronRight, FileCode2, Files, GitBranch, History, Play, Plus, Puzzle, Settings2, ShieldCheck, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,7 @@ import type { UiState } from "@/lib/ui-state";
 import { initialStudioPreview, studioReducer, trialIsCurrent, validPreviewPath } from "./preview-model";
 
 type Panel = "files" | "tests" | "versions" | "upstream" | "activity";
-type Modal = "import" | "create" | "rename" | "delete" | "ai" | "publish" | "model" | "mcp" | "agent" | "rollback" | null;
+type Modal = "import" | "create" | "rename" | "delete" | "ai" | "publish" | "model" | "mcp" | "agent" | "rollback" | "leave" | null;
 const sections = [
   { key: "files", label: "文件与说明", icon: Files },
   { key: "tests", label: "测试与结果", icon: Play },
@@ -20,7 +22,15 @@ const sections = [
 ] as const;
 
 export function CapabilityStudioPreview({ state }: { state: UiState }) {
+  const router = useRouter();
+  const [pendingHref, setPendingHref] = useState("");
   const [studio, dispatch] = useReducer(studioReducer, undefined, initialStudioPreview);
+  useEffect(() => {
+    if (!studio.dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [studio.dirty]);
   const [panel, setPanel] = useState<Panel>("files");
   const [modal, setModal] = useState<Modal>(null);
   const [notice, setNotice] = useState("工作草稿已就绪，当前 Agent 仍使用 v1。");
@@ -47,10 +57,15 @@ export function CapabilityStudioPreview({ state }: { state: UiState }) {
   const closeWith = (action: () => void, message: string) => { action(); setNotice(message); setModal(null); };
   const fieldClass = "text-12 text-muted-foreground";
 
-  return <main className="min-h-screen bg-background text-background-foreground" data-testid="studio-preview">
+  return <main className="min-h-screen bg-background text-background-foreground" data-testid="studio-preview" onClickCapture={event => {
+    if (!studio.dirty || !(event.target instanceof Element)) return;
+    const href = event.target.closest("a")?.getAttribute("href");
+    if (!href) return;
+    event.preventDefault(); event.stopPropagation(); setPendingHref(href); open("leave");
+  }}>
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-panel px-6 py-3">
       <div className="flex items-center gap-2 text-12"><Puzzle className="h-4 w-4 text-primary" aria-hidden /><strong>能力开发工作台</strong><span className="text-muted-foreground">交互原型 · 仅演示数据，不连接服务</span></div>
-      <StatePreviewSwitcher current={state} />
+      <div className="flex flex-wrap items-center gap-3"><Link href="/preview/ai-capability-studio/import" className="text-12 text-primary underline" data-testid="studio-full-import">完整导入向导示例</Link><StatePreviewSwitcher current={state} /></div>
     </div>
     <StateShell state={state} emptyHint="从 GitHub 导入一个方案，或创建你的第一个 Skill。" onCreate={() => open("import")}
       errors={{ source: "来源无法识别，请检查仓库或目录地址。" }} depFailure={{ what: "示例模型连接中断，重新连接后可继续测试。", retry: () => open("model") }}
@@ -91,7 +106,7 @@ export function CapabilityStudioPreview({ state }: { state: UiState }) {
         </aside>
       </div>
     </StateShell>
-    <Dialog open={modal !== null} onOpenChange={value => { if (!value) setModal(null); }}><DialogContent className="max-w-xl" closeTestId="studio-modal-close" data-testid="studio-modal"><DialogTitle>{({ import: "导入开源方案", create: "新建文件", rename: "重命名文件", delete: "删除草稿文件", ai: panel === "upstream" ? "确认上游合并" : "审阅 AI 修改", publish: "发布新版本", model: "Model 运行配置", mcp: "MCP 工具授权", agent: "绑定 Agent 并体验", rollback: "从历史版本恢复" } as const)[modal ?? "import"]}</DialogTitle><DialogDescription>交互演示：以下操作只影响当前页面中的示例数据。</DialogDescription>
+    <Dialog open={modal !== null} onOpenChange={value => { if (!value) setModal(null); }}><DialogContent className="max-w-xl" closeTestId="studio-modal-close" data-testid="studio-modal"><DialogTitle>{({ import: "导入开源方案", create: "新建文件", rename: "重命名文件", delete: "删除草稿文件", ai: panel === "upstream" ? "确认上游合并" : "审阅 AI 修改", publish: "发布新版本", model: "Model 运行配置", mcp: "MCP 工具授权", agent: "绑定 Agent 并体验", rollback: "从历史版本恢复", leave: "离开未保存的工作草稿" } as const)[modal ?? "import"]}</DialogTitle><DialogDescription>交互演示：以下操作只影响当前页面中的示例数据。</DialogDescription>
       {modal === "import" && <><label className="text-12" htmlFor="studio-source">GitHub 仓库、目录或单文件</label><Input id="studio-source" data-testid="studio-source" value={source} onChange={e => { setSource(e.target.value); setPreviewReady(false); }} /><Button variant="outline" data-testid="studio-preview-source" onClick={() => { if (!source.startsWith("https://github.com/")) { setFormError("演示预览请输入 GitHub HTTPS 地址。"); return; } setFormError(""); setPreviewReady(true); }}>查看示例预览</Button>{previewReady && <div className="rounded-control border border-border p-4" data-testid="studio-import-preview"><p className="font-medium">research-brief · Skill</p><p className="mt-2 text-12 text-muted-foreground">6 个文件 · MIT · 固定示例版本 a84f1c2</p><p className="mt-2 text-12">将替换当前演示工作草稿；已发布版本及 Agent 绑定不会改变。</p></div>}<Button variant="primary" disabled={!previewReady} data-testid="studio-confirm-import" onClick={() => closeWith(() => { dispatch({ type: "import" }); setImportedSource(source); setPanel("files"); }, "示例方案已导入工作草稿，尚未发布。")}>确认导入为草稿</Button></>}
       {(modal === "create" || modal === "rename") && <><label className="text-12" htmlFor="studio-path">包内相对路径</label><Input id="studio-path" data-testid="studio-path" value={path} onChange={e => setPath(e.target.value)} /><DialogFooter><Button variant="primary" data-testid="studio-confirm-path" onClick={pathAction}>确认文件路径</Button></DialogFooter></>}
       {modal === "delete" && <><p className="text-13">从工作草稿删除 {studio.selected}？已发布版本仍保留此文件。</p><Button variant="destructive" data-testid="studio-confirm-delete" onClick={() => closeWith(() => dispatch({ type: "delete" }), "文件已从编辑区移除，请保存草稿。")} >确认删除</Button></>}
@@ -101,6 +116,7 @@ export function CapabilityStudioPreview({ state }: { state: UiState }) {
       {modal === "mcp" && <><p className="text-13">知识库连接 · search_documents</p><p className={fieldClass}>工具已发现，{studio.toolGranted ? "已授予只读搜索权限" : "尚未授权，不可调用"}。重新连接不会自动增加工具权限。</p><Button variant="outline" data-testid="studio-toggle-tool" onClick={() => { dispatch({ type: "tool" }); setChatResult(false); }}>{studio.toolGranted ? "撤销示例工具授权" : "授予只读搜索权限"}</Button></>}
       {modal === "agent" && <><p className="text-13">研究助手当前使用 v{studio.boundRelease}；最新已发布 v{release.number}。</p><Button variant="outline" data-testid="studio-confirm-bind" onClick={() => { dispatch({ type: "bind", release: release.number }); setChatResult(false); setNotice(`研究助手已固定绑定 v${release.number}。`); }}>确认绑定 v{release.number}</Button><Button variant="primary" disabled={!studio.modelEnabled || !studio.toolGranted} data-testid="studio-demo-chat" onClick={() => setChatResult(true)}>运行演示任务</Button>{chatResult && <div className="rounded-control border border-border p-4" data-testid="studio-chat-result"><p className="text-13">演示完成 · 使用发布版本 v{studio.boundRelease}</p><p className="mt-2 text-12 text-muted-foreground">真实聊天、模型调用和产物下载将在 API 接线后验收；本原型不伪造真实运行证据。</p></div>}</>}
       {modal === "rollback" && <><p className="text-13">将 v1 的文件复制为工作草稿修改。当前未保存内容将被替换；已发布版本和 Agent 绑定保持不变。请重新测试后发布。</p><Button variant="outline" data-testid="studio-confirm-rollback" onClick={() => closeWith(() => { dispatch({ type: "rollback", release: 1 }); setPanel("files"); }, "已恢复 v1 内容到编辑区，请保存、测试并发布新版本。")} >确认恢复到草稿</Button></>}
+      {modal === "leave" && <><p className="text-13">尚有未保存的文件修改。离开后这些演示修改将丢失；已发布版本不受影响。</p><DialogFooter><Button variant="outline" data-testid="studio-stay" onClick={() => setModal(null)}>继续编辑</Button><Button variant="destructive" data-testid="studio-confirm-leave" onClick={() => { setModal(null); router.push(pendingHref); }}>丢弃修改并离开</Button></DialogFooter></>}
       {formError && <p role="alert" className="text-12 text-destructive" data-testid="studio-form-error">{formError}</p>}
     </DialogContent></Dialog>
   </main>;
