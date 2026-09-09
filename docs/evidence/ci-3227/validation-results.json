@@ -1,0 +1,57 @@
+{
+  "description": "Allowlisted numeric test results only; raw test logs remain local.",
+  "results": {
+    "red": {
+      "Test Files": {
+        "failed": 1
+      },
+      "Tests": {
+        "failed": 1,
+        "passed": 15
+      }
+    },
+    "rerunRed": {
+      "Test Files": {
+        "failed": 1
+      },
+      "Tests": {
+        "failed": 1,
+        "passed": 17
+      }
+    },
+    "targeted": {
+      "Test Files": {
+        "passed": 3
+      },
+      "Tests": {
+        "passed": 57
+      }
+    },
+    "fullInitial": {
+      "Test Files": {
+        "failed": 6,
+        "passed": 85
+      },
+      "Tests": {
+        "failed": 26,
+        "passed": 1035
+      }
+    },
+    "environmentRetry": {
+      "Test Files": {
+        "passed": 6
+      },
+      "Tests": {
+        "passed": 33
+      }
+    },
+    "independentConcurrency": {
+      "Test Files": {
+        "passed": 1
+      },
+      "Tests": {
+        "passed": 18
+      }
+    }
+  }
+}
