@@ -55,7 +55,7 @@ const EXE = new Uint8Array([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00]); // MZ + NUL：
 
 function uploadAs(actor: string, threadId: string, part: { filename: string; mime: string; bytes: Uint8Array }) {
   const fd = new FormData();
-  fd.append("file", new Blob([part.bytes], { type: part.mime }), part.filename);
+  fd.append("file", new Blob([new Uint8Array(part.bytes)], { type: part.mime }), part.filename);
   // 不手动设 content-type——fetch 会带 multipart boundary。
   return fetch(`${BASE}/chat/threads/${threadId}/attachments`, {
     method: "POST",
