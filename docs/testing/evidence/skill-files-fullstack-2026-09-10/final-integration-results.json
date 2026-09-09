@@ -1,0 +1,114 @@
+{
+  "head": "ab859a6976ce4e421068fd3a04bf7aa84523fcd8",
+  "runId": 34411307674,
+  "jobId": 102666235254,
+  "stats": {
+    "startTime": "2026-09-09T22:18:25.673Z",
+    "duration": 462017.57499999995,
+    "expected": 79,
+    "skipped": 1,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "selected": [
+    {
+      "file": "core-journey-01-registration.spec.ts",
+      "title": "旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 7658
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自 GitHub",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 4162
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录，非根文件不是占位符",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 2636
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 5017
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实输出",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 3371
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "④ 在 chat 输入框敲 `/` 弹出 skill 候选并可选中挂载",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 2981
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "jobUrl": "https://github.com/boardx/workspacex/actions/runs/34411307674/job/102666235254",
+  "providers": "standard loopback model and sandbox",
+  "devappVerified": false,
+  "paidModelExecuted": false,
+  "existingSkip": {
+    "file": "inbox-smoke.spec.ts",
+    "annotation": "fixme",
+    "line": 67
+  }
+}

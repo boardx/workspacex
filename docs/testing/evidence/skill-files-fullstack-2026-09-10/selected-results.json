@@ -1,0 +1,124 @@
+{
+  "stats": {
+    "startTime": "2026-09-09T21:33:46.396Z",
+    "duration": 454283.23099999997,
+    "expected": 79,
+    "skipped": 1,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "selected": [
+    {
+      "file": "core-journey-01-registration.spec.ts",
+      "title": "旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）",
+      "tests": [
+        {
+          "project": "seeded",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 7959
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自 GitHub",
+      "tests": [
+        {
+          "project": "seeded-github-import",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 5025
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录，非根文件不是占位符",
+      "tests": [
+        {
+          "project": "seeded-github-import",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 2621
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑",
+      "tests": [
+        {
+          "project": "seeded-github-import",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 5312
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实输出",
+      "tests": [
+        {
+          "project": "seeded-github-import",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 3368
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "skill-agent-import-usecase-audit.spec.ts",
+      "title": "④ 在 chat 输入框敲 `/` 弹出 skill 候选并可选中挂载",
+      "tests": [
+        {
+          "project": "seeded-github-import",
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "duration": 3109
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "runId": 34407301634,
+    "jobId": 102653247976,
+    "jobUrl": "https://github.com/boardx/workspacex/actions/runs/34407301634/job/102653247976",
+    "runtimeCommit": "c3e1cb929e33ed45db8d84ce14ba133683de0c2d",
+    "testProxyCommit": "7d945be6cfe19bd12cd73a2cdd9265ead6fe28ae",
+    "providers": "standard loopback model and sandbox",
+    "paidModelExecuted": false,
+    "devappVerified": false
+  },
+  "existingSkip": {
+    "file": "inbox-smoke.spec.ts",
+    "title": "① 直接提交反馈 → 跳转收件箱并自动打开该条详情 drawer",
+    "annotation": "fixme",
+    "line": 67
+  }
+}
