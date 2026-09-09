@@ -42,4 +42,10 @@ UI复审确认历史绑定和输入失效修复，补充三项边界：单文件
 
 后续Model管理delta补列表与选择器配置版本、路由请求ID/revision成对、实际路由目标绑定、引用清单与停用的配置引用；provider/upstream直接复用运行绑定schema，防止管理入口与运行时接受不同格式。该delta文件6项测试通过，仍待独立复审；不证明现有生产controller已经采用这些字段。
 
+第五轮（管理delta基线a0126b62）独立审提出五项。映射格式与Model列表读取版本已在ef00ded9补齐；本轮补listMcpServers配置版本、拒绝空composite（新增反例先红）、modelEvidenceExchanges请求响应成对校验，及显式CapabilityAdminError闭集增量。probe/admission/enable的串模型或串revision响应均被成对校验拒绝。管理delta测试8项通过。
+
+错误传输仍有明确实施前置：现有all-exceptions.filter.ts未采纳新错误闭集，当前生产接口也未采用新操作。正式接线必须同时将CapabilityAdminError接入reasonCode映射，并用HTTP测试证明两个新MCP错误可透出；不能只替换operation.in/out。类似地，模型适配边界必须解析modelEvidenceExchanges中的请求/响应对，不能只解析response.out后声称具备关联校验。
+
+新增管理原型：单模型配置表单、冲突恢复和临时凭据清空；MCP原生凭据意图单选、替换输入、匿名确认和端点保留。连接configRevision与credentialRevision分开：keep凭据但变更端点增加前者，不轮换后者。管理状态/组件10项测试通过。未执行本轮真实浏览器验证，剩余控件见admin-ui-remaining.md。
+
 2026-09-09浏览器工具明确返回Mac已锁屏且不能自动解锁。已向用户请求解锁，未绕过系统锁屏。旧截图仍是对应拍摄时刻的原型证据；新修正的浏览器历史导航和键盘验证不声明完成。代码、组件测试、契约审查和CI继续推进。

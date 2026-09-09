@@ -1,8 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { operations } from "../src/capability-admin-deltas";
-import { operations as existing } from "../src/agent-runtime";
+import { CapabilityAdminError, modelEvidenceExchanges, operations } from "../src/capability-admin-deltas";
+import { AgentRuntimeError, operations as existing } from "../src/agent-runtime";
 
 describe("proposed administration operation deltas", () => {
+  it("rejects model evidence returned for a different model or revision", () => {
+    const probe = { request: { modelId: "pool-1", configRevision: "cfg-1" }, response: { reachable: true, latencyMs: 1, failureKind: null, modelConfigRef: { capabilityModelId: "pool-1", configRevision: "cfg-1" } } };
+    expect(modelEvidenceExchanges.probeConnectivity.safeParse(probe).success).toBe(true);
+    expect(modelEvidenceExchanges.probeConnectivity.safeParse({ ...probe, response: { ...probe.response, modelConfigRef: { capabilityModelId: "pool-2", configRevision: "cfg-2" } } }).success).toBe(false);
+    const request = { modelId: "pool-1", configRevision: "cfg-1", item: "连通性", verdict: "通过", evidence: "probe-result-1" };
+    const admission = { request, response: { ...request, recordId: "record-1", judgedBy: "admin-1", judgedAt: "2026-09-09T00:00:00Z" } };
+    expect(modelEvidenceExchanges.recordAdmissionTest.safeParse(admission).success).toBe(true);
+    expect(modelEvidenceExchanges.recordAdmissionTest.safeParse({ ...admission, response: { ...admission.response, modelId: "pool-2", configRevision: "cfg-2" } }).success).toBe(false);
+    const enable = { request: { modelId: "pool-1", expectedVersion: "cfg-1" }, response: { modelId: "pool-1", configRevision: "cfg-1", status: "已启用" } };
+    expect(modelEvidenceExchanges.enableModel.safeParse(enable).success).toBe(true);
+    expect(modelEvidenceExchanges.enableModel.safeParse({ ...enable, response: { ...enable.response, modelId: "pool-2", configRevision: "cfg-2" } }).success).toBe(false);
+    expect(modelEvidenceExchanges.enableModel.safeParse({ ...enable, response: { ...enable.response, status: "待测试" } }).success).toBe(false);
+  });
+  it("provides reconnect CAS from list reads and declares all new transmitted errors", () => {
+    const fields = existing.listMcpServers.out.element.shape;
+    const row = { serverId: "server-1", name: "Demo", description: "Demo server", endpointHint: "外网", authScope: fields.authScope.options[0], reviewStatus: fields.reviewStatus.options[0], connectionStatus: fields.connectionStatus.options[0], quarantineUntil: null, involvesCustomerData: false, isEgress: true, configRevision: "cfg-1" };
+    expect(operations.listMcpServers.out.safeParse([row]).success).toBe(true);
+    expect(operations.listMcpServers.out.safeParse([{ ...row, configRevision: undefined }]).success).toBe(false);
+    const listed = operations.listMcpServers.out.parse([row])[0]!;
+    expect(operations.discoverRemoteMcpTools.in.safeParse({ serverId: listed.serverId, endpoint: "https://example.test/mcp", credentialMutation: { action: "clear" }, expectedConfigRevision: listed.configRevision }).success).toBe(true);
+    for (const code of operations.discoverRemoteMcpTools.err) expect(CapabilityAdminError.safeParse(code).success, code).toBe(true);
+    // Existing transport remains unchanged until this explicit error delta is adopted after sign-off.
+    expect(AgentRuntimeError.safeParse("MCP_AUTHENTICATION_FAILED").success).toBe(false);
+    expect(CapabilityAdminError.safeParse("unknown-internal-error").success).toBe(false);
+  });
   it("freezes the actual routed target and rejects partial model selections", () => {
     const request = { callId: "call-1", contextPackId: "context-1", requestedModelId: "pool-1", requestedConfigRevision: "cfg-1", taskKind: existing.routeModelCall.in.shape.taskKind.options[0] };
     expect(operations.routeModelCall.in.safeParse(request).success).toBe(true);
@@ -24,6 +49,10 @@ describe("proposed administration operation deltas", () => {
     expect(operations.registerModel.in.safeParse(base).success).toBe(false);
     expect(operations.registerModel.in.safeParse({ ...base, providerKey: "demo", upstreamModelId: "upstream-1" }).success).toBe(true);
     expect(operations.registerModel.in.safeParse({ ...base, shape: "composite", providerKey: "demo", upstreamModelId: "upstream-1" }).success).toBe(false);
+    expect(operations.registerModel.in.safeParse({ ...base, shape: "composite" }).success).toBe(false);
+    expect(operations.registerModel.in.safeParse({ ...base, shape: "composite", members: [{ modelId: "pool-1", role: "reviewer" }] }).success).toBe(true);
+    expect(operations.registerModel.in.safeParse({ ...base, providerKey: "Open AI/key", upstreamModelId: "upstream-1" }).success).toBe(false);
+    expect(operations.registerModel.in.safeParse({ ...base, providerKey: "demo", upstreamModelId: "x".repeat(300) }).success).toBe(false);
   });
   it("requires an explicit configuration revision for probes and keeps failure reasons coherent", () => {
     expect(operations.probeConnectivity.in.safeParse({ modelId: "pool-1" }).success).toBe(false);

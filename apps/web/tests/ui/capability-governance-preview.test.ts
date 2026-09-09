@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { admissionItems, governanceReducer, initialGovernancePreview, missingAdmission } from "../../components/ai-capability-studio/governance-preview-model";
 
 describe("governance preview dependency recovery", () => {
+  it("changes connection CAS when an endpoint changes without rotating a kept credential", () => {
+    const initial = initialGovernancePreview();
+    const changed = governanceReducer(initial, { type: "reconnect", mutation: "keep", expectedRevision: 1, success: true, endpoint: "https://new.example.test/mcp" });
+    expect(changed.configRevision).toBe(2);
+    expect(changed.credentialRevision).toBe(1);
+    expect(changed.endpoint).toBe("https://new.example.test/mcp");
+    expect(governanceReducer(changed, { type: "reconnect", mutation: "clear", expectedRevision: 1, success: true }).credentialConfigured).toBe(true);
+  });
   it("requires all five current-revision tests and rejects old configuration evidence", () => {
     let state = initialGovernancePreview();
     for (const item of admissionItems) state = governanceReducer(state, { type: "test", item, revision: 1, verdict: "通过" });

@@ -21,3 +21,9 @@ Mac锁屏，CUA明确报告自动解锁失败；已异步请求用户解锁，�
 2026-09-09 22:30续进：独立审对c946a429运行23/23并指出空白创建响应血缘问题，已新增反例先红后绿；NewBlankSkillDraft现限定revision1、sourcePin和历史版本血缘均null。列表/路由/停用delta也已补齐，provider/upstream收敛复用运行时schema；定向契约合计30项（10+5+5+4+6）。下一步等待云任务3对a0126b62初组管理delta的审查（后续改动需重新提供新SHA），完善Model/MCP完整表单、权限和feature覆盖。
 
 #3241 f6ac3bb9已由classifyChecks实测blocked/changes/waitingCi均空，仍OPEN/BEHIND；已在PR评论明确交coord-main执行正式review/更新/合并门禁。本worker不自行合并。注册#3235又被其他执行者合main更新到c9f0a543，CI重跑；不要基于旧SHA推断通过。Mac解锁请求尚无回复。
+
+22:58续进：云任务1已独立运行ef00ded9的30项并确认空白血缘关闭；任务3回报a0126b62五项管理delta问题，本轮补MCP列表revision、空composite拒绝、modelEvidenceExchanges关联校验、CapabilityAdminError显式错误传输delta。后两者未接入生产adapter/filter，必须在正式实现时一起接线并做HTTP反证。
+
+新增model-configuration-preview.tsx（主任务所有）：配置输入与并发恢复；governance页面补MCP端点/凭据输入及clear/keep边界。管理10项定向测试通过；总UI30项、总契约32项。后续重点从admin-ui-remaining.md取下一项：连通性与准入evidence分开、停用影响、MCP变化分类/权限范围、精确失败导航。Mac仍锁屏，不能宣称完成这些新增页面的浏览器验收。
+
+#3241远端又合main更新到3975ff7b871cd2c5ab3de3678882ae68bfea0eea，本轮查询无失败、fullstack-smoke和backend-required仍运行。之前f6ac3bb9的全绿不代表此新SHA已全绿；需要重新复核再交协调者。
