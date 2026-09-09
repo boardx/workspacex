@@ -90,7 +90,7 @@ import type {
 } from "../chat/message-command-ports";
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
-import { DEFAULT_RUN_POLL_INTERVAL_MS, DEFAULT_RUN_MAX_POLLS } from "./poll-budget";
+import { DEFAULT_RUN_POLL_INTERVAL_MS, resolveRunMaxPolls } from "./poll-budget";
 import type { AguiRunPhase } from "@repo/contracts/agui-state-events";
 import {
   decideAgentRun, AgentRunNotAwaitingToolPermissionError, type DecideAgentRunDeps,
@@ -321,7 +321,7 @@ async function pollAguiRunToOutcome(
   // See `poll-budget.ts` -- this used to default to 75 (~30s), independently of
   // `stream-run.ts`'s ~90s budget, and a slower run (e.g. a multi-block canvas template)
   // could time out here well before it actually finished server-side.
-  const maxPolls = input.maxPolls ?? DEFAULT_RUN_MAX_POLLS;
+  const maxPolls = input.maxPolls ?? resolveRunMaxPolls(pollIntervalMs);
   let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
   let reportedStepCount = input.initialReportedStepCount ?? 0;
   let lastExecutionSeq = input.initialExecutionSeq ?? -1;
