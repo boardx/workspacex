@@ -697,8 +697,25 @@ export function derivePlanPhase(input: {
    */
   if (input.hasPendingPlanConfirmation) return "planning";
   if (hasPendingApproval) return "approving";
-  if (input.ledgerEmpty) return "preparing";
+  /*
+   * issue #3208 —— **在途性优先于「账本有没有步骤」，这两行的顺序不许换回去。**
+   *
+   * 原顺序是 `ledgerEmpty` 先判，于是任何一条没写过计划的 run（大量普通对话）阶段
+   * 恒为 `preparing`：#3187 记录的 44 次 ledger 请求全部返回
+   * `phase:"preparing" / runStatus:"running" / steps:0`，而 `copilotkit-v2-plan-control.tsx`
+   * 同一行右侧由 `runStatus` 推出「执行中」——同一屏两处自相矛盾（#3208 的验收现场）。
+   *
+   * 换句话说：**run 的在途性此前被声明在两处**（`phase` 一处、`deriveRunControls`/
+   * `runStatus` 一处），且两处结论相反。收敛的方向只能是让 `phase` 与 run 的事实一致，
+   * 不是让前端各自打补丁。修正后 `preparing` 的含义收窄为**没有在途 run 且没有计划**
+   * （idle / 新线程），不再与「正在跑」重叠。
+   *
+   * 仍排在三个终态、`planning`、`approving` **之后**：终态优先（#2927 / #3079）、
+   * 计划确认门优先（#3132）、`call_skill` 待审批优先（XC-59）三条既有优先级
+   * 一条未动，本次只交换最后两行。
+   */
   if (input.runStatus === "running" || input.runStatus === "interrupted") return "executing";
+  if (input.ledgerEmpty) return "preparing";
   return "planning";
 }
 
@@ -708,16 +725,14 @@ export function derivePlanPhase(input: {
  *
  * ## 为什么不能继续用 `derivePlanPhase` 判「能不能暂停」
  *
- * 上面那个函数里 `ledgerEmpty` 优先于 `running`：模型没调 `write_todos` 的 run
- * （大量普通对话）阶段恒为 `"preparing"`，而 `"preparing"` 同时也是 idle 线程的阶段
- * ——**一个正在跑的 run 和一个什么都没发生的线程，在 `phase` 上不可区分**。前端据此
- * 做的渲染门（`copilotkit-v2-plan-control.tsx` 的 `phase === "executing" && currentStep`）
+ * 当时 `derivePlanPhase` 里 `ledgerEmpty` 优先于 `running`：模型没调 `write_todos` 的
+ * run（大量普通对话）阶段恒为 `"preparing"`，与 idle 线程不可区分，前端据此做的渲染门
  * 于是把「run 在跑」读成「没在跑」，整张运行进度卡片不渲染，用户没有任何暂停入口。
  *
- * 这不是给 `derivePlanPhase` 调换两行判定顺序能解决的：`phase` 描述的是**计划**处在
- * 哪一段，暂停/恢复针对的是 **run** 本身，两者本就是两个维度（一个 run 可以在没有
- * 任何计划的情况下跑）。本函数只看 `runStatus`——计划账本有没有步骤与它无关。
- * `derivePlanPhase` 的语义因此**一个字没动**，它的既有消费方全部不受影响。
+ * ⚠ 那条顺序缺陷已在 #3208 修掉（`running`/`interrupted` 现在优先于 `ledgerEmpty`），
+ * 但**本函数依然不该由 `phase` 代劳**：`phase` 描述的是**计划**处在哪一段，暂停/恢复
+ * 针对的是 **run** 本身，两者是两个维度（一个 run 可以在没有任何计划的情况下跑，一个
+ * 已 `done` 的 run 也仍有计划可看）。本函数只看 `runStatus`——计划账本有没有步骤与它无关。
  *
  * ## 边界（不要放宽）
  *
@@ -737,4 +752,43 @@ export function deriveRunControls(input: { runStatus: RunStatusForPhase }): {
   if (input.runStatus === "running") return { canPause: true, canResume: false };
   if (input.runStatus === "interrupted") return { canPause: false, canResume: true };
   return { canPause: false, canResume: false };
+}
+
+/**
+ * issue #3208（签核人 2026-09-09 裁决：方案 A「按需渲染 + 收进折叠头」）+ #3214 ——
+ * **阶段指示器该不该常驻**的单一判据。
+ *
+ * ## 为什么这条判据必须与 `phase` 同源、且写在契约里
+ *
+ * 裁决原话是「先保留这个吧，但是只有需要的时候弹出来，不要一直显示」。要把「需要
+ * 的时候」变成可机械判定的东西，只有一个合法的输入：**指示器自己正在显示的那个
+ * `phase`**（`getPlanLedger.phase`，I-7 服务端派生）。任何"再从 `runStatus` /
+ * 有没有步骤 / 有没有 run 另推一次"的写法，都是把同一事实声明到第二处——本仓今晚
+ * 已因这个形态出过五次事故（#3207/#3220 的根因逐字相同：提醒读权威 REST、弹窗只读
+ * 事件流，两处结论相反）。放在契约里而不是组件里，是为了让"哪几态常驻"只有一份
+ * 副本，前端、单测、e2e 读的是同一个函数。
+ *
+ * ## 判据（四态常驻，三态不常驻）
+ *
+ * 同一屏此刻已经有两处在讲"现在到哪一步"：`PlanRunProgress` 运行进度卡与折叠头
+ * 那行 `执行计划 · <stateLabel>`。阶段条只在**它提供新增信息**时常驻：
+ *
+ * - `planning` / `approving`：**需要用户动作**（确认门 / 审批），且进度卡此刻不渲染。
+ * - `failed` / `cancelled`：终态，`deriveRunControls` 全 false ⇒ 进度卡已卸载，
+ *   这条一行摘要是屏幕上唯一说明"这轮怎么收场"的东西。
+ * - `preparing`：**没有在途 run**（#3208 ① 修正后它的含义已收窄为「无在途 run 且
+ *   无计划」）。#3214 的空白会话正落在这里——此时正确行为是**什么都不显示**，
+ *   不是显示一条高亮着「准备」的阶段条。
+ * - `executing` / `done`：与同屏进度卡 / 折叠头摘要纯重复。
+ *
+ * ⚠ **"不常驻" ≠ "不可触达"**：宿主组件在用户展开折叠头时仍然渲染它
+ * （见 `copilotkit-v2-plan-control.tsx`）。本函数只回答"要不要**常驻**"，
+ * 不回答"能不能看到"——后者是折叠头的职责，两件事不要合并成一个布尔。
+ */
+export const PLAN_PHASE_INDICATOR_PINNED_PHASES: readonly PlanPhase[] = Object.freeze([
+  "planning", "approving", "failed", "cancelled",
+] as const);
+
+export function shouldSurfacePlanPhaseIndicator(phase: PlanPhase): boolean {
+  return PLAN_PHASE_INDICATOR_PINNED_PHASES.includes(phase);
 }

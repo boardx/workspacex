@@ -118,6 +118,61 @@ describe("A · fetchLatestSavedDiagramSource 请求序列", () => {
     expect(persona?.markdown).toContain("保存后的画像");
     expect(getThreadArtifactSource).toHaveBeenCalledWith("t", "canvas-persona", "p", "b");
   });
+
+  /**
+   * issue #3230 —— 「一条消息里 10 个画布，刷新后先出现、随后突然消失」的反证。
+   *
+   * 一条助手消息里有 N 个画布围栏，但这条消息名下**只有一条**已落地产物（最常见的
+   * 来源是「落地为产物（草稿）」把**整条消息正文**落成一条 artifact，也可能是只保存
+   * 过其中一个围栏）。此前 `candidates.length === 1` 这条旁路会把那条唯一的产物
+   * **绕过 `accepts` 身份判定**直接返回，于是每一个围栏挂载即读回都拿到同一份不属于
+   * 自己的 markdown ⇒ `previewCode` 被换掉 ⇒ 外层 `key` 变 ⇒ 已经画好的 fabric
+   * 整棵重挂 ⇒ 新内容过不了 `checkCanvasFence` ⇒ 画布「先出现、随后变成错误框」。
+   *
+   * 调用方传了 `accepts` 就是在说「这份源必须属于这个围栏」；数量是 1 不改变这句话。
+   */
+  it("只有一条保存版但不属于本围栏（accepts 判否）⇒ null，不拿它顶替本围栏（#3230）", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [item({ artifactId: "landed-whole-message" })] });
+    getThreadArtifactSource.mockResolvedValue({
+      // 「落地为产物」落的是整条消息正文：10 个围栏拼在一起，任何单个围栏都不认它。
+      markdown: "以上为 10 个战略推演画布…\n\n```canvas\n模板: persona\n```\n",
+      version: null, savedAt: "2026-09-09T01:00:00.000Z", savedBy: "u1",
+    });
+
+    const saved = await fetchLatestSavedDiagramSource({
+      threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
+      accepts: (markdown) => markdown.startsWith("模板: journey-map\n"),
+    });
+
+    expect(saved).toBeNull();
+  });
+
+  it("只有一条保存版且属于本围栏（accepts 判是）⇒ 照常返回（不误伤单画布消息）", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [item({ artifactId: "canvas-journey" })] });
+    getThreadArtifactSource.mockResolvedValue({
+      markdown: "模板: journey-map\n## 阶段\n- 保存后的旅程",
+      version: null, savedAt: "2026-09-09T02:00:00.000Z", savedBy: "u1",
+    });
+
+    const saved = await fetchLatestSavedDiagramSource({
+      threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
+      accepts: (markdown) => markdown.startsWith("模板: journey-map\n"),
+    });
+
+    expect(saved?.markdown).toContain("保存后的旅程");
+  });
+
+  it("不传 accepts（mermaid 单图路径）⇒ 行为逐字不变：唯一保存版照常返回", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [item({ artifactId: "only" })] });
+    getThreadArtifactSource.mockResolvedValue({
+      markdown: "flowchart TD\n  a-->保存版", version: null,
+      savedAt: "2026-09-09T03:00:00.000Z", savedBy: "u1",
+    });
+    const saved = await fetchLatestSavedDiagramSource({
+      threadId: "t", messageId: "m-1", projectId: "p", bearer: "b",
+    });
+    expect(saved?.markdown).toContain("保存版");
+  });
 });
 
 const ORIGINAL_CODE = "flowchart TD\n  a-->b";

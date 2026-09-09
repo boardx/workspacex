@@ -7,16 +7,27 @@ import { V2AssistantMessage } from "@/components/chat/copilotkit-v2-assistant-me
 import { RunInterjections } from "./run-interjections";
 import { RunTracePanel } from "./run-trace-panel";
 import { RunTraceCoveredContext, isDecisionTool } from "@/lib/chat-workbench/trace-context";
+import { JournalToolOutcomeContext } from "@/lib/chat-workbench/tool-outcome";
 
 function ExecutionTool({ entry }: { entry: TraceEntry }): React.ReactNode {
   const render = useRenderToolCall();
-  return render({
+  /*
+   * issue #3204 ① —— 把执行日志的权威成败下发给工具卡。
+   *
+   * `useRenderToolCall` 只认「有没有 toolMessage」：有就一律发
+   * `ToolCallStatus.Complete`（框架三态里没有失败态）。于是 `tool_end.ok === false`
+   * 这件事在这条边界上被丢掉，卡片重新发明出一个"成功"，与外层折叠行读同一条
+   * `entry.status` 得出的「执行工具操作失败」当场打架。
+   * 收敛的办法不是让两处各自改对，是让内层不要再自己算：状态从这里下发，
+   * `useToolCardStatus` 在拿得到它时一律以它为准。
+   */
+  return <JournalToolOutcomeContext.Provider value={entry.status}>{render({
     toolCall: { id: entry.id, type: "function", function: { name: entry.kind === "skill" ? "call_skill" : entry.text, arguments: JSON.stringify(entry.args ?? {}) } },
     toolMessage: entry.result === undefined ? undefined : { id: `${entry.id}:result`, role: "tool", toolCallId: entry.id, content: typeof entry.result === "string" ? entry.result : JSON.stringify(entry.result) ?? "" },
-  });
+  })}</JournalToolOutcomeContext.Provider>;
 }
 const EMPTY_IDS: ReadonlySet<string> = new Set();
-const renderExecutionTool = (entry: TraceEntry) => {
+export const renderExecutionTool = (entry: TraceEntry) => {
   const toolName = entry.kind === "skill" ? "call_skill" : entry.text;
   // write_todos is already projected as the single durable plan ledger. Keep its
   // trace row, arguments and status for audit, but do not turn every journal

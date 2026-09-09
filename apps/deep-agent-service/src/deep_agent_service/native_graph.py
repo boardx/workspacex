@@ -56,18 +56,24 @@ class _BoundSkillsMiddleware(SkillsMiddleware):
         ):
             raise ValueError("Native skill cache binding mismatch; start with the matching session and package set")
 
+    # #3206：只有"这一轮真的发现了"才报发现。官方 loader 在 `skills_metadata` 已在
+    # state 里时返回 None——那一轮它一个字节都没读（实测：首轮 21 次沙箱往返，第二轮
+    # 0 次）。此前这里拿 `(update or state)` 兜底，于是同一线程的每一轮都把整包
+    # 元数据重报一遍：20 个 skill = 每轮 20 条事实 → 20 次 `appendExecutionEvent`
+    # 串行 Postgres 事务 + 用户轨迹里 20 行"发现技能元数据"，而后台其实什么都没发现。
+    # 事实流的契约是"观察到的，不是推断的"，重报缓存值本身就是假事实。
     def before_agent(self, state, runtime, config):
         self._validate_binding(state)
         update = super().before_agent(state, runtime, config)
-        if self._activity is not None:
-            self._activity.metadata_discovered((update or state).get("skills_metadata", []))
+        if self._activity is not None and update is not None:
+            self._activity.metadata_discovered(update.get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
 
     async def abefore_agent(self, state, runtime, config):
         self._validate_binding(state)
         update = await super().abefore_agent(state, runtime, config)
-        if self._activity is not None:
-            self._activity.metadata_discovered((update or state).get("skills_metadata", []))
+        if self._activity is not None and update is not None:
+            self._activity.metadata_discovered(update.get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
 
 

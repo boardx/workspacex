@@ -176,14 +176,53 @@ describe("挂载即读回换来一份校验失败的保存版——只读预览�
     expect(onErrorSpy).not.toHaveBeenCalled();
   });
 
-  it("ChatCanvasFabric：保存版围栏格式有误（同一套 D. 对称覆盖）—— 不抛 removeChild，诚实转错误态", async () => {
+  /**
+   * issue #3230 —— 这条用例原本把**缺陷写成了期望值**：它喂一份「不是合法工作坊画布
+   * 围栏正文」的保存版，然后断言这个围栏**应该**被它顶替、转成 `chat-canvas-error`。
+   * 但那份 markdown 根本过不了本围栏的 `accepts` 身份判定——它属于别人（最常见来源是
+   * 「落地为产物（草稿）」把整条消息正文落成一条 artifact）。让它顶替，正是人类实测
+   * 「刷新后 10 个画布先出现、随后突然消失」的机制本身。
+   *
+   * 现在拆成两条，各测各的：
+   *  ① 不属于本围栏的保存版 ⇒ 一律忽略，原始画布**保持渲染**（#3230 的组件级反证）。
+   *  ② 属于本围栏的保存版 ⇒ 照常挂载后换源、整棵安全重挂，不抛 removeChild
+   *     （本文件原本要盯住的 fabric 包裹节点机制，逐字保留）。
+   * mermaid 那条（D.）不传 `accepts`，「保存版校验失败 ⇒ 转错误态」的崩溃路径仍由它覆盖。
+   */
+  it("ChatCanvasFabric：保存版不属于本围栏 ⇒ 忽略，原始画布保持渲染（#3230）", async () => {
     listThreadArtifacts.mockResolvedValue({ items: [item({})] });
-    // 保存版缺「模板: xxx」行 + 没有任何「## 分区」标题——`checkCanvasFence` 的
-    // 两道纯函数闸门都会判它不合法，且是**同步**判定（不像 mermaid 那条要等一次
-    // `await mermaid.parse`），覆盖到「阶段一 effect 里第一步就同步失败」这条
-    // 与 mermaid 那条用例（异步失败）不同的时序分支。
     getThreadArtifactSource.mockResolvedValue({
-      markdown: "这不是一份合法的工作坊画布围栏正文",
+      markdown: "以上 10 个战略推演画布均可直接在前端渲染为协作画布。",
+      version: null,
+      savedAt: "2026-09-09T01:00:00.000Z",
+      savedBy: "u1",
+    });
+
+    const ORIGINAL_BODY = ["模板: persona", "姓名: 林可", "## 用户描述", "- 项目型采购"].join("\n");
+    const { ChatCanvasFabric } = await import("@/components/chat/chat-canvas-fabric");
+    const { container } = render(
+      <ChatCanvasFabric
+        code={ORIGINAL_BODY} lang="canvas"
+        threadId="t" messageId="m-1" bearer="b" projectId="p"
+      />,
+    );
+
+    await waitFor(
+      () => expect(container.querySelector('[data-testid="chat-canvas-fabric-surface"]')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    // 读回请求已经发过并被判否——再等一拍，确认它不会把已经画好的画布换掉。
+    await waitFor(() => expect(getThreadArtifactSource).toHaveBeenCalled(), { timeout: 3000 });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(container.querySelector('[data-testid="chat-canvas-error"]')).toBeNull();
+    expect(container.querySelector('[data-testid="chat-canvas-fabric-surface"]')).toBeTruthy();
+    expect(onErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it("ChatCanvasFabric：保存版属于本围栏 ⇒ 挂载后换源整棵安全重挂，不抛 removeChild", async () => {
+    listThreadArtifacts.mockResolvedValue({ items: [item({})] });
+    getThreadArtifactSource.mockResolvedValue({
+      markdown: ["模板: persona", "姓名: 林可", "## 用户描述", "- 保存版改过的描述"].join("\n"),
       version: null,
       savedAt: "2026-08-22T01:00:00.000Z",
       savedBy: "u1",
@@ -198,11 +237,11 @@ describe("挂载即读回换来一份校验失败的保存版——只读预览�
       />,
     );
 
+    await waitFor(() => expect(getThreadArtifactSource).toHaveBeenCalled(), { timeout: 3000 });
     await waitFor(
-      () => expect(container.querySelector('[data-testid="chat-canvas-error"]')).toBeTruthy(),
+      () => expect(container.querySelector('[data-testid="chat-canvas-fabric-surface"]')).toBeTruthy(),
       { timeout: 3000 },
     );
-
     expect(onErrorSpy).not.toHaveBeenCalled();
   });
 });
