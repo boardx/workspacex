@@ -45,6 +45,24 @@ export default defineConfig({
        *   exactly one place -- the cipher.
        */
       MODEL_CREDENTIAL_KEY: "vitest-key-548-not-a-production-secret",
+      /**
+       * 2026-09-09（agui-bridge 系列反复 30s 超时的根因之一）：中继（`agui-bridge.ts` /
+       * `stream-run.ts`）的默认预算是 900s——为真实 devapp 的慢 run 定的，成立。但测试
+       * 进程里每条用例自己的上限是 30s（真实耗时 0.5–1.1s）。两者相差 30 倍，后果不是
+       * 「慢」而是**没有可诊断的失败**：run 一旦卡住，服务端按 900s 继续轮询、SSE 体不
+       * 结束，测试里的 `await response.text()` 没有自己的 deadline，只能报一条什么都不
+       * 说的 `Test timed out in 30000ms`，随后那条还开着的 socket 让 `app.close()` 再
+       * 撞一条 `Hook timed out in 120000ms`，整个文件连同其余通过的用例一起红。
+       *
+       * 20s 这个值的依据是实测分布而不是拍脑袋：这一族每条用例本地实测 0.5–1.1s
+       * （两次 POST 的跨轮用例 1.03–1.14s），20s 是 ~18 倍余量，且稳稳低于 30s 的用例
+       * 上限——卡住时先到期的是中继自己的 `{ kind: "timeout" }` 分支，产出一条指名道姓
+       * 的 RUN_ERROR 断言失败。
+       *
+       * ⚠ 这不是把超时调大来藏问题：生产默认值（`DEFAULT_RUN_MAX_POLLS`）一个字节没动，
+       *   `poll-budget-covers-deep-agent-timeout.test.ts` 仍然钉着它盖过 deep-agent 预算。
+       */
+      KERNEL_RUN_RELAY_MAX_WAIT_MS: "20000",
     },
     // The gate tests shell out to node and boot a Nest app; the default 5s is too tight.
     testTimeout: 60_000,
