@@ -8,6 +8,7 @@ import {DefaultStandardWebService} from '../../src/infrastructure/agent-run/stan
 import {extractStandardWebHtml} from '../../src/infrastructure/agent-run/standard-web-extractor';
 import {GoogleGuidedSearch} from '../../src/infrastructure/research/google-guided-search';
 import {assertResolvedMcpAddressAllowed} from '../../src/domain/mcp/remote-endpoint-guard';
+import {classifyStandardWebFailure} from '../../src/domain/agent-run/standard-web-failure';
 import {testTlsMaterial} from '../support/tls';
 const servers:https.Server[]=[];
 afterEach(async()=>{for(const server of servers.splice(0)){server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}});
@@ -31,7 +32,7 @@ describe('standard web public fetch transport',()=>{
  });
  it('oversize body is refused, not partial content success',async()=>{
   const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'text/plain'});res.end('x'.repeat(L.maxBodyBytes+1));});
-  await expect(localFetch()(url)).rejects.toThrow('body_limit');
+  await expect(localFetch()(url)).rejects.toThrow('too_large'); // #3204 ②：同一件事换成枚举名 `too_large`
  });
  it('wall clock deadline stops a trickling body',async()=>{
   const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'text/plain'});res.write('a');const timer=setInterval(()=>res.write('b'),10);res.on('close',()=>clearInterval(timer));});
@@ -39,7 +40,7 @@ describe('standard web public fetch transport',()=>{
  });
  it('encoding and unsupported MIME are not invented plaintext',async()=>{
   const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'application/pdf'});res.end('not a web page');});
-  const service=new DefaultStandardWebService(emptySearch,localFetch());await expect(service.fetch({url})).rejects.toThrow('unsupported_type');
+  const service=new DefaultStandardWebService(emptySearch,localFetch());await expect(service.fetch({url})).rejects.toThrow('unsupported_content'); // #3204 ②：同一件事换成枚举名 `unsupported_content`
  });
  it('real Readability worker extracts article without executing scripts or loading subresources',async()=>{
   let requests=0;const paragraph='This is an evidence-backed article with enough substantive content to identify the main article. '.repeat(12);
@@ -78,5 +79,70 @@ describe('existing Google search adaptation',()=>{
  it('upstream quota failure is failure, not empty results',async()=>{
   const url=await fixture((req,res)=>{res.writeHead(429);res.end('secret provider quota detail');});
   const f=localFetch();await expect(new DefaultStandardWebService(new GoogleGuidedSearch(f,url),f).search({query:'x'})).rejects.toThrow('RESEARCH_SEARCH_UNAVAILABLE');
+ });
+});
+/**
+ * issue #3204 ② —— 失败原因必须可分辨。
+ *
+ * 人类实测 `fetch_url https://openai.com/index/navier-stokes-solution/` 只拿到一句
+ * 「Web source unavailable or refused; no content confirmed.」。本 PR 落地前的实测取证
+ * （curl 直连，默认 UA 与浏览器 UA 各一次，两次同样）：
+ *
+ *   HTTP/2 403
+ *   cf-mitigated: challenge
+ *   server: cloudflare
+ *   critical-ch: Sec-CH-UA-...
+ *
+ * 也就是 **(b) 上游真拒绝**（Cloudflare 机器人挑战），不是 SSRF 策略、不是超时。产品行为
+ * 正确，缺的是"说清是哪一种"：三种成因此前被压平三次（取回层丢状态码、控制器 `catch{}`、
+ * Python 侧任意 503 同一句话），于是 (a)/(b)/(c) 在产品里完全不可分辨。
+ *
+ * 这一组就是那道闸——同一个 URL 的不同失败必须给出**不同**的成因。
+ */
+describe('issue #3204 ② fetch_url 的失败原因可分辨',()=>{
+ const service=(fetcher:typeof fetch)=>new DefaultStandardWebService(emptySearch,fetcher);
+ async function reasonOf(run:()=>Promise<unknown>){
+  try{await run();return {reason:'__no_failure__' as string,upstreamStatus:undefined as number|undefined};}
+  catch(error){const failure=classifyStandardWebFailure(error);return {reason:failure.reason as string,upstreamStatus:failure.upstreamStatus};}
+ }
+ it('(b) 上游拒绝：带上真实状态码，不与其它成因同名',async()=>{
+  // 复刻 openai.com 实测形状：403 + Cloudflare 挑战页正文（HTML，MIME 本身是"支持"的）。
+  const url=await fixture((req,res)=>{res.writeHead(403,{'content-type':'text/html; charset=UTF-8','cf-mitigated':'challenge','server':'cloudflare'});res.end('<html><body>Just a moment...</body></html>');});
+  const failure=await reasonOf(()=>service(localFetch()).fetch({url}));
+  expect(failure.reason).toBe('upstream_refused');
+  expect(failure.upstreamStatus).toBe(403);
+ });
+ it('(a) 被我们自己的出站策略挡下：说成 blocked_by_policy，不许说成"网站拒绝了你"',async()=>{
+  const failure=await reasonOf(()=>service(createStandardWebFetch()).fetch({url:'https://169.254.169.254/latest'}));
+  expect(failure.reason).toBe('blocked_by_policy');
+  expect(failure.upstreamStatus).toBeUndefined();
+ });
+ it('(c) 超时：说成 timeout，不许说成"被拒"',async()=>{
+  const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'text/plain'});res.write('a');const timer=setInterval(()=>res.write('b'),10);res.on('close',()=>clearInterval(timer));});
+  const failure=await reasonOf(()=>service(localFetch(100)).fetch({url}));
+  expect(failure.reason).toBe('timeout');
+ });
+ it('响应到了但抽不出正文（挑战页/纯脚本页）自成一类，不冒充"网站拒绝"',async()=>{
+  const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'text/html;charset=utf-8'});res.end('<html><body><script>document.write("x")</script></body></html>');});
+  const failure=await reasonOf(()=>service(localFetch()).fetch({url}));
+  expect(failure.reason).toBe('no_content');
+ });
+ it('四种成因两两不同——这条才是"可分辨"本身（修复前四条全是同一句话）',async()=>{
+  const refused=await fixture((req,res)=>{res.writeHead(403,{'content-type':'text/html'});res.end('<html><body>Just a moment...</body></html>');});
+  const empty=await fixture((req,res)=>{res.writeHead(200,{'content-type':'text/html;charset=utf-8'});res.end('<html><body><script>x</script></body></html>');});
+  const reasons=[
+   (await reasonOf(()=>service(localFetch()).fetch({url:refused}))).reason,
+   (await reasonOf(()=>service(createStandardWebFetch()).fetch({url:'https://169.254.169.254/latest'}))).reason,
+   (await reasonOf(()=>service(localFetch()).fetch({url:empty}))).reason,
+  ];
+  expect(new Set(reasons).size).toBe(reasons.length);
+  expect(reasons).not.toContain('unknown');
+ });
+ it('成因里不夹带上游正文与响应头——可分辨不等于把上游内容透出去',async()=>{
+  const url=await fixture((req,res)=>{res.writeHead(403,{'content-type':'text/html','x-secret-header':'upstream-sensitive-header'});res.end('<html><body>upstream-sensitive-content</body></html>');});
+  let text='';
+  try{await service(localFetch()).fetch({url});}catch(error){const f=classifyStandardWebFailure(error);text=JSON.stringify({reason:f.reason,upstreamStatus:f.upstreamStatus,message:f.message});}
+  expect(text).not.toContain('upstream-sensitive-content');
+  expect(text).not.toContain('upstream-sensitive-header');
  });
 });
