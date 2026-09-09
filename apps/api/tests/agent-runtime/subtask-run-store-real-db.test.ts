@@ -386,7 +386,9 @@ it('W16 stops a real remote HTTP run and resumes cancellation after a lost ackno
   await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
   expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'unknown'}});
   await new SubtaskRunExecutor(new PgSubtaskRunStore(db),db,model,logger,false,new Map([['deep-agent',5000]]),engine).tick(org);
-  expect(await store.get(org,lost.id)).toMatchObject({status:'failed',result:null,cancellation:{state:'confirmed'}});
+  // 这一行原来断言 `failed` —— 它把 F5 的缺陷当成了规格：对账已经确认取消（state 从
+  // unknown 转 confirmed），终态却留在 failed。确认之后终态就是 cancelled。
+  expect(await store.get(org,lost.id)).toMatchObject({status:'cancelled',result:null,error:null,cancellation:{state:'confirmed'}});
   expect(submissions).toBe(1);await store.complete(org,lost.id,'late');expect((await store.get(org,lost.id))?.result).toBeNull();
  }finally{
   if(worker)clearInterval(worker);server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));
@@ -394,3 +396,87 @@ it('W16 stops a real remote HTTP run and resumes cancellation after a lost ackno
   for(const [key,value] of [['KERNEL_DEEP_AGENT_BASE_URL',old.base],['KERNEL_DEEP_AGENT_TIMEOUT_MS',old.timeout]]){if(value===undefined)delete process.env[key!];else process.env[key!]=value;}
  }
 },60000);
+
+/**
+ * F5（run 34409361606 / job 102659917921）：父 run 取消后子任务确实停下来了，但终态落
+ * `failed`；两分钟后对账把 cancellation 确认成 `confirmed`——系统此刻明知这是被取消的
+ * ——终态**仍然**是 `failed`，用户主动取消与真出错在界面上分不开。
+ * 生产走的是这个 PG store，所以这条断言必须在真库上成立，不许只在内存替身上绿。
+ */
+it('reconciliation that confirms the cancellation moves the terminal state to cancelled in the database',async()=>{
+ const scope=toOrgId(`org-reconcile-${randomUUID()}`),parentId=`parent-reconcile-${randomUUID()}`;await seed(scope,parentId);
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(scope,{parentRunId:parentId,description:'stop me'});
+ await store.claimQueued(scope,1);
+ expect((await store.cancel(scope,parentId,run.id)).kind).toBe('cancel_requested');
+ await store.bindRemoteRun(scope,run.id,'remote-reconcile','thread-reconcile');
+ // 停机结果未知：这一跳落 failed + unknown 是对的（还没有证据说它是被取消停下的）。
+ await store.fail(scope,run.id,'aborted mid-flight');
+ expect(await store.get(scope,run.id)).toMatchObject({status:'failed',error:'subtask_cancel_unknown',cancellation:{state:'unknown'}});
+ // 对账拿到证据：远端 run 确实是被取消停下的。
+ await store.recordCancellation(scope,run.id,'confirmed','remote-reconcile');
+ expect(await store.get(scope,run.id)).toMatchObject({status:'cancelled',result:null,error:null,cancellation:{state:'confirmed'}});
+ // 终态在**数据**上就是 cancelled，不是展示层翻译出来的。
+ const raw=await db.withTenant(scope,s=>s.query<{status:string;error:string|null}>('SELECT status,error FROM subtask_runs WHERE org_id=$1 AND id=$2',[scope,run.id]));
+ expect(raw.rows[0]).toEqual({status:'cancelled',error:null});
+});
+
+/**
+ * 语义边界：**取消之前**就真的因别的原因失败的子任务保持 `failed` 并保留自己的错因——
+ * 不许为了让取消链路好看，把所有失败都翻成取消。
+ */
+it('a subtask that genuinely failed before any cancellation stays failed in the database',async()=>{
+ const scope=toOrgId(`org-boundary-${randomUUID()}`),parentId=`parent-boundary-${randomUUID()}`;await seed(scope,parentId);
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(scope,{parentRunId:parentId,description:'really broken'});
+ await store.claimQueued(scope,1);
+ await store.fail(scope,run.id,'model_call_failed');
+ expect(await store.get(scope,run.id)).toMatchObject({status:'failed',error:'model_call_failed'});
+ expect((await store.cancel(scope,parentId,run.id)).kind).toBe('terminal_conflict');
+ await store.recordCancellation(scope,run.id,'confirmed',null);
+ const raw=await db.withTenant(scope,s=>s.query<{status:string;error:string|null;cancellation_state:string|null}>('SELECT status,error,cancellation_state FROM subtask_runs WHERE org_id=$1 AND id=$2',[scope,run.id]));
+ expect(raw.rows[0]).toEqual({status:'failed',error:'model_call_failed',cancellation_state:null});
+});
+
+/**
+ * 父 run 取消只在库里给子任务打上取消请求；真正去停远端并把终态对账到 `cancelled` 的是
+ * 执行器的 tick。不 kick 就要等下一次碰巧发生的 tick——run 34409361606 里等了 119 秒，
+ * 与 F5 判据 2 的 120 秒预算只差 1 秒。这条断言把"取消之后立刻推一次执行器"钉住，
+ * 免得判据 2 的绿变成赢了一次赛跑。
+ */
+it('parent cancellation kicks the subtask executor instead of waiting for an ambient tick',async()=>{
+ const scope=toOrgId(`org-kick-${randomUUID()}`),parentId=`parent-kick-${randomUUID()}`;await seed(scope,parentId);
+ const {PgChildRunCanceller}=await import('../../src/infrastructure/agent-run/pg-child-run-canceller');
+ const {parentCancelRequestId}=await import('../../src/application/agent-run/parent-run-control');
+ const store=new PgSubtaskRunStore(db),run=await store.enqueue(scope,{parentRunId:parentId,description:'kick me'});
+ await store.claimQueued(scope,1);
+ const stamp=new Date();
+ await asApp(scope,c=>c.query('UPDATE agent_runs SET cancel_requested_at=$3 WHERE org_id=$1 AND id=$2',[scope,parentId,stamp]));
+ const kicked:string[]=[];
+ const adapter=new PgChildRunCanceller(db,{kick:orgId=>{kicked.push(String(orgId));}});
+ expect(await adapter.cancelChildren({orgId:scope,parentRunId:parentId,requestId:parentCancelRequestId(scope,parentId,stamp)}))
+   .toEqual({kind:'pending',runningChildIds:[run.id]});
+ expect(kicked).toEqual([String(scope)]);
+});
+
+/**
+ * 存量归位（migrations/20260911030000_subtask_cancel_terminal_state.sql）：
+ * `listCancellationRecovery` 只扫 running/unknown，已经 confirmed 却卡在 failed 的行
+ * 不会被再次回访，所以必须一次性修数据。这条断言同时钉住它的**边界**——真失败的行
+ * 一列都不许动。
+ */
+it('the backfill moves only the confirmed-cancelled rows out of failed',async()=>{
+ const scope=toOrgId(`org-backfill-${randomUUID()}`),parentId=`parent-backfill-${randomUUID()}`;await seed(scope,parentId);
+ const store=new PgSubtaskRunStore(db);
+ const stuck=await store.enqueue(scope,{parentRunId:parentId,description:'confirmed but stuck'});
+ const genuine=await store.enqueue(scope,{parentRunId:parentId,description:'really broken'});
+ const pendingUnknown=await store.enqueue(scope,{parentRunId:parentId,description:'still unknown'});
+ await asApp(scope,async c=>{
+  await c.query("UPDATE subtask_runs SET status='failed',result=NULL,error='subtask_cancelled_after_reconciliation',cancel_requested_at=now(),cancellation_state='confirmed' WHERE org_id=$1 AND id=$2",[scope,stuck.id]);
+  await c.query("UPDATE subtask_runs SET status='failed',result=NULL,error='model_call_failed' WHERE org_id=$1 AND id=$2",[scope,genuine.id]);
+  await c.query("UPDATE subtask_runs SET status='failed',result=NULL,error='subtask_cancel_unknown',cancel_requested_at=now(),cancellation_state='unknown' WHERE org_id=$1 AND id=$2",[scope,pendingUnknown.id]);
+ });
+ const sql=await readFile(new URL('../../migrations/20260911030000_subtask_cancel_terminal_state.sql',import.meta.url),'utf8');
+ await asApp(scope,c=>c.query(sql));
+ expect(await store.get(scope,stuck.id)).toMatchObject({status:'cancelled',result:null,error:null});
+ expect(await store.get(scope,genuine.id)).toMatchObject({status:'failed',error:'model_call_failed'});
+ expect(await store.get(scope,pendingUnknown.id)).toMatchObject({status:'failed',error:'subtask_cancel_unknown',cancellation:{state:'unknown'}});
+});
