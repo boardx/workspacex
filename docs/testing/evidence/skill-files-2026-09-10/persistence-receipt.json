@@ -1,0 +1,15 @@
+{
+  "gitHead": "6a4248f5b1ade756c27c53f8cd78e3491fb6456f",
+  "skillId": "sk_d668dd54-7212-426d-80a1-b763bc889594",
+  "source": "https://github.com/anthropics/skills/tree/main/skills/skill-creator",
+  "originalSkillVersion": "sv_5d6cd008-8234-4849-9144-b5af21d09079",
+  "savedVersionId": "sv_ce086af1-7288-4c23-8660-1f7168fde3b4",
+  "deletedPath": "LICENSE.txt",
+  "addedPath": "references/studio-761e12f0-9820-4a20-bedc-73cec85ea0bb.txt",
+  "oldSnapshotPreserved": true,
+  "agentId": "agent-mtuj0hbj-1-w8etbd",
+  "originalAgentVersion": "agent-version-ffa8f65e-af3b-4031-9249-e0a9ccc4fbd0",
+  "boundAgentVersion": "agent-version-30871180-6eb0-49d4-b853-c270f80b27b1",
+  "restoredAgentVersion": "agent-version-c6ec45d1-dc50-4a0b-98be-a61ba9870b02",
+  "modelExecuted": false
+}
