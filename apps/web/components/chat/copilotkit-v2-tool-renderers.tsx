@@ -3,11 +3,12 @@
 import * as React from "react";
 import { z } from "zod";
 import { useRenderTool, useDefaultRenderTool } from "@copilotkit/react-core/v2";
-import { Loader2, CheckCircle2, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, ListTodo, FileSearch, FileText, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { evictedToolResultNotice, parseEvictedToolResult } from "@/lib/tool-result-eviction";
+import { useToolCardStatus, isSettled, type ToolCardStatus } from "@/lib/chat-workbench/tool-outcome";
 
 /**
  * DA-19c 工具可见性（框架版 Gap 1/4，issue backlog `DA-19c`）—— `/chat/copilotkit-v2`
@@ -99,7 +100,13 @@ function toolLabel(name: string): string {
  * `plan-panel-edit.tsx` 的步骤状态图标一直用 `text-success` 表达"已完成"，这里
  * 跟着统一，不是新造一个含义。
  */
-function ToolStatusIcon({ status }: { status: "inProgress" | "executing" | "complete" }) {
+function ToolStatusIcon({ status }: { status: ToolCardStatus }) {
+  // issue #3204 ①：失败态此前根本不存在——框架三态里没有它，于是失败的调用照样发
+  // 绿色对勾，与外层折叠行的「执行工具操作失败」+ 红色感叹号自相矛盾。这里的失败
+  // 事实只有一个来源：执行日志（`JournalToolOutcomeContext`），不再从"有没有结果"推断。
+  if (status === "failed") {
+    return <AlertCircle aria-label="失败" className="h-3.5 w-3.5 shrink-0 text-destructive" />;
+  }
   if (status === "complete") {
     return <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />;
   }
@@ -113,12 +120,13 @@ function ToolStatusIcon({ status }: { status: "inProgress" | "executing" | "comp
  * `JSON.parse` 的 `toolArgsSummary` 字符串——复用的是渲染思路，不是复用组件本身。
  */
 function WriteTodosCard({
-  status,
+  status: frameworkStatus,
   parameters,
 }: {
   status: "inProgress" | "executing" | "complete";
   parameters: Partial<z.infer<typeof writeTodosParametersSchema>>;
 }) {
+  const status = useToolCardStatus(frameworkStatus);
   const todos = Array.isArray(parameters.todos) ? parameters.todos : null;
   return (
     <Card data-testid="copilotkit-v2-tool-write-todos" data-tool-status={status}>
@@ -126,7 +134,7 @@ function WriteTodosCard({
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
           <span title="write_todos">{toolLabel("write_todos")}</span>
-          {status !== "complete" ? (
+          {!isSettled(status) ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-write-todos-in-progress-badge">
               进行中
             </Badge>
@@ -134,7 +142,7 @@ function WriteTodosCard({
         </div>
         {todos === null ? (
           <p className="text-10 text-muted-foreground" data-testid="copilotkit-v2-tool-write-todos-pending">
-            {status === "complete" ? "本次没有可解析的计划条目。" : "计划条目正在组装…"}
+            {isSettled(status) ? "本次没有可解析的计划条目。" : "计划条目正在组装…"}
           </p>
         ) : (
           <ul className="flex flex-col gap-0.5" data-testid="copilotkit-v2-tool-write-todos-list">
@@ -186,7 +194,7 @@ function extractFilenames(text: string): string[] {
  * 字符串，不需要区分 `toolResultSummary`/`toolArgsSummary` 两个字段）。
  */
 function SearchDocumentsCard({
-  status,
+  status: frameworkStatus,
   parameters,
   result,
 }: {
@@ -194,15 +202,16 @@ function SearchDocumentsCard({
   parameters: Partial<z.infer<typeof searchDocumentsParametersSchema>>;
   result: string | undefined;
 }) {
+  const status = useToolCardStatus(frameworkStatus);
   const query = typeof parameters.query === "string" ? parameters.query : null;
-  const files = status === "complete" && typeof result === "string" ? extractFilenames(result) : [];
+  const files = isSettled(status) && typeof result === "string" ? extractFilenames(result) : [];
   return (
     <Card data-testid="copilotkit-v2-tool-search-documents" data-tool-status={status}>
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
           <span title="search_documents">{toolLabel("search_documents")}</span>
-          {status !== "complete" ? (
+          {!isSettled(status) ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-search-documents-in-progress-badge">
               进行中
             </Badge>
@@ -214,7 +223,7 @@ function SearchDocumentsCard({
             检索词：{query}
           </p>
         ) : null}
-        {status !== "complete" ? (
+        {!isSettled(status) ? (
           <p className="text-10 text-muted-foreground" data-testid="copilotkit-v2-tool-search-documents-pending">
             检索中…结果尚未返回
           </p>
@@ -293,7 +302,7 @@ export function CopilotKitV2ToolRenderers(): null {
  */
 function GenericToolCard({
   name,
-  status,
+  status: frameworkStatus,
   parameters,
   result,
 }: {
@@ -302,6 +311,7 @@ function GenericToolCard({
   parameters: unknown;
   result: string | undefined;
 }) {
+  const status = useToolCardStatus(frameworkStatus);
   const paramsSummary = React.useMemo(() => {
     if (parameters === undefined || parameters === null) return null;
     try {
@@ -317,12 +327,12 @@ function GenericToolCard({
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
           <span className={cn(TOOL_LABEL[name] === undefined && "font-mono")} title={name}>{toolLabel(name)}</span>
-          {status !== "complete" ? <Badge tone="neutral">进行中</Badge> : null}
+          {!isSettled(status) ? <Badge tone="neutral">进行中</Badge> : null}
         </div>
         {paramsSummary !== null ? (
           <p className="truncate font-mono text-10 text-muted-foreground">{paramsSummary}</p>
         ) : null}
-        {status === "complete" && typeof result === "string" && result.trim() !== "" ? (
+        {isSettled(status) && typeof result === "string" && result.trim() !== "" ? (
           <ToolResultText result={result} testId="copilotkit-v2-tool-generic-result" />
         ) : null}
       </CardContent>
