@@ -341,6 +341,39 @@ function PlanControlSession(
   const failedStep = failedStepIndex !== -1 ? ledger.steps[failedStepIndex] : currentStep;
   const failedStepDisplayIndex = failedStepIndex !== -1 ? failedStepIndex + 1 : currentStepIndex;
 
+  /*
+   * issue #3245① —— 人类 2026-09-10 devapp 验收原话：「plan panel 不要一直显示在下方」。
+   * #3225 已让五格阶段条按需显示，仍然常驻的是它下面那一行折叠头
+   * `› 执行计划 · 本轮已结束 · 2/2 步已标记完成`。
+   *
+   * ## 结束态它还承载什么新增信息——分两种，不是一句话
+   * ① **账本已跑满**（`completed === total`）：这一行只剩「结束了」+「N/N」。同屏消息区
+   *    已有完整回复与「执行过程 · 历时 · 工具 N 次」摘要，两者都在说同一件事。**纯重复**。
+   * ② **账本没跑满**（`completed < total`）：这一行是 #2451 那条已知矛盾的唯一出口
+   *    （阶段说完成、账本仍有 N 步没标完），`chat-task-workbench-plan-done-incomplete-notice`
+   *    就挂在它展开之后。这不是重复，是**新增信息**。
+   *
+   * 所以只卸载 ① 这一种形状。替代触达路径（回看本轮计划）是右栏「进度」页签：
+   * `chat-task-inspector.tsx` 的 `ProgressTab` 读的是同一份账本（`usePlanLedgerPolling`），
+   * 在结束态照样列出全部步骤——不是新造的入口，是本来就有的那一个。
+   *
+   * ⚠ 能力面一格没动：`暂停`/`继续执行` 只在 `runLive` 下渲染，而这条门要求 `!runLive`；
+   *   失败恢复、待确认门、待应用编辑、孤儿约束、刚失败的操作各自一条否决项，
+   *   任何一件还需要用户动手，面板就留着（#3081 修好的暂停入口不受影响）。
+   */
+  const nothingLeftToDo =
+    !runLive
+    && !ledger.pausedAt && !ledger.pauseRequestedAt
+    && !ledger.gate.required
+    && !ledger.pendingApplyAtNextRun
+    && ledger.orphanedConstraints.length === 0
+    && actionErrorCode === null;
+  const terminalAndSettled =
+    (ledger.phase === "done" || ledger.phase === "cancelled")
+    && ledger.progress.total > 0
+    && ledger.progress.completed >= ledger.progress.total;
+  if (nothingLeftToDo && terminalAndSettled) return null;
+
   const completed = ledger.steps.filter(step => step.status === "completed").length;
   const stateLabel = ledger.phase === "cancelled" ? "任务已停止" : ledger.phase === "failed" ? "执行遇到问题"
     : ledger.pausedAt ? "任务已暂停" : ledger.phase === "approving" ? "等待审批"
