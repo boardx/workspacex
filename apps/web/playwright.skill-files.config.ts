@@ -4,7 +4,7 @@ if (!process.env.E2E_BASE_URL || !process.env.STUDIO_API_BASE_URL || !process.en
 export default defineConfig({
   testDir: "./e2e", testMatch: "skill-file-pin-live.spec.ts",
   workers: 1, fullyParallel: false, retries: 0, timeout: 300_000,
-  expect: { timeout: 30_000 }, reporter: "list",
+  expect: { timeout: 30_000 }, reporter: [["list"], ["json", { outputFile: `${process.env.STUDIO_EVIDENCE_DIR}/playwright-report.json` }]],
   outputDir: process.env.STUDIO_EVIDENCE_DIR,
   use: { baseURL: process.env.E2E_BASE_URL, browserName: "chromium", headless: true,
     viewport: { width: 1440, height: 1000 }, screenshot: "only-on-failure",

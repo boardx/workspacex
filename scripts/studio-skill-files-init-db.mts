@@ -1,5 +1,8 @@
-/** Test-only migration entry point; the standard isolation wrapper supplies its DB. */
-import { ensureDatabase, migrateOnce } from "../apps/api/tests/support/db.ts";
-await ensureDatabase();
-await migrateOnce();
+/** Test-only migration entry point; reject before any DB setup or seed import. */
+import { withStudioIsolation } from "./studio-skill-files-guards.ts";
+await withStudioIsolation(async () => {
+  const { ensureDatabase, migrateOnce } = await import("../apps/api/tests/support/db.ts");
+  await ensureDatabase();
+  await migrateOnce();
+});
 process.exit(0);
