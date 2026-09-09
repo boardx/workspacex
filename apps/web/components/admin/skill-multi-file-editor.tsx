@@ -4,6 +4,7 @@ import { SkillPackagePath } from "@repo/contracts/standard-capabilities";
 import { getAssetDirectory } from "@/lib/asset-directory";
 import { getSkillFileSnapshot, saveSkillFiles, type SkillSnapshot, type SkillFileEdits } from "@/lib/live-skill-files";
 import { runSkillTrialRun, pollSkillTrialRun } from "@/lib/skill-trial-run";
+import { useAuthenticatedSessionScope } from "@/lib/authenticated-session-scope";
 import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,11 @@ function changes(before: File[], after: File[]): SkillFileEdits {
 }
 const describe = (error: unknown) => error instanceof ApiError && error.status === 409 ? "版本冲突：其他人已保存新版本。你的修改仍保留；请先复制需要保留的内容，再明确放弃修改并读取最新版本。" : error instanceof Error ? error.message : "请求失败，请重试。";
 export function SkillMultiFileEditor({ skillId }: { skillId: string }) {
+  const scope = useAuthenticatedSessionScope();
+  if (scope === null) return <p role="status" className="text-13">请登录并完成组织身份验证后继续。</p>;
+  return <SkillMultiFileEditorSession key={`${scope}:${skillId}`} skillId={skillId} />;
+}
+function SkillMultiFileEditorSession({ skillId }: { skillId: string }) {
   const [snapshot, setSnapshot] = useState<SkillSnapshot | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState("SKILL.md");

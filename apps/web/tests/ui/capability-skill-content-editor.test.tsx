@@ -31,7 +31,8 @@ const sessionState = vi.hoisted(() => ({ currentOrgId: "org-848", orgRole: "admi
 
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
-    session: { currentOrgId: sessionState.currentOrgId },
+    status: "authenticated",
+    session: { currentOrgId: sessionState.currentOrgId, userId: "admin-test", sessionToken: "session-test" },
     identity: {
       org: { id: sessionState.currentOrgId, name: "真实组织" },
       orgRole: sessionState.orgRole,
