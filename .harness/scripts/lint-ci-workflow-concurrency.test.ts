@@ -45,6 +45,27 @@ describe("CI workflow concurrency group 必须用 PR 唯一标识", () => {
       expect(groupLine).not.toContain("ref_name");
     });
 
+    it(`${rel}: 非 pull_request 事件的 group 必须含 github.run_id（每个 run 自成一组）`, () => {
+      const src = readFileSync(join(ROOT, rel), "utf8");
+      const m = /^concurrency:\n(?:.*\n)*?\s*group:\s*(.+)$/m.exec(src);
+      expect(m, `${rel} 里没找到 concurrency.group`).not.toBeNull();
+      const groupLine = m![1];
+
+      // #3038：GitHub 对同一 group 只保留**一个 pending**，与 cancel-in-progress 无关。
+      // push/tag/schedule/dispatch 共用 `refs/heads/main` 这类固定 ref 时，跑道一满，
+      // 新 run 入队就把旧的 pending 顶掉——main 自己的门一次都跑不完，main 上的红因此隐身
+      // （#3177：一个半小时内十余次，第一次真正跑完就暴露出一条无人看见的存量红）。
+      // 修法是让非 PR 事件的每个 run 各自成组（run_id 唯一）；#3177 的判决实验已实测确认
+      // `github.run_id` 在顶层 concurrency 上下文里确实插值、该修法确实生效。
+      // 这条断言钉住那个不变量：删掉 run_id 就是退回 #3038。
+      expect(groupLine).toContain("github.run_id");
+      // 且 run_id 必须挂在**非** pull_request 的那一支上：PR 分支要的就是同 ref 互相顶掉，
+      // 给 PR 也加 run_id 会让 cancel-in-progress 永远命不中，退回 #2572 的堆积。
+      const prBranch = /pull_request'\s*&&\s*([^|]+)\|\|/.exec(groupLine);
+      expect(prBranch, `${rel} 的 group 不是 pull_request 三元表达式`).not.toBeNull();
+      expect(prBranch![1]).not.toContain("run_id");
+    });
+
     it(`${rel}: cancel-in-progress 只在 pull_request 事件上为 true`, () => {
       const src = readFileSync(join(ROOT, rel), "utf8");
       // 排除注释行——本文件与两个 workflow 自己都在注释里提到过

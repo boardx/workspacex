@@ -76,4 +76,51 @@ describe("framework task timeline", () => {
     expect(screen.getByTestId("copilotkit-v2-tool-search-documents")).toBeVisible();
   });
 
+  /**
+   * 矩阵 D1（DA-19c）在 CI 上稳定红的那一幕，在组件层原样复现。
+   *
+   * 真实 wire 上 `TOOL_CALL_START` 不带 `parentMessageId`，`@ag-ui/client` 0.0.57 因此
+   * **新造**一条 assistant 消息、把 `toolCallId` 当成它的 id（`{ id: toolCallId,
+   * role: "assistant", toolCalls: [] }`）。上面三条既有用例都手写 `messages`，从来没有
+   * 出现过这条合成消息——这就是「单测全绿、浏览器里锚点不出现」的那道层间缝。
+   *
+   * 两个方向各断一次，缺陷与修复因此都在这一层可见：
+   * · 没绑到 run（改动前 `use-run-trace` 的真实状态）⇒ 卡片落在 legacy
+   *   `copilotkit-v2-tool-calls-group` 里、**祖先没有 `run-trace-panel`**——
+   *   与 CI 首错逐字同形。
+   * · 绑到了 run（改动后）⇒ legacy 分组消失，卡片落在 `run-trace-panel` 里面。
+   */
+  it("renders the client-minted tool-call message inside the run trace once it is bound to the run", () => {
+    const toolCallId = "tool-call-42";
+    const searchEvents: ExecutionEvent[] = [
+      { ...base, seq: 0, kind: "tool_start", toolCallId: "search-1", toolName: "search_documents", args: { query: "取证：请展示多步执行" } },
+      { ...base, seq: 1, kind: "tool_end", toolCallId: "search-1", toolName: "search_documents", result: "找到资料", ok: true },
+    ];
+    // `@ag-ui/client` 造出来的那条消息：id 就是 toolCallId，content 为空，只挂着 toolCalls。
+    const minted = {
+      id: toolCallId, role: "assistant" as const, content: "",
+      toolCalls: [{ id: toolCallId, type: "function" as const, function: { name: "search_documents", arguments: JSON.stringify({ query: "取证：请展示多步执行" }) } }],
+    };
+
+    const unbound = render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2ToolRenderers />
+      <TaskTimeline messages={[minted]} messageRuns={{}} events={{ "run-a": searchEvents }} isRunning />
+    </CopilotKit>);
+    const legacyCard = unbound.container.querySelector('[data-testid="copilotkit-v2-tool-search-documents"]');
+    expect(legacyCard, "未绑定 run 时定制卡片仍然渲染——CI 上它确实挂上了").not.toBeNull();
+    expect(unbound.container.querySelector('[data-testid="copilotkit-v2-tool-calls-group"]')).not.toBeNull();
+    expect(legacyCard!.closest('[data-testid="run-trace-panel"]'), "这正是 CI 首错：卡片不在任何 run-trace-panel 里").toBeNull();
+    unbound.unmount();
+
+    render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2ToolRenderers />
+      <TaskTimeline messages={[minted]} messageRuns={{ [toolCallId]: "run-a" }} events={{ "run-a": searchEvents }} isRunning />
+    </CopilotKit>);
+    expect(screen.queryByTestId("copilotkit-v2-tool-calls-group"), "绑上 run 之后不许再出现第二份 legacy 分组").not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
+    fireEvent.click(screen.getByText("已检索资料"));
+    const card = screen.getByTestId("copilotkit-v2-tool-search-documents");
+    expect(card.closest('[data-testid="run-trace-panel"]')).not.toBeNull();
+  });
+
 });

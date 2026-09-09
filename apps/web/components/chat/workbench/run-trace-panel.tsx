@@ -80,7 +80,16 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
             </details>}
         </li>)}
       </ol>
-      {hasSubtasks ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
     </div>
+    {/*
+      issue #3100 D6 —— 后台任务面板挂在折叠区「之外」。
+      它此前挂在 `run-trace-body` 里，而那个区块 `hidden={!expanded}`、默认收起：
+      「有 N 个任务在后台运行」这条状态于是被埋在一次展开之后，用户不点开执行过程就
+      永远看不到子任务在跑——面板自己已经是"默认摘要、点开看详情"的折叠树（见
+      `SubtaskRunPanel`），再套一层折叠是两层折叠，不是渐进式披露。
+      挂载条件并没有放宽：仍然要求这一轮真的调用过 `spawn_async_task`（`hasSubtasks`），
+      且 `SubtaskRunLivePanel` 自己在后端查不到子任务行时返回 null。
+    */}
+    {hasSubtasks ? <SubtaskRunLivePanel parentRunId={runId} /> : null}
   </section>;
 }

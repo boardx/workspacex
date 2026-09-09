@@ -1,3 +1,4 @@
+import { CURRENT_POLICY } from "./ci-check-policy.mjs";
 import { describe, expect, it } from "vitest";
 import {
   PR_GREEN_RULE_EFFECTIVE_FROM,
@@ -30,7 +31,7 @@ function greenRuns(atMin = -30) {
   return REQUIRED_CHECKS.map((name) => run(name, "SUCCESS", atMin));
 }
 function pr(overrides: Partial<ClosingPr> = {}): ClosingPr {
-  return { number: 100, merged: true, mergedAt: MERGED_AT, headSha: "a".repeat(40), runs: greenRuns(), ...overrides };
+  return { number: 100, merged: true, mergedAt: MERGED_AT, headSha: "a".repeat(40), runs: greenRuns(), policy: CURRENT_POLICY, ...overrides };
 }
 const judge = (prs: ClosingPr[], closedAt: string = AFTER) => judgeClosingPrGreen({ issueNumber: 7, issueClosedAt: closedAt, closingPrs: prs });
 const of = (checks: RequiredCheck[], name: string) => checks.find((c) => c.name === name);

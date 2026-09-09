@@ -45,7 +45,7 @@ function runDoctorWithFakeGh(sc: Scenario): string {
   const gh = join(dir, "gh");
   const merged = sc.merged ?? true;
   const issue = JSON.stringify([{ number: 1, state: "CLOSED", stateReason: "COMPLETED", closedAt: sc.closedAt, body: "<!-- harness-feature: 00/F14 -->" }]);
-  const pr900 = { number: 900, merged, mergedAt: merged ? MERGED_AT : null, headRefOid: "d".repeat(40) };
+  const pr900 = { number: 900, merged, mergedAt: merged ? MERGED_AT : null, headRefOid: "d".repeat(40), mergeCommit: { parents: { nodes: [{ oid: "a".repeat(40) }] } } };
   const page = (nodes: object[], hasNextPage: boolean) =>
     JSON.stringify({ data: { repository: { issue: { closedByPullRequestsReferences: {
       nodes,
@@ -78,6 +78,18 @@ case "$*" in
 esac
 `);
   chmodSync(gh, 0o755);
+  const fakeGit = join(dir, "git");
+  const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+  writeFileSync(fakeGit, `#!/usr/bin/env bash
+case "$*" in
+  "cat-file -e ${"a".repeat(40)}^{commit}") exit 0 ;;
+  "ls-tree --name-only ${"a".repeat(40)} -- .harness/config/ci-check-policy.json") exit 0 ;;
+  "log -1 --format=%H ${"a".repeat(40)} -- .harness/config/ci-check-policy.json") exit 0 ;;
+  "rev-parse --is-shallow-repository") echo false ;;
+  *) exec "${realGit}" "$@" ;;
+esac
+`);
+  chmodSync(fakeGit, 0o755);
   const args = ["harness", "doctor", "--phase", "00", ...(sc.strict ? ["--strict"] : [])];
   try {
     return execFileSync("pnpm", args, {

@@ -1,3 +1,4 @@
+import { loadCommitPolicy } from "./lib/ci-check-policy.mjs";
 // pr-queue.ts — CLI：`pnpm harness pr-queue`（只读 PR 队列体检，#451）。
 //
 // 只做三件事：用 gh 取客观事实 → 交给 lib/pr-queue.ts 的纯函数判定 → 打印。
@@ -177,9 +178,13 @@ export function prQueue(args: Args): void {
     ? [ghJson<GhPr>(`gh pr view ${Number(single)} --json ${PR_FIELDS}`)]
     : ghJson<GhPr[]>(`gh pr list --state open --limit 100 --json ${PR_FIELDS}`);
 
+  const mainSha = ghJson<{ sha: string }>(`gh api repos/{owner}/{repo}/commits/main`).sha;
+  let policy;
+  try { policy = loadCommitPolicy(mainSha, (cmd: string) => sh(cmd)); }
+  catch (error) { return die(`无法读取 main 的 CI 策略：${String(error)}`); }
   const results = prs.map((pr) => {
     const facts = toFacts(pr);
-    return { facts, result: classifyPr(facts) };
+    return { facts, result: classifyPr(facts, policy) };
   });
   render(results, args);
   if (results.some((r) => r.result.state === "MERGE_BLOCKED")) process.exitCode = 1;

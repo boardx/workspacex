@@ -426,6 +426,20 @@ jobs:
             apps/web/test-results/
           if-no-files-found: error
 
+  # Stable merge check: matrix gates-test reports success only when every shard passes.
+  # Fork PRs with skipped trusted jobs fail closed and require trusted validation.
+  backend-required:
+    if: always() && github.event_name == 'pull_request'
+    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require applicable backend verification
+        env:
+          CI_BACKEND_RESULTS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-backend-required.mjs
+
   deploy:
     needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane]
     # ⚠ 2026-08-06：人类直接要求「消除人工打 tag 这一步」——merge 到 main 就该自动部署，
