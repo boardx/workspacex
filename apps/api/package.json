@@ -19,7 +19,8 @@
     "migrate": "tsx src/infrastructure/db/migrate-cli.ts",
     "migrate:check": "./scripts/verify-migrations.sh",
     "debug:trace": "tsx scripts/debug-trace-cli.ts",
-    "dev:deps": "docker compose -f docker-compose.dev.yml -p workspacex-kernel up -d"
+    "dev:deps": "docker compose -f docker-compose.dev.yml -p workspacex-kernel up -d",
+    "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts"
   },
   "dependencies": {
     "@ag-ui/core": "0.0.57",

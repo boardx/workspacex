@@ -24,6 +24,8 @@
  *   所以下面最外层是一个 catch-all，把任何意外映射成 `DEPENDENCY_UNAVAILABLE` 落终态，
  *   而不是让异常逃出去。
  */
+import { standardCapabilities as SC } from "@repo/contracts";
+import { parseInputFiles } from "@repo/skill-sandbox/input-files";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentRunStore, ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
@@ -184,15 +186,25 @@ async function runOnce(
     throw new TerminalFailure("DEPENDENCY_UNAVAILABLE", `skill version ${run.versionId} not readable`, 0);
   }
 
+  const skill = skills[0]!;
+  const skillPackage = skill.package ? SC.TrustedSkillPackage.parse(skill.package) : null;
+  if (skillPackage && (skillPackage.versionId !== run.versionId || skill.versionId !== run.versionId)) {
+    throw new TerminalFailure("DEPENDENCY_UNAVAILABLE", "trial package version mismatch", 0);
+  }
+  // The package is loaded from immutable, hash-verified storage, never supplied by the model.
+  const inputFiles = skillPackage ? parseInputFiles(skillPackage.files.map(file => ({ name: file.path, contentBase64: file.contentBase64 }))) : undefined;
+  const packagePrompt = inputFiles ? "\n\nThe immutable Skill package is mounted read-only at process.env.SKILL_SANDBOX_INPUT_DIR. Resolve all Skill-relative references, scripts and assets against that directory; preserve subdirectories. Write new outputs only to process.env.SKILL_SANDBOX_OUT_DIR." : "";
+
   // skill 正文 + 执行协议。⚠ 协议段拼在**后面**：skill 自己的指令优先，
   // 我们只追加"你可以这样执行代码"这一层能力说明。
-  const system = `${skills[0]!.content}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
+  const system = `${skill.content}${packagePrompt}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
 
   let tokens = 0;
   let lastReply = "";
 
   const loop = await runScriptWithRetries({
     sandbox: deps.sandbox,
+    inputFiles,
     timeoutMs: SCRIPT_TIMEOUT_MS,
     maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
     log: deps.log,
@@ -228,7 +240,8 @@ async function runOnce(
   const artifacts = await storeArtifacts(deps, run.id, loop.files);
 
   return {
-    output: lastReply,
+    // Show the executed result when available, not just the model-authored script.
+    output: loop.stdout.trim().length > 0 ? loop.stdout : lastReply,
     durationMs: Math.max(0, Math.round(now() - startedAt)),
     tokens,
     artifacts,

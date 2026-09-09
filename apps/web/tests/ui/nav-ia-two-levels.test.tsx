@@ -29,7 +29,12 @@ import { QueryClientTestWrapper } from "../render-with-query";
 import { NAV_SEGMENTS, ADMIN_SECOND_LEVEL, TOP_LEVEL_NAV_ITEMS, type NavSegment } from "@/lib/navigation";
 import { diffNavIa, topLevelKeys, secondLevelKeysOf, segmentLabelOf } from "@/lib/nav-ia";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+// `IconRail` 底部挂了 `RailNotifications`（#3246），它用 `useRouter` 做跳转。
+// 补全这个 stub 是补一个缺失的桩，不是放宽任何断言。
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
+  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {}, back: () => {}, forward: () => {} }),
+}));
 
 afterEach(() => cleanup());
 

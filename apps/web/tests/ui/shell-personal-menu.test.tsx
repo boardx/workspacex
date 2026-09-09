@@ -4,7 +4,12 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+// `IconRail` 底部挂了 `RailNotifications`（#3246），它用 `useRouter` 做跳转。
+// 补全这个 stub 是补一个缺失的桩，不是放宽任何断言。
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
+  useRouter: () => ({ push: () => {}, replace: () => {}, refresh: () => {}, prefetch: () => {}, back: () => {}, forward: () => {} }),
+}));
 
 import { IconRail } from "@/components/shell/icon-rail";
 import { MOCK_ORGS, mockIdentity } from "@/lib/identity";
@@ -159,9 +164,29 @@ describe("IconRail：短视口三段布局", () => {
     expect(screen.getByTestId("rail-top").className).toContain("shrink-0");
   });
 
-  it("源码：nav 自身 h-full min-h-0 overflow-hidden，紧凑模式用 max-height 媒体查询隐藏文字标签", () => {
+  /**
+   * #3246 —— nav 的 `overflow-hidden` 被**去掉**了，本条断言随之反向。
+   *
+   * 原断言写的是「nav 自身 h-full min-h-0 overflow-hidden」。前两条是布局不变量，
+   * 留着；`overflow-hidden` 那条是当时用来表达「nav 自己不滚」的手段，而它同时会把
+   * 底部通知弹层（向右展开到 nav 盒子外面）整个裁掉——那正是本 issue 要挂上去的东西。
+   *
+   * 因此这里改成**两个方向都会红**：
+   *   ① nav 仍然 `h-full min-h-0`，中段 `rail-scroll` 仍然自带 `overflow-y-auto`
+   *      （「nav 自己不滚」的真实承担者，另由 `icon-rail-short-viewport.spec.ts`
+   *      在真浏览器里量 `scrollHeight - clientHeight`）；
+   *   ② nav 的 className 里**不得**再出现 `overflow-hidden`——谁把它加回来，弹层就
+   *      会被无声裁掉，这条断言先红。
+   */
+  it("源码：nav 自身 h-full min-h-0 且不再 overflow-hidden（否则裁掉底部通知弹层），滚动由 rail-scroll 承担", () => {
     const src = readFileSync(path.join(process.cwd(), "components/shell/icon-rail.tsx"), "utf8");
-    expect(src).toMatch(/h-full min-h-0 .*overflow-hidden/);
+    // 读**渲染出来的** nav（DOM 事实），不是源码正则——class 串已抽成 `RAIL_NAV_CLASS`
+    // 常量供几何夹具复用，正则会跟着实现细节漂移。
+    renderRail();
+    const navClass = screen.getByTestId("shell-rail").className;
+    expect(navClass).toContain("h-full min-h-0");
+    expect(navClass).not.toContain("overflow-hidden");
+    expect(src).toMatch(/data-testid="rail-scroll"[\s\S]{0,400}overflow-y-auto/);
     expect(src).toContain("[@media(max-height:640px)]:hidden");
   });
 });

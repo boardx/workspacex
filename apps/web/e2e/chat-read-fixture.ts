@@ -79,6 +79,23 @@ export const CHAT_READ_E2E = {
    */
   deepAgentSubtaskHoldPolls: 60,
   /**
+   * 上面那个轮数对应的**状态轮询周期**（毫秒）。
+   *
+   * ## 为什么要把一个"本来就是默认值"的数写出来
+   *
+   * `deep-agent-model-provider.ts` 的 `KERNEL_DEEP_AGENT_POLL_INTERVAL_MS` 默认就是
+   * 2000，本 config 此前**没有下发它**。于是 F5 判据 3 的等待窗口（当时写死 90 秒）
+   * 与它真正要等过的那个点（60 轮 × 2000ms = **120 秒**）之间差了 30 秒——
+   * 窗口比它要盖住的事件短，"等过它本该自然完成的那个点"这句话在实现上从来没成立过，
+   * 而两层各自都对（60 是对的、90 也没写错），**乘起来是 0**。这与矩阵里 F3 那条
+   * 「974ms 窗口 vs 3000ms 轮询」是同一个形状。
+   *
+   * 修法不是把 90 改成 121，那只是换一个猜得更准的常数：把周期**显式下发**，
+   * 让用例用 `轮数 × 周期` 算出窗口。显式下发的值与产品默认值相同，因此这次改动
+   * 对所有既有用例的时序**逐字节无影响**——变的只是"这个数从此有单一事实源"。
+   */
+  deepAgentSubtaskPollIntervalMs: 2_000,
+  /**
    * issue #3000 —— 「这一轮真的跑一段时间」的触发词，只服务
    * `copilotkit-v2-run-restore-after-switch.spec.ts`：替身收到它之后先把 `/stream` 的
    * 响应头发出去、再等 `deepAgentSlowHoldMs` 才发正文，于是这一轮在切走/切回的整个
@@ -127,6 +144,31 @@ export const CHAT_READ_E2E = {
   /** issue #2919：三类结构化 HITL 必须都走同一持久 decision/resume 通路。 */
   deepAgentConfirmIntentTrigger: "取证：请确认任务意图",
   deepAgentChooseOptionTrigger: "取证：请让我选择执行方案",
+  /**
+   * 路径矩阵 B1/B4/B5/B6 —— **同一条 run 里连着中断两次**的剧本触发词。
+   *
+   * 人类 2026-09-10 在 devapp 上报的三个 HITL 缺陷（#3186 / #3207 / #3244 ①）全长在
+   * 这个形状上，而此前**每一个**替身剧本都由「裁决一到就再也不中断」把关 ⇒ 这个形状
+   * 在 e2e 上不可达，B 组因此全绿却一个都没抓住。值的唯一事实源在本文件，
+   * 语义见 `loopback-deep-agent-provider.ts` 的 `TWO_INTERRUPT_TRIGGER` 头注。
+   */
+  deepAgentTwoInterruptTrigger: "取证：请连着中断两次",
+  /** 第一次裁决之后、第二次中断之前的 hold 窗口（状态轮询次数）——见替身侧
+   *  `TWO_INTERRUPT_HOLD_POLLS` 头注：这段窗口是**由构造撑开**的，不靠赛跑。 */
+  deepAgentTwoInterruptHoldPolls: 8,
+  /** 两次裁决都到齐之后的终稿正文——「run 真的走完了、没把用户锁死」的判据。 */
+  deepAgentTwoInterruptFinalReply: "两次确认都已收到，任务按确认后的意图与资料执行完毕。",
+  /** 第二次中断（`fill_run_params`）要填的那个字段的值。 */
+  deepAgentTwoInterruptPersonaSource: "取证：来自当前会话的用户画像资料",
+  /**
+   * 路径矩阵 B4 —— **同一条 run 里连着请求两次技能授权**的剧本触发词（#3186 / #3212）。
+   * 与上一条走的是另一条审批通路（四选一授权卡，不是具名表单中断），不能互相替代。
+   */
+  deepAgentTwoApprovalTrigger: "取证：请连着请求两次技能授权",
+  /** 两次授权点名的技能不同——「用户看得出这次问的是哪个技能」才可证伪（#3212）。 */
+  deepAgentTwoApprovalFirstSkill: "quarterly-report",
+  deepAgentTwoApprovalSecondSkill: "persona-canvas",
+  deepAgentTwoApprovalFinalReply: "两次技能授权都已收到，任务执行完毕。",
   /**
    * DA-19g —— 多轮上下文取证（chat-ux-acceptance-criteria.md 第 6 项）。替身对这句
    * 触发词逐字引用「这条线程上一次收到的用户消息」，命中的前提是 Chat 线程真的被续接
@@ -395,6 +437,39 @@ export const CHAT_READ_E2E = {
   canvasDualSentinel: "E2E-CANVAS-DUAL-4417",
 
   /**
+   * C1 一轮 run 分步产出多个画布 —— **deep-agent** 侧的触发词（不是 `canvas*Sentinel`
+   * 那条回显 agent 的路）。
+   *
+   * ⚠ 为什么必须另起一条、不能复用 C4 那条：C4 产出的是**一条** AI 消息里并排两个
+   * 围栏，而 #3243（人类 2026-09-09 devapp 实测「刷新后 10 个画布全部消失」）那条缺陷
+   * 只在**一轮里有多条顶层 AI 消息**时才存在——流式喂的是每一条，落库此前只取最后
+   * 一条（那条恰是零围栏的纯文字总结）。一条消息的剧本里「每一条」与「最后一条」是
+   * 同一条，判据无法被证伪；复用 C4 等于写一条对该缺陷恒绿的用例。
+   */
+  deepAgentMultiCanvasTrigger: "取证：请分步产出多张画布",
+  /** 这一轮产出几个围栏。3 是能同时区分「只留最后一个」「全丢」「重复挂载」的最小数。 */
+  deepAgentMultiCanvasCount: 3,
+  /**
+   * 最后那条总结的正文——**必须一个围栏都没有**，它就是 #3243 里那句
+   * 「所有画布模板现已完整交付」：交付物确实产出过，只是从没被写进任何持久记录。
+   * 断言方引用它来证明「落库的确实是本轮全部正文，不只是这句总结」。
+   */
+  deepAgentMultiCanvasSummary: "以上画布模板现已完整交付，可以直接使用。",
+
+  /**
+   * D1 工具卡终态 —— 让**一次工具调用**真的失败的触发词。
+   *
+   * 与 `deepAgentFailureTrigger` 是两条不同路径：那条把整条 run 推成失败终态、一次
+   * `tool_call` 步骤都不落地；这条让 run 正常收尾，只有其中一次调用的 ToolMessage 带
+   * `status: "error"`。「外层折叠行写失败、内层工具卡发绿勾」（issue #3204 ①）那条
+   * 缺陷只有在这个形状下才能被复现。
+   */
+  deepAgentToolFailureTrigger: "取证：请让一次工具调用失败",
+  /** 失败那次调用的结果正文——断言方据此确认红的是**那一次**，不是随便哪一次。 */
+  deepAgentToolFailureMessage: "读取失败：目标文档不存在或没有权限。",
+  deepAgentToolFailureReply: "其中一份文档没能读到，我用能读到的那份作答。",
+
+  /**
    * D4 skill 三态 —— 「目录里看得见它」这一态的回显前缀。
    *
    * `buildDeepAgentSkillCatalogBlock` 只把 `stable_name + 一行摘要` 放进 system prompt，
@@ -417,4 +492,17 @@ export const CHAT_READ_E2E = {
    * 要证的是「上游半路断了，界面诚实收场，不假装还在跑」。
    */
   deepAgentStreamAbortTrigger: "取证：请在流式过程中断开上游",
+
+  /**
+   * F1 失败成因可分辨 —— 触发词命中时，替身把 run 的状态答成 **`success`**，但
+   * `/state` 一条 assistant 消息都不给，于是产品侧
+   * `deep-agent-model-provider.ts:688` 抛
+   * `deep agent run succeeded but produced no assistant message`，
+   * `classifyModelCallFailureReason` 把它分类成 **`provider_returned_empty`**。
+   *
+   * 与 `deepAgentFailureTrigger`（终态 `error` ⇒ `provider_rejected`）刻意成因不同：
+   * F1 的判据是「四件可行动性不同的事不再共用一句话」，只有拿到**两个不同的成因**
+   * 才谈得上证伪它。见替身侧 `EMPTY_REPLY_TRIGGER` 头注。
+   */
+  deepAgentEmptyReplyTrigger: "取证：请让这次执行空手而归",
 } as const;

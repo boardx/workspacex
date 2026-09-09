@@ -140,7 +140,9 @@ export async function acceptHumanMessage(
     /**
      * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
-     * 真正新受理时调用一次；幂等命中（同一 clientMessageId 重发）也会调（见下方
+     * 新受理先调用一次，自动命名结束后再补一次有界唤醒（#3278：标题行锁会让
+     * SKIP LOCKED 领取跳过该线程）；调用方必须保持 kick 幂等。
+     * 幂等命中（同一 clientMessageId 重发）也会调（见下方
      * `if (existing)` 分支自己的注——第一次请求落库成功但 kick 丢失时，这是唯一能把
      * 卡住的 queued run 捞回来的路径，`kick` 本身对已在跑/已完成的 run 是 no-op）。
      * 不会调的只有「起名」那一半：起名逻辑在这个钩子之后单独跑，幂等命中直接
@@ -246,6 +248,11 @@ export async function acceptHumanMessage(
     threadId: input.threadId,
     text: input.text,
   });
+  // #3278: the initial claim may skip the thread row while automatic naming holds
+  // its UPDATE lock. Once naming has settled (including its handled failures), give
+  // that queued run one bounded wake-up. Claim's row lock/status guard prevents a
+  // second execution if the first kick already claimed it; no polling is introduced.
+  input.onAccepted?.();
 
   // #2693 -- explicit `false` (not just "field omitted"): a genuinely fresh accept, mirrors
   // the `reused: true` stamped on the idempotent-hit branch above.

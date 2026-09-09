@@ -7,6 +7,7 @@ import {
   openFreshThread,
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
+import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
 
 /**
  * issue #2068 —— **TW-P0-3 六态工作流与可编辑计划**（判据见 `${ACCEPTANCE_DOC}`）。
@@ -307,8 +308,29 @@ test("TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条�
 
   // (b) 简单问题 → **不得**被加上同一道门。这是反证面：审计原话
   //     「不许每次都加一道门槛」。做成无条件确认门同样判不达标。
+  /*
+   * issue #3244 分诊线（2026-09-10）—— 这两行此前是：
+   *
+   *     const simplePage = await page.context().newPage();
+   *     await openFreshThread(simplePage);   // ← openChatEmptyState → login()
+   *
+   * `simplePage` 与 `page` **同一个 BrowserContext**，登录态（`wsx.sessionToken`）是
+   * 共享的。于是这次 `login()` 里的 `goto("/login")` 会被 `LoginSessionGate` 重定向走，
+   * `login-email` 永不出现——fixture 里那道守卫因此在 setup 阶段就红，**(b) 这半从来
+   * 没有执行过一次业务断言**（赢了赛跑则 `fill()` 挂到 240s 超时，同样零信号）。
+   *
+   * 矩阵把 B7 记成「当前红」，而红的其实是这条前置——本仓那句「`当前红` 比 `未覆盖`
+   * 更有害」的教科书形态：前者被当成已知欠账放着，没人回来看红的到底是什么。
+   *
+   * 修法与本仓既有做法一致（`support/chat-path-coverage.ts` 的
+   * `openFreshDeepAgentThreadOnAuthedPage`，issue #3129/#3101）：**不再登录第二次**，
+   * 先给这一页一个真实 origin（`about:blank` 上读 `localStorage` 会被浏览器直接拒绝），
+   * 再用权威端口建线程。被测行为一个字都没放宽——(b) 断言的仍是同一件事。
+   */
   const simplePage = await page.context().newPage();
-  await openFreshThread(simplePage);
+  await simplePage.goto("/chat");
+  await expect(simplePage.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  await openAuthoritativeFreshThread(simplePage);
   await sendAndSettle(simplePage, "你好");
   await expect(
     simplePage.getByTestId("chat-task-workbench-plan-confirm"),
