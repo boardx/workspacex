@@ -555,6 +555,13 @@ interface RunRecord {
    *  `statusPolls`，见 `SCROLL_STEP_MS` 头注记录的那次反转。 */
   scrollHalfStep: number;
   readonly userText: string;
+  /**
+   * 这一轮请求里那条用户消息**真实带着的 id**（`wsx-turn:<runId>:user`），照原样记下来
+   * 供 `/state` 回显——见 `CreateRunBody.input.messages[].id` 的头注。请求里没带 id
+   * （不经 `execute-run` 的调用方）时是 `undefined`，`/state` 那侧就不挂 id，与改动前
+   * 逐字节相同：不编一个对不上的锚点假装有据。
+   */
+  readonly userMessageId?: string;
   statusPolls: number;
   /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
    *  state 端点在裁决前展示待批参数、裁决后对照展示「原值 vs 编辑后的值」。 */
@@ -789,7 +796,14 @@ async function spawnAsyncTask(parsed: CreateRunBody, description: string, contex
 }
 
 interface CreateRunBody {
-  readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown }[] };
+  /**
+   * ⚠ `id` **不是可选的装饰**：`deep-agent-model-provider.ts::buildBody` 给每条消息挂
+   * `wsx-turn:<runId>:<slot>`（`turnMessageId`），真上游 `harness.py` **原样保留**它
+   * （`test_harness.py` 逐字钉住那个字面量）。落库正文的本轮边界就靠这个锚点找
+   * （`readTurnReply`）——替身不回显它，锚点必然落空，`readTurnReply` 静默退回
+   * `readFinalReply`（只取最后一条 AI 消息）。本仓那条「替身的方言 ≠ 上游的方言」。
+   */
+  readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown; readonly id?: unknown }[] };
   /** #2534：`deep-agent-model-provider.ts` 的 `toWireSkills` 形状——skill 全文只经这里到远端。 */
   readonly config?: {
     readonly configurable?: {
@@ -877,14 +891,30 @@ const server = createServer((req, res) => {
         existingForResume.decisions = [...(existingForResume.decisions ?? []), { type, editedArgs }];
         if ((isTwoInterrupt(existingForResume) || isTwoApproval(existingForResume))
           && existingForResume.decisions.length === 1) {
-          // 见 `TWO_INTERRUPT_HOLD_POLLS` 头注：窗口从**这次裁决之后**开始算。
-          existingForResume.holdUntilPoll = existingForResume.statusPolls + Math.max(0, TWO_INTERRUPT_HOLD_POLLS);
+          /*
+           * 见 `TWO_INTERRUPT_HOLD_POLLS` 头注：窗口从**这次裁决之后**开始算。
+           *
+           * ⚠ 游标在这里**归零**（只对这两个剧本，其余剧本一行不动）。此前写的是
+           * `statusPolls + HOLD_POLLS`，而第一条流 EOF 已经把 `statusPolls` 推成
+           * `Number.MAX_SAFE_INTEGER`——`MAX_SAFE_INTEGER + 8` 在 IEEE754 下**吃掉了
+           * 那个 8**（仍是 9007199254740992 量级、且 `statusPolls < holdUntilPoll` 恒
+           * 假/恒真两头不靠）。于是窗口宽度要么是 0、要么永不结束，两种都不是"由构造
+           * 撑开的一段有界窗口"。
+           *
+           * 上面那句「resume 绝不重置 statusPolls」的理由是"别让轮询重新走一遍 pending
+           * 阈值"——而这两个剧本要的**正是**一段 pending，重新走一遍就是它的定义。
+           */
+          existingForResume.statusPolls = 0;
+          existingForResume.holdUntilPoll = Math.max(0, TWO_INTERRUPT_HOLD_POLLS);
         }
         sendJson(res, 200, { run_id: threadId });
         return;
       }
-      const lastUser = [...(parsed.input?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
+      const lastUserMessage = [...(parsed.input?.messages ?? [])].reverse().find((m) => m.role === "user");
+      const lastUser = lastUserMessage?.content;
       const lastUserText = typeof lastUser === "string" ? lastUser : "";
+      const lastUserId = typeof lastUserMessage?.id === "string" && lastUserMessage.id !== ""
+        ? lastUserMessage.id : undefined;
       // DA-19g：追加进这条线程的历史记录，从不覆盖——见 `conversationLog` 自己的头注。
       if (lastUserText !== "") {
         const log = conversationLog.get(threadId) ?? [];
@@ -894,6 +924,7 @@ const server = createServer((req, res) => {
       runs.set(threadId, {
         started: true,
         userText: lastUserText,
+        userMessageId: lastUserId,
         scrollExecutionId: SCROLL_ACCEPTANCE_TRIGGER !== undefined && lastUserText === SCROLL_ACCEPTANCE_TRIGGER ? randomUUID() : undefined,
         scrollHalfStep: 0,
         statusPolls: 0,
@@ -1103,7 +1134,20 @@ const server = createServer((req, res) => {
         // contract: the provider performs one authoritative status read immediately after
         // EOF, which must observe a terminal state for ordinary runs. Form interrupts still
         // win in the status handler until a decision exists.
-        record.statusPolls = Number.MAX_SAFE_INTEGER;
+        /*
+         * ⚠ **有 hold 窗口在跑时不推这个游标**（路径矩阵 A4/A5/B1/B4/B5/B6）。
+         *
+         * 二次中断 / 二次授权剧本的 hold 窗口判据是 `record.statusPolls < record.holdUntilPoll`
+         * （`/state` 与状态轮询两处都读它）。恢复后的那条流一 EOF 就把游标推到 MAX，窗口
+         * 当场被抹平——「第一次裁决已生效、第二次中断还没来」这段**由构造撑开**的状态
+         * 在浏览器链路上宽度为 0，`TWO_INTERRUPT_HOLD_POLLS=8` 形同虚设，三条 spec 的
+         * 被测状态不可达。
+         *
+         * 「流读完了」与「构造出来的那段窗口过去了」是两件事：前者说的是这一次 join 流
+         * 结束了，后者由轮数推进。窗口还没走完就照实不推，让它按 `statusPolls` 自然走完
+         * （每次状态轮询 +1，有界，走完照旧进第二次中断 → 终态）。
+         */
+        if ((record.holdUntilPoll ?? 0) <= record.statusPolls) record.statusPolls = Number.MAX_SAFE_INTEGER;
         res.end();
         return;
       }
@@ -1150,7 +1194,13 @@ const server = createServer((req, res) => {
      * 「每一条」与「最后一条」必须真的不是同一条，否则被测缺陷无法被证伪。
      */
     if (isMultiCanvasTurn(record)) {
-      const messages: unknown[] = [{ type: "human", content: record.userText }];
+      /*
+       * ⚠ 这条 human 消息**必须带上它进来时的那个 id**（`wsx-turn:<runId>:user`）。
+       * 不带 id 时 `readTurnReply` 找不到本轮锚点 ⇒ 静默退回 `readFinalReply` ⇒ 落库正文
+       * 只剩最后那条**零围栏**的纯文字总结，C1 的「收尾后画布数 3→0」于是恒红在替身的
+       * 方言上，被测的 #3243 一次都没被求值。真上游 `harness.py` 保留这个 id，替身也必须。
+       */
+      const messages: unknown[] = [{ type: "human", content: record.userText, ...(record.userMessageId !== undefined ? { id: record.userMessageId } : {}) }];
       for (const body of multiCanvasBodies(record.userText)) {
         messages.push({ type: "ai", content: body });
       }

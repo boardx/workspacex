@@ -636,7 +636,26 @@ export class DeepAgentModelProvider implements ModelCallPort {
         }
         // Text deltas may fall back to polling; required Skill facts cannot.
       }
-      if (input.onSkillActivity) throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+      /*
+       * ⚠ 只在**流根本没建立起来**时 fail closed（`streamed === false`：fetch 抛 / HTTP 非
+       * 2xx / content-type 不是 text/event-stream）。此前这里不看 `streamed`——而
+       * `execute-run.ts` 给**每一条 run** 都传 `onSkillActivity`（见该文件 `invokeKernel`
+       * 调用点，不是"挂了 skill 才传"），于是「流正常读完、但这一次状态读到的还是
+       * `pending`」这个**完全健康**的状态被当成"技能事实投递不可用"，整条 run 当场炸成
+       * `MODEL_CALL_FAILED`，永远走不到下面那个轮询循环。
+       *
+       * LangGraph 的 join 流在图还在跑时就可能关闭（本文件 `tryStreamRun` 头注引用的
+       * 真实采集就是这个形状），"流结束"从来不等于"run 落终态"。
+       *
+       * fail-closed 的那条不变量原样保留、一处不少：
+       *   · 流中途出错 / 帧解析不出 / 收尾残留半帧 → `tryStreamRun` 自己抛（本文件
+       *     `skill_activity_stream_invalid` / `_incomplete` / 884 行那条），不经过这里；
+       *   · 流压根没打开（`streamed === false`）→ 就是下面这一句，逐字不变。
+       * 变的只有「流好好读完了」这一种情形：那时该做的是落回轮询，不是宣布失败。
+       */
+      if (!streamed && input.onSkillActivity) {
+        throw new ModelCallError("MODEL_CALL_FAILED", "skill_activity_delivery_unavailable");
+      }
     }
 
     const emitNewEvents = async (): Promise<void> =>
