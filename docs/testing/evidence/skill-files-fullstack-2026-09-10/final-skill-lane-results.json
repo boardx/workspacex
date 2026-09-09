@@ -1,0 +1,55 @@
+{
+  "runId": 34411307695,
+  "runAttempt": 2,
+  "jobId": 102670391468,
+  "jobUrl": "https://github.com/boardx/workspacex/actions/runs/34411307695/job/102670391468",
+  "stats": {
+    "startTime": "2026-09-09T22:33:30.026Z",
+    "duration": 25147.81,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "selected": [
+    {
+      "file": "skill-file-pin-live.spec.ts",
+      "title": "real imported Skill survives multi-file save/reload and Agent pin restoration",
+      "tests": [
+        {
+          "status": "expected",
+          "results": [
+            {
+              "status": "passed",
+              "durationMs": 21129
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "receipt": {
+    "gitHead": "212c2cd3404818781fb2f3966c03ec2d2b811f58",
+    "skillId": "sk_37b2051a-1b54-4a65-aa72-b78840db1195",
+    "source": "https://github.com/anthropics/skills/tree/main/skills/skill-creator",
+    "originalSkillVersion": "sv_48daf1c2-525e-4acb-8838-5346ccc271f3",
+    "savedVersionId": "sv_88eee95b-0b0e-4027-9907-9e166ea4d180",
+    "deletedPath": "LICENSE.txt",
+    "addedPath": "references/studio-8d556915-53cf-4eed-8c17-a9a5a6c5f0cb.txt",
+    "oldSnapshotPreserved": true,
+    "agentId": "agent-mtuodobx-1-cssa5e",
+    "originalAgentVersion": "agent-version-a7739a8d-cff9-4150-a073-2f00688d24e0",
+    "boundAgentVersion": "agent-version-16d5f5e8-8685-416e-9469-ad74c4102626",
+    "restoredAgentVersion": "agent-version-6ca622bf-b5a6-4ab1-a322-fe3569042e7b",
+    "modelExecuted": false
+  },
+  "provenance": {
+    "executedCheckout": "212c2cd3404818781fb2f3966c03ec2d2b811f58",
+    "prHead": "ab859a6976ce4e421068fd3a04bf7aa84523fcd8",
+    "mergedMain": "8e08a8f98ce5e9b3c3d57c6d888d85726744fab2",
+    "sharedGitTree": "be17f89e29e65b3e30b788b13d7292cb3e6cdf5b",
+    "treeEqualityVerified": true,
+    "devappExecuted": false,
+    "modelExecuted": false
+  }
+}

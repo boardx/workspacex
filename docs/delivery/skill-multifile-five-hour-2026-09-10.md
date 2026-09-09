@@ -18,11 +18,11 @@
 | 跨项整合与交付 | 主任务 | contracts index、kernel.module注册、提交/PR/CI与交付记录 |
 | 独立验收 | history_content | 只读审计、devapp/模型环境探针、独立真实链路测试证据 |
 
-## 当前交付状态（截至22:14Z）
+## 当前交付状态（截至22:39Z）
 
-首轮固定候选 c3e1cb929 于21:46Z部署成功；随后恢复部署 attempt 2 也成功，但22:14Z的只读SSH核对显示共享devapp已经被main `f95a1fadf7eb2046ad8e9a6f1bf99a5c49a70f7a` 覆盖，API/Web启动时间为06:11:42 CST（22:11:42Z）。**当前不能声称完整候选在devapp稳定运行**。服务active只说明服务状态，不能替代候选身份或完整功能验收。
+最终产品 PR #3272 于22:35:58Z合入main，提交 `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2`。这是squash合并；整树与已审head `ab859a6976ce4e421068fd3a04bf7aa84523fcd8` 无差异。所有产品检查已通过，专用Skill lane由协作方重跑后22:34:01Z成功，早于合并。
 
-#3273于22:07:41Z合入API集成分支（合并提交前缀 `2cf975`），并非直接合入main。#3272是唯一最终整合PR，已更新为 `ab859a6976ce4e421068fd3a04bf7aa84523fcd8`（main修复及全部UI/API/pins），已推送且独立复核通过。仍须等待该head的CI与main合并，再确认实际部署。人工管理员登录仍阻塞；本地真实模型和浏览器证据不能替代devapp登录后验收。
+main自动部署run34413017866正在运行，尚未确认部署成功。早先c3e候选已被其他main部署覆盖，不能用历史成功证明当前完整版本在线。人工管理员登录仍阻塞；本地和CI证据不能替代devapp登录后验收。
 
 ## 动态记录
 
@@ -67,10 +67,11 @@ flowchart TD
  classDef pending fill:#f3e8ff,stroke:#9333ea,color:#581c87
  class A,B,C,D,E,F,G done
  class Q,M done
- class H active
- class R active
+ class H done
+ class R done
  class L,J blocked
- class I,K pending
+ class I active
+ class K pending
 ```
 
 估时是工作量估计，并行节点不相加；CI排队、人工登录及共享环境被其他部署覆盖的等待不在操作估时内，因此不能保证原截止前全部完成。绿色=已验证完成该节点，黄色=进行中，红色=阻塞，紫色=待前置完成；局部绿色不代表产品交付完成。
@@ -96,3 +97,5 @@ flowchart TD
 22:14Z状态校正：21:46首部署与21:53候选快照保留为历史成功证据，不能继续当成当前部署状态。恢复attempt 2虽成功，随后main `f95a1fadf7eb2046ad8e9a6f1bf99a5c49a70f7a` 再次覆盖；API/Web active时间06:11:42 CST。当前交付路径收敛为#3272最终整合head（已推送 `ab859a6976ce4e421068fd3a04bf7aa84523fcd8`）→CI/独立复核→main→部署后再次核对实际版本→管理员登录后验收。#3273于22:07:41Z只合到API分支 `2cf975`，不把中间分支合并记为main完成。Mermaid中CI与最终整合保持黄色，待合入后的候选部署为紫色，登录和devapp验收保持红色；没有将已被覆盖的候选标为当前绿色完成。
 
 22:20Z：最终整合head ab859a6976ce4e421068fd3a04bf7aa84523fcd8 已推送，pre-push13/13和独立blob复核通过。CI在运行，validate出现/me请求ECONNRESET（23通过、3跳过）后原head单次重跑；专用Skill lane失败正在分诊，不将旧候选绿算作最终head绿。
+
+22:39Z：最终产品已合main8e08a8f98（树与ab859一致）。专用Skill lane attempt2于22:34:01Z通过，root22:35:50的重跑请求未执行；成功重跑由协作方先完成，不重复计数。main自动部署进行中，人工登录仍阻塞。

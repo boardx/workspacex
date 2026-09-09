@@ -25,3 +25,11 @@ This historical candidate receipt does not replace the final integration head CI
 Independent structured verification of [run 34411307674 / job 102666235254](https://github.com/boardx/workspacex/actions/runs/34411307674/job/102666235254) at exact head `ab859a6976ce4e421068fd3a04bf7aa84523fcd8` confirms **79 passed, 0 failed, 0 flaky and 1 existing inbox fixme skipped**. All five Skill audit cases ran once and passed: import 4,162 ms, full file editor 2,636 ms, Agent import/publish/trial 5,017 ms, Skill trial 3,371 ms, and slash mounting 2,981 ms. First-chat reply passed once in 7,658 ms.
 
 [final-integration-results.json](./final-integration-results.json) preserves the exact-head statistics and selected results separately from the earlier candidate evidence above. This uses standard loopback providers; it is not a new paid-model call or devapp SHA verification. The dedicated multi-file save/pin recovery lane has its own result and is not certified by this report.
+
+## Final dedicated save and pin recovery lane
+
+[Run 34411307695 attempt 2 / job 102670391468](https://github.com/boardx/workspacex/actions/runs/34411307695/job/102670391468) completed with **1 passed, 0 skipped, 0 failed, 0 flaky**. Its single result passed in 21,129 ms. The persistence receipt records a new immutable Skill version, removal of `LICENSE.txt`, addition of a reference file, preservation of the old snapshot, and distinct original/bound/restored Agent versions. These assertions cover the actual import, atomic save/reload, pin and restoration flow.
+
+The executed checkout was GitHub's PR merge commit `212c2cd3404818781fb2f3966c03ec2d2b811f58`. Its GitHub commit tree is `be17f89e29e65b3e30b788b13d7292cb3e6cdf5b`, independently verified equal to both reviewed PR head `ab859a6976ce4e421068fd3a04bf7aa84523fcd8` and merged main `8e08a8f98ce5e9b3c3d57c6d888d85726744fab2`. This records the actual checkout separately from the equivalent source trees.
+
+[final-skill-lane-results.json](./final-skill-lane-results.json) contains selected structured results, the persistence receipt and provenance. No model was executed by this lane, and it is not a devapp run. Attempt 1's upstream GitHub quota failure remains a separate failed attempt; this result is attempt 2.
