@@ -300,7 +300,13 @@ export default defineConfig({
        * 一条 spec 都没有。按上面「首跑与搬家」的规矩，新 spec **一律先进这条非阻塞
        * 车道**，连绿两次再谈搬家（F6 刚这么走过一遍）；不许直接进 `chat-read`。
        */
-      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask)\.spec\.ts$/,
+      /*
+       * 2026-09-10 新增一条：`chat-path-ab-hitl-continuity`（A4/A5/B1/B4/B5/B6）。
+       * 它是本车道的新用例，按上面「首跑与搬家」的规矩先进这条**非阻塞**车道，
+       * 连绿两次再谈搬家——它断言的三条真实缺陷（#3186 / #3207 / #3244 ①）里有一条
+       * 至今未修，首跑很可能红，那正是这条车道存在的意义（红是意外，但意外要能被看见）。
+       */
+      testMatch: /chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|ab-hitl-continuity)\.spec\.ts$/,
     },
     {
       /**
@@ -570,6 +576,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_CLARIFICATION_ARTIFACT_NAME: CHAT_READ_E2E.deepAgentClarificationArtifactName,
         LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER: CHAT_READ_E2E.deepAgentConfirmIntentTrigger,
         LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER: CHAT_READ_E2E.deepAgentChooseOptionTrigger,
+        // 路径矩阵 B1/B4/B5/B6 —— 二次中断剧本，同一套下发纪律（值在 fixture 里）。
+        LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_TRIGGER: CHAT_READ_E2E.deepAgentTwoInterruptTrigger,
+        LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_HOLD_POLLS: String(CHAT_READ_E2E.deepAgentTwoInterruptHoldPolls),
+        LOOPBACK_DEEP_AGENT_TWO_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentTwoApprovalTrigger,
         LOOPBACK_DEEP_AGENT_SCROLL_ACCEPTANCE_TRIGGER: CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger,
         // DA-19g —— 多轮上下文取证开关，见 `CHAT_READ_E2E.deepAgentFollowupContextTrigger`
         // 自己的头注。

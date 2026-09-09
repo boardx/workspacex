@@ -189,6 +189,71 @@ const CLARIFICATION_ARTIFACT_NAME = process.env.LOOPBACK_DEEP_AGENT_CLARIFICATIO
 const CONFIRM_INTENT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CONFIRM_INTENT_TRIGGER;
 const CHOOSE_OPTION_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_CHOOSE_OPTION_TRIGGER;
 /**
+ * 路径矩阵 B1/B4/B5/B6 —— **同一条 run 里连着中断两次**的剧本（issue #3244 ① / #3212 / #3186）。
+ *
+ * ## 为什么必须新加一个触发词，而不是复用已有的
+ *
+ * 已有的每一个中断剧本（`APPROVAL_TRIGGER`、三个表单中断、`PLAN_CONFIRM_TRIGGER`）都由
+ * `record.decision === null` 把关：**裁决一到就再也不中断**。于是「一条 run 里第二次中断」
+ * 这个形状在本替身上**根本不可达**，而人类在 devapp 上报的三个真实缺陷全长在这个形状上：
+ *
+ * - #3186「审批弹窗点了没反应，用户被完全锁死」——真机理是「点击生效 → run 恢复 →
+ *   引擎立刻又中断 → 弹出逐像素相同的新框」，与「点了没反应」在界面上分不开；
+ * - #3212 修的是那个「逐像素相同」（第二次弹窗要说明这是第几次、上次选了哪档），
+ *   同一提交还把审批组件的 `key` 从 `runId:seq` 收成 `runId`——带 seq 时同一条 run 的
+ *   **第二次**中断会把组件整个重挂，它刚记下的次数随之清零；
+ * - #3244 ①「HITL 确认卡片提交之后又在 chat 上出现了一次」——时序正是
+ *   确认意图卡 → 补参窗口 → 提交，三步都在**同一条 run** 里。
+ *
+ * 三条的共同前提都是「一条 run 中断两次」。没有这个剧本，B 组无论怎么写断言都碰不到
+ * 它们——这正是「B 组现有 spec 全绿却一个真实缺陷都没抓住」的机械原因。
+ *
+ * ## 它照的是真上游的方言，不是为了让断言好写
+ *
+ * 真实 deep_agent_service 的中断语义在本协议面上只有一个信号：**state 里存在一个没有配对
+ * `ToolMessage` 的 tool_call**（`readPendingApproval` 就是这么找待批项的，见上面各剧本的
+ * 头注）。本剧本第二次中断用的是同一个信号——把第一次那个 tool_call 配上回执，再放出
+ * 第二个未配对的 tool_call，于是服务端**自己**生成一个新的 `permissionRequestId`。
+ * 替身没有伪造任何 id，也没有替 TS 侧决定该不该问第二次。
+ *
+ * ⚠ 未设置这个环境变量时（默认），下面所有新增分支的判定第一项就是 `undefined !== 用户原文`
+ * ⇒ 恒 false，走到的分支与改动前逐字节相同。
+ */
+const TWO_INTERRUPT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_TRIGGER;
+/**
+ * 第一次裁决之后、第二次中断之前，这条 run 要**普通地跑**多少次状态轮询。
+ *
+ * ## 这个旋钮不是为了慢，是为了让判据可证伪
+ *
+ * #3244 ① 那句人类原话是「提交以后在 chat 上又看到了这个界面」——**看到**发生在
+ * 「已经裁决了」与「下一个中断到来」之间那段窗口里。窗口宽度若由两次网络往返决定
+ * （默认约 0），那么「提交后旧卡片又出现」这条断言就只能靠**赢一次赛跑**才采得到，
+ * 采不到时给出的是假绿。F3 那条「974ms 窗口 vs 3000ms 轮询、两层各自都对乘起来是 0」
+ * 与 F5 的 `SUBTASK_HOLD_POLLS` 是同一个教训。
+ *
+ * 所以把这段窗口**由构造撑开**：hold 期间 run 是普通的 `pending`（不是 interrupted、
+ * 也不是终态），前端因此处在「没有任何待决请求」的状态——此时任何一张确认卡片都是
+ * 陈旧重现，与时序无关。
+ *
+ * ⚠ 同样**有界**：hold 完就进第二次中断。无界的 hold 与「卡死」分不开。
+ */
+const TWO_INTERRUPT_HOLD_POLLS = Number.parseInt(process.env.LOOPBACK_DEEP_AGENT_TWO_INTERRUPT_HOLD_POLLS ?? "8", 10);
+/**
+ * 路径矩阵 B4 —— **同一条 run 里连着请求两次「技能授权」**的剧本（issue #3186 / #3212）。
+ *
+ * 与上面那条二次中断剧本走的是**另一条**审批通路：那条走三个具名表单中断
+ * （`InterruptDecisionDialog`），这条走 `call_skill` 的四选一授权卡
+ * （`ToolPermissionCard` / `chat-tool-permission-dialog`）。人类报的「审批弹窗点了没反应」
+ * 正是后者，两条不能互相替代。
+ *
+ * 两次请求**点名不同的技能**：#3212 的判据之一就是"用户看得出这次问的是哪个技能"，
+ * 两次逐字相同的话，那条判据不可证伪。
+ */
+const TWO_APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_TWO_APPROVAL_TRIGGER;
+const TWO_APPROVAL_FIRST_SKILL = "quarterly-report";
+const TWO_APPROVAL_SECOND_SKILL = "persona-canvas";
+const TWO_APPROVAL_FINAL_REPLY = "两次技能授权都已收到，任务执行完毕。";
+/**
  * issue #3132（B7）—— 计划确认门的剧本触发词。
  *
  * 对这句话，替身在第一次到达状态阈值时回 `interrupted`，并在 `/state` 里放一个**未配对**
@@ -389,6 +454,16 @@ interface RunRecord {
   approvalArgs?: Record<string, unknown>;
   /** resume 请求（`command.resume`）到达后记下的裁决——null = 还没被裁决过。 */
   decision: ApprovalDecision | null;
+  /**
+   * 这条 run 上**按到达次序**记下的每一次裁决。`decision` 保留为「最后一次裁决」，
+   * 既有所有分支因此逐字节不变；只有需要分辨「这是第几次中断」的剧本读这个数组。
+   *
+   * ⚠ 不把 `decision` 直接换成数组：那会动到 5 个既有剧本的每一处 `record.decision === null`，
+   * 而那些剧本正在别的车道上跑绿——本仓那条「范围纪律」。
+   */
+  decisions: ApprovalDecision[];
+  /** 二次中断剧本：hold 窗口的结束轮次（`statusPolls` 超过它才放出第二次中断）。 */
+  holdUntilPoll?: number;
   /** issue #2020 / #2534：这一轮的 `org_skills` 里真的出现了 skill 哨兵——
    *  见 `mountedSkillReachedUpstream`。开关未给全时恒 `false`。 */
   skillSentinelSeen?: boolean;
@@ -428,6 +503,28 @@ function isConfirmIntent(record: RunRecord): boolean {
 
 function isChooseOption(record: RunRecord): boolean {
   return CHOOSE_OPTION_TRIGGER !== undefined && record.userText === CHOOSE_OPTION_TRIGGER;
+}
+
+/**
+ * 二次中断剧本的终稿正文。它**只在两次裁决都到齐之后**才会出现——spec 拿它当
+ * 「这条 run 真的走完了、没有把用户锁死」的判据，而不是拿「弹窗消失了」当判据
+ * （弹窗消失也可能是它被静默吞掉）。
+ */
+const TWO_INTERRUPT_FINAL_REPLY = "两次确认都已收到，任务按确认后的意图与资料执行完毕。";
+
+/** 路径矩阵 B1/B4/B5/B6 —— 见 `TWO_INTERRUPT_TRIGGER` 头注。 */
+function isTwoInterrupt(record: RunRecord): boolean {
+  return TWO_INTERRUPT_TRIGGER !== undefined && record.userText === TWO_INTERRUPT_TRIGGER;
+}
+
+/** 路径矩阵 B4 —— 见 `TWO_APPROVAL_TRIGGER` 头注。 */
+function isTwoApproval(record: RunRecord): boolean {
+  return TWO_APPROVAL_TRIGGER !== undefined && record.userText === TWO_APPROVAL_TRIGGER;
+}
+
+/** 这条 run 已经收到过几次裁决——二次中断剧本唯一的推进依据。 */
+function decisionCount(record: RunRecord): number {
+  return record.decisions?.length ?? 0;
 }
 
 function needsFormDecision(record: RunRecord): boolean {
@@ -636,7 +733,7 @@ const server = createServer((req, res) => {
         requested = undefined;
       }
       const threadId = requested ?? randomUUID();
-      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, scrollHalfStep: 0, decision: null });
+      if (!runs.has(threadId)) runs.set(threadId, { started: false, userText: "", statusPolls: 0, scrollHalfStep: 0, decision: null, decisions: [] });
       sendJson(res, 200, { thread_id: threadId });
     });
     return;
@@ -668,6 +765,14 @@ const server = createServer((req, res) => {
           ? resumeDecisionWire.edited_action.args as Record<string, unknown>
           : undefined;
         existingForResume.decision = { type, editedArgs };
+        // 追加记账（`decision` 仍是最后一次，既有分支不受影响）——「这是第几次裁决」
+        // 是二次中断剧本唯一的推进依据。
+        existingForResume.decisions = [...(existingForResume.decisions ?? []), { type, editedArgs }];
+        if ((isTwoInterrupt(existingForResume) || isTwoApproval(existingForResume))
+          && existingForResume.decisions.length === 1) {
+          // 见 `TWO_INTERRUPT_HOLD_POLLS` 头注：窗口从**这次裁决之后**开始算。
+          existingForResume.holdUntilPoll = existingForResume.statusPolls + Math.max(0, TWO_INTERRUPT_HOLD_POLLS);
+        }
         sendJson(res, 200, { run_id: threadId });
         return;
       }
@@ -686,6 +791,7 @@ const server = createServer((req, res) => {
         scrollHalfStep: 0,
         statusPolls: 0,
         decision: null,
+        decisions: [],
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
         // 轮次 system 里没有哨兵、挂载后的轮次才有，前后对照正是 e2e 的判据。
         skillSentinelSeen: mountedSkillReachedUpstream(parsed),
@@ -728,6 +834,24 @@ const server = createServer((req, res) => {
     // have reached a decisive state before it can persist mandatory Skill activity.
     // Resume keeps this same record/run and sets `decision`, so it falls through to the
     // ordinary terminal threshold below instead of interrupting a second time.
+    /*
+     * 二次中断剧本（B1/B4/B5/B6，见 `TWO_INTERRUPT_TRIGGER` 头注）：**裁决满两次之前一直
+     * interrupted**。与下面那条表单分支的差别只有把关条件——那条是「有没有被裁决过」，
+     * 这条是「被裁决过几次」。真实引擎恢复后立刻又中断，形状就是这个。
+     *
+     * ⚠ 它**有界**：第二次裁决之后落终态。「一直不终态」和「卡住了」在界面上分不开，
+     * 那种替身会让「用户被锁死」这条判据变成不可证伪的（同 F5 那条 hold 旋钮的理由）。
+     */
+    if (isTwoInterrupt(record) && decisionCount(record) === 1
+      && record.statusPolls < (record.holdUntilPoll ?? 0)) {
+      // hold 窗口：第一次裁决已生效，第二次中断还没来——run 就是普通地在跑。
+      sendJson(res, 200, { status: "pending" });
+      return;
+    }
+    if (isTwoInterrupt(record) && decisionCount(record) < 2) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
     if (needsFormDecision(record) && record.decision === null) {
       sendJson(res, 200, { status: "interrupted" });
       return;
@@ -747,6 +871,17 @@ const server = createServer((req, res) => {
     // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
     // 之后的轮询一律走终态分支——不会无限停在 interrupted。
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
+    // 路径矩阵 B4 —— 二次技能授权剧本，判据是「被裁决过几次」而不是「有没有被裁决过」。
+    // hold 窗口内如实回 `pending`：第一次授权已生效、第二次请求还没提出，run 就是在跑。
+    if (isTwoApproval(record) && decisionCount(record) === 1
+      && record.statusPolls < (record.holdUntilPoll ?? 0)) {
+      sendJson(res, 200, { status: "pending" });
+      return;
+    }
+    if (isTwoApproval(record) && decisionCount(record) < 2) {
       sendJson(res, 200, { status: "interrupted" });
       return;
     }
@@ -788,9 +923,11 @@ const server = createServer((req, res) => {
     const isClarifying = isClarification(record);
     const isConfirming = isConfirmIntent(record);
     const isChoosing = isChooseOption(record);
-    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : undefined;
+    const isTwoInterruptTurn = isTwoInterrupt(record);
+    const isTwoApprovalTurn = isTwoApproval(record);
+    const streamMessageId = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER ? `scroll-${record.scrollExecutionId}:final` : isApproval ? `approval-${threadId}:${record.decision === null ? "pending" : "final"}` : isClarifying ? `clarification-${threadId}:${record.decision === null ? "pending" : "final"}` : isConfirming ? `confirm-intent-${threadId}:${record.decision === null ? "pending" : "final"}` : isChoosing ? `choose-option-${threadId}:${record.decision === null ? "pending" : "final"}` : isTwoInterruptTurn ? `two-interrupt-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : isTwoApprovalTurn ? `two-approval-${threadId}:${decisionCount(record) < 2 ? "pending" : "final"}` : undefined;
     const reply = SCROLL_ACCEPTANCE_TRIGGER !== undefined && record.userText === SCROLL_ACCEPTANCE_TRIGGER
-      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+      ? SCROLL_ACCEPTANCE_REPLY : isApproval ? approvalReply(record) : isClarifying ? clarificationReply(record) : isConfirming ? confirmIntentReply(record) : isChoosing ? chooseOptionReply(record) : isTwoInterruptTurn ? (decisionCount(record) < 2 ? "还需要你的确认才能继续。" : TWO_INTERRUPT_FINAL_REPLY) : isTwoApprovalTurn ? (decisionCount(record) < 2 ? "还需要你的批准才能继续。" : TWO_APPROVAL_FINAL_REPLY) : MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
@@ -1058,6 +1195,52 @@ const server = createServer((req, res) => {
       });
       return;
     }
+    if (isTwoApproval(record)) {
+      const human = { type: "human", content: record.userText };
+      const firstCallId = `two-approval-a-${threadId}`;
+      const secondCallId = `two-approval-b-${threadId}`;
+      const firstArgs = { skill_stable_name: TWO_APPROVAL_FIRST_SKILL, task: "取证：第一次待批技能调用" };
+      const secondArgs = { skill_stable_name: TWO_APPROVAL_SECOND_SKILL, task: "取证：第二次待批技能调用（新的请求）" };
+      const firstPending = {
+        id: `${firstCallId}:pending`, type: "ai", content: "这一步需要人工批准后才能继续。",
+        tool_calls: [{ id: firstCallId, name: APPROVAL_TOOL_NAME, args: firstArgs }],
+      };
+      const decided = decisionCount(record);
+      if (decided === 0) { sendJson(res, 200, { values: { messages: [human, firstPending] } }); return; }
+      const firstSettled = [
+        firstPending,
+        { type: "tool", tool_call_id: firstCallId,
+          content: record.decisions[0]!.type === "reject"
+            ? "用户拒绝了这次技能调用，未执行。"
+            : `已执行技能：${JSON.stringify(firstArgs)}` },
+      ];
+      const secondPending = {
+        id: `${secondCallId}:pending`, type: "ai", content: "还有一步需要人工批准。",
+        tool_calls: [{ id: secondCallId, name: APPROVAL_TOOL_NAME, args: secondArgs }],
+      };
+      if (decided === 1) {
+        if (record.statusPolls < (record.holdUntilPoll ?? 0)) {
+          // hold 窗口：没有任何未配对的 tool_call ⇒ 权威读 `pendingApproval` 为 null。
+          sendJson(res, 200, { values: { messages: [human, ...firstSettled] } });
+          return;
+        }
+        sendJson(res, 200, { values: { messages: [human, ...firstSettled, secondPending] } });
+        return;
+      }
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            human, ...firstSettled, secondPending,
+            { type: "tool", tool_call_id: secondCallId,
+              content: record.decisions[1]!.type === "reject"
+                ? "用户拒绝了这次技能调用，未执行。"
+                : `已执行技能：${JSON.stringify(secondArgs)}` },
+            { id: `two-approval-${threadId}:final`, type: "ai", content: TWO_APPROVAL_FINAL_REPLY },
+          ],
+        },
+      });
+      return;
+    }
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER) {
       const approvalCallId = `approval-${threadId}`;
       // 形状必须是 `call_skill` 的真实参数（契约 `DeepAgentHitlToolArgs`），不是 send_email
@@ -1106,6 +1289,77 @@ const server = createServer((req, res) => {
             { ...pendingApprovalAi, tool_calls: [{ id: approvalCallId, name: APPROVAL_TOOL_NAME, args: usedArgs }] },
             { type: "tool", tool_call_id: approvalCallId, content: toolResultText },
             { id: `approval-${threadId}:final`, type: "ai", content: finalReplyText },
+          ],
+        },
+      });
+      return;
+    }
+    /*
+     * 二次中断剧本的 state（B1/B4/B5/B6）—— 时序逐字照 #3244 ① 里人类写下的那三步：
+     *   ① 「确认一下我的理解，再开始」（`confirm_task_intent`，未配对 ⇒ 服务端判为待决）
+     *   ② 提交之后**同一条 run** 又要人输入资料（`fill_run_params`，新的未配对 tool_call
+     *      ⇒ 服务端生成一个**新的** permissionRequestId）
+     *   ③ 再提交，落终态。
+     * 每一步的推进只看 `decisions.length`，不看时间——不依赖任何时序运气。
+     */
+    if (isTwoInterrupt(record)) {
+      const confirmCallId = `two-interrupt-confirm-${threadId}`;
+      const fillCallId = `two-interrupt-fill-${threadId}`;
+      const confirmArgs = {
+        requestId: `two-interrupt-confirm-request-${threadId}`,
+        understanding: "生成一份用户画像，并按画像模板填好各分区",
+        assumptions: ["以当前会话内容为唯一事实来源"],
+      };
+      const fillArgs = {
+        requestId: `two-interrupt-fill-request-${threadId}`,
+        fields: [
+          { name: "persona_source", label: "用户画像资料", aiGuess: null, rationale: null, required: true, currentValue: null },
+        ],
+      };
+      const human = { type: "human", content: record.userText };
+      const confirmPending = {
+        id: `${confirmCallId}:pending`, type: "ai", content: "请先确认我对任务的理解。",
+        tool_calls: [{ id: confirmCallId, name: "confirm_task_intent", args: confirmArgs }],
+      };
+      const decided = decisionCount(record);
+      if (decided === 0) {
+        // 第一次中断：`confirm_task_intent` 没有配对回执。
+        sendJson(res, 200, { values: { messages: [human, confirmPending] } });
+        return;
+      }
+      const firstUsed = record.decisions[0]!.type === "edit" && record.decisions[0]!.editedArgs !== undefined
+        ? record.decisions[0]!.editedArgs
+        : confirmArgs;
+      const confirmSettled = [
+        { ...confirmPending, tool_calls: [{ id: confirmCallId, name: "confirm_task_intent", args: firstUsed }] },
+        { type: "tool", tool_call_id: confirmCallId, content: `已确认任务意图：${JSON.stringify(firstUsed)}` },
+      ];
+      const fillPending = {
+        id: `${fillCallId}:pending`, type: "ai", content: "还需要你提供用户画像的资料。",
+        tool_calls: [{ id: fillCallId, name: "fill_run_params", args: fillArgs }],
+      };
+      if (decided === 1) {
+        if (record.statusPolls < (record.holdUntilPoll ?? 0)) {
+          // hold 窗口内：第一次那个已配对、**没有**任何未配对的 tool_call ⇒ 服务端权威读
+          // 里 `pendingApproval` 为 null，这条 run 上此刻不存在任何待决请求。
+          sendJson(res, 200, { values: { messages: [human, ...confirmSettled] } });
+          return;
+        }
+        // 第二次中断：**同一条 run**，第一次那个已配对、这一个未配对。
+        sendJson(res, 200, { values: { messages: [human, ...confirmSettled, fillPending] } });
+        return;
+      }
+      const secondUsed = record.decisions[1]!.type === "edit" && record.decisions[1]!.editedArgs !== undefined
+        ? record.decisions[1]!.editedArgs
+        : fillArgs;
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            human,
+            ...confirmSettled,
+            { ...fillPending, tool_calls: [{ id: fillCallId, name: "fill_run_params", args: secondUsed }] },
+            { type: "tool", tool_call_id: fillCallId, content: `已收到资料：${JSON.stringify(secondUsed)}` },
+            { id: `two-interrupt-${threadId}:final`, type: "ai", content: TWO_INTERRUPT_FINAL_REPLY },
           ],
         },
       });

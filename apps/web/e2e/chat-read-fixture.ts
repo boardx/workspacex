@@ -128,6 +128,31 @@ export const CHAT_READ_E2E = {
   deepAgentConfirmIntentTrigger: "取证：请确认任务意图",
   deepAgentChooseOptionTrigger: "取证：请让我选择执行方案",
   /**
+   * 路径矩阵 B1/B4/B5/B6 —— **同一条 run 里连着中断两次**的剧本触发词。
+   *
+   * 人类 2026-09-10 在 devapp 上报的三个 HITL 缺陷（#3186 / #3207 / #3244 ①）全长在
+   * 这个形状上，而此前**每一个**替身剧本都由「裁决一到就再也不中断」把关 ⇒ 这个形状
+   * 在 e2e 上不可达，B 组因此全绿却一个都没抓住。值的唯一事实源在本文件，
+   * 语义见 `loopback-deep-agent-provider.ts` 的 `TWO_INTERRUPT_TRIGGER` 头注。
+   */
+  deepAgentTwoInterruptTrigger: "取证：请连着中断两次",
+  /** 第一次裁决之后、第二次中断之前的 hold 窗口（状态轮询次数）——见替身侧
+   *  `TWO_INTERRUPT_HOLD_POLLS` 头注：这段窗口是**由构造撑开**的，不靠赛跑。 */
+  deepAgentTwoInterruptHoldPolls: 8,
+  /** 两次裁决都到齐之后的终稿正文——「run 真的走完了、没把用户锁死」的判据。 */
+  deepAgentTwoInterruptFinalReply: "两次确认都已收到，任务按确认后的意图与资料执行完毕。",
+  /** 第二次中断（`fill_run_params`）要填的那个字段的值。 */
+  deepAgentTwoInterruptPersonaSource: "取证：来自当前会话的用户画像资料",
+  /**
+   * 路径矩阵 B4 —— **同一条 run 里连着请求两次技能授权**的剧本触发词（#3186 / #3212）。
+   * 与上一条走的是另一条审批通路（四选一授权卡，不是具名表单中断），不能互相替代。
+   */
+  deepAgentTwoApprovalTrigger: "取证：请连着请求两次技能授权",
+  /** 两次授权点名的技能不同——「用户看得出这次问的是哪个技能」才可证伪（#3212）。 */
+  deepAgentTwoApprovalFirstSkill: "quarterly-report",
+  deepAgentTwoApprovalSecondSkill: "persona-canvas",
+  deepAgentTwoApprovalFinalReply: "两次技能授权都已收到，任务执行完毕。",
+  /**
    * DA-19g —— 多轮上下文取证（chat-ux-acceptance-criteria.md 第 6 项）。替身对这句
    * 触发词逐字引用「这条线程上一次收到的用户消息」，命中的前提是 Chat 线程真的被续接
    * （`copilotkit-v2-panel.tsx` 回传 `forwardedProps.chatThreadId`）——没有续接就没有
