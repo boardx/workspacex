@@ -30,7 +30,7 @@ version: 2.0.0
 用 `write_file` 写**单个自包含文件** `/workspace/web-artifact/maau-canvas.html`，规格见 references/canvas-template.md 的「A3 版式规格」一节。硬约束（都是隔离预览的真实限制，不是风格偏好）：
 
 - **单文件、全内联**。预览页被注入 `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:` 的 CSP：外部 `.js`/`.css`/图片/网络字体**一律加载不到**，相对路径也不行。样式写进 `<style>`，图形用内联 `<svg>` 元素（不是 `<img>`），字体只用系统字族。
-- **不超过 2MB**，否则预览直接拒绝（`browser_preview_size_invalid`）。
+- **不超过 2MB**，否则预览直接拒绝，报错 "browser_preview_size_invalid"（这是错误码，不是工具名——发货正文里带反引号的 browser_* / wx_* token 会被当成点名调用某个工具去核对，所以错误码不加反引号）。
 - **④ 的活动图在这个文件里是内联 SVG**，按 references 的画法确定性地画出来——与第一步那段 mermaid 源同构：同样的节点、同样的顺序、同样的自动化/人工配色。mermaid.js 本身进不了这个页面（3.5MB > 2MB 上限，且 CSP 不放行外部脚本），所以这里画的是同一张活动图的 SVG 版本，并把 mermaid 源码原样附在页脚供用户复制到画布。**不要声称这张 SVG 是 mermaid 渲染的**。
 
 ## 第三步：截图 → A3 PDF
