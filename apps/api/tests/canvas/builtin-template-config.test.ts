@@ -16,6 +16,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { listTemplates } from "@repo/fabric-markdown/templates";
+import { canvas } from "@repo/contracts";
 import {
   deriveTemplateLayouts,
   deriveKey,
@@ -27,8 +28,16 @@ import {
 const specs = listTemplates();
 
 describe("内置模板配置推演", () => {
-  it("19 个模板全部推得出来", () => {
-    expect(specs.length).toBe(19);
+  /**
+   * 数量**从契约表推导**，不写死字面量——写死会让「按 ADR 正当新增第 20 个内置模板」
+   * 变成红（`template-registry-19-key-displayname.test.ts` 的头注对同一件事有更长的论证）。
+   * 推导来源是 `BUILTIN_CANVAS_TEMPLATES`，而它与本行用的 `listTemplates()` 已由那份
+   * 契约测试断言过集合相等——所以这不是"拿被测对象自己证明自己"。
+   */
+  it("内置模板全部推得出来（数量与契约声明一致）", () => {
+    const declared = Object.keys(canvas.BUILTIN_CANVAS_TEMPLATES).length;
+    expect(declared).toBeGreaterThan(0); // 空集守卫：两边都空时下面这条会平凡为真
+    expect(specs.length).toBe(declared);
   });
 
   it("全部分区名都能映成 AI JSON 键名（字典零漏词）", () => {

@@ -114,7 +114,7 @@ it('ships standard-web 1.1.2 content: the platform org actually receives the 543
 const editingSourceBytes = (path: string): number =>
   readFileSync(new URL(`../../../../skills/standard-methods/maau-canvas/${path}`, import.meta.url)).length;
 
-it('ships standard-methods 1.2.0 content: the platform org actually receives the A3-infographic maau-canvas, not the image-generating one', async () => {
+it('ships standard-methods 1.3.0 content: the platform org actually receives the canvas-fence maau-canvas, not the earlier A3-only one', async () => {
   ensureDatabase(); await migrateOnce();
   const seeded = await ensurePlatformSkillCatalogSeeded();
   expect(seeded.ok).toBe(true);
@@ -130,7 +130,7 @@ it('ships standard-methods 1.2.0 content: the platform org actually receives the
       ORDER BY f.path COLLATE "C"`, [PLATFORM_ORG_ID]));
   expect(rows.rows).toHaveLength(2);
   // 目录里显示的名字就是用户会说出口的那四个字——它是模型匹配这个技能的抓手。
-  expect(rows.rows.every(r => r.name === 'MAAU 模板' && r.semantic_label === '2.0.0')).toBe(true);
+  expect(rows.rows.every(r => r.name === 'MAAU 模板' && r.semantic_label === '3.0.0')).toBe(true);
   expect(rows.rows.map(r => [r.path, r.bytes])).toEqual([
     ['SKILL.md', editingSourceBytes('SKILL.md')],
     ['references/canvas-template.md', editingSourceBytes('references/canvas-template.md')],
@@ -147,4 +147,7 @@ it('ships standard-methods 1.2.0 content: the platform org actually receives the
   expect(body).toContain('browser_take_screenshot');
   expect(body).toContain('A3');
   expect(body).not.toContain('wx_image_generate');
+  // 3.0.0 的换代实质：默认交付是两个围栏（fabric 画布模板 + 顺序图），A3 退成按需。
+  expect(body).toContain('模板: maau');
+  expect(body).toContain('sequenceDiagram');
 }, 300000);

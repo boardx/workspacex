@@ -16,5 +16,6 @@ import './usecase';
 import './templates-strategy';
 import './templates-user';
 import './templates-story';
+import './templates-maau';
 
 export * from './registry';
