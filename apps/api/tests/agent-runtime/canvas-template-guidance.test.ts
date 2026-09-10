@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCanvasTemplateGuidance,
+  CANVAS_INFERRED_MARKER,
   type CanvasTemplateGuidanceInfo,
 } from "../../src/application/agent-run/canvas-template-guidance";
 import { buildSystemPrompt, VISUALIZATION_GUIDANCE } from "../../src/application/agent-run/execute-run";
@@ -221,5 +222,87 @@ describe("issue #3333 回归：未放置的分区不进指引（与渲染行为�
     const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
     expect(line).toContain("表头字段〔姓名〕");
     expect(line).not.toContain("职业");
+  });
+});
+
+/**
+ * 2026-09-10 人类实测回归：**画布上凭空缺几块**。
+ *
+ * devapp 上让 chat 生成商业模式画布，「关键合作伙伴」「收入来源」「成本结构」三块
+ * 是空的——对话里确实没聊到这三块。旧指引只说了「每个分区都必须写」，没说**用户
+ * 没聊到的分区怎么办**；模型在「必须写」与「不许瞎编」之间选了跳过。
+ *
+ * 修法不是加一句更响的「必须写」（那句已经在了，issue #2605 加的），而是给出第三条
+ * 路：基于上下文推理补全 + 末尾标 `（推理）`，让用户一眼分得清哪些是自己说过的。
+ * 反证的重点在第三条 it：标记本身不能被滥用成"全都标上"或"标了就敷衍"。
+ */
+describe("2026-09-10 回归：没聊到的分区要推理补全并标注，而不是留空", () => {
+  const BMC: CanvasTemplateGuidanceInfo = {
+    key: "business-model-canvas",
+    displayName: "商业模式画布",
+    sections: [
+      { name: "姓名", type: "短文本", layout: { max: 1 } },
+      { name: "关键合作伙伴", type: "便利贴列表", layout: { max: 6 } },
+      { name: "成本结构", type: "便利贴列表", layout: { max: 6 } },
+    ],
+  };
+
+  it("指引明说「没聊到不是跳过的理由」，并给出推理标记", () => {
+    const out = buildCanvasTemplateGuidance([BMC])!;
+    expect(out).toContain("不是跳过的理由");
+    expect(out).toContain(CANVAS_INFERRED_MARKER);
+    expect(out).toContain("整张画布必须是填满的");
+  });
+
+  it("表头字段同样要求补全，不许整行省略", () => {
+    const out = buildCanvasTemplateGuidance([BMC])!;
+    expect(out).toContain("表头字段〔姓名〕");
+    expect(out).toContain("对话里没提到的表头字段同样按上面那条推理补全");
+    expect(out).toContain("不要整行省略");
+  });
+
+  it("标记不许滥用：用户说过的不标，推理内容也不许写占位词充数", () => {
+    const out = buildCanvasTemplateGuidance([BMC])!;
+    expect(out).toContain(`只有推理出来的内容才标 \`${CANVAS_INFERRED_MARKER}\``);
+    expect(out).toContain("满屏都是标记等于没有标记");
+    expect(out).toContain("待补充");
+  });
+
+  it("空清单仍返回 null——补全指引不改变「没模板就不注入」的既有行为", () => {
+    expect(buildCanvasTemplateGuidance([])).toBeNull();
+  });
+});
+
+/**
+ * 2026-09-10 人类实测回归（同一轮的第二个症状）：**主语跑到了对话本身上**。
+ *
+ * 前半段对话聊的是一家餐馆的员工旅程图，接着让模型用 swot 模板产出画布——产出的
+ * 「优势」写的是「画布严格遵循 journey-map 模板定义的表头字段与分区名」，「劣势」
+ * 写的是「PESTEL 分析需将已有内容重新归类映射」。模板 key 对、分区名对、条数也够，
+ * 唯独分析对象错了：画的是「我们刚才这次生成画布的协作过程」，不是那家餐馆。
+ *
+ * 这与上一个症状（留空）同源——都是模型没认准「这张画布在分析谁」：认不准时，
+ * 要么跳过、要么退回到手边最近的素材（正在进行的这段元讨论）。所以两条指引一起加。
+ */
+describe("2026-09-10 回归：画布的主语是业务主题，不是这段对话本身", () => {
+  const SWOT: CanvasTemplateGuidanceInfo = {
+    key: "swot",
+    displayName: "SWOT 分析",
+    sections: [
+      { name: "优势", type: "便利贴列表", layout: { max: 6 } },
+      { name: "劣势", type: "便利贴列表", layout: { max: 6 } },
+    ],
+  };
+
+  it("指引点名「分析对象」，并把元讨论排除在画布之外", () => {
+    const out = buildCanvasTemplateGuidance([SWOT])!;
+    expect(out).toContain("不是这段对话本身");
+    expect(out).toContain("分析对象");
+    expect(out).toContain("元讨论");
+  });
+
+  it("明说前面已产出的画布是素材，不是新画布的分析对象", () => {
+    const out = buildCanvasTemplateGuidance([SWOT])!;
+    expect(out).toContain("上一张画布做得怎么样");
   });
 });
