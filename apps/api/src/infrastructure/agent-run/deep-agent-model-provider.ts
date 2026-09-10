@@ -9,6 +9,8 @@ import type { ReconciledRemoteRun } from "../../application/agent-run/run-recove
 import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
 import type { ModelDeltaMetadata } from "../../application/agent-run/ports";
+// issue #3346 —— 视觉判据与 image part 编码的单一事实源，与 `ConfiguredModelProvider` 共用。
+import { toImagePart, readVisionModelIds, type WireContentPart } from "./model-vision-wire";
 /**
  * `DeepAgentModelProvider` -- the `ModelCallPort` for the new deepagents-backed general
  * assistant (#740, replacing the TS tool loop this PR does NOT yet remove -- see #741 for
@@ -171,6 +173,23 @@ export interface DeepAgentProviderConfig {
    * （`this.config.subtaskCallbackBaseUrl ?? ""`），与"没配置"的行为逐字相同。
    */
   readonly subtaskCallbackKey?: string;
+  /**
+   * issue #3346 —— **内核实际绑定的那个模型的 id**（`KERNEL_DEEP_AGENT_MODEL_ID`，
+   * `deep_agent_service/model.py` 读的同一个变量，不是第二份声明）。
+   *
+   * 为什么不能用 `ModelCallInput.modelId` 判视觉能力：走这条 provider 的 run，
+   * `modelId` 恒是路由标签 `"deep-agent"`，不是真正会被调用的模型。视觉是**模型**的
+   * 属性——拿路由标签去查 `visionModelIds` 只会永远查不到，或者更糟：查到了却把图发给
+   * 一个纯文本模型，它把 image part 静默忽略、照常回一段话，正是 #1558/#3346 那种
+   * 「用户以为模型看过了」的形态。
+   */
+  readonly kernelModelId?: string;
+  /**
+   * issue #3346 —— 允许收多模态请求体的 modelId 集合。单一事实源是
+   * `model-vision-wire.ts` 的 `readVisionModelIds`（`KERNEL_MODEL_VISION_IDS`），与
+   * `ConfiguredModelProvider` 读的**是同一份**，这里不解析第二次。
+   */
+  readonly visionModelIds?: ReadonlySet<string>;
 }
 
 export function readDeepAgentProviderConfig(
@@ -190,6 +209,10 @@ export function readDeepAgentProviderConfig(
     streamEnabled: env.KERNEL_DEEP_AGENT_STREAM_ENABLED === "1",
     subtaskCallbackBaseUrl: (env.KERNEL_SUBTASK_CALLBACK_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     subtaskCallbackKey: (env.DEEP_AGENT_SERVICE_INTERNAL_KEY ?? "").trim(),
+    // issue #3346 —— 见 `kernelModelId` / `visionModelIds` 各自的文档。内核模型 id 缺席时
+    // `supportsVision` 恒 false，行为与本次改动之前逐字节相同（诚实降级，不是赌）。
+    kernelModelId: (env.KERNEL_DEEP_AGENT_MODEL_ID ?? "").trim(),
+    visionModelIds: readVisionModelIds(env),
   };
 }
 
@@ -525,6 +548,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
       const finalMessage=[...messages].reverse().find(message=>message.type==="ai"&&typeof message.content==="string"&&message.content.trim()!=="");
       return {kind:"success",completion:{text,...(finalMessage?.id?{finalMessageId:finalMessage.id}:{})}};
     }catch{return {kind:"uncertain",diagnostic:"remote_reconcile_unavailable"};}
+  }
+
+  /**
+   * issue #3346 —— 这条 provider 下模型到底能不能看到图。
+   *
+   * 判据是**部署声明的内核模型 id 是否在 `KERNEL_MODEL_VISION_IDS` 里**，不是"我是
+   * deep-agent 所以我能看图"。两个条件任一缺席 ⇒ false ⇒ `execute-run.ts` 走既有的
+   * 诚实降级（明确告诉模型它这轮看不到图），而不是把图发给一个可能会静默忽略它的模型。
+   * fail-closed 的理由逐字见 `ModelCallPort.supportsVision` 的文档。
+   */
+  supportsVision(modelProvider: string): boolean {
+    const kernelModelId = this.config.kernelModelId ?? "";
+    if (modelProvider !== DEEP_AGENT_PROVIDER_NAME || kernelModelId === "") return false;
+    return this.config.visionModelIds?.has(kernelModelId) ?? false;
   }
 
   supportsLiveInterjections(): boolean {
@@ -1195,14 +1232,29 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // 同一 runId 内 id 唯一（h<i> 按位置），跨 run 前缀不同；不用 chat_messages.id
     // 是因为 history 里还有 L2 摘要/trace/文件上下文这类没有持久 id 的伪消息。
     const turnKey = turnMessageKey(input.runId);
-    const messages: { role: string; content: string; id: string }[] = [];
+    const messages: { role: string; content: string | readonly WireContentPart[]; id: string }[] = [];
     if (input.system.trim() !== "") {
       messages.push({ role: "system", content: input.system, id: turnMessageId(turnKey, "system") });
     }
     (input.history ?? []).forEach((turn, i) => {
       messages.push({ role: turn.role, content: turn.content, id: turnMessageId(turnKey, `h${i}`) });
     });
-    messages.push({ role: "user", content: input.user, id: turnMessageId(turnKey, "user") });
+    /*
+     * issue #3346 —— 本轮随消息发出的图片，跟着 user 消息进内核。
+     *
+     * `execute-run.ts` 只在 `supportsVision` 报 true 时才填 `input.images`（见上面那个
+     * 方法），所以这里非空 ⇔ 部署已声明内核模型看得见图。没有图时 content 保持**字符串**
+     * 形态，与本次改动之前逐字节相同——不给纯文本轮次换报文形状。
+     *
+     * 形状是 OpenAI 兼容的 content part 列表，LangChain 的 `ChatOpenAI`
+     * （`deep_agent_service/model.py`）原样透传给百炼；编码函数是 `model-vision-wire.ts`
+     * 里那一份，与 `ConfiguredModelProvider` 共用，不在这里抄第二份。
+     */
+    const images = input.images ?? [];
+    const userContent: string | readonly WireContentPart[] = images.length === 0
+      ? input.user
+      : [{ type: "text", text: input.user } as const, ...images.map(toImagePart)];
+    messages.push({ role: "user", content: userContent, id: turnMessageId(turnKey, "user") });
 
     const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
       method: "POST",
