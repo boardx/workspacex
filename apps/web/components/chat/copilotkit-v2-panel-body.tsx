@@ -82,7 +82,7 @@ import { useCopilotKitV2AgentOptions, type CopilotKitV2AgentOptionsState } from 
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
-  useChatAttachments, ChatAttachmentDock, ChatAttachmentList, ChatAttachmentBanner,
+  useChatAttachments, ChatAttachmentDock, ChatComposerAttachmentStrip, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
 import { listThreadMounts } from "@/lib/live-skill-mount";
@@ -1859,7 +1859,6 @@ export function CopilotKitV2PanelBody({
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
-        {archived ? null : <ChatAttachmentList ctl={attach} canRetry={canWrite} disabled={agent.isRunning} />}
         {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
             换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
             `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
@@ -1952,6 +1951,22 @@ export function CopilotKitV2PanelBody({
           data-voice-phase={voice.phase}
         >
           <div className="flex flex-col gap-4 px-5 pb-3 pt-5">
+            {/*
+              issue #3373 —— 待发附件住进 composer 卡片内部、输入框正上方，视觉上属于
+              「我正在写的这条消息」；此前它是浮在卡片上方的一张独立宽卡片，图片没有缩略图、
+              点了也不能预览。渲染件换成 `ChatComposerAttachmentStrip`（紧凑 chip + 真实缩略图
+              + 点击放大预览），吃的仍是同一个 `attach` 控制器、同一条 pending 队列——
+              没有第二份状态（#3346 的缺陷形状），只是换了个渲染。
+
+              归档线程也照样渲染（不再 `archived ? null`），按 #3347 的约定禁用并写出理由：
+              一条已归档的线程若还留着没发出去的附件，直接让它凭空消失比禁用更难理解。
+            */}
+            <ChatComposerAttachmentStrip
+              ctl={attach}
+              canRetry={canWrite && !archived}
+              disabled={archived || agent.isRunning}
+              disabledReason={archived ? "该对话已归档，这些附件不能再发送，只能移除。" : undefined}
+            />
             {agentOptions.status === "error" ? (
               <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
                 {agentOptions.message}

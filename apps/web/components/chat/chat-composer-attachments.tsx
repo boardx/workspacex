@@ -819,3 +819,304 @@ function AttachmentRow({
     </li>
   );
 }
+
+/* ── issue #3373 · composer 内联附件条（Claude Code 式紧凑 chip / 缩略图） ────── */
+
+/**
+ * 一个待发附件的**本机** blob URL。
+ *
+ * 缩略图与放大预览的字节都来自 `att.file`——`pickFiles` 早就把原始 `File` 留着供重试
+ * （`LiveAttachment.file`），所以**不需要新端点、也不需要等上传完成**：图片选进来的那一
+ * 刻就能显示真实缩略图，上传中/失败时同样看得见自己选了什么。
+ *
+ * ⚠ 这是**唯一**一处为待发草稿造 object URL 的地方。已发出的附件（`message_id NOT NULL`）
+ * 走的是另一条既有路径（`ChatAttachmentPreviewModal` + `useAuthedImageSrc`，带 Bearer 取
+ * 服务端字节）——两条路径服务两种不同的事实，不是同一件事声明了两遍。
+ *
+ * 每个 URL 在 file 变化或组件卸载时 `revokeObjectURL`：不 revoke 的 blob URL 会把整份文件
+ * 字节钉在内存里直到整页卸载（25MB × 最多 N 个）。
+ */
+function useLocalFileUrl(file: File | undefined): string | null {
+  const [url, setUrl] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!file || typeof URL.createObjectURL !== "function") { setUrl(null); return; }
+    const next = URL.createObjectURL(file);
+    setUrl(next);
+    return () => { URL.revokeObjectURL(next); };
+  }, [file]);
+  return url;
+}
+
+/** 待发附件能不能出真实缩略图：得是图片，且原始 `File` 还在手上。 */
+function isThumbnailable(att: LiveAttachment): boolean {
+  return iconKindForMime(att.mime) === "image" && att.file !== undefined;
+}
+
+/**
+ * issue #3373 —— 待发草稿的放大预览。
+ *
+ * 字节用**本机 blob URL**（见 `useLocalFileUrl` 头注），所以上传中/上传失败的图片一样能
+ * 放大看——这正是「点了没反应的东西」的反面：只要用户选进来了，点它就一定能看到它。
+ *
+ * 关闭方式三条都有，且都由 `Modal`（Radix Dialog）本体提供，不在这里另写一份：
+ * Esc（`onOpenChange(false)`）、点遮罩（同上）、右上角 `-close` 图标按钮；页脚再给一颗
+ * 文字「关闭」按钮（`-dismiss`），与 `ChatAttachmentPreviewModal` 同一套命名约定。
+ *
+ * `data-preview-local-id` / `alt` 是判据锚点：预览打开的**是哪一张**必须可断言——
+ * 「点了第 2 张却打开第 1 张」是这类实现最典型的失效形状，只判「预览容器存在」抓不到它。
+ */
+export function ChatDraftAttachmentPreview({
+  attachment, onClose,
+}: { attachment: LiveAttachment; onClose: () => void }) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const src = useLocalFileUrl(attachment.file);
+  const isImage = iconKindForMime(attachment.mime) === "image";
+  const Icon = TYPE_ICON[iconKindForMime(attachment.mime)];
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-40" data-testid="chat-attachment-draft-preview-portal">
+      <Modal
+        testid="chat-attachment-draft-preview"
+        title={attachment.filename}
+        subtitle={`${attachment.mime} · ${formatBytes(attachment.bytes)}${
+          attachment.status === "uploaded" ? " · 已就绪" : attachment.status === "uploading" ? " · 上传中" : " · 上传失败"
+        }`}
+        onClose={onClose}
+        width="lg"
+        footer={
+          <Button
+            type="button" size="sm" variant="ghost"
+            data-testid="chat-attachment-draft-preview-dismiss"
+            onClick={onClose}
+          >
+            关闭
+          </Button>
+        }
+      >
+        <div
+          className="grid min-h-[240px] place-items-center"
+          data-preview-local-id={attachment.localId}
+          data-preview-filename={attachment.filename}
+          data-testid="chat-attachment-draft-preview-body"
+        >
+          {isImage && src ? (
+            // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
+            <img
+              src={src}
+              alt={attachment.filename}
+              data-testid="chat-attachment-draft-preview-image"
+              data-local-id={attachment.localId}
+              className="max-h-[60vh] max-w-full rounded-md object-contain"
+            />
+          ) : (
+            // 非图片：不假装能预览。给类型图标 + 文件名 + 一句实话。
+            <div className="flex flex-col items-center gap-2 text-muted-foreground" data-testid="chat-attachment-draft-preview-unsupported">
+              <Icon aria-hidden className="h-10 w-10" />
+              <p className="text-13">{attachment.filename}</p>
+              <p className="text-11">该文件类型在发送前不提供内联预览；发送后可在消息里预览或下载。</p>
+            </div>
+          )}
+        </div>
+      </Modal>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * issue #3373 —— composer **内部**的待发附件条：紧凑 chip / 真实缩略图，横向排布、
+ * 自动换行，不再是浮在输入框上方那张占一整行的宽卡片。
+ *
+ * 与被它取代的 `ChatAttachmentList` 的关系：**不是第二份状态**。两者吃同一个
+ * `useChatAttachments` 控制器、同一条 pending 队列、同一批 `uploadedIds`；差别只在渲染。
+ * `ChatAttachmentList`（宽卡片）仍留给「加材料进这一轮」弹窗与旧轨道 composer——那两处
+ * 有横向空间，宽卡片在那里是合适的；输入框里没有。
+ *
+ * 锚点刻意与旧渲染逐字相同（`chat-attachment-list` / `chat-attachment-chip-<localId>` +
+ * `data-status` / `chat-attachment-remove-<localId>` / `chat-attachment-retry-<localId>`）：
+ * 既有 e2e（`chat-vision-honest-degrade` / `copilotkit-v2-attachments`）钉的是"待发队列的
+ * 真实上传状态机"，那件事没变，不该因为换了个视觉就换一套锚点。
+ *
+ * 各态：
+ *   · uploading —— 缩略图/图标压暗 + 转圈 + 底部细进度条（真实 `progress`，不伪造百分比）
+ *   · uploaded  —— 正常，可点开放大预览
+ *   · error     —— 红环 + 一句原因（tooltip/aria）+ **重试**按钮（可重试时）+ 移除按钮
+ * 每个 chip 都至少有一个真的会响应的动作，没有"点了没反应"的东西（#3311 / #3317 / #3372）。
+ *
+ * 移除是**一步**，不再二次确认：待发草稿还没发出去，重新拖一次的代价远低于每次删都多点
+ * 一次；宽卡片那份二次确认（`ChatAttachmentList`）原样保留，两处各自成立。
+ */
+export function ChatComposerAttachmentStrip({
+  ctl, disabled, canRetry = true, disabledReason,
+  testId = "chat-attachment-list", idPrefix = "chat-attachment",
+}: {
+  ctl: ChatAttachmentsController;
+  disabled?: boolean;
+  canRetry?: boolean;
+  /** #3347 约定：只读/归档时入口仍渲染，但禁用并**写出理由**，不静默消失。 */
+  disabledReason?: string;
+  testId?: string;
+  idPrefix?: string;
+}) {
+  const [previewId, setPreviewId] = React.useState<string | null>(null);
+  const previewing = ctl.attachments.find((a) => a.localId === previewId) ?? null;
+  // 附件被移除/发送清空后，预览必须跟着关——否则会停在一张已经不属于这条消息的图上。
+  React.useEffect(() => {
+    if (previewId !== null && !ctl.attachments.some((a) => a.localId === previewId)) setPreviewId(null);
+  }, [ctl.attachments, previewId]);
+
+  if (ctl.attachments.length === 0) return null;
+  return (
+    <>
+      <ul
+        className="flex flex-wrap items-start gap-2 pb-1"
+        data-testid={testId}
+        data-disabled={disabled ? "true" : "false"}
+      >
+        {ctl.attachments.map((att) => (
+          <ComposerAttachmentChip
+            key={att.localId}
+            att={canRetry ? att : { ...att, retryable: false }}
+            idPrefix={idPrefix}
+            disabled={disabled}
+            onOpen={() => setPreviewId(att.localId)}
+            onRemove={() => ctl.removeAttachment(att.localId)}
+            onRetry={() => ctl.retry(att.localId)}
+          />
+        ))}
+      </ul>
+      {disabledReason ? (
+        <p className="pb-1 text-10 text-muted-foreground" data-testid={`${idPrefix}-disabled-reason`}>
+          {disabledReason}
+        </p>
+      ) : null}
+      {previewing ? (
+        <ChatDraftAttachmentPreview attachment={previewing} onClose={() => setPreviewId(null)} />
+      ) : null}
+    </>
+  );
+}
+
+function ComposerAttachmentChip({
+  att, idPrefix, disabled, onOpen, onRemove, onRetry,
+}: {
+  att: LiveAttachment;
+  idPrefix: string;
+  disabled?: boolean;
+  onOpen: () => void;
+  onRemove: () => void;
+  onRetry: () => void;
+}) {
+  const kind = iconKindForMime(att.mime);
+  const Icon = TYPE_ICON[kind];
+  const thumbUrl = useLocalFileUrl(isThumbnailable(att) ? att.file : undefined);
+  const isError = att.status === "error";
+  const isUploading = att.status === "uploading";
+  const percent = Math.round((att.progress ?? 0) * 100);
+  const statusWord = isUploading ? `上传中 ${percent}%` : isError ? `上传失败：${att.error ?? "未知原因"}` : "已就绪";
+
+  return (
+    <li
+      className="relative"
+      data-testid={`${idPrefix}-chip-${att.localId}`}
+      data-status={att.status}
+      data-kind={thumbUrl ? "image" : kind}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        title={`${att.filename} · ${formatBytes(att.bytes)} · ${statusWord}`}
+        aria-label={`预览附件 ${att.filename}（${statusWord}）`}
+        data-testid={`${idPrefix}-open-${att.localId}`}
+        className={[
+          "group relative flex items-center overflow-hidden rounded-lg border bg-panel text-left transition-colors duration-fast",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:bg-muted/60",
+          thumbUrl ? "h-16 w-16" : "h-16 max-w-[13rem] gap-2 px-2",
+          isError ? "border-destructive/60" : "border-border-subtle",
+        ].join(" ")}
+      >
+        {thumbUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
+            <img
+              src={thumbUrl}
+              alt={att.filename}
+              data-testid={`${idPrefix}-thumb-${att.localId}`}
+              data-local-id={att.localId}
+              className={`h-full w-full object-cover transition-opacity ${isUploading ? "opacity-50" : ""}`}
+            />
+            {isUploading ? (
+              <span className="absolute inset-0 grid place-items-center" aria-hidden>
+                <Loader2 className="h-4 w-4 animate-spin text-card-foreground" />
+              </span>
+            ) : null}
+            {isError ? (
+              <span className="absolute inset-0 grid place-items-center bg-destructive/20" aria-hidden>
+                <AlertCircle className="h-4 w-4 text-destructive" />
+              </span>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <span
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${
+                isError ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+              }`}
+              aria-hidden
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-11 font-medium text-card-foreground">{att.filename}</span>
+              <span className={`truncate text-9 ${isError ? "text-destructive" : "text-muted-foreground"}`}>
+                {isError ? att.error : isUploading ? `上传中 ${percent}%` : formatBytes(att.bytes)}
+              </span>
+            </span>
+          </>
+        )}
+        {isUploading ? (
+          <span
+            className="absolute inset-x-0 bottom-0 h-0.5 bg-muted"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`上传进度 ${att.filename}`}
+            data-testid={`${idPrefix}-progress-${att.localId}`}
+          >
+            <span className="block h-full bg-primary" style={{ width: `${percent}%` }} />
+          </span>
+        ) : null}
+      </button>
+
+      <span className="absolute -right-1.5 -top-1.5 flex items-center gap-0.5">
+        {isError && att.retryable ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={disabled}
+            aria-label={`重试上传 ${att.filename}`}
+            title="重试上传"
+            data-testid={`${idPrefix}-retry-${att.localId}`}
+            className="grid h-5 w-5 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <RotateCw aria-hidden className="h-3 w-3" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={disabled}
+          aria-label={`移除附件 ${att.filename}`}
+          title="移除附件"
+          data-testid={`${idPrefix}-remove-${att.localId}`}
+          className="grid h-5 w-5 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X aria-hidden className="h-3 w-3" />
+        </button>
+      </span>
+    </li>
+  );
+}
