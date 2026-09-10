@@ -196,7 +196,14 @@ export function defaultLayoutAt(
   type: SectionFieldType, col: number, row: number, gridCols: 6 | 12, size: PaperSizeKey = "A1",
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
-  const w = Math.min(gridCols === 12 ? 6 : 3, gridCols - col + 1);
+  //
+  // ⚠ 「短文本」例外，默认 2 格（6 列制下 1 格）——用户直接交办（2026-09-10）：
+  //   「现在默认 text 的长度是 6，改为默认是 2」。短文本渲染出来是表头带里的一个
+  //   `标签: 值` 字段（`buildExplicitTemplateSpec` 的 `headerCells`），一个字段占掉
+  //   半张纸宽既画不满也挡住别人；半幅那个默认是给便利贴列表那种成片贴纸的分区用的。
+  //   拖进来之后仍可在右栏「在 A1 上占多大」里改，这里只是换一个更常用的起点。
+  const defaultW = type === "短文本" ? (gridCols === 12 ? 2 : 1) : (gridCols === 12 ? 6 : 3);
+  const w = Math.min(defaultW, gridCols - col + 1);
   // 列表型默认高 3 行、短文本/文本对象 1 行。
   const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
   return {
