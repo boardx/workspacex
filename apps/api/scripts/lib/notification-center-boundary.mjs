@@ -13,10 +13,10 @@ function parse(path,source){
 /** 通知中心：一行只有收件人本人能读/标已读（`user_id=$1`），组织维度再收一层（`org_id IS NULL OR org_id=$2`）。 */
 export function checkNotificationCenter(source){
  const {methods,compact,queries}=parse(NOTIFICATION_CENTER_PATH,source),errors=[];
- if([...methods.keys()].sort().join(',')!=='list,markRead,publish')errors.push('unexpected notification entry point');
+ if([...methods.keys()].sort().join(',')!=='list,markRead,publish,supersede')errors.push('unexpected notification entry point');
  if(!compact(methods.get('markRead'))?.includes('NotificationReadInput.parse(raw)'))errors.push('strict request schema required');
  let total=0;
- for(const name of ['list','markRead']){
+ for(const name of ['list','markRead','supersede']){
   for(const q of queries(name)){
    total++;const literal=q.arguments[0];
    if(!ts.isStringLiteralLike(literal)){errors.push('dynamic SQL forbidden');continue;}
@@ -27,7 +27,17 @@ export function checkNotificationCenter(source){
    if(name==='list'&&sql.startsWith('SELECT')&&sql.includes('SELECT id,kind')&&!sql.includes('LIMIT $3'))errors.push('bounded projection required');
   }
  }
- if(total!==3)errors.push('unexpected SQL surface');
+ if(total!==4)errors.push('unexpected SQL surface');
+ // #3311：supersede 是唯一一条"替用户读掉他没点过的通知"的路径，所以它的收窄条件本身要钉死：
+ // 只收 actionable（待办）行、只收还没读的、且必须放过 exceptSourceKey 指的那一条。
+ // 少任何一条，它就退化成"后台悄悄清空未读"，而上面那些收件人/租户断言照样全绿。
+ const supersedeSql=queries('supersede').map(q=>ts.isStringLiteralLike(q.arguments[0])?q.arguments[0].text.replace(/\s+/g,' '):'');
+ if(supersedeSql.length!==1)errors.push('supersede must be a single statement');
+ const only=supersedeSql[0]??'';
+ if(!only.startsWith('UPDATE user_notifications SET read_at=now()'))errors.push('supersede may only set read_at');
+ for(const clause of ['AND source_key LIKE $3','AND source_key<>$4','AND actionable','AND read_at IS NULL']){
+  if(!only.includes(clause))errors.push(`supersede missing guard: ${clause}`);
+ }
  const publish=queries('publish');
  if(publish.length!==1||!compact(publish[0].arguments[0])?.includes('INSERTINTOuser_notifications(')||!compact(publish[0].arguments[0])?.includes('ONCONFLICTDONOTHING'))errors.push('publish must be a single idempotent insert');
  if(!compact(methods.get('publish'))?.includes('if(input.orgId)awaitthis.db.withTenant(input.orgId,run);elseawaitthis.db.withoutTenant(run);'))errors.push('cross-org rows only for org-less personal notices');

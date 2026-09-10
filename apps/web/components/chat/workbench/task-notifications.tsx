@@ -131,13 +131,31 @@ export function TaskNotifications({sessionToken,onOpenThread,onRefresh,variant="
       {total===0&&<p className="text-11 text-muted-foreground">暂无未读提醒</p>}
       {/* `h-auto` 是为了让长标题折行（不是为了压扁按钮）。24px 最小命中区由 Button base 的
           `min-h-6` 兜底——`h-auto` 只解开上界；这里不重复声明同一个事实（TW-A11Y-2）。 */}
-      {unread.map(({head,ids})=><Button key={head.id} variant="ghost" size="sm" data-testid="notification-item"
-        data-kind={head.kind} data-occurrences={ids.length}
-        className="h-auto w-full justify-start whitespace-normal py-1 text-left"
-        onClick={()=>{void center.markRead([...ids]);if(head.threadId)onOpenThread(head.threadId);}}>
-        <span className="mr-1 text-11 text-muted-foreground">[{kindLabel[head.kind]}]</span>{head.title}
-        {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}
-      </Button>)}
+      {unread.map(({head,ids})=>{
+        const label=<><span className="mr-1 text-11 text-muted-foreground">[{kindLabel[head.kind]}]</span>{head.title}
+          {ids.length>1&&<span className="ml-1 text-11 text-muted-foreground">×{ids.length}</span>}</>;
+        // 没有对话可去的通知（邮件/系统）不许伪装成可点条目：点了只会"这一行凭空消失"，
+        // 用户没有收到任何去处（#3311）。它走与定时任务提醒同一个体例：正文 + 显式「标为已读」。
+        if(!head.threadId)return <div key={head.id} data-testid="notification-item" data-kind={head.kind}
+          data-occurrences={ids.length} data-actionable={head.actionable?"true":"false"} data-destination="none"
+          className="flex w-full items-center justify-between gap-2 py-1 text-left text-13">
+          <span className="min-w-0 whitespace-normal">{label}</span>
+          <Button variant="ghost" size="sm" className="shrink-0" disabled={center.busy}
+            onClick={()=>void center.markRead([...ids])}>标为已读</Button>
+        </div>;
+        return <Button key={head.id} variant="ghost" size="sm" data-testid="notification-item"
+          data-kind={head.kind} data-occurrences={ids.length}
+          data-actionable={head.actionable?"true":"false"} data-destination="thread"
+          className="h-auto w-full justify-start whitespace-normal py-1 text-left"
+          onClick={()=>{
+            // 待办（等你授权工具/确认计划）点开只是**去办**：事情还没办完，不许当场读掉，
+            // 否则用户回头找不到该去哪授权。它由服务端往前走一步时收掉（见 NotifyingRunEventBus）。
+            if(!head.actionable)void center.markRead([...ids]);
+            // 关掉弹层：不关的话，用户眼前只有"少了一行"的面板，看不到自己已经被带到对话里。
+            close();
+            onOpenThread(head.threadId!);
+          }}>{label}</Button>;
+      })}
       {unread.length>0&&<Button variant="ghost" size="sm" disabled={center.busy} onClick={()=>void center.markRead()}>全部标为已读</Button>}
       {read.length>0&&<details className="text-11 text-muted-foreground"><summary className="cursor-pointer">最近已读</summary>
         {read.map(({head,ids})=><p key={head.id} className="truncate py-0.5">[{kindLabel[head.kind]}] {head.title}{ids.length>1?` ×${ids.length}`:""}</p>)}

@@ -30,7 +30,7 @@ import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 
 const notice = (id: string, title: string, threadId: string | null) => ({
   id: `00000000-0000-4000-8000-00000000000${id}`, kind: "task" as const,
-  title, body: "", threadId, createdAt: "2026-09-10T00:00:00.000Z", readAt: null,
+  title, body: "", threadId, actionable: false, createdAt: "2026-09-10T00:00:00.000Z", readAt: null,
 });
 function serve(notifications: ReturnType<typeof notice>[], unreadCount = notifications.length) {
   request.mockImplementation(async (path: string, opts?: { method?: string }) => {
@@ -120,11 +120,16 @@ describe("#3246 铃铛在图标导航栏里", () => {
     // 点条目 → 跳那个对话（老位置用外壳软导航，图标栏是全局的，只能路由跳）。
     fireEvent.click(within(popover).getAllByTestId("notification-item")[0]!);
     await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thread-1"));
+    // #3311 起点条目**顺带关掉弹层**：不关的话用户眼前只有"少了一行"的面板，
+    // 看不到自己已经被带到对话里（这里原来断言的是"仍然开着"，那正是缺陷本身）。
+    await waitFor(() => expect(screen.queryByTestId("task-notifications-popover")).toBeNull());
+    expect(trigger()).toHaveAttribute("aria-expanded", "false");
 
     // Esc 关闭并把焦点还给 trigger（TW-A11Y-5，#3226 已有，搬位置后仍成立）。
-    // 点条目只做「标已读 + 跳转」，不关弹层——所以这里直接对着还开着的那一个按 Esc。
+    fireEvent.click(trigger());
+    const reopened = await screen.findByTestId("task-notifications-popover");
     expect(trigger()).toHaveAttribute("aria-expanded", "true");
-    fireEvent.keyDown(popover, { key: "Escape" });
+    fireEvent.keyDown(reopened, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("task-notifications-popover")).toBeNull());
     expect(document.activeElement).toBe(trigger());
   });
