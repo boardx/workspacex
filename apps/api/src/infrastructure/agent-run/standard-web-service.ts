@@ -15,9 +15,30 @@ export class DefaultStandardWebService implements StandardWebService {
  private extract:typeof extractStandardWebHtml=extractStandardWebHtml){}
  async search(raw:Parameters<StandardWebService['search']>[0]){
   const input=WebSearchInput.parse(raw),hits=await this.searcher.search(input.query),at=new Date().toISOString();
-  const eligible=hits.map(hit=>({...hit,url:normalized(hit.url)})).filter(hit=>!input.domains?.length||input.domains.some(domain=>new URL(hit.url).hostname===domain||new URL(hit.url).hostname.endsWith('.'+domain)));
+  /*
+   * issue #3388 —— 一个**候选**不合出站策略，不构成"这次搜索失败"。
+   *
+   * 此前这里是 `hits.map(hit=>({...hit,url:normalized(hit.url)}))`：`normalized` 对
+   * `http://` 候选抛 `McpEndpointRefusedError`，异常穿过整个 `search()`，控制器收成 503，
+   * 模型收到的是「Web source unavailable or refused」——**整次搜索**没了，尽管另外四条
+   * 候选完全可用。实测（2026-09-11，真实上游 www.web-search.boardx.us，SHA a1337fcb4）：
+   * 人类那条「2026年新能源汽车销量最新数据」12/12 全失败，肇事者恒为
+   * `http://www.caam.org.cn/tjsj`（中汽协官网只有 http）——这个话题下它必进前五。
+   * 8 条同类查询混跑 14/40 = 35% 失败，全部同一个 `MCP_ENDPOINT_SCHEME_FORBIDDEN`。
+   *
+   * 出站策略本身不放宽：这些候选照旧不可取回（`fetch_url` 会如实拒绝它们）。变的只是
+   * **爆炸半径**——把不可用的候选丢掉，而不是把可用的一起炸掉。丢弃过要让模型知道，
+   * 所以计入 `truncated`：候选集被裁过 ≠ 网上没有别的来源。
+   */
+  const admitted:{title:string;url:string;content:string}[]=[];let refusedCandidates=0;
+  for(const hit of hits){
+   let url:string;
+   try{url=normalized(hit.url);}catch{refusedCandidates++;continue;}
+   admitted.push({...hit,url});
+  }
+  const eligible=admitted.filter(hit=>!input.domains?.length||input.domains.some(domain=>new URL(hit.url).hostname===domain||new URL(hit.url).hostname.endsWith('.'+domain)));
   const selected=eligible.slice(0,input.limit??L.maxResults);
-  return WebSearchOutput.parse({results:selected.map(hit=>({sourceId:'web:'+hash(hit.url),url:hit.url,title:hit.title.slice(0,1000),snippet:hit.content.slice(0,L.maxSnippetChars),contentHash:hash(hit.content.slice(0,L.maxSnippetChars)),retrievedAt:at})),truncated:hits.length>=L.maxResults||eligible.length>selected.length||selected.some(hit=>hit.content.length>L.maxSnippetChars),provider:'boardx-google',candidateLimit:L.maxResults,domainFilter:'post-filter-provider-candidates',contentKind:'search-snippet'});
+  return WebSearchOutput.parse({results:selected.map(hit=>({sourceId:'web:'+hash(hit.url),url:hit.url,title:hit.title.slice(0,1000),snippet:hit.content.slice(0,L.maxSnippetChars),contentHash:hash(hit.content.slice(0,L.maxSnippetChars)),retrievedAt:at})),truncated:hits.length>=L.maxResults||refusedCandidates>0||eligible.length>selected.length||selected.some(hit=>hit.content.length>L.maxSnippetChars),provider:'boardx-google',candidateLimit:L.maxResults,domainFilter:'post-filter-provider-candidates',contentKind:'search-snippet'});
  }
  async fetch(raw:Parameters<StandardWebService['fetch']>[0]){
   const {url:rawUrl}=FetchUrlInput.parse(raw);
