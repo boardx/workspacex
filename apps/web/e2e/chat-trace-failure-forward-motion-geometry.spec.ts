@@ -1,8 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { buildTraceFixture } from "./fixtures/build-trace-fixture";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
 /**
@@ -31,14 +28,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
  * （失败 → 成功 → 仍在飞）由 `e2e/fixtures/trace-forward-motion-fixture.tsx` 用真组件渲出。
  */
 function buildFixture(): string {
-  const dir = mkdtempSync(join(tmpdir(), "trace-forward-motion-"));
-  const page = join(dir, "page.html");
-  const web = join(__dirname, "..");
-  execFileSync(process.execPath, ["--import", "tsx", join(__dirname, "fixtures", "trace-forward-motion-fixture.tsx"), page], { cwd: web, stdio: "pipe" });
-  execFileSync(join(web, "node_modules", ".bin", "tailwindcss"),
-    ["-c", "tailwind.config.ts", "-i", "app/globals.css", "-o", join(dir, "out.css"), "--content", page],
-    { cwd: web, stdio: "pipe" });
-  return pathToFileURL(page).href;
+  return buildTraceFixture(join(__dirname, "fixtures", "trace-forward-motion-fixture.tsx"), "trace-forward-motion-");
 }
 
 type Visibility = { attached: boolean; bboxNonZero: boolean; inViewport: boolean; hitTest: boolean; note: string };
