@@ -36,8 +36,8 @@ describe("framework task timeline", () => {
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
     expect(screen.getByText("先列出资料", { exact: false })).toBeVisible();
     const toolRow = screen.getByTestId("chat-task-workbench-event-row");
-    expect(toolRow).toHaveTextContent("已执行工具操作");
-    expect(toolRow).not.toHaveTextContent("list_org_skills");
+    // issue #3316 ②：折叠行必须说出工具真名。原断言写的是它的反面。
+    expect(toolRow).toHaveTextContent("已执行 · list_org_skills");
     fireEvent.click(toolRow);
     expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeVisible();
   });
@@ -69,10 +69,10 @@ describe("framework task timeline", () => {
 
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
     const planRows = screen.getAllByTestId("chat-task-workbench-event-row");
-    expect(planRows.filter((row) => row.textContent === "已更新执行计划")).toHaveLength(2);
+    expect(planRows.filter((row) => row.textContent === "已执行 · 制定执行计划")).toHaveLength(2);
     expect(planRows.some((row) => row.textContent?.includes("write_todos"))).toBe(false);
     expect(screen.queryByTestId("copilotkit-v2-tool-write-todos")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("已检索资料"));
+    fireEvent.click(screen.getByText("已执行 · 检索文档"));
     expect(screen.getByTestId("copilotkit-v2-tool-search-documents")).toBeVisible();
   });
 
@@ -118,7 +118,7 @@ describe("framework task timeline", () => {
     </CopilotKit>);
     expect(screen.queryByTestId("copilotkit-v2-tool-calls-group"), "绑上 run 之后不许再出现第二份 legacy 分组").not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
-    fireEvent.click(screen.getByText("已检索资料"));
+    fireEvent.click(screen.getByText("已执行 · 检索文档"));
     const card = screen.getByTestId("copilotkit-v2-tool-search-documents");
     expect(card.closest('[data-testid="run-trace-panel"]')).not.toBeNull();
   });
