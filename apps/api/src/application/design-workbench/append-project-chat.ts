@@ -42,7 +42,7 @@ import {
 } from "./project-shared";
 import { ownerNamesFor } from "./project-shared";
 // 迭代 11：把行的平行视图拼回屏（`applyPrototypePatch` 的入参形状），与人改那条路共用一份。
-import { screensOf } from "./patch-prototype";
+import { projectPatchOf, screensOf } from "./patch-prototype";
 
 type DesignChatReply = z.infer<typeof designAiCollab.DesignChatReply>;
 type DesignWritebackField = z.infer<typeof designAiCollab.DesignWritebackField>;
@@ -82,6 +82,19 @@ function ensureIdsKeepingHoles(
   const ids = designPrototype.ensurePrototypeIds(withTrees.map((x) => x.root));
   const byIndex = new Map(withTrees.map((x, k) => [x.i, ids[k]!]));
   return screens.map((_, i) => byIndex.get(i) ?? null);
+}
+
+/**
+ * patch 的写回必须**带上 `frames`**（页数以它为准，见 `screensOf` 的 ⚠），但 `applied` 是给
+ * 用户看的「这次真的改了什么」——一次只改按钮文案的 patch 不该在屏上写着「已更新：页面标签」。
+ * 标签一个字没变就把这个键摘掉：写回的内容不变（页数与旧的相同），少一条假的已更新。
+ */
+function framesTrimmed(patch: DesignProjectPatch, currentFrames: readonly string[]): DesignProjectPatch {
+  const next = patch.frames;
+  if (next === undefined) return patch;
+  if (next.length !== currentFrames.length || next.some((f, i) => f !== currentFrames[i])) return patch;
+  const { frames: _dropped, ...rest } = patch;
+  return rest;
 }
 
 /** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
@@ -136,7 +149,12 @@ export async function appendProjectChat(
     readonly notes?: string;
     readonly links?: readonly designPrototype.PrototypeLink[];
   }[] | undefined = ai.pagedScreens ?? ai.writeback.prototype;
-  let patched: readonly { readonly root?: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[] | undefined;
+  let patched: readonly {
+    readonly frame?: string;
+    readonly root?: designPrototype.PrototypeNode;
+    readonly notes?: string;
+    readonly links?: readonly designPrototype.PrototypeLink[];
+  }[] | undefined;
   if (screens === undefined && ai.writeback.patch !== undefined) {
     if (current.prototype.length === 0) {
       deps.logger?.info("design chat: patch rejected, project has no prototype yet", { projectId: input.projectId, traceId: deps.traceId ?? "" });
@@ -172,7 +190,7 @@ export async function appendProjectChat(
           frameNotes: screens.map((s) => (s.notes ?? "").trim()),
           frameLinks: linkCheck?.links.map((l) => [...l]) ?? [],
         }
-      : patched !== undefined ? { prototype: patched.map((s) => s.root ?? null), frameLinks: patched.map((s) => [...(s.links ?? [])]) }
+      : patched !== undefined ? framesTrimmed(projectPatchOf(patched), current.frames)
       : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
         ? { frames: ai.writeback.frames } : {}),
   };

@@ -387,6 +387,42 @@ describe("appendProjectChat", () => {
     expect(out3.project.prototype).toEqual(out2.project.prototype);
   });
 
+  it("patch 增页/改名：页数与标签真的落库（2026-09-10 实测『左边说加了、画布还是 3 页』的反证）", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["寻禅"], prototype: [
+      { id: "n1", type: "stack", children: [{ id: "n2", type: "text", props: { content: "hi" } }] },
+    ], frameNotes: ["主页说明"] }));
+
+    const add = new FakeDesignChat();
+    add.answer = { text: "追加了地图、背包两页。", source: "model", suggestions: [], writeback: { patch: [
+      { op: "addScreen", at: 1, frame: "地图", root: { type: "divider" } },
+      { op: "addScreen", at: 2, frame: "背包" },
+    ] } };
+    const out = await appendProjectChat({ ...deps(repo), ai: add }, { projectId: "dp-1", ownerId: "u-1", text: "再多加两个界面" });
+    expect(out.reply.applied).toEqual(["prototype", "frames"].sort((a, b) => (a === "frames" ? -1 : 1)));
+    expect(out.project.frames).toEqual(["寻禅", "地图", "背包"]);
+    expect(out.project.prototype).toHaveLength(3);
+    expect(out.project.prototype[1]).toMatchObject({ type: "divider" });
+    expect(out.project.prototype[2]).toBeNull();      // 只规划了、没画树 ⇒ 洞，不是消失
+    expect(out.project.frameNotes[0]).toBe("主页说明"); // notes 跟着页走，没被 patch 往返冲掉
+
+    const rename = new FakeDesignChat();
+    rename.answer = { text: "改名了。", source: "model", suggestions: [], writeback: { patch: [{ op: "renameScreen", screen: 0, frame: "首页" }] } };
+    const out2 = await appendProjectChat({ ...deps(repo), ai: rename }, { projectId: "dp-1", ownerId: "u-1", text: "第一页叫首页" });
+    expect(out2.project.frames).toEqual(["首页", "地图", "背包"]);
+    expect(out2.project.prototype[0]).toMatchObject({ id: "n1" }); // 只换标签，树不动
+  });
+
+  it("人手改 addScreen 同样落页数（patchPrototype 与模型 patch 共用 projectPatchOf）", async () => {
+    const repo = new FakeDesignProjectRepo();
+    repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["寻禅"], prototype: [{ id: "n1", type: "divider" }] }));
+    const out = await patchPrototype(deps(repo), {
+      projectId: "dp-1", ownerId: "u-1", ops: [{ op: "addScreen", at: 1, frame: "设置" }],
+    });
+    expect(out.project.frames).toEqual(["寻禅", "设置"]);
+    expect(out.project.prototype).toHaveLength(2);
+  });
+
   it("迭代 2 focusNodeId：找得到 ⇒ 模型上下文带 focus（页、路径、节点）；找不到 ⇒ 不带", async () => {
     const repo = new FakeDesignProjectRepo();
     repo.seed(designProjectRow({ id: "dp-1", ownerId: "u-1", frames: ["聊天"], prototype: [

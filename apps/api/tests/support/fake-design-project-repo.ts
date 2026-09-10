@@ -13,6 +13,8 @@ import type {
   NewDesignProject,
   PushToInboxResult,
 } from "../../src/application/design-workbench/project-ports";
+// 页那一组字段的合并规则只有一份（见 `update` 里的 ⚠）。
+import { mergeScreens, prototypeOf } from "../../src/infrastructure/design-workbench/pg-design-project-repository";
 
 export class FakeDesignProjectRepo implements DesignProjectRepository {
   readonly rows = new Map<string, DesignProjectRow>();
@@ -108,16 +110,34 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       ...(patch.template !== undefined ? { template: patch.template } : {}),
       ...(patch.problem !== undefined ? { problem: patch.problem } : {}),
       ...(patch.criteria !== undefined ? { criteria: [...patch.criteria] } : {}),
-      ...(patch.frames !== undefined ? { frames: [...patch.frames] } : {}),
-      // 同 pg 仓储：给了 prototype ⇒ 替换；只改 frames ⇒ **等长就保留**（纯改标签不该毁掉
-      // 画好的原型，2026-09-07 用户实测的数据丢失），长度对不上才清（按位置对应已不成立）。
-      ...(patch.prototype !== undefined ? { prototype: [...patch.prototype] }
-        : patch.frames !== undefined && patch.frames.length !== r.prototype.length ? { prototype: [] } : {}),
-      ...(patch.frameNotes !== undefined ? { frameNotes: [...patch.frameNotes] }
-        : patch.frames !== undefined && patch.frames.length !== r.frameNotes.length ? { frameNotes: [] } : {}),
-      // 迭代 11：links 挂在屏上，跟着 prototype 走——给了就换，只改标签且页数变了就清。
-      ...(patch.frameLinks !== undefined ? { frameLinks: patch.frameLinks.map((l) => [...l]) }
-        : patch.frames !== undefined && patch.frames.length !== r.frameLinks.length ? { frameLinks: [] } : {}),
+      /**
+       * 页那一组四个字段（frames / prototype / frameNotes / frameLinks）**不在这里各写一份**，
+       * 直接借真实仓储的纯函数 `mergeScreens` + `prototypeOf`。
+       *
+       * ⚠ 2026-09-10 的教训：这个 fake 以前自己实现了一套宽松的合并（给了 prototype 就整份换，
+       *   不看 frames 的长度）。真实仓储是**以 frames 定页数**的，于是「patch 追加 5 页但没给
+       *   frames」在这里是 8 页、在生产是 3 页——bug 就是从这个缝里漏过去的，测试全绿。
+       *   fake 与真实实现在同一件事上各写一份，等于「同一事实声明在两处」。
+       */
+      ...(() => {
+        if (patch.frames === undefined && patch.prototype === undefined
+          && patch.frameNotes === undefined && patch.frameLinks === undefined) return {};
+        const merged = mergeScreens(
+          r.frames.map((frame, i) => ({
+            frame,
+            ...(r.prototype[i] === undefined || r.prototype[i] === null ? {} : { root: r.prototype[i]! }),
+            ...((r.frameNotes[i] ?? "") === "" ? {} : { notes: r.frameNotes[i]! }),
+            links: [...(r.frameLinks[i] ?? [])],
+          })),
+          patch,
+        );
+        return {
+          frames: merged.map((s) => s.frame),
+          prototype: [...prototypeOf(merged)],
+          frameNotes: merged.some((s) => (s.notes ?? "") !== "") ? merged.map((s) => s.notes ?? "") : [],
+          frameLinks: merged.some((s) => (s.links ?? []).length > 0) ? merged.map((s) => [...(s.links ?? [])]) : [],
+        };
+      })(),
       // 迭代 13：主题与标签都是整份替换（同 pg 仓储的 COALESCE 语义：不给 ⇒ 保持原值）。
       ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
       ...(patch.tags !== undefined ? { tags: [...patch.tags] } : {}),
