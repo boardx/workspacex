@@ -97,6 +97,17 @@ import { ChatHostToolPermission } from "@/components/chat/chat-host-tool-permiss
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
+/**
+ * 2026-09-10 人类实测反馈：「chat 录音，必须要先停止，才可以发送，现在没有停止，发送按钮也可以用」——
+ * 录音进行中（connecting / listening / stopping）输入框里的文字还在被 ASR 持续改写，
+ * 这时候发出去的必然是一句被截断到"刚好点下去那一帧"的半截话，而且发送清空输入框之后
+ * 后续到达的 `asr.final` 还会继续往空输入框里写——用户看到的是"发了一半 + 输入框又莫名
+ * 冒字"。所以录音中一律不能发送，把它变成一条正式的禁用理由（发送按钮 disabled +
+ * Enter 不发送），"停止/完成"之后（phase `done` / `paused` / `idle`）才放行。
+ */
+const RECORDING_SEND_REASON = "正在录音，请先点「停止」再发送";
+/** 2026-09-10 人类实测反馈：「下面的绿色提醒要过 5 秒自动消失，不要一直停留」。 */
+const TRANSCRIBED_BAR_AUTO_DISMISS_MS = 5_000;
 /** 2026-09-08 人类反馈「默认有一行就可以了」：composer 自动增高的封顶（约 8 行 text-16），超出后内部滚动。 */
 const COMPOSER_MAX_HEIGHT_PX = 200;
 
@@ -985,6 +996,21 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();
   }, [inputDraft, voice]);
+  /*
+   * 2026-09-10 人类实测反馈：「下面的绿色提醒要过 5 秒自动消失，不要一直停留」——
+   * 「已转录 N 字」是一条**已完成动作的回执**，看过就没用了，却一直占着 composer 底部
+   * 48px 直到用户发送或清空输入框。到点自动 `dismiss()`（与"输入框被清空"走同一条退出
+   * 路径），转录出来的文字留在输入框里不动，只是这条回执不再常驻。
+   * ⚠ 计时以进入 `done` 那一刻起算：依赖 `voice.phase`（不是 `voice` 整个对象）当
+   * effect 依赖，否则 `voice` 每次渲染都是新引用，定时器会被反复重建、永远到不了 5 秒。
+   */
+  const voiceDismissRef = React.useRef(voice.dismiss);
+  voiceDismissRef.current = voice.dismiss;
+  React.useEffect(() => {
+    if (voice.phase !== "done") return;
+    const timer = setTimeout(() => voiceDismissRef.current(), TRANSCRIBED_BAR_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [voice.phase]);
 
   /** 卡片底部状态栏：语音各态 > Agent 处理中 > 附件上传中 > 无。文案与操作对齐设计稿。 */
   const composerStatusBar: React.ReactNode = (() => {
@@ -1395,9 +1421,13 @@ export function CopilotKitV2PanelBody({
     ? "该对话已归档，不能再发送消息"
     : attach.hasUploading
       ? "附件正在上传，请等待上传完成后再发送"
-      : inputDraft.trim() === ""
-        ? EMPTY_INPUT_REASON
-        : null;
+      // 录音进行中不许发送（见 `RECORDING_SEND_REASON`）——排在"空输入"之前，因为录音
+      // 刚开始、还没转出第一个字时输入框确实是空的，但那时该说的是"先停止"而不是"先输入"。
+      : voice.phase === "connecting" || voice.phase === "listening" || voice.phase === "stopping"
+        ? RECORDING_SEND_REASON
+        : inputDraft.trim() === ""
+          ? EMPTY_INPUT_REASON
+          : null;
   const sendDisabled = sendDisabledReason !== null;
 
   // Running deliveries are serialized by useRunningReply.
@@ -1427,7 +1457,8 @@ export function CopilotKitV2PanelBody({
   /** 底部状态行只在有话要说时出现（2026-09-08 人类指令去掉常驻的快捷键/麦克风提示）。 */
   const composerFooterVisible =
     queuedReply !== null || runningReplyAck !== null
-    || (sendDisabledReason !== null && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) && !attach.hasUploading)
+    || (sendDisabledReason !== null && sendDisabledReason !== RECORDING_SEND_REASON
+      && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) && !attach.hasUploading)
     || voice.phase === "listening" || voice.phase === "connecting";
   const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashEmptySendHint = React.useCallback(() => {
@@ -1950,6 +1981,8 @@ export function CopilotKitV2PanelBody({
                     e.preventDefault();
                     // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
                     if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
+                    // 其余禁用理由（录音中 / 归档 / 上传中 / 无写权限）：Enter 与发送按钮一致，一律不发。
+                    if (sendDisabledReason !== null) return;
                     if (runIsRunning) { void sendWhileRunning(); return; }
                     void send();
                   }
@@ -2112,6 +2145,7 @@ export function CopilotKitV2PanelBody({
           ) : runningReplyAck !== null ? (
             <span data-testid="chat-task-workbench-composer-running-reply-ack">{runningReplyAck}</span>
           ) : sendDisabledReason !== null
+            && sendDisabledReason !== RECORDING_SEND_REASON
             && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
             && !attach.hasUploading ? (
             <span data-testid="chat-task-workbench-composer-send-disabled-reason">{sendDisabledReason}</span>
