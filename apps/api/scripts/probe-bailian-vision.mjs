@@ -104,10 +104,13 @@ for (const model of models) {
 const usable = results.filter((r) => r.ok).map((r) => r.model);
 console.log("──────── 结论 ────────");
 if (usable.length === 0) {
-  console.log("没有一个候选可用。不要把任何一个名字写进 KERNEL_MODEL_VISION_IDS——");
+  console.log("没有一个候选可用。不要把任何一个名字加进权威清单——");
   console.log("宁可让部署保持『没有视觉模型』（诚实降级，模型会明说自己看不到图），");
   console.log("也不要配一个探测失败的名字（那会让每个带图的 run 以 MODEL_CALL_FAILED 结束）。");
   process.exit(1);
 }
 console.log(`实测可用：${usable.join(", ")}`);
-console.log(`把它写进部署 env：KERNEL_MODEL_VISION_IDS=${usable.join(",")}`);
+console.log("把实测通过的名字加进唯一权威清单（#3355）：");
+console.log("  apps/api/src/domain/model/vision-capable-models.ts 的 VISION_CAPABLE_MODEL_IDS");
+console.log("⚠ 403 = 账号未开通，不是『不支持视觉』——不要据此把名字排除掉。");
+console.log("（KERNEL_MODEL_VISION_IDS 仍可作单部署的临时覆盖，但不是记录事实的地方。）");

@@ -7,17 +7,18 @@
  * 用的那把）覆盖百炼全平台模型——人类原话「使用相同的登录API tok就可以使用所有的阿里云百炼平台的模型」，
  * 与 `bailian-image-provider.ts:17-21` 记录的实测一致。所以这里**不新增** key 环境变量。
  *
- * ## ⚠ 模型名：默认值**未经生产 key 实测**，首次部署必须验证
+ * ## 模型名：2026-09-10 已实测（#3355）
  *
  * `bailian-image-provider.ts:14-15` 有血的教训：`wanx2.2-t2i-plus` 报 "Model not exist"、
  * `wanx2.1-t2i-plus` 才可用——「不要被『2.2 应该比 2.1 新』这种直觉带偏」。本文件写成时开发机上
- * **没有** `KERNEL_MODEL_API_KEY`，因此默认模型名 `qwen-vl-max` 是**待实测确认**的占位默认，
- * 不是验证过的事实。任何人不得据此断言「已验证可用」。
+ * 没有 `KERNEL_MODEL_API_KEY`，默认名一直是**待实测的占位**；2026-09-10 在私有 MaaS 端点实测
+ * 完成，结论与清单都记在 `domain/model/vision-capable-models.ts`，本文件不复述。
  *
  * 首次部署（或换区域/换账号）时，在有 key 的环境跑：
  *     node apps/api/scripts/probe-vision-model.mjs
- * 它逐个探测候选模型名，打印哪些真的可用；把输出贴回 issue #1560，并把实测可用的名字写进
- * `KERNEL_VISION_MODEL_ID`（以及本注释的记录里，替换掉这段"待实测"声明）。
+ * 它逐个探测候选模型名，打印哪些真的可用；把实测通过的名字加进**唯一权威清单**
+ * `domain/model/vision-capable-models.ts`（#3355 起——不要再写进 `KERNEL_VISION_MODEL_ID`，
+ * 那个变量已弃用）。
  *
  * 模型名不可用时**不猜第二个名字重试**：如实回 `visionModelUnavailable`，落到附件的
  * `extraction_error` 上，宁可看得见地失败，也不要静默换一个模型产出无人知道来源的内容。
@@ -34,6 +35,9 @@
 import {
   composeVisionMarkdown, parseVisionReply, VISION_PROMPT,
 } from "../../domain/chat/attachment-vision";
+import {
+  DEFAULT_VISION_EXTRACTOR_MODEL_ID, resolveVisionExtractorModelId,
+} from "../../domain/model/vision-capable-models";
 import type {
   AttachmentVisionPort, VisionErrorCode, VisionResult,
 } from "../../application/chat/attachment-vision.port";
@@ -41,10 +45,15 @@ import type {
 const DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com";
 
 /**
- * ⚠ 待实测确认的默认模型名——见文件头注。百炼视觉理解（Qwen-VL）系列的常见候选见
- * `probe-vision-model.mjs` 的候选表；这里选一个作默认，**不代表它被验证过**。
+ * #3355 —— 默认模型名**不再在这里声明**。它是「哪个模型能看图」的一个切面，权威清单住在
+ * `domain/model/vision-capable-models.ts`；此前这里的手写默认与 `KERNEL_MODEL_VISION_IDS`
+ * 的手写默认是两处独立声明（名字只差一个 S，默认值还不同），两份都漏了部署实际在用的
+ * `qwen3.8-max`。
+ *
+ * 本 re-export 保留为既有调用点/测试的稳定名字，取值与收敛前**逐字节相同**
+ * （`tests/model/vision-model-single-source.test.ts` 钉住这一条）。
  */
-export const DEFAULT_VISION_MODEL_ID = "qwen-vl-max";
+export const DEFAULT_VISION_MODEL_ID = DEFAULT_VISION_EXTRACTOR_MODEL_ID;
 
 /**
  * 单图字节上限。DashScope 对 base64 内联图片有请求体上限（文档口径约 10MB 量级），超了先在本地
@@ -65,7 +74,7 @@ export function readBailianVisionConfig(env: NodeJS.ProcessEnv = process.env): B
   const maxBytes = Number(env.KERNEL_VISION_MAX_IMAGE_BYTES ?? "");
   return {
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
-    modelId: (env.KERNEL_VISION_MODEL_ID ?? "").trim() || DEFAULT_VISION_MODEL_ID,
+    modelId: resolveVisionExtractorModelId(env),
     baseUrl: (env.KERNEL_VISION_BASE_URL ?? "").trim() || DEFAULT_BASE_URL,
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 60_000,
     maxImageBytes: Number.isFinite(maxBytes) && maxBytes > 0 ? maxBytes : DEFAULT_VISION_MAX_IMAGE_BYTES,
