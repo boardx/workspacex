@@ -290,8 +290,13 @@ export const DEFAULT_BLOCK_SPAN = 2;
 export function defaultStickyColsFor(
   type: SectionFieldType, w: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
 ): number {
+  // ⚠ 下限是 **1**，不是 3。默认块 2026-09-10 收成 2×2 之后，硬夹 ≥3 会往一个
+  //   六分之一纸宽的框里塞三列贴纸——每张小到字放不下，CI 的浏览器 e2e 当场量出
+  //   `scrollHeight > clientHeight`（文字被裁）。3 是"半幅块"时代的下限，不是普适的。
+  //   取值域跟着契约 `SECTION_LAYOUT_BOUNDS.cols` 走，不在这里第二次写数字。
   return type === "便利贴列表"
-    ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8)
+    ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)),
+      LAYOUT_BOUNDS.cols.min, LAYOUT_BOUNDS.cols.max)
     : 3;
 }
 
@@ -319,10 +324,23 @@ export function defaultLayoutAt(
   //   格数，不是「六分之一幅」这种比例——按比例算会让 24 列制下的默认块又变回四格宽。
   const w = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
   const h = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
+  const cols = defaultStickyColsFor(type, w, gridCols, size);
   return {
     col, row, w, h,
-    cols: defaultStickyColsFor(type, w, gridCols, size),
-    max: 6,
+    cols,
+    /**
+     * 默认「最多条数」= 这块地方**物理上真放得下几条**，不是固定 6。
+     *
+     * ⚠ 2026-09-10：默认块收成 2×2 之后，固定 6 就是在一个六分之一纸宽、四分之一
+     *   纸高的框里宣称能放 6 张贴纸——`capacity` 会被 `geom.fits` 夹下来，但试运行
+     *   真塞数据时贴纸被压到字都放不下（CI 浏览器 e2e 量出 `scrollHeight >
+     *   clientHeight`）。「最多条数」同时是给模型的条数上限（见
+     *   `canvas-template-guidance.ts`），报一个放不下的数就是让模型写一堆画不出来的
+     *   内容——那正是"配了 4 条只显示 2 条"那类投诉的另一面。
+     *
+     *   下限 1：再小的框也至少宣称一条，否则右栏的步进器一落地就卡在 0。
+     */
+    max: clamp(sectionGeometryMm({ w, h, cols, gridCols, size }).fits, LAYOUT_BOUNDS.max.min, LAYOUT_BOUNDS.max.max),
     tone: 0,
     overflow: "缩小字号",
   };
