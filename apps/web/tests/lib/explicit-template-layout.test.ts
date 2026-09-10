@@ -133,11 +133,11 @@ describe("computeExplicitLayout —— px 几何", () => {
   });
 
   /**
-   * 「隐藏字段名」（用户直接交办，2026-09-08）——只隐藏标题，贴纸内容不受影响。
-   * 渲染引擎（`template-engine.ts`）把 `TemplateSection.name` 当标题字符串直接画，
-   * 置空就是空标题，不需要改 vendor、也不需要一个新的 spec 字段。
+   * issue #3337 修法：隐藏标题**不再**置空 `TemplateSection.name`（那会连累
+   * `lookupSectionItems` 按名找不到数据，见下一个用例），改用只影响标题条显示的
+   * `titleLabel`；`name` 原样保留，供数据查找与其它引用。
    */
-  it("hideFieldTitle=true 时该分区的 TemplateSection.name 置空；其它分区不受影响", () => {
+  it("hideFieldTitle=true 时 TemplateSection.name 保留原名，titleLabel 置空；其它分区不受影响", () => {
     const { spec } = buildExplicitTemplateSpec({
       key: "t1", displayName: "测试模板",
       sections: [
@@ -146,9 +146,36 @@ describe("computeExplicitLayout —— px 几何", () => {
       ],
       gridCols: 12,
     });
-    expect(spec.sections.find((s) => s.x === spec.sections[0]!.x)?.name).toBe("分区-a");
+    const visible = spec.sections.find((s) => s.x === spec.sections[0]!.x)!;
+    expect(visible.name).toBe("分区-a");
+    expect(visible.titleLabel).toBeUndefined();
     const hidden = spec.sections[1]!;
-    expect(hidden.name).toBe("");
+    expect(hidden.name).toBe("分区-b");
+    expect(hidden.titleLabel).toBe("");
+  });
+
+  /**
+   * issue #3337 反证核心：隐藏标题的分区，贴纸和内容依然要能通过 `templateToModel`
+   * 从围栏正文里按 `## 分区-b` 查到、画出来——不能因为标题条不显示文字就连数据一起
+   * 丢了。这是本次修的那个真实症状（"隐藏标题字段的便利贴和内容都没显示出来"）。
+   */
+  it("hideFieldTitle=true 时该分区的便利贴内容仍能被 templateToModel 渲染出来", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-hide-title-3337", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 12, 4), hideFieldTitle: true },
+      ],
+      gridCols: 12,
+    });
+    registerTemplate(spec);
+    const model = templateToModel("模板: t-hide-title-3337\n## 分区-a\n- 第一条内容\n- 第二条内容\n");
+    const stickyLabels = model.nodes
+      .filter((n) => n.shape === "sticky")
+      .map((n) => n.label);
+    expect(stickyLabels).toEqual(["第一条内容", "第二条内容"]);
+    // 标题条节点还在（占位），但文字为空——不是整块消失。
+    const label = model.nodes.find((n) => n.id === "tpl-seclabel-0");
+    expect(label?.label).toBe("");
   });
 
   /**

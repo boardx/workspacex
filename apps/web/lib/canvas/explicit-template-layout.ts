@@ -394,13 +394,16 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
   const textCells = layout.cells.filter((c) => typeById.get(c.sectionId) === "文本对象");
 
   const sections: TemplateSection[] = bodyCells.map((c) => {
-    // 「隐藏字段名」（用户直接交办，2026-09-08）：置空 `name` 让引擎的标题条画出来
-    // 但没有文字——不改 `titleBars`（那是整份 spec 的全局开关，会连累其它区块），
-    // 也不需要 vendor 侧的新分支（`template-engine.ts` 528 行原样把 `sec.name` 当
-    // 标题字符串画，空串就是空标题，`packages/fabric-markdown` 一个字不改）。
+    // 「隐藏字段名」（用户直接交办，2026-09-08；issue #3337 改法）：**不再**置空
+    // `name`——vendor 的 `lookupSectionItems` 按 `sec.name` 精确/归一匹配围栏文本
+    // 的 `## 分区名`，置空后找不到任何数据，整块（贴纸 + 内容）连同标题一起消失，
+    // 这正是 #3337 报告的「隐藏标题字段的便利贴和内容都没显示」。改用 vendor 侧
+    // 新增的 `titleLabel`（本仓在 `template-engine.ts` 加的可选字段，2026-09-10）
+    // 只覆盖标题条的显示文字，`name` 原样保留给数据查找与内容渲染。
     const hideTitle = infoById.get(c.sectionId)?.hideFieldTitle === true;
     return {
-      name: hideTitle ? "" : c.name,
+      name: c.name,
+      ...(hideTitle ? { titleLabel: "" } : {}),
       x: c.x,
       y: c.y,
       w: c.w,
