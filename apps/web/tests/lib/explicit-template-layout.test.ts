@@ -10,6 +10,7 @@ import {
   computeExplicitLayout,
   buildExplicitTemplateSpec,
   allSectionsPlaced,
+  hasPlacedSection,
   sectionGeometryMm,
   classifyNoteSize,
   MAX_NOTE_MM,
@@ -495,6 +496,24 @@ describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走
 
   it("有一个 layout 是 undefined（契约 .optional() 的旧数据）：false", () => {
     expect(allSectionsPlaced([{ layout: {} }, {}])).toBe(false);
+  });
+});
+
+describe("hasPlacedSection（issue #3333：混合态下只丢未放置的分区，不整体退回自动布局）", () => {
+  it("空列表：false", () => {
+    expect(hasPlacedSection([])).toBe(false);
+  });
+
+  it("全部有 layout：true", () => {
+    expect(hasPlacedSection([{ layout: {} }, { layout: {} }])).toBe(true);
+  });
+
+  it("混合态——只要有一个放置了就 true（与 allSectionsPlaced 的行为差异正是本次修复）", () => {
+    expect(hasPlacedSection([{ layout: {} }, { layout: null }])).toBe(true);
+  });
+
+  it("全部未放置（老模板从没走过拖拽编辑器）：false——与整体退回自动布局的既有行为一致", () => {
+    expect(hasPlacedSection([{ layout: null }, {}])).toBe(false);
   });
 });
 

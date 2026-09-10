@@ -189,6 +189,35 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
 }
 
 /**
+ * issue #3333：至少有一个分区已放置——放宽自 `allSectionsPlaced`。
+ *
+ * ## 为什么原判据本身就是 bug，不是"混合态本不该发生"的边角情况
+ *
+ * `allSectionsPlaced` 头注说"发布前置检查本就会点名未放置字段，常态下发布过的模板
+ * 不会落进这个混合态"——但 `template-editor-panel.tsx` 的发布前置检查（`checkTemplateHealth`
+ * §6 规则⑦）对未放置字段只是**警告**，允许二次确认后强制发布（`publishClean: false` 时
+ * 仍可发布，不是硬阻断）。顾问缩编分区（如把「用户旅程图」从 5 阶段改成 4 阶段）时，
+ * 只是把多余字段拖出画布（变成未放置），而不是逐个删除字段定义——这是编辑器允许、
+ * 也是完全合理的编辑方式（字段留着方便以后再用），不是"存量脏数据"。
+ *
+ * 一旦发生，`allSectionsPlaced` 判 false，触发**整体**退回 `buildAutoTemplateSpec`——
+ * 于是已经放置好的那些分区的位置/列数/贴纸颜色全部作废，chat 测试/真实 chat 渲染出来
+ * 的画布跟顾问在②画布里拖好并保存的完全不是一回事（issue #3333 实测复现：用户旅程图
+ * 编辑器里是 4 阶段×4 类别的网格，chat 测试却整体退回自动布局，且未放置的分区仍被
+ * 计入自动布局的输入，挤占了"便签暂存·待归类"区域，与编辑器截图完全对不上）。
+ *
+ * ## 修法：只把已放置的分区喂给 `buildExplicitTemplateSpec`，未放置的直接丢弃
+ *
+ * 不是"部分合并"（已放置的走显式坐标、未放置的另外塞进自动布局算出的空位）——那确实
+ * 会让两条几何算法互相压叠。这里是**只用一条算法**：显式布局只处理"已经有坐标"的分区，
+ * 未放置的分区既不参与显式渲染、也不再退回去让自动布局给它们发明坐标——它们在编辑器里
+ * 本来就是不可见的（拖出画布之外），渲染结果不可见是与编辑器一致的行为，不是遗漏。
+ */
+export function hasPlacedSection(sections: readonly { readonly layout?: unknown }[]): boolean {
+  return sections.some((s) => s.layout != null);
+}
+
+/**
  * 已放置的分区 → 可渲染的 `TemplateSpec`。
  *
  * 刻意**不产出装饰**（标题分隔线之外）：必填强调框、便签暂存区都是
