@@ -331,6 +331,16 @@ export interface RunProjection {
    * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
    * 的 .strict() 拒绝——29 个既有测试当场教的。） */
   readonly pendingApproval: { readonly permissionRequestId?: string | null; readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null } | null;
+  /**
+   * issue #3302：这条 run 上**已被接受**的授权裁决次数与最后一档。服务端权威事实，
+   * 前端不自己数（数出来的东西活在一个会被卸载门销毁的 `useState` 里 —— #3212 ②
+   * 因此在同一条 run 的第二次授权上从未生效过）。
+   * `last` 是用户当时选的那一档原文，不是折叠给 executor 的 `pending_decision`。
+   */
+  readonly permissionDecisions: {
+    readonly count: number;
+    readonly last: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null;
+  };
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */

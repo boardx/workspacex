@@ -508,6 +508,25 @@ export const AgentRunView = z.object({
     toolName: z.string(),
     argsSummary: z.string().nullable(),
   }).strict().nullable().optional(),
+  /**
+   * issue #3302 —— 这条 run 上已被接受的授权裁决次数与最后一档。
+   *
+   * 为什么在契约里而不是前端自己数：#3212 ② 的「这是本次任务里第 N 次请求授权」此前
+   * 数在审批组件的 `useState` 里，而该组件的挂载门是 `status === "awaiting_tool_permission"`。
+   * 同一条 run 的两次中断之间整段是 `running`，组件被**正确地**卸载，计数随之销毁 ⇒
+   * 第二次授权弹窗上那句话永远不出现。裁决历史是服务端拥有的事实（`agent_runs` 的
+   * `permission_decision_count` / `last_permission_decision`，由同一条条件 UPDATE 写），
+   * 由权威读下发，任何页面（刷新、新标签页、冷启动）读到的都是同一个数。
+   *
+   * `last` 记的是用户选的那一档**原文**（once/run/forever/deny/reject/edit），不是折叠给
+   * executor 的 `pending_decision`——界面要说「你上次选的是仅本次允许」，折叠过的值说不出。
+   * 纯展示，绝不参与任何授权判定。
+   * optional：老快照/老客户端缺字段不炸。
+   */
+  permissionDecisions: z.object({
+    count: z.number().int().min(0),
+    last: z.enum(["once", "run", "forever", "deny", "reject", "edit"]).nullable(),
+  }).strict().optional(),
 }).strict();
 
 export const operations = {

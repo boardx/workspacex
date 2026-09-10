@@ -67,6 +67,9 @@ interface RunRow {
   pending_permission_request_id?: string | null;
   pending_interrupt?: RestorableInterrupt | null;
   pending_decision?: string | null;
+  /** issue #3302：本条 run 上已被接受的授权裁决次数与最后一档（见 `decidePermissionRequest`）。 */
+  permission_decision_count?: number | string | null;
+  last_permission_decision?: string | null;
 }
 
 interface StepRow {
@@ -579,6 +582,14 @@ export class PgAgentRunRepository implements AgentRunStore {
       const updated = await s.query<{ pending_tool_name: string }>(
         `UPDATE agent_runs SET status=CASE WHEN $4='reject' THEN 'failed' ELSE 'queued' END,
            pending_decision=CASE WHEN $4='reject' THEN NULL ELSE $4 END, pending_edited_args=$5,
+           -- issue #3302：裁决历史落在拥有它的地方。这两列**只被这一条语句写**，
+           -- 与它同一个 WHERE（同一次条件 UPDATE）：输了竞态的那一方一行都不动，
+           -- 因此计数永远等于真正被接受过的裁决次数，不会被并发点击多加一次。
+           -- 记的是**用户选的那一档原文**（$6），不是上面折叠给 executor 的
+           -- pending_decision（once/run/forever 都会被折成 'approve'）——界面要说
+           -- 「你上次选的是仅本次允许」，折叠过的值说不出这句话。
+           permission_decision_count=permission_decision_count+1,
+           last_permission_decision=$6,
            error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
            ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
            pending_tool_name=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_name END,
@@ -589,7 +600,7 @@ export class PgAgentRunRepository implements AgentRunStore {
            pending_tool_args_digest=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_args_digest END
          WHERE org_id=$1 AND id=$2 AND status='awaiting_tool_permission'
            AND pending_permission_request_id=$3::uuid RETURNING pending_tool_name`,
-        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null],
+        [orgId, runId, permissionRequestId, ["deny", "reject", "edit"].includes(decision) ? decision : "approve", editedArgsJson ?? null, decision],
       );
       const row = updated.rows[0];
       if (!row) return false;
@@ -887,7 +898,8 @@ export class PgAgentRunRepository implements AgentRunStore {
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
                 r.status, r.error_code, r.failure_reason, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
-                r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt
+                r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt,
+                r.permission_decision_count, r.last_permission_decision
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            LEFT JOIN chat_messages reply
@@ -999,6 +1011,23 @@ export class PgAgentRunRepository implements AgentRunStore {
         || found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
         ? null
         : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null, permissionRequestId: found.row.pending_permission_request_id ?? null, interrupt: found.row.pending_interrupt ?? null },
+      /*
+       * issue #3302 —— 「这条 run 上已经问过几次授权、上次选了哪档」的**唯一事实源**。
+       *
+       * 此前它只活在 `restored-run-approval.tsx` 的一个 `useState` 里，而那个组件的挂载门
+       * 是 `status === 'awaiting_tool_permission'`：同一条 run 的两次中断之间整段是
+       * `running` ⇒ 组件卸载 ⇒ 计数清零 ⇒ 第二次授权弹窗上 `history.count > 0` 恒假 ⇒
+       * #3212 ② 那句「这是本次任务里第 N 次请求授权」**从未真正交付过**。
+       * 与 pendingApproval 那段是同一类病：同一事实声明在两处，而其中一处会在**正确**的
+       * 时刻丢失。这里把它交回拥有它的那一侧。
+       *
+       * `count` 与 `pendingApproval` 无关，任何状态下都如实回（刷新、换标签页、冷启动读到的
+       * 都是同一个数）——它描述的是这条 run 的历史，不是当下有没有待决请求。
+       */
+      permissionDecisions: {
+        count: Number(found.row.permission_decision_count ?? 0),
+        last: (found.row.last_permission_decision ?? null) as RunProjection["permissionDecisions"]["last"],
+      },
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
