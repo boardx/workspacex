@@ -12,10 +12,12 @@ import type { CanvasTemplate } from "@/lib/live-canvas";
 import { canvas } from "@repo/contracts";
 import { getTemplate } from "@repo/fabric-markdown";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, GRID_ROWS, TONE_COLORS, STANDARD_NOTE_MM,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
+
+export { GRID_ROWS };
 
 // 单一事实源迁到 `explicit-template-layout.ts`（issue #2372：`buildExplicitTemplateSpec`
 // 现在也要按 `tone` 取贴纸颜色，lib 层需要能直接读到这份色板，不能反过来从组件层
@@ -191,9 +193,17 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
     }));
 }
 
-/** 新放到画布上的区块的默认布局（`Design.pdf` §4.2「落点即位置」那几条）。 */
+/**
+ * 新放到画布上的区块的默认布局（`Design.pdf` §4.2「落点即位置」那几条）。
+ *
+ * `limits` 是可选的「最多长到这么大」——调用方已经知道右边/下边被别的分区占住时
+ * 传进来（`maxFreeW`/`maxFreeH` 的结果）。⚠ 必须由本函数收口，不能让调用方拿到
+ * 结果再自己改 `w`/`h`：`cols`（默认摆几列）是从 `w` 推出来的，外面改宽度不改列数
+ * 就会得到一份自相矛盾的布局。
+ */
 export function defaultLayoutAt(
   type: SectionFieldType, col: number, row: number, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+  limits?: { readonly maxW?: number; readonly maxH?: number },
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
   //
@@ -203,9 +213,9 @@ export function defaultLayoutAt(
   //   半张纸宽既画不满也挡住别人；半幅那个默认是给便利贴列表那种成片贴纸的分区用的。
   //   拖进来之后仍可在右栏「在 A1 上占多大」里改，这里只是换一个更常用的起点。
   const defaultW = type === "短文本" ? (gridCols === 12 ? 2 : 1) : (gridCols === 12 ? 6 : 3);
-  const w = Math.min(defaultW, gridCols - col + 1);
+  const w = Math.max(1, Math.min(defaultW, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
   // 列表型默认高 3 行、短文本/文本对象 1 行。
-  const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
+  const h = Math.max(1, Math.min(type === "便利贴列表" ? 3 : 1, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
   return {
     col, row, w, h,
     // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距用
@@ -224,7 +234,8 @@ function blockWidthMm(w: number, gridCols: 6 | 12, size: PaperSizeKey = "A1"): n
   return (w / gridCols) * contentMmFor(size).w - GRID_GAP_MM;
 }
 
-const AUTO_LAYOUT_GRID_ROWS = 8;
+/** 自动排版用的行数——与画布网格是同一个数（`GRID_ROWS` 是唯一声明处）。 */
+const AUTO_LAYOUT_GRID_ROWS = GRID_ROWS;
 
 /**
  * 「不要手工排版」——2026-08-27 人类原话：「在编辑界面因该有一个按钮，可以根据字段
@@ -336,12 +347,12 @@ export function clamp(n: number, lo: number, hi: number): number {
 /** 把一个区块夹回画布内（拖到越界时用，`Design.pdf` §4.2「越界时自动夹到画布内」）。 */
 export function clampLayout(layout: SectionLayoutDraft, gridCols: 6 | 12): SectionLayoutDraft {
   const w = clamp(layout.w, 1, gridCols);
-  const h = clamp(layout.h, 1, 8);
+  const h = clamp(layout.h, 1, GRID_ROWS);
   return {
     ...layout,
     w, h,
     col: clamp(layout.col, 1, gridCols - w + 1),
-    row: clamp(layout.row, 1, 8 - h + 1),
+    row: clamp(layout.row, 1, GRID_ROWS - h + 1),
   };
 }
 
@@ -417,7 +428,7 @@ export function maxFreeW(
 export function maxFreeH(
   sections: readonly SectionDraft[], sectionId: string, col: number, row: number, w: number,
 ): number {
-  const bound = 8 - row + 1;
+  const bound = GRID_ROWS - row + 1;
   let h = 1;
   while (h < bound && !collidesWithOthers(sections, sectionId, { col, row, w, h: h + 1 })) h += 1;
   return h;

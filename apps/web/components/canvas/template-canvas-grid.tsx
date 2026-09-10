@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -26,8 +26,6 @@ import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADE
  * 用的是 `getBoundingClientRect()` 的**比例**，不是像素常量——网格 12/6 列可切、
  * 画布宽度随窗口变，比例换算是唯一不会随这两者漂移的算法。
  */
-
-const GRID_ROWS = 8;
 
 /**
  * 拖拽载荷——`dataTransfer` 里那个 JSON 的形状。

@@ -19,7 +19,7 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  collidesWithOthers, FIELD_TYPES, newTextDraft,
+  collidesWithOthers, maxFreeW, maxFreeH, FIELD_TYPES, newTextDraft,
   DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -233,12 +233,31 @@ export function TemplateEditorPanel({
    * 一份默认布局（列表型默认更高更多列，非列表型默认矮一行三列）——位置
    * （`col`/`row`）保留，只刷新跟类型强相关的尺寸/列数，避免改成短文本后还占着
    * 一大块列表型的高度。未放置的字段直接改 `type`，没有布局需要同步。
+   *
+   * ⚠ 2026-09-10 人类实测：「把字段类型从文本改为便利贴之后，field 的范围扩大，
+   *   然后我什么也改不了在右边的 panel 上」。根因就在这里——本函数是**第四个**
+   *   改布局的入口，而下面那条 `applyLayoutIfFree` 的重叠门控只收口了三个
+   *   （`patchLayout`/`place`/`move`）。短文本 1 格宽改成列表型时按默认布局涨到
+   *   6 格宽 3 行，直接压住右边和下面的分区；一旦落到这个重叠状态，右栏每一次
+   *   改动都会被 `applyLayoutIfFree` 判为"还是重叠"而整体放弃，步进器的上限
+   *   （`maxFreeW`/`maxFreeH`）也一起塌成 1——面板从此一动不动，且不说为什么。
+   *
+   *   改法：涨多大先问过邻居。宽度按 `maxFreeW`（在 `row` 这一行探）收，高度再按
+   *   收好的宽度问 `maxFreeH`——两个上限都由 `defaultLayoutAt` 的 `limits` 收口，
+   *   因为 `cols`（默认摆几列）是从 `w` 推出来的，外面改宽不改列会自相矛盾。
+   *   这样类型**一定**改得成，只是不越界长大：长不动就维持原尺寸，而不是压住邻居。
    */
   function changeFieldType(sectionId: string, type: SectionFieldType): void {
     setSections((prev) => prev.map((s) => {
       if (s.sectionId !== sectionId || s.type === type) return s;
       if (!s.layout) return { ...s, type };
-      const next = defaultLayoutAt(type, s.layout.col, s.layout.row, gridCols, paperSize);
+      const { col, row } = s.layout;
+      // 宽度先在 `row` 这一行探（`h = 1`），再拿探到的宽度问纵向能长多高——
+      // `maxFreeH` 用的就是这个最终宽度，所以结果一定不与任何邻居重叠。
+      const freeW = maxFreeW(prev, sectionId, col, row, 1, gridCols);
+      const wanted = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW });
+      const freeH = maxFreeH(prev, sectionId, col, row, wanted.w);
+      const next = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW, maxH: freeH });
       return { ...s, type, layout: clampLayout(next, gridCols) };
     }));
   }

@@ -112,7 +112,13 @@ export interface ExplicitLayout {
   readonly bounds: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
 }
 
-const GRID_ROWS = 8;
+/**
+ * 画布网格的行数。⚠ 这是**唯一**声明处——`template-editor-model.ts`（夹取/自动
+ * 排版/步进器上限）、`template-canvas-grid.tsx`（编辑器网格）、`sectionGeometryMm`
+ * 的 `rowSpanDenominator` 都从这里读。同一个数字散在四个文件里各写一遍，正是
+ * AGENTS.md「同一事实不得声明在两处」点名过的漂移来源。
+ */
+export const GRID_ROWS = 8;
 
 /**
  * 网格坐标（1 起的 col/row + 跨度 w/h）→ px 几何。
@@ -758,7 +764,7 @@ export interface SectionGeometryMm {
  *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
-  const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
+  const rowSpanDenominator = GRID_ROWS; // 行数是网格常量，列数才切 6/12。
   const size = input.size ?? "A1";
   const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
