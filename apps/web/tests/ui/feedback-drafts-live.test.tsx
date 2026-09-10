@@ -47,10 +47,10 @@ function renderDialog(onClose = () => undefined) {
 }
 
 /**
- * issue #2679 ②——结构化字段/附件区现在只在 review 阶段展示（compose 阶段只有
- * 「详细说说」+ 语音）。这些用例本身测的是 D1/D3/B1 的请求体形状，不是渐进展示
- * 本身，所以统一先用一句占位话进 review，再回来正常操作各字段——不改变每条用例
- * 原本要断言的东西。
+ * issue #2679 ②——「这是什么」/标题只在 review 阶段展示（compose 阶段只有「详细说说」
+ * + 语音 + 附件）。这些用例测的是 D3/B1 的请求体形状，不是渐进展示本身，所以统一
+ * 先用一句占位话进 review。
+ * 2026-09-10：附件区两个阶段都在，附件相关的用例不再需要先进 review。
  */
 async function proceedToReview() {
   fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
@@ -66,46 +66,61 @@ function mockSubmitOk() {
   });
 }
 
-describe("① D1：结构化字段随 structured 单独发送", () => {
-  it("缺陷：填了期望/实际结果 ⇒ body.structured = { expectedResult, actualResult }，正文不再拼进字段", async () => {
-    mockSubmitOk();
+describe("① 2026-09-10：提交表单只有标题 + 详细说说，结构化内容铺进正文", () => {
+  /** AI 整理接口按 kind 回一组结构化字段——这些内容该出现在正文里，而不是各自一个小框。 */
+  function mockStructure(kind: string, detail: string, structured: Record<string, string>) {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/feedback/structure-draft") return { kind, title: "AI 起的标题", detail, structured };
+      if (path === "/feedback" && opts?.method === "POST") return { feedbackId: "fb-1", status: "待处理" };
+      return { items: [] };
+    });
+  }
+
+  it("缺陷：AI 给的期望/实际结果按「标签：值」铺进「详细说说」，body 不带 structured 键", async () => {
+    mockStructure("缺陷", "批准卡不记得预算。", { expectedResult: "记住上次的值", actualResult: "每次都是空的" });
     renderDialog();
-    await proceedToReview();
-    fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "记住上次的值" } });
-    fireEvent.change(screen.getByTestId("feedback-field-actual"), { target: { value: "每次都是空的" } });
-    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "批准卡不记得预算。" } });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "批准卡不记得预算" } });
+    fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+    await screen.findByTestId("feedback-submit");
+    const detail = (screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement).value;
+    expect(detail).toContain("批准卡不记得预算。");
+    expect(detail).toContain("期望结果：\n记住上次的值");
+    expect(detail).toContain("实际结果：\n每次都是空的");
+    // 没有第二处可编辑的地方——那些小输入框已经不存在了。
+    expect(screen.queryByTestId("feedback-field-expected")).toBeNull();
+    expect(screen.queryByTestId("feedback-field-actual")).toBeNull();
     fireEvent.click(screen.getByTestId("feedback-submit"));
     await screen.findByTestId("feedback-mine-empty");
     const [, opts] = callsTo("/feedback", "POST")[0]!;
-    expect(opts!.body!.structured).toEqual({ expectedResult: "记住上次的值", actualResult: "每次都是空的" });
-    expect(opts!.body!.detail).toBe("批准卡不记得预算。");
+    expect(opts!.body).not.toHaveProperty("structured");
+    expect(opts!.body!.detail).toBe(detail);
     // 契约自己也认这个形状——不是前端编了一个服务端不收的对象。
     expect(feedbackLoop.operations.submitFeedback.in.safeParse(opts!.body).success).toBe(true);
   });
 
-  it("需求：切 kind 后发的是需求那一组键", async () => {
-    mockSubmitOk();
+  it("需求：使用场景 / 期望能力 / 优先级也一样铺进正文，不另开输入框", async () => {
+    mockStructure("需求", "希望能按项目筛选录音", { useScenario: "找上周那场录音", priorityScope: "P2 · 全员" });
     renderDialog();
-    await proceedToReview();
-    fireEvent.click(screen.getByTestId("feedback-kind-需求"));
-    fireEvent.change(screen.getByTestId("feedback-field-scene"), { target: { value: "找上周那场录音" } });
-    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "希望能按项目筛选录音" } });
-    fireEvent.click(screen.getByTestId("feedback-submit"));
-    await screen.findByTestId("feedback-mine-empty");
-    const [, opts] = callsTo("/feedback", "POST")[0]!;
-    expect(opts!.body!.structured).toEqual({ useScenario: "找上周那场录音" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "希望能筛选" } });
+    fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+    await screen.findByTestId("feedback-submit");
+    const detail = (screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement).value;
+    expect(detail).toContain("使用场景：\n找上周那场录音");
+    expect(detail).toContain("优先级 · 影响范围：\nP2 · 全员");
+    expect(screen.queryByTestId("feedback-field-scene")).toBeNull();
+    expect(screen.queryByTestId("feedback-fields-req")).toBeNull();
   });
 
-  it("全空（含只有空白）⇒ 不带 structured 键", async () => {
+  it("AI 整理不可用 ⇒ 正文原样留着、标题退回派生，body 照样不带 structured 键", async () => {
     mockSubmitOk();
     renderDialog();
     await proceedToReview();
-    fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "   " } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "只有正文" } });
     fireEvent.click(screen.getByTestId("feedback-submit"));
     await screen.findByTestId("feedback-mine-empty");
     const [, opts] = callsTo("/feedback", "POST")[0]!;
     expect(opts!.body).not.toHaveProperty("structured");
+    expect(opts!.body!.detail).toBe("只有正文");
   });
 
   it("「我提过的」渲染 structured；null 不渲染区块", async () => {
@@ -132,7 +147,7 @@ describe("① D1：结构化字段随 structured 单独发送", () => {
 describe("② D3：附件类型与上限来自契约", () => {
   it("accept 与上限文案都从契约派生", async () => {
     renderDialog();
-    await proceedToReview();
+    // 2026-09-10：附件入口 compose 阶段就在，不用先点「下一步」。
     const input = screen.getByTestId("feedback-attachment-input") as HTMLInputElement;
     expect(input.accept).toBe(feedbackLoop.FeedbackAttachmentMime.options.join(","));
     expect(input.accept).toContain("application/pdf");
@@ -149,7 +164,6 @@ describe("② D3：附件类型与上限来自契约", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       renderDialog();
-      await proceedToReview();
       const zip = new File([new Uint8Array([1])], "logs.zip", { type: "application/zip" });
       const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "repro.pdf", { type: "application/pdf" });
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [zip, pdf] } });
@@ -175,7 +189,6 @@ describe("② D3：附件类型与上限来自契约", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       renderDialog();
-      await proceedToReview();
       const md = new File(["# note"], "note.md", { type: "" });
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [md] } });
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -189,7 +202,7 @@ describe("② D3：附件类型与上限来自契约", () => {
 });
 
 describe("③ B1：存为草稿走真栈", () => {
-  it("成功 ⇒ POST /feedback/drafts（draftId 不在 body、带 structured）、清空表单、关弹层并跳草稿列表", async () => {
+  it("成功 ⇒ POST /feedback/drafts（draftId 与 structured 都不在 body）、清空表单、关弹层并跳草稿列表", async () => {
     const onClose = vi.fn();
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/feedback/drafts") return { draftId: "draft-1" };
@@ -197,29 +210,28 @@ describe("③ B1：存为草稿走真栈", () => {
     });
     renderDialog(onClose);
     await proceedToReview();
-    fireEvent.change(screen.getByTestId("feedback-field-actual"), { target: { value: "空的" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "先记一笔" } });
     fireEvent.click(screen.getByTestId("feedback-save-draft"));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const [, opts] = callsTo("/feedback/drafts", "POST")[0]!;
-    expect(Object.keys(opts!.body!).sort()).toEqual(["appVersion", "detail", "kind", "occurredRoute", "structured", "target"].sort());
-    expect(opts!.body!.structured).toEqual({ actualResult: "空的" });
+    // 2026-09-10：表单不再单独收结构化字段，所以 body 里连 `structured` 这个键都没有。
+    expect(Object.keys(opts!.body!).sort()).toEqual(["appVersion", "detail", "kind", "occurredRoute", "target"].sort());
     expect(feedbackLoop.operations.createFeedbackDraft.in.safeParse(opts!.body).success).toBe(true);
     expect(routerPush).toHaveBeenCalledWith("/platform-admin/feedback-drafts");
   });
 
-  it("失败 ⇒ 明说「草稿没有被保存」，正文与字段都还在，不关弹层", async () => {
+  it("失败 ⇒ 明说「草稿没有被保存」，正文与标题都还在，不关弹层", async () => {
     const onClose = vi.fn();
     apiRequest.mockRejectedValue(new Error("boom"));
     renderDialog(onClose);
     await proceedToReview();
-    fireEvent.change(screen.getByTestId("feedback-field-expected"), { target: { value: "期望" } });
+    fireEvent.change(screen.getByTestId("feedback-title-input"), { target: { value: "标题还在吗" } });
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "还在吗" } });
     fireEvent.click(screen.getByTestId("feedback-save-draft"));
     const err = await screen.findByTestId("feedback-draft-error");
     expect(err.textContent).toContain("草稿没有被保存");
     expect((screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement).value).toBe("还在吗");
-    expect((screen.getByTestId("feedback-field-expected") as HTMLInputElement).value).toBe("期望");
+    expect((screen.getByTestId("feedback-title-input") as HTMLInputElement).value).toBe("标题还在吗");
     expect(onClose).not.toHaveBeenCalled();
     expect(routerPush).not.toHaveBeenCalled();
   });

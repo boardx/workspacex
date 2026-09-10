@@ -77,19 +77,40 @@ function describeFailure(err: unknown): string {
 
 const KIND_ICON: Record<FeedbackKind, typeof Bug> = { 缺陷: Bug, 需求: Lightbulb };
 
+const TITLE_MAX = 120;
+const DETAIL_MAX = 4000;
+
 /**
- * UC-17.8 D1 —— 结构化字段随 `submitFeedback.structured` **单独**发送，不再并进正文
- * （原型期 `composeDetail` 把字段拼进正文的做法已撤）。字段集与键名见
- * `feedback-structured.tsx` 的 `STRUCTURED_FIELDS`（键 = 契约 `BugStructuredFields` /
- * `ReqStructuredFields` 的键）。全空 ⇒ 不带 `structured` 键（同 `attachmentIds` 先例）。
+ * 2026-09-10 人类反馈：提交表单**不再单开一排结构化输入框**（使用场景 / 期望能力 /
+ * 优先级 …）。review 阶段只留「标题」+「详细说说」两个东西，AI 整理出来的结构化内容
+ * **按模板铺进「详细说说」**——用户在一个框里改完，而不是在三个小框和一个大框之间
+ * 来回跳。字段名与顺序仍然只有一份（`STRUCTURED_FIELDS`），这里只是把它渲染成文本。
+ *
+ * 值为空的字段直接跳过：一个「期望能力：」后面空着的小节，读的人分不清是"没填"还是
+ * "AI 漏了"，不如不出现。
  */
-export function buildStructured(kind: FeedbackKind, fields: Record<string, string>): FeedbackStructured | undefined {
-  const out: Record<string, string> = {};
+export function structuredToText(kind: FeedbackKind, structured: FeedbackStructured | null | undefined): string {
+  if (structured == null) return "";
+  const blocks: string[] = [];
   for (const f of STRUCTURED_FIELDS[kind]) {
-    const v = (fields[f.key] ?? "").trim();
-    if (v !== "") out[f.key] = v;
+    const v = (structured as Record<string, string | undefined>)[f.key];
+    if (typeof v !== "string" || v.trim() === "") continue;
+    blocks.push(`${f.label}：\n${v.trim()}`);
   }
-  return Object.keys(out).length === 0 ? undefined : (out as FeedbackStructured);
+  return blocks.join("\n\n");
+}
+
+/**
+ * 把 AI 整理出的正文与结构化小节合成一段「详细说说」。两边都可能为空——
+ * 只有正文就是正文，只有小节就是小节，都有就用一个空行隔开。
+ * ⚠ 超出 `DETAIL_MAX` 时截断到上限：这段文本会直接进 `maxLength` 受控的 textarea，
+ * 留着超长内容会让「提交」按钮永远点不动，用户还看不出为什么。
+ */
+export function composeReviewDetail(kind: FeedbackKind, detail: string, structured: FeedbackStructured | null | undefined): string {
+  const body = detail.trim();
+  const tail = structuredToText(kind, structured);
+  const merged = body !== "" && tail !== "" ? `${body}\n\n${tail}` : body !== "" ? body : tail;
+  return merged.slice(0, DETAIL_MAX);
 }
 
 const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutral"> = {
@@ -100,18 +121,22 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
   已归档: "neutral",
 };
 
-const TITLE_MAX = 120;
-const DETAIL_MAX = 4000;
-
 /**
- * 「套用模板」——常见 issue 模板的复现步骤/期望结果/实际结果结构，按 `kind` 分两套。
- * 仓库里没有 `.github/ISSUE_TEMPLATE/`（见勘探），这里按业界通行的 bug/需求 issue
- * 模板结构写死；用户点按钮后填进「详细说说」，自己把占位内容替换掉。
+ * 「套用模板」——空白骨架，小节标题**从 `STRUCTURED_FIELDS` 派生**，与 AI 整理出的内容
+ * 铺进正文时用的标题（`structuredToText`）是同一份。
+ *
+ * ⚠ 此前这里手写着另一套措辞（「背景 / 想解决的问题」「期望的效果」），与字段表的
+ * 「使用场景」「期望能力」是同一件事的第二份副本——用户自己按模板写的和 AI 整理出来的
+ * 长得不一样，后台分诊的人读到两种小节名。同一事实不写第二处（见 AGENTS.md）。
+ *
+ * 复现步骤这类多行字段给一个 `1. 2. 3.` 的编号骨架，其余留一行空白让人填。
  */
-const FEEDBACK_TEMPLATES: Record<FeedbackKind, string> = {
-  缺陷: "复现步骤：\n1. \n2. \n3. \n\n期望结果：\n\n\n实际结果：\n",
-  需求: "背景 / 想解决的问题：\n\n\n期望的效果：\n\n\n现在是怎么绕过去的：\n",
-};
+const FEEDBACK_TEMPLATES: Record<FeedbackKind, string> = Object.fromEntries(
+  FEEDBACK_KINDS.map((k) => [
+    k,
+    STRUCTURED_FIELDS[k].map((f) => `${f.label}：\n${f.multiline === true ? "1. \n2. \n3. \n" : "\n"}`).join("\n"),
+  ]),
+) as Record<FeedbackKind, string>;
 
 /**
  * 2026-09-02 人类要求：表单去掉「一句话说清楚」，只留「详细说说」。契约的 `title` 仍然
@@ -188,8 +213,6 @@ export function FeedbackDialog({
   const [detail, setDetail] = React.useState("");
   /** review 阶段可编辑的标题；compose 阶段还没有标题概念。 */
   const [title, setTitle] = React.useState("");
-  /** UC-17.8 D1 结构化补充字段，键 = 契约字段名（`STRUCTURED_FIELDS`）。 */
-  const [fields, setFields] = React.useState<Record<string, string>>({});
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [draftBusy, setDraftBusy] = React.useState(false);
   const [draftError, setDraftError] = React.useState<string | null>(null);
@@ -261,13 +284,9 @@ export function FeedbackDialog({
       .then((draft) => {
         setKind(draft.kind);
         setTitle(draft.title);
-        setDetail(draft.detail);
-        // UC-17.8 B2.4：模型按 kind 拆出的结构化字段非 null 才填进对应输入框；null ⇒ 只填正文。
-        if (draft.structured != null) {
-          const filled: Record<string, string> = {};
-          for (const [k, v] of Object.entries(draft.structured)) if (typeof v === "string") filled[k] = v;
-          setFields(filled);
-        }
+        // UC-17.8 B2.4：模型按 kind 拆出的结构化字段**按模板铺进正文**（见
+        // `composeReviewDetail` 头注），不再各占一个小输入框。
+        setDetail(composeReviewDetail(draft.kind, draft.detail, draft.structured));
       })
       .catch((err) => {
         setStructureError(describeFailure(err));
@@ -476,7 +495,6 @@ export function FeedbackDialog({
   const resetForm = () => {
     setTitle("");
     setDetail("");
-    setFields({});
     setStage("compose");
     for (const a of attachments) if (a.previewUrl !== null) URL.revokeObjectURL(a.previewUrl);
     setAttachments([]);
@@ -499,12 +517,7 @@ export function FeedbackDialog({
       const draft = await structureFeedbackDraft(text);
       setKind(draft.kind);
       setTitle(draft.title);
-      setDetail(draft.detail);
-      if (draft.structured != null) {
-        const filled: Record<string, string> = {};
-        for (const [k, v] of Object.entries(draft.structured)) if (typeof v === "string") filled[k] = v;
-        setFields(filled);
-      }
+      setDetail(composeReviewDetail(draft.kind, draft.detail, draft.structured));
     } catch (err) {
       setStructureError(describeFailure(err));
       setTitle(deriveFeedbackTitle(text));
@@ -523,14 +536,14 @@ export function FeedbackDialog({
     setDraftError(null);
     try {
       const attachmentIds = uploadedAttachmentIds();
-      const structured = buildStructured(kind, fields);
+      // 2026-09-10 起表单不再单独收结构化字段（都在正文里），所以**不带 `structured` 键**
+      // ——同 `attachmentIds` 的既有纪律：没有的东西不写成 `undefined`。
       const out = await createFeedbackDraft({
         kind,
         target,
         detail: detail.trim(),
         occurredRoute: pathname ?? null,
         appVersion,
-        ...(structured !== undefined ? { structured } : {}),
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       });
       resetForm();
@@ -559,10 +572,10 @@ export function FeedbackDialog({
       // "打字路径顺手起标题"已经被 review 阶段的整理覆盖，留着会多打一次不必要的请求）。
       const finalTitle = title.trim();
       const attachmentIds = uploadedAttachmentIds();
-      const structured = buildStructured(kind, fields);
-      // ⚠ 没有附件 / 结构化字段全空时**不带这个键**（不是传 `undefined`）——同文件头「请求体
-      //   恰好几个字段」的既有纪律：多一个值为 undefined 的键，`JSON.stringify` 之后看不出
-      //   区别，但 `Object.keys` 断言与任何按键名做的中间层处理都会看出区别。
+      // ⚠ 没有附件时**不带这个键**（不是传 `undefined`）——同文件头「请求体恰好几个字段」的
+      //   既有纪律：多一个值为 undefined 的键，`JSON.stringify` 之后看不出区别，但
+      //   `Object.keys` 断言与任何按键名做的中间层处理都会看出区别。
+      //   `structured` 同理：表单已不再单独收这些字段，内容都在正文里。
       const out = await submitFeedback({
         kind,
         target,
@@ -572,7 +585,6 @@ export function FeedbackDialog({
         occurredRoute: pathname ?? null,
         appVersion,
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
-        ...(structured !== undefined ? { structured } : {}),
       });
       setJustSubmitted(out.feedbackId);
       resetForm();
@@ -637,8 +649,11 @@ export function FeedbackDialog({
 
         {tab === "submit" ? (
           <div className="flex flex-col gap-3 overflow-y-auto p-4" data-testid="feedback-form" data-stage={stage}>
-            {/* issue #2679 ②——review 阶段才展示「这是什么」与结构化字段（复现频率/期望结果/
-                实际结果/复现步骤……）；compose 阶段只有正文框 + 语音，见文件顶部 `stage` 头注。 */}
+            {/* issue #2679 ②——review 阶段才展示「这是什么」与「标题」；compose 阶段只有正文框
+                + 语音 + 附件，见文件顶部 `stage` 头注。
+                2026-09-10 人类反馈：review 阶段不再另开一排结构化输入框（使用场景 /
+                期望能力 / 优先级 …）——只留「标题」和「详细说说」，AI 整理出的那些内容
+                按模板铺在正文里（见 `composeReviewDetail`）。 */}
             {stage === "review" && (
               <>
                 <div className="flex items-center justify-between gap-2">
@@ -698,31 +713,6 @@ export function FeedbackDialog({
                   />
                 </label>
 
-                {/* UC-17.8 D1 结构化字段集：随类型切换，随 `structured` 单独发送；留空则不带键。 */}
-                <fieldset className="flex flex-col gap-2" data-testid={kind === "缺陷" ? "feedback-fields-bug" : "feedback-fields-req"}>
-                  <legend className="text-11 font-medium text-muted-foreground">
-                    {kind === "缺陷" ? "说清楚这个缺陷" : "说清楚这个需求"}
-                  </legend>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {STRUCTURED_FIELDS[kind].map((f) => {
-                      const shared = {
-                        value: fields[f.key] ?? "",
-                        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                          setFields((prev) => ({ ...prev, [f.key]: e.target.value }));
-                          setDraftSaved(false);
-                        },
-                        "data-testid": `feedback-field-${f.testid}`,
-                        className: "rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      };
-                      return (
-                        <label key={f.key} className={cn("flex flex-col gap-1 text-10 text-muted-foreground", f.multiline && "sm:col-span-3")}>
-                          {f.label}
-                          {f.multiline ? <textarea rows={3} {...shared} /> : <input {...shared} />}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
               </>
             )}
 
@@ -807,23 +797,12 @@ export function FeedbackDialog({
               )}
             </div>
 
-            {stage === "compose" ? (
-              <div className="flex items-center justify-end">
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  disabled={detail.trim() === "" || structuring}
-                  onClick={() => void proceedToReview()}
-                  data-testid="feedback-proceed-review"
-                >
-                  {structuring && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
-                  下一步
-                </Button>
-              </div>
-            ) : (
-            <>
-            {/* FB-5——附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
+            {/* FB-5——附件。2026-09-10 人类反馈：附件入口**两个阶段都在**（此前只在 review
+                阶段出现）——第一屏就该能把截图拖进来，而不是先写完一段话点「下一步」才
+                看得到"原来还能传文件"。上传本来就发生在"选中文件"那一刻（见
+                `PendingAttachment` 头注），与 compose/review 无关，`uploadedAttachmentIds`
+                在提交时照样把已上传的 id 收齐。
+                2026-09-02：这一轮没有脱敏（人类明确裁决先出功能），
                 见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。
                 2026-09-03：加拖拽上传——点按钮和拖拽是同一条 `addAttachments` 路径，
                 只是触发方式不同，上传时机、上限、失败重试都不用另写一遍。
@@ -965,6 +944,22 @@ export function FeedbackDialog({
               )}
             </div>
 
+            {stage === "compose" ? (
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={detail.trim() === "" || structuring}
+                  onClick={() => void proceedToReview()}
+                  data-testid="feedback-proceed-review"
+                >
+                  {structuring && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+                  下一步
+                </Button>
+              </div>
+            ) : (
+            <>
             {/* I-F1：收集了什么，明写出来。见文件头。 */}
             <p className="text-10 text-muted-foreground" data-testid="feedback-context-notice">
               将一并附带：当前页面 <code className="font-mono">{pathname ?? "（未知）"}</code>

@@ -63,21 +63,23 @@ type Call = [string, { method?: string; body?: Record<string, unknown>; query?: 
 const callsTo = (path: string, method = "GET") =>
   (apiRequest.mock.calls as Call[]).filter(([p, o]) => p === path && (o?.method ?? "GET") === method);
 
-describe("① 快速反馈：字段集随类型切换", () => {
-  it("缺陷显示缺陷字段集，切到需求显示需求字段集", async () => {
+describe("① 快速反馈：review 阶段只有标题 + 详细说说", () => {
+  it("2026-09-10 人类反馈：不再渲染任何一排结构化输入框，类型切换也不变出来", async () => {
     render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
-    // issue #2679 ②——结构化字段现在只在 review 阶段展示，先写点正文进 review。
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
     fireEvent.click(screen.getByTestId("feedback-proceed-review"));
-    await screen.findByTestId("feedback-fields-bug");
-    expect(screen.getByTestId("feedback-fields-bug")).toBeTruthy();
-    expect(screen.queryByTestId("feedback-fields-req")).toBeNull();
-    expect(screen.getByTestId("feedback-field-actual")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("feedback-kind-需求"));
-    expect(screen.getByTestId("feedback-fields-req")).toBeTruthy();
+    await screen.findByTestId("feedback-title-input");
+    // 只剩这两个可编辑的东西。
+    expect(screen.getByTestId("feedback-title-input")).toBeTruthy();
+    expect(screen.getByTestId("feedback-detail-input")).toBeTruthy();
+    // 「使用场景 / 期望能力 / 优先级 / 复现步骤……」一个都不该在。
     expect(screen.queryByTestId("feedback-fields-bug")).toBeNull();
-    expect(screen.getByTestId("feedback-field-scene")).toBeTruthy();
+    expect(screen.queryByTestId("feedback-fields-req")).toBeNull();
     expect(screen.queryByTestId("feedback-field-actual")).toBeNull();
+    expect(screen.queryByTestId("feedback-field-scene")).toBeNull();
+    fireEvent.click(screen.getByTestId("feedback-kind-需求"));
+    expect(screen.queryByTestId("feedback-fields-req")).toBeNull();
+    expect(screen.queryByTestId("feedback-field-scene")).toBeNull();
   });
 });
 
@@ -91,9 +93,7 @@ describe("② 附件到 5 个后上传入口隐藏", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
-      // issue #2679 ②——附件区在 review 阶段才存在，先进 review。
-      fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
-      fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+      // 2026-09-10 人类反馈：附件区第一屏（compose 阶段）就在，不用先点「下一步」。
       await screen.findByTestId("feedback-attachment-input");
       const files = Array.from({ length: 5 }, (_, i) => new File([new Uint8Array([1])], `f${i}.png`, { type: "image/png" }));
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files } });

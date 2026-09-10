@@ -345,7 +345,9 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     fireEvent.click(screen.getByTestId("feedback-kind-需求"));
     fireEvent.click(screen.getByTestId("feedback-template-button"));
     const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
-    expect(detail.value).toContain("期望的效果");
+    // 2026-09-10：模板小节名与 `STRUCTURED_FIELDS` 同一份，不再手写第二套措辞。
+    expect(detail.value).toContain("使用场景");
+    expect(detail.value).toContain("期望能力");
     expect(detail.value).not.toContain("复现步骤");
   });
 
