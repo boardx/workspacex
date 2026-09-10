@@ -2,6 +2,7 @@
 
 > 面向：要在一台新机器/新客户环境上把 WorkspaceX 跑起来的**人类**（部分步骤必须 root）。
 > 判据与纪律见 `.harness/instructions/deployment-verification-standard.md`。
+> **开工前先按 `aliyun-new-server-intake.md` 把机器/域名/凭据备齐**（那份只列「要准备什么」，不复述本文的步骤）。
 > 本文档只写"做什么、怎么验"，不复述那份标准里的道理。
 
 ## 0. 谁做什么（这一节先看，能省掉一整轮来回）

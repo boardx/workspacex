@@ -122,10 +122,18 @@ services:
       # 这里，换字体时只改了前者，容器于是拿着一个**已经不存在的**路径跑，部署自检当场红。
       # 一个事实一处声明——本仓栽过五次的同一条。门控见 deploy-image-freshness.test.ts。
       TMPDIR: /tmp
-    mem_limit: 1g
-    memswap_limit: 1g
-    cpus: 1.0
-    pids_limit: 128
+      # 并发 session 容量的部署可配项（deploy.env 的 SKILL_SANDBOX_MAX_SESSIONS）。
+      # ⚠ 这里**不写默认值** —— 默认值只声明在 packages/contracts/src/sandbox-session.ts 的
+      #   `maxSessions`，容器读到空串就用那个默认（session/schema.ts 的 resolveMaxSessions）。
+      #   在这里写一份 `:-16` 等于把同一个事实声明在第二处，本仓已为此栽过五次。
+      SKILL_SANDBOX_MAX_SESSIONS: ${SKILL_SANDBOX_MAX_SESSIONS:-}
+    # ⚠ 调大 SKILL_SANDBOX_MAX_SESSIONS 必须同时调大这三项，否则超出的并发不再是一个
+    #   说得清的 SESSION_LIMIT 拒绝，而是容器 OOM——把可解释的拒绝换成不可解释的崩溃。
+    #   默认值只在这里声明一次（契约管 session 数，compose 管这份容量背后的资源）。
+    mem_limit: ${SKILL_SANDBOX_MEM_LIMIT:-1g}
+    memswap_limit: ${SKILL_SANDBOX_MEM_LIMIT:-1g}
+    cpus: ${SKILL_SANDBOX_CPUS:-1.0}
+    pids_limit: ${SKILL_SANDBOX_PIDS_LIMIT:-128}
     restart: unless-stopped
 
   # #2929: persistent Native sessions use a dedicated service. It shares only its UDS
@@ -155,10 +163,18 @@ services:
       SKILL_SANDBOX_SOCKET: /run/sessions/skill-sandbox.sock
       SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
       TMPDIR: /tmp
-    mem_limit: 1g
-    memswap_limit: 1g
-    cpus: 1.0
-    pids_limit: 128
+      # 并发 session 容量的部署可配项（deploy.env 的 SKILL_SANDBOX_MAX_SESSIONS）。
+      # ⚠ 这里**不写默认值** —— 默认值只声明在 packages/contracts/src/sandbox-session.ts 的
+      #   `maxSessions`，容器读到空串就用那个默认（session/schema.ts 的 resolveMaxSessions）。
+      #   在这里写一份 `:-16` 等于把同一个事实声明在第二处，本仓已为此栽过五次。
+      SKILL_SANDBOX_MAX_SESSIONS: ${SKILL_SANDBOX_MAX_SESSIONS:-}
+    # ⚠ 调大 SKILL_SANDBOX_MAX_SESSIONS 必须同时调大这三项，否则超出的并发不再是一个
+    #   说得清的 SESSION_LIMIT 拒绝，而是容器 OOM——把可解释的拒绝换成不可解释的崩溃。
+    #   默认值只在这里声明一次（契约管 session 数，compose 管这份容量背后的资源）。
+    mem_limit: ${SKILL_SANDBOX_MEM_LIMIT:-1g}
+    memswap_limit: ${SKILL_SANDBOX_MEM_LIMIT:-1g}
+    cpus: ${SKILL_SANDBOX_CPUS:-1.0}
+    pids_limit: ${SKILL_SANDBOX_PIDS_LIMIT:-128}
     restart: unless-stopped
 
 volumes:
