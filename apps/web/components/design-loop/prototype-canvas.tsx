@@ -422,9 +422,17 @@ function BrowserBar({ label }: { label: string }) {
 }
 
 export function PrototypeCanvas({
-  label, root, selectedId = null, onSelect = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
+  label, root, selectedId = null, onSelect = null, ungenerated = false, onRegenerate = null, device = DEVICE_PRESETS[1]!, landscape = false, frameIndex, mode = "edit", links, onNavigate = null, theme = "dark",
 }: {
   label: string; root: PrototypeNode | null; selectedId?: string | null; onSelect?: ((id: string | null) => void) | null;
+  /**
+   * issue #3340：这一页**规划了但没画出来**（分页生成里那一轮失败），不同于「整个项目还没有原型」。
+   * 两种空长得一样、说同一句话，等于把「有 2 页没画出来」这个事实藏起来——用户看到的是
+   * 5 页只出来 3 页，而画布上没有任何痕迹。
+   */
+  ungenerated?: boolean;
+  /** 给了就在未生成的页上显示「补画这一页」；点它发一句普通对话，不新开接口。 */
+  onRegenerate?: (() => void) | null;
   /** 迭代 11：编辑 / 预览；本页跳转表；预览模式点有跳转的节点 ⇒ `onNavigate(目标页序号)`。 */
   mode?: PrototypeCanvasMode; links?: readonly PrototypeLink[]; onNavigate?: ((to: number) => void) | null;
   /** 迭代 8：这块屏是第几页——导出 PNG 按它找到 DOM。 */
@@ -467,12 +475,32 @@ export function PrototypeCanvas({
       {device.chrome === "browser" ? <BrowserBar label={label} /> : <StatusBar label={label} />}
       {device.chrome === "phone" && <PhoneNotch island={device.island === true} />}
       {root === null ? (
-        <div className="flex flex-1 flex-col gap-2 p-3" data-testid="design-detail-phone-placeholder">
+        <div
+          className="flex flex-1 flex-col gap-2 p-3"
+          data-testid={ungenerated ? "design-detail-phone-ungenerated" : "design-detail-phone-placeholder"}
+        >
           <div className="h-8 rounded-control bg-panel" aria-hidden />
           <div className="h-20 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-3/4 rounded-control bg-panel" aria-hidden />
           <div className="h-3 w-1/2 rounded-control bg-panel" aria-hidden />
-          <p className="mt-auto text-center text-11 text-muted-foreground">还没有原型。在左边描述你要的界面，我会直接画出来。</p>
+          {ungenerated ? (
+            <div className="mt-auto flex flex-col items-center gap-1.5">
+              {/* 说的是事实：这一页规划过、这一轮没画出来，别的页不受影响。 */}
+              <p className="text-center text-11 text-muted-foreground">这一页没画出来。其余页不受影响。</p>
+              {onRegenerate !== null && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRegenerate(); }}
+                  className="rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="design-detail-regenerate-frame"
+                >
+                  补画这一页
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="mt-auto text-center text-11 text-muted-foreground">还没有原型。在左边描述你要的界面，我会直接画出来。</p>
+          )}
         </div>
       ) : (
         <div

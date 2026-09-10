@@ -63,14 +63,29 @@ export interface AppendProjectChatDeps extends DesignProjectDeps {
  * 宁可不写，也不写坏），而不是让它把已经画好的几页一起带走。
  */
 function framesKeepPagesAligned(
-  prototype: readonly designPrototype.PrototypeNode[],
+  prototype: readonly (designPrototype.PrototypeNode | null)[],
   frames: readonly string[],
 ): boolean {
   return prototype.length === 0 || prototype.length === frames.length;
 }
 
+/**
+ * issue #3340：给有树的页补 id，**未生成的页保持未生成**（落成 `null`）。
+ *
+ * 不能直接 `ensurePrototypeIds(screens.map(s => s.root))`——那会把 `undefined` 当成一棵树
+ * 去遍历。id 要看**整个项目**（跨页唯一），所以补完再按原位置放回去，不是逐页各补各的。
+ */
+function ensureIdsKeepingHoles(
+  screens: readonly { readonly root?: designPrototype.PrototypeNode }[],
+): readonly (designPrototype.PrototypeNode | null)[] {
+  const withTrees = screens.flatMap((s, i) => (s.root === undefined ? [] : [{ i, root: s.root }]));
+  const ids = designPrototype.ensurePrototypeIds(withTrees.map((x) => x.root));
+  const byIndex = new Map(withTrees.map((x, k) => [x.i, ids[k]!]));
+  return screens.map((_, i) => byIndex.get(i) ?? null);
+}
+
 /** 迭代 2：把前端传来的 `focusNodeId` 解析成给模型看的焦点描述；找不到（已被删）⇒ 当没选。 */
-function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly designPrototype.PrototypeNode[] }, id: string | undefined) {
+function focusFor(row: { readonly frames: readonly string[]; readonly prototype: readonly (designPrototype.PrototypeNode | null)[] }, id: string | undefined) {
   if (id === undefined) return {};
   const hit = designPrototype.findPrototypeNodePath(row.prototype, id);
   if (hit === null) return {};
@@ -110,8 +125,18 @@ export async function appendProjectChat(
     chat: [...current.chat, { role: "user", text: input.text, at: new Date().toISOString() }],
   });
 
-  const screens = ai.writeback.prototype;
-  let patched: readonly { readonly root: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[] | undefined;
+  /**
+   * issue #3340：分页生成给的是 `pagedScreens`（**含没画出来的页**，`root` 缺省），
+   * 它是服务端事实、优先于模型写回。整页写回（`writeback.prototype`）仍是老形状，
+   * 每页都必须有树——两条路在这里汇成同一个「屏数组」，下游只认 `root` 可缺。
+   */
+  const screens: readonly {
+    readonly frame: string;
+    readonly root?: designPrototype.PrototypeNode;
+    readonly notes?: string;
+    readonly links?: readonly designPrototype.PrototypeLink[];
+  }[] | undefined = ai.pagedScreens ?? ai.writeback.prototype;
+  let patched: readonly { readonly root?: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[] | undefined;
   if (screens === undefined && ai.writeback.patch !== undefined) {
     if (current.prototype.length === 0) {
       deps.logger?.info("design chat: patch rejected, project has no prototype yet", { projectId: input.projectId, traceId: deps.traceId ?? "" });
@@ -143,11 +168,11 @@ export async function appendProjectChat(
     ...(screens !== undefined
       ? {
           frames: screens.map((s) => s.frame),
-          prototype: designPrototype.ensurePrototypeIds(screens.map((s) => s.root)),
+          prototype: ensureIdsKeepingHoles(screens),
           frameNotes: screens.map((s) => (s.notes ?? "").trim()),
           frameLinks: linkCheck?.links.map((l) => [...l]) ?? [],
         }
-      : patched !== undefined ? { prototype: patched.map((s) => s.root), frameLinks: patched.map((s) => [...(s.links ?? [])]) }
+      : patched !== undefined ? { prototype: patched.map((s) => s.root ?? null), frameLinks: patched.map((s) => [...(s.links ?? [])]) }
       : ai.writeback.frames !== undefined && framesKeepPagesAligned(current.prototype, ai.writeback.frames)
         ? { frames: ai.writeback.frames } : {}),
   };

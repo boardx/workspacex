@@ -28,7 +28,7 @@ const childrenOf = (n: PrototypeNode): readonly PrototypeNode[] =>
  * 根节点没有父 ⇒ `parent` 为 null（根不能删、不能移、不能复制，调用方据此禁用按钮）。
  */
 export function locate(
-  prototype: readonly PrototypeNode[],
+  prototype: readonly (PrototypeNode | null)[],
   id: string,
 ): { readonly node: PrototypeNode; readonly parent: PrototypeNode | null; readonly index: number; readonly siblings: readonly PrototypeNode[] } | null {
   const hit = designPrototype.findPrototypeNodePath(prototype, id);
@@ -54,7 +54,7 @@ export function stripIds(n: PrototypeNode): PrototypeNode {
 }
 
 /** 复制选中节点，副本紧跟在它后面。根节点不可复制（一页只有一个根）。 */
-export function duplicateOps(prototype: readonly PrototypeNode[], id: string): readonly PrototypePatchOp[] | null {
+export function duplicateOps(prototype: readonly (PrototypeNode | null)[], id: string): readonly PrototypePatchOp[] | null {
   const at = locate(prototype, id);
   if (at === null || at.parent?.id === undefined || at.index < 0) return null;
   return [{ op: "insert", parentId: at.parent.id, index: at.index + 1, node: stripIds(at.node) }];
@@ -69,7 +69,7 @@ export function duplicateOps(prototype: readonly PrototypeNode[], id: string): r
  * 这一处差一格就会变成"下移两格"或"原地不动"，V80 用真实的树钉住它。
  */
 export function moveOps(
-  prototype: readonly PrototypeNode[],
+  prototype: readonly (PrototypeNode | null)[],
   id: string,
   dir: -1 | 1,
 ): readonly PrototypePatchOp[] | null {
@@ -84,7 +84,7 @@ export function moveOps(
 
 /** 键盘导航的四个方向。返回要选中的节点 id，走不动就返回 `null`（保持原选中，不清空）。 */
 export function navigate(
-  prototype: readonly PrototypeNode[],
+  prototype: readonly (PrototypeNode | null)[],
   id: string,
   dir: "up" | "down" | "prev" | "next",
 ): string | null {

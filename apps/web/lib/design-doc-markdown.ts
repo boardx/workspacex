@@ -67,7 +67,10 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
       // 迭代 8：每页交互说明先于结构大纲——工程先读「这页做什么」再看「里面有什么」。
       const note = (project.frameNotes[i] ?? "").trim();
       if (note !== "") lines.push(`> ${note.replace(/\n+/g, " ")}`, "");
-      lines.push(...outlinePrototype(root), "");
+      // issue #3340：没画出来的页**如实写出来**，不静默跳过——文档少一页而不说，
+      // 读者会以为设计就是这么定的。
+      if (root === null) lines.push("> ⚠ 这一页规划了但没画出来（生成时这一轮失败）。", "");
+      else lines.push(...outlinePrototype(root), "");
       // 迭代 11：这页点了之后去哪。工程照着实现路由，所以写成「哪个控件 → 第几页（标签）」，
       // 不是裸的节点 id——文档的读者是人。
       const links = project.frameLinks?.[i] ?? [];

@@ -141,7 +141,10 @@ export function mergeScreens(current: readonly StoredScreen[], patch: DesignProj
   const frames = patch.frames ?? current.map((x) => x.frame);
   return frames.map((frame, i) => {
     const keep = patch.frames === undefined || patch.frames.length === current.length ? current[i] : undefined;
-    const root = patch.prototype !== undefined ? patch.prototype[i] : keep?.root;
+    // issue #3340：patch 里的 `null` = 这页没画出来 ⇒ **不落 `root` 字段**（`StoredScreen.root`
+    // 可选就是「未生成」的存法），而不是存一个 null 进 jsonb 让读侧再去分辨两种空。
+    const rootIn = patch.prototype !== undefined ? patch.prototype[i] : keep?.root;
+    const root = rootIn ?? undefined;
     const notes = patch.frameNotes !== undefined ? patch.frameNotes[i] : keep?.notes;
     const links = patch.frameLinks !== undefined ? patch.frameLinks[i] : keep?.links;
     return {
@@ -154,8 +157,15 @@ export function mergeScreens(current: readonly StoredScreen[], patch: DesignProj
 }
 
 /** 全部页都有树才算「有原型」——与既有语义一致（要么空、要么与页数等长）。 */
-function prototypeOf(screens: readonly StoredScreen[]): readonly PrototypeNode[] {
-  return screens.length > 0 && screens.every((s) => s.root !== undefined) ? screens.map((s) => s.root!) : [];
+export function prototypeOf(screens: readonly StoredScreen[]): readonly (PrototypeNode | null)[] {
+  /**
+   * issue #3340：缺树的页投影成 `null`，**不再让一页缺树把整份 prototype 抹成 `[]`**。
+   *
+   * 旧写法是「全有全无」：`every(root !== undefined) ? map(root!) : []`。它把「5 页里第 1、5
+   * 页没画出来」变成「这个项目没有原型」——用户看到的是 3 页凭空存在、另外 2 页无迹可寻。
+   * 存储层（`StoredScreen.root` 可选）本来就存得下这个洞，是读侧把它压平了。
+   */
+  return screens.map((s) => s.root ?? null);
 }
 
 /**

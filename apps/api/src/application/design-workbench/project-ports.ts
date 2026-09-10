@@ -37,8 +37,11 @@ export interface DesignProjectRow {
   readonly problem: string;
   readonly criteria: readonly string[];
   readonly frames: readonly string[];
-  /** B5.3：按位置对应 `frames[i]` 的组件树；`[]` = 还没生成（契约 `DesignProject.prototype` 不变量）。 */
-  readonly prototype: readonly PrototypeNode[];
+  /**
+   * B5.3：按位置对应 `frames[i]` 的组件树；`[]` = 还没生成。
+   * issue #3340：单项 `null` = **这一页规划了但没画出来**（分页生成里那一轮失败）。
+   */
+  readonly prototype: readonly (PrototypeNode | null)[];
   /** 迭代 8：每页交互说明，与 `frames` 同长或空。 */
   readonly frameNotes: readonly string[];
   /** 迭代 13：原型自己的明暗主题；老行为空。 */
@@ -73,7 +76,8 @@ export interface PrototypeVersionRow {
   readonly source: "model" | "user" | "restore";
   readonly summary: string;
   readonly frames: readonly string[];
-  readonly prototype: readonly PrototypeNode[];
+  /** 同 `DesignProjectRow.prototype`：单项 `null` = 拍快照那一刻这页还没画出来。 */
+  readonly prototype: readonly (PrototypeNode | null)[];
   readonly notes: readonly string[];
   /** 迭代 11：那一版的跳转关系，恢复时一起写回。 */
   readonly links: readonly (readonly PrototypeLink[])[];
@@ -118,7 +122,7 @@ export interface DesignProjectPatch {
    * B5.3：与 `frames` 一起给 ⇒ 整页重生成（长度必须相等，`append-project-chat.ts` 负责拆）；
    * 只给 `frames` 不给 `prototype` ⇒ 仓储把 `prototype` 清成 `[]`（标签变了，旧树不再对应）。
    */
-  readonly prototype?: readonly PrototypeNode[];
+  readonly prototype?: readonly (PrototypeNode | null)[];
   /** 迭代 8：与 `frames` 一起给；只给 `frames` 不给它 ⇒ 仓储清成 `[]`。 */
   readonly frameNotes?: readonly string[];
   readonly theme?: "light" | "dark";
