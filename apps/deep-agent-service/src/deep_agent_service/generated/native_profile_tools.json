@@ -81,7 +81,7 @@
     "wx_knowledge_read": false,
     "wx_canvas_read": false,
     "wx_canvas_update": false,
-    "wx_document_parse": false,
+    "wx_document_parse": true,
     "sql_db_list_tables": false,
     "sql_db_schema": false,
     "sql_db_query_checker": false,

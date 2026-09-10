@@ -43,7 +43,6 @@ const L0_READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "sql_db_schema",          // 读表结构；同上，不执行用户 SQL。
   "sql_db_query_checker",   // 只对 SQL 字符串做静态/模型校验，不连库执行（执行的是 `sql_db_query`，L2）。
   "wx_schedule_list",       // 枚举本组织已有日程；`wx_schedule_create` / `wx_schedule_cancel` 才是写面。
-  "wx_document_parse",      // 把已在工作区里的文件解析成文本交回模型，不产生外部写入。
   "wx_audio_transcribe",    // 转写一个已存在的附件，读入产出文本，不改附件。
   "task",                   // deepagents 同步子代理委派：它本身无副作用，子代理调的每一件工具
                             // 仍逐个过同一张 `interrupt_on` 表——在这里拦它等于把内层的分级重复计一次。
@@ -86,6 +85,13 @@ const L2_HIGH_RISK_TOOLS: ReadonlySet<string> = new Set([
   "sql_db_query",          // 真连库执行模型给出的 SQL，可能是 DML ⇒ 外部系统写入。
   "wx_schedule_create",    // 创建将来会自动触发的执行，是"授权一串未来的 run"，不是一次写。
   "wx_schedule_cancel",    // 取消用户配置的日程，与已在档的 `wx_run_cancel` 同性质。
+  "wx_document_parse",     // 按性质它是只读的（解析工作区里已有的文件，无外部写入），本该是 L0。
+                           // 但 `standard-document-locators-http.test.ts` 的生产授权链断言
+                           // 「未授权的第一次调用必须 503」——它今天依赖这件工具是 L2。那条断言里
+                           // 没写明这是不是刻意的产品判断（不像 #3159 有白纸黑字的理由），而放宽它
+                           // 等于**在一个补门控的 PR 里顺手改动一条安全形状的断言**。
+                           // 所以这里按既有行为显式登记为 L2：本 PR 只负责把「没人判断过」变成
+                           // 「判断过」，不夹带放宽。是否降到 L0 另开 issue 由人决定。
   "spawn_async_task",      // durable 子任务派发本身就是有副作用的动作（#3159 的既定判定，
                            // 由 `native-profile-tools-generated.test.ts` 钉住）。登记的目的是让它
                            // **存在于准入表**，不是顺手放行——所以显式写在 L2，而不是靠兜底。
