@@ -50,6 +50,28 @@ export const TemplateVisibility = z.enum(["org-wide", "team-only"]);
 export const PaperSize = z.enum(["A1", "A3", "A4"]);
 
 /**
+ * 画布网格的密度——人类实测反馈（2026-09-10）：「现在的这个格子感觉不够用……现在是
+ * 8*12」。四阶段 × 五维度的用户旅程图已经把 8 行用满，再加一个阶段就没地方放。
+ *
+ * ## 为什么是**持久化**的两个数，而不是编辑器里一个开关
+ *
+ * `SectionLayout` 的 `col`/`row`/`w`/`h` 是**网格坐标**，脱离"这张网格几列几行"就
+ * 没有意义。以前行数写死 8、渲染侧写死 12 列（`fence-template-resolver.ts`），
+ * 所以不存这两个数也能对上；一旦允许换密度，同一份 `layout` 在 12×8 与 24×16 下
+ * 指的是纸面上完全不同的位置——不存下来，模板保存的那一刻几何就漂了。
+ *
+ * ## 老数据缺省 12×8，一个字节不改
+ *
+ * 19 个内置模板与所有既有组织模板的坐标都是在 12×8 上拖出来的。两栏都 `.optional()`
+ * （落库默认 12/8），历史行原样成立——不需要把它们的 col/row 乘 2 迁移一遍，那种
+ * 一次性重算是这次刻意不选的方案（迁移错了就是全量模板错位）。
+ */
+export const GridCols = z.union([z.literal(6), z.literal(12), z.literal(24)]);
+export const GridRows = z.union([z.literal(8), z.literal(16)]);
+export const DEFAULT_GRID_COLS = 12;
+export const DEFAULT_GRID_ROWS = 8;
+
+/**
  * 一行模板的几何/呈现内容是「组织真的编辑过」还是「只是 backfill 推算出来的默认值」——
  * 单一事实源（#2221）。**不是**「DB 里有没有行」：`backfill-canvas-builtin-templates.ts`
  * 给每个开通过的组织把 19 个内置 key 的行都建好了，"有行"对内置 key 恒真，不能拿它当
@@ -533,6 +555,13 @@ export const operations = {
        * 才把省略归一成 `"A1"`（既有 19 个内置模板与所有历史行的既有物理尺寸）。
        */
       size: PaperSize.optional(),
+      /**
+       * 网格密度——见 `GridCols`/`GridRows` 文件头。同 `size` 的 `.optional()` 理由：
+       * 省略与显式传 12/8 在契约层不是同一件事，应用层落库前才把省略归一成默认值
+       * （既有模板的坐标都是在 12×8 上拖出来的）。
+       */
+      gridCols: GridCols.optional(),
+      gridRows: GridRows.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -550,6 +579,9 @@ export const operations = {
       tags: z.array(z.string()),
       /** 出门永远是真实枚举值（落库时已经把省略归一成 `"A1"`），不是可选。 */
       size: PaperSize,
+      /** 出门永远是真实数字（落库时已经把省略归一成 12/8），不是可选。 */
+      gridCols: GridCols,
+      gridRows: GridRows,
       /**
        * #2221：新建的这一行**恒为** `builtin-derived`——创建路径不接受这一栏，服务端写死。
        * 「组织真的自定义过」这件事只能由后续一次真实编辑（`updateTemplateDraft`/
@@ -593,6 +625,13 @@ export const operations = {
       tags: z.array(z.string()).optional(),
       /** 同 `createTemplate.in.size`——`.optional()` 省略时应用层落库前归一成 `"A1"`。 */
       size: PaperSize.optional(),
+      /**
+       * 网格密度——见 `GridCols`/`GridRows` 文件头。同 `size` 的 `.optional()` 理由：
+       * 省略与显式传 12/8 在契约层不是同一件事，应用层落库前才把省略归一成默认值
+       * （既有模板的坐标都是在 12×8 上拖出来的）。
+       */
+      gridCols: GridCols.optional(),
+      gridRows: GridRows.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -605,6 +644,9 @@ export const operations = {
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
       size: PaperSize,
+      /** 出门永远是真实数字（落库时已经把省略归一成 12/8），不是可选。 */
+      gridCols: GridCols,
+      gridRows: GridRows,
       /**
        * #2221：本操作就是「编辑器保存草稿的分区/几何」，恒写 `user-edited`（一旦落这个值，
        * 不可退回 `builtin-derived`——见 `TemplateLayoutSource` 的完整语义）。
@@ -933,6 +975,13 @@ export const operations = {
        * 既有归一规则，没有「继承上一版」这种隐式默认值，见下方用例实现）。
        */
       size: PaperSize.optional(),
+      /**
+       * 网格密度——见 `GridCols`/`GridRows` 文件头。同 `size` 的 `.optional()` 理由：
+       * 省略与显式传 12/8 在契约层不是同一件事，应用层落库前才把省略归一成默认值
+       * （既有模板的坐标都是在 12×8 上拖出来的）。
+       */
+      gridCols: GridCols.optional(),
+      gridRows: GridRows.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -946,6 +995,9 @@ export const operations = {
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
       size: PaperSize,
+      /** 出门永远是真实数字（落库时已经把省略归一成 12/8），不是可选。 */
+      gridCols: GridCols,
+      gridRows: GridRows,
       /**
        * #2221：真实 HTTP 调用（编辑器「基于此开新版」）恒写 `user-edited`——铸新版本
        * 本身就是一次真实编辑。只有 `backfill-canvas-builtin-templates.ts` 走的内部
@@ -998,6 +1050,9 @@ export const operations = {
         recommendAfter: z.array(z.string()),
         /** 见 `PaperSize`。既有历史行（本字段上线前建的）落库时归一成 `"A1"`。 */
         size: PaperSize,
+        /** 出门永远是真实数字（落库时已经把省略归一成 12/8），不是可选。 */
+        gridCols: GridCols,
+        gridRows: GridRows,
         /**
          * 这一条来自**平台模板库**（B2 全局母版），不是本组织自己的行。
          *

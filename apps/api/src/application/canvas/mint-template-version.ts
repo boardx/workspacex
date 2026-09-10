@@ -35,12 +35,15 @@
 import type { OrgId } from "../../domain/org-id";
 import type { VisibilityScope } from "../../domain/identity/roles";
 import type { IdentityRepository } from "../identity/ports";
+import { canvas } from "@repo/contracts";
 import { CanvasError } from "./errors";
 import { requireTemplateAdmin } from "./template-admin";
 import type {
   CanvasTemplateRepository,
   MintedCanvasTemplateVersion,
   PaperSize,
+  GridCols,
+  GridRows,
 } from "./template-ports";
 
 export interface MintTemplateVersionDeps {
@@ -61,6 +64,12 @@ export interface MintTemplateVersionInput {
   readonly tags?: readonly string[];
   /** 省略在契约层归一成 `"A1"`——**不**继承上一版，见契约 `mintTemplateVersion.in.size` 文件头。 */
   readonly size?: PaperSize;
+  /**
+   * 网格密度——同 `size` 的归一规则：省略在这里落成默认 12×8（既有模板的坐标都是在
+   * 12×8 上拖出来的），**不**继承上一版。见契约 `GridCols`/`GridRows` 文件头。
+   */
+  readonly gridCols?: GridCols;
+  readonly gridRows?: GridRows;
 }
 
 export interface MintTemplateVersionOptions {
@@ -99,6 +108,8 @@ export async function mintTemplateVersion(
     tags: input.tags ?? [],
     builtinDerived: options?.fromBackfill === true,
     size: input.size ?? "A1",
+    gridCols: input.gridCols ?? canvas.DEFAULT_GRID_COLS,
+    gridRows: input.gridRows ?? canvas.DEFAULT_GRID_ROWS,
   });
 
   if (!outcome.minted) {

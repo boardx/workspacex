@@ -51,6 +51,9 @@ export type CanvasTemplateListing = z.infer<
 
 /** 纸张尺寸——逐字派生自契约 `PaperSize`，不在这里另声明一份枚举。 */
 export type PaperSize = z.infer<typeof canvas.PaperSize>;
+/** 网格密度——同样逐字派生自契约，不在这里第二次写这两组数字。 */
+export type GridCols = z.infer<typeof canvas.GridCols>;
+export type GridRows = z.infer<typeof canvas.GridRows>;
 
 /** 判定所需，永不披露。 */
 export interface CanvasTemplateScopeFacts {
@@ -191,6 +194,8 @@ export interface CanvasTemplateRepository {
     readonly tags: readonly string[];
     /** 落库前已由用例把 `in.size` 的省略归一成 `"A1"`——仓储永远收到真枚举值。 */
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<CreateTemplateOutcome>;
 
   /**
@@ -227,6 +232,8 @@ export interface CanvasTemplateRepository {
     readonly builtinDerived: boolean;
     /** 同 `create()` 的 `size`——用例已归一成真枚举值，留空不继承上一版（见契约文件头）。 */
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<MintTemplateVersionOutcome>;
 
   findVersion(
@@ -258,6 +265,8 @@ export interface CanvasTemplateRepository {
     readonly tags: readonly string[];
     /** 同 `create()` 的 `size`——用例已归一成真枚举值，全量替换（同 sections/displayName）。 */
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<UpdateDraftOutcome>;
 
   /**

@@ -31,6 +31,8 @@ import type {
   GuardedCanvasTemplate,
   ListCanvasTemplatesQuery,
   MintTemplateVersionOutcome,
+  GridCols,
+  GridRows,
   PaperSize,
   PublishOutcome,
   SegmentBindingRow,
@@ -68,6 +70,9 @@ interface TemplateSqlRow {
   /** #2221——见 `template-ports.ts` 的 `layoutSource`/`builtinDerived` 完整语义。 */
   layout_source: "builtin-derived" | "user-edited";
   size: PaperSize;
+  /** 网格密度（issue 用户直接交办，2026-09-10）——见 `canvas_templates.grid_cols` 列注释。 */
+  grid_cols: GridCols;
+  grid_rows: GridRows;
   created_at: Date;
   updated_at: Date;
 }
@@ -103,6 +108,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
                 t.title, t.footer, t.prompt_text, t.recommend_after, t.layout_source, t.size,
+                t.grid_cols, t.grid_rows,
                 t.created_at, t.updated_at,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
@@ -149,6 +155,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly ownerTeamId: string | null;
     readonly tags: readonly string[];
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<CreateTemplateOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -163,17 +171,21 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         tags: readonly string[];
         layout_source: string;
         size: PaperSize;
+        grid_cols: GridCols;
+        grid_rows: GridRows;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size)
-         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[], 'builtin-derived', $9
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size,
+            grid_cols, grid_rows)
+         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[], 'builtin-derived', $9,
+                $10, $11
           WHERE NOT EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source, size`,
+                   underlying_type, sections, tags, layout_source, size, grid_cols, grid_rows`,
         [
           cmd.orgId,
           cmd.key,
@@ -184,6 +196,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           JSON.stringify(cmd.sections),
           [...cmd.tags],
           cmd.size,
+          cmd.gridCols,
+          cmd.gridRows,
         ],
       );
       const row = r.rows[0];
@@ -206,6 +220,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           layoutSource: assertLiteral(row.layout_source, "builtin-derived", "layout_source"),
           size: row.size,
+          gridCols: row.grid_cols,
+          gridRows: row.grid_rows,
         },
       };
     });
@@ -232,6 +248,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly tags: readonly string[];
     readonly builtinDerived: boolean;
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<MintTemplateVersionOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -246,10 +264,13 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         tags: readonly string[];
         layout_source: string;
         size: PaperSize;
+        grid_cols: GridCols;
+        grid_rows: GridRows;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size)
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size,
+            grid_cols, grid_rows)
          SELECT $1, $2,
                 (SELECT coalesce(max(version), 0) + 1
                    FROM canvas_templates WHERE org_id = $1 AND key = $2),
@@ -266,13 +287,13 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
                   WHEN $9::boolean THEN 'builtin-derived'
                   ELSE 'user-edited'
                 END,
-                $10
+                $10, $11, $12
           WHERE EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source, size`,
+                   underlying_type, sections, tags, layout_source, size, grid_cols, grid_rows`,
         [
           cmd.orgId,
           cmd.key,
@@ -284,6 +305,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           [...cmd.tags],
           cmd.builtinDerived,
           cmd.size,
+          cmd.gridCols,
+          cmd.gridRows,
         ],
       );
       const row = r.rows[0];
@@ -310,6 +333,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           layoutSource: row.layout_source === "user-edited" ? "user-edited" : "builtin-derived",
           size: row.size,
+          gridCols: row.grid_cols,
+          gridRows: row.grid_rows,
         },
       };
     });
@@ -376,6 +401,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
               : [...row.recommend_after],
           layoutSource: row.layout_source,
           size: row.size,
+          gridCols: row.grid_cols,
+          gridRows: row.grid_rows,
           createdAt: row.created_at.toISOString(),
           updatedAt: row.updated_at.toISOString(),
           // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
@@ -435,6 +462,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly visibility: VisibilityScope;
     readonly tags: readonly string[];
     readonly size: PaperSize;
+    readonly gridCols: GridCols;
+    readonly gridRows: GridRows;
   }): Promise<UpdateDraftOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -449,18 +478,22 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         tags: readonly string[];
         layout_source: string;
         size: PaperSize;
+        grid_cols: GridCols;
+        grid_rows: GridRows;
       }>(
         // #2221：本操作是「编辑器保存草稿的分区/几何」，恒写 'user-edited'——不需要
         // 单调不可退回的 CASE（backfill 不走这条路径，见 `update-template-draft.ts`）。
         `UPDATE canvas_templates
             SET display_name = $4, sections = $5::jsonb, visibility = $6, tags = $7::text[],
-                layout_source = 'user-edited', size = $8, updated_at = now()
+                layout_source = 'user-edited', size = $8, grid_cols = $9, grid_rows = $10,
+                updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3 AND status = 'draft'
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source, size`,
+                   underlying_type, sections, tags, layout_source, size, grid_cols, grid_rows`,
         [
           cmd.orgId, cmd.key, cmd.version, cmd.displayName,
           JSON.stringify(cmd.sections), cmd.visibility, [...cmd.tags], cmd.size,
+          cmd.gridCols, cmd.gridRows,
         ],
       );
       const row = r.rows[0];
@@ -485,6 +518,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           layoutSource: assertLiteral(row.layout_source, "user-edited", "layout_source"),
           size: row.size,
+          gridCols: row.grid_cols,
+          gridRows: row.grid_rows,
         },
       };
     });
