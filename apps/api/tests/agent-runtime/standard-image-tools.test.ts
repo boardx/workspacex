@@ -22,10 +22,10 @@ async function setup(){
  const authority={check:vi.fn<ToolExecutionAuthority['check']>().mockResolvedValue({allowed:true})};
  const identities={findOrganization:vi.fn<IdentityRepository['findOrganization']>().mockResolvedValue({kind:'shared'} as never)};
  const intentKey=`image-generation/${hash(context.orgId)}/${hash(context.parentRunId)}/${hash(args.idempotencyKey)}/intent.json`;
- const provider={modelRef:'fixed-model',generateImage:vi.fn<ImageGenerator['generateImage']>(async()=>{expect(await objects.get(intentKey)).not.toBeNull();return {url:'https://provider.test/image.png',taskId:'task-1',modelRef:'fixed-model'};})};
+ const provider={modelRef:'fixed-model',generateImage:vi.fn<ImageGenerator['generateImage']>(async()=>{expect(await objects.get(intentKey)).not.toBeNull();return {delivery:'url' as const,url:'https://provider.test/image.png',taskId:'task-1',modelRef:'fixed-model'};})};
  const downloader={download:vi.fn(async()=>({bytes:Buffer.from('fake unit bytes; real image codec verified in fullchain'),mime:'image/png' as const}))};
  const service=()=>new DefaultStandardImageService(owner,inputs,()=>session,authority,identities,objects,provider,downloader);
- return {service,provider,session,authority,identities,inputs,owner,objects,files};
+ return {service,provider,session,authority,identities,inputs,owner,objects,files,downloader};
 }
 it('persists intent before submission and restores completed bytes across service restart/new toolCall without resubmission',async()=>{
  const f=await setup(),first=await f.service().generate(context,args);expect(first.status).toBe('generated');expect(first).not.toHaveProperty('artifactId');expect(first).not.toHaveProperty('url');
@@ -53,4 +53,31 @@ it('a permitted reference is explicitly unsupported rather than silently ignored
 it('a codec failure returns no image receipt and no retry of the vendor',async()=>{
  const f=await setup();f.session.execute.mockImplementation(async input=>({executionId:input.executionId,exitCode:1,output:'bad image',timedOut:false,truncated:false,cancelled:false}));
  await expect(f.service().generate(context,args)).rejects.toThrow('generated_image_invalid');await expect(f.service().generate(context,args)).rejects.toThrow('unknown_outcome');expect(f.provider.generateImage).toHaveBeenCalledTimes(1);
+});
+
+/**
+ * inline 交付（OpenAI `gpt-image-*` 只回 base64，没有 URL 可下载）。
+ *
+ * 两条断言缺一不可：
+ *  ① 走 inline 时**一次也不碰 downloader**——碰了就说明服务还在假设「结果总有个第二跳」，
+ *    而 OpenAI 那条根本没有第二跳可走。
+ *  ② inline 的字节要在服务这一层就嗅探格式。url 那一支的 `sniffKind` 长在
+ *    `GeneratedImageDownloader` 里，inline 根本不经过它；少了这一行，供应商回一段 HTML
+ *    错误页也会被原样写进 workspace，直到沙箱里的 Pillow 才炸、还报在错的地方。
+ */
+const PNG_1X1=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
+it('accepts inline bytes without any download hop, and stores the same bytes it was handed',async()=>{
+ const f=await setup();
+ f.provider.generateImage.mockImplementation(async()=>({delivery:'inline' as const,bytes:PNG_1X1,taskId:'openai:gpt-image-1:1',modelRef:'fixed-model'}));
+ const receipt=await f.service().generate(context,args);
+ expect(receipt.status).toBe('generated');expect(receipt.mime).toBe('image/png');expect(receipt.taskId).toBe('openai:gpt-image-1:1');
+ expect(f.downloader.download).not.toHaveBeenCalled();
+ expect(f.files.get(receipt.workspacePath)!.equals(PNG_1X1)).toBe(true);
+ expect(receipt.sizeBytes).toBe(PNG_1X1.length);
+});
+it('rejects inline bytes that are not a real png/jpeg instead of writing them to the workspace',async()=>{
+ const f=await setup();
+ f.provider.generateImage.mockImplementation(async()=>({delivery:'inline' as const,bytes:Buffer.from('<html>rate limited</html>'),taskId:'t',modelRef:'fixed-model'}));
+ await expect(f.service().generate(context,args)).rejects.toThrow('generated_image_format');
+ expect(f.files.size).toBe(0);
 });

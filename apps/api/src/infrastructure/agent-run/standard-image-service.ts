@@ -10,6 +10,7 @@ import type {ImageContext,StandardImageService,ImageGenerator,ImageSession,Gener
 import {ObjectExistsError,type ObjectStore} from '../../application/artifact/ports';
 import type {IdentityRepository} from '../../application/identity/ports';
 import {isLocalOrg} from '../../domain/identity/local-org';
+import {sniffKind} from '../../domain/files/mime-sniff';
 const hash=(value:string|Uint8Array)=>createHash('sha256').update(value).digest('hex');
 const quote=(value:string)=>"'"+value.replaceAll("'","'\\''")+"'";
 export class DefaultStandardImageService implements StandardImageService{
@@ -48,15 +49,23 @@ export class DefaultStandardImageService implements StandardImageService{
    finally{stopWatch.abort();await watch;}
    if(generated.modelRef!==this.provider.modelRef)throw new Error('image_generation_model_changed');
    await authorize();await this.owner.resolve(context.bindingId,context);
-   const downloaded=await this.downloader.download(generated.url,signal);bytes=downloaded.bytes;
+   // 两种交付形状各自校验，不共用一条「先变成 URL 再下载」的路（见 `GeneratedImage` 头注）。
+   // inline 这一支没有第二跳可下载，所以字节的 magic-number 嗅探必须在这里做——`GeneratedImageDownloader`
+   // 里那次 `sniffKind` 只保护 url 这一支，少了这一行，供应商回一段 HTML/JSON 也会被原样写进
+   // workspace，只能等沙箱里的 Pillow 校验才炸，报错还指错了地方。
+   const delivered=generated.delivery==='url'
+    ? await this.downloader.download(generated.url,signal)
+    : ((kind)=>{if(kind!=='png'&&kind!=='jpeg')throw new Error('generated_image_format');
+       return {bytes:generated.bytes,mime:kind==='png'?'image/png' as const:'image/jpeg' as const};})(sniffKind(generated.bytes));
+   bytes=delivered.bytes;
    if(!bytes.length||bytes.length>L.maxBytes)throw new Error('generated_image_size');
-   const workspacePath=`/workspace/generated-${hash(input.idempotencyKey)}.${downloaded.mime==='image/png'?'png':'jpg'}`;
+   const workspacePath=`/workspace/generated-${hash(input.idempotencyKey)}.${delivered.mime==='image/png'?'png':'jpg'}`;
    await session.write({path:workspacePath,contentBase64:Buffer.from(bytes).toString('base64')});
    const code="from PIL import Image; import io,hashlib; from pathlib import Path; p="+JSON.stringify(workspacePath)+"; data=Path(p).read_bytes(); assert hashlib.sha256(data).hexdigest()=='"+hash(bytes)+"'; im=Image.open(io.BytesIO(data)); assert im.format in ('PNG','JPEG'); assert im.size==("+L.dimension+","+L.dimension+"); im.verify(); im=Image.open(io.BytesIO(data)); im.load(); print('VERIFIED_IMAGE')";
    await authorize();await this.owner.resolve(context.bindingId,context);
    const execution={executionId:randomUUID(),command:`python3 -c ${quote(code)}`,timeoutMs:L.verifyMs},verification=await session.execute(execution);
    if(verification.executionId!==execution.executionId||verification.exitCode!==0||verification.timedOut||verification.cancelled||verification.truncated||!verification.output.includes('VERIFIED_IMAGE'))throw new Error('generated_image_invalid');
-   receipt=ImageGenerated.parse({status:'generated',workspacePath,mime:downloaded.mime,width:L.dimension,height:L.dimension,sha256:hash(bytes),sizeBytes:bytes.length,modelRef:generated.modelRef,taskId:generated.taskId});
+   receipt=ImageGenerated.parse({status:'generated',workspacePath,mime:delivered.mime,width:L.dimension,height:L.dimension,sha256:hash(bytes),sizeBytes:bytes.length,modelRef:generated.modelRef,taskId:generated.taskId});
    await this.objects.putOnce(`${prefix}/image`,bytes,receipt.mime);
    const saved=await this.objects.get(`${prefix}/image`);if(!saved||saved.length!==bytes.length||hash(saved)!==receipt.sha256)throw new Error('image_generation_readback_failed');
    await this.objects.putOnce(`${prefix}/result.json`,Buffer.from(JSON.stringify(receipt)),'application/json');
