@@ -75,11 +75,23 @@ describe("每一件真实派发的工具都必须被显式分级（兜底 L2 = �
     expect(src).not.toMatch(/classifyToolRisk/);
   });
 
-  /** 落点：修完之后只剩下真正该打断的那些工具会打断，只读的几件不再弹框。 */
+  /** 落点：修完之后只剩下真正该打断的那些工具会打断，只读的几件不再弹框。
+   *
+   * ⚠ 这条断言最初还点名了三件 SQL 面（`sql_db_list_tables` / `sql_db_schema` /
+   * `sql_db_query_checker`）为 L0——那是**只按工具语义**推的，撞上了仓里既有的一条
+   * 具名生产授权链断言：`standard-sql-source-real-db.test.ts` 要求未授权的
+   * `sql_db_list_tables` 必须 503。三件 SQL 面共用 `/sql/source/check` 这一道
+   * **数据源准入**，风险单位是"接上一个外部数据库"而不是读/写，所以它们整体留在 L2
+   * （显式登记，行为与本 PR 之前逐字相同）。同理 `wx_memory_write` 被
+   * `standard-memory-real-db.test.ts` 钉在 L2。 */
   it("落点：只读工具不再触发审批打断，危险工具照旧触发", () => {
     const { L0, L2 } = RISK_TIER_WHITELISTS;
-    for (const name of ["sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "wx_schedule_list", "web_search"]) {
+    for (const name of ["wx_schedule_list", "web_search", "wx_audio_transcribe", "task"]) {
       expect(L0.has(name), `${name} 按性质只读，不该打断`).toBe(true);
+    }
+    // 外部数据源准入与记忆写：由既有的具名授权链断言判定，不按工具语义放宽。
+    for (const name of ["sql_db_list_tables", "sql_db_schema", "sql_db_query_checker", "wx_memory_write"]) {
+      expect(L2.has(name), `${name} 由既有生产授权链断言钉在 L2`).toBe(true);
     }
     // 反证：放宽的只是只读面，写面/执行面没被顺手放行。
     for (const name of ["sql_db_query", "execute", "delete", "wx_memory_delete", "wx_schedule_create", "wx_schedule_cancel",

@@ -17,9 +17,9 @@ it("binds the trusted attempt once and releases after terminal completion withou
   expect(f.owner.provision).toHaveBeenCalledTimes(1);
   expect(f.owner.provision).toHaveBeenCalledWith({ orgId: "org", parentRunId: "run", attemptId: "run:1", leaseEpoch: 1 }, [], // #3302：这串期望原本逐字快照的是**兜底 L2 的产物**，不是判断结果——`wx_schedule_list`
   // （枚举日程）、`wx_audio_transcribe`（转写既有附件）、`wx_artifact_publish`（追加新版本）
-  // 从来没被登记进分级表，所以全是 true。22 件工具显式定级后，这里跟着改成真实的分级结果；
+  // 从来没被登记进分级表，所以全是 true。剩余 22 件工具显式定级后，这里跟着改成真实的分级结果；
   // 只读面转 false，执行/删除/日程写面照旧 true。
-  expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: false, wx_memory_search: false, wx_memory_write: false, wx_memory_delete: true, wx_schedule_create: true, wx_schedule_list: false, wx_schedule_cancel: true, wx_image_generate: false, wx_audio_transcribe: false }));
+  expect.objectContaining({ read_file: false, delete: true, execute: true, wx_artifact_publish: false, wx_memory_search: false, wx_memory_write: true, wx_memory_delete: true, wx_schedule_create: true, wx_schedule_list: false, wx_schedule_cancel: true, wx_image_generate: false, wx_audio_transcribe: false }));
   expect(f.model.complete).toHaveBeenCalledWith(expect.objectContaining({ nativeSession: binding }));
   expect(f.model.complete).toHaveBeenCalledTimes(1);
   expect(f.owner.release).toHaveBeenCalledWith(binding.bindingId, "org", "run");
