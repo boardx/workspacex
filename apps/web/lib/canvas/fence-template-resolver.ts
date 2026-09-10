@@ -114,8 +114,73 @@ export function __resetFenceTemplateCache(): void {
 
 /**
  * 保证 `key` 在引擎全局表里有一个可渲染的 spec。返回它来自哪儿 / 为什么失败。
+ *
+ * ## 显示名也认（2026-09-10 人类实测）
+ *
+ * `模板:` 那一行一直是**按 key 精确匹配**的，而模型手里最顺口的名字是显示名：
+ * `模板: 用户旅程图` 恒判 `not-found`，用户看到的是「既不是内置模板、组织库里也
+ * 没有它」——而那个 key（`journey-map`）在后台任何界面上都不显示，照着报错也改不动。
+ *
+ * 所以精确匹配落空时再试一次「显示名 → key」，成功就**把解析出来的 spec 用围栏里
+ * 那个名字再注册一遍**（引擎的全局表是按 spec.key 存的，只在这里换算是不够的：
+ * 真正渲染的 `templateToModel` 会自己再读一次 `模板:` 那一行）。
+ *
+ * 三条边界：
+ *   · 精确匹配**优先**——同名冲突时「叫这个 key 的模板」永远赢过「显示名恰好是它的
+ *     那个模板」，别名只在精确匹配已经失败之后才有机会。
+ *   · 显示名撞车（两个不同 key 的模板显示名一样）时**不猜**，保持原来的错误。
+ *   · `fetch-failed` 不走别名——那是"没读到库"，不是"读到了但没有"，再查一次同样读不到。
  */
 export async function ensureCanvasFenceTemplate(input: {
+  readonly key: string;
+  readonly orgId: string | null;
+}): Promise<ResolveTemplateOutcome> {
+  const exact = await resolveByKey(input);
+  if (exact.ok || exact.reason === "fetch-failed") return exact;
+
+  const aliasKey = await resolveDisplayNameToKey(input);
+  if (aliasKey === null) return exact;
+  const aliased = await resolveByKey({ key: aliasKey, orgId: input.orgId });
+  // 别名指向的东西自己也解析不出来 ⇒ 报原来那条错（说的是用户真写下的那个名字）。
+  if (!aliased.ok) return exact;
+
+  const spec = getTemplate(aliasKey);
+  if (!spec) return exact;
+  // 每次都重注册：组织模板发新版本时 `resolveByKey` 会刷新真 key 那一份，
+  // 别名这一份必须跟着刷，否则围栏用显示名写的人永远停在旧版本上。
+  registerTemplate({ ...spec, key: input.key });
+  return aliased;
+}
+
+/**
+ * 显示名 → 真 key。查不到、或撞车（多个不同 key 同名）时返回 `null`——不猜。
+ * 内置表优先于组织库：内置显示名是平台词汇，组织自建模板起了同名不该把它顶掉。
+ */
+async function resolveDisplayNameToKey(input: {
+  readonly key: string;
+  readonly orgId: string | null;
+}): Promise<string | null> {
+  const wanted = input.key.trim();
+  const builtin = canvas.builtinKeyByDisplayName(wanted);
+  if (builtin) return builtin;
+  if (!input.orgId) return null;
+
+  let rows: readonly CanvasTemplate[];
+  try {
+    rows = await loadOrgTemplates(input.orgId);
+  } catch {
+    return null;
+  }
+  // `title`（纸面标题）也认：编辑器里那两个字段对使用者来说都是"这张画布叫什么"。
+  const hit = new Set(
+    rows
+      .filter((t) => t.displayName.trim() === wanted || (t.title ?? "").trim() === wanted)
+      .map((t) => t.key),
+  );
+  return hit.size === 1 ? [...hit][0]! : null;
+}
+
+async function resolveByKey(input: {
   readonly key: string;
   readonly orgId: string | null;
 }): Promise<ResolveTemplateOutcome> {
