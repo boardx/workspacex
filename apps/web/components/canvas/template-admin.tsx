@@ -540,6 +540,20 @@ export function TemplateAdmin({
   async function mintVersion(source: CanvasTemplate, draft: NewTemplateDraft) {
     setActionError(null);
     setNotice(null);
+    /**
+     * ⚠ 独立 review 抓到（2026-09-10）：这次调用此前**没带** `size`/`gridCols`/
+     * `gridRows`，而服务端那条铸版用例对省略值的语义是「归一成默认、
+     * **不**继承上一版」（见 `apps/api/src/application/canvas/mint-template-version.ts`
+     * 与契约里该操作 `in.size` 那一栏的文件头）。后果：一个存成 A3 / 6 列的模板，
+     * 点一次「基于此开新版」就被重置成 A1 / 12 列——而 `layout.col/row/w/h` 是相对
+     * 网格制式的坐标、`sectionGeometryMm` 的 mm 换算又依赖纸张尺寸，两者一变，
+     * 新版本的几何在纸面上指的就是别的位置了。这正是 grid 那条迁移注释里写着
+     * 「不存下来，保存的那一刻几何就漂了」要防的事，只是漏在了这条写入路径上。
+     *
+     * ⚠ 现有门控挡不住它：`tests/session/canvas-template-body-completeness.test.ts`
+     *   只核对 `lib/live-canvas.ts` 里那三个函数的 body 是否覆盖契约 in 的每一栏，
+     *   不看**组件调用点**传了什么。所以这里补一条组件级回归（同 PR）。
+     */
     const out = await mintCanvasTemplateVersion({
       key: source.key,
       displayName: draft.displayName.trim(),
@@ -547,6 +561,9 @@ export function TemplateAdmin({
       sections: draft.sections,
       visibility: draft.visibility,
       tags: [...(source.tags ?? [])],
+      size: source.size,
+      gridCols: source.gridCols,
+      gridRows: source.gridRows,
     });
     // 装帧（标题/页脚/提示词）不在上面这次铸版调用的写入范围内——同
     // `template-editor-panel.tsx` 的 `saveChrome()`，铸完新版本必须紧接着把来源版本

@@ -67,7 +67,20 @@ export const PaperSize = z.enum(["A1", "A3", "A4"]);
  * 一次性重算是这次刻意不选的方案（迁移错了就是全量模板错位）。
  */
 export const GridCols = z.union([z.literal(6), z.literal(12), z.literal(24)]);
-export const GridRows = z.union([z.literal(8), z.literal(16)]);
+/**
+ * ⚠ 行数目前**只放行 8**，尽管迁移的 CHECK 已经允许 8/16。
+ *
+ * 独立 review 抓到（2026-09-10）：列数那条链是通的（`computeExplicitLayout` /
+ * `clampLayout` / `sectionGeometryMm` / 画布网格都拿 `gridCols` 当除数，24 一样成立），
+ * 但**行数**那条链还没通——`GRID_ROWS` 仍是 `explicit-template-layout.ts` 的模块常量，
+ * 六处纯函数从它读。契约若先放行 16，直接 POST 一个 `gridRows: 16` 会落进库里，
+ * 而整条渲染链不认它：那正是这两栏本来要防的「几何悄悄漂掉」。
+ *
+ * 所以先收到 `z.literal(8)`：库存得下 16（CHECK 已就位，不必再来一次迁移），应用层
+ * 当场拒绝——**响亮地失败**好过静默存一个没人认的值。等前端把 `GRID_ROWS` 改成参数、
+ * 右栏出「网格密度」选择器之后，这里放宽回 `z.union([8, 16])` 是纯增量。
+ */
+export const GridRows = z.literal(8);
 export const DEFAULT_GRID_COLS = 12;
 export const DEFAULT_GRID_ROWS = 8;
 /** 给前端状态用的取值类型——不在调用方各写一遍 `z.infer<...>`。 */

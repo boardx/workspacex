@@ -139,6 +139,13 @@ interface TemplateRow {
    */
   size?: "A1" | "A3" | "A4";
   /**
+   * 网格密度（issue #3358）——同上面几段注释的既有纪律：这份夹具类型是手写的，
+   * 契约扩了字段就得跟着补。不补齐时 `mintVersion` 会把 `undefined` 传进请求体，
+   * 测不出「来源版本的制式有没有被带上」这件事（本 PR 新增的那条回归正是测它）。
+   */
+  gridCols?: 6 | 12 | 24;
+  gridRows?: 8;
+  /**
    * 排序功能上线（画布模板库排序）随契约新增的两个时间戳字段——同上面两段注释的既有
    * 纪律：夹具随契约一起扩展，不补齐会在运行时 `undefined.localeCompare` 炸掉
    * （`template-admin.tsx` 的 `compareTemplates`）。
@@ -165,6 +172,7 @@ function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
     sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
     usageCount: 41,
     title: "", footer: "", promptText: "", platform: false, size: "A1",
+    gridCols: 12, gridRows: 8,
     createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -654,6 +662,49 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
     await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-4")).toBeInTheDocument());
     expect(within(screen.getByTestId("tpladmin-card-persona-4")).getByText("草稿")).toBeInTheDocument();
     expect(listCalls).toBeGreaterThan(1);
+  });
+
+  /**
+   * ⚠ 独立 review 抓到（2026-09-10）：`mintVersion` 此前没把来源版本的 `size` /
+   * `gridCols` / `gridRows` 带进请求体，而 `mintTemplateVersion` 用例对省略值的语义是
+   * 「归一成默认、**不**继承上一版」——一个 A3 / 6 列的模板点一次「基于此开新版」，
+   * 新版本就变成 A1 / 12 列，而 `layout.col/row/w/h` 是相对网格制式的坐标、mm 换算又
+   * 依赖纸张尺寸，两者一变新版本的几何在纸面上就指向别的位置了。
+   *
+   * 这条洞现有门控挡不住：`tests/session/canvas-template-body-completeness.test.ts`
+   * 只核对 `lib/live-canvas.ts` 那三个函数的 body 覆盖了契约 in 的每一栏，不看**组件
+   * 调用点**传了什么。所以钉在这里——组件级。
+   */
+  it("「基于此开新版」把来源版本的纸张尺寸与网格密度带进请求体，不被归一成默认值", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "persona", displayName: "用户画像 v4", version: 4, status: "draft",
+          builtin: false, visibility: "org-wide", underlyingType: "canvas",
+          sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
+          size: "A3", gridCols: 6, gridRows: 8,
+        }, 201);
+      }
+      void url;
+      // 来源版本：A3 纸、6 列网格——两个都不是默认值。
+      return jsonResponse({ templates: [template({ size: "A3", gridCols: 6, gridRows: 8 })] });
+    }));
+
+    renderApp(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
+    const dialog = await screen.findByTestId("tpladmin-mint-dialog");
+    fireEvent.change(within(dialog).getByTestId("tpladmin-create-name"), { target: { value: "用户画像 v4" } });
+    fireEvent.click(within(dialog).getByTestId("tpladmin-mint-submit"));
+
+    await waitFor(() => expect(posts.length).toBeGreaterThan(0));
+    // 改动前这三栏根本不在 body 里，服务端于是归一成 A1 / 12 / 8。
+    expect(posts[0]!["size"]).toBe("A3");
+    expect(posts[0]!["gridCols"]).toBe(6);
+    expect(posts[0]!["gridRows"]).toBe(8);
   });
 
   it("TEAM_REQUIRED_FOR_TEAM_ONLY 原样回显，不是「保存失败」", async () => {

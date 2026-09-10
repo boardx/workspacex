@@ -92,6 +92,23 @@ export type TextVAlign = "top" | "middle" | "bottom";
 export const TEXT_ALIGNS: readonly TextAlign[] = ["left", "center", "right"];
 export const TEXT_VALIGNS: readonly TextVAlign[] = ["top", "middle", "bottom"];
 export const DEFAULT_TEXT_ALIGN: TextAlign = "left";
+/**
+ * 垂直对齐的缺省值**随类型走**——独立 review 抓到的回归（2026-09-10）：
+ *
+ * 「文本对象」在加 `valign` 之前，渲染节点是 `y = 格子中心, height = 格子高`，
+ * 而 vendor 的 `text` 形状把文字画在**节点中心** ⇒ 它一直是**垂直居中**的；编辑器
+ * 瓦片那侧也写死 `items-center`。若缺省落到 `"top"`，每一个不带 `valign` 的存量
+ * 文本对象都会往上跳（实测一个 `w6/h3` 的格子：节点 y 从 233.25 变成 98.5，
+ * 上移 134.75px）——**存储**确实纯增量，**渲染**却不是，那种"数据没变、画面全变"
+ * 正是最难查的一类。
+ *
+ * 「短文本」/「长文本」走的是 2026-09-10 新加的 `fieldCells` 路径（标签在上、值在下
+ * 的堆叠版式），它本来就是从框顶排下来的，`"top"` 就是它改动前的样子。
+ */
+export function defaultValignFor(type: SectionFieldType): TextVAlign {
+  return type === "文本对象" ? "middle" : "top";
+}
+/** ⚠ 只是「短文本/长文本」那一档的值，**不要**拿它当所有类型的缺省——用 `defaultValignFor`。 */
 export const DEFAULT_TEXT_VALIGN: TextVAlign = "top";
 /**
  * 「短文本」/「长文本」没配字号时用多大——比文本对象（装帧大字）小得多，取
@@ -175,7 +192,7 @@ export function toDraft(row: CanvasTemplate): SectionDraft[] {
     fontWeight: s.fontWeight ?? DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: s.hideFieldTitle ?? false,
     align: s.align ?? DEFAULT_TEXT_ALIGN,
-    valign: s.valign ?? DEFAULT_TEXT_VALIGN,
+    valign: s.valign ?? defaultValignFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
   }));
 }
 
@@ -202,7 +219,7 @@ export function newTextDraft(order: number): SectionDraft {
     fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: false,
     align: DEFAULT_TEXT_ALIGN,
-    valign: DEFAULT_TEXT_VALIGN,
+    valign: defaultValignFor("文本对象"),
   };
 }
 
@@ -234,7 +251,7 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
           : {}),
       ...(d.hideFieldTitle ? { hideFieldTitle: true } : {}),
       ...(isTextual(d.type) && d.align !== DEFAULT_TEXT_ALIGN ? { align: d.align } : {}),
-      ...(isTextual(d.type) && d.valign !== DEFAULT_TEXT_VALIGN ? { valign: d.valign } : {}),
+      ...(isTextual(d.type) && d.valign !== defaultValignFor(d.type) ? { valign: d.valign } : {}),
     }));
 }
 
@@ -257,7 +274,13 @@ export function defaultLayoutAt(
   //   `标签: 值` 字段（`buildExplicitTemplateSpec` 的 `headerCells`），一个字段占掉
   //   半张纸宽既画不满也挡住别人；半幅那个默认是给便利贴列表那种成片贴纸的分区用的。
   //   拖进来之后仍可在右栏「在 A1 上占多大」里改，这里只是换一个更常用的起点。
-  const defaultW = type === "短文本" ? (gridCols === 12 ? 2 : 1) : (gridCols === 12 ? 6 : 3);
+  // ⚠ 按**比例**算，不是 `gridCols === 12 ? a : b`（独立 review 抓到：那个两分支写法
+  //   把 24 列制归进了 6 列制那一支，拿到的默认宽度只有该有的四分之一）。
+  //   短文本 = 六分之一幅，其余 = 半幅：12 列制下就是原来的 2 / 6，6 列制下 1 / 3，
+  //   24 列制下 4 / 12——同一条比例，不必每加一档就补一个分支。
+  const defaultW = type === "短文本"
+    ? Math.max(1, Math.round(gridCols / 6))
+    : Math.max(1, Math.round(gridCols / 2));
   const w = Math.max(1, Math.min(defaultW, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
   // 列表型默认高 3 行、短文本/文本对象 1 行。
   const h = Math.max(1, Math.min(type === "便利贴列表" ? 3 : 1, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));

@@ -282,6 +282,30 @@ describe("computeExplicitLayout —— px 几何", () => {
     expect(spec.fieldCells![1]!.valign).toBeUndefined();
   });
 
+  /**
+   * ⚠ 独立 review 抓到的回归（2026-09-10）：`valign` 这个字段加进来之前，文本对象的
+   * 渲染节点是 `y = 格子中心 / height = 格子高`，而 vendor 的 `text` 形状把文字画在
+   * **节点中心** ⇒ 它一直是垂直居中的。缺省若落到 `"top"`，每一个不带 `valign` 的
+   * 存量文本对象都会往上跳（实测 `w6/h3` 的格子：y 从 233.25 变成 98.5）——存储是
+   * 纯增量，渲染却不是。这条用例把「不配 valign ⇒ 还在格子正中」钉死。
+   */
+  it("不带 valign 的存量「文本对象」仍然垂直居中（节点 y === 格子中心）", () => {
+    const built = buildExplicitTemplateSpec({
+      key: "t-valign-legacy", displayName: "测试模板",
+      sections: [{
+        sectionId: "t1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "标题", color: null, fontSize: 24, fontWeight: "bold",
+        // 刻意不给 valign——这就是存量数据的形状。
+      }],
+      gridCols: 12,
+    });
+    const node = built.spec.decorations![0]!;
+    const cell = built.layout.cells[0]!;
+    expect(node.y).toBe(cell.y);
+    expect(node.height).toBe(cell.h);
+  });
+
   it("「文本对象」的垂直对齐落成节点 y：靠上贴上沿、靠下贴下沿、居中就是格子中心", () => {
     const build = (valign: "top" | "middle" | "bottom") => buildExplicitTemplateSpec({
       key: `t-valign-${valign}`, displayName: "测试模板",
