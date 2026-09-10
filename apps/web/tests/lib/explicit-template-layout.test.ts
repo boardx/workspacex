@@ -173,9 +173,38 @@ describe("computeExplicitLayout —— px 几何", () => {
       .filter((n) => n.shape === "sticky")
       .map((n) => n.label);
     expect(stickyLabels).toEqual(["第一条内容", "第二条内容"]);
-    // 标题条节点还在（占位），但文字为空——不是整块消失。
-    const label = model.nodes.find((n) => n.id === "tpl-seclabel-0");
-    expect(label?.label).toBe("");
+    // 标题条整条不画（灰底带 + 文字节点都没有）——2026-09-10 人类原话
+    // 「如果将字段隐藏了，那么字段的 header 也不要出来」。留一条空的灰带看起来
+    // 不是"没有标题"，是"标题渲染坏了"。
+    expect(model.nodes.find((n) => n.id === "tpl-seclabel-0")).toBeUndefined();
+    expect(model.nodes.find((n) => n.id === "tpl-secbar-0")).toBeUndefined();
+    // 分区框本身当然还在。
+    expect(model.nodes.find((n) => n.id === "tpl-section-0")).toBeDefined();
+  });
+
+  /**
+   * 标题条不画之后，贴纸不该还留着"给标题带让出来的那 30px"——空出来的那一条
+   * 正是本次要消掉的 header 形状。对照组：同样几何、不隐藏标题的分区，贴纸从
+   * 标题带下方（+44）起排。
+   */
+  it("隐藏标题的分区，贴纸从框内边距起排，不再为标题带留出空白条", () => {
+    const hidden = buildExplicitTemplateSpec({
+      key: "t-hide-title-top", displayName: "测试模板",
+      sections: [{ ...section("a", 1, 1, 12, 4), hideFieldTitle: true }],
+      gridCols: 12,
+    }).spec;
+    const shown = buildExplicitTemplateSpec({
+      key: "t-show-title-top", displayName: "测试模板",
+      sections: [section("a", 1, 1, 12, 4)],
+      gridCols: 12,
+    }).spec;
+    registerTemplate(hidden);
+    registerTemplate(shown);
+    const topOf = (key: string): number => {
+      const model = templateToModel(`模板: ${key}\n## 分区-a\n- 第一条内容\n`);
+      return model.nodes.find((n) => n.shape === "sticky")!.y;
+    };
+    expect(topOf("t-show-title-top") - topOf("t-hide-title-top")).toBe(30);
   });
 
   /**

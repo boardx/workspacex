@@ -72,6 +72,12 @@ export interface TemplateSection {
    * field existed. Blanking `name` itself instead of using this field was
    * the #3337 bug: `lookupSectionItems` matches by `name`, so an emptied
    * `name` silently drops that section's stickies along with its title.
+   *
+   * Set to `''` (empty string) and the section gets **no title bar at all** —
+   * neither the gray band nor the label node — and its stickies start at the
+   * box's plain inset instead of below a band. An empty band is not "no
+   * title", it is a title that looks broken (2026-09-10 human report:
+   * 「如果将字段隐藏了，那么字段的 header 也不要出来」).
    */
   titleLabel?: string;
   /** Box center + size in canvas px. */
@@ -527,7 +533,14 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         stroke: bg ? 'transparent' : INK,
       },
     });
-    if (titleBars && !bg) {
+    // An explicitly blank `titleLabel` means "this section shows no title at
+    // all" — issue #3337 follow-up (workspacex, 2026-09-10 human report:
+    // 「如果将字段隐藏了，那么字段的 header 也不要出来」). Drawing the gray band
+    // with empty text left a header-shaped strip on every hidden-title box,
+    // which reads as a title that failed to render rather than as no title.
+    // Unset `titleLabel` still falls back to `name` and draws the bar as before.
+    const showTitleBar = titleBars && !bg && (sec.titleLabel ?? sec.name) !== '';
+    if (showTitleBar) {
       // Section title bar: printed workshop templates are black/white/gray,
       // so the band is a uniform light gray regardless of spec.sectionColors
       // (kept in the interface for compatibility, deliberately unused).
@@ -562,7 +575,9 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
     // default field-by-field — unset fields still fall back to `sticky`.
     const sectionSticky = { ...sticky, ...sec.sticky };
     const perRow = Math.max(1, Math.min(sectionSticky.perRow, Math.floor((sec.w - 28) / (sectionSticky.w + STICKY_GAP.x))));
-    const stickyTop = sec.y - sec.h / 2 + (titleBars ? 44 : 14);
+    // No bar drawn ⇒ no band to clear: the stickies start at the box's own
+    // inset, so a hidden-title section is not left with a blank strip on top.
+    const stickyTop = sec.y - sec.h / 2 + (showTitleBar ? 44 : 14);
     items.forEach((rawText, j) => {
       const col = j % perRow;
       const row = Math.floor(j / perRow);
