@@ -288,7 +288,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByText("第 1 步「调研竞品定价」失败")).toBeNull();
   });
 
-  it("phase='done'（任务已跑完）渲染只读账本、但不再渲染确认门——即使 gate.required 仍是 true", async () => {
+  it("phase='done' 但账本没跑满：渲染只读账本、不渲染确认门——即使 gate.required 仍是 true", async () => {
     // ⚠ 这不是假设：`evaluatePlanGate` 按契约只看 `todoCount`（UC-8），todoCount
     // 从确认前到跑完都没变过，所以真实后端在 phase='done' 时 gate.required 仍是
     // true。这条用例钉的正是「组件层面要不要拿它来渲染」，不是重新定义契约本身。
@@ -298,9 +298,13 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
         gate: { required: true, reason: "multi-step" },
         steps: [
           { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
-          { planStepId: "s2", content: "起草方案初稿", status: "completed", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
         ],
-        progress: { completed: 2, total: 2, elapsedMs: 8000 },
+        // issue #3321 —— 本用例钉的是 #2999 的实质（只读账本 + 确认门不出现），
+        // 那份实质在**账本没跑满**这一形状下继续有效（#3245 ① 有意保留的那一格：
+        // 阶段说完成、账本仍有步骤没标完，是唯一说明这一矛盾的出口）。
+        // 「跑满即卸载」另有一条专门的回归用例，见下方 #3321 那条。
+        progress: { completed: 1, total: 2, elapsedMs: 8000 },
       }),
     );
     render(<CopilotKitV2PlanControl threadId="t-9" />);
@@ -399,7 +403,7 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
   });
 
-  it("phase='done' 且所有步骤都 completed：不渲染提示（沿用 #2451 的行为），账本仍只读可见", async () => {
+  it("issue #3321 —— phase='done' 且账本跑满、gate.required 仍为 true：整块卸载（人类两次反馈的那一格）", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "done",
@@ -411,11 +415,20 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
         progress: { completed: 2, total: 2, elapsedMs: 8000 },
       }),
     );
+    /*
+     * ⚠ 这条用例此前断言的是**相反**的行为（"账本仍只读可见"），它写于 #2999
+     * 恢复只读账本之时、早于 #3245/#3263 的终态卸载门。那道门本该卸载这一格，
+     * 却因为宿主裸读 `gate.required`（`evaluatePlanGate` 只看 todoCount，done
+     * 之后恒为 true）而**永不触发**——于是这条用例一直是绿的，绿在 bug 上。
+     * 人类两次反馈「plan panel 平常时间、不在 plan execute 的场景时不要显示」
+     * 正是这一格。#3263 已为"回看本轮计划"留了替代触达路径：右栏「进度」页签
+     * 读同一份账本，结束态照样列出全部步骤。
+     */
     render(<CopilotKitV2PlanControl threadId="t-12" />);
-    fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
-    expect(screen.getAllByTestId(PLAN_STEP_TESTID)).toHaveLength(2);
-    expect(screen.queryByTestId("chat-task-workbench-plan-done-incomplete-notice")).toBeNull();
-    expect(screen.queryByTestId(PLAN_CONTROL_EDIT_TOGGLE_TESTID)).toBeNull();
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-task-workbench-plan-control")).toBeNull();
+    expect(screen.queryByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeNull();
+    expect(screen.queryByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toBeNull();
   });
 
   it("phase='failed' 且 errorCode='MODEL_CALL_FAILED'：失败原因用真实文案，不是写死占位句", async () => {

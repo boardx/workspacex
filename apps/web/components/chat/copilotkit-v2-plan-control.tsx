@@ -6,7 +6,7 @@ import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
 import { PlanRunProgress, PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
-import { deriveRunControls, shouldSurfacePlanPhaseIndicator } from "@repo/contracts/plan-control";
+import { derivePlanSurface, deriveRunControls } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import {
@@ -193,6 +193,32 @@ function PlanControlSession(
     || ledger.pendingApplyAtNextRun || ledger.orphanedConstraints.length > 0);
   if (threadId === null || ledger === null) return null;
 
+  /*
+   * issue #3321 —— **本组件对「计划区要不要出现在屏幕上」不再有任何自己的判断。**
+   *
+   * 改动前这份判定散在五处早退里，与契约里的 `shouldSurfacePlanPhaseIndicator`
+   * 构成两个事实源，已实测产出两处硬矛盾（见 `derivePlanSurface` 头注 1 / 2），
+   * 其中「`gate.required` 被裸读，导致终态卸载门永不触发」正是人类两次反馈
+   * 「plan panel 平常时间不要显示」的直接根因。
+   *
+   * ⚠ 不要在下面任何地方新增 `return null` 或别的可见性条件——那就是把这份判定
+   * 重新声明到第二处。宿主只许 `switch (surface.kind)`。
+   * 由 `.harness/scripts/lint-plan-surface-single-source.test.ts` 机械门控。
+   */
+  const surface = derivePlanSurface({
+    phase: ledger.phase,
+    runStatus: ledger.runStatus,
+    stepCount: ledger.steps.length,
+    gateRequired: ledger.gate.required,
+    pendingApplyAtNextRun: ledger.pendingApplyAtNextRun,
+    orphanedConstraintCount: ledger.orphanedConstraints.length,
+    paused: Boolean(ledger.pausedAt),
+    pauseRequested: Boolean(ledger.pauseRequestedAt),
+    progressCompleted: ledger.progress.completed,
+    progressTotal: ledger.progress.total,
+    hasActionError: actionErrorCode !== null,
+  });
+
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
 
@@ -277,8 +303,7 @@ function PlanControlSession(
    * ——#3081/F3 刚把暂停修到第一次真的可点，不许由这次改动带回不可触达。
    */
   const phaseIndicator = <PlanPhaseIndicator phase={ledger.phase} />;
-  const pinIndicator = shouldSurfacePlanPhaseIndicator(ledger.phase);
-  const indicator = pinIndicator ? phaseIndicator : null;
+  const indicator = surface.pinIndicator ? phaseIndicator : null;
 
   /*
    * issue #3132 —— 原先这里（连同上面的 threadId/ledger 判空）整块 `return null`。
@@ -287,7 +312,8 @@ function PlanControlSession(
    * 失败态因此显式排除在这条卸载门之外：**失败一定要有可操作入口**（coordinator
    * 裁决 ②）。其余"无事发生"的形状仍只留一行阶段指示器，不凭空造计划面板。
    */
-  if (ledger.steps.length === 0 && !runLive && !hasPlanAction && ledger.phase !== "failed") return indicator;
+  if (surface.kind === "hidden") return null;
+  if (surface.kind === "indicator-only") return indicator;
 
   // issue #2999 —— run 结束（done/cancelled）后**保留只读账本**，不再整块 return null。
   //
@@ -312,7 +338,7 @@ function PlanControlSession(
   // （`pausedWithoutPlan`），于是「正在跑且无计划」——也就是想暂停的那一刻——
   // 反而没有入口。两态用同一个控件，testid 与 `PlanRunProgress` 里那对一致，
   // 断言不需要知道这一轮模型有没有产出计划。
-  if (ledger.steps.length === 0 && runLive) return <><div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control">
+  if (surface.kind === "run-controls") return <><div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control" data-thread-id={tid}>
     {indicator}
     {/*
       * issue #3318 —— 暂停入口下线（`CHAT_RUN_PAUSE_ENTRY_ENABLED`）时，
@@ -368,30 +394,24 @@ function PlanControlSession(
    *   失败恢复、待确认门、待应用编辑、孤儿约束、刚失败的操作各自一条否决项，
    *   任何一件还需要用户动手，面板就留着（#3081 修好的暂停入口不受影响）。
    */
-  const nothingLeftToDo =
-    !runLive
-    && !ledger.pausedAt && !ledger.pauseRequestedAt
-    && !ledger.gate.required
-    && !ledger.pendingApplyAtNextRun
-    && ledger.orphanedConstraints.length === 0
-    && actionErrorCode === null;
-  const terminalAndSettled =
-    (ledger.phase === "done" || ledger.phase === "cancelled")
-    && ledger.progress.total > 0
-    && ledger.progress.completed >= ledger.progress.total;
-  if (nothingLeftToDo && terminalAndSettled) return null;
 
   const completed = ledger.steps.filter(step => step.status === "completed").length;
   // issue #3318 —— `pauseRequestedAt` 那一档随暂停入口一起下线（理由见上面同一 issue 的注释）。
   const stateLabel = ledger.phase === "cancelled" ? "任务已停止" : ledger.phase === "failed" ? "执行遇到问题"
     : ledger.pausedAt ? "任务已暂停" : ledger.phase === "approving" ? "等待审批"
     : ledger.phase === "done" ? "本轮已结束" : CHAT_RUN_PAUSE_ENTRY_ENABLED && ledger.pauseRequestedAt ? "正在暂停"
-    : ledger.phase === "executing" ? "执行中" : ledger.gate.required ? "等待确认" : "待执行";
+    : ledger.phase === "executing" ? "执行中" : (ledger.phase === "planning" && ledger.gate.required) ? "等待确认" : "待执行";
 
   return (
-    <div data-testid="chat-task-workbench-plan-control" className={PLAN_CONTROL_SCROLLER_CLASS}>
+    /*
+     * `data-thread-id` 是**机器可读的绑定证据**（沿用 `chat-read-screen.tsx` 的同名模式）：
+     * e2e 要能证明「屏幕上这块面板绑的是我正在读账本的那条线程」。#3321 上一轮取证
+     * 正是栽在这里——DOM 量的是旧线程、账本列读的是新线程，据此写出的结论已作废。
+     * 不占用户界面，只让取样指针错位变成一件会红的事。
+     */
+    <div data-testid="chat-task-workbench-plan-control" data-thread-id={tid} className={PLAN_CONTROL_SCROLLER_CLASS}>
       {/* #3208 方案 A —— 常驻四态，或用户展开折叠头时（"收起后仍可触达"那一半）。 */}
-      {pinIndicator || !collapsed ? phaseIndicator : null}
+      {surface.pinIndicator || !collapsed ? phaseIndicator : null}
       <div className="flex items-center gap-2">
         <button
           type="button"
