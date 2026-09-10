@@ -344,3 +344,16 @@ export function convertQuickDigitalInterview(quick: QuickDigitalInterview) {
     },
   );
 }
+
+export function updateDigitalInterviewMetadata(interviewId: string, metadata: { name: string; tags: string[] }) {
+  const body = interview.operations.updateDigitalInterviewMetadata.in.parse({ interviewId, ...metadata });
+  return apiRequest<z.infer<typeof interview.operations.updateDigitalInterviewMetadata.out>>(
+    `/interviews/digital/${encodeURIComponent(interviewId)}/metadata`, { method: "PATCH", body },
+  );
+}
+
+export function deleteDigitalInterview(interviewId: string) {
+  return apiRequest<z.infer<typeof interview.operations.deleteDigitalInterview.out>>(
+    `/interviews/digital/${encodeURIComponent(interviewId)}`, { method: "DELETE" },
+  );
+}

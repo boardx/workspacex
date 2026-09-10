@@ -1,3 +1,5 @@
+import { initialRuntime } from "../../src/application/research/guided-runtime-service";
+import { PgGuidedRuntimeStore } from "../../src/infrastructure/research/pg-guided-runtime-store";
 import { ModelGuidedResearchCheckpointGenerator } from "../../src/application/research/model-guided-checkpoint-generator";
 import { DeterministicGuidedResearchCheckpointGenerator } from "../../src/domain/research/guided-research-checkpoint-generator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -72,6 +74,61 @@ async function create(key = "create-f168", collaboratorUserIds: string[] = []) {
 }
 
 describe("F168 guided research session list and recovery", () => {
+  it("saves metadata across reload without rewriting the research brief", async () => {
+    const created = C.GuidedResearchSession.parse(await (await create("metadata", [COLLABORATOR])).json());
+    const url = `${base}/research/guided-sessions/${created.sessionId}`;
+    const response = await fetch(`${url}/metadata`, { method: "PUT", headers: auth(COLLABORATOR),
+      body: JSON.stringify({ title: "  新名称  ", tags: ["政策"] }) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ title: "新名称", tags: ["政策"], brief: created.brief });
+    const reloaded = await fetch(url, { headers: auth(OWNER) });
+    expect(await reloaded.json()).toMatchObject({ title: "新名称", tags: ["政策"], briefVersion: created.briefVersion });
+    const list = await fetch(`${base}/research/guided-sessions`, { headers: auth(OWNER) });
+    expect(await list.json()).toMatchObject({ items: [{ title: "新名称", tags: ["政策"] }] });
+    for (const invalid of [{ title: " ", tags: [] }, { title: "x", tags: ["a", "a"] }, { title: "x", tags: ["x".repeat(21)] }]) {
+      expect((await fetch(`${url}/metadata`, { method: "PUT", headers: auth(OWNER), body: JSON.stringify(invalid) })).status).toBe(400);
+    }
+  });
+
+  it("denies metadata and removal to unrelated org members and other tenants", async () => {
+    const created = C.GuidedResearchSession.parse(await (await create("management-permission")).json());
+    for (const headers of [auth(SAME_ORG_OTHER), auth(OWNER, OTHER_ORG)]) {
+      const url = `${base}/research/guided-sessions/${created.sessionId}`;
+      expect((await fetch(`${url}/metadata`, { method: "PUT", headers, body: JSON.stringify({ title: "not allowed", tags: [] }) })).status).toBe(404);
+      expect((await fetch(url, { method: "DELETE", headers })).status).toBe(404);
+    }
+    const list = await fetch(`${base}/research/guided-sessions`, { headers: auth(OWNER) });
+    expect(await list.json()).toMatchObject({ items: [{ title: created.title }] });
+  });
+
+  it("removes a shared card without deleting evidence or letting in-flight completion restore it", async () => {
+    const created = C.GuidedResearchSession.parse(await (await create("archive-running", [COLLABORATOR])).json());
+    const actor = { orgId: toOrgId(ORG), userId: OWNER, sessionId: created.sessionId };
+    const store = new PgGuidedRuntimeStore(db);
+    const source = { id: "retained-source", taskId: "retained-task", title: "政策依据", url: "https://example.com/policy",
+      content: "应保留的研究依据", retrievedAt: new Date().toISOString(), decision: "accepted" as const };
+    const initial = await store.read(actor, { ...initialRuntime(created), sources: [source] });
+    const command = { sessionId: created.sessionId, requestId: "archive-race", expectedVersion: initial.version,
+      node: initial.currentNode, action: "save" } as const;
+    const running = await store.claim(actor, command, "archive-race-hash");
+    const url = `${base}/research/guided-sessions/${created.sessionId}`;
+    expect((await fetch(url, { method: "DELETE", headers: auth(COLLABORATOR) })).status).toBe(200);
+    // A previously claimed execution may finish. Its persisted checkpoint remains
+    // readable for citation recovery, but never removes the homepage tombstone.
+    await store.write(actor, command.requestId, { ...running.state, busy: false, leaseUntil: null }, true);
+    for (const user of [OWNER, COLLABORATOR]) {
+      expect(await (await fetch(`${base}/research/guided-sessions`, { headers: auth(user) })).json()).toEqual({ items: [] });
+      expect((await fetch(url, { headers: auth(user) })).status).toBe(200);
+    }
+    const retained = await db.withTenant(actor.orgId, (tx) => tx.query<{ archived_at: Date | null; state: unknown }>(
+      "SELECT g.archived_at, r.state FROM guided_research_sessions g JOIN guided_research_runtime r ON r.session_id=g.id AND r.org_id=g.org_id WHERE g.id=$1", [created.sessionId]));
+    expect(retained.rows).toHaveLength(1);
+    expect(retained.rows[0]!.archived_at).not.toBeNull();
+    expect(C.GuidedResearchRuntime.parse(retained.rows[0]!.state).sources).toEqual([source]);
+    expect((await fetch(url, { method: "DELETE", headers: auth(OWNER) })).status).toBe(200);
+    expect((await fetch(`${url}/metadata`, { method: "PUT", headers: auth(OWNER), body: JSON.stringify({ title: "restore?", tags: [] }) })).status).toBe(404);
+  });
+
   it("creates once per owner idempotency key and resumes from the persisted stage", async () => {
     const first = await create();
     expect(first.status).toBe(201);

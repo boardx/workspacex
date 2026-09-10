@@ -1,0 +1,12 @@
+checking rec
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+rec: three viewport checks, edit, refresh, filter retention, cancel and delete passed
+checking research
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+research: three viewport checks, edit, refresh, filter retention, cancel and delete passed
+checking itv
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+request failed: http://localhost:3200/schedule-notifications net::ERR_ABORTED
+itv: three viewport checks, edit, refresh, filter retention, cancel and delete passed

@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-studio-home/apps/web
+
+ ✓ tests/ui/realtime-transcription-history.test.tsx (21 tests) 4250ms
+   ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 850ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 453ms
+   ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 407ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  21:13:59
+   Duration  18.32s (transform 4.77s, setup 726ms, collect 7.17s, tests 4.25s, environment 2.46s, prepare 1.62s)
+

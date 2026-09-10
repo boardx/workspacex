@@ -2,11 +2,10 @@
 
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, Clock3, MoreVertical, Pencil, Plus, Search, SlidersHorizontal, Square, Trash2 } from "lucide-react";
+import { Clock3, MoreVertical, Pencil, Plus, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
 import { useOptionalSession } from "@/components/session/session-provider";
 import {
   createPersonalTranscription,
@@ -30,7 +29,7 @@ import { DeleteTranscriptionDialog } from "./delete-transcription-dialog";
 import { EditTranscriptionDialog } from "./edit-transcription-dialog";
 import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspace";
 
-type ActiveTag = string;
+type ActiveTag = string | undefined;
 
 export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const sessionContext = useOptionalSession();
@@ -38,9 +37,11 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [operationError, setOperationError] = React.useState<string | null>(null);
   const [listRevision, setListRevision] = React.useState(0);
-  const [activeTag, setActiveTag] = React.useState<ActiveTag>("全部标签");
+  const [activeTag, setActiveTag] = React.useState<ActiveTag>();
   const [tags, setTags] = React.useState<readonly string[]>([]);
+  const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editItem, setEditItem] = React.useState<TranscriptionHistoryItem | null>(null);
@@ -59,7 +60,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     setLoadError(null);
     const input = {
       ...(query.trim() ? { query: query.trim() } : {}),
-      ...(activeTag === "全部标签" ? {} : { tag: activeTag }),
+      ...(activeTag === undefined ? {} : { tag: activeTag }),
     };
     void loadAllPersonalTranscriptions(input, sessionToken)
       .then((result) => {
@@ -81,13 +82,13 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const refreshTags = React.useCallback(async () => {
     const result = await listPersonalTranscriptionTags(sessionToken);
     setTags(result.tags);
-    setActiveTag((current) => current === "全部标签" || result.tags.includes(current) ? current : "全部标签");
+    setActiveTag((current) => current === undefined || result.tags.includes(current) ? current : undefined);
   }, [sessionToken]);
 
-  React.useEffect(() => { void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED")); }, [refreshTags]);
+  React.useEffect(() => { void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED")); }, [refreshTags]);
 
   async function createTranscription(draft: NewTranscriptionDraft) {
-    setLoadError(null);
+    setOperationError(null);
     const summary = await createPersonalTranscription({
       name: draft.name,
       tags: [...draft.tags],
@@ -96,40 +97,40 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
     setActiveSession({ ...summary, content: "" });
-    await refreshTags();
+    await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function saveMetadata(item: TranscriptionHistoryItem, draft: NewTranscriptionDraft) {
     const updated = await updatePersonalTranscriptionMetadata(item.id, { name: draft.name, tags: [...draft.tags] }, sessionToken);
     setNotice(`已更新“${updated.name}”`);
     setListRevision((current) => current + 1);
-    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
+    void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function removeTranscription(item: TranscriptionHistoryItem) {
     await deletePersonalTranscription(item.id, sessionToken);
     setItems((current) => current.filter((entry) => entry.id !== item.id));
     setNotice(`已永久删除“${item.title}”`);
-    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
+    void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function stopLegacyTranscription(item: TranscriptionHistoryItem) {
-    setLoadError(null);
+    setOperationError(null);
     try {
       const updated = await stopPersonalTranscription(item.id, sessionToken);
       setItems((current) => current.map((entry) => entry.id === item.id ? toHistoryItem(updated) : entry));
       setNotice(`已结束“${item.title}”的遗留转录状态`);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
+      setOperationError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
     }
   }
 
   async function openTranscription(item: TranscriptionHistoryItem) {
-    setLoadError(null);
+    setOperationError(null);
     try {
       setActiveSession(await readPersonalTranscription(item.id, sessionToken));
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_READ_FAILED");
+      setOperationError(error instanceof Error ? error.message : "TRANSCRIPTION_READ_FAILED");
     }
   }
 
@@ -223,61 +224,15 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   return (
     <section data-testid="rec-history-page" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6">
-        <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-2">
-            <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;转录</p>
-            <div className="flex items-center gap-2">
-              <h1 className="text-24 font-semibold tracking-tight">历史转录</h1>
-              <span data-testid="rec-history-count" className="text-18 text-muted-foreground">· {items.length}</span>
-            </div>
-            <p className="text-12 text-muted-foreground">跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。</p>
-          </div>
-          <Button data-testid="rec-create-open" variant="primary" size="lg" onClick={() => setCreateOpen(true)}>
-            <Plus aria-hidden className="h-4 w-4" />
-            新建转录
-          </Button>
-        </header>
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2" aria-label="按标签筛选转录">
-            {["全部标签", ...tags].map((tag) => (
-              <Button
-                key={tag}
-                data-testid={`rec-history-tag-${tag}`}
-                size="sm"
-                variant={activeTag === tag ? "primary" : "outline"}
-                aria-pressed={activeTag === tag}
-                onClick={() => setActiveTag(tag)}
-              >
-                {tag}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <label className="relative block min-w-64">
-              <span className="sr-only">搜索转录名称或内容</span>
-              <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                data-testid="rec-history-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索转录名称或内容"
-                className="h-9 pl-9"
-              />
-            </label>
-            <Button data-testid="rec-history-sort" variant="outline" className="justify-between gap-5">
-              <SlidersHorizontal aria-hidden className="h-4 w-4" />
-              最近更新
-              <ChevronDown aria-hidden className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
+        <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTag={activeTag} onTagChange={setActiveTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
-        {loadError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">历史转录读取失败，请稍后重试。</p>}
+        {(loadError || operationError) && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{loadError ? "历史转录读取失败，请稍后重试。" : "操作失败，请重试。已加载的转录仍可继续使用。"}</p>}
         <HistoryState
-          uiState={loading && uiState === "default" ? "loading" : uiState}
-          items={items}
+          uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
+          items={sort === "recent" ? items : [...items].reverse()}
+          filtered={activeTag !== undefined || !!query.trim()}
           onCreate={() => setCreateOpen(true)}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}
@@ -319,9 +274,10 @@ function streamErrorText(reason: string): string {
 }
 
 function HistoryState({
-  uiState, items, onCreate, onOpen, onEdit, onStop, onDelete,
+  uiState, items, filtered, onCreate, onOpen, onEdit, onStop, onDelete,
 }: {
   uiState: UiState;
+  filtered: boolean;
   items: readonly TranscriptionHistoryItem[];
   onCreate: () => void;
   onOpen: (item: TranscriptionHistoryItem) => void;
@@ -347,7 +303,7 @@ function HistoryState({
     return (
       <div data-testid="rec-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-card text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <div><p className="text-14 font-medium">还没有转录</p><p className="mt-1 text-12 text-muted-foreground">创建一次新的实时转录，名称和标签会保存在这里。</p></div>
+        <div><p className="text-14 font-medium">{filtered ? "没有符合条件的转录" : "还没有转录"}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? "请调整标签或搜索条件。" : "创建一次新的实时转录，名称和标签会保存在这里。"}</p></div>
         <Button variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</Button>
       </div>
     );
@@ -355,16 +311,7 @@ function HistoryState({
   return (
     <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
-      <button
-        type="button"
-        data-testid="rec-create-card"
-        onClick={onCreate}
-        className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card p-6 text-center transition-all duration-200 hover:border-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        <Plus aria-hidden className="h-6 w-6 text-muted-foreground" />
-        <span className="text-13 font-semibold">新建转录</span>
-        <span className="text-11 text-muted-foreground">开始一次新的实时转录</span>
-      </button>
+      <StudioHistoryCreateCard business="转录" testId="rec-create-card" onCreate={onCreate} />
     </div>
   );
 }
@@ -380,37 +327,12 @@ function HistoryCard({
   onDelete: (item: TranscriptionHistoryItem) => void;
 }) {
   return (
-    <Card data-testid={`rec-history-card-${item.id}`} className="flex min-h-64 flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-12 font-semibold text-muted-foreground">{item.ownerInitial}</span>
-            <div className="min-w-0">
-              <h2 className="truncate text-14 font-semibold">{item.title}</h2>
-              <p className="mt-1 truncate text-11 text-muted-foreground">{item.project} · {item.owner}</p>
-            </div>
-          </div>
-          <Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>
-            {item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}
-          </Badge>
-        </div>
-        <p className="line-clamp-3 text-12 leading-relaxed text-muted-foreground">{item.summary}</p>
-        <div className="flex min-h-6 flex-wrap gap-1.5">
-          {item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}
-        </div>
-      </div>
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <div className="flex flex-col gap-3">
-          <span className="text-11 text-muted-foreground">{item.duration}&nbsp;&nbsp;·&nbsp;&nbsp;{item.updatedAt}</span>
-          <Button
-            data-testid={`rec-history-open-${item.id}`}
-            size="sm"
-            variant="primary"
-            onClick={() => onOpen(item)}
-          >
-            进入转录
-          </Button>
-        </div>
+    <StudioHistoryCard testId={`rec-history-card-${item.id}`} title={item.title}
+      status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}</Badge>}
+      description={<>{item.project} · {item.owner}<br />{item.summary}</>} tags={item.tags}
+      metadata={<><span>{item.duration}</span><time>{item.updatedAt}</time></>}
+      primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="sm" variant="primary" onClick={() => onOpen(item)}>进入转录</Button>}
+      management={
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreVertical aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-card p-1 shadow-md">
@@ -419,8 +341,8 @@ function HistoryCard({
             <DropdownMenu.Item data-testid={`rec-history-delete-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onDelete(item)}><Trash2 className="h-4 w-4" aria-hidden />删除</DropdownMenu.Item>
           </DropdownMenu.Content></DropdownMenu.Portal>
         </DropdownMenu.Root>
-      </div>
-    </Card>
+      }
+    />
   );
 }
 

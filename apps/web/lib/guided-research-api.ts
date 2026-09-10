@@ -140,3 +140,15 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
   } else reportStream = null;
   return { ...current, ...metadata, ...(update.busy && update.currentNode === "report" ? { report: null, reportDraft: null, reportCheckpoint: null } : {}), reportStream };
 }
+
+export async function updateGuidedResearchMetadata(sessionId: string, input: { title: string; tags: string[] }): Promise<GuidedResearchSession> {
+  const op = research.operations.updateGuidedResearchMetadata;
+  const { sessionId: id, ...body } = op.in.parse({ ...input, sessionId });
+  return op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(id)), { method: op.method, body }));
+}
+
+export async function deleteGuidedResearchSession(sessionId: string): Promise<{ archived: true }> {
+  const op = research.operations.deleteGuidedResearchSession;
+  const input = op.in.parse({ sessionId });
+  return op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(input.sessionId)), { method: op.method }));
+}

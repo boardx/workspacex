@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-studio-home/apps/web
+
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 16992ms
+   ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 4914ms
+   ✓ F180 signed guided-research visual contract > renders the signed progress strip and desktop flow shell 638ms
+   ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 6434ms
+   ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and renders only persisted evidence 3571ms
+   ✓ F180 signed guided-research visual contract > keeps the signed search and report information hierarchy 1201ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  19:58:13
+   Duration  187.55s (transform 58.71s, setup 17.58s, collect 104.34s, tests 16.99s, environment 32.34s, prepare 9.91s)
+

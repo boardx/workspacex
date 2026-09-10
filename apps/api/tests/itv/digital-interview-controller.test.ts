@@ -169,3 +169,80 @@ describe("F02 数字访谈首屏 HTTP", () => {
     expect(response.status).toBe(401);
   });
 });
+
+
+describe("Studio history management (#3345)", () => {
+  const itemPath = "/interviews/digital/itv-f02-visible";
+  const jsonHeaders = { ...auth, "content-type": "application/json" };
+
+  it("persists trimmed metadata and empty tags without invalidating workflow versions", async () => {
+    const result = await fetch(`${base}${itemPath}/metadata`, {
+      method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: "  新名称  ", tags: [] }),
+    });
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ interviewId: "itv-f02-visible", name: "新名称", tags: [] });
+    const rows = await new PgDigitalInterviewRepository(db).listVisible({ orgId: toOrgId(ORG), viewerUserId: USER });
+    expect(rows).toHaveLength(1);
+    await db.withTenant(toOrgId(ORG), async (session) => {
+      const saved = await session.query(`SELECT title,tags,version::integer AS version,digital_status FROM interview_sessions WHERE id=$1`, ["itv-f02-visible"]);
+      expect(saved.rows[0]).toMatchObject({ title: "新名称", tags: [], version: 1, digital_status: "draft" });
+    });
+    const history = await fetch(`${base}/interviews/digital`, { headers: auth });
+    expect(await history.json()).toMatchObject({ items: [{ name: "新名称", tags: [], canManage: true }] });
+  });
+
+  it("rejects invalid metadata and same-organization or cross-organization mutations", async () => {
+    const invalid = await fetch(`${base}${itemPath}/metadata`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: " ", tags: [] }) });
+    expect(invalid.status).toBe(400);
+    for (const id of ["itv-f02-same-org-hidden", "itv-f02-hidden", "itv-f02-missing"]) {
+      const update = await fetch(`${base}/interviews/digital/${id}/metadata`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: "unauthorized", tags: [] }) });
+      expect(update.status).toBe(404);
+      const remove = await fetch(`${base}/interviews/digital/${id}`, { method: "DELETE", headers: auth });
+      expect(remove.status).toBe(404);
+    }
+    expect((await fetch(`${base}${itemPath}`, { method: "DELETE" })).status).toBe(401);
+  });
+
+  it("does not grant management rights to a visible collaborator", async () => {
+    await db.withTenant(toOrgId(ORG), (session) => session.query(
+      `INSERT INTO interview_collaborators(interview_id,user_id,org_id,added_by) VALUES($1,$2,$3,$4)`,
+      ["itv-f02-same-org-hidden", USER, ORG, "u-f02-other-member"],
+    ));
+    const history = await (await fetch(`${base}/interviews/digital`, { headers: auth })).json();
+    expect(history.items.find((item: { interviewId: string }) => item.interviewId === "itv-f02-same-org-hidden")).toMatchObject({ canManage: false });
+    const path = `${base}/interviews/digital/itv-f02-same-org-hidden`;
+    expect((await fetch(`${path}/metadata`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: "denied", tags: [] }) })).status).toBe(404);
+    expect((await fetch(path, { method: "DELETE", headers: auth })).status).toBe(404);
+  });
+
+  it("archives running batch history idempotently while retaining workflow data", async () => {
+    await db.withTenant(toOrgId(ORG), (session) => session.query(`UPDATE interview_sessions SET digital_status='running' WHERE id=$1`, ["itv-f02-visible"]));
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await fetch(`${base}${itemPath}`, { method: "DELETE", headers: auth });
+      expect(result.status).toBe(200);
+      expect(await result.json()).toEqual({ interviewId: "itv-f02-visible", archived: true });
+    }
+    expect(await (await fetch(`${base}/interviews/digital`, { headers: auth })).json()).toEqual({ items: [] });
+    const retained = await new PgDigitalInterviewRepository(db).findVisibleById(toOrgId(ORG), USER, "itv-f02-visible");
+    expect(retained).not.toBeNull();
+    await db.withTenant(toOrgId(ORG), async (session) => {
+      const saved = await session.query(`SELECT archived,version::integer AS version,digital_status FROM interview_sessions WHERE id=$1`, ["itv-f02-visible"]);
+      expect(saved.rows[0]).toMatchObject({ archived: true, version: 1, digital_status: "running" });
+    });
+  });
+
+  it("manages quick interviews without dropping their messages or version", async () => {
+    const repo = new PgDigitalInterviewRepository(db);
+    const experts = await repo.listVisibleExperts({ orgId: toOrgId(ORG), viewerUserId: USER });
+    const quick = await repo.createQuick({ orgId: toOrgId(ORG), actorId: USER, interviewId: "itv-f02-managed-quick", requestId: "request-f02-managed-quick", expert: experts[0]! });
+    await repo.appendQuickExchange({ orgId: toOrgId(ORG), interviewId: quick.interviewId, expectedVersion: quick.version, userMessageId: "message-f02-managed-user", assistantMessageId: "message-f02-managed-assistant", question: "问题", answer: "回答", sourcePointers: [] });
+    const path = `${base}/interviews/digital/${quick.interviewId}`;
+    expect((await fetch(`${path}/metadata`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify({ name: "快捷访谈新名称", tags: ["测试", "测试"] }) })).status).toBe(200);
+    expect((await fetch(path, { method: "DELETE", headers: auth })).status).toBe(200);
+    const restored = await new PgDigitalInterviewRepository(db).loadQuick(toOrgId(ORG), quick.interviewId);
+    expect(restored?.messages).toHaveLength(2);
+    expect(restored?.version).toBe(2);
+    const history = await (await fetch(`${base}/interviews/digital`, { headers: auth })).json();
+    expect(history.items.map((item: { interviewId: string }) => item.interviewId)).not.toContain(quick.interviewId);
+  });
+});

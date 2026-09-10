@@ -23,6 +23,8 @@ export interface GuidedResearchSessionRepository {
     collaboratorUserIds: readonly string[];
     brief: GuidedResearchBrief;
   }): Promise<GuardedGuidedResearchSession>;
+  updateMetadata(input: { orgId: OrgId; viewerUserId: string; sessionId: string; title: string; tags: readonly string[] }): Promise<GuardedGuidedResearchSession | null>;
+  archiveVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<boolean>;
   listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]>;
   findVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<GuardedGuidedResearchSession | null>;
   confirmBrief(input: { orgId: OrgId; viewerUserId: string; sessionId: string; briefVersion: number; brief: GuidedResearchBrief }): Promise<GuardedGuidedResearchSession | null>;

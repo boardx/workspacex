@@ -1,7 +1,11 @@
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RecApp } from "@/components/rec/rec-app";
 import { mockIdentity } from "@/lib/identity";
+
+// These regressions exercise recording behavior; authentication belongs to shell tests.
+vi.mock("@/components/shell/app-shell", () => ({ AppShell: ({ children }: { children: ReactNode }) => <>{children}</> }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/rec",
@@ -425,6 +429,7 @@ describe("实时转录历史工作台", () => {
   });
 
   it("删除成功后即使标签刷新失败也关闭弹窗并保留删除结果", async () => {
+    api.list.mockResolvedValue({ items: [EUROPE, { ...EUROPE, sessionId: "remaining-entry", name: "保留的转录" }], nextCursor: null });
     api.listTags
       .mockResolvedValueOnce({ tags: ["客户", "市场研究"] })
       .mockRejectedValueOnce(new Error("TAG_REFRESH_FAILED"));
@@ -435,6 +440,49 @@ describe("实时转录历史工作台", () => {
 
     await waitFor(() => expect(api.deleteTranscription).toHaveBeenCalledWith("europe-entry", "session-token"));
     await waitFor(() => expect(screen.queryByTestId("rec-delete-dialog")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("rec-history-api-error")).toBeVisible();
+    expect(screen.getByTestId("rec-history-card-remaining-entry")).toBeVisible();
+    expect(screen.queryByTestId("rec-history-error")).not.toBeInTheDocument();
+  });
+
+  it("详情读取失败保留历史卡片，用户可以立即重试打开", async () => {
+    api.read.mockRejectedValueOnce(new Error("TRANSCRIPTION_READ_FAILED"));
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    expect(await screen.findByTestId("rec-history-api-error")).toBeVisible();
+    expect(screen.getByTestId("rec-history-card-europe-entry")).toBeVisible();
+    fireEvent.click(screen.getByTestId("rec-history-open-europe-entry"));
+    expect(await screen.findByTestId("rec-live-workspace")).toBeVisible();
+    expect(api.read).toHaveBeenCalledTimes(2);
+  });
+
+  it("结束遗留转录失败保留卡片与可重试的菜单", async () => {
+    api.list.mockResolvedValue({ items: [{ ...EUROPE, status: "recording" }], nextCursor: null });
+    api.stopTranscription.mockRejectedValueOnce(new Error("TRANSCRIPTION_STOP_FAILED"));
+    renderHistory();
+    fireEvent.pointerDown(await screen.findByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-stop-europe-entry"));
+    expect(await screen.findByTestId("rec-history-api-error")).toBeVisible();
+    expect(screen.getByTestId("rec-history-card-europe-entry")).toHaveTextContent("转录中");
+    fireEvent.pointerDown(screen.getByTestId("rec-history-more-europe-entry"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("rec-history-stop-europe-entry"));
+    await waitFor(() => expect(screen.getByTestId("rec-history-card-europe-entry")).toHaveTextContent("可续录"));
+  });
+
+  it("标签读取失败不隐藏已经加载的历史列表", async () => {
+    api.listTags.mockRejectedValue(new Error("TRANSCRIPTION_TAGS_FAILED"));
+    renderHistory();
+    expect(await screen.findByTestId("rec-history-api-error")).toBeVisible();
+    expect(await screen.findByTestId("rec-history-card-europe-entry")).toBeVisible();
+  });
+
+  it("筛选列表请求失败仍阻止显示旧筛选结果", async () => {
+    renderHistory();
+    expect(await screen.findByTestId("rec-history-card-europe-entry")).toBeVisible();
+    api.list.mockRejectedValueOnce(new Error("TRANSCRIPTION_LIST_FAILED"));
+    fireEvent.change(screen.getByTestId("rec-history-search"), { target: { value: "另一场转录" } });
+    expect(await screen.findByTestId("rec-history-error")).toBeVisible();
     expect(screen.queryByTestId("rec-history-card-europe-entry")).not.toBeInTheDocument();
   });
 

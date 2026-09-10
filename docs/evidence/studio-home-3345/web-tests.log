@@ -1,0 +1,60 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-studio-home/apps/web
+
+ ✓ tests/ui/studio-history-management.test.tsx (5 tests) 3807ms
+   ✓ Studio history management > saves a pending tag without Enter, trims the name, and blocks duplicate form submissions 2170ms
+   ✓ Studio history management > keeps failed edits open with their input and permits retry 693ms
+   ✓ Studio history management > removing a tag never submits the edit form 467ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 22506ms
+   ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 1588ms
+   ✓ 实时转录历史工作台 > 提交新建转录走真实 API，保留自定义标签并立即进入该场工作台 771ms
+   ✓ 实时转录历史工作台 > 提交时把尚未按回车确认的标签一并传给创建 API 301ms
+   ✓ 实时转录历史工作台 > 点击 API 返回的历史卡片进入对应转录详情 475ms
+   ✓ 实时转录历史工作台 > 详情页使用个人持久化 ASR，并按 segmentId 去重拼接 final 文本 2406ms
+   ✓ 实时转录历史工作台 > 停止后等待个人 ASR 完成并重新读取持久化正文 764ms
+   ✓ 实时转录历史工作台 > 编辑完整正文调用持久化 API 并显示服务端结果 812ms
+   ✓ 实时转录历史工作台 > 刷新后仍从 API 读回已创建转录，不依赖组件内存 471ms
+   ✓ 实时转录历史工作台 > 沿服务端游标读取全部历史，并把搜索与标签传给 API 1018ms
+   ✓ 实时转录历史工作台 > 标签筛选只展示当前用户 API 返回的真实标签 524ms
+   ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 2762ms
+   ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 2854ms
+   ✓ 实时转录历史工作台 > 永久删除前二次确认，成功后移除卡片并刷新标签 2954ms
+   ✓ 实时转录历史工作台 > 遗留的转录中卡片可以结束状态，也可以直接永久删除 2999ms
+   ✓ 实时转录历史工作台 > 重新打开遗留转录后，停止按钮会调用服务端恢复操作 604ms
+   ✓ 实时转录历史工作台 > 删除成功后即使标签刷新失败也关闭弹窗并保留删除结果 1059ms
+ ✓ tests/ui/guided-research-home-live.test.tsx (16 tests) 20979ms
+   ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 5862ms
+   ✓ F168 guided research home live data > renders server history and resumes from the server-authored stage 1829ms
+   ✓ F168 guided research home live data > combines tag and content filters and changes history sort order 1060ms
+   ✓ F168 guided research home live data > uses the shared Studio list-page width and card density 575ms
+   ✓ F168 guided research home live data > keeps an active report-stage session resumable until its persisted status is completed 819ms
+   ✓ F168 guided research home live data > creates a persisted session before entering directions 1296ms
+   ✓ F168 guided research home live data > confirms the initial brief once and keeps the next step loading until the model response 3689ms
+   ✓ F168 guided research home live data > opens the progressed session from an idempotent create replay without another confirmation 1095ms
+   ✓ F168 guided research home live data > recovers a lost model response by reading the created session without replay 1014ms
+   ✓ F168 guided research home live data > ignores a delayed create after leaving the entry screen 491ms
+   ✓ F168 guided research home live data > ignores a delayed confirm after leaving the entry screen 509ms
+   ✓ F168 guided research home live data > reuses the create idempotency key after remount and clears it only after success 797ms
+   ✓ F168 guided research home live data > does not reuse an idempotency key after the brief changes into a different create intent 850ms
+   ✓ F168 guided research home live data > garbage-collects stale pending create keys 551ms
+ ✓ tests/ui/interview-studio-home.test.tsx (17 tests) 27843ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 6620ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > uses the shared Studio list-page density and tag treatment 590ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 从全部历史记录动态派生 Tag 并在客户端单选过滤 2775ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 忽略空 Tag 并按首次出现顺序显示去重后的 Tag 852ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 搜索和标签组合过滤，排序按更新时间切换 882ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 正式访谈依服务端 canManage 显示菜单，修改和删除调用真实 API client 8865ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 通过真实创建接口提交名称、标签和可见范围，再用服务端 ID 恢复流程 1842ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 创建依赖失败时保留输入，并用同一个 requestId 重试相同 payload 501ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 完成的本地 Mock 访谈从查看报告返回现有的设置工作流 503ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 旧版 Mock 草稿缺少流程字段时仍可恢复为确认主题卡片 358ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 本地 Mock 历史卡可编辑名称和标签，无权限的服务端记录隐藏菜单 1035ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 管理访谈菜单可在完整指针事件序列后再次关闭 694ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 1561ms
+
+ Test Files  4 passed (4)
+      Tests  55 passed (55)
+   Start at  19:56:25
+   Duration  72.48s (transform 24.75s, setup 12.42s, collect 68.60s, tests 75.13s, environment 49.13s, prepare 7.04s)
+

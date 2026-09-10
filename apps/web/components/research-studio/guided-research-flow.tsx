@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryManagement } from "@/components/studio/studio-history-management";
 import { GuidedResearchLive } from "./guided-research-live";
 import { ResearchLoading, ResearchProgress } from "./guided-research-presentation";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle, Download,
-  Clock3, FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
-  LockKeyhole, Plus, RotateCcw, Search, Sparkles, Target, Trash2,
+  FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
+  LockKeyhole, Plus, Search, Sparkles, Target, Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,8 @@ import {
   getGuidedResearchWorkflow,
   executeGuidedResearchNodeCommand,
   listGuidedResearchSessions,
+  updateGuidedResearchMetadata,
+  deleteGuidedResearchSession,
   finishGuidedResearchCollection,
   completeGuidedResearchSession,
   type GuidedResearchDirection,
@@ -210,9 +214,10 @@ export function GuidedResearchFlow({
   const restorationBlocked = restoringSession || restoreFailed;
 
   const runtimeSessionId = sessionId ?? activeSessionId;
-  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <GuidedResearchLive sessionId={runtimeSessionId} initialNode={!sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} />;
+  if (runtimeSessionId && (sessionId || restoredStep !== "home")) return <div className="p-4"><GuidedResearchLive sessionId={runtimeSessionId} initialNode={!sessionId || step === "home" ? undefined : step === "search" ? "research" : step} onBack={() => navigate("home")} /></div>;
 
   return (
+    <div className={restoredStep === "home" ? undefined : "p-4"}>
     <div
       className="mx-auto flex w-full max-w-none flex-col gap-4 pb-8"
       data-testid={restorationBlocked ? "research-session-restore" : `research-flow-${restoredStep}`}
@@ -242,6 +247,7 @@ export function GuidedResearchFlow({
           {restoredStep === "report" && <ReportScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
         </>
       )}
+    </div>
     </div>
   );
 }
@@ -311,72 +317,46 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   const [history, setHistory] = React.useState<GuidedResearchSession[] | null>(null);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
+  const [selectedTag, setSelectedTag] = React.useState<string>();
+  const [query, setQuery] = React.useState("");
+  const [sort, setSort] = React.useState<HistorySort>("recent");
+  const [revision, setRevision] = React.useState(0);
+  const [notice, setNotice] = React.useState("");
   React.useEffect(() => {
     let active = true;
-    listGuidedResearchSessions()
-      .then((result) => { if (active) setHistory(result.items); })
+    setLoadFailed(false);
+    listGuidedResearchSessions().then(result => { if (active) setHistory(result.items); })
       .catch(() => { if (active) setLoadFailed(true); });
     return () => { active = false; };
-  }, []);
-  return (
-    <section data-testid="research-home-page" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
-      <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;研究</p>
-          <h1 className="text-24 font-semibold tracking-tight text-background-foreground">研究</h1>
-          <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。</p>
-        </div>
-        <Button variant="primary" size="lg" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" aria-hidden />创建研究</Button>
-      </header>
-      <Card className="border-primary/20 bg-accent/40">
-        <CardContent className="flex flex-col items-start justify-between gap-4 p-5 md:flex-row md:items-center">
-          <div className="flex items-start gap-3">
-            <span className="rounded-lg bg-primary p-2 text-primary-foreground"><Sparkles className="h-5 w-5" aria-hidden /></span>
-            <div><h2 className="text-15 font-semibold">开始一项新的深度研究</h2><p className="mt-1 text-12 text-muted-foreground">确认主题后，研究方向和报告大纲都可以在执行前编辑。</p></div>
-          </div>
-          <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="research-create-hero">描述研究主题<ArrowRight className="h-4 w-4" aria-hidden /></Button>
-        </CardContent>
-      </Card>
-      <section className="space-y-3" data-testid="research-history">
-        <div className="flex items-center justify-between"><h2 className="text-16 font-semibold">历史研究</h2><span className="text-11 text-muted-foreground">{history?.length ?? 0} 项</span></div>
-        {history === null && !loadFailed && <p className="text-12 text-muted-foreground" data-testid="research-history-loading">正在加载历史研究…</p>}
-        {loadFailed && <p className="rounded-lg border border-destructive bg-card p-6 text-12 text-destructive" data-testid="research-history-error">历史研究加载失败，请稍后重试。</p>}
-        {history?.length === 0 && <p className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-6 text-center text-12 text-muted-foreground" data-testid="research-history-empty">还没有研究，先创建一项吧。</p>}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {history?.map((item) => (
-            <Card key={item.sessionId} className="flex min-h-64 h-full flex-col p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
-              <CardHeader className="space-y-3 p-0 pb-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Badge tone={item.status === "completed" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.status === "completed" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
-                  <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" aria-hidden />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
-                </div>
-                <CardTitle className="text-16 leading-snug">{item.title}</CardTitle>
-                {item.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>}
-                <p className="min-h-10 text-11 leading-relaxed text-muted-foreground">{item.brief.goal}</p>
-              </CardHeader>
-              <CardContent className="mt-auto space-y-3 p-0 pt-2">
-                <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
-                {item.status === "completed" ? (
-                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" aria-hidden />查看报告</Button>
-                ) : (
-                  <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" aria-hidden />继续研究</Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-      <CreateGuidedResearchDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onContinue={(draft) => {
-          clearResearchSkillState("pending-brief");
-          window.sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft));
-          onNavigate("brief");
-        }}
-      />
+  }, [revision]);
+  const tags = React.useMemo(() => Array.from(new Set((history ?? []).flatMap(item => item.tags))), [history]);
+  React.useEffect(() => { if (selectedTag && !tags.includes(selectedTag)) setSelectedTag(undefined); }, [tags, selectedTag]);
+  const visible = (history ?? []).filter(item => (!selectedTag || item.tags.includes(selectedTag)) &&
+    `${item.title} ${item.brief.goal} ${item.tags.join(" ")}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
+  return <section data-testid="research-home-page" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
+    <StudioHistoryHeader business="研究" description="从一个明确的问题开始，拆方向、定大纲、检索资料并生成带引用的完整报告。" count={history?.length} createTestId="research-create" onCreate={() => setCreateOpen(true)} />
+    <StudioHistoryFilters business="研究" prefix="research-history" tags={tags} selectedTag={selectedTag} onTagChange={setSelectedTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+    {notice && <p role="status" data-testid="research-history-saved" className="text-12 text-success">{notice}</p>}
+    <section className="space-y-3" data-testid="research-history" aria-label="历史研究">
+      {history === null && !loadFailed && <div data-testid="research-history-loading" className="grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(key => <div key={key} className="h-64 rounded-lg bg-muted" />)}</div>}
+      {loadFailed && <div role="alert" data-testid="research-history-error" className="rounded-lg border border-destructive p-6 text-12 text-destructive">历史研究加载失败。<Button variant="outline" className="ml-3" onClick={() => setRevision(value => value + 1)}>重试</Button></div>}
+      {history && visible.length === 0 && !loadFailed && <div data-testid="research-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-6 text-center text-12 text-muted-foreground"><p>{history.length ? "没有符合条件的研究，请调整标签或搜索条件。" : "还没有研究，先创建一项吧。"}</p><Button onClick={() => setCreateOpen(true)}>新建研究</Button></div>}
+      {!loadFailed && visible.length > 0 && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{visible.map(item => <StudioHistoryCard key={item.sessionId} testId={`research-history-${item.sessionId}`} title={item.title}
+        status={<Badge tone={item.status === "completed" ? "primary" : item.stage === "researching" ? "warning" : "neutral"}>{item.status === "completed" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>}
+        description={item.brief.goal} tags={item.tags}
+        metadata={<><span>{item.sourceCount} 个来源</span><time>{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
+        primaryAction={<Button variant="primary" size="sm" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{item.status === "completed" ? "查看报告" : "继续研究"}</Button>}
+        management={<StudioHistoryManagement business="研究" prefix="research" id={item.sessionId} name={item.title} tags={item.tags} deleteDescription="将从首页移除，已引用的研究证据将保留。"
+          onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("研究已修改"); setRevision(value => value + 1); }}
+          onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("研究已从首页移除"); }} />}>
+        <div className="space-y-1.5"><span className="text-10 text-muted-foreground">{item.progress}%</span><Progress value={item.progress} /></div>
+      </StudioHistoryCard>)}<StudioHistoryCreateCard business="研究" testId="research-create-card" onCreate={() => setCreateOpen(true)} /></div>}
     </section>
-  );
+    <CreateGuidedResearchDialog open={createOpen} onOpenChange={setCreateOpen} onContinue={draft => {
+      clearResearchSkillState("pending-brief"); window.sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft)); onNavigate("brief");
+    }} />
+  </section>;
 }
 
 const CREATE_DRAFT_KEY = "wsx.guidedResearch.createDraft";
