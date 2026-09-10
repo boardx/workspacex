@@ -254,6 +254,14 @@ export function specsMatchedBy({ pkgDir, configPath }) {
         WORKSPACEX_API_PORT: process.env.WORKSPACEX_API_PORT ?? "39001",
         WORKSPACEX_WEB_PORT: process.env.WORKSPACEX_WEB_PORT ?? "39002",
         PGPORT: process.env.PGPORT ?? "39003",
+        // 五个确定性替身端口自 2026-09-10 起也由隔离外壳分配（`lib/test-isolation.ts`
+        // 的 `PORT_BASE`，唯一一份声明），config 里 `required()` 会点名要它们。
+        // 这里同样只给占位值：`--list` 不起任何 webServer。
+        WORKSPACEX_MODEL_PROVIDER_PORT: process.env.WORKSPACEX_MODEL_PROVIDER_PORT ?? "39004",
+        WORKSPACEX_DEEP_AGENT_PROVIDER_PORT: process.env.WORKSPACEX_DEEP_AGENT_PROVIDER_PORT ?? "39005",
+        WORKSPACEX_ASR_PROVIDER_PORT: process.env.WORKSPACEX_ASR_PROVIDER_PORT ?? "39006",
+        WORKSPACEX_VISION_PROVIDER_PORT: process.env.WORKSPACEX_VISION_PROVIDER_PORT ?? "39007",
+        WORKSPACEX_LOOPBACK_SANDBOX_PORT: process.env.WORKSPACEX_LOOPBACK_SANDBOX_PORT ?? "39008",
         COMPOSE_PROJECT_NAME: process.env.COMPOSE_PROJECT_NAME ?? "spec-gate-coverage-probe",
         WORKSPACEX_DB: process.env.WORKSPACEX_DB ?? "spec_gate_coverage_probe",
       },

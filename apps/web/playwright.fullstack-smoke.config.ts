@@ -12,54 +12,28 @@ function required(name: string): string {
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
 /**
- * #435 —— 确定性模型提供方的端口。
+ * 五个确定性上游替身的端口。
  *
- * ⚠ 不改 `.harness/scripts/lib/test-isolation.ts` 去多分配一个端口：那是**所有** worker
- *   共用的隔离事实源，为一条用例动它，代价落在整支队伍身上。
+ * ⚠ **2026-09-10 起，这里不再算偏移量。** 旧写法是 `webPort + 5_000 / + 6_000 /
+ * + 7_000 / + 10_000 / + 14_000`（fullstack-smoke 那份同角色却写成 `+ 5_000 /
+ * + 10_000 / + 15_000 / − 35_000`）。三个问题，都不是理论上的：
  *
- * `webPort` 由隔离哈希落在 45000–50000 这一段且**每个隔离唯一**，因此 `+5000` 是一个
- * 单射，落在 50000–55000 这一段无人认领的区间里 —— 不同隔离之间不会撞，
- * 也不会撞上 pg/redis/minio/api/web 任何一段。
+ *   ① `webPort + 5_000` 与隔离外壳的 `SKILL_SANDBOX_PORT` **逐位相同**——两者都是
+ *      `50000 + m`，共用同一次哈希抽签。chat-read 车道只是碰巧不起真沙箱才没炸，
+ *      `e2e-up.sh` 那条真实模型链两个都起。
+ *   ② 算出来的端口**从来没有被 OS 探测过**：隔离外壳的 probe-and-bind 只覆盖它自己
+ *      那张表里的角色，这五个不在表里。
+ *   ③ 全部落在 50000–63999，深在 Linux（32768–60999）与 macOS（49152–65535）的
+ *      临时端口区里——run 34454123556 attempt 1 的 `EADDRINUSE :::47474`（零用例、
+ *      仍报 failure）就是这一类，详见 `lib/test-isolation.ts` 的 `PORT_BASE` 头注。
+ *
+ * 现在五个角色都是隔离外壳里的一等公民，和 pg/redis/api/web 同一套 probe-and-bind
+ * 待遇，且**只声明一次**。缺变量即抛，不猜默认值。
  */
-const modelProviderPort = String(Number(webPort) + 5_000);
-/**
- * #466 —— 确定性 ASR 上游的端口。
- *
- * 与上面的 `+5000` 同一条推理：`webPort` 落在 45000–50000 且每个隔离唯一，
- * `+10000` 也是一个单射，落在 55000–60000 这段无人认领的区间里 ——
- * 不同隔离之间不会撞，也不会撞上 pg/redis/minio/api/web/model-provider 任何一段。
- * 同样**不去动** `.harness/scripts/lib/test-isolation.ts`：那是全队共用的隔离事实源。
- */
-const asrProviderPort = String(Number(webPort) + 10_000);
-/**
- * #1415 —— `apps/deep-agent-service` 的确定性替身端口，同一套单射逻辑再往后挪一段
- * （`+15000`，落在 60000–65000，不撞 pg/redis/minio/api/web/model-provider/asr-provider
- * 任何一段）。`skill-agent-import-usecase-audit.spec.ts` 的自助发布 agent 走的是
- * `resolveDeepAgentModel()`（`DEEP_AGENT_PROVIDER_NAME`），不是主 chat provider——
- * 不配 `KERNEL_DEEP_AGENT_BASE_URL`，试跑会以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实
- * 失败（同 `playwright.chat-read.config.ts` 已经踩过、已经修好的同一件事，P6/P7）。
- */
-const deepAgentProviderPort = String(Number(webPort) + 15_000);
-/**
- * F962（#1608 根因排查 2026-08-20）—— 试跑沙箱替身的端口。
- *
- * ⚠ 2026-08-20 复核时发现前一版在这里写的是 `+20_000`（"落在 65000–70000"）——
- *   算错了：`webPort` 落在 45000–49999（`.harness/scripts/lib/test-isolation.ts` 的
- *   `PORT_BASE.WORKSPACEX_WEB_PORT = 45_000`，段宽 5000），`+20_000` 因此落在
- *   65000–69999，**其中 65536 往上根本不是合法 TCP 端口**（`node:net`/WHATWG `URL`
- *   都会在端口号 > 65535 时直接拒绝——本地复现：`new URL("http://127.0.0.1:65697/…")`
- *   逐字抛 `TypeError: Invalid URL`，配置文件 `require` 阶段就整体炸掉，
- *   `seeded-github-import` project 一次也没跑到测试代码，报的还是一个和这条用例
- *   毫不相关的 `TypeError: Invalid URL`）。这不是"这一段落在了别的服务头上"的邻位
- *   冲突，是**整个加法方案在 webPort 落在 45536 及以上时必然产出非法端口**——
- *   而 hash 落在这段的概率不是零，说明这条路子从写下来那一刻就是错的，不是运气问题。
- *
- *   改成往下挪一段（`-35_000`，落在 10000–14999）：pg/redis/minio/api/web 五个真实
- *   端口的段（20000/25000/30000/35000/40000/45000）全部在 20000 以上，model-provider/
- *   asr-provider/deep-agent-provider 的 `+5000/+10000/+15000` 落在 50000–64999，
- *   10000–14999 不撞其中任何一段，且远低于 65535 上限，不会重蹈同一个错。
- */
-const skillSandboxPort = String(Number(webPort) - 35_000);
+const modelProviderPort = required("WORKSPACEX_MODEL_PROVIDER_PORT");
+const deepAgentProviderPort = required("WORKSPACEX_DEEP_AGENT_PROVIDER_PORT");
+const skillSandboxPort = required("WORKSPACEX_LOOPBACK_SANDBOX_PORT");
+const asrProviderPort = required("WORKSPACEX_ASR_PROVIDER_PORT");
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
