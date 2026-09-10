@@ -939,6 +939,38 @@ const server = createServer((req, res) => {
         skillCatalogSeen: skillCatalogReachedUpstream(parsed),
       });
       /*
+       * issue #3297 —— 多步剧本的 hold 窗口：让 `MULTISTEP_MIN_STATUS_POLLS` 真的生效。
+       *
+       * 那条旋钮的设计意图逐字写在它自己的头注里（本文件 :84-93）：「把该 run 的终态推迟到
+       * 至少这么多次状态轮询之后，`/state` 按 `multistepStage()` 分阶段揭示」。它**一次也没
+       * 生效过**：终态闸判的是 `record.statusPolls < requiredPolls`，而流 EOF 那段
+       * （本文件 `record.statusPolls = Number.MAX_SAFE_INTEGER` 处）在
+       * `(record.holdUntilPoll ?? 0) <= record.statusPolls` 恒真时把游标直接推到饱和——
+       * 多步剧本没有 `holdUntilPoll`，`0 <= statusPolls` 恒真 ⇒ EOF 一到就饱和 ⇒
+       * `statusPolls < requiredPolls` 恒假 ⇒ **EOF 后第一次状态轮询就落终态**。
+       *
+       * 这就是本文件头注 :70-79 自己记下的那个坑（「`/stream` 在 EOF 时把 `statusPolls`
+       * 直接推到 MAX——于是十对工具调用从不按剧本推进」）。当时的修正只经 `holdUntilPoll`
+       * 覆盖了二次中断/二次授权两个剧本，多步剧本漏在门外。
+       *
+       * 实测后果（run 34416935580 的 chat-path-coverage 证据包，F3 用例 trace.zip 里
+       * `GET /plan-control/threads/:id/ledger` 的全部 50 次应答，去重后只有三态）：
+       *   531142.5  runStatus=idle       phase=preparing  steps=0
+       *   537129.9  runStatus=running    phase=executing  steps=0   ← `running` 只被采到 1 次
+       *   540113.4  runStatus=succeeded  phase=done       steps=3
+       * live 窗口 ≤ 一个前端账本轮询周期（3s），而 `chat-task-workbench-run-pause` 的渲染门是
+       * `runLive`（`deriveRunControls`，终态恒 false）⇒ 那条断言在这个剧本下**结构上不可能变绿**，
+       * 也不可能证伪任何产品行为。它红在前置上，F3 的两条业务判据一次都没被求值。
+       *
+       * ⚠ 只给多步触发词这一条剧本设，其余剧本一行不动：`holdUntilPoll` 的另外几处读取
+       * （二次中断/二次授权的 `/state` 与状态闸）都各自带着 `isTwoInterrupt` / `isTwoApproval`
+       * 前置，多步触发词不可能等于那两个触发词，因此够不到它们。
+       */
+      if (MULTISTEP_TRIGGER !== undefined && lastUserText === MULTISTEP_TRIGGER) {
+        const record = runs.get(threadId);
+        if (record !== undefined) record.holdUntilPoll = Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS);
+      }
+      /*
        * issue #3100 D6 —— 多步剧本这一轮真的派发一个异步子任务。
        *
        * 时序照真实链路：`spawn_async_task` 是在**这一次模型运行内部**同步调用 TS 侧入队
