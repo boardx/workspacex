@@ -191,11 +191,49 @@ describe("B5.2 ModelDesignChatReplier", () => {
  * 迭代 12（delta `paged-generation-and-doc-export` §1）—— V36 / V37 / V38 / V40。
  * 首次生成从「一次调用吐出所有页」改成「一次骨架 + 每页一次」。
  */
+/**
+ * 一页「像真界面」的 root（导航 + 三档字号 + 可操作控件）。
+ *
+ * issue #3340 起生成路径上有结构自审：空壳页会被带着反馈重问一次，调用次数随之变化。
+ * 测分页 / 参考图 / 截断降级的用例都不该被那条打扰，所以桩页统一用这个形状。
+ * ⚠ 抄第三遍就是「同一事实两处」——只此一份。
+ */
+const REAL_PAGE_CHILDREN =
+  `{"type":"navbar","props":{"title":"页"}},` +
+  `{"type":"text","props":{"content":"标题","variant":"title"}},` +
+  `{"type":"text","props":{"content":"正文说明","variant":"body"}},` +
+  `{"type":"text","props":{"content":"辅助","variant":"caption"}},` +
+  `{"type":"list","props":{"items":["一","二","三"]}},` +
+  `{"type":"divider"},` +
+  `{"type":"input","props":{"placeholder":"输入"}},` +
+  `{"type":"button","props":{"label":"继续","variant":"primary"}},` +
+  `{"type":"bottomnav","props":{"items":["首页","消息","我的"],"active":0}}`;
+
 describe("迭代 12：分页生成", () => {
   /** 空项目 = 还没有任何树 ⇒ 走分页。 */
   const EMPTY: DesignChatContext = { ...CTX, prototype: [], frames: [] };
+  /**
+   * 桩页要**像一页真界面**：有导航、三档字号、可操作控件。
+   *
+   * issue #3340 起，生成路径上多了一道结构自审（`prototype-quality`），不合格的页会被
+   * 带着反馈重问一次。本组用例测的是**分页**（调用次数、哪一页失败），不是质量——
+   * 桩页要是个空壳，自审就会触发、调用次数被搅乱，这些断言测的就不再是它们要测的东西。
+   *
+   * ⚠ 修法是把桩页做成真页的形状，**不是**把自审的线调松：真实夹具里三页已发布的原型
+   * 分别是 86 / 87 / 100 分，production 的页本来就该长这样。
+   */
   const screenJson = (frame: string) =>
-    `{"frame":"${frame}","root":{"type":"stack","children":[{"type":"text","props":{"content":"${frame}的内容"}}]},"notes":"${frame}的说明"}`;
+    `{"frame":"${frame}","root":{"type":"stack","children":[` +
+    `{"type":"navbar","props":{"title":"${frame}"}},` +
+    `{"type":"text","props":{"content":"${frame}的内容","variant":"title"}},` +
+    `{"type":"text","props":{"content":"${frame}这一页做什么","variant":"body"}},` +
+    `{"type":"text","props":{"content":"补充说明","variant":"caption"}},` +
+    `{"type":"list","props":{"items":["一","二","三"]}},` +
+    `{"type":"divider"},` +
+    `{"type":"input","props":{"placeholder":"输入"}},` +
+    `{"type":"button","props":{"label":"继续","variant":"primary"}},` +
+    `{"type":"bottomnav","props":{"items":["首页","消息","我的"],"active":0}}` +
+    `]},"notes":"${frame}的说明"}`;
   const outlineJson = (frames: readonly string[]) =>
     `{"reply":"拆成${frames.length}页。","outline":[${frames.map((f) => `{"frame":"${f}","intent":"${f}做什么"}`).join(",")}]}`;
 
@@ -292,7 +330,7 @@ describe("迭代 12：分页生成", () => {
 describe("迭代 12 补：单页截断后降级重试", () => {
   const EMPTY: DesignChatContext = { ...CTX, prototype: [], frames: [] };
   const screenJson = (frame: string) =>
-    `{"frame":"${frame}","root":{"type":"stack","children":[{"type":"text","props":{"content":"${frame}"}}]}}`;
+    `{"frame":"${frame}","root":{"type":"stack","children":[${REAL_PAGE_CHILDREN}]}}`;
   const outlineJson = (frames: readonly string[]) =>
     `{"reply":"拆成${frames.length}页。","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}`;
 
@@ -421,6 +459,57 @@ describe("V67 视觉判据进设计原则，且与 frontend-design skill 不是�
  * 迭代 13（delta `design-chat-inputs` §1）—— V52 / V53 / V54。
  * 参考图随**每一轮**发；模型看不了图时**不发图且在回复里说出来**。
  */
+/**
+ * issue #3340 后一半：「界面质量很差，感觉没有迭代就提交了，流程没有完整执行」。
+ *
+ * 在这之前，这条链路上**唯一**的重试是「截断了 ⇒ 要求画简单一点」，方向是更简陋。
+ * 现在每页生成完先过一遍结构自审，不合格就带着**具体缺什么**重问一次。
+ */
+describe("#3340 运行期结构自审：不合格的页带着反馈重问一次", () => {
+  const EMPTY2: DesignChatContext = { ...CTX, prototype: [], frames: [] };
+  const outline1 = `{"reply":"一页。","outline":[{"frame":"首页","intent":"i"}]}`;
+  const shell = `{"frame":"首页","root":{"type":"stack","children":[{"type":"text","props":{"content":"禅学入门"}}]}}`;
+  const good = `{"frame":"首页","root":{"type":"stack","children":[${REAL_PAGE_CHILDREN}]}}`;
+
+  it("空壳页 ⇒ 重问一次，且反馈里逐条说缺什么（不是「再试一次」）", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? outline1 : n === 2 ? shell : good }));
+    const out = await r.reply(EMPTY2);
+    expect(model.complete).toHaveBeenCalledTimes(3);            // 骨架 + 首轮 + 质量重问
+    const retryPrompt = model.complete.mock.calls[2]![0] as { user: string };
+    expect(retryPrompt.user).toContain("画得不够好");
+    expect(retryPrompt.user).toContain("海报");                  // 没有可操作控件那条
+    expect(retryPrompt.user).toContain("字号");                  // 只有一档字号那条
+    // 重问更好 ⇒ 用重问那版
+    expect(JSON.stringify(out.pagedScreens?.[0])).toContain("bottomnav");
+  });
+
+  /**
+   * ⚠ 这条用例第一版是**失效的**：桩页得 75 分、压根没触发重问，于是「无条件用重问那版」
+   * 这个变异也照样绿。改成真正踩到那条分支的分数——首轮 69（不合格、会重问），
+   * 重问那版 41（更差）。反证：把「更好才换」改成无条件替换 ⇒ 本条红。
+   */
+  it("重问结果更差 ⇒ 保留原来那版，不许越修越坏", async () => {
+    let n = 0;
+    // 5 个节点、一档字号、有按钮 ⇒ 69 分（不合格，触发重问）
+    const first = `{"frame":"首页","root":{"type":"stack","children":[{"type":"text","props":{"content":"甲"}},{"type":"text","props":{"content":"乙"}},{"type":"text","props":{"content":"丙"}},{"type":"button","props":{"label":"走"}}]}}`;
+    // 2 个节点、没有控件 ⇒ 41 分（更差）
+    const worse = `{"frame":"首页","root":{"type":"stack","children":[{"type":"text","props":{"content":"更差"}}]}}`;
+    const { r } = replier(async () => ({ text: (n += 1) === 1 ? outline1 : n === 2 ? first : worse }));
+    const out = await r.reply(EMPTY2);
+    const got = JSON.stringify(out.pagedScreens?.[0]);
+    expect(got).toContain("甲");
+    expect(got).not.toContain("更差");
+  });
+
+  it("合格的页 ⇒ 不重问（不为了 1 分多花一次调用）", async () => {
+    let n = 0;
+    const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? outline1 : good }));
+    await r.reply(EMPTY2);
+    expect(model.complete).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("迭代 13：参考图", () => {
   const IMG = { filename: "ref.png", mime: "image/png" as const, bytes: new Uint8Array([1, 2, 3]) };
   const WITH_IMG: DesignChatContext = { ...CTX, refImages: [IMG] };
@@ -448,7 +537,7 @@ describe("迭代 13：参考图", () => {
       n += 1;
       return n === 1
         ? { text: `{"reply":"好","outline":[${frames.map((f) => `{"frame":"${f}","intent":"i"}`).join(",")}]}` }
-        : { text: `{"frame":"${frames[n - 2]}","root":{"type":"stack","children":[{"type":"text","props":{"content":"x"}}]}}` };
+        : { text: `{"frame":"${frames[n - 2]}","root":{"type":"stack","children":[${REAL_PAGE_CHILDREN}]}}` };
     });
     await r.reply(EMPTY_WITH_IMG);
     expect(model.complete).toHaveBeenCalledTimes(1 + 3);
