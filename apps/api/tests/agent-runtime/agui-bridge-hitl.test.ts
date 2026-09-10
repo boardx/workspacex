@@ -434,10 +434,23 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
     });
     const chatThreadId = chatThreadIdOf(first.events);
     const toolCallId = first.events.find((e) => e.type === EventType.TOOL_CALL_START)?.toolCallId as string;
+    /*
+     * issue #3296 —— 这个 id **只读一次，在第一次裁决之前**。
+     *
+     * 此前两处都写 `await permissionRequestIdOf(first.events)`，第二处是在裁决**之后**
+     * 再去权威读一次 —— 而那时候还读得到，靠的正是 `readRun` 的残留缺陷（裁决后
+     * `pending_tool_name` 不清、投影不看 status，于是一个已失效的请求被继续宣称为待决）。
+     * 也就是说：本用例的输入来自被测系统的 bug 本身。#3296 把那个残留修掉之后，第二次
+     * 读回的是 `null`，用例红在取值上而不是红在判据上。
+     *
+     * 业务判据一个字没动：**同一个 permissionRequestId 重复 resume 必须诚实报
+     * NO_PENDING_APPROVAL**。改的只是「这个 id 从哪儿来」——从它真实存在的那一刻拿。
+     */
+    const permissionRequestId = await permissionRequestIdOf(first.events);
 
     await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
+      forwardedProps: { chatThreadId, permissionRequestId },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "approved" },
@@ -446,7 +459,7 @@ describe("POST /copilotkit/agui -- DA-19g HITL 审批语义（真实两次 POST�
 
     const secondResume = await postAgui({
       threadId: randomUUID(), runId: randomUUID(),
-      forwardedProps: { chatThreadId, permissionRequestId: await permissionRequestIdOf(first.events) },
+      forwardedProps: { chatThreadId, permissionRequestId },
       messages: [
         { id: randomUUID(), role: "user", content: TRIGGER_TEXT },
         { id: randomUUID(), role: "tool", toolCallId, content: "approved" },

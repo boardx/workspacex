@@ -969,7 +969,34 @@ export class PgAgentRunRepository implements AgentRunStore {
         // public contract.
       })),
       createdAt: found.row.created_at.toISOString(),
-      pendingApproval: found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
+      /*
+       * issue #3296 —— `pendingApproval` 的门是 **status**，不是 `pending_tool_name` 是否为空。
+       *
+       * `decidePermissionRequest`（本文件 :564）在 approve / edit / deny 三个分支上**刻意保留**
+       * `pending_tool_name` / `pending_args_summary` / `pending_permission_request_id` /
+       * `pending_interrupt`——executor 的 `claimQueued`（本文件 :165）要读它们才恢复得了那次
+       * 工具调用，清掉等于把恢复所需的权威信息删了。而 `claimQueued` 把 run 置 `running` 时
+       * 同样不清这几列。于是此前这里只判 `pending_tool_name === null`，裁决之后一直到 run 落
+       * 终态（含 `succeeded`），`GET /agent-runs/:id` 都在宣称「有一个待决请求」，而且回的正是
+       * **刚刚已经被裁决掉的那一个**。
+       *
+       * 实测（run 34416935580 的 `chat-path-coverage` 证据包，B6 用例 trace.zip 逐次应答）：
+       *   178989  POST /decision           → 200, status=queued,   pendingApproval=confirm_task_intent
+       *   179100…190637（连续 25 次 / 11.5 秒）→ 200, status=running,  pendingApproval=confirm_task_intent
+       *   191584  第二次中断真的到了        → 200, status=awaiting_tool_permission, pendingApproval=fill_run_params
+       * 中间那 11.5 秒里服务端没有任何待决请求，权威读却句句相反。用户可见后果就是 #3244 ①
+       * （提交过的确认卡片又回来）与 #3186（照界面再点一次，`decideAgentRun` 先验 status 已不是
+       * `awaiting_tool_permission`，直接抛冲突 = 「点了没反应」）。
+       *
+       * ⚠ 修的是**投影**，不是存储：这几列一个字节不动（同文件的反证用例逐列断言它们仍在），
+       * `claimQueued` 的恢复路径因此完全不受影响。
+       *
+       * ⚠ 同一事实的另一处声明——`pg-plan-ledger-repository.ts` 的 `getLatestRun`（:214）——
+       * 早就带着这道 status 门，注释逐字点名同一个残留。两处从此判据一致；改一处而不改另一处
+       * 就是把它重新漂移开。
+       */
+      pendingApproval: found.row.status !== "awaiting_tool_permission"
+        || found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
         ? null
         : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null, permissionRequestId: found.row.pending_permission_request_id ?? null, interrupt: found.row.pending_interrupt ?? null },
     };
