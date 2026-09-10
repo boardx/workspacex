@@ -19,38 +19,29 @@ function required(name: string): string {
 const apiPort = required("WORKSPACEX_API_PORT");
 const webPort = required("WORKSPACEX_WEB_PORT");
 /**
- * #728 P6/P7 —— 确定性模型提供方的端口。同一条推理见
- * `playwright.fullstack-smoke.config.ts` 的 `modelProviderPort`：`webPort` 落在
- * #74 隔离外壳分配的一段且每个隔离唯一，`+5000` 是单射，不会撞上 pg/redis/api/web
- * 任何一段。这个 config 此前没有第三个 webServer，这里是新增，不是复制。
- */
-const modelProviderPort = String(Number(webPort) + 5_000);
-/**
- * #728 P6/P7 —— 第二个确定性替身的端口（`loopback-deep-agent-provider.ts`）。
- * `+6000` 与上面 `modelProviderPort` 的 `+5000` 同一套单射逻辑，继续往后挪一段，
- * 不会撞上 pg/redis/api/web/上一个 provider 任何一段。
- */
-const deepAgentProviderPort = String(Number(webPort) + 6_000);
-/** issue #2919：补参恢复后生成持久 PDF 的确定性执行端。复用既有 loopback sandbox。 */
-const skillSandboxPort = String(Number(webPort) + 7_000);
-/**
- * #728 P8 —— 确定性 ASR 替身的端口（`loopback-asr-provider.ts`，与
- * `playwright.fullstack-smoke.config.ts` 同一支脚本，不是新写的第二份实现）。
- * `+10000` 抄那份 config 自己的偏移量，同一套单射逻辑。
- */
-const asrProviderPort = String(Number(webPort) + 10_000);
-/**
- * #1560 P1 e2e —— 确定性视觉理解上游的端口（`loopback-vision-provider.ts`）。同一套
- * 单射逻辑再往后挪一段（`+14000`），不会撞上 pg/redis/api/web/model/deep-agent/asr
- * 任何一段。见该脚本自己的头注：不接它，`BailianVisionExtractor` 会把这条链路共用的
- * 占位 `KERNEL_MODEL_API_KEY` 真的发去 `https://dashscope.aliyuncs.com`。
+ * 五个确定性上游替身的端口。
  *
- * ⚠ 上限踩过一次坑：`webPort` 落在 45000–49999，`+20000` 在 `webPort` 取到高位时
- *   会算出 65000–69999，超出合法 TCP 端口上限（65535），`new URL()` 直接
- *   `TypeError: Invalid URL`（实测：单独跑通过，跑整个 chat-read 套件时另一个哈希值
- *   踩中才红）。`+14000` 的上限是 49999+14000=63999，稳稳落在合法端口内。
+ * ⚠ **2026-09-10 起，这里不再算偏移量。** 旧写法是 `webPort + 5_000 / + 6_000 /
+ * + 7_000 / + 10_000 / + 14_000`（fullstack-smoke 那份同角色却写成 `+ 5_000 /
+ * + 10_000 / + 15_000 / − 35_000`）。三个问题，都不是理论上的：
+ *
+ *   ① `webPort + 5_000` 与隔离外壳的 `SKILL_SANDBOX_PORT` **逐位相同**——两者都是
+ *      `50000 + m`，共用同一次哈希抽签。chat-read 车道只是碰巧不起真沙箱才没炸，
+ *      `e2e-up.sh` 那条真实模型链两个都起。
+ *   ② 算出来的端口**从来没有被 OS 探测过**：隔离外壳的 probe-and-bind 只覆盖它自己
+ *      那张表里的角色，这五个不在表里。
+ *   ③ 全部落在 50000–63999，深在 Linux（32768–60999）与 macOS（49152–65535）的
+ *      临时端口区里——run 34454123556 attempt 1 的 `EADDRINUSE :::47474`（零用例、
+ *      仍报 failure）就是这一类，详见 `lib/test-isolation.ts` 的 `PORT_BASE` 头注。
+ *
+ * 现在五个角色都是隔离外壳里的一等公民，和 pg/redis/api/web 同一套 probe-and-bind
+ * 待遇，且**只声明一次**。缺变量即抛，不猜默认值。
  */
-const visionProviderPort = String(Number(webPort) + 14_000);
+const modelProviderPort = required("WORKSPACEX_MODEL_PROVIDER_PORT");
+const deepAgentProviderPort = required("WORKSPACEX_DEEP_AGENT_PROVIDER_PORT");
+const skillSandboxPort = required("WORKSPACEX_LOOPBACK_SANDBOX_PORT");
+const asrProviderPort = required("WORKSPACEX_ASR_PROVIDER_PORT");
+const visionProviderPort = required("WORKSPACEX_VISION_PROVIDER_PORT");
 
 export default defineConfig({
   testDir: "./e2e",

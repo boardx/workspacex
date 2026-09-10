@@ -119,7 +119,10 @@ export async function runWithTestIsolation(
   console.log(
     `[test-isolation] id=${isolation.WORKSPACEX_ISOLATION_ID} db=${isolation.WORKSPACEX_DB} ` +
     `compose=${isolation.COMPOSE_PROJECT_NAME} pg=${isolation.PGPORT} redis=${isolation.REDIS_PORT} ` +
-    `sandbox=${isolation.SKILL_SANDBOX_PORT}`,
+    `api=${isolation.WORKSPACEX_API_PORT} web=${isolation.WORKSPACEX_WEB_PORT} ` +
+    `sandbox=${isolation.SKILL_SANDBOX_PORT} model=${isolation.WORKSPACEX_MODEL_PROVIDER_PORT} ` +
+    `deep-agent=${isolation.WORKSPACEX_DEEP_AGENT_PROVIDER_PORT} asr=${isolation.WORKSPACEX_ASR_PROVIDER_PORT} ` +
+    `vision=${isolation.WORKSPACEX_VISION_PROVIDER_PORT} loopback-sandbox=${isolation.WORKSPACEX_LOOPBACK_SANDBOX_PORT}`,
   );
   const result = await new Promise<{ code: number | null; error: Error | null }>((resolve) => {
     child.once("error", (error) => resolve({ code: null, error }));
