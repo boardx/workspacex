@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshThread } from "./chat-task-workbench-fixture";
+import { findSteeringExecutionViolations } from "./support/steering-execution-evidence";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
 
 // The existing scroll fixture reveals ten real tool callback pairs over successive
@@ -36,22 +37,22 @@ test("running composer accepts direction without cancelling the active tool or s
     return (await result.json()).events;
   };
   await input.fill("后续整理请突出 B 方向，保留当前步骤的执行结果");
-  let activeToolId: string | undefined;
-  // issue #2999 —— 这条轮询超时时原本只报 `expected true, received false`，看不出到底是
-  // 「run 压根没被 executor 领走」还是「工具调用来了又太快结束」。两种成因的修法完全
-  // 不同（前者是共享栈争用/排队，后者才是本 spec 声称观测的时序）。这里把最后一次
-  // 观测到的日志形态带进失败信息里——不放宽任何判据，只让红有证据。
+  // issue #3312 —— 这里原本用 `expect.poll` 抓「有 tool_start 尚无 tool_end」的那一件当
+  // `activeToolId`，再断言它必须在插话之后收尾。那是**锚错了对象**：十对工具跑得比一次
+  // POST 往返还快，抓到的那件常在插话落地之前就已 ok=true 收尾，判据于是恒假——产品行为
+  // 完全正确时也会红，红不红只取决于 interject 的 POST 落在第几对工具之间（本地相位固定
+  // ⇒ 稳定红，CI 各车道相位不同 ⇒ 此前一直绿）。
+  //
+  // 现在只等「执行确实已经开始」这一件事（这是插话有意义的前提），真正的判据搬到下面的
+  // `findSteeringExecutionViolations`，锚在真实业务语义上、不依赖快照相位。
   let lastJournalNote = "journal never read";
   await expect.poll(async () => {
     const events = await readJournal();
-    const ended = new Set(events.filter(event => event.kind === "tool_end").map(event => event.toolCallId));
-    const active = events.find(event => event.kind === "tool_start" && !ended.has(event.toolCallId));
-    activeToolId = active?.kind === "tool_start" ? active.toolCallId : undefined;
     const kinds = events.reduce<Record<string, number>>((acc, event) => ({ ...acc, [event.kind]: (acc[event.kind] ?? 0) + 1 }), {});
-    lastJournalNote = `events=${String(events.length)} kinds=${JSON.stringify(kinds)} ended=${String(ended.size)}`;
-    return Boolean(activeToolId);
+    lastJournalNote = `events=${String(events.length)} kinds=${JSON.stringify(kinds)}`;
+    return events.some(event => event.kind === "tool_start");
   }, { timeout: 30_000, intervals: [100] }).toBe(true).catch((error: unknown) => {
-    throw new Error(`活动中的 tool_start 未在 30s 内出现；最后一次日志观测：${lastJournalNote}\n${String(error)}`);
+    throw new Error(`30s 内一个 tool_start 都没出现（run 可能压根没被 executor 领走）；最后一次日志观测：${lastJournalNote}\n${String(error)}`);
   });
   await expect(input).toBeEnabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
@@ -67,10 +68,11 @@ test("running composer accepts direction without cancelling the active tool or s
   const events = await readJournal();
   const received = events.find(event => event.kind === "interjection" && event.interjectionId === receipt.interjectionId && event.status === "received");
   expect(received).toBeDefined();
-  expect(events.some(event => event.kind === "tool_end" && event.toolCallId === activeToolId && event.ok && event.seq > received!.seq)).toBe(true);
+  // issue #3312 —— 判据锚在真实业务语义：插话之后仍有工具**成对**完成、没有任何工具被打断
+  // （悬空或 ok=false）、全程无 cancelled、只有一条 run。反证夹具在
+  // `apps/web/tests/e2e-support/steering-execution-evidence.test.ts`，四条判据各有一个会红的缺陷形状。
+  expect(findSteeringExecutionViolations({ events, runId, receivedSeq: received!.seq })).toEqual([]);
   expect(events.some(event => event.kind === "status" && event.status === "succeeded")).toBe(true);
-  expect(events.some(event => event.kind === "status" && event.status === "cancelled")).toBe(false);
-  expect(new Set(events.map(event => event.runId))).toEqual(new Set([runId]));
   expect(runPosts).toHaveLength(1);
   expect(cancelPosts).toHaveLength(0);
   await testInfo.attach("steering-journal", {body:JSON.stringify(events,null,2),contentType:"application/json"});

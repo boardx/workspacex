@@ -6,6 +6,7 @@ import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
 import { toolLabel } from "@/lib/chat-workbench/tool-label";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
+import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
 
 function detail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
@@ -101,6 +102,9 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
       <span>{failed ? `${label} · 有失败步骤` : label} · 历时 {elapsed} · 工具 {tools} 次 · 技能活动 {skills} 项</span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
+    {/* issue #3320 —— 活性条挂在折叠区**外面**：失败之后的下一个工具必须不用展开就看得见，
+        且 `active` 期间恒有动画。判定机制与三条验收标准见 `run-trace-live-strip.tsx` 头注。 */}
+    <RunTraceLiveStrip entries={entries} active={active} />
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "skill-group"
