@@ -93,6 +93,9 @@ export interface ExplicitLayoutSectionInput {
   readonly fontWeight?: string;
   /** 数据绑定型分区隐藏标题——见契约 `SectionDef.hideFieldTitle` 文档。 */
   readonly hideFieldTitle?: boolean;
+  /** 文字型字段的对齐——见契约 `SectionDef.align` / `.valign` 文档。 */
+  readonly align?: "left" | "center" | "right";
+  readonly valign?: "top" | "middle" | "bottom";
 }
 
 export interface ExplicitLayoutCell {
@@ -402,11 +405,27 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
   // 只记类型不够用，另建一份按 sectionId 索引的完整输入。
   const infoById = new Map(input.sections.map((s) => [s.sectionId, s] as const));
   const headerCells = rawLayout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+  /**
+   * 这些短文本**排成了一条横向表头带**吗？
+   *
+   * ⚠ 2026-09-10 人类实测反馈：「左边的 title 显示看起来很不好看」。此前所有短文本
+   *   一律被合并成一条表头带，带子的矩形就是它们的**外接框**——把 5 个阶段竖着排在
+   *   最左列时，外接框于是变成一个又高又窄的空盒子，字段一行一个稀稀拉拉铺在里面，
+   *   跟编辑器②画布画的「几个独立小盒子」完全不是一回事。
+   *
+   *   「表头带」这个概念本身没错（用户画像那类模板顶上确实是一条横带），错在把它
+   *   当成短文本的**唯一**渲染方式。判据回到它字面的意思：同一行、同样高，才是一条
+   *   带；否则就是几个各自摆放的框，按各自的格子画（vendor 侧新增的 `fieldCells`）。
+   */
+  const isHeaderBand = headerCells.length > 0
+    && headerCells.every((c) => c.layout.row === headerCells[0]!.layout.row && c.layout.h === headerCells[0]!.layout.h);
 
   // 表头带长高超出它自己的网格格子多少（见文件头 2026-09-02 注释）；没有表头时为 0。
+  // ⚠ 只有真的是一条带时才需要这次下移：各画各的时候，短文本框不会长高，
+  //   正文分区也就没有被顶开的理由。
   let headerShift = 0;
   let headerBottomRaw = -Infinity;
-  if (headerCells.length > 0) {
+  if (isHeaderBand) {
     const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
     headerBottomRaw = Math.max(...headerCells.map((c) => c.y + c.h / 2));
     const rawW = Math.max(...headerCells.map((c) => c.x + c.w / 2)) - Math.min(...headerCells.map((c) => c.x - c.w / 2));
@@ -475,27 +494,65 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     const info = infoById.get(c.sectionId);
     const weight = info?.fontWeight ?? "";
     const bold = weight === "bold" || Number(weight) >= 700;
+    /**
+     * 垂直对齐（人类直接交办，2026-09-10）：vendor 的 `text` 形状只认 `align`
+     * （水平），没有 `valign` —— 它把文字画在节点中心。所以垂直方向不改 vendor，
+     * 改**节点自己的 y**：靠上 = 贴着格子上沿放一行的高度，靠下 = 贴着下沿，
+     * 居中 = 格子中心（也就是 vendor 的原生行为）。同一件事在 apps/web 这侧就能
+     * 算准，没有理由为它动包里一个字（VENDOR.md 纪律）。
+     */
+    const fontSize = info?.fontSize ?? 24;
+    const lineH = Math.max(16, fontSize + 5);
+    const valign = info?.valign ?? "top";
+    const y = valign === "middle" ? c.y
+      : valign === "bottom" ? c.y + c.h / 2 - lineH / 2
+        : c.y - c.h / 2 + lineH / 2;
     return {
       id: `text-${c.sectionId}`,
       label: info?.content ?? "",
       shape: "text",
       x: c.x,
-      y: c.y,
+      y,
       width: c.w,
-      height: c.h,
+      height: valign === "middle" ? c.h : lineH,
       data: {
-        fontSize: info?.fontSize ?? 24,
+        fontSize,
         bold,
         color: info?.color ?? undefined,
-        align: "left",
+        align: info?.align ?? "left",
       },
     };
   });
 
+  /**
+   * 短文本各画各的（`isHeaderBand === false`）：`fields` 仍然照常给（它是 key 的
+   * 清单，`serializeTemplate` 的回写顺序读的就是它），另外给 vendor 一份
+   * `fieldCells`——每个字段自己的框，位置就是它在编辑器里被拖到的那个格子。
+   * 不给 `headerRect`/`fieldsPerRow`，vendor 那侧看到 `fieldCells` 非空就走各画
+   * 各的分支。
+   */
   let headerFields:
     | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
+    | { fields: string[]; fieldCells: NonNullable<TemplateSpec["fieldCells"]> }
     | undefined;
-  if (headerCells.length > 0) {
+  if (headerCells.length > 0 && !isHeaderBand) {
+    const ordered = [...headerCells].sort(
+      (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
+    );
+    headerFields = {
+      fields: ordered.map((c) => c.name),
+      fieldCells: ordered.map((c) => {
+        const info = infoById.get(c.sectionId);
+        return {
+          key: c.name,
+          x: c.x, y: c.y, w: c.w, h: c.h,
+          ...(info?.align ? { align: info.align } : {}),
+          ...(info?.valign ? { valign: info.valign } : {}),
+          ...(info?.fontSize ? { fontSize: info.fontSize } : {}),
+        };
+      }),
+    };
+  } else if (isHeaderBand) {
     const ordered = [...headerCells].sort(
       (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
     );

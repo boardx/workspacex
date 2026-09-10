@@ -20,7 +20,8 @@ import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-dra
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
   collidesWithOthers, maxFreeW, maxFreeH, FIELD_TYPES, newTextDraft,
-  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT,
+  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT, DEFAULT_TEXT_ALIGN, DEFAULT_TEXT_VALIGN,
+  defaultFontSizeFor,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -258,7 +259,10 @@ export function TemplateEditorPanel({
       const wanted = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW });
       const freeH = maxFreeH(prev, sectionId, col, row, wanted.w);
       const next = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW, maxH: freeH });
-      return { ...s, type, layout: clampLayout(next, gridCols) };
+      // 字号的缺省值随类型走（装帧大字 24 vs 字段值 13）——没动过字号的字段换类型时
+      // 跟着换缺省，动过的保留使用者自己配的那个数。
+      const fontSize = s.fontSize === defaultFontSizeFor(s.type) ? defaultFontSizeFor(type) : s.fontSize;
+      return { ...s, type, fontSize, layout: clampLayout(next, gridCols) };
     }));
   }
 
@@ -315,7 +319,7 @@ export function TemplateEditorPanel({
       key, name, type: newField.type, aiHint: null,
       order: prev.length, required: false, capacity: null, layout: null,
       content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-      hideFieldTitle: false,
+      hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
     }]);
     setNewField({ key: "", name: "", type: newField.type });
     setStep(2);
@@ -329,7 +333,7 @@ export function TemplateEditorPanel({
         key: f.key, name: f.name, type: f.type, aiHint: f.why,
         order: prev.length + i, required: false, capacity: null, layout: null,
         content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-        hideFieldTitle: false,
+        hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
       }));
       return [...prev, ...add];
     });

@@ -17,7 +17,7 @@ function textSection(over: Partial<SectionDraft> = {}): SectionDraft {
     order: 0, required: false, capacity: null,
     layout: { col: 1, row: 1, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
     content: "画布大标题", color: "#FF0000", fontSize: 30, fontWeight: "bold",
-    hideFieldTitle: false,
+    hideFieldTitle: false, align: "left", valign: "top",
     ...over,
   };
 }
@@ -28,10 +28,56 @@ function listSection(over: Partial<SectionDraft> = {}): SectionDraft {
     order: 0, required: false, capacity: null,
     layout: { col: 1, row: 1, w: 6, h: 4, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
     content: "", color: null, fontSize: 24, fontWeight: "normal",
-    hideFieldTitle: false,
+    hideFieldTitle: false, align: "left", valign: "top",
     ...over,
   };
 }
+
+describe("TemplateCanvasGrid —— 文字对齐与字号（人类直接交办，2026-09-10）", () => {
+  it("「文本对象」按 align 排水平、按 valign 排垂直", () => {
+    const { getByTestId } = render(
+      <TemplateCanvasGrid
+        sections={[textSection({ align: "center", valign: "bottom" })]}
+        gridCols={12}
+        showSample={false}
+        runData={null}
+        selectedId={null}
+        editable
+        title=""
+        footer=""
+        onSelect={() => {}}
+        onPlace={() => {}}
+        onMove={() => {}}
+      />,
+    );
+    expect(getByTestId("tpladmin-editor-text-content-t1").style.textAlign).toBe("center");
+    // 瓦片外层用 flex 的 align-items 表达垂直对齐（靠下 = flex-end）。
+    expect(getByTestId("tpladmin-editor-block-t1").style.alignItems).toBe("flex-end");
+  });
+
+  it("「短文本」用使用者配的字号与对齐，不是贴纸那套实尺推导", () => {
+    const { getByTestId } = render(
+      <TemplateCanvasGrid
+        sections={[listSection({ sectionId: "f1", key: "phase1", type: "短文本", fontSize: 20, align: "right", valign: "middle" })]}
+        gridCols={12}
+        showSample
+        runData={null}
+        selectedId={null}
+        editable
+        title=""
+        footer=""
+        onSelect={() => {}}
+        onPlace={() => {}}
+        onMove={() => {}}
+      />,
+    );
+    const block = getByTestId("tpladmin-editor-block-f1");
+    const box = block.querySelector("[style*=\"text-align\"]") as HTMLElement | null;
+    expect(box).not.toBeNull();
+    expect(box!.style.textAlign).toBe("right");
+    expect(box!.style.fontSize).toBe("20px");
+  });
+});
 
 describe("TemplateCanvasGrid —— 「文本对象」画布瓦片", () => {
   it("渲染文字内容，套用自己的颜色/字号/粗细，不出现 {{key}} 提示行", () => {

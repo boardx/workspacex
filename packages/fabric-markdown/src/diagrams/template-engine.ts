@@ -125,6 +125,34 @@ export interface TemplateSpec {
   headerRect?: { x: number; y: number; w: number; h: number };
   /** How many field pairs per header row. */
   fieldsPerRow?: number;
+  /**
+   * Per-field boxes — workspacex 2026-09-10. When set (and non-empty), each
+   * listed field is drawn as its OWN framed box at its own rect instead of
+   * being packed into the single `headerRect` band, and `headerRect` /
+   * `fieldsPerRow` are ignored. `fields` still lists the keys and still
+   * drives serialization order, so round-tripping is unchanged.
+   *
+   * Why: a caller with a free drag-and-drop layout (the workspacex template
+   * editor) can place its short-text fields anywhere on the grid. Merging
+   * them all into one band means their bounding box IS the band — fields
+   * stacked down the left edge produce one tall narrow mostly-empty box that
+   * looks nothing like what the editor drew (human report, 2026-09-10:
+   * 「左边的 title 显示看起来很不好看」). A field the caller placed as its own
+   * box should render as its own box.
+   *
+   * `align` / `valign` / `fontSize` are optional per-box presentation; unset
+   * means left / top / the same 13px the band uses.
+   */
+  fieldCells?: {
+    key: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    align?: 'left' | 'center' | 'right';
+    valign?: 'top' | 'middle' | 'bottom';
+    fontSize?: number;
+  }[];
   sections: TemplateSection[];
   /**
    * Palette indices for the per-section title bars (PALETTE_SOFT).
@@ -432,8 +460,75 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
     });
   }
 
-  // Header fields.
-  if (spec.fields && spec.fields.length > 0 && spec.headerRect) {
+  // Header fields — either as their own boxes (fieldCells) or packed into the
+  // single header band (headerRect). The per-box form is checked first: a spec
+  // that sets it means "these were placed individually, don't merge them".
+  const fieldCells = spec.fieldCells ?? [];
+  if (spec.fields && spec.fields.length > 0 && fieldCells.length > 0) {
+    const cellByKey = new Map(fieldCells.map((c) => [c.key, c] as const));
+    spec.fields.forEach((key, i) => {
+      const cell = cellByKey.get(key);
+      if (!cell) return;
+      const fontSize = cell.fontSize ?? 13;
+      const align = cell.align ?? 'left';
+      // Label sits on the first line, value under it — the same stacking the
+      // editor preview draws, and the only layout that survives a box narrow
+      // enough to hold one short-text field (the band's side-by-side
+      // `标签: 值` needs ~250px of width that a single grid cell may not have).
+      const labelH = Math.min(20, Math.max(12, fontSize + 5));
+      const inset = 10;
+      const innerW = Math.max(20, cell.w - 2 * inset);
+      const top = cell.y - cell.h / 2;
+      if (!bg) nodes.push({
+        id: `tpl-fbox-${i}`,
+        label: '',
+        shape: 'rect',
+        x: cell.x,
+        y: cell.y,
+        width: cell.w,
+        height: cell.h,
+        data: { role: 'headerBox', locked: true, color: '#ffffff', stroke: INK },
+      });
+      if (!bg) nodes.push({
+        id: `tpl-flabel-${i}`,
+        label: key,
+        shape: 'text',
+        x: cell.x,
+        y: top + inset + labelH / 2,
+        width: innerW,
+        height: labelH,
+        data: { role: 'fieldLabel', locked: true, fontSize, bold: true, color: INK, align },
+      });
+      // The value gets whatever is left under the label; `valign` decides
+      // where inside that leftover space it sits.
+      const valueTop = top + inset + labelH + 4;
+      const valueH = Math.max(16, cell.h - (valueTop - top) - inset);
+      const value = fields.get(key) || EMPTY_FIELD;
+      const valign = cell.valign ?? 'top';
+      const lineH = Math.max(16, fontSize + 5);
+      const cy = valign === 'middle' ? valueTop + valueH / 2
+        : valign === 'bottom' ? valueTop + valueH - lineH / 2
+          : valueTop + lineH / 2;
+      nodes.push({
+        id: `tpl-field-${i}`,
+        label: value,
+        shape: 'text',
+        x: cell.x,
+        y: cy,
+        width: innerW,
+        height: valign === 'top' ? lineH : valueH,
+        data: {
+          role: 'field',
+          key,
+          fontSize,
+          color: value === EMPTY_FIELD ? LINE : INK_SOFT,
+          align,
+          wrap: 'grapheme',
+          fitHeight: valign === 'top' ? lineH : valueH,
+        },
+      });
+    });
+  } else if (spec.fields && spec.fields.length > 0 && spec.headerRect) {
     const hr = spec.headerRect;
     if (!bg) nodes.push({
       id: 'tpl-header',
@@ -607,6 +702,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
   if (footer && !bg) {
     const bottoms = spec.sections.map((s) => s.y + s.h / 2);
     if (spec.headerRect) bottoms.push(spec.headerRect.y + spec.headerRect.h / 2);
+    for (const c of fieldCells) bottoms.push(c.y + c.h / 2);
     const contentBottom = bottoms.length > 0 ? Math.max(...bottoms) : 60;
     nodes.push({
       id: 'tpl-footer',

@@ -329,6 +329,22 @@
                     },
                     "hideFieldTitle": {
                       "type": "boolean"
+                    },
+                    "align": {
+                      "type": "string",
+                      "enum": [
+                        "left",
+                        "center",
+                        "right"
+                      ]
+                    },
+                    "valign": {
+                      "type": "string",
+                      "enum": [
+                        "top",
+                        "middle",
+                        "bottom"
+                      ]
                     }
                   },
                   "required": [

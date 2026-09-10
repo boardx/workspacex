@@ -28,6 +28,23 @@ import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, 
  */
 
 /**
+ * 「垂直对齐」→ flex 的 `align-items`。三档一一对应，不在两处各写一份映射
+ * （渲染那侧 `explicit-template-layout.ts` 算的是 y 坐标，形状不同、语义同一个）。
+ */
+const FLEX_ALIGN_BY_VALIGN: Record<"top" | "middle" | "bottom", "flex-start" | "center" | "flex-end"> = {
+  top: "flex-start",
+  middle: "center",
+  bottom: "flex-end",
+};
+
+/** 同上，grid 容器那侧的写法（`align-content`）。 */
+const GRID_ALIGN_BY_VALIGN: Record<"top" | "middle" | "bottom", "start" | "center" | "end"> = {
+  top: "start",
+  middle: "center",
+  bottom: "end",
+};
+
+/**
  * 拖拽载荷——`dataTransfer` 里那个 JSON 的形状。
  *
  * `dCol`/`dRow` 是抓握点相对区块左上角的格数偏移，`w`/`h` 是被拖那块的跨度（用来画
@@ -440,8 +457,11 @@ export function TemplateCanvasGrid({
                 </div>
               )}
               <div
-                className="grid flex-1 content-start overflow-hidden"
+                className="grid flex-1 overflow-hidden"
                 style={{
+                  // 贴纸网格永远顶格排（多余的行不被拉伸）；文字型字段按使用者配的
+                  // 垂直对齐摆（人类直接交办，2026-09-10）。
+                  alignContent: isList ? "start" : GRID_ALIGN_BY_VALIGN[s.valign],
                   // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
                   // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
                   // 一行摆 `layout.cols` 张，多出来的换行（`content-start` 让多余行不被
@@ -475,7 +495,13 @@ export function TemplateCanvasGrid({
                         // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
                         // 否则小贴纸会裁字）。选「缩小字号」时额外按文字长度继续收缩，
                         // 见 `noteFontSizePx` 文档。
-                        fontSize: `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`,
+                        // 文字型字段（短文本/长文本）用使用者配的字号（人类直接交办，
+                        // 2026-09-10「还可以指定 font 的大小」），与渲染那侧
+                        // `fieldCells.fontSize` 是同一个数；贴纸仍按实尺推导。
+                        fontSize: isList
+                          ? `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`
+                          : `${s.fontSize}px`,
+                        ...(isList ? {} : { textAlign: s.align }),
                         aspectRatio: isList ? "1" : "auto",
                         minHeight: isList ? 0 : 18,
                         ...(clampLines !== undefined
@@ -620,12 +646,17 @@ function TextBlockTile({
       onDragStart={onDragStartBlock}
       onDragEnd={onDragEndBlock}
       onClick={onSelect}
-      className="flex cursor-pointer items-center overflow-hidden rounded-card"
+      // ⚠ 竖直方向此前写死 `items-center`（垂直居中）。人类直接交办（2026-09-10）
+      //   「靠上，靠下也就是左右上下要可以居中靠两边」之后，它由 `section.valign`
+      //   决定——编辑器画的位置必须与 `explicit-template-layout.ts` 给渲染算的那个
+      //   y 是同一个意思，否则右栏改了对齐、预览动了、真实画布没动。
+      className="flex cursor-pointer overflow-hidden rounded-card"
       style={{
         gridColumn: `${layout.col} / span ${layout.w}`,
         gridRow: `${layout.row} / span ${layout.h}`,
         border: selected ? `${BLOCK_BORDER_CQW}cqw dashed #1F5FD0` : `${BLOCK_BORDER_CQW}cqw dashed transparent`,
         padding: `${BLOCK_PAD_CQW}cqw`,
+        alignItems: FLEX_ALIGN_BY_VALIGN[section.valign],
       }}
       data-testid={`tpladmin-editor-block-${section.sectionId}`}
     >
@@ -647,6 +678,7 @@ function TextBlockTile({
           color: section.color ?? undefined,
           fontSize: `${section.fontSize}px`,
           fontWeight: section.fontWeight === "bold" || Number(section.fontWeight) >= 700 ? 700 : 400,
+          textAlign: section.align,
         }}
         data-testid={`tpladmin-editor-text-content-${section.sectionId}`}
       >

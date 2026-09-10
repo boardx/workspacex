@@ -23,6 +23,8 @@ function draft(over: Partial<SectionDraft>): SectionDraft {
     content: over.content ?? "",
     color: over.color ?? null,
     fontSize: over.fontSize ?? 24,
+    align: over.align ?? "left",
+    valign: over.valign ?? "top",
     fontWeight: over.fontWeight ?? "bold",
     hideFieldTitle: over.hideFieldTitle ?? false,
   };

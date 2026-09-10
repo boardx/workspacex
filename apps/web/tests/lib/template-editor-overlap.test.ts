@@ -23,7 +23,7 @@ function draft(id: string, l: SectionLayoutDraft | null, name = id): SectionDraf
     sectionId: id, key: id, name, type: "便利贴列表",
     required: false, capacity: null, aiHint: "", order: 0,
     layout: l,
-    content: "", color: null, fontSize: 24, fontWeight: "normal", hideFieldTitle: false,
+    content: "", color: null, fontSize: 24, fontWeight: "normal", hideFieldTitle: false, align: "left", valign: "top",
   };
 }
 

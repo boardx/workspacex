@@ -247,6 +247,7 @@ export function TemplateSimulateDialog({
                     sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
                     content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
                     hideFieldTitle: s.hideFieldTitle,
+                    align: s.align, valign: s.valign,
                   }
                 )),
             })

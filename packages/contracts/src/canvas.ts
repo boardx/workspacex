@@ -343,7 +343,11 @@ export const SectionDef = z.object({
   content: z.string().optional(),
   /** 「文本对象」的字色（CSS 颜色值，如 `#14130F`）。`null`/缺失 = 用编辑器默认色。 */
   color: z.string().nullable().optional(),
-  /** 「文本对象」的字号（px）。缺省时编辑器/渲染各自兜底默认值。 */
+  /**
+   * 字号（px）。「文本对象」一直用它；2026-09-10 起「短文本」/「长文本」两种文字型
+   * 数据字段也读它（人类直接交办：「还可以指定 font 的大小」）——缺省时编辑器/渲染
+   * 各自兜底默认值，存量数据不带这一栏，行为与改动前一致。
+   */
   fontSize: z.number().positive().optional(),
   /** 「文本对象」的粗细——`"normal"`/`"bold"`，或 CSS 数值权重（如 `"700"`）的字符串形式。 */
   fontWeight: z.string().optional(),
@@ -354,6 +358,16 @@ export const SectionDef = z.object({
    * 与改动前的既有模板逐字节兼容。
    */
   hideFieldTitle: z.boolean().optional(),
+  /**
+   * 文字的水平/垂直对齐（人类直接交办，2026-09-10：「对于 text 的字段，可以指定，
+   * 居中，靠左，靠右，靠上，靠下也就是左右上下要可以居中靠两边」）。适用于
+   * 「文本对象」与「短文本」/「长文本」这两种文字型数据字段；「便利贴列表」不用
+   * （贴纸自己是一格一格排的，对齐由贴纸网格决定，不是一段文字的事）。
+   *
+   * 缺省 = `"left"` / `"top"`，与改动前逐字节一致——存量数据不带这两栏。
+   */
+  align: z.enum(["left", "center", "right"]).optional(),
+  valign: z.enum(["top", "middle", "bottom"]).optional(),
 }).strict();
 
 /**

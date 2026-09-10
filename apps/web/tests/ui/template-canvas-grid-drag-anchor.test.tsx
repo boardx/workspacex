@@ -57,7 +57,7 @@ function listSection(over: Partial<SectionDraft> = {}): SectionDraft {
     // col 2..7（6 格宽）、row 2..4（3 格高）。
     layout: { col: 2, row: 2, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
     content: "", color: null, fontSize: 24, fontWeight: "normal",
-    hideFieldTitle: false,
+    hideFieldTitle: false, align: "left", valign: "top",
     ...over,
   };
 }

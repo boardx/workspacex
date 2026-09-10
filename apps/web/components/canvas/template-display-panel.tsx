@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
   classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH, collidesWithOthers, GRID_ROWS,
+  isTextual, TEXT_ALIGNS, TEXT_VALIGNS, DEFAULT_FIELD_FONT_SIZE,
+  type TextAlign, type TextVAlign,
   FONT_WEIGHT_OPTIONS, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -146,6 +148,7 @@ export function TemplateDisplayPanel({
             testIdPrefix="tpladmin-editor-text-weight"
           />
         </Group>
+        <AlignGroups section={section} editable={editable} onPatchSection={onPatchSection} />
 
         {layout && (
           <Group label="在 A1 上占多大">
@@ -338,6 +341,27 @@ export function TemplateDisplayPanel({
         </>
       )}
 
+      {/*
+        文字型数据字段（短文本/长文本）的字号与对齐——人类直接交办（2026-09-10）：
+        「对于 text 的字段，可以指定，居中，靠左，靠右，靠上，靠下」「还可以指定 font
+        的大小」。便利贴列表不出这两栏：贴纸是一格一格排的，字号由贴纸实尺推导
+        （`noteFontSizePx`），对齐由贴纸网格决定，都不是"一段文字"的属性。
+      */}
+      {isTextual(section.type) && (
+        <>
+          <Group label="字号">
+            <div className="flex items-center gap-2">
+              <Stepper
+                value={section.fontSize} min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} editable={editable}
+                onChange={(fontSize) => onPatchSection({ fontSize })} testIdPrefix="tpladmin-editor-field-fontsize"
+              />
+              <span className="text-11 text-muted-foreground">px</span>
+            </div>
+          </Group>
+          <AlignGroups section={section} editable={editable} onPatchSection={onPatchSection} />
+        </>
+      )}
+
       <Group label="在 A1 上占多大">
         {/*
           人类 2026-08-26 实测反馈：「宽和高要有更多的选项，目前高 1 到 4 不够，要有所有的
@@ -504,5 +528,45 @@ function Chips<T extends string | number>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * 「对齐」两栏（水平 + 垂直）——人类直接交办（2026-09-10）：「对于 text 的字段，
+ * 可以指定，居中，靠左，靠右，靠上，靠下也就是左右上下要可以居中靠两边」。
+ *
+ * 文本对象与文字型数据字段共用同一个组件：两者对齐的语义完全一样（一段文字在它
+ * 自己那个框里怎么摆），没有理由写两份长得一样、日后各改各的 JSX。
+ */
+function AlignGroups({
+  section, editable, onPatchSection,
+}: {
+  readonly section: SectionDraft;
+  readonly editable: boolean;
+  readonly onPatchSection: (patch: Partial<SectionDraft>) => void;
+}) {
+  return (
+    <>
+      <Group label="水平对齐">
+        <Chips
+          options={TEXT_ALIGNS}
+          value={section.align}
+          editable={editable}
+          onPick={(align: TextAlign) => onPatchSection({ align })}
+          format={(v) => (v === "left" ? "靠左" : v === "center" ? "居中" : "靠右")}
+          testIdPrefix="tpladmin-editor-align"
+        />
+      </Group>
+      <Group label="垂直对齐">
+        <Chips
+          options={TEXT_VALIGNS}
+          value={section.valign}
+          editable={editable}
+          onPick={(valign: TextVAlign) => onPatchSection({ valign })}
+          format={(v) => (v === "top" ? "靠上" : v === "middle" ? "居中" : "靠下")}
+          testIdPrefix="tpladmin-editor-valign"
+        />
+      </Group>
+    </>
   );
 }

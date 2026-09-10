@@ -208,6 +208,113 @@ describe("computeExplicitLayout —— px 几何", () => {
   });
 
   /**
+   * ⚠ 2026-09-10 人类实测：「左边的 title 显示看起来很不好看」。此前所有「短文本」
+   * 一律被合并成一条表头带，带子的矩形是它们的**外接框**——竖着排在最左列的 5 个
+   * 阶段于是变成一个又高又窄的空盒子，跟编辑器②画布画的几个独立小盒子完全不是
+   * 一回事。判据回到「表头带」字面的意思：同一行、同样高才是一条带。
+   */
+  it("各画各的时，渲染出来是每个字段一个框 + 自己的标签与值，不是一条大表头带", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-fieldcells-render", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    registerTemplate(spec);
+    const model = templateToModel("模板: t-fieldcells-render\n分区-a: 甲\n分区-b: 乙\n");
+    // 两个各自的框，不是一个外接框。
+    expect(model.nodes.filter((n) => n.data?.role === "headerBox")).toHaveLength(2);
+    const values = model.nodes.filter((n) => n.data?.role === "field");
+    expect(values.map((n) => n.label)).toEqual(["甲", "乙"]);
+    // 每个值都画在自己那个框里（y 与 fieldCells 的 y 同一档，不是挤在一条带里）。
+    expect(values[0]!.y).toBeLessThan(values[1]!.y);
+  });
+
+  it("短文本竖着排（不成一条带）时各画各的：给 fieldCells，不给 headerRect", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.headerRect).toBeUndefined();
+    expect(spec.fields).toEqual(["分区-a", "分区-b"]);
+    expect(spec.fieldCells).toHaveLength(2);
+    // 每个框就是它自己那个格子，不是两者的外接框。
+    expect(spec.fieldCells![0]!.y).toBeLessThan(spec.fieldCells![1]!.y);
+    expect(spec.fieldCells![0]!.h).toBe(spec.fieldCells![1]!.h);
+  });
+
+  it("短文本排成一条横带时仍然合并成表头带——既有模板逐字节不变", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 3, 1, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.fieldCells).toBeUndefined();
+    expect(spec.headerRect).toBeDefined();
+    expect(spec.fields).toEqual(["分区-a", "分区-b"]);
+  });
+
+  /**
+   * 人类直接交办（2026-09-10）：「对于 text 的字段，可以指定，居中，靠左，靠右，
+   * 靠上，靠下」「还可以指定 font 的大小」。
+   */
+  it("文字型字段的对齐/字号原样传给渲染层（fieldCells）", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本", align: "center", valign: "middle", fontSize: 20 },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.fieldCells![0]).toMatchObject({ align: "center", valign: "middle", fontSize: 20 });
+    // 没配过的那个不写这几栏——缺省行为交给 vendor，不在这里凭空写一份默认值。
+    expect(spec.fieldCells![1]!.align).toBeUndefined();
+    expect(spec.fieldCells![1]!.valign).toBeUndefined();
+  });
+
+  it("「文本对象」的垂直对齐落成节点 y：靠上贴上沿、靠下贴下沿、居中就是格子中心", () => {
+    const build = (valign: "top" | "middle" | "bottom") => buildExplicitTemplateSpec({
+      key: `t-valign-${valign}`, displayName: "测试模板",
+      sections: [{
+        sectionId: "t1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "标题", color: null, fontSize: 24, fontWeight: "bold", valign,
+      }],
+      gridCols: 12,
+    }).spec.decorations![0]!;
+    const top = build("top");
+    const middle = build("middle");
+    const bottom = build("bottom");
+    expect(top.y).toBeLessThan(middle.y);
+    expect(middle.y).toBeLessThan(bottom.y);
+    // 居中 = 格子中心：上下两档到它的距离相等。
+    expect(middle.y - top.y).toBeCloseTo(bottom.y - middle.y, 6);
+  });
+
+  it("「文本对象」的水平对齐原样落成 data.align", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-align", displayName: "测试模板",
+      sections: [{
+        sectionId: "t1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "标题", color: null, fontSize: 24, fontWeight: "bold", align: "right",
+      }],
+      gridCols: 12,
+    });
+    expect(spec.decorations![0]!.data).toMatchObject({ align: "right" });
+  });
+
+  /**
    * issue #2372：此前 `buildExplicitTemplateSpec` 只产出 name/x/y/w/h/fill，`layout.cols`
    * （列数）与 `layout.tone`（贴纸颜色）从没进过 `TemplateSpec`——不是本函数没算，是从
    * 没写出来过。这两条断言钉住"现在确实写出来了"，对应 vendor 侧新增的

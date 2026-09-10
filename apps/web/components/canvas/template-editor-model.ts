@@ -66,12 +66,46 @@ export interface SectionDraft {
   content: string;
   /** 「文本对象」的字色——其它类型不用，恒为 `null`（渲染时兜底默认色）。 */
   color: string | null;
-  /** 「文本对象」的字号（px）——其它类型不用，恒为 `DEFAULT_TEXT_FONT_SIZE`。 */
+  /**
+   * 字号（px）。「文本对象」用它（缺省 `DEFAULT_TEXT_FONT_SIZE`）；2026-09-10 起
+   * 「短文本」/「长文本」也用它（缺省 `DEFAULT_FIELD_FONT_SIZE`，见
+   * `defaultFontSizeFor`）。「便利贴列表」不用——贴纸字号由实尺推导
+   * （`noteFontSizePx`），不是这里配的。
+   */
   fontSize: number;
   /** 「文本对象」的粗细——其它类型不用，恒为 `DEFAULT_TEXT_FONT_WEIGHT`。 */
   fontWeight: string;
   /** 隐藏区块标题（`{{key}}` 提示行 + 区块名），只显示内容——数据绑定型分区专用。 */
   hideFieldTitle: boolean;
+  /**
+   * 文字对齐（人类直接交办，2026-09-10）——「文本对象」与「短文本」/「长文本」这两种
+   * 文字型数据字段用；「便利贴列表」不用（贴纸按网格排，不是一段文字）。
+   * 缺省 `"left"` / `"top"`，与改动前一致。
+   */
+  align: TextAlign;
+  valign: TextVAlign;
+}
+
+export type TextAlign = "left" | "center" | "right";
+export type TextVAlign = "top" | "middle" | "bottom";
+export const TEXT_ALIGNS: readonly TextAlign[] = ["left", "center", "right"];
+export const TEXT_VALIGNS: readonly TextVAlign[] = ["top", "middle", "bottom"];
+export const DEFAULT_TEXT_ALIGN: TextAlign = "left";
+export const DEFAULT_TEXT_VALIGN: TextVAlign = "top";
+/**
+ * 「短文本」/「长文本」没配字号时用多大——比文本对象（装帧大字）小得多，取
+ * vendor 画字段值用的那个 13px（`template-engine.ts` 的表头字段与 `fieldCells`
+ * 分支都是这个数），这样"没动过字号"的字段在编辑器与真实画布上是同一个大小。
+ */
+export const DEFAULT_FIELD_FONT_SIZE = 13;
+
+/** 这个类型的文字没配字号时用多大。 */
+export function defaultFontSizeFor(type: SectionFieldType): number {
+  return type === "文本对象" ? DEFAULT_TEXT_FONT_SIZE : DEFAULT_FIELD_FONT_SIZE;
+}
+/** 这个类型的文字有没有对齐/字号可言（便利贴列表没有）。 */
+export function isTextual(type: SectionFieldType): boolean {
+  return type === "文本对象" || type === "短文本" || type === "长文本";
 }
 
 /**
@@ -136,9 +170,11 @@ export function toDraft(row: CanvasTemplate): SectionDraft[] {
     layout: s.layout ? { ...s.layout } : null,
     content: s.content ?? "",
     color: s.color ?? null,
-    fontSize: s.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
+    fontSize: s.fontSize ?? defaultFontSizeFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
     fontWeight: s.fontWeight ?? DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: s.hideFieldTitle ?? false,
+    align: s.align ?? DEFAULT_TEXT_ALIGN,
+    valign: s.valign ?? DEFAULT_TEXT_VALIGN,
   }));
 }
 
@@ -164,6 +200,8 @@ export function newTextDraft(order: number): SectionDraft {
     fontSize: DEFAULT_TEXT_FONT_SIZE,
     fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: false,
+    align: DEFAULT_TEXT_ALIGN,
+    valign: DEFAULT_TEXT_VALIGN,
   };
 }
 
@@ -188,8 +226,14 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
       layout: d.layout ? { ...d.layout } : null,
       ...(d.type === "文本对象"
         ? { content: d.content, color: d.color, fontSize: d.fontSize, fontWeight: d.fontWeight }
-        : {}),
+        // 文字型数据字段只带自己配过的那一栏：字号缺省时**不写**这一栏，存量模板
+        // 的输出逐字节不变（同 `hideFieldTitle` 那条纯增量纪律）。
+        : d.type === "短文本" || d.type === "长文本"
+          ? { ...(d.fontSize !== DEFAULT_FIELD_FONT_SIZE ? { fontSize: d.fontSize } : {}) }
+          : {}),
       ...(d.hideFieldTitle ? { hideFieldTitle: true } : {}),
+      ...(isTextual(d.type) && d.align !== DEFAULT_TEXT_ALIGN ? { align: d.align } : {}),
+      ...(isTextual(d.type) && d.valign !== DEFAULT_TEXT_VALIGN ? { valign: d.valign } : {}),
     }));
 }
 
