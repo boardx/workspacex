@@ -40,10 +40,21 @@ function describeFailure(err: unknown): string {
     // 404 = 这条线程对你不可见（与"不存在"同一个出口，见契约 `importThread` 头注）。
     if (err.status === 404) return "读不到这条对话——它可能已经被删了，或者不是你的。";
     if (err.status === 503) return "这次没能把对话摘成背景（模型没回来）。可以再试一次。";
-    return err.reasonCode ?? `http_${err.status}`;
+    /**
+     * 2026-09-10 实测：这里原样吐出了一个 `http_500`。那是**给日志看的代码，不是给人看的话**——
+     * 用户读到它既不知道该重试还是该找人，也不知道自己的那段编辑还在不在。剩下的都是
+     * 服务端出错（前端已经把 4xx 的几种都翻译过了），所以说一句人话，并且说清「你改的那段
+     * 文本还在框里」这件他最关心的事。`reasonCode` 只进日志，不上屏。
+     */
+    if (err.status >= 500) {
+      console.error("import-thread failed", { status: err.status, reasonCode: err.reasonCode });
+      return "服务器出错了，这次没能保存。你编辑的这段文字还在，可以再点一次确认。";
+    }
+    if (err.status === 403) return "这个设计项目不是你的，不能改它的背景。";
+    return "这次导入没成功，可以再试一次。";
   }
   if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
-  return String(err);
+  return "这次导入没成功，可以再试一次。";
 }
 
 export function ImportThreadDialog({
