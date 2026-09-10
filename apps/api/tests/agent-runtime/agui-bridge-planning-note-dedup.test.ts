@@ -267,8 +267,7 @@ describe("POST /copilotkit/agui + KERNEL_DEEP_AGENT_STREAM_ENABLED=1 -- 规划�
     expect(stepStarted?.toolCallName).toBe("call_skill");
     expect(toolResult?.content).toBe(SKILL_RESULT);
 
-    // 持久化的最终回复仍然是模型真实终稿，不受本次修复影响（#3389：这一轮里
-    // `final-message` 那条气泡自己就逐字等于落库那行，走的是身份路径①）。
+    // 持久化的最终回复仍然是模型真实终稿，不受本次修复影响。
     const persisted = await asApp(ORG, (c) => c.query<{ body: string }>(
       "SELECT body FROM chat_messages WHERE org_id=$1 AND author_kind='agent' ORDER BY created_at DESC LIMIT 1",
       [ORG],
