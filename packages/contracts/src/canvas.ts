@@ -177,6 +177,27 @@ export function builtinDisplayName(key: string): string | undefined {
 }
 
 /**
+ * 反方向：显示名 → 内置 key。**由上表反转推导，不另写一份映射**（第二份副本一律
+ * 视为缺陷，见本文件顶部的唯一事实源声明）。
+ *
+ * 为什么需要它：chat 围栏的 `模板: <key>` 是按 key 精确匹配的，而模型手里最顺口的
+ * 名字是显示名——2026-09-10 人类实测，`模板: 用户旅程图` 恒判 `not-found`，用户
+ * 看到的是一条「既不是内置模板、组织库里也没有」的报错。这个 key 在后台任何界面上
+ * 都不显示（纯中文名的自建模板还会被 `slugifyTemplateKey` 生成成 `tpl-<随机6位>`），
+ * 让人「照着报错去改」是改不动的。
+ *
+ * 比对前两侧都做一次 `trim()`，其余一字不动——显示名本来就是给人看的字面量，
+ * 在这里做模糊匹配只会让两个名字相近的模板互相串台。
+ */
+export function builtinKeyByDisplayName(displayName: string): BuiltinTemplateKey | undefined {
+  const target = displayName.trim();
+  for (const [key, name] of Object.entries(BUILTIN_CANVAS_TEMPLATES)) {
+    if (name === target) return key as BuiltinTemplateKey;
+  }
+  return undefined;
+}
+
+/**
  * mermaid 白名单的 12 类封闭枚举。
  * ⚠ 白名单**只关渲染、不关书写**（I-8）——本束**不提供**「删除已写的被禁类型代码块」的能力，
  *   那会违反「不丢内容」。被禁类型的代码块照常保存，只是不渲染。

@@ -329,11 +329,63 @@ export function parseTemplateText(code: string): ParsedTemplateText {
  * 情况）行为与之前完全一致，不影响现有解析结果。
  */
 function normalizeSectionKey(name: string): string {
-  return name
-    .trim()
-    .replace(/[\s　]+/g, '')
-    .replace(/[，,。.！!？?：:；;]+$/g, '')
-    .replace(/[与及]/g, '和');
+  return arabicizeCjkNumerals(
+    name
+      .trim()
+      .replace(/[\s　]+/g, '')
+      .replace(/[，,。.！!？?：:；;]+$/g, '')
+      .replace(/[与及]/g, '和'),
+  );
+}
+
+const CJK_DIGITS: Record<string, number> = {
+  '〇': 0, '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+  '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+};
+
+/**
+ * 把中文数字换成阿拉伯数字（2026-09-10 人类实测：`## 阶段一触点` 匹配不上
+ * `触点 · 阶段1`，那一格静默空白）。
+ *
+ * 两侧用的是**同一个**函数，所以这一步只可能让本来对不上的两个名字对上，不可能让
+ * 本来对得上的两个名字对不上。
+ *
+ * 解析范围**刻意只到 0~99**，且只认「〇零一二三四五六七八九十」这一段连续字符：
+ * 解不出来（如「三四五」这种不是数词的连排、或超过两位）就**原样返回**，不猜。
+ * 宁可少折叠一个，也不要把「三视角」「一致性」这类词里的字当成数字乱改——虽然
+ * 两侧同改不会造成漏配，但改出一个奇怪的中间串会让调试时读不懂。
+ */
+function arabicizeCjkNumerals(name: string): string {
+  return name.replace(/[〇零一二三四五六七八九十]+/g, (run) => {
+    const idx = run.indexOf('十');
+    if (idx === -1) {
+      // 没有「十」：只认单个数字（「二三」不是 23，是两个字，不动它）。
+      return run.length === 1 ? String(CJK_DIGITS[run]!) : run;
+    }
+    const head = run.slice(0, idx);
+    const tail = run.slice(idx + 1);
+    if (head.length > 1 || tail.length > 1) return run;
+    const tens = head === '' ? 1 : CJK_DIGITS[head];
+    const ones = tail === '' ? 0 : CJK_DIGITS[tail];
+    if (tens === undefined || ones === undefined) return run;
+    return String(tens * 10 + ones);
+  });
+}
+
+/** 分区名里的「段分隔符」。只认中点/斜杠/竖线这一族，不认 `-`（`T-shirt` 不是两段）。 */
+const SECTION_PART_SEPARATOR = /[·・•∙／/｜|]/;
+/** 段数上限：`k!` 种排法，4 段 = 24 种，够用且不会失控。 */
+const MAX_SECTION_PARTS = 4;
+
+/** `['行为','阶段1']` → `['行为阶段1','阶段1行为']`（全排列后拼接）。 */
+function concatPermutations(parts: readonly string[]): string[] {
+  if (parts.length === 1) return [parts[0]!];
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const rest = [...parts.slice(0, i), ...parts.slice(i + 1)];
+    for (const tail of concatPermutations(rest)) out.push(parts[i]! + tail);
+  }
+  return out;
 }
 
 /**
@@ -401,6 +453,22 @@ export function lookupSectionItems(sections: Map<string, string[]>, name: string
   for (const [key, items] of sections) {
     const keyBare = normalizeSectionKey(stripTrailingParenthetical(key));
     if (keyBare && (keyBare === target || keyBare === targetBare)) return items;
+  }
+  // ⑤ 分段乱序兜底（2026-09-10 人类实测：journey-map 整张画布 20 格全空）。
+  //    这类模板的 canonical 名是**两个维度的交叉**（`行为 · 阶段1` = 泳道 × 阶段），
+  //    模型极容易把它重排成 `阶段1行为`——分隔符没了、两段顺序也反了。前四级里没有
+  //    任何一级能把它认回来：去空格不动顺序，剥后缀/括号剥的是尾巴。
+  //
+  //    判据故意**只在 spec 侧的名字带分隔符时**才启用，并且要求各段**全部出现、
+  //    首尾相接、一个字不多不少**——只是允许换个顺序而已。所以它折叠的是"同一个名字
+  //    的另一种排法"，不会把 `行为 · 阶段1` 和 `行为 · 阶段2` 这种真正不同的名字
+  //    混为一谈（段的集合不同）。
+  const parts = name.split(SECTION_PART_SEPARATOR).map((p) => normalizeSectionKey(p)).filter(Boolean);
+  if (parts.length >= 2 && parts.length <= MAX_SECTION_PARTS) {
+    const arrangements = new Set(concatPermutations(parts));
+    for (const [key, items] of sections) {
+      if (arrangements.has(normalizeSectionKey(key))) return items;
+    }
   }
   return [];
 }
