@@ -78,15 +78,6 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [permissionOpen, setPermissionOpen] = React.useState(true);
-  /**
-   * issue #3212 —— 「我已经批复了 webresearch，后来还弹出来」。实测（`tool-permission-gate.ts`
-   * + `permission-grant-scopes.test.ts`）：`run`/`forever` 两档的写入键与查询键逐字一致，
-   * 授权**没有丢**；会再问一次的只有「仅本次允许」——那一档按 I-4 本来就不落授权记录，
-   * 下一次同类调用再问是**正确**的。所以这里修的不是授权判定（一个字都不动，放宽即安全
-   * 倒退），而是"用户看不出为什么又问"：记下本 run 内已经做过几次裁决、上一次选了哪档，
-   * 在第二次及以后的弹窗上如实说明。纯展示态，不进入任何请求体。
-   */
-  const [history, setHistory] = React.useState<{ count: number; last: "once" | "run" | "forever" | "deny" | "approve" | "edit" | "reject" | null }>({ count: 0, last: null });
   // 同 InterruptDecisionDialog：这个弹窗也是挂载即打开、没有用户 trigger（TW-A11Y-5）。
   const returnPermissionFocus = useDialogReturnFocus(permissionOpen);
   React.useEffect(() => {
@@ -101,6 +92,23 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     return () => { controller.abort(); clearTimeout(timer); };
   }, [runId, bearer]);
   const request = run?.pendingApproval;
+  /**
+   * issue #3212 ② / #3302 —— 「这是本次任务里第几次请求授权、上次选了哪档」。
+   *
+   * 实测（`tool-permission-gate.ts` + `permission-grant-scopes.test.ts`）：`run`/`forever`
+   * 两档的写入键与查询键逐字一致，授权**没有丢**；会再问一次的只有「仅本次允许」——那一档
+   * 按 I-4 本来就不落授权记录，下一次同类调用再问是**正确**的。所以这里修的不是授权判定
+   * （一个字都不动，放宽即安全倒退），而是「用户看不出为什么又问」。
+   *
+   * ⚠ #3302：这个计数**不是**本组件数出来的。它曾经是一个 `useState`，而本组件的挂载门
+   * （`copilotkit-v2-panel-body.tsx`）是 `status === "awaiting_tool_permission"`：同一条 run
+   * 的两次中断之间整段是 `running`，组件被**正确地**卸载，计数当场销毁 ⇒ `count > 0` 恒假 ⇒
+   * 这段提示在同一条 run 的第二次授权上从未出现过。修法不是把本地状态留住（那是给同一个
+   * 事实再加一处声明），而是让它只有服务端一处：`AgentRunView.permissionDecisions` 由
+   * `agent_runs.permission_decision_count` / `last_permission_decision` 下发，刷新、换标签页、
+   * 冷启动读到的都是同一个数。老快照缺字段时回落到 0（= 不显示），绝不编一个次数出来。
+   */
+  const history = run?.permissionDecisions ?? { count: 0, last: null };
   React.useEffect(() => {
     if (!fallbackInterrupt || fallbackWasPending) return;
     const pendingInterrupt = run?.pendingApproval?.interrupt;
@@ -115,7 +123,6 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     try {
       await apiRequest(planPermissions.operations.decidePermissionRequest.path.replace(":runId", encodeURIComponent(runId)).replace(":permissionRequestId", encodeURIComponent(request.permissionRequestId)), { method: "POST", body: { decision }, sessionToken: bearer });
       setConsumedRequestId(request.permissionRequestId);
-      setHistory((prev) => ({ count: prev.count + 1, last: decision }));
       setRun(await getAgentRun(runId, bearer));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
     finally { inFlight.current = false; setPending(false); }

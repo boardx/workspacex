@@ -467,6 +467,25 @@ test(
       + "缺了它，用户无法把「这是一次新请求」与「上次点击没生效」分开——那正是 #3186 的界面表现。"
       + "⚠ 审批组件若按 `runId:seq` 换 key，第二次中断会把它整个重挂、计数清零，本条即红",
     ).toBeVisible({ timeout: 30_000 });
+    /*
+     * #3302 —— 「可见」还不够，**那句话说的次数必须是对的**。
+     *
+     * 这个计数曾经存在审批组件的 `useState` 里，而组件的挂载门是
+     * `status === "awaiting_tool_permission"`：上面那段 hold 窗口整段是 `running`，
+     * 组件被**正确地**卸载、计数清零，于是 ② 在同一条 run 的第二次授权上从未出现过。
+     * 判次数（而不是只判存在）挡的是「让组件别卸载」「把本地状态缓存住」那一类修法——
+     * 它们能让元素出现，却让「第几次」重新变成一个不受服务端约束的数字。
+     */
+    await expect(
+      secondDialog.getByTestId("perm-repeat-notice"),
+      "#3302：跨过那段 running 窗口之后，用户看见的那句话必须仍然是「第 2 次」。"
+      + "计数的事实源是服务端（AgentRunView.permissionDecisions），不是组件的生命周期",
+    ).toContainText("第 2 次请求授权");
+    await expect(
+      secondDialog.getByTestId("perm-repeat-notice"),
+      "#3302：上一次点的是「仅本次允许」，文案必须说得出是哪一档——"
+      + "只说次数、说不出上次选了什么，用户仍然不知道为什么又被问一遍",
+    ).toContainText("仅本次允许");
 
     const secondDecision = page.waitForResponse((response) => response.request().method() === "POST"
       && response.url().includes(`/permission-requests/${secondRequestId}/decision`));
