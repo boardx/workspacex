@@ -8,6 +8,7 @@ import {
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
 import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 /**
  * issue #2068 —— **TW-P0-3 六态工作流与可编辑计划**（判据见 `${ACCEPTANCE_DOC}`）。
@@ -376,7 +377,28 @@ test("TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可�
     gapMessage("TW-P0-3⑤", "chat-task-workbench-run-progress", "执行态没有显示耗时"),
   ).toHaveAttribute("data-elapsed-ms", /^\d+$/);
 
-  await expectAnchor(page, "chat-task-workbench-run-pause", "TW-P0-3⑤", "执行中不能暂停", 20_000);
+  /*
+   * issue #3318（人类裁决 2026-09-10：「chat 中，暂停不了，先取消暂停的动作，只支持取消」）
+   * —— 这一条锚点随暂停入口一起翻面，**判据没删**：门是同一个常量
+   * `CHAT_RUN_PAUSE_ENTRY_ENABLED`（#3319 修好真实链路后翻回来，原判据逐字复活）。
+   *
+   * 入口下线时这里断言的是它的**反面**，而且是在真浏览器的**真实 DOM** 上判"不存在"，
+   * 不是判"不可见"：`toHaveCount(0)` 让「藏起来但仍可触发」「在但在视口外」两种假修法
+   * 一样红。上面那几条 `run-progress` 断言就是本条的阳性对照——执行条确实渲染出来了、
+   * 就是暂停按钮原本长的那张卡，所以"找不到暂停"不可能是"这一屏什么都没有"。
+   */
+  if (CHAT_RUN_PAUSE_ENTRY_ENABLED) {
+    await expectAnchor(page, "chat-task-workbench-run-pause", "TW-P0-3⑤", "执行中不能暂停", 20_000);
+  } else {
+    await expect(
+      page.getByTestId("chat-task-workbench-run-pause"),
+      gapMessage("TW-P0-3⑤", "chat-task-workbench-run-pause", "#3318 已下线暂停入口，它却还在 DOM 上"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /暂停/ }),
+      gapMessage("TW-P0-3⑤", "chat-task-workbench-run-pause", "换了 testid 的暂停按钮同样不许在"),
+    ).toHaveCount(0);
+  }
 });
 
 test("TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试该步 / 修改输入", async ({ page }) => {

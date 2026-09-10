@@ -14,6 +14,7 @@ import {
   planControlErrorCode, removePlanConstraint, reorderPlanStep, resumePlanRun, retryPlanStep,
 } from "@/lib/plan-control-api";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 import { describePlanFailureReason } from "@/lib/plan-control-copy";
 
 /**
@@ -313,16 +314,22 @@ function PlanControlSession(
   // 断言不需要知道这一轮模型有没有产出计划。
   if (ledger.steps.length === 0 && runLive) return <><div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control">
     {indicator}
-    <span role="status">{ledger.pausedAt ? "任务已暂停" : ledger.pauseRequestedAt ? "正在暂停" : "执行中"}</span>
+    {/*
+      * issue #3318 —— 暂停入口下线（`CHAT_RUN_PAUSE_ENTRY_ENABLED`）时，
+      * 「正在暂停」这个中间态文案也一起下线：没有入口就产生不了 pause-requested，
+      * 留着它只会在系统侧偶发写了那个字段时告诉用户"有个暂停正在进行"——
+      * 而那正是人类实测里卡住的那一屏。
+      */}
+    <span role="status">{ledger.pausedAt ? "任务已暂停" : CHAT_RUN_PAUSE_ENTRY_ENABLED && ledger.pauseRequestedAt ? "正在暂停" : "执行中"}</span>
     {runControls.canResume ? (
       <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
-    ) : (
+    ) : CHAT_RUN_PAUSE_ENTRY_ENABLED ? (
       <Button
         size="sm" variant="outline" data-testid={PLAN_RUN_PAUSE_TESTID}
         disabled={!canWrite || busy || hasRecentError || Boolean(ledger.pauseRequestedAt)}
         onClick={handlePause}
       >{ledger.pauseRequestedAt ? "暂停中…" : "暂停"}</Button>
-    )}
+    ) : null}
     {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
   </div></>;
 
@@ -375,9 +382,10 @@ function PlanControlSession(
   if (nothingLeftToDo && terminalAndSettled) return null;
 
   const completed = ledger.steps.filter(step => step.status === "completed").length;
+  // issue #3318 —— `pauseRequestedAt` 那一档随暂停入口一起下线（理由见上面同一 issue 的注释）。
   const stateLabel = ledger.phase === "cancelled" ? "任务已停止" : ledger.phase === "failed" ? "执行遇到问题"
     : ledger.pausedAt ? "任务已暂停" : ledger.phase === "approving" ? "等待审批"
-    : ledger.phase === "done" ? "本轮已结束" : ledger.pauseRequestedAt ? "正在暂停"
+    : ledger.phase === "done" ? "本轮已结束" : CHAT_RUN_PAUSE_ENTRY_ENABLED && ledger.pauseRequestedAt ? "正在暂停"
     : ledger.phase === "executing" ? "执行中" : ledger.gate.required ? "等待确认" : "待执行";
 
   return (
@@ -455,7 +463,8 @@ function PlanControlSession(
           completedCount={ledger.progress.completed}
           elapsedMs={ledger.progress.elapsedMs}
           isPaused={Boolean(ledger.pausedAt)}
-          isPauseRequested={!ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}
+          isPauseRequested={CHAT_RUN_PAUSE_ENTRY_ENABLED && !ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}
+          showPause={CHAT_RUN_PAUSE_ENTRY_ENABLED}
           onPause={canWrite ? handlePause : undefined}
           onResume={canWrite ? handleResume : undefined}
           hasRecentError={hasRecentError && !ledger.pausedAt}
@@ -481,7 +490,7 @@ function PlanControlSession(
         </p>
       )}
 
-      {ledger.pendingApplyAtNextRun && <fieldset disabled={!canWrite || busy} className="min-w-0"><PlanPendingApplyBanner onPauseNow={handlePause} /></fieldset>}
+      {ledger.pendingApplyAtNextRun && <fieldset disabled={!canWrite || busy} className="min-w-0"><PlanPendingApplyBanner onPauseNow={CHAT_RUN_PAUSE_ENTRY_ENABLED ? handlePause : undefined} /></fieldset>}
 
       {!collapsed && ledger.steps.length > 0 && (editing && canOperate ? (
         <PlanPanelEdit

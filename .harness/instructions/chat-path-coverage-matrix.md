@@ -65,7 +65,7 @@
 | E4 运行中插话 | steering 排队到下一安全步骤，不打断当前原子步骤 | `agent-workbench-steering-acceptance` | 已覆盖 | chat-read |
 | F1 错误横幅 | 真实失败出现人类可读横幅，横幅之后界面仍可用 | `copilotkit-v2-error-banner` | 已覆盖 | chat-read |
 | F2 断线重连 | 网络中断（非刷新）后事件流重连并从 journal 续上，不重复不空转 | `chat-path-f2-network-drop-reconnect` | 已覆盖 | chat-path-coverage |
-| F3 暂停 / 恢复 / 重试单步 | 四个控制都可点且真生效 | **无**（详见「已知缺口」；`agent-workbench-control-acceptance` 断言的是审批仲裁 / 取消 / 刷新恢复，**不是**这条判据） | 未覆盖 | — |
+| F3 暂停 / 恢复 / 重试单步 | 四个控制都可点且真生效 | `chat-path-f3-pause-resume-retry-step`（判据逐字保留，当前**挂起**：门是 `apps/web/lib/chat-run-pause-entry.ts` 的 `CHAT_RUN_PAUSE_ENTRY_ENABLED`） | **挂起**（#3318 人类裁决下线 chat 暂停入口；真实链路暂停为何不生效 → #3319） | chat-path-coverage |
 | F4 失败态修复 | 显示失败步骤，可重试该步 / 修改输入 | `chat-task-workbench-workflow-states` | 当前红 | chat-task-workbench |
 | F5 取消传播到子任务 | 父取消后子任务不再产出、不发布晚到产物 | `chat-path-f5-cancel-propagates-to-subtask` | 已覆盖 | chat-path-coverage |
 | F6 并发双 run | 两个线程同时跑，事件不串线、不互相覆盖 | `chat-path-f6-concurrent-runs` | 已覆盖 | chat-read |
@@ -141,6 +141,20 @@ completed"。
 新旋钮 `LOOPBACK_DEEP_AGENT_SUBTASK_HOLD_POLLS`（=60）把它推迟；且**刻意有限**——没有取消
 时子任务会自然完成，于是"取消没传播"以 `completed` + 非空 `result` 现形，而不是靠"它一直
 没完成"这种和"卡住了"分不开的弱信号。
+
+### ⚠ F3 当前挂起（#3318，2026-09-10 人类裁决）
+
+> chat 中，暂停不了，先取消暂停的动作，只支持取消
+
+`chat-path-f3-*` 在 #3307 转绿，但那条绿**只覆盖回环替身那条链**——#3307 做的正是让替身
+学会说 `user_pause` 这门方言。人类在 devapp 实测：点暂停后界面停在「正在暂停 / 暂停中…」，
+run 没停。**替身产不出缺陷的形状 ⇒ 判据无法被证伪**，本仓最贵的那个形状又中一次。
+
+处置：chat 的暂停入口下线（`CHAT_RUN_PAUSE_ENTRY_ENABLED = false`），F3 与 `TW-P1-5a`
+的判据**一个字没删**，改成读同一个常量；入口回来那天它们自动重新逐字求值。
+「chat 里不再有暂停入口」这一侧由 `apps/web/tests/ui/chat-run-pause-entry-removed.test.tsx`
+（判"不在 DOM 上"，不是判"不可见"）与 `TW-P0-3⑤` 的反面锚点守着。
+真实链路上暂停为什么不生效 → **#3319**。
 
 ### F3 暂停 / 恢复 / 重试单步 —— 这条判据从来没有被断言过（#3081）
 

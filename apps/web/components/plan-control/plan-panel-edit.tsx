@@ -218,7 +218,12 @@ export function PlanPendingApplyBanner(
       <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
       <span>
         Agent 正在执行。你的改动会<b>落到账本、在当前步骤完成后生效</b>，不会改变正在跑的这一步。
-        要立刻生效请先<Button size="xs" variant="ghost" className="mx-0.5 h-5 px-1 text-warning underline" onClick={onPauseNow}>暂停</Button>。
+        {/*
+          * issue #3318 —— 这句「要立刻生效请先暂停」本身就是一个暂停入口，
+          * 而且它比按钮更毒：它是在**教用户去用一个不生效的动作**。调用方不给
+          * `onPauseNow` 时整句连按钮一起不进 DOM（不是禁用、不是隐藏）。
+          */}
+        {onPauseNow && <>要立刻生效请先<Button size="xs" variant="ghost" className="mx-0.5 h-5 px-1 text-warning underline" onClick={onPauseNow}>暂停</Button>。</>}
       </span>
     </div>
   );
