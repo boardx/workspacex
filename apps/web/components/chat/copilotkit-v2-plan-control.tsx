@@ -6,7 +6,7 @@ import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly
 import { PlanPanelEdit, PlanPendingApplyBanner, OrphanConstraintNotice } from "@/components/plan-control/plan-panel-edit";
 import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
 import { PlanRunProgress, PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
-import { derivePlanSurface, deriveRunControls } from "@repo/contracts/plan-control";
+import { derivePlanSurface, deriveRunControls, deriveRunStatusView } from "@repo/contracts/plan-control";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import {
@@ -219,6 +219,30 @@ function PlanControlSession(
     hasActionError: actionErrorCode !== null,
   });
 
+  /*
+   * issue #3365 —— **「这条 run 现在处于什么状态」的唯一派生处**（`deriveRunStatusView`）。
+   *
+   * 改动前这份事实散在四处，各读各的量：折叠头的 `stateLabel` 三元、进度卡的
+   * `findIndex(!completed)` + 全完成兜底取最后一条、进度条的 `stepIndex - 1`、
+   * 阶段条的 `ledger.phase`。人类 2026-09-10 实测的一屏五处矛盾正是它们的合成结果
+   * （真实权威读账本逐字见 issue #3365）。
+   *
+   * ⚠ 不要在下面任何地方再算一次状态文字 / 当前步骤 / 进度分子——那就是把同一事实
+   * 重新声明到第二处。由 `.harness/scripts/lint-run-status-view-single-source.test.ts` 门控。
+   */
+  const statusView = deriveRunStatusView({
+    phase: ledger.phase,
+    runStatus: ledger.runStatus,
+    stepStatuses: ledger.steps.map((s) => s.status),
+    progressCompleted: ledger.progress.completed,
+    progressTotal: ledger.progress.total,
+    paused: Boolean(ledger.pausedAt),
+    pauseRequested: Boolean(ledger.pauseRequestedAt),
+    gateRequired: ledger.gate.required,
+    hasRecentError,
+    pauseEntryEnabled: CHAT_RUN_PAUSE_ENTRY_ENABLED,
+  });
+
   const tid = threadId; // 上面已判非空，供下面闭包按非空类型使用。
   const revision = ledger.revision;
 
@@ -346,22 +370,31 @@ function PlanControlSession(
       * 留着它只会在系统侧偶发写了那个字段时告诉用户"有个暂停正在进行"——
       * 而那正是人类实测里卡住的那一屏。
       */}
-    <span role="status">{ledger.pausedAt ? "任务已暂停" : CHAT_RUN_PAUSE_ENTRY_ENABLED && ledger.pauseRequestedAt ? "正在暂停" : "执行中"}</span>
+    {/* issue #3365 —— 这一行此前自己拼三元文案，是「run 现在什么状态」的第二处推导。改读同一个 view。 */}
+    <span role="status">{statusView.stateLabel}</span>
     {runControls.canResume ? (
       <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
     ) : CHAT_RUN_PAUSE_ENTRY_ENABLED ? (
       <Button
         size="sm" variant="outline" data-testid={PLAN_RUN_PAUSE_TESTID}
-        disabled={!canWrite || busy || hasRecentError || Boolean(ledger.pauseRequestedAt)}
+        // #3365 —— 停滞与否同样只从 `statusView` 读，不裸读 `hasRecentError` 再判一次。
+        disabled={!canWrite || busy || statusView.activity === "stalled" || Boolean(ledger.pauseRequestedAt)}
         onClick={handlePause}
       >{ledger.pauseRequestedAt ? "暂停中…" : "暂停"}</Button>
     ) : null}
     {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
   </div></>;
 
-  const runningStepIndex = ledger.steps.findIndex((s) => s.status !== "completed");
-  const currentStepIndex = runningStepIndex === -1 ? ledger.steps.length : runningStepIndex + 1;
-  const currentStep = ledger.steps[runningStepIndex === -1 ? ledger.steps.length - 1 : runningStepIndex];
+  /*
+   * issue #3365 —— 改动前这三行是「当前步骤」的第二处推导，且带一个致命兜底：
+   * `findIndex` 落空（**全部步骤已完成**）时 `currentStep` 取 `steps[length-1]`——
+   * 也就是已经做完的最后一条。人类截图里那句「当前步骤：重新输出完整 ai-bmc
+   * canvas 围栏 · 2/2」正是这个兜底编出来的，屏幕上没有任何真实事实支持它。
+   * 现在 `currentStepIndex` 为 `null` 就是 `null`（契约不变量 I3），标签跟着为 null。
+   */
+  const currentStepIndex = statusView.currentStepIndex;
+  const currentStep = currentStepIndex === null ? undefined : ledger.steps[currentStepIndex - 1];
+  const currentStepLabel = currentStep?.content ?? null;
 
   // issue #2451 —— failed 态不再靠"第一个未完成的步骤"猜：改用服务端算出的真实
   // `failedStepId`（`get-plan-ledger.ts` 头注：`in_progress` 步骤，run 死掉那一刻
@@ -372,7 +405,9 @@ function PlanControlSession(
     ? ledger.steps.findIndex((s) => s.planStepId === ledger.failedStepId)
     : -1;
   const failedStep = failedStepIndex !== -1 ? ledger.steps[failedStepIndex] : currentStep;
-  const failedStepDisplayIndex = failedStepIndex !== -1 ? failedStepIndex + 1 : currentStepIndex;
+  // #3365 —— `currentStepIndex` 现在可能为 null（全完成时没有当前步骤）；
+  // 取不到就不编序号，`PlanFailureRecovery` 的 `failedStepIndex` 本就是可选的。
+  const failedStepDisplayIndex = failedStepIndex !== -1 ? failedStepIndex + 1 : currentStepIndex ?? undefined;
 
   /*
    * issue #3245① —— 人类 2026-09-10 devapp 验收原话：「plan panel 不要一直显示在下方」。
@@ -395,12 +430,14 @@ function PlanControlSession(
    *   任何一件还需要用户动手，面板就留着（#3081 修好的暂停入口不受影响）。
    */
 
-  const completed = ledger.steps.filter(step => step.status === "completed").length;
-  // issue #3318 —— `pauseRequestedAt` 那一档随暂停入口一起下线（理由见上面同一 issue 的注释）。
-  const stateLabel = ledger.phase === "cancelled" ? "任务已停止" : ledger.phase === "failed" ? "执行遇到问题"
-    : ledger.pausedAt ? "任务已暂停" : ledger.phase === "approving" ? "等待审批"
-    : ledger.phase === "done" ? "本轮已结束" : CHAT_RUN_PAUSE_ENTRY_ENABLED && ledger.pauseRequestedAt ? "正在暂停"
-    : ledger.phase === "executing" ? "执行中" : (ledger.phase === "planning" && ledger.gate.required) ? "等待确认" : "待执行";
+  /*
+   * issue #3365 —— 折叠头此前有自己的 `stateLabel` 七档三元，以及自己数一遍的
+   * `completed`。两者与进度卡、阶段条各自独立，是同一事实的第二、第三份声明。
+   * 现在全部读 `statusView`（`completed` 直接用账本的 `progress.completed`——
+   * 读模型已经数过一次，前端不重数）。
+   */
+  const stateLabel = statusView.stateLabel;
+  const completed = statusView.progressValue;
 
   return (
     /*
@@ -472,22 +509,24 @@ function PlanControlSession(
         * `"executing"`），差别只在于 `runLive` 不再受账本存在性影响，与上面那个无计划分支
         * 用的是同一个判据——「run 在跑就能暂停」在两条分支上只声明一次。
         */}
-      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && runLive && currentStep && (
+      {/*
+        * issue #3365 —— 门里原本有 `&& currentStep`：全部步骤完成后 `currentStep`
+        * 为空，整张进度卡会连同它一起消失，用户失去「这轮到底还在不在跑」的唯一
+        * 载体。收尾态（`settling`）正是最需要如实说话的时刻，卡必须留着。
+        */}
+      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && runLive && ledger.steps.length > 0 && (
         <PlanRunProgress
-          currentStepLabel={currentStep.content}
-          stepIndex={currentStepIndex}
-          stepTotal={ledger.steps.length}
-          // issue #3132 —— 完成数取账本自己数出来的 `progress.completed`（读模型单一
-          // 事实源），不是 `currentStepIndex - 1`：后者是"跑到第几步"的推算，与真实
-          // 已完成数在跳步/收尾补标时并不相等。
-          completedCount={ledger.progress.completed}
+          view={statusView}
+          currentStepLabel={currentStepLabel}
           elapsedMs={ledger.progress.elapsedMs}
           isPaused={Boolean(ledger.pausedAt)}
           isPauseRequested={CHAT_RUN_PAUSE_ENTRY_ENABLED && !ledger.pausedAt && Boolean(ledger.pauseRequestedAt)}
           showPause={CHAT_RUN_PAUSE_ENTRY_ENABLED}
           onPause={canWrite ? handlePause : undefined}
           onResume={canWrite ? handleResume : undefined}
-          hasRecentError={hasRecentError && !ledger.pausedAt}
+          // #3365 —— 停滞态（RUN_ERROR 到手、账本可能永远追不上）必须给真出口，
+          // 不是只留一句「正在等待执行状态更新……」让用户干等（见 #3367）。
+          onRecover={canWrite ? () => handleRetryStep(currentStep?.planStepId ?? null) : undefined}
         />
       )}
 
