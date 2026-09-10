@@ -13,7 +13,7 @@ import {TaskNotifications} from "@/components/chat/workbench/task-notifications"
  */
 const request=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/api-client",()=>({apiRequest:request}));
-const notice=(id:string,kind:"task"|"email",title:string,threadId:string|null)=>({id:`00000000-0000-4000-8000-00000000000${id}`,kind,title,body:"",threadId,createdAt:"2026-09-08T00:00:00.000Z",readAt:null});
+const notice=(id:string,kind:"task"|"email",title:string,threadId:string|null)=>({id:`00000000-0000-4000-8000-00000000000${id}`,kind,title,body:"",threadId,actionable:false,createdAt:"2026-09-08T00:00:00.000Z",readAt:null});
 const serve=(notifications:ReturnType<typeof notice>[],unreadCount=notifications.length)=>{
   request.mockImplementation(async(path:string,opts?:{method?:string})=>{
     if(path==="/notifications")return {notifications,unreadCount};

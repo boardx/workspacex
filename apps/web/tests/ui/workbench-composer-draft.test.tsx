@@ -72,7 +72,7 @@ it("does not let an old task's late ACK erase a remounted draft", async () => {
 });
 
 it("keeps three running task drafts while background outcomes update without navigation", async () => {
-  const notice = (id: string, title: string) => ({ id: `00000000-0000-4000-8000-00000000000${id}`, kind: "task", title, body: "", threadId: id, createdAt: "2026-09-08T00:00:00.000Z", readAt: null });
+  const notice = (id: string, title: string) => ({ id: `00000000-0000-4000-8000-00000000000${id}`, kind: "task", title, body: "", threadId: id, actionable: false, createdAt: "2026-09-08T00:00:00.000Z", readAt: null });
   apiRequest.mockResolvedValue({ notifications: [], unreadCount: 0 });
   const hook = renderHook(({ active }) => ({
     draft: useComposerDraft({ ...scope, threadId: active }),

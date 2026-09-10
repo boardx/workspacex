@@ -15,6 +15,16 @@ export const Notification = z.object({
   body: z.string(),
   /** 点开通知要跳去的对话；邮件/系统消息没有。 */
   threadId: z.string().nullable(),
+  /**
+   * 这条通知是**待办**还是**收据**（issue #3311）。
+   *
+   * `true` = 事情还没办（等待你授权工具 / 等待你确认计划）：点击只是把用户送到能办的
+   * 地方，**不许**顺手标已读——否则用户被通知有事要办，点进去事没了，也没告诉他去哪办。
+   * `false` = 已经发生的收据（已完成 / 执行失败 / 邮件）：点开看结果，看了就读掉。
+   *
+   * 这是**服务端给的事实**，不许前端拿标题字符串反推（同一事实不得声明在两处）。
+   */
+  actionable: z.boolean(),
   createdAt: z.string().datetime(),
   readAt: z.string().datetime().nullable(),
 }).strict();

@@ -4,7 +4,7 @@ import {describe,it,expect,vi,beforeEach} from "vitest";
 import {TaskNotifications} from "@/components/chat/workbench/task-notifications";
 const request=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/api-client",()=>({apiRequest:request}));
-const notice=(id:string,kind:"task"|"email",title:string,threadId:string|null)=>({id:`00000000-0000-4000-8000-00000000000${id}`,kind,title,body:"",threadId,createdAt:"2026-09-08T00:00:00.000Z",readAt:null});
+const notice=(id:string,kind:"task"|"email",title:string,threadId:string|null)=>({id:`00000000-0000-4000-8000-00000000000${id}`,kind,title,body:"",threadId,actionable:false,createdAt:"2026-09-08T00:00:00.000Z",readAt:null});
 beforeEach(()=>{request.mockReset();});
 describe("global notification center",()=>{
   it("lists server-pushed task and email notices, opens the thread and marks it read",async()=>{
