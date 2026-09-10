@@ -45,6 +45,19 @@ function stripComments(source: string): string {
     .replace(/#[^\n]*/g, "");
 }
 
+/** 按括号深度为 0 的逗号切分——Python 类型注解内部的逗号不是参数边界。 */
+function splitTopLevel(params: string): string[] {
+  const out: string[] = [];
+  let depth = 0, current = "";
+  for (const ch of params) {
+    if (ch === "[" || ch === "(") depth++;
+    if (ch === "]" || ch === ")") depth--;
+    if (ch === "," && depth === 0) { out.push(current); current = ""; continue; }
+    current += ch;
+  }
+  out.push(current);
+  return out;
+}
 describe("issue #2017 HITL 工具名单一事实源", () => {
   it("契约里的工具名，在 tools.py 里真的是一个 @tool 函数", () => {
     const src = readPy(TOOLS_PY);
@@ -62,8 +75,19 @@ describe("issue #2017 HITL 工具名单一事实源", () => {
     const match = new RegExp(`def\\s+${DEEP_AGENT_HITL_TOOL_NAME}\\s*\\(([^)]*)\\)`).exec(src);
     expect(match, `解析不出 ${DEEP_AGENT_HITL_TOOL_NAME} 的签名`).not.toBeNull();
 
-    const pyParams = (match?.[1] ?? "")
-      .split(",")
+    /*
+     * 按**顶层**逗号切，不是按所有逗号：`tool_call_id: Annotated[str, InjectedToolCallId]`
+     * 的类型注解自己带一个逗号，裸 `split(",")` 会把它切成两半、产出 `InjectedToolCallId]`
+     * 这种垃圾参数名（#3322 实测踩到）。
+     */
+    const pyParams = splitTopLevel(match?.[1] ?? "")
+      /*
+       * `config` 与**注入参数**都不是模型看得见的入参：LangChain 把
+       * `Annotated[..., InjectedToolCallId]` 从暴露给模型的 schema 里剔掉，由运行时填。
+       * 契约 `DeepAgentHitlToolArgs` 描述的是**模型要填什么**，所以这里同样排除它们——
+       * 排除依据是注解里的 `Injected` 标记，不是参数叫什么名字。
+       */
+      .filter((p) => !p.includes("Injected"))
       .map((p) => p.trim().split(":")[0]?.trim() ?? "")
       .filter((p) => p !== "" && p !== "config");
 

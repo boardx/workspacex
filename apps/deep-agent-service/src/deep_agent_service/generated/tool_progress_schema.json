@@ -1,0 +1,39 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "const": "tool_progress"
+      },
+      "version": {
+        "type": "number",
+        "const": 1
+      },
+      "toolCallId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "toolName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "required": [
+      "type",
+      "version",
+      "toolCallId",
+      "toolName",
+      "message"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

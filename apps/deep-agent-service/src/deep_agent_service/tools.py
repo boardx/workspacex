@@ -102,6 +102,8 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolCallId, tool
 
+from .tool_progress import ToolProgressThrottle, resolve_writer
+
 _logger = logging.getLogger(__name__)
 
 
@@ -205,6 +207,50 @@ def _coerce_list(value: object) -> list | None:
 
 
 
+def _chunk_text(chunk) -> str:
+    """把一个流式分片里的**文本**取出来。`content` 可能是 str，也可能是 LangChain 的
+    分块列表（`[{'type':'text','text':...}, ...]`）——两种都要认，认不出的形状返回空串
+    而不是 `str(chunk)`：把一个 repr 拼进最终结果会**悄悄污染**要被执行的脚本。"""
+    content = getattr(chunk, "content", "")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return ""
+
+
+def _focused_call(model, system_prompt: str, task: str, progress, skill_name: str) -> str:
+    """#3322 —— 聚焦模型调用改成**流式**，好让它中途能报进展。
+
+    ⚠ 返回值与改之前逐字等价：分片文本按序拼接 = 一次 `invoke` 的 `content`。这一点是
+    硬的——调用方要从这段文本里抠出**要被真的执行**的脚本块，少一个字符都可能变成语法错误。
+
+    ⚠ 模型对象**没有** `.stream`（本仓测试里的鸭子替身就是这样）时退回 `.invoke`，行为与
+    本 feature 之前逐字相同、一条进展都不发。这不是静默降级：没有流就是真的没有中间信号，
+    这里不替它编一个。
+    """
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": task},
+    ]
+    stream = getattr(model, "stream", None)
+    if stream is None:
+        response = model.invoke(messages)
+        return response.content if isinstance(response.content, str) else str(response.content)
+    parts: list[str] = []
+    total = 0
+    progress.emit(f"技能「{skill_name}」已开始生成…", force=True)
+    for chunk in stream(messages):
+        piece = _chunk_text(chunk)
+        if not piece:
+            continue
+        parts.append(piece)
+        total += len(piece)
+        # 只报**数量**，不报正文：正在生成的脚本内容留在工具结果里，不从进展通道泄出去。
+        progress.emit(f"技能「{skill_name}」正在生成…已产出 {total} 字")
+    return "".join(parts)
+
+
 def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> list[Callable[..., str]]:
     """Bind the two tools to a concrete chat model (dependency injection, not a module-level
     singleton) -- this is what makes `tools.py` testable without a real `deepagents`/network
@@ -223,7 +269,8 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         return "\n".join(lines)
 
     @tool
-    def call_skill(skill_stable_name: str, task: str, config: RunnableConfig) -> str:
+    def call_skill(skill_stable_name: str, task: str, config: RunnableConfig,
+                   tool_call_id: Annotated[str, InjectedToolCallId]) -> str:
         """调用一个已挂载的技能，让它针对给定任务真正执行一次并返回结果——不是复述这个
         技能会做什么，而是把任务交给它去做。`skill_stable_name` 必须是 list_org_skills
         返回过的工具名之一；`task` 要写清这个技能需要知道的全部上下文，描述得越具体，
@@ -246,14 +293,11 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
             skill["content"] if protocol is None
             else f"{skill['content']}\n\n---\n\n{protocol}"
         )
+        # #3322 —— 这次调用可能跑好几分钟（子模型要写出一整个 pptx 脚本）。在这之前它是
+        # 一次阻塞的 `model.invoke`，账本上从 tool_start 到 tool_end 中间**一条事实都没有**。
+        progress = ToolProgressThrottle(resolve_writer(), "call_skill", tool_call_id)
         try:
-            response = model.invoke(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": task},
-                ]
-            )
-            text = (response.content if isinstance(response.content, str) else str(response.content)).strip()
+            text = _focused_call(model, system_prompt, task, progress, skill["name"]).strip()
             if text == "":
                 raise ValueError("skill tool call returned empty content")
             return text

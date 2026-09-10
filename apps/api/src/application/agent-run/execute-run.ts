@@ -68,7 +68,7 @@ import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
-import { createSkillActivityWriter } from "./skill-activity-writer";
+import { createSkillActivityWriter, createToolProgressWriter } from "./skill-activity-writer";
 import { meter } from "./meter-run-usage";
 import { invokeKernel } from "./invoke-kernel";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
@@ -1085,6 +1085,8 @@ async function executeClaimed(
         trustedMemoryScope: { orgId: String(orgId), userId: run.requesterUserId },
         executionAttemptId, executionLeaseEpoch: currentRunLease()?.epoch, executionPermissionRequestId: run.permissionRequestId,
         onSkillActivity: createSkillActivityWriter(deps.runs, orgId, run.runId, executionAttemptId),
+        // #3322 —— 工具执行期间的中间进展；有损通道，写失败只 log（见 writer 头注）。
+        onToolProgress: createToolProgressWriter(deps.runs, orgId, run.runId, executionAttemptId, deps.log),
         // Resume the existing checkpoint after a decision; never resend user input.
         // The provider validates edited args and forwards rejection to native HITL.
         ...(run.pendingDecision === null

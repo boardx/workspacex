@@ -870,6 +870,18 @@ export interface ModelCallInput {
   /** Trusted executor restriction. A text-only subtask must not inherit parent tools. */
   readonly executionMode?: z.infer<typeof SC.RestrictedExecutionMode>;
   readonly onSkillActivity?: (fact: import("@repo/contracts/skill-activity").SkillActivityFact) => Promise<void>;
+  /**
+   * issue #3322 —— 一次工具调用**执行期间**的中间进展。
+   *
+   * ⚠ 与 `onSkillActivity` 的**故障纪律相反**，这是有意的：技能溯源事实丢一条就是账本
+   * 缺页，所以那条通道投递不了要 fail closed（`skill_activity_delivery_unavailable`）；
+   * 进展是**有损的展示采样**，丢几条不影响任何终态判定，把一次本来会成功的 run 因为
+   * 一行进展写不出去而判失败是明显的过度反应。所以：不传 ⇒ 不收进展，逐字等价于本
+   * feature 之前；传了但写失败 ⇒ 记 log，run 照常。
+   *
+   * ⚠ 消费端**不许**用它推断工具是否成功——那是 `tool_end.ok` 唯一负责的事。
+   */
+  readonly onToolProgress?: (progress: import("@repo/contracts/execution-journal").ToolProgressStream) => Promise<void>;
   readonly checkpointResume?: boolean;
   readonly liveInterjections?: boolean;
   /** Trusted executor identity, never sourced from model tool arguments. */
