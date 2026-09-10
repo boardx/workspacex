@@ -107,6 +107,23 @@ export const CHAT_READ_E2E = {
   deepAgentSlowTrigger: "取证：请把这一轮慢慢跑完",
   /** 上面那条触发词的停留时长（毫秒）。同一份值下发给替身，用例不另写一份。 */
   deepAgentSlowHoldMs: 12_000,
+  /**
+   * issue #3321 —— **一轮把计划全部跑完**的剧本：`write_todos` 先announce 三步，
+   * 收尾时再发一次把三步全部标成 `completed`，于是账本终态是
+   * `phase:"done"` / `runStatus:"succeeded"` / `progress 3/3`。
+   *
+   * ⚠ 为什么必须新加一条，而不能复用 `deepAgentMultiStepTrigger`：那条剧本
+   * `write_todos` **只发一次**（`in_progress/pending/pending`）且从不更新，账本
+   * 终态恒为 `progress 0/3`。#3321 要判的那一格是「结束且账本跑满」——
+   * `completed < total` 属 #3245 有意保留的另一格。拿多步触发词去测跑满那一格，
+   * 被测缺陷在那个剧本下**无法被证伪**（本仓「替身产不出缺陷的形状」那条纪律）。
+   * #3321 上一轮正是这么把 `progress 0/3` 当成「progress 跑满」写进结论的。
+   *
+   * 真实 deepagents 的 TodoListMiddleware 会随步骤推进更新 todos，用户反馈的截图里
+   * 也确实是「4/4 步已标记完成」——所以跑满才是真实成功 run 的常态形状。
+   * 与其余触发词同一套接线纪律：唯一事实源在本文件，config 下发给替身进程。
+   */
+  deepAgentPlanAllDoneTrigger: "取证：请把计划三步全部跑完",
   deepAgentScrollAcceptanceTrigger: "取证：请展示十步滚动验收",
   /**
    * UX-9 D4 前端接入取证（gap 清单第 3 条，「Edit, then continue」HITL 模式）：

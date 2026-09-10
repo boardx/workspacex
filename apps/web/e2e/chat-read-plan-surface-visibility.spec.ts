@@ -39,7 +39,7 @@ test.setTimeout(600_000);
 const PLAN_PANEL = "chat-task-workbench-plan-control";
 const PHASE_INDICATOR = "chat-task-workbench-phase-indicator";
 
-type Facts = { attached: boolean; bboxNonZero: boolean; inViewport: boolean; hitTest: boolean };
+type Facts = { attached: boolean; bboxNonZero: boolean; inViewport: boolean; hitTest: boolean; coveredBy?: string };
 type Cell = {
   state: string;
   threadId: string;
@@ -59,6 +59,7 @@ async function facts(page: Page, testId: string): Promise<Facts> {
     const el = document.querySelector(`[data-testid="${tid}"]`);
     if (!el) return { attached: false, bboxNonZero: false, inViewport: false, hitTest: false };
     const r = el.getBoundingClientRect();
+    let coveredBy: string | undefined;
     const bboxNonZero = r.width > 0 && r.height > 0;
     const inViewport = r.top < window.innerHeight && r.bottom > 0 && r.left < window.innerWidth && r.right > 0;
     let hitTest = false;
@@ -67,8 +68,23 @@ async function facts(page: Page, testId: string): Promise<Facts> {
       // 这正是 getBoundingClientRect 看不见的那一类"几何全绿但用户看不见"。
       const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
       hitTest = hit !== null && (el === hit || el.contains(hit));
+      if (!hitTest) {
+        /*
+         * hitTest 为假时把**盖住它的那个东西**记下来。只记"没命中"会让人只能靠猜
+         * 去解释——是被别的元素盖住、还是被祖先 overflow 裁掉，两者要采取的动作
+         * 完全不同。这一行让该结论可复核。
+         */
+        let node: Element | null = hit;
+        const chain: string[] = [];
+        while (node && chain.length < 4) {
+          const tid = node.getAttribute?.("data-testid");
+          chain.push(tid ? `[${tid}]` : node.tagName.toLowerCase());
+          node = node.parentElement;
+        }
+        coveredBy = hit === null ? "(elementFromPoint 返回 null，多半被祖先裁剪)" : chain.join(" < ");
+      }
     }
-    return { attached: true, bboxNonZero, inViewport, hitTest };
+    return { attached: true, bboxNonZero, inViewport, hitTest, coveredBy };
   }, testId);
 }
 
@@ -165,21 +181,46 @@ test("#3321 计划面板/阶段条：九状态可见性矩阵 + 回归断言", a
   expect(visible(s1.planPanel), "S1 全新空白会话不该有 plan panel").toBe(false);
   expect(visible(s1.phaseIndicator), "S1 全新空白会话不该有阶段条").toBe(false);
 
-  // ── S3 有计划、执行中 ⇒ 该显示 ────────────────────────────────────────
-  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  /*
+   * ── S3 有计划、执行中 ⇒ 该显示 ────────────────────────────────────────
+   * ⚠ 必须用**会停留**的触发词。第一次用「三步全部跑完」那条时整轮 19s 就跑完了，
+   *   `waitForPhase` 看到 `executing`、等一拍再采样，那一拍里 run 已经收尾成
+   *   `done` 且账本跑满 ⇒ 面板按设计卸载 ⇒ S3 假红。慢跑触发词停留 12s，
+   *   `executing` 有一个真实存在的窗口。
+   */
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentSlowTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  const execPhase = await waitForPhase(page, ["executing"], 120_000);
+  await waitForPhase(page, ["executing", "planning"], 120_000);
   const s3 = await captureCell(page, "S3-有计划执行中");
-  if (execPhase === "executing") {
-    expect(visible(s3.planPanel), "S3 执行中该显示 plan panel").toBe(true);
+  /*
+   * ⚠ 判定按**采样时刻**账本里的 phase 走，不按等待期观测到的那个——两者之间隔着
+   * 一次轮询，run 完全可能在这中间收尾。上一版按等待期的观测判，于是把一次
+   * 「已经正确卸载」记成了缺陷。
+   */
+  if (s3.phase === "executing" || s3.phase === "planning") {
+    expect(visible(s3.planPanel), `S3 ${s3.phase} 在途：该显示 plan panel`).toBe(true);
   }
 
-  // ── S5 run 成功结束后 ⇒ 不该显示（人类投诉的直接来源）────────────────
+  /*
+   * ── S5 run 成功结束、账本跑满 ⇒ 不该显示（人类投诉的直接来源）──────────
+   * 单开一条线程，用「三步全部跑完」那条触发词——它是唯一能产出
+   * `done` + `progress 3/3` 的剧本，也就是被修的那个缺陷唯一能现形的形状。
+   */
+  await openAuthoritativeFreshThread(page);
+  await selectWorkbenchAgent(page, CHAT_READ_E2E.deepAgentId);
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentPlanAllDoneTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
   const donePhase = await waitForPhase(page, ["done", "failed", "cancelled"], 240_000);
   expect(donePhase, "S5 需要一条真正跑完的 run").toBe("done");
   const doneThreadUrl = page.url();
   const s5 = await captureCell(page, "S5-run成功结束后");
   expect(s5.runStatus, "S5 应为 succeeded").toBe("succeeded");
+  /*
+   * 判定分流：只有「账本跑满」才是 #3321 要卸载的那一格；`completed < total` 属
+   * #3245 有意保留的另一格（阶段说完成、账本仍有步骤没标完，那一行是唯一出口）。
+   * 断言前先把这件事钉死，避免又一次把 0/3 当成跑满。
+   */
+  expect(s5.ledgerDetail, "S5 需要账本真的跑满，否则这一格测不到被修的那个缺陷").toContain("prog=3/3");
   expect(visible(s5.planPanel), "S5 run 已结束、账本跑满：plan panel 不该常驻（#3321 回归）").toBe(false);
   expect(visible(s5.phaseIndicator), "S5 run 已结束：阶段条也不该常驻").toBe(false);
 
@@ -215,9 +256,16 @@ test("#3321 计划面板/阶段条：九状态可见性矩阵 + 回归断言", a
   await page.getByTestId("copilotkit-v2-send").click();
   const approvingPhase = await waitForPhase(page, ["approving"], 180_000);
   const s4 = await captureCell(page, "S4-等待人类审批");
-  if (approvingPhase === "approving") {
-    // 契约 `PLAN_PHASE_INDICATOR_PINNED_PHASES` 明写 approving 常驻。
-    expect(visible(s4.phaseIndicator), "S4 approving：阶段条属契约常驻四态").toBe(true);
+  if (s4.phase === "approving") {
+    /*
+     * 契约 `PLAN_PHASE_INDICATOR_PINNED_PHASES` 明写 approving 常驻，所以它**必须被渲染**。
+     * 但「常驻」管的是渲染，不是"永远压在最上层"：审批中断时前端会弹出审批面板，
+     * 它盖住底下的计划区是**产品的正确行为**（用户此刻该看的就是审批那张卡）。
+     * 因此这一格判 attached，并把盖住它的东西如实记进 `coveredBy` 供复核；
+     * 若哪天它连渲染都没有（#3321 矛盾 2 那种父组件连坐卸载），attached 会红。
+     */
+    expect(s4.phaseIndicator.attached, `S4 approving：阶段条属契约常驻四态，必须被渲染（被谁盖住：${s4.phaseIndicator.coveredBy ?? "无"}）`).toBe(true);
+    expect(s4.planPanel.attached, "S4 approving：计划区必须被渲染").toBe(true);
   }
 
   // ── S6 run 失败后 ⇒ 该显示（要有恢复入口）────────────────────────────
