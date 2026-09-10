@@ -192,6 +192,31 @@ class CurrentTurnRubricMiddleware(RubricMiddleware):
     组装入口，评分/状态/跳转流程一个字不碰。
     """
 
+    # issue #3386（第二层，与 TS 侧的来源分段配套）：库把 grader 反馈包成 HumanMessage
+    # 注回 `messages`（`rubric.py::_compose_update`），模型于是把它当**用户说的话**，
+    # 用对话口吻回它——2026-09-11 devapp 实测的原话是「感谢 grading 反馈……并非编造。
+    # 以下是修正后的完整回复」。一句为自证清白写的话，在用户视角变成自认编造过。
+    #
+    # 库的 `_revision_prompt` 通篇是第二人称的返工请求，没有一个字说明「这条消息用户
+    # 看不到」。这里在它原文之后追加一段**输出契约**：收件人是用户、不得提及本次检查、
+    # 直接给完整终稿。TS 侧 `joinTurnAssistantBodies` 已经保证旧草稿不进正文（确定性），
+    # 这一层管的是返工稿**自身**不带内部旁白（提示词层，概率性）——两层都要有。
+    _REVISION_OUTPUT_CONTRACT = (
+        "\n\n---\n"
+        "以上内容来自系统内部的质检环节，**用户看不到它**，它也不是用户说的话。\n"
+        "你接下来输出的内容会**原样呈现给用户**，因此：\n"
+        "- 直接输出面向用户的完整最终回复本身，从正文第一句开始；\n"
+        "- 不要致谢、回应、复述或以任何方式提及这次检查、评分、反馈、返工、核实过程；\n"
+        "- 不要写「以下是修正后的回复」「经重新核实」「并非编造」这类关于回复本身的旁白——\n"
+        "  用户没有读过任何需要被修正的版本，这类说明只会让他不知道该信哪一份；\n"
+        "- 内容要自成一份完整答案，不依赖上文任何草稿。"
+    )
+
+    @staticmethod
+    def _revision_prompt(evaluation):  # noqa: ANN001, ANN205
+        base = RubricMiddleware._revision_prompt(evaluation)
+        return base + CurrentTurnRubricMiddleware._REVISION_OUTPUT_CONTRACT
+
     def _build_grader_payload(self, state, iteration):  # noqa: ANN001, ANN201
         messages = state.get("messages") or []
         scoped = {**state, "messages": _current_turn_messages(messages)}
@@ -376,11 +401,38 @@ def _write_todos_already_called(messages: list) -> bool:
     return False
 
 
+def _is_runtime_injected_human(message) -> bool:  # noqa: ANN001
+    """这条 `human` 消息是运行时自己塞进 `messages` 的，不是用户说的话。
+
+    issue #3386：`RubricMiddleware` 判 `needs_revision` 时把 grader 反馈包成
+    `HumanMessage(name="rubric_grader", additional_kwargs={"lc_source": ...})` 注回
+    `messages`（库源码 `rubric.py::_compose_update`）。LangChain 的 `lc_source` 就是
+    「这条消息不是用户产生的」的约定标记——判据用它，不匹配任何措辞、不写死某个
+    middleware 的名字，未来任何注入型 middleware 一样接住。
+    """
+    return getattr(message, "type", None) == "human" and bool(
+        (getattr(message, "additional_kwargs", None) or {}).get("lc_source")
+    )
+
+
 def _latest_human_turn_index(messages: list) -> int | None:
-    """`messages` 里最后一条人类消息的下标；没有人类消息时返回 `None`。"""
+    """`messages` 里最后一条**用户**消息的下标；没有就返回 `None`。
+
+    issue #3386：运行时注入的 `human` 消息（见 `_is_runtime_injected_human`）在这里
+    被跳过。本函数是「用户最新的诉求是什么」的唯一入口——任务分类
+    （`_prepare_auto_classified_request` / `_classification_update`）、插话重规划、
+    以及模型请求的轮边界都读它。把 grader 的返工反馈当成用户新说的一段话，会让
+    任务分类器按它的措辞重新分类、插话重规划再强制一次 `write_todos`，返工轮因此
+    在 write_todos ↔ 返工之间打转直到撞 recursion limit（本地 `tests/golden/test_tc3`
+    实测：加了中文返工输出契约后 `GraphRecursionError`，grader 只被调用一次）。
+    """
     for i in range(len(messages) - 1, -1, -1):
-        if getattr(messages[i], "type", None) == "human":
-            return i
+        message = messages[i]
+        if getattr(message, "type", None) != "human":
+            continue
+        if _is_runtime_injected_human(message):
+            continue
+        return i
     return None
 
 

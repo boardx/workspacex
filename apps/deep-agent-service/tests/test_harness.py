@@ -1541,3 +1541,71 @@ def test_confirm_intent_empty_assumptions_still_requires_approval(monkeypatch):
     result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
     assert any("用户已确认对任务的理解：整理报告" in str(m.content)
                for m in result.get("messages", []))
+
+
+def test_revision_prompt_tells_the_model_the_feedback_is_invisible_to_the_user():
+    """issue #3386 第二层：返工提示词必须带「收件人是用户」的输出契约。
+
+    库的 `_revision_prompt`（`deepagents/middleware/rubric.py`）通篇是第二人称返工请求，
+    没有一个字说明这条消息用户看不到——模型于是把它当用户发言，用「感谢 grading 反馈…
+    以下是修正后的完整回复」这种对话口吻回它（2026-09-11 devapp 实测原话）。
+
+    判据不匹配任何一句具体措辞：验的是①库原文仍在（没把评分信息弄丢）②追加段落存在
+    且明确声明「用户看不到它」与「不要提及这次检查」。TS 侧 `joinTurnAssistantBodies`
+    的来源分段管旧草稿不进正文（确定性），这一层管返工稿自身不带内部旁白。
+    """
+    from deepagents.middleware.rubric import RubricMiddleware
+
+    from deep_agent_service.harness import CurrentTurnRubricMiddleware
+
+    evaluation = {
+        "grading_run_id": "g1",
+        "iteration": 0,
+        "result": "needs_revision",
+        "explanation": "数字缺来源标注",
+        "criteria": [{"name": "证据支撑", "passed": False, "gap": "没有指明段落"}],
+    }
+    library_text = RubricMiddleware._revision_prompt(evaluation)
+    ours = CurrentTurnRubricMiddleware._revision_prompt(evaluation)
+
+    # ① 库原文一个字不少——评分信息照常传给模型。
+    assert ours.startswith(library_text)
+    assert "数字缺来源标注" in ours
+    # ② 追加的输出契约在，且说清了收件人不是用户 / 不许提及本次检查。
+    contract = ours[len(library_text):]
+    assert "用户看不到它" in contract
+    assert "原样呈现给用户" in contract
+    assert "不要致谢、回应、复述或以任何方式提及这次检查" in contract
+
+
+def test_runtime_injected_human_is_not_read_as_the_user_latest_ask():
+    """issue #3386 第三层：内部注入的 human 消息不得被当成「用户最新的诉求」。
+
+    `_latest_human_turn_index` 是任务分类、插话重规划、模型请求轮边界共用的唯一入口。
+    grader 的返工反馈以 `HumanMessage(lc_source="rubric_grader")` 进 `messages`，若被
+    这里读成用户新说的一段话，任务分类器就按**它的措辞**重新分类、插话重规划再强制
+    一次 `write_todos`——返工轮在 write_todos ↔ 返工之间打转直到撞 recursion limit
+    （`tests/golden/test_tc3_precompletion_checklist_forces_a_revision` 是这条的活体反证：
+    去掉本跳过后它 `GraphRecursionError`，grader 只被调用一次）。
+
+    判据是**来源标记**（`lc_source`），不是措辞、也不是某个 middleware 的名字。
+    """
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from deep_agent_service.harness import _is_runtime_injected_human, _latest_human_turn_index
+
+    user = HumanMessage(content="给我一个可执行的建议")
+    draft = AIMessage(content="我接下来打算查一下资料。")
+    injected = HumanMessage(
+        content="A grader reviewed your work against the rubric and asked for revisions.",
+        name="rubric_grader",
+        additional_kwargs={"lc_source": "rubric_grader"},
+    )
+
+    assert _is_runtime_injected_human(injected) is True
+    assert _is_runtime_injected_human(user) is False
+    # 注入之后，「用户最新的诉求」仍然是用户那条，不是 grader 那条。
+    assert _latest_human_turn_index([user, draft, injected]) == 0
+    # 用户真的又说了一句 ⇒ 边界照常前移。
+    follow_up = HumanMessage(content="再补一个风险清单")
+    assert _latest_human_turn_index([user, draft, injected, follow_up]) == 3

@@ -1449,14 +1449,41 @@ export function readTurnReply(messages: readonly ThreadMessage[], turnKey?: stri
 }
 
 /**
- * 已经切到本轮的消息 → 助手正文。取**全部**非空顶层 AI 消息，判据与 `tryStreamRun`
- * 喂给 `onDelta` 的那一条逐字对应（`type` 是 AI 侧、`content` 是非空字符串）。
- * 逐字重复的正文只留一条：编排器可能把某段内容在终稿里再说一遍，那不是两次产出。
+ * issue #3386 —— **正文只能来自被授权进入正文的那个通道。**
+ *
+ * 本轮的消息序列里，`human` 位只有一个合法占用者：这一轮的用户提问，而它是
+ * `readTurnReply` 用来切本轮的**锚点**，切完就在 `messages[0]` 之前了。所以传进本函数
+ * 的消息里再出现任何 `human`，按构造它**不可能是用户说的**——只能是运行时内部环节
+ * 注入进 `messages` 的（今天是 deepagents `RubricMiddleware` 的质检返工：库源码
+ * `rubric.py::_compose_update` 把 grader 的 `explanation` 包成
+ * `HumanMessage(name="rubric_grader")` 塞回 `messages` 并 `jump_to: "model"`）。
+ *
+ * 这里刻意**不认** `name === "rubric_grader"` 这个具体标记，也不匹配任何措辞：判据是
+ * **来源**——「本轮里非用户的 human 消息 = 一次内部注入」。于是
+ *
+ *  · 该注入**之前**的 AI 正文 = 已被内部环节判为要返工的**旧草稿**，它已经被取代，
+ *    不是这一轮的答案；
+ *  · 该注入**之后**的 AI 正文 = 面向用户的现行答案。
+ *
+ * 正文因此只取**最后一次内部注入之后**的 AI 消息。没有内部注入时（绝大多数轮）一条
+ * 消息都不少，#3243 的「分步产出的 10 个画布都要留」逐字不变。
+ *
+ * 修的是人类 2026-09-11 devapp 实测的 P0：用户读完一份回复后，正文里紧接着又出现
+ * 「感谢 grading 反馈……并非编造。以下是修正后的完整回复」——旧草稿与返工稿被
+ * `\n\n` 拼成了一条，用户不知道该信哪一份，还把一句自证清白读成了自认编造。
+ * 未来任何新的 middleware 只要也往 `messages` 里注入，同一条判据一样接住，
+ * 不需要为它的新措辞补黑名单。
  */
 export function joinTurnAssistantBodies(messages: readonly ThreadMessage[]): string {
   const bodies: string[] = [];
   const seen = new Set<string>();
   for (const message of messages) {
+    if (message?.type === "human") {
+      // 内部注入 ⇒ 之前累积的都是被取代的旧草稿，整段作废重来。
+      bodies.length = 0;
+      seen.clear();
+      continue;
+    }
     if (message?.type !== "ai") continue;
     if (typeof message.content !== "string") continue;
     const body = message.content.trim();
