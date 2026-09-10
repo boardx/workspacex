@@ -39,6 +39,7 @@ import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/
 import { PLAN_CONFIRM_RUN_TESTID } from "@/components/plan-control/plan-confirm-gate";
 import { PLAN_RUN_PAUSE_TESTID, PLAN_RUN_RESUME_TESTID } from "@/components/plan-control/plan-run-progress";
 import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } from "@/components/chat/copilotkit-v2-plan-control";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
   return {
@@ -220,7 +221,12 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     );
   });
 
-  it("phase='executing' 渲染执行进度条，点击「暂停」真的调用 pausePlanRun", async () => {
+  /*
+   * issue #3318 —— 暂停入口按人类裁决下线（真实链路上暂停不生效，根因 #3319）。
+   * 判据**不删**：改成读同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`——入口回来那天
+   * 它自动重新求值，逐字不变。删了就没人守着暂停功能日后回归。
+   */
+  it.skipIf(!CHAT_RUN_PAUSE_ENTRY_ENABLED)("phase='executing' 渲染执行进度条，点击「暂停」真的调用 pausePlanRun", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "executing", runStatus: "running", activeRunId: "run-1",
@@ -436,7 +442,12 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     expect(await screen.findByText(/账本读模型目前不提供更具体的失败原因/)).toBeInTheDocument();
   });
 
-  it("refetchSignal 变化：立即重取账本（不用等 3 秒轮询），且在追上前暂停/恢复按钮禁用并提示", async () => {
+  /*
+   * issue #3318 —— 暂停入口按人类裁决下线（真实链路上暂停不生效，根因 #3319）。
+   * 判据**不删**：改成读同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`——入口回来那天
+   * 它自动重新求值，逐字不变。删了就没人守着暂停功能日后回归。
+   */
+  it.skipIf(!CHAT_RUN_PAUSE_ENTRY_ENABLED)("refetchSignal 变化：立即重取账本（不用等 3 秒轮询），且在追上前暂停/恢复按钮禁用并提示", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "executing", runStatus: "running", activeRunId: "run-1",
@@ -565,7 +576,12 @@ it("zero-step pending changes remain visible and cannot be acted on by read-only
  * 在账本为空时恒给 `"preparing"`，暂停按钮整块不渲染。第二条钉住不能顺手把
  * 「run 结束后没有控制操作」（#2927）一起放宽。
  */
-it("run 在跑但模型还没产出 write_todos（账本为空）：暂停按钮仍然可见可点", async () => {
+/*
+   * issue #3318 —— 暂停入口按人类裁决下线（真实链路上暂停不生效，根因 #3319）。
+   * 判据**不删**：改成读同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`——入口回来那天
+   * 它自动重新求值，逐字不变。删了就没人守着暂停功能日后回归。
+   */
+it.skipIf(!CHAT_RUN_PAUSE_ENTRY_ENABLED)("run 在跑但模型还没产出 write_todos（账本为空）：暂停按钮仍然可见可点", async () => {
   api.fetchPlanLedger.mockResolvedValue(
     ledgerWithSteps({ steps: [], phase: "preparing", runStatus: "running", activeRunId: "run-live", gate: { required: false, reason: "no-plan" } }),
   );
@@ -745,7 +761,12 @@ describe("#3245① 结束且账本跑满时不常驻，其余态照旧", () => {
     expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toHaveTextContent("1/2 步已标记完成");
   });
 
-  it("阳性对照：还在跑（runStatus running）⇒ 面板在，且暂停入口可达（#3081 不许被这条门弄回不可触达）", async () => {
+  /*
+   * issue #3318 —— 暂停入口按人类裁决下线（真实链路上暂停不生效，根因 #3319）。
+   * 判据**不删**：改成读同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`——入口回来那天
+   * 它自动重新求值，逐字不变。删了就没人守着暂停功能日后回归。
+   */
+  it.skipIf(!CHAT_RUN_PAUSE_ENTRY_ENABLED)("阳性对照：还在跑（runStatus running）⇒ 面板在，且暂停入口可达（#3081 不许被这条门弄回不可触达）", async () => {
     await renderLedger(
       settledDone({ phase: "executing", runStatus: "running", activeRunId: "run-1" }),
       "t-3245-running",

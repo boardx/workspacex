@@ -52,6 +52,7 @@ import { CopilotKitV2PlanControl, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } from "@/
 import { PLAN_PHASE_INDICATOR_TESTID } from "@/components/plan-control/plan-phase-indicator";
 import { PLAN_RUN_PAUSE_TESTID } from "@/components/plan-control/plan-run-progress";
 import { shouldSurfacePlanPhaseIndicator, type PlanPhase } from "@repo/contracts/plan-control";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 function ledger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
   return {
@@ -193,7 +194,12 @@ describe("#3208 方案 A ③：折叠头是触达入口——展开后阶段条�
  * 「正在跑但模型没产出计划」这条分支上，暂停是用户此刻**唯一**的控制入口。
  */
 describe("#3081 不回归：阶段条隐藏了，但暂停入口仍在原处", () => {
-  it("executing + 无计划步骤 ⇒ 阶段条不在，「暂停」仍可点", async () => {
+  /*
+   * issue #3318 —— 暂停入口按人类裁决下线（真实链路上暂停不生效，根因 #3319）。
+   * 判据**不删**：改成读同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`——入口回来那天
+   * 它自动重新求值，逐字不变。删了就没人守着暂停功能日后回归。
+   */
+  it.skipIf(!CHAT_RUN_PAUSE_ENTRY_ENABLED)("executing + 无计划步骤 ⇒ 阶段条不在，「暂停」仍可点", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledger({ phase: "executing", steps: [], runStatus: "running", activeRunId: "r1", progress: { completed: 0, total: 0, elapsedMs: 5_000 } }),
     );

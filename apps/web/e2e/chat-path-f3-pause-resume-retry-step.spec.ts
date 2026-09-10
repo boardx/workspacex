@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { awaitStoredHumanMessage, openFreshDeepAgentThread, storedRun } from "./support/chat-path-coverage";
 import { sessionHeaders } from "./support/authoritative-thread";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 /**
  * 路径矩阵 **F3 · 暂停 / 恢复 / 重试单步**（判据见
@@ -61,6 +62,14 @@ const RESUME = "chat-task-workbench-run-resume";
 test.setTimeout(300_000);
 
 test("@path:F3 暂停真的停下来、界面真的翻成恢复；恢复之后真的接着跑", async ({ page }) => {
+  /*
+   * issue #3318（人类裁决 2026-09-10：「chat 中，暂停不了，先取消暂停的动作，只支持取消」）
+   * —— chat 的暂停入口已下线，本条的前置（暂停按钮必须出现）结构上不可能满足。
+   * **判据一个字没删**：门是同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`，等 #3319 把
+   * 真实链路的暂停修好、入口翻回来，这条自动重新逐字求值。
+   * 「chat 里不再有暂停入口」这一侧由 `tests/ui/chat-run-pause-entry-removed.test.tsx` 守着。
+   */
+  test.skip(!CHAT_RUN_PAUSE_ENTRY_ENABLED, "#3318：chat 暂停入口已下线，暂停判据挂起到 #3319");
   const threadId = await openFreshDeepAgentThread(page);
 
   /*

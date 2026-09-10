@@ -55,12 +55,19 @@ export interface PlanRunProgressProps {
    * 事实自相矛盾。默认 `false`，向后兼容既有调用方。
    */
   readonly hasRecentError?: boolean;
+  /**
+   * issue #3318 —— 暂停入口的开关（`CHAT_RUN_PAUSE_ENTRY_ENABLED`）。为 `false` 时
+   * **整个按钮不进 DOM**，不是禁用、不是 `display:none`：藏起来但仍可触发同样是假修法。
+   * 恢复（`isPaused` 那一支）不受影响——它是"已经停住了怎么脱困"的出口，不是暂停入口。
+   * 默认 `true`，向后兼容既有调用方（本组件也被 `preview/` 与既有单测直接渲染）。
+   */
+  readonly showPause?: boolean;
 }
 
 export function PlanRunProgress(
   {
     currentStepLabel, stepIndex, stepTotal, elapsedMs, isPaused, onPause, onResume,
-    completedCount, hasRecentError = false, isPauseRequested = false,
+    completedCount, hasRecentError = false, isPauseRequested = false, showPause = true,
   }: PlanRunProgressProps,
 ): React.JSX.Element {
   return (
@@ -89,14 +96,14 @@ export function PlanRunProgress(
             >
               <Play aria-hidden className="h-3.5 w-3.5" /> 恢复
             </Button>
-          ) : (
+          ) : showPause ? (
             <Button
               size="sm" variant="outline" className="ml-auto" disabled={!onPause || hasRecentError || isPauseRequested}
               data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}
             >
               <Pause aria-hidden className="h-3.5 w-3.5" /> {isPauseRequested ? "暂停中…" : "暂停"}
             </Button>
-          )}
+          ) : null}
         </div>
         {hasRecentError && (
           <p role="status" data-testid={PLAN_RUN_RECENT_ERROR_TESTID} className="text-11 text-destructive">

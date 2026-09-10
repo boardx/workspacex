@@ -8,6 +8,7 @@ import {
   openFreshThread,
   sendAndSettle,
 } from "./chat-task-workbench-fixture";
+import { CHAT_RUN_PAUSE_ENTRY_ENABLED } from "@/lib/chat-run-pause-entry";
 
 /**
  * issue #2068 —— **P1 决定能不能高效使用**（判据见 `${ACCEPTANCE_DOC}` 第四节）。
@@ -196,6 +197,14 @@ test("TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）", async (
 // `tests/ui/plan-control-gate-and-recovery.test.tsx:95-97` 正面断言它**不存在**。
 // 相对裁决过时的是这条 spec，不是产品；本轮只删这一条，其余业务断言一个字没动。
 test("TW-P1-5a：暂停 / 恢复——run 真的在跑的时候控件真实可点", async ({ page }) => {
+  /*
+   * issue #3318（人类裁决 2026-09-10：「chat 中，暂停不了，先取消暂停的动作，只支持取消」）
+   * —— chat 的暂停入口已下线，本条的前置（暂停按钮必须出现）结构上不可能满足。
+   * **判据一个字没删**：门是同一个常量 `CHAT_RUN_PAUSE_ENTRY_ENABLED`，等 #3319 把
+   * 真实链路的暂停修好、入口翻回来，这条自动重新逐字求值。
+   * 「chat 里不再有暂停入口」这一侧由 `tests/ui/chat-run-pause-entry-removed.test.tsx` 守着。
+   */
+  test.skip(!CHAT_RUN_PAUSE_ENTRY_ENABLED, "#3318：chat 暂停入口已下线，暂停判据挂起到 #3319");
   await openFreshThread(page);
   /**
    * ⚠ issue #3081 —— 触发词从 `deepAgentMultiStepTrigger` 换成 `deepAgentSlowTrigger`，
