@@ -401,11 +401,38 @@ def _write_todos_already_called(messages: list) -> bool:
     return False
 
 
+def _is_runtime_injected_human(message) -> bool:  # noqa: ANN001
+    """这条 `human` 消息是运行时自己塞进 `messages` 的，不是用户说的话。
+
+    issue #3386：`RubricMiddleware` 判 `needs_revision` 时把 grader 反馈包成
+    `HumanMessage(name="rubric_grader", additional_kwargs={"lc_source": ...})` 注回
+    `messages`（库源码 `rubric.py::_compose_update`）。LangChain 的 `lc_source` 就是
+    「这条消息不是用户产生的」的约定标记——判据用它，不匹配任何措辞、不写死某个
+    middleware 的名字，未来任何注入型 middleware 一样接住。
+    """
+    return getattr(message, "type", None) == "human" and bool(
+        (getattr(message, "additional_kwargs", None) or {}).get("lc_source")
+    )
+
+
 def _latest_human_turn_index(messages: list) -> int | None:
-    """`messages` 里最后一条人类消息的下标；没有人类消息时返回 `None`。"""
+    """`messages` 里最后一条**用户**消息的下标；没有就返回 `None`。
+
+    issue #3386：运行时注入的 `human` 消息（见 `_is_runtime_injected_human`）在这里
+    被跳过。本函数是「用户最新的诉求是什么」的唯一入口——任务分类
+    （`_prepare_auto_classified_request` / `_classification_update`）、插话重规划、
+    以及模型请求的轮边界都读它。把 grader 的返工反馈当成用户新说的一段话，会让
+    任务分类器按它的措辞重新分类、插话重规划再强制一次 `write_todos`，返工轮因此
+    在 write_todos ↔ 返工之间打转直到撞 recursion limit（本地 `tests/golden/test_tc3`
+    实测：加了中文返工输出契约后 `GraphRecursionError`，grader 只被调用一次）。
+    """
     for i in range(len(messages) - 1, -1, -1):
-        if getattr(messages[i], "type", None) == "human":
-            return i
+        message = messages[i]
+        if getattr(message, "type", None) != "human":
+            continue
+        if _is_runtime_injected_human(message):
+            continue
+        return i
     return None
 
 

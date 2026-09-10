@@ -1576,3 +1576,36 @@ def test_revision_prompt_tells_the_model_the_feedback_is_invisible_to_the_user()
     assert "用户看不到它" in contract
     assert "原样呈现给用户" in contract
     assert "不要致谢、回应、复述或以任何方式提及这次检查" in contract
+
+
+def test_runtime_injected_human_is_not_read_as_the_user_latest_ask():
+    """issue #3386 第三层：内部注入的 human 消息不得被当成「用户最新的诉求」。
+
+    `_latest_human_turn_index` 是任务分类、插话重规划、模型请求轮边界共用的唯一入口。
+    grader 的返工反馈以 `HumanMessage(lc_source="rubric_grader")` 进 `messages`，若被
+    这里读成用户新说的一段话，任务分类器就按**它的措辞**重新分类、插话重规划再强制
+    一次 `write_todos`——返工轮在 write_todos ↔ 返工之间打转直到撞 recursion limit
+    （`tests/golden/test_tc3_precompletion_checklist_forces_a_revision` 是这条的活体反证：
+    去掉本跳过后它 `GraphRecursionError`，grader 只被调用一次）。
+
+    判据是**来源标记**（`lc_source`），不是措辞、也不是某个 middleware 的名字。
+    """
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from deep_agent_service.harness import _is_runtime_injected_human, _latest_human_turn_index
+
+    user = HumanMessage(content="给我一个可执行的建议")
+    draft = AIMessage(content="我接下来打算查一下资料。")
+    injected = HumanMessage(
+        content="A grader reviewed your work against the rubric and asked for revisions.",
+        name="rubric_grader",
+        additional_kwargs={"lc_source": "rubric_grader"},
+    )
+
+    assert _is_runtime_injected_human(injected) is True
+    assert _is_runtime_injected_human(user) is False
+    # 注入之后，「用户最新的诉求」仍然是用户那条，不是 grader 那条。
+    assert _latest_human_turn_index([user, draft, injected]) == 0
+    # 用户真的又说了一句 ⇒ 边界照常前移。
+    follow_up = HumanMessage(content="再补一个风险清单")
+    assert _latest_human_turn_index([user, draft, injected, follow_up]) == 3
