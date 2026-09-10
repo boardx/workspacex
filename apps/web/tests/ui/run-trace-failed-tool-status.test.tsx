@@ -57,7 +57,7 @@ describe("issue #3204 ① 轨迹外层状态与内层卡片状态同源", () => 
 
     // 外层：权威事实说"失败"。
     expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-status", "failed");
-    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("执行工具操作失败");
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("执行失败 · ");
 
     // 内层：必须说同一件事。修复前这里是 `complete` —— 绿色对勾。
     const card = screen.getByTestId("copilotkit-v2-tool-generic");

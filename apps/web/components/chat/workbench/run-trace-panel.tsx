@@ -4,6 +4,7 @@ import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } f
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbench/run-trace";
+import { toolLabel } from "@/lib/chat-workbench/tool-label";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 
 function detail(value: unknown): string {
@@ -23,13 +24,46 @@ function groupLabel(stage: string, count: number): string {
 function eventLabel(entry: TraceEntry): string {
   if (entry.activityStage) return `${skillStageLabels[entry.activityStage] ?? "技能活动"} · ${entry.text}`;
   if (entry.kind === "skill") return `${entry.status === "failed" ? "技能调用失败" : entry.status === "running" ? "正在调用技能" : "已调用技能"} · ${entry.text}`;
-  const action = entry.text === "search_documents" ? "检索资料"
-    : entry.text === "spawn_async_task" ? "派发后台任务"
-    : entry.text === "write_todos" ? "更新执行计划"
-    : entry.text === "run_script" ? "执行生成脚本"
-    : "执行工具操作";
-  return `${entry.status === "failed" ? `${action}失败` : entry.status === "running" ? `正在${action}` : `已${action}`}`;
+  /**
+   * issue #3316 ② —— 这一行**必须说出调用的是哪件工具**。
+   *
+   * 此前这里是第二份工具名映射：四件工具各有一句动词短语，**其余一律落进
+   * 「执行工具操作」这句通用话，`entry.text` 里的真名当场丢掉**。人类跑 pptx 生成时
+   * 看到的一串「已执行工具操作」就是这么来的——名字一直在事件里（`tool_start.toolName`），
+   * 展开一层也看得见，只有折叠行不说。
+   *
+   * 现在读 `lib/chat-workbench/tool-label` 那**唯一**一张表，未知工具回落到真名
+   * （那条纪律见该文件），一个工具名都不再被抹掉。
+   *
+   * ⚠ 这只修「已经拿到的事实被抹平」这一半（#3316 ② 的 (c)）。一次工具调用在账本里
+   * 至今**只有开始与结束两个时刻**，中间的真实进展从来没有被产生过——那是能力缺失，
+   * 按 #3316 的要求另立 **#3322**，不夹带进这个 PR。
+   */
+  return `${entry.status === "failed" ? "执行失败" : entry.status === "running" ? "正在执行" : "已执行"} · ${toolLabel(entry.text)}`;
 }
+/**
+ * issue #3316 ①（2026-09-10 devapp 人类实测）—— 「正在执行工具操作」那一行的小动画是
+ * **静态的**，展开后里面卡片的动画却在转。
+ *
+ * 根因不是 CSS 把折叠态停掉了，是**「这轮 run 还活着吗」这件事实被声明在两处**：
+ *   · 折叠行的标题、计时器、蝴蝶读的是 `active` —— 由执行账本最后一条 `status` 事件定，
+ *     是这个面板自己的权威。
+ *   · 而这一步的 spinner 此前读的是 `running` prop = `props.isRunning && !final_message`，
+ *     其中 `props.isRunning` 是 CopilotKit **逐条消息**的标志。面板挂在本轮**第一条**
+ *     assistant 消息上（`resolveTraceAnchors`），长任务里正文早发完、工具还在跑，那条
+ *     消息的 `isRunning` 就是 false。
+ * 两个答案一分叉，最坏情况就是人类看到的那一幕：抬头写着「正在执行 · 历时 03:54」、
+ * 计时器在跳，底下那枚 `<Loader2>` 却不带 `animate-spin` —— 一个**长得像 spinner 的
+ * 静态图标**，把「还活着」讲成了「卡死了」。
+ *
+ * 修法是收敛成一份事实：这枚图标跟着 `active` 走。语义一个字没放宽——run 已经结束、
+ * 这一步却还停在 running（真的没收到 tool_end）时，`active` 为 false，图标照旧静态，
+ * aria-label 照旧是「未收到完成状态」。
+ *
+ * 门控：`e2e/chat-trace-collapsed-spinner-liveness.spec.ts`。它**不判 class、不判
+ * aria-label**——那两种判据静态图标能轻松通过，在本缺陷下无法被证伪；它判
+ * `getAnimations()` 的 `playState` + 隔 20 帧的 transform 两帧比对 + 命中测试。
+ */
 /** A disclosure never changes the lifetime of the event subscription. */
 export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool }: {
   runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
@@ -84,14 +118,14 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                 </ul>
               </details>
             </li>
-          : ((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status}>
+          : ((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status} data-tool-name={entry.kind === "tool" ? entry.text : undefined}>
           {entry.kind === "progress" ? <div className="whitespace-pre-wrap break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span>{entry.text}</div> :
             <details className="min-w-0">
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
                   {entry.kind === "skill" ? <Sparkles aria-hidden className="h-3.5 w-3.5" /> : <Wrench aria-hidden className="h-3.5 w-3.5" />}
                   <span data-testid="chat-task-workbench-event-row">{eventLabel(entry)}</span>
-                  {entry.status === "observed" ? <Circle aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 aria-label={running ? "执行中" : "未收到完成状态"} className={running ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
+                  {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={active ? "执行中" : "未收到完成状态"} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
               </summary>
               {/* issue #3205 —— `mt-1.5` 不是留白偏好，是净空约束：全局 :focus-visible

@@ -22,9 +22,16 @@ describe("run trace disclosure", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-status", "succeeded");
     expect(screen.getByText("done")).not.toBeVisible();
-    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已执行工具操作");
-    expect(screen.getByTestId("chat-task-workbench-event-row")).not.toHaveTextContent("search");
-    fireEvent.click(screen.getByText("已执行工具操作"));
+    /*
+     * issue #3316 ② —— 这一行必须说出**调用的是哪件工具**。
+     * 原断言写的是反面（`not.toHaveTextContent("search")`），把「已执行工具操作」这句
+     * 通用话钉成了规格。人类跑 pptx 生成时看到的一串同样的「已执行工具操作」就是它：
+     * 事件里一直带着 `toolName`，只有折叠行不说。名字没有隐私顾虑——它在展开层的
+     * 工具卡标题上本来就逐字印着（`copilotkit-v2-tool-generic`）。
+     */
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("已执行 · search");
+    expect(screen.getByTestId("run-trace-entry")).toHaveAttribute("data-tool-name", "search");
+    fireEvent.click(screen.getByText("已执行 · search"));
     expect(screen.getByText("done")).toBeVisible();
   });
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
@@ -41,7 +48,7 @@ describe("run trace disclosure", () => {
     expect(screen.getByTestId("subtask-live")).toBeVisible();
     expect(screen.getByTestId("subtask-live")).toHaveTextContent("run-1");
     fireEvent.click(screen.getByTestId("run-trace-toggle"));
-    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("正在派发后台任务");
+    expect(screen.getByTestId("chat-task-workbench-event-row")).toHaveTextContent("正在执行 · 派发后台任务");
   });
 
   it("keeps the subtask projection unmounted when no dispatch was recorded", () => {
