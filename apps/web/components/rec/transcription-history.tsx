@@ -37,6 +37,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
   const [items, setItems] = React.useState<readonly TranscriptionHistoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [operationError, setOperationError] = React.useState<string | null>(null);
   const [listRevision, setListRevision] = React.useState(0);
   const [activeTag, setActiveTag] = React.useState<ActiveTag>();
   const [tags, setTags] = React.useState<readonly string[]>([]);
@@ -84,10 +85,10 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     setActiveTag((current) => current === undefined || result.tags.includes(current) ? current : undefined);
   }, [sessionToken]);
 
-  React.useEffect(() => { void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED")); }, [refreshTags]);
+  React.useEffect(() => { void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED")); }, [refreshTags]);
 
   async function createTranscription(draft: NewTranscriptionDraft) {
-    setLoadError(null);
+    setOperationError(null);
     const summary = await createPersonalTranscription({
       name: draft.name,
       tags: [...draft.tags],
@@ -96,40 +97,40 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
     setItems((current) => [created, ...current]);
     setNotice(`已创建“${draft.name}”，正在进入实时转录`);
     setActiveSession({ ...summary, content: "" });
-    await refreshTags();
+    await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function saveMetadata(item: TranscriptionHistoryItem, draft: NewTranscriptionDraft) {
     const updated = await updatePersonalTranscriptionMetadata(item.id, { name: draft.name, tags: [...draft.tags] }, sessionToken);
     setNotice(`已更新“${updated.name}”`);
     setListRevision((current) => current + 1);
-    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
+    void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function removeTranscription(item: TranscriptionHistoryItem) {
     await deletePersonalTranscription(item.id, sessionToken);
     setItems((current) => current.filter((entry) => entry.id !== item.id));
     setNotice(`已永久删除“${item.title}”`);
-    void refreshTags().catch(() => setLoadError("TRANSCRIPTION_TAGS_FAILED"));
+    void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function stopLegacyTranscription(item: TranscriptionHistoryItem) {
-    setLoadError(null);
+    setOperationError(null);
     try {
       const updated = await stopPersonalTranscription(item.id, sessionToken);
       setItems((current) => current.map((entry) => entry.id === item.id ? toHistoryItem(updated) : entry));
       setNotice(`已结束“${item.title}”的遗留转录状态`);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
+      setOperationError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
     }
   }
 
   async function openTranscription(item: TranscriptionHistoryItem) {
-    setLoadError(null);
+    setOperationError(null);
     try {
       setActiveSession(await readPersonalTranscription(item.id, sessionToken));
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "TRANSCRIPTION_READ_FAILED");
+      setOperationError(error instanceof Error ? error.message : "TRANSCRIPTION_READ_FAILED");
     }
   }
 
@@ -227,7 +228,7 @@ export function TranscriptionHistory({ uiState }: { uiState: UiState }) {
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTag={activeTag} onTagChange={setActiveTag} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
-        {loadError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">历史转录读取失败，请稍后重试。</p>}
+        {(loadError || operationError) && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{loadError ? "历史转录读取失败，请稍后重试。" : "操作失败，请重试。已加载的转录仍可继续使用。"}</p>}
         <HistoryState
           uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
           items={sort === "recent" ? items : [...items].reverse()}

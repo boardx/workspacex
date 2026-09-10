@@ -36,3 +36,7 @@ pnpm --filter web exec vitest run tests/ui/guided-research-visual-contract.test.
 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/itv/digital-interview-controller.test.ts tests/research/guided-session-list-and-recovery.test.ts
 # 浏览器：先启动 apps/web，再运行该目录下的 scripts/studio-home-visual-check.cjs。
 ```
+
+## PR review 修复
+
+针对录音历史列表在详情读取、标签刷新或停止操作失败后消失的 review，拆分列表错误与辅助操作错误。先运行新增回归得到 4 failed / 17 passed；修复后同一组 21/21 通过（`recording-error-regression.log`）。覆盖详情重试、停止重试、标签初始化失败、删除后的剩余卡片可见，同时验证真正的列表筛选请求失败仍阻止展示旧结果。
