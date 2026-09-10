@@ -93,20 +93,85 @@ def test_cache_mismatch_rejected_before_official_loader(asynchronous, state):
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
-def test_first_and_matching_empty_cache_use_official_hooks(monkeypatch, asynchronous):
+def test_cached_turn_loads_nothing_and_reports_nothing(asynchronous):
+    """#3206's rule, unchanged by #3309: a turn with cached metadata discovers nothing."""
+    reported = []
+    class Activity:
+        def metadata_discovered(self, metadata): reported.append(list(metadata))
+    middleware = _BoundSkillsMiddleware(StateBackend(), "expected", Activity(), package())
+    first = {}
+    fresh = asyncio.run(middleware.abefore_agent(first, None, {})) if asynchronous else middleware.before_agent(first, None, {})
+    assert [skill["name"] for skill in fresh["skills_metadata"]] == ["example"]
+    assert fresh["native_skills_binding"] == "expected"
+    cached = {"skills_metadata": fresh["skills_metadata"], "native_skills_binding": "expected"}
+    again = asyncio.run(middleware.abefore_agent(cached, None, {})) if asynchronous else middleware.before_agent(cached, None, {})
+    assert again == {"native_skills_binding": "expected"}
+    assert len(reported) == 1
+
+
+def _many_pins(count):
+    """count 个结构合法、frontmatter 各不相同的钉包（漂移门要多于一个才有区分力）。"""
+    pins = []
+    for index in range(count):
+        name = f"example{index}"
+        body = (f"---\nname: {name}\ndescription: Skill number {index}.\nlicense: MIT\n---\nBody {index}.\n").encode()
+        pins.append({"stable_name": name, "package": {"skillId": f"s{index}", "versionId": "v1", "files": [
+            {"path": "SKILL.md", "contentBase64": base64.b64encode(body).decode(),
+             "mediaType": "text/plain", "digest": hashlib.sha256(body).hexdigest()}]}})
+    return pins
+
+
+def _counting_sandbox(pins, counter):
+    """Same trusted mount as `sandbox()`, but every round trip is recorded."""
+    mounted = {f"/skills/{skill['stable_name']}/{f['path']}": f["contentBase64"] for skill in pins for f in skill["package"]["files"]}
+    def handler(request):
+        if request.method == "GET":
+            path = request.url.params["path"]
+            counter.append(("GET", path))
+            encoded = mounted[path]
+            return httpx.Response(200, json={"path": path, "contentBase64": encoded, "sizeBytes": len(base64.b64decode(encoded))})
+        body = json.loads(request.content)
+        counter.append(("POST", body["command"]))
+        listing = "\n".join(json.dumps({"path": f"/skills/{skill['stable_name']}", "is_dir": True}) for skill in pins)
+        return httpx.Response(200, json={"executionId": body["executionId"], "exitCode": 0, "output": listing,
+                                         "truncated": False, "timedOut": False, "cancelled": False})
+    return HttpSessionSandbox(str(uuid4()), "a" * 64, httpx.Client(transport=httpx.MockTransport(handler), base_url="http://sandbox"))
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_zero_tool_turn_does_not_enumerate_skills_from_the_sandbox(asynchronous):
+    """#3309 的判据：零工具轮次不得为了「发现技能」再去访问沙箱一次。
+
+    实测（真栈、21 个 skill）：这一步是 1 次 `ls` + 21 次 `SKILL.md` = 22 次往返 /
+    105 KB / ~3.1 s，每条新线程的首轮都付，哪怕这一轮一个工具都没调。字节在建图的
+    钉验证里刚刚逐字节对过，就在 `pinned_skills` 里躺着。
+    """
+    pins = package()
     calls = []
-    def load(self, state, runtime, config):
-        calls.append(state)
-        return {"skills_metadata": []} if "skills_metadata" not in state else None
-    async def aload(self, state, runtime, config):
-        return load(self, state, runtime, config)
-    monkeypatch.setattr(SkillsMiddleware, "before_agent", load)
-    monkeypatch.setattr(SkillsMiddleware, "abefore_agent", aload)
-    middleware = _BoundSkillsMiddleware(StateBackend(), "expected")
-    for state in ({}, {"skills_metadata": [], "native_skills_binding": "expected"}):
-        result = asyncio.run(middleware.abefore_agent(state, None, {})) if asynchronous else middleware.before_agent(state, None, {})
-        assert result["native_skills_binding"] == "expected"
-    assert len(calls) == 2
+    middleware = _BoundSkillsMiddleware(_counting_sandbox(pins, calls), "expected", None, pins)
+    state = {}
+    update = asyncio.run(middleware.abefore_agent(state, None, {})) if asynchronous else middleware.before_agent(state, None, {})
+    assert [skill["name"] for skill in update["skills_metadata"]] == ["example"]
+    assert calls == [], f"零工具轮次仍然访问了沙箱 {len(calls)} 次：{calls[:5]}"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_pin_seeded_metadata_matches_official_loader(asynchronous):
+    """漂移门：从钉包解出来的元数据必须与官方 loader 读同一份挂载得到的**逐字相等**。
+
+    这条是「需要技能的轮次不会被误跳」的机械保证：我们没有跳过任何 skill，也没有换一套
+    解析——只是不再为已经验证过的字节多跑一趟沙箱。上游改了解析方式，这条当场红。
+    """
+    pins = _many_pins(3)
+    official = _BoundSkillsMiddleware.__mro__[1]  # SkillsMiddleware，绕开本仓覆盖
+    loader = official(backend=_counting_sandbox(pins, []), sources=["/skills/"])
+    expected = (asyncio.run(loader.abefore_agent({}, None, {})) if asynchronous else loader.before_agent({}, None, {}))["skills_metadata"]
+    assert len(expected) == 3, "官方 loader 在这份夹具上没读全——夹具产不出缺陷的形状，这条门是空的"
+    key = lambda skills: sorted(skills, key=lambda skill: skill["name"])
+    # 比 name 排序后的全等：官方 loader 的顺序来自沙箱 `scandir`（文件系统顺序，本来
+    # 就不确定），钉包这边是 API 交下来的固定顺序。可断言的不变量是**内容集合逐字相等**，
+    # 不是顺序——顺序的差异已在 PR 正文里逐字记录（系统提示总长不变，仅清单排列变了）。
+    assert key(native_graph.metadata_from_pins(pins)) == key(expected)
 
 
 def test_large_result_uses_official_state_route(monkeypatch):
