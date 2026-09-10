@@ -192,6 +192,31 @@ class CurrentTurnRubricMiddleware(RubricMiddleware):
     组装入口，评分/状态/跳转流程一个字不碰。
     """
 
+    # issue #3386（第二层，与 TS 侧的来源分段配套）：库把 grader 反馈包成 HumanMessage
+    # 注回 `messages`（`rubric.py::_compose_update`），模型于是把它当**用户说的话**，
+    # 用对话口吻回它——2026-09-11 devapp 实测的原话是「感谢 grading 反馈……并非编造。
+    # 以下是修正后的完整回复」。一句为自证清白写的话，在用户视角变成自认编造过。
+    #
+    # 库的 `_revision_prompt` 通篇是第二人称的返工请求，没有一个字说明「这条消息用户
+    # 看不到」。这里在它原文之后追加一段**输出契约**：收件人是用户、不得提及本次检查、
+    # 直接给完整终稿。TS 侧 `joinTurnAssistantBodies` 已经保证旧草稿不进正文（确定性），
+    # 这一层管的是返工稿**自身**不带内部旁白（提示词层，概率性）——两层都要有。
+    _REVISION_OUTPUT_CONTRACT = (
+        "\n\n---\n"
+        "以上内容来自系统内部的质检环节，**用户看不到它**，它也不是用户说的话。\n"
+        "你接下来输出的内容会**原样呈现给用户**，因此：\n"
+        "- 直接输出面向用户的完整最终回复本身，从正文第一句开始；\n"
+        "- 不要致谢、回应、复述或以任何方式提及这次检查、评分、反馈、返工、核实过程；\n"
+        "- 不要写「以下是修正后的回复」「经重新核实」「并非编造」这类关于回复本身的旁白——\n"
+        "  用户没有读过任何需要被修正的版本，这类说明只会让他不知道该信哪一份；\n"
+        "- 内容要自成一份完整答案，不依赖上文任何草稿。"
+    )
+
+    @staticmethod
+    def _revision_prompt(evaluation):  # noqa: ANN001, ANN205
+        base = RubricMiddleware._revision_prompt(evaluation)
+        return base + CurrentTurnRubricMiddleware._REVISION_OUTPUT_CONTRACT
+
     def _build_grader_payload(self, state, iteration):  # noqa: ANN001, ANN201
         messages = state.get("messages") or []
         scoped = {**state, "messages": _current_turn_messages(messages)}
