@@ -53,6 +53,7 @@ import type {
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 import type { ReportedUsage } from "../../application/agent-run/ports";
+import { readVisionModelIds, toImagePart, type WireContentPart } from "./model-vision-wire";
 
 export interface ConfiguredModelProviderConfig {
   /** The one provider name that runs may pin. Empty means: this deployment has none. */
@@ -189,22 +190,8 @@ function isBailianBaseUrl(baseUrl: string): boolean {
   return hostname.endsWith(".maas.aliyuncs.com");
 }
 
-/**
- * P2（#1561）—— `KERNEL_MODEL_VISION_IDS`（逗号分隔）→ 允许走多模态请求体的 modelId 集合。
- *
- * ⚠ 默认值 `qwen-vl-max,qwen-vl-plus` **没有在本次开发环境实测过**（本机没有
- * `KERNEL_MODEL_API_KEY`，探测不了）。`bailian-image-provider.ts:14-15` 记着这件事上
- * 栽过的跟头：`wanx2.2-t2i-plus` 报 "Model not exist"、`wanx2.1-t2i-plus` 才可用，
- * 「不要被"2.2 应该比 2.1 新"这种直觉带偏」。同样的直觉在这里也不作数——这两个名字是
- * 待验证的候选，不是已验证的事实。有 key 的环境跑
- * `node apps/api/scripts/probe-bailian-vision.mjs` 一条命令即可确认，把实测通过的名字
- * 写进 env（或改这里的默认值并把实测记录写进注释）。在那之前，如果默认值是错的，
- * 表现是**诚实的失败**（模型名不存在 → `MODEL_CALL_FAILED`），不是一个假装看过图的回答。
- */
-function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
-  const raw = env.KERNEL_MODEL_VISION_IDS ?? "qwen-vl-max,qwen-vl-plus";
-  return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
-}
+/* P2（#1561）：`readVisionModelIds` 已搬到 `model-vision-wire.ts`（issue #3346：
+ * deep-agent provider 也要用同一份判据，不许抄第二份）。 */
 
 /**
  * #2504 —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔）→ 非流式请求里允许带
@@ -248,27 +235,12 @@ function readThinkingDisableModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string
  */
 type WireContent = string | readonly WireContentPart[];
 
-type WireContentPart =
-  | { readonly type: "text"; readonly text: string }
-  | { readonly type: "image_url"; readonly image_url: { readonly url: string } };
-
 interface WireMessage {
   readonly role: string;
   readonly content: WireContent;
 }
 
-/**
- * P2（#1561）—— 一张图 → 一个 `image_url` part。
- *
- * 编码成 data URL（`data:<mime>;base64,<...>`）而不是传一个可访问的 URL：附件字节住在本
- * 部署的对象存储里，没有对外可达的签名 URL 通路，造一条出来等于给用户上传的图开一个
- * 公网可读面——那是一个需要单独评审的隐私决定，不是这个 PR 顺手能做的事。data URL 的
- * 代价是请求体按 4/3 膨胀，这正是 `MODEL_CALL_MAX_IMAGE_BYTES` 存在的原因。
- */
-function toImagePart(image: ModelCallImage): WireContentPart {
-  const base64 = Buffer.from(image.bytes).toString("base64");
-  return { type: "image_url", image_url: { url: `data:${image.mime};base64,${base64}` } };
-}
+/* P2（#1561）：`toImagePart` 已搬到 `model-vision-wire.ts`——见那里的头注。 */
 
 /** #709's system/history/user shape -- shared by `complete()` and `streamImpl()` so the two
  * request bodies cannot drift on how history gets spliced in. */
