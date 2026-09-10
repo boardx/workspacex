@@ -121,9 +121,25 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
           const container = document.querySelector('[data-testid="copilotkit-v2-messages"]');
           if (container === null) throw new Error("copilotkit-v2-messages container not mounted yet");
           (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples = [];
+          /*
+           * issue #3389 —— 读**所有** `chat-ai-markdown` 节点里最长的那条，不是
+           * `querySelector` 的第一条。
+           *
+           * 两个理由，都不是口味问题：
+           *  ① 与下面 `liveFinalLen` 同一口径。原来观测点读第一条、终态读最长的一条，
+           *     两边比长短本身就能制造一条与流式渲染无关的假红（#3000 注释里那个尾部 0
+           *     有一部分就是这么来的）。
+           *  ② 只有同口径，才敢把断言从「落定后非空」补强成「**全程**单调不减」——
+           *     那是本 issue 真正要判的东西：正文在工具执行期间被抹掉又重画，最终态往往
+           *     是对的，只判最终态的断言在这个缺陷下无法被证伪。
+           */
           const record = (): void => {
-            const node = document.querySelector('[data-testid="chat-ai-markdown"]');
-            const len = node === null ? 0 : (node.textContent ?? "").length;
+            const len = Math.max(
+              0,
+              ...Array.from(document.querySelectorAll('[data-testid="chat-ai-markdown"]')).map(
+                (node) => (node.textContent ?? "").length,
+              ),
+            );
             (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples.push({
               t: performance.now(),
               len,
@@ -236,12 +252,23 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   expect(liveFinalLen, `assistant 正文在落定后仍然是空的 -- full sequence: ${sequenceText}`)
     .toBeGreaterThan(0);
 
-  // ── 反证② 增长段的长度序列单调不减 ───────────────────────────────────────
-  for (let i = 1; i < growthPhase.length; i += 1) {
+  /*
+   * ── 反证② 正文可见文本长度**随时间单调不减**（issue #3389 的判据）────────────
+   *
+   * 判的是**过程**，不是最终态。原来这条只在「增长段」（到峰值为止）上判，等于把峰值
+   * 之后发生的任何缩水都放行——而 #3389 的缺陷恰恰全部发生在那之后：工具执行期间正文
+   * 被整段抹掉（实测空白窗口 ~1.07s），随后换一份落库正文重画，最终态反而是对的。
+   * 只判最终态或只判增长段的断言，在这个缺陷下**无法被证伪**。
+   *
+   * 现在对**全部**采样点判单调不减，覆盖那段空白窗口。当前 main 的实测失败原文是
+   * `full sequence: [0,16,56,96,136,176,0]` —— 那个尾部的 0 会在这里如实判红。
+   */
+  for (let i = 1; i < distinctLenPoints.length; i += 1) {
     expect(
-      growthPhase[i]!.len,
-      `sample ${i} (${growthPhase[i]!.len}) shrank below sample ${i - 1} (${growthPhase[i - 1]!.len}) -- full sequence: ${sequenceText}`,
-    ).toBeGreaterThanOrEqual(growthPhase[i - 1]!.len);
+      distinctLenPoints[i]!.len,
+      `assistant 正文在 t=${Math.round(distinctLenPoints[i]!.t)}ms 从 ${distinctLenPoints[i - 1]!.len} 字缩到 ${distinctLenPoints[i]!.len} 字` +
+        `——正文出来又消失（issue #3389）。full sequence: ${sequenceText}`,
+    ).toBeGreaterThanOrEqual(distinctLenPoints[i - 1]!.len);
   }
 
   // ── 反证③ 有足够多的中间观测点，不是"从 0 直接跳到最终长度"的一两步 ──────────

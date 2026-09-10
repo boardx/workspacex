@@ -732,13 +732,28 @@ function sendJson(res: import("node:http").ServerResponse, status: number, body:
  * 但用户看到的聊天气泡文本来自 `/stream` 的独立计算，那份从未加过这两个分支；
  * markdown 触发词同理，`/stream` 从未判过 `MARKDOWN_TRIGGER`）。
  *
- * 这个函数只负责"特殊剧本命中时该回什么"，两个端点各自的**默认**回复措辞（未命中任何
- * 触发词时的通用模板）刻意保持各自原样、不在这里统一——`/state` 的默认模板里带
- * `toolResult`（"已查询：当前时间…用户原话…"），`/stream` 的默认模板措辞不同
- * （"已查询当前时间，详情见工具结果"），已有测试断言这两处**各自的**具体文案
- * （`copilotkit-v2-runtime-adapter.spec.ts` 断言 `/stream` 侧那句），统一措辞会造成
- * 不该有的行为变化——这不是本次要修的范围，本次只补齐两个特殊分支在两个端点间的一致性。
+ * 这个函数只负责"特殊剧本命中时该回什么"。**默认**模板此前两个端点各写一份、措辞不同，
+ * 那条分歧已由 issue #3389 收敛进 `defaultTurnReply`——理由见那个函数的头注（它不是
+ * 无害的排版差异，而是替身在稳定制造一个真实上游不会有的产品级缺陷形状）。
  */
+/**
+ * issue #3389 —— **替身自己也必须只有一份正文事实。**
+ *
+ * 此前 `/stream`（用户逐片看到的那份）与 `/state`（落库那份）各写了一份**措辞不同**的
+ * 默认模板，本文件上一处头注还把这条分歧当作"刻意保留、不在本次范围"。#3389 的逐帧
+ * 证据表明它不是无害的排版差异：两份正文一旦对不上，`execution-journal-relay.ts` 的
+ * `finish()` 就必须「撤回已流出的全部气泡 + 整段重发」把它们对齐，用户看到正文出来
+ * 又消失（实测空白窗口 ~1.07s）。替身于是在**没有任何真实上游会这么做**的情况下，
+ * 稳定制造出一个产品级缺陷的形状——「替身的方言不是上游的方言」的又一例。
+ *
+ * 现在两个端点共用这一份。措辞取 `/stream` 那份（`copilotkit-v2-runtime-adapter.spec.ts`
+ * 逐字断言的就是它），`/state` 侧原来那句带 `toolResult` 的措辞随之退休——它的信息
+ * （工具结果）本来就在 `tool` 消息里，不需要在正文里再说一遍。
+ */
+function defaultTurnReply(record: RunRecord): string {
+  return `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+}
+
 function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
   // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
   // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
@@ -1325,7 +1340,7 @@ const server = createServer((req, res) => {
       : computeSpecialTurnReply(threadId, record)
         // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
         // 只拼在默认模板上：特殊剧本各有既有断言盯着措辞，不动它们。
-        ?? `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+        ?? defaultTurnReply(record);
     const pieces: string[] = [];
     for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
     /*
@@ -1956,8 +1971,8 @@ const server = createServer((req, res) => {
     // DA-19g 真根因修复：与 `/stream` 共用同一份"特殊分支"判断（`computeSpecialTurnReply`），
     // 未命中任何触发词时的默认模板原样保留——单一事实源，见该函数自己的头注。
     // issue #2020：与 `/stream` 同一份 `skillEcho` 拼接（单一事实源），开关未给全时恒 ""。
-    const finalReply = computeSpecialTurnReply(threadId, record)
-      ?? `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— ${toolResult}`;
+    // #3389 —— 与 `/stream` 同一份默认模板（见 `defaultTurnReply` 的头注）。
+    const finalReply = computeSpecialTurnReply(threadId, record) ?? defaultTurnReply(record);
     sendJson(res, 200, {
       values: {
         messages: [
