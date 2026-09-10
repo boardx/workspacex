@@ -2,6 +2,7 @@
 import * as React from "react";
 import { operations, type QueuedMessage } from "@repo/contracts/thread-message-queue";
 import { apiRequest } from "@/lib/api-client";
+import { describeQueueFailure } from "@/lib/chat-workbench/queue-failure-copy";
 const EMPTY: QueuedMessage[] = [];
 /** The server alone dispatches accepted queue items. Browser polling only observes them. */
 export function useThreadMessageQueue(threadId: string | null, agentId: string | null, bearer: string | null) {
@@ -29,7 +30,7 @@ export function useThreadMessageQueue(threadId: string | null, agentId: string |
         const result = operations.list.out.parse(await apiRequest(path, { sessionToken: bearer, signal: controller.signal }));
         if (controller.signal.aborted) return;
         if (revision.current === readingRevision) { update(result.items); setError(null); } pending = result.items.some((item) => item.status === "pending");
-      } catch (cause) { if (!controller.signal.aborted && current.current === source) setError(cause instanceof Error ? cause.message : "队列读取失败"); }
+      } catch (cause) { if (!controller.signal.aborted && current.current === source) setError(describeQueueFailure("read", cause)); }
       if (!controller.signal.aborted) timer = setTimeout(() => void poll(), pending ? 1500 : 5000);
     };
     setError(null); void poll();
@@ -46,7 +47,7 @@ export function useThreadMessageQueue(threadId: string | null, agentId: string |
         setError(null);
       }
       return true;
-    } catch (cause) { if (current.current === source) setError(cause instanceof Error ? cause.message : "队列提交失败，草稿已保留"); return false; }
+    } catch (cause) { if (current.current === source) setError(describeQueueFailure("enqueue", cause)); return false; }
   }, [threadId, bearer, agentId, path, source, setError]);
   const cancel = React.useCallback(async (id: string): Promise<void> => {
     if (!threadId || !bearer) return;
@@ -54,7 +55,7 @@ export function useThreadMessageQueue(threadId: string | null, agentId: string |
     try {
       const item = operations.cancel.out.parse(await apiRequest(`${path}/${encodeURIComponent(id)}`, { method: "DELETE", sessionToken: bearer }));
       if (current.current === source) { revision.current += 1; setSnapshot((previous) => ({ source, items: previous.items.map((value) => value.id === id ? item : value) })); }
-    } catch (cause) { if (current.current === source) setError(cause instanceof Error ? cause.message : "撤回失败，消息可能已开始执行"); }
+    } catch (cause) { if (current.current === source) setError(describeQueueFailure("cancel", cause)); }
     finally { if (current.current === source) setCancelling(null); }
   }, [threadId, bearer, path, source, setError, setCancelling]);
   /** 只改还在 pending 的正文；服务端 409（已派发/已撤回）时把原因印回队列面板。 */
@@ -65,7 +66,7 @@ export function useThreadMessageQueue(threadId: string | null, agentId: string |
       const item = operations.update.out.parse(await apiRequest(`${path}/${encodeURIComponent(id)}`, { method: "PATCH", body, sessionToken: bearer }));
       if (current.current === source) { revision.current += 1; setSnapshot((previous) => ({ source, items: previous.items.map((value) => value.id === id ? item : value) })); setError(null); }
       return true;
-    } catch (cause) { if (current.current === source) setError(cause instanceof Error ? cause.message : "修改失败，消息可能已开始执行"); return false; }
+    } catch (cause) { if (current.current === source) setError(describeQueueFailure("edit", cause)); return false; }
   }, [threadId, bearer, path, source, setError]);
   return { items, enqueue, cancel, edit, cancelling, error };
 }
