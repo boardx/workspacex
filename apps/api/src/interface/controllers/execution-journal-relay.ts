@@ -5,7 +5,6 @@ import {
 } from "@repo/contracts/agui-state-events";
 import { EventType } from "@ag-ui/core";
 import { AGUI_EXECUTION_EVENT_NAME, type ExecutionEvent } from "@repo/contracts/execution-journal";
-import { composeAssistantBodies } from "../../application/agent-run/assistant-body-composition";
 
 type JournalWireEvent =
   | { type: EventType.STEP_STARTED | EventType.STEP_FINISHED; stepName: string }
@@ -108,54 +107,24 @@ export function createExecutionJournalRelay(write: (event: JournalWireEvent) => 
   const finish = (persistedMessageId: string, text: string): string => {
     closeTurn();
     /*
-     * issue #3389 —— **身份判定问的是「wire 上已经流出去的字是不是就是落库那行」**，
-     * 不是「账本有没有给 `final_message`」。
+     * ⚠ **回退留档（#3394 的多气泡接受路径已于本次撤回）。**
      *
-     * 原判据 `finalMessageId && seenMessages.has(finalMessageId) && ...` 有两个各自独立
-     * 的假阴性，两个都被 #3389 的逐帧证据抓到过：
-     *   ① `accept()` 在 `tool_start` 上把 `finalMessageId` 置回 `null`，于是**任何**
-     *      「先流正文、后调工具」的轮次都必然走不到身份路径；
-     *   ② 编排器不给 `final_message`（替身与部分真实上游都可能不给）时同样走不到。
-     * 而这两种情况下 wire 上流出去的那些气泡**本来就已经**拼成了落库那行（两边用同一份
-     * `composeAssistantBodies`），撤回重发纯属自找的空白窗口。
+     * #3394 曾把这里改成「wire 上已流出的气泡**拼起来**等于落库那行就不撤回，映射指向
+     * 最后一条」。chat-read 车道实测判它有害：同 SHA 基线 3 failed / 117 passed，加上该
+     * 改动变成 7 failed / 113 passed（多出 `agent-chat-core-paths`、
+     * `agent-workbench-scroll-acceptance`、`copilotkit-v2-tool-rendering`）。
      *
-     * 现在只问一个会随状况改变的事实：把已流出的气泡按 wire 顺序用**同一份**
-     * `composeAssistantBodies` 组合，是否逐字等于 `text`。等于 ⇒ 无事可做。
+     * 原因是协议事实，不是措辞：`chat_message_id` 只有**一个** `streamingMessageId`
+     * 字段——**一个映射只能认领一条气泡**。多气泡轮次里 web 侧权威读只替换被认领的那条，
+     * 前面几条留在原地 ⇒ 同一句话在页面上出现两次。#3069 那条「正文与落库行完全一致」
+     * 编码的正是这条协议事实。
      *
-     * ## 返回哪条气泡，以及 #3069 那条「正文必须与落库行完全一致」的承诺
-     *
-     * 承诺原文：「只允许把**正文与落库行完全一致**的流式气泡映射到落库主键」，它防的是
-     * 「把用户看到的字和库里的行对错」。单气泡轮次里这条照旧逐字成立（下面第一、二个
-     * 分支）。
-     *
-     * 多气泡轮次（#3243 的分步产出：先一段正文、调工具、再一段正文）没有任何**单条**
-     * 气泡逐字等于落库那行——落库那行是它们的**组合**。此时按字面执行那条承诺只有两条
-     * 路：要么退回撤回重发（用户重新看到那段空白，#3389 原样复发），要么不发映射（落地
-     * 按钮消失）。两条都比现在坏。
-     *
-     * 这里取第三条：**把承诺的守护对象结构性地消灭掉**。落库那行由
-     * `joinTurnAssistantBodies` 用**同一份** `composeAssistantBodies` 拼成，而这条路径
-     * 只在「wire 上这些气泡拼出来的字逐字等于落库那行」时才走，于是：
-     *   · 每条气泡的正文都是落库那行的一段，逐字包含；
-     *   · 落库那行不含任何用户没看见的字。
-     * 「对错」这件事因此**不可能发生**，而不是「我们相信它不会发生」。多气泡时映射指向
-     * wire 上**最后一条**气泡（用户眼里的那条答案），落地按钮据以拿到真主键。
-     *
-     * ⚠ 这是对 #3069 承诺措辞（等号）的收窄，理由如上；已在 issue #3389 上留档待复核。
-     * 承诺真正的红线——**不得制造 `streamingMessageId === chatMessageId` 的自映射**——
-     * 一字未动：这条路径返回的永远是流式气泡的 id，绝不是 `persistedMessageId`。
+     * 多气泡的正解是协议扩展（一个映射认领多条气泡），已立 **issue #3397**；在那之前
+     * 本约束有效且**不得收窄**。
      */
-    const streamedIds = [...seenMessages].filter((id) => (messageText.get(id) ?? "").trim() !== "");
-    // ① 某一条气泡自己就逐字承载了落库那行 —— #3389 之前唯一的身份路径，逐字保留
-    //    （包括「不 trim」这条语义：掉尾的 SSE 不得被当成完整答案）。优先账本指认的
-    //    `final_message`，其次 wire 上最后一条对得上的。
-    if (finalMessageId && streamedIds.includes(finalMessageId) && messageText.get(finalMessageId) === text) return finalMessageId;
-    const soleCarrier = [...streamedIds].reverse().find((id) => messageText.get(id) === text);
-    if (soleCarrier !== undefined) return soleCarrier;
-    // ② 没有单条对得上，但这些气泡**拼起来**就是落库那行（多气泡轮次）—— 同样无事可做。
-    if (streamedIds.length > 0 && composeAssistantBodies(streamedIds.map((id) => messageText.get(id) ?? "")) === text) {
-      return streamedIds[streamedIds.length - 1]!;
-    }
+    // Identity proves which message is final; equality only verifies that its full
+    // bytes reached this connection (a dropped SSE tail must not truncate the answer).
+    if (finalMessageId && seenMessages.has(finalMessageId) && messageText.get(finalMessageId) === text) return finalMessageId;
     // issue #3069 —— 回放兜底是**替换**，不是追加。身份不成立时（典型：`tool_start`
     // 把 `finalMessageId` 清掉、此后账本再无正文）已经流出去的气泡带的是「预告」正文，
     // 与落库那行对不上；直接再发一条终稿气泡会让一轮里出现两条互相矛盾的 assistant

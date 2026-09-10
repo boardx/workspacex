@@ -37,41 +37,33 @@ it('preserves non-streamed planning and tool brackets without fabricating early 
  relay.accept({runId:'r',seq:1,emittedAt:'now',kind:'tool_end',toolCallId:'c',toolName:'read_file',ok:true,result:'ok'});
  expect(wire.at(-1)?.type).toBe(EventType.STEP_FINISHED);
 });
-/*
- * issue #3389 —— 身份判据从「账本给了 `final_message` 吗」改成「wire 上已经流出去的字
- * 是不是就是落库那行」。`final_message` 缺席（`tool_start` 把它清掉、或上游根本不给）
- * 时**不再**重发一遍：那正是用户看到「正文出来又消失」的来源。
- *
- * 本用例此前逐字断言的是那条假阴性（`confirmed?1:2`），现在断言的是收敛后的不变量：
- * 字对得上 ⇒ 一条都不多发；字对不上 ⇒ 照旧走替换兜底（#3069 的承诺不动）。
- */
-it('已流出的正文逐字等于落库那行时不重发——不论账本给没给 final_message',()=>{
+it('final identity avoids duplicate text, while an unconfirmed identity still falls back honestly',()=>{
  for(const confirmed of [true,false]){
   const wire:{type:EventType;delta?:string}[]=[];const relay=createExecutionJournalRelay(e=>wire.push(e));
   relay.accept({runId:'r',seq:0,emittedAt:'now',kind:'text_delta',messageId:'attempt:assistant',delta:'answer'});
   if(confirmed)relay.accept({runId:'r',seq:1,emittedAt:'now',kind:'final_message',messageId:'attempt:assistant'});
-  const carrier=relay.finish('stored','answer');
-  expect(wire.filter(e=>e.type===EventType.TEXT_MESSAGE_CONTENT)).toHaveLength(1);
-  expect(wire.some(e=>e.type===EventType.CUSTOM&&(e as {name?:string}).name==='assistant_message_replaced')).toBe(false);
-  // #3069：映射指向那条流式气泡，绝不是落库主键的自映射。
-  expect(carrier).toBe('attempt:assistant');
+  relay.finish('stored','answer');
+  expect(wire.filter(e=>e.type===EventType.TEXT_MESSAGE_CONTENT)).toHaveLength(confirmed?1:2);
  }
 });
 /*
- * issue #3389 —— 多气泡轮次（#3243 的分步产出：先流一段正文、调工具、再流一段）。
- * 没有任何**单条**气泡逐字等于落库那行——落库那行是它们的组合。此前这里必然走撤回
- * 重发，用户看到的正是那段 ~1.07s 空白。现在拼得出等号就无事可做，映射指向最后一条。
+ * issue #3397（#3394 回退后的看守用例）—— 多气泡轮次**必须**照旧走撤回重发。
+ *
+ * #3394 曾让「多条气泡拼起来等于落库那行」也被接受、映射指向最后一条。实测三条真回归
+ * （chat-read：7 failed / 113 passed，基线 3 / 117）。原因是协议事实：`chat_message_id`
+ * 只有一个 `streamingMessageId`，**一个映射只能认领一条气泡**——没被认领的前几条会留在
+ * 页面上，同一句话出现两次。放宽的正解是协议扩展，见 #3397；在那之前本用例把等号钉住。
  */
-it('多条气泡拼起来就是落库那行时也不重发，映射指向最后一条',()=>{
+it('多气泡轮次照旧撤回重发——一个映射只能认领一条气泡（#3397 之前不得放宽）',()=>{
  const wire:{type:EventType;name?:string;delta?:string}[]=[];const relay=createExecutionJournalRelay(e=>wire.push(e as never));
  relay.accept({runId:'r',seq:0,emittedAt:'now',kind:'text_delta',messageId:'a1',delta:'第一段'});
  relay.accept({runId:'r',seq:1,emittedAt:'now',kind:'tool_start',toolCallId:'c',toolName:'get_time',args:{}});
  relay.accept({runId:'r',seq:2,emittedAt:'now',kind:'tool_end',toolCallId:'c',toolName:'get_time',ok:true,result:'x'});
  relay.accept({runId:'r',seq:3,emittedAt:'now',kind:'text_delta',messageId:'a2',delta:'第二段'});
  const carrier=relay.finish('stored','第一段\n\n第二段');
- expect(wire.filter(e=>e.type===EventType.CUSTOM&&e.name==='assistant_message_replaced')).toHaveLength(0);
- expect(wire.filter(e=>e.type===EventType.TEXT_MESSAGE_CONTENT).map(e=>e.delta).join('|')).toBe('第一段|第二段');
- expect(carrier).toBe('a2');
+ expect(wire.filter(e=>e.type===EventType.CUSTOM&&e.name==='assistant_message_replaced')).toHaveLength(1);
+ expect(wire.filter(e=>e.type===EventType.TEXT_MESSAGE_CONTENT).at(-1)?.delta).toBe('第一段\n\n第二段');
+ expect(carrier).toBe('a1');
 });
 it('落库那行与已流出的字对不上时，替换兜底照旧生效',()=>{
  const wire:{type:EventType;name?:string;delta?:string}[]=[];const relay=createExecutionJournalRelay(e=>wire.push(e as never));
