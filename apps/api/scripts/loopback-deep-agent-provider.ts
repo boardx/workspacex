@@ -593,6 +593,22 @@ interface RunRecord {
   spawnedSubtaskRunId?: string | null;
   /** 派发失败时真实工具会回的那句话（含异常类名），供 `/state` 原样当 ToolMessage 用。 */
   spawnFailureText?: string | null;
+  /**
+   * issue #3303 —— 这一轮请求字节里带着的运行控制回调（`configurable.run_control_callback`）。
+   * 与 `spawn_async_task` 那四个键同一条纪律：**从请求字节里读**，不在替身里另开一份
+   * 事实源。缺席 ⇒ 这条 run 没有配运行控制通路，替身一次也不回读（与真实
+   * `run_control.py::_request` 返回 `None` 同一形状：不发请求、不中断）。
+   */
+  runControl?: RunControlCallback;
+  /**
+   * 已经在某个模型边界抛出过 `user_pause` 动态中断的那个 task id。`undefined` = 没抛过。
+   *
+   * 真实内核那侧这是 LangGraph 的检查点事实：`interrupt({"kind":"user_pause"})` 落进
+   * 检查点后，`GET /threads/:id` 的 `interrupts` 就是 `{task_id: [patch_interrupt(i)]}`
+   * （langgraph_runtime_inmem/ops.py `set_status` / `set_joint_status`，本仓 uv.lock 锁的
+   * 0.32.4）。替身记一个稳定的 task id 就是为了原样回放这个形状。
+   */
+  pausedInterruptTaskId?: string;
 }
 
 function approvalReply(record: RunRecord): string {
@@ -795,6 +811,94 @@ async function spawnAsyncTask(parsed: CreateRunBody, description: string, contex
   }
 }
 
+/**
+ * issue #3303 —— **运行控制回调**：暂停这门方言。
+ *
+ * ## 为什么替身必须会说它
+ *
+ * `pause-plan-run.ts` 的头注逐字规定：「HTTP 应答只确认意图，**只有内核的 `user_pause`
+ * 中断才确认 `paused_at`**」。链路是 TS 落 `pause_requested_at` → 内核在模型边界回读
+ * → 抛 `user_pause` 中断 → `deep-agent-model-provider.ts` 认出 → `pauseAtCheckpoint`
+ * 落库。替身此前**一个词都不会说**（`interjection` / `user_pause` / `pauseRequested`
+ * grep 计数为 0）⇒ `paused_at` 在这条车道上没有任何写入路径 ⇒ F3 的「暂停真的停下来」
+ * 结构上不可能变绿，也不可能证伪任何产品行为。本仓那条「替身产不出缺陷的形状」。
+ *
+ * ## 方言取证（不是照 spec 文字推断，是照真实上游的源码逐条对齐）
+ *
+ * ① **请求**：`apps/deep-agent-service/src/deep_agent_service/run_control.py::_request`
+ *    —— `POST <base_url>/internal/agent-runs/<quote(run_id,safe="")>/interjections/poll`，
+ *    头 `x-deep-agent-internal-key: <key>`，体 `{"orgId": ..., "acknowledgedIds": [...]}`。
+ *    四个键（`base_url`/`key`/`org_id`/`run_id`）任一不是非空字符串 ⇒ 真实内核抛
+ *    `ValueError`，缺 callback ⇒ 返回 `None`（不发请求）。替身照同一条判据。
+ *    `acknowledgedIds` 在真实内核里是「state 里已到达的 `interjection:` 消息 id」——
+ *    替身从不消费插话，所以恒为 `[]`，与真实内核在没有插话时发出的字节逐字相同。
+ * ② **中断值**：`run_control.py::_values` —— `pause_at_boundary and pauseRequested is True`
+ *    时 `interrupt({"kind": "user_pause"})`。中断值就是这个字典，没有别的字段。
+ * ③ **中断怎么出现在线上**：`langgraph_runtime_inmem/ops.py`（uv.lock 锁的 0.32.4，
+ *    `.venv` 里的同一份源码）`set_status` / `set_joint_status`：
+ *    `interrupts = {t["id"]: [_patch_interrupt(i) for i in checkpoint["tasks"] if t.get("interrupts")]}`，
+ *    线程 `status` 在 `has_next` 时是 `"interrupted"`；`langgraph_api/state.py::patch_interrupt`
+ *    给出每个中断的字段：`{id, value, resumable, ns, when}`（新旗标下只有 `{id, value}`）。
+ *    ⇒ `GET /threads/:id` 的形状是 `{status:"interrupted", interrupts:{<task_id>:[{...,value:{kind:"user_pause"}}]}}`。
+ * ④ **run 自己报什么**：`deep-agent-model-provider.ts::readRunStatus` 的头注（issue #2842，
+ *    langgraph-api 0.12.4 真栈实测）——停在中断上的 run，`GET /threads/:id/runs/:runId`
+ *    报的是 **`success`**，只有线程报 `interrupted`。替身照此回 `success`。
+ *
+ * ⚠ 替身**不**去直接写 `agent_runs.paused_at`。抄那条近路，被测的就不再是
+ * 「内核报中断 → provider 认出 → `pauseAtCheckpoint` 落库」这条真实链路，
+ * F3 会退化成一条测替身自己的恒真门。
+ */
+interface RunControlCallback {
+  readonly baseUrl: string;
+  readonly key: string;
+  readonly orgId: string;
+  readonly runId: string;
+}
+
+/** 照 `run_control.py::_request` 的同一条判据读回调配置：四个键都得是非空字符串。 */
+function readRunControlCallback(parsed: CreateRunBody): RunControlCallback | undefined {
+  const raw = parsed.config?.configurable?.run_control_callback;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const value = raw as Record<string, unknown>;
+  const read = (key: string): string | undefined => {
+    const field = value[key];
+    return typeof field === "string" && field.trim() !== "" ? field : undefined;
+  };
+  const baseUrl = read("base_url"), key = read("key"), orgId = read("org_id"), runId = read("run_id");
+  if (baseUrl === undefined || key === undefined || orgId === undefined || runId === undefined) return undefined;
+  return { baseUrl, key, orgId, runId };
+}
+
+/**
+ * 一次模型边界上的回读，线格式逐字照 `run_control.py::_request` / `_values`。
+ *
+ * ⚠ 与真实内核的**一处已知分歧，写明而不是藏起来**：真实内核对传输/鉴权失败是
+ * fail-closed（异常上抛 ⇒ 这条 run 失败），理由是「继续跑可能执行过期的用户意图」。
+ * 替身**从不消费插话**，这次回读唯一的产出就是"要不要暂停"，一次失败的回读只会把暂停
+ * 推迟到下一个边界；把它放大成 run 失败，会让所有别的车道跟着这条新增回读一起红。
+ * 所以这里回 `{pauseRequested:false}` 并**照原样把失败抛给调用方记账**（调用方吞掉），
+ * 这是刻意的、有界的分歧，不是"顺手宽松一点"。
+ */
+/** 出声但不致命——`process.stderr` 在 vm 形态的取证 fixture 里不存在，所以两条通路都试。 */
+function logRunControlPollFailure(error: unknown): void {
+  const line = `[loopback] run control poll failed: ${String(error)}`;
+  try { process.stderr.write(`${line}\n`); } catch { try { console.error(line); } catch { /* 取证 fixture 里两者都可能缺席 */ } }
+}
+
+async function pollRunControl(callback: RunControlCallback): Promise<{ pauseRequested: boolean }> {
+  const url = `${callback.baseUrl.replace(/\/+$/, "")}/internal/agent-runs/`
+    + `${encodeURIComponent(callback.runId)}/interjections/poll`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-deep-agent-internal-key": callback.key },
+    body: JSON.stringify({ orgId: callback.orgId, acknowledgedIds: [] }),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) throw new Error(`HTTPStatusError:${response.status}`);
+  const body = (await response.json()) as { pauseRequested?: unknown };
+  return { pauseRequested: body.pauseRequested === true };
+}
+
 interface CreateRunBody {
   /**
    * ⚠ `id` **不是可选的装饰**：`deep-agent-model-provider.ts::buildBody` 给每条消息挂
@@ -819,12 +923,22 @@ interface CreateRunBody {
       readonly subtask_callback_key?: unknown;
       readonly org_id?: unknown;
       readonly parent_run_id?: unknown;
+      /**
+       * issue #3303 —— 运行控制回调。由 `deep-agent-model-provider.ts::runControlConfig()`
+       * 写进 `configurable`，真实 `deep_agent_service/run_control.py::_request` 读的就是它
+       * （同名、同大小写、同"四个键都得是非空字符串"的判据）。见 `RunControlCallback` 头注。
+       */
+      readonly run_control_callback?: unknown;
     };
   };
   /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
    *  只在裁决请求里出现——首次创建 run 不带 `command`。 */
+  /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
+   *  issue #3303 起还有第二种形状：**检查点恢复**发的是 `command: {resume: true}`
+   *  （`deep-agent-model-provider.ts::buildBody` 的 `input.checkpointResume` 分支，
+   *  真实 LangGraph 的 `Command(resume=True)`）——是布尔，不是对象。 */
   readonly command?: {
-    readonly resume?: {
+    readonly resume?: boolean | {
       readonly decisions?: readonly {
         readonly type?: string;
         readonly edited_action?: { readonly name?: string; readonly args?: unknown };
@@ -873,7 +987,27 @@ const server = createServer((req, res) => {
         sendJson(res, 400, { error: "invalid json" });
         return;
       }
-      const resumeDecisionWire = parsed.command?.resume?.decisions?.[0];
+      const resumeWire = parsed.command?.resume;
+      /*
+       * issue #3303 —— **检查点恢复**（`command: {resume: true}`，布尔）与 DA-07b 的裁决
+       * 恢复（`command: {resume: {decisions: [...]}}`）是两种形状，先分开。
+       *
+       * 只有「这条 run 真的被 `user_pause` 停住过」时才走下面这条新分支，其余一律逐字节
+       * 走既有路径——本仓那条范围纪律：别的剧本正在别的车道上跑绿。
+       */
+      if (resumeWire === true && existing.pausedInterruptTaskId !== undefined) {
+        // 真实那侧 `resumeCheckpoint` 是 `UPDATE ... paused_at=NULL, pause_requested_at=NULL`
+        // 之后用同一个 runId 重跑（`pg-agent-run-repository.ts`），检查点上的中断被
+        // `Command(resume=True)` 消费掉 ⇒ 线程不再 `interrupted`。替身照此清掉中断，
+        // 并把 hold 窗口归零：恢复之后这条 run 就是普通地跑向终态。
+        existing.pausedInterruptTaskId = undefined;
+        existing.statusPolls = 0;
+        existing.holdUntilPoll = 0;
+        sendJson(res, 200, { run_id: threadId });
+        return;
+      }
+      const resumeDecisionWire = typeof resumeWire === "object" && resumeWire !== null
+        ? resumeWire.decisions?.[0] : undefined;
       if (resumeDecisionWire !== undefined) {
         // DA-07b resume：既有 run 提交裁决，绝不重发用户输入、绝不重置 userText/statusPolls
         // ——那会丢掉「这是哪个触发词场景」的记账，且会让轮询重新走一遍 pending 阈值。
@@ -937,6 +1071,8 @@ const server = createServer((req, res) => {
         skillSentinelSeen: mountedSkillReachedUpstream(parsed),
         // 路径矩阵 D4：同一条纪律——只看这一轮请求真实收到的字节，不缓存跨轮。
         skillCatalogSeen: skillCatalogReachedUpstream(parsed),
+        // issue #3303：运行控制回调同样只从**这一轮请求的字节**里读——见 `RunControlCallback` 头注。
+        runControl: readRunControlCallback(parsed),
       });
       /*
        * issue #3297 —— 多步剧本的 hold 窗口：让 `MULTISTEP_MIN_STATUS_POLLS` 真的生效。
@@ -999,7 +1135,36 @@ const server = createServer((req, res) => {
     const threadId = statusMatch[1]!;
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
+    void (async () => {
     record.statusPolls += 1;
+    /*
+     * issue #3303 —— **模型边界**：一次运行控制回读。
+     *
+     * 真实内核在 `before_model` / `after_model`（没有待执行工具时）各回读一次
+     * （`harness.py:953-982`，`pause_at_boundary=True`）。替身的剧本推进由状态轮询驱动，
+     * 所以它的模型边界就是这里；回读的线格式与判据逐字照 `run_control.py`（见
+     * `RunControlCallback` 头注的四条取证）。
+     *
+     * `pauseRequested` 为真 ⇒ 抛一次 `user_pause` 动态中断：run 自己报 `success`，
+     * 线程报 `interrupted` 且 `interrupts` 里带上它——形状照 langgraph 真实序列化。
+     * 已经抛过就不再回读：真实那侧中断落进检查点之后图就停了，不会再走边界。
+     */
+    if (record.runControl !== undefined && record.pausedInterruptTaskId === undefined) {
+      try {
+        if ((await pollRunControl(record.runControl)).pauseRequested) {
+          record.pausedInterruptTaskId = `pause-${threadId}`;
+        }
+      } catch (error) {
+        // 见 `pollRunControl` 头注那段「一处已知分歧」：一次失败的回读只推迟暂停，
+        // 不放大成 run 失败。出声，不静默。
+        logRunControlPollFailure(error);
+      }
+    }
+    if (record.pausedInterruptTaskId !== undefined) {
+      // issue #2842 实测：停在中断上的 run，`GET /threads/:id/runs/:runId` 报的是 `success`。
+      sendJson(res, 200, { status: "success" });
+      return;
+    }
     // The three generative-UI form tools interrupt as soon as their call is present in
     // thread state.  Unlike a normal model run, there is no useful extra "pending" poll
     // after the SSE join has ended: the production provider requires the joined run to
@@ -1075,6 +1240,43 @@ const server = createServer((req, res) => {
     // `FAILURE_TRIGGER` 落到同一个成因，这条触发词就白加了。
     const status = (FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER) || isAbort ? "error" : "success";
     sendJson(res, 200, { status });
+    })();
+    return;
+  }
+
+  /*
+   * issue #3303 —— `GET /threads/:id`（线程对象）。
+   *
+   * `deep-agent-model-provider.ts` 有**两处**读它：`readRunStatus`（run 报 `success` 时
+   * 再看一眼线程，`status==="interrupted"` 或 `interrupts` 非空 ⇒ 按中断处理）与
+   * `readInterruptedCompletion`（从 `interrupts` 里认 `user_pause` / `user_cancel`）。
+   * 替身此前没有这条路由，两处都落在「读不到就按没有中断处理」的兜底上——于是
+   * `user_pause` 无处可现身。
+   *
+   * ⚠ 没暂停时必须如实回 `status:"idle"` + `interrupts:{}`：这两个字段中任一"宁可多报"
+   * 都会把**每一条**成功的 run 翻成 `interrupted`，把这条新增路由变成全车道的杀手。
+   * 形状照 `langgraph_runtime_inmem/ops.py` 的 `set_joint_status` 与
+   * `langgraph_api/state.py::patch_interrupt`（见 `RunControlCallback` 头注 ③）。
+   */
+  const threadMatch = /^\/threads\/([^/]+)$/.exec(url);
+  if (req.method === "GET" && threadMatch) {
+    const threadId = threadMatch[1]!;
+    const record = runs.get(threadId);
+    if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
+    const taskId = record.pausedInterruptTaskId;
+    sendJson(res, 200, {
+      thread_id: threadId,
+      status: taskId === undefined ? "idle" : "interrupted",
+      interrupts: taskId === undefined ? {} : {
+        [taskId]: [{
+          id: `${taskId}:0`,
+          value: { kind: "user_pause" },
+          resumable: true,
+          ns: [`agent:${taskId}`],
+          when: "during",
+        }],
+      },
+    });
     return;
   }
 
