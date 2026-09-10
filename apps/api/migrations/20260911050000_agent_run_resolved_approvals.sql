@@ -1,0 +1,13 @@
+-- issue #3310 ① / ③ —— 「这一条中断已经被裁决过了、当时被采纳的是哪一份参数」此前**没有
+-- 任何地方存过**：`pending_interrupt` 只是"当下待决的那一条"，同一条 run 的下一次授权请求
+-- （人类实测里是开始生成画布那一次）一到就把它覆盖掉。前端只好用两个会在正确时刻丢失的
+-- 活信号去猜（宿主的 pendingRunId + 组件自己的 useState），猜错的后果就是 #3310 三条：
+-- 已确认的卡片仍说「等待服务端确认此请求」、卡片里还是改前的旧值、下一次授权时整张消失。
+--
+-- 与 #3302 同一条路子：把事实交回拥有它的一侧。append-only 的裁决快照数组，只被
+-- `decidePermissionRequest` 在**同一条条件 UPDATE** 里追加——输了竞态的那一方一行不动，
+-- 因此这里的条目数永远等于真正被接受过的裁决次数。
+--
+-- ⚠ 纯留痕：不参与任何授权判定（放宽授权仍然只能由 tool_permission_grants 决定），
+-- 也不参与 executor 的恢复（那条路径读的仍是 pending_* 各列，一个字节不动）。
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS resolved_approvals jsonb NOT NULL DEFAULT '[]'::jsonb;

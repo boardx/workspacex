@@ -121,7 +121,21 @@ export const ConfirmIntentDecision = z.discriminatedUnion("decision", [
   z.object({ decision: z.literal("approve") }),
   z.object({
     decision: z.literal("edit"),
-    editedArgs: z.object({ assumptions: z.array(z.string().min(1)) }),
+    /**
+     * issue #3310 ② —— `understanding` 从这里开始也可以被改。
+     *
+     * 人类实测那一条：模型复述「为**舟山**马鞍岛的房产中介生成画像」，用户点「改假设」把
+     * 舟山改成中山并确认，系统随后仍按舟山跑。原因不是编辑丢了，而是**「我的理解」这句话
+     * 此前根本不可编辑、edit 分支也不回传它**：模型上下文里那句 `understanding=舟山` 原封
+     * 不动，`tools.py` 的 edit 分支只回「用户修改了假设」，没有一个字推翻它。改的是用户看见
+     * 的那个词，能改的却只有下面那几条假设 —— 用户以为改了，执行按原文继续。
+     *
+     * optional：不带它 = 用户没改这句话，服务端逐字沿用原提案（老客户端不炸）。
+     */
+    editedArgs: z.object({
+      assumptions: z.array(z.string().min(1)),
+      understanding: z.string().min(1).optional(),
+    }),
   }),
 ]);
 export type ConfirmIntentDecision = z.infer<typeof ConfirmIntentDecision>;

@@ -470,7 +470,57 @@ def test_hitl_tools_accept_json_string_arrays_issue_2842():
 def test_confirm_intent_zero_and_one_real_assumptions():
     tool = _tool("confirm_task_intent")
     for assumptions in ([], ["使用用户给定资料"]):
-        result = tool.invoke({"understanding": "整理报告", "assumptions": assumptions})
+        # approve resume 原样带回完整初始提案，requestId 必在（#3310 起它就是判别键）。
+        result = tool.invoke({"requestId": "r", "understanding": "整理报告", "assumptions": assumptions})
         assert "用户已确认对任务的理解：整理报告" in result
         result = tool.invoke({"assumptions": assumptions})
         assert "用户修改了假设" in result
+
+
+# -- issue #3310 ② -----------------------------------------------------------------------
+#
+# 人类实测：模型复述「为**舟山**马鞍岛的房产中介生成用户画像」，用户点「改假设」把舟山
+# 改成中山并确认，系统随后仍按舟山跑。判据必须落在「后续执行真的用了新值」上——也就是
+# 这个工具在 edit resume 上回给模型的那段文字里，而不是界面显示。
+
+
+def test_confirm_task_intent_edit_carries_the_users_new_understanding() -> None:
+    confirm_task_intent = _tool("confirm_task_intent")
+
+    # edit resume：`ConfirmIntentDecision.editedArgs`，无 requestId（#3310 起可带 understanding）。
+    result = confirm_task_intent.invoke(
+        {
+            "understanding": "为中山马鞍岛的一位房产中介生成用户画像",
+            "assumptions": ["服务区域是中山马鞍岛"],
+        }
+    )
+
+    assert "中山马鞍岛" in result
+    assert "舟山" not in result
+    # 光带上新值不够：必须显式推翻最初那份，否则模型上下文里的「舟山」照样还在。
+    assert "不要再使用你最初提出的理解与假设" in result
+
+
+def test_confirm_task_intent_edit_without_understanding_keeps_the_old_wording() -> None:
+    """没改「我的理解」那句话时，逐字回落到 #3310 之前的 edit 文案（不编一句理解出来）。"""
+    confirm_task_intent = _tool("confirm_task_intent")
+
+    result = confirm_task_intent.invoke({"assumptions": ["改用环比"]})
+
+    assert result.startswith("用户修改了假设为：")
+    assert "理解" not in result.split("。")[0]
+
+
+def test_confirm_task_intent_approve_is_discriminated_by_request_id_not_understanding() -> None:
+    """approve/edit 的判别键是 requestId：带 requestId 才是原样确认。"""
+    confirm_task_intent = _tool("confirm_task_intent")
+
+    approved = confirm_task_intent.invoke(
+        {"requestId": "req-1", "understanding": "为舟山马鞍岛的房产中介生成画像", "assumptions": ["a"]}
+    )
+    edited = confirm_task_intent.invoke(
+        {"understanding": "为中山马鞍岛的房产中介生成画像", "assumptions": ["a"]}
+    )
+
+    assert approved.startswith("用户已确认对任务的理解：")
+    assert edited.startswith("用户修改了对任务的理解为：")

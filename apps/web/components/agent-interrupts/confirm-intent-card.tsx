@@ -21,6 +21,7 @@ export function ConfirmIntentCard({
   state,
   canWrite,
   initialEditing = false,
+  decided,
   onContinue,
   onEditSubmit,
 }: {
@@ -28,13 +29,32 @@ export function ConfirmIntentCard({
   state: UiState;
   canWrite: boolean;
   initialEditing?: boolean;
+  /**
+   * issue #3310 —— 这张卡是**已结束的确认记录**（服务端 `resolvedApprovals` 里的一条），
+   * 不是一个还能操作的请求。此时既不给决策入口，也不再说「后续步骤在你确认前不会开始」
+   * ——那句话此刻是假的。给一句「你当时选的是什么」，让用户认得出这就是自己点过的那一次。
+   *
+   * ⚠ 决策入口本身**保留但禁用**——#3244 已经裁过这一条（`workbench-restored-approval.tsx`
+   * 的「a decided confirmation is kept as a finished record」逐字断言按钮在且 disabled）：
+   * 留痕不是抹掉。这里去掉的只有那句「后续步骤在你确认前不会开始」——它此刻是假的。
+   */
+  decided?: { decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null };
   /** 「继续」= UC-1 的 approve 分支。不传（预览路由）时按钮保留旧行为——纯展示、无副作用。 */
   onContinue?: () => void;
-  /** 「用新假设继续」= UC-1 的 edit 分支，传出已过滤空行的假设数组（允许零条，不要求补造假设）。 */
-  onEditSubmit?: (assumptions: string[]) => void;
+  /**
+   * 「用新假设继续」= UC-1 的 edit 分支。
+   *
+   * issue #3310 ②：除了已过滤空行的假设数组（允许零条），还传出**可能被改过的
+   * `understanding`**。人类实测那一条改的正是这句话里的一个词（舟山→中山），而此前
+   * 这句话既不可编辑也不回传，模型上下文里的原文一个字没动 —— 用户以为改了，执行按原文继续。
+   */
+  onEditSubmit?: (edited: { understanding: string; assumptions: string[] }) => void;
 }) {
   const [editing, setEditing] = React.useState(initialEditing);
   const [drafts, setDrafts] = React.useState<string[]>([...args.assumptions]);
+  // issue #3310 ②：「我的理解」也是用户会改的那一句（舟山→中山）。空串一律回落到原文，
+  // 不允许把这句话改没——契约要求它 `min(1)`。
+  const [understandingDraft, setUnderstandingDraft] = React.useState(args.understanding);
 
   // 无权限：决策接口不可用，整卡走 denied 态（NO_WRITE_ROLE）
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
@@ -66,9 +86,20 @@ export function ConfirmIntentCard({
           {/* 理解文本 */}
           <div className="flex flex-col gap-1">
             <span className="text-11 font-medium text-muted-foreground">我的理解</span>
-            <p className="text-13 leading-relaxed text-card-foreground" data-testid={`${TID}-understanding`}>
-              {args.understanding}
-            </p>
+            {!isEditing ? (
+              <p className="text-13 leading-relaxed text-card-foreground" data-testid={`${TID}-understanding`}>
+                {args.understanding}
+              </p>
+            ) : (
+              <Textarea
+                value={understandingDraft}
+                onChange={(e) => setUnderstandingDraft(e.target.value)}
+                rows={2}
+                data-testid={`${TID}-understanding-input`}
+                className="min-h-0 text-13"
+                aria-label="我的理解"
+              />
+            )}
           </div>
 
           {/* 假设列表 */}
@@ -131,8 +162,20 @@ export function ConfirmIntentCard({
             )}
           </div>
 
+          {/* 已结束的记录：说清楚这是哪一次、当时选了什么，不再给任何决策入口。 */}
+          {decided ? <p
+            className="rounded-md border border-border-subtle bg-muted px-2.5 py-1.5 text-11 text-muted-foreground"
+            data-testid={`${TID}-decided-note`}
+          >
+            {decided.decision === "edit"
+              ? "你已按修改后的内容确认过这一次——上面显示的就是被采纳的那一份。"
+              : decided.decision === "reject" || decided.decision === "deny"
+                ? "你已拒绝过这一次请求。"
+                : "你已确认过这一次。"}
+          </p> : null}
+
           {/* I-1 的可视化：未确认前后续动作被挡住 */}
-          <div
+          {decided ? null : <div
             className="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
             data-testid={`${TID}-gated-notice`}
           >
@@ -140,7 +183,7 @@ export function ConfirmIntentCard({
             <span className="text-11 text-muted-foreground">
               后续步骤（拉取数据、生成报告…）在你确认前不会开始。
             </span>
-          </div>
+          </div>}
 
           {/* 动作区 */}
           <div className="flex items-center justify-end gap-2">
@@ -175,6 +218,7 @@ export function ConfirmIntentCard({
                   onClick={() => {
                     setEditing(false);
                     setDrafts([...args.assumptions]);
+                    setUnderstandingDraft(args.understanding);
                   }}
                 >
                   取消
@@ -185,7 +229,10 @@ export function ConfirmIntentCard({
                   className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
                   data-testid={`${TID}-edit-submit`}
                   disabled={!canWrite || forceInvalid}
-                  onClick={() => onEditSubmit?.(shownDrafts.filter((d) => d.trim().length > 0))}
+                  onClick={() => onEditSubmit?.({
+                    understanding: understandingDraft.trim().length > 0 ? understandingDraft : args.understanding,
+                    assumptions: shownDrafts.filter((d) => d.trim().length > 0),
+                  })}
                 >
                   用新假设继续
                 </Button>

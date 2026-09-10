@@ -138,10 +138,36 @@ describe("F213 · canWrite=true 时决策按钮可用（无权限降级不会误
 
 describe("WX-T011 真实假设", () => {
   it.each([0, 1])("允许提交 %i 条假设", (count) => {
-    let submitted: string[] | undefined;
+    let submitted: { understanding: string; assumptions: string[] } | undefined;
     const assumptions = MOCK_CONFIRM_INTENT.assumptions.slice(0, count);
     render(<ConfirmIntentCard args={{ ...MOCK_CONFIRM_INTENT, assumptions }} state="default" canWrite initialEditing onEditSubmit={(value) => { submitted = value; }} />);
     fireEvent.click(screen.getByTestId(`${TID}-edit-submit`));
-    expect(submitted).toEqual(assumptions);
+    expect(submitted).toEqual({ understanding: MOCK_CONFIRM_INTENT.understanding, assumptions });
+  });
+});
+
+/**
+ * issue #3310 ② —— 用户改的是「我的理解」那句话里的一个词（舟山→中山）。
+ * 此前这句话不可编辑、edit 分支也不回传它，模型上下文里的原文一个字没动。
+ */
+describe("#3310 ② 「我的理解」本身可编辑，并随 edit 分支一起回传", () => {
+  const PROPOSED = { requestId: "r", understanding: "为舟山马鞍岛的一位房产中介生成用户画像", assumptions: ["服务区域是舟山马鞍岛"] };
+  it("编辑态里「我的理解」是可编辑文本框，初始值等于原复述", () => {
+    render(<ConfirmIntentCard args={PROPOSED} state="default" canWrite initialEditing />);
+    expect(screen.getByTestId(`${TID}-understanding-input`)).toHaveValue(PROPOSED.understanding);
+  });
+  it("改成中山后提交 ⇒ 回传的是中山那一份", () => {
+    let submitted: { understanding: string; assumptions: string[] } | undefined;
+    render(<ConfirmIntentCard args={PROPOSED} state="default" canWrite initialEditing onEditSubmit={(value) => { submitted = value; }} />);
+    fireEvent.change(screen.getByTestId(`${TID}-understanding-input`), { target: { value: "为中山马鞍岛的一位房产中介生成用户画像" } });
+    fireEvent.click(screen.getByTestId(`${TID}-edit-submit`));
+    expect(submitted?.understanding).toBe("为中山马鞍岛的一位房产中介生成用户画像");
+  });
+  it("清空不等于「把这句话改没」：空串逐字回落到原复述（契约要求 min(1)）", () => {
+    let submitted: { understanding: string; assumptions: string[] } | undefined;
+    render(<ConfirmIntentCard args={PROPOSED} state="default" canWrite initialEditing onEditSubmit={(value) => { submitted = value; }} />);
+    fireEvent.change(screen.getByTestId(`${TID}-understanding-input`), { target: { value: "   " } });
+    fireEvent.click(screen.getByTestId(`${TID}-edit-submit`));
+    expect(submitted?.understanding).toBe(PROPOSED.understanding);
   });
 });
