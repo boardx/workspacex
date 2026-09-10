@@ -11,21 +11,24 @@
 
 ## A. 机器与网络（阿里云控制台侧，agent 不能代办）
 
-| 项 | 要求 | 为什么是这个数 |
+| 项 | 要求（照抄，不要替代方案） | 为什么是这个数 |
 |---|---|---|
-| ECS 实例 | x86_64（**不要 ARM**），≥ 4 vCPU / **8 GB 内存** | `deploy.sh` 构建 Next.js 时 `--max-old-space-size` 默认 4096 MB（可用 `WEB_BUILD_HEAP_MB` 覆盖）；同机还跑 postgres/minio/redis/两个沙箱容器 |
-| 系统盘 | ≥ 100 GB ESSD | 每轮部署 `docker compose --build` 重建镜像 + pnpm store + Next 产物 |
-| 操作系统 | **Ubuntu 22.04 / 24.04 LTS** | `provision.sh` 用 `apt-get`、NodeSource、Caddy 的 Debian 源；非 deb 系发行版跑不通 |
-| 公网 | 固定公网 IP 或 EIP，带宽 ≥ 5 Mbps | Caddy 申请 TLS 证书要求域名解析到本机且 80/443 可达 |
-| 安全组入方向 | 22（限来源 IP）、80、443 | **只开这三个**；55433/59010/56380/2025 等全部只绑 `127.0.0.1`，不要往安全组里加 |
-| 出方向 | 全放通（至少 443） | 要拉 GitHub、Docker Hub、NodeSource、Caddy 源、模型 API |
-| 磁盘快照/备份策略 | 建议开自动快照 | postgres 数据在 docker volume 里，不是 tmpfs |
+| ECS 实例 | x86_64，**8 vCPU / 16 GB 内存**（如 `ecs.c7.2xlarge`）。**不要 ARM** | 20 人并发的稳态推算约 7–9 GB；`deploy.sh` 在同一台机器上构建 Next.js，`--max-old-space-size` 默认 4096 MB，构建峰值再叠 4 GB。8 GB 的机器在有人用的时候部署会撞车 |
+| 系统盘 | **200 GB ESSD PL1** | 每轮部署 `docker compose --build` 重建镜像 + pnpm store + Next 产物；PL1 是 IOPS 够 Postgres 用的最低档 |
+| 操作系统 | **Ubuntu 24.04 LTS**（Server 版，公共镜像） | `provision.sh` 用 `apt-get`、NodeSource、Caddy 的 Debian 源，非 deb 系跑不通。不用 22.04：它的标准支持 2027-04 结束，对一台新开的生产机太近 |
+| 公网 | **绑定 EIP**，带宽 **10 Mbps**（按固定带宽计费） | Caddy 申请 TLS 证书要求域名解析到本机且 80/443 可达；EIP 让机器重建后 IP 不变，DNS 不用跟着改 |
+| 安全组入方向 | **只开 22（限来源 IP）、80、443** | 55433/59010/56380/2025 等全部只绑 `127.0.0.1`，不要往安全组里加 |
+| 安全组出方向 | **全放通** | 要拉 GitHub、Docker Hub、NodeSource、Caddy 源、模型 API |
+| 快照 | **开自动快照策略，每日一次，保留 7 天** | Postgres 数据在 docker volume 里（不是 tmpfs），这台机器上没有第二份 |
 
-⚠ **中国大陆地域**：域名必须已完成 **ICP 备案**，否则 80/443 被拦，Caddy 的 ACME
-挑战直接失败。用香港/新加坡地域可绕开备案，但要评估国内访问延迟。
-⚠ **镜像拉取**：大陆地域拉 Docker Hub 往往超时，需要预先配好镜像加速器
-（`/etc/docker/daemon.json` 的 `registry-mirrors`），或用阿里云 ACR。这一步在
-`provision.sh` 装完 Docker 之后、跑 `deploy.sh` 之前做。
+⚠ **域名必须已完成 ICP 备案**（默认按中国大陆地域走）。没备案的话 80/443 会被拦，
+Caddy 的 ACME 挑战直接失败，provision 走不完。域名暂时备不了案的情况**先来找我谈**——
+那要改地域，是另一套决策（国内访问延迟会变），不在本清单的默认路径里。
+
+⚠ **Docker 镜像加速器要先配**：大陆地域拉 Docker Hub 会超时。在 `provision.sh` 装完
+Docker 之后、跑 `deploy.sh` 之前，往 `/etc/docker/daemon.json` 写阿里云容器镜像服务
+给你的专属加速地址（控制台「容器镜像服务 → 镜像工具 → 镜像加速器」），然后
+`systemctl restart docker`。
 
 ## B. 域名与 DNS
 
@@ -38,7 +41,7 @@
 
 | # | 交给谁/放哪 | 内容 | 备注 |
 |---|---|---|---|
-| C1 | agent 的 SSH 通道 | 该机 **root**（或有完整 sudo 的用户）的 SSH 私钥 + 登录方式 | provision 全程要 root：装包、建用户、写 systemd/Caddy/sudoers |
+| C1 | agent 的 SSH 通道 | 该机 **root 用户**的 SSH 私钥 + 登录方式 | provision 全程要 root：装包、建用户、写 systemd/Caddy/sudoers |
 | C2 | 放在机器上，路径传给 agent（`DEPLOY_KEY_PATH`） | GitHub **只读 deploy key 的私钥**（`boardx/workspacex` 仓库设置里添加对应公钥） | 不要复用装 runner 的管理员钥匙；agent 只需路径，不需要看到内容 |
 | C3 | GitHub 仓库设置 | 一个 **self-hosted runner** 注册到本机，标签必须是 `self-hosted, linux, x64, workspacex` | `backend-gates.yml` 的 deploy job 钉死这组标签 |
 | C4 | 告知 agent | 该 runner 的**系统用户名**（默认 `ghrunner`，即 `RUNNER_USER`） | 写错 → sudoers 配给不存在的用户，部署时 `sudo: ... I can't do that` |
@@ -65,13 +68,14 @@ key，这些不用你准备。**下面这些没有默认值，缺了部署当场
 - 语音转写：`KERNEL_ASR_PROVIDER` / `KERNEL_ASR_BASE_URL` / `KERNEL_ASR_API_KEY` /
   `KERNEL_ASR_MODEL`。
 - 追踪：`LANGSMITH_TRACING` / `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT`（三行都填才生效）。
-- `COPILOTKIT_V2_AGENT_ID`：**建议留空**（服务端按 org 动态解析默认 agent）。
+- `COPILOTKIT_V2_AGENT_ID`：**留空**。服务端按请求所属 org 动态解析默认 agent，填了反而容易填错（2026-08-25 devapp 实测：填成版本 id 会让未选 agent 的首屏发消息整条轨道挂掉）。
 
-## E. 真实模型 e2e 取证凭据（可选，但强烈建议）
+## E. 真实模型 e2e 取证凭据
 
 `/opt/workspacex/real-model-e2e.env`（0600）：`REAL_MODEL_E2E_EMAIL` +
 `REAL_MODEL_E2E_PASSWORD` —— 一个**专用测试账号**，别用真人账号。
-没有它，就绪核对的第三条探针（`real-model-chat-evidence.yml`）跑不了。
+没有它，就绪核对的第三条探针（`real-model-chat-evidence.yml`）跑不了 —— 也就没办法
+证明「真实模型链路能走通」，这台机器就只能算装好了、不算能用。
 
 ## F. 交给 agent 的一句话（把上面的值代进去）
 
@@ -92,12 +96,14 @@ RUNNER_USER=<C4 的 runner 用户名> \
 
 ## 一页速查：你要给我的东西
 
-1. ECS 规格与地域已按 A 开好，安全组只开 22/80/443；
-2. 域名已解析到该机（大陆地域已备案）→ `PUBLIC_DOMAIN`；
-3. root SSH 通道；
-4. GitHub 只读 deploy key 私钥（已放到机器上，告诉我路径）；
-5. self-hosted runner 已注册（标签 `self-hosted linux x64 workspacex`）+ 它的用户名；
-6. D 表七个必填值（模型三件套 + 模型 ID + 两把 secret + 超管邮箱），按需再加 CF 邮件 / ASR；
+1. **ECS 8 vCPU / 16 GB / 200 GB ESSD PL1 / Ubuntu 24.04 LTS / 绑 EIP 10 Mbps**，
+   安全组只开 22 / 80 / 443，自动快照已开；
+2. 已 ICP 备案的域名，A 记录解析到该机 → `PUBLIC_DOMAIN`；
+3. root 的 SSH 私钥与登录方式；
+4. GitHub 只读 deploy key 私钥（已放到机器上，把路径给我）；
+5. self-hosted runner 已注册（标签 `self-hosted linux x64 workspacex`）+ 它的系统用户名；
+6. D 表七个必填值：模型三件套 + `KERNEL_DEEP_AGENT_MODEL_ID` + `MODEL_CREDENTIAL_KEY`
+   + `EMAIL_VERIFICATION_SECRET` + `PLATFORM_SUPERUSER_EMAILS`；
 7. 一个专用 e2e 测试账号的邮箱与口令。
 
 这七项齐了，provision → deploy → 三条探针可以一路跑到底，中途不需要再问你。
