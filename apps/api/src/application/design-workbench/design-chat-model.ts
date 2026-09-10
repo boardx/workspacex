@@ -19,6 +19,11 @@
  * 不写回。模型不可用/超时/空输出 ⇒ 退回 `DESIGN_WORKBENCH_CHAT_REPLY`、`source: "fallback"`，不抛。
  */
 import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
+import {
+  scorePrototypeScreen,
+  PROTOTYPE_QUALITY_THRESHOLD,
+  PROTOTYPE_QUALITY_MAX_RETRIES,
+} from "./prototype-quality";
 import type { z } from "zod";
 import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
@@ -405,6 +410,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     this.deps.log("design chat: outline ready", { pages: outline.length });
 
     const done: { frame: string; screen: Record<string, unknown> }[] = [];
+    let retriesLeft = PROTOTYPE_QUALITY_MAX_RETRIES;
     const failed: string[] = [];
     for (const [i, entry] of outline.entries()) {
       const context =
@@ -461,7 +467,40 @@ export class ModelDesignChatReplier implements DesignChatModel {
         failed.push(entry.frame);
         continue;
       }
-      done.push({ frame: entry.frame, screen });
+      /**
+       * issue #3340：**质量自审 + 定向重问一次**。
+       *
+       * 在这之前，这条链路上唯一的重试是「截断了 ⇒ 要求画简单一点」——方向是更简陋，
+       * 从来没有一处在问「画出来的东西够不够像个界面」。用户实测：「界面质量很差，
+       * 感觉没有迭代就提交了，流程没有完整执行」。
+       *
+       * 三条纪律：
+       * ① 反馈必须**具体**（少几个元素、只有一档字号、几个空容器），不是「再试一次」；
+       * ② **只保留更好的那一版**——重问可能更差，那就用原来的，不能越修越坏；
+       * ③ 有预算上限，超了如实记日志，不静默（8 页项目不该把用户的等待翻倍）。
+       */
+      // `screen` 是 `{...parsed, frame}` 的展开，TS 推不出索引签名——显式当成记录用。
+      const asRecord = (x: unknown): Record<string, unknown> => x as Record<string, unknown>;
+      let best: { screen: Record<string, unknown>; report: ReturnType<typeof scorePrototypeScreen> } = {
+        screen: asRecord(screen),
+        report: scorePrototypeScreen(asRecord(screen).root as designPrototype.PrototypeNode),
+      };
+      if (best.report.total < PROTOTYPE_QUALITY_THRESHOLD) {
+        if (retriesLeft <= 0) {
+          this.deps.log("design chat: quality below bar but retry budget spent", { index: i, score: best.report.total });
+        } else {
+          retriesLeft -= 1;
+          this.deps.log("design chat: quality below bar, asking again with feedback", { index: i, score: best.report.total });
+          const better = await this.retryForQuality(context, ctx, entry.frame, best.report.feedback);
+          if (better !== null) {
+            const report = scorePrototypeScreen(asRecord(better).root as designPrototype.PrototypeNode);
+            // 更好才换——重问也可能更差。
+            if (report.total > best.report.total) best = { screen: better, report };
+            this.deps.log("design chat: quality retry done", { index: i, before: best.report.total, after: report.total });
+          }
+        }
+      }
+      done.push({ frame: entry.frame, screen: best.screen });
     }
 
     if (done.length === 0) {
@@ -502,6 +541,33 @@ export class ModelDesignChatReplier implements DesignChatModel {
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };
+  }
+
+  /**
+   * issue #3340：带着**具体缺什么**把同一页重问一次。失败/不合法 ⇒ 返回 null（保留原来那版）。
+   * 与截断降级重试（`SIMPLER_SCREEN_HINT`，方向是更简陋）刻意相反：这一条要求补足。
+   */
+  private async retryForQuality(
+    context: string,
+    ctx: DesignChatContext,
+    frame: string,
+    feedback: string,
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const one = await this.callModel(
+        `${context}\n\n刚才这一页画得不够好，问题逐条如下：\n${feedback}\n\n请重画「${frame}」这一页，把上面每一条都补上。仍然只输出这一页。`,
+        DESIGN_CHAT_REPAIR_TIMEOUT_MS,
+        DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
+        ctx.refImages,
+      );
+      if (one.truncated) return null;
+      const parsed = extractJsonObject(one.text) as Record<string, unknown>;
+      const screen = { ...parsed, frame };
+      return designPrototype.PrototypeScreen.safeParse(screen).success ? screen : null;
+    } catch (e) {
+      this.deps.log("design chat: quality retry failed", { detail: e instanceof Error ? e.message : "unknown" });
+      return null;
+    }
   }
 
   /** 传了图但模型看不了 ⇒ 那句提示；没传图或看得了 ⇒ 空串。 */
