@@ -159,7 +159,7 @@ export interface ChatRepository {
   listPersonalThreads(
     orgId: OrgId,
     userId: string,
-    opts: { includeArchived: boolean },
+    opts: ListPersonalThreadsPage,
   ): Promise<readonly ThreadListRow[]>;
 
   /**
@@ -610,4 +610,31 @@ export interface ChatCitationRow {
   readonly anchorMessageId: string | null;
   /** 引用来源的 artifact，非空时才需要判 `SOURCE_ARTIFACT_DELETED`。 */
   readonly sourceArtifactId: string | null;
+}
+
+/**
+ * issue #3356 —— 个人线程列表的**取数窗口**。
+ *
+ * ⚠ `limit` 这里的语义是「最多返回几行**候选**」，不是「最终有几张卡片」：可见性
+ *   过滤在 application 层，过滤掉的行**已经被这次查询取回来了**。所以调用方拿到
+ *   的卡片数可能少于 `limit`，而「还有没有下一页」必须由**候选行数**回答，不能由
+ *   卡片数回答（见 `list-personal-threads.ts` 里 `nextCursor` 的算法）。
+ * ⚠ `q` 在 SQL 里过滤而不是在 application 里：搜索必须能翻到**还没加载出来的**
+ *   历史对话，在已取回的一页里过滤等于告诉用户「搜不到 = 没有」。
+ */
+export interface ListPersonalThreadsPage {
+  readonly includeArchived: boolean;
+  /** 最多取回几行候选。调用方**必须**给——「不给就是全量」正是 #3356 要删掉的行为。 */
+  readonly limit: number;
+  /** 从这一行**之后**继续；`null` = 从头。见 `domain/chat/thread-list-cursor.ts`。 */
+  readonly after: ThreadListCursorKey | null;
+  /** 标题大小写不敏感子串；`null` = 不过滤。 */
+  readonly titleQuery: string | null;
+}
+
+/** 与 `domain/chat/thread-list-cursor.ts` 的 `ThreadListCursor` 同形。 */
+export interface ThreadListCursorKey {
+  readonly pinned: boolean;
+  readonly lastActivityAt: string;
+  readonly threadId: string;
 }

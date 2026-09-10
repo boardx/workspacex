@@ -86,6 +86,18 @@ export const ChatVisibility = z.enum([
  */
 export const ThreadGroupLabel = z.enum(["今天", "本周", "更早"]);
 
+/**
+ * issue #3356 —— 左侧对话列表**一页的条数**，唯一事实源。
+ *
+ * 服务端的默认 `limit`、前端首屏与「加载更多」每次要的条数、e2e 断言里那个 30，
+ * 全部引用这一个常量。此前的形状（前端写 30、后端不分页）正是本仓头号病
+ * 「同一事实声明在两处」的温床：改一处另一处不动，判据还照样绿。
+ *
+ * ⚠ 上限见 `listPersonalThreads.in.limit`（300）——那是保鲜刷新一次能要回的天花板，
+ *   不是这个常量。
+ */
+export const THREAD_PAGE_SIZE = 30;
+
 /** 线程阶段——决定右栏是否显示转录（uc-8-2 E1） */
 export const ThreadPhase = z.enum(["onsite", "research"]);
 
@@ -579,6 +591,36 @@ export const operations = {
     method: "GET", path: "/chat/threads",
     in: z.object({
       includeArchived: z.boolean().optional(),
+      /**
+       * issue #3356 —— 一页要几条。**省略即 30**（`THREAD_PAGE_SIZE`）。
+       *
+       * ⚠ 「省略 = 全量」这个旧行为是这次要删掉的东西本身：人类原话
+       *   「不要一次全部加载出来」。所以默认值站在**分页**那一边，不是站在
+       *   兼容旧调用方那一边——一个忘了传 `limit` 的新调用方拿到的是一页，
+       *   不是一整个账号的历史。
+       * ⚠ 上限 300 而不是无穷：`limit` 同时被「翻了 N 页之后的保鲜刷新」复用
+       *   （见 `apps/web/lib/chat-workbench/thread-pages.ts` 的 `refreshLimit`），
+       *   那条路径要能一次要回用户**已经翻出来的**那么多条；300 是它的天花板，
+       *   翻得比这更深时保鲜只刷新前 300 条。
+       */
+      limit: z.number().int().min(1).max(300).optional(),
+      /**
+       * 上一页返回的 `nextCursor` 原样回传。**不透明**：调用方不解析、不构造、
+       * 不比较大小——它只是「从上次停下的地方继续」这句话的编码。
+       *
+       * ⚠ 用游标不用 offset：这条列表的排序键 `last_activity_at` **一直在动**
+       *   （每收一条消息就跳到最前），而侧栏每 10 秒自动刷新一次。offset=30 在
+       *   「翻页期间有一条老对话被顶到最前」时会让第 30 条整体后移一格 ⇒ 第二页
+       *   重复第一页的最后一条；反过来有对话下沉时会漏掉一条。游标把「从哪继续」
+       *   钉在一个**具体的行**上，重复不会发生。
+       */
+      cursor: z.string().optional(),
+      /**
+       * 标题搜索（大小写不敏感子串）。**在服务端过滤，不是在已加载的那一页里过滤**
+       * ——后者是这次特意避开的陷阱：用户搜不到会以为对话没了，而实际上它只是
+       * 还没被翻出来。搜索结果本身同样分页，走同一个 `limit`/`cursor`。
+       */
+      q: z.string().optional(),
     }).strict(),
     out: z.object({
       groups: z.array(z.object({
@@ -586,6 +628,15 @@ export const operations = {
         cards: z.array(ThreadCard),
       }).strict()),
       capabilities: z.array(z.string()),
+      /**
+       * 还有下一页 ⇒ 一个不透明游标；**没有下一页 ⇒ `null`**。
+       *
+       * ⚠ 「还有没有更多」只有这一个事实源。前端**不得**用「这一页回来了几条、
+       *   是不是刚好等于 limit」自己推一份——那就是同一事实声明在两处
+       *   （本仓头号病，已十二例）。可见性过滤会让一页返回的卡片数**少于**
+       *   `limit` 而后面仍然有数据，那种推断当场就是错的。
+       */
+      nextCursor: z.string().nullable(),
     }).strict(),
     err: ["AUTHZ_UNAVAILABLE"] as const,
   },

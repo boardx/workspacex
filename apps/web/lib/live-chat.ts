@@ -36,6 +36,12 @@ import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken 
 
 export type ThreadCard = z.infer<typeof chat.ThreadCard>;
 export type ListThreadsOut = z.infer<typeof chat.operations.listThreads.out>;
+/**
+ * issue #3356 —— 个人线程列表的出参**与项目线程列表不再同形**：它多一个
+ * `nextCursor`（分页只加在个人这条列表上，见 `packages/contracts/src/chat.ts`）。
+ * 此前两者共用 `ListThreadsOut` 是因为形状恰好相同，那种"恰好"不是契约。
+ */
+export type ListPersonalThreadsOut = z.infer<typeof chat.operations.listPersonalThreads.out>;
 export type GetThreadOut = z.infer<typeof chat.operations.getThread.out>;
 export type GetAgentPanelOut = z.infer<typeof chat.operations.getAgentPanel.out>;
 export type MutateThreadOut = z.infer<typeof chat.operations.mutateThread.out>;
@@ -106,15 +112,30 @@ export async function getThread(
  * （`GET /chat/threads`，path 上没有 `:projectId` 段）。
  */
 export async function listPersonalThreads(
-  opts: { includeArchived?: boolean } = {},
+  opts: {
+    includeArchived?: boolean;
+    /**
+     * issue #3356 —— 一页几条。**不传即服务端默认的 30**；调用方不在这里写
+     * 一个自己的默认值（那就是同一个数字的第二份声明，唯一一份在契约的
+     * `chat.THREAD_PAGE_SIZE`）。
+     */
+    limit?: number;
+    /** 上一页返回的 `nextCursor` 原样回传。不解析、不构造。 */
+    cursor?: string | null;
+    /** 标题搜索。**在服务端过滤**——搜得到还没翻出来的历史对话。 */
+    q?: string | null;
+  } = {},
   sessionToken?: string,
   /** issue #2418（PR #2419）—— 可选取消信号，透传给 `apiRequest`；不传时行为不变。 */
   signal?: AbortSignal,
-): Promise<ListThreadsOut> {
-  return apiRequest<ListThreadsOut>(chat.operations.listPersonalThreads.path, {
+): Promise<ListPersonalThreadsOut> {
+  return apiRequest<ListPersonalThreadsOut>(chat.operations.listPersonalThreads.path, {
     method: "GET",
     query: {
       includeArchived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
+      limit: opts.limit === undefined ? undefined : String(opts.limit),
+      cursor: opts.cursor ?? undefined,
+      q: opts.q ?? undefined,
     },
     sessionToken,
     signal,

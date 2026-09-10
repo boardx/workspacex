@@ -28,6 +28,7 @@ import type {
   ThreadListRow,
   ThreadPresentation,
   UpdateAgentRosterOutcome,
+  ListPersonalThreadsPage,
 } from "../../application/chat/ports";
 import type {
   ChatVisibilityScope,
@@ -247,12 +248,19 @@ export class PgChatRepository implements ChatRepository {
   async listPersonalThreads(
     orgId: OrgId,
     userId: string,
-    opts: { includeArchived: boolean },
+    opts: ListPersonalThreadsPage,
   ): Promise<readonly ThreadListRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<
         ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean; pinned: boolean }
       >(
+        // issue #3356 —— 键集分页。三处必须一起看，改一处就得改另两处：
+        //   ① `ORDER BY t.pinned DESC, t.last_activity_at DESC, t.id DESC`（全 DESC）；
+        //   ② `$4/$5/$6` 那条行值比较，它只在①全同向时才等价于「排在游标那一行之后」；
+        //   ③ `domain/chat/thread-list-cursor.ts` 编解码的三元组。
+        // ⚠ `LIMIT $7` 由调用方传 `limit + 1`——多取的那一行**不是给用户看的**，是
+        //   「还有没有下一页」的唯一判据（application 层丢掉它）。用「这一页是不是刚好
+        //   取满 limit」来猜会在总数恰好是 limit 的整数倍时多给一个空的下一页。
         `SELECT t.id, t.project_id, t.group_id, t.visibility_scope, t.created_by, t.archived,
                 t.phase, t.title, t.agent_private, t.last_activity_at, t.version, t.pinned,
                 EXISTS (
@@ -262,8 +270,23 @@ export class PgChatRepository implements ChatRepository {
            FROM chat_threads t
           WHERE t.org_id = $1 AND t.project_id IS NULL AND t.created_by = $2
             AND ($3::boolean OR NOT t.archived)
-          ORDER BY t.last_activity_at DESC, t.id`,
-        [orgId, userId, opts.includeArchived],
+            AND ($4::boolean IS NULL OR (t.pinned, t.last_activity_at, t.id) < ($4::boolean, $5::timestamptz, $6::text))
+            -- ⚠ 子串包含用 position(lower(...))，不用 ILIKE 拼通配符：拼进模式串会把
+            --   用户输入里的百分号/下划线当成通配符（搜「100%」会匹配一切），那是把
+            --   用户的字面文本悄悄解释成模式语言。这里只要子串包含，就直说子串包含。
+            AND ($8::text IS NULL OR position(lower($8) in lower(t.title)) > 0)
+          ORDER BY t.pinned DESC, t.last_activity_at DESC, t.id DESC
+          LIMIT $7`,
+        [
+          orgId,
+          userId,
+          opts.includeArchived,
+          opts.after === null ? null : opts.after.pinned,
+          opts.after === null ? null : opts.after.lastActivityAt,
+          opts.after === null ? null : opts.after.threadId,
+          opts.limit,
+          opts.titleQuery,
+        ],
       );
       return r.rows.map((row) => ({
         threadId: row.id,

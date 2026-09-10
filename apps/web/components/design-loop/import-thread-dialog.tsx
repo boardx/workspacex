@@ -60,6 +60,16 @@ export function ImportThreadDialog({
   const panelRef = React.useRef<HTMLDivElement>(null);
   useDialogFocus(panelRef, onClose);
   const [threads, setThreads] = React.useState<readonly ThreadCard[] | null>(null);
+  /**
+   * issue #3356 —— `listPersonalThreads` 现在**默认只给一页（30 条）**：契约的
+   * `limit` 省略即 30，不再是"省略即全部"。这个弹窗因此也得能翻下一页，否则一个
+   * 有 187 条对话的用户在这里只看得到最近 30 条，而且**没有任何提示**说下面还有。
+   *
+   * 「还有没有下一页」同样只有服务端的 `nextCursor` 一个事实源——这里不数条数、
+   * 不记页码。
+   */
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const [stage, setStage] = React.useState<Stage>({ kind: "picking" });
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -72,7 +82,10 @@ export function ImportThreadDialog({
         // `listPersonalThreads` 返回的是**分好组**的列表（今天 / 本周 / 更早，服务端定的顺序）。
         // 这里按组的顺序摊平：一个选线程的弹窗不需要日期分隔，但也不该自己再排一次序
         // ——顺序是服务端的事实，前端 `sort()` 一下将来一分页就乱（同 V65 那条纪律）。
-        if (alive) setThreads(out.groups.flatMap((g) => g.cards));
+        if (alive) {
+          setThreads(out.groups.flatMap((g) => g.cards));
+          setNextCursor(out.nextCursor);
+        }
       } catch (e) {
         if (alive) {
           setThreads([]);
@@ -84,6 +97,25 @@ export function ImportThreadDialog({
       alive = false;
     };
   }, []);
+
+  /** issue #3356 —— 翻下一页并**追加**（去重兜底同 `thread-pages.ts` 那条理由）。 */
+  const loadMore = async () => {
+    if (nextCursor === null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const out = await listPersonalThreads({ cursor: nextCursor });
+      const incoming = out.groups.flatMap((g) => g.cards);
+      setThreads((prev) => {
+        const seen = new Set((prev ?? []).map((t) => t.id));
+        return [...(prev ?? []), ...incoming.filter((t) => !seen.has(t.id))];
+      });
+      setNextCursor(out.nextCursor);
+    } catch (e) {
+      setError(describeFailure(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   /** 选中 ⇒ **预览**（不传 `problem`）。这一步服务端一个字不写。 */
   const pick = async (thread: ThreadCard) => {
@@ -160,6 +192,20 @@ export function ImportThreadDialog({
                     </button>
                   </li>
                 ))}
+                {/* 入口只在服务端说还有下一页时才在；到底之后**不渲染**，不留一个点了没反应的按钮。 */}
+                {nextCursor !== null ? (
+                  <li>
+                    <button
+                      type="button"
+                      disabled={loadingMore}
+                      onClick={() => void loadMore()}
+                      data-testid="import-thread-load-more"
+                      className="w-full rounded-control px-2 py-1.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {loadingMore ? "加载中…" : "加载更多"}
+                    </button>
+                  </li>
+                ) : null}
               </ul>
             )}
           </>

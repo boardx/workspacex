@@ -141,6 +141,11 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
     setListLoadingKey(key);
     setListFailure(null);
     try {
+      // ⚠ issue #3356 起 `listPersonalThreads` 默认只返回一页（30 条），这一屏没有
+      //   「加载更多」入口 ⇒ 它只看得到最近 30 条。**这是有意接受的**：本组件所在的
+      //   `/chat/legacy` 路由自 #2890 起 307 重定向到 `/chat`，产品里已不可达
+      //   （见 `app/chat/legacy/page.tsx` 头注，删除与否由 #3024 跟踪）。给一屏死代码
+      //   补分页 UI 没有用户能看见，反而多一处要跟着契约改的地方。
       const result = await listPersonalThreads({}, bearer);
       if (generation !== listGeneration.current) return;
       setThreadResult({ key, value: result });

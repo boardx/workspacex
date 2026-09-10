@@ -19,9 +19,10 @@ import {
   deleteThread, getAgentPanel, getThread,
   listThreadArtifacts, listThreadAttachments, renameThread, setThreadPinned, updateAgentRoster,
   type GetAgentPanelOut, type GetThreadOut, type ListThreadArtifactsOut,
-  type ListThreadAttachmentsOut, type ListThreadsOut, type ThreadCard,
+  type ListThreadAttachmentsOut, type ListPersonalThreadsOut, type ThreadCard,
 } from "@/lib/live-chat";
 import { createWorkbenchThread, listWorkbenchThreads, workbenchThreadPath } from "@/lib/chat-workbench/project-scope";
+import { THREAD_PAGE_SIZE, appendThreadPage, hasMorePages, refreshLimit } from "@/lib/chat-workbench/thread-pages";
 import { useIntervalFocusRefresh } from "@/lib/chat-workbench/use-interval-focus-refresh";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
@@ -132,7 +133,7 @@ import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilitie
  *    模块级单调序号 `threadListRequestSeq`/`threadListAppliedSeq`，只按「谁发出得
  *    更晚」决定谁能真的写进缓存，与哪个组件实例、哪个 `listGeneration` 无关。
  */
-let threadListCache: { readonly bearer: string; readonly value: ListThreadsOut } | null = null;
+let threadListCache: { readonly bearer: string; readonly value: ListPersonalThreadsOut } | null = null;
 /** 下一次发起线程列表请求要领取的序号；发起时自增，与响应到达的先后无关。 */
 let threadListRequestSeq = 0;
 /** 目前已经真正写进 `threadListCache` 的那次请求的序号——`applyThreadListResult`
@@ -141,7 +142,7 @@ let threadListRequestSeq = 0;
 let threadListAppliedSeq = 0;
 
 /** 唯一允许写 `threadListCache` 的地方——见上面头注「写路径必须唯一」。 */
-function applyThreadListResult(bearer: string, seq: number, value: ListThreadsOut): void {
+function applyThreadListResult(bearer: string, seq: number, value: ListPersonalThreadsOut): void {
   if (seq < threadListAppliedSeq) return; // 比已经写进去的那次还早发出，丢弃
   threadListAppliedSeq = seq;
   threadListCache = { bearer, value };
@@ -167,8 +168,8 @@ function applyThreadListResult(bearer: string, seq: number, value: ListThreadsOu
  */
 function patchThreadListCache(
   bearer: string,
-  mutate: (list: ListThreadsOut) => ListThreadsOut,
-): ListThreadsOut | null {
+  mutate: (list: ListPersonalThreadsOut) => ListPersonalThreadsOut,
+): ListPersonalThreadsOut | null {
   if (!threadListCache || threadListCache.bearer !== bearer) return null;
   const seq = ++threadListRequestSeq;
   const patched = mutate(threadListCache.value);
@@ -176,7 +177,7 @@ function patchThreadListCache(
   return patched;
 }
 
-function removeCardFromThreadList(list: ListThreadsOut, threadId: string): ListThreadsOut {
+function removeCardFromThreadList(list: ListPersonalThreadsOut, threadId: string): ListPersonalThreadsOut {
   return {
     ...list,
     groups: list.groups
@@ -185,7 +186,7 @@ function removeCardFromThreadList(list: ListThreadsOut, threadId: string): ListT
   };
 }
 
-function renameCardInThreadList(list: ListThreadsOut, threadId: string, title: string): ListThreadsOut {
+function renameCardInThreadList(list: ListPersonalThreadsOut, threadId: string, title: string): ListPersonalThreadsOut {
   return {
     ...list,
     groups: list.groups.map((group) => ({
@@ -199,7 +200,36 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   const router = useRouter();
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
-  const sourceKey = bearer ? `${bearer}::${projectId ?? "personal"}` : null;
+  /**
+   * issue #2075（TW-P2-6）搜索 —— **#3356 起改成服务端查询**。
+   *
+   * 此前是纯前端过滤：服务端一次返回该用户的全部个人对话，在客户端过滤手上这份
+   * 数据是当时唯一能做的事。分页之后那个做法**当场变成骗人的**：手上只有 30 条，
+   * 在 30 条里过滤，用户搜一条三个月前的对话搜不到，会以为"对话没了"。
+   * issue 原文点名这是陷阱。所以 `q` 现在下发给服务端（契约
+   * `listPersonalThreads.in.q`），搜的是**全部**历史，搜索结果本身也分页。
+   *
+   * `query` 是输入框里的字（每敲一下就变），`appliedQuery` 是**真的发出去的**那个
+   * （300ms 防抖）。两个都保留是因为它们是两件不同的事实：前者是"用户正在打什么"，
+   * 后者是"这份列表是按什么筛出来的"——把它们合成一个会让每敲一个字母就发一次
+   * 请求，且列表在打字过程中不停闪。
+   */
+  const [query, setQuery] = React.useState("");
+  const [appliedQuery, setAppliedQuery] = React.useState("");
+  React.useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed === appliedQuery) return;
+    const timer = window.setTimeout(() => setAppliedQuery(trimmed), 300);
+    return () => window.clearTimeout(timer);
+  }, [query, appliedQuery]);
+
+  /**
+   * 缓存身份。#3356 起把**当前搜索词**也算进去：一份列表是"这个人、这个作用域、
+   * 这个搜索词"筛出来的结果，换了搜索词就是**另一份**列表，不该共用同一格缓存
+   * （否则清空搜索框会先闪一帧搜索结果）。它同时是下面那条 `useEffect` 的依赖，
+   * 所以换搜索词天然重置回第一页——不需要另写一句"搜索时清空分页状态"。
+   */
+  const sourceKey = bearer ? `${bearer}::${projectId ?? "personal"}::${appliedQuery}` : null;
   const [observedRunId, setObservedRunId] = React.useState<string | null>(null);
   const handleExternalRunStarted = React.useCallback((runId: string) => setObservedRunId(runId), []);
 
@@ -355,11 +385,20 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
   const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
-  const [threads, setThreads] = React.useState<ListThreadsOut | null>(
+  const [threads, setThreads] = React.useState<ListPersonalThreadsOut | null>(
     () => (bearer && threadListCache?.bearer === sourceKey ? threadListCache.value : null),
   );
   const [listError, setListError] = React.useState<string | null>(null);
   const listGeneration = React.useRef(0);
+  /**
+   * issue #3356 —— `threads` 的镜像。`fetchThreadList` 需要在**发起请求那一刻**
+   * 知道"用户已经翻出来多少条"（`refreshLimit`），而把 `threads` 放进它的依赖数组
+   * 会让这个 callback 每次列表更新都重建 ⇒ 依赖它的 `reloadThreads` 跟着重建 ⇒
+   * 那条 `useEffect(..., [sourceKey, reloadThreads])` 每次刷新都重跑 ⇒ 无限轮询。
+   * ref 读的是同一份事实，只是不参与渲染依赖。
+   */
+  const threadsRef = React.useRef<ListPersonalThreadsOut | null>(null);
+  React.useEffect(() => { threadsRef.current = threads; }, [threads]);
 
   /**
    * 2026-09-02 人类实测反馈——「点击了『请给出计划…』这一条，选中的却变成相邻的
@@ -381,7 +420,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    * `click` 已经先落到了按下瞬间那个 DOM 节点上。
    */
   const listInteractingRef = React.useRef(false);
-  const pendingThreadsRef = React.useRef<ListThreadsOut | null>(null);
+  const pendingThreadsRef = React.useRef<ListPersonalThreadsOut | null>(null);
   const releaseListInteraction = React.useCallback(() => {
     window.setTimeout(() => {
       listInteractingRef.current = false;
@@ -399,7 +438,7 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    * `reloadThreads` 与 `handleDelete` 对"要不要在失败时保留旧列表"、
    * "成功后要不要顺带导航"这些收尾动作并不相同，不该被这一个函数替它们决定。
    */
-  const fetchThreadList = React.useCallback(async (): Promise<ListThreadsOut> => {
+  const fetchThreadList = React.useCallback(async (): Promise<ListPersonalThreadsOut> => {
     if (!bearer) throw new Error("no session");
     // 同一实例内还有一次没完事的旧请求 ⇒ 真的中止它（不只是忽略结果）：它已经
     // 没有意义，这次新请求就是要覆盖它。bearer 换人时同一条路径也生效——
@@ -409,13 +448,27 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
     const controller = new AbortController();
     listAbortRef.current = controller;
     const seq = ++threadListRequestSeq;
-    const result = await listWorkbenchThreads(projectId, bearer, controller.signal);
+    /**
+     * issue #3356 —— 这条出口只做**从头刷新**（不带 cursor），「加载更多」走
+     * 下面单独的 `loadMore`。两者不合并成一个带可选 cursor 的函数是刻意的：
+     * 刷新会**替换**整份列表、翻页会**追加**，混在一个函数里就得靠参数分岔出
+     * 两套收尾语义，而这个函数的现有调用方（reload / create / rename / delete）
+     * 全都要的是"替换"。
+     *
+     * `limit` 用 `refreshLimit`：用户已经点开了几页，刷新就要回几页，否则每 10 秒
+     * 一次的保鲜会把他翻出来的列表缩回 30 条。上限见 `thread-pages.ts`。
+     * `q` 是**服务端**搜索——不是在已加载的这一页里过滤（见 `appliedQuery` 头注）。
+     */
+    const result = await listWorkbenchThreads(projectId, bearer, controller.signal, {
+      limit: refreshLimit(threadsRef.current),
+      q: appliedQuery === "" ? null : appliedQuery,
+    });
     // 已经卸载的实例发出的请求：数据照常吐给调用方（万一它是 handleDelete/
     // handleRename 那种"提交本身还没走完，只是恰好在这个 await 期间被卸载"的
     // 边角情形），但不再写共享缓存——不该由一个不再存在的实例决定全局缓存是什么。
     if (mountedRef.current) applyThreadListResult(sourceKey!, seq, result);
     return result;
-  }, [bearer, projectId, sourceKey]);
+  }, [appliedQuery, bearer, projectId, sourceKey]);
 
   const reloadThreads = React.useCallback(async () => {
     if (!bearer) return;
@@ -445,6 +498,52 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   React.useEffect(() => {
     if (sourceKey) void reloadThreads();
   }, [sourceKey, reloadThreads]);
+
+  /**
+   * issue #3356 —— 「加载更多」。与 `fetchThreadList`（从头刷新）分开，因为它做的是
+   * **追加**：拿服务端给的游标要下一页，然后并进已加载的这份列表。
+   *
+   * ## 单一事实源
+   *
+   * 「还有没有下一页」「下一页从哪开始」只有 `threads.nextCursor` 一个来源
+   * （服务端给的）。这里**没有** `page` 计数器，也没有"这一页回来了几条 === 30
+   * 所以还有更多"这种推断——可见性过滤会让一页少于 30 条而后面仍有数据，那种
+   * 推断当场就是错的。按钮的显隐、点不点得动，读的都是同一个 `nextCursor`。
+   *
+   * ## 为什么走 `patchThreadListCache`
+   *
+   * 合并结果必须落进那一个模块级缓存（见文件头「写路径必须唯一」）：否则用户翻了
+   * 三页之后一次路由重挂载，新实例会用只有第一页的旧缓存初始化，翻出来的都没了。
+   * `patchThreadListCache` 在**合并那一刻**领新的单调序号，所以一次还在飞的旧刷新
+   * 不会把合并结果覆盖回去。
+   */
+  const [loadMorePending, setLoadMorePending] = React.useState(false);
+  const [loadMoreError, setLoadMoreError] = React.useState<string | null>(null);
+  const loadMore = React.useCallback(async () => {
+    const cursor = threads?.nextCursor ?? null;
+    if (!bearer || cursor === null || loadMorePending) return;
+    setLoadMorePending(true);
+    setLoadMoreError(null);
+    try {
+      // ⚠ 不共用 `fetchThreadList` 的 `listAbortRef`：那个 controller 属于"从头刷新"
+      //   这条流，翻页与它同时在飞是正常的，互相 abort 会让用户点了「加载更多」
+      //   之后恰好撞上一次 10 秒保鲜就静默没反应——正是本仓刚修过的那类「点了没反应」。
+      const page = await listWorkbenchThreads(projectId, bearer, undefined, {
+        limit: THREAD_PAGE_SIZE,
+        cursor,
+        q: appliedQuery === "" ? null : appliedQuery,
+      });
+      if (!mountedRef.current) return;
+      const merged = patchThreadListCache(sourceKey!, (list) => appendThreadPage(list, page))
+        ?? appendThreadPage(threads!, page);
+      setThreads(merged);
+    } catch (failure) {
+      if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
+      setLoadMoreError(failure instanceof Error ? failure.message : "加载更多失败");
+    } finally {
+      if (mountedRef.current) setLoadMorePending(false);
+    }
+  }, [appliedQuery, bearer, loadMorePending, projectId, sourceKey, threads]);
 
   /**
    * issue #2046（CK-P1）—— 右栏「产物」/「材料」，key/loading/failure 纪律与
@@ -906,7 +1005,6 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
    * `pinnedIds` 这份第二状态需要与服务端数据对齐。取代此前的 `lib/chat-pinned-threads.ts`
    * localStorage 方案（那份实现原样留在 git 历史里，不在这里删掉引用之外的东西）。
    */
-  const [query, setQuery] = React.useState("");
   const [pinPending, setPinPending] = React.useState<string | null>(null);
   const togglePin = React.useCallback(async (card: ThreadCard) => {
     // 防抖：同一条卡片的置顶请求还没落地时再点一次，忽略而不是并发发第二个请求
@@ -928,21 +1026,20 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
     }
   }, [bearer, pinPending, reloadThreads, projectId]);
 
-  const normalizedQuery = query.trim().toLowerCase();
-  const matchesQuery = React.useCallback(
-    (card: ThreadCard) => normalizedQuery === "" || card.title.toLowerCase().includes(normalizedQuery),
-    [normalizedQuery],
-  );
-
+  /**
+   * issue #3356 —— 这里此前有一个 `matchesQuery` 前端过滤器。**删掉了**，没有搬到
+   * 别处：搜索现在由服务端做（见 `appliedQuery` 头注）。留着它就是同一个筛选规则
+   * 声明在两处，而且客户端那份只看得见已加载的一页，答案会与服务端不同。
+   */
   /**
    * 渲染分组 = 「置顶」组（若有）+ 服务端的时间分组（已置顶的从里面摘出去，
    * 免得同一条对话在列表里出现两次——那正是"同一事实两处"在列表层的形态）。
    */
   const renderGroups: { label: string; cards: ThreadCard[] }[] = [];
-  const pinnedCards = cards.filter((card) => card.pinned).filter(matchesQuery);
+  const pinnedCards = cards.filter((card) => card.pinned);
   if (pinnedCards.length > 0) renderGroups.push({ label: "置顶", cards: pinnedCards });
   for (const group of threads?.groups ?? []) {
-    const rest = group.cards.filter((card) => !card.pinned).filter(matchesQuery);
+    const rest = group.cards.filter((card) => !card.pinned);
     if (rest.length > 0) renderGroups.push({ label: group.label, cards: rest });
   }
   const visibleCardCount = renderGroups.reduce((sum, group) => sum + group.cards.length, 0);
@@ -1097,14 +1194,20 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
               <div className="h-12 rounded-md bg-muted" />
               <div className="h-12 rounded-md bg-muted" />
             </div>
+          ) : visibleCardCount === 0 && appliedQuery !== "" ? (
+            /* issue #2075（TW-P2-6）——"搜了但没搜到"必须与"一条对话都没有"分开说：
+               前者要告诉用户是「这个词」没匹配上，不是他的对话丢了。
+               ⚠ #3356：这一档必须排在「一条对话都没有」前面。搜索改成服务端查询之后，
+                 搜不到的响应本身就是空列表（`cards.length === 0`），旧的排序会让它掉进
+                 「还没有对话，点上面『新建对话』」——对一个有 187 条历史对话的用户说
+                 "你还没有对话"，正是这次要避免的那种谎。
+               ⚠ 文案措辞也跟着改了：搜索现在查的是全部历史，不是手上这一页，
+                 所以"没搜到"这次是真的没有。 */
+            <p className="px-1 py-2 text-11 text-muted-foreground" data-testid="chat-task-workbench-thread-search-empty">
+              全部对话里都没有标题含「{appliedQuery}」的。换个词，或点上面「新建对话」。
+            </p>
           ) : cards.length === 0 ? (
             <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
-          ) : visibleCardCount === 0 ? (
-            /* issue #2075（TW-P2-6）——"搜了但没搜到"必须与"一条对话都没有"分开说：
-               前者要告诉用户是「这个词」没匹配上，不是他的对话丢了。 */
-            <p className="px-1 py-2 text-11 text-muted-foreground" data-testid="chat-task-workbench-thread-search-empty">
-              没有标题含「{query.trim()}」的对话。换个词，或点上面「新建对话」。
-            </p>
           ) : (
             renderGroups.map((group) => (
               <React.Fragment key={group.label}>
@@ -1126,6 +1229,34 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
               </React.Fragment>
             ))
           )}
+          {/*
+            issue #3356 —— 「加载更多」。
+
+            ⚠ 显隐的唯一判据是服务端的 `nextCursor`（`hasMorePages`）：全部加载完
+              之后它就是 `null`，按钮不渲染——不是渲染一个点了没反应的按钮
+              （本仓刚修过一批这个形状：#3311 通知点击、#3317 重试按钮）。
+            ⚠ 骨架期（`threads === null`）不渲染：那时还不知道有没有下一页，
+              画一个按钮出来等于在猜。
+          */}
+          {hasMorePages(threads) ? (
+            <div className="px-1 pb-2 pt-1">
+              <Button
+                size="xs"
+                variant="outline"
+                className="w-full"
+                data-testid="chat-thread-list-load-more"
+                disabled={loadMorePending}
+                onClick={() => void loadMore()}
+              >
+                {loadMorePending ? "加载中…" : "加载更多"}
+              </Button>
+              {loadMoreError ? (
+                <p className="pt-1 text-10 text-destructive" data-testid="chat-thread-list-load-more-error">
+                  {loadMoreError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </aside>
       <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
