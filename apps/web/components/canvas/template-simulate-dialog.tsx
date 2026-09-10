@@ -93,7 +93,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
-import { buildExplicitTemplateSpec, allSectionsPlaced } from "@/lib/canvas/explicit-template-layout";
+import { buildExplicitTemplateSpec, hasPlacedSection } from "@/lib/canvas/explicit-template-layout";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { CanvasStage, type CanvasStageHandle } from "./canvas-stage";
 import type { CanvasTool } from "./canvas-toolbar";
@@ -220,27 +220,35 @@ export function TemplateSimulateDialog({
         // 是不是内置 key）都用当前分区结构。
         if (usesAutoLayoutSpec(templateKey, layoutSource, sectionsDirty)) {
           // 组织自建：用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产
-          // chat 对组织自建模板的渲染同一条判据（见下方 `allSectionsPlaced` 分支），
+          // chat 对组织自建模板的渲染同一条判据（见下方 `hasPlacedSection` 分支），
           // 只是数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
           //
           // issue #2372：每个分区都已放置到画布上时，用 `buildExplicitTemplateSpec`
           // 忠实还原②画布里那份位置/列数/颜色——此前这里恒用 `buildAutoTemplateSpec`，
           // 把每个分区降维成 5 个字段，`layout`（位置/列数/颜色）在这一步就被丢了，
-          // chat 模拟看到的与②画布里配的完全对不上。只要有一个分区还没放，退回
-          // 原来的自动布局（`allSectionsPlaced` 头注解释了为什么不做部分合并）。
-          const { spec } = allSectionsPlaced(sections)
+          // chat 模拟看到的与②画布里配的完全对不上。
+          //
+          // issue #3333：判据从"每个分区都放置了"放宽成"至少有一个分区放置了"
+          // （`hasPlacedSection`，见其头注）——未放置的分区（顾问把多余字段拖出画布但
+          // 没删除字段定义，如缩编阶段数）只从显式渲染里剔除，不再让"还有分区没放"这
+          // 一个理由把已经放好的其它分区一并作废、整体退回自动布局（实测复现：用户
+          // 旅程图缩编成 4 阶段后仍留着未放置的第 5 阶段字段，chat 模拟因此整体退回
+          // 自动布局，渲染出来的画布跟②画布里拖好的完全不是一回事）。
+          const { spec } = hasPlacedSection(sections)
             ? buildExplicitTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
               footer,
               gridCols,
-              sections: sections.map((s) => (
-                {
-                  sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
-                  content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
-                  hideFieldTitle: s.hideFieldTitle,
-                }
-              )),
+              sections: sections
+                .filter((s) => s.layout != null)
+                .map((s) => (
+                  {
+                    sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
+                    content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
+                    hideFieldTitle: s.hideFieldTitle,
+                  }
+                )),
             })
             : buildAutoTemplateSpec({
               key: previewKey,

@@ -67,7 +67,7 @@ import { getTemplate, registerTemplate } from "@repo/fabric-markdown";
 import { canvas } from "@repo/contracts";
 import { listCanvasTemplates, type CanvasTemplate } from "@/lib/live-canvas";
 import { buildAutoTemplateSpec } from "./auto-template-layout";
-import { buildExplicitTemplateSpec, allSectionsPlaced } from "./explicit-template-layout";
+import { buildExplicitTemplateSpec, hasPlacedSection } from "./explicit-template-layout";
 
 export type CanvasFenceTemplateSource = "builtin" | "org-generated";
 
@@ -171,8 +171,12 @@ export async function ensureCanvasFenceTemplate(input: {
     // 还原编辑器里配的位置/列数/贴纸颜色——此前这里恒用 `buildAutoTemplateSpec`，
     // `row.sections` 即使带了 `layout` 也会被它的入参类型悄悄无视（该函数只读
     // sectionId/name/order/required/capacity 五个字段），真实 chat 渲染出来的东西
-    // 跟编辑器②画布里配的完全对不上。只要有一个分区还没放，退回原来的自动布局
-    // （`allSectionsPlaced` 头注解释了为什么不做部分合并）。
+    // 跟编辑器②画布里配的完全对不上。
+    //
+    // issue #3333：判据从"每个分区都放置了"放宽成"至少有一个分区放置了"
+    // （`hasPlacedSection`，见其头注）——未放置的分区（顾问把多余字段拖出画布，
+    // 但没有删除字段定义，如缩编阶段数）只从显式渲染里剔除，不再让"还有分区没放"
+    // 这一个理由把已经放好的其它分区的位置/列数/颜色也一并作废退回自动布局。
     //
     // ⚠ `gridCols` 恒传 12：编辑器里的网格制式（6/12 列）目前只是 session-local 的
     //   React state（`template-editor-panel.tsx` 里 `useState<6|12>(12)`），从未落进
@@ -187,18 +191,20 @@ export async function ensureCanvasFenceTemplate(input: {
     // 标题与 chat 模拟（`template-simulate-dialog.tsx`：`title || templateKey`）
     // 同一判据：填了纸面标题用标题，没填退回显示名。
     const framing = { displayName: row.title || row.displayName, footer: row.footer };
-    const { spec } = allSectionsPlaced(row.sections)
+    const { spec } = hasPlacedSection(row.sections)
       ? buildExplicitTemplateSpec({
         key,
         ...framing,
         gridCols: 12,
-        sections: row.sections.map((s) => (
-          {
-            sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
-            content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
-            hideFieldTitle: s.hideFieldTitle,
-          }
-        )),
+        sections: row.sections
+          .filter((s) => s.layout != null)
+          .map((s) => (
+            {
+              sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
+              content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
+              hideFieldTitle: s.hideFieldTitle,
+            }
+          )),
       })
       : buildAutoTemplateSpec({
         key,

@@ -169,3 +169,57 @@ describe("2026-08-30 回归：分区的条数上限（layout.max）要传给模�
     expect(out).toContain("swot〔优势/劣势〕");
   });
 });
+
+/**
+ * issue #3333 回归：指引里列出的分区必须与渲染时实际会画出来的分区一致——顾问把
+ * 用户旅程图从 5 阶段缩编成 4 阶段时，只把第 5 阶段的字段拖出画布（变成未放置，
+ * `layout: null`），没有删除字段定义。`fence-template-resolver.ts`/
+ * `template-simulate-dialog.tsx` 用 `hasPlacedSection` 判定：只要有分区放置了，
+ * 未放置的分区就不参与渲染。指引必须镜像同一条判据，否则模型会老老实实把
+ * 第 5 阶段的内容也写出来，前端却没有对应的框可画。
+ */
+describe("issue #3333 回归：未放置的分区不进指引（与渲染行为对齐）", () => {
+  it("混合态（部分分区已放置、部分未放置）——指引只列已放置的分区", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "journey-map",
+      displayName: "用户旅程图",
+      sections: [
+        { name: "阶段1行为", type: "便利贴列表", layout: { max: 6 } },
+        { name: "阶段2行为", type: "便利贴列表", layout: { max: 6 } },
+        // 顾问缩编阶段数时留下的未放置字段：layout 为 null。
+        { name: "阶段5行为", type: "便利贴列表", layout: null },
+      ],
+    }])!;
+    const line = out.split("\n").find((l) => l.startsWith("- journey-map"))!;
+    expect(line).toContain("阶段1行为");
+    expect(line).toContain("阶段2行为");
+    expect(line).not.toContain("阶段5行为");
+  });
+
+  it("全部未放置（老模板从没走过拖拽编辑器）——仍列出全部分区，与整体退回自动布局的渲染行为一致", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "swot",
+      displayName: "SWOT",
+      sections: [
+        { name: "优势", type: "便利贴列表", layout: null },
+        { name: "劣势", type: "便利贴列表", layout: null },
+      ],
+    }])!;
+    expect(out).toContain("swot〔优势/劣势〕");
+  });
+
+  it("表头字段（短文本）同样受未放置过滤", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "persona",
+      displayName: "用户画像",
+      sections: [
+        { name: "姓名", type: "短文本", layout: { max: 1 } },
+        { name: "职业", type: "短文本", layout: null },
+        { name: "用户描述", type: "便利贴列表", layout: { max: 6 } },
+      ],
+    }])!;
+    const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
+    expect(line).toContain("表头字段〔姓名〕");
+    expect(line).not.toContain("职业");
+  });
+});

@@ -166,12 +166,23 @@ export function buildCanvasTemplateGuidance(
       + "分区」组织时才用；单纯讲清楚一个流程或结构，仍然优先用 mermaid 图表。",
     "本组织已配置（已发布）的协作模板：",
     ...templates.map((t) => {
+      // issue #3333：指引里列出的分区必须与渲染时**实际会画出来**的分区一致，否则
+      // 模型会按指引老老实实把内容写全，前端却没有对应的框可画——多出来的内容要么
+      // 挤进"便签暂存·待归类"，要么干脆看不见，用户看到的结果与后台编辑好的模板
+      // 对不上（`fence-template-resolver.ts`/`template-simulate-dialog.tsx` 用
+      // `hasPlacedSection` 判定：只要有分区放置了，未放置的分区就不参与渲染）。
+      // 这里镜像同一条判据：至少有一个分区放置了 ⇒ 只把"已放置"的分区列进指引；
+      // 一个都没放置（老模板从没走过拖拽编辑器，`layout` 全部缺失）⇒ 仍列出全部
+      // 分区，与全量退回自动布局、全部分区都会被画出来的渲染行为一致。
+      const placed = t.sections.some((s) => s.layout != null)
+        ? t.sections.filter((s) => s.layout != null)
+        : t.sections;
       // 表头 vs 正文的**唯一**切分处。判据是分区自己的 `type`（库里的事实），
       // 不是另一份清单——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
-      const header = t.sections.filter((s) => s.type === "短文本").map((s) => s.name);
+      const header = placed.filter((s) => s.type === "短文本").map((s) => s.name);
       // 「文本对象」（标题/固定文案块）是设计时静态装帧，不是要 AI 填的正文分区
       // （同 `SectionDef.content` 文档），不进 `bodySections`，也不要求 AI 产出它的内容。
-      const bodySections = t.sections.filter((s) => s.type !== "短文本" && s.type !== "文本对象");
+      const bodySections = placed.filter((s) => s.type !== "短文本" && s.type !== "文本对象");
       // 每个正文分区后面标出它配置的条数上限（`layout.max`，template-admin 里
       // 「N 列 · M 条」的 M）——没配置（老模板、没走过布局回填）的分区不标注，
       // 沿用下面那句通用的「3~6 条」区间，行为与本次改动前一致。
