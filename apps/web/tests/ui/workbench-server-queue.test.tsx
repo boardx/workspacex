@@ -2,7 +2,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useThreadMessageQueue } from "@/lib/chat-workbench/use-thread-message-queue";
 const request = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/api-client", () => ({ apiRequest: request }));
+// #3317：`describeQueueFailure` 要用真实的 `ApiError` 做 instanceof 判别，所以这里改成部分 mock。
+vi.mock("@/lib/api-client", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/api-client")>()), apiRequest: request }));
 const id = "11111111-1111-4111-8111-111111111111";
 const item = { id, clientRequestId: id, text: "next", agentId: "agent", status: "pending", runId: null, createdAt: "now", error: null };
 afterEach(() => { request.mockReset(); vi.useRealTimers(); });
@@ -45,14 +46,17 @@ describe("server queue transport", () => {
     request.mockRejectedValue(new Error("queue_item_conflict"));
     await act(async () => { expect(await result.current.edit(id, "too late")).toBe(false); });
     expect(result.current.items[0]?.text).toBe("edited");
-    expect(result.current.error).toBe("queue_item_conflict");
+    // #3317：错误出口接了文案层后，这里不再是开发者字符串直出——判据改成「说清哪一步 + 原因可见」。
+    expect(result.current.error).toContain("修改这条待发送消息失败");
+    expect(result.current.error).toContain("queue_item_conflict");
   });
   it("clears an old read error after the authoritative poll recovers", async () => {
     vi.useFakeTimers();
     request.mockRejectedValue(new Error("offline"));
     const { result } = renderHook(() => useThreadMessageQueue("thread", null, "token"));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.error).toBe("offline");
+    expect(result.current.error).toContain("读取待发送消息列表失败");
+    expect(result.current.error).toContain("offline");
     request.mockResolvedValue({ items: [] });
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(result.current.error).toBeNull();
