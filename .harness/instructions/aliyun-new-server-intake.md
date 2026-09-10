@@ -94,6 +94,122 @@ RUNNER_USER=<C4 的 runner 用户名> \
 
 ---
 
+## H. 逐组件资源预算（这台机器上到底跑着什么）
+
+⚠ **下面的内存数是按各组件配置推算的，不是压测实测值**——本仓目前没有任何负载测试
+证据。按本项目自己的规矩（"没有证据 = 没有完成"），上线后要用真实并发量核一次
+`docker stats` 与 `systemd-cgtop`，再回来修正这张表。
+
+| 进程/容器 | 怎么起的 | CPU | 内存 | 上限在哪声明 |
+|---|---|---|---|---|
+| `workspacex-api`（NestJS） | systemd，宿主进程 | 1 核（**单进程，无 cluster**） | ~1 GB | 无上限 |
+| `workspacex-web`（Next.js） | systemd，宿主进程 | 0.5 核 | 0.5–1 GB | 无上限 |
+| `postgres`（pgvector:pg16） | compose | 1–2 核 | 1–2 GB | 无上限，默认配置未调优 |
+| `minio` + `redis` | compose | 0.5 核 | ~0.8 GB | 无上限 |
+| `skill-sandbox` | compose | `SKILL_SANDBOX_CPUS`（默认 1.0） | `SKILL_SANDBOX_MEM_LIMIT`（默认 1g） | `docker-compose.deploy.yml` |
+| `skill-sandbox-sessions` | compose | 同上（**各一份，不是共享**） | 同上 | 同上 |
+| `workspacex-deep-agent` | `deploy.sh` 第 4h 步 `docker run` | 无限制 | 1–1.5 GB，**无限制** | 无 |
+| Caddy + dockerd + OS | 系统 | 0.5 核 | ~1 GB | 无 |
+| **稳态合计** | | **~6 核** | **~7–9 GB** | |
+| 部署时 Next 构建峰值 | `deploy.sh` 第 5b 步 | 吃满可用核 | **+4 GB**（`WEB_BUILD_HEAP_MB`） | `deploy.sh` |
+
+两件从这张表里读出来的事：
+
+1. **构建和业务在同一台机器上**。选 16 GB 不是为了稳态，是为了"有人在用的时候部署"
+   不撞车。这也是为什么扩到 50 人以上时，架构上第一步是把构建挪出生产机，而不是换更大的机器。
+2. **`deep-agent` 是唯一没有资源上限的容器**。其它都封了顶，它没有。本项目 2026-08-08
+   有过实测事故（孤儿容器堆积 → load 66 → Docker daemon 崩溃），记录在
+   `agent-resource-cleanup-sop.md`。给它补上限是一条独立的待办，不在本清单范围内。
+
+### 磁盘怎么用掉 200 GB
+
+| 用途 | 量级 | 位置 |
+|---|---|---|
+| Docker 镜像（每轮部署 `--build` 重建，旧层留着） | 20–40 GB | `/var/lib/docker` |
+| Postgres 数据 | 随业务长 | docker volume `workspacex_pgdata` |
+| MinIO 对象 | 随业务长 | docker volume `workspacex_miniodata` |
+| 用户上传的文件/头像 | 随业务长 | `/opt/workspacex/objects`（`WORKSPACEX_OBJECT_ROOT`） |
+| pnpm store + `node_modules` + Next 产物 | 5–10 GB | `/opt/workspacex/app` |
+| 容器日志 | **不限，会撑爆盘** | `/var/lib/docker/containers` —— 见 I.2 |
+
+## I. 系统层配置（provision.sh 不做，要人手动做）
+
+`provision.sh` 只搭台子（用户、clone、deploy.env、systemd、Caddy、特权脚本副本），
+下面这些它不碰，但 20 人的量级下都要做：
+
+**I.1 Docker 镜像加速器**（必做，否则大陆地域拉不动镜像）
+写 `/etc/docker/daemon.json` 的 `registry-mirrors`，然后 `systemctl restart docker`。
+
+**I.2 容器日志轮转**（必做，否则日志会撑爆系统盘）
+Docker 默认 `json-file` driver **不限大小**，长跑的容器日志会一直涨到把盘写满，
+而盘一满 Postgres 会先坏。在同一个 `/etc/docker/daemon.json` 里加：
+
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "100m", "max-file": "3" }
+}
+```
+
+⚠ 这个设置**只对之后新建的容器生效**，已经在跑的要重建一次（下一轮 `deploy.sh` 会
+`up -d --build`，自然带上）。
+
+**I.3 Swap**（做）
+开 4 GB swapfile。理由是 Next 构建那 4 GB 峰值：有 swap 的话最坏是变慢，没有的话是
+OOM killer 挑一个进程杀掉——它挑中的往往是 Postgres。
+⚠ 两个沙箱容器不受影响：它们 `mem_limit == memswap_limit`，等于对容器内禁用了 swap，
+这是刻意的（沙箱要的是硬边界，不是"慢下来"）。
+
+**I.4 时区与时间同步**（做）
+`timedatectl set-timezone Asia/Shanghai`，确认 `systemd-timesyncd` 在跑。日志时间戳与
+业务时间对不上会让排障多花一倍时间。
+
+**I.5 专机专用**（纪律，不是命令）
+这台机器上不要再装别的服务。端口分配已登记在 `project/PROJECT.md`，55433 / 59010 /
+56380 / 2025 / 3100 / 3200 都被占了，装第二套东西撞端口的症状是"whichever starts
+second fails to bind"，而如果输的那个是业务栈，你会在最坏的时候才发现。
+
+### 已经可配 vs 要改代码才能配
+
+| 想调的东西 | 现在能不能在 deploy.env 里调 |
+|---|---|
+| 并发 session 数、沙箱 CPU/内存/进程数 | ✅ 能（`SKILL_SANDBOX_*`，本次改动加的） |
+| Next 构建堆上限 | ✅ 能（`WEB_BUILD_HEAP_MB`） |
+| Postgres/MinIO/Redis 端口 | ✅ 能（`PGPORT` / `MINIO_PORT` / `REDIS_PORT`） |
+| API/Web 的 systemd 资源限制、文件描述符上限 | ❌ 不能，unit 文件由 `provision.sh` 生成，要改脚本 |
+| Postgres 的 `shared_buffers` 等调优参数 | ❌ 不能，用的是镜像默认配置 |
+| `deep-agent` 容器的内存/CPU 上限 | ❌ 不能，`deploy.sh` 的 `docker run` 里没有这两个参数 |
+
+后三行不是遗漏，是本次没动的范围。真到了要调的时候，各自是一条独立改动，别在 deploy.env
+里找它们找到怀疑人生。
+
+## J. 20 人并发的具体取值
+
+填进 `/opt/workspacex/deploy.env`（这四个键都是可选的，不填走默认；默认是给单人开发机的）：
+
+```
+SKILL_SANDBOX_MAX_SESSIONS=32
+SKILL_SANDBOX_MEM_LIMIT=4g
+SKILL_SANDBOX_CPUS=2.0
+SKILL_SANDBOX_PIDS_LIMIT=512
+```
+
+为什么是 32 而不是 20：一个用户在一次任务里可能同时持有多个 session（主任务 +
+子任务），按人头 1:1 配会在正常使用下就撞顶。32 是留了一倍余量的档。
+
+⚠ **这四项要一起调**。只调 `MAX_SESSIONS`，超出的并发不再是一个干净的 `SESSION_LIMIT`
+拒绝，而是容器 OOM——把一个说得清的拒绝换成一场说不清的崩溃。
+默认值本身只声明在两处、各管一段：session 数在 `packages/contracts/src/sandbox-session.ts`，
+背后的资源在 `docker-compose.deploy.yml`。这份文件不复述它们的值。
+
+还有两个上限不在服务器上，20 人的量级下大概率比服务器先到：
+
+- **模型侧并发/QPS 配额**（百炼的 key 级限流）。20 人同时发消息，卡住的多半是这里。
+  要提额找阿里云，不是加机器能解决的。
+- **API 是单个 Node 进程**（systemd 里就是 `pnpm --filter api run start`，没有 cluster）。
+  语音转写 WS、agent-run 事件 WS、SSE 流式全挂在这一个进程上。这些基本是 I/O 密集
+  （在等模型），20 个连接不成问题；但任何 CPU 密集的同步逻辑会阻塞所有人。
+
 ## 一页速查：你要给我的东西
 
 1. **ECS 8 vCPU / 16 GB / 200 GB ESSD PL1 / Ubuntu 24.04 LTS / 绑 EIP 10 Mbps**，
@@ -107,3 +223,5 @@ RUNNER_USER=<C4 的 runner 用户名> \
 7. 一个专用 e2e 测试账号的邮箱与口令。
 
 这七项齐了，provision → deploy → 三条探针可以一路跑到底，中途不需要再问你。
+I 节那几条系统层配置（镜像加速器、日志轮转、swap、时区）我可以在同一次连上去时一起做，
+不需要你额外准备什么。
