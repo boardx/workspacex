@@ -70,6 +70,9 @@ export const GridCols = z.union([z.literal(6), z.literal(12), z.literal(24)]);
 export const GridRows = z.union([z.literal(8), z.literal(16)]);
 export const DEFAULT_GRID_COLS = 12;
 export const DEFAULT_GRID_ROWS = 8;
+/** 给前端状态用的取值类型——不在调用方各写一遍 `z.infer<...>`。 */
+export type GridColsValue = z.infer<typeof GridCols>;
+export type GridRowsValue = z.infer<typeof GridRows>;
 
 /**
  * 一行模板的几何/呈现内容是「组织真的编辑过」还是「只是 backfill 推算出来的默认值」——

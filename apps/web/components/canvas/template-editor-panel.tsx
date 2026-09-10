@@ -115,7 +115,24 @@ export function TemplateEditorPanel({
   //   而库里其实存着（或者也是空的，因为写入端同样从没把它存过——两头都空）。
   const [sections, setSections] = React.useState<SectionDraft[]>(() => toDraft(row));
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
-  const [gridCols, setGridCols] = React.useState<6 | 12>(12);
+  /**
+   * 网格密度（issue #3358）。⚠ 2026-09-10 之前 `gridCols` 是**纯编辑器本地状态**、
+   * 恒初始化成 12、也从不进保存——右上角那个「6 列 / 12 列」开关选了 6 之后，一保存
+   * 就悄悄丢回 12（同 `promptText` 早先那个"两头都空"的形状）。现在它落库了，
+   * 就必须从 `row` 读初值、进脏检查、进保存，三处缺一处都是同一种静默丢失。
+   *
+   * `gridRows` 目前没有 UI 可选：`GRID_ROWS` 还是模块常量，六处纯函数
+   * （`clampLayout`/`maxFreeH`/`autoFillLayout`/`sectionGeometryMm`/画布网格/步进器上限）
+   * 都从它读。所以这里只做**原样往返**——把这一行存的值读进来、保存时原样带回去，
+   * 不让一次保存把库里的值改掉。等那六处改成接收参数、右栏出「网格密度」选择器时，
+   * 它才会真的变成一个可选项。
+   */
+  const [gridCols, setGridCols] = React.useState<canvas.GridColsValue>(
+    () => (row.gridCols ?? canvas.DEFAULT_GRID_COLS),
+  );
+  const [gridRows] = React.useState<canvas.GridRowsValue>(
+    () => (row.gridRows ?? canvas.DEFAULT_GRID_ROWS),
+  );
   // 纸张尺寸——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。内容相关
   // 字段（同 sections），不是装帧：影响 mm 换算，因此进体检、进脏检查、进保存。
   const [paperSize, setPaperSize] = React.useState<PaperSizeKey>((row.size ?? "A1") as PaperSizeKey);
@@ -195,6 +212,7 @@ export function TemplateEditorPanel({
     || promptText !== row.promptText
     || recommendAfter.join("\u0000") !== [...(row.recommendAfter ?? [])].join("\u0000")
     || paperSize !== (row.size ?? "A1")
+    || gridCols !== (row.gridCols ?? canvas.DEFAULT_GRID_COLS)
     || sectionsDirty
   );
 
@@ -429,6 +447,8 @@ export function TemplateEditorPanel({
           visibility: row.visibility,
           tags: [...(row.tags ?? [])],
           size: paperSize,
+          gridCols,
+          gridRows,
         });
         await saveChrome();
         await onSaved(
@@ -454,6 +474,8 @@ export function TemplateEditorPanel({
         visibility: row.visibility,
         tags: [...(row.tags ?? [])],
         size: paperSize,
+        gridCols,
+        gridRows,
       });
       await saveChrome(minted.version);
 

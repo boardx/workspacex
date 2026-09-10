@@ -16,6 +16,7 @@ import {
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 export { GRID_ROWS };
 
@@ -246,7 +247,7 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
  * 就会得到一份自相矛盾的布局。
  */
 export function defaultLayoutAt(
-  type: SectionFieldType, col: number, row: number, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+  type: SectionFieldType, col: number, row: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
   limits?: { readonly maxW?: number; readonly maxH?: number },
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
@@ -274,7 +275,7 @@ export function defaultLayoutAt(
   };
 }
 
-function blockWidthMm(w: number, gridCols: 6 | 12, size: PaperSizeKey = "A1"): number {
+function blockWidthMm(w: number, gridCols: GridColsValue, size: PaperSizeKey = "A1"): number {
   return (w / gridCols) * contentMmFor(size).w - GRID_GAP_MM;
 }
 
@@ -314,7 +315,7 @@ const AUTO_LAYOUT_GRID_ROWS = GRID_ROWS;
  */
 export function autoFillLayout(
   drafts: readonly SectionDraft[],
-  gridCols: 6 | 12,
+  gridCols: GridColsValue,
   size: PaperSizeKey = "A1",
 ): SectionDraft[] {
   const named = drafts.filter((d) => d.name.trim().length > 0);
@@ -389,7 +390,7 @@ export function clamp(n: number, lo: number, hi: number): number {
 }
 
 /** 把一个区块夹回画布内（拖到越界时用，`Design.pdf` §4.2「越界时自动夹到画布内」）。 */
-export function clampLayout(layout: SectionLayoutDraft, gridCols: 6 | 12): SectionLayoutDraft {
+export function clampLayout(layout: SectionLayoutDraft, gridCols: GridColsValue): SectionLayoutDraft {
   const w = clamp(layout.w, 1, gridCols);
   const h = clamp(layout.h, 1, GRID_ROWS);
   return {
@@ -460,7 +461,7 @@ export function findOverlappingSections(
  * 合法范围内，同 `Stepper` 组件既有的「每次只挪一格、永远合法」的交互约定。
  */
 export function maxFreeW(
-  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, h: number, gridCols: 6 | 12,
+  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, h: number, gridCols: GridColsValue,
 ): number {
   const bound = gridCols - col + 1;
   let w = 1;
@@ -479,7 +480,7 @@ export function maxFreeH(
 }
 
 export function sectionGeometryMmOf(
-  s: SectionDraft, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+  s: SectionDraft, gridCols: GridColsValue, size: PaperSizeKey = "A1",
 ): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
@@ -576,7 +577,7 @@ export function extractPromptPlaceholders(promptText: string): string[] {
 }
 
 export function checkTemplateHealth(
-  drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "", size: PaperSizeKey = "A1",
+  drafts: readonly SectionDraft[], gridCols: GridColsValue, promptText = "", size: PaperSizeKey = "A1",
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   // 「文本对象」是静态装帧文字，不绑定 `{{key}}`、不进 AI 输出结构——字段计数/

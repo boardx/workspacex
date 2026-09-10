@@ -3,6 +3,7 @@ import * as React from "react";
 import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
 import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -84,7 +85,7 @@ export function TemplateCanvasGrid({
   onSelect, onPlace, onMove, onEditText,
 }: {
   readonly sections: readonly SectionDraft[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly showSample: boolean;
   /** 纸张尺寸——决定纸面比例/页边距/mm 换算。缺省 `"A1"`，兼容既有调用方。 */
   readonly paperSize?: PaperSizeKey;

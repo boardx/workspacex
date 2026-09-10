@@ -178,14 +178,13 @@ export async function ensureCanvasFenceTemplate(input: {
     // 但没有删除字段定义，如缩编阶段数）只从显式渲染里剔除，不再让"还有分区没放"
     // 这一个理由把已经放好的其它分区的位置/列数/颜色也一并作废退回自动布局。
     //
-    // ⚠ `gridCols` 恒传 12：编辑器里的网格制式（6/12 列）目前只是 session-local 的
-    //   React state（`template-editor-panel.tsx` 里 `useState<6|12>(12)`），从未落进
-    //   `SectionLayout` 契约或持久化到这一行——`layout.col/row/w/h` 是相对某个网格
-    //   制式的坐标，但没有任何字段记着"存的时候用的是哪个制式"。编辑器每次打开都
-    //   从 12 起步（同一个默认值），所以这里用 12 是与编辑器默认行为对齐的、有据可查
-    //   的假设，不是拍脑袋——但如果编辑者存草稿前手动切到过 6 列，这里会解释错。
-    //   完整修法是给 `SectionLayout` 契约加一个 `gridCols` 字段并持久化，属于更大的
-    //   契约改动，不在本次范围内（先解决"布局完全不生效"这个更严重的问题）。
+    // ✅ issue #3358（2026-09-10）：`gridCols` 改为读这一行**自己存的**制式。
+    //   在此之前它恒传 12，因为编辑器里的 6/12 开关只是 session-local 的 React state、
+    //   从未落库——上一版注释逐字写着「如果编辑者存草稿前手动切到过 6 列，这里会解释错」，
+    //   并把「给契约加字段并持久化」列为"不在本次范围内"。那个字段现在有了
+    //   （`canvas_templates.grid_cols`），所以这里不再需要那个假设：`layout.col/row/w/h`
+    //   是相对某个制式的坐标，这一行现在记着自己用的是哪个制式，直接读它。
+    //   老数据没有这两列 ⇒ 落库默认 12/8 ⇒ 与改动前逐字节同解。
     // issue #2527：编辑器里填的「标题」/「页脚署名」是装帧材料，此前只有编辑器
     // 预览画，真实 chat 渲染这里从没把它们传给 spec——用户填了页脚、画布上没有。
     // 标题与 chat 模拟（`template-simulate-dialog.tsx`：`title || templateKey`）
@@ -195,7 +194,7 @@ export async function ensureCanvasFenceTemplate(input: {
       ? buildExplicitTemplateSpec({
         key,
         ...framing,
-        gridCols: 12,
+        gridCols: row.gridCols ?? canvas.DEFAULT_GRID_COLS,
         sections: row.sections
           .filter((s) => s.layout != null)
           .map((s) => (

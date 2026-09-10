@@ -141,6 +141,10 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       //   （前端弹窗里标签胶囊在，落库回来是 `[]`）。
       tags: input.tags ?? [],
       size: input.size,
+      // 网格密度（issue #3358）——同 `tags`/`size` 那条「逐字段拼 body，契约每加一栏
+      // 这里必须也加一次」的纪律，由 `canvas-template-body-completeness.test.ts` 机械核对。
+      gridCols: input.gridCols,
+      gridRows: input.gridRows,
     },
   });
 }
@@ -164,6 +168,10 @@ export async function updateCanvasTemplateDraft(input: UpdateTemplateDraftIn): P
       visibility: input.visibility,
       tags: input.tags ?? [],
       size: input.size,
+      // 网格密度（issue #3358）——同 `tags`/`size` 那条「逐字段拼 body，契约每加一栏
+      // 这里必须也加一次」的纪律，由 `canvas-template-body-completeness.test.ts` 机械核对。
+      gridCols: input.gridCols,
+      gridRows: input.gridRows,
     },
   });
 }
@@ -267,6 +275,9 @@ export async function mintCanvasTemplateVersion(
         ownerTeamId: input.ownerTeamId,
         tags: input.tags ?? [],
         size: input.size,
+        // 网格密度（issue #3358）——同上那条逐字段拼 body 的纪律。
+        gridCols: input.gridCols,
+        gridRows: input.gridRows,
       },
     },
   );

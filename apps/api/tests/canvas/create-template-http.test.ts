@@ -185,6 +185,9 @@ describe("#496 · POST /canvas/templates 真的造出一行", () => {
       layoutSource: "builtin-derived",
       // 2026-08-27：`createBody()` 不传 `size`——省略在契约层归一成 `"A1"`。
       size: "A1",
+      // 网格密度（issue #3358）：请求没传 ⇒ 用例层归一成默认 12×8，出门恒为真实数字。
+      gridCols: 12,
+      gridRows: 8,
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

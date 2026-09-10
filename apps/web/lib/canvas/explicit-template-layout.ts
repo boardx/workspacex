@@ -41,6 +41,7 @@ import {
   A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_GAP, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER,
   HEADER_ROW_PITCH,
 } from "./auto-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
@@ -110,7 +111,7 @@ export interface ExplicitLayoutCell {
 }
 
 export interface ExplicitLayout {
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly cells: readonly ExplicitLayoutCell[];
   readonly bounds: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
 }
@@ -135,7 +136,7 @@ export const GRID_ROWS = 8;
  */
 export function computeExplicitLayout(
   sections: readonly ExplicitLayoutSectionInput[],
-  gridCols: 6 | 12,
+  gridCols: GridColsValue,
 ): ExplicitLayout {
   const areaW = A0_FRAME.right - A0_FRAME.left;
   const areaH = A0_FRAME.bottom - GRID_TOP;
@@ -174,7 +175,7 @@ export interface ExplicitTemplateInput {
   /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
   readonly footer?: string;
   readonly sections: readonly ExplicitLayoutSectionInput[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
 }
 
 export interface ExplicitTemplateResult {
@@ -772,7 +773,7 @@ export interface SectionGeometryMmInput {
   readonly w: number;
   readonly h: number;
   readonly cols: number;
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   /** 纸张尺寸——决定内容区物理 mm 数。缺省 `"A1"`，兼容既有调用方（历史数据的默认尺寸）。 */
   readonly size?: PaperSizeKey;
   /**

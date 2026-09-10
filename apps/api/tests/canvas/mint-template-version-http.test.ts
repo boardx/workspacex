@@ -152,6 +152,9 @@ describe("#988 · POST /canvas/templates/:key/versions 真的铸出下一版", (
       layoutSource: "user-edited",
       // 2026-08-27：请求体不传 `size`——省略**不继承上一版**，归一成 `"A1"`。
       size: "A1",
+      // 网格密度（issue #3358）：请求没传 ⇒ 用例层归一成默认 12×8，出门恒为真实数字。
+      gridCols: 12,
+      gridRows: 8,
     });
 
     const rows = await readAll();

@@ -14,6 +14,7 @@
 import { describe, it, expect } from "vitest";
 import { autoFillLayout } from "../../components/canvas/template-editor-model";
 import type { SectionDraft, SectionFieldType } from "../../components/canvas/template-editor-model";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 function draft(id: string, type: SectionFieldType, name = id): SectionDraft {
   return {
@@ -27,7 +28,7 @@ function draft(id: string, type: SectionFieldType, name = id): SectionDraft {
 const GRID_ROWS = 8;
 
 /** 铺满、不重叠、不越界——同 `coversFullGrid` 的判据，前端版。 */
-function assertFullCoverage(result: readonly SectionDraft[], gridCols: 6 | 12): void {
+function assertFullCoverage(result: readonly SectionDraft[], gridCols: GridColsValue): void {
   const cells = new Set<string>();
   for (const d of result) {
     expect(d.layout, `${d.name} 应该已放置`).not.toBeNull();

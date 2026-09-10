@@ -10,6 +10,7 @@ import {
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * 第三步 · 显示方式（R5，2026-08-26）——`Design.pdf` §4.3 右栏逐条实现。
@@ -28,7 +29,7 @@ export function TemplateDisplayPanel({
    * 真实上限，因此需要看到整份分区列表，不能只看选中的这一个。
    */
   readonly sections: readonly SectionDraft[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly health: TemplateHealth;
   readonly editable: boolean;
   readonly onPatch: (patch: Partial<SectionLayoutDraft>) => void;
