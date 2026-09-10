@@ -3,6 +3,7 @@ const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
 import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contracts/native-session-binding";
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
 import { SkillActivityStream, type SkillActivityFact } from "@repo/contracts/skill-activity";
+import { ToolProgressStream } from "@repo/contracts/execution-journal";
 import { assertCurrentRunLease } from "../../application/agent-run/run-lease";
 import type { ReconciledRemoteRun } from "../../application/agent-run/run-recovery";
 import { publicExecutionPayload } from "../../application/agent-run/public-execution-payload";
@@ -609,7 +610,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // legitimately needs to pass through both phases without either suppressing the other.
     const emitted: ToolCallEmittedIds = { inProgress: new Set(completedToolIds), complete: new Set(completedToolIds) };
 
-    if (input.onSkillActivity !== undefined || (this.config.streamEnabled === true && onDelta !== undefined)) {
+    if (input.onSkillActivity !== undefined || input.onToolProgress !== undefined || (this.config.streamEnabled === true && onDelta !== undefined)) {
       /*
        * ⚠ 这里有**两个**不变量，缺一条都会变成静默降级：
        *   (I) 流根本没建立起来（`streamed === false`：fetch 抛 / HTTP 非 2xx /
@@ -634,7 +635,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       while (true) {
         const streamed = await this.tryStreamRun(baseUrl, threadId, runId,
           async (delta, metadata) => { try { await onDelta?.(delta, metadata); } catch (error) { throw new ProgressDeliveryError(error); } },
-          async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity);
+          async (event) => { try { await onProgress(event); } catch (error) { throw new ProgressDeliveryError(error); } }, emitted, deadline, input.onSkillActivity, input.onToolProgress);
         if (streamed) {
           const status = await this.readRunStatus(baseUrl, threadId, runId);
           if (status === "success") {
@@ -782,6 +783,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     emitted: ToolCallEmittedIds,
     deadline: number,
     onSkillActivity?: (fact: SkillActivityFact) => Promise<void>,
+    onToolProgress?: (progress: ToolProgressStream) => Promise<void>,
   ): Promise<boolean> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
@@ -861,6 +863,21 @@ export class DeepAgentModelProvider implements ModelCallPort {
               if (!onSkillActivity) throw new Error("skill_activity_writer_unavailable");
               await onSkillActivity(event.fact);
             } catch (error) { throw new ProgressDeliveryError(error); }
+            continue;
+          }
+          /*
+           * issue #3322 —— 工具**执行期间**的中间进展，走与 `skill_activity` 同一条
+           * LangGraph `custom` 流、同一种信封形状（`ToolProgressStream`，契约里唯一一份声明）。
+           *
+           * ⚠ 故障纪律与上面那一支**相反**，这是有意的（见 `ModelCallInput.onToolProgress`）：
+           * 那支是审计事实，投递不了要 fail closed；这支是有损展示采样，形状不合法就**丢掉
+           * 这一条**并继续读流——因为一条进展格式不对而把整条 run 判失败，是拿一个纯展示
+           * 信号去毁掉一次真的在成功推进的执行。丢弃不静默：`onToolProgress` 缺席时本来就
+           * 不该收到这种帧，收到了照旧跳过（与本函数"只认几种形状、其余静默跳过"一致）。
+           */
+          if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "tool_progress") {
+            const progress = ToolProgressStream.safeParse(parsed);
+            if (progress.success && onToolProgress) await onToolProgress(progress.data);
             continue;
           }
           if (Array.isArray(parsed)) {

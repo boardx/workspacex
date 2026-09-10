@@ -5,6 +5,11 @@ export type TraceEntry = {
   id: string; messageId?: string; kind: "progress" | "tool" | "skill"; text: string;
   status: "observed" | "running" | "succeeded" | "failed"; source?: "legacy"; args?: unknown; result?: unknown;
   activityStage?: string; attemptIds?: string[];
+  /**
+   * issue #3322 —— 这次工具调用**最近一条**中间进展。只留最新一条，不是一个日志列表：
+   * 折叠行只有一行的位置，而进展本身是节流采样，攒着旧的没有意义。
+   */
+  progressText?: string;
 };
 /** The server sequence is the identity, including during replay after reconnect. */
 export function reduceTrace(store: TraceStore, events: readonly ExecutionEvent[]): TraceStore {
@@ -84,6 +89,18 @@ export function traceEntries(events: readonly ExecutionEvent[]): TraceEntry[] {
       continue;
     }
     const toolKey = event.sourceToolCallId ? `tool:${event.runId}:${event.sourceToolCallId}` : `${event.attemptId ?? ""}:${event.toolCallId}`;
+    /*
+     * issue #3322 —— 进展事件必须**先于**下面那个 `else` 被认掉。
+     *
+     * ⚠ 那个 `else` 是写给 `tool_end` 的：它读 `event.ok`。工具内进展没有 `ok`，掉进去
+     * 会被读成 `undefined` ⇒ 整行当场变成"失败"——一条纯展示信号把一次正在正常推进的
+     * 工具调用显示成红的。所以这一支不是可选的锦上添花，是新增事件种类之后的必需分支。
+     */
+    if (event.kind === "tool_progress") {
+      const entry = tools.get(toolKey);
+      if (entry) entry.progressText = event.message;
+      continue;
+    }
     if (event.kind === "tool_start") {
       const previous = tools.get(toolKey);
       if (previous) {

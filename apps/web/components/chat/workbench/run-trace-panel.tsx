@@ -131,6 +131,11 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
                   <span data-testid="chat-task-workbench-event-row">{eventLabel(entry)}</span>
                   {entry.status === "observed" ? <Circle data-testid="run-trace-entry-status-icon" aria-label="已记录读取事实，未证明执行成功" className="h-3 w-3" /> : entry.status === "running" ? <Loader2 data-testid="run-trace-entry-status-icon" aria-label={active ? "执行中" : "未收到完成状态"} className={active ? "h-3 w-3 animate-spin" : "h-3 w-3"} /> : entry.status === "failed" ? <AlertCircle data-testid="run-trace-entry-status-icon" aria-label="失败" className="h-3 w-3 text-destructive" /> : <Check data-testid="run-trace-entry-status-icon" aria-label={entry.activityStage ? "执行成功" : "工具调用完成"} className="h-3 w-3" />}
                 </span>
+                {/* issue #3322 —— 最近一条工具内进展，画在**折叠行上**。
+                    用户的原话是「等了很久没有任何的细节」；把细节藏在 <details> 里等人
+                    去展开，等于没有——他看到的仍然是一串「已执行 · execute」。
+                    只画最新一条：这一行只有一行的位置，而进展本身就是节流采样。 */}
+                {entry.progressText ? <span data-testid="run-trace-entry-progress" className="ml-2 truncate text-11 text-muted-foreground">{entry.progressText}</span> : null}
               </summary>
               {/* issue #3205 —— `mt-1.5` 不是留白偏好，是净空约束：全局 :focus-visible
                   （app/globals.css）是 ring-2 + ring-offset-2，焦点环画在 summary 盒子

@@ -11,6 +11,7 @@
     "test": "vitest run",
     "lint": "echo '(contracts: 由 lint-contract-source 门控)'",
     "gen:guided-research-schema": "tsx scripts/generate-guided-research-schema.ts",
+    "gen:tool-progress-schema": "tsx scripts/generate-tool-progress-schema.ts",
     "gen:mock": "tsx scripts/gen-mock.ts",
     "gen:openapi": "tsx scripts/gen-openapi.ts"
   },
