@@ -455,6 +455,29 @@ test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真�
   const block = page.locator('[data-testid^="tpladmin-editor-block-"]').first();
   await expect(block).toBeVisible();
 
+  /*
+   * ⚠ 落点管的是"在纸面的哪个位置"，**尺寸**得自己撑开：2026-09-10 起所有类型的
+   *   默认尺寸一律 2×2 格（人类原话「by default all the field size should be 2*2
+   *   not bigger」），一个 2×2 的便利贴区块按真实几何只放得下 2 张贴纸，喂 3 条数据
+   *   必然显示「装不下」。那不是缺陷，是这条 spec 从前搭在了一个**与它无关**的默认值
+   *   上——它要验的是"试运行真的把数据画到画布上"，不是"默认尺寸够大"。
+   *   所以这里把区块显式撑到装得下，本条用例从此不随默认尺寸变化而红。
+   *   撑完立刻断言容量真的够了——不够就在**这一行**指名道姓地红，而不是拖到下面
+   *   `not.toContainText("装不下")` 那一行去红成"渲染链路坏了"的样子（这条 spec
+   *   2026-08-26 栽的就是这个同形问题，见下方那段注释）。
+   */
+  await block.click();
+  for (let i = 0; i < 3; i++) await page.getByTestId("tpladmin-editor-w-inc").click();
+  for (let i = 0; i < 3; i++) await page.getByTestId("tpladmin-editor-h-inc").click();
+  // 「最多条数」是使用者配的上限，撑大区块不会替他改；容量 = min(上限, 几何放得下)，
+  // 两个都得给够。撑到 4 条（比要喂的 3 条多一条，免得刚好卡在等号上）。
+  const dryRunMax = page.getByTestId("tpladmin-editor-max-value");
+  const dryRunMaxInc = page.getByTestId("tpladmin-editor-max-inc");
+  for (let i = 0; i < 12 && Number((await dryRunMax.textContent())?.trim()) < 4; i++) {
+    await dryRunMaxInc.click();
+  }
+  expect(Number((await dryRunMax.textContent())?.trim())).toBeGreaterThanOrEqual(4);
+
   // 打开试运行：抽屉出现，且**自动填好骨架**（空文本框等于把"要什么形状"丢回给人类）。
   await page.getByTestId("tpladmin-editor-dryrun-toggle").click();
   const drawer = page.getByTestId("tpladmin-editor-dryrun-drawer");
