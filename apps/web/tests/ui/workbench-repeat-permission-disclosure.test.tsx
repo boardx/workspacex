@@ -19,6 +19,20 @@
  * ① 卡片必须说清楚**要授权的是哪个技能**；
  * ② 用户在同一 run 内已做过一次裁决后又被问第二次时，界面必须显式说明这是第几次、
  *    以及上次选的「仅本次允许」只对那一次生效。
+ *
+ * ## issue #3302 —— ② 这一条此前是**绿着的空转**
+ *
+ * 下面那条用例一直是绿的，因为它在**同一次挂载**里点了那一下，而计数当时就存在组件的
+ * `useState` 里。真实链路上不是这样：两次中断之间整段是 `running`，审批组件的挂载门
+ * （`status === "awaiting_tool_permission"`）会把它整个卸载，计数当场清零 ⇒ ② 在同一条
+ * run 的第二次授权上从未出现过。**替身产不出缺陷的形状**：这里的 `getAgentRun` 替身
+ * 从来不下发裁决历史，所以「计数是不是服务端给的」在这个剧本里不可被证伪。
+ *
+ * 修法把事实源收敛到服务端（`AgentRunView.permissionDecisions`），因此下面的替身也必须
+ * 说真话：`awaiting()` 现在带上这条 run 的裁决历史，与真实权威读同形。
+ * 「计数活过卸载」那一条判据不在本文件——它在 `workbench-approval-repeat-notice.test.tsx`
+ * （全新挂载、本页面没有发生过任何点击）与 `apps/api/tests/agent-run/permission-decision-history.test.ts`
+ * （真库跨越 running 窗口）。
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,9 +42,14 @@ vi.mock("@/lib/agent-run", () => ({ getAgentRun: calls.read }));
 vi.mock("@/lib/api-client", () => ({ apiRequest: calls.request }));
 beforeEach(() => { calls.read.mockReset(); calls.request.mockReset(); });
 
-function awaiting(permissionRequestId: string, skill: string) {
+function awaiting(
+  permissionRequestId: string, skill: string,
+  /** #3302：这条 run 上已被服务端接受的裁决历史，与真实权威读同形。 */
+  permissionDecisions: { count: number; last: "once" | "run" | "forever" | "deny" | null } = { count: 0, last: null },
+) {
   return {
     status: "awaiting_tool_permission",
+    permissionDecisions,
     pendingApproval: {
       permissionRequestId, toolName: "call_skill", interrupt: null,
       argsSummary: JSON.stringify({ skill_stable_name: skill, task: "查一下最新的行业数据" }),
@@ -49,8 +68,10 @@ describe("issue #3212 —— 再次询问必须可分辨、可理解（不放宽
   it("同一 run 内「仅本次允许」之后又被问 ⇒ 界面说明这是新的一次请求、以及为什么又问", async () => {
     calls.read
       .mockResolvedValueOnce(awaiting("req-1", "web-research"))   // 首轮渲染
-      .mockResolvedValueOnce({ status: "running", pendingApproval: null }) // 裁决后的确认读
-      .mockResolvedValue(awaiting("req-2", "web-research"));      // 引擎立刻再次中断
+      // 裁决后的确认读：服务端已把这次裁决记进账（#3302），此刻没有待决请求。
+      .mockResolvedValueOnce({ status: "running", pendingApproval: null, permissionDecisions: { count: 1, last: "once" } })
+      // 引擎立刻再次中断：新的请求身份，历史接着数。
+      .mockResolvedValue(awaiting("req-2", "web-research", { count: 1, last: "once" }));
     calls.request.mockResolvedValue({});
     render(<RestoredRunApproval runId="run" bearer="t" />);
 
