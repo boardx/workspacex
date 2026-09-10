@@ -1,10 +1,10 @@
 /**
- * 纯 Node 入口：只激活 19 个《工作坊模板 A0》的 `TemplateSpec` 注册，**不触碰 fabric / mermaid**。
+ * 纯 Node 入口：只激活 19 个《工作坊模板 A0》+ 本仓新增的 maau，共 20 个 `TemplateSpec` 注册，**不触碰 fabric / mermaid**。
  *
  * 为什么要单独开一个入口，而不是让调用方 import `../index`：
  *   `src/index.ts` 会 `import './diagrams'`（拉进 er/gantt/... 全部图表插件）并间接触达
  *   `canvas-io` → `fabric`，而 mermaid 的解析路径依赖真实浏览器的 `getBBox`。
- *   后端的模板注册表契约测试（F100）跑在 Node 里，它要的只有「19 个 key」这一条事实。
+ *   后端的模板注册表契约测试（F100）跑在 Node 里，它要的只有「注册了哪些 key」这一条事实。
  *   走这个入口，契约测试就不需要 jsdom、也不需要 fabric 能加载。
  *
  * ⚠ 这里**不声明任何 key 字面量**。key 的唯一权威是下面三个模块 + `persona.ts` 的
@@ -16,6 +16,7 @@ import './diagrams/persona';
 import './diagrams/templates-strategy';
 import './diagrams/templates-user';
 import './diagrams/templates-story';
+import './diagrams/templates-maau';
 
 export {
   getTemplate,

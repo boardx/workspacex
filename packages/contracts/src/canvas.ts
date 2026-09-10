@@ -114,6 +114,9 @@ export const BUILTIN_CANVAS_TEMPLATES = {
   storyboard: "故事板",
   "ai-strategy": "AI 战略画布",
   "ai-bmc": "AI 商业模型画布",
+  // 第 20 个：本仓新增（不是上游 A0 工作坊模板之一），见
+  // `packages/fabric-markdown/src/diagrams/templates-maau.ts` 与 VENDOR.md 的改动清单。
+  maau: "MAAU 画布",
 } as const satisfies Record<string, string>;
 
 /** 内置模板 key 的联合类型。**不另写一份清单**——由上表推导 */

@@ -95,17 +95,20 @@ afterAll(async () => {
 }, 30_000);
 
 describe("backfillCanvasBuiltinTemplates：给一个明确指定的组织加载 19 个内置画布模板", () => {
-  it("有 admin 的组织：19 个内置模板全部真实创建并发布；既有的 'ABC' 不受影响", async () => {
+  it("有 admin 的组织：内置模板全部真实创建并发布；既有的 'ABC' 不受影响", async () => {
     const { backfillCanvasBuiltinTemplates } = await import("../../scripts/backfill-canvas-builtin-templates");
     const { listTemplates } = await import("@repo/fabric-markdown/templates");
 
+    // 数量从注册表读，不写死字面量——写死会把「正当新增一个内置模板」变成红，
+    // 而且换成另外同样多的模板照样绿（它根本没在断言身份）。身份由
+    // `template-registry-19-key-displayname.test.ts` 的集合相等负责。
     const specCount = listTemplates().length;
-    expect(specCount).toBe(19); // 与契约 I-36 断言的既有事实一致，不是本文件另猜一个数
+    expect(specCount).toBeGreaterThan(0); // 空集守卫：注册表塌成空时下面全是 0===0
 
     const first = await backfillCanvasBuiltinTemplates(ORG_WITH_ADMIN);
-    expect(first.total).toBe(19);
-    expect(first.created).toBe(19);
-    expect(first.published).toBe(19);
+    expect(first.total).toBe(specCount);
+    expect(first.created).toBe(specCount);
+    expect(first.published).toBe(specCount);
     expect(first.alreadyExisted).toBe(0);
     expect(first.actorId).toBe(ADMIN_USER);
 
@@ -117,7 +120,7 @@ describe("backfillCanvasBuiltinTemplates：给一个明确指定的组织加载 
           WHERE org_id = $1 AND key <> 'ABC'`,
         [ORG_WITH_ADMIN],
       );
-      expect(rows.rows).toHaveLength(19);
+      expect(rows.rows).toHaveLength(specCount);
       for (const row of rows.rows) {
         // 服务端恒定：created 后必须再发布，本脚本的第二步 publish 应该已经把它推到 published。
         expect(row.status).toBe("published");
@@ -142,7 +145,7 @@ describe("backfillCanvasBuiltinTemplates：给一个明确指定的组织加载 
     const second = await backfillCanvasBuiltinTemplates(ORG_WITH_ADMIN);
     expect(second.created).toBe(0);
     expect(second.published).toBe(0);
-    expect(second.alreadyExisted).toBe(19);
+    expect(second.alreadyExisted).toBe(specCount);
   });
 
   /*

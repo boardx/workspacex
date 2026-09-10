@@ -107,7 +107,7 @@ describe("F100 · 内置模板注册表（I-2 / I-36）", () => {
    *   不是发明；改动后**全部 19 条**都与 key 不同，原先「其余 14 条相等」那句话
    *   不再成立，两条测试合并重写成一张完整表格。
    */
-  it("19 个 key→displayName 逐字一致（O-09，2026-08-26 改中文短名）", () => {
+  it("20 个 key→displayName 逐字一致（O-09，2026-08-26 改中文短名；2026-09-10 增 maau）", () => {
     // 逐字点名，写成表格是为了失败时一眼看出是哪一条被改了。
     const verbatim: ReadonlyArray<readonly [string, string]> = [
       ["persona", "用户画像"],
@@ -129,14 +129,16 @@ describe("F100 · 内置模板注册表（I-2 / I-36）", () => {
       ["storyboard", "故事板"],
       ["ai-strategy", "AI 战略画布"],
       ["ai-bmc", "AI 商业模型画布"],
+      // 第 20 个：本仓新增，不属于上游 A0 工作坊模板（2026-09-10 人类指令）。
+      ["maau", "MAAU 画布"],
     ];
-    // 反空转：这张表本身必须真的覆盖全部 19 个 key，漏抄一条不会被下面的循环发现。
+    // 反空转：这张表本身必须真的覆盖全部 key，漏抄一条不会被下面的循环发现。
     expect(verbatim.map(([k]) => k).sort()).toEqual([...declaredKeys].sort());
     for (const [key, displayName] of verbatim) {
       expect(canvas.builtinDisplayName(key), `key=${key} 的 displayName 不是「${displayName}」`).toBe(
         displayName,
       );
-      // 全部 19 条现在都是差异项——保证没有一条被误改回等于 key。
+      // 全部 20 条现在都是差异项——保证没有一条被误改回等于 key。
       expect(displayName, `${key} 的 displayName 与 key 同值`).not.toBe(key);
     }
   });

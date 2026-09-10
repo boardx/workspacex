@@ -20,7 +20,7 @@
  * · **type** ← spec 的两类结构：`sections`（分区框，装便签）→ `便利贴列表`；
  *   `fields`（表头字段，如姓名/性别/年龄）→ `短文本`。这是 fabric-markdown 自己的
  *   区分，不是我给它分的类。
- * · **key** ← 下面的 `SECTION_KEYS` 字典（114 个中文分区名 → 英文 key）。
+ * · **key** ← 下面的 `SECTION_KEYS` 字典（中文分区名 → 英文 key）。
  *
  * ## key 字典为什么是手写的、以及它错了会怎样
  *
@@ -351,6 +351,11 @@ const SECTION_KEYS: Readonly<Record<string, string>> = {
   // ── 三透镜 ──
   "人本期望 Desirability": "desirability", "技术可行 Feasibility": "feasibility",
   "商业可行 Viability": "viability",
+  // ── MAAU 画布 maau（2026-09-10 新增的第 20 个内置模板） ──
+  // 六个 key 与画布上的 ①→⑥ 顺序一一对应；`agent_team` 用团队而不是 division，
+  // 因为这一格装的是"角色 + 职责 + 决策边界"，不是"怎么分工"这件事本身。
+  "意图 Intent": "intent", "用户 User": "users", "人与 Agent 分工": "agent_team",
+  "工作流 Workflow": "workflow", "上下文 Context": "context", "闭环验证 Validation": "validation",
 };
 
 /** 表头字段（`spec.fields`）的 key 字典——它们是短文本，不是便签分区。 */
@@ -368,6 +373,8 @@ const FIELD_KEYS: Readonly<Record<string, string>> = {
   // ── 用户旅程（x 轴固定 5 个阶段的表头） ──
   "阶段1": "phase_1_name", "阶段2": "phase_2_name", "阶段3": "phase_3_name",
   "阶段4": "phase_4_name", "阶段5": "phase_5_name",
+  // ── MAAU 画布 ──
+  "MAAU 名称": "maau_name", "一句话总结": "one_line_summary",
 };
 
 /**
