@@ -76,9 +76,19 @@ function segment(text: string): Segment[] {
 const MARKDOWN_COMPONENTS = { pre: ChatCodeFence } as const;
 
 export function MarkdownMessage({
-  text, threadId, messageId, bearer, projectId,
+  text, threadId, messageId, bearer, projectId, testId = "chat-ai-markdown",
 }: {
   text: string;
+  /**
+   * issue #3387 ② —— 容器的 `data-testid`。默认仍是 `chat-ai-markdown`（assistant 正文，
+   * 一字未动）；**执行过程里的进展摘要**换一个自己的 id，因为已有的流式几何门控
+   * （`copilotkit-v2-stream-frame-timing.spec.ts`）拿 `chat-ai-markdown` 的**全部**节点
+   * 比长短，把一段与正文流式无关的文本混进那个集合会制造假红/假绿。
+   *
+   * 只加这一个可选参数，不复制第二份 markdown 渲染实现：本仓头号病是同一件事声明
+   * 在两处，「怎么把 markdown 渲成 HTML」尤其不该有第二份。
+   */
+  testId?: string;
   /**
    * VZ-fabric 真实保存接线：图「最大化→编辑→保存」时要挂一个真实 canvas artifact 需要
    * `threadId`/`messageId`/`bearer` 三者俱全。**调用方按消息来源自行决定传不传**——
@@ -95,7 +105,7 @@ export function MarkdownMessage({
   const segments = React.useMemo(() => segment(text), [text]);
   return (
     <div
-      data-testid="chat-ai-markdown"
+      data-testid={testId}
       className="chat-markdown text-13 text-card-foreground"
     >
       {segments.map((s) =>

@@ -26,7 +26,7 @@ import {
   UseAgentUpdate,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, Paperclip, Pause, PenLine, Square } from "lucide-react";
+import { Loader2, AlertTriangle, Info, ArrowDown, ArrowUp, Check, Paperclip, Pause, PenLine, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -210,6 +210,15 @@ export function CopilotKitV2PanelBody({
   const { text: inputDraft, setText: setInputDraft, clear: clearComposerDraft } = composerDraft;
   const sendFailedRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * issue #3387 ① —— 「部分步骤失败但整体成功」这一态自己的位置。
+   *
+   * 它**不是** `error` 的另一种取值：失败横幅是 destructive 配色 + 一个「重试」按钮，
+   * 而这一态恰恰不该重试（run 已经成功、产出已落库，重试只会再烧一次真实模型调用，
+   * 也正是人类那句「点了会不会把已有结果冲掉」）。文案的唯一来源是
+   * `RUN_RECOVERED_NOTICE`，与判据同一个模块。
+   */
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
   /**
    * issue #3261 —— 当前横幅说的是**哪一轮 run** 的失败。失败当场那条路径要异步补一次
@@ -392,6 +401,15 @@ export function CopilotKitV2PanelBody({
              */
             setError(null);
             setReattachApproval({ runId: outcome.runId });
+            return;
+          }
+          /*
+           * issue #3387 ① —— 权威读说这一轮其实成功了、产出也已落库：把已经亮出来的
+           * 失败横幅**撤掉**（它是误报，不是补充信息），换成中性的完成提示。
+           */
+          if (outcome.kind === "recovered") {
+            setError(null);
+            setNotice(outcome.text);
             return;
           }
           setError(outcome.text);
@@ -1323,6 +1341,7 @@ export function CopilotKitV2PanelBody({
       const acceptedBefore = acceptedRunEpoch.current;
       sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
+      setNotice(null);
       /* issue #3367 —— 新的一轮开始，上一轮「其实还在等人批」的重挂请求作废。 */
       setReattachApproval(null);
       setInputDraft("");
@@ -1374,7 +1393,26 @@ export function CopilotKitV2PanelBody({
         // 文案。这条分支此前把 `e` 完全丢弃，落进通用兜底文案时排障者连原始异常
         // 是什么都看不到。
         console.error("[copilotkit-v2] runAgent() threw", e);
-        setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
+        const thrownCode = e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED";
+        setError(describeCopilotkitV2RunError(thrownCode));
+        /*
+         * issue #3387 ① —— 这条分支此前是**第二处**「要不要报失败」的判断：它只看
+         * `runAgent()` 抛没抛异常，从不问 `agent_runs` 这一轮到底成没成。而
+         * `runAgent()` 抛异常与「run 失败」并不等价——中继放弃轮询、传输层被中途
+         * 切断（见 `poll-budget.ts` 文件头）时，后端那条 run 照样跑完、照样写回产出。
+         * 现在它与上面 `onError` 那条走**同一个**派生点（`resolveLiveRunErrorOutcome`），
+         * 不再各判一次。
+         */
+        const thrownRunId = runReportContextRef.current.runId;
+        bannerRunRef.current = thrownRunId;
+        void resolveLiveRunErrorOutcome({
+          runId: thrownRunId, code: thrownCode, bearer: getStoredSessionToken() ?? undefined,
+        }).then((outcome) => {
+          if (bannerRunRef.current !== thrownRunId) return;
+          if (outcome.kind === "recovered") { setError(null); setNotice(outcome.text); return; }
+          if (outcome.kind === "reattach_approval") { setError(null); setReattachApproval({ runId: outcome.runId }); return; }
+          setError(outcome.text);
+        });
         // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。
         reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
         return acceptedRunEpoch.current > acceptedBefore;
@@ -1792,6 +1830,20 @@ export function CopilotKitV2PanelBody({
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
+        {/* issue #3387 ① —— 「已完成，但中途有步骤出错」这一态自己的表达。
+            刻意与失败横幅不同：`role="status"`（不是 alert）、中性配色（不是
+            destructive）、并且没有重试按钮。它与失败横幅互斥——`setNotice` 的每一处
+            都同时 `setError(null)`，`send()` 开新一轮时两个一起清。 */}
+        {notice !== null ? (
+          <div
+            role="status"
+            data-testid="copilotkit-v2-notice"
+            className="flex items-start gap-2 rounded-md border border-border-subtle bg-muted px-3 py-2 text-12 text-muted-foreground"
+          >
+            <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">{notice}</span>
+          </div>
+        ) : null}
         {error !== null ? (
           <div
             role="alert"
