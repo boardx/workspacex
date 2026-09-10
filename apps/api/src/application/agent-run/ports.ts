@@ -341,6 +341,18 @@ export interface RunProjection {
     readonly count: number;
     readonly last: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null;
   };
+  /**
+   * issue #3310 ① / ② / ③：这条 run 上**已被裁决**的中断请求，按裁决先后 append-only
+   * （每条的 `interrupt` 已合入当时被采纳的编辑值，见 `decided-interrupt.ts`）。
+   * 契约面的完整取证写在 `wave2-runtime.ts` 的 `AgentRunView.resolvedApprovals` 头注上。
+   * 纯展示，绝不参与任何授权判定。
+   */
+  readonly resolvedApprovals: readonly {
+    readonly permissionRequestId: string | null;
+    readonly toolName: string;
+    readonly interrupt: RestorableInterrupt;
+    readonly decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null;
+  }[];
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */

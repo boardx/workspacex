@@ -9,7 +9,7 @@ export function RestoredInterruptForm({ interrupt, pending, decide }: {
   decide: (decision: "approve" | "edit" | "reject", editedArgs?: Record<string, unknown>) => Promise<void>;
 }): JSX.Element {
   switch (interrupt.toolName) {
-    case "confirm_task_intent": return <ConfirmIntentCard args={interrupt.args} state="default" canWrite={!pending} onContinue={() => void decide("approve")} onEditSubmit={(assumptions) => void decide("edit", { assumptions })} />;
+    case "confirm_task_intent": return <ConfirmIntentCard args={interrupt.args} state="default" canWrite={!pending} onContinue={() => void decide("approve")} onEditSubmit={(edited) => void decide("edit", edited.understanding === interrupt.args.understanding ? { assumptions: edited.assumptions } : { assumptions: edited.assumptions, understanding: edited.understanding })} />;
     case "fill_run_params": return <FillParamsCard supportsLedgerOnly={false} fields={interrupt.args.fields.map((field) => ({ ...field, kind: typeof (field.aiGuess ?? field.currentValue) === "boolean" ? "boolean" as const : "text" as const }))} state="default" canWrite={!pending} onSubmit={(payload) => void (payload.decision === "approve" ? decide("approve") : decide("edit", { fields: payload.fields }))} />;
     case "choose_execution_option": return <ChooseOptionCard options={interrupt.args.options} state="default" canWrite={!pending} onSelectConfirm={(selectedOptionId) => void decide("edit", { selectedOptionId })} onDecline={() => void decide("reject")} />;
   }

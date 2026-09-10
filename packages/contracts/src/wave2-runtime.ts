@@ -527,6 +527,33 @@ export const AgentRunView = z.object({
     count: z.number().int().min(0),
     last: z.enum(["once", "run", "forever", "deny", "reject", "edit"]).nullable(),
   }).strict().optional(),
+  /**
+   * issue #3310 ① / ② / ③ —— 这条 run 上**已被裁决**的中断请求，按裁决先后 append-only。
+   *
+   * 为什么必须由服务端下发：`restored-run-approval.tsx` 此前靠一个 `useState`
+   * （`fallbackWasPending`）判断「这一条我亲眼见过它待决、现在没了 ⇒ 它已被裁决」，
+   * 而带 fallbackInterrupt 的那个组件在裁决**之前从未挂载过**——宿主
+   * （`copilotkit-v2-panel-body.tsx:1638`）在 run 停在 `awaiting_tool_permission` 时
+   * 通过 `InterruptRenderContext.pendingRunId` 让内联那份直接 `return null`。于是判据
+   * 恒假，裁决后第一次挂载读到 `pendingApproval === null`，界面对用户说
+   * 「等待服务端确认此请求」——**服务端根本没在等**（#3244 ① 的复发路径，#3281 收窄的
+   * 那条分支覆盖不到这里）。同一个丢失还让下一次授权请求（生成画布）到来时整张记录消失
+   * （#3302 同族）。这里把这条事实交回拥有它的一侧：刷新、换标签页、重挂载读到的都一样。
+   *
+   * ⚠ 为什么是**数组**而不是「最后一条」：`pending_interrupt` 只是当下待决的那一条，同一条
+   * run 的下一次中断就地覆盖它。只留最后一条时，第一张卡片会在第二次授权到来的瞬间失去
+   * 它的全部事实来源——那正是 ③ 的形状。存的是 append-only 的 `agent_runs.resolved_approvals`。
+   *
+   * 每条的 `interrupt` 已经把当时被采纳的编辑值合进 args（`decided-interrupt.ts`），因此
+   * 记录画的是**用户按下确认的那一份**，不是模型最初的提案（#3310 ②）。
+   * 纯展示，绝不参与任何授权判定。老快照/老客户端缺这个字段不炸（回落到空）。
+   */
+  resolvedApprovals: z.array(z.object({
+    permissionRequestId: z.string().nullable(),
+    interrupt: RestorableInterrupt,
+    toolName: z.string(),
+    decision: z.enum(["once", "run", "forever", "deny", "reject", "edit"]).nullable(),
+  }).strict()).optional(),
 }).strict();
 
 export const operations = {

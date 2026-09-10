@@ -280,15 +280,30 @@ def build_tools(model: BaseChatModel, *, interactions_only: bool = False) -> lis
         if parsed is None or any(not isinstance(a, str) or not a.strip() for a in parsed):
             return "没有收到有效的假设清单，无法确认任务目标，请提供真实假设数组（可以为空）。"
         assumptions = parsed
-        if understanding is not None:
+        joined = "；".join(assumptions) if assumptions else "无额外假设"
+        # issue #3310 ② —— approve / edit 的判别键是 `requestId`，不是 `understanding`。
+        #
+        # approve resume 原样收到完整的初始提案（含 requestId）；edit resume 收到的是
+        # `ConfirmIntentDecision.editedArgs`，**从来不含 requestId**（见本文件头部引用链）。
+        # 此前这里按 `understanding is not None` 判，是因为那时 edit 分支不可能带
+        # understanding。#3310 起用户可以改「我的理解」那句话本身（人类实测：舟山→中山），
+        # 再按 understanding 判就会把一次编辑读成一次原样确认——正好把用户改掉的那个词
+        # 当成"已确认"回灌给模型。
+        if requestId is not None:
             # approve 路径：resume 时原样收到完整的初始提案。
             return (
                 f"用户已确认对任务的理解：{understanding}。"
-                f"确认的假设：{'；'.join(assumptions) if assumptions else '无额外假设'}。请据此继续执行任务。"
+                f"确认的假设：{joined}。请据此继续执行任务。"
             )
-        # edit 路径：resume 只带回了改过的 assumptions（`ConfirmIntentDecision.editedArgs`
-        # 不含 understanding/requestId，见本文件头部说明）。
-        return f"用户修改了假设为：{'；'.join(assumptions) if assumptions else '无额外假设'}。请据此继续执行任务，不要再使用你最初提出的假设。"
+        # edit 路径。understanding 缺席 = 用户没改那句话，只改了假设。
+        if understanding is not None:
+            return (
+                f"用户修改了对任务的理解为：{understanding}。"
+                f"修改后的假设：{joined}。"
+                "请据此继续执行任务，不要再使用你最初提出的理解与假设——"
+                "凡与新理解冲突的内容（含最初复述里出现过的地点、对象、口径），一律以新理解为准。"
+            )
+        return f"用户修改了假设为：{joined}。请据此继续执行任务，不要再使用你最初提出的假设。"
 
     @tool
     def fill_run_params(

@@ -47,10 +47,10 @@ function permissionCardRequest(toolName: string, argsSummary: string | null): To
   };
 }
 /** Authoritative pending request identity survives refresh; summaries are display-only. */
-export function RestoredRunApproval(props: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt }): JSX.Element | null {
+export function RestoredRunApproval(props: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt; hostRendersPending?: boolean }): JSX.Element | null {
   return <ApprovalSession key={props.runId} {...props} />;
 }
-function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt }): JSX.Element | null {
+function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, hostRendersPending = false }: { runId: string; bearer?: string; canWrite?: boolean; fallbackInterrupt?: agentInterrupts.RestorableInterrupt; hostRendersPending?: boolean }): JSX.Element | null {
   const [run, setRun] = React.useState<AgentRunView | null>(null);
   const [consumedRequestId, setConsumedRequestId] = React.useState<string | null>(null);
   /**
@@ -141,12 +141,48 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt }: 
     } catch (cause) { setError(cause instanceof Error ? cause.message : "提交失败，请重试"); }
     finally { inFlight.current = false; setPending(false); }
   };
-  if (run && ["succeeded", "failed", "cancelled"].includes(run.status)) return null;
-  if (fallbackInterrupt && request?.interrupt && (fallbackInterrupt.toolName !== request.interrupt.toolName || fallbackInterrupt.args.requestId !== request.interrupt.args.requestId)) return <fieldset disabled aria-label="已结束的确认记录"><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>;
+  /**
+   * issue #3310 ① / ② / ③ —— 「这一条中断现在该画成什么样」收敛到服务端一处事实。
+   *
+   * 此前它由两个**会在正确时刻丢失**的活信号决定：宿主
+   * （`copilotkit-v2-panel-body.tsx:1638`）只在 run 停在 `awaiting_tool_permission` 时把
+   * `pendingRunId` 置成 runId，`copilotkit-v2-agent-interrupts.tsx` 据此让内联那份直接
+   * `return null`；以及本组件的 `fallbackWasPending`（一个 `useState`）。于是带
+   * fallbackInterrupt 的这个组件**在裁决之前从未挂载过**，`fallbackWasPending` 恒假 ⇒
+   * 裁决后第一次挂载读到 `pendingApproval === null` ⇒ 落到下方「等待服务端确认此请求」，
+   * 而服务端根本没在等（#3244 ① 的复发路径，#3281 收窄的判据在这条路径上不可能置位）。
+   * 同一个丢失还让下一次授权请求（生成画布）到来时整张记录消失（#3302 同族）。
+   *
+   * `resolvedApprovals` 由权威读下发（`pg-agent-run-repository.ts`），刷新 / 换标签页 /
+   * 重挂载读到的都是同一条，且 `interrupt` 已合入用户裁决时被采纳的编辑值——记录画的是
+   * **用户按下确认的那一份**（舟山→中山），不是模型最初的提案。
+   *
+   * ⚠ `fallbackWasPending` 与 `history.count > 0` 保留为**兜底**（老服务端快照没有这个
+   * 字段时仍能判出「已裁决」），但它们不再是唯一判据。
+   */
+  const resolved = fallbackInterrupt
+    ? (run?.resolvedApprovals ?? []).find((entry) => entry.interrupt.toolName === fallbackInterrupt.toolName
+      && entry.interrupt.args.requestId === fallbackInterrupt.args.requestId) ?? null
+    : null;
+  const decidedRecord = (interrupt: agentInterrupts.RestorableInterrupt): JSX.Element =>
+    <fieldset disabled aria-label="已结束的确认记录" data-testid="interrupt-decided-record">
+      <RestoredInterruptForm interrupt={interrupt} pending={false} decide={async () => {}} />
+    </fieldset>;
+  // 宿主那份权威卡片正在渲染这**同一条**待决请求 ⇒ 内联不画第二份（去重，未放宽）。
+  // 权威读回来之前什么都不画：宿主此刻已经在显示它了，先画一句「等待服务端确认」是抢话。
+  if (hostRendersPending && (run === null
+    || (fallbackInterrupt && request?.interrupt
+      && request.interrupt.toolName === fallbackInterrupt.toolName
+      && request.interrupt.args.requestId === fallbackInterrupt.args.requestId))) return null;
+  // 已裁决的那一条：任何 run 状态下都留痕（含终态、含同一条 run 上的下一次授权请求）。
+  if (resolved) return decidedRecord(resolved.interrupt);
+  if (run && ["succeeded", "failed", "cancelled"].includes(run.status)) return fallbackInterrupt && (fallbackWasPending || history.count > 0) ? decidedRecord(fallbackInterrupt) : null;
+  if (fallbackInterrupt && request?.interrupt && (fallbackInterrupt.toolName !== request.interrupt.toolName || fallbackInterrupt.args.requestId !== request.interrupt.args.requestId)) return decidedRecord(fallbackInterrupt);
   if (request?.permissionRequestId && request.permissionRequestId === consumedRequestId) return null;
   if (request?.interrupt && run?.status === "awaiting_tool_permission") return <section data-testid="restored-run-approval">{error ? <p role="alert">{error}</p> : null}{request.permissionRequestId ? <InterruptDecisionDialog key={request.permissionRequestId} interrupt={request.interrupt} pending={!canWrite || pending} decide={decideForm} /> : <fieldset disabled><RestoredInterruptForm interrupt={request.interrupt} pending={false} decide={async () => {}} /></fieldset>}</section>;
-  // issue #3244 ①：已被裁决的那一份，只留痕、不再问（判据见 `fallbackWasPending` 头注）。
-  if (fallbackInterrupt && !request?.interrupt && fallbackWasPending) return <fieldset disabled aria-label="已结束的确认记录"><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>;
+  // issue #3244 ①：已被裁决的那一份，只留痕、不再问。判据优先用权威读的 `resolvedApprovals`
+  // （上面那一条），这里是老快照的兜底：亲眼见过它待决，或这条 run 上已经有过被接受的裁决。
+  if (fallbackInterrupt && !request?.interrupt && (fallbackWasPending || history.count > 0)) return decidedRecord(fallbackInterrupt);
   if (fallbackInterrupt && !request?.interrupt) return <section data-testid="interrupt-awaiting-persistence">
     <p role="status">{error ?? "等待服务端确认此请求，确认后即可继续。"}</p>
     <fieldset disabled><RestoredInterruptForm interrupt={fallbackInterrupt} pending={false} decide={async () => {}} /></fieldset>

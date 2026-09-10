@@ -27,6 +27,19 @@ describe("durable interrupt presentation", () => {
     </InterruptRenderContext.Provider></MessageRunContext.Provider>);
     expect(screen.queryByText("唯一确认")).toBeNull();
   });
+  /**
+   * issue #3310 ②：改了「我的理解」时，`understanding` 必须跟着 edit 决策一起回传；
+   * 没改时**不带**这个键——白名单之外多一个键会被 `validate-interrupt-decision` 拒掉，
+   * 而"没改也带上"会让服务端分不清用户到底动没动这句话。
+   */
+  it("carries the edited understanding when the user rewrote it", () => {
+    const decide = vi.fn().mockResolvedValue(undefined);
+    render(<RestoredInterruptForm interrupt={{ toolName: "confirm_task_intent", args: { requestId: "r", understanding: "为舟山马鞍岛的房产中介生成画像", assumptions: ["a1"] } }} pending={false} decide={decide} />);
+    fireEvent.click(screen.getByTestId("agent-interrupt-confirm-intent-edit-toggle"));
+    fireEvent.change(screen.getByTestId("agent-interrupt-confirm-intent-understanding-input"), { target: { value: "为中山马鞍岛的房产中介生成画像" } });
+    fireEvent.click(screen.getByTestId("agent-interrupt-confirm-intent-edit-submit"));
+    expect(decide).toHaveBeenCalledWith("edit", { assumptions: ["a1"], understanding: "为中山马鞍岛的房产中介生成画像" });
+  });
   it("edits assumptions through the persisted form decision", () => {
     const decide = vi.fn().mockResolvedValue(undefined);
     render(<RestoredInterruptForm interrupt={{ toolName: "confirm_task_intent", args: { requestId: "r", understanding: "U", assumptions: ["a1"] } }} pending={false} decide={decide} />);

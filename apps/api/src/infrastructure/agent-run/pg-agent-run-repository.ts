@@ -2,6 +2,7 @@ import { SkillActivityFact } from "@repo/contracts/skill-activity";
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
 import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
+import { applyEditedInterruptArgs } from "../../application/agent-run/decided-interrupt";
 import { registerRunArtifacts } from "../artifacts-steering/register-run-artifacts";
 import { ExecutionEvent, type ExecutionEventInput } from "@repo/contracts/execution-journal";
 /**
@@ -67,6 +68,10 @@ interface RunRow {
   pending_permission_request_id?: string | null;
   pending_interrupt?: RestorableInterrupt | null;
   pending_decision?: string | null;
+  /** issue #3310 ②：用户裁决时被采纳的编辑值原文（`decidePermissionRequest` 写入）。 */
+  pending_edited_args?: unknown;
+  /** issue #3310 ① / ③：append-only 的裁决留痕（见同名迁移）。 */
+  resolved_approvals?: unknown;
   /** issue #3302：本条 run 上已被接受的授权裁决次数与最后一档（见 `decidePermissionRequest`）。 */
   permission_decision_count?: number | string | null;
   last_permission_decision?: string | null;
@@ -590,6 +595,20 @@ export class PgAgentRunRepository implements AgentRunStore {
            -- 「你上次选的是仅本次允许」，折叠过的值说不出这句话。
            permission_decision_count=permission_decision_count+1,
            last_permission_decision=$6,
+           -- issue #3310 ① / ③：**这一条**中断被裁决的留痕，append-only。
+           -- 为什么不能事后从 pending_* 反推：那几列只是"当下待决的那一条"，同一条 run
+           -- 的下一次 markAwaitingToolPermission 会原地覆盖它们（人类实测里就是开始
+           -- 生成画布那一次），于是刚被确认的那张卡片当场失去它的全部事实来源。
+           -- 与计数同一条条件 UPDATE、同一个 WHERE：输了竞态的那一方一条都不追加。
+           -- reject 分支同样追加——那一次也确实发生过（下方几列把 pending_* 清成 NULL 是
+           -- 给 executor 看的，不该连"发生过"一起抹掉）。
+           resolved_approvals=resolved_approvals || jsonb_build_object(
+             'permissionRequestId', pending_permission_request_id,
+             'toolName', pending_tool_name,
+             'interrupt', pending_interrupt,
+             'editedArgs', $5::text,
+             'decision', $6::text
+           ),
            error_code=CASE WHEN $4='reject' THEN 'HITL_REJECTED' ELSE error_code END,
            ended_at=CASE WHEN $4='reject' THEN now() ELSE ended_at END,
            pending_tool_name=CASE WHEN $4='reject' THEN NULL ELSE pending_tool_name END,
@@ -899,7 +918,8 @@ export class PgAgentRunRepository implements AgentRunStore {
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
                 r.status, r.error_code, r.failure_reason, r.created_at, r.cancel_requested_at, r.recovery_diagnostic, reply.id AS result_message_id,
                 r.pending_tool_name, r.pending_args_summary, r.pending_permission_request_id, r.pending_interrupt,
-                r.permission_decision_count, r.last_permission_decision
+                r.permission_decision_count, r.last_permission_decision,
+                r.pending_decision, r.pending_edited_args, r.resolved_approvals
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            LEFT JOIN chat_messages reply
@@ -1028,6 +1048,32 @@ export class PgAgentRunRepository implements AgentRunStore {
         count: Number(found.row.permission_decision_count ?? 0),
         last: (found.row.last_permission_decision ?? null) as RunProjection["permissionDecisions"]["last"],
       },
+      /*
+       * issue #3310 ① / ③ —— 「哪些中断已经被裁决过、当时被采纳的是哪一份参数」是**服务端
+       * 拥有**的事实，此前只活在前端两个会在正确时刻丢失的活信号里（完整取证见契约
+       * `AgentRunView.resolvedApprovals` 头注与 `20260911050000` 迁移）。
+       *
+       * 直接投影 append-only 的 `resolved_approvals`，不从 `pending_*` 反推：那几列只是
+       * 「当下待决的那一条」，下一次 `markAwaitingToolPermission` 就把它们覆盖了。
+       *
+       * `interrupt` 在这里合入当时被采纳的编辑值（`decided-interrupt.ts`）——记录画的是
+       * **用户按下确认的那一份**，不是模型最初的提案（#3310 ②）。合不上一律回落原提案。
+       * 老行（迁移前就存在的 run）这个数组是空的：读不出历史时就诚实地什么都不说，
+       * 绝不凭 `permission_decision_count` 编一条记录出来。
+       */
+      resolvedApprovals: (Array.isArray(found.row.resolved_approvals) ? found.row.resolved_approvals : [])
+        .flatMap((entry) => {
+          if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+          const record = entry as Record<string, unknown>;
+          const parsed = RestorableInterrupt.safeParse(record.interrupt);
+          if (!parsed.success) return [];
+          return [{
+            permissionRequestId: typeof record.permissionRequestId === "string" ? record.permissionRequestId : null,
+            toolName: parsed.data.toolName,
+            interrupt: applyEditedInterruptArgs(parsed.data, record.editedArgs),
+            decision: (typeof record.decision === "string" ? record.decision : null) as RunProjection["permissionDecisions"]["last"],
+          }];
+        }),
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.
