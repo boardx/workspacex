@@ -65,10 +65,29 @@ test("@path:F3 暂停真的停下来、界面真的翻成恢复；恢复之后�
 
   /*
    * 用多步剧本：它要 8 次状态轮询才终态（`MULTISTEP_MIN_STATUS_POLLS`），
-   * 按下发的轮询周期算 ≈ 16 秒的 live 窗口——够点一次暂停。
+   * 按 2000ms 的状态轮询周期算 ≈ 16 秒的 live 窗口——够展开面板再点一次暂停。
    * ⚠ 窗口是**算出来的**（两个因子都在 `chat-read-fixture.ts` 单点声明并下发给被测
    * 进程），不是"大概来得及"。矩阵里 F3 自己的历史教训正是这一条：live 窗口 974ms
    * 短于轮询周期 3000ms，命中期望次数恒为 0，两层各自都对、乘起来是 0。
+   *
+   * ⚠⚠ issue #3297 —— 上面那句「它要 8 次状态轮询才终态」在 2026-09-10 之前是**假的**，
+   * 而且写下来之后一直没人再验过它。替身的流 EOF 那段把 `statusPolls` 直接推到
+   * `Number.MAX_SAFE_INTEGER`，多步剧本没有 `holdUntilPoll` ⇒ 饱和无条件发生 ⇒
+   * `statusPolls < requiredPolls` 恒假 ⇒ **EOF 后第一次状态轮询就落终态**，
+   * `MULTISTEP_MIN_STATUS_POLLS` 一次也没参与过判定。
+   *
+   * 实测（run 34416935580 的 chat-path-coverage 证据包，本用例 trace.zip 里
+   * `GET /plan-control/threads/:id/ledger` 的全部 50 次应答，去重后只有三态）：
+   *   531142.5  runStatus=idle       phase=preparing  steps=0
+   *   537129.9  runStatus=running    phase=executing  steps=0   ← `running` 只被采到 1 次
+   *   540113.4  runStatus=succeeded  phase=done       steps=3
+   * live 窗口 ≤ 一个前端账本轮询周期（3s）；此后 60 秒账本恒 `succeeded`，
+   * `deriveRunControls` 恒 `{canPause:false,canResume:false}` ⇒ 下面那句前置
+   * **结构上不可能变绿**。这就是「静态痕迹 ≠ 动态事实」：注释写得越具体越像权威。
+   *
+   * 现在那条旋钮真的承重了（替身侧给多步剧本设 `holdUntilPoll`），并且有一处当场跑得动
+   * 的取证守着它：`apps/api/tests/agent-run/loopback-multistep-live-window.test.ts`
+   * ——它连反证一起写在同一个文件里（旋钮压到最低时窗口必须当场消失）。
    */
   const trigger = CHAT_READ_E2E.deepAgentMultiStepTrigger;
   await page.getByTestId("copilotkit-v2-input").fill(trigger);
@@ -82,25 +101,34 @@ test("@path:F3 暂停真的停下来、界面真的翻成恢复；恢复之后�
   expect(runId, "落库的用户消息必须挂着这次 run").toEqual(expect.any(String));
 
   /*
-   * ── 前置：先把计划面板展开 ─────────────────────────────────────────────────
+   * ── 前置：让暂停入口出现（两条渲染分支都要覆盖） ──────────────────────────
    *
-   * `copilotkit-v2-plan-control.tsx` 里那对暂停/恢复按钮（`PlanRunProgress`）的渲染门是
-   * `(!collapsed || pausedAt || pauseRequestedAt) && runLive && currentStep`，而
-   * `collapsed` 的初值是 `true`。这条 spec 此前从头到尾没展开过它 ⇒ 暂停按钮**在构造上
-   * 不可能出现** ⇒ 红在「run 在跑的时候必须给得出暂停入口」这句前置上，下面①②两条
-   * 业务判据（服务端真的进暂停态 / 界面真的翻面）一次都没被求值。失败快照里那句
-   * 「任务检查器」正是收起状态。
+   * `copilotkit-v2-plan-control.tsx` 对暂停入口有**两条**分支，判据都是 `runLive`
+   * （`deriveRunControls`，终态恒 false）：
+   *   ① 账本里还一个步骤都没有（模型还没调 `write_todos`）⇒ 渲染「只有运行级控制」的
+   *      一行，暂停按钮**直接就在**，那一行里没有折叠头；
+   *   ② 账本已有步骤 ⇒ 渲染完整计划面板，暂停按钮在 `PlanRunProgress` 里，渲染门是
+   *      `(!collapsed || pausedAt || pauseRequestedAt) && runLive && currentStep`，
+   *      而 `collapsed` 初值是 `true` ⇒ 必须先展开。
    *
-   * ⚠ 这是补一步**用户本来就要做的操作**，不是放宽判据：展开之后按钮仍然必须出现、
-   * 必须可点、点了必须真的让服务端进暂停态——下面每一条断言逐字不变。
+   * 所以这里不能无条件去等折叠头：分支 ① 下它压根不存在。做法是——按钮已经在就不动，
+   * 不在才去找折叠头把面板展开。这是补一步**用户本来就要做的操作**，不是放宽判据：
+   * 展开之后按钮仍然必须出现、必须可点、点了必须真的让服务端进暂停态，下面每一条
+   * 断言逐字不变。
    */
+  const pauseButton = page.getByTestId(PAUSE);
   const planToggle = page.getByTestId("chat-task-workbench-plan-collapse-toggle").last();
-  await expect(planToggle, "计划面板的折叠头必须在——没有它就无从展开").toBeVisible({ timeout: 60_000 });
-  if ((await planToggle.getAttribute("aria-expanded")) !== "true") await planToggle.click();
-  await expect(planToggle, "展开动作必须真的生效").toHaveAttribute("aria-expanded", "true", { timeout: 30_000 });
+  await expect
+    .poll(async () => {
+      if (await pauseButton.count() > 0) return true;
+      if (await planToggle.count() > 0 && (await planToggle.getAttribute("aria-expanded")) !== "true") {
+        await planToggle.click().catch(() => {});
+      }
+      return await pauseButton.count() > 0;
+    }, { timeout: 60_000, intervals: [250, 500, 1_000] })
+    .toBe(true);
 
   // ── 前置：暂停控制出现（这是**前置条件**，不是本条的业务判据） ───────────────
-  const pauseButton = page.getByTestId(PAUSE);
   await expect(pauseButton, "run 在跑的时候必须给得出暂停入口").toHaveCount(1, { timeout: 60_000 });
   await expect(pauseButton).toBeEnabled({ timeout: 30_000 });
 
