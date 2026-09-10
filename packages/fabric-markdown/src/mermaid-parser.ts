@@ -14,6 +14,7 @@
 import mermaid from 'mermaid';
 import type { DiagramModel, DiagramNode, DiagramEdge, Direction, EdgeKind, NodeShape } from './model';
 import { pluginForType } from './diagrams/registry';
+import { SEQ_SELF_MESSAGE_DROP } from './theme';
 
 interface MermaidDiagram {
   type?: string;
@@ -793,6 +794,20 @@ const SEQ_NOTE_FALLBACK_HEIGHT = 40;
 
 /** Fallback vertical spacing between messages when the SVG line count is short. */
 const SEQ_MESSAGE_FALLBACK_STEP = 40;
+/** Extra lifeline length kept below the lowest message/note. */
+const SEQ_LIFELINE_TAIL = 20;
+
+/**
+ * First point's y from an SVG path `d` that starts with a moveto
+ * (`M x,y ...` / `M x y ...`). Returns null when `d` is missing or unparsable.
+ */
+function pathStartY(d: string | null): number | null {
+  if (!d) return null;
+  const m = /^\s*[Mm]\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/.exec(d);
+  if (!m) return null;
+  const y = parseFloat(m[2]!);
+  return Number.isNaN(y) ? null : y;
+}
 
 export interface SequenceActorGeometry {
   /** Center x/y of the top participant box in SVG coordinates. */
@@ -860,8 +875,19 @@ export function extractSequenceGeometry(svgRoot: Element): {
 
   const messageYs: number[] = [];
   for (const line of Array.from(svgRoot.querySelectorAll('.messageLine0, .messageLine1'))) {
+    // A straight message is a <line> (y1 = its vertical position); a
+    // self-message (A->>A) is a <path> whose `d` starts at the loop's top-left
+    // corner (`M x,y C ...`) and carries no y1. Dropping the path here used to
+    // shift every LATER arrow onto an earlier arrow's y (index pairing), and
+    // the tail arrows fell through to the `lastY + step` fallback — landing
+    // BELOW the end of the lifelines. See the MAAU workflow diagram.
     const y = parseFloat(line.getAttribute('y1') ?? '');
-    if (!Number.isNaN(y)) messageYs.push(y);
+    if (!Number.isNaN(y)) {
+      messageYs.push(y);
+      continue;
+    }
+    const startY = pathStartY(line.getAttribute('d'));
+    if (startY !== null) messageYs.push(startY);
   }
 
   const noteRects: NodeGeometry[] = [];
@@ -999,6 +1025,28 @@ function sequenceModelFromDb(db: Record<string, unknown>, svgRoot: Element): Dia
     }
     // Other type codes (loop/alt/opt/activations/…) are control records
     // without an own arrow line: ignored, and they consume no messageY.
+  }
+
+  // Safety net: a lifeline must span the whole flow. The SVG lifelines already
+  // do when every arrow paired with a real message line, but any fallback y
+  // (unmatched arrow, missing note rect) can place content below them — which
+  // reads as "the vertical lines stop half-way down the diagram". Extend each
+  // participant's lifeline to the lowest piece of content it has to reach.
+  let contentBottom = 0;
+  for (const e of edges) {
+    if (typeof e.seqY !== 'number') continue;
+    // Self-messages are drawn as a span of SEQ_SELF_MESSAGE_DROP below seqY.
+    const bottom = e.source === e.target ? e.seqY + SEQ_SELF_MESSAGE_DROP : e.seqY;
+    contentBottom = Math.max(contentBottom, bottom);
+  }
+  for (const n of nodes) {
+    if (n.data?.['role'] === 'note') contentBottom = Math.max(contentBottom, n.y + n.height / 2);
+  }
+  for (const n of nodes) {
+    if (n.shape !== 'participant') continue;
+    const boxBottom = n.y + n.height / 2;
+    const needed = contentBottom + SEQ_LIFELINE_TAIL - boxBottom;
+    if (needed > (n.lifelineHeight ?? 0)) n.lifelineHeight = needed;
   }
 
   return { kind: 'sequence', direction: 'TB', nodes, edges };

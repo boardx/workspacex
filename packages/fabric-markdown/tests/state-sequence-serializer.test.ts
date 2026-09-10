@@ -233,3 +233,24 @@ describe('extractSequenceGeometry — note rects', () => {
     expect(noteRects).toEqual([{ x: 135, y: 140, width: 150, height: 40 }]);
   });
 });
+
+describe('extractSequenceGeometry — self-message loops', () => {
+  // mermaid draws a self-message (A->>A) as <path class="messageLine0"> with no
+  // y1; every other message is a <line>. Dropping the path shifted all later
+  // arrows onto earlier y values and pushed the tail below the lifelines.
+  const FIXTURE = `
+<svg xmlns="http://www.w3.org/2000/svg">
+  <rect class="actor actor-top" name="U" x="0" y="0" width="100" height="40"></rect>
+  <line class="actor-line" x1="50" y1="40" x2="50" y2="300"></line>
+  <line class="messageLine0" x1="50" y1="90" x2="200" y2="90"></line>
+  <path class="messageLine0" d="M 200,140 C 260,130 260,170 200,160"></path>
+  <line class="messageLine1" x1="200" y1="200" x2="50" y2="200"></line>
+</svg>`;
+
+  it('keeps one y per arrow, taking the loop path start point', () => {
+    const div = document.createElement('div');
+    div.innerHTML = FIXTURE;
+    const { messageYs } = extractSequenceGeometry(div.querySelector('svg')!);
+    expect(messageYs).toEqual([90, 140, 200]);
+  });
+});
