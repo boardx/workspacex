@@ -10,7 +10,7 @@
  */
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
-import { designPrototype, designWorkbench } from "@repo/contracts";
+import { designAiCollab, designPrototype, designWorkbench } from "@repo/contracts";
 import type { RefImageRepository, RefImageRow } from "../../application/design-workbench/ref-images";
 import type { DesignRefImageRepositoryFactory } from "../../application/design-workbench/ref-image-ports";
 import type {
@@ -191,7 +191,10 @@ function toChat(rows: readonly ChatDbRow[]): readonly DesignProjectChatTurn[] {
     text: r.text,
     at: new Date(r.created_at).toISOString(),
     // 「无」≠「模型说的」：NULL 就不带键（契约 `.optional()`），不猜默认值。
-    ...(r.source === "model" || r.source === "fallback" ? { source: r.source } : {}),
+    // 闭集以契约 `AiReplySource` 为准——这里逐个列举过一次值，2026-09-10 加 `system` 时就
+    // 漏了它（连同库里的 CHECK 一起），所以改成直接问契约，不再手抄第三份。
+    ...(designAiCollab.AiReplySource.safeParse(r.source).success
+      ? { source: r.source as designWorkbench.DesignProjectChatTurn["source"] } : {}),
   }));
 }
 
