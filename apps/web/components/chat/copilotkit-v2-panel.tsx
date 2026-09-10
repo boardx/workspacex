@@ -8,6 +8,7 @@ import { useCopilotKitV2AgentOptions } from "@/lib/copilotkit-v2-agent-options";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import { CopilotKitV2PanelBody } from "@/components/chat/copilotkit-v2-panel-body";
+import type { ChatMaterialsUploadPort } from "@/components/chat/chat-composer-attachments";
 
 /**
  * DA-19 CopilotRuntime 后端适配器 —— `useAgent` 驱动的最小面板，走
@@ -301,6 +302,7 @@ export function CopilotKitV2Panel({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
   canWrite = true,
@@ -356,6 +358,8 @@ export function CopilotKitV2Panel({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /** issue #3347 —— composer 附件控制器的最小上传能力面，转给右栏「材料」页签。 */
+  onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
@@ -463,6 +467,7 @@ export function CopilotKitV2Panel({
           onPlanTodosChange={onPlanTodosChange}
           onRunStateChange={onRunStateChange}
           onPendingMaterialsChange={onPendingMaterialsChange}
+          onAttachUploadPortChange={onAttachUploadPortChange}
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}

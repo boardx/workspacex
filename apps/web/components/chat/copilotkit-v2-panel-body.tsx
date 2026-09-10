@@ -83,7 +83,7 @@ import { detectComposerMention, type ComposerMention } from "@/lib/composer-ment
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
   useChatAttachments, ChatAttachmentDock, ChatAttachmentList, ChatAttachmentBanner,
-  ChatFullSurfaceDropOverlay,
+  ChatFullSurfaceDropOverlay, type ChatMaterialsUploadPort,
 } from "@/components/chat/chat-composer-attachments";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
@@ -121,6 +121,7 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onAttachUploadPortChange,
   threadAttachments = null,
   archived = false,
   canWrite = true,
@@ -173,6 +174,8 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /** issue #3347 —— 见下方 `attachUploadPort` 的文档：右栏「材料」页签的上传能力面。 */
+  onAttachUploadPortChange?: (port: ChatMaterialsUploadPort) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1209,6 +1212,29 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+
+  /**
+   * issue #3347 —— 把 composer 这**同一个**附件控制器的最小上传能力面交给外壳，
+   * 外壳转给右栏「材料」页签（`ChatTaskInspector`），那里的「+」与拖拽落区因此走
+   * 的是同一条 pending 队列、同一次 `POST /chat/threads/:id/attachments`、同一批
+   * `attachmentIds` 随下一条消息发出。
+   *
+   * ⚠ 为什么是"上报一个窄面"而不是把控制器整个抬到外壳：控制器活在这里是因为
+   * composer 的发送路径要读它（`attach.uploadedIds`）；抬上去要动的是本文件在途
+   * 冲突最密的那一段。而窄面只有三样、身份都稳（`pickFiles` 是 `useCallback`，
+   * `banner` 只在被拒时变）——**刻意不搬 `attachments`**，它随上传进度高频变，搬上去
+   * 等于让整个外壳跟着进度条重渲染。
+   *
+   * 也**刻意不搬"能不能上传"**：外壳自己就握着权威的 `canWriteThread`/`archived`/
+   * `selectedThreadId`，让它算一遍理由，比这里再上报一份、两处各判一次要少一份事实。
+   */
+  const attachUploadPort = React.useMemo(
+    () => ({ pickFiles: attach.pickFiles, banner: attach.banner }),
+    [attach.pickFiles, attach.banner],
+  );
+  React.useEffect(() => {
+    onAttachUploadPortChange?.(attachUploadPort);
+  }, [attachUploadPort, onAttachUploadPortChange]);
 
   /**
    * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。

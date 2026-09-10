@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { RosterPanel, type RosterPanelProps } from "@/components/chat/chat-roster-panel";
+import {
+  ChatMaterialsDropOverlay, useFileDropSurface, type ChatMaterialsUploadPort,
+} from "@/components/chat/chat-composer-attachments";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
 import {
   INSPECTOR_TABS,
@@ -89,6 +92,22 @@ export interface ChatTaskInspectorProps {
   readonly onOpenArtifact?: (item: ListThreadArtifactsOut["items"][number]) => void;
   /** 已上传但还没随消息发出的材料条数（composer 附件区），与已落库材料一起算「材料」。 */
   readonly pendingMaterialsCount: number;
+  /**
+   * issue #3347 —— 「材料」页签的上传入口（点击 + 拖拽）。
+   *
+   * 这是 composer 那**同一个** `useChatAttachments` 控制器的最小能力面，由
+   * `CopilotKitV2Panel` 经外壳桥上来（见 `copilotkit-v2-shell.tsx` 的
+   * `attachUploadPort`）。`null` = 当前没有可用的上传通道（未登录 / 还没线程），
+   * 此时不渲染入口——渲染一个点了必炸的按钮比不渲染更坏（既有纪律，见
+   * `ChatMaterialsPanel` 头注）。
+   *
+   * ⚠ 不在这里新建第二个控制器：那会造出第二条 pending 队列，它的 `attachmentIds`
+   * 永远不会被 composer 的发送路径读到 ⇒ 「上传成功但消息发出去时文件没跟着走」
+   * ——正是 #3346 那条 P0 的形状。
+   */
+  readonly attachUploadPort?: ChatMaterialsUploadPort | null;
+  /** issue #3347 —— 只读 / 归档时的禁用理由；非 `null` 时上传入口禁用并写出理由。 */
+  readonly uploadDisabledReason?: string | null;
   /** `STATE_SNAPSHOT` 解析出的计划快照；null = 本轮还没有计划。 */
   readonly planTodos: readonly PlanTodo[] | null;
   readonly isRunning: boolean;
@@ -123,6 +142,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
     planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
+    attachUploadPort = null, uploadDisabledReason = null,
   } = props;
 
   /** ⚠ 计时器只在真的有一轮在跑时才起（同 `copilotkit-v2-run-progress.ts` 的纪律）：
@@ -211,17 +231,59 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     setOverride("expanded");
   }, []);
 
+  /**
+   * issue #3347 —— 整条右栏都是落区，不只是「材料」页签的那块内容区。
+   *
+   * 理由有两条，都不是审美：
+   *  ① 用户拖到右栏时未必正停在「材料」页签上（默认页签是「进度」）。只在材料页签
+   *     内容区接 drop，等于"看着像能拖、松手没反应"。落在任意页签都收下，并自动切
+   *     到「材料」页签把结果亮出来。
+   *  ② 不接的话浏览器**默认会打开那个文件**，把用户从这条对话里导航走。见
+   *     `useFileDropSurface` 的 onDrop 注释。
+   *
+   * `enabled` 为假（没有上传通道 / 只读 / 归档）时，handlers 仍然挂着但全部早退——
+   * 于是 drop 的 `preventDefault` 也不发生……那会退回浏览器打开文件。所以只读态**也**
+   * 要接住：`onFiles` 走"说明为什么不能上传"的分支，不是静默丢弃。
+   */
+  const canUpload = attachUploadPort !== null && uploadDisabledReason === null;
+  const [uploadNotice, setUploadNotice] = React.useState<string | null>(null);
+  const showMaterials = React.useCallback((notice: string | null) => {
+    setUploadNotice(notice);
+    selectTab("materials"); // 复用既有的"切页签并展开"，不在这里重写一遍
+  }, [selectTab]);
+  // 换线程 = 换一段对话，上一段的落区说明不该跟过来（同 `useChatAttachments` 切线程清空）。
+  React.useEffect(() => { setUploadNotice(null); }, [threadId]);
+  const { dragActive, dragHandlers } = useFileDropSurface({
+    enabled: attachUploadPort !== null,
+    onFiles: (files) => {
+      if (!canUpload) { showMaterials(uploadDisabledReason ?? "当前无法上传。"); return; }
+      showMaterials(null);
+      attachUploadPort.pickFiles(files);
+    },
+    onNonFile: () => showMaterials(
+      "只支持拖入文件。拖进来的是文字、链接或文件夹（浏览器不把文件夹当文件交给网页），没有上传任何东西。",
+    ),
+  });
+  /** 拖拽高亮只在真的能接的时候亮——只读态亮一个"松开即上传"是骗人。 */
+  const dropActive = dragActive && canUpload;
+
   const inspector = (
     <aside
+      {...dragHandlers}
       className={cn(
-        "flex shrink-0 flex-col border-l border-border bg-card",
+        "relative flex shrink-0 flex-col border-l border-border bg-card",
         mobile ? "min-h-0 flex-1 w-full border-l-0" : collapsed ? "w-10" : "w-72",
       )}
       data-testid="chat-task-workbench-inspector"
       data-collapsed={collapsed ? "true" : "false"}
       data-active-tab={activeTab}
+      data-drop-active={dropActive ? "true" : "false"}
       aria-label="任务检查器"
     >
+      {/* 遮罩是 `pointer-events-none` 的纯视觉层，drag 事件继续落在挂了 handlers 的
+          这个 `aside` 上（同 `ChatFullSurfaceDropOverlay` 的做法）。`relative` 在
+          className 里，遮罩才有定位参照。 */}
+      <ChatMaterialsDropOverlay active={dropActive} />
       <div
         role="tablist"
         aria-orientation={collapsed ? "vertical" : "horizontal"}
@@ -321,7 +383,11 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               loading={loading}
               error={materialsError}
               onRetry={onRetry}
-              uploadCtl={null}
+              uploadCtl={attachUploadPort}
+              uploadNotice={uploadNotice}
+              readOnlyReason={uploadDisabledReason}
+              pendingCount={pendingMaterialsCount}
+              dropActive={dropActive}
             />
           ) : activeTab === "artifacts" ? (
             <>

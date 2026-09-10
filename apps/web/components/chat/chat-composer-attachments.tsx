@@ -55,9 +55,29 @@ export interface LiveAttachment {
   readonly file?: File;
 }
 
-interface BannerState {
+export interface BannerState {
   readonly kind: "oversize" | "type" | "count";
   readonly text: string;
+}
+
+/**
+ * issue #3347 —— 「材料」面板（右栏页签）需要的**最小**上传能力面。
+ *
+ * 刻意不是整个 `ChatAttachmentsController`：v2 工作台里控制器活在
+ * `CopilotKitV2Panel` 内部，而「材料」页签是外壳的兄弟节点（`ChatTaskInspector`），
+ * 中间要跨一层桥。桥上只搬这三样——`pickFiles` 是 `useCallback` 稳定身份、`banner`
+ * 只在被拒时变、`disabled` 跟随写权限，都不会随上传进度高频抖动（`attachments`
+ * 会，所以**不**搬它）。
+ *
+ * ⚠ 这不是第二套上传逻辑：`pickFiles` 就是 composer 那一个控制器的同一个函数，
+ * 拖进右栏的文件和点 📎 选的文件进的是**同一条 pending 队列**、同一次
+ * `POST /chat/threads/:id/attachments`、同一批 `attachmentIds` 随下一条消息发出。
+ * `ChatAttachmentsController` 结构上满足本接口，旧轨道（`chat-read-screen` /
+ * `personal-chat-screen`）继续直接把控制器本体传进来，无需改。
+ */
+export interface ChatMaterialsUploadPort {
+  readonly pickFiles: (files: FileList | File[] | null) => void;
+  readonly banner: BannerState | null;
 }
 
 /** ApiError.reasonCode → 就地报错文案 + 是否可重试。 */
@@ -80,6 +100,96 @@ let localSeq = 0;
 function nextLocalId(): string {
   localSeq += 1;
   return `att-${localSeq}-${globalThis.crypto?.randomUUID?.() ?? String(localSeq)}`;
+}
+
+/**
+ * 文件落区（drag & drop）的**唯一**实现。composer 的全屏落区与 issue #3347 右栏
+ * 「材料」落区都用它——两处落区、一份进出判定，不许各写一遍。
+ *
+ * #1492 的计数器语义原样保留：dragEnter/dragLeave 在大面积容器上，鼠标每跨一层子
+ * 元素边界都会各触发一次 leave+enter，只用 over/leave 判进出会在边界上闪烁。每次
+ * enter +1、leave −1，归零才算真的离开——同层级的 enter/leave 成对出现，跨子元素的
+ * 中间态相互抵消。
+ *
+ * `onNonFile`：**拖进来的不是文件**（纯文本 / 链接 / 文件夹）时的回调。浏览器对这三
+ * 种情况给的 `dataTransfer.files` 都是空的（文件夹在多数浏览器里进不了 `files`），
+ * 不给这个回调就等于"用户松了手、系统一声不吭"——本仓刚修过一批这种（#3311 / #3317）。
+ * composer 那侧不传（保持既有行为，它另有全屏遮罩在说话），右栏落区必须传。
+ */
+export function useFileDropSurface(opts: {
+  onFiles: (files: FileList) => void;
+  onNonFile?: () => void;
+  enabled?: boolean;
+}): { dragActive: boolean; dragHandlers: {
+  onDragOver: (e: React.DragEvent) => void;
+  onDragEnter: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+} } {
+  const { onFiles, onNonFile, enabled = true } = opts;
+  const [dragActive, setDragActive] = React.useState(false);
+  const dragCounter = React.useRef(0);
+  const enabledRef = React.useRef(enabled); enabledRef.current = enabled;
+  const onFilesRef = React.useRef(onFiles); onFilesRef.current = onFiles;
+  const onNonFileRef = React.useRef(onNonFile); onNonFileRef.current = onNonFile;
+
+  React.useEffect(() => {
+    if (!enabled) { dragCounter.current = 0; setDragActive(false); }
+  }, [enabled]);
+
+  const dragHandlers = React.useMemo(() => ({
+    // dragOver 仍要 preventDefault——浏览器默认不让 drop，这是允许落区生效的必要条件
+    // （不用它来切 active，只用来"保持允许 drop"，避免每次 mousemove 都触发 setState）。
+    onDragOver: (e: React.DragEvent) => { if (enabledRef.current) e.preventDefault(); },
+    onDragEnter: (e: React.DragEvent) => {
+      if (!enabledRef.current) return;
+      e.preventDefault();
+      dragCounter.current += 1;
+      setDragActive(true);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!enabledRef.current) return;
+      e.preventDefault();
+      dragCounter.current = Math.max(0, dragCounter.current - 1);
+      if (dragCounter.current === 0) setDragActive(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!enabledRef.current) return;
+      // ⚠ 无条件 preventDefault：不拦的话浏览器会**直接打开拖进来的文件**，把用户
+      //   从这条对话里导航走（未发出的草稿、正在跑的一轮全没了）。拖进来的东西
+      //   合不合法是下一步的事，"不要把页面弄丢"是先决条件。
+      e.preventDefault();
+      dragCounter.current = 0;
+      setDragActive(false);
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) onFilesRef.current(files);
+      else onNonFileRef.current?.();
+    },
+  }), []);
+
+  return { dragActive, dragHandlers };
+}
+
+/**
+ * 右栏「材料」页签的拖拽落区遮罩（issue #3347）。数值与白名单来自契约单源，
+ * 与 composer 那两个遮罩同一份常量——不在这里复述第二遍。
+ */
+export function ChatMaterialsDropOverlay({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-20 grid place-items-center border-2 border-dashed border-primary bg-card/90 p-2 text-center backdrop-blur-sm"
+      data-testid="chat-materials-dropzone"
+    >
+      <div className="flex flex-col items-center gap-1.5 text-primary">
+        <UploadCloud aria-hidden className="h-7 w-7" />
+        <span className="text-12 font-medium">松开上传，加入下一条消息</span>
+        <span className="text-10 text-muted-foreground">
+          单个不超过 {formatBytes(MAX_FILE_BYTES)} · 最多 {MAX_ATTACHMENTS} 个 · 支持 {WHITELIST_LABELS}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -110,13 +220,6 @@ export function useChatAttachments(opts: {
   const attachmentsRef = React.useRef<LiveAttachment[]>([]);
   React.useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
   const [banner, setBanner] = React.useState<BannerState | null>(null);
-  const [dragActive, setDragActive] = React.useState(false);
-  // #1492：dragEnter/dragLeave 在挂到大面积容器（消息列表 + composer 整个面板）后，
-  // 鼠标每跨过一层子元素边界都会各触发一次 leave+enter——只用 dragOver/dragLeave
-  // 判断进出会在这些边界上频繁闪烁（active 撤销又立刻恢复）。标准解法是计数器：
-  // 每次 enter 计数 +1、leave 计数 -1，只有计数真正归零才算「离开了整个容器」，
-  // 因为对同一层级，enter/leave 总是成对出现，跨子元素的中间态会相互抵消。
-  const dragCounter = React.useRef(0);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const previousThreadIdRef = React.useRef(threadId);
@@ -228,27 +331,9 @@ export function useChatAttachments(opts: {
     setConfirmingId(null);
   }, []);
 
-  const dragHandlers = React.useMemo(() => ({
-    // dragOver 仍要 preventDefault——浏览器默认不让 drop，这是允许落区生效的必要条件
-    // （不用它来切 active，只用来"保持允许 drop"，避免每次 mousemove 都触发 setState）。
-    onDragOver: (e: React.DragEvent) => { e.preventDefault(); },
-    onDragEnter: (e: React.DragEvent) => {
-      e.preventDefault();
-      dragCounter.current += 1;
-      setDragActive(true);
-    },
-    onDragLeave: (e: React.DragEvent) => {
-      e.preventDefault();
-      dragCounter.current = Math.max(0, dragCounter.current - 1);
-      if (dragCounter.current === 0) setDragActive(false);
-    },
-    onDrop: (e: React.DragEvent) => {
-      e.preventDefault();
-      dragCounter.current = 0;
-      setDragActive(false);
-      pickFiles(e.dataTransfer.files);
-    },
-  }), [pickFiles]);
+  // #1492 的计数器落区实现已抽成 `useFileDropSurface`（本文件上方），composer 与
+  // issue #3347 的右栏「材料」落区共用同一份；这里只是它的一个使用者。
+  const { dragActive, dragHandlers } = useFileDropSurface({ onFiles: pickFiles });
 
   /** 已上传附件的 serverId（发送时作为 attachmentIds）。 */
   const uploadedIds = React.useMemo(
@@ -273,12 +358,14 @@ export type ChatAttachmentsController = ReturnType<typeof useChatAttachments>;
 
 /* ── 展示件 ────────────────────────────────────────────────────────────── */
 
-export function ChatAttachmentBanner({ banner }: { banner: BannerState | null }) {
+export function ChatAttachmentBanner(
+  { banner, testId = "chat-attachment-error" }: { banner: BannerState | null; testId?: string },
+) {
   if (!banner) return null;
   return (
     <div
       className="mb-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-11 text-destructive"
-      data-testid="chat-attachment-error"
+      data-testid={testId}
       data-error-kind={banner.kind}
       role="alert"
     >
@@ -546,7 +633,7 @@ export function ChatAttachMaterialModal({
  */
 export function ChatSidebarUploadButton({
   ctl, disabled,
-}: { ctl: ChatAttachmentsController; disabled?: boolean }) {
+}: { ctl: ChatMaterialsUploadPort; disabled?: boolean }) {
   const localInputRef = React.useRef<HTMLInputElement | null>(null);
   return (
     <span className="inline-flex items-center">

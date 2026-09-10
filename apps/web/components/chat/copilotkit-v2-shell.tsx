@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
+import type { ChatMaterialsUploadPort } from "@/components/chat/chat-composer-attachments";
 import {
   NewThreadButton, SidebarBrandHeader, ThreadCardButton,
 } from "@/components/chat/thread-list-shell";
@@ -474,6 +475,8 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
   const [threadDetailResult, setThreadDetailResult] = React.useState<{ key: string; value: GetThreadOut } | null>(null);
   const [artifactsFailure, setArtifactsFailure] = React.useState<{ key: string; value: string } | null>(null);
   const [materialsFailure, setMaterialsFailure] = React.useState<{ key: string; value: string } | null>(null);
+  /** issue #3347 —— 面板上报的 composer 附件控制器最小能力面（见下方传给面板的注释）。 */
+  const [attachUploadPort, setAttachUploadPort] = React.useState<ChatMaterialsUploadPort | null>(null);
   const [rightLoadingKey, setRightLoadingKey] = React.useState<string | null>(null);
   const rightGeneration = React.useRef(0);
 
@@ -1195,6 +1198,11 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
           onPlanTodosChange={setPlanTodos}
           onRunStateChange={setRunState}
           onPendingMaterialsChange={setPendingMaterialsCount}
+          /* issue #3347 —— 右栏「材料」页签的上传入口（点击 + 拖拽）要用的正是
+             composer 那一个（同一个）附件控制器。面板把它的最小能力面上报到这里，外壳
+             原样转给 `ChatTaskInspector`；外壳不自己 `useChatAttachments`——那会造出
+             第二条 pending 队列，上传成功但发消息时不跟着走（#3346 的形状）。 */
+          onAttachUploadPortChange={setAttachUploadPort}
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canWrite={canWriteThread}
@@ -1225,6 +1233,16 @@ export function CopilotKitV2Shell({ initialThreadId, projectId = null }: { initi
         onRetry={() => void loadRightPanel()}
         onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
         pendingMaterialsCount={pendingMaterialsCount}
+        attachUploadPort={attachUploadPort}
+        /* issue #3347 —— 只读/归档时上传入口禁用并写出理由，理由与 composer 底部
+           那行同源（`canWriteThread`/`archived`）。服务端本就按 `composer.send` 能力
+           拒绝越权上传（`NO_WRITE_ROLE`），这里只是让前端诚实反映它已经在拒的事。 */
+        uploadDisabledReason={
+          archived ? "该对话已归档，不能再上传文件"
+            : !canWriteThread ? "当前对话只读或写权限尚未确认，不能上传文件"
+              : selectedThreadId === null ? "先选一条对话，再上传文件"
+                : null
+        }
         planTodos={planTodos}
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
