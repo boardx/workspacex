@@ -518,8 +518,16 @@ export function TemplateCanvasGrid({
                   return (
                     <div
                       key={i}
-                      className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
+                      className="overflow-hidden rounded-control leading-tight"
                       style={{
+                        // ⚠ 内边距必须随贴纸缩——同一条教训下面 `gap` 那段注释已经写过一遍：
+                        //   固定 px 不随纸面缩放，贴纸越小它吃掉的比例越大。原来是 `px-1 py-0.5`
+                        //   （左右各 4px、上下各 2px）：在一张 46px 的贴纸上是 17% 的宽度，
+                        //   在一张 29px 的贴纸上就是 28%——字号又有 6.5px 下限（`noteFontSizePx`），
+                        //   两边一夹，样例文字多折出一行就被 `overflow-hidden` 切了。
+                        //   `min()` 只在盒子小的时候生效：贴纸 ≥ 80px 时仍然是原来的 4px/2px（百分比
+                        //   在 padding 里永远按**宽度**解析，上下左右同一个基准），大贴纸的观感一字未变。
+                        padding: "min(2px, 3%) min(4px, 5%)",
                         background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
                         border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
                         // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
