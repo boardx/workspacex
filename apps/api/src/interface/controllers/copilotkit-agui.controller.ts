@@ -141,6 +141,8 @@ import {
   type JsonPatchOp,
 } from "@repo/contracts/agui-state-events";
 import { chatFileUpload } from "@repo/contracts";
+// issue #3367 —— `RUN_ERROR` 三类处置的唯一事实源（出口类型门）。
+import * as aguiRunError from "@repo/contracts/agui-run-error";
 import {
   CHAT_ATTACHMENT_COMMAND_REPOSITORY, type AttachmentCommandRepository,
 } from "../../application/chat/upload-attachment";
@@ -271,7 +273,11 @@ type AguiEvent =
   | { readonly type: EventType.TEXT_MESSAGE_CONTENT; readonly messageId: string; readonly delta: string }
   | { readonly type: EventType.TEXT_MESSAGE_END; readonly messageId: string }
   | { readonly type: EventType.RUN_FINISHED; readonly threadId: string; readonly runId: string }
-  | { readonly type: EventType.RUN_ERROR; readonly message: string; readonly code?: string }
+  /* issue #3367 —— `RUN_ERROR` 被**移出** `AguiEvent`：它是这个联合里唯一一种「同一个
+     事件承载三类完全不同处置」的事件（见 `@repo/contracts/agui-run-error` 头注），因此
+     不许再由通用的 `write()` 写出。唯一出口是下面的 `writeRunError(code)`，它只接
+     `AguiRunErrorCode` = 已在那张表里声明过处置的码 ⇒ 新增一个没声明处置的出口，tsc 当场红。
+     这是类型门，不是 grep：换个写法也绕不过去——`write()` 的入参类型里根本没有 RUN_ERROR。 */
   // #789 -- native AG-UI tool-call visibility (chat-ux-acceptance-criteria.md items 2/3),
   // field names read off `@ag-ui/core`'s zod schemas (`ToolCallStartEventSchema` etc.),
   // not guessed, same discipline the file head already documents for the six event types
@@ -766,6 +772,20 @@ export class CopilotkitAguiController {
     const write = (event: AguiEvent): void => {
       response.write(`data: ${JSON.stringify(event)}\n\n`);
     };
+    /**
+     * issue #3367 —— 这条 SSE 流上**唯一**的 `RUN_ERROR` 出口。
+     *
+     * `code` 的类型 `AguiRunErrorCode` 等价于「已在 `AGUI_RUN_ERROR_DISPOSITION` 里显式
+     * 声明过三类处置之一的码」。客户端据同一张表决定：收尾 / 继续轮询 / 重挂审批卡
+     * （`copilotkit-v2-failure-banner.ts`）。
+     *
+     * ⚠ 处置**不上 wire**：第 3 类要的事实（「这条 run 仍有一条待批请求」）由客户端向
+     *   `GET /agent-runs/:runId` 做一次权威读取回——与 #3261/#3280 的成因通道是**同一次
+     *   读、同一个模块**。给同一个事实开第二份副本（塞进事件里）正是本仓的头号病。
+     */
+    const writeRunError = (code: aguiRunError.AguiRunErrorCode): void => {
+      response.write(`data: ${JSON.stringify({ type: EventType.RUN_ERROR, message: code, code })}\n\n`);
+    };
     // issue #2795 -- see `startAguiSseHeartbeat`'s own doc: keeps this connection from ever
     // going idle long enough for an intermediate hop's default timeout (undici's `fetch`
     // bodyTimeout chief among them) to tear it down mid-run. Stopped in `finally` below on
@@ -974,7 +994,7 @@ export class CopilotkitAguiController {
       } else if (outcome.kind === "failed") {
         if (this.runs.readExecutionEvents) closeExecutionMessage();
         else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
-        write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error });
+        writeRunError(aguiRunError.asAguiRunErrorCode(outcome.error));
       } else if (outcome.kind === "awaiting_tool_permission") {
         // DA-19g -- NOT an error. `onStep` above already wrote the dangling
         // TOOL_CALL_START/ARGS/END triplet for the pending tool call (no RESULT, see
@@ -989,55 +1009,49 @@ export class CopilotkitAguiController {
       } else {
         if (this.runs.readExecutionEvents) closeExecutionMessage();
         else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
-        write({ type: EventType.RUN_ERROR, message: "AGENT_RUN_TIMEOUT", code: "AGENT_RUN_TIMEOUT" });
+        writeRunError("AGENT_RUN_TIMEOUT");
       }
     } catch (e) {
       if (this.runs.readExecutionEvents) closeExecutionMessage();
         else if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
       if (e instanceof MessageThreadNotVisibleError || e instanceof AgentRunNotVisibleError) {
-        write({ type: EventType.RUN_ERROR, message: "THREAD_NOT_VISIBLE", code: "THREAD_NOT_VISIBLE" });
+        writeRunError("THREAD_NOT_VISIBLE");
       } else if (e instanceof MessageNoWriteRoleError) {
-        write({ type: EventType.RUN_ERROR, message: "NO_WRITE_ROLE", code: "NO_WRITE_ROLE" });
+        writeRunError("NO_WRITE_ROLE");
       } else if (e instanceof MessageThreadArchivedError) {
-        write({ type: EventType.RUN_ERROR, message: "THREAD_ARCHIVED_READONLY", code: "THREAD_ARCHIVED_READONLY" });
+        writeRunError("THREAD_ARCHIVED_READONLY");
       } else if (e instanceof AgentNotPublishedError) {
-        write({ type: EventType.RUN_ERROR, message: "AGENT_NOT_FOUND", code: "AGENT_NOT_FOUND" });
+        writeRunError("AGENT_NOT_FOUND");
       } else if (e instanceof MessageIdempotencyConflictError) {
-        write({ type: EventType.RUN_ERROR, message: "IDEMPOTENCY_CONFLICT", code: "IDEMPOTENCY_CONFLICT" });
+        writeRunError("IDEMPOTENCY_CONFLICT");
       } else if (e instanceof MessageAttachmentNotPendingError) {
         // chat-parity-attachments (issue #2022) -- same fact the REST track's 422 reports
         // (`message-roundtrip.ts` "仓储在事务内因附件不合格回滚"): an id that is not a
         // pending attachment of THIS thread (foreign, already-attached, or unknown).
-        write({ type: EventType.RUN_ERROR, message: "ATTACHMENT_NOT_PENDING", code: "ATTACHMENT_NOT_PENDING" });
+        writeRunError("ATTACHMENT_NOT_PENDING");
       } else if (e instanceof TitleInvalidError) {
-        write({ type: EventType.RUN_ERROR, message: "TITLE_INVALID", code: "TITLE_INVALID" });
+        writeRunError("TITLE_INVALID");
       } else if (e instanceof AguiBridgeResultUnreadableError) {
-        write({ type: EventType.RUN_ERROR, message: "RESULT_UNREADABLE", code: "RESULT_UNREADABLE" });
+        writeRunError("RESULT_UNREADABLE");
       } else if (e instanceof AuthzUnavailableError) {
-        write({ type: EventType.RUN_ERROR, message: "AUTHZ_UNAVAILABLE", code: "AUTHZ_UNAVAILABLE" });
+        writeRunError("AUTHZ_UNAVAILABLE");
       } else if (e instanceof NoAwaitingToolPermissionRunError) {
         // DA-19g -- see that error class's own doc: nothing left to resume (already
         // decided elsewhere, or a stray/duplicate follow-up). Honest, stable code -- not
         // folded into INTERNAL_ERROR, and not silently treated as a no-op success.
-        write({ type: EventType.RUN_ERROR, message: "NO_PENDING_APPROVAL", code: "NO_PENDING_APPROVAL" });
+        writeRunError("NO_PENDING_APPROVAL");
       } else if (e instanceof AgentRunNotAwaitingToolPermissionError) {
         // DA-19g -- `decideAgentRun` found a run id but it raced out of `awaiting_tool_permission`
         // between `findAwaitingToolPermissionRunId` and the decision itself (concurrent decision,
         // already terminal, …) -- same "as-real" conflict the REST route already reports.
-        write({
-          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
-          code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
-        });
+        writeRunError("AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION");
       } else if (e instanceof RunNotAwaitingToolPermissionError) {
         // issue #2767 -- 同上一支的同一种竞态，但来自 F06 的 `decideToolPermission`
         // （`resumeAguiBridgeTurnToolPermission`），不是旧 `decideAgentRun`。同一份
         // "as-real" 冲突叙述，换一个稳定错误码，避免两条并行出口的错误信息互相混淆。
-        write({
-          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
-          code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
-        });
+        writeRunError("AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION");
       } else {
-        write({ type: EventType.RUN_ERROR, message: "INTERNAL_ERROR", code: "INTERNAL_ERROR" });
+        writeRunError("INTERNAL_ERROR");
         response.end();
         throw e;
       }

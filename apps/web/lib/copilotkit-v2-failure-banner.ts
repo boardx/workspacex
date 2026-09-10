@@ -30,6 +30,7 @@
 import { getAgentRun } from "./agent-run";
 import type { AgentRunFailureReason } from "./agent-run";
 import { describeCopilotkitV2RunError, isAgentRunTerminalErrorCode } from "./copilotkit-v2-error-copy";
+import { aguiRunError } from "@repo/contracts";
 
 /** 权威读回来的、本模块真正用到的那两个字段。 */
 export interface FailedRunFacts {
@@ -49,29 +50,62 @@ export function describeFailedRunBanner(view: FailedRunFacts, fallbackCode?: str
 }
 
 /**
- * 活路径：AG-UI `RUN_ERROR` 到手之后，向 `agent_runs` 补一次权威读，把成因取回来。
+ * 活路径上，一条 AG-UI `RUN_ERROR` 该被怎么处置。
  *
- * 返回值一定是"可以直接显示的一句话"——读失败、没有 runId、或这个码根本不是 run 的
- * 终态码（传输层码天然没有成因）时，逐字返回只按码说话的旧文案，**不**多打这次请求。
+ * issue #3367 —— `RUN_ERROR` 同时承载**三类完全不同的事实**，而界面此前把三类都译成
+ * 同一句「最近一次调用出错，正在等待执行状态更新……」：
+ *   ① 压根没有 run（或已落终态）⇒ 收尾，显示横幅；
+ *   ② run 还活着、执行器持有 ⇒ 继续轮询，「正在等待」是诚实的，仍显示横幅；
+ *   ③ run 停在 `awaiting_tool_permission`、仍有一条待批请求 ⇒ **重挂审批卡**，
+ *      而不是说「出错了」——这一类被误译成「出错」正是用户看到的「永久卡死」。
+ * 码→类别的映射在 `@repo/contracts/agui-run-error`，服务端出口类型门读的是同一张表。
  */
-export async function resolveLiveRunFailureBanner(params: {
+export type LiveRunErrorOutcome =
+  /** 显示这句横幅（第 ① / ② 类，以及第 ③ 类核实不通过时的 fail-closed 回落）。 */
+  | { readonly kind: "banner"; readonly text: string }
+  /** 第 ③ 类且**权威读确认**这条 run 仍有一条待批请求 ⇒ 重挂审批卡，不显示错误。 */
+  | { readonly kind: "reattach_approval"; readonly runId: string };
+
+/**
+ * 活路径：AG-UI `RUN_ERROR` 到手之后，向 `agent_runs` 补**一次**权威读。
+ *
+ * 这一次读同时回答两个问题——「这次失败的成因是什么」（#3261/#3280 的既有通道，
+ * `describeFailedRunBanner`）与「这条 run 是不是还在等人批」（#3367）。**是同一次读、
+ * 同一个模块、同一个成因函数**，不新开第二条通道：本仓头号病是同一事实声明在两处。
+ *
+ * 何时才读：
+ *   - 码是 run 的终态码（`AgentRunError`）⇒ 读成因（原有行为，一字未改）；
+ *   - 码的处置是 `approval_pending`（`AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION` /
+ *     `NO_PENDING_APPROVAL`）⇒ 读「还有没有待批请求」。
+ * 其余传输层码一次请求都不多打（原有纪律）。
+ *
+ * fail closed：读不到、读回来的 run 不在 `awaiting_tool_permission`、或 `pendingApproval`
+ * 为空，一律退回横幅——绝不凭一个错误码凭空造一张审批卡出来。
+ */
+export async function resolveLiveRunErrorOutcome(params: {
   readonly runId: string | null;
   readonly code: string | null | undefined;
   readonly bearer?: string;
   /** 注入点，只为测试；生产恒为 `getAgentRun`。 */
   readonly fetchRun?: typeof getAgentRun;
-}): Promise<string> {
+}): Promise<LiveRunErrorOutcome> {
   const { runId, code, bearer } = params;
+  const banner = (text: string): LiveRunErrorOutcome => ({ kind: "banner", text });
   const codeOnly = describeCopilotkitV2RunError(code);
-  // 传输层码（`THREAD_NOT_VISIBLE` / `AGENT_RUN_TIMEOUT` / 原始网络异常文案……）不是
-  // run 的终态码，`agent_runs` 上不会有对应成因——不为它们多打一次请求。
-  if (runId === null || !isAgentRunTerminalErrorCode(code)) return codeOnly;
+  const disposition = aguiRunError.dispositionOf(code);
+  const wantsApprovalCheck = disposition === "approval_pending";
+  if (runId === null || (!wantsApprovalCheck && !isAgentRunTerminalErrorCode(code))) return banner(codeOnly);
   try {
     const view = await (params.fetchRun ?? getAgentRun)(runId, bearer);
-    if (view.status !== "failed") return codeOnly;
-    return describeFailedRunBanner(view, code);
+    if (wantsApprovalCheck) {
+      return view.status === "awaiting_tool_permission" && view.pendingApproval
+        ? { kind: "reattach_approval", runId }
+        : banner(codeOnly);
+    }
+    if (view.status !== "failed") return banner(codeOnly);
+    return banner(describeFailedRunBanner(view, code));
   } catch {
     // 读不到就如实退回旧文案：这条路径已经在报一个失败了，不该再叠一个失败上去。
-    return codeOnly;
+    return banner(codeOnly);
   }
 }
