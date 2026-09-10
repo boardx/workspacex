@@ -1,39 +1,44 @@
 /**
- * 新放到画布上的区块默认占多宽——用户直接交办（2026-09-10）：
- * 「现在默认 text 的长度是 6，改为默认是 2」。
+ * 新字段落到画布上时的默认尺寸。
  *
- * 「短文本」渲染出来是表头带里的一个 `标签: 值` 字段（`buildExplicitTemplateSpec`
- * 的 `headerCells`），一个字段默认占掉半张纸宽既填不满也挡别人；半幅那个默认是
- * 给便利贴列表那种成片贴纸的分区准备的。这里钉住两者从此不共用一个默认值。
+ * 沿革（都是人类直接交办）：
+ * · 2026-09-10 ①「现在默认 text 的长度是 6，改为默认是 2」——短文本单独收窄；
+ * · 2026-09-10 ②「by default all the field size should be 2*2 not bigger」——
+ *   收敛成**所有类型一律 2×2**，不再按类型分档。
+ *
+ * 为什么是小起点：默认值越大，一落地就越容易压住邻居、越容易撞上「长不动」。
+ * 小起点 + 右栏随手调大，比大起点 + 每次都要缩，少一步手工。
  */
 import { describe, expect, it } from "vitest";
-import { defaultLayoutAt } from "@/components/canvas/template-editor-model";
+import { defaultLayoutAt, DEFAULT_BLOCK_SPAN } from "@/components/canvas/template-editor-model";
 
-describe("defaultLayoutAt —— 落到画布上的默认宽度", () => {
-  it("12 列制：短文本默认 2 格，其余类型仍是半幅 6 格", () => {
-    expect(defaultLayoutAt("短文本", 1, 1, 12).w).toBe(2);
-    expect(defaultLayoutAt("便利贴列表", 1, 1, 12).w).toBe(6);
-    expect(defaultLayoutAt("文本对象", 1, 1, 12).w).toBe(6);
-  });
-
-  it("6 列制：同一条比例，短文本 1 格、其余 3 格", () => {
-    expect(defaultLayoutAt("短文本", 1, 1, 6).w).toBe(1);
-    expect(defaultLayoutAt("便利贴列表", 1, 1, 6).w).toBe(3);
+describe("defaultLayoutAt —— 落到画布上的默认尺寸", () => {
+  it("所有类型一律 2×2，不按类型分档", () => {
+    for (const type of ["短文本", "长文本", "便利贴列表", "文本对象"] as const) {
+      const l = defaultLayoutAt(type, 1, 1, 12);
+      expect([type, l.w, l.h]).toEqual([type, DEFAULT_BLOCK_SPAN, DEFAULT_BLOCK_SPAN]);
+    }
   });
 
   /**
-   * ⚠ 独立 review 抓到（2026-09-10）：默认宽度此前写成 `gridCols === 12 ? a : b`，
-   * 24 列制会落进 6 列制那一支、拿到该有宽度的四分之一。改成按比例算之后，
-   * 每一档都是同一条规则的应用，不必每加一档补一个分支。
+   * ⚠ 2 是**格数**，不是比例：使用者说的是「2×2」。按比例算会让 24 列制下的默认块
+   * 又变回四格宽，那正是这条指令要消掉的「一落地就太大」。
    */
-  it("24 列制：短文本 4 格、其余 12 格——与 12 列制是同一条比例，不是落进 6 列那一支", () => {
-    expect(defaultLayoutAt("短文本", 1, 1, 24).w).toBe(4);
-    expect(defaultLayoutAt("便利贴列表", 1, 1, 24).w).toBe(12);
+  it("不随网格制式缩放：6 / 12 / 24 列制下都是 2 格宽", () => {
+    expect(defaultLayoutAt("便利贴列表", 1, 1, 6).w).toBe(2);
+    expect(defaultLayoutAt("便利贴列表", 1, 1, 12).w).toBe(2);
+    expect(defaultLayoutAt("便利贴列表", 1, 1, 24).w).toBe(2);
   });
 
-  it("靠右边落点仍夹回画布内，不因为默认值变小就绕过夹取", () => {
-    // 12 列制、落在第 12 列：只剩 1 格，两种类型都被夹到 1。
-    expect(defaultLayoutAt("短文本", 12, 1, 12).w).toBe(1);
+  it("靠右边/靠下边落点仍夹回画布内，不因为默认值变小就绕过夹取", () => {
+    // 12 列制、落在第 12 列：只剩 1 格。
     expect(defaultLayoutAt("便利贴列表", 12, 1, 12).w).toBe(1);
+    // 8 行网格、落在第 8 行：只剩 1 行。
+    expect(defaultLayoutAt("便利贴列表", 1, 8, 12).h).toBe(1);
+  });
+
+  it("`limits` 能把默认尺寸再压小（邻居占住时的路径），但压不到 0", () => {
+    expect(defaultLayoutAt("便利贴列表", 1, 1, 12, "A1", { maxW: 1, maxH: 1 })).toMatchObject({ w: 1, h: 1 });
+    expect(defaultLayoutAt("便利贴列表", 1, 1, 12, "A1", { maxW: 0, maxH: 0 })).toMatchObject({ w: 1, h: 1 });
   });
 });

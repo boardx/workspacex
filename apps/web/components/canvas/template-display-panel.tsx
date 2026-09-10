@@ -3,7 +3,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
-  classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH, collidesWithOthers, GRID_ROWS,
+  classifyNoteSize, sectionGeometryMmOf, clamp, collidesWithOthers, GRID_ROWS,
   isTextual, TEXT_ALIGNS, TEXT_VALIGNS, DEFAULT_FIELD_FONT_SIZE,
   type TextAlign, type TextVAlign,
   FONT_WEIGHT_OPTIONS, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX,
@@ -157,7 +157,7 @@ export function TemplateDisplayPanel({
               <span className="w-6 text-11 text-muted-foreground">宽</span>
               <Stepper
                 value={layout.w} min={1}
-                max={Math.max(layout.w, maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols))}
+                max={gridCols - layout.col + 1}
                 editable={editable}
                 onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
               />
@@ -166,7 +166,7 @@ export function TemplateDisplayPanel({
               <span className="w-6 text-11 text-muted-foreground">高</span>
               <Stepper
                 value={layout.h} min={1}
-                max={Math.max(layout.h, maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w))}
+                max={GRID_ROWS - layout.row + 1}
                 editable={editable}
                 onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
               />
@@ -192,33 +192,16 @@ export function TemplateDisplayPanel({
   const isList = section.type === "便利贴列表";
   const geom = sectionGeometryMmOf(section, gridCols, paperSize);
   /**
-   * 「宽/高加不动」的真实原因（见下方步进器旁那行提示的注释）。`null` = 还能加，
-   * 或者这个字段还没放到画布上。
-   *
-   * 三种情况分开说，因为出路完全不同：**已经压住邻居**（历史数据留下的坏状态，
-   * 出路是把它缩小）、**被邻居挡住**（出路是挪走谁）、**顶到纸边**（没有出路，
-   * 那就是画布边界）。三种都只表现为一个置灰的加号，不说清楚就只剩"点不动"。
+   * 这一块**正压着**旁边的分区吗？压着不再是"改不动"，只是"还没调好"——人类
+   * 2026-09-10 直接交办：拖放允许重叠，高亮出来，保存前自己调。所以这里从
+   * 「为什么加不动」（三种原因）收敛成一句「现在压着谁」：加得动了，剩下要说的只有
+   * 压着这件事本身，以及它会挡住发布。
    */
-  const blockedBy: string | null = (() => {
-    const layout = section.layout;
-    if (!layout) return null;
-    if (collidesWithOthers(sections, section.sectionId, layout)) {
-      return "这块地方正压住旁边的分区 —— 先把宽或高调小，或把它拖到空位上";
-    }
-    const freeW = maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols);
-    const freeH = maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w);
-    const wStuck = layout.w >= freeW;
-    const hStuck = layout.h >= freeH;
-    if (!wStuck && !hStuck) return null;
-    // 顶到纸边 vs 被邻居挡住：夹到画布边界的那个数就是纸边的上限。
-    const edgeW = gridCols - layout.col + 1;
-    const edgeH = GRID_ROWS - layout.row + 1;
-    const blocked: string[] = [];
-    if (wStuck && freeW < edgeW) blocked.push("右边");
-    if (hStuck && freeH < edgeH) blocked.push("下面");
-    if (blocked.length === 0) return "已经顶到纸边了";
-    return `${blocked.join("和")}被别的分区占住了 —— 挪开它，或把这块拖到空位上`;
-  })();
+  const overlapWarning: string | null = section.layout !== null
+    && collidesWithOthers(sections, section.sectionId, section.layout)
+    ? "这块地方正压住旁边的分区 —— 草稿存得下，但压着发布不了，调完再发"
+    : null;
+
   const sizeClass = classifyNoteSize(geom.noteMm);
   const sizeNote = sizeClass === "standard" ? "≈ 标准 76mm 方形贴纸 ✓"
     : sizeClass === "compact" ? "≈ 小号 51mm 贴纸"
@@ -321,26 +304,28 @@ export function TemplateDisplayPanel({
             </div>
           </Group>
 
-          {/*
-            「隐藏字段名」（用户直接交办，2026-09-08）——列表型（行为/触点/痛点/机会……）
-            专属：只隐藏区块标题/`{{key}}` 提示行，贴纸内容照常渲染。渲染端唯一事实源
-            是 `section.hideFieldTitle`，`template-canvas-grid.tsx`/`explicit-template-layout.ts`
-            都只读它，这里只负责写。
-          */}
-          <Group label="标题显示">
-            <label className="flex cursor-pointer items-center gap-2 text-11">
-              <input
-                type="checkbox"
-                checked={section.hideFieldTitle}
-                disabled={!editable}
-                onChange={(e) => onPatchSection({ hideFieldTitle: e.target.checked })}
-                data-testid="tpladmin-editor-hide-field-title"
-              />
-              隐藏字段名（只显示内容）
-            </label>
-          </Group>
         </>
       )}
+
+      {/*
+        「隐藏字段名」——2026-09-08 上线时只给了列表型；人类 2026-09-10 追加：
+        「text，也会需要可以隐藏 title」。所以它现在对所有数据绑定型字段都出
+        （列表型/短文本/长文本），文本对象不出——那是一段静态装帧文字，本来就没有
+        「字段名」这个东西可隐藏。渲染端唯一事实源仍是 `section.hideFieldTitle`，
+        `template-canvas-grid.tsx`/`explicit-template-layout.ts` 都只读它。
+      */}
+      <Group label="标题显示">
+        <label className="flex cursor-pointer items-center gap-2 text-11">
+          <input
+            type="checkbox"
+            checked={section.hideFieldTitle}
+            disabled={!editable}
+            onChange={(e) => onPatchSection({ hideFieldTitle: e.target.checked })}
+            data-testid="tpladmin-editor-hide-field-title"
+          />
+          隐藏字段名（只显示内容）
+        </label>
+      </Group>
 
       {/*
         文字型数据字段（短文本/长文本）的字号与对齐——人类直接交办（2026-09-10）：
@@ -358,6 +343,21 @@ export function TemplateDisplayPanel({
               />
               <span className="text-11 text-muted-foreground">px</span>
             </div>
+          </Group>
+          {/*
+            粗细——人类 2026-09-10 追加：「text，还需要是否加粗，不只是居中」。
+            与「文本对象」那栏共用同一份 `FONT_WEIGHT_OPTIONS` 与同一个字段
+            （`section.fontWeight`），不另立一套语义。
+          */}
+          <Group label="粗细">
+            <Chips
+              options={FONT_WEIGHT_OPTIONS}
+              value={(section.fontWeight === "bold" ? "bold" : "normal") as (typeof FONT_WEIGHT_OPTIONS)[number]}
+              editable={editable}
+              onPick={(fontWeight) => onPatchSection({ fontWeight })}
+              format={(v) => (v === "bold" ? "粗体" : "常规")}
+              testIdPrefix="tpladmin-editor-field-weight"
+            />
           </Group>
           <AlignGroups section={section} editable={editable} onPatchSection={onPatchSection} />
         </>
@@ -393,7 +393,7 @@ export function TemplateDisplayPanel({
           <span className="w-6 text-11 text-muted-foreground">宽</span>
           <Stepper
             value={layout.w} min={1}
-            max={Math.max(layout.w, maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols))}
+            max={gridCols - layout.col + 1}
             editable={editable}
             onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
           />
@@ -402,7 +402,7 @@ export function TemplateDisplayPanel({
           <span className="w-6 text-11 text-muted-foreground">高</span>
           <Stepper
             value={layout.h} min={1}
-            max={Math.max(layout.h, maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w))}
+            max={GRID_ROWS - layout.row + 1}
             editable={editable}
             onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
           />
@@ -414,9 +414,9 @@ export function TemplateDisplayPanel({
           反馈「我什么也改不了」，一半是真的改不了（上面那条重叠 bug），另一半是改不动
           却不说为什么。这里如实交代是哪一种。
         */}
-        {editable && blockedBy !== null && (
+        {editable && overlapWarning !== null && (
           <span className="text-10 text-destructive" data-testid="tpladmin-editor-size-blocked">
-            {blockedBy}
+            {overlapWarning}
           </span>
         )}
         <span className="text-10 text-muted-foreground" data-testid="tpladmin-editor-mm-note">

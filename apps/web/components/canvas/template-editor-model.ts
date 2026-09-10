@@ -121,6 +121,17 @@ export const DEFAULT_FIELD_FONT_SIZE = 13;
 export function defaultFontSizeFor(type: SectionFieldType): number {
   return type === "文本对象" ? DEFAULT_TEXT_FONT_SIZE : DEFAULT_FIELD_FONT_SIZE;
 }
+
+/**
+ * 这个类型的文字没配粗细时是粗是细。
+ *
+ * 「文本对象」是装帧大字（标题），默认粗体——这是它上线时就有的行为。
+ * 「短文本」/「长文本」是**字段值**，默认常规：vendor 画字段时标签粗、值不粗，
+ * 默认给粗体会让整张画布的字段值全部变重，与改动前不一致。
+ */
+export function defaultFontWeightFor(type: SectionFieldType): TextFontWeight {
+  return type === "文本对象" ? "bold" : "normal";
+}
 /** 这个类型的文字有没有对齐/字号可言（便利贴列表没有）。 */
 export function isTextual(type: SectionFieldType): boolean {
   return type === "文本对象" || type === "短文本" || type === "长文本";
@@ -189,7 +200,7 @@ export function toDraft(row: CanvasTemplate): SectionDraft[] {
     content: s.content ?? "",
     color: s.color ?? null,
     fontSize: s.fontSize ?? defaultFontSizeFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
-    fontWeight: s.fontWeight ?? DEFAULT_TEXT_FONT_WEIGHT,
+    fontWeight: s.fontWeight ?? defaultFontWeightFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
     hideFieldTitle: s.hideFieldTitle ?? false,
     align: s.align ?? DEFAULT_TEXT_ALIGN,
     valign: s.valign ?? defaultValignFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
@@ -247,12 +258,41 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
         // 文字型数据字段只带自己配过的那一栏：字号缺省时**不写**这一栏，存量模板
         // 的输出逐字节不变（同 `hideFieldTitle` 那条纯增量纪律）。
         : d.type === "短文本" || d.type === "长文本"
-          ? { ...(d.fontSize !== DEFAULT_FIELD_FONT_SIZE ? { fontSize: d.fontSize } : {}) }
+          ? {
+            ...(d.fontSize !== DEFAULT_FIELD_FONT_SIZE ? { fontSize: d.fontSize } : {}),
+            // 加粗（人类 2026-09-10：「text，还需要是否加粗」）——同字号那条纪律：
+            // 只有配过（≠ 缺省常规）才写这一栏，存量模板的输出逐字节不变。
+            ...(d.fontWeight !== defaultFontWeightFor(d.type) ? { fontWeight: d.fontWeight } : {}),
+          }
           : {}),
       ...(d.hideFieldTitle ? { hideFieldTitle: true } : {}),
       ...(isTextual(d.type) && d.align !== DEFAULT_TEXT_ALIGN ? { align: d.align } : {}),
       ...(isTextual(d.type) && d.valign !== defaultValignFor(d.type) ? { valign: d.valign } : {}),
     }));
+}
+
+/** 新区块落到画布上时占几格（宽与高同一个数）——见 `defaultLayoutAt` 里的理由。 */
+export const DEFAULT_BLOCK_SPAN = 2;
+
+/**
+ * 给定类型与宽度，贴纸默认摆几列。
+ *
+ * 由物理宽度推出：`round(区块宽mm / 贴纸格距)`，夹在 3-8——贴纸格距用标准贴纸边长
+ * （`STANDARD_NOTE_MM`=76）加一道网格间距做参考，不是随手写的数（`Design.pdf` §4.2
+ * 原话「使贴纸落在 76mm 标准附近」）。这只是猜一个默认摆几列——贴纸实际渲染尺寸会按
+ * 这个列数与区块宽度反推（`sectionGeometryMm`），不是这里就把大小定死；摆多了/摆少了
+ * 使用者都能在右栏用步进器改。
+ *
+ * ⚠ 单独抽出来是因为有两个调用方：`defaultLayoutAt`（新块）与 `changeFieldType`
+ *   （换类型、宽度不变）。`cols` 是从 `w` 推出来的，谁改了 w 就得重算它，两处各写
+ *   一份公式就是「同一事实两处声明」。
+ */
+export function defaultStickyColsFor(
+  type: SectionFieldType, w: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
+): number {
+  return type === "便利贴列表"
+    ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8)
+    : 3;
 }
 
 /**
@@ -267,31 +307,21 @@ export function defaultLayoutAt(
   type: SectionFieldType, col: number, row: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
   limits?: { readonly maxW?: number; readonly maxH?: number },
 ): SectionLayoutDraft {
-  // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
+  // 落到画布上的默认尺寸：**一律 2×2**，不按类型分档。
   //
-  // ⚠ 「短文本」例外，默认 2 格（6 列制下 1 格）——用户直接交办（2026-09-10）：
-  //   「现在默认 text 的长度是 6，改为默认是 2」。短文本渲染出来是表头带里的一个
-  //   `标签: 值` 字段（`buildExplicitTemplateSpec` 的 `headerCells`），一个字段占掉
-  //   半张纸宽既画不满也挡住别人；半幅那个默认是给便利贴列表那种成片贴纸的分区用的。
-  //   拖进来之后仍可在右栏「在 A1 上占多大」里改，这里只是换一个更常用的起点。
-  // ⚠ 按**比例**算，不是 `gridCols === 12 ? a : b`（独立 review 抓到：那个两分支写法
-  //   把 24 列制归进了 6 列制那一支，拿到的默认宽度只有该有的四分之一）。
-  //   短文本 = 六分之一幅，其余 = 半幅：12 列制下就是原来的 2 / 6，6 列制下 1 / 3，
-  //   24 列制下 4 / 12——同一条比例，不必每加一档就补一个分支。
-  const defaultW = type === "短文本"
-    ? Math.max(1, Math.round(gridCols / 6))
-    : Math.max(1, Math.round(gridCols / 2));
-  const w = Math.max(1, Math.min(defaultW, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
-  // 列表型默认高 3 行、短文本/文本对象 1 行。
-  const h = Math.max(1, Math.min(type === "便利贴列表" ? 3 : 1, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
+  // 人类直接交办（2026-09-10）：「by default all the field size should be 2*2 not
+  // bigger」。此前是按类型各给各的（便利贴列表半幅 × 3 行、短文本六分之一幅 × 1 行、
+  // 文本对象半幅 × 1 行），后果是每拖一个字段进来都得先把它改小——默认值越大，
+  // 越容易一落地就压住邻居，也就越容易撞上「长不动」。小起点 + 右栏随手调大，
+  // 比大起点 + 每次都要缩，少一步手工。
+  //
+  // ⚠ 与网格制式无关：2 就是 2 格，不随 6/12/24 列缩放。使用者说的是「2×2」这个
+  //   格数，不是「六分之一幅」这种比例——按比例算会让 24 列制下的默认块又变回四格宽。
+  const w = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
+  const h = Math.max(1, Math.min(DEFAULT_BLOCK_SPAN, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
   return {
     col, row, w, h,
-    // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距用
-    // 标准贴纸边长（`STANDARD_NOTE_MM`=76）加一道网格间距做参考，不是随手写的数
-    // （`Design.pdf` §4.2 原话「使贴纸落在 76mm 标准附近」）。这只是猜一个默认摆
-    // 几列——贴纸实际渲染尺寸会按这个列数与区块宽度反推（`sectionGeometryMm`），
-    // 不是这里就把大小定死；摆多了/摆少了使用者都能在右栏用步进器改。
-    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
+    cols: defaultStickyColsFor(type, w, gridCols, size),
     max: 6,
     tone: 0,
     overflow: "缩小字号",

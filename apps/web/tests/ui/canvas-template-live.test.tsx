@@ -1167,34 +1167,19 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
    * ⚠ 2026-09-10 人类实测：「把字段类型从文本改为便利贴之后，field 的范围扩大，
    * 然后我什么也改不了在右边的 panel 上」。
    *
-   * `changeFieldType` 是第四个改布局的入口，却绕过了 issue #2564 那道重叠门控：
-   * 短文本按默认布局涨到 6 格宽 3 行，直接压住右边和下面的分区；落到重叠状态之后
-   * 右栏每一次改动都被 `applyLayoutIfFree` 判为"还是重叠"整体放弃，步进器上限也
-   * 塌成 1，面板从此一动不动。
+   * 当时的根因是 `changeFieldType` 绕过重叠门控、按新类型涨大压住邻居。后来重叠改成
+   * 「允许并高亮」，卡死本身不复存在；但**换类型不该动使用者摆好的尺寸**这条仍然要钉——
+   * 亲手调过的宽高被一次换类型悄悄改掉，比占大一点更让人意外。
    */
-  it("改类型时按邻居留出的空间长大，不会压住相邻分区、也不会把右栏卡死", async () => {
+  it("改类型保留使用者摆好的几何：col/row/w/h 一个都不动", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [template({
         key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
-        sections: [
-          // 左上角一格的短文本，右边紧挨着一个分区、正下方也紧挨着一个分区——
-          // 改成列表型时"默认 6 格宽 3 行"两个方向都长不出去。
-          {
-            sectionId: "s1", key: "title", name: "标题", type: "短文本", aiHint: null,
-            order: 0, required: false, capacity: null,
-            layout: { col: 1, row: 1, w: 1, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
-          },
-          {
-            sectionId: "s2", key: "right", name: "右邻", type: "便利贴列表", aiHint: null,
-            order: 1, required: false, capacity: null,
-            layout: { col: 2, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
-          },
-          {
-            sectionId: "s3", key: "below", name: "下邻", type: "便利贴列表", aiHint: null,
-            order: 2, required: false, capacity: null,
-            layout: { col: 1, row: 2, w: 1, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
-          },
-        ],
+        sections: [{
+          sectionId: "s1", key: "title", name: "标题", type: "短文本", aiHint: null,
+          order: 0, required: false, capacity: null,
+          layout: { col: 2, row: 2, w: 3, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        }],
       })],
     })));
     const panel = await openEditor();
@@ -1205,16 +1190,59 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
       expect(within(panel).getByTestId("tpladmin-editor-field-title").textContent).toContain("{{title[]}}");
     });
 
-    // 改动前：这里会变成 6×3、压住 s2/s3，体检面板报重叠。
+    // 几何原样：改动前这里会被重算成列表型的默认尺寸。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-w-value")).toHaveTextContent("3"));
+    expect(within(panel).getByTestId("tpladmin-editor-h-value")).toHaveTextContent("1");
+    const block = within(panel).getByTestId("tpladmin-editor-block-s1");
+    expect(block.style.gridColumn).toBe("2 / span 3");
+    expect(block.style.gridRow).toBe("2 / span 1");
+  });
+
+  /**
+   * ⚠ 人类 2026-09-10 直接交办：「allow the field to drag and drop to the design
+   * layout, even the size is overlap with others, just highlight it, and user could
+   * adjust before save. it is not user friendly user try many times and failed as
+   * the size not fit.」
+   *
+   * 此前 issue #2564 把重叠做成**硬拒绝**：夹完边界后若与别的分区重叠就整体放弃。
+   * 关于结果没错（重叠画出来是错的），关于过程错了——拒绝是静默的，手一松弹回原处，
+   * 不说为什么。现在压得上去、压着的块高亮、体检面板点名，而真正的门留在发布上。
+   */
+  it("宽度可以调到压住邻居：改动生效、画布高亮、体检面板点名，但发布门仍然拦着", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+        sections: [
+          {
+            sectionId: "s1", key: "left", name: "左", type: "便利贴列表", aiHint: null,
+            order: 0, required: false, capacity: null,
+            layout: { col: 1, row: 1, w: 2, h: 2, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          },
+          {
+            sectionId: "s2", key: "right", name: "右", type: "便利贴列表", aiHint: null,
+            order: 1, required: false, capacity: null,
+            layout: { col: 3, row: 1, w: 2, h: 2, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          },
+        ],
+      })],
+    })));
+    const panel = await openEditor();
+
+    // 改动前：两块紧挨着，不重叠，体检面板不报。
     expect(within(panel).queryByTestId("tpladmin-editor-health-overlap")).toBeNull();
 
-    // 右栏仍然可用：选中这个区块，宽度步进器显示的是真实值 1，不是被上限夹出来的假数字。
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
-    await waitFor(() => {
-      expect(within(panel).getByTestId("tpladmin-editor-w-value")).toHaveTextContent("1");
-    });
-    // 加不动的原因如实写出来，而不是只留一个置灰的加号。
-    expect(within(panel).getByTestId("tpladmin-editor-size-blocked").textContent).toContain("被别的分区占住");
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-w-value")).toHaveTextContent("2"));
+
+    // 把左边那块加宽一格，正好压住右边那块。改动前这一下会被静默放弃（值不变）。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-w-inc"));
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-w-value")).toHaveTextContent("3"));
+
+    // 压着这件事必须看得见：右栏一句话 + 画布上两块都描成警示色。
+    expect(within(panel).getByTestId("tpladmin-editor-size-blocked").textContent).toContain("正压住旁边的分区");
+    expect(within(panel).getByTestId("tpladmin-editor-block-s1").style.border).toContain("rgb(217, 59, 59)");
+    expect(within(panel).getByTestId("tpladmin-editor-block-s2").style.border).toContain("rgb(217, 59, 59)");
   });
 
   it("已归档（不可编辑）模式下没有类型下拉，只有一段只读类型文字", async () => {

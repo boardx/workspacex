@@ -407,44 +407,30 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
   const infoById = new Map(input.sections.map((s) => [s.sectionId, s] as const));
   const headerCells = rawLayout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
   /**
-   * 这些短文本**排成了一条横向表头带**吗？
+   * ⚠ **短文本永远各画各的，不再合并成表头带**——人类 2026-09-10 直接交办：
+   *   「header 不要合并，合并起来很丑了」。
    *
-   * ⚠ 2026-09-10 人类实测反馈：「左边的 title 显示看起来很不好看」。此前所有短文本
-   *   一律被合并成一条表头带，带子的矩形就是它们的**外接框**——把 5 个阶段竖着排在
-   *   最左列时，外接框于是变成一个又高又窄的空盒子，字段一行一个稀稀拉拉铺在里面，
-   *   跟编辑器②画布画的「几个独立小盒子」完全不是一回事。
+   * ## 沿革
    *
-   *   「表头带」这个概念本身没错（用户画像那类模板顶上确实是一条横带），错在把它
-   *   当成短文本的**唯一**渲染方式。判据回到它字面的意思：同一行、同样高，才是一条
-   *   带；否则就是几个各自摆放的框，按各自的格子画（vendor 侧新增的 `fieldCells`）。
+   * 最初：所有短文本一律合并成一条表头带，带子的矩形是它们的**外接框**，vendor 那条
+   * 分支按统一几何在里面排 `标签: 值`。
+   * 上一轮：判据收窄成「同一行 + 同样高才算一条带」，竖排的那种不再合并。
+   * 现在：**判据取消**。人类实测截图对照——编辑器②画布画的是五个独立小盒子，每个
+   * 有自己的标题与值框；合并之后变成一条通栏，五个标签稀稀拉拉摊在里面、值被挤扁，
+   * 与编辑器所见完全是两回事。「所见即所得」在这里比「表头是一条带」这个概念更重要。
+   *
+   * ## 影响面
+   *
+   * 只影响**组织自己拖出来的模板**（本函数只在 `hasPlacedSection` 为真时被调用，
+   * 见 `fence-template-resolver.ts`）。19 个内置模板走的是 package 里那份原生 spec，
+   * 自带 `headerRect`，vendor 的带子分支原样保留、逐字节不变——用户画像顶上那条横带
+   * 还在那儿。
+   *
+   * 顺带消掉的还有 `headerShift`（正文分区整体下移一个表头带高度）：框不会因为合并
+   * 而长高，正文也就没有被顶开的理由。
    */
-  const isHeaderBand = headerCells.length > 0
-    && headerCells.every((c) => c.layout.row === headerCells[0]!.layout.row && c.layout.h === headerCells[0]!.layout.h);
+  const layout: ExplicitLayout = rawLayout;
 
-  // 表头带长高超出它自己的网格格子多少（见文件头 2026-09-02 注释）；没有表头时为 0。
-  // ⚠ 只有真的是一条带时才需要这次下移：各画各的时候，短文本框不会长高，
-  //   正文分区也就没有被顶开的理由。
-  let headerShift = 0;
-  let headerBottomRaw = -Infinity;
-  if (isHeaderBand) {
-    const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
-    headerBottomRaw = Math.max(...headerCells.map((c) => c.y + c.h / 2));
-    const rawW = Math.max(...headerCells.map((c) => c.x + c.w / 2)) - Math.min(...headerCells.map((c) => c.x - c.w / 2));
-    const fieldsPerRow = Math.max(1, Math.min(headerCells.length, Math.floor(rawW / HEADER_FIELD_MIN_W)));
-    const rows = Math.ceil(headerCells.length / fieldsPerRow);
-    headerShift = Math.max(0, (rows + 1) * HEADER_ROW_PITCH - (headerBottomRaw - top));
-  }
-  const layout: ExplicitLayout = headerShift > 0
-    ? {
-      ...rawLayout,
-      cells: rawLayout.cells.map((c) => (
-        typeById.get(c.sectionId) !== "短文本" && c.y - c.h / 2 >= headerBottomRaw - 1e-6
-          ? { ...c, y: c.y + headerShift }
-          : c
-      )),
-      bounds: { ...rawLayout.bounds, bottom: rawLayout.bounds.bottom + headerShift },
-    }
-    : rawLayout;
   // 「文本对象」是静态装帧文字，不是要贴便签的分区框——单独摘出来，走 `decorations`
   // 而不是 `sections`（见下方 `textDecorations` 的理由）。
   const bodyCells = layout.cells.filter((c) => {
@@ -531,17 +517,13 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
   });
 
   /**
-   * 短文本各画各的（`isHeaderBand === false`）：`fields` 仍然照常给（它是 key 的
-   * 清单，`serializeTemplate` 的回写顺序读的就是它），另外给 vendor 一份
-   * `fieldCells`——每个字段自己的框，位置就是它在编辑器里被拖到的那个格子。
-   * 不给 `headerRect`/`fieldsPerRow`，vendor 那侧看到 `fieldCells` 非空就走各画
-   * 各的分支。
+   * 短文本各画各的：`fields` 仍然照常给（它是 key 的清单，`serializeTemplate` 的回写
+   * 顺序读的就是它），另外给 vendor 一份 `fieldCells`——每个字段自己的框，位置就是它
+   * 在编辑器里被拖到的那个格子。不给 `headerRect`/`fieldsPerRow`，vendor 那侧看到
+   * `fieldCells` 非空就走各画各的分支。
    */
-  let headerFields:
-    | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
-    | { fields: string[]; fieldCells: NonNullable<TemplateSpec["fieldCells"]> }
-    | undefined;
-  if (headerCells.length > 0 && !isHeaderBand) {
+  let headerFields: { fields: string[]; fieldCells: NonNullable<TemplateSpec["fieldCells"]> } | undefined;
+  if (headerCells.length > 0) {
     const ordered = [...headerCells].sort(
       (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
     );
@@ -549,32 +531,20 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
       fields: ordered.map((c) => c.name),
       fieldCells: ordered.map((c) => {
         const info = infoById.get(c.sectionId);
+        const bold = info?.fontWeight === "bold" || Number(info?.fontWeight) >= 700;
         return {
           key: c.name,
           x: c.x, y: c.y, w: c.w, h: c.h,
           ...(info?.align ? { align: info.align } : {}),
           ...(info?.valign ? { valign: info.valign } : {}),
           ...(info?.fontSize ? { fontSize: info.fontSize } : {}),
+          // 加粗与「隐藏字段名」——人类 2026-09-10 追加的两条（「text，还需要是否加粗」
+          // 「text，也会需要可以隐藏 title」）。两栏都只在为真时写出去，缺省交回 vendor，
+          // 不在这里凭空产生一份默认值（同 align/valign/fontSize 那三栏的写法）。
+          ...(bold ? { bold: true } : {}),
+          ...(info?.hideFieldTitle ? { hideLabel: true } : {}),
         };
       }),
-    };
-  } else if (isHeaderBand) {
-    const ordered = [...headerCells].sort(
-      (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
-    );
-    const left = Math.min(...headerCells.map((c) => c.x - c.w / 2));
-    const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
-    const right = Math.max(...headerCells.map((c) => c.x + c.w / 2));
-    const bottom = Math.max(...headerCells.map((c) => c.y + c.h / 2));
-    const rawW = right - left;
-    const fieldsPerRow = Math.max(1, Math.min(ordered.length, Math.floor(rawW / HEADER_FIELD_MIN_W)));
-    const rows = Math.ceil(ordered.length / fieldsPerRow);
-    const minH = (rows + 1) * HEADER_ROW_PITCH;
-    const h = Math.max(bottom - top, minH);
-    headerFields = {
-      fields: ordered.map((c) => c.name),
-      headerRect: { x: (left + right) / 2, y: top + h / 2, w: rawW, h },
-      fieldsPerRow,
     };
   }
 

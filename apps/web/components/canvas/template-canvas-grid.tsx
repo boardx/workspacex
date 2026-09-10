@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
-import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
+import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf, findOverlappingSections } from "./template-editor-model";
 import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 import type { GridColsValue } from "@repo/contracts/canvas";
 
@@ -138,6 +138,17 @@ export function TemplateCanvasGrid({
   const contentRef = React.useRef<HTMLDivElement>(null);
 
   const placed = sections.filter((s) => s.layout !== null);
+  /**
+   * 正在互相压住的区块——人类 2026-09-10 直接交办：拖放允许重叠，**把它高亮出来**，
+   * 使用者保存前自己调。此前重叠是被拒绝的（手一松弹回原处，不说为什么），实测
+   * 反馈是"试了很多次都失败"。现在压得上去，但压着的每一块都描成警示色 + 角标，
+   * 一眼看得出是哪几块在打架。
+   *
+   * ⚠ 判据用 `findOverlappingSections`（`template-editor-model.ts` 那一处），不是本
+   *   组件另写一遍两两比对——体检面板的「区块位置重叠」读的就是它，两处必须指同一批
+   *   区块，否则画布高亮了 A、面板点名了 B，使用者不知道该信谁。
+   */
+  const overlappingIds = new Set(findOverlappingSections(sections).map((s) => s.sectionId));
 
   /** 指针 → 网格坐标。按比例换算（见文件头），不是像素常量。 */
   function cellFrom(e: React.DragEvent): { col: number; row: number } | null {
@@ -402,7 +413,11 @@ export function TemplateCanvasGrid({
                 gridRow: `${layout.row} / span ${layout.h}`,
                 // 2px solid → 比例边框：固定像素同样不随纸宽缩放，`titleReserveMm`
                 // 的推导把它算作上下两条边各一份，渲染这侧也必须真的是这个宽度。
-                border: `${BLOCK_BORDER_CQW}cqw solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
+                // 压着别人的块描成警示色，压过选中色——"这里有问题"比"这里被选中了"
+                // 更需要先被看见（选中还有右栏在同步指示，重叠没有别的信号）。
+                border: `${BLOCK_BORDER_CQW}cqw solid ${
+                  overlappingIds.has(s.sectionId) ? "#D93B3B" : selectedId === s.sectionId ? "#1F5FD0" : "#14130F"
+                }`,
                 // p-2 → 比例内边距，gap-1.5 → 比例间距，理由见上方常量声明处的文档。
                 padding: `${BLOCK_PAD_CQW}cqw`,
                 gap: `${BLOCK_HEADER_GAP_CQW}cqw`,
@@ -502,7 +517,12 @@ export function TemplateCanvasGrid({
                         fontSize: isList
                           ? `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`
                           : `${s.fontSize}px`,
-                        ...(isList ? {} : { textAlign: s.align }),
+                        ...(isList ? {} : {
+                          textAlign: s.align,
+                          // 加粗（人类 2026-09-10：「text，还需要是否加粗」）——与渲染侧
+                          // `fieldCells.bold` 读同一个 `s.fontWeight`，不是本组件另判一次。
+                          fontWeight: s.fontWeight === "bold" || Number(s.fontWeight) >= 700 ? 700 : 400,
+                        }),
                         aspectRatio: isList ? "1" : "auto",
                         minHeight: isList ? 0 : 18,
                         ...(clampLines !== undefined

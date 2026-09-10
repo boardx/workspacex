@@ -152,6 +152,15 @@ export interface TemplateSpec {
     align?: 'left' | 'center' | 'right';
     valign?: 'top' | 'middle' | 'bottom';
     fontSize?: number;
+    /** Bold the label and value (workspacex 2026-09-10). Unset = regular weight. */
+    bold?: boolean;
+    /**
+     * Draw no label line for this field — the value gets the whole box
+     * (workspacex 2026-09-10: 「text，也会需要可以隐藏 title」). The key still
+     * identifies the field for data lookup and serialization; only the printed
+     * label is dropped. Unset = label drawn, as before this field existed.
+     */
+    hideLabel?: boolean;
   }[];
   sections: TemplateSection[];
   /**
@@ -347,8 +356,30 @@ function stripBilingualSuffix(name: string): string {
 }
 
 /**
- * 按 canonical 分区名取要点：逐字命中优先，其次按 {@link normalizeSectionKey} 兜底匹配，
- * 最后按去掉双语后缀的核心名再兜底一次（见 {@link stripBilingualSuffix}）。
+ * 剥掉分区名末尾的一个括号补充说明——`阶段2行为（最多4条）` → `阶段2行为`。
+ *
+ * workspacex 2026-09-10 人类实测：模型写出 `## 阶段2行为（最多4条）`，整块渲染成空白。
+ * 根因在调用方的提示词（它把条数上限拼进了列出的分区名，模型逐字照抄），那一侧已经
+ * 改掉；这里是**兜底**——同一种「名字带了个尾巴就静默丢内容」的形状，此前已经发生过
+ * 三次（#2549 近义词、#2576 双语后缀、#2653 带冒号的要点）。名字对不上时宁可多试一次
+ * 剥括号，也好过把一个分区的全部要点悄悄丢掉。
+ *
+ * 全角/半角括号都认，只剥**末尾**那一个，且剥完不能为空（`（备注）` 这种整名就是
+ * 括号的分区原样返回，不会被剥成空串去和别人碰撞）。
+ */
+function stripTrailingParenthetical(name: string): string {
+  const stripped = name.trim().replace(/[（(][^（()）]*[）)]\s*$/, '').trim();
+  return stripped === '' ? name : stripped;
+}
+
+/**
+ * 按 canonical 分区名取要点，四级兜底，逐级放宽：
+ *   ① 逐字命中；
+ *   ② {@link normalizeSectionKey}（去空格/标点，#2549）；
+ *   ③ {@link stripBilingualSuffix}（去掉「中文 English」的英文后缀，#2576）；
+ *   ④ {@link stripTrailingParenthetical}（去掉末尾一个括号补充说明，2026-09-10）。
+ *
+ * 每一级都是被真实事故推着加的——共同点是：名字差一点点，内容就整块消失且不报错。
  */
 export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
   const exact = sections.get(name);
@@ -363,6 +394,13 @@ export function lookupSectionItems(sections: Map<string, string[]>, name: string
       const keyCore = normalizeSectionKey(stripBilingualSuffix(key));
       if (keyCore && keyCore === targetCore) return items;
     }
+  }
+  // ④ 括号兜底：spec 侧的名字通常是干净的，带尾巴的是围栏里那一侧，所以这里剥的是
+  //    **`sections` 的 key**（模型写的），拿干净的 `name` 去比。
+  const targetBare = normalizeSectionKey(stripTrailingParenthetical(name));
+  for (const [key, items] of sections) {
+    const keyBare = normalizeSectionKey(stripTrailingParenthetical(key));
+    if (keyBare && (keyBare === target || keyBare === targetBare)) return items;
   }
   return [];
 }
@@ -471,6 +509,8 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       if (!cell) return;
       const fontSize = cell.fontSize ?? 13;
       const align = cell.align ?? 'left';
+      const bold = cell.bold === true;
+      const hideLabel = cell.hideLabel === true;
       // Label sits on the first line, value under it — the same stacking the
       // editor preview draws, and the only layout that survives a box narrow
       // enough to hold one short-text field (the band's side-by-side
@@ -489,7 +529,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         height: cell.h,
         data: { role: 'headerBox', locked: true, color: '#ffffff', stroke: INK },
       });
-      if (!bg) nodes.push({
+      if (!bg && !hideLabel) nodes.push({
         id: `tpl-flabel-${i}`,
         label: key,
         shape: 'text',
@@ -500,8 +540,11 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         data: { role: 'fieldLabel', locked: true, fontSize, bold: true, color: INK, align },
       });
       // The value gets whatever is left under the label; `valign` decides
-      // where inside that leftover space it sits.
-      const valueTop = top + inset + labelH + 4;
+      // where inside that leftover space it sits. With the label hidden the
+      // value owns the whole box instead of starting below a line that is
+      // not drawn — an empty gap where a label would be is the same "looks
+      // broken" shape the blank title bar had (#3337 follow-up).
+      const valueTop = hideLabel ? top + inset : top + inset + labelH + 4;
       const valueH = Math.max(16, cell.h - (valueTop - top) - inset);
       const value = fields.get(key) || EMPTY_FIELD;
       const valign = cell.valign ?? 'top';
@@ -521,6 +564,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
           role: 'field',
           key,
           fontSize,
+          bold,
           color: value === EMPTY_FIELD ? LINE : INK_SOFT,
           align,
           wrap: 'grapheme',

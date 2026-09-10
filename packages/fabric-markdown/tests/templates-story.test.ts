@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { templateToModel, serializeTemplate, getTemplate } from '../src/diagrams/template-engine';
+import { templateToModel, serializeTemplate, getTemplate, parseTemplateText, lookupSectionItems } from '../src/diagrams/template-engine';
 import '../src/diagrams/templates-story';
 import type { DiagramModel, DiagramNode } from '../src/model';
 import { FlowNode } from '../src/fabric-objects';
@@ -285,5 +285,28 @@ describe('storyboard header fields', () => {
     const out = serializeTemplate(model);
     expect(out).toContain('## 6 收尾\n- 独居老人为他撑伞送来姜茶');
     expect(out).not.toContain('## 4 高光点');
+  });
+});
+
+/**
+ * workspacex 2026-09-10 人类实测：模型写出 `## 阶段2行为（最多4条）`，那个分区整块
+ * 渲染成空白。根因在提示词（把条数上限拼进了列出的分区名），已在 apps/api 那侧改掉；
+ * 这里钉住引擎侧的第四级兜底——名字带了个括号尾巴不该让整块内容静默消失。
+ */
+describe('lookupSectionItems 第四级兜底：末尾括号补充说明', () => {
+  it('围栏里的 `## 名字（最多4条）` 仍能匹配到 spec 的 `名字`', () => {
+    const parsed = parseTemplateText('模板: t\n## 阶段2行为（最多4条）\n- 甲\n- 乙\n');
+    expect(lookupSectionItems(parsed.sections, '阶段2行为')).toEqual(['甲', '乙']);
+  });
+
+  it('半角括号同样认', () => {
+    const parsed = parseTemplateText('模板: t\n## 阶段2行为(最多4条)\n- 甲\n');
+    expect(lookupSectionItems(parsed.sections, '阶段2行为')).toEqual(['甲']);
+  });
+
+  it('整个名字就是括号时不剥空，也不会去和别的分区碰撞', () => {
+    const parsed = parseTemplateText('模板: t\n## （备注）\n- 甲\n## 另一个\n- 乙\n');
+    expect(lookupSectionItems(parsed.sections, '（备注）')).toEqual(['甲']);
+    expect(lookupSectionItems(parsed.sections, '另一个')).toEqual(['乙']);
   });
 });
