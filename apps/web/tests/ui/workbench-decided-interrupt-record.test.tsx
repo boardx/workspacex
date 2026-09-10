@@ -91,6 +91,27 @@ describe("#3310 ① 裁决过的确认卡片不再假装服务端还在等确认
   });
 });
 
+/**
+ * `chat-path-ab-hitl-continuity.spec.ts:189` 的既有判据：裁决之后，「继续」按钮**不得**还在
+ * DOM 里（`toHaveCount(0)`）——一个看起来能点、点了没反应的按钮正是 #3186「点了没反应」的形状。
+ * 本 PR 让已裁决的那一条改为**渲染**一张记录卡，因此必须在这里把那条不变量钉死：
+ * 只靠 `<fieldset disabled>` 蒙混过不了关（按钮仍在 DOM 里）。
+ */
+describe("#3310 已结束的记录必须说清楚它已经结束了", () => {
+  it("决策入口保留但禁用（#3244 的裁定：留痕不是抹掉），那句此刻为假的「后续步骤不会开始」去掉", async () => {
+    calls.read.mockResolvedValue({ status: "running", pendingApproval: null, resolvedApprovals: [RESOLVED] });
+    render(<Inline pendingRunId={null} />);
+    const record = await screen.findByLabelText("已结束的确认记录");
+    expect(screen.getByTestId("agent-interrupt-confirm-intent-continue")).toBeDisabled();
+    expect(
+      screen.queryByTestId("agent-interrupt-confirm-intent-gated-notice"),
+      "「后续步骤在你确认前不会开始」——用户早就确认过了，这句话此刻是假的",
+    ).toBeNull();
+    // 而它必须说清楚这是哪一次：用户当时点的是「改假设后确认」。
+    expect(record).toHaveTextContent("你已按修改后的内容确认过这一次");
+  });
+});
+
 describe("#3310 ② 已裁决记录画的是被采纳的那一份，不是模型最初的提案", () => {
   it("用户把舟山改成中山 ⇒ 记录里逐字是中山，且不再出现舟山", async () => {
     calls.read.mockResolvedValue({ status: "running", pendingApproval: null, resolvedApprovals: [RESOLVED] });

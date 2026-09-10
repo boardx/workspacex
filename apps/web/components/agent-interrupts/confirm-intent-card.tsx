@@ -21,6 +21,7 @@ export function ConfirmIntentCard({
   state,
   canWrite,
   initialEditing = false,
+  decided,
   onContinue,
   onEditSubmit,
 }: {
@@ -28,6 +29,16 @@ export function ConfirmIntentCard({
   state: UiState;
   canWrite: boolean;
   initialEditing?: boolean;
+  /**
+   * issue #3310 —— 这张卡是**已结束的确认记录**（服务端 `resolvedApprovals` 里的一条），
+   * 不是一个还能操作的请求。此时既不给决策入口，也不再说「后续步骤在你确认前不会开始」
+   * ——那句话此刻是假的。给一句「你当时选的是什么」，让用户认得出这就是自己点过的那一次。
+   *
+   * ⚠ 决策入口本身**保留但禁用**——#3244 已经裁过这一条（`workbench-restored-approval.tsx`
+   * 的「a decided confirmation is kept as a finished record」逐字断言按钮在且 disabled）：
+   * 留痕不是抹掉。这里去掉的只有那句「后续步骤在你确认前不会开始」——它此刻是假的。
+   */
+  decided?: { decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null };
   /** 「继续」= UC-1 的 approve 分支。不传（预览路由）时按钮保留旧行为——纯展示、无副作用。 */
   onContinue?: () => void;
   /**
@@ -151,8 +162,20 @@ export function ConfirmIntentCard({
             )}
           </div>
 
+          {/* 已结束的记录：说清楚这是哪一次、当时选了什么，不再给任何决策入口。 */}
+          {decided ? <p
+            className="rounded-md border border-border-subtle bg-muted px-2.5 py-1.5 text-11 text-muted-foreground"
+            data-testid={`${TID}-decided-note`}
+          >
+            {decided.decision === "edit"
+              ? "你已按修改后的内容确认过这一次——上面显示的就是被采纳的那一份。"
+              : decided.decision === "reject" || decided.decision === "deny"
+                ? "你已拒绝过这一次请求。"
+                : "你已确认过这一次。"}
+          </p> : null}
+
           {/* I-1 的可视化：未确认前后续动作被挡住 */}
-          <div
+          {decided ? null : <div
             className="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
             data-testid={`${TID}-gated-notice`}
           >
@@ -160,7 +183,7 @@ export function ConfirmIntentCard({
             <span className="text-11 text-muted-foreground">
               后续步骤（拉取数据、生成报告…）在你确认前不会开始。
             </span>
-          </div>
+          </div>}
 
           {/* 动作区 */}
           <div className="flex items-center justify-end gap-2">

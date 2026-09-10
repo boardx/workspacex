@@ -164,9 +164,12 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
     ? (run?.resolvedApprovals ?? []).find((entry) => entry.interrupt.toolName === fallbackInterrupt.toolName
       && entry.interrupt.args.requestId === fallbackInterrupt.args.requestId) ?? null
     : null;
-  const decidedRecord = (interrupt: agentInterrupts.RestorableInterrupt): JSX.Element =>
+  const decidedRecord = (
+    interrupt: agentInterrupts.RestorableInterrupt,
+    decision: "once" | "run" | "forever" | "deny" | "reject" | "edit" | null = null,
+  ): JSX.Element =>
     <fieldset disabled aria-label="已结束的确认记录" data-testid="interrupt-decided-record">
-      <RestoredInterruptForm interrupt={interrupt} pending={false} decide={async () => {}} />
+      <RestoredInterruptForm interrupt={interrupt} pending={false} decided={{ decision }} decide={async () => {}} />
     </fieldset>;
   // 宿主那份权威卡片正在渲染这**同一条**待决请求 ⇒ 内联不画第二份（去重，未放宽）。
   // 权威读回来之前什么都不画：宿主此刻已经在显示它了，先画一句「等待服务端确认」是抢话。
@@ -175,7 +178,7 @@ function ApprovalSession({ runId, bearer, canWrite = true, fallbackInterrupt, ho
       && request.interrupt.toolName === fallbackInterrupt.toolName
       && request.interrupt.args.requestId === fallbackInterrupt.args.requestId))) return null;
   // 已裁决的那一条：任何 run 状态下都留痕（含终态、含同一条 run 上的下一次授权请求）。
-  if (resolved) return decidedRecord(resolved.interrupt);
+  if (resolved) return decidedRecord(resolved.interrupt, resolved.decision);
   if (run && ["succeeded", "failed", "cancelled"].includes(run.status)) return fallbackInterrupt && (fallbackWasPending || history.count > 0) ? decidedRecord(fallbackInterrupt) : null;
   if (fallbackInterrupt && request?.interrupt && (fallbackInterrupt.toolName !== request.interrupt.toolName || fallbackInterrupt.args.requestId !== request.interrupt.args.requestId)) return decidedRecord(fallbackInterrupt);
   if (request?.permissionRequestId && request.permissionRequestId === consumedRequestId) return null;

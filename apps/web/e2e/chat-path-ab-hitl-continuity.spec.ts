@@ -186,10 +186,22 @@ test(
       + "权威读此刻 pendingApproval 为 null，界面却仍在请人确认——这正是人类原话"
       + "「提交以后在 chat 上又看到了这个界面」",
     ).toHaveCount(0);
-    await expect(
-      page.getByTestId("agent-interrupt-confirm-intent-continue"),
-      "#3244 ①：确认意图卡片的「继续」按钮在裁决之后仍然可点——用户会以为上一次没生效而再点一次",
-    ).toHaveCount(0);
+    /*
+     * #3244 ①：真正的危害是**还能再点一次**（用户会以为上一次没生效）。
+     *
+     * issue #3310 起这条判据从「不得存在」改为「不得可点」：#3244 自己裁的是「留痕，不是
+     * 抹掉」（`workbench-restored-approval.test.tsx` 的
+     * 「a decided confirmation is kept as a finished record」逐字断言按钮在且 disabled），
+     * 而 #3310 之前这段 hold 窗口里那张已裁决的卡片**根本没被渲染**——判据因此长期落在一个
+     * 更强的代理命题上，看起来更严格，其实只是在一段"什么都没画"的窗口上恒真。
+     * 现在它真的被画出来了（一张已结束的记录），代理命题不再成立，而危害的判据不变。
+     */
+    for (const continueButton of await page.getByTestId("agent-interrupt-confirm-intent-continue").all()) {
+      await expect(
+        continueButton,
+        "#3244 ①：确认意图卡片的「继续」按钮在裁决之后仍然可点——用户会以为上一次没生效而再点一次",
+      ).toBeDisabled();
+    }
     await expect(
       page.getByRole("dialog", { name: CONFIRM_INTENT_DIALOG }),
       "#3244 ①：确认意图弹窗在裁决之后又弹了一次（此刻服务端没有任何待决请求）",
