@@ -85,9 +85,15 @@ test("工具失败之后，后续工具的进行态不用展开就可见，且�
   await expect(page.getByTestId("run-trace-live-label")).toHaveText("正在执行工具操作 · 已完成 2 步");
   await expect(strip).toHaveAttribute("data-has-detail", "true");
   await expect(strip).toHaveAttribute("data-completed", "2");
+  // 且它与折叠行是**同一行**：活性文案挂在 `run-trace-toggle` 里面，不再另起一条。
+  expect(await page.getByTestId("run-trace-toggle").locator('[data-testid="run-trace-live-strip"]').count(),
+    "活性文案必须在折叠行内——另起一行就是人类实测里那两句重复的消息").toBe(1);
 
   // ── 验收②（底线）：活性信号**真的在动**。
-  const spinner = page.getByTestId("run-trace-live-spinner");
+  //    2026-09-10 收敛后活性动画只剩折叠行左侧那枚蝴蝶（`animate-butterfly-fly`）——此前活性条
+  //    自带的第二枚 `Loader2` 与它讲同一件事、还多占一行，被人类实测判为「2 个消息重复了」。
+  //    判据一个字没放宽：仍然是命中测试 + getAnimations + 两帧 transform 比对，只是换了元素。
+  const spinner = page.getByTestId("run-trace-toggle").getByTestId("copilotkit-v2-thinking-mark");
   const spinnerVisibility = await measureVisibility(page, spinner);
   expect(spinnerVisibility.hitTest, `活性图标本身也要命中，不能只是它的父容器可见：${spinnerVisibility.note}`).toBe(true);
 

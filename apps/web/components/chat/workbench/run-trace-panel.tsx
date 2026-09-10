@@ -95,16 +95,28 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
   const hasSubtasks = entries.some((entry) => entry.kind === "tool" && entry.text === "spawn_async_task");
+  /**
+   * issue #3320 的活性文案（此刻在做什么 · 已完成 N 步）现在就画在**这一行的最前面**，
+   * 所以本行不再自己重复一句「正在执行」——那正是人类实测里「工具调用的 2 个消息重复了」
+   * 的那两句。`active` 期间恒定不变的事实（历时 / 计数 / 有没有失败过）留在后半段。
+   */
+  const head = active ? null : failed ? `${label} · 有失败步骤` : label;
+  const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次 · 技能活动 ${String(skills)} 项`;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 text-13 text-muted-foreground">
     <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}
       data-testid="run-trace-toggle" className="flex max-w-full items-center gap-2 rounded-control px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {/* issue #3320 的活性动画就是这一枚：`active` 期间恒在、恒动（`animate-butterfly-fly`），
+          挂在折叠区外面，不吃 `expanded`。它是这一行唯一的活性信号——活性文案此前另起一行、
+          另带一枚 `Loader2`，两处讲同一件事，见 `run-trace-live-strip.tsx` 头注。 */}
       {active ? <RunProgressButterfly /> : null}
-      <span>{failed ? `${label} · 有失败步骤` : label} · 历时 {elapsed} · 工具 {tools} 次 · 技能活动 {skills} 项</span>
+      {/* 活性文案与恒定事实是一句话，中间只有一个「 · 」：所以这两段不吃外层的 gap-2，
+          自己合成一个不带间距的行内组（分隔符前的空格用 \u00A0，免得被行盒首尾空白折掉）。 */}
+      <span className="flex min-w-0 items-center">
+        <RunTraceLiveStrip entries={entries} active={active} />
+        <span className="min-w-0">{head === null ? ` · ${tail}` : `${head} · ${tail}`}</span>
+      </span>
       <ChevronRight aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-fast ${expanded ? "rotate-90" : ""}`} />
     </button>
-    {/* issue #3320 —— 活性条挂在折叠区**外面**：失败之后的下一个工具必须不用展开就看得见，
-        且 `active` 期间恒有动画。判定机制与三条验收标准见 `run-trace-live-strip.tsx` 头注。 */}
-    <RunTraceLiveStrip entries={entries} active={active} />
     <div id={id} hidden={!expanded} role="region" aria-label="任务执行过程" data-testid="run-trace-body" className="ml-3 border-l border-border-subtle pl-4">
       <ol className="space-y-3 py-3">
         {rows.map((row) => row.kind === "skill-group"

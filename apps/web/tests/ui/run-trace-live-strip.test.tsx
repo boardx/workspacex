@@ -19,6 +19,8 @@ const start = (seq: number, id: string, toolName = "edit_file"): ExecutionEvent 
 const end = (seq: number, id: string, ok: boolean, toolName = "edit_file"): ExecutionEvent =>
   ({ ...base, seq, kind: "tool_end", toolCallId: id, toolName, result: "", ok });
 
+/** 折叠行的可读文案：不间断空格只是排版手段，判文案时按普通空格看。 */
+const line = (element: HTMLElement): string => (element.textContent ?? "").replace(/\u00a0/g, " ");
 const renderPanel = (events: ExecutionEvent[], isRunning = false): void => {
   cleanup();
   render(<RunTracePanel runId="run-3320" events={events} running={isRunning} />);
@@ -47,7 +49,9 @@ describe("RunTraceLiveStrip（#3320 失败之后的前进感）", () => {
     const strip = screen.getByTestId("run-trace-live-strip");
     expect(strip).toHaveAttribute("data-has-detail", "false");
     expect(screen.getByTestId("run-trace-live-label").textContent).toBe("正在推进任务 · 已完成 1 步");
-    expect(screen.getByTestId("run-trace-live-spinner").getAttribute("class")).toContain("animate-spin");
+    // 活性动画是折叠行左侧那枚蝴蝶（`active` 期间恒在恒动）。jsdom 判不了「真的在动」，
+    // 那条在 e2e/chat-trace-failure-forward-motion-geometry.spec.ts 里用两帧比对判。
+    expect(screen.getByTestId("copilotkit-v2-thinking-mark").getAttribute("class")).toContain("animate-butterfly-fly");
   });
 
   it("活性不取自 running prop —— 本轮吐过 final_message 让它翻假时，活性条照样在", () => {
@@ -74,5 +78,29 @@ describe("RunTraceLiveStrip（#3320 失败之后的前进感）", () => {
       renderPanel(events);
       expect(screen.queryByTestId("run-trace-live-strip"), `${terminal} 终态下活性条不该还在`).toBeNull();
     }
+  });
+
+  /**
+   * 2026-09-10 人类实测：「工具调用的 2 个消息重复了」——折叠行说「正在执行 · 历时 02:10 · …」
+   * 带一只在飞的蝴蝶，紧接着**另起一行**又说「正在执行工具操作 · 已完成 3 步」带一枚在转的
+   * `Loader2`。两句话、两个活性动画、零新增信息。收敛后活性文案必须与折叠行**同处一行**，
+   * 且整块面板里只剩一个活性动画。
+   */
+  it("活性文案与折叠行是同一行，且这一行不再重复说一遍「正在执行」", () => {
+    renderPanel([running, start(2, "t1"), end(3, "t1", true), start(4, "t2", "execute")]);
+    const toggle = line(screen.getByTestId("run-trace-toggle"));
+    expect(screen.getByTestId("run-trace-toggle").contains(screen.getByTestId("run-trace-live-strip")), "活性文案必须在折叠行里，不许另起一行").toBe(true);
+    // 历时是走动的时钟，只判形状。
+    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 历时 \d+:\d{2} · 工具 2 次 · 技能活动 0 项$/);
+    // 折叠行只说一次「正在执行」：活性文案说了，标题就不再重复。
+    expect(toggle.match(/正在执行/g)).toHaveLength(1);
+    // 活性动画只剩蝴蝶那一枚——另一枚 `Loader2` 活性条已经不存在。
+    expect(screen.queryByTestId("run-trace-live-spinner"), "重复的第二个活性动画不该再有").toBeNull();
+  });
+
+  it("失败过但仍在跑时：「有失败步骤」这条恒定事实留在同一行的后半段", () => {
+    renderPanel([running, start(2, "t1"), end(3, "t1", false), start(4, "t2", "execute")]);
+    const toggle = line(screen.getByTestId("run-trace-toggle"));
+    expect(toggle).toMatch(/^正在执行工具操作 · 已完成 1 步 · 有失败步骤 · 历时 \d+:\d{2} · 工具 2 次 · 技能活动 0 项$/);
   });
 });
