@@ -58,8 +58,22 @@ function extractStickyColor(text: string): { text: string; color?: string } {
 }
 
 export interface TemplateSection {
-  /** Heading used in text (`## name`) and as the box title. */
+  /**
+   * Heading used in text (`## name`) and, by default, as the box title.
+   * Data lookup (`lookupSectionItems`) always matches on this — it is the
+   * one identity a caller's markdown content must key against.
+   */
   name: string;
+  /**
+   * Overrides the *printed* title-bar text without touching `name` — issue
+   * #3337 (workspacex). A caller that wants a section's title bar to show
+   * nothing (or different text) while its content is still looked up by the
+   * real `name` sets this; unset falls back to `name` exactly as before this
+   * field existed. Blanking `name` itself instead of using this field was
+   * the #3337 bug: `lookupSectionItems` matches by `name`, so an emptied
+   * `name` silently drops that section's stickies along with its title.
+   */
+  titleLabel?: string;
   /** Box center + size in canvas px. */
   x: number;
   y: number;
@@ -534,7 +548,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       });
       nodes.push({
         id: `tpl-seclabel-${i}`,
-        label: sec.name,
+        label: sec.titleLabel ?? sec.name,
         shape: 'text',
         x: sec.x,
         y: sec.y - sec.h / 2 + 16,

@@ -563,7 +563,12 @@ export function checkTemplateHealth(
  * 不是一个可编辑的文本框。
  */
 export function buildOutputSchemaText(drafts: readonly SectionDraft[]): string {
-  const named = drafts.filter((d) => d.name.trim().length > 0);
+  // issue #3337：「文本对象」是编辑器里直接打好字的静态装帧文字（标题/说明牌），
+  // 内容来自 `content` 字段，不是模型要填的数据——同 `auto-template-layout.ts`／
+  // `fence-template-resolver.ts` 早就把它从「便利贴列表」布局与自动排版里摘出去的
+  // 同一条判据（`s.type !== "文本对象"`）。此前这里漏摘，导致这些纯装饰的标题字段
+  // 也混进了「输出结构」JSON，让顾问以为模型要对着它们生成内容。
+  const named = drafts.filter((d) => d.name.trim().length > 0 && d.type !== "文本对象");
   if (named.length === 0) return "{\n  // 还没有字段——先写提示词并提取字段\n}";
   const lines = named.map((d, i) => {
     const tail = i === named.length - 1 ? "" : ",";
