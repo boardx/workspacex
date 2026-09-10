@@ -31,7 +31,7 @@ import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, Paperclip, Pause, Pe
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
-import { describeFailedRunBanner, resolveLiveRunFailureBanner } from "@/lib/copilotkit-v2-failure-banner";
+import { describeFailedRunBanner, resolveLiveRunErrorOutcome } from "@/lib/copilotkit-v2-failure-banner";
 import { reportClientError } from "@/lib/report-client-error";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
@@ -216,6 +216,16 @@ export function CopilotKitV2PanelBody({
    * 权威读才知道成因，这个 ref 保证那句迟到的文案只会盖回它自己那一轮的横幅。
    */
   const bannerRunRef = React.useRef<string | null>(null);
+  /**
+   * issue #3367 第 ③ 类 —— 「这条 run 其实还在等人批」这一事实的落点。
+   *
+   * 审批卡此前只有两个挂载来源：本次挂载订阅上收到的 `awaiting_tool_permission` **推流
+   * 事件**（`tracePendingPermission`），或切回/刷新时那次**恢复读**（`runRestore`）。
+   * 中途被服务端以 `AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION` 拒掉的那一次裁决两者都不占：
+   * 推流不会再来一条（run 状态一动没动），恢复路径这轮也不会重跑 ⇒ 卡片永不重挂，
+   * 用户对着一句「出错了」再也回不到那个可以授权的地方。这是第三个来源。
+   */
+  const [reattachApproval, setReattachApproval] = React.useState<{ runId: string } | null>(null);
   // Keep the latest run context for stable framework error subscriptions.
   const runReportContextRef = React.useRef<{
     runId: string | null; threadId: string | null; phase: RunStage | null;
@@ -363,11 +373,28 @@ export function CopilotKitV2PanelBody({
          */
         const causeRunId = runReportContextRef.current.runId;
         bannerRunRef.current = causeRunId;
-        void resolveLiveRunFailureBanner({
+        void resolveLiveRunErrorOutcome({
           runId: causeRunId, code: code_, bearer: getStoredSessionToken() ?? undefined,
-        }).then((text) => {
+        }).then((outcome) => {
           if (bannerRunRef.current !== causeRunId) return;
-          setError(text);
+          if (outcome.kind === "reattach_approval") {
+            /*
+             * issue #3367 第 ③ 类 —— 权威读确认这条 run **仍停在** `awaiting_tool_permission`
+             * 且仍持有一条待批请求（`decideToolPermission` 的 `stale_permission_request` /
+             * `form_decision_required` 两支就是这个形状：拿着上一张卡的 requestId 去裁决，
+             * 服务端拒绝，run 一动没动）。用户此刻该看到的是**一张能点的审批卡**，而不是
+             * 「最近一次调用出错，正在等待执行状态更新……」——后者让一次合法的人类审批
+             * 变成了永久卡死。
+             *
+             * 所以这里把横幅撤掉（它是个误译，不是补充信息），并把这条 run 交给
+             * `pendingPermission` 重挂 `RestoredRunApproval`；卡片自己还会再做一次权威读
+             * 核对（`restored-run-approval.tsx`），run 若已不在待批态它自己返回 null。
+             */
+            setError(null);
+            setReattachApproval({ runId: outcome.runId });
+            return;
+          }
+          setError(outcome.text);
         });
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
         // runId/时间范围查询,不必再等用户手动截图 DevTools。fire-and-forget,失败
@@ -1176,7 +1203,10 @@ export function CopilotKitV2PanelBody({
   const pendingPermission = tracePendingPermission
     ?? (runRestore.status === "awaiting_tool_permission" && runRestore.runId
       ? { runId: runRestore.runId, key: runRestore.runId }
-      : null);
+      : null)
+    /* issue #3367 第 ③ 类：见 `reattachApproval` 声明处头注。排在最后——推流与恢复读
+       都是更实时的来源，有它们时不需要这一条。 */
+    ?? (reattachApproval ? { runId: reattachApproval.runId, key: reattachApproval.runId } : null);
   const interjectionRun = activeTrace && traceStatus?.kind === "status"
     ? { runId: activeTrace[0], status: traceStatus.status }
     : connectedInterjectionRun;
@@ -1293,6 +1323,8 @@ export function CopilotKitV2PanelBody({
       const acceptedBefore = acceptedRunEpoch.current;
       sendFailedRef.current = false; setRecoveryDiagnostic(null);
       setError(null);
+      /* issue #3367 —— 新的一轮开始，上一轮「其实还在等人批」的重挂请求作废。 */
+      setReattachApproval(null);
       setInputDraft("");
       // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
       // 会带着一个已不存在于正文里的 query 继续开着）。
