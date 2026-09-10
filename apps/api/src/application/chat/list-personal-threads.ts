@@ -20,13 +20,13 @@ import {
   type AgentRunStatusFact,
 } from "../../domain/chat/thread-badges";
 import { THREAD_GROUP_ORDER, threadGroupLabel } from "../../domain/chat/thread-grouping";
+import { decodeThreadListCursor, encodeThreadListCursor } from "../../domain/chat/thread-list-cursor";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { Clock } from "../auth/ports";
 import type { ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 
-export type ListPersonalThreadsResult = ListThreadsLikeResult;
-type ListThreadsLikeResult = z.infer<typeof C.operations.listThreads.out>;
+export type ListPersonalThreadsResult = z.infer<typeof C.operations.listPersonalThreads.out>;
 type ThreadCard = z.infer<typeof C.ThreadCard>;
 
 export interface ListPersonalThreadsDeps extends ResolveVisibilityDeps {
@@ -38,6 +38,12 @@ export interface ListPersonalThreadsInput {
   readonly userId: string;
   readonly orgId: OrgId;
   readonly includeArchived?: boolean;
+  /** issue #3356 —— 省略即 `THREAD_PAGE_SIZE`（30）。**省略不再等于全量**。 */
+  readonly limit?: number;
+  /** 上一页的 `nextCursor` 原样回传；形状不对时按「从头开始」处理，不报错。 */
+  readonly cursor?: string;
+  /** 标题子串搜索。**在服务端过滤**，所以能搜到还没翻出来的历史对话。 */
+  readonly q?: string;
 }
 
 export async function listPersonalThreads(
@@ -45,9 +51,38 @@ export async function listPersonalThreads(
   input: ListPersonalThreadsInput,
 ): Promise<ListPersonalThreadsResult> {
   const includeArchived = input.includeArchived === true;
-  const candidates = await deps.chat.listPersonalThreads(input.orgId, input.userId, {
+  const limit = clampLimit(input.limit);
+  const titleQuery = normalizeQuery(input.q);
+
+  // issue #3356 —— **多取一行**。这一行不进任何返回给用户的结构，它唯一的用途是
+  // 回答「还有没有下一页」。见 `pg-chat-repository.ts` 那段 `LIMIT $7` 的注释：
+  // 用「这一页是不是刚好取满 limit」来猜，会在总数恰好是 limit 整数倍时给出一个
+  // 点开是空的「加载更多」——那正是本仓刚修过一批的「点了没反应」的形状。
+  const fetched = await deps.chat.listPersonalThreads(input.orgId, input.userId, {
     includeArchived,
+    limit: limit + 1,
+    after: decodeThreadListCursor(input.cursor),
+    titleQuery,
   });
+  const hasMore = fetched.length > limit;
+  const candidates = hasMore ? fetched.slice(0, limit) : fetched;
+
+  /**
+   * ⚠ 游标取自**这一页最后一行候选**，不是最后一张卡片。可见性过滤发生在下面，
+   *   被过滤掉的行**已经被这次查询消费掉了**——如果拿最后一张可见卡片当游标，
+   *   下一页就会从它那里重新扫一遍那些不可见的行；极端情况（整页都不可见）时
+   *   卡片数为 0、没有"最后一张卡片"可用，翻页会**原地卡死**。
+   * ⚠ 这不违反 V9（不泄露"存在但不可见"的条目数）：游标是一个不透明位置，
+   *   不含计数，也不告诉调用方跳过了几条。
+   */
+  const lastRow = candidates[candidates.length - 1];
+  const nextCursor = hasMore && lastRow !== undefined
+    ? encodeThreadListCursor({
+      pinned: lastRow.pinned,
+      lastActivityAt: lastRow.lastActivityAt,
+      threadId: lastRow.threadId,
+    })
+    : null;
 
   // 恒下发，不查任何东西——个人线程能不能建第一条不取决于「已经有几条」（#489 同理）。
   const capabilities = [...PERSONAL_THREAD_CAPABILITIES];
@@ -88,10 +123,11 @@ export async function listPersonalThreads(
     byLabel.set(label, bucket);
   }
 
-  if (byLabel.size === 0) return { groups: [], capabilities };
+  if (byLabel.size === 0) return { groups: [], capabilities, nextCursor };
 
   // ⚠ 不在这里重排：`candidates` 已经是 `listPersonalThreads` 按
-  // `ORDER BY last_activity_at DESC, t.id` 取回的全序结果，上面的循环把每条
+  // `ORDER BY pinned DESC, last_activity_at DESC, id DESC`（#3356 起，见
+  // `thread-list-cursor.ts`）取回的全序结果，上面的循环把每条
   // 卡片按到达顺序 push 进 `byLabel`，天然保序。这里曾经有一段 `.sort((a, b) =>
   // a.lastActivityAt < b.lastActivityAt ? 1 : -1)`：相等时恒返回 `-1`，不满足
   // `compareFn` 的全序契约（`a===b` 时必须返回 `0`），会在时间戳并列时产生不稳定
@@ -105,7 +141,26 @@ export async function listPersonalThreads(
       cards: byLabel.get(label) ?? [],
     })),
     capabilities,
+    nextCursor,
   };
+}
+
+/**
+ * issue #3356 —— 一页几条。**默认站在分页那一边**（`THREAD_PAGE_SIZE`），
+ * 不是站在"没传就给全部"那一边：后者正是这个 issue 要删掉的行为本身。
+ * 上下界与契约 `listPersonalThreads.in.limit` 的 `.min(1).max(300)` 一致——
+ * 契约已经在边界上挡了一层，这里是**同一条规则在服务端的兜底**（HTTP 层的
+ * query string 是字符串，解析出 NaN 时不该变成一次 `LIMIT NaN`）。
+ */
+function clampLimit(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) return C.THREAD_PAGE_SIZE;
+  return Math.min(300, Math.max(1, Math.trunc(limit)));
+}
+
+/** 空白串等于没搜——`q=""`（用户把搜索框清空）不该变成"匹配空串"这条恒真条件。 */
+function normalizeQuery(q: string | undefined): string | null {
+  const trimmed = q?.trim();
+  return trimmed ? trimmed : null;
 }
 
 async function buildCard(

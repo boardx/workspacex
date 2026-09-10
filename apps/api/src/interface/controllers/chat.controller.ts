@@ -538,15 +538,28 @@ export class ChatController {
   async personalThreads(
     @CurrentPrincipal() principal: Principal,
     @Query("includeArchived") includeArchived?: string,
+    /**
+     * issue #3356 —— 分页三参数。全是 query string ⇒ 全是 `string | undefined`。
+     * ⚠ `limit` 解析失败（`?limit=abc`）时传 `undefined` 而不是 `NaN`：`NaN` 一路
+     *   走到 `clampLimit` 会被兜住，但传 `undefined` 让"没给一个能用的 limit"
+     *   在这一层就收敛成同一件事，不依赖下游兜底。
+     */
+    @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
+    @Query("q") q?: string,
   ) {
     assertPrincipal(principal);
     try {
+      const parsedLimit = limit === undefined ? undefined : Number.parseInt(limit, 10);
       return await listPersonalThreads(
         { ...this.deps, clock: this.clock },
         {
           userId: principal.userId,
           orgId: toOrgId(principal.orgId),
           includeArchived: includeArchived === "true",
+          limit: parsedLimit !== undefined && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+          cursor,
+          q,
         },
       );
     } catch (e) {
