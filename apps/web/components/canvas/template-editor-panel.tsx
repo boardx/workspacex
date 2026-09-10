@@ -19,9 +19,9 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  collidesWithOthers, maxFreeW, maxFreeH, FIELD_TYPES, newTextDraft,
+  FIELD_TYPES, newTextDraft,
   DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT, DEFAULT_TEXT_ALIGN, defaultValignFor,
-  defaultFontSizeFor,
+  defaultFontSizeFor, defaultFontWeightFor, defaultStickyColsFor,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -248,60 +248,67 @@ export function TemplateEditorPanel({
    * `addExtracted`）赋一次值，此后没有任何入口能改，想换类型只能删了重建，
    * 会连带丢掉已放置的画布位置。
    *
-   * 已放置的字段（`layout` 非空）改类型时，用 `defaultLayoutAt` 按新类型重新算
-   * 一份默认布局（列表型默认更高更多列，非列表型默认矮一行三列）——位置
-   * （`col`/`row`）保留，只刷新跟类型强相关的尺寸/列数，避免改成短文本后还占着
-   * 一大块列表型的高度。未放置的字段直接改 `type`，没有布局需要同步。
+   * 已放置的字段改类型时**保留它自己的几何**（col/row/w/h 原样不动），只刷新跟类型
+   * 强相关的派生值（贴纸列数 `cols`、字号/粗细/垂直对齐的缺省档）。
    *
-   * ⚠ 2026-09-10 人类实测：「把字段类型从文本改为便利贴之后，field 的范围扩大，
-   *   然后我什么也改不了在右边的 panel 上」。根因就在这里——本函数是**第四个**
-   *   改布局的入口，而下面那条 `applyLayoutIfFree` 的重叠门控只收口了三个
-   *   （`patchLayout`/`place`/`move`）。短文本 1 格宽改成列表型时按默认布局涨到
-   *   6 格宽 3 行，直接压住右边和下面的分区；一旦落到这个重叠状态，右栏每一次
-   *   改动都会被 `applyLayoutIfFree` 判为"还是重叠"而整体放弃，步进器的上限
-   *   （`maxFreeW`/`maxFreeH`）也一起塌成 1——面板从此一动不动，且不说为什么。
+   * ⚠ 沿革，两次都是人类实测反馈推着走的：
+   *   ① 最早：按新类型重算一份默认布局（列表型更高更宽）。后果是 2026-09-10 那条
+   *      「改成便利贴之后 field 的范围扩大，然后我什么也改不了」——它绕过了当时的
+   *      重叠门控，涨大后压住邻居，右栏从此一动不动。
+   *   ② 接着：涨之前先问邻居（`maxFreeW`/`maxFreeH`）。修好了卡死，但仍然会**改变
+   *      使用者自己摆好的尺寸**。
+   *   ③ 现在：干脆不改尺寸。默认尺寸已经统一成 2×2（小起点），"改成短文本后还占着
+   *      一大块列表型高度"这个当初的理由不再成立；而使用者亲手调过的宽高被一次换
+   *      类型悄悄改掉，比占大一点更让人意外。
    *
-   *   改法：涨多大先问过邻居。宽度按 `maxFreeW`（在 `row` 这一行探）收，高度再按
-   *   收好的宽度问 `maxFreeH`——两个上限都由 `defaultLayoutAt` 的 `limits` 收口，
-   *   因为 `cols`（默认摆几列）是从 `w` 推出来的，外面改宽不改列会自相矛盾。
-   *   这样类型**一定**改得成，只是不越界长大：长不动就维持原尺寸，而不是压住邻居。
+   * `limits` 传当前的 w/h：`cols`（贴纸默认摆几列）是从 w 推出来的，必须由
+   * `defaultLayoutAt` 收口重算，外面自己改宽不改列会得到一份自相矛盾的布局。
+   * 未放置的字段直接改 `type`，没有布局需要同步。
    */
   function changeFieldType(sectionId: string, type: SectionFieldType): void {
     setSections((prev) => prev.map((s) => {
       if (s.sectionId !== sectionId || s.type === type) return s;
-      if (!s.layout) return { ...s, type };
-      const { col, row } = s.layout;
-      // 宽度先在 `row` 这一行探（`h = 1`），再拿探到的宽度问纵向能长多高——
-      // `maxFreeH` 用的就是这个最终宽度，所以结果一定不与任何邻居重叠。
-      const freeW = maxFreeW(prev, sectionId, col, row, 1, gridCols);
-      const wanted = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW });
-      const freeH = maxFreeH(prev, sectionId, col, row, wanted.w);
-      const next = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW, maxH: freeH });
-      // 字号的缺省值随类型走（装帧大字 24 vs 字段值 13）——没动过字号的字段换类型时
-      // 跟着换缺省，动过的保留使用者自己配的那个数。
+      // 字号/垂直对齐/粗细的缺省值随类型走——没动过的跟着换缺省，动过的保留使用者
+      // 自己配的那个值（三处同一条判据）。
       const fontSize = s.fontSize === defaultFontSizeFor(s.type) ? defaultFontSizeFor(type) : s.fontSize;
-      // 垂直对齐同理：没动过的跟着类型换缺省（文本对象居中 / 文字型字段靠上），
-      // 动过的保留使用者自己选的那一档。
       const valign = s.valign === defaultValignFor(s.type) ? defaultValignFor(type) : s.valign;
-      return { ...s, type, fontSize, valign, layout: clampLayout(next, gridCols) };
+      const fontWeight = s.fontWeight === defaultFontWeightFor(s.type) ? defaultFontWeightFor(type) : s.fontWeight;
+      if (!s.layout) return { ...s, type, fontSize, valign, fontWeight };
+      // 几何原样保留，只重算跟类型+宽度强相关的 `cols`（贴纸默认摆几列）——
+      // 那条公式的唯一事实源是 `defaultStickyColsFor`，不在这里第二次写。
+      const layout = { ...s.layout, cols: defaultStickyColsFor(type, s.layout.w, gridCols, paperSize) };
+      return { ...s, type, fontSize, valign, fontWeight, layout: clampLayout(layout, gridCols) };
     }));
   }
 
   /**
-   * issue #2564：`clampLayout` 只把布局夹回画布边界，从不检查是否与另一个**已放置**
-   * 分区重叠——`patchLayout`/`place`/`move` 三个入口原先对夹好的结果照单全收，允许
-   * 把一个分区的位置/宽高改到直接压住旁边的分区，两块几何区间重叠，画出来就是
-   * 标题条互相压住、便签溢出到相邻分区（根因见 `rectsOverlap` 文档）。这里统一收口：
-   * 夹完边界之后，若还与别的分区重叠，就放弃这次改动、维持改动前的布局——同 Stepper
-   * 既有的「每次只挪一格、永远合法」约定，不静默产出一个会画错的状态。
+   * 应用一次布局改动。**允许重叠**——人类 2026-09-10 直接交办：
+   *
+   *   「allow the field to drag and drop to the design layout, even the size is
+   *    overlap with others, just highlight it, and user could adjust before save.
+   *    it is not user friendly user try many times and failed as the size not fit.」
+   *
+   * ## 为什么从「拒绝重叠」改成「允许并高亮」
+   *
+   * issue #2564 当初把重叠做成**硬拒绝**（夹完边界后若与别的分区重叠就整体放弃），
+   * 理由是重叠的版式画出来是错的（标题条互相压住、便签溢出到相邻分区）。那个判断
+   * 关于**结果**没错，关于**过程**错了：使用者是在拖的过程中试位置的，而拒绝是
+   * 静默的——手一松，区块弹回原处，没有任何东西说明为什么。人类实测原话是"试了很多次
+   * 都失败，因为尺寸不合适"。一个只会说"不行"、不说"哪里不行"的门，把编辑器变成了
+   * 猜谜游戏。
+   *
+   * 现在：拖得进去就放得下，重叠的区块在画布上**高亮**（`overlappingIds`），右栏也
+   * 点名（体检面板的「区块位置重叠」那条早就在了），使用者看着调。真正的门仍然在
+   * 终点上——`checkTemplateHealth` 的 `publishClean` 依旧把重叠算作不可发布，所以
+   * 一个压着的版式存得成草稿、发不出去。**草稿可以是半成品，发布不行**。
+   *
+   * ⚠ `clampLayout` 那道边界夹取**保留**：纸面外不是"暂时不好看"，是没有那块地方。
+   *
+   * `compute` 拿到改动前那个分区本身，算出提议的新布局；在同一次 `setSections`
+   * 更新里对 `prev` 现算，不读组件闭包里可能过期的 `sections`。返回 `null` 表示
+   * 这个分区本来就不该被改（如未放置的分区收到 `move`）。
    */
-  /**
-   * `compute` 拿到改动前那个分区本身，算出提议的新布局；夹完边界之后若与另一个
-   * 已放置分区重叠就整体放弃、维持改动前的布局。`compute` 与重叠检查都在同一次
-   * `setSections` 更新里对 `prev` 现算现比，不读组件闭包里可能过期的 `sections`。
-   * `compute` 返回 `null` 表示这个分区本来就不该被改（如未放置的分区收到 `move`）。
-   */
-  function applyLayoutIfFree(
+  function applyLayout(
     sectionId: string, compute: (current: SectionDraft) => SectionLayoutDraft | null,
   ): void {
     setSections((prev) => {
@@ -309,25 +316,23 @@ export function TemplateEditorPanel({
       if (!current) return prev;
       const proposed = compute(current);
       if (!proposed) return prev;
-      const next = clampLayout(proposed, gridCols);
-      if (collidesWithOthers(prev, sectionId, next)) return prev;
-      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: next } : s));
+      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: clampLayout(proposed, gridCols) } : s));
     });
   }
 
   function patchLayout(sectionId: string, patch: Partial<SectionLayoutDraft>): void {
-    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, ...patch } : null));
+    applyLayout(sectionId, (current) => (current.layout ? { ...current.layout, ...patch } : null));
   }
 
   function place(sectionId: string, col: number, row_: number): void {
-    applyLayoutIfFree(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize));
+    applyLayout(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize));
     // 放下后自动选中该区块并跳到第三步（§4.2 原话）。
     setSelectedId(sectionId);
     setStep(3);
   }
 
   function move(sectionId: string, col: number, row_: number): void {
-    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, col, row: row_ } : null));
+    applyLayout(sectionId, (current) => (current.layout ? { ...current.layout, col, row: row_ } : null));
     setSelectedId(sectionId);
   }
 
@@ -339,7 +344,8 @@ export function TemplateEditorPanel({
       sectionId: `s${Date.now()}`,
       key, name, type: newField.type, aiHint: null,
       order: prev.length, required: false, capacity: null, layout: null,
-      content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
+      content: "", color: null,
+      fontSize: defaultFontSizeFor(newField.type), fontWeight: defaultFontWeightFor(newField.type),
       hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: defaultValignFor(newField.type),
     }]);
     setNewField({ key: "", name: "", type: newField.type });
@@ -353,7 +359,8 @@ export function TemplateEditorPanel({
         sectionId: `s${Date.now()}-${i}`,
         key: f.key, name: f.name, type: f.type, aiHint: f.why,
         order: prev.length + i, required: false, capacity: null, layout: null,
-        content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
+        content: "", color: null,
+        fontSize: defaultFontSizeFor(f.type), fontWeight: defaultFontWeightFor(f.type),
         hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: defaultValignFor(f.type),
       }));
       return [...prev, ...add];

@@ -249,18 +249,89 @@ describe("computeExplicitLayout —— px 几何", () => {
     expect(spec.fieldCells![0]!.h).toBe(spec.fieldCells![1]!.h);
   });
 
-  it("短文本排成一条横带时仍然合并成表头带——既有模板逐字节不变", () => {
+  /**
+   * 人类 2026-09-10 追加两条：「text，也会需要可以隐藏 title」「text，还需要是否加粗」。
+   */
+  it("文字型字段的加粗与隐藏字段名落成 fieldCells 的 bold / hideLabel", () => {
     const { spec } = buildExplicitTemplateSpec({
-      key: "t1", displayName: "测试模板",
+      key: "t-bold-hide", displayName: "测试模板",
       sections: [
-        { ...section("a", 1, 1, 2, 1), type: "短文本" },
-        { ...section("b", 3, 1, 2, 1), type: "短文本" },
+        { ...section("a", 1, 1, 2, 1), type: "短文本", fontWeight: "bold" },
+        { ...section("b", 1, 3, 2, 1), type: "短文本", hideFieldTitle: true },
+        { ...section("c", 1, 5, 2, 1), type: "短文本" },
       ],
       gridCols: 12,
     });
-    expect(spec.fieldCells).toBeUndefined();
-    expect(spec.headerRect).toBeDefined();
-    expect(spec.fields).toEqual(["分区-a", "分区-b"]);
+    expect(spec.fieldCells![0]).toMatchObject({ bold: true });
+    expect(spec.fieldCells![1]).toMatchObject({ hideLabel: true });
+    // 没配过的那个两栏都不写——缺省交给 vendor，不在这里凭空产生一份默认值。
+    expect(spec.fieldCells![2]!.bold).toBeUndefined();
+    expect(spec.fieldCells![2]!.hideLabel).toBeUndefined();
+  });
+
+  it("隐藏字段名的短文本，渲染出来没有标签节点，值还在", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-hide-label-render", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 3, 1), type: "短文本", hideFieldTitle: true },
+        { ...section("b", 1, 3, 3, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    registerTemplate(spec);
+    const model = templateToModel("模板: t-hide-label-render\n分区-a: 甲\n分区-b: 乙\n");
+    const labels = model.nodes.filter((n) => n.data?.role === "fieldLabel").map((n) => n.label);
+    // 只剩没隐藏的那一个标签。
+    expect(labels).toEqual(["分区-b"]);
+    // 两个字段的值都还在——隐藏的是标题，不是内容（issue #3337 那次的教训）。
+    expect(model.nodes.filter((n) => n.data?.role === "field").map((n) => n.label)).toEqual(["甲", "乙"]);
+  });
+
+  /**
+   * ⚠ 人类 2026-09-10 直接交办：「header 不要合并，合并起来很丑了」。
+   *
+   * 短文本**永远**各画各的——横排也不合并。截图对照：编辑器画的是五个独立小盒子，
+   * 合并之后变成一条通栏、五个标签稀稀拉拉摊在里面、值被挤扁，与所见完全两回事。
+   */
+  it("横排的短文本也不合并成表头带：恒给 fieldCells，永不给 headerRect", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-never-band", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 3, 1, 2, 1), type: "短文本" },
+        { ...section("c", 5, 1, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.headerRect).toBeUndefined();
+    expect(spec.fieldsPerRow).toBeUndefined();
+    expect(spec.fieldCells).toHaveLength(3);
+    // 每个框就是它自己那个格子，三个 x 互不相同、y 相同（它们确实在同一行）。
+    expect(new Set(spec.fieldCells!.map((c) => c.x)).size).toBe(3);
+    expect(new Set(spec.fieldCells!.map((c) => c.y)).size).toBe(1);
+  });
+
+  /**
+   * 不再合并之后，「正文分区整体下移一个表头带高度」那次 `headerShift` 也一并消掉——
+   * 框不会因为合并而长高，正文就没有被顶开的理由。
+   */
+  it("正文分区不再被表头带顶下去：y 与不含短文本时逐字节相同", () => {
+    const withHeader = buildExplicitTemplateSpec({
+      key: "t-shift-a", displayName: "测试模板",
+      sections: [
+        { ...section("h", 1, 1, 2, 1), type: "短文本" },
+        section("body", 1, 3, 6, 3),
+      ],
+      gridCols: 12,
+    });
+    const withoutHeader = buildExplicitTemplateSpec({
+      key: "t-shift-b", displayName: "测试模板",
+      sections: [section("body", 1, 3, 6, 3)],
+      gridCols: 12,
+    });
+    const a = withHeader.spec.sections.find((x) => x.name === "分区-body")!;
+    const b = withoutHeader.spec.sections.find((x) => x.name === "分区-body")!;
+    expect(a.y).toBe(b.y);
   });
 
   /**
@@ -526,12 +597,27 @@ describe("computeExplicitLayout —— px 几何", () => {
   });
 
   /**
-   * 2026-08-30 人类反馈根因回归钉子：用户画像在 chat 模拟里测不出表头字段
-   * （姓名/性别/年龄……），因为 `type === "短文本"` 的分区此前被当成普通贴纸 box——
-   * 见 `buildExplicitTemplateSpec` 文件头「2026-08-30 追加」的注释。
+   * 「短文本」= 表头字段的历史与现状。
+   *
+   * 2026-08-30 人类反馈根因回归钉子：用户画像在 chat 模拟里测不出表头字段段——
+   * 本函数当时对每个分区一律当「便利贴列表」处理，`type === "短文本"` 的字段被塞进
+   * 跟其它分区一样的贴纸 box，模型按 guidance 写出的 `字段名: 字段值` 行没有落点，
+   * 引擎把值放进 `fields` map 却没有地方画，静默丢弃。
+   *
+   * 修法当时是「合并成一条表头带」（`fields` + `headerRect` + `fieldsPerRow`），
+   * 后续又为它打了两个补丁：字段太多时自动换行（2026-08-31）、带子长高时正文整体
+   * 下移让位（2026-09-02）。
+   *
+   * ⚠ 2026-09-10 人类直接交办「header 不要合并，合并起来很丑了」之后，**合并这条路
+   *   整个取消**：每个短文本画成自己那个格子（`fieldCells`）。上面那两个补丁要解决的
+   *   问题随之消失——不合并就不会有"一行放不下"，也不会有"带子长高顶到正文"。
+   *   它们的回归断言因此改写成"新行为下这两件事不再发生"，而不是删掉不管。
+   *
+   *   19 个内置模板不受影响：它们走 package 里那份自带 `headerRect` 的原生 spec，
+   *   vendor 的带子分支原样保留（用户画像顶上那条横带还在）。
    */
   describe("表头字段（`type: \"短文本\"`）", () => {
-    it("短文本分区不进入 spec.sections（不当贴纸 box），而是合并成 fields/headerRect", () => {
+    it("短文本不进 spec.sections（不当贴纸 box），而是各自成为一个 fieldCell", () => {
       const { spec } = buildExplicitTemplateSpec({
         key: "persona-like", displayName: "用户画像",
         sections: [
@@ -543,17 +629,16 @@ describe("computeExplicitLayout —— px 几何", () => {
       });
       expect(spec.sections.map((s) => s.name)).toEqual(["用户描述"]);
       expect(spec.fields).toEqual(["姓名", "性别"]);
-      expect(spec.headerRect).toBeDefined();
-      expect(spec.fieldsPerRow).toBe(2);
+      // 合并那条路已经取消：不再产出带子，改成逐字段的框。
+      expect(spec.headerRect).toBeUndefined();
+      expect(spec.fieldsPerRow).toBeUndefined();
+      expect(spec.fieldCells!.map((c) => c.key)).toEqual(["姓名", "性别"]);
     });
 
-    it("headerRect 是所有表头格子的外接矩形，覆盖它们各自的 x/y/w/h", () => {
+    it("每个 fieldCell 就是它自己那个网格格子，不是所有格子的外接矩形", () => {
       const nameCell = section("name", 1, 1, 3, 1);
       const genderCell = section("gender", 4, 1, 3, 1);
-      const layout = computeExplicitLayout(
-        [nameCell, genderCell],
-        12,
-      );
+      const layout = computeExplicitLayout([nameCell, genderCell], 12);
       const { spec } = buildExplicitTemplateSpec({
         key: "persona-like", displayName: "用户画像",
         sections: [
@@ -562,12 +647,14 @@ describe("computeExplicitLayout —— px 几何", () => {
         ],
         gridCols: 12,
       });
-      const left = Math.min(...layout.cells.map((c) => c.x - c.w / 2));
-      const right = Math.max(...layout.cells.map((c) => c.x + c.w / 2));
-      expect(spec.headerRect!.w).toBeCloseTo(right - left, 5);
+      // 外接框会是两格之和；逐字段的框各自等于对应那一格。
+      for (const [i, cell] of layout.cells.entries()) {
+        expect(spec.fieldCells![i]!.w).toBeCloseTo(cell.w, 5);
+        expect(spec.fieldCells![i]!.x).toBeCloseTo(cell.x, 5);
+      }
     });
 
-    it("没有短文本分区时（绝大多数组织自建模板），不产出 fields/headerRect——与改动前逐字一致", () => {
+    it("没有短文本分区时（绝大多数组织自建模板），不产出 fields/fieldCells", () => {
       const { spec } = buildExplicitTemplateSpec({
         key: "t1", displayName: "测试模板",
         sections: [section("a", 1, 1, 6, 4), section("b", 7, 1, 6, 4)],
@@ -575,19 +662,16 @@ describe("computeExplicitLayout —— px 几何", () => {
       });
       expect(spec.fields).toBeUndefined();
       expect(spec.headerRect).toBeUndefined();
+      expect(spec.fieldCells).toBeUndefined();
     });
 
     /**
-     * 2026-08-31 人类实测截图回归钉子：用户画像 9 个表头字段被 `autoFillLayout` 铺进
-     * 同一个网格行（`row=1`），此前 `fieldsPerRow` 直接取"这一行放了几个格子"=9——
-     * 引擎每个字段固定要 96+6+150=252px，`headerRect` 那点宽度根本放不下 9 个，画出来
-     * 是姓名/性别/年龄……的文字互相压在一起，读不出任何一个值（不是空白，是糊成一团）。
-     * 这条钉住修复后的正确行为：按实际像素宽度换算这一行最多放几个，放不下的自动换行，
-     * `headerRect.h` 跟着行数长高，且从不产出会让相邻字段互相压住的 `fieldsPerRow`。
+     * 2026-08-31 那条「9 个字段挤在一行、文字互相压住」的回归，在不合并之后从**根上**
+     * 不成立：每个字段占自己那一格，格子由网格分配，天然不会互相压。这条把它钉成
+     * 新形态——9 个字段产出 9 个互不重叠的框。
      */
-    it("表头字段数超过一行像素宽度放得下的个数时自动换行，不产出会导致文字互相压住的 fieldsPerRow", () => {
+    it("9 个表头字段各占各的格子，两两不重叠（用户画像真实铺法）", () => {
       const PERSONA_FIELDS = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
-      // 9 个字段铺满 12 列网格的同一行——`autoFillLayout` 对表头字段的真实铺法。
       const widths = [2, 1, 1, 1, 1, 1, 1, 2, 2]; // 和为 12
       let col = 1;
       const sections = PERSONA_FIELDS.map((name, i) => {
@@ -599,25 +683,25 @@ describe("computeExplicitLayout —— px 几何", () => {
       const { spec } = buildExplicitTemplateSpec({
         key: "persona-like", displayName: "用户画像", sections, gridCols: 12,
       });
-      const HEADER_FIELD_MIN_W = 96 + 6 + 150;
-      // 核心断言：换算出的 fieldsPerRow 必须能在 headerRect 的实际宽度里放得下，
-      // 不能再像修复前那样直接等于"这一行有几个格子"。
-      expect(spec.fieldsPerRow! * HEADER_FIELD_MIN_W).toBeLessThanOrEqual(spec.headerRect!.w + 1e-6);
-      expect(spec.fieldsPerRow!).toBeLessThan(PERSONA_FIELDS.length);
-      // 换行后 headerRect 必须跟着长高，容纳 ceil(9/fieldsPerRow) 行，不能停留在单行原高度。
-      const rows = Math.ceil(PERSONA_FIELDS.length / spec.fieldsPerRow!);
-      expect(rows).toBeGreaterThan(1);
-      expect(spec.headerRect!.h).toBeGreaterThan(0);
+      const cells = spec.fieldCells!;
+      expect(cells).toHaveLength(PERSONA_FIELDS.length);
+      for (let i = 0; i < cells.length; i += 1) {
+        for (let j = i + 1; j < cells.length; j += 1) {
+          const a = cells[i]!;
+          const b = cells[j]!;
+          const overlap = Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 1e-6
+            && Math.abs(a.y - b.y) < (a.h + b.h) / 2 - 1e-6;
+          expect([PERSONA_FIELDS[i], PERSONA_FIELDS[j], overlap]).toEqual([PERSONA_FIELDS[i], PERSONA_FIELDS[j], false]);
+        }
+      }
     });
 
     /**
-     * 2026-09-02 人类实测截图回归钉子（chat 里的用户画像「画框和上方框重叠」）：
-     * 上一条让 `headerRect` 长高（9 字段 → 2 行 → 120px），但表头格子只占 1 个网格行
-     * （≈83.5px），长出来的 36.5px 直接压在正文第一行三个分区框的标题条上。
-     * 这条钉住修复后的行为：表头带比格子高出多少，位于其下方的正文分区就整体下移多少，
-     * 正文分区之间的相对版式不变，`layout.bounds.bottom` 同步下移。
+     * 2026-09-02 那条「表头带长高顶到正文」的回归，同样从根上不成立：不合并就不会
+     * 长高。这条钉住 `layout` 与 `computeExplicitLayout` 的原始几何逐字节相同——
+     * 也就是说 `headerShift` 那套位移彻底没有了，不是"恰好为 0"。
      */
-    it("表头带长高时，正文分区整体下移让位——任何正文框都不与表头带重叠（用户画像真实几何）", () => {
+    it("正文分区一字不动：spec 的 layout 与原始 computeExplicitLayout 完全相同", () => {
       const PERSONA_FIELDS = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
       const widths = [2, 1, 1, 1, 1, 1, 1, 2, 2];
       let col = 1;
@@ -627,65 +711,13 @@ describe("computeExplicitLayout —— px 几何", () => {
         col += w;
         return cell;
       });
-      // 正文 6 个分区：3 列 × 2 行，紧贴表头行之下（第 2-4 行、第 5-8 行）——
-      // `builtin-template-config.ts` 对 persona 的真实推演版式。
-      const bodyNames = ["用户描述", "目标和需求", "行为与偏好", "痛点和挑战", "动机", "影响因素"];
-      const body = bodyNames.map((name, i) => ({
-        ...section(`s${i}`, 1 + (i % 3) * 4, i < 3 ? 2 : 5, 4, i < 3 ? 3 : 4),
-        name,
-        type: "便利贴列表" as const,
-      }));
-      const { spec, layout } = buildExplicitTemplateSpec({
-        key: "persona-shift", displayName: "用户画像", sections: [...header, ...body], gridCols: 12,
+      const body = [section("desc", 1, 2, 6, 4), section("goal", 7, 2, 6, 4)];
+      const input = [...header, ...body];
+      const raw = computeExplicitLayout(input, 12);
+      const { layout } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像", sections: input, gridCols: 12,
       });
-      const raw = computeExplicitLayout([...header, ...body], 12);
-
-      const hr = spec.headerRect!;
-      const headerBottom = hr.y + hr.h / 2;
-      const rawHeaderBottom = Math.max(...raw.cells.slice(0, header.length).map((c) => c.y + c.h / 2));
-      // 前提成立：表头带确实比它的网格格子高（否则这条测试测不到东西）。
-      expect(headerBottom).toBeGreaterThan(rawHeaderBottom);
-      const delta = headerBottom - rawHeaderBottom;
-
-      // 核心断言：每个正文框的顶边都不高于表头带底边。
-      expect(spec.sections).toHaveLength(6);
-      for (const s of spec.sections) {
-        expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom - 1e-6);
-      }
-      // 正文整体平移同一个 delta：相对版式一字不改。
-      const rawBody = raw.cells.slice(header.length);
-      spec.sections.forEach((s, i) => {
-        expect(s.x).toBeCloseTo(rawBody[i]!.x, 6);
-        expect(s.y - rawBody[i]!.y).toBeCloseTo(delta, 6);
-        expect(s.w).toBeCloseTo(rawBody[i]!.w, 6);
-        expect(s.h).toBeCloseTo(rawBody[i]!.h, 6);
-      });
-      // 外接框底边跟着下移，`fitToContent` 才不会把最下面一行裁掉。
-      expect(layout.bounds.bottom).toBeCloseTo(raw.bounds.bottom + delta, 6);
-      // 表头格子本身不动（它们的 x/y 只是 headerRect 的取材，不参与平移）。
-      layout.cells.slice(0, header.length).forEach((c, i) => {
-        expect(c.y).toBeCloseTo(raw.cells[i]!.y, 6);
-      });
-    });
-
-    it("表头字段少到一行放得下时（表头带不长高）正文分区一字不动——与改动前逐字一致", () => {
-      const header = [
-        { ...section("name", 1, 1, 6, 1), name: "姓名", type: "短文本" as const },
-        { ...section("age", 7, 1, 6, 1), name: "年龄", type: "短文本" as const },
-      ];
-      const body = [
-        { ...section("a", 1, 2, 6, 7), name: "A", type: "便利贴列表" as const },
-        { ...section("b", 7, 2, 6, 7), name: "B", type: "便利贴列表" as const },
-      ];
-      const { spec, layout } = buildExplicitTemplateSpec({
-        key: "no-shift", displayName: "x", sections: [...header, ...body], gridCols: 12,
-      });
-      const raw = computeExplicitLayout([...header, ...body], 12);
-      // 2 个字段 → 1 行 → minH 80 < 格子高 83.5：表头带不长高，正文不平移。
-      expect(spec.headerRect!.h).toBeCloseTo(raw.cells[0]!.h, 6);
-      spec.sections.forEach((s, i) => {
-        expect(s.y).toBeCloseTo(raw.cells[header.length + i]!.y, 6);
-      });
+      expect(layout.cells.map((c) => c.y)).toEqual(raw.cells.map((c) => c.y));
       expect(layout.bounds.bottom).toBe(raw.bounds.bottom);
     });
   });
