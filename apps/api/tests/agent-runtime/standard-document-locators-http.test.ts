@@ -127,7 +127,19 @@ it('production Python graph refuses cached read/execute after real source revoca
    const timer=setTimeout(()=>child.kill('SIGKILL'),90000);let pending='',error='';let work=Promise.resolve();
    child.stdout.on('data',(chunk:Buffer)=>{pending+=chunk.toString();let newline:number;while((newline=pending.indexOf('\n'))>=0){const line=pending.slice(0,newline).trim();pending=pending.slice(newline+1);work=work.then(async()=>{
     if(line==='READY'){ready=true;before=executionCount;await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'intruder']));child.stdin.write('REVOKED\n');}
-    if(line==='DENIED'){denied=true;const discovery=executedCommands.slice(before);console.info('revoked fixture commands',JSON.stringify(discovery));expect(discovery).toHaveLength(2);expect(discovery.every(command=>command.includes("base64.b64decode('L3NraWxscy8=')")&&command.includes('with os.scandir(path)')&&!command.includes(cachedPath)&&!command.includes('cat '))).toBe(true);await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));child.stdin.write('RESTORED\n');}
+    if(line==='DENIED'){denied=true;const discovery=executedCommands.slice(before);console.info('revoked fixture commands',JSON.stringify(discovery));
+     /* 本条判的是「拒绝之后没有任何缓存正文被读走」。以前它写成
+      * `toHaveLength(2)` + `every(是无害的 /skills/ 扫描)`：那 2 条是
+      * `SkillsMiddleware` 每轮重新发现技能时跑的 `os.scandir('/skills/')`，
+      * 属于**顺带出现的噪声**，不是本条要证的事。#3309 起技能元数据直接从
+      * 已验签的钉包解析，那两次扫描不再发生，于是这里恒为 0 条。
+      * 判据因此改写成**直接的**那一句：撤权后一条命令都不许碰缓存正文。
+      * 它比原来更难空转——原来若 discovery 变成 0 条，`every` 会在空数组上
+      * 恒真、只剩长度断言在挡；现在无论几条，只要有一条碰了 cachedPath 或
+      * `cat` 就红，同时仍然钉住「除了无害的 /skills/ 扫描什么都不许跑」。 */
+     expect(discovery.filter(command=>command.includes(cachedPath)||command.includes('cat '))).toEqual([]);
+     expect(discovery.filter(command=>!(command.includes("base64.b64decode('L3NraWxscy8=')")&&command.includes('with os.scandir(path)')))).toEqual([]);
+     expect(discovery).toHaveLength(0);await asApp(org,c=>c.query('UPDATE chat_threads SET created_by=$3 WHERE org_id=$1 AND id=$2',[org,thread,'actor']));child.stdin.write('RESTORED\n');}
     if(line==='RESTORED_READ_AND_EXECUTE_VERIFIED')restored=true;
    }).catch(cause=>{child.kill('SIGKILL');reject(cause);});}});
    child.stderr.on('data',(chunk:Buffer)=>{if(error.length<12000)error+=chunk.toString();});
