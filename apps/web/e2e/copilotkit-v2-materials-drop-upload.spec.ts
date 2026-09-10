@@ -94,7 +94,19 @@ test("issue #3347：拖文件到右栏「材料」→ 真实上传 → 随消息
   const inspector = page.getByTestId("chat-task-workbench-inspector");
   await expect(inspector).toBeVisible();
 
-  /* ═══════ ① 拖进来的不是文件：明确说明，且**没有**发出任何上传请求 ═══════ */
+  /* ═══════ ⓪ 先等写权限落定，再拖 ═══════
+     `canWriteThread` 读的是 `getThread` 异步回来的 capabilities（`composer.send`）；
+     在它落定之前上传入口如实处于「只读或写权限尚未确认」态。不等这一下就拖，
+     测的是一个竞态而不是功能——而且会红得像是拖拽坏了。上传入口从禁用变可用
+     本身就是「权限确认完毕」的真实信号，不另造一个等待锚点。 */
+  await page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
+  await expect(page.getByTestId("chat-materials-upload-trigger")).toBeEnabled({ timeout: 60_000 });
+  await expect(page.getByTestId("chat-materials-empty")).toBeVisible();
+  // 切回「进度」页签：下面要验证的一条是"拖到别的页签上也算数，并自动切到材料"。
+  await page.getByTestId("chat-task-workbench-inspector-tab-progress").click();
+  await expect(inspector).toHaveAttribute("data-active-tab", "progress");
+
+  /* ═══════ ① 拖进来的不是文件：明确说明，且没有发出任何上传请求 ═══════ */
   let uploads = 0;
   page.on("request", (request) => {
     if (request.method() === "POST" && /\/chat\/threads\/[^/]+\/attachments$/.test(new URL(request.url()).pathname)) {
