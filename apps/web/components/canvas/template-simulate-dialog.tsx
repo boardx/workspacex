@@ -1,4 +1,5 @@
 "use client";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * chat 模拟弹窗 —— 人类原话：「这个界面需要有测试的功能，做好了设置以后，需要有一个
@@ -170,7 +171,7 @@ export function TemplateSimulateDialog({
    * 这个制式的网格坐标，`buildExplicitTemplateSpec` 换算 px 时需要它。与②画布用
    * 同一个 state，不另起一份。
    */
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly title: string;
   /** 页脚署名——与保存/真实 chat 渲染同源，模拟里也要画出来（issue #2527）。 */
   readonly footer: string;
@@ -247,6 +248,7 @@ export function TemplateSimulateDialog({
                     sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type,
                     content: s.content, color: s.color, fontSize: s.fontSize, fontWeight: s.fontWeight,
                     hideFieldTitle: s.hideFieldTitle,
+                    align: s.align, valign: s.valign,
                   }
                 )),
             })

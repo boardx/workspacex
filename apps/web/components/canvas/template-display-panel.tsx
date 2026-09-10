@@ -3,11 +3,14 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
-  classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH,
+  classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH, collidesWithOthers, GRID_ROWS,
+  isTextual, TEXT_ALIGNS, TEXT_VALIGNS, DEFAULT_FIELD_FONT_SIZE,
+  type TextAlign, type TextVAlign,
   FONT_WEIGHT_OPTIONS, TEXT_FONT_SIZE_MIN, TEXT_FONT_SIZE_MAX,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * 第三步 · 显示方式（R5，2026-08-26）——`Design.pdf` §4.3 右栏逐条实现。
@@ -26,7 +29,7 @@ export function TemplateDisplayPanel({
    * 真实上限，因此需要看到整份分区列表，不能只看选中的这一个。
    */
   readonly sections: readonly SectionDraft[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly health: TemplateHealth;
   readonly editable: boolean;
   readonly onPatch: (patch: Partial<SectionLayoutDraft>) => void;
@@ -146,6 +149,7 @@ export function TemplateDisplayPanel({
             testIdPrefix="tpladmin-editor-text-weight"
           />
         </Group>
+        <AlignGroups section={section} editable={editable} onPatchSection={onPatchSection} />
 
         {layout && (
           <Group label="在 A1 上占多大">
@@ -153,7 +157,7 @@ export function TemplateDisplayPanel({
               <span className="w-6 text-11 text-muted-foreground">宽</span>
               <Stepper
                 value={layout.w} min={1}
-                max={maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols)}
+                max={Math.max(layout.w, maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols))}
                 editable={editable}
                 onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
               />
@@ -162,7 +166,7 @@ export function TemplateDisplayPanel({
               <span className="w-6 text-11 text-muted-foreground">高</span>
               <Stepper
                 value={layout.h} min={1}
-                max={maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w)}
+                max={Math.max(layout.h, maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w))}
                 editable={editable}
                 onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
               />
@@ -187,6 +191,34 @@ export function TemplateDisplayPanel({
 
   const isList = section.type === "便利贴列表";
   const geom = sectionGeometryMmOf(section, gridCols, paperSize);
+  /**
+   * 「宽/高加不动」的真实原因（见下方步进器旁那行提示的注释）。`null` = 还能加，
+   * 或者这个字段还没放到画布上。
+   *
+   * 三种情况分开说，因为出路完全不同：**已经压住邻居**（历史数据留下的坏状态，
+   * 出路是把它缩小）、**被邻居挡住**（出路是挪走谁）、**顶到纸边**（没有出路，
+   * 那就是画布边界）。三种都只表现为一个置灰的加号，不说清楚就只剩"点不动"。
+   */
+  const blockedBy: string | null = (() => {
+    const layout = section.layout;
+    if (!layout) return null;
+    if (collidesWithOthers(sections, section.sectionId, layout)) {
+      return "这块地方正压住旁边的分区 —— 先把宽或高调小，或把它拖到空位上";
+    }
+    const freeW = maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols);
+    const freeH = maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w);
+    const wStuck = layout.w >= freeW;
+    const hStuck = layout.h >= freeH;
+    if (!wStuck && !hStuck) return null;
+    // 顶到纸边 vs 被邻居挡住：夹到画布边界的那个数就是纸边的上限。
+    const edgeW = gridCols - layout.col + 1;
+    const edgeH = GRID_ROWS - layout.row + 1;
+    const blocked: string[] = [];
+    if (wStuck && freeW < edgeW) blocked.push("右边");
+    if (hStuck && freeH < edgeH) blocked.push("下面");
+    if (blocked.length === 0) return "已经顶到纸边了";
+    return `${blocked.join("和")}被别的分区占住了 —— 挪开它，或把这块拖到空位上`;
+  })();
   const sizeClass = classifyNoteSize(geom.noteMm);
   const sizeNote = sizeClass === "standard" ? "≈ 标准 76mm 方形贴纸 ✓"
     : sizeClass === "compact" ? "≈ 小号 51mm 贴纸"
@@ -310,6 +342,27 @@ export function TemplateDisplayPanel({
         </>
       )}
 
+      {/*
+        文字型数据字段（短文本/长文本）的字号与对齐——人类直接交办（2026-09-10）：
+        「对于 text 的字段，可以指定，居中，靠左，靠右，靠上，靠下」「还可以指定 font
+        的大小」。便利贴列表不出这两栏：贴纸是一格一格排的，字号由贴纸实尺推导
+        （`noteFontSizePx`），对齐由贴纸网格决定，都不是"一段文字"的属性。
+      */}
+      {isTextual(section.type) && (
+        <>
+          <Group label="字号">
+            <div className="flex items-center gap-2">
+              <Stepper
+                value={section.fontSize} min={TEXT_FONT_SIZE_MIN} max={TEXT_FONT_SIZE_MAX} editable={editable}
+                onChange={(fontSize) => onPatchSection({ fontSize })} testIdPrefix="tpladmin-editor-field-fontsize"
+              />
+              <span className="text-11 text-muted-foreground">px</span>
+            </div>
+          </Group>
+          <AlignGroups section={section} editable={editable} onPatchSection={onPatchSection} />
+        </>
+      )}
+
       <Group label="在 A1 上占多大">
         {/*
           人类 2026-08-26 实测反馈：「宽和高要有更多的选项，目前高 1 到 4 不够，要有所有的
@@ -327,12 +380,20 @@ export function TemplateDisplayPanel({
             步进器因此永远停在合法、且不会画出重叠版式的范围内（`onPatch` 那边的
             `patchLayout` 仍然会再查一次重叠兜底，两处不是同一份检查的两次声明——
             这里决定「能不能点」，那边决定「点了要不要生效」，各管各的层）。
+
+          ⚠ 2026-09-10 人类实测「什么也改不了」：上限必须再兜一道 `Math.max(当前值, …)`。
+            分区一旦已经处于重叠状态（历史数据，或 `changeFieldType` 修好之前那条绕过
+            门控的路径留下的），`maxFreeW`/`maxFreeH` 从 w=1 起探就撞，直接返回 1；
+            `Stepper` 又把显示值 `clamp` 到上限，于是面板显示「宽 1 / 高 1」——这是假的，
+            真实布局是 6×3——加号减号还双双置灰，既看不出真实尺寸，也没有任何出路。
+            上限至少等于当前值之后：显示的是真实数字，减号可用，使用者能把分区缩小、
+            自己走出重叠。下面那行提示负责说清楚"为什么加不动"。
         */}
         <div className="flex items-center gap-2">
           <span className="w-6 text-11 text-muted-foreground">宽</span>
           <Stepper
             value={layout.w} min={1}
-            max={maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols)}
+            max={Math.max(layout.w, maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols))}
             editable={editable}
             onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
           />
@@ -341,11 +402,23 @@ export function TemplateDisplayPanel({
           <span className="w-6 text-11 text-muted-foreground">高</span>
           <Stepper
             value={layout.h} min={1}
-            max={maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w)}
+            max={Math.max(layout.h, maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w))}
             editable={editable}
             onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
           />
         </div>
+        {/*
+          「为什么加不动」——步进器停下来有两种完全不同的原因：撞到纸边（没救，那是
+          画布本身的边界），还是被旁边已放置的分区挡住（有救：挪走邻居、或把这块挪个
+          位置）。两种都只表现为一个置灰的加号，使用者无从分辨——2026-09-10 人类实测
+          反馈「我什么也改不了」，一半是真的改不了（上面那条重叠 bug），另一半是改不动
+          却不说为什么。这里如实交代是哪一种。
+        */}
+        {editable && blockedBy !== null && (
+          <span className="text-10 text-destructive" data-testid="tpladmin-editor-size-blocked">
+            {blockedBy}
+          </span>
+        )}
         <span className="text-10 text-muted-foreground" data-testid="tpladmin-editor-mm-note">
           {geom.wMm} × {geom.hMm} mm 实尺（{paperSize} 纸，四边留 10mm）
         </span>
@@ -456,5 +529,45 @@ function Chips<T extends string | number>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * 「对齐」两栏（水平 + 垂直）——人类直接交办（2026-09-10）：「对于 text 的字段，
+ * 可以指定，居中，靠左，靠右，靠上，靠下也就是左右上下要可以居中靠两边」。
+ *
+ * 文本对象与文字型数据字段共用同一个组件：两者对齐的语义完全一样（一段文字在它
+ * 自己那个框里怎么摆），没有理由写两份长得一样、日后各改各的 JSX。
+ */
+function AlignGroups({
+  section, editable, onPatchSection,
+}: {
+  readonly section: SectionDraft;
+  readonly editable: boolean;
+  readonly onPatchSection: (patch: Partial<SectionDraft>) => void;
+}) {
+  return (
+    <>
+      <Group label="水平对齐">
+        <Chips
+          options={TEXT_ALIGNS}
+          value={section.align}
+          editable={editable}
+          onPick={(align: TextAlign) => onPatchSection({ align })}
+          format={(v) => (v === "left" ? "靠左" : v === "center" ? "居中" : "靠右")}
+          testIdPrefix="tpladmin-editor-align"
+        />
+      </Group>
+      <Group label="垂直对齐">
+        <Chips
+          options={TEXT_VALIGNS}
+          value={section.valign}
+          editable={editable}
+          onPick={(valign: TextVAlign) => onPatchSection({ valign })}
+          format={(v) => (v === "top" ? "靠上" : v === "middle" ? "居中" : "靠下")}
+          testIdPrefix="tpladmin-editor-valign"
+        />
+      </Group>
+    </>
   );
 }

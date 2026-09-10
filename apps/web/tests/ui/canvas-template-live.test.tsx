@@ -1112,6 +1112,60 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     expect(within(panel).getByTestId("tpladmin-editor-field-state-gains")).toHaveTextContent("未放置");
   });
 
+  /**
+   * ⚠ 2026-09-10 人类实测：「把字段类型从文本改为便利贴之后，field 的范围扩大，
+   * 然后我什么也改不了在右边的 panel 上」。
+   *
+   * `changeFieldType` 是第四个改布局的入口，却绕过了 issue #2564 那道重叠门控：
+   * 短文本按默认布局涨到 6 格宽 3 行，直接压住右边和下面的分区；落到重叠状态之后
+   * 右栏每一次改动都被 `applyLayoutIfFree` 判为"还是重叠"整体放弃，步进器上限也
+   * 塌成 1，面板从此一动不动。
+   */
+  it("改类型时按邻居留出的空间长大，不会压住相邻分区、也不会把右栏卡死", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+        sections: [
+          // 左上角一格的短文本，右边紧挨着一个分区、正下方也紧挨着一个分区——
+          // 改成列表型时"默认 6 格宽 3 行"两个方向都长不出去。
+          {
+            sectionId: "s1", key: "title", name: "标题", type: "短文本", aiHint: null,
+            order: 0, required: false, capacity: null,
+            layout: { col: 1, row: 1, w: 1, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          },
+          {
+            sectionId: "s2", key: "right", name: "右邻", type: "便利贴列表", aiHint: null,
+            order: 1, required: false, capacity: null,
+            layout: { col: 2, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          },
+          {
+            sectionId: "s3", key: "below", name: "下邻", type: "便利贴列表", aiHint: null,
+            order: 2, required: false, capacity: null,
+            layout: { col: 1, row: 2, w: 1, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+          },
+        ],
+      })],
+    })));
+    const panel = await openEditor();
+
+    const typeSelect = within(panel).getByTestId("tpladmin-editor-section-0-type") as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: "便利贴列表" } });
+    await waitFor(() => {
+      expect(within(panel).getByTestId("tpladmin-editor-field-title").textContent).toContain("{{title[]}}");
+    });
+
+    // 改动前：这里会变成 6×3、压住 s2/s3，体检面板报重叠。
+    expect(within(panel).queryByTestId("tpladmin-editor-health-overlap")).toBeNull();
+
+    // 右栏仍然可用：选中这个区块，宽度步进器显示的是真实值 1，不是被上限夹出来的假数字。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    await waitFor(() => {
+      expect(within(panel).getByTestId("tpladmin-editor-w-value")).toHaveTextContent("1");
+    });
+    // 加不动的原因如实写出来，而不是只留一个置灰的加号。
+    expect(within(panel).getByTestId("tpladmin-editor-size-blocked").textContent).toContain("被别的分区占住");
+  });
+
   it("已归档（不可编辑）模式下没有类型下拉，只有一段只读类型文字", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [template({

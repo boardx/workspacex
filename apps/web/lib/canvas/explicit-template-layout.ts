@@ -41,6 +41,7 @@ import {
   A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_GAP, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER,
   HEADER_ROW_PITCH,
 } from "./auto-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
@@ -93,6 +94,9 @@ export interface ExplicitLayoutSectionInput {
   readonly fontWeight?: string;
   /** 数据绑定型分区隐藏标题——见契约 `SectionDef.hideFieldTitle` 文档。 */
   readonly hideFieldTitle?: boolean;
+  /** 文字型字段的对齐——见契约 `SectionDef.align` / `.valign` 文档。 */
+  readonly align?: "left" | "center" | "right";
+  readonly valign?: "top" | "middle" | "bottom";
 }
 
 export interface ExplicitLayoutCell {
@@ -107,12 +111,18 @@ export interface ExplicitLayoutCell {
 }
 
 export interface ExplicitLayout {
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly cells: readonly ExplicitLayoutCell[];
   readonly bounds: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
 }
 
-const GRID_ROWS = 8;
+/**
+ * 画布网格的行数。⚠ 这是**唯一**声明处——`template-editor-model.ts`（夹取/自动
+ * 排版/步进器上限）、`template-canvas-grid.tsx`（编辑器网格）、`sectionGeometryMm`
+ * 的 `rowSpanDenominator` 都从这里读。同一个数字散在四个文件里各写一遍，正是
+ * AGENTS.md「同一事实不得声明在两处」点名过的漂移来源。
+ */
+export const GRID_ROWS = 8;
 
 /**
  * 网格坐标（1 起的 col/row + 跨度 w/h）→ px 几何。
@@ -126,7 +136,7 @@ const GRID_ROWS = 8;
  */
 export function computeExplicitLayout(
   sections: readonly ExplicitLayoutSectionInput[],
-  gridCols: 6 | 12,
+  gridCols: GridColsValue,
 ): ExplicitLayout {
   const areaW = A0_FRAME.right - A0_FRAME.left;
   const areaH = A0_FRAME.bottom - GRID_TOP;
@@ -165,7 +175,7 @@ export interface ExplicitTemplateInput {
   /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
   readonly footer?: string;
   readonly sections: readonly ExplicitLayoutSectionInput[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
 }
 
 export interface ExplicitTemplateResult {
@@ -301,10 +311,44 @@ const HEADER_FIELD_MIN_W = 96 + 6 + 150;
  * 一寸空间都没有，容量为 0 是如实的，不是这个函数能解决的（会在别处被当成布局
  * 需要修的信号，而不是在这里硬造一张看不见的贴纸）。
  */
-function stickyHeightOverride(cellH: number): { h?: number } {
+/**
+ * 贴纸收缩到最小仍要看得见内容的下限（px）。同 `sectionGeometryMm` 那条 mm 姊妹
+ * 路径的 `MIN_SHRINK_NOTE_MM`（23mm）在 px 侧的对应量级：再矮下去，vendor 的
+ * `shrinkTextboxToFit`（下限 7px 字号）连一行字都塞不进，画出来是一排看不见内容
+ * 的色块——那时候如实少摆一行，比摆满一堆空色块诚实。
+ */
+const MIN_SHRUNK_STICKY_H = 28;
+
+/**
+ * ⚠ 2026-09-10 人类实测反馈：「模板配置了像是 4 个便利贴但是只显示了 2 个」。
+ *
+ * 根因就在本函数此前那一行 `return { h: Math.floor(available) }`——它把贴纸高度
+ * 压成**整个可用高度**，于是 `renderStickyCapacity` 反解出的行数恒等于 **1**：
+ * `floor((available + gapY) / (available + gapY)) = 1`。配了「2 列 × 4 条」的分区，
+ * 容量被算成 `2 × 1 = 2`，`capFenceBulletsToCapacity` 就把后两条要点整行丢掉——
+ * 编辑器②画布里明明画着 2×2 四张，chat 渲染只剩一行两张。
+ *
+ * 这不是 issue #2585 那次修错了方向，是那次只回答了「一行都摆不下怎么办」，没回答
+ * 「使用者要的是几行」——`layout.max`（最多条数）与 `layout.cols`（列数）合起来
+ * 就是那个答案（`ceil(max / cols)` 行），而它从没被传进来过。
+ *
+ * 现在按「使用者要的行数」自上而下试：这么多行下每张贴纸还能有多高？够默认尺寸就
+ * 不覆盖（引擎自己算得对）；不够默认但仍在 `MIN_SHRUNK_STICKY_H` 之上就按这个高度
+ * 覆盖，让这些行真的摆得下；连最小高度都给不了才逐级退让，最后退回原来那张「压满
+ * 可用高度」的单行贴纸——退让是退让，不是把内容悄悄丢掉。
+ */
+function stickyHeightOverride(cellH: number, rowsWanted: number): { h?: number } {
   const available = cellH - ENGINE_STICKY_TOP_OFFSET - ENGINE_STICKY_INSET;
-  if (available <= 0 || available >= ENGINE_STICKY.h) return {};
-  return { h: Math.floor(available) };
+  if (available <= 0) return {};
+  for (let rows = Math.max(1, rowsWanted); rows >= 1; rows -= 1) {
+    const h = Math.floor((available - ENGINE_STICKY_GAP.y * (rows - 1)) / rows);
+    // 默认尺寸就摆得下这么多行 ⇒ 不覆盖，交回引擎自己的公式（它算得出同样多的行）。
+    if (h >= ENGINE_STICKY.h) return {};
+    if (h >= MIN_SHRUNK_STICKY_H) return { h };
+  }
+  // 一行的最小高度都给不了：维持 issue #2585 的行为——压满可用高度的一张，
+  // 总比容量算成 0、把这个分区的内容整段丢光要好。
+  return available < ENGINE_STICKY.h ? { h: Math.floor(available) } : {};
 }
 
 /**
@@ -362,11 +406,27 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
   // 只记类型不够用，另建一份按 sectionId 索引的完整输入。
   const infoById = new Map(input.sections.map((s) => [s.sectionId, s] as const));
   const headerCells = rawLayout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+  /**
+   * 这些短文本**排成了一条横向表头带**吗？
+   *
+   * ⚠ 2026-09-10 人类实测反馈：「左边的 title 显示看起来很不好看」。此前所有短文本
+   *   一律被合并成一条表头带，带子的矩形就是它们的**外接框**——把 5 个阶段竖着排在
+   *   最左列时，外接框于是变成一个又高又窄的空盒子，字段一行一个稀稀拉拉铺在里面，
+   *   跟编辑器②画布画的「几个独立小盒子」完全不是一回事。
+   *
+   *   「表头带」这个概念本身没错（用户画像那类模板顶上确实是一条横带），错在把它
+   *   当成短文本的**唯一**渲染方式。判据回到它字面的意思：同一行、同样高，才是一条
+   *   带；否则就是几个各自摆放的框，按各自的格子画（vendor 侧新增的 `fieldCells`）。
+   */
+  const isHeaderBand = headerCells.length > 0
+    && headerCells.every((c) => c.layout.row === headerCells[0]!.layout.row && c.layout.h === headerCells[0]!.layout.h);
 
   // 表头带长高超出它自己的网格格子多少（见文件头 2026-09-02 注释）；没有表头时为 0。
+  // ⚠ 只有真的是一条带时才需要这次下移：各画各的时候，短文本框不会长高，
+  //   正文分区也就没有被顶开的理由。
   let headerShift = 0;
   let headerBottomRaw = -Infinity;
-  if (headerCells.length > 0) {
+  if (isHeaderBand) {
     const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
     headerBottomRaw = Math.max(...headerCells.map((c) => c.y + c.h / 2));
     const rawW = Math.max(...headerCells.map((c) => c.x + c.w / 2)) - Math.min(...headerCells.map((c) => c.x - c.w / 2));
@@ -409,7 +469,13 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
       w: c.w,
       h: c.h,
       fill: PAPER,
-      sticky: { perRow: c.layout.cols, ...stickyWidthOverride(c.w, c.layout.cols), ...stickyHeightOverride(c.h) },
+      sticky: {
+        perRow: c.layout.cols,
+        ...stickyWidthOverride(c.w, c.layout.cols),
+        // 「使用者要的行数」= ceil(最多条数 / 列数)——右栏那两个步进器合起来就是
+        // 这个数，不是本函数另猜一个（见 `stickyHeightOverride` 文档）。
+        ...stickyHeightOverride(c.h, Math.ceil(Math.max(1, c.layout.max) / Math.max(1, c.layout.cols))),
+      },
       stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
     };
   });
@@ -429,27 +495,65 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     const info = infoById.get(c.sectionId);
     const weight = info?.fontWeight ?? "";
     const bold = weight === "bold" || Number(weight) >= 700;
+    /**
+     * 垂直对齐（人类直接交办，2026-09-10）：vendor 的 `text` 形状只认 `align`
+     * （水平），没有 `valign` —— 它把文字画在节点中心。所以垂直方向不改 vendor，
+     * 改**节点自己的 y**：靠上 = 贴着格子上沿放一行的高度，靠下 = 贴着下沿，
+     * 居中 = 格子中心（也就是 vendor 的原生行为）。同一件事在 apps/web 这侧就能
+     * 算准，没有理由为它动包里一个字（VENDOR.md 纪律）。
+     */
+    const fontSize = info?.fontSize ?? 24;
+    const lineH = Math.max(16, fontSize + 5);
+    const valign = info?.valign ?? "top";
+    const y = valign === "middle" ? c.y
+      : valign === "bottom" ? c.y + c.h / 2 - lineH / 2
+        : c.y - c.h / 2 + lineH / 2;
     return {
       id: `text-${c.sectionId}`,
       label: info?.content ?? "",
       shape: "text",
       x: c.x,
-      y: c.y,
+      y,
       width: c.w,
-      height: c.h,
+      height: valign === "middle" ? c.h : lineH,
       data: {
-        fontSize: info?.fontSize ?? 24,
+        fontSize,
         bold,
         color: info?.color ?? undefined,
-        align: "left",
+        align: info?.align ?? "left",
       },
     };
   });
 
+  /**
+   * 短文本各画各的（`isHeaderBand === false`）：`fields` 仍然照常给（它是 key 的
+   * 清单，`serializeTemplate` 的回写顺序读的就是它），另外给 vendor 一份
+   * `fieldCells`——每个字段自己的框，位置就是它在编辑器里被拖到的那个格子。
+   * 不给 `headerRect`/`fieldsPerRow`，vendor 那侧看到 `fieldCells` 非空就走各画
+   * 各的分支。
+   */
   let headerFields:
     | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
+    | { fields: string[]; fieldCells: NonNullable<TemplateSpec["fieldCells"]> }
     | undefined;
-  if (headerCells.length > 0) {
+  if (headerCells.length > 0 && !isHeaderBand) {
+    const ordered = [...headerCells].sort(
+      (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
+    );
+    headerFields = {
+      fields: ordered.map((c) => c.name),
+      fieldCells: ordered.map((c) => {
+        const info = infoById.get(c.sectionId);
+        return {
+          key: c.name,
+          x: c.x, y: c.y, w: c.w, h: c.h,
+          ...(info?.align ? { align: info.align } : {}),
+          ...(info?.valign ? { valign: info.valign } : {}),
+          ...(info?.fontSize ? { fontSize: info.fontSize } : {}),
+        };
+      }),
+    };
+  } else if (isHeaderBand) {
     const ordered = [...headerCells].sort(
       (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
     );
@@ -669,7 +773,7 @@ export interface SectionGeometryMmInput {
   readonly w: number;
   readonly h: number;
   readonly cols: number;
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   /** 纸张尺寸——决定内容区物理 mm 数。缺省 `"A1"`，兼容既有调用方（历史数据的默认尺寸）。 */
   readonly size?: PaperSizeKey;
   /**
@@ -718,7 +822,7 @@ export interface SectionGeometryMm {
  *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
-  const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
+  const rowSpanDenominator = GRID_ROWS; // 行数是网格常量，列数才切 6/12。
   const size = input.size ?? "A1";
   const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;

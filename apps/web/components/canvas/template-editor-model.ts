@@ -12,10 +12,13 @@ import type { CanvasTemplate } from "@/lib/live-canvas";
 import { canvas } from "@repo/contracts";
 import { getTemplate } from "@repo/fabric-markdown";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, GRID_ROWS, TONE_COLORS, STANDARD_NOTE_MM,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
+
+export { GRID_ROWS };
 
 // 单一事实源迁到 `explicit-template-layout.ts`（issue #2372：`buildExplicitTemplateSpec`
 // 现在也要按 `tone` 取贴纸颜色，lib 层需要能直接读到这份色板，不能反过来从组件层
@@ -64,12 +67,46 @@ export interface SectionDraft {
   content: string;
   /** 「文本对象」的字色——其它类型不用，恒为 `null`（渲染时兜底默认色）。 */
   color: string | null;
-  /** 「文本对象」的字号（px）——其它类型不用，恒为 `DEFAULT_TEXT_FONT_SIZE`。 */
+  /**
+   * 字号（px）。「文本对象」用它（缺省 `DEFAULT_TEXT_FONT_SIZE`）；2026-09-10 起
+   * 「短文本」/「长文本」也用它（缺省 `DEFAULT_FIELD_FONT_SIZE`，见
+   * `defaultFontSizeFor`）。「便利贴列表」不用——贴纸字号由实尺推导
+   * （`noteFontSizePx`），不是这里配的。
+   */
   fontSize: number;
   /** 「文本对象」的粗细——其它类型不用，恒为 `DEFAULT_TEXT_FONT_WEIGHT`。 */
   fontWeight: string;
   /** 隐藏区块标题（`{{key}}` 提示行 + 区块名），只显示内容——数据绑定型分区专用。 */
   hideFieldTitle: boolean;
+  /**
+   * 文字对齐（人类直接交办，2026-09-10）——「文本对象」与「短文本」/「长文本」这两种
+   * 文字型数据字段用；「便利贴列表」不用（贴纸按网格排，不是一段文字）。
+   * 缺省 `"left"` / `"top"`，与改动前一致。
+   */
+  align: TextAlign;
+  valign: TextVAlign;
+}
+
+export type TextAlign = "left" | "center" | "right";
+export type TextVAlign = "top" | "middle" | "bottom";
+export const TEXT_ALIGNS: readonly TextAlign[] = ["left", "center", "right"];
+export const TEXT_VALIGNS: readonly TextVAlign[] = ["top", "middle", "bottom"];
+export const DEFAULT_TEXT_ALIGN: TextAlign = "left";
+export const DEFAULT_TEXT_VALIGN: TextVAlign = "top";
+/**
+ * 「短文本」/「长文本」没配字号时用多大——比文本对象（装帧大字）小得多，取
+ * vendor 画字段值用的那个 13px（`template-engine.ts` 的表头字段与 `fieldCells`
+ * 分支都是这个数），这样"没动过字号"的字段在编辑器与真实画布上是同一个大小。
+ */
+export const DEFAULT_FIELD_FONT_SIZE = 13;
+
+/** 这个类型的文字没配字号时用多大。 */
+export function defaultFontSizeFor(type: SectionFieldType): number {
+  return type === "文本对象" ? DEFAULT_TEXT_FONT_SIZE : DEFAULT_FIELD_FONT_SIZE;
+}
+/** 这个类型的文字有没有对齐/字号可言（便利贴列表没有）。 */
+export function isTextual(type: SectionFieldType): boolean {
+  return type === "文本对象" || type === "短文本" || type === "长文本";
 }
 
 /**
@@ -134,9 +171,11 @@ export function toDraft(row: CanvasTemplate): SectionDraft[] {
     layout: s.layout ? { ...s.layout } : null,
     content: s.content ?? "",
     color: s.color ?? null,
-    fontSize: s.fontSize ?? DEFAULT_TEXT_FONT_SIZE,
+    fontSize: s.fontSize ?? defaultFontSizeFor((s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType),
     fontWeight: s.fontWeight ?? DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: s.hideFieldTitle ?? false,
+    align: s.align ?? DEFAULT_TEXT_ALIGN,
+    valign: s.valign ?? DEFAULT_TEXT_VALIGN,
   }));
 }
 
@@ -162,6 +201,8 @@ export function newTextDraft(order: number): SectionDraft {
     fontSize: DEFAULT_TEXT_FONT_SIZE,
     fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
     hideFieldTitle: false,
+    align: DEFAULT_TEXT_ALIGN,
+    valign: DEFAULT_TEXT_VALIGN,
   };
 }
 
@@ -186,19 +227,40 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
       layout: d.layout ? { ...d.layout } : null,
       ...(d.type === "文本对象"
         ? { content: d.content, color: d.color, fontSize: d.fontSize, fontWeight: d.fontWeight }
-        : {}),
+        // 文字型数据字段只带自己配过的那一栏：字号缺省时**不写**这一栏，存量模板
+        // 的输出逐字节不变（同 `hideFieldTitle` 那条纯增量纪律）。
+        : d.type === "短文本" || d.type === "长文本"
+          ? { ...(d.fontSize !== DEFAULT_FIELD_FONT_SIZE ? { fontSize: d.fontSize } : {}) }
+          : {}),
       ...(d.hideFieldTitle ? { hideFieldTitle: true } : {}),
+      ...(isTextual(d.type) && d.align !== DEFAULT_TEXT_ALIGN ? { align: d.align } : {}),
+      ...(isTextual(d.type) && d.valign !== DEFAULT_TEXT_VALIGN ? { valign: d.valign } : {}),
     }));
 }
 
-/** 新放到画布上的区块的默认布局（`Design.pdf` §4.2「落点即位置」那几条）。 */
+/**
+ * 新放到画布上的区块的默认布局（`Design.pdf` §4.2「落点即位置」那几条）。
+ *
+ * `limits` 是可选的「最多长到这么大」——调用方已经知道右边/下边被别的分区占住时
+ * 传进来（`maxFreeW`/`maxFreeH` 的结果）。⚠ 必须由本函数收口，不能让调用方拿到
+ * 结果再自己改 `w`/`h`：`cols`（默认摆几列）是从 `w` 推出来的，外面改宽度不改列数
+ * 就会得到一份自相矛盾的布局。
+ */
 export function defaultLayoutAt(
-  type: SectionFieldType, col: number, row: number, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+  type: SectionFieldType, col: number, row: number, gridCols: GridColsValue, size: PaperSizeKey = "A1",
+  limits?: { readonly maxW?: number; readonly maxH?: number },
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
-  const w = Math.min(gridCols === 12 ? 6 : 3, gridCols - col + 1);
+  //
+  // ⚠ 「短文本」例外，默认 2 格（6 列制下 1 格）——用户直接交办（2026-09-10）：
+  //   「现在默认 text 的长度是 6，改为默认是 2」。短文本渲染出来是表头带里的一个
+  //   `标签: 值` 字段（`buildExplicitTemplateSpec` 的 `headerCells`），一个字段占掉
+  //   半张纸宽既画不满也挡住别人；半幅那个默认是给便利贴列表那种成片贴纸的分区用的。
+  //   拖进来之后仍可在右栏「在 A1 上占多大」里改，这里只是换一个更常用的起点。
+  const defaultW = type === "短文本" ? (gridCols === 12 ? 2 : 1) : (gridCols === 12 ? 6 : 3);
+  const w = Math.max(1, Math.min(defaultW, gridCols - col + 1, limits?.maxW ?? Number.POSITIVE_INFINITY));
   // 列表型默认高 3 行、短文本/文本对象 1 行。
-  const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
+  const h = Math.max(1, Math.min(type === "便利贴列表" ? 3 : 1, GRID_ROWS - row + 1, limits?.maxH ?? Number.POSITIVE_INFINITY));
   return {
     col, row, w, h,
     // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距用
@@ -213,11 +275,12 @@ export function defaultLayoutAt(
   };
 }
 
-function blockWidthMm(w: number, gridCols: 6 | 12, size: PaperSizeKey = "A1"): number {
+function blockWidthMm(w: number, gridCols: GridColsValue, size: PaperSizeKey = "A1"): number {
   return (w / gridCols) * contentMmFor(size).w - GRID_GAP_MM;
 }
 
-const AUTO_LAYOUT_GRID_ROWS = 8;
+/** 自动排版用的行数——与画布网格是同一个数（`GRID_ROWS` 是唯一声明处）。 */
+const AUTO_LAYOUT_GRID_ROWS = GRID_ROWS;
 
 /**
  * 「不要手工排版」——2026-08-27 人类原话：「在编辑界面因该有一个按钮，可以根据字段
@@ -252,7 +315,7 @@ const AUTO_LAYOUT_GRID_ROWS = 8;
  */
 export function autoFillLayout(
   drafts: readonly SectionDraft[],
-  gridCols: 6 | 12,
+  gridCols: GridColsValue,
   size: PaperSizeKey = "A1",
 ): SectionDraft[] {
   const named = drafts.filter((d) => d.name.trim().length > 0);
@@ -327,14 +390,14 @@ export function clamp(n: number, lo: number, hi: number): number {
 }
 
 /** 把一个区块夹回画布内（拖到越界时用，`Design.pdf` §4.2「越界时自动夹到画布内」）。 */
-export function clampLayout(layout: SectionLayoutDraft, gridCols: 6 | 12): SectionLayoutDraft {
+export function clampLayout(layout: SectionLayoutDraft, gridCols: GridColsValue): SectionLayoutDraft {
   const w = clamp(layout.w, 1, gridCols);
-  const h = clamp(layout.h, 1, 8);
+  const h = clamp(layout.h, 1, GRID_ROWS);
   return {
     ...layout,
     w, h,
     col: clamp(layout.col, 1, gridCols - w + 1),
-    row: clamp(layout.row, 1, 8 - h + 1),
+    row: clamp(layout.row, 1, GRID_ROWS - h + 1),
   };
 }
 
@@ -398,7 +461,7 @@ export function findOverlappingSections(
  * 合法范围内，同 `Stepper` 组件既有的「每次只挪一格、永远合法」的交互约定。
  */
 export function maxFreeW(
-  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, h: number, gridCols: 6 | 12,
+  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, h: number, gridCols: GridColsValue,
 ): number {
   const bound = gridCols - col + 1;
   let w = 1;
@@ -410,14 +473,14 @@ export function maxFreeW(
 export function maxFreeH(
   sections: readonly SectionDraft[], sectionId: string, col: number, row: number, w: number,
 ): number {
-  const bound = 8 - row + 1;
+  const bound = GRID_ROWS - row + 1;
   let h = 1;
   while (h < bound && !collidesWithOthers(sections, sectionId, { col, row, w, h: h + 1 })) h += 1;
   return h;
 }
 
 export function sectionGeometryMmOf(
-  s: SectionDraft, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+  s: SectionDraft, gridCols: GridColsValue, size: PaperSizeKey = "A1",
 ): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
@@ -514,7 +577,7 @@ export function extractPromptPlaceholders(promptText: string): string[] {
 }
 
 export function checkTemplateHealth(
-  drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "", size: PaperSizeKey = "A1",
+  drafts: readonly SectionDraft[], gridCols: GridColsValue, promptText = "", size: PaperSizeKey = "A1",
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   // 「文本对象」是静态装帧文字，不绑定 `{{key}}`、不进 AI 输出结构——字段计数/

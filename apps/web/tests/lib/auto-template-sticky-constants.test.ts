@@ -52,9 +52,12 @@ describe("镜像的引擎便签常量与上游一致", () => {
   });
 
   it("便签起始偏移（有标题条时）与左内边距", () => {
-    // 引擎：const stickyTop = sec.y - sec.h / 2 + (titleBars ? 44 : 14);
+    // 引擎：const stickyTop = sec.y - sec.h / 2 + (showTitleBar ? 44 : 14);
+    // ⚠ 2026-09-10：条件从 `titleBars` 改名为 `showTitleBar`（多一条判据——
+    //   `titleLabel === ''` 的分区整条标题带都不画，见 `TemplateSection.titleLabel`），
+    //   两个常量（44 / 14）本身没变。
     expect(ENGINE_STICKY_TOP_OFFSET).toBe(
-      num(/stickyTop\s*=\s*sec\.y\s*-\s*sec\.h\s*\/\s*2\s*\+\s*\(titleBars\s*\?\s*(\d+)/, "stickyTop 偏移"),
+      num(/stickyTop\s*=\s*sec\.y\s*-\s*sec\.h\s*\/\s*2\s*\+\s*\(showTitleBar\s*\?\s*(\d+)/, "stickyTop 偏移"),
     );
     // 引擎（issue #2372 后）：x: sec.x - sec.w / 2 + 14 + sectionSticky.w / 2 + col * (...)
     // ⚠ 变量名从 `sticky.w` 改成 `sectionSticky.w`（每分区可覆盖 perRow/w/h，

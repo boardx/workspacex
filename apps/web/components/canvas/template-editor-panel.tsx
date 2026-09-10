@@ -19,8 +19,9 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  collidesWithOthers, FIELD_TYPES, newTextDraft,
-  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT,
+  collidesWithOthers, maxFreeW, maxFreeH, FIELD_TYPES, newTextDraft,
+  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT, DEFAULT_TEXT_ALIGN, DEFAULT_TEXT_VALIGN,
+  defaultFontSizeFor,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -114,7 +115,24 @@ export function TemplateEditorPanel({
   //   而库里其实存着（或者也是空的，因为写入端同样从没把它存过——两头都空）。
   const [sections, setSections] = React.useState<SectionDraft[]>(() => toDraft(row));
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
-  const [gridCols, setGridCols] = React.useState<6 | 12>(12);
+  /**
+   * 网格密度（issue #3358）。⚠ 2026-09-10 之前 `gridCols` 是**纯编辑器本地状态**、
+   * 恒初始化成 12、也从不进保存——右上角那个「6 列 / 12 列」开关选了 6 之后，一保存
+   * 就悄悄丢回 12（同 `promptText` 早先那个"两头都空"的形状）。现在它落库了，
+   * 就必须从 `row` 读初值、进脏检查、进保存，三处缺一处都是同一种静默丢失。
+   *
+   * `gridRows` 目前没有 UI 可选：`GRID_ROWS` 还是模块常量，六处纯函数
+   * （`clampLayout`/`maxFreeH`/`autoFillLayout`/`sectionGeometryMm`/画布网格/步进器上限）
+   * 都从它读。所以这里只做**原样往返**——把这一行存的值读进来、保存时原样带回去，
+   * 不让一次保存把库里的值改掉。等那六处改成接收参数、右栏出「网格密度」选择器时，
+   * 它才会真的变成一个可选项。
+   */
+  const [gridCols, setGridCols] = React.useState<canvas.GridColsValue>(
+    () => (row.gridCols ?? canvas.DEFAULT_GRID_COLS),
+  );
+  const [gridRows] = React.useState<canvas.GridRowsValue>(
+    () => (row.gridRows ?? canvas.DEFAULT_GRID_ROWS),
+  );
   // 纸张尺寸——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。内容相关
   // 字段（同 sections），不是装帧：影响 mm 换算，因此进体检、进脏检查、进保存。
   const [paperSize, setPaperSize] = React.useState<PaperSizeKey>((row.size ?? "A1") as PaperSizeKey);
@@ -194,6 +212,7 @@ export function TemplateEditorPanel({
     || promptText !== row.promptText
     || recommendAfter.join("\u0000") !== [...(row.recommendAfter ?? [])].join("\u0000")
     || paperSize !== (row.size ?? "A1")
+    || gridCols !== (row.gridCols ?? canvas.DEFAULT_GRID_COLS)
     || sectionsDirty
   );
 
@@ -233,13 +252,35 @@ export function TemplateEditorPanel({
    * 一份默认布局（列表型默认更高更多列，非列表型默认矮一行三列）——位置
    * （`col`/`row`）保留，只刷新跟类型强相关的尺寸/列数，避免改成短文本后还占着
    * 一大块列表型的高度。未放置的字段直接改 `type`，没有布局需要同步。
+   *
+   * ⚠ 2026-09-10 人类实测：「把字段类型从文本改为便利贴之后，field 的范围扩大，
+   *   然后我什么也改不了在右边的 panel 上」。根因就在这里——本函数是**第四个**
+   *   改布局的入口，而下面那条 `applyLayoutIfFree` 的重叠门控只收口了三个
+   *   （`patchLayout`/`place`/`move`）。短文本 1 格宽改成列表型时按默认布局涨到
+   *   6 格宽 3 行，直接压住右边和下面的分区；一旦落到这个重叠状态，右栏每一次
+   *   改动都会被 `applyLayoutIfFree` 判为"还是重叠"而整体放弃，步进器的上限
+   *   （`maxFreeW`/`maxFreeH`）也一起塌成 1——面板从此一动不动，且不说为什么。
+   *
+   *   改法：涨多大先问过邻居。宽度按 `maxFreeW`（在 `row` 这一行探）收，高度再按
+   *   收好的宽度问 `maxFreeH`——两个上限都由 `defaultLayoutAt` 的 `limits` 收口，
+   *   因为 `cols`（默认摆几列）是从 `w` 推出来的，外面改宽不改列会自相矛盾。
+   *   这样类型**一定**改得成，只是不越界长大：长不动就维持原尺寸，而不是压住邻居。
    */
   function changeFieldType(sectionId: string, type: SectionFieldType): void {
     setSections((prev) => prev.map((s) => {
       if (s.sectionId !== sectionId || s.type === type) return s;
       if (!s.layout) return { ...s, type };
-      const next = defaultLayoutAt(type, s.layout.col, s.layout.row, gridCols, paperSize);
-      return { ...s, type, layout: clampLayout(next, gridCols) };
+      const { col, row } = s.layout;
+      // 宽度先在 `row` 这一行探（`h = 1`），再拿探到的宽度问纵向能长多高——
+      // `maxFreeH` 用的就是这个最终宽度，所以结果一定不与任何邻居重叠。
+      const freeW = maxFreeW(prev, sectionId, col, row, 1, gridCols);
+      const wanted = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW });
+      const freeH = maxFreeH(prev, sectionId, col, row, wanted.w);
+      const next = defaultLayoutAt(type, col, row, gridCols, paperSize, { maxW: freeW, maxH: freeH });
+      // 字号的缺省值随类型走（装帧大字 24 vs 字段值 13）——没动过字号的字段换类型时
+      // 跟着换缺省，动过的保留使用者自己配的那个数。
+      const fontSize = s.fontSize === defaultFontSizeFor(s.type) ? defaultFontSizeFor(type) : s.fontSize;
+      return { ...s, type, fontSize, layout: clampLayout(next, gridCols) };
     }));
   }
 
@@ -296,7 +337,7 @@ export function TemplateEditorPanel({
       key, name, type: newField.type, aiHint: null,
       order: prev.length, required: false, capacity: null, layout: null,
       content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-      hideFieldTitle: false,
+      hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
     }]);
     setNewField({ key: "", name: "", type: newField.type });
     setStep(2);
@@ -310,7 +351,7 @@ export function TemplateEditorPanel({
         key: f.key, name: f.name, type: f.type, aiHint: f.why,
         order: prev.length + i, required: false, capacity: null, layout: null,
         content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-        hideFieldTitle: false,
+        hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
       }));
       return [...prev, ...add];
     });
@@ -406,6 +447,8 @@ export function TemplateEditorPanel({
           visibility: row.visibility,
           tags: [...(row.tags ?? [])],
           size: paperSize,
+          gridCols,
+          gridRows,
         });
         await saveChrome();
         await onSaved(
@@ -431,6 +474,8 @@ export function TemplateEditorPanel({
         visibility: row.visibility,
         tags: [...(row.tags ?? [])],
         size: paperSize,
+        gridCols,
+        gridRows,
       });
       await saveChrome(minted.version);
 

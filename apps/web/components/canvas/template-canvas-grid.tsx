@@ -2,7 +2,8 @@
 import * as React from "react";
 import type { SectionDraft, SectionLayoutDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, GRID_ROWS, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import type { GridColsValue } from "@repo/contracts/canvas";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -27,7 +28,38 @@ import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADE
  * 画布宽度随窗口变，比例换算是唯一不会随这两者漂移的算法。
  */
 
-const GRID_ROWS = 8;
+/**
+ * 「垂直对齐」→ flex 的 `align-items`。三档一一对应，不在两处各写一份映射
+ * （渲染那侧 `explicit-template-layout.ts` 算的是 y 坐标，形状不同、语义同一个）。
+ */
+const FLEX_ALIGN_BY_VALIGN: Record<"top" | "middle" | "bottom", "flex-start" | "center" | "flex-end"> = {
+  top: "flex-start",
+  middle: "center",
+  bottom: "flex-end",
+};
+
+/** 同上，grid 容器那侧的写法（`align-content`）。 */
+const GRID_ALIGN_BY_VALIGN: Record<"top" | "middle" | "bottom", "start" | "center" | "end"> = {
+  top: "start",
+  middle: "center",
+  bottom: "end",
+};
+
+/**
+ * 拖拽载荷——`dataTransfer` 里那个 JSON 的形状。
+ *
+ * `dCol`/`dRow` 是抓握点相对区块左上角的格数偏移，`w`/`h` 是被拖那块的跨度（用来画
+ * 落点预览框）。四个字段都可选：左栏拖进来的新字段没有既有几何，缺省按 0 / 默认块处理，
+ * 老的载荷（升级前残留在某次拖拽中的）也仍然能被读懂。
+ */
+interface DragPayload {
+  readonly id: string;
+  readonly kind: "field" | "block";
+  readonly dCol?: number;
+  readonly dRow?: number;
+  readonly w?: number;
+  readonly h?: number;
+}
 
 /**
  * 区块内标题行（区块名 + `{{token}} 列·条` 提示行）的比例尺寸，读自
@@ -53,7 +85,7 @@ export function TemplateCanvasGrid({
   onSelect, onPlace, onMove, onEditText,
 }: {
   readonly sections: readonly SectionDraft[];
-  readonly gridCols: 6 | 12;
+  readonly gridCols: GridColsValue;
   readonly showSample: boolean;
   /** 纸张尺寸——决定纸面比例/页边距/mm 换算。缺省 `"A1"`，兼容既有调用方。 */
   readonly paperSize?: PaperSizeKey;
@@ -85,7 +117,19 @@ export function TemplateCanvasGrid({
    */
   readonly onEditText?: (sectionId: string, content: string) => void;
 }) {
-  const [dragging, setDragging] = React.useState<{ id: string; kind: "field" | "block" } | null>(null);
+  /**
+   * 拖拽中的那个东西。`dCol`/`dRow` = **抓握点相对区块左上角的格数偏移**——
+   * 用户直接交办（2026-09-10）：「我鼠标拖拽的过程就是移动这个 field 的过程，
+   * 以 field 的 panel 作为一个整体来移动」。
+   *
+   * ⚠ 此前落点 = 指针所在格，区块左上角被硬拽到指针下面：从一个 6×3 的区块中间
+   *   抓起来往旁边挪一格，区块会突然向左上跳三格多——手上抓的是区块中部，眼睛看到
+   *   的原生拖影也是整块跟着指针走，松手却错位，那正是"体验很奇怪"的来源。
+   *   记下抓握偏移、落点回减，指针拖影与最终落点才是同一件事。
+   */
+  const [dragging, setDragging] = React.useState<DragPayload | null>(null);
+  /** 拖动中的落点预览（整块的目标矩形），松手前就把结果画出来。 */
+  const [preview, setPreview] = React.useState<{ col: number; row: number; w: number; h: number } | null>(null);
   /**
    * ⚠ 落点换算的基准是**内容区**，不是整张纸。加了标题带/页脚带之后两者不再重合：
    *   继续拿纸的 rect 去算比例，拖到哪都会整体往下偏一个标题带的高度，而且
@@ -109,19 +153,78 @@ export function TemplateCanvasGrid({
     };
   }
 
+  /**
+   * 指针 → **区块左上角**该落到哪一格：指针所在格回减抓握偏移。`kind: "field"`
+   * （左栏拖进来的新字段）没有既有区块可抓，偏移恒为 0，行为与改动前一致。
+   */
+  function anchorFrom(e: React.DragEvent, payload: DragPayload): { col: number; row: number } | null {
+    const cell = cellFrom(e);
+    if (!cell) return null;
+    return {
+      col: Math.min(gridCols, Math.max(1, cell.col - (payload.dCol ?? 0))),
+      row: Math.min(GRID_ROWS, Math.max(1, cell.row - (payload.dRow ?? 0))),
+    };
+  }
+
+  /**
+   * 抓起一个已放置的区块。抓握偏移在 `dragstart` 这一刻算定（指针所在格 − 区块左上角），
+   * 整个拖拽过程中不变——于是"松手时区块落在哪"与"拖影现在画在哪"是同一个几何，
+   * 而不是松手瞬间把左上角瞬移到指针底下。
+   */
+  function startBlockDrag(e: React.DragEvent, sectionId: string, layout: SectionLayoutDraft): void {
+    const cell = cellFrom(e);
+    const payload: DragPayload = {
+      id: sectionId,
+      kind: "block",
+      dCol: cell ? cell.col - layout.col : 0,
+      dRow: cell ? cell.row - layout.row : 0,
+      w: layout.w,
+      h: layout.h,
+    };
+    e.dataTransfer.setData("application/x-tpl-drag", JSON.stringify(payload));
+    setDragging(payload);
+  }
+
   function onDrop(e: React.DragEvent): void {
     e.preventDefault();
     if (!editable) return;
     // 拖的是什么由 dataTransfer 带过来——不靠组件内部的 `dragging` state，
     // 那个 state 在跨组件拖拽（左栏字段卡片 → 这里）时不一定同步得上。
     const raw = e.dataTransfer.getData("application/x-tpl-drag");
-    const payload = raw !== "" ? JSON.parse(raw) as { id: string; kind: "field" | "block" } : dragging;
+    const payload = raw !== "" ? JSON.parse(raw) as DragPayload : dragging;
     setDragging(null);
+    setPreview(null);
     if (!payload) return;
-    const cell = cellFrom(e);
-    if (!cell) return;
-    if (payload.kind === "field") onPlace(payload.id, cell.col, cell.row);
-    else onMove(payload.id, cell.col, cell.row);
+    const at = anchorFrom(e, payload);
+    if (!at) return;
+    if (payload.kind === "field") onPlace(payload.id, at.col, at.row);
+    else onMove(payload.id, at.col, at.row);
+  }
+
+  /**
+   * 拖动中的落点预览。⚠ `dragover` 里读不到 `dataTransfer`（浏览器的保护模式只在
+   * `drop` 放开数据），所以预览只能靠组件内的 `dragging` state——它对本组件内的
+   * 区块拖拽一定是同步的；跨组件（左栏字段）拖进来时 state 由左栏的 `dragstart`
+   * 之后的第一次 `dragover` 补不上，那种情况就没有预览框，落点仍然正确。
+   */
+  function onDragOverCanvas(e: React.DragEvent): void {
+    if (!editable) return;
+    e.preventDefault();
+    if (!dragging) return;
+    const at = anchorFrom(e, dragging);
+    if (!at) return;
+    setPreview({ col: at.col, row: at.row, w: dragging.w ?? 1, h: dragging.h ?? 1 });
+  }
+
+  /**
+   * 指针真的离开画布时撤掉预览。⚠ `dragleave` 会从子元素冒泡上来——指针从网格线
+   * 划到一个区块瓦片上也会触发一次，无条件清掉预览会让蓝框一路闪。用
+   * `relatedTarget`（指针进入的那个元素）还在画布内当作"没离开"。
+   */
+  function onDragLeaveCanvas(e: React.DragEvent): void {
+    const next = e.relatedTarget;
+    if (next instanceof Node && e.currentTarget.contains(next)) return;
+    setPreview(null);
   }
 
   return (
@@ -154,7 +257,8 @@ export function TemplateCanvasGrid({
         gridTemplateRows: "auto 1fr auto",
         rowGap: "0.72%",
       }}
-      onDragOver={(e) => { if (editable) e.preventDefault(); }}
+      onDragOver={onDragOverCanvas}
+      onDragLeave={onDragLeaveCanvas}
       onDrop={onDrop}
       data-testid="tpladmin-editor-canvas"
     >
@@ -183,6 +287,7 @@ export function TemplateCanvasGrid({
         ref={contentRef}
         className="relative grid min-h-0"
         style={{ gridRow: 2, gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}
+        data-testid="tpladmin-editor-canvas-content"
       >
       {/* 网格幽灵层：拖动中才显形（`Design.pdf` §4.2「拖动中画布网格线显形」）。 */}
       <div
@@ -203,6 +308,23 @@ export function TemplateCanvasGrid({
             style={{ borderColor: dragging ? "#C9C5BB" : "#F0EEE7" }}
           />
         ))}
+        {/*
+          落点预览：拖动过程中就按整块（不是指针那一格）的目标矩形画出来，而不是只让人猜"指针
+          这一格会变成什么"。它和最终 `onMove` 的落点走同一个 `anchorFrom`，所以
+          看到的框就是松手后的位置（超出画布的部分由 `clampLayout` 再夹一次）。
+        */}
+        {preview !== null && (
+          <div
+            className="rounded-card"
+            style={{
+              gridColumn: `${preview.col} / span ${preview.w}`,
+              gridRow: `${preview.row} / span ${preview.h}`,
+              border: "2px solid #1F5FD0",
+              background: "rgba(31,95,208,0.08)",
+            }}
+            data-testid="tpladmin-editor-drop-preview"
+          />
+        )}
       </div>
 
       {/* 内容区：网格线层与区块层都叠在它里面，落点换算也以它为基准 */}
@@ -226,11 +348,8 @@ export function TemplateCanvasGrid({
                 selected={selectedId === s.sectionId}
                 editable={editable}
                 onSelect={() => onSelect(s.sectionId)}
-                onDragStartBlock={(e) => {
-                  e.dataTransfer.setData("application/x-tpl-drag", JSON.stringify({ id: s.sectionId, kind: "block" }));
-                  setDragging({ id: s.sectionId, kind: "block" });
-                }}
-                onDragEndBlock={() => setDragging(null)}
+                onDragStartBlock={(e) => startBlockDrag(e, s.sectionId, layout)}
+                onDragEndBlock={() => { setDragging(null); setPreview(null); }}
                 onEditText={onEditText}
               />
             );
@@ -274,11 +393,8 @@ export function TemplateCanvasGrid({
             <div
               key={s.sectionId}
               draggable={editable}
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/x-tpl-drag", JSON.stringify({ id: s.sectionId, kind: "block" }));
-                setDragging({ id: s.sectionId, kind: "block" });
-              }}
-              onDragEnd={() => setDragging(null)}
+              onDragStart={(e) => startBlockDrag(e, s.sectionId, layout)}
+              onDragEnd={() => { setDragging(null); setPreview(null); }}
               onClick={() => onSelect(s.sectionId)}
               className="flex cursor-pointer flex-col overflow-hidden rounded-card bg-card"
               style={{
@@ -342,8 +458,11 @@ export function TemplateCanvasGrid({
                 </div>
               )}
               <div
-                className="grid flex-1 content-start overflow-hidden"
+                className="grid flex-1 overflow-hidden"
                 style={{
+                  // 贴纸网格永远顶格排（多余的行不被拉伸）；文字型字段按使用者配的
+                  // 垂直对齐摆（人类直接交办，2026-09-10）。
+                  alignContent: isList ? "start" : GRID_ALIGN_BY_VALIGN[s.valign],
                   // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
                   // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
                   // 一行摆 `layout.cols` 张，多出来的换行（`content-start` 让多余行不被
@@ -377,7 +496,13 @@ export function TemplateCanvasGrid({
                         // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
                         // 否则小贴纸会裁字）。选「缩小字号」时额外按文字长度继续收缩，
                         // 见 `noteFontSizePx` 文档。
-                        fontSize: `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`,
+                        // 文字型字段（短文本/长文本）用使用者配的字号（人类直接交办，
+                        // 2026-09-10「还可以指定 font 的大小」），与渲染那侧
+                        // `fieldCells.fontSize` 是同一个数；贴纸仍按实尺推导。
+                        fontSize: isList
+                          ? `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`
+                          : `${s.fontSize}px`,
+                        ...(isList ? {} : { textAlign: s.align }),
                         aspectRatio: isList ? "1" : "auto",
                         minHeight: isList ? 0 : 18,
                         ...(clampLines !== undefined
@@ -522,12 +647,17 @@ function TextBlockTile({
       onDragStart={onDragStartBlock}
       onDragEnd={onDragEndBlock}
       onClick={onSelect}
-      className="flex cursor-pointer items-center overflow-hidden rounded-card"
+      // ⚠ 竖直方向此前写死 `items-center`（垂直居中）。人类直接交办（2026-09-10）
+      //   「靠上，靠下也就是左右上下要可以居中靠两边」之后，它由 `section.valign`
+      //   决定——编辑器画的位置必须与 `explicit-template-layout.ts` 给渲染算的那个
+      //   y 是同一个意思，否则右栏改了对齐、预览动了、真实画布没动。
+      className="flex cursor-pointer overflow-hidden rounded-card"
       style={{
         gridColumn: `${layout.col} / span ${layout.w}`,
         gridRow: `${layout.row} / span ${layout.h}`,
         border: selected ? `${BLOCK_BORDER_CQW}cqw dashed #1F5FD0` : `${BLOCK_BORDER_CQW}cqw dashed transparent`,
         padding: `${BLOCK_PAD_CQW}cqw`,
+        alignItems: FLEX_ALIGN_BY_VALIGN[section.valign],
       }}
       data-testid={`tpladmin-editor-block-${section.sectionId}`}
     >
@@ -549,6 +679,7 @@ function TextBlockTile({
           color: section.color ?? undefined,
           fontSize: `${section.fontSize}px`,
           fontWeight: section.fontWeight === "bold" || Number(section.fontWeight) >= 700 ? 700 : 400,
+          textAlign: section.align,
         }}
         data-testid={`tpladmin-editor-text-content-${section.sectionId}`}
       >

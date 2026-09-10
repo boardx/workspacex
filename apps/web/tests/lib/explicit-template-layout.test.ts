@@ -173,9 +173,145 @@ describe("computeExplicitLayout —— px 几何", () => {
       .filter((n) => n.shape === "sticky")
       .map((n) => n.label);
     expect(stickyLabels).toEqual(["第一条内容", "第二条内容"]);
-    // 标题条节点还在（占位），但文字为空——不是整块消失。
-    const label = model.nodes.find((n) => n.id === "tpl-seclabel-0");
-    expect(label?.label).toBe("");
+    // 标题条整条不画（灰底带 + 文字节点都没有）——2026-09-10 人类原话
+    // 「如果将字段隐藏了，那么字段的 header 也不要出来」。留一条空的灰带看起来
+    // 不是"没有标题"，是"标题渲染坏了"。
+    expect(model.nodes.find((n) => n.id === "tpl-seclabel-0")).toBeUndefined();
+    expect(model.nodes.find((n) => n.id === "tpl-secbar-0")).toBeUndefined();
+    // 分区框本身当然还在。
+    expect(model.nodes.find((n) => n.id === "tpl-section-0")).toBeDefined();
+  });
+
+  /**
+   * 标题条不画之后，贴纸不该还留着"给标题带让出来的那 30px"——空出来的那一条
+   * 正是本次要消掉的 header 形状。对照组：同样几何、不隐藏标题的分区，贴纸从
+   * 标题带下方（+44）起排。
+   */
+  it("隐藏标题的分区，贴纸从框内边距起排，不再为标题带留出空白条", () => {
+    const hidden = buildExplicitTemplateSpec({
+      key: "t-hide-title-top", displayName: "测试模板",
+      sections: [{ ...section("a", 1, 1, 12, 4), hideFieldTitle: true }],
+      gridCols: 12,
+    }).spec;
+    const shown = buildExplicitTemplateSpec({
+      key: "t-show-title-top", displayName: "测试模板",
+      sections: [section("a", 1, 1, 12, 4)],
+      gridCols: 12,
+    }).spec;
+    registerTemplate(hidden);
+    registerTemplate(shown);
+    const topOf = (key: string): number => {
+      const model = templateToModel(`模板: ${key}\n## 分区-a\n- 第一条内容\n`);
+      return model.nodes.find((n) => n.shape === "sticky")!.y;
+    };
+    expect(topOf("t-show-title-top") - topOf("t-hide-title-top")).toBe(30);
+  });
+
+  /**
+   * ⚠ 2026-09-10 人类实测：「左边的 title 显示看起来很不好看」。此前所有「短文本」
+   * 一律被合并成一条表头带，带子的矩形是它们的**外接框**——竖着排在最左列的 5 个
+   * 阶段于是变成一个又高又窄的空盒子，跟编辑器②画布画的几个独立小盒子完全不是
+   * 一回事。判据回到「表头带」字面的意思：同一行、同样高才是一条带。
+   */
+  it("各画各的时，渲染出来是每个字段一个框 + 自己的标签与值，不是一条大表头带", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-fieldcells-render", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    registerTemplate(spec);
+    const model = templateToModel("模板: t-fieldcells-render\n分区-a: 甲\n分区-b: 乙\n");
+    // 两个各自的框，不是一个外接框。
+    expect(model.nodes.filter((n) => n.data?.role === "headerBox")).toHaveLength(2);
+    const values = model.nodes.filter((n) => n.data?.role === "field");
+    expect(values.map((n) => n.label)).toEqual(["甲", "乙"]);
+    // 每个值都画在自己那个框里（y 与 fieldCells 的 y 同一档，不是挤在一条带里）。
+    expect(values[0]!.y).toBeLessThan(values[1]!.y);
+  });
+
+  it("短文本竖着排（不成一条带）时各画各的：给 fieldCells，不给 headerRect", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.headerRect).toBeUndefined();
+    expect(spec.fields).toEqual(["分区-a", "分区-b"]);
+    expect(spec.fieldCells).toHaveLength(2);
+    // 每个框就是它自己那个格子，不是两者的外接框。
+    expect(spec.fieldCells![0]!.y).toBeLessThan(spec.fieldCells![1]!.y);
+    expect(spec.fieldCells![0]!.h).toBe(spec.fieldCells![1]!.h);
+  });
+
+  it("短文本排成一条横带时仍然合并成表头带——既有模板逐字节不变", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本" },
+        { ...section("b", 3, 1, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.fieldCells).toBeUndefined();
+    expect(spec.headerRect).toBeDefined();
+    expect(spec.fields).toEqual(["分区-a", "分区-b"]);
+  });
+
+  /**
+   * 人类直接交办（2026-09-10）：「对于 text 的字段，可以指定，居中，靠左，靠右，
+   * 靠上，靠下」「还可以指定 font 的大小」。
+   */
+  it("文字型字段的对齐/字号原样传给渲染层（fieldCells）", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        { ...section("a", 1, 1, 2, 1), type: "短文本", align: "center", valign: "middle", fontSize: 20 },
+        { ...section("b", 1, 3, 2, 1), type: "短文本" },
+      ],
+      gridCols: 12,
+    });
+    expect(spec.fieldCells![0]).toMatchObject({ align: "center", valign: "middle", fontSize: 20 });
+    // 没配过的那个不写这几栏——缺省行为交给 vendor，不在这里凭空写一份默认值。
+    expect(spec.fieldCells![1]!.align).toBeUndefined();
+    expect(spec.fieldCells![1]!.valign).toBeUndefined();
+  });
+
+  it("「文本对象」的垂直对齐落成节点 y：靠上贴上沿、靠下贴下沿、居中就是格子中心", () => {
+    const build = (valign: "top" | "middle" | "bottom") => buildExplicitTemplateSpec({
+      key: `t-valign-${valign}`, displayName: "测试模板",
+      sections: [{
+        sectionId: "t1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "标题", color: null, fontSize: 24, fontWeight: "bold", valign,
+      }],
+      gridCols: 12,
+    }).spec.decorations![0]!;
+    const top = build("top");
+    const middle = build("middle");
+    const bottom = build("bottom");
+    expect(top.y).toBeLessThan(middle.y);
+    expect(middle.y).toBeLessThan(bottom.y);
+    // 居中 = 格子中心：上下两档到它的距离相等。
+    expect(middle.y - top.y).toBeCloseTo(bottom.y - middle.y, 6);
+  });
+
+  it("「文本对象」的水平对齐原样落成 data.align", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t-align", displayName: "测试模板",
+      sections: [{
+        sectionId: "t1", name: "文本", type: "文本对象",
+        layout: { col: 1, row: 1, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        content: "标题", color: null, fontSize: 24, fontWeight: "bold", align: "right",
+      }],
+      gridCols: 12,
+    });
+    expect(spec.decorations![0]!.data).toMatchObject({ align: "right" });
   });
 
   /**
@@ -333,13 +469,36 @@ describe("computeExplicitLayout —— px 几何", () => {
     expect(capacity).toBeGreaterThan(0);
   });
 
-  it("格子够高（中间三带同款几何）时不覆盖贴纸高度——保持与既有断言字节级兼容", () => {
+  it("默认尺寸就摆得下使用者要的行数时不覆盖贴纸高度", () => {
     const { spec } = buildExplicitTemplateSpec({
       key: "t1", displayName: "测试模板",
-      sections: [section("core", 1, 1, 12, 2, { cols: 4 })],
+      // 4 列 × 最多 4 条 ⇒ 只要 1 行，h=2 的格子用默认 92px 贴纸就摆得下。
+      sections: [section("core", 1, 1, 12, 2, { cols: 4, max: 4 })],
       gridCols: 12,
     });
     expect(spec.sections[0]!.sticky).toEqual({ perRow: 4 });
+  });
+
+  /**
+   * ⚠ 2026-09-10 人类实测：「模板配置了像是 4 个便利贴但是只显示了 2 个」。
+   * `stickyHeightOverride` 此前把贴纸压成整个可用高度，`renderStickyCapacity`
+   * 反解出的行数于是恒为 1，配了多行的分区在 chat 渲染里只剩第一行。
+   */
+  it("要的条数需要多行时，贴纸高度按行数收缩，渲染容量真的等于配置的条数", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      // 2 列 × 最多 4 条 ⇒ 要 2 行；格子只有 2 行高，默认 92px 贴纸摆不下两行。
+      sections: [section("core", 1, 1, 4, 2, { cols: 2, max: 4 })],
+      gridCols: 12,
+    });
+    const sec = spec.sections[0]!;
+    const sticky = sec.sticky!;
+    expect(sticky.h!).toBeLessThan(ENGINE_STICKY.h);
+    const capacity = renderStickyCapacity(
+      sec.w, sec.h, sticky.perRow!, spec.titleBars !== false, sticky.w ?? ENGINE_STICKY.w, sticky.h,
+    );
+    // 改动前这里是 2（一行两张），后两条要点会被 `capFenceBulletsToCapacity` 丢掉。
+    expect(capacity).toBe(4);
   });
 
   /**
