@@ -97,7 +97,7 @@ export function PrototypeInspector({
    * 算，执行交给父组件的 `onNodeOps`——与图层面板、键盘快捷键**同一条路**，
    * 三处不各写一遍。这里只负责按"走不走得动"禁用按钮。
    */
-  prototype?: readonly PrototypeNode[];
+  prototype?: readonly (PrototypeNode | null)[];
   onNodeOps?: (ops: readonly designPrototype.PrototypePatchOp[] | null, summary: string) => void | Promise<void>;
   node: PrototypeNode;
   /** 从页根到该节点的路径（含自身），用作面包屑。 */

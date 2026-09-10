@@ -676,7 +676,8 @@ export function applyPrototypePatch<T extends { readonly root?: PrototypeNode; r
  * 画布选中态（面包屑）与模型上下文（「用户选中了 …」）共用，不各写一份遍历。
  */
 export function findPrototypeNodePath(
-  prototype: readonly PrototypeNode[],
+  /** issue #3340：`null` = 这一页没画出来，没有树可找，直接跳过。 */
+  prototype: readonly (PrototypeNode | null)[],
   id: PrototypeNodeId,
 ): { readonly frameIndex: number; readonly path: readonly PrototypeNode[] } | null {
   const walk = (n: PrototypeNode, trail: PrototypeNode[]): PrototypeNode[] | null => {
@@ -691,6 +692,7 @@ export function findPrototypeNodePath(
     return null;
   };
   for (const [frameIndex, root] of prototype.entries()) {
+    if (root === null) continue;
     const path = walk(root, []);
     if (path !== null) return { frameIndex, path };
   }

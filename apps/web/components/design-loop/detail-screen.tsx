@@ -236,7 +236,7 @@ export function DesignDetailScreen({
       // 复制整页要**去掉树里的 id**，理由同复制节点：id 项目内唯一，
       // 带原 id 插进去会造出两页同 id 的节点，之后按 id 寻址一律命中第一页。
       [{ op: "addScreen", at: frame + 1, frame: `${project?.frames[frame] ?? "页面"} 副本`,
-         ...(root === undefined ? {} : { root: stripIds(root) }) }],
+         ...(root === undefined || root === null ? {} : { root: stripIds(root) }) }],
       "复制这一页",
     ).then(() => setFrame(frame + 1));
   };
@@ -846,6 +846,22 @@ export function DesignDetailScreen({
                       onSelect={preview === null ? setSelectedId : null}
                       device={lens}
                       landscape={landscape}
+                      /**
+                       * issue #3340：区分两种空。
+                       * · 整个项目还没有原型（`prototype.length === 0`）⇒ 引导语；
+                       * · 这一页规划了但没画出来（别的页有树、这页是 `null`）⇒ 说出事实 + 「补画这一页」。
+                       * 两种空说同一句话，等于把「有几页没画出来」这个事实藏起来。
+                       */
+                      ungenerated={
+                        preview === null &&
+                        (project.prototype.length > 0) &&
+                        (project.prototype[Math.min(frame, project.frames.length - 1)] ?? null) === null
+                      }
+                      onRegenerate={preview !== null || sending ? null : () => {
+                        // 补画走**普通对话**，不新开接口——与建议 chip「补画「X」」同一条路。
+                        const label = project.frames[Math.min(frame, project.frames.length - 1)] ?? "";
+                        void send(`补画「${label}」`);
+                      }}
                       frameIndex={Math.min(frame, (preview ?? project).frames.length - 1)}
                       theme={project.theme}
                       mode={canvasMode}

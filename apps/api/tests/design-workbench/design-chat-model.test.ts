@@ -208,7 +208,7 @@ describe("迭代 12：分页生成", () => {
     expect(outlineCall?.system).toBe(DESIGN_OUTLINE_SYSTEM_PROMPT);
     // 反证锚点：骨架轮的系统提示里**没有**组件树 schema 说明，否则模型照旧整页吐
     expect(outlineCall?.system).not.toContain("组件树原语");
-    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(frames);
+    expect(out.pagedScreens?.map((s) => s.frame)).toEqual(frames);
   });
 
   it("V37 8 页 ⇒ 恰好 1 + 8 次调用；每页轮的 prompt 不含其余页的完整树", async () => {
@@ -217,7 +217,7 @@ describe("迭代 12：分页生成", () => {
     const { r, model } = replier(async () => ({ text: (n += 1) === 1 ? outlineJson(frames) : screenJson(frames[n - 2]!) }));
     const out = await r.reply(EMPTY);
     expect(model.complete).toHaveBeenCalledTimes(1 + 8);
-    expect(out.writeback.prototype).toHaveLength(8);
+    expect(out.pagedScreens).toHaveLength(8);
     // 单次输出量与页数解耦的另一半：**输入**也不能随已生成页数线性涨。
     // 最后一页的 prompt 里只有结构摘要，没有前 7 页的完整树。
     const last = model.complete.mock.calls[8]?.[0]?.user ?? "";
@@ -239,7 +239,9 @@ describe("迭代 12：分页生成", () => {
       return { text: screenJson(frames[Number(which)]!) };
     });
     const out = await r.reply(EMPTY);
-    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "B", "D"]);
+    // issue #3340：失败的页**留在原位**（没有 root），不再从页序里消失。
+    expect(out.pagedScreens?.map((s) => s.frame)).toEqual(["A", "B", "C", "D"]);
+    expect(out.pagedScreens?.map((s) => s.root !== undefined)).toEqual([true, true, false, true]);
     expect(done).toBe(3);
     expect(out.source).toBe("model");           // 不是整段退路——已经画好的三页是真的
     expect(out.text).toContain("C");
@@ -256,7 +258,8 @@ describe("迭代 12：分页生成", () => {
       return { text: screenJson(frames[n - 2]!) };
     });
     const out = await r.reply(EMPTY);
-    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["A", "C"]);
+    expect(out.pagedScreens?.map((s) => s.frame)).toEqual(["A", "B", "C"]);
+    expect(out.pagedScreens?.map((s) => s.root !== undefined)).toEqual([true, false, true]);
   });
 
   it("V40 骨架轮被截断 ⇒ MODEL_OUTPUT_TRUNCATED；全部页都失败 ⇒ 也是退路，不写半套", async () => {
@@ -307,7 +310,7 @@ describe("迭代 12 补：单页截断后降级重试", () => {
     // ⭐ 反证锚点：重试若不追加"画简单点"，就是原样重试一个必然再次超预算的请求。
     expect(retry).toContain("更简单");
     expect(retry).toContain("完整输出");
-    expect(out.writeback.prototype?.map((s) => s.frame)).toEqual(["首页"]);
+    expect(out.pagedScreens?.map((s) => s.frame)).toEqual(["首页"]);
     expect(out.source).toBe("model");
   });
 
@@ -333,7 +336,7 @@ describe("迭代 12 补：单页截断后降级重试", () => {
     });
     const out = await r.reply(EMPTY);
     expect(model.complete).toHaveBeenCalledTimes(3);
-    expect(out.writeback.prototype).toHaveLength(1);
+    expect(out.pagedScreens).toHaveLength(1);
   });
 });
 

@@ -297,7 +297,20 @@ export const DesignProject = z
     problem: z.string().max(4000),
     criteria: z.array(z.string()),
     frames: z.array(z.string()),
-    prototype: z.array(PrototypeNode),
+    /**
+     * 按位置对应 `frames[i]` 的树。**`null` = 这一页规划了但没画出来**（issue #3340）。
+     *
+     * 迭代 12 的分页生成里，第 i 页失败只损失第 i 页——但在此之前失败页是**直接丢掉**的，
+     * 于是用户要 5 页、只看到 3 页，页与页之间没有任何痕迹说明另外 2 页去哪了
+     * （用户原话：「一次性生成了全部5个页面，且界面质量很差，似乎未经过迭代」）。
+     * 契约 §1.2 本来就写了「`screens[i].root === undefined` ⇒ 未生成」，存储层
+     * （`StoredScreen.root` 可选）一直支持，缺的是**读侧能表达这个洞**——此前只要有一页
+     * 缺树，整份 `prototype` 就投影成 `[]`（全有全无）。
+     *
+     * ⚠ 模型写回不走这里：`DesignPrototypeWriteback` 的 `root` 仍是**必给**。`null` 只能由
+     * 服务端写（哪一页没画出来是服务端知道的事实），模型没有「这页我不画」这个表达。
+     */
+    prototype: z.array(PrototypeNode.nullable()),
     /** 迭代 8：每页交互说明，按位置对应 `frames[i]`；长度 0（没写）或 = `frames.length`。空串 = 这页没写。 */
     frameNotes: z.array(z.string()),
     /** 迭代 13（delta §1）：项目挂着的参考图，只有元信息不含字节。 */
@@ -431,7 +444,8 @@ export const PrototypeVersionSummary = z
   .strict();
 export type PrototypeVersionSummary = z.infer<typeof PrototypeVersionSummary>;
 
-export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode) }).strict();
+// 版本快照同样可能含未生成的页（拍快照那一刻就缺）——与 `DesignProject.prototype` 同形。
+export const PrototypeVersion = PrototypeVersionSummary.extend({ prototype: z.array(PrototypeNode.nullable()) }).strict();
 export type PrototypeVersion = z.infer<typeof PrototypeVersion>;
 
 /* ─────────────────────────── 操作 ─────────────────────────── */

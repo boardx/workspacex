@@ -1348,6 +1348,67 @@ describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject /
   });
 
   /**
+   * issue #3340（barbara 实测）：「我提交一个设计需求需要开发5个页面……一次性生成了全部
+   * 5个页面，且界面质量很差，似乎未经过迭代」。
+   *
+   * 实际发生的是：分页生成里 5 页有 2 页失败，而**失败的页此前直接从页序里消失**——
+   * 用户看到 5 页只出来 3 页，画布上没有任何痕迹说明另外 2 页去哪了。契约 §1.2 本来就写了
+   * 「该页在画布上标为『未生成』」，只是当时因为 §1.2b 一并放弃了。
+   */
+  describe("#3340 规划了没画出来的页：留在原位、说出事实、能补画", () => {
+    const withHole = () => project({
+      id: "p1",
+      frames: ["首页", "聊天", "设置"],
+      // 第 0 页没画出来（`null`），另外两页有树。
+      prototype: [null, { id: "n1", type: "text", props: { content: "聊天页" } }, { id: "n2", type: "text", props: { content: "设置页" } }],
+      frameNotes: ["", "", ""],
+      frameLinks: [[], [], []],
+    } as unknown as Partial<DesignProject>);
+
+    const mount = async () => {
+      const sent: unknown[] = [];
+      apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: unknown }) => {
+        if (path === "/pm-designs/p1" && (opts?.method ?? "GET") === "GET") return { project: withHole() };
+        if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [withHole()] };
+        if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+          sent.push(opts.body);
+          return { project: withHole(), reply: { source: "model", applied: [], suggestions: [] } };
+        }
+        return {};
+      });
+      render(<DesignDetailScreen projectId="p1" />);
+      await screen.findByTestId("design-detail");
+      fireEvent.click(screen.getByTestId("design-detail-view-single"));
+      return sent;
+    };
+
+    it("未生成的页不再消失：3 个页签都在，且停在第 0 页时说的是「没画出来」而不是空项目引导语", async () => {
+      await mount();
+      expect(screen.getByTestId("design-detail-frame-0")).toBeTruthy();
+      expect(screen.getByTestId("design-detail-frame-2")).toBeTruthy();
+      const box = await screen.findByTestId("design-detail-phone-ungenerated");
+      expect(box.textContent).toContain("这一页没画出来");
+      // ⚠ 两种空必须分开：空项目那句引导语不许出现在这里，否则事实被盖住。
+      expect(box.textContent).not.toContain("还没有原型");
+      expect(screen.queryByTestId("design-detail-phone-placeholder")).toBeNull();
+    });
+
+    it("点「补画这一页」发的是一句普通对话，带着这一页的标签——不新开接口", async () => {
+      const sent = await mount();
+      fireEvent.click(await screen.findByTestId("design-detail-regenerate-frame"));
+      await waitFor(() => expect(sent).toHaveLength(1));
+      expect((sent[0] as { text: string }).text).toBe("补画「首页」");
+    });
+
+    it("有树的页照常渲染，不受同项目里那个洞影响", async () => {
+      await mount();
+      fireEvent.click(screen.getByTestId("design-detail-frame-1"));
+      const tree = await screen.findByTestId("design-detail-phone-tree");
+      expect(tree.textContent).toContain("聊天页");
+    });
+  });
+
+  /**
    * 迭代 13（delta §6）—— V70 的前端一半：视觉组默认折叠、内容组默认展开，
    * 且视觉档位改完真的发得出去（含数字档位的回转）。
    */

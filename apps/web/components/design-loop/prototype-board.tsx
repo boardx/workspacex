@@ -31,7 +31,7 @@ const clamp = (k: number): number => Math.min(MAX, Math.max(MIN, k));
 export function PrototypeBoard({
   frames, prototype, activeFrame, onFocusFrame, selectedId, onSelect, device, landscape = false, links = [], mode = "edit", onNavigate = null, theme = "dark",}: {
   frames: readonly string[];
-  prototype: readonly PrototypeNode[];
+  prototype: readonly (PrototypeNode | null)[];
   activeFrame: number;
   onFocusFrame: (index: number) => void;
   selectedId: string | null;

@@ -80,6 +80,20 @@ export interface DesignChatReplyResult {
    * 用户实测时只看到一句"稍后会更新画布"，无从判断该等还是该找运维。
    */
   readonly fallbackReason?: designAiCollab.DesignChatFallbackReason;
+  /**
+   * issue #3340：分页生成的**完整页序**，含「规划了但没画出来」的页（`root` 缺省）。
+   *
+   * 为什么不塞进 `writeback.prototype`：那是**模型写回**的通道，`PrototypeScreen.root`
+   * 是必给的，而且必须一直必给——放开它等于允许模型到处省略树，我们再也分不清
+   * 「模型没画」和「模型说这页不用画」。哪一页没画出来是**服务端知道的事实**，
+   * 所以走一条服务端自己的通道。给了这个字段就以它为准，`writeback.prototype` 不再看。
+   */
+  readonly pagedScreens?: readonly {
+    readonly frame: string;
+    readonly root?: designPrototype.PrototypeNode;
+    readonly notes?: string;
+    readonly links?: readonly designPrototype.PrototypeLink[];
+  }[];
 }
 
 export interface DesignChatModel {
@@ -454,7 +468,24 @@ export class ModelDesignChatReplier implements DesignChatModel {
       this.deps.log("design chat: every screen round failed", { pages: outline.length });
       return this.fallback(failed.length === outline.length ? "MODEL_OUTPUT_TRUNCATED" : "MODEL_CALL_FAILED");
     }
-    const { writeback } = parseWritebackDetailed({ prototype: done.map((d) => d.screen) }, this.deps.log);
+    /**
+     * issue #3340：**按骨架顺序**产出完整页序，失败的页留成没有 `root` 的占位。
+     *
+     * 此前是 `done.map(...)`——失败页直接消失，用户要 5 页只看到 3 页，画布上没有任何
+     * 痕迹说明另外 2 页去哪了（用户原话：「一次性生成了全部5个页面……似乎未经过迭代」）。
+     * 契约 §1.2 本来就写了「该页在画布上标为『未生成』」，只是当时因为 §1.2b 一并放弃了。
+     */
+    const byFrame = new Map(done.map((d) => [d.frame, d.screen]));
+    const pagedScreens = outline.map((e) => {
+      const hit = byFrame.get(e.frame);
+      if (hit === undefined) return { frame: e.frame };
+      return {
+        frame: e.frame,
+        root: hit.root as designPrototype.PrototypeNode,
+        ...(typeof hit.notes === "string" ? { notes: hit.notes } : {}),
+        ...(Array.isArray(hit.links) ? { links: hit.links as readonly designPrototype.PrototypeLink[] } : {}),
+      };
+    });
     const reply = typeof obj.reply === "string" && obj.reply.trim() !== ""
       ? obj.reply.trim()
       : `画了 ${done.length} 页：${done.map((d) => d.frame).join("、")}。`;
@@ -465,7 +496,9 @@ export class ModelDesignChatReplier implements DesignChatModel {
     return {
       text: text.slice(0, 4000),
       source: "model",
-      writeback,
+      // 页序走 `pagedScreens`（服务端事实）；`writeback` 这条路上没有别的字段要带。
+      writeback: {},
+      pagedScreens,
       suggestions: failed.length === 0 ? [] : [`补画「${failed[0]!}」`],
       ...(failed.length === 0 ? {} : { fallbackReason: undefined }),
     };

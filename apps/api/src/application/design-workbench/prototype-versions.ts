@@ -50,7 +50,12 @@ export async function restorePrototypeVersion(
   const v = await deps.projects.getVersion(input.projectId, input.versionId);
   if (v === null) throw new PrototypeVersionNotFoundError();
   // 旧版可能来自 id 之前的时代：补齐后写回，模型与画布看到的每个节点都可寻址。
-  const prototype = designPrototype.ensurePrototypeIds(v.prototype);
+  // issue #3340：快照里可能有「规划了没画出来」的页（`null`）。补 id 只对真有树的页做，
+  // 补完按原位置放回去——把 null 一起塞进 ensurePrototypeIds 会让它当成一棵树去遍历。
+  const withTrees = v.prototype.flatMap((r, i) => (r === null ? [] : [{ i, root: r }]));
+  const ids = designPrototype.ensurePrototypeIds(withTrees.map((x) => x.root));
+  const byIndex = new Map(withTrees.map((x, k) => [x.i, ids[k]!]));
+  const prototype = v.prototype.map((r, i) => (r === null ? null : byIndex.get(i)!));
   const written = await deps.projects.update(input.projectId, input.ownerId, { frames: v.frames, prototype, frameNotes: v.notes }, { source: "restore", summary: `恢复自 v${v.seq}` });
   if (written === null) throw new DesignProjectNotOwnerError();
   const recorded = deps.projects.lastRecordedVersion();

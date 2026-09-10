@@ -21,8 +21,13 @@ import {
  * 库里已经是一列 `screens` 了，这一步是**用例层**的适配——`DesignProjectRow` 对外仍然是
  * 平行视图（契约 `DesignProject` 的形状，改它会波及整个 web 面，不在本 delta 范围内）。
  */
-export function screensOf(row: { readonly prototype: readonly designPrototype.PrototypeNode[]; readonly frameLinks: readonly (readonly designPrototype.PrototypeLink[])[] }) {
-  return row.prototype.map((root, i) => ({ root, links: row.frameLinks[i] ?? [] }));
+export function screensOf(row: { readonly prototype: readonly (designPrototype.PrototypeNode | null)[]; readonly frameLinks: readonly (readonly designPrototype.PrototypeLink[])[] }) {
+  // issue #3340：`null`（这页没画出来）落成**没有 `root` 字段**的屏——`applyPrototypePatch`
+  // 的泛型 `T` 本来就按 `s.root === undefined` 处理未生成页（见 addScreen 的 root 可选）。
+  return row.prototype.map((root, i) => ({
+    ...(root === null ? {} : { root }),
+    links: row.frameLinks[i] ?? [],
+  }));
 }
 
 export class PrototypePatchRejectedError extends Error {
@@ -46,7 +51,7 @@ export async function patchPrototype(
   if (current.prototype.length === 0) throw new PrototypePatchRejectedError("NO_PROTOTYPE", "project has no prototype yet");
 
   // 迭代 11：patch 作用在**屏**上（`setLinks` 改的是屏级 links，且删节点要让指向它的 link 失效）。
-  let next: readonly { readonly root: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[];
+  let next: readonly { readonly root?: designPrototype.PrototypeNode; readonly links?: readonly designPrototype.PrototypeLink[] }[];
   try {
     next = designPrototype.applyPrototypePatch(screensOf(current), input.ops);
   } catch (e) {
@@ -56,7 +61,7 @@ export async function patchPrototype(
 
   // 与 UPDATE 同一事务落一条 user 版本（Codex：历史不能与当前原型分叉）。
   const written = await deps.projects.update(input.projectId, input.ownerId, {
-    prototype: next.map((s) => s.root),
+    prototype: next.map((s) => s.root ?? null),
     frameLinks: next.map((s) => [...(s.links ?? [])]),
   }, {
     source: "user",
