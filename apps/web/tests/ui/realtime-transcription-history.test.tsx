@@ -1,7 +1,11 @@
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RecApp } from "@/components/rec/rec-app";
 import { mockIdentity } from "@/lib/identity";
+
+// These regressions exercise recording behavior; authentication belongs to shell tests.
+vi.mock("@/components/shell/app-shell", () => ({ AppShell: ({ children }: { children: ReactNode }) => <>{children}</> }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/rec",

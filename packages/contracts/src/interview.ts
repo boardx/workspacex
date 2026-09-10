@@ -272,6 +272,7 @@ const DigitalInterviewExpertIds = z.array(z.string().min(1)).superRefine(validat
 
 /** 已确认的基础访谈数据；创建时主题为空，直到显式确认主题。 */
 export const DigitalInterview = DigitalInterviewDraftInput.extend({
+  tags: z.array(z.string().trim().min(1)),
   interviewId: z.string().min(1),
   topic: z.string().trim().min(1).nullable(),
   status: DigitalInterviewStatus,
@@ -597,6 +598,8 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
  */
 
 export const DigitalInterviewHistoryRow = DigitalInterviewDraftInput.extend({
+  tags: z.array(z.string().trim().min(1)),
+  canManage: z.boolean().optional(),
   interviewId: z.string().min(1),
   topic: z.string().trim().min(1).nullable(),
   kind: z.enum(["quick", "batch"]),
@@ -938,6 +941,18 @@ export const operations = {
     err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
+  /** Creator-managed presentation metadata; leaves workflow version and revision intact. */
+  updateDigitalInterviewMetadata: {
+    method: "PATCH", path: "/interviews/digital/:interviewId/metadata",
+    in: z.object({ interviewId: z.string().min(1), name: z.string().trim().min(1).max(200), tags: z.array(z.string().trim().min(1).max(80)).max(30) }).strict(),
+    out: z.object({ interviewId: z.string(), name: z.string(), tags: z.array(z.string()) }).strict(),
+  },
+  deleteDigitalInterview: {
+    method: "DELETE", path: "/interviews/digital/:interviewId",
+    in: z.object({ interviewId: z.string().min(1) }).strict(),
+    // Removes the history entry; related evidence and running workflows are retained.
+    out: z.object({ interviewId: z.string(), archived: z.literal(true) }).strict(),
+  },
   /** Studio 首屏历史列表；可见性在服务端完成。 */
   listDigitalInterviews: {
     method: "GET", path: "/interviews/digital",

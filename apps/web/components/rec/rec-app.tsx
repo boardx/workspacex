@@ -45,7 +45,7 @@ export function RecApp({
     );
   }
   return (
-    <AppShell identity={identity} previewRole={identity.projectRole} hideRoleSwitcher hideTopBar>
+    <AppShell previewRole={null}>
       <TranscriptionHistory uiState={uiState} />
     </AppShell>
   );

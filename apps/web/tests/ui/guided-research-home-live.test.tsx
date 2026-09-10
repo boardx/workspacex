@@ -85,13 +85,13 @@ describe("F168 guided research home live data", () => {
     listGuidedResearchSessions.mockResolvedValueOnce({
       items: [
         {
-          sessionId: "grs-running", title: "德国工商储电价机制", brief: {
+          sessionId: "grs-running", title: "德国工商储电价机制", tags: [], brief: {
             topic: "德国工商储电价机制", goal: "判断市场机会", timeRange: "2025", region: "德国", focus: "电价",
           }, stage: "researching", resumeStage: "researching", status: "active", progress: 64, sourceCount: 19, reportId: null,
           createdAt: "2026-08-11T09:00:00.000Z", updatedAt: "2026-08-12T09:00:00.000Z",
         },
         {
-          sessionId: "grs-done", title: "欧洲并网审批流程", brief: {
+          sessionId: "grs-done", title: "欧洲并网审批流程", tags: [], brief: {
             topic: "欧洲并网审批流程", goal: "形成报告", timeRange: "2025", region: "欧洲", focus: "审批",
           }, stage: "report", resumeStage: "report", status: "completed", progress: 100, sourceCount: 33, reportId: "report-1",
           createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T08:00:00.000Z",
@@ -108,6 +108,25 @@ describe("F168 guided research home live data", () => {
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-done");
   });
 
+  it("combines tag and content filters and changes history sort order", async () => {
+    listGuidedResearchSessions.mockResolvedValueOnce({ items: [
+      { ...createdSession("grs-old"), updatedAt: "2026-08-10T00:00:00.000Z" },
+      { ...createdSession("grs-new"), title: "采购访谈研究", tags: ["采购"], updatedAt: "2026-08-15T00:00:00.000Z" },
+    ] });
+    render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
+    await screen.findByTestId("research-history-grs-old");
+    const cards = () => screen.getAllByTestId(/^research-history-grs-/).map(card => card.dataset.testid);
+    expect(cards()).toEqual(["research-history-grs-new", "research-history-grs-old"]);
+    fireEvent.click(screen.getByTestId("research-history-sort"));
+    expect(cards()).toEqual(["research-history-grs-old", "research-history-grs-new"]);
+    fireEvent.click(screen.getByTestId("research-history-tag-欧洲"));
+    expect(cards()).toEqual(["research-history-grs-old"]);
+    fireEvent.change(screen.getByTestId("research-history-search"), { target: { value: "采购" } });
+    expect(screen.getByTestId("research-history-empty")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("research-history-tag-all"));
+    expect(cards()).toEqual(["research-history-grs-new"]);
+  });
+
   it("uses the shared Studio list-page width and card density", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({
       items: [{
@@ -121,13 +140,13 @@ describe("F168 guided research home live data", () => {
 
     const page = screen.getByTestId("research-home-page");
     expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
-    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:-translate-y-0.5");
+    expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("min-h-64", "hover:shadow-md");
   });
 
   it("keeps an active report-stage session resumable until its persisted status is completed", async () => {
     listGuidedResearchSessions.mockResolvedValueOnce({
       items: [{
-        sessionId: "grs-report-active", title: "仍待完成的报告", brief: {
+        sessionId: "grs-report-active", title: "仍待完成的报告", tags: [], brief: {
           topic: "仍待完成的报告", goal: "确认结论", timeRange: "2025", region: "欧洲", focus: "政策",
         }, stage: "report", resumeStage: "report", status: "active", progress: 95, sourceCount: 12, reportId: null,
         createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T08:00:00.000Z",
@@ -239,7 +258,7 @@ describe("F168 guided research home live data", () => {
 
   it("uses the session URL to restore the server-authored stage", async () => {
     getGuidedResearchSession.mockResolvedValueOnce({
-      sessionId: "grs-recover", title: "恢复中的研究", brief: {
+      sessionId: "grs-recover", title: "恢复中的研究", tags: [], brief: {
         topic: "恢复中的研究", goal: "继续检索", timeRange: "2026", region: "欧洲", focus: "政策",
       }, stage: "researching", resumeStage: "researching", status: "active", progress: 68, sourceCount: 27,
       reportId: null, createdAt: "2026-08-10T09:00:00.000Z", updatedAt: "2026-08-12T09:00:00.000Z",

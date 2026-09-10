@@ -84,6 +84,8 @@ export interface CreateDigitalInterviewRecordInput {
 }
 
 export interface DigitalInterviewRepository {
+  updateMetadata(input: { orgId: OrgId; actorId: string; interviewId: string; name: string; tags: readonly string[] }): Promise<boolean>;
+  archive(input: { orgId: OrgId; actorId: string; interviewId: string }): Promise<boolean>;
   createDraft(input: CreateDigitalInterviewRecordInput): Promise<StoredDigitalInterview>;
   findVisibleById(
     orgId: OrgId,

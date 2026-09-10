@@ -62,6 +62,32 @@ function toListItem(row: DigitalInterviewRow): StoredDigitalInterviewListItem {
 export class PgDigitalInterviewRepository implements DigitalInterviewRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  // Metadata and history visibility are independent of workflow version/revision. Do not
+  // invalidate an in-flight model command or delete its source/report rows here.
+  async updateMetadata(input: { orgId: OrgId; actorId: string; interviewId: string; name: string; tags: readonly string[] }): Promise<boolean> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const result = await session.query(
+        `UPDATE interview_sessions SET title=$4, tags=$5, updated_at=now()
+          WHERE org_id=$1 AND created_by=$2 AND id=$3
+            AND digital_status IS NOT NULL AND archived=false RETURNING id`,
+        [input.orgId, input.actorId, input.interviewId, input.name, [...input.tags]],
+      );
+      return result.rows.length === 1;
+    });
+  }
+
+  async archive(input: { orgId: OrgId; actorId: string; interviewId: string }): Promise<boolean> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const result = await session.query(
+        `UPDATE interview_sessions SET archived=true, updated_at=now()
+          WHERE org_id=$1 AND created_by=$2 AND id=$3
+            AND digital_status IS NOT NULL RETURNING id`,
+        [input.orgId, input.actorId, input.interviewId],
+      );
+      return result.rows.length === 1;
+    });
+  }
+
   async createDraft(input: CreateDigitalInterviewRecordInput): Promise<StoredDigitalInterview> {
     return this.db.withTenant(input.orgId, async (session) => {
       await session.query(
@@ -161,7 +187,7 @@ export class PgDigitalInterviewRepository implements DigitalInterviewRepository 
                 q.interview_id AS quick_interview_id, ${INTERVIEW_VISIBILITY_FACT_COLUMNS}
            FROM interview_sessions s
            LEFT JOIN digital_quick_interviews q ON q.org_id=s.org_id AND q.interview_id=s.id
-          WHERE s.org_id = $1 AND s.digital_status IS NOT NULL
+          WHERE s.org_id = $1 AND s.digital_status IS NOT NULL AND s.archived=false
             AND ($3::text IS NULL OR s.digital_status = $3)
             AND ${VISIBILITY_PREDICATE}
           ORDER BY s.updated_at DESC, s.id DESC`,

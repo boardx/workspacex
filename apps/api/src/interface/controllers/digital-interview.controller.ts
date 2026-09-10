@@ -1,4 +1,5 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { updateDigitalInterviewMetadata, deleteDigitalInterview } from "../../application/interview/manage-digital-interview";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Patch, Get, Inject, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
 import type { Response } from "express";
 import { interview as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -61,6 +62,28 @@ export class DigitalInterviewController {
 
   private withPath(body: unknown, path: Readonly<Record<string, string>>): unknown {
     return { ...(body !== null && typeof body === "object" ? body : {}), ...path };
+  }
+
+  @Patch("/:interviewId/metadata")
+  async updateMetadata(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string, @Body() body: unknown) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.updateDigitalInterviewMetadata.in, this.withPath(body, { interviewId }));
+    try {
+      return C.operations.updateDigitalInterviewMetadata.out.parse(await updateDigitalInterviewMetadata(this.repo, {
+        ...input, orgId: toOrgId(principal.orgId), actorId: principal.userId,
+      }));
+    } catch (error) { return this.translate(error); }
+  }
+
+  @Delete("/:interviewId")
+  async delete(@CurrentPrincipal() principal: Principal, @Param("interviewId") interviewId: string) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.deleteDigitalInterview.in, { interviewId });
+    try {
+      return C.operations.deleteDigitalInterview.out.parse(await deleteDigitalInterview(this.repo, {
+        ...input, orgId: toOrgId(principal.orgId), actorId: principal.userId,
+      }));
+    } catch (error) { return this.translate(error); }
   }
 
   @Post()

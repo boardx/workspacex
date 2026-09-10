@@ -829,6 +829,12 @@ const guidedWorkflowErrors = [
   "RESEARCH_SEARCH_PARTIAL_FAILURE",
 ] as const;
 
+export const GuidedResearchMetadata = z.object({
+  title: z.string().trim().min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(20)).max(5)
+    .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique"),
+});
+
 export const GuidedResearchSession = z.object({
   sessionId: z.string(),
   title: z.string(),
@@ -1105,10 +1111,8 @@ export const operations = {
     method: "POST",
     path: "/research/guided-sessions",
     in: z.object({
-      title: z.string().trim().min(1).max(100),
-      tags: z.array(z.string().trim().min(1).max(20)).max(5)
-        .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique")
-        .default([]),
+      title: GuidedResearchMetadata.shape.title,
+      tags: GuidedResearchMetadata.shape.tags.default([]),
       idempotencyKey: z.string().trim().min(1).max(200),
       collaboratorUserIds: z.array(z.string().trim().min(1)).max(50)
         .refine((ids) => new Set(ids).size === ids.length, "collaborator ids must be unique")
@@ -1117,6 +1121,24 @@ export const operations = {
     }).strict(),
     out: GuidedResearchSession,
     err: ["INVALID_RESEARCH_COLLABORATOR", "RESEARCH_CREATE_REPLAY_MISMATCH"] as const,
+  },
+  updateGuidedResearchMetadata: {
+    method: "PUT",
+    path: "/research/guided-sessions/:sessionId/metadata",
+    in: z.object({
+      sessionId: z.string().min(1),
+      ...GuidedResearchMetadata.shape,
+    }).strict(),
+    out: GuidedResearchSession,
+    err: ["RESEARCH_NOT_FOUND"] as const,
+  },
+  // Homepage removal only: reports, citations and running work remain retained.
+  deleteGuidedResearchSession: {
+    method: "DELETE",
+    path: "/research/guided-sessions/:sessionId",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: z.object({ archived: z.literal(true) }).strict(),
+    err: ["RESEARCH_NOT_FOUND"] as const,
   },
   listGuidedResearchSessions: {
     method: "GET",

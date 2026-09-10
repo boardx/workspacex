@@ -140,11 +140,41 @@ export class PgGuidedResearchSessionRepository implements GuidedResearchSessionR
     });
   }
 
+  async updateMetadata(input: {
+    orgId: OrgId; viewerUserId: string; sessionId: string; title: string; tags: readonly string[];
+  }): Promise<GuardedGuidedResearchSession | null> {
+    return this.db.withTenant(input.orgId, async (session) => {
+      const result = await session.query<Row>(
+        `UPDATE guided_research_sessions g SET title = $4, tags = $5::text[], updated_at = now()
+          WHERE g.org_id = $1 AND g.id = $3 AND g.archived_at IS NULL
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          RETURNING ${COLUMNS}, ${COLLABORATOR_PROJECTION}`,
+        [input.orgId, input.viewerUserId, input.sessionId, input.title, input.tags],
+      );
+      return result.rows[0] ? guarded(result.rows[0]) : null;
+    });
+  }
+
+  async archiveVisible(orgId: OrgId, viewerUserId: string, sessionId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (session) => {
+      // Keep source/report foreign keys and in-flight runtime writes intact. Runtime
+      // updates never touch archived_at, so completion cannot restore a removed card.
+      const result = await session.query<{ id: string }>(
+        `UPDATE guided_research_sessions g SET archived_at = COALESCE(g.archived_at, now())
+          WHERE g.org_id = $1 AND g.id = $3
+            AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
+          RETURNING g.id`,
+        [orgId, viewerUserId, sessionId],
+      );
+      return result.rows.length > 0;
+    });
+  }
+
   async listVisible(orgId: OrgId, viewerUserId: string): Promise<readonly GuardedGuidedResearchSession[]> {
     return this.db.withTenant(orgId, async (session) => {
       const result = await session.query<Row>(
         `SELECT ${COLUMNS}, ${COLLABORATOR_PROJECTION} FROM guided_research_sessions g
-          WHERE g.org_id = $1
+          WHERE g.org_id = $1 AND g.archived_at IS NULL
             AND (g.owner_user_id = $2 OR ${COLLABORATOR_PROJECTION.replace(" AS is_collaborator", "")})
           ORDER BY g.updated_at DESC, g.id DESC`,
         [orgId, viewerUserId],

@@ -3,7 +3,7 @@ import { runtimeProgress } from "./guided-research-progress";
 import type { Response } from "express";
 import { GUIDED_RUNTIME_SERVICE, ResearchRuntimeError } from "../../application/research/guided-runtime-ports";
 import type { GuidedRuntimeService } from "../../application/research/guided-runtime-service";
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Put, Query, Res, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -159,6 +159,28 @@ export class GuidedResearchController {
     const visible = this.disclose(row, principal.userId);
     if (!visible) throw new NotFoundException();
     return visible;
+  }
+
+  @Put(C.operations.updateGuidedResearchMetadata.path)
+  async updateMetadata(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string, @Body() raw: unknown) {
+    assertPrincipal(principal);
+    const input = C.operations.updateGuidedResearchMetadata.in.safeParse({ ...(raw as object), sessionId });
+    if (!input.success) throw new BadRequestException();
+    const updated = await this.sessions.updateMetadata({ orgId: principal.orgId, viewerUserId: principal.userId, ...input.data });
+    const visible = updated && this.disclose(updated, principal.userId);
+    if (!visible) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
+    return visible;
+  }
+
+  @Delete(C.operations.deleteGuidedResearchSession.path)
+  async archive(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+    assertPrincipal(principal);
+    const input = C.operations.deleteGuidedResearchSession.in.safeParse({ sessionId });
+    if (!input.success) throw new BadRequestException();
+    await this.current(principal, input.data.sessionId);
+    const archived = await this.sessions.archiveVisible(principal.orgId, principal.userId, input.data.sessionId);
+    if (!archived) throw new NotFoundException({ reasonCode: "RESEARCH_NOT_FOUND" });
+    return { archived: true as const };
   }
 
   @Get(C.operations.listGuidedResearchSessions.path)
