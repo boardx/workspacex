@@ -70,6 +70,29 @@ describe('existing Google search adaptation',()=>{
   const output=await service.search({query:'中文 research',domains:['example.com'],limit:1,timeRange:'all'});
   expect(query).toBe('中文 research');expect(output.results).toHaveLength(1);expect(output.results[0]!.url).toBe('https://docs.example.com/a');expect(output.domainFilter).toBe('post-filter-provider-candidates');expect(output.candidateLimit).toBe(5);expect(output.contentKind).toBe('search-snippet');
  });
+ /**
+  * issue #3388 —— 一个不合出站策略的候选，不许把整次搜索炸掉。
+  *
+  * 真实链路取证（2026-09-11，上游 www.web-search.boardx.us）：人类那条
+  * 「2026年新能源汽车销量最新数据」12/12 次全部失败，肇事者恒为
+  * `http://www.caam.org.cn/tjsj`——中汽协官网只有 http，而这个话题下它必进前五。
+  * 旧代码把它当成"整次搜索失败"，模型收到「Web source unavailable or refused」，
+  * 于是换个措辞重搜——人类看到的「执行失败 · web_search → 已执行 · web_search」就是它。
+  *
+  * ⚠ 这条断言必须钉在**混合候选集**上。原有用例的候选全是 https，缺陷在那个形状下
+  *   无法被证伪（本仓「替身产不出缺陷的形状」）。
+  */
+ it('one policy-refused candidate does not fail the whole search',async()=>{
+  const url=await fixture((req,res)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({results:[
+   {title:'CAAM',url:'http://www.caam.org.cn/tjsj',snippet:'中汽协 产销数据'},
+   {title:'Usable',url:'https://docs.example.com/a',snippet:'可用来源'},
+  ]}));});
+  const fetcher=localFetch(),service=new DefaultStandardWebService(new GoogleGuidedSearch(fetcher,url),fetcher);
+  const output=await service.search({query:'2026年新能源汽车销量最新数据'});
+  expect(output.results.map(hit=>hit.url)).toEqual(['https://docs.example.com/a']);
+  // 候选被裁过要如实告诉模型：不是"网上没有别的来源"。
+  expect(output.truncated).toBe(true);
+ });
  it('unsupported filters reject rather than silently ignoring',()=>{
   expect(WebSearchInput.safeParse({query:'x',timeRange:{from:'2026-01-01'}}).success).toBe(false);
   expect(WebSearchInput.safeParse({query:'x',limit:6}).success).toBe(false);
