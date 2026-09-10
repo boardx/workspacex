@@ -504,7 +504,12 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
      */
     const fontSize = info?.fontSize ?? 24;
     const lineH = Math.max(16, fontSize + 5);
-    const valign = info?.valign ?? "top";
+    // ⚠ 缺省是 **middle**，不是 top（独立 review 抓到的回归，2026-09-10）：加这个字段
+    //   之前，节点是 `y = 格子中心 / height = 格子高`，vendor 把文字画在节点中心 ⇒
+    //   文本对象一直是垂直居中的。缺省落到 top 会让每一个不带 `valign` 的存量文本
+    //   对象上跳一大截——存储纯增量、渲染却不是。判据与编辑器同一处
+    //   （`defaultValignFor`，那边是唯一声明），这里只是同一个默认值在渲染侧的应用。
+    const valign = info?.valign ?? "middle";
     const y = valign === "middle" ? c.y
       : valign === "bottom" ? c.y + c.h / 2 - lineH / 2
         : c.y - c.h / 2 + lineH / 2;

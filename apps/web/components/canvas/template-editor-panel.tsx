@@ -20,7 +20,7 @@ import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-dra
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
   collidesWithOthers, maxFreeW, maxFreeH, FIELD_TYPES, newTextDraft,
-  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT, DEFAULT_TEXT_ALIGN, DEFAULT_TEXT_VALIGN,
+  DEFAULT_TEXT_FONT_SIZE, DEFAULT_TEXT_FONT_WEIGHT, DEFAULT_TEXT_ALIGN, defaultValignFor,
   defaultFontSizeFor,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -280,7 +280,10 @@ export function TemplateEditorPanel({
       // 字号的缺省值随类型走（装帧大字 24 vs 字段值 13）——没动过字号的字段换类型时
       // 跟着换缺省，动过的保留使用者自己配的那个数。
       const fontSize = s.fontSize === defaultFontSizeFor(s.type) ? defaultFontSizeFor(type) : s.fontSize;
-      return { ...s, type, fontSize, layout: clampLayout(next, gridCols) };
+      // 垂直对齐同理：没动过的跟着类型换缺省（文本对象居中 / 文字型字段靠上），
+      // 动过的保留使用者自己选的那一档。
+      const valign = s.valign === defaultValignFor(s.type) ? defaultValignFor(type) : s.valign;
+      return { ...s, type, fontSize, valign, layout: clampLayout(next, gridCols) };
     }));
   }
 
@@ -337,7 +340,7 @@ export function TemplateEditorPanel({
       key, name, type: newField.type, aiHint: null,
       order: prev.length, required: false, capacity: null, layout: null,
       content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-      hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
+      hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: defaultValignFor(newField.type),
     }]);
     setNewField({ key: "", name: "", type: newField.type });
     setStep(2);
@@ -351,7 +354,7 @@ export function TemplateEditorPanel({
         key: f.key, name: f.name, type: f.type, aiHint: f.why,
         order: prev.length + i, required: false, capacity: null, layout: null,
         content: "", color: null, fontSize: DEFAULT_TEXT_FONT_SIZE, fontWeight: DEFAULT_TEXT_FONT_WEIGHT,
-        hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: DEFAULT_TEXT_VALIGN,
+        hideFieldTitle: false, align: DEFAULT_TEXT_ALIGN, valign: defaultValignFor(f.type),
       }));
       return [...prev, ...add];
     });
