@@ -10,7 +10,9 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { describeAgentRunError, describeAgentRunFailure } from "@/lib/agent-run";
-import { describeFailedRunBanner, resolveLiveRunErrorOutcome } from "@/lib/copilotkit-v2-failure-banner";
+import {
+  RUN_RECOVERED_NOTICE, describeFailedRunBanner, isRunSucceededWithOutput, resolveLiveRunErrorOutcome,
+} from "@/lib/copilotkit-v2-failure-banner";
 
 const failedView = {
   runId: "run-1", threadId: "thr-1", status: "failed" as const,
@@ -41,12 +43,18 @@ describe("resolveLiveRunErrorOutcome —— 活路径补读", () => {
     expect(fetchRun).toHaveBeenCalledWith("run-1", "b");
   });
 
-  it("传输层码不是 run 的终态码 ⇒ 一次请求都不打", async () => {
-    const fetchRun = vi.fn(async () => failedView);
+  /*
+   * issue #3387 ① —— 这条断言此前是「传输层码 ⇒ 一次请求都不打」。它省下的那次请求
+   * 正是 bug 的落点：不读 `agent_runs`，就只能拿 wire 上那个码当「这次执行成没成」的
+   * 答案，而那个码回答不了这个问题。现在**只要有 runId 就读**；文案在 run 未落成功
+   * 终态时逐字不变。
+   */
+  it("传输层码同样要读一次权威事实；run 没成功 ⇒ 文案逐字不变", async () => {
+    const fetchRun = vi.fn(async () => ({ ...failedView, status: "running" as const, error: null }));
     await expect(resolveLiveRunErrorOutcome({
-      runId: "run-1", code: "THREAD_NOT_VISIBLE", fetchRun: fetchRun as never,
+      runId: "run-1", code: "THREAD_NOT_VISIBLE", bearer: "b", fetchRun: fetchRun as never,
     })).resolves.toEqual({ kind: "banner", text: "这个对话你当前没有查看权限" });
-    expect(fetchRun).not.toHaveBeenCalled();
+    expect(fetchRun).toHaveBeenCalledWith("run-1", "b");
   });
 
   it("拿不到 runId ⇒ 不打请求，退回旧文案", async () => {
@@ -112,5 +120,68 @@ describe("issue #3367 —— 第 ③ 类：仍在等人批的 run 不能被译�
     await expect(resolveLiveRunErrorOutcome({
       runId: "run-1", code: "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION", fetchRun: fetchRun as never,
     })).resolves.toEqual({ kind: "banner", text: "这次执行当前不处于等待审批状态" });
+  });
+});
+
+/**
+ * issue #3387 ① —— 「有失败步骤」≠「这次执行没有成功」。
+ *
+ * 人类实测（devapp，2026-09-11）：回复正文已经给出几十行数据，执行条写
+ * `执行过程 · 有失败步骤 · 历时 02:00 · 工具 17 次`（17 次工具里 4 次失败后重试成功，
+ * 这句是准确的），**底部却是红色横幅「这次执行没有成功，请重试或联系管理员」**。
+ *
+ * 判据抓的是**组合**，不是「横幅在不在」：run 落 `succeeded` **且**产出已落库
+ * （`resultMessageId !== null`，契约原话「Non-null only once #413's writeback
+ * transaction has committed」）⇒ 不许出失败横幅。两个字段来自**同一次**权威读。
+ */
+describe("issue #3387 ① —— 有产出 + run 成功 ⇒ 不得显示失败横幅", () => {
+  const succeededView = {
+    runId: "run-1", threadId: "thr-1", status: "succeeded" as const,
+    error: null, failureReason: null, resultMessageId: "msg-9",
+  };
+
+  it("判据自检：succeeded + 有 resultMessageId 才算数，缺一不可", () => {
+    expect(isRunSucceededWithOutput(succeededView)).toBe(true);
+    // succeeded 但产出没落库（`RESULT_UNREADABLE` 那一类）—— 仍然要如实报错。
+    expect(isRunSucceededWithOutput({ ...succeededView, resultMessageId: null })).toBe(false);
+    // 有产出但 run 不是成功终态 —— 不许被这条判据吞掉。
+    expect(isRunSucceededWithOutput({ ...succeededView, status: "failed" })).toBe(false);
+  });
+
+  for (const code of [
+    // 通用兜底文案那一支：既不是 `AgentRunError`、也不在 `TRANSPORT_ERROR_TEXT` 里——
+    // 人类那一轮横幅逐字是兜底文案，落进的正是这一支（旧代码在这里一次读都不打）。
+    "SOME_UNREGISTERED_STEP_ERROR",
+    // 终态码那一支：wire 说 run 失败了，权威读说它成功了 —— 以权威读为准。
+    "MODEL_CALL_FAILED",
+    // 传输层码那一支（中继放弃轮询，run 其实跑完了，见 `poll-budget.ts`）。
+    "AGENT_RUN_TIMEOUT",
+    // approval_pending 那一支：run 已经成功就不该再弹审批卡。
+    "AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION",
+  ]) {
+    it(`${code} + 权威读说 succeeded 且有产出 ⇒ 不出失败横幅，改出完成提示`, async () => {
+      const fetchRun = vi.fn(async () => succeededView);
+      const outcome = await resolveLiveRunErrorOutcome({
+        runId: "run-1", code, bearer: "b", fetchRun: fetchRun as never,
+      });
+      expect(
+        outcome,
+        `wire 上的码是 ${code}，但 agent_runs 的权威事实是 succeeded + resultMessageId=msg-9。`
+          + `此时仍然产出 ${JSON.stringify(outcome)} 就是把「有失败步骤」说成了「这次执行没有成功」。`,
+      ).toEqual({ kind: "recovered", text: RUN_RECOVERED_NOTICE });
+      expect(fetchRun).toHaveBeenCalledWith("run-1", "b");
+    });
+  }
+
+  it("自检：完成提示不是失败文案的换皮——它不含那句兜底失败话术", () => {
+    expect(RUN_RECOVERED_NOTICE).not.toContain("没有成功");
+    expect(RUN_RECOVERED_NOTICE).not.toBe("这次执行没有成功，请重试或联系管理员");
+  });
+
+  it("succeeded 但产出没落库 ⇒ 横幅照旧（不许顺手吞掉真问题）", async () => {
+    const fetchRun = vi.fn(async () => ({ ...succeededView, resultMessageId: null }));
+    await expect(resolveLiveRunErrorOutcome({
+      runId: "run-1", code: "RESULT_UNREADABLE", fetchRun: fetchRun as never,
+    })).resolves.toEqual({ kind: "banner", text: "回复已生成，但暂时读取不到内容" });
   });
 });

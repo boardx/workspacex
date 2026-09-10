@@ -1,8 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { buildTraceFixture } from "./fixtures/build-trace-fixture";
 import { test, expect } from "@playwright/test";
 
 /**
@@ -28,14 +25,7 @@ import { test, expect } from "@playwright/test";
  * 的 config 编译），两侧都不是替身，只是没有数据链路。
  */
 function buildFixture(): string {
-  const dir = mkdtempSync(join(tmpdir(), "trace-liveness-"));
-  const page = join(dir, "page.html");
-  const web = join(__dirname, "..");
-  execFileSync(process.execPath, ["--import", "tsx", join(__dirname, "fixtures", "trace-liveness-fixture.tsx"), page], { cwd: web, stdio: "pipe" });
-  execFileSync(join(web, "node_modules", ".bin", "tailwindcss"),
-    ["-c", "tailwind.config.ts", "-i", "app/globals.css", "-o", join(dir, "out.css"), "--content", page],
-    { cwd: web, stdio: "pipe" });
-  return pathToFileURL(page).href;
+  return buildTraceFixture(join(__dirname, "fixtures", "trace-liveness-fixture.tsx"), "trace-liveness-");
 }
 
 test("#3316 ①：run 还活着时，「正在执行」那一行的状态图标必须真的在转（两帧比对，不是判 class）", async ({ page }) => {

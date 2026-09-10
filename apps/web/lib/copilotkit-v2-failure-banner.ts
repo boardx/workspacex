@@ -29,7 +29,7 @@
  */
 import { getAgentRun } from "./agent-run";
 import type { AgentRunFailureReason } from "./agent-run";
-import { describeCopilotkitV2RunError, isAgentRunTerminalErrorCode } from "./copilotkit-v2-error-copy";
+import { describeCopilotkitV2RunError } from "./copilotkit-v2-error-copy";
 import { aguiRunError } from "@repo/contracts";
 
 /** 权威读回来的、本模块真正用到的那两个字段。 */
@@ -37,6 +37,39 @@ export interface FailedRunFacts {
   readonly error?: string | null;
   readonly failureReason?: AgentRunFailureReason | null;
 }
+
+/**
+ * issue #3387 ① —— 「这一轮到底成没成」的**唯一**判据，两个字段都来自**同一次**
+ * 权威读（`GET /agent-runs/:runId` → `AgentRunView`）：
+ *
+ *   · `status === "succeeded"` —— run 的终态。`agent_runs` 的状态机里它与 `failed`
+ *     互斥，**不是**「有没有失败的工具调用」。17 次工具里 4 次失败后重试成功，
+ *     run 的终态照样是 `succeeded`：那是「有失败步骤」，不是「这次执行没有成功」。
+ *   · `resultMessageId !== null` —— 「有产出」。契约原话：`Non-null only once #413's
+ *     writeback transaction has committed`（`wave2-runtime.ts`），即那条助手回复
+ *     **已经落库**。前端不必自己去数 `agent.messages` 里有没有内容——那是同一个事实
+ *     的第二份副本，且在写回落后于事件到达时会答错。
+ *
+ * 两者**同时**成立才算数：`succeeded` 但 `resultMessageId` 为空（例如
+ * `RESULT_UNREADABLE` 那一类）仍然要如实报错，不许被这条判据顺手吞掉。
+ */
+export function isRunSucceededWithOutput(view: {
+  readonly status?: string;
+  readonly resultMessageId?: string | null;
+}): boolean {
+  return view.status === "succeeded" && (view.resultMessageId ?? null) !== null;
+}
+
+/**
+ * issue #3387 ① —— 「部分步骤失败、整体成功」这一态**自己的**表达。
+ *
+ * 人类原话：用户已经拿到了想要的答案，系统却告诉他失败了；他不知道该信哪个、
+ * 该不该点重试（点了会不会把已有结果冲掉）。所以这句话必须同时说清三件事：
+ * 这一轮**完成了**、中途**确实出过错**、上面的结果**可以用**——并且它不带重试入口
+ * （重试一条已经成功的 run 只会浪费一次真实模型调用）。
+ */
+export const RUN_RECOVERED_NOTICE =
+  "这一轮已经完成，中途有步骤出错但已经恢复，上面的结果可以正常使用。";
 
 /**
  * run 的权威视图 → 横幅正文。**两条路径共用这一个函数**：失败当场（`onError` 补读之后）
@@ -64,7 +97,12 @@ export type LiveRunErrorOutcome =
   /** 显示这句横幅（第 ① / ② 类，以及第 ③ 类核实不通过时的 fail-closed 回落）。 */
   | { readonly kind: "banner"; readonly text: string }
   /** 第 ③ 类且**权威读确认**这条 run 仍有一条待批请求 ⇒ 重挂审批卡，不显示错误。 */
-  | { readonly kind: "reattach_approval"; readonly runId: string };
+  | { readonly kind: "reattach_approval"; readonly runId: string }
+  /**
+   * issue #3387 ① —— **权威读确认这一轮其实成功了、而且产出已落库**。
+   * 这不是失败，不许复用失败横幅（红色 + 重试按钮）：显示一条中性的完成提示。
+   */
+  | { readonly kind: "recovered"; readonly text: string };
 
 /**
  * 活路径：AG-UI `RUN_ERROR` 到手之后，向 `agent_runs` 补**一次**权威读。
@@ -73,11 +111,22 @@ export type LiveRunErrorOutcome =
  * `describeFailedRunBanner`）与「这条 run 是不是还在等人批」（#3367）。**是同一次读、
  * 同一个模块、同一个成因函数**，不新开第二条通道：本仓头号病是同一事实声明在两处。
  *
- * 何时才读：
- *   - 码是 run 的终态码（`AgentRunError`）⇒ 读成因（原有行为，一字未改）；
- *   - 码的处置是 `approval_pending`（`AGENT_RUN_NOT_AWAITING_TOOL_PERMISSION` /
- *     `NO_PENDING_APPROVAL`）⇒ 读「还有没有待批请求」。
- * 其余传输层码一次请求都不多打（原有纪律）。
+ * 何时才读（issue #3387 起）：**只要知道 runId 就读**。
+ *
+ * ⚠ 这条规则此前是「只有终态码 / approval_pending 码才读」，而人类实测那一轮
+ * （#3387 ①：几十行数据已经产出、执行条写「有失败步骤」、底部却是红色失败横幅）
+ * 落进的正是**不读**的那一支：横幅的文案是通用兜底「这次执行没有成功，请重试或
+ * 联系管理员」⇒ 码既不在 `AgentRunError` 枚举里、也不在 `TRANSPORT_ERROR_TEXT` 里
+ * ⇒ 旧判据 `isAgentRunTerminalErrorCode(code)` 为假 ⇒ **一次权威读都没打**，
+ * 「这次执行成没成」全凭 wire 上那个码。那个码回答不了这个问题。
+ *
+ * 代价是每一次真的报错时多打一个 GET——只发生在**已经出错**的路径上，且换来的是
+ * 「不再把成功说成失败」。省这一次请求省错了地方。
+ *
+ * 这一次读同时回答三个问题：
+ *   - 这一轮**其实成功了吗**（`isRunSucceededWithOutput`，#3387 ①）；
+ *   - 这次失败的成因是什么（`describeFailedRunBanner`，#3261/#3280）；
+ *   - 这条 run 是不是还在等人批（#3367）。
  *
  * fail closed：读不到、读回来的 run 不在 `awaiting_tool_permission`、或 `pendingApproval`
  * 为空，一律退回横幅——绝不凭一个错误码凭空造一张审批卡出来。
@@ -94,9 +143,16 @@ export async function resolveLiveRunErrorOutcome(params: {
   const codeOnly = describeCopilotkitV2RunError(code);
   const disposition = aguiRunError.dispositionOf(code);
   const wantsApprovalCheck = disposition === "approval_pending";
-  if (runId === null || (!wantsApprovalCheck && !isAgentRunTerminalErrorCode(code))) return banner(codeOnly);
+  if (runId === null) return banner(codeOnly);
   try {
     const view = await (params.fetchRun ?? getAgentRun)(runId, bearer);
+    /*
+     * issue #3387 ① —— **排在所有分支最前面**：这一轮到底成没成，只有 `agent_runs`
+     * 说了算。wire 上那个码说的是「刚才有一步出错了」，它与「这次执行没有成功」是
+     * 两件事——人类实测那一轮里执行条自己写的「有失败步骤」是准确的，被说成失败的
+     * 是横幅。
+     */
+    if (isRunSucceededWithOutput(view)) return { kind: "recovered", text: RUN_RECOVERED_NOTICE };
     if (wantsApprovalCheck) {
       return view.status === "awaiting_tool_permission" && view.pendingApproval
         ? { kind: "reattach_approval", runId }

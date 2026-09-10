@@ -7,6 +7,7 @@ import { traceEntries, groupTraceRows, type TraceEntry } from "@/lib/chat-workbe
 import { toolLabel } from "@/lib/chat-workbench/tool-label";
 import { SubtaskRunLivePanel } from "@/components/chat/subtask-run-live-panel";
 import { RunTraceLiveStrip } from "@/components/chat/workbench/run-trace-live-strip";
+import { MarkdownProseBlock } from "@/components/chat/markdown-prose";
 
 function detail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2) ?? "";
@@ -135,7 +136,14 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
               </details>
             </li>
           : ((entry) => <li key={entry.id} data-testid="run-trace-entry" data-kind={entry.kind} data-status={entry.status} data-tool-name={entry.kind === "tool" ? entry.text : undefined}>
-          {entry.kind === "progress" ? <div className="whitespace-pre-wrap break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span>{entry.text}</div> :
+          {/* issue #3387 ② —— 进展摘要是**模型写的 markdown**（人类实测里原样显示了
+              `### 2026 年上半年（H1）整体表现` 与 `- 加粗的「产量」`）。此前这里
+              把它当纯文本塞进一个 `whitespace-pre-wrap` 的 div：`###` / `**` 全部字面
+              显示。改走与 assistant 正文同一份 markdown 渲染（`MarkdownProse`：同一份 remark-gfm
+              + rehype-sanitize 清洗），只换一个自己的 `data-testid`。
+              ⚠ 执行过程里其它文本块一律不动：工具的「输入」/「结果」是 JSON，本来就该
+              留在 `<pre>` 里原样显示，把它们也当 markdown 渲染是另一个 bug。 */}
+          {entry.kind === "progress" ? <div className="break-words leading-relaxed"><span className="mr-2 text-11">{entry.source === "legacy" ? "历史公开记录" : "Thinking · 进展摘要"}</span><MarkdownProseBlock text={entry.text} testId="run-trace-progress-markdown" /></div> :
             <details className="min-w-0">
               <summary className="cursor-pointer rounded-control py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="inline-flex items-center gap-2">
