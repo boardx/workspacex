@@ -161,6 +161,19 @@ PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
 # 重启或 tmp 清理即丢。deploy.sh 第 4g 步会兜底补写并建目录，这里写上是让新机器
 # 从第一天就不经过误配状态。
 WORKSPACEX_OBJECT_ROOT=/opt/workspacex/objects
+# ── 沙箱并发容量（四项都是可选；不设 = 用各自的默认值）──────────────────────
+# SKILL_SANDBOX_MAX_SESSIONS：并发 Native session 上限。**不在这里写默认值**——
+#   默认只声明在 packages/contracts/src/sandbox-session.ts 的 `maxSessions`，
+#   容器读到空/未设就用它（apps/skill-sandbox/src/session/schema.ts 的
+#   resolveMaxSessions）。写非十进制正整数会让沙箱容器**起不来**（刻意：静默退回
+#   默认 = 一台"看起来配了、其实没配"的机器，比没配更难查）。
+# ⚠ 调大它必须**同时**调大下面三项。只调 session 数，超出的并发不再是干净的
+#   SESSION_LIMIT 拒绝，而是容器 OOM——可解释的拒绝换成了不可解释的崩溃。
+#   参考档位：20 人并发 ⇒ MAX_SESSIONS=32 / MEM_LIMIT=4g / CPUS=2.0。
+# SKILL_SANDBOX_MAX_SESSIONS=
+# SKILL_SANDBOX_MEM_LIMIT=
+# SKILL_SANDBOX_CPUS=
+# SKILL_SANDBOX_PIDS_LIMIT=
 # 2026-08-11：deep-agent-service（「通用助手」内核，deploy.sh 第 4h 步 build+run 的
 # 本机容器）。这一行是宿主端口的**单一声明处**——deploy.sh 从它反解端口，端口归属
 # 登记见 .harness/instructions/project/PROJECT.md「本机端口分配」，此处不复述。
