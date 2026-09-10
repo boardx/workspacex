@@ -38,9 +38,10 @@ function buildFixture(): string {
   return pathToFileURL(page).href;
 }
 
-test.use({ reducedMotion: "no-preference" });
-
 test("#3316 ①：run 还活着时，「正在执行」那一行的状态图标必须真的在转（两帧比对，不是判 class）", async ({ page }) => {
+  // 判据是「有没有在动」，先把 reduced-motion 钉死在 no-preference——
+  // 否则 CI 机器的系统偏好一变，这条门就会在无关的地方红。
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto(buildFixture());
 
