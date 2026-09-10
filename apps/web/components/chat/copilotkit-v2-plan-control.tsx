@@ -362,6 +362,24 @@ function PlanControlSession(
   // （`pausedWithoutPlan`），于是「正在跑且无计划」——也就是想暂停的那一刻——
   // 反而没有入口。两态用同一个控件，testid 与 `PlanRunProgress` 里那对一致，
   // 断言不需要知道这一轮模型有没有产出计划。
+  /**
+   * ⚠ 这一行**没有可操作入口时不渲染**——人类 2026-09-10 实测反馈：「不要显示，
+   *   执行中的文字」。
+   *
+   *   截图里的那一屏：折叠头已经说了「正在执行 · 历时 00:07 · …」，下面一行
+   *   「正在推进任务」，再下面又孤零零一句「执行中」——同一件事第三次。而这一行此刻
+   *   **一个按钮都没有**：暂停入口已随 #3318 下线（`CHAT_RUN_PAUSE_ENTRY_ENABLED`），
+   *   run 在跑时也谈不上「继续执行」。剩下的就是一句纯状态复述。
+   *
+   *   #3365 收敛的是「五处各自推导同一个状态」，这条是它的续作：推导只剩一份之后，
+   *   **同一份事实仍然被说了三遍**。收敛推导之外还得收敛出口——一行既不给信息（上面
+   *   已经说过）也不给动作的东西，删掉比留着诚实。
+   *
+   *   有按钮时照旧渲染：那时候标签是按钮的上下文（「已暂停」+「继续执行」），
+   *   不是复述——`已暂停` 恰恰是上面两行**不会**说的那一句。
+   */
+  const hasRunControl = runControls.canResume || CHAT_RUN_PAUSE_ENTRY_ENABLED || actionErrorCode !== null;
+  if (surface.kind === "run-controls" && !hasRunControl) return indicator;
   if (surface.kind === "run-controls") return <><div className="flex items-center gap-2 text-13" data-testid="chat-task-workbench-plan-control" data-thread-id={tid}>
     {indicator}
     {/*

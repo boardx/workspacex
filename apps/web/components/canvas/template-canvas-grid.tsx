@@ -459,7 +459,21 @@ export function TemplateCanvasGrid({
                       {`{{${s.key}${isList ? "[]" : ""}}}`}
                     </span>
                     <span
-                      className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                      /*
+                        ⚠ `shrink-0 whitespace-nowrap` 改成 `min-w-0 truncate`（2026-09-10）：
+                        默认块收成 2×2 之后，「N 列 · M 条」这段不可收缩的文字比整个区块
+                        还宽，把标题块整体撑出区块右边界——CI 的浏览器 e2e 当场量到
+                        `tpladmin-editor-block-title-*` 的右沿越过了网格边（noteEdge 580.28 >
+                        gridEdge 577.36）。不可收缩的东西放在一个会变窄的框里，迟早撑破它。
+                        改成允许收缩 + 省略号：宽块上一字不差，窄块上截断而不是溢出。
+                        完整文案仍在 `title` 上（鼠标悬停可读），信息不丢。
+                      */
+                      className={`ml-auto min-w-0 truncate ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                      title={overflowed
+                        ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
+                        : isList
+                          ? `${layout.cols} 列 · ${layout.max} 条`
+                          : "文本"}
                       style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
                       data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
                     >

@@ -98,9 +98,20 @@ describe("#3318 —— chat 的暂停入口已移除，取消仍是唯一终止�
     );
     render(<CopilotKitV2PlanControl threadId="t-3318-no-steps" />);
 
-    // 阳性对照：暂停按钮原本就长在这一行上（#3099 那条分支）。
-    const row = await screen.findByTestId("chat-task-workbench-plan-control");
-    expect(within(row).getByRole("status")).toHaveTextContent("执行中");
+    /*
+     * 阳性对照换了一个：暂停按钮原本长在「运行级控制」那一行上，而那一行自 2026-09-10
+     * 起**没有任何可操作入口时就不渲染**（人类实测「不要显示，执行中的文字」——折叠头
+     * 已经说了「正在执行 · 历时…」，那一行再说一句「执行中」是同一件事第三遍）。
+     * 于是这里改用阶段指示器当对照：组件确实拿到了 running 的账本、确实渲染了东西，
+     * 只是那一行不再存在——否则「没找到暂停」可能只是因为整个组件没渲染。
+     */
+    // 阳性对照：组件确实挂载并拿到了 running 的账本——否则"没找到暂停"只是因为
+    // 整个组件没渲染，这条断言就成了空转。
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
+    expect(
+      screen.queryByTestId("chat-task-workbench-plan-control"),
+      "run 在跑、既不能继续也不能暂停时，这一行只剩一句状态复述，不该渲染",
+    ).toBeNull();
     expectNoPauseEntry();
   });
 
@@ -131,11 +142,11 @@ describe("#3318 —— chat 的暂停入口已移除，取消仍是唯一终止�
     );
     render(<CopilotKitV2PlanControl threadId="t-3318-pause-requested" />);
 
-    const row = await screen.findByTestId("chat-task-workbench-plan-control");
+    await waitFor(() => expect(api.fetchPlanLedger).toHaveBeenCalled());
     expect(
-      within(row).getByRole("status"),
+      screen.queryByText(/暂停/),
       "没有入口就产生不了 pause-requested；真出现了也不该告诉用户「有个暂停正在进行」",
-    ).toHaveTextContent("执行中");
+    ).toBeNull();
     expectNoPauseEntry();
   });
 
