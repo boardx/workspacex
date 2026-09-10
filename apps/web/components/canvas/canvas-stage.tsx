@@ -8,6 +8,7 @@ import {
   FlowNode,
   FlowEdge,
   attachMindmapEditor,
+  STICKY_COLORS,
   type DiagramModel,
   type MindmapEditor,
 } from "@repo/fabric-markdown";
@@ -187,6 +188,16 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   const [loading, setLoading] = React.useState(true);
   const [selectedLabel, setSelectedLabel] = React.useState<string | null>(null);
   const [mindmapActive, setMindmapActive] = React.useState(false);
+  // 选中便签的颜色菜单——issue #3336（人类反馈：最大化后只能改文字，改不了颜色）。
+  // 只在「画布模板」模式下、选中的节点 `data.role === 'sticky'` 时出现，其它节点
+  // （分区框/字段/自由画布的普通节点/mindmap 节点）不接——同 Delete 键那条"只有
+  // 便签是内容，其它是结构"的规则（见 onDeleteKey 注释），不写第二份判断逻辑。
+  // rect 用屏幕坐标（`screenRectOf` 同款算法），随选中/拖拽/缩放/平移持续更新。
+  const stickyMenuNodeRef = React.useRef<FlowNode | null>(null);
+  const [stickyMenu, setStickyMenu] = React.useState<{
+    rect: { left: number; top: number; width: number; height: number };
+    color: string;
+  } | null>(null);
 
   toolRef.current = tool;
   readOnlyRef.current = readOnly;
@@ -227,6 +238,21 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     const next = serializeCanvasMarkdown(canvas, markdownRef.current);
     emit(next);
   }, [emit]);
+
+  // 便签颜色菜单点一个色块——issue #3336。`FlowNode.setColor` 是 vendor 早就
+  // 备好的方法（`packages/fabric-markdown/src/fabric-objects.ts`，注释写着
+  // "used by the sticky color menu"），此前没有任何调用点接它，这里是第一个。
+  // 改色只改 `data.color`（渲染用）+ 底图 fill，不碰 label，`syncFromCanvas` 复用
+  // 既有序列化路径——`template-engine.ts` 的 `serializeTemplate` 已经会把非默认
+  // 颜色写成尾缀 `#colorname`（同一份逻辑，见该文件 `extractStickyColor`）。
+  const pickStickyColor = React.useCallback((hex: string) => {
+    const node = stickyMenuNodeRef.current;
+    const canvas = fabricRef.current;
+    if (!node || !canvas || readOnlyRef.current) return;
+    node.setColor(hex);
+    setStickyMenu((prev) => (prev ? { ...prev, color: hex } : prev));
+    syncFromCanvas();
+  }, [syncFromCanvas]);
 
   // 见 `CanvasStageHandle.fitToContent` 头注——与 `exportPNG` 共用同一套并集包围盒
   // 算法，只是拿算出来的框去定 viewport（zoom+pan）而不是去截图。定义成一个不依赖
@@ -351,6 +377,27 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     editorEl?.addEventListener("keydown", onEditorKeydown);
     editorEl?.addEventListener("blur", onEditorBlur);
 
+    // 便签颜色菜单——只在选中一个 `data.role === 'sticky'` 的节点时出现（见状态
+    // 声明处注释）。位置用 `screenRectOf` 换算成屏幕坐标，随 `after:render` 持续
+    // 刷新（拖拽/缩放/平移都会触发 fabric 重绘，见下方挂载点），不需要在每个
+    // 平移/缩放调用点各补一次重算。
+    const updateStickyMenuRect = (): void => {
+      const node = stickyMenuNodeRef.current;
+      if (!node || !node.canvas) {
+        setStickyMenu(null);
+        return;
+      }
+      const rect = screenRectOf(node);
+      const color = (node.data as { color?: string } | undefined)?.color ?? STICKY_COLORS['yellow'] ?? '#fef3c7';
+      setStickyMenu((prev) =>
+        prev && prev.rect.left === rect.left && prev.rect.top === rect.top &&
+          prev.rect.width === rect.width && prev.rect.height === rect.height && prev.color === color
+          ? prev
+          : { rect, color },
+      );
+    };
+    canvas.on("after:render", updateStickyMenuRect);
+
     canvas.on("object:modified", syncFromCanvas);
     const onSelection = (e: { selected?: unknown[] }): void => {
       const obj = e.selected?.[0];
@@ -361,6 +408,15 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
       selectedEdgeIdRef.current = edge?.edgeId ?? null;
       if (node) lastSelectedNodeIdRef.current = node.nodeId;
       setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
+      // 只读模式下不给编辑颜色的入口——同 `openInlineEditor` 那条 `readOnlyRef` 判断。
+      const role = (node?.data as { role?: string } | undefined)?.role;
+      if (node && !readOnlyRef.current && role === "sticky") {
+        stickyMenuNodeRef.current = node;
+        updateStickyMenuRect();
+      } else {
+        stickyMenuNodeRef.current = null;
+        setStickyMenu(null);
+      }
       // 选中一条边时重绘一次——vendored `FlowEdge._render` 按「自己是不是当前
       // active object」画高亮描边（见该文件改动），选中态本身不会自动触发重绘。
       if (edge) canvas.requestRenderAll();
@@ -368,6 +424,8 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     canvas.on("selection:created", onSelection);
     canvas.on("selection:updated", onSelection);
     canvas.on("selection:cleared", () => {
+      stickyMenuNodeRef.current = null;
+      setStickyMenu(null);
       setSelectedLabel(null);
       selectedNodeIdRef.current = null;
       selectedEdgeIdRef.current = null;
@@ -430,6 +488,10 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
       canvas.fire("object:modified", { target });
       selectedNodeIdRef.current = null;
       setSelectedLabel(null);
+      if (stickyMenuNodeRef.current === target) {
+        stickyMenuNodeRef.current = null;
+        setStickyMenu(null);
+      }
       syncFromCanvas();
     };
     document.addEventListener("keydown", onDeleteKey);
@@ -612,6 +674,10 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
           if (isTemplate && role !== "sticky") return;
           canvas.remove(opt.target);
           canvas.fire("object:modified", { target: opt.target });
+          if (stickyMenuNodeRef.current === opt.target) {
+            stickyMenuNodeRef.current = null;
+            setStickyMenu(null);
+          }
           syncFromCanvas();
         }
         // 「删除」工具点一条连线——同 Delete 键那条路径同一条规则：mindmap 模式下
@@ -925,6 +991,33 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
           style={{ display: "none" }}
           spellCheck={false}
         />
+        {/* 便签颜色菜单——issue #3336：选中一个便签（`data.role === 'sticky'`）后
+            贴在它右上角出现，点色块即改（见 `pickStickyColor`）。不用 `display:none`
+            切换（内联编辑器那套模式）而是条件渲染：这里没有焦点/blur 需要接管的
+            输入控件，选中态由 `stickyMenu !== null` 完整描述。 */}
+        {stickyMenu && (
+          <div
+            data-testid="canvas-sticky-color-menu"
+            className="absolute z-20 flex items-center gap-1 rounded-md border border-border-subtle bg-card p-1 shadow-md"
+            style={{ left: stickyMenu.rect.left + stickyMenu.rect.width + 6, top: stickyMenu.rect.top }}
+          >
+            {Object.entries(STICKY_COLORS).map(([name, hex]) => (
+              <button
+                key={name}
+                type="button"
+                data-testid={`canvas-sticky-color-${name}`}
+                aria-label={`便签颜色：${name}`}
+                aria-pressed={stickyMenu.color === hex}
+                onClick={() => pickStickyColor(hex)}
+                className="h-5 w-5 shrink-0 rounded-full transition-transform duration-fast hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                style={{
+                  background: hex,
+                  border: `2px solid ${stickyMenu.color === hex ? "#14130F" : "transparent"}`,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-md border border-border-subtle bg-card/90 px-2 py-1">
