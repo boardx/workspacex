@@ -1,8 +1,5 @@
-import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { buildTraceFixture } from "./fixtures/build-trace-fixture";
 import { test, expect } from "@playwright/test";
 
 /**
@@ -28,14 +25,7 @@ import { test, expect } from "@playwright/test";
  * 「fetch_url 卡片盖住上面那一行、边界互相穿插」。
  */
 function buildFixture(): string {
-  const dir = mkdtempSync(join(tmpdir(), "trace-geometry-"));
-  const page = join(dir, "page.html");
-  const web = join(__dirname, "..");
-  execFileSync(process.execPath, ["--import", "tsx", join(__dirname, "fixtures", "trace-disclosure-fixture.tsx"), page], { cwd: web, stdio: "pipe" });
-  execFileSync(join(web, "node_modules", ".bin", "tailwindcss"),
-    ["-c", "tailwind.config.ts", "-i", "app/globals.css", "-o", join(dir, "out.css"), "--content", page],
-    { cwd: web, stdio: "pipe" });
-  return pathToFileURL(page).href;
+  return buildTraceFixture(join(__dirname, "fixtures", "trace-disclosure-fixture.tsx"), "trace-geometry-");
 }
 
 const FOCUS_RING_REACH = 4; // ring-offset-2 (2px) + ring-2 (2px)
