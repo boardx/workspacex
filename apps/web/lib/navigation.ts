@@ -126,6 +126,15 @@ export const NAV_SEGMENTS: NavSegment[] = [
       //   本身不下线，平台运维仍从后台管理它——STUDIO 这条是新增的独立入口，不是去重场景，
       //   因此不适用本文件其余条目「同一事实只留一个入口」的先例。
       { key: "design-workbench", label: "设计", href: "/studio/design-workbench", icon: PencilRuler, ucRefs: ["17-gov/uc-17-8"] },
+      // 束: feedback-drafts —— issue #3339 人类反馈：反馈草稿此前只挂在「平台后台」
+      //   （`/platform-admin/feedback-drafts`），但草稿的 API/契约本就是「owner 私有」
+      //   （`packages/contracts/src/feedback-loop.ts` 头注），后端从未有 admin-only
+      //   门控。这里照搬「设计」条目上面的同一先例（2026-09-04/05 人类裁决）：加一条
+      //   独立顶层入口 `/studio/feedback-drafts`（`app/studio/feedback-drafts/page.tsx`，
+      //   不套 `AdminNav`，复用同一个真栈组件 `DesignLoopDraftsScreen`），让全体终端用户
+      //   都能新建/保存/修改自己的草稿。`AdminNav` 里 `/platform-admin/feedback-drafts`
+      //   本身不下线，平台运维仍从后台看全部草稿——这条是新增的独立入口，不是去重场景。
+      { key: "feedback-drafts", label: "反馈草稿", href: "/studio/feedback-drafts", icon: MessageSquareWarning, ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {
