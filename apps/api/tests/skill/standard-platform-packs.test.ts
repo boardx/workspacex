@@ -6,6 +6,7 @@
 //   （`pg-skill-contract-repository` 的 `OR sk.org_id = PLATFORM_ORG_ID`），`resetOrgs(<自己的 org>)`
 //   碰不到它、`wave2_skill_immutable_trg` 又挡着删除 ⇒ **没有文件能收敛它**。断言侧一律按归属
 //   过滤（`withoutPlatformOwnedSkills`），不要按名字——见 issue #2982 / PR #2978。
+import { readFileSync } from 'node:fs';
 import { skills as SkillContracts } from "@repo/contracts";
 import { expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -101,11 +102,19 @@ it('ships standard-web 1.1.2 content: the platform org actually receives the 543
  * （前两个 skill 逐字节不变，由 `skills/standard-methods/scripts/verify.ts` 断言），
  * 所以「号升了、正文没下发」在这里会红在字节数上，而不是悄悄绿掉。
  *
- * ⚠ 反证记录（本次落地实测）：把 `STANDARD_PLATFORM_PACKS` 的 `standard-methods`
- *   改回 1.0.1，这条用例红在 `expected [] to have a length of 2 but got +0`（平台组织里根本
- *   查不到 `maau-canvas` 的任何一行）——它确实在测下发结果，不是在复述常量。
+ * ⚠ 反证记录（实测）：把 `STANDARD_PLATFORM_PACKS` 的 `standard-methods` 改回更早的版本，
+ *   这条用例会红——1.0.1 时红在 `expected [] to have a length of 2 but got +0`（平台组织里
+ *   根本查不到 `maau-canvas`），1.1.0 时红在正文断言（下发的还是调 `wx_image_generate` 的
+ *   那一版）。它确实在测下发结果，不是在复述常量。
  */
-it('ships standard-methods 1.1.0 content: the platform org actually receives the maau-canvas skill with both files', async () => {
+/** 编辑源的真实字节数——不抄成常量：抄一份就是同一事实第二处声明，改了正文忘了改数字
+ *  这条会以"数字没跟上"的形态红，读起来像下发坏了，其实是断言自己过期了。
+ *  `scripts/verify.ts` 已经断言过"包里的字节 == 编辑源的字节"，这里再断言"库里的字节 ==
+ *  编辑源的字节"，两条接起来就是"库里生效的正文 == 仓库里的正文"。 */
+const editingSourceBytes = (path: string): number =>
+  readFileSync(new URL(`../../../../skills/standard-methods/maau-canvas/${path}`, import.meta.url)).length;
+
+it('ships standard-methods 1.2.0 content: the platform org actually receives the A3-infographic maau-canvas, not the image-generating one', async () => {
   ensureDatabase(); await migrateOnce();
   const seeded = await ensurePlatformSkillCatalogSeeded();
   expect(seeded.ok).toBe(true);
@@ -121,9 +130,21 @@ it('ships standard-methods 1.1.0 content: the platform org actually receives the
       ORDER BY f.path COLLATE "C"`, [PLATFORM_ORG_ID]));
   expect(rows.rows).toHaveLength(2);
   // 目录里显示的名字就是用户会说出口的那四个字——它是模型匹配这个技能的抓手。
-  expect(rows.rows.every(r => r.name === 'MAAU 模板' && r.semantic_label === '1.0.0')).toBe(true);
+  expect(rows.rows.every(r => r.name === 'MAAU 模板' && r.semantic_label === '2.0.0')).toBe(true);
   expect(rows.rows.map(r => [r.path, r.bytes])).toEqual([
-    ['SKILL.md', 5034],
-    ['references/canvas-template.md', 4743],
+    ['SKILL.md', editingSourceBytes('SKILL.md')],
+    ['references/canvas-template.md', editingSourceBytes('references/canvas-template.md')],
   ]);
+  // 换代的实质不在版本号上：平台组织里生效的那份正文必须是「不调图像模型、改出 A3 版式」的
+  // 那一版。只钉 semantic_label='2.0.0' 会在「号升了、正文还是旧的」时照样绿。
+  const entry = await asApp(PLATFORM_ORG_ID, c => c.query<{ body: string }>(
+    `SELECT convert_from(f.content,'UTF8') AS body
+       FROM skills s
+       JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id
+       JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id AND f.path = 'SKILL.md'
+      WHERE s.org_id = $1 AND s.stable_name = 'maau-canvas' AND v.published = true`, [PLATFORM_ORG_ID]));
+  const body = entry.rows[0]!.body;
+  expect(body).toContain('browser_take_screenshot');
+  expect(body).toContain('A3');
+  expect(body).not.toContain('wx_image_generate');
 }, 300000);
