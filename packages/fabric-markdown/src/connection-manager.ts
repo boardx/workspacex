@@ -8,6 +8,7 @@
 import type { Canvas, FabricObject } from 'fabric';
 import { ActiveSelection } from 'fabric';
 import { FlowNode, FlowEdge } from './fabric-objects';
+import { SEQ_SELF_MESSAGE_DROP } from './theme';
 
 /**
  * Point on the boundary of `node` along the ray from its center toward
@@ -116,7 +117,7 @@ export class ConnectionManager {
       // Self-message (A->>A): a vertical span on the lifeline; FlowEdge
       // renders it as the classic right-hand loop with a return arrow.
       if (edge.source === edge.target) {
-        edge.setEndpoints(sc.x, edge.seqY, sc.x, edge.seqY + 28);
+        edge.setEndpoints(sc.x, edge.seqY, sc.x, edge.seqY + SEQ_SELF_MESSAGE_DROP);
       } else {
         edge.setEndpoints(sc.x, edge.seqY, tc.x, edge.seqY);
       }

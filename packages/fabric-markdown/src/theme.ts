@@ -44,6 +44,13 @@ export const STICKY_ROTATION = ['#fef3c7', '#fce7f3', '#dcfce7', '#e0f2fe'] as c
 export const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 export const FONT = { title: 18, section: 14, body: 13, small: 11 } as const;
 
+/**
+ * Vertical drop of a sequence self-message loop (A->>A), in canvas px.
+ * Single source: the connection manager routes the loop with it and the
+ * mermaid parser sizes lifelines against it.
+ */
+export const SEQ_SELF_MESSAGE_DROP = 28;
+
 export const RADIUS = { node: 8, card: 6 } as const;
 export const STROKE_W = { normal: 1.5, strong: 2 } as const;
 
