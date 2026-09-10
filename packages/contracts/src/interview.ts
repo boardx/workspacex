@@ -946,12 +946,14 @@ export const operations = {
     method: "PATCH", path: "/interviews/digital/:interviewId/metadata",
     in: z.object({ interviewId: z.string().min(1), name: z.string().trim().min(1).max(200), tags: z.array(z.string().trim().min(1).max(80)).max(30) }).strict(),
     out: z.object({ interviewId: z.string(), name: z.string(), tags: z.array(z.string()) }).strict(),
+    err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
   },
   deleteDigitalInterview: {
     method: "DELETE", path: "/interviews/digital/:interviewId",
     in: z.object({ interviewId: z.string().min(1) }).strict(),
     // Removes the history entry; related evidence and running workflows are retained.
     out: z.object({ interviewId: z.string(), archived: z.literal(true) }).strict(),
+    err: ["NO_INTERVIEW_ACCESS", "DEPENDENCY_UNAVAILABLE"] as const,
   },
   /** Studio 首屏历史列表；可见性在服务端完成。 */
   listDigitalInterviews: {

@@ -1,6 +1,6 @@
 -- Homepage archive preserves N7 citation/report evidence and in-flight executions.
-ALTER TABLE guided_research_sessions ADD COLUMN archived_at timestamptz;
-CREATE INDEX guided_research_sessions_visible_home
+ALTER TABLE guided_research_sessions ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+CREATE INDEX IF NOT EXISTS guided_research_sessions_visible_home
   ON guided_research_sessions (org_id, updated_at DESC, id DESC)
   WHERE archived_at IS NULL;
 

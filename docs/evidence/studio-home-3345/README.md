@@ -40,3 +40,8 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec 
 ## PR review 修复
 
 针对录音历史列表在详情读取、标签刷新或停止操作失败后消失的 review，拆分列表错误与辅助操作错误。先运行新增回归得到 4 failed / 17 passed；修复后同一组 21/21 通过（`recording-error-regression.log`）。覆盖详情重试、停止重试、标签初始化失败、删除后的剩余卡片可见，同时验证真正的列表筛选请求失败仍阻止展示旧结果。
+
+## CI 修复验证
+
+- `verify-affected`：访谈修改/删除操作补齐必需的 `err` 契约，完整 contracts 74 suites / 739 tests 通过（`contracts-full.log`）。
+- `gates-runtime`：研究归档列与索引增加 `IF NOT EXISTS`。标准 test-isolation 包装器下 `pnpm --filter api run migrate:check` 从空数据库应用 248 份迁移并强制重放，schema/data digest 一致，引用及 append-only 夹具保持，退出码 0；隔离栈已清理（`migrations-replay.log`）。

@@ -1,0 +1,97 @@
+
+> @repo/contracts@0.0.0 test /private/tmp/workspacex-studio-home/packages/contracts
+> vitest run
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-studio-home/packages/contracts
+
+ ✓ tests/guided-research-session-contract.test.ts (21 tests) 214ms
+ ✓ tests/design-workbench.test.ts (44 tests) 171ms
+ ✓ tests/plan-control/plan-control-schema-single-source.test.ts (38 tests) 84ms
+ ✓ tests/design-prototype.test.ts (41 tests) 471ms
+   ✓ PrototypeScreen 上限 > 节点数超过上限 ⇒ 拒；刚好不超 ⇒ 过 309ms
+ ✓ tests/inbox.test.ts (45 tests) 183ms
+ ✓ tests/digital-interview-contract.test.ts (14 tests) 131ms
+ ✓ tests/capability-admin-deltas.test.ts (9 tests) 35ms
+ ✓ tests/skill-import-recovery.test.ts (10 tests) 75ms
+ ✓ tests/skill-source-connections.test.ts (9 tests) 165ms
+ ✓ tests/skill-development.test.ts (10 tests) 159ms
+ ✓ tests/agent-interrupts/cross-lang-tool-parity.test.ts (6 tests) 63ms
+ ✓ tests/agui-file-event-contract.test.ts (30 tests) 19ms
+ ✓ tests/deep-agent-hitl.test.ts (7 tests) 23ms
+ ✓ tests/skill-trial-artifact-download.test.ts (9 tests) 249ms
+ ✓ tests/plan-control/plan-surface-single-source.test.ts (18 tests) 2085ms
+   ✓ 不变量 I1：契约说常驻阶段条的 phase，绝不可能被整块藏掉 > ∀ 输入：pinIndicator 与 shouldSurfacePlanPhaseIndicator(phase) 逐格相等（没有第二份判据） 1643ms
+ ✓ tests/skill-source-binding.test.ts (7 tests) 88ms
+ ✓ tests/no-forbidden-routes.test.ts (15 tests) 206ms
+ ✓ tests/plan-permissions/cross-lang-skill-hitl-parity.test.ts (11 tests) 93ms
+ ✓ tests/skill-history-content.test.ts (5 tests) 165ms
+ ✓ tests/pending-thresholds.test.ts (7 tests) 2143ms
+   ✓ 业务代码不得硬编码待定阈值 > 'vectorRecallBaseline' 没有被写死 1496ms
+   ✓ 业务代码不得硬编码待定阈值 > 'retentionMaterial' 没有被写死 635ms
+ ✓ tests/files/contract-stub-report-segment-invalidate.test.ts (27 tests) 32ms
+ ✓ tests/agent-interrupts/schema.test.ts (14 tests) 388ms
+ ✓ tests/skill-source-assessment.test.ts (6 tests) 475ms
+ ✓ tests/plan-control/evaluate-plan-gate-table.test.ts (21 tests) 11ms
+ ✓ tests/artifacts-steering/cross-lang-interjection-parity.test.ts (6 tests) 466ms
+ ✓ tests/project-ai-switch-defaults-pending.test.ts (7 tests) 10ms
+ ✓ tests/personal-realtime-transcription.test.ts (7 tests) 76ms
+ ✓ tests/skill-trial-read-deltas.test.ts (5 tests) 83ms
+ ✓ tests/wave2-runtime/agui-event-schema.test.ts (6 tests) 10ms
+ ✓ tests/plan-control/plan-confirm-gate.test.ts (10 tests) 196ms
+ ✓ tests/capability-runtime-policy.test.ts (5 tests) 315ms
+ ✓ tests/contract-shape.test.ts (82 tests) 1162ms
+ ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 381ms
+ ✓ tests/standard-document-tools.test.ts (5 tests) 353ms
+ ✓ tests/agent-interrupts/choose-option-schema.test.ts (11 tests) 280ms
+ ✓ tests/out-schemas-strict.test.ts (2 tests) 394ms
+   ✓ 每个操作的 out schema 必须是 strict 的 > 这条断言不是空转的：它确实认得出宽松与严格 305ms
+ ✓ tests/research-create-survives-model-outage.test.ts (5 tests) 513ms
+ ✓ tests/standard-capabilities.test.ts (20 tests) 1095ms
+   ✓ trusted skill package contract > accepts an 8 MiB binary file without regexp stack overflow and rejects excess 759ms
+ ✓ tests/skill-patch-proposal.test.ts (5 tests) 93ms
+ ✓ tests/system-error-logs.test.ts (15 tests) 126ms
+ ✓ tests/skill-upload-feedback.test.ts (4 tests) 51ms
+ ✓ tests/agent-interrupts/fill-params-guess-rationale.test.ts (7 tests) 56ms
+ ✓ tests/model-admission-history.test.ts (5 tests) 79ms
+ ✓ tests/standard-browser-tools.test.ts (3 tests) 366ms
+   ✓ keeps model input separate from trusted run identity 309ms
+ ✓ tests/wave2-runtime/awaiting-tool-permission-status.test.ts (5 tests) 176ms
+ ✓ tests/plan-control/plan-phase-running-not-preparing.test.ts (4 tests) 10ms
+ ✓ tests/skill-file-edit.test.ts (3 tests) 31ms
+ ✓ tests/standard-schedule.test.ts (4 tests) 596ms
+   ✓ accepts explicit once instants and IANA minute-level cron 518ms
+ ✓ tests/native-tool-identities.test.ts (3 tests) 14ms
+ ✓ tests/canvas-section-layout-bounds.test.ts (4 tests) 278ms
+ ✓ tests/standard-sql.test.ts (3 tests) 229ms
+ ✓ tests/invite-email-authoritative.test.ts (7 tests) 66ms
+ ✓ tests/native-file-delegation.test.ts (2 tests) 35ms
+ ✓ tests/standard-web-tools.test.ts (2 tests) 22ms
+ ✓ tests/sandbox-session.test.ts (3 tests) 22ms
+ ✓ tests/standard-context-tools.test.ts (2 tests) 263ms
+ ✓ tests/survey.test.ts (2 tests) 58ms
+ ✓ tests/native-input-binding.test.ts (2 tests) 11ms
+ ✓ tests/skill-package-manifest.test.ts (2 tests) 39ms
+ ✓ tests/standard-canvas-tools.test.ts (2 tests) 104ms
+ ✓ tests/standard-image-tools.test.ts (2 tests) 20ms
+ ✓ tests/standard-skill-draft.test.ts (2 tests) 27ms
+ ✓ tests/standard-audio-tools.test.ts (2 tests) 92ms
+ ✓ tests/standard-subtask-tools.test.ts (5 tests) 5409ms
+   ✓ native subtask shared boundary > generated Python boundary is fresh 5388ms
+ ✓ tests/schedule-notifications.test.ts (2 tests) 66ms
+ ✓ tests/agent-skill-pins.test.ts (2 tests) 17ms
+ ✓ tests/standard-artifact-download.test.ts (1 test) 20ms
+ ✓ tests/tool-progress-schema.test.ts (1 test) 16ms
+ ✓ tests/standard-run-cancel.test.ts (1 test) 18ms
+ ✓ tests/standard-run-status.test.ts (1 test) 268ms
+ ✓ tests/tool-authority-schema.test.ts (1 test) 123ms
+ ✓ src/standard-memory.test.ts (1 test) 16ms
+ ✓ tests/guided-research-citations.test.ts (7 tests) 14ms
+ ✓ tests/native-artifact-schema.test.ts (1 test) 1381ms
+   ✓ shared artifact schema remains fresh and does not fake readiness 1379ms
+
+ Test Files  74 passed (74)
+      Tests  739 passed (739)
+   Start at  21:20:12
+   Duration  35.87s (transform 31.30s, setup 0ms, collect 86.08s, tests 23.27s, environment 84ms, prepare 71.59s)
+
