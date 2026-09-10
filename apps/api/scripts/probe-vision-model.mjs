@@ -13,7 +13,8 @@
  *
  * 它对每个候选发一张**内置的 1x1 PNG**（不上传任何真实业务图片），打印：
  *     ✓ 可用 / ✗ 模型不存在或无权 / ✗ 其它失败（原样打 HTTP 状态与上游 message）
- * 把输出**原样**贴回 issue #1560，并把实测可用的名字写进 `KERNEL_VISION_MODEL_ID`。
+ * 把输出**原样**贴回 issue #1560，并把实测可用的名字加进 #3355 起的唯一权威清单
+ * `apps/api/src/domain/model/vision-capable-models.ts`（KERNEL_VISION_MODEL_ID 已弃用）。
  *
  * 本脚本不修改任何文件、不写库——只发只读性质的探测请求。
  */
@@ -92,7 +93,9 @@ async function main() {
     process.exit(1);
   }
   console.log(`实测可用：${usable.join(", ")}`);
-  console.log(`把其中一个写进部署环境：KERNEL_VISION_MODEL_ID=${usable[0]}`);
+  console.log("把实测通过的名字加进唯一权威清单（#3355）：");
+  console.log("  apps/api/src/domain/model/vision-capable-models.ts 的 VISION_CAPABLE_MODEL_IDS");
+  console.log("（KERNEL_VISION_MODEL_ID 已弃用：它与 KERNEL_MODEL_VISION_IDS 回答同一个问题。）");
 }
 
 await main();

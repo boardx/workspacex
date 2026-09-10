@@ -11,9 +11,11 @@
  * ——本仓已十一次因「同一事实声明在两处」漂移。所以这两件事搬到这里，两个 provider 各
  * 自 import，谁都不许再写第二份：
  *
- *   · `readVisionModelIds` —— `KERNEL_MODEL_VISION_IDS`，判据是**模型**的属性，不是厂商的。
+ *   · `readVisionModelIds` —— 判据是**模型**的属性，不是厂商的；清单本身住在
+ *     `domain/model/vision-capable-models.ts`（#3355 收敛，这里不再写第二份）。
  *   · `toImagePart`        —— 一张图 → 一个 `image_url` part（data URL）。
  */
+import { resolveVisionCapableModelIds } from "../../domain/model/vision-capable-models";
 import type { ModelCallImage } from "../../application/agent-run/ports";
 
 /** OpenAI 兼容的多模态 content part（LangChain 的 `ChatOpenAI` 直接吃这个形状）。 */
@@ -22,20 +24,15 @@ export type WireContentPart =
   | { readonly type: "image_url"; readonly image_url: { readonly url: string } };
 
 /**
- * P2（#1561）—— `KERNEL_MODEL_VISION_IDS`（逗号分隔）→ 允许走多模态请求体的 modelId 集合。
+ * P2（#1561）/ #3355 —— 允许走多模态请求体的 modelId 集合。
  *
- * ⚠ 默认值 `qwen-vl-max,qwen-vl-plus` **没有在开发环境实测过**（本机没有
- * `KERNEL_MODEL_API_KEY`，探测不了）。`bailian-image-provider.ts:14-15` 记着这件事上
- * 栽过的跟头：`wanx2.2-t2i-plus` 报 "Model not exist"、`wanx2.1-t2i-plus` 才可用，
- * 「不要被"2.2 应该比 2.1 新"这种直觉带偏」。同样的直觉在这里也不作数——这两个名字是
- * 待验证的候选，不是已验证的事实。有 key 的环境跑
- * `node apps/api/scripts/probe-bailian-vision.mjs` 一条命令即可确认，把实测通过的名字
- * 写进 env（或改这里的默认值并把实测记录写进注释）。在那之前，如果默认值是错的，
- * 表现是**诚实的失败**（模型名不存在 → `MODEL_CALL_FAILED`），不是一个假装看过图的回答。
+ * ⚠ **这里不再声明清单**。默认清单与 `KERNEL_MODEL_VISION_IDS` 覆盖语义都住在
+ * `domain/model/vision-capable-models.ts`（#3355 的单一事实源）——此前这个默认值
+ * （`qwen-vl-max,qwen-vl-plus`）与抽取器的 `DEFAULT_VISION_MODEL_ID` 是两处独立手写声明，
+ * 两份都漏了部署实际在用的 `qwen3.8-max`。本函数只保留为调用点的稳定入口。
  */
 export function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
-  const raw = env.KERNEL_MODEL_VISION_IDS ?? "qwen-vl-max,qwen-vl-plus";
-  return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
+  return resolveVisionCapableModelIds(env);
 }
 
 /**

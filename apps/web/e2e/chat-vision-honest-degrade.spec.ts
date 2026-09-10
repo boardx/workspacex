@@ -15,9 +15,9 @@ import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-ru
  *
  * `playwright.fullstack-smoke.config.ts` 下发的确定性上游是 `fullstack-loopback` /
  * `loopback-echo`（`FULLSTACK_E2E.agentModelProvider/agentModelId`）。
- * `KERNEL_MODEL_VISION_IDS` 在这套 webServer 环境里**没有被设置**，
- * `readVisionModelIds()` 的默认值是 `qwen-vl-max,qwen-vl-plus`
- * （`configured-model-provider.ts:107`）——`loopback-echo` 不在其中，所以
+ * `KERNEL_MODEL_VISION_IDS` 在这套 webServer 环境里**没有被设置**，`readVisionModelIds()`
+ * 因此读到 #3355 的权威清单（`domain/model/vision-capable-models.ts`，全是 2026-09-10
+ * 实测通过的百炼模型 id）——`loopback-echo` 不在其中，所以
  * `ConfiguredModelProvider.supportsVision()` 对这次 run 恒回 `false`。这不是本测试
  * 硬编码出来的假设，是这套 e2e 环境本来就没有任何"看得见图"的 provider，天然落在
  * `execute-run.ts` 的 fail-closed 分支（`supportsVision?.(...) ?? false`）。
