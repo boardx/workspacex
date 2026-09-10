@@ -362,13 +362,36 @@ describe("computeExplicitLayout —— px 几何", () => {
     expect(capacity).toBeGreaterThan(0);
   });
 
-  it("格子够高（中间三带同款几何）时不覆盖贴纸高度——保持与既有断言字节级兼容", () => {
+  it("默认尺寸就摆得下使用者要的行数时不覆盖贴纸高度", () => {
     const { spec } = buildExplicitTemplateSpec({
       key: "t1", displayName: "测试模板",
-      sections: [section("core", 1, 1, 12, 2, { cols: 4 })],
+      // 4 列 × 最多 4 条 ⇒ 只要 1 行，h=2 的格子用默认 92px 贴纸就摆得下。
+      sections: [section("core", 1, 1, 12, 2, { cols: 4, max: 4 })],
       gridCols: 12,
     });
     expect(spec.sections[0]!.sticky).toEqual({ perRow: 4 });
+  });
+
+  /**
+   * ⚠ 2026-09-10 人类实测：「模板配置了像是 4 个便利贴但是只显示了 2 个」。
+   * `stickyHeightOverride` 此前把贴纸压成整个可用高度，`renderStickyCapacity`
+   * 反解出的行数于是恒为 1，配了多行的分区在 chat 渲染里只剩第一行。
+   */
+  it("要的条数需要多行时，贴纸高度按行数收缩，渲染容量真的等于配置的条数", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      // 2 列 × 最多 4 条 ⇒ 要 2 行；格子只有 2 行高，默认 92px 贴纸摆不下两行。
+      sections: [section("core", 1, 1, 4, 2, { cols: 2, max: 4 })],
+      gridCols: 12,
+    });
+    const sec = spec.sections[0]!;
+    const sticky = sec.sticky!;
+    expect(sticky.h!).toBeLessThan(ENGINE_STICKY.h);
+    const capacity = renderStickyCapacity(
+      sec.w, sec.h, sticky.perRow!, spec.titleBars !== false, sticky.w ?? ENGINE_STICKY.w, sticky.h,
+    );
+    // 改动前这里是 2（一行两张），后两条要点会被 `capFenceBulletsToCapacity` 丢掉。
+    expect(capacity).toBe(4);
   });
 
   /**

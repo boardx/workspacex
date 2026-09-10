@@ -301,10 +301,44 @@ const HEADER_FIELD_MIN_W = 96 + 6 + 150;
  * 一寸空间都没有，容量为 0 是如实的，不是这个函数能解决的（会在别处被当成布局
  * 需要修的信号，而不是在这里硬造一张看不见的贴纸）。
  */
-function stickyHeightOverride(cellH: number): { h?: number } {
+/**
+ * 贴纸收缩到最小仍要看得见内容的下限（px）。同 `sectionGeometryMm` 那条 mm 姊妹
+ * 路径的 `MIN_SHRINK_NOTE_MM`（23mm）在 px 侧的对应量级：再矮下去，vendor 的
+ * `shrinkTextboxToFit`（下限 7px 字号）连一行字都塞不进，画出来是一排看不见内容
+ * 的色块——那时候如实少摆一行，比摆满一堆空色块诚实。
+ */
+const MIN_SHRUNK_STICKY_H = 28;
+
+/**
+ * ⚠ 2026-09-10 人类实测反馈：「模板配置了像是 4 个便利贴但是只显示了 2 个」。
+ *
+ * 根因就在本函数此前那一行 `return { h: Math.floor(available) }`——它把贴纸高度
+ * 压成**整个可用高度**，于是 `renderStickyCapacity` 反解出的行数恒等于 **1**：
+ * `floor((available + gapY) / (available + gapY)) = 1`。配了「2 列 × 4 条」的分区，
+ * 容量被算成 `2 × 1 = 2`，`capFenceBulletsToCapacity` 就把后两条要点整行丢掉——
+ * 编辑器②画布里明明画着 2×2 四张，chat 渲染只剩一行两张。
+ *
+ * 这不是 issue #2585 那次修错了方向，是那次只回答了「一行都摆不下怎么办」，没回答
+ * 「使用者要的是几行」——`layout.max`（最多条数）与 `layout.cols`（列数）合起来
+ * 就是那个答案（`ceil(max / cols)` 行），而它从没被传进来过。
+ *
+ * 现在按「使用者要的行数」自上而下试：这么多行下每张贴纸还能有多高？够默认尺寸就
+ * 不覆盖（引擎自己算得对）；不够默认但仍在 `MIN_SHRUNK_STICKY_H` 之上就按这个高度
+ * 覆盖，让这些行真的摆得下；连最小高度都给不了才逐级退让，最后退回原来那张「压满
+ * 可用高度」的单行贴纸——退让是退让，不是把内容悄悄丢掉。
+ */
+function stickyHeightOverride(cellH: number, rowsWanted: number): { h?: number } {
   const available = cellH - ENGINE_STICKY_TOP_OFFSET - ENGINE_STICKY_INSET;
-  if (available <= 0 || available >= ENGINE_STICKY.h) return {};
-  return { h: Math.floor(available) };
+  if (available <= 0) return {};
+  for (let rows = Math.max(1, rowsWanted); rows >= 1; rows -= 1) {
+    const h = Math.floor((available - ENGINE_STICKY_GAP.y * (rows - 1)) / rows);
+    // 默认尺寸就摆得下这么多行 ⇒ 不覆盖，交回引擎自己的公式（它算得出同样多的行）。
+    if (h >= ENGINE_STICKY.h) return {};
+    if (h >= MIN_SHRUNK_STICKY_H) return { h };
+  }
+  // 一行的最小高度都给不了：维持 issue #2585 的行为——压满可用高度的一张，
+  // 总比容量算成 0、把这个分区的内容整段丢光要好。
+  return available < ENGINE_STICKY.h ? { h: Math.floor(available) } : {};
 }
 
 /**
@@ -409,7 +443,13 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
       w: c.w,
       h: c.h,
       fill: PAPER,
-      sticky: { perRow: c.layout.cols, ...stickyWidthOverride(c.w, c.layout.cols), ...stickyHeightOverride(c.h) },
+      sticky: {
+        perRow: c.layout.cols,
+        ...stickyWidthOverride(c.w, c.layout.cols),
+        // 「使用者要的行数」= ceil(最多条数 / 列数)——右栏那两个步进器合起来就是
+        // 这个数，不是本函数另猜一个（见 `stickyHeightOverride` 文档）。
+        ...stickyHeightOverride(c.h, Math.ceil(Math.max(1, c.layout.max) / Math.max(1, c.layout.cols))),
+      },
       stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
     };
   });
