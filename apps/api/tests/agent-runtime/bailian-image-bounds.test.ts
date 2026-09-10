@@ -11,7 +11,7 @@ async function provider(handler:RequestListener,timeoutMs=1000){
 it('returns a structured existing-provider result without duplicate submission',async()=>{
  let submits=0,polls=0;
  const p=await provider((req,res)=>{res.setHeader('content-type','application/json');if(req.method==='POST'){submits++;res.end(JSON.stringify({output:{task_id:'one-task'}}));}else{polls++;res.end(JSON.stringify({output:polls===1?{task_status:'RUNNING'}:{task_status:'SUCCEEDED',results:[{url:'https://example.com/result.png'}]}}));}});
- expect(await p.generateImage('a tree')).toEqual({url:'https://example.com/result.png',taskId:'one-task',modelRef:'fixed-image-model'});expect(submits).toBe(1);expect(polls).toBe(2);
+ expect(await p.generateImage('a tree')).toEqual({delivery:'url',url:'https://example.com/result.png',taskId:'one-task',modelRef:'fixed-image-model'});expect(submits).toBe(1);expect(polls).toBe(2);
 });
 /**
  * #3175/#3176 之后仍在 gates-test shard 3/4 上以 60000ms 假红重现（见 #3163/#3168/#3162

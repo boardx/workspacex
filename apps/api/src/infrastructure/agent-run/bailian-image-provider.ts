@@ -36,6 +36,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import type { ModelCallInput } from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
+import type { GeneratedImage } from "../../application/agent-run/standard-image-tools";
 
 export const BAILIAN_IMAGE_PROVIDER_NAME = "bailian-image";
 const DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com";
@@ -96,11 +97,14 @@ export class BailianImageProvider implements ModelCallPort {
     }
 
     const image = await this.generateImage(input.user);
+    // 这条 provider 永远走 `url` 交付（DashScope 是异步任务 + 签名 URL，见文件头注）；
+    // 联合类型的另一支属于同步返回字节的供应商（OpenAI），这里结构上到不了。
+    if (image.delivery !== 'url') throw new ModelCallError("MODEL_CALL_FAILED", "bailian image provider returned a non-url delivery");
     return { text: `![${truncateForAlt(input.user.trim())}](${image.url})` };
   }
 
   /** Structured result for the standard image tool; persistence remains the existing artifact path. */
-  async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<{url:string;taskId:string;modelRef:string}> {
+  async generateImage(prompt: string, callerSignal?: AbortSignal): Promise<GeneratedImage> {
     const {apiKey,modelId,baseUrl}=this.config;
     if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
     if (!prompt.trim() || prompt.length > 16_384) throw new ModelCallError("MODEL_CALL_FAILED", "image prompt is invalid");
@@ -116,7 +120,7 @@ export class BailianImageProvider implements ModelCallPort {
           if(!url)throw new Error('missing image');
           const parsed=new URL(url);
           if(parsed.protocol!=='https:'||parsed.username||parsed.password||/[\s()<>]/.test(url))throw new Error('invalid image');
-          return {url,taskId,modelRef:modelId};
+          return {delivery:'url',url,taskId,modelRef:modelId};
         }
         if(!['PENDING','RUNNING'].includes(status))throw new Error('terminal failure');
         await delay(Math.min(3000,Math.max(1,this.config.pollIntervalMs)),undefined,{signal});
