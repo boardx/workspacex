@@ -13,7 +13,13 @@ from typing import Annotated, Any
 
 from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, StateBackend
-from deepagents.middleware.skills import SkillsMiddleware, SkillsState
+from deepagents.backends.protocol import FileDownloadResponse
+from deepagents.middleware.skills import (
+    SkillsMiddleware,
+    SkillsState,
+    SkillsStateUpdate,
+    _skill_metadata_from_response,
+)
 from langchain.agents import create_agent
 from langchain.agents.middleware import ToolRetryMiddleware
 from langchain.agents.middleware.types import PrivateStateAttr
@@ -35,8 +41,44 @@ class _BoundSkillsState(SkillsState):
     native_skills_binding: NotRequired[Annotated[str, PrivateStateAttr]]
 
 
+def metadata_from_pins(pinned_skills):
+    """Parse `skills_metadata` out of the trusted pin bytes -- zero sandbox round trips.
+
+    #3309: the official loader discovers skills by asking the sandbox for a
+    directory listing plus every `SKILL.md` in it. In native mode that is a
+    round trip per skill for bytes we are already holding: `create_native_graph`
+    has just downloaded the whole mount and compared it BYTE FOR BYTE against
+    these same pins (see the `download_files` check below -- it is what makes
+    this shortcut sound; without it we would be seeding metadata for a mount we
+    never verified). Measured on a real stack: 1 `ls` + 21 `SKILL.md` reads =
+    22 round trips / 105 KB / ~3.1 s per run, on every first turn of every
+    thread, including turns that call no tool at all.
+
+    Parsing stays upstream's: the same `_skill_metadata_from_response` the
+    official loader feeds its download responses to, and the same "key by
+    frontmatter name, last one wins" collapse from `before_agent`. A drift
+    gate asserts this returns exactly what the official loader returns for the
+    same mount (`test_pin_seeded_metadata_matches_official_loader`); if
+    upstream changes how it parses, that test goes red rather than this
+    silently serving a stale shape.
+    """
+    by_name: dict[str, Any] = {}
+    for skill in pinned_skills:
+        name = skill["stable_name"]
+        directory = f"/skills/{name}"
+        path = f"{directory}/SKILL.md"
+        # `package_mount_files` already refused any package without a SKILL.md.
+        body = next(f for f in skill["package"]["files"] if f["path"] == "SKILL.md")
+        metadata = _skill_metadata_from_response(
+            FileDownloadResponse(path=path, content=base64.b64decode(body["contentBase64"], validate=True), error=None),
+            directory, path)
+        if metadata is not None:
+            by_name[metadata["name"]] = metadata
+    return list(by_name.values())
+
+
 class _BoundSkillsMiddleware(SkillsMiddleware):
-    """Only guard cache provenance; official loader, prompts and hooks do the work."""
+    """Only guard cache provenance; official prompts and hooks do the work."""
     state_schema = _BoundSkillsState
 
     @property
@@ -44,10 +86,11 @@ class _BoundSkillsMiddleware(SkillsMiddleware):
         # Official by-name override: exactly one SkillsMiddleware in the graph.
         return "SkillsMiddleware"
 
-    def __init__(self, backend, binding: str, activity=None):
+    def __init__(self, backend, binding: str, activity=None, pinned_skills=()):
         super().__init__(backend=backend, sources=["/skills/"])
         self._binding = binding
         self._activity = activity
+        self._pinned = list(pinned_skills)
 
     def _validate_binding(self, state):
         previous = state.get("native_skills_binding")
@@ -62,16 +105,29 @@ class _BoundSkillsMiddleware(SkillsMiddleware):
     # 元数据重报一遍：20 个 skill = 每轮 20 条事实 → 20 次 `appendExecutionEvent`
     # 串行 Postgres 事务 + 用户轨迹里 20 行"发现技能元数据"，而后台其实什么都没发现。
     # 事实流的契约是"观察到的，不是推断的"，重报缓存值本身就是假事实。
+    def _load(self, state):
+        """Same contract as upstream `before_agent`: an update, or `None` when cached.
+
+        #3309 changes only WHERE the bytes come from (verified pins instead of
+        a fresh sandbox read). The cache rule is upstream's, unchanged: a state
+        that already carries `skills_metadata` is a turn on which nothing was
+        loaded, so nothing is reported -- that is #3206's fix and it still
+        holds here.
+        """
+        if "skills_metadata" in state:
+            return None
+        return SkillsStateUpdate(skills_metadata=metadata_from_pins(self._pinned))
+
     def before_agent(self, state, runtime, config):
         self._validate_binding(state)
-        update = super().before_agent(state, runtime, config)
+        update = self._load(state)
         if self._activity is not None and update is not None:
             self._activity.metadata_discovered(update.get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
 
     async def abefore_agent(self, state, runtime, config):
         self._validate_binding(state)
-        update = await super().abefore_agent(state, runtime, config)
+        update = self._load(state)
         if self._activity is not None and update is not None:
             self._activity.metadata_discovered(update.get("skills_metadata", []))
         return {**(update or {}), "native_skills_binding": self._binding}
@@ -169,7 +225,7 @@ def create_native_graph(
                     "description": "Text-only reasoning and drafting. No tools, files, skills or code execution.",
                     "runnable": create_agent(model, tools=[], system_prompt="Provide text-only reasoning or drafting. You have no tools, files, skills, or code execution.")},
                    *([file_delegation_subagent(model, sandbox, delegated_inputs, tool_authority, file_authority)] if delegated_inputs else [])],
-        middleware=[_BoundSkillsMiddleware(backend, binding, activity), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware],
+        middleware=[_BoundSkillsMiddleware(backend, binding, activity, pinned_skills), activity, *middleware, *([snapshot] if snapshot is not None else []), NativeSandboxDispatch(sandbox.id, binding_guard=binding_guard), authority_middleware],
         checkpointer=checkpointer, store=store, interrupt_on=interrupt_on,
     )
 
