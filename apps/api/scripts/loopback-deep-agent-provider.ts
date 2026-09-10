@@ -150,6 +150,12 @@ const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
  */
 const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
 /**
+ * issue #3321 —— 计划三步**全部跑完**的剧本。与 `MULTISTEP_TRIGGER` 的区别只有一条：
+ * 收尾时再发一次 `write_todos`，把三步全标 `completed`，于是账本终态 `progress 3/3`。
+ * `MULTISTEP_TRIGGER` 那条只发一次且从不更新，终态恒为 `0/3`——用它测不到「跑满」那一格。
+ */
+const PLAN_ALL_DONE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_PLAN_ALL_DONE_TRIGGER;
+/**
  * issue #3000 —— 「这一轮要真的跑一段时间」的触发词。
  *
  * `copilotkit-v2-run-restore-after-switch.spec.ts` 要验的是「切走时 run **还在途**、
@@ -1490,6 +1496,39 @@ const server = createServer((req, res) => {
         if (record.scrollHalfStep >= index * 2 + 2) messages.push({ type: "tool", tool_call_id: id, content: `第 ${index + 1} 份文档的读取回执。` });
       }
       if (record.scrollHalfStep >= SCROLL_TOTAL_HALF_STEPS) messages.push({ id: `scroll-${record.scrollExecutionId}:final`, type: "ai", content: SCROLL_ACCEPTANCE_REPLY });
+      sendJson(res, 200, { values: { messages } });
+      return;
+    }
+    if (PLAN_ALL_DONE_TRIGGER !== undefined && record.userText === PLAN_ALL_DONE_TRIGGER) {
+      /*
+       * issue #3321 —— 「结束且账本跑满」那一格的剧本。分阶段揭示，让 `in_progress`
+       * 的中间态真的存在过一段时间（与 MULTISTEP 同一套 `statusPolls` 节奏），
+       * 最后一次 `write_todos` 把三步全部标 `completed` ⇒ 账本 `progress 3/3`。
+       * ⚠ 三步全 completed 是这条剧本存在的**全部理由**：少了它，#3321 要判的
+       *   「done 且跑满时面板该不该在」在这个剧本下无法被证伪。
+       */
+      const allDoneCallId = `plan-all-done-${threadId}`;
+      const steps = ["搜索相关文档", "读取最相关的一份", "综合结论作答"];
+      const mk = (statuses: string[]) => ({
+        type: "ai", content: "",
+        tool_calls: [{
+          id: `${allDoneCallId}-${statuses.join("-")}`,
+          name: "write_todos",
+          args: { todos: steps.map((content, i) => ({ content, status: statuses[i] })) },
+        }],
+      });
+      const ack = (statuses: string[]) => ({
+        type: "tool", tool_call_id: `${allDoneCallId}-${statuses.join("-")}`, content: "todos updated",
+      });
+      const running = ["in_progress", "pending", "pending"];
+      const allDone = ["completed", "completed", "completed"];
+      const messages: unknown[] = [{ type: "human", content: record.userText }, mk(running)];
+      if (record.statusPolls >= 2) messages.push(ack(running));
+      if (record.statusPolls >= 4) messages.push(mk(allDone));
+      if (record.statusPolls >= 6) {
+        messages.push(ack(allDone));
+        messages.push({ type: "ai", content: "三步计划已全部执行完毕：文档已搜索、A.md 已读取、结论已给出。" });
+      }
       sendJson(res, 200, { values: { messages } });
       return;
     }

@@ -792,3 +792,119 @@ export const PLAN_PHASE_INDICATOR_PINNED_PHASES: readonly PlanPhase[] = Object.f
 export function shouldSurfacePlanPhaseIndicator(phase: PlanPhase): boolean {
   return PLAN_PHASE_INDICATOR_PINNED_PHASES.includes(phase);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * issue #3321 —— 计划面板 / 阶段条「该不该出现在屏幕上」的**唯一**判定处。
+ *
+ * ## 为什么必须收敛（这是本仓第十二例「同一事实声明在两处」）
+ *
+ * 改动前，「现在要不要显示」被拆在**六处**：`shouldSurfacePlanPhaseIndicator`
+ * 在契约里回答阶段条那一半，`copilotkit-v2-plan-control.tsx` 里另有五处早退
+ * （`ledger === null`、`steps.length === 0 && !runLive && !hasPlanAction && phase !== "failed"`、
+ * `steps.length === 0 && runLive`、`nothingLeftToDo && terminalAndSettled`，
+ * 外加渲染期的 `pinIndicator || !collapsed`）。两半各自演化，已经产出两处硬矛盾：
+ *
+ * 1. **阶段条被父组件连坐卸载**：契约把 `cancelled` 列进常驻四态，理由是「终态时
+ *    它是屏幕上唯一说明这轮怎么收场的东西」；可宿主的终态卸载门把**父整块**
+ *    `return null`，`pinIndicator === true` 根本没机会渲染到那一行。契约说常驻，
+ *    界面上没有——**这不是宿主该补的特判，是两个事实源必然的漂移**。
+ * 2. **`gate.required` 在同一个文件里被读成两种含义**：宿主渲染确认门时用的是
+ *    `phase === "planning" && gate.required`，并在头注里逐字写明「`gate.required`
+ *    在 `phase:"done"` 之后仍恒为 true（`evaluatePlanGate` 只看 `todoCount`）」；
+ *    而同一文件的 `nothingLeftToDo` 读的是**裸的** `gate.required`。于是任何产出过
+ *    计划步骤的 run，`gate.required` 终生为 true ⇒ `nothingLeftToDo` 终生为 false ⇒
+ *    终态卸载门**永不触发**。人类两次反馈的「plan panel 平常时间不要显示」正落在这里。
+ *
+ * ## 本函数保证的不变量（由 `plan-surface-single-source.test.ts` 全叉积机械门控）
+ *
+ * - **I1**：`pinIndicator === true ⇒ kind !== "hidden"`。契约说某个 phase 常驻
+ *   阶段条，就不可能存在一个把它整块藏掉的返回值。缺陷 1 由此结构上不可能再发生。
+ * - **I2**：`gate.required` 只经由 `phase === "planning" && gateRequired` 这一条
+ *   路径参与判定（`hasPlanAction`），不存在第二种读法。缺陷 2 由此结构上不可能再发生。
+ *
+ * ⚠ **不要在宿主里再加任何 `return null` / 可见性条件**——那就是把这份判定重新
+ * 声明到第二处。宿主只许 `switch (surface.kind)`。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 计划区在屏幕上的四种形态。**穷举且互斥**，宿主按它 switch，不再自己判。
+ *
+ * - `hidden`：整块不渲染。屏幕上没有任何计划相关像素。
+ * - `indicator-only`：只渲染一行阶段条（终态收场说明 / 需要用户动作的提示）。
+ * - `run-controls`：run 在跑但账本里一个步骤都没有——只给运行级控制，
+ *   不编造步骤序号与进度分数（那是计划级的东西，此刻没有真实数据支撑）。
+ * - `panel`：完整计划面板（折叠头 + 按需的步骤列表 / 确认门 / 失败恢复 …）。
+ */
+export type PlanSurfaceKind = "hidden" | "indicator-only" | "run-controls" | "panel";
+
+export interface PlanSurfaceInput {
+  readonly phase: PlanPhase;
+  readonly runStatus: RunStatusForPhase;
+  /** `ledger.steps.length`。 */
+  readonly stepCount: number;
+  /** `ledger.gate.required` 原样传入——**怎么读由本函数决定**，调用方不许先加工。 */
+  readonly gateRequired: boolean;
+  readonly pendingApplyAtNextRun: boolean;
+  /** `ledger.orphanedConstraints.length`。 */
+  readonly orphanedConstraintCount: number;
+  readonly paused: boolean;
+  readonly pauseRequested: boolean;
+  /** `ledger.progress`。 */
+  readonly progressCompleted: number;
+  readonly progressTotal: number;
+  /** 宿主本地态：上一次计划操作报了错，错误提示还挂在面板上。 */
+  readonly hasActionError: boolean;
+}
+
+export interface PlanSurface {
+  readonly kind: PlanSurfaceKind;
+  /** 阶段条是否**常驻**。`kind === "hidden"` 时恒为 false（不变量 I1）。 */
+  readonly pinIndicator: boolean;
+}
+
+export function derivePlanSurface(input: PlanSurfaceInput): PlanSurface {
+  const runControls = deriveRunControls({ runStatus: input.runStatus });
+  const runLive = runControls.canPause || runControls.canResume;
+
+  /*
+   * ⚠ **`gateRequired` 的唯一合法读法**（不变量 I2）。`evaluatePlanGate` 只看
+   * `todoCount`，它回答的是「这份计划要不要在**开始执行前**问一下」，不是
+   * 「现在还要不要显示这张卡」。离开 `planning` 之后它恒为 true 且毫无意义——
+   * 裸读它的地方就是终态卸载门永不触发的根因。
+   */
+  const hasPlanAction =
+    (input.phase === "planning" && input.gateRequired)
+    || input.pendingApplyAtNextRun
+    || input.orphanedConstraintCount > 0;
+
+  /** 还有真实的事等着用户动手（面板必须留着，不许因为"看起来结束了"就卸载）。 */
+  const needsUserAction =
+    hasPlanAction
+    || input.phase === "failed"      // 失败一定要有可操作入口（#3132 coordinator 裁决 ②）
+    || input.paused || input.pauseRequested
+    || input.hasActionError;
+
+  const pinIndicator = shouldSurfacePlanPhaseIndicator(input.phase);
+  /** I1 的落点：只有这一个 helper 能产出"不画完整面板"的返回值，它永不吞掉常驻阶段条。 */
+  const quiet = (): PlanSurface =>
+    pinIndicator ? { kind: "indicator-only", pinIndicator } : { kind: "hidden", pinIndicator };
+
+  // ① 什么都还没发生：没有步骤、没有在途 run、没有待办动作。
+  if (input.stepCount === 0 && !runLive && !needsUserAction) return quiet();
+
+  // ② run 在跑但账本为空：只给运行级控制（#3099）。
+  if (input.stepCount === 0 && runLive) return { kind: "run-controls", pinIndicator };
+
+  /*
+   * ③ 终态且尘埃落定（#3245 ①）。**只卸载"账本已跑满"这一种形状**：
+   * `completed < total` 时这一行是 #2451 那条已知矛盾的唯一出口
+   * （阶段说完成、账本仍有 N 步没标完），属新增信息，按设计保留。
+   */
+  const terminalAndSettled =
+    (input.phase === "done" || input.phase === "cancelled")
+    && input.progressTotal > 0
+    && input.progressCompleted >= input.progressTotal;
+  if (!runLive && !needsUserAction && terminalAndSettled) return quiet();
+
+  return { kind: "panel", pinIndicator };
+}
