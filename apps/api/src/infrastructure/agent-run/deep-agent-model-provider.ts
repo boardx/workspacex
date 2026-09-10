@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { composeAssistantBodies } from "../../application/agent-run/assistant-body-composition";
 const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
 import { NativeSessionBindingRef, NATIVE_SESSION_CONFIG_KEY } from "@repo/contracts/native-session-binding";
 import { toolArgumentsDigest } from "../../application/agent-run/tool-arguments-digest";
@@ -1475,23 +1476,22 @@ export function readTurnReply(messages: readonly ThreadMessage[], turnKey?: stri
  * 不需要为它的新措辞补黑名单。
  */
 export function joinTurnAssistantBodies(messages: readonly ThreadMessage[]): string {
-  const bodies: string[] = [];
-  const seen = new Set<string>();
+  let bodies: string[] = [];
   for (const message of messages) {
     if (message?.type === "human") {
       // 内部注入 ⇒ 之前累积的都是被取代的旧草稿，整段作废重来。
-      bodies.length = 0;
-      seen.clear();
+      bodies = [];
       continue;
     }
     if (message?.type !== "ai") continue;
     if (typeof message.content !== "string") continue;
-    const body = message.content.trim();
-    if (body === "" || seen.has(body)) continue;
-    seen.add(body);
-    bodies.push(body);
+    bodies.push(message.content);
   }
-  return bodies.join("\n\n");
+  // issue #3389 —— 「若干段助手正文 → 这一轮的一段正文」的拼法只定义在
+  // `assistant-body-composition.ts`（trim / 丢空段 / 逐字去重 / 空行拼接）。这里只负责
+  // 「哪些消息算这一轮的助手正文」（AI 侧、字符串正文，且在最后一次内部注入之后）。
+  // 拼法留在这里各写一遍，就是同一个事实声明在两处——本仓头号病。
+  return composeAssistantBodies(bodies);
 }
 
 /**
