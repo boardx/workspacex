@@ -908,3 +908,139 @@ export function derivePlanSurface(input: PlanSurfaceInput): PlanSurface {
 
   return { kind: "panel", pinIndicator };
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * issue #3365 —— 「这条 run 现在处于什么状态」的**唯一**派生处。
+ *
+ * ## 背景：一屏五处互相矛盾（人类 2026-09-10 devapp 实测）
+ *
+ * 同一份账本（真实权威读输出，逐字见 issue #3365 评论）：
+ * `phase:"executing" / runStatus:"running" / steps:[completed, completed] /
+ *  progress:{completed:2,total:2,elapsedMs:40007}`
+ * 在屏幕上同时产出五句互相打架的话：
+ *
+ * | 元素 | 它说的 | 它当时读的量 |
+ * |---|---|---|
+ * | 折叠头 | `执行计划 · 执行中 · 2/2 步已标记完成` | `phase` + `steps.filter(completed)` |
+ * | 进度卡标题 | `当前步骤：<第 2 步>` `2/2` | `findIndex(!completed)` 落空后**兜底取最后一条** |
+ * | 步骤行 | 两条都「已完成」 | `steps[].status` |
+ * | 进度条 | 50%（`aria-valuenow=1 / max=2`，可见 label 却写 `2/2`） | `stepIndex - 1` |
+ * | 阶段条 | 高亮「执行」 | `phase` |
+ *
+ * 五处各读各的量，于是「全做完了」与「还在做第 2 步」可以同时为真。这是本仓
+ * 头号病的第十三例。#3321 收敛的是「显示/不显示」（`derivePlanSurface`），
+ * **不是「显示什么状态文字与进度」**——那就是本函数。
+ *
+ * ## 本函数保证的不变量（`run-status-view-single-source.test.ts` 全叉积机械门控）
+ *
+ * - **I3**：`currentStepIndex !== null ⇒ 它指向的那一步不是 `completed`。
+ *   没有未完成步骤时恒为 `null`——**不许兜底取最后一条**。「当前步骤」这句话
+ *   在全部做完之后没有真实所指，编一个出来就是上表第二行那句假话。
+ * - **I4**：`progressValue === progressCompleted`。进度条的分子只有这一个量，
+ *   不许再出现 `stepIndex - 1` 这种"跑到第几步"的推算——两个分子摆在同一张卡上，
+ *   必然产出「可见文案 2/2、机器可读 1/2」这种自相矛盾。
+ * - **I5**：`currentStepIndex === null && progressTotal > 0 && progressValue >= progressTotal
+ *   ⇒ activity !== "progressing"`。**全部步骤已完成就不得再宣称「执行中」**——
+ *   这是人类截图里最刺眼的那一句。此时的诚实说法是「正在收尾」（run 确实还没
+ *   落终态，但没有任何一步在推进）。
+ * - **I6**：`hasRecentError ⇒ activity === "stalled" && showRecovery === true`，
+ *   且 `stateLabel` 不属于推进族文案。**报了错就不许继续说「执行中」而只给一句
+ *   「正在等待执行状态更新……」**——那句话在真实链路里等的是一个永远不会来的更新
+ *   （见 issue #3367：`copilotkit-agui.controller.ts` 的 catch 家族写 `RUN_ERROR`
+ *   却不落 `agent_runs` 失败态，`phase` 因此永远停在 `executing`）。展示层能做、
+ *   也必须做的是：如实说「执行结果未确认」并给出可见的恢复入口。
+ * - **I7**：`activity === "progressing" && stepTotal > 0 ⇒ currentStepIndex !== null`。
+ *
+ * ⚠ 宿主不许再自己算 `stateLabel` / 当前步骤 / 进度分子 / 阶段——只许读本函数的返回值。
+ * 由 `.harness/scripts/lint-run-status-view-single-source.test.ts` 机械门控。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 这条 run 此刻在**推进**这件事上处于什么状态。与 `PlanPhase` 不是同一维度：
+ * `phase` 说的是 run 的生命周期档位（服务端从 `agent_runs.status` 派生），
+ * `activity` 说的是「屏幕上该不该表现出正在往前走」。
+ *
+ * - `progressing`：确实有一步在推进。
+ * - `settling`：run 还没落终态，但**没有任何一步在推进**（步骤全已完成，模型在收尾）。
+ * - `stalled`：最近一次调用报了错，执行结果未确认——不许表现成还在推进。
+ * - `awaiting`：等用户动作（确认门 / 审批 / 已暂停）。
+ * - `terminal`：done / failed / cancelled。
+ * - `idle`：没有在途 run 也没有计划。
+ */
+export type RunActivity = "progressing" | "settling" | "stalled" | "awaiting" | "terminal" | "idle";
+
+export interface RunStatusViewInput {
+  readonly phase: PlanPhase;
+  /**
+   * `ledger.runStatus`。**run 的在途性只许有一个事实源**（`deriveRunControls`，
+   * #3099/#3208 已定）——本函数因此不从 `phase` 反推「还在不在跑」，而是复用它。
+   * 真实链路上两者一致；夹具/边缘态里不一致时，以 run 自己的状态为准。
+   */
+  readonly runStatus: RunStatusForPhase;
+  /** `ledger.steps` 的状态序列，顺序即展示顺序。 */
+  readonly stepStatuses: readonly ("pending" | "in_progress" | "completed")[];
+  /** `ledger.progress.completed` —— 进度分子的**唯一**来源。 */
+  readonly progressCompleted: number;
+  readonly progressTotal: number;
+  readonly paused: boolean;
+  readonly pauseRequested: boolean;
+  /** `ledger.gate.required` 原样传入；读法与 `derivePlanSurface` 一致（只在 planning 下有意义）。 */
+  readonly gateRequired: boolean;
+  /** 宿主本地态：AG-UI `RUN_ERROR` 到手、账本尚未（且可能永远不会）追上。 */
+  readonly hasRecentError: boolean;
+  /** `CHAT_RUN_PAUSE_ENTRY_ENABLED`（#3318）。为 false 时「正在暂停」这档不出现。 */
+  readonly pauseEntryEnabled: boolean;
+}
+
+export interface RunStatusView {
+  /** 折叠头与进度卡**共用**的一句状态文字。不许任何调用方再拼第二句。 */
+  readonly stateLabel: string;
+  readonly activity: RunActivity;
+  /** 1-based；`null` = 此刻没有真实的「当前步骤」（I3）。 */
+  readonly currentStepIndex: number | null;
+  /** 进度条分子（I4）。 */
+  readonly progressValue: number;
+  readonly progressTotal: number;
+  /** 需要给用户一个可见的恢复入口（I6）。 */
+  readonly showRecovery: boolean;
+}
+
+/** 「正在往前走」族文案。I6 用它做否定断言，不许散落成字符串字面量。 */
+export const RUN_PROGRESSING_LABELS: readonly string[] = Object.freeze(["执行中", "正在推进任务"]);
+
+export function deriveRunStatusView(input: RunStatusViewInput): RunStatusView {
+  const firstIncomplete = input.stepStatuses.findIndex((s) => s !== "completed");
+  /* I3 的落点：落空就是 `null`，**不兜底取最后一条**。 */
+  const currentStepIndex = firstIncomplete === -1 ? null : firstIncomplete + 1;
+  /* I4 的落点：分子只有这一个量。 */
+  const progressValue = input.progressCompleted;
+  const base = { currentStepIndex, progressValue, progressTotal: input.progressTotal };
+
+  if (input.phase === "cancelled") return { ...base, stateLabel: "任务已停止", activity: "terminal", showRecovery: false };
+  if (input.phase === "failed") return { ...base, stateLabel: "执行遇到问题", activity: "terminal", showRecovery: true };
+  if (input.phase === "done") return { ...base, stateLabel: "本轮已结束", activity: "terminal", showRecovery: false };
+  if (input.paused) return { ...base, stateLabel: "任务已暂停", activity: "awaiting", showRecovery: false };
+  /*
+   * I6 的落点。排在 paused 之后（账本明说停住了就以账本为准），但排在所有
+   * 「还在跑」的档位之前——报了错就不许再被读成推进中。
+   */
+  if (input.hasRecentError) return { ...base, stateLabel: "执行结果未确认", activity: "stalled", showRecovery: true };
+  if (input.pauseEntryEnabled && input.pauseRequested) return { ...base, stateLabel: "正在暂停", activity: "awaiting", showRecovery: false };
+  if (input.phase === "approving") return { ...base, stateLabel: "等待审批", activity: "awaiting", showRecovery: false };
+  if (input.phase === "planning" && input.gateRequired) return { ...base, stateLabel: "等待确认", activity: "awaiting", showRecovery: false };
+  const runLive = (() => {
+    const c = deriveRunControls({ runStatus: input.runStatus });
+    return c.canPause || c.canResume;
+  })();
+  if (runLive || input.phase === "executing") {
+    /*
+     * I5 的落点：一步都没在推进（全已完成）却还在 `executing`，说「执行中」就是
+     * 人类截图里那句假话。run 尚未落终态是事实，如实说成「正在收尾」。
+     */
+    if (currentStepIndex === null && input.progressTotal > 0 && progressValue >= input.progressTotal) {
+      return { ...base, stateLabel: "正在收尾", activity: "settling", showRecovery: false };
+    }
+    return { ...base, stateLabel: "执行中", activity: "progressing", showRecovery: false };
+  }
+  return { ...base, stateLabel: "待执行", activity: "idle", showRecovery: false };
+}

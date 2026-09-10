@@ -6,6 +6,7 @@
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { deriveRunStatusView } from "@repo/contracts/plan-control";
 import {
   PLAN_CONFIRM_EDIT_TESTID, PLAN_CONFIRM_GATE_TESTID, PLAN_CONFIRM_RUN_TESTID, PlanConfirmGate,
 } from "@/components/plan-control/plan-confirm-gate";
@@ -46,10 +47,26 @@ describe("S4 确认门：gate.required===true 才渲染，simple 路径从不进
   });
 });
 
+
+/**
+ * issue #3365 —— `PlanRunProgress` 不再收零散的状态量，只收契约派生出来的 `view`。
+ * 本 helper 从**真实步骤形状**出发调 `deriveRunStatusView`，不手搓 view 字面量——
+ * 手搓等于在测试里复刻一份派生逻辑，那就又是第二个事实源。
+ */
+function viewFor(stepStatuses: readonly ("pending" | "in_progress" | "completed")[], over: Partial<Parameters<typeof deriveRunStatusView>[0]> = {}) {
+  return deriveRunStatusView({
+    phase: "executing", runStatus: "running", stepStatuses,
+    progressCompleted: stepStatuses.filter((x) => x === "completed").length,
+    progressTotal: stepStatuses.length,
+    paused: false, pauseRequested: false, gateRequired: false,
+    hasRecentError: false, pauseEntryEnabled: true, ...over,
+  });
+}
+
 describe("S5 执行态：暂停/恢复是同一控件的两态，不是两个并存的按钮", () => {
   it("isPaused=false：只有暂停锚点，恢复锚点不存在", () => {
     render(
-      <PlanRunProgress currentStepLabel="起草方案初稿" stepIndex={2} stepTotal={4} completedCount={1} elapsedMs={65_000} isPaused={false} />,
+      <PlanRunProgress view={viewFor(["completed", "in_progress", "pending", "pending"])} currentStepLabel="起草方案初稿" elapsedMs={65_000} isPaused={false} />,
     );
     expect(screen.getByTestId(PLAN_RUN_PROGRESS_TESTID)).toBeTruthy();
     expect(screen.getByTestId(PLAN_RUN_PAUSE_TESTID)).toBeTruthy();
@@ -58,7 +75,7 @@ describe("S5 执行态：暂停/恢复是同一控件的两态，不是两个并
 
   it("isPaused=true：只有恢复锚点，暂停锚点不存在", () => {
     render(
-      <PlanRunProgress currentStepLabel="起草方案初稿" stepIndex={2} stepTotal={4} completedCount={1} elapsedMs={65_000} isPaused />,
+      <PlanRunProgress view={viewFor(["completed", "in_progress", "pending", "pending"])} currentStepLabel="起草方案初稿" elapsedMs={65_000} isPaused />,
     );
     expect(screen.queryByTestId(PLAN_RUN_PAUSE_TESTID)).toBeNull();
     expect(screen.getByTestId(PLAN_RUN_RESUME_TESTID)).toBeTruthy();
@@ -68,12 +85,12 @@ describe("S5 执行态：暂停/恢复是同一控件的两态，不是两个并
     const onPause = vi.fn();
     const onResume = vi.fn();
     const { rerender } = render(
-      <PlanRunProgress currentStepLabel="x" stepIndex={1} stepTotal={2} completedCount={0} elapsedMs={0} isPaused={false} onPause={onPause} onResume={onResume} />,
+      <PlanRunProgress view={viewFor(["in_progress", "pending"])} currentStepLabel="x" elapsedMs={0} isPaused={false} onPause={onPause} onResume={onResume} />,
     );
     fireEvent.click(screen.getByTestId(PLAN_RUN_PAUSE_TESTID));
     expect(onPause).toHaveBeenCalled();
     rerender(
-      <PlanRunProgress currentStepLabel="x" stepIndex={1} stepTotal={2} completedCount={0} elapsedMs={0} isPaused onPause={onPause} onResume={onResume} />,
+      <PlanRunProgress view={viewFor(["in_progress", "pending"])} currentStepLabel="x" elapsedMs={0} isPaused onPause={onPause} onResume={onResume} />,
     );
     fireEvent.click(screen.getByTestId(PLAN_RUN_RESUME_TESTID));
     expect(onResume).toHaveBeenCalled();
@@ -89,7 +106,7 @@ describe("S5 执行态：暂停/恢复是同一控件的两态，不是两个并
    * 一条会红的断言都没有——缺口只在最慢、最贵的那一层可见。
    */
   it("完成比例与耗时是机器可读的 data 属性，不只是一句给人看的文案", () => {
-    render(<PlanRunProgress currentStepLabel="起草方案初稿" stepIndex={3} stepTotal={4} completedCount={2} elapsedMs={65_000} isPaused={false} />);
+    render(<PlanRunProgress view={viewFor(["completed", "completed", "in_progress", "pending"])} currentStepLabel="起草方案初稿" elapsedMs={65_000} isPaused={false} />);
     const card = screen.getByTestId(PLAN_RUN_PROGRESS_TESTID);
     expect(card.getAttribute("data-completed")).toBe("2");
     expect(card.getAttribute("data-total")).toBe("4");
@@ -101,16 +118,17 @@ describe("S5 执行态：暂停/恢复是同一控件的两态，不是两个并
 
   /*
    * 「完成数 ≠ 当前步号」这条语义本身也要有会红的断言：若有人图省事把
-   * `data-completed` 接成 `stepIndex - 1`，下面这组值（跑到第 4 步、只完成 1 步——
-   * 引擎跳步或收尾才补标时的真实形状）会让那种实现给出 3，这里红。
+   * `data-completed` 接成「当前步号 - 1」，下面这组值（当前步是第 4 步、只完成 1 步——
+   * 引擎跳步或收尾才补标时的真实形状）会让那种实现给出 3，这里红。#3365 起
+   * 这条语义由契约不变量 I4 兜底（`progressValue === progress.completed`）。
    */
   it("data-completed 是已完成步数，不是当前步号减一", () => {
-    render(<PlanRunProgress currentStepLabel="收尾" stepIndex={4} stepTotal={4} completedCount={1} elapsedMs={1_000} isPaused={false} />);
+    render(<PlanRunProgress view={viewFor(["completed", "pending", "pending", "in_progress"])} currentStepLabel="收尾" elapsedMs={1_000} isPaused={false} />);
     expect(screen.getByTestId(PLAN_RUN_PROGRESS_TESTID).getAttribute("data-completed")).toBe("1");
   });
 
   it("耗时展示来自 elapsedMs（服务端真实计算），不是前端计时器估算的字符串格式", () => {
-    render(<PlanRunProgress currentStepLabel="x" stepIndex={1} stepTotal={2} completedCount={0} elapsedMs={125_000} isPaused={false} />);
+    render(<PlanRunProgress view={viewFor(["in_progress", "pending"])} currentStepLabel="x" elapsedMs={125_000} isPaused={false} />);
     expect(screen.getByTestId(PLAN_RUN_PROGRESS_TESTID).textContent).toContain("2分5秒");
   });
 });
