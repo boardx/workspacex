@@ -10,7 +10,7 @@ COPY apps/web ./apps/web
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter web...
 ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
 RUN --network=none pnpm --filter @repo/contracts typecheck \
- && NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
+ && WORKSPACEX_RELEASE_BUILD=1 NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
  && chown -R node:node /opt/workspacex/apps/web/.next
 ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40

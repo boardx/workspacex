@@ -51,7 +51,17 @@ export default {
    *
    * 300s 取自实测上界（开思考的最坏情况）再留一点余量，不是拍脑袋。
    */
-  experimental: { proxyTimeout: 300_000 },
+  experimental: {
+    proxyTimeout: 300_000,
+    // The release builder shares constrained hosts with provisioning verification.
+    // Keep compilers/traces sequential and static generation on one worker.
+    ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? {
+      cpus: 1,
+      webpackBuildWorker: true,
+      parallelServerCompiles: false,
+      parallelServerBuildTraces: false,
+    } : {}),
+  },
   eslint: { dirs: ["app", "components", "lib"] },
   // 生产门控校验用独立的 dist 目录：否则 `next dev` 与 `next build` 争抢 .next，
   // 会出现 "Cannot find module ./vendor-chunks/..." 这类假故障。
