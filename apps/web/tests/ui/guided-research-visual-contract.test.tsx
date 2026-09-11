@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { ResearchStudioApp } from "@/components/research-studio/research-studio-app";
 import { GuidedResearchFlow } from "@/components/research-studio/guided-research-flow";
 import { mockIdentity } from "@/lib/identity";
@@ -135,7 +135,7 @@ describe("F180 signed guided-research visual contract", () => {
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
     for (const futureStep of ["报告大纲", "资料研究", "研究报告"]) {
-      expect(screen.getByRole("button", { name: new RegExp(futureStep) })).toBeDisabled();
+      expect(within(screen.getByRole("navigation", { name: "研究步骤" })).getByRole("button", { name: new RegExp(futureStep) })).toBeDisabled();
     }
     directions.unmount();
 
