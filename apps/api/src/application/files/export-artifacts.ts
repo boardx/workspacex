@@ -25,7 +25,7 @@ import { createHash } from "node:crypto";
 import { files as C } from "@repo/contracts";
 import type { z } from "zod";
 import { buildManifest, MAX_EXPORT_ITEMS, uniqueZipPaths, type ManifestSourceRow } from "../../domain/files/export-manifest";
-import { mintDownloadToken, downloadExpiry } from "../../domain/files/download-grant";
+import { downloadExpiry } from "../../domain/files/download-grant";
 import type { OrgId } from "../../domain/org-id";
 import { authorize, type AuthorizeDeps } from "../identity/authorize";
 import { discloseDecided, isDisclosed, type Disclosed } from "../security/permission-filter";
@@ -146,9 +146,8 @@ export async function createExportJob(
   const objectKey = `${input.orgId}/exports/${input.projectId}/${jobId}.zip`;
   await deps.objectStore.putOnce(objectKey, zipBytes, "application/zip");
 
-  const token = mintDownloadToken();
   const expiresAt = downloadExpiry(now);
-  const downloadUrl = deps.urls.build(token.raw);
+  const downloadUrl = `/export-jobs/${encodeURIComponent(jobId)}/content`;
 
   await deps.jobs.saveDone({
     jobId,
@@ -201,6 +200,30 @@ export async function getExportJob(
   if (!decision.allowed) throw new FilesExportError("NO_PROJECT_ROLE");
 
   return found.job;
+}
+
+/** A ZIP is delivered only to its original requester with a current project grant. */
+export async function downloadExportJob(deps: ExportDeps,
+  input: { userId: string; orgId: OrgId; jobId: string }): Promise<Uint8Array> {
+  const found = await deps.jobs.findContent(input);
+  if (!found || found.requestedBy !== input.userId || !Number.isFinite(found.expiresAt.getTime())
+    || found.expiresAt.getTime() <= deps.now().getTime() || found.artifactIds === null) {
+    throw new FilesExportError("NO_PROJECT_ROLE");
+  }
+  const decision = await authorize(deps, { ...input, projectId: found.projectId,
+    object: { kind: "project", id: found.projectId }, action: EXPORT_ACTION });
+  if (!decision.allowed) throw new FilesExportError("NO_PROJECT_ROLE");
+  // Team visibility or withdrawal may change after ZIP creation. Recheck every source
+  // from the persisted export audit; a project grant alone does not authorize old bytes.
+  const membership = await deps.repo.findOrgMembership(input.userId, input.orgId);
+  const current = unwrapExportable(await deps.exportContent.visibleExportRows({ orgId: input.orgId,
+    projectId: found.projectId, requesterTeamId: membership?.teamId ?? null,
+    selection: { artifactIds: found.artifactIds, treeNodeId: null } }), decision);
+  const visibleIds = new Set(current.map(row => row.artifactId));
+  if (!found.artifactIds.every(id => visibleIds.has(id))) throw new FilesExportError("NO_PROJECT_ROLE");
+  const bytes = await deps.objectStore.get(found.objectKey);
+  if (bytes === null) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
+  return bytes;
 }
 
 /**

@@ -66,9 +66,13 @@ export async function runPhysicalDeletion(
       continue;
     }
 
-    const keys = task.objects.map((o) => o.objectKey);
+    const keys = [...new Set(task.objects.map((o) => o.objectKey))];
     const purged = await deps.purge.purgeAll(keys);
-    const allDeleted = purged.length === keys.length && purged.every((p) => p.deleted);
+    // A successful count alone is not evidence: adapters must acknowledge exactly the
+    // requested keys, without substituting another object or duplicating one result.
+    const acknowledged = new Set(purged.filter((p) => p.deleted).map((p) => p.objectKey));
+    const allDeleted = purged.length === keys.length && acknowledged.size === keys.length
+      && keys.every((key) => acknowledged.has(key));
     if (!allDeleted) {
       // E5: object-store purge failed (fully or partially) -- the task stays un-eligible,
       // no receipt is issued, and a future sweep retries it. Nothing is marked here; the

@@ -21,6 +21,8 @@
     "debug:trace": "tsx scripts/debug-trace-cli.ts",
     "dev:deps": "docker compose -f docker-compose.dev.yml -p workspacex-kernel up -d",
     "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts",
+    "files:purge": "node --import tsx scripts/run-physical-deletion.ts",
+    "test:file-cloud": "vitest run --config vitest.file-cloud.config.ts",
     "test:storage": "vitest run --config vitest.storage.config.ts"
   },
   "dependencies": {

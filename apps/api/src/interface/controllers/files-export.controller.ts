@@ -4,22 +4,20 @@
  *   POST /projects/:projectId/export-jobs   contract `createExportJob`
  *   GET  /export-jobs/:jobId                contract `getExportJob`
  *
- * ⚠ There is no route here that streams the zip's bytes. `getExportJob.out.downloadUrl` is a
- * real string pointing at a real object in `ObjectStore` (see `export-artifacts.ts`), but
- * nothing in this controller (or anywhere else in this feature) redeems it -- that redemption
- * route is left for whichever feature wires this job's `downloadUrl` onto F32's isolated-origin
- * download machinery. Stated here rather than discovered as a 404 later.
+ * GET /export-jobs/:jobId/content returns the private ZIP to its original authenticated requester.
  */
 import {
-  BadRequestException, Body, Controller, ForbiddenException, Get, Inject, Param, Post,
+  BadRequestException, Body, Controller, ForbiddenException, Get, Inject, Param, Post, Res,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { files as C } from "@repo/contracts";
+import type { Response } from "express";
 import type { z } from "zod";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import {
   createExportJob,
   getExportJob,
+  downloadExportJob,
   FilesExportError,
   type CreateExportJobResult,
   type ExportDeps,
@@ -141,5 +139,16 @@ export class FilesExportController {
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
       }
     }
+  }
+
+  @Get("/export-jobs/:jobId/content")
+  async content(@CurrentPrincipal() principal: Principal, @Param("jobId") jobId: string, @Res() response: Response) {
+    assertPrincipal(principal);
+    const bytes = await this.mapErrors(() => downloadExportJob(this.deps, { ...principal, jobId }));
+    response.setHeader("Content-Type", "application/zip");
+    response.setHeader("Content-Disposition", "attachment; filename=export.zip");
+    response.setHeader("Cache-Control", "private, no-store");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.send(Buffer.from(bytes));
   }
 }

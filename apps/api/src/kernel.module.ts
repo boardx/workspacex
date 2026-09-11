@@ -678,6 +678,8 @@ import {
 } from "./application/files/ports";
 import { PgArtifactBrowserRepository } from "./infrastructure/files/pg-artifact-browser-repository";
 import { ObjectStoreHeadProbe } from "./infrastructure/files/object-store-head-probe";
+import { FilesDeletionController } from "./interface/controllers/files-deletion.controller";
+import { deletionProviders } from "./infrastructure/files/deletion.providers";
 import { FilesBrowserController } from "./interface/controllers/files-browser.controller";
 // F32：五类预览器 + 单个下载（短时效 · 一次性 · 绑定 principal · 写审计）。
 // ⚠ 它的版本查找走的是 F31 **同一个** `wsx_visible_artifacts()`，不是第二份谓词——
@@ -968,7 +970,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CheckinBoardController,
     OrgAdminManagementController,
     PlatformMemberController,
-    FilesBrowserController,
+    FilesBrowserController, FilesDeletionController,
     FilesDeliveryController,
     FilesExportController,
     FilesRenameController,
@@ -1400,16 +1402,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // count is really zero. The path exists end to end so 04-agent reports into it rather
     // than inventing a number for `affectedInFlightCalls` (see the port's note).
     { provide: IN_FLIGHT_CALLS, useClass: InMemoryInFlightCalls },
-    // ⚠ `ObjectStore` USED to be deliberately unprovided ("no route writes bytes, because
-    // `saveDraft` / `pinVersion` still have no request shape able to carry them" -- coherence
-    // D-2). That note was accurate and is now out of date: F17's export MOVES BYTES, and it
-    // is the first route that does. The reason for the original absence was "a provider for
-    // a port nothing injects suggests a capability that is not there", which is the opposite
-    // of the situation now.
-    //
-    // ⚠ `saveDraft` / `pinVersion` still have no request shape -- providing the store does
-    // NOT open those paths, and nothing here should be read as saying it does.
-    ...storageProviders,
+    // File byte and compliance dependencies share the configured storage backend.
+    ...storageProviders, ...deletionProviders,
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
     {

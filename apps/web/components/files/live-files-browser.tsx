@@ -44,7 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import {
-  listProjectArtifacts, getArtifactTree, createExportJob, getExportJob, renameArtifact,
+  listProjectArtifacts, getArtifactTree, createExportJob, getExportJob, saveExportArchive, renameArtifact,
   type FileNode, type TreeNode,
 } from "@/lib/live-files";
 import { IngestBadge, ConfidentialBadge } from "./status";
@@ -119,19 +119,15 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
       const job = await createExportJob(projectId, artifactIds);
       const scope = artifactIds === null ? "整个项目" : `所选 ${artifactIds.length} 项`;
       onToast(`已提交导出（${scope}，jobId=${job.jobId}，状态：${job.status}）`);
-      // 轮询直至完成/失败，最多 10 次 —— 这里只是把状态显示出来，不做无限重试。
-      for (let i = 0; i < 10 && job.status !== "done" && job.status !== "failed"; i++) {
+      let status = await getExportJob(job.jobId);
+      for (let i = 0; i < 10 && status.status !== "done" && status.status !== "failed"; i++) {
         await new Promise((r) => setTimeout(r, 1000));
-        const polled = await getExportJob(job.jobId);
-        if (polled.status === "done" || polled.status === "failed") {
-          onToast(
-            polled.status === "done"
-              ? `导出完成：${polled.downloadUrl ?? "（无下载链接）"}`
-              : `导出失败：${polled.failureReason ?? "未知原因"}`,
-          );
-          break;
-        }
+        status = await getExportJob(job.jobId);
       }
+      if (status.status === "failed") throw new Error(status.failureReason ?? "导出失败");
+      if (status.status !== "done") throw new Error("导出仍在处理中，请稍后重试");
+      await saveExportArchive(job.jobId);
+      onToast("导出完成，已开始下载 ZIP 文件");
     } catch (e) {
       onToast(`导出请求失败：${describeError(e)}`);
     } finally {

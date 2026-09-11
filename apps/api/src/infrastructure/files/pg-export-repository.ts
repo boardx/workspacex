@@ -122,6 +122,21 @@ function toRecord(row: JobRow): ExportJobRecord {
 export class PgExportJobRepository implements ExportJobRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  async findContent(input: { orgId: OrgId; jobId: string }) {
+    return this.db.withTenant(input.orgId, async session => {
+      const result = await session.query<{ project_id: string; requested_by: string; object_key: string; expires_at: Date; artifact_ids: unknown }>(
+        `SELECT j.project_id, j.requested_by, j.object_key, j.expires_at,
+          (SELECT p.detail->'artifactIds' FROM provenance_events p WHERE p.org_id=j.org_id
+           AND p.type='downloaded' AND p.actor_id=j.requested_by AND p.target_kind='project'
+           AND p.target_id=j.project_id AND p.detail->>'purpose'='export' AND p.detail->>'jobId'=j.id
+           ORDER BY p.at DESC, p.id DESC LIMIT 1) AS artifact_ids
+         FROM export_jobs j WHERE j.org_id=$1 AND j.id=$2 AND j.status='done'`, [input.orgId, input.jobId]);
+      const row = result.rows[0];
+      return row ? { projectId: row.project_id, requestedBy: row.requested_by, objectKey: row.object_key, expiresAt: row.expires_at,
+        artifactIds: Array.isArray(row.artifact_ids) && row.artifact_ids.every(id => typeof id === "string") ? row.artifact_ids as string[] : null } : null;
+    });
+  }
+
   async saveDone(job: NewExportJob): Promise<void> {
     await this.db.withTenant(job.orgId, async (s) => {
       await s.query(

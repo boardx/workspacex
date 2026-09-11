@@ -65,6 +65,7 @@ export type RequestDeletionReasonCode =
   | "ARTIFACT_NOT_FOUND"
   | "PROJECT_ROLE_INSUFFICIENT"
   | "AGENT_CANNOT_DELETE"
+  | "DEPENDENCY_UNAVAILABLE"
   | "LEGAL_HOLD_ACTIVE";
 
 export class RequestDeletionError extends Error {
@@ -114,6 +115,7 @@ export async function requestDeletion(
   // Unconditional, resource-independent bar -- checked first, and it discloses nothing about
   // whether `artifactId` exists (D-39 / usecases.md 「agent 不得发起删除」).
   if (input.actorKind === "agent") throw new RequestDeletionError("AGENT_CANNOT_DELETE");
+  if (input.scope !== null) throw new RequestDeletionError("DEPENDENCY_UNAVAILABLE");
 
   // The contract's `confirmedImpact: z.literal(true)` and `reason: z.string().min(4)` already
   // make these unconstructible at the type level; this is the same defensive re-check

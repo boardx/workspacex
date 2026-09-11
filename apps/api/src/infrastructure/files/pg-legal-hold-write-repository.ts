@@ -6,6 +6,7 @@ import type { DatabasePort } from "../../application/ports/database.port";
 import type { LegalHoldWriteRepository } from "../../application/files/legal-hold-ports";
 import type { ActiveHold } from "../../domain/files/legal-hold";
 import type { OrgId } from "../../domain/org-id";
+import { deletionLockKey } from "./deletion-lock";
 
 export class PgLegalHoldWriteRepository implements LegalHoldWriteRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -38,6 +39,10 @@ export class PgLegalHoldWriteRepository implements LegalHoldWriteRepository {
     appliedAt: Date;
   }): Promise<void> {
     await this.db.withTenant(input.orgId, async (s) => {
+      // A hold and physical purge must have an order, including when they arrive together.
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [deletionLockKey(input.orgId)]);
+      const deleted = await s.query("SELECT id FROM deletion_tasks WHERE org_id=$1 AND artifact_id=$2 AND status='done'", [input.orgId, input.artifactId]);
+      if (deleted.rows.length) throw new Error("artifact_already_physically_deleted");
       await s.query(
         `INSERT INTO legal_holds (id, org_id, artifact_id, reason, applied_by, applied_at)
          VALUES ($1,$2,$3,$4,$5,$6)`,
