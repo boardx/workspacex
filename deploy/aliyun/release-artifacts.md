@@ -26,7 +26,7 @@ node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/releas
 
 现有 `apps/deep-agent-service/Dockerfile` 仍使用 `langgraph dev`；本切片新增 API/Web 云发布 Dockerfile 和独立 Agent 官方构建配置，但实际镜像验证单独记录。不能将本切片标成整个 CP-02 验收通过；后续必须构建并运行真实应用镜像，完成运行体版本和用户可见冒烟验收。
 
-## 构建入口（构建验证尚未完成）
+## 构建入口与独立验收
 
 新增 `deploy/aliyun/images/api.Dockerfile` 和 `web.Dockerfile`，以仓库根目录为 context；专用 dockerignore 排除环境文件、密钥文件及本地依赖。使用 `--build-arg NODE_IMAGE=node@sha256:<审核后的digest>` 和 `--build-arg SOURCE_REVISION=<完整SHA>`。云 Web 镜像固定相对 `/api`，浏览器使用当前域名；服务端通过 `API_INTERNAL_URL=http://api:3200` 直连 API。无需针对不同域名重新构建。API 默认 3200，Web 3000。进程以 node 用户启动；API 执行 Node + tsx，Web 执行 next start。部署前仍必须实际构建、运行并验证，不将 Dockerfile 存在视为镜像可用。
 
@@ -34,11 +34,11 @@ Agent 使用官方 Agent Server 构建入口，与旧开发 Dockerfile 隔离。
 
 ```sh
 node --import tsx packages/cloud-deploy/src/agent-release-cli.ts apps/deep-agent-service/langgraph.json apps/deep-agent-service/langgraph.release.json langchain/langgraph-server@sha256:<审核后的digest> <完整SHA>
-cd apps/deep-agent-service
-uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.release
+(cd apps/deep-agent-service && uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.generated)
+node --import tsx packages/cloud-deploy/src/agent-dockerfile-cli.ts apps/deep-agent-service/Dockerfile.generated apps/deep-agent-service/Dockerfile.release langchain/langgraph-server@sha256:<审核后的digest>
 ```
 
-生成器保留图和 HTTP 路由、移除开发 `.env` 加载、固定基础镜像 digest 并写入 revision label。生成输出拒绝覆盖已有文件。生成的 Dockerfile 必须再次审查其依赖锁定和镜像上下文，然后构建；当前尚无该镜像构建或启动证据。
+生成器保留图和 HTTP 路由、移除开发 `.env` 加载并写入 revision label。锁定的官方 CLI 0.4.31 实测会把 `:3.11` 追加到 digest；第二步只接受预期单个 FROM，去除该错误后缀并固定实际基础镜像 digest，其他基镜像或多阶段漂移直接失败。专用 Dockerfile.release.dockerignore 排除 `.env*`、私钥和虚拟环境。生成输出拒绝覆盖已有文件。生成的 Dockerfile 必须再次审查其依赖锁定和镜像上下文，然后构建；当前尚无该镜像构建或启动证据。
 
 生产 Agent Server 还需通过环境文件注入 `DATABASE_URI`（专用数据库）、`REDIS_URI`（专用 Redis DB）、`LANGGRAPH_CLOUD_LICENSE_KEY`，并按供应商要求配置 LangSmith 凭据/出网。不得将许可值写入 manifest、命令行或仓库。`validateAgentServerEnvironment` 仅校验这些参数存在与协议，不宣称许可证有效。
 
@@ -69,3 +69,11 @@ The generated ingress forwards exact `/api/copilotkit` and its subpaths to loopb
 `node --import tsx packages/cloud-deploy/scripts/verify-nginx.ts <cached-nginx-digest> <cached-node-digest>` validates with actual `nginx -t`, then exercises TLS routing, WebSocket 101, and the first SSE event while its upstream remains open. Fixtures have no external network and are removed afterward. Local linux/arm64 verification passed using Nginx digest `sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236`; this does not attest a real domain certificate or public cloud ingress.
 
 The Web server exposes dynamic `GET /.well-known/workspacex-deployment` with JSON `{ "deploymentMarker": "<runtime marker>" }`. Set `WORKSPACEX_DEPLOYMENT_MARKER` in private `web.env` to the same non-secret random deployment marker used by provision acceptance. The endpoint reads it for every request, returns 503 when absent, and sends `Cache-Control: no-store`. Public acceptance must compare this value so an old Web behind otherwise-valid TLS/API routing cannot pass. Nginx routes this path to Web via its ordinary root location.
+
+### Additional local image evidence
+
+The Web single-worker build completed with compilation networking disabled, including lint, types, all 100 static pages and image export. In a separate read-only, network-disabled 512 MiB container, the runtime probe fetched HTML, CSS and all 112 same-origin woff2 font files successfully. This diagnostic build preceded the dynamic Web marker endpoint; the final integrated source revision still needs rebuilding and public ingress verification.
+
+Sandbox accepts `NODE_IMAGE`, `PYTHON_IMAGE`, and `SOURCE_REVISION` build arguments. A local linux/arm64 image built from source `74dc21a5ae6e7da1d40f7deca2be5b2d3614240e` with cached digest-pinned Node and Python bases. `SANDBOX_TEST_IMAGE=workspacex-cloud-sandbox-cp02:test` ran both existing real container network tests: the script could not reach the companion with network disabled, and the same script reached the same companion on a private fixture network. Both passed and fixtures were cleaned. This covers the actual script-service network boundary; native session AppArmor/seccomp acceptance remains a separate host requirement.
+
+Official Agent base inspection found public index `langchain/langgraph-api@sha256:065268609660e387943f9f184b4f2e598bfe5a07279041a750be9ebf4bd6ebda` with linux/amd64 and linux/arm64 children. This is registry metadata evidence, not a production runtime or license acceptance result.

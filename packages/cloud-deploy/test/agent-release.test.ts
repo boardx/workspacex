@@ -12,3 +12,11 @@ it("requires production server backing services and license without exposing val
   expect(validateAgentServerEnvironment({ DATABASE_URI: "postgresql://db/agent", REDIS_URI: "redis://redis/1", LANGGRAPH_CLOUD_LICENSE_KEY: "private" })).toEqual({ configured: true, licenseVerified: false });
   expect(() => validateAgentServerEnvironment({ DATABASE_URI: "secret", REDIS_URI: "redis://redis", LANGGRAPH_CLOUD_LICENSE_KEY: "private" })).toThrow("AGENT_DATABASE_URI_INVALID");
 });
+it("pins the actual CLI Python suffix and rejects unexpected bases or multi-stage drift", async () => {
+  const { pinAgentDockerfile } = await import("../src/agent-release.js");
+  const base = `langchain/langgraph-api@sha256:${"a".repeat(64)}`;
+  expect(pinAgentDockerfile(`FROM ${base}:3.11\nRUN echo official`, base)).toBe(`FROM ${base}\nRUN echo official`);
+  expect(pinAgentDockerfile(`FROM ${base}\n`, base)).toBe(`FROM ${base}\n`);
+  expect(() => pinAgentDockerfile("FROM evil/image:latest\n", base)).toThrow("UNEXPECTED_AGENT_DOCKERFILE_BASE");
+  expect(() => pinAgentDockerfile(`FROM ${base}\nFROM ${base}\n`, base)).toThrow("UNEXPECTED_AGENT_DOCKERFILE_BASE");
+});

@@ -18,3 +18,14 @@ export function validateAgentServerEnvironment(env: NodeJS.ProcessEnv) {
   if (!/^rediss?:\/\//.test(env.REDIS_URI!)) throw new Error("AGENT_REDIS_URI_INVALID");
   return { configured: true, licenseVerified: false };
 }
+
+/** CLI 0.4.31 appends a Python tag even to a digest. Pin only its expected FROM. */
+export function pinAgentDockerfile(generated: string, baseImage: string): string {
+  if (!/^langchain\/langgraph-(?:api|server)@sha256:[a-f0-9]{64}$/.test(baseImage)) throw new Error("AGENT_BASE_IMAGE_DIGEST_REQUIRED");
+  const lines = generated.split("\n");
+  const fromLines = lines.filter(line => /^FROM\s/i.test(line));
+  if (fromLines.length !== 1 || !fromLines[0] || ![`FROM ${baseImage}`, `FROM ${baseImage}:3.11`].includes(fromLines[0])) {
+    throw new Error("UNEXPECTED_AGENT_DOCKERFILE_BASE");
+  }
+  return lines.map(line => line === fromLines[0] ? `FROM ${baseImage}` : line).join("\n");
+}
