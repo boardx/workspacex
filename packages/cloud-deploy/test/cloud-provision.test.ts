@@ -7,6 +7,9 @@ import { provisionCloud } from "../src/cloud-provision";
 import { captureProvisionCommand, CommandExecutionError } from "../src/command";
 import { writeRuntimeBundle } from "../src/runtime-bundle";
 import { verifyRunningRelease } from "../src/running-release";
+import { verifyPreparedHost } from "../src/verify-prepared-host";
+import { verifyEcsIdentity } from "../src/preflight";
+import { verifyTlsPreflight } from "../src/tls-preflight";
 vi.mock("../src/command", async original => ({ ...await original<typeof import("../src/command")>(), captureProvisionCommand: vi.fn() }));
 vi.mock("../src/preflight", () => ({ verifyEcsIdentity: vi.fn(), verifyHttpsEndpoint: vi.fn(), requireComposeVersion: vi.fn() }));
 vi.mock("../src/tls-preflight", () => ({ verifyTlsPreflight: vi.fn() }));
@@ -94,4 +97,25 @@ it("retains the lock when the business helper is killed before it can prove remo
   const result = await execute();
   expect(result.status).toBe("failed"); expect(result.lockRetained).toBe(true);
   expect(result.stages.at(-1)?.name).toBe("business-probe");
+});
+
+it("checks prepared-host integrity before ECS identity and live TLS", async () => {
+  await execute();
+  expect(vi.mocked(verifyPreparedHost).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(verifyEcsIdentity).mock.invocationCallOrder[0]!);
+  expect(vi.mocked(verifyEcsIdentity).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(verifyTlsPreflight).mock.invocationCallOrder[0]!);
+});
+
+it("stops before cloud and runtime actions when prepared-host integrity fails", async () => {
+  vi.mocked(verifyPreparedHost).mockRejectedValueOnce(new Error("HOST_PREPARATION_INTEGRITY_FAILED"));
+  const result = await execute();
+  expect(result.status).toBe("failed"); expect(result.stages).toHaveLength(1); expect(result.stages[0]?.name).toBe("preflight");
+  expect(verifyEcsIdentity).not.toHaveBeenCalled(); expect(verifyTlsPreflight).not.toHaveBeenCalled(); expect(writeRuntimeBundle).not.toHaveBeenCalled();
+});
+
+it("stops before host integrity and cloud checks when the driver SHA differs", async () => {
+  const normal = vi.mocked(captureProvisionCommand).getMockImplementation()!;
+  vi.mocked(captureProvisionCommand).mockImplementation(async (command, context) =>
+    command.executable === "git" && command.args.includes("rev-parse") ? "f".repeat(40) : normal(command, context));
+  expect((await execute()).status).toBe("failed");
+  expect(verifyPreparedHost).not.toHaveBeenCalled(); expect(verifyEcsIdentity).not.toHaveBeenCalled();
 });
