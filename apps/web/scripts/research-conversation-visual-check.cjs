@@ -43,6 +43,7 @@ async function main() {
   await expect(page.getByRole('textbox',{name:'研究区域',exact:true})).toHaveValue('德国');
   if(state.brief.region!=='欧洲'||commands.length!==1) throw Error('Preview unexpectedly applied');
   await expect(page.getByRole('button',{name:'确认并继续',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'保存草稿',exact:true})).toBeDisabled();
   await page.screenshot({path:path.join(output,'conversation-draft-desktop.png'),fullPage:true});
   await page.reload();await expect(page.getByRole('textbox',{name:'研究区域',exact:true})).toHaveValue('德国');
   await page.getByLabel('研究对话').fill('再增加法国作为对照');await page.getByLabel('研究对话').press('Enter');
