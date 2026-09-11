@@ -97,7 +97,7 @@ preflight() {
     [ -n "${REAL_MODEL_E2E_PROMPT:-}" ] && write_env_kv REAL_MODEL_E2E_PROMPT "${REAL_MODEL_E2E_PROMPT}"
   } > "$RUN_ENV_FILE"
   chmod 600 "$RUN_ENV_FILE"
-  echo "[devapp] 本轮 env 已写入 $RUN_ENV_FILE（0600，仅本 job 可见；值不回显）"
+  echo "[devapp] 本轮 env 已写入 ${RUN_ENV_FILE}（0600，仅本 job 可见；值不回显）"
 }
 
 collect() {
