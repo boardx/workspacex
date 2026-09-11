@@ -467,29 +467,8 @@ export interface ExecuteAgentRunDeps {
   readonly interjections?: InterjectionStore;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
-  /**
-   * issue #3445 —— `requeueAuthorizedToolCall`（`running → queued`，见
-   * `tool-permission-gate.ts`）此前只让新 `queued` 行"存在"，没有任何一条路径立刻去
-   * 领它：`executeQueuedRuns` 本次 tick 的 `claimQueued` 早在这一行变成 `queued`
-   * 之前就已经跑过了（同一个调用栈内部），下一次真正的 `claimQueued` 只能等
-   * `sweepOrphanedRuns` 的周期性发现（约 1 分钟 tick + 2 分钟租约阈值，见
-   * `sweep-orphaned-runs.ts` 头注），实测每次固定卡 2-3 分钟（#3445）。
-   *
-   * **可选**，与本接口其余字段同一条既有先例：既有测试与不需要"同请求内立即续跑"
-   * 这一层的执行路径不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`，
-   * 传入 `(orgId) => this.kick(orgId)`）必定注入。缺省不注入 ⇒
-   * `tool-permission-gate.ts` 那条 `deps.kick?.(orgId)` 是 no-op，行为与本 feature
-   * 之前逐字节相同——仍然只靠周期性扫描捞回，不会因为这次改动而在测试里意外产生
-   * 新的副作用。
-   *
-   * ⚠ 这是**同一进程内的重入 kick**，不是新起一条恢复机制：`AgentRunExecutor.kick`
-   * 本身是 fire-and-forget（`void this.tick(orgId).catch(...)`，见该文件头注"`kick`
-   * returns void on purpose"），从这里调用只是把"谁来触发下一次 claimQueued"提前，
-   * 不改变 `claimQueued` 自己的原子 CAS 语义（`FOR UPDATE SKIP LOCKED` +
-   * `WHERE status='queued'`）——重入的 tick 与当前这个 tick 剩余的 `claimQueued`
-   * 调用互不冲突：这一行已经不在当前 tick 的 `claimed` 列表里（那份列表在它还是
-   * `running` 时就已经固定），不会被两条路径同时认领。与周期性扫描并发触发时同理。
-   */
+  /** issue #3445 —— requeue 后同一调用栈内立即重入 kick，不再只靠周期性扫描（实测
+   * 固定卡 2-3 分钟）；论证见调用点。可选，缺省不注入 ⇒ 行为逐字节不变。 */
   readonly kick?: (orgId: OrgId) => void;
 }
 
