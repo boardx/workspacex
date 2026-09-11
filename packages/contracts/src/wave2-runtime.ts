@@ -430,6 +430,17 @@ export const AgentRunFailureReason = z.enum([
   /** 本部署自己的依赖缺失/未配置，调用根本没能正常发起。 */
   "runtime_unavailable",
   /**
+   * issue #3403 ④ —— **这一轮终止时，还有工具调用没有回来**。
+   *
+   * 与上面五个值的判定方式不同：它们都靠 `ModelCallError.detail` 的措辞匹配，
+   * 而这个值由**结构事实**判定——账本里存在已写 `tool_start`、始终没有 `tool_end`
+   * 的调用。人类 2026-09-11 实测那一幕（`render-office.py` 跑不回来）在措辞上只能
+   * 落进 `provider_timeout`（「智能体服务没跑完」），仍然把成因指向模型侧；而实际
+   * 没回来的是一次工具调用。**把工具/脚本的失败说成模型的失败会把排查引向反方向**，
+   * 这正是 #3280 / #3323 那条「失败必须说出真实成因」要防的。
+   */
+  "tool_call_unresolved",
+  /**
    * **我们自己的缺陷**：执行器抛了未预期的异常（`execute-run.ts` 的
    * "agent run executor defect" 分支）。此前它与「模型没返回内容」共用同一个码、
    * 同一句文案——线上没人能把「我们的 bug」和「模型的问题」分开。

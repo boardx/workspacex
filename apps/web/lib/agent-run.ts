@@ -78,6 +78,7 @@ const AGENT_RUN_FAILURE_REASON_TEXT: Record<AgentRunFailureReason, string> = {
   provider_timeout: "执行任务的智能体服务在预算时间内没有跑完",
   provider_transport_failed: "与执行任务的智能体服务之间的连接失败了",
   runtime_unavailable: "这次执行依赖的服务未配置或不可用，调用没能发出去",
+  tool_call_unresolved: "有一次工具调用始终没有返回结果（不是模型没出话）——多半是它执行的脚本卡住或失败了",
   executor_defect: "这是我们服务端的缺陷，不是模型的问题，请把这次的任务编号报给管理员",
   run_reaped: "执行它的服务进程中途没了，这条任务被系统收尾了",
   unknown: "未能识别出具体原因，请把这次的任务编号报给管理员",

@@ -195,9 +195,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; status: string; pending_tool_name: string | null; pending_args_summary: string | null; pending_permission_request_id: string | null; created_at: Date; agent_id: string;
-        remote_run_id: string | null; paused_at: Date | null; error_code: string | null; model_provider: string; pause_requested_at: Date | null; cancel_requested_at: Date | null;
+        remote_run_id: string | null; paused_at: Date | null; error_code: string | null; failure_reason: string | null; model_provider: string; pause_requested_at: Date | null; cancel_requested_at: Date | null;
       }>(
-        `SELECT id, status, pending_tool_name, pending_args_summary, pending_permission_request_id, created_at, agent_id, remote_run_id, paused_at, error_code, model_provider, pause_requested_at, cancel_requested_at
+        `SELECT id, status, pending_tool_name, pending_args_summary, pending_permission_request_id, created_at, agent_id, remote_run_id, paused_at, error_code, failure_reason, model_provider, pause_requested_at, cancel_requested_at
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -226,6 +226,8 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         // NULL（见 get-plan-ledger-derived.test.ts 的插入约定：`status === "failed" ?
         // "MODEL_CALL_FAILED" : null`），这里原样透传，不额外加判断——没有第二份真相。
         errorCode: row.error_code,
+        // #3403 ④：同 errorCode，原样透传，不在这里加第二份判断。
+        failureReason: row.failure_reason ?? null,
       };
     });
   }

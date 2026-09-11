@@ -11,6 +11,47 @@ import sys
 import tempfile
 import zipfile
 import time
+import signal
+
+
+def _run_bounded(command, env, timeout):
+    """Run `command` so that its **deadline actually ends the work**, measured 2026-09-11 (issue #3403).
+
+    Two defects in the plain `subprocess.run(..., timeout=...)` this replaces:
+
+    1. `subprocess.run`'s timeout kills only the direct child. `soffice.bin` forks
+       grandchildren, and those survive. `start_new_session=True` puts the whole
+       tree in its own process group so the timeout can kill all of it.
+    2. Worse, and the one that actually bit: this script inherits the caller's
+       stdout/stderr, so **the grandchildren inherit them too**. The sandbox
+       execution service captures that pipe. Measured: with a hung `soffice.bin`
+       that had spawned a detached grandchild, this script exited in 5.07s against
+       its own 5s deadline -- and the capturing caller stayed blocked on the pipe
+       past 60s, because a surviving grandchild still held the write end open.
+       The script looked bounded while the *caller* hung to its own much larger
+       budget. Giving the children their own pipes (and closing them here) ends that.
+
+    A normal render is nowhere near these deadlines: a 10-slide CJK deck measured
+    2.4-2.7s end to end (soffice ~0.9s, pdftoppm ~1.5s) on an unloaded machine.
+    """
+    with subprocess.Popen(command, env=env, start_new_session=True,
+                          stdin=subprocess.DEVNULL,
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as child:
+        try:
+            output, _ = child.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                child.kill()
+            # The group is gone, so this drains rather than waits on a live writer.
+            child.communicate()
+            raise
+    # LibreOffice is chatty on success; only surface it when the step actually failed.
+    if child.returncode not in (0, 81):
+        sys.stderr.write(output.decode('utf-8', 'replace'))
+    return subprocess.CompletedProcess(command, child.returncode)
+
 
 source = Path(sys.argv[1])
 target = Path(sys.argv[2])
@@ -40,13 +81,13 @@ with tempfile.TemporaryDirectory(prefix='office-render-') as scratch:
         # Official oosplash restarts EXITHELPER_NORMAL_RESTART (81) with all args.
         # Fresh profiles request this once. No crash retry and no renewed deadline.
         deadline = time.monotonic() + 60
-        result = subprocess.run(command, env=env, timeout=60)
+        result = _run_bounded(command, env, 60)
         if result.returncode == 81:
-            result = subprocess.run(command, env=env, timeout=max(0.001, deadline - time.monotonic()))
+            result = _run_bounded(command, env, max(0.001, deadline - time.monotonic()))
         result.check_returncode()
     if not pdf.is_file() or pdf.stat().st_size == 0:
         raise SystemExit('renderer did not produce a PDF')
-    subprocess.run(['pdftoppm', '-png', '-r', '96', str(pdf), str(target / 'page')], env=env, check=True, timeout=45)
+    _run_bounded(['pdftoppm', '-png', '-r', '96', str(pdf), str(target / 'page')], env, 45).check_returncode()
     pages = sorted(target.glob('page-*.png'))
     if not pages or any(p.stat().st_size == 0 for p in pages):
         raise SystemExit('renderer did not produce page images')

@@ -104,4 +104,47 @@ describe("deriveRunStatusView 全叉积不变量（#3365）", () => {
     expect(v.progressValue).toBe(2);            // 不再是 stepIndex-1 = 1（50%）
     expect(v.activity).toBe("settling");
   });
+
+  /**
+   * issue #3403 ③ —— I5 的**镜像**那一半。#3369 只收敛了「还在 executing 却一步都不在
+   * 推进」，没有收敛「已经失败了、计数器却满格」。判据落在「这句话读起来还自相矛盾吗」，
+   * 不是「有没有一个 label」。
+   */
+  it("I8：终态失败 ⇒ 满格计数器不许被读成「都做完了」", () => {
+    for (const c of ALL) {
+      if (c.phase !== "failed") continue;
+      if (!(c.progressTotal > 0 && c.progressCompleted >= c.progressTotal)) continue;
+      const v = deriveRunStatusView(c);
+      expect(v.activity, JSON.stringify(c)).toBe("terminal");
+      // 光说「执行遇到问题」而把满格计数器晾在旁边，就是人类看到的那一幕。
+      expect(v.stateLabel, JSON.stringify(c)).not.toBe("执行遇到问题");
+      expect(v.stateLabel, JSON.stringify(c)).toContain("中断前");
+      // 分子一个字节都不许动（I4）。
+      expect(v.progressValue, JSON.stringify(c)).toBe(c.progressCompleted);
+    }
+  });
+
+  it("人类 2026-09-11 实测那一屏（失败 + 6/6 步已标记完成）不再自相矛盾", () => {
+    const v = deriveRunStatusView({
+      phase: "failed", runStatus: "failed",
+      stepStatuses: ["completed", "completed", "completed", "completed", "completed", "completed"],
+      progressCompleted: 6, progressTotal: 6,
+      paused: false, pauseRequested: false, gateRequired: false,
+      hasRecentError: true, pauseEntryEnabled: true,
+    });
+    expect(v.stateLabel).toBe("执行遇到问题（步骤在中断前已被标记完成）");
+    expect(v.progressValue).toBe(6);
+    expect(v.showRecovery).toBe(true);
+  });
+
+  it("反证：失败但计数器**没有**满格时，这句话一个字都不变", () => {
+    const v = deriveRunStatusView({
+      phase: "failed", runStatus: "failed",
+      stepStatuses: ["completed", "in_progress", "pending"],
+      progressCompleted: 1, progressTotal: 3,
+      paused: false, pauseRequested: false, gateRequired: false,
+      hasRecentError: true, pauseEntryEnabled: true,
+    });
+    expect(v.stateLabel).toBe("执行遇到问题");
+  });
 });

@@ -45,6 +45,7 @@ import { publicExecutionPayload } from "./public-execution-payload";
  * branches on `deps.model`'s shape at all -- R4 E3 (`01-kernel-unification.md`) requires the
  * three old branches physically gone from this file's own source, not merely unreachable.
  */
+import type { ExecutionEventInput } from "@repo/contracts/execution-journal";
 import { nativeToolProvenance } from "@repo/contracts/native-tool-identities";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
@@ -1066,6 +1067,40 @@ async function executeClaimed(
   let deltaSeq = (await deps.runs.readModelDeltas(orgId, run.runId, -1)).at(-1)?.seq ?? -1;
   deltaSeq += 1;
   const executionAttemptId = `${run.runId}:${stepSeqBase}`;
+  /*
+   * issue #3403 ② —— 一次工具调用在账本里只有 `tool_start` / `tool_end` 两个时刻，
+   * 而 `tool_end` **只在模型真的交回 ToolMessage 时**才会被写出来（见下面那个进展
+   * 回调：它是 `AIMessage.tool_calls` 与 `ToolMessage` 的配对结果）。于是只要这一轮
+   * 在某个工具还没回来时终止——failed / cancelled / paused 都算——那条调用就**永远
+   * 停在 `tool_start`**：前端 `traceEntries` 把它渲染成「正在执行 · execute ↻」，
+   * 而同一屏上横幅已经写着「执行失败」。人类 2026-09-11 实测到的就是这一幕。
+   *
+   * ⚠ 这**不是**展示层能补的：#3316 收敛的是折叠行 spinner 的**活性**（`active`
+   * 为假时图标不再转），#3369 收敛的是**计划面板**的状态派生——两者都没碰工具卡自己
+   * 的终态，因为那条终态**从来没有被产生过**。而且它同样写在持久账本里，刷新后照旧
+   * 卡住，所以只能在产生端补。
+   *
+   * 这里记住每条已开、未闭的调用，在所有终止路径上给它们补一条 `tool_end{ok:false}`。
+   * **不伪造结果**：`result` 是系统自己写的一句话（同 `tool_progress` 那条隐私纪律），
+   * 说的是「本轮已终止，没有收到这次调用的结果」，而不是宣称它失败了在哪一步。
+   */
+  const openToolCalls = new Map<string, ExecutionEventInput & { kind: "tool_end" }>();
+  const closeOpenToolCalls = async (outcome: "failed" | "cancelled" | "paused") => {
+    if (openToolCalls.size === 0) return;
+    const pending = [...openToolCalls.values()];
+    openToolCalls.clear();
+    for (const event of pending) {
+      try {
+        await deps.runs.appendExecutionEvent?.(orgId, run.runId, {
+          ...event,
+          result: `本轮执行已${outcome === "failed" ? "失败" : outcome === "cancelled" ? "取消" : "暂停"}终止，没有收到这次工具调用的结果。`,
+        });
+      } catch {
+        // 补终态是尽力而为：写不进去也不能把一条已经在收尾的 run 再翻成另一种失败。
+        deps.log("open tool call terminal event pending", { runId: run.runId, toolCallId: event.toolCallId });
+      }
+    }
+  };
   try {
     if (run.runtimeProfile === "native-v1" && !deps.nativeSessions) throw new ModelCallError("MODEL_CALL_FAILED", "native_runtime_unavailable_for_continuation");
     if (isDeepAgentRun && deps.nativeSessions && !deps.nativeOutputs) throw new ModelCallError("MODEL_CALL_FAILED", "native_output_delivery_unavailable");
@@ -1146,6 +1181,15 @@ async function executeClaimed(
         seqCursor.value += 1;
         await persistToolPlan(deps.planLedger, orgId, run.threadId, event);
         forwardToolCallProgress(deps, orgId, run.runId, event, stepSeq);
+        const journalToolCallId = `${executionAttemptId}:${event.toolCallId ?? stepSeq}`;
+        if (event.phase === "in_progress") {
+          openToolCalls.set(journalToolCallId, {
+            kind: "tool_end", attemptId: executionAttemptId, toolCallId: journalToolCallId,
+            sourceToolCallId: event.toolCallId ?? undefined,
+            ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)),
+            toolName: event.toolName, result: null, ok: false,
+          });
+        } else openToolCalls.delete(journalToolCallId);
         await deps.runs.appendExecutionEvent?.(orgId, run.runId, event.phase === "in_progress"
           ? { kind: "tool_start", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, args: publicExecutionPayload(event.toolArgsSummary), ...skillDisplayNameField(event.toolName, event.toolArgsSummary, toolSkills), ...(event.planningNote === null ? {} : { planningNote: String(publicExecutionPayload(JSON.stringify(event.planningNote))).slice(0, 4000) }) }
           : { kind: "tool_end", attemptId: executionAttemptId, toolCallId: `${executionAttemptId}:${event.toolCallId ?? stepSeq}`, sourceToolCallId: event.toolCallId ?? undefined, ...nativeToolProvenance(event.toolName, isDeepAgentRun && Boolean(deps.nativeSessions)), toolName: event.toolName, result: publicExecutionPayload(event.toolResultSummary), ok: event.ok !== false });
@@ -1164,10 +1208,12 @@ async function executeClaimed(
     );
     if (completion.cancelled) {
       if (!deps.runs.cancelAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "cancel persistence unavailable");
+      await closeOpenToolCalls("cancelled");
       await deps.runs.cancelAtCheckpoint(orgId, run.runId); return;
     }
     if (completion.paused) {
       if (!deps.runs.pauseAtCheckpoint) throw new ModelCallError("MODEL_CALL_FAILED", "pause persistence unavailable");
+      await closeOpenToolCalls("paused");
       const settled = await deps.runs.pauseAtCheckpoint(orgId, run.runId);
       if (settled === "cancelled" && deps.nativeSessions) {
         try { await deps.nativeSessions.releaseForRun(orgId, run.runId); }
@@ -1204,7 +1250,23 @@ async function executeClaimed(
     const detail = e instanceof ModelCallError ? e.detail
       : e instanceof Error ? `unexpected model call failure: ${e.name}: ${e.message}`
       : "unexpected model call failure";
-    const reason: RunFailureReason = classifyModelCallFailureReason(detail);
+    /*
+     * issue #3403 ④ —— 措辞分类器看不见「工具没回来」这件事。
+     *
+     * `classifyModelCallFailureReason` 的六条规则全部匹配 `detail` 的**措辞**，而当
+     * 一次工具调用卡住时，我们拿到的 detail 是远端 run 的超时/报错原话，于是落进
+     * `provider_timeout`——「智能体服务在预算时间内没有跑完」。这句话没说错，但它
+     * 指向模型侧，而真正没回来的是**一次工具调用**。人类 2026-09-11 实测就是被这句
+     * 话带偏的（真正失败的是 `render-office.py`）。
+     *
+     * 这里用**结构事实**而不是措辞来判：这轮终止时 `openToolCalls` 非空，等价于账本里
+     * 存在已写 `tool_start`、从未写出 `tool_end` 的调用。有这条硬事实时它优先于措辞
+     * 分类——**不猜**：没有未闭调用时照旧走原分类器，一个字都不改。
+     */
+    const unresolvedTool = [...openToolCalls.values()][0]?.toolName;
+    const reason: RunFailureReason = unresolvedTool !== undefined
+      ? "tool_call_unresolved"
+      : classifyModelCallFailureReason(detail);
     // The provider's own words live here and stop here. `detail` never reaches a response;
     // the run's terminal `error` is the enumerated code above.
     // #3033：非 ModelCallError（如 PgNativeSessionOwner 抛的裸 `Error('native_session_*')`）
@@ -1217,6 +1279,7 @@ async function executeClaimed(
       code,
       reason,
       detail,
+      ...(unresolvedTool === undefined ? {} : { unresolvedTool }),
     });
     await record(deps, orgId, {
       runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
@@ -1233,6 +1296,7 @@ async function executeClaimed(
      * 上传过来——报了就如实记，没报才是 0。
      */
     await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
+    await closeOpenToolCalls("failed");
     await deps.runs.failRun(orgId, run.runId, code, reason);
     publishStatusChange(deps, orgId, run.runId, "failed");
     return;

@@ -50,6 +50,7 @@
  */
 import { z } from "zod";
 import { AguiPlanTodoStatus } from "./agui-state-events";
+import { AgentRunFailureReason } from "./wave2-runtime";
 
 /* ────────────────────────────────────────────────────────────────────── *
  * 一、领域枚举与值对象（`domain.md` 第一节）
@@ -274,6 +275,14 @@ export const planControl = {
        *  终态时恒为 `null`。前端 `describeAgentRunError`（`apps/web/lib/agent-run.ts`）
        *  是文案单一事实源，本字段只带原始 code，不在这里编第二份文案映射。 */
       errorCode: z.string().nullable(),
+      /** issue #3403 ④ —— 失败**成因**（`agent_runs.failure_reason` 原样透传）。
+       *  `errorCode` 只说「哪一类终态」：`MODEL_CALL_FAILED` 一个码同时承载「模型返回空」
+       *  「远端报错」「远端超时」「工具没回来」「我们自己的执行器抛异常」。#3280 / #3323
+       *  已经把成因接到别的两处失败面上，唯独**计划面板这张卡拿不到它**——它只消费本账本，
+       *  而本契约此前根本没有这个字段，于是只能逐字印出「模型这次没能返回可用结果」，
+       *  哪怕真正失败的是一次工具调用。与 `errorCode` 同一条纪律：只带枚举，不带 provider
+       *  原话，也不在这里编第二份文案映射。非失败终态时恒为 `null`。 */
+      failureReason: AgentRunFailureReason.nullable().optional(),
       /** issue #2451 —— 补齐当时留的缺口：哪一步失败。`steps` 里 `status==='in_progress'`
        *  的那一步（run 死掉那一刻仍在跑的那一步），不是"第一个未完成的步骤"——两者通常
        *  重合，但只有前者是真实信号，后者是纯猜。取不到 `in_progress`（run 在第一步
@@ -1017,7 +1026,23 @@ export function deriveRunStatusView(input: RunStatusViewInput): RunStatusView {
   const base = { currentStepIndex, progressValue, progressTotal: input.progressTotal };
 
   if (input.phase === "cancelled") return { ...base, stateLabel: "任务已停止", activity: "terminal", showRecovery: false };
-  if (input.phase === "failed") return { ...base, stateLabel: "执行遇到问题", activity: "terminal", showRecovery: true };
+  if (input.phase === "failed") {
+    /*
+     * issue #3403 ③ 的落点（I8）—— 人类 2026-09-11 实测：`执行遇到问题 · 6/6 步已标记完成`。
+     *
+     * 这与 I5 是**镜像的**一对，而 #3369 只修了 I5 那一半：I5 管「还在 executing 却
+     * 一步都不在推进」，这里管「已经失败了，计数器却满格」。两个数都没说谎——`phase`
+     * 来自 `agent_runs.status`，分子来自模型自己的 `write_todos` 快照——但并排印出来
+     * 读起来就是「失败了，可是全都做完了」，人类无法据此判断到底完成了没有。
+     *
+     * 说出**为什么会同时成立**，而不是把任一个数字改掉：步骤是模型在 run 死掉之前
+     * 标完的，标记不等于产出。`progressValue` 一个字节都不动（I4：分子只有一个量）。
+     */
+    if (input.progressTotal > 0 && progressValue >= input.progressTotal) {
+      return { ...base, stateLabel: "执行遇到问题（步骤在中断前已被标记完成）", activity: "terminal", showRecovery: true };
+    }
+    return { ...base, stateLabel: "执行遇到问题", activity: "terminal", showRecovery: true };
+  }
   if (input.phase === "done") return { ...base, stateLabel: "本轮已结束", activity: "terminal", showRecovery: false };
   if (input.paused) return { ...base, stateLabel: "任务已暂停", activity: "awaiting", showRecovery: false };
   /*
