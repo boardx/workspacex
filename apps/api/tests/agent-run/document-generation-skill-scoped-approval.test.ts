@@ -2,16 +2,29 @@
  * issue #3440 —— 四个锁定文档 skill（pdf/docx/xlsx/pptx-create）的 (skill_name,
  * tool_name) 授权寻址 + composer 开关「自动批准文档生成所需权限」的真库反证套件。
  *
- * 判据（见 issue 正文"判据要求"一节）：
- * ① 「最多一次」：同一次生成流程内，无论调用清单里几个不同的 L2 工具调用（真实证据里
- *    `execute` 会被调用不止一次——`node gen-capabilities.js` 之后还有
- *    `python3 .../render-office.py`），用户操作至多一次。
+ * 2026-09-11 人类实测后裁决「推翻之前的设计，要以用户体验为优先级」——重新设计把原生
+ * `execute` 的归因单位从"这个 run 挂载了什么"换成"这个 run 实际调用过什么"（调用口径，
+ * 见 `src/domain/agent-run/document-generation-skills.ts` 头注"重新设计"一节）。本文件
+ * 的测试相应重写：不再用"挂载集合"造场景，改成真实往 `agent_run_steps` 里追加工具调用
+ * 记录（`appendToolCallStep`），复刻这个 run 真实发生过的调用序列。
+ *
+ * 判据（见 issue 正文 + 本次重新设计的三条安全边界）：
+ * ① 「最多一次，且覆盖技能外临时脚本」：pdf-create 被真实调用（`read_file
+ *    /skills/pdf-create/SKILL.md`）之后，`execute` 无论是在 `/workspace` 下跑模型现写
+ *    的临时脚本（#3437 真实反例 `assistant-capabilities.js` 的形状），还是跑该 skill
+ *    自带的 `/skills/pdf-create/scripts/render-office.py`，同一次确认必须都覆盖。
  * ② 「(skill_name, tool_name) 寻址」：批准 pdf-create 不得连带放行同一 run 内 docx-create
  *    这类不同 skill 的调用（#3221 同一种漏洞，这里只在四个锁定 skill 之间验证收紧后
- *    互不泄漏）。
- * ③ 「清单之外仍会问」：composer 开关打开也不改变——非锁定 skill 的 `call_skill`、
- *    以及本次 run 混挂了非 L0 skill（#3437 devapp 真机实测的真实条件：21 个挂载 skill，
- *    只有 4 个平台官方 L0）时的原生 `execute`，两条路径都必须继续询问。
+ *    互不泄漏）——call_skill 路径本次未改动，测试原样保留。
+ * ③ 「清单之外仍会问」：
+ *    (a) 目标 skill 不在锁定清单内的 `call_skill`；
+ *    (b) **调用口径的核心安全闸**——同一个 run 里，pdf-create 已经被批准过一次之后，
+ *        若这个 run 又真实调用（不是挂载）了另一个非 L0 skill，后续的 `execute` 依然
+ *        必须询问，composer 开关打开也不豁免；
+ *    (c) 混挂但**没有被这个 run 实际调用过**的其它非 L0 skill 不影响归因——这正是
+ *        解决"混挂 21 个技能"假阴性的那一条（#3437 devapp 真机实测条件），用一个只挂
+ *        没叫的 skill 佐证"挂载"与"调用"是两件事。
+ * composer 关闭时（默认状态）：清单内的调用照常询问，不是隐性零确认。
  */
 import { beforeAll, beforeEach, expect, it } from "vitest";
 import type { DatabasePort } from "../../src/application/ports/database.port";
@@ -77,7 +90,22 @@ function deps(repo: PgAgentRunRepository, grants: PgToolPermissionGrantRepositor
 }
 
 let seqCounter = 0;
-const ledger = () => ({ seq: (seqCounter += 1), modelStartedAt: new Date().toISOString(), systemDigest: "b".repeat(64), system: "system" });
+const nextSeq = () => (seqCounter += 1);
+const ledger = () => ({ seq: nextSeq(), modelStartedAt: new Date().toISOString(), systemDigest: "b".repeat(64), system: "system" });
+
+/**
+ * 往 `agent_run_steps` 里追加一条真实的 `tool_call` 记录——测试用它复刻"这个 run 迄今
+ * 为止真实发生过的工具调用序列"，`resolveNativeExecuteAttribution` 正是读这张表（经
+ * `readToolCallAttributionSteps`）而不是任何"挂载集合"来做归因判定。
+ */
+async function appendToolCallStep(repo: PgAgentRunRepository, toolName: string, argsSummary: string): Promise<void> {
+  const now = new Date().toISOString();
+  await repo.appendStep(org, {
+    runId: RUN, seq: nextSeq(), kind: "tool_call", status: "succeeded",
+    startedAt: now, endedAt: now, inputDigest: null, outputDigest: null, failureCode: null,
+    toolName, toolArgsSummary: argsSummary, toolResultSummary: null, planningNote: null, toolCallId: null,
+  });
+}
 
 it("② (skill_name, tool_name) 寻址：批准 pdf-create 的 call_skill「本 run 内都允许」不连带放行同一 run 内 docx-create", async () => {
   const repo = new PgAgentRunRepository(db);
@@ -105,47 +133,75 @@ it("② (skill_name, tool_name) 寻址：批准 pdf-create 的 call_skill「本 
   expect(row.status).toBe("awaiting_tool_permission");
 });
 
-it("① 最多一次：composer 开关打开后，同一次原生生成流程里两次不同的 execute 中断都不再询问", async () => {
+it("① 最多一次（真实反例，#3437）：pdf-create 被真实调用后，/workspace 下的 node assistant-capabilities.js 必须被同一次确认覆盖", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
   await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
-  // 干净挂载：本次 run 只挂了 pdf-create（L0），符合"唯一锁定 skill 且无其它非 L0 skill"。
-  const skillRisks = [{ stableName: "pdf-create", riskLevel: "L0" as const }];
+  // 复刻 baseline1-timeline.json 的真实第一步：模型读 pdf-create 的 SKILL.md——这是
+  // "pdf-create 被实际调用了"的信号，不是"挂载了 pdf-create"。
+  await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
+  // #3437 实测的真实反例：模型为「顺便总结一下你能做什么」这类混合请求自己写的脚本，
+  // 落在 /workspace 而不是任何 skill 目录下——按人类裁决，这条必须被同一次确认覆盖。
   const first = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
-    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen-capabilities.js\"}" }, ledger(), skillRisks);
-  expect(first.autoApproved, "composer 开关打开 ⇒ 第一次 execute 就不该问").toBe(true);
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node assistant-capabilities.js\"}" }, ledger());
+  expect(first.autoApproved, "composer 开关打开 + pdf-create 已被真实调用 ⇒ /workspace 下的临时脚本也不该问").toBe(true);
   expect((await runRow()).status).toBe("queued");
 
   await seedRunningRun();
+  // 同一次流程里，稍后 pdf-create 自己声明的脚本也被调用——同一条归因链，同样零确认。
   const second = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
-    { toolName: "execute", argsSummary: "{\"command\":\"python3 /skills/pdf-create/scripts/render-office.py\"}" }, ledger(), skillRisks);
+    { toolName: "execute", argsSummary: "{\"command\":\"python3 /skills/pdf-create/scripts/render-office.py /workspace/out.pdf /workspace/preview\"}" }, ledger());
   expect(second.autoApproved, "同一流程里第二个不同的 execute 调用也不该问——用户全程零点击").toBe(true);
 });
 
-it("③ 清单之外仍会问（1/2）：composer 开关打开，但本次 run 混挂了非 L0 skill——不豁免（#3437 devapp 真机实测条件）", async () => {
+it("③(b) 调用口径安全闸：同一 run 里 pdf-create 已获批准，之后又真实调用了另一个非 L0 skill——后续 execute 依旧必须询问", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
   await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
 
-  // 混挂：除了锁定的 pdf-create（L0），还挂了一个默认 L1 的普通 skill——#3437 实测的
-  // 21-挂载真实条件（4 个平台官方 + 其余默认 L1）的最小复现。
-  const skillRisks = [
-    { stableName: "pdf-create", riskLevel: "L0" as const },
-    { stableName: "some-general-skill", riskLevel: "L1" as const },
-  ];
+  await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
+  // 第一次 execute：只有 pdf-create 被真实调用过，composer 开关打开 ⇒ 照预期零确认。
+  const first = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen-capabilities.js\"}" }, ledger());
+  expect(first.autoApproved, "前置条件：pdf-create 链路先要能正常零确认").toBe(true);
+  await seedRunningRun();
+
+  // 关键动作：这个 run 里又**真实调用**（不是挂载）了另一个非 L0 skill——按显式
+  // skill_stable_name 参数走 legacy call_skill 记一条真实调用（原生模式同理，走
+  // /skills/<name>/ 路径信号，这里用 call_skill 形态复刻"真实触发"这件事，不是
+  // 挂载集合意义上的"存在"）。
+  await appendToolCallStep(repo, "call_skill", "{\"skill_stable_name\":\"some-general-skill\"}");
+
+  // 再来一次 execute：即使前面已经点过确认（composer 开关 + 已归因过 pdf-create），
+  // 本次 run 混入了真实调用的非 L0 skill 之后，安全闸必须生效——依旧询问。
   const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
-    // 模拟 #3437 证据里的 `node assistant-capabilities.js`——同一个 execute 工具名，
-    // 但不是 pdf-create 声明清单里可归因的那次调用。
-    { toolName: "execute", argsSummary: "{\"command\":\"node assistant-capabilities.js\"}" }, ledger(), skillRisks);
-
-  expect(outcome.autoApproved, "本次 run 混挂了非 L0 skill——execute 无法安全归因给 pdf-create，必须照旧询问").toBe(false);
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node another-step.js\"}" }, ledger(),
+    [{ stableName: "some-general-skill", riskLevel: "L1" as const }]);
+  expect(outcome.autoApproved, "同一 run 里真实触发了另一个非 L0 skill——即使前面已经批过一次，也不能被这次 execute 沿用").toBe(false);
   expect((await runRow()).status).toBe("awaiting_tool_permission");
 });
 
-it("③ 清单之外仍会问（2/2）：composer 开关打开，但目标 skill 不在锁定清单内——不豁免", async () => {
+it("③(c) 混挂但没有被这个 run 实际调用过的其它非 L0 skill 不影响归因（解决 21-挂载假阴性）", async () => {
+  const repo = new PgAgentRunRepository(db);
+  const grants = new PgToolPermissionGrantRepository(db);
+  await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
+
+  await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
+
+  // `skillRisks` 复刻 #3437 实测的 21-挂载条件（另有一个非 L0 skill **挂载**在这个 run
+  // 上），但这个 run 的工具调用序列（`agent_run_steps`，上面只追加了 pdf-create 一条）
+  // 里从来没有真实调用过它——调用口径下，这不应该阻止归因。
+  const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen-capabilities.js\"}" }, ledger(),
+    [{ stableName: "pdf-create", riskLevel: "L0" as const }, { stableName: "some-mounted-but-unused-skill", riskLevel: "L1" as const }]);
+
+  expect(outcome.autoApproved, "只挂载没被这个 run 实际调用过的其它 skill 不该阻止归因——这正是调用口径要解决的假阴性").toBe(true);
+});
+
+it("③(a) 清单之外仍会问：composer 开关打开，但目标 skill 不在锁定清单内——不豁免", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
   await grants.grantStanding(org, DOCUMENT_GENERATION_AUTO_APPROVE_GRANT_ADDRESS, "doc-skill-user");
@@ -160,9 +216,9 @@ it("③ 清单之外仍会问（2/2）：composer 开关打开，但目标 skill
 it("composer 开关关闭时（默认状态）：清单内的调用照常询问，不会被误放行", async () => {
   const repo = new PgAgentRunRepository(db);
   const grants = new PgToolPermissionGrantRepository(db);
-  const skillRisks = [{ stableName: "pdf-create", riskLevel: "L0" as const }];
+  await appendToolCallStep(repo, "read_file", "{\"file_path\":\"/skills/pdf-create/SKILL.md\",\"limit\":\"1000\"}");
 
   const outcome = await handleInterruptedToolCall(deps(repo, grants), org, RUN,
-    { toolName: "execute", argsSummary: "{\"command\":\"node gen.js\"}" }, ledger(), skillRisks);
+    { toolName: "execute", argsSummary: "{\"command\":\"cd /workspace && node gen.js\"}" }, ledger());
   expect(outcome.autoApproved, "默认关闭 ⇒ 第一次仍然要问，不是零确认").toBe(false);
 });

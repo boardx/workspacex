@@ -429,6 +429,28 @@ export interface AgentRunStore {
   appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void>;
 
   /**
+   * issue #3440（重新设计，见 `document-generation-skills.ts` 头注"调用口径"一节）——
+   * `resolveNativeExecuteAttribution` 判定"这次 `execute` 中断是否可归因到某个已批准
+   * 的锁定文档 skill"需要读**这个 run 迄今为止实际发生过的工具调用序列**（不是挂载
+   * 集合）。只读两列（`tool_name`/`tool_args_summary`），按 `seq` 升序，只取
+   * `kind='tool_call'`（`accepted`/`context_built`/`model_called`/`chat_writeback`
+   * 都不是一次工具调用，不参与归因判定）——不发明新表，复用 `agent_run_steps` 这张
+   * 账本已有的列，同 `readRunTranscriptSteps` 读同一张表、不同的列子集。
+   *
+   * `in_progress` 行（#742 Gap 1，调用开始时先插入的那一行）与它的终态行共用同一个
+   * `tool_call_id`、同一个 `tool_name`/`tool_args_summary`——都读出来不去重也没有
+   * 关系：归因只关心"这个 skill 的路径/参数在这个 run 里出现过"，同一次调用出现两行
+   * 完全不改变归因结果，去重是无谓的复杂度。
+   *
+   * **可选**：未注入时 `handleInterruptedToolCall` 传入空数组，`resolveNativeExecuteAttribution`
+   * 因此找不到任何已发生的锁定 skill 调用而返回 `null`——退回"每次都问"，同
+   * `toolPermissionGrants` 端口缺省时的 fail-closed 约定一致，不是静默放行。
+   */
+  readToolCallAttributionSteps?(
+    orgId: OrgId, runId: string,
+  ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]>;
+
+  /**
    * Append one token-level delta (#654 阶段2a). Callers pass a monotonically increasing
    * `seq` starting at 0 per run; the unique `(org_id, run_id, seq)` constraint is what
    * makes a duplicate append (e.g. a retried write) a no-op collision rather than a second

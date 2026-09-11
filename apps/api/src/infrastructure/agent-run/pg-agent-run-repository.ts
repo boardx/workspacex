@@ -367,6 +367,27 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /**
+   * issue #3440（重新设计）—— 见 `AgentRunStore.readToolCallAttributionSteps` 的头注。
+   * 只读 `tool_name`/`tool_args_summary` 两列，不碰 `input_full_content_enc`/
+   * `output_full_content_enc`（不需要解密，也不该在这条安全判定路径上依赖 cipher 是否
+   * 配置——归因失败要 fail closed 到"每次都问"，不该因为 cipher 缺失而连带失败）。
+   */
+  async readToolCallAttributionSteps(
+    orgId: OrgId, runId: string,
+  ): Promise<readonly { readonly toolName: string; readonly toolArgsSummary: string | null }[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const { rows } = await s.query<{ tool_name: string | null; tool_args_summary: string | null }>(
+        `SELECT tool_name, tool_args_summary
+           FROM agent_run_steps
+          WHERE org_id=$1 AND run_id=$2 AND kind='tool_call' AND tool_name IS NOT NULL
+          ORDER BY seq`,
+        [orgId, runId],
+      );
+      return rows.map((row) => ({ toolName: row.tool_name as string, toolArgsSummary: row.tool_args_summary }));
+    });
+  }
+
   async requestCancellation(orgId: OrgId, runId: string): Promise<"cancel_requested" | "cancelled" | null> {
     return this.db.withTenant(orgId, async (s) => {
       const { rows } = await s.query<{ status: string }>("SELECT status FROM agent_runs WHERE org_id=$1 AND id=$2 FOR UPDATE", [orgId, runId]);
