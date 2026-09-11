@@ -29,6 +29,17 @@ export type PersistedMessage = {
   authorId: string;
   agentRunId?: string | null;
   /**
+   * `chat_messages.client_message_id`——issue（重复用户气泡修复）新增投影：乐观插入
+   * 时前端用它当 `agent.messages` 的临时 id（`copilotkit-v2-panel-body.tsx` 的
+   * `send()`），服务端落库后真正的主键是另一个（`randomUUID()`，见
+   * `message-roundtrip.ts`）。两者是**不同命名空间**——`id` 字段的头注早就说过——
+   * 但按 `id` 做的去重（挂载 hydration 的 `live.length > 0` 分支、`handleRunRestored`）
+   * 因此认不出"这条持久化消息就是刚才那条乐观消息"，把同一句用户话在
+   * `agent.messages` 里插成两条。投影出 `clientMessageId` 之后，那两处去重才能把
+   * 两个 id 都算进"已经在场"，不再重复插入。
+   */
+  clientMessageId: string | null;
+  /**
    * CK-P3（issue #2054）—— 这条消息能不能调 `rateMessage`。
    *
    * 「id 是真实主键」只是服务端三道门里的第一道；第三道
@@ -76,6 +87,7 @@ export async function readAllPersistedMessages(
         content: m.text,
         authorId: m.authorId,
         agentRunId: m.agentRunId,
+        clientMessageId: m.clientMessageId,
         rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
       rawForPendingRunLookup.push({
