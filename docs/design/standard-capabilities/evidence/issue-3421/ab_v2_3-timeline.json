@@ -1,0 +1,1776 @@
+{
+  "wallClockSeconds": 86.206,
+  "model": "qwen3.8-max",
+  "prompt": "做一个 5 页的 PPT，讲团队协作",
+  "totalSeconds": 82.233,
+  "timeline": [
+    {
+      "t": 12.794,
+      "kind": "graph_ready"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "pptx-create"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "docx-create"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "xlsx-create"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "pdf-create"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "data-analysis"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "data-visualization"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "audio-transcription"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "meeting-minutes"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "skill-authoring"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "diagram-and-canvas"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "knowledge-grounded-answer"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "meeting-preparation"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "internal-communications"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "project-status-report"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "document-understanding"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "interview-synthesis"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "user-research-planning"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "maau-canvas"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "visual-content"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "web-research"
+    },
+    {
+      "t": 12.806,
+      "kind": "skill_activity",
+      "stage": "metadata_discovered",
+      "skill": "web-artifact"
+    },
+    {
+      "t": 12.806,
+      "kind": "node",
+      "node": "SkillsMiddleware.before_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.807,
+      "kind": "node",
+      "node": "PatchToolCallsMiddleware.before_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.808,
+      "kind": "node",
+      "node": "TurnWindowMiddleware.before_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.808,
+      "kind": "node",
+      "node": "_DefaultCompletionChecklistMiddleware.before_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.808,
+      "kind": "node",
+      "node": "CurrentTurnRubricMiddleware.before_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.809,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.857,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.858,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 12.858,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.21,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "argChars": 60,
+          "args": {
+            "file_path": "/skills/pptx-create/SKILL.md",
+            "limit": "1000"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 15.211,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.212,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.213,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.237,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.238,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.761,
+      "kind": "skill_activity",
+      "stage": "body_read",
+      "skill": "pptx-create"
+    },
+    {
+      "t": 15.78,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 5243,
+          "content": "  1  ---\n  2  name: pptx-create\n  3  description: Create Office files with preinstalled libraries and perform explicitly limited edits.\n  4  ---\n  5  \n  6  ## Execution protocol — choose the available runtime\n  7  When the caller supplies RUN_SCRIPT_PROTOCOL (the legacy call_skill path), follow\n  8  that supplied script-block protocol and use SKILL_SANDBOX_OUT_DIR from the original recipes below.\n  9  Return the executable script for the existing executor; do not call unavailable\n 10  native tools or assume /skills and /workspace are mounted. Do not claim a file has been executed, rendered or delivered from script text alone.\n 11  Only report renderer verification when actual execution results provide it.\n 12  If neither executable protocol nor native tools are available, explain that file\n 13  execution is unavailable rather than inventing a download.\n 14  \n 15  ## Native execution entrypoint\n 16  Only when native read_file, execute and wx_artifact_publish are actually available,\n 17  follow this section; it does not override the legacy script protocol above.\n 18  Read /skills/pptx-create/references/editing-and-qa.md before creating or editing files.\n 19  Write explicitly under /w...[5243 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 15.781,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.807,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.808,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 15.809,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.077,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "argChars": 80,
+          "args": {
+            "file_path": "/skills/pptx-create/references/editing-and-qa.md",
+            "limit": "1000"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 18.077,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.077,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.078,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.094,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.095,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.371,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 2142,
+          "content": " 1  # Supported editing and verification\n 2  These packages reuse the existing Node creation recipes. Do not install dependencies.\n 3  Use native execute for scripts and /workspace for inputs/outputs; never execute a fenced\n 4  script a second time after it has already run. Inspect and render before delivery.\n 5  Word/PPT edits only replace one entire exact text node in the specified XML part; split\n 6  runs, ambiguous text, layout reconstruction and arbitrary embedded objects are unsupported.\n 7  Unsupported objects are listed in a structured OFFICE_EDIT_UNSUPPORTED_OBJECT error and the\n 8  output is not published. Unmodified ZIP entries retain their bytes. PptxGenJS creates presentations; it cannot import\n 9  and edit a presentation. XLSX editing uses ExcelJS and supports literal cells; complex\n10  macros, signatures, unsupported drawings and other advanced features are not promised\n11  lossless. The finite XLSX editor rejects macros, signatures, external links, pivots,\n12  drawings and comments before writing. Formula recalculation on open is requested and\n13  reported as requested_on_open_not_performed; no cached result is invented. PDF page selection is\n14  structural copying,...[2142 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 18.371,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.388,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.388,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 18.388,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.602,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_todos",
+          "argChars": 229,
+          "args": {
+            "todos": "[{\"content\": \"编写 5 页团队协作 PPT 的 pptxgenjs 脚本\", \"status\": \"in_progress\"}, {\"content\": \"执行脚本生成 .pptx 文件\", \"status\": \"pending\"}, {\"content\": \"渲染预览并逐页检查\", \"status\": \"pending\"}, {\"content\": \"发布最终文件和预览\", \"status\": \"pending\"}]"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 20.603,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.603,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.604,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.62,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.621,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.65,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_todos",
+          "status": "success",
+          "contentChars": 239,
+          "content": "Updated todo list to [{'content': '编写 5 页团队协作 PPT 的 pptxgenjs 脚本', 'status': 'in_progress'}, {'content': '执行脚本生成 .pptx 文件', 'status': 'pending'}, {'content': '渲染预览并逐页检查', 'status': 'pending'}, {'content': '发布最终文件和预览', 'status': 'pending'}]"
+        }
+      ]
+    },
+    {
+      "t": 20.651,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.668,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.668,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 20.669,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.177,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_file",
+          "argChars": 2407,
+          "args": {
+            "file_path": "/workspace/team-collab.js",
+            "content": "const PptxGenJS = require('pptxgenjs');\nconst pres = new PptxGenJS();\npres.layout = 'LAYOUT_WIDE';\n\n// Slide 1: Title\nconst s1 = pres.addSlide();\ns1.addText('团队协作：打造高效能团队', { x: 0.8, y: 1.8, w: 11, fontSize: 36, bold: true, color: '1B4F72', fontFace: '微软雅黑' });\ns1.addText('构建信任 · 明确目标 · 持续改进', { x: 0.8, y: 3.0, w: 11, fontSize: 20, color: '555555', fontFace: '微软雅黑' });\n\n// Slide 2: Why teamwork matters\nconst s2 = pres.addSlide();\ns2.addText('为什么团队协作至关重要', { x: 0.8, y: 0.5, w: 11, fontSize: 28, bold: true, color: '1B4F72', fontFace: '微软雅黑' });\ns2.addText(\n  '• 复杂问题需要多元视角与跨职能能力\\n' +\n  '• 协作能将个人产出放大为系统性成果\\n' +\n  '• 高信任团队的决策速度提升 40%+\\n' +\n  '• 员工敬业度与留存率显著高于孤立工作模式',\n  { x: 0.8, y: 1.5, w: 11, fontSize: 18, lineSpacingMultiple: 1.5, fontFace: '微软雅黑' }\n);\n\n// Slide 3: Core pillars\nconst s3 = pres.addSlide();\ns3.addText('高效协作的四大支柱', { x: 0.8, y: 0.5, w: 11, fontSize: 28, bold: true, color: '1B4F72', fontFace: '微软雅黑' });\ns3.addText(\n  '1. 共同目标 — 对齐愿景，让每个人知道\"为什么做\"\\n' +\n  '2. 心理安全 — 鼓励表达异议与试错，消除沉默成本\\n' +\n  '3. 清晰角色 — RACI 矩阵减少灰色地带与重复劳动\\n' +\n  '4. 反馈闭环 — 定期回顾、数据驱动、快速迭代',\n  { x: 0.8, y: 1.5, w: 11, fontSize: 18, lineSpacingMultiple: 1.5, fontFace: '微软雅黑' }\n);\n\n// Slide 4: Common pitfalls & solutions\nconst s4 = pres.addSlide();\ns4.addText('常见障碍与应对策略', { x: 0.8, y: 0.5, w: 11, fontSize: 28, bold: true, color: '1B4F72', fontFace: '微软雅黑' });\ns4.addTable([\n  [{ text: '障碍', options: { bold: true, color: 'FFFFFF', fill: { color: '1B4F72' } } },\n   { text: '应对策略', options: { bold: true, color: 'FFFFFF', fill: { color: '1B4F72' } } }],\n  ['信息孤岛', '建立共享知识库 + 每周同步会'],\n  ['责任模糊', 'RACI 矩阵 + 里程碑验收人签字'],\n  ['冲突回避', '引入结构化复盘（AAR）+ 中立引导师'],\n  ['远程协作疲劳', '异步优先 + 摄像头可选 + 聚焦议程']\n], { x: 0.8, y: 1.5, w: 11, fontSize: 16, border: { pt: 0.5, color: 'CCCCCC' }, colW: [3.5, 7.5], fontFace: '微软雅黑' });\n\n// Slide 5: Action plan & takeaway\nconst s5 = pres.addSlide();\ns5.addText('下一步行动', { x: 0.8, y: 0.5, w: 11, fontSize: 28, bold: true, color: '1B4F72', fontFace: '微软雅黑' });\ns5.addText(\n  '✅ 本周：完成团队 RACI 梳理并公示\\n' +\n  '✅ 本月：启动首次心理安全匿名调研\\n' +\n  '✅ 本季度：建立月度回顾机制，追踪协作指标\\n\\n' +\n  '核心记忆：好的协作不是\"人多\"，而是\"心齐、路清、反馈快\"。',\n  { x: 0.8, y: 1.5, w: 11, fontSize: 18, lineSpacingMultiple: 1.5, fontFace: '微软雅黑' }\n);\n\npres.writeFile({ fileName: '/workspace/团队协作.pptx' }).then(() => console.log('done'));\n"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 38.178,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.178,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.179,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.221,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.222,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.596,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_file",
+          "status": "success",
+          "contentChars": 38,
+          "content": "Updated file /workspace/team-collab.js"
+        }
+      ]
+    },
+    {
+      "t": 38.597,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.613,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.613,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 38.615,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.436,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_todos",
+          "argChars": 231,
+          "args": {
+            "todos": "[{\"content\": \"编写 5 页团队协作 PPT 的 pptxgenjs 脚本\", \"status\": \"completed\"}, {\"content\": \"执行脚本生成 .pptx 文件\", \"status\": \"in_progress\"}, {\"content\": \"渲染预览并逐页检查\", \"status\": \"pending\"}, {\"content\": \"发布最终文件和预览\", \"status\": \"pending\"}]"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 40.448,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.451,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.453,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.617,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.619,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.765,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_todos",
+          "status": "success",
+          "contentChars": 241,
+          "content": "Updated todo list to [{'content': '编写 5 页团队协作 PPT 的 pptxgenjs 脚本', 'status': 'completed'}, {'content': '执行脚本生成 .pptx 文件', 'status': 'in_progress'}, {'content': '渲染预览并逐页检查', 'status': 'pending'}, {'content': '发布最终文件和预览', 'status': 'pending'}]"
+        }
+      ]
+    },
+    {
+      "t": 40.766,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.81,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.812,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 40.813,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 41.811,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "execute",
+          "argChars": 51,
+          "args": {
+            "command": "cd /workspace && node team-collab.js"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 41.812,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 41.813,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 41.813,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 41.846,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 41.847,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 42.307,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "execute",
+          "status": "success",
+          "contentChars": 42,
+          "content": "done\n\n[Command succeeded with exit code 0]"
+        }
+      ]
+    },
+    {
+      "t": 42.307,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 42.328,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 42.329,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 42.33,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.433,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_todos",
+          "argChars": 233,
+          "args": {
+            "todos": "[{\"content\": \"编写 5 页团队协作 PPT 的 pptxgenjs 脚本\", \"status\": \"completed\"}, {\"content\": \"执行脚本生成 .pptx 文件\", \"status\": \"completed\"}, {\"content\": \"渲染预览并逐页检查\", \"status\": \"in_progress\"}, {\"content\": \"发布最终文件和预览\", \"status\": \"pending\"}]"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 44.433,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.433,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.434,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.45,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.451,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.476,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_todos",
+          "status": "success",
+          "contentChars": 243,
+          "content": "Updated todo list to [{'content': '编写 5 页团队协作 PPT 的 pptxgenjs 脚本', 'status': 'completed'}, {'content': '执行脚本生成 .pptx 文件', 'status': 'completed'}, {'content': '渲染预览并逐页检查', 'status': 'in_progress'}, {'content': '发布最终文件和预览', 'status': 'pending'}]"
+        }
+      ]
+    },
+    {
+      "t": 44.477,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.491,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.492,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 44.492,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 45.882,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "execute",
+          "argChars": 137,
+          "args": {
+            "command": "python3 /skills/pptx-create/scripts/render-office.py /workspace/团队协作.pptx /workspace/preview-team-collab",
+            "timeout": "120"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 45.882,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 45.883,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 45.883,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 45.898,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 45.899,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 47.193,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "execute",
+          "status": "success",
+          "contentChars": 376,
+          "content": "{\"pdf\": \"/workspace/preview-team-collab/\\u56e2\\u961f\\u534f\\u4f5c.pdf\", \"pages\": [\"/workspace/preview-team-collab/page-1.png\", \"/workspace/preview-team-collab/page-2.png\", \"/workspace/preview-team-collab/page-3.png\", \"/workspace/preview-team-collab/page-4.png\", \"/workspace/preview-team-collab/page-5.png\"], \"visualInspection\": \"required\"}\n\n[Command succeeded with exit code 0]"
+        }
+      ]
+    },
+    {
+      "t": 47.193,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 47.212,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 47.213,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 47.213,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 49.735,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "read_file",
+          "argChars": 58,
+          "args": {
+            "file_path": "/workspace/preview-team-collab/page-1.png"
+          }
+        },
+        {
+          "name": "read_file",
+          "argChars": 58,
+          "args": {
+            "file_path": "/workspace/preview-team-collab/page-2.png"
+          }
+        },
+        {
+          "name": "read_file",
+          "argChars": 58,
+          "args": {
+            "file_path": "/workspace/preview-team-collab/page-3.png"
+          }
+        },
+        {
+          "name": "read_file",
+          "argChars": 58,
+          "args": {
+            "file_path": "/workspace/preview-team-collab/page-4.png"
+          }
+        },
+        {
+          "name": "read_file",
+          "argChars": 58,
+          "args": {
+            "file_path": "/workspace/preview-team-collab/page-5.png"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 49.735,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 49.736,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 49.736,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 49.755,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 49.756,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 50.193,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 73987,
+          "content": "[{\"type\": \"image\", \"base64\": \"iVBORw0KGgoAAAANSUhEUgAABQEAAALQCAIAAACv3SE/AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR42uzdd1gT5wMH8DcJI+w9RECGiiLiYAhWFBW3uPdeOOoedWud1Vqt1r33rFtxoKKIA0UQBNkgQ2TKHtnJ74+TNGYRFFv76/fz9OlzuXvvcrkLMd+8iyYSiQgAAAAAAADAfwAdlwAAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAACQgQEAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAJCBAQAAAAAAAORQwyX4AtEpWQkZuYQQn1ZNrM2NZQuIRCIajfb/8WL5AkFkYiZfKPyhZWPc+i8gFArfvvvwODrZo7mdVwvHf/x83n0oiE59Twhp5+zQ0Myo1vICgfB8cLi3i6ODlVmthcPeplWzuR7N7fR1tP6el5OQkfu+oOiHlk10tDTxZgMAAAAAZOAvkVdcdu7+ywvB4b/PHtFeXvC7Exa758pDQsiRZRNlMzCXx++zaIeliUE/nza9vVr+27+a91qwPSEz187S5Mm+Zd8o2JdUVBeUlKte3kBXy9LYoNZiKe/z74XHNTA1aN3EVpX89o3cefF22pYThBBXR+vb2+b/4zc09E3yyoNXCSEHFo9XJQPfev5myd6LhJAA/44/T+6vpKRIJFqy9+K7nEI6nRaye8nfc83XH78RGp2sxqBf2TSrbdNG+PgCAAAAAGTgOnsZ927buSBCyPTfTt7dNt9KhZwgadel4ITM3ITM3NTsAj93Z53ayheUlMen53z9aVuaGDRr1EDuptthMb+cCJS7qZrD7eruvHxcXyM9bbkFurdzScjMzcgrehaT0qFVU1XOhMvjXw6JVKWkn4ezmaHe9SevqVSmopHd2v02c1...[73987 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 50.671,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 70683,
+          "content": "[{\"type\": \"image\", \"base64\": \"iVBORw0KGgoAAAANSUhEUgAABQEAAALQCAIAAACv3SE/AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR42uzdZ1hTSdsH8AkJhBI6Ik0BAUVUmqgoqGBXEOwVK/be+9p3UewFFcWCDVFUVkSwLgooiKgIghTpCNJ7evJ+GD0b0whFd/d5798Hr5PTctK4/J+ZuYfE5/MRAAAAAAAAAADw/4AcvAUAAAAAAAAAACADAwAAAAAAAAAAkIEBAAAAAAAAAADIwAAAAAAAAAAAAGRgAAAAAAAAAAAAMjAAAAAAAAAAAAAZGAAAAAAAAAAAgAwMAAAAAAAAAABABgYAAAAAAAAAACADAwAAAAAAAACADAwAAAAAAAAAAEAGBgAAAAAAAAAAIAMDAAAAAAAAAACQgQEAAAAAAAAAAMjAAAAAAAAAAAAAZGAAAAAAAAAAAAAyMAAAAAAAAAAAABkYAAAAAAAAAACADAwAAAAAAAAAAEAGBgAAAAAAAAAAGRgAAAAAAAAAAIAMDAAAAAAAAAAAQAYGAAAAAAAAAAAgAwMAAAAAAAAAAJCBAQAAAAAAAAAAyMAAAAAAAAAAAABkYAAAAAAAAAAAADIwAAAAAAAAAAAAGRgAAAAAAAAAABCDAm9Bs3zM+VJWVYsQcuhqQlNSbPPz05lsLo/7M84MpIhJyqhpYCCEhvfpRiGTZT+Qx+OFRr9DCOlpqffrYS59Zy6Xx+HxEEIKFDKJRGr9ZVfXN6ooUuUpZPgEsaraBg1V5TZ5b5ulkcGkkMkK8vDnFAAAAAAAMvB/FpvDLSit7GTQTmi93+2n92LeI4QeHlnbzdSgzZ838EHM/msRjt3MNs0YZWPeQew+YTHvlx2+hhCaNbLf7vlj2/DZ+Xy+t89FPW31KYN7W0t49v9Juy+FpeZ8QQilB/1BUWpGpGRzeSuOXEcIDXawajIDH7v1+PCNRwihBwdXtcnbu9Hv1oukDFd7y22z3A3aaQpuOn7r8buMAmcbi3ED7DXVVP6LP8AbT+IDwqIvbfM21deR8ahZewOKyqrd+lnPGNHPokP7tr0kFptTXlNfXl1XVl1fVl1bUlFTUFpVWFqZXVxeXF49a6TT7wvHwV9OAAAAAADIwP9JF+5Hn7rzrK6R+ef+5ZbG+r/seblc3sUHsWwO91...[70683 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 51.197,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 78935,
+          "content": "[{\"type\": \"image\", \"base64\": \"iVBORw0KGgoAAAANSUhEUgAABQEAAALQCAIAAACv3SE/AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR42uzdd1QT29oH4J1CQu8gIDZARLCCoKKADTsWFPEoeqyIFVRsWLFhQxAbVmwoCnYEQbEjCoI0pUoTpBNagASSfH9szZeThBCK5Zz7Puuuu+LMZDKZDDn5zd773QQOh4MAAAAAAAAAAID/AUQ4BQAAAAAAAAAAIAMDAAAAAAAAAACQgQEAAAAAAAAAAMjAAAAAAAAAAAAAZGAAAAAAAAAAAAAyMAAAAAAAAAAAABkYAAAAAAAAAACADAwAAAAAAAAAAEAGBgAAAAAAAAAAIAMDAAAAAAAAAIAMDAAAAAAAAAAAQAYGAAAAAAAAAAAgAwMAAAAAAAAAAJCBAQAAAAAAAAAAyMAAAAAAAAAAAABkYAAAAAAAAAAAADIwAAAAAAAAAAAAGRgAAAAAAAAAAIAMDAAAAAAAAAAAQAYGAAAAAAAAAAAZGAAAAAAAAAAAgAwMAAAAAAAAAABABgYAAAAAAAAAACADAwAAAAAAAAAAkIEBAAAAAAAAAADIwAAAAAAAAAAAAGRgAAAAAAAAAAAAMjAAAAAAAAAAAAAZGAAAAAAAAAAAEIIMp6ANyiprPqTm9NProqWq2FH75HA4MSnZgwy6E4li3ZgIe5/cQ0u1u4YqRaIVHyKbzb73+iNCSENZwbyvnuiNWSx2E5uNEKKQSQQCoUPeZmVtnYwkVYJM+tmfUT2D+ST6U69umjpaaqJfLjgyQUleZoBeFxkp6n/g4oxMyqysqUMImffRVZKX+QWvGPY+md7AQAjZDBvQIZ9s9Oes/FIaQmiSeX+qeJd3UUWVgoy0FFUCvp0AAAAAAABk4A4W9PyDy7EbCKHVM8dscpjQIfuMz8hb5Xktp6h849wJa+zGtLh9cUX1Yg8/hJDDuCEHltuJ/0KNLPYar+sIodGDDFvMwMcCnxwNCEcIhRxx6afXpUPe6aaTga8S0kcaG2z7e7KWmhLvKp/AJx/Tvw7v39PW0rj94S0+4+sKz2sIIYNuGk+PbRCR8zeeulVNb9BUUYi5sOM/cH3uu/Qw8Us+QujhIedfk4H3+D3IKSpHCI0ZZChBlmr/Di+FRD54E48QGjnQoMUM/CmrYM...[78935 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 51.641,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 61007,
+          "content": "[{\"type\": \"image\", \"base64\": \"iVBORw0KGgoAAAANSUhEUgAABQEAAALQCAIAAACv3SE/AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR42uzdd1zN++MH8PfpnPbekcxsKiOl7HWNKCvEtSV0rRsZkVFWMtKikCubCGWTqJRE9siIUpI2rXM6vz/e9/e5n3tWx7zu/b6eDw+Pc96fcT6fz/nUo9fnvThCoZAAAAAAAAAA/A9QwCUAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAAAAZGAAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABABgYAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAABkYAAAAAAAAAAJeLgEICIz98OtJ68IIY3rGlo1rf8N91xY8jGvqLR5fRNcZAAAAAAAQAaGn0LKwxfzAg4SQiYOtP+GGZgvELj5/ZFwL8OmVeOFYwfYtG78U511cNTl+DtPCSGbZo+ua6CD2wAAAAAAABkY4Mut3HUy4V4GISQzN79BHX2mPK+wpKqa/7l7U1dR1tVS/4aH9+hVzvW7zwgh1XwBviwAAAAAAGTg/7il26Oq+Pzv+hG//tLZwtzsZzjZwtJPhy+lEEIa1zXs26n1D/hEv/1nd8dcJ4SoKitFeE0x0dNmFk3f8MfNRy8/d4dj+tr4zXJml9x59vpdQYk82+poqInXQvNrav78keCikzwAAAAAADLwf92RKzc/VVR914/o0a7FT5KBC0rKVkecIoQM6mwhIwM/y8o7cvmmjP00qWfUvlmDWj9u08FzWw9fIIQo8rihC8a3aVzve5xUSNSVmKS78qxp3bLR8bXuIoU1gj8zMBcZGAAAAAAAGRj+ByXcfZZw95mMFSYOtJedgWtqalbsjN4Vc50QwuMqhC4Y37tjS5F1HOwtLc0/OxXLk70/y1/1wArIwAAAAAAAyMD/dVFrZtXUCOVZc1...[61007 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 52.102,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "read_file",
+          "status": "success",
+          "contentChars": 33499,
+          "content": "[{\"type\": \"image\", \"base64\": \"iVBORw0KGgoAAAANSUhEUgAABQEAAALQCAIAAACv3SE/AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAgAElEQVR42uzdd1wT9+PH8U8GeyMq7q24QFHcuHete1ZtrVZr9Vtrh7X9tVpbq622Wm1r3a3Wjbjr3oh7ouIEFEFEQED2TH5/HJyRhBgQ1NrX89FHH59c7pJLuJz3vs9SaLVaAQAAAADAf4CSrwAAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAJCBAQAAAAAgAwMAAAAAQAYGAAAAAIAMDAAAAAAAGRgAAAAAADIwAAAAAABkYAAAAAAAyMAAAAAAAJCBAQAAAAAgAwMAAAAAyMAAAA...[33499 chars total]"
+        }
+      ]
+    },
+    {
+      "t": 52.103,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 52.122,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 52.123,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 52.124,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 58.948,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_todos",
+          "argChars": 235,
+          "args": {
+            "todos": "[{\"content\": \"编写 5 页团队协作 PPT 的 pptxgenjs 脚本\", \"status\": \"completed\"}, {\"content\": \"执行脚本生成 .pptx 文件\", \"status\": \"completed\"}, {\"content\": \"渲染预览并逐页检查\", \"status\": \"completed\"}, {\"content\": \"发布最终文件和预览\", \"status\": \"in_progress\"}]"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 58.949,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 58.949,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 58.95,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 58.968,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 58.969,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 59,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_todos",
+          "status": "success",
+          "contentChars": 245,
+          "content": "Updated todo list to [{'content': '编写 5 页团队协作 PPT 的 pptxgenjs 脚本', 'status': 'completed'}, {'content': '执行脚本生成 .pptx 文件', 'status': 'completed'}, {'content': '渲染预览并逐页检查', 'status': 'completed'}, {'content': '发布最终文件和预览', 'status': 'in_progress'}]"
+        }
+      ]
+    },
+    {
+      "t": 59.001,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 59.018,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 59.019,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 59.019,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.625,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 195,
+          "args": {
+            "workspacePath": "/workspace/团队协作.pptx",
+            "title": "团队协作.pptx",
+            "mediaType": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "idempotencyKey": "team-collab-pptx-001"
+          }
+        },
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 155,
+          "args": {
+            "workspacePath": "/workspace/preview-team-collab/page-1.png",
+            "title": "page-1.png",
+            "mediaType": "image/png",
+            "idempotencyKey": "team-collab-preview-p1"
+          }
+        },
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 155,
+          "args": {
+            "workspacePath": "/workspace/preview-team-collab/page-2.png",
+            "title": "page-2.png",
+            "mediaType": "image/png",
+            "idempotencyKey": "team-collab-preview-p2"
+          }
+        },
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 155,
+          "args": {
+            "workspacePath": "/workspace/preview-team-collab/page-3.png",
+            "title": "page-3.png",
+            "mediaType": "image/png",
+            "idempotencyKey": "team-collab-preview-p3"
+          }
+        },
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 155,
+          "args": {
+            "workspacePath": "/workspace/preview-team-collab/page-4.png",
+            "title": "page-4.png",
+            "mediaType": "image/png",
+            "idempotencyKey": "team-collab-preview-p4"
+          }
+        },
+        {
+          "name": "wx_artifact_publish",
+          "argChars": 155,
+          "args": {
+            "workspacePath": "/workspace/preview-team-collab/page-5.png",
+            "title": "page-5.png",
+            "mediaType": "image/png",
+            "idempotencyKey": "team-collab-preview-p5"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 68.626,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.627,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.627,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.662,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.662,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 68.946,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"2037d851-40fa-4635-b9a3-9f73985028f7\", \"status\": \"staged\", \"sha256\": \"e781992098e189e32625a32ade1bbaa84d86f7d086ea6e797cb4c75cb03eaf6f\", \"sizeBytes\": 45709}"
+        }
+      ]
+    },
+    {
+      "t": 69.101,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"804883fb-abd9-40e2-b0f0-9ce579fde1c8\", \"status\": \"staged\", \"sha256\": \"198efba7a624e5f5b888bdb02d964abf228facb7c25be1d3a4915767128f3da3\", \"sizeBytes\": 59156}"
+        }
+      ]
+    },
+    {
+      "t": 69.247,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"1fa78c8d-6235-465c-ae91-34b8f02dee43\", \"status\": \"staged\", \"sha256\": \"d58ac04f75a9448c7e66be443103d2c8b18529a1a0449d001aa85a2b76f91ffa\", \"sizeBytes\": 25080}"
+        }
+      ]
+    },
+    {
+      "t": 69.413,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"f3f84411-ee36-4934-a841-85bced94f560\", \"status\": \"staged\", \"sha256\": \"550ad81ce4a3cc61dd0940ffbf3de79392f6e2cd9e1adcdf470eef48216436f8\", \"sizeBytes\": 55445}"
+        }
+      ]
+    },
+    {
+      "t": 69.588,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"a17fb481-3934-4fea-9bcb-a83ab404fe8d\", \"status\": \"staged\", \"sha256\": \"975fb27c2b2dd0c5124836744fd63b3771cb3b220c5a12ee1aa22cfc92e2a588\", \"sizeBytes\": 52968}"
+        }
+      ]
+    },
+    {
+      "t": 69.75,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "wx_artifact_publish",
+          "status": "success",
+          "contentChars": 171,
+          "content": "{\"publishId\": \"3f91e4d0-5292-4426-988e-f50811e15015\", \"status\": \"staged\", \"sha256\": \"3220c940fc24b6e52858e6489a18ca6d0d5c522c67417967e900d33175f29b39\", \"sizeBytes\": 91202}"
+        }
+      ]
+    },
+    {
+      "t": 69.75,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 69.767,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 69.767,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 69.768,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 73.949,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [
+        {
+          "name": "write_todos",
+          "argChars": 233,
+          "args": {
+            "todos": "[{\"content\": \"编写 5 页团队协作 PPT 的 pptxgenjs 脚本\", \"status\": \"completed\"}, {\"content\": \"执行脚本生成 .pptx 文件\", \"status\": \"completed\"}, {\"content\": \"渲染预览并逐页检查\", \"status\": \"completed\"}, {\"content\": \"发布最终文件和预览\", \"status\": \"completed\"}]"
+          }
+        }
+      ],
+      "toolResults": []
+    },
+    {
+      "t": 73.949,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 73.95,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 73.951,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 73.976,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 73.977,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 74.037,
+      "kind": "node",
+      "node": "tools",
+      "toolCalls": [],
+      "toolResults": [
+        {
+          "name": "write_todos",
+          "status": "success",
+          "contentChars": 243,
+          "content": "Updated todo list to [{'content': '编写 5 页团队协作 PPT 的 pptxgenjs 脚本', 'status': 'completed'}, {'content': '执行脚本生成 .pptx 文件', 'status': 'completed'}, {'content': '渲染预览并逐页检查', 'status': 'completed'}, {'content': '发布最终文件和预览', 'status': 'completed'}]"
+        }
+      ]
+    },
+    {
+      "t": 74.038,
+      "kind": "node",
+      "node": "SummarizationMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 74.067,
+      "kind": "node",
+      "node": "InterjectionMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 74.068,
+      "kind": "node",
+      "node": "TaskClassifierMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 74.069,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.before_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.121,
+      "kind": "node",
+      "node": "model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.123,
+      "kind": "node",
+      "node": "HumanInTheLoopMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.124,
+      "kind": "node",
+      "node": "ModelCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.124,
+      "kind": "node",
+      "node": "ToolCallLimitMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.149,
+      "kind": "node",
+      "node": "InterjectionMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 79.15,
+      "kind": "node",
+      "node": "TodoListMiddleware.after_model",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 82.233,
+      "kind": "node",
+      "node": "CurrentTurnRubricMiddleware.after_agent",
+      "toolCalls": [],
+      "toolResults": []
+    },
+    {
+      "t": 82.233,
+      "kind": "stream_end"
+    }
+  ],
+  "skillActivity": [
+    {
+      "contractVersion": 1,
+      "skillId": "skill-platform-pptx-create",
+      "skillStableName": "pptx-create",
+      "skillVersion": "skill-platform-pptx-create-pkg-150dde824e6844d1725e32345625889d9178b868ff8ccaf6447cab682fdeee45",
+      "packageDigest": "150dde824e6844d1725e32345625889d9178b868ff8ccaf6447cab682fdeee45",
+      "stage": "metadata_discovered",
+      "factId": "a299ce515a301c225475e29fe9aa053ccc291eb9afcaabad7a40e9337d5a6520"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "skill-platform-docx-create",
+      "skillStableName": "docx-create",
+      "skillVersion": "skill-platform-docx-create-pkg-0f45cfdd7137d77c9f26d57aa90ec1c59c868b8de6919101a7b416cc36a6a78e",
+      "packageDigest": "0f45cfdd7137d77c9f26d57aa90ec1c59c868b8de6919101a7b416cc36a6a78e",
+      "stage": "metadata_discovered",
+      "factId": "6bd1e4958d87d0b5188a27317951228bfdb5edd5e0d60696e0ff97f1e743ef82"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "skill-platform-xlsx-create",
+      "skillStableName": "xlsx-create",
+      "skillVersion": "skill-platform-xlsx-create-pkg-795c934e8fcbb8558d877e662d12146e6443373cb92ca2704f313aa461b820e6",
+      "packageDigest": "795c934e8fcbb8558d877e662d12146e6443373cb92ca2704f313aa461b820e6",
+      "stage": "metadata_discovered",
+      "factId": "0ba42612182b5ff4e9e967a16dd2898f882a35dd949ec752a91abd3b33912e99"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "skill-platform-pdf-create",
+      "skillStableName": "pdf-create",
+      "skillVersion": "skill-platform-pdf-create-pkg-5afa0d6f7b64e26f4241ed07e137e57addb84c524310ad7722dc6bcc3c3777cc",
+      "packageDigest": "5afa0d6f7b64e26f4241ed07e137e57addb84c524310ad7722dc6bcc3c3777cc",
+      "stage": "metadata_discovered",
+      "factId": "e71d01320a1c26096c1fa64911e9337045815215c2167b96b2ce75719b08949e"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "data-analysis",
+      "skillStableName": "data-analysis",
+      "skillVersion": "1.0.0",
+      "packageDigest": "754f031d3c42cce829b2689296a82dbbe6b0c9fec1cff1c8d37aeeb904db9077",
+      "stage": "metadata_discovered",
+      "factId": "573565d64c9b50630546c6bad120c95cbc549fc43ef546156c57684dfabe8370"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "data-visualization",
+      "skillStableName": "data-visualization",
+      "skillVersion": "1.0.0",
+      "packageDigest": "c96c6101e9ba983a6284e01b83ef049f68a23c35e34a5e1f1a4ab6e66efa2bd1",
+      "stage": "metadata_discovered",
+      "factId": "7e2e7e64c499eea8abb9eec0df8e5a707d5cdf7ca126731078e934a8b10e258b"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "audio-transcription",
+      "skillStableName": "audio-transcription",
+      "skillVersion": "1.1.0",
+      "packageDigest": "31a0dc7a37ea3ada5cf319dd3be1eae50cf8772d05a486f07f86dd91685330fa",
+      "stage": "metadata_discovered",
+      "factId": "1ac57158334504ccfd50c74aa9cd0c558d5f502091db859762dc7b62dc833483"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "meeting-minutes",
+      "skillStableName": "meeting-minutes",
+      "skillVersion": "1.1.1",
+      "packageDigest": "5dc0bf0b9330f6694a969dab73de076a2cb049cd6fea8874eaa23cadf49494b5",
+      "stage": "metadata_discovered",
+      "factId": "a02f06d16af6b36c850e0f54f6626ee1b679dad093d84a19743ebe5726794c97"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "skill-authoring",
+      "skillStableName": "skill-authoring",
+      "skillVersion": "1.0.0",
+      "packageDigest": "cac2f55a50415e9d202210fbccba9b2cb107a3d2ba303518b087145777b107c7",
+      "stage": "metadata_discovered",
+      "factId": "0e9c140508654196ad2c382f041517733a4a2ec9bba567d3a0418400d42af413"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "diagram-and-canvas",
+      "skillStableName": "diagram-and-canvas",
+      "skillVersion": "1.0.0",
+      "packageDigest": "f6e9b59ab74a911a5375cc5006cf28a70399985c40b91dacf85fe4fb22cb446b",
+      "stage": "metadata_discovered",
+      "factId": "87a63f8b39e97e1e6b6248fc0d4cf8a551821705134826fb52a5e7448bf5332d"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "knowledge-grounded-answer",
+      "skillStableName": "knowledge-grounded-answer",
+      "skillVersion": "1.1.0",
+      "packageDigest": "11588378445aa481adae95339d083aa0abbd3d87464190333075d8b33efe28d4",
+      "stage": "metadata_discovered",
+      "factId": "bb01332e53dc46176533bc3fb402a5eaf8238277a3ab42a121ca9a146dfbbd02"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "meeting-preparation",
+      "skillStableName": "meeting-preparation",
+      "skillVersion": "1.1.0",
+      "packageDigest": "15da35190457a6975483730c8cfcde4470280ef197ad2b05d5a45720fe2b97c3",
+      "stage": "metadata_discovered",
+      "factId": "495c39ae33cf549cf89e945252593d0bcbc1edc71d3cde24c140b66646a89dcb"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "internal-communications",
+      "skillStableName": "internal-communications",
+      "skillVersion": "1.1.0",
+      "packageDigest": "467d8e658427d7ecaf2cb424ac232834cb1b727b7cfd0eed1a28400e7794fbda",
+      "stage": "metadata_discovered",
+      "factId": "4a4d9764cdaaa896aafb29b306f43b83828d3f0bc1184e63fe35ddbfb6809456"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "project-status-report",
+      "skillStableName": "project-status-report",
+      "skillVersion": "1.1.0",
+      "packageDigest": "534ad0d6247a1451db99491fa87ecc66417d04bfa0fd24dd753b66f9a8473303",
+      "stage": "metadata_discovered",
+      "factId": "06e449d62419a2e984418d3957a595209ec0b8db15942e3e10ab6b1a6b888fe3"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "document-understanding",
+      "skillStableName": "document-understanding",
+      "skillVersion": "1.2.0",
+      "packageDigest": "037818d87b1a243ac035364eb5267449e3b86989a802963d73d7d7c842fde2c4",
+      "stage": "metadata_discovered",
+      "factId": "26aadd6fc29a4022d50efeee4a2a96075164547438ebf33b2b7723b760435624"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "interview-synthesis",
+      "skillStableName": "interview-synthesis",
+      "skillVersion": "1.0.0",
+      "packageDigest": "2a609aeb192733ea4f65c2725cc4b484064a7599e0a2e33c4602ff4b68f77379",
+      "stage": "metadata_discovered",
+      "factId": "9ab2a2bf2a716de6557d50c9711587b9d21ba776a7bab0abb981afbdcc3bc4e7"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "user-research-planning",
+      "skillStableName": "user-research-planning",
+      "skillVersion": "1.0.1",
+      "packageDigest": "3e92093707d2dd61bf3ae622496287b35117771bf67a2fd48168dc9e5bf9f207",
+      "stage": "metadata_discovered",
+      "factId": "65529d7055238ed56b1c261c3b5fe3560f7faa1beea29da44fb105332b731747"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "maau-canvas",
+      "skillStableName": "maau-canvas",
+      "skillVersion": "3.0.0",
+      "packageDigest": "64293da5dc6118f34251c59ee825c09dde87e4aed6d675d30dedf40f9329c992",
+      "stage": "metadata_discovered",
+      "factId": "546ea8f5da4535b958b5acff0d32db76e142aaee55b10c17bd53dec3da155db6"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "visual-content",
+      "skillStableName": "visual-content",
+      "skillVersion": "1.0.1",
+      "packageDigest": "81a16d4baca84d05d0e9f46c1f4983bb2c7a6e963b7a968858d5bda1913cce9b",
+      "stage": "metadata_discovered",
+      "factId": "c2c16e612df702d901aa0ac454c8b60a473d1a9d05f6554649374955e2b2a444"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "web-research",
+      "skillStableName": "web-research",
+      "skillVersion": "1.0.0",
+      "packageDigest": "237eb2c88bf42e439d2a24e56b09bb5a0ba0e8acbb954ec5f81bfaadf311e0a7",
+      "stage": "metadata_discovered",
+      "factId": "98743a036a71ff8f7338a746b3aee13beeeb076548687888f36c642012b13455"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "web-artifact",
+      "skillStableName": "web-artifact",
+      "skillVersion": "1.0.2",
+      "packageDigest": "b3e29fa1fc7c5f8f3c7c82c0aa2a518dd06a2829861aa5c44d39c0831672b938",
+      "stage": "metadata_discovered",
+      "factId": "0d0517e98765fa0951f9a7f104a0dc2263c9342fc39620cec56f5e689774d603"
+    },
+    {
+      "contractVersion": 1,
+      "skillId": "skill-platform-pptx-create",
+      "skillStableName": "pptx-create",
+      "skillVersion": "skill-platform-pptx-create-pkg-150dde824e6844d1725e32345625889d9178b868ff8ccaf6447cab682fdeee45",
+      "packageDigest": "150dde824e6844d1725e32345625889d9178b868ff8ccaf6447cab682fdeee45",
+      "stage": "body_read",
+      "factId": "d239f339149caa479c51536f35aa93764e5a15d690619c2741fe644912dee413",
+      "readPath": "/skills/pptx-create/SKILL.md"
+    }
+  ]
+}

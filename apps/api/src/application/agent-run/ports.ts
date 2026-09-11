@@ -486,6 +486,25 @@ export interface AgentRunStore {
   approveAndRequeue(orgId: OrgId, runId: string, permissionRequestId?: string): Promise<boolean>;
 
   /**
+   * issue #3420：running → queued，带 `pending_decision='approve'`——**已经被用户授权过的**
+   * 工具调用被内核再次 interrupt 时，网关代替用户按下那个它已经批准过的确认，让 run 自己
+   * 继续跑。
+   *
+   * 为什么不能复用 `approveAndRequeue`：那条 UPDATE 的 WHERE 是
+   * `status='awaiting_tool_permission'`，而这一刻 run 正处于 `running`（它就是在执行中被
+   * 中断的）。此前自动放行分支调的正是它：命中 0 行、返回值被丢弃，run 停在 `running`
+   * 不动，直到租约到期被恢复流程捞起、把同一个工具再问用户一次（#3420 实测形态）。
+   *
+   * 落 `pending_*` 是为了让 executor 下一拍领走它时能恢复那次被中断的调用（同人裁决
+   * 之后留下的那组列逐字一致）。返回 false = run 已经不在 `running`（并发失败/取消/
+   * 已被别处收走），调用方按冲突处理，不重试、不覆盖。
+   */
+  requeueAuthorizedToolCall?(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+  ): Promise<boolean>;
+
+  /**
    * UX-9 D4：awaiting_tool_permission → queued（人改参数后放行），记 pending_decision='edit'
    * 且把改后的完整参数对象（JSON 文本）落 pending_edited_args——executor 重新领 run
    * 时 provider 据此发 EditDecision resume。返回语义与 approveAndRequeue 完全一致：

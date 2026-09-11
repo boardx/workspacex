@@ -1217,8 +1217,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     },
     {
       provide: RUN_RECOVERY,
-      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined),
-      inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER],
+      // issue #3420 —— 与 executor / 控制器共用**同一个** `TOOL_PERMISSION_GRANT_STORE`
+      // 单例：恢复流程必须能看见用户刚刚在这条 run 上落下的「本 run 内都允许」，否则它
+      // 会把同一个工具再问一遍（见 `pg-run-recovery.ts` 构造函数注释）。
+      useFactory: (db: DatabasePort, runs: AgentRunStore, nativeOutputs: NativeOutputStaging | null, nativeSessions: NativeSessionOwner | null, grants: ToolPermissionGrantStore) => new PgRunRecovery(db, runs, new DeepAgentModelProvider(readDeepAgentProviderConfig()), nativeOutputs ?? undefined, nativeSessions ?? undefined, grants),
+      inject: [DATABASE_PORT, AGENT_RUN_STORE, NATIVE_OUTPUT_STAGING, NATIVE_SESSION_OWNER, TOOL_PERMISSION_GRANT_STORE],
     },
     {
       provide: ARTIFACT_STORE,

@@ -198,7 +198,12 @@ describe("artifact continuation over existing attachments",()=>{
      * 同本文件上面那条纪律：**逐个点名，不用范围或计数**。重放窗口之后、重新定义了
      * 窗口内某个对象的迁移，必须在这里列出来并回放；漏列 ⇒ 那个对象停在旧版本。
      */
-    const restoreFiles = ["20260911060000_interjection_carry_over.sql"];
+    // issue #3420：`20260907015000_workbench_safe_cancel.sql` 里的
+    // `wave2_agent_run_transition` 已被 `20260911120000` 换掉（已授权的工具调用
+    // running → queued 自动续跑那条边）。不放回去，同进程后续文件会在一个**回退到
+    // 旧状态机**的库上跑——实测形态：`run-scope-grant-continues-run.test.ts` 红在
+    // "may not move from running to queued"，而真因在这里。
+    const restoreFiles = ["20260911060000_interjection_carry_over.sql", "20260911120000_authorized_tool_call_requeue.sql"];
     expect(migrationFiles().filter(name => restoreFiles.includes(name))).toEqual(restoreFiles);
     await asOwner(async c => {
       for (const name of restoreFiles) {

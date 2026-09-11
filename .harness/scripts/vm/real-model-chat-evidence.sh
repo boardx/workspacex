@@ -35,6 +35,21 @@ EVIDENCE_DIR="${REAL_MODEL_E2E_EVIDENCE_DIR:-${REPO_ROOT}/apps/web/test-results/
 RUN_ENV_FILE="${REAL_MODEL_RUN_ENV_FILE:-${RUNNER_TEMP:-/tmp}/real-model-e2e.env}"
 SINCE_FILE="${EVIDENCE_DIR}/.started-at"
 
+# 把一对 KEY/VALUE 写成一行 shell 可安全 `source` 的 `KEY=VALUE`。
+#
+# 背景（新开 issue，devapp 第一次真正跑通登录/权限后暴露）：这个文件写出的
+# `$RUN_ENV_FILE` 不是被 dotenv 解析的，是被 workflow 里 `set -a; . "$file"; set +a`
+# 当**普通 shell 脚本**执行的。值里只要带空格（例如 `REAL_MODEL_E2E_PROMPT` 默认值
+# "生成一个 pdf，总结你可以做的事情"），裸写 `KEY=${VALUE}` 就会把 `=` 之后的内容拆成
+# 第二条要执行的命令，整份 env 文件在 `source` 时直接报 `command not found` 并以
+# exit 127 崩掉那一步。用 `printf '%q'` 给值加上 bash 能安全解析回同一个值的引号/转义——
+# 空格、逗号、中文、单引号本身都要扛得住。
+write_env_kv() {
+  local key="${1:?write_env_kv 需要 KEY}"
+  local value="${2-}"
+  printf '%s=%q\n' "$key" "$value"
+}
+
 scrub_into() { # <输入文件> <证据文件名> [尾部行数]
   pnpm --filter web exec tsx e2e/support/scrub-file.ts "$1" "${EVIDENCE_DIR}/$2" "${3:-2000}" || true
 }
@@ -73,13 +88,13 @@ preflight() {
 
   umask 077
   {
-    echo "REAL_MODEL_E2E_EMAIL=${REAL_MODEL_E2E_EMAIL}"
-    echo "REAL_MODEL_E2E_PASSWORD=${REAL_MODEL_E2E_PASSWORD}"
-    echo "REAL_MODEL_E2E_BASE_URL=${base}"
-    echo "REAL_MODEL_E2E_LANE=devapp"
-    echo "REAL_MODEL_E2E_EVIDENCE_DIR=${EVIDENCE_DIR}"
-    echo "REAL_MODEL_E2E_RUN_TIMEOUT_MS=${REAL_MODEL_E2E_RUN_TIMEOUT_MS:-900000}"
-    [ -n "${REAL_MODEL_E2E_PROMPT:-}" ] && echo "REAL_MODEL_E2E_PROMPT=${REAL_MODEL_E2E_PROMPT}"
+    write_env_kv REAL_MODEL_E2E_EMAIL "${REAL_MODEL_E2E_EMAIL}"
+    write_env_kv REAL_MODEL_E2E_PASSWORD "${REAL_MODEL_E2E_PASSWORD}"
+    write_env_kv REAL_MODEL_E2E_BASE_URL "${base}"
+    write_env_kv REAL_MODEL_E2E_LANE "devapp"
+    write_env_kv REAL_MODEL_E2E_EVIDENCE_DIR "${EVIDENCE_DIR}"
+    write_env_kv REAL_MODEL_E2E_RUN_TIMEOUT_MS "${REAL_MODEL_E2E_RUN_TIMEOUT_MS:-900000}"
+    [ -n "${REAL_MODEL_E2E_PROMPT:-}" ] && write_env_kv REAL_MODEL_E2E_PROMPT "${REAL_MODEL_E2E_PROMPT}"
   } > "$RUN_ENV_FILE"
   chmod 600 "$RUN_ENV_FILE"
   echo "[devapp] 本轮 env 已写入 $RUN_ENV_FILE（0600，仅本 job 可见；值不回显）"

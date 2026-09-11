@@ -6,6 +6,7 @@ import { STANDARD_BROWSER_TOOLS } from "@repo/contracts/standard-browser-tools";
 import { STANDARD_SUBTASK_TOOL } from "@repo/contracts/standard-subtask-tools";
 import { AGENT_INTERRUPTS_TOOL_NAMES } from "@repo/contracts/agent-interrupts";
 import { classifyToolRisk } from "../../domain/agent-run/tool-risk-tier";
+import { resolveSkillRiskLevels, type SkillRiskEntry } from "../../domain/agent-run/skill-risk-level";
 import { toOrgId } from "../../domain/org-id";
 import { ModelCallError, type ModelCallInput } from "./ports";
 import type { NativeSessionOwner } from "./native-session-owner";
@@ -18,9 +19,39 @@ export const NATIVE_PROFILE_TOOLS = [STANDARD_ARTIFACT_DOWNLOAD_TOOL, STANDARD_R
  * 一旦在别处再写一遍 `classifyToolRisk(name) === "L2"`，两份就会各自漂移，而 Python 侧
  * `native_factory` 正是用这张表**静默过滤**掉未登记的工具（#3159 里 `spawn_async_task`
  * 就是这么消失的——构造了，没登记，一行日志都没有）。
+ *
+ * issue #3437 —— `execute`（沙箱命令执行）在 `tool-risk-tier.ts` 里被**刻意**、**永久**
+ * 分类为 L2（I-1，"没有例外"）——那是对 `execute` 这个工具名本身的判断，合理且不应改动。
+ * 但原生模式（`native_graph.py`）里，一个被判定 L0 的平台官方 skill（如 `pdf-create`，
+ * #2782）自己的生成脚本也是**通过这同一个 `execute` 工具**跑的：原生 skill 没有
+ * `call_skill` 那样"调用动作"与"被调用对象"分离的包装层，`SKILL.md`/脚本直接挂在
+ * 沙箱文件系统里，模型直接 `execute` 命令去跑。#2782 把 `call_skill` 的风险判定从
+ * "工具本身"改成"目标 skill"，但那次改动的落点只有 `harness.py` 的 `call_skill`
+ * `InterruptOnConfig.when`（读 `configurable.hitl_skill_names`）——从未触达原生模式，
+ * 于是devapp 真机实测（run 34594941550）里，明明挂载的唯一 skill 是 L0 的
+ * `pdf-create`，`execute` 依然每次都弹审批框，15 分钟没人点、run 卡到超时。
+ *
+ * 这里补的不是"把 execute 也变成 L0"（那会破坏 I-1：模型脱离任何 skill 上下文时
+ * 自己写的任意命令，例如本次证据里那条与 pdf-create 无关的
+ * `node gen-capabilities.js`，仍然必须弹审批）。补的是**会话级豁免**：只有当本次
+ * run 挂载的 skill **全部**是 L0（且至少挂了一个——未挂载任何 skill 时维持原有
+ * fail-closed 默认，与 `classifyToolCallRisk` 对"认不出目标"的既有纪律同向），
+ * 才放行 `execute` 不弹审批——这与 legacy 路径里"call_skill 返回的生成代码在
+ * L0 skill 下自动执行、不再二次审批"（`graph.py` 系统提示的既有行为）是同一条产品
+ * 决策在原生路径下的对应实现，风险面不比 legacy 路径更宽：两条路径下，挂载了任何
+ * 非 L0 skill 时都仍然是"每次 execute 都问"的保守默认。
+ *
+ * `allSkillsAreL0` 缺省 `false`（未挂载/未传 = 原样保守），`scripts/generate-
+ * native-profile-tools.ts` 生成静态准入表时正是用这个默认值调用——生成物代表的是
+ * "没有任何 skill 上下文"时的保守快照，不随运行时的 skill 组合变化，与
+ * `native-profile-tools-generated.test.ts` 的既有断言（`spawn_async_task` 等未登记
+ * 工具默认 L2）逐字兼容。
  */
-export function nativeInterruptOn(): Record<string, boolean> {
-  return Object.fromEntries(NATIVE_PROFILE_TOOLS.map(name => [name, classifyToolRisk(name) === "L2"]));
+export function nativeInterruptOn({ allSkillsAreL0 = false }: { allSkillsAreL0?: boolean } = {}): Record<string, boolean> {
+  return Object.fromEntries(NATIVE_PROFILE_TOOLS.map(name => [
+    name,
+    name === "execute" && allSkillsAreL0 ? false : classifyToolRisk(name) === "L2",
+  ]));
 }
 
 /**
@@ -65,7 +96,11 @@ export async function bindNativeInvocation(owner: NativeSessionOwner, input: Mod
   const pins = dedupeNativePins(input.skills ?? []);
   const context = { orgId: toOrgId(input.orgId), parentRunId: input.runId,
     attemptId: input.executionAttemptId, leaseEpoch: input.executionLeaseEpoch! };
-  const interruptOn = nativeInterruptOn();
+  // issue #3437 —— 用去重前的 `input.skills`（带 `content`，`dedupeNativePins` 的结果
+  // 只剩 stableName/package，算不出风险）。空挂载不算"全 L0"，保持原有 fail-closed。
+  const skillRisks: readonly SkillRiskEntry[] = resolveSkillRiskLevels(input.skills ?? []);
+  const allSkillsAreL0 = skillRisks.length > 0 && skillRisks.every(entry => entry.riskLevel === "L0");
+  const interruptOn = nativeInterruptOn({ allSkillsAreL0 });
   const binding = await owner.provision(context, pins, interruptOn);
   return { input: { ...input, nativeSession: binding },
     release: () => owner.release(binding.bindingId, context.orgId, context.parentRunId) };

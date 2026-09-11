@@ -14,8 +14,18 @@ import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/
  * 远端一致性：有 `remote_run_id` 的行顺手向 deep-agent-service 发一次 cancel（best-effort，
  * 失败只记日志）——本地判死了，远端那个 langgraph run 不该继续烧模型。
  *
- * 只收 `running`：`awaiting_tool_permission` 是在等人，`writeback_pending` 由下一次 tick 的
- * `writeBackPendingRuns` 重试，`queued` 由下一次 claim 接走。
+ * 只把 `running` 判死并转 `failed`：`awaiting_tool_permission` 是在等人，`writeback_pending`
+ * 由下一次 tick 的 `writeBackPendingRuns` 重试。
+ *
+ * issue #3439 —— `queued` 曾经也写着"由下一次 claim 接走"，那句话只在**每一条**送它
+ * 进 `queued` 的路径后面都跟着一次同租户 `kick()` 时才成立。`requeueAuthorizedToolCall`
+ * （#3420，`running → queued`，已授权工具自动续跑）恰好没有跟 kick，而且发生在
+ * `AgentRunExecutor.tick()` 自己的执行栈内部——`claimQueued` 那一批早已经claim过了，
+ * 赶不上这一行。没有别的线程凑巧发消息，这一行就永久卡在 `queued`（人类实测 run
+ * 49fd3220，见该 issue）。这里不把 `queued` 行本身判死、也不改它的状态——只是让它
+ * 跟 `running` 的孤儿共用同一个"没人会再敲这个组织的门"发现机制：查出哪些组织有
+ * 租约早过期的 `queued` 行，一并交给 `reconcile`（`AgentRunExecutor.tick` 会替它们
+ * 跑一次本来就正确、只是没被调用到的 `claimQueued`）。
  */
 export interface OrphanedRun {
   readonly id: string;
@@ -36,9 +46,24 @@ export async function sweepOrphanedRuns(
     [Math.max(60_000, Math.floor(olderThanMs))],
   ));
   const orphaned = rows.rows.map((r) => ({ id: r.id, orgId: r.org_id, threadId: r.thread_id, remoteRunId: r.remote_run_id }));
+  // issue #3439 —— 只读发现，不动这些行的状态：真正的认领仍然是 `claimQueued` 自己
+  // 的 `FOR UPDATE SKIP LOCKED`，这里只保证它被调用到（见本文件头注）。
+  const staleQueuedOrgIds = await db.withoutTenant((s) => s.query<{ org_id: string }>(
+    `SELECT org_id FROM kernel_stale_queued_agent_run_orgs($1)`,
+    [Math.max(60_000, Math.floor(olderThanMs))],
+  ));
+  if (staleQueuedOrgIds.rows.length > 0) {
+    options.log?.("stale queued agent runs found, re-kicking their orgs", {
+      count: staleQueuedOrgIds.rows.length, orgIds: staleQueuedOrgIds.rows.map((r) => r.org_id),
+    });
+  }
+  const orgIdsToReconcile = new Set([
+    ...orphaned.map((run) => run.orgId),
+    ...staleQueuedOrgIds.rows.map((r) => r.org_id),
+  ]);
   if (orphaned.length > 0) {
     options.log?.("orphaned agent runs reclaimed", { count: orphaned.length, runIds: orphaned.map((r) => r.id) });
-    for(const orgId of new Set(orphaned.map(run=>run.orgId))) await options.reconcile?.(orgId);
   }
+  for (const orgId of orgIdsToReconcile) await options.reconcile?.(orgId);
   return orphaned;
 }

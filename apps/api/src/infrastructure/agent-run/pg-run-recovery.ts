@@ -6,13 +6,21 @@ import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentRunStore } from "../../application/agent-run/ports";
+import type { ToolPermissionGrantStore } from "../../application/agent-run/tool-permission-grants";
 import type { RemoteRunReconciler } from "../../application/agent-run/run-recovery";
 import { withRunLease } from "../../application/agent-run/run-lease";
 interface RecoveryRow {id:string;thread_id:string;remote_run_id:string|null;remote_thread_id:string|null;lease_epoch:number;recovery_attempts:number;model_provider:string;runtime_profile:"legacy"|"native-v1"}
 /** One bounded tenant-scoped batch. Lease expiry elects a reader of the existing
  * remote operation, never authorizes a fresh model/tool/sandbox submission. */
 export class PgRunRecovery {
-  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler,private readonly nativeOutputs?:Pick<NativeOutputStaging,"listFiles">,private readonly nativeSessions?:NativeSessionOwner){}
+  /**
+   * issue #3420 —— `grants` 是恢复流程**必须**问的那一句：远端读回「停在一个待批工具
+   * 调用上」并不等于「这次调用还需要人表态」。用户可能在这条 run 上已经选过「本 run 内
+   * 都允许」（`tool_permission_grants` 的 run 级记录），此前这里完全不看授权存储，
+   * 一律 `markAwaitingToolPermission` ⇒ 同一个工具把人第二次叫醒（#3420 实测形态）。
+   * 可选：不注入 ⇒ 逐字回到改动前的行为（一律问人，fail closed，不会放宽任何东西）。
+   */
+  constructor(private readonly db:DatabasePort,private readonly runs:AgentRunStore,private readonly remote:RemoteRunReconciler,private readonly nativeOutputs?:Pick<NativeOutputStaging,"listFiles">,private readonly nativeSessions?:NativeSessionOwner,private readonly grants?:ToolPermissionGrantStore){}
   async tick(orgId:OrgId):Promise<number>{
     const candidates=await this.db.withTenant(orgId,async s=>(await s.query<RecoveryRow>(`
       UPDATE agent_runs r SET lease_epoch=lease_epoch+1,lease_expires_at=now()+($2::bigint * interval '1 millisecond'),
@@ -40,7 +48,11 @@ export class PgRunRecovery {
           await this.runs.cancelAtCheckpoint?.(orgId,run.id);
           terminal = true;
         }else if(result.kind==="approval"&&result.toolName!=="unknown"){
-          await this.runs.markAwaitingToolPermission(orgId,run.id,result);
+          // #3420：已被本 run（或组织级）授权过的工具，不再叫醒用户——直接带着 approve
+          // 重新入队，让它自己继续跑。判据取自授权存储本身，不是界面痕迹。
+          const authorized=await this.grants?.hasGrant(orgId,run.id,result.toolName)??false;
+          if(!(authorized&&await this.runs.requeueAuthorizedToolCall?.(orgId,run.id,result)))
+            await this.runs.markAwaitingToolPermission(orgId,run.id,result);
         }else if(result.kind==="failed"||(result.kind==="uncertain"&&run.recovery_attempts>=5)){
           await this.diagnostic(orgId,run.id,`恢复需人工核对：${recoveryExplanation(result.diagnostic)}`);
           await this.runs.failRun(orgId,run.id,"RUN_INTERRUPTED");
