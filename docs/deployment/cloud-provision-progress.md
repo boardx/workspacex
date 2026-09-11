@@ -9,8 +9,8 @@ flowchart TD
     T["Starter + production 云部署<br/>300 秒目标 · 整体待验收"]
     T --> CFG["两档参数与配置实现完成<br/>a688e8778"]
     CFG --> CFGV["配置与 CI 验收通过<br/>merge 12bb7fe82"]
-    T --> PRE["ECS 主机准备 / 收据复核完成<br/>11fed55f5 / fce330d40 / c59201ece"]
-    PRE --> PREV["17 项准备测试与路径安全验收通过<br/>c59201ece · 非真实 ECS"]
+    T --> PRE["ECS 主机准备 / 收据 / 完整树复核完成<br/>11fed55f5 / fce330d40 / 62adf697a"]
+    PRE --> PREV["18 项准备与完整树测试通过<br/>62adf697a · 非真实 ECS"]
     PRE --> TLS["TLS 身份校验与入口配置完成<br/>b2e1b19c4 / 54dcf5eeb"]
     TLS --> TLSV["15 项真实 TLS 测试通过<br/>入口 TLS / WS / SSE 本地通过<br/>b2e1b19c4 / 54dcf5eeb"]
     T --> REL["不可变 manifest / 预热 / Compose / 生成器完成<br/>87b9518f0 / 52745d26a / 3ef5c87de"]
@@ -30,13 +30,13 @@ flowchart TD
     MEM --> MEMV["7 项真实 PG 部署测试通过<br/>含截止取消与无晚到 DDL<br/>4676124f7 · 非云端验收"]
     DB --> BACK["备份恢复 / OSS 传输 / 维护命令完成<br/>5b57dbfc2 / 4bffc140b / a16877752"]
     BACK --> BACKV["真实 PG16 新库恢复验收通过<br/>5b57dbfc2 · OSS 仅 SDK 本地验证<br/>4bffc140b · 非云端恢复"]
-    T --> SEC["稳定密钥 / 角色 / root路径信任完成<br/>9810aa818 / b2aa84f0d / c59201ece"]
+    T --> SEC["稳定密钥 / 角色 / root路径信任完成<br/>9810aa818 / b2aa84f0d<br/>c59201ece / 62adf697a"]
     PRE --> RUN["provision 编排 / 业务探针 / 故障清理完成<br/>389512e65 / 33ba11f73 / 8f9e1f0cc / c59201ece"]
     MEM --> RUN
     IMG --> RUN
     SEC --> RUN
     FILE --> RUN
-    RUN --> RUNV["部署包 252 项与 API 探针 13 项通过<br/>c59201ece · 编排使用模拟执行器"]
+    RUN --> RUNV["部署包 263 项与 API 探针 13 项通过<br/>62adf697a · 编排使用模拟执行器"]
     RUN --> FINAL["最终统一 SHA 镜像重建与整体验证<br/>开发中：release_artifacts"]
     FINAL --> CLOUD["两档真实云端三次计时与故障验收<br/>尚未完成 · 不标全 PASS"]
     CLOUD -.-> BLOCK["云验收阻塞<br/>缺专用 ECS / OSS / 云凭据"]
@@ -54,7 +54,7 @@ flowchart TD
     class T,CLOUD pending;
 ```
 
-本次更新已把主机准备、收据复核、Memory、Sandbox、Agent 固定依赖、业务编排和 root 路径信任的父分支提交改为绿色。部署包 252 项、API 探针 13 项及各节点注明的真实本地测试改为紫色；它们仍不代表真实云验收。
+本次更新已把主机准备、收据与完整发布树复核、Memory、Sandbox、Agent 固定依赖、业务编排、生成密钥和 root 路径信任的父分支提交改为绿色。部署包 263 项、API 探针 13 项及各节点注明的真实本地测试改为紫色；它们仍不代表真实云验收。
 
 紫色证据来自各节点对应提交的测试记录；不同源码版本的测试不能合并为最终整套产品验收。最终统一 SHA 的镜像仍需重建，两档真实云端安装、业务链路、恢复与 300 秒墙钟计时尚未通过。
 
