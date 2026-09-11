@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 /**
  * Connection configuration. The application identity and the migration identity are
  * two different roles, deliberately kept apart.
@@ -35,6 +36,9 @@ export interface PgConfig {
   readonly database: string;
   readonly user: string;
   readonly password: string;
+  readonly ssl?: { rejectUnauthorized: true; ca?: string };
+  readonly connectionTimeoutMillis?: number;
+  readonly statement_timeout?: number;
 }
 
 function req(name: string, fallback?: string): string {
@@ -43,25 +47,55 @@ function req(name: string, fallback?: string): string {
   return v;
 }
 
+function transport(): Pick<PgConfig, "ssl" | "connectionTimeoutMillis" | "statement_timeout"> {
+  const cloud = process.env.WORKSPACEX_DEPLOY_PROFILE;
+  if (cloud && cloud !== "starter" && cloud !== "production") throw new Error("invalid WORKSPACEX_DEPLOY_PROFILE");
+  if (cloud) for (const name of ["PGHOST", "PGDATABASE"]) req(name);
+  const mode = process.env.PGSSLMODE ?? (cloud === "production" ? "verify-full" : "disable");
+  if (!["disable", "verify-full"].includes(mode) || (cloud === "production" && mode !== "verify-full")) {
+    throw new Error("PGSSLMODE must verify certificates in production");
+  }
+  const timeout = Number(process.env.PGCONNECT_TIMEOUT_MS ?? "5000");
+  const statement = Number(process.env.PGSTATEMENT_TIMEOUT_MS ?? "30000");
+  if (![timeout, statement].every(n => Number.isSafeInteger(n) && n > 0 && n <= 300000)) throw new Error("invalid PostgreSQL timeout");
+  return { connectionTimeoutMillis: timeout, statement_timeout: statement,
+    ...(mode === "verify-full" ? { ssl: { rejectUnauthorized: true as const,
+      ...(process.env.PGSSLROOTCERT ? { ca: readFileSync(process.env.PGSSLROOTCERT, "utf8") } : {}) } } : {}) };
+}
+
+function port(): number {
+  const value = Number(req("PGPORT", "55432"));
+  if (!Number.isInteger(value) || value < 1 || value > 65535) throw new Error("invalid PGPORT");
+  return value;
+}
+
+function credential(name: string, fallback: string): string {
+  const value = req(name, process.env.WORKSPACEX_DEPLOY_PROFILE ? undefined : fallback);
+  if (process.env.WORKSPACEX_DEPLOY_PROFILE && value.length < 16) throw new Error(`invalid cloud credential ${name}`);
+  return value;
+}
+
 /** The APPLICATION identity used at runtime */
 export function appConfig(): PgConfig {
   return {
+    ...transport(),
     host: req("PGHOST", "127.0.0.1"),
-    port: Number(req("PGPORT", "55432")),
+    port: port(),
     database: req("PGDATABASE", "workspacex"),
     user: req("APP_DB_USER", "app_rw"),
-    password: req("APP_DB_PASSWORD", "app_rw_dev"),
+    password: credential("APP_DB_PASSWORD", "app_rw_dev"),
   };
 }
 
 /** The OWNER identity, used only while migrating */
 export function migrationConfig(): PgConfig {
   return {
+    ...transport(),
     host: req("PGHOST", "127.0.0.1"),
-    port: Number(req("PGPORT", "55432")),
+    port: port(),
     database: req("PGDATABASE", "workspacex"),
     user: req("MIGRATION_DB_USER", "postgres"),
-    password: req("MIGRATION_DB_PASSWORD", "postgres_dev"),
+    password: credential("MIGRATION_DB_PASSWORD", "postgres_dev"),
   };
 }
 
@@ -71,10 +105,11 @@ export function migrationConfig(): PgConfig {
  */
 export function diagnosticsReaderConfig(): PgConfig {
   return {
+    ...transport(),
     host: req("PGHOST", "127.0.0.1"),
-    port: Number(req("PGPORT", "55432")),
+    port: port(),
     database: req("PGDATABASE", "workspacex"),
     user: req("DIAG_DB_USER", "app_diag_ro"),
-    password: req("DIAG_DB_PASSWORD", "app_diag_ro_dev"),
+    password: credential("DIAG_DB_PASSWORD", "app_diag_ro_dev"),
   };
 }
