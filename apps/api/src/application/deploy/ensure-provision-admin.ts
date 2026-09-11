@@ -10,10 +10,10 @@ export async function ensureProvisionAdmin(
   deps: BootstrapFirstUserDeps & {
     credentials: CredentialRepository;
     identity: IdentityRepository;
-    seedAgents: (ids: { userId: string; orgId: string }) => Promise<void>;
+    seedAgents: (ids: { userId: string; orgId: string }) => Promise<{ defaultAgentId: string }>;
   },
   input: BootstrapFirstUserInput,
-): Promise<{ userId: string; orgId: string; created: boolean }> {
+): Promise<{ userId: string; orgId: string; created: boolean; defaultAgentId: string }> {
   let result: { userId: string; orgId: string; created: boolean };
   try {
     result = { ...await bootstrapFirstUser(deps, input), created: true };
@@ -36,6 +36,6 @@ export async function ensureProvisionAdmin(
   }
   // All three existing seed operations are idempotent. Retry repairs a crash between the
   // permanent account gate and agent publication rather than claiming a bare 409 passed.
-  await deps.seedAgents(result);
-  return result;
+  const agents = await deps.seedAgents(result);
+  return { ...result, ...agents };
 }
