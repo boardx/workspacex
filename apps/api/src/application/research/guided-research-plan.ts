@@ -18,12 +18,16 @@ class InvalidPlanOutput extends ResearchRuntimeError {
 function parsePlan(value: unknown, allowedSectionIds: string[]): Plan {
   const parsed = C.GuidedResearchPlanModelOutput.safeParse(value);
   const issues: Issue[] = parsed.success ? [] : parsed.error.issues.map(({ path, message }) => ({ path, message }));
-  if (parsed.success) {
-    parsed.data.tasks.forEach((task, index) => {
-      if (!allowedSectionIds.includes(task.sectionId)) issues.push({ path: ["tasks", index, "sectionId"], message: "Use an exact ID from allowedSectionIds." });
+  // Read only IDs for diagnostics, even if another field failed schema validation.
+  // This never promotes a partially valid task into the executable plan.
+  const tasks = value !== null && typeof value === "object" && "tasks" in value && Array.isArray(value.tasks) ? value.tasks : null;
+  if (tasks) {
+    const sectionIds = tasks.map((task: unknown) => task !== null && typeof task === "object" && "sectionId" in task && typeof task.sectionId === "string" ? task.sectionId : undefined);
+    sectionIds.forEach((id, index) => {
+      if (id !== undefined && !allowedSectionIds.includes(id)) issues.push({ path: ["tasks", index, "sectionId"], message: "Use an exact ID from allowedSectionIds." });
     });
     for (const id of allowedSectionIds) {
-      if (!parsed.data.tasks.some((task) => task.sectionId === id)) issues.push({ path: ["tasks"], message: `Missing task coverage for sectionId ${JSON.stringify(id)}.` });
+      if (!sectionIds.includes(id)) issues.push({ path: ["tasks"], message: `Missing task coverage for sectionId ${JSON.stringify(id)}.` });
     }
   }
   if (!parsed.success || issues.length) {

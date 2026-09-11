@@ -2,7 +2,7 @@
 
 分支：codex/research-plan-repair。基础：f1b563501。
 
-本地验证完成：标准隔离 5 文件 / 54 测试通过（其中新增规划修复 10 条），真实 PostgreSQL 流程 33 条通过；API typecheck 通过，受影响 typecheck/lint 6/6；init 快速健康检查通过。独立 review_changes 两轮只读审查未发现阻断；要求的上下文限长与循环内存储失败反例已补齐。
+本地验证完成（含 PR 组合校验反馈补强）：标准隔离 5 文件 / 55 测试通过（其中新增规划修复 11 条），真实 PostgreSQL 流程 33 条通过；API typecheck 通过，受影响 typecheck/lint 6/6；init 快速健康检查通过。独立 review_changes 两轮只读审查未发现阻断；要求的上下文限长与循环内存储失败反例已补齐。
 
 交付状态：提交时等待 PR CI 与 exact-SHA 独立审；最终动态状态以 #3441 关联 PR 和协调总线 #422 为准。未自行合并或部署。
 

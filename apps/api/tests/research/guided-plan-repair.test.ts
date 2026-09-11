@@ -71,6 +71,22 @@ describe("bounded research plan repair", () => {
     expect(f.search).toHaveBeenCalledTimes(2);
   });
 
+  it("reports schema and section coverage problems together in the single repair opportunity", async () => {
+    const invalid = {
+      overview: validPlan.overview,
+      tasks: validPlan.tasks.map((task, index) => index === 1 ? { ...task, sectionId: "invented" } : task),
+    };
+    const f = fixture([invalid, validPlan]);
+    const result = await f.run();
+    expect(result.errorCode).toBeNull();
+    expect(f.complete).toHaveBeenCalledTimes(2);
+    const issues = JSON.parse(f.complete.mock.calls[1]![0].user).repair.issues as Array<{ path: Array<string | number>; message: string }>;
+    expect(issues.some((issue) => issue.path.join(".") === "optimizedQuestion")).toBe(true);
+    expect(issues.some((issue) => issue.path.join(".") === "tasks.1.sectionId")).toBe(true);
+    expect(issues.some((issue) => issue.message.includes("market"))).toBe(true);
+    expect(result.tasks.map((task) => task.sectionId)).toEqual(["policy", "market"]);
+  });
+
   it("stops after two invalid responses without searching or persisting partial tasks", async () => {
     const f = fixture([{ overview: "Incomplete" }]);
     const result = await f.run("start");
