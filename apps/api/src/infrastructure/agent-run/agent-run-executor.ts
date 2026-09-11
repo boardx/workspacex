@@ -202,6 +202,10 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       events: this.events,
       toolPermissionGrants: this.toolPermissionGrants,
       interjections: this.interjections, artifactContinuations: this.artifactContinuations, nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs, nativeRuntimeEnabled: this.nativeRuntimeEnabled,
+      // issue #3445 —— 见 `execute-run.ts` `ExecuteAgentRunDeps.kick` 的完整取证：
+      // 已授权工具续跑写回 `queued` 后，同一进程内立即重入一次 `kick`，不再只靠
+      // `sweepOrphanedRuns` 的周期性发现。
+      kick: (o) => this.kick(o),
     }, { orgId });
     await writeBackPendingRuns(
       { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
@@ -235,6 +239,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
           interjections: this.interjections, artifactContinuations: this.artifactContinuations,
           nativeSessions: this.nativeSessions, nativeOutputs: this.nativeOutputs,
           nativeRuntimeEnabled: this.nativeRuntimeEnabled,
+          kick: (o) => this.kick(o),
         }, { orgId });
         await writeBackPendingRuns(
           { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
