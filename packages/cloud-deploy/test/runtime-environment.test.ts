@@ -26,8 +26,8 @@ it("uses production referenced data with TLS and no local fallback", async () =>
   const password = "a-secure-password-123";
   const value = await runtimeEnvironment(deploymentExample("production"), await directory(), {
     WORKSPACEX_MODEL_KEY: "model-key",
-    WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password, diagnosticsUser: "app_diag_ro", diagnosticsPassword: password }),
-    WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password }),
+    WORKSPACEX_DATABASE: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "app_rw", password, diagnosticsUser: "app_diag_ro", diagnosticsPassword: "diagnostics-secure-password-123" }),
+    WORKSPACEX_MIGRATION: JSON.stringify({ host: "db.example.com", database: "workspacex", user: "owner", password: "migration-secure-password-123" }),
     WORKSPACEX_REDIS: JSON.stringify({ host: "redis.example.com", password }),
   });
   expect(value.api.PGHOST).toBe("db.example.com"); expect(value.api.PGSSLMODE).toBe("verify-full");

@@ -1,12 +1,13 @@
 import { createHash, randomUUID, X509Certificate, createPrivateKey } from "node:crypto";
 import { mkdir, open, lstat, readFile, rename, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { deploymentConfigSchema } from "./config";
 import { validateReleaseManifest, prewarmRelease } from "./release";
 import { resolveSecret } from "./secrets";
 import { createCloudNginxConfig } from "./nginx";
 import { captureProvisionCommand } from "./command";
+import { assertTrustedPath } from "./trusted-path";
 const path=z.string().regex(/^\/(?:[a-zA-Z0-9_-][a-zA-Z0-9._-]*\/)*[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/);
 export const prepareHostOptionsSchema=z.object({checkoutDirectory:path,runtimeDirectory:path}).strict();
 export type PrepareHostOptions=z.infer<typeof prepareHostOptionsSchema>;
@@ -19,7 +20,8 @@ export interface PrepareHostServices {
 const hash=(value:string)=>createHash("sha256").update(value).digest("hex");
 export const prepareHostReceiptSchema=z.object({schemaVersion:z.literal(1),installationId:z.string().uuid(),specHash:z.string().regex(/^[a-f0-9]{64}$/),files:z.record(z.string().regex(/^[a-f0-9]{64}$/)),status:z.enum(["preparing","files-ready-ingress-installation-required"]),cloudVerified:z.literal(false),profileManaged:z.boolean()}).strict();
 async function syncDir(dir:string){const file=await open(dir,"r");try{await file.sync();}finally{await file.close();}}
-async function privateDir(dir:string){const stat=await lstat(dir);if(!stat.isDirectory()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw new Error("UNSAFE_PREPARE_DIRECTORY");}
+async function privateDir(dir:string){await assertTrustedPath(dir,{trustedRoot:"/",kind:"directory",private:true});}
+async function trustedSecretReference(reference:string){if(reference.startsWith("file:"))await assertTrustedPath(reference.slice(5),{trustedRoot:"/",kind:"file",private:true});}
 async function newPrivateFile(path:string,value:string){const file=await open(path,"wx",0o600);try{await file.writeFile(value);await file.sync();}finally{await file.close();}}
 async function existing(path:string){try{return await lstat(path);}catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return undefined;throw error;}}
 
@@ -62,6 +64,10 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  const run=services.run??((argv:readonly string[],ctx:Context)=>captureProvisionCommand({executable:argv[0]!,args:argv.slice(1),cwd:checkout,env:source},ctx));
  const hostRead=services.readHostFile??((file:string)=>readFile(file,"utf8"));
  const active=()=>{if(context.signal.aborted||context.remainingMs()<=0)throw new Error("HOST_PREPARE_CANCELLED");};
+ await assertTrustedPath(checkout,{trustedRoot:"/",kind:"directory"});
+ await assertTrustedPath(dirname(dir),{trustedRoot:"/",kind:"directory"});
+ if(environment.profile==="starter")await assertTrustedPath(dirname(environment.dataVolumePath),{trustedRoot:"/",kind:"directory"});
+ await trustedSecretReference(environment.tlsSecretRef);
  const revision=(await run(["git","-C",checkout,"rev-parse","HEAD"],context)).trim();
  if(revision!==manifest.sourceRevision||(await run(["git","-C",checkout,"status","--porcelain"],context)).trim())throw new Error("CLEAN_RELEASE_CHECKOUT_REQUIRED");
  const compose=/^v?(\d+)\.(\d+)\.(\d+)/.exec((await run(["docker","compose","version","--short"],context)).trim());
@@ -73,24 +79,24 @@ export async function prepareHost(configInput:unknown,releaseInput:unknown,optio
  const {contents,files,specHash}=await hostPreparationContract(config,manifest,options,run,source,context);
  const receiptPath=join(dir,"prepare-receipt.json");let receipt:z.infer<typeof prepareHostReceiptSchema>;const wasExisting=!!(await existing(dir));
  if(wasExisting){await privateDir(dir);receipt=prepareHostReceiptSchema.parse(JSON.parse(await resolveSecret(`file:${receiptPath}`,source,context)));if(receipt.specHash!==specHash||JSON.stringify(receipt.files)!==JSON.stringify(files))throw new Error("PREPARE_RECEIPT_MISMATCH");}
- else{active();await mkdir(dir,{mode:0o700});receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
+ else{active();await mkdir(dir,{mode:0o700});await privateDir(dir);receipt={schemaVersion:1,installationId:randomUUID(),specHash,files,status:"preparing",cloudVerified:false,profileManaged:false};await newPrivateFile(receiptPath,JSON.stringify(receipt));await syncDir(dir);}
  const lock=await open(join(dir,"provision.lock"),"wx",0o600);let releaseLock=true;
  try{
   await lock.writeFile(JSON.stringify({operation:"prepare-host",installationId:receipt.installationId,pid:process.pid}));await lock.sync();await syncDir(dir);
-  const ensureDir=async(directory:string)=>{if(await existing(directory)){await privateDir(directory);return;}active();await mkdir(directory,{mode:0o700});};
+  const ensureDir=async(directory:string)=>{if(await existing(directory)){await privateDir(directory);return;}active();await mkdir(directory,{mode:0o700});await privateDir(directory);};
   const profiles=await hostRead("/sys/kernel/security/apparmor/profiles"),hasProfile=profiles.split("\n").some(line=>line.startsWith("workspacex-native-sessions "));
   if(hasProfile&&!receipt.profileManaged)throw new Error("APPARMOR_PROFILE_ALREADY_EXISTS");
   // Receipt owns only these exact files. Never replace a mismatched file on replay.
   await ensureDir(join(dir,"ingress"));
   for(const [name,value] of Object.entries(contents)){
    const file=join(dir,name);if(await existing(file)){if(hash(await resolveSecret(`file:${file}`,source,context))!==files[name])throw new Error("PREPARE_FILE_CHANGED");}
-   else{active();await newPrivateFile(file,value);}
+   else{active();await newPrivateFile(file,value);}await assertTrustedPath(file,{trustedRoot:"/",kind:"file",private:true});
   }
   await syncDir(join(dir,"ingress"));await syncDir(dir);
   if(environment.profile==="starter"){
    const data=environment.dataVolumePath,marker=join(data,".workspacex-prepare.json"),ownership=JSON.stringify({installationId:receipt.installationId,specHash});
    if(await existing(data)){await privateDir(data);if(await resolveSecret(`file:${marker}`,source,context)!==ownership)throw new Error("DATA_DIRECTORY_NOT_OWNED");}
-   else{active();await mkdir(data,{mode:0o700});await newPrivateFile(marker,ownership);await syncDir(data);}
+   else{active();await mkdir(data,{mode:0o700});await privateDir(data);await newPrivateFile(marker,ownership);await syncDir(data);}
    for(const child of ["postgres","redis"]){const target=join(data,child);if(await existing(target)){const stat=await lstat(target);if(!stat.isDirectory()||stat.isSymbolicLink())throw new Error("UNSAFE_DATA_DIRECTORY");}else await mkdir(target,{mode:0o700});}
    await syncDir(data);
   }

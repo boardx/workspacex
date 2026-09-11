@@ -2,8 +2,10 @@ import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { z } from "zod";
 import { cloudProvisionOptionsSchema, provisionCloud } from "./cloud-provision";
+import { assertTrustedPath } from "./trusted-path";
 
 async function readJson(path: string): Promise<unknown> {
+  await assertTrustedPath(path, { trustedRoot: "/", kind: "file" });
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = await file.stat();

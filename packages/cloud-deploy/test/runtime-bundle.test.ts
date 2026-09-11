@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { deploymentExample } from "../src/examples";
 import { writeRuntimeBundle, writeRuntimeFile } from "../src/runtime-bundle";
 vi.mock("node:fs/promises", async original => ({ ...await original<typeof import("node:fs/promises")>(), chown: vi.fn() }));
+vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 const roots: string[] = [];
 async function directory() { const path = await mkdtemp(join(tmpdir(), "cloud-bundle-")); roots.push(path); return path; }
 afterEach(async () => { await Promise.all(roots.splice(0).map(path => rm(path, { force: true, recursive: true }))); });

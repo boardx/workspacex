@@ -6,9 +6,11 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeAll, afterAll, afterEach, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, expect, it, vi } from "vitest";
 import { prepareHost } from "../src/prepare-host";
 import { deploymentExample } from "../src/examples";
+import { assertTrustedPath } from "../src/trusted-path";
+vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 let tlsDir:string,certificatePem:string,privateKeyPem:string;
 const roots:string[]=[];
 beforeAll(async()=>{tlsDir=await mkdtemp(join(tmpdir(),"prepare-tls-"));execFileSync("openssl",["req","-x509","-newkey","rsa:2048","-nodes","-days","2","-subj","/CN=workspace.example.com","-addext","subjectAltName=DNS:workspace.example.com","-keyout",join(tlsDir,"key"),"-out",join(tlsDir,"cert")],{stdio:"ignore"});certificatePem=await readFile(join(tlsDir,"cert"),"utf8");privateKeyPem=await readFile(join(tlsDir,"key"),"utf8");});
@@ -29,6 +31,7 @@ it("does not adopt a foreign AppArmor profile even after an interrupted receipt 
 it("rejects dirty checkout and non-Linux/non-root before host mutation",async()=>{const f=await fixture();f.setDirty();await expect(prepareHost(f.config,f.manifest,f.options,f.services,f.source)).rejects.toThrow("CLEAN_RELEASE_CHECKOUT_REQUIRED");await expect(prepareHost(f.config,f.manifest,f.options,{...f.services,host:{platform:"darwin",uid:0}},f.source)).rejects.toThrow("PREPARED_ECS_ROOT_REQUIRED");expect(f.calls.some(a=>a[0]==="apparmor_parser")).toBe(false);});
 it("retains shared lock when policy loading has uncertain result",async()=>{const f=await fixture();const run=async(argv:readonly string[])=>{if(argv[0]==="apparmor_parser"&&argv.includes("--add"))throw new Error("uncertain");return f.services.run(argv);};await expect(prepareHost(f.config,f.manifest,f.options,{...f.services,run},f.source)).rejects.toThrow("APPARMOR_LOAD_UNPROVEN");expect((await stat(join(f.options.runtimeDirectory,"provision.lock"))).isFile()).toBe(true);});
 it("production prewarms application images and creates no local data volume",async()=>{const f=await fixture();const config=deploymentExample("production");const result=await prepareHost(config,f.manifest,f.options,f.services,f.source);expect(result.readyForProvision).toBe(false);expect(f.calls.filter(a=>a[1]==="pull")).toHaveLength(4);await expect(stat(join(f.root,"data"))).rejects.toThrow();});
+it("rejects an untrusted checkout before running Git or mutating the host",async()=>{const f=await fixture();vi.mocked(assertTrustedPath).mockRejectedValueOnce(new Error("UNTRUSTED_HOST_PATH"));await expect(prepareHost(f.config,f.manifest,f.options,f.services,f.source)).rejects.toThrow("UNTRUSTED_HOST_PATH");expect(f.calls).toHaveLength(0);});
 
 it.each(["starter","production"] as const)("%s preparation receipt proves only integrity, not ingress or cloud acceptance",async profile=>{
  const f=await fixture();const config=profile==="starter"?f.config:deploymentExample("production");

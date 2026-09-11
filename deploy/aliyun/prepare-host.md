@@ -9,7 +9,9 @@ Use the clean checkout whose full Git SHA exactly matches `sourceRevision` in th
 release manifest. The config, manifest and protected TLS reference must already be
 available. The TLS payload contains `certificatePem` (leaf/full chain) and
 `privateKeyPem`; the key must match the leaf, whose DNS name and validity must match
-the deployment's HTTPS origin. This first ingress renderer requires port 443.
+the deployment's HTTPS origin. This first ingress renderer requires port 443. The
+checkout, input/secret files and every existing parent of the target paths must be
+root-owned, contain no symlink component and deny group/other writes.
 
 ```sh
 node --import tsx packages/cloud-deploy/src/prepare-host-cli.ts \

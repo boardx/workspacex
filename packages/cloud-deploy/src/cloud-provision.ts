@@ -18,6 +18,7 @@ import { DatabaseSecret, RedisSecret } from "./data-secrets";
 import { writeRuntimeBundle, writeRuntimeFile, checkBudget } from "./runtime-bundle";
 import { serializeRuntimeEnvironment, type RuntimeEnvironmentMaps } from "./runtime-environment";
 import { verifyPreparedHost } from "./verify-prepared-host";
+import { assertTrustedPath } from "./trusted-path";
 
 type Context = Parameters<ProvisionAction>[0];
 export const cloudProvisionOptionsSchema = z.object({
@@ -84,9 +85,17 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
       // Cancellation or unproven cleanup retains the core lock for explicit inspection.
     }
   };
+  await assertTrustedPath(dir, { trustedRoot: "/", kind: "directory", private: true });
   return provision({ stateDirectory: dir, signal, actions: {
     preflight: async context => {
       const driverRoot = fileURLToPath(new URL("../../../", import.meta.url));
+      await assertTrustedPath(resolve(driverRoot), { trustedRoot: "/", kind: "directory" });
+      const secretReferences = [config.provision.modelProfile.apiKeySecretRef, config.environment.tlsSecretRef, options.agentEnvironmentSecretRef,
+        ...(config.environment.profile === "starter" ? [config.environment.backupTargetRef] :
+          [config.environment.databaseSecretRef, config.environment.migrationSecretRef, config.environment.redisSecretRef])];
+      for (const reference of secretReferences) {
+        if (reference.startsWith("file:")) await assertTrustedPath(reference.slice(5), { trustedRoot: "/", kind: "file", private: true });
+      }
       const driverRevision = (await run(["git", "-C", driverRoot, "rev-parse", "HEAD"], context)).trim();
       const changed = (await run(["git", "-C", driverRoot, "status", "--porcelain", "--untracked-files=no"], context)).trim();
       if (driverRevision !== manifest.sourceRevision || changed) throw new Error("PROVISION_DRIVER_REVISION_MISMATCH");

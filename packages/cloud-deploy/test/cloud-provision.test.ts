@@ -10,10 +10,12 @@ import { verifyRunningRelease } from "../src/running-release";
 import { verifyPreparedHost } from "../src/verify-prepared-host";
 import { verifyEcsIdentity } from "../src/preflight";
 import { verifyTlsPreflight } from "../src/tls-preflight";
+import { assertTrustedPath } from "../src/trusted-path";
 vi.mock("../src/command", async original => ({ ...await original<typeof import("../src/command")>(), captureProvisionCommand: vi.fn() }));
 vi.mock("../src/preflight", () => ({ verifyEcsIdentity: vi.fn(), verifyHttpsEndpoint: vi.fn(), requireComposeVersion: vi.fn() }));
 vi.mock("../src/tls-preflight", () => ({ verifyTlsPreflight: vi.fn() }));
 vi.mock("../src/verify-prepared-host", () => ({ verifyPreparedHost: vi.fn() }));
+vi.mock("../src/trusted-path", () => ({ assertTrustedPath: vi.fn() }));
 vi.mock("../src/running-release", () => ({ verifyRunningRelease: vi.fn() }));
 vi.mock("../src/runtime-bundle", async original => ({ ...await original<typeof import("../src/runtime-bundle")>(), writeRuntimeBundle: vi.fn() }));
 vi.mock("node:fs/promises", async original => {
@@ -118,4 +120,10 @@ it("stops before host integrity and cloud checks when the driver SHA differs", a
     command.executable === "git" && command.args.includes("rev-parse") ? "f".repeat(40) : normal(command, context));
   expect((await execute()).status).toBe("failed");
   expect(verifyPreparedHost).not.toHaveBeenCalled(); expect(verifyEcsIdentity).not.toHaveBeenCalled();
+});
+
+it("does not create a provision lock in an untrusted runtime path", async () => {
+  vi.mocked(assertTrustedPath).mockRejectedValueOnce(new Error("UNTRUSTED_HOST_PATH"));
+  await expect(execute()).rejects.toThrow("UNTRUSTED_HOST_PATH");
+  expect(captureProvisionCommand).not.toHaveBeenCalled();
 });

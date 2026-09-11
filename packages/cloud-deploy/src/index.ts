@@ -9,6 +9,7 @@ export { runProvisionCommand, captureProvisionCommand } from "./command";
 export { resolveSecret, ensureDeploymentSecret } from "./secrets";
 export { productionDataEnvironment, DatabaseSecret, MigrationSecret, RedisSecret } from "./data-secrets";
 export { validateReleaseManifest, verifyPrewarmedRelease, prewarmRelease, requiredReleaseImages } from "./release";
+export { createReleaseManifest } from "./release-manifest";
 export { createCloudCompose } from "./compose";
 export { verifyRunningRelease } from "./running-release";
 export { runtimeEnvironment, serializeRuntimeEnvironment } from "./runtime-environment";

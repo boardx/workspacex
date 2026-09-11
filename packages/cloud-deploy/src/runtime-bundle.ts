@@ -10,6 +10,7 @@ import { runtimeEnvironment, serializeRuntimeEnvironment } from "./runtime-envir
 import { resolveSecret } from "./secrets";
 import { validateAgentServerEnvironment } from "./agent-release";
 import { validateProductionAgentPersistence } from "./agent-persistence-boundary";
+import { assertTrustedPath } from "./trusted-path";
 
 type Context = { signal: AbortSignal; remainingMs: () => number };
 export const agentPersistenceSchema = z.object({ DATABASE_URI: z.string().min(1), REDIS_URI: z.string().min(1), LANGGRAPH_CLOUD_LICENSE_KEY: z.string().min(1) }).strict();
@@ -18,14 +19,19 @@ const productionAgentSecretSchema = agentPersistenceSchema.extend({ databaseCaFi
 export function checkBudget(context: Context) {
   if (context.signal.aborted || context.remainingMs() <= 0) throw new Error("PROVISION_CANCELLED");
 }
-export async function privateDirectory(path: string) {
-  await mkdir(path, { recursive: true, mode: 0o700 });
-  const stat = await lstat(path);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0) throw new Error("UNSAFE_RUNTIME_DIRECTORY");
+export async function privateDirectory(path: string, allowedLeafUids: readonly number[] = []) {
+  try { await lstat(path); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    await assertTrustedPath(dirname(path), { trustedRoot: "/", kind: "directory" });
+    await mkdir(path, { mode: 0o700 });
+  }
+  await assertTrustedPath(path, { trustedRoot: "/", kind: "directory", private: true, allowedLeafUids });
 }
 /** Atomic replacement in a private directory; never follows an existing file symlink. */
 export async function writeRuntimeFile(path: string, value: string, context: Context, mode = 0o600) {
   checkBudget(context);
+  await assertTrustedPath(dirname(path), { trustedRoot: "/", kind: "directory" });
   const temp = `${path}.${randomUUID()}.tmp`;
   const file = await open(temp, "wx", mode);
   try {
@@ -36,6 +42,7 @@ export async function writeRuntimeFile(path: string, value: string, context: Con
   } finally { await file.close(); await unlink(temp).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
 async function certificateFile(path: string) {
+  await assertTrustedPath(path, { trustedRoot: "/", kind: "file" });
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const stat = await file.stat();
@@ -96,9 +103,12 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
   } catch { throw new Error("AGENT_PERSISTENCE_CONFIGURATION_INVALID"); }
   Object.assign(environment.agent, persistence);
   const agentCerts = join(dir, "agent-certs");
-  await mkdir(agentCerts, { recursive: true, mode: 0o755 });
+  await assertTrustedPath(dirname(agentCerts), { trustedRoot: "/", kind: "directory" });
+  try { await mkdir(agentCerts, { mode: 0o755 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
   const agentCertStat = await lstat(agentCerts);
   if (!agentCertStat.isDirectory() || agentCertStat.isSymbolicLink()) throw new Error("UNSAFE_AGENT_CERT_DIRECTORY");
+  await assertTrustedPath(agentCerts, { trustedRoot: "/", kind: "directory" });
   if (memoryCaFile) await writeRuntimeFile(join(agentCerts, "memory-ca.pem"), await certificateFile(memoryCaFile), context, 0o644);
   if (agentCaFile) {
     await writeRuntimeFile(join(agentCerts, "ca.pem"), await certificateFile(agentCaFile), context, 0o644);
@@ -107,8 +117,11 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     environment.agent.DATABASE_URI = database.href;
     environment.agent.PGSSLROOTCERT = "/run/agent-certs/ca.pem";
   }
-  const certs = join(dir, "certs"); await mkdir(certs, { recursive: true, mode: 0o755 });
+  const certs = join(dir, "certs"); await assertTrustedPath(dirname(certs), { trustedRoot: "/", kind: "directory" });
+  try { await mkdir(certs, { mode: 0o755 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
   const certStat = await lstat(certs); if (!certStat.isDirectory() || certStat.isSymbolicLink()) throw new Error("UNSAFE_CERT_DIRECTORY");
+  await assertTrustedPath(certs, { trustedRoot: "/", kind: "directory" });
   const ca = environment.api.PGSSLROOTCERT;
   if (ca) {
     const contents = await certificateFile(ca);
@@ -116,7 +129,7 @@ export async function writeRuntimeBundle(config: DeploymentConfig, manifest: Rel
     for (const map of [environment.api, environment.migration, environment.bootstrap]) map.PGSSLROOTCERT = "/run/certs/ca.pem";
   }
   for (const name of ["sandbox", "sessions"]) {
-    checkBudget(context); const path = join(dir, name); await privateDirectory(path); await chown(path, 1000, 1000);
+    checkBudget(context); const path = join(dir, name); await privateDirectory(path, [1000]); await chown(path, 1000, 1000);
   }
   for (const service of ["api", "agent", "web", "migration", "bootstrap", "memoryMigration"] as const) {
     await writeRuntimeFile(join(dir, `${service}.env`), serializeRuntimeEnvironment(environment[service]), context);

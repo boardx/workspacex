@@ -13,19 +13,19 @@
 | 入口 | `publicUrl`、`tlsSecretRef`；真实 DNS、已签发域名证书及匹配私钥 | prepare 渲染器使用 HTTPS 443 | 同左 |
 | 业务初始化 | `release`、`adminEmail`、`modelProfile.baseUrl/modelId/apiKeySecretRef` | 同左 | 同左 |
 | 数据资源 | — | 新的专用 `dataVolumePath`、`backupTargetRef` | `rdsInstanceId`、`redisInstanceId`、`databaseSecretRef`、`migrationSecretRef`、`redisSecretRef` |
-| 运维策略 | — | backup target 的私有 OSS bucket/prefix 和 ECS role | `backupRetentionDays`、`logRetentionDays`、`alertContactRef`；这些字段不自动证明策略真实存在 |
+| 运维策略 | — | backup target 的私有 OSS bucket/prefix 和 ECS role | `backupRetentionDays`；该字段不自动证明策略真实存在 |
 | 发布清单 | release、完整 `sourceRevision`、目标 `platform`、Web/API/Agent/Sandbox/PG/Redis 的 digest 镜像 | 预热并核验 6 个镜像 | 预热并核验 4 个应用镜像；清单结构仍保留 6 个字段 |
 | 执行参数 | prepare 的 `checkoutDirectory/runtimeDirectory`；provision 的 `projectName/runtimeDirectory/agentEnvironmentSecretRef`；request 的 `configFile/releaseFile` | 同左 | 同左 |
 
 Secret payload 以相应 schema 为准：
 
 - `tlsSecretRef`：`certificatePem` 和 `privateKeyPem`。证书内容、私钥、密码、API key、license、连接 URI 均不得进入验收公开证据。
-- Starter `backupTargetRef`：`backend=oss`、`region`、`bucket`、区域 HTTPS `endpoint`、独立 `prefix`、`authMode=ecs-role`、`roleName`。见 [备份目标与传输](./starter-backup-restore.md)。
+- Starter `backupTargetRef`：`backend=oss`、`region`、`bucket`、区域 HTTPS `endpoint`、独立 `prefix`、`authMode=ecs-role`、`roleName`；region 和 roleName 必须分别匹配部署的 regionId 和 runtimeRole。见 [备份目标与传输](./starter-backup-restore.md)。
 - Production `databaseSecretRef`：host/port/database、固定 `user=app_rw` 和 password、`diagnosticsUser=app_diag_ro` 和 diagnosticsPassword；自有 CA 不在系统根证书库时提供 `caFile`。
 - Production `migrationSecretRef`：相同 host/port/database、独立迁移 user/password，不能复用 app_rw 或 app_diag_ro。
 - Production `redisSecretRef`：host/port、password，可选 username。生产连接必须使用 TLS。
 - Starter `agentEnvironmentSecretRef`：只需 `LANGGRAPH_CLOUD_LICENSE_KEY`。Agent、Memory、PG、Redis 的独立稳定密码与 URI 由部署生成；不能要求用户另建外部 Starter PG。
-- Production `agentEnvironmentSecretRef`：`DATABASE_URI`、`REDIS_URI`、`LANGGRAPH_CLOUD_LICENSE_KEY`、`databaseCaFile`、`memoryCaFile`、`MEMORY_STORE_DATABASE_URL`、`MEMORY_STORE_MIGRATION_DATABASE_URL`。Agent、Memory、API使用隔离数据库；Memory固定运行角色 memory_rw、迁移角色 memory_owner。PG URI 要求 `sslmode=verify-full`，Redis URI要求 `rediss:`，CA文件由部署映射，不在输入 URI 中嵌入主机文件路径。
+- Production `agentEnvironmentSecretRef`：`DATABASE_URI`、`REDIS_URI`、`LANGGRAPH_CLOUD_LICENSE_KEY`、`databaseCaFile`、`memoryCaFile`、`MEMORY_STORE_DATABASE_URL`、`MEMORY_STORE_MIGRATION_DATABASE_URL`。Agent、Memory、API使用隔离数据库；Memory固定运行角色 memory_rw、迁移角色 memory_owner。三条 PG URI 只允许恰好一个 `sslmode=verify-full` 查询参数，拒绝身份覆盖参数；Redis URI要求 `rediss:`，CA文件由部署映射，不在输入 URI 中嵌入主机文件路径。app、diagnostics、migration、graph、memory runtime、memory owner 六个数据库身份的密码必须全局互异。
 
 Production Agent payload 的当前运行契约在 `runtime-bundle.ts` 的
 `productionAgentSecretSchema`；基础数据 payload 在 `data-secrets.ts`。如果这些
@@ -37,6 +37,7 @@ schema 改变，必须同时更新本表和对应反证，不能仅改文档让�
 |---|---|---|---|
 | 输入结构、互斥字段、区域和 digest | 必须 | 必须 | schema 实际验证；示例地址不算资源证据 |
 | 干净 checkout 与 manifest SHA 一致 | 必须 | 必须 | Git SHA/status；规范安全文件从同 SHA 的 Git object 提取 |
+| root 路径信任 | 必须 | 必须 | checkout、runtime、配置/secret 文件及既有祖先无符号链接、由 root 拥有且不可被 group/other 写；服务 UID 只允许拥有指定数据叶目录 |
 | prepare receipt 与文件完整性 | 必须 | 必须 | receipt/specHash、canonical seccomp/AppArmor、Nginx/证书文件实际哈希均一致；篡改文件及重写 receipt 仍必须失败 |
 | 专用本机数据目录归属 | PG/Redis目录与 receipt 的安装 ID/specHash marker 一致 | 不创建本地 PG/Redis数据目录 | 不采用外来目录、符号链接或伪造归属 marker |
 | AppArmor | 专用 profile enforce | 专用 profile enforce | 加载后的内核 profile 状态；文件存在本身不算 enforce |
@@ -79,7 +80,7 @@ secret临时文件；只有对应恢复流程允许时才能解除锁。不得�
 每轮保存一个不可变证据目录，至少包含：
 
 1. 原始 `ProvisionReport`：attemptId、startedAt、durationMs、status、lockRetained、8个阶段顺序/状态/用时；成功必须所有阶段恰好一次 passed、总 durationMs≤300000、lockRetained=false。
-2. 外部观察的开始/结束UTC时间和墙钟耗时，单列CLI/终态报告fsync时间。当前实现的300秒包含实际动作和中间报告；终态报告I/O不属于业务计时，不得藏进某阶段或用平均数掩盖超时。
+2. 外部观察的开始/结束UTC时间和 `commandWallMs`，单列CLI读取/校验及终态报告fsync时间。当前代码的300秒硬预算只覆盖实际动作和中间报告；用户侧“五分钟完成”还要求每轮 `commandWallMs≤300000`。两项必须同时通过，不得藏进某阶段或用平均数掩盖超时。
 3. config/manifest/prepare receipt 的 SHA256、sourceRevision、目标平台、全部要求的镜像 digest；保存非秘密原件及区域/实例标识，禁止复制runtime env或secret文件。
 4. 准备完整性结果、AppArmor enforce、实际ECS身份/role、TLS证书公开指纹、目标域名，以及 Production托管资源控制面判定摘要。
 5. 数据迁移/角色、真实Agent/Memory与业务探针的结构化结果；管理员和默认Agent的稳定ID可以记录，认证token、请求Authorization头、密码和连接URI不得记录。
