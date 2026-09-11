@@ -41,3 +41,71 @@ node --import tsx packages/cloud-deploy/src/starter-backup-cli.ts restore /priva
 隔离测试入口：`WORKSPACEX_DATA_TEST=1 node --import tsx packages/cloud-deploy/test/starter-backup-live.ts`，需提供本任务专用容器及PG owner连接参数。测试创建随机库并清理，禁止指向生产环境。
 
 依据：[PostgreSQL 16 pg_dump](https://www.postgresql.org/docs/16/app-pgdump.html)、[pg_restore](https://www.postgresql.org/docs/16/app-pgrestore.html)。真实生产云恢复尚未验收。
+
+## OSS backup target and transfer
+
+`backupTargetRef` resolves through deployment's protected `env:`/`file:` reference loader
+into this strict JSON payload (`packages/cloud-deploy/src/backup-target.ts`):
+
+```json
+{
+  "backend": "oss",
+  "region": "cn-hangzhou",
+  "bucket": "workspacex-backups",
+  "endpoint": "https://oss-cn-hangzhou-internal.aliyuncs.com",
+  "prefix": "backups/my-installation",
+  "authMode": "ecs-role",
+  "roleName": "workspacex-backup"
+}
+```
+
+Provision projects the resolved payload as `STARTER_BACKUP_TARGET_JSON` in private
+`backup.env`; it is not a CLI argument. The role obtains short-lived credentials via
+IMDSv2 using the existing OSS credential provider. No AccessKey is accepted by this
+schema. Endpoint must be the selected region's Alibaba OSS HTTPS endpoint. Use a
+separate backup bucket/prefix and an ECS role with `oss:GetBucketAcl`,
+`oss:GetBucketVersioning`, `oss:PutObject`, and `oss:GetObject` scoped to that target.
+Do not grant this workflow delete or bucket-policy mutation permissions. This first
+implementation requires a **private bucket with versioning never enabled**: enabled
+and suspended versioning both invalidate the write-once header, so both are rejected.
+Every upload explicitly sets the object's ACL to private as well.
+
+After producing a local backup using the command above, run inside the API image,
+with `WORKSPACEX_DEPLOY_PROFILE=starter` and the protected environment loaded:
+
+```sh
+node --import tsx apps/api/scripts/starter-backup-oss.ts upload /private/backup/new-run
+node --import tsx apps/api/scripts/starter-backup-oss.ts download /private/backup/new-download <backup-uuid>
+```
+
+Upload returns a UUID. Save that ID with the operational backup record. An optional
+UUID argument permits the caller to choose it before execution. Every ID starts with
+a write-once reservation; interrupted IDs cannot be resumed or replaced. A retry uses
+a new ID. There is deliberately no automatic cleanup or prefix-delete operation.
+
+The archive is transferred as at most 10,000 fixed 8 MiB parts (maximum approximately
+78 GiB). Each part is uploaded with Content-MD5 and SHA256 metadata, then read back and
+compared to the local SHA256. The complete archive SHA256 must match the original
+PostgreSQL manifest. A remote completion manifest is written and read back only after
+all checks pass. The client reuses the production `ali-oss` SDK and `OssObjectStore`
+write-once/version/ACL checks. An upload failure leaves uncommitted parts for explicit
+operator diagnosis; it does not report completion.
+
+Download accepts only a UUID, not arbitrary object keys. It derives every part key
+within that backup ID, validates part sizes and SHA256 plus the full archive checksum,
+and creates only a **new** 0700 directory with 0600 files. A restore-compatible local
+manifest appears only after all downloaded bytes have been verified and synced.
+Then run the existing `restore` command with a new database name. Existing directories
+and databases are never overwritten. Back up the API database and the isolated Agent
+database separately; these operations do not claim a cross-database atomic snapshot.
+
+Verification: cloud-deploy counterexamples exercise multipart round trips, corrupt
+source/readback/download bytes, duplicate IDs, existing directories and hostile target
+or manifest paths. The API loopback HTTP fixture uses the actual SDK, its V4 signer and
+XML error decoder, validates private/write-once/integrity headers, and rejects public
+and versioned targets. These are implementation/protocol tests, **not real OSS cloud
+acceptance**. A real role-authenticated upload/download/new-database restore is still
+required in the target region before that cloud acceptance is marked passed.
+
+Official semantics: [OSS PutObject](https://www.alibabacloud.com/help/en/oss/developer-reference/putobject)
+and [object ACL precedence](https://www.alibabacloud.com/help/zh/oss/developer-reference/putobjectacl).

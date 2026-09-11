@@ -1,0 +1,116 @@
+# 不可变发布制品与镜像预热
+
+五分钟 provision 的前置条件包括：六个发布镜像已经构建、推送，manifest 已经审查，目标 ECS 已经完成镜像预热。构建和下载不进入 provision 计时。当前代码实现 manifest 校验和 Docker 本地缓存检查；尚未证明完整发布镜像可以启动，也没有真实云端耗时证据。
+
+发布 manifest 的唯一结构定义是 `packages/cloud-deploy/src/release.ts` 中的 `releaseManifestSchema`：
+
+- `schemaVersion: 1`、`release`、完整 40 位 `sourceRevision`；
+- `platform` 为 `linux/amd64` 或 `linux/arm64`，必须与目标主机一致；
+- `images` 包含 `web`、`api`、`agent`、`sandbox`、`postgres`、`redis`，每项仅包含 `image`；
+- `image` 必须使用 `registry/repository@sha256:<64 位小写十六进制>`，禁止 tag；
+- 四个应用镜像必须携带 OCI label `org.opencontainers.image.revision`，与 manifest 完整 SHA 一致。数据库镜像由上游构建，不要求应用 SHA。
+
+从仓库根目录执行：
+
+```sh
+node --import tsx packages/cloud-deploy/src/release-cli.ts validate /secure/release.json starter
+node --import tsx packages/cloud-deploy/src/release-cli.ts prewarm /secure/release.json starter
+node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/release.json starter
+```
+
+生产环境将最后一个参数改为 `production`；仅预热四个应用镜像，RDS 和托管 Redis 在前置工作中准备。登录私有镜像仓库由运维通过 Docker credential helper 或 `docker login --password-stdin` 完成，不将口令放入 manifest 或命令行参数。
+
+`prewarm` 显式执行逐个 `docker pull --platform … image@digest`，然后重新运行 `docker image inspect`；仅下载命令成功不足以通过。`verify` 绝不 pull/build，验证本地镜像的 RepoDigests、操作系统/架构，以及应用镜像 revision。错误仅输出服务名称与错误码，不转发可能含凭据的 Docker stderr。验证返回 `cloudVerified:false`，避免把镜像缓存检查误当云端验收。
+
+这些检查证明所检查 Docker daemon 的镜像缓存状态。部署启动必须继续使用相同 digest、`--pull never`，并核对正在运行容器的镜像 ID；缓存检查本身不证明容器或业务健康。签名、可信来源和发布审批仍由发布流程负责，manifest 自报 SHA 不是供应链签名。
+
+现有 `apps/deep-agent-service/Dockerfile` 仍使用 `langgraph dev`；本切片新增 API/Web 云发布 Dockerfile 和独立 Agent 官方构建配置，但实际镜像验证单独记录。不能将本切片标成整个 CP-02 验收通过；后续必须构建并运行真实应用镜像，完成运行体版本和用户可见冒烟验收。
+
+## 构建入口与独立验收
+
+新增 `deploy/aliyun/images/api.Dockerfile` 和 `web.Dockerfile`，以仓库根目录为 context；专用 dockerignore 排除环境文件、密钥文件及本地依赖。使用 `--build-arg NODE_IMAGE=node@sha256:<审核后的digest>` 和 `--build-arg SOURCE_REVISION=<完整SHA>`。云 Web 镜像固定相对 `/api`，浏览器使用当前域名；服务端通过 `API_INTERNAL_URL=http://api:3200` 直连 API。无需针对不同域名重新构建。API 默认 3200，Web 3000。进程以 node 用户启动；API 执行 Node + tsx，Web 执行 next start。部署前仍必须实际构建、运行并验证，不将 Dockerfile 存在视为镜像可用。
+
+Agent 使用官方 Agent Server 构建入口，与旧开发 Dockerfile 隔离。先从现有图配置生成 release config（目标文件放在 deep-agent-service 目录，保持相对图路径），再使用锁定依赖中的 CLI：
+
+```sh
+node --import tsx packages/cloud-deploy/src/agent-dependencies-cli.ts langchain/langgraph-server@sha256:<审核后的digest> apps/deep-agent-service/pyproject.toml apps/deep-agent-service/requirements.release.txt linux/amd64
+node --import tsx packages/cloud-deploy/src/agent-release-cli.ts apps/deep-agent-service/langgraph.json apps/deep-agent-service/langgraph.release.json langchain/langgraph-server@sha256:<审核后的digest> <完整SHA>
+(cd apps/deep-agent-service && uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.generated)
+node --import tsx packages/cloud-deploy/src/agent-dockerfile-cli.ts apps/deep-agent-service/Dockerfile.generated apps/deep-agent-service/Dockerfile.release langchain/langgraph-server@sha256:<审核后的digest>
+```
+
+生成器保留图和 HTTP 路由、移除开发 `.env` 加载并写入 revision label。锁定的官方 CLI 0.4.31 实测会把 `:3.11` 追加到 digest；第二步只接受预期单个 FROM，去除该错误后缀并固定实际基础镜像 digest，其他基镜像或多阶段漂移直接失败。专用 Dockerfile.release.dockerignore 排除 `.env*`、私钥和虚拟环境。生成输出拒绝覆盖已有文件。生产依赖 CLI 在固定基镜像内依据官方 constraints 和镜像内 Agent Server 精确版本生成带 hash 的 runtime 锁；Dockerfile 强制 --require-hashes 安装，再以 --no-deps 安装项目源码。保留生成的 requirements.release.txt 随制品归档；Python 构建后端仍须另按项目 build-system 约束审查。初次官方镜像已完成本地构建，许可启动和最终统一源码版本验收仍单列。
+
+生产 Agent Server 还需通过环境文件注入 `DATABASE_URI`（专用数据库）、`REDIS_URI`（专用 Redis DB）、`LANGGRAPH_CLOUD_LICENSE_KEY`，并按供应商要求配置 LangSmith 凭据/出网。不得将许可值写入 manifest、命令行或仓库。`validateAgentServerEnvironment` 仅校验这些参数存在与协议，不宣称许可证有效。
+
+依据：[官方 standalone prerequisites](https://docs.langchain.com/langsmith/deploy-standalone-server)、[官方 CLI](https://docs.langchain.com/langsmith/cli)。文档说明生产许可验证以及推荐 Kubernetes 的运维差距；当前 ECS 单副本方案必须自行验证停机排空、持久化和升级。许可选择等待用户决策，开发服务器不能算生产验收。
+
+## 两档 Compose 生成
+
+`createCloudCompose(config, manifest, {projectName, runtimeDirectory})` 返回 Docker Compose 可直接读取的 JSON 对象。所有服务固定 manifest digest、`pull_policy: never`、无 build。启动时继续传 `--pull never --no-build`。Starter 另起 PostgreSQL/Redis；生产使用外部服务。Starter 数据 bind 在 `dataVolumePath/postgres` 与 `/redis`，删除容器不会删除宿主数据；PostgreSQL 镜像必须具备 API migrations 所需的 vector 扩展，需真实数据库验证，不能凭镜像名称判定。
+
+前置准备 runtimeDirectory 下的 `api.env`、`agent.env`、`web.env`（Starter 另需 `postgres.env` 和含持久化/认证设置的 `redis.conf`）。全部 env_file 使用 `format: raw`，要求 Compose >=2.30。密码不出现在生成 JSON。还需建立 `sandbox`、`sessions` 目录并赋予 UID/GID 1000 写权限，建立 `certs` 目录并按需放入只读 `ca.pem`，安装 `docker-seccomp.json` 和 `workspacex-native-sessions` AppArmor profile。bind 禁止自动创建缺失目录。
+
+API 容器 3200，Web 3000，仅映射宿主回环供 TLS 反代；Agent 8000 仅容器网络可见。API 调用 `http://agent:8000`。两个沙箱服务分别共享 `/run/sandbox/skill-sandbox.sock` 和 `/run/sessions/skill-sandbox.sock`，均禁网、只读根文件系统、移除 capabilities、限制 CPU/内存/PID。Native sessions 额外启用已有 seccomp/AppArmor 策略。API 只读挂载 `/run/certs`。数据库迁移/初始化容器须由编排器采用同样 CA 挂载。
+
+可独立运行 `node --import tsx packages/cloud-deploy/scripts/verify-compose.ts`，通过真实 Docker Compose 解析两档配置，检验 raw 密码保留、服务闭包、安全限制及无效策略被拒绝；不拉取镜像、不启动服务，也不宣称服务业务验收。
+
+`verifyRunningRelease(manifest, profile, containerIds, executor)` 用启动后获得的容器 ID 查询运行体，核对实际 Image ID、启动使用的 digest、Compose service label，以及 running/restarting/OOM 状态；包含两个沙箱容器。检查只请求不含环境变量的 inspect 字段。通过仍返回 `businessVerified:false`，业务探针独立执行。
+
+运行体门控还可执行 `node --import tsx packages/cloud-deploy/scripts/verify-running-release.ts docker.io/library/node@sha256:<已缓存digest>`：启动五个禁网、资源受限的 Node fixture，验证实际容器身份，主动停止其中一个确保门控失败，最后清理全部 fixture。这证明门控的 Docker 接口与反证有效，不能替代真实应用健康或业务验收。
+
+云 Web 同源前提：TLS 反代必须将 `/api` 转发到 API 的对应根路径，并支持 WebSocket Upgrade；Web 自身 `/api/copilotkit` 如需由 Next route handler 消费，应设置更具体的路由，优先于通用 API 前缀。`web.env` 设置 `API_INTERNAL_URL=http://api:3200`，不设置旧的 `APP_API_PORT` 回环参数；`NEXT_PUBLIC_API_PATH_PREFIX` 保持空值，避免重复 `/api`。浏览器 HTTP/WS、SSR/Copilot 与旧绝对 API 地址分别有回归测试。
+
+### Generate the TLS ingress during preparation
+
+Run `node --import tsx packages/cloud-deploy/src/nginx-cli.ts workspace.example.com /etc/tls/fullchain.pem /etc/tls/key.pem /tmp/workspacex.conf`. The output is an `http {}` context include; install it in the host Nginx configuration, run `nginx -t`, and reload only after validation. Existing certificate/key files and DNS are preparation inputs; provisioning does not issue certificates. The CLI refuses to overwrite existing files and rejects configuration injection in domain/path inputs.
+
+The generated ingress forwards exact `/api/copilotkit` and its subpaths to loopback Web port 3000 with the path intact, strips `/api/` for API port 3200, and sends other paths to Web. It forwards WebSocket upgrades, disables response buffering for SSE, retains query strings and supplies HTTPS forwarding headers. Host ports remain loopback-only in Compose. The template uses a 100 MiB upload ceiling and 300-second upstream inactivity timeout.
+
+`node --import tsx packages/cloud-deploy/scripts/verify-nginx.ts <cached-nginx-digest> <cached-node-digest>` validates with actual `nginx -t`, then exercises TLS routing, WebSocket 101, and the first SSE event while its upstream remains open. Fixtures have no external network and are removed afterward. Local linux/arm64 verification passed using Nginx digest `sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236`; this does not attest a real domain certificate or public cloud ingress.
+
+The Web server exposes dynamic `GET /.well-known/workspacex-deployment` with JSON `{ "deploymentMarker": "<runtime marker>" }`. Set `WORKSPACEX_DEPLOYMENT_MARKER` in private `web.env` to the same non-secret random deployment marker used by provision acceptance. The endpoint reads it for every request, returns 503 when absent, and sends `Cache-Control: no-store`. Public acceptance must compare this value so an old Web behind otherwise-valid TLS/API routing cannot pass. Nginx routes this path to Web via its ordinary root location.
+
+### Additional local image evidence
+
+The Web single-worker build completed with compilation networking disabled, including lint, types, all 100 static pages and image export. In a separate read-only, network-disabled 512 MiB container, the runtime probe fetched HTML, CSS and all 112 same-origin woff2 font files successfully. This diagnostic build preceded the dynamic Web marker endpoint; the final integrated source revision still needs rebuilding and public ingress verification.
+
+Sandbox accepts `NODE_IMAGE`, `PYTHON_IMAGE`, and `SOURCE_REVISION` build arguments. A local linux/arm64 image built from source `74dc21a5ae6e7da1d40f7deca2be5b2d3614240e` with cached digest-pinned Node and Python bases. `SANDBOX_TEST_IMAGE=workspacex-cloud-sandbox-cp02:test` ran both existing real container network tests: the script could not reach the companion with network disabled, and the same script reached the same companion on a private fixture network. Both passed and fixtures were cleaned. This covers the actual script-service network boundary; native session AppArmor/seccomp acceptance remains a separate host requirement.
+
+Official Agent base inspection found public index `langchain/langgraph-api@sha256:065268609660e387943f9f184b4f2e598bfe5a07279041a750be9ebf4bd6ebda` with linux/amd64 and linux/arm64 children. This is registry metadata evidence, not a production runtime or license acceptance result.
+
+The same cached Sandbox release image additionally passed all three existing real CJK PDF tests through its script service: source glyph coverage, embedded glyph outline integrity, and negative controls for broken runtime subsetting / reduced character coverage. This confirms actual generated PDF/font structure, beyond package-import checks.
+
+The production hash-locked Agent build completed on linux/arm64 from source `4fa6d347cd558935a5b4b8f9fab2a670f44f3906`, image ID `sha256:7aa680c4ffeaebd989f4265cfb27ee4326213191b94a6f3c7160ff87bafc07a6`. `verify-agent-runtime.py` passed inside that read-only/network-disabled image: both real graph modules construct, the packaged hash lock names the installed Agent Server version, and neither developer `.env*` nor host `.venv` exists. The fixture uses an unreachable local model URL and never invokes a model or starts the licensed server. Thus production server readiness, license validation and business execution remain unverified.
+
+The final Sandbox diagnostic was rebuilt from `1e8af927d2abc428583cbc58342486fe49d7e131`, image ID `sha256:9a1a98617b1285cbe1631ab17d276ce45388431630d3e573425df807d13327d2`; all five network and real PDF tests passed together against this prebuilt image. These independent image IDs are local diagnostic evidence. The release manifest still requires registry digests for one reviewed integrated source revision and the target cloud platform.
+
+Agent runtime now uses UID/GID 1000 in both its generated Dockerfile and Compose, matching the shared native-session socket directory. The official base defaults to root; with all capabilities dropped, the original root process was actually denied access to a mode-0770 directory owned by 1000. A diagnostic layer with the generated nonroot settings passed both real graph imports and Unix-socket bind/connect inside that directory under read-only rootfs, no network and no capabilities. The runtime hash lock is world-readable inside the image because it contains public dependency metadata; it remains created privately on the build host. HOME points at temporary storage. A complete licensed server start as this user remains part of final runtime acceptance.
+
+Agent dependency locking requires an explicit target platform matching the release manifest. Its temporary resolver container has a unique name and is removed in a finally block, including timeout/error paths, because terminating the Docker client alone does not guarantee the container stops.
+
+## Unified revision build and manifest output
+
+Wait for the coordinator's `SOURCE_FROZEN` revision and target platform. Build from that clean checkout. Set `WSX_SOURCE_REVISION` to its full `git rev-parse HEAD`, `WSX_PLATFORM` explicitly to `linux/amd64` or `linux/arm64`, `WSX_NODE_IMAGE` and `WSX_PYTHON_IMAGE` to reviewed digest references, and `WSX_AGENT_BASE` to the reviewed official Agent digest. Keep `WSX_EVIDENCE` outside the checkout, for example `<workspace>/work/release-evidence/<full-SHA>/<linux-arm64>`. No model, OSS, database or license secrets are needed to build these images or generate the manifest.
+
+Run the Agent preparation commands above using `WSX_PLATFORM`; retain its generated runtime hash lock in the evidence directory. The generated files must be restored into `apps/deep-agent-service` for the Agent build context. Build API and Web sequentially on constrained hosts; the Web Dockerfile already enables one build worker.
+
+```sh
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -f deploy/aliyun/images/api.Dockerfile -t "$WSX_REGISTRY_PREFIX/api:$WSX_SOURCE_REVISION" .
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -f deploy/aliyun/images/web.Dockerfile -t "$WSX_REGISTRY_PREFIX/web:$WSX_SOURCE_REVISION" .
+docker build --platform "$WSX_PLATFORM" -f apps/deep-agent-service/Dockerfile.release -t "$WSX_REGISTRY_PREFIX/agent:$WSX_SOURCE_REVISION" apps/deep-agent-service
+docker build --platform "$WSX_PLATFORM" --build-arg NODE_IMAGE="$WSX_NODE_IMAGE" --build-arg PYTHON_IMAGE="$WSX_PYTHON_IMAGE" --build-arg SOURCE_REVISION="$WSX_SOURCE_REVISION" -t "$WSX_REGISTRY_PREFIX/sandbox:$WSX_SOURCE_REVISION" apps/skill-sandbox
+```
+
+After authorized registry publication, create `$WSX_EVIDENCE/build-input.json` using the release schema's `schemaVersion`, `release`, `sourceRevision`, `platform` and six `images.<service>.image` fields. Input image references may be explicit repository tags or digests. PostgreSQL must reference the reviewed pgvector image; Redis references its reviewed upstream image. Then run:
+
+```sh
+node --import tsx packages/cloud-deploy/src/release-manifest-cli.ts "$WSX_EVIDENCE/build-input.json" "$WSX_EVIDENCE/release.json"
+node --import tsx packages/cloud-deploy/src/release-cli.ts validate "$WSX_EVIDENCE/release.json" starter
+```
+
+The generator reads actual Docker RepoDigests, validates all six images' target platform and the four application revision labels, and performs read-only registry inspection of each selected digest before writing the manifest exclusively (no overwrite). A local BuildKit image can already have RepoDigests, so local metadata alone is insufficient proof of publication. Missing/ambiguous digests, unavailable registry artifacts or a different source revision fail without emitting a manifest. It never builds, pushes, pulls or synthesizes a digest.
+
+Docker Hub aliases are normalized following [Docker's reference rules](https://docs.docker.com/reference/cli/docker/image/tag/): `redis@sha256:...` and `docker.io/library/redis@sha256:...` identify the same repository and digest. Namespace differences and digest differences still fail. The same normalization applies to provision's offline prewarm validation.
+
+Keep only non-secret evidence in this directory: manifest/build inputs, source SHA/platform, exact image IDs and RepoDigests, public dependency hash lock, and test summaries. Do not copy runtime bundles, private env files, provider credentials or license values there. Registry publication and final cloud acceptance remain distinct authorized actions.

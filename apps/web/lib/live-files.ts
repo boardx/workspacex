@@ -22,7 +22,7 @@
  */
 import { files as C } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 
 export type FileNode = z.infer<typeof C.FileNode>;
 export type TreeNode = z.infer<typeof C.TreeNode>;
@@ -143,4 +143,23 @@ export async function resolveArtifactAlias(projectId: string, path: string): Pro
     method: "GET",
     query: { projectId, path },
   });
+}
+
+/** Downloads only the known API route; never sends a bearer token to a supplied URL. */
+export async function fetchExportArchive(jobId: string): Promise<Blob> {
+  const token = getStoredSessionToken();
+  const response = await fetch(apiUrl(`/export-jobs/${encodeURIComponent(jobId)}/content`), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include",
+  });
+  if (!response.ok) throw new Error(`导出下载失败（HTTP ${response.status}）`);
+  return response.blob();
+}
+export async function saveExportArchive(jobId: string): Promise<void> {
+  const blob = await fetchExportArchive(jobId);
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url; link.download = "export.zip";
+    document.body.appendChild(link); link.click(); link.remove();
+  } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }

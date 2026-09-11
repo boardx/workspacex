@@ -35,8 +35,6 @@ const production = z.object({
   migrationSecretRef: secretRef,
   redisSecretRef: secretRef,
   backupRetentionDays: z.number().int().min(1).max(3650),
-  logRetentionDays: z.number().int().min(1).max(3650),
-  alertContactRef: secretRef,
 }).strict();
 
 /** Structural contract shared by runtime validation and the generated JSON Schema. */

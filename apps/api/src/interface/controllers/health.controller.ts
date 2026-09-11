@@ -27,6 +27,10 @@ export class HealthController {
   @Get("/healthz")
   async healthz() {
     const health = await getKernelHealth(this.probeOf(this.db));
-    return { ...health, trustworthy: isKernelTrustworthy(health) };
+    // A non-secret, per-installation marker binds public routing to this newly started
+    // API process. A healthy old deployment must not satisfy a new provision probe.
+    const marker = process.env.WORKSPACEX_DEPLOYMENT_MARKER;
+    return { ...health, trustworthy: isKernelTrustworthy(health),
+      ...(marker && /^[a-f0-9-]{36}$/.test(marker) ? { deploymentMarker: marker } : {}) };
   }
 }

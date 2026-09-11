@@ -1,0 +1,6 @@
+/* Exact npm versions own these assets; no build-time Google Fonts requests. */
+.variables {
+  --font-sans: "Noto Sans SC Variable";
+  --font-mono: "JetBrains Mono Variable";
+  --font-display: "Bitter Variable";
+}

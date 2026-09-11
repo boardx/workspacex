@@ -82,21 +82,16 @@ export interface NewExportJob {
   readonly itemCount: number;
   readonly objectKey: string;
   readonly manifestSha256: string;
-  /**
-   * ⚠ Built once, at creation time, and persisted verbatim -- NOT a bearer token to redeem
-   * later. `issueDownloadUrl` (F32) hashes because a download link is a bearer credential for
-   * ONE version and N-24 forbids it being forwardable; this operation's signed `err` list has
-   * neither `DOWNLOAD_URL_EXPIRED` nor `DOWNLOAD_URL_CONSUMED`, so the contract itself does not
-   * ask for that shape here. What IS missing, stated rather than hidden: no route in this
-   * feature actually streams the zip's bytes from this URL -- `object_key` is real (the zip is
-   * really in `ObjectStore`), but the HTTP redemption path is out of F33's three verification
-   * tests and is left for the feature that wires a controller to it.
-   */
+  /** Authenticated content route, bound to the original requester and persisted expiry. */
   readonly downloadUrl: string;
   readonly expiresAt: Date;
 }
 
 export interface ExportJobRepository {
+  /** Private delivery metadata; never returned in the public job response. */
+  findContent(input: { orgId: OrgId; jobId: string }): Promise<{
+    projectId: string; requestedBy: string; objectKey: string; expiresAt: Date; artifactIds: readonly string[] | null;
+  } | null>;
   /**
    * Persist a COMPLETED job in one write.
    *

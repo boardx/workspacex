@@ -58,6 +58,7 @@ export async function previewDeleteImpact(
     requesterTeamId: membership?.teamId ?? null,
   });
   if (!found) throw new PreviewDeleteImpactError("ARTIFACT_NOT_FOUND");
+  if (found.projectId === null) throw new PreviewDeleteImpactError("PROJECT_ROLE_INSUFFICIENT");
 
   const decision = await authorize(deps, {
     userId: input.userId,

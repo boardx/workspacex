@@ -1,34 +1,11 @@
 /**
- * F45 -- `requestDeletion`: delete confirmation + the six-category cascade + the two-tier
- * SLA (uc-22-4 R3.c step 8-9, R7, R9, D-15, N-17).
+ * F45 deletion request: authorization, current legal hold, six-category logical cascade,
+ * task deadlines and provenance. The configured HTTP path wraps these writes in one
+ * tenant transaction and injects the real PostgreSQL graph-edge invalidator.
  *
- * ## Why the six cascade outcomes are computed in TWO separate steps, not one transaction
- *
- * Cascades ①②③④⑥ are plain SQL against tables this process owns (`CascadeInvalidation
- * Repository.invalidateLocalCascades`, ONE `withTenant` transaction -- see that port's
- * header). Cascade ⑤ (`ontology-edges`) is a call across a PROCESS BOUNDARY -- the F47
- * outbound port, provided by 09-kg in phase-02 and, in phase-01, ALWAYS a stub that throws
- * `CascadeTargetUnavailableError` (`files-outbound-stubs.ts`'s own rule: "桩绝不返回成功").
- *
- * If cascade ⑤ ran INSIDE the same database transaction as ①②③④⑥, a thrown error there
- * would roll back the whole transaction -- undoing four cascades that succeeded and reporting
- * the browser entry as still present, which is a worse outcome than "logically invalidated,
- * minus the one category phase-02 does not exist yet to serve" (exactly what
- * `KNOWN_CONTRACT_GAPS.FS11` describes as the feature's biggest external risk, made concrete).
- * So: commit the five local cascades FIRST, then attempt the outbound call, then persist ALL
- * SIX outcomes (task + `deletion_cascade_results`) together. A crash between the two leaves
- * the artifact already logically gone from the browser with no task row yet -- reported as a
- * known gap below rather than solved by a two-phase commit this feature does not need to
- * invent (retrying `requestDeletion` is idempotent: a second call's `invalidateLocalCascades`
- * simply re-applies the same UPDATE/DELETE statements against an already-invalidated state).
- *
- * ## Why `overallStatus` can never be `"done"` here
- *
- * See `domain/files/deletion-cascade.ts`'s header. Today, `ontology-edges` is ALWAYS
- * `"failed"` (the stub's contract), so `requestDeletion` always produces `"partial-failure"`
- * in phase-01 -- and per N-17, NO receipt is issued and the artifact stays in the trash
- * queue for a human to retry once 09-kg exists. That is not a bug in this feature; it is
- * `FS11` made observable rather than papered over with a fake success.
+ * Callers that omit the graph port retain the explicit phase-01 unavailable stub: that
+ * dependency failure yields partial-failure and never permits a physical deletion receipt.
+ * Running means logical invalidation succeeded; only the maintenance worker may mark done.
  */
 import { files as C } from "@repo/contracts";
 import type { OutboundPortImpl } from "@repo/contracts/files-outbound-stubs";
@@ -65,6 +42,7 @@ export type RequestDeletionReasonCode =
   | "ARTIFACT_NOT_FOUND"
   | "PROJECT_ROLE_INSUFFICIENT"
   | "AGENT_CANNOT_DELETE"
+  | "DEPENDENCY_UNAVAILABLE"
   | "LEGAL_HOLD_ACTIVE";
 
 export class RequestDeletionError extends Error {
@@ -114,6 +92,7 @@ export async function requestDeletion(
   // Unconditional, resource-independent bar -- checked first, and it discloses nothing about
   // whether `artifactId` exists (D-39 / usecases.md 「agent 不得发起删除」).
   if (input.actorKind === "agent") throw new RequestDeletionError("AGENT_CANNOT_DELETE");
+  if (input.scope !== null) throw new RequestDeletionError("DEPENDENCY_UNAVAILABLE");
 
   // The contract's `confirmedImpact: z.literal(true)` and `reason: z.string().min(4)` already
   // make these unconstructible at the type level; this is the same defensive re-check
@@ -130,6 +109,9 @@ export async function requestDeletion(
     requesterTeamId: membership?.teamId ?? null,
   });
   if (!found) throw new RequestDeletionError("ARTIFACT_NOT_FOUND");
+  // This action is defined by the project facilitator matrix. No project must not
+  // bypass that matrix through authorize's ordinary org-only read semantics.
+  if (found.projectId === null) throw new RequestDeletionError("PROJECT_ROLE_INSUFFICIENT");
 
   const decision = await authorize(deps, {
     userId: input.userId,

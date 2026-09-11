@@ -29,7 +29,7 @@ import { inspectPdf } from "../src/inspect-pdf.js";
 
 const execFileAsync = promisify(execFile);
 
-const IMAGE = "workspacex-skill-sandbox:test";
+const IMAGE = process.env.SANDBOX_TEST_IMAGE ?? "workspacex-skill-sandbox:test";
 const SUFFIX = `${process.pid}-${Date.now()}-cjk`;
 
 /** 中文 + 数字 + 拉丁 + 全角标点 + 两个生僻字（GB2312 之外，专门盯字符集裁得够不够）。 */
@@ -83,10 +83,12 @@ describeDocker("沙箱产出的中文 PDF 必须真的能读（不是「字形�
   let container = "";
 
   beforeAll(async () => {
-    await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
-      cwd: join(import.meta.dirname, ".."),
-      timeout: 1_800_000,
-    });
+    if (!process.env.SANDBOX_TEST_IMAGE) {
+      await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
+        cwd: join(import.meta.dirname, ".."),
+        timeout: 1_800_000,
+      });
+    }
     container = `wsx-sandbox-cjk-${SUFFIX}`;
     await execFileAsync(
       "docker",

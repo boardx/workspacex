@@ -14,7 +14,8 @@ export function productionDataEnvironment(database: unknown, migration: unknown,
   const db = DatabaseSecret.safeParse(database), owner = MigrationSecret.safeParse(migration), cache = RedisSecret.safeParse(redis);
   if (!db.success || !owner.success || !cache.success) throw new Error("invalid production data secret fields");
   if (["host", "port", "database"].some(key => db.data[key as keyof typeof connection] !== owner.data[key as keyof typeof connection]) ||
-    [db.data.user, db.data.diagnosticsUser].includes(owner.data.user as "app_rw" | "app_diag_ro")) throw new Error("database identities must be separate on the same database");
+    [db.data.user, db.data.diagnosticsUser].includes(owner.data.user as "app_rw" | "app_diag_ro") ||
+    new Set([db.data.password, db.data.diagnosticsPassword, owner.data.password]).size !== 3) throw new Error("database identities must be separate on the same database");
   return { PGHOST: db.data.host, PGPORT: String(db.data.port), PGDATABASE: db.data.database,
     APP_DB_USER: db.data.user, APP_DB_PASSWORD: db.data.password,
     DIAG_DB_USER: db.data.diagnosticsUser, DIAG_DB_PASSWORD: db.data.diagnosticsPassword,

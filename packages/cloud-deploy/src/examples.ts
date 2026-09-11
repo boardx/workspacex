@@ -18,8 +18,7 @@ export function deploymentExample<P extends DeploymentProfile>(profile: P):
       ...environment, profile: "production" as const,
       rdsInstanceId: "pgm-example", redisInstanceId: "r-example",
       databaseSecretRef: "env:WORKSPACEX_DATABASE", migrationSecretRef: "env:WORKSPACEX_MIGRATION",
-      redisSecretRef: "env:WORKSPACEX_REDIS", backupRetentionDays: 7, logRetentionDays: 30,
-      alertContactRef: "env:WORKSPACEX_ALERT_CONTACT",
+      redisSecretRef: "env:WORKSPACEX_REDIS", backupRetentionDays: 7,
     },
     provision: {
       release: "1.0.0", adminEmail: "owner@example.com",

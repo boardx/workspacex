@@ -156,6 +156,7 @@ export const RecordingError = z.enum([
 
   /* ── 物化（跨束）─────────────────────────────────────────────── */
   "SESSION_NOT_ENDED",
+  "INVALID_RECORDING_FILE",
   "MATERIALIZE_PARTIAL_FAILURE",
   "OBJECT_STORE_UNAVAILABLE",
   "ARTIFACT_REGISTRY_UNAVAILABLE",
@@ -338,6 +339,16 @@ export const RetentionResolution = z.object({
 }).strict();
 
 /* ───────────────────────────── 操作 ───────────────────────────── */
+
+const MaterializedRecordingArtifacts = z.object({
+      artifacts: z.array(z.object({
+        kind: RecordingArtifactKind,
+        artifactId: z.string(),
+        versionId: z.string(),
+        contentHash: z.string(),
+        derivedFrom: z.string().nullable(),
+      }).strict()),
+    }).strict();
 
 export const operations = {
   /* ── 一、采集与实时转写（uc-5-1）──────────────────────────────── */
@@ -556,19 +567,26 @@ export const operations = {
   materializeRecordingArtifacts: {
     method: "POST", path: "/recording/sessions/:sessionId/materialize",
     in: z.object({ sessionId: z.string(), idempotencyKey: z.string() }).strict(),
-    out: z.object({
-      artifacts: z.array(z.object({
-        kind: RecordingArtifactKind,
-        artifactId: z.string(),
-        versionId: z.string(),
-        contentHash: z.string(),
-        derivedFrom: z.string().nullable(),
-      }).strict()),
-    }).strict(),
+    out: MaterializedRecordingArtifacts,
     err: [
       "SESSION_NOT_ENDED", "MATERIALIZE_PARTIAL_FAILURE", "OBJECT_STORE_UNAVAILABLE",
       "ARTIFACT_REGISTRY_UNAVAILABLE", "SNAPSHOT_IMMUTABLE", "IDEMPOTENCY_KEY_CONFLICT",
     ] as const,
+  },
+
+  /** Multipart `request` JSON plus optional `audio` WebM file. Existing transcript-only
+   * materialization stays available. Session/project authorization precedes replay.
+   * Raw storage keys and references to another session are never accepted. */
+  materializeRecordingFiles: {
+    method: "POST", path: "/recording/sessions/:sessionId/materialize-files",
+    in: z.object({
+      sessionId: z.string().min(1), idempotencyKey: z.string().min(1).max(256),
+      audio: z.object({ contentType: z.literal("audio/webm"), sizeBytes: z.number().int().min(1).max(20 * 1024 * 1024), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict().optional(),
+      notesMarkdown: z.string().min(1).max(1024 * 1024).optional(),
+    }).strict(),
+    out: MaterializedRecordingArtifacts,
+    err: ["SESSION_NOT_FOUND", "NO_PROJECT_ROLE", "SESSION_NOT_ENDED", "INVALID_RECORDING_FILE",
+      "MATERIALIZE_PARTIAL_FAILURE", "OBJECT_STORE_UNAVAILABLE", "IDEMPOTENCY_KEY_CONFLICT"] as const,
   },
 
   /* ── 三、说话人指派（uc-5-2）──────────────────────────────────── */

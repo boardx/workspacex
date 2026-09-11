@@ -36,7 +36,7 @@
  * share the same code path by construction (one `transcribe`, one `TranscribedSegment`
  * brand), so exercising one carrier here is not exercising one of three pipelines.
  */
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -55,7 +55,8 @@ import {
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
-process.env.WORKSPACEX_OBJECT_ROOT = mkdtempSync(join(tmpdir(), "wsx-rec-465-"));
+const recordingObjectRoot = mkdtempSync(join(tmpdir(), "wsx-rec-465-"));
+process.env.WORKSPACEX_OBJECT_ROOT = recordingObjectRoot;
 // D-1 (「多低算低」) is undecided and this bundle must not pick a number, so the threshold is
 // a DEPLOYMENT parameter with no built-in default. Setting it here is the test acting as the
 // deployment; `refuses to ingest when the low-confidence threshold is unconfigured` below
@@ -156,6 +157,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await resetOrgs(ORG, OTHER_ORG);
+  rmSync(recordingObjectRoot, { recursive: true, force: true });
 });
 
 beforeEach(async () => {
@@ -545,4 +547,49 @@ describe("POST /recording/sessions .. /segments .. /end .. /materialize", () => 
     expect(await reasonCodeOf(res)).toBe("SESSION_ENDED");
     expect(await countRows(ORG, "recording_segments")).toBe(0);
   });
+});
+
+it("materializes explicit multipart audio and notes, reads persisted bytes, and scopes replay to current membership", async () => {
+  const { createHash } = await import("node:crypto");
+  const sourceRefId = "interview-cloud-audio";
+  await grantConsent(ORG, sourceRefId, P1);
+  const started = await post("/recording/sessions", USER, ORG, { sourceType: "interview", sourceRefId,
+    projectId: PROJECT, trackPlan: [{ participantId: P1 }], idempotencyKey: "audio-start" });
+  expect(started.status).toBe(201);
+  const { sessionId, tracks } = C.operations.startRecording.out.parse(await started.json());
+  await asApp(ORG, s => s.query("UPDATE recording_sessions SET started_at=now()-interval '5 seconds' WHERE id=$1", [sessionId]));
+  const segment = await post(`/recording/sessions/${sessionId}/segments`, USER, ORG, { sessionId, trackId: tracks[0]!.trackId,
+    anchor: { startMs: 0, endMs: 1000, messageId: null }, rawText: "retained transcript", asrConfidence: 0.95,
+    diarization: { channelId: "ch-audio", overlap: false }, idempotencyKey: "audio-segment" });
+  expect(segment.status).toBe(201);
+  const audio = Buffer.from("1a45dfa38b4282847765626d1853806701020304", "hex");
+  const metadata = { sessionId, idempotencyKey: "audio-materialize", notesMarkdown: "# Interview notes\nApproved source",
+    audio: { contentType: "audio/webm", sizeBytes: audio.length, sha256: createHash("sha256").update(audio).digest("hex") } };
+  const upload = (user = USER, org = ORG, overrides: Record<string, unknown> = {}, bytes = audio) => {
+    const form = new FormData(); form.append("request", JSON.stringify({ ...metadata, ...overrides }));
+    form.append("audio", new Blob([bytes], { type: "audio/webm" }), "recording.webm");
+    return fetch(`${BASE}/recording/sessions/${sessionId}/materialize-files`, { method: "POST", headers: auth(user, org), body: form });
+  };
+  expect((await upload()).status).toBe(409); // A live session cannot publish a finished recording.
+  expect((await post(`/recording/sessions/${sessionId}/end`, USER, ORG, { sessionId, idempotencyKey: "audio-end" })).status).toBe(200);
+  expect((await upload(OUTSIDER)).status).toBe(403);
+  expect((await upload(OTHER_USER, OTHER_ORG)).status).toBe(404);
+  expect((await upload(USER, ORG, { sessionId: "another-session" })).status).toBe(400);
+  expect((await upload(USER, ORG, {}, Buffer.from("not webm"))).status).toBe(400);
+  const [response, concurrent] = await Promise.all([upload(), upload()]); expect(response.status).toBe(200);
+  expect(concurrent.status).toBe(200);
+  const result = C.operations.materializeRecordingFiles.out.parse(await response.json());
+  expect(result.artifacts.map(a => a.kind).sort()).toEqual(["audio", "notes", "transcript"]);
+  expect(await concurrent.json()).toEqual(result);
+  const original = result.artifacts.find(a => a.kind === "audio")!;
+  expect(result.artifacts.filter(a => a.kind !== "audio").every(a => a.derivedFrom === original.versionId)).toBe(true);
+  const key = await asApp(ORG, async s => (await s.query<{ object_storage_key: string }>(
+    "SELECT object_storage_key FROM artifact_versions WHERE id=$1", [original.versionId])).rows[0]!.object_storage_key);
+  // A fresh store instance, not an in-memory write spy, proves restart-readable bytes.
+  const { FsObjectStore } = await import("../../src/infrastructure/storage/fs-object-store");
+  expect(Buffer.from((await new FsObjectStore(process.env.WORKSPACEX_OBJECT_ROOT!).get(key))!)).toEqual(audio);
+  const replay = await upload(); expect(replay.status).toBe(200); expect(await replay.json()).toEqual(result);
+  expect((await upload(USER, ORG, { notesMarkdown: "changed" })).status).toBe(409);
+  expect((await upload(OUTSIDER)).status).toBe(403); // Knowing a successful key cannot bypass permission.
+  expect(await countRows(ORG, "artifact_versions")).toBe(3);
 });

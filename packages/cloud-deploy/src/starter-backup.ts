@@ -9,9 +9,9 @@ const identifier = z.string().regex(/^[a-z][a-z0-9_]{0,62}$/);
 const Target = z.object({ container: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/), database: identifier,
   user: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]{0,62}$/), password: z.string().min(16).max(4096) });
 export type StarterBackupTarget = z.infer<typeof Target>;
-const Manifest = z.object({ schemaVersion: z.literal(1), format: z.literal("postgres-custom"), postgresMajor: z.literal(16),
+export const StarterBackupManifestSchema = z.object({ schemaVersion: z.literal(1), format: z.literal("postgres-custom"), postgresMajor: z.literal(16),
   database: identifier, sha256: z.string().regex(/^[a-f0-9]{64}$/), bytes: z.number().int().positive(), createdAt: z.string().datetime() }).strict();
-export type StarterBackupManifest = z.infer<typeof Manifest>;
+export type StarterBackupManifest = z.infer<typeof StarterBackupManifestSchema>;
 
 type RunOptions = { stdin?: number; stdout?: number; timeoutMs?: number };
 async function pgTool(target: StarterBackupTarget, tool: string, args: string[], options: RunOptions = {}): Promise<string> {
@@ -59,7 +59,7 @@ export async function backupStarterDatabase(input:StarterBackupTarget, directory
     try { await pgTool(target,"pg_dump",["--format=custom","--lock-wait-timeout=10000"],{stdout:handle.fd}); await handle.sync(); integrity=await digest(handle); }
     finally {await handle.close();}
     if (!integrity.bytes) throw new Error("EMPTY_BACKUP");
-    const value=Manifest.parse({schemaVersion:1,format:"postgres-custom",postgresMajor:16,database:target.database,...integrity,createdAt:new Date().toISOString()});
+    const value=StarterBackupManifestSchema.parse({schemaVersion:1,format:"postgres-custom",postgresMajor:16,database:target.database,...integrity,createdAt:new Date().toISOString()});
     const file=await open(temp,"wx",0o600); try{await file.writeFile(JSON.stringify(value,null,2)+"\n");await file.sync();}finally{await file.close();}
     await rename(temp,manifest); await syncDirectory(directory);
     return value;
@@ -72,7 +72,7 @@ export async function restoreStarterDatabase(input:StarterBackupTarget,directory
   if(!dir.isDirectory()||dir.isSymbolicLink()||(dir.mode&0o077)!==0)throw new Error("UNSAFE_BACKUP_DIRECTORY");
   const manifestFile=await open(join(directory,"manifest.json"),constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   let manifest:StarterBackupManifest;
-  try{const stat=await manifestFile.stat();if(!stat.isFile()||stat.size>65536||(stat.mode&0o077)!==0)throw new Error("INVALID_BACKUP_MANIFEST");manifest=Manifest.parse(JSON.parse(await manifestFile.readFile("utf8")));}finally{await manifestFile.close();}
+  try{const stat=await manifestFile.stat();if(!stat.isFile()||stat.size>65536||(stat.mode&0o077)!==0)throw new Error("INVALID_BACKUP_MANIFEST");manifest=StarterBackupManifestSchema.parse(JSON.parse(await manifestFile.readFile("utf8")));}finally{await manifestFile.close();}
   if(target.database===manifest.database)throw new Error("RESTORE_REQUIRES_NEW_DATABASE");
   const file=await open(join(directory,"database.dump"),constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   try{

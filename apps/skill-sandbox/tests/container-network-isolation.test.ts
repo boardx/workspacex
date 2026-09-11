@@ -41,7 +41,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const IMAGE = "workspacex-skill-sandbox:test";
+const IMAGE = process.env.SANDBOX_TEST_IMAGE ?? "workspacex-skill-sandbox:test";
 const SUFFIX = `${process.pid}-${Date.now()}`;
 const NETWORK = `wsx-sandbox-net-${SUFFIX}`;
 const ECHO = `wsx-sandbox-echo-${SUFFIX}`;
@@ -73,17 +73,19 @@ describeDocker("V2-b / V2-CP 容器网络隔离", () => {
   const created: string[] = [];
 
   beforeAll(async () => {
-    await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
-      cwd: join(import.meta.dirname, ".."),
-      timeout: 600_000,
-    });
+    if (!process.env.SANDBOX_TEST_IMAGE) {
+      await execFileAsync("docker", ["build", "-t", IMAGE, "."], {
+        cwd: join(import.meta.dirname, ".."),
+        timeout: 600_000,
+      });
+    }
 
     await execFileAsync("docker", ["network", "create", NETWORK], { timeout: 60_000 });
     // 伴生 HTTP 服务：只在容器网络里，不占宿主端口。
     await execFileAsync(
       "docker",
       [
-        "run", "-d", "--name", ECHO, "--network", NETWORK, "node:22-slim",
+        "run", "-d", "--name", ECHO, "--network", NETWORK, IMAGE,
         "node", "-e",
         `require('http').createServer((q,s)=>s.end(${JSON.stringify(ECHO_BODY)})).listen(8080)`,
       ],

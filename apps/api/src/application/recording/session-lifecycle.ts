@@ -94,13 +94,9 @@ export interface MaterializedRecordingArtifact {
 /**
  * Materialize a finished session's files.
  *
- * ⚠ Only the transcript's bytes are produced here. Audio arrives from the client and this
- * bundle has no route that accepts it, so a `workshop`/`interview` session materialised
- * through this path fails with `MATERIALIZE_PARTIAL_FAILURE` rather than registering a
- * transcript and quietly dropping the recording it was derived from. That is a missing
- * upload operation, reported on issue #465 — not something to be worked around by declaring
- * the audio optional, which would make "this session has no audio" and "we lost the audio"
- * the same stored fact.
+ * The server renders the transcript. The protected multipart entry may additionally
+ * supply captured audio and interview notes. A caller that captured no audio preserves
+ * the existing transcript-only behavior; missing required interview notes still fails.
  */
 export async function materializeRecordingSession(
   deps: MaterializeRecordingDeps,
@@ -108,12 +104,15 @@ export async function materializeRecordingSession(
     readonly orgId: OrgId;
     readonly sessionId: string;
     readonly actorId: string;
+    readonly parts?: { readonly "audio.webm"?: Uint8Array; readonly "notes.md"?: Uint8Array };
   },
 ): Promise<Result<{ artifacts: readonly MaterializedRecordingArtifact[] }>> {
   const session = await deps.sessions.lifecycleSession(input.sessionId);
   if (session === undefined) return fail("SESSION_NOT_FOUND");
   if (session.endedAt === null) return fail("SESSION_NOT_ENDED");
 
+  if (session.sourceType === "thread" && input.parts?.["audio.webm"]) return fail("MATERIALIZE_PARTIAL_FAILURE");
+  if (session.sourceType !== "interview" && input.parts?.["notes.md"]) return fail("MATERIALIZE_PARTIAL_FAILURE");
   const segments = await deps.segments.ofSession(input.sessionId);
   const transcript = renderTranscriptJsonl(segments);
 
@@ -126,7 +125,7 @@ export async function materializeRecordingSession(
         sessionId: input.sessionId,
         sourceType: session.sourceType,
         actorId: input.actorId,
-        parts: { "transcript.jsonl": transcript },
+        parts: { ...input.parts, "transcript.jsonl": transcript },
       },
     );
     return {

@@ -43,16 +43,23 @@ export class FakeExportContentRepository implements ExportContentRepository {
 /** Keeps the FULL `NewExportJob` (including `objectKey`), not just the contract-shaped record
  *  -- a test needs the object key to go fetch the zip bytes back out of the object store. */
 export class InMemoryExportJobRepository implements ExportJobRepository {
+  readonly artifactIdsByJob = new Map<string, readonly string[]>();
   readonly raw = new Map<string, NewExportJob>();
 
   async saveDone(job: NewExportJob): Promise<void> {
     this.raw.set(job.jobId, job);
   }
 
+  async findContent(input: { orgId: OrgId; jobId: string }) {
+    const job = this.raw.get(input.jobId);
+    return job && job.orgId === input.orgId ? { projectId: job.projectId, requestedBy: job.requestedBy,
+      objectKey: job.objectKey, expiresAt: job.expiresAt, artifactIds: this.artifactIdsByJob.get(job.jobId) ?? null } : null;
+  }
+
   async findById(input: { readonly orgId: OrgId; readonly jobId: string }):
     Promise<{ readonly projectId: string; readonly job: ExportJobRecord } | null> {
     const job = this.raw.get(input.jobId);
-    if (!job) return null;
+    if (!job || job.orgId !== input.orgId) return null;
     return {
       projectId: job.projectId,
       job: {

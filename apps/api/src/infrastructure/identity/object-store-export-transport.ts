@@ -4,11 +4,9 @@
  *
  * ## What it does, and the deployment fact that makes that enough
  *
- * In phase-00 both organizations live in the SAME deployment and the same object store, so
- * the move is a read plus a write-once inside that store. **Nothing leaves the machine on
- * this path** -- which is exactly what the aperture ledger shows when the DB-backed export
- * tests run, and that absence is itself an assertion worth having: the ordinary export does
- * not egress, so any permit in the ledger during ordinary work would be a finding.
+ * Both organizations use the configured ObjectStore namespace. The copy reads the source
+ * and writes the target once; in cloud profiles these calls reach private OSS over the
+ * configured endpoint. No filesystem path or public bucket URL is returned to callers.
  *
  * ## Why it is nevertheless called inside the aperture
  *

@@ -21,6 +21,7 @@
  *      membership data every other bundle's decisions are made from
  *   4. the use case — consent, retention, anchors, mic state
  *
+ * Materialization rechecks the current project role BEFORE an idempotent replay.
  * Steps 3 and 4 run INSIDE one tenant transaction (`RecordingUnitOfWork.withOrg`), so a
  * refusal at step 4 rolls back whatever step 4 had written before it refused. That is what
  * makes "403 and zero rows" one fact instead of two hopes.
@@ -59,8 +60,13 @@ import {
   Res,
   ServiceUnavailableException,
   UnprocessableEntityException,
+  UseInterceptors,
+  UploadedFile,
 } from "@nestjs/common";
 import type { Response } from "express";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { recordingUploadParts } from "../../application/recording/recording-file-upload";
+import { RecordingUploadCapacityError, recordingUploadStorage, withRecordingUpload } from "../recording/recording-upload-storage";
 import { personalRealtimeTranscription as PersonalC, recording as C } from "@repo/contracts";
 import {
   startRecording,
@@ -648,6 +654,34 @@ export class RecordingController {
   }
 
   @HttpCode(HttpStatus.OK)
+  @Post(C.operations.materializeRecordingFiles.path)
+  @UseInterceptors(FileInterceptor("audio", { storage: recordingUploadStorage, limits: {
+    fileSize: C.operations.materializeRecordingFiles.in.shape.audio.unwrap().shape.sizeBytes.maxValue!, files: 1,
+    fields: 1, fieldSize: 2 * 1024 * 1024,
+  } }))
+  async materializeFiles(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string,
+    @Body("request") request: string, @UploadedFile() audio?: Express.Multer.File) {
+    assertPrincipal(principal);
+    try {
+      return await withRecordingUpload(audio, async loadedAudio => {
+        let body: typeof C.operations.materializeRecordingFiles.in._type;
+        try { body = C.operations.materializeRecordingFiles.in.parse(JSON.parse(request)); }
+        catch { throw new BadRequestException({ reasonCode: "INVALID_RECORDING_FILE" }); }
+        if (body.sessionId !== sessionId) throw new BadRequestException("session_id_mismatch");
+        let parts: ReturnType<typeof recordingUploadParts>;
+        try { parts = recordingUploadParts(body, loadedAudio); }
+        catch { throw new BadRequestException({ reasonCode: "INVALID_RECORDING_FILE" }); }
+        return this.materializeAuthorized(principal, sessionId, body, parts);
+      });
+    } catch (error) {
+      if (error instanceof RecordingUploadCapacityError) {
+        throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      throw error;
+    }
+  }
+
+  @HttpCode(HttpStatus.OK)
   @Post("/recording/sessions/:sessionId/materialize")
   async materialize(
     @CurrentPrincipal() principal: Principal,
@@ -656,19 +690,22 @@ export class RecordingController {
   ) {
     assertPrincipal(principal);
     if (body.sessionId !== sessionId) throw new BadRequestException("session_id_mismatch");
+    return this.materializeAuthorized(principal, sessionId, body);
+  }
+
+  private async materializeAuthorized(principal: Principal, sessionId: string, body: MaterializeBody,
+    parts?: Parameters<typeof materializeRecordingSession>[1]["parts"]) {
     const orgId = toOrgId(principal.orgId);
     const digest = payloadDigest(body);
-
     try {
       return await this.uow.withOrg(orgId, { userId: principal.userId }, async (stores) => {
+        const session = await stores.sessions.lifecycleSession(sessionId);
+        if (session === undefined) throw new RecordingRefusal("SESSION_NOT_FOUND");
+        await this.requireProjectRole(principal.userId, orgId, session.projectId);
         const replayed = await this.idempotency<
           typeof C.operations.materializeRecordingArtifacts.out._type
         >(stores, "materializeRecordingArtifacts", body.idempotencyKey, digest);
         if (replayed !== undefined) return replayed;
-
-        const session = await stores.sessions.lifecycleSession(sessionId);
-        if (session === undefined) throw new RecordingRefusal("SESSION_NOT_FOUND");
-        await this.requireProjectRole(principal.userId, orgId, session.projectId);
 
         const materialized = await materializeRecordingSession(
           {
@@ -678,7 +715,7 @@ export class RecordingController {
             repo: this.artifacts,
             ids: this.artifactIds,
           },
-          { orgId, sessionId, actorId: principal.userId },
+          { orgId, sessionId, actorId: principal.userId, parts },
         );
         if (!materialized.ok) throw new RecordingRefusal(materialized.reason);
 
