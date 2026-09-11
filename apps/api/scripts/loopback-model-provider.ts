@@ -527,7 +527,7 @@ const server = createServer((req, res) => {
       title: "Research E2E policy evidence",
       url: `http://127.0.0.1:${port}/research-evidence`,
       snippet: `Storage projects must follow grid connection rules. Search query: ${query}`,
-    }] }));
+    }, ...(query === "grid storage policy evidence" ? [{ title: "Research E2E unrelated vehicle inventory", url: `http://127.0.0.1:${port}/unrelated-inventory`, snippet: "Controlled unrelated vehicle inventory: Acura cars available for sale." }] : [])] }));
     return;
   }
   if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {

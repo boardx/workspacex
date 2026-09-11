@@ -1,0 +1,136 @@
+Baseline regression: 622dfd2ee accepted unrelated Acura source; same service test failed as expected (exit 1). Temporary baseline files removed.
+
+Final unique passing tests: 35 PostgreSQL + 79 pure API + 22 contracts + 4 UI = 140.
+API and web typecheck: exit 0. ./init.sh: quick dependency health passed. git diff --check: exit 0.
+
+PostgreSQL command (standard isolation): pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/guided-source-relevance.test.ts tests/research/guided-plan-repair.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-runtime-conversation.test.ts tests/research/guided-runtime-orchestration.test.ts tests/research/guided-runtime-progress.test.ts
+Initial combined run: 71 passed, 1 failed. Failure was orchestration fixture returning undefined instead of a relevance assessment. Only that test fixture changed afterward; actual PostgreSQL suite passed 35/35. All 79 pure API tests then reran successfully below. Isolation waited 10 minutes for load and admitted under its existing policy; cleanup completed.
+[db-isolation] db=wsx_710deba1383bf1e3a723 capacity=100 current=6 required=32
+ ✓ tests/research/guided-runtime-persistence.test.ts (35 tests) 83576ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists relevance filtering of new search results without accepting unrelated inventory 486ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > rechecks legacy accepted sources and persists the corrected decisions 496ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps the previous report after regeneration fails and reloads it without treating history as current 814ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists the complete unverified draft and quality findings across reload, then repairs it without promoting warnings 1186ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > serves authorized runtime commands over HTTP and rejects cross-step payloads 417ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > calls a model for every step, persists sources and reports, and recovers in another service instance 653ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > reconfirms a historical edited draft and regenerates downstream results 465ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists the next step before generation and retries a failed model without reconfirming 325ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > does not confirm research without completed searches and included sources 412ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > includes new and legacy pending evidence without accepting excluded sources 583ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists removals across retries and restores an explicitly re-added URL without duplicate evidence 974ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > adds only matching retrieved URL evidence with succeeded provenance and idempotent replay 1596ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > does not let manually added evidence bypass incomplete planned searches 1795ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after unmatched additions 3587ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after empty additions 533ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after unavailable additions 760ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > proposes real research through conversation but executes only after approval 552ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > advances all five steps through model-backed conversation and approved commands 699ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists failed searches and retries without fabricating sources 397ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > rejects nonexistent sources, unknown citations and cross-node drafts 636ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > denies another user before any model call and serializes concurrent requests 374ms
+   ✓ report streaming and explicit partial evidence > persists the first provider delta before completion and survives observer disconnect/replay 621ms
+   ✓ report streaming and explicit partial evidence > serves an authorized SSE observer and keeps generating after the socket closes 2002ms
+   ✓ report streaming and explicit partial evidence > keeps only approved checkpoint text after a transport failure 808ms
+   ✓ report streaming and explicit partial evidence > keeps only approved checkpoint text after a citation failure 1809ms
+   ✓ report streaming and explicit partial evidence > preserves formal front matter when a Skill proposal omits it 1134ms
+   ✓ report streaming and explicit partial evidence > reloads approved chapters from PostgreSQL and resumes only the unfinished chapter 986ms
+   ✓ report streaming and explicit partial evidence > requires an explicit partial choice and retains evidence gaps through report completion 1685ms
+   ✓ report streaming and explicit partial evidence > never bypasses pending tasks with the partial option 341ms
+[db-isolation] db=wsx_710deba1383bf1e3a723 peak_connections=6
+
+Pure suite command: pnpm --filter api exec vitest run --config /tmp/vitest-research-relevance.config.mts
+Config (no database access/global setup):
+export default { test: { root: '/private/tmp/workspacex-research-source-relevance/apps/api', include: ['tests/research/guided-source-relevance.test.ts', 'tests/research/guided-plan-repair.test.ts', 'tests/research/guided-runtime-conversation.test.ts', 'tests/research/guided-runtime-orchestration.test.ts', 'tests/research/guided-runtime-progress.test.ts', 'tests/research/guided-report-chapters.test.ts'], globalSetup: [], pool: 'forks', maxWorkers: 1, minWorkers: 1 } };
+
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-source-relevance/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (42 tests) 1956ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 535ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 505ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 504ms
+ ✓ tests/research/guided-plan-repair.test.ts (11 tests) 55ms
+ ✓ tests/research/guided-source-relevance.test.ts (15 tests) 57ms
+ ✓ tests/research/guided-runtime-conversation.test.ts (6 tests) 58ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (2 tests) 50ms
+ ✓ tests/research/guided-runtime-progress.test.ts (3 tests) 15ms
+
+ Test Files  6 passed (6)
+      Tests  79 passed (79)
+   Start at  00:46:23
+   Duration  9.19s (transform 1.97s, setup 0ms, collect 5.06s, tests 2.19s, environment 1ms, prepare 598ms)
+
+
+Contracts command: pnpm --filter contracts exec vitest run tests/guided-research-session-contract.test.ts
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-source-relevance/packages/contracts
+
+ ✓ tests/guided-research-session-contract.test.ts (22 tests) 33ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+   Start at  00:39:21
+   Duration  1.14s (transform 333ms, setup 0ms, collect 418ms, tests 33ms, environment 0ms, prepare 129ms)
+
+
+UI command: pnpm --filter web exec vitest run tests/ui/guided-research-sources.test.tsx
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-source-relevance/apps/web
+
+ ✓ tests/ui/guided-research-sources.test.tsx (4 tests) 893ms
+   ✓ compact research sources > includes pending sources, hides removed ones, and exposes complete descriptions on hover/focus/touch 315ms
+   ✓ compact research sources > adds through the versioned runtime and keeps legacy pending sources included on completion 331ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  00:36:20
+   Duration  21.59s (transform 2.52s, setup 415ms, collect 4.11s, tests 893ms, environment 14.25s, prepare 666ms)
+
+
+Follow-up task-scoped relevance regression
+without treating history as current 1839ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists the complete unverified draft and quality findings across reload, then repairs it without promoting warnings 1148ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > serves authorized runtime commands over HTTP and rejects cross-step payloads 547ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > fences an expired writer after a new command claims the session 462ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > calls a model for every step, persists sources and reports, and recovers in another service instance 530ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > exposes the destination loading state while the confirmation model request is pending 373ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > does not confirm research without completed searches and included sources 742ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > includes new and legacy pending evidence without accepting excluded sources 1145ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists removals across retries and restores an explicitly re-added URL without duplicate evidence 478ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > adds only matching retrieved URL evidence with succeeded provenance and idempotent replay 1650ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after unmatched additions 716ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after empty additions 1178ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > keeps report and task state intact after unavailable additions 835ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists model messages and rejects stale proposals 733ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > proposes real research through conversation but executes only after approval 1253ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > advances all five steps through model-backed conversation and approved commands 482ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > persists failed searches and retries without fabricating sources 539ms
+   ✓ durable research runtime with real PostgreSQL and controlled provider doubles > rejects nonexistent sources, unknown citations and cross-node drafts 1352ms
+   ✓ report streaming and explicit partial evidence > persists the first provider delta before completion and survives observer disconnect/replay 1568ms
+   ✓ report streaming and explicit partial evidence > serves an authorized SSE observer and keeps generating after the socket closes 707ms
+   ✓ report streaming and explicit partial evidence > keeps only approved checkpoint text after a transport failure 1692ms
+   ✓ report streaming and explicit partial evidence > keeps only approved checkpoint text after a citation failure 512ms
+   ✓ report streaming and explicit partial evidence > preserves formal front matter when a Skill proposal omits it 376ms
+   ✓ report streaming and explicit partial evidence > reloads approved chapters from PostgreSQL and resumes only the unfinished chapter 1671ms
+   ✓ report streaming and explicit partial evidence > requires an explicit partial choice and retains evidence gaps through report completion 314ms
+   ✓ report streaming and explicit partial evidence > never bypasses running tasks with the partial option 783ms
+ ✓ tests/research/guided-source-relevance.test.ts (21 tests) 53ms
+ ✓ tests/research/guided-plan-repair.test.ts (11 tests) 78ms
+ ✓ tests/research/guided-runtime-conversation.test.ts (6 tests) 41ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (2 tests) 47ms
+ ✓ tests/research/guided-runtime-progress.test.ts (3 tests) 10ms
+
+ Test Files  7 passed (7)
+      Tests  121 passed (121)
+   Start at  01:11:42
+   Duration  81.89s (transform 14.35s, setup 0ms, collect 6.44s, tests 66.65s, environment 1ms, prepare 753ms)
+
+[db-isolation] db=wsx_e0d9d0811db1778902b7 peak_connections=6
+[timing] pnpm --filter api exec vitest run tests/research/guided-source-relevance.test.ts tests/research/guided-plan-repair.test.ts tests/research/guided-runtime-persistence.test.ts tests/research/guided-runtime-conversation.test.ts tests/research/guided-runtime-orchestration.test.ts tests/research/guided-runtime-progress.test.ts tests/research/guided-report-chapters.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：10m0s
+  命令执行：1m24s
+  清理：2s
+  总计：11m27s

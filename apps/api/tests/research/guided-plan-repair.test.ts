@@ -24,8 +24,13 @@ function fixture(responses: unknown[]) {
     if (response instanceof Error) throw response;
     return { text: JSON.stringify(response) };
   });
+  const relevanceComplete = vi.fn(async (input: ModelCallInput) => {
+    const context = JSON.parse(input.user);
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "Controlled relevant evidence", relevance: "direct" })) })) }) };
+  });
+  const model = { complete: (input: ModelCallInput) => JSON.parse(input.user).researchStage === "source_relevance" ? relevanceComplete(input) : complete(input) };
   const search = vi.fn(async () => [{ title: "Official evidence", url: "https://example.org/policy", content: "Documented grid entry requirements" }]);
-  const service = new GuidedRuntimeService(store, { complete }, { search }, { provider: "test", id: "test" });
+  const service = new GuidedRuntimeService(store, model, { search }, { provider: "test", id: "test" });
   const actor = { orgId: toOrgId("org"), userId: "owner", sessionId: session.sessionId };
   const run = (action: "generate" | "start" = "generate") => service.execute(actor, session, { sessionId: session.sessionId, node: "research", action, requestId: action, expectedVersion: state.version });
   return { complete, search, write, writes, run };

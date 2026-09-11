@@ -827,6 +827,8 @@ const guidedWorkflowErrors = [
   "RESEARCH_SEARCH_NOT_CONFIGURED",
   "RESEARCH_SEARCH_UNAVAILABLE",
   "RESEARCH_SEARCH_PARTIAL_FAILURE",
+  "RESEARCH_SEARCH_NO_RELEVANT_SOURCES",
+  "RESEARCH_SOURCE_RELEVANCE_INVALID",
 ] as const;
 
 export const GuidedResearchMetadata = z.object({
@@ -883,6 +885,9 @@ export const GuidedResearchSource = z.object({
   url: z.string().url().refine((url) => /^https?:\/\//.test(url)),
   content: z.string().min(1).max(30000), retrievedAt: z.string(),
   decision: z.enum(["pending", "accepted", "excluded"]),
+  // Server-owned provenance; absent on legacy search results until rechecked.
+  relevanceBasis: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  addedByUser: z.boolean().optional(),
 }).strict();
 export const GuidedResearchTask = z.object({
   title: GuidedResearchTaskDetails.title.optional(), objective: GuidedResearchTaskDetails.objective.optional(), deliverables: GuidedResearchTaskDetails.deliverables.optional(),

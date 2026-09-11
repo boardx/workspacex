@@ -46,6 +46,8 @@ const errors: Record<string, string> = {
   RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH: "请求状态发生冲突，请核对最新进度后重新操作。",
   RESEARCH_WORKFLOW_BUSY: "研究正在处理中，请稍候。",
   RESEARCH_SEARCH_NOT_CONFIGURED: "检索服务尚未配置，请联系管理员。",
+  RESEARCH_SEARCH_NO_RELEVANT_SOURCES: "未找到能支持当前主题和研究问题的资料，请调整研究计划后重试。",
+  RESEARCH_SOURCE_RELEVANCE_INVALID: "资料相关性评估未通过校验，尚未纳入新的资料，请重试。",
   RESEARCH_SEARCH_EMPTY: "检索服务未返回来源，请调整研究计划后重试。",
   RESEARCH_SEARCH_UNAVAILABLE: "检索服务暂时不可用，请重试。",
   RESEARCH_SEARCH_CONTENT_EMPTY: "检索结果缺少可用正文，请重试。",
