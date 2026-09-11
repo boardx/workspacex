@@ -321,6 +321,9 @@ export default {
       // `startRecording` 前置的“配置保留期”从浏览器根本发不出请求，会被 Next 自己
       // 接住返回 404 HTML，而不是 API 的 403/422。
       { source: `${prefix}/retention-policy`, destination: `${apiOrigin}/retention-policy` },
+      // Cloud file compliance jobs are polled by id; keep both the task and receipt reads
+      // on the API origin so Next never turns a valid controller route into a 404 HTML page.
+      { source: `${prefix}/deletion-tasks/:path*`, destination: `${apiOrigin}/deletion-tasks/:path*` },
       // Phase 04 Interview Studio：集合路由承载历史列表，子路由承载专家与快捷访谈。
       // 两条都需要，否则 Next 会把请求接成 404 HTML，客户端表现为 Unexpected token '<'。
       { source: `${prefix}/interviews`, destination: `${apiOrigin}/interviews` },
