@@ -192,8 +192,7 @@ import { LOCAL_EXPORT_REPOSITORY } from "./application/identity/local-export-por
 import { PgLocalExportRepository } from "./infrastructure/identity/pg-local-export-repository";
 import { ObjectStoreExportTransport } from "./infrastructure/identity/object-store-export-transport";
 import { OBJECT_STORE, type ObjectStore } from "./application/artifact/ports";
-import { FsObjectStore } from "./infrastructure/storage/fs-object-store";
-import { objectStoreRoot } from "./infrastructure/storage/object-store-root";
+import { storageProviders } from "./infrastructure/storage/storage.providers";
 import { CapabilityController } from "./interface/controllers/capability.controller";
 import {
   CAPABILITY_REPOSITORY,
@@ -1410,7 +1409,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     //
     // ⚠ `saveDraft` / `pinVersion` still have no request shape -- providing the store does
     // NOT open those paths, and nothing here should be read as saying it does.
-    { provide: OBJECT_STORE, useFactory: () => new FsObjectStore(objectStoreRoot()) },
+    ...storageProviders,
     { provide: EMBEDDING_PORT, useFactory: langChainEmbeddingClientFromEnv },
     { provide: RERANK_PORT, useFactory: langChainRerankClientFromEnv },
     {
