@@ -262,6 +262,21 @@ const fs = require('fs');
 支持：多页、内置标准字体（Helvetica/Times/Courier 等）的文本排版、手工画线/画框
 拼出简单表格、内嵌图片（PNG/JPG）。
 
+## ⚠ 颜色只能用 \`rgb()\`，写成对象或数组会当场抛错
+
+\`drawText\` / \`drawLine\` / \`drawRectangle\` 的 \`color\`、\`borderColor\` 只接受 pdf-lib 自己的
+颜色对象，**必须从 \`pdf-lib\` 里取 \`rgb\` 再调用**（三个分量是 0–1 的小数，不是 0–255）：
+
+\`\`\`js
+const { PDFDocument, rgb } = require('pdf-lib');
+page.drawText('标题', { x: 50, y: 780, size: 24, font, color: rgb(0.15, 0.35, 0.65) });
+page.drawLine({ start: { x: 50, y: 770 }, end: { x: 545, y: 770 }, thickness: 0.8, color: rgb(0.6, 0.6, 0.6) });
+\`\`\`
+
+**绝对不要写 \`color: { r: 0.2, g: 0.4, b: 0.7 }\` 或 \`color: [0.2, 0.4, 0.7]\`**——pdf-lib 会抛
+\`Invalid color\` 并让整个脚本退出码 1，然后你要花好几轮去改它。实测：不写这条时，
+带配色的生成里五次有四次撞上这个错。不需要颜色时**别传 \`color\`**，默认就是黑色。
+
 ## ⚠ 脚本要短——篇幅本身会把这次生成拖到超时
 
 沙箱执行前，这段脚本得先由你完整写出来；脚本越长（自定义换行函数、逐条手算坐标的
