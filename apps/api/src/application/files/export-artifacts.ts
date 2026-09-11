@@ -42,6 +42,9 @@ export type GetExportJobResult = z.infer<typeof C.operations.getExportJob.out>;
 
 export type ExportReasonCode = "NO_PROJECT_ROLE" | "EXPORT_LIMIT_EXCEEDED" | "DEPENDENCY_UNAVAILABLE";
 
+/** Bounds one synchronous ZIP build/read so a valid authenticated request cannot exhaust the API heap. */
+export const MAX_EXPORT_ARCHIVE_BYTES = 64 * 1024 * 1024;
+
 export class FilesExportError extends Error {
   constructor(readonly reasonCode: ExportReasonCode) {
     super("files_export_failed");
@@ -119,9 +122,19 @@ export async function createExportJob(
   // object store did not have what PostgreSQL said it should"), and nothing is persisted.
   const zipEntries: ZipEntry[] = [];
   const manifestRows: ManifestSourceRow[] = [];
+  let sourceBytes = 0;
   for (const row of exportRows) {
+    const metadata = await deps.objectStore.head(row.objectKey);
+    if (metadata === null) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
+    sourceBytes += metadata.sizeBytes;
+    if (!Number.isSafeInteger(sourceBytes) || sourceBytes > MAX_EXPORT_ARCHIVE_BYTES) {
+      throw new FilesExportError("EXPORT_LIMIT_EXCEEDED");
+    }
     const bytes = await deps.objectStore.get(row.objectKey);
     if (bytes === null) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
+    // ObjectStore is write-once, but retain a post-read bound so a faulty adapter cannot
+    // turn a small HEAD response into an unbounded allocation accepted by the use case.
+    if (bytes.byteLength !== metadata.sizeBytes) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const path = paths.get(row.artifactId)!;
     zipEntries.push({ path, content: bytes });
@@ -141,6 +154,7 @@ export async function createExportJob(
   const manifestSha256 = createHash("sha256").update(manifestBytes).digest("hex");
 
   const zipBytes = deps.zip.build([{ path: "manifest.json", content: manifestBytes }, ...zipEntries]);
+  if (zipBytes.byteLength > MAX_EXPORT_ARCHIVE_BYTES) throw new FilesExportError("EXPORT_LIMIT_EXCEEDED");
 
   const jobId = deps.idFactory.next("exp");
   const objectKey = `${input.orgId}/exports/${input.projectId}/${jobId}.zip`;
@@ -221,8 +235,13 @@ export async function downloadExportJob(deps: ExportDeps,
     selection: { artifactIds: found.artifactIds, treeNodeId: null } }), decision);
   const visibleIds = new Set(current.map(row => row.artifactId));
   if (!found.artifactIds.every(id => visibleIds.has(id))) throw new FilesExportError("NO_PROJECT_ROLE");
+  const metadata = await deps.objectStore.head(found.objectKey);
+  if (metadata === null) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
+  if (!Number.isSafeInteger(metadata.sizeBytes) || metadata.sizeBytes > MAX_EXPORT_ARCHIVE_BYTES) {
+    throw new FilesExportError("EXPORT_LIMIT_EXCEEDED");
+  }
   const bytes = await deps.objectStore.get(found.objectKey);
-  if (bytes === null) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
+  if (bytes === null || bytes.byteLength !== metadata.sizeBytes) throw new FilesExportError("DEPENDENCY_UNAVAILABLE");
   return bytes;
 }
 

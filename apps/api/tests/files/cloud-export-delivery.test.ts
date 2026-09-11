@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createExportJob, downloadExportJob, getExportJob, type ExportDeps } from "../../src/application/files/export-artifacts";
+import { createExportJob, downloadExportJob, getExportJob, MAX_EXPORT_ARCHIVE_BYTES, type ExportDeps } from "../../src/application/files/export-artifacts";
 import { FsObjectStore } from "../../src/infrastructure/storage/fs-object-store";
 import { NodeZipBuilder, readZip } from "../../src/infrastructure/files/zip-codec";
 import { FakeDecisionIds, FakeProvenanceWriter, FakeRoleViewRepository } from "../support/role-view-fakes";
@@ -45,4 +45,19 @@ it("denies other principals, other tenants, expired links and revoked project ac
 it("reports unavailable archive instead of empty download", async () => {
   const { deps, input } = await fixture(); vi.spyOn(deps.objectStore, "get").mockResolvedValue(null);
   await expect(downloadExportJob(deps, input)).rejects.toThrow("files_export_failed");
+});
+it("rejects an oversized archive from HEAD before transferring its body", async () => {
+  const { deps, input } = await fixture();
+  const get = vi.spyOn(deps.objectStore, "get");
+  vi.spyOn(deps.objectStore, "head").mockResolvedValue({ sizeBytes: MAX_EXPORT_ARCHIVE_BYTES + 1, mime: "application/zip" });
+  await expect(downloadExportJob(deps, input)).rejects.toMatchObject({ reasonCode: "EXPORT_LIMIT_EXCEEDED" });
+  expect(get).not.toHaveBeenCalled();
+});
+it("rejects an oversized source selection before loading source bytes into the ZIP builder", async () => {
+  const { deps, input } = await fixture();
+  const get = vi.spyOn(deps.objectStore, "get"); get.mockClear();
+  vi.spyOn(deps.objectStore, "head").mockResolvedValue({ sizeBytes: MAX_EXPORT_ARCHIVE_BYTES + 1, mime: "text/plain" });
+  await expect(createExportJob(deps, { orgId: input.orgId, userId: input.userId, projectId: "project",
+    artifactIds: ["a"], treeNodeId: null })).rejects.toMatchObject({ reasonCode: "EXPORT_LIMIT_EXCEEDED" });
+  expect(get).not.toHaveBeenCalled();
 });
