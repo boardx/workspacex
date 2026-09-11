@@ -37,8 +37,9 @@ flowchart TD
     SEC --> RUN
     FILE --> RUN
     RUN --> RUNV["部署包 263 项与 API 探针 13 项通过<br/>62adf697a · 编排使用模拟执行器"]
-    RUN --> FINAL["最终统一 SHA 镜像重建与整体验证<br/>开发中：release_artifacts"]
-    FINAL --> CLOUD["两档真实云端三次计时与故障验收<br/>尚未完成 · 不标全 PASS"]
+    RUN --> FINAL["统一 SHA 六镜像准备完成<br/>source 8261cd531 · linux/arm64"]
+    FINAL --> FINALV["Web/API/Agent/Sandbox及PG/Redis<br/>真实本地运行验收通过 · 8261cd531<br/>未启动许可Server"]
+    FINALV --> CLOUD["两档真实云端三次计时与故障验收<br/>尚未完成 · 不标全 PASS"]
     CLOUD -.-> BLOCK["云验收阻塞<br/>缺专用 ECS / OSS / 云凭据"]
     IMG -.-> LICENSE["待确认：Agent 生产服务许可方案<br/>已有 LangGraph 许可或自建服务"]
     REL -.-> GH["GitHub 外发阻塞<br/>自动审批拒绝 issue / push<br/>授权问题待答复"]
@@ -47,22 +48,21 @@ flowchart TD
     classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
     classDef active fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef pending fill:#f1f5f9,stroke:#94a3b8,color:#334155;
-    class CFG,PRE,TLS,REL,WEB,SAND,IMG,OSS,FILE,DB,MEM,BACK,SEC,RUN done;
-    class CFGV,PREV,TLSV,WEBV,SANDV,IMGV,OSSV,FILEV,DBV,MEMV,BACKV,RUNV accepted;
-    class FINAL active;
+    class CFG,PRE,TLS,REL,WEB,SAND,IMG,OSS,FILE,DB,MEM,BACK,SEC,RUN,FINAL done;
+    class CFGV,PREV,TLSV,WEBV,SANDV,IMGV,OSSV,FILEV,DBV,MEMV,BACKV,RUNV,FINALV accepted;
     class BLOCK,LICENSE,GH blocked;
     class T,CLOUD pending;
 ```
 
-本次更新已把主机准备、收据与完整发布树复核、Memory、Sandbox、Agent 固定依赖、业务编排、生成密钥和 root 路径信任的父分支提交改为绿色。部署包 263 项、API 探针 13 项及各节点注明的真实本地测试改为紫色；它们仍不代表真实云验收。
+本次更新已把主机准备、收据与完整发布树复核、Memory、Sandbox、Agent 固定依赖、业务编排、生成密钥、root 路径信任和统一 SHA 本地镜像构建改为绿色。部署包 263 项、API 探针 13 项及统一 linux/arm64 镜像运行验收改为紫色；它们仍不代表真实云验收。
 
-紫色证据来自各节点对应提交的测试记录；不同源码版本的测试不能合并为最终整套产品验收。最终统一 SHA 的镜像仍需重建，两档真实云端安装、业务链路、恢复与 300 秒墙钟计时尚未通过。
+统一镜像证据绑定源码 `8261cd531aef0b0114d83c2c9fc035be3200934b`：Web/API/Agent/Sandbox 的 OCI revision 一致，固定 PG16/vector 与 Redis7 也通过运行检查。镜像尚未发布到受批准 registry，因此没有伪造 release manifest。两档真实云端安装、许可 Server、业务链路、恢复与 300 秒墙钟计时尚未通过。
 
 | 执行者 | 当前状态 |
 |---|---|
-| release_artifacts | 独立诊断镜像已通过；等待最终源码 SHA 后重建统一镜像 |
+| release_artifacts | 8261cd531 统一 linux/arm64 镜像构建和本地运行验收完成；registry 发布待授权 |
 | data_initialization | 参数/验收矩阵与 prepare→provision 交界复验完成 |
 | file_agent_paths | Memory、取消清理、凭据和 root 路径信任审查完成 |
-| 主 agent | 冻结统一源码、最终回归、进度与交付文档 |
+| 主 agent | 最终证据复核、进度与交付文档；真实云验收等待前提参数 |
 
 红色条件只阻塞对应外发或真实云验收，不阻止其他开发。GitHub issue/push 曾被自动审批拒绝，原因是向外部仓库发送实现信息的授权未获确认；未通过其他工具绕过。
