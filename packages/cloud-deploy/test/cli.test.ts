@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { deploymentExample } from "../src/index";
+import { deploymentExample, objectStoreConfig } from "../src/index";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
@@ -26,6 +26,22 @@ describe("deployment CLI", () => {
     expect(parsed.plan.profile).toBe(profile);
     expect(parsed.config).toBeUndefined();
     expect(result.stderr).toBe("");
+  });
+  it.each(["starter", "production"] as const)("renders %s OSS variables accepted by the API parser", (profile) => {
+    const path = join(temp(), "config.json");
+    writeFileSync(path, JSON.stringify(deploymentExample(profile)));
+    const result = run("storage-env", path);
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.cloudVerified).toBe(false);
+    expect(parsed.scope).toBe("oss-only");
+    const runtime = objectStoreConfig(parsed.environment);
+    expect(runtime.backend).toBe("oss");
+    if (runtime.backend !== "oss") throw new Error("wrong backend");
+    expect(runtime.oss.authMode).toBe("ecs-role");
+    expect(runtime.oss.bucket).toBe(deploymentExample(profile).environment.ossBucket);
+    expect(parsed.environment.WORKSPACEX_DEPLOY_PROFILE).toBe(profile);
+    expect(result.stdout).not.toMatch(/SecretRef|ACCESS_KEY|apiKey/);
   });
   it("returns multiple errors with nonzero status and no submitted secret", () => {
     const input = deploymentExample("production");

@@ -20,10 +20,12 @@
     "migrate:check": "./scripts/verify-migrations.sh",
     "debug:trace": "tsx scripts/debug-trace-cli.ts",
     "dev:deps": "docker compose -f docker-compose.dev.yml -p workspacex-kernel up -d",
-    "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts"
+    "gen:native-profile-tools": "tsx scripts/generate-native-profile-tools.ts",
+    "test:storage": "vitest run --config vitest.storage.config.ts"
   },
   "dependencies": {
     "@ag-ui/core": "0.0.57",
+    "@alicloud/credentials": "2.4.7",
     "@firecrawl/anydoc": "0.1.8",
     "@langchain/core": "0.3.80",
     "@langchain/langgraph": "0.4.9",
@@ -35,7 +37,9 @@
     "@nestjs/core": "^10.4.15",
     "@nestjs/platform-express": "^10.4.15",
     "@playwright/mcp": "0.0.80",
+    "@repo/cloud-deploy": "workspace:*",
     "@repo/contracts": "workspace:*",
+    "ali-oss": "6.23.0",
     "bcryptjs": "^3.0.2",
     "cron-parser": "5.10.0",
     "express": "4.22.1",
@@ -56,6 +60,7 @@
     "@repo/dev-mode-accounts": "workspace:*",
     "@repo/fabric-markdown": "workspace:*",
     "@repo/skill-sandbox": "workspace:*",
+    "@types/ali-oss": "6.23.3",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.0.0",
