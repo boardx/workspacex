@@ -85,7 +85,7 @@ describe('OSS ObjectStore contract', () => {
     expect(await f.store.get('key')).toBeNull(); expect(await other.get('key')).toEqual(Buffer.from('b'));
   });
   it('never leaks upstream secrets through adapter errors', async () => {
-    const f = fixture(); f.setError(new Error('SECRET credential URL')); 
+    const f = fixture(); f.setError(new Error('SECRET credential URL'));
     await expect(f.store.putOnce('key', Buffer.from('x'), 'text/plain')).rejects.toThrow('OSS unavailable');
   });
 });
