@@ -22,7 +22,7 @@ function fixture() {
 const config = { provider: "test", id: "model" };
 function answer(context: any) {
   if (context.reportStage === "evidence" || context.researchStage === "source_relevance") return { evaluations: context.chunks.map((chunk: any) => {
-    const matches = context.questions.filter((question: any) => chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
+    const matches = context.questions.filter((question: any) => context.researchStage === "source_relevance" ? chunk.questionIds.includes(question.id) : chunk.sourceId.endsWith(question.sectionId) || !context.chunks.some((candidate: any) => candidate.sourceId.endsWith(question.sectionId)))
       .map((question: any) => ({ questionId: question.id, quote: chunk.content.slice(0, 80), insight: "The excerpt supports a limited policy comparison.", relevance: "direct" }));
     return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: !matches.length, matches };
   }) };

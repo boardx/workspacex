@@ -26,7 +26,7 @@ function fixture(responses: unknown[]) {
   });
   const relevanceComplete = vi.fn(async (input: ModelCallInput) => {
     const context = JSON.parse(input.user);
-    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "Controlled relevant evidence", relevance: "direct" })) })) }) };
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[] }) => ({ sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant: false, matches: chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "Controlled relevant evidence", relevance: "direct" })) })) }) };
   });
   const model = { complete: (input: ModelCallInput) => JSON.parse(input.user).researchStage === "source_relevance" ? relevanceComplete(input) : complete(input) };
   const search = vi.fn(async () => [{ title: "Official evidence", url: "https://example.org/policy", content: "Documented grid entry requirements" }]);

@@ -32,6 +32,7 @@ let badCitation: boolean;
 let shallowReport: boolean;
 let searchCalls: number;
 let relevanceCalls: number;
+let rejectRelevanceTaskId: string | undefined;
 let includeIrrelevantSearchHit: boolean;
 let proposedAction: "save" | "start" | "confirm" | "complete";
 let releaseModel: (() => void) | undefined;
@@ -42,9 +43,9 @@ const model: ModelCallPort = { complete: async (input) => {
   const context = JSON.parse(input.user);
   if (context.researchStage === "source_relevance") {
     relevanceCalls++;
-    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string }) => {
-      const irrelevant = chunk.content.includes("Unrelated Acura vehicle inventory");
-      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : context.questions.map((question: { id: string }) => ({ questionId: question.id, quote: chunk.content.slice(0, 500), insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
+    return { text: JSON.stringify({ evaluations: context.chunks.map((chunk: { sourceId: string; chunkId: string; content: string; questionIds: string[]; taskId: string }) => {
+      const irrelevant = chunk.content.includes("Unrelated Acura vehicle inventory") || chunk.taskId === rejectRelevanceTaskId;
+      return { sourceId: chunk.sourceId, chunkId: chunk.chunkId, irrelevant, matches: irrelevant ? [] : chunk.questionIds.map((questionId) => ({ questionId, quote: chunk.content.slice(0, 500), insight: "The controlled excerpt supports the supplied policy question.", relevance: "direct" })) };
     }) }) };
   }
   const node = input.system.includes('Create a concrete web research plan') ? "research" : /Generate the (\w+) step/.exec(input.system)?.[1] ?? context.targetNode;
@@ -88,7 +89,7 @@ beforeEach(async () => {
   session = C.GuidedResearchSession.parse({ sessionId, title: brief.topic, brief, stage: "brief", resumeStage: "brief", status: "active", progress: 0, sourceCount: 0, reportId: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
   actor = { orgId, userId, sessionId };
   service = new GuidedRuntimeService(new PgGuidedRuntimeStore(db), model, search, { provider: "test", id: "test-model" });
-  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
+  state = await service.get(actor, session); calls = []; seenBriefs = []; failSearch = false; badCitation = false; shallowReport = false; searchCalls = 0; relevanceCalls = 0; rejectRelevanceTaskId = undefined; includeIrrelevantSearchHit = false; blockModel = false; proposedAction = "save"; releaseModel = undefined; failModelNode = undefined;
 });
 async function run(action: RuntimeCommand["action"], extra: Partial<RuntimeCommand> = {}) {
   state = await service.execute(actor, session, { sessionId: session.sessionId, node: state.currentNode, expectedVersion: state.version, requestId: randomUUID(), action, ...extra });
@@ -123,6 +124,30 @@ describe("durable research runtime with real PostgreSQL and controlled provider 
     const reloaded = await service.get(actor, session);
     expect(reloaded.sources.find((source) => source.id === "legacy-car")?.decision).not.toBe("accepted");
     expect(reloaded.sources.filter((source) => source.decision === "accepted").map((source) => source.title)).toEqual(["Official policy"]);
+  });
+
+  it("removes a legacy cross-task association while retaining its genuinely supported task", async () => {
+    await reachResearch();
+    const legacy = structuredClone(state);
+    const taskA = legacy.tasks[0]!;
+    const taskB = { ...taskA, id: "legacy-task-b", sectionId: "legacy-section-b", query: "new unrelated chapter query" };
+    legacy.outline.push({ id: taskB.sectionId, title: "New chapter", questions: ["What supports this distinct chapter?"], enabled: true, order: legacy.outline.length });
+    legacy.tasks.push(taskB);
+    const source = legacy.sources[0]!;
+    delete source.relevanceBasis;
+    source.taskId = taskB.id;
+    source.taskIds = [taskA.id, taskB.id];
+    await db.withTenant(orgId, (tx) => tx.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, actor.sessionId, JSON.stringify(legacy)]));
+    state = await service.get(actor, session);
+    rejectRelevanceTaskId = taskB.id;
+    const priorSearchCalls = searchCalls;
+    await run("start");
+    expect(state.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
+    expect(searchCalls).toBe(priorSearchCalls + 1);
+    const reloaded = await service.get(actor, session);
+    expect(reloaded.tasks.find((task) => task.id === taskA.id)).toMatchObject({ status: "succeeded", attempts: taskA.attempts });
+    expect(reloaded.tasks.find((task) => task.id === taskB.id)).toMatchObject({ status: "failed", attempts: taskB.attempts + 1 });
+    expect(reloaded.sources.find((item) => item.id === source.id)).toMatchObject({ decision: "accepted", taskId: taskA.id, taskIds: [taskA.id] });
   });
 
   it("keeps the previous report after regeneration fails and reloads it without treating history as current", async () => {

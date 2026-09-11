@@ -39,14 +39,15 @@ describe("durable research orchestration", () => {
     expect(maxActive).toBe(3);
     expect(first.tasks.filter((t) => t.status === "succeeded")).toHaveLength(6);
     expect(first.errorCode).toBe("RESEARCH_SEARCH_PARTIAL_FAILURE");
-    expect(first.sources.find((s) => s.id === "excluded")).toMatchObject({ decision: "excluded", taskIds: expect.arrayContaining(["older", "t0", "t6"]) });
+    expect(first.sources.find((s) => s.id === "excluded")).toMatchObject({ decision: "excluded", taskId: "older" });
+    expect(first.sources.find((s) => s.id === "excluded")?.taskIds).toBeUndefined();
     expect(f.writes.some((s) => s.progress?.stage === "searching" && s.tasks.filter((t) => t.status === "running").length === 3)).toBe(true);
     fail = false;
     const second = await execute("retry");
     expect(search).toHaveBeenCalledTimes(8);
     expect(model.complete).toHaveBeenCalledTimes(7);
     expect(second.tasks.map((t) => t.attempts)).toEqual([1, 1, 2, 1, 1, 1, 1]);
-    expect(second.sources.find((s) => s.id === "excluded")?.taskIds).toContain("t2");
+    expect(second.sources.find((s) => s.id === "excluded")?.taskIds).toBeUndefined();
     expect(second.progress).toBeNull();
   });
 

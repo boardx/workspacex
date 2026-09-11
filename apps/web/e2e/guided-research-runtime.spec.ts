@@ -58,6 +58,8 @@ test("research persists all five model-backed steps through the real UI, API and
     await page.getByRole("button", { name: "确认并继续", exact: true }).click();
   }
   await expect(page.getByRole("link", { name: "Research E2E policy evidence" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Research E2E unrelated vehicle inventory" })).toHaveCount(0);
+  await expect(page.getByText("已筛选", { exact: true })).toBeVisible();
   await page.getByTestId("research-plan-details").locator("summary").click();
   await expect(page.getByText("核对并网政策与执行差异", { exact: true })).toBeVisible();
   const sourceLink = page.getByRole("link", { name: "Research E2E policy evidence" });

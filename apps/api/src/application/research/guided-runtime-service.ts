@@ -1,4 +1,4 @@
-import { screenResearchSources } from "./guided-source-relevance";
+import { screenResearchSources, sourceRelevanceBasis, sourceTaskIds } from "./guided-source-relevance";
 import { generateResearchPlan } from "./guided-research-plan";
 import { updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
 import { preservePreviousReport } from "./guided-report-history";
@@ -223,14 +223,19 @@ export class GuidedRuntimeService {
           if (!result.value.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_EMPTY");
           const candidates = [...new Map(result.value.map((hit) => [normalizedSourceUrl(hit.url),
             state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url))
-              ?? C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" })])).values()];
+              ?? C.GuidedResearchSource.parse({ ...hit, id: randomUUID(), taskId: task.id, taskIds: [task.id], retrievedAt: new Date().toISOString(), decision: "accepted" })])).values()]
+            .map((source) => source.decision === "excluded" ? source : { ...source, taskId: task.id, taskIds: [task.id], addedByUser: false });
           const relevant = await screenResearchSources(state, candidates,
             (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate));
-          if (!relevant.length) throw new ResearchRuntimeError("RESEARCH_SEARCH_NO_RELEVANT_SOURCES");
+          if (!relevant.some((source) => source.decision !== "excluded")) throw new ResearchRuntimeError("RESEARCH_SEARCH_NO_RELEVANT_SOURCES");
           for (const hit of relevant) {
+            if (hit.decision === "excluded") continue;
             const existing = state.sources.find((source) => normalizedSourceUrl(source.url) === normalizedSourceUrl(hit.url));
             if (existing) {
-              existing.taskIds = [...new Set([existing.taskId, ...(existing.taskIds ?? []), task.id])];
+              existing.taskIds = [...new Set([...sourceTaskIds(existing), task.id])];
+              // reviewSources validated old associations before this search; the new
+              // association was independently checked against the same stored excerpt.
+              if (existing.decision !== "excluded" && !existing.addedByUser) existing.relevanceBasis = sourceRelevanceBasis(state, existing);
             } else state.sources.push(hit);
           }
           task.status = "succeeded";
@@ -243,9 +248,11 @@ export class GuidedRuntimeService {
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence) {
     const sources = await screenResearchSources(state, state.sources,
       (system, context, validate) => this.completeJson(state, "research", system, context, persist, validate));
-    if (sources.length !== state.sources.length) {
-      const retained = new Set(sources.map((source) => source.id));
-      const affected = new Set(state.sources.filter((source) => !retained.has(source.id)).flatMap((source) => [source.taskId, ...(source.taskIds ?? [])]));
+    const affected = new Set(state.sources.flatMap((source) => {
+      const retained = sources.find((item) => item.id === source.id);
+      return sourceTaskIds(source).filter((taskId) => !retained || !sourceTaskIds(retained).includes(taskId));
+    }));
+    if (affected.size || sources.length !== state.sources.length) {
       for (const task of state.tasks) if (affected.has(task.id) && task.status === "succeeded"
         && !sources.some((source) => source.decision !== "excluded" && [source.taskId, ...(source.taskIds ?? [])].includes(task.id))) {
         task.status = "failed"; task.errorCode = "RESEARCH_SEARCH_NO_RELEVANT_SOURCES";

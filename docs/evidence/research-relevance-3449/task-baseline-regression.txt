@@ -1,0 +1,39 @@
+
+ RUN  v2.1.9 /private/tmp/workspacex-research-source-relevance/apps/api
+
+ ❯ tests/research/baseline-guided-source-relevance.test.ts (21 tests | 1 failed | 20 skipped) 44ms
+   × task-scoped relevance and cache > cannot use a cached A result to complete B, and retries B without losing A 42ms
+     → expected [ 'succeeded', 'succeeded' ] to deeply equal [ 'succeeded', 'failed' ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/baseline-guided-source-relevance.test.ts > task-scoped relevance and cache > cannot use a cached A result to complete B, and retries B without losing A
+AssertionError: expected [ 'succeeded', 'succeeded' ] to deeply equal [ 'succeeded', 'failed' ]
+
+- Expected
++ Received
+
+  Array [
+    "succeeded",
+-   "failed",
++   "succeeded",
+  ]
+
+ ❯ tests/research/baseline-guided-source-relevance.test.ts:189:53
+    187|     const f = serviceFixture([direct], false, twoTasks(), "b");
+    188|     const result = await f.run();
+    189|     expect(result.tasks.map((task) => task.status)).toEqual(["succeede…
+       |                                                     ^
+    190|     expect(result.tasks[1]!.errorCode).toBe("RESEARCH_SEARCH_NO_RELEVA…
+    191|     expect(result.sources[0]!.taskIds).toEqual(["task"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 skipped (21)
+   Start at  01:09:13
+   Duration  3.27s (transform 1.94s, setup 0ms, collect 2.83s, tests 44ms, environment 0ms, prepare 160ms)
+
+undefined
+/private/tmp/workspacex-research-source-relevance/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/vitest-research-relevance-baseline.config.mts -t cannot use a cached A result
