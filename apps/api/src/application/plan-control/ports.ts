@@ -79,6 +79,9 @@ export interface PlanRunSnapshot {
    * 单一事实源仍是 `apps/web/lib/agent-run.ts` 的 `describeAgentRunError`。
    */
   readonly errorCode: string | null;
+  /** issue #3403 ④ —— `agent_runs.failure_reason` 原样透传（有界枚举，不是 provider 原话）。
+   *  与 `errorCode` 同生同灭：非失败终态时这一列本来就是 NULL。 */
+  readonly failureReason?: string | null;
 }
 
 /**

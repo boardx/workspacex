@@ -22,6 +22,7 @@ import type {
   RunFailureCode, RunLocator, RunProjection, ThreadHistoryMessage,
 } from "../../src/application/agent-run/ports";
 import { ModelCallError } from "../../src/application/agent-run/ports";
+import { classifyModelCallFailureReason } from "../../src/domain/agent-run/model-call-failure-reason";
 import type { Guarded } from "../../src/application/security/permission-filter";
 import type { ExecutionEventInput } from "@repo/contracts/execution-journal";
 
@@ -49,12 +50,14 @@ function fakeStore(
   readonly executionEvents: ExecutionEventInput[];
   readonly output: { text: string; finalStepSeq: number } | null;
   readonly failedWith: RunFailureCode | null;
+  readonly failedReason: string | null;
 } {
   const state = {
     steps: [] as AppendedRunStep[],
     executionEvents: [] as ExecutionEventInput[],
     output: null as { text: string; finalStepSeq: number } | null,
     failedWith: null as RunFailureCode | null,
+    failedReason: null as string | null,
   };
   const unused = (name: string) => async (): Promise<never> => {
     throw new Error(`fakeStore.${name} not expected to be called by this test`);
@@ -67,6 +70,7 @@ function fakeStore(
     },
     get output() { return state.output; },
     get failedWith() { return state.failedWith; },
+    get failedReason() { return state.failedReason; },
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
     reclaimStaleRunning: unused("reclaimStaleRunning"),
     readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => pinnedSkills,
@@ -78,7 +82,10 @@ function fakeStore(
     storeOutputAwaitingWriteback: async (
       _orgId, _runId, output: { text: string; finalStepSeq: number },
     ) => { state.output = output; },
-    failRun: async (_orgId, _runId, code: RunFailureCode) => { state.failedWith = code; },
+    failRun: async (_orgId, _runId, code: RunFailureCode, reason?: string | null) => {
+      state.failedWith = code;
+      state.failedReason = reason ?? null;
+    },
     async markAwaitingToolPermission() { throw new Error('unexpected markAwaitingToolPermission in this test'); },
     async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
     async denyAndRequeue() { throw new Error('unexpected denyAndRequeue in this test'); return false; },
@@ -316,5 +323,126 @@ describe("#742 executeClaimed: completeWithProgress branch", () => {
 
     expect(streamCalled).toBe(false);
     expect(store.output?.text).toBe("progress path used");
+  });
+});
+
+/**
+ * issue #3403 ② —— 「工具卡永远停在『正在执行』，而整轮已报失败」。
+ *
+ * 判据刻意**落在「这次工具调用最终有没有终态」**上，不是「有没有 spinner」、也不是
+ * 「有没有错误信息」——现状已经满足后两者（#3316 让图标不再转、横幅照旧写着失败），
+ * 缺的是账本里那条 `tool_end`。前端 `traceEntries` 只认 `tool_end` 才会把一行从
+ * `running` 翻成终态，所以**只要产生端不写，展示层再改也变不出来**，刷新后照旧卡住。
+ */
+describe("#3403 ② every started tool call reaches a terminal state when the run terminates", () => {
+  const openedButNeverReturned = async (
+    _input: ModelCallInput,
+    onProgress: (e: ModelCallProgressEvent) => Promise<void>,
+  ): Promise<never> => {
+    // 人类 2026-09-11 实测的形状：第 5 次 execute 开始了，模型再也没有交回 ToolMessage。
+    await onProgress({
+      toolName: "execute", phase: "in_progress", toolCallId: "call-render-office",
+      toolArgsSummary: JSON.stringify({ command: "python3 /skills/pptx-create/scripts/render-office.py /workspace/a.pptx /workspace/p", timeout: 60 }),
+      toolResultSummary: null, planningNote: null,
+    });
+    throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run did not reach a terminal state within 300000ms");
+  };
+
+  it("a failed run closes the tool call that never returned", async () => {
+    const run = baseRun();
+    const store = fakeStore(run);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: openedButNeverReturned,
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.failedWith).toBe("MODEL_CALL_FAILED");
+    const starts = store.executionEvents.filter((e) => e.kind === "tool_start");
+    expect(starts).toHaveLength(1);
+    const ends = store.executionEvents.filter((e) => e.kind === "tool_end");
+    // 不变量：每一条 `tool_start` 都必须有同 `toolCallId` 的 `tool_end`。
+    expect(ends.map((e) => (e as { toolCallId: string }).toolCallId).sort())
+      .toEqual(starts.map((e) => (e as { toolCallId: string }).toolCallId).sort());
+    const closed = ends[0] as { ok: boolean; result: unknown; toolName: string };
+    expect(closed.ok).toBe(false);
+    expect(closed.toolName).toBe("execute");
+    // 不伪造结果：这句话说的是「没有收到结果」，不是宣称工具自己失败了。
+    expect(String(closed.result)).toContain("没有收到这次工具调用的结果");
+    // 补出来的终态必须排在 tool_start 之后（前端按顺序折叠）。
+    expect(store.executionEvents.findIndex((e) => e.kind === "tool_end"))
+      .toBeGreaterThan(store.executionEvents.findIndex((e) => e.kind === "tool_start"));
+  });
+
+  it("a tool call that DID return is closed exactly once -- the terminal sweep does not double-close", async () => {
+    const run = baseRun();
+    const store = fakeStore(run);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: async (_input, onProgress) => {
+        await onProgress({ toolName: "write_file", phase: "in_progress", toolCallId: "call-write", toolArgsSummary: "{}", toolResultSummary: null, planningNote: null });
+        await onProgress({ toolName: "write_file", toolCallId: "call-write", toolArgsSummary: "{}", toolResultSummary: "ok", planningNote: null });
+        throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run ended with status \"error\"");
+      },
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    const ends = store.executionEvents.filter((e) => e.kind === "tool_end");
+    expect(ends).toHaveLength(1);
+    // 真实结果没有被「本轮已终止」那句话覆盖掉。
+    expect((ends[0] as { ok: boolean }).ok).toBe(true);
+  });
+});
+
+/**
+ * issue #3403 ④ —— 「失败原因说错了」。
+ *
+ * 判据刻意**落在「用户看见的那句话说出了真实成因」**，不是「有没有错误信息」——
+ * 现状已经有错误信息，问题是它把一次卡住的**工具调用**说成了「模型没能返回可用结果」，
+ * 而 #3211 那六条按措辞匹配的规则把这一幕归进 `provider_timeout`（「智能体服务没跑完」），
+ * 仍然指向模型侧。真正的判据只有一条：成因必须指向**工具**。
+ */
+describe("#3403 ④ a run that dies with a tool call still open blames the tool, not the model", () => {
+  it("the reason is tool_call_unresolved, not the wording-matched provider_timeout", async () => {
+    const run = baseRun();
+    const store = fakeStore(run);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: async (_input, onProgress) => {
+        await onProgress({
+          toolName: "execute", phase: "in_progress", toolCallId: "call-render-office",
+          toolArgsSummary: "{}", toolResultSummary: null, planningNote: null,
+        });
+        // 人类实测那一幕的 detail 逐字形状——它本身只说得出「远端没跑完」。
+        throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run did not reach a terminal state within 300000ms");
+      },
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.failedWith).toBe("MODEL_CALL_FAILED");
+    expect(store.failedReason).toBe("tool_call_unresolved");
+    // 反证同一条 detail 在**没有**未闭工具调用时的归类：一个字都不许变。
+    expect(classifyModelCallFailureReason("deep agent run did not reach a terminal state within 300000ms"))
+      .toBe("provider_timeout");
+  });
+
+  it("反证：同样的 detail、工具调用**已经**回来了 ⇒ 照旧按措辞归类，不冒认工具失败", async () => {
+    const run = baseRun();
+    const store = fakeStore(run);
+    const model: ModelCallPort = {
+      complete: async () => { throw new Error("not expected"); },
+      completeWithProgress: async (_input, onProgress) => {
+        await onProgress({ toolName: "execute", phase: "in_progress", toolCallId: "c1", toolArgsSummary: "{}", toolResultSummary: null, planningNote: null });
+        await onProgress({ toolName: "execute", toolCallId: "c1", toolArgsSummary: "{}", toolResultSummary: "done", planningNote: null });
+        throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run did not reach a terminal state within 300000ms");
+      },
+    };
+
+    await executeQueuedRuns(deps(store, model), { orgId: ORG });
+
+    expect(store.failedReason).toBe("provider_timeout");
   });
 });

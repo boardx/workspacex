@@ -17,6 +17,7 @@ import {
   type OrphanedConstraint, type PlanGateDecision, type PlanOrigin, type PlanPhase, type PlanStep,
   type RunStatusForPhase,
 } from "@repo/contracts/plan-control";
+import { wave2Runtime } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "./ports";
 
@@ -41,6 +42,7 @@ export interface GetPlanLedgerOutput {
   /** issue #2451 —— 真实失败原因（`agent_runs.error_code` 原样透传），终态非
    *  `failed` 时恒为 `null`。前端用它替换写死的失败占位文案（`describeAgentRunError`）。 */
   readonly errorCode: string | null;
+  readonly failureReason: string | null;
   /** issue #2451 —— 哪一步失败：`steps` 里 `status==='in_progress'` 的那一步
    *  （run 死掉那一刻仍在跑的那一步），不是"第一个未完成的步骤"——见下方计算处注释。
    *  终态非 `failed` 时恒为 `null`。 */
@@ -211,6 +213,10 @@ export async function getPlanLedger(
     runStatus,
     activeRunId,
     errorCode: runStatus === "failed" ? run?.errorCode ?? null : null,
+    // #3403 ④：与 errorCode 同一条件同一来源——只在真失败时下发，其余恒 null。
+    failureReason: runStatus === "failed"
+      ? wave2Runtime.AgentRunFailureReason.safeParse(run?.failureReason).data ?? null
+      : null,
     failedStepId,
   };
 }

@@ -515,7 +515,7 @@ function PlanControlSession(
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
-          reason={describePlanFailureReason(ledger.errorCode)}
+          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason)}
           onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
           onEditInput={handleEditInput}
         />
