@@ -396,6 +396,9 @@ function idempotencyStore(s: TenantSession, orgId: OrgId): IdempotencyStore {
       key: string,
       payloadDigest: string,
     ): Promise<IdempotencyLookup<T>> {
+      // Serialize retries before side effects, not merely at the final UNIQUE insert.
+      // Tenant/operation/key are structured to avoid ambiguous concatenation collisions.
+      await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [JSON.stringify([orgId, operation, key])]);
       const r = await s.query<{ payload_digest: string; result_json: T }>(
         `SELECT payload_digest, result_json FROM recording_operation_idempotency
           WHERE org_id = $1 AND operation = $2 AND idempotency_key = $3`,
