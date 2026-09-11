@@ -80,6 +80,7 @@ export async function verifyManagedDataPreflight(input: ManagedDataExpected, run
     try {
       if (options.signal?.aborted) throw new Error("cancelled");
       const stdout = await run(request.args, options);
+      if (options.signal?.aborted) throw new Error("cancelled");
       reason = request.inspect(JSON.parse(stdout) as unknown, expected);
     } catch { reason = options.signal?.aborted ? "cloud_read_cancelled" : "cloud_read_failed"; }
     return { id: request.id, passed: reason === "verified", reason };

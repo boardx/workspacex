@@ -62,6 +62,11 @@ describe("managed data control-plane preflight", () => {
   it("rejects invalid identifiers without invoking a process", async () => {
     const run=executor(); expect((await verifyManagedDataPreflight({...expected,rdsInstanceId:"--help"},run)).passed).toBe(false); expect(run).not.toHaveBeenCalled();
   });
+  it("rejects completion delivered after cancellation", async () => {
+    const controller=new AbortController(); const run=executor();
+    const result=await verifyManagedDataPreflight(expected,async args => { const output=await run(args); controller.abort(); return output; },{timeoutMs:100,signal:controller.signal});
+    expect(result.passed).toBe(false); expect(result.checks.every(check => check.reason === "cloud_read_cancelled")).toBe(true);
+  });
   it("honors cancellation without invoking a process", async () => {
     const controller=new AbortController(); controller.abort(); const run=executor();
     expect((await verifyManagedDataPreflight(expected,run,{timeoutMs:100,signal:controller.signal})).checks[0]?.reason).toBe("cloud_read_cancelled"); expect(run).not.toHaveBeenCalled();
