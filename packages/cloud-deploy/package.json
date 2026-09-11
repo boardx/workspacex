@@ -13,6 +13,7 @@
     "test": "vitest run --maxWorkers=1 --minWorkers=1",
     "cli": "node --import tsx src/cli.ts",
     "schema": "node --import tsx src/schema-cli.ts",
+    "prepare-host": "node --import tsx src/prepare-host-cli.ts",
     "provision": "node --import tsx src/provision-cli.ts"
   },
   "dependencies": {

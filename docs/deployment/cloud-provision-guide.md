@@ -16,6 +16,8 @@ prepare 还需完成以下主机设置：
 - production 的 RDS/Redis 已运行、同地域 VPC 可达、高可用、认证和 TLS 配置正确。RDS 为 PostgreSQL 16，应用/诊断/迁移角色分离；备份策略保留天数满足配置。当前只支持能够明确核验的经典备份策略。
 - Agent 官方生产服务需要有效 LangGraph Server 许可。是否采用既有许可或开发自建服务仍待用户选择；不会购买许可或把开发服务器冒充生产服务。
 
+在 ECS root 身份下先运行 `pnpm --filter @repo/cloud-deploy prepare-host <config> <manifest> <checkout> <runtime>`。该命令生成私有运行目录、安全配置、证书、Nginx 配置和可复核收据，并预热 manifest 中的固定 digest。它不会修改系统 Nginx；运维人员安装生成的入口配置并完成定向 reload 后，provision 再核对线上 TLS、ECS 身份和准备收据。
+
 这些是环境准备条件，不是要求把密码发到聊天中。角色访问优先；其余配置用环境变量名或私有文件引用。
 
 ## 参数入口
@@ -44,9 +46,9 @@ prepare 还需完成以下主机设置：
 | `migrationSecretRef` | 同一实例/数据库的 `host`、`port`、`database`、独立 `user`、`password`；不得使用应用/诊断角色。 |
 | `redisSecretRef` | JSON：`host`、`port`（默认6379）、`password`，可选 `username`；production 强制 TLS。 |
 | Starter Agent secret | JSON：仅 `LANGGRAPH_CLOUD_LICENSE_KEY`。独立 `agent_server` 角色和 `workspacex_agent` 数据库、稳定密码由初始化生成。 |
-| production Agent secret | JSON：`DATABASE_URI`、`REDIS_URI`、`LANGGRAPH_CLOUD_LICENSE_KEY`、`databaseCaFile`（目标数据库 CA PEM 的绝对路径）。数据库必须独立于应用数据库和应用角色，PG URI 要求 `sslmode=verify-full`，Redis URI 为 `rediss://`。CA 被复制并只读挂载到 Agent `/run/agent-certs/ca.pem`，并注入 libpq URI 和 `PGSSLROOTCERT`；不假定 libpq 自动读取系统 CA。输入 URI 不接受自行提供的 `sslrootcert/sslcert/sslkey` 文件引用。 |
+| production Agent secret | JSON：`DATABASE_URI`、`REDIS_URI`、`LANGGRAPH_CLOUD_LICENSE_KEY`、`databaseCaFile`、`MEMORY_STORE_DATABASE_URL`、`MEMORY_STORE_MIGRATION_DATABASE_URL`、`memoryCaFile`。Graph、Memory runtime（固定 `memory_rw`）和 Memory migration（固定 `memory_owner`）身份必须分离，且数据库不得与应用库复用。三条 PG URI 只允许恰好一个 `sslmode=verify-full` 查询参数，拒绝重复 TLS 参数和 `user/dbname/host/port/password` 覆盖；Redis URI 为 `rediss://`。两个 CA 分别复制为 Agent 的 `/run/agent-certs/ca.pem` 与 `memory-ca.pem`。运行服务只获得 Memory 业务表 DML，迁移 owner 只进入一次性准备任务。 |
 
-生产数据库的 `caFile` 被复制到 API/迁移容器的 `/run/certs/ca.pem`。Agent 使用单独的 `/run/agent-certs/ca.pem` 挂载，不能直接读取主机 CA 路径。
+生产数据库的 `caFile` 被复制到 API/迁移容器的 `/run/certs/ca.pem`。Agent 使用单独的 `/run/agent-certs/` 只读挂载，不能直接读取主机 CA 路径，也不能在常驻环境中取得 Memory owner URI。
 
 生成的管理员密码、数据库密码和应用加密密钥存于 `runtimeDirectory/secrets/`，并发重跑保持不变。损坏或不可读时失败，不悄悄生成新密钥。应将稳定密钥作为独立受保护备份保存；数据库 dump 不包含它们。
 

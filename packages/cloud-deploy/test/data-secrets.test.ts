@@ -8,4 +8,10 @@ describe("production secret contract", () => {
   it.each([ { ...migration, host: "other.internal" }, { ...migration, database: "other" }, { ...migration, user: "app_rw" }, { ...migration, user: "app_diag_ro" } ])("rejects mismatched identity", owner => expect(() => productionDataEnvironment(db,owner,redis)).toThrow("identities"));
   it("rejects short passwords safely", () => expect(() => productionDataEnvironment({...db,password:"secret"},migration,redis)).toThrow("invalid production data secret fields"));
   it("rejects unknown fields", () => expect(() => productionDataEnvironment({...db,ssl:false},migration,redis)).toThrow("invalid"));
+  it.each([
+    { database: { ...db, diagnosticsPassword: db.password }, migration },
+    { database: db, migration: { ...migration, password: db.password } },
+    { database: db, migration: { ...migration, password: db.diagnosticsPassword } },
+  ])("rejects shared database credentials", ({ database, migration: owner }) =>
+    expect(() => productionDataEnvironment(database, owner, redis)).toThrow("identities"));
 });

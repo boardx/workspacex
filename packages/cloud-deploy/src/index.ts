@@ -15,5 +15,9 @@ export { runtimeEnvironment, serializeRuntimeEnvironment } from "./runtime-envir
 export { verifyEcsIdentity, verifyHttpsEndpoint, requireComposeVersion } from "./preflight";
 
 export { verifyTlsPreflight } from "./tls-preflight";
+export { prepareHost } from "./prepare-host";
+export type { PrepareHostOptions, PrepareHostServices } from "./prepare-host";
+export { validateProductionAgentPersistence } from "./agent-persistence-boundary";
+export { verifyPreparedHost } from "./verify-prepared-host";
 export { provisionCloud, cloudProvisionOptionsSchema } from "./cloud-provision";
 export type { CloudProvisionOptions } from "./cloud-provision";

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { lstat, readFile, chown, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { resolveSecret } from "./secrets";
 import { DatabaseSecret, RedisSecret } from "./data-secrets";
 import { writeRuntimeBundle, writeRuntimeFile, checkBudget } from "./runtime-bundle";
 import { serializeRuntimeEnvironment, type RuntimeEnvironmentMaps } from "./runtime-environment";
+import { verifyPreparedHost } from "./verify-prepared-host";
 
 type Context = Parameters<ProvisionAction>[0];
 export const cloudProvisionOptionsSchema = z.object({
@@ -89,6 +90,8 @@ export async function provisionCloud(configInput: unknown, releaseInput: unknown
       const driverRevision = (await run(["git", "-C", driverRoot, "rev-parse", "HEAD"], context)).trim();
       const changed = (await run(["git", "-C", driverRoot, "status", "--porcelain", "--untracked-files=no"], context)).trim();
       if (driverRevision !== manifest.sourceRevision || changed) throw new Error("PROVISION_DRIVER_REVISION_MISMATCH");
+      await verifyPreparedHost(config, manifest, { checkoutDirectory: resolve(driverRoot), runtimeDirectory: dir },
+        args => run(args, context), source, context);
       await verifyEcsIdentity(config, context);
       const architecture = (await run(["docker", "info", "--format", "{{.OSType}}/{{.Architecture}}"], context)).trim().replace("aarch64", "arm64").replace("x86_64", "amd64");
       if (architecture !== manifest.platform) throw new Error("TARGET_PLATFORM_MISMATCH");

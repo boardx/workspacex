@@ -10,6 +10,7 @@ import { verifyRunningRelease } from "../src/running-release";
 vi.mock("../src/command", async original => ({ ...await original<typeof import("../src/command")>(), captureProvisionCommand: vi.fn() }));
 vi.mock("../src/preflight", () => ({ verifyEcsIdentity: vi.fn(), verifyHttpsEndpoint: vi.fn(), requireComposeVersion: vi.fn() }));
 vi.mock("../src/tls-preflight", () => ({ verifyTlsPreflight: vi.fn() }));
+vi.mock("../src/verify-prepared-host", () => ({ verifyPreparedHost: vi.fn() }));
 vi.mock("../src/running-release", () => ({ verifyRunningRelease: vi.fn() }));
 vi.mock("../src/runtime-bundle", async original => ({ ...await original<typeof import("../src/runtime-bundle")>(), writeRuntimeBundle: vi.fn() }));
 vi.mock("node:fs/promises", async original => {
