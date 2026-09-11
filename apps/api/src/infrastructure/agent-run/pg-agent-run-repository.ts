@@ -569,6 +569,30 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /** issue #3420 —— 已授权的工具调用被内核再次中断时，网关代批后自动续跑（见
+   *  `ports.ts` 该方法的完整取证，以及迁移 `20260911120000_authorized_tool_call_requeue.sql`
+   *  为这条边补上的状态机许可）。pending_* 与人裁决之后留下的那组列逐字一致，
+   *  executor 下一拍才能恢复那次被中断的调用。 */
+  async requeueAuthorizedToolCall(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null; readonly interrupt?: RestorableInterrupt | null; readonly toolCallId?: string; readonly toolArgsDigest?: string },
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='approve', pending_tool_name=$3, pending_args_summary=$4,
+                pending_permission_request_id=gen_random_uuid(), pending_interrupt=$5::jsonb,
+                pending_tool_call_id=$6, pending_tool_args_digest=$7, pending_tool_authorized_attempt=NULL
+          WHERE org_id=$1 AND id=$2 AND status='running'
+          RETURNING id`,
+        [orgId, runId, pending.toolName, pending.argsSummary,
+          pending.interrupt ? JSON.stringify(RestorableInterrupt.parse(pending.interrupt)) : null,
+          pending.toolCallId ?? null, pending.toolArgsDigest ?? null],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
   async decidePermissionRequest(orgId: OrgId, runId: string, permissionRequestId: string,
     decision: "once" | "run" | "forever" | "deny" | "reject" | "edit", userId: string, editedArgsJson?: string): Promise<boolean> {
     return this.db.withTenant(orgId, async (s) => {
