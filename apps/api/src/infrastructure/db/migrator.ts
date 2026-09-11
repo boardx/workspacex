@@ -41,9 +41,11 @@ export interface MigrateResult {
 
 export async function migrate(
   cfg: PgConfig,
-  opts: { force?: boolean; dir?: string } = {},
+  opts: { force?: boolean; dir?: string; lockTimeoutMs?: number } = {},
 ): Promise<MigrateResult> {
   const dir = opts.dir ?? MIGRATIONS_DIR;
+  const lockTimeoutMs = opts.lockTimeoutMs ?? 10000;
+  if (!Number.isSafeInteger(lockTimeoutMs) || lockTimeoutMs <= 0 || lockTimeoutMs > 300000) throw new Error("invalid migration lock timeout");
   const client = new pg.Client(cfg);
   await client.connect();
   const applied: string[] = [];
@@ -66,7 +68,18 @@ export async function migrate(
     // Session-level, not transaction-level: the lock has to span every file, and the files
     // are applied in one transaction each. It is released when the client disconnects in
     // the `finally` below, so a crashed migrator cannot wedge the next one.
+    await client.query("SELECT set_config('lock_timeout', $1, false)", [`${lockTimeoutMs}ms`]);
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    if (process.env.WORKSPACEX_DEPLOY_PROFILE) {
+      // SQL grants use these fixed identities. Cloud provisioning must pre-create them
+      // with its generated/configured credentials; never execute the development seed.
+      const roles = await client.query<{ rolname: string; unsafe: boolean }>(
+        "SELECT rolname, rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole AS unsafe FROM pg_roles WHERE rolname IN ('app_rw','app_diag_ro')",
+      );
+      if (roles.rows.length !== 2 || roles.rows.some(role => role.unsafe) || ["app_rw", "app_diag_ro"].includes(cfg.user)) {
+        throw new Error("cloud database roles must be provisioned before migration");
+      }
+    }
     await client.query(VERSION_TABLE);
     const done = new Set(
       (await client.query<{ name: string }>("SELECT name FROM _kernel_migrations")).rows.map((r) => r.name),

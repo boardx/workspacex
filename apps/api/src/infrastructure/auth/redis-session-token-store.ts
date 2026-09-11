@@ -41,14 +41,30 @@ export interface RedisConfig {
   readonly port: number;
   /** Namespaces keys so parallel test workers do not revoke each other's sessions. */
   readonly keyPrefix: string;
+  readonly username?: string;
+  readonly password?: string;
+  readonly tls?: { rejectUnauthorized: true };
+  readonly connectTimeout?: number;
 }
 
 export function redisConfig(): RedisConfig {
+  const profile = process.env.WORKSPACEX_DEPLOY_PROFILE;
+  if (profile && !["starter", "production"].includes(profile)) throw new Error("invalid WORKSPACEX_DEPLOY_PROFILE");
+  if (profile && (!process.env.REDIS_HOST || !process.env.REDIS_PASSWORD || process.env.REDIS_PASSWORD.length < 16)) throw new Error("cloud Redis requires REDIS_HOST and REDIS_PASSWORD");
+  const tls = process.env.REDIS_TLS ?? (profile === "production" ? "true" : "false");
+  if (!["true", "false"].includes(tls) || (profile === "production" && tls !== "true")) throw new Error("production Redis requires TLS");
+  const port = Number(process.env.REDIS_PORT ?? "56379");
+  const connectTimeout = Number(process.env.REDIS_CONNECT_TIMEOUT_MS ?? "5000");
+  if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(connectTimeout) || connectTimeout < 1 || connectTimeout > 300000) throw new Error("invalid Redis port or timeout");
   return {
+    ...(process.env.REDIS_USERNAME ? { username: process.env.REDIS_USERNAME } : {}),
+    ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {}),
+    ...(tls === "true" ? { tls: { rejectUnauthorized: true as const } } : {}),
+    connectTimeout,
     host: process.env.REDIS_HOST ?? "127.0.0.1",
     // Non-default 56379, matching docker-compose.dev.yml: the dev stack must not collide
     // with a Redis the developer already runs.
-    port: Number(process.env.REDIS_PORT ?? "56379"),
+    port,
     // Defaults to the database name so a vitest worker running with WORKSPACEX_DB=wsx_f20
     // is isolated in Redis exactly as it is in PostgreSQL. Without this, two workers share
     // one keyspace and `revokeAllForUser` in one run revokes the other run's fixtures --
@@ -167,6 +183,11 @@ export class RedisSessionTokenStore implements SessionTokenStore {
       new Redis({
         host: cfg.host,
         port: cfg.port,
+        username: cfg.username,
+        password: cfg.password,
+        tls: cfg.tls,
+        connectTimeout: cfg.connectTimeout ?? 5000,
+        commandTimeout: cfg.connectTimeout ?? 5000,
         // Fail fast rather than queue forever. The default (`maxRetriesPerRequest: 20`,
         // offline queueing) turns "Redis is down" into requests that hang, and a hung
         // request is reported by users as "the site is slow", which is the wrong thing to
