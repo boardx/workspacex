@@ -33,7 +33,7 @@ node --import tsx packages/cloud-deploy/src/release-cli.ts verify /secure/releas
 Agent 使用官方 Agent Server 构建入口，与旧开发 Dockerfile 隔离。先从现有图配置生成 release config（目标文件放在 deep-agent-service 目录，保持相对图路径），再使用锁定依赖中的 CLI：
 
 ```sh
-node --import tsx packages/cloud-deploy/src/agent-dependencies-cli.ts langchain/langgraph-server@sha256:<审核后的digest> apps/deep-agent-service/pyproject.toml apps/deep-agent-service/requirements.release.txt
+node --import tsx packages/cloud-deploy/src/agent-dependencies-cli.ts langchain/langgraph-server@sha256:<审核后的digest> apps/deep-agent-service/pyproject.toml apps/deep-agent-service/requirements.release.txt linux/amd64
 node --import tsx packages/cloud-deploy/src/agent-release-cli.ts apps/deep-agent-service/langgraph.json apps/deep-agent-service/langgraph.release.json langchain/langgraph-server@sha256:<审核后的digest> <完整SHA>
 (cd apps/deep-agent-service && uv run --frozen --no-dev langgraph dockerfile -c langgraph.release.json Dockerfile.generated)
 node --import tsx packages/cloud-deploy/src/agent-dockerfile-cli.ts apps/deep-agent-service/Dockerfile.generated apps/deep-agent-service/Dockerfile.release langchain/langgraph-server@sha256:<审核后的digest>
@@ -86,3 +86,5 @@ The production hash-locked Agent build completed on linux/arm64 from source `4fa
 The final Sandbox diagnostic was rebuilt from `1e8af927d2abc428583cbc58342486fe49d7e131`, image ID `sha256:9a1a98617b1285cbe1631ab17d276ce45388431630d3e573425df807d13327d2`; all five network and real PDF tests passed together against this prebuilt image. These independent image IDs are local diagnostic evidence. The release manifest still requires registry digests for one reviewed integrated source revision and the target cloud platform.
 
 Agent runtime now uses UID/GID 1000 in both its generated Dockerfile and Compose, matching the shared native-session socket directory. The official base defaults to root; with all capabilities dropped, the original root process was actually denied access to a mode-0770 directory owned by 1000. A diagnostic layer with the generated nonroot settings passed both real graph imports and Unix-socket bind/connect inside that directory under read-only rootfs, no network and no capabilities. The runtime hash lock is world-readable inside the image because it contains public dependency metadata; it remains created privately on the build host. HOME points at temporary storage. A complete licensed server start as this user remains part of final runtime acceptance.
+
+Agent dependency locking requires an explicit target platform matching the release manifest. Its temporary resolver container has a unique name and is removed in a finally block, including timeout/error paths, because terminating the Docker client alone does not guarantee the container stops.
